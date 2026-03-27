@@ -23,7 +23,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov"]
+viz = ["plotly"]
+docs = ["sphinx", "myst-parser", "sphinx-book-theme"]
+dev = ["pytest", "pytest-cov", "plotly", "sphinx", "myst-parser", "sphinx-book-theme"]
 
 [tool.setuptools.dynamic]
 version = {attr = "pricebook.__version__"}
