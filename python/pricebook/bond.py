@@ -7,6 +7,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.fixed_leg import FixedLeg
 from pricebook.schedule import Frequency, StubType
 from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.solvers import brentq
 
 
 class FixedRateBond:
@@ -78,3 +79,29 @@ class FixedRateBond:
         if settlement is None:
             settlement = curve.reference_date
         return self.dirty_price(curve) - self.accrued_interest(settlement)
+
+    def _price_from_ytm(self, ytm: float) -> float:
+        """Dirty price per 100 face from a yield."""
+        freq = self.frequency.value
+        periods_per_year = 12 / freq
+        pv = 0.0
+        for cf in self.coupon_leg.cashflows:
+            t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+            n = t * periods_per_year
+            pv += cf.amount / (1.0 + ytm / periods_per_year) ** n
+        t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+        n_mat = t_mat * periods_per_year
+        pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
+        return pv / self.face_value * 100.0
+
+    def yield_to_maturity(self, market_price: float) -> float:
+        """
+        Yield to maturity: the constant rate that discounts all cashflows
+        to the given market (dirty) price.
+
+        Uses bond-equivalent yield convention: compounding at the coupon frequency.
+        """
+        def objective(y: float) -> float:
+            return self._price_from_ytm(y) - market_price
+
+        return brentq(objective, -0.05, 1.0)

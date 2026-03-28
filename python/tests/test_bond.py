@@ -95,6 +95,40 @@ class TestCleanPrice:
         assert bond.clean_price(curve) == bond.clean_price(curve, ref)
 
 
+class TestYieldToMaturity:
+
+    def test_ytm_round_trip(self):
+        """Compute price from curve, then recover YTM, then price from YTM."""
+        ref = date(2024, 1, 15)
+        curve = _flat_curve(ref, rate=0.05)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.04)
+        dp = bond.dirty_price(curve)
+        ytm = bond.yield_to_maturity(dp)
+        dp_recovered = bond._price_from_ytm(ytm)
+        assert dp_recovered == pytest.approx(dp, abs=0.01)
+
+    def test_par_bond_ytm_equals_coupon(self):
+        """A bond priced at exactly 100 has YTM = coupon rate."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.06)
+        ytm = bond.yield_to_maturity(100.0)
+        assert ytm == pytest.approx(0.06, abs=1e-4)
+
+    def test_discount_bond_ytm_above_coupon(self):
+        """Bond below par has YTM > coupon rate."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.04)
+        ytm = bond.yield_to_maturity(95.0)
+        assert ytm > 0.04
+
+    def test_premium_bond_ytm_below_coupon(self):
+        """Bond above par has YTM < coupon rate."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.06)
+        ytm = bond.yield_to_maturity(105.0)
+        assert ytm < 0.06
+
+
 class TestValidation:
 
     def test_negative_face_value_raises(self):
