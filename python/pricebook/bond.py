@@ -1,5 +1,6 @@
 """Fixed-rate bond."""
 
+import math
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -80,6 +81,97 @@ class FixedRateBond:
             settlement = curve.reference_date
         return self.dirty_price(curve) - self.accrued_interest(settlement)
 
+    def yield_to_maturity(self, market_price: float) -> float:
+        """
+        Yield to maturity: the constant rate that discounts all cashflows
+        to the given market (dirty) price.
+
+        Uses bond-equivalent yield convention: compounding at the coupon frequency.
+
+        YTM solves: price = sum(C_i / (1 + y/freq)^(freq*t_i)) + face / (1 + y/freq)^(freq*t_n)
+        """
+        freq = self.frequency.value  # months per period
+        periods_per_year = 12 / freq
+
+        def _price_from_yield(y: float) -> float:
+            pv = 0.0
+            for cf in self.coupon_leg.cashflows:
+                t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+                n = t * periods_per_year
+                pv += cf.amount / (1.0 + y / periods_per_year) ** n
+            # Principal
+            t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+            n_mat = t_mat * periods_per_year
+            pv += self.face_value / (1.0 + y / periods_per_year) ** n_mat
+            return pv / self.face_value * 100.0
+
+        def objective(y: float) -> float:
+            return _price_from_yield(y) - market_price
+
+        return brentq(objective, -0.05, 1.0)
+
+    def macaulay_duration(self, ytm: float) -> float:
+        """
+        Macaulay duration: weighted-average time to cashflows,
+        where weights are PV of each cashflow / total PV.
+        """
+        freq = self.frequency.value
+        periods_per_year = 12 / freq
+
+        weighted_t = 0.0
+        total_pv = 0.0
+        for cf in self.coupon_leg.cashflows:
+            t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+            n = t * periods_per_year
+            pv = cf.amount / (1.0 + ytm / periods_per_year) ** n
+            weighted_t += t * pv
+            total_pv += pv
+
+        # Principal
+        t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+        n_mat = t_mat * periods_per_year
+        pv_prin = self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
+        weighted_t += t_mat * pv_prin
+        total_pv += pv_prin
+
+        return weighted_t / total_pv
+
+    def modified_duration(self, ytm: float) -> float:
+        """Modified duration: Macaulay duration / (1 + ytm/freq)."""
+        periods_per_year = 12 / self.frequency.value
+        return self.macaulay_duration(ytm) / (1.0 + ytm / periods_per_year)
+
+    def convexity(self, ytm: float) -> float:
+        """
+        Convexity: second-order price sensitivity to yield.
+
+        C = (1/P) * sum(t_i * (t_i + 1/freq) * PV_i) / (1 + y/freq)^2
+        """
+        freq = self.frequency.value
+        periods_per_year = 12 / freq
+        discount = 1.0 + ytm / periods_per_year
+
+        weighted = 0.0
+        total_pv = 0.0
+        for cf in self.coupon_leg.cashflows:
+            t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+            n = t * periods_per_year
+            pv = cf.amount / discount ** n
+            weighted += n * (n + 1) * pv
+            total_pv += pv
+
+        t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+        n_mat = t_mat * periods_per_year
+        pv_prin = self.face_value / discount ** n_mat
+        weighted += n_mat * (n_mat + 1) * pv_prin
+        total_pv += pv_prin
+
+        return weighted / (total_pv * periods_per_year ** 2 * discount ** 2)
+
+    def dv01_yield(self, ytm: float) -> float:
+        """Dollar value of a basis point: price change for a 1bp yield shift."""
+        return self.modified_duration(ytm) * self._price_from_ytm(ytm) / 10000.0
+
     def _price_from_ytm(self, ytm: float) -> float:
         """Dirty price per 100 face from a yield."""
         freq = self.frequency.value
@@ -93,15 +185,3 @@ class FixedRateBond:
         n_mat = t_mat * periods_per_year
         pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         return pv / self.face_value * 100.0
-
-    def yield_to_maturity(self, market_price: float) -> float:
-        """
-        Yield to maturity: the constant rate that discounts all cashflows
-        to the given market (dirty) price.
-
-        Uses bond-equivalent yield convention: compounding at the coupon frequency.
-        """
-        def objective(y: float) -> float:
-            return self._price_from_ytm(y) - market_price
-
-        return brentq(objective, -0.05, 1.0)

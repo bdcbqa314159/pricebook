@@ -129,6 +129,102 @@ class TestYieldToMaturity:
         assert ytm < 0.06
 
 
+class TestDuration:
+
+    def test_macaulay_duration_positive(self):
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        mac = bond.macaulay_duration(0.05)
+        assert mac > 0
+
+    def test_macaulay_duration_less_than_maturity(self):
+        """Macaulay duration of a coupon bond < maturity."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        mat_years = 5.0
+        mac = bond.macaulay_duration(0.05)
+        assert mac < mat_years
+
+    def test_zero_coupon_duration_equals_maturity(self):
+        """Zero-coupon bond: Macaulay duration = maturity."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.0)
+        mac = bond.macaulay_duration(0.05)
+        assert mac == pytest.approx(5.0, abs=0.05)
+
+    def test_modified_less_than_macaulay(self):
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        ytm = 0.05
+        assert bond.modified_duration(ytm) < bond.macaulay_duration(ytm)
+
+    def test_longer_bond_higher_duration(self):
+        ref = date(2024, 1, 15)
+        bond_2y = FixedRateBond(ref, date(2026, 1, 15), coupon_rate=0.05)
+        bond_10y = FixedRateBond(ref, date(2034, 1, 15), coupon_rate=0.05)
+        assert bond_10y.macaulay_duration(0.05) > bond_2y.macaulay_duration(0.05)
+
+    def test_duration_approximates_bump(self):
+        """Modified duration * dp ≈ actual price change for small yield shifts."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        ytm = 0.05
+        price = bond._price_from_ytm(ytm)
+        mod_dur = bond.modified_duration(ytm)
+
+        bp = 0.0001  # 1 basis point
+        price_up = bond._price_from_ytm(ytm + bp)
+        actual_change = price_up - price
+        approx_change = -mod_dur * price * bp
+
+        assert actual_change == pytest.approx(approx_change, rel=0.01)
+
+
+class TestConvexity:
+
+    def test_convexity_positive(self):
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        assert bond.convexity(0.05) > 0
+
+    def test_convexity_improves_duration_approx(self):
+        """Duration + convexity correction should be closer than duration alone."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        ytm = 0.05
+        price = bond._price_from_ytm(ytm)
+        mod_dur = bond.modified_duration(ytm)
+        conv = bond.convexity(ytm)
+
+        dy = 0.01  # 100bp shift
+        price_up = bond._price_from_ytm(ytm + dy)
+        actual_change = price_up - price
+
+        dur_approx = -mod_dur * price * dy
+        dur_conv_approx = dur_approx + 0.5 * conv * price * dy ** 2
+
+        err_dur = abs(actual_change - dur_approx)
+        err_dur_conv = abs(actual_change - dur_conv_approx)
+        assert err_dur_conv < err_dur
+
+
+class TestDV01:
+
+    def test_dv01_positive(self):
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        assert bond.dv01_yield(0.05) > 0
+
+    def test_dv01_matches_bump(self):
+        """DV01 ≈ |price(y) - price(y + 1bp)|."""
+        ref = date(2024, 1, 15)
+        bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
+        ytm = 0.05
+        dv01 = bond.dv01_yield(ytm)
+        bump_change = abs(bond._price_from_ytm(ytm + 0.0001) - bond._price_from_ytm(ytm))
+        assert dv01 == pytest.approx(bump_change, rel=0.01)
+
+
 class TestValidation:
 
     def test_negative_face_value_raises(self):
