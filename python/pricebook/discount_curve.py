@@ -64,7 +64,7 @@ class DiscountCurve:
         return year_fraction(self.reference_date, d, self.day_count)
 
     def df(self, d: date) -> float:
-        """Discount factor at date d."""
+        """Discount factor at date d. Returns 1.0 for d <= reference_date."""
         t = self._time(d)
         if t <= 0:
             return 1.0

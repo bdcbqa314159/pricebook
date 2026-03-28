@@ -2,6 +2,20 @@
 
 ---
 
+## v0.2.0 — 2026-03-28
+
+Interest rate swaps and full yield curve bootstrap.
+
+- Schedule generation: monthly, quarterly, semi-annual, annual frequencies with stub handling and end-of-month rule
+- Fixed leg: cashflow generation, present value, annuity factor
+- Floating leg: forward rate projection from discount curve, spread support
+- Interest rate swap: payer/receiver direction, PV, par rate
+- Curve bootstrap: deposits (short end) + swap par rates (long end), Brent root finder
+- Round-trip validated: all input instruments reprice, forwards positive, dfs decreasing
+- 139 tests, 97% coverage
+
+---
+
 ## v0.1.0 — 2026-03-28
 
 Foundation layer: the building blocks for curve construction.
