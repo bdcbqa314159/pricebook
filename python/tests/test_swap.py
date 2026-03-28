@@ -152,3 +152,32 @@ class TestSpread:
         )
         # Positive spread on floating leg increases payer PV
         assert swap_with_spread.pv(curve) > swap_no_spread.pv(curve)
+
+
+class TestDualCurve:
+    """Dual-curve swap pricing."""
+
+    def test_single_curve_equivalent(self):
+        ref = date(2024, 1, 15)
+        curve = _flat_curve(ref, rate=0.05)
+        swap = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=0.04)
+        assert swap.pv(curve) == pytest.approx(swap.pv(curve, projection_curve=curve), rel=1e-10)
+
+    def test_par_rate_dual_curve(self):
+        """Par rate at dual-curve zeroes PV."""
+        ref = date(2024, 1, 15)
+        discount = _flat_curve(ref, rate=0.03)
+        projection = _flat_curve(ref, rate=0.05)
+        swap = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=0.0)
+        par = swap.par_rate(discount, projection_curve=projection)
+        swap_par = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=par)
+        assert swap_par.pv(discount, projection_curve=projection) == pytest.approx(0.0, abs=1.0)
+
+    def test_dual_curve_par_differs_from_single(self):
+        ref = date(2024, 1, 15)
+        discount = _flat_curve(ref, rate=0.03)
+        projection = _flat_curve(ref, rate=0.05)
+        swap = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=0.0)
+        par_single = swap.par_rate(discount)
+        par_dual = swap.par_rate(discount, projection_curve=projection)
+        assert par_single != pytest.approx(par_dual, rel=1e-3)

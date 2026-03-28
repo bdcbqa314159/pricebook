@@ -13,9 +13,10 @@ class FRA:
     The buyer locks in a borrowing rate (the strike). At settlement:
         PV = notional * (forward_rate - strike) * year_frac * df(payment_date)
 
-    Settlement is at the start of the forward period (standard FRA convention),
-    but the accrual runs from start to end. The payment is discounted from
-    the end date back to the valuation date.
+    Supports dual-curve pricing:
+        - projection_curve: used to compute the forward rate
+        - discount_curve: used to discount the payment
+    Single-curve is the special case where both are the same.
     """
 
     def __init__(
@@ -38,17 +39,33 @@ class FRA:
         self.day_count = day_count
         self.year_frac = year_fraction(start, end, day_count)
 
-    def forward_rate(self, curve: DiscountCurve) -> float:
-        """Implied forward rate from the curve for this FRA period."""
-        df1 = curve.df(self.start)
-        df2 = curve.df(self.end)
+    def forward_rate(self, projection_curve: DiscountCurve) -> float:
+        """Implied forward rate from the projection curve for this FRA period."""
+        df1 = projection_curve.df(self.start)
+        df2 = projection_curve.df(self.end)
         return (df1 / df2 - 1.0) / self.year_frac
 
-    def pv(self, curve: DiscountCurve) -> float:
-        """Present value of the FRA."""
-        fwd = self.forward_rate(curve)
+    def pv(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        """
+        Present value of the FRA.
+
+        Args:
+            curve: discount curve.
+            projection_curve: forward projection curve. If None, single-curve pricing.
+        """
+        proj = projection_curve if projection_curve is not None else curve
+        fwd = self.forward_rate(proj)
         return self.notional * (fwd - self.strike) * self.year_frac * curve.df(self.end)
 
-    def par_rate(self, curve: DiscountCurve) -> float:
-        """The strike rate that makes PV = 0 (equals the forward rate)."""
-        return self.forward_rate(curve)
+    def par_rate(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        """The strike rate that makes PV = 0."""
+        proj = projection_curve if projection_curve is not None else curve
+        return self.forward_rate(proj)

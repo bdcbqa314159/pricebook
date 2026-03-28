@@ -98,6 +98,33 @@ class TestWithBootstrappedCurve:
         assert 0.01 < fwd < 0.10
 
 
+class TestDualCurve:
+
+    def test_single_curve_equivalent(self):
+        ref = date(2024, 1, 15)
+        curve = _flat_curve(ref, rate=0.05)
+        fra = FRA(date(2024, 7, 15), date(2025, 1, 15), strike=0.04)
+        assert fra.pv(curve) == pytest.approx(fra.pv(curve, projection_curve=curve), rel=1e-10)
+
+    def test_dual_curve_different_pv(self):
+        ref = date(2024, 1, 15)
+        discount = _flat_curve(ref, rate=0.03)
+        projection = _flat_curve(ref, rate=0.06)
+        fra = FRA(date(2024, 7, 15), date(2025, 1, 15), strike=0.04)
+        pv_single = fra.pv(discount)
+        pv_dual = fra.pv(discount, projection_curve=projection)
+        assert pv_single != pytest.approx(pv_dual, rel=1e-3)
+
+    def test_par_rate_from_projection_curve(self):
+        ref = date(2024, 1, 15)
+        discount = _flat_curve(ref, rate=0.03)
+        projection = _flat_curve(ref, rate=0.06)
+        fra = FRA(date(2024, 7, 15), date(2025, 1, 15), strike=0.0)
+        par = fra.par_rate(discount, projection_curve=projection)
+        fra_at_par = FRA(date(2024, 7, 15), date(2025, 1, 15), strike=par)
+        assert fra_at_par.pv(discount, projection_curve=projection) == pytest.approx(0.0, abs=0.01)
+
+
 class TestValidation:
 
     def test_start_after_end_raises(self):

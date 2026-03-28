@@ -23,7 +23,10 @@ class InterestRateSwap:
     Payer swap: pay fixed, receive floating -> PV = PV(float) - PV(fixed)
     Receiver swap: receive fixed, pay floating -> PV = PV(fixed) - PV(float)
 
-    Par rate: the fixed rate that makes PV = 0.
+    Supports dual-curve pricing:
+        - discount_curve: used for discounting all cashflows
+        - projection_curve: used for computing floating forward rates
+    Single-curve is the special case where both are the same.
     """
 
     def __init__(
@@ -58,21 +61,34 @@ class InterestRateSwap:
             calendar=calendar, convention=convention, stub=stub, eom=eom,
         )
 
-    def pv(self, curve: DiscountCurve) -> float:
-        """Present value of the swap."""
+    def pv(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        """
+        Present value of the swap.
+
+        Args:
+            curve: discount curve.
+            projection_curve: forward projection curve. If None, single-curve pricing.
+        """
         pv_fixed = self.fixed_leg.pv(curve)
-        pv_float = self.floating_leg.pv(curve)
+        pv_float = self.floating_leg.pv(curve, projection_curve)
         if self.direction == SwapDirection.PAYER:
             return pv_float - pv_fixed
         return pv_fixed - pv_float
 
-    def par_rate(self, curve: DiscountCurve) -> float:
+    def par_rate(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
         """
         The fixed rate that makes PV = 0.
 
-        For a payer swap: PV(float) = PV(fixed) = rate * notional * annuity
-        So: par_rate = PV(float) / (notional * annuity)
+        par_rate = PV_float(projection, discount) / (notional * annuity(discount))
         """
         annuity = self.fixed_leg.annuity(curve)
-        pv_float = self.floating_leg.pv(curve)
+        pv_float = self.floating_leg.pv(curve, projection_curve)
         return pv_float / (self.notional * annuity)
