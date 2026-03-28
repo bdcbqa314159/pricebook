@@ -2,6 +2,19 @@
 
 ---
 
+## v0.3.0 — 2026-03-28
+
+Fixed-rate bonds and risk sensitivities.
+
+- Fixed-rate bond: dirty/clean price, accrued interest
+- Yield to maturity: Brent solver (extracted to shared solvers module)
+- Macaulay duration, modified duration, convexity, yield DV01
+- Curve-based risk: parallel bump DV01, key rate durations (bump and reprice)
+- Round-trip validated: YTM recovery, analytical duration matches bump risk, convexity improves approximation
+- 181 tests, 97% coverage
+
+---
+
 ## v0.2.0 — 2026-03-28
 
 Interest rate swaps and full yield curve bootstrap.
