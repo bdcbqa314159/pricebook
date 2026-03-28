@@ -131,6 +131,36 @@ class TestPresentValue:
         assert leg_3y.pv(curve) > leg_1y.pv(curve)
 
 
+class TestDualCurve:
+    """Dual-curve pricing: separate projection and discount curves."""
+
+    def test_single_curve_equivalent(self):
+        """pv(curve) == pv(curve, projection_curve=curve)."""
+        ref = date(2024, 1, 15)
+        curve = _flat_curve(ref, rate=0.05)
+        leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
+        assert leg.pv(curve) == pytest.approx(leg.pv(curve, projection_curve=curve), rel=1e-10)
+
+    def test_higher_projection_rate_higher_pv(self):
+        """Higher forward rates from projection curve -> higher floating PV."""
+        ref = date(2024, 1, 15)
+        discount = _flat_curve(ref, rate=0.03)
+        proj_low = _flat_curve(ref, rate=0.04)
+        proj_high = _flat_curve(ref, rate=0.06)
+        leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
+        assert leg.pv(discount, proj_high) > leg.pv(discount, proj_low)
+
+    def test_dual_curve_differs_from_single(self):
+        """Dual-curve PV should differ from single-curve when curves differ."""
+        ref = date(2024, 1, 15)
+        discount = _flat_curve(ref, rate=0.03)
+        projection = _flat_curve(ref, rate=0.05)
+        leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
+        pv_single = leg.pv(discount)
+        pv_dual = leg.pv(discount, projection_curve=projection)
+        assert pv_single != pytest.approx(pv_dual, rel=1e-3)
+
+
 class TestValidation:
     """Input validation."""
 

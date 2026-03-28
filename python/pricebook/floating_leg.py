@@ -1,4 +1,4 @@
-"""Floating leg of an interest rate swap (single-curve)."""
+"""Floating leg of an interest rate swap (single-curve and dual-curve)."""
 
 from datetime import date
 from dataclasses import dataclass
@@ -20,27 +20,28 @@ class FloatingCashflow:
     year_frac: float
     spread: float
 
-    def forward_rate(self, curve: DiscountCurve) -> float:
+    def forward_rate(self, projection_curve: DiscountCurve) -> float:
         """Implied forward rate for this period using the leg's own day count."""
-        df1 = curve.df(self.accrual_start)
-        df2 = curve.df(self.accrual_end)
+        df1 = projection_curve.df(self.accrual_start)
+        df2 = projection_curve.df(self.accrual_end)
         return (df1 / df2 - 1.0) / self.year_frac
 
-    def amount(self, curve: DiscountCurve) -> float:
+    def amount(self, projection_curve: DiscountCurve) -> float:
         """Projected cashflow: notional * (forward_rate + spread) * year_frac."""
-        return self.notional * (self.forward_rate(curve) + self.spread) * self.year_frac
+        return self.notional * (self.forward_rate(projection_curve) + self.spread) * self.year_frac
 
 
 class FloatingLeg:
     """
-    A sequence of floating-rate coupons (single-curve pricing).
+    A sequence of floating-rate coupons.
 
     Each coupon pays: notional * (forward_rate + spread) * year_fraction.
-    Forward rates are implied from the discount curve: F = (df1/df2 - 1) / tau.
+    Forward rates are implied from the projection curve.
 
-    In single-curve pricing, the same curve is used for projecting forwards
-    and for discounting. This gives the well-known telescoping result:
-        PV(floating, no spread) = df(start) - df(end)
+    Supports dual-curve pricing:
+        - projection_curve: used to compute forward rates
+        - discount_curve: used to discount cashflows
+    Single-curve is the special case where both are the same curve.
     """
 
     def __init__(
@@ -84,9 +85,21 @@ class FloatingLeg:
                 spread=spread,
             ))
 
-    def pv(self, curve: DiscountCurve) -> float:
-        """Present value: sum of each projected cashflow discounted to reference date."""
+    def pv(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        """
+        Present value of the floating leg.
+
+        Args:
+            curve: discount curve (used for discounting cashflows).
+            projection_curve: forward projection curve (used for forward rates).
+                If None, uses the discount curve (single-curve pricing).
+        """
+        proj = projection_curve if projection_curve is not None else curve
         return sum(
-            cf.amount(curve) * curve.df(cf.payment_date)
+            cf.amount(proj) * curve.df(cf.payment_date)
             for cf in self.cashflows
         )
