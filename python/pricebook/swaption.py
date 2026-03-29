@@ -21,6 +21,7 @@ from enum import Enum
 from pricebook.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
+from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency, StubType
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.calendar import Calendar, BusinessDayConvention
@@ -147,3 +148,35 @@ class Swaption:
                                    option_type=option_type)
 
         return self.notional * ann * unit_price
+
+    def pv_ctx(
+        self,
+        ctx: PricingContext,
+        vol_surface_name: str = "ir",
+        projection_curve_name: str | None = None,
+    ) -> float:
+        """
+        Price the swaption from a PricingContext.
+
+        Args:
+            ctx: pricing context with curves and vol surfaces.
+            vol_surface_name: key for the vol surface in the context.
+            projection_curve_name: key for the projection curve.
+                If None, single-curve pricing (discount curve used for both).
+        """
+        if ctx.discount_curve is None:
+            raise ValueError("PricingContext must have a discount_curve")
+
+        vol_surface = ctx.get_vol_surface(vol_surface_name)
+        projection_curve = (
+            ctx.get_projection_curve(projection_curve_name)
+            if projection_curve_name is not None
+            else None
+        )
+
+        return self.pv(
+            ctx.discount_curve,
+            vol_surface,
+            projection_curve,
+            valuation_date=ctx.valuation_date,
+        )

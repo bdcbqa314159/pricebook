@@ -5,6 +5,7 @@ from datetime import date
 
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.discount_curve import DiscountCurve
+from pricebook.pricing_context import PricingContext
 from pricebook.vol_surface import FlatVol
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
@@ -190,3 +191,74 @@ class TestSwaptionPricing:
         pv_short = short.pv(flat_curve, flat_vol)
         pv_long = long.pv(flat_curve, flat_vol)
         assert pv_long > pv_short
+
+
+class TestSwaptionPricingContext:
+    def test_pv_ctx_matches_explicit(self, flat_curve, flat_vol):
+        """pv_ctx gives the same result as explicit pv call."""
+        swn = Swaption(
+            expiry=date(2025, 1, 15),
+            swap_end=date(2030, 1, 15),
+            strike=0.03,
+        )
+        ctx = PricingContext(
+            valuation_date=flat_curve.reference_date,
+            discount_curve=flat_curve,
+            vol_surfaces={"ir": flat_vol},
+        )
+        pv_explicit = swn.pv(flat_curve, flat_vol)
+        pv_from_ctx = swn.pv_ctx(ctx)
+        assert pv_from_ctx == pytest.approx(pv_explicit)
+
+    def test_pv_ctx_with_projection_curve(self, flat_curve, flat_vol):
+        """pv_ctx with a named projection curve."""
+        ref = date(2024, 1, 15)
+        r_proj = 0.035
+        proj_dates = [date(2024 + i, 1, 15) for i in range(1, 21)]
+        proj_dfs = [math.exp(-r_proj * i) for i in range(1, 21)]
+        proj_curve = DiscountCurve(
+            reference_date=ref, dates=proj_dates, dfs=proj_dfs,
+        )
+
+        swn = Swaption(
+            expiry=date(2025, 1, 15),
+            swap_end=date(2030, 1, 15),
+            strike=0.03,
+        )
+
+        ctx = PricingContext(
+            valuation_date=ref,
+            discount_curve=flat_curve,
+            projection_curves={"USD.3M": proj_curve},
+            vol_surfaces={"ir": flat_vol},
+        )
+
+        pv_ctx = swn.pv_ctx(ctx, projection_curve_name="USD.3M")
+        pv_explicit = swn.pv(flat_curve, flat_vol, proj_curve)
+        assert pv_ctx == pytest.approx(pv_explicit)
+
+    def test_pv_ctx_missing_vol_raises(self, flat_curve):
+        swn = Swaption(
+            expiry=date(2025, 1, 15),
+            swap_end=date(2030, 1, 15),
+            strike=0.03,
+        )
+        ctx = PricingContext(
+            valuation_date=flat_curve.reference_date,
+            discount_curve=flat_curve,
+        )
+        with pytest.raises(KeyError, match="Vol surface"):
+            swn.pv_ctx(ctx)
+
+    def test_pv_ctx_missing_discount_raises(self, flat_vol):
+        swn = Swaption(
+            expiry=date(2025, 1, 15),
+            swap_end=date(2030, 1, 15),
+            strike=0.03,
+        )
+        ctx = PricingContext(
+            valuation_date=date(2024, 1, 15),
+            vol_surfaces={"ir": flat_vol},
+        )
+        with pytest.raises(ValueError, match="discount_curve"):
+            swn.pv_ctx(ctx)
