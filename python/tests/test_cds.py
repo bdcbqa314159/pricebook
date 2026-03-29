@@ -5,7 +5,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import protection_leg_pv
+from pricebook.cds import protection_leg_pv, premium_leg_pv
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.day_count import DayCountConvention
@@ -96,3 +96,51 @@ class TestProtectionLeg:
             recovery=R, notional=notional, steps_per_year=12,
         )
         assert numerical == pytest.approx(analytical, rel=0.01)
+
+
+class TestPremiumLeg:
+
+    def test_pv_positive(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        pv = premium_leg_pv(REF, REF + relativedelta(years=5), 0.01, dc, sc)
+        assert pv > 0
+
+    def test_pv_scales_with_spread(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        end = REF + relativedelta(years=5)
+        pv1 = premium_leg_pv(REF, end, 0.01, dc, sc)
+        pv2 = premium_leg_pv(REF, end, 0.02, dc, sc)
+        assert pv2 == pytest.approx(2 * pv1, rel=1e-6)
+
+    def test_pv_scales_with_notional(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        end = REF + relativedelta(years=5)
+        pv1 = premium_leg_pv(REF, end, 0.01, dc, sc, notional=1_000_000.0)
+        pv2 = premium_leg_pv(REF, end, 0.01, dc, sc, notional=2_000_000.0)
+        assert pv2 == pytest.approx(2 * pv1, rel=1e-6)
+
+    def test_pv_decreases_with_higher_hazard(self):
+        """Higher hazard -> less likely to survive to pay premiums."""
+        dc = _flat_discount(REF)
+        end = REF + relativedelta(years=5)
+        sc_low = _flat_survival(REF, hazard=0.01)
+        sc_high = _flat_survival(REF, hazard=0.10)
+        pv_low = premium_leg_pv(REF, end, 0.01, dc, sc_low)
+        pv_high = premium_leg_pv(REF, end, 0.01, dc, sc_high)
+        assert pv_low > pv_high
+
+    def test_longer_maturity_higher_pv(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        pv_3y = premium_leg_pv(REF, REF + relativedelta(years=3), 0.01, dc, sc)
+        pv_10y = premium_leg_pv(REF, REF + relativedelta(years=10), 0.01, dc, sc)
+        assert pv_10y > pv_3y
+
+    def test_zero_spread_gives_zero_pv(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        pv = premium_leg_pv(REF, REF + relativedelta(years=5), 0.0, dc, sc)
+        assert pv == pytest.approx(0.0, abs=0.01)

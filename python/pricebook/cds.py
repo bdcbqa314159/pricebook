@@ -67,3 +67,65 @@ def protection_leg_pv(
         pv += df_mid * (q1 - q2)
 
     return lgd * pv
+
+
+def premium_leg_pv(
+    start: date,
+    end: date,
+    spread: float,
+    discount_curve: DiscountCurve,
+    survival_curve: SurvivalCurve,
+    notional: float = 1_000_000.0,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+    calendar: Calendar | None = None,
+    convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+) -> float:
+    """
+    PV of the premium (fee) leg of a CDS.
+
+    The protection buyer pays a periodic coupon contingent on survival:
+
+        PV = notional * spread * sum(yf_i * df(t_i) * Q(t_i))
+
+    Plus an accrued interest approximation for default mid-period:
+
+        accrued = notional * spread * sum(yf_i/2 * df(t_mid) * (Q(t_{i-1}) - Q(t_i)))
+
+    Args:
+        start: Premium start date.
+        end: Premium end date.
+        spread: CDS coupon (annualised, e.g. 0.01 for 100bp).
+        discount_curve: Risk-free discount curve (OIS).
+        survival_curve: Credit survival curve.
+        notional: CDS notional.
+        frequency: Premium payment frequency (typically quarterly).
+        day_count: Day count for premium accrual.
+        calendar: Business day calendar.
+        convention: Business day convention.
+    """
+    schedule = generate_schedule(
+        start, end, frequency, calendar, convention,
+        StubType.SHORT_FRONT, True,
+    )
+
+    pv_scheduled = 0.0
+    pv_accrued = 0.0
+
+    for i in range(1, len(schedule)):
+        d1 = schedule[i - 1]
+        d2 = schedule[i]
+        yf = year_fraction(d1, d2, day_count)
+        q1 = survival_curve.survival(d1)
+        q2 = survival_curve.survival(d2)
+        df2 = discount_curve.df(d2)
+
+        # Scheduled premium: paid if survived to payment date
+        pv_scheduled += yf * df2 * q2
+
+        # Accrued on default: approximate as half-period accrual
+        d_mid = date.fromordinal((d1.toordinal() + d2.toordinal()) // 2)
+        df_mid = discount_curve.df(d_mid)
+        pv_accrued += (yf / 2.0) * df_mid * (q1 - q2)
+
+    return notional * spread * (pv_scheduled + pv_accrued)
