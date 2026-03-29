@@ -129,3 +129,138 @@ def premium_leg_pv(
         pv_accrued += (yf / 2.0) * df_mid * (q1 - q2)
 
     return notional * spread * (pv_scheduled + pv_accrued)
+
+
+def risky_annuity(
+    start: date,
+    end: date,
+    discount_curve: DiscountCurve,
+    survival_curve: SurvivalCurve,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+    calendar: Calendar | None = None,
+    convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+) -> float:
+    """
+    Risky annuity (RPV01): PV of 1bp running spread, per unit notional.
+
+    RPV01 = sum(yf_i * df(t_i) * Q(t_i)) + accrued-on-default terms.
+
+    This is premium_leg_pv / (notional * spread), independent of spread.
+    """
+    # Use spread=1 and notional=1 to get the annuity factor
+    return premium_leg_pv(
+        start, end, spread=1.0,
+        discount_curve=discount_curve, survival_curve=survival_curve,
+        notional=1.0, frequency=frequency, day_count=day_count,
+        calendar=calendar, convention=convention,
+    )
+
+
+class CDS:
+    """
+    A credit default swap.
+
+    Protection buyer pays a periodic spread (premium leg) and receives
+    (1 - recovery) * notional on default (protection leg).
+
+    PV (protection buyer) = PV(protection) - PV(premium)
+
+    Par spread: the coupon that makes PV = 0.
+
+    Standard market conventions (post-Big Bang):
+        - Fixed coupons: 100bp or 500bp
+        - Upfront payment settles the difference from par
+        - Quarterly premium, ACT/360
+    """
+
+    def __init__(
+        self,
+        start: date,
+        end: date,
+        spread: float,
+        notional: float = 1_000_000.0,
+        recovery: float = 0.4,
+        frequency: Frequency = Frequency.QUARTERLY,
+        day_count: DayCountConvention = DayCountConvention.ACT_360,
+        protection_day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+        steps_per_year: int = 4,
+        calendar: Calendar | None = None,
+        convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+    ):
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
+        if not (0 <= recovery <= 1):
+            raise ValueError(f"recovery must be in [0, 1], got {recovery}")
+        if start >= end:
+            raise ValueError(f"start ({start}) must be before end ({end})")
+
+        self.start = start
+        self.end = end
+        self.spread = spread
+        self.notional = notional
+        self.recovery = recovery
+        self.frequency = frequency
+        self.day_count = day_count
+        self.protection_day_count = protection_day_count
+        self.steps_per_year = steps_per_year
+        self.calendar = calendar
+        self.convention = convention
+
+    def pv_protection(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    ) -> float:
+        """PV of the protection leg."""
+        return protection_leg_pv(
+            self.start, self.end, discount_curve, survival_curve,
+            recovery=self.recovery, notional=self.notional,
+            day_count=self.protection_day_count,
+            steps_per_year=self.steps_per_year,
+        )
+
+    def pv_premium(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    ) -> float:
+        """PV of the premium leg."""
+        return premium_leg_pv(
+            self.start, self.end, self.spread,
+            discount_curve, survival_curve,
+            notional=self.notional, frequency=self.frequency,
+            day_count=self.day_count,
+            calendar=self.calendar, convention=self.convention,
+        )
+
+    def pv(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    ) -> float:
+        """PV for the protection buyer: protection - premium."""
+        return self.pv_protection(discount_curve, survival_curve) \
+             - self.pv_premium(discount_curve, survival_curve)
+
+    def par_spread(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    ) -> float:
+        """
+        The spread that makes PV = 0.
+
+        par_spread = PV(protection) / (notional * RPV01)
+        """
+        prot = self.pv_protection(discount_curve, survival_curve)
+        rpv01 = risky_annuity(
+            self.start, self.end, discount_curve, survival_curve,
+            frequency=self.frequency, day_count=self.day_count,
+            calendar=self.calendar, convention=self.convention,
+        )
+        return prot / (self.notional * rpv01)
+
+    def upfront(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    ) -> float:
+        """
+        Upfront payment (as fraction of notional).
+
+        For standard CDS with fixed coupon, the upfront settles the
+        difference between the running spread and the par spread:
+            upfront ≈ (par_spread - spread) * RPV01
+        """
+        return self.pv(discount_curve, survival_curve) / self.notional

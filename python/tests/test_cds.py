@@ -5,7 +5,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import protection_leg_pv, premium_leg_pv
+from pricebook.cds import protection_leg_pv, premium_leg_pv, CDS
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.day_count import DayCountConvention
@@ -144,3 +144,80 @@ class TestPremiumLeg:
         sc = _flat_survival(REF)
         pv = premium_leg_pv(REF, REF + relativedelta(years=5), 0.0, dc, sc)
         assert pv == pytest.approx(0.0, abs=0.01)
+
+
+class TestCDS:
+
+    def test_pv_zero_at_par_spread(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        cds = CDS(REF, REF + relativedelta(years=5), spread=0.0)
+        par = cds.par_spread(dc, sc)
+        cds_par = CDS(REF, REF + relativedelta(years=5), spread=par)
+        assert cds_par.pv(dc, sc) == pytest.approx(0.0, abs=10.0)
+
+    def test_par_spread_positive(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        cds = CDS(REF, REF + relativedelta(years=5), spread=0.0)
+        assert cds.par_spread(dc, sc) > 0
+
+    def test_par_spread_increases_with_hazard(self):
+        dc = _flat_discount(REF)
+        sc_low = _flat_survival(REF, hazard=0.01)
+        sc_high = _flat_survival(REF, hazard=0.05)
+        cds = CDS(REF, REF + relativedelta(years=5), spread=0.0)
+        par_low = cds.par_spread(dc, sc_low)
+        par_high = cds.par_spread(dc, sc_high)
+        assert par_high > par_low
+
+    def test_protection_buyer_positive_when_spread_below_par(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF, hazard=0.03)
+        cds = CDS(REF, REF + relativedelta(years=5), spread=0.0)
+        par = cds.par_spread(dc, sc)
+        cds_cheap = CDS(REF, REF + relativedelta(years=5), spread=par * 0.5)
+        assert cds_cheap.pv(dc, sc) > 0
+
+    def test_protection_buyer_negative_when_spread_above_par(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF, hazard=0.03)
+        cds = CDS(REF, REF + relativedelta(years=5), spread=0.0)
+        par = cds.par_spread(dc, sc)
+        cds_expensive = CDS(REF, REF + relativedelta(years=5), spread=par * 2.0)
+        assert cds_expensive.pv(dc, sc) < 0
+
+    def test_upfront_at_par_is_zero(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        cds = CDS(REF, REF + relativedelta(years=5), spread=0.0)
+        par = cds.par_spread(dc, sc)
+        cds_par = CDS(REF, REF + relativedelta(years=5), spread=par)
+        assert cds_par.upfront(dc, sc) == pytest.approx(0.0, abs=1e-5)
+
+    def test_pv_scales_with_notional(self):
+        dc = _flat_discount(REF)
+        sc = _flat_survival(REF)
+        end = REF + relativedelta(years=5)
+        cds1 = CDS(REF, end, spread=0.01, notional=1_000_000.0)
+        cds2 = CDS(REF, end, spread=0.01, notional=2_000_000.0)
+        assert cds2.pv(dc, sc) == pytest.approx(2 * cds1.pv(dc, sc), rel=1e-6)
+
+
+class TestCDSValidation:
+
+    def test_negative_notional_raises(self):
+        with pytest.raises(ValueError):
+            CDS(REF, REF + relativedelta(years=5), spread=0.01, notional=-1.0)
+
+    def test_recovery_above_one_raises(self):
+        with pytest.raises(ValueError):
+            CDS(REF, REF + relativedelta(years=5), spread=0.01, recovery=1.5)
+
+    def test_recovery_negative_raises(self):
+        with pytest.raises(ValueError):
+            CDS(REF, REF + relativedelta(years=5), spread=0.01, recovery=-0.1)
+
+    def test_start_after_end_raises(self):
+        with pytest.raises(ValueError):
+            CDS(REF + relativedelta(years=5), REF, spread=0.01)
