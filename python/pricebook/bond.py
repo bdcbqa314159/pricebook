@@ -1,6 +1,5 @@
 """Fixed-rate bond."""
 
-import math
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
