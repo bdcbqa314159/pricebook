@@ -5,7 +5,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import protection_leg_pv, premium_leg_pv, CDS
+from pricebook.cds import protection_leg_pv, premium_leg_pv, CDS, bootstrap_credit_curve
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.day_count import DayCountConvention
@@ -221,3 +221,60 @@ class TestCDSValidation:
     def test_start_after_end_raises(self):
         with pytest.raises(ValueError):
             CDS(REF + relativedelta(years=5), REF, spread=0.01)
+
+
+# Market data for bootstrap tests
+CDS_SPREADS = [
+    (REF + relativedelta(years=1), 0.0060),   # 60bp
+    (REF + relativedelta(years=3), 0.0085),   # 85bp
+    (REF + relativedelta(years=5), 0.0110),   # 110bp
+    (REF + relativedelta(years=7), 0.0125),   # 125bp
+    (REF + relativedelta(years=10), 0.0140),  # 140bp
+]
+
+
+class TestCreditCurveBootstrap:
+
+    def _build(self):
+        dc = _flat_discount(REF, rate=0.04)
+        return dc, bootstrap_credit_curve(REF, CDS_SPREADS, dc)
+
+    def test_round_trip_reprices(self):
+        """Bootstrapped credit curve reprices all input CDS at par."""
+        dc, sc = self._build()
+        for mat, spread in CDS_SPREADS:
+            cds = CDS(REF, mat, spread=spread)
+            pv = cds.pv(dc, sc)
+            assert abs(pv) < 50.0, \
+                f"CDS {mat} not at par: PV={pv:.2f}"
+
+    def test_par_spreads_recovered(self):
+        dc, sc = self._build()
+        for mat, spread in CDS_SPREADS:
+            cds = CDS(REF, mat, spread=0.0)
+            recovered = cds.par_spread(dc, sc)
+            assert recovered == pytest.approx(spread, rel=0.05), \
+                f"CDS {mat}: input={spread:.4f}, recovered={recovered:.4f}"
+
+    def test_survival_probs_decreasing(self):
+        dc, sc = self._build()
+        survs = [sc.survival(d) for d, _ in CDS_SPREADS]
+        for i in range(1, len(survs)):
+            assert survs[i] < survs[i - 1]
+
+    def test_survival_probs_in_range(self):
+        dc, sc = self._build()
+        for d, _ in CDS_SPREADS:
+            s = sc.survival(d)
+            assert 0 < s < 1
+
+    def test_hazard_rates_positive(self):
+        dc, sc = self._build()
+        for d, _ in CDS_SPREADS:
+            assert sc.hazard_rate(d) > 0
+
+    def test_unsorted_raises(self):
+        dc = _flat_discount(REF)
+        bad = [(REF + relativedelta(years=5), 0.01), (REF + relativedelta(years=1), 0.005)]
+        with pytest.raises(ValueError):
+            bootstrap_credit_curve(REF, bad, dc)

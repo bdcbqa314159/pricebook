@@ -1,11 +1,14 @@
 """Credit default swap."""
 
+import math
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
+from pricebook.interpolation import InterpolationMethod
 from pricebook.schedule import Frequency, StubType, generate_schedule
+from pricebook.solvers import brentq
 from pricebook.calendar import Calendar, BusinessDayConvention
 
 
@@ -264,3 +267,76 @@ class CDS:
             upfront ≈ (par_spread - spread) * RPV01
         """
         return self.pv(discount_curve, survival_curve) / self.notional
+
+
+def bootstrap_credit_curve(
+    reference_date: date,
+    cds_spreads: list[tuple[date, float]],
+    discount_curve: DiscountCurve,
+    recovery: float = 0.4,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+    protection_day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+    steps_per_year: int = 4,
+    interpolation: InterpolationMethod = InterpolationMethod.LOG_LINEAR,
+    calendar: Calendar | None = None,
+    convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+) -> SurvivalCurve:
+    """
+    Bootstrap a survival (credit) curve from CDS par spreads.
+
+    For each CDS maturity, solve for the survival probability Q(T) such
+    that the CDS prices at par (PV = 0).
+
+    Args:
+        reference_date: Curve reference date.
+        cds_spreads: List of (maturity_date, par_spread) sorted by maturity.
+        discount_curve: Risk-free discount curve (OIS).
+        recovery: Recovery rate assumption.
+        frequency: CDS premium payment frequency.
+        day_count: Day count for premium leg.
+        protection_day_count: Day count for protection leg integration.
+        steps_per_year: Discretisation for protection leg.
+        interpolation: Interpolation method for survival curve.
+
+    Returns:
+        A SurvivalCurve that reprices all input CDS at par.
+    """
+    for i in range(1, len(cds_spreads)):
+        if cds_spreads[i][0] <= cds_spreads[i - 1][0]:
+            raise ValueError("cds_spreads must be sorted by maturity")
+
+    pillar_dates: list[date] = []
+    pillar_survs: list[float] = []
+
+    for mat, par_spread in cds_spreads:
+
+        def objective(q_guess: float, _mat=mat, _spread=par_spread) -> float:
+            trial_dates = pillar_dates + [_mat]
+            trial_survs = pillar_survs + [q_guess]
+            trial_curve = SurvivalCurve(
+                reference_date, trial_dates, trial_survs,
+                day_count=DayCountConvention.ACT_365_FIXED,
+                interpolation=interpolation,
+            )
+
+            cds = CDS(
+                reference_date, _mat, _spread,
+                notional=1.0, recovery=recovery,
+                frequency=frequency, day_count=day_count,
+                protection_day_count=protection_day_count,
+                steps_per_year=steps_per_year,
+                calendar=calendar, convention=convention,
+            )
+            return cds.pv(discount_curve, trial_curve)
+
+        # Survival prob must be in (0, 1)
+        q_solved = brentq(objective, 0.001, 0.9999)
+        pillar_dates.append(mat)
+        pillar_survs.append(q_solved)
+
+    return SurvivalCurve(
+        reference_date, pillar_dates, pillar_survs,
+        day_count=DayCountConvention.ACT_365_FIXED,
+        interpolation=interpolation,
+    )
