@@ -2,6 +2,21 @@
 
 ---
 
+## v0.5.0 — 2026-03-29
+
+CDS and credit curve — third asset class.
+
+- Survival curve: survival probabilities, hazard rates, default probabilities
+- CDS protection leg: discretised integration with mid-point approximation, analytical cross-check
+- CDS premium leg: scheduled coupons contingent on survival, accrued-on-default approximation
+- CDS instrument: PV, par spread, upfront, risky annuity (RPV01)
+- Credit curve bootstrap: strip survival probabilities from CDS par spreads using OIS discount
+- CS01: credit spread sensitivity via bump-and-reprice
+- Risky bond cross-check: risk-free price minus credit adjustment
+- 273 tests, 98% coverage
+
+---
+
 ## v0.4.0 — 2026-03-29
 
 FRA, OIS, and dual-curve framework.
