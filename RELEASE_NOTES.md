@@ -2,6 +2,20 @@
 
 ---
 
+## v0.4.0 — 2026-03-29
+
+FRA, OIS, and dual-curve framework.
+
+- Forward rate agreement (FRA): single-period forward rate contract
+- Dual-curve floating leg, swap, and FRA: separate projection and discount curves
+- OIS swap: compounded overnight rate with telescoping PV
+- OIS bootstrap: strip OIS par rates into a risk-free discount curve
+- Dual-curve bootstrap: forward curve from IRS par rates, discounting off OIS
+- Round-trip validated: OIS reprices, IRS reprices dual-curve, FRAs consistent, single-curve recovery exact
+- 220 tests, 98% coverage
+
+---
+
 ## v0.3.0 — 2026-03-28
 
 Fixed-rate bonds and risk sensitivities.
