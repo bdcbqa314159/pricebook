@@ -2,6 +2,19 @@
 
 ---
 
+## v0.6.0 — 2026-03-29
+
+FX forwards, swaps, and cross-currency basis — second currency.
+
+- Currency and currency pair with market quoting conventions (EUR, GBP, USD)
+- FX forward: covered interest rate parity pricing, forward points, PV
+- FX swap: near/far legs, swap points, fair valuation
+- Cross-currency basis: implied spread from market forwards, basis curve bootstrap
+- Round-trip validated: CIP holds, triangular consistency (EUR/USD + GBP/USD = EUR/GBP), basis curve reprices all forwards
+- 324 tests, 98% coverage
+
+---
+
 ## v0.5.0 — 2026-03-29
 
 CDS and credit curve — third asset class.
