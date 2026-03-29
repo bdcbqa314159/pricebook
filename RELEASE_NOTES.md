@@ -2,6 +2,20 @@
 
 ---
 
+## v0.7.0 — 2026-03-29
+
+European options, Black-76, and IR caps/floors — first options slice.
+
+- Black-76 model: call/put pricing on a forward, handles zero vol and expiry edge cases
+- Bachelier (normal) model: arithmetic Brownian motion, works with negative rates
+- Analytical Greeks: delta, gamma, vega, theta with bump-and-reprice cross-checks
+- Vol surface: flat vol and vol term structure (strike dimension anticipated, not yet built)
+- IR cap/floor: strip of caplets/floorlets priced with Black-76
+- Round-trip validated: put-call parity (parametrised), ATM delta ≈ ±0.5, vega maximised ATM, cap-floor parity
+- 382 tests, 97% coverage
+
+---
+
 ## v0.6.0 — 2026-03-29
 
 FX forwards, swaps, and cross-currency basis — second currency.
