@@ -2,6 +2,19 @@
 
 ---
 
+## v0.11.0 — 2026-03-30
+
+Implied volatility solvers, vol smile, and strike-dependent vol surface.
+
+- Implied vol solver (Black-76): Newton-Raphson with vega, bisection fallback, edge case handling
+- Implied vol solver (Bachelier): Newton-Raphson for normal vol, bisection fallback
+- VolSmile: strike-dependent vol at a single expiry, cubic spline interpolation, flat wing extrapolation
+- VolSurfaceStrike: per-expiry smiles with linear expiry interpolation, compatible with all pricing functions
+- Round-trip validated: implied vol recovery across strikes/expiries/models, smile impact on OTM prices, put-call parity with smile, swaption + cap/floor integration with smile surface
+- 661 tests, 95% coverage
+
+---
+
 ## v0.10.0 — 2026-03-30
 
 Equity forwards, options, and discrete dividends — third asset class.
