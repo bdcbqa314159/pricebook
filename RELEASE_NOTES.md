@@ -2,6 +2,18 @@
 
 ---
 
+## v0.10.0 — 2026-03-30
+
+Equity forwards, options, and discrete dividends — third asset class.
+
+- Equity forward: continuous dividend yield and discrete dividend pricing, PV
+- Equity option (Black-Scholes): European call/put via Black-76 on the forward, spot Greeks (delta, gamma, vega, theta, rho)
+- Discrete dividend model: PV of dividends, adjusted forward, piecewise forward with jumps, option pricing with spot adjustment
+- Round-trip validated: put-call parity (continuous + discrete), MC matches analytical, dividend-adjusted forward recovery, all Greeks match bump-and-reprice
+- 578 tests, 96% coverage
+
+---
+
 ## v0.9.0 — 2026-03-30
 
 Monte Carlo engine, GBM paths, and Asian options — first numerical engine.
