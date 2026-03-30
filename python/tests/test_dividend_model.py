@@ -4,12 +4,12 @@ import pytest
 from datetime import date
 
 from pricebook.dividend_model import (
+    Dividend,
     pv_dividends,
     dividend_adjusted_forward,
     piecewise_forward,
     equity_option_discrete_divs,
 )
-from pricebook.dividend_model import Dividend
 from pricebook.equity_option import equity_option_price
 from pricebook.black76 import OptionType
 from tests.conftest import make_flat_curve

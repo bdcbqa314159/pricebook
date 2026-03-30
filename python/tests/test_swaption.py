@@ -9,21 +9,14 @@ from pricebook.pricing_context import PricingContext
 from pricebook.vol_surface import FlatVol
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
+from tests.conftest import make_flat_curve
 import math
 
 
 @pytest.fixture
 def flat_curve():
     """Flat 3% zero-rate discount curve."""
-    ref = date(2024, 1, 15)
-    r = 0.03
-    dates = [date(2024 + i, 1, 15) for i in range(1, 21)]
-    dfs = [math.exp(-r * i) for i in range(1, 21)]
-    return DiscountCurve(
-        reference_date=ref,
-        dates=dates,
-        dfs=dfs,
-    )
+    return make_flat_curve(date(2024, 1, 15), 0.03)
 
 
 @pytest.fixture

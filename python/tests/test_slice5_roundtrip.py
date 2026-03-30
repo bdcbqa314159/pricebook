@@ -4,7 +4,6 @@ Bootstrap credit curve from CDS spreads, verify repricing,
 compute CS01, cross-check risky bond pricing.
 """
 
-import math
 import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
@@ -12,9 +11,9 @@ from dateutil.relativedelta import relativedelta
 from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.bond import FixedRateBond
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention
 from pricebook.schedule import Frequency
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
@@ -28,15 +27,8 @@ CDS_SPREADS = [
 ]
 
 
-def _flat_discount(ref: date, rate: float = 0.04) -> DiscountCurve:
-    tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors]
-    dfs = [math.exp(-rate * t) for t in tenors]
-    return DiscountCurve(ref, dates, dfs)
-
-
 def _build():
-    dc = _flat_discount(REF)
+    dc = make_flat_curve(REF, 0.04)
     sc = bootstrap_credit_curve(REF, CDS_SPREADS, dc)
     return dc, sc
 
