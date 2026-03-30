@@ -2,6 +2,19 @@
 
 ---
 
+## v0.8.0 — 2026-03-30
+
+PricingContext, European swaptions, and swaption vol surface.
+
+- PricingContext: bundles valuation date, discount/projection curves, vol surfaces, credit curves, FX spots into one object
+- Swaption: European payer/receiver on a vanilla IRS, Black-76 pricing on the forward swap rate
+- Swaption pv_ctx: price from a PricingContext with named curves and vol surfaces
+- SwaptionVolSurface: 2D expiry×tenor grid with bilinear interpolation, flat extrapolation
+- Round-trip validated: payer-receiver parity (ATM + OTM), ATM symmetry, vega/delta bump-and-reprice, PricingContext consistency, vol surface integration
+- 441 tests, 96% coverage
+
+---
+
 ## v0.7.0 — 2026-03-29
 
 European options, Black-76, and IR caps/floors — first options slice.
