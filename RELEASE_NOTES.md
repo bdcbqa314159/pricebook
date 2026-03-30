@@ -2,6 +2,19 @@
 
 ---
 
+## v0.12.0 — 2026-03-30
+
+CRR binomial tree for European and American options.
+
+- CRR binomial tree: u = exp(vol*sqrt(dt)), d = 1/u, risk-neutral probability
+- European options via tree: backward induction, converges to Black-Scholes
+- American options via tree: early exercise check at each node
+- Continuous dividend yield support for both European and American
+- Round-trip validated: European convergence O(1/n), American call = European (no divs), American put > European, put-call bounds, Greeks vs analytical
+- 692 tests, 95% coverage
+
+---
+
 ## v0.11.0 — 2026-03-30
 
 Implied volatility solvers, vol smile, and strike-dependent vol surface.
