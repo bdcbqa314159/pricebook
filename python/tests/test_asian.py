@@ -6,8 +6,8 @@ import math
 from pricebook.asian import (
     geometric_asian_analytical,
     mc_asian_arithmetic,
-    AsianResult,
 )
+from pricebook.mc_pricer import MCResult
 from pricebook.black76 import OptionType
 
 

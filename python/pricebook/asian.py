@@ -20,16 +20,8 @@ import numpy as np
 
 from pricebook.black76 import OptionType, black76_price
 from pricebook.gbm import GBMGenerator
+from pricebook.mc_pricer import MCResult
 from pricebook.rng import PseudoRandom
-
-
-@dataclass
-class AsianResult:
-    """Result of an Asian option MC pricing run."""
-
-    price: float
-    std_error: float
-    n_paths: int
 
 
 def geometric_asian_analytical(
@@ -82,7 +74,7 @@ def mc_asian_arithmetic(
     antithetic: bool = False,
     control_variate: bool = False,
     floating_strike: bool = False,
-) -> AsianResult:
+) -> MCResult:
     """
     Price an arithmetic average Asian option via Monte Carlo.
 
@@ -159,4 +151,4 @@ def mc_asian_arithmetic(
         price = float(discounted.mean())
         std_error = float(discounted.std(ddof=1) / math.sqrt(len(discounted)))
 
-    return AsianResult(price=price, std_error=std_error, n_paths=len(payoffs))
+    return MCResult(price=price, std_error=std_error, n_paths=len(payoffs))

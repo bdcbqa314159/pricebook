@@ -74,7 +74,6 @@ def mc_european(
     rng = PseudoRandom(seed=seed)
     st = gen.terminal(T=T, n_paths=n_paths, rng=rng, antithetic=antithetic)
 
-    # Payoffs
     if option_type == OptionType.CALL:
         payoffs = np.maximum(st - strike, 0.0)
     else:
@@ -83,22 +82,15 @@ def mc_european(
     df = math.exp(-rate * T)
 
     if control_variate:
-        # Control variate: use the analytical price of the option
-        # as control, with the simulated forward as the control variable.
         forward = spot * math.exp((rate - div_yield) * T)
         analytical = black76_price(forward, strike, vol, T, df, option_type)
+        control = st - forward
 
-        # Control: simulated terminal vs expected terminal
-        expected_terminal = spot * math.exp((rate - div_yield) * T)
-        control = st - expected_terminal  # mean should be 0
-
-        # Estimate beta (optimal control coefficient)
         discounted_payoffs = df * payoffs
         cov = np.cov(discounted_payoffs, control)[0, 1]
         var_control = np.var(control)
         beta = cov / var_control if var_control > 0 else 0.0
 
-        # Adjusted payoffs
         adjusted = discounted_payoffs - beta * control
         price = float(adjusted.mean())
         std_error = float(adjusted.std(ddof=1) / math.sqrt(len(adjusted)))

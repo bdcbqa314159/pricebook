@@ -15,11 +15,10 @@ import math
 from pricebook.black76 import (
     OptionType,
     black76_price,
-    black76_delta,
-    black76_gamma,
     black76_vega,
     black76_theta,
     _norm_cdf,
+    _norm_pdf,
 )
 
 
@@ -57,11 +56,6 @@ def equity_delta(
     Spot delta = exp(-q*T) * forward_delta.
     """
     forward, df = _forward_and_df(spot, rate, div_yield, T)
-    fwd_delta = black76_delta(forward, strike, vol, T, df, option_type)
-    # Forward delta is dPrice/dForward * df. Spot delta = dPrice/dSpot.
-    # dForward/dSpot = exp((r-q)*T), so dPrice/dSpot = (dPrice/dForward) * exp((r-q)*T)
-    # black76_delta returns df * N(d1) for call. We want exp(-q*T) * N(d1).
-    # So: spot_delta = fwd_delta * exp((r-q)*T) / 1 ... actually let's just compute directly.
     if T <= 0 or vol <= 0:
         if option_type == OptionType.CALL:
             return 1.0 if spot > strike else 0.0
@@ -85,14 +79,11 @@ def equity_gamma(
 ) -> float:
     """Spot gamma: d²Price/dSpot². Same for calls and puts."""
     forward, df = _forward_and_df(spot, rate, div_yield, T)
-    # Gamma_spot = Gamma_forward * (dF/dS)^2 / (dF/dS) ...
-    # Simpler: Gamma_spot = exp(-q*T) * n(d1) / (S * vol * sqrt(T))
     if T <= 0 or vol <= 0:
         return 0.0
 
     sqrt_t = math.sqrt(T)
     d1 = (math.log(forward / strike) + 0.5 * vol * vol * T) / (vol * sqrt_t)
-    from pricebook.black76 import _norm_pdf
     eq = math.exp(-div_yield * T)
     return eq * _norm_pdf(d1) / (spot * vol * sqrt_t)
 

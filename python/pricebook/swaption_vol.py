@@ -124,11 +124,9 @@ class SwaptionVolSurface:
         times = self._expiry_times
         tenors = self._tenors
 
-        # Clamp to grid boundaries (flat extrapolation)
         t_exp = np.clip(t_exp, times[0], times[-1])
         tenor = np.clip(tenor, tenors[0], tenors[-1])
 
-        # Single point cases
         if len(times) == 1 and len(tenors) == 1:
             return self._vols[0, 0]
         if len(times) == 1:
@@ -136,17 +134,13 @@ class SwaptionVolSurface:
         if len(tenors) == 1:
             return self._interp_expiry(t_exp, 0)
 
-        # Find expiry bracket
         i = int(np.searchsorted(times, t_exp)) - 1
         i = max(0, min(i, len(times) - 2))
         fx = (t_exp - times[i]) / (times[i + 1] - times[i])
-
-        # Find tenor bracket
         j = int(np.searchsorted(tenors, tenor)) - 1
         j = max(0, min(j, len(tenors) - 2))
         fy = (tenor - tenors[j]) / (tenors[j + 1] - tenors[j])
 
-        # Bilinear: weighted average of four corners
         v00 = self._vols[i, j]
         v01 = self._vols[i, j + 1]
         v10 = self._vols[i + 1, j]

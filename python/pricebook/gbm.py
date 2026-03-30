@@ -73,14 +73,10 @@ class GBMGenerator:
         drift = (self.rate - self.div_yield - 0.5 * self.vol**2) * dt
         diffusion = self.vol * np.sqrt(dt)
 
-        # Generate normals
         if isinstance(rng, QuasiRandom):
+            if rng._dimension != n_steps:
+                rng = QuasiRandom(dimension=n_steps, seed=rng._seed)
             z = rng.normals(n_paths)
-            # Sobol dimension must match n_steps; reshape if needed
-            if z.shape[1] != n_steps:
-                # Re-create with correct dimension
-                qrng = QuasiRandom(dimension=n_steps, seed=rng._seed)
-                z = qrng.normals(n_paths)
         else:
             z = rng.normals(n_paths, n_steps)
 
