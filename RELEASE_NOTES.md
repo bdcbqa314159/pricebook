@@ -2,6 +2,19 @@
 
 ---
 
+## v0.9.0 — 2026-03-30
+
+Monte Carlo engine, GBM paths, and Asian options — first numerical engine.
+
+- Random number generation: pseudo-random (numpy) and quasi-random (Sobol) standard normal generators with seed management
+- GBM path generation: single-step and multi-step, antithetic variates, quasi-random support
+- MC European pricer: call/put with antithetic variates and control variate variance reduction, cross-checked against Black-76
+- Asian options: geometric average analytical (closed-form), arithmetic average MC, fixed and floating strike, geometric average as control variate
+- Round-trip validated: European MC within 3σ of Black-76, variance reduction reduces SE, geometric Asian MC matches analytical (~2%), convergence rate 1/√N confirmed
+- 516 tests, 96% coverage
+
+---
+
 ## v0.8.0 — 2026-03-30
 
 PricingContext, European swaptions, and swaption vol surface.
