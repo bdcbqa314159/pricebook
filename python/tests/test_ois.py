@@ -1,6 +1,5 @@
 """Tests for OIS swap and OIS bootstrap."""
 
-import math
 import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
@@ -8,14 +7,7 @@ from dateutil.relativedelta import relativedelta
 from pricebook.ois import OISSwap, bootstrap_ois
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
-
-
-def _flat_curve(ref: date, rate: float = 0.05) -> DiscountCurve:
-    tenors_years = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors_years]
-    dfs = [math.exp(-rate * t) for t in tenors_years]
-    return DiscountCurve(ref, dates, dfs)
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
@@ -36,13 +28,13 @@ class TestOISSwapPricing:
 
     def test_par_rate_positive(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         ois = OISSwap(ref, date(2026, 1, 15), fixed_rate=0.0)
         assert ois.par_rate(curve) > 0
 
     def test_pv_zero_at_par(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         ois = OISSwap(ref, date(2026, 1, 15), fixed_rate=0.0)
         par = ois.par_rate(curve)
         ois_at_par = OISSwap(ref, date(2026, 1, 15), fixed_rate=par)
@@ -50,14 +42,14 @@ class TestOISSwapPricing:
 
     def test_pv_positive_when_fixed_below_market(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         ois = OISSwap(ref, date(2026, 1, 15), fixed_rate=0.01)
         assert ois.pv(curve) > 0
 
     def test_pv_float_telescopes(self):
         """PV_float = notional * (df(start) - df(end))."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         notional = 1_000_000.0
         end = date(2027, 1, 15)
         ois = OISSwap(ref, end, fixed_rate=0.05, notional=notional)

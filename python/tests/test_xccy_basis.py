@@ -7,26 +7,19 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.xccy_basis import implied_basis_spread, bootstrap_basis_curve
 from pricebook.fx_forward import FXForward
-from pricebook.discount_curve import DiscountCurve
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
 SPOT = 1.10
 
 
-def _flat_curve(ref: date, rate: float) -> DiscountCurve:
-    tenors = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors]
-    dfs = [math.exp(-rate * t) for t in tenors]
-    return DiscountCurve(ref, dates, dfs)
-
-
 class TestImpliedBasisSpread:
 
     def test_zero_basis_when_cip_holds(self):
         """If market forward = CIP forward, basis = 0."""
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=1)
         fwd_cip = FXForward.forward_rate(SPOT, mat, eur, usd)
         basis = implied_basis_spread(SPOT, mat, fwd_cip, eur, usd)
@@ -35,16 +28,16 @@ class TestImpliedBasisSpread:
     def test_positive_basis_when_forward_above_cip(self):
         """Market forward above CIP -> positive basis (quote rate must rise
         to produce a higher forward via F = S * df_base / df_quote)."""
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=1)
         fwd_cip = FXForward.forward_rate(SPOT, mat, eur, usd)
         basis = implied_basis_spread(SPOT, mat, fwd_cip + 0.005, eur, usd)
         assert basis > 0
 
     def test_negative_basis_when_forward_below_cip(self):
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=1)
         fwd_cip = FXForward.forward_rate(SPOT, mat, eur, usd)
         basis = implied_basis_spread(SPOT, mat, fwd_cip - 0.005, eur, usd)
@@ -52,8 +45,8 @@ class TestImpliedBasisSpread:
 
     def test_basis_magnitude_reasonable(self):
         """Typical xccy basis is single-digit bps to tens of bps."""
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=1)
         fwd_cip = FXForward.forward_rate(SPOT, mat, eur, usd)
         # 5 pips off CIP
@@ -80,8 +73,8 @@ class TestBootstrapBasisCurve:
 
     def test_reprices_all_forwards(self):
         """Basis-adjusted curve reprices all market forwards."""
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         forwards = self._market_forwards(eur, usd, basis_bps=-15)
 
         adj_curve = bootstrap_basis_curve(REF, SPOT, forwards, eur, usd)
@@ -92,16 +85,16 @@ class TestBootstrapBasisCurve:
                 f"Failed at {mat}: market={fwd_market:.6f}, repriced={fwd_repriced:.6f}"
 
     def test_adjusted_curve_differs_from_original(self):
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         forwards = self._market_forwards(eur, usd, basis_bps=-15)
         adj = bootstrap_basis_curve(REF, SPOT, forwards, eur, usd)
         mat = date.fromordinal(REF.toordinal() + int(2 * 365))
         assert adj.zero_rate(mat) != pytest.approx(usd.zero_rate(mat), rel=1e-3)
 
     def test_positive_dfs(self):
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         forwards = self._market_forwards(eur, usd, basis_bps=-15)
         adj = bootstrap_basis_curve(REF, SPOT, forwards, eur, usd)
         for mat, _ in forwards:
@@ -109,8 +102,8 @@ class TestBootstrapBasisCurve:
 
     def test_zero_basis_recovers_original(self):
         """With zero basis, the adjusted curve should match the original."""
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         forwards = self._market_forwards(eur, usd, basis_bps=0)
         adj = bootstrap_basis_curve(REF, SPOT, forwards, eur, usd)
         mat = date.fromordinal(REF.toordinal() + int(2 * 365))
@@ -118,7 +111,7 @@ class TestBootstrapBasisCurve:
 
     def test_unsorted_raises(self):
         bad = [(REF + relativedelta(years=2), 1.12), (REF + relativedelta(years=1), 1.11)]
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         with pytest.raises(ValueError):
             bootstrap_basis_curve(REF, SPOT, bad, eur, usd)

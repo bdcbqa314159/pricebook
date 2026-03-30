@@ -8,14 +8,7 @@ from pricebook.floating_leg import FloatingLeg
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
-
-
-def _flat_curve(ref: date, rate: float = 0.05) -> DiscountCurve:
-    """Build a flat discount curve at the given continuously compounded rate."""
-    tenors_years = [0.25, 0.5, 1.0, 2.0, 5.0, 10.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors_years]
-    dfs = [math.exp(-rate * t) for t in tenors_years]
-    return DiscountCurve(ref, dates, dfs)
+from tests.conftest import make_flat_curve
 
 
 class TestCashflows:
@@ -37,14 +30,14 @@ class TestCashflows:
 
     def test_forward_rate_positive(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
         for cf in leg.cashflows:
             assert cf.forward_rate(curve) > 0
 
     def test_cashflow_amount_includes_spread(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg_no_spread = FloatingLeg(
             ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY, spread=0.0,
         )
@@ -61,7 +54,7 @@ class TestTelescopingProperty:
 
     def test_pv_telescopes_flat_curve(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         notional = 1_000_000.0
         leg = FloatingLeg(
             ref, date(2025, 1, 15),
@@ -97,7 +90,7 @@ class TestTelescopingProperty:
 
     def test_pv_with_spread_exceeds_no_spread(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg_flat = FloatingLeg(
             ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY, spread=0.0,
         )
@@ -112,20 +105,20 @@ class TestPresentValue:
 
     def test_pv_positive(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
         assert leg.pv(curve) > 0
 
     def test_pv_scales_with_notional(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg1 = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY, notional=1_000_000.0)
         leg2 = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY, notional=2_000_000.0)
         assert leg2.pv(curve) == pytest.approx(2 * leg1.pv(curve), rel=1e-10)
 
     def test_longer_maturity_higher_pv(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg_1y = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
         leg_3y = FloatingLeg(ref, date(2027, 1, 15), frequency=Frequency.QUARTERLY)
         assert leg_3y.pv(curve) > leg_1y.pv(curve)
@@ -137,24 +130,24 @@ class TestDualCurve:
     def test_single_curve_equivalent(self):
         """pv(curve) == pv(curve, projection_curve=curve)."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
         assert leg.pv(curve) == pytest.approx(leg.pv(curve, projection_curve=curve), rel=1e-10)
 
     def test_higher_projection_rate_higher_pv(self):
         """Higher forward rates from projection curve -> higher floating PV."""
         ref = date(2024, 1, 15)
-        discount = _flat_curve(ref, rate=0.03)
-        proj_low = _flat_curve(ref, rate=0.04)
-        proj_high = _flat_curve(ref, rate=0.06)
+        discount = make_flat_curve(ref, rate=0.03)
+        proj_low = make_flat_curve(ref, rate=0.04)
+        proj_high = make_flat_curve(ref, rate=0.06)
         leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
         assert leg.pv(discount, proj_high) > leg.pv(discount, proj_low)
 
     def test_dual_curve_differs_from_single(self):
         """Dual-curve PV should differ from single-curve when curves differ."""
         ref = date(2024, 1, 15)
-        discount = _flat_curve(ref, rate=0.03)
-        projection = _flat_curve(ref, rate=0.05)
+        discount = make_flat_curve(ref, rate=0.03)
+        projection = make_flat_curve(ref, rate=0.05)
         leg = FloatingLeg(ref, date(2025, 1, 15), frequency=Frequency.QUARTERLY)
         pv_single = leg.pv(discount)
         pv_dual = leg.pv(discount, projection_curve=projection)

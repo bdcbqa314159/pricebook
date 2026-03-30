@@ -12,7 +12,7 @@ from pricebook.currency import Currency, CurrencyPair
 from pricebook.fx_forward import FXForward
 from pricebook.fx_swap import FXSwap
 from pricebook.xccy_basis import implied_basis_spread, bootstrap_basis_curve
-from pricebook.discount_curve import DiscountCurve
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
@@ -22,27 +22,20 @@ SPOT_EURUSD = 1.10
 SPOT_GBPUSD = 1.27
 
 
-def _flat_curve(ref: date, rate: float) -> DiscountCurve:
-    tenors = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors]
-    dfs = [math.exp(-rate * t) for t in tenors]
-    return DiscountCurve(ref, dates, dfs)
-
-
 class TestCIPHolds:
     """Forward computed from two curves matches direct formula."""
 
     def test_cip_eurusd(self):
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=2)
         fwd = FXForward.forward_rate(SPOT_EURUSD, mat, eur, usd)
         expected = SPOT_EURUSD * eur.df(mat) / usd.df(mat)
         assert fwd == pytest.approx(expected, rel=1e-10)
 
     def test_cip_gbpusd(self):
-        gbp = _flat_curve(REF, rate=0.045)
-        usd = _flat_curve(REF, rate=0.05)
+        gbp = make_flat_curve(REF, rate=0.045)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=3)
         fwd = FXForward.forward_rate(SPOT_GBPUSD, mat, gbp, usd)
         expected = SPOT_GBPUSD * gbp.df(mat) / usd.df(mat)
@@ -50,9 +43,9 @@ class TestCIPHolds:
 
     def test_triangular_consistency(self):
         """EUR/USD and GBP/USD forwards should be consistent with EUR/GBP."""
-        eur = _flat_curve(REF, rate=0.04)
-        gbp = _flat_curve(REF, rate=0.045)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        gbp = make_flat_curve(REF, rate=0.045)
+        usd = make_flat_curve(REF, rate=0.05)
         mat = REF + relativedelta(years=1)
 
         fwd_eurusd = FXForward.forward_rate(SPOT_EURUSD, mat, eur, usd)
@@ -69,8 +62,8 @@ class TestFXSwapAtFair:
     """FX swap at fair forward rates has PV = 0."""
 
     def test_eurusd_swap_pv_zero(self):
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         near = REF + relativedelta(months=1)
         far = REF + relativedelta(years=1)
         near_rate = FXForward.forward_rate(SPOT_EURUSD, near, eur, usd)
@@ -79,8 +72,8 @@ class TestFXSwapAtFair:
         assert swap.pv(SPOT_EURUSD, eur, usd) == pytest.approx(0.0, abs=1.0)
 
     def test_gbpusd_swap_pv_zero(self):
-        gbp = _flat_curve(REF, rate=0.045)
-        usd = _flat_curve(REF, rate=0.05)
+        gbp = make_flat_curve(REF, rate=0.045)
+        usd = make_flat_curve(REF, rate=0.05)
         near = REF + relativedelta(months=3)
         far = REF + relativedelta(years=2)
         near_rate = FXForward.forward_rate(SPOT_GBPUSD, near, gbp, usd)
@@ -93,8 +86,8 @@ class TestBasisCurveReprices:
     """Basis-adjusted curve reprices all market forwards."""
 
     def test_eurusd_with_negative_basis(self):
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
 
         # Synthetic market forwards with -15bp basis
         basis = -0.0015
@@ -115,8 +108,8 @@ class TestBasisCurveReprices:
 
     def test_implied_basis_round_trips(self):
         """Implied basis from market forwards should be consistent."""
-        eur = _flat_curve(REF, rate=0.04)
-        usd = _flat_curve(REF, rate=0.05)
+        eur = make_flat_curve(REF, rate=0.04)
+        usd = make_flat_curve(REF, rate=0.05)
         target_basis = -0.002  # -20bp
 
         mat = REF + relativedelta(years=2)

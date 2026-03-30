@@ -9,21 +9,14 @@ Slice 8 round-trip validation: swaptions + PricingContext.
 """
 
 import pytest
-import math
 from datetime import date
 
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.swaption_vol import SwaptionVolSurface
 from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.vol_surface import FlatVol
-
-
-def _flat_curve(ref: date, rate: float) -> DiscountCurve:
-    dates = [date(ref.year + i, ref.month, ref.day) for i in range(1, 21)]
-    dfs = [math.exp(-rate * i) for i in range(1, 21)]
-    return DiscountCurve(reference_date=ref, dates=dates, dfs=dfs)
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
@@ -37,7 +30,7 @@ class TestPayerReceiverParity:
     """Payer - Receiver = PV of forward swap."""
 
     def test_atm_parity(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol = FlatVol(VOL)
         strike = 0.03
 
@@ -52,7 +45,7 @@ class TestPayerReceiverParity:
         assert diff == pytest.approx(expected_diff, abs=1.0)
 
     def test_otm_parity(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol = FlatVol(VOL)
         strike = 0.05  # OTM payer
 
@@ -72,7 +65,7 @@ class TestATMProperties:
 
     def test_atm_payer_equals_receiver(self):
         """At ATM, payer and receiver have the same price."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol = FlatVol(VOL)
 
         payer = Swaption(EXPIRY, SWAP_END, strike=0.03, swaption_type=SwaptionType.PAYER)
@@ -86,7 +79,7 @@ class TestATMProperties:
         assert pv_p == pytest.approx(pv_r, rel=0.01)
 
     def test_atm_price_positive(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol = FlatVol(VOL)
         payer = Swaption(EXPIRY, SWAP_END, strike=0.03)
         fwd = payer.forward_swap_rate(curve)
@@ -99,7 +92,7 @@ class TestGreeksBumpAndReprice:
 
     def test_vega_positive(self):
         """Bumping vol up increases swaption price."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         swn = Swaption(EXPIRY, SWAP_END, strike=0.03)
 
         pv_base = swn.pv(curve, FlatVol(VOL))
@@ -110,7 +103,7 @@ class TestGreeksBumpAndReprice:
 
     def test_vega_magnitude(self):
         """Vega should be material on a 1M notional swaption."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         swn = Swaption(EXPIRY, SWAP_END, strike=0.03)
 
         pv_base = swn.pv(curve, FlatVol(VOL))
@@ -121,8 +114,8 @@ class TestGreeksBumpAndReprice:
 
     def test_delta_via_rate_bump(self):
         """Bumping rates changes the swaption price."""
-        curve_base = _flat_curve(REF, RATE)
-        curve_up = _flat_curve(REF, RATE + 0.0001)  # +1bp
+        curve_base = make_flat_curve(REF, RATE)
+        curve_up = make_flat_curve(REF, RATE + 0.0001)  # +1bp
         vol = FlatVol(VOL)
 
         swn = Swaption(EXPIRY, SWAP_END, strike=0.03)
@@ -135,8 +128,8 @@ class TestGreeksBumpAndReprice:
 
     def test_receiver_delta_negative(self):
         """Receiver swaption loses value when rates rise."""
-        curve_base = _flat_curve(REF, RATE)
-        curve_up = _flat_curve(REF, RATE + 0.0001)
+        curve_base = make_flat_curve(REF, RATE)
+        curve_up = make_flat_curve(REF, RATE + 0.0001)
         vol = FlatVol(VOL)
 
         swn = Swaption(EXPIRY, SWAP_END, strike=0.03, swaption_type=SwaptionType.RECEIVER)
@@ -151,7 +144,7 @@ class TestPricingContextConsistency:
     """pv_ctx produces the same results as explicit parameters."""
 
     def test_single_curve_consistency(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol = FlatVol(VOL)
 
         swn = Swaption(EXPIRY, SWAP_END, strike=0.03)
@@ -168,8 +161,8 @@ class TestPricingContextConsistency:
         assert pv_ctx == pytest.approx(pv_explicit)
 
     def test_dual_curve_consistency(self):
-        disc = _flat_curve(REF, 0.025)
-        proj = _flat_curve(REF, 0.035)
+        disc = make_flat_curve(REF, 0.025)
+        proj = make_flat_curve(REF, 0.035)
         vol = FlatVol(VOL)
 
         swn = Swaption(EXPIRY, SWAP_END, strike=0.03)
@@ -191,7 +184,7 @@ class TestSwaptionVolSurfaceIntegration:
     """SwaptionVolSurface works with swaption pricing end-to-end."""
 
     def test_price_with_swaption_vol_surface(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol_surface = SwaptionVolSurface(
             reference_date=REF,
             expiries=[EXPIRY, date(2026, 1, 15)],
@@ -207,7 +200,7 @@ class TestSwaptionVolSurfaceIntegration:
         assert pv > 0
 
     def test_vol_surface_in_context(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         vol_surface = SwaptionVolSurface(
             reference_date=REF,
             expiries=[EXPIRY, date(2026, 1, 15)],
@@ -231,7 +224,7 @@ class TestSwaptionVolSurfaceIntegration:
 
     def test_different_vol_surface_different_price(self):
         """Two vol surfaces with different values produce different prices."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
 
         vol_low = SwaptionVolSurface(
             reference_date=REF,

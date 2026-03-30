@@ -18,20 +18,15 @@ from pricebook.equity_option import (
     equity_vega,
     equity_rho,
 )
-from pricebook.equity_forward import EquityForward, Dividend
+from pricebook.equity_forward import EquityForward
+from pricebook.dividend_model import Dividend
 from pricebook.dividend_model import (
     dividend_adjusted_forward,
     equity_option_discrete_divs,
 )
 from pricebook.mc_pricer import mc_european
-from pricebook.discount_curve import DiscountCurve
 from pricebook.black76 import OptionType
-
-
-def _flat_curve(ref: date, rate: float) -> DiscountCurve:
-    dates = [date(ref.year + i, ref.month, ref.day) for i in range(1, 11)]
-    dfs = [math.exp(-rate * i) for i in range(1, 11)]
-    return DiscountCurve(reference_date=ref, dates=dates, dfs=dfs)
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
@@ -50,7 +45,7 @@ class TestPutCallParityWithDividends:
 
     def test_discrete_parity(self):
         """C - P = df(T) * (F_adj - K) for discrete dividends."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         divs = [Dividend(date(2024, 7, 15), 2.0), Dividend(date(2024, 10, 15), 1.5)]
         K = 100.0
         c = equity_option_discrete_divs(SPOT, K, divs, curve, VOL, MATURITY, OptionType.CALL)
@@ -83,14 +78,14 @@ class TestMCvsAnalytical:
 class TestDividendAdjustedForwardRecovery:
     def test_forward_recovers_with_no_divs(self):
         """No dividends: adjusted forward = S / df(T)."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         fwd = dividend_adjusted_forward(SPOT, [], curve, MATURITY)
         expected = SPOT / curve.df(MATURITY)
         assert fwd == pytest.approx(expected, rel=1e-10)
 
     def test_forward_consistent_with_equity_forward(self):
         """dividend_model and equity_forward give the same answer."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         divs = [Dividend(date(2024, 7, 15), 2.0)]
 
         fwd_model = dividend_adjusted_forward(SPOT, divs, curve, MATURITY)

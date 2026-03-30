@@ -6,19 +6,7 @@ from datetime import date
 from pricebook.fixed_leg import FixedLeg, Cashflow
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-
-
-def _flat_curve(ref: date, rate: float = 0.05) -> DiscountCurve:
-    """Build a flat discount curve at the given continuously compounded rate."""
-    import math
-
-    tenors_years = [0.25, 0.5, 1.0, 2.0, 5.0, 10.0]
-    dates = [date(ref.year + int(t), ref.month, ref.day) if t >= 1
-             else date.fromordinal(ref.toordinal() + int(t * 365))
-             for t in tenors_years]
-    dfs = [math.exp(-rate * t) for t in tenors_years]
-    return DiscountCurve(ref, dates, dfs)
+from tests.conftest import make_flat_curve
 
 
 class TestCashflows:
@@ -90,7 +78,7 @@ class TestPresentValue:
     def test_pv_at_zero_rates(self):
         """With flat rates at 0, PV = sum of undiscounted cashflows."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.0)
+        curve = make_flat_curve(ref, rate=0.0)
         leg = FixedLeg(
             ref, date(2025, 1, 15),
             rate=0.05, frequency=Frequency.QUARTERLY,
@@ -103,7 +91,7 @@ class TestPresentValue:
 
     def test_pv_positive_for_positive_rate(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg = FixedLeg(
             ref, date(2025, 1, 15),
             rate=0.05, frequency=Frequency.QUARTERLY,
@@ -112,7 +100,7 @@ class TestPresentValue:
 
     def test_pv_increases_with_rate(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.03)
+        curve = make_flat_curve(ref, rate=0.03)
         leg_low = FixedLeg(ref, date(2025, 1, 15), rate=0.03, frequency=Frequency.QUARTERLY)
         leg_high = FixedLeg(ref, date(2025, 1, 15), rate=0.06, frequency=Frequency.QUARTERLY)
         assert leg_high.pv(curve) > leg_low.pv(curve)
@@ -120,8 +108,8 @@ class TestPresentValue:
     def test_pv_decreases_with_higher_discount_rate(self):
         ref = date(2024, 1, 15)
         leg = FixedLeg(ref, date(2025, 1, 15), rate=0.05, frequency=Frequency.QUARTERLY)
-        pv_low = leg.pv(_flat_curve(ref, rate=0.02))
-        pv_high = leg.pv(_flat_curve(ref, rate=0.10))
+        pv_low = leg.pv(make_flat_curve(ref, rate=0.02))
+        pv_high = leg.pv(make_flat_curve(ref, rate=0.10))
         assert pv_low > pv_high
 
 
@@ -130,7 +118,7 @@ class TestAnnuity:
 
     def test_annuity_times_rate_times_notional_equals_pv(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg = FixedLeg(
             ref, date(2025, 1, 15),
             rate=0.04, frequency=Frequency.QUARTERLY,
@@ -142,7 +130,7 @@ class TestAnnuity:
 
     def test_annuity_positive(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         leg = FixedLeg(ref, date(2027, 1, 15), rate=0.04, frequency=Frequency.SEMI_ANNUAL)
         assert leg.annuity(curve) > 0
 

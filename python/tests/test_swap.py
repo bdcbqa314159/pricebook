@@ -1,21 +1,12 @@
 """Tests for interest rate swap."""
 
-import math
 import pytest
 from datetime import date
 
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
-
-
-def _flat_curve(ref: date, rate: float = 0.05) -> DiscountCurve:
-    """Build a flat discount curve at the given continuously compounded rate."""
-    tenors_years = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors_years]
-    dfs = [math.exp(-rate * t) for t in tenors_years]
-    return DiscountCurve(ref, dates, dfs)
+from tests.conftest import make_flat_curve
 
 
 class TestParRate:
@@ -23,7 +14,7 @@ class TestParRate:
 
     def test_par_rate_zeroes_pv(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
 
         # First find the par rate
         swap_dummy = InterestRateSwap(
@@ -43,7 +34,7 @@ class TestParRate:
 
     def test_par_rate_positive(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(
             ref, date(2029, 1, 15), fixed_rate=0.0,
             fixed_frequency=Frequency.SEMI_ANNUAL,
@@ -54,7 +45,7 @@ class TestParRate:
     def test_par_rate_close_to_curve_rate(self):
         """On a flat curve the par rate should be close to the curve rate."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.04)
+        curve = make_flat_curve(ref, rate=0.04)
         swap = InterestRateSwap(
             ref, date(2029, 1, 15), fixed_rate=0.0,
             fixed_frequency=Frequency.SEMI_ANNUAL,
@@ -71,7 +62,7 @@ class TestDirection:
 
     def test_payer_and_receiver_opposite_sign(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         payer = InterestRateSwap(
             ref, date(2026, 1, 15), fixed_rate=0.04,
             direction=SwapDirection.PAYER,
@@ -85,7 +76,7 @@ class TestDirection:
     def test_payer_positive_when_fixed_below_market(self):
         """Pay a low fixed rate, receive floating at market — should be positive."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(
             ref, date(2026, 1, 15), fixed_rate=0.01,
             direction=SwapDirection.PAYER,
@@ -95,7 +86,7 @@ class TestDirection:
     def test_payer_negative_when_fixed_above_market(self):
         """Pay a high fixed rate, receive floating at market — should be negative."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(
             ref, date(2026, 1, 15), fixed_rate=0.10,
             direction=SwapDirection.PAYER,
@@ -108,7 +99,7 @@ class TestPV:
 
     def test_pv_scales_with_notional(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap1 = InterestRateSwap(
             ref, date(2026, 1, 15), fixed_rate=0.04, notional=1_000_000.0,
         )
@@ -119,7 +110,7 @@ class TestPV:
 
     def test_pv_at_par_rate_is_zero(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(
             ref, date(2029, 1, 15), fixed_rate=0.0,
         )
@@ -132,7 +123,7 @@ class TestPV:
     def test_longer_maturity_higher_sensitivity(self):
         """A 5Y swap should have more PV sensitivity than a 1Y swap for the same off-market rate."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap_1y = InterestRateSwap(ref, date(2025, 1, 15), fixed_rate=0.03)
         swap_5y = InterestRateSwap(ref, date(2029, 1, 15), fixed_rate=0.03)
         assert abs(swap_5y.pv(curve)) > abs(swap_1y.pv(curve))
@@ -143,7 +134,7 @@ class TestSpread:
 
     def test_spread_shifts_pv(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap_no_spread = InterestRateSwap(
             ref, date(2026, 1, 15), fixed_rate=0.05, spread=0.0,
         )
@@ -159,15 +150,15 @@ class TestDualCurve:
 
     def test_single_curve_equivalent(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=0.04)
         assert swap.pv(curve) == pytest.approx(swap.pv(curve, projection_curve=curve), rel=1e-10)
 
     def test_par_rate_dual_curve(self):
         """Par rate at dual-curve zeroes PV."""
         ref = date(2024, 1, 15)
-        discount = _flat_curve(ref, rate=0.03)
-        projection = _flat_curve(ref, rate=0.05)
+        discount = make_flat_curve(ref, rate=0.03)
+        projection = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=0.0)
         par = swap.par_rate(discount, projection_curve=projection)
         swap_par = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=par)
@@ -175,8 +166,8 @@ class TestDualCurve:
 
     def test_dual_curve_par_differs_from_single(self):
         ref = date(2024, 1, 15)
-        discount = _flat_curve(ref, rate=0.03)
-        projection = _flat_curve(ref, rate=0.05)
+        discount = make_flat_curve(ref, rate=0.03)
+        projection = make_flat_curve(ref, rate=0.05)
         swap = InterestRateSwap(ref, date(2026, 1, 15), fixed_rate=0.0)
         par_single = swap.par_rate(discount)
         par_dual = swap.par_rate(discount, projection_curve=projection)

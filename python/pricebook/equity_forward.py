@@ -15,18 +15,10 @@ from __future__ import annotations
 
 import math
 from datetime import date
-from dataclasses import dataclass
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-
-
-@dataclass
-class Dividend:
-    """A single discrete dividend payment."""
-
-    ex_date: date
-    amount: float
+from pricebook.dividend_model import Dividend, pv_dividends
 
 
 class EquityForward:
@@ -85,15 +77,8 @@ class EquityForward:
         where PV(divs) uses the discount curve, and r is implied from
         the curve's discount factor to maturity.
         """
-        pv_divs = sum(
-            d.amount * curve.df(d.ex_date)
-            for d in self.dividends
-            if d.ex_date <= self.maturity
-        )
-
-        df_T = curve.df(self.maturity)
-        adjusted_spot = self.spot - pv_divs
-        return adjusted_spot / df_T
+        pv_divs = pv_dividends(self.dividends, curve, self.maturity)
+        return (self.spot - pv_divs) / curve.df(self.maturity)
 
     def pv(
         self,

@@ -1,34 +1,26 @@
 """Tests for fixed-rate bond."""
 
-import math
 import pytest
 from datetime import date
 
 from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
-
-
-def _flat_curve(ref: date, rate: float = 0.05) -> DiscountCurve:
-    tenors_years = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors_years]
-    dfs = [math.exp(-rate * t) for t in tenors_years]
-    return DiscountCurve(ref, dates, dfs)
+from tests.conftest import make_flat_curve
 
 
 class TestDirtyPrice:
 
     def test_par_bond_prices_near_100(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
         dp = bond.dirty_price(curve)
         assert 95.0 < dp < 105.0
 
     def test_zero_coupon_dirty_price(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.0)
         dp = bond.dirty_price(curve)
         expected = curve.df(date(2029, 1, 15)) * 100.0
@@ -36,7 +28,7 @@ class TestDirtyPrice:
 
     def test_higher_coupon_higher_price(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond_low = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.03)
         bond_high = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.07)
         assert bond_high.dirty_price(curve) > bond_low.dirty_price(curve)
@@ -44,8 +36,8 @@ class TestDirtyPrice:
     def test_higher_yield_lower_price(self):
         ref = date(2024, 1, 15)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
-        dp_low = bond.dirty_price(_flat_curve(ref, rate=0.03))
-        dp_high = bond.dirty_price(_flat_curve(ref, rate=0.08))
+        dp_low = bond.dirty_price(make_flat_curve(ref, rate=0.03))
+        dp_high = bond.dirty_price(make_flat_curve(ref, rate=0.08))
         assert dp_low > dp_high
 
 
@@ -75,13 +67,13 @@ class TestCleanPrice:
 
     def test_clean_equals_dirty_at_coupon_date(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
         assert bond.clean_price(curve) == pytest.approx(bond.dirty_price(curve), rel=1e-6)
 
     def test_clean_less_than_dirty_mid_period(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
         settlement = date(2024, 4, 15)
         clean = bond.clean_price(curve, settlement)
@@ -90,7 +82,7 @@ class TestCleanPrice:
 
     def test_clean_price_default_settlement(self):
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.05)
         assert bond.clean_price(curve) == bond.clean_price(curve, ref)
 
@@ -100,7 +92,7 @@ class TestYieldToMaturity:
     def test_ytm_round_trip(self):
         """Compute price from curve, then recover YTM, then price from YTM."""
         ref = date(2024, 1, 15)
-        curve = _flat_curve(ref, rate=0.05)
+        curve = make_flat_curve(ref, rate=0.05)
         bond = FixedRateBond(ref, date(2029, 1, 15), coupon_rate=0.04)
         dp = bond.dirty_price(curve)
         ytm = bond.yield_to_maturity(dp)

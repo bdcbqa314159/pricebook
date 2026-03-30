@@ -16,11 +16,19 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from dataclasses import dataclass
 
-from pricebook.equity_forward import Dividend
 from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.black76 import OptionType, black76_price
+
+
+@dataclass
+class Dividend:
+    """A single discrete dividend payment."""
+
+    ex_date: date
+    amount: float
 
 
 def pv_dividends(
@@ -70,14 +78,9 @@ def piecewise_forward(
     Returns:
         List of forward prices, one per date.
     """
-    sorted_divs = sorted(dividends, key=lambda d: d.ex_date)
     result = []
     for d in dates:
-        pv_divs = sum(
-            div.amount * curve.df(div.ex_date)
-            for div in sorted_divs
-            if div.ex_date <= d
-        )
+        pv_divs = pv_dividends(dividends, curve, d)
         df_d = curve.df(d)
         result.append((spot - pv_divs) / df_d)
     return result

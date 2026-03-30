@@ -4,14 +4,9 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.equity_forward import EquityForward, Dividend
-from pricebook.discount_curve import DiscountCurve
-
-
-def _flat_curve(ref: date, rate: float) -> DiscountCurve:
-    dates = [date(ref.year + i, ref.month, ref.day) for i in range(1, 11)]
-    dfs = [math.exp(-rate * i) for i in range(1, 11)]
-    return DiscountCurve(reference_date=ref, dates=dates, dfs=dfs)
+from pricebook.equity_forward import EquityForward
+from pricebook.dividend_model import Dividend
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
@@ -60,14 +55,14 @@ class TestContinuousForward:
 class TestDiscreteForward:
     def test_no_dividends(self):
         """With no dividends, discrete forward = S / df(T)."""
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         fwd = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE)
         f = fwd.forward_discrete(curve)
         expected = SPOT / curve.df(MATURITY)
         assert f == pytest.approx(expected, rel=1e-10)
 
     def test_single_dividend(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         divs = [Dividend(ex_date=date(2024, 7, 15), amount=2.0)]
         fwd = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE, dividends=divs)
         f = fwd.forward_discrete(curve)
@@ -77,7 +72,7 @@ class TestDiscreteForward:
         assert f == pytest.approx(expected, rel=1e-10)
 
     def test_dividend_reduces_forward(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         fwd_no_div = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE)
         fwd_with_div = EquityForward(
             spot=SPOT, maturity=MATURITY, rate=RATE,
@@ -86,7 +81,7 @@ class TestDiscreteForward:
         assert fwd_with_div.forward_discrete(curve) < fwd_no_div.forward_discrete(curve)
 
     def test_dividend_after_maturity_ignored(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         divs = [Dividend(ex_date=date(2026, 1, 15), amount=5.0)]  # after maturity
         fwd = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE, dividends=divs)
         f = fwd.forward_discrete(curve)
@@ -94,7 +89,7 @@ class TestDiscreteForward:
         assert f == pytest.approx(expected, rel=1e-10)
 
     def test_multiple_dividends(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         divs = [
             Dividend(date(2024, 4, 15), 1.0),
             Dividend(date(2024, 7, 15), 1.0),
@@ -110,14 +105,14 @@ class TestDiscreteForward:
 
 class TestPV:
     def test_pv_at_forward_strike_is_zero(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         fwd = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE)
         strike = fwd.forward_continuous(valuation_date=REF)
         pv = fwd.pv(strike, curve)
         assert pv == pytest.approx(0.0, abs=0.01)
 
     def test_pv_with_dividends(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         divs = [Dividend(date(2024, 7, 15), 2.0)]
         fwd = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE, dividends=divs)
         f = fwd.forward_discrete(curve)
@@ -125,7 +120,7 @@ class TestPV:
         assert pv == pytest.approx(0.0, abs=0.01)
 
     def test_pv_positive_when_forward_above_strike(self):
-        curve = _flat_curve(REF, RATE)
+        curve = make_flat_curve(REF, RATE)
         fwd = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE)
         pv = fwd.pv(90.0, curve)  # strike well below forward
         assert pv > 0

@@ -3,7 +3,6 @@
 Put-call parity, cap-floor parity, Greeks consistency, ATM properties.
 """
 
-import math
 import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
@@ -13,18 +12,11 @@ from pricebook.black76 import (
 )
 from pricebook.capfloor import CapFloor
 from pricebook.vol_surface import FlatVol, VolTermStructure
-from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
+from tests.conftest import make_flat_curve
 
 
 REF = date(2024, 1, 15)
-
-
-def _flat_curve(ref: date, rate: float = 0.05) -> DiscountCurve:
-    tenors = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0]
-    dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors]
-    dfs = [math.exp(-rate * t) for t in tenors]
-    return DiscountCurve(ref, dates, dfs)
 
 
 class TestPutCallParity:
@@ -46,7 +38,7 @@ class TestCapFloorWithVolTermStructure:
     """Cap/floor prices with a term structure of vol."""
 
     def test_cap_with_vol_term_structure(self):
-        curve = _flat_curve(REF, rate=0.05)
+        curve = make_flat_curve(REF, rate=0.05)
         expiries = [
             REF + relativedelta(months=3),
             REF + relativedelta(years=1),
@@ -61,7 +53,7 @@ class TestCapFloorWithVolTermStructure:
 
     def test_term_structure_vs_flat_differs(self):
         """Cap with vol term structure differs from flat vol."""
-        curve = _flat_curve(REF, rate=0.05)
+        curve = make_flat_curve(REF, rate=0.05)
         flat = FlatVol(0.20)
         expiries = [
             REF + relativedelta(months=3),
@@ -106,7 +98,7 @@ class TestGreeksConsistency:
 
     def test_cap_vega_positive(self):
         """Cap vega (bump vol, reprice) should be positive."""
-        curve = _flat_curve(REF, rate=0.05)
+        curve = make_flat_curve(REF, rate=0.05)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
         pv_low = cap.pv(curve, FlatVol(0.19))
         pv_high = cap.pv(curve, FlatVol(0.21))
@@ -117,7 +109,7 @@ class TestGreeksConsistency:
         """Bumping the curve (rates up) should change cap PV."""
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
         vol = FlatVol(0.20)
-        pv_base = cap.pv(_flat_curve(REF, rate=0.05), vol)
-        pv_up = cap.pv(_flat_curve(REF, rate=0.0501), vol)
+        pv_base = cap.pv(make_flat_curve(REF, rate=0.05), vol)
+        pv_up = cap.pv(make_flat_curve(REF, rate=0.0501), vol)
         # Rates up -> forward rates up -> cap more valuable
         assert pv_up > pv_base
