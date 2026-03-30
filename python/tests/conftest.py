@@ -3,7 +3,10 @@
 import math
 from datetime import date
 
+from dateutil.relativedelta import relativedelta
+
 from pricebook.discount_curve import DiscountCurve
+from pricebook.survival_curve import SurvivalCurve
 
 
 def make_flat_curve(ref: date, rate: float) -> DiscountCurve:
@@ -12,3 +15,11 @@ def make_flat_curve(ref: date, rate: float) -> DiscountCurve:
     dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors_years]
     dfs = [math.exp(-rate * t) for t in tenors_years]
     return DiscountCurve(ref, dates, dfs)
+
+
+def make_flat_survival(ref: date, hazard: float) -> SurvivalCurve:
+    """Build a flat survival curve at the given constant hazard rate."""
+    tenors = [1, 2, 3, 5, 7, 10]
+    dates = [ref + relativedelta(years=t) for t in tenors]
+    survs = [math.exp(-hazard * t) for t in tenors]
+    return SurvivalCurve(ref, dates, survs)

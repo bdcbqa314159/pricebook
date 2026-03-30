@@ -42,7 +42,6 @@ def geometric_asian_analytical(
 
     Uses discrete monitoring at n_steps equally spaced points.
     """
-    dt = T / n_steps
     n = n_steps
 
     # Adjusted vol for geometric average

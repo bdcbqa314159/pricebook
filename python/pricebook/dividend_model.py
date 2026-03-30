@@ -14,7 +14,6 @@ Piecewise forward: construct F(t) with jumps at each ex-date.
 
 from __future__ import annotations
 
-import math
 from datetime import date
 from dataclasses import dataclass
 
