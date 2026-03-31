@@ -2,6 +2,19 @@
 
 ---
 
+## v0.21.0 — 2026-03-31
+
+SABR and Heston stochastic volatility models.
+
+- SABR: Hagan (2002) approximation for implied vol, pricing via Black-76, calibration via Nelder-Mead
+- SABR smile properties: skew from rho, convexity from nu, beta=1 lognormal limit
+- Heston: semi-analytical pricing via characteristic function (P1/P2 decomposition)
+- Heston calibration via differential evolution (global optimizer)
+- Round-trip validated: SABR calibrate→reprice, Heston zero xi→BS, put-call parity, rho/vol effects
+- 930 tests, 95% coverage
+
+---
+
 ## v0.20.0 — 2026-03-31
 
 Barrier options via finite difference PDE.
