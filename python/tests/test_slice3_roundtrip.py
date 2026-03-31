@@ -71,14 +71,13 @@ class TestAnalyticalVsBumpRisk:
     def test_yield_dv01_matches_curve_dv01(self):
         """Analytical yield DV01 should be close to curve parallel DV01."""
         curve = bootstrap(REF, DEPOSITS, SWAPS)
-        dfs = [curve.df(d) for d in PILLAR_DATES]
         bond = FixedRateBond(REF, REF + relativedelta(years=5), coupon_rate=0.045)
 
         dirty = bond.dirty_price(curve)
         ytm = bond.yield_to_maturity(dirty)
 
         yield_dv01 = bond.dv01_yield(ytm)
-        curve_dv01 = abs(dv01_curve(lambda c: bond.dirty_price(c), curve, PILLAR_DATES, dfs))
+        curve_dv01 = abs(dv01_curve(lambda c: bond.dirty_price(c), curve))
 
         # These won't be identical (yield shift vs parallel zero rate shift)
         # but should be in the same order of magnitude
@@ -107,12 +106,11 @@ class TestKeyRateRoundTrip:
 
     def test_key_rates_sum_to_parallel(self):
         curve = bootstrap(REF, DEPOSITS, SWAPS)
-        dfs = [curve.df(d) for d in PILLAR_DATES]
         bond = FixedRateBond(REF, REF + relativedelta(years=5), coupon_rate=0.045)
         pricer = lambda c: bond.dirty_price(c)
 
-        krd = key_rate_durations(pricer, curve, PILLAR_DATES, dfs)
-        par_dv01 = dv01_curve(pricer, curve, PILLAR_DATES, dfs)
+        krd = key_rate_durations(pricer, curve)
+        par_dv01 = dv01_curve(pricer, curve)
 
         krd_sum = sum(d for _, d in krd)
         assert krd_sum == pytest.approx(par_dv01, rel=0.05)
@@ -120,10 +118,9 @@ class TestKeyRateRoundTrip:
     def test_short_bond_insensitive_to_long_pillars(self):
         """A 1Y bond should have negligible sensitivity to the 5Y pillar."""
         curve = bootstrap(REF, DEPOSITS, SWAPS)
-        dfs = [curve.df(d) for d in PILLAR_DATES]
         bond = FixedRateBond(REF, REF + relativedelta(years=1), coupon_rate=0.05)
 
-        krd = key_rate_durations(lambda c: bond.dirty_price(c), curve, PILLAR_DATES, dfs)
+        krd = key_rate_durations(lambda c: bond.dirty_price(c), curve)
 
         five_year = REF + relativedelta(years=5)
         for d, delta in krd:

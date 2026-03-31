@@ -57,6 +57,45 @@ class DiscountCurve:
             interpolation, self._times, self._dfs
         )
 
+    @property
+    def pillar_times(self) -> np.ndarray:
+        """Year fractions of all pillars (including t=0)."""
+        return self._times
+
+    @property
+    def pillar_dfs(self) -> np.ndarray:
+        """Discount factors at all pillars (including df=1 at t=0)."""
+        return self._dfs
+
+    @property
+    def pillar_dates(self) -> list[date]:
+        """Pillar dates (excluding the t=0 point)."""
+        return [
+            date.fromordinal(self.reference_date.toordinal() + int(t * 365))
+            for t in self._times if t > 0
+        ]
+
+    def bumped(self, shift: float) -> "DiscountCurve":
+        """New curve with all zero rates shifted by `shift` (e.g. 0.0001 = +1bp)."""
+        new_dfs = []
+        for t, df_val in zip(self._times, self._dfs):
+            if t > 0:
+                new_dfs.append(float(df_val * math.exp(-shift * t)))
+        return DiscountCurve(
+            self.reference_date, self.pillar_dates, new_dfs,
+            self.day_count,
+        )
+
+    def bumped_at(self, pillar_idx: int, shift: float) -> "DiscountCurve":
+        """New curve with one pillar's zero rate shifted by `shift`."""
+        pillar_t = [t for t in self._times if t > 0]
+        pillar_df = [float(df) for t, df in zip(self._times, self._dfs) if t > 0]
+        pillar_df[pillar_idx] = pillar_df[pillar_idx] * math.exp(-shift * pillar_t[pillar_idx])
+        return DiscountCurve(
+            self.reference_date, self.pillar_dates, pillar_df,
+            self.day_count,
+        )
+
     def _time(self, d: date) -> float:
         """Year fraction from reference date to d. Negative if d < reference."""
         if d <= self.reference_date:
