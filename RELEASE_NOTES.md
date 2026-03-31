@@ -2,6 +2,24 @@
 
 ---
 
+## v0.18.0 — 2026-03-31
+
+Extended solvers and numerical integration.
+
+- Newton-Raphson: quadratic convergence with analytical derivative
+- Secant method: superlinear without derivative
+- Halley: cubic convergence with f, f', f''
+- ITP (Interpolate-Truncate-Project): optimal worst-case bracketing
+- SolverResult dataclass: root, iterations, converged, function_value
+- Gauss-Legendre quadrature: exact for polynomials of degree ≤ 2n-1
+- Gauss-Laguerre: semi-infinite integrals [0, ∞)
+- Gauss-Hermite: Gaussian-weighted integrals (-∞, ∞)
+- Adaptive Simpson: automatic refinement with error control
+- Round-trip: all solvers agree on roots, quadrature reproduces Black-Scholes via risk-neutral integral
+- 860 tests, 95% coverage
+
+---
+
 ## v0.17.0 — 2026-03-31
 
 Trade object, portfolio, and scenario risk engine — architectural capstone.
