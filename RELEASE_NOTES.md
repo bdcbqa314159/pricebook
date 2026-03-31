@@ -2,6 +2,20 @@
 
 ---
 
+## v0.17.0 — 2026-03-31
+
+Trade object, portfolio, and scenario risk engine — architectural capstone.
+
+- Trade: wraps any instrument with direction (+1/-1), notional scaling, counterparty metadata
+- Portfolio: aggregate PV, PV-by-trade breakdown
+- Scenario engine: named perturbations applied to PricingContext
+- Standard scenarios: parallel rate shift, pillar bump (DV01 ladder), vol bump, FX spot shock
+- ScenarioResult: base PV, scenario PV, P&L
+- Round-trip validated: zero shift = zero PnL, up/down opposite sign, linear PnL approximation, DV01 ladder non-zero, vol sensitivity correct sign
+- 824 tests, 95% coverage
+
+---
+
 ## v0.16.0 — 2026-03-31
 
 Inflation — new asset class with CPI curve, swaps, and linkers.
