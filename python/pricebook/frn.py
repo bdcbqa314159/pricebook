@@ -132,7 +132,7 @@ class FloatingRateNote:
                 self.start, self.end,
                 spread=self.spread + dm,
                 notional=self.notional,
-                frequency=self.floating_leg.cashflows[0].year_frac and Frequency.QUARTERLY,
+                frequency=self.floating_leg.frequency,
             )
             return shifted.dirty_price(curve, projection_curve) - market_price
 

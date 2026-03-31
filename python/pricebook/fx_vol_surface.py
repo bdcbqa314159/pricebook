@@ -24,6 +24,7 @@ Then convert delta → strike using strike_from_delta, and build a VolSmile.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 
@@ -94,7 +95,7 @@ class FXVolSurface:
 
             # ATM-DNS strike: where straddle delta = 0
             # Approximate: ATM strike ≈ forward * exp(0.5 * vol^2 * T)
-            k_atm = fwd * __import__("math").exp(0.5 * q.atm**2 * T)
+            k_atm = fwd * math.exp(0.5 * q.atm**2 * T)
 
             k_25c = strike_from_delta(
                 spot, 0.25, r_d, r_f, vol_25c, T,

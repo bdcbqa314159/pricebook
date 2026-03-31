@@ -14,7 +14,7 @@ A Portfolio aggregates trades with a single PV call.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 from pricebook.pricing_context import PricingContext

@@ -13,7 +13,6 @@ Standard scenarios: parallel shift, point bump (DV01 ladder), vol bump.
 from __future__ import annotations
 
 import math
-import copy
 from dataclasses import dataclass
 from datetime import date
 

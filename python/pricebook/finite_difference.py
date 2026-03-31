@@ -103,6 +103,15 @@ def fd_european(
     b_coef = (-2 * alpha / dx**2 - rate)
     c_coef = (alpha / dx**2 + beta / (2 * dx))
 
+    # Pre-allocate tridiagonal arrays (copied per step since Thomas modifies them)
+    cn_theta = 0.5
+    imp_a = np.full(n_int, -dt * a_coef)
+    imp_b = np.full(n_int, 1 - dt * b_coef)
+    imp_c = np.full(n_int, -dt * c_coef)
+    cn_a = np.full(n_int, -(1 - cn_theta) * dt * a_coef)
+    cn_b = np.full(n_int, 1 - (1 - cn_theta) * dt * b_coef)
+    cn_c = np.full(n_int, -(1 - cn_theta) * dt * c_coef)
+
     for _ in range(n_time):
         # Boundary conditions at each time step
         tau = T - _ * dt  # remaining time (approximate)
@@ -115,46 +124,24 @@ def fd_european(
 
         if scheme == FDScheme.EXPLICIT:
             V_new = V.copy()
-            for j in range(1, n_spot):
-                V_new[j] = V[j] + dt * (
-                    a_coef * V[j - 1] + b_coef * V[j] + c_coef * V[j + 1]
-                )
+            V_new[1:n_spot] = V[1:n_spot] + dt * (
+                a_coef * V[0:n_spot - 1] + b_coef * V[1:n_spot] + c_coef * V[2:n_spot + 1]
+            )
             V = V_new
 
         elif scheme == FDScheme.IMPLICIT:
-            # (I - dt*A) * V_new = V_old
-            a_arr = np.full(n_int, -dt * a_coef)
-            b_arr = np.full(n_int, 1 - dt * b_coef)
-            c_arr = np.full(n_int, -dt * c_coef)
             d_arr = V[1:n_spot].copy()
-
-            # Boundary adjustments
             d_arr[0] += dt * a_coef * V[0]
             d_arr[-1] += dt * c_coef * V[-1]
-
-            V[1:n_spot] = _thomas(a_arr, b_arr, c_arr, d_arr)
+            V[1:n_spot] = _thomas(imp_a.copy(), imp_b.copy(), imp_c.copy(), d_arr)
 
         else:  # Crank-Nicolson
-            theta = 0.5  # CN = average of explicit and implicit
-
-            # Explicit part: rhs = (I + theta*dt*A) * V_old
-            rhs = V[1:n_spot].copy()
-            for j in range(n_int):
-                jj = j + 1  # index in full grid
-                rhs[j] = V[jj] + theta * dt * (
-                    a_coef * V[jj - 1] + b_coef * V[jj] + c_coef * V[jj + 1]
-                )
-
-            # Boundary adjustments for RHS
-            rhs[0] += (1 - theta) * dt * a_coef * V[0]
-            rhs[-1] += (1 - theta) * dt * c_coef * V[-1]
-
-            # Implicit part: (I - (1-theta)*dt*A) * V_new = rhs
-            a_arr = np.full(n_int, -(1 - theta) * dt * a_coef)
-            b_arr = np.full(n_int, 1 - (1 - theta) * dt * b_coef)
-            c_arr = np.full(n_int, -(1 - theta) * dt * c_coef)
-
-            V[1:n_spot] = _thomas(a_arr, b_arr, c_arr, rhs)
+            rhs = V[1:n_spot] + cn_theta * dt * (
+                a_coef * V[0:n_spot - 1] + b_coef * V[1:n_spot] + c_coef * V[2:n_spot + 1]
+            )
+            rhs[0] += (1 - cn_theta) * dt * a_coef * V[0]
+            rhs[-1] += (1 - cn_theta) * dt * c_coef * V[-1]
+            V[1:n_spot] = _thomas(cn_a.copy(), cn_b.copy(), cn_c.copy(), rhs)
 
     # Interpolate at spot
     idx = np.searchsorted(x, x0) - 1
@@ -202,7 +189,11 @@ def fd_american(
     c_coef = (alpha / dx**2 + beta / (2 * dx))
 
     n_int = n_spot - 1
-    theta = 0.5  # Crank-Nicolson
+    theta = 0.5
+
+    cn_a = np.full(n_int, -(1 - theta) * dt * a_coef)
+    cn_b = np.full(n_int, 1 - (1 - theta) * dt * b_coef)
+    cn_c = np.full(n_int, -(1 - theta) * dt * c_coef)
 
     for step in range(n_time):
         tau = T - step * dt
@@ -213,20 +204,13 @@ def fd_american(
             V[-1] = 0.0
             V[0] = strike * math.exp(-rate * max(tau - dt, 0)) - S[0]
 
-        rhs = V[1:n_spot].copy()
-        for j in range(n_int):
-            jj = j + 1
-            rhs[j] = V[jj] + theta * dt * (
-                a_coef * V[jj - 1] + b_coef * V[jj] + c_coef * V[jj + 1]
-            )
+        rhs = V[1:n_spot] + theta * dt * (
+            a_coef * V[0:n_spot - 1] + b_coef * V[1:n_spot] + c_coef * V[2:n_spot + 1]
+        )
         rhs[0] += (1 - theta) * dt * a_coef * V[0]
         rhs[-1] += (1 - theta) * dt * c_coef * V[-1]
 
-        a_arr = np.full(n_int, -(1 - theta) * dt * a_coef)
-        b_arr = np.full(n_int, 1 - (1 - theta) * dt * b_coef)
-        c_arr = np.full(n_int, -(1 - theta) * dt * c_coef)
-
-        V[1:n_spot] = _thomas(a_arr, b_arr, c_arr, rhs)
+        V[1:n_spot] = _thomas(cn_a.copy(), cn_b.copy(), cn_c.copy(), rhs)
 
         # Early exercise
         V[1:n_spot] = np.maximum(V[1:n_spot], payoff[1:n_spot])

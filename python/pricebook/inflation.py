@@ -18,15 +18,13 @@ from __future__ import annotations
 
 import math
 from datetime import date
-from dataclasses import dataclass
 
 import numpy as np
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.interpolation import InterpolationMethod, create_interpolator
-from pricebook.schedule import Frequency, StubType, generate_schedule
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.schedule import Frequency, generate_schedule
 from pricebook.solvers import brentq
 
 
