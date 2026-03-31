@@ -2,6 +2,20 @@
 
 ---
 
+## v0.13.0 — 2026-03-31
+
+FX vanilla options with delta conventions and market vol surface.
+
+- FX option pricing: Garman-Kohlhagen via Black-76, put-call parity verified
+- Delta conventions: spot delta, forward delta, premium-adjusted delta
+- Strike-from-delta: inverse mapping for all three conventions, round-trip tested
+- FX vol surface: ATM/RR25/BF25 market quotes → 3-point smile → interpolated surface
+- FXVolSurface: multi-expiry with per-expiry smiles, compatible with vol(expiry, strike) interface
+- Round-trip validated: ATM-DNS zero straddle delta, RR/BF recovery, synthetic forward = CIP, all delta conventions round-trip
+- 742 tests, 95% coverage
+
+---
+
 ## v0.12.0 — 2026-03-30
 
 CRR binomial tree for European and American options.
