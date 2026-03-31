@@ -2,6 +2,19 @@
 
 ---
 
+## v0.22.0 — 2026-03-31
+
+Advanced Monte Carlo: LSM American pricing, stratified/importance sampling, MLMC.
+
+- Longstaff-Schwartz: American/Bermudan via polynomial regression on continuation value, matches binomial tree within 3%
+- Stratified sampling: lower variance than plain MC, better uniform coverage
+- Importance sampling: drift shift for OTM options, likelihood ratio correction
+- Multi-level Monte Carlo: telescoping estimator with coarse/fine path coupling
+- All techniques agree on European prices, cross-validated against Black-Scholes
+- 952 tests, 95% coverage
+
+---
+
 ## v0.21.0 — 2026-03-31
 
 SABR and Heston stochastic volatility models.
