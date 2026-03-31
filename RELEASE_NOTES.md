@@ -2,6 +2,19 @@
 
 ---
 
+## v0.15.0 — 2026-03-31
+
+Finite difference PDE solver for European and American options.
+
+- Three schemes: explicit (conditionally stable), implicit (unconditionally stable, 1st order), Crank-Nicolson (unconditionally stable, 2nd order)
+- Thomas algorithm for tridiagonal systems
+- Log-spot grid with configurable range and resolution
+- American options via CN with early exercise check at each step
+- Round-trip validated: CN matches Black-Scholes (<0.5%), American FD matches binomial tree (<1%), put-call parity, CN more accurate than implicit
+- 784 tests, 95% coverage
+
+---
+
 ## v0.14.0 — 2026-03-31
 
 Floating-rate notes and basis swaps — completing the IR product suite.
