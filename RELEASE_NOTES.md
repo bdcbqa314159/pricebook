@@ -2,6 +2,20 @@
 
 ---
 
+## v0.16.0 — 2026-03-31
+
+Inflation — new asset class with CPI curve, swaps, and linkers.
+
+- CPI curve: forward CPI index levels, breakeven rates, log-linear interpolation, from_breakevens factory
+- Zero-coupon inflation swap: PV and par rate, receiver-inflation convention
+- Year-on-year inflation swap: periodic CPI ratio payments
+- Inflation-linked bond: indexed coupons + principal, dirty price, real yield via Brent
+- CPI curve bootstrap: strip from ZC swap rates, reprices all inputs
+- Round-trip validated: ZC swap at par, breakeven ≈ par rate, bootstrap repricing, linker real yield
+- 801 tests, 95% coverage
+
+---
+
 ## v0.15.0 — 2026-03-31
 
 Finite difference PDE solver for European and American options.
