@@ -2,6 +2,21 @@
 
 ---
 
+## v0.19.0 — 2026-03-31
+
+Trinomial trees, Hull-White short-rate model, and rate tree pricing.
+
+- Trinomial tree: Kamrad-Ritchren parameterisation, European + American options
+- Faster convergence than CRR binomial verified
+- Hull-White one-factor model: analytical ZCB pricing P(t,T) = A(t,T)*exp(-B(t,T)*r)
+- Trinomial rate tree calibrated to initial discount curve via alpha fitting
+- Tree reprices input ZCBs within 2% (calibration validation)
+- European swaption pricing on the rate tree
+- Higher vol → higher swaption (vega positive) confirmed
+- 891 tests, 95% coverage
+
+---
+
 ## v0.18.0 — 2026-03-31
 
 Extended solvers and numerical integration.
