@@ -2,6 +2,18 @@
 
 ---
 
+## v0.14.0 — 2026-03-31
+
+Floating-rate notes and basis swaps — completing the IR product suite.
+
+- FloatingRateNote: dirty/clean price, accrued interest, discount margin via Brent solver
+- BasisSwap: float-vs-float with dual projection curves, par spread computation
+- FRN at par validation: zero spread on own curve = 100 (flat and steep curves)
+- Round-trip validated: DM recovery, spread DV01, basis swap par repricing
+- 770 tests, 95% coverage
+
+---
+
 ## v0.13.0 — 2026-03-31
 
 FX vanilla options with delta conventions and market vol surface.
