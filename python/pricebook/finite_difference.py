@@ -217,3 +217,89 @@ def fd_american(
         g.V[1:g.n_spot] = np.maximum(g.V[1:g.n_spot], payoff[1:g.n_spot])
 
     return _interpolate_at_spot(g)
+
+
+# ---------------------------------------------------------------------------
+# Barrier options
+# ---------------------------------------------------------------------------
+
+def _apply_barrier(g: _FDGrid, lower: float | None, upper: float | None) -> None:
+    """Zero out grid values at barrier levels."""
+    if lower is not None:
+        g.V[g.S <= lower] = 0.0
+    if upper is not None:
+        g.V[g.S >= upper] = 0.0
+
+
+def fd_barrier_knockout(
+    spot: float,
+    strike: float,
+    rate: float,
+    vol: float,
+    T: float,
+    option_type: OptionType = OptionType.CALL,
+    div_yield: float = 0.0,
+    barrier_lower: float | None = None,
+    barrier_upper: float | None = None,
+    n_spot: int = 400,
+    n_time: int = 400,
+    spot_range: float = 4.0,
+    rannacher_steps: int = 0,
+) -> float:
+    """Knock-out barrier option via Crank-Nicolson.
+
+    Value = 0 if spot touches the barrier. Supports:
+    - Down-and-out: barrier_lower set
+    - Up-and-out: barrier_upper set
+    - Double knock-out: both set
+
+    Args:
+        rannacher_steps: number of initial fully-implicit steps for smoothing.
+    """
+    g = _build_grid(spot, strike, rate, vol, T, option_type, div_yield,
+                    n_spot, n_time, spot_range)
+
+    _apply_barrier(g, barrier_lower, barrier_upper)
+
+    if rannacher_steps > 0:
+        imp_a = np.full(g.n_int, -g.dt * g.a_coef)
+        imp_b = np.full(g.n_int, 1 - g.dt * g.b_coef)
+        imp_c = np.full(g.n_int, -g.dt * g.c_coef)
+
+    for step in range(g.n_time):
+        tau = T - step * g.dt - g.dt
+        _apply_boundary(g, tau)
+
+        if rannacher_steps > 0 and step < rannacher_steps:
+            d_arr = g.V[1:g.n_spot].copy()
+            d_arr[0] += g.dt * g.a_coef * g.V[0]
+            d_arr[-1] += g.dt * g.c_coef * g.V[-1]
+            g.V[1:g.n_spot] = _thomas(imp_a.copy(), imp_b.copy(), imp_c.copy(), d_arr)
+        else:
+            _cn_step(g)
+
+        _apply_barrier(g, barrier_lower, barrier_upper)
+
+    return _interpolate_at_spot(g)
+
+
+def fd_barrier_knockin(
+    spot: float,
+    strike: float,
+    rate: float,
+    vol: float,
+    T: float,
+    option_type: OptionType = OptionType.CALL,
+    div_yield: float = 0.0,
+    barrier_lower: float | None = None,
+    barrier_upper: float | None = None,
+    n_spot: int = 400,
+    n_time: int = 400,
+    spot_range: float = 4.0,
+) -> float:
+    """Knock-in barrier option via in-out parity: knock-in = vanilla - knock-out."""
+    vanilla = fd_european(spot, strike, rate, vol, T, option_type, div_yield,
+                          n_spot, n_time, spot_range, scheme="cn")
+    knockout = fd_barrier_knockout(spot, strike, rate, vol, T, option_type, div_yield,
+                                   barrier_lower, barrier_upper, n_spot, n_time, spot_range)
+    return vanilla - knockout
