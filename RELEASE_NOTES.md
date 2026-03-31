@@ -2,6 +2,18 @@
 
 ---
 
+## v0.20.0 — 2026-03-31
+
+Barrier options via finite difference PDE.
+
+- Knock-out barriers: down-and-out, up-and-out, double knock-out
+- Knock-in via in-out parity: knock-in = vanilla - knock-out
+- Rannacher smoothing: initial implicit steps for stable Greeks near barrier
+- Round-trip validated: in-out parity, barrier monotonicity, far barrier ≈ vanilla, double ≤ single
+- 904 tests, 95% coverage
+
+---
+
 ## v0.19.0 — 2026-03-31
 
 Trinomial trees, Hull-White short-rate model, and rate tree pricing.
