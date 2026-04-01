@@ -2,6 +2,18 @@
 
 ---
 
+## v0.31.0 — 2026-04-01
+
+CDS index and vanilla credit-linked note.
+
+- CDSIndex: equally-weighted portfolio of single-name CDS, PV, flat spread, intrinsic spread
+- VanillaCLN: funded credit note with survival-weighted coupons + recovery on default
+- CLN credit spread: implied spread from risky vs risk-free price
+- Round-trip: index PV = sum of constituents, CLN → risk-free as hazard → 0
+- 1104 tests, 95% coverage
+
+---
+
 ## v0.30.0 — 2026-04-01
 
 Risky bonds, Z-spread, and asset swap spread.
