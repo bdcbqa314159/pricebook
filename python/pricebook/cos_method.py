@@ -4,8 +4,7 @@ COS method: Fourier-cosine series expansion for option pricing.
 Given a characteristic function φ(u) of log(S_T/K), prices European
 options with O(N) complexity and exponential convergence.
 
-Fang & Oosterlee (2008), "A Novel Pricing Method for European Options
-Based on Fourier-Cosine Series Expansions."
+See REFERENCES.md (Fang & Oosterlee 2008).
 
     price = cos_price(char_func=bs_char, spot=100, strike=105,
                       rate=0.05, T=1.0, N=128)

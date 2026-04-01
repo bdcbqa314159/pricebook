@@ -6,7 +6,7 @@ Dynamics:
     dsigma = alpha * sigma * dW2
     dW1 * dW2 = rho * dt
 
-Hagan et al. (2002) approximation for implied Black vol:
+Hagan approximation for implied Black vol (see REFERENCES.md):
 
     sigma_B(K) = alpha / (F*K)^((1-beta)/2) * z/x(z) * (1 + corrections)
 

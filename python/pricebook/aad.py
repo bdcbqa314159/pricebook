@@ -5,8 +5,7 @@ Tape-based reverse-mode AD: records a computation graph during the
 forward pass, then traverses it backward to compute all derivatives
 in a single pass.
 
-Translated from the CompFinance C++ engine (Savine, "Modern Computational
-Finance: AAD and Parallel Simulations").
+Translated from the CompFinance C++ engine. See REFERENCES.md (Savine).
 
     from pricebook.aad import Number, Tape
 
