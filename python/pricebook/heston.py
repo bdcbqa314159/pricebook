@@ -129,7 +129,7 @@ def heston_calibrate(
 
     Fits: v0, kappa, theta, xi, rho via differential evolution.
     """
-    from scipy.optimize import differential_evolution
+    from pricebook.optimization import minimize as pb_minimize
 
     def objective(params):
         v0, kappa, theta, xi, rho = params
@@ -153,7 +153,10 @@ def heston_calibrate(
         (-0.99, 0.99),   # rho
     ]
 
-    result = differential_evolution(objective, bounds, seed=42, maxiter=200, tol=1e-8)
+    result = pb_minimize(objective, x0=[0.04, 2.0, 0.04, 0.3, -0.5],
+                         method="differential_evolution", bounds=bounds,
+                         maxiter=200, tol=1e-8)
+
     v0, kappa, theta, xi, rho = result.x
     rmse = math.sqrt(result.fun / len(strikes))
 

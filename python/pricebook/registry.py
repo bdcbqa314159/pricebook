@@ -143,3 +143,34 @@ def get_mc_pricer(name: str):
 
 def list_mc_pricers() -> list[str]:
     return list(_MC.keys())
+
+
+# ---------------------------------------------------------------------------
+# Optimizers
+# ---------------------------------------------------------------------------
+
+from pricebook import optimization  # noqa: E402
+
+_OPTIMIZERS = {
+    "nelder_mead": "nelder_mead",
+    "bfgs": "bfgs",
+    "l_bfgs_b": "l_bfgs_b",
+    "differential_evolution": "differential_evolution",
+    "basin_hopping": "basin_hopping",
+}
+
+
+def get_optimizer(name: str):
+    """Get an optimizer by name. Returns a partial of optimization.minimize."""
+    if name not in _OPTIMIZERS:
+        raise KeyError(f"Unknown optimizer '{name}'. Available: {list(_OPTIMIZERS.keys())}")
+    method = _OPTIMIZERS[name]
+
+    def _opt(objective, x0, **kwargs):
+        return optimization.minimize(objective, x0, method=method, **kwargs)
+
+    return _opt
+
+
+def list_optimizers() -> list[str]:
+    return list(_OPTIMIZERS.keys())

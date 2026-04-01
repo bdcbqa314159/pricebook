@@ -127,10 +127,9 @@ def sabr_calibrate(
     Returns:
         dict with keys: alpha, beta, rho, nu, rmse.
     """
-    from scipy.optimize import minimize
+    from pricebook.optimization import minimize as pb_minimize
 
     if initial_guess is None:
-        # Rough initial guess: alpha ≈ ATM vol * F^(1-beta)
         atm_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - forward))
         alpha0 = market_vols[atm_idx] * forward ** (1 - beta)
         initial_guess = (alpha0, -0.1, 0.3)
@@ -145,13 +144,8 @@ def sabr_calibrate(
             total += (model_vol - mv) ** 2
         return total
 
-    a0, r0, n0 = initial_guess
-    result = minimize(
-        objective,
-        x0=[a0, r0, n0],
-        method="Nelder-Mead",
-        options={"maxiter": 2000, "xatol": 1e-10, "fatol": 1e-12},
-    )
+    result = pb_minimize(objective, x0=list(initial_guess), method="nelder_mead",
+                         tol=1e-12, maxiter=2000)
 
     alpha, rho, nu = result.x
     rmse = math.sqrt(result.fun / len(strikes))
