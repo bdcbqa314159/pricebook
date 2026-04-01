@@ -2,6 +2,19 @@
 
 ---
 
+## v0.29.0 — 2026-04-01
+
+Commodities — new asset class.
+
+- CommodityForwardCurve: forward prices with interpolation, contango/backwardation
+- Convenience yield: implied from forward/spot/discount relationship
+- CommoditySwap: fixed-for-floating, PV, par price
+- Commodity options: Black-76 on the forward (reuses existing Black-76)
+- Round-trip validated: swap at par PV=0, put-call parity, quantity scaling
+- 1081 tests, 95% coverage
+
+---
+
 ## v0.28.0 — 2026-04-01
 
 AAD: tape-based adjoint algorithmic differentiation — the numerics capstone.
