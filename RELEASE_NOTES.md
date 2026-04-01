@@ -2,6 +2,19 @@
 
 ---
 
+## v0.32.0 — 2026-04-01
+
+Basket CDS, Gaussian copula, and leveraged CLN.
+
+- Gaussian copula: one-factor model for correlated defaults, MC simulation
+- First-to-default spread: higher correlation → lower FTD (clustering)
+- Nth-to-default: spreads decreasing in N, 1st-TD = FTD confirmed
+- LeveragedCLN: amplified credit exposure, higher leverage → lower PV
+- Default clustering validated: high correlation → higher variance in default count
+- 1118 tests, 95% coverage
+
+---
+
 ## v0.31.0 — 2026-04-01
 
 CDS index and vanilla credit-linked note.
