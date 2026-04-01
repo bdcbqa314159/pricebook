@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-import numpy as np
-
 
 # ---------------------------------------------------------------------------
 # Solvers
@@ -94,6 +92,17 @@ class VolSurface(Protocol):
 
 
 # ---------------------------------------------------------------------------
+# Characteristic function
+# ---------------------------------------------------------------------------
+
+@runtime_checkable
+class CharFunc(Protocol):
+    """Protocol for characteristic functions φ(u) = E[exp(iu*X)]."""
+
+    def __call__(self, u: float) -> complex: ...
+
+
+# ---------------------------------------------------------------------------
 # Result types (canonical definitions)
 # ---------------------------------------------------------------------------
 
@@ -108,6 +117,7 @@ from pricebook.mc_pricer import MCResult  # noqa: E402
 __all__ = [
     "RootFinder",
     "Integrator",
+    "CharFunc",
     "OptionPricer",
     "MCEngine",
     "VolModel",

@@ -14,7 +14,6 @@ and registration in the pricebook registry.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -105,9 +104,13 @@ def minimize(
             objective, x0, niter=maxiter, seed=seed,
             minimizer_kwargs=minimizer_kwargs,
         )
+        lowest = res.lowest_optimization_result
         return OptimizerResult(
-            x=res.x, fun=float(res.fun), iterations=maxiter,
-            converged=True, method=method,
+            x=res.x, fun=float(res.fun),
+            iterations=res.nit if hasattr(res, 'nit') else maxiter,
+            converged=lowest.success if hasattr(lowest, 'success') else True,
+            method=method,
+            n_evaluations=lowest.nfev if hasattr(lowest, 'nfev') else 0,
         )
 
     else:

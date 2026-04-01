@@ -15,30 +15,8 @@ from __future__ import annotations
 
 import math
 import cmath
-from typing import Protocol
-
-import numpy as np
 
 from pricebook.black76 import OptionType
-
-
-class CharFunc(Protocol):
-    """Protocol for characteristic functions φ(u) = E[exp(iu*X)]."""
-
-    def __call__(self, u: float) -> complex: ...
-
-
-def _cos_truncation_range(
-    c1: float, c2: float, c4: float = 0.0, L: float = 10.0,
-) -> tuple[float, float]:
-    """Compute truncation range [a, b] from cumulants.
-
-    c1 = first cumulant (mean), c2 = second (variance),
-    c4 = fourth. L controls how many stdevs to include.
-    """
-    a = c1 - L * math.sqrt(c2 + math.sqrt(c4))
-    b = c1 + L * math.sqrt(c2 + math.sqrt(c4))
-    return a, b
 
 
 def _chi(k: int, a: float, b: float, c: float, d: float) -> float:
@@ -63,7 +41,7 @@ def _psi(k: int, a: float, b: float, c: float, d: float) -> float:
 
 
 def cos_price(
-    char_func: CharFunc,
+    char_func,
     spot: float,
     strike: float,
     rate: float,
@@ -100,21 +78,18 @@ def cos_price(
     ln_m = cmath.log(phi_m)
     c1 = float((ln_p - ln_m).imag / (2 * eps))
     c2 = max(float(-(ln_p + ln_m - 2 * ln0).real / eps**2), 0.001)
-    # Shift by x = log(S/K) to center on log(S_T/K) = log(S_T/S_0) + x
     a = x + c1 - L * math.sqrt(c2)
     b = x + c1 + L * math.sqrt(c2)
 
     # COS series
+    x_minus_a = x - a
     price = 0.0
     for k in range(N):
-        # Characteristic function evaluated at kπ/(b-a)
         u_k = k * math.pi / (b - a)
         phi_k = char_func(u_k)
 
-        # Shift char func from log(S_T/S_0) to log(S_T/K) by multiplying by exp(iu*x)
-        re_part = (phi_k * cmath.exp(1j * u_k * x) * cmath.exp(-1j * u_k * a)).real
+        re_part = (phi_k * cmath.exp(1j * u_k * x_minus_a)).real
 
-        # Payoff coefficients
         if option_type == OptionType.CALL:
             V_k = 2.0 / (b - a) * (
                 _chi(k, a, b, 0, b) - _psi(k, a, b, 0, b)
@@ -134,7 +109,7 @@ def cos_price(
 # Standard characteristic functions
 # ---------------------------------------------------------------------------
 
-def bs_char_func(rate: float, div_yield: float, vol: float, T: float) -> CharFunc:
+def bs_char_func(rate: float, div_yield: float, vol: float, T: float):
     """Black-Scholes characteristic function of log(S_T/S_0)."""
     mu = (rate - div_yield - 0.5 * vol**2) * T
     var = vol**2 * T
@@ -154,18 +129,11 @@ def heston_char_func_cos(
     xi: float,
     rho: float,
     T: float,
-) -> CharFunc:
+):
     """Heston characteristic function of log(S_T/S_0) for COS method."""
     from pricebook.heston import _heston_f
 
-    x_dummy = 0.0  # log(S) cancels in the COS formulation
-
     def phi(u: float) -> complex:
-        # Use measure j=2 (risk-neutral)
-        f = _heston_f(u, T, rate, div_yield, v0, kappa, theta, xi, rho, x_dummy, 2)
-        # Normalize: divide by exp(iu*x) since _heston_f includes exp(iu*x)
-        # But x_dummy=0, so exp(iu*0)=1. However, _heston_f includes the
-        # drift term exp(iu*(r-q)*T) which we want in our char func.
-        return f
+        return _heston_f(u, T, rate, div_yield, v0, kappa, theta, xi, rho, 0.0, 2)
 
     return phi

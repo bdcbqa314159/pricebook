@@ -161,7 +161,6 @@ def bdf(
     t_span: tuple[float, float],
     y0: list[float] | np.ndarray,
     tol: float = 1e-6,
-    max_steps: int = 100_000,
 ) -> ODEResult:
     """BDF solver for stiff systems (wraps scipy)."""
     from scipy.integrate import solve_ivp
@@ -170,7 +169,7 @@ def bdf(
 
     res = solve_ivp(
         f, t_span, y0, method="BDF",
-        rtol=tol, atol=tol, max_step=max_steps,
+        rtol=tol, atol=tol,
     )
 
     return ODEResult(
