@@ -174,3 +174,27 @@ def get_optimizer(name: str):
 
 def list_optimizers() -> list[str]:
     return list(_OPTIMIZERS.keys())
+
+
+# ---------------------------------------------------------------------------
+# ODE solvers
+# ---------------------------------------------------------------------------
+
+from pricebook import ode  # noqa: E402
+
+_ODE_SOLVERS = {
+    "rk4": ode.rk4,
+    "rk45": ode.rk45,
+    "bdf": ode.bdf,
+}
+
+
+def get_ode_solver(name: str):
+    """Get an ODE solver by name."""
+    if name not in _ODE_SOLVERS:
+        raise KeyError(f"Unknown ODE solver '{name}'. Available: {list(_ODE_SOLVERS.keys())}")
+    return _ODE_SOLVERS[name]
+
+
+def list_ode_solvers() -> list[str]:
+    return list(_ODE_SOLVERS.keys())
