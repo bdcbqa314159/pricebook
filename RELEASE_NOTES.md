@@ -2,6 +2,20 @@
 
 ---
 
+## v0.25.0 — 2026-04-01
+
+ODE solvers for model dynamics.
+
+- RK4: classical 4th-order Runge-Kutta (fixed step)
+- RK45: adaptive Dormand-Prince with automatic step-size control
+- BDF: backward differentiation for stiff systems (wraps scipy)
+- ODEResult dataclass: t, y, n_evaluations, method
+- Registered: get_ode_solver("rk4"), get_ode_solver("rk45"), get_ode_solver("bdf")
+- All solvers agree on smooth problems, RK45 more efficient, BDF handles stiff
+- 1006 tests, 95% coverage
+
+---
+
 ## v0.24.0 — 2026-04-01
 
 Optimization toolkit and calibration refactor.
