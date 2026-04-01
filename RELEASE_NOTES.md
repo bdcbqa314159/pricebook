@@ -2,6 +2,20 @@
 
 ---
 
+## v0.23.0 — 2026-04-01
+
+Architecture refactor: protocols, unified results, registry.
+
+- Protocols: VolSurface, RootFinder, Integrator, OptionPricer, MCEngine, VolModel (runtime-checkable)
+- Unified result types: SolverResult, QuadratureResult, MCResult (existing), TreeResult, PDEResult (new)
+- Registry: get_solver, get_integrator, get_tree_european/american, get_pde_pricer, get_mc_pricer
+- String-based method lookup for swapping implementations without changing client code
+- All vol surface types (FlatVol, VolSurfaceStrike, SwaptionVolSurface, FXVolSurface) satisfy VolSurface protocol
+- All tree/MC/PDE methods accessible via registry, cross-validated to agree on prices
+- 978 tests, 95% coverage
+
+---
+
 ## v0.22.0 — 2026-03-31
 
 Advanced Monte Carlo: LSM American pricing, stratified/importance sampling, MLMC.
