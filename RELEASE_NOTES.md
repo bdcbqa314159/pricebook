@@ -2,6 +2,19 @@
 
 ---
 
+## v0.26.0 — 2026-04-01
+
+COS spectral method for ultra-fast European option pricing.
+
+- COS pricer: Fourier-cosine expansion with O(N) complexity, exponential convergence
+- Automatic truncation range via numerical cumulant estimation from char func
+- Black-Scholes char func: matches analytical to 1e-6 with N=256
+- Heston char func: matches semi-analytical Gauss-Legendre pricer within 2%
+- Put-call parity verified, convergence rate exponential in N
+- 1018 tests, 95% coverage
+
+---
+
 ## v0.25.0 — 2026-04-01
 
 ODE solvers for model dynamics.
