@@ -18,6 +18,7 @@ import cmath
 import numpy as np
 
 from pricebook.black76 import OptionType
+from pricebook.quadrature import gauss_legendre
 
 
 def _heston_f(
@@ -89,32 +90,23 @@ def heston_price(
     log_K = math.log(strike)
     df = math.exp(-rate * T)
 
-    # Integration via Gauss-Legendre on [0, u_max]
-    u_max = 100.0
-    from numpy.polynomial.legendre import leggauss
-    nodes, weights = leggauss(n_quad)
-    # Transform [-1,1] → [0, u_max]
-    mid = u_max / 2
-    half = u_max / 2
-    u_pts = mid + half * nodes
-    w_pts = half * weights
-
-    P1 = 0.5
-    P2 = 0.5
-
-    for u_val, w_val in zip(u_pts, w_pts):
-        u = float(u_val)
+    def _integrand_p1(u):
         if u < 1e-10:
-            continue
-
+            return 0.0
         f1 = _heston_f(u, T, rate, div_yield, v0, kappa, theta, xi, rho, x, 1)
+        return (cmath.exp(-1j * u * log_K) * f1 / (1j * u)).real
+
+    def _integrand_p2(u):
+        if u < 1e-10:
+            return 0.0
         f2 = _heston_f(u, T, rate, div_yield, v0, kappa, theta, xi, rho, x, 2)
+        return (cmath.exp(-1j * u * log_K) * f2 / (1j * u)).real
 
-        integrand1 = (cmath.exp(-1j * u * log_K) * f1 / (1j * u)).real
-        integrand2 = (cmath.exp(-1j * u * log_K) * f2 / (1j * u)).real
+    r1 = gauss_legendre(_integrand_p1, 1e-6, 100.0, n=n_quad)
+    r2 = gauss_legendre(_integrand_p2, 1e-6, 100.0, n=n_quad)
 
-        P1 += w_val * integrand1 / math.pi
-        P2 += w_val * integrand2 / math.pi
+    P1 = 0.5 + r1.value / math.pi
+    P2 = 0.5 + r2.value / math.pi
 
     call = spot * math.exp(-div_yield * T) * P1 - strike * df * P2
 

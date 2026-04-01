@@ -33,9 +33,6 @@ class ScenarioResult:
         return self.scenario_pv - self.base_pv
 
 
-    # Curve bumping delegates to DiscountCurve.bumped / bumped_at
-
-
 # ---------------------------------------------------------------------------
 # Scenario constructors
 # ---------------------------------------------------------------------------

@@ -65,15 +65,14 @@ def trinomial_european(
     else:
         values = np.maximum(strike - st, 0.0)
 
-    # Backward induction
+    # Backward induction (vectorized)
     for i in range(n_steps - 1, -1, -1):
         new_size = 2 * i + 1
-        new_values = np.empty(new_size)
-        for j in range(new_size):
-            new_values[j] = disc * (
-                p_u * values[j + 2] + p_m * values[j + 1] + p_d * values[j]
-            )
-        values = new_values
+        values = disc * (
+            p_u * values[2:2 + new_size]
+            + p_m * values[1:1 + new_size]
+            + p_d * values[0:new_size]
+        )
 
     return float(values[0])
 
@@ -107,16 +106,15 @@ def trinomial_american(
         j_i = np.arange(-i, i + 1)
         si = spot * u ** j_i
 
-        new_values = np.empty(new_size)
-        for j in range(new_size):
-            continuation = disc * (
-                p_u * values[j + 2] + p_m * values[j + 1] + p_d * values[j]
-            )
-            if option_type == OptionType.CALL:
-                exercise = max(si[j] - strike, 0.0)
-            else:
-                exercise = max(strike - si[j], 0.0)
-            new_values[j] = max(continuation, exercise)
-        values = new_values
+        continuation = disc * (
+            p_u * values[2:2 + new_size]
+            + p_m * values[1:1 + new_size]
+            + p_d * values[0:new_size]
+        )
+        if option_type == OptionType.CALL:
+            exercise = np.maximum(si - strike, 0.0)
+        else:
+            exercise = np.maximum(strike - si, 0.0)
+        values = np.maximum(continuation, exercise)
 
     return float(values[0])

@@ -98,15 +98,7 @@ def mc_importance(
     else:
         payoffs = np.maximum(strike - st, 0.0)
 
-    # Likelihood ratio: p(z-shift) / p(z) = exp(shift*z - 0.5*shift^2)
-    # Wait, we sampled z ~ N(shift, 1). The original measure is N(0,1).
-    # LR = phi(z - shift) / phi(z) = exp(-shift*(z-shift) - 0.5*shift^2 + shift*(z-shift))
-    # Simpler: z_original = z - shift, LR = exp(-shift * z_original - 0.5*shift^2)
-    # = exp(-shift*(z-shift) - 0.5*shift^2)
-    lr = np.exp(-shift * (z - shift) - 0.5 * shift**2 + shift * (z - shift))
-    # Actually: if z ~ N(mu, 1), original N(0,1):
-    # LR = phi_0(z) / phi_mu(z) = exp(-z^2/2) / exp(-(z-mu)^2/2) = exp(mu*z - mu^2/2)
-    # But we want payoff under original measure, so weight = phi_0(z)/phi_mu(z)
+    # Likelihood ratio: weight = phi_0(z) / phi_shift(z) = exp(-shift*z + shift^2/2)
     lr = np.exp(-shift * z + 0.5 * shift**2)
 
     df = math.exp(-rate * T)
@@ -160,10 +152,9 @@ def mc_mlmc(
         rng = np.random.default_rng(seed_l)
         z_all = rng.standard_normal((n_paths, n_steps))
 
-        # Fine path: n_steps steps
-        log_s_fine = np.zeros(n_paths)
-        for step in range(n_steps):
-            log_s_fine += drift_rate * dt + vol * math.sqrt(dt) * z_all[:, step]
+        # Fine path: n_steps steps (vectorized)
+        increments = drift_rate * dt + vol * math.sqrt(dt) * z_all
+        log_s_fine = increments.sum(axis=1)
         s_fine = spot * np.exp(log_s_fine)
 
         if option_type == OptionType.CALL:
@@ -174,12 +165,11 @@ def mc_mlmc(
         if level == 0:
             Y = df * payoff_fine
         else:
-            # Coarse path: n_steps/2 steps (pair consecutive fine increments)
-            n_coarse = n_steps // 2
-            log_s_coarse = np.zeros(n_paths)
-            for step in range(n_coarse):
-                dz = z_all[:, 2 * step] + z_all[:, 2 * step + 1]
-                log_s_coarse += drift_rate * 2 * dt + vol * math.sqrt(2 * dt) * dz / math.sqrt(2)
+            # Coarse path: pair consecutive fine increments (vectorized)
+            z_pairs = z_all[:, 0::2] + z_all[:, 1::2]
+            coarse_dt = 2 * dt
+            coarse_increments = drift_rate * coarse_dt + vol * math.sqrt(coarse_dt) * z_pairs / math.sqrt(2)
+            log_s_coarse = coarse_increments.sum(axis=1)
             s_coarse = spot * np.exp(log_s_coarse)
 
             if option_type == OptionType.CALL:

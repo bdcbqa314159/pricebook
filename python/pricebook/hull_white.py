@@ -27,7 +27,6 @@ from datetime import date
 import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
 
 
 class HullWhite:
@@ -83,125 +82,25 @@ class HullWhite:
         b = self.B(t, T)
         f_t = self._forward_rate(t)
 
-        log_a = math.log(df_T / df_t) + b * f_t - \
+        return math.log(df_T / df_t) + b * f_t - \
             (self.sigma**2 / (4.0 * self.a)) * (1.0 - math.exp(-2.0 * self.a * t)) * b**2
 
-        return log_a
-
     def zcb_price(self, t: float, T: float, r: float) -> float:
-        """Analytical zero-coupon bond price P(t, T) given short rate r at time t.
-
-        P(t, T) = A(t,T) * exp(-B(t,T) * r)
-        """
+        """Analytical zero-coupon bond price P(t, T) given short rate r at time t."""
         b = self.B(t, T)
         log_a = self._log_A(t, T)
         return math.exp(log_a - b * r)
 
-    def tree_zcb(self, T: float, n_steps: int = 100) -> float:
-        """Price a zero-coupon bond maturing at T using a trinomial rate tree.
+    def _evolve_state_prices(
+        self, T: float, n_steps: int,
+    ) -> tuple[np.ndarray, float, int, float]:
+        """Evolve state prices Q on a trinomial rate tree from 0 to T.
 
-        The tree is calibrated to match the initial discount curve.
+        Returns:
+            (Q, dr, j_max, r0) — state prices at time T, grid spacing,
+            max branching index, initial forward rate.
         """
         dt = T / n_steps
-        a, sigma = self.a, self.sigma
-
-        # Tree geometry
-        dr = sigma * math.sqrt(3.0 * dt)
-        j_max = int(math.ceil(0.1835 / (a * dt)))  # standard branching limit
-
-        # Forward rates for theta calibration
-        n_nodes = 2 * j_max + 1
-
-        # Build the tree step by step
-        # State prices Q[j] at each time step
-        Q = np.zeros(n_nodes)
-        mid = j_max
-        Q[mid] = 1.0  # initial state price at r0
-
-        # r at each node: r_j = r0 + j * dr, shifted by alpha(t)
-        # alpha(t) is calibrated so that sum_j Q[j] * exp(-r_j * dt) = df(t+dt) / df(t)
-        ref = self.curve.reference_date
-
-        r0 = self._forward_rate(0.0)
-
-        for step in range(n_steps):
-            t_now = step * dt
-            t_next = (step + 1) * dt
-
-            d_next = date.fromordinal(ref.toordinal() + int(t_next * 365))
-            target_df = self.curve.df(d_next)  # absolute DF to t+dt
-
-            # Determine alpha so that sum(Q_new) = target_df
-            # sum(Q_new) = exp(-alpha*dt) * sum_j Q[j]*exp(-j*dr*dt) = target_df
-            sum_q = 0.0
-            for j in range(-j_max, j_max + 1):
-                idx = j + mid
-                if Q[idx] > 0:
-                    sum_q += Q[idx] * math.exp(-j * dr * dt)
-
-            if sum_q > 0 and target_df > 0:
-                alpha = -math.log(target_df / sum_q) / dt
-            else:
-                alpha = r0
-
-            # Transition probabilities for each node
-            Q_new = np.zeros(n_nodes)
-            for j in range(-j_max, j_max + 1):
-                idx = j + mid
-                if Q[idx] <= 1e-20:
-                    continue
-
-                r_j = alpha + j * dr
-                discount = math.exp(-r_j * dt)
-
-                # Branching: determine if we branch up/mid/down normally
-                # or need to trim at boundaries
-                eta = a * j * dr * dt / dr  # mean drift in units of dr
-                k = j  # central node destination
-
-                if k > j_max - 1:
-                    k = j_max - 1
-                elif k < -j_max + 1:
-                    k = -j_max + 1
-
-                # Probabilities (standard trinomial)
-                p_u = 1.0 / 6.0 + (j**2 * a**2 * dt**2 - j * a * dt) / 2.0
-                p_m = 2.0 / 3.0 - j**2 * a**2 * dt**2
-                p_d = 1.0 / 6.0 + (j**2 * a**2 * dt**2 + j * a * dt) / 2.0
-
-                # Clamp probabilities
-                p_u = max(0, min(1, p_u))
-                p_d = max(0, min(1, p_d))
-                p_m = max(0, 1.0 - p_u - p_d)
-
-                contrib = Q[idx] * discount
-
-                k_u = min(k + 1, j_max)
-                k_d = max(k - 1, -j_max)
-
-                Q_new[k_u + mid] += contrib * p_u
-                Q_new[k + mid] += contrib * p_m
-                Q_new[k_d + mid] += contrib * p_d
-
-            Q = Q_new
-
-        # Bond price = sum of state prices at maturity
-        return float(Q.sum())
-
-    def tree_european_swaption(
-        self,
-        expiry_T: float,
-        swap_end_T: float,
-        strike: float,
-        n_steps: int = 100,
-        is_payer: bool = True,
-    ) -> float:
-        """Price a European swaption on the Hull-White tree.
-
-        Simplified: at expiry, compute swap value using analytical bond prices,
-        then take max(swap_value, 0) weighted by state prices.
-        """
-        dt = expiry_T / n_steps
         a, sigma = self.a, self.sigma
         dr = sigma * math.sqrt(3.0 * dt)
         j_max = int(math.ceil(0.1835 / (a * dt)))
@@ -213,10 +112,9 @@ class HullWhite:
         ref = self.curve.reference_date
         r0 = self._forward_rate(0.0)
 
-        # Evolve state prices to expiry
         for step in range(n_steps):
-            t_now = step * dt
-            d_next = date.fromordinal(ref.toordinal() + int((step + 1) * dt * 365))
+            t_next = (step + 1) * dt
+            d_next = date.fromordinal(ref.toordinal() + int(t_next * 365))
             target_df = self.curve.df(d_next)
 
             sum_q = 0.0
@@ -225,7 +123,10 @@ class HullWhite:
                 if Q[idx] > 0:
                     sum_q += Q[idx] * math.exp(-j * dr * dt)
 
-            alpha = -math.log(target_df / max(sum_q, 1e-20)) / dt if target_df > 0 else r0
+            if sum_q > 0 and target_df > 0:
+                alpha = -math.log(target_df / sum_q) / dt
+            else:
+                alpha = r0
 
             Q_new = np.zeros(n_nodes)
             for j in range(-j_max, j_max + 1):
@@ -235,12 +136,7 @@ class HullWhite:
 
                 r_j = alpha + j * dr
                 discount = math.exp(-r_j * dt)
-                k = j
-
-                if k > j_max - 1:
-                    k = j_max - 1
-                elif k < -j_max + 1:
-                    k = -j_max + 1
+                k = max(-j_max + 1, min(j_max - 1, j))
 
                 p_u = max(0, min(1, 1.0/6 + (j**2*a**2*dt**2 - j*a*dt)/2))
                 p_d = max(0, min(1, 1.0/6 + (j**2*a**2*dt**2 + j*a*dt)/2))
@@ -253,22 +149,38 @@ class HullWhite:
 
             Q = Q_new
 
-        # At expiry: for each node, compute swap value using analytical bond prices
-        # Simplified: swap_pv ≈ 1 - P(T_expiry, T_end) - strike * annuity
-        # where annuity = sum of year_frac * P(T_expiry, T_i)
+        return Q, dr, j_max, r0
+
+    def tree_zcb(self, T: float, n_steps: int = 100) -> float:
+        """Price a zero-coupon bond maturing at T using a trinomial rate tree."""
+        Q, _, _, _ = self._evolve_state_prices(T, n_steps)
+        return float(Q.sum())
+
+    def tree_european_swaption(
+        self,
+        expiry_T: float,
+        swap_end_T: float,
+        strike: float,
+        n_steps: int = 100,
+        is_payer: bool = True,
+    ) -> float:
+        """Price a European swaption on the Hull-White tree.
+
+        At expiry, compute swap value using analytical bond prices,
+        then take max(swap_value, 0) weighted by state prices.
+        """
+        Q, dr, j_max, r0 = self._evolve_state_prices(expiry_T, n_steps)
+        mid = j_max
+
         total = 0.0
         for j in range(-j_max, j_max + 1):
             idx = j + mid
             if Q[idx] <= 1e-20:
                 continue
 
-            # Get the last alpha (approximate r at this node)
-            # This is simplified — a full implementation tracks alpha per step
-            r_j = r0 + j * dr  # approximate
+            r_j = r0 + j * dr
 
-            # Bond prices from this node
             p_end = self.zcb_price(expiry_T, swap_end_T, r_j)
-            # Simple annuity: annual payments
             n_payments = max(1, int(swap_end_T - expiry_T))
             annuity = 0.0
             for k in range(1, n_payments + 1):
@@ -280,7 +192,6 @@ class HullWhite:
             if not is_payer:
                 swap_pv = -swap_pv
 
-            payoff = max(swap_pv, 0.0)
-            total += Q[idx] * payoff
+            total += Q[idx] * max(swap_pv, 0.0)
 
         return total

@@ -123,6 +123,14 @@ def _apply_boundary(g: _FDGrid, tau: float) -> None:
         g.V[0] = g.strike * math.exp(-g.rate * max(tau, 0)) - g.S[0]
 
 
+def _implicit_step(g: _FDGrid, imp_a: np.ndarray, imp_b: np.ndarray, imp_c: np.ndarray) -> None:
+    """One fully-implicit time step in place."""
+    d_arr = g.V[1:g.n_spot].copy()
+    d_arr[0] += g.dt * g.a_coef * g.V[0]
+    d_arr[-1] += g.dt * g.c_coef * g.V[-1]
+    g.V[1:g.n_spot] = _thomas(imp_a, imp_b.copy(), imp_c, d_arr)
+
+
 def _cn_step(g: _FDGrid) -> None:
     """One Crank-Nicolson time step in place."""
     theta = 0.5
@@ -132,7 +140,7 @@ def _cn_step(g: _FDGrid) -> None:
     )
     rhs[0] += (1 - theta) * g.dt * g.a_coef * g.V[0]
     rhs[-1] += (1 - theta) * g.dt * g.c_coef * g.V[-1]
-    g.V[1:n] = _thomas(g.cn_a.copy(), g.cn_b.copy(), g.cn_c.copy(), rhs)
+    g.V[1:n] = _thomas(g.cn_a, g.cn_b.copy(), g.cn_c, rhs)
 
 
 def _interpolate_at_spot(g: _FDGrid) -> float:
@@ -182,10 +190,7 @@ def fd_european(
             g.V = V_new
 
         elif scheme == FDScheme.IMPLICIT:
-            d_arr = g.V[1:g.n_spot].copy()
-            d_arr[0] += g.dt * g.a_coef * g.V[0]
-            d_arr[-1] += g.dt * g.c_coef * g.V[-1]
-            g.V[1:g.n_spot] = _thomas(imp_a.copy(), imp_b.copy(), imp_c.copy(), d_arr)
+            _implicit_step(g, imp_a, imp_b, imp_c)
 
         else:
             _cn_step(g)
@@ -271,10 +276,7 @@ def fd_barrier_knockout(
         _apply_boundary(g, tau)
 
         if rannacher_steps > 0 and step < rannacher_steps:
-            d_arr = g.V[1:g.n_spot].copy()
-            d_arr[0] += g.dt * g.a_coef * g.V[0]
-            d_arr[-1] += g.dt * g.c_coef * g.V[-1]
-            g.V[1:g.n_spot] = _thomas(imp_a.copy(), imp_b.copy(), imp_c.copy(), d_arr)
+            _implicit_step(g, imp_a, imp_b, imp_c)
         else:
             _cn_step(g)
 
