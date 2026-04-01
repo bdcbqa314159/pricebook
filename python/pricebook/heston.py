@@ -47,7 +47,10 @@ def _heston_f(
         (rho * xi * i * u - b_j) ** 2 - xi**2 * (2 * u_j * i * u - u**2)
     )
 
-    g = (b_j - rho * xi * i * u + d) / (b_j - rho * xi * i * u - d)
+    denom_g = b_j - rho * xi * i * u - d
+    if abs(denom_g) < 1e-20:
+        return complex(1.0)
+    g = (b_j - rho * xi * i * u + d) / denom_g
 
     exp_dT = cmath.exp(d * T)
 
