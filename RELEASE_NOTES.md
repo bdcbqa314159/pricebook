@@ -2,6 +2,20 @@
 
 ---
 
+## v0.24.0 — 2026-04-01
+
+Optimization toolkit and calibration refactor.
+
+- Unified minimize(): Nelder-Mead, BFGS, L-BFGS-B, differential evolution, basin hopping
+- Least-squares: Levenberg-Marquardt and Trust Region Reflective
+- OptimizerResult dataclass: x, fun, iterations, converged, method
+- Registry: get_optimizer("nelder_mead"), list_optimizers()
+- SABR calibration refactored to use pricebook optimizer (was raw scipy)
+- Heston calibration refactored to use pricebook optimizer
+- 995 tests, 95% coverage
+
+---
+
 ## v0.23.0 — 2026-04-01
 
 Architecture refactor: protocols, unified results, registry.
