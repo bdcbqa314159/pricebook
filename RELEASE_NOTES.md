@@ -2,6 +2,22 @@
 
 ---
 
+## v0.28.0 — 2026-04-01
+
+AAD: tape-based adjoint algorithmic differentiation — the numerics capstone.
+
+- Number class: overloaded float with automatic tape recording
+- Tape: operation graph with mark/rewind for MC Greeks pattern
+- All arithmetic: +, -, *, /, **, neg with correct derivatives
+- Math functions: exp, log, sqrt, norm_cdf, maximum (differentiable)
+- Reverse-mode propagation: all Greeks in a single backward pass
+- Black-Scholes Greeks via AAD match analytical (delta, vega, rho within 1%)
+- MC mark/rewind pattern: accumulate Greeks across paths efficiently
+- Translated from CompFinance C++ engine (Savine). References moved to REFERENCES.md.
+- 1054 tests, 95% coverage
+
+---
+
 ## v0.27.0 — 2026-04-01
 
 ADI 2D PDE solver for Heston stochastic volatility.
