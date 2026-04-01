@@ -2,6 +2,19 @@
 
 ---
 
+## v0.27.0 — 2026-04-01
+
+ADI 2D PDE solver for Heston stochastic volatility.
+
+- Craig-Sneyd ADI scheme: handles mixed derivatives (ρ*ξ*v cross-term)
+- 2D grid in (log-spot, variance) space with bilinear interpolation
+- Boundary conditions: call/put at S→0/∞, BS limit at v→0, linear extrapolation at v→∞
+- Converges to semi-analytical Heston price (verified via grid refinement)
+- Zero vol-of-vol → Black-Scholes, higher v0 → higher price
+- 1027 tests, 95% coverage
+
+---
+
 ## v0.26.0 — 2026-04-01
 
 COS spectral method for ultra-fast European option pricing.
