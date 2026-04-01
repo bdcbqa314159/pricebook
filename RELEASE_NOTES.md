@@ -2,6 +2,19 @@
 
 ---
 
+## v0.33.0 — 2026-04-02
+
+Term loans — completing the product suite.
+
+- TermLoan: amortising floating-rate with credit spread, bullet or amortising schedule
+- Cashflow generation with forward rate projection and amortisation
+- Weighted average life (WAL): amortising < bullet confirmed
+- Discount margin via Brent solver, round-trip validated
+- Dual-curve support (separate discount and projection)
+- 1130 tests, 95% coverage
+
+---
+
 ## v0.32.0 — 2026-04-01
 
 Basket CDS, Gaussian copula, and leveraged CLN.
