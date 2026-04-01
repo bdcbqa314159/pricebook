@@ -2,6 +2,19 @@
 
 ---
 
+## v0.30.0 — 2026-04-01
+
+Risky bonds, Z-spread, and asset swap spread.
+
+- RiskyBond: survival-weighted cashflows with recovery on default
+- Z-spread: constant spread to risk-free curve via Brent solver, round-trip validated
+- Asset swap spread: floating spread that equates bond PV to par
+- Zero hazard → risk-free price, higher hazard → lower price, higher recovery → higher price
+- ASW ≈ Z-spread for near-par bonds confirmed
+- 1092 tests, 95% coverage
+
+---
+
 ## v0.29.0 — 2026-04-01
 
 Commodities — new asset class.
