@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.aad import Number, Tape, exp, log, sqrt, maximum, norm_cdf
+from pricebook.aad import Number, Tape, exp, log, sqrt, maximum, minimum, norm_cdf, norm_pdf
 
 
 @pytest.fixture(autouse=True)
@@ -301,3 +301,127 @@ class TestTapeOperations:
         assert avg_delta > 0
         # Vega should be positive (higher vol = higher option value)
         assert avg_vega > 0
+
+
+class TestCompoundAssignment:
+    def test_iadd(self):
+        x = Number(3.0)
+        y = Number(2.0)
+        z = Number(0.0)
+        z += x
+        z += y
+        z.propagate_to_start()
+        assert z.value == 5.0
+        assert x.adjoint == pytest.approx(1.0)
+        assert y.adjoint == pytest.approx(1.0)
+
+    def test_imul(self):
+        x = Number(3.0)
+        z = Number(1.0)
+        z *= x
+        z *= x
+        z.propagate_to_start()
+        assert z.value == 9.0
+
+    def test_isub(self):
+        x = Number(10.0)
+        y = Number(3.0)
+        z = Number(0.0)
+        z += x
+        z -= y
+        z.propagate_to_start()
+        assert z.value == 7.0
+        assert y.adjoint == pytest.approx(-1.0)
+
+    def test_itruediv(self):
+        x = Number(6.0)
+        y = Number(2.0)
+        z = x
+        z /= y
+        z.propagate_to_start()
+        assert z.value == 3.0
+
+
+class TestNewMathFunctions:
+    def test_norm_pdf(self):
+        x = Number(0.0)
+        z = norm_pdf(x)
+        z.propagate_to_start()
+        expected_val = 1.0 / math.sqrt(2 * math.pi)
+        assert z.value == pytest.approx(expected_val)
+        assert x.adjoint == pytest.approx(0.0, abs=1e-10)  # -x * pdf(x) at x=0
+
+    def test_minimum(self):
+        x = Number(3.0)
+        y = Number(5.0)
+        z = minimum(x, y)
+        z.propagate_to_start()
+        assert z.value == pytest.approx(3.0)
+
+    def test_pos(self):
+        x = Number(5.0)
+        z = +x
+        assert z.value == 5.0
+
+
+class TestContextManager:
+    def test_tape_context(self):
+        with Tape() as tape:
+            x = Number(2.0)
+            y = x * x
+            y.propagate_to_start()
+            assert x.adjoint == pytest.approx(4.0)
+        assert tape.size == 0  # cleared on exit
+
+
+class TestPutOnTape:
+    def test_re_register(self):
+        x = Number(5.0)
+        z = x * 2.0
+        z.propagate_to_start()
+        assert x.adjoint == pytest.approx(2.0)
+
+        Number.tape.reset_adjoints()
+        x.put_on_tape()
+        z2 = x * 3.0
+        z2.propagate_to_start()
+        assert x.adjoint == pytest.approx(3.0)
+
+
+class TestHashable:
+    def test_in_dict(self):
+        x = Number(1.0)
+        y = Number(2.0)
+        d = {x: "a", y: "b"}
+        assert d[x] == "a"
+
+    def test_in_set(self):
+        x = Number(1.0)
+        y = Number(2.0)
+        s = {x, y}
+        assert len(s) == 2
+
+
+class TestThreadSafety:
+    def test_thread_local_tapes(self):
+        """Different threads get independent tapes."""
+        import threading
+        results = {}
+
+        def worker(val, name):
+            tape = Tape()
+            Number.tape = tape
+            x = Number(val)
+            z = x * x
+            z.propagate_to_start()
+            results[name] = x.adjoint
+
+        t1 = threading.Thread(target=worker, args=(3.0, "t1"))
+        t2 = threading.Thread(target=worker, args=(5.0, "t2"))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert results["t1"] == pytest.approx(6.0)
+        assert results["t2"] == pytest.approx(10.0)

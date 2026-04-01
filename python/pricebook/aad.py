@@ -19,38 +19,24 @@ Translated from the CompFinance C++ engine. See REFERENCES.md (Savine).
     z.propagate_to_start()
     print(x.adjoint)  # dz/dx = y + exp(x) = 3 + e^2 ≈ 10.389
     print(y.adjoint)  # dz/dy = x = 2.0
-
-Usage with pricing:
-    tape = Tape()
-    Number.tape = tape
-
-    spot = Number(100.0)
-    vol = Number(0.20)
-    price = black_scholes(spot, vol, ...)
-
-    price.propagate_to_start()
-    delta = spot.adjoint  # dPrice/dSpot
-    vega = vol.adjoint    # dPrice/dVol
 """
 
 from __future__ import annotations
 
 import math as _math
+import threading
 
 
 class Node:
-    """A single operation recorded on the tape.
+    """A single operation recorded on the tape."""
 
-    Stores partial derivatives to each argument and pointers to
-    argument nodes for adjoint propagation.
-    """
+    __slots__ = ("adjoint", "_derivatives", "_children", "_idx")
 
-    __slots__ = ("adjoint", "_derivatives", "_children")
-
-    def __init__(self, derivatives: list[float], children: list[Node]):
+    def __init__(self, derivatives: list[float], children: list[Node], idx: int):
         self.adjoint: float = 0.0
         self._derivatives = derivatives
         self._children = children
+        self._idx = idx
 
     def propagate(self) -> None:
         """Propagate this node's adjoint to its children."""
@@ -66,21 +52,35 @@ class Tape:
     Supports mark/rewind for efficient MC Greeks: mark after setup,
     rewind per path, propagate per path, then final propagation
     through setup operations.
+
+    Use as context manager for clean lifecycle:
+        with Tape() as tape:
+            x = Number(2.0)
+            ...
     """
 
     def __init__(self):
         self._nodes: list[Node] = []
         self._mark: int = 0
 
+    def __enter__(self):
+        Number.tape = self
+        return self
+
+    def __exit__(self, *args):
+        self.clear()
+
     def record(self, derivatives: list[float], children: list[Node]) -> Node:
         """Record an operation and return the new node."""
-        node = Node(derivatives, children)
+        idx = len(self._nodes)
+        node = Node(derivatives, children, idx)
         self._nodes.append(node)
         return node
 
     def record_leaf(self) -> Node:
         """Record a leaf (input variable) with no children."""
-        node = Node([], [])
+        idx = len(self._nodes)
+        node = Node([], [], idx)
         self._nodes.append(node)
         return node
 
@@ -119,8 +119,14 @@ class Tape:
         return len(self._nodes)
 
 
-# Global tape
-_global_tape = Tape()
+# Thread-local tape storage
+_tape_local = threading.local()
+
+
+def _get_default_tape() -> Tape:
+    if not hasattr(_tape_local, "tape"):
+        _tape_local.tape = Tape()
+    return _tape_local.tape
 
 
 class Number:
@@ -130,7 +136,7 @@ class Number:
     call result.propagate_to_start() to compute all gradients.
     """
 
-    tape: Tape = _global_tape
+    tape: Tape = _get_default_tape()
 
     __slots__ = ("_value", "_node")
 
@@ -145,6 +151,10 @@ class Number:
         obj._value = value
         obj._node = Number.tape.record(derivatives, children)
         return obj
+
+    def put_on_tape(self) -> None:
+        """Re-register this Number on the tape (new leaf node)."""
+        self._node = Number.tape.record_leaf()
 
     @property
     def value(self) -> float:
@@ -165,14 +175,12 @@ class Number:
     def propagate_to_start(self) -> None:
         """Set this node's adjoint to 1 and propagate all the way back."""
         self._node.adjoint = 1.0
-        idx = Number.tape._nodes.index(self._node)
-        Number.tape.propagate(idx, 0)
+        Number.tape.propagate(self._node._idx, 0)
 
     def propagate_to_mark(self) -> None:
         """Set adjoint to 1 and propagate back to the mark position."""
         self._node.adjoint = 1.0
-        idx = Number.tape._nodes.index(self._node)
-        Number.tape.propagate(idx, Number.tape._mark)
+        Number.tape.propagate(self._node._idx, Number.tape._mark)
 
     # --- Arithmetic operators ---
 
@@ -189,6 +197,9 @@ class Number:
     def __radd__(self, other):
         return self.__add__(other)
 
+    def __iadd__(self, other):
+        return self.__add__(other)
+
     def __sub__(self, other):
         if isinstance(other, Number):
             return Number._from_op(
@@ -203,6 +214,9 @@ class Number:
         other = float(other)
         return Number._from_op(other - self._value, [-1.0], [self._node])
 
+    def __isub__(self, other):
+        return self.__sub__(other)
+
     def __mul__(self, other):
         if isinstance(other, Number):
             return Number._from_op(
@@ -214,6 +228,9 @@ class Number:
         return Number._from_op(self._value * other, [other], [self._node])
 
     def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __imul__(self, other):
         return self.__mul__(other)
 
     def __truediv__(self, other):
@@ -232,8 +249,14 @@ class Number:
         val = other / self._value
         return Number._from_op(val, [-other / (self._value ** 2)], [self._node])
 
+    def __itruediv__(self, other):
+        return self.__truediv__(other)
+
     def __neg__(self):
         return Number._from_op(-self._value, [-1.0], [self._node])
+
+    def __pos__(self):
+        return self
 
     def __pow__(self, other):
         if isinstance(other, Number):
@@ -267,6 +290,9 @@ class Number:
     def __eq__(self, other):
         return self._value == (other._value if isinstance(other, Number) else other)
 
+    def __hash__(self):
+        return id(self)
+
     def __float__(self):
         return self._value
 
@@ -289,7 +315,7 @@ class Number:
 
     def abs(self) -> Number:
         val = _math.fabs(self._value)
-        der = 1.0 if self._value >= 0 else -1.0
+        der = 1.0 if self._value > 0 else (-1.0 if self._value < 0 else 0.0)
         return Number._from_op(val, [der], [self._node])
 
 
@@ -304,19 +330,57 @@ def log(x: Number) -> Number:
 def sqrt(x: Number) -> Number:
     return x.sqrt()
 
-def maximum(x: Number, y) -> Number:
+def maximum(x, y) -> Number:
     """Differentiable max (piecewise linear)."""
-    if isinstance(y, Number):
-        if x._value >= y._value:
-            return Number._from_op(x._value, [1.0, 0.0], [x._node, y._node])
-        return Number._from_op(y._value, [0.0, 1.0], [x._node, y._node])
-    y = float(y)
-    if x._value >= y:
-        return Number._from_op(x._value, [1.0], [x._node])
-    return Number._from_op(y, [0.0], [x._node])
+    if not isinstance(x, Number):
+        x_val, x_node = float(x), None
+    else:
+        x_val, x_node = x._value, x._node
+
+    if not isinstance(y, Number):
+        y_val, y_node = float(y), None
+    else:
+        y_val, y_node = y._value, y._node
+
+    if x_val >= y_val:
+        val = x_val
+        ders = []
+        children = []
+        if x_node is not None:
+            ders.append(1.0)
+            children.append(x_node)
+        if y_node is not None:
+            ders.append(0.0)
+            children.append(y_node)
+    else:
+        val = y_val
+        ders = []
+        children = []
+        if x_node is not None:
+            ders.append(0.0)
+            children.append(x_node)
+        if y_node is not None:
+            ders.append(1.0)
+            children.append(y_node)
+
+    return Number._from_op(val, ders, children)
+
+
+def minimum(x, y) -> Number:
+    """Differentiable min (piecewise linear)."""
+    return -(maximum(-x if isinstance(x, Number) else Number(-float(x)),
+                     -y if isinstance(y, Number) else Number(-float(y))))
+
 
 def norm_cdf(x: Number) -> Number:
     """Standard normal CDF (differentiable)."""
     val = 0.5 * (1.0 + _math.erf(x._value / _math.sqrt(2.0)))
     pdf = _math.exp(-0.5 * x._value**2) / _math.sqrt(2.0 * _math.pi)
     return Number._from_op(val, [pdf], [x._node])
+
+
+def norm_pdf(x: Number) -> Number:
+    """Standard normal PDF (differentiable). d/dx N'(x) = -x * N'(x)."""
+    val = _math.exp(-0.5 * x._value**2) / _math.sqrt(2.0 * _math.pi)
+    der = -x._value * val
+    return Number._from_op(val, [der], [x._node])
