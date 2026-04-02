@@ -2,6 +2,18 @@
 
 ---
 
+## v0.36.0 — 2026-04-02
+
+Stochastic foundations complete — slices 34-36.
+
+- **Slice 34 — Brownian Motion:** Wiener, correlated BM (Cholesky), Brownian bridge
+- **Slice 35 — Jump Processes:** Poisson, compound Poisson, Merton jump-diffusion (with char func), Variance Gamma (with char func + COS pricing cross-check)
+- **Slice 36 — Special Processes:** CIR/square-root (Feller, analytical mean), Ornstein-Uhlenbeck (exact simulation), Bessel (via squared Bessel), Gamma subordinator, Inverse Gaussian
+- All char funcs verified: φ(0)=1, COS ≈ MC for Merton and VG
+- 1187 tests, 95% coverage
+
+---
+
 ## v0.34.0 — 2026-04-02
 
 Brownian motion framework — stochastic foundation.
