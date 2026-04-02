@@ -2,6 +2,20 @@
 
 ---
 
+## v0.37.0 — 2026-04-02
+
+Multi-curve framework depth: RFR compounding, IBOR fallback, stochastic basis.
+
+- RFR compounding: backward-looking daily compounding with lockout convention
+- SpreadCurve: deterministic IBOR-RFR spread term structure
+- IBORProjection: IBOR forward = RFR forward + spread
+- Bootstrap spread curve: extract spreads from IBOR swap rates + OIS curve
+- StochasticBasis: OU-driven spread for joint (rate, spread) simulation
+- IBOR fallback: compounded RFR + ISDA spread adjustment
+- 1206 tests, 95% coverage
+
+---
+
 ## v0.36.0 — 2026-04-02
 
 Stochastic foundations complete — slices 34-36.
