@@ -2,6 +2,19 @@
 
 ---
 
+## v0.39.0 — 2026-04-02
+
+Vasicek and G2++ short-rate models.
+
+- Vasicek: analytical ZCB (A/B formulas), mean/variance, caplet pricing, exact OU simulation
+- G2++: two-factor (x + y + phi), analytical ZCB, correlated BM simulation, MC discount factor
+- G2++ calibrated to initial term structure via phi(t) and V(T)
+- sigma2→0 collapses G2++ to one-factor Hull-White confirmed
+- MC discount factors match market within 5%
+- 1245 tests, 95% coverage
+
+---
+
 ## v0.38.0 — 2026-04-02
 
 Funded structures: repo, total return swap, funded participation.
