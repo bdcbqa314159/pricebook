@@ -2,6 +2,18 @@
 
 ---
 
+## v0.34.0 — 2026-04-02
+
+Brownian motion framework — stochastic foundation.
+
+- WienerProcess: 1D standard BM, paths + increments, W(0)=0, Var[W(t)]=t
+- CorrelatedBM: d-dimensional via Cholesky, simulated correlation matches input
+- BrownianBridge: conditioned BM, exact mean/variance formulas, endpoint pinning
+- Independent increments verified, reproducible seeds
+- 1151 tests, 95% coverage
+
+---
+
 ## v0.33.0 — 2026-04-02
 
 Term loans — completing the product suite.
