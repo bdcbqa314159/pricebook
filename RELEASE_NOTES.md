@@ -2,6 +2,21 @@
 
 ---
 
+## v0.40.0 — 2026-04-02
+
+HJM forward rate framework.
+
+- Musiela parameterisation: f(t, x) where x = T-t
+- No-drift condition: alpha = sigma * ∫sigma ds (risk-neutral)
+- MC simulation of forward curve evolution on a tenor grid
+- Discount factors from simulated short rate paths
+- Average ZCB matches initial curve within 5%
+- Zero vol → deterministic forward curve confirmed
+- From-curve factory: extract forwards from DiscountCurve
+- 1256 tests, 95% coverage
+
+---
+
 ## v0.39.0 — 2026-04-02
 
 Vasicek and G2++ short-rate models.
