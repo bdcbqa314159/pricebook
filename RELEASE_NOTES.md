@@ -2,6 +2,18 @@
 
 ---
 
+## v0.38.0 — 2026-04-02
+
+Funded structures: repo, total return swap, funded participation.
+
+- Repo: classic repo PV, cash lent, repurchase price, haircut, effective funding rate, implied repo from spot/forward
+- Total Return Swap: total return receiver PV, fair spread, notional scaling
+- Funded Participation: partial risk transfer, net carry (yield - funding - expected loss), pro-rata PV
+- Cash-CDS basis: funded spread vs unfunded CDS spread comparison
+- 1226 tests, 95% coverage
+
+---
+
 ## v0.37.0 — 2026-04-02
 
 Multi-curve framework depth: RFR compounding, IBOR fallback, stochastic basis.
