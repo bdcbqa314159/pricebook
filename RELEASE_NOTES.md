@@ -2,6 +2,18 @@
 
 ---
 
+## v0.55.0 — 2026-04-03
+
+DVA + FVA — bilateral credit risk and funding cost.
+
+- dva: debit valuation adjustment from own default probability and ENE
+- bilateral_cva: BCVA = CVA - DVA, verified zero-sum for symmetric counterparties
+- fva: funding valuation adjustment from expected exposure and funding spread
+- FVA = 0 for fully collateralised trades, scales linearly with spread
+- 1487 tests, 95% coverage
+
+---
+
 ## v0.54.0 — 2026-04-03
 
 CVA (Credit Valuation Adjustment) — the price of counterparty credit risk.
