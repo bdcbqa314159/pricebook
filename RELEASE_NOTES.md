@@ -2,6 +2,19 @@
 
 ---
 
+## v0.57.0 — 2026-04-03
+
+AAD-aware Interpolation — differentiation through curve lookups.
+
+- aad_linear_interp: piecewise linear with Number-valued y, adjoint = interpolation weights
+- aad_log_linear_interp: log-linear with Number-valued y (standard for discount factors)
+- Values match float interpolation to machine precision
+- AAD derivatives match finite differences
+- Flat extrapolation beyond boundaries
+- 1510 tests, 95% coverage
+
+---
+
 ## v0.56.0 — 2026-04-03
 
 MVA + KVA — margin and capital costs, completing the XVA framework.
