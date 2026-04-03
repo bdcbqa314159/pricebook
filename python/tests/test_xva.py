@@ -13,6 +13,9 @@ from pricebook.xva import (
     dva,
     bilateral_cva,
     fva,
+    mva,
+    kva,
+    XVAResult,
 )
 from pricebook.pricing_context import PricingContext
 from pricebook.vol_surface import FlatVol
@@ -182,3 +185,62 @@ class TestFVA:
         curve = make_flat_curve(REF, 0.05)
         val = fva(ee, TIME_GRID, curve, funding_spread=0.005)
         assert val == pytest.approx(0.0)
+
+
+class TestMVA:
+    def test_mva_positive(self):
+        im = np.array([100.0, 90.0, 70.0, 50.0, 20.0])
+        curve = make_flat_curve(REF, 0.05)
+        val = mva(im, TIME_GRID, curve, funding_spread=0.005)
+        assert val > 0
+
+    def test_mva_zero_no_im(self):
+        im = np.zeros(5)
+        curve = make_flat_curve(REF, 0.05)
+        val = mva(im, TIME_GRID, curve, funding_spread=0.005)
+        assert val == pytest.approx(0.0)
+
+    def test_mva_scales_with_funding(self):
+        im = np.array([100.0, 90.0, 70.0, 50.0, 20.0])
+        curve = make_flat_curve(REF, 0.05)
+        mva1 = mva(im, TIME_GRID, curve, funding_spread=0.005)
+        mva2 = mva(im, TIME_GRID, curve, funding_spread=0.010)
+        assert mva2 == pytest.approx(2.0 * mva1)
+
+
+class TestKVA:
+    def test_kva_positive(self):
+        cap = np.array([50.0, 45.0, 35.0, 25.0, 10.0])
+        curve = make_flat_curve(REF, 0.05)
+        val = kva(cap, TIME_GRID, curve, hurdle_rate=0.10)
+        assert val > 0
+
+    def test_kva_zero_no_capital(self):
+        cap = np.zeros(5)
+        curve = make_flat_curve(REF, 0.05)
+        val = kva(cap, TIME_GRID, curve, hurdle_rate=0.10)
+        assert val == pytest.approx(0.0)
+
+    def test_kva_increases_with_size(self):
+        cap1 = np.array([50.0, 45.0, 35.0, 25.0, 10.0])
+        cap2 = 2.0 * cap1
+        curve = make_flat_curve(REF, 0.05)
+        kva1 = kva(cap1, TIME_GRID, curve, hurdle_rate=0.10)
+        kva2 = kva(cap2, TIME_GRID, curve, hurdle_rate=0.10)
+        assert kva2 == pytest.approx(2.0 * kva1)
+
+
+class TestXVAResult:
+    def test_total(self):
+        r = XVAResult(cva=10.0, dva=3.0, fva=2.0, mva=1.0, kva=0.5)
+        assert r.bcva == pytest.approx(7.0)
+        assert r.total == pytest.approx(10.5)  # 10 - 3 + 2 + 1 + 0.5
+
+    def test_total_zero(self):
+        r = XVAResult()
+        assert r.total == pytest.approx(0.0)
+
+    def test_collateralised_xva_small(self):
+        """Fully collateralised + high credit -> XVA near 0."""
+        r = XVAResult(cva=0.01, dva=0.01, fva=0.0, mva=0.0, kva=0.0)
+        assert abs(r.total) < 0.1

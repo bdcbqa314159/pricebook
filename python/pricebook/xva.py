@@ -1,8 +1,9 @@
-"""XVA: CVA, DVA, bilateral CVA, and FVA."""
+"""XVA: CVA, DVA, bilateral CVA, FVA, MVA, KVA."""
 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
@@ -181,3 +182,84 @@ def fva(
         result += ee[i] * funding_spread * dt * df
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# MVA
+# ---------------------------------------------------------------------------
+
+
+def mva(
+    im_profile: np.ndarray,
+    time_grid: list[float],
+    discount_curve: DiscountCurve,
+    funding_spread: float,
+) -> float:
+    """MVA = sum_i IM(t_i) * funding_spread * dt_i * df(t_i).
+
+    Args:
+        im_profile: initial margin at each time point.
+    """
+    ref = discount_curve.reference_date
+    result = 0.0
+
+    for i, t in enumerate(time_grid):
+        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        df = discount_curve.df(d)
+        dt = t if i == 0 else t - time_grid[i - 1]
+        result += im_profile[i] * funding_spread * dt * df
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# KVA
+# ---------------------------------------------------------------------------
+
+
+def kva(
+    capital_profile: np.ndarray,
+    time_grid: list[float],
+    discount_curve: DiscountCurve,
+    hurdle_rate: float,
+) -> float:
+    """KVA = sum_i K(t_i) * hurdle_rate * dt_i * df(t_i).
+
+    Args:
+        capital_profile: regulatory capital at each time point.
+        hurdle_rate: cost of capital (e.g. 0.10 for 10%).
+    """
+    ref = discount_curve.reference_date
+    result = 0.0
+
+    for i, t in enumerate(time_grid):
+        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        df = discount_curve.df(d)
+        dt = t if i == 0 else t - time_grid[i - 1]
+        result += capital_profile[i] * hurdle_rate * dt * df
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Total XVA
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class XVAResult:
+    """Aggregated XVA components."""
+
+    cva: float = 0.0
+    dva: float = 0.0
+    fva: float = 0.0
+    mva: float = 0.0
+    kva: float = 0.0
+
+    @property
+    def bcva(self) -> float:
+        return self.cva - self.dva
+
+    @property
+    def total(self) -> float:
+        return self.cva - self.dva + self.fva + self.mva + self.kva
