@@ -2,6 +2,19 @@
 
 ---
 
+## v0.41.0 — 2026-04-02
+
+Stochastic credit intensity models.
+
+- CIR intensity: analytical survival (Riccati/affine), MC survival matches within 3%
+- Cox process: doubly stochastic Poisson default simulation from intensity paths
+- Joint (rate, hazard) simulation with correlation via correlated BM
+- Wrong-way risk: negative r-λ correlation → positive corr(df, default) confirmed
+- Calibration: fit CIR params to CDS par spread term structure
+- 1270 tests, 95% coverage
+
+---
+
 ## v0.40.0 — 2026-04-02
 
 HJM forward rate framework.
