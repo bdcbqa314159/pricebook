@@ -2,6 +2,21 @@
 
 ---
 
+## v0.48.0 — 2026-04-02
+
+Dependency graph for incremental risk computation.
+
+- DAG with market data → curves → instruments → portfolio topology
+- Dirty-flag propagation: mark upstream → all downstream nodes dirty
+- Topological sort: recompute only dirty nodes in correct order
+- Isolated nodes stay clean (bump USD rate → EUR instruments unaffected)
+- Cycle detection for graph integrity
+- Node add/remove with automatic edge cleanup
+- Portfolio integration test: realistic 9-node graph with selective bumping
+- 1379 tests, 95% coverage
+
+---
+
 ## v0.47.0 — 2026-04-02
 
 Exotic loans — completing the exotic product suite.
