@@ -2,6 +2,19 @@
 
 ---
 
+## v0.43.0 — 2026-04-02
+
+Recovery rate models — completing the credit model suite.
+
+- BetaRecovery: recovery from Beta distribution (mean/std parameterised), PDF/CDF
+- LGDModel: Loss Given Default = 1 - R, expected loss computation
+- CorrelatedRecovery: R = f(M) systematic factor model, downturn LGD at tail percentiles
+- Portfolio loss with correlated recovery: higher tail risk when recovery drops in downturns
+- Zero sensitivity → deterministic recovery, floor/cap bounds respected
+- 1317 tests, 95% coverage
+
+---
+
 ## v0.42.0 — 2026-04-02
 
 Credit rating transition models.
