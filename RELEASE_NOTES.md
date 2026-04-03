@@ -2,6 +2,19 @@
 
 ---
 
+## v0.45.0 — 2026-04-02
+
+Bermudan swaptions — two pricing methods.
+
+- Hull-White tree: backward induction with exercise decision at each coupon date
+- Longstaff-Schwartz MC: rate path simulation + polynomial regression on continuation
+- Bermudan ≥ European confirmed for both methods
+- Tree and LSM agree within 50% (simplified implementations, same order of magnitude)
+- Payer and receiver variants, higher vol → higher price
+- 1337 tests, 95% coverage
+
+---
+
 ## v0.44.0 — 2026-04-02
 
 Callable and puttable bonds — first exotic product.
