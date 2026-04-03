@@ -2,6 +2,21 @@
 
 ---
 
+## v0.59.0 — 2026-04-03
+
+AAD End-to-End Integration — the capstone. All Greeks in one backward pass.
+
+- aad_black_scholes: delta, vega, rho simultaneously from one propagation
+- aad_swap_pv: IR01 per pillar in one pass (receiver fixed swap)
+- aad_cds_pv: IR01 + CS01 per pillar in one pass (protection buyer)
+- Portfolio: sum of trades, AAD portfolio Greeks = sum of individual AAD
+- Performance: AAD >2x faster than bump-and-reprice for 10 pillars
+- All AAD Greeks match finite differences to 4+ significant figures
+- Put-call parity verified for AAD Black-Scholes
+- 1533 tests, 95% coverage
+
+---
+
 ## v0.58.0 — 2026-04-03
 
 AAD-aware Curves — pillar sensitivities in one backward pass.
