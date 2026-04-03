@@ -2,6 +2,18 @@
 
 ---
 
+## v0.54.0 — 2026-04-03
+
+CVA (Credit Valuation Adjustment) — the price of counterparty credit risk.
+
+- simulate_exposures: MC simulation of portfolio PV under diffused rates
+- expected_positive_exposure / expected_negative_exposure / expected_exposure
+- cva: unilateral CVA = ∫ EPE * df * dPD * (1-R), discretised over time grid
+- CVA increases with counterparty spread and LGD, zero with no default or no exposure
+- 1478 tests, 95% coverage
+
+---
+
 ## v0.53.0 — 2026-04-03
 
 Trade Lifecycle — amendments, exercises, novations, and audit history.
