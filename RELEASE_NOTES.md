@@ -2,6 +2,19 @@
 
 ---
 
+## v0.46.0 — 2026-04-02
+
+CDO tranches.
+
+- Vasicek large homogeneous pool: conditional PD, loss distribution via Gauss-Hermite
+- Tranche pricing: equity/mezzanine/senior expected loss and spread
+- Equity highest spread > mezzanine > senior confirmed
+- Tranche losses sum to portfolio loss
+- Base correlation: flat corr that reprices [0, K] tranche, round-trip validated
+- 1350 tests, 95% coverage
+
+---
+
 ## v0.45.0 — 2026-04-02
 
 Bermudan swaptions — two pricing methods.
