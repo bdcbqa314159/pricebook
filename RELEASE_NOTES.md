@@ -2,6 +2,20 @@
 
 ---
 
+## v0.52.0 — 2026-04-03
+
+Market Data Snapshots — structured market data for curve building and pricing.
+
+- Quote: typed market observations (deposit rate, swap rate, CDS spread, vol point, FX spot)
+- MarketDataSnapshot: dated collection of quotes, JSON serialisation round-trip
+- Tenor parsing: "3M", "5Y", "1W", "1D" → year fractions and dates
+- CurveConfig/PipelineConfig: declarative curve building configuration
+- build_context: snapshot + config → PricingContext (discount, credit, vol, FX)
+- HistoricalData: time series of snapshots, date-keyed lookup, JSON round-trip
+- 1448 tests, 95% coverage
+
+---
+
 ## v0.51.0 — 2026-03-29
 
 VaR and stress testing.
