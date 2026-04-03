@@ -2,6 +2,19 @@
 
 ---
 
+## v0.49.0 — 2026-04-02
+
+Caching, memoisation, and lazy evaluation.
+
+- CurveCache: LRU cache for df/forward lookups, per-curve invalidation, hit rate stats
+- CalibrationCache: stores calibrated model params keyed by inputs hash, invalidation
+- LazyValue: defers computation until .value accessed, computed once, resettable
+- LRU eviction at configurable maxsize
+- Lazy curve bootstrap: curve not built until first query
+- 1395 tests, 95% coverage
+
+---
+
 ## v0.48.0 — 2026-04-02
 
 Dependency graph for incremental risk computation.
