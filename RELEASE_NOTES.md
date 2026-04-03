@@ -2,6 +2,19 @@
 
 ---
 
+## v0.47.0 — 2026-04-02
+
+Exotic loans — completing the exotic product suite.
+
+- CPR/PSA prepayment models: constant and ramped prepayment rates
+- Prepayment-adjusted cashflows and WAL (shorter than bullet confirmed)
+- Covenant triggers: breach probability per period, acceleration on breach
+- Covenant-adjusted PV and expected maturity
+- Zero prepay/breach = unchanged from base loan
+- 1361 tests, 95% coverage
+
+---
+
 ## v0.46.0 — 2026-04-02
 
 CDO tranches.
