@@ -2,6 +2,19 @@
 
 ---
 
+## v0.51.0 — 2026-03-29
+
+VaR and stress testing.
+
+- historical_var: percentile-based VaR from P&L vector
+- historical_cvar: expected shortfall (conditional VaR), mean of tail losses
+- parametric_var: delta-normal VaR from factor deltas and covariance matrix
+- stress_test: reprice under shifted PricingContext scenarios (rate, vol, credit shifts)
+- STANDARD_STRESSES: 4 predefined scenarios (parallel ±100bp, steepener, vol +5%)
+- 1422 tests, 95% coverage
+
+---
+
 ## v0.50.0 — 2026-04-02
 
 P&L Explain — attribution of portfolio value changes.
