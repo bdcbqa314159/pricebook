@@ -2,6 +2,22 @@
 
 ---
 
+## v0.42.0 — 2026-04-02
+
+Credit rating transition models.
+
+- Generator matrix Q with auto-computed diagonal (rows sum to 0)
+- Transition probability P(t) = exp(Qt) via scipy matrix exponential
+- Default probability, survival, spread term structure per rating
+- Jarrow-Lando-Turnbull risky ZCB pricing
+- MC rating migration simulation with absorbing default state
+- Simulated default probabilities match analytical within 1%
+- AAA < BBB < CCC spread ordering confirmed across tenors
+- Standard 8-state generator (AAA to D) included
+- 1295 tests, 95% coverage
+
+---
+
 ## v0.41.0 — 2026-04-02
 
 Stochastic credit intensity models.
