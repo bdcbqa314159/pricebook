@@ -2,6 +2,19 @@
 
 ---
 
+## v0.60.0 — 2026-04-03
+
+IR Futures — SOFR futures with convexity adjustment.
+
+- IRFuture: 1M/3M SOFR futures, price = 100 - rate, daily mark-to-market PV
+- implied_forward: simply compounded forward rate from discount curve
+- hw_convexity_adjustment: Hull-White analytical convexity bias (futures rate > forward rate)
+- Convexity is positive, increases with vol (quadratic in σ) and maturity
+- futures_strip_rates: compute rates for a strip with increasing convexity
+- DV01: tick value per basis point
+
+---
+
 ## v0.59.0 — 2026-04-03
 
 AAD End-to-End Integration — the capstone. All Greeks in one backward pass.
