@@ -2,6 +2,19 @@
 
 ---
 
+## v0.44.0 — 2026-04-02
+
+Callable and puttable bonds — first exotic product.
+
+- Callable bond: HW tree backward induction, min(continuation, call_price)
+- Puttable bond: max(continuation, put_price) at put dates
+- Callable ≤ straight ≤ puttable confirmed
+- Low vol → optionality vanishes → approaches straight bond
+- OAS: spread to risk-free that reprices with embedded option, round-trip validated
+- 1329 tests, 95% coverage
+
+---
+
 ## v0.43.0 — 2026-04-02
 
 Recovery rate models — completing the credit model suite.
