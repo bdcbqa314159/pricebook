@@ -8,7 +8,11 @@ from pricebook.xva import (
     simulate_exposures,
     expected_positive_exposure,
     expected_negative_exposure,
+    expected_exposure,
     cva,
+    dva,
+    bilateral_cva,
+    fva,
 )
 from pricebook.pricing_context import PricingContext
 from pricebook.vol_surface import FlatVol
@@ -104,3 +108,77 @@ class TestCVA:
         cva_low_r = cva(epe, TIME_GRID, curve, surv, recovery=0.6)
         cva_high_r = cva(epe, TIME_GRID, curve, surv, recovery=0.2)
         assert cva_high_r > cva_low_r
+
+
+class TestDVA:
+    def test_dva_positive(self):
+        ene = np.array([5.0, 4.0, 3.0, 2.0, 1.0])
+        curve = make_flat_curve(REF, 0.05)
+        own_surv = make_flat_survival(REF, 0.01)
+        val = dva(ene, TIME_GRID, curve, own_surv, own_recovery=0.4)
+        assert val > 0
+
+    def test_dva_zero_no_default(self):
+        ene = np.array([5.0, 4.0, 3.0, 2.0, 1.0])
+        curve = make_flat_curve(REF, 0.05)
+        own_surv = make_flat_survival(REF, 0.0)
+        val = dva(ene, TIME_GRID, curve, own_surv)
+        assert val == pytest.approx(0.0, abs=1e-10)
+
+
+class TestBilateralCVA:
+    def test_bcva(self):
+        cva_val = 10.0
+        dva_val = 3.0
+        assert bilateral_cva(cva_val, dva_val) == pytest.approx(7.0)
+
+    def test_symmetric(self):
+        """BCVA_A->B + BCVA_B->A = 0 (with same exposure profiles)."""
+        epe = np.array([10.0, 8.0, 5.0, 3.0, 1.0])
+        ene = np.array([10.0, 8.0, 5.0, 3.0, 1.0])
+        curve = make_flat_curve(REF, 0.05)
+        surv_a = make_flat_survival(REF, 0.02)
+        surv_b = make_flat_survival(REF, 0.02)
+
+        cva_a = cva(epe, TIME_GRID, curve, surv_b)
+        dva_a = dva(ene, TIME_GRID, curve, surv_a)
+        cva_b = cva(ene, TIME_GRID, curve, surv_a)
+        dva_b = dva(epe, TIME_GRID, curve, surv_b)
+
+        bcva_a = bilateral_cva(cva_a, dva_a)
+        bcva_b = bilateral_cva(cva_b, dva_b)
+        assert bcva_a + bcva_b == pytest.approx(0.0, abs=1e-10)
+
+
+class TestFVA:
+    def test_fva_positive_for_positive_exposure(self):
+        ee = np.array([10.0, 8.0, 5.0, 3.0, 1.0])
+        curve = make_flat_curve(REF, 0.05)
+        val = fva(ee, TIME_GRID, curve, funding_spread=0.005)
+        assert val > 0
+
+    def test_fva_zero_no_spread(self):
+        ee = np.array([10.0, 8.0, 5.0, 3.0, 1.0])
+        curve = make_flat_curve(REF, 0.05)
+        val = fva(ee, TIME_GRID, curve, funding_spread=0.0)
+        assert val == pytest.approx(0.0)
+
+    def test_fva_zero_no_exposure(self):
+        ee = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+        curve = make_flat_curve(REF, 0.05)
+        val = fva(ee, TIME_GRID, curve, funding_spread=0.005)
+        assert val == pytest.approx(0.0)
+
+    def test_fva_scales_with_spread(self):
+        ee = np.array([10.0, 8.0, 5.0, 3.0, 1.0])
+        curve = make_flat_curve(REF, 0.05)
+        fva1 = fva(ee, TIME_GRID, curve, funding_spread=0.005)
+        fva2 = fva(ee, TIME_GRID, curve, funding_spread=0.010)
+        assert fva2 == pytest.approx(2.0 * fva1)
+
+    def test_fva_zero_fully_collateralised(self):
+        """FVA = 0 when no uncollateralised exposure."""
+        ee = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+        curve = make_flat_curve(REF, 0.05)
+        val = fva(ee, TIME_GRID, curve, funding_spread=0.005)
+        assert val == pytest.approx(0.0)

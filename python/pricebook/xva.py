@@ -1,4 +1,4 @@
-"""XVA: CVA — exposure simulation and credit valuation adjustment."""
+"""XVA: CVA, DVA, bilateral CVA, and FVA."""
 
 from __future__ import annotations
 
@@ -105,5 +105,79 @@ def cva(
 
         delta_pd = sp_prev - sp  # probability of default in bucket
         result += epe[i] * df * delta_pd * lgd
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# DVA
+# ---------------------------------------------------------------------------
+
+
+def dva(
+    ene: np.ndarray,
+    time_grid: list[float],
+    discount_curve: DiscountCurve,
+    own_survival: SurvivalCurve,
+    own_recovery: float = 0.4,
+) -> float:
+    """DVA = sum_i ENE(t_i) * df(t_i) * delta_PD_own(t_i) * (1-R_own)."""
+    ref = discount_curve.reference_date
+    lgd = 1.0 - own_recovery
+    result = 0.0
+
+    for i, t in enumerate(time_grid):
+        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        df = discount_curve.df(d)
+        sp = own_survival.survival(d)
+
+        if i == 0:
+            sp_prev = 1.0
+        else:
+            d_prev = date.fromordinal(ref.toordinal() + int(time_grid[i - 1] * 365))
+            sp_prev = own_survival.survival(d_prev)
+
+        delta_pd = sp_prev - sp
+        result += ene[i] * df * delta_pd * lgd
+
+    return result
+
+
+def bilateral_cva(
+    cva_val: float,
+    dva_val: float,
+) -> float:
+    """BCVA = CVA - DVA."""
+    return cva_val - dva_val
+
+
+# ---------------------------------------------------------------------------
+# FVA
+# ---------------------------------------------------------------------------
+
+
+def fva(
+    ee: np.ndarray,
+    time_grid: list[float],
+    discount_curve: DiscountCurve,
+    funding_spread: float,
+) -> float:
+    """FVA = sum_i EE(t_i) * funding_spread * dt_i * df(t_i).
+
+    Positive FVA = funding cost (borrower pays spread on positive exposure).
+    """
+    ref = discount_curve.reference_date
+    result = 0.0
+
+    for i, t in enumerate(time_grid):
+        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        df = discount_curve.df(d)
+
+        if i == 0:
+            dt = t
+        else:
+            dt = t - time_grid[i - 1]
+
+        result += ee[i] * funding_spread * dt * df
 
     return result
