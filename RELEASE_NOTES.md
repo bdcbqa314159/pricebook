@@ -2,6 +2,20 @@
 
 ---
 
+## v0.53.0 — 2026-04-03
+
+Trade Lifecycle — amendments, exercises, novations, and audit history.
+
+- ManagedTrade: versioned wrapper around Trade with full lifecycle support
+- Amendments: change notional, direction, counterparty, or instrument; original preserved
+- Exercise: option → underlying (e.g. swaption → swap), prevents double exercise
+- Novation: transfer counterparty, economics unchanged
+- Audit trail: chronological LifecycleEvent history with version numbers
+- EventType enum: CREATED, AMENDED, EXERCISED, NOVATED
+- 1469 tests, 95% coverage
+
+---
+
 ## v0.52.0 — 2026-04-03
 
 Market Data Snapshots — structured market data for curve building and pricing.
