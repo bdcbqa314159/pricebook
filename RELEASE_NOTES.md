@@ -2,6 +2,19 @@
 
 ---
 
+## v0.50.0 — 2026-04-02
+
+P&L Explain — attribution of portfolio value changes.
+
+- PnLResult: total, carry, rolldown, rate/vol/credit/FX/theta components, unexplained
+- Greek-based attribution: delta*dx + 0.5*gamma*dx^2 per risk factor
+- Carry: coupon income - funding cost
+- Components sum to explained, total - explained = unexplained
+- Extensible via `other` dict for custom components
+- 1409 tests, 95% coverage
+
+---
+
 ## v0.49.0 — 2026-04-02
 
 Caching, memoisation, and lazy evaluation.
