@@ -2,6 +2,19 @@
 
 ---
 
+## v0.56.0 — 2026-04-03
+
+MVA + KVA — margin and capital costs, completing the XVA framework.
+
+- mva: margin valuation adjustment from IM profile and funding spread
+- kva: capital valuation adjustment from regulatory capital profile and hurdle rate
+- XVAResult: aggregates CVA, DVA, FVA, MVA, KVA with bcva and total properties
+- Total XVA = CVA - DVA + FVA + MVA + KVA
+- All components scale linearly, zero when inputs are zero
+- 1496 tests, 95% coverage
+
+---
+
 ## v0.55.0 — 2026-04-03
 
 DVA + FVA — bilateral credit risk and funding cost.
