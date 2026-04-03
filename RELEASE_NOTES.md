@@ -2,6 +2,20 @@
 
 ---
 
+## v0.58.0 — 2026-04-03
+
+AAD-aware Curves — pillar sensitivities in one backward pass.
+
+- AADDiscountCurve: Number-valued pillar DFs, df(date) returns Number on tape
+- AADSurvivalCurve: Number-valued pillar survivals, survival(date) returns Number
+- d(price)/d(df[i]) and d(price)/d(surv[i]) for all pillars in one pass
+- Values match float curves to machine precision
+- AAD sensitivities match bump-and-reprice finite differences
+- Only bracketing pillars get non-zero sensitivity (log-linear locality)
+- 1519 tests, 95% coverage
+
+---
+
 ## v0.57.0 — 2026-04-03
 
 AAD-aware Interpolation — differentiation through curve lookups.
