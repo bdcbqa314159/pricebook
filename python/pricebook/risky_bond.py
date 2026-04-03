@@ -67,8 +67,7 @@ class RiskyBond:
             # Recovery on default in this period
             surv_prev = survival_curve.survival(t_start)
             default_prob = surv_prev - surv
-            df_mid = discount_curve.df(t_end)  # approximate mid-period
-            pv += self.recovery * self.notional * default_prob * df_mid
+            pv += self.recovery * self.notional * default_prob * df
 
         # Principal at maturity conditional on survival
         pv += self.notional * discount_curve.df(self.end) * survival_curve.survival(self.end)

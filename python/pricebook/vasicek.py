@@ -195,10 +195,14 @@ class G2PlusPlus:
         std_y = self.sigma2 * math.sqrt((1 - math.exp(-2 * self.b * dt)) / (2 * self.b)) \
             if self.b > 0 else self.sigma2 * math.sqrt(dt)
 
+        sqrt_dt = math.sqrt(dt)
+        scale_x = std_x / sqrt_dt
+        scale_y = std_y / sqrt_dt
+
         for i in range(n_steps):
             # Exact OU simulation for each factor
-            x[:, i + 1] = x[:, i] * e_a + std_x * dW[:, i, 0] / math.sqrt(dt) * math.sqrt(dt)
-            y[:, i + 1] = y[:, i] * e_b + std_y * dW[:, i, 1] / math.sqrt(dt) * math.sqrt(dt)
+            x[:, i + 1] = x[:, i] * e_a + scale_x * dW[:, i, 0]
+            y[:, i + 1] = y[:, i] * e_b + scale_y * dW[:, i, 1]
 
         return x, y
 

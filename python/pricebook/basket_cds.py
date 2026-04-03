@@ -80,39 +80,12 @@ def ftd_spread(
 ) -> float:
     """First-to-default basket spread via MC simulation.
 
-    The spread that makes the FTD protection PV = FTD premium PV.
-    Approximated as: spread ≈ E[protection] / E[risky_annuity].
+    Thin wrapper around ntd_spread with n=1.
     """
-    defaults = simulate_defaults_copula(survival_curves, T, rho, n_sims, seed)
-    n_defaults = count_defaults(defaults)
-
-    # FTD: at least 1 default
-    ftd_triggered = n_defaults >= 1
-
-    ref = survival_curves[0].reference_date
-    T_date = date.fromordinal(ref.toordinal() + int(T * 365))
-    df_T = discount_curve.df(T_date)
-
-    # Protection PV ≈ (1-R) * df(T) * P(FTD triggered)
-    protection = (1 - recovery) * df_T * ftd_triggered.mean()
-
-    # Risky annuity ≈ sum of df(t_i) * P(no FTD by t_i) for annual payments
-    annuity = 0.0
-    n_years = max(1, int(T))
-    for yr in range(1, n_years + 1):
-        t = min(yr, T)
-        d = date.fromordinal(ref.toordinal() + int(t * 365))
-        df = discount_curve.df(d)
-
-        # Simulate survival to time t (approximate: scale by t/T)
-        # For simplicity, use P(no default by T) as lower bound
-        surv_prob = 1.0 - ftd_triggered.mean() * (t / T)
-        surv_prob = max(surv_prob, 0.01)
-        annuity += df * surv_prob
-
-    if annuity <= 0:
-        return 0.0
-    return protection / annuity
+    return ntd_spread(
+        survival_curves, discount_curve, rho, T,
+        n=1, recovery=recovery, n_sims=n_sims, seed=seed,
+    )
 
 
 def ntd_spread(

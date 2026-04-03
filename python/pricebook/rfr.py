@@ -63,7 +63,6 @@ def compound_rfr_from_curve(
     curve: DiscountCurve,
     start: date,
     end: date,
-    day_count: DayCountConvention = DayCountConvention.ACT_360,
 ) -> float:
     """Compounded RFR from a discount curve (exact, no daily simulation).
 
@@ -193,7 +192,7 @@ class StochasticBasis:
         return self.mean_spread
 
     def stationary_std(self) -> float:
-        return self.vol / math.sqrt(2 * self.mean_reversion)
+        return math.sqrt(self._ou.stationary_variance())
 
 
 @dataclass
@@ -211,11 +210,9 @@ class FallbackConfig:
 def ibor_fallback_rate(
     rfr_compounded: float,
     config: FallbackConfig,
-    fixing_date: date,
 ) -> float:
     """Compute IBOR fallback rate.
 
     Post-cessation: IBOR = compounded RFR + ISDA spread adjustment.
-    Pre-cessation: return the RFR + spread as an indicative rate.
     """
     return rfr_compounded + config.spread_adjustment

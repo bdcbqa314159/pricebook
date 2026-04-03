@@ -116,6 +116,18 @@ class DiscountCurve:
             return 0.0
         return -math.log(self.df(d)) / t
 
+    def instantaneous_forward(self, t: float) -> float:
+        """Instantaneous forward rate: f(t) = -d/dT ln P(T) via finite difference."""
+        dt = 1.0 / 365.0
+        ref = self.reference_date
+        d1 = date.fromordinal(ref.toordinal() + int(t * 365))
+        d2 = date.fromordinal(ref.toordinal() + int(t * 365) + 1)
+        df1 = self.df(d1)
+        df2 = self.df(d2)
+        if df1 <= 0 or df2 <= 0:
+            return 0.0
+        return -math.log(df2 / df1) / dt
+
     def forward_rate(self, d1: date, d2: date) -> float:
         """
         Simply compounded forward rate between d1 and d2.

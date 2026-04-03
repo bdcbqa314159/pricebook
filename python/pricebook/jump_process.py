@@ -68,12 +68,10 @@ class CompoundPoissonProcess:
     def sample(self, T: float, n_paths: int) -> np.ndarray:
         """Total jump value X(T) per path. Shape: (n_paths,)."""
         N = self._rng.poisson(self.intensity * T, size=n_paths)
-        X = np.zeros(n_paths)
-        for i in range(n_paths):
-            if N[i] > 0:
-                jumps = self._rng.normal(self.jump_mean, self.jump_std, size=N[i])
-                X[i] = jumps.sum()
-        return X
+        N_max = max(int(N.max()), 1) if n_paths > 0 else 1
+        jumps = self._rng.normal(self.jump_mean, self.jump_std, (n_paths, N_max))
+        mask = np.arange(N_max) < N[:, None]
+        return (jumps * mask).sum(axis=1)
 
 
 class MertonJumpDiffusion:
@@ -112,11 +110,10 @@ class MertonJumpDiffusion:
 
         # Jump part
         N = rng.poisson(self.lam * T, size=n_paths)
-        jump_sum = np.zeros(n_paths)
-        for i in range(n_paths):
-            if N[i] > 0:
-                jumps = rng.normal(self.jump_mean, self.jump_std, size=N[i])
-                jump_sum[i] = jumps.sum()
+        N_max = max(int(N.max()), 1)
+        jumps = rng.normal(self.jump_mean, self.jump_std, (n_paths, N_max))
+        mask = np.arange(N_max) < N[:, None]
+        jump_sum = (jumps * mask).sum(axis=1)
 
         return S0 * np.exp(drift + diffusion + jump_sum)
 

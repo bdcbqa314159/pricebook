@@ -68,17 +68,7 @@ class HJMModel:
 
         forwards = []
         for x in tenors:
-            d1 = date.fromordinal(ref.toordinal() + int(x * 365))
-            d2 = date.fromordinal(ref.toordinal() + int((x + 0.01) * 365))
-            # Instantaneous forward ≈ -d/dT ln(P(T))
-            df1 = curve.df(d1)
-            df2 = curve.df(d2)
-            dt = 0.01
-            if df2 > 0 and df1 > 0:
-                f = -math.log(df2 / df1) / dt
-            else:
-                f = 0.0
-            forwards.append(f)
+            forwards.append(curve.instantaneous_forward(x))
 
         return cls(forwards, tenors, constant_vol=constant_vol)
 

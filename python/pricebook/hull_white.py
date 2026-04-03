@@ -56,16 +56,7 @@ class HullWhite:
 
     def _forward_rate(self, t: float) -> float:
         """Instantaneous forward rate from the curve at time t."""
-        ref = self.curve.reference_date
-        dt_days = 1
-        d1 = date.fromordinal(ref.toordinal() + int(t * 365))
-        d2 = date.fromordinal(ref.toordinal() + int(t * 365) + dt_days)
-        df1 = self.curve.df(d1)
-        df2 = self.curve.df(d2)
-        dt = dt_days / 365.0
-        if df2 <= 0 or df1 <= 0:
-            return 0.0
-        return -math.log(df2 / df1) / dt
+        return self.curve.instantaneous_forward(t)
 
     def _log_A(self, t: float, T: float) -> float:
         """log A(t, T) for the analytical bond price."""

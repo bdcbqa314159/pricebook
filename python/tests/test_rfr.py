@@ -154,13 +154,13 @@ class TestFallback:
     def test_post_cessation(self):
         config = FallbackConfig(spread_adjustment=0.0026161, cessation_date=date(2023, 6, 30))
         rfr_rate = 0.045
-        fallback = ibor_fallback_rate(rfr_rate, config, fixing_date=date(2024, 1, 15))
+        fallback = ibor_fallback_rate(rfr_rate, config)
         assert fallback == pytest.approx(rfr_rate + 0.0026161)
 
     def test_spread_adjustment_adds(self):
         config = FallbackConfig(spread_adjustment=0.005, cessation_date=date(2023, 1, 1))
-        assert ibor_fallback_rate(0.03, config, date(2024, 1, 1)) == pytest.approx(0.035)
+        assert ibor_fallback_rate(0.03, config) == pytest.approx(0.035)
 
     def test_zero_spread(self):
         config = FallbackConfig(spread_adjustment=0.0, cessation_date=date(2023, 1, 1))
-        assert ibor_fallback_rate(0.04, config, date(2024, 1, 1)) == pytest.approx(0.04)
+        assert ibor_fallback_rate(0.04, config) == pytest.approx(0.04)
