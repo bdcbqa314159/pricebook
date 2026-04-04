@@ -2,6 +2,19 @@
 
 ---
 
+## v0.68.0 — 2026-04-04
+
+Serialization — JSON round-trip for curves, instruments, trades, portfolios.
+
+- Curve serialization: DiscountCurve, SurvivalCurve, PricingContext to/from dict
+- Instrument serialization: IRS, Bond, CDS, FRA, Swaption, CapFloor
+- Trade + Portfolio serialization with instrument type tags
+- Instrument registry: get_instrument_class("irs"), list_instruments()
+- Generic loaders: load_trade(dict), load_portfolio(list), from_json(string)
+- to_json() for any supported object
+
+---
+
 ## v0.67.0 — 2026-04-04
 
 Sparse Grids (Smolyak Quadrature) — high-dimensional integration.
