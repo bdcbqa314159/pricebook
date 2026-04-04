@@ -16,6 +16,7 @@ from __future__ import annotations
 from pricebook import solvers
 from pricebook import quadrature
 from pricebook import binomial_tree
+from pricebook import binomial_jr_lr
 from pricebook import trinomial_tree
 from pricebook import finite_difference
 from pricebook import mc_pricer
@@ -78,12 +79,20 @@ def list_integrators() -> list[str]:
 _TREE_EUROPEAN = {
     "binomial": binomial_tree.binomial_european,
     "crr": binomial_tree.binomial_european,
+    "jr": binomial_jr_lr.jr_european,
+    "jarrow_rudd": binomial_jr_lr.jr_european,
+    "lr": binomial_jr_lr.lr_european,
+    "leisen_reimer": binomial_jr_lr.lr_european,
     "trinomial": trinomial_tree.trinomial_european,
 }
 
 _TREE_AMERICAN = {
     "binomial": binomial_tree.binomial_american,
     "crr": binomial_tree.binomial_american,
+    "jr": binomial_jr_lr.jr_american,
+    "jarrow_rudd": binomial_jr_lr.jr_american,
+    "lr": binomial_jr_lr.lr_american,
+    "leisen_reimer": binomial_jr_lr.lr_american,
     "trinomial": trinomial_tree.trinomial_american,
 }
 
