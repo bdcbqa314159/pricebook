@@ -2,6 +2,19 @@
 
 ---
 
+## v0.61.0 — 2026-04-04
+
+Cross-Currency Swaps — full notional exchange with basis spread.
+
+- CrossCurrencySwap: bilateral notional exchange, floating + basis spread
+- MTM reset variant: foreign notional resets to market FX each period
+- par_spread: analytical solver for zero-PV basis spread
+- dv01_domestic / dv01_foreign: rate sensitivities per currency
+- fx_delta: FX rate sensitivity
+- MTM reset reduces FX delta vs standard XCCY
+
+---
+
 ## v0.60.0 — 2026-04-03
 
 IR Futures — SOFR futures with convexity adjustment.
