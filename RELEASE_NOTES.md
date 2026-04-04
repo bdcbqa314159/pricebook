@@ -2,6 +2,19 @@
 
 ---
 
+## v0.62.0 — 2026-04-04
+
+CSA and Funding Framework — generic collateral and funding adjustments for any trade.
+
+- CSA: threshold, MTA, rounding, margin frequency, eligible collateral, haircut, initial margin
+- FundingModel: secured/unsecured rates, collateral rate, funding spread
+- required_collateral: exposure → collateral amount respecting CSA terms
+- collateral_adjusted_pv: generic — works with any trade (Trade, instrument, or pv_ctx object)
+- funding_benefit_analysis: compare CSA options side by side
+- Fully collateralised → zero funding cost; uncollateralised → spread × exposure × horizon
+
+---
+
 ## v0.61.0 — 2026-04-04
 
 Cross-Currency Swaps — full notional exchange with basis spread.
