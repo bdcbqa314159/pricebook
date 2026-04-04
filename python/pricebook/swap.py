@@ -46,8 +46,16 @@ class InterestRateSwap:
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
     ):
+        self.start = start
+        self.end = end
+        self.fixed_rate = fixed_rate
         self.direction = direction
         self.notional = notional
+        self.fixed_frequency = fixed_frequency
+        self.float_frequency = float_frequency
+        self.fixed_day_count = fixed_day_count
+        self.float_day_count = float_day_count
+        self.spread = spread
 
         self.fixed_leg = FixedLeg(
             start, end, fixed_rate, fixed_frequency,

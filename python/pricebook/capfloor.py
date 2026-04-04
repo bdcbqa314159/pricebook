@@ -40,9 +40,12 @@ class CapFloor:
         if start >= end:
             raise ValueError(f"start ({start}) must be before end ({end})")
 
+        self.start = start
+        self.end = end
         self.strike = strike
         self.option_type = option_type
         self.notional = notional
+        self.frequency = frequency
         self.day_count = day_count
 
         schedule = generate_schedule(

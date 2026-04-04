@@ -76,6 +76,10 @@ class Swaption:
         self.strike = strike
         self.swaption_type = swaption_type
         self.notional = notional
+        self.fixed_frequency = fixed_frequency
+        self.float_frequency = float_frequency
+        self.fixed_day_count = fixed_day_count
+        self.float_day_count = float_day_count
 
         # Build the underlying forward-starting swap (payer by convention)
         self.underlying = InterestRateSwap(
