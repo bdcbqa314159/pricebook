@@ -8,6 +8,7 @@ class DayCountConvention(Enum):
     ACT_360 = "ACT/360"
     ACT_365_FIXED = "ACT/365F"
     THIRTY_360 = "30/360"
+    ACT_ACT_ISDA = "ACT/ACT ISDA"
 
 
 def year_fraction(start: date, end: date, convention: DayCountConvention) -> float:
@@ -23,6 +24,8 @@ def year_fraction(start: date, end: date, convention: DayCountConvention) -> flo
         return _act_365_fixed(start, end)
     elif convention == DayCountConvention.THIRTY_360:
         return _thirty_360(start, end)
+    elif convention == DayCountConvention.ACT_ACT_ISDA:
+        return _act_act_isda(start, end)
     else:
         raise ValueError(f"Unsupported convention: {convention}")
 
@@ -55,3 +58,34 @@ def _thirty_360(start: date, end: date) -> float:
 
     days = 360 * (end.year - start.year) + 30 * (end.month - start.month) + (d2 - d1)
     return days / 360.0
+
+
+def _is_leap(year: int) -> bool:
+    return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+
+
+def _act_act_isda(start: date, end: date) -> float:
+    """ACT/ACT ISDA: days in each year divided by that year's length (365 or 366).
+
+    Handles periods spanning multiple years by splitting at year boundaries.
+    """
+    if start.year == end.year:
+        days_in_year = 366 if _is_leap(start.year) else 365
+        return (end - start).days / days_in_year
+
+    total = 0.0
+    # Fraction in start year
+    year_end = date(start.year + 1, 1, 1)
+    days_in_year = 366 if _is_leap(start.year) else 365
+    total += (year_end - start).days / days_in_year
+
+    # Full years in between
+    for y in range(start.year + 1, end.year):
+        total += 1.0
+
+    # Fraction in end year
+    year_start = date(end.year, 1, 1)
+    days_in_year = 366 if _is_leap(end.year) else 365
+    total += (end - year_start).days / days_in_year
+
+    return total

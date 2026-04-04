@@ -133,3 +133,113 @@ class USSettlementCalendar(Calendar):
         holidays.add(self._observe(date(year, 12, 25)))              # Christmas
 
         return holidays
+
+
+class TARGETCalendar(Calendar):
+    """TARGET calendar (Trans-European Automated Real-time Gross settlement).
+
+    Used for EUR-denominated products. Holidays: New Year's, Good Friday,
+    Easter Monday, Labour Day (1 May), Christmas Day, 26 Dec.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))   # New Year's
+        holidays.add(date(year, 5, 1))   # Labour Day
+        holidays.add(date(year, 12, 25)) # Christmas
+        holidays.add(date(year, 12, 26)) # St Stephen's
+
+        # Easter (anonymous Gregorian algorithm)
+        easter = self._easter(year)
+        holidays.add(easter - timedelta(days=2))  # Good Friday
+        holidays.add(easter + timedelta(days=1))   # Easter Monday
+
+        return holidays
+
+    @staticmethod
+    def _easter(year: int) -> date:
+        """Compute Easter Sunday (anonymous Gregorian algorithm)."""
+        a = year % 19
+        b, c = divmod(year, 100)
+        d, e = divmod(b, 4)
+        f = (b + 8) // 25
+        g = (b - f + 1) // 3
+        h = (19 * a + b - d - g + 15) % 30
+        i, k = divmod(c, 4)
+        L = (32 + 2 * e + 2 * i - h - k) % 7
+        m = (a + 11 * h + 22 * L) // 451
+        month, day = divmod(h + L - 7 * m + 114, 31)
+        return date(year, month, day + 1)
+
+
+class LondonCalendar(Calendar):
+    """London (UK) banking calendar.
+
+    Holidays: New Year's, Good Friday, Easter Monday, Early May,
+    Spring Bank Holiday, Summer Bank Holiday, Christmas, Boxing Day.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(self._observe(date(year, 1, 1)))   # New Year's
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=2))  # Good Friday
+        holidays.add(easter + timedelta(days=1))   # Easter Monday
+
+        holidays.add(self._nth_weekday(year, 5, 0, 1))   # Early May
+        holidays.add(self._last_weekday(year, 5, 0))      # Spring Bank Holiday
+        holidays.add(self._last_weekday(year, 8, 0))      # Summer Bank Holiday
+        holidays.add(self._observe(date(year, 12, 25)))    # Christmas
+        holidays.add(self._observe(date(year, 12, 26)))    # Boxing Day
+
+        return holidays
+
+
+class TokyoCalendar(Calendar):
+    """Tokyo (Japan) banking calendar.
+
+    Major holidays: New Year's (1-3 Jan), Coming of Age Day, National Foundation,
+    Vernal Equinox, Showa Day, Constitution Day, Greenery Day, Children's Day,
+    Marine Day, Mountain Day, Respect for Aged, Autumnal Equinox,
+    Sports Day, Culture Day, Labour Thanksgiving, Emperor's Birthday.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))   # New Year's
+        holidays.add(date(year, 1, 2))
+        holidays.add(date(year, 1, 3))
+        holidays.add(self._nth_weekday(year, 1, 0, 2))   # Coming of Age (2nd Mon Jan)
+        holidays.add(date(year, 2, 11))                    # National Foundation
+        holidays.add(date(year, 2, 23))                    # Emperor's Birthday
+        holidays.add(date(year, 3, 21))                    # Vernal Equinox (approx)
+        holidays.add(date(year, 4, 29))                    # Showa Day
+        holidays.add(date(year, 5, 3))                     # Constitution
+        holidays.add(date(year, 5, 4))                     # Greenery
+        holidays.add(date(year, 5, 5))                     # Children's
+        holidays.add(self._nth_weekday(year, 7, 0, 3))    # Marine Day (3rd Mon Jul)
+        holidays.add(date(year, 8, 11))                    # Mountain Day
+        holidays.add(self._nth_weekday(year, 9, 0, 3))    # Respect for Aged (3rd Mon Sep)
+        holidays.add(date(year, 9, 23))                    # Autumnal Equinox (approx)
+        holidays.add(self._nth_weekday(year, 10, 0, 2))   # Sports Day (2nd Mon Oct)
+        holidays.add(date(year, 11, 3))                    # Culture Day
+        holidays.add(date(year, 11, 23))                   # Labour Thanksgiving
+
+        return holidays
+
+
+class JointCalendar(Calendar):
+    """Joint calendar: a date is a holiday if it's a holiday in ANY component."""
+
+    def __init__(self, *calendars: Calendar):
+        super().__init__()
+        self._calendars = calendars
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        for cal in self._calendars:
+            if year not in cal._holiday_cache:
+                cal._holiday_cache[year] = cal._compute_holidays(year)
+            holidays |= cal._holiday_cache[year]
+        return holidays
