@@ -2,6 +2,19 @@
 
 ---
 
+## v0.64.0 — 2026-04-04
+
+Akima Spline Interpolation — local method that avoids overshoots.
+
+- AkimaInterpolator: weighted average of neighbouring secants (Akima 1970)
+- Ghost boundary treatment for edge slopes
+- No wild oscillations on sharp jumps (unlike global cubic spline)
+- Exact on linear data, continuous at knots
+- Added to InterpolationMethod enum and create_interpolator factory
+- Works with DiscountCurve
+
+---
+
 ## v0.63.0 — 2026-04-04
 
 JR + LR Binomial Trees — alternative parameterisations for option pricing.
