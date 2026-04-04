@@ -2,6 +2,19 @@
 
 ---
 
+## v0.77.0 — 2026-04-05
+
+Amortising + Accreting Swaps — per-period notional schedules.
+
+- AmortissingSwap: arbitrary notional profile per period
+- amortising() factory: linear decrease to zero
+- accreting() factory: linear increase from initial to final
+- Roller-coaster: any arbitrary notional schedule
+- par_rate, DV01, WAL (weighted average life)
+- Amortising DV01 < bullet DV01
+
+---
+
 ## v0.76.0 — 2026-04-05
 
 Shifted SABR + Normal Vol Swaptions.
