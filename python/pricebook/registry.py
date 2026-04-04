@@ -19,6 +19,7 @@ from pricebook import binomial_tree
 from pricebook import binomial_jr_lr
 from pricebook import trinomial_tree
 from pricebook import finite_difference
+from pricebook import adi
 from pricebook import mc_pricer
 from pricebook import mc_advanced
 from pricebook import lsm
@@ -120,6 +121,7 @@ _PDE = {
     "american": finite_difference.fd_american,
     "barrier_knockout": finite_difference.fd_barrier_knockout,
     "barrier_knockin": finite_difference.fd_barrier_knockin,
+    "heston": adi.heston_pde,
 }
 
 
@@ -186,6 +188,9 @@ def list_optimizers() -> list[str]:
 # ---------------------------------------------------------------------------
 
 from pricebook import ode  # noqa: E402
+from pricebook import cos_method  # noqa: E402
+from pricebook import aad_pricing  # noqa: E402
+from pricebook import risk  # noqa: E402
 
 _ODE_SOLVERS = {
     "rk4": ode.rk4,
@@ -203,3 +208,61 @@ def get_ode_solver(name: str):
 
 def list_ode_solvers() -> list[str]:
     return list(_ODE_SOLVERS.keys())
+
+
+# ---------------------------------------------------------------------------
+# Spectral / COS pricers
+# ---------------------------------------------------------------------------
+
+_PRICERS = {
+    "cos_bs": lambda **kw: cos_method.cos_price(
+        cos_method.bs_char_func(kw["rate"], kw.get("div_yield", 0.0), kw["vol"], kw["T"]),
+        kw["spot"], kw["strike"], kw["rate"], kw["T"],
+    ),
+    "cos_heston": lambda **kw: cos_method.cos_price(
+        cos_method.heston_char_func_cos(
+            kw["rate"], kw.get("div_yield", 0.0), kw["v0"], kw["kappa"],
+            kw["theta"], kw["xi"], kw["rho"], kw["T"],
+        ),
+        kw["spot"], kw["strike"], kw["rate"], kw["T"],
+    ),
+}
+
+
+def get_pricer(name: str):
+    """Get a pricer by name (e.g. 'cos_bs', 'cos_heston')."""
+    if name not in _PRICERS:
+        raise KeyError(f"Unknown pricer '{name}'. Available: {list(_PRICERS.keys())}")
+    return _PRICERS[name]
+
+
+def list_pricers() -> list[str]:
+    return list(_PRICERS.keys())
+
+
+# ---------------------------------------------------------------------------
+# Greek engines
+# ---------------------------------------------------------------------------
+
+_GREEK_ENGINES = {
+    "aad": {
+        "black_scholes": aad_pricing.aad_black_scholes,
+        "swap": aad_pricing.aad_swap_pv,
+        "cds": aad_pricing.aad_cds_pv,
+    },
+    "bump": {
+        "dv01": risk.dv01_curve,
+        "key_rate": risk.key_rate_durations,
+    },
+}
+
+
+def get_greek_engine(name: str) -> dict:
+    """Get a Greek computation engine by name ('aad' or 'bump')."""
+    if name not in _GREEK_ENGINES:
+        raise KeyError(f"Unknown Greek engine '{name}'. Available: {list(_GREEK_ENGINES.keys())}")
+    return _GREEK_ENGINES[name]
+
+
+def list_greek_engines() -> list[str]:
+    return list(_GREEK_ENGINES.keys())

@@ -34,4 +34,6 @@ from pricebook.registry import (
     get_mc_pricer,
     get_optimizer,
     get_ode_solver,
+    get_pricer,
+    get_greek_engine,
 )
