@@ -2,6 +2,18 @@
 
 ---
 
+## v0.72.0 — 2026-04-04
+
+Two-Asset Options via ADI — spread, basket, best-of on 2D correlated GBM.
+
+- two_asset_option: Craig-Sneyd ADI on (log S1, log S2) grid
+- Spread: max(S1 - S2 - K, 0), correlation reduces spread vol
+- Basket: max(w1*S1 + w2*S2 - K, 0), diversification effect
+- Best-of: max(max(S1, S2) - K, 0), dispersion increases value
+- Mixed derivative via Craig-Sneyd handles correlation correctly
+
+---
+
 ## v0.71.0 — 2026-04-04
 
 Unified Pricer Registry — completes the architecture from slice 23.
