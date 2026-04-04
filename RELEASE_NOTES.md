@@ -2,6 +2,18 @@
 
 ---
 
+## v0.76.0 — 2026-04-05
+
+Shifted SABR + Normal Vol Swaptions.
+
+- shifted_sabr_implied_vol: F+shift, K+shift for negative rate environments
+- shifted_sabr_price: full pricing with shift parameter
+- sabr_normal_vol: lognormal → normal vol conversion
+- Zero shift reduces to standard SABR exactly
+- Bachelier pricing with SABR-derived normal vol consistent with Black price
+
+---
+
 ## v0.75.0 — 2026-04-04
 
 Multi-Factor HJM + LIBOR Market Model.
