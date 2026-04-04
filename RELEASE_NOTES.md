@@ -2,6 +2,18 @@
 
 ---
 
+## v0.75.0 — 2026-04-04
+
+Multi-Factor HJM + LIBOR Market Model.
+
+- MultiFactorHJM: 2-3 volatility functions (level, slope, curvature), no-drift per factor
+- Single-factor reduces to existing HJM, two factors produce more variance
+- LMM (BGM): forward LIBOR rates as state variables, lognormal dynamics
+- LMM caplet pricing via MC, matches Black caplet price within 15%
+- Rebonato swaption vol approximation, scales linearly with forward vols
+
+---
+
 ## v0.74.0 — 2026-04-04
 
 SABR MC Dynamics — direct simulation of SABR SDE.
