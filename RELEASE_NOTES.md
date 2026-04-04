@@ -2,6 +2,18 @@
 
 ---
 
+## v0.63.0 — 2026-04-04
+
+JR + LR Binomial Trees — alternative parameterisations for option pricing.
+
+- Jarrow-Rudd: equal probabilities (p=0.5), drift-adjusted up/down moves
+- Leisen-Reimer: Peizer-Pratt inversion, N=51 matches BS to 4+ digits
+- LR converges faster than CRR; all three converge to same Black-Scholes limit
+- European and American pricing for both trees
+- Registered in registry as "jr"/"jarrow_rudd" and "lr"/"leisen_reimer"
+
+---
+
 ## v0.62.0 — 2026-04-04
 
 CSA and Funding Framework — generic collateral and funding adjustments for any trade.
