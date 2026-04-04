@@ -2,6 +2,18 @@
 
 ---
 
+## v0.74.0 — 2026-04-04
+
+SABR MC Dynamics — direct simulation of SABR SDE.
+
+- sabr_mc_paths: Euler-Maruyama with absorbing boundary at F=0
+- sabr_mc_european: European pricing, matches Hagan approximation within 10%
+- sabr_mc_asian: arithmetic average Asian under SABR smile dynamics
+- sabr_mc_implied_vol: MC implied vol for comparison with Hagan formula
+- Forward stays non-negative, vol stays positive (log-normal process)
+
+---
+
 ## v0.73.0 — 2026-04-04
 
 Heston MC Simulation — full-truncation Euler and QE schemes.
