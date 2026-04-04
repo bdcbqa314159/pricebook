@@ -8,9 +8,8 @@ the full pricing chain.
 from __future__ import annotations
 
 import math
-from datetime import date
 
-from pricebook.aad import Number, Tape, norm_cdf, log, sqrt, exp, maximum
+from pricebook.aad import Number, norm_cdf, log, exp
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +60,6 @@ def aad_swap_pv(
         df = aad_log_linear_interp(t, pillar_times, pillar_dfs)
         pv = pv + notional * fixed_rate * tau * df
 
-    # Floating leg: notional * (1 - df_last)
     df_last = aad_log_linear_interp(payment_times[-1], pillar_times, pillar_dfs)
     floating_pv = notional * (Number(1.0) - df_last)
 
@@ -85,29 +83,24 @@ def aad_cds_pv(
 ) -> Number:
     """Protection buyer CDS PV with AAD.
 
-    Premium leg - Protection leg.
+    Single loop computes both premium and protection legs, reusing
+    interpolated values.
     """
     from pricebook.aad_interp import aad_log_linear_interp
 
-    # Premium leg: sum_i spread * tau_i * df_i * S_i
     premium = Number(0.0)
+    protection = Number(0.0)
+    lgd = 1.0 - recovery
+    surv_prev = Number(1.0)
+
     for i, t in enumerate(payment_times):
         tau = t if i == 0 else t - payment_times[i - 1]
         df = aad_log_linear_interp(t, pillar_times, pillar_dfs)
         surv = aad_log_linear_interp(t, surv_times, pillar_survs)
-        premium = premium + notional * spread * tau * df * surv
 
-    # Protection leg: sum_i (1-R) * df_i * (S_{i-1} - S_i)
-    protection = Number(0.0)
-    lgd = 1.0 - recovery
-    for i, t in enumerate(payment_times):
-        df = aad_log_linear_interp(t, pillar_times, pillar_dfs)
-        surv = aad_log_linear_interp(t, surv_times, pillar_survs)
-        if i == 0:
-            surv_prev = Number(1.0)
-        else:
-            surv_prev = aad_log_linear_interp(payment_times[i - 1], surv_times, pillar_survs)
+        premium = premium + notional * spread * tau * df * surv
         default_prob = surv_prev - surv
         protection = protection + notional * lgd * df * default_prob
+        surv_prev = surv
 
-    return protection - premium  # buyer pays premium, receives protection
+    return protection - premium

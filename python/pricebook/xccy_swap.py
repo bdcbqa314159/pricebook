@@ -7,7 +7,6 @@ from datetime import date
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, generate_schedule
-from pricebook.solvers import brentq
 
 
 class CrossCurrencySwap:
@@ -98,15 +97,19 @@ class CrossCurrencySwap:
 
         return for_total - dom_total
 
-    def _spread_annuity(self, curve: DiscountCurve) -> float:
-        """PV of the basis spread coupon stream."""
+    def _annuity(self, curve: DiscountCurve) -> float:
+        """PV01 of the domestic leg coupon stream: sum(N * tau * df)."""
         N = self.domestic_notional
-        pv = 0.0
+        total = 0.0
         for i, d in enumerate(self.payment_dates):
             prev = self.start if i == 0 else self.payment_dates[i - 1]
             tau = year_fraction(prev, d, self.domestic_dc)
-            pv += N * self.domestic_spread * tau * curve.df(d)
-        return pv
+            total += N * tau * curve.df(d)
+        return total
+
+    def _spread_annuity(self, curve: DiscountCurve) -> float:
+        """PV of the basis spread coupon stream."""
+        return self.domestic_spread * self._annuity(curve)
 
     def _foreign_mtm_pv(
         self,
@@ -146,12 +149,7 @@ class CrossCurrencySwap:
             for_total = N_for * foreign_curve.df(self.start) / current_fx
 
         target = for_total - dom_floating
-
-        annuity_pv01 = 0.0
-        for i, d in enumerate(self.payment_dates):
-            prev = self.start if i == 0 else self.payment_dates[i - 1]
-            tau = year_fraction(prev, d, self.domestic_dc)
-            annuity_pv01 += N * tau * domestic_curve.df(d)
+        annuity_pv01 = self._annuity(domestic_curve)
 
         if abs(annuity_pv01) < 1e-12:
             return 0.0

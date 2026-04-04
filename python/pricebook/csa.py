@@ -173,7 +173,7 @@ def collateral_adjusted_pv(
     base_pv = _get_trade_pv(trade, ctx)
 
     collateral = required_collateral(base_pv, csa)
-    uncoll = uncollateralised_exposure(base_pv, csa)
+    uncoll = max(base_pv - collateral, 0.0)
 
     # Funding cost: pay funding spread on uncollateralised portion
     funding_cost = uncoll * funding.funding_spread * horizon
