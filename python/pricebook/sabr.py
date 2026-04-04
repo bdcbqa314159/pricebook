@@ -157,3 +157,70 @@ def sabr_calibrate(
         "nu": nu,
         "rmse": rmse,
     }
+
+
+# ---------------------------------------------------------------------------
+# Shifted SABR
+# ---------------------------------------------------------------------------
+
+
+def shifted_sabr_implied_vol(
+    forward: float,
+    strike: float,
+    T: float,
+    alpha: float,
+    beta: float,
+    rho: float,
+    nu: float,
+    shift: float = 0.0,
+) -> float:
+    """Shifted SABR implied vol: apply Hagan to (F+shift, K+shift).
+
+    Handles negative rates by shifting the distribution.
+    Reduces to standard SABR when shift=0.
+    """
+    return sabr_implied_vol(forward + shift, strike + shift, T, alpha, beta, rho, nu)
+
+
+def shifted_sabr_price(
+    forward: float,
+    strike: float,
+    T: float,
+    df: float,
+    alpha: float,
+    beta: float,
+    rho: float,
+    nu: float,
+    shift: float = 0.0,
+    option_type: OptionType = OptionType.CALL,
+) -> float:
+    """Option price under shifted SABR."""
+    vol = shifted_sabr_implied_vol(forward, strike, T, alpha, beta, rho, nu, shift)
+    return black76_price(forward + shift, strike + shift, vol, T, df, option_type)
+
+
+# ---------------------------------------------------------------------------
+# Normal (Bachelier) vol conversion
+# ---------------------------------------------------------------------------
+
+
+def sabr_normal_vol(
+    forward: float,
+    strike: float,
+    T: float,
+    alpha: float,
+    beta: float,
+    rho: float,
+    nu: float,
+    shift: float = 0.0,
+) -> float:
+    """Convert SABR lognormal vol to normal (Bachelier) vol.
+
+    Approximation: sigma_N ≈ sigma_B * F (for ATM, beta=1).
+    General: sigma_N ≈ sigma_B * (F*K)^0.5 for moderate moneyness.
+    """
+    f = forward + shift
+    k = strike + shift
+    lognormal_vol = sabr_implied_vol(f, k, T, alpha, beta, rho, nu)
+    fk_mid = math.sqrt(max(f * k, 1e-30))
+    return lognormal_vol * fk_mid
