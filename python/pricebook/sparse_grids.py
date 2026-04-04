@@ -30,20 +30,16 @@ def clenshaw_curtis_nodes(level: int) -> tuple[np.ndarray, np.ndarray]:
     n = 2 ** level
     nodes = -np.cos(np.pi * np.arange(n + 1) / n)
 
-    # Weights via the standard explicit formula
-    weights = np.zeros(n + 1)
-    for k in range(n + 1):
-        w = 1.0
-        for j in range(1, n // 2 + 1):
-            if 2 * j == n:
-                b = 1.0
-            else:
-                b = 2.0
-            w -= b * math.cos(2.0 * j * k * math.pi / n) / (4.0 * j * j - 1.0)
-        w *= 2.0 / n
-        if k == 0 or k == n:
-            w *= 0.5
-        weights[k] = w
+    # Vectorised CC weight computation
+    k_arr = np.arange(n + 1)
+    j_arr = np.arange(1, n // 2 + 1)
+    b_arr = np.where(2 * j_arr == n, 1.0, 2.0)
+    cos_matrix = np.cos(2.0 * j_arr[None, :] * k_arr[:, None] * np.pi / n)
+    denom = 4.0 * j_arr * j_arr - 1.0
+    weights = 1.0 - (cos_matrix * b_arr / denom).sum(axis=1)
+    weights *= 2.0 / n
+    weights[0] *= 0.5
+    weights[-1] *= 0.5
 
     return nodes, weights
 

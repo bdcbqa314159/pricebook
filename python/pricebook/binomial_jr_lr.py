@@ -9,7 +9,6 @@ from __future__ import annotations
 import math
 
 import numpy as np
-from scipy.stats import norm
 
 from pricebook.black76 import OptionType
 

@@ -109,6 +109,15 @@ class CubicSplineInterpolator(Interpolator):
         return float(self._spline(x))
 
 
+def _hermite_eval(t: float, y0: float, y1: float, h: float, m0: float, m1: float) -> float:
+    """Evaluate cubic Hermite interpolant at parameter t in [0, 1]."""
+    h00 = 2 * t**3 - 3 * t**2 + 1
+    h10 = t**3 - 2 * t**2 + t
+    h01 = -2 * t**3 + 3 * t**2
+    h11 = t**3 - t**2
+    return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
+
+
 class MonotoneCubicInterpolator(Interpolator):
     """
     Monotone-preserving cubic Hermite interpolation (Hyman filter).
@@ -159,20 +168,10 @@ class MonotoneCubicInterpolator(Interpolator):
 
     def _interpolate(self, x: float) -> float:
         i = self._find_segment(x)
-        x0, x1 = self._x[i], self._x[i + 1]
-        y0, y1 = self._y[i], self._y[i + 1]
-        m0, m1 = self._slopes[i], self._slopes[i + 1]
-
-        h = x1 - x0
-        t = (x - x0) / h
-
-        # Hermite basis functions
-        h00 = 2 * t**3 - 3 * t**2 + 1
-        h10 = t**3 - 2 * t**2 + t
-        h01 = -2 * t**3 + 3 * t**2
-        h11 = t**3 - t**2
-
-        return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
+        h = self._x[i + 1] - self._x[i]
+        t = (x - self._x[i]) / h
+        return _hermite_eval(t, self._y[i], self._y[i + 1], h,
+                             self._slopes[i], self._slopes[i + 1])
 
 
 class AkimaInterpolator(Interpolator):
@@ -228,20 +227,10 @@ class AkimaInterpolator(Interpolator):
 
     def _interpolate(self, x: float) -> float:
         i = self._find_segment(x)
-        x0, x1 = self._x[i], self._x[i + 1]
-        y0, y1 = self._y[i], self._y[i + 1]
-        m0, m1 = self._slopes[i], self._slopes[i + 1]
-
-        h = x1 - x0
-        t = (x - x0) / h
-
-        # Hermite basis
-        h00 = 2 * t**3 - 3 * t**2 + 1
-        h10 = t**3 - 2 * t**2 + t
-        h01 = -2 * t**3 + 3 * t**2
-        h11 = t**3 - t**2
-
-        return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
+        h = self._x[i + 1] - self._x[i]
+        t = (x - self._x[i]) / h
+        return _hermite_eval(t, self._y[i], self._y[i + 1], h,
+                             self._slopes[i], self._slopes[i + 1])
 
 
 def create_interpolator(method: InterpolationMethod, x, y) -> Interpolator:

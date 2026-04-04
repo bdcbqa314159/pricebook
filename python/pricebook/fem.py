@@ -10,7 +10,7 @@ import math
 
 import numpy as np
 
-from pricebook.sparse import SparseMatrix, sparse_solve
+from pricebook.sparse import SparseMatrix
 
 
 # ---------------------------------------------------------------------------
@@ -115,23 +115,24 @@ def assemble_p2(nodes: np.ndarray) -> tuple[SparseMatrix, SparseMatrix, np.ndarr
 # ---------------------------------------------------------------------------
 
 
-def _apply_dirichlet(A: SparseMatrix, b: np.ndarray,
-                     bc: dict[int, float]) -> tuple[SparseMatrix, np.ndarray]:
-    """Apply Dirichlet boundary conditions by modifying the system."""
-    A_dense = A.to_dense()
-    b = b.copy()
-    n = A_dense.shape[0]
+def _apply_bc(A: np.ndarray, bc_indices: list[int]) -> np.ndarray:
+    """Return A with Dirichlet BC rows/cols zeroed, diagonal = 1. Pre-computed once."""
+    A_bc = A.copy()
+    for idx in bc_indices:
+        A_bc[idx, :] = 0.0
+        A_bc[:, idx] = 0.0
+        A_bc[idx, idx] = 1.0
+    return A_bc
 
+
+def _apply_bc_rhs(
+    rhs: np.ndarray, A_lhs: np.ndarray, bc: dict[int, float],
+) -> np.ndarray:
+    """Modify RHS for Dirichlet BCs."""
     for idx, val in bc.items():
-        b -= A_dense[:, idx] * val
-        A_dense[idx, :] = 0.0
-        A_dense[:, idx] = 0.0
-        A_dense[idx, idx] = 1.0
-        b[idx] = val
-
-    return SparseMatrix.from_scipy(
-        __import__("scipy").sparse.csr_matrix(A_dense)
-    ), b
+        rhs -= A_lhs[:, idx] * val
+        rhs[idx] = val
+    return rhs
 
 
 def fem_heat_cn(
@@ -166,27 +167,16 @@ def fem_heat_cn(
     u = u0.copy()
     bc = {0: bc_left, n - 1: bc_right}
 
-    M_dense = M.to_dense()
-    K_dense = K.to_dense()
+    M_d = M.to_dense()
+    K_d = K.to_dense()
+    A_lhs = M_d + 0.5 * dt * K_d
+    A_rhs = M_d - 0.5 * dt * K_d
 
-    # Crank-Nicolson: (M + 0.5*dt*K) u^{n+1} = (M - 0.5*dt*K) u^n
-    A_lhs = M_dense + 0.5 * dt * K_dense
-    A_rhs = M_dense - 0.5 * dt * K_dense
+    # Pre-compute BC-modified LHS (static BCs → same matrix every step)
+    A_bc = _apply_bc(A_lhs, list(bc.keys()))
 
     for _ in range(n_steps):
-        rhs = A_rhs @ u
-
-        # Apply BCs
-        for idx, val in bc.items():
-            rhs -= A_lhs[:, idx] * val
-            rhs[idx] = val
-
-        A_bc = A_lhs.copy()
-        for idx in bc:
-            A_bc[idx, :] = 0.0
-            A_bc[:, idx] = 0.0
-            A_bc[idx, idx] = 1.0
-
+        rhs = _apply_bc_rhs(A_rhs @ u, A_lhs, bc)
         u = np.linalg.solve(A_bc, rhs)
 
     return u
@@ -252,35 +242,21 @@ def fem_bs_european(
     A_lhs = M_d + 0.5 * d_tau * K_d
     A_rhs = M_d - 0.5 * d_tau * K_d
 
+    # Pre-compute BC-modified LHS (BC indices are static even if values change)
+    A_bc = _apply_bc(A_lhs, [0, n - 1])
+
     for step in range(n_time):
         tau = (step + 1) * d_tau
 
-        # Boundary conditions for the transformed variable
         if is_call:
             bc_left = 0.0
-            bc_right = math.exp(alpha * all_nodes[-1] + beta * tau) * \
-                       max(math.exp(all_nodes[-1]) - math.exp(-rate * T + (rate + 0.5*sigma2) * (T - tau / (0.5*sigma2))), 0.0)
-            # Simplified: for large x, call ≈ S - K*e^{-rT} → u ≈ e^{(1-alpha)*x + beta*tau}
             bc_right = math.exp((1.0 - alpha) * all_nodes[-1] + beta * tau)
         else:
-            bc_left = math.exp((1.0 - alpha) * all_nodes[0] + beta * tau) * 0.0
-            # For large negative x, put ≈ K*e^{-rT} → u ≈ e^{-alpha*x + beta*tau} * e^{-rT}
             bc_left = math.exp(-alpha * all_nodes[0] + beta * tau) * math.exp(-rate * T)
             bc_right = 0.0
 
-        rhs = A_rhs @ u
         bc = {0: bc_left, n - 1: bc_right}
-
-        for idx, val in bc.items():
-            rhs -= A_lhs[:, idx] * val
-            rhs[idx] = val
-
-        A_bc = A_lhs.copy()
-        for idx in bc:
-            A_bc[idx, :] = 0.0
-            A_bc[:, idx] = 0.0
-            A_bc[idx, idx] = 1.0
-
+        rhs = _apply_bc_rhs(A_rhs @ u, A_lhs, bc)
         u = np.linalg.solve(A_bc, rhs)
 
     # Transform back: price = strike * exp(alpha*x + beta*tau_max) * u(x)
