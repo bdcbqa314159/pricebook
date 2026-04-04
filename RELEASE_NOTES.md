@@ -2,6 +2,19 @@
 
 ---
 
+## v0.65.0 — 2026-04-04
+
+Sparse Matrix Operations — foundation for FEM and large-scale risk.
+
+- SparseMatrix: CSR wrapper with triplet construction, add, matmul, transpose
+- sparse_solve: direct LU via scipy.sparse
+- sparse_lu: factorisation for repeated solves
+- sparse_cg: conjugate gradient for SPD systems
+- tridiagonal_matrix: efficient builder for FD/FEM banded systems
+- Matches dense results to machine precision
+
+---
+
 ## v0.64.0 — 2026-04-04
 
 Akima Spline Interpolation — local method that avoids overshoots.
