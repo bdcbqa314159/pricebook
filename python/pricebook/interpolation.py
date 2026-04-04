@@ -18,6 +18,7 @@ class InterpolationMethod(Enum):
     LOG_LINEAR = "log_linear"
     CUBIC_SPLINE = "cubic_spline"
     MONOTONE_CUBIC = "monotone_cubic"
+    AKIMA = "akima"
 
 
 class Interpolator(ABC):
@@ -174,6 +175,75 @@ class MonotoneCubicInterpolator(Interpolator):
         return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
 
 
+class AkimaInterpolator(Interpolator):
+    """
+    Akima spline interpolation.
+
+    A local method that uses slopes from neighbouring segments to avoid
+    the oscillations of global cubic splines. Unlike monotone cubic,
+    Akima does not enforce monotonicity but produces smoother curves
+    near inflection points.
+
+    Akima's original formula: the slope at each knot is a weighted
+    average of the four surrounding secants, with weights based on
+    absolute slope differences. This suppresses outlier influence.
+    """
+
+    def __init__(self, x: np.ndarray, y: np.ndarray):
+        super().__init__(x, y)
+        self._slopes = self._compute_slopes()
+
+    def _compute_slopes(self) -> np.ndarray:
+        n = len(self._x)
+        # Secants between consecutive points
+        dx = np.diff(self._x)
+        dy = np.diff(self._y)
+        m = dy / dx  # n-1 secants
+
+        # Extend with two ghost secants on each side (Akima's boundary treatment)
+        m_ext = np.empty(n + 3)
+        m_ext[2:n + 1] = m
+        m_ext[1] = 2.0 * m[0] - m[1] if n > 2 else m[0]
+        m_ext[0] = 2.0 * m_ext[1] - m_ext[2]
+        m_ext[n + 1] = 2.0 * m[-1] - m[-2] if n > 2 else m[-1]
+        m_ext[n + 2] = 2.0 * m_ext[n + 1] - m_ext[n]
+
+        slopes = np.zeros(n)
+        for i in range(n):
+            # Four surrounding secants: m_{i-2}, m_{i-1}, m_i, m_{i+1}
+            m1 = m_ext[i]
+            m2 = m_ext[i + 1]
+            m3 = m_ext[i + 2]
+            m4 = m_ext[i + 3]
+
+            w1 = abs(m4 - m3)
+            w2 = abs(m2 - m1)
+
+            if w1 + w2 < 1e-30:
+                slopes[i] = 0.5 * (m2 + m3)
+            else:
+                slopes[i] = (w1 * m2 + w2 * m3) / (w1 + w2)
+
+        return slopes
+
+    def _interpolate(self, x: float) -> float:
+        i = self._find_segment(x)
+        x0, x1 = self._x[i], self._x[i + 1]
+        y0, y1 = self._y[i], self._y[i + 1]
+        m0, m1 = self._slopes[i], self._slopes[i + 1]
+
+        h = x1 - x0
+        t = (x - x0) / h
+
+        # Hermite basis
+        h00 = 2 * t**3 - 3 * t**2 + 1
+        h10 = t**3 - 2 * t**2 + t
+        h01 = -2 * t**3 + 3 * t**2
+        h11 = t**3 - t**2
+
+        return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
+
+
 def create_interpolator(method: InterpolationMethod, x, y) -> Interpolator:
     """Factory function to create an interpolator by method enum."""
     x = np.asarray(x, dtype=float)
@@ -187,5 +257,7 @@ def create_interpolator(method: InterpolationMethod, x, y) -> Interpolator:
         return CubicSplineInterpolator(x, y)
     elif method == InterpolationMethod.MONOTONE_CUBIC:
         return MonotoneCubicInterpolator(x, y)
+    elif method == InterpolationMethod.AKIMA:
+        return AkimaInterpolator(x, y)
     else:
         raise ValueError(f"Unknown interpolation method: {method}")
