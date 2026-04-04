@@ -2,6 +2,18 @@
 
 ---
 
+## v0.73.0 — 2026-04-04
+
+Heston MC Simulation — full-truncation Euler and QE schemes.
+
+- heston_euler: full-truncation scheme, variance stays non-negative
+- heston_qe: Andersen (2008) quadratic exponential, accurate with few steps
+- heston_mc_european: European pricing via MC, matches semi-analytical within 5%
+- heston_mc_barrier: knock-in/out under stochastic vol, in-out parity holds
+- Put-call parity verified under MC
+
+---
+
 ## v0.72.0 — 2026-04-04
 
 Two-Asset Options via ADI — spread, basket, best-of on 2D correlated GBM.
