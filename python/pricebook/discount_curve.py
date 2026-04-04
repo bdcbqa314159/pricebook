@@ -75,6 +75,15 @@ class DiscountCurve:
             for t in self._times if t > 0
         ]
 
+    @classmethod
+    def flat(cls, reference_date: date, rate: float, tenors: list[float] | None = None) -> "DiscountCurve":
+        """Build a flat discount curve at a constant continuously compounded rate."""
+        if tenors is None:
+            tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20]
+        dates = [date.fromordinal(reference_date.toordinal() + int(t * 365)) for t in tenors]
+        dfs = [math.exp(-rate * t) for t in tenors]
+        return cls(reference_date, dates, dfs)
+
     def bumped(self, shift: float) -> "DiscountCurve":
         """New curve with all zero rates shifted by `shift` (e.g. 0.0001 = +1bp)."""
         new_dfs = []

@@ -61,6 +61,16 @@ class SurvivalCurve:
             interpolation, self._times, self._survs
         )
 
+    @classmethod
+    def flat(cls, reference_date: date, hazard_rate: float, tenors: list[int] | None = None) -> "SurvivalCurve":
+        """Build a flat survival curve at a constant hazard rate."""
+        from dateutil.relativedelta import relativedelta
+        if tenors is None:
+            tenors = [1, 2, 3, 5, 7, 10]
+        dates = [reference_date + relativedelta(years=t) for t in tenors]
+        survs = [math.exp(-hazard_rate * t) for t in tenors]
+        return cls(reference_date, dates, survs)
+
     def _time(self, d: date) -> float:
         if d <= self.reference_date:
             return 0.0

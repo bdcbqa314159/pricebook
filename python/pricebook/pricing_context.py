@@ -69,3 +69,46 @@ class PricingContext:
         if key not in self.fx_spots:
             raise KeyError(f"FX spot '{base}/{quote}' not in context")
         return self.fx_spots[key]
+
+    def replace(self, **kwargs) -> "PricingContext":
+        """Return a new PricingContext with specified fields replaced."""
+        return PricingContext(
+            valuation_date=kwargs.get("valuation_date", self.valuation_date),
+            discount_curve=kwargs.get("discount_curve", self.discount_curve),
+            projection_curves=kwargs.get("projection_curves", self.projection_curves),
+            vol_surfaces=kwargs.get("vol_surfaces", self.vol_surfaces),
+            credit_curves=kwargs.get("credit_curves", self.credit_curves),
+            fx_spots=kwargs.get("fx_spots", self.fx_spots),
+        )
+
+    @classmethod
+    def simple(
+        cls,
+        valuation_date: date,
+        rate: float = 0.05,
+        vol: float | None = None,
+        hazard: float | None = None,
+    ) -> "PricingContext":
+        """Build a simple PricingContext from flat rates.
+
+        Convenience for quick pricing and testing.
+        """
+        from pricebook.discount_curve import DiscountCurve
+        from pricebook.vol_surface import FlatVol
+
+        curve = DiscountCurve.flat(valuation_date, rate)
+        vol_surfaces = {}
+        if vol is not None:
+            vol_surfaces["ir"] = FlatVol(vol)
+
+        credit_curves = {}
+        if hazard is not None:
+            from pricebook.survival_curve import SurvivalCurve
+            credit_curves["default"] = SurvivalCurve.flat(valuation_date, hazard)
+
+        return cls(
+            valuation_date=valuation_date,
+            discount_curve=curve,
+            vol_surfaces=vol_surfaces,
+            credit_curves=credit_curves,
+        )
