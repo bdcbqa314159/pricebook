@@ -2,6 +2,18 @@
 
 ---
 
+## v0.67.0 — 2026-04-04
+
+Sparse Grids (Smolyak Quadrature) — high-dimensional integration.
+
+- clenshaw_curtis_nodes: nested 1D quadrature with exact polynomial integration
+- smolyak_grid: Smolyak construction on [-1,1]^d, O(N*log(N)^{d-1}) vs O(N^d) for tensors
+- sparse_grid_integrate: multi-dimensional integration with custom bounds
+- Fewer points than full tensor product for comparable accuracy
+- 2D and 3D polynomial integration verified
+
+---
+
 ## v0.66.0 — 2026-04-04
 
 Finite Element Method (1D) — Galerkin FEM for option pricing PDE.
