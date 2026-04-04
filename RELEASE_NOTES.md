@@ -2,6 +2,18 @@
 
 ---
 
+## v0.70.0 — 2026-04-04
+
+Dashboard Data Layer — structured reports for any frontend.
+
+- portfolio_risk_report: total PV, DV01, per-trade breakdown
+- scenario_grid: portfolio x scenarios → P&L matrix
+- trade_blotter: table view with dates, types, PVs, counterparties
+- All output is plain dicts — JSON-serializable for Plotly or any frontend
+- 1737 tests, 95% coverage
+
+---
+
 ## v0.69.0 — 2026-04-04
 
 Convenience API + Top-Level Imports.
