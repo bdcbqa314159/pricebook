@@ -2,6 +2,17 @@
 
 ---
 
+## v0.71.0 — 2026-04-04
+
+Unified Pricer Registry — completes the architecture from slice 23.
+
+- get_pricer(): "cos_bs", "cos_heston" for spectral pricing
+- get_greek_engine(): "aad" (BS, swap, CDS), "bump" (dv01, key rate)
+- Heston PDE registered in get_pde_pricer("heston")
+- All entries accessible via registry, interchangeable
+
+---
+
 ## v0.70.0 — 2026-04-04
 
 Dashboard Data Layer — structured reports for any frontend.
