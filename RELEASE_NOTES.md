@@ -2,6 +2,18 @@
 
 ---
 
+## v0.69.0 — 2026-04-04
+
+Convenience API + Top-Level Imports.
+
+- `from pricebook import InterestRateSwap, PricingContext, Trade, ...` (30+ exports)
+- `DiscountCurve.flat(ref, rate)` and `SurvivalCurve.flat(ref, hazard)` class methods
+- `PricingContext.simple(ref, rate, vol, hazard)` for quick setup
+- `PricingContext.replace(discount_curve=...)` for bump-and-reprice
+- conftest helpers now delegate to `.flat()` classmethods
+
+---
+
 ## v0.68.0 — 2026-04-04
 
 Serialization — JSON round-trip for curves, instruments, trades, portfolios.
