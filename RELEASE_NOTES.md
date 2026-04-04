@@ -2,6 +2,19 @@
 
 ---
 
+## v0.78.0 — 2026-04-05
+
+Multi-Calendar + Settlement conventions.
+
+- TARGETCalendar (EUR): Good Friday, Easter Monday, Labour Day, Christmas
+- LondonCalendar (GBP): Early May, Spring/Summer bank holidays
+- TokyoCalendar (JPY): 18+ Japanese holidays
+- JointCalendar: union of holidays from multiple calendars
+- ACT/ACT ISDA day count: proper year-fraction across leap year boundaries
+- Easter computation (anonymous Gregorian algorithm)
+
+---
+
 ## v0.77.0 — 2026-04-05
 
 Amortising + Accreting Swaps — per-period notional schedules.
