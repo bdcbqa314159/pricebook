@@ -2,6 +2,19 @@
 
 ---
 
+## v0.66.0 — 2026-04-04
+
+Finite Element Method (1D) — Galerkin FEM for option pricing PDE.
+
+- P1 (linear) and P2 (quadratic) elements with mass and stiffness matrices
+- Sparse global assembly using SparseMatrix from v0.65
+- Crank-Nicolson time stepping with Dirichlet boundary conditions
+- Heat equation solver converges to analytical solution
+- Black-Scholes FEM pricer via log-price heat transformation
+- P2 converges faster than P1 on coarse grids
+
+---
+
 ## v0.65.0 — 2026-04-04
 
 Sparse Matrix Operations — foundation for FEM and large-scale risk.
