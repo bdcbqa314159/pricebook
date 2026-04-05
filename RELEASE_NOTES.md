@@ -2,6 +2,19 @@
 
 ---
 
+## v0.84.0 — 2026-04-05
+
+XVA Depth — wrong-way risk and collateralised XVA.
+
+- simulate_wwr_exposures: correlated rate + hazard paths (Gaussian copula)
+- cva_wrong_way: path-level EPE × default intensity, captures WWR
+- cva_collateralised: margin period of risk reduces exposure → lower CVA
+- fva_collateralised: only uncollateralised portion incurs funding cost
+- Fully collateralised → CVA near zero, FVA = 0
+- WWR CVA ≥ independent CVA (positive rate-credit correlation)
+
+---
+
 ## v0.83.0 — 2026-04-05
 
 Smith-Wilson Extrapolation — regulatory curve extension.
