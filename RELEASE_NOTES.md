@@ -2,6 +2,17 @@
 
 ---
 
+## v0.85.0 — 2026-04-05
+
+AAD Swaptions + Caplets — all Greeks in one backward pass.
+
+- aad_swaption_pv: Black-76 on forward swap rate with AAD
+- aad_caplet_pv: single caplet/floorlet with AAD
+- Delta, vega, annuity sensitivity all from one propagation
+- AAD Greeks match finite differences to 3+ significant figures
+
+---
+
 ## v0.84.0 — 2026-04-05
 
 XVA Depth — wrong-way risk and collateralised XVA.
