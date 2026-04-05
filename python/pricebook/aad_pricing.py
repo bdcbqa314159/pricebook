@@ -104,3 +104,77 @@ def aad_cds_pv(
         surv_prev = surv
 
     return protection - premium
+
+
+# ---------------------------------------------------------------------------
+# Swaption PV with Number inputs (Black-76 on forward swap rate)
+# ---------------------------------------------------------------------------
+
+
+def aad_swaption_pv(
+    forward_swap_rate: Number,
+    strike: float,
+    sigma: Number,
+    T_expiry: float,
+    annuity: Number,
+    is_payer: bool = True,
+) -> Number:
+    """European swaption via Black-76 with AAD.
+
+    All Greeks (rate delta, vega, annuity sensitivity) in one pass.
+
+    Args:
+        forward_swap_rate: ATM forward swap rate (Number).
+        strike: swaption strike.
+        sigma: Black implied vol (Number).
+        T_expiry: time to expiry.
+        annuity: PV01 of the underlying swap (Number).
+        is_payer: True for payer (call on rate).
+    """
+    sqrt_T = math.sqrt(T_expiry)
+    d1 = (log(forward_swap_rate / strike) + sigma * sigma * 0.5 * T_expiry) / (sigma * sqrt_T)
+    d2 = d1 - sigma * sqrt_T
+
+    if is_payer:
+        return annuity * (forward_swap_rate * norm_cdf(d1) - strike * norm_cdf(d2))
+    else:
+        return annuity * (strike * norm_cdf(-d2) - forward_swap_rate * norm_cdf(-d1))
+
+
+# ---------------------------------------------------------------------------
+# Caplet PV with Number inputs
+# ---------------------------------------------------------------------------
+
+
+def aad_caplet_pv(
+    forward_rate: Number,
+    strike: float,
+    sigma: Number,
+    T_fix: float,
+    tau: float,
+    df: Number,
+    notional: float = 1.0,
+    is_cap: bool = True,
+) -> Number:
+    """Single caplet/floorlet via Black-76 with AAD.
+
+    Args:
+        forward_rate: forward LIBOR/SOFR rate (Number).
+        strike: caplet strike.
+        sigma: Black implied vol (Number).
+        T_fix: time to fixing.
+        tau: accrual period.
+        df: discount factor to payment date (Number).
+        notional: caplet notional.
+        is_cap: True for caplet, False for floorlet.
+    """
+    sqrt_T = math.sqrt(T_fix)
+    d1 = (log(forward_rate / strike) + sigma * sigma * 0.5 * T_fix) / (sigma * sqrt_T)
+    d2 = d1 - sigma * sqrt_T
+
+    if is_cap:
+        intrinsic = forward_rate * norm_cdf(d1) - strike * norm_cdf(d2)
+    else:
+        intrinsic = strike * norm_cdf(-d2) - forward_rate * norm_cdf(-d1)
+
+    return notional * tau * df * intrinsic
