@@ -2,6 +2,18 @@
 
 ---
 
+## v0.81.0 — 2026-04-05
+
+Nelson-Siegel + Svensson parametric yield curves.
+
+- nelson_siegel_yield: 4-param (level, slope, curvature, decay)
+- svensson_yield: 6-param (adds second hump)
+- ns/svensson_discount_curve: build DiscountCurve from parameters
+- calibrate_nelson_siegel / calibrate_svensson: fit to market yields
+- NS(beta0, 0, 0) = flat curve; Svensson(beta3=0) = NS
+
+---
+
 ## v0.80.0 — 2026-04-05
 
 FX Barriers + Vanna-Volga.
