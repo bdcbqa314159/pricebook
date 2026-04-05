@@ -55,10 +55,11 @@ def smith_wilson_calibrate(
     n = len(maturities)
     W = np.zeros((n, n))
     for i in range(n):
-        for j in range(n):
+        W[i, i] = _wilson_function(maturities[i], maturities[i], alpha, ufr)
+        for j in range(i + 1, n):
             W[i, j] = _wilson_function(maturities[i], maturities[j], alpha, ufr)
+            W[j, i] = W[i, j]
 
-    # Target: P_market - P_ufr at each maturity
     p_ufr = np.array([math.exp(-ufr * t) for t in maturities])
     target = np.array(market_dfs) - p_ufr
 

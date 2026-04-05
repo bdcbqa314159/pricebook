@@ -142,19 +142,12 @@ class LMM:
         self.n_rates = len(self.L0)
 
     def _drift(self, L: np.ndarray, j: int) -> np.ndarray:
-        """Risk-neutral drift for L_j under terminal measure.
-
-        Under T_n-forward measure:
-            mu_j = -sum_{k=j+1}^{n} tau * sigma_j * sigma_k * rho_{jk} * L_k / (1 + tau*L_k)
-
-        Simplified: uncorrelated (rho = 0 for k != j).
-        Under spot measure:
-            mu_j = sum_{k=0}^{j} tau * sigma_j * sigma_k * L_k / (1 + tau*L_k)
-        """
-        drift = np.zeros(L.shape[0])
-        for k in range(j + 1):
-            drift += self.tau * self.vols[j] * self.vols[k] * L[:, k] / (1.0 + self.tau * L[:, k])
-        return drift
+        """Risk-neutral drift for L_j under spot measure (vectorised)."""
+        L_slice = L[:, :j + 1]
+        vol_slice = self.vols[:j + 1]
+        numerator = self.tau * self.vols[j] * vol_slice * L_slice
+        denominator = 1.0 + self.tau * L_slice
+        return (numerator / denominator).sum(axis=1)
 
     def simulate(
         self, n_steps_per_period: int = 10, n_paths: int = 10_000, seed: int = 42,
@@ -213,13 +206,9 @@ class LMM:
         Simplified (diagonal correlation):
             sigma_swap^2 * T ≈ sum_i w_i^2 * sigma_i^2 * T
         """
-        n = len(L0)
-        # Cumulative discount: D_k = prod_{j=0}^{k} 1/(1+tau*L_j)
-        D = np.ones(n)
-        for k in range(n):
-            D[k] = 1.0 / np.prod([1.0 + tau * L0[j] for j in range(k + 1)])
+        D = 1.0 / np.cumprod(1.0 + tau * L0)
         annuity = tau * D.sum()
         swap_rate = (1.0 - D[-1]) / annuity
-        weights = np.array([tau * D[k] * L0[k] / (annuity * swap_rate) for k in range(n)])
-        var = sum(weights[k]**2 * vols[k]**2 for k in range(n)) * T_expiry
+        weights = tau * D * L0 / (annuity * swap_rate)
+        var = np.sum(weights**2 * vols**2) * T_expiry
         return math.sqrt(var / T_expiry) if T_expiry > 0 else 0.0

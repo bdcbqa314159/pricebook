@@ -97,14 +97,7 @@ def simulate_exposures(
         shifts = rng.normal(0, rate_vol * math.sqrt(t), n_paths)
         for i, shift in enumerate(shifts):
             bumped_curve = ctx.discount_curve.bumped(shift)
-            bumped_ctx = PricingContext(
-                valuation_date=ctx.valuation_date,
-                discount_curve=bumped_curve,
-                projection_curves=ctx.projection_curves,
-                vol_surfaces=ctx.vol_surfaces,
-                credit_curves=ctx.credit_curves,
-                fx_spots=ctx.fx_spots,
-            )
+            bumped_ctx = ctx.replace(discount_curve=bumped_curve)
             pvs[i, j] = pricer(bumped_ctx)
 
     return pvs
