@@ -2,6 +2,19 @@
 
 ---
 
+## v0.91.0 — 2026-04-05
+
+Curve Jacobian + Roll-Down Analysis.
+
+- curve_jacobian: d(zero_rate) / d(pillar_zero_rate) via FD per pillar
+- input_jacobian: d(zero_rate) / d(market_quote) for any build function
+- curve_rolldown: zero rate changes from time passing on shaped curve
+- rolldown_pnl: estimated P&L for a position from curve roll-down
+- Flat curve: diagonal Jacobian ≈ identity, roll-down = pure time decay
+- Upward curve: positive roll-down P&L for long positions
+
+---
+
 ## v0.90.0 — 2026-04-05
 
 Multi-Curve Simultaneous Solver.
