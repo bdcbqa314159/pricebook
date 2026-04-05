@@ -2,6 +2,18 @@
 
 ---
 
+## v0.86.0 — 2026-04-05
+
+AAD Calibration Jacobian — parameter risk to market moves.
+
+- sabr_jacobian: d(model_vol)/d(alpha, rho, nu) via AAD for all strikes
+- _sabr_hagan_aad: full Hagan formula with Number arithmetic on tape
+- calibration_risk: d(params)/d(market_vols) via implicit function theorem
+- AAD Jacobian matches finite differences to 5%+
+- Alpha sensitive to ATM, rho to skew, nu to wings
+
+---
+
 ## v0.85.0 — 2026-04-05
 
 AAD Swaptions + Caplets — all Greeks in one backward pass.
