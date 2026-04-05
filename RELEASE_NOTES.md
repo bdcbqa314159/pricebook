@@ -2,6 +2,19 @@
 
 ---
 
+## v0.92.0 — 2026-04-05
+
+Deal Structuring — groups linked instruments with roles and metadata.
+
+- Deal: container with deal_id, counterparty, book, desk
+- DealComponent: instrument + role (principal, hedge, fee, option, collateral)
+- Linkages: components reference each other by name
+- Aggregate PV, PV by component, PV by role
+- Deal DV01 and risk report (JSON-serializable)
+- Full serialization: to_dict / from_dict / to_json / from_json
+
+---
+
 ## v0.91.0 — 2026-04-05
 
 Curve Jacobian + Roll-Down Analysis.
