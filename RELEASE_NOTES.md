@@ -2,6 +2,17 @@
 
 ---
 
+## v0.80.0 — 2026-04-05
+
+FX Barriers + Vanna-Volga.
+
+- fx_barrier_pde: knock-in/out via 1D PDE with FX rates (r_dom, r_for)
+- vanna_volga_barrier: smile-consistent pricing from ATM/25D RR/25D BF
+- Flat smile VV matches PDE; non-flat smile adjusts price via vanna/volga costs
+- In-out parity holds, up/down barriers, calls and puts
+
+---
+
 ## v0.79.0 — 2026-04-05
 
 Commodity Seasonality + Storage.
