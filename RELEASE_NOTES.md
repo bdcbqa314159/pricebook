@@ -2,6 +2,18 @@
 
 ---
 
+## v0.79.0 — 2026-04-05
+
+Commodity Seasonality + Storage.
+
+- SeasonalFactors: monthly adjustment factors (natural gas, power presets)
+- SeasonalForwardCurve: base price × seasonal factor per delivery month
+- StorageCostModel: convenience yield, cost of carry, contango/backwardation
+- calendar_spread_option: Kirk/Margrabe approximation for inter-month spreads
+- Higher correlation → lower spread vol → lower spread option price
+
+---
+
 ## v0.78.0 — 2026-04-05
 
 Multi-Calendar + Settlement conventions.
