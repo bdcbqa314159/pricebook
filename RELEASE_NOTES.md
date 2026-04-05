@@ -2,6 +2,18 @@
 
 ---
 
+## v0.90.0 — 2026-04-05
+
+Multi-Curve Simultaneous Solver.
+
+- global_bootstrap: Newton iteration solving all pillar DFs simultaneously
+- FD Jacobian: d(instrument_PV) / d(df_pillar) for the full system
+- Matches sequential bootstrap to 2% at all tenors
+- coupled_bootstrap: OIS + projection solved together in one Newton system
+- Dual-curve: floating forwards from projection, discounting from OIS
+
+---
+
 ## v0.89.0 — 2026-04-05
 
 Curve Engine — declarative curve building.
