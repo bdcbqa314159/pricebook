@@ -2,6 +2,19 @@
 
 ---
 
+## v0.89.0 — 2026-04-05
+
+Curve Engine — declarative curve building.
+
+- CurveDefinition: name, currency, instruments, interpolation, extrapolation
+- Presets: usd_ois(), eur_estr() with standard tenors
+- CurveBuilder: definition + MarketDataSnapshot → DiscountCurve
+- Smith-Wilson extrapolation policy support
+- CurveSet: groups discount + projection curves, to_pricing_context()
+- Definition serialization: to_dict / from_dict round-trip
+
+---
+
 ## v0.88.0 — 2026-04-05
 
 Calibration Stability — robust calibration utilities.
