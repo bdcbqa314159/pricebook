@@ -2,6 +2,18 @@
 
 ---
 
+## v0.93.0 — 2026-04-05
+
+Waterfall + Triggers + Autocall.
+
+- WaterfallEngine: priority allocation (senior → mezz → equity)
+- Interest paid before principal, senior before junior
+- Triggers: OC ratio, IC ratio — breach diverts to senior
+- Autocall: early redemption when reference exceeds barrier
+- Reset for multi-period simulation
+
+---
+
 ## v0.92.0 — 2026-04-05
 
 Deal Structuring — groups linked instruments with roles and metadata.
