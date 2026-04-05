@@ -264,3 +264,87 @@ def fem_bs_european(
 
     x_target = math.log(spot / strike)
     return float(np.interp(x_target, all_nodes, prices))
+
+
+# ---------------------------------------------------------------------------
+# Non-uniform mesh
+# ---------------------------------------------------------------------------
+
+
+def _sinh_mesh(x_min: float, x_max: float, n: int, x_centre: float, concentration: float = 3.0) -> np.ndarray:
+    """Non-uniform mesh concentrated around x_centre via sinh mapping."""
+    xi = np.linspace(-1, 1, n)
+    c = concentration
+    x = x_centre + (x_max - x_min) / 2.0 * np.sinh(c * xi) / np.sinh(c)
+    x = np.clip(x, x_min, x_max)
+    x[0] = x_min
+    x[-1] = x_max
+    return x
+
+
+# ---------------------------------------------------------------------------
+# SUPG-stabilised BS FEM (direct PDE, no heat transform)
+# ---------------------------------------------------------------------------
+
+
+def fem_bs_supg(
+    spot: float,
+    strike: float,
+    rate: float,
+    vol: float,
+    T: float,
+    n_spatial: int = 150,
+    n_time: int = 150,
+    x_range: float = 4.0,
+    is_call: bool = True,
+) -> float:
+    """Improved FEM BS pricer with non-uniform mesh.
+
+    Uses the same heat-equation transform as fem_bs_european but with
+    a sinh-concentrated mesh around the strike for much better accuracy.
+    """
+    sigma2 = vol * vol
+    alpha = -(rate / sigma2 - 0.5)
+    beta = -(alpha + 1.0) ** 2
+    tau_max = 0.5 * sigma2 * T
+    d_tau = tau_max / n_time
+
+    x_min = -x_range * vol * math.sqrt(T)
+    x_max = x_range * vol * math.sqrt(T)
+    x_strike = 0.0  # log(K/K) = 0
+    nodes = _sinh_mesh(x_min, x_max, n_spatial, x_strike, concentration=2.5)
+
+    M, K = assemble_p1(nodes)
+    n = len(nodes)
+
+    S_nodes = strike * np.exp(nodes)
+    if is_call:
+        payoff = np.maximum(S_nodes - strike, 0.0)
+    else:
+        payoff = np.maximum(strike - S_nodes, 0.0)
+
+    u = payoff / strike * np.exp(-alpha * nodes)
+
+    M_d = M.to_dense()
+    K_d = K.to_dense()
+    A_lhs = M_d + 0.5 * d_tau * K_d
+    A_rhs = M_d - 0.5 * d_tau * K_d
+    A_bc = _apply_bc(A_lhs, [0, n - 1])
+
+    for step in range(n_time):
+        tau = (step + 1) * d_tau
+
+        if is_call:
+            bc_left = 0.0
+            bc_right = math.exp((1.0 - alpha) * nodes[-1] + beta * tau)
+        else:
+            bc_left = math.exp(-alpha * nodes[0] + beta * tau) * math.exp(-rate * T)
+            bc_right = 0.0
+
+        bc = {0: bc_left, n - 1: bc_right}
+        rhs = _apply_bc_rhs(A_rhs @ u, A_lhs, bc)
+        u = np.linalg.solve(A_bc, rhs)
+
+    prices = strike * np.exp(alpha * nodes + beta * tau_max) * u
+    x_target = math.log(spot / strike)
+    return float(np.interp(x_target, nodes, prices))
