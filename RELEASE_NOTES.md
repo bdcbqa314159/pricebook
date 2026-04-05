@@ -2,6 +2,17 @@
 
 ---
 
+## v0.82.0 — 2026-04-05
+
+Futures-Based Curve Stripping.
+
+- futures_strip: deposits + futures + swaps in a single bootstrap
+- HW convexity adjustment applied to futures rates
+- Turn-of-year spread for year-end funding premium
+- Futures-stripped curve reprices inputs at market rates
+
+---
+
 ## v0.81.0 — 2026-04-05
 
 Nelson-Siegel + Svensson parametric yield curves.
