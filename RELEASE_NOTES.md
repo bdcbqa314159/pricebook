@@ -2,6 +2,18 @@
 
 ---
 
+## v0.83.0 — 2026-04-05
+
+Smith-Wilson Extrapolation — regulatory curve extension.
+
+- smith_wilson_calibrate: fit coefficients to match market DFs exactly
+- smith_wilson_df / forward: extrapolated DF and forward rate
+- Forward rate converges to UFR asymptotically
+- smith_wilson_curve: builds DiscountCurve with extrapolation tenors
+- EIOPA defaults: UFR=3.45%, alpha=0.1, convergence at 60Y
+
+---
+
 ## v0.82.0 — 2026-04-05
 
 Futures-Based Curve Stripping.
