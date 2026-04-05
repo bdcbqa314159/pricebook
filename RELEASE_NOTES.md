@@ -2,6 +2,17 @@
 
 ---
 
+## v0.87.0 — 2026-04-05
+
+FEM Non-Uniform Mesh — improved accuracy for BS pricing.
+
+- _sinh_mesh: concentrated nodes around strike via sinh mapping
+- fem_bs_supg: heat-transform FEM with non-uniform mesh
+- Better accuracy than uniform mesh at same node count
+- Works for ATM, ITM, and OTM options
+
+---
+
 ## v0.86.0 — 2026-04-05
 
 AAD Calibration Jacobian — parameter risk to market moves.
