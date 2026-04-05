@@ -2,6 +2,19 @@
 
 ---
 
+## v0.88.0 — 2026-04-05
+
+Calibration Stability — robust calibration utilities.
+
+- tikhonov_regularise: penalise deviation from prior parameters
+- enforce_bounds: clip parameters to valid ranges
+- calibration_quality: RMSE, max error, residuals
+- multi_start_calibrate: run from N random starts, pick best
+- perturbation_stability: test param sensitivity to input noise
+- Multi-start finds Rosenbrock minimum from any starting region
+
+---
+
 ## v0.87.0 — 2026-04-05
 
 FEM Non-Uniform Mesh — improved accuracy for BS pricing.
