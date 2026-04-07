@@ -6,6 +6,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.trade import Trade, Portfolio
 from pricebook.book import Book, Desk, BookLimits, Position
+from pricebook.daily_pnl import compute_daily_pnl, attribute_pnl, DailyPnL, BookAttribution
 from pricebook.swap import InterestRateSwap
 from pricebook.bond import FixedRateBond
 from pricebook.fra import FRA
