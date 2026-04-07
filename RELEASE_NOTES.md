@@ -2,6 +2,19 @@
 
 ---
 
+## v0.95.0 — 2026-04-07
+
+Daily P&L Workflow.
+
+- Official P&L: market move + new trade + amendment decomposition
+- Desk P&L: per-book P&L across a desk
+- P&L Attribution: sequential bump-and-reprice (rates → vol → theta → unexplained)
+- Per-trade attribution with trade IDs
+- Per-bucket attribution by tenor bucket
+- Components sum to total (explained + unexplained = total)
+
+---
+
 ## v0.94.0 — 2026-04-07
 
 Position Management + Books.
