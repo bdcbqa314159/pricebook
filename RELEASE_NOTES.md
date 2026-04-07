@@ -2,6 +2,18 @@
 
 ---
 
+## v0.96.0 — 2026-04-07
+
+Curve Trading Strategies.
+
+- Spread trades: 2s10s steepener/flattener with auto DV01-neutral hedge ratios
+- Butterfly trades: 2s5s10s with DV01-neutral wing sizing (equal split)
+- swap_dv01: bump-and-reprice DV01 for any swap
+- swap_carry: carry + roll-down via time-shifted curve (preserves forward rates)
+- breakeven_rate_move: how much rates can move before carry is lost
+
+---
+
 ## v0.95.0 — 2026-04-07
 
 Daily P&L Workflow.
