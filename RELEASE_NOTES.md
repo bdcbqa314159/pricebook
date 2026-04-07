@@ -2,6 +2,19 @@
 
 ---
 
+## v0.94.0 — 2026-04-07
+
+Position Management + Books.
+
+- Book: named trade container with PV, DV01, position aggregation
+- Desk: collection of books with aggregate risk
+- Position: net exposure by instrument type and tenor bucket (FRTB-style buckets)
+- BookLimits: DV01 cap, per-counterparty notional cap, tenor-bucket DV01 limits
+- Breach detection: check_limits returns all violations with details
+- Desk risk summary: PV by book, positions, breaches in one report
+
+---
+
 ## v0.93.0 — 2026-04-05
 
 Waterfall + Triggers + Autocall.
