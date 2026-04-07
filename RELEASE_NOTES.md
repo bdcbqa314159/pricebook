@@ -2,6 +2,19 @@
 
 ---
 
+## v0.97.0 — 2026-04-07
+
+Swaption Desk Tools.
+
+- VolCube: ATM vol grid + per-cell SABR smile (incl shifted SABR for negative rates)
+- Vol surface bumps: parallel and term structure
+- Straddle, strangle, risk reversal with full Greeks (delta, vega, gamma, theta)
+- Delta hedge: offset swaption book delta with a swap (auto-notional)
+- Vega hedge: offset vega with another swaption (auto-ratio)
+- Bump-and-reprice Greeks engine for swaptions
+
+---
+
 ## v0.96.0 — 2026-04-07
 
 Curve Trading Strategies.
