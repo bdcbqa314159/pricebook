@@ -280,7 +280,8 @@ def delta_hedge(
         total_delta += direction * g["delta"]
 
     # Build a unit-notional swap to compute its delta
-    hedge_end = date(ref.year + hedge_tenor_years, ref.month, ref.day)
+    from dateutil.relativedelta import relativedelta
+    hedge_end = ref + relativedelta(years=hedge_tenor_years)
     unit_swap = InterestRateSwap(
         ref, hedge_end, fixed_rate=0.05,
         direction=SwapDirection.PAYER, notional=1_000_000.0,

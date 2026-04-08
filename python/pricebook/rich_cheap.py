@@ -87,7 +87,8 @@ def rv_from_curve(
     threshold: float = 2.0,
 ) -> RelativeValueResult:
     """Relative value using model par rate from a curve."""
-    end = date(start.year + tenor_years, start.month, start.day)
+    from dateutil.relativedelta import relativedelta
+    end = start + relativedelta(years=tenor_years)
     swap = InterestRateSwap(
         start, end, fixed_rate=0.05,
         direction=SwapDirection.PAYER, notional=1_000_000.0,
@@ -214,7 +215,8 @@ def butterfly_monitor(
 # ---- Helpers ----
 
 def _par_rate(curve: DiscountCurve, start: date, tenor_years: int) -> float:
-    end = date(start.year + tenor_years, start.month, start.day)
+    from dateutil.relativedelta import relativedelta
+    end = start + relativedelta(years=tenor_years)
     swap = InterestRateSwap(
         start, end, fixed_rate=0.05,
         direction=SwapDirection.PAYER, notional=1_000_000.0,

@@ -30,7 +30,7 @@ def _swn(expiry_year=2025, end_year=2030, strike=0.05, notional=1_000_000):
 
 class TestTenorBucket:
     def test_short_tenor(self):
-        assert tenor_bucket(REF, date(2024, 3, 15)) == "0-3M"
+        assert tenor_bucket(REF, date(2024, 3, 15)) == "≤3M"
 
     def test_six_month(self):
         assert tenor_bucket(REF, date(2024, 7, 1)) == "3M-6M"

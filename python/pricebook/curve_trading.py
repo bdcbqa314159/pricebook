@@ -16,6 +16,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from dateutil.relativedelta import relativedelta
+
 from pricebook.discount_curve import DiscountCurve
 from pricebook.swap import InterestRateSwap, SwapDirection
 
@@ -71,9 +73,8 @@ def spread_trade(
     Returns:
         dict with short_swap, long_swap, notionals, DV01s, net_dv01.
     """
-    ref_year = start.year
-    end_short = date(ref_year + end_short_years, start.month, start.day)
-    end_long = date(ref_year + end_long_years, start.month, start.day)
+    end_short = start + relativedelta(years=end_short_years)
+    end_long = start + relativedelta(years=end_long_years)
 
     par_short = _par_rate(curve, start, end_short, projection_curve)
     par_long = _par_rate(curve, start, end_long, projection_curve)
@@ -164,10 +165,9 @@ def butterfly_trade(
     Returns:
         dict with three legs, notionals, DV01s, net_dv01.
     """
-    ref_year = start.year
-    end_short = date(ref_year + end_short_years, start.month, start.day)
-    end_belly = date(ref_year + end_belly_years, start.month, start.day)
-    end_long = date(ref_year + end_long_years, start.month, start.day)
+    end_short = start + relativedelta(years=end_short_years)
+    end_belly = start + relativedelta(years=end_belly_years)
+    end_long = start + relativedelta(years=end_long_years)
 
     par_short = _par_rate(curve, start, end_short, projection_curve)
     par_belly = _par_rate(curve, start, end_belly, projection_curve)

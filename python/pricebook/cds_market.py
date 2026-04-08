@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from dateutil.relativedelta import relativedelta
+
 from pricebook.cds import CDS, bootstrap_credit_curve, risky_annuity
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
@@ -49,7 +51,7 @@ def build_cds_curve(
     """
     cds_inputs = []
     for tenor in sorted(par_spreads.keys()):
-        mat = date(reference_date.year + tenor, reference_date.month, reference_date.day)
+        mat = reference_date + relativedelta(years=tenor)
         cds_inputs.append((mat, par_spreads[tenor]))
 
     return bootstrap_credit_curve(
@@ -69,7 +71,7 @@ def reprice_spreads(
         tenors = STANDARD_TENORS
     result = {}
     for tenor in tenors:
-        mat = date(reference_date.year + tenor, reference_date.month, reference_date.day)
+        mat = reference_date + relativedelta(years=tenor)
         cds = CDS(reference_date, mat, spread=0.01, notional=1.0, recovery=recovery)
         result[tenor] = cds.par_spread(discount_curve, survival_curve)
     return result
@@ -90,7 +92,7 @@ def spread_to_upfront(
 
     upfront = (market_spread - running_coupon) * RPV01
     """
-    mat = date(reference_date.year + maturity_years, reference_date.month, reference_date.day)
+    mat = reference_date + relativedelta(years=maturity_years)
     rpv01 = risky_annuity(reference_date, mat, discount_curve, survival_curve)
     return (market_spread - running_coupon) * rpv01
 
@@ -108,7 +110,7 @@ def upfront_to_spread(
 
     spread = running_coupon + upfront / RPV01
     """
-    mat = date(reference_date.year + maturity_years, reference_date.month, reference_date.day)
+    mat = reference_date + relativedelta(years=maturity_years)
     rpv01 = risky_annuity(reference_date, mat, discount_curve, survival_curve)
     if abs(rpv01) < 1e-12:
         return running_coupon

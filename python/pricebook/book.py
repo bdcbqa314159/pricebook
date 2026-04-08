@@ -32,14 +32,18 @@ TENOR_BUCKET_BOUNDARIES = [
     0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30,
 ]
 
+# Labels use ≤ convention: "≤3M" means years_to_maturity <= 0.25
 TENOR_BUCKET_LABELS = [
-    "0-3M", "3M-6M", "6M-1Y", "1Y-2Y", "2Y-3Y", "3Y-5Y",
+    "≤3M", "3M-6M", "6M-1Y", "1Y-2Y", "2Y-3Y", "3Y-5Y",
     "5Y-7Y", "7Y-10Y", "10Y-15Y", "15Y-20Y", "20Y-30Y", "30Y+",
 ]
 
 
 def tenor_bucket(ref: date, end: date) -> str:
-    """Assign a tenor bucket based on time from ref to end."""
+    """Assign a tenor bucket based on time from ref to end.
+
+    Boundaries are inclusive: a 5Y tenor goes into '3Y-5Y', not '5Y-7Y'.
+    """
     years = (end - ref).days / 365.25
     for boundary, label in zip(TENOR_BUCKET_BOUNDARIES, TENOR_BUCKET_LABELS):
         if years <= boundary:
