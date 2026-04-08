@@ -2,6 +2,18 @@
 
 ---
 
+## v0.105.0 — 2026-04-08
+
+Tranche Correlation Trading.
+
+- Tranche delta: spread sensitivity per bp of index move (equity > mezzanine)
+- Tranche CS01: PV change per bp, scales with notional
+- Correlation sensitivity: d(tranche_spread)/d(rho) — equity vs senior opposite signs
+- Base correlation skew: implied correlation curve from market tranche spreads
+- Skew bumps: parallel and tilt correlation bumps with spread impact
+
+---
+
 ## v0.104.0 — 2026-04-08
 
 Credit Curve Relative Value.
