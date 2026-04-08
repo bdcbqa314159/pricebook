@@ -2,6 +2,18 @@
 
 ---
 
+## v0.103.0 — 2026-04-08
+
+Basis Trading (Bond vs CDS).
+
+- CDS-bond basis: CDS spread minus Z-spread (and ASW spread variant)
+- Matched credit curve produces near-zero basis (validated)
+- Negative basis trade: buy bond + buy protection, positive carry when coupon > spread
+- Positive basis trade: sell bond + sell protection, opposite economics
+- Basis monitor: z-score, percentile, signal (negative/positive/fair)
+
+---
+
 ## v0.102.0 — 2026-04-08
 
 Credit Index Flow Trading.
