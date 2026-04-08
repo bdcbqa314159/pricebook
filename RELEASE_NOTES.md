@@ -2,6 +2,18 @@
 
 ---
 
+## v0.104.0 — 2026-04-08
+
+Credit Curve Relative Value.
+
+- Cross-name RV: z-score and percentile ranking within peer group
+- Outlier detection: rich/cheap/fair signals based on z-score threshold
+- Term structure RV: CDS curve slope (long - short), steepness z-score
+- Sector screening: mean spread, dispersion, cheapest/richest per sector
+- Sorted output: sectors by widest, names by z-score
+
+---
+
 ## v0.103.0 — 2026-04-08
 
 Basis Trading (Bond vs CDS).
