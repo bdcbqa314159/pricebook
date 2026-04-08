@@ -2,6 +2,18 @@
 
 ---
 
+## v0.108.0 — 2026-04-08
+
+Zero-Coupon Swaps + IR Digitals.
+
+- ZeroCouponSwap: single compounded fixed vs floating at maturity
+- ZC par rate: df(T)^(-1/T) - 1 (differs from standard swap par rate)
+- Digital cap/floor: binary payoff via tight call-spread approximation
+- Digital CMS cap: digital on CMS rate with convexity adjustment
+- Payout scaling: digital PV scales linearly with payout amount
+
+---
+
 ## v0.107.0 — 2026-04-08
 
 IR Exotics — CMS + Range Accruals.
