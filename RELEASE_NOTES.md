@@ -2,6 +2,20 @@
 
 ---
 
+## v0.99.0 — 2026-04-08
+
+Regulatory Capital (IR).
+
+- SA-CCR: trade-level add-on (notional × supervisory factor × maturity factor × delta)
+- SA-CCR netting: hedging set aggregation across 3 maturity buckets with cross-bucket correlation
+- Perfectly offsetting trades produce zero add-on
+- FRTB Sensitivities-Based Approach: IR delta risk charge
+- 10 tenor buckets (3M–30Y) with Basel risk weights
+- Three correlation scenarios (low, medium, high)
+- Spread positions get diversification benefit
+
+---
+
 ## v0.98.0 — 2026-04-08
 
 Rich/Cheap Analysis.
