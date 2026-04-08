@@ -2,6 +2,18 @@
 
 ---
 
+## v0.101.0 — 2026-04-08
+
+Single-Name CDS Market Making.
+
+- build_cds_curve: bootstrap survival curve from market par spreads (round-trips)
+- Upfront/running conversion: spread_to_upfront, upfront_to_spread (standard quoting)
+- Pricing ladder: bid/ask spread bumps with PV and upfront at each level
+- Mark-to-market: PV, par spread, upfront, RPV01, spread-to-par for seasoned CDS
+- Roll P&L: unwind old contract + enter new on-the-run, captures roll cost
+
+---
+
 ## v0.100.0 — 2026-04-08
 
 Credit Risk Measures + Book Integration.
