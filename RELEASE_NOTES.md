@@ -2,6 +2,18 @@
 
 ---
 
+## v0.106.0 — 2026-04-08
+
+CVA Desk Tools.
+
+- CVA CS01: sensitivity to 1bp credit spread shift (positive — CVA rises with spreads)
+- CVA IR01: sensitivity to 1bp rate shift (negative — higher rates reduce CVA)
+- CVA by trade: stand-alone CVA contribution per trade
+- CVA hedge: CDS notional to offset CVA CS01, residual risk near zero
+- Incremental CVA: marginal CVA from adding a trade, captures netting benefit
+
+---
+
 ## v0.105.0 — 2026-04-08
 
 Tranche Correlation Trading.
