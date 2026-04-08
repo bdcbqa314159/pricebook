@@ -2,6 +2,18 @@
 
 ---
 
+## v0.111.0 — 2026-04-08
+
+Bond Futures + CTD.
+
+- Conversion factor: price at standard yield (6%), normalises deliverables
+- Cheapest-to-deliver: minimises gross basis across delivery basket
+- Implied repo rate: annualised return from futures delivery
+- Bond futures basis: gross basis, carry (coupon - financing), net basis
+- Net basis ≈ delivery option value (gross minus carry)
+
+---
+
 ## v0.110.0 — 2026-04-08
 
 Equity Index + Commodity Futures.
