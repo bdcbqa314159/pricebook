@@ -2,6 +2,17 @@
 
 ---
 
+## v0.112.0 — 2026-04-09
+
+Bond Desk Tools.
+
+- Curve fitting from bonds: bootstrap discount curve from market prices
+- Rich/cheap analysis: identify bonds trading above/below fitted curve
+- Repo carry: coupon income minus financing cost, breakeven repo rate
+- Securities lending fee: borrow cost for short selling
+
+---
+
 ## v0.111.0 — 2026-04-08
 
 Bond Futures + CTD.
