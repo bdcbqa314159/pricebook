@@ -2,6 +2,18 @@
 
 ---
 
+## v0.109.0 — 2026-04-08
+
+Inflation Caps/Floors.
+
+- ZC inflation cap/floor: Black-76 on CPI index ratio vs compounded strike
+- YoY inflation cap/floor: strip of annual caplets on CPI(t)/CPI(t-1)
+- Deep ITM cap exceeds swap PV (time value validated)
+- InflationVolSurface: ATM vol grid with linear interpolation, flat extrapolation
+- Parallel vol bump for sensitivity analysis
+
+---
+
 ## v0.108.0 — 2026-04-08
 
 Zero-Coupon Swaps + IR Digitals.
