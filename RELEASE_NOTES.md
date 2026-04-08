@@ -2,6 +2,19 @@
 
 ---
 
+## v0.107.0 — 2026-04-08
+
+IR Exotics — CMS + Range Accruals.
+
+- CMS convexity adjustment via linear TSR model (positive, scales with vol² and time)
+- CMSLeg: floating leg paying a long-dated swap rate with convexity-adjusted forwards
+- CMS cap/floor: strip of CMS caplets priced via Black-76 on adjusted forward
+- CMS spread option: payoff on (CMS_long - CMS_short - K) via Margrabe vol approximation
+- Range accrual: coupon accrues only when rate stays in [L, U], digital decomposition
+- Bachelier fallback for near-zero/negative spread forwards
+
+---
+
 ## v0.106.0 — 2026-04-08
 
 CVA Desk Tools.
