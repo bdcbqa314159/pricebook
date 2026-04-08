@@ -2,6 +2,19 @@
 
 ---
 
+## v0.98.0 — 2026-04-08
+
+Rich/Cheap Analysis.
+
+- Relative value: market rate vs model-implied, spread, z-score, percentile
+- Signal generation: rich/cheap/fair based on z-score threshold
+- rv_from_curve: relative value using curve-implied par rate
+- Spread monitor: 2s10s, 5s30s etc with z-score signals (wide/tight)
+- Butterfly monitor: 2s5s10s with belly_cheap/belly_rich signals
+- Flat curve produces near-zero spread and butterfly (validated)
+
+---
+
 ## v0.97.0 — 2026-04-07
 
 Swaption Desk Tools.
