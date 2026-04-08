@@ -86,8 +86,9 @@ class IndexDefinition:
         total = 0.0
         for c in self.constituents:
             w = c.weight / self._total_weight
-            total += w * c.cds.pv(discount_curve, c.survival_curve)
-        return total * (notional / c.cds.notional)
+            scale = notional / c.cds.notional
+            total += w * scale * c.cds.pv(discount_curve, c.survival_curve)
+        return total
 
     def constituent_spreads(self, discount_curve: DiscountCurve) -> dict[str, float]:
         """Par spread per constituent name."""

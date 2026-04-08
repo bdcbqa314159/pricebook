@@ -156,8 +156,21 @@ def _swaption_greeks(
     # Vega (vol sensitivity)
     if isinstance(vol_surface, FlatVol):
         bumped_vol = FlatVol(vol_surface._vol + vol_shift)
+    elif hasattr(vol_surface, '_vols'):
+        # SwaptionVolSurface or VolCube: parallel bump all vols
+        import numpy as np
+        from pricebook.swaption_vol import SwaptionVolSurface
+        raw = vol_surface.atm if hasattr(vol_surface, 'atm') else vol_surface
+        new_vols = (raw._vols + vol_shift).tolist()
+        expiry_dates = [
+            date.fromordinal(raw.reference_date.toordinal() + int(t * 365))
+            for t in raw._expiry_times
+        ]
+        bumped_vol = SwaptionVolSurface(
+            raw.reference_date, expiry_dates, raw._tenors.tolist(), new_vols,
+        )
     else:
-        bumped_vol = vol_surface  # can't easily bump non-flat
+        bumped_vol = vol_surface  # fallback: vega = 0
     vega = (swn.pv(curve, bumped_vol) - base_pv) / vol_shift
 
     # Theta (1-day time decay)

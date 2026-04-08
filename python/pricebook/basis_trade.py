@@ -102,9 +102,8 @@ def negative_basis_trade(
     z_sp = z_spread(bond, bond_market_price, discount_curve)
     basis = cds_par - z_sp
 
-    # Carry approximation: (bond coupon rate - CDS spread) * notional/100
-    # Simplified: bond earns coupon, CDS costs the running spread
-    carry = (bond.coupon_rate - cds.spread) * bond.notional
+    # Carry: bond coupon income minus CDS premium cost
+    carry = bond.coupon_rate * bond.notional - cds.spread * cds.notional
 
     return BasisTradeResult(
         trade_type="negative_basis",
@@ -135,7 +134,7 @@ def positive_basis_trade(
     basis = cds_par - z_sp
 
     # Carry: receive CDS spread, pay bond coupon (short)
-    carry = (cds.spread - bond.coupon_rate) * bond.notional
+    carry = cds.spread * cds.notional - bond.coupon_rate * bond.notional
 
     return BasisTradeResult(
         trade_type="positive_basis",

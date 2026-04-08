@@ -73,15 +73,17 @@ class TestBasis:
 # ---- Basis trade construction ----
 
 class TestNegativeBasis:
-    def test_carry_positive_when_coupon_above_spread(self):
-        """Bond coupon > CDS spread → positive carry."""
+    def test_carry_sign(self):
+        """Bond coupon income vs CDS premium cost."""
         dc = _dc()
         sc = _sc()
-        cds = _cds(spread=0.01)  # 100bp
-        bond = _bond(coupon=0.06)  # 6%
+        # Match notionals: bond 100, CDS 100
+        cds = CDS(REF, END, 0.01, notional=100, recovery=0.4)
+        bond = _bond(coupon=0.06)  # 6% coupon on 100 notional
         bond_price = bond.dirty_price(dc, sc)
         result = negative_basis_trade(cds, bond, bond_price, dc, sc)
-        assert result.carry > 0
+        # Carry = 0.06*100 - 0.01*100 = 5.0
+        assert result.carry == pytest.approx(5.0)
 
     def test_trade_type(self):
         dc = _dc()
@@ -97,7 +99,7 @@ class TestPositiveBasis:
         """Positive basis trade has opposite carry to negative."""
         dc = _dc()
         sc = _sc()
-        cds = _cds(spread=0.01)
+        cds = CDS(REF, END, 0.01, notional=100, recovery=0.4)
         bond = _bond(coupon=0.06)
         bond_price = bond.dirty_price(dc, sc)
         neg = negative_basis_trade(cds, bond, bond_price, dc, sc)
