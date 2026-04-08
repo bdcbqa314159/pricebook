@@ -2,6 +2,19 @@
 
 ---
 
+## v0.100.0 — 2026-04-08
+
+Credit Risk Measures + Book Integration.
+
+- CS01: PV change per 1bp parallel shift in hazard rates (bump-and-reprice)
+- Spread DV01: per-pillar credit spread sensitivity (key-rate CS01)
+- Jump-to-default: PV change on immediate default (LGD - current PV)
+- Survival curve bumping: parallel and per-pillar hazard rate shifts
+- CreditBook: credit trade container with per-name CS01, JTD, positions
+- Long/short netting: offsetting trades produce zero CS01
+
+---
+
 ## v0.99.0 — 2026-04-08
 
 Regulatory Capital (IR).
