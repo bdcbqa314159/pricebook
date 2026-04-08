@@ -2,6 +2,19 @@
 
 ---
 
+## v0.110.0 — 2026-04-08
+
+Equity Index + Commodity Futures.
+
+- EquityFuture: fair price (S×exp((r-q)T)), basis, convergence, daily settlement P&L
+- CommodityFuture: observed price, contango/backwardation detection
+- Roll yield: annualised return from rolling near to far contract
+- Calendar spread: long near, short far with spread and structure analysis
+- Futures strip curve: sorted forward curve from observed prices
+- Implied convenience yield from futures/spot relationship
+
+---
+
 ## v0.109.0 — 2026-04-08
 
 Inflation Caps/Floors.
