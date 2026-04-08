@@ -2,6 +2,19 @@
 
 ---
 
+## v0.102.0 — 2026-04-08
+
+Credit Index Flow Trading.
+
+- IndexDefinition: named, weighted constituents with sector/rating metadata
+- Intrinsic spread: notional-weighted average of constituent par spreads
+- Spread dispersion: weighted std of constituent spreads (zero for uniform)
+- IndexSeries: on-the-run / off-the-run series tracking
+- Index skew: market spread vs intrinsic basis with dispersion
+- Index roll: composition change detection (added/removed names), spread change
+
+---
+
 ## v0.101.0 — 2026-04-08
 
 Single-Name CDS Market Making.
