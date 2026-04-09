@@ -2,6 +2,21 @@
 
 ---
 
+## v0.142.0 — 2026-04-10
+
+Commodity Book — Pillar 6 (Commodity Desk) begins.
+
+- CommodityBook: per-commodity, per-sector, per-tenor position aggregation
+- CommodityTradeEntry: trade + commodity / sector / unit / quantity / reference price / delivery date
+- CommodityPosition: net/long/short quantity and notional per commodity
+- CommoditySectorExposure: aggregate notional per sector with commodity count
+- TermStructureBucket: net notional per tenor bucket (front, ≤6M, ≤1Y, ≤2Y, >2Y)
+- commodity_tenor_bucket helper
+- CommodityLimits: per-commodity, per-sector, net, gross, per-tenor caps
+- check_limits: detect breaches across all limit types
+
+---
+
 ## v0.141.0 — 2026-04-10
 
 Equity FRTB SA Capital — Pillar 5 (Equity Desk) complete.
