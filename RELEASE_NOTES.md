@@ -2,6 +2,23 @@
 
 ---
 
+## v0.130.0 — 2026-04-09
+
+Liquidity (LCR/NSFR) + Operational Risk (SMA).
+
+- LCR (LIQ30): HQLA with L1/L2A/L2B caps and haircuts
+- Cash outflows by liability type, cash inflows capped at 75% of outflows
+- LCR = HQLA / Net Cash Outflows ≥ 100%
+- NSFR (LIQ40): ASF / RSF with full factor tables
+- Available Stable Funding by funding type, RSF by asset type + off-BS
+- Operational Risk SMA (OPE25):
+  - Business Indicator components: ILDC + SC + FC
+  - BIC piecewise linear: 12% / 15% / 18% marginal coefficients
+  - Internal Loss Multiplier from 10-year average loss
+  - K_SMA = BIC × ILM, RWA = K × 12.5
+
+---
+
 ## v0.129.0 — 2026-04-09
 
 Stress Testing + IRRBB.
