@@ -2,6 +2,18 @@
 
 ---
 
+## v0.118.0 — 2026-04-09
+
+Stochastic Local Vol (SLV).
+
+- SLVModel: combines Heston stochastic vol with Dupire local vol
+- Leverage function L(S, t, v) with configurable mixing fraction
+- mixing=1 recovers local vol, mixing=0 recovers pure Heston
+- SLV MC: correlated Euler scheme for spot and variance
+- European pricing: SLV MC matches local vol MC for mixing=1
+
+---
+
 ## v0.117.0 — 2026-04-09
 
 Local Volatility (Dupire).
