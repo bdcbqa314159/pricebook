@@ -2,6 +2,21 @@
 
 ---
 
+## v0.123.0 — 2026-04-09
+
+FRTB Internal Models Approach (MAR30-33).
+
+- Liquidity-adjusted ES with 5-step cascading horizon (10/20/40/60/120 days)
+- Stressed ES via ratio scaling on reduced factor set
+- NMRF charge: zero-diversification sum scaled to liquidity horizon
+- Internal DRC: vectorised two-factor Gaussian copula MC (50K paths default)
+- IMCC formula: max(ES, m_c × ES_avg) + max(SES, m_c × SES_avg) + NMRF
+- Backtesting: traffic light zones with plus factor (MAR33)
+- P&L Attribution Test: Spearman + KL divergence per desk
+- compare_ima_vs_sa: side-by-side IMA vs SA comparison
+
+---
+
 ## v0.122.0 — 2026-04-09
 
 FRTB Standardised Approach (full).
