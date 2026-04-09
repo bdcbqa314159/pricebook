@@ -2,6 +2,19 @@
 
 ---
 
+## v0.117.0 — 2026-04-09
+
+Local Volatility (Dupire).
+
+- Dupire local vol surface from market implied vols (finite difference)
+- Gatheral total variance formulation with regularisation
+- LocalVolSurface: bilinear interpolation on (strike, time) grid
+- Local vol MC: Euler scheme simulation under σ_loc(S, t) dynamics
+- European option pricing: MC matches Black-Scholes for flat vol (within 5%)
+- Handles skewed implied surfaces with strike-dependent local vol
+
+---
+
 ## v0.116.0 — 2026-04-09
 
 Historical Data + Fixings.
