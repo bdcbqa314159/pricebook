@@ -2,6 +2,23 @@
 
 ---
 
+## v0.125.0 — 2026-04-09
+
+Credit RWA (Basel III/IV).
+
+- SA-CR risk weights: sovereign, bank (ECRA + SCRA), corporate, retail, RE
+- Residential RE risk weights by LTV bucket (general + income-producing)
+- Commercial RE risk weights by LTV
+- IRB Vasicek formula: K = LGD × [Φ(...) - PD] × maturity_factor
+- Asset correlation R per asset class with SME firm-size adjustment
+- Maturity adjustment b(PD) = (0.11852 - 0.05478 × ln(PD))²
+- F-IRB calculation with default LGD 0.45 (senior unsecured)
+- A-IRB with LGD floor (Basel IV reforms)
+- Specialised lending slotting (PF, OF, CF, IPRE, HVCRE) — 5 categories
+- compare_sa_vs_irb: side-by-side approach comparison
+
+---
+
 ## v0.124.0 — 2026-04-09
 
 Incremental Risk Charge (IRC).
