@@ -2,6 +2,22 @@
 
 ---
 
+## v0.138.0 — 2026-04-09
+
+Dispersion Trading: implied correlation, dispersion trades, correlation risk.
+
+- index_variance / index_vol: σ²_idx = Σw²σ² + ρ((Σwσ)² − Σw²σ²)
+- implied_correlation: round-trips against index_vol exactly
+- historical_correlation: mean upper-triangle pairwise correlation
+- DispersionTrade: long basket of single-name var, short index var (or reverse)
+- DispersionTrade.pv: model PV given single vols and uniform correlation
+- DispersionTrade.dispersion_value: pure basket-vs-index dispersion
+- DispersionTrade.correlation_sensitivity: analytic ∂PV/∂ρ matches finite difference
+- CorrelationTermStructure: linear interp / flat extrapolation
+- Long dispersion is monotone decreasing in correlation (max at ρ=0)
+
+---
+
 ## v0.137.0 — 2026-04-09
 
 Equity Vol Desk: surface management, RV strategies, vega ladder, cross-Greeks.
