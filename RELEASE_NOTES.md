@@ -2,6 +2,21 @@
 
 ---
 
+## v0.139.0 — 2026-04-10
+
+Dividend Strategies: futures, basis, carry trade, roll-down, backtest.
+
+- DividendFuture: exchange-traded contract on cumulative divs over a period
+- DividendFuture.settlement_value, fair_price, MTM PV with direction
+- dividend_basis: traded − option_implied
+- EquityCarryTrade: long stock + short matched dividend swap
+- EquityCarryTrade.net_dividend_exposure: zero by construction when matched
+- dividend_curve_carry: P&L from selling implied curve and receiving realised
+- ImpliedVsRealisedBacktest + implied_vs_realised_backtest: bias / MAE / RMSE
+- DividendSwap PV identity test: PV = PV(realised) − fixed × df
+
+---
+
 ## v0.138.0 — 2026-04-09
 
 Dispersion Trading: implied correlation, dispersion trades, correlation risk.
