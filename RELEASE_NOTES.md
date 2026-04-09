@@ -2,6 +2,20 @@
 
 ---
 
+## v0.115.0 — 2026-04-09
+
+FRED + ECB Market Data Providers.
+
+- MarketDataProvider base class with fetch/available_series interface
+- FREDProvider: SOFR, Fed Funds, UST yields (3M-30Y), CPI via FRED API
+- ECBProvider: ESTR, EURIBOR, EUR govt yields via ECB SDW API
+- SampleProvider: synthetic data for testing (no network, deterministic)
+- RateSeries: time series with latest(), on_date(), between() queries
+- build_curve_from_yields: convert yield dict to DiscountCurve
+- Session-level caching for both FRED and ECB providers
+
+---
+
 ## v0.114.0 — 2026-04-09
 
 Physical vs Cash Settlement Framework.
