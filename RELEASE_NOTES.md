@@ -2,6 +2,21 @@
 
 ---
 
+## v0.141.0 — 2026-04-10
+
+Equity FRTB SA Capital — Pillar 5 (Equity Desk) complete.
+
+- EquityRiskInputs: per-name delta / vega / curvature / notional
+- EquityClassification: market cap, region, rating, exotic flag
+- map_to_frtb_bucket: large/small cap × developed/emerging (BCBS $2bn threshold)
+- equity_to_frtb_positions: builds dict format for calculate_frtb_sa
+- equity_frtb_capital: one-call SbM + DRC + RRAO equity capital report
+- EquityCapitalReport: components, total RWA, capital efficiency, bucket breakdown
+- Manual hand-calculation tests for delta, DRC, intra-bucket correlation
+- Direct cross-check against calculate_frtb_sa output
+
+---
+
 ## v0.140.0 — 2026-04-10
 
 Equity Rich/Cheap Monitors + Delta/Vega Hedging.
