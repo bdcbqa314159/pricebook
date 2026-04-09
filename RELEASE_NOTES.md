@@ -2,6 +2,19 @@
 
 ---
 
+## v0.120.0 — 2026-04-09
+
+LMM Calibration + Multi-Factor SABR.
+
+- Rebonato swaption vol approximation from LMM parameters
+- Exponential decay correlation matrix for forward rates
+- LMM vol calibration: iterative scaling to match swaption grid (RMSE < 2%)
+- MultiFactorSABR: SABR with term structure of (alpha, rho, nu), shared beta
+- Linear interpolation of SABR params between expiries
+- Joint calibration across multiple expiries via per-slice SABR calibrate
+
+---
+
 ## v0.119.0 — 2026-04-09
 
 Rough Volatility (rBergomi).
