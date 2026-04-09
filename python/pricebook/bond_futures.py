@@ -52,7 +52,8 @@ def conversion_factor(
     y = yield_standard / frequency
 
     if abs(y) < 1e-12:
-        return 1.0
+        # Zero yield: bond price = sum of coupons + principal
+        return c * n_periods + 1.0
 
     # PV of coupons + principal
     annuity = (1 - (1 + y) ** (-n_periods)) / y
@@ -120,8 +121,8 @@ def cheapest_to_deliver(
         ctd_index=ctd_idx,
         ctd_bond=ctd,
         gross_basis=gross,
-        net_basis=gross,  # simplified: net = gross (carry to delivery not computed)
-        implied_repo=0.0,  # computed below if needed
+        net_basis=gross,  # simplified: net basis assumes no carry adjustment
+        implied_repo=float("nan"),  # use implied_repo_rate() to compute explicitly
         all_bases=bases,
     )
 

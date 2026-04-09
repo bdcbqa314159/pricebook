@@ -158,34 +158,18 @@ def _dupire_local_vol(
         dk2 = K[ki + 1] - K[ki]
         d2sdk2 = 2 * (iv[ti, ki + 1] * dk1 + iv[ti, ki - 1] * dk2 - iv[ti, ki] * (dk1 + dk2)) / (dk1 * dk2 * (dk1 + dk2))
 
-    sqrt_t = math.sqrt(t)
-    d1 = (math.log(spot / k) + (rate - div_yield + 0.5 * sigma ** 2) * t) / (sigma * sqrt_t)
-
-    # Dupire numerator
-    numerator = (sigma / (2 * t) + dsdt
-                 + (rate - div_yield) * k * dsdk)
-
-    # Dupire denominator
-    denom = (1 / (k * sigma * sqrt_t)
-             + d1 * dsdk / sigma
-             + k * sqrt_t * d2sdk2) ** 2
-    denom_full = k ** 2 * (denom if denom > 0 else 1e-10)
-
-    # σ_loc² = 2 × numerator / (K² × denominator_factor)
-    # Simplified: use the total variance form
-    w = sigma ** 2 * t  # total variance
+    # Gatheral's formula for local vol from total variance w = σ²T:
+    # σ_loc² = (∂w/∂T) / [1 - (y/w)∂w/∂y + 0.25(-1/4 - 1/w + y²/w²)(∂w/∂y)² + 0.5 ∂²w/∂y²]
+    # where y = log(K/S)
+    w = sigma ** 2 * t
     dw_dt = 2 * sigma * t * dsdt + sigma ** 2
     dw_dk = 2 * sigma * t * dsdk
     d2w_dk2 = 2 * t * (dsdk ** 2 + sigma * d2sdk2)
 
-    # Gatheral's formula for local vol from total variance:
-    # σ_loc² = dw/dT / (1 - y/w × dw/dy + 0.25(-1/4 - 1/w + y²/w²)(dw/dy)² + 0.5 d²w/dy²)
-    # Simplified approach: just use numerator/denominator
     local_var = max(dw_dt, 1e-10)
 
-    # Denominator corrections from strike dependence
-    y = math.log(k / spot)
     if abs(w) > 1e-15:
+        y = math.log(k / spot)
         dw_dy = k * dw_dk
         d2w_dy2 = k ** 2 * d2w_dk2 + k * dw_dk
         denom_corr = (1

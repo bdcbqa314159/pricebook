@@ -143,6 +143,12 @@ def stress_credit_portfolio(
     year: int,
 ) -> dict:
     """Apply credit stress for one year of the scenario."""
+    if year < 0 or year >= scenario.horizon_years:
+        raise ValueError(f"year {year} out of horizon {scenario.horizon_years}")
+    for var in (MacroVariable.GDP_GROWTH, MacroVariable.UNEMPLOYMENT,
+                MacroVariable.HOUSE_PRICES, MacroVariable.CREDIT_SPREADS):
+        if var not in scenario.macro_paths or year >= len(scenario.macro_paths[var]):
+            raise ValueError(f"macro_paths missing {var.value} at year {year}")
     gdp = scenario.macro_paths[MacroVariable.GDP_GROWTH][year]
     unemp = scenario.macro_paths[MacroVariable.UNEMPLOYMENT][year]
     hp = scenario.macro_paths[MacroVariable.HOUSE_PRICES][year]

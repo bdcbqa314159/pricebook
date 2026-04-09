@@ -105,19 +105,37 @@ class FixingsStore:
                     date.fromisoformat(k): v for k, v in raw.items()
                 }
 
-    def load_csv(self, rate_name: str, filepath: str, date_col: str = "date", value_col: str = "value") -> int:
+    def load_csv(
+        self,
+        rate_name: str,
+        filepath: str,
+        date_col: str = "date",
+        value_col: str = "value",
+        skip_invalid: bool = True,
+    ) -> int:
         """Load fixings from a CSV file.
 
-        Returns number of fixings loaded.
+        Args:
+            skip_invalid: if True, skip rows with missing/invalid data.
+                If False, raise on first error.
+
+        Returns:
+            Number of fixings loaded.
         """
         count = 0
         with open(filepath) as f:
             reader = csv.DictReader(f)
-            for row in reader:
-                d = date.fromisoformat(row[date_col])
-                v = float(row[value_col])
-                self.set(rate_name, d, v)
-                count += 1
+            for row_idx, row in enumerate(reader, start=2):  # row 1 is header
+                try:
+                    if date_col not in row or value_col not in row:
+                        raise KeyError(f"missing column at row {row_idx}")
+                    d = date.fromisoformat(row[date_col])
+                    v = float(row[value_col])
+                    self.set(rate_name, d, v)
+                    count += 1
+                except (ValueError, KeyError, TypeError) as e:
+                    if not skip_invalid:
+                        raise ValueError(f"row {row_idx}: {e}") from e
         return count
 
 

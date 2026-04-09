@@ -189,4 +189,6 @@ def implied_convenience_yield(
     """
     if T <= 0 or spot <= 0 or futures_price <= 0:
         return 0.0
+    if futures_price / spot <= 0:
+        return 0.0
     return rate + storage_cost - math.log(futures_price / spot) / T

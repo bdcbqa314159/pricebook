@@ -68,8 +68,8 @@ def calculate_sec_sa_rw(
     l = max(attachment - ksa_adj, 0)
 
     if detachment <= ksa_adj:
-        # Tranche entirely within first-loss
-        k_ssfa = detachment - attachment
+        # Tranche entirely within first-loss → 1250% risk weight (full deduction)
+        k_ssfa = 1.0
     elif attachment >= ksa_adj:
         # Tranche entirely above K_SA
         k_ssfa = ksa_adj * (math.exp(a * u) - math.exp(a * l)) / (a * (detachment - attachment))

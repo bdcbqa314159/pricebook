@@ -227,10 +227,14 @@ def calculate_supervisory_discount(maturity: float) -> float:
 
 
 def calculate_ba_cva(counterparties: list[dict]) -> dict:
-    """BA-CVA capital: K_CVA = 2.33 × sqrt(Σ(S_c × CVA_c)² + ρ² × (Σ S_c × CVA_c)²)."""
+    """BA-CVA capital (MAR50.5).
+
+    K_CVA = α × √[ρ² × (Σ_c S_c × CVA_c)² + (1 - ρ²) × Σ_c (S_c × CVA_c)²]
+    where α = 2.33 (99% confidence) and ρ = 0.50 (supervisory correlation).
+    """
     results = []
-    sum_squared = 0.0
-    sum_weighted = 0.0
+    sum_sq_individual = 0.0  # Σ (S_c × CVA_c)² — idiosyncratic
+    sum_systematic = 0.0     # Σ S_c × CVA_c — systematic
 
     for cp in counterparties:
         ead = cp.get("ead", 0)
@@ -241,24 +245,26 @@ def calculate_ba_cva(counterparties: list[dict]) -> dict:
         df = calculate_supervisory_discount(maturity)
         cva_estimate = ead * rw * maturity * df
 
-        s_c = rw
-        cva_c = cva_estimate
-        sum_squared += (s_c * cva_c) ** 2
-        sum_weighted += s_c * cva_c
+        s_c_cva = rw * cva_estimate
+        sum_sq_individual += s_c_cva ** 2
+        sum_systematic += s_c_cva
 
         results.append({
             "ead": ead, "rating": rating, "maturity": maturity,
             "risk_weight": rw, "discount_factor": df,
-            "cva_estimate": cva_estimate, "weighted_cva": s_c * cva_c,
+            "cva_estimate": cva_estimate, "weighted_cva": s_c_cva,
         })
 
     rho = BA_CVA_CORRELATION
-    k_cva = 2.33 * math.sqrt(sum_squared + rho ** 2 * sum_weighted ** 2)
+    k_cva = 2.33 * math.sqrt(
+        rho ** 2 * sum_systematic ** 2 + (1 - rho ** 2) * sum_sq_individual
+    )
     return {
         "approach": "BA-CVA",
         "k_cva": k_cva, "rwa": k_cva * 12.5,
         "counterparties": results,
-        "sum_squared": sum_squared, "sum_weighted": sum_weighted,
+        "sum_individual_sq": sum_sq_individual,
+        "sum_systematic": sum_systematic,
         "correlation": rho,
     }
 

@@ -33,38 +33,35 @@ def cms_convexity_adjustment(
     swap_tenor_years: float,
     vol: float,
     time_to_fixing: float,
-    d_annuity_drate: float | None = None,
+    duration: float | None = None,
 ) -> float:
     """CMS convexity adjustment via linear Terminal Swap Rate (TSR) model.
 
-    The CMS rate exceeds the forward swap rate by:
-        adjustment ≈ forward² × vol² × T × (d(annuity)/d(rate)) / annuity
+    The CMS rate exceeds the forward swap rate by a positive convexity premium:
+        adjustment ≈ S² × σ² × T × duration / annuity
+
+    where duration is the modified duration of the underlying swap (the
+    magnitude of dA/dS scaled by 1/A).
 
     This captures the fact that the swap rate payoff is a non-linear
-    function of discount factors.
+    function of discount factors. The adjustment is always non-negative.
 
     Args:
         forward_swap_rate: forward par swap rate.
         annuity: PV of the fixed leg annuity.
-        swap_tenor_years: tenor of the underlying swap (e.g. 10).
+        swap_tenor_years: tenor of the underlying swap.
         vol: swaption vol at the CMS fixing.
         time_to_fixing: time to the CMS observation date.
-        d_annuity_drate: dA/dS. If None, approximated as -annuity × duration.
+        duration: modified duration. If None, approximated from tenor and rate.
     """
-    if time_to_fixing <= 0 or vol <= 0:
+    if time_to_fixing <= 0 or vol <= 0 or abs(annuity) < 1e-15:
         return 0.0
 
-    if d_annuity_drate is None:
-        # Approximate: dA/dS ≈ -A × modified_duration ≈ -A × T / (1 + S/freq)
+    if duration is None:
         freq = 2.0  # semi-annual
-        mod_dur = swap_tenor_years / (1 + forward_swap_rate / freq)
-        d_annuity_drate = -annuity * mod_dur
+        duration = swap_tenor_years / (1 + forward_swap_rate / freq)
 
-    if abs(annuity) < 1e-15:
-        return 0.0
-
-    # dA/dS is negative (annuity falls when rates rise), so negate for positive adjustment
-    return -forward_swap_rate ** 2 * vol ** 2 * time_to_fixing * d_annuity_drate / annuity
+    return forward_swap_rate ** 2 * vol ** 2 * time_to_fixing * duration
 
 
 # ---- CMS Leg ----
@@ -283,8 +280,10 @@ def cms_spread_option(
         # Black-76 requires positive forward and strike; use Bachelier for near-zero
         if strike <= 0 or spread_fwd <= 0:
             from pricebook.black76 import bachelier_price
-            pv = bachelier_price(spread_fwd, strike, spread_vol * max(spread_fwd, 0.01),
-                                 t_fix, df, option_type)
+            # Convert lognormal vol to absolute (normal) vol via fwd-rate scaling
+            # Use a representative rate to scale: max(|fwd|, 0.01)
+            absolute_vol = spread_vol * max(abs(spread_fwd), 0.01)
+            pv = bachelier_price(spread_fwd, strike, absolute_vol, t_fix, df, option_type)
         else:
             pv = black76_price(spread_fwd, strike, spread_vol, t_fix, df, option_type)
         total += notional * yf * pv

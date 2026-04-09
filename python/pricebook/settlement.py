@@ -239,20 +239,24 @@ def settlement_risk(
     trade_date: date,
     settlement_date: date,
     settlement_type: SettlementType = SettlementType.CASH,
+    replacement_cost_pct: float = 0.10,
 ) -> SettlementRiskResult:
     """Compute settlement risk: exposure between trade and settlement.
 
-    For cash: risk = full amount during settlement window.
-    For DvP: risk reduced to replacement cost.
-    For PvP: risk eliminated (simultaneous exchange).
-    """
-    days = max((settlement_date - trade_date).days, 0)
+    Args:
+        replacement_cost_pct: fraction of notional at risk for cash/auction
+            settlement (default 10%).
 
-    if settlement_type == SettlementType.PHYSICAL:
-        # Gross settlement risk: full amount
+    PHYSICAL/AUCTION: gross exposure (full amount).
+    CASH/ELECT: replacement cost approximation (default 10% of notional).
+    """
+    if settlement_date < trade_date:
+        raise ValueError("settlement_date must be on or after trade_date")
+    days = (settlement_date - trade_date).days
+
+    if settlement_type in (SettlementType.PHYSICAL, SettlementType.AUCTION):
         exposure = abs(trade_amount)
     else:
-        # Net settlement: only replacement cost
-        exposure = abs(trade_amount) * 0.1  # simplified: 10% replacement cost
+        exposure = abs(trade_amount) * replacement_cost_pct
 
     return SettlementRiskResult(exposure, days, settlement_type)

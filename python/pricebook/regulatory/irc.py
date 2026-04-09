@@ -231,15 +231,43 @@ def calculate_modified_duration(
     tenor_years: float,
     coupon_rate: float = 0.05,
     yield_rate: float = 0.05,
+    frequency: int = 2,
 ) -> float:
-    """Modified duration."""
+    """Modified duration of a fixed-rate bond.
+
+    Macaulay = Σ(t × CF_t × df_t) / Bond Price
+    Modified = Macaulay / (1 + y/m)
+    For a zero-coupon bond: Modified = T / (1 + y).
+    """
     if tenor_years <= 0:
         return 0.0
-    if coupon_rate <= 0:
-        return tenor_years / (1 + yield_rate)
-    mac = (1 - (1 + yield_rate) ** (-tenor_years)) / yield_rate
-    mod = mac / (1 + yield_rate)
-    return min(mod, tenor_years)
+    if coupon_rate <= 0 or yield_rate <= 0:
+        return tenor_years / (1 + max(yield_rate, 1e-6))
+
+    n = max(int(round(tenor_years * frequency)), 1)
+    c = coupon_rate / frequency
+    y = yield_rate / frequency
+
+    # PV of coupons: c × annuity factor
+    annuity = (1 - (1 + y) ** (-n)) / y
+    pv_coupons = c * annuity
+    pv_principal = (1 + y) ** (-n)
+    bond_price = pv_coupons + pv_principal
+
+    if bond_price <= 0:
+        return tenor_years
+
+    # Σ(t × CF_t × df_t) — t in years
+    weighted_pv = 0.0
+    for k in range(1, n + 1):
+        t_year = k / frequency
+        df_k = (1 + y) ** (-k)
+        cf = c if k < n else c + 1.0
+        weighted_pv += t_year * cf * df_k
+
+    macaulay = weighted_pv / bond_price
+    modified = macaulay / (1 + y)
+    return modified
 
 
 def calculate_spread_pv01(notional: float, tenor_years: float, coupon_rate: float = 0.05) -> float:

@@ -132,6 +132,7 @@ class InflationVolSurface:
         if len(expiries) != len(vols):
             raise ValueError("expiries and vols must have same length")
         self.reference_date = reference_date
+        self._expiries = list(expiries)  # store original dates
         self._times = np.array([
             year_fraction(reference_date, d, DayCountConvention.ACT_365_FIXED)
             for d in expiries
@@ -155,14 +156,13 @@ class InflationVolSurface:
         # Linear interpolation
         idx = int(np.searchsorted(self._times, t)) - 1
         idx = max(0, min(idx, len(self._times) - 2))
-        frac = (t - self._times[idx]) / (self._times[idx + 1] - self._times[idx])
+        dt = self._times[idx + 1] - self._times[idx]
+        if dt < 1e-12:
+            return float(self._vols[idx])
+        frac = (t - self._times[idx]) / dt
         return float(self._vols[idx] + frac * (self._vols[idx + 1] - self._vols[idx]))
 
     def bump(self, shift: float) -> InflationVolSurface:
         """Return new surface with all vols shifted."""
         new_vols = (self._vols + shift).tolist()
-        expiry_dates = [
-            date.fromordinal(self.reference_date.toordinal() + int(t * 365))
-            for t in self._times
-        ]
-        return InflationVolSurface(self.reference_date, expiry_dates, new_vols)
+        return InflationVolSurface(self.reference_date, self._expiries, new_vols)

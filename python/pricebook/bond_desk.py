@@ -83,13 +83,13 @@ def fit_curve_from_bonds(
         accrued = bond.accrued_interest(reference_date)
         fitted_clean = fitted_price - accrued / bond.face_value * 100
 
-        # Z-spread
+        # Z-spread (may fail to converge for distressed bonds)
         try:
             from pricebook.risky_bond import z_spread as _zs, RiskyBond
             rb = RiskyBond(bond.issue_date, bond.maturity, bond.coupon_rate,
                           bond.face_value, bond.frequency, bond.day_count)
             zs = _zs(rb, mkt_price, fitted_curve)
-        except Exception:
+        except (ValueError, RuntimeError):
             zs = 0.0
 
         results.append(FittedBond(
