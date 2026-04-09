@@ -2,6 +2,19 @@
 
 ---
 
+## v0.116.0 — 2026-04-09
+
+Historical Data + Fixings.
+
+- FixingsStore: set/get/has daily rate fixings (SOFR, ESTR, CPI, etc.)
+- JSON persistence: save to disk, reload on init
+- CSV import: load fixings from external CSV files
+- Bulk operations: bulk_set, series queries with date filtering
+- create_sample_fixings: synthetic SOFR, ESTR, Fed Funds, CPI history
+- Deterministic sample data for reproducible testing
+
+---
+
 ## v0.115.0 — 2026-04-09
 
 FRED + ECB Market Data Providers.
