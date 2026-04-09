@@ -2,6 +2,20 @@
 
 ---
 
+## v0.135.0 — 2026-04-09
+
+Equity Position Management + Books (Pillar 5 begins).
+
+- EquityBook: per-ticker, per-sector position aggregation
+- EquityTradeEntry: trade + ticker/sector/spot/beta/delta metadata
+- EquityPosition: net/long/short notional, delta exposure per ticker
+- SectorExposure: sector aggregation with name count
+- EquityLimits: per-name, per-sector, net, gross, beta-weighted exposure caps
+- check_limits: detect breaches across all limit types
+- Long/short netting per ticker, separate long/short tracking
+
+---
+
 ## v0.134.0 — 2026-04-09
 
 Code Review Fixes (slices 107-133).
