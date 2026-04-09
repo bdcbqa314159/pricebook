@@ -2,6 +2,20 @@
 
 ---
 
+## v0.122.0 — 2026-04-09
+
+FRTB Standardised Approach (full).
+
+- SbM: delta, vega, curvature across GIRR, CSR, EQ, FX, COM
+- Risk weights and correlations per Basel MAR21
+- Within-bucket and across-bucket aggregation formulae
+- DRC: Default Risk Charge with obligor netting (jump-to-default)
+- RRAO: Residual Risk Add-On (exotic 1%, other 0.1%)
+- Total FRTB-SA = SbM + DRC + RRAO, with RWA = capital × 12.5
+- Replaces basic FRTB delta in regulatory.py with full multi-risk-class version
+
+---
+
 ## v0.121.0 — 2026-04-09
 
 Regulatory Subpackage: Ratings + VaR/ES Engine.
