@@ -2,6 +2,18 @@
 
 ---
 
+## v0.119.0 — 2026-04-09
+
+Rough Volatility (rBergomi).
+
+- Fractional Brownian motion via Cholesky on Toeplitz covariance
+- Correct fBM variance scaling: Var(B^H(T)) = T^{2H}
+- rBergomi MC: variance driven by fBM with Hurst H < 0.5
+- European option pricing under rough vol
+- Higher vol-of-vol produces fatter tails (validated)
+
+---
+
 ## v0.118.0 — 2026-04-09
 
 Stochastic Local Vol (SLV).
