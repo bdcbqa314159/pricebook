@@ -2,6 +2,20 @@
 
 ---
 
+## v0.114.0 — 2026-04-09
+
+Physical vs Cash Settlement Framework.
+
+- SettlementType enum: CASH, PHYSICAL, AUCTION, ELECT
+- Settlement conventions per product type (IR, CDS, equity, FX, commodity)
+- CDS settlement: physical (deliver bond, receive par) vs cash/auction (receive LGD)
+- Option settlement: cash (receive intrinsic) vs physical (deliver/receive shares)
+- Futures settlement: cash (variation margin) vs physical (delivery + invoice)
+- Settlement risk: exposure window between trade and settlement date
+- Physical CDS net payout matches cash payout (validated)
+
+---
+
 ## v0.113.0 — 2026-04-09
 
 Dividend Modelling.
