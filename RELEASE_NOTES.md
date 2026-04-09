@@ -2,6 +2,24 @@
 
 ---
 
+## v0.127.0 — 2026-04-09
+
+Counterparty Credit Risk: Full SA-CCR, BA-CVA, SA-CVA, CCP.
+
+- SA-CCR (CRE52): full supervisory factors across IR, FX, CR, EQ, COM
+- Maturity factor (margined and unmargined), supervisory duration
+- Supervisory delta for non-options and options
+- Adjusted notional with IR/CR using duration, others using MF
+- Replacement Cost with collateral, threshold, MTA, NICA
+- PFE multiplier with floor 5%
+- Total EAD = α × (RC + PFE), α = 1.4
+- BA-CVA: K_CVA = 2.33 × sqrt(Σ(s×CVA)² + ρ² × (Σ s×CVA)²)
+- SA-CVA: K = m_CVA × sqrt(K_delta² + K_vega²)
+- CCP exposures: 2% RW for QCCP trades, 100% non-QCCP
+- CCP default fund contribution RWA per CRE54
+
+---
+
 ## v0.126.0 — 2026-04-09
 
 Securitisation + Trade-Specific RWA.
