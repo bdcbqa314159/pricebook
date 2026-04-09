@@ -2,6 +2,23 @@
 
 ---
 
+## v0.128.0 — 2026-04-09
+
+Capital Framework + G-SIB + TLAC.
+
+- Output floor (CAP30): max(IRB, 72.5% × SA) with transitional schedule
+- Output floor by risk type with breakdown
+- Leverage ratio (LEV30): Tier1 / total exposure ≥ 3% (+ G-SIB buffer)
+- Large exposures (LEX30): 10% reporting, 25% limit, 15% G-SIB-to-G-SIB
+- CRM: collateral haircuts, exposure with collateral
+- Off-balance sheet CCF: short-term, long-term, guarantees
+- G-SIB scoring: 5 categories × 12 indicators × global denominators
+- G-SIB buckets 1-5 with buffer requirements (1.0% to 3.5%)
+- TLAC: max(18% × RWA + buffer, 6.75% × leverage)
+- MREL: loss absorption + recapitalisation with 8%/3% floor
+
+---
+
 ## v0.127.0 — 2026-04-09
 
 Counterparty Credit Risk: Full SA-CCR, BA-CVA, SA-CVA, CCP.
