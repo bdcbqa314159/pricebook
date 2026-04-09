@@ -2,6 +2,21 @@
 
 ---
 
+## v0.121.0 — 2026-04-09
+
+Regulatory Subpackage: Ratings + VaR/ES Engine.
+
+Begins the Basel regulatory framework port from my_calculations/.
+- regulatory/ subpackage with unified API
+- ratings.py: PD-rating tables (21 ratings), normalisation, resolve functions, IG/HY classification
+- var_es.py: parametric VaR (normal + t), historical VaR, Monte Carlo VaR
+- Expected Shortfall (CVaR) for all three methods
+- Portfolio VaR: component/marginal decomposition, diversification benefit
+- Backtesting: Basel traffic light zones (green/yellow/red), Kupiec POF test
+- quick_var() and compare_var_methods() convenience functions
+
+---
+
 ## v0.120.0 — 2026-04-09
 
 LMM Calibration + Multi-Factor SABR.
