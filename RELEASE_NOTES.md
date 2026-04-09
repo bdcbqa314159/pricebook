@@ -2,6 +2,21 @@
 
 ---
 
+## v0.129.0 — 2026-04-09
+
+Stress Testing + IRRBB.
+
+- Macro stress framework: GDP, unemployment, house prices, credit spreads, FX
+- 3 standard scenarios: baseline, adverse, severely adverse (EBA/CCAR style)
+- PD/LGD stress multipliers from macro shocks (with sign-corrected formula)
+- Credit, market, integrated stress tests over multi-year horizon
+- IRRBB (SRP31): standardised IR shock scenarios (parallel up/down, steepener, flattener)
+- Duration gap analysis, PV01, EVE impact under all scenarios
+- NII sensitivity by repricing bucket
+- IRRBB capital charge via Supervisory Outlier Test (15% Tier1)
+
+---
+
 ## v0.128.0 — 2026-04-09
 
 Capital Framework + G-SIB + TLAC.
