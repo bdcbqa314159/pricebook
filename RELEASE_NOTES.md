@@ -2,6 +2,20 @@
 
 ---
 
+## v0.136.0 — 2026-04-07
+
+Equity Daily P&L: official decomposition + Greek-based attribution.
+
+- compute_equity_daily_pnl: official P&L = market move + new trades + amendments
+- EquityDailyPnL dataclass: prior_pv, current_pv, market_move_pnl, new_trade_pnl, amendment_pnl, total_pnl
+- attribute_equity_pnl: Greek-based decomposition Δ·ΔS + ½·Γ·ΔS² + ν·Δσ + θ·Δt + ρ·Δr
+- TradeGreeks dataclass: delta, gamma, vega, theta, rho per trade
+- GreekAttribution + EquityBookAttribution: per-trade and per-ticker breakdown
+- Direction and notional_scale applied via signed multiplier
+- Unexplained residual = total - explained (against re-priced PV)
+
+---
+
 ## v0.135.0 — 2026-04-09
 
 Equity Position Management + Books (Pillar 5 begins).
