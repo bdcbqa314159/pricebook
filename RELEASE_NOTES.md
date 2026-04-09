@@ -2,6 +2,21 @@
 
 ---
 
+## v0.140.0 — 2026-04-10
+
+Equity Rich/Cheap Monitors + Delta/Vega Hedging.
+
+- ZScoreSignal: generic z-score / percentile / rich-cheap-fair signal
+- implied_vs_historical_vol: implied vol vs realised vol distribution
+- skew_monitor: 25-delta risk reversal level vs history
+- calendar_monitor: front-vs-back vol spread vs history
+- delta_hedge / vega_hedge: single-instrument hedge quantity
+- optimal_delta_vega_hedge: 2x2 linear system to flatten both delta and vega
+- hedged_exposure: combined book + allocations exposure
+- Linear-dependence guard for degenerate hedge instrument pairs
+
+---
+
 ## v0.139.0 — 2026-04-10
 
 Dividend Strategies: futures, basis, carry trade, roll-down, backtest.
