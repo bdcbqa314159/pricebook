@@ -2,6 +2,21 @@
 
 ---
 
+## v0.124.0 — 2026-04-09
+
+Incremental Risk Charge (IRC).
+
+- 7 rating transition matrices: global, Europe, EM, financials, sovereign, recession, benign
+- Credit spread term structure by rating (1Y-10Y, with linear interpolation)
+- LGD by seniority (senior_secured 25%, unsecured 45%, subordinated 75%, equity 100%)
+- IRCPosition dataclass and IRCConfig with configurable matrix
+- Vectorised MC simulation via Gaussian copula (NumPy + scipy)
+- 99.9% 1-year loss percentile with full distribution stats
+- Issuer-level netting (long/short within issuer), no cross-issuer netting
+- quick_irc() and calculate_irc_by_issuer() convenience functions
+
+---
+
 ## v0.123.0 — 2026-04-09
 
 FRTB Internal Models Approach (MAR30-33).
