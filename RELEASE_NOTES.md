@@ -2,6 +2,29 @@
 
 ---
 
+## v0.134.0 — 2026-04-09
+
+Code Review Fixes (slices 107-133).
+
+15 bugs fixed across phases A/B/C/D after thorough code review:
+- BA-CVA formula: corrected with (1-ρ²) factor per MAR50.5
+- SEC-SA SSFA: first-loss tranche now correctly returns K=1 (1250% RW)
+- IRC modified duration: replaced annuity factor with proper Macaulay→Modified
+- CMS convexity adjustment: simplified API (takes duration directly)
+- CMS spread option: Bachelier fallback uses abs(spread_fwd)
+- Bond futures: zero yield case returns c×n+1, implied_repo NaN sentinel
+- Inflation vol: store original expiry dates, fix div-by-zero on coincident pillars
+- Futures: guard against negative ratio in implied_convenience_yield
+- Settlement: AUCTION/ELECT handled, configurable replacement_cost_pct
+- Fixings: load_csv proper error handling with skip_invalid flag
+- Local vol: removed dead code (unused Dupire numerator/denom)
+- Stress IRRBB: validate year and macro_paths bounds
+- Bond desk: narrow exception handling
+
+NB: BA-CVA and SEC-SA fixes will change capital numbers vs v0.133.0.
+
+---
+
 ## v0.133.0 — 2026-04-09
 
 Total Capital Aggregation + Unified Regulatory Portfolio.
