@@ -2,6 +2,23 @@
 
 ---
 
+## v0.137.0 — 2026-04-09
+
+Equity Vol Desk: surface management, RV strategies, vega ladder, cross-Greeks.
+
+- EquityVolSurface: strike × expiry surface anchored on ATM strike
+- VolPillar: per-expiry strikes/vols
+- Bumps: parallel, term (per-pillar), skew (linear tilt), curvature (quadratic)
+- Bumped surface reprices vanillas to first order via vega
+- CalendarSpread: same-strike two-expiry vol RV trade
+- RiskReversal: long OTM call + short OTM put (or reverse) — picks up skew
+- VarianceSwap: fair variance via call/put strip replication (Demeterfi-Derman-Kamal-Zou)
+- vega_ladder: aggregate vega by (expiry, strike) bucket; total_vega helper
+- volga: ∂²Price/∂σ² via central difference
+- vanna: ∂²Price/(∂S ∂σ) via central difference
+
+---
+
 ## v0.136.0 — 2026-04-07
 
 Equity Daily P&L: official decomposition + Greek-based attribution.
