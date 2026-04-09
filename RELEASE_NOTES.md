@@ -2,6 +2,22 @@
 
 ---
 
+## v0.132.0 — 2026-04-09
+
+Specialty Regulatory Modules.
+
+- Crypto-assets (BCBS d545): Group 1a/1b/2a/2b classification + RWA
+- Group 2 exposure limits: 2% (2a+2b) and 1% (2b only) of Tier 1
+- Step-in risk (BCBS 398): UnconsolidatedEntity, 9 indicators, weighted scoring
+- 3 risk levels (high/medium/low) with capital charge factors
+- FX rates with market conventions: direct, inverse, USD/EUR triangulation
+- 19 standard pairs (EUR/USD/GBP/JPY + EM)
+- Default FX rates for testing/demos
+- Simplified SA for market risk (small bank framework)
+- Pillar 3 disclosure: KM1 (key metrics), OV1 (RWA overview)
+
+---
+
 ## v0.131.0 — 2026-04-09
 
 Basel II / II.5 Legacy Framework.
