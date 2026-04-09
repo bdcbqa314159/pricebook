@@ -2,6 +2,22 @@
 
 ---
 
+## v0.131.0 — 2026-04-09
+
+Basel II / II.5 Legacy Framework.
+
+- Basel II SA: sovereign, bank (Option 1 & 2), corporate, retail, real estate
+- Basel II BBB corporate at 100% (vs Basel III's 75%)
+- Basel II IRB: same Vasicek formula but no Basel IV LGD floors
+- Operational risk: BIA (15% × GI), TSA (8 business lines × β), AMA (internal models)
+- AMA insurance mitigation capped at 20%, BEICF adjustments
+- CEM (Current Exposure Method): EAD = max(0, MTM) + add-on by derivative type/maturity
+- CEM netting: A_net = 0.4 × A_gross + 0.6 × NGR × A_gross
+- Basel II.5 stressed VaR with multiplier and holding period scaling
+- Basel II.5 total market risk: VaR + sVaR + IRC + CRM + specific risk
+
+---
+
 ## v0.130.0 — 2026-04-09
 
 Liquidity (LCR/NSFR) + Operational Risk (SMA).
