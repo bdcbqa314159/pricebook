@@ -2,6 +2,19 @@
 
 ---
 
+## v0.113.0 — 2026-04-09
+
+Dividend Modelling.
+
+- Implied dividends from put-call parity (single expiry and term structure)
+- Strip discrete dividends from cumulative PV curve
+- DividendSwap: exchange realised divs for fixed, fair fixed rate, PV
+- Dividend forward: forward price of cumulative dividends
+- Dividend risk: dF/d(div) delta and div yield rho sensitivity
+- Dividend forward matches swap fair fixed (round-trip validated)
+
+---
+
 ## v0.112.0 — 2026-04-09
 
 Bond Desk Tools.
