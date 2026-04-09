@@ -2,6 +2,24 @@
 
 ---
 
+## v0.133.0 — 2026-04-09
+
+Total Capital Aggregation + Unified Regulatory Portfolio.
+
+**Phase D: Basel Regulatory Framework COMPLETE.**
+
+- calculate_total_rwa: aggregates credit, securitisation, CCR, CVA, market, op risk
+- Output floor application across IRB and SA totals
+- calculate_capital_ratios: CET1, Tier1, Total with combined buffer requirements
+- Capital conservation buffer (2.5%) + countercyclical + G-SIB
+- Compliance check at all three capital levels
+- RegulatoryPortfolio: unified container with VaR + IRC + RWA methods
+- Position management with chaining, conversion to IRC/credit exposures
+- One-call risk_summary() returns full breakdown
+- Removed superseded basic regulatory.py (now fully replaced by subpackage)
+
+---
+
 ## v0.132.0 — 2026-04-09
 
 Specialty Regulatory Modules.
