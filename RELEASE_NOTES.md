@@ -2,6 +2,22 @@
 
 ---
 
+## v0.126.0 — 2026-04-09
+
+Securitisation + Trade-Specific RWA.
+
+- SEC-SA: supervisory formula approach (SSFA) with K_SA, n, LGD, w
+- SEC-IRBA: same SSFA but using K_IRB from underlying pool
+- ERBA: External Ratings-Based Approach (CRR2) with CQS 1-17, RW base table
+- ERBA senior vs non-senior with thickness adjustment T^(-c)
+- STS securitisation lower floor (10% vs 15%)
+- Re-securitisation: 1.5x multiplier with 100% floor
+- pd_to_cqs: PD-to-CQS mapping for ERBA
+- Trade-specific RWA: CDS, repo, TRS, loan helpers
+- Each trade-RWA includes CCR + reference asset risk decomposition
+
+---
+
 ## v0.125.0 — 2026-04-09
 
 Credit RWA (Basel III/IV).
