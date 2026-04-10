@@ -2,6 +2,21 @@
 
 ---
 
+## v0.143.0 — 2026-04-10
+
+Commodity Daily P&L: spot/carry/roll decomposition + attribution.
+
+- compute_commodity_daily_pnl: official P&L = spot + carry + roll + new trades + amendments
+- CommodityDailyPnL dataclass with market_move_pnl property
+- Spot P&L from forward curve moves at constant delivery dates
+- Carry P&L from convenience yield earned minus storage cost accrued
+- Roll P&L from delivery-date rolls (old → new at current curve)
+- attribute_commodity_pnl: per-commodity and per-tenor bucket breakdown
+- Parallel-vs-shape decomposition: parallel = Σ qty × mean(Δfwd), shape = residual
+- Attribution sums to total across both commodity and tenor dimensions
+
+---
+
 ## v0.142.0 — 2026-04-10
 
 Commodity Book — Pillar 6 (Commodity Desk) begins.
