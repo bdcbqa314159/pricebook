@@ -2,6 +2,20 @@
 
 ---
 
+## v0.147.0 — 2026-04-10
+
+Commodity Rich/Cheap Monitors + Roll Strategies.
+
+- spread_zscore: z-score calendar spreads vs history
+- ratio_monitor: inter-commodity ratios (gold/silver, Brent/WTI) vs history
+- seasonality_monitor: current price vs seasonal norm by month
+- roll_pnl: P&L from rolling a position (direction-aware)
+- roll_cost_or_gain: classify as contango_cost / backwardation_gain / flat
+- optimal_roll_date: pick the roll date maximising spread (minimising cost)
+- track_roll_pnl: cumulative roll P&L across a sequence of rolls
+
+---
+
 ## v0.146.0 — 2026-04-10
 
 Commodity Storage and Carry Plays.
