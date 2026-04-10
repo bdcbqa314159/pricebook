@@ -2,6 +2,20 @@
 
 ---
 
+## v0.144.0 — 2026-04-10
+
+Commodity Term Structure Trading: calendars, steepeners, butterflies.
+
+- CommodityCalendarSpread: matched-notional long near / short far, zero parallel by construction
+- CommoditySteepener: long far / short near, profits from curve steepening
+- CommodityButterfly: 1:2:1 weights, zero parallel, zero steepener for even spacing
+- dv01_neutral_quantity: far-leg quantity for flat parallel sensitivity
+- curve_structure_monitor: contango / backwardation / mixed / flat classification
+- CurveStructureSnapshot with sorted deliveries, forwards, consecutive spreads
+- Numerical verification: parallel shift leaves all trade PVs unchanged
+
+---
+
 ## v0.143.0 — 2026-04-10
 
 Commodity Daily P&L: spot/carry/roll decomposition + attribution.
