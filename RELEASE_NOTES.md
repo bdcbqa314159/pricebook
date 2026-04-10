@@ -2,6 +2,19 @@
 
 ---
 
+## v0.145.0 — 2026-04-10
+
+Inter-Commodity Spreads: crack, spark, dark, crush.
+
+- GenericSpread: weighted multi-leg inter-commodity spread with residual_exposure check
+- crack_spread_321 / crack_spread_532: crude → gasoline + distillate/heating oil
+- SparkSpread: power − heat_rate × gas, implied generation margin
+- DarkSpread: power − heat_rate × coal
+- crush_spread / reverse_crush: soybean → meal + oil
+- Balanced spreads verified: zero residual and PV invariant under uniform price shift
+
+---
+
 ## v0.144.0 — 2026-04-10
 
 Commodity Term Structure Trading: calendars, steepeners, butterflies.
