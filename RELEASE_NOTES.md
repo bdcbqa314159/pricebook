@@ -2,6 +2,22 @@
 
 ---
 
+## v0.146.0 — 2026-04-10
+
+Commodity Storage and Carry Plays.
+
+- cash_and_carry: buy spot / sell forward / store — profit decomposition
+- Implied storage cost from forward-spot spread
+- Implied convenience yield extraction
+- Arbitrage-free curve verified: zero cash-and-carry profit
+- StorageFacility: capacity, injection/withdrawal rate limits, variable costs
+- Intrinsic value: deterministic buy-low / sell-high (single-cycle greedy)
+- Extrinsic value: spread-option proxy proportional to vol × √T
+- Total value = intrinsic + extrinsic; positive in contango, zero on flat curve
+- Inventory constraints (initial inventory, min working level)
+
+---
+
 ## v0.145.0 — 2026-04-10
 
 Inter-Commodity Spreads: crack, spark, dark, crush.
