@@ -2,6 +2,20 @@
 
 ---
 
+## v0.148.0 — 2026-04-10
+
+Commodity FRTB SA Capital + Forward/Futures Protocol Decision — Pillar 6 (Commodity Desk) complete.
+
+- CommodityRiskInputs / CommodityClassification: per-commodity sensitivities + bucket mapping
+- map_to_com_bucket: auto-map 30+ commodity names to FRTB SA COM buckets
+- commodity_to_frtb_positions: builds delta/vega/curvature/RRAO dicts for calculate_frtb_sa
+- commodity_frtb_capital: one-call SbM + RRAO capital report with efficiency ratio
+- Manual hand-calculation tests (single bucket, intra-bucket correlation, cross-bucket)
+- Forward/Futures protocol decision: NO protocol — pricing interfaces too divergent across
+  IR/FX/equity/commodity/bond futures; a thin Tradeable protocol can be added later if needed
+
+---
+
 ## v0.147.0 — 2026-04-10
 
 Commodity Rich/Cheap Monitors + Roll Strategies.
