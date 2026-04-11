@@ -2,6 +2,17 @@
 
 ---
 
+## v0.164.0 — 2026-04-11
+
+FX Vol Desk: straddle/strangle/RR/butterfly, vol RV, skew, vega ladder.
+
+- FXStraddle / FXStrangle / FXRiskReversal / FXButterfly structures
+- fx_vol_rv: implied vs realised vol z-score
+- fx_skew_monitor: 25-delta RR level vs history
+- fx_vega_ladder / total_fx_vega: aggregate by (pair, expiry)
+
+---
+
 ## v0.163.0 — 2026-04-11
 
 FX Basis Strategies: monitor, term structure, RV, carry, curve trades.
