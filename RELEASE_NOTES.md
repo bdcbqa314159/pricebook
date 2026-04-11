@@ -2,6 +2,19 @@
 
 ---
 
+## v0.169.0 — 2026-04-11
+
+Cross-Asset Options Book — Pillar 10 (Options Desk) begins.
+
+- OptionsBook: unified container for option positions across all asset classes
+- OptionEntry: trade_id, asset_class, underlying, expiry, Greeks (delta/gamma/vega/theta/rho)
+- by_asset_class: aggregate vega/gamma/theta/delta per asset class
+- by_expiry: aggregate vega by expiry bucket
+- vol_pnl_attribution: daily vega/gamma/theta P&L by asset class
+- Total vega = sum of per-asset vegas verified
+
+---
+
 ## v0.168.0 — 2026-04-11
 
 Inflation Trading — Pillar 9 (Inflation Desk) complete.
