@@ -2,6 +2,19 @@
 
 ---
 
+## v0.155.0 — 2026-04-11
+
+Credit Bond Tools: allocation, tracking error, concentration, sector rotation.
+
+- sector_allocation: portfolio weights by sector (financials, industrials, …)
+- index_tracking_error: L1 active weights vs benchmark, max overweight/underweight
+- concentration_risk: Herfindahl HHI by name, sector, rating bucket
+- sector_spread_monitor: z-score sector spread vs history (wide/tight/fair)
+- cross_sector_rv: rank sectors by cheapness (highest z-score = widest vs history)
+- rating_migration_impact: P&L estimate from one-notch upgrade/downgrade
+
+---
+
 ## v0.154.0 — 2026-04-11
 
 Govt Bond Trading: OTR/OFR, WI pricing, auction analytics, basis decomposition.
