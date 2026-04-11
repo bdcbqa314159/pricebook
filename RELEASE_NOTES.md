@@ -2,6 +2,20 @@
 
 ---
 
+## v0.150.0 — 2026-04-11
+
+Settlement + Calendars — infrastructure phase complete.
+
+- CHFCalendar: Swiss holidays (Berchtoldstag, Ascension, Whit Monday, National Day)
+- AUDCalendar: Australian holidays (Australia Day, Anzac, Queen's Birthday, Easter Saturday)
+- CADCalendar: Canadian holidays (Family Day, Victoria Day, Canada Day, Thanksgiving)
+- add_business_days(start, n, calendar): skip weekends + holidays, supports negative n
+- fx_spot_date(trade_date, base, quote, calendar): T+2 default, T+1 for USD/CAD
+- bond_settlement_date(trade_date, market, calendar): T+1 US/UK, T+2 EU/JP/AU
+- All settlement dates land on business days (verified across full month)
+
+---
+
 ## v0.149.0 — 2026-04-11
 
 Multi-currency PricingContext — infrastructure for multi-desk aggregation.
