@@ -2,6 +2,21 @@
 
 ---
 
+## v0.151.0 — 2026-04-11
+
+Bond Book — Pillar 7 (Bond Desk) begins.
+
+- BondBook: per-issuer, per-sector (govt/IG/HY/EM), per-tenor aggregation
+- BondTradeEntry: issuer / sector / currency / face / dirty price / coupon / maturity / DV01 / duration
+- BondPosition: net/long/short face, market value, DV01, weighted duration per issuer
+- BondSectorExposure: sector aggregation with issuer count
+- BondTenorBucket: net face, market value, DV01 per maturity bucket (≤1Y through 30Y+)
+- net_dv01(), net_market_value(), weighted_duration() book-level aggregates
+- BondLimits: per-issuer face, per-sector face, total DV01, per-tenor DV01, max duration
+- check_limits with breach detection
+
+---
+
 ## v0.150.0 — 2026-04-11
 
 Settlement + Calendars — infrastructure phase complete.
