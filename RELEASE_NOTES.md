@@ -2,6 +2,23 @@
 
 ---
 
+## v0.149.0 — 2026-04-11
+
+Multi-currency PricingContext — infrastructure for multi-desk aggregation.
+
+- discount_curves: per-currency discount curves (keyed by ccy code)
+- inflation_curves: per-currency CPI/inflation curves
+- repo_curves: per-currency repo/funding curves
+- reporting_currency: base currency for P&L aggregation (default "USD")
+- get_discount_curve(ccy): checks discount_curves first, falls back to discount_curve
+- get_inflation_curve(ccy), get_repo_curve(ccy): per-currency accessors
+- fx_rate(from, to): direct + inverse lookup, identity for same ccy
+- fx_translate(value, from_ccy, to_ccy): convert to reporting currency
+- replace() updated to preserve all new fields
+- Full backward compatibility: all 3108 existing tests pass unchanged
+
+---
+
 ## v0.148.0 — 2026-04-10
 
 Commodity FRTB SA Capital + Forward/Futures Protocol Decision — Pillar 6 (Commodity Desk) complete.
