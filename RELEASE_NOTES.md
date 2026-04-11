@@ -2,6 +2,19 @@
 
 ---
 
+## v0.156.0 — 2026-04-11
+
+Duration Management: DV01 ladder, curve risk, KRD hedge, barbell vs bullet.
+
+- DV01Ladder: per-tenor key-rate DV01, total_dv01 = sum of rungs
+- curve_dv01: parallel, 2s10s steepener, 2s5s10s butterfly decomposition
+- duration_target_tracking: book vs mandate, within-band check
+- optimal_krd_hedge: least-squares solve to flatten DV01 ladder using N instruments
+- hedged_ladder: residual DV01 after applying allocations
+- barbell_vs_bullet: convexity comparison, duration-matched recommendation
+
+---
+
 ## v0.155.0 — 2026-04-11
 
 Credit Bond Tools: allocation, tracking error, concentration, sector rotation.
