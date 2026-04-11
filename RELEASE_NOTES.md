@@ -2,6 +2,17 @@
 
 ---
 
+## v0.167.0 — 2026-04-11
+
+Inflation Book — Pillar 9 (Inflation Desk) begins.
+
+- InflationBook: positions by issuer/product type, IE01/real DV01 aggregation
+- InflationTradeEntry: linker/zc_swap/yoy_swap/cap/floor, breakeven, IE01, real DV01
+- InflationLimits: per-issuer notional, max IE01, max real DV01
+- check_limits with breach detection
+
+---
+
 ## v0.166.0 — 2026-04-11
 
 FX FRTB SA Capital — Pillar 8 (FX Desk) complete.
