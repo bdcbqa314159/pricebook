@@ -2,6 +2,21 @@
 
 ---
 
+## v0.153.0 — 2026-04-11
+
+Repo Desk: book, GC/special tracking, financing optimisation, fails.
+
+- RepoBook: positions by counterparty, collateral type (GC/special), term
+- RepoTradeEntry: carry (coupon − financing), cash amount, direction-aware
+- by_counterparty / by_collateral_type aggregation with weighted-average rates
+- gc_rate / special_rate: weighted-average repo rates by collateral type
+- repo_rate_monitor: z-score current rate vs history
+- cheapest_to_deliver_repo: select bond that minimises financing cost
+- term_vs_overnight: compare term lock-in vs rolling overnight
+- FailsTracker: track settlement fails, penalty costs, by-counterparty breakdown
+
+---
+
 ## v0.152.0 — 2026-04-11
 
 Bond Daily P&L: MTM/accrual + carry/rolldown/curve/spread attribution.
