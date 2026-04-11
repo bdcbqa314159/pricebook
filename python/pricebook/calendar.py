@@ -190,8 +190,14 @@ class LondonCalendar(Calendar):
         holidays.add(self._nth_weekday(year, 5, 0, 1))   # Early May
         holidays.add(self._last_weekday(year, 5, 0))      # Spring Bank Holiday
         holidays.add(self._last_weekday(year, 8, 0))      # Summer Bank Holiday
-        holidays.add(self._observe(date(year, 12, 25)))    # Christmas
-        holidays.add(self._observe(date(year, 12, 26)))    # Boxing Day
+        obs_xmas = self._observe(date(year, 12, 25))    # Christmas
+        obs_boxing = self._observe(date(year, 12, 26))    # Boxing Day
+        holidays.add(obs_xmas)
+        # When Dec 25 is Sunday, both observe to Dec 26 — shift Boxing Day to 27
+        if obs_boxing == obs_xmas:
+            holidays.add(obs_boxing + timedelta(days=1))
+        else:
+            holidays.add(obs_boxing)
 
         return holidays
 
@@ -270,8 +276,14 @@ class AUDCalendar(Calendar):
         holidays.add(date(year, 4, 25))                   # Anzac Day
         holidays.add(self._nth_weekday(year, 6, 0, 2))   # Queen's Birthday (2nd Mon Jun)
         holidays.add(self._nth_weekday(year, 8, 0, 1))   # Bank Holiday (1st Mon Aug)
-        holidays.add(self._observe(date(year, 12, 25)))   # Christmas
-        holidays.add(self._observe(date(year, 12, 26)))   # Boxing Day
+        obs_xmas = self._observe(date(year, 12, 25))    # Christmas
+        obs_boxing = self._observe(date(year, 12, 26))   # Boxing Day
+        holidays.add(obs_xmas)
+        # When Dec 25 is Sunday, both observe to Dec 26 — shift Boxing Day to 27
+        if obs_boxing == obs_xmas:
+            holidays.add(obs_boxing + timedelta(days=1))
+        else:
+            holidays.add(obs_boxing)
 
         easter = TARGETCalendar._easter(year)
         holidays.add(easter - timedelta(days=2))   # Good Friday
@@ -311,8 +323,14 @@ class CADCalendar(Calendar):
         holidays.add(self._nth_weekday(year, 9, 0, 1))    # Labour Day
         holidays.add(self._nth_weekday(year, 10, 0, 2))   # Thanksgiving
         holidays.add(self._observe(date(year, 11, 11)))    # Remembrance Day
-        holidays.add(self._observe(date(year, 12, 25)))    # Christmas
-        holidays.add(self._observe(date(year, 12, 26)))    # Boxing Day
+        obs_xmas = self._observe(date(year, 12, 25))    # Christmas
+        obs_boxing = self._observe(date(year, 12, 26))    # Boxing Day
+        holidays.add(obs_xmas)
+        # When Dec 25 is Sunday, both observe to Dec 26 — shift Boxing Day to 27
+        if obs_boxing == obs_xmas:
+            holidays.add(obs_boxing + timedelta(days=1))
+        else:
+            holidays.add(obs_boxing)
 
         return holidays
 

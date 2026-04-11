@@ -12,7 +12,7 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from pricebook.regulatory.market_risk_sa import (
     EQ_RISK_WEIGHTS,
@@ -157,7 +157,7 @@ def equity_to_frtb_positions(
                 "rating": rating,
                 "seniority": "equity",
                 "sector": "equity",
-                "is_long": True,
+                "is_long": inp.delta >= 0,
             })
             if is_exotic:
                 rrao_pos.append({

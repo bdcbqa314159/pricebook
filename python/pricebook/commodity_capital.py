@@ -30,7 +30,7 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from pricebook.regulatory.market_risk_sa import (
     COM_RISK_WEIGHTS,

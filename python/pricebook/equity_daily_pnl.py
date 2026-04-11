@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.equity_book import EquityBook, EquityTradeEntry
+from pricebook.equity_book import EquityBook
 from pricebook.pricing_context import PricingContext
 from pricebook.trade import Trade
 
