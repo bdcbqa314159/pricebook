@@ -2,6 +2,18 @@
 
 ---
 
+## v0.157.0 — 2026-04-11
+
+Bond Futures Basis Trading: CTD switches, delivery option, convergence.
+
+- ctd_switch_scenarios: which bond is CTD under parallel yield shifts
+- ctd_switch_probability: fraction of scenarios where CTD changes
+- delivery_option_value: quality option + timing (wild-card) option
+- construct_switch_trade: sell old CTD / buy new CTD with P&L
+- basis_at_delivery: linear convergence to zero, monotone decreasing
+
+---
+
 ## v0.156.0 — 2026-04-11
 
 Duration Management: DV01 ladder, curve risk, KRD hedge, barbell vs bullet.
