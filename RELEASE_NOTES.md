@@ -2,6 +2,19 @@
 
 ---
 
+## v0.152.0 — 2026-04-11
+
+Bond Daily P&L: MTM/accrual + carry/rolldown/curve/spread attribution.
+
+- compute_bond_daily_pnl: MTM (dirty price change × face) + coupon accrual + new trades + amendments
+- BondDailyPnL with market_move_pnl property (MTM + accrual)
+- attribute_bond_pnl: carry (coupon − financing), roll-down (aging), curve (DV01 × parallel shift), spread (DV01 × spread change), unexplained
+- BondTradeAttribution with explained property, per-issuer and per-tenor breakdown
+- BondBookAttribution: aggregate across all positions
+- Attribution sums to total verified across carry + rolldown + curve + spread + unexplained
+
+---
+
 ## v0.151.0 — 2026-04-11
 
 Bond Book — Pillar 7 (Bond Desk) begins.
