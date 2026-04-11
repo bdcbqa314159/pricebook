@@ -2,6 +2,18 @@
 
 ---
 
+## v0.162.0 — 2026-04-11
+
+FX Carry Strategies: G10 ranking, NDF carry, carry-vol ratio.
+
+- carry_signal: annualised carry from forward-spot differential
+- carry_adjusted_forward: break-even spot move
+- g10_carry_ranking: rank pairs by carry (most negative = best carry)
+- ndf_carry: NDF carry from domestic/foreign rate differential
+- carry_volatility_ratio: carry / vol (Sharpe-like)
+
+---
+
 ## v0.161.0 — 2026-04-11
 
 FX Daily P&L: spot/carry/basis decomposition + per-pair/per-ccy attribution.
