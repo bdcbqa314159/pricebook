@@ -2,6 +2,19 @@
 
 ---
 
+## v0.158.0 — 2026-04-11
+
+Bond Rich/Cheap: fitted curve RV, cross-market, spread strategies.
+
+- fitted_curve_rv: rich/cheap vs model curve, z-score + percentile
+- cross_market_rv: UST vs Bunds/Gilts with FX hedge cost adjustment
+- asw_spread_monitor / zspread_monitor: z-score vs history
+- build_credit_curve_trade: DV01-neutral 2s10s credit spread curve trade
+- crossover_monitor: BBB/BB boundary spread z-score
+- new_issue_premium: new issue vs secondary market spread
+
+---
+
 ## v0.157.0 — 2026-04-11
 
 Bond Futures Basis Trading: CTD switches, delivery option, convergence.
