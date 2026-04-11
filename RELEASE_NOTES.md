@@ -2,6 +2,17 @@
 
 ---
 
+## v0.166.0 — 2026-04-11
+
+FX FRTB SA Capital — Pillar 8 (FX Desk) complete.
+
+- FXRiskInputs: per-pair delta sensitivity + notional
+- is_liquid_pair: EUR/USD, USD/JPY, GBP/USD, etc. (11.25% RW vs 15%)
+- fx_to_frtb_positions: wire into FRTB SA FX risk class
+- fx_frtb_capital: one-call FX capital report
+
+---
+
 ## v0.165.0 — 2026-04-11
 
 FX Hedging: delta/cross-hedge, triangular arb, NDF settlement.
