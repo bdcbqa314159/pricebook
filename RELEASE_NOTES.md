@@ -2,6 +2,19 @@
 
 ---
 
+## v0.160.0 — 2026-04-11
+
+FX Book — Pillar 8 (FX Desk) begins.
+
+- FXBook: positions by currency pair, long/short netting, trade count
+- FXTradeEntry: pair (BASE/QUOTE), notional, spot_rate, forward_points, reporting_rate
+- FXPairPosition: net/long/short notional, PV in reporting currency
+- CurrencyExposure: net per-currency exposure (long base = +base, −quote)
+- FXLimits: per-pair notional, per-currency exposure, gross notional caps
+- check_limits with breach detection
+
+---
+
 ## v0.159.0 — 2026-04-11
 
 Bond FRTB SA Capital — Pillar 7 (Bond Desk) complete.
