@@ -2,6 +2,18 @@
 
 ---
 
+## v0.161.0 — 2026-04-11
+
+FX Daily P&L: spot/carry/basis decomposition + per-pair/per-ccy attribution.
+
+- compute_fx_daily_pnl: spot (Δrate × position) + carry (fwd points) + basis + new + amendments
+- attribute_fx_pnl: per-pair and per-currency breakdown
+- FXPairAttribution: spot/carry/basis/total per pair
+- FXCurrencyAttribution: P&L allocated to each currency
+- Both dimensions sum to total verified
+
+---
+
 ## v0.160.0 — 2026-04-11
 
 FX Book — Pillar 8 (FX Desk) begins.
