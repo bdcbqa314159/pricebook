@@ -2,6 +2,19 @@
 
 ---
 
+## v0.168.0 — 2026-04-11
+
+Inflation Trading — Pillar 9 (Inflation Desk) complete.
+
+Slices 167-170 merged (share inflation_trading.py):
+- Breakeven monitor + DV01-neutral breakeven trade construction
+- Carry: real yield carry, breakeven roll-down, seasonal CPI patterns
+- RV: breakeven vs CPI swap basis, cross-market linker spreads
+- Risk decomposition: IE01 + real DV01 = nominal DV01
+- Regulatory: GIRR inflation risk weight (1.6%), one-call capital report
+
+---
+
 ## v0.167.0 — 2026-04-11
 
 Inflation Book — Pillar 9 (Inflation Desk) begins.
