@@ -229,6 +229,94 @@ class TokyoCalendar(Calendar):
         return holidays
 
 
+class CHFCalendar(Calendar):
+    """Swiss banking calendar (Zurich).
+
+    Holidays: New Year's, Berchtoldstag (2 Jan), Good Friday, Easter Monday,
+    Labour Day (1 May), Ascension, Whit Monday, Swiss National Day (1 Aug),
+    Christmas Day, St Stephen's (26 Dec).
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))    # New Year's
+        holidays.add(date(year, 1, 2))    # Berchtoldstag
+        holidays.add(date(year, 5, 1))    # Labour Day
+        holidays.add(date(year, 8, 1))    # Swiss National Day
+        holidays.add(date(year, 12, 25))  # Christmas
+        holidays.add(date(year, 12, 26))  # St Stephen's
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+        holidays.add(easter + timedelta(days=1))    # Easter Monday
+        holidays.add(easter + timedelta(days=39))   # Ascension
+        holidays.add(easter + timedelta(days=50))   # Whit Monday
+
+        return holidays
+
+
+class AUDCalendar(Calendar):
+    """Australian banking calendar (Sydney).
+
+    Holidays: New Year's, Australia Day (26 Jan), Good Friday, Easter Saturday,
+    Easter Monday, Anzac Day (25 Apr), Queen's Birthday (2nd Mon Jun),
+    Bank Holiday (1st Mon Aug), Christmas, Boxing Day.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(self._observe(date(year, 1, 1)))    # New Year's
+        holidays.add(self._observe(date(year, 1, 26)))   # Australia Day
+        holidays.add(date(year, 4, 25))                   # Anzac Day
+        holidays.add(self._nth_weekday(year, 6, 0, 2))   # Queen's Birthday (2nd Mon Jun)
+        holidays.add(self._nth_weekday(year, 8, 0, 1))   # Bank Holiday (1st Mon Aug)
+        holidays.add(self._observe(date(year, 12, 25)))   # Christmas
+        holidays.add(self._observe(date(year, 12, 26)))   # Boxing Day
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+        holidays.add(easter - timedelta(days=1))   # Easter Saturday
+        holidays.add(easter + timedelta(days=1))    # Easter Monday
+
+        return holidays
+
+
+class CADCalendar(Calendar):
+    """Canadian banking calendar (Toronto).
+
+    Holidays: New Year's, Family Day (3rd Mon Feb), Good Friday,
+    Victoria Day (Mon before 25 May), Canada Day (1 Jul),
+    Civic Holiday (1st Mon Aug), Labour Day (1st Mon Sep),
+    Thanksgiving (2nd Mon Oct), Remembrance Day (11 Nov),
+    Christmas, Boxing Day.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(self._observe(date(year, 1, 1)))     # New Year's
+        holidays.add(self._nth_weekday(year, 2, 0, 3))    # Family Day (3rd Mon Feb)
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+
+        # Victoria Day: Monday before May 25
+        may25 = date(year, 5, 25)
+        days_since_mon = (may25.weekday() - 0) % 7
+        if days_since_mon == 0:
+            days_since_mon = 7
+        holidays.add(may25 - timedelta(days=days_since_mon))
+
+        holidays.add(self._observe(date(year, 7, 1)))     # Canada Day
+        holidays.add(self._nth_weekday(year, 8, 0, 1))    # Civic Holiday
+        holidays.add(self._nth_weekday(year, 9, 0, 1))    # Labour Day
+        holidays.add(self._nth_weekday(year, 10, 0, 2))   # Thanksgiving
+        holidays.add(self._observe(date(year, 11, 11)))    # Remembrance Day
+        holidays.add(self._observe(date(year, 12, 25)))    # Christmas
+        holidays.add(self._observe(date(year, 12, 26)))    # Boxing Day
+
+        return holidays
+
+
 class JointCalendar(Calendar):
     """Joint calendar: a date is a holiday if it's a holiday in ANY component."""
 

@@ -12,7 +12,7 @@ for different products, and models the settlement risk exposure window.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from enum import Enum
 
 
@@ -232,6 +232,93 @@ class SettlementRiskResult:
     exposure: float
     days_at_risk: int
     settlement_type: SettlementType
+
+
+# ---- Business-day-aware helpers ----
+
+def add_business_days(
+    start: date,
+    n: int,
+    calendar: object | None = None,
+) -> date:
+    """Advance *n* business days from *start*.
+
+    If *calendar* is ``None``, only weekends are skipped. Otherwise
+    the calendar's ``is_business_day()`` method is used.
+
+    ``n`` can be negative (move backward).
+    """
+    step = 1 if n >= 0 else -1
+    remaining = abs(n)
+    current = start
+    while remaining > 0:
+        current += timedelta(days=step)
+        if calendar is not None:
+            if calendar.is_business_day(current):
+                remaining -= 1
+        else:
+            if current.weekday() < 5:
+                remaining -= 1
+    return current
+
+
+# FX settlement lag: T+1 pairs (same-day or T+1 settlement).
+FX_T1_PAIRS: set[tuple[str, str]] = {
+    ("USD", "CAD"), ("CAD", "USD"),
+    ("USD", "TRY"), ("TRY", "USD"),
+    ("USD", "RUB"), ("RUB", "USD"),
+    ("USD", "PHP"), ("PHP", "USD"),
+}
+
+
+def fx_spot_date(
+    trade_date: date,
+    base: str,
+    quote: str,
+    calendar: object | None = None,
+) -> date:
+    """Compute the FX spot settlement date.
+
+    T+2 for most pairs; T+1 for USD/CAD, USD/TRY, USD/RUB, USD/PHP.
+    The result lands on a business day per the supplied *calendar*.
+    """
+    pair = (base.upper(), quote.upper())
+    lag = 1 if pair in FX_T1_PAIRS else 2
+    return add_business_days(trade_date, lag, calendar)
+
+
+# Bond settlement lag by market.
+BOND_SETTLEMENT_LAGS: dict[str, int] = {
+    "US": 1,
+    "USD": 1,
+    "CA": 1,
+    "CAD": 1,
+    "EU": 2,
+    "EUR": 2,
+    "TARGET": 2,
+    "UK": 1,
+    "GBP": 1,
+    "JP": 2,
+    "JPY": 2,
+    "CH": 2,
+    "CHF": 2,
+    "AU": 2,
+    "AUD": 2,
+}
+
+
+def bond_settlement_date(
+    trade_date: date,
+    market: str,
+    calendar: object | None = None,
+) -> date:
+    """Compute the bond settlement date for a given market.
+
+    US/UK: T+1, Europe/Japan/Australia: T+2. Falls back to T+2
+    for unrecognised markets.
+    """
+    lag = BOND_SETTLEMENT_LAGS.get(market.upper(), 2)
+    return add_business_days(trade_date, lag, calendar)
 
 
 def settlement_risk(
