@@ -2,6 +2,18 @@
 
 ---
 
+## v0.163.0 — 2026-04-11
+
+FX Basis Strategies: monitor, term structure, RV, carry, curve trades.
+
+- basis_monitor: z-score cross-currency basis vs history
+- basis_term_structure: 1Y/3Y/5Y/10Y basis pillars
+- cross_market_basis_rv: rank pairs by basis z-score
+- basis_carry: holding period return from basis position
+- BasisCurveTrade: steepener/flattener on the basis curve
+
+---
+
 ## v0.162.0 — 2026-04-11
 
 FX Carry Strategies: G10 ranking, NDF carry, carry-vol ratio.
