@@ -2,6 +2,19 @@
 
 ---
 
+## v0.154.0 — 2026-04-11
+
+Govt Bond Trading: OTR/OFR, WI pricing, auction analytics, basis decomposition.
+
+- otr_ofr_spread: on-the-run vs off-the-run yield spread with z-score (wide/tight/fair)
+- when_issued_price: interpolate WI yield from bracketing tenors, rough price estimate
+- auction_analytics: tail (bps), bid-to-cover, dealer/indirect/direct allocation %
+- AuctionResult.well_received heuristic (BTC > 2.3, tail < 1bp)
+- basis_decomposition: gross basis = carry + net basis (optionality), implied repo
+- ctd_switch_monitor: rank deliverables by implied repo, identify CTD
+
+---
+
 ## v0.153.0 — 2026-04-11
 
 Repo Desk: book, GC/special tracking, financing optimisation, fails.
