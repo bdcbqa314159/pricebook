@@ -2,6 +2,19 @@
 
 ---
 
+## v0.159.0 — 2026-04-11
+
+Bond FRTB SA Capital — Pillar 7 (Bond Desk) complete.
+
+- BondRiskInputs: per-bond IR/CS sensitivity, notional, rating, seniority
+- bond_to_frtb_positions: wire into GIRR (by currency) + CSR (by sector) + DRC
+- bond_frtb_capital: one-call GIRR + CSR + DRC capital report
+- BondCapitalReport: sbm_capital property, capital efficiency, total RWA
+- Manual verification: GIRR 1M × 11% = 110K; DRC senior BBB 10M × 0.75 × 2% = 150K
+- Cross-check against calculate_frtb_sa output
+
+---
+
 ## v0.158.0 — 2026-04-11
 
 Bond Rich/Cheap: fitted curve RV, cross-market, spread strategies.
