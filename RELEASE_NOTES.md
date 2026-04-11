@@ -2,6 +2,17 @@
 
 ---
 
+## v0.165.0 — 2026-04-11
+
+FX Hedging: delta/cross-hedge, triangular arb, NDF settlement.
+
+- fx_delta_hedge: spot/forward hedge quantity
+- fx_cross_hedge: proxy hedge with minimum-variance ratio (ρ × σ_target/σ_proxy)
+- triangular_arb_monitor: synthetic cross vs direct rate, arb detection
+- ndf_settlement: cash settlement from FX fixing, T+2 calendar-aware
+
+---
+
 ## v0.164.0 — 2026-04-11
 
 FX Vol Desk: straddle/strangle/RR/butterfly, vol RV, skew, vega ladder.
