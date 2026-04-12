@@ -2,6 +2,19 @@
 
 ---
 
+## v0.174.0 — 2026-04-12
+
+Multi-Asset Hedging — Pillar 10 (Options Desk) complete. All 10 pillars done.
+
+- optimal_hedge: N instruments × M targets via least-squares (+ Tikhonov cost penalty)
+- HedgeTarget / HedgeInstrument / HedgeAllocation / HedgeResult
+- hedge_residual: compute residual risk after applying allocations
+- what_if_analysis: impact of adding/removing a single hedge instrument
+- hedge_recommendation: optimal hedge + risk reduction %, largest residual Greek
+- Hedged book verified near-zero for all targeted Greeks
+
+---
+
 ## v0.173.0 — 2026-04-12
 
 Vol Surface Arbitrage: calendar/butterfly detection, arb-free enforcement.
