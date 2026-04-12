@@ -2,6 +2,19 @@
 
 ---
 
+## v0.177.0 — 2026-04-12
+
+ND Root Finding — Phase M1 (Math Foundations I) complete.
+
+- newton_nd: multi-dimensional Newton-Raphson with analytical or FD Jacobian
+- broyden: quasi-Newton with rank-1 Jacobian updates (avoids full recomputation)
+- damped_newton: Armijo backtracking line search for robustness with bad initial guesses
+- finite_difference_jacobian: central differences, O(ε²) accuracy
+- NDSolverResult: x, residual, iterations, converged, residual_norm
+- Ref: Nocedal & Wright, Numerical Optimization, Ch. 11
+
+---
+
 ## v0.176.0 — 2026-04-12
 
 Correlation Matrix Repair: Higham nearest PD, eigenvalue floor, interpolation.
