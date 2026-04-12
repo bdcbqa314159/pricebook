@@ -2,6 +2,20 @@
 
 ---
 
+## v0.180.0 — 2026-04-12
+
+Laplace Inversion: Talbot, Euler acceleration, Gaver-Stehfest.
+
+- talbot_inversion: deformed Bromwich contour, exponential convergence (Weideman 2006)
+- euler_inversion: Abate-Whitt method with Richardson acceleration
+- gaver_stehfest: real-valued inversion (no complex arithmetic needed)
+- invert: unified interface selecting method by name
+- All three methods agree on exp(-at) to within 5%
+- Talbot most accurate (rel error < 1e-6 for smooth transforms)
+- Ref: Talbot 1979, Abate & Whitt 1995, Stehfest 1970
+
+---
+
 ## v0.179.0 — 2026-04-12
 
 FFT Pricing: Carr-Madan, density recovery — Phase M3 begins.
