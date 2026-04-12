@@ -2,6 +2,17 @@
 
 ---
 
+## v0.172.0 — 2026-04-12
+
+Exotic Options Book: barrier/digital/asian/autocall position management.
+
+- ExoticBook: aggregate by exotic type and by underlying
+- ExoticEntry: trade with Greeks + model tag (black_scholes, local_vol, slv)
+- model_risk_comparison: max delta/vega diff across models for a position
+- hedge_exotic_book: flatten delta + vega using vanilla instruments
+
+---
+
 ## v0.171.0 — 2026-04-12
 
 Vol Correlation: cross-asset matrix, monitor, correlation trade.
