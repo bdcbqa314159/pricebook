@@ -2,6 +2,20 @@
 
 ---
 
+## v0.175.0 — 2026-04-12
+
+Linear Algebra: PCA, eigendecomposition, SVD, condition numbers — Phase M1 begins.
+
+- pca: eigendecomposition of covariance, sorted components, explained variance ratios
+- PCAResult: project/reconstruct, cumulative variance, orthonormal components
+- eigendecomposition: sorted by |λ|, positive-definiteness check
+- svd_decomposition: thin SVD with numerical rank computation
+- condition_number: κ₂ = σ_max/σ_min, well/ill-conditioned diagnosis with recommendation
+- explained_variance: minimum components for target variance threshold
+- Ref: Litterman & Scheinkman 1991 (yield curve PCA)
+
+---
+
 ## v0.174.0 — 2026-04-12
 
 Multi-Asset Hedging — Pillar 10 (Options Desk) complete. All 10 pillars done.
