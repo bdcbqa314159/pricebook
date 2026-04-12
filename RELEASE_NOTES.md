@@ -2,6 +2,22 @@
 
 ---
 
+## v0.179.0 — 2026-04-12
+
+FFT Pricing: Carr-Madan, density recovery — Phase M3 begins.
+
+- carr_madan_fft: O(N log N) call prices at N strikes in one FFT pass
+- Simpson weights for numerical integration, damping parameter α
+- FFT prices match Black-Scholes within 1-2% across strike range
+- FFT matches COS method verified
+- lewis_price: contour integral (positive price, CF convention fix pending)
+- density_from_calls: Breeden-Litzenberger d²C/dK² = RN density
+- density_from_cf: inverse Fourier of characteristic function
+- Density non-negativity and integration-to-1 verified
+- Ref: Carr & Madan, J. Comp. Finance, 1999
+
+---
+
 ## v0.178.0 — 2026-04-12
 
 Numerical Safety — Phase M2 complete.
