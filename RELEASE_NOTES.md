@@ -2,6 +2,22 @@
 
 ---
 
+## v0.178.0 — 2026-04-12
+
+Numerical Safety — Phase M2 complete.
+
+Slices 180-181 merged (share numerical_safety.py):
+- check_cfl: CFL condition for explicit FD (dt ≤ dx²/(σ² + |μ|dx))
+- check_feller: Feller condition for CIR/Heston (2κθ ≥ ξ²)
+- martingale_test: E[e^{-rT}S_T] = S_0 — catches drift/measure errors in MC
+- convergence_rate: empirical order from log-log regression at multiple resolutions
+- strong_convergence_test: E[|X_fine - X_coarse|] for SDE schemes
+- weak_convergence_test: |E[f(X_T)] - reference| for terminal distributions
+- GBM passes martingale test; wrong drift fails (verified)
+- Ref: Lax-Richtmyer 1956, Feller 1951, Glasserman Ch. 6
+
+---
+
 ## v0.177.0 — 2026-04-12
 
 ND Root Finding — Phase M1 (Math Foundations I) complete.
