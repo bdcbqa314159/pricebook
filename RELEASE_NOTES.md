@@ -2,6 +2,18 @@
 
 ---
 
+## v0.170.0 — 2026-04-12
+
+Cross-Asset Greeks: unified attribution, carry vs convexity, multi-factor stress.
+
+- greek_attribution: delta/gamma/vega/theta/rho P&L by asset class
+- BookGreekAttribution: carry (theta) and convexity (gamma) properties
+- StressScenario: named multi-factor scenario (spot + vol + rate shocks)
+- multi_factor_stress: apply scenario to options book, get per-Greek P&L
+- Attribution sums to total across all asset classes verified
+
+---
+
 ## v0.169.0 — 2026-04-11
 
 Cross-Asset Options Book — Pillar 10 (Options Desk) begins.
