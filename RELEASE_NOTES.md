@@ -2,6 +2,19 @@
 
 ---
 
+## v0.176.0 — 2026-04-12
+
+Correlation Matrix Repair: Higham nearest PD, eigenvalue floor, interpolation.
+
+- nearest_correlation_matrix: Higham (2002) alternating projections with Dykstra correction
+- eigenvalue_floor: simple clip + rescale to unit diagonal
+- is_positive_definite / is_valid_correlation: Cholesky-based checks
+- correlation_interpolation: linear blend + nearest PD projection
+- Higham proven closest in Frobenius norm vs eigenvalue floor
+- Ref: Higham, IMA J. Numer. Anal., 2002
+
+---
+
 ## v0.175.0 — 2026-04-12
 
 Linear Algebra: PCA, eigendecomposition, SVD, condition numbers — Phase M1 begins.
