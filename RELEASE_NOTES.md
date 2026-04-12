@@ -2,6 +2,18 @@
 
 ---
 
+## v0.171.0 — 2026-04-12
+
+Vol Correlation: cross-asset matrix, monitor, correlation trade.
+
+- vol_correlation_matrix: pairwise correlation from vol time series (symmetric, diagonal=1)
+- is_valid_correlation_matrix: symmetry + diagonal check
+- correlation_monitor: z-score pairwise correlation vs history (high/low/fair)
+- build_correlation_trade: vega-neutral long/short vol across asset classes
+- correlation_sensitivity: ∂PV/∂ρ proxy from cross-vega terms
+
+---
+
 ## v0.170.0 — 2026-04-12
 
 Cross-Asset Greeks: unified attribution, carry vs convexity, multi-factor stress.
