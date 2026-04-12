@@ -2,6 +2,18 @@
 
 ---
 
+## v0.173.0 — 2026-04-12
+
+Vol Surface Arbitrage: calendar/butterfly detection, arb-free enforcement.
+
+- detect_calendar_arb: total variance must be non-decreasing in time
+- detect_butterfly_arb: call prices must be convex in strike
+- check_surface_arbitrage: combined report with is_arb_free flag
+- enforce_no_calendar_arb: floor each σ²T at previous level
+- enforce_no_butterfly_arb: cap mid-price at linear interpolation of neighbours
+
+---
+
 ## v0.172.0 — 2026-04-12
 
 Exotic Options Book: barrier/digital/asian/autocall position management.
