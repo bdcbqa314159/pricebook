@@ -2,6 +2,23 @@
 
 ---
 
+## v0.190.0 — 2026-04-13
+
+Distribution Theory + Feynman-Kac — Phase M10 complete.
+
+Slices 202-204 merged (share distribution_theory.py):
+- Distribution class: distributions as functionals on test functions
+- dirac_delta / heaviside_dist / regular_distribution
+- Distributional derivative: ⟨T', φ⟩ = −⟨T, φ'⟩ verified (⟨δ', x⟩ = −1)
+- sobolev_norm: H⁰/H¹/H^s norms via FFT
+- greens_function_heat: heat kernel (integrates to 1)
+- greens_function_bs: BS transition density (lognormal, integrates to 1)
+- feynman_kac_pde: SDE → PDE coefficient extraction
+- feynman_kac_verify: PDE vs MC consistency check (FD matches BS verified)
+- Ref: Schwartz 1966, Evans 2010, Shreve 2004
+
+---
+
 ## v0.189.0 — 2026-04-13
 
 Advanced Optimisation — Phase M9 complete.
