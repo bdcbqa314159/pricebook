@@ -2,6 +2,20 @@
 
 ---
 
+## v0.189.0 — 2026-04-13
+
+Advanced Optimisation — Phase M9 complete.
+
+Slices 199-201 merged (share optimisation_advanced.py):
+- quadratic_program: KKT system for equality-constrained QP
+- markowitz_portfolio: mean-variance with weights-sum-to-1, optional target return
+- constrained_minimize: augmented Lagrangian with equality + inequality constraints
+- admm_lasso: ADMM for L1-regularised least squares (sparse signal recovery)
+- cma_es: Covariance Matrix Adaptation ES (derivative-free, sphere + Rosenbrock verified)
+- Ref: Boyd & Vandenberghe 2004, Hansen 2016
+
+---
+
 ## v0.188.0 — 2026-04-13
 
 Approximation Theory — Phase M8 complete.
