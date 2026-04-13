@@ -2,6 +2,21 @@
 
 ---
 
+## v0.183.0 — 2026-04-13
+
+Exact CIR + Implicit Euler — Phase M4 slice 2.
+
+- exact_cir: non-central chi-squared sampling (zero discretisation bias)
+- exact_cir_zcb: analytical CIR ZCB price (CIR 1985, Eq. 23)
+- MC ZCB matches analytical to 2% verified
+- Exact CIR always non-negative (by construction)
+- implicit_euler_step: drift-implicit fixed-point iteration for stiff SDEs
+- implicit_euler_paths: full path simulation
+- Stable for κΔt < 1 (fixed-point convergence condition documented)
+- Ref: Broadie & Kaya 2006, Cox-Ingersoll-Ross 1985
+
+---
+
 ## v0.182.0 — 2026-04-13
 
 Milstein Scheme — Phase M4 (SDE Methods) begins.
