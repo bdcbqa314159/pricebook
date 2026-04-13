@@ -2,6 +2,20 @@
 
 ---
 
+## v0.182.0 — 2026-04-13
+
+Milstein Scheme — Phase M4 (SDE Methods) begins.
+
+- milstein_step: generic one-step with Itô-Taylor correction 0.5σσ'(ΔW²−Δt)
+- milstein_paths: full path simulation for any SDE
+- milstein_gbm: GBM specialisation (strong order 1.0, passes martingale test)
+- milstein_cev: CEV model (σ'=βσS^{β-1}), reduces to GBM at β=1
+- milstein_cir: CIR variance (σ'=ξ/(2√v)), absorption at zero
+- Empirical strong convergence order ~1.0 verified (vs Euler ~0.5)
+- Ref: Kloeden & Platen, Ch. 10
+
+---
+
 ## v0.181.0 — 2026-04-13
 
 COS Bermudan — Phase M3 (Transforms) complete.
