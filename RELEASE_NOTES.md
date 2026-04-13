@@ -2,6 +2,22 @@
 
 ---
 
+## v0.186.0 — 2026-04-13
+
+MC Greeks + Optimal MLMC + LSM Improvements — Phase M6 complete.
+
+Slices 191-193 merged (share mc_greeks.py):
+- pathwise_delta / pathwise_vega: IPA for smooth payoffs (matches BS to 5%)
+- likelihood_ratio_delta / likelihood_ratio_vega: LR for discontinuous payoffs
+- LR has higher variance than IPA (verified)
+- optimal_mlmc: Giles 2008 allocation N_l ∝ √(V_l/C_l), automatic level selection
+- lsm_with_basis: Laguerre, Chebyshev, polynomial bases for American LSM
+- dual_upper_bound: simplified Andersen-Broadie upper bound
+- Bracket: LSM ≤ true ≤ dual upper bound verified
+- Ref: Glasserman Ch. 7, Giles 2008, Andersen-Broadie 2004
+
+---
+
 ## v0.185.0 — 2026-04-13
 
 Extended Stochastic Processes — Phase M5 complete. 100th slice milestone.
