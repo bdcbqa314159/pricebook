@@ -2,6 +2,22 @@
 
 ---
 
+## v0.188.0 — 2026-04-13
+
+Approximation Theory — Phase M8 complete.
+
+Slices 197-198 merged (share approximation.py):
+- chebyshev_interpolate: near-minimax on [a,b] via Lobatto points + DCT
+- Clenshaw evaluation, convergence diagnostic (tail coefficient magnitude)
+- exp(x) on [-1,1] with n=20 accurate to 1e-10 verified
+- pade_approximant: [L/M] rational from Taylor coefficients
+- Padé [1/1] exactly reproduces 1/(1+x) verified
+- richardson_table: full extrapolation table, diagonal estimates
+- bspline_basis: Cox-de Boor recursion, partition of unity verified
+- Ref: Trefethen ATAP 2013, Baker & Graves-Morris 1996
+
+---
+
 ## v0.187.0 — 2026-04-13
 
 Advanced PDE Methods — Phase M7 complete.
