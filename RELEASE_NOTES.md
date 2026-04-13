@@ -2,6 +2,21 @@
 
 ---
 
+## v0.191.0 — 2026-04-13
+
+Optimal Transport — Phase M11 complete.
+
+Slices 205-207 merged (share optimal_transport.py):
+- wasserstein_1d: closed-form W_p via quantile functions
+- wasserstein_gaussian: analytical W_2 between Gaussians
+- wasserstein_discrete: LP-based OT between discrete distributions
+- sinkhorn: entropic regularisation, converges to true OT as ε → 0
+- martingale_ot_bounds: model-free exotic option bounds from vanilla prices
+- Sinkhorn plan marginals verified, approaches true OT cost
+- Ref: Villani 2009, Cuturi 2013, Beiglböck et al. 2013
+
+---
+
 ## v0.190.0 — 2026-04-13
 
 Distribution Theory + Feynman-Kac — Phase M10 complete.
