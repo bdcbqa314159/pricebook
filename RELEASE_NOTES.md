@@ -2,6 +2,18 @@
 
 ---
 
+## v0.181.0 — 2026-04-13
+
+COS Bermudan — Phase M3 (Transforms) complete.
+
+- cos_bermudan: backward COS iteration with physical-space early exercise
+- cos_american: Bermudan approximation with many exercise dates
+- Grid-based continuation value via COS coefficient → evaluate → max with payoff
+- Bermudan put ≥ European put verified (early exercise premium)
+- Ref: Fang & Oosterlee, Numer. Math. 114, 2009
+
+---
+
 ## v0.180.0 — 2026-04-12
 
 Laplace Inversion: Talbot, Euler acceleration, Gaver-Stehfest.
