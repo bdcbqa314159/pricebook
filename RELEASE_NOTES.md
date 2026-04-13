@@ -2,6 +2,19 @@
 
 ---
 
+## v0.184.0 — 2026-04-13
+
+Convergence Testing Framework — Phase M4 (SDE Methods) complete.
+
+- strong_convergence_study: run scheme at multiple dt, compute E[|X−X_ref|]
+- weak_convergence_study: run scheme at multiple dt, compute |E[X]−ref|
+- scheme_comparison: rank schemes by estimated convergence order
+- ConvergenceStudyResult: step_sizes, errors, estimated order, consistency check
+- Log-log regression for empirical order estimation
+- Ref: Kloeden & Platen Ch. 9-10, Higham 2001
+
+---
+
 ## v0.183.0 — 2026-04-13
 
 Exact CIR + Implicit Euler — Phase M4 slice 2.
