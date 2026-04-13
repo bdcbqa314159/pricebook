@@ -2,6 +2,20 @@
 
 ---
 
+## v0.187.0 — 2026-04-13
+
+Advanced PDE Methods — Phase M7 complete.
+
+Slices 194-196 merged (share pde_advanced.py):
+- psor_american: Projected SOR for linear complementarity (American free boundary)
+- Exercise boundary extraction for American put
+- chebyshev_bs: Chebyshev collocation for BS PDE (exponential convergence, N=32 matches BS)
+- method_of_lines: FD in space + RK4 in time (matches BS to 2%)
+- richardson_extrapolation: combine O(h^p) + O((h/2)^p) → O(h^{p+1})
+- Ref: Wilmott et al. 1995, Trefethen 2000, Duffy 2006
+
+---
+
 ## v0.186.0 — 2026-04-13
 
 MC Greeks + Optimal MLMC + LSM Improvements — Phase M6 complete.
