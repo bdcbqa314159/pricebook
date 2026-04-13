@@ -2,6 +2,21 @@
 
 ---
 
+## v0.185.0 — 2026-04-13
+
+Extended Stochastic Processes — Phase M5 complete. 100th slice milestone.
+
+Slices 188-190 merged (share processes_extended.py):
+- CEV: dS = μS dt + σS^β dW (β=1 → GBM verified)
+- 3/2 model: dv = κv(θ−v) dt + εv^{3/2} dW (vol-of-vol explodes with v)
+- Kou double-exponential jumps: asymmetric up/down with compensator
+- Bates = Heston + Merton jumps (reduces to Heston at λ=0, verified)
+- Hawkes self-exciting process: Ogata thinning, intensity spikes after events
+- VG full paths: Gamma-subordinated BM (previously terminal-only)
+- Ref: Cox 1975, Kou 2002, Bates 1996, Hawkes 1971
+
+---
+
 ## v0.184.0 — 2026-04-13
 
 Convergence Testing Framework — Phase M4 (SDE Methods) complete.
