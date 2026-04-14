@@ -2,6 +2,20 @@
 
 ---
 
+## v0.197.0 — 2026-04-14
+
+Stochastic Hazard Rate Models — Phase C4 complete.
+
+Slices 218-220 merged (share hazard_rate_models.py):
+- HWHazardRate: dλ = (θ(t)−aλ)dt + σdW, analytical survival, MC simulation
+- BKHazardRate: d(ln λ) = (θ(t)−a ln λ)dt + σdW, always positive, MC + trinomial tree
+- CIRPlusPlus: λ(t) = x(t) + φ(t), deterministic shift for exact calibration
+- TwoFactorIntensity: λ = x₁ + x₂ + φ, level + slope with correlation
+- BK positivity verified; CIR++ shift calibrates to market; two-factor richer dynamics
+- Ref: Hull-White 1990, Black-Karasinski 1991, Brigo-Mercurio Ch.3-4, Schönbucher Ch.7-8
+
+---
+
 ## v0.196.0 — 2026-04-14
 
 ECL Provisioning — Phase C3 complete.
