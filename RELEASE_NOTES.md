@@ -2,6 +2,20 @@
 
 ---
 
+## v0.194.0 — 2026-04-14
+
+Rating Models — Credit Deepening Phase C1 begins.
+
+- calibrate_generator: fit Q from observed P via matrix log + projection + L-BFGS-B
+- Round-trip verified: exp(Q_calibrated × t) ≈ P_observed
+- ttc_to_pit / pit_to_ttc: Vasicek/Merton cycle adjustment Φ(Φ⁻¹(PD) ± factor)
+- MomentumTransitionMatrix: downgrades beget downgrades (momentum_factor × intensities)
+- Momentum PD > memoryless PD verified; factor=1 matches base
+- time_varying_generator: economic cycle scaling (stress ↑ downgrades, expansion ↑ upgrades)
+- Ref: JLT 1997, Lando 2004 Ch.7, Israel-Rosenthal-Wei 2001
+
+---
+
 ## v0.193.0 — 2026-04-14
 
 Advanced Fourier — Phase M13 complete. ALL PLANNED WORK DONE.
