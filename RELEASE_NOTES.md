@@ -2,6 +2,20 @@
 
 ---
 
+## v0.192.0 — 2026-04-14
+
+Rough Paths — Phase M12 complete.
+
+Slices 208-210 merged (share rough_paths.py):
+- fbm_circulant: O(N log N) fBM simulation via circulant embedding (vs O(N³) Cholesky)
+- path_signature: truncated iterated integrals up to level 3 (Chen identity)
+- log_signature: compact representation via S₂ − 0.5 S₁⊗S₁
+- rough_heston_cf: fractional Riccati ODE via forward Euler, CF at u=0 = 1 verified
+- fBM H=0.5 reproduces BM statistics, lower H → rougher paths verified
+- Ref: Lyons 1998, Chevyrev & Kormilitzin 2016, El Euch & Rosenbaum 2019
+
+---
+
 ## v0.191.0 — 2026-04-13
 
 Optimal Transport — Phase M11 complete.
