@@ -270,25 +270,12 @@ def mellin_power_option(
 
     # Effective vol for the power option
     vol_p = p * vol
-    rate_p = p * rate + 0.5 * p * (p - 1) * vol**2
 
-    # Price via adjusted BS formula
-    from pricebook.equity_option import equity_option_price
-    from pricebook.black76 import OptionType
-
-    # Forward of S^p = S₀^p exp(rate_p T)
-    # Use BS with adjusted spot and vol
-    price = equity_option_price(
-        spot**p, strike, rate, vol_p, T, OptionType.CALL,
-    )
-    # Adjust for the modified drift
-    adjustment = math.exp((rate_p - rate) * T - rate * T * (p - 1))
-
-    return price * math.exp((rate_p - rate - 0.5 * vol_p**2 + 0.5 * (p * vol)**2) * 0)  # simplified
     # Direct computation: E[e^{-rT} (S_T^p - K)^+]
-    # For p=2: S_T^2 is lognormal with vol 2σ and drift adjustment
+    # S_T^p is lognormal with forward fwd_p and vol p×σ.
+    from pricebook.black76 import _norm_cdf
+
     d1 = (math.log(fwd_p / strike) + 0.5 * vol_p**2 * T) / (vol_p * math.sqrt(T))
     d2 = d1 - vol_p * math.sqrt(T)
 
-    from pricebook.black76 import _norm_cdf
     return df * (fwd_p * _norm_cdf(d1) - strike * _norm_cdf(d2))

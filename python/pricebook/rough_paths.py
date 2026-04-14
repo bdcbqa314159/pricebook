@@ -154,19 +154,13 @@ def path_signature(
     # Level 1: path increment
     sig.append(path[-1] - path[0])
 
-    # Higher levels via iterated integration
-    for level in range(2, depth + 1):
-        # Shape: d^level tensor (flattened)
-        size = d ** level
-        tensor = np.zeros(size)
+    if depth > 3:
+        raise ValueError(
+            f"depth={depth} requested but only levels 0-3 are implemented. "
+            "Use depth <= 3."
+        )
 
-        # Compute via recursive formula:
-        # S^{i1...ik}_{0,T} = Σ_j S^{i1...i_{k-1}}_{0,t_j} × dX^{i_k}_j
-        # Build incrementally over path segments.
-        # For efficiency, maintain running signature and extend.
-        pass
-
-    # Simplified: compute level 2 explicitly
+    # Compute level 2 explicitly
     if depth >= 2:
         level2 = np.zeros((d, d))
         running = np.zeros(d)  # running level-1 signature

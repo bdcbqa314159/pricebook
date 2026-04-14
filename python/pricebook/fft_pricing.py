@@ -231,13 +231,14 @@ def density_from_calls(
     if n < 3:
         return DensityResult(K, np.zeros_like(K), True)
 
-    # Central second derivative at interior points
+    # Central second derivative at interior points (non-uniform grid safe)
     density = np.zeros(n)
     for i in range(1, n - 1):
         dk_left = K[i] - K[i - 1]
         dk_right = K[i + 1] - K[i]
-        dk_avg = 0.5 * (dk_left + dk_right)
-        d2C = (C[i + 1] - 2 * C[i] + C[i - 1]) / (dk_avg * dk_avg)
+        # Non-uniform second derivative: avoids the dk_avg² approximation
+        d2C = 2.0 * (C[i - 1] / dk_left - C[i] * (1.0 / dk_left + 1.0 / dk_right)
+                      + C[i + 1] / dk_right) / (dk_left + dk_right)
         density[i] = math.exp(rate * T) * d2C
 
     # Boundary: copy nearest interior value

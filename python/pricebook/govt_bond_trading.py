@@ -258,7 +258,7 @@ def ctd_switch_monitor(
             implied_repo=d.implied_repo,
             gross_basis=d.gross_basis,
             net_basis=d.net_basis,
-            is_ctd=(d.implied_repo == best_repo),
+            is_ctd=(abs(d.implied_repo - best_repo) < 1e-12),
         )
         for d in sorted(deliverables, key=lambda x: -x.implied_repo)
     ]

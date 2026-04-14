@@ -117,12 +117,6 @@ def euler_inversion(
 
     h = A / (2 * t)
 
-    # Compute partial sums
-    total = 0.5 * F(complex(h, 0)).real
-    for k in range(1, N + M + 1):
-        s = complex(h, k * math.pi / t)
-        total += (-1) ** k * F(s).real
-
     # Euler summation for acceleration
     terms = []
     partial = 0.5 * F(complex(h, 0)).real
