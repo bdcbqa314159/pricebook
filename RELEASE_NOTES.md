@@ -2,6 +2,22 @@
 
 ---
 
+## v0.193.0 — 2026-04-14
+
+Advanced Fourier — Phase M13 complete. ALL PLANNED WORK DONE.
+
+Slices 211-212 merged (share fourier_advanced.py):
+- cumulants_from_cf: extract mean/variance/skewness/kurtosis from characteristic function
+- edgeworth_expansion: density approximation from cumulants (Gram-Charlier)
+- hilbert_implied_vol_slope: Lee (2004) wing slope from critical moment
+- fft_2d_basket: two-asset basket via moment-matched vol + BS
+- mellin_power_option: power option S^p via adjusted BS formula
+- BS cumulants verified: mean = (r−0.5σ²)T, variance = σ²T
+- Edgeworth integrates to 1, skew shifts mass correctly
+- Ref: Lee 2004, Hurd & Zhou 2010, Panini & Srivastav 2004
+
+---
+
 ## v0.192.0 — 2026-04-14
 
 Rough Paths — Phase M12 complete.
