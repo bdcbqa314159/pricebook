@@ -2,6 +2,19 @@
 
 ---
 
+## v0.195.0 — 2026-04-14
+
+Exotic Credit Payoffs — Phase C2 complete.
+
+Slices 215-216 merged (share credit_exotic.py):
+- capped_coupon_bond: min(floating + spread, cap) with default risk + recovery
+- digital_cds: fixed payout on default, par spread, digital ≈ standard when payout = (1−R)
+- credit_range_accrual: coupon accrues when spread ∈ [L, U] (normal approximation)
+- credit_linked_loan: margin grid by leverage ratio, covenant triggers, expected loss
+- Ref: Schönbucher 2003 Ch.10, O'Kane 2008 Ch.12
+
+---
+
 ## v0.194.0 — 2026-04-14
 
 Rating Models — Credit Deepening Phase C1 begins.
