@@ -2,6 +2,20 @@
 
 ---
 
+## v0.196.0 — 2026-04-14
+
+ECL Provisioning — Phase C3 complete.
+
+- stage_classification: IFRS 9 three-stage (SICR via relative PD, absolute PD, DPD)
+- ecl_12_month: stage 1 ECL = PD × LGD × EAD × df
+- ecl_lifetime: stage 2/3 ECL = Σ marginal_PD(t) × LGD × EAD × df(t)
+- marginal_pds_from_cumulative / cumulative_pds_from_hazard: PD conversion
+- ecl_portfolio: probability-weighted macro scenarios (base/stress/severe)
+- Lifetime ECL ≥ 12-month ECL verified; stress ECL > base ECL
+- Ref: IFRS 9 §5.5, CECL ASC 326, EBA 2017
+
+---
+
 ## v0.195.0 — 2026-04-14
 
 Exotic Credit Payoffs — Phase C2 complete.
