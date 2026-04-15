@@ -2,6 +2,20 @@
 
 ---
 
+## v0.199.0 — 2026-04-15
+
+Credit Hybrids — Phase C6 complete.
+
+Slices 223-225 merged (share credit_hybrid.py):
+- callable_risky_bond: binomial rate tree + survival overlay, call decision, OAS
+- floating_cln: floating coupon CLN, deterministic + MC with stochastic hazard
+- convertible_bond: three-factor MC (equity + credit + rates), bond floor + conversion
+- Callable ≤ non-callable verified; convertible ≥ max(floor, conversion) verified
+- Higher equity vol → higher convertible price verified
+- Ref: Schönbucher Ch.9, Tsiveriotis-Fernandes 1998, Brigo-Mercurio Ch.22
+
+---
+
 ## v0.198.0 — 2026-04-14
 
 CDS Swaptions — Phase C5 complete.
