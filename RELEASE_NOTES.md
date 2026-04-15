@@ -2,6 +2,21 @@
 
 ---
 
+## v0.203.0 — 2026-04-15
+
+Exotic IR Products — Phase IR1 complete. IR Deepening begins.
+
+Slices 234-236 merged (share ir_exotic.py):
+- tarn_price: Target Redemption Note (early redemption when cumulative coupon hits target)
+- snowball_price: coupon_n = max(coupon_{n-1} + spread − r_n, floor)
+- callable_range_accrual: range accrual + issuer call provision
+- ratchet_cap: strike resets to min(previous fixing, strike)
+- flexi_swap: holder chooses which periods to exercise (max_exercises cap)
+- TARN early redemption verified; snowball accumulation verified
+- Ref: Brigo-Mercurio Ch.15-16, Andersen-Piterbarg Vol.III Ch.19
+
+---
+
 ## v0.202.0 — 2026-04-15
 
 Leveraged Credit Structures — Phase C9 complete. ALL CREDIT DEEPENING DONE.
