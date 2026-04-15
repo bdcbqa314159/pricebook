@@ -2,6 +2,23 @@
 
 ---
 
+## v0.200.0 — 2026-04-15
+
+Copulas — Phase C7 complete. v0.200.0 milestone.
+
+Slices 226-228 merged (share copulas.py):
+- Copula ABC with sample() and default_indicators()
+- GaussianCopula: one-factor equi-correlation (baseline)
+- StudentTCopula: tail dependence via ν, converges to Gaussian at ν→∞
+- ClaytonCopula: lower tail dependence (Marshall-Olkin sampling)
+- FrankCopula: symmetric, no tail dependence (conditional method)
+- GumbelCopula: upper tail dependence (stable frailty)
+- copula_default_simulation: portfolio defaults under any copula
+- tranche_pricing_copula: CDO tranche EL and spread under any copula
+- Ref: Li 2000, McNeil-Frey-Embrechts 2005, Cherubini-Luciano-Vecchiato 2004
+
+---
+
 ## v0.199.0 — 2026-04-15
 
 Credit Hybrids — Phase C6 complete.
