@@ -2,6 +2,20 @@
 
 ---
 
+## v0.204.0 — 2026-04-15
+
+Short Rate Model Deepening — Phase IR2 complete.
+
+Slices 237-239 merged (share short_rate_models.py):
+- BKRateModel: d(ln r) = (θ(t)−a ln r)dt + σdW, always positive, MC + ZCB
+- CIRPPRateModel: r(t) = x(t) + φ(t), analytical ZCB matches MC to 15%
+- CheyetteModel: Markovian HJM (x, y), r = f(0,t) + x, analytical ZCB
+- AffineModel: Dai-Singleton A_m(n), unified Riccati ODE for ZCB
+  - A_0(1) = Vasicek, A_1(1) = CIR, A_0(2) = G2++ verified
+- Ref: BK 1991, Brigo-Mercurio Ch.3-4, Cheyette 1992, Dai-Singleton 2000
+
+---
+
 ## v0.203.0 — 2026-04-15
 
 Exotic IR Products — Phase IR1 complete. IR Deepening begins.
