@@ -2,6 +2,22 @@
 
 ---
 
+## v0.201.0 — 2026-04-15
+
+Advanced Recovery — Phase C8 complete.
+
+Slices 229-230 merged (share recovery_advanced.py):
+- seniority_waterfall: senior → sub → equity priority allocation
+- waterfall_recovery_rates: recovery rate per seniority class
+- lgd_cycle: pro-cyclical LGD (recovery drops when defaults spike)
+- stochastic_recovery_cds: CDS spread with recovery-intensity correlation
+- wrong_way_recovery_cva: CVA with recovery falling in stress
+- Senior recovery > sub > equity verified across all recovery levels
+- Downturn LGD > normal LGD verified; wrong-way premium > 0
+- Ref: Altman 2006, Schönbucher Ch.6, Andersen-Sidenius 2004
+
+---
+
 ## v0.200.0 — 2026-04-15
 
 Copulas — Phase C7 complete. v0.200.0 milestone.
