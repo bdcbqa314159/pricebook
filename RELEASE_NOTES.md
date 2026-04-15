@@ -2,6 +2,20 @@
 
 ---
 
+## v0.202.0 — 2026-04-15
+
+Leveraged Credit Structures — Phase C9 complete. ALL CREDIT DEEPENING DONE.
+
+Slices 231-233 merged (share credit_leveraged.py):
+- leveraged_cds: first-loss on single name, spread scales with leverage
+- digital_cln_leveraged: binary payout CLN with leverage
+- constant_maturity_cds: CMCDS with convexity adjustment (fair > forward)
+- cds_straddle: payer + receiver swaption, breakeven move
+- credit_trs: total return swap on credit index (carry + price change − funding)
+- Ref: O'Kane Ch.13-16, Schönbucher Ch.10-11
+
+---
+
 ## v0.201.0 — 2026-04-15
 
 Advanced Recovery — Phase C8 complete.
