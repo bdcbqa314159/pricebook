@@ -2,6 +2,20 @@
 
 ---
 
+## v0.198.0 — 2026-04-14
+
+CDS Swaptions — Phase C5 complete.
+
+Slices 221-222 merged (share cds_swaption.py):
+- forward_cds_spread: par spread of forward-starting CDS, F ≈ λ(1−R) verified
+- cds_swaption_black: Black-76 on forward spread, survival knockout factor
+- PedersenCDSSwaption: analytical + MC (MC matches Black to 5%)
+- Payer/receiver, ATM symmetry, higher vol → higher premium
+- cds_swaption_put_call_parity: payer − receiver = Q×A×(F−K), verified at all strikes
+- Ref: Pedersen 2003, Schönbucher Ch.11, O'Kane Ch.15
+
+---
+
 ## v0.197.0 — 2026-04-14
 
 Stochastic Hazard Rate Models — Phase C4 complete.
