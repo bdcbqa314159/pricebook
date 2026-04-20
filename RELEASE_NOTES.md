@@ -2,6 +2,1185 @@
 
 ---
 
+## v0.268.0 — 2026-04-20
+
+Commodity-Rates Link — ALL DEEPENING COMPLETE. 297 slices, 4905 tests — Phase HY6 complete.
+
+`commodity_rates_link.py`:
+- CrossAssetPCAResult (class): 
+- inflation_commodity_factor_model: PCA factor model across rates, commodity, and inflation series.
+- CommodityInflationSwapResult (class): 
+- commodity_inflation_swap: Commodity-linked inflation swap: floating = w_c × commodity_return + w_i × CPI_return.
+
+---
+
+## v0.267.0 — 2026-04-20
+
+Hybrid XVA — Phase HY5 complete.
+
+`hybrid_xva.py`:
+- HybridCVAResult (class): 
+- hybrid_cva: CVA on multi-asset exotic from exposure profiles.
+- WrongWayRiskResult (class): 
+- wrong_way_risk_adjustment: Wrong-way risk: equity down → credit spread up → higher default prob.
+- HybridFVAResult (class): 
+- hybrid_fva: FVA for long-dated hybrid: funding cost of uncollateralised exposure.
+- Ref: Gregory, *Counterparty Credit Risk and CVA*, Wiley, 2012.; Brigo, Morini & Pallavicini, *Counterparty Credit Risk, Collateral and; Funding*, Wiley, 2013.
+
+---
+
+## v0.266.0 — 2026-04-20
+
+Multi-Factor Hybrid MC — Phase HY4 complete.
+
+`hybrid_mc.py`:
+- HybridFactor (class): Definition of one factor in the hybrid.
+- HybridMCResult (class): Multi-factor hybrid simulation result.
+- HybridMCEngine (class): N-factor correlated MC engine for hybrid products.
+- HybridPayoffResult (class): Evaluated hybrid payoff.
+- hybrid_payoff_evaluate: Evaluate a path-dependent payoff on hybrid MC paths.
+- simulate: 
+- Ref: Piterbarg, *Smiling Hybrids*, Risk, 2006.; Glasserman, *Monte Carlo Methods in Financial Engineering*, Springer, 2003.
+
+---
+
+## v0.265.0 — 2026-04-20
+
+Equity-Rates Hybrids — Phase HY3 complete.
+
+`equity_rates_hybrid.py`:
+- CallableEquityNoteResult (class): 
+- callable_equity_note: Equity-linked note with issuer call right.
+- JointSimResult (class): 
+- equity_ir_joint_simulate: Joint equity + Hull-White rate simulation.
+- HybridAutocallResult (class): 
+- hybrid_autocallable: Autocall with IR floor: only autocalls if equity above barrier AND rate above floor.
+- Ref: Overhaus et al., *Equity Hybrid Derivatives*, Wiley, 2007.
+
+---
+
+## v0.264.0 — 2026-04-20
+
+Structural Credit — Phase HY2 complete.
+
+`structural_credit.py`:
+- MertonResult (class): 
+- merton_equity_credit: Merton (1974): equity = call on assets; debt = assets − equity.
+- KMVResult (class): 
+- kmv_distance_to_default: KMV distance-to-default.
+- BlackCoxResult (class): 
+- black_cox_first_passage: Black-Cox: default occurs first time V hits barrier H (H < V₀).
+- ImpliedCreditResult (class): 
+- implied_credit_from_equity: Back out credit spread from equity vol and leverage.
+- Ref: Merton, *On the Pricing of Corporate Debt*, JF, 1974.; Provisions*, JF, 1976.
+
+---
+
+## v0.263.0 — 2026-04-20
+
+PRDC — Hybrids Deepening begins — Phase HY1 complete.
+
+`prdc.py`:
+- PRDCResult (class): 
+- prdc_price: PRDC: coupon = fixed + participation × (FX / FX_strike − 1), floored at 0.
+- CallablePRDCResult (class): 
+- callable_prdc: Callable PRDC: issuer can call at par on coupon dates.
+- Ref: Piterbarg, *Smiling Hybrids*, Risk, 2006.; Overhaus et al., *Equity Hybrid Derivatives*, Wiley, 2007.
+
+---
+
+## v0.262.0 — 2026-04-20
+
+Vol Surface Stress — VOLATILITY DEEPENING COMPLETE — Phase VL6 complete.
+
+`vol_stress.py`:
+- VolBumpResult (class): 
+- parallel_vol_bump: Parallel vol bump: shift all vols by bump_bps basis points.
+- tilt_vol_bump: Tilt: short-end up, long-end down (steepening).
+- twist_vol_bump: Twist/butterfly: wings up, belly down.
+- VolReplayResult (class): 
+- vol_scenario_replay: Replay a historical vol scenario on the current book.
+- CrossAssetVolStressResult (class): 
+- cross_asset_vol_stress: Correlated vol bump across asset classes.
+- Ref: Alexander, *Market Risk Analysis*, Vol. IV, Wiley, 2008.
+
+---
+
+## v0.261.0 — 2026-04-20
+
+Tail Risk & Far-OTM — Phase VL5 complete.
+
+`tail_risk.py`:
+- RogerLeeBoundsResult (class): 
+- roger_lee_bounds: Roger Lee (2004): wing slope of total variance w(k) is bounded by 2.
+- SVIWingsResult (class): 
+- svi_wings_fit: SVI fit with Roger Lee wing constraints.
+- TailRiskResult (class): 
+- tail_risk_pricing: Deep OTM put pricing via heavy-tailed distribution (Pareto tail).
+- EVTVaRResult (class): 
+- extreme_value_var: VaR from Generalised Pareto Distribution (Peaks over Threshold).
+- Ref: Gatheral & Jacquier, *Arbitrage-Free SVI Volatility Surfaces*, QF, 2014.; McNeil, Frey & Embrechts, *Quantitative Risk Management*, Princeton, 2015.
+
+---
+
+## v0.260.0 — 2026-04-20
+
+Vol Term Structure — Phase VL4 complete.
+
+`vol_term_structure.py`:
+- ForwardVolResult (class): 
+- forward_vol_from_term: 
+- CalendarSpreadResult (class): 
+- calendar_spread_strategy: 
+- VolCurveShapeResult (class): 
+- vol_curve_shape: 
+- Bergomi2FactorResult (class): 
+- Bergomi2Factor (class): Bergomi two-factor forward variance model.
+- simulate: 
+- Ref: Bergomi, *Stochastic Volatility Modeling*, CRC, 2016.; Gatheral, *The Volatility Surface*, Wiley, 2006.
+
+---
+
+## v0.259.0 — 2026-04-20
+
+Skew Trading — Phase VL3 complete.
+
+`skew_trading.py`:
+- RiskReversalResult (class): 
+- risk_reversal_strategy: 
+- SkewMeanReversionSignal (class): 
+- skew_mean_reversion_signal: 
+- SkewCarryResult (class): 
+- skew_carry_trade: 
+- CrossAssetSkewResult (class): 
+- cross_asset_skew_comparison: 
+- Ref: Gatheral, *The Volatility Surface*, Wiley, 2006.; Bollen & Whaley, *Does Net Buying Pressure Affect the Shape of Implied Volatility Functions?*, JF, 2004.
+
+---
+
+## v0.258.0 — 2026-04-20
+
+Vol Risk Premium — Phase VL2 complete.
+
+`vol_risk_premium.py`:
+- VRPResult (class): 
+- vrp_single_asset: 
+- VRPTermStructureResult (class): 
+- vrp_term_structure: 
+- CrossAssetVRPResult (class): 
+- cross_asset_vrp_comparison: 
+- VRPSignalResult (class): 
+- vrp_strategy_signal: 
+- Ref: Carr & Wu, *Variance Risk Premiums*, RFS, 2009.; Bollerslev, Tauchen & Zhou, *Expected Stock Returns and Variance Risk Premia*, RFS, 2009.
+
+---
+
+## v0.257.0 — 2026-04-20
+
+Vol Model Comparison — Volatility Deepening begins — Phase VL1 complete.
+
+`vol_model_comparison.py`:
+- ModelPriceEntry (class): Price from one model.
+- ModelComparisonResult (class): Comparison across models.
+- compare_models: Price the same option under up to 4 models, report dispersion.
+- ModelRiskResult (class): Model risk quantification across a strike grid.
+- model_risk_quantification: Model risk across a strike grid.
+- ModelGuideResult (class): Model selection recommendation.
+- model_selection_guide: Recommend best vol model per product type.
+- Ref: Gatheral, *The Volatility Surface*, Wiley, 2006.; Rebonato, *Volatility and Correlation*, Wiley, 2004.; Bergomi, *Stochastic Volatility Modeling*, CRC Press, 2016.
+
+---
+
+## v0.256.0 — 2026-04-18
+
+Inflation-Commodity Link — INFLATION DEEPENING COMPLETE — Phase IN6 complete.
+
+`inflation_commodity_link.py`:
+- OilBreakevenRegressionResult (class): 
+- oil_breakeven_regression: Regress breakeven changes on oil price changes.
+- CommodityInflationHybridResult (class): 
+- commodity_inflation_hybrid: Commodity-linked inflation swap: payoff = w_c × commodity_return + w_i × inflation − K.
+- Ref: Hobijn, *Commodity Prices and Inflation*, FRBSF, 2008.
+
+---
+
+## v0.255.0 — 2026-04-18
+
+Inflation Carry — Phase IN5 complete.
+
+`inflation_carry.py`:
+- RealYieldRolldownResult (class): 
+- real_yield_rolldown: Roll-down on real yield curve.
+- LinkerCarryResult (class): 
+- linker_carry_decomposition: Linker carry = real yield carry + breakeven carry − financing.
+- InflationCarryVolResult (class): 
+- inflation_carry_vs_vol: Carry / vol ratio for inflation trades.
+- Ref: Barclays, *US TIPS: A Guide for Investors*, 2012.
+
+---
+
+## v0.254.0 — 2026-04-18
+
+Inflation Basis — Phase IN4 complete.
+
+`inflation_basis.py`:
+- ZCYoYBasisResult (class): 
+- zc_yoy_basis: ZC vs YoY inflation swap basis.
+- CrossMarketBasisResult (class): 
+- cross_market_inflation_basis: Cross-market basis: HICP vs CPI vs RPI.
+- InflationBasisTradeResult (class): 
+- inflation_basis_trade: Construct basis trade: long one leg, short another.
+- Ref: Kerkhof, *Inflation Derivatives Explained*, Lehman Brothers, 2005.; Deacon et al., *Inflation-Indexed Securities*, Wiley, 2004.
+
+---
+
+## v0.253.0 — 2026-04-18
+
+CPI Seasonality — Phase IN3 complete.
+
+`cpi_seasonality.py`:
+- SeasonalFactors (class): 
+- estimate_seasonal_factors: Estimate monthly CPI seasonal factors from historical data.
+- DeseasonalisedBreakevenResult (class): 
+- deseasonalise_breakeven: Remove CPI seasonality from observed breakeven.
+- SeasonalCarrySignal (class): 
+- seasonal_carry_signal: Carry signal from CPI seasonality.
+- Ref: Canty & Heider, *Seasonality in CPI*, BIS, 2012.; Barclays, *Inflation Seasonality and TIPS Valuation*, 2011.
+
+---
+
+## v0.252.0 — 2026-04-18
+
+Inflation Smile — Phase IN2 complete.
+
+`inflation_smile.py`:
+- InflationSmileNode (class): 
+- calibrate_inflation_sabr: Calibrate SABR to inflation caplet smile at one tenor.
+- InflationVolCube (class): 
+- ZCCapSmileResult (class): 
+- zc_inflation_cap_smile: ZC inflation cap prices at multiple strikes.
+- obj: 
+- vol: 
+- Ref: Mercurio, *Pricing Inflation-Indexed Derivatives*, QF, 2005.; Kenyon, *Inflation Is Normal*, Risk, 2008.
+
+---
+
+## v0.251.0 — 2026-04-18
+
+Jarrow-Yildirim — Inflation Deepening begins — Phase IN1 complete.
+
+`jarrow_yildirim.py`:
+- JYParams (class): Jarrow-Yildirim model parameters.
+- JYSimulationResult (class): JY simulation result.
+- JarrowYildirim (class): Jarrow-Yildirim three-factor inflation model.
+- JYZCSwapResult (class): JY ZC inflation swap result.
+- jy_zc_inflation_swap: Analytical ZC inflation swap rate under JY.
+- JYCapletResult (class): JY YoY inflation caplet result.
+- jy_yoy_caplet: YoY inflation caplet under JY.
+- JYCalibrationResult (class): JY calibration result.
+- jy_calibrate: Calibrate JY (σ_n, σ_r, σ_I) to ZC inflation swap term structure.
+- simulate: Simulate joint (r_n, r_r, I) paths.
+- hw_zcb: 
+- objective: 
+- Ref: Related Derivatives Using an HJM Model*, JFE, 2003.; Mercurio, *Pricing Inflation-Indexed Derivatives*, QF, 2005.
+
+---
+
+## v0.250.0 — 2026-04-18
+
+Cross-Gamma Hedging — OPTIONS DEEPENING COMPLETE — Phase OP8 complete.
+
+`cross_gamma_hedging.py`:
+- OptimalHedgeResult (class): Optimal multi-asset hedge result.
+- optimal_multi_asset_hedge: Find hedge weights to neutralise target Greeks.
+- VegaNettingResult (class): Cross-asset vega netting result.
+- cross_asset_vega_netting: Net vega across asset classes.
+- CorrelationAwareSizingResult (class): Position sizing with correlation constraints.
+- correlation_aware_sizing: Size a new position accounting for correlation to existing book.
+- MinVarianceExoticHedgeResult (class): Minimum-variance hedge for multi-asset exotic.
+- minimum_variance_exotic_hedge: Find optimal basket of vanilla hedges for a multi-asset exotic.
+- Ref: Alexander, *Market Risk Analysis*, Vol. IV, Wiley, 2008.
+
+---
+
+## v0.249.0 — 2026-04-18
+
+Correlation Monitoring — Phase OP7 complete.
+
+`correlation_monitor.py`:
+- ImpliedRealisedCorrResult (class): 
+- implied_vs_realised_correlation: Track implied − realised correlation spread.
+- CorrTermStructureResult (class): 
+- correlation_term_structure: Term structure of implied correlation.
+- CorrStressResult (class): 
+- correlation_stress_matrix: Apply stress to correlation matrix.
+- SmileArbCheckResult (class): 
+- multi_asset_smile_arb_check: Check if basket vol is consistent with constituent smiles + implied ρ.
+- Ref: Bossu, *Advanced Equity Derivatives*, Wiley, 2014.; Alexander, *Market Risk Analysis*, Vol. IV, Wiley, 2008.
+
+---
+
+## v0.248.0 — 2026-04-18
+
+Multi-Asset Local Vol — Phase OP6 complete.
+
+`multi_asset_local_vol.py`:
+- LocalVol2DResult (class): 2D local vol result.
+- dupire_2d_local_vol: Compute marginal local vol surfaces for two assets.
+- MultiAssetSLVResult (class): Multi-asset SLV simulation result.
+- multi_asset_slv_simulate: 2-asset SLV: each asset has LV + shared Heston-like stochastic vol.
+- SmileConsistencyResult (class): Basket smile consistency check.
+- smile_consistency_check: Check if basket vol is consistent with constituent smiles.
+- Ref: Guyon & Henry-Labordère, *Nonlinear Option Pricing*, CRC, 2014.
+
+---
+
+## v0.247.0 — 2026-04-18
+
+Cross-Asset Structured Notes — Phase OP5 complete.
+
+`cross_asset_structured.py`:
+- FusionNoteResult (class): 
+- equity_fx_fusion_note: Equity performance paid in foreign currency.
+- CorrelationTriggerResult (class): 
+- correlation_trigger_note: Coupon paid if realised correlation stays below threshold.
+- CommodityEquityAutocallResult (class): 
+- commodity_equity_autocall: Equity autocall with commodity knock-out.
+- DualRangeAccrualResult (class): 
+- dual_asset_range_accrual: Accrues coupon for each observation where BOTH assets are in range.
+- Ref: Bouzoubaa & Osseiran, *Exotic Options and Hybrids*, Wiley, 2010.; De Weert, *Exotic Options Trading*, Wiley, 2008.
+
+---
+
+## v0.246.0 — 2026-04-18
+
+Multi-Asset Exotics — Phase OP4 complete.
+
+`multi_asset_exotic.py`:
+- RainbowResult (class): Rainbow option result.
+- rainbow_option: N-asset rainbow option.
+- KnockoutBasketResult (class): Knockout basket result.
+- knockout_basket: Knockout basket: barrier on one asset, payoff on another.
+- ConditionalBarrierResult (class): Conditional barrier result.
+- conditional_barrier: Conditional barrier: knock-in on one asset, knock-out on another.
+- MultiAssetDigitalRangeResult (class): Multi-asset digital range result.
+- multi_asset_digital_range: Digital range on multiple assets: pays if ALL stay in their range.
+- Ref: De Weert, *Exotic Options Trading*, Wiley, 2008.; Bouzoubaa & Osseiran, *Exotic Options and Hybrids*, Wiley, 2010.
+
+---
+
+## v0.245.0 — 2026-04-18
+
+Vol-of-Vol Derivatives — Phase OP3 complete.
+
+`vol_vol_derivatives.py`:
+- OptionOnVarianceResult (class): Option on variance swap result.
+- option_on_variance_swap: Option on realised variance (vol-of-vol product).
+- GammaSwapResult (class): Gamma swap result.
+- gamma_swap_price: Gamma swap: variance swap weighted by S(t) / S(0).
+- CorridorVarianceResult (class): Corridor variance swap result.
+- corridor_variance_swap: Corridor variance swap: accumulates variance only when spot in range.
+- VIXOptionResult (class): VIX-like option result.
+- vix_option_price: VIX-like option via Heston variance simulation.
+
+---
+
+## v0.244.0 — 2026-04-18
+
+Stochastic Correlation — Phase OP2 complete.
+
+`stochastic_correlation.py`:
+- CIRCorrelationResult (class): CIR correlation simulation result.
+- CIRCorrelation (class): Mean-reverting correlation via transformed CIR process.
+- StochCorrPricingResult (class): Multi-asset pricing with stochastic correlation.
+- simulate_two_asset_stoch_corr: Simulate two assets with CIR stochastic correlation.
+- WishartResult (class): Wishart covariance simulation result.
+- WishartCovariance (class): Wishart covariance matrix process.
+- DispersionCalibrationResult (class): Stochastic correlation calibration to dispersion result.
+- calibrate_stoch_corr_to_dispersion: Calibrate CIR correlation to match index variance.
+- simulate: 
+- simulate: Simplified Wishart: simulate diagonal (variances) via CIR,
+- model_index_var: 
+- Ref: J. Math. in Industry, 2016.; Stochastic: An Analytical Framework*, RFS, 2007.
+
+---
+
+## v0.243.0 — 2026-04-18
+
+Correlation Greeks — Options Deepening begins — Phase OP1 complete.
+
+`correlation_greeks.py`:
+- CorrelationDeltaResult (class): Correlation delta result.
+- correlation_delta: Correlation delta: ∂V/∂ρ via central difference.
+- CorrelationGammaResult (class): Correlation gamma result.
+- correlation_gamma: Correlation gamma: ∂²V/∂ρ².
+- CrossGammaResult (class): Cross-gamma: ∂²V/∂S₁∂S₂.
+- cross_gamma: Cross-gamma: ∂²V/∂S₁∂S₂ via finite difference.
+- CorrelationPnLAttribution (class): P&L attribution from correlation changes.
+- correlation_pnl_attribution: Attribute P&L to correlation changes via Taylor expansion.
+- CorrelationLadderEntry (class): One entry in the correlation sensitivity ladder.
+- CorrelationLadder (class): Full correlation sensitivity ladder.
+- correlation_sensitivity_ladder: Compute correlation sensitivity for each pair in the ρ matrix.
+- Ref: Bossu, *Advanced Equity Derivatives: Volatility and Correlation*, Wiley, 2014.; Alexander, *Market Risk Analysis*, Vol. IV, Wiley, 2008.; De Weert, *Exotic Options Trading*, Wiley, 2008.
+
+---
+
+## v0.242.0 — 2026-04-17
+
+Inflation Bonds — BOND DEEPENING COMPLETE — Phase BN8 complete.
+
+`inflation_bond_advanced.py`:
+- RealYieldCurveResult (class): Real yield curve bootstrap result.
+- real_yield_curve_bootstrap: Bootstrap real yield curve from TIPS/linker prices.
+- BreakevenTradeResult (class): Breakeven trade decomposition.
+- breakeven_trade: Breakeven = nominal yield − real yield.
+- SeasonalBreakevenResult (class): Seasonality-adjusted breakeven.
+- seasonality_adjusted_breakeven: Adjust breakeven for CPI seasonality.
+- LinkerASWResult (class): Linker (real) asset swap spread.
+- linker_asw: Real asset swap spread = linker real yield − real swap rate.
+- DeflationFloorResult (class): Deflation floor option value.
+- deflation_floor_value: TIPS deflation floor: guaranteed return of par at maturity.
+- Ref: Deacon, Derry & Mirfendereski, *Inflation-Indexed Securities*, Wiley, 2004.; Barclays, *US TIPS: A Guide for Investors*, 2012.; Kerkhof, *Inflation Derivatives Explained*, Lehman Brothers, 2005.
+
+---
+
+## v0.241.0 — 2026-04-17
+
+Duration Hedging Deepening — Phase BN7 complete.
+
+`duration_advanced.py`:
+- ImmunisationResult (class): Key rate immunisation result.
+- key_rate_immunise: Solve for hedge weights to immunise all key rate durations.
+- BarbellBulletResult (class): Barbell vs bullet comparison.
+- barbell_bullet_analysis: Barbell (short + long) vs bullet comparison.
+- LDIMatchResult (class): LDI cash-flow matching result.
+- ldi_cashflow_match: Liability-driven investment cash-flow matching.
+- CrossCurrencyHedgeResult (class): Cross-currency duration hedge.
+- cross_currency_duration_hedge: Cross-currency duration hedge ratio.
+- Ref: Martellini, Priaulet & Priaulet, *Fixed-Income Securities*, Wiley, 2003.
+
+---
+
+## v0.240.0 — 2026-04-17
+
+Advanced Bond RV — Phase BN6 complete.
+
+`bond_rv_advanced.py`:
+- IssuerCurveFitResult (class): Issuer curve fit result.
+- issuer_curve_fit: Fit Nelson-Siegel to a single issuer's bonds. Residuals = rich/cheap.
+- InvoiceSpreadResult (class): Invoice spread result.
+- invoice_spread: Invoice spread: bond ASW − futures-implied ASW.
+- OISASWResult (class): OIS-asset swap decomposition.
+- ois_asw_decomposition: IBOR-OIS asset swap decomposition.
+- PCAResult (class): PCA on bond yield changes.
+- bond_yield_pca: PCA on bond yield changes (Litterman-Scheinkman).
+- objective: 
+- Ref: Tuckman & Serrat, *Fixed Income Securities*, Wiley, 2012.
+
+---
+
+## v0.239.0 — 2026-04-17
+
+Bond Futures Optionality — Phase BN5 complete.
+
+`bond_futures_options.py`:
+- EOMOptionResult (class): End-of-month (wild card) option value.
+- end_of_month_option: End-of-month wild card option.
+- QualityOptionResult (class): Quality option (CTD switch) result.
+- quality_option: Quality option: option to deliver cheapest bond.
+- TimingOptionResult (class): Timing option value.
+- timing_option: Timing option: short chooses when in the delivery month to deliver.
+- NetBasisResult (class): Net basis decomposition.
+- net_basis_decomposition: Net basis = gross basis − carry.
+- JointDeliveryResult (class): Joint delivery option valuation.
+- joint_delivery_option_value: Combined delivery option value (with correlation discount).
+- Ref: Burghardt & Belton, *The Treasury Bond Basis*, McGraw-Hill, 2005.; Tuckman & Serrat, *Fixed Income Securities*, Wiley, 2012, Ch. 14.
+
+---
+
+## v0.238.0 — 2026-04-17
+
+Advanced Repo & Financing — Phase BN4 complete.
+
+`repo_advanced.py`:
+- RepoCurve (class): Repo curve: tenor → rate (simple).
+- build_repo_curve: Construct a repo curve from observed tenor points.
+- RepoOISSpread (class): Repo spread vs OIS.
+- repo_spread_to_ois: GC repo vs OIS spread.
+- SpecialBond (class): Bond trading special in repo.
+- identify_specials: Identify bonds trading special (lower repo rate than GC).
+- RepoCounterparty (class): A counterparty for repo financing.
+- FinancingPlan (class): Result of multi-counterparty financing optimisation.
+- optimise_financing: Greedy optimisation: allocate to cheapest counterparties first.
+- HaircutCurve (class): Repo haircut term structure by asset type.
+- repo_haircut_curve: Typical haircut curve by asset type.
+- rate_at: Rate at a given tenor (days).
+- financing_cost: Financing cost for borrowing at this repo rate.
+- haircut_at: 
+
+---
+
+## v0.237.0 — 2026-04-17
+
+Sovereign Bond Trading — Phase BN3 complete.
+
+`sovereign_bond.py`:
+- SovereignSpreadCurve (class): Term structure of sovereign spreads over a benchmark.
+- build_spread_curve: Build sovereign spread curve from yields.
+- SovereignBasisResult (class): Sovereign basis: bond vs CDS vs futures.
+- sovereign_basis: Decompose sovereign basis.
+- CrossCountryRV (class): Cross-country sovereign RV analysis.
+- cross_country_rv: Current cross-country yield spread vs historical distribution.
+- AuctionResult (class): Auction analytics result.
+- auction_analytics: Analyse a sovereign auction.
+- OTROFRResult (class): On-the-run vs off-the-run comparison.
+- otr_ofr_analysis: Compare OTR vs OFR yields; detect squeezes.
+- spread_at: Spread (in bps) at tenor T, interpolated.
+- z_score: Z-score of current spread vs historical distribution.
+- Ref: RFS, 2009.; Mgmt. Sci., 2014.
+
+---
+
+## v0.236.0 — 2026-04-17
+
+Amortising & Sinker Bonds — Phase BN2 complete.
+
+`amortising_bond.py`:
+- AmortisingBondResult (class): Amortising bond pricing result.
+- AmortisingBond (class): Bond with amortising principal schedule.
+- cpr_to_smm: Convert Conditional Prepayment Rate (annual) to Single Monthly Mortality.
+- psa_schedule: PSA (Public Securities Association) standard prepayment schedule.
+- PrepaymentBondResult (class): Prepayment bond pricing result.
+- prepayment_bond_price: Price a bond with PSA prepayment model.
+- average_life: Principal-weighted average life.
+- weighted_average_maturity: Weighted average maturity across a portfolio of bonds.
+- SinkerComparisonResult (class): Sinker vs bullet comparison.
+- sinker_vs_bullet: Compare amortising sinker vs bullet bond with same coupon/maturity.
+- schedule: Return payment schedule: [(time, principal_paid, interest_paid), ...].
+- price: Price, duration, DV01 at a flat discount rate.
+- Ref: Fabozzi, *Handbook of Mortgage-Backed Securities*, 7th ed., McGraw-Hill, 2016.; Tuckman & Serrat, *Fixed Income Securities*, Wiley, 2012.; Securities*, Wiley, 2001.
+
+---
+
+## v0.235.0 — 2026-04-17
+
+Convertible Bonds — Bond Deepening begins — Phase BN1 complete.
+
+`convertible_bond.py`:
+- ConvertibleResult (class): Convertible bond pricing result.
+- ConvertibleBond (class): Convertible bond specification.
+- DeltaHedgeResult (class): Convertible delta hedge result.
+- convertible_delta_hedge: Compute shares to short for delta-neutral CB hedge.
+- SoftCallResult (class): Soft call convertible result.
+- convertible_soft_call: Soft call convertible: issuer can call at par (or call price) if stock
+- CoCoResult (class): Contingent convertible result.
+- contingent_convertible: Contingent convertible: mandatorily converts when equity crosses trigger.
+- ExchangeableResult (class): Exchangeable bond result (convertible into different issuer's stock).
+- exchangeable_bond: Exchangeable bond: convertible into another issuer's stock.
+- MandatoryConvertibleResult (class): Mandatory convertible bond result.
+- mandatory_convertible: Mandatory convertible (MC): forced conversion at maturity.
+- parity: Conversion value / notional.
+- conversion_price: Stock price at which conversion_value = notional.
+- price: MC pricing with optimal holder conversion.
+- Ref: Tsiveriotis & Fernandes, *Valuing Convertible Bonds with Credit Risk*, JF, 1998.; Calamos, *Convertible Securities*, McGraw-Hill, 2003.
+
+---
+
+## v0.234.0 — 2026-04-17
+
+Commodity Structured — COMMODITY DEEPENING COMPLETE — Phase CM8 complete.
+
+`commodity_structured.py`:
+- CommodityAutocallResult (class): Commodity autocallable result.
+- commodity_autocallable: Commodity autocallable (gold/oil/wheat).
+- CommodityLinkedBondResult (class): Commodity-linked bond result.
+- commodity_linked_bond: Bond with coupons tied to commodity performance.
+- CommodityTARFResult (class): Commodity TARF result.
+- commodity_tarf: Commodity TARF: accumulates P&L until target reached, then terminates.
+- CommodityRangeAccrualResult (class): Commodity range accrual result.
+- commodity_range_accrual: Commodity range accrual: pays coupon × fraction_of_days_in_range.
+- DualCommodityResult (class): Dual commodity note result.
+- dual_commodity_note: Dual commodity note: long one, short another.
+- Ref: Clewlow & Strickland, *Energy Derivatives*, Wiley, 2000, Ch. 9.; Geman, *Commodities and Commodity Derivatives*, Wiley, 2005.; Bouzoubaa & Osseiran, *Exotic Options and Hybrids*, Wiley, 2010.
+
+---
+
+## v0.233.0 — 2026-04-17
+
+Commodity Real Options — Phase CM7 complete.
+
+`commodity_real_options.py`:
+- MineValuationResult (class): Mine valuation result.
+- MineValuation (class): Brennan-Schwartz (1985) mine valuation with output flexibility.
+- PowerPlantResult (class): Power plant dispatch valuation.
+- power_plant_dispatch_value: Simplified power plant dispatch value (spark spread).
+- UnitCommitmentResult (class): Unit commitment with startup/shutdown costs.
+- unit_commitment_value: Simplified unit commitment with startup/shutdown costs & min up/down times.
+- FTRResult (class): Financial Transmission Rights valuation.
+- pipeline_ftr_value: Financial Transmission Rights (FTR) valuation.
+- value: Value the mine with optimal operation (naive: operate when S > c).
+- Ref: Dixit & Pindyck, *Investment Under Uncertainty*, Princeton UP, 1994.; Electric Power Plants in Competitive Markets*, Ops. Res., 2004.
+
+---
+
+## v0.232.0 — 2026-04-17
+
+Weather Derivatives — Phase CM6 complete.
+
+`weather_derivatives.py`:
+- DegreeDayIndex (class): Degree days index result.
+- hdd_index: Heating Degree Days: Σ max(reference − T_mean, 0).
+- cdd_index: Cooling Degree Days: Σ max(T_mean − reference, 0).
+- WeatherFutureResult (class): HDD/CDD futures pricing result.
+- hdd_future_price: CME HDD futures price.
+- WeatherOptionResult (class): HDD/CDD option pricing result.
+- hdd_option_price: HDD call/put option (with optional cap).
+- TemperaturePaths (class): Simulated daily temperature paths.
+- SeasonalOUTemperature (class): Alaton-Djehiche-Stillberger seasonal OU temperature model.
+- RainfallResult (class): Rainfall derivative pricing result.
+- rainfall_derivative_price: Simple rainfall derivative via Poisson-Gamma model.
+- WindOptionResult (class): Wind index option result.
+- wind_index_option: Wind index option (e.g. average wind speed over a period).
+- seasonal_mean: Expected temperature at day t_days.
+- simulate: 
+- Ref: Derivatives*, Applied Math. Finance, 2002.; Brody, Syroka & Zervos, *Dynamical Pricing of Weather Derivatives*, QF, 2002.; Jewson & Brix, *Weather Derivative Valuation*, Cambridge UP, 2005.
+
+---
+
+## v0.231.0 — 2026-04-17
+
+Commodity Basis & Locational Spreads — Phase CM5 complete.
+
+`commodity_basis.py`:
+- BasisCurve (class): Term structure of basis differentials.
+- basis_curve_from_futures: Construct basis curve from aligned forward prices.
+- WTIBrentResult (class): WTI/Brent basis analysis.
+- wti_brent_basis: Analyse WTI/Brent basis (typically Brent > WTI since ~2011).
+- PowerLocationalBasis (class): Power locational basis result (e.g. PJM hub vs zone).
+- power_locational_basis: Locational basis for power (hub vs zonal or nodal pricing).
+- GasBasisResult (class): Gas basis result (HH vs regional hub).
+- gas_basis_curve: Gas basis between Henry Hub and a regional hub.
+- QualityBasisResult (class): Quality basis adjustment result.
+- quality_basis: Quality-adjusted commodity price.
+- basis: Interpolated basis at tenor T.
+- forward_price: Derivative forward price at tenor T.
+- Ref: Clewlow & Strickland, *Energy Derivatives*, Wiley, 2000, Ch. 8.; Eydeland & Wolyniec, *Energy and Power Risk Management*, Wiley, 2003.
+
+---
+
+## v0.230.0 — 2026-04-17
+
+Commodity Vol Surface — Phase CM4 complete.
+
+`commodity_vol_surface.py`:
+- CommoditySmileNode (class): SABR calibration at one commodity tenor.
+- calibrate_commodity_sabr: Calibrate SABR (α, ρ, ν) to market smile at one tenor.
+- CommodityVolCube (class): Commodity vol cube: SABR smile per tenor.
+- build_commodity_cube: Build cube from per-tenor smiles.
+- KirkResult (class): Kirk spread option result.
+- kirk_spread_smile: Kirk (1995) spread option with optional smile adjustment.
+- objective: 
+- vol: Implied vol at (T, K) via parameter interpolation.
+- atm_vol: 
+- forward: Forward price at tenor T (interpolated).
+- Ref: Clewlow & Strickland, *Energy Derivatives*, Wiley, 2000.
+
+---
+
+## v0.229.0 — 2026-04-17
+
+Commodity Exotic Options — Phase CM3 complete.
+
+`commodity_exotic.py`:
+- CommodityBarrierResult (class): Commodity barrier option result.
+- commodity_barrier_smile: Commodity barrier option with Vanna-Volga smile adjustment.
+- CommodityLookbackResult (class): Commodity lookback option result.
+- commodity_lookback: Commodity lookback option.
+- CommodityAsianResult (class): Commodity Asian option result.
+- commodity_asian_monthly: Commodity Asian option — monthly averaging (standard oil/gas settlement).
+- QuantoCommodityResult (class): Quanto commodity option result.
+- quanto_commodity_option: Quanto commodity option: payoff in different currency than commodity.
+- Ref: Clewlow & Strickland, *Energy Derivatives*, Wiley, 2000, Ch. 5-7.; JBF, 1990.
+
+---
+
+## v0.228.0 — 2026-04-17
+
+Commodity Swing Options — Phase CM2 complete.
+
+`commodity_swing.py`:
+- SwingOptionResult (class): Swing option pricing result.
+- swing_option_lsm: Swing option via Longstaff-Schwartz with exercise-count state.
+- VirtualStorageResult (class): Virtual gas storage optimisation result.
+- VirtualGasStorage (class): Virtual gas storage facility valuation.
+- NominationResult (class): Nomination rights contract value.
+- nomination_rights_value: Value of daily nomination rights in a commodity supply contract.
+- intrinsic_value: Intrinsic value: optimal deterministic schedule on forward curve.
+- value: Full stochastic valuation via LSM-DP.
+- Ref: Longstaff & Schwartz, *Valuing American Options by Simulation*, RFS, 2001.; Exercise Options*, Math. Finance, 2004.; Mgmt. Sci., 2004.
+
+---
+
+## v0.227.0 — 2026-04-17
+
+Commodity Stochastic Models — Commodity Deepening begins — Phase CM1 complete.
+
+`commodity_models.py`:
+- SchwartzOneFactorResult (class): Schwartz one-factor simulation result.
+- SchwartzOneFactor (class): Schwartz (1997) Model 1: mean-reverting log-spot.
+- GibsonSchwartzResult (class): Gibson-Schwartz two-factor simulation result.
+- GibsonSchwartz (class): Gibson-Schwartz (1990) two-factor commodity model.
+- SchwartzSmithResult (class): Schwartz-Smith long-short decomposition result.
+- SchwartzSmith (class): Schwartz-Smith (2000) long-short two-factor decomposition.
+- CommodityJumpResult (class): Commodity jump-diffusion simulation result.
+- CommodityJumpDiffusion (class): Merton-style jump-diffusion for commodities.
+- forward_price: Analytical forward (futures) price F(S, T).
+- simulate: 
+- forward_price: Analytical forward price.
+- simulate: 
+- forward_price: Analytical forward price.
+- simulate: 
+- simulate: 
+- Ref: Commodity Prices*, Mgmt. Sci., 2000.; Clewlow & Strickland, *Energy Derivatives*, Wiley, 2000, Ch. 2-3.
+
+---
+
+## v0.226.0 — 2026-04-17
+
+Equity Jumps & Hybrids — EQUITY DEEPENING COMPLETE — Phase EQ8 complete.
+
+`equity_jumps.py`:
+- KouResult (class): Kou jump-diffusion pricing result.
+- kou_equity_price: Kou double-exponential jump-diffusion for equity.
+- SVJResult (class): SVJ pricing result.
+- SVJEquityModel (class): SVJ model: Heston + Merton jumps for equity.
+- RegimeResult (class): Regime-switching equity result.
+- RegimeSwitchingEquity (class): Bull/bear/crisis regime-switching equity model.
+- MertonHybridResult (class): Merton jump-diffusion equity result.
+- merton_equity_hybrid: Merton jump-diffusion for equity (crash risk premium).
+- simulate_option: 
+- simulate: 
+- Ref: Kou, *A Jump-Diffusion Model for Option Pricing*, Mgmt Sci, 2002.; Duffie-Pan-Singleton, *Transform Analysis and Option Pricing*, Econometrica, 2000.; Series and the Business Cycle*, Econometrica, 1989.
+
+---
+
+## v0.225.0 — 2026-04-17
+
+Rough Vol for Equity — Phase EQ7 complete.
+
+`rough_equity.py`:
+- rBergomiResult (class): rBergomi simulation result.
+- rBergomiEquity (class): rBergomi model for equity.
+- RoughHestonParams (class): Rough Heston parameters.
+- rough_heston_cf: Characteristic function for rough Heston.
+- rough_heston_price: European option price under rough Heston via Fourier inversion.
+- ForwardVarianceCurve (class): Forward variance curve ξ(T).
+- forward_variance_curve: Bootstrap forward variance curve from ATM variance term structure.
+- simulate: Simulate rBergomi spot and variance paths.
+- forward_variance: Forward variance ξ(T). Constant in this simplified model.
+- implied_vol: Approximate implied vol from MC price.
+- Ref: Bayer, Friz & Gatheral, *Pricing Under Rough Volatility*, QF, 2016.; Math. Finance, 2019.; Gatheral, Jaisson & Rosenbaum, *Volatility is Rough*, QF, 2018.
+
+---
+
+## v0.224.0 — 2026-04-17
+
+Equity Basket & Correlation — Phase EQ6 complete.
+
+`equity_basket.py`:
+- MargrabeEquityResult (class): Margrabe exchange option result.
+- margrabe_equity: Margrabe exchange: max(q₁ S₁ − q₂ S₂, 0) at T.
+- MaxMinResult (class): Max/min of 2 assets option result.
+- johnson_max_call: Call on max(S₁, S₂) via Johnson (1987) / Stulz (1982).
+- johnson_min_call: Call on min(S₁, S₂).
+- EquityBasketResult (class): Equity basket option result.
+- equity_basket_mc: Multi-asset equity basket option.
+- CorrelationSwapResult (class): Correlation swap result.
+- correlation_swap_price: Correlation swap: pays (realised − strike) × notional.
+- implied_correlation_from_dispersion: Implied correlation from index variance and constituent variances.
+- DispersionTradeResult (class): Dispersion trade value.
+- dispersion_trade_value: Classic dispersion trade: long single-name variance, short index variance.
+- Ref: Margrabe, *The Value of an Option to Exchange One Asset for Another*, JF, 1978.; Stulz, *Options on the Minimum or Maximum of Two Risky Assets*, JFE, 1982.; Bossu, *Advanced Equity Derivatives: Volatility and Correlation*, Wiley, 2014.
+
+---
+
+## v0.223.0 — 2026-04-17
+
+Dividend Deepening — Phase EQ5 complete.
+
+`dividend_advanced.py`:
+- BuhlerResult (class): Bühler stochastic dividend simulation result.
+- BuhlerStochasticDividend (class): Bühler stochastic dividend yield model.
+- DividendCurve (class): Bootstrapped dividend curve from futures.
+- dividend_curve_bootstrap: Bootstrap dividend curve from index / single-stock dividend futures.
+- ImpliedDividendResult (class): Implied dividend yield from put-call parity.
+- implied_dividend_yield: Extract implied dividend yield from put-call parity.
+- DividendBasisResult (class): Dividend basis (cash vs futures) analytics.
+- dividend_basis_trade: Dividend basis: cash dividend PV vs dividend future.
+- DividendHedgeResult (class): Dividend hedge ratio result.
+- dividend_hedge_ratio: Hedge ratio for dividend risk using dividend futures.
+- simulate: 
+- implied_forward: Model-implied forward from MC.
+- Ref: Kragt, *Managing Dividend Risk*, Risk, 2015.
+
+---
+
+## v0.222.0 — 2026-04-17
+
+Equity Smile & Vol Cube — Phase EQ4 complete.
+
+`equity_smile.py`:
+- SSVIParams (class): Surface SVI parameters.
+- ssvi_fit: Fit SSVI to a grid of observed smiles.
+- ssvi_vol: Implied vol from SSVI at log-moneyness k, tenor T.
+- EquityCubeNode (class): SABR parameters at one expiry for equity.
+- EquityVolCube (class): Equity vol cube with SABR smile per expiry.
+- calibrate_equity_sabr_tenor: Calibrate SABR (α, ρ, ν) at one equity tenor to ATM + 25D smile.
+- build_equity_vol_cube: Build equity vol cube from market quotes per tenor.
+- ForwardVolResult (class): Forward-starting volatility result.
+- forward_vol: Forward vol from cube: vol over [T1, T2].
+- SmileRegimeResult (class): Smile dynamics regime (sticky strike vs delta).
+- sticky_strike_dynamics: Vol at fixed strike, bumped spot (sticky strike convention).
+- sticky_delta_dynamics: Vol at fixed delta under sticky delta regime (vol follows spot).
+- objective: 
+- vol: Implied vol at (T, K) with SABR parameter interpolation.
+- atm_vol: ATM vol at tenor T.
+- Ref: Gatheral & Jacquier, *Arbitrage-Free SVI Volatility Surfaces*, QF, 2014.; Gatheral, *The Volatility Surface*, Wiley, 2006.; Bergomi, *Stochastic Volatility Modeling*, CRC Press, 2016.
+
+---
+
+## v0.221.0 — 2026-04-17
+
+Equity Structured Products — Phase EQ3 complete.
+
+`equity_structured.py`:
+- EquityAutocallableResult (class): Equity autocallable pricing result.
+- equity_autocallable: Phoenix autocallable with memory coupon.
+- WorstOfAutocallResult (class): Worst-of autocallable result.
+- worst_of_autocallable: Autocallable on worst-of basket: autocall when min(S_i / S_i^0) ≥ barrier.
+- ReverseConvertibleResult (class): Reverse convertible note result.
+- reverse_convertible: Reverse convertible: bond with enhanced coupon + embedded short put.
+- SharkFinResult (class): Shark-fin note result.
+- shark_fin_note: Shark-fin: capped call with knock-out + rebate.
+- AirbagResult (class): Airbag note (capped-floored) result.
+- airbag_note: Airbag / capped-floored note.
+- Ref: Bouzoubaa & Osseiran, *Exotic Options and Hybrids*, Wiley, 2010.
+
+---
+
+## v0.220.0 — 2026-04-17
+
+Variance Derivatives — Phase EQ2 complete.
+
+`variance_derivatives.py`:
+- VarianceSwapResult (class): Variance swap pricing result.
+- variance_swap_replication: Fair variance via Demeterfi-Derman-Kamal-Zou static replication.
+- VolatilitySwapResult (class): Volatility swap result.
+- volatility_swap_heston: Fair vol swap strike under Heston via expected realised variance.
+- brockhaus_long_approx: Brockhaus-Long approximation for vol swap.
+- VarianceFuturesResult (class): Variance futures / VIX-like index result.
+- variance_future_price: VIX-like variance index from option strip (CBOE methodology).
+- VRPResult (class): Variance risk premium decomposition.
+- variance_risk_premium: Variance risk premium = implied − realised variance.
+- Ref: Variance Swaps*, Goldman Sachs Quantitative Strategies Research Notes, 1999.; Brockhaus & Long, *Volatility Swaps Made Simple*, Risk, 2000.
+
+---
+
+## v0.219.0 — 2026-04-17
+
+Equity Exotic Options — Equity Deepening begins — Phase EQ1 complete.
+
+`equity_exotic.py`:
+- EquityBarrierResult (class): Equity barrier option result.
+- equity_barrier_smile: Equity barrier option with Vanna-Volga smile adjustment.
+- DigitalResult (class): Digital option result.
+- equity_digital_cash: Cash-or-nothing digital: pays `payout` if S_T > K (call) or S_T < K (put).
+- equity_digital_asset: Asset-or-nothing digital: pays S_T if S_T > K (call) or S_T < K (put).
+- EquityLookbackResult (class): Equity lookback option result.
+- equity_lookback_floating: Floating-strike lookback for equity: payoff S_T − min(S) (call).
+- equity_lookback_fixed: Fixed-strike lookback: payoff max(max(S) − K, 0) (call).
+- CompoundResult (class): Compound option result (Geske 1979).
+- equity_compound_option: Compound option: option on an option.
+- inner_call: 
+- Ref: * :func:`equity_lookback_floating` — Goldman-Sosin-Gatto floating strike.; Geske, *The Valuation of Compound Options*, JFE, 1979.; Goldman, Sosin & Gatto, *Path Dependent Options*, JF, 1979.
+
+---
+
+## v0.218.0 — 2026-04-17
+
+FX Jumps & Regime — FX DEEPENING COMPLETE — Phase FX8 complete.
+
+`fx_jumps.py`:
+- MertonFXResult (class): Merton jump-diffusion FX pricing result.
+- merton_fx_price: Merton jump-diffusion for FX options.
+- BatesFXResult (class): Bates (Heston + jumps) FX simulation result.
+- BatesFXModel (class): Bates model for FX: Heston + Merton jumps.
+- RegimeSwitchingResult (class): Regime-switching simulation result.
+- RegimeSwitchingVol (class): Markov regime-switching FX vol model.
+- InterventionResult (class): FX peg break / intervention adjustment result.
+- fx_intervention_adjustment: Intervention/peg-break risk adjustment for FX option.
+- simulate_option: 
+- simulate: 
+- Ref: JFE, 1976.; Bates, *Jumps and Stochastic Volatility: Exchange Rate Processes*, RFS, 1996.; Econometrica, 1989.
+
+---
+
+## v0.217.0 — 2026-04-17
+
+FX Correlation & Baskets — Phase FX7 complete.
+
+`fx_correlation.py`:
+- TriangularResult (class): Triangular FX correlation consistency check.
+- triangular_correlation: Triangular FX vol consistency.
+- implied_correlation_from_triangular: Invert triangular relation for correlation.
+- BasketResult (class): FX basket option result.
+- fx_basket_option: Multi-asset FX basket option.
+- fx_worst_of: Worst-of FX option: payoff on min(S₁, S₂, ...).
+- fx_best_of: Best-of FX option: payoff on max(S₁, S₂, ...).
+- MargrabeResult (class): Margrabe exchange option result.
+- margrabe_fx_exchange: Margrabe formula for exchange option on two FX assets.
+- ImpliedCorrelationResult (class): Implied correlation from market prices.
+- implied_correlation_quanto: Invert quanto adjustment for implied correlation.
+- Ref: Wystup, *FX Options and Structured Products*, 2nd ed., Wiley, 2017, Ch. 6.; Margrabe, *The Value of an Option to Exchange One Asset for Another*, JF, 1978.
+
+---
+
+## v0.216.0 — 2026-04-17
+
+FX Greeks Deepening — Phase FX6 complete.
+
+`fx_greeks.py`:
+- fx_vega: Vega = ∂V/∂σ. Same for call and put.
+- fx_vanna: Vanna = ∂²V/∂S∂σ = ∂Δ/∂σ.
+- fx_volga: Volga (vomma) = ∂²V/∂σ² = ∂vega/∂σ.
+- fx_charm: Charm = ∂Δ/∂t (time derivative of delta).
+- fx_dvega_dspot: DvegaDspot = ∂vega/∂S via finite difference.
+- fx_dvega_dvol: DvegaDvol = volga.
+- VegaBucket (class): Vega in one (tenor, delta) bucket.
+- VegaLadder (class): FX vega ladder per (expiry, delta) bucket.
+- fx_vega_ladder: Compute vega ladder across (tenor, delta) buckets.
+- SmileGreeksResult (class): Smile-consistent Greeks via VV.
+- fx_smile_consistent_greeks: Smile-consistent Greeks via Vanna-Volga.
+- vv_price: 
+- Ref: Wystup, *FX Options and Structured Products*, 2nd ed., Wiley, 2017, Ch. 2.; Clark, *FX Option Pricing*, Wiley, 2011.
+
+---
+
+## v0.215.0 — 2026-04-17
+
+FX Structured Products — Phase FX5 complete.
+
+`fx_structured.py`:
+- TARFResult (class): Target Redemption Forward pricing result.
+- fx_tarf_price: FX TARF: accumulate profit until target hit, then terminate.
+- AutocallableResult (class): FX autocallable result.
+- fx_autocallable_price: FX autocallable: autocalls at barrier, with optional memory coupon.
+- DCDResult (class): Dual-Currency Deposit result.
+- fx_dual_currency_deposit: Dual-Currency Deposit: higher yield with FX conversion risk.
+- PivotResult (class): Pivot/digital range option result.
+- fx_pivot_option: Pivot / digital range option.
+- Ref: Wystup, *FX Options and Structured Products*, 2nd ed., Wiley, 2017, Ch. 5.; Clark, *FX Option Pricing*, Wiley, 2011.
+
+---
+
+## v0.214.0 — 2026-04-17
+
+FX Smile Cube — Phase FX4 complete.
+
+`fx_smile_cube.py`:
+- FXSmileNode (class): Calibrated SABR smile at one FX tenor.
+- calibrate_sabr_fx_tenor: Calibrate SABR (α, ρ, ν) at one FX tenor to market quotes.
+- FXVolCube (class): FX vol cube with SABR smile at each tenor.
+- build_fx_vol_cube: Build FX vol cube from market quotes.
+- SVIParams (class): SVI (Stochastic Vol Inspired) raw parameters.
+- svi_fit: Fit SVI raw parameters to observed smile.
+- svi_vol: Implied vol from SVI at log-moneyness k.
+- ArbitrageCheckResult (class): Arbitrage check result.
+- check_butterfly_arbitrage: Check butterfly (no-arb) condition: ∂²C/∂K² ≥ 0 for all K.
+- check_calendar_arbitrage: Check calendar arbitrage: total variance T × σ²(T, K) is non-decreasing in T.
+- objective: 
+- vol: Implied vol at (T, K) via time-interpolated SABR parameters.
+- vol_at_delta: Implied vol at (T, δ).
+- objective: 
+- Ref: Clark, *FX Option Pricing*, Wiley, 2011, Ch. 3-4.; Gatheral, *The Volatility Surface*, Wiley, 2006.; Gatheral & Jacquier, *Arbitrage-Free SVI Volatility Surfaces*, QF, 2014.
+
+---
+
+## v0.213.0 — 2026-04-17
+
+Vanna-Volga Deepening — Phase FX3 complete.
+
+`vanna_volga.py`:
+- VVWeights (class): Vanna-Volga hedge weights.
+- vv_weights: Solve 3×3 system for smile-implied VV hedge weights.
+- VVResult (class): Vanna-Volga adjusted price result.
+- vv_adjust_vanilla: Vanna-Volga adjusted vanilla price (market-consistent smile).
+- vv_adjust_digital: VV-adjusted cash-or-nothing digital price.
+- vv_adjust_touch: VV-adjusted one-touch price.
+- vv_adjust_quanto: VV-adjusted quanto FX option.
+- greeks: 
+- Ref: Wystup, *FX Options and Structured Products*, 2nd ed., Wiley, 2017.; Clark, *FX Option Pricing*, Wiley, 2011, Ch. 5.
+
+---
+
+## v0.212.0 — 2026-04-17
+
+FX SLV Calibration — Phase FX2 complete.
+
+`fx_slv_calibration.py`:
+- LeverageFunction (class): Calibrated leverage function L(S, t).
+- calibrate_leverage_function: Calibrate leverage function L(S, t) via forward-Kolmogorov density.
+- ParticleCalibrationResult (class): Particle method calibration result.
+- particle_slv_calibration: Guyon-Henry-Labordère particle method for SLV calibration.
+- MixingResult (class): SLV mixing fraction calibration result.
+- slv_mixing_calibration: Calibrate the mixing fraction η by bisection on an exotic price.
+- SLVBarrierResult (class): Barrier option price under calibrated SLV.
+- slv_barrier_price: Price an FX barrier option under calibrated SLV via MC.
+- Ref: Models*, Risk, 2007.
+
+---
+
+## v0.211.0 — 2026-04-17
+
+FX Exotic Options — FX Deepening begins — Phase FX1 complete.
+
+`fx_exotic.py`:
+- TouchResult (class): One-touch / no-touch option result.
+- fx_one_touch: One-touch: pays `payout` at expiry if spot touches barrier before T.
+- fx_no_touch: No-touch: pays `payout` if spot never touches barrier.
+- fx_double_no_touch: Double no-touch: pays if spot stays in [barrier_low, barrier_high].
+- fx_double_touch: Double touch: pays if spot touches either barrier.
+- LookbackResult (class): Lookback option result.
+- fx_lookback_floating: Floating-strike lookback: payoff = S_T − m (call) or M − S_T (put).
+- fx_lookback_fixed: Fixed-strike lookback: max(max(S) − K, 0) call or max(K − min(S), 0) put.
+- AsianResult (class): Asian option result.
+- fx_asian_geometric: Geometric Asian FX option — closed form.
+- fx_asian_arithmetic: Arithmetic Asian FX — MC with geometric control variate.
+- RangeAccrualResult (class): Range accrual result.
+- fx_range_accrual: FX range accrual: pays coupon × fraction_of_days_in_range.
+- AccumulatorResult (class): KODA (knock-out discount accumulator) result.
+- fx_accumulator: FX accumulator (KODA): buy FX daily at discount, knock out on barrier.
+- Ref: * :func:`fx_lookback_floating` / :func:`fx_lookback_fixed` — Goldman-Sosin-Gatto.; Wystup, *FX Options and Structured Products*, Wiley, 2nd ed., 2017.; Clark, *FX Option Pricing*, Wiley, 2011.
+
+---
+
+## v0.210.0 — 2026-04-16
+
+Advanced Inflation — IR DEEPENING COMPLETE — Phase IR8 complete.
+
+`inflation_advanced.py`:
+- YoYConvexityResult (class): Year-on-year convexity adjustment result.
+- yoy_convexity_adjustment: Convexity adjustment from ZC inflation rate to YoY forward rate.
+- LPIResult (class): Limited Price Index swap pricing result.
+- lpi_swap_price: Price a Limited Price Index (LPI) swap.
+- InflationSwaptionResult (class): Inflation swaption pricing result.
+- inflation_swaption_price: Price a swaption on a breakeven inflation swap.
+- RealRateSwaptionResult (class): Real rate swaption pricing result.
+- real_rate_swaption_price: Price a swaption on a real rate swap.
+- Ref: Mercurio, *Pricing Inflation-Indexed Derivatives*, QF, 2005.; Kerkhof, *Inflation Derivatives Explained*, Lehman Brothers, 2005.
+
+---
+
+## v0.209.0 — 2026-04-16
+
+IR Vol Surface — Phase IR7 complete.
+
+`ir_vol_surface.py`:
+- SABRSmileNode (class): SABR parameters at one (expiry, tenor) point.
+- SmileDynamicsResult (class): Backbone / smile dynamics analysis.
+- calibrate_sabr_smile: Calibrate SABR (α, ρ, ν) to market smile at one node.
+- VolCubeNode (class): Internal node in the vol cube.
+- SwaptionVolCube (class): Swaption vol cube: vol(expiry, tenor, strike) via SABR smiles.
+- build_vol_cube: Build full vol cube by calibrating SABR at each node.
+- smile_dynamics: Analyse smile dynamics: sticky strike vs sticky delta.
+- objective: 
+- vol: Implied vol at (expiry, tenor, strike).
+- atm_vol: ATM implied vol at (expiry, tenor).
+- smile: Return (strikes, vols) for the smile at (expiry, tenor).
+- get_node: 
+- interp: 
+- Ref: Rebonato, *Volatility and Correlation*, Wiley, Ch. 16-17.
+
+---
+
+## v0.208.0 — 2026-04-16
+
+Advanced Curves — Phase IR6 complete.
+
+`curve_advanced.py`:
+- NSFitResult (class): Nelson-Siegel fit result.
+- nelson_siegel_fit: Fit Nelson-Siegel model to observed yield curve.
+- ns_yield_curve: Evaluate Nelson-Siegel yield at given maturities.
+- SvenssonFitResult (class): Svensson fit result.
+- svensson_fit: Fit Svensson (extended Nelson-Siegel) to yield curve.
+- svensson_yield_curve: Evaluate Svensson yield at given maturities.
+- SmoothForwardResult (class): Smooth forward curve result.
+- smooth_forward_curve: Monotone-preserving forward rate interpolation.
+- TOYResult (class): Turn-of-year adjustment result.
+- turn_of_year_adjustment: Apply turn-of-year funding premium to yield curve.
+- objective: 
+- objective: 
+- Ref: Hagan & West, *Interpolation Methods for Curve Construction*, AMF, 2006.
+
+---
+
+## v0.207.0 — 2026-04-16
+
+Convexity Adjustments — Phase IR5 complete.
+
+`convexity.py`:
+- CMSConvexityResult (class): CMS convexity adjustment result.
+- cms_convexity_adjustment: CMS convexity adjustment (Hagan linear swap rate model).
+- cms_rate_replication: CMS rate via static replication with payer/receiver swaptions.
+- ArrearsResult (class): LIBOR-in-arrears adjustment result.
+- arrears_adjustment: LIBOR-in-arrears convexity adjustment.
+- TimingResult (class): Payment timing adjustment result.
+- timing_adjustment: Timing/payment delay adjustment.
+- QuantoIRResult (class): Cross-currency rate adjustment result.
+- quanto_ir_adjustment: Quanto adjustment for IR rate paid in different currency.
+- annuity_func: PV of unit annuity at rate K.
+- annuity_deriv2: Second derivative of annuity w.r.t. K (numerical).
+- Ref: Pelsser, *Mathematical Foundation of Convexity Correction*, QF, 2003.
+
+---
+
+## v0.206.0 — 2026-04-16
+
+Bermudan under LMM — Phase IR4 complete.
+
+`bermudan_lmm.py`:
+- BermudanLMMResult (class): Bermudan swaption pricing result under LMM.
+- ExerciseBoundary (class): Exercise boundary: swap rate threshold at each exercise date.
+- BermudanBoundsResult (class): Lower and upper bounds for Bermudan swaption.
+- bermudan_swaption_lmm: Bermudan swaption priced via LSM under LMM dynamics.
+- bermudan_exercise_boundary: Extract exercise boundary from LSM regression.
+- bermudan_upper_bound: Andersen-Broadie dual upper bound for Bermudan swaption.
+- Ref: Longstaff & Schwartz, *Valuing American Options by Simulation*, RFS, 2001.; Andersen & Broadie, *Primal-Dual Simulation for Upper Bounds*, Ops. Res., 2004.
+
+---
+
+## v0.205.0 — 2026-04-16
+
+LMM Deepening — Phase IR3 complete.
+
+`lmm_advanced.py`:
+- LMMCalibrationResult (class): Result of LMM calibration to swaption matrix.
+- lmm_cascade_calibration: Cascade (column-by-column) calibration of LMM to swaption matrix.
+- lmm_global_calibration: Global calibration: fit all instantaneous vols simultaneously.
+- SABRLMMResult (class): SABR-LMM simulation result.
+- SABRLMM (class): SABR-LMM: stochastic vol on each forward rate.
+- PredictorCorrectorResult (class): LMM with predictor-corrector drift.
+- lmm_predictor_corrector: LMM simulation with predictor-corrector drift.
+- LMMGreeksResult (class): LMM pathwise sensitivities.
+- lmm_pathwise_greeks: Pathwise (IPA) Greeks for a caplet under LMM.
+- objective: 
+- simulate: Simulate SABR-LMM forward rate + vol paths.
+- drift: LMM drift for forward j under terminal measure.
+- objective: 
+- Ref: Rebonato, *Modern Pricing of Interest-Rate Derivatives*, Princeton, 2002.; Rebonato, McKay & White, *The SABR/LIBOR Market Model*, Wiley, 2009.
+
+---
+
 ## v0.204.0 — 2026-04-15
 
 Short Rate Model Deepening — Phase IR2 complete.
