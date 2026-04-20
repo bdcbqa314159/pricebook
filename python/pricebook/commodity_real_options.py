@@ -89,7 +89,7 @@ class MineValuation:
 
         for yr in range(n_years):
             price = price_paths[:, yr]
-            df = discount_factors[yr]
+            df = discount_factors[min(yr + 1, len(discount_factors) - 1)]
 
             # Annual production capped at remaining reserves
             produce = np.minimum(self.annual_production, reserves_remaining)

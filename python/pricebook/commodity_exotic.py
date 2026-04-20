@@ -200,7 +200,8 @@ def commodity_asian_monthly(
     """
     # Geometric Asian closed form (for control and for geometric pricing)
     sigma_g = vol * math.sqrt((2 * n_fixings + 1) / (6 * (n_fixings + 1)))
-    mu_g = 0.5 * (rate - convenience_yield - 0.5 * vol**2 + sigma_g**2)
+    avg_factor = (n_fixings + 1) / (2 * n_fixings)
+    mu_g = (rate - convenience_yield - 0.5 * vol**2) * avg_factor + 0.5 * sigma_g**2
     F_g = spot * math.exp(mu_g * T)
     df = math.exp(-rate * T)
     opt_type = OptionType.CALL if is_call else OptionType.PUT

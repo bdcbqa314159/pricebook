@@ -88,9 +88,11 @@ def tail_risk_pricing(
     """
     rng = np.random.default_rng(seed)
     # Mix: 95% normal + 5% Pareto tail
-    normal_returns = rng.normal((rate - 0.5 * scale**2) * T, scale * math.sqrt(T), n_paths)
+    # Both components get drift so E[S_T] = S_0 × e^{rT} (risk-neutral)
+    drift = (rate - 0.5 * scale**2) * T
+    normal_returns = rng.normal(drift, scale * math.sqrt(T), n_paths)
     tail_mask = rng.random(n_paths) < 0.05
-    tail_returns = -genpareto.rvs(1/tail_index, scale=scale * math.sqrt(T), size=n_paths, random_state=rng)
+    tail_returns = drift - genpareto.rvs(1/tail_index, scale=scale * math.sqrt(T), size=n_paths, random_state=rng)
     returns = np.where(tail_mask, tail_returns, normal_returns)
 
     S_T = spot * np.exp(returns)

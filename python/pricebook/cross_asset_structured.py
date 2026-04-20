@@ -31,9 +31,9 @@ def equity_fx_fusion_note(
     """Equity performance paid in foreign currency.
     Payoff = notional × max(participation × (S_T/S_0 × FX_T/FX_0 - 1) + 1, floor).
     """
-    eq_return = equity_paths[:, -1] / equity_paths[:, 0] - 1
-    fx_return = fx_paths[:, -1] / fx_paths[:, 0]
-    combined = participation * eq_return * fx_return
+    eq_ratio = equity_paths[:, -1] / equity_paths[:, 0]
+    fx_ratio = fx_paths[:, -1] / fx_paths[:, 0]
+    combined = participation * (eq_ratio * fx_ratio - 1)  # combined FX-adjusted return
     payoff = notional * np.maximum(1 + combined - strike_pct, 0.0)
     price = float(discount_factor * payoff.mean())
     # Approximate deltas

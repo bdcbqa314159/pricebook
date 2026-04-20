@@ -155,7 +155,7 @@ def psa_schedule(psa_speed: float = 1.0, n_months: int = 360) -> np.ndarray:
     cpr = np.zeros(n_months)
     for m in range(n_months):
         if m < 30:
-            cpr[m] = 0.002 + (0.06 - 0.002) * m / 30
+            cpr[m] = 0.002 + (0.06 - 0.002) * (m + 1) / 30
         else:
             cpr[m] = 0.06
     cpr = cpr * psa_speed

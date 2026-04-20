@@ -108,7 +108,7 @@ def quality_option(
     else:
         switch_prob = 0.0
 
-    value = switch_prob * gap * futures_dv01
+    value = switch_prob * gap  # gap already in price units; no need to multiply by DV01 again
 
     return QualityOptionResult(
         value=float(max(value, 0.0)),

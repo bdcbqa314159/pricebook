@@ -212,7 +212,7 @@ def deflation_floor_value(
 
     if inflation_vol_pct <= 0 or T <= 0:
         # Deterministic: floor = max(0, -(breakeven × T)) discounted
-        deflation = max(-breakeven_pct * T, 0)
+        deflation = max(-breakeven_pct / 100 * T, 0)  # convert pct to decimal
         prob = 1.0 if breakeven_pct < 0 else 0.0
         return DeflationFloorResult(
             floor_value=float(discount_factor * deflation),
