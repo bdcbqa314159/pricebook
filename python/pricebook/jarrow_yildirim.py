@@ -222,8 +222,10 @@ def jy_yoy_caplet(
 
     forward_yoy = (1 + zc_end.fair_rate) / (1 + zc_start.fair_rate) - 1
 
-    # Effective vol: approximate from JY parameters
-    # σ_YoY ≈ σ_I × √τ / τ (simplified)
+    # Effective vol: σ_I is the instantaneous CPI index vol.
+    # Under JY, the YoY forward rate vol ≈ σ_I (simplified, ignoring
+    # rate-CPI correlation and B(T) corrections). Black76 with T=T_start
+    # then produces the correct √T_start scaling internally.
     eff_vol = p.sigma_I
 
     # Black on forward YoY rate

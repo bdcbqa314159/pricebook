@@ -68,7 +68,9 @@ def _rebonato_swaption_vol(
                 var += weights[i] * weights[j] * inst_vols[idx_i] * inst_vols[idx_j]
 
     T = (expiry_idx + 1) * dt
-    return math.sqrt(var) if var > 0 else 0.0
+    if T > 0 and var > 0:
+        return math.sqrt(var / T)
+    return 0.0
 
 
 def lmm_cascade_calibration(

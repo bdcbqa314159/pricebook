@@ -37,6 +37,13 @@ def merton_equity_credit(
     Default prob = N(−d₂).
     Credit spread = −ln(D_value / (D_face × e^{−rT})) / T − r + r.
     """
+    if T <= 0 or asset_vol <= 0:
+        # Deterministic: equity = max(V - D, 0)
+        equity = max(asset_value - debt_face, 0.0)
+        debt = asset_value - equity
+        pd = 1.0 if asset_value < debt_face else 0.0
+        return MertonResult(float(equity), float(debt), asset_value, asset_vol, pd, 0.0)
+
     d1 = (math.log(asset_value / debt_face) + (rate + 0.5 * asset_vol**2) * T) / (asset_vol * math.sqrt(T))
     d2 = d1 - asset_vol * math.sqrt(T)
 
@@ -100,6 +107,10 @@ def black_cox_first_passage(
     """
     if asset_value <= barrier:
         return BlackCoxResult(0.0, 1.0, 10000.0, barrier)
+
+    if T <= 0 or asset_vol <= 0:
+        # Deterministic: no default if V > H
+        return BlackCoxResult(1.0, 0.0, 0.0, barrier)
 
     mu = rate - 0.5 * asset_vol**2
     sigma_sqrt_T = asset_vol * math.sqrt(T)

@@ -357,8 +357,12 @@ def fx_asian_geometric(
     # Adjusted vol for geometric mean
     sigma_g = vol * math.sqrt((2 * n_fixings + 1) / (6 * (n_fixings + 1)))
 
-    # Adjusted drift
-    mu_g = 0.5 * (rate_dom - rate_for - 0.5 * vol**2 + sigma_g**2)
+    # Adjusted drift for geometric average
+    # The geometric mean of N fixings at t_i = iT/N has:
+    # E[G] = S₀ × exp(avg_drift × T) where
+    # avg_drift = (r−q−σ²/2) × (N+1)/(2N) + σ_G²/2
+    avg_factor = (n_fixings + 1) / (2 * n_fixings)
+    mu_g = (rate_dom - rate_for - 0.5 * vol**2) * avg_factor + 0.5 * sigma_g**2
 
     # Effective forward for the geometric average
     F_g = spot * math.exp(mu_g * T)

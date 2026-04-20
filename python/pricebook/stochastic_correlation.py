@@ -241,7 +241,7 @@ class WishartCovariance:
                 + self.sigma * np.sqrt(v2_pos) * z2, 1e-10)
             cov[:, step + 1] = (
                 cov[:, step] + self.kappa * (theta_c - cov[:, step]) * dt
-                + self.sigma * 0.5 * z3 * sqrt_dt)
+                + self.sigma * 0.5 * z3)  # z3 already contains √dt
 
             # Clamp covariance to valid range
             max_cov = np.sqrt(v1[:, step + 1] * v2[:, step + 1])

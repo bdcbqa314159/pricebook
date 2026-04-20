@@ -92,7 +92,7 @@ class ConvertibleBond:
         disc_rate = rate + credit_spread
 
         # Coupon times (in steps)
-        coupon_step_interval = n_steps // max(int(self.maturity_years * self.n_coupons_per_year), 1)
+        coupon_step_interval = max(n_steps // max(int(self.maturity_years * self.n_coupons_per_year), 1), 1)
         coupon_amount = self.notional * self.coupon_rate / self.n_coupons_per_year
 
         # Simulate equity paths
@@ -165,7 +165,7 @@ class ConvertibleBond:
         sqrt_dt = math.sqrt(dt)
         disc_rate = rate + cs
 
-        coupon_step_interval = n_steps // max(int(self.maturity_years * self.n_coupons_per_year), 1)
+        coupon_step_interval = max(n_steps // max(int(self.maturity_years * self.n_coupons_per_year), 1), 1)
         coupon_amount = self.notional * self.coupon_rate / self.n_coupons_per_year
 
         S = np.full((n_paths, n_steps + 1), spot_up)
@@ -274,7 +274,7 @@ def convertible_soft_call(
     conv_price = cb.conversion_price()
     trigger_level = soft_call_trigger * conv_price
 
-    coupon_step_interval = n_steps // max(int(cb.maturity_years * cb.n_coupons_per_year), 1)
+    coupon_step_interval = max(n_steps // max(int(cb.maturity_years * cb.n_coupons_per_year), 1), 1)
     coupon_amount = cb.notional * cb.coupon_rate / cb.n_coupons_per_year
     protection_step = int(soft_call_years_after * n_steps / cb.maturity_years)
 
@@ -356,7 +356,7 @@ def contingent_convertible(
     disc_rate = rate + credit_spread
 
     n_coupons_per_year = 2
-    coupon_step_interval = n_steps // max(int(maturity_years * n_coupons_per_year), 1)
+    coupon_step_interval = max(n_steps // max(int(maturity_years * n_coupons_per_year), 1), 1)
     coupon_amount = notional * coupon_rate / n_coupons_per_year
 
     S = np.full((n_paths, n_steps + 1), spot)

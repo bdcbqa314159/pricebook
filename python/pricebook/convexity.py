@@ -124,10 +124,10 @@ def cms_rate_replication(
         w = -annuity_deriv2(K) / G0_prime if abs(G0_prime) > 1e-12 else 0.0
         if K >= S0:
             # Payer swaption (call on rate)
-            price = black76_price(S0, K, expiry, vol, 1.0, OptionType.CALL)
+            price = black76_price(S0, K, vol, expiry, 1.0, OptionType.CALL)
         else:
             # Receiver swaption (put on rate)
-            price = black76_price(S0, K, expiry, vol, 1.0, OptionType.PUT)
+            price = black76_price(S0, K, vol, expiry, 1.0, OptionType.PUT)
         cms_adj += w * price * dK
 
     cms_rate = S0 + cms_adj
