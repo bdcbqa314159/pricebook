@@ -2,6 +2,21 @@
 
 ---
 
+## v0.280.0 — 2026-04-17
+
+FX2: FixingsStore integration with FloatingLeg. 5041 tests.
+
+`floating_leg.py`:
+- `pv()` now accepts `fixings: FixingsStore` and `rate_name: str`
+- Past accrual periods (accrual_end <= reference_date) use stored fixing rate
+- Missing fixings fall back to forward curve projection
+- Future periods always use forward curve (fixings ignored)
+
+`test_floating_leg_fixing.py` (+5 tests):
+- Past periods use fixings, future ignore, backward compat, missing fallback, exact amount
+
+---
+
 ## v0.279.0 — 2026-04-17
 
 FX1: Payment delay on FloatingLeg. 5036 tests.
