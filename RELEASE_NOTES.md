@@ -2,6 +2,22 @@
 
 ---
 
+## v0.292.0 — 2026-04-21
+
+FH9: RFR compounding integration. **FIXING HARDENING COMPLETE.** 5110 tests.
+
+`floating_leg.py`:
+- `pv()` now compounds daily overnight fixings for COMPOUNDED rate indices (SOFR, ESTR, SONIA)
+- `_compound_period()`: iterates daily fixings over observation window, calls `rfr.compound_rfr()`
+- FLAT indices (EURIBOR) still use single fixing at fixing_date
+- Incomplete daily fixings fall back to forward curve projection
+- `rate_index` stored on leg when created via `from_rate_index()`
+
+`test_floating_leg_fixing.py` (+4 tests):
+- Compounded overnight, compounded-vs-simple difference, incomplete fallback, FLAT uses single fixing
+
+---
+
 ## v0.291.0 — 2026-04-21
 
 FH8: FloatingLeg.from_rate_index() factory. 5101 tests.
