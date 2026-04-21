@@ -53,6 +53,8 @@ class FloatingRateNote:
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
+        payment_delay_days: int = 0,
+        observation_shift_days: int = 0,
     ):
         self.start = start
         self.end = end
@@ -63,6 +65,8 @@ class FloatingRateNote:
             start, end, frequency,
             notional=notional, spread=spread, day_count=day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
+            payment_delay_days=payment_delay_days,
+            observation_shift_days=observation_shift_days,
         )
 
     def dirty_price(

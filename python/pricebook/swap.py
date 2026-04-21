@@ -45,6 +45,8 @@ class InterestRateSwap:
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
+        payment_delay_days: int = 0,
+        observation_shift_days: int = 0,
     ):
         self.start = start
         self.end = end
@@ -67,6 +69,8 @@ class InterestRateSwap:
             start, end, float_frequency,
             notional=notional, spread=spread, day_count=float_day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
+            payment_delay_days=payment_delay_days,
+            observation_shift_days=observation_shift_days,
         )
 
     def pv(

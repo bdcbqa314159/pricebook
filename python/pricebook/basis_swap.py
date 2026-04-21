@@ -55,6 +55,8 @@ class BasisSwap:
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
+        payment_delay_days: int = 0,
+        observation_shift_days: int = 0,
     ):
         self.spread = spread
         self.notional = notional
@@ -63,12 +65,16 @@ class BasisSwap:
             start, end, leg1_frequency,
             notional=notional, spread=spread, day_count=day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
+            payment_delay_days=payment_delay_days,
+            observation_shift_days=observation_shift_days,
         )
 
         self.leg2 = FloatingLeg(
             start, end, leg2_frequency,
             notional=notional, spread=0.0, day_count=day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
+            payment_delay_days=payment_delay_days,
+            observation_shift_days=observation_shift_days,
         )
 
     def pv(

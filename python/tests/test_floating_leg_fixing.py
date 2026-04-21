@@ -690,3 +690,50 @@ class TestForwardRateObservation:
         )
         for cf in leg.cashflows:
             assert cf.fixing_date == cf.observation_start
+
+
+# ---- FH5: Consumer API pass-through ----
+
+class TestConsumerAPIPassthrough:
+    def test_swap_payment_delay(self):
+        """InterestRateSwap passes payment_delay to FloatingLeg."""
+        from pricebook.swap import InterestRateSwap
+        swap = InterestRateSwap(
+            date(2026, 4, 21), date(2031, 4, 21), fixed_rate=0.04,
+            payment_delay_days=2, observation_shift_days=2,
+        )
+        for cf in swap.floating_leg.cashflows:
+            assert cf.payment_date != cf.accrual_end  # delayed
+            assert cf.observation_start != cf.accrual_start  # shifted
+
+    def test_frn_observation_shift(self):
+        """FloatingRateNote passes observation_shift to FloatingLeg."""
+        from pricebook.frn import FloatingRateNote
+        frn = FloatingRateNote(
+            date(2026, 4, 21), date(2031, 4, 21), spread=0.005,
+            observation_shift_days=2,
+        )
+        for cf in frn.floating_leg.cashflows:
+            assert cf.observation_start < cf.accrual_start
+
+    def test_basis_swap_both_legs(self):
+        """BasisSwap passes params to both legs."""
+        from pricebook.basis_swap import BasisSwap
+        swap = BasisSwap(
+            date(2026, 4, 21), date(2031, 4, 21), spread=0.001,
+            payment_delay_days=2, observation_shift_days=2,
+        )
+        for leg in [swap.leg1, swap.leg2]:
+            for cf in leg.cashflows:
+                assert cf.payment_date != cf.accrual_end
+                assert cf.observation_start != cf.accrual_start
+
+    def test_swap_backward_compat(self):
+        """Without new params, swap works exactly as before."""
+        from pricebook.swap import InterestRateSwap
+        swap = InterestRateSwap(
+            date(2026, 4, 21), date(2031, 4, 21), fixed_rate=0.04,
+        )
+        for cf in swap.floating_leg.cashflows:
+            assert cf.payment_date == cf.accrual_end
+            assert cf.observation_start == cf.accrual_start
