@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
+from pricebook.fixings import FixingsStore
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
 
@@ -94,6 +95,8 @@ class FloatingLeg:
         self,
         curve: DiscountCurve,
         projection_curve: DiscountCurve | None = None,
+        fixings: FixingsStore | None = None,
+        rate_name: str | None = None,
     ) -> float:
         """
         Present value of the floating leg.
@@ -102,9 +105,22 @@ class FloatingLeg:
             curve: discount curve (used for discounting cashflows).
             projection_curve: forward projection curve (used for forward rates).
                 If None, uses the discount curve (single-curve pricing).
+            fixings: historical fixings store. If provided with rate_name,
+                past accrual periods use the stored fixing instead of the
+                forward curve projection.
+            rate_name: index name in the fixings store (e.g. "SOFR", "EURIBOR").
         """
         proj = projection_curve if projection_curve is not None else curve
-        return sum(
-            cf.amount(proj) * curve.df(cf.payment_date)
-            for cf in self.cashflows
-        )
+        ref = curve.reference_date
+        total = 0.0
+        for cf in self.cashflows:
+            if fixings is not None and rate_name is not None and cf.accrual_end <= ref:
+                fixing = fixings.get(rate_name, cf.accrual_start)
+                if fixing is not None:
+                    amount = cf.notional * (fixing + cf.spread) * cf.year_frac
+                else:
+                    amount = cf.amount(proj)
+            else:
+                amount = cf.amount(proj)
+            total += amount * curve.df(cf.payment_date)
+        return total
