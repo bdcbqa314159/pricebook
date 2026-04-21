@@ -2,6 +2,23 @@
 
 ---
 
+## v0.296.0 — 2026-04-21
+
+BF1-BF4: Bond futures completion. 5140 tests.
+
+`bond_futures.py`:
+- `invoice_price(futures, CF, accrued)` — settlement calculation
+- `forward_bond_price(dirty, repo, days, coupon_income)` — cash-and-carry forward
+- `delivery_basket(deliverables, futures, ...)` — full basket with implied repo ranking
+- `futures_hedge_ratio(bond_DV01, CTD_DV01, CF)` — hedge ratio
+- `tail_adjusted_hedge_ratio(...)` — with daily margin adjustment
+- `calendar_spread(front, back, front_carry, back_carry)` — roll analysis
+
+`test_bond_hardening.py` (+15 tests):
+- Invoice, forward price, coupon effect, carry sign, basket CTD, hedge ratio, tail, calendar spread
+
+---
+
 ## v0.295.0 — 2026-04-21
 
 BH4-BH7: Risky bond, bond futures, z-spread fixes. 5125 tests.
