@@ -2,6 +2,21 @@
 
 ---
 
+## v0.278.0 — 2026-04-21
+
+PR5: Cross-Asset Validation. **PRODUCTION READINESS COMPLETE.** 5030 tests.
+
+`test_cross_asset_validation.py` (NEW, 16 tests):
+- IR: swap PV = 0 at par rate; receiver DV01 positive
+- Bond: dirty = clean + accrued; YTM reasonable
+- FX: CIP holds; triangular consistency (EUR/JPY = EUR/USD × USD/JPY)
+- Credit: upfront round-trip; IG/HY sign convention
+- Options: put-call parity at ATM + OTM
+- Curves: all 10 G10 OIS valid (monotone DFs, DF[0]=1)
+- Inflation: index ratio identity
+
+---
+
 ## v0.277.0 — 2026-04-21
 
 PR4: Equity, Commodity & Inflation Conventions. **5000+ tests milestone.**
