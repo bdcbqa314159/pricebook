@@ -85,10 +85,11 @@ class rBergomiEquity:
         # Simplified: use scaled Z1 for fBM-like behaviour
         W_H = np.zeros((n_paths, n_steps + 1))
         for i in range(1, n_steps + 1):
-            # Riemann-Liouville representation (simplified)
+            # Riemann-Liouville fBM: W^H(t_i) = (1/Γ(H+½)) Σ_{j=0}^{i-1} (t_i−t_j)^{H−½} ΔW_j
             weights = np.array([(times[i] - times[j]) ** (H - 0.5) for j in range(i)])
             weights *= sqrt_dt / max(gamma_fn(H + 0.5), 1e-10)
-            W_H[:, i] = W_H[:, i - 1] + weights[-1] * Z1[:, i - 1]
+            # Full convolution: sum over all past increments weighted by kernel
+            W_H[:, i] = Z1[:, :i] @ weights
 
         # Variance: v_t = ξ₀ × exp(η W^H − η² t^{2H} / 2)
         v = self.xi0 * np.exp(
@@ -199,9 +200,10 @@ def rough_heston_cf(
         kernel = (t ** (alpha - 1)) / max(gamma_fn(alpha), 1e-10)
         h[i] = h[i - 1] + kernel * F_val * dt if i > 0 else kernel * F_val * dt
 
-    # CF approximation: exp(h(T) × (long-run variance integral) + ...)
-    # Simplified: assume flat forward variance ≈ v0
-    cf = np.exp(params.v0 * h[-1] * T)
+    # CF = exp(v0 × ∫₀ᵀ h(s) ds) for flat forward variance ξ₀ = v0
+    # Trapezoidal integration of h over discretised time grid
+    h_integral = np.sum(h) * dt  # trapezoidal approximation on uniform grid
+    cf = np.exp(params.v0 * h_integral)
     return cf
 
 

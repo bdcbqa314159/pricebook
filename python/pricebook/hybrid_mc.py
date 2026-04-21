@@ -20,9 +20,10 @@ class HybridFactor:
     name: str
     initial: float
     vol: float
-    mean_reversion: float       # 0 for GBM, >0 for OU
+    mean_reversion: float       # 0 for GBM, >0 for OU; drift rate for lognormal
     long_run: float             # θ for OU
     factor_type: str            # "gbm", "ou", "lognormal"
+    drift: float = 0.0          # risk-neutral drift for GBM (r - q)
 
 
 @dataclass
@@ -66,7 +67,7 @@ class HybridMCEngine:
 
             for i, f in enumerate(self.factors):
                 if f.factor_type == "gbm":
-                    drift = -0.5 * f.vol**2 * dt
+                    drift = (f.drift - 0.5 * f.vol**2) * dt
                     state[:, i] = state[:, i] * np.exp(drift + f.vol * Z[:, i] * sqrt_dt)
                 elif f.factor_type == "ou":
                     state[:, i] += f.mean_reversion * (f.long_run - state[:, i]) * dt \

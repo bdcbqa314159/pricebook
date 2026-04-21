@@ -125,8 +125,10 @@ def extreme_value_var(
     shape, _, scale = genpareto.fit(exceedances, floc=0)
     n = len(arr); n_u = len(exceedances)
     p = 1 - confidence
+    # Standard POT VaR: u + (σ/ξ) × [(n_u / (n × p))^ξ − 1]
+    # where p = 1 − confidence
     if abs(shape) > 1e-10:
-        var = threshold + (scale / shape) * ((n / n_u * p) ** (-shape) - 1)
+        var = threshold + (scale / shape) * ((n_u / (n * p)) ** shape - 1)
     else:
-        var = threshold - scale * math.log(n / n_u * p)
+        var = threshold + scale * math.log(n_u / (n * p))
     return EVTVaRResult(float(var), confidence, float(shape), float(scale))
