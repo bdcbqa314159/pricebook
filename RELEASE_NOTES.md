@@ -2,6 +2,24 @@
 
 ---
 
+## v0.275.0 — 2026-04-21
+
+PR2: G10 FX Completion.
+
+`currency.py`:
+- All 10 G10 currencies defined (EUR, GBP, AUD, NZD, USD, CAD, CHF, NOK, SEK, JPY)
+- ACI base priority: EUR > GBP > AUD > NZD > USD > CAD > CHF > NOK > SEK > JPY
+- all_g10_pairs(): generates all 45 unique G10 cross pairs in market convention
+- CurrencyPair.settlement_lag: T+1 for USD/CAD, T+2 for all others
+- CurrencyPair.is_ndf: all G10 pairs are deliverable
+- CurrencyPair.forward_rate(): CIP-based forward F = S × exp((r_q − r_b) × T)
+- CurrencyPair.forward_points(): F − S
+
+21 new tests: 45 pairs count, base/quote conventions (EUR/USD, GBP/USD, USD/JPY, AUD/USD,
+USD/NOK, USD/SEK, USD/CHF), settlement lags, NDF flag, CIP forward pricing, inversion
+
+---
+
 ## v0.274.0 — 2026-04-21
 
 PR1: G10 Fixed Income Completion — Production Readiness begins.
