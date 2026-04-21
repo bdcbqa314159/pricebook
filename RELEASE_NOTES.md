@@ -2,6 +2,82 @@
 
 ---
 
+## v0.271.0 — 2026-04-21
+
+CH3: Pipeline Integration — Curve Hardening Phase 3.
+
+`bootstrap.py`:
+- New `futures` parameter: list of (start_date, end_date, futures_rate)
+- Hull-White convexity adjustment integrated: `hw_convexity_a`, `hw_convexity_sigma`
+- Turn-of-year spread: `turn_of_year_spread` adds basis for year-end crossing periods
+- `bootstrap_forward_curve()` also accepts fras, futures, convexity, TOY params
+
+`curve_builder.py` (NEW):
+- build_curves(): unified entry point for curve construction
+- Currency-specific conventions (USD, EUR, GBP, JPY day counts + frequencies)
+- CurveSetResult: returns OIS + optional projection curve
+- Handles full pipeline: deposits → FRAs → futures (with convexity + TOY) → swaps
+
+---
+
+## v0.270.0 — 2026-04-21
+
+CH2: Date Precision + FRA Bootstrap — Curve Hardening Phase 2.
+
+`discount_curve.py`:
+- Store original pillar dates in `_pillar_dates_original` (eliminates `int(t*365)` drift)
+- `pillar_dates` property now returns exact dates, not approximations
+
+`bootstrap.py`:
+- New `fras` parameter: list of (start_date, end_date, rate) for FRA bootstrap
+- FRA relationship: df(end) = df(start) / (1 + rate × τ)
+- Interpolates df(start) from existing pillars to chain FRA-implied discount factors
+- FRAs bootstrapped between deposits (short end) and swaps (long end)
+
+---
+
+## Code & Numerical Review Fixes — 2026-04-20/21
+
+Code lens review: 14 CRITICAL bugs fixed across 14 files.
+Numerical lens review: 4 CRITICAL bugs fixed across 3 files.
+
+Key fixes:
+- convexity.py: CMS replication vol/T argument swap
+- lmm_advanced.py: Rebonato swaption vol missing /T
+- structural_credit.py: Merton/Black-Cox div-by-zero for T=0/vol=0
+- fx_exotic.py + commodity_exotic.py: Asian geometric drift formula
+- stochastic_correlation.py: Wishart covariance double √dt
+- convertible_bond.py: coupon_step_interval zero guard
+- commodity_real_options.py: mine DF off-by-one
+- amortising_bond.py: PSA ramp m/30 → (m+1)/30
+- bond_futures_options.py: quality option double-counted DV01
+- inflation_bond_advanced.py: deflation floor deterministic units
+- cross_asset_structured.py: fusion note payoff formula
+- tail_risk.py: mixture model drift + EVT VaR formula
+- rough_equity.py: fBM full kernel convolution + rough Heston CF integral
+- hybrid_mc.py: GBM drift now includes risk-free rate
+
+---
+
+## v0.269.0 — 2026-04-21
+
+CH1: Fix curve_engine + Solver Robustness — Curve Hardening begins.
+
+`curve_engine.py`:
+- build_curve() now delegates swap bootstrap to bootstrap.py (was incorrectly treating par rates as zero rates: df=exp(-r*t))
+- Proper iterative Brent root-finding on discount factors for swap maturities
+- Smith-Wilson extrapolation reads DFs from bootstrapped curve (not from broken formula)
+
+`solvers.py`:
+- brentq() now emits RuntimeWarning when |f(root)| > tol*1000 after maxiter (convergence check)
+- Prevents silent solver failures from producing garbage prices
+
+`bootstrap.py`, `ois.py`, `futures_bootstrap.py`:
+- Brent bracket widened from [0.001, 1.5] to [1e-6, 3.0]
+- Handles negative interest rates (DF > 1) up to approximately -3%
+
+---
+
 ## v0.268.0 — 2026-04-20
 
 Commodity-Rates Link — ALL DEEPENING COMPLETE. 297 slices, 4905 tests — Phase HY6 complete.

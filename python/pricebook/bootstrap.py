@@ -16,6 +16,7 @@ def bootstrap(
     deposits: list[tuple[date, float]],
     swaps: list[tuple[date, float]],
     fras: list[tuple[date, date, float]] | None = None,
+    futures: list[tuple[date, date, float]] | None = None,
     deposit_day_count: DayCountConvention = DayCountConvention.ACT_360,
     fixed_day_count: DayCountConvention = DayCountConvention.THIRTY_360,
     float_day_count: DayCountConvention = DayCountConvention.ACT_360,
@@ -24,9 +25,12 @@ def bootstrap(
     interpolation: InterpolationMethod = InterpolationMethod.LOG_LINEAR,
     calendar: Calendar | None = None,
     convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+    hw_convexity_a: float = 0.0,
+    hw_convexity_sigma: float = 0.0,
+    turn_of_year_spread: float = 0.0,
 ) -> DiscountCurve:
     """
-    Bootstrap a discount curve from deposits, FRAs, and swap par rates.
+    Bootstrap a discount curve from deposits, FRAs, futures, and swap par rates.
 
     Args:
         reference_date: Curve reference date (today / spot date).
@@ -37,6 +41,11 @@ def bootstrap(
         fras: Optional list of (start_date, end_date, rate) for FRAs.
               Each FRA implies df(end) = df(start) / (1 + rate × τ).
               Sorted by end_date, between deposits and swaps.
+        futures: Optional list of (start_date, end_date, futures_rate) for
+                 IR futures. Convexity-adjusted via Hull-White if hw params provided.
+        hw_convexity_a: Hull-White mean reversion for futures convexity adjustment.
+        hw_convexity_sigma: Hull-White vol for futures convexity adjustment.
+        turn_of_year_spread: Additive spread (in rate terms) for periods crossing year-end.
         deposit_day_count: Day count for deposit year fractions.
         fixed_day_count: Day count for the fixed leg of swaps.
         float_day_count: Day count for the floating leg of swaps.
@@ -83,6 +92,42 @@ def bootstrap(
                 df_start = 1.0
             # FRA relationship: df(end) = df(start) / (1 + rate × τ)
             df_end = df_start / (1 + fra_rate * tau)
+            pillar_dates.append(end_date)
+            pillar_dfs.append(df_end)
+
+    # --- Middle: futures (with convexity adjustment and TOY) ---
+    if futures:
+        import math as _math
+        for start_date, end_date, fut_rate in futures:
+            tau = year_fraction(start_date, end_date, deposit_day_count)
+            # Hull-White convexity adjustment: futures_rate > forward_rate
+            conv_adj = 0.0
+            if hw_convexity_a > 0 and hw_convexity_sigma > 0:
+                t_start = year_fraction(reference_date, start_date, deposit_day_count)
+                t_end = year_fraction(reference_date, end_date, deposit_day_count)
+                # HW convexity: ca = 0.5 × σ² × B(t1,t2) × [B(0,t2) − B(0,t1)]
+                # where B(s,t) = (1 − e^{−a(t−s)}) / a
+                def _B(s, t):
+                    return (1 - _math.exp(-hw_convexity_a * (t - s))) / hw_convexity_a
+                conv_adj = 0.5 * hw_convexity_sigma**2 * _B(t_start, t_end) * (
+                    _B(0, t_end) - _B(0, t_start)
+                )
+            fwd_rate = fut_rate - conv_adj
+
+            # Turn-of-year: if period crosses Dec 31, add spread
+            if turn_of_year_spread > 0 and start_date.year != end_date.year:
+                fwd_rate += turn_of_year_spread
+
+            # Chain: df(end) = df(start) / (1 + fwd × τ)
+            if pillar_dates:
+                temp_curve = DiscountCurve(
+                    reference_date, pillar_dates, pillar_dfs,
+                    day_count=deposit_day_count, interpolation=interpolation,
+                )
+                df_start = temp_curve.df(start_date)
+            else:
+                df_start = 1.0
+            df_end = df_start / (1 + fwd_rate * tau)
             pillar_dates.append(end_date)
             pillar_dfs.append(df_end)
 
@@ -146,6 +191,8 @@ def bootstrap_forward_curve(
     swaps: list[tuple[date, float]],
     discount_curve: DiscountCurve,
     deposits: list[tuple[date, float]] | None = None,
+    fras: list[tuple[date, date, float]] | None = None,
+    futures: list[tuple[date, date, float]] | None = None,
     deposit_day_count: DayCountConvention = DayCountConvention.ACT_360,
     fixed_day_count: DayCountConvention = DayCountConvention.THIRTY_360,
     float_day_count: DayCountConvention = DayCountConvention.ACT_360,
@@ -154,6 +201,9 @@ def bootstrap_forward_curve(
     interpolation: InterpolationMethod = InterpolationMethod.LOG_LINEAR,
     calendar: Calendar | None = None,
     convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+    hw_convexity_a: float = 0.0,
+    hw_convexity_sigma: float = 0.0,
+    turn_of_year_spread: float = 0.0,
 ) -> DiscountCurve:
     """
     Bootstrap a forward/projection curve from IRS par rates, discounting off
