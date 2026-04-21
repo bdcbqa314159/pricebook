@@ -2,6 +2,21 @@
 
 ---
 
+## v0.282.0 — 2026-04-17
+
+FX4: Back stub types for schedule generation. 5051 tests.
+
+`schedule.py`:
+- Added `StubType.SHORT_BACK` and `StubType.LONG_BACK`
+- SHORT_BACK: regular periods from start, short final period
+- LONG_BACK: short final stub merged into previous period
+- Forward generation from start (vs backward from end for front stubs)
+
+`test_floating_leg_fixing.py` (+5 tests):
+- Short back stub, long back stub, exact division, front-vs-back difference, FloatingLeg compat
+
+---
+
 ## v0.281.0 — 2026-04-17
 
 FX3: Observation shift for RFR fixings. 5046 tests.
