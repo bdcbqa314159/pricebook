@@ -2,6 +2,22 @@
 
 ---
 
+## v0.283.0 — 2026-04-17
+
+FX5: RateIndex registry. 5063 tests.
+
+`rate_index.py` (NEW):
+- RateIndex dataclass: name, currency, day_count, fixing_lag, compounding, observation_shift, payment_delay, tenor_months, is_overnight, administrator
+- CompoundingMethod enum: COMPOUNDED, AVERAGED, FLAT
+- 8 overnight RFRs: SOFR (FRBNY), ESTR (ECB), SONIA (BOE), TONA (BOJ), SARON (SIX), CORRA (BOC), AONIA (RBA), NZOCR (RBNZ)
+- 3 term IBORs: EURIBOR_3M, EURIBOR_6M, TIBOR_3M
+- get_rate_index(), all_rate_indices(), overnight_indices(), indices_for_currency()
+
+`test_floating_leg_fixing.py` (+12 tests):
+- Per-index validation, overnight/term distinction, frozen immutable, G10 RFR coverage
+
+---
+
 ## v0.282.0 — 2026-04-17
 
 FX4: Back stub types for schedule generation. 5051 tests.
