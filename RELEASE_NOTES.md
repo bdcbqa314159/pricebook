@@ -2,6 +2,22 @@
 
 ---
 
+## v0.284.0 — 2026-04-17
+
+FX6: Calendar-aware business day lag. **FIXING MANAGEMENT COMPLETE.** 5070 tests.
+
+`calendar.py`:
+- Added `Calendar.add_business_days(d, n)` — move forward/backward by n business days, skipping weekends and holidays
+
+`fixings.py`:
+- Added `FixingsStore.get_with_lag(rate_name, d, lag, calendar)` — retrieve fixing at lag business days before d
+- Without calendar, falls back to calendar days
+
+`test_floating_leg_fixing.py` (+7 tests):
+- Business day forward/backward, holiday skip, calendar-aware lag, no-calendar fallback, missing, zero lag
+
+---
+
 ## v0.283.0 — 2026-04-17
 
 FX5: RateIndex registry. 5063 tests.
