@@ -2,6 +2,20 @@
 
 ---
 
+## v0.289.0 — 2026-04-21
+
+FH5+FH6: Consumer API integration. 5093 tests.
+
+`swap.py`, `frn.py`, `basis_swap.py`:
+- Added `payment_delay_days` and `observation_shift_days` pass-through
+- `BasisSwap.par_spread()` throwaway leg preserves all settings (calendar, convention, stub, eom, delay, shift)
+- `FloatingRateNote.discount_margin()` throwaway FRN preserves all settings
+
+`test_floating_leg_fixing.py` (+6 tests):
+- Swap/FRN/basis_swap pass-through, backward compat, par_spread preserves, DM preserves
+
+---
+
 ## v0.288.0 — 2026-04-21
 
 FH5: Consumer API pass-through for fixing parameters. 5087 tests.
