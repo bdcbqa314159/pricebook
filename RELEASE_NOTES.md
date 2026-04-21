@@ -2,6 +2,21 @@
 
 ---
 
+## v0.281.0 — 2026-04-17
+
+FX3: Observation shift for RFR fixings. 5046 tests.
+
+`floating_leg.py`:
+- Added `observation_shift_days` parameter (default 0)
+- New `fixing_date` field on FloatingCashflow: `accrual_start - shift`
+- SOFR uses T-2: fixing observed 2 days before accrual start
+- FixingsStore lookup now uses `fixing_date` instead of `accrual_start`
+
+`test_floating_leg_fixing.py` (+5 tests):
+- Default zero shift, T-2 shift, fixing lookup at shifted date, wrong-date fallback, negative raises
+
+---
+
 ## v0.280.0 — 2026-04-17
 
 FX2: FixingsStore integration with FloatingLeg. 5041 tests.
