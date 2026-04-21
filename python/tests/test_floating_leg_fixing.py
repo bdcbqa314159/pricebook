@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from pricebook.calendar import USSettlementCalendar
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
@@ -427,3 +428,63 @@ class TestRateIndexRegistry:
         expected = {"SOFR", "ESTR", "SONIA", "TONA", "SARON", "CORRA", "AONIA", "NZOCR"}
         actual = {idx.name for idx in overnight_indices()}
         assert expected == actual
+
+
+# ---- FX6: Calendar-Aware Lag ----
+
+class TestCalendarAwareLag:
+    def test_add_business_days_forward(self):
+        """add_business_days(+2) skips weekends."""
+        cal = USSettlementCalendar()
+        # Friday Apr 17 2026 + 2 business days = Tuesday Apr 21
+        result = cal.add_business_days(date(2026, 4, 17), 2)
+        assert result == date(2026, 4, 21)
+
+    def test_add_business_days_backward(self):
+        """add_business_days(-2) goes backward skipping weekends."""
+        cal = USSettlementCalendar()
+        # Tuesday Apr 21 2026 - 2 business days = Friday Apr 17
+        result = cal.add_business_days(date(2026, 4, 21), -2)
+        assert result == date(2026, 4, 17)
+
+    def test_add_business_days_skips_holiday(self):
+        """Business day calculation skips holidays."""
+        cal = USSettlementCalendar()
+        # July 3 2026 (Fri), July 4 is Sat → observed Fri July 3
+        # Actually let's use a clearer example: MLK Day 2026 is Jan 19 (Mon)
+        # Jan 16 (Fri) + 1 business day should skip MLK → Jan 20 (Tue)
+        result = cal.add_business_days(date(2026, 1, 16), 1)
+        assert result == date(2026, 1, 20)  # Skips weekend + MLK
+
+    def test_get_with_lag_calendar(self):
+        """get_with_lag uses calendar-aware business days."""
+        cal = USSettlementCalendar()
+        store = FixingsStore()
+        # Store fixing on Friday Apr 17
+        store.set("SOFR", date(2026, 4, 17), 0.043)
+        # Look up with lag=2 from Tuesday Apr 21 → Friday Apr 17
+        result = store.get_with_lag("SOFR", date(2026, 4, 21), lag=2, calendar=cal)
+        assert result == 0.043
+
+    def test_get_with_lag_no_calendar(self):
+        """Without calendar, lag uses calendar days."""
+        store = FixingsStore()
+        store.set("SOFR", date(2026, 4, 19), 0.043)
+        # Lag 2 calendar days from Apr 21 → Apr 19
+        result = store.get_with_lag("SOFR", date(2026, 4, 21), lag=2, calendar=None)
+        assert result == 0.043
+
+    def test_get_with_lag_missing(self):
+        """Returns None if no fixing at lagged date."""
+        cal = USSettlementCalendar()
+        store = FixingsStore()
+        result = store.get_with_lag("SOFR", date(2026, 4, 21), lag=2, calendar=cal)
+        assert result is None
+
+    def test_zero_lag(self):
+        """Zero lag returns fixing at the reference date itself."""
+        cal = USSettlementCalendar()
+        store = FixingsStore()
+        store.set("SOFR", date(2026, 4, 21), 0.043)
+        result = store.get_with_lag("SOFR", date(2026, 4, 21), lag=0, calendar=cal)
+        assert result == 0.043

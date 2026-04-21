@@ -79,6 +79,17 @@ class Calendar(ABC):
             current -= timedelta(days=1)
         return current
 
+    def add_business_days(self, d: date, n: int) -> date:
+        """Move forward (n > 0) or backward (n < 0) by n business days."""
+        step = 1 if n >= 0 else -1
+        remaining = abs(n)
+        current = d
+        while remaining > 0:
+            current += timedelta(days=step)
+            if self.is_business_day(current):
+                remaining -= 1
+        return current
+
     @staticmethod
     def _observe(d: date) -> date:
         """Weekend observation: Saturday -> Friday, Sunday -> Monday."""

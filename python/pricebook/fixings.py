@@ -53,6 +53,27 @@ class FixingsStore:
     def has(self, rate_name: str, d: date) -> bool:
         return self.get(rate_name, d) is not None
 
+    def get_with_lag(
+        self, rate_name: str, d: date, lag: int, calendar: "Calendar | None" = None,
+    ) -> float | None:
+        """Retrieve a fixing with a business-day lag.
+
+        Args:
+            rate_name: index name (e.g. "SOFR")
+            d: reference date (e.g. accrual start)
+            lag: number of business days to go back (e.g. 2 for T-2)
+            calendar: business day calendar. If None, uses calendar days.
+
+        Returns the fixing at the date that is `lag` business days before `d`,
+        or None if not found.
+        """
+        if calendar is not None:
+            fixing_date = calendar.add_business_days(d, -lag)
+        else:
+            from datetime import timedelta
+            fixing_date = d - timedelta(days=lag)
+        return self.get(rate_name, fixing_date)
+
     def rate_names(self) -> list[str]:
         return sorted(self._data.keys())
 
