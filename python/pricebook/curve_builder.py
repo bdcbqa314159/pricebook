@@ -59,6 +59,36 @@ _CONVENTIONS = {
         DayCountConvention.ACT_360, Frequency.SEMI_ANNUAL, Frequency.SEMI_ANNUAL,
         InterpolationMethod.LOG_LINEAR,
     ),
+    "CHF": CurrencyConventions(
+        DayCountConvention.ACT_360, DayCountConvention.THIRTY_360,
+        DayCountConvention.ACT_360, Frequency.ANNUAL, Frequency.SEMI_ANNUAL,
+        InterpolationMethod.LOG_LINEAR,
+    ),
+    "CAD": CurrencyConventions(
+        DayCountConvention.ACT_365_FIXED, DayCountConvention.ACT_365_FIXED,
+        DayCountConvention.ACT_365_FIXED, Frequency.SEMI_ANNUAL, Frequency.SEMI_ANNUAL,
+        InterpolationMethod.LOG_LINEAR,
+    ),
+    "AUD": CurrencyConventions(
+        DayCountConvention.ACT_365_FIXED, DayCountConvention.ACT_365_FIXED,
+        DayCountConvention.ACT_365_FIXED, Frequency.SEMI_ANNUAL, Frequency.QUARTERLY,
+        InterpolationMethod.LOG_LINEAR,
+    ),
+    "NZD": CurrencyConventions(
+        DayCountConvention.ACT_365_FIXED, DayCountConvention.ACT_365_FIXED,
+        DayCountConvention.ACT_365_FIXED, Frequency.SEMI_ANNUAL, Frequency.QUARTERLY,
+        InterpolationMethod.LOG_LINEAR,
+    ),
+    "SEK": CurrencyConventions(
+        DayCountConvention.ACT_360, DayCountConvention.THIRTY_360,
+        DayCountConvention.ACT_360, Frequency.ANNUAL, Frequency.QUARTERLY,
+        InterpolationMethod.LOG_LINEAR,
+    ),
+    "NOK": CurrencyConventions(
+        DayCountConvention.ACT_360, DayCountConvention.THIRTY_360,
+        DayCountConvention.ACT_360, Frequency.ANNUAL, Frequency.SEMI_ANNUAL,
+        InterpolationMethod.LOG_LINEAR,
+    ),
 }
 
 

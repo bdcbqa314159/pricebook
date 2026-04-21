@@ -8,6 +8,7 @@ class DayCountConvention(Enum):
     ACT_360 = "ACT/360"
     ACT_365_FIXED = "ACT/365F"
     THIRTY_360 = "30/360"
+    THIRTY_E_360 = "30E/360"
     ACT_ACT_ISDA = "ACT/ACT ISDA"
 
 
@@ -24,6 +25,8 @@ def year_fraction(start: date, end: date, convention: DayCountConvention) -> flo
         return _act_365_fixed(start, end)
     elif convention == DayCountConvention.THIRTY_360:
         return _thirty_360(start, end)
+    elif convention == DayCountConvention.THIRTY_E_360:
+        return _thirty_e_360(start, end)
     elif convention == DayCountConvention.ACT_ACT_ISDA:
         return _act_act_isda(start, end)
     else:
@@ -56,6 +59,20 @@ def _thirty_360(start: date, end: date) -> float:
     if d2 == 31 and d1 == 30:
         d2 = 30
 
+    days = 360 * (end.year - start.year) + 30 * (end.month - start.month) + (d2 - d1)
+    return days / 360.0
+
+
+def _thirty_e_360(start: date, end: date) -> float:
+    """
+    30E/360 (Eurobond Basis / ISDA 2006 / German):
+    1. If d1 = 31, change to 30
+    2. If d2 = 31, change to 30 (unconditionally, unlike US 30/360)
+
+    Used for Eurobonds, Bunds, and EUR corporate bonds.
+    """
+    d1 = min(start.day, 30)
+    d2 = min(end.day, 30)
     days = 360 * (end.year - start.year) + 30 * (end.month - start.month) + (d2 - d1)
     return days / 360.0
 

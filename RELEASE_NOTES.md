@@ -2,6 +2,30 @@
 
 ---
 
+## v0.274.0 — 2026-04-21
+
+PR1: G10 Fixed Income Completion — Production Readiness begins.
+
+`calendar.py`:
+- SEKCalendar: Midsummer Eve, National Day, Epiphany, Ascension, Christmas Eve/NYE
+- NOKCalendar: Constitution Day (17 May), Maundy Thursday, Ascension, Whit Monday
+- NZDCalendar: Waitangi Day, Anzac Day, Queen's Birthday, Labour Day (4th Mon Oct)
+- All 10 G10 currencies now have calendar implementations
+
+`day_count.py`:
+- THIRTY_E_360 (30E/360 Eurobond Basis): both d1 and d2 capped at 30 unconditionally
+- Used for Bunds, Eurobonds, EUR corporate bonds
+- Differs from US 30/360 when d2=31 and d1<30
+
+`curve_builder.py`:
+- Convention definitions for CHF, CAD, AUD, NZD, SEK, NOK
+- All 10 G10 currencies now have explicit day count, frequency, interpolation conventions
+- build_curves() works for all 10 currencies with correct market conventions
+
+18 new tests: calendars (Midsummer, Constitution Day, Waitangi, etc.), 30E/360 vs 30/360, all G10 build_curves()
+
+---
+
 ## v0.273.0 — 2026-04-21
 
 P0: Round-Trip Repricing + Negative Rate Testing.

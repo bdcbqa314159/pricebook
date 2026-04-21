@@ -335,6 +335,103 @@ class CADCalendar(Calendar):
         return holidays
 
 
+class SEKCalendar(Calendar):
+    """Swedish banking calendar (Stockholm).
+
+    Holidays: New Year's, Epiphany (6 Jan), Good Friday, Easter Monday,
+    May Day (1 May), Ascension, National Day (6 Jun), Midsummer Eve
+    (Fri before Midsummer Day = Sat between 20-26 Jun),
+    Christmas Eve, Christmas, Boxing Day, New Year's Eve.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))     # New Year's
+        holidays.add(date(year, 1, 6))     # Epiphany
+        holidays.add(date(year, 5, 1))     # May Day
+        holidays.add(date(year, 6, 6))     # National Day
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+        holidays.add(easter + timedelta(days=1))    # Easter Monday
+        holidays.add(easter + timedelta(days=39))   # Ascension Day
+
+        # Midsummer Eve: Friday before the Saturday between Jun 20-26
+        for d in range(20, 27):
+            candidate = date(year, 6, d)
+            if candidate.weekday() == 5:  # Saturday
+                holidays.add(candidate - timedelta(days=1))  # Friday
+                break
+
+        holidays.add(date(year, 12, 24))   # Christmas Eve
+        holidays.add(date(year, 12, 25))   # Christmas
+        holidays.add(date(year, 12, 26))   # Boxing Day
+        holidays.add(date(year, 12, 31))   # New Year's Eve
+
+        return holidays
+
+
+class NOKCalendar(Calendar):
+    """Norwegian banking calendar (Oslo).
+
+    Holidays: New Year's, Maundy Thursday, Good Friday, Easter Monday,
+    May Day (1 May), Constitution Day (17 May), Ascension,
+    Whit Monday, Christmas, Boxing Day.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))     # New Year's
+        holidays.add(date(year, 5, 1))     # May Day
+        holidays.add(date(year, 5, 17))    # Constitution Day
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=3))   # Maundy Thursday
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+        holidays.add(easter + timedelta(days=1))    # Easter Monday
+        holidays.add(easter + timedelta(days=39))   # Ascension
+        holidays.add(easter + timedelta(days=50))   # Whit Monday
+
+        holidays.add(date(year, 12, 25))   # Christmas
+        holidays.add(date(year, 12, 26))   # Boxing Day
+
+        return holidays
+
+
+class NZDCalendar(Calendar):
+    """New Zealand banking calendar (Wellington).
+
+    Holidays: New Year's (1+2 Jan), Waitangi Day (6 Feb),
+    Good Friday, Easter Monday, Anzac Day (25 Apr),
+    Queen's Birthday (1st Mon Jun), Matariki (variable from 2022),
+    Labour Day (4th Mon Oct), Christmas, Boxing Day.
+    """
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(self._observe(date(year, 1, 1)))    # New Year's Day
+        holidays.add(self._observe(date(year, 1, 2)))    # Day after New Year's
+        holidays.add(self._observe(date(year, 2, 6)))    # Waitangi Day
+        holidays.add(date(year, 4, 25))                   # Anzac Day
+
+        holidays.add(self._nth_weekday(year, 6, 0, 1))   # Queen's Birthday (1st Mon Jun)
+        holidays.add(self._nth_weekday(year, 10, 0, 4))  # Labour Day (4th Mon Oct)
+
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+        holidays.add(easter + timedelta(days=1))    # Easter Monday
+
+        obs_xmas = self._observe(date(year, 12, 25))
+        obs_boxing = self._observe(date(year, 12, 26))
+        holidays.add(obs_xmas)
+        if obs_boxing == obs_xmas:
+            holidays.add(obs_boxing + timedelta(days=1))
+        else:
+            holidays.add(obs_boxing)
+
+        return holidays
+
+
 class JointCalendar(Calendar):
     """Joint calendar: a date is a holiday if it's a holiday in ANY component."""
 
