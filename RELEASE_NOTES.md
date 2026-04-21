@@ -2,6 +2,18 @@
 
 ---
 
+## v0.294.0 — 2026-04-21
+
+BH3: PSA prepayment schedule fix. 5114 tests.
+
+`amortising_bond.py` — **CRITICAL FIX**:
+- PSA ramp: `0.06*(m+1)/30` (correct) instead of `0.002+0.058*(m+1)/30` (started at 0.39% not 0.2%)
+
+`test_bond_hardening.py` (+5 tests):
+- Month 1 CPR=0.2%, month 30 CPR=6%, flat after 30, 200PSA doubles, monotone ramp
+
+---
+
 ## v0.293.0 — 2026-04-21
 
 BH1+BH2: Bond settlement-based analytics + past cashflow filtering. 5109 tests.
