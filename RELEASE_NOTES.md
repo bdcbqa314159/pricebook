@@ -2,6 +2,21 @@
 
 ---
 
+## v0.287.0 — 2026-04-21
+
+FH4: Forward rate projects from observation window. 5083 tests.
+
+`floating_leg.py`:
+- Added `observation_start` and `observation_end` fields to FloatingCashflow
+- `forward_rate()` now uses `df(obs_start)/df(obs_end)` instead of accrual dates
+- `fixing_date` derived from `observation_start` (= accrual_start - shift)
+- Year fraction still based on accrual dates (correct per ISDA)
+
+`test_floating_leg_fixing.py` (+4 tests):
+- Obs equals accrual without shift, shifted obs dates, forward rate differs, fixing = obs_start
+
+---
+
 ## v0.286.0 — 2026-04-21
 
 FH3: Current-period fixing for term rates. 5079 tests.
