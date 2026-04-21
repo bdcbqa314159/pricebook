@@ -2,6 +2,20 @@
 
 ---
 
+## v0.279.0 — 2026-04-17
+
+FX1: Payment delay on FloatingLeg. 5036 tests.
+
+`floating_leg.py`:
+- Added `payment_delay_days` parameter (default 0 for backward compat)
+- `payment_date = accrual_end + timedelta(days=payment_delay_days)`
+- Standard T+2 for SOFR/EURIBOR, T+0 for OIS
+
+`test_floating_leg_fixing.py` (NEW, 6 tests):
+- Default zero delay, T+2 delay, PV impact, monotone in delay, negative raises, backward compat
+
+---
+
 ## v0.278.0 — 2026-04-21
 
 PR5: Cross-Asset Validation. **PRODUCTION READINESS COMPLETE.** 5030 tests.
