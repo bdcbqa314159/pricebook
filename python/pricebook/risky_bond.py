@@ -64,10 +64,11 @@ class RiskyBond:
             # Coupon conditional on survival
             pv += self.notional * self.coupon_rate * yf * df * surv
 
-            # Recovery on default in this period
+            # Recovery on default in this period (ISDA: default at mid-period)
             surv_prev = survival_curve.survival(t_start)
             default_prob = surv_prev - surv
-            pv += self.recovery * self.notional * default_prob * df
+            df_mid = (discount_curve.df(t_start) + df) / 2.0
+            pv += self.recovery * self.notional * default_prob * df_mid
 
         # Principal at maturity conditional on survival
         pv += self.notional * discount_curve.df(self.end) * survival_curve.survival(self.end)
@@ -108,7 +109,7 @@ def z_spread(
         pv += bond.notional * bumped.df(bond.end)
         return pv - market_price
 
-    return brentq(objective, -0.05, 0.20)
+    return brentq(objective, -0.05, 1.0)
 
 
 def asset_swap_spread(

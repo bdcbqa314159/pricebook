@@ -97,24 +97,26 @@ class TestImpliedRepo:
 
 class TestBondFuturesBasis:
     def test_gross_basis(self):
-        result = bond_futures_basis(98.0, 100.0, 0.97, 0.05, 0.03, 90)
+        # coupon_income = 0.05*100*(90/365) ≈ 1.23
+        result = bond_futures_basis(98.0, 100.0, 0.97, 0.03, 90, coupon_income=0.05 * 100 * 90 / 365)
         assert result.gross_basis == pytest.approx(98.0 - 0.97 * 100.0)
 
     def test_net_basis_less_than_gross(self):
         """Positive carry → net basis < gross basis."""
-        result = bond_futures_basis(98.0, 100.0, 0.97, 0.06, 0.02, 90)
-        # Carry = coupon - financing > 0 when coupon_rate > repo_rate
+        ci = 0.06 * 100 * 90 / 365
+        result = bond_futures_basis(98.0, 100.0, 0.97, 0.02, 90, coupon_income=ci)
+        # Carry = coupon - financing > 0 when coupon_income > financing
         assert result.carry > 0
         assert result.net_basis < result.gross_basis
 
     def test_net_basis_approx_zero_for_ctd(self):
         """For the CTD in a simple case, net basis ≈ 0."""
-        # CTD at fair value: gross basis ≈ carry
-        result = bond_futures_basis(97.0, 100.0, 0.97, 0.05, 0.05, 90)
-        # When coupon = repo, carry ≈ 0, so net ≈ gross
+        ci = 0.05 * 100 * 90 / 365
+        result = bond_futures_basis(97.0, 100.0, 0.97, 0.05, 90, coupon_income=ci)
+        # When coupon ≈ repo, carry ≈ 0, so net ≈ gross
         assert abs(result.net_basis - result.gross_basis) < 1.0
 
     def test_carry_components(self):
-        result = bond_futures_basis(100.0, 100.0, 1.0, 0.06, 0.03, 365)
-        # Carry = 0.06*100*1 - 100*0.03*1 = 6 - 3 = 3
+        # coupon_income = 6.0 (6% on 100 face for 1 year), financing = 100*0.03*1 = 3
+        result = bond_futures_basis(100.0, 100.0, 1.0, 0.03, 365, coupon_income=6.0)
         assert result.carry == pytest.approx(3.0)

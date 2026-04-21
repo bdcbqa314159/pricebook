@@ -9,6 +9,9 @@ from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 from pricebook.amortising_bond import psa_schedule
+from pricebook.bond_futures import bond_futures_basis, implied_repo_rate
+from pricebook.risky_bond import RiskyBond, z_spread
+from pricebook.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve
 
 
@@ -138,3 +141,85 @@ class TestPSASchedule:
         smm = psa_schedule(1.0, 360)
         for i in range(29):
             assert smm[i + 1] > smm[i]
+
+
+# ---- BH4: Risky bond recovery at mid-period ----
+
+class TestRecoveryMidPeriod:
+    def test_recovery_higher_with_mid_period(self):
+        """Mid-period discounting gives higher recovery PV than end-of-period."""
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.05)
+        surv_dates = [date(2027, 4, 21), date(2031, 4, 21)]
+        surv_probs = [0.98, 0.90]
+        surv = SurvivalCurve(ref, surv_dates, surv_probs)
+
+        bond = RiskyBond(ref, date(2031, 4, 21), 0.04, recovery=0.40)
+        price = bond.dirty_price(curve, surv)
+        # Should be positive and reasonable
+        assert 70 < price < 110
+
+    def test_zero_default_prob_recovery_zero(self):
+        """With 100% survival, recovery contribution is zero."""
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        surv_dates = [date(2031, 4, 21)]
+        surv_probs = [1.0]
+        surv = SurvivalCurve(ref, surv_dates, surv_probs)
+
+        bond = RiskyBond(ref, date(2031, 4, 21), 0.04, recovery=0.40)
+        risky_price = bond.dirty_price(curve, surv)
+        rf_price = bond.risk_free_price(curve)
+        # No default → risky = risk-free
+        assert risky_price == pytest.approx(rf_price, rel=1e-8)
+
+
+# ---- BH5+BH6: Implied repo and carry fixes ----
+
+class TestImpliedRepoAndCarry:
+    def test_implied_repo_with_accrued(self):
+        """Implied repo should use dirty cost (clean + accrued)."""
+        repo = implied_repo_rate(
+            bond_price=100.0, futures_price=100.0, cf=1.0,
+            accrued_at_delivery=2.0, coupon_income=3.0,
+            days_to_delivery=180, accrued_at_purchase=1.5,
+        )
+        # cost = 100 + 1.5 = 101.5
+        # invoice = 100 + 2.0 = 102.0
+        # profit = 102 - 101.5 + 3 = 3.5
+        # repo = 3.5 / 101.5 * 365/180
+        expected = 3.5 / 101.5 * (365.0 / 180)
+        assert repo == pytest.approx(expected, rel=1e-10)
+
+    def test_implied_repo_zero_accrued_backward_compat(self):
+        """Default accrued_at_purchase=0 preserves old behavior."""
+        repo = implied_repo_rate(
+            bond_price=100.0, futures_price=100.0, cf=1.0,
+            accrued_at_delivery=2.0, coupon_income=3.0,
+            days_to_delivery=180,
+        )
+        expected = (102 - 100 + 3) / 100 * (365.0 / 180)
+        assert repo == pytest.approx(expected, rel=1e-10)
+
+    def test_carry_uses_dirty_for_financing(self):
+        """Carry financing should be on dirty price, not clean."""
+        result = bond_futures_basis(
+            100.0, 100.0, 1.0, 0.03, 365,
+            coupon_income=6.0, accrued_at_purchase=2.0,
+        )
+        # financing = (100 + 2) * 0.03 * 1 = 3.06
+        # carry = 6.0 - 3.06 = 2.94
+        assert result.carry == pytest.approx(2.94, rel=1e-4)
+
+
+# ---- BH7: Z-spread bounds ----
+
+class TestZSpreadBounds:
+    def test_distressed_bond_high_spread(self):
+        """Z-spread for deeply discounted bond should solve (>2000bp)."""
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        bond = RiskyBond(ref, date(2031, 4, 21), 0.05, recovery=0.40)
+        # Bond trading at 60 (deeply distressed)
+        zs = z_spread(bond, 60.0, curve)
+        assert zs > 0.10  # > 1000bp

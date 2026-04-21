@@ -136,6 +136,7 @@ def implied_repo_rate(
     accrued_at_delivery: float,
     coupon_income: float,
     days_to_delivery: int,
+    accrued_at_purchase: float = 0.0,
 ) -> float:
     """Implied repo rate from bond futures delivery.
 
@@ -148,12 +149,13 @@ def implied_repo_rate(
         accrued_at_delivery: accrued interest at delivery.
         coupon_income: coupon received between now and delivery.
         days_to_delivery: days until delivery.
+        accrued_at_purchase: accrued interest at purchase (for dirty cost).
     """
     if days_to_delivery <= 0 or bond_price <= 0:
         return 0.0
 
     invoice = futures_price * cf + accrued_at_delivery
-    cost = bond_price  # simplified: ignore accrued at purchase
+    cost = bond_price + accrued_at_purchase
     profit = invoice - cost + coupon_income
 
     return profit / cost * (365.0 / days_to_delivery)
@@ -176,23 +178,32 @@ def bond_futures_basis(
     bond_price: float,
     futures_price: float,
     cf: float,
-    coupon_rate: float,
     repo_rate: float,
     days_to_delivery: int,
-    face_value: float = 100.0,
+    coupon_income: float = 0.0,
+    accrued_at_purchase: float = 0.0,
 ) -> BondFuturesBasis:
     """Compute gross and net basis for a bond vs futures.
 
     Gross basis = bond_price - CF × futures_price.
     Carry = coupon_income - financing_cost (to delivery).
     Net basis = gross_basis - carry ≈ delivery option value.
+
+    Args:
+        bond_price: clean price.
+        futures_price: futures settlement price.
+        cf: conversion factor.
+        repo_rate: financing rate.
+        days_to_delivery: days to delivery.
+        coupon_income: actual coupon received between now and delivery.
+        accrued_at_purchase: accrued at trade date (for financing cost on dirty).
     """
     gross = bond_price - cf * futures_price
 
     # Carry to delivery
     dt = days_to_delivery / 365.0
-    coupon_income = coupon_rate * face_value * dt
-    financing = bond_price * repo_rate * dt
+    dirty = bond_price + accrued_at_purchase
+    financing = dirty * repo_rate * dt
     carry = coupon_income - financing
 
     net = gross - carry
