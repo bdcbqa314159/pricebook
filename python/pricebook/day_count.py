@@ -10,10 +10,27 @@ class DayCountConvention(Enum):
     THIRTY_360 = "30/360"
     THIRTY_E_360 = "30E/360"
     ACT_ACT_ISDA = "ACT/ACT ISDA"
+    ACT_ACT_ICMA = "ACT/ACT ICMA"
 
 
-def year_fraction(start: date, end: date, convention: DayCountConvention) -> float:
-    """Compute the year fraction between two dates under a given convention."""
+def year_fraction(
+    start: date,
+    end: date,
+    convention: DayCountConvention,
+    ref_start: date | None = None,
+    ref_end: date | None = None,
+    frequency: int | None = None,
+) -> float:
+    """Compute the year fraction between two dates under a given convention.
+
+    Args:
+        start: accrual start date.
+        end: accrual end date.
+        convention: day count convention.
+        ref_start: coupon period start (needed for ACT/ACT ICMA).
+        ref_end: coupon period end (needed for ACT/ACT ICMA).
+        frequency: coupons per year (needed for ACT/ACT ICMA).
+    """
     if start == end:
         return 0.0
     if start > end:
@@ -29,6 +46,8 @@ def year_fraction(start: date, end: date, convention: DayCountConvention) -> flo
         return _thirty_e_360(start, end)
     elif convention == DayCountConvention.ACT_ACT_ISDA:
         return _act_act_isda(start, end)
+    elif convention == DayCountConvention.ACT_ACT_ICMA:
+        return _act_act_icma(start, end, ref_start, ref_end, frequency)
     else:
         raise ValueError(f"Unsupported convention: {convention}")
 
@@ -106,3 +125,29 @@ def _act_act_isda(start: date, end: date) -> float:
     total += (end - year_start).days / days_in_year
 
     return total
+
+
+def _act_act_icma(
+    start: date,
+    end: date,
+    ref_start: date | None = None,
+    ref_end: date | None = None,
+    frequency: int | None = None,
+) -> float:
+    """ACT/ACT ICMA (Rule 251.1): actual days / (frequency × period length).
+
+    Used for government bonds (UST, Bunds, Gilts, JGBs).
+    The denominator is the actual length of the coupon period × frequency.
+
+    year_frac = (end - start) / ((ref_end - ref_start) × frequency)
+
+    If ref_start/ref_end not provided, falls back to ACT/365 Fixed.
+    """
+    if ref_start is None or ref_end is None or frequency is None:
+        return (end - start).days / 365.0  # fallback
+
+    period_days = (ref_end - ref_start).days
+    if period_days <= 0:
+        return (end - start).days / 365.0  # fallback
+
+    return (end - start).days / (period_days * frequency)
