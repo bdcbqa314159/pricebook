@@ -8,6 +8,7 @@ import pytest
 from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
+from pricebook.amortising_bond import psa_schedule
 from tests.conftest import make_flat_curve
 
 
@@ -99,3 +100,41 @@ class TestPastCashflowFiltering:
         # All future cashflows should be after settlement
         for cf in future_cfs:
             assert cf.payment_date > date(2025, 1, 15)
+
+
+# ---- BH3: PSA schedule formula ----
+
+class TestPSASchedule:
+    def test_month_1_cpr(self):
+        """Month 1 (index 0) should have CPR = 0.2%."""
+        smm = psa_schedule(1.0, 360)
+        # SMM = 1 - (1-CPR)^(1/12), so CPR = 1 - (1-SMM)^12
+        cpr_month_1 = 1 - (1 - smm[0]) ** 12
+        assert cpr_month_1 == pytest.approx(0.002, abs=1e-6)
+
+    def test_month_30_cpr(self):
+        """Month 30 (index 29) should have CPR = 6%."""
+        smm = psa_schedule(1.0, 360)
+        cpr_month_30 = 1 - (1 - smm[29]) ** 12
+        assert cpr_month_30 == pytest.approx(0.06, abs=1e-6)
+
+    def test_month_31_cpr(self):
+        """Month 31+ should stay flat at 6%."""
+        smm = psa_schedule(1.0, 360)
+        cpr_month_31 = 1 - (1 - smm[30]) ** 12
+        assert cpr_month_31 == pytest.approx(0.06, abs=1e-6)
+
+    def test_200_psa_doubles(self):
+        """200% PSA should have double the CPR."""
+        smm_100 = psa_schedule(1.0, 60)
+        smm_200 = psa_schedule(2.0, 60)
+        # Month 15: 100PSA CPR = 3%, 200PSA = 6%
+        cpr_100 = 1 - (1 - smm_100[14]) ** 12
+        cpr_200 = 1 - (1 - smm_200[14]) ** 12
+        assert cpr_200 == pytest.approx(2 * cpr_100, rel=1e-4)
+
+    def test_monotone_ramp(self):
+        """CPR should increase monotonically in months 1-30."""
+        smm = psa_schedule(1.0, 360)
+        for i in range(29):
+            assert smm[i + 1] > smm[i]

@@ -140,8 +140,9 @@ def psa_schedule(psa_speed: float = 1.0, n_months: int = 360) -> np.ndarray:
     """PSA (Public Securities Association) standard prepayment schedule.
 
     Standard 100% PSA:
-    - Months 1-30: CPR rises linearly from 0.2% to 6%.
-    - Months 30-360: CPR stays flat at 6%.
+    - Month 1: CPR = 0.2%, rising by 0.2% per month.
+    - Month 30: CPR = 6.0%.
+    - Months 31+: CPR stays flat at 6%.
 
     A 200% PSA = 2 × standard CPR.
 
@@ -155,7 +156,7 @@ def psa_schedule(psa_speed: float = 1.0, n_months: int = 360) -> np.ndarray:
     cpr = np.zeros(n_months)
     for m in range(n_months):
         if m < 30:
-            cpr[m] = 0.002 + (0.06 - 0.002) * (m + 1) / 30
+            cpr[m] = 0.06 * (m + 1) / 30
         else:
             cpr[m] = 0.06
     cpr = cpr * psa_speed
