@@ -2,6 +2,24 @@
 
 ---
 
+## v0.295.0 — 2026-04-21
+
+BH4-BH7: Risky bond, bond futures, z-spread fixes. 5125 tests.
+
+`risky_bond.py`:
+- Recovery discounted at mid-period (ISDA standard), not period end
+- Z-spread solver bounds widened to [-0.05, 1.0] for distressed bonds
+
+`bond_futures.py`:
+- `implied_repo_rate()` now takes `accrued_at_purchase` — cost = dirty price
+- `bond_futures_basis()` carry uses actual `coupon_income` + finances on dirty price
+- Removed `coupon_rate` positional arg (breaking: callers must pass `coupon_income`)
+
+`test_bond_hardening.py` (+11 tests):
+- Recovery mid-period, zero-default, implied repo with/without accrued, carry on dirty, distressed z-spread
+
+---
+
 ## v0.294.0 — 2026-04-21
 
 BH3: PSA prepayment schedule fix. 5114 tests.
