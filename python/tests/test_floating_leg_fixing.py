@@ -8,6 +8,10 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
 from pricebook.floating_leg import FloatingCashflow, FloatingLeg
+from pricebook.rate_index import (
+    CompoundingMethod, RateIndex, get_rate_index, all_rate_indices,
+    overnight_indices, indices_for_currency,
+)
 from pricebook.schedule import Frequency, StubType, generate_schedule
 
 
@@ -345,3 +349,81 @@ class TestBackStubs:
         )
         pv = leg.pv(curve)
         assert pv != 0.0  # Sanity: non-zero PV
+
+
+# ---- FX5: RateIndex Registry ----
+
+class TestRateIndexRegistry:
+    def test_sofr(self):
+        sofr = get_rate_index("SOFR")
+        assert sofr.currency == "USD"
+        assert sofr.is_overnight
+        assert sofr.fixing_lag == 0
+        assert sofr.observation_shift == 2
+        assert sofr.day_count == DayCountConvention.ACT_360
+        assert sofr.compounding == CompoundingMethod.COMPOUNDED
+        assert sofr.administrator == "FRBNY"
+
+    def test_estr(self):
+        estr = get_rate_index("ESTR")
+        assert estr.currency == "EUR"
+        assert estr.is_overnight
+        assert estr.observation_shift == 2
+
+    def test_sonia_no_shift(self):
+        """SONIA has no observation shift (UK convention)."""
+        sonia = get_rate_index("SONIA")
+        assert sonia.currency == "GBP"
+        assert sonia.observation_shift == 0
+        assert sonia.day_count == DayCountConvention.ACT_365_FIXED
+
+    def test_tona(self):
+        tona = get_rate_index("TONA")
+        assert tona.currency == "JPY"
+        assert tona.day_count == DayCountConvention.ACT_365_FIXED
+
+    def test_euribor_3m_is_term(self):
+        """EURIBOR is a term rate, not overnight."""
+        euribor = get_rate_index("EURIBOR_3M")
+        assert not euribor.is_overnight
+        assert euribor.tenor_months == 3
+        assert euribor.fixing_lag == 2
+        assert euribor.compounding == CompoundingMethod.FLAT
+
+    def test_euribor_6m(self):
+        euribor = get_rate_index("EURIBOR_6M")
+        assert euribor.tenor_months == 6
+
+    def test_unknown_raises(self):
+        with pytest.raises(ValueError, match="Unknown rate index"):
+            get_rate_index("NONEXISTENT")
+
+    def test_all_indices_count(self):
+        """We have 11 registered indices."""
+        indices = all_rate_indices()
+        assert len(indices) == 11
+
+    def test_overnight_indices(self):
+        """8 overnight RFR indices (one per G10 currency except SEK/NOK)."""
+        overnight = overnight_indices()
+        assert len(overnight) == 8
+        assert all(idx.is_overnight for idx in overnight)
+
+    def test_indices_for_currency(self):
+        eur = indices_for_currency("EUR")
+        names = {idx.name for idx in eur}
+        assert "ESTR" in names
+        assert "EURIBOR_3M" in names
+        assert "EURIBOR_6M" in names
+
+    def test_frozen_immutable(self):
+        """RateIndex is frozen — cannot be modified."""
+        sofr = get_rate_index("SOFR")
+        with pytest.raises(AttributeError):
+            sofr.fixing_lag = 5
+
+    def test_all_g10_rfr_covered(self):
+        """Major G10 overnight RFRs are all present."""
+        expected = {"SOFR", "ESTR", "SONIA", "TONA", "SARON", "CORRA", "AONIA", "NZOCR"}
+        actual = {idx.name for idx in overnight_indices()}
+        assert expected == actual
