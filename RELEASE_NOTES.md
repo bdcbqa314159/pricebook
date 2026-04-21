@@ -2,6 +2,20 @@
 
 ---
 
+## v0.277.0 — 2026-04-21
+
+PR4: Equity, Commodity & Inflation Conventions. **5000+ tests milestone.**
+
+`market_conventions.py` (NEW):
+- EquityIndexSpec: SPX, NDX, SX5E, DAX, UKX, NKY, HSI, AS51, SPTSX (9 indices)
+- CommodityContractSpec: CL, BRN, NG, GC, SI, HG, ZC, ZW, ZS, CO (10 contracts)
+- LME metals: LCU, LAH, LZS with prompt date system (3 metals)
+- LinkerConvention: US (CPI-U, deflation floor), UK (RPI, 8M lag), FR/IT/DE (HICP), CA, AU, JP
+- index_ratio(): daily linear interpolation + simple monthly
+- 26 new tests, 5014 total
+
+---
+
 ## v0.276.0 — 2026-04-21
 
 PR3: Credit Conventions.
