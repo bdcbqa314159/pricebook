@@ -2,6 +2,23 @@
 
 ---
 
+## v0.297.0 — 2026-04-21
+
+BD1-BD7: Vol-free bond derivatives. 5170 tests.
+
+7 new modules:
+- `bond_forward.py`: forward price, carry, forward DV01 (cash-and-carry arbitrage)
+- `strips.py`: coupon stripping (C-STRIPS + P-STRIPS), strip yield, reconstruct bond price
+- `total_return_swap.py`: TRS MTM (price return + coupons vs floating + spread), breakeven spread
+- `par_asset_swap.py`: full par ASW with upfront, annuity, spread calculation
+- `cmo.py`: sequential CMO, IO/PO strips, PAC schedule from PSA band
+- `xccy_bond.py`: FX-hedged yield (CIP), cross-currency pickup, breakeven FX move
+- `repo_term.py`: RepoCurve (term repo interpolation), forward repo, specials identification
+
+`test_bond_derivatives.py` (NEW, 30 tests)
+
+---
+
 ## v0.296.0 — 2026-04-21
 
 BF1-BF4: Bond futures completion. 5140 tests.
