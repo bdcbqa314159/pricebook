@@ -773,3 +773,22 @@ class TestThrowawayPreservesSettings:
         dm = frn.discount_margin(dirty, curve)
         # At the model dirty price, DM should be ~0 (no additional spread needed)
         assert abs(dm) < 1e-6
+
+
+# ---- FH7: CORRA convention update ----
+
+class TestCORRAConvention:
+    def test_corra_observation_shift(self):
+        """CORRA now uses 2-day observation shift (post-2024 ISDA)."""
+        corra = get_rate_index("CORRA")
+        assert corra.observation_shift == 2
+
+    def test_corra_payment_delay(self):
+        """CORRA now uses 2-day payment delay (post-2024 ISDA)."""
+        corra = get_rate_index("CORRA")
+        assert corra.payment_delay == 2
+
+    def test_corra_still_overnight(self):
+        corra = get_rate_index("CORRA")
+        assert corra.is_overnight
+        assert corra.currency == "CAD"

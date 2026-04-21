@@ -101,7 +101,7 @@ CORRA = _register(RateIndex(
     name="CORRA", currency="CAD",
     day_count=DayCountConvention.ACT_365_FIXED,
     fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
-    observation_shift=0, payment_delay=0,
+    observation_shift=2, payment_delay=2,
     tenor_months=None, is_overnight=True,
     administrator="BOC",
 ))
