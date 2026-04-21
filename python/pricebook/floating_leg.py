@@ -1,6 +1,6 @@
 """Floating leg of an interest rate swap (single-curve and dual-curve)."""
 
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -56,9 +56,12 @@ class FloatingLeg:
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
+        payment_delay_days: int = 0,
     ):
         if notional <= 0:
             raise ValueError(f"notional must be positive, got {notional}")
+        if payment_delay_days < 0:
+            raise ValueError(f"payment_delay_days must be >= 0, got {payment_delay_days}")
 
         self.start = start
         self.end = end
@@ -66,6 +69,7 @@ class FloatingLeg:
         self.notional = notional
         self.spread = spread
         self.day_count = day_count
+        self.payment_delay_days = payment_delay_days
 
         schedule = generate_schedule(
             start, end, frequency, calendar, convention, stub, eom,
@@ -75,11 +79,12 @@ class FloatingLeg:
         for i in range(1, len(schedule)):
             accrual_start = schedule[i - 1]
             accrual_end = schedule[i]
+            payment_date = accrual_end + timedelta(days=payment_delay_days)
             yf = year_fraction(accrual_start, accrual_end, day_count)
             self.cashflows.append(FloatingCashflow(
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,
-                payment_date=accrual_end,
+                payment_date=payment_date,
                 notional=notional,
                 year_frac=yf,
                 spread=spread,
