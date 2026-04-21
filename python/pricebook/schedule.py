@@ -17,6 +17,8 @@ class Frequency(Enum):
 class StubType(Enum):
     SHORT_FRONT = "short_front"
     LONG_FRONT = "long_front"
+    SHORT_BACK = "short_back"
+    LONG_BACK = "long_back"
 
 
 def _add_months(d: date, months: int, eom: bool) -> date:
@@ -63,25 +65,42 @@ def generate_schedule(
 
     months = frequency.value
 
-    # Generate unadjusted dates backward from end
-    unadjusted = [end]
-    current = end
-    while True:
-        current = _add_months(current, -months, eom)
-        if current <= start:
-            break
-        unadjusted.append(current)
+    if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
+        # Generate backward from end → front stub
+        unadjusted = [end]
+        current = end
+        while True:
+            current = _add_months(current, -months, eom)
+            if current <= start:
+                break
+            unadjusted.append(current)
+        unadjusted.append(start)
+        unadjusted.reverse()
 
-    unadjusted.append(start)
-    unadjusted.reverse()
+        # Handle long front stub: merge first two interior periods if stub is tiny
+        if stub == StubType.LONG_FRONT and len(unadjusted) > 2:
+            first_gap = (unadjusted[1] - unadjusted[0]).days
+            regular_gap = months * 30  # approximate
+            if first_gap < regular_gap * 0.5:
+                unadjusted = [unadjusted[0]] + unadjusted[2:]
 
-    # Handle long front stub: merge first two interior periods if stub is tiny
-    if stub == StubType.LONG_FRONT and len(unadjusted) > 2:
-        # If there's a short front stub, merge it into the next period
-        first_gap = (unadjusted[1] - unadjusted[0]).days
-        regular_gap = months * 30  # approximate
-        if first_gap < regular_gap * 0.5:
-            unadjusted = [unadjusted[0]] + unadjusted[2:]
+    else:
+        # Generate forward from start → back stub
+        unadjusted = [start]
+        current = start
+        while True:
+            current = _add_months(current, months, eom)
+            if current >= end:
+                break
+            unadjusted.append(current)
+        unadjusted.append(end)
+
+        # Handle long back stub: merge last two interior periods if stub is tiny
+        if stub == StubType.LONG_BACK and len(unadjusted) > 2:
+            last_gap = (unadjusted[-1] - unadjusted[-2]).days
+            regular_gap = months * 30  # approximate
+            if last_gap < regular_gap * 0.5:
+                unadjusted = unadjusted[:-2] + [unadjusted[-1]]
 
     # Apply business day adjustment
     if calendar is not None:

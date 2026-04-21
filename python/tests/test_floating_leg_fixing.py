@@ -8,7 +8,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
 from pricebook.floating_leg import FloatingCashflow, FloatingLeg
-from pricebook.schedule import Frequency, StubType
+from pricebook.schedule import Frequency, StubType, generate_schedule
 
 
 # ---- Helpers ----
@@ -276,3 +276,72 @@ class TestObservationShift:
                 date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
                 observation_shift_days=-1,
             )
+
+
+# ---- FX4: Back Stubs ----
+
+class TestBackStubs:
+    def test_short_back_stub(self):
+        """SHORT_BACK: regular periods from start, short final period."""
+        # 13 months → 4 quarterly + 1 short month
+        sched = generate_schedule(
+            date(2026, 1, 15), date(2027, 2, 15), Frequency.QUARTERLY,
+            stub=StubType.SHORT_BACK,
+        )
+        assert sched[0] == date(2026, 1, 15)
+        assert sched[-1] == date(2027, 2, 15)
+        # Regular periods: Jan→Apr→Jul→Oct→Jan, then short Jan→Feb
+        assert sched[1] == date(2026, 4, 15)
+        assert sched[2] == date(2026, 7, 15)
+        assert sched[3] == date(2026, 10, 15)
+        assert sched[4] == date(2027, 1, 15)
+        assert len(sched) == 6  # 5 periods
+
+    def test_long_back_stub(self):
+        """LONG_BACK: short final stub merged into previous period."""
+        # 13 months quarterly → 4 regular + 1-month stub → merge → 3 regular + 1 long
+        sched = generate_schedule(
+            date(2026, 1, 15), date(2027, 2, 15), Frequency.QUARTERLY,
+            stub=StubType.LONG_BACK,
+        )
+        assert sched[0] == date(2026, 1, 15)
+        assert sched[-1] == date(2027, 2, 15)
+        # The short 1-month stub should be merged with previous period
+        # Regular: Jan→Apr→Jul→Oct, then long Oct→Feb (4 months)
+        assert len(sched) == 5  # 4 periods instead of 5
+
+    def test_exact_division_no_stub(self):
+        """Exact division: no stub regardless of stub type."""
+        for stub in [StubType.SHORT_BACK, StubType.LONG_BACK,
+                     StubType.SHORT_FRONT, StubType.LONG_FRONT]:
+            sched = generate_schedule(
+                date(2026, 1, 15), date(2027, 1, 15), Frequency.QUARTERLY,
+                stub=stub,
+            )
+            assert len(sched) == 5  # 4 periods, exactly quarterly
+            assert sched[0] == date(2026, 1, 15)
+            assert sched[-1] == date(2027, 1, 15)
+
+    def test_short_front_vs_short_back_different(self):
+        """Front and back stubs produce different intermediate dates for non-exact periods."""
+        start = date(2026, 1, 10)
+        end = date(2027, 2, 15)  # Not exactly N quarters from start
+        front = generate_schedule(start, end, Frequency.QUARTERLY, stub=StubType.SHORT_FRONT)
+        back = generate_schedule(start, end, Frequency.QUARTERLY, stub=StubType.SHORT_BACK)
+        # Both share start and end
+        assert front[0] == back[0] == start
+        assert front[-1] == back[-1] == end
+        # But intermediate dates differ (front rolls from end, back rolls from start)
+        if len(front) > 2 and len(back) > 2:
+            assert front[1] != back[1]
+
+    def test_floating_leg_with_back_stub(self):
+        """FloatingLeg works with back stub type."""
+        ref = date(2026, 1, 15)
+        curve = _flat_curve(ref, rate=0.04)
+        leg = FloatingLeg(
+            start=ref, end=date(2027, 2, 15), frequency=Frequency.QUARTERLY,
+            stub=StubType.SHORT_BACK,
+        )
+        pv = leg.pv(curve)
+        assert pv != 0.0  # Sanity: non-zero PV
