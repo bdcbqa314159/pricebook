@@ -2,6 +2,22 @@
 
 ---
 
+## v0.293.0 — 2026-04-21
+
+BH1+BH2: Bond settlement-based analytics + past cashflow filtering. 5109 tests.
+
+`bond.py` — **CRITICAL FIX**:
+- All YTM/duration/convexity/DV01 methods now take `settlement` parameter
+- Time measured from settlement, not issue_date — seasoned bonds now correct
+- `dirty_price()` only PVs future cashflows (past coupons excluded)
+- `_future_cashflows(settlement)` filters paid coupons
+- Backward compat: settlement defaults to issue_date when omitted
+
+`test_bond_hardening.py` (NEW, 8 tests):
+- Seasoned YTM, duration decreasing, near-maturity duration, convexity, DV01, past CF filter
+
+---
+
 ## v0.292.0 — 2026-04-21
 
 FH9: RFR compounding integration. **FIXING HARDENING COMPLETE.** 5110 tests.
