@@ -43,25 +43,22 @@ def protection_leg_pv(
         day_count: Day count for time intervals.
         steps_per_year: Discretisation granularity (4 = quarterly steps).
     """
+    from datetime import timedelta
+
     lgd = (1.0 - recovery) * notional
 
-    # Generate a fine grid for numerical integration
-    t_start = year_fraction(survival_curve.reference_date, start, day_count)
-    t_end = year_fraction(survival_curve.reference_date, end, day_count)
-    n_steps = max(1, int((t_end - t_start) * steps_per_year))
-    dt = (t_end - t_start) / n_steps
+    # Generate a fine date grid for numerical integration
+    total_days = (end - start).days
+    n_steps = max(1, int(year_fraction(start, end, day_count) * steps_per_year))
+    step_days = total_days / n_steps
 
-    ref = survival_curve.reference_date
     pv = 0.0
     for i in range(n_steps):
-        t1 = t_start + i * dt
-        t2 = t_start + (i + 1) * dt
-        t_mid = (t1 + t2) / 2.0
-
-        # Convert times back to dates for curve queries
-        d1 = date.fromordinal(ref.toordinal() + int(t1 * 365))
-        d2 = date.fromordinal(ref.toordinal() + int(t2 * 365))
-        d_mid = date.fromordinal(ref.toordinal() + int(t_mid * 365))
+        d1 = start + timedelta(days=int(i * step_days))
+        d2 = start + timedelta(days=int((i + 1) * step_days))
+        if i == n_steps - 1:
+            d2 = end  # ensure exact end date
+        d_mid = d1 + timedelta(days=(d2 - d1).days // 2)
 
         q1 = survival_curve.survival(d1)
         q2 = survival_curve.survival(d2)

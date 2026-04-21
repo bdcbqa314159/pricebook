@@ -144,7 +144,7 @@ class CrossCurrencySwap:
         dom_floating = N * domestic_curve.df(self.start)
 
         if self.mtm_reset:
-            for_total = self._foreign_mtm_pv(domestic_curve, current_fx)
+            for_total = self._foreign_mtm_pv(foreign_curve, current_fx)
         else:
             for_total = N_for * foreign_curve.df(self.start) / current_fx
 

@@ -1,6 +1,6 @@
 """Fixed leg of an interest rate swap."""
 
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -45,6 +45,7 @@ class FixedLeg:
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
+        payment_delay_days: int = 0,
     ):
         if notional <= 0:
             raise ValueError(f"notional must be positive, got {notional}")
@@ -55,6 +56,7 @@ class FixedLeg:
         self.frequency = frequency
         self.notional = notional
         self.day_count = day_count
+        self.payment_delay_days = payment_delay_days
 
         schedule = generate_schedule(
             start, end, frequency, calendar, convention, stub, eom,
@@ -64,11 +66,15 @@ class FixedLeg:
         for i in range(1, len(schedule)):
             accrual_start = schedule[i - 1]
             accrual_end = schedule[i]
+            if calendar is not None and payment_delay_days > 0:
+                payment_date = calendar.add_business_days(accrual_end, payment_delay_days)
+            else:
+                payment_date = accrual_end + timedelta(days=payment_delay_days)
             yf = year_fraction(accrual_start, accrual_end, day_count)
             self.cashflows.append(Cashflow(
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,
-                payment_date=accrual_end,
+                payment_date=payment_date,
                 notional=notional,
                 rate=rate,
                 year_frac=yf,

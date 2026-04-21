@@ -59,7 +59,10 @@ class FRA:
         """
         proj = projection_curve if projection_curve is not None else curve
         fwd = self.forward_rate(proj)
-        return self.notional * (fwd - self.strike) * self.year_frac * curve.df(self.end)
+        # FRA settles at start date: discounted amount at start, then PV to today
+        # Settled amount = N × (fwd - K) × τ / (1 + fwd × τ)
+        settled = self.notional * (fwd - self.strike) * self.year_frac / (1.0 + fwd * self.year_frac)
+        return settled * curve.df(self.start)
 
     def par_rate(
         self,

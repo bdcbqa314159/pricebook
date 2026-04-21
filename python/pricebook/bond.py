@@ -1,6 +1,6 @@
 """Fixed-rate bond."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
@@ -31,6 +31,8 @@ class FixedRateBond:
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
+        settlement_days: int = 0,
+        ex_div_days: int = 0,
     ):
         if face_value <= 0:
             raise ValueError(f"face_value must be positive, got {face_value}")
@@ -43,12 +45,27 @@ class FixedRateBond:
         self.frequency = frequency
         self.face_value = face_value
         self.day_count = day_count
+        self.calendar = calendar
+        self.settlement_days = settlement_days
+        self.ex_div_days = ex_div_days
 
         self.coupon_leg = FixedLeg(
             issue_date, maturity, coupon_rate, frequency,
             notional=face_value, day_count=day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
         )
+
+    def settlement_date(self, trade_date: date) -> date:
+        """Compute settlement date from trade date using settlement_days.
+
+        Uses calendar-aware business days if calendar is provided,
+        otherwise calendar days.
+        """
+        if self.settlement_days == 0:
+            return trade_date
+        if self.calendar is not None:
+            return self.calendar.add_business_days(trade_date, self.settlement_days)
+        return trade_date + timedelta(days=self.settlement_days)
 
     def _future_cashflows(self, settlement: date) -> list:
         """Return only cashflows with payment_date > settlement."""
@@ -69,9 +86,18 @@ class FixedRateBond:
         Accrued interest per 100 face at the settlement date.
 
         Looks for the accrual period containing the settlement date.
+        If ex_div_days > 0 and settlement is within ex_div_days of the
+        next coupon, accrued is negative (buyer doesn't receive coupon).
         """
         for cf in self.coupon_leg.cashflows:
             if cf.accrual_start <= settlement < cf.accrual_end:
+                # Check ex-dividend period
+                if self.ex_div_days > 0:
+                    ex_date = cf.accrual_end - timedelta(days=self.ex_div_days)
+                    if settlement >= ex_date:
+                        # In ex-div period: accrued is negative
+                        yf_remaining = year_fraction(settlement, cf.accrual_end, self.day_count)
+                        return -self.coupon_rate * yf_remaining * 100.0
                 yf = year_fraction(cf.accrual_start, settlement, self.day_count)
                 return self.coupon_rate * yf * 100.0
 

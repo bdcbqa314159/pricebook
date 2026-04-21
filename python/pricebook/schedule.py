@@ -1,6 +1,6 @@
 """Payment schedule generation for periodic cashflows."""
 
-from datetime import date
+from datetime import date, timedelta
 from enum import Enum
 from dateutil.relativedelta import relativedelta
 
@@ -8,6 +8,7 @@ from pricebook.calendar import Calendar, BusinessDayConvention
 
 
 class Frequency(Enum):
+    WEEKLY = 0       # special: 7-day steps (not month-based)
     MONTHLY = 1
     QUARTERLY = 3
     SEMI_ANNUAL = 6
@@ -62,6 +63,20 @@ def generate_schedule(
     """
     if start >= end:
         raise ValueError(f"start ({start}) must be before end ({end})")
+
+    # WEEKLY: step by 7 days (not month-based)
+    if frequency == Frequency.WEEKLY:
+        unadjusted = [start]
+        current = start
+        while True:
+            current = current + timedelta(days=7)
+            if current >= end:
+                break
+            unadjusted.append(current)
+        unadjusted.append(end)
+        if calendar is not None:
+            return [calendar.adjust(d, convention) for d in unadjusted]
+        return unadjusted
 
     months = frequency.value
 

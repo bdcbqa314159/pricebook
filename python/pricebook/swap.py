@@ -1,6 +1,7 @@
 """Interest rate swap."""
 
 from datetime import date
+from dataclasses import dataclass
 from enum import Enum
 
 from pricebook.day_count import DayCountConvention
@@ -104,3 +105,45 @@ class InterestRateSwap:
         annuity = self.fixed_leg.annuity(curve)
         pv_float = self.floating_leg.pv(curve, projection_curve)
         return pv_float / (self.notional * annuity)
+
+    def cashflow_schedule(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> list[dict]:
+        """Produce a full cashflow schedule for both legs.
+
+        Returns a list of dicts with: leg, accrual_start, accrual_end,
+        payment_date, rate, year_frac, amount, df, pv.
+        """
+        proj = projection_curve if projection_curve is not None else curve
+        rows = []
+        for cf in self.fixed_leg.cashflows:
+            df = curve.df(cf.payment_date)
+            rows.append({
+                "leg": "fixed",
+                "accrual_start": cf.accrual_start,
+                "accrual_end": cf.accrual_end,
+                "payment_date": cf.payment_date,
+                "rate": cf.rate,
+                "year_frac": cf.year_frac,
+                "amount": cf.amount,
+                "df": df,
+                "pv": cf.amount * df,
+            })
+        for cf in self.floating_leg.cashflows:
+            fwd = cf.forward_rate(proj)
+            amount = cf.amount(proj)
+            df = curve.df(cf.payment_date)
+            rows.append({
+                "leg": "float",
+                "accrual_start": cf.accrual_start,
+                "accrual_end": cf.accrual_end,
+                "payment_date": cf.payment_date,
+                "rate": fwd,
+                "year_frac": cf.year_frac,
+                "amount": amount,
+                "df": df,
+                "pv": amount * df,
+            })
+        return sorted(rows, key=lambda r: r["payment_date"])
