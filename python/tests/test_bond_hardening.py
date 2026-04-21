@@ -9,7 +9,11 @@ from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 from pricebook.amortising_bond import psa_schedule
-from pricebook.bond_futures import bond_futures_basis, implied_repo_rate
+from pricebook.bond_futures import (
+    bond_futures_basis, implied_repo_rate, invoice_price,
+    forward_bond_price, delivery_basket, DeliverableBond,
+    futures_hedge_ratio, tail_adjusted_hedge_ratio, calendar_spread,
+)
 from pricebook.risky_bond import RiskyBond, z_spread
 from pricebook.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve
@@ -223,3 +227,110 @@ class TestZSpreadBounds:
         # Bond trading at 60 (deeply distressed)
         zs = z_spread(bond, 60.0, curve)
         assert zs > 0.10  # > 1000bp
+
+
+# ---- BF1: Invoice price + forward bond price ----
+
+class TestInvoicePrice:
+    def test_basic(self):
+        inv = invoice_price(100.0, 0.95, 1.5)
+        assert inv == pytest.approx(100.0 * 0.95 + 1.5)
+
+    def test_zero_accrued(self):
+        inv = invoice_price(100.0, 1.0, 0.0)
+        assert inv == pytest.approx(100.0)
+
+
+class TestForwardBondPrice:
+    def test_no_coupon(self):
+        """Forward = dirty × (1 + repo × T) when no coupon."""
+        fwd = forward_bond_price(100.0, 0.04, 90)
+        expected = 100.0 * (1 + 0.04 * 90 / 365)
+        assert fwd.forward_dirty == pytest.approx(expected, rel=1e-10)
+
+    def test_coupon_reduces_forward(self):
+        """Coupon income reduces forward price."""
+        fwd_no = forward_bond_price(100.0, 0.04, 180)
+        fwd_coupon = forward_bond_price(100.0, 0.04, 180, coupon_income=2.5)
+        assert fwd_coupon.forward_dirty < fwd_no.forward_dirty
+
+    def test_carry_positive_when_coupon_exceeds_repo(self):
+        fwd = forward_bond_price(100.0, 0.02, 365, coupon_income=5.0)
+        assert fwd.carry > 0
+
+    def test_clean_equals_dirty_minus_accrued(self):
+        fwd = forward_bond_price(100.0, 0.04, 180, accrued_at_forward=1.2)
+        assert fwd.forward_clean == pytest.approx(fwd.forward_dirty - 1.2)
+
+
+# ---- BF2: Delivery basket ----
+
+class TestDeliveryBasket:
+    def test_ctd_highest_implied_repo(self):
+        """CTD should be the bond with highest implied repo."""
+        bond1 = FixedRateBond(date(2020, 1, 15), date(2030, 1, 15), 0.04)
+        bond2 = FixedRateBond(date(2020, 1, 15), date(2035, 1, 15), 0.05)
+        deliverables = [
+            DeliverableBond(bond1, 98.0, 0.95),
+            DeliverableBond(bond2, 102.0, 1.02),
+        ]
+        result = delivery_basket(
+            deliverables, 100.0,
+            accrued_at_delivery=[1.0, 1.5],
+            coupon_incomes=[2.0, 2.5],
+            days_to_delivery=90,
+        )
+        # CTD has highest implied repo
+        repos = [b.implied_repo for b in result.bonds]
+        assert result.ctd_index == repos.index(max(repos))
+
+    def test_basket_all_bonds_present(self):
+        bond = FixedRateBond(date(2020, 1, 15), date(2030, 1, 15), 0.04)
+        deliverables = [DeliverableBond(bond, 99.0, 0.98) for _ in range(5)]
+        result = delivery_basket(
+            deliverables, 100.0,
+            accrued_at_delivery=[1.0] * 5,
+            coupon_incomes=[2.0] * 5,
+            days_to_delivery=90,
+        )
+        assert len(result.bonds) == 5
+
+
+# ---- BF3: Hedge ratio ----
+
+class TestHedgeRatio:
+    def test_basic_ratio(self):
+        """HR = (bond_DV01 / CTD_DV01) × CF."""
+        hr = futures_hedge_ratio(0.08, 0.10, 0.95)
+        assert hr == pytest.approx(0.08 / 0.10 * 0.95)
+
+    def test_same_dv01_ratio_equals_cf(self):
+        hr = futures_hedge_ratio(0.10, 0.10, 0.97)
+        assert hr == pytest.approx(0.97)
+
+    def test_tail_less_than_untailed(self):
+        """Tail adjustment reduces the hedge ratio."""
+        hr = futures_hedge_ratio(0.08, 0.10, 0.95)
+        thr = tail_adjusted_hedge_ratio(0.08, 0.10, 0.95, 0.04, 90)
+        assert thr < hr
+
+    def test_zero_dv01(self):
+        hr = futures_hedge_ratio(0.08, 0.0, 0.95)
+        assert hr == 0.0
+
+
+# ---- BF4: Calendar spread ----
+
+class TestCalendarSpread:
+    def test_spread(self):
+        result = calendar_spread(100.0, 99.5, 1.5, 3.0)
+        assert result.spread == pytest.approx(0.5)
+
+    def test_roll_cost(self):
+        result = calendar_spread(100.0, 99.5, 1.5, 3.0)
+        assert result.roll_cost == pytest.approx(1.5)  # back - front
+
+    def test_negative_roll(self):
+        """When front carry > back carry, roll is cheap."""
+        result = calendar_spread(100.0, 99.5, 3.0, 1.5)
+        assert result.roll_cost < 0

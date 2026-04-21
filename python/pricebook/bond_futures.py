@@ -216,3 +216,203 @@ def bond_futures_basis(
         net_basis=net,
         carry=carry,
     )
+
+
+# ---- Invoice price ----
+
+def invoice_price(
+    futures_price: float,
+    cf: float,
+    accrued_at_delivery: float,
+) -> float:
+    """Futures settlement invoice price.
+
+    The short delivers the bond and receives:
+        invoice = futures_price × CF + accrued_at_delivery.
+    """
+    return futures_price * cf + accrued_at_delivery
+
+
+# ---- Forward bond price ----
+
+@dataclass
+class ForwardBondPrice:
+    """Forward bond pricing result."""
+    forward_dirty: float
+    forward_clean: float
+    carry: float
+    repo_cost: float
+    coupon_income: float
+
+
+def forward_bond_price(
+    dirty_price: float,
+    repo_rate: float,
+    days_to_forward: int,
+    coupon_income: float = 0.0,
+    accrued_at_forward: float = 0.0,
+) -> ForwardBondPrice:
+    """Forward price of a bond for delivery on a future date.
+
+    Forward dirty = dirty_today × (1 + repo × T) - coupon_income.
+    Forward clean = forward_dirty - accrued_at_forward.
+
+    This is the cash-and-carry arbitrage relationship.
+
+    Args:
+        dirty_price: current dirty (full) price.
+        repo_rate: financing rate (simple, ACT/365 or ACT/360).
+        days_to_forward: days until forward settlement.
+        coupon_income: coupons received between now and forward date.
+        accrued_at_forward: accrued interest at forward delivery date.
+    """
+    dt = days_to_forward / 365.0
+    repo_cost = dirty_price * repo_rate * dt
+    fwd_dirty = dirty_price + repo_cost - coupon_income
+    fwd_clean = fwd_dirty - accrued_at_forward
+    carry = coupon_income - repo_cost
+
+    return ForwardBondPrice(
+        forward_dirty=fwd_dirty,
+        forward_clean=fwd_clean,
+        carry=carry,
+        repo_cost=repo_cost,
+        coupon_income=coupon_income,
+    )
+
+
+# ---- Delivery basket analytics ----
+
+@dataclass
+class BasketBondAnalytics:
+    """Analytics for a single bond in the delivery basket."""
+    index: int
+    bond: DeliverableBond
+    gross_basis: float
+    implied_repo: float
+    switch_yield: float | None   # yield at which this bond becomes CTD
+
+
+@dataclass
+class DeliveryBasketResult:
+    """Full delivery basket analysis."""
+    ctd_index: int
+    bonds: list[BasketBondAnalytics]
+
+
+def delivery_basket(
+    deliverables: list[DeliverableBond],
+    futures_price: float,
+    accrued_at_delivery: list[float],
+    coupon_incomes: list[float],
+    days_to_delivery: int,
+    accrued_at_purchase: list[float] | None = None,
+) -> DeliveryBasketResult:
+    """Analyse full delivery basket: implied repo ranking, CTD identification.
+
+    Args:
+        deliverables: bonds in the basket.
+        futures_price: current futures price.
+        accrued_at_delivery: accrued at delivery for each bond.
+        coupon_incomes: coupon income to delivery for each bond.
+        days_to_delivery: days until delivery.
+        accrued_at_purchase: accrued at purchase for each bond (default 0).
+    """
+    n = len(deliverables)
+    if accrued_at_purchase is None:
+        accrued_at_purchase = [0.0] * n
+
+    bonds_analytics = []
+    for i, d in enumerate(deliverables):
+        gross = d.market_price - d.conversion_factor * futures_price
+        repo = implied_repo_rate(
+            d.market_price, futures_price, d.conversion_factor,
+            accrued_at_delivery[i], coupon_incomes[i],
+            days_to_delivery, accrued_at_purchase[i],
+        )
+        bonds_analytics.append(BasketBondAnalytics(
+            index=i, bond=d, gross_basis=gross,
+            implied_repo=repo, switch_yield=None,
+        ))
+
+    # CTD = highest implied repo
+    ctd_idx = max(range(n), key=lambda i: bonds_analytics[i].implied_repo)
+
+    return DeliveryBasketResult(ctd_index=ctd_idx, bonds=bonds_analytics)
+
+
+# ---- Futures hedge ratio ----
+
+def futures_hedge_ratio(
+    bond_dv01: float,
+    ctd_dv01: float,
+    ctd_cf: float,
+) -> float:
+    """Number of futures contracts to hedge a bond position.
+
+    HR = (bond_DV01 / CTD_DV01) × CTD_CF.
+
+    The CTD's DV01 determines how the futures price moves.
+    The CF converts between bond-space and futures-space.
+    """
+    if ctd_dv01 <= 0:
+        return 0.0
+    return (bond_dv01 / ctd_dv01) * ctd_cf
+
+
+def tail_adjusted_hedge_ratio(
+    bond_dv01: float,
+    ctd_dv01: float,
+    ctd_cf: float,
+    repo_rate: float,
+    days_to_delivery: int,
+) -> float:
+    """Hedge ratio with tail adjustment for daily margin on futures.
+
+    Futures P&L is received/paid daily (margin), so the present value
+    of the futures hedge is slightly different from the bond position.
+
+    Tail HR = HR / (1 + repo × T_delivery).
+    """
+    hr = futures_hedge_ratio(bond_dv01, ctd_dv01, ctd_cf)
+    dt = days_to_delivery / 365.0
+    return hr / (1.0 + repo_rate * dt)
+
+
+# ---- Calendar spread ----
+
+@dataclass
+class CalendarSpreadResult:
+    """Calendar spread analysis."""
+    spread: float           # front - back price
+    roll_cost: float        # carry difference
+    front_carry: float
+    back_carry: float
+
+
+def calendar_spread(
+    front_price: float,
+    back_price: float,
+    front_carry: float,
+    back_carry: float,
+) -> CalendarSpreadResult:
+    """Calendar spread: front month vs back month futures.
+
+    Roll cost = back carry - front carry.
+    Positive roll cost means it's expensive to roll from front to back.
+
+    Args:
+        front_price: front month futures price.
+        back_price: back month futures price.
+        front_carry: carry to front delivery.
+        back_carry: carry to back delivery.
+    """
+    spread = front_price - back_price
+    roll_cost = back_carry - front_carry
+
+    return CalendarSpreadResult(
+        spread=spread,
+        roll_cost=roll_cost,
+        front_carry=front_carry,
+        back_carry=back_carry,
+    )
