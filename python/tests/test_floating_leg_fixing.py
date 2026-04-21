@@ -792,3 +792,56 @@ class TestCORRAConvention:
         corra = get_rate_index("CORRA")
         assert corra.is_overnight
         assert corra.currency == "CAD"
+
+
+# ---- FH8: FloatingLeg.from_rate_index() ----
+
+class TestFromRateIndex:
+    def test_sofr_conventions(self):
+        """from_rate_index(SOFR) auto-sets ACT/360, shift=2, delay=2."""
+        sofr = get_rate_index("SOFR")
+        leg = FloatingLeg.from_rate_index(
+            sofr, date(2026, 4, 21), date(2031, 4, 21), Frequency.QUARTERLY,
+        )
+        assert leg.day_count == DayCountConvention.ACT_360
+        assert leg.observation_shift_days == 2
+        assert leg.payment_delay_days == 2
+
+    def test_sonia_no_shift(self):
+        """from_rate_index(SONIA) has shift=0, delay=0, ACT/365F."""
+        sonia = get_rate_index("SONIA")
+        leg = FloatingLeg.from_rate_index(
+            sonia, date(2026, 4, 21), date(2031, 4, 21), Frequency.QUARTERLY,
+        )
+        assert leg.day_count == DayCountConvention.ACT_365_FIXED
+        assert leg.observation_shift_days == 0
+        assert leg.payment_delay_days == 0
+
+    def test_euribor_flat_compounding(self):
+        """from_rate_index(EURIBOR_3M) sets ACT/360 with IBOR conventions."""
+        euribor = get_rate_index("EURIBOR_3M")
+        leg = FloatingLeg.from_rate_index(
+            euribor, date(2026, 4, 21), date(2031, 4, 21), Frequency.QUARTERLY,
+        )
+        assert leg.day_count == DayCountConvention.ACT_360
+        assert leg.observation_shift_days == 0
+        assert leg.payment_delay_days == 0
+
+    def test_spread_passed_through(self):
+        sofr = get_rate_index("SOFR")
+        leg = FloatingLeg.from_rate_index(
+            sofr, date(2026, 4, 21), date(2031, 4, 21), Frequency.QUARTERLY,
+            spread=0.005,
+        )
+        assert leg.spread == 0.005
+
+    def test_pv_with_from_rate_index(self):
+        """from_rate_index produces a leg that can compute PV."""
+        sofr = get_rate_index("SOFR")
+        ref = date(2026, 4, 21)
+        curve = _flat_curve(ref, rate=0.04)
+        leg = FloatingLeg.from_rate_index(
+            sofr, ref, date(2031, 4, 21), Frequency.QUARTERLY,
+        )
+        pv = leg.pv(curve)
+        assert pv > 0

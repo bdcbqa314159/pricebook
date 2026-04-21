@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
+from pricebook.rate_index import RateIndex
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
 
@@ -118,6 +119,40 @@ class FloatingLeg:
                 year_frac=yf,
                 spread=spread,
             ))
+
+    @classmethod
+    def from_rate_index(
+        cls,
+        rate_index: RateIndex,
+        start: date,
+        end: date,
+        frequency: Frequency,
+        notional: float = 1_000_000.0,
+        spread: float = 0.0,
+        calendar: Calendar | None = None,
+        convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+        stub: StubType = StubType.SHORT_FRONT,
+        eom: bool = True,
+    ) -> "FloatingLeg":
+        """Create a FloatingLeg with conventions from a RateIndex.
+
+        Automatically sets day_count, observation_shift, and payment_delay
+        from the index definition.
+        """
+        return cls(
+            start=start,
+            end=end,
+            frequency=frequency,
+            notional=notional,
+            spread=spread,
+            day_count=rate_index.day_count,
+            calendar=calendar,
+            convention=convention,
+            stub=stub,
+            eom=eom,
+            payment_delay_days=rate_index.payment_delay,
+            observation_shift_days=rate_index.observation_shift,
+        )
 
     def pv(
         self,
