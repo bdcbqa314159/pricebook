@@ -17,6 +17,7 @@ class FloatingCashflow:
     accrual_start: date
     accrual_end: date
     payment_date: date
+    fixing_date: date
     notional: float
     year_frac: float
     spread: float
@@ -58,11 +59,14 @@ class FloatingLeg:
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
         payment_delay_days: int = 0,
+        observation_shift_days: int = 0,
     ):
         if notional <= 0:
             raise ValueError(f"notional must be positive, got {notional}")
         if payment_delay_days < 0:
             raise ValueError(f"payment_delay_days must be >= 0, got {payment_delay_days}")
+        if observation_shift_days < 0:
+            raise ValueError(f"observation_shift_days must be >= 0, got {observation_shift_days}")
 
         self.start = start
         self.end = end
@@ -71,6 +75,7 @@ class FloatingLeg:
         self.spread = spread
         self.day_count = day_count
         self.payment_delay_days = payment_delay_days
+        self.observation_shift_days = observation_shift_days
 
         schedule = generate_schedule(
             start, end, frequency, calendar, convention, stub, eom,
@@ -81,11 +86,13 @@ class FloatingLeg:
             accrual_start = schedule[i - 1]
             accrual_end = schedule[i]
             payment_date = accrual_end + timedelta(days=payment_delay_days)
+            fixing_date = accrual_start - timedelta(days=observation_shift_days)
             yf = year_fraction(accrual_start, accrual_end, day_count)
             self.cashflows.append(FloatingCashflow(
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,
                 payment_date=payment_date,
+                fixing_date=fixing_date,
                 notional=notional,
                 year_frac=yf,
                 spread=spread,
@@ -115,7 +122,7 @@ class FloatingLeg:
         total = 0.0
         for cf in self.cashflows:
             if fixings is not None and rate_name is not None and cf.accrual_end <= ref:
-                fixing = fixings.get(rate_name, cf.accrual_start)
+                fixing = fixings.get(rate_name, cf.fixing_date)
                 if fixing is not None:
                     amount = cf.notional * (fixing + cf.spread) * cf.year_frac
                 else:

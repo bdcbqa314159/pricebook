@@ -197,3 +197,82 @@ class TestFixingsIntegration:
             expected += amount * curve.df(cf.payment_date)
 
         assert pv == pytest.approx(expected, rel=1e-10)
+
+
+# ---- FX3: Observation Shift ----
+
+class TestObservationShift:
+    def test_default_zero_shift(self):
+        """Default: fixing_date == accrual_start (no shift)."""
+        leg = FloatingLeg(
+            date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
+        )
+        for cf in leg.cashflows:
+            assert cf.fixing_date == cf.accrual_start
+
+    def test_two_day_shift(self):
+        """SOFR-style T-2: fixing_date = accrual_start - 2 days."""
+        leg = FloatingLeg(
+            date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
+            observation_shift_days=2,
+        )
+        for cf in leg.cashflows:
+            assert cf.fixing_date == cf.accrual_start - timedelta(days=2)
+
+    def test_shift_affects_fixing_lookup(self):
+        """With observation shift, fixings must be stored at fixing_date, not accrual_start."""
+        ref = date(2027, 4, 21)  # After entire leg
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg(
+            start=date(2026, 4, 21), end=date(2026, 10, 21),
+            frequency=Frequency.QUARTERLY,
+            notional=1_000_000,
+            observation_shift_days=2,
+        )
+
+        store = FixingsStore()
+        fixing_rate = 0.05
+
+        # Store at fixing_date (shifted), NOT accrual_start
+        for cf in leg.cashflows:
+            store.set("SOFR", cf.fixing_date, fixing_rate)
+
+        pv = leg.pv(curve, fixings=store, rate_name="SOFR")
+
+        # Should use the fixings
+        expected = 0.0
+        for cf in leg.cashflows:
+            amount = cf.notional * (fixing_rate + cf.spread) * cf.year_frac
+            expected += amount * curve.df(cf.payment_date)
+        assert pv == pytest.approx(expected, rel=1e-10)
+
+    def test_fixing_at_accrual_start_not_found_with_shift(self):
+        """With shift, a fixing stored at accrual_start won't be found (it looks at fixing_date)."""
+        ref = date(2027, 4, 21)
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg(
+            start=date(2026, 4, 21), end=date(2026, 10, 21),
+            frequency=Frequency.QUARTERLY,
+            notional=1_000_000,
+            observation_shift_days=2,
+        )
+
+        store = FixingsStore()
+        # Store at accrual_start — wrong date for shifted leg
+        for cf in leg.cashflows:
+            store.set("SOFR", cf.accrual_start, 0.10)
+
+        pv_with = leg.pv(curve, fixings=store, rate_name="SOFR")
+        pv_without = leg.pv(curve)
+
+        # Fixings at accrual_start won't match fixing_date → falls back to curve → same PV
+        assert pv_with == pytest.approx(pv_without, rel=1e-12)
+
+    def test_negative_shift_raises(self):
+        with pytest.raises(ValueError, match="observation_shift_days"):
+            FloatingLeg(
+                date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
+                observation_shift_days=-1,
+            )
