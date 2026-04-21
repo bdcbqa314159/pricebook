@@ -74,6 +74,10 @@ class FloatingLeg:
         self.notional = notional
         self.spread = spread
         self.day_count = day_count
+        self.calendar = calendar
+        self.convention = convention
+        self.stub = stub
+        self.eom = eom
         self.payment_delay_days = payment_delay_days
         self.observation_shift_days = observation_shift_days
 
@@ -85,8 +89,14 @@ class FloatingLeg:
         for i in range(1, len(schedule)):
             accrual_start = schedule[i - 1]
             accrual_end = schedule[i]
-            payment_date = accrual_end + timedelta(days=payment_delay_days)
-            fixing_date = accrual_start - timedelta(days=observation_shift_days)
+            if calendar is not None and payment_delay_days > 0:
+                payment_date = calendar.add_business_days(accrual_end, payment_delay_days)
+            else:
+                payment_date = accrual_end + timedelta(days=payment_delay_days)
+            if calendar is not None and observation_shift_days > 0:
+                fixing_date = calendar.add_business_days(accrual_start, -observation_shift_days)
+            else:
+                fixing_date = accrual_start - timedelta(days=observation_shift_days)
             yf = year_fraction(accrual_start, accrual_end, day_count)
             self.cashflows.append(FloatingCashflow(
                 accrual_start=accrual_start,

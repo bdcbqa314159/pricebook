@@ -488,3 +488,80 @@ class TestCalendarAwareLag:
         store.set("SOFR", date(2026, 4, 21), 0.043)
         result = store.get_with_lag("SOFR", date(2026, 4, 21), lag=0, calendar=cal)
         assert result == 0.043
+
+
+# ---- FH1+FH2: Business-day observation shift and payment delay ----
+
+class TestBusinessDayShiftAndDelay:
+    def test_obs_shift_skips_weekend_with_calendar(self):
+        """Monday accrual with T-2 shift should land on Thursday, not Saturday."""
+        cal = USSettlementCalendar()
+        # Apr 20, 2026 is a Monday
+        leg = FloatingLeg(
+            date(2026, 4, 20), date(2026, 7, 20), Frequency.QUARTERLY,
+            observation_shift_days=2, calendar=cal,
+        )
+        cf = leg.cashflows[0]
+        # Monday - 2 business days = Thursday Apr 16
+        assert cf.fixing_date == date(2026, 4, 16)
+        assert cf.fixing_date.weekday() == 3  # Thursday
+
+    def test_obs_shift_calendar_days_without_calendar(self):
+        """Without calendar, observation shift still uses calendar days (backward compat)."""
+        leg = FloatingLeg(
+            date(2026, 4, 20), date(2026, 7, 20), Frequency.QUARTERLY,
+            observation_shift_days=2,
+        )
+        cf = leg.cashflows[0]
+        # Monday - 2 calendar days = Saturday (no calendar to fix it)
+        assert cf.fixing_date == date(2026, 4, 18)
+
+    def test_payment_delay_skips_weekend_with_calendar(self):
+        """Friday accrual_end with T+2 delay should land on Tuesday, not Sunday."""
+        cal = USSettlementCalendar()
+        # Build a leg where accrual_end falls on a Friday
+        # Apr 17, 2026 is a Friday
+        leg = FloatingLeg(
+            date(2026, 1, 17), date(2026, 4, 17), Frequency.QUARTERLY,
+            payment_delay_days=2, calendar=cal,
+        )
+        cf = leg.cashflows[-1]
+        assert cf.accrual_end == date(2026, 4, 17)
+        # Friday + 2 business days = Tuesday Apr 21
+        assert cf.payment_date == date(2026, 4, 21)
+        assert cf.payment_date.weekday() == 1  # Tuesday
+
+    def test_payment_delay_calendar_days_without_calendar(self):
+        """Without calendar, payment delay uses calendar days (backward compat)."""
+        leg = FloatingLeg(
+            date(2026, 1, 17), date(2026, 4, 17), Frequency.QUARTERLY,
+            payment_delay_days=2,
+        )
+        cf = leg.cashflows[-1]
+        # Friday + 2 calendar days = Sunday (no calendar to fix it)
+        assert cf.payment_date == date(2026, 4, 19)
+
+    def test_obs_shift_skips_holiday(self):
+        """Observation shift should skip holidays too."""
+        cal = USSettlementCalendar()
+        # Jan 20, 2026 is MLK Day (Monday). Jan 21 (Tue) accrual.
+        # Tue - 2 business days: skip MLK Mon → Fri Jan 16
+        leg = FloatingLeg(
+            date(2026, 1, 21), date(2026, 4, 21), Frequency.QUARTERLY,
+            observation_shift_days=2, calendar=cal,
+        )
+        cf = leg.cashflows[0]
+        assert cf.fixing_date == date(2026, 1, 16)  # Friday before MLK
+
+    def test_both_shift_and_delay_with_calendar(self):
+        """Both observation shift and payment delay use business days when calendar present."""
+        cal = USSettlementCalendar()
+        leg = FloatingLeg(
+            date(2026, 4, 20), date(2026, 7, 20), Frequency.QUARTERLY,
+            observation_shift_days=2, payment_delay_days=2, calendar=cal,
+        )
+        cf = leg.cashflows[0]
+        # Obs shift: Mon Apr 20 - 2 biz = Thu Apr 16
+        assert cf.fixing_date.weekday() < 5  # weekday
+        # Payment delay: Mon Jul 20 + 2 biz = Wed Jul 22
+        assert cf.payment_date.weekday() < 5  # weekday
