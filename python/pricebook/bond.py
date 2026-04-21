@@ -50,11 +50,19 @@ class FixedRateBond:
             calendar=calendar, convention=convention, stub=stub, eom=eom,
         )
 
+    def _future_cashflows(self, settlement: date) -> list:
+        """Return only cashflows with payment_date > settlement."""
+        return [cf for cf in self.coupon_leg.cashflows if cf.payment_date > settlement]
+
     def dirty_price(self, curve: DiscountCurve) -> float:
-        """Full price: PV of coupons + PV of principal, per unit of face value."""
-        pv_coupons = self.coupon_leg.pv(curve)
-        pv_principal = self.face_value * curve.df(self.maturity)
-        return (pv_coupons + pv_principal) / self.face_value * 100.0
+        """Full price: PV of remaining coupons + PV of principal, per 100 face."""
+        settlement = curve.reference_date
+        pv = sum(
+            cf.amount * curve.df(cf.payment_date)
+            for cf in self._future_cashflows(settlement)
+        )
+        pv += self.face_value * curve.df(self.maturity)
+        return pv / self.face_value * 100.0
 
     def accrued_interest(self, settlement: date) -> float:
         """
@@ -80,107 +88,105 @@ class FixedRateBond:
             settlement = curve.reference_date
         return self.dirty_price(curve) - self.accrued_interest(settlement)
 
-    def yield_to_maturity(self, market_price: float) -> float:
+    def yield_to_maturity(self, market_price: float, settlement: date | None = None) -> float:
         """
-        Yield to maturity: the constant rate that discounts all cashflows
-        to the given market (dirty) price.
+        Yield to maturity: the constant rate that discounts all remaining
+        cashflows to the given market (dirty) price.
 
         Uses bond-equivalent yield convention: compounding at the coupon frequency.
+        Time is measured from settlement, not issue date.
 
-        YTM solves: price = sum(C_i / (1 + y/freq)^(freq*t_i)) + face / (1 + y/freq)^(freq*t_n)
+        Args:
+            market_price: dirty price per 100 face.
+            settlement: date from which to discount. If None, uses issue_date
+                for backward compat (new code should always pass settlement).
         """
-        freq = self.frequency.value  # months per period
-        periods_per_year = 12 / freq
+        settle = settlement if settlement is not None else self.issue_date
+        return brentq(
+            lambda y: self._price_from_ytm(y, settle) - market_price,
+            -0.05, 1.0,
+        )
 
-        def _price_from_yield(y: float) -> float:
-            pv = 0.0
-            for cf in self.coupon_leg.cashflows:
-                t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
-                n = t * periods_per_year
-                pv += cf.amount / (1.0 + y / periods_per_year) ** n
-            # Principal
-            t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
-            n_mat = t_mat * periods_per_year
-            pv += self.face_value / (1.0 + y / periods_per_year) ** n_mat
-            return pv / self.face_value * 100.0
-
-        def objective(y: float) -> float:
-            return _price_from_yield(y) - market_price
-
-        return brentq(objective, -0.05, 1.0)
-
-    def macaulay_duration(self, ytm: float) -> float:
+    def macaulay_duration(self, ytm: float, settlement: date | None = None) -> float:
         """
-        Macaulay duration: weighted-average time to cashflows,
+        Macaulay duration: weighted-average time to cashflows from settlement,
         where weights are PV of each cashflow / total PV.
         """
+        settle = settlement if settlement is not None else self.issue_date
         freq = self.frequency.value
         periods_per_year = 12 / freq
 
         weighted_t = 0.0
         total_pv = 0.0
-        for cf in self.coupon_leg.cashflows:
-            t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+        for cf in self._future_cashflows(settle):
+            t = year_fraction(settle, cf.payment_date, self.day_count)
             n = t * periods_per_year
             pv = cf.amount / (1.0 + ytm / periods_per_year) ** n
             weighted_t += t * pv
             total_pv += pv
 
         # Principal
-        t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+        t_mat = year_fraction(settle, self.maturity, self.day_count)
         n_mat = t_mat * periods_per_year
         pv_prin = self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         weighted_t += t_mat * pv_prin
         total_pv += pv_prin
 
+        if total_pv <= 0:
+            return 0.0
         return weighted_t / total_pv
 
-    def modified_duration(self, ytm: float) -> float:
+    def modified_duration(self, ytm: float, settlement: date | None = None) -> float:
         """Modified duration: Macaulay duration / (1 + ytm/freq)."""
         periods_per_year = 12 / self.frequency.value
-        return self.macaulay_duration(ytm) / (1.0 + ytm / periods_per_year)
+        return self.macaulay_duration(ytm, settlement) / (1.0 + ytm / periods_per_year)
 
-    def convexity(self, ytm: float) -> float:
+    def convexity(self, ytm: float, settlement: date | None = None) -> float:
         """
         Convexity: second-order price sensitivity to yield.
 
-        C = (1/P) * sum(t_i * (t_i + 1/freq) * PV_i) / (1 + y/freq)^2
+        C = (1/P) * sum(n_i * (n_i + 1) * PV_i) / (freq^2 * (1 + y/freq)^2)
         """
+        settle = settlement if settlement is not None else self.issue_date
         freq = self.frequency.value
         periods_per_year = 12 / freq
         discount = 1.0 + ytm / periods_per_year
 
         weighted = 0.0
         total_pv = 0.0
-        for cf in self.coupon_leg.cashflows:
-            t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+        for cf in self._future_cashflows(settle):
+            t = year_fraction(settle, cf.payment_date, self.day_count)
             n = t * periods_per_year
             pv = cf.amount / discount ** n
             weighted += n * (n + 1) * pv
             total_pv += pv
 
-        t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+        t_mat = year_fraction(settle, self.maturity, self.day_count)
         n_mat = t_mat * periods_per_year
         pv_prin = self.face_value / discount ** n_mat
         weighted += n_mat * (n_mat + 1) * pv_prin
         total_pv += pv_prin
 
+        if total_pv <= 0:
+            return 0.0
         return weighted / (total_pv * periods_per_year ** 2 * discount ** 2)
 
-    def dv01_yield(self, ytm: float) -> float:
+    def dv01_yield(self, ytm: float, settlement: date | None = None) -> float:
         """Dollar value of a basis point: price change for a 1bp yield shift."""
-        return self.modified_duration(ytm) * self._price_from_ytm(ytm) / 10000.0
+        settle = settlement if settlement is not None else self.issue_date
+        return self.modified_duration(ytm, settle) * self._price_from_ytm(ytm, settle) / 10000.0
 
-    def _price_from_ytm(self, ytm: float) -> float:
-        """Dirty price per 100 face from a yield."""
+    def _price_from_ytm(self, ytm: float, settlement: date | None = None) -> float:
+        """Dirty price per 100 face from a yield, discounting from settlement."""
+        settle = settlement if settlement is not None else self.issue_date
         freq = self.frequency.value
         periods_per_year = 12 / freq
         pv = 0.0
-        for cf in self.coupon_leg.cashflows:
-            t = year_fraction(self.issue_date, cf.payment_date, self.day_count)
+        for cf in self._future_cashflows(settle):
+            t = year_fraction(settle, cf.payment_date, self.day_count)
             n = t * periods_per_year
             pv += cf.amount / (1.0 + ytm / periods_per_year) ** n
-        t_mat = year_fraction(self.issue_date, self.maturity, self.day_count)
+        t_mat = year_fraction(settle, self.maturity, self.day_count)
         n_mat = t_mat * periods_per_year
         pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         return pv / self.face_value * 100.0
