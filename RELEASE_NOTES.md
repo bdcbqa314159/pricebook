@@ -2,6 +2,20 @@
 
 ---
 
+## v0.286.0 — 2026-04-21
+
+FH3: Current-period fixing for term rates. 5079 tests.
+
+`floating_leg.py`:
+- Changed fixing condition from `accrual_end <= ref` to `fixing_date <= ref`
+- Term rates (EURIBOR) are known at period start — now used immediately
+- Shifted observation dates trigger fixing lookup earlier (correct for SOFR T-2)
+
+`test_floating_leg_fixing.py` (+3 tests):
+- Current period uses known fixing, future fixing_date ignored, shifted current period
+
+---
+
 ## v0.285.0 — 2026-04-21
 
 FH1+FH2: Business-day observation shift and payment delay. 5076 tests.
