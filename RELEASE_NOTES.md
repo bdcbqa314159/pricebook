@@ -2,6 +2,20 @@
 
 ---
 
+## v0.288.0 — 2026-04-21
+
+FH5: Consumer API pass-through for fixing parameters. 5087 tests.
+
+`swap.py`, `frn.py`, `basis_swap.py`:
+- Added `payment_delay_days` and `observation_shift_days` parameters
+- Passed through to FloatingLeg construction
+- Default 0 preserves backward compatibility
+
+`test_floating_leg_fixing.py` (+4 tests):
+- Swap delay/shift, FRN shift, basis swap both legs, backward compat
+
+---
+
 ## v0.287.0 — 2026-04-21
 
 FH4: Forward rate projects from observation window. 5083 tests.
