@@ -2,6 +2,20 @@
 
 ---
 
+## v0.291.0 — 2026-04-21
+
+FH8: FloatingLeg.from_rate_index() factory. 5101 tests.
+
+`floating_leg.py`:
+- Added `FloatingLeg.from_rate_index(rate_index, start, end, freq, ...)`
+- Auto-sets `day_count`, `observation_shift_days`, `payment_delay` from RateIndex
+- Users say `from_rate_index(SOFR, ...)` instead of manually copying conventions
+
+`test_floating_leg_fixing.py` (+5 tests):
+- SOFR conventions, SONIA no-shift, EURIBOR flat, spread pass-through, PV works
+
+---
+
 ## v0.290.0 — 2026-04-21
 
 FH7: CORRA convention update. 5096 tests.
