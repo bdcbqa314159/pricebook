@@ -232,4 +232,13 @@ def brentq(f, a: float, b: float, tol: float = 1e-12, maxiter: int = 100) -> flo
             a, b = b, a
             fa, fb = fb, fa
 
+    # Convergence check: warn if residual is large
+    if abs(fb) > tol * 1000:
+        import warnings
+        warnings.warn(
+            f"brentq: solver may not have converged. "
+            f"|f(root)|={abs(fb):.2e}, tol={tol:.2e}, root={b:.6e}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     return b

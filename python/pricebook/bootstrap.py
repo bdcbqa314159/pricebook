@@ -107,7 +107,7 @@ def bootstrap(
             return pv_fixed - pv_float
 
         # Bracket: df must be between 0 and 1 (or slightly above 1 for negative rates)
-        df_solved = brentq(objective, 0.001, 1.5)
+        df_solved = brentq(objective, 1e-6, 3.0)  # wider bracket: handles negative rates to -3%
 
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
@@ -218,7 +218,7 @@ def bootstrap_forward_curve(
 
             return pv_fixed - pv_float
 
-        df_solved = brentq(objective, 0.001, 1.5)
+        df_solved = brentq(objective, 1e-6, 3.0)  # wider bracket: handles negative rates to -3%
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
 

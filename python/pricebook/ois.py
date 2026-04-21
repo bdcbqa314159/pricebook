@@ -128,7 +128,7 @@ def bootstrap_ois(
 
             return pv_fixed - pv_float
 
-        df_solved = brentq(objective, 0.001, 1.5)
+        df_solved = brentq(objective, 1e-6, 3.0)  # wider bracket: handles negative rates
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
 

@@ -103,7 +103,7 @@ def futures_strip(
             float_pv = trial_curve.df(_schedule[0]) - trial_curve.df(_schedule[-1])
             return fixed_pv - float_pv
 
-        df_mat = brentq(_swap_pv, 0.01, 2.0)
+        df_mat = brentq(_swap_pv, 1e-6, 3.0)  # wider bracket: handles negative rates
         pillar_dates.append(mat)
         pillar_dfs.append(df_mat)
 

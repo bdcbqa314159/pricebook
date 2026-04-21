@@ -180,44 +180,35 @@ def build_curve(
         elif spec.quote_type == QuoteType.SWAP_RATE:
             swaps.append((mat, q.value))
 
-    # Build from deposits + swaps
-    pillar_dates = []
-    pillar_dfs = []
-
-    # Deposits: df = 1 / (1 + r * tau)
-    for mat, rate in sorted(deposits):
-        tau = tenor_to_years(
-            next(s.tenor for s in definition.instruments
-                 if tenor_to_date(ref, s.tenor) == mat)
-        )
-        df = 1.0 / (1.0 + rate * tau)
-        pillar_dates.append(mat)
-        pillar_dfs.append(df)
-
-    # Swaps: treat as zero rates, df = exp(-r * t)
-    for mat, rate in sorted(swaps):
-        t = tenor_to_years(
-            next(s.tenor for s in definition.instruments
-                 if tenor_to_date(ref, s.tenor) == mat)
-        )
-        df = math.exp(-rate * t)
-        pillar_dates.append(mat)
-        pillar_dfs.append(df)
-
-    if not pillar_dates:
+    if not deposits and not swaps:
         raise MissingQuoteError(f"No quotes matched for curve {definition.name}")
+
+    # Delegate to bootstrap.py for proper iterative swap solving.
+    # bootstrap() handles deposits via simple interest and swaps via
+    # iterative Brent root-finding on discount factors — mathematically
+    # correct unlike the previous naive df=exp(-r*t) approach.
+    from pricebook.bootstrap import bootstrap as _bootstrap
+
+    sorted_deposits = sorted(deposits)
+    sorted_swaps = sorted(swaps)
+
+    curve = _bootstrap(
+        reference_date=ref,
+        deposits=sorted_deposits,
+        swaps=sorted_swaps,
+        deposit_day_count=definition.day_count,
+        interpolation=definition.interpolation,
+    )
 
     # Apply Smith-Wilson extrapolation if requested
     if definition.extrapolation == ExtrapolationPolicy.SMITH_WILSON:
         from pricebook.smith_wilson import smith_wilson_curve
         maturities = [tenor_to_years(s.tenor) for s in definition.instruments]
+        pillar_dfs = [curve.df(tenor_to_date(ref, s.tenor))
+                      for s in definition.instruments]
         return smith_wilson_curve(ref, maturities, pillar_dfs)
 
-    return DiscountCurve(
-        ref, pillar_dates, pillar_dfs,
-        day_count=definition.day_count,
-        interpolation=definition.interpolation,
-    )
+    return curve
 
 
 # ---------------------------------------------------------------------------
