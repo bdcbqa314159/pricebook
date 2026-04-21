@@ -109,10 +109,14 @@ class BasisSwap:
         # PV of leg 2
         pv2 = self.leg2.pv(discount_curve, projection_curve_2)
 
-        # PV of leg 1 with zero spread
+        # PV of leg 1 with zero spread (preserve all settings)
         leg1_flat = FloatingLeg(
             self.leg1.start, self.leg1.end, self.leg1.frequency,
             notional=self.notional, spread=0.0, day_count=self.leg1.day_count,
+            calendar=self.leg1.calendar, convention=self.leg1.convention,
+            stub=self.leg1.stub, eom=self.leg1.eom,
+            payment_delay_days=self.leg1.payment_delay_days,
+            observation_shift_days=self.leg1.observation_shift_days,
         )
         pv1_flat = leg1_flat.pv(discount_curve, projection_curve_1)
 

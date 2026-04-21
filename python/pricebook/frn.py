@@ -131,12 +131,19 @@ class FloatingRateNote:
         Approximated by adjusting the floating spread and repricing.
         """
         def objective(dm: float) -> float:
-            # Create an FRN with adjusted spread and reprice
+            # Create an FRN with adjusted spread and reprice (preserve all settings)
             shifted = FloatingRateNote(
                 self.start, self.end,
                 spread=self.spread + dm,
                 notional=self.notional,
                 frequency=self.floating_leg.frequency,
+                day_count=self.floating_leg.day_count,
+                calendar=self.floating_leg.calendar,
+                convention=self.floating_leg.convention,
+                stub=self.floating_leg.stub,
+                eom=self.floating_leg.eom,
+                payment_delay_days=self.floating_leg.payment_delay_days,
+                observation_shift_days=self.floating_leg.observation_shift_days,
             )
             return shifted.dirty_price(curve, projection_curve) - market_price
 

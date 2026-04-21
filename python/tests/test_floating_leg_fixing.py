@@ -737,3 +737,39 @@ class TestConsumerAPIPassthrough:
         for cf in swap.floating_leg.cashflows:
             assert cf.payment_date == cf.accrual_end
             assert cf.observation_start == cf.accrual_start
+
+
+# ---- FH6: Throwaway FloatingLeg preserves settings ----
+
+class TestThrowawayPreservesSettings:
+    def test_basis_swap_par_spread_preserves_delay(self):
+        """BasisSwap.par_spread() throwaway leg preserves payment_delay."""
+        from pricebook.basis_swap import BasisSwap
+        ref = date(2026, 4, 21)
+        curve = _flat_curve(ref, rate=0.04)
+        proj1 = _flat_curve(ref, rate=0.042)
+        proj2 = _flat_curve(ref, rate=0.041)
+
+        swap = BasisSwap(
+            ref, date(2031, 4, 21), spread=0.001,
+            payment_delay_days=2, observation_shift_days=2,
+        )
+        # par_spread should not raise and should return a reasonable value
+        ps = swap.par_spread(curve, proj1, proj2)
+        assert abs(ps) < 0.01  # reasonable basis spread
+
+    def test_frn_discount_margin_preserves_shift(self):
+        """FRN.discount_margin() throwaway FRN preserves observation_shift."""
+        from pricebook.frn import FloatingRateNote
+        ref = date(2026, 4, 21)
+        curve = _flat_curve(ref, rate=0.04)
+
+        frn = FloatingRateNote(
+            ref, date(2031, 4, 21), spread=0.005,
+            observation_shift_days=2,
+        )
+        dirty = frn.dirty_price(curve)
+        # discount_margin should not raise
+        dm = frn.discount_margin(dirty, curve)
+        # At the model dirty price, DM should be ~0 (no additional spread needed)
+        assert abs(dm) < 1e-6
