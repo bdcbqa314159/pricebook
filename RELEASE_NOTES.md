@@ -2,6 +2,21 @@
 
 ---
 
+## v0.285.0 — 2026-04-21
+
+FH1+FH2: Business-day observation shift and payment delay. 5076 tests.
+
+`floating_leg.py`:
+- `fixing_date` now uses `Calendar.add_business_days(accrual_start, -shift)` when calendar provided
+- `payment_date` now uses `Calendar.add_business_days(accrual_end, +delay)` when calendar provided
+- Without calendar, falls back to calendar days (backward compat)
+- Stores calendar, convention, stub, eom on `self` for downstream use
+
+`test_floating_leg_fixing.py` (+6 tests):
+- Obs shift skips weekends/holidays, payment delay skips weekends, backward compat without calendar
+
+---
+
 ## v0.284.0 — 2026-04-17
 
 FX6: Calendar-aware business day lag. **FIXING MANAGEMENT COMPLETE.** 5070 tests.
