@@ -2,6 +2,23 @@
 
 ---
 
+## v0.276.0 — 2026-04-21
+
+PR3: Credit Conventions.
+
+`cds_conventions.py` (NEW):
+- next_imm_date: next 20th of Mar/Jun/Sep/Dec
+- standard_cds_dates: IMM-based quarterly premium dates, snaps to previous IMM
+- STANDARD_COUPONS_BPS: 100bp (IG), 500bp (HY) per ISDA Big Bang
+- STANDARD_RECOVERY: 40% IG, 25% HY
+- upfront_from_par_spread / par_spread_from_upfront: standard coupon conversion with round-trip
+- CDSIndexSpec: CDX.NA.IG (125), CDX.NA.HY (100), iTraxx Europe (125), iTraxx Crossover (75)
+- cds_index_roll_date: next Mar/Sep roll
+- CDS_SETTLEMENT: auction, accrued on default (ISDA 2009)
+- 24 new tests
+
+---
+
 ## v0.275.0 — 2026-04-21
 
 PR2: G10 FX Completion.
