@@ -565,3 +565,72 @@ class TestBusinessDayShiftAndDelay:
         assert cf.fixing_date.weekday() < 5  # weekday
         # Payment delay: Mon Jul 20 + 2 biz = Wed Jul 22
         assert cf.payment_date.weekday() < 5  # weekday
+
+
+# ---- FH3: Current-period fixing for term rates ----
+
+class TestCurrentPeriodFixing:
+    def test_current_period_uses_known_fixing(self):
+        """If fixing_date <= ref but accrual_end > ref, use the known fixing."""
+        # Leg: Apr 21 → Jul 21 → Oct 21
+        # ref = Jun 1 (middle of first period)
+        # fixing_date for first period = Apr 21 (no shift) → in the past
+        ref = date(2026, 6, 1)
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg(
+            start=date(2026, 4, 21), end=date(2026, 10, 21),
+            frequency=Frequency.QUARTERLY,
+            notional=1_000_000,
+        )
+
+        store = FixingsStore()
+        store.set("EURIBOR", date(2026, 4, 21), 0.035)
+
+        pv_with_fix = leg.pv(curve, fixings=store, rate_name="EURIBOR")
+        pv_without = leg.pv(curve)
+
+        # First period uses 3.5% fixing instead of ~4% forward → different PV
+        assert pv_with_fix != pytest.approx(pv_without, rel=1e-4)
+
+    def test_future_fixing_date_not_used(self):
+        """If fixing_date > ref, do NOT use fixing even if stored."""
+        ref = date(2026, 4, 20)  # One day before leg start
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg(
+            start=date(2026, 4, 21), end=date(2026, 7, 21),
+            frequency=Frequency.QUARTERLY,
+            notional=1_000_000,
+        )
+
+        store = FixingsStore()
+        store.set("SOFR", date(2026, 4, 21), 0.10)  # Future fixing
+
+        pv_with = leg.pv(curve, fixings=store, rate_name="SOFR")
+        pv_without = leg.pv(curve)
+
+        # fixing_date (Apr 21) > ref (Apr 20) → fixing not used → same PV
+        assert pv_with == pytest.approx(pv_without, rel=1e-12)
+
+    def test_shifted_current_period(self):
+        """With observation shift, fixing_date is earlier → picks up fixing sooner."""
+        ref = date(2026, 4, 20)  # One day before accrual start
+        curve = _flat_curve(ref, rate=0.04)
+
+        # With shift=2, fixing_date = Apr 21 - 2 = Apr 19 (< ref Apr 20) → known
+        leg = FloatingLeg(
+            start=date(2026, 4, 21), end=date(2026, 7, 21),
+            frequency=Frequency.QUARTERLY,
+            notional=1_000_000,
+            observation_shift_days=2,
+        )
+
+        store = FixingsStore()
+        store.set("SOFR", leg.cashflows[0].fixing_date, 0.05)
+
+        pv_with = leg.pv(curve, fixings=store, rate_name="SOFR")
+        pv_without = leg.pv(curve)
+
+        # fixing_date (Apr 19) <= ref (Apr 20) → fixing IS used → different PV
+        assert pv_with != pytest.approx(pv_without, rel=1e-4)

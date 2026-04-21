@@ -131,7 +131,7 @@ class FloatingLeg:
         ref = curve.reference_date
         total = 0.0
         for cf in self.cashflows:
-            if fixings is not None and rate_name is not None and cf.accrual_end <= ref:
+            if fixings is not None and rate_name is not None and cf.fixing_date <= ref:
                 fixing = fixings.get(rate_name, cf.fixing_date)
                 if fixing is not None:
                     amount = cf.notional * (fixing + cf.spread) * cf.year_frac
