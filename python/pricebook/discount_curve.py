@@ -43,6 +43,9 @@ class DiscountCurve:
         self.reference_date = reference_date
         self.day_count = day_count
 
+        # Store original dates for exact retrieval (avoids int(t*365) drift)
+        self._pillar_dates_original = list(dates)
+
         # Convert dates to year fractions from reference date
         times = [year_fraction(reference_date, d, day_count) for d in dates]
 
@@ -69,11 +72,8 @@ class DiscountCurve:
 
     @property
     def pillar_dates(self) -> list[date]:
-        """Pillar dates (excluding the t=0 point)."""
-        return [
-            date.fromordinal(self.reference_date.toordinal() + int(t * 365))
-            for t in self._times if t > 0
-        ]
+        """Pillar dates (excluding the t=0 point). Uses stored original dates."""
+        return list(self._pillar_dates_original)
 
     @classmethod
     def flat(cls, reference_date: date, rate: float, tenors: list[float] | None = None) -> "DiscountCurve":

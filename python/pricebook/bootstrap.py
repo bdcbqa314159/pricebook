@@ -15,6 +15,7 @@ def bootstrap(
     reference_date: date,
     deposits: list[tuple[date, float]],
     swaps: list[tuple[date, float]],
+    fras: list[tuple[date, date, float]] | None = None,
     deposit_day_count: DayCountConvention = DayCountConvention.ACT_360,
     fixed_day_count: DayCountConvention = DayCountConvention.THIRTY_360,
     float_day_count: DayCountConvention = DayCountConvention.ACT_360,
@@ -25,7 +26,7 @@ def bootstrap(
     convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
 ) -> DiscountCurve:
     """
-    Bootstrap a discount curve from deposit rates and swap par rates.
+    Bootstrap a discount curve from deposits, FRAs, and swap par rates.
 
     Args:
         reference_date: Curve reference date (today / spot date).
@@ -33,6 +34,9 @@ def bootstrap(
                   Must be sorted by maturity.
         swaps: List of (maturity_date, par_rate) for vanilla IRS.
                Must be sorted by maturity, all maturities after last deposit.
+        fras: Optional list of (start_date, end_date, rate) for FRAs.
+              Each FRA implies df(end) = df(start) / (1 + rate × τ).
+              Sorted by end_date, between deposits and swaps.
         deposit_day_count: Day count for deposit year fractions.
         fixed_day_count: Day count for the fixed leg of swaps.
         float_day_count: Day count for the floating leg of swaps.
@@ -63,6 +67,24 @@ def bootstrap(
         dep = Deposit(reference_date, mat, rate, day_count=deposit_day_count)
         pillar_dates.append(mat)
         pillar_dfs.append(dep.discount_factor)
+
+    # --- Middle: FRAs give df(end) from df(start) ---
+    if fras:
+        for start_date, end_date, fra_rate in fras:
+            tau = year_fraction(start_date, end_date, deposit_day_count)
+            # Interpolate df(start) from existing pillars
+            if pillar_dates:
+                temp_curve = DiscountCurve(
+                    reference_date, pillar_dates, pillar_dfs,
+                    day_count=deposit_day_count, interpolation=interpolation,
+                )
+                df_start = temp_curve.df(start_date)
+            else:
+                df_start = 1.0
+            # FRA relationship: df(end) = df(start) / (1 + rate × τ)
+            df_end = df_start / (1 + fra_rate * tau)
+            pillar_dates.append(end_date)
+            pillar_dfs.append(df_end)
 
     # --- Long end: swap par rates, solved iteratively ---
     for mat, par_rate in swaps:
