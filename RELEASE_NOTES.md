@@ -2,6 +2,26 @@
 
 ---
 
+## v0.273.0 — 2026-04-21
+
+P0: Round-Trip Repricing + Negative Rate Testing.
+
+`bootstrap.py`:
+- _verify_round_trip(): automatic verification after every bootstrap
+  - Reprices all deposits (simple interest), swaps (par rate), FRAs (forward rate)
+  - Emits RuntimeWarning if any instrument reprices with error > 1e-6
+  - Catches bootstrap bugs before they propagate to pricing
+
+`test_curve_robustness.py` (NEW, 13 tests):
+- Round-trip: deposits, swaps, FRAs, full pipeline all reprice exactly
+- Negative rates: EUR-style deposits (-50bp), swaps (-30bp), mixed regime
+  - DFs > 1 for negative rates verified
+  - Zero-crossing (negative→positive) curve works
+- build_curves: USD normal + EUR negative via unified entry point
+- Date precision: exact dates preserved through bootstrap
+
+---
+
 ## v0.272.0 — 2026-04-21
 
 CH4: Multi-Curve Newton + Validation — Curve Hardening Phase 4. CURVE HARDENING COMPLETE.

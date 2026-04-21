@@ -179,11 +179,74 @@ def bootstrap(
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
 
-    return DiscountCurve(
+    curve = DiscountCurve(
         reference_date, pillar_dates, pillar_dfs,
         day_count=DayCountConvention.ACT_365_FIXED,
         interpolation=interpolation,
     )
+
+    # --- Round-trip verification: reprice all inputs ---
+    _verify_round_trip(curve, reference_date, deposits, swaps, fras, futures,
+                       deposit_day_count, fixed_day_count, float_day_count,
+                       fixed_frequency, float_frequency, calendar, convention,
+                       hw_convexity_a, hw_convexity_sigma, turn_of_year_spread)
+
+    return curve
+
+
+def _verify_round_trip(
+    curve, reference_date, deposits, swaps, fras, futures,
+    deposit_day_count, fixed_day_count, float_day_count,
+    fixed_frequency, float_frequency, calendar, convention,
+    hw_convexity_a, hw_convexity_sigma, turn_of_year_spread,
+    tol=1e-6,
+):
+    """Verify the bootstrapped curve reprices all input instruments.
+
+    Raises RuntimeWarning if any instrument reprices with error > tol.
+    """
+    import warnings
+
+    errors = []
+
+    # Check deposits
+    for mat, rate in deposits:
+        tau = year_fraction(reference_date, mat, deposit_day_count)
+        if tau > 0:
+            model_rate = (1.0 / curve.df(mat) - 1.0) / tau
+            err = abs(model_rate - rate)
+            if err > tol:
+                errors.append(f"Deposit {mat}: input={rate:.6f}, model={model_rate:.6f}, err={err:.2e}")
+
+    # Check swaps (simplified par rate)
+    for mat, par_rate in swaps:
+        sched = generate_schedule(
+            reference_date, mat, fixed_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        annuity = 0.0
+        for i in range(1, len(sched)):
+            yf = year_fraction(sched[i-1], sched[i], fixed_day_count)
+            annuity += yf * curve.df(sched[i])
+        if annuity > 1e-10:
+            model_par = (1.0 - curve.df(mat)) / annuity
+            err = abs(model_par - par_rate)
+            if err > tol:
+                errors.append(f"Swap {mat}: input={par_rate:.6f}, model={model_par:.6f}, err={err:.2e}")
+
+    # Check FRAs
+    if fras:
+        for start, end, fra_rate in fras:
+            tau = year_fraction(start, end, deposit_day_count)
+            if tau > 0:
+                model_fwd = (curve.df(start) / curve.df(end) - 1.0) / tau
+                err = abs(model_fwd - fra_rate)
+                if err > tol:
+                    errors.append(f"FRA {start}-{end}: input={fra_rate:.6f}, model={model_fwd:.6f}, err={err:.2e}")
+
+    if errors:
+        msg = "Bootstrap round-trip failures:\n" + "\n".join(errors)
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
 
 def bootstrap_forward_curve(
