@@ -2,6 +2,22 @@
 
 ---
 
+## v0.272.0 — 2026-04-21
+
+CH4: Multi-Curve Newton + Validation — Curve Hardening Phase 4. CURVE HARDENING COMPLETE.
+
+`multicurve_solver.py` (NEW):
+- multicurve_newton: simultaneous OIS + projection bootstrap via Newton-Raphson
+  - Numerical Jacobian with damped step control
+  - Positive DF constraint enforced
+  - Convergence warning if max_iter reached
+- validate_curve: production checks (monotone DFs, forward rate bounds, gap detection, duplicates)
+  - CurveValidationResult: is_valid, warnings list, forward rate range, n_pillars
+- curve_analytical_jacobian: ∂zero_rate(t_i)/∂zero_rate(t_j) via finite difference
+  - Returns full Jacobian matrix for real-time risk
+
+---
+
 ## v0.271.0 — 2026-04-21
 
 CH3: Pipeline Integration — Curve Hardening Phase 3.
