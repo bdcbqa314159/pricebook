@@ -18,14 +18,20 @@ class FloatingCashflow:
     accrual_end: date
     payment_date: date
     fixing_date: date
+    observation_start: date
+    observation_end: date
     notional: float
     year_frac: float
     spread: float
 
     def forward_rate(self, projection_curve: DiscountCurve) -> float:
-        """Implied forward rate for this period using the leg's own day count."""
-        df1 = projection_curve.df(self.accrual_start)
-        df2 = projection_curve.df(self.accrual_end)
+        """Implied forward rate for the observation window.
+
+        With observation shift, projects from [obs_start, obs_end] instead of
+        [accrual_start, accrual_end]. Year fraction still uses accrual dates.
+        """
+        df1 = projection_curve.df(self.observation_start)
+        df2 = projection_curve.df(self.observation_end)
         return (df1 / df2 - 1.0) / self.year_frac
 
     def amount(self, projection_curve: DiscountCurve) -> float:
@@ -94,15 +100,20 @@ class FloatingLeg:
             else:
                 payment_date = accrual_end + timedelta(days=payment_delay_days)
             if calendar is not None and observation_shift_days > 0:
-                fixing_date = calendar.add_business_days(accrual_start, -observation_shift_days)
+                observation_start = calendar.add_business_days(accrual_start, -observation_shift_days)
+                observation_end = calendar.add_business_days(accrual_end, -observation_shift_days)
             else:
-                fixing_date = accrual_start - timedelta(days=observation_shift_days)
+                observation_start = accrual_start - timedelta(days=observation_shift_days)
+                observation_end = accrual_end - timedelta(days=observation_shift_days)
+            fixing_date = observation_start
             yf = year_fraction(accrual_start, accrual_end, day_count)
             self.cashflows.append(FloatingCashflow(
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,
                 payment_date=payment_date,
                 fixing_date=fixing_date,
+                observation_start=observation_start,
+                observation_end=observation_end,
                 notional=notional,
                 year_frac=yf,
                 spread=spread,

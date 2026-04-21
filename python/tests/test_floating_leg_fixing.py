@@ -634,3 +634,59 @@ class TestCurrentPeriodFixing:
 
         # fixing_date (Apr 19) <= ref (Apr 20) → fixing IS used → different PV
         assert pv_with != pytest.approx(pv_without, rel=1e-4)
+
+
+# ---- FH4: Forward rate uses observation dates when shifted ----
+
+class TestForwardRateObservation:
+    def test_no_shift_obs_equals_accrual(self):
+        """Without shift, observation dates = accrual dates."""
+        leg = FloatingLeg(
+            date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
+        )
+        for cf in leg.cashflows:
+            assert cf.observation_start == cf.accrual_start
+            assert cf.observation_end == cf.accrual_end
+
+    def test_shifted_obs_dates(self):
+        """With shift, observation window is shifted back."""
+        leg = FloatingLeg(
+            date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
+            observation_shift_days=2,
+        )
+        for cf in leg.cashflows:
+            assert cf.observation_start < cf.accrual_start
+            assert cf.observation_end < cf.accrual_end
+
+    def test_forward_rate_uses_obs_dates(self):
+        """forward_rate() should project from observation window, not accrual window."""
+        import math
+        ref = date(2026, 4, 21)
+        # Build a steep curve where 2-day shift makes a measurable difference
+        tenors = [0.25, 0.5, 1.0, 2.0, 5.0, 10.0]
+        rates = [0.03, 0.035, 0.04, 0.045, 0.05, 0.055]
+        pillar_dates = [date.fromordinal(ref.toordinal() + int(t * 365)) for t in tenors]
+        dfs = [math.exp(-r * t) for r, t in zip(rates, tenors)]
+        curve = DiscountCurve(ref, pillar_dates, dfs)
+
+        leg_no_shift = FloatingLeg(
+            ref, date(2027, 4, 21), Frequency.QUARTERLY,
+        )
+        leg_shifted = FloatingLeg(
+            ref, date(2027, 4, 21), Frequency.QUARTERLY,
+            observation_shift_days=5,  # Use 5 days to make difference visible
+        )
+
+        # Forward rates should differ because they project from different windows
+        fwd_no = leg_no_shift.cashflows[0].forward_rate(curve)
+        fwd_shifted = leg_shifted.cashflows[0].forward_rate(curve)
+        assert fwd_no != pytest.approx(fwd_shifted, rel=1e-6)
+
+    def test_fixing_date_equals_obs_start(self):
+        """fixing_date should equal observation_start."""
+        leg = FloatingLeg(
+            date(2026, 4, 21), date(2027, 4, 21), Frequency.QUARTERLY,
+            observation_shift_days=2,
+        )
+        for cf in leg.cashflows:
+            assert cf.fixing_date == cf.observation_start
