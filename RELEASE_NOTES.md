@@ -2,6 +2,40 @@
 
 ---
 
+## v0.298.0 — 2026-04-21
+
+FI1-FI10: Fixed Income Convention Hardening. **FI STACK PRODUCTION-GRADE.** 5188 tests.
+
+`day_count.py`:
+- Added ACT/ACT ICMA (Rule 251.1) — government bond standard (UST, Bund, Gilt, JGB)
+- `year_fraction()` now accepts optional `ref_start`, `ref_end`, `frequency` for ICMA
+
+`bond.py`:
+- `settlement_days` parameter + `settlement_date(trade_date)` method (T+1 UST, T+2 EU)
+- `ex_div_days` parameter — negative accrued in ex-dividend period
+
+`fixed_leg.py`:
+- Added `payment_delay_days` parameter (matching FloatingLeg, calendar-aware)
+
+`fra.py`:
+- FRA now settles at start date: `PV = N(fwd-K)τ/(1+fwd×τ) × df(start)` (market standard)
+
+`cds.py`:
+- Protection leg uses proper date arithmetic (timedelta), not `int(t*365)` rounding
+
+`xccy_swap.py`:
+- Fixed `par_spread()` MTM reset: uses `foreign_curve` not `domestic_curve`
+
+`schedule.py`:
+- Added `Frequency.WEEKLY` (7-day steps for short-dated OIS)
+
+`swap.py`:
+- Added `cashflow_schedule(curve)` — full cashflow table (leg, dates, rates, amounts, DFs, PVs)
+
+`test_fi_hardening.py` (NEW, 23 tests)
+
+---
+
 ## v0.297.0 — 2026-04-21
 
 BD1-BD7: Vol-free bond derivatives. 5170 tests.
