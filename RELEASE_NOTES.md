@@ -2,6 +2,18 @@
 
 ---
 
+## v0.290.0 — 2026-04-21
+
+FH7: CORRA convention update. 5096 tests.
+
+`rate_index.py`:
+- CORRA updated to post-2024 ISDA definitions: observation_shift=2, payment_delay=2
+
+`test_floating_leg_fixing.py` (+3 tests):
+- CORRA shift, delay, overnight status
+
+---
+
 ## v0.289.0 — 2026-04-21
 
 FH5+FH6: Consumer API integration. 5093 tests.
