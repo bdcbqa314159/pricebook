@@ -845,3 +845,106 @@ class TestFromRateIndex:
         )
         pv = leg.pv(curve)
         assert pv > 0
+
+
+# ---- FH9: RFR compounding integration ----
+
+class TestRFRCompounding:
+    def test_compounded_overnight_fixings(self):
+        """Overnight RFR leg compounds daily fixings over observation window."""
+        sofr = get_rate_index("SOFR")
+        # Leg entirely in the past
+        ref = date(2026, 7, 21)
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg.from_rate_index(
+            sofr, date(2026, 4, 21), date(2026, 7, 21), Frequency.QUARTERLY,
+        )
+
+        # Fill daily fixings for the observation window
+        store = FixingsStore()
+        cf = leg.cashflows[0]
+        d = cf.observation_start
+        while d < cf.observation_end:
+            if d.weekday() < 5:  # weekdays only
+                store.set("SOFR", d, 0.043)  # flat 4.3%
+            d += timedelta(days=1)
+
+        pv = leg.pv(curve, fixings=store, rate_name="SOFR")
+        # With flat daily rates, compounded rate ≈ simple rate
+        # So PV should be close to what we'd get from a 4.3% forward
+        assert pv != 0.0
+
+    def test_compounded_vs_simple_difference(self):
+        """Compounded rate differs from single fixing at period start."""
+        sofr = get_rate_index("SOFR")
+        ref = date(2026, 7, 21)
+        curve = _flat_curve(ref, rate=0.04)
+
+        # Overnight leg (compounds)
+        leg_rfr = FloatingLeg.from_rate_index(
+            sofr, date(2026, 4, 21), date(2026, 7, 21), Frequency.QUARTERLY,
+        )
+        # Plain leg (no rate_index → single fixing at fixing_date)
+        leg_plain = FloatingLeg(
+            date(2026, 4, 21), date(2026, 7, 21), Frequency.QUARTERLY,
+            observation_shift_days=2,
+        )
+
+        store = FixingsStore()
+        # Rising rates: 4% → 5% over the quarter
+        cf = leg_rfr.cashflows[0]
+        d = cf.observation_start
+        days = 0
+        while d < cf.observation_end:
+            if d.weekday() < 5:
+                rate = 0.04 + 0.01 * (days / 65)  # linear rise
+                store.set("SOFR", d, rate)
+                days += 1
+            d += timedelta(days=1)
+
+        pv_rfr = leg_rfr.pv(curve, fixings=store, rate_name="SOFR")
+        pv_plain = leg_plain.pv(curve, fixings=store, rate_name="SOFR")
+
+        # They should differ — compounded uses all daily rates,
+        # plain uses only the fixing at fixing_date
+        assert pv_rfr != pytest.approx(pv_plain, rel=1e-4)
+
+    def test_incomplete_fixings_falls_back(self):
+        """If daily fixings are incomplete, fall back to forward curve."""
+        sofr = get_rate_index("SOFR")
+        ref = date(2026, 7, 21)
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg.from_rate_index(
+            sofr, date(2026, 4, 21), date(2026, 7, 21), Frequency.QUARTERLY,
+        )
+
+        # Only store a few fixings — incomplete
+        store = FixingsStore()
+        store.set("SOFR", leg.cashflows[0].observation_start, 0.043)
+
+        pv_incomplete = leg.pv(curve, fixings=store, rate_name="SOFR")
+        pv_curve = leg.pv(curve)
+
+        # Incomplete fixings → falls back to curve → same as no fixings
+        assert pv_incomplete == pytest.approx(pv_curve, rel=1e-10)
+
+    def test_flat_compounding_uses_single_fixing(self):
+        """EURIBOR (FLAT compounding) should use single fixing, not compound."""
+        euribor = get_rate_index("EURIBOR_3M")
+        ref = date(2026, 7, 21)
+        curve = _flat_curve(ref, rate=0.04)
+
+        leg = FloatingLeg.from_rate_index(
+            euribor, date(2026, 4, 21), date(2026, 7, 21), Frequency.QUARTERLY,
+        )
+
+        store = FixingsStore()
+        store.set("EURIBOR", leg.cashflows[0].fixing_date, 0.035)
+
+        pv = leg.pv(curve, fixings=store, rate_name="EURIBOR")
+        # Should use single fixing at 3.5%, not try to compound
+        expected_amount = leg.cashflows[0].notional * 0.035 * leg.cashflows[0].year_frac
+        expected_pv = expected_amount * curve.df(leg.cashflows[0].payment_date)
+        assert pv == pytest.approx(expected_pv, rel=1e-8)

@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
-from pricebook.rate_index import RateIndex
+from pricebook.rate_index import CompoundingMethod, RateIndex
+from pricebook.rfr import compound_rfr
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
 
@@ -87,6 +88,7 @@ class FloatingLeg:
         self.eom = eom
         self.payment_delay_days = payment_delay_days
         self.observation_shift_days = observation_shift_days
+        self.rate_index: RateIndex | None = None
 
         schedule = generate_schedule(
             start, end, frequency, calendar, convention, stub, eom,
@@ -137,9 +139,9 @@ class FloatingLeg:
         """Create a FloatingLeg with conventions from a RateIndex.
 
         Automatically sets day_count, observation_shift, and payment_delay
-        from the index definition.
+        from the index definition. Stores rate_index for RFR compounding.
         """
-        return cls(
+        leg = cls(
             start=start,
             end=end,
             frequency=frequency,
@@ -153,6 +155,8 @@ class FloatingLeg:
             payment_delay_days=rate_index.payment_delay,
             observation_shift_days=rate_index.observation_shift,
         )
+        leg.rate_index = rate_index
+        return leg
 
     def pv(
         self,
@@ -175,15 +179,54 @@ class FloatingLeg:
         """
         proj = projection_curve if projection_curve is not None else curve
         ref = curve.reference_date
+        use_compounding = (
+            self.rate_index is not None
+            and self.rate_index.compounding == CompoundingMethod.COMPOUNDED
+            and fixings is not None
+            and rate_name is not None
+        )
         total = 0.0
         for cf in self.cashflows:
             if fixings is not None and rate_name is not None and cf.fixing_date <= ref:
-                fixing = fixings.get(rate_name, cf.fixing_date)
-                if fixing is not None:
-                    amount = cf.notional * (fixing + cf.spread) * cf.year_frac
+                if use_compounding:
+                    rate = self._compound_period(
+                        cf, fixings, rate_name, self.day_count,
+                    )
+                else:
+                    rate = fixings.get(rate_name, cf.fixing_date)
+                if rate is not None:
+                    amount = cf.notional * (rate + cf.spread) * cf.year_frac
                 else:
                     amount = cf.amount(proj)
             else:
                 amount = cf.amount(proj)
             total += amount * curve.df(cf.payment_date)
         return total
+
+    @staticmethod
+    def _compound_period(
+        cf: FloatingCashflow,
+        fixings: FixingsStore,
+        rate_name: str,
+        day_count: DayCountConvention,
+    ) -> float | None:
+        """Compound daily overnight fixings over the observation window.
+
+        Returns the annualised compounded rate, or None if insufficient fixings.
+        """
+        daily_rates: list[float] = []
+        day_fracs: list[float] = []
+        d = cf.observation_start
+        while d < cf.observation_end:
+            next_d = d + timedelta(days=1)
+            # Skip weekends (no overnight fixing on Sat/Sun)
+            if d.weekday() < 5:
+                rate = fixings.get(rate_name, d)
+                if rate is None:
+                    return None  # Incomplete fixings → fall back to curve
+                daily_rates.append(rate)
+                day_fracs.append(year_fraction(d, next_d, day_count))
+            d = next_d
+        if not daily_rates:
+            return None
+        return compound_rfr(daily_rates, day_fracs)
