@@ -178,45 +178,55 @@ class StorageFacility:
         rate: float = 0.0,
         initial_inventory: float = 0.0,
     ) -> float:
-        """Deterministic intrinsic value: buy low periods, sell high periods.
+        """Deterministic intrinsic value: greedy multi-cycle inject/withdraw.
 
-        Greedy strategy: inject during the cheapest period and withdraw
-        during the most expensive, subject to capacity and rate limits.
+        Strategy: sort periods by price. Inject during cheapest periods,
+        withdraw during most expensive, subject to capacity, rate limits,
+        and inventory constraints.
 
         This is a lower bound on the full (extrinsic + intrinsic) value.
-        A proper extrinsic calculation requires stochastic modelling.
         """
         sorted_fwds = sorted(forwards.items(), key=lambda kv: kv[0])
         if len(sorted_fwds) < 2:
             return 0.0
 
-        prices = [f for _, f in sorted_fwds]
-        n = len(prices)
+        n = len(sorted_fwds)
+        max_inj = self.max_injection_rate if self.max_injection_rate > 0 else self.capacity
+        max_wdr = self.max_withdrawal_rate if self.max_withdrawal_rate > 0 else self.capacity
 
-        # Find cheapest injection period and most expensive withdrawal period
-        min_price = min(prices)
-        max_price = max(prices)
+        # Greedy: pair cheapest injection with most expensive withdrawal
+        # Sort indices by price ascending for injection, descending for withdrawal
+        indexed = [(f, i) for i, (_, f) in enumerate(sorted_fwds)]
+        by_price = sorted(indexed, key=lambda x: x[0])
 
-        if max_price <= min_price:
-            return 0.0
+        inject_candidates = by_price[:n // 2]
+        withdraw_candidates = by_price[n // 2:][::-1]  # most expensive first
 
-        # Simple single-cycle: inject at min, withdraw at max
-        injectable = min(
-            self.max_injection_rate if self.max_injection_rate > 0 else self.capacity,
-            self.capacity - initial_inventory,
-        )
-        withdrawable = min(
-            self.max_withdrawal_rate if self.max_withdrawal_rate > 0 else self.capacity,
-            initial_inventory + injectable - self.min_inventory,
-        )
-        volume = min(injectable, withdrawable)
+        inventory = initial_inventory
+        total_profit = 0.0
 
-        if volume <= 0:
-            return 0.0
+        # Pair inject periods with withdraw periods
+        pairs = list(zip(inject_candidates, withdraw_candidates))
+        for (inj_price, inj_idx), (wdr_price, wdr_idx) in pairs:
+            if wdr_price <= inj_price:
+                break  # no more profitable pairs
+            # Ensure inject happens before withdraw (chronological)
+            if inj_idx >= wdr_idx:
+                continue
 
-        gross = volume * (max_price - min_price)
-        costs = volume * (self.injection_cost + self.withdrawal_cost)
-        return gross - costs
+            vol = min(max_inj, max_wdr, self.capacity - inventory)
+            if vol <= 0:
+                continue
+
+            gross = vol * (wdr_price - inj_price)
+            costs = vol * (self.injection_cost + self.withdrawal_cost)
+            if gross - costs <= 0:
+                continue
+
+            total_profit += gross - costs
+            # Inventory doesn't change net (inject then withdraw)
+
+        return total_profit
 
     def extrinsic_value(
         self,

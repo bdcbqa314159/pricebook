@@ -61,8 +61,18 @@ class GenericSpread:
         When all legs are denominated in the same currency-per-unit,
         a zero weight-sum means a uniform +1 price shift in all
         commodities leaves the spread PV unchanged.
+
+        NOTE: For spreads with mixed units (e.g. crush: bushels vs
+        short tons vs lbs), this check is not meaningful. Use
+        `has_mixed_units` to detect this case.
         """
         return sum(leg.weight for leg in self.legs)
+
+    @property
+    def has_mixed_units(self) -> bool:
+        """True if legs have different units (residual_exposure not meaningful)."""
+        units = set(leg.unit for leg in self.legs)
+        return len(units) > 1
 
 
 # ---- Crack spreads (refining) ----

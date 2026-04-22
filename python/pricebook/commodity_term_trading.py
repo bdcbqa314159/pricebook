@@ -196,3 +196,52 @@ def curve_structure_monitor(
         spreads=spreads,
         structure=structure,
     )
+
+
+# ---- Roll-down analysis ----
+
+@dataclass
+class RollDownResult:
+    """Commodity curve roll-down analysis."""
+    current_forward: float
+    rolled_forward: float
+    roll_pnl_per_unit: float
+    roll_days: int
+    structure: str  # "contango" or "backwardation"
+
+
+def commodity_roll_down(
+    delivery: date,
+    forward_curve: "CommodityForwardCurve",
+    roll_days: int = 30,
+) -> RollDownResult:
+    """Roll-down P&L: what happens as time passes and the position ages.
+
+    If the curve is in backwardation, rolling forward = rolling to higher
+    prices = positive carry. In contango, rolling forward = negative carry.
+
+    Args:
+        delivery: delivery date of the position.
+        forward_curve: current forward curve.
+        roll_days: number of days to roll forward.
+
+    Returns:
+        RollDownResult with P&L per unit.
+    """
+    from pricebook.commodity import CommodityForwardCurve
+    from datetime import timedelta
+
+    current = forward_curve.forward(delivery)
+    rolled_curve = forward_curve.roll_down(roll_days)
+    rolled = rolled_curve.forward(delivery)
+    pnl = rolled - current
+
+    structure = "backwardation" if pnl > 0 else "contango" if pnl < 0 else "flat"
+
+    return RollDownResult(
+        current_forward=current,
+        rolled_forward=rolled,
+        roll_pnl_per_unit=pnl,
+        roll_days=roll_days,
+        structure=structure,
+    )
