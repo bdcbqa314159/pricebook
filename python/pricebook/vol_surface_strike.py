@@ -82,6 +82,16 @@ class VolSurfaceStrike:
 
         return self._smiles[-1].vol(strike)
 
+    def bumped(self, shift: float) -> "VolSurfaceStrike":
+        """Return a new surface with all vols shifted by `shift`."""
+        bumped_smiles = [s.bumped(shift) for s in self._smiles]
+        new = VolSurfaceStrike.__new__(VolSurfaceStrike)
+        new.reference_date = self.reference_date
+        new.day_count = self.day_count
+        new._expiry_times = list(self._expiry_times)
+        new._smiles = bumped_smiles
+        return new
+
     def _nearest_idx(self, t: float) -> int:
         best = 0
         best_dist = abs(t - self._expiry_times[0])

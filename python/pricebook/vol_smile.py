@@ -61,3 +61,8 @@ class VolSmile:
     @property
     def vols(self) -> np.ndarray:
         return self._vols.copy()
+
+    def bumped(self, shift: float) -> "VolSmile":
+        """Return a new smile with all vols shifted by `shift` (additive)."""
+        new_vols = [max(v + shift, 0.0) for v in self._vols]
+        return VolSmile(list(self._strikes), new_vols)
