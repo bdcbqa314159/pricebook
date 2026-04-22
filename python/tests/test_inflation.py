@@ -66,16 +66,15 @@ class TestZCInflationSwap:
         cpi = _cpi_curve(0.025)
         mat = date(2029, 1, 15)
         T = 5.0
-        par = zc_inflation_par_rate(T, disc, cpi, mat)
-        pv = zc_inflation_swap_pv(par, T, disc, cpi, mat)
+        par = zc_inflation_par_rate(disc, cpi, mat)
+        pv = zc_inflation_swap_pv(par, disc, cpi, mat)
         assert pv == pytest.approx(0.0, abs=1.0)
 
     def test_par_rate_matches_breakeven(self):
         disc = make_flat_curve(REF, 0.04)
         cpi = _cpi_curve(0.025)
         mat = date(2029, 1, 15)
-        T = 5.0
-        par = zc_inflation_par_rate(T, disc, cpi, mat)
+        par = zc_inflation_par_rate(disc, cpi, mat)
         be = cpi.breakeven_rate(mat)
         assert par == pytest.approx(be, rel=0.01)
 
@@ -83,7 +82,7 @@ class TestZCInflationSwap:
         disc = make_flat_curve(REF, 0.04)
         cpi = _cpi_curve(0.03)
         mat = date(2029, 1, 15)
-        pv = zc_inflation_swap_pv(0.02, 5.0, disc, cpi, mat)
+        pv = zc_inflation_swap_pv(0.02, disc, cpi, mat)
         assert pv > 0  # inflation 3% > fixed 2%
 
 
@@ -154,8 +153,7 @@ class TestBootstrap:
         disc = make_flat_curve(REF, 0.04)
 
         for mat, rate in quotes:
-            T = (mat - REF).days / 365.0
-            par = zc_inflation_par_rate(T, disc, cpi, mat)
+            par = zc_inflation_par_rate(disc, cpi, mat)
             assert par == pytest.approx(rate, rel=0.01)
 
     def test_cpi_levels_increasing(self):

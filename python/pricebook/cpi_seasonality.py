@@ -27,8 +27,14 @@ def estimate_seasonal_factors(
 ) -> SeasonalFactors:
     """Estimate monthly CPI seasonal factors from historical data.
     Factor for month m = mean(CPI_change_m) / mean(all months).
+
+    Requires at least 12 months of data. Warns if data appears invalid.
     """
-    data = np.array(monthly_cpi_changes_pct)
+    if not monthly_cpi_changes_pct:
+        raise ValueError("monthly_cpi_changes_pct must not be empty")
+    data = np.array(monthly_cpi_changes_pct, dtype=float)
+    if np.all(data == 0):
+        raise ValueError("all CPI changes are zero — invalid data")
     n_years = len(data) // 12
     if n_years < 1:
         return SeasonalFactors(np.ones(12), float(data.mean()), 0.0, "insufficient_data")

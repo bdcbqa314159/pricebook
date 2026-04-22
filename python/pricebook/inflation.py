@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from dateutil.relativedelta import relativedelta
 
 import numpy as np
 
@@ -111,31 +112,39 @@ class CPICurve:
 
 def zc_inflation_swap_pv(
     fixed_rate: float,
-    T: float,
     discount_curve: DiscountCurve,
     cpi_curve: CPICurve,
     maturity: date,
     notional: float = 1_000_000.0,
+    T: float | None = None,
 ) -> float:
     """PV of a zero-coupon inflation swap (receiver inflation).
 
     PV = notional * df(T) * [CPI(T)/CPI(0) - (1+K)^T]
+
+    T is computed from the curve's reference date if not provided.
     """
+    if T is None:
+        T = year_fraction(discount_curve.reference_date, maturity,
+                          DayCountConvention.ACT_365_FIXED)
     df = discount_curve.df(maturity)
     cpi_ratio = cpi_curve.cpi(maturity) / cpi_curve.base_cpi
     return notional * df * (cpi_ratio - (1 + fixed_rate) ** T)
 
 
 def zc_inflation_par_rate(
-    T: float,
     discount_curve: DiscountCurve,
     cpi_curve: CPICurve,
     maturity: date,
+    T: float | None = None,
 ) -> float:
     """Par rate of a ZC inflation swap: K such that PV = 0.
 
     K = (CPI(T)/CPI(0))^(1/T) - 1
     """
+    if T is None:
+        T = year_fraction(discount_curve.reference_date, maturity,
+                          DayCountConvention.ACT_365_FIXED)
     cpi_ratio = cpi_curve.cpi(maturity) / cpi_curve.base_cpi
     return cpi_ratio ** (1.0 / T) - 1.0
 
@@ -169,6 +178,28 @@ def yoy_inflation_swap_pv(
     return pv
 
 
+def yoy_inflation_par_rate(
+    discount_curve: DiscountCurve,
+    cpi_curve: CPICurve,
+    start: date,
+    end: date,
+    frequency: Frequency = Frequency.ANNUAL,
+    day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+) -> float:
+    """Par rate of a YoY inflation swap: fixed rate that makes PV = 0."""
+    schedule = generate_schedule(start, end, frequency)
+    num = 0.0
+    den = 0.0
+    for i in range(1, len(schedule)):
+        t_prev, t_curr = schedule[i - 1], schedule[i]
+        df = discount_curve.df(t_curr)
+        yf = year_fraction(t_prev, t_curr, day_count)
+        cpi_ratio = cpi_curve.cpi(t_curr) / cpi_curve.cpi(t_prev)
+        num += df * (cpi_ratio - 1)
+        den += df * yf
+    return num / den if abs(den) > 1e-15 else 0.0
+
+
 # ---------------------------------------------------------------------------
 # Inflation-linked bond
 # ---------------------------------------------------------------------------
@@ -187,6 +218,7 @@ class InflationLinkedBond:
         notional: face value.
         frequency: coupon frequency.
         day_count: day count for accrual.
+        cpi_lag_months: CPI publication lag (3 for US TIPS, 8 for UK ILG).
     """
 
     def __init__(
@@ -198,6 +230,7 @@ class InflationLinkedBond:
         notional: float = 100.0,
         frequency: Frequency = Frequency.SEMI_ANNUAL,
         day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+        cpi_lag_months: int = 3,
     ):
         self.start = start
         self.end = end
@@ -206,25 +239,38 @@ class InflationLinkedBond:
         self.notional = notional
         self.frequency = frequency
         self.day_count = day_count
+        self.cpi_lag_months = cpi_lag_months
         self.schedule = generate_schedule(start, end, frequency)
+
+    def _lagged_date(self, d: date) -> date:
+        """Apply CPI lag: the CPI used for date d is from d - lag months."""
+        return d - relativedelta(months=self.cpi_lag_months)
+
+    def _future_periods(self, settlement: date) -> list[tuple[date, date]]:
+        """Return periods where payment_date > settlement."""
+        return [
+            (self.schedule[i - 1], self.schedule[i])
+            for i in range(1, len(self.schedule))
+            if self.schedule[i] > settlement
+        ]
 
     def dirty_price(
         self,
         discount_curve: DiscountCurve,
         cpi_curve: CPICurve,
+        settlement: date | None = None,
     ) -> float:
-        """Full price per 100 face: PV of indexed coupons + indexed principal."""
+        """Full price per 100 face: PV of future indexed coupons + principal."""
+        settle = settlement if settlement is not None else discount_curve.reference_date
         pv = 0.0
-        for i in range(1, len(self.schedule)):
-            t_start = self.schedule[i - 1]
-            t_end = self.schedule[i]
+        for t_start, t_end in self._future_periods(settle):
             yf = year_fraction(t_start, t_end, self.day_count)
             df = discount_curve.df(t_end)
-            index_ratio = cpi_curve.cpi(t_end) / self.base_cpi_value
+            index_ratio = cpi_curve.cpi(self._lagged_date(t_end)) / self.base_cpi_value
             pv += self.notional * self.coupon_rate * yf * index_ratio * df
 
         # Indexed principal at maturity
-        index_ratio_mat = cpi_curve.cpi(self.end) / self.base_cpi_value
+        index_ratio_mat = cpi_curve.cpi(self._lagged_date(self.end)) / self.base_cpi_value
         pv += self.notional * index_ratio_mat * discount_curve.df(self.end)
 
         return pv / self.notional * 100.0
@@ -233,29 +279,52 @@ class InflationLinkedBond:
         self,
         market_price: float,
         cpi_curve: CPICurve,
+        settlement: date | None = None,
     ) -> float:
-        """Real yield: constant real rate that discounts indexed cashflows to price.
+        """Real yield from settlement: constant real rate that matches price."""
+        settle = settlement if settlement is not None else self.start
 
-        Solves for y such that PV(y) = market_price.
-        """
         def objective(y: float) -> float:
             pv = 0.0
-            for i in range(1, len(self.schedule)):
-                t_start = self.schedule[i - 1]
-                t_end = self.schedule[i]
+            for t_start, t_end in self._future_periods(settle):
                 yf = year_fraction(t_start, t_end, self.day_count)
-                T_i = year_fraction(self.start, t_end, self.day_count)
-                index_ratio = cpi_curve.cpi(t_end) / self.base_cpi_value
+                T_i = year_fraction(settle, t_end, self.day_count)
+                index_ratio = cpi_curve.cpi(self._lagged_date(t_end)) / self.base_cpi_value
                 df = math.exp(-y * T_i)
                 pv += self.notional * self.coupon_rate * yf * index_ratio * df
 
-            T_mat = year_fraction(self.start, self.end, self.day_count)
-            index_ratio_mat = cpi_curve.cpi(self.end) / self.base_cpi_value
+            T_mat = year_fraction(settle, self.end, self.day_count)
+            index_ratio_mat = cpi_curve.cpi(self._lagged_date(self.end)) / self.base_cpi_value
             pv += self.notional * index_ratio_mat * math.exp(-y * T_mat)
 
             return pv / self.notional * 100.0 - market_price
 
         return brentq(objective, -0.10, 0.30)
+
+    def ie01(
+        self,
+        discount_curve: DiscountCurve,
+        cpi_curve: CPICurve,
+        shift_bps: float = 1.0,
+        settlement: date | None = None,
+    ) -> float:
+        """IE01: price change for a 1bp parallel shift in breakeven inflation.
+
+        Bumps CPI curve by creating a new curve with shifted breakevens.
+        """
+        settle = settlement if settlement is not None else discount_curve.reference_date
+        price_base = self.dirty_price(discount_curve, cpi_curve, settle)
+
+        # Bump breakevens by shift_bps
+        shift = shift_bps / 10000.0
+        ref = cpi_curve.reference_date
+        pillar_dates = [d for d in [self.end] if d > ref]  # simplified: use maturity
+        be = cpi_curve.breakeven_rate(self.end)
+        bumped_cpi = CPICurve.from_breakevens(
+            ref, cpi_curve.base_cpi, pillar_dates, [be + shift], cpi_curve.day_count,
+        )
+        price_bumped = self.dirty_price(discount_curve, bumped_cpi, settle)
+        return price_bumped - price_base
 
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.solvers import brentq
+
 
 @dataclass
 class RealYieldCurveResult:
@@ -61,20 +63,15 @@ def real_yield_curve_bootstrap(
         coupon_per_period = notional * coupon / n_coupons_per_year * index_ratio
 
         # Solve: price = Σ cpn × e^{-y × t_k} + adjusted_N × e^{-y × T}
-        # via bisection
-        lo, hi = -0.05, 0.20
-        for _ in range(100):
-            mid = 0.5 * (lo + hi)
+        def _pv_obj(y: float) -> float:
             pv = 0.0
             for k in range(1, int(T * n_coupons_per_year) + 1):
                 t_k = k / n_coupons_per_year
-                pv += coupon_per_period * math.exp(-mid * t_k)
-            pv += adjusted_notional * math.exp(-mid * T)
-            if pv > price:
-                lo = mid
-            else:
-                hi = mid
-        real_yields[i] = 0.5 * (lo + hi)
+                pv += coupon_per_period * math.exp(-y * t_k)
+            pv += adjusted_notional * math.exp(-y * T)
+            return pv - price
+
+        real_yields[i] = brentq(_pv_obj, -0.05, 0.30)
 
     return RealYieldCurveResult(
         maturities=mats,
@@ -189,8 +186,8 @@ class DeflationFloorResult:
 
 
 def deflation_floor_value(
-    breakeven_pct: float,
-    inflation_vol_pct: float,
+    breakeven: float,
+    inflation_vol: float,
     T: float,
     discount_factor: float = 1.0,
 ) -> DeflationFloorResult:
@@ -199,39 +196,32 @@ def deflation_floor_value(
     US TIPS have a deflation floor: principal paid at maturity is
     max(original_par, inflation_adjusted_par). This is a put on the CPI.
 
-    Floor value ≈ DF × N(−d₂) × par (simplified Black model).
-
-    In practice: breakeven near 0 → floor is valuable.
+    Floor value via Black model on the CPI index ratio.
 
     Args:
-        breakeven_pct: current breakeven inflation rate.
-        inflation_vol_pct: annual inflation vol.
+        breakeven: current breakeven inflation rate (decimal, e.g. 0.025 = 2.5%).
+        inflation_vol: annual inflation vol (decimal, e.g. 0.01 = 1%).
         T: years to maturity.
     """
     from scipy.stats import norm
 
-    if inflation_vol_pct <= 0 or T <= 0:
-        # Deterministic: floor = max(0, -(breakeven × T)) discounted
-        deflation = max(-breakeven_pct / 100 * T, 0)  # convert pct to decimal
-        prob = 1.0 if breakeven_pct < 0 else 0.0
+    if inflation_vol <= 0 or T <= 0:
+        deflation = max(-breakeven * T, 0)
+        prob = 1.0 if breakeven < 0 else 0.0
         return DeflationFloorResult(
             floor_value=float(discount_factor * deflation),
-            breakeven_pct=breakeven_pct,
-            vol=inflation_vol_pct,
+            breakeven_pct=breakeven * 100,
+            vol=inflation_vol * 100,
             T=T,
             probability_deflation=prob,
         )
 
-    # Forward CPI ratio ≈ exp(breakeven × T)
-    # Floor strike = 1 (return of original par)
-    # Put = DF × [N(-d2) − F × N(-d1)]  where F = exp(be × T)
-    F = math.exp(breakeven_pct / 100 * T) if abs(breakeven_pct) < 50 else 1.0
+    F = math.exp(breakeven * T)
     K = 1.0
-    sigma = inflation_vol_pct / 100
-    sigma_sqrt_T = sigma * math.sqrt(T)
+    sigma_sqrt_T = inflation_vol * math.sqrt(T)
 
     if sigma_sqrt_T > 1e-10:
-        d1 = (math.log(F / K) + 0.5 * sigma**2 * T) / sigma_sqrt_T
+        d1 = (math.log(F / K) + 0.5 * inflation_vol**2 * T) / sigma_sqrt_T
         d2 = d1 - sigma_sqrt_T
         put = discount_factor * (K * norm.cdf(-d2) - F * norm.cdf(-d1))
         prob_defl = norm.cdf(-d2)
@@ -241,8 +231,8 @@ def deflation_floor_value(
 
     return DeflationFloorResult(
         floor_value=float(max(put, 0.0)),
-        breakeven_pct=breakeven_pct,
-        vol=inflation_vol_pct,
+        breakeven_pct=breakeven * 100,
+        vol=inflation_vol * 100,
         T=T,
         probability_deflation=float(prob_defl),
     )

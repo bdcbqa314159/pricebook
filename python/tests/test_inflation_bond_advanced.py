@@ -76,27 +76,27 @@ class TestLinkerASW:
 class TestDeflationFloor:
     def test_low_breakeven_high_floor(self):
         """Low breakeven → deflation more likely → higher floor."""
-        low = deflation_floor_value(0.5, 1.5, 10.0)
-        high = deflation_floor_value(3.0, 1.5, 10.0)
+        low = deflation_floor_value(0.005, 0.015, 10.0)   # 0.5%, 1.5% vol
+        high = deflation_floor_value(0.03, 0.015, 10.0)    # 3.0%, 1.5% vol
         assert low.floor_value > high.floor_value
 
     def test_higher_vol_higher_floor(self):
-        low_vol = deflation_floor_value(2.0, 0.5, 10.0)
-        high_vol = deflation_floor_value(2.0, 3.0, 10.0)
+        low_vol = deflation_floor_value(0.02, 0.005, 10.0)  # 2%, 0.5% vol
+        high_vol = deflation_floor_value(0.02, 0.03, 10.0)  # 2%, 3.0% vol
         assert high_vol.floor_value >= low_vol.floor_value
 
     def test_zero_vol_deterministic(self):
-        r = deflation_floor_value(2.0, 0.0, 10.0)
+        r = deflation_floor_value(0.02, 0.0, 10.0)  # 2% breakeven, 0 vol
         # Positive breakeven → no deflation
         assert r.floor_value == 0.0
         assert r.probability_deflation == 0.0
 
     def test_negative_breakeven(self):
         """Negative breakeven → deflation expected → floor very valuable."""
-        r = deflation_floor_value(-1.0, 1.0, 5.0)
+        r = deflation_floor_value(-0.01, 0.01, 5.0)  # -1%, 1% vol
         assert r.floor_value > 0
         assert r.probability_deflation > 0.5
 
     def test_probability_bounded(self):
-        r = deflation_floor_value(2.0, 1.5, 10.0)
+        r = deflation_floor_value(0.02, 0.015, 10.0)  # 2%, 1.5% vol
         assert 0 <= r.probability_deflation <= 1
