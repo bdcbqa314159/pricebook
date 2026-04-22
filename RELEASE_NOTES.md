@@ -2,6 +2,15 @@
 
 ---
 
+## v0.312.0 — 2026-04-22
+
+OH1+OH2: Swaption Greeks + caplet stripping. 5299 tests.
+
+`swaption.py`: `Swaption.greeks()` — analytical delta, gamma, vega via Black-76
+`capfloor.py`: `caplet_pvs()` breakdown + `strip_caplet_vols()` flat→forward vol bootstrap
+
+---
+
 ## v0.311.0 — 2026-04-22
 
 VH7-VH12: FX/IR vol bumped, SABR/Heston verification. **VOL INFRASTRUCTURE COMPLETE.** 5299 tests.
