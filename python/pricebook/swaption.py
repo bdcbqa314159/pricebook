@@ -18,8 +18,9 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.black76 import OptionType, black76_price, black76_delta, black76_gamma, black76_vega
 from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.greeks import Greeks
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency, StubType
@@ -183,4 +184,37 @@ class Swaption:
             vol_surface,
             projection_curve,
             valuation_date=ctx.valuation_date,
+        )
+
+    def greeks(
+        self,
+        curve: DiscountCurve,
+        vol_surface,
+        projection_curve: DiscountCurve | None = None,
+        valuation_date: date | None = None,
+    ) -> Greeks:
+        """Swaption Greeks via Black-76 analytical formulas."""
+        if valuation_date is None:
+            valuation_date = curve.reference_date
+
+        fwd = self.forward_swap_rate(curve, projection_curve)
+        ann = self.annuity(curve)
+        T = year_fraction(valuation_date, self.expiry, DayCountConvention.ACT_365_FIXED)
+        vol = vol_surface.vol(self.expiry, self.strike)
+
+        option_type = (
+            OptionType.CALL if self.swaption_type == SwaptionType.PAYER
+            else OptionType.PUT
+        )
+
+        price = self.notional * ann * black76_price(fwd, self.strike, vol, T, 1.0, option_type)
+        delta = self.notional * ann * black76_delta(fwd, self.strike, vol, T, 1.0, option_type)
+        gamma = self.notional * ann * black76_gamma(fwd, self.strike, vol, T, 1.0)
+        vega = self.notional * ann * black76_vega(fwd, self.strike, vol, T, 1.0)
+
+        return Greeks(
+            price=price,
+            delta=delta,
+            gamma=gamma,
+            vega=vega,
         )
