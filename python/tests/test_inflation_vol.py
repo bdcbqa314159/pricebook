@@ -47,7 +47,7 @@ class TestZCInflationCap:
         cpi = _cpi(0.025)
         T = (date(2029, 1, 15) - REF).days / 365.0
         cap = zc_inflation_cap(REF, date(2029, 1, 15), 0.001, cpi, dc, 0.05)
-        swap = zc_inflation_swap_pv(0.001, T, dc, cpi, date(2029, 1, 15))
+        swap = zc_inflation_swap_pv(0.001, dc, cpi, date(2029, 1, 15))
         # Deep ITM cap ≈ swap + small time value
         assert cap > swap  # cap includes time value
 
