@@ -6,7 +6,8 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.black76 import black76_price, OptionType
+from pricebook.black76 import black76_price, black76_vega, OptionType
+from pricebook.solvers import brentq
 
 
 class CapFloor:
@@ -91,3 +92,88 @@ class CapFloor:
             total += self.notional * yf * curve.df(accrual_end) * optlet
 
         return total
+
+    def caplet_pvs(self, curve: DiscountCurve, vol_surface) -> list[dict]:
+        """Individual caplet/floorlet PVs with forward rates and vols."""
+        results = []
+        for accrual_start, accrual_end in self.periods:
+            yf = year_fraction(accrual_start, accrual_end, self.day_count)
+            df1 = curve.df(accrual_start)
+            df2 = curve.df(accrual_end)
+            fwd = (df1 / df2 - 1.0) / yf
+            t_fix = year_fraction(curve.reference_date, accrual_start, self.day_count)
+            vol = vol_surface.vol(accrual_start, self.strike) if t_fix > 0 else 0.0
+            if t_fix > 0:
+                optlet = black76_price(fwd, self.strike, vol, t_fix, 1.0, self.option_type)
+            else:
+                if self.option_type == OptionType.CALL:
+                    optlet = max(fwd - self.strike, 0.0)
+                else:
+                    optlet = max(self.strike - fwd, 0.0)
+            pv = self.notional * yf * df2 * optlet
+            results.append({
+                "accrual_start": accrual_start,
+                "accrual_end": accrual_end,
+                "forward": fwd,
+                "vol": vol,
+                "pv": pv,
+            })
+        return results
+
+
+def strip_caplet_vols(
+    cap_flat_vols: list[tuple[date, float]],
+    strike: float,
+    curve: DiscountCurve,
+    start: date,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+) -> list[tuple[date, float]]:
+    """Strip individual caplet vols from flat cap vols.
+
+    Given flat (quoted) cap vols at increasing maturities, bootstrap
+    the individual forward vol for each caplet period.
+
+    The flat vol prices the entire cap. The caplet vol is the vol that
+    prices just the marginal caplet added at each maturity.
+
+    Returns list of (fixing_date, caplet_vol).
+    """
+    from pricebook.vol_surface import FlatVol
+
+    sorted_quotes = sorted(cap_flat_vols, key=lambda x: x[0])
+    caplet_vols: list[tuple[date, float]] = []
+    prev_pv = 0.0
+    prev_periods: list[tuple[date, date]] = []
+
+    for mat, flat_vol in sorted_quotes:
+        cap = CapFloor(start, mat, strike, OptionType.CALL, 1.0, frequency, day_count)
+        total_pv = cap.pv(curve, FlatVol(flat_vol))
+        marginal_pv = total_pv - prev_pv
+
+        if cap.periods and len(cap.periods) > len(prev_periods):
+            # The new caplet is the last period
+            new_period = cap.periods[-1]
+            accrual_start, accrual_end = new_period
+            yf = year_fraction(accrual_start, accrual_end, day_count)
+            df1 = curve.df(accrual_start)
+            df2 = curve.df(accrual_end)
+            fwd = (df1 / df2 - 1.0) / yf
+            t_fix = year_fraction(curve.reference_date, accrual_start, day_count)
+
+            if t_fix > 0 and marginal_pv > 0:
+                target = marginal_pv / (yf * df2)
+
+                def obj(v):
+                    return black76_price(fwd, strike, v, t_fix, 1.0, OptionType.CALL) - target
+
+                try:
+                    caplet_vol = brentq(obj, 0.001, 2.0)
+                except Exception:
+                    caplet_vol = flat_vol
+                caplet_vols.append((accrual_start, caplet_vol))
+
+        prev_pv = total_pv
+        prev_periods = list(cap.periods)
+
+    return caplet_vols
