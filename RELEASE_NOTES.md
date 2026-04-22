@@ -2,6 +2,28 @@
 
 ---
 
+## v0.307.0 — 2026-04-22
+
+INH1-INH10: Inflation Hardening. **ALL 7 ASSET CLASSES HARDENED.** 5267 tests.
+
+`inflation.py`:
+- InflationLinkedBond: `_future_periods(settlement)` filters past CFs, `_lagged_date(d)` applies CPI lag
+- `dirty_price(curve, cpi, settlement)` — settlement-aware, lag-aware
+- `real_yield(price, cpi, settlement)` — from settlement, not issue date
+- `ie01()` — inflation DV01 via breakeven bump
+- `cpi_lag_months` parameter (3 for TIPS, 8 for ILG)
+- `zc_inflation_swap_pv/par_rate` compute T internally from curve ref date
+- `yoy_inflation_par_rate()` — new
+
+`inflation_bond_advanced.py`:
+- `deflation_floor_value` uses decimal convention (0.025 not 2.5)
+- `real_yield_curve_bootstrap` uses `brentq` instead of manual bisection
+
+`cpi_seasonality.py`:
+- `estimate_seasonal_factors` validates input (not empty, not all zeros)
+
+---
+
 ## v0.306.0 — 2026-04-22
 
 Second audit fixes (FX/Equity/Commodity). 5267 tests.
