@@ -2,6 +2,29 @@
 
 ---
 
+## v0.305.0 — 2026-04-22
+
+FXH1-FXH5: FX Hardening. **ALL 6 VOL-FREE ASSET CLASSES HARDENED.** 5267 tests.
+
+`fx_forward.py`:
+- `fx_delta()`, `dv01_base()`, `dv01_quote()` — spot and rate sensitivities
+
+`fx_swap.py`:
+- `fx_delta()`, `dv01()` — swap sensitivities
+
+`currency.py`:
+- `CurrencyPair.forward_rate_from_curves()` — exact df-based CIP (vs exp approximation)
+
+`ndf.py` (NEW):
+- NDF instrument: forward_rate, pv, settlement_amount, fx_delta
+
+`fx_forward_curve.py` (NEW):
+- FXForwardCurve: term structure of forwards/points, from_curves(), implied_basis
+
+`test_fx_hardening.py` (NEW, 14 tests)
+
+---
+
 ## v0.304.0 — 2026-04-22
 
 EQ1-EQ9: Equity Hardening. **ALL 5 VOL-FREE ASSET CLASSES HARDENED.** 5255 tests.
