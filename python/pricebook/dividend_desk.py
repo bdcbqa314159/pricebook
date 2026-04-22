@@ -89,7 +89,10 @@ class DividendSwap:
 
     Buyer receives: sum of actual dividends over the period.
     Buyer pays: fixed_div × notional at maturity.
-    PV = PV(expected divs) - fixed_div × df(T) × notional.
+    PV = PV(expected divs) × notional - fixed_div × df(T) × notional.
+
+    Convention: dividends are per-share amounts, notional = number of shares.
+    fixed_div is the per-share fixed amount.
     """
     start: date
     end: date

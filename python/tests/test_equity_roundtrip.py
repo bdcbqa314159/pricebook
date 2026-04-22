@@ -90,8 +90,8 @@ class TestDividendAdjustedForwardRecovery:
 
         fwd_model = dividend_adjusted_forward(SPOT, divs, curve, MATURITY)
 
-        ef = EquityForward(spot=SPOT, maturity=MATURITY, rate=RATE, dividends=divs)
-        fwd_ef = ef.forward_discrete(curve)
+        ef = EquityForward(spot=SPOT, maturity=MATURITY, valuation_date=REF, dividends=divs)
+        fwd_ef = ef.forward_price(curve)
 
         assert fwd_model == pytest.approx(fwd_ef, rel=1e-10)
 

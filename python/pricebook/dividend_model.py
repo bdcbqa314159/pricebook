@@ -35,11 +35,15 @@ def pv_dividends(
     curve: DiscountCurve,
     maturity: date,
 ) -> float:
-    """Present value of discrete dividends before maturity."""
+    """Present value of discrete dividends before maturity.
+
+    Excludes dividends on the maturity date itself (standard convention:
+    options expire before ex-date processing on the same day).
+    """
     return sum(
         d.amount * curve.df(d.ex_date)
         for d in dividends
-        if d.ex_date <= maturity
+        if d.ex_date < maturity
     )
 
 
@@ -83,6 +87,44 @@ def piecewise_forward(
         df_d = curve.df(d)
         result.append((spot - pv_divs) / df_d)
     return result
+
+
+def implied_dividends_from_forwards(
+    spot: float,
+    forward_dates: list[date],
+    forward_prices: list[float],
+    curve: DiscountCurve,
+) -> list[Dividend]:
+    """Extract implied discrete dividends from equity forward prices.
+
+    Between consecutive forward dates, the dividend amount is:
+        div_i = F(t_{i-1})/df(t_{i-1}) × df(t_i) - F(t_i)
+    (simplified: the drop in the forward-adjusted price).
+
+    Args:
+        spot: current spot price.
+        forward_dates: sorted dates of forward observations.
+        forward_prices: forward price at each date.
+        curve: discount curve.
+
+    Returns:
+        List of implied Dividend objects.
+    """
+    dividends = []
+    prev_fwd = spot
+    prev_df = 1.0
+
+    for d, fwd in zip(forward_dates, forward_prices):
+        df_d = curve.df(d)
+        # Forward-adjusted price at previous point carried to this date
+        carried = prev_fwd * df_d / prev_df if prev_df > 0 else prev_fwd
+        implied_div = carried - fwd
+        if implied_div > 0.01:  # threshold to avoid noise
+            dividends.append(Dividend(d, implied_div))
+        prev_fwd = fwd
+        prev_df = df_d
+
+    return dividends
 
 
 def equity_option_discrete_divs(
