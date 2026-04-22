@@ -2,6 +2,30 @@
 
 ---
 
+## v0.300.0 — 2026-04-22
+
+IR Second Audit fixes. **v0.300 MILESTONE.** 5208 tests.
+
+`floating_leg.py`:
+- `_compound_period` uses `calendar.is_business_day()` when available (was naive weekend-only skip)
+
+`ois.py`:
+- Added `OISSwap.dv01()` and `OISSwap.annuity()`
+
+`basis_swap.py`:
+- Added `BasisSwap.dv01()` — bumps all 3 curves
+
+`swap.py`:
+- `pv()` now accepts `fixings` and `rate_name` for seasoned swap pricing
+
+`fra.py`:
+- Fixed docstring to reflect start-date settlement
+
+`test_ir_hardening.py` (+5 tests):
+- OIS dv01/annuity, basis swap dv01, seasoned swap with fixings, backward compat
+
+---
+
 ## v0.299.0 — 2026-04-22
 
 IR Hardening: swap FixedLeg delay, DV01, annuity, ZC day count. 5203 tests.
