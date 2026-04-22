@@ -3,8 +3,11 @@
 An NDF is an FX forward that settles in cash (typically USD) rather
 than physical delivery of the non-convertible currency.
 
-At fixing: settlement = notional × (fixing_rate - contracted_rate) / fixing_rate
-(paid in the settlement currency, typically USD).
+At fixing (base-currency settlement):
+    settlement = notional × (fixing_rate - contracted_rate)
+
+For quote-currency settlement (EMTA standard):
+    settlement = notional × (fixing_rate - contracted_rate) / fixing_rate
 
 Used for: CNY, KRW, INR, BRL, TWD, and other restricted currencies.
 
@@ -74,11 +77,14 @@ class NDF:
     ) -> float:
         """PV of the NDF (in settlement currency, discounted).
 
-        PV = notional × (F - K) × df_settlement(T)
-        For USD-settled NDFs, settlement df = base_curve.df(T).
+        Base-currency settlement: PV = notional × (F - K) × df_base(T)
+        Quote-currency settlement: PV = notional × (F - K) × df_quote(T)
         """
         fwd = self.forward_rate(spot, base_curve, quote_curve)
-        df_settle = base_curve.df(self.maturity)
+        if self.settlement_currency == "quote":
+            df_settle = quote_curve.df(self.maturity)
+        else:
+            df_settle = base_curve.df(self.maturity)
         return self.notional * (fwd - self.contracted_rate) * df_settle
 
     def settlement_amount(self, fixing_rate: float) -> float:

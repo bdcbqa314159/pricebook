@@ -51,6 +51,7 @@ class CommodityForwardCurve:
 
         self.reference_date = reference_date
         self.day_count = day_count
+        self._interpolation = interpolation
         self._dates = list(dates)
         self._forwards = list(forwards)
         self._spot = spot if spot is not None else forwards[0]
@@ -104,6 +105,7 @@ class CommodityForwardCurve:
         return CommodityForwardCurve(
             self.reference_date, self._dates, new_fwds,
             spot=new_spot, day_count=self.day_count,
+            interpolation=self._interpolation,
         )
 
     def bumped_pct(self, pct: float) -> "CommodityForwardCurve":
@@ -113,6 +115,7 @@ class CommodityForwardCurve:
         return CommodityForwardCurve(
             self.reference_date, self._dates, new_fwds,
             spot=new_spot, day_count=self.day_count,
+            interpolation=self._interpolation,
         )
 
     def roll_down(self, days: int) -> "CommodityForwardCurve":
@@ -121,10 +124,10 @@ class CommodityForwardCurve:
         Each forward moves closer by N days on the time axis.
         """
         new_ref = self.reference_date + timedelta(days=days)
-        # Keep same dates but new reference → shorter tenors
         return CommodityForwardCurve(
             new_ref, self._dates, self._forwards,
             spot=self._spot, day_count=self.day_count,
+            interpolation=self._interpolation,
         )
 
 
