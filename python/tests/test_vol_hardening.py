@@ -1,9 +1,14 @@
 """Tests for vol infrastructure hardening (VH5-VH12)."""
 
+import math
 from datetime import date
 
+import numpy as np
 import pytest
 
+from pricebook.black76 import black76_price, OptionType
+from pricebook.greeks import Greeks, bump_greeks
+from pricebook.variance_swap import fair_variance_from_vols, variance_swap_pv
 from pricebook.vol_surface import (
     FlatVol, VolTermStructure,
     check_calendar_arbitrage, check_butterfly_arbitrage, validate_vol_surface,
@@ -104,3 +109,75 @@ class TestValidateVolSurface:
     def test_dirty_surface(self):
         result = validate_vol_surface([0.5, 1.0], [0.20, 0.10])
         assert not result.is_arbitrage_free
+
+
+# ---- VH9: Unified Greeks ----
+
+class TestGreeks:
+    def test_dataclass(self):
+        g = Greeks(price=5.0, delta=0.55, gamma=0.03, vega=15.0, theta=-0.05, rho=0.12)
+        assert g.price == 5.0
+        assert g.delta == 0.55
+
+    def test_bump_greeks_call(self):
+        """bump_greeks on Black-76 call should give reasonable Greeks."""
+        def price_func(S, vol, r, T):
+            F = S * math.exp(r * T)
+            df = math.exp(-r * T)
+            return black76_price(F, 100.0, vol, T, df, OptionType.CALL)
+
+        g = bump_greeks(price_func, spot=100.0, vol=0.20, rate=0.04, T=1.0)
+        assert g.price > 0
+        assert 0.3 < g.delta < 0.8   # ATM-ish call delta
+        assert g.gamma > 0
+        assert g.vega > 0
+        assert g.theta < 0           # time decay
+
+    def test_bump_greeks_put(self):
+        def price_func(S, vol, r, T):
+            F = S * math.exp(r * T)
+            df = math.exp(-r * T)
+            return black76_price(F, 100.0, vol, T, df, OptionType.PUT)
+
+        g = bump_greeks(price_func, spot=100.0, vol=0.20, rate=0.04, T=1.0)
+        assert g.delta < 0  # put delta negative
+
+
+# ---- VH10: Variance swap ----
+
+class TestVarianceSwap:
+    def test_fair_variance_flat_smile(self):
+        """With flat vol, fair variance ≈ σ²."""
+        F = 100.0
+        T = 1.0
+        df = 0.96
+        vol = 0.20
+        # Generate strikes around ATM
+        strikes = np.linspace(70, 130, 61)
+        vols = [vol] * len(strikes)
+        result = fair_variance_from_vols(F, df, T, strikes, vols)
+        # Fair variance should be close to σ² = 0.04
+        assert result.fair_variance == pytest.approx(vol ** 2, rel=0.05)
+        assert result.fair_vol == pytest.approx(vol, rel=0.05)
+
+    def test_skewed_smile_higher_variance(self):
+        """Skewed smile → higher fair variance than flat (convexity)."""
+        F = 100.0
+        T = 1.0
+        df = 0.96
+        strikes = np.linspace(70, 130, 61)
+        flat_vols = [0.20] * len(strikes)
+        skewed_vols = [0.20 + 0.05 * (100 - k) / 30 for k in strikes]  # put skew
+        flat_result = fair_variance_from_vols(F, df, T, strikes, flat_vols)
+        skew_result = fair_variance_from_vols(F, df, T, strikes, skewed_vols)
+        assert skew_result.fair_variance > flat_result.fair_variance
+
+    def test_variance_swap_pv(self):
+        """Long variance at below fair → positive PV."""
+        result = variance_swap_pv(0.04, 0.035, 100_000, 0.5, 0.98)
+        assert result.pv > 0
+
+    def test_variance_swap_pv_at_fair(self):
+        """At fair strike, PV = 0."""
+        result = variance_swap_pv(0.04, 0.04, 100_000, 0.5, 0.98)
+        assert result.pv == pytest.approx(0.0)
