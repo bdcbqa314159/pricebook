@@ -2,6 +2,35 @@
 
 ---
 
+## v0.321.0 — 2026-04-22
+
+API v4: full-stack coverage. 5385 tests.
+
+New layers added to api.py:
+
+**Market Data:**
+- `pb.market_env()` — bundle curves, credit, FX spots, CPI, commodities
+- `env.curve("USD")`, `env.projection("USD")`, `env.credit("ACME")`, `env.fx("EUR/USD")`
+
+**Products (7 new):**
+- `pb.ois("2Y", 0.04, curve)` — overnight index swap
+- `pb.basis_swap("5Y", 0.001, disc, proj_3m, proj_6m)` — float vs float
+- `pb.frn("5Y", 0.005, curve)` — floating-rate note
+- `pb.ndf("USD/CNY", 7.25, "1Y", 7.20, usd, cny)` — non-deliverable forward
+- `pb.risky_bond("10Y", 0.05, curve, surv)` — credit-risky bond
+- `pb.variance_swap(0.04, 0.035, 100_000, 0.5, 0.98)` — variance swap
+
+**XVA:**
+- `pb.cva(exposures, default_probs, recovery)` — unilateral CVA
+- `pb.simm([{"risk_class": "GIRR", "bucket": "USD", ...}])` — ISDA SIMM margin
+
+**Portfolio:**
+- `pb.portfolio_pv({"swap_5y": 15000, "bond_10y": -3000})` — aggregate
+
+Total API surface: 24 pricing functions + 4 curve builders + 2 XVA + 1 portfolio
+
+---
+
 ## v0.320.0 — 2026-04-22
 
 API v3: fully flexible, all 7 asset classes. 5371 tests.
