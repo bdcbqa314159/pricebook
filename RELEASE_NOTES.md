@@ -2,6 +2,24 @@
 
 ---
 
+## v0.306.0 — 2026-04-22
+
+Second audit fixes (FX/Equity/Commodity). 5267 tests.
+
+`ndf.py`:
+- Fixed docstring: base vs quote settlement formulas documented
+- `pv()` now uses `settlement_currency` param (was hardcoded to base)
+
+`commodity.py`:
+- `bumped()`, `bumped_pct()`, `roll_down()` preserve `_interpolation` method
+
+Known approximations documented in memory (reference_approximations.md):
+- Equity forward borrow cost on discrete dividends (uniform vs per-ex-date)
+- Equity TRS funding uses original-period rate (vs periodic resets)
+- Commodity swap point forward vs period average
+
+---
+
 ## v0.305.0 — 2026-04-22
 
 FXH1-FXH5: FX Hardening. **ALL 6 VOL-FREE ASSET CLASSES HARDENED.** 5267 tests.
