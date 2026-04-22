@@ -16,7 +16,7 @@ from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
 
 
-class AmortissingSwap:
+class AmortisingSwap:
     """Interest rate swap with per-period notional schedule.
 
     Supports amortising (decreasing), accreting (increasing), and
@@ -73,7 +73,7 @@ class AmortissingSwap:
         fixed_rate: float,
         initial_notional: float,
         **kwargs,
-    ) -> "AmortissingSwap":
+    ) -> "AmortisingSwap":
         """Linear amortising swap: notional decreases evenly to zero."""
         freq = kwargs.get("frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)
@@ -90,7 +90,7 @@ class AmortissingSwap:
         initial_notional: float,
         final_notional: float,
         **kwargs,
-    ) -> "AmortissingSwap":
+    ) -> "AmortisingSwap":
         """Linear accreting swap: notional increases from initial to final."""
         freq = kwargs.get("frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)

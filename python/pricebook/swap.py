@@ -64,6 +64,7 @@ class InterestRateSwap:
             start, end, fixed_rate, fixed_frequency,
             notional=notional, day_count=fixed_day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
+            payment_delay_days=payment_delay_days,
         )
 
         self.floating_leg = FloatingLeg(
@@ -105,6 +106,26 @@ class InterestRateSwap:
         annuity = self.fixed_leg.annuity(curve)
         pv_float = self.floating_leg.pv(curve, projection_curve)
         return pv_float / (self.notional * annuity)
+
+    def annuity(self, curve: DiscountCurve) -> float:
+        """Fixed leg annuity (PV01): sum of year_frac × df for each period.
+
+        This is the PV of the fixed leg per unit of fixed rate.
+        Fundamental for par rate, DV01, and risk decomposition.
+        """
+        return self.fixed_leg.annuity(curve)
+
+    def dv01(
+        self,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+        shift: float = 0.0001,
+    ) -> float:
+        """Parallel DV01: PV change for a 1bp parallel shift in rates."""
+        pv_base = self.pv(curve, projection_curve)
+        bumped = curve.bumped(shift)
+        bumped_proj = projection_curve.bumped(shift) if projection_curve is not None else None
+        return self.pv(bumped, bumped_proj) - pv_base
 
     def cashflow_schedule(
         self,

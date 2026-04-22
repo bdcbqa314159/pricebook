@@ -49,6 +49,7 @@ class ZeroCouponSwap:
         fixed_rate: float,
         direction: SwapDirection = SwapDirection.PAYER,
         notional: float = 1_000_000.0,
+        day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
     ):
         if start >= end:
             raise ValueError(f"start ({start}) must be before end ({end})")
@@ -57,9 +58,10 @@ class ZeroCouponSwap:
         self.fixed_rate = fixed_rate
         self.direction = direction
         self.notional = notional
+        self.day_count = day_count
 
-    def _tenor_years(self, day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED) -> float:
-        return year_fraction(self.start, self.end, day_count)
+    def _tenor_years(self) -> float:
+        return year_fraction(self.start, self.end, self.day_count)
 
     def fixed_amount(self) -> float:
         """Compounded fixed amount paid at maturity."""

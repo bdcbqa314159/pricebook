@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.amortising_swap import AmortissingSwap
+from pricebook.amortising_swap import AmortisingSwap
 from pricebook.swap import InterestRateSwap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
@@ -21,7 +21,7 @@ class TestAmortising:
         """Constant notional = bullet swap (same frequency)."""
         curve = _flat_curve()
         freq = Frequency.SEMI_ANNUAL
-        amort = AmortissingSwap(
+        amort = AmortisingSwap(
             REF, date(2029, 1, 15), 0.05,
             notional_schedule=[1_000_000] * 20,
             frequency=freq,
@@ -35,17 +35,17 @@ class TestAmortising:
 
     def test_amortising_dv01_less_than_bullet(self):
         curve = _flat_curve()
-        amort = AmortissingSwap.amortising(
+        amort = AmortisingSwap.amortising(
             REF, date(2029, 1, 15), 0.05, 1_000_000,
         )
-        bullet = AmortissingSwap(
+        bullet = AmortisingSwap(
             REF, date(2029, 1, 15), 0.05,
             notional_schedule=[1_000_000] * 20,
         )
         assert abs(amort.dv01(curve)) < abs(bullet.dv01(curve))
 
     def test_amortising_notional_decreases(self):
-        swap = AmortissingSwap.amortising(
+        swap = AmortisingSwap.amortising(
             REF, date(2029, 1, 15), 0.05, 1_000_000,
         )
         assert swap.notionals[0] > swap.notionals[-1]
@@ -53,11 +53,11 @@ class TestAmortising:
 
     def test_par_rate(self):
         curve = _flat_curve()
-        swap = AmortissingSwap.amortising(
+        swap = AmortisingSwap.amortising(
             REF, date(2029, 1, 15), 0.05, 1_000_000,
         )
         par = swap.par_rate(curve)
-        swap2 = AmortissingSwap.amortising(
+        swap2 = AmortisingSwap.amortising(
             REF, date(2029, 1, 15), par, 1_000_000,
         )
         assert swap2.pv(curve) == pytest.approx(0.0, abs=100)
@@ -65,7 +65,7 @@ class TestAmortising:
 
 class TestAccreting:
     def test_notional_increases(self):
-        swap = AmortissingSwap.accreting(
+        swap = AmortisingSwap.accreting(
             REF, date(2029, 1, 15), 0.05,
             initial_notional=500_000, final_notional=2_000_000,
         )
@@ -73,7 +73,7 @@ class TestAccreting:
 
     def test_pv(self):
         curve = _flat_curve()
-        swap = AmortissingSwap.accreting(
+        swap = AmortisingSwap.accreting(
             REF, date(2029, 1, 15), 0.05,
             initial_notional=500_000, final_notional=2_000_000,
         )
@@ -85,21 +85,21 @@ class TestRollerCoaster:
     def test_arbitrary_schedule(self):
         curve = _flat_curve()
         notionals = [1e6, 2e6, 3e6, 2e6, 1e6, 500_000, 1e6, 2e6, 1.5e6, 1e6]
-        swap = AmortissingSwap(
+        swap = AmortisingSwap(
             REF, date(2029, 1, 15), 0.05, notionals,
         )
         pv = swap.pv(curve)
         assert isinstance(pv, float)
 
     def test_wal(self):
-        swap = AmortissingSwap.amortising(
+        swap = AmortisingSwap.amortising(
             REF, date(2029, 1, 15), 0.05, 1_000_000,
         )
         wal = swap.weighted_average_life
         assert 0 < wal < 5.0  # should be less than maturity
 
     def test_average_notional(self):
-        swap = AmortissingSwap.amortising(
+        swap = AmortisingSwap.amortising(
             REF, date(2029, 1, 15), 0.05, 1_000_000,
         )
         assert swap.average_notional > 0
