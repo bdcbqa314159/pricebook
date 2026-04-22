@@ -54,7 +54,10 @@ class RepoCurve:
         # Linear interpolation
         for i in range(len(self._days) - 1):
             if self._days[i] <= days <= self._days[i + 1]:
-                frac = (days - self._days[i]) / (self._days[i + 1] - self._days[i])
+                denom = self._days[i + 1] - self._days[i]
+                if denom <= 0:
+                    return self._rates[i]
+                frac = (days - self._days[i]) / denom
                 return self._rates[i] + frac * (self._rates[i + 1] - self._rates[i])
         return self._rates[-1]
 

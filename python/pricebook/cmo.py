@@ -200,12 +200,10 @@ def pac_schedule(
 
     Returns monthly PAC principal allocation.
     """
-    _, prepay_low, _ = _pool_cashflows(pool_balance, wac, n_months, low_psa)
-    sched_low, _, _ = _pool_cashflows(pool_balance, wac, n_months, low_psa)
+    sched_low, prepay_low, _ = _pool_cashflows(pool_balance, wac, n_months, low_psa)
     total_low = sched_low + prepay_low
 
-    _, prepay_high, _ = _pool_cashflows(pool_balance, wac, n_months, high_psa)
-    sched_high, _, _ = _pool_cashflows(pool_balance, wac, n_months, high_psa)
+    sched_high, prepay_high, _ = _pool_cashflows(pool_balance, wac, n_months, high_psa)
     total_high = sched_high + prepay_high
 
     return np.minimum(total_low, total_high)

@@ -87,7 +87,10 @@ class EquityTRS:
         total_return = price_return + div_return
 
         # Funding leg
-        yf = year_fraction(self.start, ref, DayCountConvention.ACT_360)
+        if ref <= self.start:
+            yf = 0.0
+        else:
+            yf = year_fraction(self.start, ref, DayCountConvention.ACT_360)
         if ref < self.end:
             fwd = proj.forward_rate(self.start, self.end)
         else:
