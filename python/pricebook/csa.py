@@ -228,3 +228,101 @@ def funding_benefit_analysis(
         adj["name"] = name
         results.append(adj)
     return results
+
+
+# ---------------------------------------------------------------------------
+# CSA-aware discounting (COL1)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CSADiscountResult:
+    """Result of CSA-aware discount curve selection."""
+    csa: CSA
+    collateral_currency: str
+    discount_curve_name: str
+    is_cleared: bool
+
+
+def csa_discount_curve(
+    csa: CSA,
+    trade_currency: str,
+    discount_curves: dict[str, DiscountCurve],
+    xccy_basis_curves: dict[str, DiscountCurve] | None = None,
+) -> DiscountCurve:
+    """Select the correct discount curve based on CSA terms.
+
+    Under CSA collateralisation, the discount curve depends on the
+    collateral currency, not the trade currency:
+
+    - If collateral currency == trade currency: use OIS curve
+    - If collateral currency != trade currency: use OIS in collateral
+      currency + cross-currency basis adjustment
+
+    Args:
+        csa: CSA terms (contains collateral currency).
+        trade_currency: currency of the trade cashflows.
+        discount_curves: {currency → OIS DiscountCurve}.
+        xccy_basis_curves: {currency_pair → basis-adjusted curve} (optional).
+
+    Returns:
+        The appropriate DiscountCurve for PV calculation.
+    """
+    coll_ccy = csa.currency
+
+    if coll_ccy == trade_currency:
+        # Same currency: use OIS curve
+        if coll_ccy in discount_curves:
+            return discount_curves[coll_ccy]
+        raise ValueError(f"No discount curve for {coll_ccy}")
+
+    # Cross-currency: look for a basis-adjusted curve
+    if xccy_basis_curves is not None:
+        pair_key = f"{trade_currency}_{coll_ccy}"
+        alt_key = f"{coll_ccy}_{trade_currency}"
+        if pair_key in xccy_basis_curves:
+            return xccy_basis_curves[pair_key]
+        if alt_key in xccy_basis_curves:
+            return xccy_basis_curves[alt_key]
+
+    # Fallback: use collateral currency OIS curve
+    if coll_ccy in discount_curves:
+        return discount_curves[coll_ccy]
+
+    # Last resort: use trade currency
+    if trade_currency in discount_curves:
+        return discount_curves[trade_currency]
+
+    raise ValueError(f"No suitable discount curve for CSA({coll_ccy}) on {trade_currency} trade")
+
+
+def colva(
+    exposure_profile: list[float],
+    collateral_profile: list[float],
+    collateral_rate: float,
+    discount_rate: float,
+    dt: float,
+) -> float:
+    """Collateral Value Adjustment (ColVA).
+
+    ColVA = cost of posting collateral at a rate different from the
+    discount rate. If we earn collateral_rate on posted collateral
+    but discount at discount_rate, the difference is a cost (or benefit).
+
+    ColVA = Σ (discount_rate - collateral_rate) × collateral_t × dt × df_t
+
+    Args:
+        exposure_profile: expected exposure at each time step.
+        collateral_profile: posted collateral at each time step.
+        collateral_rate: rate earned/paid on collateral.
+        discount_rate: rate used for discounting.
+        dt: time step.
+    """
+    import math
+    total = 0.0
+    spread = discount_rate - collateral_rate
+    for i, (exp, coll) in enumerate(zip(exposure_profile, collateral_profile)):
+        t = (i + 1) * dt
+        df = math.exp(-discount_rate * t)
+        total += spread * coll * dt * df
+    return total
