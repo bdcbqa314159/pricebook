@@ -2,6 +2,26 @@
 
 ---
 
+## v0.319.0 — 2026-04-22
+
+API self-audit and hardening. 5363 tests.
+
+All 12 issues from the self-audit fixed:
+1. `curves()` → `build_curve()` (singular, verb)
+2. `credit_curve()` → `build_credit_curve()` (consistent naming)
+3. `CcyConventions` frozen dataclass (was raw dict)
+4. `cds()` requires `survival_curve` (no silent 0.0 on missing)
+5. `fx_forward()` → `fx_forward_rate()` (returns rate, not PV)
+6. `swaption()` + `swaption_greeks()` merged via `return_greeks=True`
+7. `OptionType` imported at top (was lazy import in cap/floor)
+8. All unused imports removed
+9. Added `pb.swap_dv01()`, `pb.bond_duration()`, `pb.fra()`
+10. Added CHF, CAD, AUD conventions
+11. Module docstring examples match actual function names
+12. 27 tests (was 22) — added credit_curve, DV01, FRA, duration, cap-floor parity, frozen check
+
+---
+
 ## v0.318.0 — 2026-04-22
 
 API1-API3: Unified API Layer. **OPERATIONAL PLATFORM STARTED.** 5358 tests.
