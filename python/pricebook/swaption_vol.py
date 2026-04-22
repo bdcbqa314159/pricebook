@@ -65,6 +65,9 @@ class SwaptionVolSurface:
 
         self.reference_date = reference_date
         self.day_count = day_count
+        self._expiries = list(expiries)
+        self._tenors_list = list(tenors)
+        self._vols_list = [list(row) for row in vols]
         self._expiry_times = np.array(
             [year_fraction(reference_date, d, day_count) for d in expiries]
         )
@@ -170,3 +173,14 @@ class SwaptionVolSurface:
         idx = max(0, min(idx, len(tenors) - 2))
         frac = (tenor - tenors[idx]) / (tenors[idx + 1] - tenors[idx])
         return row[idx] + frac * (row[idx + 1] - row[idx])
+
+    def bumped(self, shift: float) -> "SwaptionVolSurface":
+        """Return a new surface with all vols shifted by `shift`."""
+        new_vols = [
+            [max(v + shift, 0.0) for v in row]
+            for row in self._vols_list
+        ]
+        return SwaptionVolSurface(
+            self.reference_date, self._expiries, self._tenors_list,
+            new_vols, self.day_count,
+        )

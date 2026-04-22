@@ -73,6 +73,8 @@ class FXVolSurface:
         self.spot = spot
         self.r_d = r_d
         self.r_f = r_f
+        self._expiry_quotes = list(expiry_quotes)
+        self._delta_type = delta_type
 
         if reference_date is None:
             reference_date = expiry_quotes[0].expiry
@@ -131,3 +133,14 @@ class FXVolSurface:
     def smile_at(self, expiry: date) -> VolSmile:
         """Return the VolSmile at the nearest expiry."""
         return self._surface.vol(expiry)  # type: ignore  # for direct access use _surface
+
+    def bumped(self, shift: float) -> "FXVolSurface":
+        """Return a new surface with all vols shifted by `shift`."""
+        bumped_quotes = [
+            FXVolQuote(q.expiry, q.atm + shift, q.rr25, q.bf25)
+            for q in sorted(self._expiry_quotes, key=lambda x: x.expiry)
+        ]
+        return FXVolSurface(
+            self.spot, self.r_d, self.r_f, bumped_quotes,
+            self._reference_date, self._delta_type,
+        )

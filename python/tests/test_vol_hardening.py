@@ -181,3 +181,111 @@ class TestVarianceSwap:
         """At fair strike, PV = 0."""
         result = variance_swap_pv(0.04, 0.04, 100_000, 0.5, 0.98)
         assert result.pv == pytest.approx(0.0)
+
+
+# ---- VH7: FX vol surface bumped ----
+
+class TestFXVolSurfaceBumped:
+    def test_fx_surface_builds(self):
+        """FX vol surface builds from ATM/RR/BF quotes."""
+        from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
+        quotes = [
+            FXVolQuote(date(2027, 4, 21), 0.08, 0.01, 0.005),
+            FXVolQuote(date(2028, 4, 21), 0.09, 0.012, 0.006),
+        ]
+        surface = FXVolSurface(1.10, 0.04, 0.03, quotes,
+                               reference_date=date(2026, 4, 21))
+        v = surface.vol(date(2027, 4, 21), 1.10)
+        assert v > 0
+
+    def test_fx_surface_bumped(self):
+        from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
+        quotes = [FXVolQuote(date(2027, 4, 21), 0.08, 0.01, 0.005)]
+        surface = FXVolSurface(1.10, 0.04, 0.03, quotes,
+                               reference_date=date(2026, 4, 21))
+        bumped = surface.bumped(0.01)
+        v_base = surface.vol(date(2027, 4, 21), 1.10)
+        v_bump = bumped.vol(date(2027, 4, 21), 1.10)
+        assert v_bump > v_base
+
+
+# ---- VH8: Swaption vol surface bumped ----
+
+class TestSwaptionVolBumped:
+    def test_swaption_vol_bumped(self):
+        from pricebook.swaption_vol import SwaptionVolSurface
+        svs = SwaptionVolSurface(
+            date(2026, 4, 21),
+            [date(2027, 4, 21), date(2028, 4, 21)],
+            [5.0, 10.0],
+            [[0.20, 0.19], [0.21, 0.20]],
+        )
+        bumped = svs.bumped(0.01)
+        v_base = svs.vol_expiry_tenor(date(2027, 4, 21), 5.0)
+        v_bump = bumped.vol_expiry_tenor(date(2027, 4, 21), 5.0)
+        assert v_bump == pytest.approx(v_base + 0.01, rel=1e-4)
+
+
+# ---- VH11: SABR edge cases ----
+
+class TestSABREdgeCases:
+    def test_atm_vol_positive(self):
+        from pricebook.sabr import sabr_implied_vol
+        # Standard params
+        v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, -0.3, 0.4)
+        assert v > 0
+
+    def test_beta_zero_normal(self):
+        """β=0: normal SABR should give positive vol."""
+        from pricebook.sabr import sabr_implied_vol
+        v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.0, -0.3, 0.4)
+        assert v > 0
+
+    def test_beta_one_lognormal(self):
+        """β=1: lognormal SABR."""
+        from pricebook.sabr import sabr_implied_vol
+        v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 1.0, -0.3, 0.4)
+        assert v > 0
+
+    def test_high_nu_no_crash(self):
+        """High vol-of-vol should not crash."""
+        from pricebook.sabr import sabr_implied_vol
+        v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, -0.3, 1.5)
+        assert v > 0
+
+    def test_extreme_rho_no_crash(self):
+        """Near-extreme correlation should not crash."""
+        from pricebook.sabr import sabr_implied_vol
+        v1 = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, -0.95, 0.4)
+        v2 = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, 0.95, 0.4)
+        assert v1 > 0
+        assert v2 > 0
+
+
+# ---- VH12: Heston convergence ----
+
+class TestHestonConvergence:
+    def test_standard_params(self):
+        from pricebook.heston import heston_price
+        # heston_price(spot, strike, rate, T, v0, kappa, theta, xi, rho)
+        price = heston_price(100, 100, 0.04, 1.0, 0.04, 1.5, 0.04, 0.3, -0.7)
+        assert price > 0
+        assert price < 100
+
+    def test_high_vol_of_vol(self):
+        """High ξ should still converge."""
+        from pricebook.heston import heston_price
+        price = heston_price(100, 100, 0.04, 1.0, 0.04, 1.5, 0.04, 1.0, -0.7)
+        assert price > 0
+
+    def test_near_zero_kappa(self):
+        """Low mean reversion should still converge."""
+        from pricebook.heston import heston_price
+        price = heston_price(100, 100, 0.04, 1.0, 0.04, 0.01, 0.04, 0.3, -0.7)
+        assert price > 0
+
+    def test_deep_otm(self):
+        """Deep OTM option should be very small but positive."""
+        from pricebook.heston import heston_price
+        price = heston_price(100, 200, 0.04, 1.0, 0.04, 1.5, 0.04, 0.3, -0.7)
+        assert 0 <= price < 1.0
