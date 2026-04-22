@@ -2,6 +2,34 @@
 
 ---
 
+## v0.302.0 — 2026-04-22
+
+CR1-CR8: Credit Hardening. **CREDIT STACK PRODUCTION-GRADE.** 5223 tests.
+
+`risky_bond.py`:
+- `_future_periods(settlement)` filters past cashflows (same fix as BH2)
+- `dirty_price`, `risk_free_price`, `z_spread`, `asset_swap_spread` all accept `settlement`
+- Added `yield_to_maturity(price, settlement)` and `modified_duration(ytm, settlement)`
+
+`cds.py`:
+- `CDS.cs01()` — credit spread sensitivity via hazard bump
+- `CDS.rpv01()` — risky PV01 convenience method
+- `CDS.isda_upfront()` — standard upfront at 100bp/500bp running coupon
+- `bootstrap_credit_curve()` now auto-verifies round-trip (warns on failure)
+
+`credit_risk.py`:
+- `_bump_survival_curve` uses stored `_pillar_dates` (no more `int(t*365)`)
+
+`survival_curve.py`:
+- Stores `_pillar_dates` for exact date reconstruction
+
+`basket_cds.py`:
+- Date reconstruction via `relativedelta` instead of `int(t*365)`
+
+`test_credit_hardening.py` (NEW, 15 tests)
+
+---
+
 ## v0.301.0 — 2026-04-22
 
 Deposit API consistency. 5208 tests.
