@@ -2,6 +2,19 @@
 
 ---
 
+## v0.315.0 — 2026-04-22
+
+COL1+COL7: CSA-aware discounting + ColVA. **PHASE 3 STARTED.** 5318 tests.
+
+`csa.py`:
+- `csa_discount_curve(csa, trade_ccy, curves, xccy_basis)` — select correct discount
+  curve based on collateral currency. Same-ccy → OIS, cross-ccy → basis-adjusted
+- `ColVA(exposure, collateral, coll_rate, disc_rate, dt)` — collateral rate vs
+  discount rate differential cost
+- `CSADiscountResult` dataclass
+
+---
+
 ## v0.314.0 — 2026-04-22
 
 OH15-OH20: Options Hardening complete. **PHASE 2 COMPLETE.** 5318 tests.
