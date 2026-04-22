@@ -70,7 +70,8 @@ def piecewise_forward(
     """Piecewise forward curve with dividend jumps.
 
     Returns a forward price for each date in `dates`. The forward drops
-    by the dividend amount at each ex-date.
+    at each ex-date (dividend on the ex-date is included — the stock
+    goes ex-dividend, so the forward from that point onward is reduced).
 
     Args:
         spot: current spot price.
@@ -83,7 +84,13 @@ def piecewise_forward(
     """
     result = []
     for d in dates:
-        pv_divs = pv_dividends(dividends, curve, d)
+        # For forward curve, include dividends on or before date d
+        # (stock goes ex-div on the ex-date, reducing the forward)
+        pv_divs = sum(
+            dv.amount * curve.df(dv.ex_date)
+            for dv in dividends
+            if dv.ex_date <= d
+        )
         df_d = curve.df(d)
         result.append((spot - pv_divs) / df_d)
     return result
