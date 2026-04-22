@@ -5,7 +5,10 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.amortising_swap import AmortisingSwap
+from pricebook.basis_swap import BasisSwap
 from pricebook.day_count import DayCountConvention
+from pricebook.fixings import FixingsStore
+from pricebook.ois import OISSwap
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.zc_swap import ZeroCouponSwap
@@ -142,3 +145,64 @@ class TestSwapAnnuity:
         pv_float = swap.floating_leg.pv(curve)
         expected_par = pv_float / (swap.notional * swap.annuity(curve))
         assert swap.par_rate(curve) == pytest.approx(expected_par, rel=1e-10)
+
+
+# ---- Second audit fixes ----
+
+# #4: OIS dv01 + annuity
+
+class TestOISDV01:
+    def test_ois_dv01_nonzero(self):
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        ois = OISSwap(ref, date(2031, 4, 21), 0.04)
+        assert ois.dv01(curve) != 0.0
+
+    def test_ois_annuity_positive(self):
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        ois = OISSwap(ref, date(2031, 4, 21), 0.04)
+        assert ois.annuity(curve) > 0
+
+
+# #5: BasisSwap dv01
+
+class TestBasisSwapDV01:
+    def test_basis_dv01(self):
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        proj1 = make_flat_curve(ref, rate=0.042)
+        proj2 = make_flat_curve(ref, rate=0.041)
+        bs = BasisSwap(ref, date(2031, 4, 21), spread=0.001)
+        dv01 = bs.dv01(curve, proj1, proj2)
+        assert isinstance(dv01, float)
+
+
+# #9: Swap pv with fixings
+
+class TestSwapWithFixings:
+    def test_seasoned_swap_uses_fixings(self):
+        """Seasoned swap should use historical fixings for past periods."""
+        ref = date(2027, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        swap = InterestRateSwap(
+            date(2026, 4, 21), date(2028, 4, 21), fixed_rate=0.04,
+        )
+        store = FixingsStore()
+        # Set fixings for past floating periods
+        for cf in swap.floating_leg.cashflows:
+            if cf.fixing_date <= ref:
+                store.set("SOFR", cf.fixing_date, 0.05)
+
+        pv_with = swap.pv(curve, fixings=store, rate_name="SOFR")
+        pv_without = swap.pv(curve)
+        # Fixings at 5% vs forward ~4% → different PV
+        assert pv_with != pytest.approx(pv_without, rel=1e-4)
+
+    def test_swap_pv_no_fixings_backward_compat(self):
+        ref = date(2026, 4, 21)
+        curve = make_flat_curve(ref, rate=0.04)
+        swap = InterestRateSwap(ref, date(2031, 4, 21), 0.04)
+        pv1 = swap.pv(curve)
+        pv2 = swap.pv(curve, fixings=None, rate_name=None)
+        assert pv1 == pytest.approx(pv2, rel=1e-14)

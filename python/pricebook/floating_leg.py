@@ -190,7 +190,7 @@ class FloatingLeg:
             if fixings is not None and rate_name is not None and cf.fixing_date <= ref:
                 if use_compounding:
                     rate = self._compound_period(
-                        cf, fixings, rate_name, self.day_count,
+                        cf, fixings, rate_name, self.day_count, self.calendar,
                     )
                 else:
                     rate = fixings.get(rate_name, cf.fixing_date)
@@ -209,18 +209,26 @@ class FloatingLeg:
         fixings: FixingsStore,
         rate_name: str,
         day_count: DayCountConvention,
+        calendar: "Calendar | None" = None,
     ) -> float | None:
         """Compound daily overnight fixings over the observation window.
 
-        Returns the annualised compounded rate, or None if insufficient fixings.
+        Uses calendar.is_business_day() if available, otherwise skips
+        weekends only. Returns the annualised compounded rate, or None
+        if insufficient fixings.
         """
+        from pricebook.calendar import Calendar
+
         daily_rates: list[float] = []
         day_fracs: list[float] = []
         d = cf.observation_start
         while d < cf.observation_end:
             next_d = d + timedelta(days=1)
-            # Skip weekends (no overnight fixing on Sat/Sun)
-            if d.weekday() < 5:
+            if calendar is not None:
+                is_bday = calendar.is_business_day(d)
+            else:
+                is_bday = d.weekday() < 5
+            if is_bday:
                 rate = fixings.get(rate_name, d)
                 if rate is None:
                     return None  # Incomplete fixings → fall back to curve

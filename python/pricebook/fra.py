@@ -10,8 +10,9 @@ class FRA:
     """
     A forward rate agreement: a single-period contract on a forward rate.
 
-    The buyer locks in a borrowing rate (the strike). At settlement:
-        PV = notional * (forward_rate - strike) * year_frac * df(payment_date)
+    The buyer locks in a borrowing rate (the strike). At settlement (start date):
+        settled = notional * (fwd - strike) * year_frac / (1 + fwd * year_frac)
+        PV = settled * df(start)
 
     Supports dual-curve pricing:
         - projection_curve: used to compute the forward rate

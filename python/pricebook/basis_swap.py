@@ -127,3 +127,19 @@ class BasisSwap:
         )
 
         return (pv2 - pv1_flat) / (self.notional * annuity)
+
+    def dv01(
+        self,
+        discount_curve: DiscountCurve,
+        projection_curve_1: DiscountCurve,
+        projection_curve_2: DiscountCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """Parallel DV01: PV change for a 1bp parallel shift in all curves."""
+        pv_base = self.pv(discount_curve, projection_curve_1, projection_curve_2)
+        pv_bumped = self.pv(
+            discount_curve.bumped(shift),
+            projection_curve_1.bumped(shift),
+            projection_curve_2.bumped(shift),
+        )
+        return pv_bumped - pv_base

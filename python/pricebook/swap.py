@@ -7,6 +7,7 @@ from enum import Enum
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixed_leg import FixedLeg
+from pricebook.fixings import FixingsStore
 from pricebook.floating_leg import FloatingLeg
 from pricebook.schedule import Frequency, StubType
 from pricebook.calendar import Calendar, BusinessDayConvention
@@ -79,6 +80,8 @@ class InterestRateSwap:
         self,
         curve: DiscountCurve,
         projection_curve: DiscountCurve | None = None,
+        fixings: FixingsStore | None = None,
+        rate_name: str | None = None,
     ) -> float:
         """
         Present value of the swap.
@@ -86,9 +89,11 @@ class InterestRateSwap:
         Args:
             curve: discount curve.
             projection_curve: forward projection curve. If None, single-curve pricing.
+            fixings: historical fixings for seasoned swaps.
+            rate_name: index name in fixings store (e.g. "SOFR").
         """
         pv_fixed = self.fixed_leg.pv(curve)
-        pv_float = self.floating_leg.pv(curve, projection_curve)
+        pv_float = self.floating_leg.pv(curve, projection_curve, fixings, rate_name)
         if self.direction == SwapDirection.PAYER:
             return pv_float - pv_fixed
         return pv_fixed - pv_float

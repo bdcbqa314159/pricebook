@@ -65,6 +65,15 @@ class OISSwap:
         annuity = self.fixed_leg.annuity(curve)
         return self.pv_float(curve) / (self.notional * annuity)
 
+    def annuity(self, curve: DiscountCurve) -> float:
+        """Fixed leg annuity (PV01)."""
+        return self.fixed_leg.annuity(curve)
+
+    def dv01(self, curve: DiscountCurve, shift: float = 0.0001) -> float:
+        """Parallel DV01: PV change for a 1bp parallel shift."""
+        pv_base = self.pv(curve)
+        return self.pv(curve.bumped(shift)) - pv_base
+
 
 def bootstrap_ois(
     reference_date: date,
