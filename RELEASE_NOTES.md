@@ -2,6 +2,15 @@
 
 ---
 
+## v0.301.0 — 2026-04-22
+
+Deposit API consistency. 5208 tests.
+
+`deposit.py`:
+- `pv()` now accepts `DiscountCurve` or raw `float` (backward compat preserved)
+
+---
+
 ## v0.300.0 — 2026-04-22
 
 IR Second Audit fixes. **v0.300 MILESTONE.** 5208 tests.
