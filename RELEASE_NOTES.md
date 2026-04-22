@@ -2,6 +2,19 @@
 
 ---
 
+## v0.314.0 — 2026-04-22
+
+OH15-OH20: Options Hardening complete. **PHASE 2 COMPLETE.** 5318 tests.
+
+`equity_option.py`: `equity_greeks()` — unified Greeks via analytical formulas
+`fx_option.py`: `fx_greeks()` — unified Greeks for FX options
+
+`test_options_hardening.py` (+7 tests):
+- Equity Greeks call/put/delta-vs-bump, FX Greeks unified
+- Commodity put-call parity, cross-asset Black-76 kernel consistency
+
+---
+
 ## v0.313.0 — 2026-04-22
 
 OH3-OH14: Options Hardening — verification tests + code fixes. 5311 tests.
