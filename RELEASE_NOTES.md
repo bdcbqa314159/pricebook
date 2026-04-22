@@ -2,6 +2,23 @@
 
 ---
 
+## v0.313.0 — 2026-04-22
+
+OH3-OH14: Options Hardening — verification tests + code fixes. 5311 tests.
+
+`equity_structured.py`:
+- `worst_of_autocallable()` adds `coupon_barrier_pct` — coupon only paid when
+  worst-of ≥ barrier (was unconditional). Memory logic fixed.
+
+`fx_slv_calibration.py`:
+- `calibrate_leverage_function()` accepts `rho` parameter (was hardcoded -0.3)
+
+`test_options_hardening.py` (NEW, 12 tests):
+- Swaption Greeks vs bump, caplet PV sum, FX delta conventions (spot/forward/prem-adj),
+  strike-from-delta round-trip, barrier parity, Asian geometric, put-call parity (Black-76 + FX)
+
+---
+
 ## v0.312.0 — 2026-04-22
 
 OH1+OH2: Swaption Greeks + caplet stripping. 5299 tests.
