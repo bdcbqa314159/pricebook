@@ -2,6 +2,24 @@
 
 ---
 
+## v0.308.0 — 2026-04-22
+
+VH1+VH2: Vol Infrastructure — LMM drift fix + JY θ(t) calibration. 5267 tests.
+
+`lmm.py` — **CRITICAL FIX**:
+- `_drift()` now takes `numeraire_idx` — spot measure drift sums from `numeraire_idx+1` to `j`
+  (was summing from 0, including expired forwards)
+- `simulate()` passes current `period` as numeraire index
+- Rebonato swaption vol docstring clarified (annuity weights)
+
+`jarrow_yildirim.py` — **CRITICAL FIX**:
+- `_theta(t)` computes HW θ(t) = ∂f/∂t + a×f + σ²/(2a)(1-e^{-2at}) from initial forwards
+- `simulate()` uses calibrated θ_n(t), θ_r(t) instead of constant a×r0
+- Accepts `nominal_forwards`, `real_forwards`, `forward_times` for term structure calibration
+- Falls back to constant θ = a×r0 if no forwards provided (backward compat)
+
+---
+
 ## v0.307.0 — 2026-04-22
 
 INH1-INH10: Inflation Hardening. **ALL 7 ASSET CLASSES HARDENED.** 5267 tests.
