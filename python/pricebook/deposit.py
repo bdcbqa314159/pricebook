@@ -1,8 +1,11 @@
 """Money market deposit instrument."""
 
+from __future__ import annotations
+
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.discount_curve import DiscountCurve
 
 
 class Deposit:
@@ -52,6 +55,14 @@ class Deposit:
         """Cashflow at maturity: notional * (1 + rate * yf)."""
         return self.notional * (1.0 + self.rate * self.year_fraction)
 
-    def pv(self, df: float) -> float:
-        """Present value of the deposit given an external discount factor."""
+    def pv(self, df_or_curve: float | DiscountCurve) -> float:
+        """Present value of the deposit.
+
+        Args:
+            df_or_curve: either a raw discount factor (float) or a DiscountCurve.
+        """
+        if isinstance(df_or_curve, DiscountCurve):
+            df = df_or_curve.df(self.end)
+        else:
+            df = df_or_curve
         return self.cashflow * df - self.notional
