@@ -2,6 +2,23 @@
 
 ---
 
+## v0.316.0 — 2026-04-22
+
+COL2-COL12: Collateralisation complete. **ALL 3 PHASES COMPLETE.** 5336 tests.
+
+`simm.py` (NEW):
+- `SIMMCalculator` — ISDA SIMM margin computation
+- 5 risk classes (GIRR, FX, CSR, EQ, COM) with prescribed risk weights + correlations
+- 3-level aggregation: weight → within-bucket → across-bucket → across risk class
+
+`csa.py`:
+- `cheapest_collateral()` — CTD collateral currency selection with haircuts
+- `cleared_vs_bilateral()` — clearing cost vs bilateral IM comparison
+
+`test_collateral.py` (NEW, 18 tests)
+
+---
+
 ## v0.315.0 — 2026-04-22
 
 COL1+COL7: CSA-aware discounting + ColVA. **PHASE 3 STARTED.** 5318 tests.
