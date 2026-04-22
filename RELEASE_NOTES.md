@@ -2,6 +2,23 @@
 
 ---
 
+## v0.309.0 — 2026-04-22
+
+VH3+VH4: Convertible bond LSM + Bermudan dual upper bound. 5267 tests.
+
+`convertible_bond.py` — **CRITICAL FIX**:
+- Backward induction now uses Longstaff-Schwartz regression (1, S, S²)
+  for continuation value estimate instead of perfect foresight
+- Was producing upper bound, now produces fair price
+- Delta bump also uses LSM
+
+`bermudan_lmm.py` — **CRITICAL FIX**:
+- `bermudan_upper_bound()` now implements Andersen-Broadie dual with martingale penalty
+- Martingale M = Σ(exercise - continuation_estimate) from LSM
+- Upper = E[max_k(h_k - M_k)] — tighter than old hindsight max
+
+---
+
 ## v0.308.0 — 2026-04-22
 
 VH1+VH2: Vol Infrastructure — LMM drift fix + JY θ(t) calibration. 5267 tests.
