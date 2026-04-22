@@ -2,6 +2,20 @@
 
 ---
 
+## v0.311.0 — 2026-04-22
+
+VH7-VH12: FX/IR vol bumped, SABR/Heston verification. **VOL INFRASTRUCTURE COMPLETE.** 5299 tests.
+
+`fx_vol_surface.py`: `FXVolSurface.bumped(shift)` — stores quotes for reconstruction
+`swaption_vol.py`: `SwaptionVolSurface.bumped(shift)` — stores expiries/tenors/vols
+
+`test_vol_hardening.py` (+12 tests):
+- FX vol surface builds and bumps, swaption vol bumps
+- SABR: β=0, β=1, high ν, extreme ρ — all produce positive vol
+- Heston: standard, high ξ, low κ, deep OTM — all converge
+
+---
+
 ## v0.310.0 — 2026-04-22
 
 VH5-VH10: Vol surface bumped, arb checks, Greeks, variance swap. 5287 tests.
