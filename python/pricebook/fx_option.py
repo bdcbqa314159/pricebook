@@ -24,6 +24,7 @@ from pricebook.black76 import (
     black76_vega,
     _norm_cdf,
 )
+from pricebook.greeks import Greeks
 
 
 def fx_forward(spot: float, r_d: float, r_f: float, T: float) -> float:
@@ -171,3 +172,20 @@ def strike_from_delta(
         adj_delta = delta / math.exp(-r_f * T)  # remove discount
         d1 = sign * norm.ppf(sign * adj_delta)
         return fwd * math.exp(-d1 * vol * sqrt_t + 0.5 * vol * vol * T)
+
+
+def fx_greeks(
+    spot: float,
+    strike: float,
+    r_d: float,
+    r_f: float,
+    vol: float,
+    T: float,
+    option_type: OptionType = OptionType.CALL,
+) -> Greeks:
+    """All FX option Greeks in one call."""
+    return Greeks(
+        price=fx_option_price(spot, strike, r_d, r_f, vol, T, option_type),
+        delta=fx_spot_delta(spot, strike, r_d, r_f, vol, T, option_type),
+        vega=fx_vega(spot, strike, r_d, r_f, vol, T),
+    )

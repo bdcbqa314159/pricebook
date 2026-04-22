@@ -134,3 +134,86 @@ class TestPutCallParity:
         put = fx_option_price(S, K, r_d, r_f, vol, T, OptionType.PUT)
         expected = S * math.exp(-r_f * T) - K * math.exp(-r_d * T)
         assert call - put == pytest.approx(expected, rel=1e-8)
+
+
+# ---- OH15: Equity Greeks consistency ----
+
+class TestEquityGreeksConsistency:
+    def test_equity_greeks_call(self):
+        from pricebook.equity_option import equity_greeks
+        g = equity_greeks(100, 100, 0.04, 0.20, 1.0, OptionType.CALL)
+        assert g.price > 0
+        assert 0.4 < g.delta < 0.7
+        assert g.gamma > 0
+        assert g.vega > 0
+        assert g.theta < 0
+        assert g.rho > 0
+
+    def test_equity_greeks_put(self):
+        from pricebook.equity_option import equity_greeks
+        g = equity_greeks(100, 100, 0.04, 0.20, 1.0, OptionType.PUT)
+        assert g.delta < 0
+        assert g.rho < 0
+
+    def test_equity_delta_vs_bump(self):
+        """Analytical delta should match bump-and-reprice."""
+        from pricebook.equity_option import equity_option_price, equity_delta
+        S, K, r, vol, T = 100, 100, 0.04, 0.20, 1.0
+        bump = 0.01
+        analytical = equity_delta(S, K, r, vol, T)
+        numerical = (equity_option_price(S + bump, K, r, vol, T) -
+                     equity_option_price(S - bump, K, r, vol, T)) / (2 * bump)
+        assert analytical == pytest.approx(numerical, rel=0.01)
+
+
+# ---- OH15: FX Greeks unified ----
+
+class TestFXGreeksUnified:
+    def test_fx_greeks(self):
+        from pricebook.fx_option import fx_greeks
+        g = fx_greeks(1.10, 1.10, 0.04, 0.03, 0.08, 1.0)
+        assert g.price > 0
+        assert g.delta > 0
+        assert g.vega > 0
+
+
+# ---- OH16-OH18: Credit/commodity options verification ----
+
+class TestCreditCommodityOptions:
+    def test_commodity_option_positive(self):
+        """Black-76 commodity option should be positive."""
+        from pricebook.commodity import commodity_option_price
+        p = commodity_option_price(70.0, 72.0, 0.30, 0.5, 0.98)
+        assert p > 0
+
+    def test_commodity_option_put_call_parity(self):
+        from pricebook.commodity import commodity_option_price
+        F, K, vol, T, df = 70.0, 72.0, 0.30, 0.5, 0.98
+        call = commodity_option_price(F, K, vol, T, df, OptionType.CALL)
+        put = commodity_option_price(F, K, vol, T, df, OptionType.PUT)
+        assert call - put == pytest.approx(df * (F - K), rel=1e-8)
+
+
+# ---- OH19-OH20: Cross-asset consistency ----
+
+class TestCrossAssetConsistency:
+    def test_black76_is_the_kernel(self):
+        """All asset classes should use Black-76 as the option kernel."""
+        from pricebook.equity_option import equity_option_price
+        from pricebook.fx_option import fx_option_price
+        from pricebook.commodity import commodity_option_price
+
+        # Same forward/strike/vol/T/df → same price regardless of asset class
+        F, K, vol, T, df = 100.0, 100.0, 0.20, 1.0, 0.96
+        b76 = black76_price(F, K, vol, T, df, OptionType.CALL)
+
+        # Equity: construct so forward = F
+        r = -math.log(df) / T
+        S = F * df  # S = F × exp(-r×T) → S × exp(r×T) = F
+        eq = equity_option_price(S, K, r, vol, T)
+
+        # Commodity: direct Black-76
+        cm = commodity_option_price(F, K, vol, T, df)
+
+        assert b76 == pytest.approx(eq, rel=1e-6)
+        assert b76 == pytest.approx(cm, rel=1e-10)

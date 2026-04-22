@@ -20,6 +20,7 @@ from pricebook.black76 import (
     _norm_cdf,
     _norm_pdf,
 )
+from pricebook.greeks import Greeks
 
 
 def _forward_and_df(spot, rate, div_yield, T):
@@ -135,3 +136,23 @@ def equity_rho(
     if option_type == OptionType.CALL:
         return strike * T * df * _norm_cdf(d2)
     return -strike * T * df * _norm_cdf(-d2)
+
+
+def equity_greeks(
+    spot: float,
+    strike: float,
+    rate: float,
+    vol: float,
+    T: float,
+    option_type: OptionType = OptionType.CALL,
+    div_yield: float = 0.0,
+) -> Greeks:
+    """All equity option Greeks in one call."""
+    return Greeks(
+        price=equity_option_price(spot, strike, rate, vol, T, option_type, div_yield),
+        delta=equity_delta(spot, strike, rate, vol, T, option_type, div_yield),
+        gamma=equity_gamma(spot, strike, rate, vol, T, div_yield),
+        vega=equity_vega(spot, strike, rate, vol, T, div_yield),
+        theta=equity_theta(spot, strike, rate, vol, T, option_type, div_yield),
+        rho=equity_rho(spot, strike, rate, vol, T, option_type, div_yield),
+    )
