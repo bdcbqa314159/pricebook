@@ -2,6 +2,31 @@
 
 ---
 
+## v0.318.0 — 2026-04-22
+
+API1-API3: Unified API Layer. **OPERATIONAL PLATFORM STARTED.** 5358 tests.
+
+`api.py` (NEW, 280 lines):
+- `pb.curves("USD", ref, deposits=[...], swaps=[...])` — smart curve building
+- `pb.par_rate(ref, "5Y", curve)` — par swap rate by tenor string
+- `pb.irs(ref, "5Y", 0.04, curve)` — IRS pricing in 1 line
+- `pb.bond(issue, "10Y", 0.04, curve)` — bond dirty price
+- `pb.cds(ref, "5Y", 0.01, curve, surv)` — CDS pricing
+- `pb.credit_curve(ref, {"5Y": 0.01}, curve)` — credit curve from tenor dict
+- `pb.fx_forward("EUR/USD", 1.10, "6M", eur, usd)` — FX forward
+- `pb.swaption(ref, "1Y", "5Y", 0.04, 0.30, curve)` — swaption pricing
+- `pb.swaption_greeks(...)` — swaption Greeks
+- `pb.cap(ref, "5Y", 0.04, 0.30, curve)` — cap pricing
+- `pb.floor(ref, "5Y", 0.03, 0.30, curve)` — floor pricing
+- `pb.conventions("USD")` — currency conventions lookup
+- `pb._parse_tenor(ref, "5Y")` — tenor string to date
+
+`test_api.py` (NEW, 22 tests):
+- Tenor parsing, conventions, curve building, IRS at par, bond, CDS, FX forward,
+  swaption + Greeks, cap/floor
+
+---
+
 ## v0.317.0 — 2026-04-22
 
 Lens review: code + numerical audit of all new/modified modules (v0.268→v0.316). 5336 tests.
