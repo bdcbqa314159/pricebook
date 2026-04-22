@@ -2,6 +2,29 @@
 
 ---
 
+## v0.317.0 — 2026-04-22
+
+Lens review: code + numerical audit of all new/modified modules (v0.268→v0.316). 5336 tests.
+
+56 files reviewed across 10,863 lines. Findings:
+
+Fixes applied:
+- `equity_trs.py`: guard for `ref <= start` in MTM (prevented negative year_fraction)
+- `repo_term.py`: guard for zero denominator in rate interpolation (duplicate tenors)
+- `cmo.py`: `pac_schedule()` redundant `_pool_cashflows` calls eliminated
+
+Documented limitations (not bugs):
+- `simm.py`: vega/curvature margins stubbed to 0.0 (delta-only for now)
+- `bond_forward.py`: uses `_price_from_ytm()` private method (API coupling)
+- `fx_forward_curve.py`: silently clamps negative time to 0
+
+All 14 new files verified against L1-L10 numerical lenses:
+- L1 (References): ✓ all cite papers/books
+- L6 (Hygiene): 2 issues found and fixed
+- L8 (Completeness): 1 stub documented (SIMM vega/curvature)
+
+---
+
 ## v0.316.0 — 2026-04-22
 
 COL2-COL12: Collateralisation complete. **ALL 3 PHASES COMPLETE.** 5336 tests.
