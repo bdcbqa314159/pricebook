@@ -47,6 +47,7 @@ class SurvivalCurve:
 
         self.reference_date = reference_date
         self.day_count = day_count
+        self._pillar_dates = list(dates)
 
         times = [year_fraction(reference_date, d, day_count) for d in dates]
 

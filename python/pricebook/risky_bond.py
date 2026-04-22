@@ -25,7 +25,7 @@ class RiskyBond:
     """Fixed-rate bond with credit risk.
 
     PV = sum(coupon * df * survival) + principal * df * survival
-         + recovery * sum(df * default_prob_per_period)
+         + recovery * sum(df_mid * default_prob_per_period)
     """
 
     def __init__(
@@ -44,19 +44,28 @@ class RiskyBond:
         self.notional = notional
         self.recovery = recovery
         self.day_count = day_count
+        self.frequency = frequency
         self.schedule = generate_schedule(start, end, frequency)
+
+    def _future_periods(self, settlement: date) -> list[tuple[date, date]]:
+        """Return (period_start, period_end) pairs where period_end > settlement."""
+        return [
+            (self.schedule[i - 1], self.schedule[i])
+            for i in range(1, len(self.schedule))
+            if self.schedule[i] > settlement
+        ]
 
     def dirty_price(
         self,
         discount_curve: DiscountCurve,
         survival_curve: SurvivalCurve,
+        settlement: date | None = None,
     ) -> float:
-        """Full price per 100 face, accounting for default risk."""
+        """Full price, accounting for default risk. Only future cashflows."""
+        settle = settlement if settlement is not None else discount_curve.reference_date
         pv = 0.0
 
-        for i in range(1, len(self.schedule)):
-            t_start = self.schedule[i - 1]
-            t_end = self.schedule[i]
+        for t_start, t_end in self._future_periods(settle):
             yf = year_fraction(t_start, t_end, self.day_count)
             df = discount_curve.df(t_end)
             surv = survival_curve.survival(t_end)
@@ -75,35 +84,95 @@ class RiskyBond:
 
         return pv
 
-    def risk_free_price(self, discount_curve: DiscountCurve) -> float:
-        """Price without credit risk (survival = 1 everywhere)."""
+    def risk_free_price(
+        self,
+        discount_curve: DiscountCurve,
+        settlement: date | None = None,
+    ) -> float:
+        """Price without credit risk (survival = 1 everywhere). Only future cashflows."""
+        settle = settlement if settlement is not None else discount_curve.reference_date
         pv = 0.0
-        for i in range(1, len(self.schedule)):
-            t_start = self.schedule[i - 1]
-            t_end = self.schedule[i]
+        for t_start, t_end in self._future_periods(settle):
             yf = year_fraction(t_start, t_end, self.day_count)
             df = discount_curve.df(t_end)
             pv += self.notional * self.coupon_rate * yf * df
         pv += self.notional * discount_curve.df(self.end)
         return pv
 
+    def yield_to_maturity(
+        self,
+        market_price: float,
+        settlement: date | None = None,
+    ) -> float:
+        """Yield to maturity for a risky bond (from settlement, ignoring default).
+
+        Finds the flat yield that discounts remaining cashflows to market_price.
+        """
+        settle = settlement if settlement is not None else self.start
+        periods_per_year = 12 / self.frequency.value
+
+        def _price(y: float) -> float:
+            pv = 0.0
+            for t_start, t_end in self._future_periods(settle):
+                yf = year_fraction(t_start, t_end, self.day_count)
+                t = year_fraction(settle, t_end, self.day_count)
+                n = t * periods_per_year
+                pv += self.notional * self.coupon_rate * yf / (1 + y / periods_per_year) ** n
+            t_mat = year_fraction(settle, self.end, self.day_count)
+            n_mat = t_mat * periods_per_year
+            pv += self.notional / (1 + y / periods_per_year) ** n_mat
+            return pv
+
+        return brentq(lambda y: _price(y) - market_price, -0.05, 2.0)
+
+    def modified_duration(
+        self,
+        ytm: float,
+        settlement: date | None = None,
+    ) -> float:
+        """Modified duration from settlement."""
+        settle = settlement if settlement is not None else self.start
+        periods_per_year = 12 / self.frequency.value
+        discount = 1 + ytm / periods_per_year
+
+        weighted_t = 0.0
+        total_pv = 0.0
+        for t_start, t_end in self._future_periods(settle):
+            yf = year_fraction(t_start, t_end, self.day_count)
+            t = year_fraction(settle, t_end, self.day_count)
+            n = t * periods_per_year
+            cf_pv = self.notional * self.coupon_rate * yf / discount ** n
+            weighted_t += t * cf_pv
+            total_pv += cf_pv
+
+        t_mat = year_fraction(settle, self.end, self.day_count)
+        n_mat = t_mat * periods_per_year
+        prin_pv = self.notional / discount ** n_mat
+        weighted_t += t_mat * prin_pv
+        total_pv += prin_pv
+
+        if total_pv <= 0:
+            return 0.0
+        mac = weighted_t / total_pv
+        return mac / discount
+
 
 def z_spread(
     bond: RiskyBond,
     market_price: float,
     discount_curve: DiscountCurve,
+    settlement: date | None = None,
 ) -> float:
     """Z-spread: constant spread over risk-free curve that reprices the bond.
 
-    Solves for z such that PV(curve + z) = market_price.
+    Only future cashflows from settlement are included.
     """
+    settle = settlement if settlement is not None else discount_curve.reference_date
+
     def objective(z: float) -> float:
         bumped = discount_curve.bumped(z)
-        # Price as risk-free with the bumped curve
         pv = 0.0
-        for i in range(1, len(bond.schedule)):
-            t_start = bond.schedule[i - 1]
-            t_end = bond.schedule[i]
+        for t_start, t_end in bond._future_periods(settle):
             yf = year_fraction(t_start, t_end, bond.day_count)
             pv += bond.notional * bond.coupon_rate * yf * bumped.df(t_end)
         pv += bond.notional * bumped.df(bond.end)
@@ -116,27 +185,21 @@ def asset_swap_spread(
     bond: RiskyBond,
     market_price: float,
     discount_curve: DiscountCurve,
+    settlement: date | None = None,
 ) -> float:
     """Asset swap spread: floating spread that equates bond PV to par.
 
-    ASW spread ≈ (par - market_price) / annuity + coupon - par_swap_rate
-
-    Simplified: solve for spread s such that
-        market_price + PV(floating + s) = PV(fixed coupons) + 100
+    Only future cashflows from settlement are included.
     """
-    # Annuity: sum of year_frac * df
+    settle = settlement if settlement is not None else discount_curve.reference_date
+
     annuity = 0.0
-    for i in range(1, len(bond.schedule)):
-        t_start = bond.schedule[i - 1]
-        t_end = bond.schedule[i]
+    for t_start, t_end in bond._future_periods(settle):
         yf = year_fraction(t_start, t_end, bond.day_count)
         annuity += yf * discount_curve.df(t_end)
 
-    if annuity == 0:
+    if annuity <= 0:
         return 0.0
 
-    # PV of fixed coupons + principal at par
-    risk_free_pv = bond.risk_free_price(discount_curve)
-
-    # ASW spread = (risk_free_price - market_price) / (notional * annuity)
+    risk_free_pv = bond.risk_free_price(discount_curve, settle)
     return (risk_free_pv - market_price) / (bond.notional * annuity)

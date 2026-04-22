@@ -19,6 +19,7 @@ import math
 from datetime import date
 
 import numpy as np
+from dateutil.relativedelta import relativedelta
 from scipy.stats import norm
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -119,7 +120,7 @@ def ntd_spread(
     n_years = max(1, int(T))
     for yr in range(1, n_years + 1):
         t = min(yr, T)
-        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        d = ref + relativedelta(years=int(t))
         df = discount_curve.df(d)
         surv_prob = 1.0 - ntd_triggered.mean() * (t / T)
         surv_prob = max(surv_prob, 0.01)
@@ -174,8 +175,8 @@ class LeveragedCLN:
 
         for yr in range(1, n_years + 1):
             t = min(yr, self.T)
-            d = date.fromordinal(ref.toordinal() + int(t * 365))
-            d_prev = date.fromordinal(ref.toordinal() + int((t - 1) * 365))
+            d = ref + relativedelta(years=int(t))
+            d_prev = ref + relativedelta(years=max(0, int(t) - 1))
             df = discount_curve.df(d)
             surv = survival_curve.survival(d)
             surv_prev = survival_curve.survival(d_prev)

@@ -265,6 +265,53 @@ class CDS:
         """
         return self.pv(discount_curve, survival_curve) / self.notional
 
+    def isda_upfront(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        standard_coupon: float = 0.01,
+    ) -> float:
+        """ISDA standard upfront: PV at standard running coupon.
+
+        Post-Big Bang, CDS trades with fixed 100bp (IG) or 500bp (HY)
+        running coupon. The upfront settles the difference.
+
+        Args:
+            standard_coupon: 0.01 for IG (100bp), 0.05 for HY (500bp).
+        """
+        std = CDS(
+            self.start, self.end, standard_coupon,
+            notional=self.notional, recovery=self.recovery,
+            frequency=self.frequency, day_count=self.day_count,
+            protection_day_count=self.protection_day_count,
+            steps_per_year=self.steps_per_year,
+            calendar=self.calendar, convention=self.convention,
+        )
+        return std.pv(discount_curve, survival_curve) / self.notional
+
+    def rpv01(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    ) -> float:
+        """Risky PV01 (risky annuity): PV of 1bp running spread per unit notional."""
+        return risky_annuity(
+            self.start, self.end, discount_curve, survival_curve,
+            frequency=self.frequency, day_count=self.day_count,
+            calendar=self.calendar, convention=self.convention,
+        )
+
+    def cs01(
+        self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """CS01: PV change for a 1bp parallel shift in credit spreads.
+
+        Bumps the survival curve's hazard rates by `shift` and reprices.
+        """
+        from pricebook.credit_risk import _bump_survival_curve
+        pv_base = self.pv(discount_curve, survival_curve)
+        pv_bumped = self.pv(discount_curve, _bump_survival_curve(survival_curve, shift))
+        return pv_bumped - pv_base
+
 
 def bootstrap_credit_curve(
     reference_date: date,
@@ -332,8 +379,48 @@ def bootstrap_credit_curve(
         pillar_dates.append(mat)
         pillar_survs.append(q_solved)
 
-    return SurvivalCurve(
+    curve = SurvivalCurve(
         reference_date, pillar_dates, pillar_survs,
         day_count=DayCountConvention.ACT_365_FIXED,
         interpolation=interpolation,
     )
+
+    # Round-trip verification
+    _verify_credit_round_trip(
+        curve, reference_date, cds_spreads, discount_curve,
+        recovery, frequency, day_count, protection_day_count,
+        steps_per_year, calendar, convention,
+    )
+
+    return curve
+
+
+def _verify_credit_round_trip(
+    curve, reference_date, cds_spreads, discount_curve,
+    recovery, frequency, day_count, protection_day_count,
+    steps_per_year, calendar, convention,
+    tol=1e-4,
+):
+    """Verify the bootstrapped credit curve reprices all input CDS at par."""
+    import warnings
+
+    errors = []
+    for mat, input_spread in cds_spreads:
+        cds = CDS(
+            reference_date, mat, input_spread,
+            notional=1.0, recovery=recovery,
+            frequency=frequency, day_count=day_count,
+            protection_day_count=protection_day_count,
+            steps_per_year=steps_per_year,
+            calendar=calendar, convention=convention,
+        )
+        model_spread = cds.par_spread(discount_curve, curve)
+        err = abs(model_spread - input_spread)
+        if err > tol:
+            errors.append(
+                f"CDS {mat}: input={input_spread:.6f}, model={model_spread:.6f}, err={err:.2e}"
+            )
+
+    if errors:
+        msg = "Credit bootstrap round-trip failures:\n" + "\n".join(errors)
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)

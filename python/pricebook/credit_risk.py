@@ -31,7 +31,7 @@ def _bump_survival_curve(
 ) -> SurvivalCurve:
     """Parallel bump: shift all hazard rates by `shift`, rebuild survival probs."""
     ref = curve.reference_date
-    # Extract pillar dates and times (skip t=0)
+    pillar_dates = curve._pillar_dates
     times = [float(t) for t in curve._times if t > 0]
     survs = [float(s) for t, s in zip(curve._times, curve._survs) if t > 0]
 
@@ -51,11 +51,6 @@ def _bump_survival_curve(
         prev_t = t
         prev_q = new_q
 
-    pillar_dates = [
-        date.fromordinal(ref.toordinal() + int(t * 365))
-        for t in times
-    ]
-
     return SurvivalCurve(ref, pillar_dates, new_survs)
 
 
@@ -66,6 +61,7 @@ def _bump_survival_curve_at(
 ) -> SurvivalCurve:
     """Bump hazard rate at a single pillar."""
     ref = curve.reference_date
+    pillar_dates = curve._pillar_dates
     times = [float(t) for t in curve._times if t > 0]
     survs = [float(s) for t, s in zip(curve._times, curve._survs) if t > 0]
 
@@ -80,11 +76,6 @@ def _bump_survival_curve_at(
             h = -math.log(q / prev_q) / dt
             h_bumped = max(h + shift, 1e-10)
             new_survs[pillar_idx] = prev_q * math.exp(-h_bumped * dt)
-
-    pillar_dates = [
-        date.fromordinal(ref.toordinal() + int(t * 365))
-        for t in times
-    ]
 
     return SurvivalCurve(ref, pillar_dates, new_survs)
 
