@@ -67,6 +67,7 @@ def calibrate_leverage_function(
     theta: float,
     xi: float,
     v0: float,
+    rho: float = -0.3,
     n_paths: int = 10_000,
     seed: int | None = 42,
 ) -> LeverageFunction:
@@ -104,8 +105,7 @@ def calibrate_leverage_function(
         dt = times[i] - times[i - 1]
         sqrt_dt = math.sqrt(dt)
 
-        # Correlated Brownian increments (assume rho=-0.5 default)
-        rho = -0.3
+        # Correlated Brownian increments
         z1 = rng.standard_normal(n_paths)
         z2 = rho * z1 + math.sqrt(1 - rho**2) * rng.standard_normal(n_paths)
 
