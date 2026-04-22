@@ -141,10 +141,19 @@ class LMM:
         self.tau = tau
         self.n_rates = len(self.L0)
 
-    def _drift(self, L: np.ndarray, j: int) -> np.ndarray:
-        """Risk-neutral drift for L_j under spot measure (vectorised)."""
-        L_slice = L[:, :j + 1]
-        vol_slice = self.vols[:j + 1]
+    def _drift(self, L: np.ndarray, j: int, numeraire_idx: int = 0) -> np.ndarray:
+        """Risk-neutral drift for L_j under spot measure (vectorised).
+
+        Under the spot measure, the drift for L_j involves forwards
+        from k=numeraire_idx+1 to j (not expired forwards).
+
+        μ_j = Σ_{k=numeraire_idx+1}^{j} (τ × σ_j × σ_k × L_k) / (1 + τ × L_k)
+        """
+        start = numeraire_idx + 1
+        if start > j:
+            return np.zeros(L.shape[0])
+        L_slice = L[:, start:j + 1]
+        vol_slice = self.vols[start:j + 1]
         numerator = self.tau * self.vols[j] * vol_slice * L_slice
         denominator = 1.0 + self.tau * L_slice
         return (numerator / denominator).sum(axis=1)
@@ -170,7 +179,7 @@ class LMM:
                 dW = math.sqrt(dt) * rng.standard_normal((n_paths, self.n_rates))
 
                 for j in range(period, self.n_rates):
-                    drift = self._drift(L, j)
+                    drift = self._drift(L, j, numeraire_idx=period)
                     L[:, j] = L[:, j] * np.exp(
                         (drift - 0.5 * self.vols[j]**2) * dt
                         + self.vols[j] * dW[:, j]
@@ -201,14 +210,20 @@ class LMM:
     ) -> float:
         """Rebonato approximation for ATM swaption vol.
 
-        sigma_swap^2 * T ≈ sum_{i,j} w_i * w_j * sigma_i * sigma_j * rho_{ij} * T
+        σ_swap² × T ≈ Σ_{i,j} w_i × w_j × σ_i × σ_j × ρ_{ij} × T
 
-        Simplified (diagonal correlation):
-            sigma_swap^2 * T ≈ sum_i w_i^2 * sigma_i^2 * T
+        Uses annuity weights w_i = τ × P(0,T_{i+1}) × L_i(0) / (A × S)
+        where A = annuity, S = swap rate, P = discount factors.
+
+        With unit correlation (ρ=1): σ² × T = (Σ w_i × σ_i)² × T
+        Simplified diagonal (ρ=δ_{ij}): σ² × T = Σ w_i² × σ_i² × T
         """
         D = 1.0 / np.cumprod(1.0 + tau * L0)
         annuity = tau * D.sum()
         swap_rate = (1.0 - D[-1]) / annuity
+        if abs(swap_rate) < 1e-15 or abs(annuity) < 1e-15:
+            return 0.0
+        # Annuity weights (Rebonato 2002, eq 6.23)
         weights = tau * D * L0 / (annuity * swap_rate)
         var = np.sum(weights**2 * vols**2) * T_expiry
         return math.sqrt(var / T_expiry) if T_expiry > 0 else 0.0
