@@ -5,7 +5,10 @@ from datetime import date
 
 import pytest
 
-from pricebook.csa import CSA, csa_discount_curve, colva
+from pricebook.csa import (
+    CSA, csa_discount_curve, colva,
+    cheapest_collateral, cleared_vs_bilateral,
+)
 from pricebook.simm import SIMMCalculator, SIMMSensitivity
 from tests.conftest import make_flat_curve
 
@@ -118,3 +121,55 @@ class TestSIMM:
         calc = SIMMCalculator()
         result = calc.compute([])
         assert result.total_margin == 0.0
+
+
+# ---- COL2: Multi-currency CSA (CTD collateral) ----
+
+class TestCTDCollateral:
+    def test_cheapest_currency(self):
+        """Currency with highest collateral rate is cheapest to post."""
+        result = cheapest_collateral(
+            ["USD", "EUR", "GBP"],
+            {"USD": 0.04, "EUR": 0.03, "GBP": 0.045},
+            {"USD": 0.0, "EUR": 0.0, "GBP": 0.0},
+            1_000_000, 0.05, 1.0,
+        )
+        # GBP has highest rate → lowest cost to post
+        assert result.optimal_currency == "GBP"
+        assert result.savings_vs_worst > 0
+
+    def test_haircut_matters(self):
+        """High haircut on otherwise cheap collateral can make it expensive."""
+        result = cheapest_collateral(
+            ["USD", "EUR"],
+            {"USD": 0.04, "EUR": 0.04},
+            {"USD": 0.0, "EUR": 0.20},  # 20% haircut on EUR
+            1_000_000, 0.05, 1.0,
+        )
+        # EUR needs 1.25M posted → more expensive despite same rate
+        assert result.optimal_currency == "USD"
+
+
+# ---- COL3: Cleared vs bilateral ----
+
+class TestClearedVsBilateral:
+    def test_clearing_cheaper_with_lower_im(self):
+        """Clearing with lower IM → clearing recommended."""
+        result = cleared_vs_bilateral(
+            cleared_im=500_000, bilateral_im=1_000_000,
+            cleared_discount_rate=0.04, bilateral_discount_rate=0.04,
+        )
+        assert result.recommendation == "clear"
+
+    def test_bilateral_cheaper_with_high_fees(self):
+        """High clearing fees → bilateral recommended."""
+        result = cleared_vs_bilateral(
+            cleared_im=800_000, bilateral_im=1_000_000,
+            cleared_discount_rate=0.04, bilateral_discount_rate=0.04,
+            clearing_fee=100_000,  # very high annual fee
+        )
+        assert result.recommendation == "bilateral"
+
+    def test_im_differential(self):
+        result = cleared_vs_bilateral(500_000, 800_000, 0.04, 0.04)
+        assert result.im_differential == -300_000

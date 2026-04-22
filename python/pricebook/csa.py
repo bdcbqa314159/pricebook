@@ -326,3 +326,117 @@ def colva(
         df = math.exp(-discount_rate * t)
         total += spread * coll * dt * df
     return total
+
+
+# ---------------------------------------------------------------------------
+# Multi-currency CSA (COL2)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CTDCollateralResult:
+    """Cheapest-to-deliver collateral analysis."""
+    optimal_currency: str
+    funding_costs: dict[str, float]
+    savings_vs_worst: float
+
+
+def cheapest_collateral(
+    eligible_currencies: list[str],
+    collateral_rates: dict[str, float],
+    haircuts: dict[str, float],
+    exposure: float,
+    funding_rate: float,
+    T: float,
+) -> CTDCollateralResult:
+    """Determine cheapest-to-deliver collateral currency.
+
+    For each eligible currency, the cost of posting collateral is:
+        cost = (funding_rate - collateral_rate + haircut_cost) × exposure × T
+
+    The haircut increases the amount that must be posted:
+        required = exposure / (1 - haircut)
+
+    Args:
+        eligible_currencies: list of currencies that can be posted.
+        collateral_rates: {currency → rate earned on posted collateral}.
+        haircuts: {currency → haircut percentage}.
+        exposure: collateral amount needed.
+        funding_rate: the rate at which we borrow to post collateral.
+        T: time horizon.
+    """
+    costs = {}
+    for ccy in eligible_currencies:
+        coll_rate = collateral_rates.get(ccy, 0.0)
+        hc = haircuts.get(ccy, 0.0)
+        required = exposure / (1 - hc) if hc < 1 else exposure
+        cost = (funding_rate - coll_rate) * required * T
+        costs[ccy] = cost
+
+    optimal = min(costs, key=costs.get)
+    worst = max(costs.values())
+
+    return CTDCollateralResult(
+        optimal_currency=optimal,
+        funding_costs=costs,
+        savings_vs_worst=worst - costs[optimal],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cleared vs bilateral (COL3)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ClearedBilateralComparison:
+    """Comparison of cleared vs bilateral for a trade."""
+    cleared_im: float
+    bilateral_im: float
+    cleared_discount_rate: float
+    bilateral_discount_rate: float
+    clearing_cost: float    # CCP fees
+    im_differential: float  # cleared - bilateral
+    recommendation: str     # "clear" or "bilateral"
+
+
+def cleared_vs_bilateral(
+    cleared_im: float,
+    bilateral_im: float,
+    cleared_discount_rate: float,
+    bilateral_discount_rate: float,
+    clearing_fee: float = 0.0,
+    funding_rate: float = 0.05,
+    T: float = 5.0,
+) -> ClearedBilateralComparison:
+    """Compare clearing vs bilateral for a trade.
+
+    CCP provides: lower IM (multilateral netting), standardised discounting.
+    Bilateral provides: no clearing fees, potentially lower IM for small books.
+
+    Clearing is cheaper when:
+        IM_bilateral × funding_rate × T > IM_cleared × funding_rate × T + clearing_fees
+
+    Args:
+        cleared_im: initial margin at CCP.
+        bilateral_im: SIMM-based bilateral IM.
+        cleared_discount_rate: OIS PAI rate at CCP.
+        bilateral_discount_rate: CSA collateral rate.
+        clearing_fee: annual CCP clearing fees.
+        funding_rate: cost of funding IM.
+        T: trade tenor.
+    """
+    cost_cleared = cleared_im * funding_rate * T + clearing_fee * T
+    cost_bilateral = bilateral_im * funding_rate * T
+
+    recommendation = "clear" if cost_cleared < cost_bilateral else "bilateral"
+
+    return ClearedBilateralComparison(
+        cleared_im=cleared_im,
+        bilateral_im=bilateral_im,
+        cleared_discount_rate=cleared_discount_rate,
+        bilateral_discount_rate=bilateral_discount_rate,
+        clearing_cost=clearing_fee * T,
+        im_differential=cleared_im - bilateral_im,
+        recommendation=recommendation,
+    )
