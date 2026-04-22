@@ -2,6 +2,26 @@
 
 ---
 
+## v0.299.0 — 2026-04-22
+
+IR Hardening: swap FixedLeg delay, DV01, annuity, ZC day count. 5203 tests.
+
+`swap.py`:
+- `payment_delay_days` now passed to FixedLeg (both legs matched)
+- Added `dv01(curve, projection)` — parallel DV01 via bump-and-reprice
+- Added `annuity(curve)` — exposes PV01 directly
+
+`amortising_swap.py`:
+- Fixed typo: `AmortissingSwap` → `AmortisingSwap`
+
+`zc_swap.py`:
+- `day_count` parameter (default ACT_365_FIXED, can set ACT_360 for EUR)
+
+`test_ir_hardening.py` (NEW, 15 tests):
+- Fixed leg delay, both legs delayed, backward compat, class name, DV01 sign/scale/tenor, annuity
+
+---
+
 ## v0.298.0 — 2026-04-21
 
 FI1-FI10: Fixed Income Convention Hardening. **FI STACK PRODUCTION-GRADE.** 5188 tests.
