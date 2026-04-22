@@ -2,6 +2,31 @@
 
 ---
 
+## v0.304.0 — 2026-04-22
+
+EQ1-EQ9: Equity Hardening. **ALL 5 VOL-FREE ASSET CLASSES HARDENED.** 5255 tests.
+
+`equity_forward.py` — **rewritten**:
+- Requires `valuation_date` (no more ambiguous raw rate)
+- `forward_price(curve)` uses DiscountCurve consistently
+- `borrow_cost` parameter for short-sell cost in forward
+- `delta(curve)` — dF/dS
+- `forward_dv01(curve)` — rate sensitivity
+
+`dividend_model.py`:
+- `pv_dividends` uses `<` not `<=` for maturity (standard convention)
+- `implied_dividends_from_forwards()` — extract dividends from forward curve shape
+
+`equity_trs.py` (NEW):
+- Equity Total Return Swap: price return + dividend return vs floating + spread
+
+`dividend_desk.py`:
+- Clarified DividendSwap notional convention in docstring
+
+`test_equity_hardening.py` (NEW, 15 tests)
+
+---
+
 ## v0.303.0 — 2026-04-22
 
 CM1-CM9: Commodity Hardening. **COMMODITY STACK PRODUCTION-GRADE.** 5240 tests.
