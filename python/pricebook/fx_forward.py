@@ -81,3 +81,36 @@ class FXForward:
         fwd = self.forward_rate(spot, self.maturity, base_curve, quote_curve)
         df_quote = quote_curve.df(self.maturity)
         return self.notional * (fwd - self.strike) * df_quote
+
+    def fx_delta(
+        self,
+        spot: float,
+        base_curve: DiscountCurve,
+        quote_curve: DiscountCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """Spot delta: PV change for a 1-pip spot move (in quote ccy)."""
+        pv_base = self.pv(spot, base_curve, quote_curve)
+        return self.pv(spot + shift, base_curve, quote_curve) - pv_base
+
+    def dv01_base(
+        self,
+        spot: float,
+        base_curve: DiscountCurve,
+        quote_curve: DiscountCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """PV sensitivity to 1bp parallel shift in base currency rates."""
+        pv_base = self.pv(spot, base_curve, quote_curve)
+        return self.pv(spot, base_curve.bumped(shift), quote_curve) - pv_base
+
+    def dv01_quote(
+        self,
+        spot: float,
+        base_curve: DiscountCurve,
+        quote_curve: DiscountCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """PV sensitivity to 1bp parallel shift in quote currency rates."""
+        pv_base = self.pv(spot, base_curve, quote_curve)
+        return self.pv(spot, base_curve, quote_curve.bumped(shift)) - pv_base

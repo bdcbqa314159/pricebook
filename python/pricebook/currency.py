@@ -100,11 +100,20 @@ class CurrencyPair:
 
     def forward_rate(self, spot: float, rate_base: float, rate_quote: float,
                      T: float) -> float:
-        """FX forward via covered interest parity.
+        """FX forward via covered interest parity (continuous rates).
         F = S × exp((r_quote − r_base) × T).
         """
         import math
         return spot * math.exp((rate_quote - rate_base) * T)
+
+    def forward_rate_from_curves(
+        self, spot: float, maturity: "date",
+        base_curve: "DiscountCurve", quote_curve: "DiscountCurve",
+    ) -> float:
+        """FX forward via CIP with discount curves (exact).
+        F = S × df_base(T) / df_quote(T).
+        """
+        return spot * base_curve.df(maturity) / quote_curve.df(maturity)
 
     def forward_points(self, spot: float, rate_base: float, rate_quote: float,
                        T: float) -> float:

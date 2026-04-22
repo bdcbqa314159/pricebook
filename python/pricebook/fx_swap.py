@@ -81,3 +81,25 @@ class FXSwap:
         fwd_near = FXForward.forward_rate(spot, near_date, base_curve, quote_curve)
         fwd_far = FXForward.forward_rate(spot, far_date, base_curve, quote_curve)
         return fwd_far - fwd_near
+
+    def fx_delta(
+        self,
+        spot: float,
+        base_curve: DiscountCurve,
+        quote_curve: DiscountCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """Spot delta: PV change for a 1-pip spot move."""
+        pv_base = self.pv(spot, base_curve, quote_curve)
+        return self.pv(spot + shift, base_curve, quote_curve) - pv_base
+
+    def dv01(
+        self,
+        spot: float,
+        base_curve: DiscountCurve,
+        quote_curve: DiscountCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """PV sensitivity to 1bp parallel shift in both curves."""
+        pv_base = self.pv(spot, base_curve, quote_curve)
+        return self.pv(spot, base_curve.bumped(shift), quote_curve.bumped(shift)) - pv_base
