@@ -206,3 +206,93 @@ class TestInflation:
                                        [date(2031, 4, 21)], [0.025])
         be = pb.inflation_breakeven("5Y", cpi, REF)
         assert be == pytest.approx(0.025, rel=0.01)
+
+
+# ---- Market Environment ----
+
+class TestMarketEnv:
+    def test_create(self):
+        curve = pb.flat_curve(0.04, REF)
+        env = pb.market_env(REF, curves={"USD": curve})
+        assert env.curve("USD") is curve
+
+    def test_missing_curve_raises(self):
+        env = pb.market_env(REF, curves={"USD": pb.flat_curve(0.04, REF)})
+        with pytest.raises(ValueError, match="No discount curve"):
+            env.curve("EUR")
+
+    def test_projection_fallback(self):
+        curve = pb.flat_curve(0.04, REF)
+        env = pb.market_env(REF, curves={"USD": curve})
+        assert env.projection("USD") is curve
+
+    def test_fx(self):
+        env = pb.market_env(REF, curves={}, fx_spots={"EUR/USD": 1.10})
+        assert env.fx("EUR/USD") == 1.10
+
+
+# ---- Additional Products ----
+
+class TestAdditionalProducts:
+    def test_ois(self):
+        curve = pb.flat_curve(0.04, REF)
+        pv = pb.ois("2Y", 0.04, curve, start=REF)
+        assert abs(pv) < 1000  # near par (day count differences)
+
+    def test_frn(self):
+        curve = pb.flat_curve(0.04, REF)
+        px = pb.frn("5Y", 0.005, curve, start=REF)
+        assert px > 0
+
+    def test_ndf(self):
+        usd = pb.flat_curve(0.04, REF)
+        cny = pb.flat_curve(0.02, REF)
+        pv = pb.ndf("USD/CNY", 7.20, "1Y", 7.20, usd, cny, reference_date=REF)
+        assert isinstance(pv, float)
+
+    def test_risky_bond(self):
+        curve = pb.flat_curve(0.04, REF)
+        surv = pb.build_credit_curve({"5Y": 0.01}, curve)
+        px = pb.risky_bond("5Y", 0.05, curve, surv, start=REF)
+        assert px > 0
+
+    def test_variance_swap(self):
+        pv = pb.variance_swap(0.04, 0.035, 100_000, 0.5, 0.98)
+        assert pv > 0
+
+
+# ---- XVA ----
+
+class TestXVA:
+    def test_cva(self):
+        exposures = [100_000, 80_000, 60_000, 40_000]
+        probs = [0.01, 0.02, 0.03, 0.04]
+        cv = pb.cva(exposures, probs, recovery=0.4)
+        assert cv > 0
+
+    def test_simm(self):
+        margin = pb.simm([
+            {"risk_class": "GIRR", "bucket": "USD", "tenor": "10Y", "delta": 1_000_000},
+        ])
+        assert margin > 0
+
+    def test_simm_multi(self):
+        margin = pb.simm([
+            {"risk_class": "GIRR", "bucket": "USD", "tenor": "10Y", "delta": 1_000_000},
+            {"risk_class": "FX", "bucket": "EUR/USD", "tenor": "spot", "delta": 5_000_000},
+        ])
+        assert margin > 0
+
+
+# ---- Portfolio ----
+
+class TestPortfolio:
+    def test_portfolio_pv(self):
+        result = pb.portfolio_pv({"swap_5y": 15000, "bond_10y": -3000, "cds_5y": 800})
+        assert result.total_pv == pytest.approx(12800)
+        assert result.n_trades == 3
+
+    def test_empty_portfolio(self):
+        result = pb.portfolio_pv({})
+        assert result.total_pv == 0.0
+        assert result.n_trades == 0

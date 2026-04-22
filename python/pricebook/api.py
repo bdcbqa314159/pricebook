@@ -465,3 +465,233 @@ def commodity_swap_pv(
     else:
         end = s + relativedelta(years=1)
     return CommoditySwap(s, end, fixed_price, quantity).pv(forward_curve, discount_curve)
+
+
+# ============================================================================
+# Market Environment — bundle all market data in one object
+# ============================================================================
+
+@dataclass
+class MarketEnv:
+    """Complete market data for pricing.
+
+        env = pb.market_env(ref,
+            curves={"USD": usd_curve, "EUR": eur_curve},
+            credit_curves={"ACME": surv},
+            fx_spots={"EUR/USD": 1.10},
+            vols={"ir": FlatVol(0.30)})
+        pv = pb.irs("5Y", 0.04, env.curve("USD"))
+    """
+    reference_date: date
+    discount_curves: dict[str, DiscountCurve]
+    projection_curves: dict[str, DiscountCurve] | None = None
+    credit_curves: dict[str, SurvivalCurve] | None = None
+    fx_spots: dict[str, float] | None = None
+    cpi_curves: dict[str, CPICurve] | None = None
+    commodity_curves: dict[str, CommodityForwardCurve] | None = None
+
+    def curve(self, ccy: str = "USD") -> DiscountCurve:
+        """Get discount curve for a currency."""
+        if ccy in self.discount_curves:
+            return self.discount_curves[ccy]
+        raise ValueError(f"No discount curve for {ccy}. Available: {list(self.discount_curves)}")
+
+    def projection(self, ccy: str = "USD") -> DiscountCurve:
+        """Get projection curve. Falls back to discount if not provided."""
+        if self.projection_curves and ccy in self.projection_curves:
+            return self.projection_curves[ccy]
+        return self.curve(ccy)
+
+    def credit(self, name: str) -> SurvivalCurve:
+        if self.credit_curves and name in self.credit_curves:
+            return self.credit_curves[name]
+        raise ValueError(f"No credit curve for {name}")
+
+    def fx(self, pair: str) -> float:
+        if self.fx_spots and pair in self.fx_spots:
+            return self.fx_spots[pair]
+        raise ValueError(f"No FX spot for {pair}")
+
+
+def market_env(
+    reference_date: date | None = None,
+    curves: dict[str, DiscountCurve] | None = None,
+    credit_curves: dict[str, SurvivalCurve] | None = None,
+    fx_spots: dict[str, float] | None = None,
+    cpi_curves: dict[str, CPICurve] | None = None,
+    commodity_curves: dict[str, CommodityForwardCurve] | None = None,
+) -> MarketEnv:
+    """Create a market environment.
+
+        env = pb.market_env(ref, curves={"USD": curve, "EUR": eur_curve})
+    """
+    ref = reference_date or _today()
+    return MarketEnv(
+        reference_date=ref,
+        discount_curves=curves or {},
+        credit_curves=credit_curves,
+        fx_spots=fx_spots,
+        cpi_curves=cpi_curves,
+        commodity_curves=commodity_curves,
+    )
+
+
+# ============================================================================
+# Additional products
+# ============================================================================
+
+def ois(
+    tenor: str | date, fixed_rate: float, curve: DiscountCurve,
+    start: date | None = None, ccy: str = "USD",
+    notional: float = 1_000_000.0,
+) -> float:
+    """PV of an overnight index swap.
+
+        pb.ois("2Y", 0.04, curve)
+    """
+    from pricebook.ois import OISSwap
+    s = start or curve.reference_date
+    conv = conventions(ccy)
+    return OISSwap(s, _parse_tenor(s, tenor), fixed_rate,
+                   notional=notional, day_count=conv.float_dc,
+                   fixed_frequency=conv.fixed_freq).pv(curve)
+
+
+def basis_swap(
+    tenor: str | date, spread: float, curve: DiscountCurve,
+    proj1: DiscountCurve, proj2: DiscountCurve,
+    start: date | None = None, notional: float = 1_000_000.0,
+) -> float:
+    """PV of a basis swap (float vs float).
+
+        pb.basis_swap("5Y", 0.001, disc, proj_3m, proj_6m)
+    """
+    from pricebook.basis_swap import BasisSwap
+    s = start or curve.reference_date
+    return BasisSwap(s, _parse_tenor(s, tenor), spread,
+                     notional=notional).pv(curve, proj1, proj2)
+
+
+def frn(
+    maturity: str | date, spread: float, curve: DiscountCurve,
+    start: date | None = None, notional: float = 1_000_000.0,
+) -> float:
+    """Dirty price of a floating-rate note.
+
+        pb.frn("5Y", 0.005, curve)
+    """
+    from pricebook.frn import FloatingRateNote
+    s = start or curve.reference_date
+    return FloatingRateNote(s, _parse_tenor(s, maturity), spread,
+                            notional=notional).dirty_price(curve)
+
+
+def ndf(
+    pair: str, contracted_rate: float, tenor: str | date,
+    spot: float, base_curve: DiscountCurve, quote_curve: DiscountCurve,
+    notional: float = 1_000_000.0, reference_date: date | None = None,
+) -> float:
+    """PV of a non-deliverable forward.
+
+        pb.ndf("USD/CNY", 7.25, "1Y", 7.20, usd_curve, cny_curve)
+    """
+    from pricebook.ndf import NDF
+    ref = reference_date or base_curve.reference_date
+    return NDF(pair, _parse_tenor(ref, tenor), contracted_rate,
+               notional).pv(spot, base_curve, quote_curve)
+
+
+def risky_bond(
+    maturity: str | date, coupon_rate: float,
+    discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
+    start: date | None = None, recovery: float = 0.4,
+) -> float:
+    """Dirty price of a credit-risky bond.
+
+        pb.risky_bond("10Y", 0.05, curve, surv)
+    """
+    from pricebook.risky_bond import RiskyBond
+    s = start or discount_curve.reference_date
+    return RiskyBond(s, _parse_tenor(s, maturity), coupon_rate,
+                     recovery=recovery).dirty_price(discount_curve, survival_curve)
+
+
+def variance_swap(
+    fair_var: float, strike_var: float,
+    notional_vega: float, T: float, df: float,
+) -> float:
+    """PV of a variance swap.
+
+        pb.variance_swap(0.04, 0.035, 100_000, 0.5, 0.98)
+    """
+    from pricebook.variance_swap import variance_swap_pv
+    return variance_swap_pv(fair_var, strike_var, notional_vega, T, df).pv
+
+
+# ============================================================================
+# XVA
+# ============================================================================
+
+def cva(
+    expected_exposures: list[float],
+    default_probs: list[float],
+    recovery: float = 0.4,
+    discount_factors: list[float] | None = None,
+) -> float:
+    """Unilateral CVA from exposure profile.
+
+    CVA = (1-R) × Σ EE_i × ΔPD_i × DF_i
+
+        cva = pb.cva(exposures, default_probs, recovery=0.4)
+    """
+    lgd = 1.0 - recovery
+    total = 0.0
+    for i, (ee, pd) in enumerate(zip(expected_exposures, default_probs)):
+        df = discount_factors[i] if discount_factors else 1.0
+        dpd = pd - (default_probs[i - 1] if i > 0 else 0.0)
+        total += lgd * ee * dpd * df
+    return total
+
+
+def simm(
+    sensitivities: list[dict],
+) -> float:
+    """ISDA SIMM initial margin.
+
+    Each sensitivity is a dict with keys: risk_class, bucket, tenor, delta.
+
+        margin = pb.simm([
+            {"risk_class": "GIRR", "bucket": "USD", "tenor": "10Y", "delta": 1_000_000},
+            {"risk_class": "FX", "bucket": "EUR/USD", "tenor": "spot", "delta": 5_000_000},
+        ])
+    """
+    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    sens = [SIMMSensitivity(**s) for s in sensitivities]
+    return SIMMCalculator().compute(sens).total_margin
+
+
+# ============================================================================
+# Portfolio
+# ============================================================================
+
+@dataclass
+class PortfolioResult:
+    """Portfolio-level aggregation."""
+    total_pv: float
+    trade_pvs: dict[str, float]
+    n_trades: int
+
+
+def portfolio_pv(
+    trades: dict[str, float],
+) -> PortfolioResult:
+    """Aggregate pre-computed trade PVs into a portfolio.
+
+        result = pb.portfolio_pv({"swap_5y": 15000, "bond_10y": -3000, "cds_5y": 800})
+        print(result.total_pv)  # 12800
+    """
+    return PortfolioResult(
+        total_pv=sum(trades.values()),
+        trade_pvs=dict(trades),
+        n_trades=len(trades),
+    )
