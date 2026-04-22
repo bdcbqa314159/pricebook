@@ -65,11 +65,52 @@ class JarrowYildirim:
         I0: initial CPI index level.
     """
 
-    def __init__(self, params: JYParams, r_n0: float, r_r0: float, I0: float):
+    def __init__(
+        self,
+        params: JYParams,
+        r_n0: float,
+        r_r0: float,
+        I0: float,
+        nominal_forwards: np.ndarray | None = None,
+        real_forwards: np.ndarray | None = None,
+        forward_times: np.ndarray | None = None,
+    ):
         self.params = params
         self.r_n0 = r_n0
         self.r_r0 = r_r0
         self.I0 = I0
+        self._nominal_fwd = nominal_forwards
+        self._real_fwd = real_forwards
+        self._fwd_times = forward_times
+
+    @staticmethod
+    def _theta(
+        t: float,
+        a: float,
+        sigma: float,
+        r0: float,
+        forwards: np.ndarray | None,
+        fwd_times: np.ndarray | None,
+    ) -> float:
+        """Hull-White θ(t) calibrated to initial term structure.
+
+        θ(t) = ∂f(0,t)/∂t + a×f(0,t) + σ²/(2a)(1 - e^{-2at})
+
+        If no forward curve provided, falls back to constant θ = a×r0
+        (mean-reversion to initial short rate).
+        """
+        if forwards is None or fwd_times is None or len(forwards) < 2:
+            return a * r0
+
+        # Interpolate f(0,t) and ∂f/∂t from the forward curve
+        f_t = float(np.interp(t, fwd_times, forwards))
+        dt = fwd_times[1] - fwd_times[0] if len(fwd_times) > 1 else 0.01
+        idx = min(int(t / dt), len(forwards) - 2)
+        dfdt = (forwards[min(idx + 1, len(forwards) - 1)] - forwards[idx]) / dt
+
+        if a > 1e-10:
+            return dfdt + a * f_t + sigma**2 / (2 * a) * (1 - math.exp(-2 * a * t))
+        return dfdt + sigma**2 * t
 
     def simulate(
         self,
@@ -102,16 +143,23 @@ class JarrowYildirim:
         I = np.full((n_paths, n_steps + 1), float(self.I0))
 
         for step in range(n_steps):
+            t = step * dt
             Z = rng.standard_normal((n_paths, 3)) @ L.T
 
-            # Nominal rate (HW)
+            # θ(t) calibrated to initial term structure (if available)
+            theta_n = self._theta(t, p.a_n, p.sigma_n, self.r_n0,
+                                   self._nominal_fwd, self._fwd_times)
+            theta_r = self._theta(t, p.a_r, p.sigma_r, self.r_r0,
+                                   self._real_fwd, self._fwd_times)
+
+            # Nominal rate (HW): dr_n = (θ_n(t) - a_n r_n) dt + σ_n dW
             r_n[:, step + 1] = (r_n[:, step]
-                                 + p.a_n * (self.r_n0 - r_n[:, step]) * dt
+                                 + (theta_n - p.a_n * r_n[:, step]) * dt
                                  + p.sigma_n * Z[:, 0] * sqrt_dt)
 
             # Real rate (HW with drift adjustment)
-            drift_r = p.a_r * (self.r_r0 - r_r[:, step]) * dt \
-                      - p.rho_rI * p.sigma_r * p.sigma_I * dt
+            drift_r = (theta_r - p.a_r * r_r[:, step]
+                       - p.rho_rI * p.sigma_r * p.sigma_I) * dt
             r_r[:, step + 1] = r_r[:, step] + drift_r + p.sigma_r * Z[:, 1] * sqrt_dt
 
             # CPI index
