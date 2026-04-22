@@ -261,6 +261,56 @@ class TestAdditionalProducts:
         assert pv > 0
 
 
+# ---- Bonds extended ----
+
+class TestBondExtended:
+    def test_clean_price(self):
+        curve = pb.flat_curve(0.04, REF)
+        cp = pb.bond_clean_price("10Y", 0.04, curve, start=REF)
+        assert 99 < cp < 101
+
+    def test_z_spread(self):
+        curve = pb.flat_curve(0.04, REF)
+        zs = pb.z_spread("5Y", 0.05, 95.0, curve, start=REF)
+        assert zs > 0
+
+
+# ---- Options via API ----
+
+class TestOptionsAPI:
+    def test_equity_option_call(self):
+        curve = pb.flat_curve(0.04, REF)
+        pv = pb.equity_option(100, 100, "1Y", 0.20, curve, reference_date=REF)
+        assert pv > 0
+
+    def test_equity_option_greeks(self):
+        curve = pb.flat_curve(0.04, REF)
+        g = pb.equity_option(100, 100, "1Y", 0.20, curve, reference_date=REF, return_greeks=True)
+        assert isinstance(g, Greeks)
+        assert g.delta > 0
+
+    def test_fx_option_call(self):
+        eur = pb.flat_curve(0.03, REF)
+        usd = pb.flat_curve(0.04, REF)
+        pv = pb.fx_option(1.10, 1.12, "6M", 0.08, eur, usd, reference_date=REF)
+        assert pv > 0
+
+    def test_fx_option_put(self):
+        eur = pb.flat_curve(0.03, REF)
+        usd = pb.flat_curve(0.04, REF)
+        pv = pb.fx_option(1.10, 1.08, "6M", 0.08, eur, usd,
+                          option_type="put", reference_date=REF)
+        assert pv > 0
+
+    def test_fx_option_greeks(self):
+        eur = pb.flat_curve(0.03, REF)
+        usd = pb.flat_curve(0.04, REF)
+        g = pb.fx_option(1.10, 1.10, "1Y", 0.08, eur, usd,
+                         reference_date=REF, return_greeks=True)
+        assert isinstance(g, Greeks)
+        assert g.vega > 0
+
+
 # ---- XVA ----
 
 class TestXVA:

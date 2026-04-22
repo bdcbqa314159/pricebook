@@ -361,6 +361,34 @@ def bond_duration(
     return b.modified_duration(ytm, settle)
 
 
+def bond_clean_price(
+    maturity: str | date, coupon_rate: float, curve: DiscountCurve,
+    start: date | None = None, settlement: date | None = None,
+    face_value: float = 100.0,
+) -> float:
+    """Clean (quoted) price of a fixed-rate bond.
+
+        pb.bond_clean_price("10Y", 0.04, curve)
+    """
+    s = start or curve.reference_date
+    return FixedRateBond(s, _parse_tenor(s, maturity), coupon_rate,
+                         face_value=face_value).clean_price(curve, settlement)
+
+
+def z_spread(
+    maturity: str | date, coupon_rate: float, market_price: float,
+    curve: DiscountCurve, start: date | None = None,
+) -> float:
+    """Z-spread of a bond over the risk-free curve.
+
+        zs = pb.z_spread("10Y", 0.05, 95.0, curve)
+    """
+    from pricebook.risky_bond import RiskyBond, z_spread as _z_spread
+    s = start or curve.reference_date
+    rb = RiskyBond(s, _parse_tenor(s, maturity), coupon_rate)
+    return _z_spread(rb, market_price, curve)
+
+
 # ============================================================================
 # Credit
 # ============================================================================
@@ -411,6 +439,29 @@ def fx_forward_rate(
     return FXForward.forward_rate(spot, _parse_tenor(ref, tenor), base_curve, quote_curve)
 
 
+def fx_option(
+    spot: float, strike: float, tenor: str | date,
+    vol: float, base_curve: DiscountCurve, quote_curve: DiscountCurve,
+    option_type: str = "call", reference_date: date | None = None,
+    return_greeks: bool = False,
+) -> float | Greeks:
+    """European FX option price (Garman-Kohlhagen).
+
+        pb.fx_option(1.10, 1.12, "6M", 0.08, eur_curve, usd_curve)
+    """
+    from pricebook.fx_option import fx_option_price, fx_greeks
+    ref = reference_date or base_curve.reference_date
+    mat = _parse_tenor(ref, tenor)
+    from pricebook.day_count import year_fraction as _yf
+    T = _yf(ref, mat, DayCountConvention.ACT_365_FIXED)
+    r_d = -math.log(quote_curve.df(mat)) / T if T > 0 else 0.0
+    r_f = -math.log(base_curve.df(mat)) / T if T > 0 else 0.0
+    ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
+    if return_greeks:
+        return fx_greeks(spot, strike, r_d, r_f, vol, T, ot)
+    return fx_option_price(spot, strike, r_d, r_f, vol, T, ot)
+
+
 # ============================================================================
 # Equity
 # ============================================================================
@@ -428,6 +479,30 @@ def equity_forward(
     mat = _parse_tenor(ref, maturity)
     return EquityForward(spot, mat, ref, div_yield=div_yield,
                          borrow_cost=borrow_cost).forward_price(curve)
+
+
+def equity_option(
+    spot: float, strike: float, maturity: str | date,
+    vol: float, curve: DiscountCurve,
+    option_type: str = "call", div_yield: float = 0.0,
+    reference_date: date | None = None,
+    return_greeks: bool = False,
+) -> float | Greeks:
+    """European equity option price (Black-Scholes).
+
+        pb.equity_option(100, 105, "1Y", 0.20, curve)
+        pb.equity_option(100, 105, "1Y", 0.20, curve, return_greeks=True)
+    """
+    from pricebook.equity_option import equity_option_price, equity_greeks
+    ref = reference_date or curve.reference_date
+    mat = _parse_tenor(ref, maturity)
+    from pricebook.day_count import year_fraction as _yf
+    T = _yf(ref, mat, DayCountConvention.ACT_365_FIXED)
+    r = -math.log(curve.df(mat)) / T if T > 0 else 0.0
+    ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
+    if return_greeks:
+        return equity_greeks(spot, strike, r, vol, T, ot, div_yield)
+    return equity_option_price(spot, strike, r, vol, T, ot, div_yield)
 
 
 # ============================================================================
@@ -478,8 +553,7 @@ class MarketEnv:
         env = pb.market_env(ref,
             curves={"USD": usd_curve, "EUR": eur_curve},
             credit_curves={"ACME": surv},
-            fx_spots={"EUR/USD": 1.10},
-            vols={"ir": FlatVol(0.30)})
+            fx_spots={"EUR/USD": 1.10})
         pv = pb.irs("5Y", 0.04, env.curve("USD"))
     """
     reference_date: date
@@ -642,7 +716,12 @@ def cva(
 
     CVA = (1-R) × Σ EE_i × ΔPD_i × DF_i
 
-        cva = pb.cva(exposures, default_probs, recovery=0.4)
+    Args:
+        expected_exposures: expected positive exposure at each time step.
+        default_probs: CUMULATIVE default probabilities (e.g. [0.01, 0.02, 0.03]).
+            Marginal PD is computed internally as PD_i - PD_{i-1}.
+
+        cva = pb.cva(exposures, cumulative_default_probs, recovery=0.4)
     """
     lgd = 1.0 - recovery
     total = 0.0
