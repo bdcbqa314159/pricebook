@@ -2,6 +2,32 @@
 
 ---
 
+## v0.310.0 — 2026-04-22
+
+VH5-VH10: Vol surface bumped, arb checks, Greeks, variance swap. 5287 tests.
+
+`vol_surface.py`:
+- `FlatVol.bumped()`, `VolTermStructure.bumped()` — parallel vol shift
+- `check_calendar_arbitrage()` — total variance monotonicity
+- `check_butterfly_arbitrage()` — call price convexity (d²C/dK² ≥ 0)
+- `validate_vol_surface()` — combined arbitrage check
+
+`vol_smile.py`: `VolSmile.bumped(shift)`
+`vol_surface_strike.py`: `VolSurfaceStrike.bumped(shift)`
+
+`greeks.py` (NEW):
+- `Greeks` dataclass: price, delta, gamma, vega, theta, rho, vanna, volga
+- `bump_greeks(price_func, spot, vol, rate, T)` — universal bump-and-reprice
+
+`variance_swap.py` (NEW):
+- `fair_variance()` — Breeden-Litzenberger replication (2/T × ∫ OTM/K² dK)
+- `fair_variance_from_vols()` — from implied vols
+- `variance_swap_pv()` — mark-to-market
+
+`test_vol_hardening.py` (NEW, 20 tests)
+
+---
+
 ## v0.309.0 — 2026-04-22
 
 VH3+VH4: Convertible bond LSM + Bermudan dual upper bound. 5267 tests.
