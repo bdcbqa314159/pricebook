@@ -2,6 +2,31 @@
 
 ---
 
+## v0.303.0 — 2026-04-22
+
+CM1-CM9: Commodity Hardening. **COMMODITY STACK PRODUCTION-GRADE.** 5240 tests.
+
+`commodity.py`:
+- `CommoditySwap._future_periods(settlement)` filters past periods
+- `CommoditySwap.pv()` accepts `settlement` and `use_average` for period-average forward
+- `CommoditySwap.dv01()` via bumped forward curve
+- `CommodityForwardCurve(spot=...)` explicit spot param for convenience_yield
+- `CommodityForwardCurve.bumped()` and `bumped_pct()` for curve sensitivity
+- `CommodityForwardCurve.roll_down(days)` for carry analysis
+
+`commodity_storage.py`:
+- `intrinsic_value` now multi-cycle (greedy pairing of cheap/expensive periods)
+
+`commodity_spreads.py`:
+- `GenericSpread.has_mixed_units` property to flag cross-unit spreads
+
+`commodity_term_trading.py`:
+- `commodity_roll_down()` — roll-down P&L for commodity forwards
+
+`test_commodity_hardening.py` (NEW, 17 tests)
+
+---
+
 ## v0.302.0 — 2026-04-22
 
 CR1-CR8: Credit Hardening. **CREDIT STACK PRODUCTION-GRADE.** 5223 tests.
