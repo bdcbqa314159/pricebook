@@ -2,6 +2,29 @@
 
 ---
 
+## v0.320.0 — 2026-04-22
+
+API v3: fully flexible, all 7 asset classes. 5371 tests.
+
+Key design principles:
+- Every function accepts `str | date` for tenors (`"5Y"` or `date(2031,4,21)`)
+- `build_curve()` accepts `dict[str, float]` or `list[tuple[date, float]]`
+- `flat_curve(0.04)` — zero-config quick start
+- `start` defaults to `curve.reference_date` — no mandatory dates
+- All pricing functions return `float` (PV). Analytics functions return `float`.
+- `swaption(..., return_greeks=True)` returns `Greeks`
+- `direction` accepts "payer"/"PAYER"/"receiver"/"RECEIVER" (case-insensitive)
+- `CcyConventions` is frozen — no accidental mutation
+- `cds()` requires `survival_curve` — no silent zeros
+
+Products covered: irs, par_rate, swap_dv01, fra, cap, floor, swaption, bond,
+bond_ytm, bond_duration, cds, cds_par_spread, fx_forward_rate, equity_forward,
+commodity_swap_pv, inflation_breakeven
+
+35 tests covering all products + edge cases
+
+---
+
 ## v0.319.0 — 2026-04-22
 
 API self-audit and hardening. 5363 tests.
