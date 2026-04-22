@@ -102,19 +102,29 @@ class ConvertibleBond:
             z = rng.standard_normal(n_paths)
             S[:, step + 1] = S[:, step] * np.exp(drift + equity_vol * sqrt_dt * z)
 
-        # Backward induction: V(t) = max(conversion, E[V(t+1) | S] × DF + coupon)
+        # Backward induction with LSM regression for continuation value
         # Terminal: max(notional, conversion_value)
         V = np.maximum(float(self.notional), self.conversion_ratio * S[:, -1]).astype(float)
 
-        # Work backward
         for step in range(n_steps - 1, -1, -1):
             V *= math.exp(-disc_rate * dt)
-            # Coupon cash flow at this step (if scheduled)
             if step > 0 and step % coupon_step_interval == 0:
                 V += coupon_amount
-            # Optimal conversion
+
             conv_val = self.conversion_ratio * S[:, step]
-            V = np.maximum(V, conv_val)
+            # LSM: estimate E[V(t+1)|S(t)] via polynomial regression
+            s_t = S[:, step]
+            if step > 0 and s_t.std() > 1e-10:
+                # Basis: 1, S, S^2 (Longstaff-Schwartz)
+                X = np.column_stack([np.ones(n_paths), s_t, s_t**2])
+                try:
+                    coeffs = np.linalg.lstsq(X, V, rcond=None)[0]
+                    continuation = X @ coeffs
+                except np.linalg.LinAlgError:
+                    continuation = V
+                V = np.where(conv_val > continuation, conv_val, V)
+            else:
+                V = np.maximum(V, conv_val)
 
         price = float(V.mean())
 
@@ -143,7 +153,18 @@ class ConvertibleBond:
             V_up *= math.exp(-disc_rate * dt)
             if step > 0 and step % coupon_step_interval == 0:
                 V_up += coupon_amount
-            V_up = np.maximum(V_up, self.conversion_ratio * S_up[:, step])
+            conv_up = self.conversion_ratio * S_up[:, step]
+            s_up_t = S_up[:, step]
+            if step > 0 and s_up_t.std() > 1e-10:
+                X_up = np.column_stack([np.ones(n_paths), s_up_t, s_up_t**2])
+                try:
+                    c_up = np.linalg.lstsq(X_up, V_up, rcond=None)[0]
+                    cont_up = X_up @ c_up
+                except np.linalg.LinAlgError:
+                    cont_up = V_up
+                V_up = np.where(conv_up > cont_up, conv_up, V_up)
+            else:
+                V_up = np.maximum(V_up, conv_up)
         up_price = float(V_up.mean())
 
         # Note: _compute_delta used fresh RNG — use pathwise diff for accuracy

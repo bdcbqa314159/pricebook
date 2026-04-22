@@ -409,8 +409,16 @@ def bermudan_upper_bound(
         step = min(int(round(t_ex / dt_sim)), n_steps)
         exercise_steps.append((step, idx))
 
-    # Upper bound: max discounted payoff over exercise dates
-    max_disc_payoff = np.zeros(n_paths)
+    # Upper bound via Andersen-Broadie dual (simplified):
+    # U = E[max_k (h_k - M_k)] where M_k = Σ_{j<k} (h_j_hat - cont_j_hat)
+    # h_j_hat = exercise value at j, cont_j_hat = LSM continuation estimate at j
+    # The martingale M penalises hindsight by subtracting the estimated
+    # "regret" from not exercising at earlier dates.
+
+    # First compute payoffs and continuation estimates at each exercise date
+    exercise_payoffs = []
+    continuation_ests = []
+    disc_factors = []
 
     for step, start_idx in exercise_steps:
         fwd_at_ex = F[:, step, :]
@@ -424,11 +432,33 @@ def bermudan_upper_bound(
 
         t_ex = step * dt_sim
         avg_rate = np.mean(F[:, 0, :min(n_fwd, 3)], axis=1)
-        disc_payoff = payoff * np.exp(-avg_rate * t_ex)
+        df_ex = np.exp(-avg_rate * t_ex)
+        disc_payoff = payoff * df_ex
 
-        max_disc_payoff = np.maximum(max_disc_payoff, disc_payoff)
+        # LSM continuation estimate (polynomial regression on swap rate)
+        X = np.column_stack([np.ones(n_paths), sr, sr**2])
+        try:
+            coeffs = np.linalg.lstsq(X, disc_payoff, rcond=None)[0]
+            cont_est = X @ coeffs
+        except np.linalg.LinAlgError:
+            cont_est = disc_payoff
 
-    upper = float(max_disc_payoff.mean())
+        exercise_payoffs.append(disc_payoff)
+        continuation_ests.append(cont_est)
+
+    # Build martingale penalty and compute dual upper bound
+    n_ex = len(exercise_payoffs)
+    M = np.zeros(n_paths)  # martingale
+    max_penalised = np.full(n_paths, -np.inf)
+
+    for k in range(n_ex):
+        penalised = exercise_payoffs[k] - M
+        max_penalised = np.maximum(max_penalised, penalised)
+        # Update martingale: M_{k+1} = M_k + (h_k - cont_k)
+        if k < n_ex - 1:
+            M += exercise_payoffs[k] - continuation_ests[k]
+
+    upper = float(np.maximum(max_penalised, 0.0).mean())
 
     # Lower bound: LSM price (use same paths via deterministic seed)
     lower_result = bermudan_swaption_lmm(
