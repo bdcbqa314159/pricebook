@@ -2,6 +2,25 @@
 
 ---
 
+## v0.322.0 — 2026-04-23
+
+API final audit + expansions. 5392 tests.
+
+Audit fixes:
+- CVA docstring clarifies cumulative PDs
+- MarketEnv docstring removed non-existent `vols` field
+
+New functions:
+- `pb.bond_clean_price("10Y", 0.04, curve)` — quoted (clean) price
+- `pb.z_spread("5Y", 0.05, 95.0, curve)` — Z-spread over risk-free
+- `pb.equity_option(100, 105, "1Y", 0.20, curve)` — European equity option
+- `pb.fx_option(1.10, 1.12, "6M", 0.08, eur, usd)` — FX option (GK)
+- Both support `return_greeks=True` for full Greeks
+
+Total: 28 pricing + 4 curve + 2 XVA + 1 portfolio = **35 functions**, 56 tests
+
+---
+
 ## v0.321.0 — 2026-04-22
 
 API v4: full-stack coverage. 5385 tests.
