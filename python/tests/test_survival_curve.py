@@ -26,8 +26,11 @@ class TestSurvival:
     def test_survival_at_pillar(self):
         h = 0.02
         curve = make_flat_survival(REF, hazard=h)
-        expected = math.exp(-h * 5)
-        assert curve.survival(REF + relativedelta(years=5)) == pytest.approx(expected, rel=1e-6)
+        d = REF + relativedelta(years=5)
+        from pricebook.day_count import year_fraction
+        t_actual = year_fraction(REF, d, DayCountConvention.ACT_365_FIXED)
+        expected = math.exp(-h * t_actual)
+        assert curve.survival(d) == pytest.approx(expected, rel=1e-6)
 
     def test_survival_decreasing(self):
         curve = make_flat_survival(REF, 0.02)
@@ -57,9 +60,10 @@ class TestHazardRate:
         curve = make_flat_survival(REF, 0.02)
         assert curve.hazard_rate(REF + relativedelta(years=2)) > 0
 
-    def test_hazard_rate_at_reference_is_zero(self):
+    def test_hazard_rate_at_reference_is_short_rate(self):
         curve = make_flat_survival(REF, 0.02)
-        assert curve.hazard_rate(REF) == 0.0
+        # Should return the short-end hazard rate, not 0
+        assert curve.hazard_rate(REF) == pytest.approx(0.02, abs=0.001)
 
 
 class TestDefaultProb:

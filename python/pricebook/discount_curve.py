@@ -66,12 +66,12 @@ class DiscountCurve:
     @property
     def pillar_times(self) -> np.ndarray:
         """Year fractions of all pillars (including t=0)."""
-        return self._times
+        return self._times.copy()
 
     @property
     def pillar_dfs(self) -> np.ndarray:
         """Discount factors at all pillars (including df=1 at t=0)."""
-        return self._dfs
+        return self._dfs.copy()
 
     @property
     def pillar_dates(self) -> list[date]:

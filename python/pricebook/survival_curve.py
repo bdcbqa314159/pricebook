@@ -69,7 +69,10 @@ class SurvivalCurve:
         if tenors is None:
             tenors = [1, 2, 3, 5, 7, 10]
         dates = [reference_date + relativedelta(years=t) for t in tenors]
-        survs = [math.exp(-hazard_rate * t) for t in tenors]
+        # Use actual year fractions so the curve is truly flat
+        day_count = DayCountConvention.ACT_365_FIXED
+        actual_times = [year_fraction(reference_date, d, day_count) for d in dates]
+        survs = [math.exp(-hazard_rate * t) for t in actual_times]
         return cls(reference_date, dates, survs)
 
     def _time(self, d: date) -> float:
@@ -93,6 +96,11 @@ class SurvivalCurve:
         """
         t = self._time(d)
         if t <= 0:
+            # Return short-end hazard rate (first segment)
+            if len(self._times) >= 2 and self._times[1] > 0:
+                q1 = float(self._survs[1])
+                if q1 > 0:
+                    return -math.log(q1) / float(self._times[1])
             return 0.0
         # Find the segment
         idx = int(np.searchsorted(self._times, t)) - 1
