@@ -59,21 +59,28 @@ class CapFloor:
         for i in range(1, len(schedule)):
             self.periods.append((schedule[i - 1], schedule[i]))
 
-    def pv(self, curve: DiscountCurve, vol_surface) -> float:
+    def pv(
+        self,
+        curve: DiscountCurve,
+        vol_surface,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
         """
         PV of the cap/floor.
 
         Args:
-            curve: discount curve (also used for forward rate projection).
+            curve: discount curve.
             vol_surface: object with vol(expiry, strike) method.
+            projection_curve: forward projection curve. If None, single-curve pricing.
         """
+        proj = projection_curve if projection_curve is not None else curve
         total = 0.0
         for accrual_start, accrual_end in self.periods:
             yf = year_fraction(accrual_start, accrual_end, self.day_count)
-            # Forward rate for this period
-            df1 = curve.df(accrual_start)
-            df2 = curve.df(accrual_end)
-            fwd = (df1 / df2 - 1.0) / yf
+            # Forward rate for this period (from projection curve)
+            df1 = proj.df(accrual_start)
+            df2 = proj.df(accrual_end)
+            fwd = (df1 - df2) / (yf * df2)
 
             # Time to fixing (= accrual start)
             t_fix = year_fraction(curve.reference_date, accrual_start, self.day_count)
@@ -93,14 +100,20 @@ class CapFloor:
 
         return total
 
-    def caplet_pvs(self, curve: DiscountCurve, vol_surface) -> list[dict]:
+    def caplet_pvs(
+        self,
+        curve: DiscountCurve,
+        vol_surface,
+        projection_curve: DiscountCurve | None = None,
+    ) -> list[dict]:
         """Individual caplet/floorlet PVs with forward rates and vols."""
+        proj = projection_curve if projection_curve is not None else curve
         results = []
         for accrual_start, accrual_end in self.periods:
             yf = year_fraction(accrual_start, accrual_end, self.day_count)
-            df1 = curve.df(accrual_start)
-            df2 = curve.df(accrual_end)
-            fwd = (df1 / df2 - 1.0) / yf
+            df1 = proj.df(accrual_start)
+            df2 = proj.df(accrual_end)
+            fwd = (df1 - df2) / (yf * df2)
             t_fix = year_fraction(curve.reference_date, accrual_start, self.day_count)
             vol = vol_surface.vol(accrual_start, self.strike) if t_fix > 0 else 0.0
             if t_fix > 0:
@@ -158,7 +171,7 @@ def strip_caplet_vols(
             yf = year_fraction(accrual_start, accrual_end, day_count)
             df1 = curve.df(accrual_start)
             df2 = curve.df(accrual_end)
-            fwd = (df1 / df2 - 1.0) / yf
+            fwd = (df1 - df2) / (yf * df2)
             t_fix = year_fraction(curve.reference_date, accrual_start, day_count)
 
             if t_fix > 0 and marginal_pv > 0:

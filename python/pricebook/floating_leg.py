@@ -223,7 +223,6 @@ class FloatingLeg:
         day_fracs: list[float] = []
         d = cf.observation_start
         while d < cf.observation_end:
-            next_d = d + timedelta(days=1)
             if calendar is not None:
                 is_bday = calendar.is_business_day(d)
             else:
@@ -233,8 +232,19 @@ class FloatingLeg:
                 if rate is None:
                     return None  # Incomplete fixings → fall back to curve
                 daily_rates.append(rate)
-                day_fracs.append(year_fraction(d, next_d, day_count))
-            d = next_d
+                # Day fraction covers from this bday to the next bday
+                # (e.g. Fri→Mon = 3 calendar days)
+                next_bday = d + timedelta(days=1)
+                while next_bday < cf.observation_end:
+                    if calendar is not None:
+                        if calendar.is_business_day(next_bday):
+                            break
+                    else:
+                        if next_bday.weekday() < 5:
+                            break
+                    next_bday += timedelta(days=1)
+                day_fracs.append(year_fraction(d, next_bday, day_count))
+            d = d + timedelta(days=1)
         if not daily_rates:
             return None
         return compound_rfr(daily_rates, day_fracs)

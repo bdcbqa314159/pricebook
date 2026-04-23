@@ -109,6 +109,8 @@ class InterestRateSwap:
         par_rate = PV_float(projection, discount) / (notional * annuity(discount))
         """
         annuity = self.fixed_leg.annuity(curve)
+        if abs(annuity) < 1e-15:
+            return 0.0
         pv_float = self.floating_leg.pv(curve, projection_curve)
         return pv_float / (self.notional * annuity)
 

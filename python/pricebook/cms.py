@@ -61,7 +61,7 @@ def cms_convexity_adjustment(
         freq = 2.0  # semi-annual
         duration = swap_tenor_years / (1 + forward_swap_rate / freq)
 
-    return forward_swap_rate ** 2 * vol ** 2 * time_to_fixing * duration
+    return forward_swap_rate ** 2 * vol ** 2 * time_to_fixing * duration / annuity
 
 
 # ---- CMS Leg ----

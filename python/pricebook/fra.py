@@ -44,7 +44,7 @@ class FRA:
         """Implied forward rate from the projection curve for this FRA period."""
         df1 = projection_curve.df(self.start)
         df2 = projection_curve.df(self.end)
-        return (df1 / df2 - 1.0) / self.year_frac
+        return (df1 - df2) / (self.year_frac * df2)
 
     def pv(
         self,
