@@ -2,6 +2,18 @@
 
 ---
 
+## v0.341.0 — 2026-04-23
+
+**DD3 Bonds — R1.** 5576 tests.
+
+### DD3-R1: Core bond fixes
+- `callable_bond.py`: **rewritten** — trinomial tree now has proper transition probabilities (was discounting own value with no branching). Factored into `_trinomial_backward` shared by callable + puttable. Added `coupon_frequency` parameter (was integer-only annual). OAS uses proper HW reconstruction.
+- `bond.py`: principal PV guarded for settlement at/after maturity. YTM solver range widened to `[-0.10, 2.0]` (was `[-0.05, 1.0]`).
+- `risky_bond.py`: recovery discount factor uses actual mid-period date via `date_from_year_fraction` (was linear average of start/end DFs).
+- `bond_forward.py`: repo cost uses `repo_day_count` parameter (default ACT/360) instead of hardcoded ACT/365.
+
+---
+
 ## v0.340.0 — 2026-04-23
 
 **DD2 IR Vanilla — 5 rounds complete.** 5576 tests (15 new deep IR tests).
