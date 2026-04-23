@@ -218,21 +218,31 @@ def _verify_round_trip(
             if err > tol:
                 errors.append(f"Deposit {mat}: input={rate:.6f}, model={model_rate:.6f}, err={err:.2e}")
 
-    # Check swaps (simplified par rate)
+    # Check swaps: reprice using the same fixed/float PV logic as the bootstrap
     for mat, par_rate in swaps:
-        sched = generate_schedule(
+        fixed_sched = generate_schedule(
             reference_date, mat, fixed_frequency,
             calendar, convention, StubType.SHORT_FRONT, True,
         )
-        annuity = 0.0
-        for i in range(1, len(sched)):
-            yf = year_fraction(sched[i-1], sched[i], fixed_day_count)
-            annuity += yf * curve.df(sched[i])
-        if annuity > 1e-10:
-            model_par = (1.0 - curve.df(mat)) / annuity
-            err = abs(model_par - par_rate)
-            if err > tol:
-                errors.append(f"Swap {mat}: input={par_rate:.6f}, model={model_par:.6f}, err={err:.2e}")
+        float_sched = generate_schedule(
+            reference_date, mat, float_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        pv_fixed = 0.0
+        for i in range(1, len(fixed_sched)):
+            yf = year_fraction(fixed_sched[i-1], fixed_sched[i], fixed_day_count)
+            pv_fixed += par_rate * yf * curve.df(fixed_sched[i])
+        pv_float = 0.0
+        for i in range(1, len(float_sched)):
+            d1, d2 = float_sched[i - 1], float_sched[i]
+            df1 = curve.df(d1)
+            df2 = curve.df(d2)
+            yf = year_fraction(d1, d2, float_day_count)
+            fwd = (df1 / df2 - 1.0) / yf
+            pv_float += fwd * yf * df2
+        err = abs(pv_fixed - pv_float)
+        if err > tol:
+            errors.append(f"Swap {mat}: PV_fixed-PV_float={err:.2e} (tol={tol:.2e})")
 
     # Check FRAs
     if fras:

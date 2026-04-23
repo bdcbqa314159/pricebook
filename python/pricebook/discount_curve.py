@@ -42,6 +42,7 @@ class DiscountCurve:
 
         self.reference_date = reference_date
         self.day_count = day_count
+        self._interpolation = interpolation
 
         # Store original dates for exact retrieval (avoids int(t*365) drift)
         self._pillar_dates_original = list(dates)
@@ -92,7 +93,7 @@ class DiscountCurve:
                 new_dfs.append(float(df_val * math.exp(-shift * t)))
         return DiscountCurve(
             self.reference_date, self.pillar_dates, new_dfs,
-            self.day_count,
+            self.day_count, self._interpolation,
         )
 
     def bumped_at(self, pillar_idx: int, shift: float) -> "DiscountCurve":
@@ -102,7 +103,7 @@ class DiscountCurve:
         pillar_df[pillar_idx] = pillar_df[pillar_idx] * math.exp(-shift * pillar_t[pillar_idx])
         return DiscountCurve(
             self.reference_date, self.pillar_dates, pillar_df,
-            self.day_count,
+            self.day_count, self._interpolation,
         )
 
     def _time(self, d: date) -> float:

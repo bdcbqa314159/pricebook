@@ -152,7 +152,7 @@ class MonotoneCubicInterpolator(Interpolator):
 
         # Hyman filter: enforce alpha^2 + beta^2 <= 9
         for i in range(n - 1):
-            if abs(delta[i]) < 1e-30:
+            if abs(delta[i]) < 1e-15:
                 slopes[i] = 0.0
                 slopes[i + 1] = 0.0
             else:
