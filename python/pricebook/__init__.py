@@ -1,4 +1,4 @@
-__version__ = "0.343.0"
+__version__ = "0.344.0"
 
 # Top-level imports for convenience
 from pricebook.pricing_context import PricingContext
