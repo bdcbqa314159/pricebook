@@ -12,27 +12,17 @@ Builds on :mod:`pricebook.fx_option` (Garman-Kohlhagen, deltas) and
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from datetime import date
 
 from pricebook.fx_option import fx_option_price, fx_vega
 from pricebook.black76 import OptionType
+from pricebook.zscore import zscore as _zscore_impl
 
-
-# ---- Z-score helper ----
 
 def _zscore(current, history, threshold=2.0):
-    if not history or len(history) < 2:
-        return None, "fair"
-    mean = sum(history) / len(history)
-    var = sum((h - mean) ** 2 for h in history) / len(history)
-    std = math.sqrt(var) if var > 0 else 0.0
-    if std < 1e-12:
-        return None, "fair"
-    z = (current - mean) / std
-    signal = "rich" if z >= threshold else ("cheap" if z <= -threshold else "fair")
-    return z, signal
+    r = _zscore_impl(current, history, threshold)
+    return r.z_score, r.signal
 
 
 # ---- Vol structures ----

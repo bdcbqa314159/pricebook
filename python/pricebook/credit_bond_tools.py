@@ -15,26 +15,14 @@ Mid-office analytics for an IG/HY credit bond portfolio.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
+from pricebook.zscore import zscore as _zscore_impl
 
-# ---- Z-score core ----
 
 def _zscore(current: float, history: list[float], threshold: float = 2.0):
-    if not history or len(history) < 2:
-        return None, "fair"
-    mean = sum(history) / len(history)
-    var = sum((h - mean) ** 2 for h in history) / len(history)
-    std = math.sqrt(var) if var > 0 else 0.0
-    if std < 1e-12:
-        return None, "fair"
-    z = (current - mean) / std
-    if abs(z) >= threshold:
-        signal = "wide" if z > 0 else "tight"
-    else:
-        signal = "fair"
-    return z, signal
+    r = _zscore_impl(current, history, threshold, labels=("wide", "tight", "fair"))
+    return r.z_score, r.signal
 
 
 # ---- Sector allocation ----

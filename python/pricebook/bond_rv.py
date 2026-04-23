@@ -11,24 +11,14 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
+from pricebook.zscore import zscore as _zscore_impl
 
-# ---- Z-score helper ----
 
 def _zscore(current: float, history: list[float], threshold: float = 2.0):
-    if not history or len(history) < 2:
-        return None, None, "fair"
-    mean = sum(history) / len(history)
-    var = sum((h - mean) ** 2 for h in history) / len(history)
-    std = math.sqrt(var) if var > 0 else 0.0
-    if std < 1e-12:
-        return None, None, "fair"
-    z = (current - mean) / std
-    pctile = sum(1 for h in history if h <= current) / len(history) * 100
-    signal = "rich" if z >= threshold else ("cheap" if z <= -threshold else "fair")
-    return z, pctile, signal
+    r = _zscore_impl(current, history, threshold)
+    return r.z_score, r.percentile, r.signal
 
 
 # ---- Fitted curve RV ----

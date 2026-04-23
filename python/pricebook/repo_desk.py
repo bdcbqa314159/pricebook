@@ -19,34 +19,10 @@ desk-level tooling for repo operations.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from datetime import date
 
-
-# ---- Z-score core (same pattern as equity_rv / commodity_rv) ----
-
-@dataclass
-class ZScoreSignal:
-    current: float
-    mean: float
-    std: float
-    z_score: float | None
-    signal: str
-
-
-def _zscore(current: float, history: list[float], threshold: float = 2.0) -> ZScoreSignal:
-    if not history or len(history) < 2:
-        return ZScoreSignal(current, current, 0.0, None, "fair")
-    mean = sum(history) / len(history)
-    var = sum((h - mean) ** 2 for h in history) / len(history)
-    std = math.sqrt(var) if var > 0 else 0.0
-    z = (current - mean) / std if std > 1e-12 else None
-    if z is not None and abs(z) >= threshold:
-        signal = "rich" if z > 0 else "cheap"
-    else:
-        signal = "fair"
-    return ZScoreSignal(current, mean, std, z, signal)
+from pricebook.zscore import zscore as _zscore, ZScoreSignal
 
 
 # ---- Repo trade entry ----
