@@ -2,6 +2,22 @@
 
 ---
 
+## v0.327.0 — 2026-04-23
+
+PC1+PC2: Pending cleanup — z-score consolidation + Lewis formula fix. 5507 tests.
+
+`bond_rv.py`, `credit_bond_tools.py`, `fx_basis.py`, `fx_vol_desk.py`,
+`inflation_trading.py`, `repo_desk.py`:
+- 6 local `_zscore` definitions replaced with imports from `zscore.py` (-90 lines)
+
+`fft_pricing.py` — **CRITICAL FIX**:
+- `lewis_price()` reimplemented as Gil-Pelaez inversion
+- Expects absolute CF (φ(u) = E[exp(iu·log(S_T))]), not centred
+- P₁/P₂ computed separately, call = df × (F×P₁ - K×P₂)
+- Converges to Black-76 within 0.8bp at N=4096
+
+---
+
 ## v0.326.0 — 2026-04-23
 
 APIX1-APIX12: **API EXTENSION COMPLETE.** ~70 functions. 5507 tests.
