@@ -2,6 +2,18 @@
 
 ---
 
+## v0.329.0 — 2026-04-23
+
+DE1-DE5: Deeper exotics verification. 5514 tests.
+
+`test_deeper_exotics.py` (NEW, 7 tests):
+- PRDC: 3-factor MC pricing, callable PRDC ≤ non-callable
+- Multi-asset: basket option MC, worst-of autocallable
+- Callable bond: HW tree-based pricing
+- Phoenix autocall: memory coupon, coupon barrier effect
+
+---
+
 ## v0.328.0 — 2026-04-23
 
 PC3+PC4: **PENDING CLEANUP COMPLETE.** 5507 tests.
