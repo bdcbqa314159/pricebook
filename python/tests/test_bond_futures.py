@@ -117,6 +117,6 @@ class TestBondFuturesBasis:
         assert abs(result.net_basis - result.gross_basis) < 1.0
 
     def test_carry_components(self):
-        # coupon_income = 6.0 (6% on 100 face for 1 year), financing = 100*0.03*1 = 3
-        result = bond_futures_basis(100.0, 100.0, 1.0, 0.03, 365, coupon_income=6.0)
+        # coupon_income = 6.0 (6% on 100 face for 1 year), financing = 100*0.03*(360/360) = 3
+        result = bond_futures_basis(100.0, 100.0, 1.0, 0.03, 360, coupon_income=6.0)
         assert result.carry == pytest.approx(3.0)

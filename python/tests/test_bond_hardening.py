@@ -191,8 +191,8 @@ class TestImpliedRepoAndCarry:
         # cost = 100 + 1.5 = 101.5
         # invoice = 100 + 2.0 = 102.0
         # profit = 102 - 101.5 + 3 = 3.5
-        # repo = 3.5 / 101.5 * 365/180
-        expected = 3.5 / 101.5 * (365.0 / 180)
+        # repo = 3.5 / 101.5 * 360/180 (ACT/360 repo convention)
+        expected = 3.5 / 101.5 * (360.0 / 180)
         assert repo == pytest.approx(expected, rel=1e-10)
 
     def test_implied_repo_zero_accrued_backward_compat(self):
@@ -202,16 +202,16 @@ class TestImpliedRepoAndCarry:
             accrued_at_delivery=2.0, coupon_income=3.0,
             days_to_delivery=180,
         )
-        expected = (102 - 100 + 3) / 100 * (365.0 / 180)
+        expected = (102 - 100 + 3) / 100 * (360.0 / 180)
         assert repo == pytest.approx(expected, rel=1e-10)
 
     def test_carry_uses_dirty_for_financing(self):
         """Carry financing should be on dirty price, not clean."""
         result = bond_futures_basis(
-            100.0, 100.0, 1.0, 0.03, 365,
+            100.0, 100.0, 1.0, 0.03, 360,
             coupon_income=6.0, accrued_at_purchase=2.0,
         )
-        # financing = (100 + 2) * 0.03 * 1 = 3.06
+        # financing = (100 + 2) * 0.03 * (360/360) = 3.06
         # carry = 6.0 - 3.06 = 2.94
         assert result.carry == pytest.approx(2.94, rel=1e-4)
 
@@ -245,7 +245,7 @@ class TestForwardBondPrice:
     def test_no_coupon(self):
         """Forward = dirty × (1 + repo × T) when no coupon."""
         fwd = forward_bond_price(100.0, 0.04, 90)
-        expected = 100.0 * (1 + 0.04 * 90 / 365)
+        expected = 100.0 * (1 + 0.04 * 90 / 360)
         assert fwd.forward_dirty == pytest.approx(expected, rel=1e-10)
 
     def test_coupon_reduces_forward(self):

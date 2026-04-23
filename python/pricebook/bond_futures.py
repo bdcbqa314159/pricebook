@@ -158,7 +158,7 @@ def implied_repo_rate(
     cost = bond_price + accrued_at_purchase
     profit = invoice - cost + coupon_income
 
-    return profit / cost * (365.0 / days_to_delivery)
+    return profit / cost * (360.0 / days_to_delivery)
 
 
 # ---- Bond futures basis ----
@@ -201,7 +201,7 @@ def bond_futures_basis(
     gross = bond_price - cf * futures_price
 
     # Carry to delivery
-    dt = days_to_delivery / 365.0
+    dt = days_to_delivery / 360.0
     dirty = bond_price + accrued_at_purchase
     financing = dirty * repo_rate * dt
     carry = coupon_income - financing
@@ -266,7 +266,7 @@ def forward_bond_price(
         coupon_income: coupons received between now and forward date.
         accrued_at_forward: accrued interest at forward delivery date.
     """
-    dt = days_to_forward / 365.0
+    dt = days_to_forward / 360.0
     repo_cost = dirty_price * repo_rate * dt
     fwd_dirty = dirty_price + repo_cost - coupon_income
     fwd_clean = fwd_dirty - accrued_at_forward
