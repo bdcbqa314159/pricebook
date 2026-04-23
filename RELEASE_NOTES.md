@@ -2,6 +2,23 @@
 
 ---
 
+## v0.323.0 — 2026-04-23
+
+BT1-BT3: Backtesting Engine. 5411 tests.
+
+`backtest.py` (NEW, 340 lines):
+- `run_backtest(returns, signals, config)` — vectorised with slippage, commission, position limits
+- `compute_metrics(pnl)` — Sharpe, Sortino, Calmar, max drawdown (depth + duration), hit ratio, profit factor
+- `walk_forward(returns, signal_func, n_folds)` — OOS validation with IS/OOS decay measure
+- `combine_signals([s1, s2], method="weighted"|"rank"|"majority")` — signal combination
+- `deflated_sharpe(SR, n_trials, n_obs)` — Bailey & De Prado multiple testing correction
+- `bonferroni_threshold(α, N)` — family-wise error rate
+- `fdr_threshold(p_values, α)` — Benjamini-Hochberg FDR
+
+`test_backtest.py` (NEW, 19 tests)
+
+---
+
 ## v0.322.0 — 2026-04-23
 
 API final audit + expansions. 5392 tests.
