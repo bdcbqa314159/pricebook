@@ -41,6 +41,19 @@ class RatingTransitionMatrix:
         if self.Q.shape != (self.n, self.n):
             raise ValueError(f"Generator must be {self.n}x{self.n}")
 
+        # Validate generator matrix properties
+        for i in range(self.n - 1):  # skip absorbing state
+            for j in range(self.n):
+                if i != j and self.Q[i, j] < -1e-10:
+                    raise ValueError(
+                        f"Off-diagonal Q[{i},{j}]={self.Q[i,j]:.6f} must be non-negative"
+                    )
+            row_sum = float(self.Q[i, :].sum())
+            if abs(row_sum) > 1e-6:
+                raise ValueError(
+                    f"Generator row {i} sums to {row_sum:.6e}, must sum to 0"
+                )
+
     @property
     def default_state(self) -> int:
         """Index of the default (absorbing) state."""

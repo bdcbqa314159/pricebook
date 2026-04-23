@@ -104,27 +104,46 @@ def ntd_spread(
     Args:
         n: trigger on the Nth default (1 = FTD).
     """
-    defaults = simulate_defaults_copula(survival_curves, T, rho, n_sims, seed)
-    n_defaults = count_defaults(defaults)
-
-    ntd_triggered = n_defaults >= n
-
+    # Simulate defaults at multiple time points for proper timing
     ref = survival_curves[0].reference_date
+    n_years = max(1, int(T))
+    annual_times = [min(yr, T) for yr in range(1, n_years + 1)]
+
+    # Simulate at each annual time point
+    n_names = len(survival_curves)
+    rng = np.random.default_rng(seed)
+    M = rng.standard_normal(n_sims)
+    eps = rng.standard_normal((n_sims, n_names))
+    sqrt_rho = math.sqrt(max(rho, 0.0))
+    sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
+    Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+
+    # For each time point, check if nth default has occurred
+    ntd_by_time = []
+    for t in annual_times:
+        T_date = date_from_year_fraction(ref, t)
+        thresholds = np.array([
+            norm.ppf(max(1 - sc.survival(T_date), 1e-15)) for sc in survival_curves
+        ])
+        defaults_t = Z < thresholds[np.newaxis, :]
+        n_defaults_t = defaults_t.sum(axis=1)
+        ntd_by_time.append(n_defaults_t >= n)
+
+    # Protection leg: (1-R) * df(T) * P(ntd triggered by T)
     T_date = date_from_year_fraction(ref, T)
     df_T = discount_curve.df(T_date)
+    ntd_final = ntd_by_time[-1]
+    protection = (1 - recovery) * df_T * ntd_final.mean()
 
-    protection = (1 - recovery) * df_T * ntd_triggered.mean()
-
-    # Risky annuity (simplified)
+    # Risky annuity: per-simulation survival at each annual point
     annuity = 0.0
-    n_years = max(1, int(T))
-    for yr in range(1, n_years + 1):
-        t = min(yr, T)
-        d = ref + relativedelta(years=int(t))
+    for i, t in enumerate(annual_times):
+        d = date_from_year_fraction(ref, t)
         df = discount_curve.df(d)
-        surv_prob = 1.0 - ntd_triggered.mean() * (t / T)
-        surv_prob = max(surv_prob, 0.01)
-        annuity += df * surv_prob
+        # Basket survival = fraction of sims where nth default hasn't triggered yet
+        basket_surv = 1.0 - ntd_by_time[i].mean()
+        basket_surv = max(basket_surv, 0.001)
+        annuity += df * basket_surv
 
     if annuity <= 0:
         return 0.0

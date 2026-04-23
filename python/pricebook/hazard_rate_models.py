@@ -69,9 +69,13 @@ class HWHazardRate:
         """
         f = self._forward_hazard(t)
         df_dt = self._forward_hazard_deriv(t)
-        return df_dt + self.a * f + self.sigma**2 / (2 * self.a) * (
-            1 - math.exp(-2 * self.a * t)
-        ) if self.a > 0 else f
+        if self.a > 0:
+            return df_dt + self.a * f + self.sigma**2 / (2 * self.a) * (
+                1 - math.exp(-2 * self.a * t)
+            )
+        else:
+            # Limit as a→0: sigma²*t
+            return df_dt + self.sigma**2 * t
 
     def _forward_hazard(self, t: float) -> float:
         """Instantaneous forward hazard rate from market pillars."""

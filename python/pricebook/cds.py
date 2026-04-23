@@ -20,7 +20,7 @@ def protection_leg_pv(
     recovery: float = 0.4,
     notional: float = 1_000_000.0,
     day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
-    steps_per_year: int = 4,
+    steps_per_year: int = 12,
 ) -> float:
     """
     PV of the protection leg of a CDS.
@@ -251,6 +251,8 @@ class CDS:
             frequency=self.frequency, day_count=self.day_count,
             calendar=self.calendar, convention=self.convention,
         )
+        if abs(rpv01) < 1e-15:
+            return float('inf')
         return prot / (self.notional * rpv01)
 
     def upfront(
