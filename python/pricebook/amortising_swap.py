@@ -110,12 +110,15 @@ class AmortisingSwap:
         return pv
 
     def pv_float(self, curve: DiscountCurve, projection: DiscountCurve | None = None) -> float:
-        """PV of the floating leg (telescoping per period)."""
+        """PV of the floating leg."""
         proj = projection or curve
         pv = 0.0
         for (s, e), notl in zip(self.periods, self.notionals):
             yf = year_fraction(s, e, self.float_day_count)
-            fwd = proj.forward_rate(s, e)
+            # Forward rate using float_day_count (not the curve's internal day count)
+            df1 = proj.df(s)
+            df2 = proj.df(e)
+            fwd = (df1 - df2) / (yf * df2)
             pv += notl * (fwd + self.spread) * yf * curve.df(e)
         return pv
 
@@ -123,7 +126,7 @@ class AmortisingSwap:
         """PV of the swap (payer = receive float - pay fixed)."""
         return self.pv_float(curve, projection) - self.pv_fixed(curve)
 
-    def par_rate(self, curve: DiscountCurve) -> float:
+    def par_rate(self, curve: DiscountCurve, projection: DiscountCurve | None = None) -> float:
         """Fixed rate that makes PV = 0."""
         annuity = sum(
             notl * year_fraction(s, e, self.fixed_day_count) * curve.df(e)
@@ -131,7 +134,7 @@ class AmortisingSwap:
         )
         if abs(annuity) < 1e-12:
             return 0.0
-        float_pv = self.pv_float(curve)
+        float_pv = self.pv_float(curve, projection)
         return float_pv / annuity
 
     def dv01(self, curve: DiscountCurve, shift: float = 0.0001) -> float:

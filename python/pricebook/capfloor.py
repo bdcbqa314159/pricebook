@@ -82,8 +82,8 @@ class CapFloor:
             df2 = proj.df(accrual_end)
             fwd = (df1 - df2) / (yf * df2)
 
-            # Time to fixing (= accrual start)
-            t_fix = year_fraction(curve.reference_date, accrual_start, self.day_count)
+            # Time to fixing — always ACT/365F for Black-76
+            t_fix = year_fraction(curve.reference_date, accrual_start, DayCountConvention.ACT_365_FIXED)
             if t_fix <= 0:
                 # Already fixed — use intrinsic value
                 if self.option_type == OptionType.CALL:
@@ -114,7 +114,7 @@ class CapFloor:
             df1 = proj.df(accrual_start)
             df2 = proj.df(accrual_end)
             fwd = (df1 - df2) / (yf * df2)
-            t_fix = year_fraction(curve.reference_date, accrual_start, self.day_count)
+            t_fix = year_fraction(curve.reference_date, accrual_start, DayCountConvention.ACT_365_FIXED)
             vol = vol_surface.vol(accrual_start, self.strike) if t_fix > 0 else 0.0
             if t_fix > 0:
                 optlet = black76_price(fwd, self.strike, vol, t_fix, 1.0, self.option_type)
@@ -123,7 +123,7 @@ class CapFloor:
                     optlet = max(fwd - self.strike, 0.0)
                 else:
                     optlet = max(self.strike - fwd, 0.0)
-            pv = self.notional * yf * df2 * optlet
+            pv = self.notional * yf * curve.df(accrual_end) * optlet
             results.append({
                 "accrual_start": accrual_start,
                 "accrual_end": accrual_end,
@@ -172,7 +172,7 @@ def strip_caplet_vols(
             df1 = curve.df(accrual_start)
             df2 = curve.df(accrual_end)
             fwd = (df1 - df2) / (yf * df2)
-            t_fix = year_fraction(curve.reference_date, accrual_start, day_count)
+            t_fix = year_fraction(curve.reference_date, accrual_start, DayCountConvention.ACT_365_FIXED)
 
             if t_fix > 0 and marginal_pv > 0:
                 target = marginal_pv / (yf * df2)
