@@ -173,22 +173,44 @@ def lewis_price(
         N: number of quadrature points.
         u_max: upper integration limit.
     """
-    k = math.log(spot / strike) + (rate - div_yield) * T
     df = math.exp(-rate * T)
+    log_K = math.log(strike)
+
+    # Gil-Pelaez (1951) inversion for call = df × (F×P₁ - K×P₂)
+    # P₁ = 0.5 + (1/π) ∫₀^∞ Re[e^{-iu·logK} × φ(u-i) / (iuφ(-i))] du
+    # P₂ = 0.5 + (1/π) ∫₀^∞ Re[e^{-iu·logK} × φ(u) / (iu)] du
+    #
+    # φ(-i) = E[S_T] = F (forward) when φ is CF of log(S_T)
+
+    forward = spot * math.exp((rate - div_yield) * T)
+    phi_neg_i = char_func(complex(0, -1))  # = F in expectation
+    F_implied = phi_neg_i.real
 
     du = u_max / N
-    integral = 0.0
+    integral_p1 = 0.0
+    integral_p2 = 0.0
 
     for j in range(1, N + 1):
         u = j * du
-        z = complex(u, -0.5)  # u - i/2
-        phi = char_func(z)
-        integrand = (phi * cmath.exp(-1j * u * k) / (u * u + 0.25)).real
-        # Trapezoidal weight
-        w = du if (j > 0 and j < N) else du / 2
-        integral += w * integrand
+        iu = 1j * u
+        e_factor = cmath.exp(-iu * log_K)
 
-    call = spot * math.exp(-div_yield * T) - df * strike / math.pi * integral
+        # P₂ integrand
+        phi_u = char_func(u)
+        p2_int = (e_factor * phi_u / iu).real
+
+        # P₁ integrand
+        phi_u_mi = char_func(complex(u, -1))
+        p1_int = (e_factor * phi_u_mi / (iu * F_implied)).real
+
+        w = du if j < N else du / 2
+        integral_p1 += w * p1_int
+        integral_p2 += w * p2_int
+
+    P1 = 0.5 + integral_p1 / math.pi
+    P2 = 0.5 + integral_p2 / math.pi
+
+    call = df * (F_implied * P1 - strike * P2)
     return max(call, 0.0)
 
 

@@ -67,16 +67,23 @@ class TestCarrMadanFFT:
 
 class TestLewisPrice:
     def test_produces_positive_price(self):
-        """Lewis produces a positive call price (formula under review)."""
-        mu = (RATE - 0.5 * VOL**2) * T
-        var = VOL**2 * T
+        """Lewis produces a positive call price matching Black-76."""
+        import cmath as _cmath
 
         def cf(u):
-            import cmath
-            return cmath.exp(1j * u * mu - 0.5 * u * u * var)
+            # CF of log(S_T) — absolute, not centred
+            x = math.log(SPOT)
+            drift = (RATE - 0.5 * VOL**2) * T
+            return _cmath.exp(1j * u * (x + drift) - 0.5 * VOL**2 * u**2 * T)
 
-        price = lewis_price(cf, SPOT, SPOT, RATE, T)
+        price = lewis_price(cf, SPOT, SPOT, RATE, T, N=1024)
         assert price > 0
+        # Should be close to Black-76
+        from pricebook.black76 import black76_price, OptionType
+        fwd = SPOT * math.exp(RATE * T)
+        df = math.exp(-RATE * T)
+        bs = black76_price(fwd, SPOT, VOL, T, df, OptionType.CALL)
+        assert price == pytest.approx(bs, rel=0.05)
 
 
 # ---- Breeden-Litzenberger density ----
