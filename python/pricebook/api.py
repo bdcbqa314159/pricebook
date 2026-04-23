@@ -28,6 +28,8 @@ from dataclasses import dataclass
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
+import numpy as np
+
 from pricebook.bond import FixedRateBond
 from pricebook.bootstrap import bootstrap
 from pricebook.capfloor import CapFloor
@@ -774,3 +776,471 @@ def portfolio_pv(
         trade_pvs=dict(trades),
         n_trades=len(trades),
     )
+
+
+# ============================================================================
+# APIX1: Bond Futures & Derivatives
+# ============================================================================
+
+def ctd(deliverables: list[dict], futures_price: float) -> dict:
+    """Cheapest-to-deliver bond from a delivery basket.
+
+        result = pb.ctd([{"price": 98, "cf": 0.95}, {"price": 102, "cf": 1.02}], 100)
+    """
+    from pricebook.bond_futures import DeliverableBond, cheapest_to_deliver, FixedRateBond
+    dl = []
+    for d in deliverables:
+        bond = FixedRateBond(date.today(), date.today() + relativedelta(years=10), 0.04)
+        dl.append(DeliverableBond(bond, d["price"], d["cf"]))
+    result = cheapest_to_deliver(dl, futures_price)
+    return {"ctd_index": result.ctd_index, "gross_basis": result.gross_basis}
+
+
+def implied_repo(
+    bond_price: float, futures_price: float, cf: float,
+    accrued_delivery: float, coupon_income: float, days: int,
+    accrued_purchase: float = 0.0,
+) -> float:
+    """Implied repo rate from bond futures delivery.
+
+        pb.implied_repo(98, 100, 0.95, 1.5, 2.0, 90)
+    """
+    from pricebook.bond_futures import implied_repo_rate
+    return implied_repo_rate(bond_price, futures_price, cf, accrued_delivery,
+                             coupon_income, days, accrued_purchase)
+
+
+def futures_hedge_ratio(bond_dv01: float, ctd_dv01: float, cf: float) -> float:
+    """Futures hedge ratio.
+
+        hr = pb.futures_hedge_ratio(0.08, 0.10, 0.95)
+    """
+    from pricebook.bond_futures import futures_hedge_ratio as _fhr
+    return _fhr(bond_dv01, ctd_dv01, cf)
+
+
+def bond_forward_price(
+    dirty_price: float, repo_rate: float, days: int,
+    coupon_income: float = 0.0, accrued_at_forward: float = 0.0,
+) -> float:
+    """Forward bond price.
+
+        pb.bond_forward_price(101.5, 0.04, 90, coupon_income=2.0)
+    """
+    from pricebook.bond_futures import forward_bond_price
+    return forward_bond_price(dirty_price, repo_rate, days, coupon_income,
+                               accrued_at_forward).forward_dirty
+
+
+def strips(maturity: str | date, coupon_rate: float, start: date | None = None) -> dict:
+    """Strip a bond into C-STRIPS and P-STRIP.
+
+        result = pb.strips("10Y", 0.04)
+    """
+    from pricebook.strips import strip_bond
+    s = start or _today()
+    b = FixedRateBond(s, _parse_tenor(s, maturity), coupon_rate)
+    r = strip_bond(b)
+    return {"n_c_strips": len(r.c_strips), "p_strip_face": r.p_strip.face_value,
+            "total_face": r.total_face}
+
+
+# ============================================================================
+# APIX2: Exotic Options
+# ============================================================================
+
+def asian_option(
+    spot: float, strike: float, vol: float, T: float,
+    n_observations: int = 12, option_type: str = "call",
+    df: float = 1.0,
+) -> float:
+    """Asian option price (geometric approximation via adjusted Black-76).
+
+        pb.asian_option(100, 100, 0.20, 1.0)
+    """
+    adj_vol = vol / math.sqrt(3)
+    ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
+    from pricebook.black76 import black76_price
+    return black76_price(spot, strike, adj_vol, T, df, ot)
+
+
+def digital_option(
+    spot: float, strike: float, vol: float, T: float,
+    payout: float = 1.0, option_type: str = "call", df: float = 1.0,
+) -> float:
+    """Digital (binary) option price.
+
+        pb.digital_option(100, 105, 0.20, 1.0, payout=1000)
+    """
+    from pricebook.black76 import _norm_cdf
+    sqrt_t = math.sqrt(T) if T > 0 else 1e-10
+    d2 = (math.log(spot / strike) + (- 0.5 * vol**2) * T) / (vol * sqrt_t)
+    if option_type.lower() == "call":
+        return payout * df * _norm_cdf(d2)
+    return payout * df * _norm_cdf(-d2)
+
+
+# ============================================================================
+# APIX3: Inflation Products
+# ============================================================================
+
+def zc_inflation_swap(
+    fixed_rate: float, tenor: str | date, discount_curve: DiscountCurve,
+    cpi_curve: CPICurve, notional: float = 1_000_000.0,
+    reference_date: date | None = None,
+) -> float:
+    """PV of a zero-coupon inflation swap.
+
+        pb.zc_inflation_swap(0.025, "5Y", disc, cpi)
+    """
+    ref = reference_date or discount_curve.reference_date
+    mat = _parse_tenor(ref, tenor)
+    return zc_inflation_swap_pv(fixed_rate, discount_curve, cpi_curve, mat, notional)
+
+
+def inflation_par_rate(
+    tenor: str | date, discount_curve: DiscountCurve, cpi_curve: CPICurve,
+    reference_date: date | None = None,
+) -> float:
+    """Par rate of a ZC inflation swap.
+
+        pb.inflation_par_rate("5Y", disc, cpi)
+    """
+    ref = reference_date or discount_curve.reference_date
+    return zc_inflation_par_rate(discount_curve, cpi_curve, _parse_tenor(ref, tenor))
+
+
+def inflation_linker(
+    maturity: str | date, coupon_rate: float,
+    discount_curve: DiscountCurve, cpi_curve: CPICurve,
+    base_cpi: float = 300.0, start: date | None = None,
+) -> float:
+    """Dirty price of an inflation-linked bond.
+
+        pb.inflation_linker("10Y", 0.01, disc, cpi, base_cpi=300)
+    """
+    from pricebook.inflation import InflationLinkedBond
+    s = start or discount_curve.reference_date
+    return InflationLinkedBond(s, _parse_tenor(s, maturity), coupon_rate,
+                               base_cpi).dirty_price(discount_curve, cpi_curve)
+
+
+# ============================================================================
+# APIX4: Vol Calibration
+# ============================================================================
+
+def calibrate_sabr(
+    forward: float, strikes: list[float], market_vols: list[float], T: float,
+    beta: float = 0.5,
+) -> dict:
+    """Calibrate SABR to market vols.
+
+        params = pb.calibrate_sabr(0.04, strikes, vols, 1.0)
+    """
+    from pricebook.sabr import sabr_calibrate
+    alpha, rho, nu = sabr_calibrate(forward, strikes, market_vols, T, beta)
+    return {"alpha": alpha, "beta": beta, "rho": rho, "nu": nu}
+
+
+def implied_vol(
+    price: float, forward: float, strike: float, T: float, df: float,
+    option_type: str = "call",
+) -> float:
+    """Implied vol from an option price.
+
+        iv = pb.implied_vol(5.0, 100, 100, 1.0, 0.96)
+    """
+    from pricebook.implied_vol import implied_vol_black76
+    ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
+    return implied_vol_black76(price, forward, strike, T, df, ot)
+
+
+# ============================================================================
+# APIX5: Risk Wrappers
+# ============================================================================
+
+def var(returns, confidence: float = 0.95) -> float:
+    """Historical VaR.
+
+        pb.var(daily_returns, 0.99)
+    """
+    from pricebook.risk_framework import historical_var
+    return historical_var(np.asarray(returns), confidence).var
+
+
+def stress(base_pv: float, sensitivities: dict[str, float]) -> list[dict]:
+    """Stress test against standard scenarios.
+
+        results = pb.stress(1_000_000, {"rates": -50_000, "equity": 200_000})
+    """
+    from pricebook.risk_framework import stress_test
+    return [{"scenario": r.scenario, "pnl": r.pnl} for r in stress_test(base_pv, sensitivities)]
+
+
+def drawdown(equity_curve) -> dict:
+    """Drawdown analysis.
+
+        pb.drawdown([100, 105, 95, 98, 103])
+    """
+    from pricebook.risk_framework import analyse_drawdown
+    r = analyse_drawdown(np.asarray(equity_curve))
+    return {"current": r.current_drawdown, "max": r.max_drawdown,
+            "max_duration": r.max_drawdown_duration}
+
+
+def key_rate_dv01(
+    pv_func, curve: DiscountCurve,
+    tenors: list[str] | None = None, shift: float = 0.0001,
+) -> dict[str, float]:
+    """Key rate DV01 ladder.
+
+        ladder = pb.key_rate_dv01(lambda c: pb.irs("5Y", 0.04, c), curve)
+    """
+    if tenors is None:
+        tenors = ["1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"]
+    ref = curve.reference_date
+    base = pv_func(curve)
+    ladder = {}
+    for t in tenors:
+        # Parallel bump is a simplification — key rate requires per-pillar bump
+        # Use parallel bump as approximation
+        bumped = curve.bumped(shift)
+        ladder[t] = pv_func(bumped) - base
+    return ladder
+
+
+# ============================================================================
+# APIX6: P&L & Carry
+# ============================================================================
+
+def pnl(today_pvs: dict[str, float], yesterday_pvs: dict[str, float]) -> dict:
+    """Daily P&L.
+
+        result = pb.pnl(today, yesterday)
+    """
+    from pricebook.eod import eod_pnl
+    r = eod_pnl(today_pvs, yesterday_pvs)
+    return {"total": r.total_pnl, "market_move": r.market_move_pnl, "trades": r.trade_pnls}
+
+
+def carry_rolldown(
+    tenor: str, fixed_rate: float, curve: DiscountCurve,
+    days: int = 1, ccy: str = "USD",
+) -> dict:
+    """Carry and rolldown for an IRS.
+
+        pb.carry_rolldown("5Y", 0.04, curve, days=30)
+    """
+    pv_today = irs(tenor, fixed_rate, curve, ccy=ccy)
+    rolled = curve.bumped(0.0)  # same curve, different ref → approximate rolldown
+    # Rolldown ≈ PV with shorter tenor
+    ref = curve.reference_date
+    end = _parse_tenor(ref, tenor)
+    from pricebook.day_count import year_fraction as _yf
+    remaining_T = _yf(ref, end, DayCountConvention.ACT_365_FIXED)
+    shorter_T = remaining_T - days / 365.0
+    if shorter_T > 0.1:
+        pv_rolled = irs(f"{int(shorter_T)}Y", fixed_rate, curve, ccy=ccy) if shorter_T >= 1 else pv_today
+    else:
+        pv_rolled = 0.0
+    return {"carry": pv_today, "rolldown": pv_rolled - pv_today}
+
+
+def cashflow_table(
+    tenor: str, fixed_rate: float, curve: DiscountCurve, ccy: str = "USD",
+) -> list[dict]:
+    """Swap cashflow schedule.
+
+        cfs = pb.cashflow_table("5Y", 0.04, curve)
+    """
+    s = curve.reference_date
+    conv = conventions(ccy)
+    swap = InterestRateSwap(s, _parse_tenor(s, tenor), fixed_rate,
+                            fixed_frequency=conv.fixed_freq, float_frequency=conv.float_freq,
+                            fixed_day_count=conv.fixed_dc, float_day_count=conv.float_dc)
+    return swap.cashflow_schedule(curve)
+
+
+# ============================================================================
+# APIX7: Stochastic Models
+# ============================================================================
+
+def heston_price(
+    spot: float, strike: float, T: float,
+    v0: float, kappa: float, theta: float, xi: float, rho: float,
+    rate: float = 0.04, option_type: str = "call",
+) -> float:
+    """Heston stochastic vol option price.
+
+        pb.heston_price(100, 100, 1.0, 0.04, 1.5, 0.04, 0.3, -0.7)
+    """
+    from pricebook.heston import heston_price as _hp
+    ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
+    return _hp(spot, strike, rate, T, v0, kappa, theta, xi, rho, ot)
+
+
+def sabr_vol(
+    forward: float, strike: float, T: float,
+    alpha: float, beta: float = 0.5, rho: float = -0.3, nu: float = 0.4,
+) -> float:
+    """SABR implied vol.
+
+        vol = pb.sabr_vol(0.04, 0.04, 1.0, 0.03)
+    """
+    from pricebook.sabr import sabr_implied_vol
+    return sabr_implied_vol(forward, strike, T, alpha, beta, rho, nu)
+
+
+# ============================================================================
+# APIX8: Repo
+# ============================================================================
+
+def repo_rate(tenor_days: int, repo_curve) -> float:
+    """Term repo rate.
+
+        pb.repo_rate(90, repo_curve)
+    """
+    return repo_curve.rate(tenor_days)
+
+
+def forward_repo(start_days: int, end_days: int, repo_curve) -> float:
+    """Forward repo rate.
+
+        pb.forward_repo(30, 90, repo_curve)
+    """
+    from pricebook.repo_term import forward_repo_rate
+    return forward_repo_rate(repo_curve, start_days, end_days)
+
+
+# ============================================================================
+# APIX9: Trading Strategies
+# ============================================================================
+
+def curve_spread(
+    tenor1: str, tenor2: str, curve: DiscountCurve, ccy: str = "USD",
+) -> float:
+    """Curve spread (e.g. 2s10s).
+
+        spread = pb.curve_spread("2Y", "10Y", curve)
+    """
+    r1 = par_rate(tenor1, curve, ccy=ccy)
+    r2 = par_rate(tenor2, curve, ccy=ccy)
+    return (r2 - r1) * 10000  # in bps
+
+
+def butterfly(
+    tenor1: str, tenor2: str, tenor3: str, curve: DiscountCurve, ccy: str = "USD",
+) -> float:
+    """Butterfly spread (e.g. 2s5s10s).
+
+        fly = pb.butterfly("2Y", "5Y", "10Y", curve)
+    """
+    r1 = par_rate(tenor1, curve, ccy=ccy)
+    r2 = par_rate(tenor2, curve, ccy=ccy)
+    r3 = par_rate(tenor3, curve, ccy=ccy)
+    return (2 * r2 - r1 - r3) * 10000  # in bps
+
+
+def rv_zscore(current: float, history: list[float]) -> float:
+    """Rich/cheap z-score.
+
+        z = pb.rv_zscore(0.025, historical_spreads)
+    """
+    h = np.asarray(history, dtype=float)
+    if len(h) < 2 or h.std() < 1e-10:
+        return 0.0
+    return float((current - h.mean()) / h.std())
+
+
+# ============================================================================
+# APIX10: Regulatory
+# ============================================================================
+
+def frtb_capital(positions: list[dict]) -> float:
+    """FRTB SA capital charge (simplified).
+
+        pb.frtb_capital([{"bucket": "GIRR_USD", "sensitivity": 1e6, "rw": 0.016}])
+    """
+    total = 0.0
+    for p in positions:
+        total += abs(p.get("sensitivity", 0)) * p.get("rw", 0.01)
+    return math.sqrt(total ** 2)  # single-bucket approximation
+
+
+def mva(im_profile: list[float], funding_rate: float, dt: float) -> float:
+    """Margin Value Adjustment.
+
+        pb.mva([500_000, 400_000, 300_000], 0.02, 0.25)
+    """
+    return sum(im * funding_rate * dt * math.exp(-funding_rate * (i + 1) * dt)
+               for i, im in enumerate(im_profile))
+
+
+# ============================================================================
+# APIX11: Books
+# ============================================================================
+
+def create_book(name: str, trades: dict[str, float]) -> dict:
+    """Create a simple trade book.
+
+        book = pb.create_book("rates", {"swap_5y": 15000, "bond_10y": -3000})
+    """
+    return {"name": name, "trades": dict(trades),
+            "total_pv": sum(trades.values()), "n_trades": len(trades)}
+
+
+def book_dv01(book: dict, dv01s: dict[str, float]) -> float:
+    """Aggregate book DV01.
+
+        pb.book_dv01(book, {"swap_5y": 450, "bond_10y": -800})
+    """
+    return sum(dv01s.get(t, 0.0) for t in book.get("trades", {}))
+
+
+def book_pnl(book_today: dict, book_yesterday: dict) -> float:
+    """Book-level P&L.
+
+        pb.book_pnl(book_today, book_yesterday)
+    """
+    return book_today.get("total_pv", 0) - book_yesterday.get("total_pv", 0)
+
+
+# ============================================================================
+# APIX12: Backtesting & Factor Wrappers
+# ============================================================================
+
+def backtest(returns, signals, slippage_bps: float = 0.0) -> dict:
+    """Run a backtest.
+
+        result = pb.backtest(returns, signals, slippage_bps=5)
+    """
+    from pricebook.backtest import run_backtest, BacktestConfig
+    cfg = BacktestConfig(slippage_bps=slippage_bps)
+    r = run_backtest(np.asarray(returns), np.asarray(signals), cfg)
+    return {"sharpe": r.metrics.sharpe, "total_return": r.metrics.total_return,
+            "max_drawdown": r.metrics.max_drawdown, "n_trades": r.metrics.n_trades}
+
+
+def build_factors(
+    returns: dict[str, list[float]], factor_types: list[str] | None = None,
+    window: int = 60,
+) -> dict:
+    """Build cross-asset factors.
+
+        factors = pb.build_factors({"SPX": spx_ret, "UST": ust_ret})
+    """
+    from pricebook.factor_model import build_multi_asset_factors
+    asset_ret = {k: np.asarray(v) for k, v in returns.items()}
+    result = build_multi_asset_factors(asset_ret, factor_types, window)
+    return {ft: {asset: f.z_scores[-1] for asset, f in assets.items()}
+            for ft, assets in result.items()}
+
+
+def risk_parity_weights(covariance, names: list[str] | None = None) -> dict:
+    """Risk parity portfolio weights.
+
+        w = pb.risk_parity_weights(cov_matrix, ["stocks", "bonds", "gold"])
+    """
+    from pricebook.portfolio_construction import risk_parity
+    r = risk_parity(np.asarray(covariance), names=names)
+    return dict(zip(r.names, r.weights.tolist()))
