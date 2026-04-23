@@ -350,6 +350,7 @@ def contingent_convertible(
     rate: float,
     equity_vol: float,
     credit_spread: float = 0.0,
+    dividend_yield: float = 0.0,
     loss_absorption: float = 0.5,   # fraction of principal lost on conversion
     n_paths: int = 10_000,
     n_steps: int | None = None,
@@ -381,7 +382,7 @@ def contingent_convertible(
     coupon_amount = notional * coupon_rate / n_coupons_per_year
 
     S = np.full((n_paths, n_steps + 1), spot)
-    drift = (rate - 0.5 * equity_vol**2) * dt
+    drift = (rate - dividend_yield - 0.5 * equity_vol**2) * dt
     for step in range(n_steps):
         z = rng.standard_normal(n_paths)
         S[:, step + 1] = S[:, step] * np.exp(drift + equity_vol * sqrt_dt * z)
