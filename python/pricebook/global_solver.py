@@ -212,7 +212,7 @@ def coupled_bootstrap(
                 df1 = proj.df(schedule[i-1])
                 df2 = proj.df(schedule[i])
                 if df2 > 0 and tau > 0:
-                    fwd = (df1 / df2 - 1.0) / tau
+                    fwd = (df1 - df2) / (tau * df2)
                 else:
                     fwd = 0.0
                 float_pv += fwd * tau * ois.df(schedule[i])

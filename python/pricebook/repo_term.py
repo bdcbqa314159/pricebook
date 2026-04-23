@@ -82,7 +82,7 @@ def forward_repo_rate(
     df1 = repo_curve.discount_factor(start_days)
     df2 = repo_curve.discount_factor(end_days)
     dt = (end_days - start_days) / 360.0
-    return (df1 / df2 - 1.0) / dt
+    return (df1 - df2) / (dt * df2)
 
 
 @dataclass
