@@ -39,6 +39,8 @@ class DiscountCurve:
             raise ValueError("dates and dfs must have the same length")
         if len(dates) < 1:
             raise ValueError("need at least 1 pillar point")
+        if any(df <= 0 for df in dfs):
+            raise ValueError("all discount factors must be positive")
 
         self.reference_date = reference_date
         self.day_count = day_count
@@ -128,9 +130,18 @@ class DiscountCurve:
         return self._interpolator(t)
 
     def zero_rate(self, d: date) -> float:
-        """Continuously compounded zero rate to date d: r = -ln(df) / t."""
+        """Continuously compounded zero rate to date d: r = -ln(df) / t.
+
+        At d == reference_date, returns the instantaneous forward rate at t=0
+        (the short-end rate) rather than the indeterminate 0/0 limit.
+        """
         t = self._time(d)
         if t <= 0:
+            # Return instantaneous forward at t=0 (short-end rate)
+            if len(self._times) >= 2 and self._times[1] > 0:
+                df1 = float(self._dfs[1])
+                if df1 > 0:
+                    return -math.log(df1) / float(self._times[1])
             return 0.0
         return -math.log(self.df(d)) / t
 

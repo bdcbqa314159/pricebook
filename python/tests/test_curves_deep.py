@@ -209,14 +209,35 @@ class TestDayCountEdgeCases:
         assert 4.99 < yf < 5.01
 
     def test_thirty_360_feb_end_of_month(self):
-        """30/360: Feb 28 → Mar 31 in non-leap year."""
+        """30/360 US ISDA 2006: Feb last day → d1=30."""
+        # Feb 28 (last day of Feb in non-leap) → Mar 31
+        # ISDA rule: d1 is last of Feb → d1=30, then d2=31 and d1=30 → d2=30
+        # days = 30*(3-2) + (30-30) = 30
         yf = year_fraction(
             date(2023, 2, 28), date(2023, 3, 31),
             DayCountConvention.THIRTY_360,
         )
-        # d1=28 (no adj), d2=31, d1 < 30 so d2 stays 31
-        # days = 30*(3-2) + (31-28) = 33
-        assert yf == pytest.approx(33 / 360.0)
+        assert yf == pytest.approx(30 / 360.0)
+
+    def test_thirty_360_feb_29_leap(self):
+        """30/360 US: Feb 29 (leap year last day) → d1=30."""
+        yf = year_fraction(
+            date(2024, 2, 29), date(2024, 8, 31),
+            DayCountConvention.THIRTY_360,
+        )
+        # d1=30 (Feb 29 is last of Feb), d2=31, d1=30 → d2=30
+        # days = 30*6 + (30-30) = 180
+        assert yf == pytest.approx(180 / 360.0)
+
+    def test_thirty_360_feb_not_last_day(self):
+        """30/360 US: Feb 15 (not last of Feb) → no adjustment."""
+        yf = year_fraction(
+            date(2023, 2, 15), date(2023, 3, 31),
+            DayCountConvention.THIRTY_360,
+        )
+        # d1=15 (not last of Feb, no adj), d2=31, d1<30 → d2 stays 31
+        # days = 30*(3-2) + (31-15) = 46
+        assert yf == pytest.approx(46 / 360.0)
 
     def test_thirty_e_360_both_31st(self):
         """30E/360: both dates are 31st."""
@@ -428,3 +449,51 @@ class TestForwardCurveBootstrap:
         # Forward curve zero rates should be higher than OIS
         d = REF + relativedelta(years=5)
         assert fwd_curve.zero_rate(d) > ois_curve.zero_rate(d)
+
+
+# ---- Zero rate at t=0 ----
+
+class TestZeroRateAtOrigin:
+
+    def test_zero_rate_at_reference_returns_short_rate(self):
+        """zero_rate(ref) should return the short-end rate, not 0."""
+        curve = _make_curve(0.05)
+        zr = curve.zero_rate(REF)
+        assert zr == pytest.approx(0.05, abs=0.002), (
+            f"zero_rate at ref should be ~5%, got {zr:.6f}"
+        )
+
+    def test_zero_rate_continuous_at_origin(self):
+        """zero_rate should be continuous at t=0 (no jump to 0)."""
+        curve = _make_curve(0.05)
+        zr_at = curve.zero_rate(REF)
+        zr_near = curve.zero_rate(REF + relativedelta(days=1))
+        assert abs(zr_at - zr_near) < 0.005, (
+            f"Discontinuity at origin: zr(0)={zr_at:.6f}, zr(1d)={zr_near:.6f}"
+        )
+
+    def test_zero_rate_at_ref_negative_rates(self):
+        """zero_rate at ref should also work for negative rates."""
+        curve = DiscountCurve.flat(REF, -0.005)
+        zr = curve.zero_rate(REF)
+        assert zr < 0
+
+
+# ---- DF validation ----
+
+class TestDFValidation:
+
+    def test_negative_df_rejected(self):
+        """Negative DFs should be rejected by the constructor."""
+        with pytest.raises(ValueError, match="positive"):
+            DiscountCurve(REF, [REF + relativedelta(years=1)], [-0.5])
+
+    def test_zero_df_rejected(self):
+        """Zero DF should be rejected."""
+        with pytest.raises(ValueError, match="positive"):
+            DiscountCurve(REF, [REF + relativedelta(years=1)], [0.0])
+
+    def test_positive_df_accepted(self):
+        """Positive DFs (including > 1 for negative rates) should work."""
+        curve = DiscountCurve(REF, [REF + relativedelta(years=1)], [1.005])
+        assert curve.df(REF + relativedelta(years=1)) == pytest.approx(1.005)

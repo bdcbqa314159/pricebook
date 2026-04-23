@@ -59,7 +59,9 @@ class TestZeroRate:
     """Continuously compounded zero rates."""
 
     def test_zero_rate_at_reference(self, simple_curve):
-        assert simple_curve.zero_rate(date(2024, 1, 15)) == pytest.approx(0.0)
+        # At reference date, zero_rate returns the short-end rate (not 0.0)
+        zr = simple_curve.zero_rate(date(2024, 1, 15))
+        assert zr > 0  # should be ~5%, the curve's short-end rate
 
     def test_zero_rate_positive(self, simple_curve):
         r = simple_curve.zero_rate(date(2024, 7, 15))

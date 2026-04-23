@@ -62,17 +62,25 @@ def _act_365_fixed(start: date, end: date) -> float:
     return (end - start).days / 365.0
 
 
+def _is_last_day_of_feb(d: date) -> bool:
+    """Check if date is the last day of February."""
+    return d.month == 2 and d.day == (29 if _is_leap(d.year) else 28)
+
+
 def _thirty_360(start: date, end: date) -> float:
     """
     30/360 US (Bond Basis): assumes 30-day months and 360-day years.
 
     ISDA 2006 rules:
-    1. If d1 = 31, change to 30
-    2. If d2 = 31 and d1 >= 30 (after adjustment), change d2 to 30
+    1. If d1 is the last day of February, change d1 to 30
+    2. If d1 = 31, change d1 to 30
+    3. If d2 = 31 and d1 >= 30 (after adjustment), change d2 to 30
     """
     d1 = start.day
     d2 = end.day
 
+    if _is_last_day_of_feb(start):
+        d1 = 30
     if d1 == 31:
         d1 = 30
     if d2 == 31 and d1 == 30:

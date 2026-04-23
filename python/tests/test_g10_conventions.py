@@ -91,11 +91,12 @@ class TestThirtyE360:
         assert yf == pytest.approx(0.5)
 
     def test_vs_us_30_360(self):
-        """30E/360 differs from US 30/360 when d2=31 and d1<30."""
-        # US 30/360: d1=28, d2=31 → d2 stays 31 (since d1<30)
-        us = year_fraction(date(2026, 2, 28), date(2026, 5, 31), DayCountConvention.THIRTY_360)
-        # 30E/360: d1=28, d2=30 (unconditionally capped)
-        eu = year_fraction(date(2026, 2, 28), date(2026, 5, 31), DayCountConvention.THIRTY_E_360)
+        """30E/360 differs from US 30/360 — use non-Feb start to isolate d2 rule."""
+        # Mar 15 to May 31: d1=15 for both conventions
+        # US 30/360: d1=15, d2=31, d1<30 → d2 stays 31. days = 30*2 + (31-15) = 76
+        us = year_fraction(date(2026, 3, 15), date(2026, 5, 31), DayCountConvention.THIRTY_360)
+        # 30E/360: d1=15, d2=30. days = 30*2 + (30-15) = 75
+        eu = year_fraction(date(2026, 3, 15), date(2026, 5, 31), DayCountConvention.THIRTY_E_360)
         # They should differ by 1 day / 360
         assert abs(us - eu) == pytest.approx(1 / 360, abs=1e-10)
 

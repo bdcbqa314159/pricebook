@@ -83,6 +83,16 @@ def multicurve_newton(
         proj = DiscountCurve(reference_date, projection_pillar_dates, proj_dfs, day_count)
         return ois, proj
 
+    def _compute_annuity(curve, pillar_dates_subset, dc):
+        """Correct annuity: sum of yf(d_{i-1}, d_i) * df(d_i)."""
+        ann = 0.0
+        prev = reference_date
+        for d in pillar_dates_subset:
+            yf = year_fraction(prev, d, dc)
+            ann += yf * curve.df(d)
+            prev = d
+        return ann
+
     def _reprice_errors(x_vec):
         """Compute repricing error for each instrument."""
         ois, proj = _build_curves(x_vec)
@@ -91,25 +101,29 @@ def multicurve_newton(
         for i, inst in enumerate(ois_instruments):
             if i >= n_ois:
                 break
-            t = year_fraction(reference_date, inst['maturity'], day_count)
             if inst['type'] == 'deposit':
+                t = year_fraction(reference_date, inst['maturity'], day_count)
                 model_rate = (1.0 / ois.df(inst['maturity']) - 1.0) / t
             else:
-                # Swap: simplified par rate = (1 - df(T)) / annuity
+                # OIS swap: par = (1 - df(T)) / annuity with correct annuity
                 df_T = ois.df(inst['maturity'])
-                annuity = sum(ois.df(d) * year_fraction(reference_date, d, day_count)
-                              for d in ois_pillar_dates if d <= inst['maturity'])
+                dates_up_to = [d for d in ois_pillar_dates if d <= inst['maturity']]
+                annuity = _compute_annuity(ois, dates_up_to, day_count)
                 model_rate = (1 - df_T) / max(annuity, 1e-10) if annuity > 0 else 0
             errors[i] = model_rate - inst['rate']
 
         for i, inst in enumerate(projection_instruments):
             if i >= n_proj:
                 break
-            t = year_fraction(reference_date, inst['maturity'], day_count)
+            # Projection swap: forwards from proj curve, discounted on OIS
+            # par = PV_float / annuity_ois
             df_T = proj.df(inst['maturity'])
-            annuity = sum(ois.df(d) * year_fraction(reference_date, d, day_count)
-                          for d in projection_pillar_dates if d <= inst['maturity'])
-            model_rate = (1 - df_T) / max(annuity, 1e-10) if annuity > 0 else 0
+            dates_up_to = [d for d in projection_pillar_dates if d <= inst['maturity']]
+            # PV_float from projection curve telescoping: 1 - proj_df(T)
+            pv_float = 1.0 - df_T
+            # Annuity on OIS curve
+            annuity = _compute_annuity(ois, dates_up_to, day_count)
+            model_rate = pv_float / max(annuity, 1e-10) if annuity > 0 else 0
             errors[n_ois + i] = model_rate - inst['rate']
 
         return errors
