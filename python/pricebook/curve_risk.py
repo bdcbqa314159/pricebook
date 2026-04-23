@@ -12,7 +12,7 @@ from datetime import date
 import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ def curve_jacobian(
 
     # Base zero rates at query points
     base_zeros = np.array([
-        curve.zero_rate(date.fromordinal(ref.toordinal() + int(t * 365)))
+        curve.zero_rate(date_from_year_fraction(ref, t))
         for t in query_tenors
     ])
 
@@ -59,7 +59,7 @@ def curve_jacobian(
         # Bump one pillar's zero rate
         bumped = curve.bumped_at(j, bump_size)
         bumped_zeros = np.array([
-            bumped.zero_rate(date.fromordinal(ref.toordinal() + int(t * 365)))
+            bumped.zero_rate(date_from_year_fraction(ref, t))
             for t in query_tenors
         ])
         J[:, j] = (bumped_zeros - base_zeros) / bump_size
@@ -88,7 +88,7 @@ def input_jacobian(
     ref = base_curve.reference_date
 
     base_zeros = np.array([
-        base_curve.zero_rate(date.fromordinal(ref.toordinal() + int(t * 365)))
+        base_curve.zero_rate(date_from_year_fraction(ref, t))
         for t in query_tenors
     ])
 
@@ -102,7 +102,7 @@ def input_jacobian(
         bumped_curve = build_func(bumped_quotes)
 
         bumped_zeros = np.array([
-            bumped_curve.zero_rate(date.fromordinal(ref.toordinal() + int(t * 365)))
+            bumped_curve.zero_rate(date_from_year_fraction(ref, t))
             for t in query_tenors
         ])
         J[:, j] = (bumped_zeros - base_zeros) / bump_size
@@ -139,13 +139,13 @@ def curve_rolldown(
     rolled_zeros = []
 
     for t in tenors:
-        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        d = date_from_year_fraction(ref, t)
         current_zeros.append(curve.zero_rate(d))
 
         # After horizon, the tenor t becomes t - horizon
         t_rolled = t - horizon
         if t_rolled > 0:
-            d_rolled = date.fromordinal(ref.toordinal() + int(t_rolled * 365))
+            d_rolled = date_from_year_fraction(ref, t_rolled)
             rolled_zeros.append(curve.zero_rate(d_rolled))
         else:
             rolled_zeros.append(current_zeros[-1])
@@ -172,7 +172,7 @@ def rolldown_pnl(
     the shorter maturity on the same curve.
     """
     ref = curve.reference_date
-    d_mat = date.fromordinal(ref.toordinal() + int(maturity_years * 365))
+    d_mat = date_from_year_fraction(ref, maturity_years)
     df_current = curve.df(d_mat)
 
     horizon = horizon_days / 365.0
@@ -180,7 +180,7 @@ def rolldown_pnl(
     if t_rolled <= 0:
         return notional * (1.0 - df_current)
 
-    d_rolled = date.fromordinal(ref.toordinal() + int(t_rolled * 365))
+    d_rolled = date_from_year_fraction(ref, t_rolled)
     df_rolled = curve.df(d_rolled)
 
     return notional * (df_rolled - df_current)

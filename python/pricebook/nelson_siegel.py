@@ -16,7 +16,7 @@ from datetime import date
 import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.optimization import minimize
 
 
@@ -65,7 +65,7 @@ def ns_discount_curve(
     """Build a DiscountCurve from Nelson-Siegel parameters."""
     if tenors is None:
         tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
-    dates = [date.fromordinal(reference_date.toordinal() + int(t * 365)) for t in tenors]
+    dates = [date_from_year_fraction(reference_date, t) for t in tenors]
     dfs = [math.exp(-nelson_siegel_yield(t, beta0, beta1, beta2, tau) * t) for t in tenors]
     return DiscountCurve(reference_date, dates, dfs)
 
@@ -83,7 +83,7 @@ def svensson_discount_curve(
     """Build a DiscountCurve from Svensson parameters."""
     if tenors is None:
         tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
-    dates = [date.fromordinal(reference_date.toordinal() + int(t * 365)) for t in tenors]
+    dates = [date_from_year_fraction(reference_date, t) for t in tenors]
     dfs = [math.exp(-svensson_yield(t, beta0, beta1, beta2, tau1, beta3, tau2) * t) for t in tenors]
     return DiscountCurve(reference_date, dates, dfs)
 

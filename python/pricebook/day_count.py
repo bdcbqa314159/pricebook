@@ -151,3 +151,17 @@ def _act_act_icma(
         return (end - start).days / 365.0  # fallback
 
     return (end - start).days / (period_days * frequency)
+
+
+def date_from_year_fraction(reference_date: date, t: float) -> date:
+    """Convert a year fraction to a date, avoiding int(t*365) drift.
+
+    Uses timedelta with round() instead of int() to minimise rounding error.
+    For t <= 0 returns the reference_date.
+
+        d = date_from_year_fraction(ref, 5.0)  # 5 years from ref
+    """
+    if t <= 0:
+        return reference_date
+    from datetime import timedelta
+    return reference_date + timedelta(days=round(t * 365.25))

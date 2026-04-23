@@ -5,7 +5,7 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.interpolation import (
     InterpolationMethod,
     create_interpolator,
@@ -80,7 +80,7 @@ class DiscountCurve:
         """Build a flat discount curve at a constant continuously compounded rate."""
         if tenors is None:
             tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20]
-        dates = [date.fromordinal(reference_date.toordinal() + int(t * 365)) for t in tenors]
+        dates = [date_from_year_fraction(reference_date, t) for t in tenors]
         dfs = [math.exp(-rate * t) for t in tenors]
         return cls(reference_date, dates, dfs)
 
@@ -129,8 +129,8 @@ class DiscountCurve:
         """Instantaneous forward rate: f(t) = -d/dT ln P(T) via finite difference."""
         dt = 1.0 / 365.0
         ref = self.reference_date
-        d1 = date.fromordinal(ref.toordinal() + int(t * 365))
-        d2 = date.fromordinal(ref.toordinal() + int(t * 365) + 1)
+        d1 = date_from_year_fraction(ref, t)
+        d2 = date.fromordinal(d1.toordinal() + 1)
         df1 = self.df(d1)
         df2 = self.df(d2)
         if df1 <= 0 or df2 <= 0:

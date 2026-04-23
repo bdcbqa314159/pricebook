@@ -17,7 +17,7 @@ from datetime import date
 from typing import Any
 
 from pricebook.black76 import OptionType, black76_price
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.sabr import sabr_calibrate, sabr_implied_vol, shifted_sabr_implied_vol
@@ -95,9 +95,8 @@ class VolCube:
         new_vols = (self.atm._vols + shift).tolist()
         new_atm = SwaptionVolSurface(
             self.atm.reference_date,
-            [date.fromordinal(
-                self.atm.reference_date.toordinal() + int(t * 365)
-            ) for t in self.atm._expiry_times],
+            [date_from_year_fraction(self.atm.reference_date, t)
+             for t in self.atm._expiry_times],
             self.atm._tenors.tolist(),
             new_vols,
         )
@@ -110,9 +109,8 @@ class VolCube:
         new_vols[expiry_idx, :] += shift
         new_atm = SwaptionVolSurface(
             self.atm.reference_date,
-            [date.fromordinal(
-                self.atm.reference_date.toordinal() + int(t * 365)
-            ) for t in self.atm._expiry_times],
+            [date_from_year_fraction(self.atm.reference_date, t)
+             for t in self.atm._expiry_times],
             self.atm._tenors.tolist(),
             new_vols.tolist(),
         )
@@ -163,7 +161,7 @@ def _swaption_greeks(
         raw = vol_surface.atm if hasattr(vol_surface, 'atm') else vol_surface
         new_vols = (raw._vols + vol_shift).tolist()
         expiry_dates = [
-            date.fromordinal(raw.reference_date.toordinal() + int(t * 365))
+            date_from_year_fraction(raw.reference_date, t)
             for t in raw._expiry_times
         ]
         bumped_vol = SwaptionVolSurface(

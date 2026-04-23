@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
+from pricebook.day_count import date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 
 
@@ -298,7 +299,7 @@ def build_curve_from_yields(
         y = yields[tenor]
         d = date(reference_date.year + int(tenor), reference_date.month, reference_date.day)
         if tenor != int(tenor):
-            d = date.fromordinal(reference_date.toordinal() + int(tenor * 365))
+            d = date_from_year_fraction(reference_date, tenor)
         pillar_dates.append(d)
         dfs.append(math.exp(-y * tenor))
 

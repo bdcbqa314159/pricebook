@@ -12,6 +12,7 @@ from typing import Any
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.pricing_context import PricingContext
+from pricebook.day_count import date_from_year_fraction
 from pricebook.vol_surface import FlatVol
 
 
@@ -135,7 +136,7 @@ def tenor_to_years(tenor: str) -> float:
 def tenor_to_date(ref: date, tenor: str) -> date:
     """Convert a tenor to a target date from reference."""
     years = tenor_to_years(tenor)
-    return date.fromordinal(ref.toordinal() + int(years * 365))
+    return date_from_year_fraction(ref, years)
 
 
 # ---------------------------------------------------------------------------

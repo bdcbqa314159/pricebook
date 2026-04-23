@@ -72,12 +72,8 @@ def survival_curve_to_dict(curve) -> dict[str, Any]:
     """Serialize a SurvivalCurve to a dict."""
     pillar_times = [float(t) for t in curve._times if t > 0]
     pillar_survs = [float(s) for t, s in zip(curve._times, curve._survs) if t > 0]
-    # Reconstruct dates from times
     ref = curve.reference_date
-    pillar_dates = [
-        date.fromordinal(ref.toordinal() + int(t * 365))
-        for t in curve._times if t > 0
-    ]
+    pillar_dates = list(curve._pillar_dates)
     return {
         "type": "SurvivalCurve",
         "params": {

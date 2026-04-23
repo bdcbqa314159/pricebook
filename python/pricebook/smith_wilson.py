@@ -18,6 +18,7 @@ from datetime import date
 
 import numpy as np
 
+from pricebook.day_count import date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 
 
@@ -130,5 +131,5 @@ def smith_wilson_curve(
     all_tenors = sorted(set(maturities + extrapolation_tenors))
     all_dfs = [smith_wilson_df(t, maturities, zeta, ufr, alpha) for t in all_tenors]
 
-    dates = [date.fromordinal(reference_date.toordinal() + int(t * 365)) for t in all_tenors]
+    dates = [date_from_year_fraction(reference_date, t) for t in all_tenors]
     return DiscountCurve(reference_date, dates, all_dfs)

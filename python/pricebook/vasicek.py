@@ -26,7 +26,7 @@ from datetime import date
 import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.special_process import OUProcess
 from pricebook.brownian import CorrelatedBM
 
@@ -166,7 +166,7 @@ class G2PlusPlus:
     def zcb_price(self, x: float, y: float, T: float) -> float:
         """Analytical ZCB: P(x, y, T) = P_market(T) * exp(-Bx*x - By*y + 0.5*V(T))."""
         ref = self.curve.reference_date
-        d_T = date.fromordinal(ref.toordinal() + int(T * 365))
+        d_T = date_from_year_fraction(ref, T)
         P_mkt = self.curve.df(d_T)
 
         Bx = (1 - math.exp(-self.a * T)) / self.a if self.a > 0 else T
@@ -220,7 +220,7 @@ class G2PlusPlus:
         integral_xy = (x[:, :-1] + y[:, :-1]).sum(axis=1) * dt
 
         ref = self.curve.reference_date
-        d_T = date.fromordinal(ref.toordinal() + int(T * 365))
+        d_T = date_from_year_fraction(ref, T)
         log_P = math.log(self.curve.df(d_T))
         V = self._V(T)
 

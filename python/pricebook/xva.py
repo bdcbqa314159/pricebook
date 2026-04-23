@@ -10,6 +10,7 @@ import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
+from pricebook.day_count import date_from_year_fraction
 from pricebook.pricing_context import PricingContext
 
 
@@ -19,7 +20,7 @@ from pricebook.pricing_context import PricingContext
 
 
 def _time_to_date(ref: date, t: float) -> date:
-    return date.fromordinal(ref.toordinal() + int(t * 365))
+    return date_from_year_fraction(ref, t)
 
 
 def _time_grid_dts(time_grid: list[float]) -> list[float]:

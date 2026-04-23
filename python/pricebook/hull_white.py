@@ -26,6 +26,7 @@ from datetime import date
 
 import numpy as np
 
+from pricebook.day_count import date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 
 
@@ -61,8 +62,8 @@ class HullWhite:
     def _log_A(self, t: float, T: float) -> float:
         """log A(t, T) for the analytical bond price."""
         ref = self.curve.reference_date
-        d_t = date.fromordinal(ref.toordinal() + int(t * 365))
-        d_T = date.fromordinal(ref.toordinal() + int(T * 365))
+        d_t = date_from_year_fraction(ref, t)
+        d_T = date_from_year_fraction(ref, T)
 
         df_t = self.curve.df(d_t)
         df_T = self.curve.df(d_T)
@@ -105,7 +106,7 @@ class HullWhite:
 
         for step in range(n_steps):
             t_next = (step + 1) * dt
-            d_next = date.fromordinal(ref.toordinal() + int(t_next * 365))
+            d_next = date_from_year_fraction(ref, t_next)
             target_df = self.curve.df(d_next)
 
             sum_q = 0.0

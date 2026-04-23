@@ -22,7 +22,7 @@ import numpy as np
 from dateutil.relativedelta import relativedelta
 from scipy.stats import norm
 
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 
@@ -55,7 +55,7 @@ def simulate_defaults_copula(
 
     # Default thresholds from survival probabilities
     ref = survival_curves[0].reference_date
-    T_date = date.fromordinal(ref.toordinal() + int(T * 365))
+    T_date = date_from_year_fraction(ref, T)
 
     thresholds = np.array([
         norm.ppf(1 - sc.survival(T_date)) for sc in survival_curves
@@ -110,7 +110,7 @@ def ntd_spread(
     ntd_triggered = n_defaults >= n
 
     ref = survival_curves[0].reference_date
-    T_date = date.fromordinal(ref.toordinal() + int(T * 365))
+    T_date = date_from_year_fraction(ref, T)
     df_T = discount_curve.df(T_date)
 
     protection = (1 - recovery) * df_T * ntd_triggered.mean()
@@ -190,7 +190,7 @@ class LeveragedCLN:
             pv -= loss * df
 
         # Principal return
-        d_T = date.fromordinal(ref.toordinal() + int(self.T * 365))
+        d_T = date_from_year_fraction(ref, self.T)
         pv += self.notional * discount_curve.df(d_T) * survival_curve.survival(d_T)
 
         return pv

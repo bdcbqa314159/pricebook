@@ -24,6 +24,7 @@ from datetime import date
 import numpy as np
 
 from pricebook.hull_white import HullWhite
+from pricebook.day_count import date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.solvers import brentq
 
@@ -42,11 +43,11 @@ def _straight_bond_hw(
     n_coupons = max(1, int(maturity_years))
     for i in range(1, n_coupons + 1):
         t = min(i, maturity_years)
-        d = date.fromordinal(ref.toordinal() + int(t * 365))
+        d = date_from_year_fraction(ref, t)
         df = hw.curve.df(d)
         pv += notional * coupon_rate * df
 
-    d_mat = date.fromordinal(ref.toordinal() + int(maturity_years * 365))
+    d_mat = date_from_year_fraction(ref, maturity_years)
     pv += notional * hw.curve.df(d_mat)
     return pv
 
