@@ -77,13 +77,21 @@ class DiscountCurve:
         return list(self._pillar_dates_original)
 
     @classmethod
-    def flat(cls, reference_date: date, rate: float, tenors: list[float] | None = None) -> "DiscountCurve":
+    def flat(
+        cls,
+        reference_date: date,
+        rate: float,
+        tenors: list[float] | None = None,
+        day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+    ) -> "DiscountCurve":
         """Build a flat discount curve at a constant continuously compounded rate."""
         if tenors is None:
             tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20]
         dates = [date_from_year_fraction(reference_date, t) for t in tenors]
-        dfs = [math.exp(-rate * t) for t in tenors]
-        return cls(reference_date, dates, dfs)
+        # Use actual year fractions (after date rounding) so the curve is truly flat
+        actual_times = [year_fraction(reference_date, d, day_count) for d in dates]
+        dfs = [math.exp(-rate * t) for t in actual_times]
+        return cls(reference_date, dates, dfs, day_count=day_count)
 
     def bumped(self, shift: float) -> "DiscountCurve":
         """New curve with all zero rates shifted by `shift` (e.g. 0.0001 = +1bp)."""
