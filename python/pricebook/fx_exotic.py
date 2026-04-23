@@ -130,36 +130,18 @@ def fx_double_no_touch(
 ) -> TouchResult:
     """Double no-touch: pays if spot stays in [barrier_low, barrier_high].
 
-    Hui (1996) series solution:
-        DNT = Σ (sin(kπlog(S/L)/log(U/L)) / k) × exp(...) × payout
+    Priced via Monte Carlo simulation. The Hui (1996) analytical series
+    was previously implemented but had numerical issues — MC is more
+    robust for production use.
 
-    For simplicity we use a series truncation.
+    Args:
+        n_terms: unused (kept for backward compat). MC uses 20,000 paths.
     """
     if spot <= barrier_low or spot >= barrier_high:
         return TouchResult(0.0, False, True, barrier_low, barrier_high)
 
-    L = math.log(spot / barrier_low)
-    U = math.log(barrier_high / barrier_low)
-    if U <= 0:
-        return TouchResult(0.0, False, True, barrier_low, barrier_high)
-
-    alpha = -0.5 * (2 * (rate_dom - rate_for) / vol**2 - 1)
-    beta = -0.25 * (2 * (rate_dom - rate_for) / vol**2 - 1)**2 - 2 * rate_dom / vol**2
-
-    total = 0.0
-    for k in range(1, n_terms + 1):
-        term = 2 * k * math.pi / (U**2) * (1 - (-1)**k * math.exp(alpha * (math.log(barrier_high/spot) - math.log(spot/barrier_low))))
-        term *= math.sin(k * math.pi * L / U)
-        term *= math.exp(0.5 * (beta - (k * math.pi / U)**2) * vol**2 * T)
-        if k * k > 1e4:
-            break
-        total += term / (k * math.pi / U)**2 * (k * math.pi / U)
-
-    # Fallback: MC if series unstable
-    if total <= 0 or total > 1:
-        total = _dnt_mc(spot, barrier_low, barrier_high, rate_dom, rate_for, vol, T)
-
-    price = payout * math.exp(-rate_dom * T) * total
+    surv_prob = _dnt_mc(spot, barrier_low, barrier_high, rate_dom, rate_for, vol, T)
+    price = payout * math.exp(-rate_dom * T) * surv_prob
     return TouchResult(float(max(price, 0.0)), False, True, barrier_low, barrier_high)
 
 
