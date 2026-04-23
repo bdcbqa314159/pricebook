@@ -497,3 +497,88 @@ class TestDFValidation:
         """Positive DFs (including > 1 for negative rates) should work."""
         curve = DiscountCurve(REF, [REF + relativedelta(years=1)], [1.005])
         assert curve.df(REF + relativedelta(years=1)) == pytest.approx(1.005)
+
+    def test_unsorted_dates_rejected(self):
+        """Unsorted pillar dates should be rejected."""
+        with pytest.raises(ValueError, match="increasing"):
+            DiscountCurve(
+                REF,
+                [REF + relativedelta(years=5), REF + relativedelta(years=1)],
+                [0.8, 0.95],
+            )
+
+    def test_date_before_reference_rejected(self):
+        """Pillar date at or before reference should be rejected."""
+        with pytest.raises(ValueError, match="after reference"):
+            DiscountCurve(REF, [REF], [0.95])
+
+
+# ---- Forward rate numerics ----
+
+class TestForwardRateNumerics:
+
+    def test_overnight_forward_stable(self):
+        """Forward rate for a 1-day period should not lose precision."""
+        curve = _make_curve(0.05)
+        d1 = REF + relativedelta(years=1)
+        d2 = d1 + relativedelta(days=1)
+        fwd = curve.forward_rate(d1, d2)
+        # Should be close to 5% (flat curve)
+        assert fwd == pytest.approx(0.05, abs=0.002)
+
+    def test_forward_rate_formula_equivalence(self):
+        """(df1 - df2) / (tau * df2) should equal (df1/df2 - 1) / tau."""
+        curve = _make_curve(0.05)
+        d1 = REF + relativedelta(months=3)
+        d2 = REF + relativedelta(months=6)
+        df1 = curve.df(d1)
+        df2 = curve.df(d2)
+        tau = year_fraction(d1, d2, DayCountConvention.ACT_365_FIXED)
+        stable = (df1 - df2) / (tau * df2)
+        naive = (df1 / df2 - 1.0) / tau
+        assert stable == pytest.approx(naive, rel=1e-12)
+
+    def test_instantaneous_forward_accepts_date(self):
+        """instantaneous_forward should accept both float and date."""
+        curve = _make_curve(0.05)
+        d = REF + relativedelta(years=2)
+        f_from_date = curve.instantaneous_forward(d)
+        f_from_float = curve.instantaneous_forward(2.0)
+        assert f_from_date == pytest.approx(0.05, abs=0.002)
+        assert f_from_float == pytest.approx(0.05, abs=0.002)
+
+
+# ---- 30/360 Feb-to-Feb ----
+
+class TestThirty360FebToFeb:
+
+    def test_feb28_to_feb28_into_leap(self):
+        """30/360: Feb 28 (non-leap, last) to Feb 28 (leap, NOT last).
+
+        d1=30 (last of Feb), d2=28 (not last of Feb in 2024).
+        days = 360 + (28-30) = 358.
+        """
+        yf = year_fraction(
+            date(2023, 2, 28), date(2024, 2, 28),
+            DayCountConvention.THIRTY_360,
+        )
+        assert yf == pytest.approx(358 / 360.0)
+
+    def test_feb28_to_feb28_both_non_leap(self):
+        """30/360: Feb 28 to Feb 28 — both non-leap (both last of Feb) → 1Y."""
+        yf = year_fraction(
+            date(2025, 2, 28), date(2026, 2, 28),
+            DayCountConvention.THIRTY_360,
+        )
+        # d1=30 (last of Feb 2025), d2=30 (last of Feb 2026 AND d1 was last)
+        assert yf == pytest.approx(1.0)
+
+    def test_feb28_to_feb29_leap(self):
+        """30/360: Feb 28 (non-leap last) to Feb 29 (leap last) — both last-of-Feb."""
+        yf = year_fraction(
+            date(2023, 2, 28), date(2024, 2, 29),
+            DayCountConvention.THIRTY_360,
+        )
+        # d1=30 (last of Feb), d2=30 (last of Feb AND d1 was last of Feb)
+        # days = 360 + 30*(2-2) + (30-30) = 360
+        assert yf == pytest.approx(1.0)

@@ -83,6 +83,8 @@ def _thirty_360(start: date, end: date) -> float:
         d1 = 30
     if d1 == 31:
         d1 = 30
+    if _is_last_day_of_feb(end) and _is_last_day_of_feb(start):
+        d2 = 30
     if d2 == 31 and d1 == 30:
         d2 = 30
 

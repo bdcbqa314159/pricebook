@@ -34,7 +34,7 @@ class FloatingCashflow:
         """
         df1 = projection_curve.df(self.observation_start)
         df2 = projection_curve.df(self.observation_end)
-        return (df1 / df2 - 1.0) / self.year_frac
+        return (df1 - df2) / (self.year_frac * df2)
 
     def amount(self, projection_curve: DiscountCurve) -> float:
         """Projected cashflow: notional * (forward_rate + spread) * year_frac."""

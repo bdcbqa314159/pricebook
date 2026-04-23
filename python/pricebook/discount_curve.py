@@ -41,6 +41,11 @@ class DiscountCurve:
             raise ValueError("need at least 1 pillar point")
         if any(df <= 0 for df in dfs):
             raise ValueError("all discount factors must be positive")
+        for i in range(len(dates)):
+            if dates[i] <= reference_date:
+                raise ValueError(f"pillar date {dates[i]} must be after reference date {reference_date}")
+            if i > 0 and dates[i] <= dates[i - 1]:
+                raise ValueError(f"pillar dates must be strictly increasing: {dates[i]} <= {dates[i-1]}")
 
         self.reference_date = reference_date
         self.day_count = day_count
@@ -145,10 +150,16 @@ class DiscountCurve:
             return 0.0
         return -math.log(self.df(d)) / t
 
-    def instantaneous_forward(self, t: float) -> float:
-        """Instantaneous forward rate: f(t) = -d/dT ln P(T) via finite difference."""
-        ref = self.reference_date
-        d1 = date_from_year_fraction(ref, t)
+    def instantaneous_forward(self, t_or_date) -> float:
+        """Instantaneous forward rate: f(t) = -d/dt ln P(t) via finite difference.
+
+        Args:
+            t_or_date: either a year fraction (float) or a date.
+        """
+        if isinstance(t_or_date, date):
+            d1 = t_or_date
+        else:
+            d1 = date_from_year_fraction(self.reference_date, t_or_date)
         d2 = date.fromordinal(d1.toordinal() + 1)
         df1 = self.df(d1)
         df2 = self.df(d2)
@@ -163,13 +174,15 @@ class DiscountCurve:
         """
         Simply compounded forward rate between d1 and d2.
 
-        F(t1, t2) = (df(t1) / df(t2) - 1) / tau
+        F(t1, t2) = (df(t1) - df(t2)) / (tau * df(t2))
 
-        where tau is the year fraction between d1 and d2.
+        Numerically stable form: subtracts DFs directly rather than
+        dividing near-equal values and subtracting 1. Critical for
+        overnight and short-period forwards.
         """
         if d1 >= d2:
             raise ValueError(f"d1 ({d1}) must be before d2 ({d2})")
         df1 = self.df(d1)
         df2 = self.df(d2)
         tau = year_fraction(d1, d2, self.day_count)
-        return (df1 / df2 - 1.0) / tau
+        return (df1 - df2) / (tau * df2)

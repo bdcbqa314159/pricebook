@@ -82,10 +82,11 @@ def bootstrap(
         for start_date, end_date, fra_rate in fras:
             tau = year_fraction(start_date, end_date, deposit_day_count)
             # Interpolate df(start) from existing pillars
+            # Use ACT_365_FIXED to match the final curve's internal time axis
             if pillar_dates:
                 temp_curve = DiscountCurve(
                     reference_date, pillar_dates, pillar_dfs,
-                    day_count=deposit_day_count, interpolation=interpolation,
+                    day_count=DayCountConvention.ACT_365_FIXED, interpolation=interpolation,
                 )
                 df_start = temp_curve.df(start_date)
             else:
@@ -119,10 +120,11 @@ def bootstrap(
                 fwd_rate += turn_of_year_spread
 
             # Chain: df(end) = df(start) / (1 + fwd × τ)
+            # Use ACT_365_FIXED to match the final curve's internal time axis
             if pillar_dates:
                 temp_curve = DiscountCurve(
                     reference_date, pillar_dates, pillar_dfs,
-                    day_count=deposit_day_count, interpolation=interpolation,
+                    day_count=DayCountConvention.ACT_365_FIXED, interpolation=interpolation,
                 )
                 df_start = temp_curve.df(start_date)
             else:
@@ -168,7 +170,7 @@ def bootstrap(
                 df1 = trial_curve.df(d1)
                 df2 = trial_curve.df(d2)
                 yf = year_fraction(d1, d2, float_day_count)
-                fwd = (df1 / df2 - 1.0) / yf
+                fwd = (df1 - df2) / (yf * df2)
                 pv_float += fwd * yf * df2
 
             return pv_fixed - pv_float
@@ -238,7 +240,7 @@ def _verify_round_trip(
             df1 = curve.df(d1)
             df2 = curve.df(d2)
             yf = year_fraction(d1, d2, float_day_count)
-            fwd = (df1 / df2 - 1.0) / yf
+            fwd = (df1 - df2) / (yf * df2)
             pv_float += fwd * yf * df2
         err = abs(pv_fixed - pv_float)
         if err > tol:
@@ -249,7 +251,8 @@ def _verify_round_trip(
         for start, end, fra_rate in fras:
             tau = year_fraction(start, end, deposit_day_count)
             if tau > 0:
-                model_fwd = (curve.df(start) / curve.df(end) - 1.0) / tau
+                df_s, df_e = curve.df(start), curve.df(end)
+                model_fwd = (df_s - df_e) / (tau * df_e)
                 err = abs(model_fwd - fra_rate)
                 if err > tol:
                     errors.append(f"FRA {start}-{end}: input={fra_rate:.6f}, model={model_fwd:.6f}, err={err:.2e}")
@@ -273,7 +276,8 @@ def _verify_round_trip(
                 expected_fwd = fut_rate - conv_adj
                 if turn_of_year_spread > 0 and start_date.year != end_date.year:
                     expected_fwd += turn_of_year_spread
-                model_fwd = (curve.df(start_date) / curve.df(end_date) - 1.0) / tau
+                df_s, df_e = curve.df(start_date), curve.df(end_date)
+                model_fwd = (df_s - df_e) / (tau * df_e)
                 err = abs(model_fwd - expected_fwd)
                 if err > tol:
                     errors.append(f"Future {start_date}-{end_date}: expected_fwd={expected_fwd:.6f}, model={model_fwd:.6f}, err={err:.2e}")
@@ -382,7 +386,7 @@ def bootstrap_forward_curve(
                 fdf1 = fwd_curve.df(d1)
                 fdf2 = fwd_curve.df(d2)
                 yf = year_fraction(d1, d2, float_day_count)
-                fwd = (fdf1 / fdf2 - 1.0) / yf
+                fwd = (fdf1 - fdf2) / (yf * fdf2)
                 pv_float += fwd * yf * discount_curve.df(d2)
 
             return pv_fixed - pv_float
