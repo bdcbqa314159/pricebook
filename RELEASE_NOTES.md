@@ -2,6 +2,21 @@
 
 ---
 
+## v0.328.0 — 2026-04-23
+
+PC3+PC4: **PENDING CLEANUP COMPLETE.** 5507 tests.
+
+`day_count.py`:
+- Added `date_from_year_fraction(ref, t)` — uses `round(t*365.25)` instead of `int(t*365)`
+
+13 files: Replaced all `date.fromordinal(ref.toordinal() + int(t*365))` with
+`date_from_year_fraction(ref, t)`. Eliminates ±1 day drift on 10Y+ tenors.
+
+`fx_exotic.py`:
+- DNT: removed garbled Hui analytical series, MC is now primary pricing method
+
+---
+
 ## v0.327.0 — 2026-04-23
 
 PC1+PC2: Pending cleanup — z-score consolidation + Lewis formula fix. 5507 tests.
