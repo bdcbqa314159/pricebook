@@ -2,6 +2,77 @@
 
 ---
 
+## v0.340.0 — 2026-04-23
+
+**DD2 IR Vanilla — 5 rounds complete.** 5576 tests (15 new deep IR tests).
+
+### DD2-R1: Core IR fixes
+- `fra.py`: forward rate uses stable `(df1-df2)/(tau*df2)`
+- `capfloor.py`: stable forward rate + **dual-curve support** (`projection_curve` parameter)
+- `cms.py`: convexity adjustment now divides by annuity (was missing `/annuity`)
+- `bermudan_swaption.py`: **rewritten** — tree has proper trinomial transition probabilities (was discounting own value with no branching), LSM uses path-dependent discounting (was constant r0), mean-reversion toward forward rate (was reverting to r(0)), fractional payment dates via `swap_freq` (was integer-only)
+- `floating_leg.py`: RFR compounding Friday fixing now uses 3-day accrual to Monday (was 1 day)
+- `swap.py`: `par_rate()` guards against zero annuity
+
+### DD2-R2: Black-76 time & dual-curve
+- `capfloor.py`: `t_fix` uses ACT/365F for Black-76 time (was ACT/360, ~1.4% error in sqrt(T))
+- `capfloor.py`: `caplet_pvs` discounts on discount curve, not projection curve
+- `amortising_swap.py`: float leg forward rate uses `float_day_count` (was curve internal ACT_365F), `par_rate` accepts projection curve
+
+### DD2-R3: Day count consistency sweep
+- `ir_futures.py`: `implied_forward` uses futures ACT/360 day count (was curve day count)
+- `frn.py`: accrued interest uses `FloatingCashflow.forward_rate` (was `curve.forward_rate`)
+- `loan.py`: forward rate uses loan's day count directly
+- `cms.py`: range accrual forward uses ACT/360 day count
+
+### DD2-R4: Final fixes + deep tests
+- `global_solver.py`, `repo_term.py`: stable forward rate `(df1-df2)/(tau*df2)`
+- 15 deep tests: swaption payer-receiver parity, zero-vol intrinsic, Greek signs, cap/floor dual-curve, FRA discounted settlement, FRA day count sensitivity, amortising bullet=vanilla, ZC swap par rate, Bermudan ≥ European bound
+
+### DD2-R5: Final sweep — zero remaining unstable patterns
+
+---
+
+## v0.336.0 — 2026-04-23
+
+**DD1 Curves & Bootstrap — 5 rounds complete.** 5561 tests (47 new deep curve tests).
+
+### DD1-R1: Core curve fixes
+- `discount_curve.py`: `bumped()`/`bumped_at()` preserve interpolation method and day count
+- `bootstrap.py`: round-trip verification uses full fixed/float PV (not simplified `(1-df)/annuity`)
+- `interpolation.py`: MonotoneCubic Hyman filter threshold `1e-30` → `1e-15`
+
+### DD1-R2: Extrapolation & verification
+- `interpolation.py`: **flat-forward extrapolation** for log-linear (was flat DF → zero forward rates beyond curve)
+- `discount_curve.py`: `instantaneous_forward()` uses `self.day_count` (was hardcoded 1/365)
+- `bootstrap.py`: `bootstrap_forward_curve` round-trip verification added
+- `bootstrap.py`: `_verify_round_trip` now checks futures
+- `multicurve_solver.py`: `curve_analytical_jacobian` preserves interpolation on bumped curves
+- 31 deep tests added
+
+### DD1-R3: Flat curve precision
+- `discount_curve.py`: `flat()` uses actual year fractions — truly flat to machine precision (was ~1.4bp drift from 365.25 vs 365)
+
+### DD1-R4: ISDA conformance & validation
+- `day_count.py`: **30/360 US ISDA 2006 Feb end-of-month rule** — d1 last-of-Feb → d1=30 (was missing, caused 2-3 day errors). Also d2 last-of-Feb when d1 is last-of-Feb.
+- `discount_curve.py`: `zero_rate(t=0)` returns short-end rate (was 0.0, discontinuous)
+- `survival_curve.py`: `hazard_rate(t=0)` returns short-end hazard (same fix)
+- `discount_curve.py`: DF positivity validation, pillar date sorting/after-reference validation
+- `multicurve_solver.py`: correct annuity formula (was cumulative yf from ref, now consecutive periods)
+- `survival_curve.py`: `flat()` uses actual year fractions
+- `discount_curve.py`: `pillar_times`/`pillar_dfs` return copies (prevents external mutation)
+
+### DD1-R5: Numerical stability & API
+- `discount_curve.py`: **stable forward rate** `(df1-df2)/(tau*df2)` replaces `(df1/df2-1)/tau` — eliminates catastrophic cancellation for short-period forwards
+- `bootstrap.py`: same fix in 6 places (swap objective, verification, forward curve)
+- `floating_leg.py`: same fix in `FloatingCashflow.forward_rate`
+- `bootstrap.py`: FRA/futures temp curves use ACT_365_FIXED (consistent with final curve)
+- `discount_curve.py`: `instantaneous_forward` accepts both `date` and `float`
+- `discount_curve.py`: pillar dates validated (sorted, after reference)
+- 8 new tests
+
+---
+
 ## v0.329.0 — 2026-04-23
 
 DE1-DE5: Deeper exotics verification. 5514 tests.
