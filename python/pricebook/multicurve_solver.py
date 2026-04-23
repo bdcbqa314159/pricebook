@@ -311,7 +311,7 @@ def curve_analytical_jacobian(
         bumped_dfs[j] = bumped_dfs[j] * math.exp(-h * pillar_t[j])
         bumped_curve = DiscountCurve(
             curve.reference_date, curve.pillar_dates, bumped_dfs[1:],  # skip t=0
-            curve.day_count,
+            curve.day_count, curve._interpolation,
         )
         bumped_zeros = _zeros_at(bumped_curve, output_times_arr)
         J[:, j] = (bumped_zeros - base_zeros) / h

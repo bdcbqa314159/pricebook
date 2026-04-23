@@ -107,7 +107,7 @@ class DiscountCurve:
         )
 
     def _time(self, d: date) -> float:
-        """Year fraction from reference date to d. Negative if d < reference."""
+        """Year fraction from reference date to d. Returns 0.0 if d <= reference."""
         if d <= self.reference_date:
             return 0.0
         return year_fraction(self.reference_date, d, self.day_count)
@@ -128,13 +128,15 @@ class DiscountCurve:
 
     def instantaneous_forward(self, t: float) -> float:
         """Instantaneous forward rate: f(t) = -d/dT ln P(T) via finite difference."""
-        dt = 1.0 / 365.0
         ref = self.reference_date
         d1 = date_from_year_fraction(ref, t)
         d2 = date.fromordinal(d1.toordinal() + 1)
         df1 = self.df(d1)
         df2 = self.df(d2)
         if df1 <= 0 or df2 <= 0:
+            return 0.0
+        dt = year_fraction(d1, d2, self.day_count)
+        if dt <= 0:
             return 0.0
         return -math.log(df2 / df1) / dt
 

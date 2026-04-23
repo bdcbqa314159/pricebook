@@ -254,6 +254,30 @@ def _verify_round_trip(
                 if err > tol:
                     errors.append(f"FRA {start}-{end}: input={fra_rate:.6f}, model={model_fwd:.6f}, err={err:.2e}")
 
+    # Check futures (convexity-adjusted forward rates)
+    if futures:
+        import math as _math
+        for start_date, end_date, fut_rate in futures:
+            tau = year_fraction(start_date, end_date, deposit_day_count)
+            if tau > 0:
+                # Apply same convexity adjustment as in bootstrap
+                conv_adj = 0.0
+                if hw_convexity_a > 0 and hw_convexity_sigma > 0:
+                    t_start = year_fraction(reference_date, start_date, deposit_day_count)
+                    t_end = year_fraction(reference_date, end_date, deposit_day_count)
+                    def _B(s, t):
+                        return (1 - _math.exp(-hw_convexity_a * (t - s))) / hw_convexity_a
+                    conv_adj = 0.5 * hw_convexity_sigma**2 * _B(t_start, t_end) * (
+                        _B(0, t_end) - _B(0, t_start)
+                    )
+                expected_fwd = fut_rate - conv_adj
+                if turn_of_year_spread > 0 and start_date.year != end_date.year:
+                    expected_fwd += turn_of_year_spread
+                model_fwd = (curve.df(start_date) / curve.df(end_date) - 1.0) / tau
+                err = abs(model_fwd - expected_fwd)
+                if err > tol:
+                    errors.append(f"Future {start_date}-{end_date}: expected_fwd={expected_fwd:.6f}, model={model_fwd:.6f}, err={err:.2e}")
+
     if errors:
         msg = "Bootstrap round-trip failures:\n" + "\n".join(errors)
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
@@ -367,8 +391,68 @@ def bootstrap_forward_curve(
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
 
-    return DiscountCurve(
+    fwd_curve = DiscountCurve(
         reference_date, pillar_dates, pillar_dfs,
         day_count=DayCountConvention.ACT_365_FIXED,
         interpolation=interpolation,
     )
+
+    # Round-trip verification: each swap should reprice at par
+    _verify_forward_curve_round_trip(
+        fwd_curve, discount_curve, reference_date, swaps, deposits,
+        fixed_day_count, float_day_count, deposit_day_count,
+        fixed_frequency, float_frequency, calendar, convention,
+    )
+
+    return fwd_curve
+
+
+def _verify_forward_curve_round_trip(
+    fwd_curve, discount_curve, reference_date, swaps, deposits,
+    fixed_day_count, float_day_count, deposit_day_count,
+    fixed_frequency, float_frequency, calendar, convention,
+    tol=1e-6,
+):
+    """Verify forward curve reprices all input instruments."""
+    import warnings
+    errors = []
+
+    # Check deposits
+    if deposits:
+        for mat, rate in deposits:
+            tau = year_fraction(reference_date, mat, deposit_day_count)
+            if tau > 0:
+                model_rate = (1.0 / fwd_curve.df(mat) - 1.0) / tau
+                err = abs(model_rate - rate)
+                if err > tol:
+                    errors.append(f"Fwd deposit {mat}: input={rate:.6f}, model={model_rate:.6f}, err={err:.2e}")
+
+    # Check swaps: PV_fixed (on OIS) == PV_float (fwd rates on fwd curve, discounted on OIS)
+    for mat, par_rate in swaps:
+        fixed_sched = generate_schedule(
+            reference_date, mat, fixed_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        float_sched = generate_schedule(
+            reference_date, mat, float_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        pv_fixed = 0.0
+        for i in range(1, len(fixed_sched)):
+            yf = year_fraction(fixed_sched[i-1], fixed_sched[i], fixed_day_count)
+            pv_fixed += par_rate * yf * discount_curve.df(fixed_sched[i])
+        pv_float = 0.0
+        for i in range(1, len(float_sched)):
+            d1, d2 = float_sched[i - 1], float_sched[i]
+            fdf1 = fwd_curve.df(d1)
+            fdf2 = fwd_curve.df(d2)
+            yf = year_fraction(d1, d2, float_day_count)
+            fwd = (fdf1 / fdf2 - 1.0) / yf
+            pv_float += fwd * yf * discount_curve.df(d2)
+        err = abs(pv_fixed - pv_float)
+        if err > tol:
+            errors.append(f"Fwd swap {mat}: PV_fixed-PV_float={err:.2e} (tol={tol:.2e})")
+
+    if errors:
+        msg = "Forward curve round-trip failures:\n" + "\n".join(errors)
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)

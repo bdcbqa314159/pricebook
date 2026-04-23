@@ -40,12 +40,20 @@ class Interpolator(ABC):
         """Interpolate at a point within the domain."""
 
     def __call__(self, x: float) -> float:
-        """Evaluate at x with flat extrapolation."""
+        """Evaluate at x with flat extrapolation on the left.
+
+        Right extrapolation is handled by subclasses via _extrapolate_right();
+        the default is flat (same y as last knot).
+        """
         if x <= self._x[0]:
             return float(self._y[0])
         if x >= self._x[-1]:
-            return float(self._y[-1])
+            return self._extrapolate_right(x)
         return self._interpolate(x)
+
+    def _extrapolate_right(self, x: float) -> float:
+        """Right extrapolation — default is flat. Override for other behavior."""
+        return float(self._y[-1])
 
     def _find_segment(self, x: float) -> int:
         """Find the index i such that x[i] <= x < x[i+1]."""
@@ -90,6 +98,17 @@ class LogLinearInterpolator(Interpolator):
         log_y0, log_y1 = self._log_y[i], self._log_y[i + 1]
         t = (x - x0) / (x1 - x0)
         return math.exp(log_y0 + t * (log_y1 - log_y0))
+
+    def _extrapolate_right(self, x: float) -> float:
+        """Flat forward extrapolation: extend the last segment's slope in log space.
+
+        For discount curves this means the forward rate in the last segment
+        continues indefinitely, which is the standard convention.
+        """
+        x0, x1 = self._x[-2], self._x[-1]
+        log_y0, log_y1 = self._log_y[-2], self._log_y[-1]
+        slope = (log_y1 - log_y0) / (x1 - x0)
+        return math.exp(log_y1 + slope * (x - x1))
 
 
 class CubicSplineInterpolator(Interpolator):
