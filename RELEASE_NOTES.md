@@ -2,6 +2,19 @@
 
 ---
 
+## v0.343.0 — 2026-04-23
+
+**DD3 Bonds — proper R2 deep mathematical audit.** 5595 tests.
+
+### DD3-R2: Deep math audit
+- `convertible_bond.py`: CoCo `contingent_convertible()` — added `dividend_yield` parameter to equity drift (was missing, bank stocks pay dividends)
+- Verified against textbook: `bond.py` convexity formula matches Fabozzi, Macaulay/modified duration matches Tuckman, YTM solver round-trips correctly
+- Convertible bond LSM: in-place discounting is a valid simplified implementation (standard LSM maintains separate cashflow arrays — known approximation)
+- Bond futures timing option daily coupon uses ACT/360 approximation (documented limitation vs proper ACT/ACT for UST)
+- Amortising bond uses continuous discounting (convention choice vs monthly compounding for MBS)
+
+---
+
 ## v0.342.0 — 2026-04-23
 
 **DD3 Bonds — 5 rounds complete.** 5595 tests (19 new deep bond tests).
