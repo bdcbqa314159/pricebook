@@ -2,6 +2,24 @@
 
 ---
 
+## v0.324.0 — 2026-04-23
+
+RF1-RF2: Risk Framework. 5428 tests.
+
+`risk_framework.py` (NEW, 290 lines):
+- `historical_var(returns, confidence)` — VaR + CVaR from P&L series
+- `parametric_var(value, vol, confidence)` — delta-normal VaR
+- `delta_gamma_var(delta, gamma, vol, S, confidence)` — nonlinear VaR
+- `component_var(positions, covariance)` — VaR decomposition by position
+- `stress_test(base_pv, sensitivities, scenarios)` — scenario-based P&L
+- 5 pre-built scenarios: GFC 2008, COVID 2020, Rates ±, Equity crash
+- `analyse_drawdown(equity_curve)` — current/max drawdown + duration
+- `concentration_check(positions)` — HHI, effective N, top-1/top-5
+
+`test_risk_framework.py` (NEW, 17 tests)
+
+---
+
 ## v0.323.0 — 2026-04-23
 
 BT1-BT3: Backtesting Engine. 5411 tests.
