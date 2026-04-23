@@ -122,9 +122,9 @@ class TestBasisDecomposition:
     def test_carry_formula(self):
         bd = basis_decomposition(
             "UST_10Y", bond_price=99.0, futures_price=100.0, cf=0.98,
-            coupon_rate=0.04, repo_rate=0.05, days_to_delivery=365,
+            coupon_rate=0.04, repo_rate=0.05, days_to_delivery=360,
         )
-        # carry = 0.04×100 - 99×0.05 = 4 - 4.95 = -0.95
+        # carry = 0.04×100×(360/360) - 99×0.05×(360/360) = 4 - 4.95 = -0.95
         assert bd.carry == pytest.approx(-0.95)
 
     def test_net_basis_equals_gross_minus_carry(self):

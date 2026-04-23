@@ -375,7 +375,7 @@ def tail_adjusted_hedge_ratio(
     Tail HR = HR / (1 + repo × T_delivery).
     """
     hr = futures_hedge_ratio(bond_dv01, ctd_dv01, ctd_cf)
-    dt = days_to_delivery / 365.0
+    dt = days_to_delivery / 360.0
     return hr / (1.0 + repo_rate * dt)
 
 

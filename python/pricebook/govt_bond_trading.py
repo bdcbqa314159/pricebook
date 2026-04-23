@@ -206,7 +206,7 @@ def basis_decomposition(
     calculation.
     """
     gross = bond_price - cf * futures_price
-    dt = days_to_delivery / 365.0
+    dt = days_to_delivery / 360.0
     coupon_income = coupon_rate * face_value * dt
     financing = bond_price * repo_rate * dt
     carry = coupon_income - financing
