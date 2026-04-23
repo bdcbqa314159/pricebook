@@ -2,6 +2,27 @@
 
 ---
 
+## v0.342.0 — 2026-04-23
+
+**DD3 Bonds — 5 rounds complete.** 5595 tests (19 new deep bond tests).
+
+### DD3-R1: Core bond fixes
+- `callable_bond.py`: **rewritten** — trinomial tree with proper transition probabilities and branching. Shared `_trinomial_backward` for callable + puttable. Added `coupon_frequency` parameter.
+- `bond.py`: principal PV guarded for settlement at/after maturity. YTM solver range `[-0.10, 2.0]`.
+- `risky_bond.py`: recovery DF uses actual mid-period date (was linear DF average).
+- `bond_forward.py`: repo cost uses `repo_day_count` parameter (default ACT/360, was hardcoded ACT/365).
+
+### DD3-R2/R3: Repo day count sweep
+- `bond_futures.py`: implied repo, basis carry, forward bond price, tail hedge ratio — all use ACT/360 (was ACT/365).
+- `govt_bond_trading.py`: basis decomposition uses ACT/360.
+
+### DD3-R4: Deep tests
+- 19 deep tests: YTM round-trip (par, negative, distressed), duration/convexity formulas, callable ≤ straight, puttable ≥ straight, accrued interest, conversion factor properties, risky ≤ risk-free.
+
+### DD3-R5: Final sweep — repo ACT/360 consistent across all bond modules.
+
+---
+
 ## v0.341.0 — 2026-04-23
 
 **DD3 Bonds — R1.** 5576 tests.
