@@ -2,6 +2,18 @@
 
 ---
 
+## v0.344.0 — 2026-04-23
+
+**DD4 Credit — R1.** 5595 tests.
+
+### DD4-R1: Core credit fixes
+- `basket_cds.py`: NTD annuity rewritten — simulates basket survival at each annual time point using the same copula draws (was using broken linear interpolation `1 - P(triggered) * t/T` which could go negative)
+- `cds.py`: protection leg default `steps_per_year` increased from 4 to 12 (monthly) for better accuracy. `par_spread()` guards against zero RPV01.
+- `rating_transition.py`: generator matrix constructor validates rows sum to 0 and off-diagonal elements non-negative
+- `hazard_rate_models.py`: HW hazard `theta(t)` for `a=0` uses correct limit `df_dt + sigma²*t` (was returning just forward hazard `f`)
+
+---
+
 ## v0.343.0 — 2026-04-23
 
 **DD3 Bonds — proper R2 deep mathematical audit.** 5595 tests.
