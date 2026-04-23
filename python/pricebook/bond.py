@@ -78,7 +78,8 @@ class FixedRateBond:
             cf.amount * curve.df(cf.payment_date)
             for cf in self._future_cashflows(settlement)
         )
-        pv += self.face_value * curve.df(self.maturity)
+        if self.maturity > settlement:
+            pv += self.face_value * curve.df(self.maturity)
         return pv / self.face_value * 100.0
 
     def accrued_interest(self, settlement: date) -> float:
@@ -130,7 +131,7 @@ class FixedRateBond:
         settle = settlement if settlement is not None else self.issue_date
         return brentq(
             lambda y: self._price_from_ytm(y, settle) - market_price,
-            -0.05, 1.0,
+            -0.10, 2.0,
         )
 
     def macaulay_duration(self, ytm: float, settlement: date | None = None) -> float:

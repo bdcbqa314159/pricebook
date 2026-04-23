@@ -50,6 +50,7 @@ class BondForward:
         settlement: date,
         delivery: date,
         repo_rate: float,
+        repo_day_count: DayCountConvention = DayCountConvention.ACT_360,
     ):
         if delivery <= settlement:
             raise ValueError(f"delivery ({delivery}) must be after settlement ({settlement})")
@@ -57,6 +58,7 @@ class BondForward:
         self.settlement = settlement
         self.delivery = delivery
         self.repo_rate = repo_rate
+        self.repo_day_count = repo_day_count
 
     def _coupon_income(self) -> float:
         """Sum of coupons received between settlement and delivery."""
@@ -72,8 +74,7 @@ class BondForward:
         Forward dirty = spot dirty × (1 + repo × T) - coupon_income.
         """
         spot_dirty = self.bond.dirty_price(curve)
-        days = (self.delivery - self.settlement).days
-        dt = days / 365.0
+        dt = year_fraction(self.settlement, self.delivery, self.repo_day_count)
         repo_cost = spot_dirty * self.repo_rate * dt
         coupon_income = self._coupon_income()
         fwd_dirty = spot_dirty + repo_cost - coupon_income

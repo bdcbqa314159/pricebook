@@ -76,7 +76,10 @@ class RiskyBond:
             # Recovery on default in this period (ISDA: default at mid-period)
             surv_prev = survival_curve.survival(t_start)
             default_prob = surv_prev - surv
-            df_mid = (discount_curve.df(t_start) + df) / 2.0
+            from pricebook.day_count import date_from_year_fraction, year_fraction as _yf
+            t_mid_yf = _yf(discount_curve.reference_date, t_start, discount_curve.day_count) + yf / 2
+            t_mid_date = date_from_year_fraction(discount_curve.reference_date, t_mid_yf)
+            df_mid = discount_curve.df(t_mid_date)
             pv += self.recovery * self.notional * default_prob * df_mid
 
         # Principal at maturity conditional on survival
