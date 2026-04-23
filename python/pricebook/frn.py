@@ -112,7 +112,7 @@ class FloatingRateNote:
         proj = projection_curve if projection_curve is not None else curve
         for cf in self.floating_leg.cashflows:
             if cf.accrual_start <= settlement < cf.accrual_end:
-                fwd = proj.forward_rate(cf.accrual_start, cf.accrual_end)
+                fwd = cf.forward_rate(proj)
                 yf_accrued = year_fraction(
                     cf.accrual_start, settlement, self.floating_leg.day_count,
                 )

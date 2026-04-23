@@ -71,7 +71,9 @@ class TermLoan:
             t_start = self.schedule[i - 1]
             t_end = self.schedule[i]
             yf = year_fraction(t_start, t_end, self.day_count)
-            fwd = projection_curve.forward_rate(t_start, t_end)
+            df1 = projection_curve.df(t_start)
+            df2 = projection_curve.df(t_end)
+            fwd = (df1 - df2) / (yf * df2)
 
             interest = outstanding * (fwd + self.spread) * yf
 

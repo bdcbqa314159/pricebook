@@ -332,8 +332,10 @@ def range_accrual(
         yf = year_fraction(accrual_start, accrual_end, DayCountConvention.ACT_360)
         df = curve.df(accrual_end)
 
-        # Forward rate for this period
-        fwd = curve.forward_rate(accrual_start, accrual_end)
+        # Forward rate for this period (using ACT/360 day count)
+        df1 = curve.df(accrual_start)
+        df2 = curve.df(accrual_end)
+        fwd = (df1 - df2) / (yf * df2)
 
         # Average time to observations
         t_mid = max(

@@ -57,8 +57,14 @@ class IRFuture:
         return year_fraction(self.accrual_start, self.accrual_end, self.day_count)
 
     def implied_forward(self, curve: DiscountCurve) -> float:
-        """Simply compounded forward rate for the reference period."""
-        return curve.forward_rate(self.accrual_start, self.accrual_end)
+        """Simply compounded forward rate for the reference period.
+
+        Uses the futures day count (ACT/360), not the curve's internal day count.
+        """
+        df1 = curve.df(self.accrual_start)
+        df2 = curve.df(self.accrual_end)
+        tau = self.accrual_fraction
+        return (df1 - df2) / (tau * df2)
 
     def futures_rate(
         self,
