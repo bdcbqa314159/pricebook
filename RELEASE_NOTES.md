@@ -2,6 +2,28 @@
 
 ---
 
+## v0.326.0 — 2026-04-23
+
+APIX1-APIX12: **API EXTENSION COMPLETE.** ~70 functions. 5507 tests.
+
+35 new API functions across 12 modules:
+- APIX1: `ctd`, `implied_repo`, `futures_hedge_ratio`, `bond_forward_price`, `strips`
+- APIX2: `asian_option`, `digital_option`
+- APIX3: `zc_inflation_swap`, `inflation_par_rate`, `inflation_linker`
+- APIX4: `calibrate_sabr`, `implied_vol`
+- APIX5: `var`, `stress`, `drawdown`, `key_rate_dv01`
+- APIX6: `pnl`, `carry_rolldown`, `cashflow_table`
+- APIX7: `heston_price`, `sabr_vol`
+- APIX8: `repo_rate`, `forward_repo`
+- APIX9: `curve_spread`, `butterfly`, `rv_zscore`
+- APIX10: `frtb_capital`, `mva`
+- APIX11: `create_book`, `book_dv01`, `book_pnl`
+- APIX12: `backtest`, `build_factors`, `risk_parity_weights`
+
+`test_apix.py` (NEW, 31 tests)
+
+---
+
 ## v0.325.0 — 2026-04-23
 
 FM+PC+ST+MD+EOD: **OPERATIONAL PLATFORM COMPLETE.** 5476 tests.
