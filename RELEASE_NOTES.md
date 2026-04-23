@@ -2,6 +2,26 @@
 
 ---
 
+## v0.325.0 — 2026-04-23
+
+FM+PC+ST+MD+EOD: **OPERATIONAL PLATFORM COMPLETE.** 5476 tests.
+
+5 new modules (1,544 lines):
+
+`factor_model.py`: build_factor (momentum/carry/value/vol/quality), multi-asset, factor_attribution (OLS), factor_covariance (sample + Ledoit-Wolf shrinkage), factor_timing
+
+`portfolio_construction.py`: mean_variance (max Sharpe, long-only, max weight), black_litterman (equilibrium + views), risk_parity (Newton iteration, custom budgets), rebalance (threshold, min trade)
+
+`statistics.py`: cointegration_test (Engle-Granger ADF, half-life), regime_detect (threshold/momentum), bootstrap_ci (mean/median/std/sharpe), rolling_stats (mean/vol/sharpe/skew/kurt)
+
+`market_data_tools.py`: parse_csv_quotes, parse_json_quotes, synthetic_market (rates/FX/equity/commodity), MarketSnapshot save/load
+
+`eod.py`: eod_mtm, eod_pnl (market move + new trades), attribute_pnl (delta/gamma/vega/theta), eod_risk_report, check_limits (DV01/vega/PV/VaR)
+
+48 new tests across 3 test files
+
+---
+
 ## v0.324.0 — 2026-04-23
 
 RF1-RF2: Risk Framework. 5428 tests.
