@@ -52,7 +52,7 @@ class VolSmile:
             return float(self._vols[0])
         if strike >= self._strikes[-1]:
             return float(self._vols[-1])
-        return float(self._spline(strike))
+        return max(float(self._spline(strike)), 1e-10)
 
     @property
     def strikes(self) -> np.ndarray:

@@ -64,15 +64,19 @@ def sabr_implied_vol(
 
     fk_mid = fk ** (one_minus_beta / 2.0)
 
-    # z and x(z)
+    # z and x(z) with guards for rho near ±1 and deep OTM
     z = (nu / alpha) * fk_mid * log_fk
     if abs(z) < 1e-12:
         x_z = 1.0
     else:
-        sqrt_arg = 1.0 - 2.0 * rho * z + z * z
-        if sqrt_arg < 0:
-            sqrt_arg = 0.0
-        x_z = z / math.log((math.sqrt(sqrt_arg) + z - rho) / (1.0 - rho))
+        sqrt_arg = max(1.0 - 2.0 * rho * z + z * z, 0.0)
+        denom = (math.sqrt(sqrt_arg) + z - rho)
+        one_minus_rho = max(1.0 - rho, 1e-10)
+        ratio = denom / one_minus_rho
+        if ratio <= 0:
+            x_z = 1.0  # degenerate case
+        else:
+            x_z = z / math.log(ratio)
 
     # Prefactor
     A = alpha / (fk_mid * (
@@ -85,7 +89,8 @@ def sabr_implied_vol(
     B2 = 0.25 * rho * beta * nu * alpha / fk_mid
     B3 = (2.0 - 3.0 * rho**2) * nu**2 / 24.0
 
-    return A * x_z * (1.0 + (B1 + B2 + B3) * T)
+    result = A * x_z * (1.0 + (B1 + B2 + B3) * T)
+    return max(result, 1e-10)  # floor to prevent negative implied vol
 
 
 def sabr_price(

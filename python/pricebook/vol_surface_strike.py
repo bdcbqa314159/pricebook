@@ -14,6 +14,7 @@ between expiries and flat extrapolation at boundaries.
 
 from __future__ import annotations
 
+import math
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -78,7 +79,13 @@ class VolSurfaceStrike:
                 w = (t - self._expiry_times[i]) / dt
                 v0 = self._smiles[i].vol(strike)
                 v1 = self._smiles[i + 1].vol(strike)
-                return v0 * (1 - w) + v1 * w
+                t0 = self._expiry_times[i]
+                t1 = self._expiry_times[i + 1]
+                # Interpolate total variance (sigma² × T) to avoid calendar arb
+                tv0 = v0 * v0 * t0
+                tv1 = v1 * v1 * t1
+                tv = tv0 * (1 - w) + tv1 * w
+                return math.sqrt(max(tv / t, 1e-20))
 
         return self._smiles[-1].vol(strike)
 

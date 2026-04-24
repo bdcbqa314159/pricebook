@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from pricebook.day_count import DayCountConvention, year_fraction
+
 import math
 from dataclasses import dataclass
 from datetime import date
@@ -36,8 +38,8 @@ def detect_calendar_arb(
     """
     violations = []
     for i in range(len(expiries) - 1):
-        t1 = (expiries[i] - reference_date).days / 365.0
-        t2 = (expiries[i + 1] - reference_date).days / 365.0
+        t1 = year_fraction(reference_date, expiries[i], DayCountConvention.ACT_365_FIXED)
+        t2 = year_fraction(reference_date, expiries[i + 1], DayCountConvention.ACT_365_FIXED)
         if t1 <= 0 or t2 <= 0:
             continue
         tv1 = vols[i] ** 2 * t1
@@ -126,8 +128,8 @@ def enforce_no_calendar_arb(
     """
     adjusted = list(vols)
     for i in range(1, len(expiries)):
-        t_prev = (expiries[i - 1] - reference_date).days / 365.0
-        t_curr = (expiries[i] - reference_date).days / 365.0
+        t_prev = year_fraction(reference_date, expiries[i - 1], DayCountConvention.ACT_365_FIXED)
+        t_curr = year_fraction(reference_date, expiries[i], DayCountConvention.ACT_365_FIXED)
         if t_prev <= 0 or t_curr <= 0:
             continue
         tv_prev = adjusted[i - 1] ** 2 * t_prev
