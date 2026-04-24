@@ -31,8 +31,12 @@ class Greeks:
 
     @property
     def dollar_delta(self) -> float:
-        """Delta in dollar terms: delta × price_of_underlying."""
-        return self.delta * self.price  # approximate
+        """Approximate dollar delta: delta × option_price.
+
+        Note: true dollar delta is delta × spot_price, which requires
+        the spot as input. This uses the option price as a proxy.
+        """
+        return self.delta * self.price
 
     @property
     def dollar_gamma(self) -> float:
@@ -72,9 +76,10 @@ def bump_greeks(
     delta = (up - down) / (2 * spot_bump)
     gamma = (up - 2 * base + down) / (spot_bump ** 2)
 
-    # Vega
+    # Vega (central difference for O(h²) accuracy)
     vega_up = price_func(spot, vol + vol_bump, rate, T)
-    vega = (vega_up - base) / vol_bump * 0.01  # per 1% vol shift
+    vega_down_v = price_func(spot, vol - vol_bump, rate, T)
+    vega = (vega_up - vega_down_v) / (2 * vol_bump) * 0.01  # per 1% vol shift
 
     # Theta
     if T > time_bump:

@@ -37,11 +37,11 @@ def black76_price(
         d1 = [ln(F/K) + 0.5*vol^2*T] / (vol*sqrt(T))
         d2 = d1 - vol*sqrt(T)
     """
-    if time_to_expiry <= 0:
+    if time_to_expiry <= 0 or vol <= 0:
         intrinsic = max(forward - strike, 0.0) if option_type == OptionType.CALL \
             else max(strike - forward, 0.0)
         return df * intrinsic
-    if vol <= 0:
+    if forward <= 0 or strike <= 0:
         intrinsic = max(forward - strike, 0.0) if option_type == OptionType.CALL \
             else max(strike - forward, 0.0)
         return df * intrinsic
@@ -62,9 +62,13 @@ def black76_delta(
 ) -> float:
     """Black-76 delta: dPrice/dForward."""
     if time_to_expiry <= 0 or vol <= 0:
-        if option_type == OptionType.CALL:
-            return df if forward > strike else 0.0
-        return -df if forward < strike else 0.0
+        if forward > strike:
+            return df if option_type == OptionType.CALL else 0.0
+        elif forward < strike:
+            return 0.0 if option_type == OptionType.CALL else -df
+        else:
+            # ATM: delta = ±0.5 × df (the correct limit)
+            return 0.5 * df if option_type == OptionType.CALL else -0.5 * df
 
     sqrt_t = math.sqrt(time_to_expiry)
     d1 = (math.log(forward / strike) + 0.5 * vol * vol * time_to_expiry) / (vol * sqrt_t)
