@@ -2,6 +2,26 @@
 
 ---
 
+## v0.346.0 — 2026-04-24
+
+**DD4 Credit — 5 rounds complete.** 5614 tests (19 new deep credit tests).
+
+### DD4-R1: Core credit fixes
+- `basket_cds.py`: NTD annuity rewritten — simulates basket survival at each annual time point using same copula draws (was broken linear interpolation that could go negative)
+- `cds.py`: protection leg `steps_per_year` 4→12 (monthly), `par_spread()` guards zero RPV01
+- `rating_transition.py`: generator matrix validates rows sum to 0, off-diagonal non-negative
+- `hazard_rate_models.py`: HW hazard `theta(t)` for `a=0` uses correct limit `df_dt + sigma²*t`
+
+### DD4-R2: Deep math audit
+- `cdo.py`: **replaced kernel density with analytical Vasicek formula** — closed-form loss density via change of variable (was ad-hoc Gaussian kernel smoothing). Base correlation solver restricted to monotone branch.
+- `cds.py`: bootstrap search bounds widened `[1e-6, 1-1e-10]` (was `[0.001, 0.9999]`)
+
+### DD4-R3: Consistency sweep — clean, no remaining issues
+### DD4-R4: 19 deep tests — CDS par spread round-trip, protection=premium at par, bootstrap round-trip, CDO tranche monotonicity, basket FTD≥single-name, NTD decreasing in n, rating transition properties, Merton model
+### DD4-R5: Final sweep clean
+
+---
+
 ## v0.344.0 — 2026-04-23
 
 **DD4 Credit — R1.** 5595 tests.
