@@ -2,6 +2,22 @@
 
 ---
 
+## v0.355.0 — 2026-04-24
+
+**DD13 Numerics + DD14 Risk/Infra — 5 rounds complete.** 5685 tests.
+
+### DD13-R1: Numerics fixes
+- `finite_difference.py`: explicit FD scheme now warns when CFL condition is violated (`CFL > 0.5` — scheme unstable)
+- LSM monomial basis is documented limitation (Laguerre polynomials would be better conditioned)
+
+### DD14-R1: Risk/Infra fixes
+- `pnl_explain.py`: `compute_carry` docstring corrected — inputs are annualised (rate × notional), `dt` scaling applied once. Was ambiguous (caller could double-scale).
+- CVaR/ES tail filter documented limitation for small samples
+
+### DD13-DD14 R2-R5: Deep math verified, consistency sweep clean
+
+---
+
 ## v0.354.0 — 2026-04-24
 
 **DD12 Stochastic Models — 5 rounds complete.** 5685 tests.
