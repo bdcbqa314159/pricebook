@@ -2,6 +2,19 @@
 
 ---
 
+## v0.354.0 — 2026-04-24
+
+**DD12 Stochastic Models — 5 rounds complete.** 5685 tests.
+
+### DD12-R1: Core model fixes
+- `heston.py`: **"Little Heston Trap" fix** (Albrecher et al. 2007) — char func uses `g=(b-d)/(b+d)` with `exp(-dT)`. Prevents NaN for long maturities or high vol-of-vol.
+- `lmm.py`: Musiela drift uses **per-interval tenor spacing** (was uniform `tenors[1]-tenors[0]`, wrong for non-uniform grids).
+
+### DD12-R2: Deep math — HW ZCB verified, Heston QE verified, SABR MC correct, local vol Dupire rate terms documented
+### DD12-R3/R4/R5: Sweep clean, existing tests validate
+
+---
+
 ## v0.353.0 — 2026-04-24
 
 **DD11 XVA — 5 rounds complete.** 5685 tests.
