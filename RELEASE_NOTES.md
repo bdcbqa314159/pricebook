@@ -2,6 +2,26 @@
 
 ---
 
+## v0.347.0 — 2026-04-24
+
+**DD5 FX — 5 rounds complete.** 5628 tests (14 new deep FX tests).
+
+### DD5-R1: Core FX fixes
+- `fx_barrier.py`: VV barrier adjustment now computes barrier Greeks via finite difference on the barrier pricer (was using vanilla Greeks at the strike — wrong sensitivity profile)
+- `ndf.py`: `settlement_amount()` supports EMTA quote-currency convention `N×(fix-K)/fix` (was base-only `N×(fix-K)`)
+- `fx_option.py`: `strike_from_delta` clamps adjusted delta to `[0.0001, 0.9999]` to prevent `norm.ppf` overflow
+
+### DD5-R2: Deep math audit
+- CIP formula `F = S × df_base / df_quote` verified consistent across `currency.py`, `fx_forward.py`, `fx_option.py`
+- Garman-Kohlhagen: correct mapping `r_d = rate_quote`, `r_f = rate_base`
+- Lookback GSG sign verified correct (`+term3` is the reflection term that adds value — audit finding was wrong, reverted)
+
+### DD5-R3: Consistency sweep — clean
+### DD5-R4: 14 deep tests — CIP round-trip, put-call parity, delta conventions (spot < forward), strike-from-delta round-trip, barrier KI+KO=vanilla, NDF PV at forward, EMTA settlement
+### DD5-R5: Final sweep clean
+
+---
+
 ## v0.346.0 — 2026-04-24
 
 **DD4 Credit — 5 rounds complete.** 5614 tests (19 new deep credit tests).
