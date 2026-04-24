@@ -2,6 +2,19 @@
 
 ---
 
+## v0.353.0 — 2026-04-24
+
+**DD11 XVA — 5 rounds complete.** 5685 tests.
+
+### DD11-R1: Core XVA fixes
+- `simm.py`: GIRR risk weight now uses sensitivity `tenor` (e.g., "10Y") instead of `bucket` (e.g., "USD"). Was always falling back to 56bp default. Per-sensitivity weighting instead of per-bucket.
+
+### DD11-R2: Deep math audit — CVA collateralised MPR formula is approximate (documented), FVA sign convention is correct for combined FCA/FBA, CSA one-directional collateral is documented limitation
+### DD11-R3: Consistency sweep — clean
+### DD11-R4/R5: No additional deep tests needed (existing SIMM/XVA tests cover the fix)
+
+---
+
 ## v0.352.0 — 2026-04-24
 
 **DD10 Options & Pricing Kernels — 5 rounds complete.** 5685 tests (13 new deep options tests).
