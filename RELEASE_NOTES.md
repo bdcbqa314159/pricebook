@@ -2,6 +2,23 @@
 
 ---
 
+## v0.351.0 — 2026-04-24
+
+**DD9 Vol Surfaces — 5 rounds complete.** 5672 tests (10 new deep vol tests).
+
+### DD9-R1: Core vol fixes
+- `sabr.py`: Hagan formula guards `rho` near ±1 (was NaN/Inf), output floored at `1e-10` (was allowing negative implied vols from expansion breakdown)
+- `vol_smile.py`: cubic spline `vol()` floored at `1e-10` (clamped BC can produce negative)
+- `vol_surface_strike.py`: time interpolation uses **total variance** `σ²T` (was linear in σ, causing calendar arbitrage)
+- `vol_arb.py`: uses `year_fraction` instead of hardcoded `days/365`
+
+### DD9-R2: Deep math audit — Bergomi model semantics documented, SABR normal vol approximation documented, bilinear SABR param interpolation is known limitation
+### DD9-R3: Consistency sweep — clean
+### DD9-R4: 10 deep tests — SABR ATM=alpha, rho boundaries, deep OTM positive, skew direction, smile non-neg, total variance monotonicity, calendar arb detection, forward vol
+### DD9-R5: Final sweep clean
+
+---
+
 ## v0.350.0 — 2026-04-24
 
 **DD8 Inflation — 5 rounds complete.** 5662 tests (9 new deep inflation tests).
