@@ -2,6 +2,21 @@
 
 ---
 
+## v0.348.0 — 2026-04-24
+
+**DD6 Equity — 5 rounds complete.** 5643 tests (15 new deep equity tests).
+
+### DD6-R1/R2: Core equity fixes
+- `equity_jumps.py`: **Kou model** — variance formula fixed (was missing `-E[xi]²` term), forward drift corrected (was missing `-0.5σ²` log-normal correction, was double-counting `dividend_yield`). **Merton hybrid** — discount factor uses risk-free rate (was using jump-adjusted rate, double-counting).
+- `equity_option.py`: `equity_theta` now uses full Hull formula including `-rKe^{-rT}N(d2)` and `+qSe^{-qT}N(d1)` terms (was Black-76 theta only, missing rate/dividend decay).
+- `equity_forward.py`: borrow cost applied for both positive and negative values (was `> 0` guard, negative borrow cost silently ignored).
+
+### DD6-R3: Consistency sweep — clean
+### DD6-R4: 15 deep tests — put-call parity (with/without dividends), all Greek signs, theta matches bump-and-reprice with dividends, forward with borrow cost, Kou zero-jumps=BS, jumps increase OTM prices
+### DD6-R5: Final sweep clean
+
+---
+
 ## v0.347.0 — 2026-04-24
 
 **DD5 FX — 5 rounds complete.** 5628 tests (14 new deep FX tests).
