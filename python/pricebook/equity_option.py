@@ -111,9 +111,34 @@ def equity_theta(
     option_type: OptionType = OptionType.CALL,
     div_yield: float = 0.0,
 ) -> float:
-    """Theta: dPrice/dTime (per year, negative for long options)."""
+    """Theta: dPrice/dTime (per year, negative for long options).
+
+    Full Hull formula:
+        call: -S×n(d1)×σ×e^{-qT}/(2√T) - r×K×e^{-rT}×N(d2) + q×S×e^{-qT}×N(d1)
+        put:  -S×n(d1)×σ×e^{-qT}/(2√T) + r×K×e^{-rT}×N(-d2) - q×S×e^{-qT}×N(-d1)
+    """
+    import math
+    from scipy.stats import norm
+
     forward, df = _forward_and_df(spot, rate, div_yield, T)
-    return black76_theta(forward, strike, vol, T, df, option_type)
+    # Black-76 theta gives the first term only
+    theta_b76 = black76_theta(forward, strike, vol, T, df, option_type)
+
+    if T <= 0 or vol <= 0:
+        return theta_b76
+
+    sqrt_t = math.sqrt(T)
+    d1 = (math.log(forward / strike) + 0.5 * vol * vol * T) / (vol * sqrt_t)
+    d2 = d1 - vol * sqrt_t
+
+    if option_type == OptionType.CALL:
+        theta_r = -rate * strike * math.exp(-rate * T) * norm.cdf(d2)
+        theta_q = div_yield * spot * math.exp(-div_yield * T) * norm.cdf(d1)
+    else:
+        theta_r = rate * strike * math.exp(-rate * T) * norm.cdf(-d2)
+        theta_q = -div_yield * spot * math.exp(-div_yield * T) * norm.cdf(-d1)
+
+    return theta_b76 + theta_r + theta_q
 
 
 def equity_rho(

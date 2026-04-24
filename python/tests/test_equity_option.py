@@ -120,13 +120,11 @@ class TestTheta:
         assert th < 0
 
     def test_theta_vs_bump(self):
-        """Theta via bump: hold forward and df constant, change only T."""
+        """Full theta via bump: change T, recompute everything."""
+        from pricebook.equity_option import equity_option_price as equity_price
         dt = 1e-4
-        forward = SPOT * math.exp(RATE * T)
-        df = math.exp(-RATE * T)
-        from pricebook.black76 import black76_price
-        p1 = black76_price(forward, STRIKE, VOL, T, df, OptionType.CALL)
-        p2 = black76_price(forward, STRIKE, VOL, T - dt, df, OptionType.CALL)
+        p1 = equity_price(SPOT, STRIKE, RATE, VOL, T, OptionType.CALL)
+        p2 = equity_price(SPOT, STRIKE, RATE, VOL, T - dt, OptionType.CALL)
         bump_theta = (p2 - p1) / dt
         th = equity_theta(SPOT, STRIKE, RATE, VOL, T, OptionType.CALL)
         assert th == pytest.approx(bump_theta, rel=0.01)

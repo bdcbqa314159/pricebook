@@ -71,7 +71,7 @@ class EquityForward:
         if self.dividends:
             pv_divs = pv_dividends(self.dividends, curve, self.maturity)
             fwd = (self.spot - pv_divs) / df_T
-            if self.borrow_cost > 0:
+            if self.borrow_cost != 0:
                 fwd *= math.exp(self.borrow_cost * T)
             return fwd
         else:
@@ -94,7 +94,7 @@ class EquityForward:
 
         if self.dividends:
             d = 1.0 / df_T
-            if self.borrow_cost > 0:
+            if self.borrow_cost != 0:
                 d *= math.exp(self.borrow_cost * T)
             return d
         else:

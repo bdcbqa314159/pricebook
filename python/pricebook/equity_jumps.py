@@ -99,17 +99,17 @@ def kou_equity_price(
         # Log-return ~ N((r-q-λζ)T + n × E[ξ], σ²T + n × Var[ξ])
         # where E[ξ] = p/η₁ - (1-p)/η₂, Var[ξ] = p/η₁² + (1-p)/η₂²
         mean_xi = p / eta1 - (1 - p) / eta2
-        var_xi = p * 2 / eta1**2 + (1 - p) * 2 / eta2**2  # (times 2 for exponential var)
+        # Var[xi] = E[xi²] - E[xi]²; E[Exp(eta)²] = 2/eta²
+        var_xi = p * 2 / eta1**2 + (1 - p) * 2 / eta2**2 - mean_xi**2
 
-        mean_n = (rate - dividend_yield - lambda_jump * zeta) * T + n * mean_xi
+        # Log-return mean includes -0.5*sigma² (log-normal drift correction)
+        mean_n = (rate - dividend_yield - lambda_jump * zeta - 0.5 * vol**2) * T + n * mean_xi
         var_n = vol**2 * T + n * var_xi
-        sigma_n = math.sqrt(var_n)
+        sigma_n = math.sqrt(max(var_n, 0.0))
+        sigma_bs = math.sqrt(max(var_n / T, 0.0))
 
-        # Adjusted rate for BS
-        r_n = mean_n / T + 0.5 * sigma_n**2 / T
-        sigma_bs = math.sqrt(var_n / T)
-
-        F = spot * math.exp(r_n * T - dividend_yield * T)
+        # Forward: E[S_T | n jumps] = S * exp(mean_n + 0.5*var_n)
+        F = spot * math.exp(mean_n + 0.5 * var_n)
         df = math.exp(-rate * T)
         opt = OptionType.CALL if is_call else OptionType.PUT
         try:
@@ -372,7 +372,7 @@ def merton_equity_hybrid(
         r_n = rate - lambda_jump * kappa + n * (jump_mean + 0.5 * jump_vol**2) / T
 
         F = spot * math.exp((r_n - dividend_yield) * T)
-        df = math.exp(-r_n * T)
+        df = math.exp(-rate * T)
         opt = OptionType.CALL if is_call else OptionType.PUT
         try:
             bs = black76_price(F, strike, sigma_n, T, df, opt)
