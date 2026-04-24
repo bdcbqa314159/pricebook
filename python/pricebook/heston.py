@@ -47,24 +47,28 @@ def _heston_f(
         (rho * xi * i * u - b_j) ** 2 - xi**2 * (2 * u_j * i * u - u**2)
     )
 
-    denom_g = b_j - rho * xi * i * u - d
-    if abs(denom_g) < 1e-20:
+    # Albrecher et al. (2007) "Little Heston Trap" fix:
+    # Use g = (b-rho*xi*iu - d) / (b-rho*xi*iu + d) with exp(-dT)
+    # to ensure |g*exp(-dT)| < 1 for stability.
+    numer = b_j - rho * xi * i * u - d
+    denom = b_j - rho * xi * i * u + d
+    if abs(denom) < 1e-20:
         return complex(1.0)
-    g = (b_j - rho * xi * i * u + d) / denom_g
+    g = numer / denom
 
-    exp_dT = cmath.exp(d * T)
+    exp_neg_dT = cmath.exp(-d * T)
 
-    if abs(1.0 - g * exp_dT) < 1e-20:
+    if abs(1.0 - g * exp_neg_dT) < 1e-20:
         return 0.0
 
     C = (rate - div_yield) * i * u * T + \
         kappa * theta / xi**2 * (
-            (b_j - rho * xi * i * u + d) * T
-            - 2.0 * cmath.log((1.0 - g * exp_dT) / (1.0 - g))
+            (b_j - rho * xi * i * u - d) * T
+            - 2.0 * cmath.log((1.0 - g * exp_neg_dT) / (1.0 - g))
         )
 
-    D = (b_j - rho * xi * i * u + d) / xi**2 * \
-        (1.0 - exp_dT) / (1.0 - g * exp_dT)
+    D = (b_j - rho * xi * i * u - d) / xi**2 * \
+        (1.0 - exp_neg_dT) / (1.0 - g * exp_neg_dT)
 
     return cmath.exp(C + D * v0 + i * u * x)
 

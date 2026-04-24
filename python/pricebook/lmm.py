@@ -77,11 +77,11 @@ class MultiFactorHJM:
             t = i * dt
             f_curr = paths[:, i, :]
 
-            # Musiela drift: df/dx
+            # Musiela drift: df/dx (using per-interval tenor spacing)
             dfdx = np.zeros_like(f_curr)
             if self.n_tenors > 1:
-                dx = self.tenors[1] - self.tenors[0]
-                dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx
+                dx = np.diff(self.tenors)  # (n_tenors-1,) per-interval spacing
+                dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx[np.newaxis, :]
                 dfdx[:, -1] = dfdx[:, -2]
 
             total_drift = dfdx.copy()
