@@ -51,12 +51,14 @@ def compute_carry(
     funding_cost: float,
     dt: float = 1.0 / 252,
 ) -> float:
-    """Daily carry = coupon accrual - funding cost.
+    """Daily carry = (coupon accrual - funding cost) × dt.
 
     Args:
-        coupon_income: daily coupon income (annualised rate * notional * dt).
-        funding_cost: daily funding cost.
-        dt: day fraction (default: 1 business day).
+        coupon_income: annualised coupon income (rate × notional).
+        funding_cost: annualised funding cost (rate × notional).
+        dt: day fraction (default: 1/252 business day).
+
+    Returns daily carry by scaling annualised amounts by dt.
     """
     return (coupon_income - funding_cost) * dt
 

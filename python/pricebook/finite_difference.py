@@ -182,6 +182,16 @@ def fd_european(
         _apply_boundary(g, tau)
 
         if scheme == FDScheme.EXPLICIT:
+            # CFL stability check for explicit scheme
+            if step == 0:
+                cfl = g.dt * vol**2 / (g.dx**2) if hasattr(g, 'dx') and g.dx > 0 else 0
+                if cfl > 0.5:
+                    import warnings
+                    warnings.warn(
+                        f"Explicit FD: CFL={cfl:.2f} > 0.5 — scheme may be unstable. "
+                        f"Increase n_time or decrease n_spot.",
+                        RuntimeWarning, stacklevel=3,
+                    )
             V_new = g.V.copy()
             n = g.n_spot
             V_new[1:n] = g.V[1:n] + g.dt * (
