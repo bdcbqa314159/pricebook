@@ -2,6 +2,22 @@
 
 ---
 
+## v0.349.0 — 2026-04-24
+
+**DD7 Commodity — 5 rounds complete.** 5653 tests (10 new deep commodity tests).
+
+### DD7-R1: Core commodity fixes
+- `commodity_vol_surface.py`: **Kirk spread formula denominator** fixed — was `F1-K` (diverges at ATM), now `F2+K` per Kirk (1995)
+- `commodity_swing.py`: removed double-discounting in swing option pricing (backward induction already produces time-0 values)
+- `commodity_seasonal.py`: calendar spread option uses Bachelier (normal model) instead of Black-76 — handles negative spreads correctly
+
+### DD7-R2: Deep math audit — storage intrinsic/extrinsic are documented approximations, Schwartz Euler bias is known, geometric Asian formula approximately correct
+### DD7-R3: Consistency sweep — clean
+### DD7-R4: 10 deep tests — contango, put-call parity, seasonality, Kirk vol/correlation sensitivity, calendar spread with negative forward
+### DD7-R5: Final sweep clean
+
+---
+
 ## v0.348.0 — 2026-04-24
 
 **DD6 Equity — 5 rounds complete.** 5643 tests (15 new deep equity tests).
