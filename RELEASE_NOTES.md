@@ -2,6 +2,21 @@
 
 ---
 
+## v0.352.0 — 2026-04-24
+
+**DD10 Options & Pricing Kernels — 5 rounds complete.** 5685 tests (13 new deep options tests).
+
+### DD10-R1: Core fixes
+- `black76.py`: guard for zero/negative forward or strike (was crashing with `math.log` domain error). ATM delta at zero vol now returns `±0.5*df` (was 0.0).
+- `greeks.py`: `bump_greeks` vega uses central difference (was one-sided, O(h) → O(h²)). `dollar_delta` docstring corrected.
+
+### DD10-R2: Deep math audit — Black-76 d1/d2 verified, put-call parity consistent, Bachelier correct, implied vol Newton+bisection fallback works, variance swap CBOE correction is documented approximation
+### DD10-R3: Consistency sweep — clean
+### DD10-R4: 13 deep tests — put-call parity, zero vol/time intrinsic, zero forward, ATM delta, higher vol → higher price, Greek signs, implied vol round-trip (ATM + deep OTM), edge cases
+### DD10-R5: Final sweep clean
+
+---
+
 ## v0.351.0 — 2026-04-24
 
 **DD9 Vol Surfaces — 5 rounds complete.** 5672 tests (10 new deep vol tests).
