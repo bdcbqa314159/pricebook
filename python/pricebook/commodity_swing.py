@@ -139,11 +139,8 @@ def swing_option_lsm(
         V_new[:, 0] = V_next[:, 0]  # no exercises remaining → must continue
         V = V_new
 
-    # Initial value at t=0 is V[0, max_exercises] discounted to t=0
-    # But we need the expectation at the first exercise date discounted
-    first_date = exercise_dates[0]
-    df_to_first = discount_factors[first_date] / discount_factors[0]
-    price = df_to_first * float(V[:, max_exercises].mean())
+    # V already contains time-0 values after cumulative backward discounting
+    price = float(V[:, max_exercises].mean())
 
     # Approximate mean exercises used (from forward pass; simplified)
     mean_ex = float(min(max_exercises, n_exercise_dates))

@@ -129,14 +129,13 @@ def calendar_spread_option(
 
     Approximation via Margrabe/Kirk's formula for spread options.
     """
-    spread_vol = math.sqrt(
-        vol_near**2 + vol_far**2 - 2 * correlation * vol_near * vol_far
-    )
+    spread_vol = math.sqrt(max(
+        vol_near**2 + vol_far**2 - 2 * correlation * vol_near * vol_far, 0.0,
+    ))
     spread_forward = forward_near - forward_far
-    if spread_forward + strike <= 0:
-        return 0.0
 
-    return black76_price(
-        max(spread_forward, 1e-10), max(strike, 1e-10),
-        spread_vol, T, df, option_type,
-    )
+    # Spreads can be negative — use Bachelier (normal model) for robustness
+    # Normal vol = spread_vol × representative forward level
+    from pricebook.black76 import bachelier_price
+    normal_vol = spread_vol * max(abs(spread_forward), abs(forward_near) * 0.5)
+    return bachelier_price(spread_forward, strike, normal_vol, T, df, option_type)

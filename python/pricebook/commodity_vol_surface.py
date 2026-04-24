@@ -213,8 +213,8 @@ def kirk_spread_smile(
     """
     df = math.exp(-rate * T)
 
-    # Kirk effective vol
-    denom = forward1 - strike
+    # Kirk (1995) effective vol: ratio = F2 / (F2 + K)
+    denom = forward2 + strike
     if abs(denom) < 1e-6:
         denom = 1e-6
     ratio = forward2 / denom
