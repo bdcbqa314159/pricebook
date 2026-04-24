@@ -2,6 +2,21 @@
 
 ---
 
+## v0.350.0 — 2026-04-24
+
+**DD8 Inflation — 5 rounds complete.** 5662 tests (9 new deep inflation tests).
+
+### DD8-R1: Core inflation fixes
+- `inflation_advanced.py`: **fixed swapped `black76_price` vol/time arguments** in 4 calls — LPI swap caps/floors (lines 136-141), inflation swaption (line 203), real rate swaption (line 260). All were passing `(forward, strike, TIME, VOL, ...)` instead of `(forward, strike, VOL, TIME, ...)`.
+- `inflation.py`: linker principal only added when `maturity > settlement` (was always included)
+
+### DD8-R2: Deep math audit — JY HW A(T) is simplified (documented), YoY convexity is approximate (documented), `real_vol` dead parameter noted
+### DD8-R3: Consistency sweep — zero remaining swapped black76 args across codebase
+### DD8-R4: 9 deep tests — ZC swap PV/par rate, YoY PV, linker dirty price, CPI curve round-trip, inflation cap vol sensitivity
+### DD8-R5: Final sweep clean
+
+---
+
 ## v0.349.0 — 2026-04-24
 
 **DD7 Commodity — 5 rounds complete.** 5653 tests (10 new deep commodity tests).
