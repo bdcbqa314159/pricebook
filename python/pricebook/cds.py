@@ -377,7 +377,7 @@ def bootstrap_credit_curve(
             return cds.pv(discount_curve, trial_curve)
 
         # Survival prob must be in (0, 1)
-        q_solved = brentq(objective, 0.001, 0.9999)
+        q_solved = brentq(objective, 1e-6, 1.0 - 1e-10)
         pillar_dates.append(mat)
         pillar_survs.append(q_solved)
 

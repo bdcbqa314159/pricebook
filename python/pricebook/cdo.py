@@ -39,46 +39,48 @@ def portfolio_loss_distribution(
     n_names: int = 100,
     n_points: int = 200,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Portfolio loss distribution via Vasicek large pool.
+    """Portfolio loss distribution via Vasicek large-pool analytic formula.
+
+    In the large-pool limit, portfolio loss fraction L = PD(M) × LGD where
+    PD(M) is the conditional default probability given systematic factor M.
+    The loss density is obtained by change of variable from M to L:
+
+        f(L) = sqrt((1-rho)/rho) × phi(z) / phi(Phi^{-1}(L/LGD)) × (1/LGD)
+
+    where z = (Phi^{-1}(L/LGD) × sqrt(1-rho) - Phi^{-1}(PD)) / sqrt(rho).
 
     Returns: (loss_fractions, probabilities).
-    loss_fractions: array of loss levels as fraction of portfolio notional.
-    probabilities: corresponding probability density (discrete).
     """
-    # Loss fraction grid: 0 to lgd (max loss = all default)
     loss_grid = np.linspace(0, lgd, n_points)
     density = np.zeros(n_points)
 
-    # Integrate over M using Gauss-Hermite (M ~ N(0,1), weight = exp(-M^2))
-    # Transform: integral over M with N(0,1) density
-    n_quad = 32
+    if rho <= 0 or pd <= 0 or pd >= 1 or lgd <= 0:
+        # Degenerate: all loss at one point
+        idx = min(int(pd * lgd / lgd * n_points), n_points - 1)
+        density[idx] = 1.0
+        return loss_grid, density
 
-    for i in range(n_points):
+    threshold = norm.ppf(pd)
+    sqrt_rho = math.sqrt(rho)
+    sqrt_1_rho = math.sqrt(1 - rho)
+
+    for i in range(1, n_points):  # skip L=0
         L = loss_grid[i]
-        if L <= 0:
+        p = L / lgd  # implied default fraction
+        if p <= 0 or p >= 1:
             continue
 
-        # For loss fraction L: need P(N_defaults >= L/(lgd/n)) given M
-        # In the large pool limit: loss fraction = conditional_PD * lgd
-        # So P(loss = L) = density of conditional_PD at L/lgd
+        # Inverse of conditional PD formula
+        z_p = norm.ppf(p)
+        # M value that gives this conditional PD
+        z = (z_p * sqrt_1_rho - threshold) / sqrt_rho
 
-        def integrand(M):
-            cond_pd = vasicek_conditional_pd(pd, rho, M)
-            expected_loss = cond_pd * lgd
-            # Gaussian kernel around this loss level
-            sigma_kernel = lgd / (2 * n_points)
-            if sigma_kernel <= 0:
-                return 0.0
-            return math.exp(-0.5 * ((L - expected_loss) / sigma_kernel)**2) / \
-                (sigma_kernel * math.sqrt(2 * math.pi))
+        # Density via change of variable (Jacobian)
+        density[i] = (sqrt_1_rho / sqrt_rho) * norm.pdf(z) / max(norm.pdf(z_p), 1e-300) / lgd
 
-        result = gauss_hermite(
-            lambda m: integrand(m * math.sqrt(2)) * math.sqrt(2),
-            n=n_quad,
-        )
-        density[i] = max(result.value / math.sqrt(math.pi), 0)
-
-    # Normalise
+    # Normalise: density is a discrete probability mass function (should sum to 1)
+    dl = loss_grid[1] - loss_grid[0] if n_points > 1 else 1.0
+    density *= dl  # convert density to probability mass
     total = density.sum()
     if total > 0:
         density /= total
@@ -146,4 +148,14 @@ def base_correlation(
         spread = tranche_spread(loss_grid, density, 0.0, detach, T, risk_free_rate)
         return spread - target_spread
 
-    return brentq(objective, 0.01, 0.95)
+    # Search right branch (rho > 0.05) where spread is typically monotone in rho
+    # for equity tranches. Fall back to full range if needed.
+    for lo, hi in [(0.05, 0.999), (0.001, 0.999)]:
+        try:
+            return brentq(objective, lo, hi)
+        except ValueError:
+            continue
+    # No root found — return boundary with smallest error
+    err_low = abs(objective(0.001))
+    err_high = abs(objective(0.999))
+    return 0.001 if err_low < err_high else 0.999
