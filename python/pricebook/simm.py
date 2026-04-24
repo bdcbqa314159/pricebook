@@ -186,8 +186,10 @@ class SIMMCalculator:
         self, risk_class: str, bucket: str, sensitivities: list[SIMMSensitivity],
     ) -> SIMMBucketResult:
         """Within-bucket aggregation."""
-        rw = self._risk_weight(risk_class, bucket)
-        weighted = [s.delta * rw for s in sensitivities]
+        weighted = [
+            s.delta * self._risk_weight(risk_class, bucket, s.tenor)
+            for s in sensitivities
+        ]
 
         intra_corr = self._intra_bucket_corr(risk_class)
         n = len(weighted)
@@ -203,9 +205,9 @@ class SIMMCalculator:
 
         return SIMMBucketResult(bucket, weighted, margin)
 
-    def _risk_weight(self, risk_class: str, bucket: str) -> float:
+    def _risk_weight(self, risk_class: str, bucket: str, tenor: str = "") -> float:
         if risk_class == "GIRR":
-            return GIRR_RISK_WEIGHTS.get(bucket, 56) / 10000.0  # convert bps to decimal
+            return GIRR_RISK_WEIGHTS.get(tenor, 56) / 10000.0  # convert bps to decimal
         if risk_class == "FX":
             return FX_RW_LIQUID if bucket in FX_LIQUID_PAIRS else FX_RW_OTHER
         if risk_class == "CSR":
