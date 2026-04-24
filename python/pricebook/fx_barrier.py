@@ -108,14 +108,32 @@ def vanna_volga_barrier(
     VV_price = BS_barrier(ATM) + vanna_cost + volga_cost
     """
     # Flat-vol barrier price
-    bs_barrier = fx_barrier_pde(
-        spot, strike, barrier, rate_dom, rate_for, vol_atm, T,
-        is_up, is_knock_in, option_type,
-    )
+    def _bar_price(s, v):
+        return fx_barrier_pde(
+            s, strike, barrier, rate_dom, rate_for, v, T,
+            is_up, is_knock_in, option_type,
+        )
 
-    # Smile Greeks of the barrier (using ATM vol)
-    vanna_bar = _bs_vanna(spot, strike, rate_dom, rate_for, vol_atm, T)
-    volga_bar = _bs_volga(spot, strike, rate_dom, rate_for, vol_atm, T)
+    bs_barrier = _bar_price(spot, vol_atm)
+
+    # Barrier Greeks via finite difference on the barrier pricer (not vanilla)
+    dS = spot * 0.01
+    dvol = 0.001
+
+    vega_up = _bar_price(spot, vol_atm + dvol)
+    vega_dn = _bar_price(spot, vol_atm - dvol)
+    vega_su = _bar_price(spot + dS, vol_atm)
+    vega_sd = _bar_price(spot - dS, vol_atm)
+    vega_su_vu = _bar_price(spot + dS, vol_atm + dvol)
+    vega_su_vd = _bar_price(spot + dS, vol_atm - dvol)
+    vega_sd_vu = _bar_price(spot - dS, vol_atm + dvol)
+    vega_sd_vd = _bar_price(spot - dS, vol_atm - dvol)
+
+    # Volga of barrier = d²P/dvol²
+    volga_bar = (vega_up - 2 * bs_barrier + vega_dn) / (dvol ** 2)
+
+    # Vanna of barrier = d²P/(dS dvol)
+    vanna_bar = ((vega_su_vu - vega_su_vd) - (vega_sd_vu - vega_sd_vd)) / (4 * dS * dvol)
 
     # Cost of vanna: proportional to risk-reversal
     rr = vol_25d_call - vol_25d_put

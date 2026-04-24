@@ -90,12 +90,18 @@ class NDF:
     def settlement_amount(self, fixing_rate: float) -> float:
         """Cash settlement at fixing.
 
-        For standard NDF (base currency settlement):
+        Base currency settlement:
             settlement = notional × (fixing_rate - contracted_rate)
+
+        Quote currency / EMTA settlement:
+            settlement = notional × (fixing_rate - contracted_rate) / fixing_rate
 
         Positive = buyer receives.
         """
-        return self.notional * (fixing_rate - self.contracted_rate)
+        diff = fixing_rate - self.contracted_rate
+        if self.settlement_currency == "quote" and fixing_rate > 0:
+            return self.notional * diff / fixing_rate
+        return self.notional * diff
 
     def fx_delta(
         self,

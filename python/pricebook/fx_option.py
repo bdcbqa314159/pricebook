@@ -170,7 +170,8 @@ def strike_from_delta(
         from scipy.stats import norm
         sign = 1.0 if option_type == OptionType.CALL else -1.0
         adj_delta = delta / math.exp(-r_f * T)  # remove discount
-        d1 = sign * norm.ppf(sign * adj_delta)
+        adj_delta = max(min(sign * adj_delta, 0.9999), 0.0001)
+        d1 = sign * norm.ppf(adj_delta)
         return fwd * math.exp(-d1 * vol * sqrt_t + 0.5 * vol * vol * T)
 
 
