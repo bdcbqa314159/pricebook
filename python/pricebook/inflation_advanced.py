@@ -134,11 +134,11 @@ def lpi_swap_price(
         # Cap cost: short a call on inflation rate at cap level
         if fwd_infl > 0 and inflation_vol > 0:
             cap_cost = notional * dt * df * black76_price(
-                fwd_infl, cap, t, inflation_vol, 1.0, OptionType.CALL,
+                fwd_infl, cap, inflation_vol, t, 1.0, OptionType.CALL,
             )
             # Floor benefit: long a put on inflation rate at floor level
             floor_benefit = notional * dt * df * black76_price(
-                fwd_infl, max(floor, 1e-6), t, inflation_vol, 1.0, OptionType.PUT,
+                fwd_infl, max(floor, 1e-6), inflation_vol, t, 1.0, OptionType.PUT,
             )
         else:
             cap_cost = 0.0
@@ -200,7 +200,7 @@ def inflation_swaption_price(
                   for i in range(1, int(swap_tenor) + 1))
 
     opt_type = OptionType.CALL if is_payer else OptionType.PUT
-    unit_price = black76_price(forward_breakeven, strike, expiry, vol, 1.0, opt_type)
+    unit_price = black76_price(forward_breakeven, strike, vol, expiry, 1.0, opt_type)
 
     price = notional * annuity * unit_price
 
@@ -257,7 +257,7 @@ def real_rate_swaption_price(
     f_shifted = forward_real_rate + shift
     k_shifted = strike + shift
 
-    unit_price = black76_price(f_shifted, k_shifted, expiry, real_rate_vol, 1.0, opt_type)
+    unit_price = black76_price(f_shifted, k_shifted, real_rate_vol, expiry, 1.0, opt_type)
 
     price = notional * annuity * unit_price
 

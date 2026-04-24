@@ -269,9 +269,10 @@ class InflationLinkedBond:
             index_ratio = cpi_curve.cpi(self._lagged_date(t_end)) / self.base_cpi_value
             pv += self.notional * self.coupon_rate * yf * index_ratio * df
 
-        # Indexed principal at maturity
-        index_ratio_mat = cpi_curve.cpi(self._lagged_date(self.end)) / self.base_cpi_value
-        pv += self.notional * index_ratio_mat * discount_curve.df(self.end)
+        # Indexed principal at maturity (only if maturity is in the future)
+        if self.end > settle:
+            index_ratio_mat = cpi_curve.cpi(self._lagged_date(self.end)) / self.base_cpi_value
+            pv += self.notional * index_ratio_mat * discount_curve.df(self.end)
 
         return pv / self.notional * 100.0
 
