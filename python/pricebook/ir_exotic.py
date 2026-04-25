@@ -186,12 +186,12 @@ def callable_range_accrual(
     n_paths: int = 50_000,
     seed: int | None = None,
 ) -> CallableRangeAccrualResult:
-    """Callable range accrual via MC with backward call decision.
+    """Callable range accrual via MC with LSM call decision.
 
     Coupon accrues when the rate is in [lower, upper].
     Issuer can call at call_price after call_start_year.
 
-    Simplified: forward call decision based on current value vs call price.
+    Backward LSM: issuer calls when estimated continuation > par.
 
     Args:
         lower / upper: range boundaries for rate.
@@ -202,42 +202,72 @@ def callable_range_accrual(
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
 
-    r = np.full(n_paths, flat_rate)
-    pv_nc = np.zeros(n_paths)  # non-callable
-    pv_c = np.zeros(n_paths)   # callable
-    alive = np.ones(n_paths, dtype=bool)
+    # Simulate rate paths
+    r_all = np.zeros((n_paths, n_periods + 1))
+    r_all[:, 0] = flat_rate
+    for i in range(1, n_periods + 1):
+        dW = rng.standard_normal(n_paths) * math.sqrt(dt)
+        r_all[:, i] = r_all[:, i - 1] + 0.5 * (flat_rate - r_all[:, i - 1]) * dt + rate_vol * dW
+
+    # Compute non-callable price and per-period coupons
+    pv_nc = np.zeros(n_paths)
+    coupons = np.zeros((n_paths, n_periods))
     total_in_range = 0
 
     for i in range(1, n_periods + 1):
         t = i * dt
-        dW = rng.standard_normal(n_paths) * math.sqrt(dt)
-        r = r + 0.5 * (flat_rate - r) * dt + rate_vol * dW
-
-        in_range = (r >= lower) & (r <= upper)
+        in_range = (r_all[:, i] >= lower) & (r_all[:, i] <= upper)
         total_in_range += in_range.sum()
-
-        coupon = np.where(in_range, coupon_rate * notional * dt, 0.0)
+        coupons[:, i - 1] = np.where(in_range, coupon_rate * notional * dt, 0.0)
         df = math.exp(-flat_rate * t)
+        pv_nc += df * coupons[:, i - 1]
 
-        pv_nc += df * coupon
-
-        # Callable: pay coupon only if alive
-        pv_c[alive] += df * coupon[alive]
-
-        # Call decision (simplified: call if t >= call_start and rate is low)
-        year = t
-        if year >= call_start_year:
-            # Issuer calls if remaining value > call price (heuristic)
-            remaining_value = coupon_rate * notional * (maturity_years - t) * 0.7
-            call_threshold = call_price * notional / 100
-            should_call = alive & (remaining_value > call_threshold * 0.5)
-            pv_c[should_call] += df * call_price * notional / 100
-            alive[should_call] = False
-
-    # Maturity
     df_T = math.exp(-flat_rate * maturity_years)
     pv_nc += df_T * notional
-    pv_c[alive] += df_T * notional
+
+    # LSM backward pass for issuer call decision
+    # V[p] = value-to-go for the issuer (what they owe the investor)
+    V = np.full(n_paths, df_T * notional)  # terminal principal
+
+    call_decision = np.zeros((n_paths, n_periods), dtype=bool)
+    call_start_period = call_start_year * frequency
+
+    for i in range(n_periods, 0, -1):
+        t = i * dt
+        df = math.exp(-flat_rate * t)
+        V += df * coupons[:, i - 1]
+
+        if i >= call_start_period:
+            par_val = call_price * notional / 100 * df
+
+            # LSM: regress V on rate
+            r_i = r_all[:, i]
+            r_norm = (r_i - r_i.mean()) / max(r_i.std(), 1e-10)
+            basis = np.column_stack([np.ones(n_paths), r_norm, r_norm**2])
+            try:
+                coeffs = np.linalg.lstsq(basis, V, rcond=None)[0]
+                est_cont = basis @ coeffs
+            except np.linalg.LinAlgError:
+                est_cont = V
+
+            # Issuer calls when continuation > par (saves money)
+            call_decision[:, i - 1] = est_cont > par_val
+
+    # Forward pass: apply call decisions
+    alive = np.ones(n_paths, dtype=bool)
+    pv_c = np.zeros(n_paths)
+
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        df = math.exp(-flat_rate * t)
+        pv_c += np.where(alive, df * coupons[:, i - 1], 0.0)
+
+        if i >= call_start_period:
+            issuer_calls = alive & call_decision[:, i - 1]
+            pv_c += np.where(issuer_calls, call_price * notional / 100 * df, 0.0)
+            alive &= ~issuer_calls
+
+    pv_c += np.where(alive, df_T * notional, 0.0)
 
     nc_price = float(pv_nc.mean()) / notional * 100
     c_price = float(pv_c.mean()) / notional * 100
