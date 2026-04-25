@@ -47,8 +47,9 @@ def _rebonato_swaption_vol(
 
     σ_swap² × T ≈ Σ_{i,j} w_i w_j σ_i σ_j ρ_{ij} T
 
-    Uses annuity weights: w_i = τ × F_i × P(0, T_{i+1}) / (S × A)
-    where P(0, T_k) = Π 1/(1+τF_j), A = annuity, S = par swap rate.
+    Annuity weights: w_i = τ × P(T_{i+1}) × F_i / (1 − P(T_end))
+    where P(T_k) = Π_{j=start}^{k-1} 1/(1+τF_j).
+    Equivalent to w_i = τ × df_i × F_i / swap_rate / annuity.
     Assumes unit correlation between forwards.
     """
     n = len(inst_vols)
