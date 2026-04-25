@@ -67,7 +67,7 @@ def calibrate_leverage_function(
     theta: float,
     xi: float,
     v0: float,
-    rho: float = -0.3,
+    rho: float,
     n_paths: int = 10_000,
     seed: int | None = 42,
 ) -> LeverageFunction:
@@ -161,7 +161,7 @@ def particle_slv_calibration(
     theta: float,
     xi: float,
     v0: float,
-    rho: float = -0.3,
+    rho: float,
     n_particles: int = 5_000,
     bandwidth: float | None = None,
     seed: int | None = 42,

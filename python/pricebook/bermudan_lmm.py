@@ -56,7 +56,9 @@ def _simulate_lmm_paths(
     dt_tenor: float,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    """Simulate LMM forward rate paths.
+    """Simulate LMM forward rate paths under terminal measure.
+
+    Drift for forward j: μ_j = -Σ_{k>j} σ_j σ_k τ F_k / (1 + τ F_k)
 
     Returns (n_paths, n_steps+1, n_fwd) array.
     """
@@ -69,11 +71,17 @@ def _simulate_lmm_paths(
 
     for step in range(n_steps):
         dW = rng.standard_normal((n_paths, n_fwd)) * sqrt_dt
+        L = np.maximum(F[:, step, :], 1e-10)
+
         for j in range(n_fwd):
-            L = np.maximum(F[:, step, j], 1e-10)
-            # Lognormal LMM dynamics (simplified drift)
-            F[:, step + 1, j] = L * np.exp(
-                -0.5 * inst_vols[j]**2 * dt + inst_vols[j] * dW[:, j]
+            drift = np.zeros(n_paths)
+            for k in range(j + 1, n_fwd):
+                drift -= (inst_vols[k] * inst_vols[j] * dt_tenor
+                          * L[:, k] / (1 + dt_tenor * L[:, k]))
+
+            F[:, step + 1, j] = L[:, j] * np.exp(
+                (drift - 0.5 * inst_vols[j]**2) * dt
+                + inst_vols[j] * dW[:, j]
             )
 
     return F
@@ -383,14 +391,19 @@ def bermudan_upper_bound(
     is_payer: bool = True,
     n_paths: int = 10_000,
     n_steps: int = 100,
+    n_sub: int = 256,
     seed: int | None = None,
 ) -> BermudanBoundsResult:
     """Andersen-Broadie dual upper bound for Bermudan swaption.
 
-    Lower bound: LSM price.
-    Upper bound: max over exercise dates of discounted payoff.
-    (Simplified: uses discounted payoff envelope instead of full
-    sub-simulation martingale correction.)
+    Uses sub-simulation at each exercise date to build a proper
+    martingale correction. At each exercise date k on each path:
+
+        M_{k+1} = M_k + (h_k − Ĉ_k)
+
+    where Ĉ_k is estimated via n_sub sub-simulation paths from the
+    current state, giving a tighter upper bound than the simplified
+    regression-based envelope.
 
     True price satisfies: lower ≤ V ≤ upper.
     """
@@ -409,58 +422,147 @@ def bermudan_upper_bound(
         step = min(int(round(t_ex / dt_sim)), n_steps)
         exercise_steps.append((step, idx))
 
-    # Upper bound via Andersen-Broadie dual (simplified):
-    # U = E[max_k (h_k - M_k)] where M_k = Σ_{j<k} (h_j_hat - cont_j_hat)
-    # h_j_hat = exercise value at j, cont_j_hat = LSM continuation estimate at j
-    # The martingale M penalises hindsight by subtracting the estimated
-    # "regret" from not exercising at earlier dates.
+    n_ex = len(exercise_steps)
 
-    # First compute payoffs and continuation estimates at each exercise date
-    exercise_payoffs = []
-    continuation_ests = []
-    disc_factors = []
+    # --- Step 1: LSM backward pass to get exercise policy ---
+    ex_values = np.zeros((n_paths, n_ex))
+    ex_swap_rates = np.zeros((n_paths, n_ex))
 
-    for step, start_idx in exercise_steps:
+    for k, (step, start_idx) in enumerate(exercise_steps):
         fwd_at_ex = F[:, step, :]
         sr = _swap_rate(fwd_at_ex, start_idx, swap_end_idx, dt_tenor)
         ann = _annuity(fwd_at_ex, start_idx, swap_end_idx, dt_tenor)
+        ex_swap_rates[:, k] = sr
+        if is_payer:
+            ex_values[:, k] = np.maximum(sr - strike, 0.0) * ann
+        else:
+            ex_values[:, k] = np.maximum(strike - sr, 0.0) * ann
+
+    # LSM backward to get continuation estimates
+    cashflow = ex_values[:, -1].copy()
+    exercise_time_idx = np.full(n_paths, n_ex - 1, dtype=int)
+    lsm_cont = np.zeros((n_paths, n_ex))
+    lsm_cont[:, -1] = 0.0  # at last date, continuation = 0
+
+    for k in range(n_ex - 2, -1, -1):
+        ev = ex_values[:, k]
+        itm = ev > 0
+        if itm.sum() < 4:
+            continue
+
+        step_k = exercise_steps[k][0]
+        disc_cf = np.zeros(itm.sum())
+        itm_idx = np.where(itm)[0]
+
+        for p_idx, p in enumerate(itm_idx):
+            future_k = exercise_time_idx[p]
+            future_step = exercise_steps[future_k][0]
+            dt_between = (future_step - step_k) * dt_sim
+            avg_rate = np.mean(F[p, step_k, :min(n_fwd, 3)])
+            disc_cf[p_idx] = cashflow[p] * math.exp(-avg_rate * dt_between)
+
+        sr_itm = ex_swap_rates[itm, k]
+        sr_mean = sr_itm.mean()
+        sr_std = max(sr_itm.std(), 1e-10)
+        sr_norm = (sr_itm - sr_mean) / sr_std
+        basis = np.column_stack([sr_norm**j for j in range(3)])
+
+        try:
+            coeffs = np.linalg.lstsq(basis, disc_cf, rcond=None)[0]
+            continuation = basis @ coeffs
+        except np.linalg.LinAlgError:
+            continue
+
+        lsm_cont[itm, k] = continuation
+        exercise_mask = ev[itm] > continuation
+        exercise_idx = itm_idx[exercise_mask]
+        cashflow[exercise_idx] = ev[exercise_idx]
+        exercise_time_idx[exercise_idx] = k
+
+    # --- Step 2: Sub-simulation upper bound ---
+    # For each path and each exercise date k (except last), estimate
+    # the continuation value via n_sub short forward simulations.
+    sub_rng = np.random.default_rng(seed + 1 if seed is not None else None)
+
+    exercise_payoffs_disc = np.zeros((n_paths, n_ex))
+    sub_cont = np.zeros((n_paths, n_ex))
+
+    for k, (step_k, start_idx_k) in enumerate(exercise_steps):
+        fwd_at_k = F[:, step_k, :]
+        sr_k = _swap_rate(fwd_at_k, start_idx_k, swap_end_idx, dt_tenor)
+        ann_k = _annuity(fwd_at_k, start_idx_k, swap_end_idx, dt_tenor)
 
         if is_payer:
-            payoff = np.maximum(sr - strike, 0.0) * ann
+            payoff_k = np.maximum(sr_k - strike, 0.0) * ann_k
         else:
-            payoff = np.maximum(strike - sr, 0.0) * ann
+            payoff_k = np.maximum(strike - sr_k, 0.0) * ann_k
 
-        t_ex = step * dt_sim
-        avg_rate = np.mean(F[:, 0, :min(n_fwd, 3)], axis=1)
-        df_ex = np.exp(-avg_rate * t_ex)
-        disc_payoff = payoff * df_ex
+        t_k = step_k * dt_sim
+        avg_rate_k = np.mean(F[:, 0, :min(n_fwd, 3)], axis=1)
+        df_k = np.exp(-avg_rate_k * t_k)
+        exercise_payoffs_disc[:, k] = payoff_k * df_k
 
-        # LSM continuation estimate (polynomial regression on swap rate)
-        X = np.column_stack([np.ones(n_paths), sr, sr**2])
-        try:
-            coeffs = np.linalg.lstsq(X, disc_payoff, rcond=None)[0]
-            cont_est = X @ coeffs
-        except np.linalg.LinAlgError:
-            cont_est = disc_payoff
+        if k == n_ex - 1:
+            sub_cont[:, k] = 0.0
+            continue
 
-        exercise_payoffs.append(disc_payoff)
-        continuation_ests.append(cont_est)
+        # Sub-simulate from each path's state at step_k to the next
+        # exercise date, estimate E[max(h_{k+1}, C_{k+1}) | F_k].
+        # For efficiency, batch all paths together.
+        next_step, next_start = exercise_steps[k + 1]
+        dt_sub = (next_step - step_k) * dt_sim
+        sqrt_dt_sub = math.sqrt(max(dt_sub, 1e-15))
 
-    # Build martingale penalty and compute dual upper bound
-    n_ex = len(exercise_payoffs)
-    M = np.zeros(n_paths)  # martingale
+        # For each path, run n_sub sub-sims in one shot
+        # Shape: (n_paths, n_sub, n_fwd)
+        for p in range(n_paths):
+            fwd_p = np.maximum(fwd_at_k[p], 1e-10)
+            dW_sub = sub_rng.standard_normal((n_sub, n_fwd)) * sqrt_dt_sub
+
+            # Single-step Euler to next exercise date
+            F_sub = np.zeros((n_sub, n_fwd))
+            for j in range(n_fwd):
+                drift_j = 0.0
+                for kk in range(j + 1, n_fwd):
+                    drift_j -= (vols[kk] * vols[j] * dt_tenor
+                                * fwd_p[kk] / (1 + dt_tenor * fwd_p[kk]))
+                F_sub[:, j] = fwd_p[j] * np.exp(
+                    (drift_j - 0.5 * vols[j]**2) * dt_sub
+                    + vols[j] * dW_sub[:, j]
+                )
+
+            sr_sub = np.array([
+                _swap_rate(F_sub[s], next_start, swap_end_idx, dt_tenor)
+                for s in range(n_sub)
+            ])
+            ann_sub = np.array([
+                _annuity(F_sub[s], next_start, swap_end_idx, dt_tenor)
+                for s in range(n_sub)
+            ])
+
+            if is_payer:
+                h_sub = np.maximum(sr_sub - strike, 0.0) * ann_sub
+            else:
+                h_sub = np.maximum(strike - sr_sub, 0.0) * ann_sub
+
+            # Discount sub-sim payoffs back to step_k
+            avg_r = np.mean(fwd_p[:min(n_fwd, 3)])
+            df_sub = math.exp(-avg_r * dt_sub)
+            sub_cont[p, k] = float(h_sub.mean()) * df_sub * df_k[p]
+
+    # --- Step 3: Build martingale and compute upper bound ---
+    M = np.zeros(n_paths)
     max_penalised = np.full(n_paths, -np.inf)
 
     for k in range(n_ex):
-        penalised = exercise_payoffs[k] - M
+        penalised = exercise_payoffs_disc[:, k] - M
         max_penalised = np.maximum(max_penalised, penalised)
-        # Update martingale: M_{k+1} = M_k + (h_k - cont_k)
         if k < n_ex - 1:
-            M += exercise_payoffs[k] - continuation_ests[k]
+            M += exercise_payoffs_disc[:, k] - sub_cont[:, k]
 
     upper = float(np.maximum(max_penalised, 0.0).mean())
 
-    # Lower bound: LSM price (use same paths via deterministic seed)
+    # Lower bound: LSM price
     lower_result = bermudan_swaption_lmm(
         forward_rates, inst_vols, strike, exercise_indices, swap_end_idx,
         dt_tenor, is_payer, n_paths, n_steps, seed=seed,

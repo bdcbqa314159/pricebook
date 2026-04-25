@@ -213,9 +213,9 @@ def worst_of_autocallable(
         coupon_eligible = worst >= coupon_barrier_pct
 
         if has_memory:
-            # Autocall: pay notional + missed coupons + current coupon
-            payout = notional + missed + coupon
-            pv += np.where(triggered, payout * df_t, 0.0)
+            # Autocall: pay notional + coupon (+ missed) only if coupon eligible
+            autocall_coupon = np.where(coupon_eligible, missed + coupon, missed)
+            pv += np.where(triggered, (notional + autocall_coupon) * df_t, 0.0)
             # Alive + coupon eligible: pay coupon + missed, reset missed
             coupon_paid = alive & ~triggered & coupon_eligible
             pv += np.where(coupon_paid, (coupon + missed) * df_t, 0.0)
@@ -223,7 +223,8 @@ def worst_of_autocallable(
             # Alive + not eligible: accumulate missed
             missed = np.where(alive & ~triggered & ~coupon_eligible, missed + coupon, missed)
         else:
-            pv += np.where(triggered, (notional + coupon) * df_t, 0.0)
+            autocall_coupon = np.where(coupon_eligible, coupon, 0.0)
+            pv += np.where(triggered, (notional + autocall_coupon) * df_t, 0.0)
             pv += np.where(alive & ~triggered & coupon_eligible, coupon * df_t, 0.0)
 
         ac_time = np.where(triggered & alive, t_obs, ac_time)

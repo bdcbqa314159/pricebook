@@ -18,18 +18,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-
-# ---- Z-score signal core ----
-
-@dataclass
-class ZScoreSignal:
-    """Generic rich/cheap signal driven by a z-score against history."""
-    current: float
-    mean: float
-    std: float
-    z_score: float | None
-    percentile: float | None
-    signal: str  # "rich", "cheap", or "fair"
+from pricebook.zscore import zscore as _zscore_impl, ZScoreSignal
 
 
 def _zscore_and_signal(
@@ -37,31 +26,8 @@ def _zscore_and_signal(
     history: list[float],
     threshold: float = 2.0,
 ) -> ZScoreSignal:
-    """Compute the z-score, percentile and rich/cheap signal vs history.
-
-    Args:
-        current: the current observation.
-        history: window of past observations.
-        threshold: |z| above which the signal flips from "fair".
-    """
-    if not history or len(history) < 2:
-        return ZScoreSignal(current, current, 0.0, None, None, "fair")
-
-    mean = sum(history) / len(history)
-    var = sum((h - mean) ** 2 for h in history) / len(history)
-    std = math.sqrt(var) if var > 0 else 0.0
-    z = (current - mean) / std if std > 1e-12 else None
-
-    sorted_h = sorted(history)
-    rank = sum(1 for h in sorted_h if h <= current)
-    percentile = rank / len(sorted_h) * 100.0
-
-    if z is not None and abs(z) >= threshold:
-        signal = "rich" if z > 0 else "cheap"
-    else:
-        signal = "fair"
-
-    return ZScoreSignal(current, mean, std, z, percentile, signal)
+    """Compute the z-score, percentile and rich/cheap signal vs history."""
+    return _zscore_impl(current, history, threshold)
 
 
 # ---- Rich/cheap monitors ----

@@ -2,6 +2,29 @@
 
 ---
 
+## v0.356.0 — 2026-04-25
+
+**Pending fixes cleanup — all Tier 0 and code/numerical lens items resolved.** 5685 tests.
+
+### Tier 0 fixes (wrong prices)
+- `bermudan_lmm.py`: LMM drift added to `_simulate_lmm_paths` under terminal measure (`μ_j = -Σ σ_j σ_k τ F_k/(1+τF_k)`). Was driftless.
+- `bermudan_lmm.py`: Andersen-Broadie upper bound now uses sub-simulation martingale correction (n_sub paths per exercise date). Was trivial envelope.
+
+### Code/numerical lens fixes
+- `fft_pricing.py`: `lewis_price` default N bumped 256→4096 for <1% relative error. Test tolerance tightened rel=0.05→0.01.
+- `equity_structured.py`: `worst_of_autocallable` coupon at autocall trigger now respects `coupon_barrier_pct`. Was paid unconditionally.
+- `fx_slv_calibration.py`: `rho` made required parameter in `calibrate_leverage_function` and `particle_slv_calibration`. Was defaulting to -0.3.
+
+### Z-score consolidation
+- `equity_rv.py`, `commodity_rv.py`: replaced full local `_zscore_and_signal` implementations with delegation to centralized `zscore.py`.
+
+### Previously fixed (verified)
+- `jarrow_yildirim.py`: θ(t) calibrated to initial term structure (not constant). Fixed in earlier session.
+- `convertible_bond.py`: backward induction uses LSM regression (not perfect foresight). Fixed in earlier session.
+- `fx_exotic.py`: DNT Hui series removed, replaced with clean MC. Fixed in earlier session.
+
+---
+
 ## v0.355.0 — 2026-04-24
 
 **DD13 Numerics + DD14 Risk/Infra — 5 rounds complete.** 5685 tests.

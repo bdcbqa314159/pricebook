@@ -55,7 +55,7 @@ class TestCalibrateLeverageFunction:
         local_vols = np.full((5, 7), 0.15)
         result = calibrate_leverage_function(
             1.0, local_vols, times, spots,
-            kappa=1.0, theta=0.02, xi=0.3, v0=0.02,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
             n_paths=1_000, seed=42,
         )
         assert isinstance(result, LeverageFunction)
@@ -67,7 +67,7 @@ class TestCalibrateLeverageFunction:
         local_vols = np.full((3, 5), 0.15)
         result = calibrate_leverage_function(
             1.0, local_vols, times, spots,
-            kappa=1.0, theta=0.02, xi=0.3, v0=0.02,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
             n_paths=500, seed=42,
         )
         assert np.all(result.values > 0)
@@ -79,10 +79,10 @@ class TestCalibrateLeverageFunction:
         lv_low = np.full((3, 5), 0.10)
         lv_high = np.full((3, 5), 0.30)
         low = calibrate_leverage_function(1.0, lv_low, times, spots,
-                                           1.0, 0.02, 0.3, 0.02,
+                                           1.0, 0.02, 0.3, 0.02, rho=-0.3,
                                            n_paths=500, seed=42)
         high = calibrate_leverage_function(1.0, lv_high, times, spots,
-                                            1.0, 0.02, 0.3, 0.02,
+                                            1.0, 0.02, 0.3, 0.02, rho=-0.3,
                                             n_paths=500, seed=42)
         assert high.values.mean() > low.values.mean()
 
@@ -96,7 +96,7 @@ class TestParticleCalibration:
         local_vols = np.full((3, 5), 0.15)
         result = particle_slv_calibration(
             1.0, local_vols, times, spots,
-            kappa=1.0, theta=0.02, xi=0.3, v0=0.02,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
             n_particles=500, seed=42,
         )
         assert isinstance(result, ParticleCalibrationResult)
@@ -108,7 +108,7 @@ class TestParticleCalibration:
         local_vols = np.full((3, 5), 0.15)
         result = particle_slv_calibration(
             1.0, local_vols, times, spots,
-            kappa=1.0, theta=0.02, xi=0.3, v0=0.02,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
             n_particles=500, seed=42,
         )
         assert result.bandwidth > 0
@@ -120,7 +120,7 @@ class TestParticleCalibration:
         local_vols = np.full((3, 5), 0.15)
         result = particle_slv_calibration(
             1.0, local_vols, times, spots,
-            kappa=1.0, theta=0.02, xi=0.3, v0=0.02,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
             n_particles=500, seed=42,
         )
         assert np.all(result.leverage.values >= 0.1)

@@ -76,14 +76,14 @@ class TestLewisPrice:
             drift = (RATE - 0.5 * VOL**2) * T
             return _cmath.exp(1j * u * (x + drift) - 0.5 * VOL**2 * u**2 * T)
 
-        price = lewis_price(cf, SPOT, SPOT, RATE, T, N=1024)
+        price = lewis_price(cf, SPOT, SPOT, RATE, T)
         assert price > 0
         # Should be close to Black-76
         from pricebook.black76 import black76_price, OptionType
         fwd = SPOT * math.exp(RATE * T)
         df = math.exp(-RATE * T)
         bs = black76_price(fwd, SPOT, VOL, T, df, OptionType.CALL)
-        assert price == pytest.approx(bs, rel=0.05)
+        assert price == pytest.approx(bs, rel=0.01)
 
 
 # ---- Breeden-Litzenberger density ----

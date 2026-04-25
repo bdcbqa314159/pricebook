@@ -154,36 +154,27 @@ def lewis_price(
     rate: float,
     T: float,
     div_yield: float = 0.0,
-    N: int = 256,
+    N: int = 4096,
     u_max: float = 50.0,
 ) -> float:
-    """Lewis (2001) option pricing via contour integration.
+    """Gil-Pelaez option pricing via characteristic function inversion.
 
-    Integrates along the line Im(u) = 1/2 in the complex plane:
+    Decomposes the call into two probabilities:
 
-        C = S − (K e^{-rT} / π) Re ∫₀^∞ exp(-iu k) φ(u − i/2) / (u² + 1/4) du
+        C = e^{-rT} (F · P₁ − K · P₂)
 
-    where k = log(S/K) + (r−q)T.
-
-    More numerically stable than Carr-Madan for some characteristic
-    functions (avoids the damping parameter choice).
+    where P₂ = Q(S_T > K) and P₁ = E^S[1_{S_T > K}] under the stock
+    measure, both recovered from φ via Gil-Pelaez inversion.
 
     Args:
-        char_func: must accept complex arguments.
+        char_func: φ(u) = E[exp(iu log(S_T))], must accept complex arguments.
         N: number of quadrature points.
         u_max: upper integration limit.
     """
     df = math.exp(-rate * T)
     log_K = math.log(strike)
 
-    # Gil-Pelaez (1951) inversion for call = df × (F×P₁ - K×P₂)
-    # P₁ = 0.5 + (1/π) ∫₀^∞ Re[e^{-iu·logK} × φ(u-i) / (iuφ(-i))] du
-    # P₂ = 0.5 + (1/π) ∫₀^∞ Re[e^{-iu·logK} × φ(u) / (iu)] du
-    #
-    # φ(-i) = E[S_T] = F (forward) when φ is CF of log(S_T)
-
-    forward = spot * math.exp((rate - div_yield) * T)
-    phi_neg_i = char_func(complex(0, -1))  # = F in expectation
+    phi_neg_i = char_func(complex(0, -1))  # = E[S_T] = F
     F_implied = phi_neg_i.real
 
     du = u_max / N
