@@ -23,6 +23,37 @@ class PRDCResult:
     ir_delta: float
     n_coupons: int
 
+def _prdc_reprice(
+    spot_fx, rate_dom, rate_for, vol_fx, vol_dom, vol_for,
+    corr, notional, fixed_coupon, fx_participation, fx_strike,
+    T, n_coupons, n_paths, n_steps, rng,
+) -> float:
+    """Internal reprice for bump-and-reprice delta (same RNG for variance reduction)."""
+    dt = T / n_steps; sqrt_dt = math.sqrt(dt)
+    L = np.linalg.cholesky(corr)
+
+    FX = np.full(n_paths, float(spot_fx))
+    r_d = np.full(n_paths, rate_dom)
+    r_f = np.full(n_paths, rate_for)
+    coupon_steps = set(int((i + 1) * n_steps / n_coupons) for i in range(n_coupons))
+    pv = np.zeros(n_paths)
+
+    for step in range(n_steps):
+        Z = rng.standard_normal((n_paths, 3)) @ L.T
+        r_d += 0.1 * (rate_dom - r_d) * dt + vol_dom * Z[:, 1] * sqrt_dt
+        r_f += 0.1 * (rate_for - r_f) * dt + vol_for * Z[:, 2] * sqrt_dt
+        FX = FX * np.exp((r_d - r_f - 0.5 * vol_fx**2) * dt + vol_fx * Z[:, 0] * sqrt_dt)
+
+        if (step + 1) in coupon_steps:
+            t = (step + 1) * dt
+            df = np.exp(-r_d * t)
+            cpn = np.maximum(fixed_coupon + fx_participation * (FX / fx_strike - 1), 0.0)
+            pv += notional * cpn * df / n_coupons
+
+    pv += notional * np.exp(-r_d * T)
+    return float(pv.mean())
+
+
 def prdc_price(
     spot_fx: float,
     rate_dom: float, rate_for: float,
@@ -81,9 +112,19 @@ def prdc_price(
     price = float(pv.mean())
     mean_cpn = float(total_coupon.mean() / n_coupons)
 
-    # Approximate deltas
-    fx_d = float(np.corrcoef(FX, pv)[0, 1]) if pv.std() > 0 else 0
-    ir_d = float(np.corrcoef(r_d, pv)[0, 1]) if pv.std() > 0 else 0
+    # Approximate deltas via bump-and-reprice (pathwise not possible due to max)
+    bump = spot_fx * 0.01
+    rng2 = np.random.default_rng(seed)
+    pv_up = _prdc_reprice(spot_fx + bump, rate_dom, rate_for, vol_fx, vol_dom,
+                           vol_for, corr, notional, fixed_coupon, fx_participation,
+                           fx_strike, T, n_coupons, n_paths, n_steps, rng2)
+    fx_d = (pv_up - price) / bump
+
+    rng3 = np.random.default_rng(seed)
+    pv_rate_up = _prdc_reprice(spot_fx, rate_dom + 0.0001, rate_for, vol_fx, vol_dom,
+                                vol_for, corr, notional, fixed_coupon, fx_participation,
+                                fx_strike, T, n_coupons, n_paths, n_steps, rng3)
+    ir_d = (pv_rate_up - price) / 0.0001
 
     return PRDCResult(price, mean_cpn, fx_d, ir_d, n_coupons)
 
@@ -129,15 +170,16 @@ def callable_prdc(
     # Simulate full paths
     FX_all = np.zeros((n_paths, n_steps + 1))
     r_d_all = np.zeros((n_paths, n_steps + 1))
+    r_f_all = np.zeros((n_paths, n_steps + 1))
     FX_all[:, 0] = spot_fx
     r_d_all[:, 0] = rate_dom
-    r_f = np.full(n_paths, rate_for)
+    r_f_all[:, 0] = rate_for
 
     for step in range(n_steps):
         Z = rng.standard_normal((n_paths, 3)) @ L.T
         r_d_all[:, step + 1] = r_d_all[:, step] + 0.1 * (rate_dom - r_d_all[:, step]) * dt + vol_dom * Z[:, 1] * sqrt_dt
-        r_f += 0.1 * (rate_for - r_f) * dt + vol_for * Z[:, 2] * sqrt_dt
-        drift_fx = (r_d_all[:, step] - r_f - 0.5 * vol_fx**2) * dt
+        r_f_all[:, step + 1] = r_f_all[:, step] + 0.1 * (rate_for - r_f_all[:, step]) * dt + vol_for * Z[:, 2] * sqrt_dt
+        drift_fx = (r_d_all[:, step] - r_f_all[:, step] - 0.5 * vol_fx**2) * dt
         FX_all[:, step + 1] = FX_all[:, step] * np.exp(drift_fx + vol_fx * Z[:, 0] * sqrt_dt)
 
     # Map coupon steps
@@ -158,7 +200,7 @@ def callable_prdc(
     # First compute all coupon values
     coupon_values = []
     for k, step in enumerate(coupon_steps):
-        t = (step) * dt
+        t = step * dt
         df = np.exp(-r_d_all[:, step] * t)
         coupon = np.maximum(fixed_coupon + fx_participation * (FX_all[:, step] / fx_strike - 1), 0.0)
         coupon_values.append((step, t, df, coupon))
