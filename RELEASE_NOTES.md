@@ -2,6 +2,17 @@
 
 ---
 
+## v0.360.0 — 2026-04-26
+
+**Treasury Lock (Pucci 2019) — first paper validation.** 5860 tests.
+
+### New module
+- `treasury_lock.py`: Treasury Lock pricing, hedging, greeks, and roll P&L. Implements Pucci (2019) SSRN 3386521. Bond pricing (simply-compounded, stub, continuous Hull-form), IRR solver, RiskFactor/DV01, forward price under repo (zero-haircut + haircut/funding blend), T-Lock booking value, delta (Eq 14), gamma (Eq 16-17), gamma-sign threshold (Eq 18), overhedge bound (Eq 10-11), roll P&L full (Eq 31) and first-order (Eq 33).
+- 23 validation tests mapping to paper Section 9 items 1-16.
+- Visual validation notebook: `notebooks/treasury_lock_pucci_2019_validation.ipynb` (5 plots).
+
+---
+
 ## v0.359.0 — 2026-04-25
 
 **Numerical lens review + exotic deepening.** 5837 tests.
