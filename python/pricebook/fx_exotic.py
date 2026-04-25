@@ -80,17 +80,49 @@ def fx_one_touch(
     dt = T / n_steps
     drift = (rate_dom - rate_for - 0.5 * vol**2) * dt
     diff = vol * math.sqrt(dt)
+    log_barrier = math.log(barrier)
 
     S = np.full(n_paths, spot)
     touched = np.zeros(n_paths, dtype=bool)
 
     for _ in range(n_steps):
+        S_prev = S.copy()
         dW = rng.standard_normal(n_paths)
         S = S * np.exp(drift + diff * dW)
+
+        # Discrete check
         if is_up:
             touched |= S >= barrier
         else:
             touched |= S <= barrier
+
+        # Brownian bridge correction: probability of hitting barrier
+        # between S_prev and S given both are on the same side.
+        # P(hit H | S_prev, S) = exp(-2 log(S_prev/H) log(S/H) / (vol²dt))
+        alive = ~touched
+        if alive.any():
+            log_prev = np.log(np.maximum(S_prev[alive], 1e-15))
+            log_curr = np.log(np.maximum(S[alive], 1e-15))
+            if is_up:
+                # Both below barrier — could have crossed above and back
+                d_prev = log_barrier - log_prev
+                d_curr = log_barrier - log_curr
+            else:
+                # Both above barrier — could have crossed below and back
+                d_prev = log_prev - log_barrier
+                d_curr = log_curr - log_barrier
+
+            # Only apply where both endpoints are on the same side
+            same_side = (d_prev > 0) & (d_curr > 0)
+            if same_side.any():
+                var_dt = vol**2 * dt
+                prob_hit = np.exp(-2 * d_prev * d_curr / var_dt)
+                U = rng.uniform(size=alive.sum())
+                bridge_hit = np.zeros(alive.sum(), dtype=bool)
+                bridge_hit[same_side] = U[same_side] < prob_hit[same_side]
+                touched_arr = touched[alive].copy()
+                touched_arr |= bridge_hit
+                touched[alive] = touched_arr
 
     df = math.exp(-rate_dom * T)
     price = df * payout * float(touched.mean())
