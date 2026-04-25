@@ -2,6 +2,21 @@
 
 ---
 
+## v0.358.0 — 2026-04-25
+
+**pv_ctx gap closed + all Tier 1 fixes.** 5837 tests.
+
+### pv_ctx
+- `swap.py`, `bond.py`, `cds.py`, `fx_forward.py`: added `pv_ctx(ctx)` method. Trade/Portfolio framework now works with all core instruments.
+
+### Tier 1 fixes (biased → correct)
+- `lmm_advanced.py`: Rebonato swaption vol uses annuity weights (`τ × P(T) × F / (1-P(T_end))`) instead of equal weights.
+- `stochastic_correlation.py`: CIR sigma mapping capped by Feller condition (`σ_X ≤ √(2κθ_X)`) to prevent divergence when `theta` near 1.
+- `commodity_swing.py`: gas storage extrinsic uses LSM backward induction with regression on (spot, inventory) instead of perfect-foresight per-path DP.
+- `fx_exotic.py`: one-touch MC uses Brownian bridge correction (`P(hit) = exp(-2d₁d₂/σ²dt)`) to reduce discrete monitoring bias.
+
+---
+
 ## v0.357.0 — 2026-04-25
 
 **Phase 2: Cross-Segment Integration Testing (XI1–XI10) complete.** 5836 tests (151 XI tests).
