@@ -286,7 +286,7 @@ class VirtualGasStorage:
         action_steps = list(range(-max_withdraw_steps, max_inject_steps + 1))
 
         # V[p, i] = value-to-go for path p at inventory level i
-        capped = min(n_paths, 500)
+        capped = n_paths
         V = np.zeros((capped, n_inventory))
 
         for t in range(n_periods - 1, -1, -1):
