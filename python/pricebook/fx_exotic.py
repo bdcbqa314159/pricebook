@@ -116,6 +116,8 @@ def fx_one_touch(
             same_side = (d_prev > 0) & (d_curr > 0)
             if same_side.any():
                 var_dt = vol**2 * dt
+                if var_dt < 1e-15:
+                    continue  # zero vol → no bridge correction needed
                 prob_hit = np.exp(-2 * d_prev * d_curr / var_dt)
                 U = rng.uniform(size=alive.sum())
                 bridge_hit = np.zeros(alive.sum(), dtype=bool)
