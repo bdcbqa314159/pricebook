@@ -1,5 +1,7 @@
 """Interest rate swap."""
 
+from __future__ import annotations
+
 from datetime import date
 from dataclasses import dataclass
 from enum import Enum
@@ -121,6 +123,20 @@ class InterestRateSwap:
         Fundamental for par rate, DV01, and risk decomposition.
         """
         return self.fixed_leg.annuity(curve)
+
+    def pv_ctx(
+        self,
+        ctx,
+        projection_curve_name: str | None = None,
+    ) -> float:
+        """Price the swap from a PricingContext."""
+        curve = ctx.discount_curve
+        projection_curve = (
+            ctx.get_projection_curve(projection_curve_name)
+            if projection_curve_name is not None
+            else None
+        )
+        return self.pv(curve, projection_curve)
 
     def dv01(
         self,

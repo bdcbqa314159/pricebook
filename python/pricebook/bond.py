@@ -105,6 +105,10 @@ class FixedRateBond:
         # Settlement on or after last coupon: no accrued
         return 0.0
 
+    def pv_ctx(self, ctx) -> float:
+        """Price the bond from a PricingContext. Returns dirty price."""
+        return self.dirty_price(ctx.discount_curve)
+
     def clean_price(self, curve: DiscountCurve, settlement: date | None = None) -> float:
         """
         Quoted price: dirty price minus accrued interest.

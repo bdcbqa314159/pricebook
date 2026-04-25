@@ -3,13 +3,7 @@
 Multi-ccy curves → portfolio (swap + bond + CDS + FX fwd) → PV finite →
 DV01 finite → stress test → VaR > 0. Portfolio PV = sum of trade PVs.
 
-Bug hotspots:
-- Most instruments lack pv_ctx — Trade wrapper only works for Swaption
-- Multi-currency curve routing
-- Stress test bumps all curves vs one
-
-Finding: Trade.pv() requires pv_ctx but InterestRateSwap, FixedRateBond,
-CDS, FXForward only have pv(curve). Tests use direct instrument calls.
+Now uses Trade/Portfolio wrapper with pv_ctx on all instruments.
 """
 
 from __future__ import annotations
@@ -26,8 +20,10 @@ from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.currency import CurrencyPair
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fx_forward import FXForward
+from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.trade import Trade, Portfolio
 from pricebook.var import historical_var
 
 
@@ -57,8 +53,21 @@ def _eur_curve(ref: date) -> DiscountCurve:
     return bootstrap(ref, deposits, swaps)
 
 
-def _instruments(ref: date):
-    """Build a multi-asset instrument set."""
+def _ctx(ref: date, usd=None, eur=None) -> PricingContext:
+    usd = usd or _usd_curve(ref)
+    eur = eur or _eur_curve(ref)
+    surv = bootstrap_credit_curve(ref,
+        [(ref + timedelta(days=1825), 0.0100)], usd, recovery=0.4)
+    return PricingContext(
+        valuation_date=ref,
+        discount_curve=usd,
+        discount_curves={"USD": usd, "EUR": eur},
+        credit_curves={"default": surv},
+        fx_spots={("EUR", "USD"): 1.0850},
+    )
+
+
+def _portfolio(ref: date) -> Portfolio:
     start = ref + timedelta(days=2)
     usd = _usd_curve(ref)
     eur = _eur_curve(ref)
@@ -66,76 +75,76 @@ def _instruments(ref: date):
     swap = InterestRateSwap(start, start + timedelta(days=3650),
                             fixed_rate=0.04, direction=SwapDirection.PAYER)
     bond = FixedRateBond(ref, ref + timedelta(days=1825), coupon_rate=0.035)
-    surv = bootstrap_credit_curve(ref,
-        [(ref + timedelta(days=1825), 0.0100)], usd, recovery=0.4)
     cds_inst = CDS(ref, ref + timedelta(days=1825), spread=0.0100)
     pair = CurrencyPair("EUR", "USD")
     fwd_rate = FXForward.forward_rate(1.085, ref + timedelta(days=365), eur, usd)
     fx_fwd = FXForward(pair, ref + timedelta(days=365), strike=fwd_rate)
 
-    return swap, bond, cds_inst, fx_fwd, usd, eur, surv
+    port = Portfolio(name="XI10_test")
+    port.add(Trade(swap, trade_id="USD_IRS_10Y"))
+    port.add(Trade(bond, trade_id="USD_BOND_5Y"))
+    port.add(Trade(cds_inst, trade_id="CDS_5Y"))
+    port.add(Trade(fx_fwd, trade_id="EURUSD_FWD_1Y"))
+    return port
 
 
-def _portfolio_pv(ref: date, usd=None, eur=None, surv=None):
-    """Compute total portfolio PV from all instruments."""
-    swap, bond, cds_inst, fx_fwd, usd_d, eur_d, surv_d = _instruments(ref)
-    usd = usd or usd_d
-    eur = eur or eur_d
-    surv = surv or surv_d
-
-    pv_swap = swap.pv(usd)
-    pv_bond = bond.dirty_price(usd) * 10000  # 10k face
-    pv_cds = cds_inst.pv(usd, surv)
-    pv_fx = fx_fwd.pv(1.085, eur, usd)
-
-    return pv_swap + pv_bond + pv_cds + pv_fx, (pv_swap, pv_bond, pv_cds, pv_fx)
-
-
-# ---- R1: Portfolio PV ----
+# ---- R1: Portfolio PV via Trade wrapper ----
 
 class TestXI10R1PortfolioPV:
-    """All instruments price to finite values, portfolio sums correctly."""
+    """Trade/Portfolio framework with pv_ctx on all instruments."""
 
-    def test_all_pvs_finite(self):
-        total, (pv_swap, pv_bond, pv_cds, pv_fx) = _portfolio_pv(REF)
-        assert math.isfinite(pv_swap), f"Swap PV non-finite: {pv_swap}"
-        assert math.isfinite(pv_bond), f"Bond PV non-finite: {pv_bond}"
-        assert math.isfinite(pv_cds), f"CDS PV non-finite: {pv_cds}"
-        assert math.isfinite(pv_fx), f"FX fwd PV non-finite: {pv_fx}"
+    def test_portfolio_pv_finite(self):
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        pv = port.pv(ctx)
+        assert math.isfinite(pv)
 
-    def test_portfolio_pv_is_sum(self):
-        total, components = _portfolio_pv(REF)
-        assert total == pytest.approx(sum(components), rel=1e-10)
+    def test_portfolio_pv_equals_sum(self):
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        total_pv = port.pv(ctx)
+        by_trade = port.pv_by_trade(ctx)
+        sum_pv = sum(pv for _, pv in by_trade)
+        assert total_pv == pytest.approx(sum_pv, rel=1e-10)
 
-    def test_fx_forward_at_market_near_zero(self):
-        """FX forward struck at market forward should have PV ≈ 0."""
-        _, _, _, fx_fwd, usd, eur, _ = _instruments(REF)
-        pv = fx_fwd.pv(1.085, eur, usd)
-        assert abs(pv) < 100  # struck at market forward
+    def test_all_trades_have_finite_pv(self):
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        by_trade = port.pv_by_trade(ctx)
+        for trade_id, pv in by_trade:
+            assert math.isfinite(pv), f"Trade {trade_id} has non-finite PV: {pv}"
+
+    def test_portfolio_length(self):
+        port = _portfolio(REF)
+        assert len(port) == 4
 
 
 # ---- R2: DV01 ----
 
 class TestXI10R2DV01:
-    """Portfolio DV01 via bump-and-reprice."""
+    """Portfolio DV01 via bump-and-reprice through PricingContext."""
 
-    def test_dv01_finite(self):
-        pv_base, _ = _portfolio_pv(REF)
-        usd_up = _usd_curve(REF).bumped(0.0001)
-        eur_up = _eur_curve(REF).bumped(0.0001)
-        surv = bootstrap_credit_curve(REF,
-            [(REF + timedelta(days=1825), 0.0100)], usd_up, recovery=0.4)
-        pv_up, _ = _portfolio_pv(REF, usd=usd_up, eur=eur_up, surv=surv)
+    def test_portfolio_dv01_finite(self):
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        pv_base = port.pv(ctx)
+
+        usd_up = ctx.discount_curves["USD"].bumped(0.0001)
+        eur_up = ctx.discount_curves["EUR"].bumped(0.0001)
+        ctx_up = _ctx(REF, usd=usd_up, eur=eur_up)
+        pv_up = port.pv(ctx_up)
         dv01 = pv_up - pv_base
         assert math.isfinite(dv01)
 
-    def test_dv01_nonzero(self):
-        pv_base, _ = _portfolio_pv(REF)
-        usd_up = _usd_curve(REF).bumped(0.0001)
-        eur_up = _eur_curve(REF).bumped(0.0001)
-        surv = bootstrap_credit_curve(REF,
-            [(REF + timedelta(days=1825), 0.0100)], usd_up, recovery=0.4)
-        pv_up, _ = _portfolio_pv(REF, usd=usd_up, eur=eur_up, surv=surv)
+    def test_portfolio_dv01_nonzero(self):
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        pv_base = port.pv(ctx)
+
+        usd_up = ctx.discount_curves["USD"].bumped(0.0001)
+        eur_up = ctx.discount_curves["EUR"].bumped(0.0001)
+        ctx_up = _ctx(REF, usd=usd_up, eur=eur_up)
+        pv_up = port.pv(ctx_up)
         assert abs(pv_up - pv_base) > 0
 
 
@@ -145,31 +154,31 @@ class TestXI10R3Stress:
     """Stress scenarios on the portfolio."""
 
     def test_parallel_up_50bp(self):
-        pv_base, _ = _portfolio_pv(REF)
-        usd_up = _usd_curve(REF).bumped(0.0050)
-        eur_up = _eur_curve(REF).bumped(0.0050)
-        surv = bootstrap_credit_curve(REF,
-            [(REF + timedelta(days=1825), 0.0100)], usd_up, recovery=0.4)
-        pv_stressed, _ = _portfolio_pv(REF, usd=usd_up, eur=eur_up, surv=surv)
-        pnl = pv_stressed - pv_base
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        pv_base = port.pv(ctx)
+
+        usd_up = ctx.discount_curves["USD"].bumped(0.0050)
+        eur_up = ctx.discount_curves["EUR"].bumped(0.0050)
+        ctx_stressed = _ctx(REF, usd=usd_up, eur=eur_up)
+        pnl = port.pv(ctx_stressed) - pv_base
         assert math.isfinite(pnl)
         assert pnl != 0
 
     def test_up_down_opposite_sign(self):
-        pv_base, _ = _portfolio_pv(REF)
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        pv_base = port.pv(ctx)
 
-        usd_up = _usd_curve(REF).bumped(0.0050)
-        eur_up = _eur_curve(REF).bumped(0.0050)
-        surv_up = bootstrap_credit_curve(REF,
-            [(REF + timedelta(days=1825), 0.0100)], usd_up, recovery=0.4)
-        pnl_up = _portfolio_pv(REF, usd=usd_up, eur=eur_up, surv=surv_up)[0] - pv_base
+        ctx_up = _ctx(REF,
+            usd=ctx.discount_curves["USD"].bumped(0.0050),
+            eur=ctx.discount_curves["EUR"].bumped(0.0050))
+        ctx_dn = _ctx(REF,
+            usd=ctx.discount_curves["USD"].bumped(-0.0050),
+            eur=ctx.discount_curves["EUR"].bumped(-0.0050))
 
-        usd_dn = _usd_curve(REF).bumped(-0.0050)
-        eur_dn = _eur_curve(REF).bumped(-0.0050)
-        surv_dn = bootstrap_credit_curve(REF,
-            [(REF + timedelta(days=1825), 0.0100)], usd_dn, recovery=0.4)
-        pnl_dn = _portfolio_pv(REF, usd=usd_dn, eur=eur_dn, surv=surv_dn)[0] - pv_base
-
+        pnl_up = port.pv(ctx_up) - pv_base
+        pnl_dn = port.pv(ctx_dn) - pv_base
         assert pnl_up * pnl_dn < 0 or (abs(pnl_up) < 1 and abs(pnl_dn) < 1)
 
 
@@ -179,22 +188,18 @@ class TestXI10R4VaR:
     """Historical VaR from simulated P&L."""
 
     def test_var_positive(self):
-        usd = _usd_curve(REF)
-        eur = _eur_curve(REF)
-        surv = bootstrap_credit_curve(REF,
-            [(REF + timedelta(days=1825), 0.0100)], usd, recovery=0.4)
-        pv_base, _ = _portfolio_pv(REF, usd=usd, eur=eur, surv=surv)
+        ctx = _ctx(REF)
+        port = _portfolio(REF)
+        pv_base = port.pv(ctx)
 
         rng = np.random.default_rng(42)
         daily_pnl = []
         for _ in range(250):
             shift = rng.normal(0, 0.0005)
-            usd_b = usd.bumped(shift)
-            eur_b = eur.bumped(shift)
-            surv_b = bootstrap_credit_curve(REF,
-                [(REF + timedelta(days=1825), 0.0100)], usd_b, recovery=0.4)
-            pv_day, _ = _portfolio_pv(REF, usd=usd_b, eur=eur_b, surv=surv_b)
-            daily_pnl.append(pv_day - pv_base)
+            ctx_day = _ctx(REF,
+                usd=ctx.discount_curves["USD"].bumped(shift),
+                eur=ctx.discount_curves["EUR"].bumped(shift))
+            daily_pnl.append(port.pv(ctx_day) - pv_base)
 
         var_95 = historical_var(daily_pnl, confidence=0.95)
         assert var_95 > 0

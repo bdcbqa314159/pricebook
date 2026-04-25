@@ -82,6 +82,13 @@ class FXForward:
         df_quote = quote_curve.df(self.maturity)
         return self.notional * (fwd - self.strike) * df_quote
 
+    def pv_ctx(self, ctx) -> float:
+        """Price the FX forward from a PricingContext."""
+        spot = ctx.get_fx_spot(self.pair.base, self.pair.quote)
+        base_curve = ctx.get_discount_curve(self.pair.base)
+        quote_curve = ctx.get_discount_curve(self.pair.quote)
+        return self.pv(spot, base_curve, quote_curve)
+
     def fx_delta(
         self,
         spot: float,

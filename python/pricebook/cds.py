@@ -237,6 +237,19 @@ class CDS:
         return self.pv_protection(discount_curve, survival_curve) \
              - self.pv_premium(discount_curve, survival_curve)
 
+    def pv_ctx(self, ctx, credit_curve_name: str = "default") -> float:
+        """Price the CDS from a PricingContext."""
+        curve = ctx.discount_curve
+        # Try the specific name first, then fall back to first available
+        try:
+            surv = ctx.get_credit_curve(credit_curve_name)
+        except KeyError:
+            if ctx.credit_curves:
+                surv = next(iter(ctx.credit_curves.values()))
+            else:
+                raise
+        return self.pv(curve, surv)
+
     def par_spread(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
     ) -> float:
