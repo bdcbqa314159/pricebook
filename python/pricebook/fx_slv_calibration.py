@@ -73,6 +73,8 @@ def calibrate_leverage_function(
 ) -> LeverageFunction:
     """Calibrate leverage function L(S, t) via forward-Kolmogorov density.
 
+    .. note:: rho must be in (-1, 1).
+
     The SLV dynamics are:
         dS/S = μ dt + L(S,t) × √v × dW_s
         dv = κ(θ - v) dt + ξ √v dW_v
@@ -91,6 +93,8 @@ def calibrate_leverage_function(
         kappa, theta, xi, v0: Heston variance parameters.
         n_paths: MC paths for conditional expectation estimation.
     """
+    if not -1 < rho < 1:
+        raise ValueError(f"rho must be in (-1, 1), got {rho}")
     n_t, n_s = local_vols.shape
     rng = np.random.default_rng(seed)
 
@@ -177,6 +181,8 @@ def particle_slv_calibration(
     Args:
         bandwidth: kernel bandwidth (defaults to Silverman's rule).
     """
+    if not -1 < rho < 1:
+        raise ValueError(f"rho must be in (-1, 1), got {rho}")
     n_t, n_s = local_vols.shape
     rng = np.random.default_rng(seed)
 
