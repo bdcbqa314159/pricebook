@@ -276,18 +276,58 @@ class VirtualGasStorage:
             n_inventory,
         )
 
-        # Extrinsic: approximate via per-path DP, then average
-        per_path_values = []
-        for p in range(min(n_paths, 200)):   # limit for speed
-            path_val = self.intrinsic_value(
-                spot_paths[p, :n_periods],
-                discount_factors[:n_periods],
-                initial_inventory,
-                n_inventory,
-            )
-            per_path_values.append(path_val)
+        # Extrinsic: LSM backward induction over (spot, inventory) state.
+        # At each step, regress continuation value on spot to decide action.
+        inv_grid = np.linspace(0, self.max_capacity, n_inventory)
+        dI = inv_grid[1] - inv_grid[0] if n_inventory > 1 else self.max_capacity
 
-        total = float(np.mean(per_path_values))
+        max_inject_steps = max(int(self.max_inject_rate / dI), 1) if dI > 0 else 0
+        max_withdraw_steps = max(int(self.max_withdraw_rate / dI), 1) if dI > 0 else 0
+        action_steps = list(range(-max_withdraw_steps, max_inject_steps + 1))
+
+        # V[p, i] = value-to-go for path p at inventory level i
+        capped = min(n_paths, 500)
+        V = np.zeros((capped, n_inventory))
+
+        for t in range(n_periods - 1, -1, -1):
+            df = discount_factors[t]
+            S = spot_paths[:capped, t + 1]  # spot at decision time
+
+            V_new = np.full((capped, n_inventory), -np.inf)
+            for i in range(n_inventory):
+                # For each action, compute cash flow + continuation
+                best = np.full(capped, -np.inf)
+                for step in action_steps:
+                    j = i + step
+                    if j < 0 or j >= n_inventory:
+                        continue
+                    d = step * dI
+                    cash = -S * d
+                    if d > 0:
+                        cash -= d * self.inject_cost
+                    elif d < 0:
+                        cash -= (-d) * self.withdraw_cost
+
+                    # Continuation: regress V[:, j] on spot for LSM
+                    if t < n_periods - 1:
+                        S_norm = (S - S.mean()) / max(S.std(), 1e-10)
+                        basis = np.column_stack([np.ones(capped), S_norm, S_norm**2])
+                        try:
+                            coeffs = np.linalg.lstsq(basis, V[:, j], rcond=None)[0]
+                            cont = basis @ coeffs
+                        except np.linalg.LinAlgError:
+                            cont = V[:, j]
+                    else:
+                        cont = V[:, j]
+
+                    total = cash * df + cont
+                    best = np.maximum(best, total)
+
+                V_new[:, i] = np.where(best > -np.inf, best, V[:, i])
+            V = V_new
+
+        i0 = int(np.argmin(np.abs(inv_grid - initial_inventory)))
+        total = float(V[:, i0].mean())
         extrinsic = max(total - intrinsic, 0.0)
 
         return VirtualStorageResult(
