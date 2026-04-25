@@ -136,6 +136,13 @@ class Swaption:
         fwd = self.forward_swap_rate(curve, projection_curve)
         ann = self.annuity(curve)
 
+        if self.expiry <= valuation_date:
+            # Expired: return intrinsic value
+            if self.swaption_type == SwaptionType.PAYER:
+                return self.notional * ann * max(fwd - self.strike, 0.0)
+            else:
+                return self.notional * ann * max(self.strike - fwd, 0.0)
+
         time_to_expiry = year_fraction(
             valuation_date, self.expiry, DayCountConvention.ACT_365_FIXED,
         )
