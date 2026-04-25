@@ -176,6 +176,11 @@ def worst_of_autocallable(
         correlations: n×n correlation matrix.
     """
     n = len(spots)
+    if coupon_barrier_pct > autocall_barrier_pct:
+        raise ValueError(
+            f"coupon_barrier_pct ({coupon_barrier_pct}) must be ≤ "
+            f"autocall_barrier_pct ({autocall_barrier_pct})"
+        )
     spots_arr = np.array(spots)
     vols_arr = np.array(vols)
     div_arr = np.array(dividend_yields)
