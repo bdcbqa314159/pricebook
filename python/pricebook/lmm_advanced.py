@@ -47,7 +47,9 @@ def _rebonato_swaption_vol(
 
     σ_swap² × T ≈ Σ_{i,j} w_i w_j σ_i σ_j ρ_{ij} T
 
-    Simplified: assumes unit correlation and equal weights.
+    Uses annuity weights: w_i = τ × F_i × P(0, T_{i+1}) / (S × A)
+    where P(0, T_k) = Π 1/(1+τF_j), A = annuity, S = par swap rate.
+    Assumes unit correlation between forwards.
     """
     n = len(inst_vols)
     start = expiry_idx
@@ -55,9 +57,34 @@ def _rebonato_swaption_vol(
     if end <= start:
         return 0.0
 
-    # Swap weights (simplified: equal)
     n_fwd = end - start
-    weights = np.ones(n_fwd) / n_fwd
+
+    # Compute discount factors from forwards: P(0, T_k) = Π 1/(1+τF_j)
+    # Relative to P(0, T_start) — only ratios matter for weights
+    disc = np.ones(n_fwd + 1)
+    for k in range(n_fwd):
+        idx = start + k
+        if idx < n:
+            disc[k + 1] = disc[k] / (1 + dt * forward_rates[idx])
+
+    # Annuity: A = Σ τ × P(0, T_{start+k+1})
+    annuity = sum(dt * disc[k + 1] for k in range(n_fwd))
+    if annuity < 1e-15:
+        return 0.0
+
+    # Annuity weights: w_i = τ × F_i × P(0, T_{i+1}) / (S × A)
+    # where S = par swap rate. Since S × A = Σ τ × F_i × P(0, T_{i+1}) × (something)...
+    # Actually the standard Rebonato weight is: w_i = τ × P(T_{i+1}) / A × F_i / S
+    # But S = (1 - P(T_end)) / A, so w_i = τ × P(T_{i+1}) × F_i / (1 - P(T_end))
+    denom = 1.0 - disc[n_fwd]
+    if abs(denom) < 1e-15:
+        return 0.0
+
+    weights = np.zeros(n_fwd)
+    for k in range(n_fwd):
+        idx = start + k
+        if idx < n:
+            weights[k] = dt * disc[k + 1] * forward_rates[idx] / denom
 
     var = 0.0
     for i in range(n_fwd):
