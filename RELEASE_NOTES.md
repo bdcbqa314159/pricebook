@@ -2,6 +2,28 @@
 
 ---
 
+## v0.359.0 — 2026-04-25
+
+**Numerical lens review + exotic deepening.** 5837 tests.
+
+### Lens Tier 0 fixes (wrong results)
+- `prdc.py`: foreign rate `r_f` was scalar overwritten each step instead of indexed per step; FX drift used stale rate. Also delta computed via `np.corrcoef` (correlation != delta) replaced with bump-and-reprice.
+- `fft_pricing.py`: Gil-Pelaez probabilities P1/P2 clipped to [0,1] to prevent negative call prices from quadrature overshoot.
+- `fx_slv_calibration.py`: `rho` validated in (-1,1) in both `calibrate_leverage_function` and `particle_slv_calibration` to prevent NaN Brownians.
+
+### Lens Tier 1 fixes (silent garbage / fragile)
+- `bermudan_lmm.py`: crude discounting via `mean(F[:3])` replaced with `F[0]` (short rate) across all 6 occurrences.
+- `commodity_swing.py`: hard cap at 500 paths removed; LSM now uses all available paths.
+- `fx_exotic.py`: Brownian bridge correction guarded against `var_dt=0` when `vol=0`.
+- `equity_structured.py`: `worst_of_autocallable` validates `coupon_barrier_pct ≤ autocall_barrier_pct`.
+- `lmm_advanced.py`: inconsistent Rebonato weight definitions in docstring corrected.
+
+### Exotic deepening
+- `prdc.py`: `callable_prdc` rewritten with proper LSM backward induction (was `call_option * 0.3` heuristic).
+- `ir_exotic.py`: `callable_range_accrual` rewritten with LSM backward induction (was heuristic call decision).
+
+---
+
 ## v0.358.0 — 2026-04-25
 
 **pv_ctx gap closed + all Tier 1 fixes.** 5837 tests.
