@@ -225,7 +225,7 @@ def bermudan_swaption_lmm(
             future_step = exercise_steps[future_k][0]
             dt_between = (future_step - step_k) * dt_sim
             # Simple discounting using average forward rate
-            avg_rate = np.mean(F[p, step_k, :min(n_fwd, 3)])
+            avg_rate = F[p, step_k, 0]
             disc_cf[p_idx] = cashflow[p] * math.exp(-avg_rate * dt_between)
 
         # Regression on swap rate
@@ -254,7 +254,7 @@ def bermudan_swaption_lmm(
         k = exercise_time_idx[p]
         step = exercise_steps[k][0]
         t_ex = step * dt_sim
-        avg_rate = np.mean(F[p, 0, :min(n_fwd, 3)])
+        avg_rate = F[p, 0, 0]
         pv[p] = cashflow[p] * math.exp(-avg_rate * t_ex)
 
     price = float(pv.mean())
@@ -346,7 +346,7 @@ def bermudan_exercise_boundary(
             future_k = exercise_time_idx[p]
             future_step = exercise_steps[future_k][0]
             dt_between = (future_step - step_k) * dt_sim
-            avg_rate = np.mean(F[p, step_k, :min(n_fwd, 3)])
+            avg_rate = F[p, step_k, 0]
             disc_cf[p_idx] = cashflow[p] * math.exp(-avg_rate * dt_between)
 
         sr_itm = ex_swap_rates[itm, k]
@@ -458,7 +458,7 @@ def bermudan_upper_bound(
             future_k = exercise_time_idx[p]
             future_step = exercise_steps[future_k][0]
             dt_between = (future_step - step_k) * dt_sim
-            avg_rate = np.mean(F[p, step_k, :min(n_fwd, 3)])
+            avg_rate = F[p, step_k, 0]
             disc_cf[p_idx] = cashflow[p] * math.exp(-avg_rate * dt_between)
 
         sr_itm = ex_swap_rates[itm, k]
@@ -498,7 +498,7 @@ def bermudan_upper_bound(
             payoff_k = np.maximum(strike - sr_k, 0.0) * ann_k
 
         t_k = step_k * dt_sim
-        avg_rate_k = np.mean(F[:, 0, :min(n_fwd, 3)], axis=1)
+        avg_rate_k = F[:, 0, 0]
         df_k = np.exp(-avg_rate_k * t_k)
         exercise_payoffs_disc[:, k] = payoff_k * df_k
 
@@ -546,7 +546,7 @@ def bermudan_upper_bound(
                 h_sub = np.maximum(strike - sr_sub, 0.0) * ann_sub
 
             # Discount sub-sim payoffs back to step_k
-            avg_r = np.mean(fwd_p[:min(n_fwd, 3)])
+            avg_r = fwd_p[0]
             df_sub = math.exp(-avg_r * dt_sub)
             sub_cont[p, k] = float(h_sub.mean()) * df_sub * df_k[p]
 
