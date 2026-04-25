@@ -2,6 +2,30 @@
 
 ---
 
+## v0.357.0 — 2026-04-25
+
+**Phase 2: Cross-Segment Integration Testing (XI1–XI10) complete.** 5836 tests (151 XI tests).
+
+### Integration chains tested
+- **XI1** Curve → Swap → DV01 (21 tests) — clean
+- **XI2** Dual-Curve → Swaption Parity (18 tests) — **fix:** expired swaption crash in `swaption.py`
+- **XI3** CDS → Survival → Risky Bond → Z-spread (15 tests) — clean
+- **XI4** FX CIP → Option → Delta round-trip (21 tests) — clean
+- **XI5** Equity Forward → Option → Implied Vol (20 tests) — clean
+- **XI6** Hull-White → Callable Bond → OAS → Bermudan (12 tests) — clean
+- **XI7** SABR → Cap → Caplet Strip → Calendar Arb (12 tests) — clean
+- **XI8** Full XVA: exposure → EPE → CVA → SIMM (8 tests) — clean
+- **XI9** P&L Attribution: delta × Δr + ½γ × Δr² (15 tests) — clean
+- **XI10** End-to-End Multi-Currency Portfolio (9 tests) — clean
+
+### Bug found and fixed
+- `swaption.py`: `pv()` crashed on expired swaptions (`year_fraction` raised when `expiry ≤ valuation_date`). Now returns intrinsic value.
+
+### Known gap documented
+- `Trade.pv(ctx)` requires `pv_ctx` method, but only `Swaption` implements it. Other instruments (`InterestRateSwap`, `FixedRateBond`, `CDS`, `FXForward`) only have `pv(curve)`. XI10 tests use direct calls.
+
+---
+
 ## v0.356.0 — 2026-04-25
 
 **Pending fixes cleanup — all Tier 0 and code/numerical lens items resolved.** 5685 tests.
