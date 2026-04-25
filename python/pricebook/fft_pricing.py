@@ -198,8 +198,8 @@ def lewis_price(
         integral_p1 += w * p1_int
         integral_p2 += w * p2_int
 
-    P1 = 0.5 + integral_p1 / math.pi
-    P2 = 0.5 + integral_p2 / math.pi
+    P1 = max(0.0, min(1.0, 0.5 + integral_p1 / math.pi))
+    P2 = max(0.0, min(1.0, 0.5 + integral_p2 / math.pi))
 
     call = df * (F_implied * P1 - strike * P2)
     return max(call, 0.0)
