@@ -75,8 +75,12 @@ class CIRCorrelation:
 
         x0 = self._rho_to_x(self.rho0)
         theta_x = self._rho_to_x(self.theta)
-        # Map σ_ρ to σ_X approximately: σ_X ≈ σ_ρ × 2 / (1 − θ)²
+        # Map σ_ρ to σ_X via chain rule: σ_X ≈ σ_ρ × 2 / (1 − θ)²
         sigma_x = self.sigma * 2 / max((1 - self.theta)**2, 0.01)
+        # Enforce Feller condition: 2κθ_X ≥ σ_X² to prevent divergence
+        feller_max = math.sqrt(2 * self.kappa * theta_x) if theta_x > 0 else 0.0
+        if feller_max > 0:
+            sigma_x = min(sigma_x, 0.999 * feller_max)
 
         X = np.full((n_paths, n_steps + 1), x0)
 
