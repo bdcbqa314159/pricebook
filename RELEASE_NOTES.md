@@ -2,6 +2,28 @@
 
 ---
 
+## v0.365.0 — 2026-04-26
+
+**Architecture refactor: clean module decomposition + instrument classes.** 5913 tests.
+
+### Module decomposition
+- `bond_yield.py` — 8 yield functions extracted from `bond.py` (re-exported for compat)
+- `cash_settlement.py` — `cash_annuity` extracted from `cms.py`
+- `credit_adjustment.py` — `cra_discount`, `risky_annuity`, `risky_swap_rate`, `linear_swap_rate_calibrate`, `displaced_lognormal_cross_moment` extracted from `cms.py`
+- `instrument_result.py` — `InstrumentResult` Protocol with `.price` and `.to_dict()`. All 4 result dataclasses comply.
+
+### Instrument classes (all with `pv_ctx` for Trade/Portfolio)
+- `TreasuryLock(bond, locked_yield, expiry, repo_rate)` — trade-level T-Lock
+- `CMASWInstrument(fixing_date, payment_date, swap_tenor, bond_price, ...)` — CMASW-let
+- `CMTInstrument(fixing_date, payment_date, bond_tenor, sigma, hazard_rate)` — CMT-let with credit
+- `IndexLinkedHybridInstrument(expiry, swap_tenor, index_forward, sigma_F, sigma_U, rho)` — equity-rate hybrid
+
+### Integration verified
+- All 4 products work in a single `Portfolio.pv(ctx)` — tested in `test_portfolio_structured.py`
+- All backward-compatible — `from pricebook.bond import bond_price_from_yield` still works
+
+---
+
 ## v0.364.0 — 2026-04-26
 
 **CMT Convexity Correction (Pucci 2014) — fourth paper validation.** 5907 tests.
