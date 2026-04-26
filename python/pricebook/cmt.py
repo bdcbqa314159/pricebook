@@ -185,3 +185,80 @@ def cmt_convexity_corrections(
         R_cmt_0=R_cmt_0,
         prefactor=prefactor,
     )
+
+
+# ---- Instrument class ----
+
+class CMTInstrument:
+    """CMT-let instrument for Trade/Portfolio integration.
+
+        cmt = CMTInstrument(fixing_date, payment_date, bond_tenor=10,
+                            sigma=0.20, credit_curve_name="UST")
+        result = cmt.price(discount_curve, hazard_rate=0.01)
+        portfolio.add(Trade(cmt))
+    """
+
+    def __init__(
+        self,
+        fixing_date,
+        payment_date,
+        bond_tenor: int = 10,
+        notional: float = 1_000_000.0,
+        sigma: float = 0.20,
+        hazard_rate: float = 0.0,
+        credit_curve_name: str = "default",
+        frequency: int = 1,
+    ):
+        self.fixing_date = fixing_date
+        self.payment_date = payment_date
+        self.bond_tenor = bond_tenor
+        self.notional = notional
+        self.sigma = sigma
+        self.hazard_rate = hazard_rate
+        self.credit_curve_name = credit_curve_name
+        self.frequency = frequency
+
+    def price(self, curve, hazard_rate: float | None = None) -> CMTConvexityResult:
+        """Price the CMT-let. Uses stored hazard_rate if not overridden."""
+        from pricebook.day_count import year_fraction, DayCountConvention
+        from datetime import timedelta
+
+        gamma = hazard_rate if hazard_rate is not None else self.hazard_rate
+        Ts = year_fraction(curve.reference_date, self.fixing_date,
+                           DayCountConvention.ACT_365_FIXED)
+
+        n = self.bond_tenor * self.frequency
+        dt_period = 1.0 / self.frequency
+        yfs = [dt_period] * n
+
+        # Schedule from fixing date forward
+        dates = [self.fixing_date + timedelta(days=int(dt_period * 365 * (i + 1)))
+                 for i in range(n)]
+        rf_dfs = [curve.df(d) for d in dates]
+        rf_df_Ts = curve.df(self.fixing_date)
+        rf_df_Tp = curve.df(self.payment_date)
+
+        # CMT rate
+        risky_ann_val = risky_annuity(yfs,
+            [d * math.exp(-gamma * (Ts + dt_period * (i + 1))) for i, d in enumerate(rf_dfs)])
+        cra_Ts = rf_df_Ts * math.exp(-gamma * Ts)
+        cra_Tn = rf_dfs[-1] * math.exp(-gamma * (Ts + self.bond_tenor))
+        R_cmt = risky_swap_rate(cra_Ts, cra_Tn, risky_ann_val)
+
+        return cmt_convexity_corrections(
+            R_cmt, self.sigma, gamma, Ts, yfs, rf_dfs, rf_df_Ts, rf_df_Tp)
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — compatible with Trade.pv()."""
+        curve = ctx.discount_curve
+        gamma = self.hazard_rate
+        try:
+            surv = ctx.get_credit_curve(self.credit_curve_name)
+            # Extract flat hazard from survival curve at fixing date
+            gamma = surv.hazard_rate(self.fixing_date)
+        except KeyError:
+            pass
+
+        result = self.price(curve, hazard_rate=gamma)
+        df_tp = curve.df(self.payment_date)
+        return self.notional * df_tp * result.R_cmt_0 * (1 + result.cc_A)
