@@ -102,6 +102,79 @@ def cmasw_convexity_correction(
     return CMASWResult(cc, aswlet, prefactor, cross_moment, R_asw_0, R_swp_0)
 
 
+class CMASWInstrument:
+    """Constant Maturity Asset Swap instrument for Trade/Portfolio.
+
+        cmasw = CMASWInstrument(fixing_date, payment_date, swap_tenor=5,
+                                bond_price=0.95, sigma_swp=0.30, sigma_asw=0.25, rho=0.5)
+        result = cmasw.price(discount_curve)
+    """
+
+    def __init__(
+        self,
+        fixing_date,
+        payment_date,
+        swap_tenor: int = 5,
+        bond_price: float = 1.0,
+        notional: float = 1_000_000.0,
+        sigma_swp: float = 0.30,
+        sigma_asw: float = 0.30,
+        rho: float = 0.5,
+        a_swp: float = 0.0,
+        a_asw: float = 0.0,
+        frequency: int = 2,
+    ):
+        self.fixing_date = fixing_date
+        self.payment_date = payment_date
+        self.swap_tenor = swap_tenor
+        self.bond_price = bond_price
+        self.notional = notional
+        self.sigma_swp = sigma_swp
+        self.sigma_asw = sigma_asw
+        self.rho = rho
+        self.a_swp = a_swp
+        self.a_asw = a_asw
+        self.frequency = frequency
+
+    def price(self, curve) -> CMASWResult:
+        """Price the CMASW-let using a discount curve."""
+        import math
+        from pricebook.day_count import year_fraction, DayCountConvention
+        from pricebook.par_asset_swap import forward_asw_spread
+
+        T0 = year_fraction(curve.reference_date, self.fixing_date,
+                           DayCountConvention.ACT_365_FIXED)
+        n = self.swap_tenor * self.frequency
+        dt_period = 1.0 / self.frequency
+        yfs = [dt_period] * n
+
+        # Build schedule dates and DFs from fixing date forward
+        from datetime import timedelta
+        dates = [self.fixing_date + timedelta(days=int(dt_period * 365 * (i + 1)))
+                 for i in range(n)]
+        dfs = [curve.df(d) for d in dates]
+        annuity = sum(y * d for y, d in zip(yfs, dfs))
+
+        # Forward swap rate
+        R_swp = (curve.df(self.fixing_date) - dfs[-1]) / annuity if annuity > 0 else 0.0
+
+        # Forward ASW spread
+        B_rf = sum(R_swp * y * d for y, d in zip(yfs, dfs)) + dfs[-1]
+        R_asw = forward_asw_spread(B_rf, self.bond_price, annuity)
+
+        payment_df = curve.df(self.payment_date)
+
+        return cmasw_convexity_correction(
+            R_asw, R_swp, annuity, payment_df, yfs, dfs,
+            self.sigma_swp, self.sigma_asw, self.rho, T0,
+            self.a_swp, self.a_asw)
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — compatible with Trade.pv()."""
+        result = self.price(ctx.discount_curve)
+        return self.notional * result.aswlet_value
+
+
 def cmasw_cc_lognormal(
     R_asw_0: float,
     annuity: float,
