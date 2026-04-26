@@ -2,6 +2,21 @@
 
 ---
 
+## v0.362.0 — 2026-04-26
+
+**CMASW Convexity Correction (Pucci 2012a) — second paper validation.** 5878 tests.
+
+### Core modules extended
+- `cms.py`: `linear_swap_rate_calibrate` (Hagan 2003 / Pucci Eq 7) and `displaced_lognormal_cross_moment` (Pucci Eq 13) — reusable for CMS, CMASW, CMT.
+- `par_asset_swap.py`: `forward_asw_spread` (Pucci Eq 2).
+
+### New module
+- `cmasw.py`: CMASW convexity correction (Eq 9), lognormal limit (Eq 14), ASW-let value. Thin layer over `cms.py` and `par_asset_swap.py`.
+- 18 validation tests mapping to paper Section 9 items 1-16.
+- Visual validation notebook: `notebooks/cmasw_pucci_2012a_validation.ipynb`.
+
+---
+
 ## v0.361.0 — 2026-04-26
 
 **T-Lock refactor: paper formulas into core modules.**
