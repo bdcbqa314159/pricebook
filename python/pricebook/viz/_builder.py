@@ -97,14 +97,22 @@ class PlotBuilder:
                         f"Unknown panel '{spec.name}' for {inst_type.__name__}")
 
             fig.tight_layout()
+            _auto_display(fig)
             return fig
 
     def show(self, figsize=None):
-        """Build, display, and return the Figure."""
-        fig = self.figure(figsize)
-        try:
-            import matplotlib.pyplot as plt
-            plt.show()
-        except Exception:
-            pass
-        return fig
+        """Alias for figure() — always displays."""
+        return self.figure(figsize)
+
+
+def _auto_display(fig):
+    """Show figure in notebooks, no-op in scripts."""
+    try:
+        import matplotlib.pyplot as plt
+        # In IPython/Jupyter, plt.show() renders inline
+        # In scripts with non-interactive backend, it's a no-op
+        if hasattr(plt, 'isinteractive') and not plt.isinteractive():
+            return
+        plt.show()
+    except Exception:
+        pass
