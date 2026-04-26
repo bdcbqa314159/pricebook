@@ -64,6 +64,78 @@ def cms_convexity_adjustment(
     return forward_swap_rate ** 2 * vol ** 2 * time_to_fixing * duration / annuity
 
 
+# ---- Linear swap-rate model (Hagan 2003 / Pucci 2012) ----
+
+def linear_swap_rate_calibrate(
+    year_fractions: list[float],
+    discount_factors: list[float],
+    annuity: float,
+    forward_swap_rate: float,
+    payment_df: float | None = None,
+    payment_index: int = 0,
+) -> tuple[float, list[float]]:
+    """Calibrate the linear swap-rate model G_U(x) = alpha + beta_U * x.
+
+    Assumption 1 (Hagan 2003, Pucci 2012): D_{T0,U} / A_{T0} = alpha + beta_U * R^swp.
+
+    Returns (alpha, betas) where betas[i] corresponds to each T_i in the schedule
+    plus an optional payment-date entry.
+
+    Pucci (2012a) Proposition 1, Eq (7):
+        alpha = 1 / sum(y_i)
+        beta_U = (D_0U / A_0 - alpha) / R^swp_0
+
+    Args:
+        year_fractions: y_i for each coupon period.
+        discount_factors: D_{0,T_i} for each T_i.
+        annuity: A_0 = sum(y_i * D_{0,T_i}).
+        forward_swap_rate: R^swp_0.
+        payment_df: D_{0,T_p} for the payment date (if different from schedule).
+        payment_index: index in output betas for the payment date.
+    """
+    sum_yi = sum(year_fractions)
+    alpha = 1.0 / sum_yi if sum_yi > 0 else 0.0
+
+    betas = []
+    for df_i in discount_factors:
+        if abs(forward_swap_rate) < 1e-15:
+            betas.append(0.0)
+        else:
+            betas.append((df_i / annuity - alpha) / forward_swap_rate)
+
+    return alpha, betas
+
+
+def displaced_lognormal_cross_moment(
+    R_swp_0: float,
+    R_asw_0: float,
+    a_swp: float,
+    a_asw: float,
+    sigma_swp: float,
+    sigma_asw: float,
+    rho: float,
+    T: float,
+) -> float:
+    """Cross-moment E^A[R^swp * R^asw] under displaced lognormal (Pucci Eq 13).
+
+    E[R^swp R^asw] = (R^swp_0 + a_swp)(R^asw_0 + a_asw) exp(sigma_swp sigma_asw rho T)
+                     - a_swp(R^asw_0 + a_asw) - a_asw(R^swp_0 + a_swp) + a_swp a_asw
+
+    With a_swp = a_asw = 0 (lognormal):
+        E[R^swp R^asw] = R^swp_0 R^asw_0 exp(sigma_swp sigma_asw rho T)
+
+    Reference: Pucci (2012a) Lemma 2, Eq (13).
+    """
+    X0 = R_swp_0 + a_swp
+    Y0 = R_asw_0 + a_asw
+    exp_term = math.exp(sigma_swp * sigma_asw * rho * T)
+
+    return (X0 * Y0 * exp_term
+            - a_swp * Y0
+            - a_asw * X0
+            + a_swp * a_asw)
+
+
 # ---- CMS Leg ----
 
 @dataclass
