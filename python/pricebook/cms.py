@@ -92,6 +92,36 @@ def cash_annuity(
     return total
 
 
+# ---- Risky annuity and CRA discount (Pucci 2014, Eq 7-10) ----
+
+def cra_discount(risk_free_df: float, gamma_t: float, gamma_T: float) -> float:
+    """Credit-risk-adjusted discount D̂_tT = D_tT × e^{Γ_t - Γ_T} (Pucci Eq 7).
+
+    Under default independence (DI), the CRA discount is the risk-free
+    discount scaled by the survival ratio.
+    """
+    return risk_free_df * math.exp(gamma_t - gamma_T)
+
+
+def risky_annuity(
+    year_fractions: list[float],
+    cra_discount_factors: list[float],
+) -> float:
+    """CRA risky annuity Â = Σ y_i D̂_{0,T_i} (Pucci Eq 10)."""
+    return sum(y * d for y, d in zip(year_fractions, cra_discount_factors))
+
+
+def risky_swap_rate(
+    cra_df_start: float,
+    cra_df_end: float,
+    risky_ann: float,
+) -> float:
+    """Recoveryless risky swap rate R̂^swp = (D̂_Ts - D̂_Tn) / Â (Pucci Eq 11)."""
+    if abs(risky_ann) < 1e-15:
+        return 0.0
+    return (cra_df_start - cra_df_end) / risky_ann
+
+
 # ---- Linear swap-rate model (Hagan 2003 / Pucci 2012) ----
 
 def linear_swap_rate_calibrate(
@@ -99,27 +129,18 @@ def linear_swap_rate_calibrate(
     discount_factors: list[float],
     annuity: float,
     forward_swap_rate: float,
-    payment_df: float | None = None,
-    payment_index: int = 0,
+    chi: float = 1.0,
 ) -> tuple[float, list[float]]:
     """Calibrate the linear swap-rate model G_U(x) = alpha + beta_U * x.
 
-    Assumption 1 (Hagan 2003, Pucci 2012): D_{T0,U} / A_{T0} = alpha + beta_U * R^swp.
+    Risk-free version (Pucci 2012a, Eq 7): chi = 1.
+    Risky version (Pucci 2014, Eq 21): chi = e^{Γ_Ts - Γ_0}.
 
-    Returns (alpha, betas) where betas[i] corresponds to each T_i in the schedule
-    plus an optional payment-date entry.
-
-    Pucci (2012a) Proposition 1, Eq (7):
-        alpha = 1 / sum(y_i)
-        beta_U = (D_0U / A_0 - alpha) / R^swp_0
+    alpha = 1 / sum(y_i)
+    beta_U = (chi * D_0U / A_0 - alpha) / R_0
 
     Args:
-        year_fractions: y_i for each coupon period.
-        discount_factors: D_{0,T_i} for each T_i.
-        annuity: A_0 = sum(y_i * D_{0,T_i}).
-        forward_swap_rate: R^swp_0.
-        payment_df: D_{0,T_p} for the payment date (if different from schedule).
-        payment_index: index in output betas for the payment date.
+        chi: e^{Γ_Ts - Γ_0}, = 1 for risk-free, > 1 for risky.
     """
     sum_yi = sum(year_fractions)
     alpha = 1.0 / sum_yi if sum_yi > 0 else 0.0
@@ -129,7 +150,7 @@ def linear_swap_rate_calibrate(
         if abs(forward_swap_rate) < 1e-15:
             betas.append(0.0)
         else:
-            betas.append((df_i / annuity - alpha) / forward_swap_rate)
+            betas.append((chi * df_i / annuity - alpha) / forward_swap_rate)
 
     return alpha, betas
 
