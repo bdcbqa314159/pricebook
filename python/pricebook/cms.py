@@ -64,6 +64,34 @@ def cms_convexity_adjustment(
     return forward_swap_rate ** 2 * vol ** 2 * time_to_fixing * duration / annuity
 
 
+# ---- Cash annuity (Pucci 2012b, Eq 3) ----
+
+def cash_annuity(
+    swap_rate: float,
+    year_fractions: list[float],
+    times_to_payment: list[float],
+) -> float:
+    """Cash annuity for cash-settled swaptions (Pucci 2012b, Eq 3).
+
+    Â(S) = Σ y_i / (1 + y_i S)^{yf(T, T_i)}
+
+    Flat-curve proxy: replaces market discounts with synthetic discounts
+    derived from a single yield S. Â is a deterministic function of S alone.
+
+    Args:
+        swap_rate: the swap rate S.
+        year_fractions: y_i for each coupon period.
+        times_to_payment: yf(T, T_i) for each T_i (from fixing T to payment).
+    """
+    total = 0.0
+    for yi, tau_i in zip(year_fractions, times_to_payment):
+        denom = 1 + yi * swap_rate
+        if denom <= 0:
+            continue
+        total += yi / denom ** tau_i
+    return total
+
+
 # ---- Linear swap-rate model (Hagan 2003 / Pucci 2012) ----
 
 def linear_swap_rate_calibrate(
