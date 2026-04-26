@@ -2,6 +2,18 @@
 
 ---
 
+## v0.369.0 — 2026-04-27
+
+**TRS trinomial tree + XVA decomposition (Lou 2018).** 5944 tests.
+
+### New module
+- `trs_tree.py`: Trinomial tree with repo-rate drift and switching discount rate.
+  - `trs_trinomial_tree` — single/multi-period TRS via Boyle trinomial (Eq 12), supports full CSA and repo-style margining with switching re (Eq 5).
+  - `trs_tree_xva` — XVA decomposition into CVA, DVA, CFA, DFA (Eq 14-18). Proportional spread-weighted split.
+- 15 validation tests: probability sum/non-negativity, drift/variance checks, full-CSA convergence to analytic, XVA identity U=V*-V, edge cases.
+
+---
+
 ## v0.368.0 — 2026-04-26
 
 **TRS with Repo Financing and FVA (Lou 2018) — fifth paper validation.** 5929 tests.
