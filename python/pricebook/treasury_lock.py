@@ -228,3 +228,76 @@ def roll_pnl_first_order(
     T = time_to_maturity
     weighted_tau = sum(alpha * tau for alpha, tau in zip(accrual_factors, times_to_coupon))
     return dc * (irr_new - locked_yield) * weighted_tau + dR * (T + coupon_old * weighted_tau)
+
+
+# ---- Instrument class ----
+
+class TreasuryLock:
+    """Treasury Lock instrument for Trade/Portfolio integration.
+
+    Trade-level constructor: takes a bond, locked yield, expiry, repo rate.
+    Extracts schedules internally, delegates to formula-level functions.
+
+        tlock = TreasuryLock(bond, locked_yield=0.03, expiry=date(2027, 1, 15),
+                             repo_rate=0.02, notional=10_000_000)
+        result = tlock.price(discount_curve)
+        portfolio.add(Trade(tlock))
+    """
+
+    def __init__(
+        self,
+        bond,
+        locked_yield: float,
+        expiry,
+        notional: float = 1_000_000.0,
+        direction: int = 1,
+        repo_rate: float = 0.0,
+    ):
+        from datetime import date as _date
+        self.bond = bond
+        self.locked_yield = locked_yield
+        self.expiry = expiry
+        self.notional = notional
+        self.direction = direction
+        self.repo_rate = repo_rate
+
+    def price(self, curve) -> TLockResult:
+        """Price the T-Lock using a discount curve.
+
+        Extracts accrual schedule from bond, computes repo forward,
+        returns TLockResult with value, forward price, greeks.
+        """
+        from pricebook.day_count import year_fraction, DayCountConvention
+
+        alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
+
+        # Forward price under repo
+        mkt_price = self.bond.dirty_price(curve) / 100.0 * self.bond.face_value / self.bond.face_value
+        tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
+        df = curve.df(self.expiry)
+
+        fwd = forward_price_repo(mkt_price, self.repo_rate, tau,
+                                  self.bond.coupon_rate, [], [])
+
+        return tlock_booking_value(
+            self.locked_yield, fwd, self.bond.coupon_rate, alphas,
+            df, self.notional, self.direction)
+
+    def greeks(self, curve) -> dict[str, float]:
+        """Delta and gamma of the T-Lock."""
+        from pricebook.day_count import year_fraction, DayCountConvention
+
+        alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
+        mkt_price = self.bond.dirty_price(curve) / 100.0 * self.bond.face_value / self.bond.face_value
+        y = bond_irr(mkt_price, self.bond.coupon_rate, alphas)
+
+        delta = tlock_delta(self.bond.coupon_rate, alphas, times, T_mat,
+                            y, self.locked_yield, self.direction)
+        gamma = tlock_gamma(self.bond.coupon_rate, alphas, times, T_mat,
+                            y, self.locked_yield, self.direction)
+        return {"delta": delta, "gamma": gamma}
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — compatible with Trade.pv()."""
+        result = self.price(ctx.discount_curve)
+        return result.value
