@@ -2,6 +2,20 @@
 
 ---
 
+## v0.364.0 — 2026-04-26
+
+**CMT Convexity Correction (Pucci 2014) — fourth paper validation.** 5907 tests.
+
+### Core modules extended
+- `cms.py`: `cra_discount` (Eq 7), `risky_annuity` (Eq 10), `risky_swap_rate` (Eq 11), `linear_swap_rate_calibrate` now supports risky calibration with chi parameter (Eq 21).
+- `bond.py`: `ytm_cmt_bridge` (Eq 4) — YTM-to-CMT Taylor expansion.
+
+### New module
+- `cmt.py`: credit-aware CMT convexity correction with three payoff variants: A (survival to payment), B (survival to fix), C (fix-or-pre-default). Lognormal closed forms (Eq 34-35). No-default Pelsser/Hagan limit (Eq 37). Handles sigma^2 ≈ gamma singularity via Taylor expansion.
+- 15 validation tests mapping to paper Section 10 items 1-15.
+
+---
+
 ## v0.363.0 — 2026-04-26
 
 **Index-Linked Hybrid (Pucci 2012b) — third paper validation.** 5892 tests.
