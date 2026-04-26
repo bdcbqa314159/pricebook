@@ -2,6 +2,25 @@
 
 ---
 
+## v0.366.0 — 2026-04-26
+
+**Lens review + notebook fixes.** 5913 tests.
+
+### Lens fixes (wrong results / silent failures)
+- `hybrid_mc.py`: validate `rho in [-1,1]`, raise ValueError instead of silent correlation corruption.
+- `bond_forward.py`: validate `haircut in [0,1]`, raise ValueError instead of wrong blend rate.
+- `cash_settlement.py`: `cash_annuity` raises ValueError when `denom <= 0` instead of silently skipping terms.
+- `bond_yield.py`: stub pricing validates `base > 0` before fractional exponentiation.
+- `bond_yield.py`: IRR bisection auto-expands bounds to bracket root instead of hardcoded [-0.1, 1.0].
+- `cmt.py`: guard `gamma * Ts < 500` to prevent `exp()` overflow.
+- `treasury_lock.py`: removed redundant `face_value / face_value` in TreasuryLock.price().
+
+### Notebooks
+- All 4 notebooks updated to import from canonical modules (`bond_yield`, `cash_settlement`, `credit_adjustment`).
+- CMT validation notebook added: CC vs vol, CC vs hazard, Pelsser/Hagan no-default limit.
+
+---
+
 ## v0.365.0 — 2026-04-26
 
 **Architecture refactor: clean module decomposition + instrument classes.** 5913 tests.
