@@ -2,6 +2,35 @@
 
 ---
 
+## v0.367.0 — 2026-04-26
+
+**Visualisation layer.** 5913 tests.
+
+### New: `pricebook.viz` subpackage
+- `plot(instrument, curve)` — auto-detects type, shows 2x2 default dashboard. One line.
+- `PlotBuilder(instrument, curve).payoff().greeks().sensitivity("repo_rate").figure()` — fluent builder for custom panels.
+- Registry-based dispatch: adding product 5 = drop in `_product5.py`, zero changes elsewhere.
+- Professional theme (LIGHT/DARK) with muted palette, auto-applied via context manager.
+- Panel handlers draw on axes, never create figures — reusable by both `plot()` and `PlotBuilder`.
+
+### Product dashboards
+- T-Lock: payoff+overhedge, delta/gamma, repo sensitivity, roll P&L surface
+- CMASW: CC heatmap (sigma x rho), CC vs rho, displaced vs lognormal, summary
+- CMT: CC vs vol (A/B/C), CC vs hazard, Pelsser limit overlay, summary
+- Hybrid: price vs rho, cash annuity shape, martingale diagnostics, summary
+
+### Generic panels (any instrument)
+- `plot_summary_table` — result.to_dict() as formatted table
+- `plot_sensitivity` — bump-and-reprice single parameter
+
+### Notebooks updated
+- All 4 notebooks now use `plot()` and `PlotBuilder` with instrument classes
+
+### Examples
+- `examples/viz_quickstart.py` — all 4 products, generates PNG dashboards
+
+---
+
 ## v0.366.0 — 2026-04-26
 
 **Lens review + notebook fixes.** 5913 tests.
