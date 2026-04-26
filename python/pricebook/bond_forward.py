@@ -79,6 +79,8 @@ def forward_price_haircut(
         haircut: h^cut in [0, 1]. 0 = fully repo, 1 = fully unsecured.
         funding_rate: unsecured funding rate (continuously compounded).
     """
+    if not 0 <= haircut <= 1:
+        raise ValueError(f"haircut must be in [0, 1], got {haircut}")
     T = time_to_expiry
     blend_rate = haircut * funding_rate + (1 - haircut) * repo_rate
     fwd = market_price * (

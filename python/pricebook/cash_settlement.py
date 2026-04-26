@@ -30,6 +30,9 @@ def cash_annuity(
     for yi, tau_i in zip(year_fractions, times_to_payment):
         denom = 1 + yi * swap_rate
         if denom <= 0:
-            continue
+            raise ValueError(
+                f"Cash annuity denominator non-positive: 1 + {yi}*{swap_rate} = {denom}. "
+                f"Swap rate {swap_rate} is outside valid range for this schedule."
+            )
         total += yi / denom ** tau_i
     return total

@@ -47,7 +47,11 @@ def bond_price_from_yield_stub(
     """
     if len(accrual_factors) < 1:
         return 1.0
-    first_df = (1 / (1 + accrual_factors[0] * y)) ** stub_fraction
+    base = 1 + accrual_factors[0] * y
+    if base <= 0:
+        raise ValueError(
+            f"Negative discount base in stub: 1 + {accrual_factors[0]}*{y} = {base}")
+    first_df = (1 / base) ** stub_fraction
     remaining = accrual_factors[1:]
     bond_from_2 = bond_price_from_yield(coupon_rate, remaining, y) if remaining else 1.0
     value_at_t1 = coupon_rate * accrual_factors[0] + bond_from_2
@@ -128,7 +132,20 @@ def bond_irr(
         y -= (p - market_price) / dp
         y = max(-0.5, min(y, 2.0))
 
-    lo, hi = -0.1, 1.0
+    # Bisect: expand bounds until root is bracketed
+    lo, hi = -0.05, 0.5
+    p_lo = bond_price_from_yield(coupon_rate, accrual_factors, lo)
+    p_hi = bond_price_from_yield(coupon_rate, accrual_factors, hi)
+    for _ in range(20):
+        if p_lo >= market_price >= p_hi:
+            break
+        if p_lo < market_price:
+            lo -= 0.1
+            p_lo = bond_price_from_yield(coupon_rate, accrual_factors, lo)
+        if p_hi > market_price:
+            hi += 0.5
+            p_hi = bond_price_from_yield(coupon_rate, accrual_factors, hi)
+
     for _ in range(200):
         mid = 0.5 * (lo + hi)
         p = bond_price_from_yield(coupon_rate, accrual_factors, mid)

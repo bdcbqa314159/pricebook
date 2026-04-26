@@ -167,6 +167,8 @@ def cmt_convexity_corrections(
     risky_ann = sum(y * d for y, d in zip(year_fractions, cra_dfs))
 
     # chi_0 = e^{Γ_Ts - Γ_0} = e^{gamma * Ts}
+    if gamma * Ts > 500:
+        raise ValueError(f"gamma*Ts = {gamma*Ts:.1f} too large (overflow risk)")
     chi_0 = math.exp(gamma * Ts)
 
     # alpha

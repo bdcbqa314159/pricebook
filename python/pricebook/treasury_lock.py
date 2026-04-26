@@ -272,7 +272,7 @@ class TreasuryLock:
         alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
 
         # Forward price under repo
-        mkt_price = self.bond.dirty_price(curve) / 100.0 * self.bond.face_value / self.bond.face_value
+        mkt_price = self.bond.dirty_price(curve) / 100.0
         tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
         df = curve.df(self.expiry)
 
@@ -288,7 +288,7 @@ class TreasuryLock:
         from pricebook.day_count import year_fraction, DayCountConvention
 
         alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
-        mkt_price = self.bond.dirty_price(curve) / 100.0 * self.bond.face_value / self.bond.face_value
+        mkt_price = self.bond.dirty_price(curve) / 100.0
         y = bond_irr(mkt_price, self.bond.coupon_rate, alphas)
 
         delta = tlock_delta(self.bond.coupon_rate, alphas, times, T_mat,

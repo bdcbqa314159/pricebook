@@ -119,7 +119,9 @@ def simulate_2d_local_vol(
     rng = np.random.default_rng(seed)
     dt = T / n_steps
     sqrt_dt = math.sqrt(dt)
-    sqrt_1_rho2 = math.sqrt(max(1 - rho**2, 0.0))
+    if not -1 <= rho <= 1:
+        raise ValueError(f"rho must be in [-1, 1], got {rho}")
+    sqrt_1_rho2 = math.sqrt(1 - rho**2)
 
     F = np.full(n_paths, F0)
     U = np.full(n_paths, U0)
