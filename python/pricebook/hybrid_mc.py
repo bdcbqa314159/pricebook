@@ -83,6 +83,106 @@ class HybridMCEngine:
         return HybridMCResult(paths, self.n, n_paths, n_steps, T)
 
 
+# ---- 2-factor local-vol MC under Q^T (Pucci 2012b) ----
+
+@dataclass
+class LocalVolHybridResult:
+    """2D local-vol hybrid MC result."""
+    price: float
+    std_error: float
+    n_paths: int
+    n_steps: int
+    mean_F: float
+    mean_U: float
+
+
+def simulate_2d_local_vol(
+    F0: float,
+    U0: float,
+    sigma_F,
+    sigma_U,
+    rho: float,
+    T: float,
+    n_paths: int = 50_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Simulate two correlated local-vol Q^T-martingales (Pucci Eq 8-10).
+
+    dF/F = sigma_F(t, F) dW^F,  dU/U = sigma_U(t, U) dW^U
+    d<W^F, W^U> = rho dt
+
+    sigma_F, sigma_U: callable(t, x) -> vol, or float for flat vol.
+
+    Returns (F_T, U_T) terminal values of shape (n_paths,).
+    """
+    rng = np.random.default_rng(seed)
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+    sqrt_1_rho2 = math.sqrt(max(1 - rho**2, 0.0))
+
+    F = np.full(n_paths, F0)
+    U = np.full(n_paths, U0)
+
+    flat_F = isinstance(sigma_F, (int, float))
+    flat_U = isinstance(sigma_U, (int, float))
+
+    for step in range(n_steps):
+        t = step * dt
+        Z1 = rng.standard_normal(n_paths)
+        Z2 = rho * Z1 + sqrt_1_rho2 * rng.standard_normal(n_paths)
+
+        if flat_F:
+            vF = sigma_F
+        else:
+            vF = np.array([sigma_F(t, f) for f in F])
+
+        if flat_U:
+            vU = sigma_U
+        else:
+            vU = np.array([sigma_U(t, u) for u in U])
+
+        F = F * np.exp(-0.5 * vF**2 * dt + vF * sqrt_dt * Z1)
+        U = U * np.exp(-0.5 * vU**2 * dt + vU * sqrt_dt * Z2)
+
+    return F, U
+
+
+def local_vol_hybrid_price(
+    F0: float,
+    U0: float,
+    discount_factor: float,
+    sigma_F,
+    sigma_U,
+    rho: float,
+    T: float,
+    payoff_fn,
+    n_paths: int = 50_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> LocalVolHybridResult:
+    """Price a European hybrid via 2D local-vol MC (Pucci 2012b, Eq 7).
+
+    v = D_{0,T} * E^T[payoff(F_T, U_T)]
+
+    Args:
+        payoff_fn: callable(F_T, U_T) -> array of payoffs per path.
+        sigma_F, sigma_U: callable(t, x) -> vol, or float for flat vol.
+    """
+    F_T, U_T = simulate_2d_local_vol(
+        F0, U0, sigma_F, sigma_U, rho, T, n_paths, n_steps, seed)
+
+    payoffs = payoff_fn(F_T, U_T)
+    price = discount_factor * float(payoffs.mean())
+    std_err = discount_factor * float(payoffs.std()) / math.sqrt(n_paths)
+
+    return LocalVolHybridResult(
+        price=price, std_error=std_err,
+        n_paths=n_paths, n_steps=n_steps,
+        mean_F=float(F_T.mean()), mean_U=float(U_T.mean()),
+    )
+
+
 @dataclass
 class HybridPayoffResult:
     """Evaluated hybrid payoff."""
