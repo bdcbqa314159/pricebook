@@ -2,6 +2,25 @@
 
 ---
 
+## v0.361.0 — 2026-04-26
+
+**T-Lock refactor: paper formulas into core modules.**
+
+### Refactored into `bond.py`
+- `bond_price_from_yield` (Eq 2), `bond_price_from_yield_stub` (Eq 3), `bond_price_continuous` (Eq 4), `bond_yield_derivatives` (Eq 5), `bond_irr`, `bond_risk_factor`, `bond_dv01_from_yield` — all moved from standalone `treasury_lock.py` into `bond.py` as module-level functions.
+- `FixedRateBond.accrual_schedule()`, `.price_from_yield_sc()`, `.irr_sc()`, `.risk_factor_sc()` — convenience methods bridging date-based bond to yield-based functions.
+
+### Refactored into `bond_forward.py`
+- `forward_price_repo` (Eq 21), `forward_price_haircut` (Eq 24) — standalone functions alongside existing `BondForward` class.
+
+### `treasury_lock.py` thinned
+- Now imports from `bond.py` and `bond_forward.py` instead of reimplementing. Contains only T-Lock-specific: payoff, booking value, greeks, overhedge bound, roll P&L.
+
+### Pattern established for future papers
+- Core formulas go into existing modules. Paper-specific payoffs stay in thin dedicated modules. Tests + notebook validate against paper.
+
+---
+
 ## v0.360.0 — 2026-04-26
 
 **Treasury Lock (Pucci 2019) — first paper validation.** 5860 tests.
