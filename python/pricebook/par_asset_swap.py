@@ -38,6 +38,29 @@ class AssetSwapResult:
     upfront: float             # par - market = upfront payment
 
 
+def forward_asw_spread(
+    bond_rf_price: float,
+    bond_risky_price: float,
+    annuity: float,
+) -> float:
+    """Forward asset swap spread (Pucci 2012a, Eq 2).
+
+    R^asw = (B^rf - B) / A
+
+    Args:
+        bond_rf_price: risk-free bond price B^rf (same coupons, risk-free curve).
+        bond_risky_price: risky bond market price B.
+        annuity: risk-free annuity A = sum(y_i * D_{0,T_i}).
+
+    Returns:
+        Forward ASW spread. Positive when risky bond trades below risk-free
+        (credit spread). Can be negative for "premium bonds".
+    """
+    if abs(annuity) < 1e-15:
+        return 0.0
+    return (bond_rf_price - bond_risky_price) / annuity
+
+
 class ParAssetSwap:
     """Par asset swap package.
 
