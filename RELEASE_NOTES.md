@@ -2,6 +2,24 @@
 
 ---
 
+## v0.368.0 — 2026-04-26
+
+**TRS with Repo Financing and FVA (Lou 2018) — fifth paper validation.** 5929 tests.
+
+### New module
+- `trs_lou.py`: Total Return Swap pricing under the Lou (2018) framework. SSRN 3217420.
+  - `trs_precrisis` (Eq 2): classical pre-crisis valuation (rs = r)
+  - `trs_equity_full_csa` (Eq 7): full-CSA with repo drift, closed form
+  - `trs_fva` (Eq 8): hedge financing cost (repo-vs-OIS spread)
+  - `trs_repo_style_symmetric` (Eq 11): repo-style margining, symmetric funding
+  - `trs_bond_full_csa` (Eq 25): bond TRS with default risk
+  - `trs_bond_forward` (Eq 27-28): bond forward under haircut-blended repo
+  - `trs_multi_period` (Eq 31): multi-period with resets
+- 16 validation tests: ATI conditions, forward consistency, fva positivity, bond forward, edge cases
+- Visual validation notebook: `notebooks/trs_lou_2018_validation.ipynb`
+
+---
+
 ## v0.367.0 — 2026-04-26
 
 **Visualisation layer.** 5913 tests.
