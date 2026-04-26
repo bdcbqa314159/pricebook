@@ -33,6 +33,12 @@ class IndexLinkedHybridResult:
     mean_index: float
     mean_cash_annuity: float
 
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "price": self.price, "std_error": self.std_error,
+            "mean_swap_rate": self.mean_swap_rate, "mean_index": self.mean_index,
+        }
+
 
 def _make_cash_annuity_fn(
     year_fractions: list[float],

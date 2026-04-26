@@ -35,6 +35,16 @@ class CMASWResult:
     R_asw_0: float
     R_swp_0: float
 
+    @property
+    def price(self) -> float:
+        return self.aswlet_value
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "price": self.aswlet_value, "convexity_correction": self.convexity_correction,
+            "prefactor": self.prefactor, "R_asw_0": self.R_asw_0, "R_swp_0": self.R_swp_0,
+        }
+
 
 def cmasw_convexity_correction(
     R_asw_0: float,

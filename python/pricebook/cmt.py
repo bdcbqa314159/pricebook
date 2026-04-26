@@ -36,6 +36,16 @@ class CMTConvexityResult:
     R_cmt_0: float
     prefactor: float   # 1 - alpha * Â_0 / (chi_0 * D̂_{0,Tp})
 
+    @property
+    def price(self) -> float:
+        return self.cc_A
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "price": self.cc_A, "cc_A": self.cc_A, "cc_B": self.cc_B,
+            "cc_C": self.cc_C, "R_cmt_0": self.R_cmt_0, "prefactor": self.prefactor,
+        }
+
 
 def cmt_cc_ab(
     sigma: float,

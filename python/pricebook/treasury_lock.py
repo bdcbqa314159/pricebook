@@ -65,6 +65,16 @@ class TLockResult:
     locked_yield: float
     direction: int
 
+    @property
+    def price(self) -> float:
+        return self.value
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "price": self.value, "forward_price": self.forward_price,
+            "strike_price": self.strike_price, "risk_factor": self.risk_factor,
+        }
+
 
 def tlock_booking_value(
     locked_yield: float,
