@@ -8,18 +8,86 @@ Forward price is determined by cash-and-carry arbitrage.
     fwd = BondForward(bond, settlement, delivery, repo_rate)
     result = fwd.price(curve)
 
+Standalone functions for raw forward price under repo (Pucci 2019):
+
+    from pricebook.bond_forward import forward_price_repo, forward_price_haircut
+
 References:
     Tuckman & Serrat, *Fixed Income Securities*, Wiley, 2012, Ch. 15.
+    Pucci, M. (2019). Hedging the Treasury Lock. SSRN 3386521, Section 5.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 
 from pricebook.bond import FixedRateBond
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
+
+
+# ---- Standalone forward functions (Pucci Eq 21, 24) ----
+
+def forward_price_repo(
+    market_price: float,
+    repo_rate: float,
+    time_to_expiry: float,
+    coupon_rate: float,
+    coupon_accruals: list[float],
+    coupon_times_to_expiry: list[float],
+    repo_rates_coupon: list[float] | None = None,
+) -> float:
+    """Forward price under repo, zero haircut (Pucci Eq 21).
+
+    ForwardPrice = P^mkt * (1 + r_repo * tau)
+                   - c * sum alpha_i * (1 + r_repo_i * tau_i)
+
+    Args:
+        market_price: current bond dirty price.
+        repo_rate: repo rate from t to t_e (simply-compounded).
+        time_to_expiry: t_e - t in years.
+        coupon_accruals: alpha_i for coupons paid in (t, t_e].
+        coupon_times_to_expiry: t_e - t_i for each coupon in (t, t_e].
+        repo_rates_coupon: repo rate from t_i to t_e for each coupon.
+    """
+    fwd = market_price * (1 + repo_rate * time_to_expiry)
+    if repo_rates_coupon is None:
+        repo_rates_coupon = [repo_rate] * len(coupon_accruals)
+    for alpha, tau, r in zip(coupon_accruals, coupon_times_to_expiry,
+                              repo_rates_coupon):
+        fwd -= coupon_rate * alpha * (1 + r * tau)
+    return fwd
+
+
+def forward_price_haircut(
+    market_price: float,
+    repo_rate: float,
+    funding_rate: float,
+    haircut: float,
+    time_to_expiry: float,
+    coupon_amounts: list[float],
+    coupon_times_to_expiry: list[float],
+) -> float:
+    """Forward price with haircut and funding blend (Pucci Eq 24).
+
+    ForwardPrice = X * [(1-h)*exp(r_repo*T) + h*exp(r_fun*T)]
+                   - sum c_i * exp((h*r_fun + (1-h)*r_repo) * tau_i)
+
+    Args:
+        haircut: h^cut in [0, 1]. 0 = fully repo, 1 = fully unsecured.
+        funding_rate: unsecured funding rate (continuously compounded).
+    """
+    T = time_to_expiry
+    blend_rate = haircut * funding_rate + (1 - haircut) * repo_rate
+    fwd = market_price * (
+        (1 - haircut) * math.exp(repo_rate * T)
+        + haircut * math.exp(funding_rate * T)
+    )
+    for ci, tau_i in zip(coupon_amounts, coupon_times_to_expiry):
+        fwd -= ci * math.exp(blend_rate * tau_i)
+    return fwd
 
 
 @dataclass

@@ -9,17 +9,18 @@ import math
 
 import pytest
 
-from pricebook.treasury_lock import (
-    bond_price_simply_compounded,
-    bond_price_stub,
-    bond_price_continuous_general,
+from pricebook.bond import (
+    bond_price_from_yield,
+    bond_price_from_yield_stub,
+    bond_price_continuous,
     bond_yield_derivatives,
-    irr,
-    risk_factor,
-    dv01,
+    bond_irr,
+    bond_risk_factor,
+    bond_dv01_from_yield,
+)
+from pricebook.bond_forward import forward_price_repo, forward_price_haircut
+from pricebook.treasury_lock import (
     tlock_payoff,
-    forward_price_repo,
-    forward_price_haircut,
     tlock_booking_value,
     tlock_delta,
     tlock_gamma,
@@ -58,7 +59,7 @@ class TestBondPriceMachinery:
         # Closed form
         cf = (1 + R)**(-n) + (c / R) * (1 - (1 + R)**(-n))
         # Our function
-        p = bond_price_simply_compounded(c, alphas_annual, R)
+        p = bond_price_from_yield(c, alphas_annual, R)
         assert p == pytest.approx(cf, rel=1e-10)
 
         # Par bond at coupon rate should price to 1
@@ -66,15 +67,15 @@ class TestBondPriceMachinery:
 
     def test_v1_par_bond(self):
         """A bond priced at its coupon rate should be at par."""
-        p = bond_price_simply_compounded(COUPON, ALPHAS, COUPON)
+        p = bond_price_from_yield(COUPON, ALPHAS, COUPON)
         # Not exactly par for semi-annual (slightly off due to compounding)
         # but should be close
         assert 0.99 < p < 1.01
 
     def test_v1_stub_period(self):
         """V1: Eq (3) stub period — stub_fraction=1 recovers full price."""
-        p_full = bond_price_simply_compounded(COUPON, ALPHAS, 0.04)
-        p_stub = bond_price_stub(COUPON, ALPHAS, 0.04, stub_fraction=1.0)
+        p_full = bond_price_from_yield(COUPON, ALPHAS, 0.04)
+        p_stub = bond_price_from_yield_stub(COUPON, ALPHAS, 0.04, stub_fraction=1.0)
         assert p_stub == pytest.approx(p_full, rel=1e-6)
 
     def test_v2_hull_form_derivatives_vs_finite_diff(self):
@@ -84,7 +85,7 @@ class TestBondPriceMachinery:
 
         h = 1e-5
         def P(yy):
-            return bond_price_continuous_general(COUPON, ALPHAS, TIMES, T_MAT, yy)
+            return bond_price_continuous(COUPON, ALPHAS, TIMES, T_MAT, yy)
 
         # Central differences
         D1_fd = (P(y + h) - P(y - h)) / (2 * h)
@@ -104,15 +105,15 @@ class TestBondPriceMachinery:
 
     def test_v3_irr_round_trip(self):
         """V3: P(IRR) = market_price, Newton + bisect fallback."""
-        mkt = bond_price_simply_compounded(COUPON, ALPHAS, 0.045)
-        y_solved = irr(mkt, COUPON, ALPHAS)
+        mkt = bond_price_from_yield(COUPON, ALPHAS, 0.045)
+        y_solved = bond_irr(mkt, COUPON, ALPHAS)
         assert y_solved == pytest.approx(0.045, abs=1e-8)
 
     def test_v3_irr_distressed(self):
         """V3: IRR for a deeply discounted bond."""
         mkt = 0.60  # 60 cents on the dollar
-        y_solved = irr(mkt, COUPON, ALPHAS)
-        p_check = bond_price_simply_compounded(COUPON, ALPHAS, y_solved)
+        y_solved = bond_irr(mkt, COUPON, ALPHAS)
+        p_check = bond_price_from_yield(COUPON, ALPHAS, y_solved)
         assert p_check == pytest.approx(mkt, abs=1e-6)
 
 
@@ -140,20 +141,20 @@ class TestForwardPrice:
         tau = 0.5
 
         fwd_h0 = forward_price_haircut(mkt, r_repo, r_fun, haircut=0.0,
-                                        time_to_expiry=tau, coupon_rate=COUPON,
+                                        time_to_expiry=tau,
                                         coupon_amounts=[], coupon_times_to_expiry=[])
         fwd_repo = mkt * math.exp(r_repo * tau)
         assert fwd_h0 == pytest.approx(fwd_repo, rel=1e-6)
 
         fwd_h1 = forward_price_haircut(mkt, r_repo, r_fun, haircut=1.0,
-                                        time_to_expiry=tau, coupon_rate=COUPON,
+                                        time_to_expiry=tau,
                                         coupon_amounts=[], coupon_times_to_expiry=[])
         fwd_fun = mkt * math.exp(r_fun * tau)
         assert fwd_h1 == pytest.approx(fwd_fun, rel=1e-6)
 
     def test_v6_repo_sensitivity(self):
         """V6: Bumping repo +10bp should reduce long T-Lock PV."""
-        mkt = bond_price_simply_compounded(COUPON, ALPHAS, LOCKED_YIELD)
+        mkt = bond_price_from_yield(COUPON, ALPHAS, LOCKED_YIELD)
         r_repo = 0.02
         tau = 0.5
         df = math.exp(-0.03 * tau)
@@ -162,7 +163,7 @@ class TestForwardPrice:
         fwd_up = forward_price_repo(mkt, r_repo + 0.001, tau, COUPON, [], [])
 
         # Higher repo → higher forward → lower (K - Fwd) → lower long T-Lock PV
-        K = bond_price_simply_compounded(COUPON, ALPHAS, LOCKED_YIELD)
+        K = bond_price_from_yield(COUPON, ALPHAS, LOCKED_YIELD)
         pv_base = df * (K - fwd_base)
         pv_up = df * (K - fwd_up)
         assert pv_up < pv_base
@@ -175,7 +176,7 @@ class TestTLockPricing:
 
     def test_v7_atm_near_zero(self):
         """V7: IRR = L at trade date => v ≈ 0."""
-        mkt = bond_price_simply_compounded(COUPON, ALPHAS, LOCKED_YIELD)
+        mkt = bond_price_from_yield(COUPON, ALPHAS, LOCKED_YIELD)
         r_repo = 0.02
         tau = 0.5
         df = math.exp(-0.03 * tau)
@@ -193,15 +194,15 @@ class TestTLockPricing:
         R1(y) = P(y) - P(L) - D_y[P](L) * (y - L) >= 0 for all y >= 0.
         """
         L = LOCKED_YIELD
-        P_L = bond_price_simply_compounded(COUPON, ALPHAS, L)
-        rf_L = risk_factor(COUPON, ALPHAS, L)
+        P_L = bond_price_from_yield(COUPON, ALPHAS, L)
+        rf_L = bond_risk_factor(COUPON, ALPHAS, L)
 
         for y in [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10]:
-            P_y = bond_price_simply_compounded(COUPON, ALPHAS, y)
+            P_y = bond_price_from_yield(COUPON, ALPHAS, y)
             # Proxy payoff = P(L) - P(y)
             proxy = P_L - P_y
             # Exact payoff = RiskFactor(y) * (y - L) = -D_y[P](y) * (y - L)
-            exact = risk_factor(COUPON, ALPHAS, y) * (y - L)
+            exact = bond_risk_factor(COUPON, ALPHAS, y) * (y - L)
             # R1 = proxy - exact >= 0
             R1 = proxy - exact
             assert R1 >= -1e-10, f"R1({y}) = {R1} < 0"
@@ -209,13 +210,13 @@ class TestTLockPricing:
     def test_v9_overhedge_bound(self):
         """V9: |R1| <= 0.5 * M * (y-L)^2 (Eq 10)."""
         L = LOCKED_YIELD
-        P_L = bond_price_simply_compounded(COUPON, ALPHAS, L)
+        P_L = bond_price_from_yield(COUPON, ALPHAS, L)
 
         for dy in [0.001, 0.003, 0.005, 0.01]:
             y = L + dy
-            P_y = bond_price_simply_compounded(COUPON, ALPHAS, y)
+            P_y = bond_price_from_yield(COUPON, ALPHAS, y)
             proxy = P_L - P_y
-            exact = risk_factor(COUPON, ALPHAS, y) * (y - L)
+            exact = bond_risk_factor(COUPON, ALPHAS, y) * (y - L)
             R1 = abs(proxy - exact)
 
             bound = overhedge_bound(COUPON, ALPHAS, TIMES, T_MAT, dy)
@@ -230,8 +231,8 @@ class TestGreeksReplication:
     def test_v10_risk_factor_vs_analytic(self):
         """V10: RiskFactor = -10000 * DV01, matches analytic D_y[P]."""
         y = 0.04
-        rf = risk_factor(COUPON, ALPHAS, y)
-        dv = dv01(COUPON, ALPHAS, y)
+        rf = bond_risk_factor(COUPON, ALPHAS, y)
+        dv = bond_dv01_from_yield(COUPON, ALPHAS, y)
 
         # RiskFactor ≈ -10000 * DV01 (DV01 is per bp, RiskFactor per unit)
         # Actually: rf = -dP/dy, dv01 = P(y-0.5bp) - P(y+0.5bp)
