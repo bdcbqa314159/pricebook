@@ -2,6 +2,21 @@
 
 ---
 
+## v0.363.0 — 2026-04-26
+
+**Index-Linked Hybrid (Pucci 2012b) — third paper validation.** 5892 tests.
+
+### Core modules extended
+- `cms.py`: `cash_annuity` (Eq 3) — flat-curve proxy annuity for cash-settled swaptions.
+- `hybrid_mc.py`: `simulate_2d_local_vol`, `local_vol_hybrid_price` — generic 2-asset correlated local-vol MC under Q^T. Supports flat vol or callable local-vol surfaces. Reusable for FX-linked, commodity-linked, basket-linked hybrids.
+
+### New module
+- `index_linked_hybrid.py`: cash-settled swaption with equity index strike (Eq 1, 7). Thin layer over `cms.py` (cash annuity) and `hybrid_mc.py` (2D MC engine).
+- 14 validation tests: cash annuity closed form, martingale checks, Black limit, rho=0 decomposition, rho=+/-1 degeneracy, monotonicity in rho, payer/receiver, vol sensitivity.
+- Visual validation notebook: `notebooks/index_linked_hybrid_pucci_2012b_validation.ipynb`.
+
+---
+
 ## v0.362.0 — 2026-04-26
 
 **CMASW Convexity Correction (Pucci 2012a) — second paper validation.** 5878 tests.
