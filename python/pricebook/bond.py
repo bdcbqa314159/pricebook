@@ -159,6 +159,32 @@ def bond_risk_factor(
     return -(p_up - p_dn) / (2 * h)
 
 
+def ytm_cmt_bridge(
+    R_cmt: float,
+    K: float,
+    B: float,
+    n: int,
+) -> float:
+    """YTM-CMT Taylor bridge (Pucci 2014, Eq 4).
+
+    R^ytm ≈ R^cmt + (K - R^cmt) - R^cmt / (1 - (1+R^cmt)^{-n}) * (B - 1)
+
+    Maps a CMT rate to an approximate YTM given coupon K and bond price B.
+    Exact when B = 1 and K = R^cmt.
+    """
+    if abs(R_cmt) < 1e-15:
+        # Degenerate: use large-n limit
+        return K - (B - 1) / max(n, 1)
+
+    discount_factor_n = (1 + R_cmt) ** (-n)
+    annuity_factor = (1 - discount_factor_n) / R_cmt
+
+    if abs(annuity_factor) < 1e-15:
+        return R_cmt + (K - R_cmt)
+
+    return R_cmt + (K - R_cmt) - R_cmt / annuity_factor * (B - 1)
+
+
 def bond_dv01_from_yield(
     coupon_rate: float,
     accrual_factors: list[float],
