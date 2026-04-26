@@ -111,3 +111,75 @@ def index_linked_hybrid_price(
         mean_index=float(U_T.mean()),
         mean_cash_annuity=float(A_hat.mean()),
     )
+
+
+# ---- Instrument class ----
+
+class IndexLinkedHybridInstrument:
+    """Index-linked cash-settled swaption for Trade/Portfolio.
+
+        hybrid = IndexLinkedHybridInstrument(
+            expiry=date(2031, 1, 15), swap_tenor=5,
+            index_forward=0.04, sigma_F=0.30, sigma_U=0.25, rho=0.3)
+        result = hybrid.price(discount_curve)
+        portfolio.add(Trade(hybrid))
+    """
+
+    def __init__(
+        self,
+        expiry,
+        swap_tenor: int = 5,
+        index_forward: float = 0.04,
+        notional: float = 1_000_000.0,
+        theta: int = 1,
+        sigma_F: float = 0.30,
+        sigma_U: float = 0.25,
+        rho: float = 0.0,
+        frequency: int = 2,
+        n_paths: int = 50_000,
+        n_steps: int = 100,
+        seed: int | None = 42,
+    ):
+        self.expiry = expiry
+        self.swap_tenor = swap_tenor
+        self.index_forward = index_forward
+        self.notional = notional
+        self.theta = theta
+        self.sigma_F = sigma_F
+        self.sigma_U = sigma_U
+        self.rho = rho
+        self.frequency = frequency
+        self.n_paths = n_paths
+        self.n_steps = n_steps
+        self.seed = seed
+
+    def price(self, curve) -> IndexLinkedHybridResult:
+        """Price the index-linked hybrid using a discount curve."""
+        from pricebook.day_count import year_fraction, DayCountConvention
+        from datetime import timedelta
+
+        T = year_fraction(curve.reference_date, self.expiry,
+                          DayCountConvention.ACT_365_FIXED)
+        df = curve.df(self.expiry)
+
+        n = self.swap_tenor * self.frequency
+        dt_period = 1.0 / self.frequency
+        yfs = [dt_period] * n
+        taus = [dt_period * (i + 1) for i in range(n)]
+
+        # Convexity-adjusted forward swap rate (approximate: par rate from curve)
+        dates = [self.expiry + timedelta(days=int(dt_period * 365 * (i + 1)))
+                 for i in range(n)]
+        dfs = [curve.df(d) for d in dates]
+        annuity = sum(y * d for y, d in zip(yfs, dfs))
+        F0 = (curve.df(self.expiry) - dfs[-1]) / annuity if annuity > 0 else 0.0
+
+        return index_linked_hybrid_price(
+            F0, self.index_forward, df, yfs, taus,
+            self.sigma_F, self.sigma_U, self.rho, T,
+            self.theta, self.n_paths, self.n_steps, self.seed)
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — compatible with Trade.pv()."""
+        result = self.price(ctx.discount_curve)
+        return self.notional * result.price
