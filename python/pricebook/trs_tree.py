@@ -196,38 +196,6 @@ def trs_trinomial_tree(
     return TRSTreeResult(float(V[0]), float(V_star[0]), n_steps, S_0)
 
 
-def _single_period_tree_value(
-    S_start: float,
-    r_f: float,
-    period_T: float,
-    r: float,
-    sigma: float,
-    div_yield: float,
-    n_steps: int,
-    M_0: float,
-) -> float:
-    """Value of a single TRS period starting at S_start, settling at period_T."""
-    rs = r  # full CSA, no repo for this helper
-    dt = period_T / n_steps
-    u, d, pu, pm, pd = _trinomial_probabilities(rs - div_yield, sigma, dt)
-
-    n_nodes = 2 * n_steps + 1
-    V = np.zeros(n_nodes)
-    for j in range(n_nodes):
-        S_j = S_start * math.exp(sigma * math.sqrt(2 * dt) * (n_steps - j))
-        V[j] = M_0 * r_f * period_T - (S_j - S_start)
-
-    for step in range(n_steps - 1, -1, -1):
-        n_j = 2 * step + 1
-        V_new = np.zeros(n_j)
-        for j in range(n_j):
-            cont = pu * V[j] + pm * V[j + 1] + pd * V[j + 2]
-            V_new[j] = cont * math.exp(-r * dt)
-        V = V_new
-
-    return float(V[0])
-
-
 def trs_trinomial_tree_multi(
     S_0: float,
     r_f: float,
@@ -240,14 +208,14 @@ def trs_trinomial_tree_multi(
     n_steps_per_period: int = 50,
     M_0: float | None = None,
 ) -> TRSTreeResult:
-    """Multi-period TRS via recursive trinomial tree rollback.
+    """Multi-period TRS via recursive trinomial tree (Lou 2018 Section 4).
 
-    Lou (2018) Section 4 "Multi-period reset":
-    At each reset τ_i, for each node j with fixing S_{i,j}, price a
-    single-period TRS from S_{i,j} forward to τ_{i+1}, add the period
-    return, and roll back.
+    Backward recursion through reset dates:
+    1. Compute V_K(S) = value of last period as a function of starting spot.
+    2. For period K-1: terminal payoff includes V_K(S_terminal) as continuation.
+    3. Continue backward to t_0.
 
-    This is O(n_steps² × n_periods × n_nodes) — expensive but exact.
+    Each V_k(S) is stored on a log-spot grid and interpolated at sub-tree nodes.
     """
     if M_0 is None:
         M_0 = S_0
@@ -256,83 +224,81 @@ def trs_trinomial_tree_multi(
     if sigma <= 0:
         raise ValueError(f"sigma must be positive, got {sigma}")
 
+    rs = r + rs_minus_r
     period_T = T / n_periods
     dt = period_T / n_steps_per_period
 
-    u, d, pu, pm, pd = _trinomial_probabilities(r + rs_minus_r - div_yield, sigma, dt)
+    u, d, pu, pm, pd = _trinomial_probabilities(rs - div_yield, sigma, dt)
+    log_step = sigma * math.sqrt(2 * dt)
+    df_dt = math.exp(-r * dt)
 
-    # Work backward from the last period
-    # At each reset, we need the continuation value at each node.
-    # Start: at the last reset (τ_{K-1}), the continuation from future periods is 0.
-
-    # The continuation array: for each node at the current reset, the PV of future periods
-    # Initially (at the last period boundary): no future periods
-    continuation = None  # will be set after the first (last) period
+    # Continuation value function: V_next(S) for future periods.
+    # Stored as (log_S_grid, values) for interpolation.
+    continuation_log_grid = None
+    continuation_values = None
 
     for period in range(n_periods - 1, -1, -1):
-        # Build a tree for this period [τ_period, τ_{period+1}]
-        # At each node at τ_period, the total value is:
-        # V(S) = single_period_value(S) + continuation(S)
+        # For each starting spot S_start, compute the value of this period
+        # plus continuation from future periods.
 
-        # We need to roll back from τ_{period+1} to τ_period.
-        # At τ_{period+1}, the payoff at node j is:
-        # H_j = M0 rf dt_period - (S_j - S_prev)
-        # where S_prev is the reset fixing at τ_period (varies by node at τ_period).
-
-        # For the recursive scheme: at τ_period, node j has spot S_j.
-        # We price a single-period TRS starting from S_j.
-        # Then add the continuation (PV of all future periods from S_j).
-
-        if period == n_periods - 1 and n_periods == 1:
-            # Single period: just use the standard tree
-            val = _single_period_tree_value(
-                S_0, r_f, period_T, r, sigma, div_yield, n_steps_per_period, M_0)
-            return TRSTreeResult(val, val, n_steps_per_period, S_0)
-
-        # For multi-period: at this reset, build the node spots
-        n_nodes_reset = 2 * n_steps_per_period + 1 if period > 0 else 1
-
+        # Build a representative grid of starting spots.
+        # At period > 0, the starting spots come from the previous period's tree.
+        # At period 0, only S_0.
         if period == 0:
-            # At t=0, only one node: S_0
-            spots = [S_0]
+            start_spots = [S_0]
         else:
-            # At reset τ_period, the spots come from rolling back the previous period's tree
-            # For a recombining tree, the spots at step n_steps_per_period are:
-            spots = [S_0 * math.exp(sigma * math.sqrt(2 * dt) * (n_steps_per_period - j))
-                     for j in range(n_nodes_reset)]
+            # Use the tree grid at the end of the previous period
+            n_grid = 2 * n_steps_per_period + 1
+            start_spots = [S_0 * math.exp(log_step * (n_steps_per_period - j))
+                           for j in range(n_grid)]
 
-        # For each spot at this reset, compute single-period value + continuation
-        values_at_reset = np.zeros(len(spots))
-        for j, S_j in enumerate(spots):
-            # Single period from S_j
-            period_val = _single_period_tree_value(
-                S_j, r_f, period_T, r, sigma, div_yield,
-                n_steps_per_period, M_0)
+        period_values = np.zeros(len(start_spots))
 
-            # Add continuation from future periods
-            if continuation is not None and j < len(continuation):
-                period_val += continuation[j]
+        for idx, S_start in enumerate(start_spots):
+            # Build sub-tree from S_start for one period
+            n_nodes = 2 * n_steps_per_period + 1
+            V = np.zeros(n_nodes)
 
-            values_at_reset[j] = period_val
+            for j in range(n_nodes):
+                S_j = S_start * math.exp(log_step * (n_steps_per_period - j))
+
+                # Period payoff: M rf Δt - (S_end - S_start)
+                payoff = M_0 * r_f * period_T - (S_j - S_start)
+
+                # Add continuation from future periods
+                if continuation_log_grid is not None:
+                    log_S_j = math.log(S_j)
+                    # Linear interpolation on log-spot grid
+                    cont_val = np.interp(log_S_j, continuation_log_grid,
+                                          continuation_values)
+                    payoff += cont_val
+
+                V[j] = payoff
+
+            # Roll back this sub-tree to get period value at S_start
+            for step in range(n_steps_per_period - 1, -1, -1):
+                n_j = 2 * step + 1
+                V_new = np.zeros(n_j)
+                for j in range(n_j):
+                    cont = pu * V[j] + pm * V[j + 1] + pd * V[j + 2]
+                    V_new[j] = cont * df_dt
+                V = V_new
+
+            period_values[idx] = float(V[0])
 
         if period == 0:
-            return TRSTreeResult(float(values_at_reset[0]), float(values_at_reset[0]),
+            return TRSTreeResult(float(period_values[0]), float(period_values[0]),
                                   n_steps_per_period * n_periods, S_0)
 
-        # Roll back this period's values to the previous reset
-        # These become the continuation for the previous period
-        V = values_at_reset.copy()
-        for step in range(n_steps_per_period - 1, -1, -1):
-            n_j = 2 * step + 1
-            V_new = np.zeros(n_j)
-            for j in range(n_j):
-                cont = pu * V[j] + pm * V[j + 1] + pd * V[j + 2]
-                V_new[j] = cont * math.exp(-r * dt)
-            V = V_new
+        # Store this period's values as continuation for the next (earlier) period
+        continuation_log_grid = np.array([math.log(s) for s in start_spots])
+        continuation_values = period_values
 
-        continuation = values_at_reset  # continuation at reset nodes
+        # Sort for interpolation
+        sort_idx = np.argsort(continuation_log_grid)
+        continuation_log_grid = continuation_log_grid[sort_idx]
+        continuation_values = continuation_values[sort_idx]
 
-    # Should not reach here
     return TRSTreeResult(0.0, 0.0, 0, S_0)
 
 

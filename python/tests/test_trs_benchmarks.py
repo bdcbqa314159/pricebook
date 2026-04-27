@@ -66,6 +66,47 @@ class TestTable1:
         expected = (math.exp(0.05) - 1) * self.S0
         assert fva == pytest.approx(expected, rel=1e-10)
 
+    def test_table1_4period_exact(self):
+        """Table 1: ATI 1Y 4-period V = -0.35977699 (exact paper benchmark).
+
+        Key: ATI uses period-matched 3M Libor, not 1Y Libor.
+        """
+        from pricebook.trs_tree import trs_trinomial_tree_multi
+
+        n_periods = 4
+        dt_period = self.T / n_periods
+        D_period = math.exp(-self.r * dt_period)
+        libor_3M = (1 / D_period - 1) / dt_period
+
+        result = trs_trinomial_tree_multi(
+            self.S0, libor_3M, self.T, self.r, 0.0, self.sigma,
+            n_periods=n_periods, n_steps_per_period=50)
+
+        assert result.value == pytest.approx(-0.35977699, abs=1e-6)
+
+    def test_table1_analytic_matches_tree(self):
+        """Table 1: analytic per-period sum matches tree to machine precision."""
+        n_periods = 4
+        dt_period = self.T / n_periods
+        D_period = math.exp(-self.r * dt_period)
+        libor_3M = (1 / D_period - 1) / dt_period
+
+        # Analytic
+        V_analytic = 0.0
+        for k in range(1, n_periods + 1):
+            D_k = math.exp(-self.r * k * dt_period)
+            funding = self.S0 * libor_3M * dt_period * D_k
+            security = self.S0 * (1 - math.exp(-self.r * dt_period))
+            V_analytic += funding - security
+
+        # Tree
+        from pricebook.trs_tree import trs_trinomial_tree_multi
+        result = trs_trinomial_tree_multi(
+            self.S0, libor_3M, self.T, self.r, 0.0, self.sigma,
+            n_periods=n_periods, n_steps_per_period=50)
+
+        assert result.value == pytest.approx(V_analytic, abs=1e-6)
+
 
 # ---- Table 2: Repo-style margined, symmetric funding ----
 # ATI 1Y, one period, rb = rc = 2%, rs - r = 5%
