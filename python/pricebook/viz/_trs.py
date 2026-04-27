@@ -97,8 +97,16 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 def _register():
     from pricebook.trs_lou import TotalReturnSwapLou
+    from pricebook.trs import TotalReturnSwap
+
     register_instrument(TotalReturnSwapLou)(_default_dashboard)
+    register_instrument(TotalReturnSwap)(_default_dashboard)
     register_panels(TotalReturnSwapLou, {
+        "payoff": plot_value_vs_spot,
+        "greeks": plot_fva_vs_repo,
+        "comparison": plot_tree_convergence,
+    })
+    register_panels(TotalReturnSwap, {
         "payoff": plot_value_vs_spot,
         "greeks": plot_fva_vs_repo,
         "comparison": plot_tree_convergence,
