@@ -2,6 +2,28 @@
 
 ---
 
+## v0.375.0 — 2026-04-27
+
+**Unified TRS — equity, bond, loan in one class.** 5973 tests.
+
+### New: `pricebook.trs.TotalReturnSwap`
+- Single class: auto-detects underlying (float=equity, FixedRateBond, TermLoan).
+- `price(curve)`, `price_tree(curve)`, `price_xva(curve)`, `pv_ctx(ctx)`, `greeks(curve)`.
+- MTM notional reset, discrete dividends, loan TRS, FundingLegSpec for SOFR conventions.
+- Delegates to Lou (2018) analytics — no formula duplication.
+
+---
+
+## v0.374.0 — 2026-04-27
+
+**Multi-period tree + Table 1 exact match.** 5959 tests.
+
+- Multi-period recursive tree with log-spot interpolation.
+- **Table 1: V = -0.35977699** matched exactly (analytic + tree).
+- Key: ATI uses period-matched Libor (3M for quarterly).
+
+---
+
 ## v0.373.0 — 2026-04-27
 
 **TRS gaps G1/G3/G4/G6 closed.** 5957 tests.
