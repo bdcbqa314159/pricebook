@@ -155,20 +155,32 @@ class TotalReturnSwap:
     # ---- Equity TRS ----
 
     def _price_equity(self, curve, projection_curve) -> TRSResult:
+        """Equity TRS: Lou (2018) Eq (7).
+
+        V = (M0 rf T + S0) D - St exp((rs-r)(T-t))
+
+        All values in currency units (notional-scaled).
+        """
         from pricebook.bond_forward import repo_financing_factor
-        from pricebook.dividend_model import pv_dividends, Dividend
+        from pricebook.dividend_model import Dividend
 
         spot = float(self.underlying)
         S_0 = self.initial_price if self.initial_price is not None else spot
+        if S_0 <= 0:
+            raise ValueError(f"Initial price must be positive, got {S_0}")
+
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if T < 1e-5:
+            raise ValueError(f"Maturity too short: {T:.6f} years")
+
         tau = year_fraction(curve.reference_date, self.end, DayCountConvention.ACT_365_FIXED)
         D = curve.df(self.end)
 
-        # Funding rate
-        fwd_rate = -math.log(curve.df(self.end) / curve.df(self.start)) / max(T, 1e-10)
+        # Funding rate: forward OIS + spread
+        fwd_rate = -math.log(curve.df(self.end) / curve.df(self.start)) / T
         r_f = fwd_rate + self.funding.spread
 
-        # Dividend adjustment
+        # Dividends: income (received) and forward adjustment (future)
         income = 0.0
         future_div_pv = 0.0
         for div in self.dividends:
@@ -178,45 +190,47 @@ class TotalReturnSwap:
                 elif div.ex_date > curve.reference_date:
                     future_div_pv += div.amount * curve.df(div.ex_date)
 
-        # Repo factor
+        # Scale factor: number of shares = notional / S_0
+        shares = self.notional / S_0
+
+        # Lou Eq (7): V = (M0 rf T + S0) D - St exp((rs-r) tau)
+        # M0 = notional (currency), S0 and St are per-share
         repo_factor = repo_financing_factor(self.repo_spread, tau)
-        fva = (repo_factor - 1) * spot
+        funding_leg = (self.notional * r_f * T + self.notional) * D
+        asset_leg = (spot - future_div_pv) * shares * repo_factor
 
-        # Funding leg
-        funding_leg = (self.notional * r_f * T + S_0 * self.notional / S_0) * D
-        # Simplified: (M0 rf T + S0) D at notional scale
-        M_0 = self.notional
-        funding_pv = (M_0 * r_f * T / S_0 + 1) * S_0 * D
+        value = funding_leg - asset_leg
+        fva = (repo_factor - 1) * spot * shares
 
-        # Asset leg (repo-adjusted spot minus dividend adjustment)
-        asset_spot = spot - future_div_pv
-        asset_leg = asset_spot * repo_factor * self.notional / S_0
-
-        # Price return
-        price_return = (spot - S_0) / S_0 * self.notional
-        income_scaled = income / S_0 * self.notional
-
-        value = funding_pv * self.notional / S_0 - asset_leg
+        # Decomposition
+        price_return = (spot - S_0) * shares
+        income_scaled = income * shares
 
         return TRSResult(
             value=value, total_return_leg=price_return + income_scaled,
-            funding_leg=funding_pv * self.notional / S_0,
+            funding_leg=funding_leg,
             price_return=price_return, income_return=income_scaled,
-            fva=fva * self.notional / S_0, repo_factor=repo_factor,
+            fva=fva, repo_factor=repo_factor,
         )
 
     # ---- Bond TRS ----
 
     def _price_bond(self, curve, projection_curve) -> TRSResult:
+        """Bond TRS: Lou (2018) Eq (25) with haircut blending (Eq 19)."""
         from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
 
         bond = self.underlying
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if T < 1e-5:
+            raise ValueError(f"Maturity too short: {T:.6f} years")
+        if curve.reference_date >= bond.maturity:
+            raise ValueError("Bond has matured")
+
         D = curve.df(self.end)
 
         # Current and initial price
         current_dirty = bond.dirty_price(curve)
-        initial_dirty = self.initial_price if self.initial_price is not None else 100.0
+        initial_dirty = self.initial_price if self.initial_price is not None else current_dirty
 
         # Coupons received
         income = 0.0
@@ -225,18 +239,24 @@ class TotalReturnSwap:
                 income += cf.amount
         income_scaled = income / bond.face_value * self.notional
 
-        # Price return
+        # Price return (per 100 face → scale to notional)
         price_return = (current_dirty - initial_dirty) / 100.0 * self.notional
 
         # Funding leg
-        fwd_rate = -math.log(D / curve.df(self.start)) / max(T, 1e-10) if T > 0 else 0.0
+        fwd_rate = -math.log(D / curve.df(self.start)) / T
         r_f = fwd_rate + self.funding.spread
         yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
         funding_leg = self.notional * r_f * yf
 
-        # Repo/FVA
-        rs_bar = blended_repo_rate(fwd_rate + self.repo_spread, fwd_rate + 0.02, self.haircut)
-        repo_factor = repo_financing_factor(self.repo_spread, T)
+        # Blended repo rate: r̄s = (1-h)rs + h rN (Lou Eq 19)
+        # Use fwd_rate as proxy for rN (bank's unsecured ~ OIS + spread)
+        r_s = fwd_rate + self.repo_spread
+        r_N = fwd_rate + 0.02  # unsecured funding proxy
+        rs_bar = blended_repo_rate(r_s, r_N, self.haircut)
+        rs_bar_spread = rs_bar - fwd_rate
+
+        # FVA using blended rate (Lou Eq 25-26)
+        repo_factor = repo_financing_factor(rs_bar_spread, T)
         fva = (repo_factor - 1) * current_dirty / 100.0 * self.notional
 
         total_return = price_return + income_scaled
@@ -251,11 +271,14 @@ class TotalReturnSwap:
     # ---- Loan TRS ----
 
     def _price_loan(self, curve, projection_curve) -> TRSResult:
+        """Loan TRS: adapts bond TRS framework to TermLoan cashflows."""
         from pricebook.bond_forward import repo_financing_factor
 
         loan = self.underlying
         proj = projection_curve or curve
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if T < 1e-5:
+            raise ValueError(f"Maturity too short: {T:.6f} years")
 
         # Current and initial price
         current_price = loan.dirty_price(curve, proj)
@@ -301,26 +324,35 @@ class TotalReturnSwap:
                     for i in range(K)]
         dfs = [curve.df(resets[i + 1]) for i in range(K)]
 
-        # Forwards at each reset
+        # Forwards at each reset: F_j = spot × df(start) / df(reset_j)
         if self._underlying_type == "equity":
             spot = float(self.underlying)
-            forwards = [spot] * (K + 1)
+            forwards = [spot * curve.df(self.start) / curve.df(resets[i])
+                        for i in range(K + 1)]
         elif self._underlying_type == "bond":
-            forwards = [self.underlying.dirty_price(curve)] * (K + 1)
+            price = self.underlying.dirty_price(curve)
+            forwards = [price * curve.df(self.start) / curve.df(resets[i])
+                        for i in range(K + 1)]
         else:
-            forwards = [100.0] * (K + 1)
+            forwards = [100.0 * curve.df(self.start) / curve.df(resets[i])
+                        for i in range(K + 1)]
 
-        # Funding rates
+        if forwards[0] <= 0:
+            raise ValueError(f"Forward price must be positive, got {forwards[0]}")
+
+        # Funding rates: period-matched forward rate + spread
         funding_rates = []
         for i in range(K):
-            fwd_r = -math.log(dfs[i] / curve.df(resets[i])) / max(periods[i], 1e-10)
+            if periods[i] < 1e-10:
+                raise ValueError(f"Period {i} too short: {periods[i]}")
+            fwd_r = -math.log(dfs[i] / curve.df(resets[i])) / periods[i]
             funding_rates.append(fwd_r + self.funding.spread)
 
-        # Notionals: MTM reset uses forwards, fixed uses M_0
+        # Notionals: MTM = F_j (currency), fixed = notional (currency)
         if self.mtm_reset:
-            funding_notionals = forwards[:K]
+            funding_notionals = [f * self.notional / forwards[0] for f in forwards[:K]]
         else:
-            funding_notionals = [self.notional / max(forwards[0], 1e-10)] * K
+            funding_notionals = [self.notional] * K
 
         value = trs_multi_period(
             forwards=forwards, funding_rates=funding_rates,
@@ -328,15 +360,12 @@ class TotalReturnSwap:
             discount_factors=dfs, recovery=self.recovery,
         )
 
-        # Scale to notional
-        value_scaled = value * self.notional / max(forwards[0], 1e-10)
-
         from pricebook.bond_forward import repo_financing_factor
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
         repo_factor = repo_financing_factor(self.repo_spread, T)
 
         return TRSResult(
-            value=value_scaled, total_return_leg=0.0,
+            value=value, total_return_leg=0.0,
             funding_leg=0.0, price_return=0.0,
             income_return=0.0, fva=0.0, repo_factor=repo_factor,
         )
