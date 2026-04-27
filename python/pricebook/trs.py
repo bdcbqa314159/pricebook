@@ -54,6 +54,14 @@ class FundingLegSpec:
 
 
 @dataclass
+class LSTATerms:
+    """LSTA settlement conventions for loan TRS."""
+    settlement_days: int = 7         # T+7 standard
+    trade_type: str = "assignment"   # "assignment" or "participation"
+    minimum_transfer: float = 250_000.0
+
+
+@dataclass
 class TRSResult:
     """Unified TRS pricing result."""
     value: float
@@ -109,6 +117,9 @@ class TotalReturnSwap:
         reset_dates: list[date] | None = None,
         mtm_reset: bool = False,
         sigma: float = 0.20,
+        # Loan-specific
+        prepay_model: float | str | None = None,  # None, float (flat CPR), "PSA"
+        settlement_terms: LSTATerms | None = None,
     ):
         self.underlying = underlying
         self.notional = notional
@@ -124,6 +135,8 @@ class TotalReturnSwap:
         self.reset_dates = reset_dates
         self.mtm_reset = mtm_reset
         self.sigma = sigma
+        self.prepay_model = prepay_model
+        self.settlement_terms = settlement_terms
 
         # Detect underlying type
         self._underlying_type = self._detect_type()
@@ -271,7 +284,10 @@ class TotalReturnSwap:
     # ---- Loan TRS ----
 
     def _price_loan(self, curve, projection_curve) -> TRSResult:
-        """Loan TRS: adapts bond TRS framework to TermLoan cashflows."""
+        """Loan TRS: adapts bond TRS framework to TermLoan cashflows.
+
+        Supports prepayment-adjusted cashflows (CPR/PSA) and LSTA settlement.
+        """
         from pricebook.bond_forward import repo_financing_factor
 
         loan = self.underlying
@@ -284,9 +300,23 @@ class TotalReturnSwap:
         current_price = loan.dirty_price(curve, proj)
         initial_price = self.initial_price if self.initial_price is not None else 100.0
 
-        # Interest income received
+        # Get cashflows — prepayment-adjusted if model specified
+        if self.prepay_model is not None:
+            from pricebook.exotic_loan import prepay_adjusted_loan, psa_cpr
+            if isinstance(self.prepay_model, (int, float)):
+                cpr = float(self.prepay_model)
+            elif self.prepay_model == "PSA":
+                # Use 12-month PSA as representative
+                cpr = psa_cpr(12, 1.0)
+            else:
+                cpr = 0.0
+            flows = prepay_adjusted_loan(loan, cpr, proj)
+        else:
+            flows = loan.cashflows(proj)
+
+        # Interest income received (between start and valuation)
         income = 0.0
-        for d, interest, _ in loan.cashflows(proj):
+        for d, interest, _ in flows:
             if self.start < d <= curve.reference_date:
                 income += interest
         income_scaled = income / loan.notional * self.notional
@@ -294,11 +324,21 @@ class TotalReturnSwap:
         # Price return
         price_return = (current_price - initial_price) / 100.0 * self.notional
 
-        # Funding leg
+        # LSTA settlement adjustment
+        settlement_shift = 0
+        if self.settlement_terms is not None:
+            settlement_shift = self.settlement_terms.settlement_days
+
+        # Funding leg (adjusted for settlement delay)
         yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
         fwd_rate = proj.forward_rate(self.start, self.end) if T > 0 else 0.0
         r_f = fwd_rate + self.funding.spread
         funding_leg = self.notional * r_f * yf
+
+        # Settlement delay cost: carry over T+7
+        if settlement_shift > 0:
+            settle_cost = self.notional * r_f * settlement_shift / 365.0
+            funding_leg += settle_cost
 
         # FVA
         repo_factor = repo_financing_factor(self.repo_spread, T)
