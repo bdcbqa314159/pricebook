@@ -28,6 +28,31 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 
 
+# ---- Repo financing utilities ----
+
+def repo_financing_factor(rs_minus_r: float, T: float, t: float = 0.0) -> float:
+    """Repo-vs-OIS financing factor exp((rs-r)(T-t)).
+
+    Used by TRS (Lou 2018 Eq 8), bond forward, and T-Lock.
+    Returns 1.0 when rs = r (no financing cost).
+    """
+    return math.exp(rs_minus_r * (T - t))
+
+
+def blended_repo_rate(
+    repo_rate: float,
+    funding_rate: float,
+    haircut: float,
+) -> float:
+    """All-in bond financing rate with haircut (Lou 2018 Eq 19).
+
+    r̄s = (1-h) rs + h rN
+
+    The haircut portion is funded at the unsecured rate rN.
+    """
+    return (1 - haircut) * repo_rate + haircut * funding_rate
+
+
 # ---- Standalone forward functions (Pucci Eq 21, 24) ----
 
 def forward_price_repo(
