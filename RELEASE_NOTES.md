@@ -2,6 +2,23 @@
 
 ---
 
+## v0.371.0 — 2026-04-27
+
+**TRS lens review + expanded validation.** 5944 tests.
+
+### Lens fixes
+- `trs_tree.py`: probability clamping fixed (sequential: pd ≤ 1-pu, pm = 1-pu-pd). Prevents martingale violation.
+- `trs_tree.py`: `margin_style` validated (raises ValueError on unknown). Input guards on n_steps, mu, sigma.
+- `trs_tree.py`: `TRSTreeResult` now implements InstrumentResult protocol (.price, .to_dict()).
+- `trs_lou.py`: `math.expm1` for repo gamma (avoids cancellation at small spreads).
+
+### Notebook expanded
+- Tree convergence to analytic (n=10..500) — visual proof of O(1/n) convergence.
+- XVA decomposition vs customer credit spread — CVA/DVA/CFA/DFA components.
+- ATI validation — V=0 at sf=0 exactly.
+
+---
+
 ## v0.370.0 — 2026-04-27
 
 **TRS refactored into core modules.** 5944 tests.
