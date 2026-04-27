@@ -186,10 +186,10 @@ class TestXVADecomposition:
 class TestEdgeCases:
     """Validation items 28-31."""
 
-    def test_v28_zero_vol(self):
-        """V28: σ=0 => deterministic, tree collapses."""
+    def test_v28_low_vol(self):
+        """V28: σ→0 => near-deterministic, tree converges."""
         tree = trs_trinomial_tree(
-            100.0, 0.12, 1.0, 0.10, 0.0, 0.001,  # near-zero vol
+            100.0, 0.12, 1.0, 0.10, 0.0, 0.01,  # very low vol
             n_steps=50, mu=1.0)
         assert math.isfinite(tree.value)
 

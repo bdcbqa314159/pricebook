@@ -29,6 +29,13 @@ class TRSTreeResult:
     n_steps: int
     spot: float
 
+    @property
+    def price(self) -> float:
+        return self.value
+
+    def to_dict(self) -> dict[str, float]:
+        return {"price": self.value, "value_star": self.value_star}
+
 
 @dataclass
 class TRSXVAResult:
@@ -80,9 +87,10 @@ def _trinomial_probabilities(
     pm = 1.0 - pu - pd
 
     # Clamp probabilities
+    # Clamp sequentially to preserve pu + pd + pm = 1
     pu = max(0.0, min(1.0, pu))
-    pd = max(0.0, min(1.0, pd))
-    pm = max(0.0, 1.0 - pu - pd)
+    pd = max(0.0, min(1.0 - pu, pd))
+    pm = 1.0 - pu - pd
 
     return u, d, pu, pm, pd
 
@@ -116,6 +124,12 @@ def trs_trinomial_tree(
         r_b = r
     if r_c is None:
         r_c = r
+    if n_steps < 1:
+        raise ValueError(f"n_steps must be >= 1, got {n_steps}")
+    if not 0 <= mu <= 1:
+        raise ValueError(f"mu (collateralisation ratio) must be in [0,1], got {mu}")
+    if sigma <= 0:
+        raise ValueError(f"sigma must be positive, got {sigma}")
 
     rs = r + rs_minus_r
     dt = T / n_steps
@@ -154,15 +168,19 @@ def trs_trinomial_tree(
             cont = pu * V[j_next] + pm * V[j_next + 1] + pd * V[j_next + 2]
             cont_star = pu * V_star[j_next] + pm * V_star[j_next + 1] + pd * V_star[j_next + 2]
 
-            # Switching discount rate
-            # W = V - L where L depends on margin_style
+            # Switching discount rate (Lou Eq 5)
+            # W = V - L; sign of W determines rw
             if margin_style == "full_csa":
-                W = 0.0  # full CSA: L = V, W = 0
+                W = 0.0  # full CSA: L = V, so W = 0
+            elif margin_style == "repo_style":
+                # repo-style: L = S0 - S + rF M0 (elapsed time)
+                elapsed = (step + 1) * dt
+                L = S_0 - S_step[j] + r_f * M_0 * elapsed
+                # V at this node ≈ discounted continuation
+                V_approx = cont * math.exp(-r * dt)
+                W = V_approx - L
             else:
-                # repo-style: L = S0 - S + rF M0 (t - t0)
-                t_step = step * dt
-                L = S_0 - S_step[j] + r_f * M_0 * t_step
-                W = cont * math.exp(-r * dt) - L  # approximate W from continuation
+                raise ValueError(f"Unknown margin_style: {margin_style!r}")
 
             re = effective_discount_rate(mu, r, r_b, r_c, W)
             df = math.exp(-re * dt)

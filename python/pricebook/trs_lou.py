@@ -244,7 +244,7 @@ def trs_bond_full_csa(
     funding_leg = M_0 * r_f * tau * D_bar
 
     # Asset leg components
-    gamma = math.exp(rs_bar_minus_r * tau) - 1  # repo funding factor - 1
+    gamma = math.expm1(rs_bar_minus_r * tau)  # repo funding factor - 1 (expm1 for precision)
 
     # Coupon fva
     coupon_fva = sum(
