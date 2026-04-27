@@ -69,14 +69,15 @@ def _trinomial_probabilities(
 
     Returns (u, d, pu, pm, pd).
     """
-    sqrt_dt = math.sqrt(dt)
     u = math.exp(sigma * math.sqrt(2 * dt))
     d = 1.0 / u
 
     # Probabilities (Eq 12)
+    # Note: exponents use σ√(Δt/2), NOT σ√Δt/2
+    sqrt_half_dt = math.sqrt(dt / 2)
     e_half = math.exp(rs_minus_q * dt / 2)
-    e_up = math.exp(sigma * sqrt_dt / 2)
-    e_dn = math.exp(-sigma * sqrt_dt / 2)
+    e_up = math.exp(sigma * sqrt_half_dt)
+    e_dn = math.exp(-sigma * sqrt_half_dt)
 
     denom = e_up - e_dn
     if abs(denom) < 1e-15:
