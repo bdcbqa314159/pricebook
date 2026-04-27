@@ -151,6 +151,61 @@ def bilateral_cva(cva_val: float, dva_val: float) -> float:
     return cva_val - dva_val
 
 
+# ---- Switching effective discount rate (Lou 2018, Eq 5) ----
+
+def effective_discount_rate(
+    mu: float,
+    r: float,
+    r_b: float,
+    r_c: float,
+    exposure_sign: float,
+) -> float:
+    """Switching effective discount rate (Lou 2018, Eq 5).
+
+    re = μr + (1-μ) rw  where rw = rb if W ≤ 0, rc if W > 0.
+
+    Args:
+        mu: collateralisation ratio (1 = full CSA, 0 = uncollateralised).
+        r: OIS rate.
+        r_b: bank's unsecured rate.
+        r_c: customer's unsecured rate.
+        exposure_sign: sign of W = V - L (negative = bank owes, positive = customer owes).
+    """
+    rw = r_b if exposure_sign <= 0 else r_c
+    return mu * r + (1 - mu) * rw
+
+
+def xva_spread_decomposition(
+    total_xva: float,
+    s_b: float,
+    s_c: float,
+    mu_b: float = 0.0,
+    mu_c: float = 0.0,
+) -> dict[str, float]:
+    """Decompose total XVA into CVA, DVA, CFA, DFA (Lou 2018, Eq 15-18).
+
+    U = CVA - DVA + CFA - DFA
+
+    Proportional split based on CDS spreads (s) and bond/CDS basis (μ).
+    The sign convention follows Lou: positive U means bank is exposed.
+
+    Args:
+        s_b, s_c: CDS premiums of bank and customer.
+        mu_b, mu_c: bond/CDS basis of bank and customer.
+    """
+    total = s_b + s_c + mu_b + mu_c
+    if abs(total) < 1e-15:
+        return {"cva": 0.0, "dva": 0.0, "cfa": 0.0, "dfa": 0.0}
+
+    absU = abs(total_xva)
+    return {
+        "cva": absU * s_c / total,
+        "dva": absU * s_b / total,
+        "cfa": absU * mu_c / total,
+        "dfa": absU * mu_b / total,
+    }
+
+
 # ---------------------------------------------------------------------------
 # FVA / MVA / KVA
 # ---------------------------------------------------------------------------
