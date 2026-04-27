@@ -1,0 +1,462 @@
+"""Unified Total Return Swap — equity, bond, loan underlyings.
+
+Single class that auto-detects the underlying type and delegates to
+the appropriate pricing engine. Supports repo financing (Lou 2018),
+discrete dividends, multi-period with MTM notional reset, and SOFR
+funding conventions.
+
+    from pricebook.trs import TotalReturnSwap, FundingLegSpec
+
+    # Equity TRS
+    trs = TotalReturnSwap(underlying=100.0, notional=10_000_000,
+                           start=date(2024,1,15), end=date(2025,1,15),
+                           repo_spread=0.002)
+    result = trs.price(curve)
+
+    # Bond TRS
+    trs = TotalReturnSwap(underlying=my_bond, notional=50_000_000,
+                           start=date(2024,1,15), end=date(2025,1,15),
+                           repo_spread=0.001, haircut=0.05)
+
+    # Loan TRS
+    trs = TotalReturnSwap(underlying=my_loan, notional=my_loan.notional,
+                           start=date(2024,1,15), end=date(2025,1,15))
+
+    # All work with Trade/Portfolio
+    portfolio.add(Trade(trs))
+
+References:
+    Lou, W. (2018). Pricing Total Return Swap. SSRN 3217420.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from typing import Union
+
+from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.discount_curve import DiscountCurve
+
+
+# ---- Result and spec dataclasses ----
+
+@dataclass
+class FundingLegSpec:
+    """Funding leg conventions for the TRS."""
+    spread: float = 0.0
+    rate_index: str = "SOFR"
+    compounding: str = "in_arrears"
+    payment_delay: int = 2
+    lookback: int = 0
+    day_count: DayCountConvention = DayCountConvention.ACT_360
+
+
+@dataclass
+class TRSResult:
+    """Unified TRS pricing result."""
+    value: float
+    total_return_leg: float
+    funding_leg: float
+    price_return: float
+    income_return: float
+    fva: float
+    repo_factor: float
+    dpv: float = 0.0
+    xva: dict[str, float] | None = None
+    period_details: list[dict] | None = None
+
+    @property
+    def price(self) -> float:
+        return self.value
+
+    @property
+    def mtm(self) -> float:
+        """Backward compat alias."""
+        return self.value
+
+    def to_dict(self) -> dict[str, float]:
+        d = {
+            "price": self.value, "total_return_leg": self.total_return_leg,
+            "funding_leg": self.funding_leg, "price_return": self.price_return,
+            "income_return": self.income_return, "fva": self.fva,
+            "repo_factor": self.repo_factor, "dpv": self.dpv,
+        }
+        if self.xva:
+            d.update(self.xva)
+        return d
+
+
+# ---- Unified TRS class ----
+
+class TotalReturnSwap:
+    """Unified Total Return Swap — equity, bond, or loan underlying."""
+
+    def __init__(
+        self,
+        underlying,
+        notional: float,
+        start: date,
+        end: date,
+        funding: FundingLegSpec | None = None,
+        dividends: list | None = None,
+        initial_price: float | None = None,
+        repo_spread: float = 0.0,
+        haircut: float = 0.0,
+        credit_curve_name: str | None = None,
+        recovery: float = 0.4,
+        reset_dates: list[date] | None = None,
+        mtm_reset: bool = False,
+        sigma: float = 0.20,
+    ):
+        self.underlying = underlying
+        self.notional = notional
+        self.start = start
+        self.end = end
+        self.funding = funding or FundingLegSpec()
+        self.dividends = dividends or []
+        self.initial_price = initial_price
+        self.repo_spread = repo_spread
+        self.haircut = haircut
+        self.credit_curve_name = credit_curve_name
+        self.recovery = recovery
+        self.reset_dates = reset_dates
+        self.mtm_reset = mtm_reset
+        self.sigma = sigma
+
+        # Detect underlying type
+        self._underlying_type = self._detect_type()
+
+    def _detect_type(self) -> str:
+        if isinstance(self.underlying, (int, float)):
+            return "equity"
+        cls_name = type(self.underlying).__name__
+        if cls_name == "FixedRateBond":
+            return "bond"
+        if cls_name == "TermLoan":
+            return "loan"
+        return "unknown"
+
+    # ---- Main pricing ----
+
+    def price(self, curve: DiscountCurve, projection_curve=None) -> TRSResult:
+        """Price the TRS. Auto-dispatches based on underlying type."""
+        if self.reset_dates:
+            return self._price_multi_period(curve, projection_curve)
+        if self._underlying_type == "equity":
+            return self._price_equity(curve, projection_curve)
+        if self._underlying_type == "bond":
+            return self._price_bond(curve, projection_curve)
+        if self._underlying_type == "loan":
+            return self._price_loan(curve, projection_curve)
+        raise TypeError(f"Unsupported underlying type: {type(self.underlying).__name__}")
+
+    # ---- Equity TRS ----
+
+    def _price_equity(self, curve, projection_curve) -> TRSResult:
+        from pricebook.bond_forward import repo_financing_factor
+        from pricebook.dividend_model import pv_dividends, Dividend
+
+        spot = float(self.underlying)
+        S_0 = self.initial_price if self.initial_price is not None else spot
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        tau = year_fraction(curve.reference_date, self.end, DayCountConvention.ACT_365_FIXED)
+        D = curve.df(self.end)
+
+        # Funding rate
+        fwd_rate = -math.log(curve.df(self.end) / curve.df(self.start)) / max(T, 1e-10)
+        r_f = fwd_rate + self.funding.spread
+
+        # Dividend adjustment
+        income = 0.0
+        future_div_pv = 0.0
+        for div in self.dividends:
+            if isinstance(div, Dividend):
+                if self.start < div.ex_date <= curve.reference_date:
+                    income += div.amount
+                elif div.ex_date > curve.reference_date:
+                    future_div_pv += div.amount * curve.df(div.ex_date)
+
+        # Repo factor
+        repo_factor = repo_financing_factor(self.repo_spread, tau)
+        fva = (repo_factor - 1) * spot
+
+        # Funding leg
+        funding_leg = (self.notional * r_f * T + S_0 * self.notional / S_0) * D
+        # Simplified: (M0 rf T + S0) D at notional scale
+        M_0 = self.notional
+        funding_pv = (M_0 * r_f * T / S_0 + 1) * S_0 * D
+
+        # Asset leg (repo-adjusted spot minus dividend adjustment)
+        asset_spot = spot - future_div_pv
+        asset_leg = asset_spot * repo_factor * self.notional / S_0
+
+        # Price return
+        price_return = (spot - S_0) / S_0 * self.notional
+        income_scaled = income / S_0 * self.notional
+
+        value = funding_pv * self.notional / S_0 - asset_leg
+
+        return TRSResult(
+            value=value, total_return_leg=price_return + income_scaled,
+            funding_leg=funding_pv * self.notional / S_0,
+            price_return=price_return, income_return=income_scaled,
+            fva=fva * self.notional / S_0, repo_factor=repo_factor,
+        )
+
+    # ---- Bond TRS ----
+
+    def _price_bond(self, curve, projection_curve) -> TRSResult:
+        from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
+
+        bond = self.underlying
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        D = curve.df(self.end)
+
+        # Current and initial price
+        current_dirty = bond.dirty_price(curve)
+        initial_dirty = self.initial_price if self.initial_price is not None else 100.0
+
+        # Coupons received
+        income = 0.0
+        for cf in bond.coupon_leg.cashflows:
+            if self.start < cf.payment_date <= curve.reference_date:
+                income += cf.amount
+        income_scaled = income / bond.face_value * self.notional
+
+        # Price return
+        price_return = (current_dirty - initial_dirty) / 100.0 * self.notional
+
+        # Funding leg
+        fwd_rate = -math.log(D / curve.df(self.start)) / max(T, 1e-10) if T > 0 else 0.0
+        r_f = fwd_rate + self.funding.spread
+        yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
+        funding_leg = self.notional * r_f * yf
+
+        # Repo/FVA
+        rs_bar = blended_repo_rate(fwd_rate + self.repo_spread, fwd_rate + 0.02, self.haircut)
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+        fva = (repo_factor - 1) * current_dirty / 100.0 * self.notional
+
+        total_return = price_return + income_scaled
+        value = total_return - funding_leg - fva
+
+        return TRSResult(
+            value=value, total_return_leg=total_return,
+            funding_leg=funding_leg, price_return=price_return,
+            income_return=income_scaled, fva=fva, repo_factor=repo_factor,
+        )
+
+    # ---- Loan TRS ----
+
+    def _price_loan(self, curve, projection_curve) -> TRSResult:
+        from pricebook.bond_forward import repo_financing_factor
+
+        loan = self.underlying
+        proj = projection_curve or curve
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+
+        # Current and initial price
+        current_price = loan.dirty_price(curve, proj)
+        initial_price = self.initial_price if self.initial_price is not None else 100.0
+
+        # Interest income received
+        income = 0.0
+        for d, interest, _ in loan.cashflows(proj):
+            if self.start < d <= curve.reference_date:
+                income += interest
+        income_scaled = income / loan.notional * self.notional
+
+        # Price return
+        price_return = (current_price - initial_price) / 100.0 * self.notional
+
+        # Funding leg
+        yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
+        fwd_rate = proj.forward_rate(self.start, self.end) if T > 0 else 0.0
+        r_f = fwd_rate + self.funding.spread
+        funding_leg = self.notional * r_f * yf
+
+        # FVA
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+        fva = (repo_factor - 1) * current_price / 100.0 * self.notional
+
+        total_return = price_return + income_scaled
+        value = total_return - funding_leg - fva
+
+        return TRSResult(
+            value=value, total_return_leg=total_return,
+            funding_leg=funding_leg, price_return=price_return,
+            income_return=income_scaled, fva=fva, repo_factor=repo_factor,
+        )
+
+    # ---- Multi-period ----
+
+    def _price_multi_period(self, curve, projection_curve) -> TRSResult:
+        from pricebook.trs_lou import trs_multi_period
+
+        resets = sorted([self.start] + self.reset_dates + [self.end])
+        K = len(resets) - 1
+        periods = [year_fraction(resets[i], resets[i + 1], DayCountConvention.ACT_365_FIXED)
+                    for i in range(K)]
+        dfs = [curve.df(resets[i + 1]) for i in range(K)]
+
+        # Forwards at each reset
+        if self._underlying_type == "equity":
+            spot = float(self.underlying)
+            forwards = [spot] * (K + 1)
+        elif self._underlying_type == "bond":
+            forwards = [self.underlying.dirty_price(curve)] * (K + 1)
+        else:
+            forwards = [100.0] * (K + 1)
+
+        # Funding rates
+        funding_rates = []
+        for i in range(K):
+            fwd_r = -math.log(dfs[i] / curve.df(resets[i])) / max(periods[i], 1e-10)
+            funding_rates.append(fwd_r + self.funding.spread)
+
+        # Notionals: MTM reset uses forwards, fixed uses M_0
+        if self.mtm_reset:
+            funding_notionals = forwards[:K]
+        else:
+            funding_notionals = [self.notional / max(forwards[0], 1e-10)] * K
+
+        value = trs_multi_period(
+            forwards=forwards, funding_rates=funding_rates,
+            funding_notionals=funding_notionals, periods=periods,
+            discount_factors=dfs, recovery=self.recovery,
+        )
+
+        # Scale to notional
+        value_scaled = value * self.notional / max(forwards[0], 1e-10)
+
+        from pricebook.bond_forward import repo_financing_factor
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+
+        return TRSResult(
+            value=value_scaled, total_return_leg=0.0,
+            funding_leg=0.0, price_return=0.0,
+            income_return=0.0, fva=0.0, repo_factor=repo_factor,
+        )
+
+    # ---- Tree pricing (equity only) ----
+
+    def price_tree(self, curve, n_steps=100, margin_style="full_csa",
+                   mu=1.0, r_b=None, r_c=None) -> TRSResult:
+        """Price via trinomial tree (Lou Section 4). Equity only."""
+        if self._underlying_type != "equity":
+            raise NotImplementedError("Tree pricing only for equity TRS")
+
+        from pricebook.trs_tree import trs_trinomial_tree
+
+        spot = float(self.underlying)
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        r = -math.log(curve.df(self.end)) / max(T, 1e-10)
+        D_period = math.exp(-r * T)
+        libor = (1 / D_period - 1) / T
+        r_f = libor + self.funding.spread
+
+        result = trs_trinomial_tree(
+            spot, r_f, T, r, self.repo_spread, self.sigma,
+            self.sigma, n_steps=n_steps, mu=mu,
+            r_b=r_b, r_c=r_c, M_0=self.notional,
+            margin_style=margin_style)
+
+        from pricebook.bond_forward import repo_financing_factor
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+
+        return TRSResult(
+            value=result.value, total_return_leg=0.0,
+            funding_leg=0.0, price_return=0.0,
+            income_return=0.0, fva=0.0, repo_factor=repo_factor,
+        )
+
+    # ---- XVA pricing (equity only) ----
+
+    def price_xva(self, curve, r_b, r_c, s_b, s_c,
+                  mu_b=0.0, mu_c=0.0, n_steps=100,
+                  mu=0.0, margin_style="full_csa") -> TRSResult:
+        """Price with XVA decomposition (Lou Section 5). Equity only."""
+        if self._underlying_type != "equity":
+            raise NotImplementedError("XVA pricing only for equity TRS")
+
+        from pricebook.trs_tree import trs_tree_xva
+
+        spot = float(self.underlying)
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        r = -math.log(curve.df(self.end)) / max(T, 1e-10)
+        D_period = math.exp(-r * T)
+        libor = (1 / D_period - 1) / T
+        r_f = libor + self.funding.spread
+
+        result = trs_tree_xva(
+            spot, r_f, T, r, self.repo_spread, self.sigma,
+            r_b, r_c, s_b, s_c, mu_b, mu_c,
+            n_steps=n_steps, mu=mu, M_0=self.notional,
+            margin_style=margin_style)
+
+        return TRSResult(
+            value=result.value, total_return_leg=0.0,
+            funding_leg=0.0, price_return=0.0,
+            income_return=0.0, fva=0.0, repo_factor=1.0,
+            xva=result.to_dict(),
+        )
+
+    # ---- Greeks ----
+
+    def greeks(self, curve, projection_curve=None) -> dict[str, float]:
+        """Bump-and-reprice sensitivities."""
+        base = self.price(curve, projection_curve)
+
+        # Delta (underlying price sensitivity)
+        if self._underlying_type == "equity":
+            old = self.underlying
+            bump = float(old) * 0.01
+            self.underlying = float(old) + bump
+            up = self.price(curve, projection_curve)
+            self.underlying = float(old) - bump
+            dn = self.price(curve, projection_curve)
+            self.underlying = old
+            delta = (up.value - dn.value) / (2 * bump)
+        else:
+            delta = 0.0  # bond/loan delta via DV01
+
+        # Repo sensitivity
+        old_repo = self.repo_spread
+        self.repo_spread = old_repo + 0.0001
+        up_repo = self.price(curve, projection_curve)
+        self.repo_spread = old_repo
+        repo_sens = (up_repo.value - base.value) / 0.0001
+
+        return {"delta": delta, "repo_sensitivity": repo_sens, "fva": base.fva}
+
+    # ---- Breakeven spread ----
+
+    def breakeven_spread(self, curve, projection_curve=None) -> float:
+        """Fair TRS spread that makes NPV = 0."""
+        from pricebook.solvers import brentq
+
+        def objective(sf):
+            self.funding = FundingLegSpec(spread=sf, **{
+                k: v for k, v in self.funding.__dict__.items() if k != "spread"
+            })
+            return self.price(curve, projection_curve).value
+
+        old_funding = self.funding
+        try:
+            sf = brentq(objective, -0.10, 0.10)
+        finally:
+            self.funding = old_funding
+        return sf
+
+    # ---- Trade/Portfolio integration ----
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — compatible with Trade.pv()."""
+        curve = ctx.discount_curve
+        proj = None
+        if ctx.projection_curves:
+            proj = next(iter(ctx.projection_curves.values()), None)
+        return self.price(curve, proj).value
