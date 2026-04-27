@@ -18,6 +18,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.xva import effective_discount_rate, xva_spread_decomposition
+
 
 @dataclass
 class TRSTreeResult:
@@ -162,12 +164,7 @@ def trs_trinomial_tree(
                 L = S_0 - S_step[j] + r_f * M_0 * t_step
                 W = cont * math.exp(-r * dt) - L  # approximate W from continuation
 
-            if W <= 0:
-                r_w = r_b
-            else:
-                r_w = r_c
-
-            re = mu * r + (1 - mu) * r_w
+            re = effective_discount_rate(mu, r, r_b, r_c, W)
             df = math.exp(-re * dt)
             df_star = math.exp(-r * dt)
 
@@ -229,17 +226,11 @@ def trs_tree_xva(
     total_spread_b = s_b + mu_b
     total_spread_c = s_c + mu_c
 
-    if abs(total_spread_b + total_spread_c) < 1e-15:
-        cva = dva = cfa = dfa = 0.0
-    else:
-        # Proportional split of |U| across the 4 components.
-        # Each component's share is its spread / total spread.
-        # The signs follow the convention: U = CVA - DVA + CFA - DFA.
-        total = total_spread_b + total_spread_c
-        cva = abs(U) * s_c / total
-        dva = abs(U) * s_b / total
-        cfa = abs(U) * mu_c / total
-        dfa = abs(U) * mu_b / total
+    decomp = xva_spread_decomposition(U, s_b, s_c, mu_b, mu_c)
+    cva = decomp["cva"]
+    dva = decomp["dva"]
+    cfa = decomp["cfa"]
+    dfa = decomp["dfa"]
 
     return TRSXVAResult(
         value_star=V_star, value=V, total_xva=U,

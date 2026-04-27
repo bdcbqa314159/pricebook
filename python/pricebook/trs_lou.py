@@ -24,6 +24,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
+
 
 # ---- Result dataclasses ----
 
@@ -123,7 +125,7 @@ def trs_equity_full_csa(
     if M_0 is None:
         M_0 = S_0
 
-    repo_factor = math.exp(rs_minus_r * (T - t))
+    repo_factor = repo_financing_factor(rs_minus_r, T, t)
     funding_leg = (M_0 * r_f * (T - t_0) + S_0) * D_tT
     asset_leg = S_t * repo_factor
     value = funding_leg - asset_leg
@@ -144,7 +146,7 @@ def trs_fva(
 
     This is the PV of repo-vs-OIS spread on the hedge stock position.
     """
-    return (math.exp(rs_minus_r * (T - t)) - 1) * S_t
+    return (repo_financing_factor(rs_minus_r, T, t) - 1) * S_t
 
 
 # ---- Repo-style margining (Section 3) ----
