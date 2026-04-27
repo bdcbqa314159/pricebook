@@ -2,6 +2,21 @@
 
 ---
 
+## v0.372.0 — 2026-04-27
+
+**CRITICAL fix + benchmark validation.** 5957 tests.
+
+### Critical fix
+- `trs_tree.py`: trinomial probability formula used `σ√Δt/2` instead of `σ√(Δt/2)` (Eq 12). Tree now matches analytic to machine precision. **Without this fix, all tree prices were wrong.**
+
+### Benchmark tests (Lou 2018 Tables 1-3)
+- 13 new tests reproducing paper's numerical benchmarks:
+  - Table 1: single-period ATI V=0 exactly, tree matches analytic
+  - Table 2: repo-style tree convergence
+  - Table 3: uncollateralised XVA decomposition, CVA/DVA positivity, collateral compression
+
+---
+
 ## v0.371.0 — 2026-04-27
 
 **TRS lens review + expanded validation.** 5944 tests.
