@@ -2,6 +2,20 @@
 
 ---
 
+## v0.370.0 — 2026-04-27
+
+**TRS refactored into core modules.** 5944 tests.
+
+### Core modules extended
+- `bond_forward.py`: `repo_financing_factor` (Lou Eq 8) and `blended_repo_rate` (Lou Eq 19) — reusable by TRS, T-Lock, bond forward.
+- `xva.py`: `effective_discount_rate` (Lou Eq 5) and `xva_spread_decomposition` (Lou Eq 15-18) — switching rate + CVA/DVA/CFA/DFA split, reusable by any derivative.
+
+### Refactored
+- `trs_lou.py`: now imports `repo_financing_factor` from `bond_forward.py` instead of inline `math.exp`.
+- `trs_tree.py`: now imports `effective_discount_rate` and `xva_spread_decomposition` from `xva.py`.
+
+---
+
 ## v0.369.0 — 2026-04-27
 
 **TRS trinomial tree + XVA decomposition (Lou 2018).** 5944 tests.
