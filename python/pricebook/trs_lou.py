@@ -356,3 +356,87 @@ def trs_multi_period(
         value += (F_j - recovery) * dpv_increments[j]
 
     return value
+
+
+# ---- Instrument class ----
+
+class TotalReturnSwapLou:
+    """Total Return Swap instrument (Lou 2018 framework).
+
+    Trade-level constructor for equity or bond TRS with repo financing.
+    Supports full CSA and repo-style margining.
+
+        trs = TotalReturnSwapLou(
+            spot=100.0, funding_rate=0.12, repo_spread=0.02,
+            maturity=1.0, sigma=0.30, notional=10_000_000)
+        result = trs.price(curve)
+        portfolio.add(Trade(trs))
+
+    Args:
+        spot: current underlying price.
+        funding_rate: rf = Libor + spread.
+        repo_spread: rs - r (repo vs OIS spread).
+        maturity: T in years.
+        sigma: underlying volatility.
+        notional: funding notional M0 (defaults to spot).
+        div_yield: continuous dividend yield.
+    """
+
+    def __init__(
+        self,
+        spot: float,
+        funding_rate: float,
+        repo_spread: float = 0.0,
+        maturity: float = 1.0,
+        sigma: float = 0.20,
+        notional: float | None = None,
+        div_yield: float = 0.0,
+    ):
+        self.spot = spot
+        self.funding_rate = funding_rate
+        self.repo_spread = repo_spread
+        self.maturity = maturity
+        self.sigma = sigma
+        self.notional = notional if notional is not None else spot
+        self.div_yield = div_yield
+
+    def price(self, curve) -> TRSResult:
+        """Price the TRS using a discount curve (full CSA)."""
+        from pricebook.day_count import year_fraction, DayCountConvention
+        from datetime import timedelta
+
+        ref = curve.reference_date
+        mat_date = ref + timedelta(days=int(self.maturity * 365))
+        D = curve.df(mat_date)
+
+        return trs_equity_full_csa(
+            self.spot, self.spot, self.funding_rate, self.maturity,
+            0.0, D, rs_minus_r=self.repo_spread, t=0.0, M_0=self.notional)
+
+    def greeks(self, curve) -> dict[str, float]:
+        """Bump-and-reprice delta and repo sensitivity."""
+        base = self.price(curve)
+
+        # Delta: dV/dS
+        bump = self.spot * 0.01
+        old_spot = self.spot
+        self.spot = old_spot + bump
+        up = self.price(curve)
+        self.spot = old_spot - bump
+        dn = self.price(curve)
+        self.spot = old_spot
+        delta = (up.value - dn.value) / (2 * bump)
+
+        # Repo sensitivity: dV/d(rs-r)
+        old_repo = self.repo_spread
+        self.repo_spread = old_repo + 0.0001
+        up_repo = self.price(curve)
+        self.repo_spread = old_repo
+        repo_sens = (up_repo.value - base.value) / 0.0001
+
+        return {"delta": delta, "repo_sensitivity": repo_sens, "fva": base.fva}
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — compatible with Trade.pv()."""
+        result = self.price(ctx.discount_curve)
+        return result.value
