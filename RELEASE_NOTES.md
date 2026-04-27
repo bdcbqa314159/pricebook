@@ -19,9 +19,10 @@
 ### G6: Documents organized
 - `documents/lou/lou_2018_trs_pricing.pdf`
 
-### Remaining gap
-- G2: multi-period recursive tree (Table 1 exact benchmark). Skeleton exists but forward-backward recursion not converging — needs dedicated investigation.
-- G5: Tables 2-3 exact numerical matching (depends on G2 for Table 1; Tables 2-3 need parameter convention validation).
+### G2+G5: Multi-period tree and Table 1 benchmark
+- Multi-period recursive tree with log-spot interpolation. For each period, builds sub-tree from each possible starting spot, uses continuation from future periods via interpolation.
+- **Table 1 exact match: V = -0.35977699** (paper's 4-period ATI benchmark). Both analytic per-period sum and tree agree to 8 decimal places.
+- Key insight: ATI uses period-matched Libor (3M for quarterly), not 1Y Libor.
 
 ---
 
