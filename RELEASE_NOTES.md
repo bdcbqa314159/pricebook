@@ -2,6 +2,29 @@
 
 ---
 
+## v0.373.0 — 2026-04-27
+
+**TRS gaps G1/G3/G4/G6 closed.** 5957 tests.
+
+### G1: Path-level XVA decomposition
+- `trs_tree_xva` now computes CVA/DVA/CFA/DFA node-by-node using exposure sign at each tree node, replacing the proportional split approximation.
+
+### G3: TotalReturnSwapLou instrument class
+- Constructor: spot, funding_rate, repo_spread, maturity, sigma, notional, div_yield.
+- `.price(curve)` → TRSResult, `.greeks(curve)` → delta + repo sensitivity, `.pv_ctx(ctx)` → compatible with Trade/Portfolio.
+
+### G4: TRS viz
+- `pricebook/viz/_trs.py` registered. `plot(trs, curve)` shows 2x2 dashboard: value vs spot, fva vs repo, tree convergence, summary.
+
+### G6: Documents organized
+- `documents/lou/lou_2018_trs_pricing.pdf`
+
+### Remaining gap
+- G2: multi-period recursive tree (Table 1 exact benchmark). Skeleton exists but forward-backward recursion not converging — needs dedicated investigation.
+- G5: Tables 2-3 exact numerical matching (depends on G2 for Table 1; Tables 2-3 need parameter convention validation).
+
+---
+
 ## v0.372.0 — 2026-04-27
 
 **CRITICAL fix + benchmark validation.** 5957 tests.
