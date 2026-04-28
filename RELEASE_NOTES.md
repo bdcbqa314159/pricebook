@@ -2,6 +2,22 @@
 
 ---
 
+## v0.385.0 — 2026-04-28
+
+**Layer 3: OIS-IBOR basis — iterative bootstrap + decomposition.** 6106 tests.
+
+### `pricebook.ois_ibor_basis.OISIBORBasis`
+- `from_curves()`: extract basis from IBOR vs OIS curve pair.
+- `from_swap_rates()`: bootstrap via upgraded `bootstrap_spread_curve()`.
+- `decompose(cds_spreads)`: credit (avg panel CDS) + liquidity split.
+- `forward_basis()`, `basis()`.
+
+### `rfr.py` upgrade
+- `bootstrap_spread_curve()`: proper iterative root-finding with `brentq` at each maturity
+  (was skeleton: just subtracted rates). Now takes explicit float/fixed freq and day count.
+
+---
+
 ## v0.384.0 — 2026-04-28
 
 **Layer 2: Tenor basis — 3M/6M calibration from basis swaps.** 6096 tests.
