@@ -2,6 +2,20 @@
 
 ---
 
+## v0.394.0 — 2026-04-28
+
+**Instrument registry expansion — 14 types serialisable.** 6229 tests.
+
+### `serialization.py` — expanded instrument registry
+- **New types:** ois_swap, basis_swap, deposit, cln, term_loan, revolver, fx_forward.
+- **TRS:** custom polymorphic handler (equity spot, bond, loan, CLN underlyings).
+- **OISSwap/BasisSwap:** custom serialisers extracting from internal legs.
+- **FXForward:** CurrencyPair serialised as "EUR/USD" string, resolved on deserialise.
+- **Enum resolution:** leg frequencies, CurrencyPair, all date fields.
+- All 14 types round-trip through `to_json()`/`from_json()`.
+
+---
+
 ## v0.393.0 — 2026-04-28
 
 **Bloomberg adapter + pricing service complete (4 slices).** 6205 tests.
