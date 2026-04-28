@@ -2,6 +2,21 @@
 
 ---
 
+## v0.378.0 — 2026-04-24
+
+**Repo-TRS unified view — financing + exposure composite.** 6022 tests.
+
+### `pricebook.funded.RepoFinancedPosition`
+- Combines repo financing with TRS exposure for prime brokerage economics.
+- `net_carry()`, `breakeven_repo_rate()`, `implied_repo_from_trs_spread()`.
+- Haircut blending, specialness pricing, implied specialness from TRS.
+
+### `pricebook.funded.ReverseRepo`
+- Borrower's perspective: cash received, repo cost, PV.
+- Symmetric with `Repo` for short-side TRS hedging.
+
+---
+
 ## v0.377.0 — 2026-04-24
 
 **Credit-Linked Notes — unified CLN, basket tranches, CLN-TRS.** 6008 tests.
