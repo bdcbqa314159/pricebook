@@ -2,6 +2,23 @@
 
 ---
 
+## v0.388.0 — 2026-04-28
+
+**Layer 6: MultiCurrencyCurveSet — complete curve environment.** 6140 tests.
+
+### `pricebook.multi_currency_curves`
+- `MultiCurrencyCurveSet`: stores OIS + IBOR + tenor basis + xccy per currency.
+  `ois(ccy)`, `ibor(index)`, `tenor_basis_for(ccy, pair)`, `xccy_curve()`.
+- `build()` factory: declarative specs → OIS → IBOR → tenor basis, correct order.
+- Templates: `usd_post_libor()` (SOFR only), `eur_with_euribor()` (ESTR + 3M + optional 6M via basis).
+- `to_pricing_context()`: maps to PricingContext with discount + projection curves.
+- `CurrencyCurveSetSpec`, `IBORCurveSpec`: declarative input specs.
+
+### IBOR Curve Framework complete (Layers 1-6)
+L1 IBORCurve → L2 TenorBasis → L3 OIS-IBOR Basis → L4 FundingCurve + CollateralisedPricer → L5 SpreadDynamics → L6 MultiCurrencyCurveSet.
+
+---
+
 ## v0.387.0 — 2026-04-28
 
 **Layer 5: Spread dynamics — stochastic FVA.** 6127 tests.
