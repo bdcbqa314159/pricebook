@@ -415,3 +415,236 @@ def fva_collateralised(
         result += uncoll * funding_spread * dts[i] * df
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Lou Papers Framework (2015-2017)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TotalXVAResult:
+    """Complete XVA decomposition (Lou 2015 liability-side pricing).
+
+    Total XVA = CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA
+
+    The liability-side interpretation: r - r_N = s + μ
+    where s = CDS spread, μ = bond/CDS basis.
+    """
+    cva: float = 0.0
+    dva: float = 0.0
+    cfa: float = 0.0   # credit funding adjustment (bank)
+    dfa: float = 0.0   # debit funding adjustment (customer)
+    colva: float = 0.0
+    fva_val: float = 0.0
+    mva_val: float = 0.0
+    kva_val: float = 0.0
+
+    @property
+    def bilateral_cva(self) -> float:
+        return self.cva - self.dva
+
+    @property
+    def total_funding(self) -> float:
+        return self.cfa - self.dfa + self.fva_val
+
+    @property
+    def total(self) -> float:
+        return (self.cva - self.dva
+                + self.cfa - self.dfa
+                + self.colva
+                + self.fva_val + self.mva_val + self.kva_val)
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "cva": self.cva, "dva": self.dva,
+            "cfa": self.cfa, "dfa": self.dfa,
+            "colva": self.colva, "fva": self.fva_val,
+            "mva": self.mva_val, "kva": self.kva_val,
+            "bilateral_cva": self.bilateral_cva,
+            "total_funding": self.total_funding,
+            "total": self.total,
+        }
+
+
+def total_xva_decomposition(
+    epe: np.ndarray,
+    ene: np.ndarray,
+    time_grid: list[float],
+    discount_curve: DiscountCurve,
+    cpty_survival: SurvivalCurve,
+    own_survival: SurvivalCurve,
+    cpty_recovery: float = 0.4,
+    own_recovery: float = 0.4,
+    s_b: float = 0.01,
+    s_c: float = 0.01,
+    mu_b: float = 0.0,
+    mu_c: float = 0.0,
+    funding_spread: float = 0.005,
+    im_profile: np.ndarray | None = None,
+    capital_profile: np.ndarray | None = None,
+    hurdle_rate: float = 0.10,
+    collateral_rate: float = 0.0,
+    discount_rate: float = 0.0,
+    collateral_profile: list[float] | None = None,
+) -> TotalXVAResult:
+    """Complete XVA decomposition (Lou 2015 framework).
+
+    Computes all XVA components from exposure profiles:
+    Total XVA = CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA
+
+    Args:
+        epe, ene: expected positive/negative exposure profiles.
+        cpty_survival, own_survival: survival curves.
+        s_b, s_c: CDS spreads of bank and counterparty.
+        mu_b, mu_c: bond/CDS basis of bank and counterparty.
+        funding_spread: unsecured - secured rate.
+        im_profile: initial margin profile (for MVA).
+        capital_profile: regulatory capital profile (for KVA).
+        collateral_rate, discount_rate: for ColVA computation.
+        collateral_profile: collateral posted at each time (for ColVA).
+    """
+    # CVA
+    cva_val = cva(epe, time_grid, discount_curve, cpty_survival, cpty_recovery)
+
+    # DVA
+    dva_val = dva(ene, time_grid, discount_curve, own_survival, own_recovery)
+
+    # CFA/DFA: from spread decomposition
+    total_credit = cva_val + dva_val
+    decomp = xva_spread_decomposition(total_credit, s_b, s_c, mu_b, mu_c)
+    cfa_val = decomp["cfa"]
+    dfa_val = decomp["dfa"]
+
+    # FVA
+    fva_val = fva(epe, time_grid, discount_curve, funding_spread)
+
+    # ColVA
+    colva_val = 0.0
+    if collateral_profile is not None and len(collateral_profile) == len(time_grid):
+        from pricebook.csa import colva as colva_fn
+        dt = time_grid[1] - time_grid[0] if len(time_grid) > 1 else 1.0
+        colva_val = colva_fn(
+            list(epe), collateral_profile,
+            collateral_rate, discount_rate, dt,
+        )
+
+    # MVA
+    mva_val = 0.0
+    if im_profile is not None:
+        mva_val = mva(im_profile, time_grid, discount_curve, funding_spread)
+
+    # KVA
+    kva_val = 0.0
+    if capital_profile is not None:
+        kva_val = kva(capital_profile, time_grid, discount_curve, hurdle_rate)
+
+    return TotalXVAResult(
+        cva=cva_val, dva=dva_val,
+        cfa=cfa_val, dfa=dfa_val,
+        colva=colva_val, fva_val=fva_val,
+        mva_val=mva_val, kva_val=kva_val,
+    )
+
+
+# ---------------------------------------------------------------------------
+# IRS-specific XVA (Lou 2016a)
+# ---------------------------------------------------------------------------
+
+
+def irs_xva(
+    swap_pv: float,
+    swap_dv01: float,
+    time_to_maturity: float,
+    discount_curve: DiscountCurve,
+    cpty_survival: SurvivalCurve,
+    own_survival: SurvivalCurve,
+    cpty_recovery: float = 0.4,
+    own_recovery: float = 0.4,
+    funding_spread: float = 0.005,
+    rate_vol: float = 0.01,
+    n_steps: int = 20,
+) -> TotalXVAResult:
+    """XVA for interest rate swaps (Lou 2016a).
+
+    Uses swap DV01 and rate volatility to build approximate exposure profiles.
+    EPE_i ≈ max(PV + DV01 × σ × √t, 0) where σ is rate volatility.
+
+    Args:
+        swap_pv: current swap PV.
+        swap_dv01: DV01 of the swap.
+        time_to_maturity: remaining life.
+        rate_vol: interest rate volatility (annualised).
+        n_steps: number of time steps.
+    """
+    dt = time_to_maturity / n_steps
+    time_grid = [i * dt for i in range(1, n_steps + 1)]
+
+    # Approximate exposure profiles from DV01
+    epe = np.zeros(n_steps)
+    ene = np.zeros(n_steps)
+
+    for i, t in enumerate(time_grid):
+        # PV drift + volatility (simplified 1-factor)
+        pv_up = swap_pv + abs(swap_dv01) * rate_vol * math.sqrt(t) * 100  # 1σ move in bps
+        pv_dn = swap_pv - abs(swap_dv01) * rate_vol * math.sqrt(t) * 100
+        # EPE ≈ E[max(V, 0)] under normal distribution
+        epe[i] = max(0.5 * (pv_up + max(pv_dn, 0)), 0.0)
+        ene[i] = max(0.5 * (abs(min(pv_dn, 0)) + max(-pv_up, 0)), 0.0)
+
+    return total_xva_decomposition(
+        epe=epe, ene=ene, time_grid=time_grid,
+        discount_curve=discount_curve,
+        cpty_survival=cpty_survival,
+        own_survival=own_survival,
+        cpty_recovery=cpty_recovery,
+        own_recovery=own_recovery,
+        funding_spread=funding_spread,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Repo gap risk estimator (Lou 2016b)
+# ---------------------------------------------------------------------------
+
+
+def repo_gap_risk(
+    position_value: float,
+    repo_rate: float,
+    funding_rate: float,
+    collateral_coverage: float,
+    time_horizon: float = 1.0,
+) -> float:
+    """Analytical repo rate estimator when no liquid quote exists (Lou 2016b).
+
+    rs = r + funding_premium × (1 - collateral_coverage)
+
+    The gap risk arises when collateral coverage < 1:
+    - The unfunded portion must be financed at the unsecured rate.
+    - The "gap" = (1 - coverage) × position × funding_premium.
+
+    Args:
+        position_value: market value of the position.
+        repo_rate: observable GC repo rate.
+        funding_rate: unsecured funding rate.
+        collateral_coverage: fraction of position covered by collateral (0 to 1).
+        time_horizon: risk horizon in years.
+
+    Returns:
+        Estimated repo gap cost.
+    """
+    funding_premium = funding_rate - repo_rate
+    gap = (1.0 - collateral_coverage) * position_value * funding_premium * time_horizon
+    return gap
+
+
+def implied_repo_rate_from_gap(
+    repo_rate: float,
+    funding_rate: float,
+    collateral_coverage: float,
+) -> float:
+    """Implied all-in repo rate accounting for gap risk (Lou 2016b).
+
+    rs_implied = r_repo + (r_funding - r_repo) × (1 - coverage)
+    """
+    return repo_rate + (funding_rate - repo_rate) * (1.0 - collateral_coverage)

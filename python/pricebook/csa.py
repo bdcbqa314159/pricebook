@@ -440,3 +440,84 @@ def cleared_vs_bilateral(
         im_differential=cleared_im - bilateral_im,
         recommendation=recommendation,
     )
+
+
+# ---------------------------------------------------------------------------
+# Non-cash collateral discounting (Lou 2017)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class NonCashCollateralAsset:
+    """A non-cash collateral asset (bond or equity).
+
+    Args:
+        name: asset identifier.
+        yield_rate: yield/return on the asset.
+        haircut: CSA haircut applied to this asset.
+        liquidity_premium: additional spread for illiquidity.
+    """
+    name: str
+    yield_rate: float
+    haircut: float = 0.0
+    liquidity_premium: float = 0.0
+
+
+@dataclass
+class NonCashDiscountResult:
+    """Result of non-cash collateral discount curve computation."""
+    effective_rate: float
+    optimal_collateral: str
+    haircut_cost: float
+    collateral_costs: dict[str, float]
+
+
+def non_cash_collateral_discount_rate(
+    collateral_pool: list[NonCashCollateralAsset],
+    funding_rate: float,
+    cash_rate: float = 0.0,
+) -> NonCashDiscountResult:
+    """Compute effective discount rate for non-cash collateral (Lou 2017).
+
+    When the CSA allows bond or equity collateral, the discount rate
+    depends on which collateral the poster chooses (cheapest-to-deliver).
+
+    Effective rate for asset i:
+        r_eff_i = cash_rate + (funding_rate - yield_i) × haircut_i + liquidity_premium_i
+
+    The poster delivers the cheapest collateral → min over eligible assets.
+
+    Args:
+        collateral_pool: list of eligible non-cash collateral assets.
+        funding_rate: the poster's unsecured funding rate.
+        cash_rate: the OIS/cash collateral rate.
+    """
+    if not collateral_pool:
+        return NonCashDiscountResult(
+            effective_rate=cash_rate,
+            optimal_collateral="cash",
+            haircut_cost=0.0,
+            collateral_costs={},
+        )
+
+    costs = {}
+    for asset in collateral_pool:
+        # Haircut cost: funding the haircut at unsecured rate
+        haircut_cost = (funding_rate - asset.yield_rate) * asset.haircut
+        # Effective rate: what the receiver should discount at
+        eff = cash_rate + haircut_cost + asset.liquidity_premium
+        costs[asset.name] = eff
+
+    optimal = min(costs, key=costs.get)
+    opt_rate = costs[optimal]
+
+    # The cheapest collateral drives the discount rate
+    opt_asset = next(a for a in collateral_pool if a.name == optimal)
+    haircut_cost = (funding_rate - opt_asset.yield_rate) * opt_asset.haircut
+
+    return NonCashDiscountResult(
+        effective_rate=opt_rate,
+        optimal_collateral=optimal,
+        haircut_cost=haircut_cost,
+        collateral_costs=costs,
+    )
