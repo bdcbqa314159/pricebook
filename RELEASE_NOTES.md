@@ -2,6 +2,30 @@
 
 ---
 
+## v0.376.0 — 2026-04-24
+
+**Loan TRS production features — prepayment, LSTA, revolving, distressed.** 5987 tests.
+
+### Prepayment-adjusted loan TRS
+- `prepay_model` parameter: `None`, flat CPR (float), or `"PSA"` curve.
+- Prepayment reduces outstanding notional → affects both total return and funding legs.
+- Wired `exotic_loan.prepay_adjusted_loan()` into `_price_loan()`.
+
+### LSTA settlement conventions
+- `LSTATerms` dataclass: `settlement_days` (T+7 default), `trade_type` (assignment/participation).
+- Settlement delay adds carry cost to funding leg.
+
+### Revolving facility TRS
+- `RevolvingFacility` class: `max_commitment`, `drawn_amount`, `undrawn_fee`, `drawn_spread`.
+- Cashflows include drawn interest + undrawn commitment fees.
+- `utilization` property, full Portfolio integration.
+
+### Distressed loan TRS
+- `CovenantLoan` as TRS underlying via `exotic_loan.py`.
+- High-spread (distressed) loans with custom `FundingLegSpec`.
+
+---
+
 ## v0.375.0 — 2026-04-27
 
 **Unified TRS — equity, bond, loan in one class.** 5973 tests.
