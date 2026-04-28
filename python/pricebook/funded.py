@@ -299,6 +299,8 @@ class RepoFinancedPosition:
         notional: float = 1_000_000.0,
         specialness: float = 0.0,
     ):
+        if not 0.0 <= haircut < 1.0:
+            raise ValueError(f"haircut must be in [0, 1), got {haircut}")
         self.bond_dirty_price = bond_dirty_price
         self.repo_rate = repo_rate
         self.trs_spread = trs_spread

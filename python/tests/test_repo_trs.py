@@ -144,3 +144,8 @@ class TestRepoFinancedPosition:
             bond_dirty_price=105.0, repo_rate=0.04, T=1.0,
             notional=1_000_000)
         assert pos_high.repo_cost > pos_low.repo_cost
+
+    def test_invalid_haircut_raises(self):
+        with pytest.raises(ValueError, match="haircut"):
+            RepoFinancedPosition(bond_dirty_price=100.0, repo_rate=0.04,
+                                 haircut=1.0)

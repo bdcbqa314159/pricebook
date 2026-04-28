@@ -231,6 +231,14 @@ class TestRepoGapRisk:
         )
         assert implied == pytest.approx(0.03)
 
+    def test_invalid_coverage_raises(self):
+        with pytest.raises(ValueError, match="collateral_coverage"):
+            repo_gap_risk(10_000_000, 0.03, 0.05, collateral_coverage=1.5)
+
+    def test_invalid_coverage_implied_raises(self):
+        with pytest.raises(ValueError, match="collateral_coverage"):
+            implied_repo_rate_from_gap(0.03, 0.05, collateral_coverage=-0.1)
+
 
 # ---- Phase 5d: Non-cash collateral discounting ----
 

@@ -92,6 +92,10 @@ class CreditLinkedNote:
         frequency: Frequency = Frequency.QUARTERLY,
         day_count: DayCountConvention = DayCountConvention.ACT_360,
     ):
+        if not 0.0 <= recovery <= 1.0:
+            raise ValueError(f"recovery must be in [0, 1], got {recovery}")
+        if leverage < 1.0:
+            raise ValueError(f"leverage must be >= 1.0, got {leverage}")
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate
@@ -361,19 +365,16 @@ class BasketCLN:
             raise ValueError(
                 f"Expected {self.n_names} survival curves, got {len(survival_curves)}"
             )
+        if not 0.0 <= rho <= 1.0:
+            raise ValueError(f"rho must be in [0, 1], got {rho}")
 
         width = self.detachment - self.attachment
         if width <= 0:
             raise ValueError("detachment must be > attachment")
 
         rng = np.random.default_rng(seed)
-        sqrt_rho = math.sqrt(max(rho, 0.0))
-        sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
-
-        # Systematic factor (shared across all dates for consistency)
-        M = rng.standard_normal(n_sims)
-        eps = rng.standard_normal((n_sims, self.n_names))
-        Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+        sqrt_rho = math.sqrt(rho)
+        sqrt_1_rho = math.sqrt(1.0 - rho)
 
         coupon_pv = 0.0
         total_expected_loss = 0.0
@@ -383,6 +384,12 @@ class BasketCLN:
             t_end = self.schedule[i]
             yf = year_fraction(t_start, t_end, DayCountConvention.ACT_360)
             df = discount_curve.df(t_end)
+
+            # Fresh draws per period — each period has independent
+            # systematic and idiosyncratic factors (Li 2000 copula).
+            M = rng.standard_normal(n_sims)
+            eps = rng.standard_normal((n_sims, self.n_names))
+            Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
 
             # Default thresholds at this date
             thresholds = np.array([

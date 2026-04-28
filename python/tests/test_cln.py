@@ -129,6 +129,14 @@ class TestCreditLinkedNote:
         assert math.isfinite(pv)
         assert pv > 0
 
+    def test_invalid_recovery_raises(self):
+        with pytest.raises(ValueError, match="recovery"):
+            CreditLinkedNote(REF, END, recovery=1.5)
+
+    def test_invalid_leverage_raises(self):
+        with pytest.raises(ValueError, match="leverage"):
+            CreditLinkedNote(REF, END, leverage=0.5)
+
 
 # ---- Phase 2b: BasketCLN ----
 
@@ -183,6 +191,13 @@ class TestBasketCLN:
             scs = [_surv() for _ in range(125)]
             basket.price_mc(disc, scs)
 
+    def test_invalid_rho_raises(self):
+        disc = _disc()
+        scs = [_surv() for _ in range(125)]
+        basket = BasketCLN(REF, END, n_names=125)
+        with pytest.raises(ValueError, match="rho"):
+            basket.price_mc(disc, scs, rho=1.5)
+
     def test_tranche_width(self):
         basket = BasketCLN(REF, END, attachment=0.03, detachment=0.07)
         assert basket.tranche_width == pytest.approx(0.04)
@@ -204,10 +219,12 @@ class TestCLNTRS:
         """CLN as TRS underlying produces finite value."""
         from pricebook.trs import TotalReturnSwap
         disc = _disc()
+        sc = _surv()
         cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000)
         trs = TotalReturnSwap(
             underlying=cln, notional=1_000_000,
-            start=REF, end=REF + timedelta(days=365))
+            start=REF, end=REF + timedelta(days=365),
+            survival_curve=sc)
         result = trs.price(disc)
         assert math.isfinite(result.value)
 
@@ -217,11 +234,13 @@ class TestCLNTRS:
         from pricebook.pricing_context import PricingContext
         from pricebook.trade import Trade, Portfolio
         disc = _disc()
+        sc = _surv()
         ctx = PricingContext(valuation_date=REF, discount_curve=disc)
         cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000)
         trs = TotalReturnSwap(
             underlying=cln, notional=1_000_000,
-            start=REF, end=REF + timedelta(days=365))
+            start=REF, end=REF + timedelta(days=365),
+            survival_curve=sc)
         trade = Trade(trs, trade_id="CLN_TRS_1")
         port = Portfolio(name="cln_trs_book")
         port.add(trade)

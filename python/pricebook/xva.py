@@ -510,14 +510,17 @@ def total_xva_decomposition(
     # DVA
     dva_val = dva(ene, time_grid, discount_curve, own_survival, own_recovery)
 
-    # CFA/DFA: from spread decomposition
-    total_credit = cva_val + dva_val
-    decomp = xva_spread_decomposition(total_credit, s_b, s_c, mu_b, mu_c)
+    # CFA/DFA: from spread decomposition (Lou 2015 Eq 15-18)
+    # The decomposition splits the total adjustment |U|, not just credit.
+    # At this point FVA is not yet computed, so use CVA + DVA + FVA estimate.
+    fva_est = fva(epe, time_grid, discount_curve, funding_spread)
+    total_adjustment = cva_val + dva_val + abs(fva_est)
+    decomp = xva_spread_decomposition(total_adjustment, s_b, s_c, mu_b, mu_c)
     cfa_val = decomp["cfa"]
     dfa_val = decomp["dfa"]
 
-    # FVA
-    fva_val = fva(epe, time_grid, discount_curve, funding_spread)
+    # FVA (reuse estimate from above)
+    fva_val = fva_est
 
     # ColVA
     colva_val = 0.0
@@ -568,7 +571,12 @@ def irs_xva(
     """XVA for interest rate swaps (Lou 2016a).
 
     Uses swap DV01 and rate volatility to build approximate exposure profiles.
-    EPE_i ≈ max(PV + DV01 × σ × √t, 0) where σ is rate volatility.
+    Under a normal model, V(t) ~ N(μ, σ²) where:
+        μ = swap_pv (drift neglected for simplicity)
+        σ = |DV01| × rate_vol × √t × 100  (bps → currency)
+
+    EPE = E[max(V, 0)] = μ Φ(μ/σ) + σ φ(μ/σ)   (Margrabe formula)
+    ENE = E[max(-V, 0)] = EPE - μ
 
     Args:
         swap_pv: current swap PV.
@@ -577,6 +585,8 @@ def irs_xva(
         rate_vol: interest rate volatility (annualised).
         n_steps: number of time steps.
     """
+    from scipy.stats import norm as norm_dist
+
     dt = time_to_maturity / n_steps
     time_grid = [i * dt for i in range(1, n_steps + 1)]
 
@@ -585,12 +595,19 @@ def irs_xva(
     ene = np.zeros(n_steps)
 
     for i, t in enumerate(time_grid):
-        # PV drift + volatility (simplified 1-factor)
-        pv_up = swap_pv + abs(swap_dv01) * rate_vol * math.sqrt(t) * 100  # 1σ move in bps
-        pv_dn = swap_pv - abs(swap_dv01) * rate_vol * math.sqrt(t) * 100
-        # EPE ≈ E[max(V, 0)] under normal distribution
-        epe[i] = max(0.5 * (pv_up + max(pv_dn, 0)), 0.0)
-        ene[i] = max(0.5 * (abs(min(pv_dn, 0)) + max(-pv_up, 0)), 0.0)
+        # Volatility of PV at time t
+        sigma_t = abs(swap_dv01) * rate_vol * math.sqrt(t) * 100  # bps → currency
+        mu = swap_pv
+
+        if sigma_t < 1e-10:
+            epe[i] = max(mu, 0.0)
+            ene[i] = max(-mu, 0.0)
+        else:
+            d = mu / sigma_t
+            # EPE = μ Φ(d) + σ φ(d)  (exact under normal distribution)
+            epe[i] = mu * norm_dist.cdf(d) + sigma_t * norm_dist.pdf(d)
+            # ENE = EPE - μ
+            ene[i] = epe[i] - mu
 
     return total_xva_decomposition(
         epe=epe, ene=ene, time_grid=time_grid,
@@ -633,6 +650,8 @@ def repo_gap_risk(
     Returns:
         Estimated repo gap cost.
     """
+    if not 0.0 <= collateral_coverage <= 1.0:
+        raise ValueError(f"collateral_coverage must be in [0, 1], got {collateral_coverage}")
     funding_premium = funding_rate - repo_rate
     gap = (1.0 - collateral_coverage) * position_value * funding_premium * time_horizon
     return gap
@@ -647,4 +666,6 @@ def implied_repo_rate_from_gap(
 
     rs_implied = r_repo + (r_funding - r_repo) × (1 - coverage)
     """
+    if not 0.0 <= collateral_coverage <= 1.0:
+        raise ValueError(f"collateral_coverage must be in [0, 1], got {collateral_coverage}")
     return repo_rate + (funding_rate - repo_rate) * (1.0 - collateral_coverage)

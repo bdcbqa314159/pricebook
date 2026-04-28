@@ -120,6 +120,8 @@ class TotalReturnSwap:
         # Loan-specific
         prepay_model: float | str | None = None,  # None, float (flat CPR), "PSA"
         settlement_terms: LSTATerms | None = None,
+        # CLN-specific
+        survival_curve=None,
     ):
         self.underlying = underlying
         self.notional = notional
@@ -137,6 +139,7 @@ class TotalReturnSwap:
         self.sigma = sigma
         self.prepay_model = prepay_model
         self.settlement_terms = settlement_terms
+        self.survival_curve = survival_curve
 
         # Detect underlying type
         self._underlying_type = self._detect_type()
@@ -372,12 +375,18 @@ class TotalReturnSwap:
         if T < 1e-5:
             raise ValueError(f"Maturity too short: {T:.6f} years")
 
-        # CLN pricing requires a survival curve — check if available
-        survival_curve = None
-        if hasattr(cln, '_survival_curve'):
+        # CLN pricing requires a survival curve — use TRS-level, then CLN-level, then error
+        survival_curve = self.survival_curve
+        if survival_curve is None and hasattr(cln, '_survival_curve'):
             survival_curve = cln._survival_curve
         if survival_curve is None:
             from pricebook.survival_curve import SurvivalCurve
+            import warnings
+            warnings.warn(
+                "No survival curve provided for CLN TRS — using flat hazard=0.02 fallback. "
+                "Pass survival_curve to TotalReturnSwap for accurate pricing.",
+                stacklevel=2,
+            )
             survival_curve = SurvivalCurve.flat(curve.reference_date, 0.02)
 
         current_price = cln.price_per_100(curve, survival_curve)
