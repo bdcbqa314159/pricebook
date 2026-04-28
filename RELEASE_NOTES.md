@@ -2,6 +2,29 @@
 
 ---
 
+## v0.382.0 — 2026-04-28
+
+**Lens audit complete — all 10 lenses addressed.** 6067 tests.
+
+### L1 Reference traceability
+- O'Kane Eq 15.1 for CLN PV, §16.2 for leveraged loss, §18.3 for tranche.
+- Li (2000) copula cited in BasketCLN. Lou 2015 Eq 3, 2016a §3, 2016b Eq 8, 2017 Eq 12.
+
+### L3 Convergence
+- `BasketCLNResult.std_error`: MC standard error on expected tranche loss.
+
+### L8 Completeness
+- `CreditLinkedNote.greeks()`: DV01, CS01, recovery sensitivity.
+- `RepoFinancedPosition.pv()` / `.pv_ctx()`: Trade/Portfolio integration.
+- SIMM CSR delta: actual bump-and-reprice replaces hardcoded `notional × 1bp`.
+
+### L10 Mathematical depth
+- IRS XVA: derivation of normal EPE formula, limitations documented.
+- Non-cash collateral: embedded CTD optionality noted.
+- BasketCLN: Li (2000) copula math in class docstring.
+
+---
+
 ## v0.381.0 — 2026-04-28
 
 **Lens audit — 7 fixes across Phases 2-5.** 6061 tests.
