@@ -2,6 +2,27 @@
 
 ---
 
+## v0.389.0 — 2026-04-28
+
+**Lens audit for IBOR framework (L1-L6) — 10 fixes.** 6141 tests.
+
+### Critical
+- **FundingCurve.df()**: uses integrated spread ∫₀ᵀs(u)du via trapezoidal rule (was endpoint `s(T)×T`).
+- **IBORCurve.fixing()**: uses `relativedelta(months=tenor)` (was `tenor*30` days).
+
+### Medium
+- Dead code removed from `CollateralisedPricer.price()`.
+- `FundingCurve.funding_rate()` duplicate branch removed.
+- `SpreadDynamicsResult.std_error`: MC standard error on stochastic FVA.
+- `fva_with_spread_dynamics`: deterministic benchmark uses `initial_spread` (was stationary mean).
+- `build()` no longer hardcodes `EURIBOR_6M_CONVENTIONS` — derives from spec.
+
+### Completeness
+- `FundingCurve.bumped()`, `CollateralisedResult.to_dict()`, `TenorBasis.to_dict()`.
+- Equation reference for basis swap pricing (Ametrano & Bianchetti Eq 3.8).
+
+---
+
 ## v0.388.0 — 2026-04-28
 
 **Layer 6: MultiCurrencyCurveSet — complete curve environment.** 6140 tests.
