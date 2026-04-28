@@ -121,6 +121,97 @@ class TestLSTASettlement:
 
 # ---- Portfolio integration ----
 
+# ---- 1c. Revolving Facility TRS ----
+
+class TestRevolvingFacilityTRS:
+
+    def test_fully_drawn_like_term_loan(self):
+        """Fully drawn revolver should behave like a term loan."""
+        curve = _curve(REF)
+        from pricebook.loan import RevolvingFacility
+        revolver = RevolvingFacility(
+            REF, REF + timedelta(days=1825),
+            max_commitment=10_000_000, drawn_amount=10_000_000,
+            drawn_spread=0.03, undrawn_fee=0.005)
+
+        trs = TotalReturnSwap(
+            underlying=revolver, notional=10_000_000,
+            start=REF, end=REF + timedelta(days=365))
+        result = trs.price(curve)
+        assert math.isfinite(result.value)
+
+    def test_zero_drawn_pure_fee(self):
+        """Zero drawn = pure commitment fee income."""
+        curve = _curve(REF)
+        from pricebook.loan import RevolvingFacility
+        revolver = RevolvingFacility(
+            REF, REF + timedelta(days=1825),
+            max_commitment=10_000_000, drawn_amount=0.0,
+            drawn_spread=0.03, undrawn_fee=0.005)
+
+        trs = TotalReturnSwap(
+            underlying=revolver, notional=10_000_000,
+            start=REF, end=REF + timedelta(days=365))
+        result = trs.price(curve)
+        assert math.isfinite(result.value)
+
+    def test_utilization(self):
+        from pricebook.loan import RevolvingFacility
+        r = RevolvingFacility(
+            REF, REF + timedelta(days=1825),
+            max_commitment=100_000_000, drawn_amount=60_000_000)
+        assert r.utilization == pytest.approx(0.60)
+
+    def test_revolver_in_portfolio(self):
+        from pricebook.pricing_context import PricingContext
+        from pricebook.trade import Trade, Portfolio
+        from pricebook.loan import RevolvingFacility
+
+        curve = _curve(REF)
+        ctx = PricingContext(valuation_date=REF, discount_curve=curve)
+        revolver = RevolvingFacility(
+            REF, REF + timedelta(days=1825),
+            max_commitment=50_000_000, drawn_amount=30_000_000,
+            drawn_spread=0.025, undrawn_fee=0.004)
+        trs = TotalReturnSwap(
+            underlying=revolver, notional=50_000_000,
+            start=REF, end=REF + timedelta(days=365))
+        trade = Trade(trs, trade_id="RCF_TRS")
+        port = Portfolio(name="rcf_book")
+        port.add(trade)
+        assert math.isfinite(port.pv(ctx))
+
+
+# ---- 1d. Distressed Loan TRS ----
+
+class TestDistressedLoanTRS:
+
+    def test_covenant_loan_trs(self):
+        """CovenantLoan as TRS underlying."""
+        curve = _curve(REF)
+        from pricebook.exotic_loan import CovenantLoan
+        base = _loan(REF)
+        covenant = CovenantLoan(base, breach_prob_per_period=0.05)
+
+        trs = TotalReturnSwap(
+            underlying=covenant.loan, notional=10_000_000,
+            start=REF, end=REF + timedelta(days=365))
+        result = trs.price(curve)
+        assert math.isfinite(result.value)
+
+    def test_high_spread_loan(self):
+        """High-spread (distressed) loan TRS."""
+        curve = _curve(REF)
+        distressed = TermLoan(REF, REF + timedelta(days=1825),
+                              spread=0.12, notional=5_000_000)
+        trs = TotalReturnSwap(
+            underlying=distressed, notional=5_000_000,
+            start=REF, end=REF + timedelta(days=365),
+            funding=FundingLegSpec(spread=0.02))
+        result = trs.price(curve)
+        assert math.isfinite(result.value)
+
+
 class TestLoanTRSPortfolio:
 
     def test_prepay_loan_in_portfolio(self):

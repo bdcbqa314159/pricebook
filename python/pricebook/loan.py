@@ -150,3 +150,89 @@ class TermLoan:
             num += t * principal
             den += principal
         return num / den if den > 0 else 0.0
+
+
+class RevolvingFacility:
+    """Revolving credit facility — drawn and undrawn components.
+
+    The TRS total return includes both drawn interest and undrawn commitment fees.
+    Notional changes as the facility is drawn/repaid.
+
+        revolver = RevolvingFacility(
+            start, end, max_commitment=100_000_000,
+            drawn_amount=60_000_000, drawn_spread=0.03,
+            undrawn_fee=0.005)
+        flows = revolver.cashflows(projection_curve)
+    """
+
+    def __init__(
+        self,
+        start: date,
+        end: date,
+        max_commitment: float,
+        drawn_amount: float,
+        drawn_spread: float = 0.03,
+        undrawn_fee: float = 0.005,
+        frequency: Frequency = Frequency.QUARTERLY,
+        day_count: DayCountConvention = DayCountConvention.ACT_360,
+    ):
+        self.start = start
+        self.end = end
+        self.max_commitment = max_commitment
+        self.drawn_amount = drawn_amount
+        self.drawn_spread = drawn_spread
+        self.undrawn_fee = undrawn_fee
+        self.frequency = frequency
+        self.day_count = day_count
+        self.notional = max_commitment  # for TRS compatibility
+
+    def cashflows(
+        self,
+        projection_curve: DiscountCurve,
+    ) -> list[tuple[date, float, float]]:
+        """Generate cashflows: (date, total_income, principal_return).
+
+        Total income = drawn_interest + undrawn_commitment_fee.
+        Principal return = 0 (revolving — no scheduled amortisation).
+        """
+        dates = generate_schedule(self.start, self.end, self.frequency)
+        flows = []
+
+        for i in range(1, len(dates)):
+            yf = year_fraction(dates[i - 1], dates[i], self.day_count)
+            fwd = projection_curve.forward_rate(dates[i - 1], dates[i])
+
+            # Drawn interest
+            drawn_interest = self.drawn_amount * (fwd + self.drawn_spread) * yf
+
+            # Undrawn commitment fee
+            undrawn = self.max_commitment - self.drawn_amount
+            commitment_fee = undrawn * self.undrawn_fee * yf
+
+            total_income = drawn_interest + commitment_fee
+            flows.append((dates[i], total_income, 0.0))
+
+        return flows
+
+    def pv(
+        self,
+        discount_curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        proj = projection_curve or discount_curve
+        return sum(
+            discount_curve.df(d) * (interest + principal)
+            for d, interest, principal in self.cashflows(proj)
+        )
+
+    def dirty_price(
+        self,
+        discount_curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        return self.pv(discount_curve, projection_curve) / self.max_commitment * 100.0
+
+    @property
+    def utilization(self) -> float:
+        """Drawn / committed ratio."""
+        return self.drawn_amount / self.max_commitment if self.max_commitment > 0 else 0.0

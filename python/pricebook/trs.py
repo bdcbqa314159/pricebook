@@ -147,7 +147,7 @@ class TotalReturnSwap:
         cls_name = type(self.underlying).__name__
         if cls_name == "FixedRateBond":
             return "bond"
-        if cls_name == "TermLoan":
+        if cls_name in ("TermLoan", "RevolvingFacility"):
             return "loan"
         return "unknown"
 
