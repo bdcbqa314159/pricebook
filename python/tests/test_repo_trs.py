@@ -149,3 +149,18 @@ class TestRepoFinancedPosition:
         with pytest.raises(ValueError, match="haircut"):
             RepoFinancedPosition(bond_dirty_price=100.0, repo_rate=0.04,
                                  haircut=1.0)
+
+    def test_pv_equals_net_carry(self):
+        pos = RepoFinancedPosition(
+            bond_dirty_price=100.0, repo_rate=0.03,
+            asset_yield=0.05, T=1.0, notional=1_000_000)
+        assert pos.pv() == pytest.approx(pos.net_carry())
+
+    def test_pv_ctx(self):
+        from pricebook.pricing_context import PricingContext
+        disc = _disc()
+        ctx = PricingContext(valuation_date=REF, discount_curve=disc)
+        pos = RepoFinancedPosition(
+            bond_dirty_price=100.0, repo_rate=0.03,
+            asset_yield=0.05, T=1.0, notional=1_000_000)
+        assert math.isfinite(pos.pv_ctx(ctx))

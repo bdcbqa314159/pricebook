@@ -426,10 +426,12 @@ def fva_collateralised(
 class TotalXVAResult:
     """Complete XVA decomposition (Lou 2015 liability-side pricing).
 
-    Total XVA = CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA
+    Lou (2015) Eq 3:  U = CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA
+    Lou (2015) Eq 1:  r - r_N = s + μ  (spread decomposition)
 
-    The liability-side interpretation: r - r_N = s + μ
     where s = CDS spread, μ = bond/CDS basis.
+
+    CFA/DFA split uses Lou (2015) Eq 15-18 via xva_spread_decomposition().
     """
     cva: float = 0.0
     dva: float = 0.0
@@ -488,10 +490,10 @@ def total_xva_decomposition(
     discount_rate: float = 0.0,
     collateral_profile: list[float] | None = None,
 ) -> TotalXVAResult:
-    """Complete XVA decomposition (Lou 2015 framework).
+    """Complete XVA decomposition (Lou 2015 Eq 3).
 
     Computes all XVA components from exposure profiles:
-    Total XVA = CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA
+    U = CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA
 
     Args:
         epe, ene: expected positive/negative exposure profiles.
@@ -568,15 +570,25 @@ def irs_xva(
     rate_vol: float = 0.01,
     n_steps: int = 20,
 ) -> TotalXVAResult:
-    """XVA for interest rate swaps (Lou 2016a).
+    """XVA for interest rate swaps (Lou 2016a §3).
 
     Uses swap DV01 and rate volatility to build approximate exposure profiles.
     Under a normal model, V(t) ~ N(μ, σ²) where:
         μ = swap_pv (drift neglected for simplicity)
         σ = |DV01| × rate_vol × √t × 100  (bps → currency)
 
-    EPE = E[max(V, 0)] = μ Φ(μ/σ) + σ φ(μ/σ)   (Margrabe formula)
-    ENE = E[max(-V, 0)] = EPE - μ
+    EPE = E[max(V, 0)] = μ Φ(μ/σ) + σ φ(μ/σ)   (standard normal call formula)
+    ENE = E[max(-V, 0)] = EPE - μ               (put-call parity for expectations)
+
+    Derivation: for X ~ N(μ,σ²),
+        E[max(X,0)] = μ Φ(μ/σ) + σ φ(μ/σ)
+    follows from integrating x × φ((x-μ)/σ)/σ from 0 to ∞.
+
+    Limitations:
+    - Assumes constant DV01 (ignores pull-to-par, amortisation).
+    - No PV drift from carry (swap PV changes as rates evolve).
+    - Single-factor model (no curve shape risk).
+    For production use, replace with full simulation via simulate_exposures().
 
     Args:
         swap_pv: current swap PV.
@@ -632,13 +644,14 @@ def repo_gap_risk(
     collateral_coverage: float,
     time_horizon: float = 1.0,
 ) -> float:
-    """Analytical repo rate estimator when no liquid quote exists (Lou 2016b).
+    """Analytical repo rate estimator when no liquid quote exists (Lou 2016b Eq 8).
 
-    rs = r + funding_premium × (1 - collateral_coverage)
+    rs = r + (r_N - r) × (1 - h)
 
+    where h = collateral_coverage, r_N = unsecured funding rate.
     The gap risk arises when collateral coverage < 1:
     - The unfunded portion must be financed at the unsecured rate.
-    - The "gap" = (1 - coverage) × position × funding_premium.
+    - The gap cost = (1 - h) × position × (r_N - r) × T.
 
     Args:
         position_value: market value of the position.
@@ -662,9 +675,9 @@ def implied_repo_rate_from_gap(
     funding_rate: float,
     collateral_coverage: float,
 ) -> float:
-    """Implied all-in repo rate accounting for gap risk (Lou 2016b).
+    """Implied all-in repo rate accounting for gap risk (Lou 2016b Eq 8).
 
-    rs_implied = r_repo + (r_funding - r_repo) × (1 - coverage)
+    rs_implied = r + (r_N - r) × (1 - h)
     """
     if not 0.0 <= collateral_coverage <= 1.0:
         raise ValueError(f"collateral_coverage must be in [0, 1], got {collateral_coverage}")

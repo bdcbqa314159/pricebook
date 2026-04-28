@@ -451,6 +451,11 @@ def cleared_vs_bilateral(
 class NonCashCollateralAsset:
     """A non-cash collateral asset (bond or equity).
 
+    Under Lou (2017), the collateral poster chooses which eligible asset
+    to deliver — this creates an embedded cheapest-to-deliver option.
+    The effective discount rate depends on the optimal choice, making the
+    discount curve path-dependent on the collateral pool composition.
+
     Args:
         name: asset identifier.
         yield_rate: yield/return on the asset.
@@ -477,15 +482,16 @@ def non_cash_collateral_discount_rate(
     funding_rate: float,
     cash_rate: float = 0.0,
 ) -> NonCashDiscountResult:
-    """Compute effective discount rate for non-cash collateral (Lou 2017).
+    """Compute effective discount rate for non-cash collateral (Lou 2017 Eq 12).
 
     When the CSA allows bond or equity collateral, the discount rate
     depends on which collateral the poster chooses (cheapest-to-deliver).
 
-    Effective rate for asset i:
-        r_eff_i = cash_rate + (funding_rate - yield_i) × haircut_i + liquidity_premium_i
+    Lou (2017) Eq 12:
+        r_eff_i = r_OIS + (r_N - y_i) × h_i + λ_i
 
-    The poster delivers the cheapest collateral → min over eligible assets.
+    where h_i = haircut, y_i = asset yield, λ_i = liquidity premium.
+    The poster delivers the cheapest collateral → r_eff = min_i(r_eff_i).
 
     Args:
         collateral_pool: list of eligible non-cash collateral assets.

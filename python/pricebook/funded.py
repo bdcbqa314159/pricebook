@@ -369,3 +369,11 @@ class RepoFinancedPosition:
         specialness = gc_rate - implied_repo.
         """
         return gc_rate - self.implied_repo_from_trs_spread()
+
+    def pv(self) -> float:
+        """PV of the position: net carry over the period (undiscounted)."""
+        return self.net_carry()
+
+    def pv_ctx(self, ctx) -> float:
+        """Trade/Portfolio integration — returns net carry."""
+        return self.net_carry()

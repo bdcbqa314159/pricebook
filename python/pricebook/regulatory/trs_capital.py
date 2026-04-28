@@ -184,21 +184,50 @@ def trs_simm_sensitivities(
         }]
     elif trs._underlying_type in ("bond", "loan"):
         risk_class = "GIRR"
-        # Rate sensitivity via repo_sensitivity
+        # Rate sensitivity via bump-and-reprice (1bp parallel shift)
+        base_val = trs.price(curve, projection_curve).value
+        bumped = curve.bumped(0.0001)
+        rate_delta = trs.price(bumped, projection_curve).value - base_val
+
+        # CSR: credit spread sensitivity via spread bump on funding leg
+        old_spread = trs.funding.spread
+        trs.funding = type(trs.funding)(
+            spread=old_spread + 0.0001,
+            **{k: v for k, v in trs.funding.__dict__.items() if k != "spread"},
+        )
+        cs_delta = trs.price(curve, projection_curve).value - base_val
+        trs.funding = type(trs.funding)(
+            spread=old_spread,
+            **{k: v for k, v in trs.funding.__dict__.items() if k != "spread"},
+        )
+
         delta_sens = [
             {
                 "risk_class": "GIRR",
                 "bucket": "USD",
                 "tenor": "1Y",
-                "delta": greeks["repo_sensitivity"],
+                "delta": rate_delta,
             },
             {
                 "risk_class": "CSR",
                 "bucket": "IG_corporate",
                 "tenor": "5Y",
-                "delta": trs.notional * 0.0001,  # ~1bp credit delta
+                "delta": cs_delta,
             },
         ]
+        vega_sens = []
+    elif trs._underlying_type == "cln":
+        risk_class = "CSR"
+        # CLN: credit spread sensitivity via survival curve bump
+        base_val = trs.price(curve, projection_curve).value
+        bumped = curve.bumped(0.0001)
+        cs_delta = trs.price(bumped, projection_curve).value - base_val
+        delta_sens = [{
+            "risk_class": "CSR",
+            "bucket": "IG_corporate",
+            "tenor": "5Y",
+            "delta": cs_delta,
+        }]
         vega_sens = []
     else:
         risk_class = "CSR"

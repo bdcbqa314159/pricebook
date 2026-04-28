@@ -137,6 +137,31 @@ class TestCreditLinkedNote:
         with pytest.raises(ValueError, match="leverage"):
             CreditLinkedNote(REF, END, leverage=0.5)
 
+    def test_greeks_dv01(self):
+        """DV01 should be negative (rates up → price down for coupon bond)."""
+        disc = _disc()
+        sc = _surv()
+        cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000)
+        g = cln.greeks(disc, sc)
+        assert math.isfinite(g["dv01"])
+
+    def test_greeks_cs01(self):
+        """CS01 should be negative (wider spreads → lower price)."""
+        disc = _disc()
+        sc = _surv()
+        cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000)
+        g = cln.greeks(disc, sc)
+        assert g["cs01"] < 0
+
+    def test_greeks_recovery_sens(self):
+        """Higher recovery → higher price (less loss on default)."""
+        disc = _disc()
+        sc = _surv()
+        cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000,
+                               recovery=0.4)
+        g = cln.greeks(disc, sc)
+        assert g["recovery_sensitivity"] > 0
+
 
 # ---- Phase 2b: BasketCLN ----
 
@@ -202,6 +227,16 @@ class TestBasketCLN:
         basket = BasketCLN(REF, END, attachment=0.03, detachment=0.07)
         assert basket.tranche_width == pytest.approx(0.04)
 
+    def test_std_error_returned(self):
+        """MC standard error should be positive and small relative to expected loss."""
+        disc = _disc()
+        scs = [_surv(0.02) for _ in range(125)]
+        basket = BasketCLN(REF, END, attachment=0.0, detachment=0.03, n_names=125)
+        result = basket.price_mc(disc, scs, rho=0.3)
+        assert result.std_error > 0
+        if result.expected_loss > 0:
+            assert result.std_error < result.expected_loss  # SE << EL
+
     def test_to_dict(self):
         disc = _disc()
         scs = [_surv() for _ in range(125)]
@@ -209,6 +244,7 @@ class TestBasketCLN:
         result = basket.price_mc(disc, scs)
         d = result.to_dict()
         assert "expected_loss" in d
+        assert "std_error" in d
 
 
 # ---- Phase 2c: CLN as TRS underlying ----

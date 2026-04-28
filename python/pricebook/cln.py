@@ -18,6 +18,20 @@ Also provides ``BasketCLN`` for multi-name structures using Gaussian copula.
 References:
     O'Kane, *Modelling Single-name and Multi-name Credit Derivatives*,
     Wiley, 2008, Ch. 15-16.
+    Li, D. (2000). On Default Correlation: A Copula Function Approach.
+    J. Fixed Income, 9(4), 43-54.  (Gaussian copula for BasketCLN)
+
+Equations:
+    Vanilla CLN PV (O'Kane Eq 15.1):
+        PV = Σ_i c × α_i × D(t_i) × Q(t_i)
+           + N × D(T) × Q(T)
+           + R × N × Σ_i D(t_i) × [Q(t_{i-1}) - Q(t_i)]
+
+    Leveraged CLN: adds (L-1)(1-R) × N × ΔPD per period (O'Kane §16.2).
+
+    Basket CLN tranche loss (Li 2000, O'Kane §18.3):
+        Z_j = √ρ M + √(1-ρ) ε_j,  default if Z_j < Φ⁻¹(1 - Q_j(t))
+        L_tranche = clip(L_portfolio - a, 0, d-a) / (d-a)
 """
 
 from __future__ import annotations
@@ -112,12 +126,12 @@ class CreditLinkedNote:
         discount_curve: DiscountCurve,
         survival_curve: SurvivalCurve,
     ) -> float:
-        """Full price of the CLN accounting for default risk.
+        """Full price of the CLN accounting for default risk (O'Kane Eq 15.1).
 
-        PV = Σ coupon × df × surv
-             + notional × df_T × surv_T
-             + recovery × Σ df × default_prob
-             - (leverage - 1) × (1-R) × Σ df × default_prob  [extra loss]
+        PV = Σ c × α_i × D(t_i) × Q(t_i)          [coupon leg]
+           + N × D(T) × Q(T)                       [principal leg]
+           + R × N × Σ D(t_i) × ΔPD_i              [recovery leg]
+           - (L-1)(1-R) × N × Σ D(t_i) × ΔPD_i    [leverage loss, O'Kane §16.2]
         """
         pv = 0.0
 
@@ -230,6 +244,42 @@ class CreditLinkedNote:
 
         return brentq(objective, -0.10, 0.50)
 
+    def greeks(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+    ) -> dict[str, float]:
+        """Bump-and-reprice sensitivities.
+
+        Returns:
+            dv01: price change for +1bp parallel rate shift.
+            cs01: price change for +1bp credit spread (hazard) shift.
+            recovery_sens: price change for +1% recovery shift.
+        """
+        base = self.dirty_price(discount_curve, survival_curve)
+
+        # DV01: bump discount curve by 1bp
+        bumped_curve = discount_curve.bumped(0.0001)
+        dv01 = self.dirty_price(bumped_curve, survival_curve) - base
+
+        # CS01: bump hazard rate by 1bp (via shifted survival curve)
+        ref = survival_curve.reference_date
+        # Build shifted survival from flat hazard approximation
+        from pricebook.day_count import year_fraction as _yf
+        T = _yf(ref, self.end, DayCountConvention.ACT_365_FIXED)
+        base_hazard = -math.log(max(survival_curve.survival(self.end), 1e-15)) / max(T, 1e-10)
+        shifted_surv = SurvivalCurve.flat(ref, base_hazard + 0.0001)
+        cs01 = self.dirty_price(discount_curve, shifted_surv) - base
+
+        # Recovery sensitivity: +1% bump
+        old_recovery = self.recovery
+        self.recovery = old_recovery + 0.01
+        rec_up = self.dirty_price(discount_curve, survival_curve)
+        self.recovery = old_recovery
+        recovery_sens = rec_up - base
+
+        return {"dv01": dv01, "cs01": cs01, "recovery_sensitivity": recovery_sens}
+
     def pv_ctx(self, ctx) -> float:
         """Price from PricingContext — Trade/Portfolio integration."""
         curve = ctx.discount_curve
@@ -296,6 +346,7 @@ class BasketCLNResult:
     tranche_width: float
     attachment: float
     detachment: float
+    std_error: float = 0.0  # MC standard error on expected_loss
 
     def to_dict(self) -> dict[str, float]:
         return {
@@ -304,6 +355,7 @@ class BasketCLNResult:
             "tranche_width": self.tranche_width,
             "attachment": self.attachment,
             "detachment": self.detachment,
+            "std_error": self.std_error,
         }
 
 
@@ -314,7 +366,14 @@ class BasketCLN:
     defined by [attachment, detachment]. Losses hitting the tranche
     reduce the investor's principal.
 
-    Uses Gaussian copula simulation from ``basket_cds.simulate_defaults_copula``.
+    Uses the Li (2000) one-factor Gaussian copula:
+        Z_j = √ρ M + √(1-ρ) ε_j,  j = 1..N
+        Name j defaults if Z_j < Φ⁻¹(1 - Q_j(t))
+
+    where M ~ N(0,1) is the systematic factor, ε_j ~ N(0,1) iid,
+    ρ is the asset correlation, and Q_j(t) is the survival probability.
+    Fresh draws are generated per period to avoid cross-date correlation
+    artifacts.
 
     Args:
         start: issue date.
@@ -378,6 +437,7 @@ class BasketCLN:
 
         coupon_pv = 0.0
         total_expected_loss = 0.0
+        loss_std_error = 0.0
 
         for i in range(1, len(self.schedule)):
             t_start = self.schedule[i - 1]
@@ -402,7 +462,7 @@ class BasketCLN:
             n_defaults = defaults.sum(axis=1).astype(float)
             portfolio_loss = n_defaults / self.n_names * (1.0 - self.recovery)
 
-            # Tranche loss
+            # Tranche loss (Li 2000, O'Kane §18.3)
             tranche_loss = np.clip(portfolio_loss - self.attachment, 0.0, width) / width
             avg_tranche_loss = float(tranche_loss.mean())
 
@@ -413,6 +473,8 @@ class BasketCLN:
             coupon_pv += self.notional * self.coupon_rate * yf * df * tranche_surv
 
             total_expected_loss = avg_tranche_loss  # cumulative at maturity
+            # MC standard error on tranche loss at maturity
+            loss_std_error = float(tranche_loss.std()) / math.sqrt(n_sims)
 
         # Principal: surviving notional at maturity
         df_T = discount_curve.df(self.end)
@@ -426,6 +488,7 @@ class BasketCLN:
             tranche_width=width,
             attachment=self.attachment,
             detachment=self.detachment,
+            std_error=loss_std_error,
         )
 
     @property
