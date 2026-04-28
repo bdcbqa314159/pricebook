@@ -149,6 +149,8 @@ class TotalReturnSwap:
             return "bond"
         if cls_name in ("TermLoan", "RevolvingFacility"):
             return "loan"
+        if cls_name in ("CreditLinkedNote",):
+            return "cln"
         return "unknown"
 
     # ---- Main pricing ----
@@ -163,6 +165,8 @@ class TotalReturnSwap:
             return self._price_bond(curve, projection_curve)
         if self._underlying_type == "loan":
             return self._price_loan(curve, projection_curve)
+        if self._underlying_type == "cln":
+            return self._price_cln(curve, projection_curve)
         raise TypeError(f"Unsupported underlying type: {type(self.underlying).__name__}")
 
     # ---- Equity TRS ----
@@ -339,6 +343,64 @@ class TotalReturnSwap:
         if settlement_shift > 0:
             settle_cost = self.notional * r_f * settlement_shift / 365.0
             funding_leg += settle_cost
+
+        # FVA
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+        fva = (repo_factor - 1) * current_price / 100.0 * self.notional
+
+        total_return = price_return + income_scaled
+        value = total_return - funding_leg - fva
+
+        return TRSResult(
+            value=value, total_return_leg=total_return,
+            funding_leg=funding_leg, price_return=price_return,
+            income_return=income_scaled, fva=fva, repo_factor=repo_factor,
+        )
+
+    # ---- CLN TRS ----
+
+    def _price_cln(self, curve, projection_curve) -> TRSResult:
+        """CLN TRS: total return on a credit-linked note.
+
+        The TR receiver gets CLN price changes + coupon income.
+        The TR payer finances at floating + spread.
+        """
+        from pricebook.bond_forward import repo_financing_factor
+
+        cln = self.underlying
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if T < 1e-5:
+            raise ValueError(f"Maturity too short: {T:.6f} years")
+
+        # CLN pricing requires a survival curve — check if available
+        survival_curve = None
+        if hasattr(cln, '_survival_curve'):
+            survival_curve = cln._survival_curve
+        if survival_curve is None:
+            from pricebook.survival_curve import SurvivalCurve
+            survival_curve = SurvivalCurve.flat(curve.reference_date, 0.02)
+
+        current_price = cln.price_per_100(curve, survival_curve)
+        initial_price = self.initial_price if self.initial_price is not None else 100.0
+
+        # Coupon income between start and valuation date
+        income = 0.0
+        for i in range(1, len(cln.schedule)):
+            pay_date = cln.schedule[i]
+            if self.start < pay_date <= curve.reference_date:
+                yf = year_fraction(cln.schedule[i-1], pay_date, cln.day_count)
+                income += cln.notional * cln.coupon_rate * yf
+        income_scaled = income / cln.notional * self.notional
+
+        # Price return
+        price_return = (current_price - initial_price) / 100.0 * self.notional
+
+        # Funding leg
+        D = curve.df(self.end)
+        fwd_rate = -math.log(D / curve.df(self.start)) / T
+        r_f = fwd_rate + self.funding.spread
+        yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
+        funding_leg = self.notional * r_f * yf
 
         # FVA
         repo_factor = repo_financing_factor(self.repo_spread, T)
