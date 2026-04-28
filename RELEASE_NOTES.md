@@ -2,6 +2,25 @@
 
 ---
 
+## v0.393.0 — 2026-04-28
+
+**Bloomberg adapter + pricing service complete (4 slices).** 6205 tests.
+
+### `pricebook.bloomberg_adapter`
+- `parse_bbg_ticker()`: USSW5 Curncy → swap_rate 5Y USD, US0003M Index → deposit_rate 3M USD.
+- `BloombergQuoteAdapter`: `from_bbg_snapshot({ticker: value}) → MarketDataEnvelope`.
+- `BloombergResultFormatter`: `to_bbg_fields(result) → {PX_LAST, DUR_ADJ_MID, DELTA, ...}`.
+- Templates: `irs_request_from_bbg()`, `bond_request_from_bbg()`.
+- End-to-end: BBG data → PricingRequest → Server → PricingResponse → BBG fields.
+
+### Pricing service stack complete
+- **Schema** (v0.390): `PricingRequest`/`PricingResponse`, JSON-native, protobuf-ready.
+- **Codec** (v0.391): JSON/msgpack, zstd/lz4 compression, 6-byte TCP framing.
+- **Server** (v0.392): asyncio TCP, thread pool pricing, client with context manager.
+- **Bloomberg** (v0.393): ticker parsing, field mapping, request templates.
+
+---
+
 ## v0.392.0 — 2026-04-28
 
 **Pricing server — asyncio TCP with framed request/response.** 6189 tests.
