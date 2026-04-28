@@ -2,6 +2,24 @@
 
 ---
 
+## v0.381.0 — 2026-04-28
+
+**Lens audit — 7 fixes across Phases 2-5.** 6061 tests.
+
+### Critical fixes
+- **BasketCLN copula**: fresh Z draws per period (was reusing same draws across all dates).
+- **IRS XVA EPE**: proper normal distribution formula μΦ(d) + σφ(d) (was ad-hoc heuristic).
+- **CFA/DFA decomposition**: uses total adjustment including FVA (was CVA+DVA only).
+
+### Input validation
+- `CreditLinkedNote`: recovery in [0,1], leverage >= 1.
+- `BasketCLN.price_mc()`: rho in [0,1].
+- `repo_gap_risk()`, `implied_repo_rate_from_gap()`: coverage in [0,1].
+- `RepoFinancedPosition`: haircut in [0,1).
+- `_price_cln()`: warns when no survival curve provided.
+
+---
+
 ## v0.380.0 — 2026-04-24
 
 **Lou Papers Framework (2015-2017) — liability-side pricing complete.** 6055 tests.
