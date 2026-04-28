@@ -2,6 +2,21 @@
 
 ---
 
+## v0.390.0 — 2026-04-28
+
+**Pricing service schema — language-agnostic request/response protocol.** 6166 tests.
+
+### `pricebook.pricing_schema`
+- `PricingRequest` / `PricingResponse`: full round-trip via `to_dict()/from_dict()`.
+- `MarketDataEnvelope`: quotes mode (server bootstraps) or curves mode (pre-built).
+- `TradeEnvelope`: instrument_type + params dict, optional CSA terms.
+- `TradeResult`: PV, currency, greeks, risk, diagnostics.
+- `PricingConfig`: model, MC paths, measures, compute_greeks flag.
+- Convenience: `irs_trade()`, `bond_trade()`, `quotes_market_data()`.
+- All JSON-native types — maps 1:1 to protobuf for future migration.
+
+---
+
 ## v0.389.0 — 2026-04-28
 
 **Lens audit for IBOR framework (L1-L6) — 10 fixes.** 6141 tests.
