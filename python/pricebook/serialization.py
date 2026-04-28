@@ -191,6 +191,9 @@ def _serialize_value(v: Any) -> Any:
         return v.value
     if v is None:
         return None
+    # Handle CurrencyPair (has base/quote Currency enums)
+    if hasattr(v, "base") and hasattr(v, "quote") and hasattr(v.base, "value"):
+        return f"{v.base.value}/{v.quote.value}"
     return v
 
 
@@ -208,20 +211,33 @@ def _instrument_to_dict(inst, type_name: str, fields: list[str]) -> dict[str, An
 # --- Per-instrument serialization ---
 
 _INSTRUMENT_FIELDS: dict[str, tuple[str, list[str]]] = {
+    # Core rates
     "irs": ("pricebook.swap.InterestRateSwap", [
         "start", "end", "fixed_rate", "direction", "notional",
         "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count",
         "spread",
     ]),
-    "bond": ("pricebook.bond.FixedRateBond", [
-        "issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count",
+    # ois_swap and basis_swap handled via custom serialisers below
+    # (they don't store all constructor args as direct attributes)
+    "deposit": ("pricebook.deposit.Deposit", [
+        "start", "end", "rate", "notional", "day_count",
     ]),
     "fra": ("pricebook.fra.FRA", [
         "start", "end", "strike", "notional",
     ]),
+    # Bonds
+    "bond": ("pricebook.bond.FixedRateBond", [
+        "issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count",
+    ]),
+    # Credit
     "cds": ("pricebook.cds.CDS", [
         "start", "end", "spread", "notional", "recovery", "frequency", "day_count",
     ]),
+    "cln": ("pricebook.cln.CreditLinkedNote", [
+        "start", "end", "coupon_rate", "notional", "recovery", "leverage",
+        "floating", "frequency", "day_count",
+    ]),
+    # Options
     "swaption": ("pricebook.swaption.Swaption", [
         "expiry", "swap_end", "strike", "swaption_type", "notional",
         "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count",
@@ -229,16 +245,42 @@ _INSTRUMENT_FIELDS: dict[str, tuple[str, list[str]]] = {
     "capfloor": ("pricebook.capfloor.CapFloor", [
         "start", "end", "strike", "option_type", "notional", "frequency", "day_count",
     ]),
+    # Loans
+    "term_loan": ("pricebook.loan.TermLoan", [
+        "start", "end", "spread", "notional", "amort_rate", "frequency", "day_count",
+    ]),
+    "revolver": ("pricebook.loan.RevolvingFacility", [
+        "start", "end", "max_commitment", "drawn_amount", "drawn_spread",
+        "undrawn_fee", "frequency", "day_count",
+    ]),
+    # FX
+    "fx_forward": ("pricebook.fx_forward.FXForward", [
+        "pair", "maturity", "strike", "notional",
+    ]),
 }
+
+# TRS handled separately due to polymorphic underlying
+_TRS_MODULE = "pricebook.trs.TotalReturnSwap"
+_TRS_FIELDS = [
+    "notional", "start", "end", "repo_spread", "haircut", "sigma",
+]
 
 
 _CLASS_TO_TYPE = {
     "InterestRateSwap": "irs",
+    "OISSwap": "ois_swap",
+    "BasisSwap": "basis_swap",
+    "Deposit": "deposit",
     "FixedRateBond": "bond",
     "FRA": "fra",
     "CDS": "cds",
+    "CreditLinkedNote": "cln",
     "Swaption": "swaption",
     "CapFloor": "capfloor",
+    "TermLoan": "term_loan",
+    "RevolvingFacility": "revolver",
+    "FXForward": "fx_forward",
+    "TotalReturnSwap": "trs",
 }
 
 
@@ -247,6 +289,14 @@ def instrument_to_dict(inst) -> dict[str, Any]:
     type_key = _CLASS_TO_TYPE.get(type(inst).__name__)
     if type_key is None:
         raise ValueError(f"No serialization registered for {type(inst).__name__}")
+
+    # Custom handlers for instruments that don't store all constructor args
+    if type_key == "trs":
+        return _trs_to_dict(inst)
+    if type_key == "ois_swap":
+        return _ois_swap_to_dict(inst)
+    if type_key == "basis_swap":
+        return _basis_swap_to_dict(inst)
 
     _, fields = _INSTRUMENT_FIELDS[type_key]
 
@@ -258,10 +308,85 @@ def instrument_to_dict(inst) -> dict[str, Any]:
     return {"type": type_key, "params": params}
 
 
+def _ois_swap_to_dict(ois) -> dict[str, Any]:
+    """Custom OISSwap serialisation: extract fixed_rate from fixed leg."""
+    return {"type": "ois_swap", "params": {
+        "start": _date_to_str(ois.start),
+        "end": _date_to_str(ois.end),
+        "fixed_rate": ois.fixed_leg.rate,
+        "notional": ois.notional,
+        "day_count": _enum_to_str(ois.day_count),
+    }}
+
+
+def _basis_swap_to_dict(bs) -> dict[str, Any]:
+    """Custom BasisSwap serialisation: extract start/end from legs."""
+    start = bs.leg1.cashflows[0].accrual_start
+    end = bs.leg1.cashflows[-1].accrual_end
+    return {"type": "basis_swap", "params": {
+        "start": _date_to_str(start),
+        "end": _date_to_str(end),
+        "spread": bs.spread,
+        "notional": bs.notional,
+    }}
+
+
+def _trs_to_dict(trs) -> dict[str, Any]:
+    """Custom TRS serialisation: handles polymorphic underlying."""
+    params: dict[str, Any] = {}
+    for f in _TRS_FIELDS:
+        params[f] = _serialize_value(getattr(trs, f))
+
+    # Underlying: float (equity spot) or instrument
+    underlying = trs.underlying
+    if isinstance(underlying, (int, float)):
+        params["underlying"] = {"type": "equity_spot", "value": float(underlying)}
+    else:
+        params["underlying"] = instrument_to_dict(underlying)
+
+    return {"type": "trs", "params": params}
+
+
+def _trs_from_dict(params: dict) -> Any:
+    """Custom TRS deserialisation: resolves polymorphic underlying."""
+    cls = _import_class(_TRS_MODULE)
+
+    # Resolve underlying
+    underlying_d = params.pop("underlying")
+    if isinstance(underlying_d, (int, float)):
+        underlying = float(underlying_d)
+    elif isinstance(underlying_d, dict):
+        if underlying_d.get("type") == "equity_spot":
+            underlying = float(underlying_d["value"])
+        else:
+            underlying = instrument_from_dict(underlying_d)
+    else:
+        underlying = float(underlying_d)
+
+    # Resolve dates
+    for key in ("start", "end"):
+        if key in params and isinstance(params[key], str):
+            params[key] = _str_to_date(params[key])
+
+    return cls(underlying=underlying, **params)
+
+
 def instrument_from_dict(d: dict[str, Any]):
     """Deserialize an instrument from a dict."""
     type_key = d["type"]
     params = dict(d["params"])
+
+    # Custom handlers
+    if type_key == "trs":
+        return _trs_from_dict(params)
+    if type_key == "ois_swap":
+        _resolve_params(type_key, params)
+        cls = _import_class("pricebook.ois.OISSwap")
+        return cls(**params)
+    if type_key == "basis_swap":
+        _resolve_params(type_key, params)
+        cls = _import_class("pricebook.basis_swap.BasisSwap")
+        return cls(**params)
 
     if type_key not in _INSTRUMENT_FIELDS:
         raise ValueError(f"Unknown instrument type: {type_key}")
@@ -277,7 +402,8 @@ def instrument_from_dict(d: dict[str, Any]):
 
 
 _DATE_FIELDS = frozenset(("start", "end", "expiry", "swap_end", "issue_date", "maturity"))
-_FREQ_FIELDS = frozenset(("frequency", "fixed_frequency", "float_frequency"))
+_FREQ_FIELDS = frozenset(("frequency", "fixed_frequency", "float_frequency",
+                           "leg1_frequency", "leg2_frequency"))
 _DC_FIELDS = frozenset(("day_count", "fixed_day_count", "float_day_count"))
 
 
@@ -305,6 +431,10 @@ def _resolve_params(type_key: str, params: dict) -> None:
         elif key == "option_type" and isinstance(val, str):
             from pricebook.black76 import OptionType
             params[key] = OptionType(val)
+        elif key == "pair" and isinstance(val, str):
+            from pricebook.currency import CurrencyPair, Currency
+            base_s, quote_s = val.split("/")
+            params[key] = CurrencyPair(Currency(base_s), Currency(quote_s))
 
 
 def _import_class(dotted_path: str):
@@ -389,6 +519,7 @@ def to_json(obj, **kwargs) -> str:
     elif isinstance(obj, Trade):
         d = trade_to_dict(obj)
     else:
+        # Try instrument registry (covers all registered types)
         d = instrument_to_dict(obj)
 
     return json.dumps(d, indent=2, **kwargs)
