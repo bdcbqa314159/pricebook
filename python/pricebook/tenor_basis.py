@@ -74,6 +74,14 @@ class TenorBasis:
 
         return self.spreads[-1]
 
+    def to_dict(self) -> dict:
+        return {
+            "short_tenor": self.short_tenor.name,
+            "long_tenor": self.long_tenor.name,
+            "n_pillars": len(self.dates),
+            "spreads_bp": [s * 10_000 for s in self.spreads],
+        }
+
     def forward_spread(self, start: date, end: date) -> float:
         """Average basis spread over [start, end] (midpoint evaluation)."""
         from datetime import timedelta
@@ -93,11 +101,12 @@ def bootstrap_tenor_basis(
     """Bootstrap a long-tenor IBOR curve from short-tenor + basis swap quotes.
 
     At each maturity, solves for the long-tenor df such that the basis swap
-    (short flat vs long + quoted_spread) reprices at par.
+    reprices at the quoted spread (Ametrano & Bianchetti 2013, Eq 3.8):
 
-    The basis swap convention: leg1 = short tenor (3M) + spread,
-    leg2 = long tenor (6M) flat. PV = 0 at the quoted spread.
-    (The spread compensates the short tenor for receiving less credit risk.)
+        Σ (F_short(t_i) + s) × τ_i × D(t_i) = Σ F_long(t_j) × τ_j × D(t_j)
+
+    Convention: spread on short leg (3M + s vs 6M flat).
+    The spread compensates the short tenor for lower credit risk.
 
     Args:
         reference_date: curve date.

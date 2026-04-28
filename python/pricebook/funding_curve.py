@@ -69,19 +69,52 @@ class FundingCurve:
     def df(self, d: date) -> float:
         """Discount factor at date d using funding rate = OIS zero + spread.
 
-        df_funding(T) = df_OIS(T) × exp(-spread(T) × T)
+        Piterbarg (2010) Eq 3: df_funding(T) = df_OIS(T) × exp(-∫₀ᵀ s(u) du)
+
+        For piecewise constant spread (linear interp on pillars), the integral
+        is computed exactly by summing over spread segments.
         """
         t = year_fraction(self.reference_date, d, DayCountConvention.ACT_365_FIXED)
         if t <= 0:
             return 1.0
-        s = self._spread.spread(d)
-        return self._ois.df(d) * math.exp(-s * t)
+        # Integrate spread over [0, T] using piecewise segments
+        integral = self._integrate_spread(d)
+        return self._ois.df(d) * math.exp(-integral)
+
+    def _integrate_spread(self, d: date) -> float:
+        """Integrate spread(u) du from reference_date to d.
+
+        Uses trapezoidal rule on spread pillar grid for piecewise linear spread.
+        """
+        from pricebook.day_count import DayCountConvention, year_fraction
+        ref = self.reference_date
+        t_end = year_fraction(ref, d, DayCountConvention.ACT_365_FIXED)
+        if t_end <= 0:
+            return 0.0
+
+        # Sample at spread pillars + endpoint
+        pillar_times = []
+        for pd in self._spread.dates:
+            pt = year_fraction(ref, pd, DayCountConvention.ACT_365_FIXED)
+            if 0 < pt < t_end:
+                pillar_times.append(pt)
+        times = sorted(set([0.0] + pillar_times + [t_end]))
+
+        integral = 0.0
+        for i in range(len(times) - 1):
+            t1, t2 = times[i], times[i + 1]
+            mid_t = (t1 + t2) / 2
+            from datetime import timedelta
+            mid_d = ref + timedelta(days=int(mid_t * 365))
+            s_mid = self._spread.spread(mid_d)
+            integral += s_mid * (t2 - t1)
+        return integral
 
     def funding_rate(self, d: date) -> float:
-        """Continuously compounded funding rate at date d."""
-        t = year_fraction(self.reference_date, d, DayCountConvention.ACT_365_FIXED)
-        if t <= 0:
-            return self._ois.zero_rate(d) + self._spread.spread(d)
+        """Continuously compounded funding rate at date d.
+
+        r_funding(T) = r_OIS(T) + s(T)
+        """
         return self._ois.zero_rate(d) + self._spread.spread(d)
 
     def forward_funding_rate(self, d1: date, d2: date) -> float:
@@ -106,6 +139,10 @@ class FundingCurve:
         dfs = [self.df(d) for d in dates]
         return DiscountCurve(ref, dates, dfs)
 
+    def bumped(self, shift: float) -> FundingCurve:
+        """Return a FundingCurve with parallel-shifted OIS curve."""
+        return FundingCurve(self._ois.bumped(shift), self._spread)
+
     @classmethod
     def flat_spread(cls, ois_curve: DiscountCurve, spread: float) -> FundingCurve:
         """Convenience: constant funding spread over OIS."""
@@ -124,6 +161,14 @@ class CollateralisedResult:
     discount_curve_type: str   # "ois", "funding", "xccy", "non_cash"
     csa_type: str              # "none", "cash_same_ccy", "cash_foreign", "non_cash"
     funding_adjustment: float  # PV(uncollateralised) - PV(collateralised)
+
+    def to_dict(self) -> dict[str, float | str]:
+        return {
+            "pv": self.pv,
+            "discount_curve_type": self.discount_curve_type,
+            "csa_type": self.csa_type,
+            "funding_adjustment": self.funding_adjustment,
+        }
 
 
 class CollateralisedPricer:
@@ -224,14 +269,7 @@ class CollateralisedPricer:
         Computes PV under the CSA-appropriate curve, and the funding
         adjustment vs the uncollateralised case.
         """
-        curve, csa_type = self.discount_curve_for(
-            ctx.discount_curve.reference_date.__class__.__name__,  # placeholder
-            csa, collateral_assets,
-        )
-
-        # Get trade currency from context
         trade_ccy = getattr(ctx, "currency", "USD")
-
         curve, csa_type = self.discount_curve_for(trade_ccy, csa, collateral_assets)
 
         # Price with the selected curve

@@ -50,7 +50,7 @@ class TestFVASpreadDynamics:
         assert result.n_paths == 1000
 
     def test_zero_vol_matches_deterministic(self):
-        """With zero spread vol, stochastic ≈ deterministic."""
+        """With zero spread vol and initial=mean, stochastic ≈ deterministic."""
         basis_zero_vol = StochasticBasis(
             mean_spread=0.005, mean_reversion=0.5, vol=0.0, seed=42,
         )
@@ -60,6 +60,13 @@ class TestFVASpreadDynamics:
         )
         assert result.fva_stochastic == pytest.approx(result.fva_deterministic, rel=0.01)
         assert abs(result.convexity_adjustment) < abs(result.fva_deterministic) * 0.02
+
+    def test_std_error_returned(self):
+        result = fva_with_spread_dynamics(
+            _epe(), _time_grid(), _disc(), _basis(), initial_spread=0.005,
+        )
+        assert result.std_error > 0
+        assert result.std_error < abs(result.fva_stochastic)  # SE << FVA
 
     def test_nonzero_vol_differs(self):
         """With vol, stochastic differs from deterministic (convexity)."""

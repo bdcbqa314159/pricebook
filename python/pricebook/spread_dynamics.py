@@ -32,11 +32,12 @@ from pricebook.xva import fva as fva_deterministic, total_xva_decomposition, Tot
 @dataclass
 class SpreadDynamicsResult:
     """Result of FVA computation with spread dynamics."""
-    fva_deterministic: float    # FVA with constant spread = E[s]
+    fva_deterministic: float    # FVA with constant spread = initial_spread
     fva_stochastic: float       # FVA with simulated spread paths
     convexity_adjustment: float  # stochastic - deterministic
     mean_spread_path: list[float]
     n_paths: int
+    std_error: float = 0.0     # MC standard error on fva_stochastic
 
 
 def fva_with_spread_dynamics(
@@ -75,9 +76,8 @@ def fva_with_spread_dynamics(
         s0=initial_spread, T=T, n_steps=n_times, n_paths=n_spread_paths,
     )
 
-    # Deterministic FVA with mean spread
-    mean_spread = stochastic_basis.stationary_mean()
-    fva_det = fva_deterministic(epe, time_grid, discount_curve, mean_spread)
+    # Deterministic FVA with initial spread (apples-to-apples comparison)
+    fva_det = fva_deterministic(epe, time_grid, discount_curve, initial_spread)
 
     # Stochastic FVA: average over paths
     ref = discount_curve.reference_date
@@ -97,6 +97,7 @@ def fva_with_spread_dynamics(
         path_fvas[p] = pf
 
     fva_stoch = float(path_fvas.mean())
+    std_error = float(path_fvas.std()) / math.sqrt(n_spread_paths)
 
     # Mean spread path
     mean_path = [float(spread_paths[:, j + 1].mean()) for j in range(n_times)]
@@ -107,6 +108,7 @@ def fva_with_spread_dynamics(
         convexity_adjustment=fva_stoch - fva_det,
         mean_spread_path=mean_path,
         n_paths=n_spread_paths,
+        std_error=std_error,
     )
 
 

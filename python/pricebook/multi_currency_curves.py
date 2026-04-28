@@ -184,19 +184,33 @@ class MultiCurrencyCurveSet:
             # Step 3: Tenor basis
             tenor_bases: dict[str, TenorBasis] = {}
             for pair_key, quotes in spec.basis_swap_quotes.items():
-                # Parse pair: "3M_6M" → short = EURIBOR_3M, long = EURIBOR_6M
+                # Parse pair: "3M_6M" → find short IBOR in already-built curves
                 parts = pair_key.split("_")
-                if len(parts) == 2:
-                    short_name = f"EURIBOR_{parts[0]}" if spec.currency == "EUR" else parts[0]
-                    long_name = f"EURIBOR_{parts[1]}" if spec.currency == "EUR" else parts[1]
-                    if short_name in ibor_curves:
-                        short_ibor = ibor_curves[short_name]
-                        long_conv = EURIBOR_6M_CONVENTIONS  # default for EUR 6M
-                        long_ibor, tb = bootstrap_tenor_basis(
-                            reference_date, short_ibor, ois, quotes, long_conv,
-                        )
-                        ibor_curves[long_conv.name] = long_ibor
-                        tenor_bases[pair_key] = tb
+                if len(parts) != 2:
+                    continue
+                # Find the short-tenor curve among already-built IBOR curves
+                short_ibor = None
+                long_conv = None
+                for name, curve in ibor_curves.items():
+                    if parts[0] in name:
+                        short_ibor = curve
+                    if parts[1] in name:
+                        long_conv = curve.conventions
+                if short_ibor is None:
+                    continue
+                # If long conventions not found among specs, try known conventions
+                if long_conv is None:
+                    if spec.currency == "EUR" and "6M" in parts[1]:
+                        long_conv_obj = EURIBOR_6M_CONVENTIONS
+                    else:
+                        continue
+                else:
+                    long_conv_obj = long_conv
+                long_ibor, tb = bootstrap_tenor_basis(
+                    reference_date, short_ibor, ois, quotes, long_conv_obj,
+                )
+                ibor_curves[long_conv_obj.name] = long_ibor
+                tenor_bases[pair_key] = tb
 
             result.add_currency(spec.currency, ois, ibor_curves, tenor_bases)
 

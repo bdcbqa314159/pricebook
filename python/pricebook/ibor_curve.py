@@ -170,12 +170,14 @@ class IBORCurve:
         """IBOR fixing for a specific date.
 
         Computes the forward rate from fixing_date to
-        fixing_date + tenor, using the index tenor convention.
+        fixing_date + tenor months, using exact month arithmetic.
         """
+        from dateutil.relativedelta import relativedelta
+
         tenor = self.tenor_months
         if tenor <= 0:
             raise ValueError(f"Cannot compute fixing for overnight index {self.index.name}")
-        end = fixing_date + timedelta(days=tenor * 30)  # approximate; exact would use calendar
+        end = fixing_date + relativedelta(months=tenor)
         return self.forward_rate(fixing_date, end)
 
     def zero_rate(self, d: date) -> float:
