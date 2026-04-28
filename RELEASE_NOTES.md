@@ -2,6 +2,17 @@
 
 ---
 
+## v0.387.0 — 2026-04-28
+
+**Layer 5: Spread dynamics — stochastic FVA.** 6127 tests.
+
+### `pricebook.spread_dynamics`
+- `fva_with_spread_dynamics()`: simulates OU spread paths, computes FVA as E[Σ EPE × s(t) × dt × df].
+- `SpreadDynamicsResult`: deterministic/stochastic FVA, convexity adjustment, mean spread path.
+- `xva_with_spread_dynamics()`: total XVA with stochastic FVA replacing deterministic.
+
+---
+
 ## v0.386.0 — 2026-04-28
 
 **Layer 4: Funding curve + collateralised pricing.** 6119 tests.
