@@ -22,6 +22,7 @@ import numpy as np
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.interpolation import InterpolationMethod, create_interpolator
+from pricebook.schedule import Frequency
 from pricebook.special_process import OUProcess
 
 
@@ -131,29 +132,55 @@ def bootstrap_spread_curve(
     reference_date: date,
     ibor_swap_rates: list[tuple[date, float]],
     ois_curve: DiscountCurve,
+    float_frequency: Frequency = Frequency.QUARTERLY,
+    float_day_count: DayCountConvention = DayCountConvention.ACT_360,
+    fixed_frequency: Frequency = Frequency.ANNUAL,
+    fixed_day_count: DayCountConvention = DayCountConvention.THIRTY_360,
     day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
 ) -> SpreadCurve:
     """Bootstrap the IBOR-RFR spread curve from IBOR swap rates.
 
     Given: IBOR swap par rates + OIS discount curve.
-    Compute: the constant spread at each tenor such that
-    IBOR projection (RFR + spread) reprices the IBOR swap.
+    For each maturity, solve for the spread s such that an IBOR swap with
+    floating rate = OIS_forward + s reprices at the quoted par rate.
 
-    Simplified: spread ≈ IBOR_swap_rate - OIS_par_rate at each tenor.
+    Uses iterative root-finding (brentq) at each maturity.
+
+    Args:
+        ibor_swap_rates: [(maturity, par_rate)] sorted by maturity.
+        ois_curve: OIS discount/projection curve.
+        float_frequency: floating leg frequency (QUARTERLY for 3M IBOR).
+        float_day_count: floating leg day count.
+        fixed_frequency: fixed leg frequency.
+        fixed_day_count: fixed leg day count.
     """
-    from pricebook.solvers import brentq
-    from pricebook.swap import InterestRateSwap
+    from pricebook.solvers import brentq as _brentq
+    from pricebook.schedule import generate_schedule
 
     dates = []
     spreads = []
 
     for mat, ibor_rate in sorted(ibor_swap_rates, key=lambda x: x[0]):
-        # OIS par rate at this maturity
-        ois_swap = InterestRateSwap(reference_date, mat, fixed_rate=0.0)
-        ois_par = ois_swap.par_rate(ois_curve)
+        fixed_sched = generate_schedule(reference_date, mat, fixed_frequency)
+        float_sched = generate_schedule(reference_date, mat, float_frequency)
 
-        # Spread ≈ IBOR rate - OIS rate (simplified)
-        spread = ibor_rate - ois_par
+        # PV of fixed leg (discounted on OIS)
+        pv_fixed = sum(
+            ibor_rate * year_fraction(fixed_sched[i-1], fixed_sched[i], fixed_day_count)
+            * ois_curve.df(fixed_sched[i])
+            for i in range(1, len(fixed_sched))
+        )
+
+        def objective(s: float, _float_sched=float_sched) -> float:
+            pv_float = 0.0
+            for i in range(1, len(_float_sched)):
+                d1, d2 = _float_sched[i - 1], _float_sched[i]
+                ois_fwd = ois_curve.forward_rate(d1, d2)
+                yf = year_fraction(d1, d2, float_day_count)
+                pv_float += (ois_fwd + s) * yf * ois_curve.df(d2)
+            return pv_fixed - pv_float
+
+        spread = _brentq(objective, -0.05, 0.05)
         dates.append(mat)
         spreads.append(spread)
 
