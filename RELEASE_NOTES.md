@@ -2,6 +2,20 @@
 
 ---
 
+## v0.383.0 — 2026-04-28
+
+**Layer 1: IBORCurve — first-class IBOR projection.** 6086 tests.
+
+### `pricebook.ibor_curve`
+- `IBORConventions` (frozen): wraps `RateIndex` + swap conventions (float/fixed freq, day count, spot lag).
+- Pre-built: `EURIBOR_3M_CONVENTIONS`, `EURIBOR_6M_CONVENTIONS`, `TIBOR_3M_CONVENTIONS`.
+- `IBORCurve`: wraps `DiscountCurve` + conventions + OIS reference.
+  `forward_rate()`, `fixing()`, `df()`, `bumped()`, `zero_rate()`.
+- `bootstrap_ibor()`: thin wrapper around `bootstrap_forward_curve()`, unpacking conventions.
+  Round-trip verified: input swaps reprice at par within 1e-8.
+
+---
+
 ## v0.382.0 — 2026-04-28
 
 **Lens audit complete — all 10 lenses addressed.** 6067 tests.
