@@ -2,6 +2,20 @@
 
 ---
 
+## v0.391.0 — 2026-04-28
+
+**Codec layer — pluggable serialisation + compression + TCP framing.** 6177 tests.
+
+### `pricebook.pricing_codec`
+- `Codec(format, compression)`: encode/decode dicts to framed bytes.
+- `CodecFormat`: JSON (default), MSGPACK (opt-in), PROTOBUF (future stub).
+- `Compression`: NONE (default), ZSTD, LZ4. Falls back gracefully if not installed.
+- Wire frame: `[4B length][1B format][1B compression][payload]` — 6 bytes overhead.
+- `encode()`/`decode()` (framed), `encode_raw()`/`decode_raw()` (no frame).
+- `read_frame_length()`: parse first 4 bytes for TCP stream splitting.
+
+---
+
 ## v0.390.0 — 2026-04-28
 
 **Pricing service schema — language-agnostic request/response protocol.** 6166 tests.
