@@ -2,6 +2,27 @@
 
 ---
 
+## v0.392.0 — 2026-04-28
+
+**Pricing server — asyncio TCP with framed request/response.** 6189 tests.
+
+### `pricebook.pricing_server.PricingServer`
+- Asyncio TCP server accepting framed pricing requests.
+- `_handle_request()`: bootstraps curves from quotes, prices trades, returns results.
+- Thread pool for CPU-bound pricing (asyncio I/O + threads compute).
+- Auto-detects market_data mode (quotes → bootstrap, curves → direct).
+
+### `pricebook.pricing_client.PricingClient`
+- Sync TCP client with context manager support.
+- `price(request) → PricingResponse`, handles framing and codec.
+- Connection reuse for multiple requests.
+
+### End-to-end tested
+- Client → Server → Bootstrap → Price IRS → Response. PV matches direct pricing.
+- Multiple requests on single connection. Error handling for bad instruments.
+
+---
+
 ## v0.391.0 — 2026-04-28
 
 **Codec layer — pluggable serialisation + compression + TCP framing.** 6177 tests.
