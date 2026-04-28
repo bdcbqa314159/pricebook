@@ -2,6 +2,28 @@
 
 ---
 
+## v0.380.0 — 2026-04-24
+
+**Lou Papers Framework (2015-2017) — liability-side pricing complete.** 6055 tests.
+
+### Total XVA decomposition (Lou 2015)
+- `total_xva_decomposition()`: CVA - DVA + CFA - DFA + ColVA + FVA + MVA + KVA.
+- `TotalXVAResult` with `.total`, `.bilateral_cva`, `.total_funding`, `.to_dict()`.
+
+### IRS-specific XVA (Lou 2016a)
+- `irs_xva()`: approximate exposure from DV01 + rate vol → full XVA.
+- ATM/ITM sensitivity, counterparty hazard scaling.
+
+### Repo gap risk (Lou 2016b)
+- `repo_gap_risk()`: unfunded portion × funding premium.
+- `implied_repo_rate_from_gap()`: all-in rate accounting for coverage.
+
+### Non-cash collateral discounting (Lou 2017)
+- `non_cash_collateral_discount_rate()`: cheapest-to-deliver selection.
+- `NonCashCollateralAsset`: yield, haircut, liquidity premium per asset.
+
+---
+
 ## v0.379.0 — 2026-04-24
 
 **TRS regulatory capital — SA-CCR, SIMM, KVA, leverage.** 6037 tests.
