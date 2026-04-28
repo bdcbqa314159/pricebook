@@ -2,6 +2,18 @@
 
 ---
 
+## v0.384.0 — 2026-04-28
+
+**Layer 2: Tenor basis — 3M/6M calibration from basis swaps.** 6096 tests.
+
+### `pricebook.tenor_basis`
+- `TenorBasis`: spread term structure between IBOR tenors (linear interp).
+- `bootstrap_tenor_basis()`: given 3M IBORCurve + OIS + basis swap quotes,
+  solves for 6M IBORCurve such that basis swaps reprice at quoted spreads.
+  Convention: spread on short leg (3M + s vs 6M flat).
+
+---
+
 ## v0.383.0 — 2026-04-28
 
 **Layer 1: IBORCurve — first-class IBOR projection.** 6086 tests.
