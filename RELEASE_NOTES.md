@@ -2,6 +2,18 @@
 
 ---
 
+## v0.386.0 — 2026-04-28
+
+**Layer 4: Funding curve + collateralised pricing.** 6119 tests.
+
+### `pricebook.funding_curve`
+- `FundingCurve`: OIS + spread → `df()`, `funding_rate()`, `forward_funding_rate()`, `as_discount_curve()`.
+- `CollateralisedPricer`: selects discount curve from CSA terms.
+  No CSA → funding curve, cash same ccy → OIS, cash foreign → xccy, non-cash → Lou 2017.
+  `discount_curve_for()`, `price()` → `CollateralisedResult`.
+
+---
+
 ## v0.385.0 — 2026-04-28
 
 **Layer 3: OIS-IBOR basis — iterative bootstrap + decomposition.** 6106 tests.
