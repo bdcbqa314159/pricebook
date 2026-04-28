@@ -2,6 +2,19 @@
 
 ---
 
+## v0.379.0 — 2026-04-24
+
+**TRS regulatory capital — SA-CCR, SIMM, KVA, leverage.** 6037 tests.
+
+### `pricebook.regulatory.trs_capital`
+- `trs_sa_ccr_add_on()`: EAD = alpha × (RC + PFE) with asset-class mapping.
+  Equity → EQ_SINGLE (SF=32%), bond/loan/CLN → credit rating-based SF.
+- `trs_simm_sensitivities()`: delta/vega extraction mapped to GIRR, CSR, EQ.
+- `trs_kva()`: capital profile from SA-CCR EAD, integrated with `xva.kva()`.
+- `trs_leverage_exposure()`: off-balance-sheet = max(0, MTM) + add-on.
+
+---
+
 ## v0.378.0 — 2026-04-24
 
 **Repo-TRS unified view — financing + exposure composite.** 6022 tests.
