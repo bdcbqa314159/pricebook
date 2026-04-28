@@ -2,6 +2,26 @@
 
 ---
 
+## v0.377.0 — 2026-04-24
+
+**Credit-Linked Notes — unified CLN, basket tranches, CLN-TRS.** 6008 tests.
+
+### `pricebook.cln.CreditLinkedNote`
+- Unified class: vanilla (leverage=1), leveraged (leverage>1), floating coupon.
+- `dirty_price()`, `price()` with decomposition, `breakeven_spread()`, `par_coupon`.
+- `pv_ctx()` for Trade/Portfolio integration.
+
+### `pricebook.cln.BasketCLN`
+- Multi-name CLN with tranche structure [attachment, detachment].
+- Gaussian copula MC pricing via `price_mc()`.
+- Expected tranche loss, tranche width, survival-weighted coupons.
+
+### CLN as TRS underlying
+- `TotalReturnSwap(underlying=cln)` auto-detects `CreditLinkedNote`.
+- `_price_cln()`: total return = price change + coupon income minus funding.
+
+---
+
 ## v0.376.0 — 2026-04-24
 
 **Loan TRS production features — prepayment, LSTA, revolving, distressed.** 5987 tests.
