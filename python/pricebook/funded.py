@@ -1,11 +1,14 @@
 """
-Funded structures: repo, total return swap, funded participation.
+Funded structures: repo, total return swap, funded participation, repo-financed positions.
 
 Repo: sell bond + agree to buy back at repo rate.
 TRS: receive total return (interest + price change) vs pay floating + spread.
 Participation: partial funded credit risk transfer.
+RepoFinancedPosition: repo + TRS composite for prime brokerage economics.
+ReverseRepo: borrower's perspective (cash borrower, bond lender).
 
     from pricebook.funded import Repo, TotalReturnSwap, FundedParticipation
+    from pricebook.funded import RepoFinancedPosition, ReverseRepo
 
     repo = Repo(bond_pv=101, repo_rate=0.04, T=0.25)
     trs = TotalReturnSwap(reference_pv=100, funding_rate=0.05, spread=0.01, T=1.0)
@@ -211,3 +214,156 @@ class FundedParticipation:
         Negative basis: funded is more expensive.
         """
         return funded_spread - cds_spread
+
+
+class ReverseRepo:
+    """Reverse repo: borrow cash by lending collateral.
+
+    The borrower's perspective: receives cash, posts bond collateral,
+    pays repo rate. Used for short-side TRS hedging.
+
+    Args:
+        bond_dirty_price: current dirty price of the collateral (per 100).
+        repo_rate: agreed repo rate.
+        T: term in years.
+        haircut: overcollateralisation.
+        notional: face value of the bond.
+    """
+
+    def __init__(
+        self,
+        bond_dirty_price: float,
+        repo_rate: float,
+        T: float,
+        haircut: float = 0.0,
+        notional: float = 1_000_000.0,
+    ):
+        self.bond_dirty_price = bond_dirty_price
+        self.repo_rate = repo_rate
+        self.T = T
+        self.haircut = haircut
+        self.notional = notional
+
+    @property
+    def cash_received(self) -> float:
+        """Cash received by the borrower (bond value minus haircut)."""
+        bond_value = self.notional * self.bond_dirty_price / 100.0
+        return bond_value * (1 - self.haircut)
+
+    @property
+    def cost(self) -> float:
+        """Repo interest cost = cash_received × repo_rate × T."""
+        return self.cash_received * self.repo_rate * self.T
+
+    @property
+    def total_repayment(self) -> float:
+        """Total cash to repay at maturity."""
+        return self.cash_received + self.cost
+
+    def pv(self, discount_curve: DiscountCurve, valuation_date: date, maturity_date: date) -> float:
+        """PV from borrower's perspective.
+
+        PV = cash_received - df(T) × total_repayment.
+        """
+        df = discount_curve.df(maturity_date)
+        return self.cash_received - df * self.total_repayment
+
+
+class RepoFinancedPosition:
+    """Composite: repo financing + TRS exposure for prime brokerage economics.
+
+    Combines the repo (financing side) with a TRS (exposure side) to
+    compute net carry, breakeven repo, and implied repo from TRS spread.
+
+    Args:
+        bond_dirty_price: current dirty price of the collateral (per 100).
+        repo_rate: repo financing rate.
+        trs_spread: TRS spread paid by total return receiver.
+        asset_yield: yield/carry on the reference asset.
+        T: term in years.
+        haircut: repo haircut.
+        funding_rate: unsecured funding rate (for haircut-funded portion).
+        notional: position notional.
+        specialness: repo specialness premium (GC rate - special rate).
+    """
+
+    def __init__(
+        self,
+        bond_dirty_price: float,
+        repo_rate: float,
+        trs_spread: float = 0.0,
+        asset_yield: float = 0.0,
+        T: float = 1.0,
+        haircut: float = 0.0,
+        funding_rate: float = 0.05,
+        notional: float = 1_000_000.0,
+        specialness: float = 0.0,
+    ):
+        self.bond_dirty_price = bond_dirty_price
+        self.repo_rate = repo_rate
+        self.trs_spread = trs_spread
+        self.asset_yield = asset_yield
+        self.T = T
+        self.haircut = haircut
+        self.funding_rate = funding_rate
+        self.notional = notional
+        self.specialness = specialness
+
+    @property
+    def effective_repo_rate(self) -> float:
+        """Repo rate adjusted for specialness."""
+        return self.repo_rate - self.specialness
+
+    @property
+    def blended_financing_rate(self) -> float:
+        """All-in financing rate with haircut blending.
+
+        r_blend = (1-h) × repo_rate + h × funding_rate
+        """
+        return (1 - self.haircut) * self.effective_repo_rate + self.haircut * self.funding_rate
+
+    @property
+    def repo_cost(self) -> float:
+        """Total repo financing cost over the period."""
+        bond_value = self.notional * self.bond_dirty_price / 100.0
+        return bond_value * self.blended_financing_rate * self.T
+
+    @property
+    def trs_cost(self) -> float:
+        """TRS spread cost over the period."""
+        return self.notional * self.trs_spread * self.T
+
+    def net_carry(self) -> float:
+        """Net carry = asset income - repo cost - TRS cost.
+
+        Positive net carry means the position earns more than it costs to finance.
+        """
+        asset_income = self.notional * self.asset_yield * self.T
+        return asset_income - self.repo_cost - self.trs_cost
+
+    def breakeven_repo_rate(self) -> float:
+        """Repo rate at which net carry = 0.
+
+        Solving: asset_yield × notional × T = bond_value × r × T + trs_cost
+        → r = (asset_income - trs_cost) / (bond_value × T)
+        """
+        bond_value = self.notional * self.bond_dirty_price / 100.0
+        if bond_value * self.T <= 0:
+            return 0.0
+        asset_income = self.notional * self.asset_yield * self.T
+        return (asset_income - self.trs_cost) / (bond_value * self.T)
+
+    def implied_repo_from_trs_spread(self) -> float:
+        """Implied repo rate from the TRS spread.
+
+        In equilibrium: trs_spread = asset_yield - repo_rate (approximately).
+        → repo_rate = asset_yield - trs_spread.
+        """
+        return self.asset_yield - self.trs_spread
+
+    def implied_specialness_from_trs(self, gc_rate: float) -> float:
+        """Implied specialness from TRS spread vs GC spread.
+
+        specialness = gc_rate - implied_repo.
+        """
+        return gc_rate - self.implied_repo_from_trs_spread()
