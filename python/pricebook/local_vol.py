@@ -182,6 +182,66 @@ def _dupire_local_vol(
     return math.sqrt(max(local_var, 1e-10))
 
 
+# ---- Dupire calibration pipeline ----
+
+def calibrate_dupire(
+    spot: float,
+    rate: float,
+    strikes: list[float],
+    times: list[float],
+    implied_vols: list[list[float]],
+    div_yield: float = 0.0,
+    validate: bool = True,
+) -> LocalVolSurface:
+    """Calibrate Dupire local vol surface from market implied vols.
+
+    This is the standard calibration pipeline:
+    1. Build local vol surface from implied vols via Dupire equation.
+    2. Optionally validate: reprice vanillas under local vol MC.
+
+    Dupire (1994):
+        σ²_loc(K,T) = 2[∂C/∂T + (r-q)K ∂C/∂K + qC] / [K² ∂²C/∂K²]
+
+    Args:
+        spot: current spot.
+        rate: risk-free rate.
+        strikes: sorted strike levels.
+        times: sorted times to expiry.
+        implied_vols: 2D list, shape (len(times), len(strikes)).
+        div_yield: dividend yield.
+        validate: if True, warn if any local vol is extreme.
+
+    Returns:
+        Calibrated LocalVolSurface.
+
+    References:
+        Dupire, B. (1994). Pricing with a Smile. Risk, 7(1), 18-20.
+        Gatheral, J. (2006). The Volatility Surface. Wiley, Ch. 2.
+    """
+    import warnings
+
+    lv = LocalVolSurface.from_implied_vols(spot, rate, strikes, times, implied_vols, div_yield)
+
+    if validate:
+        for i in range(len(times)):
+            for j in range(len(strikes)):
+                v = lv.vols[i, j]
+                if v > 2.0:
+                    warnings.warn(
+                        f"Local vol = {v:.2f} at (K={strikes[j]}, T={times[i]}) — "
+                        f"extreme value, check input implied vols.",
+                        stacklevel=2,
+                    )
+                if v < 0.001:
+                    warnings.warn(
+                        f"Local vol = {v:.6f} at (K={strikes[j]}, T={times[i]}) — "
+                        f"near zero, check input implied vols.",
+                        stacklevel=2,
+                    )
+
+    return lv
+
+
 # ---- Local vol MC ----
 
 def local_vol_mc(

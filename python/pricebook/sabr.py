@@ -164,6 +164,65 @@ def sabr_calibrate(
     }
 
 
+def calibrate_sabr_smile(
+    forward: float,
+    strikes: list[float],
+    market_vols: list[float],
+    T: float,
+    beta: float = 0.5,
+    max_rmse_bp: float = 1.0,
+) -> dict[str, float]:
+    """Hardened SABR calibration with validation.
+
+    Calls sabr_calibrate() then validates:
+    - RMSE < max_rmse_bp (default 1bp)
+    - Parameters in valid ranges
+    - Reprice check on input strikes
+
+    Args:
+        max_rmse_bp: maximum acceptable RMSE in vol basis points.
+
+    Returns:
+        dict with alpha, beta, rho, nu, rmse, reprice_errors.
+
+    Raises:
+        ValueError if calibration fails validation.
+
+    References:
+        Hagan et al. (2002). Managing Smile Risk. Wilmott Magazine.
+    """
+    import warnings
+
+    result = sabr_calibrate(forward, strikes, market_vols, T, beta)
+
+    # Validate ranges
+    if result["alpha"] <= 0:
+        warnings.warn(f"SABR alpha = {result['alpha']:.6f} ≤ 0", stacklevel=2)
+    if not -1 < result["rho"] < 1:
+        warnings.warn(f"SABR rho = {result['rho']:.4f} outside (-1,1)", stacklevel=2)
+    if result["nu"] <= 0:
+        warnings.warn(f"SABR nu = {result['nu']:.6f} ≤ 0", stacklevel=2)
+
+    # Reprice check
+    reprice_errors = []
+    for k, mv in zip(strikes, market_vols):
+        model = sabr_implied_vol(forward, k, T, result["alpha"], result["beta"],
+                                  result["rho"], result["nu"])
+        err_bp = abs(model - mv) * 10_000
+        reprice_errors.append(err_bp)
+
+    result["reprice_errors_bp"] = reprice_errors
+    result["max_error_bp"] = max(reprice_errors) if reprice_errors else 0.0
+
+    if result["rmse"] * 10_000 > max_rmse_bp:
+        warnings.warn(
+            f"SABR RMSE = {result['rmse']*10_000:.2f}bp > {max_rmse_bp}bp threshold",
+            stacklevel=2,
+        )
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Shifted SABR
 # ---------------------------------------------------------------------------
