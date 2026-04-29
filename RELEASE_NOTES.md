@@ -2,6 +2,23 @@
 
 ---
 
+## v0.396.0 — 2026-04-29
+
+**Pricing engine — JSON in → price/risk out.** 6261 tests.
+
+### `pricebook.pricing_engine`
+- `price_from_json(json_str) → json_str`: complete pipeline, JSON to JSON.
+- `price_from_dict(request) → result`: programmatic API, no serialisation overhead.
+- Input: `valuation_date` + `market_data` (flat_rate, discount_curve, projection_curves, vol_surfaces, fx_spots) + `trades[]` + `config`.
+- Output: `status`, `results[]` (pv, greeks, risk per trade), `compute_time_ms`.
+- Market data modes: flat rate shortcut, serialised curves, or empty (fallback).
+- Greeks: DV01 via bump-and-reprice, configurable measures.
+- Error handling: partial results, per-trade errors, missing data fallbacks.
+- CDS/CLN: auto-fallback to flat survival curve when no credit curve in context.
+- PV accuracy verified: engine output matches direct `instrument.pv()` within 1e-8.
+
+---
+
 ## v0.395.0 — 2026-04-29
 
 **Curve + convention serialisation — all objects round-trip.** 6240 tests.
