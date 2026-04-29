@@ -2,6 +2,23 @@
 
 ---
 
+## v0.398.0 — 2026-04-29
+
+**Complete serialisation — 27 types on unified registry.** 6261 tests.
+
+### All types registered
+- **14 instruments:** irs, bond, cds, fra, deposit, ois, basis_swap, swaption, capfloor, term_loan, revolver, cln, fx_forward, trs
+- **6 curves:** discount_curve, survival_curve, spread_curve, flat_vol, ibor_curve, funding_curve
+- **3 config:** csa, pricing_context, multi_currency_curve_set
+- **2 containers:** trade, portfolio
+- **2 results:** trs_result, total_xva_result
+
+### Pattern
+Every type: `obj.to_dict() → {"type": "key", "params": {...}}` → `from_dict(d) → obj`.
+One line to add a new type: `@serialisable("key", ["field1", "field2", ...])`.
+
+---
+
 ## v0.397.0 — 2026-04-29
 
 **Serialisable mixin — 18 types auto-serialise from atoms up.** 6261 tests.
