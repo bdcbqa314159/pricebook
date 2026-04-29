@@ -2,6 +2,25 @@
 
 ---
 
+## v0.412.0 — 2026-04-29
+
+**CDS Layer 2: Hazard rate term structure.** 6395 tests.
+
+### SurvivalCurve enhancements
+- `forward_hazard(d1, d2)`: hazard rate between dates (conditional on survival).
+- `forward_survival(d1, d2)`: Q(d2 | alive at d1) = Q(d2)/Q(d1).
+- `marginal_default_density(d)`: f(t) = h(t) × Q(t).
+- `term_structure()`: extract full hazard term structure at pillar dates.
+- `bumped(shift)`, `bumped_at(pillar_idx, shift)`: public bump API.
+
+### `pricebook.hazard_term_structure`
+- `proxy_survival_curve()`: build proxy from liquid name + additive/multiplicative shift.
+- `liquidity_spread()`: total - credit decomposition.
+- `spread_from_survival()`: implied par spread from survival curve.
+- `compare_curves()`: side-by-side hazard/survival at all pillars.
+
+---
+
 ## v0.411.0 — 2026-04-29
 
 **CDS Layer 1: Hardened CDS instrument.** 6377 tests, 37 types.
