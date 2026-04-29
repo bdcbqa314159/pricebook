@@ -9,7 +9,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.asian_option import (
-    AsianOption, AsianSchedule, AsianResult, turnbull_wakeman,
+    AsianOption, AsianSchedule, AsianResult, turnbull_wakeman, curran_asian,
 )
 from pricebook.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
@@ -157,6 +157,51 @@ class TestAsianOption:
         rc = call.price(spot=100, curve=_curve(), vol=0.20, method="tw")
         rp = put.price(spot=100, curve=_curve(), vol=0.20, method="tw")
         assert rc.price != rp.price
+
+    def test_curran_method(self):
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        result = opt.price(spot=100, curve=_curve(), vol=0.20, method="curran")
+        assert result.method == "curran"
+        assert math.isfinite(result.price)
+        assert result.price > 0
+
+    def test_curran_vs_tw_agree(self):
+        """Curran and TW should agree within 10% for ATM options."""
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        tw = opt.price(spot=100, curve=_curve(), vol=0.20, method="tw")
+        curran = opt.price(spot=100, curve=_curve(), vol=0.20, method="curran")
+        assert abs(curran.price - tw.price) / max(tw.price, 0.01) < 0.10
+
+    def test_sobol_mc(self):
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        result = opt.price(spot=100, curve=_curve(), vol=0.20, method="mc_sobol", n_paths=10_000)
+        assert result.method == "mc_sobol"
+        assert math.isfinite(result.price)
+        assert result.price > 0
+
+    def test_sobol_finite_and_close(self):
+        """Sobol MC should produce finite price close to TW."""
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        sobol = opt.price(spot=100, curve=_curve(), vol=0.20, method="mc_sobol", n_paths=50_000)
+        tw = opt.price(spot=100, curve=_curve(), vol=0.20, method="tw")
+        assert math.isfinite(sobol.price)
+        # Sobol without CV has wider error than CV methods — within 10%
+        assert abs(sobol.price - tw.price) / max(tw.price, 0.01) < 0.10
+
+    def test_delta_profile(self):
+        schedule = AsianSchedule(
+            fixing_dates=[REF + timedelta(days=30*i) for i in range(1, 5)])
+        opt = AsianOption(schedule=schedule, strike=100)
+        profile = opt.delta_profile(spot=100, curve=_curve(), vol=0.20)
+        assert len(profile) == 5  # 0 to 4 fixings
+        # Delta should decrease as fixings accumulate
+        assert profile[0]["delta"] > profile[-1]["delta"]
+        # Last entry (all fixed) should have ~0 delta
+        assert abs(profile[-1]["delta"]) < 0.1
 
     def test_greeks(self):
         schedule = AsianSchedule.monthly(REF, END)
