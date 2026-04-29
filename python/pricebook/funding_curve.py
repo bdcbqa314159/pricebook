@@ -297,3 +297,23 @@ class CollateralisedPricer:
             csa_type=csa_type,
             funding_adjustment=funding_adj,
         )
+
+from pricebook.serialisable import _register
+
+FundingCurve._SERIAL_TYPE = "funding_curve"
+
+def _fc_to_dict(self):
+    return {"type": "funding_curve", "params": {
+        "ois_curve": self._ois.to_dict(),
+        "funding_spread_curve": self._spread.to_dict(),
+    }}
+
+@classmethod
+def _fc_from_dict(cls, d):
+    from pricebook.serialisable import from_dict as _fd
+    p = d["params"]
+    return cls(_fd(p["ois_curve"]), _fd(p["funding_spread_curve"]))
+
+FundingCurve.to_dict = _fc_to_dict
+FundingCurve.from_dict = _fc_from_dict
+_register(FundingCurve)

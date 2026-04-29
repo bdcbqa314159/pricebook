@@ -105,9 +105,10 @@ class TestTotalXVADecomposition:
             discount_curve=disc, cpty_survival=cpty, own_survival=own,
         )
         d = result.to_dict()
-        assert "total" in d
-        assert "bilateral_cva" in d
-        assert "total_funding" in d
+        assert d["type"] == "total_xva_result"
+        assert "total" in d["params"]
+        assert "bilateral_cva" in d["params"]
+        assert "total_funding" in d["params"]
 
     def test_zero_exposure_zero_xva(self):
         disc = _disc()

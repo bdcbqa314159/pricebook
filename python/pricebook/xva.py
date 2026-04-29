@@ -682,3 +682,25 @@ def implied_repo_rate_from_gap(
     if not 0.0 <= collateral_coverage <= 1.0:
         raise ValueError(f"collateral_coverage must be in [0, 1], got {collateral_coverage}")
     return repo_rate + (funding_rate - repo_rate) * (1.0 - collateral_coverage)
+
+from pricebook.serialisable import _register as _reg_result
+
+TotalXVAResult._SERIAL_TYPE = "total_xva_result"
+
+_orig_xva_to_dict = TotalXVAResult.to_dict
+
+def _xva_to_dict_wrapped(self):
+    d = _orig_xva_to_dict(self)
+    return {"type": "total_xva_result", "params": d}
+
+@classmethod
+def _xva_from_dict(cls, d):
+    p = d["params"]
+    return cls(cva=p["cva"], dva=p["dva"], cfa=p.get("cfa", 0.0),
+               dfa=p.get("dfa", 0.0), colva=p.get("colva", 0.0),
+               fva_val=p.get("fva", 0.0), mva_val=p.get("mva", 0.0),
+               kva_val=p.get("kva", 0.0))
+
+TotalXVAResult.to_dict = _xva_to_dict_wrapped
+TotalXVAResult.from_dict = _xva_from_dict
+_reg_result(TotalXVAResult)

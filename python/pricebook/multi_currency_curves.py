@@ -267,3 +267,67 @@ class MultiCurrencyCurveSet:
         result = cls()
         result.add_currency("EUR", ois, ibor_curves, tenor_bases)
         return result
+
+from pricebook.serialisable import _register
+
+MultiCurrencyCurveSet._SERIAL_TYPE = "multi_currency_curve_set"
+
+def _mcs_to_dict(self):
+    currencies = {}
+    for ccy in self.currencies:
+        ccy_d = {"ois": self.ois(ccy).to_dict()}
+        ibor_curves = {}
+        for name, ibor in self._ibor.items():
+            if ibor.conventions.currency == ccy:
+                ibor_curves[name] = ibor.to_dict()
+        if ibor_curves:
+            ccy_d["ibor"] = ibor_curves
+        basis = {}
+        for key, tb in self._tenor_basis.items():
+            if key.startswith(f"{ccy}_"):
+                pair = key[len(ccy) + 1:]
+                basis[pair] = {"dates": [d.isoformat() for d in tb.dates],
+                               "spreads": [float(s) for s in tb.spreads]}
+        if basis:
+            ccy_d["tenor_basis"] = basis
+        currencies[ccy] = ccy_d
+    result = {"type": "multi_currency_curve_set", "params": {"currencies": currencies}}
+    xccy = {}
+    for key, curve in self._xccy.items():
+        xccy[key] = curve.to_dict()
+    if xccy:
+        result["params"]["xccy_basis"] = xccy
+    return result
+
+@classmethod
+def _mcs_from_dict(cls, d):
+    from pricebook.serialisable import from_dict as _fd
+    from datetime import date as _d
+    p = d["params"]
+    mcs = cls()
+    for ccy, ccy_d in p.get("currencies", {}).items():
+        ois = _fd(ccy_d["ois"])
+        ibor_curves = {n: _fd(ib) for n, ib in ccy_d.get("ibor", {}).items()}
+        tenor_bases = {}
+        for pair, tb_d in ccy_d.get("tenor_basis", {}).items():
+            parts = pair.split("_")
+            short_conv = long_conv = None
+            for nm, ib in ibor_curves.items():
+                if parts[0] in nm: short_conv = ib.conventions
+                if len(parts) > 1 and parts[1] in nm: long_conv = ib.conventions
+            if short_conv and long_conv:
+                tenor_bases[pair] = TenorBasis(
+                    reference_date=ois.reference_date, short_tenor=short_conv,
+                    long_tenor=long_conv,
+                    dates=[_d.fromisoformat(s) for s in tb_d["dates"]],
+                    spreads=tb_d["spreads"])
+        mcs.add_currency(ccy, ois, ibor_curves, tenor_bases)
+    for key, xccy_d in p.get("xccy_basis", {}).items():
+        parts = key.split("_")
+        if len(parts) == 2:
+            mcs.add_xccy_basis(parts[0], parts[1], _fd(xccy_d))
+    return mcs
+
+MultiCurrencyCurveSet.to_dict = _mcs_to_dict
+MultiCurrencyCurveSet.from_dict = _mcs_from_dict
+_register(MultiCurrencyCurveSet)

@@ -196,3 +196,51 @@ class PricingContext:
             vol_surfaces=vol_surfaces,
             credit_curves=credit_curves,
         )
+
+from pricebook.serialisable import _register
+
+PricingContext._SERIAL_TYPE = "pricing_context"
+
+def _ctx_to_dict(self):
+    d = {"type": "pricing_context", "params": {"valuation_date": self.valuation_date.isoformat()}}
+    p = d["params"]
+    if self.discount_curve is not None:
+        p["discount_curve"] = self.discount_curve.to_dict()
+    if self.projection_curves:
+        p["projection_curves"] = {n: c.to_dict() if hasattr(c, "to_dict") else {} for n, c in self.projection_curves.items()}
+    if self.vol_surfaces:
+        vs = {}
+        for n, v in self.vol_surfaces.items():
+            if hasattr(v, "to_dict"):
+                vs[n] = v.to_dict()
+        if vs:
+            p["vol_surfaces"] = vs
+    if self.credit_curves:
+        p["credit_curves"] = {n: c.to_dict() for n, c in self.credit_curves.items()}
+    if self.fx_spots:
+        p["fx_spots"] = {f"{b}/{q}": r for (b, q), r in self.fx_spots.items()}
+    return d
+
+@classmethod
+def _ctx_from_dict(cls, d):
+    from datetime import date as _d
+    from pricebook.serialisable import from_dict as _fd
+    p = d["params"]
+    disc = _fd(p["discount_curve"]) if "discount_curve" in p else None
+    proj = {n: _fd(c) for n, c in p.get("projection_curves", {}).items()} or None
+    vols = {}
+    for n, v in p.get("vol_surfaces", {}).items():
+        if isinstance(v, dict) and "type" in v:
+            vols[n] = _fd(v)
+    credit = {n: _fd(c) for n, c in p.get("credit_curves", {}).items()} or None
+    fx = {}
+    for ps, r in p.get("fx_spots", {}).items():
+        b, q = ps.split("/")
+        fx[(b, q)] = r
+    return cls(valuation_date=_d.fromisoformat(p["valuation_date"]),
+               discount_curve=disc, projection_curves=proj,
+               vol_surfaces=vols or None, credit_curves=credit, fx_spots=fx or None)
+
+PricingContext.to_dict = _ctx_to_dict
+PricingContext.from_dict = _ctx_from_dict
+_register(PricingContext)

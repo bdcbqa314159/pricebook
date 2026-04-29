@@ -282,3 +282,29 @@ def bootstrap_ibor(
     )
 
     return IBORCurve(projection, conventions, discount_curve)
+
+from pricebook.serialisable import _register
+
+IBORCurve._SERIAL_TYPE = "ibor_curve"
+
+def _ibor_to_dict(self):
+    d = {"type": "ibor_curve", "params": {
+        "conventions_name": self.conventions.name,
+        "projection_curve": self._projection.to_dict(),
+    }}
+    if self._discount is not None:
+        d["params"]["discount_curve"] = self._discount.to_dict()
+    return d
+
+@classmethod
+def _ibor_from_dict(cls, d):
+    from pricebook.serialisable import from_dict as _fd
+    p = d["params"]
+    conventions = get_conventions(p["conventions_name"])
+    proj = _fd(p["projection_curve"])
+    disc = _fd(p["discount_curve"]) if "discount_curve" in p else None
+    return cls(proj, conventions, disc)
+
+IBORCurve.to_dict = _ibor_to_dict
+IBORCurve.from_dict = _ibor_from_dict
+_register(IBORCurve)

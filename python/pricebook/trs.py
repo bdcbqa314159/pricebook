@@ -642,3 +642,25 @@ def _trs_from_dict(cls, d):
 TotalReturnSwap.to_dict = _trs_to_dict
 TotalReturnSwap.from_dict = _trs_from_dict
 _register(TotalReturnSwap)
+
+from pricebook.serialisable import _register as _reg_result
+
+TRSResult._SERIAL_TYPE = "trs_result"
+
+_orig_trs_result_to_dict = TRSResult.to_dict
+
+def _trs_result_to_dict_wrapped(self):
+    d = _orig_trs_result_to_dict(self)
+    return {"type": "trs_result", "params": d}
+
+@classmethod
+def _trs_result_from_dict(cls, d):
+    p = d["params"]
+    return cls(value=p["price"], total_return_leg=p["total_return_leg"],
+               funding_leg=p["funding_leg"], price_return=p["price_return"],
+               income_return=p["income_return"], fva=p["fva"],
+               repo_factor=p["repo_factor"], dpv=p.get("dpv", 0.0))
+
+TRSResult.to_dict = _trs_result_to_dict_wrapped
+TRSResult.from_dict = _trs_result_from_dict
+_reg_result(TRSResult)

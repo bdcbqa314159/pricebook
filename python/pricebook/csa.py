@@ -527,3 +527,30 @@ def non_cash_collateral_discount_rate(
         haircut_cost=haircut_cost,
         collateral_costs=costs,
     )
+
+from pricebook.serialisable import _register
+
+CSA._SERIAL_TYPE = "csa"
+
+def _csa_to_dict(self):
+    return {"type": "csa", "params": {
+        "threshold": self.threshold, "mta": self.mta, "rounding": self.rounding,
+        "margin_frequency": self.margin_frequency.value,
+        "eligible_collateral": [c.value for c in self.eligible_collateral],
+        "haircut": self.haircut, "rehypothecation": self.rehypothecation,
+        "initial_margin": self.initial_margin, "currency": self.currency,
+    }}
+
+@classmethod
+def _csa_from_dict(cls, d):
+    p = d["params"]
+    return cls(threshold=p.get("threshold", 0.0), mta=p.get("mta", 0.0),
+               rounding=p.get("rounding", 1.0),
+               margin_frequency=MarginFrequency(p.get("margin_frequency", "daily")),
+               eligible_collateral=[CollateralType(c) for c in p.get("eligible_collateral", ["cash"])],
+               haircut=p.get("haircut", 0.0), rehypothecation=p.get("rehypothecation", True),
+               initial_margin=p.get("initial_margin", 0.0), currency=p.get("currency", "USD"))
+
+CSA.to_dict = _csa_to_dict
+CSA.from_dict = _csa_from_dict
+_register(CSA)
