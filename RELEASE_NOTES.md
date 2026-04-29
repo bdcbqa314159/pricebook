@@ -2,6 +2,25 @@
 
 ---
 
+## v0.406.0 — 2026-04-29
+
+**Layer D: Multi-asset MC + pathwise Greeks.** 6344 tests.
+
+### `pricebook.multi_asset_mc.CorrelatedGBM`
+- Cholesky-based correlated GBM path generation for N assets.
+- `generate(T, n_steps, n_paths)` → shape (n_assets, n_paths, n_steps+1).
+- Validates correlation matrix (positive definite), preserves empirical correlation.
+- `basket_option_mc()`: weighted basket call/put pricing.
+- `worst_of_mc()`: probability of worst performer breaching barrier.
+
+### `pricebook.pathwise_greeks`
+- `pathwise_asian_delta()`: ∂payoff/∂S₀ along each GBM path. No re-simulation.
+- `pathwise_european_delta()`: same for European options.
+- Matches bump-and-reprice within MC error. ATM call delta ≈ 0.5.
+- Foundation for AAD integration.
+
+---
+
 ## v0.405.0 — 2026-04-29
 
 **Layer C complete: Barrier + Autocallable + Cliquet + VarianceSwap.** 6330 tests.
