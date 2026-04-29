@@ -1,5 +1,7 @@
 """Survival curve for credit modeling."""
 
+from __future__ import annotations
+
 import math
 from datetime import date
 
@@ -117,6 +119,77 @@ class SurvivalCurve:
         if d1 >= d2:
             raise ValueError(f"d1 ({d1}) must be before d2 ({d2})")
         return self.survival(d1) - self.survival(d2)
+
+    def forward_hazard(self, d1: date, d2: date) -> float:
+        """Forward hazard rate between d1 and d2.
+
+        h(d1, d2) = -ln(Q(d2) / Q(d1)) / τ(d1, d2)
+
+        This is the hazard rate that would apply if the entity is known
+        to have survived to d1.
+        """
+        if d1 >= d2:
+            raise ValueError(f"d1 ({d1}) must be before d2 ({d2})")
+        q1 = self.survival(d1)
+        q2 = self.survival(d2)
+        if q1 <= 0 or q2 <= 0:
+            return 0.0
+        tau = year_fraction(d1, d2, self.day_count)
+        if tau <= 0:
+            return 0.0
+        return -math.log(q2 / q1) / tau
+
+    def forward_survival(self, d1: date, d2: date) -> float:
+        """Conditional survival probability: Q(d2 | alive at d1).
+
+        Q(d1, d2) = Q(d2) / Q(d1)
+
+        Probability of surviving to d2 given survival to d1.
+        """
+        q1 = self.survival(d1)
+        if q1 <= 0:
+            return 0.0
+        return self.survival(d2) / q1
+
+    def marginal_default_density(self, d: date) -> float:
+        """Instantaneous default density at date d.
+
+        f(t) = h(t) × Q(t)
+
+        where h(t) is the hazard rate and Q(t) is survival probability.
+        This is the unconditional probability density of defaulting at time t.
+        """
+        return self.hazard_rate(d) * self.survival(d)
+
+    def term_structure(self) -> list[dict]:
+        """Extract the full hazard rate term structure at each pillar.
+
+        Returns list of {date, survival, hazard_rate, default_prob_1y}.
+        """
+        result = []
+        for i, d in enumerate(self._pillar_dates):
+            from datetime import timedelta
+            d_1y = d + timedelta(days=365)
+            result.append({
+                "date": d.isoformat(),
+                "survival": self.survival(d),
+                "hazard_rate": self.hazard_rate(d),
+                "default_prob_1y": self.default_prob(d, d_1y) if d_1y <= self._pillar_dates[-1] + timedelta(days=365) else 0.0,
+            })
+        return result
+
+    def bumped_at(self, pillar_idx: int, shift: float) -> SurvivalCurve:
+        """Return a new curve with one pillar's hazard rate bumped.
+
+        Public API for per-pillar sensitivity (previously internal in credit_risk.py).
+        """
+        from pricebook.credit_risk import _bump_survival_curve_at
+        return _bump_survival_curve_at(self, pillar_idx, shift)
+
+    def bumped(self, shift: float) -> SurvivalCurve:
+        """Return a new curve with all hazard rates parallel-shifted."""
+        from pricebook.credit_risk import _bump_survival_curve
+        return _bump_survival_curve(self, shift)
 
 from pricebook.serialisable import _register
 
