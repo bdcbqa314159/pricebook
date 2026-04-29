@@ -2,6 +2,25 @@
 
 ---
 
+## v0.404.0 — 2026-04-29
+
+**Layers B+C: Smile pricing + Barrier + VarianceSwap.** 6311 tests.
+
+### Layer B: Smile-consistent Asian (v0.403)
+- `method="local_vol"`: LocalVolSurface path generation.
+- `method="sabr"`: SABR (alpha, beta, rho, nu) forward+vol simulation.
+- `method="heston"`: Euler MC for Heston SDE (v0, kappa, theta, xi, rho).
+- AsianOption now has 8 pricing methods.
+
+### Layer C: Product extensions
+- **BarrierOption** (`barrier_option.py`): up/down × in/out. PDE via `fd_barrier_knockout/knockin` + MC with discrete monitoring. Greeks. Barrier parity tested (KI+KO=vanilla). Serialisable.
+- **VarianceSwapOption** (`variance_swap_instrument.py`): wraps `variance_swap_pv()`. Strike in vol terms. Serialisable.
+
+### Registry: 30 types
+28 + barrier + variance_swap.
+
+---
+
 ## v0.403.0 — 2026-04-29
 
 **Layer B: Smile-consistent Asian options.** 6299 tests.
