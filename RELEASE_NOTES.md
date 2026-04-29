@@ -2,6 +2,23 @@
 
 ---
 
+## v0.414.0 — 2026-04-29
+
+**CDS Layer 4: Tranche pricing + base correlation.** 6416 tests, 39 types.
+
+### `pricebook.tranche_pricing.TrancheCDS`
+- Tranche CDS on [attachment, detachment] slice of index portfolio loss.
+- `price()`: Gaussian copula MC → `TrancheResult` (expected loss, par spread, protection/premium PV).
+- `expected_tranche_loss()`: MC simulation of tranche loss distribution.
+- Standard tranches: equity [0-3%], mez [3-6/6-9/9-12%], senior [12-22%].
+
+### Base correlation calibration
+- `calibrate_base_correlation()`: for each detachment, solve for ρ that reprices market quote.
+- Base correlation increases with seniority (correlation skew).
+- Equity < mezzanine < senior correlation.
+
+---
+
 ## v0.413.0 — 2026-04-29
 
 **CDS Layer 3: Index products.** 6405 tests, 38 types.
