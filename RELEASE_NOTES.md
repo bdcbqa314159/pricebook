@@ -2,6 +2,26 @@
 
 ---
 
+## v0.401.0 — 2026-04-29
+
+**Asian options — schedule-aware, Turnbull-Wakeman, partial fixings.** 6288 tests.
+
+### `pricebook.asian_option.AsianOption`
+- `AsianSchedule`: monthly, weekly, daily, or custom fixing dates with weights.
+- `turnbull_wakeman()`: lognormal moment-matching approximation (TW 1991).
+  Handles partial fixings — known values contribute exact M₁, M₂.
+- `AsianOption.price()`: auto-selects TW (fixed strike) or MC+CV (floating).
+- `AsianOption.greeks()`: delta, gamma, vega via bump-and-reprice.
+- Partial fixings: `known_fixings={date: value}` splits known/future.
+- TW vs MC agree within 1% (24 tests).
+
+### Serialisable from day one
+- `@serialisable("asian", ...)` — on the registry. Round-trips through JSON.
+- Schedule, fixings, option type all serialise/deserialise.
+- PV after round-trip matches original within 1e-8.
+
+---
+
 ## v0.400.0 — 2026-04-29
 
 **Lens audit + cleanup — serialization.py gutted from 852→130 lines.** 6264 tests.
