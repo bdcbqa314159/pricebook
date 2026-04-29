@@ -229,6 +229,83 @@ class TestAsianOption:
         assert "method" in d
 
 
+# ---- Layer B: Smile-consistent ----
+
+class TestAsianSmile:
+
+    def test_local_vol(self):
+        """Local vol Asian should produce finite price."""
+        from pricebook.local_vol import LocalVolSurface
+        import numpy as np
+        strikes = np.array([80, 90, 100, 110, 120], dtype=float)
+        times = np.array([0.25, 0.5, 1.0], dtype=float)
+        vols = np.full((3, 5), 0.20)
+        vols[:, 0] = 0.25  # smile: higher vol for low strikes
+        vols[:, 4] = 0.22
+        lv = LocalVolSurface(strikes, times, vols)
+
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        result = opt.price(spot=100, curve=_curve(), vol=0.20, method="local_vol",
+                           n_paths=10_000, vol_surface=lv)
+        assert math.isfinite(result.price)
+        assert result.price > 0
+
+    def test_local_vol_differs_from_flat(self):
+        """Smile should produce different price from flat vol."""
+        from pricebook.local_vol import LocalVolSurface
+        import numpy as np
+        strikes = np.array([80, 90, 100, 110, 120], dtype=float)
+        times = np.array([0.25, 0.5, 1.0], dtype=float)
+        vols = np.full((3, 5), 0.20)
+        vols[:, 0] = 0.30  # big skew
+        vols[:, 1] = 0.25
+        lv = LocalVolSurface(strikes, times, vols)
+
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        flat = opt.price(spot=100, curve=_curve(), vol=0.20, method="mc", n_paths=20_000)
+        smile = opt.price(spot=100, curve=_curve(), vol=0.20, method="local_vol",
+                          n_paths=20_000, vol_surface=lv)
+        # Prices should differ when smile is significant
+        assert flat.price != smile.price
+
+    def test_sabr(self):
+        """SABR Asian should produce finite price."""
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        result = opt.price(spot=100, curve=_curve(), vol=0.20, method="sabr",
+                           n_paths=10_000, alpha=0.20, beta=0.5, rho=-0.3, nu=0.4)
+        assert math.isfinite(result.price)
+        assert result.price > 0
+
+    def test_heston(self):
+        """Heston Asian should produce finite price."""
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        result = opt.price(spot=100, curve=_curve(), vol=0.20, method="heston",
+                           n_paths=10_000, v0=0.04, kappa=2.0, theta=0.04,
+                           xi=0.3, rho=-0.7)
+        assert math.isfinite(result.price)
+        assert result.price > 0
+
+    def test_heston_zero_volvol_matches_flat(self):
+        """Heston with xi=0 should converge to GBM (flat vol)."""
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        heston = opt.price(spot=100, curve=_curve(), vol=0.20, method="heston",
+                           n_paths=50_000, v0=0.04, kappa=2.0, theta=0.04,
+                           xi=0.0, rho=0.0)
+        flat = opt.price(spot=100, curve=_curve(), vol=0.20, method="mc", n_paths=50_000)
+        assert abs(heston.price - flat.price) / max(flat.price, 0.01) < 0.05
+
+    def test_local_vol_requires_surface(self):
+        schedule = AsianSchedule.monthly(REF, END)
+        opt = AsianOption(schedule=schedule, strike=100)
+        with pytest.raises(ValueError, match="vol_surface"):
+            opt.price(spot=100, curve=_curve(), vol=0.20, method="local_vol")
+
+
 # ---- Serialisation ----
 
 class TestAsianOptionSerialisation:

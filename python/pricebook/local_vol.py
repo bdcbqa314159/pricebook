@@ -240,3 +240,38 @@ def local_vol_mc_european(
         payoffs = np.maximum(strike - S_T, 0)
 
     return float(df * payoffs.mean())
+
+
+def local_vol_mc_paths(
+    spot: float,
+    rate: float,
+    lv_surface: LocalVolSurface,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    div_yield: float = 0.0,
+    seed: int = 42,
+) -> np.ndarray:
+    """Simulate full spot paths under local vol dynamics.
+
+    Returns:
+        Array of shape (n_paths, n_steps+1) including S(0).
+    """
+    rng = np.random.default_rng(seed)
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+
+    paths = np.zeros((n_paths, n_steps + 1))
+    paths[:, 0] = spot
+
+    S = np.full(n_paths, spot, dtype=float)
+    for step in range(n_steps):
+        t = step * dt
+        Z = rng.standard_normal(n_paths)
+        vols = np.array([lv_surface.vol(s, t) for s in S])
+        S = S * np.exp(
+            (rate - div_yield - 0.5 * vols ** 2) * dt + vols * sqrt_dt * Z
+        )
+        paths[:, step + 1] = S
+
+    return paths

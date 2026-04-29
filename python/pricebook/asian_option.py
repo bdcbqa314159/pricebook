@@ -398,17 +398,20 @@ class AsianOption:
         method: str = "auto",
         n_paths: int = 100_000,
         seed: int = 42,
+        **kwargs,
     ) -> AsianResult:
         """Price the Asian option.
 
         Args:
             spot: current underlying price.
             curve: discount curve (for rate extraction).
-            vol: flat volatility.
+            vol: flat volatility (or initial vol for stoch vol models).
             div_yield: continuous dividend yield.
-            method: "auto" (TW if no floating, MC otherwise), "tw", "mc".
+            method: "auto", "tw", "curran", "mc", "mc_sobol",
+                    "local_vol", "sabr", "heston".
             n_paths: MC paths (if MC method).
             seed: random seed.
+            **kwargs: model-specific params (vol_surface, alpha, beta, rho, nu, etc.)
         """
         ref = curve.reference_date
         T = year_fraction(ref, self.schedule.fixing_dates[-1], DayCountConvention.ACT_365_FIXED)
@@ -484,6 +487,44 @@ class AsianOption:
                 n_fixed=self.n_fixed, n_remaining=self.n_remaining,
             )
 
+        if method == "local_vol":
+            # Smile-consistent MC using local vol surface
+            # Requires vol_surface keyword (LocalVolSurface)
+            from pricebook.local_vol import local_vol_mc_paths
+            lv_surface = kwargs.get("vol_surface")
+            if lv_surface is None:
+                raise ValueError("method='local_vol' requires vol_surface=LocalVolSurface")
+            n_steps = self.schedule.n_fixings
+            paths = local_vol_mc_paths(spot, rate, lv_surface, T, n_steps, n_paths,
+                                        div_yield, seed)
+            return self._payoff_from_paths(paths, rate, T)
+
+        if method == "sabr":
+            # SABR stochastic vol MC
+            from pricebook.sabr_mc import sabr_mc_paths
+            alpha = kwargs.get("alpha", vol)
+            beta = kwargs.get("beta", 1.0)
+            rho = kwargs.get("rho", 0.0)
+            nu = kwargs.get("nu", 0.3)
+            forward = spot * math.exp((rate - div_yield) * T)
+            n_steps = max(self.schedule.n_fixings, 50)
+            F, _ = sabr_mc_paths(forward, T, alpha, beta, rho, nu, n_steps, n_paths, seed)
+            # Convert forward paths to spot-equivalent
+            # F paths are already the averaging values
+            return self._payoff_from_paths(F, rate, T)
+
+        if method == "heston":
+            # Heston stochastic vol MC
+            v0 = kwargs.get("v0", vol ** 2)
+            kappa = kwargs.get("kappa", 2.0)
+            theta = kwargs.get("theta", vol ** 2)
+            xi = kwargs.get("xi", 0.3)
+            rho_h = kwargs.get("rho", -0.7)
+            n_steps = max(self.schedule.n_fixings, 50)
+            paths = self._heston_paths(spot, rate, div_yield, v0, kappa, theta,
+                                        xi, rho_h, T, n_steps, n_paths, seed)
+            return self._payoff_from_paths(paths, rate, T)
+
         # MC method (pseudo-random with control variate)
         n_steps = self.schedule.n_fixings
         mc = mc_asian_arithmetic(
@@ -499,6 +540,77 @@ class AsianOption:
             method="mc_cv",
             n_fixed=self.n_fixed, n_remaining=self.n_remaining,
         )
+
+    def _payoff_from_paths(self, paths: np.ndarray, rate: float, T: float) -> AsianResult:
+        """Compute Asian payoff from full paths array (n_paths, n_steps+1)."""
+        monitoring = paths[:, 1:]  # exclude t=0
+        arith_avg = monitoring.mean(axis=1)
+        df_val = math.exp(-rate * T)
+
+        if self.floating_strike:
+            terminal = paths[:, -1]
+            if self.option_type == OptionType.CALL:
+                payoffs = np.maximum(terminal - arith_avg, 0.0)
+            else:
+                payoffs = np.maximum(arith_avg - terminal, 0.0)
+        else:
+            if self.option_type == OptionType.CALL:
+                payoffs = np.maximum(arith_avg - self.strike, 0.0)
+            else:
+                payoffs = np.maximum(self.strike - arith_avg, 0.0)
+
+        discounted = df_val * payoffs
+        price = float(discounted.mean())
+        std_err = float(discounted.std(ddof=1) / math.sqrt(len(discounted)))
+        method_name = "smile_mc"
+
+        return AsianResult(
+            price=price * self.notional,
+            std_error=std_err * self.notional,
+            n_paths=len(payoffs),
+            method=method_name,
+            n_fixed=self.n_fixed, n_remaining=self.n_remaining,
+        )
+
+    @staticmethod
+    def _heston_paths(
+        spot: float, rate: float, div_yield: float,
+        v0: float, kappa: float, theta: float, xi: float, rho: float,
+        T: float, n_steps: int, n_paths: int, seed: int,
+    ) -> np.ndarray:
+        """Euler MC for Heston SDE. Returns paths (n_paths, n_steps+1).
+
+        dS/S = (r-q)dt + √V dW₁
+        dV = κ(θ-V)dt + ξ√V dW₂
+        dW₁·dW₂ = ρ dt
+        """
+        rng = np.random.default_rng(seed)
+        dt = T / n_steps
+        sqrt_dt = math.sqrt(dt)
+
+        paths = np.zeros((n_paths, n_steps + 1))
+        paths[:, 0] = spot
+        V = np.full(n_paths, v0)
+        S = np.full(n_paths, spot, dtype=float)
+
+        for step in range(n_steps):
+            z1 = rng.standard_normal(n_paths)
+            z2 = rng.standard_normal(n_paths)
+            w1 = z1
+            w2 = rho * z1 + math.sqrt(1.0 - rho ** 2) * z2
+
+            V_safe = np.maximum(V, 0.0)
+            sqrt_v = np.sqrt(V_safe)
+
+            S = S * np.exp(
+                (rate - div_yield - 0.5 * V_safe) * dt + sqrt_v * sqrt_dt * w1
+            )
+            V = V + kappa * (theta - V_safe) * dt + xi * sqrt_v * sqrt_dt * w2
+            V = np.maximum(V, 0.0)
+
+            paths[:, step + 1] = S
+
+        return paths
 
     def greeks(
         self,
