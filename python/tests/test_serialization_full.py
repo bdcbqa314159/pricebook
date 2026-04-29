@@ -227,6 +227,131 @@ class TestCurveRoundTrip:
         sc2 = survival_curve_from_dict(d)
         assert sc2.survival(END_5Y) == pytest.approx(sc.survival(END_5Y))
 
+    def test_spread_curve(self):
+        from pricebook.rfr import SpreadCurve
+        from pricebook.serialization import spread_curve_to_dict, spread_curve_from_dict
+        sc = SpreadCurve(REF, [END_5Y, END_10Y], [0.003, 0.005])
+        d = spread_curve_to_dict(sc)
+        sc2 = spread_curve_from_dict(d)
+        assert sc2.spread(END_5Y) == pytest.approx(0.003)
+        assert sc2.spread(END_10Y) == pytest.approx(0.005)
+
+    def test_spread_curve_json(self):
+        from pricebook.rfr import SpreadCurve
+        sc = SpreadCurve(REF, [END_5Y], [0.004])
+        s = to_json(sc)
+        sc2 = from_json(s)
+        assert sc2.spread(END_5Y) == pytest.approx(0.004)
+
+    def test_ibor_curve(self):
+        from pricebook.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
+        from pricebook.discount_curve import DiscountCurve
+        from pricebook.serialization import ibor_curve_to_dict, ibor_curve_from_dict
+        ois = DiscountCurve.flat(REF, 0.03)
+        ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois,
+                              swaps=[(END_5Y, 0.035)])
+        d = ibor_curve_to_dict(ibor)
+        assert d["type"] == "IBORCurve"
+        assert d["params"]["conventions_name"] == "EURIBOR_3M"
+        ibor2 = ibor_curve_from_dict(d)
+        assert ibor2.conventions.name == "EURIBOR_3M"
+        assert ibor2.forward_rate(REF + timedelta(days=365), REF + timedelta(days=456)) == \
+            pytest.approx(ibor.forward_rate(REF + timedelta(days=365), REF + timedelta(days=456)))
+
+    def test_ibor_curve_json(self):
+        from pricebook.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
+        from pricebook.discount_curve import DiscountCurve
+        ois = DiscountCurve.flat(REF, 0.03)
+        ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois,
+                              swaps=[(END_5Y, 0.035)])
+        s = to_json(ibor)
+        ibor2 = from_json(s)
+        assert ibor2.conventions.name == "EURIBOR_3M"
+
+    def test_funding_curve(self):
+        from pricebook.funding_curve import FundingCurve
+        from pricebook.discount_curve import DiscountCurve
+        from pricebook.serialization import funding_curve_to_dict, funding_curve_from_dict
+        ois = DiscountCurve.flat(REF, 0.03)
+        fc = FundingCurve.flat_spread(ois, 0.005)
+        d = funding_curve_to_dict(fc)
+        fc2 = funding_curve_from_dict(d)
+        assert fc2.df(END_5Y) == pytest.approx(fc.df(END_5Y), rel=1e-4)
+
+    def test_funding_curve_json(self):
+        from pricebook.funding_curve import FundingCurve
+        from pricebook.discount_curve import DiscountCurve
+        ois = DiscountCurve.flat(REF, 0.03)
+        fc = FundingCurve.flat_spread(ois, 0.005)
+        s = to_json(fc)
+        fc2 = from_json(s)
+        assert fc2.df(END_5Y) == pytest.approx(fc.df(END_5Y), rel=1e-4)
+
+
+# ---- CSA ----
+
+class TestCSARoundTrip:
+    def test_csa(self):
+        from pricebook.csa import CSA, CollateralType, MarginFrequency
+        from pricebook.serialization import csa_to_dict, csa_from_dict
+        csa = CSA(threshold=1_000_000, mta=50_000, currency="EUR",
+                  haircut=0.02, rehypothecation=False)
+        d = csa_to_dict(csa)
+        csa2 = csa_from_dict(d)
+        assert csa2.threshold == 1_000_000
+        assert csa2.currency == "EUR"
+        assert csa2.rehypothecation is False
+        assert csa2.haircut == 0.02
+
+    def test_csa_json(self):
+        from pricebook.csa import CSA
+        csa = CSA(threshold=500_000, currency="USD")
+        s = to_json(csa)
+        csa2 = from_json(s)
+        assert csa2.threshold == 500_000
+
+
+# ---- MultiCurrencyCurveSet ----
+
+class TestMultiCurrencyCurveSetRoundTrip:
+    def test_usd_only(self):
+        from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+        from pricebook.serialization import (
+            multi_currency_curves_to_dict, multi_currency_curves_from_dict)
+        mcs = MultiCurrencyCurveSet.usd_post_libor(REF, [
+            (REF + timedelta(days=365), 0.04),
+            (REF + timedelta(days=1825), 0.042),
+        ])
+        d = multi_currency_curves_to_dict(mcs)
+        mcs2 = multi_currency_curves_from_dict(d)
+        assert "USD" in mcs2.currencies
+        assert mcs2.ois("USD").df(END_5Y) == pytest.approx(
+            mcs.ois("USD").df(END_5Y), rel=1e-6)
+
+    def test_eur_with_euribor(self):
+        from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+        from pricebook.serialization import (
+            multi_currency_curves_to_dict, multi_currency_curves_from_dict)
+        mcs = MultiCurrencyCurveSet.eur_with_euribor(
+            REF,
+            estr_rates=[(END_5Y, 0.03)],
+            euribor_3m_swaps=[(END_5Y, 0.035)],
+        )
+        d = multi_currency_curves_to_dict(mcs)
+        mcs2 = multi_currency_curves_from_dict(d)
+        assert "EUR" in mcs2.currencies
+        ibor = mcs2.ibor("EURIBOR_3M")
+        assert ibor.conventions.name == "EURIBOR_3M"
+
+    def test_json_round_trip(self):
+        from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+        mcs = MultiCurrencyCurveSet.usd_post_libor(REF, [
+            (REF + timedelta(days=365), 0.04),
+        ])
+        s = to_json(mcs)
+        mcs2 = from_json(s)
+        assert "USD" in mcs2.currencies
+
 
 # ---- Trade/Portfolio ----
 

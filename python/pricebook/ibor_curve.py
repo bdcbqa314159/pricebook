@@ -102,6 +102,28 @@ TIBOR_3M_CONVENTIONS = IBORConventions(
 )
 
 
+# ---- Conventions registry ----
+
+_CONVENTIONS_REGISTRY: dict[str, IBORConventions] = {
+    "EURIBOR_3M": EURIBOR_3M_CONVENTIONS,
+    "EURIBOR_6M": EURIBOR_6M_CONVENTIONS,
+    "TIBOR_3M": TIBOR_3M_CONVENTIONS,
+}
+
+
+def get_conventions(name: str) -> IBORConventions:
+    """Look up IBORConventions by name. Raises KeyError if not found."""
+    if name not in _CONVENTIONS_REGISTRY:
+        available = ", ".join(sorted(_CONVENTIONS_REGISTRY.keys()))
+        raise KeyError(f"Unknown conventions '{name}'. Available: {available}")
+    return _CONVENTIONS_REGISTRY[name]
+
+
+def register_conventions(name: str, conventions: IBORConventions) -> None:
+    """Register custom IBORConventions for serialisation."""
+    _CONVENTIONS_REGISTRY[name] = conventions
+
+
 # ---- IBORCurve ----
 
 class IBORCurve:

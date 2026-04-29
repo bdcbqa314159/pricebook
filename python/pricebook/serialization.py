@@ -98,6 +98,214 @@ def survival_curve_from_dict(d: dict[str, Any]):
     )
 
 
+# ---- SpreadCurve ----
+
+def spread_curve_to_dict(sc) -> dict[str, Any]:
+    """Serialize a SpreadCurve to a dict."""
+    return {
+        "type": "SpreadCurve",
+        "params": {
+            "reference_date": _date_to_str(sc.reference_date),
+            "dates": [_date_to_str(d) for d in sc.dates],
+            "spreads": [float(s) for s in sc.spreads],
+            "day_count": _enum_to_str(sc.day_count),
+        },
+    }
+
+
+def spread_curve_from_dict(d: dict[str, Any]):
+    """Deserialize a SpreadCurve from a dict."""
+    from pricebook.rfr import SpreadCurve
+    from pricebook.day_count import DayCountConvention
+    p = d["params"]
+    return SpreadCurve(
+        reference_date=_str_to_date(p["reference_date"]),
+        dates=[_str_to_date(s) for s in p["dates"]],
+        spreads=p["spreads"],
+        day_count=DayCountConvention(p.get("day_count", "ACT_365_FIXED")),
+    )
+
+
+# ---- IBORCurve ----
+
+def ibor_curve_to_dict(ibor) -> dict[str, Any]:
+    """Serialize an IBORCurve to a dict.
+
+    Conventions are serialised by name (registered constants).
+    The projection curve is serialised as a DiscountCurve.
+    """
+    d: dict[str, Any] = {
+        "type": "IBORCurve",
+        "params": {
+            "conventions_name": ibor.conventions.name,
+            "projection_curve": discount_curve_to_dict(ibor.projection_curve),
+        },
+    }
+    if ibor.discount_curve is not None:
+        d["params"]["discount_curve"] = discount_curve_to_dict(ibor.discount_curve)
+    return d
+
+
+def ibor_curve_from_dict(d: dict[str, Any]):
+    """Deserialize an IBORCurve from a dict."""
+    from pricebook.ibor_curve import IBORCurve, get_conventions
+    p = d["params"]
+    conventions = get_conventions(p["conventions_name"])
+    proj = discount_curve_from_dict(p["projection_curve"])
+    disc = discount_curve_from_dict(p["discount_curve"]) if "discount_curve" in p else None
+    return IBORCurve(proj, conventions, disc)
+
+
+# ---- FundingCurve ----
+
+def funding_curve_to_dict(fc) -> dict[str, Any]:
+    """Serialize a FundingCurve to a dict."""
+    return {
+        "type": "FundingCurve",
+        "params": {
+            "ois_curve": discount_curve_to_dict(fc.ois_curve),
+            "funding_spread_curve": spread_curve_to_dict(fc.funding_spread_curve),
+        },
+    }
+
+
+def funding_curve_from_dict(d: dict[str, Any]):
+    """Deserialize a FundingCurve from a dict."""
+    from pricebook.funding_curve import FundingCurve
+    p = d["params"]
+    ois = discount_curve_from_dict(p["ois_curve"])
+    spread = spread_curve_from_dict(p["funding_spread_curve"])
+    return FundingCurve(ois, spread)
+
+
+# ---- CSA ----
+
+def csa_to_dict(csa) -> dict[str, Any]:
+    """Serialize a CSA to a dict."""
+    return {
+        "type": "CSA",
+        "params": {
+            "threshold": csa.threshold,
+            "mta": csa.mta,
+            "rounding": csa.rounding,
+            "margin_frequency": _enum_to_str(csa.margin_frequency),
+            "eligible_collateral": [_enum_to_str(c) for c in csa.eligible_collateral],
+            "haircut": csa.haircut,
+            "rehypothecation": csa.rehypothecation,
+            "initial_margin": csa.initial_margin,
+            "currency": csa.currency,
+        },
+    }
+
+
+def csa_from_dict(d: dict[str, Any]):
+    """Deserialize a CSA from a dict."""
+    from pricebook.csa import CSA, CollateralType, MarginFrequency
+    p = d["params"]
+    return CSA(
+        threshold=p.get("threshold", 0.0),
+        mta=p.get("mta", 0.0),
+        rounding=p.get("rounding", 1.0),
+        margin_frequency=MarginFrequency(p.get("margin_frequency", "daily")),
+        eligible_collateral=[CollateralType(c) for c in p.get("eligible_collateral", ["cash"])],
+        haircut=p.get("haircut", 0.0),
+        rehypothecation=p.get("rehypothecation", True),
+        initial_margin=p.get("initial_margin", 0.0),
+        currency=p.get("currency", "USD"),
+    )
+
+
+# ---- MultiCurrencyCurveSet ----
+
+def multi_currency_curves_to_dict(mcs) -> dict[str, Any]:
+    """Serialize a MultiCurrencyCurveSet to a dict."""
+    currencies = {}
+    for ccy in mcs.currencies:
+        ccy_d: dict[str, Any] = {
+            "ois": discount_curve_to_dict(mcs.ois(ccy)),
+        }
+        # IBOR curves for this currency
+        ibor_curves = {}
+        for name, ibor in mcs._ibor.items():
+            if ibor.conventions.currency == ccy:
+                ibor_curves[name] = ibor_curve_to_dict(ibor)
+        if ibor_curves:
+            ccy_d["ibor"] = ibor_curves
+
+        # Tenor basis
+        basis = {}
+        for key, tb in mcs._tenor_basis.items():
+            if key.startswith(f"{ccy}_"):
+                pair = key[len(ccy) + 1:]
+                basis[pair] = {
+                    "dates": [_date_to_str(d) for d in tb.dates],
+                    "spreads": [float(s) for s in tb.spreads],
+                }
+        if basis:
+            ccy_d["tenor_basis"] = basis
+
+        currencies[ccy] = ccy_d
+
+    # Xccy
+    xccy = {}
+    for key, curve in mcs._xccy.items():
+        xccy[key] = discount_curve_to_dict(curve)
+
+    result: dict[str, Any] = {
+        "type": "MultiCurrencyCurveSet",
+        "params": {"currencies": currencies},
+    }
+    if xccy:
+        result["params"]["xccy_basis"] = xccy
+    return result
+
+
+def multi_currency_curves_from_dict(d: dict[str, Any]):
+    """Deserialize a MultiCurrencyCurveSet from a dict."""
+    from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+    from pricebook.ibor_curve import IBORCurve, get_conventions
+    from pricebook.tenor_basis import TenorBasis
+
+    p = d["params"]
+    mcs = MultiCurrencyCurveSet()
+
+    for ccy, ccy_d in p.get("currencies", {}).items():
+        ois = discount_curve_from_dict(ccy_d["ois"])
+
+        ibor_curves = {}
+        for name, ibor_d in ccy_d.get("ibor", {}).items():
+            ibor_curves[name] = ibor_curve_from_dict(ibor_d)
+
+        tenor_bases = {}
+        for pair, tb_d in ccy_d.get("tenor_basis", {}).items():
+            # Reconstruct TenorBasis (need conventions from IBOR curves)
+            parts = pair.split("_")
+            short_conv = None
+            long_conv = None
+            for name, ibor in ibor_curves.items():
+                if parts[0] in name:
+                    short_conv = ibor.conventions
+                if len(parts) > 1 and parts[1] in name:
+                    long_conv = ibor.conventions
+            if short_conv and long_conv:
+                tenor_bases[pair] = TenorBasis(
+                    reference_date=ois.reference_date,
+                    short_tenor=short_conv,
+                    long_tenor=long_conv,
+                    dates=[_str_to_date(s) for s in tb_d["dates"]],
+                    spreads=tb_d["spreads"],
+                )
+
+        mcs.add_currency(ccy, ois, ibor_curves, tenor_bases)
+
+    for key, xccy_d in p.get("xccy_basis", {}).items():
+        parts = key.split("_")
+        if len(parts) == 2:
+            mcs.add_xccy_basis(parts[0], parts[1], discount_curve_from_dict(xccy_d))
+
+    return mcs
+
+
 # ---------------------------------------------------------------------------
 # PricingContext serialization
 # ---------------------------------------------------------------------------
@@ -507,19 +715,33 @@ def to_json(obj, **kwargs) -> str:
     from pricebook.trade import Trade, Portfolio
     from pricebook.discount_curve import DiscountCurve
     from pricebook.survival_curve import SurvivalCurve
+    from pricebook.rfr import SpreadCurve
+    from pricebook.ibor_curve import IBORCurve
+    from pricebook.funding_curve import FundingCurve
+    from pricebook.csa import CSA
+    from pricebook.multi_currency_curves import MultiCurrencyCurveSet
 
     if isinstance(obj, PricingContext):
         d = pricing_context_to_dict(obj)
+    elif isinstance(obj, IBORCurve):
+        d = ibor_curve_to_dict(obj)
+    elif isinstance(obj, FundingCurve):
+        d = funding_curve_to_dict(obj)
     elif isinstance(obj, DiscountCurve):
         d = discount_curve_to_dict(obj)
     elif isinstance(obj, SurvivalCurve):
         d = survival_curve_to_dict(obj)
+    elif isinstance(obj, SpreadCurve):
+        d = spread_curve_to_dict(obj)
+    elif isinstance(obj, CSA):
+        d = csa_to_dict(obj)
+    elif isinstance(obj, MultiCurrencyCurveSet):
+        d = multi_currency_curves_to_dict(obj)
     elif isinstance(obj, Portfolio):
         d = portfolio_to_dict(obj)
     elif isinstance(obj, Trade):
         d = trade_to_dict(obj)
     else:
-        # Try instrument registry (covers all registered types)
         d = instrument_to_dict(obj)
 
     return json.dumps(d, indent=2, **kwargs)
@@ -540,6 +762,16 @@ def from_json(s: str):
             return discount_curve_from_dict(d)
         if t == "SurvivalCurve":
             return survival_curve_from_dict(d)
+        if t == "SpreadCurve":
+            return spread_curve_from_dict(d)
+        if t == "IBORCurve":
+            return ibor_curve_from_dict(d)
+        if t == "FundingCurve":
+            return funding_curve_from_dict(d)
+        if t == "CSA":
+            return csa_from_dict(d)
+        if t == "MultiCurrencyCurveSet":
+            return multi_currency_curves_from_dict(d)
         return instrument_from_dict(d)
     raise ValueError("Cannot determine object type from JSON")
 
