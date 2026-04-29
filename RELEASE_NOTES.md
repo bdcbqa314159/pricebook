@@ -2,6 +2,27 @@
 
 ---
 
+## v0.402.0 — 2026-04-29
+
+**Layer A: Asian analytics — Curran, delta bleeding, Sobol MC.** 6293 tests.
+
+### Curran (1994) conditional expectation
+- `curran_asian()`: conditions on geometric average, Gauss-Hermite quadrature.
+- More accurate than TW for some strike regions; alternative analytical method.
+- `method="curran"` in `AsianOption.price()`.
+
+### Delta bleeding profile
+- `AsianOption.delta_profile()`: delta as function of fixings done.
+- Returns `[{n_fixed, delta, price}]` — shows how delta decays as fixings accumulate.
+- Critical for Asian option hedging: delta → 0 as averaging completes.
+
+### Sobol quasi-random MC
+- `method="mc_sobol"`: uses `QuasiRandom` (Sobol sequences) from `rng.py`.
+- O(1/N) convergence vs O(1/√N) for pseudo-random.
+- `AsianOption` now has 5 methods: tw, curran, mc, mc_cv, mc_sobol.
+
+---
+
 ## v0.401.0 — 2026-04-29
 
 **Asian options — schedule-aware, Turnbull-Wakeman, partial fixings.** 6288 tests.
