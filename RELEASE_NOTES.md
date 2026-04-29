@@ -2,6 +2,27 @@
 
 ---
 
+## v0.403.0 — 2026-04-29
+
+**Layer B: Smile-consistent Asian options.** 6299 tests.
+
+### Local vol Asian MC (`method="local_vol"`)
+- Uses `local_vol_mc_paths()` (new) for full path generation under Dupire dynamics.
+- Requires `vol_surface=LocalVolSurface` — smile-consistent pricing.
+
+### SABR Asian MC (`method="sabr"`)
+- Wires `sabr_mc_paths()` into AsianOption. Params: alpha, beta, rho, nu.
+- Forward + vol simulated jointly with correlated Brownian motions.
+
+### Heston Asian MC (`method="heston"`)
+- Euler MC for Heston SDE: dS = √V dW₁, dV = κ(θ-V)dt + ξ√V dW₂.
+- Params: v0, kappa, theta, xi, rho. xi=0 converges to flat vol.
+
+### AsianOption now has 8 pricing methods
+tw, curran, mc, mc_cv, mc_sobol, local_vol, sabr, heston.
+
+---
+
 ## v0.402.0 — 2026-04-29
 
 **Layer A: Asian analytics — Curran, delta bleeding, Sobol MC.** 6293 tests.
