@@ -2,6 +2,23 @@
 
 ---
 
+## v0.400.0 — 2026-04-29
+
+**Lens audit + cleanup — serialization.py gutted from 852→130 lines.** 6264 tests.
+
+### Fixes (HIGH)
+- **numpy safety**: `_serialise_atom` handles `np.float64`/`np.int64` via `.item()`.
+- **Thread-safe adapter**: `SchemaAdapter.analyse()` uses merged copies, not global mutation.
+- **serialization.py gutted**: 852→130 lines. Pure re-export of `serialisable.py`. One canonical `from_dict`.
+
+### Fixes (MEDIUM)
+- **Field validation**: `_register()` warns at import if `_SERIAL_FIELDS` contains typos.
+- **Hint resolution**: `_get_init_hints()` warns instead of silently swallowing failures.
+- **SchemaAdapter serialisable**: `to_dict()`/`from_dict()` for adapter config persistence.
+- **Legacy compat**: `load_trade`/`load_portfolio` handle both old and new dict formats.
+
+---
+
 ## v0.399.0 — 2026-04-29
 
 **Schema adapter + Bloomberg removal + serialisation audit.** 6264 tests.
