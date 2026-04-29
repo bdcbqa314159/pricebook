@@ -2,6 +2,20 @@
 
 ---
 
+## v0.413.0 — 2026-04-29
+
+**CDS Layer 3: Index products.** 6405 tests, 38 types.
+
+### `pricebook.cds_index_product.CDSIndexProduct`
+- `from_spec("CDX.NA.IG", series=42, market_spread=0.005)`: auto-sets conventions.
+- `price()` → `IndexResult` with intrinsic spread, market spread, index basis (bp).
+- `cheapest_to_protect()`: widest and tightest names in the index.
+- `next_roll_date()`: next IMM roll from spec.
+- `intrinsic_spread()`: equally-weighted average of constituent par spreads.
+- Serialisable: `"cds_index_product"`, round-trips through JSON.
+
+---
+
 ## v0.412.0 — 2026-04-29
 
 **CDS Layer 2: Hazard rate term structure.** 6395 tests.
