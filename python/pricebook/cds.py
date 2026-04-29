@@ -439,3 +439,6 @@ def _verify_credit_round_trip(
     if errors:
         msg = "Credit bootstrap round-trip failures:\n" + "\n".join(errors)
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count"])(CDS)

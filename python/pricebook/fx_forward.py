@@ -121,3 +121,6 @@ class FXForward:
         """PV sensitivity to 1bp parallel shift in quote currency rates."""
         pv_base = self.pv(spot, base_curve, quote_curve)
         return self.pv(spot, base_curve, quote_curve.bumped(shift)) - pv_base
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("fx_forward", ["pair", "maturity", "strike", "notional"])(FXForward)

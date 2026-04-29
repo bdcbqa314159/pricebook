@@ -154,3 +154,6 @@ class BasisSwap:
             projection_curve_2.bumped(shift),
         )
         return pv_bumped - pv_base
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("basis_swap", ["start", "end", "spread", "notional", "leg1_frequency", "leg2_frequency", "day_count"])(BasisSwap)

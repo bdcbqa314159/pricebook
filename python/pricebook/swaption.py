@@ -229,3 +229,6 @@ class Swaption:
             gamma=gamma,
             vega=vega,
         )
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("swaption", ["expiry", "swap_end", "strike", "swaption_type", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count"])(Swaption)

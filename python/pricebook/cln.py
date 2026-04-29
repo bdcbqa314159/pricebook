@@ -505,3 +505,6 @@ class BasketCLN:
         rho = getattr(ctx, "correlation", 0.3)
         result = self.price_mc(curve, scs, rho=rho)
         return result.price
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("cln", ["start", "end", "coupon_rate", "notional", "recovery", "leverage", "floating", "frequency", "day_count"])(CreditLinkedNote)

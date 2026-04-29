@@ -281,3 +281,6 @@ class FixedRateBond:
         n_mat = t_mat * periods_per_year
         pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         return pv / self.face_value * 100.0
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("bond", ["issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count"])(FixedRateBond)

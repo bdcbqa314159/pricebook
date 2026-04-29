@@ -152,3 +152,6 @@ def bootstrap_ois(
         day_count=DayCountConvention.ACT_365_FIXED,
         interpolation=interpolation,
     )
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("ois", ["start", "end", "fixed_rate", "notional", "fixed_frequency", "day_count"])(OISSwap)

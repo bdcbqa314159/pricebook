@@ -192,3 +192,6 @@ def strip_caplet_vols(
         prev_periods = list(cap.periods)
 
     return caplet_vols
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("capfloor", ["start", "end", "strike", "option_type", "notional", "frequency", "day_count"])(CapFloor)

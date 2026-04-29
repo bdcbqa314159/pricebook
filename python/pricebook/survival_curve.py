@@ -116,3 +116,28 @@ class SurvivalCurve:
         if d1 >= d2:
             raise ValueError(f"d1 ({d1}) must be before d2 ({d2})")
         return self.survival(d1) - self.survival(d2)
+
+from pricebook.serialisable import _register
+
+SurvivalCurve._SERIAL_TYPE = "survival_curve"
+
+def _sc_to_dict(self):
+    pillar_survs = [float(s) for t, s in zip(self._times, self._survs) if t > 0]
+    return {"type": "survival_curve", "params": {
+        "reference_date": self.reference_date.isoformat(),
+        "dates": [d.isoformat() for d in self._pillar_dates],
+        "survival_probs": pillar_survs, "day_count": self.day_count.value,
+    }}
+
+@classmethod
+def _sc_from_dict(cls, d):
+    from datetime import date as _d
+    p = d["params"]
+    return cls(reference_date=_d.fromisoformat(p["reference_date"]),
+               dates=[_d.fromisoformat(s) for s in p["dates"]],
+               survival_probs=p["survival_probs"],
+               day_count=DayCountConvention(p["day_count"]))
+
+SurvivalCurve.to_dict = _sc_to_dict
+SurvivalCurve.from_dict = _sc_from_dict
+_register(SurvivalCurve)

@@ -236,3 +236,7 @@ class RevolvingFacility:
     def utilization(self) -> float:
         """Drawn / committed ratio."""
         return self.drawn_amount / self.max_commitment if self.max_commitment > 0 else 0.0
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("term_loan", ["start", "end", "spread", "notional", "amort_rate", "frequency", "day_count"])(TermLoan)
+_serialisable("revolver", ["start", "end", "max_commitment", "drawn_amount", "drawn_spread", "undrawn_fee", "frequency", "day_count"])(RevolvingFacility)

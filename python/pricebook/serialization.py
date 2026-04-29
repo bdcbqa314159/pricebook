@@ -709,6 +709,42 @@ def portfolio_from_dict(d: dict[str, Any]):
 # ---------------------------------------------------------------------------
 
 
+def to_dict(obj) -> dict[str, Any]:
+    """Serialize any object that has to_dict()."""
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    # Fall back to old instrument_to_dict
+    return instrument_to_dict(obj)
+
+
+def from_dict(d: dict[str, Any]):
+    """Deserialize from {"type": ..., "params": {...}}. Tries new registry first."""
+    from pricebook.serialisable import _REGISTRY, from_dict as _new_from_dict
+    t = d.get("type")
+    if t and t in _REGISTRY:
+        return _new_from_dict(d)
+    # Fall back to old dispatchers
+    if t == "DiscountCurve" or t == "discount_curve":
+        return discount_curve_from_dict(d)
+    if t == "SurvivalCurve" or t == "survival_curve":
+        return survival_curve_from_dict(d)
+    if t == "SpreadCurve" or t == "spread_curve":
+        return spread_curve_from_dict(d)
+    if t == "IBORCurve":
+        return ibor_curve_from_dict(d)
+    if t == "FundingCurve":
+        return funding_curve_from_dict(d)
+    if t == "FlatVol" or t == "flat_vol":
+        from pricebook.vol_surface import FlatVol
+        return FlatVol(d["params"]["vol"])
+    if t == "CSA":
+        return csa_from_dict(d)
+    if t == "MultiCurrencyCurveSet":
+        return multi_currency_curves_from_dict(d)
+    # Old instrument registry
+    return instrument_from_dict(d)
+
+
 def to_json(obj, **kwargs) -> str:
     """Serialize any supported object to JSON string."""
     from pricebook.pricing_context import PricingContext

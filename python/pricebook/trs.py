@@ -600,3 +600,45 @@ class TotalReturnSwap:
         if ctx.projection_curves:
             proj = next(iter(ctx.projection_curves.values()), None)
         return self.price(curve, proj).value
+
+from pricebook.serialisable import _register, _serialise_atom
+from pricebook.serialisable import from_dict as _s_from_dict
+
+TotalReturnSwap._SERIAL_TYPE = "trs"
+
+def _trs_to_dict(self):
+    if isinstance(self.underlying, (int, float)):
+        underlying_d = {"type": "equity_spot", "value": float(self.underlying)}
+    elif hasattr(self.underlying, "to_dict"):
+        underlying_d = self.underlying.to_dict()
+    else:
+        underlying_d = {"type": "equity_spot", "value": 100.0}
+    return {"type": "trs", "params": {
+        "underlying": underlying_d,
+        "notional": self.notional, "start": self.start.isoformat(),
+        "end": self.end.isoformat(), "repo_spread": self.repo_spread,
+        "haircut": self.haircut, "sigma": self.sigma,
+    }}
+
+@classmethod
+def _trs_from_dict(cls, d):
+    from datetime import date as _d
+    p = d["params"]
+    u = p["underlying"]
+    if isinstance(u, (int, float)):
+        underlying = float(u)
+    elif isinstance(u, dict):
+        if u.get("type") == "equity_spot":
+            underlying = float(u["value"])
+        else:
+            underlying = _s_from_dict(u)
+    else:
+        underlying = float(u)
+    return cls(underlying=underlying, notional=p["notional"],
+               start=_d.fromisoformat(p["start"]), end=_d.fromisoformat(p["end"]),
+               repo_spread=p.get("repo_spread", 0.0),
+               haircut=p.get("haircut", 0.0), sigma=p.get("sigma", 0.20))
+
+TotalReturnSwap.to_dict = _trs_to_dict
+TotalReturnSwap.from_dict = _trs_from_dict
+_register(TotalReturnSwap)

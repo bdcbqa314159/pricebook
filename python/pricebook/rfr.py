@@ -243,3 +243,28 @@ def ibor_fallback_rate(
     Post-cessation: IBOR = compounded RFR + ISDA spread adjustment.
     """
     return rfr_compounded + config.spread_adjustment
+
+from pricebook.serialisable import _register
+
+SpreadCurve._SERIAL_TYPE = "spread_curve"
+
+def _spread_to_dict(self):
+    return {"type": "spread_curve", "params": {
+        "reference_date": self.reference_date.isoformat(),
+        "dates": [d.isoformat() for d in self.dates],
+        "spreads": [float(s) for s in self.spreads],
+        "day_count": self.day_count.value,
+    }}
+
+@classmethod
+def _spread_from_dict(cls, d):
+    from datetime import date as _d
+    p = d["params"]
+    return cls(reference_date=_d.fromisoformat(p["reference_date"]),
+               dates=[_d.fromisoformat(s) for s in p["dates"]],
+               spreads=p["spreads"],
+               day_count=DayCountConvention(p.get("day_count", "ACT_365_FIXED")))
+
+SpreadCurve.to_dict = _spread_to_dict
+SpreadCurve.from_dict = _spread_from_dict
+_register(SpreadCurve)

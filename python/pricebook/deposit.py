@@ -66,3 +66,6 @@ class Deposit:
         else:
             df = df_or_curve
         return self.cashflow * df - self.notional
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("deposit", ["start", "end", "rate", "notional", "day_count"])(Deposit)

@@ -171,3 +171,18 @@ def validate_vol_surface(
         butterfly_violations=bfly,
         total_variance_monotone=tv_mono,
     )
+
+from pricebook.serialisable import _register
+
+FlatVol._SERIAL_TYPE = "flat_vol"
+
+def _fv_to_dict(self):
+    return {"type": "flat_vol", "params": {"vol": self._vol}}
+
+@classmethod
+def _fv_from_dict(cls, d):
+    return cls(d["params"]["vol"])
+
+FlatVol.to_dict = _fv_to_dict
+FlatVol.from_dict = _fv_from_dict
+_register(FlatVol)

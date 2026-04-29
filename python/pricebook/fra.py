@@ -73,3 +73,6 @@ class FRA:
         """The strike rate that makes PV = 0."""
         proj = projection_curve if projection_curve is not None else curve
         return self.forward_rate(proj)
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("fra", ["start", "end", "strike", "notional"])(FRA)

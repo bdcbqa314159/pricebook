@@ -186,3 +186,28 @@ class DiscountCurve:
         df2 = self.df(d2)
         tau = year_fraction(d1, d2, self.day_count)
         return (df1 - df2) / (tau * df2)
+
+from pricebook.serialisable import _register, _serialise_atom
+
+DiscountCurve._SERIAL_TYPE = "discount_curve"
+DiscountCurve._SERIAL_FIELDS = []  # custom
+
+def _dc_to_dict(self):
+    pillar_dfs = [float(df) for t, df in zip(self._times, self._dfs) if t > 0]
+    return {"type": "discount_curve", "params": {
+        "reference_date": self.reference_date.isoformat(),
+        "dates": [d.isoformat() for d in self.pillar_dates],
+        "dfs": pillar_dfs, "day_count": self.day_count.value,
+    }}
+
+@classmethod
+def _dc_from_dict(cls, d):
+    from datetime import date as _d
+    p = d["params"]
+    return cls(reference_date=_d.fromisoformat(p["reference_date"]),
+               dates=[_d.fromisoformat(s) for s in p["dates"]], dfs=p["dfs"],
+               day_count=DayCountConvention(p["day_count"]))
+
+DiscountCurve.to_dict = _dc_to_dict
+DiscountCurve.from_dict = _dc_from_dict
+_register(DiscountCurve)

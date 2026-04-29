@@ -197,3 +197,6 @@ class InterestRateSwap:
                 "pv": amount * df,
             })
         return sorted(rows, key=lambda r: r["payment_date"])
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("irs", ["start", "end", "fixed_rate", "direction", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "spread"])(InterestRateSwap)
