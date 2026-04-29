@@ -54,7 +54,7 @@ class TestDiscountCurveSerialization:
     def test_dict_has_type(self):
         curve = make_flat_curve(REF, 0.05)
         d = discount_curve_to_dict(curve)
-        assert d["type"] == "DiscountCurve"
+        assert d["type"] == "discount_curve"
 
     def test_reference_date_preserved(self):
         curve = make_flat_curve(REF, 0.05)
@@ -75,7 +75,7 @@ class TestSurvivalCurveSerialization:
     def test_dict_has_type(self):
         curve = make_flat_survival(REF, 0.02)
         d = survival_curve_to_dict(curve)
-        assert d["type"] == "SurvivalCurve"
+        assert d["type"] == "survival_curve"
 
 
 class TestPricingContextSerialization:
@@ -223,9 +223,9 @@ class TestPortfolioSerialization:
 
 class TestUnknownInstrument:
     def test_raises(self):
-        with pytest.raises(ValueError, match="No serialization"):
+        with pytest.raises(ValueError, match="has no to_dict"):
             instrument_to_dict(object())
 
     def test_unknown_type_raises(self):
-        with pytest.raises(ValueError, match="Unknown instrument"):
+        with pytest.raises(ValueError, match="Unknown type"):
             instrument_from_dict({"type": "unknown", "params": {}})

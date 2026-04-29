@@ -47,7 +47,7 @@ class TestOISSwapRoundTrip:
         from pricebook.ois import OISSwap
         ois = OISSwap(REF, END_5Y, fixed_rate=0.03, notional=1_000_000)
         d = instrument_to_dict(ois)
-        assert d["type"] == "ois_swap"
+        assert d["type"] == "ois"
         ois2 = instrument_from_dict(d)
         assert ois2.notional == 1_000_000
         assert ois2.start == REF
@@ -251,7 +251,7 @@ class TestCurveRoundTrip:
         ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois,
                               swaps=[(END_5Y, 0.035)])
         d = ibor_curve_to_dict(ibor)
-        assert d["type"] == "IBORCurve"
+        assert d["type"] == "ibor_curve"
         assert d["params"]["conventions_name"] == "EURIBOR_3M"
         ibor2 = ibor_curve_from_dict(d)
         assert ibor2.conventions.name == "EURIBOR_3M"
@@ -394,11 +394,11 @@ class TestRegistry:
         assert len(types) >= 11
 
     def test_unknown_type_raises(self):
-        with pytest.raises(ValueError, match="Unknown"):
+        with pytest.raises(ValueError, match="Unknown type"):
             instrument_from_dict({"type": "nonexistent", "params": {}})
 
     def test_unregistered_class_raises(self):
         class FakeInstrument:
             pass
-        with pytest.raises(ValueError, match="No serialization"):
+        with pytest.raises(ValueError, match="has no to_dict"):
             instrument_to_dict(FakeInstrument())

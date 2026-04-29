@@ -38,8 +38,22 @@ _REGISTRY: dict[str, type] = {}
 
 
 def _register(cls: type) -> None:
+    """Register a class. Validates _SERIAL_FIELDS exist on the class or its __init__."""
     key = getattr(cls, "_SERIAL_TYPE", None)
     if key and key not in _REGISTRY:
+        # Validate fields at registration time (catches typos early)
+        fields = getattr(cls, "_SERIAL_FIELDS", [])
+        if fields:
+            import inspect
+            init_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}
+            for f in fields:
+                if f not in init_params:
+                    import warnings
+                    warnings.warn(
+                        f"Serialisation: {cls.__name__}._SERIAL_FIELDS contains '{f}' "
+                        f"which is not in __init__ parameters: {sorted(init_params)}",
+                        stacklevel=3,
+                    )
         _REGISTRY[key] = cls
 
 
@@ -58,7 +72,11 @@ def from_dict(d: dict[str, Any]) -> Any:
 # ---------------------------------------------------------------------------
 
 def _serialise_atom(v: Any) -> Any:
-    """Convert a single value to a JSON-native type."""
+    """Convert a single value to a JSON-native type.
+
+    Handles: None, date, Enum, bool, int, float, str, numpy scalars,
+    nested serialisable objects, lists, CurrencyPair.
+    """
     if v is None:
         return None
     if isinstance(v, date):
@@ -69,6 +87,9 @@ def _serialise_atom(v: Any) -> Any:
         return v
     if isinstance(v, (int, float, str)):
         return v
+    # numpy scalars → native Python (np.float64 → float, np.int64 → int)
+    if hasattr(v, "item") and callable(v.item):
+        return v.item()
     # Nested serialisable
     if hasattr(v, "to_dict"):
         return v.to_dict()
@@ -175,10 +196,16 @@ class Serialisable:
 
 
 def _get_init_hints(cls: type) -> dict[str, type]:
-    """Get type hints from __init__, cached."""
+    """Get type hints from __init__. Returns empty dict if hints can't be resolved."""
     try:
         return get_type_hints(cls.__init__)
-    except Exception:
+    except Exception as e:
+        import warnings
+        warnings.warn(
+            f"Could not resolve type hints for {cls.__name__}.__init__: {e}. "
+            f"from_dict() will not auto-resolve dates/enums for this class.",
+            stacklevel=3,
+        )
         return {}
 
 

@@ -179,7 +179,16 @@ class SchemaHint:
 
 
 def analyse_json(data: dict[str, Any]) -> SchemaHint:
-    """Analyse external JSON and suggest pricebook type + field mappings.
+    """Analyse external JSON and suggest pricebook type + field mappings."""
+    return _analyse_json_with_aliases(data, _COMMON_ALIASES, _TYPE_ALIASES)
+
+
+def _analyse_json_with_aliases(
+    data: dict[str, Any],
+    field_aliases: dict[str, str],
+    type_aliases: dict[str, str],
+) -> SchemaHint:
+    """Internal: analyse with explicit alias dicts (thread-safe).
 
     Works with:
     - Already pricebook-formatted: {"type": "irs", "params": {...}}
@@ -190,7 +199,7 @@ def analyse_json(data: dict[str, Any]) -> SchemaHint:
 
     # Already in pricebook format?
     if "type" in data and "params" in data:
-        t = _TYPE_ALIASES.get(data["type"], data["type"])
+        t = type_aliases.get(data["type"], data["type"])
         if t in _REGISTRY:
             return SchemaHint(
                 suggested_type=t, confidence=1.0,
@@ -211,7 +220,7 @@ def analyse_json(data: dict[str, Any]) -> SchemaHint:
     for type_key in ("type", "instrumentType", "instrument_type", "product", "productType"):
         if type_key in payload:
             raw_type = str(payload[type_key])
-            explicit_type = _TYPE_ALIASES.get(raw_type, raw_type)
+            explicit_type = type_aliases.get(raw_type, raw_type)
             break
 
     # Map fields
@@ -223,13 +232,13 @@ def analyse_json(data: dict[str, Any]) -> SchemaHint:
         if ext_key in ("type", "instrumentType", "instrument_type", "product", "productType"):
             continue
         # Try direct alias
-        if ext_key in _COMMON_ALIASES:
-            pb_key = _COMMON_ALIASES[ext_key]
+        if ext_key in field_aliases:
+            pb_key = field_aliases[ext_key]
             field_mapping[ext_key] = pb_key
             normalised_payload[pb_key] = value
         # Try normalised
-        elif _normalise_key(ext_key) in _COMMON_ALIASES:
-            pb_key = _COMMON_ALIASES[_normalise_key(ext_key)]
+        elif _normalise_key(ext_key) in field_aliases:
+            pb_key = field_aliases[_normalise_key(ext_key)]
             field_mapping[ext_key] = pb_key
             normalised_payload[pb_key] = value
         # Try snake_case directly as pricebook key
@@ -365,19 +374,11 @@ class SchemaAdapter:
         return {"type": hint.suggested_type, "params": params}
 
     def analyse(self, data: dict[str, Any]) -> SchemaHint:
-        """Analyse with this adapter's custom aliases."""
-        # Temporarily patch the global aliases
-        old_field = dict(_COMMON_ALIASES)
-        old_type = dict(_TYPE_ALIASES)
-        _COMMON_ALIASES.update(self._field_aliases)
-        _TYPE_ALIASES.update(self._type_aliases)
-        try:
-            return analyse_json(data)
-        finally:
-            _COMMON_ALIASES.clear()
-            _COMMON_ALIASES.update(old_field)
-            _TYPE_ALIASES.clear()
-            _TYPE_ALIASES.update(old_type)
+        """Analyse with this adapter's custom aliases (thread-safe)."""
+        # Use merged copies instead of mutating globals
+        merged_field = {**_COMMON_ALIASES, **self._field_aliases}
+        merged_type = {**_TYPE_ALIASES, **self._type_aliases}
+        return _analyse_json_with_aliases(data, merged_field, merged_type)
 
     def _resolve_field(self, ext_key: str) -> str:
         """Resolve an external field name to pricebook."""
@@ -387,3 +388,20 @@ class SchemaAdapter:
         if normalised in self._field_aliases:
             return self._field_aliases[normalised]
         return normalised
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialise adapter config (custom aliases only, not built-ins)."""
+        custom_fields = {k: v for k, v in self._field_aliases.items()
+                         if k not in _COMMON_ALIASES or self._field_aliases[k] != _COMMON_ALIASES.get(k)}
+        custom_types = {k: v for k, v in self._type_aliases.items()
+                        if k not in _TYPE_ALIASES or self._type_aliases[k] != _TYPE_ALIASES.get(k)}
+        return {"source": self.source, "field_aliases": custom_fields,
+                "type_aliases": custom_types}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> SchemaAdapter:
+        adapter = cls(source=d.get("source", "unknown"))
+        adapter.add_aliases(d.get("field_aliases", {}))
+        for k, v in d.get("type_aliases", {}).items():
+            adapter.add_type_alias(k, v)
+        return adapter
