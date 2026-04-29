@@ -2,6 +2,30 @@
 
 ---
 
+## v0.408.0 — 2026-04-29
+
+**Exotics engine complete (A→E): 7 new instruments, 35 types.** 6365 tests.
+
+### Layer E: American + Basket options
+- **AmericanOption**: PDE (`fd_american`) + LSM (`lsm_american`). Early exercise premium. Greeks.
+  American put ≥ European put verified. Call without divs ≈ European.
+- **BasketOption**: weighted basket, best-of, worst-of. Uses `CorrelatedGBM`.
+  best_of > worst_of verified. 3-asset support.
+
+### Full exotics engine summary (v0.401-v0.408)
+| Layer | Products |
+|-------|----------|
+| A | AsianOption: TW, Curran, MC+CV, Sobol, delta bleeding |
+| B | Asian under smile: local vol, SABR, Heston MC |
+| C | BarrierOption, Autocallable, Cliquet, VarianceSwap |
+| D | Dupire calibration, SABR calibration, CorrelatedGBM, pathwise Greeks |
+| E | AmericanOption, BasketOption |
+
+### Registry: 35 types
+32 + american + basket_option + (autocallable already counted).
+
+---
+
 ## v0.407.0 — 2026-04-29
 
 **Layer D complete: Calibration + multi-asset MC + pathwise Greeks.** 6350 tests.
