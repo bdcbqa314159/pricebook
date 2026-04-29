@@ -2,6 +2,22 @@
 
 ---
 
+## v0.409.0 — 2026-04-29
+
+**E2: TARF — all 17 plan items complete.** 6377 tests, 36 types.
+
+### `pricebook.tarf.TARF`
+- Target Redemption Forward: accumulated gains cap at target, leveraged losses below strike.
+- `price_mc()`: returns price, target hit probability, avg life, avg accumulated.
+- Higher leverage → worse for buyer. Lower target → earlier termination.
+- Pivot level support for asymmetric gain/loss thresholds.
+- Serialisable: round-trips through JSON. `from_dict({"type": "tarf", ...})`.
+
+### Full plan A→E: all 17 items done
+A1-A3, B1-B3, C1-C4, D1-D4, E1-E3 — all implemented, tested, serialisable.
+
+---
+
 ## v0.408.0 — 2026-04-29
 
 **Exotics engine complete (A→E): 7 new instruments, 35 types.** 6365 tests.
