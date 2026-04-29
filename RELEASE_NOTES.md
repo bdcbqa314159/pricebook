@@ -2,6 +2,23 @@
 
 ---
 
+## v0.395.0 — 2026-04-29
+
+**Curve + convention serialisation — all objects round-trip.** 6240 tests.
+
+### New curve serialisers in `serialization.py`
+- `SpreadCurve`: reference_date, dates, spreads, day_count.
+- `IBORCurve`: conventions by name + projection curve pillars. Conventions registry in `ibor_curve.py`.
+- `FundingCurve`: OIS curve + spread curve composition.
+- `CSA`: all fields (threshold, mta, margin_freq, collateral types, haircut, currency).
+- `MultiCurrencyCurveSet`: full hierarchy (per-ccy OIS + IBOR + tenor basis + xccy).
+
+### `to_json()`/`from_json()` dispatch
+- Handles all new types: IBORCurve, FundingCurve, SpreadCurve, CSA, MultiCurrencyCurveSet.
+- All round-trip through JSON: `from_json(to_json(obj))` reconstructs identical objects.
+
+---
+
 ## v0.394.0 — 2026-04-28
 
 **Instrument registry expansion — 14 types serialisable.** 6229 tests.
