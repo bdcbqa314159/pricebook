@@ -2,6 +2,28 @@
 
 ---
 
+## v0.407.0 — 2026-04-29
+
+**Layer D complete: Calibration + multi-asset MC + pathwise Greeks.** 6350 tests.
+
+### D1: Dupire local vol calibration
+- `calibrate_dupire()`: builds `LocalVolSurface` from implied vol grid with validation.
+- Warns on extreme or near-zero local vols. Dupire (1994) + Gatheral (2006) referenced.
+
+### D2: SABR calibration pipeline
+- `calibrate_sabr_smile()`: hardened wrapper around `sabr_calibrate()`.
+- Validates parameter ranges, computes per-strike reprice errors in bp.
+- Sub-1bp accuracy on synthetic smiles.
+
+### D3: Multi-asset correlated MC
+- `CorrelatedGBM`: Cholesky-based N-asset path generation.
+- `basket_option_mc()`, `worst_of_mc()` for multi-asset payoffs.
+
+### D4: Pathwise Greeks
+- `pathwise_asian_delta()`, `pathwise_european_delta()`: no re-simulation.
+
+---
+
 ## v0.406.0 — 2026-04-29
 
 **Layer D: Multi-asset MC + pathwise Greeks.** 6344 tests.
