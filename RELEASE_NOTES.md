@@ -2,6 +2,35 @@
 
 ---
 
+## v0.415.0 — 2026-04-29
+
+**CDS deep dive complete (L1-L6): comprehensive credit desk.** 6437 tests, 40 types.
+
+### Layer 5: CDS Strategies (`cds_strategies.py`)
+- **Curve trades**: `flatten()`, `steepen()` with DV01-neutral sizing.
+  `CDSCurveTrade` decomposes P&L into carry, parallel CS01, per-leg CS01.
+- **CDS-bond basis**: `cds_bond_basis()`, `basis_trade()` — negative basis detection, breakeven funding.
+- **Recovery lock**: `recovery_lock_pv()` isolates default prob from recovery.
+  `digital_cds_spread()` = par_spread / (1-R).
+
+### Layer 6: Illiquid Credit (`illiquid_credit.py`)
+- **Distressed**: `distressed_recovery_sensitivity()` — PV mapped across recovery values, recovery DV01.
+  `recovery_breakeven()` — recovery at which PV = 0.
+- **Default probability**: `implied_default_prob()` = 1 - exp(-h×T).
+- **EM conventions**: restructuring clauses (CR/MR/MM/XR), sovereign standard coupons.
+
+### CDS Deep Dive Summary (v0.411-v0.415)
+| Layer | Feature |
+|-------|---------|
+| L1 | StandardCDS, upfront, carry, roll-down, bucket CS01 |
+| L2 | Forward hazard rates, proxy curves, liquidity decomposition |
+| L3 | CDSIndexProduct, intrinsic/market spread, cheapest-to-protect |
+| L4 | TrancheCDS, base correlation calibration |
+| L5 | Curve trades, CDS-bond basis, recovery lock |
+| L6 | Distressed analytics, EM conventions |
+
+---
+
 ## v0.414.0 — 2026-04-29
 
 **CDS Layer 4: Tranche pricing + base correlation.** 6416 tests, 39 types.
