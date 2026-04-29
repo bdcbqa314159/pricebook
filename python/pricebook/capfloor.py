@@ -48,6 +48,8 @@ class CapFloor:
         self.notional = notional
         self.frequency = frequency
         self.day_count = day_count
+        self.calendar = calendar
+        self.convention = convention
 
         schedule = generate_schedule(
             start, end, frequency, calendar, convention,

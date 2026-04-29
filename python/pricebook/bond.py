@@ -69,6 +69,9 @@ class FixedRateBond:
         self.face_value = face_value
         self.day_count = day_count
         self.calendar = calendar
+        self.convention = convention
+        self.stub = stub
+        self.eom = eom
         self.settlement_days = settlement_days
         self.ex_div_days = ex_div_days
 

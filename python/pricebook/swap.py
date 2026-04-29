@@ -62,6 +62,12 @@ class InterestRateSwap:
         self.fixed_day_count = fixed_day_count
         self.float_day_count = float_day_count
         self.spread = spread
+        self.calendar = calendar
+        self.convention = convention
+        self.stub = stub
+        self.eom = eom
+        self.payment_delay_days = payment_delay_days
+        self.observation_shift_days = observation_shift_days
 
         self.fixed_leg = FixedLeg(
             start, end, fixed_rate, fixed_frequency,

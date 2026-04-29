@@ -81,6 +81,10 @@ class Swaption:
         self.float_frequency = float_frequency
         self.fixed_day_count = fixed_day_count
         self.float_day_count = float_day_count
+        self.calendar = calendar
+        self.convention = convention
+        self.stub = stub
+        self.eom = eom
 
         # Build the underlying forward-starting swap (payer by convention)
         self.underlying = InterestRateSwap(

@@ -43,8 +43,14 @@ class OISSwap:
     ):
         self.start = start
         self.end = end
+        self.fixed_rate = fixed_rate
         self.notional = notional
+        self.fixed_frequency = fixed_frequency
         self.day_count = day_count
+        self.calendar = calendar
+        self.convention = convention
+        self.stub = stub
+        self.eom = eom
 
         self.fixed_leg = FixedLeg(
             start, end, fixed_rate, fixed_frequency,

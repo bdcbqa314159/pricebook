@@ -58,8 +58,19 @@ class BasisSwap:
         payment_delay_days: int = 0,
         observation_shift_days: int = 0,
     ):
+        self.start = start
+        self.end = end
         self.spread = spread
         self.notional = notional
+        self.leg1_frequency = leg1_frequency
+        self.leg2_frequency = leg2_frequency
+        self.day_count = day_count
+        self.calendar = calendar
+        self.convention = convention
+        self.stub = stub
+        self.eom = eom
+        self.payment_delay_days = payment_delay_days
+        self.observation_shift_days = observation_shift_days
 
         self.leg1 = FloatingLeg(
             start, end, leg1_frequency,
