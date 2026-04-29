@@ -2,6 +2,26 @@
 
 ---
 
+## v0.399.0 — 2026-04-29
+
+**Schema adapter + Bloomberg removal + serialisation audit.** 6264 tests.
+
+### `pricebook.schema_adapter`
+- `analyse_json(data) → SchemaHint`: detects type from field signatures, maps camelCase/PascalCase/UPPER_CASE to pricebook snake_case, reports confidence + missing fields.
+- `SchemaAdapter`: configurable translator with custom aliases per source system.
+  `translate(external) → {"type": ..., "params": {...}}` ready for `from_dict()`.
+- Built-in aliases for 50+ common field names (camelCase, Bloomberg-style, abbreviations).
+- Type aliases: "swap"→"irs", "InterestRateSwap"→"irs", "fixed_rate_bond"→"bond", etc.
+- Full pipeline tested: external JSON → translate → from_dict → instrument → pv.
+
+### Removed
+- `bloomberg_adapter.py`: removed pending official BLPAPI documentation.
+
+### Audit
+- 29 objects × 8 levels (atoms → containers) all pass EXACT round-trip through JSON.
+
+---
+
 ## v0.398.0 — 2026-04-29
 
 **Complete serialisation — 27 types on unified registry.** 6261 tests.
