@@ -2,6 +2,26 @@
 
 ---
 
+## v0.405.0 — 2026-04-29
+
+**Layer C complete: Barrier + Autocallable + Cliquet + VarianceSwap.** 6330 tests.
+
+### `pricebook.autocallable.Autocallable`
+- Periodic observation, autocall barrier, coupon accrual, put protection.
+- `price_mc()`: returns price, autocall probability, put knock probability, avg life.
+- Serialisable: `@serialisable("autocallable", [...])`.
+
+### `pricebook.cliquet.Cliquet`
+- Periodic reset: local_return = clip(S(end)/S(start)-1, floor, cap).
+- Global cap/floor on total accumulated return.
+- `price_mc()`: returns price, avg total return, capped/floored period counts.
+- Serialisable: `@serialisable("cliquet", [...])`.
+
+### Registry: 32 types
+30 + autocallable + cliquet.
+
+---
+
 ## v0.404.0 — 2026-04-29
 
 **Layers B+C: Smile pricing + Barrier + VarianceSwap.** 6311 tests.
