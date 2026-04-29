@@ -2,6 +2,34 @@
 
 ---
 
+## v0.397.0 — 2026-04-29
+
+**Serialisable mixin — 18 types auto-serialise from atoms up.** 6261 tests.
+
+### `pricebook.serialisable`
+- `Serialisable` mixin + `@serialisable(type, fields)` decorator.
+- Auto `to_dict()`: introspects `_SERIAL_FIELDS`, converts date→ISO, Enum→.value, nested→recursive.
+- Auto `from_dict()`: introspects `__init__` type hints, auto-resolves dates, enums, nested objects.
+- `_REGISTRY`: type key → class. `from_dict(d)` dispatches by `d["type"]`.
+- Custom override for curves (DiscountCurve, SurvivalCurve, SpreadCurve) and TRS (polymorphic underlying).
+
+### Pattern for new classes (zero boilerplate)
+```python
+from pricebook.serialisable import serialisable
+@serialisable("my_type", ["field1", "field2", ...])
+class MyClass:
+    def __init__(self, field1: date, field2: float, ...): ...
+```
+
+### 18 registered types
+Instruments: irs, bond, cds, fra, deposit, ois, basis_swap, swaption, capfloor, term_loan, revolver, cln, fx_forward, trs.
+Curves: discount_curve, survival_curve, spread_curve, flat_vol.
+
+### Foundation fix
+6 classes (IRS, Bond, OIS, BasisSwap, Swaption, CapFloor) now store all constructor args — previously lost calendar/convention/stub/eom to internal sub-objects.
+
+---
+
 ## v0.396.0 — 2026-04-29
 
 **Pricing engine — JSON in → price/risk out.** 6261 tests.
