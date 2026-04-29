@@ -2,6 +2,30 @@
 
 ---
 
+## v0.416.0 — 2026-04-30
+
+**Risky floating payments — 4 layers, deterministic to correlated MC.** 6458 tests, 42 types.
+
+### Layer 0: `risky_floating_pv()`
+- FloatingLeg × survival per period. Accrued-on-default (mid-period). Recovery on principal.
+- Decomposition: coupon_pv + accrued_on_default + principal_pv + recovery_pv.
+
+### Layer 1: `CreditRiskyFRN`
+- Full FRN with default risk. `dirty_price()`, `z_spread()`, `discount_margin()`, `cs01()`.
+- Serialisable: `"credit_risky_frn"`.
+
+### Layer 2: `CRADiscountCurve`
+- Credit-risk-adjusted: D̂(T) = D(T) × [Q(T) + R(1-Q(T))].
+- Risky forward rate differs from risk-free. `credit_adjustment()` measures the gap.
+- Serialisable: `"cra_curve"`.
+
+### Layer 3: `price_risky_frn_mc()`
+- Joint Vasicek (rate) + CIR (hazard) simulation with correlation ρ.
+- Wrong-way risk: ρ < 0 → price drops. ρ > 0 → price rises.
+- `RiskyFloatingMCResult`: price, independent price, wrong-way adjustment.
+
+---
+
 ## v0.415.0 — 2026-04-29
 
 **CDS deep dive complete (L1-L6): comprehensive credit desk.** 6437 tests, 40 types.
