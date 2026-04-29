@@ -2,6 +2,26 @@
 
 ---
 
+## v0.410.0 — 2026-04-29
+
+**Lens audit — 11 fixes across exotics engine.** 6377 tests.
+
+### Critical fixes
+- **Barrier knock-in MC**: fixed `alive` → `activated` tracking. Was silently paying like vanilla.
+- **Curran**: removed dead `adj` variable and stale derivation comment.
+
+### Domain validation
+- `spot > 0` enforced in all 6 option pricing methods.
+- `local_cap >= local_floor` and `global_cap >= global_floor` in Cliquet.
+- VarianceSwapOption: maturity is now required (was hardcoded default).
+
+### Completeness
+- `greeks()` (bump-and-reprice) added to TARF, Cliquet, Autocallable.
+- Heston MC docstring notes Euler limitations vs QE scheme.
+- Barrier MC docstring notes discrete monitoring bias.
+
+---
+
 ## v0.409.0 — 2026-04-29
 
 **E2: TARF — all 17 plan items complete.** 6377 tests, 36 types.
