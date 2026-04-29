@@ -2,6 +2,25 @@
 
 ---
 
+## v0.411.0 — 2026-04-29
+
+**CDS Layer 1: Hardened CDS instrument.** 6377 tests, 37 types.
+
+### `StandardCDS` — post-Big Bang market CDS
+- `StandardCDS.from_market(ref, maturity_years=5, par_spread_bps=60, grade="IG")`:
+  auto-sets standard coupon (100bp/500bp), recovery (40%/25%), IMM dates.
+- `to_upfront()`: par spread → upfront % at standard coupon.
+- `carry()`: premium income over horizon assuming no default.
+- `roll_down()`: PV change from curve aging (time passing, spreads unchanged).
+- `bucket_cs01()`: per-tenor CS01 (sums to parallel CS01 within 0.001).
+- Serialisable: `"standard_cds"` type, round-trips through JSON (274B).
+
+### Serialisation fixes
+- CDS: added `protection_day_count`, `steps_per_year` to serial fields.
+- SurvivalCurve: serialises `interpolation` method (was lost on round-trip).
+
+---
+
 ## v0.410.0 — 2026-04-29
 
 **Lens audit — 11 fixes across exotics engine.** 6377 tests.
