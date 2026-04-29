@@ -80,6 +80,8 @@ class AmericanOption:
     ) -> AmericanResult:
         """Price the American option."""
         ref = curve.reference_date
+        if spot <= 0:
+            raise ValueError(f"spot must be positive, got {spot}")
         T = year_fraction(ref, self.maturity, DayCountConvention.ACT_365_FIXED)
         rate = -math.log(curve.df(self.maturity)) / max(T, 1e-10)
 

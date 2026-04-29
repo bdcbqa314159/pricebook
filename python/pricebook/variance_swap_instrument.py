@@ -53,8 +53,10 @@ class VarianceSwapOption:
         self,
         strike_vol: float,
         notional_vega: float = 100_000.0,
-        maturity: date = date(2027, 4, 28),
+        maturity: date | None = None,
     ):
+        if maturity is None:
+            raise ValueError("maturity must be provided")
         self.strike_vol = strike_vol
         self.notional_vega = notional_vega
         self.maturity = maturity

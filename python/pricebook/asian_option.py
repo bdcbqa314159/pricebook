@@ -317,12 +317,10 @@ def curran_asian(
         # Conditional expectation of arithmetic average
         ea_given_g = 0.0
         for i in range(n):
-            # E[S(t_i) | ln(G) = ln_g]
+            # Conditional mean: E[S(t_i) | ln(G) = ln_g]
+            # = F(t_i) × exp(β_i(ln(G) - μ_G) - ½β_i²σ_G²)
+            # where β_i = Cov(ln(G), ln(S(t_i))) / Var(ln(G))
             beta_i = cov_g_si[i] / sigma_g_sq
-            adj = beta_i * (ln_g - mu_g) - 0.5 * beta_i**2 * sigma_g_sq + 0.5 * vol**2 * fixing_times[i]
-            # Wait: need the residual variance
-            # E[S(t_i) | G] = F(t_i) * exp(beta_i * (ln(G) - mu_g) - 0.5 * beta_i^2 * sigma_g^2)
-            # This is the conditional mean — approximate payoff as max(E[A|G] - K, 0)
             e_si_given_g = forwards[i] * math.exp(
                 beta_i * (ln_g - mu_g) - 0.5 * beta_i**2 * sigma_g_sq
             )
@@ -414,6 +412,8 @@ class AsianOption:
             **kwargs: model-specific params (vol_surface, alpha, beta, rho, nu, etc.)
         """
         ref = curve.reference_date
+        if spot <= 0:
+            raise ValueError(f"spot must be positive, got {spot}")
         T = year_fraction(ref, self.schedule.fixing_dates[-1], DayCountConvention.ACT_365_FIXED)
         rate = -math.log(curve.df(self.schedule.fixing_dates[-1])) / max(T, 1e-10)
 
@@ -583,6 +583,10 @@ class AsianOption:
         dS/S = (r-q)dt + √V dW₁
         dV = κ(θ-V)dt + ξ√V dW₂
         dW₁·dW₂ = ρ dt
+
+        Note: uses Euler-Maruyama scheme (first-order). Variance is floored
+        at zero (full truncation). For higher accuracy, consider QE scheme
+        (Andersen 2008) or exact simulation (Broadie & Kaya 2006).
         """
         rng = np.random.default_rng(seed)
         dt = T / n_steps

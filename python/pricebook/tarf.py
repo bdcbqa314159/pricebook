@@ -107,6 +107,8 @@ class TARF:
     ) -> TARFResult:
         """Price via Monte Carlo."""
         ref = curve.reference_date
+        if spot <= 0:
+            raise ValueError(f"spot must be positive, got {spot}")
         fix_times = [year_fraction(ref, d, DayCountConvention.ACT_365_FIXED)
                      for d in self.fixing_dates]
         T = fix_times[-1]
@@ -169,6 +171,19 @@ class TARF:
             target_hit_prob=float(target_hit.mean()),
             avg_accumulated=float(accumulated.mean()),
         )
+
+
+    def greeks(self, spot, curve, vol, div_yield=0.0, n_paths=50_000, seed=42):
+        """Bump-and-reprice Greeks: delta, gamma, vega."""
+        base = self.price_mc(spot, curve, vol, div_yield, n_paths, seed)
+        bump = spot * 0.01
+        up = self.price_mc(spot + bump, curve, vol, div_yield, n_paths, seed)
+        dn = self.price_mc(spot - bump, curve, vol, div_yield, n_paths, seed)
+        delta = (up.price - dn.price) / (2 * bump)
+        gamma = (up.price - 2 * base.price + dn.price) / (bump ** 2)
+        v_up = self.price_mc(spot, curve, vol + 0.01, div_yield, n_paths, seed)
+        vega = v_up.price - base.price
+        return {"delta": delta, "gamma": gamma, "vega": vega, "price": base.price}
 
     def pv_ctx(self, ctx) -> float:
         vol_surface = ctx.vol_surfaces.get("fx") if ctx.vol_surfaces else None

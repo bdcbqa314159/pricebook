@@ -111,6 +111,8 @@ class BarrierOption:
             method: "pde" (finite difference) or "mc" (Monte Carlo).
         """
         ref = curve.reference_date
+        if spot <= 0:
+            raise ValueError(f"spot must be positive, got {spot}")
         T = year_fraction(ref, self.maturity, DayCountConvention.ACT_365_FIXED)
         rate = -math.log(curve.df(self.maturity)) / max(T, 1e-10)
 
@@ -170,25 +172,26 @@ class BarrierOption:
         sqrt_dt = math.sqrt(dt)
 
         S = np.full(n_paths, spot, dtype=float)
-        alive = np.ones(n_paths, dtype=bool)
+        survived = np.ones(n_paths, dtype=bool)    # knock-out: alive if never hit
+        activated = np.zeros(n_paths, dtype=bool)   # knock-in: active if ever hit
 
         is_knockout = "out" in self.barrier_type
         is_up = "up" in self.barrier_type
 
+        # Barrier MC with discrete monitoring
+        # Note: discrete monitoring underestimates crossing probability vs continuous.
+        # Brownian bridge correction (Broadie, Glasserman & Kou 1997) improves accuracy.
         for step in range(n_steps):
             Z = rng.standard_normal(n_paths)
             S = S * np.exp((rate - div_yield - 0.5 * vol**2) * dt + vol * sqrt_dt * Z)
 
-            # Check barrier
             if is_up:
                 hit = S >= self.barrier
             else:
                 hit = S <= self.barrier
 
-            if is_knockout:
-                alive &= ~hit
-            else:
-                alive |= hit  # knock-in: alive once barrier is hit
+            survived &= ~hit       # knock-out: die on hit
+            activated |= hit       # knock-in: activate on hit
 
         df = math.exp(-rate * T)
 
@@ -198,13 +201,12 @@ class BarrierOption:
             payoff = np.maximum(self.strike - S, 0.0)
 
         if is_knockout:
-            payoff = payoff * alive
+            payoff = payoff * survived
         else:
-            # Knock-in: only pay if barrier was hit at some point
-            payoff = payoff * alive
+            payoff = payoff * activated  # knock-in: pay only if barrier was hit
 
         price = float(df * payoff.mean())
-        hit_prob = float((~alive if is_knockout else alive).mean())
+        hit_prob = float((~survived if is_knockout else activated).mean())
 
         return price, hit_prob
 
