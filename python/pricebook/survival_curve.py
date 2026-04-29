@@ -47,6 +47,7 @@ class SurvivalCurve:
 
         self.reference_date = reference_date
         self.day_count = day_count
+        self._interp_method = interpolation
         self._pillar_dates = list(dates)
 
         times = [year_fraction(reference_date, d, day_count) for d in dates]
@@ -127,16 +128,20 @@ def _sc_to_dict(self):
         "reference_date": self.reference_date.isoformat(),
         "dates": [d.isoformat() for d in self._pillar_dates],
         "survival_probs": pillar_survs, "day_count": self.day_count.value,
+        "interpolation": self._interp_method.value if hasattr(self, '_interp_method') else "log_linear",
     }}
 
 @classmethod
 def _sc_from_dict(cls, d):
     from datetime import date as _d
+    from pricebook.interpolation import InterpolationMethod
     p = d["params"]
+    interp = InterpolationMethod(p["interpolation"]) if "interpolation" in p else InterpolationMethod.LOG_LINEAR
     return cls(reference_date=_d.fromisoformat(p["reference_date"]),
                dates=[_d.fromisoformat(s) for s in p["dates"]],
                survival_probs=p["survival_probs"],
-               day_count=DayCountConvention(p["day_count"]))
+               day_count=DayCountConvention(p["day_count"]),
+               interpolation=interp)
 
 SurvivalCurve.to_dict = _sc_to_dict
 SurvivalCurve.from_dict = _sc_from_dict

@@ -1,7 +1,9 @@
 """Credit default swap."""
 
+from __future__ import annotations
+
 import math
-from datetime import date
+from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
@@ -327,6 +329,199 @@ class CDS:
         pv_bumped = self.pv(discount_curve, _bump_survival_curve(survival_curve, shift))
         return pv_bumped - pv_base
 
+    def to_upfront(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        standard_coupon: float = 0.01,
+    ) -> dict[str, float]:
+        """Convert to upfront quote (Big Bang convention).
+
+        upfront = (par_spread - standard_coupon) × risky_annuity
+
+        Args:
+            standard_coupon: standard running coupon (0.01 = 100bp for IG).
+
+        Returns:
+            dict with upfront_pct, par_spread_bps, standard_coupon_bps, rpv01.
+        """
+        par = self.par_spread(discount_curve, survival_curve)
+        rpv01 = self.rpv01(discount_curve, survival_curve)
+        upfront_pct = (par - standard_coupon) * rpv01
+        return {
+            "upfront_pct": upfront_pct,
+            "par_spread_bps": par * 10_000,
+            "standard_coupon_bps": standard_coupon * 10_000,
+            "rpv01": rpv01,
+        }
+
+    def carry(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        horizon_days: int = 30,
+    ) -> float:
+        """Carry: premium income earned over horizon assuming no default.
+
+        carry ≈ spread × notional × year_frac × survival_to_horizon
+        """
+        from pricebook.day_count import year_fraction as _yf
+        horizon = self.start + timedelta(days=horizon_days)
+        yf = _yf(self.start, horizon, self.day_count)
+        surv = survival_curve.survival(horizon)
+        return self.spread * self.notional * yf * surv
+
+    def roll_down(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        horizon_days: int = 30,
+    ) -> float:
+        """Roll-down: PV change from curve aging (time passing, spreads unchanged).
+
+        Prices the CDS at two dates on the SAME curve shifted in time.
+        """
+        pv_now = self.pv(discount_curve, survival_curve)
+        # Create a CDS with shorter remaining life
+        horizon = self.start + timedelta(days=horizon_days)
+        if horizon >= self.end:
+            return -pv_now
+        shorter = CDS(
+            start=horizon, end=self.end, spread=self.spread,
+            notional=self.notional, recovery=self.recovery,
+            frequency=self.frequency, day_count=self.day_count,
+        )
+        pv_later = shorter.pv(discount_curve, survival_curve)
+        return pv_later - pv_now
+
+    def bucket_cs01(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        shift_bps: float = 1.0,
+    ) -> dict[str, float]:
+        """Per-tenor CS01: sensitivity to each pillar of the survival curve.
+
+        Returns dict mapping pillar date → CS01 contribution.
+        """
+        from pricebook.credit_risk import _bump_survival_curve_at
+        pv_base = self.pv(discount_curve, survival_curve)
+        shift = shift_bps / 10_000
+        result = {}
+        for i, d in enumerate(survival_curve._pillar_dates):
+            bumped = _bump_survival_curve_at(survival_curve, i, shift)
+            pv_bumped = self.pv(discount_curve, bumped)
+            result[d.isoformat()] = (pv_bumped - pv_base) / shift_bps
+        return result
+
+
+class StandardCDS(CDS):
+    """Post-Big Bang standard CDS with market conventions.
+
+    Auto-sets standard coupon, recovery, IMM dates based on grade (IG/HY).
+    Carries the standard coupon and computes upfront internally.
+
+    Usage:
+        cds = StandardCDS.from_market(ref, maturity_years=5,
+                                       par_spread_bps=60, grade="IG")
+    """
+
+    _SERIAL_TYPE = "standard_cds"
+
+    def __init__(
+        self,
+        start: date,
+        end: date,
+        spread: float,
+        standard_coupon: float = 0.01,
+        grade: str = "IG",
+        notional: float = 1_000_000.0,
+        recovery: float = 0.4,
+        frequency: Frequency = Frequency.QUARTERLY,
+        day_count: DayCountConvention = DayCountConvention.ACT_360,
+        protection_day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+        steps_per_year: int = 4,
+    ):
+        super().__init__(
+            start=start, end=end, spread=spread,
+            notional=notional, recovery=recovery,
+            frequency=frequency, day_count=day_count,
+            protection_day_count=protection_day_count,
+            steps_per_year=steps_per_year,
+        )
+        self.standard_coupon = standard_coupon
+        self.grade = grade
+
+    @classmethod
+    def from_market(
+        cls,
+        reference_date: date,
+        maturity_years: int = 5,
+        par_spread_bps: float = 60.0,
+        grade: str = "IG",
+        notional: float = 1_000_000.0,
+    ) -> StandardCDS:
+        """Build from market quote with standard conventions.
+
+        Auto-sets:
+        - Standard coupon: 100bp (IG) or 500bp (HY)
+        - Recovery: 40% (IG) or 25% (HY)
+        - Dates: IMM-snapped from cds_conventions
+        """
+        from pricebook.cds_conventions import (
+            standard_cds_dates, STANDARD_COUPONS_BPS, STANDARD_RECOVERY,
+        )
+        dates = standard_cds_dates(reference_date, maturity_years)
+        start = dates[0]
+        end = dates[-1]
+        coupon_bps = STANDARD_COUPONS_BPS.get(grade, 100)
+        recovery = STANDARD_RECOVERY.get(grade, 0.40)
+        spread = par_spread_bps / 10_000
+
+        return cls(
+            start=start, end=end, spread=spread,
+            standard_coupon=coupon_bps / 10_000, grade=grade,
+            notional=notional, recovery=recovery,
+        )
+
+    def upfront_pct(self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve) -> float:
+        """Upfront as % of notional at standard coupon."""
+        return self.to_upfront(discount_curve, survival_curve, self.standard_coupon)["upfront_pct"]
+
+    # ---- Serialisation ----
+
+    def to_dict(self) -> dict:
+        from pricebook.serialisable import _serialise_atom
+        return {"type": self._SERIAL_TYPE, "params": {
+            "start": self.start.isoformat(), "end": self.end.isoformat(),
+            "spread": self.spread, "standard_coupon": self.standard_coupon,
+            "grade": self.grade, "notional": self.notional,
+            "recovery": self.recovery,
+            "frequency": _serialise_atom(self.frequency),
+            "day_count": _serialise_atom(self.day_count),
+            "protection_day_count": _serialise_atom(self.protection_day_count),
+            "steps_per_year": self.steps_per_year,
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> StandardCDS:
+        from pricebook.serialisable import _deserialise_atom
+        p = d["params"]
+        return cls(
+            start=date.fromisoformat(p["start"]), end=date.fromisoformat(p["end"]),
+            spread=p["spread"], standard_coupon=p.get("standard_coupon", 0.01),
+            grade=p.get("grade", "IG"), notional=p.get("notional", 1_000_000.0),
+            recovery=p.get("recovery", 0.4),
+            frequency=Frequency(p.get("frequency", 3)),
+            day_count=DayCountConvention(p.get("day_count", "ACT/360")),
+            protection_day_count=DayCountConvention(p.get("protection_day_count", "ACT_365_FIXED")),
+            steps_per_year=p.get("steps_per_year", 4),
+        )
+
+
+from pricebook.serialisable import _register as _reg_std
+_reg_std(StandardCDS)
+
 
 def bootstrap_credit_curve(
     reference_date: date,
@@ -441,4 +636,4 @@ def _verify_credit_round_trip(
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
 from pricebook.serialisable import serialisable as _serialisable
-_serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count"])(CDS)
+_serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count", "protection_day_count", "steps_per_year"])(CDS)
