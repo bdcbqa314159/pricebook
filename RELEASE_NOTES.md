@@ -2,6 +2,30 @@
 
 ---
 
+## v0.421.0 — 2026-04-30
+
+**Loan P2: Credit & Recovery.** 6519 tests.
+
+### `RecoveryModel` — seniority-dependent recovery
+- Historical data: 1L=77%, 2L=43%, senior=45%, sub=28% (Moody's).
+- Industry adjustment (utilities +10%, retail -5%).
+- Beta distribution calibration for MC sampling.
+
+### `StochasticRecovery` — LGD cyclicality
+- Recovery correlated with default: ρ ≈ -0.3 to -0.5.
+- Joint sampling via Gaussian copula + beta inverse.
+- `lgd_downturn()`: Basel stressed LGD.
+
+### `SpreadPrepayModel` — S-curve refinancing
+- `conditional_cpr(market_spread)`: Φ-based S-curve.
+- Tight market → CPR ~60-80%. Wide → CPR ~5%. ATM → ~40%.
+- Call premium shifts the curve.
+
+### `capital_requirement()` — Basel IRB K formula
+- Asset correlation from PD. Maturity adjustment. 99.9% conditional PD.
+
+---
+
 ## v0.420.0 — 2026-04-30
 
 **Loan P1: Cashflow engine — floor, PIK, grid, sweep, CSA.** 6494 tests, 47 types.
