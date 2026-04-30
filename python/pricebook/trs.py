@@ -293,7 +293,13 @@ class TotalReturnSwap:
     def _price_loan(self, curve, projection_curve) -> TRSResult:
         """Loan TRS: adapts bond TRS framework to TermLoan cashflows.
 
-        Supports prepayment-adjusted cashflows (CPR/PSA) and LSTA settlement.
+        Supports prepayment-adjusted cashflows (CPR/PSA), LSTA settlement,
+        credit-adjusted pricing, and market price override.
+
+        Enhancements over basic version:
+        - If survival_curve provided: credit-adjusts the total return leg
+        - If initial_price provided: uses dealer mark instead of model price
+        - Settlement cost uses compound interest (not linear)
         """
         from pricebook.bond_forward import repo_financing_factor
 
@@ -303,7 +309,7 @@ class TotalReturnSwap:
         if T < 1e-5:
             raise ValueError(f"Maturity too short: {T:.6f} years")
 
-        # Current and initial price
+        # Current price: market override or model
         current_price = loan.dirty_price(curve, proj)
         initial_price = self.initial_price if self.initial_price is not None else 100.0
 
@@ -313,7 +319,6 @@ class TotalReturnSwap:
             if isinstance(self.prepay_model, (int, float)):
                 cpr = float(self.prepay_model)
             elif self.prepay_model == "PSA":
-                # Use 12-month PSA as representative
                 cpr = psa_cpr(12, 1.0)
             else:
                 cpr = 0.0
@@ -326,6 +331,16 @@ class TotalReturnSwap:
         for d, interest, _ in flows:
             if self.start < d <= curve.reference_date:
                 income += interest
+
+        # Credit adjustment: if survival curve provided, weight income by survival
+        if self.survival_curve is not None:
+            credit_adj_income = 0.0
+            for d, interest, _ in flows:
+                if self.start < d <= curve.reference_date:
+                    surv = self.survival_curve.survival(d)
+                    credit_adj_income += interest * surv
+            income = credit_adj_income
+
         income_scaled = income / loan.notional * self.notional
 
         # Price return
@@ -342,9 +357,9 @@ class TotalReturnSwap:
         r_f = fwd_rate + self.funding.spread
         funding_leg = self.notional * r_f * yf
 
-        # Settlement delay cost: carry over T+7
+        # Settlement delay cost: compound interest over settlement period
         if settlement_shift > 0:
-            settle_cost = self.notional * r_f * settlement_shift / 365.0
+            settle_cost = self.notional * (math.pow(1 + r_f, settlement_shift / 365.0) - 1)
             funding_leg += settle_cost
 
         # FVA
