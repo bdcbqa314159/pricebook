@@ -2,6 +2,29 @@
 
 ---
 
+## v0.417.0 — 2026-04-30
+
+**Loan L1-L3: Direct loans + funded participation + partial funded.** 6476 tests, 44 types.
+
+### Layer 1: Direct loan instruments
+- `TermLoan.pv_ctx()`, `RevolvingFacility.pv_ctx()`: loans now tradeable directly in Trade/Portfolio.
+- `TermLoan.accrued_interest()`, `.clean_price()`: pro-rata accrued mid-period.
+- `RevolvingFacility.draw()`, `.repay()`: modify drawn amount dynamically.
+
+### Layer 2: `LoanParticipation`
+- Funded credit risk transfer: investor funds `participation_rate × notional`.
+- Receives pro-rata interest, loses `(1-R) × funded` on default.
+- Assignment vs participation economics: `assignment_premium()`.
+- Serialisable: `"loan_participation"`.
+
+### Layer 3: `PartialFundedParticipation`
+- Split into funded leg (loan coupons) + unfunded leg (CDS-like protection).
+- `pv_funded()` + `pv_unfunded()` = `total_pv()`.
+- Unfunded leg reuses CDS `protection_leg_pv` and `risky_annuity`.
+- `leverage()` = total / cash_outlay. Serialisable: `"partial_funded"`.
+
+---
+
 ## v0.416.0 — 2026-04-30
 
 **Risky floating payments — 4 layers, deterministic to correlated MC.** 6458 tests, 42 types.
