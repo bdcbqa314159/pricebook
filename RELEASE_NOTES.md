@@ -2,6 +2,33 @@
 
 ---
 
+## v0.426.0 — 2026-04-30
+
+**CDS P2: Swaption deep dive.** 6693 tests.
+
+### Curve-based pricing
+- `cds_swaption_black_curves()`: Black-76 with `DiscountCurve`/`SurvivalCurve` (replaces flat scalars).
+- `PedersenCDSSwaption.price_curves()`: Pedersen model with curve objects.
+- Put-call parity verified with curves.
+
+### Greeks
+- `cds_swaption_greeks()` → delta, gamma, vega, theta, knockout_delta via finite differences.
+- Delta parity: delta_payer − delta_receiver = Q × A × notional.
+
+### Bachelier (normal) model
+- `cds_swaption_bachelier()`: for near-zero forward spreads where lognormal fails.
+
+### SABR spread smile
+- `CDSSpreadSmile`: SABR-calibrated vol smile. `implied_vol(strike)`, `calibrate()` from market quotes.
+
+### Stochastic intensity
+- `StochasticIntensitySwaption`: CIR intensity MC. Captures vol-of-vol. Converges to Black-76 as ξ → 0.
+
+### Exercise mechanics
+- `exercise_into_physical()`: P&L from exercising into physical CDS.
+
+---
+
 ## v0.425.0 — 2026-04-30
 
 **CDS P1: Single-name hardening.** 6664 tests.
