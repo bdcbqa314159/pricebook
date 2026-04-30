@@ -2,6 +2,25 @@
 
 ---
 
+## v0.431.0 — 2026-04-30
+
+**CLN P2: Single-name CLN with stochastic recovery.** 6764 tests.
+
+### `CreditLinkedNote.price_stochastic_recovery()`
+- MC pricing with correlated default-recovery. Wrong-way premium = fixed − stochastic price.
+- Matches `dirty_price()` when RecoverySpec is fixed or ρ_DR = 0.
+
+### `CreditLinkedNote.rec_vol_01()`
+- Recovery vol sensitivity: higher σ_R → lower CLN PV (wrong-way amplification).
+
+### Seniority-based construction
+- `CreditLinkedNote.from_seniority("1L")`: recovery from Moody's tables. 1L > 2L > sub pricing.
+
+### Leveraged wrong-way
+- Leverage amplifies the wrong-way premium (convexity in `(1-R) × leverage`).
+
+---
+
 ## v0.430.0 — 2026-04-30
 
 **CLN P1: Recovery foundation.** 6755 tests.
