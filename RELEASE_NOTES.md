@@ -2,6 +2,20 @@
 
 ---
 
+## v0.433.0 — 2026-04-30
+
+**CLN P4: Analytics & integration.** 6782 tests.
+
+### Wrong-way risk report
+- Premium monotonically increases with |ρ_DR|. Full pipeline: fixed → independent → wrong-way comparison.
+
+### Integration tests
+- Vanilla → stochastic → basket → copula → correlated recovery pipeline.
+- Seniority: sub CLN needs higher coupon (breakeven spread) than 1L.
+- Serialisation round-trip verified for CLN and RecoverySpec.
+
+---
+
 ## v0.432.0 — 2026-04-30
 
 **CLN P3: Basket CLN with correlated recovery.** 6774 tests.
