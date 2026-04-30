@@ -2,6 +2,25 @@
 
 ---
 
+## v0.425.0 — 2026-04-30
+
+**CDS P1: Single-name hardening.** 6664 tests.
+
+### New CDS risk metrics
+- `rec01()`: recovery rate sensitivity (dPV/dR). Negative for protection buyer.
+- `theta()`: time decay (PV change per day, curves unchanged).
+- `spread_duration()`: normalised CS01 = -CS01/PV.
+- `spread_convexity()`: d²PV/ds² / PV via central difference.
+
+### P&L attribution
+- `cds_pnl_attribution()` → `CDSPnLAttribution`: spread, carry, roll_down, convexity, residual. Components sum to total.
+
+### Forward CDS with curves
+- `forward_cds_par_spread(disc, surv, start, end)` → `ForwardCDSCurveResult`. Uses actual curve objects (replaces flat-scalar version in `cds_swaption.py`). Foundation for curve-based swaption pricing.
+- `forward_risky_annuity()`: RPV01 of forward-starting CDS.
+
+---
+
 ## v0.424.0 — 2026-04-30
 
 **Loan P5: CLO & Portfolio.** 6639 tests.
