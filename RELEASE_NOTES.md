@@ -2,6 +2,27 @@
 
 ---
 
+## v0.424.0 — 2026-04-30
+
+**Loan P5: CLO & Portfolio.** 6639 tests.
+
+### `CLOTranche` + `CLOWaterfall`
+- Tranched capital structure (AAA → Equity). Interest waterfall: fees → senior coupons → sub fee → equity residual. Principal: sequential or pro-rata. Losses absorbed bottom-up.
+
+### Portfolio compliance
+- `oc_ratio()`, `ic_ratio()`, `ccc_concentration()`, `wal_test()`, `warf_test()`.
+- Moody's + S&P rating factor table. WARF computation.
+
+### Diversity & reinvestment
+- `moody_diversity_score()`: HHI-based equivalent names by industry.
+- `break_even_default_rate()`: equity cushion → max annual default rate.
+- `reinvestment_capacity()`: par purchasable at market price.
+
+### `BorrowingBase`
+- Advance rate × eligible receivables, facility limit cap, concentration excess detection.
+
+---
+
 ## v0.423.0 — 2026-04-28
 
 **Loan P4: Settlement & Secondary Market.** 6588 tests.
