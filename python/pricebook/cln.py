@@ -628,6 +628,169 @@ class BasketCLN:
             std_error=loss_std_error,
         )
 
+    def price_mc_correlated_recovery(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curves: list[SurvivalCurve],
+        rho: float = 0.3,
+        recovery_sensitivity: float = 0.10,
+        recoveries: list[float] | None = None,
+        n_sims: int = 50_000,
+        seed: int = 42,
+    ) -> BasketCLNResult:
+        """Price with correlated recovery via systematic factor.
+
+        Recovery depends on M: R(M) = mean + sensitivity × M, clipped to [0,1].
+        In downturn (low M): more defaults AND lower recovery.
+
+        Double-correlation: M drives both defaults (via ρ_DD) and recovery
+        (via recovery_sensitivity).
+
+        Args:
+            rho: default-default correlation (ρ_DD).
+            recovery_sensitivity: dR/dM (positive: recovery rises with M).
+            recoveries: per-name recovery means (None = uniform self.recovery).
+        """
+        if len(survival_curves) != self.n_names:
+            raise ValueError(f"Expected {self.n_names} survival curves, got {len(survival_curves)}")
+
+        width = self.detachment - self.attachment
+        if width <= 0:
+            raise ValueError("detachment must be > attachment")
+
+        rng = np.random.default_rng(seed)
+        sqrt_rho = math.sqrt(max(rho, 0.0))
+        sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
+
+        rec_means = np.array(recoveries if recoveries else [self.recovery] * self.n_names)
+
+        coupon_pv = 0.0
+        total_expected_loss = 0.0
+        loss_std_error = 0.0
+
+        for i in range(1, len(self.schedule)):
+            t_start = self.schedule[i - 1]
+            t_end = self.schedule[i]
+            yf = year_fraction(t_start, t_end, DayCountConvention.ACT_360)
+            df = discount_curve.df(t_end)
+
+            M = rng.standard_normal(n_sims)
+            eps = rng.standard_normal((n_sims, self.n_names))
+            Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+
+            thresholds = np.array([
+                norm.ppf(max(1.0 - sc.survival(t_end), 1e-15))
+                for sc in survival_curves
+            ])
+            defaults = Z < thresholds[np.newaxis, :]
+
+            # Recovery correlated with M (per-name, per-path)
+            # R_j(M) = mean_j + sensitivity × M, clipped
+            R_per_path = rec_means[np.newaxis, :] + recovery_sensitivity * M[:, np.newaxis]
+            R_per_path = np.clip(R_per_path, 0.0, 1.0)
+
+            # Portfolio loss with heterogeneous, correlated recovery
+            lgd_per_name = (1.0 - R_per_path) * defaults  # (n_sims, n_names)
+            portfolio_loss = lgd_per_name.sum(axis=1) / self.n_names
+
+            tranche_loss = np.clip(portfolio_loss - self.attachment, 0.0, width) / width
+            avg_tranche_loss = float(tranche_loss.mean())
+            tranche_surv = 1.0 - avg_tranche_loss
+            coupon_pv += self.notional * self.coupon_rate * yf * df * tranche_surv
+
+            total_expected_loss = avg_tranche_loss
+            loss_std_error = float(tranche_loss.std()) / math.sqrt(n_sims)
+
+        df_T = discount_curve.df(self.end)
+        principal_pv = self.notional * df_T * (1.0 - total_expected_loss)
+        total_pv = coupon_pv + principal_pv
+
+        return BasketCLNResult(
+            price=total_pv, expected_loss=total_expected_loss,
+            tranche_width=width, attachment=self.attachment,
+            detachment=self.detachment, std_error=loss_std_error,
+        )
+
+    def price_mc_copula(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curves: list[SurvivalCurve],
+        rho: float = 0.3,
+        copula: str = "gaussian",
+        nu: float = 5.0,
+        n_sims: int = 50_000,
+        seed: int = 42,
+    ) -> BasketCLNResult:
+        """Price with flexible copula choice.
+
+        Args:
+            copula: "gaussian", "t" (Student-t with nu degrees of freedom).
+            nu: degrees of freedom for t-copula (ignored for Gaussian).
+        """
+        if copula == "gaussian":
+            return self.price_mc(discount_curve, survival_curves, rho, n_sims, seed)
+
+        if copula != "t":
+            raise ValueError(f"Unsupported copula '{copula}'. Options: gaussian, t")
+
+        # Student-t copula
+        if len(survival_curves) != self.n_names:
+            raise ValueError(f"Expected {self.n_names} survival curves")
+
+        from scipy.stats import t as t_dist
+
+        width = self.detachment - self.attachment
+        if width <= 0:
+            raise ValueError("detachment must be > attachment")
+
+        rng = np.random.default_rng(seed)
+        sqrt_rho = math.sqrt(max(rho, 0.0))
+        sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
+
+        coupon_pv = 0.0
+        total_expected_loss = 0.0
+        loss_std_error = 0.0
+
+        for i in range(1, len(self.schedule)):
+            t_start = self.schedule[i - 1]
+            t_end = self.schedule[i]
+            yf = year_fraction(t_start, t_end, DayCountConvention.ACT_360)
+            df = discount_curve.df(t_end)
+
+            chi2 = np.maximum(rng.chisquare(nu, n_sims), 0.01)
+            W = np.sqrt(nu / chi2)
+
+            M = rng.standard_normal(n_sims) * W
+            eps = rng.standard_normal((n_sims, self.n_names)) * W[:, np.newaxis]
+            Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+
+            thresholds = np.array([
+                t_dist.ppf(max(1.0 - sc.survival(t_end), 1e-15), nu)
+                for sc in survival_curves
+            ])
+            defaults = Z < thresholds[np.newaxis, :]
+
+            n_defaults = defaults.sum(axis=1).astype(float)
+            portfolio_loss = n_defaults / self.n_names * (1.0 - self.recovery)
+
+            tranche_loss = np.clip(portfolio_loss - self.attachment, 0.0, width) / width
+            avg_tranche_loss = float(tranche_loss.mean())
+            tranche_surv = 1.0 - avg_tranche_loss
+            coupon_pv += self.notional * self.coupon_rate * yf * df * tranche_surv
+
+            total_expected_loss = avg_tranche_loss
+            loss_std_error = float(tranche_loss.std()) / math.sqrt(n_sims)
+
+        df_T = discount_curve.df(self.end)
+        principal_pv = self.notional * df_T * (1.0 - total_expected_loss)
+        total_pv = coupon_pv + principal_pv
+
+        return BasketCLNResult(
+            price=total_pv, expected_loss=total_expected_loss,
+            tranche_width=width, attachment=self.attachment,
+            detachment=self.detachment, std_error=loss_std_error,
+        )
+
     @property
     def tranche_width(self) -> float:
         return self.detachment - self.attachment
