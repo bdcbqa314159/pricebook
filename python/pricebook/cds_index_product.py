@@ -83,6 +83,7 @@ class CDSIndexProduct:
         standard_coupon: float = 0.01,
         recovery: float = 0.4,
         n_names: int = 125,
+        n_defaulted: int = 0,
     ):
         self.index_name = index_name
         self.series = series
@@ -91,8 +92,19 @@ class CDSIndexProduct:
         self.standard_coupon = standard_coupon
         self.recovery = recovery
         self.n_names = n_names
+        self.n_defaulted = n_defaulted
         self.start = start
         self.end = end
+
+    @property
+    def factor(self) -> float:
+        """Index factor: fraction of names that have not defaulted."""
+        return (self.n_names - self.n_defaulted) / self.n_names if self.n_names > 0 else 0.0
+
+    @property
+    def effective_notional(self) -> float:
+        """Notional adjusted for defaults."""
+        return self.notional * self.factor
 
     @classmethod
     def from_spec(
@@ -240,6 +252,7 @@ class CDSIndexProduct:
             "notional": self.notional,
             "standard_coupon": self.standard_coupon,
             "recovery": self.recovery, "n_names": self.n_names,
+            "n_defaulted": self.n_defaulted,
         }}
         if self.start:
             d["params"]["start"] = self.start.isoformat()
@@ -259,7 +272,273 @@ class CDSIndexProduct:
             standard_coupon=p.get("standard_coupon", 0.01),
             recovery=p.get("recovery", 0.4),
             n_names=p.get("n_names", 125),
+            n_defaulted=p.get("n_defaulted", 0),
         )
 
 
+    def cs01(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curves: list[SurvivalCurve],
+        shift: float = 0.0001,
+    ) -> float:
+        """Index CS01: PV change for 1bp parallel shift in all constituent hazards."""
+        from pricebook.credit_risk import _bump_survival_curve
+        pv_base = self.price(discount_curve, survival_curves).pv
+        bumped = [_bump_survival_curve(sc, shift) for sc in survival_curves]
+        pv_bumped = self.price(discount_curve, bumped).pv
+        return pv_bumped - pv_base
+
+    def constituent_cs01(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curves: list[SurvivalCurve],
+        shift: float = 0.0001,
+    ) -> list[float]:
+        """Per-name CS01 contribution to the index."""
+        from pricebook.credit_risk import _bump_survival_curve
+        ref = discount_curve.reference_date
+        start = self.start or ref
+        end = self.end or (ref + timedelta(days=1825))
+        per_name = self.notional / self.n_names
+
+        result = []
+        for sc in survival_curves:
+            cds = CDS(start, end, spread=self.market_spread,
+                      notional=per_name, recovery=self.recovery)
+            pv_base = cds.pv(discount_curve, sc)
+            pv_bump = cds.pv(discount_curve, _bump_survival_curve(sc, shift))
+            result.append(pv_bump - pv_base)
+        return result
+
+    def rec01(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curves: list[SurvivalCurve],
+        shift: float = 0.01,
+    ) -> float:
+        """Index recovery sensitivity: PV change for 1% recovery shift."""
+        pv_base = self.price(discount_curve, survival_curves).pv
+        # Reprice with bumped recovery
+        bumped_product = CDSIndexProduct(
+            self.index_name, self.series, self.market_spread,
+            self.start, self.end, self.notional, self.standard_coupon,
+            min(self.recovery + shift, 1.0), self.n_names, self.n_defaulted,
+        )
+        pv_bumped = bumped_product.price(discount_curve, survival_curves).pv
+        return pv_bumped - pv_base
+
+
 _register(CDSIndexProduct)
+
+
+# ---------------------------------------------------------------------------
+# Index option
+# ---------------------------------------------------------------------------
+
+@dataclass
+class IndexOptionResult:
+    """CDS index option pricing result."""
+    premium: float
+    forward_spread: float
+    strike_spread: float
+    index_annuity: float
+    survival_factor: float
+
+    def to_dict(self) -> dict:
+        return {
+            "premium": self.premium, "forward_spread": self.forward_spread,
+            "strike_spread": self.strike_spread,
+            "index_annuity": self.index_annuity,
+            "survival_factor": self.survival_factor,
+        }
+
+
+class CDSIndexOption:
+    """Option on a CDS index spread (CDX/iTraxx option).
+
+    Payer: right to buy protection at strike.
+    Receiver: right to sell protection at strike.
+
+    Unlike single-name swaptions, defaults reduce notional but
+    do not fully knock out the option.
+
+    Args:
+        index_name: e.g. "CDX.NA.IG".
+        expiry_date: option expiry.
+        maturity_date: underlying CDS maturity.
+        strike_spread: option strike.
+        spread_vol: lognormal vol.
+        notional: index notional.
+        option_type: "payer" or "receiver".
+        recovery: recovery rate.
+        n_names: number of index constituents.
+    """
+
+    _SERIAL_TYPE = "cds_index_option"
+
+    def __init__(
+        self,
+        index_name: str = "CDX.NA.IG",
+        expiry_date: date | None = None,
+        maturity_date: date | None = None,
+        strike_spread: float = 0.005,
+        spread_vol: float = 0.40,
+        notional: float = 10_000_000.0,
+        option_type: str = "payer",
+        recovery: float = 0.4,
+        n_names: int = 125,
+    ):
+        self.index_name = index_name
+        self.expiry_date = expiry_date
+        self.maturity_date = maturity_date
+        self.strike_spread = strike_spread
+        self.spread_vol = spread_vol
+        self.notional = notional
+        self.option_type = option_type
+        self.recovery = recovery
+        self.n_names = n_names
+
+    def price(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curves: list[SurvivalCurve],
+    ) -> IndexOptionResult:
+        """Price via Black-76 on the forward index spread.
+
+        Forward index spread = average of constituent forward spreads.
+        Annuity = average of constituent forward annuities.
+        """
+        from pricebook.cds import forward_cds_par_spread
+        from pricebook.cds_swaption import cds_swaption_black
+
+        ref = discount_curve.reference_date
+        expiry = self.expiry_date or (ref + timedelta(days=365))
+        maturity = self.maturity_date or (ref + timedelta(days=1825))
+        expiry_years = year_fraction(ref, expiry, DayCountConvention.ACT_365_FIXED)
+
+        # Compute forward spread for each constituent
+        fwd_spreads = []
+        fwd_annuities = []
+        fwd_survivals = []
+        for sc in survival_curves:
+            fwd = forward_cds_par_spread(
+                discount_curve, sc, expiry, maturity, self.recovery,
+            )
+            fwd_spreads.append(fwd.forward_spread)
+            fwd_annuities.append(fwd.risky_annuity)
+            fwd_survivals.append(fwd.survival_to_start)
+
+        # Index forward = average
+        avg_fwd = sum(fwd_spreads) / len(fwd_spreads)
+        avg_ann = sum(fwd_annuities) / len(fwd_annuities)
+        avg_surv = sum(fwd_survivals) / len(fwd_survivals)
+
+        # Price via Black-76
+        result = cds_swaption_black(
+            avg_fwd, self.strike_spread, self.spread_vol,
+            expiry_years, avg_ann, avg_surv,
+            self.notional, self.option_type,
+        )
+
+        return IndexOptionResult(
+            premium=result.premium,
+            forward_spread=avg_fwd,
+            strike_spread=self.strike_spread,
+            index_annuity=avg_ann,
+            survival_factor=avg_surv,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"type": self._SERIAL_TYPE, "params": {
+            "index_name": self.index_name,
+            "strike_spread": self.strike_spread,
+            "spread_vol": self.spread_vol,
+            "notional": self.notional,
+            "option_type": self.option_type,
+            "recovery": self.recovery,
+            "n_names": self.n_names,
+        }}
+        if self.expiry_date:
+            d["params"]["expiry_date"] = self.expiry_date.isoformat()
+        if self.maturity_date:
+            d["params"]["maturity_date"] = self.maturity_date.isoformat()
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> CDSIndexOption:
+        p = d["params"]
+        return cls(
+            index_name=p.get("index_name", "CDX.NA.IG"),
+            expiry_date=date.fromisoformat(p["expiry_date"]) if "expiry_date" in p else None,
+            maturity_date=date.fromisoformat(p["maturity_date"]) if "maturity_date" in p else None,
+            strike_spread=p["strike_spread"],
+            spread_vol=p.get("spread_vol", 0.4),
+            notional=p.get("notional", 10_000_000.0),
+            option_type=p.get("option_type", "payer"),
+            recovery=p.get("recovery", 0.4),
+            n_names=p.get("n_names", 125),
+        )
+
+
+_register(CDSIndexOption)
+
+
+# ---------------------------------------------------------------------------
+# Index basis decomposition
+# ---------------------------------------------------------------------------
+
+@dataclass
+class BasisDecomposition:
+    """Index basis decomposition."""
+    total_basis_bp: float       # market - intrinsic (bp)
+    dispersion_bp: float        # flat - intrinsic (Jensen's inequality, ≥ 0)
+    liquidity_bp: float         # market - flat (residual)
+
+    def to_dict(self) -> dict:
+        return {
+            "total_basis_bp": self.total_basis_bp,
+            "dispersion_bp": self.dispersion_bp,
+            "liquidity_bp": self.liquidity_bp,
+        }
+
+
+def index_basis_decomposition(
+    index_product: CDSIndexProduct,
+    discount_curve: DiscountCurve,
+    survival_curves: list[SurvivalCurve],
+) -> BasisDecomposition:
+    """Decompose index basis into dispersion and liquidity components.
+
+    total_basis = market_spread - intrinsic_spread
+    dispersion = flat_spread - intrinsic (Jensen's inequality, always ≥ 0)
+    liquidity = market_spread - flat_spread
+    """
+    result = index_product.price(discount_curve, survival_curves)
+
+    # Build a CDSIndex for flat spread computation
+    ref = discount_curve.reference_date
+    start = index_product.start or ref
+    end = index_product.end or (ref + timedelta(days=1825))
+    per_name = index_product.notional / index_product.n_names
+
+    constituents = []
+    for sc in survival_curves:
+        cds = CDS(start, end, spread=index_product.market_spread,
+                  notional=per_name, recovery=index_product.recovery)
+        constituents.append(cds)
+
+    idx = CDSIndex(constituents, index_product.notional)
+    try:
+        flat = idx.flat_spread(discount_curve, survival_curves)
+    except Exception:
+        flat = result.intrinsic_spread
+
+    intrinsic = result.intrinsic_spread
+    market = index_product.market_spread
+
+    total_bp = (market - intrinsic) * 10_000
+    dispersion_bp = (flat - intrinsic) * 10_000
+    liquidity_bp = (market - flat) * 10_000
+
+    return BasisDecomposition(total_bp, dispersion_bp, liquidity_bp)

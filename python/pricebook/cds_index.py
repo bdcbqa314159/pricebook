@@ -74,28 +74,39 @@ class CDSIndex:
     ) -> float:
         """Flat spread: single spread that reprices the index PV.
 
-        Uses the first constituent as a template for the premium leg structure.
+        Uses Newton-Raphson with RPV01 as Jacobian (3-5 iterations),
+        falling back to Brent if Newton fails.
         """
+        from pricebook.cds import risky_annuity as _ra
         index_pv = self.pv(discount_curve, survival_curves)
-
-        # Average survival curve for the index (simple average of survivals)
-        ref = survival_curves[0]
-
         template = self.constituents[0]
+        target = index_pv / self.n
 
+        def _pv_at_spread(s: float) -> float:
+            cds = CDS(template.start, template.end, spread=s,
+                      notional=self.notional, recovery=template.recovery)
+            return sum(cds.pv(discount_curve, sc) for sc in survival_curves) / self.n
+
+        # Newton-Raphson: f(s) = pv(s) - target, f'(s) ≈ -RPV01 × notional
+        avg_rpv01 = sum(
+            _ra(template.start, template.end, discount_curve, sc)
+            for sc in survival_curves
+        ) / self.n
+        jacobian = -avg_rpv01 * self.notional
+
+        s = self.intrinsic_spread(discount_curve, survival_curves)
+        for _ in range(10):
+            f = _pv_at_spread(s) - target
+            if abs(f) < 1e-12:
+                return s
+            if abs(jacobian) < 1e-15:
+                break
+            s -= f / jacobian
+            s = max(s, 1e-6)
+
+        # Fallback to Brent
         def objective(s: float) -> float:
-            index_cds = CDS(
-                template.start, template.end,
-                spread=s, notional=self.notional,
-                recovery=template.recovery,
-            )
-            # Use average survival for flat spread
-            avg_pv = 0.0
-            for sc in survival_curves:
-                avg_pv += index_cds.pv(discount_curve, sc)
-            avg_pv /= self.n
-            return avg_pv - index_pv / self.n
-
+            return _pv_at_spread(s) - target
         return brentq(objective, 0.0001, 0.10)
 
     def intrinsic_spread(
