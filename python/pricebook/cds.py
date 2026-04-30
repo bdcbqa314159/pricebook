@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -413,6 +414,250 @@ class CDS:
             pv_bumped = self.pv(discount_curve, bumped)
             result[d.isoformat()] = (pv_bumped - pv_base) / shift_bps
         return result
+
+    def rec01(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        shift: float = 0.01,
+    ) -> float:
+        """Rec01: PV sensitivity to a 1% shift in recovery rate.
+
+        Higher recovery reduces protection leg PV, so rec01 is negative
+        for a protection buyer.
+        """
+        pv_base = self.pv(discount_curve, survival_curve)
+        bumped = CDS(
+            self.start, self.end, self.spread,
+            notional=self.notional,
+            recovery=min(self.recovery + shift, 1.0),
+            frequency=self.frequency, day_count=self.day_count,
+            protection_day_count=self.protection_day_count,
+            steps_per_year=self.steps_per_year,
+            calendar=self.calendar, convention=self.convention,
+        )
+        return bumped.pv(discount_curve, survival_curve) - pv_base
+
+    def theta(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        days: int = 1,
+    ) -> float:
+        """Theta: PV change for time passing (days), curves unchanged.
+
+        Reprices a CDS with start shifted forward by `days`.
+        """
+        new_start = self.start + timedelta(days=days)
+        if new_start >= self.end:
+            return -self.pv(discount_curve, survival_curve)
+        aged = CDS(
+            new_start, self.end, self.spread,
+            notional=self.notional, recovery=self.recovery,
+            frequency=self.frequency, day_count=self.day_count,
+            protection_day_count=self.protection_day_count,
+            steps_per_year=self.steps_per_year,
+            calendar=self.calendar, convention=self.convention,
+        )
+        return aged.pv(discount_curve, survival_curve) - self.pv(discount_curve, survival_curve)
+
+    def spread_duration(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+    ) -> float:
+        """Spread duration: normalised CS01.
+
+        spread_duration = -CS01 / PV (per 1bp)
+        """
+        pv = self.pv(discount_curve, survival_curve)
+        if abs(pv) < 1e-15:
+            return 0.0
+        return -self.cs01(discount_curve, survival_curve) / pv
+
+    def spread_convexity(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        shift: float = 0.0001,
+    ) -> float:
+        """Spread convexity: d²PV/ds² / PV via central difference.
+
+        convexity = [PV(s+h) - 2×PV(s) + PV(s-h)] / (h² × PV)
+        """
+        from pricebook.credit_risk import _bump_survival_curve
+        pv_base = self.pv(discount_curve, survival_curve)
+        if abs(pv_base) < 1e-15:
+            return 0.0
+        pv_up = self.pv(discount_curve, _bump_survival_curve(survival_curve, shift))
+        pv_down = self.pv(discount_curve, _bump_survival_curve(survival_curve, -shift))
+        return (pv_up - 2 * pv_base + pv_down) / (shift ** 2 * pv_base)
+
+
+# ---------------------------------------------------------------------------
+# P&L attribution
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CDSPnLAttribution:
+    """P&L decomposition for a CDS position."""
+    total: float
+    spread: float
+    carry: float
+    roll_down: float
+    convexity: float
+    residual: float
+
+    def to_dict(self) -> dict:
+        return {
+            "total": self.total, "spread": self.spread,
+            "carry": self.carry, "roll_down": self.roll_down,
+            "convexity": self.convexity, "residual": self.residual,
+        }
+
+
+def cds_pnl_attribution(
+    cds: CDS,
+    disc_t0: DiscountCurve,
+    surv_t0: SurvivalCurve,
+    disc_t1: DiscountCurve,
+    surv_t1: SurvivalCurve,
+    horizon_days: int = 1,
+) -> CDSPnLAttribution:
+    """Decompose CDS P&L into spread, carry, roll-down, convexity, residual.
+
+    P&L = PV(t1) - PV(t0), decomposed as:
+      spread ≈ -CS01 × Δspread
+      carry = spread × notional × yf × survival
+      roll_down = PV(shorter CDS, t0 curves) - PV(t0)
+      convexity ≈ ½ × spread_convexity × Δspread²
+      residual = total - spread - carry - roll_down - convexity
+    """
+    pv_t0 = cds.pv(disc_t0, surv_t0)
+
+    # Aged CDS for t1 pricing
+    new_start = cds.start + timedelta(days=horizon_days)
+    if new_start >= cds.end:
+        return CDSPnLAttribution(
+            total=-pv_t0, spread=0, carry=0,
+            roll_down=-pv_t0, convexity=0, residual=0,
+        )
+
+    aged = CDS(
+        new_start, cds.end, cds.spread,
+        notional=cds.notional, recovery=cds.recovery,
+        frequency=cds.frequency, day_count=cds.day_count,
+        protection_day_count=cds.protection_day_count,
+        steps_per_year=cds.steps_per_year,
+    )
+    pv_t1 = aged.pv(disc_t1, surv_t1)
+    total = pv_t1 - pv_t0
+
+    # Carry
+    carry_pnl = cds.carry(disc_t0, surv_t0, horizon_days)
+
+    # Roll-down
+    roll = cds.roll_down(disc_t0, surv_t0, horizon_days)
+
+    # Spread change
+    par_t0 = cds.par_spread(disc_t0, surv_t0)
+    par_t1 = aged.par_spread(disc_t1, surv_t1)
+    delta_spread = par_t1 - par_t0
+    cs01 = cds.cs01(disc_t0, surv_t0)
+    spread_pnl = -cs01 * delta_spread / 0.0001  # cs01 is per 1bp
+
+    # Convexity
+    conv = cds.spread_convexity(disc_t0, surv_t0)
+    pv_for_conv = abs(pv_t0) if abs(pv_t0) > 1e-10 else cds.notional
+    convexity_pnl = 0.5 * conv * pv_for_conv * delta_spread ** 2
+
+    residual = total - spread_pnl - carry_pnl - roll - convexity_pnl
+
+    return CDSPnLAttribution(
+        total=total, spread=spread_pnl, carry=carry_pnl,
+        roll_down=roll, convexity=convexity_pnl, residual=residual,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Forward CDS with curve objects
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ForwardCDSCurveResult:
+    """Forward CDS spread computed from curve objects."""
+    forward_spread: float
+    risky_annuity: float
+    protection_pv: float
+    survival_to_start: float
+
+    def to_dict(self) -> dict:
+        return {
+            "forward_spread": self.forward_spread,
+            "risky_annuity": self.risky_annuity,
+            "protection_pv": self.protection_pv,
+            "survival_to_start": self.survival_to_start,
+        }
+
+
+def forward_cds_par_spread(
+    discount_curve: DiscountCurve,
+    survival_curve: SurvivalCurve,
+    start_date: date,
+    end_date: date,
+    recovery: float = 0.4,
+    notional: float = 1.0,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+    protection_day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
+    steps_per_year: int = 4,
+) -> ForwardCDSCurveResult:
+    """Par spread of a forward-starting CDS using curve objects.
+
+    F(T₁,T₂) = protection_leg_pv(T₁,T₂) / risky_annuity(T₁,T₂)
+
+    The forward CDS is simply a CDS starting at start_date with
+    protection and premium legs computed on the same curves.
+    """
+    prot = protection_leg_pv(
+        start_date, end_date, discount_curve, survival_curve,
+        recovery=recovery, notional=notional,
+        day_count=protection_day_count,
+        steps_per_year=steps_per_year,
+    )
+
+    ann = risky_annuity(
+        start_date, end_date, discount_curve, survival_curve,
+        frequency=frequency, day_count=day_count,
+    )
+
+    fwd = prot / (notional * ann) if abs(ann) > 1e-15 else 0.0
+    surv_start = survival_curve.survival(start_date)
+
+    return ForwardCDSCurveResult(
+        forward_spread=fwd,
+        risky_annuity=ann,
+        protection_pv=prot,
+        survival_to_start=surv_start,
+    )
+
+
+def forward_risky_annuity(
+    discount_curve: DiscountCurve,
+    survival_curve: SurvivalCurve,
+    start_date: date,
+    end_date: date,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+) -> float:
+    """RPV01 of a forward-starting CDS using curve objects.
+
+    Identical to risky_annuity() with the forward start date.
+    """
+    return risky_annuity(
+        start_date, end_date, discount_curve, survival_curve,
+        frequency=frequency, day_count=day_count,
+    )
 
 
 class StandardCDS(CDS):
