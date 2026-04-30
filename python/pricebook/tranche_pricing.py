@@ -283,3 +283,218 @@ def calibrate_base_correlation(
         base_corr[det_point] = rho
 
     return base_corr
+
+
+# ---------------------------------------------------------------------------
+# Multi-period tranche pricing
+# ---------------------------------------------------------------------------
+
+def price_tranche_multiperiod(
+    attachment: float,
+    detachment: float,
+    survival_curves: list[SurvivalCurve],
+    discount_curve: DiscountCurve,
+    correlation: float,
+    spread: float,
+    maturity_years: float = 5.0,
+    recovery: float = 0.4,
+    frequency: int = 4,
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> TrancheResult:
+    """Multi-period tranche pricing with proper premium and protection legs.
+
+    Premium leg: Σ spread × (1 - EL_i) × yf_i × df_i × notional
+    Protection leg: Σ (EL_i - EL_{i-1}) × df_i × width × notional
+
+    Computes expected tranche loss at each payment date.
+    """
+    width = detachment - attachment
+    if width <= 0:
+        return TrancheResult(0, 0, 0, 0, 0, attachment, detachment)
+
+    ref = discount_curve.reference_date
+    dt = 1.0 / frequency
+    n_periods = int(maturity_years * frequency)
+
+    # Compute EL at each payment date
+    els = [0.0]  # EL at t=0
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        el = expected_tranche_loss(
+            attachment, detachment, survival_curves,
+            discount_curve, correlation, t, recovery, n_sims, seed,
+        )
+        els.append(el)
+
+    # Premium leg
+    premium_pv = 0.0
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        d = ref + timedelta(days=int(t * 365))
+        df = discount_curve.df(d)
+        surviving = 1.0 - els[i]
+        premium_pv += spread * surviving * dt * df
+
+    # Protection leg
+    protection_pv = 0.0
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        d = ref + timedelta(days=int(t * 365))
+        df = discount_curve.df(d)
+        delta_el = els[i] - els[i - 1]
+        protection_pv += delta_el * width * df
+
+    pv = protection_pv - premium_pv
+
+    # Par spread
+    annuity = sum(
+        (1.0 - els[i]) * dt * discount_curve.df(
+            ref + timedelta(days=int(i * dt * 365))
+        )
+        for i in range(1, n_periods + 1)
+    )
+    par_spread = protection_pv / annuity if annuity > 1e-10 else 0.0
+
+    return TrancheResult(
+        price=pv, expected_loss=els[-1],
+        protection_pv=protection_pv, premium_pv=premium_pv,
+        par_spread=par_spread,
+        attachment=attachment, detachment=detachment,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Student-t copula for tranche loss
+# ---------------------------------------------------------------------------
+
+def expected_tranche_loss_t(
+    attachment: float,
+    detachment: float,
+    survival_curves: list[SurvivalCurve],
+    discount_curve: DiscountCurve,
+    rho: float,
+    T: float,
+    nu: float = 5.0,
+    recovery: float = 0.4,
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> float:
+    """Expected tranche loss via Student-t copula MC.
+
+    Same structure as Gaussian copula but with t-distributed factors.
+    Captures tail dependence: more clustered defaults under stress.
+
+    As ν → ∞, converges to Gaussian copula.
+
+    Args:
+        nu: degrees of freedom (lower = fatter tails).
+    """
+    from scipy.stats import t as t_dist
+
+    width = detachment - attachment
+    if width <= 0:
+        return 0.0
+
+    n_names = len(survival_curves)
+    ref = discount_curve.reference_date
+
+    rng = np.random.default_rng(seed)
+    sqrt_rho = math.sqrt(max(rho, 0.0))
+    sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
+
+    # t-distributed systematic and idiosyncratic factors
+    # Chi-squared mixing variable
+    chi2 = rng.chisquare(nu, n_sims)
+    W = np.sqrt(nu / chi2)  # mixing variable
+
+    M = rng.standard_normal(n_sims) * W
+    eps = rng.standard_normal((n_sims, n_names)) * W[:, np.newaxis]
+    Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+
+    T_date = ref + timedelta(days=int(T * 365))
+    # Use t-distribution CDF for thresholds
+    thresholds = np.array([
+        t_dist.ppf(max(1.0 - sc.survival(T_date), 1e-15), nu)
+        for sc in survival_curves
+    ])
+    defaults = Z < thresholds[np.newaxis, :]
+    n_defaults = defaults.sum(axis=1).astype(float)
+    portfolio_loss = n_defaults / n_names * (1.0 - recovery)
+
+    tranche_loss = np.clip(portfolio_loss - attachment, 0.0, width) / width
+    return float(tranche_loss.mean())
+
+
+# ---------------------------------------------------------------------------
+# Correlation sensitivity (rho01)
+# ---------------------------------------------------------------------------
+
+def tranche_rho01(
+    attachment: float,
+    detachment: float,
+    survival_curves: list[SurvivalCurve],
+    discount_curve: DiscountCurve,
+    correlation: float,
+    T: float,
+    recovery: float = 0.4,
+    shift: float = 0.01,
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> float:
+    """Tranche sensitivity to correlation: dEL/dρ per 1%.
+
+    Equity: rho01 < 0 (higher ρ reduces equity tranche loss).
+    Senior: rho01 > 0 (higher ρ increases senior tranche loss).
+    """
+    el_base = expected_tranche_loss(
+        attachment, detachment, survival_curves,
+        discount_curve, correlation, T, recovery, n_sims, seed,
+    )
+    rho_bumped = min(correlation + shift, 0.999)
+    el_bumped = expected_tranche_loss(
+        attachment, detachment, survival_curves,
+        discount_curve, rho_bumped, T, recovery, n_sims, seed,
+    )
+    return (el_bumped - el_base) / shift
+
+
+# ---------------------------------------------------------------------------
+# Base correlation interpolation
+# ---------------------------------------------------------------------------
+
+def interpolate_base_correlation(
+    calibrated: dict[float, float],
+    detachment: float,
+) -> float:
+    """Interpolate base correlation at arbitrary detachment point.
+
+    Linear interpolation between calibrated detachment points.
+    Extrapolates flat beyond the calibrated range.
+
+    Args:
+        calibrated: {detachment_point: base_correlation}.
+        detachment: target detachment point.
+
+    Returns:
+        Interpolated base correlation.
+    """
+    if not calibrated:
+        return 0.3  # default
+
+    points = sorted(calibrated.items())
+    dets = [p[0] for p in points]
+    corrs = [p[1] for p in points]
+
+    if detachment <= dets[0]:
+        return corrs[0]
+    if detachment >= dets[-1]:
+        return corrs[-1]
+
+    # Linear interpolation
+    for i in range(len(dets) - 1):
+        if dets[i] <= detachment <= dets[i + 1]:
+            frac = (detachment - dets[i]) / (dets[i + 1] - dets[i])
+            return corrs[i] + frac * (corrs[i + 1] - corrs[i])
+
+    return corrs[-1]
