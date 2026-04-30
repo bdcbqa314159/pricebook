@@ -2,6 +2,24 @@
 
 ---
 
+## v0.432.0 — 2026-04-30
+
+**CLN P3: Basket CLN with correlated recovery.** 6774 tests.
+
+### Correlated recovery in basket
+- `BasketCLN.price_mc_correlated_recovery()`: recovery depends on systematic factor M.
+- Double-correlation: M drives both defaults (ρ_DD) and recovery (sensitivity).
+- In downturn (low M): more defaults AND lower recovery → amplified tranche loss.
+
+### Copula flexibility
+- `BasketCLN.price_mc_copula(copula="gaussian"|"t", nu=5)`.
+- Student-t captures tail dependence → higher equity EL than Gaussian.
+
+### Heterogeneous recovery
+- Per-name recovery rates: `recoveries=[0.70, 0.40, ...]`. Secured vs unsecured in same basket.
+
+---
+
 ## v0.431.0 — 2026-04-30
 
 **CLN P2: Single-name CLN with stochastic recovery.** 6764 tests.
