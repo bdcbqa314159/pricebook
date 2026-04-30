@@ -133,6 +133,52 @@ class TermLoan:
 
         return brentq(objective, -0.10, 0.10)
 
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — Trade/Portfolio integration."""
+        proj = None
+        if ctx.projection_curves:
+            proj = next(iter(ctx.projection_curves.values()), None)
+        return self.pv(ctx.discount_curve, proj)
+
+    def accrued_interest(
+        self,
+        valuation_date: date,
+        projection_curve: DiscountCurve,
+    ) -> float:
+        """Accrued interest at valuation_date.
+
+        Finds the coupon period containing valuation_date and computes
+        pro-rata interest from period start to valuation.
+        """
+        flows = self.cashflows(projection_curve)
+        schedule = self.schedule
+
+        for i in range(1, len(schedule)):
+            period_start = schedule[i - 1]
+            period_end = schedule[i]
+            if period_start <= valuation_date < period_end:
+                # Find interest for this period
+                for d, interest, _ in flows:
+                    if d == period_end:
+                        # Pro-rata
+                        total_yf = year_fraction(period_start, period_end, self.day_count)
+                        accrued_yf = year_fraction(period_start, valuation_date, self.day_count)
+                        if total_yf > 0:
+                            return interest * accrued_yf / total_yf
+                        return 0.0
+        return 0.0
+
+    def clean_price(
+        self,
+        discount_curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        """Clean price per 100 face = dirty - accrued / notional × 100."""
+        proj = projection_curve or discount_curve
+        dirty = self.dirty_price(discount_curve, proj)
+        accrued = self.accrued_interest(discount_curve.reference_date, proj)
+        return dirty - accrued / self.notional * 100.0
+
     def weighted_average_life(
         self,
         projection_curve: DiscountCurve,
@@ -231,6 +277,27 @@ class RevolvingFacility:
         projection_curve: DiscountCurve | None = None,
     ) -> float:
         return self.pv(discount_curve, projection_curve) / self.max_commitment * 100.0
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — Trade/Portfolio integration."""
+        proj = None
+        if ctx.projection_curves:
+            proj = next(iter(ctx.projection_curves.values()), None)
+        return self.pv(ctx.discount_curve, proj)
+
+    def draw(self, amount: float) -> None:
+        """Draw additional funds from the facility."""
+        new_drawn = self.drawn_amount + amount
+        if new_drawn > self.max_commitment:
+            raise ValueError(f"Cannot draw {amount}: would exceed max_commitment {self.max_commitment}")
+        self.drawn_amount = new_drawn
+
+    def repay(self, amount: float) -> None:
+        """Repay drawn funds."""
+        new_drawn = self.drawn_amount - amount
+        if new_drawn < 0:
+            raise ValueError(f"Cannot repay {amount}: only {self.drawn_amount} drawn")
+        self.drawn_amount = new_drawn
 
     @property
     def utilization(self) -> float:
