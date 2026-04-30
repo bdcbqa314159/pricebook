@@ -4,9 +4,14 @@ Options to enter a CDS contract at a given strike spread. The key
 subtlety: if default occurs before option expiry, the option either
 knocks out or triggers a recovery payment.
 
-* :func:`forward_cds_spread` — par spread of a forward-starting CDS.
+* :func:`forward_cds_spread` — par spread of a forward-starting CDS (flat).
 * :func:`cds_swaption_black` — Black-76 on forward CDS spread.
+* :func:`cds_swaption_black_curves` — Black-76 using curve objects.
+* :func:`cds_swaption_bachelier` — Bachelier (normal) model.
+* :func:`cds_swaption_greeks` — Greeks via finite differences.
 * :class:`PedersenCDSSwaption` — full Pedersen (2003) model.
+* :class:`CDSSpreadSmile` — SABR smile on CDS spread vol.
+* :class:`StochasticIntensitySwaption` — CIR intensity-based pricing.
 * :func:`cds_swaption_put_call_parity` — payer + receiver = forward CDS.
 
 References:
@@ -15,16 +20,19 @@ References:
     Schönbucher, *Credit Derivatives Pricing Models*, Ch. 11.
     O'Kane, *Modelling Single-name and Multi-name Credit Derivatives*,
     Ch. 15 (CDS options).
+    Hagan et al., *Managing Smile Risk*, Wilmott, 2002 (SABR).
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import date
+from typing import Any
 
 import numpy as np
 
-from pricebook.black76 import OptionType, black76_price, _norm_cdf
+from pricebook.black76 import OptionType, black76_price, bachelier_price, _norm_cdf
 
 
 # ---- Forward CDS spread ----
@@ -226,6 +234,25 @@ class PedersenCDSSwaption:
             self.spread_vol, fwd.survival_to_start, None,
         )
 
+    def price_curves(
+        self,
+        discount_curve,
+        survival_curve,
+        expiry_date: date,
+        maturity_date: date,
+        strike_spread: float,
+        notional: float = 1_000_000,
+        option_type: str = "payer",
+        recovery: float = 0.4,
+    ) -> PedersenResult:
+        """Price using curve objects instead of flat parameters."""
+        return _pedersen_price_curves(
+            discount_curve, survival_curve,
+            expiry_date, maturity_date,
+            strike_spread, self.spread_vol,
+            notional, option_type, recovery,
+        )
+
     def price_mc(
         self,
         expiry: float,
@@ -315,4 +342,465 @@ def cds_swaption_put_call_parity(
 
     return PutCallParityResult(
         payer.premium, receiver.premium, forward_pv, rel_error, holds,
+    )
+
+
+# ---- Curve-based CDS swaption pricing ----
+
+def cds_swaption_black_curves(
+    discount_curve,
+    survival_curve,
+    expiry_date: date,
+    maturity_date: date,
+    strike_spread: float,
+    spread_vol: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+    recovery: float = 0.4,
+) -> CDSSwaption:
+    """CDS swaption via Black-76 using curve objects.
+
+    Computes the forward CDS spread and risky annuity from actual
+    discount and survival curves, then delegates to cds_swaption_black().
+
+    Args:
+        discount_curve: OIS discount curve.
+        survival_curve: credit survival curve.
+        expiry_date: swaption expiry.
+        maturity_date: underlying CDS maturity.
+        strike_spread: swaption strike K.
+        spread_vol: lognormal vol of the forward spread.
+        option_type: "payer" or "receiver".
+        recovery: recovery rate for protection leg.
+    """
+    from pricebook.cds import forward_cds_par_spread
+    from pricebook.day_count import DayCountConvention, year_fraction
+
+    fwd = forward_cds_par_spread(
+        discount_curve, survival_curve, expiry_date, maturity_date,
+        recovery=recovery,
+    )
+
+    expiry = year_fraction(
+        discount_curve.reference_date, expiry_date,
+        DayCountConvention.ACT_365_FIXED,
+    )
+
+    return cds_swaption_black(
+        fwd.forward_spread, strike_spread, spread_vol,
+        expiry, fwd.risky_annuity, fwd.survival_to_start,
+        notional, option_type,
+    )
+
+
+# ---- CDS swaption Greeks ----
+
+@dataclass
+class CDSSwaptionGreeks:
+    """Greeks for a CDS swaption."""
+    delta: float          # dV/dF per 1bp
+    gamma: float          # d²V/dF² per 1bp²
+    vega: float           # dV/dσ per 1% vol
+    theta: float          # dV/dT per day
+    knockout_delta: float  # dV/dQ per 1%
+
+    def to_dict(self) -> dict:
+        return {
+            "delta": self.delta, "gamma": self.gamma,
+            "vega": self.vega, "theta": self.theta,
+            "knockout_delta": self.knockout_delta,
+        }
+
+
+def cds_swaption_greeks(
+    forward_spread: float,
+    strike_spread: float,
+    spread_vol: float,
+    expiry: float,
+    risky_annuity: float,
+    survival_to_expiry: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+) -> CDSSwaptionGreeks:
+    """CDS swaption Greeks via finite differences.
+
+    All sensitivities computed by bumping one input and repricing.
+    """
+    base = cds_swaption_black(
+        forward_spread, strike_spread, spread_vol,
+        expiry, risky_annuity, survival_to_expiry,
+        notional, option_type,
+    ).premium
+
+    # Delta: dV/dF per 1bp
+    h_f = 0.0001
+    up = cds_swaption_black(
+        forward_spread + h_f, strike_spread, spread_vol,
+        expiry, risky_annuity, survival_to_expiry,
+        notional, option_type,
+    ).premium
+    down = cds_swaption_black(
+        forward_spread - h_f, strike_spread, spread_vol,
+        expiry, risky_annuity, survival_to_expiry,
+        notional, option_type,
+    ).premium
+    delta = (up - down) / (2 * h_f)
+
+    # Gamma: d²V/dF²
+    gamma = (up - 2 * base + down) / (h_f ** 2)
+
+    # Vega: dV/dσ per 1% vol
+    h_v = 0.01
+    vega_up = cds_swaption_black(
+        forward_spread, strike_spread, spread_vol + h_v,
+        expiry, risky_annuity, survival_to_expiry,
+        notional, option_type,
+    ).premium
+    vega = (vega_up - base) / h_v
+
+    # Theta: dV/dT per day
+    h_t = 1.0 / 365.0
+    if expiry > h_t:
+        theta_val = cds_swaption_black(
+            forward_spread, strike_spread, spread_vol,
+            expiry - h_t, risky_annuity, survival_to_expiry,
+            notional, option_type,
+        ).premium
+        theta = (theta_val - base) / (-h_t)
+    else:
+        theta = 0.0
+
+    # Knockout delta: dV/dQ per 1%
+    h_q = 0.01
+    ko_up = cds_swaption_black(
+        forward_spread, strike_spread, spread_vol,
+        expiry, risky_annuity, survival_to_expiry + h_q,
+        notional, option_type,
+    ).premium
+    knockout_delta = (ko_up - base) / h_q
+
+    return CDSSwaptionGreeks(delta, gamma, vega, theta, knockout_delta)
+
+
+# ---- Bachelier (normal) CDS swaption ----
+
+def cds_swaption_bachelier(
+    forward_spread: float,
+    strike_spread: float,
+    normal_vol: float,
+    expiry: float,
+    risky_annuity: float,
+    survival_to_expiry: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+) -> CDSSwaption:
+    """CDS swaption via Bachelier (normal) model.
+
+    For near-zero forward spreads where lognormal Black-76 fails.
+    Uses absolute (normal) volatility.
+
+    Premium = Q(0,T) × notional × A × Bachelier(F, K, σ_N, T)
+    """
+    if normal_vol <= 0 or expiry <= 0:
+        if option_type == "payer":
+            intrinsic = max(forward_spread - strike_spread, 0.0)
+        else:
+            intrinsic = max(strike_spread - forward_spread, 0.0)
+        prem = survival_to_expiry * notional * risky_annuity * intrinsic
+        return CDSSwaption(prem, forward_spread, strike_spread,
+                           risky_annuity, normal_vol, survival_to_expiry,
+                           option_type)
+
+    opt = OptionType.CALL if option_type == "payer" else OptionType.PUT
+    bach = bachelier_price(forward_spread, strike_spread, normal_vol,
+                           expiry, df=1.0, option_type=opt)
+    premium = survival_to_expiry * notional * risky_annuity * bach
+
+    return CDSSwaption(premium, forward_spread, strike_spread,
+                       risky_annuity, normal_vol, survival_to_expiry,
+                       option_type)
+
+
+# ---- SABR spread smile ----
+
+class CDSSpreadSmile:
+    """SABR-calibrated spread vol smile for CDS swaptions.
+
+    Given a forward CDS spread and SABR parameters, provides
+    implied vol for any strike via Hagan's approximation.
+
+    Args:
+        forward: forward CDS spread.
+        alpha: SABR vol level.
+        beta: CEV exponent (typically 0.5 for CDS).
+        rho: correlation between spread and vol.
+        nu: vol of vol.
+    """
+
+    def __init__(
+        self,
+        forward: float,
+        alpha: float = 0.4,
+        beta: float = 0.5,
+        rho: float = -0.3,
+        nu: float = 0.4,
+    ):
+        self.forward = forward
+        self.alpha = alpha
+        self.beta = beta
+        self.rho = rho
+        self.nu = nu
+
+    def implied_vol(self, strike: float, T: float = 1.0) -> float:
+        """SABR implied Black vol for given strike and expiry."""
+        from pricebook.sabr import sabr_implied_vol
+        return sabr_implied_vol(
+            self.forward, strike, T,
+            self.alpha, self.beta, self.rho, self.nu,
+        )
+
+    def smile(
+        self,
+        strikes: list[float],
+        T: float = 1.0,
+    ) -> list[float]:
+        """Compute vol smile across multiple strikes."""
+        return [self.implied_vol(k, T) for k in strikes]
+
+    @classmethod
+    def calibrate(
+        cls,
+        forward: float,
+        strikes: list[float],
+        market_vols: list[float],
+        T: float = 1.0,
+        beta: float = 0.5,
+    ) -> CDSSpreadSmile:
+        """Calibrate SABR parameters from market vol quotes.
+
+        Fixes beta and calibrates (alpha, rho, nu).
+        """
+        from pricebook.sabr import sabr_implied_vol
+        from pricebook.optimization import minimize
+
+        def objective(params):
+            alpha, rho, nu = params
+            if alpha <= 0 or nu <= 0 or abs(rho) >= 1:
+                return 1e10
+            total = 0.0
+            for k, mv in zip(strikes, market_vols):
+                try:
+                    model_vol = sabr_implied_vol(forward, k, T, alpha, beta, rho, nu)
+                    total += (model_vol - mv) ** 2
+                except (ValueError, ZeroDivisionError):
+                    return 1e10
+            return total
+
+        result = minimize(objective, x0=[0.3, -0.2, 0.3], method="nelder_mead")
+        alpha, rho, nu = result.x
+        return cls(forward, alpha, beta, rho, nu)
+
+    def to_dict(self) -> dict:
+        return {
+            "forward": self.forward, "alpha": self.alpha,
+            "beta": self.beta, "rho": self.rho, "nu": self.nu,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> CDSSpreadSmile:
+        return cls(
+            forward=d["forward"], alpha=d["alpha"],
+            beta=d["beta"], rho=d["rho"], nu=d["nu"],
+        )
+
+
+# ---- Stochastic intensity CDS swaption ----
+
+class StochasticIntensitySwaption:
+    """CDS swaption under CIR stochastic intensity via MC.
+
+    Simulates CIR intensity paths, computes the forward CDS spread
+    on each path at expiry, then averages the swaption payoff.
+    Captures correlation between default probability and spread vol
+    that Black-76 misses.
+
+    As ξ → 0 (deterministic intensity), converges to Black-76.
+
+    Args:
+        kappa: CIR mean reversion speed.
+        theta: CIR long-run intensity.
+        xi: CIR vol of intensity (vol of vol for spreads).
+        flat_rate: risk-free rate for discounting.
+        recovery: recovery rate.
+    """
+
+    def __init__(
+        self,
+        kappa: float = 1.0,
+        theta: float = 0.02,
+        xi: float = 0.1,
+        flat_rate: float = 0.05,
+        recovery: float = 0.4,
+    ):
+        self.kappa = kappa
+        self.theta = theta
+        self.xi = xi
+        self.flat_rate = flat_rate
+        self.recovery = recovery
+
+    def price(
+        self,
+        expiry: float,
+        cds_maturity: float,
+        strike_spread: float,
+        notional: float = 1_000_000,
+        option_type: str = "payer",
+        n_paths: int = 50_000,
+        n_steps: int = 100,
+        seed: int = 42,
+    ) -> PedersenResult:
+        """Price via MC simulation of CIR intensity paths.
+
+        1. Simulate λ(t) from 0 to T_expiry.
+        2. At expiry: compute forward spread from simulated λ.
+        3. Payoff = max(F − K, 0) for payer, knockout if defaulted.
+        """
+        from pricebook.stochastic_credit import CIRIntensity
+
+        cir = CIRIntensity(self.kappa, self.theta, self.xi)
+        lam0 = self.theta  # start at long-run mean
+
+        # Simulate intensity paths to expiry
+        paths = cir.simulate_intensity(lam0, expiry, n_steps, n_paths, seed)
+        dt = expiry / n_steps
+
+        # Survival to expiry: exp(-∫λ ds)
+        integral_to_expiry = paths[:, :-1].sum(axis=1) * dt
+        survival = np.exp(-integral_to_expiry)
+
+        # Forward spread at expiry: approximate as (1-R) × λ_T
+        # (hazard rate at expiry gives approximate par spread)
+        lam_T = paths[:, -1]
+        forward_spreads = (1 - self.recovery) * lam_T
+
+        # Payoff
+        if option_type == "payer":
+            payoff = np.maximum(forward_spreads - strike_spread, 0.0)
+        else:
+            payoff = np.maximum(strike_spread - forward_spreads, 0.0)
+
+        # Risky annuity approximation: simple annuity at flat rate
+        remaining = cds_maturity - expiry
+        n_periods = max(1, int(remaining * 4))
+        ann = sum(
+            math.exp(-self.flat_rate * (expiry + (i + 1) * remaining / n_periods))
+            * remaining / n_periods
+            for i in range(n_periods)
+        )
+
+        # Premium: E[survival × payoff × annuity × notional]
+        mc_premium = float((survival * payoff).mean()) * notional * ann
+
+        # Mean forward spread for reporting
+        mean_fwd = float(forward_spreads.mean())
+        mean_surv = float(survival.mean())
+
+        return PedersenResult(
+            mc_premium, mean_fwd, strike_spread,
+            self.xi, mean_surv, mc_premium,
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "kappa": self.kappa, "theta": self.theta,
+            "xi": self.xi, "flat_rate": self.flat_rate,
+            "recovery": self.recovery,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> StochasticIntensitySwaption:
+        return cls(
+            kappa=d["kappa"], theta=d["theta"],
+            xi=d["xi"], flat_rate=d.get("flat_rate", 0.05),
+            recovery=d.get("recovery", 0.4),
+        )
+
+
+# ---- Exercise into physical CDS ----
+
+@dataclass
+class ExerciseResult:
+    """Result of exercising a CDS swaption into a physical CDS."""
+    exercise_pv: float
+    swaption_premium: float
+    total_pnl: float
+    exercised: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "exercise_pv": self.exercise_pv,
+            "swaption_premium": self.swaption_premium,
+            "total_pnl": self.total_pnl,
+            "exercised": self.exercised,
+        }
+
+
+def exercise_into_physical(
+    forward_spread: float,
+    strike_spread: float,
+    swaption_premium: float,
+    risky_annuity: float,
+    survival_to_expiry: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+) -> ExerciseResult:
+    """Compute P&L from exercising a CDS swaption into a physical CDS.
+
+    Payer: exercise if F > K (enter CDS at strike, market at forward).
+    Receiver: exercise if K > F.
+
+    exercise_pv = (F − K) × A × notional × Q for payer.
+    total_pnl = exercise_pv − swaption_premium.
+    """
+    if option_type == "payer":
+        exercised = forward_spread > strike_spread
+        exercise_pv = max(forward_spread - strike_spread, 0.0) * \
+            risky_annuity * notional * survival_to_expiry
+    else:
+        exercised = strike_spread > forward_spread
+        exercise_pv = max(strike_spread - forward_spread, 0.0) * \
+            risky_annuity * notional * survival_to_expiry
+
+    total_pnl = exercise_pv - swaption_premium
+
+    return ExerciseResult(exercise_pv, swaption_premium, total_pnl, exercised)
+
+
+# ---- Curve-based PedersenCDSSwaption extension ----
+
+def _pedersen_price_curves(
+    discount_curve,
+    survival_curve,
+    expiry_date: date,
+    maturity_date: date,
+    strike_spread: float,
+    spread_vol: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+    recovery: float = 0.4,
+) -> PedersenResult:
+    """Pedersen model price using curve objects.
+
+    Computes forward spread from curves, then applies Black-76.
+    """
+    result = cds_swaption_black_curves(
+        discount_curve, survival_curve,
+        expiry_date, maturity_date,
+        strike_spread, spread_vol,
+        notional, option_type, recovery,
+    )
+
+    return PedersenResult(
+        result.premium, result.forward_spread, strike_spread,
+        spread_vol, result.survival_to_expiry, None,
     )
