@@ -564,7 +564,7 @@ def cds_pnl_attribution(
     par_t1 = aged.par_spread(disc_t1, surv_t1)
     delta_spread = par_t1 - par_t0
     cs01 = cds.cs01(disc_t0, surv_t0)
-    spread_pnl = -cs01 * delta_spread / 0.0001  # cs01 is per 1bp
+    spread_pnl = cs01 * delta_spread / 0.0001  # cs01 is per 1bp shift
 
     # Convexity
     conv = cds.spread_convexity(disc_t0, surv_t0)

@@ -429,9 +429,14 @@ class CDSIndexOption:
             fwd_annuities.append(fwd.risky_annuity)
             fwd_survivals.append(fwd.survival_to_start)
 
-        # Index forward = average
-        avg_fwd = sum(fwd_spreads) / len(fwd_spreads)
-        avg_ann = sum(fwd_annuities) / len(fwd_annuities)
+        # Index forward = total_protection / total_annuity (not avg of forwards)
+        # This respects Jensen's inequality: F_idx ≠ avg(F_i)
+        total_prot = sum(
+            f * a for f, a in zip(fwd_spreads, fwd_annuities)
+        )
+        total_ann = sum(fwd_annuities)
+        avg_fwd = total_prot / total_ann if total_ann > 0 else 0.0
+        avg_ann = total_ann / len(fwd_annuities)
         avg_surv = sum(fwd_survivals) / len(fwd_survivals)
 
         # Price via Black-76
@@ -531,7 +536,7 @@ def index_basis_decomposition(
     idx = CDSIndex(constituents, index_product.notional)
     try:
         flat = idx.flat_spread(discount_curve, survival_curves)
-    except Exception:
+    except (ValueError, RuntimeError, ZeroDivisionError):
         flat = result.intrinsic_spread
 
     intrinsic = result.intrinsic_spread

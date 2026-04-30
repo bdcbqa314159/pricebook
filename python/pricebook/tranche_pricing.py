@@ -327,12 +327,14 @@ def price_tranche_multiperiod(
         )
         els.append(el)
 
+    def _date_at(t_years: float) -> date:
+        return ref + timedelta(days=round(t_years * 365))
+
     # Premium leg
     premium_pv = 0.0
     for i in range(1, n_periods + 1):
         t = i * dt
-        d = ref + timedelta(days=int(t * 365))
-        df = discount_curve.df(d)
+        df = discount_curve.df(_date_at(t))
         surviving = 1.0 - els[i]
         premium_pv += spread * surviving * dt * df
 
@@ -340,8 +342,7 @@ def price_tranche_multiperiod(
     protection_pv = 0.0
     for i in range(1, n_periods + 1):
         t = i * dt
-        d = ref + timedelta(days=int(t * 365))
-        df = discount_curve.df(d)
+        df = discount_curve.df(_date_at(t))
         delta_el = els[i] - els[i - 1]
         protection_pv += delta_el * width * df
 
@@ -349,9 +350,7 @@ def price_tranche_multiperiod(
 
     # Par spread
     annuity = sum(
-        (1.0 - els[i]) * dt * discount_curve.df(
-            ref + timedelta(days=int(i * dt * 365))
-        )
+        (1.0 - els[i]) * dt * discount_curve.df(_date_at(i * dt))
         for i in range(1, n_periods + 1)
     )
     par_spread = protection_pv / annuity if annuity > 1e-10 else 0.0
@@ -404,8 +403,8 @@ def expected_tranche_loss_t(
     sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
 
     # t-distributed systematic and idiosyncratic factors
-    # Chi-squared mixing variable
-    chi2 = rng.chisquare(nu, n_sims)
+    # Chi-squared mixing variable (clamped for stability)
+    chi2 = np.maximum(rng.chisquare(nu, n_sims), 0.01)
     W = np.sqrt(nu / chi2)  # mixing variable
 
     M = rng.standard_normal(n_sims) * W

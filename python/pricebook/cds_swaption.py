@@ -449,16 +449,21 @@ def cds_swaption_greeks(
     # Gamma: d²V/dF²
     gamma = (up - 2 * base + down) / (h_f ** 2)
 
-    # Vega: dV/dσ per 1% vol
+    # Vega: dV/dσ per 1% vol (central difference)
     h_v = 0.01
     vega_up = cds_swaption_black(
         forward_spread, strike_spread, spread_vol + h_v,
         expiry, risky_annuity, survival_to_expiry,
         notional, option_type,
     ).premium
-    vega = (vega_up - base) / h_v
+    vega_down = cds_swaption_black(
+        forward_spread, strike_spread, max(spread_vol - h_v, 0.001),
+        expiry, risky_annuity, survival_to_expiry,
+        notional, option_type,
+    ).premium
+    vega = (vega_up - vega_down) / (2 * h_v)
 
-    # Theta: dV/dT per day
+    # Theta: time decay per day (positive = loses value)
     h_t = 1.0 / 365.0
     if expiry > h_t:
         theta_val = cds_swaption_black(
@@ -466,7 +471,7 @@ def cds_swaption_greeks(
             expiry - h_t, risky_annuity, survival_to_expiry,
             notional, option_type,
         ).premium
-        theta = (theta_val - base) / (-h_t)
+        theta = (base - theta_val) / h_t
     else:
         theta = 0.0
 
@@ -668,19 +673,20 @@ class StochasticIntensitySwaption:
         from pricebook.stochastic_credit import CIRIntensity
 
         cir = CIRIntensity(self.kappa, self.theta, self.xi)
-        lam0 = self.theta  # start at long-run mean
+        lam0 = self.theta
 
         # Simulate intensity paths to expiry
         paths = cir.simulate_intensity(lam0, expiry, n_steps, n_paths, seed)
         dt = expiry / n_steps
 
-        # Survival to expiry: exp(-∫λ ds)
-        integral_to_expiry = paths[:, :-1].sum(axis=1) * dt
+        # Survival to expiry: exp(-∫λ ds) using trapezoidal rule
+        integral_to_expiry = (paths[:, :-1] + paths[:, 1:]).sum(axis=1) * dt / 2
         survival = np.exp(-integral_to_expiry)
 
-        # Forward spread at expiry: approximate as (1-R) × λ_T
-        # (hazard rate at expiry gives approximate par spread)
-        lam_T = paths[:, -1]
+        # Forward spread: (1-R) × average λ over remaining CDS period
+        # For flat λ_T this equals (1-R)×λ_T; for term structure it's
+        # the integrated forward hazard
+        lam_T = np.maximum(paths[:, -1], 0.0)
         forward_spreads = (1 - self.recovery) * lam_T
 
         # Payoff
