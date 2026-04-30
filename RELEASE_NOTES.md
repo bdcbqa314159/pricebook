@@ -2,6 +2,24 @@
 
 ---
 
+## v0.428.0 — 2026-04-30
+
+**CDS P4: Tranche & correlation improvements.** 6725 tests.
+
+### Multi-period tranche pricing
+- `price_tranche_multiperiod()`: proper premium/protection legs with EL at each payment date. Par spread closer to market than single-period approximation.
+
+### Student-t copula
+- `expected_tranche_loss_t()`: fat-tailed copula capturing tail dependence. Converges to Gaussian as ν → ∞. More realistic senior tranche pricing.
+
+### Correlation sensitivity
+- `tranche_rho01()`: dEL/dρ. Equity rho01 < 0, senior rho01 > 0.
+
+### Base correlation interpolation
+- `interpolate_base_correlation()`: linear between calibrated points. Monotonically increasing (no-arb). Flat extrapolation.
+
+---
+
 ## v0.427.0 — 2026-04-30
 
 **CDS P3: Index CDS depth.** 6710 tests.
