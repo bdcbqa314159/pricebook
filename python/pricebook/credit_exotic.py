@@ -17,12 +17,28 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
+
+
+def _df_at(discount_curve: DiscountCurve | None, flat_rate: float, t: float, ref: date | None = None) -> float:
+    """Discount factor using curve if available, else flat rate."""
+    if discount_curve is not None and ref is not None:
+        d = ref + timedelta(days=int(t * 365))
+        return discount_curve.df(d)
+    return math.exp(-flat_rate * t)
+
+
+def _surv_at(survival_curve: SurvivalCurve | None, flat_hazard: float, t: float, ref: date | None = None) -> float:
+    """Survival probability using curve if available, else flat hazard."""
+    if survival_curve is not None and ref is not None:
+        d = ref + timedelta(days=int(t * 365))
+        return survival_curve.survival(d)
+    return math.exp(-flat_hazard * t)
 
 
 # ---- Capped coupon bond ----
@@ -65,6 +81,7 @@ def capped_coupon_bond(
     n_periods = maturity_years * frequency
     dt = 1.0 / frequency
     coupon_rate = min(floating_rate + spread, cap)
+    ref = discount_curve.reference_date if discount_curve else None
 
     coupon_pv = 0.0
     principal_pv = 0.0
@@ -73,18 +90,9 @@ def capped_coupon_bond(
 
     for i in range(1, n_periods + 1):
         t = i * dt
-        if discount_curve:
-            df = discount_curve.df(discount_curve.reference_date)  # simplified
-            df = math.exp(-flat_rate * t)
-        else:
-            df = math.exp(-flat_rate * t)
-
-        if survival_curve:
-            surv = math.exp(-flat_hazard * t)
-        else:
-            surv = math.exp(-flat_hazard * t)
-
-        surv_prev = math.exp(-flat_hazard * (t - dt))
+        df = _df_at(discount_curve, flat_rate, t, ref)
+        surv = _surv_at(survival_curve, flat_hazard, t, ref)
+        surv_prev = _surv_at(survival_curve, flat_hazard, t - dt, ref)
 
         # Coupon conditional on survival
         coupon = coupon_rate * notional * dt
@@ -97,10 +105,10 @@ def capped_coupon_bond(
 
     # Principal at maturity conditional on survival
     T = maturity_years
-    df_T = math.exp(-flat_rate * T)
-    surv_T = math.exp(-flat_hazard * T)
+    df_T = _df_at(discount_curve, flat_rate, T, ref)
+    surv_T = _surv_at(survival_curve, flat_hazard, T, ref)
     principal_pv = df_T * surv_T * notional
-    rf_price += df_T * notional
+    rf_price += _df_at(discount_curve, flat_rate, T, ref) * notional
 
     dirty = coupon_pv + principal_pv + recovery_pv
 
@@ -126,6 +134,8 @@ def digital_cds(
     flat_rate: float = 0.05,
     flat_hazard: float = 0.02,
     frequency: int = 4,
+    discount_curve: DiscountCurve | None = None,
+    survival_curve: SurvivalCurve | None = None,
 ) -> DigitalCDSResult:
     """Price a digital CDS: fixed payout on default, no recovery uncertainty.
 
@@ -142,6 +152,7 @@ def digital_cds(
     """
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
+    ref = discount_curve.reference_date if discount_curve else None
 
     protection_pv = 0.0
     premium_pv = 0.0
@@ -149,9 +160,9 @@ def digital_cds(
 
     for i in range(1, n_periods + 1):
         t = i * dt
-        df = math.exp(-flat_rate * t)
-        surv = math.exp(-flat_hazard * t)
-        surv_prev = math.exp(-flat_hazard * (t - dt))
+        df = _df_at(discount_curve, flat_rate, t, ref)
+        surv = _surv_at(survival_curve, flat_hazard, t, ref)
+        surv_prev = _surv_at(survival_curve, flat_hazard, t - dt, ref)
 
         default_prob = surv_prev - surv
         protection_pv += df * default_prob * digital_payout
@@ -191,6 +202,8 @@ def credit_range_accrual(
     flat_rate: float = 0.05,
     flat_hazard: float = 0.02,
     n_days: int = 252,
+    discount_curve: DiscountCurve | None = None,
+    survival_curve: SurvivalCurve | None = None,
 ) -> CreditRangeAccrualResult:
     """Price a credit range accrual note.
 
@@ -226,8 +239,9 @@ def credit_range_accrual(
     accrual_fraction = expected_in_range / total_days
 
     # PV: coupon × fraction × annuity × survival + recovery on default
-    df_T = math.exp(-flat_rate * maturity_years)
-    surv_T = math.exp(-flat_hazard * maturity_years)
+    ref = discount_curve.reference_date if discount_curve else None
+    df_T = _df_at(discount_curve, flat_rate, maturity_years, ref)
+    surv_T = _surv_at(survival_curve, flat_hazard, maturity_years, ref)
 
     coupon_pv = coupon_rate * notional * accrual_fraction * df_T * surv_T * maturity_years
     recovery_pv = df_T * (1 - surv_T) * 0.4 * notional
@@ -260,6 +274,8 @@ def credit_linked_loan(
     leverage_ratio: float = 3.0,
     max_leverage: float = 5.0,
     margin_grid: list[tuple[float, float]] | None = None,
+    discount_curve: DiscountCurve | None = None,
+    survival_curve: SurvivalCurve | None = None,
 ) -> CreditLinkedLoanResult:
     """Price a loan with credit risk, margin grid, and covenant triggers.
 
@@ -294,12 +310,13 @@ def credit_linked_loan(
     dt = 1.0
     pv = 0.0
     expected_loss = 0.0
+    ref = discount_curve.reference_date if discount_curve else None
 
     for i in range(1, maturity_years + 1):
         t = float(i)
-        df = math.exp(-flat_rate * t)
-        surv = math.exp(-flat_hazard * t)
-        surv_prev = math.exp(-flat_hazard * (t - 1))
+        df = _df_at(discount_curve, flat_rate, t, ref)
+        surv = _surv_at(survival_curve, flat_hazard, t, ref)
+        surv_prev = _surv_at(survival_curve, flat_hazard, t - 1, ref)
 
         # Interest conditional on survival
         pv += df * surv * total_rate * principal
@@ -313,8 +330,8 @@ def credit_linked_loan(
         pv += df * default_prob * recovery * principal
 
     # Principal repayment at maturity
-    df_T = math.exp(-flat_rate * maturity_years)
-    surv_T = math.exp(-flat_hazard * maturity_years)
+    df_T = _df_at(discount_curve, flat_rate, maturity_years, ref)
+    surv_T = _surv_at(survival_curve, flat_hazard, maturity_years, ref)
     pv += df_T * surv_T * principal
 
     return CreditLinkedLoanResult(
