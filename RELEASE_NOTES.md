@@ -2,6 +2,29 @@
 
 ---
 
+## v0.423.0 — 2026-04-28
+
+**Loan P4: Settlement & Secondary Market.** 6588 tests.
+
+### `LoanSettlement` — LSTA conventions
+- T+7 assignment, T+10 participation, T+20 distressed.
+- Total consideration = price × par + accrued.
+
+### Settlement economics
+- `delayed_compensation()`: buyer pays carry to seller (ACT/360).
+- `break_funding()`: rate-reset compensation across settlement.
+- `failed_settlement_penalty()`: base + 200bp per day overdue.
+
+### `LoanTradeEcon` — P&L decomposition
+- Price P&L, carry (coupon − funding), total return, annualised.
+- `breakeven_hold()`: days to recover bid-ask via carry.
+
+### Loan-bond basis
+- `loan_bond_basis()`: loan DM − bond ASW in bp (illiquidity premium).
+- `basis_z_score()`: rich/cheap signal vs historical.
+
+---
+
 ## v0.422.0 — 2026-04-30
 
 **Loan P3: Covenant analytics.** 6547 tests.
