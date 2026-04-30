@@ -2,6 +2,32 @@
 
 ---
 
+## v0.418.0 — 2026-04-30
+
+**Loan framework complete (L1-L5): direct to portfolio.** 6476 tests, 45 types.
+
+### Layer 4: Enhanced Loan TRS
+- Credit-adjusted: if survival_curve provided, weights income by survival.
+- Compound settlement cost: `(1+r)^(days/365) - 1` replaces linear.
+- Market price override via `initial_price` for dealer-marked illiquid loans.
+
+### Layer 5: `LoanBook` portfolio analytics
+- Container for mixed loan positions (loans, participations, partial funded, TRS).
+- `summary()`: total PV, WAM, WAL, avg spread, funded/unfunded split.
+- `concentration(top_n)`: largest positions as % of total.
+- Serialisable: full book round-trips through JSON (2KB for 5-position book).
+
+### Loan framework summary (v0.417-v0.418)
+| Layer | Feature |
+|-------|---------|
+| L1 | pv_ctx, accrued interest, clean price, draw/repay |
+| L2 | LoanParticipation: funded, assignment vs participation |
+| L3 | PartialFundedParticipation: funded + unfunded (CDS-like) legs |
+| L4 | Credit-adjusted loan TRS, compound settlement |
+| L5 | LoanBook: WAM, WAL, concentration, risk decomposition |
+
+---
+
 ## v0.417.0 — 2026-04-30
 
 **Loan L1-L3: Direct loans + funded participation + partial funded.** 6476 tests, 44 types.
