@@ -2,6 +2,29 @@
 
 ---
 
+## v0.427.0 — 2026-04-30
+
+**CDS P3: Index CDS depth.** 6710 tests.
+
+### Index factor
+- `CDSIndexProduct.factor`: surviving fraction after defaults. `effective_notional = notional × factor`. Persisted in serialisation.
+
+### Index risk metrics
+- `CDSIndexProduct.cs01()`, `constituent_cs01()` (per-name decomposition), `rec01()`.
+- Sum of constituent CS01s = index CS01.
+
+### `CDSIndexOption`
+- Payer/receiver on index forward spread via Black-76. Put-call parity verified.
+- Serialisable: `"cds_index_option"`.
+
+### Basis decomposition
+- `index_basis_decomposition()` → dispersion (flat − intrinsic) + liquidity (market − flat).
+
+### Improved flat_spread solver
+- Newton-Raphson with RPV01 Jacobian, fallback to Brent.
+
+---
+
 ## v0.426.0 — 2026-04-30
 
 **CDS P2: Swaption deep dive.** 6693 tests.
