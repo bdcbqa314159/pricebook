@@ -337,6 +337,143 @@ class CreditLinkedNote:
             return 0.0
         return (self.notional - principal_pv - recovery_pv) / (self.notional * annuity)
 
+    # ---- Stochastic recovery pricing ----
+
+    def price_stochastic_recovery(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        recovery_spec=None,
+        n_sims: int = 50_000,
+        seed: int = 42,
+    ) -> CLNResult:
+        """Price CLN with stochastic recovery correlated to default.
+
+        Uses MC: for each path, draw correlated (default, recovery) pair
+        per period. The wrong-way premium = difference vs fixed-recovery price.
+
+        Args:
+            recovery_spec: RecoverySpec (from recovery_pricing module).
+                If None, uses fixed recovery at self.recovery.
+        """
+        from pricebook.recovery_pricing import RecoverySpec
+
+        if recovery_spec is None:
+            recovery_spec = RecoverySpec.fixed(self.recovery)
+
+        rng = np.random.default_rng(seed)
+        pv_paths = np.zeros(n_sims)
+
+        for i in range(1, len(self.schedule)):
+            t_start = self.schedule[i - 1]
+            t_end = self.schedule[i]
+            yf = year_fraction(t_start, t_end, self.day_count)
+            df = discount_curve.df(t_end)
+            surv = survival_curve.survival(t_end)
+            surv_prev = survival_curve.survival(t_start)
+            default_prob = surv_prev - surv
+
+            # Coupon conditional on survival
+            if self.floating:
+                fwd = discount_curve.forward_rate(t_start, t_end)
+                coupon = self.notional * (fwd + self.coupon_rate) * yf
+            else:
+                coupon = self.notional * self.coupon_rate * yf
+            pv_paths += coupon * df * surv
+
+            # Default in this period: draw default indicators and recoveries
+            Z_D = rng.standard_normal(n_sims)
+            threshold = norm.ppf(max(default_prob / max(surv_prev, 1e-10), 1e-15))
+            period_defaults = Z_D < threshold
+
+            # Correlated recovery
+            R_samples = recovery_spec.sample(n_sims, systematic_factor=Z_D, seed=seed + i)
+
+            # Recovery on default (per path)
+            recovery_pv = R_samples * self.notional * period_defaults * df
+            pv_paths += recovery_pv
+
+            # Leveraged loss
+            if self.leverage > 1.0:
+                extra = (self.leverage - 1.0) * (1.0 - R_samples) * self.notional * period_defaults * df
+                pv_paths -= extra
+
+        # Principal at maturity conditional on survival
+        pv_paths += self.notional * discount_curve.df(self.end) * survival_curve.survival(self.end)
+
+        total_pv = float(pv_paths.mean())
+
+        # Decomposition (approximate)
+        fixed_price = self.dirty_price(discount_curve, survival_curve)
+        credit_spread_approx = (fixed_price - total_pv) / max(
+            self.notional * self._risky_annuity(discount_curve, survival_curve), 1e-10
+        )
+
+        return CLNResult(
+            price=total_pv, coupon_pv=0.0, principal_pv=0.0,
+            recovery_pv=0.0, credit_spread=credit_spread_approx,
+            par_coupon=0.0,
+        )
+
+    def rec_vol_01(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        recovery_spec=None,
+        n_sims: int = 50_000,
+        seed: int = 42,
+    ) -> float:
+        """Recovery vol sensitivity: PV change for 1% increase in recovery std.
+
+        Higher recovery vol → more wrong-way risk → lower CLN PV.
+        """
+        from pricebook.recovery_pricing import RecoverySpec
+
+        if recovery_spec is None:
+            recovery_spec = RecoverySpec(mean=self.recovery, std=0.15,
+                                         correlation_to_default=-0.3)
+
+        base = self.price_stochastic_recovery(
+            discount_curve, survival_curve, recovery_spec, n_sims, seed,
+        ).price
+
+        bumped_spec = RecoverySpec(
+            mean=recovery_spec.mean,
+            std=recovery_spec.std + 0.01,
+            distribution=recovery_spec.distribution,
+            correlation_to_default=recovery_spec.correlation_to_default,
+        )
+        bumped = self.price_stochastic_recovery(
+            discount_curve, survival_curve, bumped_spec, n_sims, seed,
+        ).price
+
+        return bumped - base
+
+    @classmethod
+    def from_seniority(
+        cls,
+        start: date,
+        end: date,
+        seniority: str,
+        coupon_rate: float = 0.06,
+        notional: float = 1_000_000.0,
+        leverage: float = 1.0,
+        **kwargs,
+    ) -> CreditLinkedNote:
+        """Build CLN with seniority-appropriate recovery.
+
+        1L: recovery ≈ 77%. 2L: ≈ 43%. Sub: ≈ 28%.
+        """
+        from pricebook.recovery_pricing import SENIORITY_RECOVERY
+        if seniority not in SENIORITY_RECOVERY:
+            raise ValueError(f"Unknown seniority '{seniority}'")
+        mean, _ = SENIORITY_RECOVERY[seniority]
+        return cls(
+            start=start, end=end, coupon_rate=coupon_rate,
+            notional=notional, recovery=mean, leverage=leverage,
+            **kwargs,
+        )
+
 
 @dataclass
 class BasketCLNResult:
