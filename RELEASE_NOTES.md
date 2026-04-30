@@ -2,6 +2,31 @@
 
 ---
 
+## v0.420.0 — 2026-04-30
+
+**Loan P1: Cashflow engine — floor, PIK, grid, sweep, CSA.** 6494 tests, 47 types.
+
+### `FlooredTermLoan` — SOFR floor (embedded floorlet option)
+- `cashflows()` uses `max(forward, floor) + spread`. `floor_value(vol)` via Black-76.
+- Below floor: DV01 ≈ 0 (loan behaves like fixed-rate). Serialisable.
+
+### `PIKTermLoan` — pay-in-kind toggle
+- During PIK: interest capitalises → outstanding grows, no cash coupon.
+- After toggle date: cash-pay resumes on higher outstanding. Serialisable.
+
+### `PricingGrid` — dynamic spread from leverage
+- Step function: `grid_spread(leverage) → spread`. Lender is short the optionality.
+- Wired into `FlooredTermLoan.cashflows()` via optional `leverage_path`.
+
+### `ExcessCashFlowSweep` — mandatory prepayment
+- `mandatory_prepayment(ebitda) = max(ebitda - capex - debt_service, 0) × sweep_pct`.
+- The real prepayment driver for LBOs (not CPR/PSA).
+
+### `SOFRCSAAdjustment` — LIBOR→SOFR transition
+- ISDA published values: 11.4bp (1M), 26.2bp (3M), 42.8bp (6M), 71.5bp (12M).
+
+---
+
 ## v0.419.0 — 2026-04-30
 
 **Lens audit — 7 fixes across loan framework.** 6476 tests.
