@@ -2,6 +2,21 @@
 
 ---
 
+## v0.422.0 — 2026-04-30
+
+**Loan P3: Covenant analytics.** 6547 tests.
+
+### Covenant specification + cushion
+- Maintenance vs incurrence (cov-lite). Cushion, trajectory, periods to breach.
+
+### Breach probability
+- Closed-form: `Φ(-ln(1+cushion) / (σ√T))`. MC: EBITDA path simulation.
+
+### Cost modelling + adjusted PV
+- Waiver, amendment, equity cure costs. `covenant_adjusted_pv()` = base − expected costs.
+
+---
+
 ## v0.421.0 — 2026-04-30
 
 **Loan P2: Credit & Recovery.** 6519 tests.
