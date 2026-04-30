@@ -2,6 +2,24 @@
 
 ---
 
+## v0.430.0 — 2026-04-30
+
+**CLN P1: Recovery foundation.** 6755 tests.
+
+### `RecoverySpec`
+- Unified recovery specification: mean, std, distribution (fixed/beta/lognormal), correlation_to_default.
+- `from_seniority("1L")`: Moody's historical data (1L=77%, 2L=43%, sub=28%).
+- `sample()`: optionally correlated with systematic default driver via Gaussian copula.
+
+### Default-recovery correlation
+- `correlated_default_recovery()`: joint simulation with `E[(1-R)×1_D] ≠ (1-E[R])×PD`.
+- `wrong_way_premium()`: quantifies naive pricing error. Positive when ρ_DR < 0.
+
+### LGD term structure
+- `lgd_term_structure()`: LGD at each tenor with correlated recovery vs independent.
+
+---
+
 ## v0.429.0 — 2026-04-30
 
 **CDS P5: Exotic hardening & integration.** 6732 tests.
