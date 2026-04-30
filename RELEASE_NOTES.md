@@ -2,6 +2,17 @@
 
 ---
 
+## v0.429.0 — 2026-04-30
+
+**CDS P5: Exotic hardening & integration.** 6732 tests.
+
+### `credit_exotic.py` — curve integration
+- All four products (`capped_coupon_bond`, `digital_cds`, `credit_range_accrual`, `credit_linked_loan`) now actually use `DiscountCurve`/`SurvivalCurve` when provided.
+- Previously curves were accepted but ignored — both code paths used flat scalars.
+- Backward compatible: flat-rate fallback when curves are None.
+
+---
+
 ## v0.428.0 — 2026-04-30
 
 **CDS P4: Tranche & correlation improvements.** 6725 tests.
