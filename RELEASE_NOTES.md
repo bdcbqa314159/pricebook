@@ -2,6 +2,27 @@
 
 ---
 
+## v0.419.0 — 2026-04-30
+
+**Lens audit — 7 fixes across loan framework.** 6476 tests.
+
+### Critical
+- **Recovery PV tracks outstanding**: for amortising loans, recovery is on outstanding principal at default time (was fixed at initial funded amount — overstated recovery).
+
+### Medium
+- `notional > 0` validation on TermLoan and RevolvingFacility.
+- `recovery ∈ [0,1]` validation on LoanParticipation.
+- `RevolvingFacility` validates `drawn_amount ≤ max_commitment` at construction.
+- `assignment_premium` uses actual WAL from `weighted_average_life()` (was hardcoded 0.6×maturity).
+- `LoanBook.pv()`: explicit type dispatch replaces try/except cascade.
+- `pv_unfunded()` risk-free: proper annuity calculation replaces rough `df × 0.5`.
+
+### Completeness
+- `TermLoan.dv01()`: 1bp parallel rate shift sensitivity.
+- `LoanParticipation.greeks()`: dv01 + cs01 via bump-and-reprice.
+
+---
+
 ## v0.418.0 — 2026-04-30
 
 **Loan framework complete (L1-L5): direct to portfolio.** 6476 tests, 45 types.
