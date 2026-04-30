@@ -45,6 +45,8 @@ class TermLoan:
         frequency: Frequency = Frequency.QUARTERLY,
         day_count: DayCountConvention = DayCountConvention.ACT_360,
     ):
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
         self.start = start
         self.end = end
         self.spread = spread
@@ -132,6 +134,18 @@ class TermLoan:
             return shifted.dirty_price(discount_curve, projection_curve) - market_price
 
         return brentq(objective, -0.10, 0.10)
+
+    def dv01(
+        self,
+        discount_curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+        shift: float = 0.0001,
+    ) -> float:
+        """DV01: PV change for 1bp parallel rate shift."""
+        pv_base = self.pv(discount_curve, projection_curve)
+        bumped = discount_curve.bumped(shift)
+        proj_bumped = projection_curve.bumped(shift) if projection_curve else None
+        return self.pv(bumped, proj_bumped) - pv_base
 
     def pv_ctx(self, ctx) -> float:
         """Price from PricingContext — Trade/Portfolio integration."""
@@ -222,6 +236,12 @@ class RevolvingFacility:
         frequency: Frequency = Frequency.QUARTERLY,
         day_count: DayCountConvention = DayCountConvention.ACT_360,
     ):
+        if max_commitment <= 0:
+            raise ValueError(f"max_commitment must be positive, got {max_commitment}")
+        if drawn_amount < 0:
+            raise ValueError(f"drawn_amount must be >= 0, got {drawn_amount}")
+        if drawn_amount > max_commitment:
+            raise ValueError(f"drawn_amount ({drawn_amount}) cannot exceed max_commitment ({max_commitment})")
         self.start = start
         self.end = end
         self.max_commitment = max_commitment

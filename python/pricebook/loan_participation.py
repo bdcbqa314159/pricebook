@@ -82,6 +82,8 @@ class LoanParticipation:
     ):
         if not 0.0 < participation_rate <= 1.0:
             raise ValueError(f"participation_rate must be in (0, 1], got {participation_rate}")
+        if not 0.0 <= recovery <= 1.0:
+            raise ValueError(f"recovery must be in [0, 1], got {recovery}")
         if trade_type not in ("participation", "assignment"):
             raise ValueError(f"trade_type must be 'participation' or 'assignment'")
         self.underlying = underlying
@@ -116,6 +118,7 @@ class LoanParticipation:
         principal_pv_total = 0.0
         recovery_pv = 0.0
         prev_date = self.underlying.start
+        outstanding = self.notional  # track amortising outstanding
 
         for d, interest, principal in flows:
             df = discount_curve.df(d)
@@ -131,8 +134,9 @@ class LoanParticipation:
             coupon_pv += self.participation_rate * interest * df * surv
             # Principal return, weighted by survival
             principal_pv_total += self.participation_rate * principal * df * surv
-            # Recovery on default in this period
-            recovery_pv += self.recovery * self.funded_amount * dpd * df
+            # Recovery on default: based on OUTSTANDING at time of default (not initial)
+            recovery_pv += self.recovery * self.participation_rate * outstanding * dpd * df
+            outstanding = max(outstanding - principal, 0.0)
             prev_date = d
 
         # Expected loss
@@ -153,18 +157,48 @@ class LoanParticipation:
             net_carry=net_carry,
         )
 
-    def assignment_premium(self, counterparty_spread: float = 0.001) -> float:
+    def assignment_premium(
+        self,
+        counterparty_spread: float = 0.001,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
         """Extra value from assignment vs participation.
 
-        Assignment = direct claim (lower counterparty risk).
+        Assignment = direct claim on borrower (lower counterparty risk).
+        Participation = intermediated claim (higher counterparty risk).
         Premium ≈ counterparty_spread × funded_amount × WAL.
         """
         if self.trade_type == "assignment":
-            return 0.0  # already assignment
-        # Approximate WAL
-        wal = year_fraction(self.underlying.start, self.underlying.end,
-                            self.underlying.day_count) * 0.6  # rough
+            return 0.0
+        # Use actual WAL if projection curve available
+        if projection_curve is not None and hasattr(self.underlying, "weighted_average_life"):
+            wal = self.underlying.weighted_average_life(projection_curve)
+        else:
+            wal = year_fraction(self.underlying.start, self.underlying.end,
+                                self.underlying.day_count) * 0.5
         return counterparty_spread * self.funded_amount * wal
+
+    def greeks(
+        self,
+        discount_curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+        survival_curve: SurvivalCurve | None = None,
+    ) -> dict[str, float]:
+        """Bump-and-reprice sensitivities: dv01, cs01."""
+        base = self.pv(discount_curve, projection_curve, survival_curve).pv
+
+        # DV01: 1bp parallel rate shift
+        bumped_dc = discount_curve.bumped(0.0001)
+        bumped_proj = projection_curve.bumped(0.0001) if projection_curve else None
+        dv01 = self.pv(bumped_dc, bumped_proj, survival_curve).pv - base
+
+        # CS01: 1bp credit spread shift
+        cs01 = 0.0
+        if survival_curve is not None:
+            bumped_sc = survival_curve.bumped(0.0001)
+            cs01 = self.pv(discount_curve, projection_curve, bumped_sc).pv - base
+
+        return {"dv01": dv01, "cs01": cs01, "pv": base}
 
     def pv_ctx(self, ctx) -> float:
         sc = None
@@ -285,9 +319,16 @@ class PartialFundedParticipation:
         T = year_fraction(self.underlying.start, self.underlying.end, self.underlying.day_count)
 
         if survival_curve is None:
-            # No credit risk: pure premium income
-            df_avg = discount_curve.df(self.underlying.end)
-            return self.unfunded_spread * unfunded_notional * T * df_avg * 0.5
+            # No credit risk: premium income (no protection payouts)
+            # Use proper annuity = Σ τ_i × df(t_i) for scheduled periods
+            from pricebook.schedule import generate_schedule
+            dates = generate_schedule(self.underlying.start, self.underlying.end,
+                                       self.underlying.frequency)
+            ann = 0.0
+            for i in range(1, len(dates)):
+                yf = year_fraction(dates[i-1], dates[i], self.underlying.day_count)
+                ann += yf * discount_curve.df(dates[i])
+            return self.unfunded_spread * unfunded_notional * ann
 
         # Premium leg (earn spread while alive)
         from pricebook.cds import risky_annuity

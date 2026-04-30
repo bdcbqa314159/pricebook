@@ -86,20 +86,25 @@ class LoanBook:
         projection_curve: DiscountCurve | None = None,
         survival_curve: SurvivalCurve | None = None,
     ) -> float:
-        """Total PV of all positions."""
+        """Total PV of all positions.
+
+        Dispatches by checking instrument type explicitly (not try/except).
+        """
+        from pricebook.loan_participation import LoanParticipation, PartialFundedParticipation
+
         total = 0.0
         for pos in self._positions:
             inst = pos["instrument"]
-            if hasattr(inst, "pv"):
+            if isinstance(inst, PartialFundedParticipation):
+                total += inst.total_pv(discount_curve, projection_curve, survival_curve)
+            elif isinstance(inst, LoanParticipation):
+                total += inst.pv(discount_curve, projection_curve, survival_curve).pv
+            elif hasattr(inst, "pv"):
+                # TermLoan, RevolvingFacility, etc.
                 try:
                     total += inst.pv(discount_curve, projection_curve)
                 except TypeError:
-                    try:
-                        total += inst.pv(discount_curve, projection_curve, survival_curve).pv
-                    except (TypeError, AttributeError):
-                        total += inst.pv(discount_curve)
-            elif hasattr(inst, "total_pv"):
-                total += inst.total_pv(discount_curve, projection_curve, survival_curve)
+                    total += inst.pv(discount_curve)
         return total
 
     def summary(
