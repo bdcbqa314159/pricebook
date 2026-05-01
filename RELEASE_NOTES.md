@@ -2,6 +2,24 @@
 
 ---
 
+## v0.440.0 — 2026-05-01
+
+**T-Lock trading readiness.** 6897 tests.
+
+### Treasury note conventions
+- `FixedRateBond.treasury_note()`: ACT/ACT ICMA day count, T+1 settlement, semi-annual. No more 30/360 / T+0 mistakes on USTs.
+
+### T-Lock settlement & P&L
+- `TreasuryLock.settlement_amount(irr)`: cash settlement at expiry (Pucci Eq 1).
+- `tlock_pnl_attribution()`: daily P&L decomposition into curve, repo, roll, unexplained.
+- `pv_ctx()` now extracts repo rate from `ctx.repo_curves` when available.
+
+### Serialisation sweep
+- `Repo`, `ReverseRepo`, `RepoFinancedPosition` (funded.py) — all registered.
+- Bond serialisation now includes `settlement_days`.
+
+---
+
 ## v0.439.0 — 2026-05-01
 
 **T-Lock ecosystem: serialisation + portfolio risk.** 6885 tests.
