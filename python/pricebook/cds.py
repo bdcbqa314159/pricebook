@@ -481,17 +481,17 @@ class CDS:
         survival_curve: SurvivalCurve,
         shift: float = 0.0001,
     ) -> float:
-        """Spread convexity: d²PV/ds² / PV via central difference.
+        """Spread convexity: d²PV/ds² normalised by notional.
 
-        convexity = [PV(s+h) - 2×PV(s) + PV(s-h)] / (h² × PV)
+        convexity = [PV(s+h) - 2×PV(s) + PV(s-h)] / (h² × notional)
+
+        Normalised by notional (not PV) to avoid singularity near par.
         """
         from pricebook.credit_risk import _bump_survival_curve
         pv_base = self.pv(discount_curve, survival_curve)
-        if abs(pv_base) < 1e-15:
-            return 0.0
         pv_up = self.pv(discount_curve, _bump_survival_curve(survival_curve, shift))
         pv_down = self.pv(discount_curve, _bump_survival_curve(survival_curve, -shift))
-        return (pv_up - 2 * pv_base + pv_down) / (shift ** 2 * pv_base)
+        return (pv_up - 2 * pv_base + pv_down) / (shift ** 2 * self.notional)
 
 
 # ---------------------------------------------------------------------------

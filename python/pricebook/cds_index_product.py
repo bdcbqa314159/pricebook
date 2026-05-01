@@ -429,8 +429,8 @@ class CDSIndexOption:
             fwd_annuities.append(fwd.risky_annuity)
             fwd_survivals.append(fwd.survival_to_start)
 
-        # Index forward = total_protection / total_annuity (not avg of forwards)
-        # This respects Jensen's inequality: F_idx ≠ avg(F_i)
+        # Index forward = Σ(F_i × A_i) / Σ(A_i) — NOT avg(F_i)
+        # Respects Jensen's inequality (O'Kane 2008 Ch. 8)
         total_prot = sum(
             f * a for f, a in zip(fwd_spreads, fwd_annuities)
         )

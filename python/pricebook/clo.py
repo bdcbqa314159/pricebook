@@ -21,7 +21,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -43,6 +43,12 @@ class CLOTranche:
     notional: float
     coupon: float
     seniority: int
+
+    def __post_init__(self):
+        if self.notional < 0:
+            raise ValueError(f"notional must be >= 0, got {self.notional}")
+        if self.coupon < 0:
+            raise ValueError(f"coupon must be >= 0, got {self.coupon}")
 
     @property
     def coupon_due(self) -> float:
@@ -168,10 +174,11 @@ class CLOWaterfall:
                 if remaining <= 0:
                     break
         else:
-            # Pro-rata across debt tranches
-            total = sum(t.notional for t in self.tranches)
+            # Pro-rata across debt tranches (equity excluded)
+            debt = self.debt_tranches
+            total = sum(t.notional for t in debt)
             if total > 0:
-                for tranche in self.tranches:
+                for tranche in debt:
                     share = tranche.notional / total
                     paydown = min(principal_proceeds * share, tranche.notional)
                     payments[tranche.name] = paydown
@@ -318,10 +325,12 @@ def _rating_factor(ratings: list[str], notionals: list[float]) -> float:
     total = sum(notionals)
     if total <= 0:
         return 0.0
-    warf = sum(
-        n * RATING_FACTORS.get(r, 6500)  # default to CCC if unknown
-        for r, n in zip(ratings, notionals)
-    )
+    warf = 0.0
+    for r, n in zip(ratings, notionals):
+        if r not in RATING_FACTORS:
+            import warnings
+            warnings.warn(f"Unknown rating '{r}', using CCC equivalent (6500)", stacklevel=2)
+        warf += n * RATING_FACTORS.get(r, 6500)
     return warf / total
 
 

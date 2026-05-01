@@ -116,11 +116,13 @@ class TestCLOWaterfall:
     def test_principal_pro_rata(self):
         wf = _make_standard_clo()
         payments = wf.distribute_principal(40_000_000, sequential=False)
-        # Each tranche gets proportional share
-        total = wf.total_notional
-        for tranche in wf.tranches:
-            expected = 40_000_000 * tranche.notional / total
+        # Pro-rata across debt tranches only (equity excluded)
+        debt_total = sum(t.notional for t in wf.debt_tranches)
+        for tranche in wf.debt_tranches:
+            expected = 40_000_000 * tranche.notional / debt_total
             assert payments[tranche.name] == pytest.approx(expected, rel=1e-6)
+        # Equity should not receive pro-rata principal
+        assert payments.get("Equity", 0) == 0
 
     def test_distribute_no_losses(self):
         wf = _make_standard_clo()

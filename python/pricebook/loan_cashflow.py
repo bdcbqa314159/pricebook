@@ -186,6 +186,11 @@ class FlooredTermLoan(TermLoan):
         amort_amount = self.notional * self.amort_rate
         flows = []
         csa_adj = self.csa.csa_rate if self.csa else 0.0
+        n_periods = len(self.schedule) - 1
+        if leverage_path is not None and len(leverage_path) < n_periods:
+            raise ValueError(
+                f"leverage_path has {len(leverage_path)} entries but schedule has {n_periods} periods"
+            )
 
         for i in range(1, len(self.schedule)):
             t_start = self.schedule[i - 1]
@@ -195,8 +200,8 @@ class FlooredTermLoan(TermLoan):
             df2 = projection_curve.df(t_end)
             fwd = (df1 - df2) / (yf * df2)
 
-            # Apply floor
-            effective_rate = max(fwd + csa_adj, self.floor_rate)
+            # Apply floor to base rate, then add CSA (ISDA convention)
+            effective_rate = max(fwd, self.floor_rate) + csa_adj
 
             # Apply pricing grid if available
             if self.pricing_grid is not None and leverage_path is not None:

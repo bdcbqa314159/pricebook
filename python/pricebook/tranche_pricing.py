@@ -80,18 +80,22 @@ def expected_tranche_loss(
 
     L_tranche = clip(L_portfolio - a, 0, d-a) / (d-a)
 
+    Args rho must be in [0, 1].
+
     where L_portfolio = (n_defaults / N) × (1-R).
     """
     width = detachment - attachment
     if width <= 0:
         return 0.0
+    if not 0.0 <= rho <= 1.0:
+        raise ValueError(f"rho must be in [0, 1], got {rho}")
 
     n_names = len(survival_curves)
     ref = discount_curve.reference_date
 
     rng = np.random.default_rng(seed)
-    sqrt_rho = math.sqrt(max(rho, 0.0))
-    sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
+    sqrt_rho = math.sqrt(rho)
+    sqrt_1_rho = math.sqrt(1.0 - rho)
 
     M = rng.standard_normal(n_sims)
     eps = rng.standard_normal((n_sims, n_names))

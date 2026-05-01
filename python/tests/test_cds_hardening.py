@@ -97,10 +97,11 @@ class TestSpreadDurationConvexity:
         assert d < 0  # wider spreads help buyer → negative duration
 
     def test_convexity_nonzero(self):
-        """Spread convexity should be nonzero (second-order sensitivity exists)."""
+        """Spread convexity (normalised by notional) should be nonzero."""
         cds, dc, sc = _make_cds()
         c = cds.spread_convexity(dc, sc)
         assert c != 0
+        assert math.isfinite(c)
 
     def test_duration_finite(self):
         cds, dc, sc = _make_cds()

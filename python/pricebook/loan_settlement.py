@@ -18,7 +18,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
 
 
 # Standard settlement days
@@ -47,6 +46,12 @@ class LoanSettlement:
     par_amount: float
     accrued: float = 0.0
     trade_type: str = "assignment"
+
+    def __post_init__(self):
+        if self.par_amount <= 0:
+            raise ValueError(f"par_amount must be positive, got {self.par_amount}")
+        if self.settle_date < self.trade_date:
+            raise ValueError("settle_date must be >= trade_date")
 
     @property
     def settlement_days(self) -> int:

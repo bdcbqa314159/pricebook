@@ -28,7 +28,6 @@ from scipy.stats import norm
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +264,10 @@ def waiver_cost(
 
     Total cost = upfront fee + PV of spread step-up.
     """
+    if notional <= 0:
+        raise ValueError(f"notional must be positive, got {notional}")
+    if remaining_life <= 0:
+        raise ValueError(f"remaining_life must be positive, got {remaining_life}")
     upfront = notional * waiver_fee_bps / 10_000
     stepup_annual = notional * spread_stepup_bps / 10_000
     stepup_pv = stepup_annual * remaining_life  # undiscounted for simplicity
