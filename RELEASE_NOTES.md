@@ -2,6 +2,34 @@
 
 ---
 
+## v0.443.0 — 2026-05-01
+
+**T-Lock Model Paper: practitioner's forward-bond approach.** 6941 tests.
+
+### Three lock conventions
+- **Yield lock** (Eq 5): `NPV = M × (yf − yLock) × PV01(yf) × D`
+- **Clean-price lock** (Eq 3): `NPV = N × (P_Lock − Bf) × D`
+- **Dirty-price lock**: equivalent to clean at strike = dirty − Adel
+
+### Discrete coupon forward (Eq 1)
+- `bond_forward_clean()`: cash-and-carry with per-coupon repo DFs and reinvestment.
+- Replaces simplified carry formula. Matches Pucci continuous-yield form to first order.
+
+### PV01 at forward yield (Eq 4)
+- `pv01_forward()`: centred difference `B(yf + 0.5bp) − B(yf − 0.5bp)` — numerical, not analytical.
+- Matches paper's specification: evaluated at forward IRR, not spot.
+
+### Two-curve structure (Remark 6)
+- `price(curve, discount_curve)`: repo for drift (Bf), separate curve for discount (D_TLock).
+- Consistent with CSA paper drift-vs-discount framework.
+
+### Paper validation: 16 tests
+- Tests 1-2: zero-coupon limit, single coupon exact.
+- Tests 6, 9-14: forward yield consistency, inception zero NPV, linearity.
+- Tests 17-19, 21-22, 24: dirty=clean adjusted, repo/discount bumps, time decay, specialness.
+
+---
+
 ## v0.442.0 — 2026-05-01
 
 **Treasury Tier 3 complete.** 6925 tests.
