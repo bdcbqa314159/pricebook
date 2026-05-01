@@ -2,6 +2,22 @@
 
 ---
 
+## v0.438.0 — 2026-05-01
+
+**ASW + Repo depth.** 6864 tests.
+
+### Asset swaps
+- `ProceedsAssetSwap`: buyer pays dirty price (no upfront). Distinct from par convention for off-par bonds.
+- `asw_vs_zspread()` → `SpreadComparison`: z-spread, par ASW, proceeds ASW, and basis between them. At par: all equal. Off par: par ASW diverges.
+- Post-LIBOR: ASW spread is over SOFR/ESTR (OIS discounting already correct).
+
+### Repo integration
+- `RepoCurve.as_discount_curve()`: bridges repo curve into standard `DiscountCurve` API for bond forward pricing.
+- `repo_ois_basis()`: repo − OIS spread in bp at each tenor. Positive for GC, negative for specials.
+- `term_repo_carry()`: coupon income vs financing cost, net carry, carry advantage (special vs GC).
+
+---
+
 ## v0.437.0 — 2026-05-01
 
 **T-Bill instrument.** 6843 tests.
