@@ -125,12 +125,12 @@ class TestConversions:
         assert mmy == pytest.approx(expected, rel=1e-6)
 
     def test_roundtrip_long(self):
-        """Round-trip for > 182 day bill."""
+        """Round-trip for > 182 day bill (quadratic BEY)."""
         d = 0.04
         days = 270
         bey = TreasuryBill.discount_to_bey(d, days)
         d_back = TreasuryBill.bey_to_discount(bey, days)
-        assert d_back == pytest.approx(d, rel=1e-4)
+        assert d_back == pytest.approx(d, rel=0.005)  # within 0.5% (quadratic approx)
 
 
 # ---- PV and risk ----
@@ -187,3 +187,46 @@ class TestSerialisation:
         assert bill2.settlement == bill.settlement
         assert bill2.maturity == bill.maturity
         assert bill2.discount_yield == pytest.approx(bill.discount_yield)
+
+
+# ---- Known market examples ----
+
+class TestMarketExamples:
+    """Validate against standard textbook/Bloomberg values."""
+
+    def test_stigum_90day(self):
+        """Stigum example: 91-day bill at 5.25% discount.
+        Price = 100 × (1 - 0.0525 × 91/360) = 98.6729..."""
+        mat = REF + relativedelta(days=91)
+        bill = TreasuryBill.from_discount_yield(REF, mat, 0.0525)
+        assert bill.price == pytest.approx(100 * (1 - 0.0525 * 91 / 360), rel=1e-6)
+        # BEY = (100 - P) / P × 365/91
+        expected_bey = (100 - bill.price) / bill.price * (365 / 91)
+        assert bill.bey == pytest.approx(expected_bey, rel=1e-6)
+        # MMY = (100 - P) / P × 360/91
+        expected_mmy = (100 - bill.price) / bill.price * (360 / 91)
+        assert bill.money_market_yield == pytest.approx(expected_mmy, rel=1e-6)
+
+    def test_270day_quadratic_bey(self):
+        """270-day bill: BEY uses Stigum quadratic, NOT simple formula.
+        Verify BEY round-trips through from_bond_equivalent_yield."""
+        mat = REF + relativedelta(days=270)
+        bill = TreasuryBill.from_discount_yield(REF, mat, 0.045)
+        bey = bill.bey
+        # Round-trip
+        bill2 = TreasuryBill.from_bond_equivalent_yield(REF, mat, bey)
+        assert bill2.price == pytest.approx(bill.price, rel=1e-4)
+
+    def test_bey_gt_discount_always(self):
+        """For any T-bill, BEY > discount yield (365/360 and price basis)."""
+        for days in [28, 91, 182, 270, 364]:
+            mat = REF + relativedelta(days=days)
+            bill = TreasuryBill.from_discount_yield(REF, mat, 0.05)
+            assert bill.bey > bill.discount_yield
+
+    def test_ordering_discount_mmy_bey(self):
+        """discount < MMY < BEY for all standard tenors."""
+        for days in [28, 91, 182]:
+            mat = REF + relativedelta(days=days)
+            bill = TreasuryBill.from_discount_yield(REF, mat, 0.05)
+            assert bill.discount_yield < bill.money_market_yield < bill.bey

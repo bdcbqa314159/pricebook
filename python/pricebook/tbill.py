@@ -99,26 +99,15 @@ class TreasuryBill:
         if days <= 182:
             price = face_value / (1.0 + bey * days / 365.0)
         else:
-            # Quadratic: P/F = (-bey × days/365 + sqrt((bey×days/365)² + ...)) / ...
-            # From Stigum: 2×days/365 terms
-            t = days / 365.0
-            # P = F × 2 / (t × bey + sqrt(t² × bey² - (2t-1)(1 - F/P)))
-            # Simpler: solve P × (1 + bey/2)^(2t) = F for semi-annual
-            # Direct: P = F / (1 + bey × t) as approximation, then refine
-            # Exact Stigum formula for days > 182:
-            a = t / 2.0
-            b = bey * a
-            # P = F × (−b + sqrt(b² + 2b + 1)) = F / (1 + b)... no.
-            # Correct formula: solve for P from BEY definition
-            # BEY = [-2d/365 + 2√((d/365)² - (2d/365 - 1)(1 - F/P))] / (2d/365 - 1)
-            # Let x = F/P, dt = days/365
-            # BEY = [-dt + √(dt² - (2dt-1)(1-x))] × 2 / (2dt-1)
-            # Rearrange: solve quadratic in x = F/P
+            # Invert Stigum quadratic:
+            # BEY = [-2dt + 2√(dt² - (2dt-1)(1 - F/P))] / (2dt - 1)
+            # Let A = ((2dt-1)×BEY + 2dt) / 2
+            # A² = dt² - (2dt-1)(1 - F/P)
+            # F/P = 1 - (dt² - A²) / (2dt-1)
             dt = days / 365.0
-            # From BEY definition (Fabozzi): x = F/P satisfies
-            # (1 + BEY/2)^(2×(days/365)) = F/P
-            # So P = F / (1 + BEY/2)^(2×days/365)
-            price = face_value / (1.0 + bey / 2.0) ** (2.0 * dt)
+            A = ((2.0 * dt - 1.0) * bey + 2.0 * dt) / 2.0
+            fp_ratio = 1.0 - (dt * dt - A * A) / (2.0 * dt - 1.0)
+            price = face_value / fp_ratio
         return cls(settlement, maturity, price, face_value)
 
     # ---- Yield measures ----
@@ -148,11 +137,15 @@ class TreasuryBill:
         if days <= 182:
             return (self.face_value - self.price) / self.price * (365.0 / days)
         else:
-            # Stigum formula for T > 6 months:
-            # BEY = 2 × [(F/P)^(365/(2×days)) − 1]
+            # Stigum quadratic formula for > 182 days:
+            # BEY = [-2d/365 + 2√((d/365)² - (2d/365-1)(1 - F/P))] / (2d/365 - 1)
             dt = days / 365.0
-            x = self.face_value / self.price
-            return 2.0 * (x ** (1.0 / (2.0 * dt)) - 1.0)
+            term1 = dt * dt
+            term2 = (2.0 * dt - 1.0) * (1.0 - self.face_value / self.price)
+            discriminant = term1 - term2
+            if discriminant < 0:
+                return 0.0
+            return (-2.0 * dt + 2.0 * math.sqrt(discriminant)) / (2.0 * dt - 1.0)
 
     @property
     def bey(self) -> float:
@@ -194,7 +187,9 @@ class TreasuryBill:
             price = 100.0 / (1.0 + bey * days / 365.0)
         else:
             dt = days / 365.0
-            price = 100.0 / (1.0 + bey / 2.0) ** (2.0 * dt)
+            A = ((2.0 * dt - 1.0) * bey + 2.0 * dt) / 2.0
+            fp_ratio = 1.0 - (dt * dt - A * A) / (2.0 * dt - 1.0)
+            price = 100.0 / fp_ratio
         return (100.0 - price) / 100.0 * (360.0 / days)
 
     # ---- PV and risk ----
