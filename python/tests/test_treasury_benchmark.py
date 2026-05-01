@@ -11,7 +11,8 @@ from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from pricebook.treasury_benchmark import (
     TreasuryBenchmark, AUCTION_SCHEDULE, TLOCK_TENORS,
-    create_benchmark_set,
+    create_benchmark_set, when_issued_bond,
+    SpecialnessProfile, ctd_switch_analysis,
 )
 from pricebook.govt_bond_trading import (
     otr_ofr_spread, when_issued_price, auction_analytics,
@@ -129,3 +130,121 @@ class TestAnalyticsToDict:
         d = result.to_dict()
         assert "gross_basis" in d
         assert "net_basis" in d
+
+
+# ---- When-issued ----
+
+class TestWhenIssued:
+
+    def test_from_wi_yield(self):
+        """Coupon = floor(WI_yield to nearest 1/8%)."""
+        from pricebook.day_count import DayCountConvention
+        bond = when_issued_bond(REF, 10, wi_yield=0.0425)
+        # 4.25% → 4.25% (already 1/8%)
+        assert bond.coupon_rate == pytest.approx(0.0425, abs=0.002)
+        assert bond.day_count == DayCountConvention.ACT_ACT_ICMA
+        assert bond.settlement_days == 1
+
+    def test_from_coupon(self):
+        bond = when_issued_bond(REF, 5, estimated_coupon=0.04)
+        assert bond.coupon_rate == 0.04
+
+    def test_maturity(self):
+        bond = when_issued_bond(REF, 10, estimated_coupon=0.04)
+        expected_mat = REF + relativedelta(years=10)
+        assert bond.maturity == expected_mat
+
+    def test_no_args_raises(self):
+        with pytest.raises(ValueError, match="Must provide"):
+            when_issued_bond(REF, 10)
+
+    def test_prices_on_curve(self):
+        from tests.conftest import make_flat_curve
+        bond = when_issued_bond(REF, 10, wi_yield=0.04)
+        dc = make_flat_curve(REF, 0.04)
+        price = bond.dirty_price(dc)
+        assert price > 0
+
+
+# ---- Specialness dynamics ----
+
+class TestSpecialness:
+
+    def test_overnight_specialness(self):
+        sp = SpecialnessProfile(
+            tenor="10Y", gc_rate=0.045,
+            special_rates={1: 0.035, 7: 0.037, 30: 0.040},
+        )
+        assert sp.overnight_specialness_bps == pytest.approx(100, abs=1)
+
+    def test_specialness_at_tenor(self):
+        sp = SpecialnessProfile(
+            tenor="10Y", gc_rate=0.045,
+            special_rates={1: 0.035, 30: 0.040, 90: 0.043},
+        )
+        # At 30 days: 45 - 40 = 50bp
+        assert sp.specialness_at(30) == pytest.approx(50, abs=1)
+
+    def test_specialness_interpolation(self):
+        sp = SpecialnessProfile(
+            tenor="10Y", gc_rate=0.045,
+            special_rates={1: 0.035, 90: 0.043},
+        )
+        # Midpoint ~45 days: interpolated between 1d and 90d
+        mid = sp.specialness_at(45)
+        assert 20 < mid < 100  # between O/N and 90d
+
+    def test_forward_specialness(self):
+        sp = SpecialnessProfile(
+            tenor="10Y", gc_rate=0.045,
+            special_rates={1: 0.035, 30: 0.040, 90: 0.043},
+        )
+        fwd = sp.forward_specialness(30, 90)
+        assert fwd >= 0  # forward specialness should be non-negative
+
+    def test_decay_projection(self):
+        sp = SpecialnessProfile(tenor="10Y", gc_rate=0.045, special_rates={})
+        decay = sp.expected_specialness_decay(60, 100.0)
+        # First point: full specialness
+        assert decay[0]["specialness_bps"] == pytest.approx(100.0)
+        # Last point: collapsed post-auction
+        assert decay[-1]["specialness_bps"] < 20
+
+    def test_to_dict(self):
+        sp = SpecialnessProfile(
+            tenor="10Y", gc_rate=0.045,
+            special_rates={1: 0.035, 30: 0.040},
+        )
+        d = sp.to_dict()
+        assert "tenor" in d
+        assert "overnight_specialness_bps" in d
+
+
+# ---- CTD switching ----
+
+class TestCTDSwitch:
+
+    def test_no_deliverables(self):
+        assert ctd_switch_analysis([]) == []
+
+    def test_single_bond_no_switch(self):
+        deliverables = [
+            {"name": "A", "price": 100, "cf": 0.85, "coupon": 0.04,
+             "repo_rate": 0.04, "days": 90, "duration": 8.0, "futures_price": 99},
+        ]
+        transitions = ctd_switch_analysis(deliverables)
+        assert len(transitions) == 0  # only 1 bond → no switch
+
+    def test_two_bonds_may_switch(self):
+        deliverables = [
+            {"name": "Long", "price": 105, "cf": 0.90, "coupon": 0.05,
+             "repo_rate": 0.04, "days": 90, "duration": 12.0, "futures_price": 99},
+            {"name": "Short", "price": 98, "cf": 0.82, "coupon": 0.03,
+             "repo_rate": 0.04, "days": 90, "duration": 4.0, "futures_price": 99},
+        ]
+        transitions = ctd_switch_analysis(deliverables, yield_range=(-0.02, 0.02))
+        # With different durations, CTD should switch at some yield level
+        # (long duration bond becomes CTD in falling rates, short in rising)
+        for t in transitions:
+            assert t.current_ctd != t.new_ctd
+            assert t.probability in ("high", "medium", "low")
