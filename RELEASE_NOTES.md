@@ -2,6 +2,21 @@
 
 ---
 
+## v0.435.0 — 2026-05-01
+
+**Papers P2: Bond TRS — Burgess (2024).** 6809 tests.
+
+### `bond_trs.py` — Burgess Eq 13 closed-form pricing
+- `bond_trs_pv()` → `BondTRSResult` with four-leg decomposition:
+  - Coupon leg (Eq 5): `Σ N_B × r × τ × Q̃P(t)` — risky discounting.
+  - Performance leg (Eq 6): multi-period `B(t_{i-1}) - B(t_i)` via repo forward.
+  - Funding leg (Eq 10): `Σ N_C × (F + s) × τ × Q̃P(t)`.
+  - LGD leg (Eq 12): `Σ N_B × (1-RR) × ΔPD × P(t)` — riskfree discount (conditional on default).
+- `par_funding_spread()` (Eq 14): breakeven spread via risky annuity.
+- Validated: no-default collapse, CDS cross-check, recovery sensitivity, par spread regression, IG vs HY stress.
+
+---
+
 ## v0.434.0 — 2026-05-01
 
 **Papers P1: CSA discounting validation.** 6792 tests.
