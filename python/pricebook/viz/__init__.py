@@ -18,10 +18,11 @@ from pricebook.viz._builder import PlotBuilder
 from pricebook.viz._theme import LIGHT, DARK, PricebookTheme, configure_theme
 
 # Register product modules (triggers @register_instrument decorators)
-import pricebook.viz._tlock    # noqa: F401
-import pricebook.viz._cmasw    # noqa: F401
-import pricebook.viz._cmt      # noqa: F401
-import pricebook.viz._hybrid   # noqa: F401
-import pricebook.viz._trs      # noqa: F401
+import pricebook.viz._tlock          # noqa: F401
+import pricebook.viz._cmasw          # noqa: F401
+import pricebook.viz._cmt            # noqa: F401
+import pricebook.viz._hybrid         # noqa: F401
+import pricebook.viz._trs            # noqa: F401
+import pricebook.viz._treasury_lock  # noqa: F401
 
 __all__ = ["plot", "PlotBuilder", "LIGHT", "DARK", "PricebookTheme", "configure_theme"]

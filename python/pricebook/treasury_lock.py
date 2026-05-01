@@ -362,27 +362,20 @@ class TreasuryLock:
         self.lock_convention = lock_convention
         self.locked_price = locked_price
 
-    def price(self, curve, discount_curve=None) -> TLockResult:
-        """Price the T-Lock using the three-convention framework.
+    def _compute_forward(self, curve):
+        """Common forward computation used by price() and greeks().
 
-        Two-curve structure (paper Remark 6):
-          - repo rate → bond forward price Bf (drift)
-          - discount_curve → DT-Lock for discounting payoff (discount)
-          If discount_curve is None, uses the same curve for both.
-
-        Supports: lock_convention = "yield" | "clean_price" | "dirty_price"
+        Returns (fwd_clean, fwd_dirty, fwd_yield, alphas, times, T_mat, accrued_del).
+        All prices per unit face.
         """
         from pricebook.day_count import year_fraction, DayCountConvention
 
         alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
-
-        # Forward price under repo (Eq 1)
         spot_dirty = self.bond.dirty_price(curve)
-        spot_clean = spot_dirty - self.bond.accrued_interest(curve.reference_date)
-        mkt_price = spot_dirty / 100.0
+        spot_accrued = self.bond.accrued_interest(curve.reference_date)
         tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
 
-        # Intermediate coupons and their repo DFs
+        # Intermediate coupons and their repo DFs (Eq 1)
         coupons = []
         repo_dfs = []
         for cf in self.bond.coupon_leg.cashflows:
@@ -394,18 +387,46 @@ class TreasuryLock:
         repo_df_spot = 1.0 / (1.0 + self.repo_rate * tau)
         accrued_del = self.bond.accrued_interest(self.expiry) / 100.0
 
-        # Forward clean price per unit face (Eq 1)
         fwd_clean = bond_forward_clean(
-            mkt_price - self.bond.accrued_interest(curve.reference_date) / 100.0,
-            self.bond.accrued_interest(curve.reference_date) / 100.0,
+            spot_dirty / 100.0 - spot_accrued / 100.0,
+            spot_accrued / 100.0,
             accrued_del, coupons, repo_dfs, repo_df_spot,
         )
         fwd_dirty = fwd_clean + accrued_del
 
-        # Forward yield (Eq 2)
+        # Forward yield via Pucci simply-compounded convention (Eq 2)
         fwd_yield = bond_irr(fwd_dirty, self.bond.coupon_rate, alphas)
 
-        # Discount factor for the T-Lock payoff
+        return fwd_clean, fwd_dirty, fwd_yield, alphas, times, T_mat, accrued_del
+
+    def forward_yield_standard(self, curve) -> float:
+        """Forward yield using standard YTM convention: (1 + y/k)^n.
+
+        This is the market convention. Use this for comparison with
+        quoted yields. The Pucci convention is used internally for
+        T-Lock analytics (delta, gamma, risk factor).
+        """
+        from pricebook.bond import FixedRateBond as _FRB
+        fwd_clean, fwd_dirty = self._compute_forward(curve)[:2]
+        fwd_bond = _FRB.treasury_note(
+            self.expiry, self.bond.maturity, self.bond.coupon_rate,
+            self.bond.face_value,
+        )
+        return fwd_bond.yield_to_maturity(fwd_dirty * 100.0, self.expiry)
+
+    def price(self, curve, discount_curve=None) -> TLockResult:
+        """Price the T-Lock using the three-convention framework.
+
+        Two-curve structure (paper Remark 6):
+          - repo rate → bond forward price Bf (drift)
+          - discount_curve → DT-Lock for discounting payoff (discount)
+          If discount_curve is None, uses the same curve for both.
+
+        Supports: lock_convention = "yield" | "clean_price" | "dirty_price"
+        """
+        fwd_clean, fwd_dirty, fwd_yield, alphas, times, T_mat, accrued_del = \
+            self._compute_forward(curve)
+
         dc = discount_curve or curve
         df = dc.df(self.expiry)
 
@@ -421,7 +442,6 @@ class TreasuryLock:
                 self.notional * self.direction, df,
             )
         else:
-            # Yield lock (Eq 5) — default
             pv01 = pv01_forward(self.bond.coupon_rate, alphas, fwd_yield)
             npv = tlock_yield_npv(
                 self.locked_yield, fwd_yield,
@@ -432,17 +452,16 @@ class TreasuryLock:
         return TLockResult(npv, fwd_clean, fwd_clean, rf, self.locked_yield, self.direction)
 
     def greeks(self, curve) -> dict[str, float]:
-        """Delta and gamma of the T-Lock."""
-        from pricebook.day_count import year_fraction, DayCountConvention
+        """Delta and gamma at the FORWARD yield (not spot).
 
-        alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
-        mkt_price = self.bond.dirty_price(curve) / 100.0
-        y = bond_irr(mkt_price, self.bond.coupon_rate, alphas)
+        Uses the same forward computation as price() — no divergence.
+        """
+        _, _, fwd_yield, alphas, times, T_mat, _ = self._compute_forward(curve)
 
         delta = tlock_delta(self.bond.coupon_rate, alphas, times, T_mat,
-                            y, self.locked_yield, self.direction)
+                            fwd_yield, self.locked_yield, self.direction)
         gamma = tlock_gamma(self.bond.coupon_rate, alphas, times, T_mat,
-                            y, self.locked_yield, self.direction)
+                            fwd_yield, self.locked_yield, self.direction)
         return {"delta": delta, "gamma": gamma}
 
     def pv_ctx(self, ctx) -> float:
