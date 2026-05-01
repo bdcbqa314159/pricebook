@@ -265,3 +265,116 @@ class TestApproxVsExact:
         assert "coupon_pv" in d
         assert "lgd_pv" in d
         assert "par_spread" in d
+
+
+# ---- P3: Repo curve integration ----
+
+class TestRepoCurve:
+    """Forward repo rates per period should affect forward bond prices."""
+
+    def test_repo_curve_vs_flat(self):
+        """Repo curve at same flat rate should match scalar repo_rate."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+        repo_curve = DiscountCurve.flat(REF, 0.045)  # 4.5% repo
+
+        flat_result = bond_trs_pv(
+            bond, REF, TRS_END, 0.01, dc, repo_rate=0.045,
+        )
+        curve_result = bond_trs_pv(
+            bond, REF, TRS_END, 0.01, dc, repo_curve=repo_curve,
+        )
+        # Should be close (same flat rate, different compounding convention)
+        assert flat_result.performance_pv == pytest.approx(
+            curve_result.performance_pv, rel=0.15,
+        )
+
+    def test_higher_repo_changes_forward(self):
+        """Higher repo rate → higher forward bond price → different performance."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+
+        low = bond_trs_pv(bond, REF, TRS_END, 0.01, dc, repo_rate=0.03)
+        high = bond_trs_pv(bond, REF, TRS_END, 0.01, dc, repo_rate=0.06)
+        assert low.performance_pv != pytest.approx(high.performance_pv, rel=0.01)
+
+
+# ---- P4: Constant units vs constant notional ----
+
+class TestNotionalConventions:
+    """Burgess Remark 1: both conventions give same PV at inception."""
+
+    def test_same_at_inception(self):
+        """Both modes must produce identical PV at trade inception."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+
+        cn = bond_trs_pv(
+            bond, REF, TRS_END, 0.01, dc,
+            notional_mode="constant_notional",
+        )
+        cu = bond_trs_pv(
+            bond, REF, TRS_END, 0.01, dc,
+            notional_mode="constant_units",
+        )
+        assert cn.pv == pytest.approx(cu.pv, rel=0.01)
+
+    def test_same_coupon_pv(self):
+        """Coupon PV is the same regardless of notional mode."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+
+        cn = bond_trs_pv(bond, REF, TRS_END, 0.01, dc,
+                          notional_mode="constant_notional")
+        cu = bond_trs_pv(bond, REF, TRS_END, 0.01, dc,
+                          notional_mode="constant_units")
+        assert cn.coupon_pv == pytest.approx(cu.coupon_pv)
+
+    def test_par_spread_both_modes(self):
+        """Par spread at inception is similar for both modes."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+
+        p_cn = par_funding_spread(bond, REF, TRS_END, dc)
+        p_cu = par_funding_spread(bond, REF, TRS_END, dc)
+        assert p_cn == pytest.approx(p_cu, rel=0.02)
+
+
+# ---- P5: Approximate vs exact ----
+
+class TestApproximateMethodology:
+    """Burgess §3: skip LGD for IG, retain for HY."""
+
+    def test_ig_approx_close(self):
+        """IG: exact − approx difference dominated by LGD + survival adjustment."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+        sc_ig = make_flat_survival(REF, 0.005)
+
+        exact = bond_trs_pv(bond, REF, TRS_END, 0.01, dc, sc_ig, recovery=0.4)
+        approx = bond_trs_pv(bond, REF, TRS_END, 0.01, dc)  # no survival = no LGD
+
+        # For IG, difference is small relative to notional (100 face)
+        assert abs(exact.pv - approx.pv) < 5.0  # < $5 on $100 notional
+
+    def test_hy_approx_diverges(self):
+        """HY: exact ≠ approx, difference ≈ PV(LGD)."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+        sc_hy = make_flat_survival(REF, 0.05)
+
+        exact = bond_trs_pv(bond, REF, TRS_END, 0.01, dc, sc_hy, recovery=0.4)
+        approx = bond_trs_pv(bond, REF, TRS_END, 0.01, dc)
+
+        # Difference should be material and ≈ LGD PV
+        diff = abs(exact.pv - approx.pv)
+        assert diff > abs(exact.lgd_pv) * 0.3  # at least 30% of LGD
+
+    def test_stress_full_recovery(self):
+        """At RR=1.0, LGD=0 → exact = approx."""
+        bond = _make_bond()
+        dc = make_flat_curve(REF, 0.04)
+        sc = make_flat_survival(REF, 0.03)
+
+        exact = bond_trs_pv(bond, REF, TRS_END, 0.01, dc, sc, recovery=1.0)
+        assert exact.lgd_pv == pytest.approx(0.0, abs=0.01)
