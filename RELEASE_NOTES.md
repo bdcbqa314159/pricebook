@@ -2,6 +2,24 @@
 
 ---
 
+## v0.442.0 — 2026-05-01
+
+**Treasury Tier 3 complete.** 6925 tests.
+
+### When-issued bonds
+- `when_issued_bond(auction_date, tenor, wi_yield)`: constructs pre-auction Treasury with coupon rounded to nearest 1/8% (Treasury convention). ACT/ACT, T+1.
+
+### Specialness dynamics
+- `SpecialnessProfile`: term structure of repo specialness by tenor (O/N, 1W, 1M, 3M).
+- `specialness_at(days)`: interpolated specialness at arbitrary tenor.
+- `forward_specialness(start, end)`: no-arb implied forward specialness.
+- `expected_specialness_decay(days_to_auction)`: projection of specialness collapse at auction roll. ~90% decay post-auction.
+
+### Dynamic CTD switching
+- `ctd_switch_analysis(deliverables, yield_range)`: identifies yield levels where the cheapest-to-deliver bond switches. Returns `CTDTransition` events with trigger yield, basis impact, and probability.
+
+---
+
 ## v0.441.0 — 2026-05-01
 
 **TreasuryBenchmark + serialisation sweep.** 6911 tests.
