@@ -2,6 +2,23 @@
 
 ---
 
+## v0.441.0 — 2026-05-01
+
+**TreasuryBenchmark + serialisation sweep.** 6911 tests.
+
+### `TreasuryBenchmark`
+- OTR tracking: cusip, bond, yield, OFR spread, specialness.
+- Auction schedule: `next_auction()`, `days_to_next_auction()` for all UST tenors.
+- `adjusted_repo_rate()`: GC minus specialness = effective OTR repo.
+- `create_benchmark_set()`: standard T-Lock tenors (2Y, 5Y, 10Y, 30Y).
+
+### Serialisation sweep
+- `to_dict()` added to all analytics dataclasses:
+  - `govt_bond_trading.py`: OTROFRSpread, WhenIssuedEstimate, AuctionResult, BasisDecomposition, CTDSwitchEntry.
+  - `bond_futures.py`: CTDResult, BondFuturesBasis.
+
+---
+
 ## v0.440.0 — 2026-05-01
 
 **T-Lock trading readiness.** 6897 tests.
