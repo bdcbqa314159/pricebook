@@ -2,6 +2,28 @@
 
 ---
 
+## v0.436.0 — 2026-05-01
+
+**Papers complete: CSA Discounting + Bond TRS Burgess.** 6822 tests.
+
+### CSA Discounting paper — 15 validation tests
+- Tests 1, 3, 4: BS single-curve, repo drift ≠ OIS discount, two-rate call.
+- Test 6: three-regime swap PV (perfect CSA / no CSA / partial).
+- Tests 10-11: ColVA (GC + special repo scenarios).
+- Tests 15-17: FVA sign, XVA additivity.
+- Tests 18, 21: OIS bootstrap regression, rate convergence.
+
+### Bond TRS Burgess (2024) — 25 validation tests
+- Full Eq 13: coupon + performance − funding − LGD, all with risky discounting Q̃P.
+- LGD leg (Eq 12): riskfree discount P (conditional on default). Matches CDS protection leg.
+- Repo-forward pricing (Eq 8-9): multi-period chained B(t_i) via per-period repo curve.
+- Par funding spread (Eq 14): breakeven via risky annuity A_risky.
+- Constant units vs constant notional: both give same PV at inception (Remark 1).
+- Approximate methodology: IG ≈ exact, HY diverges by PV(LGD).
+- Recovery sensitivity, par spread linearity/sign, zero-spread regression.
+
+---
+
 ## v0.435.0 — 2026-05-01
 
 **Papers P2: Bond TRS — Burgess (2024).** 6809 tests.
