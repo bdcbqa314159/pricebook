@@ -2,6 +2,16 @@
 
 ---
 
+## v0.434.0 — 2026-05-01
+
+**Papers P1: CSA discounting validation.** 6792 tests.
+
+- Validated against CSA paper tests 1, 3, 4, 6, 10-11.
+- BS single-curve sanity, repo drift ≠ OIS discount, two-rate call pricing, three-regime swap PV, ColVA (GC + special).
+- Existing infrastructure passes all validation exercises — no code changes needed.
+
+---
+
 ## v0.433.0 — 2026-04-30
 
 **CLN P4: Analytics & integration.** 6782 tests.
