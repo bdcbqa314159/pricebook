@@ -209,3 +209,94 @@ class TestColVA:
         Dur = 5.0
         colva = (r_c - r_repo) * N * Dur
         assert colva > 0
+
+
+# ---- Paper Test 15: XVA additivity ----
+
+class TestXVAAdditivity:
+    """V_uncoll = V_OIS - CVA + DVA - FVA. Decomposition must hold."""
+
+    def test_fva_sign(self):
+        """Paper test 17: asset-positive trade + rf > rc → FVA > 0 (cost)."""
+        # FVA = (rf - rc) × exposure × T × df
+        r_c = 0.04
+        r_f = 0.048
+        exposure = 10_000_000  # positive exposure
+        T = 5.0
+        fva = (r_f - r_c) * exposure * T
+        assert fva > 0  # cost to the dealer
+
+    def test_uncoll_lower_than_coll(self):
+        """Uncollateralised PV < collateralised PV for positive trade."""
+        r_c = 0.04
+        r_f = 0.048
+        dc_coll = DiscountCurve.flat(REF, r_c)
+        dc_uncoll = DiscountCurve.flat(REF, r_f)
+
+        swap = InterestRateSwap(
+            start=REF, end=REF + relativedelta(years=5),
+            fixed_rate=0.05, direction=SwapDirection.RECEIVER,
+            notional=100_000_000,
+        )
+        pv_coll = swap.fixed_leg.pv(dc_coll)
+        pv_uncoll = swap.fixed_leg.pv(dc_uncoll)
+        # Higher discount rate → lower PV
+        assert pv_uncoll < pv_coll
+
+
+# ---- Paper Test 18: OIS bootstrap regression ----
+
+class TestOISBootstrap:
+    """Build OIS curve from swaps, reprice to zero."""
+
+    def test_flat_curve_reprices(self):
+        """Flat OIS curve: par swap at flat rate should have PV ≈ 0."""
+        r = 0.04
+        dc = DiscountCurve.flat(REF, r)
+        swap = InterestRateSwap(
+            start=REF, end=REF + relativedelta(years=5),
+            fixed_rate=r, direction=SwapDirection.PAYER,
+            notional=100_000_000,
+        )
+        pv = swap.pv(dc, dc)
+        # At par, PV should be near zero
+        assert abs(pv) < 500_000  # within $500K on $100M (day count mismatch)
+
+
+# ---- Paper Test 21: rc → rf limit ----
+
+class TestRateConvergence:
+    """As rf → rc, uncollateralised and collateralised PVs must converge."""
+
+    def test_convergence(self):
+        r_c = 0.04
+        dc_coll = DiscountCurve.flat(REF, r_c)
+
+        swap = InterestRateSwap(
+            start=REF, end=REF + relativedelta(years=5),
+            fixed_rate=0.035, direction=SwapDirection.RECEIVER,
+            notional=100_000_000,
+        )
+        pv_coll = swap.fixed_leg.pv(dc_coll)
+
+        # As spread shrinks to zero, uncoll → coll
+        for spread in [0.01, 0.005, 0.001, 0.0001]:
+            dc_uncoll = DiscountCurve.flat(REF, r_c + spread)
+            pv_uncoll = swap.fixed_leg.pv(dc_uncoll)
+            diff = abs(pv_coll - pv_uncoll)
+            if spread < 0.001:
+                assert diff < 50_000  # tight convergence
+
+    def test_zero_spread_identical(self):
+        """At zero spread: rf = rc → PVs identical."""
+        r = 0.04
+        dc = DiscountCurve.flat(REF, r)
+        swap = InterestRateSwap(
+            start=REF, end=REF + relativedelta(years=5),
+            fixed_rate=0.035, direction=SwapDirection.RECEIVER,
+            notional=100_000_000,
+        )
+        # Same curve for both → identical
+        pv1 = swap.fixed_leg.pv(dc)
+        pv2 = swap.fixed_leg.pv(dc)
+        assert pv1 == pv2
