@@ -301,3 +301,138 @@ class TreasuryLock:
         """Price from PricingContext — compatible with Trade.pv()."""
         result = self.price(ctx.discount_curve)
         return result.value
+
+    # ---- Serialisation ----
+
+    _SERIAL_TYPE = "treasury_lock"
+
+    def to_dict(self) -> dict:
+        return {"type": self._SERIAL_TYPE, "params": {
+            "bond": self.bond.to_dict(),
+            "locked_yield": self.locked_yield,
+            "expiry": self.expiry.isoformat() if hasattr(self.expiry, 'isoformat') else str(self.expiry),
+            "notional": self.notional,
+            "direction": self.direction,
+            "repo_rate": self.repo_rate,
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TreasuryLock":
+        from pricebook.serialisable import from_dict as _fd
+        from datetime import date
+        p = d["params"]
+        return cls(
+            bond=_fd(p["bond"]),
+            locked_yield=p["locked_yield"],
+            expiry=date.fromisoformat(p["expiry"]),
+            notional=p.get("notional", 1_000_000.0),
+            direction=p.get("direction", 1),
+            repo_rate=p.get("repo_rate", 0.0),
+        )
+
+    # ---- Portfolio risk ----
+
+    def dv01(self, curve, shift: float = 0.0001) -> float:
+        """DV01: PV change for 1bp parallel yield shift."""
+        pv_base = self.pv_ctx(type("Ctx", (), {"discount_curve": curve})())
+        pv_bumped = self.pv_ctx(type("Ctx", (), {"discount_curve": curve.bumped(shift)})())
+        return pv_bumped - pv_base
+
+    def key_rate_dv01(self, curve) -> dict[str, float]:
+        """Key-rate DV01: per-pillar yield sensitivity."""
+        pv_base = self.pv_ctx(type("Ctx", (), {"discount_curve": curve})())
+        result = {}
+        shift = 0.0001
+        for i, d in enumerate(curve.pillar_dates):
+            bumped = curve.bumped_at(i, shift)
+            pv_bumped = self.pv_ctx(type("Ctx", (), {"discount_curve": bumped})())
+            result[d.isoformat()] = (pv_bumped - pv_base) / shift
+        return result
+
+    def repo_sensitivity(self, curve, shift: float = 0.0001) -> float:
+        """PV sensitivity to repo rate change (1bp)."""
+        pv_base = self.price(curve).value
+        old_repo = self.repo_rate
+        self.repo_rate = old_repo + shift
+        pv_bumped = self.price(curve).value
+        self.repo_rate = old_repo
+        return pv_bumped - pv_base
+
+    def cross_gamma_yield_repo(self, curve, y_shift: float = 0.0001, r_shift: float = 0.0001) -> float:
+        """Cross-gamma: ∂²V/(∂y ∂r_repo). Measures interaction risk."""
+        # V(y, r)
+        pv_base = self.price(curve).value
+        # V(y+h, r)
+        pv_y_up = self.price(curve.bumped(y_shift)).value
+        # V(y, r+h)
+        old_repo = self.repo_rate
+        self.repo_rate = old_repo + r_shift
+        pv_r_up = self.price(curve).value
+        # V(y+h, r+h)
+        pv_yr_up = self.price(curve.bumped(y_shift)).value
+        self.repo_rate = old_repo
+        return (pv_yr_up - pv_y_up - pv_r_up + pv_base) / (y_shift * r_shift)
+
+
+from pricebook.serialisable import _register as _reg_tlock
+_reg_tlock(TreasuryLock)
+
+
+# ---------------------------------------------------------------------------
+# T-Lock portfolio risk
+# ---------------------------------------------------------------------------
+
+def tlock_portfolio_risk(
+    tlocks: list[TreasuryLock],
+    curve,
+) -> dict[str, float]:
+    """Aggregate risk for a portfolio of T-Locks.
+
+    Returns:
+        total_pv: net PV of all positions.
+        total_dv01: net DV01 (parallel yield shift).
+        total_delta: sum of Pucci deltas.
+        total_gamma: sum of Pucci gammas.
+        repo_sensitivity: net PV change for 1bp repo shift.
+        max_overhedge: largest overhedge bound across positions.
+    """
+    total_pv = 0.0
+    total_dv01 = 0.0
+    total_delta = 0.0
+    total_gamma = 0.0
+    total_repo_sens = 0.0
+    max_overhedge = 0.0
+
+    for tl in tlocks:
+        result = tl.price(curve)
+        total_pv += result.value
+
+        total_dv01 += tl.dv01(curve)
+        total_repo_sens += tl.repo_sensitivity(curve)
+
+        greeks = tl.greeks(curve)
+        total_delta += greeks["delta"] * tl.notional
+        total_gamma += greeks["gamma"] * tl.notional
+
+        # Overhedge bound (Pucci Eq 10-11)
+        alphas, times, T_mat = tl.bond.accrual_schedule(tl.expiry)
+        irr = bond_irr(
+            tl.bond.dirty_price(curve) / 100.0,
+            tl.bond.coupon_rate, alphas,
+        )
+        yield_change = irr - tl.locked_yield
+        bound = overhedge_bound(
+            tl.bond.coupon_rate, alphas, times, T_mat,
+            yield_change,
+        )
+        max_overhedge = max(max_overhedge, abs(bound))
+
+    return {
+        "total_pv": total_pv,
+        "total_dv01": total_dv01,
+        "total_delta": total_delta,
+        "total_gamma": total_gamma,
+        "repo_sensitivity": total_repo_sens,
+        "max_overhedge": max_overhedge,
+        "n_positions": len(tlocks),
+    }

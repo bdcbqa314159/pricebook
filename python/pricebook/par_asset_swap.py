@@ -127,6 +127,25 @@ class ParAssetSwap:
             upfront=upfront,
         )
 
+    _SERIAL_TYPE = "par_asset_swap"
+
+    def to_dict(self) -> dict:
+        return {"type": self._SERIAL_TYPE, "params": {
+            "bond": self.bond.to_dict(),
+            "settlement": self.settlement.isoformat(),
+            "market_price": self.market_price,
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ParAssetSwap":
+        from pricebook.serialisable import from_dict as _fd
+        p = d["params"]
+        return cls(
+            bond=_fd(p["bond"]),
+            settlement=date.fromisoformat(p["settlement"]),
+            market_price=p["market_price"],
+        )
+
 
 class ProceedsAssetSwap:
     """Proceeds (market-value) asset swap.
@@ -186,6 +205,30 @@ class ProceedsAssetSwap:
             market_price=self.market_dirty_price,
             upfront=0.0,  # no upfront in proceeds convention
         )
+
+    _SERIAL_TYPE = "proceeds_asset_swap"
+
+    def to_dict(self) -> dict:
+        return {"type": self._SERIAL_TYPE, "params": {
+            "bond": self.bond.to_dict(),
+            "settlement": self.settlement.isoformat(),
+            "market_dirty_price": self.market_dirty_price,
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ProceedsAssetSwap":
+        from pricebook.serialisable import from_dict as _fd
+        p = d["params"]
+        return cls(
+            bond=_fd(p["bond"]),
+            settlement=date.fromisoformat(p["settlement"]),
+            market_dirty_price=p["market_dirty_price"],
+        )
+
+
+from pricebook.serialisable import _register as _reg_asw
+_reg_asw(ParAssetSwap)
+_reg_asw(ProceedsAssetSwap)
 
 
 # ---------------------------------------------------------------------------

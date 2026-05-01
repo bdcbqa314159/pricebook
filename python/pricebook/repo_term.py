@@ -66,6 +66,21 @@ class RepoCurve:
         r = self.rate(days)
         return 1.0 / (1.0 + r * days / 360.0)
 
+    # ---- Serialisation ----
+
+    def to_dict(self) -> dict:
+        return {"type": "repo_curve", "params": {
+            "reference_date": self.reference_date.isoformat(),
+            "tenors": [{"tenor_days": r.tenor_days, "rate": r.rate} for r in self._tenors],
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RepoCurve":
+        p = d["params"]
+        return cls(
+            reference_date=date.fromisoformat(p["reference_date"]),
+            tenors=[RepoRate(t["tenor_days"], t["rate"]) for t in p["tenors"]],
+        )
 
     def as_discount_curve(self) -> "DiscountCurve":
         """Convert to DiscountCurve for use with standard pricing infrastructure.
@@ -192,3 +207,8 @@ def identify_specials(
             is_special=spread > threshold,
         ))
     return results
+
+
+from pricebook.serialisable import _register as _reg_rc
+RepoCurve._SERIAL_TYPE = "repo_curve"
+_reg_rc(RepoCurve)

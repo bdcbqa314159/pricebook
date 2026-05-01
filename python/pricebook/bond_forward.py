@@ -192,3 +192,34 @@ class BondForward:
             coupon_income=coupon_income,
             forward_dv01=fwd_dv01,
         )
+
+    # ---- Serialisation ----
+
+    _SERIAL_TYPE = "bond_forward"
+
+    def to_dict(self) -> dict:
+        from pricebook.serialisable import _serialise_atom
+        return {"type": self._SERIAL_TYPE, "params": {
+            "bond": self.bond.to_dict(),
+            "settlement": self.settlement.isoformat(),
+            "delivery": self.delivery.isoformat(),
+            "repo_rate": self.repo_rate,
+            "repo_day_count": _serialise_atom(self.repo_day_count),
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "BondForward":
+        from pricebook.serialisable import from_dict as _fd
+        p = d["params"]
+        return cls(
+            bond=_fd(p["bond"]),
+            settlement=date.fromisoformat(p["settlement"]),
+            delivery=date.fromisoformat(p["delivery"]),
+            repo_rate=p["repo_rate"],
+            repo_day_count=DayCountConvention(p.get("repo_day_count", "ACT/360")),
+        )
+
+
+from pricebook.serialisable import _register as _reg_bf
+BondForward._SERIAL_TYPE = "bond_forward"
+_reg_bf(BondForward)
