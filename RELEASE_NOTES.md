@@ -2,6 +2,29 @@
 
 ---
 
+## v0.439.0 — 2026-05-01
+
+**T-Lock ecosystem: serialisation + portfolio risk.** 6885 tests.
+
+### Serialisation added
+- `TreasuryLock`: `to_dict()`/`from_dict()`, registered as `"treasury_lock"`.
+- `BondForward`: registered as `"bond_forward"`.
+- `RepoCurve`: registered as `"repo_curve"`.
+- `ParAssetSwap`, `ProceedsAssetSwap`: registered.
+- All round-trip tests pass.
+
+### T-Lock risk metrics
+- `dv01()`: parallel yield sensitivity.
+- `key_rate_dv01()`: per-pillar yield sensitivity ladder.
+- `repo_sensitivity()`: PV change for 1bp repo shift.
+- `cross_gamma_yield_repo()`: ∂²V/(∂y ∂r_repo) — interaction risk between yield and repo.
+
+### Portfolio risk
+- `tlock_portfolio_risk()`: aggregates PV, DV01, delta, gamma, repo sensitivity, max overhedge across a portfolio of T-Locks.
+- Long + short at same yield → PV nets to ~0. Multiple positions at different yields aggregate correctly.
+
+---
+
 ## v0.438.0 — 2026-05-01
 
 **ASW + Repo depth.** 6864 tests.
