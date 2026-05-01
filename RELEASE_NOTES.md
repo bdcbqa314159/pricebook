@@ -2,6 +2,20 @@
 
 ---
 
+## v0.437.0 — 2026-05-01
+
+**T-Bill instrument.** 6843 tests.
+
+### `TreasuryBill`
+- Three yield conventions: discount yield (bank discount basis), bond equivalent yield (BEY with quadratic for >182 days), money market yield (CD equivalent).
+- Constructors: `from_discount_yield()`, `from_bond_equivalent_yield()`, `from_price()`.
+- Cross-conversions: `discount_to_bey()`, `bey_to_discount()`, `discount_to_mmyield()`.
+- Risk: `pv()`, `dv01()`, `duration`, `modified_duration`, `implied_repo_rate()`.
+- Ordering: discount < MMY < BEY (always, for standard T-bills).
+- Serialisable: `"tbill"`.
+
+---
+
 ## v0.436.0 — 2026-05-01
 
 **Papers complete: CSA Discounting + Bond TRS Burgess.** 6822 tests.
