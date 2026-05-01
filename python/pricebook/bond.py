@@ -282,5 +282,36 @@ class FixedRateBond:
         pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         return pv / self.face_value * 100.0
 
+    @classmethod
+    def treasury_note(
+        cls,
+        issue_date: date,
+        maturity: date,
+        coupon_rate: float,
+        face_value: float = 100.0,
+    ) -> "FixedRateBond":
+        """US Treasury note/bond with correct market conventions.
+
+        - ACT/ACT ICMA day count (not 30/360)
+        - Semi-annual coupons
+        - T+1 settlement
+        - No ex-dividend period
+
+        Args:
+            issue_date: original issue or dated date.
+            maturity: maturity date.
+            coupon_rate: annual coupon (e.g. 0.04 for 4%).
+        """
+        return cls(
+            issue_date=issue_date,
+            maturity=maturity,
+            coupon_rate=coupon_rate,
+            frequency=Frequency.SEMI_ANNUAL,
+            face_value=face_value,
+            day_count=DayCountConvention.ACT_ACT_ICMA,
+            settlement_days=1,
+        )
+
+
 from pricebook.serialisable import serialisable as _serialisable
-_serialisable("bond", ["issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count"])(FixedRateBond)
+_serialisable("bond", ["issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count", "settlement_days"])(FixedRateBond)

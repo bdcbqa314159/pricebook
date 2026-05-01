@@ -10,10 +10,11 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.bond import FixedRateBond
 from pricebook.bond_forward import BondForward
-from pricebook.treasury_lock import TreasuryLock, tlock_portfolio_risk
+from pricebook.treasury_lock import TreasuryLock, tlock_portfolio_risk, tlock_pnl_attribution
 from pricebook.tbill import TreasuryBill
 from pricebook.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
 from pricebook.repo_term import RepoCurve, RepoRate
+from pricebook.funded import Repo, ReverseRepo, RepoFinancedPosition
 from pricebook.schedule import Frequency
 from pricebook.serialisable import from_dict
 from tests.conftest import make_flat_curve
@@ -194,3 +195,114 @@ class TestPortfolioRisk:
                           "repo_sensitivity", "max_overhedge", "n_positions"]
         for k in expected_keys:
             assert k in risk
+
+
+# ---- Treasury note constructor ----
+
+class TestTreasuryNote:
+
+    def test_correct_conventions(self):
+        """Treasury note should use ACT/ACT ICMA and T+1."""
+        from pricebook.day_count import DayCountConvention
+        bond = FixedRateBond.treasury_note(
+            REF - relativedelta(years=1),
+            REF + relativedelta(years=9),
+            coupon_rate=0.04,
+        )
+        assert bond.day_count == DayCountConvention.ACT_ACT_ICMA
+        assert bond.settlement_days == 1
+        assert bond.frequency == Frequency.SEMI_ANNUAL
+
+    def test_prices(self):
+        bond = FixedRateBond.treasury_note(
+            REF - relativedelta(years=1),
+            REF + relativedelta(years=9),
+            coupon_rate=0.04,
+        )
+        dc = make_flat_curve(REF, 0.04)
+        price = bond.dirty_price(dc)
+        assert price > 0
+
+
+# ---- P&L attribution ----
+
+class TestPnLAttribution:
+
+    def test_unchanged_curves_zero_pnl(self):
+        """Same curve → total P&L = 0."""
+        tl = _make_tlock()
+        dc = make_flat_curve(REF, 0.04)
+        pnl = tlock_pnl_attribution(tl, dc, dc)
+        assert abs(pnl["total"]) < 1e-6
+
+    def test_curve_shift_nonzero_pnl(self):
+        """Shifted curve → nonzero P&L."""
+        tl = _make_tlock()
+        dc0 = make_flat_curve(REF, 0.04)
+        dc1 = make_flat_curve(REF, 0.045)  # 50bp shift
+        pnl = tlock_pnl_attribution(tl, dc0, dc1)
+        assert abs(pnl["total"]) > 0
+        assert abs(pnl["curve_pnl"]) > 0
+
+    def test_repo_change(self):
+        """Repo rate change → nonzero repo P&L."""
+        tl = _make_tlock(repo_rate=0.02)
+        dc = make_flat_curve(REF, 0.04)
+        pnl = tlock_pnl_attribution(tl, dc, dc, repo_rate_t1=0.03)
+        assert abs(pnl["repo_pnl"]) > 0
+
+    def test_pnl_fields(self):
+        tl = _make_tlock()
+        dc = make_flat_curve(REF, 0.04)
+        pnl = tlock_pnl_attribution(tl, dc, dc)
+        for k in ["total", "curve_pnl", "repo_pnl", "roll_pnl_first_order", "unexplained"]:
+            assert k in pnl
+
+
+# ---- Settlement ----
+
+class TestSettlement:
+
+    def test_settlement_amount(self):
+        """Cash settlement at expiry."""
+        tl = _make_tlock(locked_yield=0.04)
+        amount = tl.settlement_amount(irr_at_expiry=0.045)
+        # IRR > locked → payer receives (direction=1)
+        assert amount > 0
+
+    def test_settlement_opposite(self):
+        tl = _make_tlock(locked_yield=0.04)
+        amount = tl.settlement_amount(irr_at_expiry=0.035)
+        # IRR < locked → payer pays
+        assert amount < 0
+
+    def test_settlement_at_locked(self):
+        """IRR = locked → settlement ≈ 0."""
+        tl = _make_tlock(locked_yield=0.04)
+        amount = tl.settlement_amount(irr_at_expiry=0.04)
+        assert abs(amount) < 100  # near zero on $10M
+
+
+# ---- Funded instruments serialisation ----
+
+class TestFundedSerialisation:
+
+    def test_repo_round_trip(self):
+        r = Repo(98.5, 0.04, 0.25, haircut=0.02, notional=10_000_000)
+        d = r.to_dict()
+        r2 = from_dict(d)
+        assert r2.repo_rate == r.repo_rate
+        assert r2.bond_dirty_price == r.bond_dirty_price
+
+    def test_reverse_repo_round_trip(self):
+        rr = ReverseRepo(99.0, 0.035, 0.5, notional=5_000_000)
+        d = rr.to_dict()
+        rr2 = from_dict(d)
+        assert rr2.repo_rate == rr.repo_rate
+
+    def test_repo_financed_round_trip(self):
+        rfp = RepoFinancedPosition(100.0, 0.04, trs_spread=0.005,
+                                     asset_yield=0.05, T=1.0, notional=10_000_000)
+        d = rfp.to_dict()
+        rfp2 = from_dict(d)
+        assert rfp2.trs_spread == rfp.trs_spread

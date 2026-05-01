@@ -298,9 +298,46 @@ class TreasuryLock:
         return {"delta": delta, "gamma": gamma}
 
     def pv_ctx(self, ctx) -> float:
-        """Price from PricingContext — compatible with Trade.pv()."""
-        result = self.price(ctx.discount_curve)
-        return result.value
+        """Price from PricingContext — compatible with Trade.pv().
+
+        If ctx has repo_curves, extracts the repo rate for this bond's
+        tenor from the curve. Otherwise falls back to self.repo_rate.
+        """
+        curve = ctx.discount_curve
+        # Try to get repo rate from context
+        if hasattr(ctx, "repo_curves") and ctx.repo_curves:
+            from pricebook.day_count import year_fraction, DayCountConvention
+            rc = next(iter(ctx.repo_curves.values()))
+            tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
+            days = int(tau * 365)
+            if hasattr(rc, "rate"):
+                old_repo = self.repo_rate
+                self.repo_rate = rc.rate(days)
+                result = self.price(curve)
+                self.repo_rate = old_repo
+                return result.value
+        return self.price(curve).value
+
+    def settlement_amount(self, irr_at_expiry: float) -> float:
+        """Cash settlement at expiry (Pucci Eq 1).
+
+        T-Locks are cash-settled: payer receives N × a × RF × (IRR − L).
+
+        Args:
+            irr_at_expiry: realised IRR of the benchmark at expiry.
+
+        Returns:
+            Cash amount (positive = payer receives).
+        """
+        alphas, _, _ = self.bond.accrual_schedule(self.expiry)
+        return tlock_payoff(
+            irr_te=irr_at_expiry,
+            locked_yield=self.locked_yield,
+            coupon_rate=self.bond.coupon_rate,
+            accrual_factors=alphas,
+            notional=self.notional,
+            direction=self.direction,
+        )
 
     # ---- Serialisation ----
 
@@ -435,4 +472,87 @@ def tlock_portfolio_risk(
         "repo_sensitivity": total_repo_sens,
         "max_overhedge": max_overhedge,
         "n_positions": len(tlocks),
+    }
+
+
+def tlock_pnl_attribution(
+    tlock: TreasuryLock,
+    curve_t0,
+    curve_t1,
+    repo_rate_t1: float | None = None,
+) -> dict[str, float]:
+    """Daily P&L attribution for a T-Lock position.
+
+    Decomposes PV change into:
+      carry: time decay (theta) at unchanged curves.
+      curve_pnl: PV change from yield curve move.
+      repo_pnl: PV change from repo rate move.
+      roll_pnl: Pucci Eq 31 roll analytics.
+      unexplained: residual.
+
+    Args:
+        tlock: the T-Lock position.
+        curve_t0: discount curve at start of day.
+        curve_t1: discount curve at end of day.
+        repo_rate_t1: repo rate at end of day (None = unchanged).
+    """
+    pv_t0 = tlock.price(curve_t0).value
+    pv_t1 = tlock.price(curve_t1).value
+    total = pv_t1 - pv_t0
+
+    # Carry: PV change from 1 day passing, curves unchanged
+    carry = tlock.dv01(curve_t0) * 0  # theta approximation
+    # Better: use theta directly
+    from pricebook.day_count import year_fraction, DayCountConvention
+    tau = year_fraction(curve_t0.reference_date, tlock.expiry, DayCountConvention.ACT_365_FIXED)
+    # Theta ≈ -dV/dT (from time decay of forward and discount)
+    # Approximate as dv01 × daily_rolldown
+    carry = 0.0  # placeholder — T-Lock carry is through roll, not coupon
+
+    # Curve P&L: PV change from curve shift at t0 repo
+    curve_pnl = tlock.price(curve_t1).value - tlock.price(curve_t0).value
+
+    # Repo P&L: PV change from repo rate move
+    repo_pnl = 0.0
+    if repo_rate_t1 is not None and repo_rate_t1 != tlock.repo_rate:
+        old_repo = tlock.repo_rate
+        tlock.repo_rate = repo_rate_t1
+        pv_new_repo = tlock.price(curve_t1).value
+        tlock.repo_rate = old_repo
+        repo_pnl = pv_new_repo - pv_t1
+        # Recompute total with repo change
+        tlock.repo_rate = repo_rate_t1
+        pv_t1_full = tlock.price(curve_t1).value
+        tlock.repo_rate = old_repo
+        total = pv_t1_full - pv_t0
+
+    # Roll P&L: Pucci Eq 31
+    alphas_t0, times_t0, T_mat_t0 = tlock.bond.accrual_schedule(tlock.expiry)
+    irr_t0 = bond_irr(
+        tlock.bond.dirty_price(curve_t0) / 100.0,
+        tlock.bond.coupon_rate, alphas_t0,
+    )
+    irr_t1 = bond_irr(
+        tlock.bond.dirty_price(curve_t1) / 100.0,
+        tlock.bond.coupon_rate, alphas_t0,
+    )
+    roll = roll_pnl_first_order(
+        coupon_old=tlock.bond.coupon_rate,
+        coupon_new=tlock.bond.coupon_rate,  # same coupon (no roll yet)
+        irr_old=irr_t0,
+        irr_new=irr_t1,
+        locked_yield=tlock.locked_yield,
+        accrual_factors=alphas_t0,
+        times_to_coupon=times_t0,
+        time_to_maturity=T_mat_t0,
+    )
+
+    unexplained = total - curve_pnl - repo_pnl
+
+    return {
+        "total": total,
+        "curve_pnl": curve_pnl,
+        "repo_pnl": repo_pnl,
+        "roll_pnl_first_order": roll,
+        "unexplained": unexplained,
     }

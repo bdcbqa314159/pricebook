@@ -377,3 +377,9 @@ class RepoFinancedPosition:
     def pv_ctx(self, ctx) -> float:
         """Trade/Portfolio integration — returns net carry."""
         return self.net_carry()
+
+
+from pricebook.serialisable import serialisable as _ser_funded
+_ser_funded("repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(Repo)
+_ser_funded("reverse_repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(ReverseRepo)
+_ser_funded("repo_financed_position", ["bond_dirty_price", "repo_rate", "trs_spread", "asset_yield", "T", "haircut", "funding_rate", "notional", "specialness"])(RepoFinancedPosition)
