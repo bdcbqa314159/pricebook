@@ -230,6 +230,99 @@ def roll_pnl_first_order(
     return dc * (irr_new - locked_yield) * weighted_tau + dR * (T + coupon_old * weighted_tau)
 
 
+# ---------------------------------------------------------------------------
+# Three lock conventions (practitioner's paper Eq 1, 3, 4, 5)
+# ---------------------------------------------------------------------------
+
+def bond_forward_clean(
+    spot_clean: float,
+    accrued_spot: float,
+    accrued_delivery: float,
+    coupons: list[float],
+    repo_dfs_to_delivery: list[float],
+    repo_df_spot_to_delivery: float,
+) -> float:
+    """Bond forward clean price via discrete cash-and-carry (Eq 1).
+
+    Bf = (P0 + A0) / D_repo(T0, Tdel) - Σ Ci / D_repo(Ti, Tdel) - Adel
+
+    Args:
+        spot_clean: P0, spot clean price.
+        accrued_spot: A0, accrued at spot settlement.
+        accrued_delivery: Adel, accrued at delivery.
+        coupons: [C1, C2, ...] intermediate coupons.
+        repo_dfs_to_delivery: [D_repo(T1, Tdel), ...] repo DF from each coupon date to delivery.
+        repo_df_spot_to_delivery: D_repo(T0, Tdel), repo DF from spot to delivery.
+    """
+    # Finance the dirty price to delivery
+    dirty_grown = (spot_clean + accrued_spot) / repo_df_spot_to_delivery
+
+    # Subtract reinvested coupons
+    coupon_fv = sum(c / d for c, d in zip(coupons, repo_dfs_to_delivery))
+
+    return dirty_grown - coupon_fv - accrued_delivery
+
+
+def tlock_clean_price_npv(
+    locked_clean_price: float,
+    forward_clean_price: float,
+    quantity: float,
+    discount_factor: float,
+) -> float:
+    """Clean-price T-Lock NPV (Eq 3).
+
+    NPV = N × (P_TLock - Bf) × D_TLock(t, Tdel)
+
+    Buyer profits when forward drops below locked price.
+    """
+    return quantity * (locked_clean_price - forward_clean_price) * discount_factor
+
+
+def pv01_forward(
+    coupon_rate: float,
+    accrual_factors: list[float],
+    forward_yield: float,
+) -> float:
+    """PV01 at forward yield via centred difference (Eq 4).
+
+    PV01(yf) = B(yf + 0.5bp) - B(yf - 0.5bp)
+
+    Numerical, not analytical — as specified by the paper.
+    """
+    half_bp = 0.00005
+    p_up = bond_price_from_yield(coupon_rate, accrual_factors, forward_yield + half_bp)
+    p_down = bond_price_from_yield(coupon_rate, accrual_factors, forward_yield - half_bp)
+    return abs(p_up - p_down)
+
+
+def tlock_yield_npv(
+    locked_yield: float,
+    forward_yield: float,
+    trade_amount: float,
+    pv01_fwd: float,
+    discount_factor: float,
+) -> float:
+    """Yield T-Lock NPV (Eq 5).
+
+    NPV = M × (yf - yTLock) × |PV01(yf)| × D_TLock(t, Tdel)
+
+    Buyer profits when forward yield rises above locked yield.
+    """
+    return trade_amount * (forward_yield - locked_yield) * pv01_fwd * discount_factor
+
+
+def tlock_dirty_price_npv(
+    locked_dirty_price: float,
+    forward_clean_price: float,
+    accrued_delivery: float,
+    quantity: float,
+    discount_factor: float,
+) -> float:
+    """Dirty-price T-Lock NPV — equivalent to clean lock at strike = dirty - Adel (Eq 3 variant)."""
+    locked_clean = locked_dirty_price - accrued_delivery
+    return tlock_clean_price_npv(locked_clean, forward_clean_price, quantity, discount_factor)
+
+
 # ---- Instrument class ----
 
 class TreasuryLock:
@@ -252,36 +345,91 @@ class TreasuryLock:
         notional: float = 1_000_000.0,
         direction: int = 1,
         repo_rate: float = 0.0,
+        lock_convention: str = "yield",
+        locked_price: float | None = None,
     ):
-        from datetime import date as _date
+        """
+        Args:
+            lock_convention: "yield" (Eq 5), "clean_price" (Eq 3), or "dirty_price".
+            locked_price: strike for clean/dirty price lock (ignored for yield lock).
+        """
         self.bond = bond
         self.locked_yield = locked_yield
         self.expiry = expiry
         self.notional = notional
         self.direction = direction
         self.repo_rate = repo_rate
+        self.lock_convention = lock_convention
+        self.locked_price = locked_price
 
-    def price(self, curve) -> TLockResult:
-        """Price the T-Lock using a discount curve.
+    def price(self, curve, discount_curve=None) -> TLockResult:
+        """Price the T-Lock using the three-convention framework.
 
-        Extracts accrual schedule from bond, computes repo forward,
-        returns TLockResult with value, forward price, greeks.
+        Two-curve structure (paper Remark 6):
+          - repo rate → bond forward price Bf (drift)
+          - discount_curve → DT-Lock for discounting payoff (discount)
+          If discount_curve is None, uses the same curve for both.
+
+        Supports: lock_convention = "yield" | "clean_price" | "dirty_price"
         """
         from pricebook.day_count import year_fraction, DayCountConvention
 
         alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
 
-        # Forward price under repo
-        mkt_price = self.bond.dirty_price(curve) / 100.0
+        # Forward price under repo (Eq 1)
+        spot_dirty = self.bond.dirty_price(curve)
+        spot_clean = spot_dirty - self.bond.accrued_interest(curve.reference_date)
+        mkt_price = spot_dirty / 100.0
         tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
-        df = curve.df(self.expiry)
 
-        fwd = forward_price_repo(mkt_price, self.repo_rate, tau,
-                                  self.bond.coupon_rate, [], [])
+        # Intermediate coupons and their repo DFs
+        coupons = []
+        repo_dfs = []
+        for cf in self.bond.coupon_leg.cashflows:
+            if curve.reference_date < cf.payment_date <= self.expiry:
+                coupons.append(cf.amount / self.bond.face_value)
+                tau_ci = year_fraction(cf.payment_date, self.expiry, DayCountConvention.ACT_365_FIXED)
+                repo_dfs.append(1.0 / (1.0 + self.repo_rate * tau_ci))
 
-        return tlock_booking_value(
-            self.locked_yield, fwd, self.bond.coupon_rate, alphas,
-            df, self.notional, self.direction)
+        repo_df_spot = 1.0 / (1.0 + self.repo_rate * tau)
+        accrued_del = self.bond.accrued_interest(self.expiry) / 100.0
+
+        # Forward clean price per unit face (Eq 1)
+        fwd_clean = bond_forward_clean(
+            mkt_price - self.bond.accrued_interest(curve.reference_date) / 100.0,
+            self.bond.accrued_interest(curve.reference_date) / 100.0,
+            accrued_del, coupons, repo_dfs, repo_df_spot,
+        )
+        fwd_dirty = fwd_clean + accrued_del
+
+        # Forward yield (Eq 2)
+        fwd_yield = bond_irr(fwd_dirty, self.bond.coupon_rate, alphas)
+
+        # Discount factor for the T-Lock payoff
+        dc = discount_curve or curve
+        df = dc.df(self.expiry)
+
+        # NPV based on convention
+        if self.lock_convention == "clean_price" and self.locked_price is not None:
+            npv = tlock_clean_price_npv(
+                self.locked_price / 100.0, fwd_clean,
+                self.notional * self.direction, df,
+            )
+        elif self.lock_convention == "dirty_price" and self.locked_price is not None:
+            npv = tlock_dirty_price_npv(
+                self.locked_price / 100.0, fwd_clean, accrued_del,
+                self.notional * self.direction, df,
+            )
+        else:
+            # Yield lock (Eq 5) — default
+            pv01 = pv01_forward(self.bond.coupon_rate, alphas, fwd_yield)
+            npv = tlock_yield_npv(
+                self.locked_yield, fwd_yield,
+                self.notional * self.direction, pv01, df,
+            )
+
+        rf = bond_risk_factor(self.bond.coupon_rate, alphas, fwd_yield)
+        return TLockResult(npv, fwd_clean, fwd_clean, rf, self.locked_yield, self.direction)
 
     def greeks(self, curve) -> dict[str, float]:
         """Delta and gamma of the T-Lock."""
@@ -344,14 +492,18 @@ class TreasuryLock:
     _SERIAL_TYPE = "treasury_lock"
 
     def to_dict(self) -> dict:
-        return {"type": self._SERIAL_TYPE, "params": {
+        d = {"type": self._SERIAL_TYPE, "params": {
             "bond": self.bond.to_dict(),
             "locked_yield": self.locked_yield,
             "expiry": self.expiry.isoformat() if hasattr(self.expiry, 'isoformat') else str(self.expiry),
             "notional": self.notional,
             "direction": self.direction,
             "repo_rate": self.repo_rate,
+            "lock_convention": self.lock_convention,
         }}
+        if self.locked_price is not None:
+            d["params"]["locked_price"] = self.locked_price
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "TreasuryLock":
@@ -365,6 +517,8 @@ class TreasuryLock:
             notional=p.get("notional", 1_000_000.0),
             direction=p.get("direction", 1),
             repo_rate=p.get("repo_rate", 0.0),
+            lock_convention=p.get("lock_convention", "yield"),
+            locked_price=p.get("locked_price"),
         )
 
     # ---- Portfolio risk ----
