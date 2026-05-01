@@ -30,6 +30,11 @@ class OTROFRSpread:
     z_score: float | None
     signal: str
 
+    def to_dict(self) -> dict:
+        return {"tenor_label": self.tenor_label, "otr_yield": self.otr_yield,
+                "ofr_yield": self.ofr_yield, "spread_bps": self.spread_bps,
+                "z_score": self.z_score, "signal": self.signal}
+
 
 def otr_ofr_spread(
     tenor_label: str,
@@ -74,6 +79,11 @@ class WhenIssuedEstimate:
     estimated_yield: float
     estimated_price: float
     interpolation_basis: str
+
+    def to_dict(self) -> dict:
+        return {"estimated_yield": self.estimated_yield,
+                "estimated_price": self.estimated_price,
+                "interpolation_basis": self.interpolation_basis}
 
 
 def when_issued_price(
@@ -137,6 +147,12 @@ class AuctionResult:
         and tail < 1bp."""
         return self.bid_to_cover > 2.3 and self.tail_bps < 1.0
 
+    def to_dict(self) -> dict:
+        return {"issue_tenor": self.issue_tenor, "high_yield": self.high_yield,
+                "bid_to_cover": self.bid_to_cover, "tail_bps": self.tail_bps,
+                "dealer_pct": self.dealer_pct, "indirect_pct": self.indirect_pct,
+                "direct_pct": self.direct_pct, "well_received": self.well_received}
+
 
 def auction_analytics(
     issue_tenor: str,
@@ -189,6 +205,11 @@ class BasisDecomposition:
     net_basis: float
     implied_repo: float
 
+    def to_dict(self) -> dict:
+        return {"bond_name": self.bond_name, "gross_basis": self.gross_basis,
+                "carry": self.carry, "net_basis": self.net_basis,
+                "implied_repo": self.implied_repo}
+
 
 def basis_decomposition(
     bond_name: str,
@@ -237,6 +258,11 @@ class CTDSwitchEntry:
     gross_basis: float
     net_basis: float
     is_ctd: bool
+
+    def to_dict(self) -> dict:
+        return {"bond_name": self.bond_name, "implied_repo": self.implied_repo,
+                "gross_basis": self.gross_basis, "net_basis": self.net_basis,
+                "is_ctd": self.is_ctd}
 
 
 def ctd_switch_monitor(

@@ -85,6 +85,10 @@ class CTDResult:
     implied_repo: float
     all_bases: list[dict]
 
+    def to_dict(self) -> dict:
+        return {"ctd_index": self.ctd_index, "gross_basis": self.gross_basis,
+                "net_basis": self.net_basis, "implied_repo": self.implied_repo}
+
 
 def cheapest_to_deliver(
     deliverables: list[DeliverableBond],
@@ -172,6 +176,11 @@ class BondFuturesBasis:
     gross_basis: float
     net_basis: float
     carry: float
+
+    def to_dict(self) -> dict:
+        return {"bond_price": self.bond_price, "futures_price": self.futures_price,
+                "cf": self.cf, "gross_basis": self.gross_basis,
+                "net_basis": self.net_basis, "carry": self.carry}
 
 
 def bond_futures_basis(
