@@ -67,6 +67,78 @@ class RepoCurve:
         return 1.0 / (1.0 + r * days / 360.0)
 
 
+    def as_discount_curve(self) -> "DiscountCurve":
+        """Convert to DiscountCurve for use with standard pricing infrastructure.
+
+        Uses simple-rate discount factors: df = 1 / (1 + r × T).
+        This bridges RepoCurve into any function expecting DiscountCurve.
+        """
+        from pricebook.discount_curve import DiscountCurve
+        from pricebook.day_count import date_from_year_fraction
+        from datetime import timedelta
+
+        dates = [self.reference_date + timedelta(days=d) for d in self._days]
+        dfs = [self.discount_factor(d) for d in self._days]
+        return DiscountCurve(self.reference_date, dates, dfs)
+
+
+def repo_ois_basis(
+    repo_curve: RepoCurve,
+    ois_curve: "DiscountCurve",
+    tenors_days: list[int] | None = None,
+) -> list[dict[str, float]]:
+    """Repo-OIS basis at each tenor in basis points.
+
+    basis = repo_rate − OIS_zero_rate (in bp).
+    Positive: repo > OIS (typical for GC).
+    Negative: repo < OIS (on special).
+    """
+    if tenors_days is None:
+        tenors_days = [1, 7, 30, 90, 180, 360]
+
+    results = []
+    for days in tenors_days:
+        repo_r = repo_curve.rate(days)
+        d = repo_curve.reference_date + __import__("datetime").timedelta(days=days)
+        ois_r = ois_curve.zero_rate(d)
+        basis_bp = (repo_r - ois_r) * 10_000
+        results.append({
+            "tenor_days": days,
+            "repo_rate": repo_r,
+            "ois_rate": ois_r,
+            "basis_bp": basis_bp,
+        })
+    return results
+
+
+def term_repo_carry(
+    bond_dirty_price: float,
+    coupon_income: float,
+    repo_rate: float,
+    ois_rate: float,
+    holding_days: int,
+    face_value: float = 100.0,
+) -> dict[str, float]:
+    """Carry decomposition: repo cost vs OIS cost vs coupon income.
+
+    net_carry = coupon_income − repo_cost
+    carry_advantage = ois_cost − repo_cost (positive when repo < OIS, on special)
+    """
+    yf = holding_days / 360.0
+    repo_cost = bond_dirty_price * repo_rate * yf
+    ois_cost = bond_dirty_price * ois_rate * yf
+    net_carry = coupon_income - repo_cost
+    carry_advantage = ois_cost - repo_cost
+
+    return {
+        "coupon_income": coupon_income,
+        "repo_cost": repo_cost,
+        "ois_cost": ois_cost,
+        "net_carry": net_carry,
+        "carry_advantage_bp": carry_advantage / bond_dirty_price * 10_000,
+    }
+
+
 def forward_repo_rate(
     repo_curve: RepoCurve,
     start_days: int,
