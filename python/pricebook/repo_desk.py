@@ -20,12 +20,418 @@ desk-level tooling for repo operations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 from pricebook.zscore import zscore as _zscore, ZScoreSignal
 
 
-# ---- Repo trade entry ----
+# ---------------------------------------------------------------------------
+# Unified RepoTrade — fixes gaps 1, 2, 3, 5, 6, 7, 8
+# ---------------------------------------------------------------------------
+
+class RepoTrade:
+    """A repo trade that can price itself, track lifecycle, and sit in a Portfolio.
+
+    Unifies the old RepoTradeEntry (desk metadata) with Repo (pricing).
+    Supports: pv(curve), pv_ctx(ctx), Trade(repo_trade), roll, margin.
+
+    Args:
+        counterparty: repo counterparty name.
+        collateral_issuer: bond/issuer identifier.
+        collateral_type: "GC" or "special".
+        face_amount: face value of collateral.
+        bond_price: dirty price at trade inception (per 100).
+        repo_rate: annualised simple rate (ACT/360).
+        term_days: repo term in calendar days (0 = open repo).
+        coupon_rate: annual coupon of the collateral bond.
+        direction: "repo" (lend bond, borrow cash) or "reverse".
+        start_date: trade date.
+        haircut: overcollateralisation (e.g. 0.02 = 2%).
+        status: "live", "matured", "terminated", "rolled".
+        rate_type: "fixed" (simple), "sofr_compound" (compounded ON).
+    """
+
+    def __init__(
+        self,
+        counterparty: str,
+        collateral_issuer: str,
+        collateral_type: str = "GC",
+        face_amount: float = 0.0,
+        bond_price: float = 100.0,
+        repo_rate: float = 0.0,
+        term_days: int = 1,
+        coupon_rate: float = 0.0,
+        direction: str = "repo",
+        start_date: date | None = None,
+        haircut: float = 0.0,
+        status: str = "live",
+        rate_type: str = "fixed",
+        trade_id: str = "",
+    ):
+        self.counterparty = counterparty
+        self.collateral_issuer = collateral_issuer
+        self.collateral_type = collateral_type
+        self.face_amount = face_amount
+        self.bond_price = bond_price
+        self.repo_rate = repo_rate
+        self.term_days = term_days
+        self.coupon_rate = coupon_rate
+        self.direction = direction
+        self.start_date = start_date
+        self.haircut = haircut
+        self.status = status
+        self.rate_type = rate_type
+        self.trade_id = trade_id
+        self._margin_posted: float = 0.0
+
+    # ---- Core properties ----
+
+    @property
+    def market_value(self) -> float:
+        """Market value of the collateral."""
+        return self.face_amount * self.bond_price / 100.0
+
+    @property
+    def cash_amount(self) -> float:
+        """Cash lent/borrowed (after haircut)."""
+        return self.market_value * (1 - self.haircut)
+
+    @property
+    def maturity_date(self) -> date | None:
+        """Maturity date (None for open repos)."""
+        if self.start_date is None or self.term_days == 0:
+            return None
+        return self.start_date + timedelta(days=self.term_days)
+
+    @property
+    def is_open(self) -> bool:
+        return self.term_days == 0
+
+    @property
+    def repurchase_amount(self) -> float:
+        """Amount to repay at maturity."""
+        dt = self.term_days / 360.0
+        return self.cash_amount * (1 + self.repo_rate * dt)
+
+    @property
+    def interest(self) -> float:
+        return self.repurchase_amount - self.cash_amount
+
+    @property
+    def carry(self) -> float:
+        """Net carry = coupon income − financing cost."""
+        dt = self.term_days / 365.0
+        coupon = self.face_amount * self.coupon_rate * dt
+        financing = self.cash_amount * self.repo_rate * self.term_days / 360.0
+        sign = 1.0 if self.direction == "repo" else -1.0
+        return sign * (coupon - financing)
+
+    @property
+    def effective_rate(self) -> float:
+        """Effective funding rate accounting for haircut."""
+        if self.haircut >= 1:
+            return float("inf")
+        return self.repo_rate / (1 - self.haircut)
+
+    # ---- Pricing (Gap 8) ----
+
+    def pv(self, discount_curve, reference_date: date | None = None) -> float:
+        """Present value against a discount curve.
+
+        PV = df(maturity) × repurchase − cash_lent (for repo direction).
+        """
+        ref = reference_date or self.start_date or date.today()
+        mat = self.maturity_date
+        if mat is None:
+            return 0.0  # open repo: PV = 0 at inception
+
+        df = discount_curve.df(mat)
+        if self.direction == "repo":
+            return df * self.repurchase_amount - self.cash_amount
+        else:
+            return self.cash_amount - df * self.repurchase_amount
+
+    def pv_ctx(self, ctx) -> float:
+        """Price from PricingContext — Trade/Portfolio integration."""
+        return self.pv(ctx.discount_curve)
+
+    # ---- Variation Margin (Gap 3) ----
+
+    def margin_required(self, current_price: float) -> float:
+        """Margin required at current bond price.
+
+        margin = face × current_price / 100 × haircut
+        """
+        return self.face_amount * current_price / 100.0 * self.haircut
+
+    def margin_call(self, current_price: float) -> float:
+        """Margin call amount: positive = must post more, negative = receive back.
+
+        If bond drops → more margin needed (for cash lender protection).
+        """
+        new_margin = self.margin_required(current_price)
+        initial_margin = self.market_value * self.haircut
+        return new_margin - initial_margin
+
+    def variation_margin(self, current_price: float) -> float:
+        """Variation margin from price move.
+
+        VM = face × (current - inception) / 100 (sign depends on direction).
+        """
+        price_move = (current_price - self.bond_price) / 100.0 * self.face_amount
+        return price_move if self.direction == "reverse" else -price_move
+
+    # ---- Lifecycle (Gap 7) ----
+
+    def remaining_days(self, as_of: date | None = None) -> int:
+        """Days remaining to maturity."""
+        if self.start_date is None or self.term_days == 0:
+            return 0
+        ref = as_of or date.today()
+        mat = self.maturity_date
+        return max(0, (mat - ref).days) if mat else 0
+
+    def mature(self) -> None:
+        """Mark the trade as matured."""
+        self.status = "matured"
+
+    def terminate_early(self, termination_date: date | None = None) -> None:
+        """Early termination."""
+        self.status = "terminated"
+
+    def roll(self, new_rate: float, new_term_days: int, new_date: date | None = None) -> "RepoTrade":
+        """Roll into a new repo at a new rate and term (Gap 2).
+
+        Marks the current trade as rolled and returns the new trade.
+        """
+        self.status = "rolled"
+        roll_date = new_date or self.maturity_date or date.today()
+        return RepoTrade(
+            counterparty=self.counterparty,
+            collateral_issuer=self.collateral_issuer,
+            collateral_type=self.collateral_type,
+            face_amount=self.face_amount,
+            bond_price=self.bond_price,  # same price for now
+            repo_rate=new_rate,
+            term_days=new_term_days,
+            coupon_rate=self.coupon_rate,
+            direction=self.direction,
+            start_date=roll_date,
+            haircut=self.haircut,
+            status="live",
+            rate_type=self.rate_type,
+            trade_id=self.trade_id + "_roll",
+        )
+
+    def roll_cost(self, new_rate: float, new_term_days: int) -> float:
+        """Cost of rolling: difference in financing at new vs old rate."""
+        old_cost = self.cash_amount * self.repo_rate * self.term_days / 360.0
+        new_cost = self.cash_amount * new_rate * new_term_days / 360.0
+        return new_cost - old_cost
+
+    # ---- SOFR-linked repo (Gap 5) ----
+
+    def sofr_interest(self, daily_sofr_rates: list[float]) -> float:
+        """Compounded SOFR interest for SOFR-linked repos.
+
+        Compounds daily rates: ∏(1 + r_i / 360) - 1, applied to cash_amount.
+        """
+        if self.rate_type != "sofr_compound":
+            return self.interest
+        compound = 1.0
+        for r in daily_sofr_rates:
+            compound *= (1 + r / 360.0)
+        return self.cash_amount * (compound - 1.0)
+
+    # ---- Serialisation ----
+
+    def to_dict(self) -> dict:
+        return {"type": "repo_trade", "params": {
+            "counterparty": self.counterparty,
+            "collateral_issuer": self.collateral_issuer,
+            "collateral_type": self.collateral_type,
+            "face_amount": self.face_amount,
+            "bond_price": self.bond_price,
+            "repo_rate": self.repo_rate,
+            "term_days": self.term_days,
+            "coupon_rate": self.coupon_rate,
+            "direction": self.direction,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "haircut": self.haircut,
+            "status": self.status,
+            "rate_type": self.rate_type,
+            "trade_id": self.trade_id,
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RepoTrade":
+        p = d["params"]
+        sd = date.fromisoformat(p["start_date"]) if p.get("start_date") else None
+        return cls(
+            counterparty=p["counterparty"],
+            collateral_issuer=p["collateral_issuer"],
+            collateral_type=p.get("collateral_type", "GC"),
+            face_amount=p["face_amount"],
+            bond_price=p["bond_price"],
+            repo_rate=p["repo_rate"],
+            term_days=p["term_days"],
+            coupon_rate=p.get("coupon_rate", 0.0),
+            direction=p.get("direction", "repo"),
+            start_date=sd,
+            haircut=p.get("haircut", 0.0),
+            status=p.get("status", "live"),
+            rate_type=p.get("rate_type", "fixed"),
+            trade_id=p.get("trade_id", ""),
+        )
+
+    # Backward compat: convert from old RepoTradeEntry
+    @classmethod
+    def from_entry(cls, entry: "RepoTradeEntry") -> "RepoTrade":
+        return cls(
+            counterparty=entry.counterparty,
+            collateral_issuer=entry.collateral_issuer,
+            collateral_type=entry.collateral_type,
+            face_amount=entry.face_amount,
+            bond_price=entry.bond_price,
+            repo_rate=entry.repo_rate,
+            term_days=entry.term_days,
+            coupon_rate=entry.coupon_rate,
+            direction=entry.direction,
+            start_date=entry.start_date,
+        )
+
+
+RepoTrade._SERIAL_TYPE = "repo_trade"
+from pricebook.serialisable import _register as _reg_rt
+_reg_rt(RepoTrade)
+
+
+# ---------------------------------------------------------------------------
+# Collateral Pool (Gap 4)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CollateralPosition:
+    """A bond in the collateral pool."""
+    issuer: str
+    face_amount: float
+    pledged_to: dict[str, float] = field(default_factory=dict)  # {counterparty: face_pledged}
+
+    @property
+    def total_pledged(self) -> float:
+        return sum(self.pledged_to.values())
+
+    @property
+    def available(self) -> float:
+        return max(0, self.face_amount - self.total_pledged)
+
+    def pledge(self, counterparty: str, amount: float) -> None:
+        if amount > self.available:
+            raise ValueError(
+                f"Cannot pledge {amount}: only {self.available} available "
+                f"({self.face_amount} total, {self.total_pledged} pledged)"
+            )
+        self.pledged_to[counterparty] = self.pledged_to.get(counterparty, 0) + amount
+
+    def release(self, counterparty: str, amount: float) -> None:
+        current = self.pledged_to.get(counterparty, 0)
+        self.pledged_to[counterparty] = max(0, current - amount)
+
+    def to_dict(self) -> dict:
+        return {
+            "issuer": self.issuer, "face": self.face_amount,
+            "pledged": self.total_pledged, "available": self.available,
+            "by_cp": dict(self.pledged_to),
+        }
+
+
+class CollateralPool:
+    """Tracks bond inventory: what's pledged, what's free (Gap 4)."""
+
+    def __init__(self):
+        self._positions: dict[str, CollateralPosition] = {}
+
+    def add_inventory(self, issuer: str, face_amount: float) -> None:
+        if issuer in self._positions:
+            self._positions[issuer].face_amount += face_amount
+        else:
+            self._positions[issuer] = CollateralPosition(issuer, face_amount)
+
+    def pledge(self, issuer: str, counterparty: str, amount: float) -> None:
+        if issuer not in self._positions:
+            raise ValueError(f"No inventory for {issuer}")
+        self._positions[issuer].pledge(counterparty, amount)
+
+    def release(self, issuer: str, counterparty: str, amount: float) -> None:
+        if issuer in self._positions:
+            self._positions[issuer].release(counterparty, amount)
+
+    def available(self, issuer: str) -> float:
+        pos = self._positions.get(issuer)
+        return pos.available if pos else 0.0
+
+    def total_available(self) -> float:
+        return sum(p.available for p in self._positions.values())
+
+    def summary(self) -> list[dict]:
+        return [p.to_dict() for p in sorted(self._positions.values(), key=lambda p: p.issuer)]
+
+    def can_pledge(self, issuer: str, amount: float) -> bool:
+        return self.available(issuer) >= amount
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (Gap 6)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RepoDailyPnL:
+    """Daily P&L for the repo book."""
+    date: date
+    total_pnl: float
+    carry_pnl: float
+    rate_pnl: float
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(), "total": self.total_pnl,
+            "carry": self.carry_pnl, "rate": self.rate_pnl,
+            "unexplained": self.unexplained,
+        }
+
+
+def repo_daily_pnl(
+    book: RepoBook,
+    curve_t0,
+    curve_t1,
+    ref_t0: date,
+    ref_t1: date,
+) -> RepoDailyPnL:
+    """Daily P&L: PV change + carry accrual, attributed (Gap 6).
+
+    total = pv(t1) - pv(t0)
+    carry = 1-day carry accrual
+    rate = total - carry (attributed to rate moves)
+    """
+    from pricebook.repo_desk import repo_book_pv
+
+    pv_t0 = repo_book_pv(book, curve_t0, ref_t0)["total_pv"]
+    pv_t1 = repo_book_pv(book, curve_t1, ref_t1)["total_pv"]
+    total = pv_t1 - pv_t0
+
+    # 1-day carry accrual
+    daily_carry = book.net_carry() / max(
+        sum(e.term_days for e in book.entries) / len(book.entries) if len(book) > 0 else 1, 1
+    )
+
+    rate_pnl = total - daily_carry
+    unexplained = 0.0  # placeholder
+
+    return RepoDailyPnL(ref_t1, total, daily_carry, rate_pnl, unexplained)
+
+
+# ---- Legacy: RepoTradeEntry (backward compat) ----
 
 @dataclass
 class RepoTradeEntry:
