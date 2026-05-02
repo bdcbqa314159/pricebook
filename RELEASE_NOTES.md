@@ -2,6 +2,22 @@
 
 ---
 
+## v0.446.0 — 2026-05-02
+
+**Repo Desk complete (5 tiers).** 7025 tests.
+
+### Tier 4: Automation & Reporting
+- `daily_dashboard()` → `RepoDashboard`: net cash, GC rate, carry, DV01, fails, top CP exposures, specials, rollover exposure. The morning-meeting report.
+- `hedge_recommendations()`: automated alerts when DV01, rollover, or CP concentration exceeds limits. Actions: reduce_dv01, extend_term, diversify_cp.
+- `matched_book_analysis()`: finds repo/reverse pairs on same collateral, computes spread earned.
+- `funding_attribution()`: P&L by strategy axis (GC_ON, GC_term, special_ON, special_term, reverse).
+
+### Tier 5: Plumbing
+- `RepoBook` serialisation: `to_dict()`/`from_dict()`, registered as `"repo_book"`. Full round-trip preserves entries, carry.
+- `repo_book_pv()`: total PV against discount curve, per-direction split. At inception PV ≈ 0.
+
+---
+
 ## v0.445.0 — 2026-05-02
 
 **Repo Desk Tiers 2 + 3.** 7004 tests.
