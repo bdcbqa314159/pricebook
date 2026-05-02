@@ -5,8 +5,13 @@ scipy>=1.7.0
 pandas>=1.3.0
 python-dateutil>=2.8.0
 plotly
+matplotlib
 pytest
 pytest-cov
+pytest-xdist
+zstandard
+lz4
+msgpack
 sphinx
 myst-parser
 sphinx-book-theme
