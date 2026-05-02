@@ -564,7 +564,22 @@ class RepoBook:
         self.name = name
         self._entries: list[RepoTradeEntry] = []
 
-    def add(self, entry: RepoTradeEntry) -> None:
+    def add(self, entry) -> None:
+        """Add a RepoTradeEntry or RepoTrade to the book."""
+        if isinstance(entry, RepoTrade):
+            # Convert RepoTrade to RepoTradeEntry for backward compat
+            entry = RepoTradeEntry(
+                counterparty=entry.counterparty,
+                collateral_issuer=entry.collateral_issuer,
+                collateral_type=entry.collateral_type,
+                face_amount=entry.face_amount,
+                bond_price=entry.bond_price,
+                repo_rate=entry.repo_rate,
+                term_days=max(entry.term_days, 1),
+                coupon_rate=entry.coupon_rate,
+                direction=entry.direction,
+                start_date=entry.start_date,
+            )
         self._entries.append(entry)
 
     @property
