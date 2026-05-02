@@ -352,3 +352,308 @@ class FailsTracker:
         for f in self._fails:
             result[f.counterparty] = result.get(f.counterparty, 0.0) + f.face_amount
         return result
+
+
+# ---------------------------------------------------------------------------
+# Maturity / Cash Ladder
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CashLadderBucket:
+    """One bucket in the maturity ladder."""
+    bucket: str          # "O/N", "1W", "1M", "3M", "6M", "1Y+"
+    maturing_cash: float  # cash flowing in/out at this tenor
+    n_trades: int
+    avg_rate: float
+    refinancing_cost: float  # cost to roll at current ON rate
+
+    def to_dict(self) -> dict:
+        return {
+            "bucket": self.bucket, "maturing_cash": self.maturing_cash,
+            "n_trades": self.n_trades, "avg_rate": self.avg_rate,
+            "refinancing_cost": self.refinancing_cost,
+        }
+
+
+def cash_ladder(
+    book: RepoBook,
+    reference_date: date,
+    overnight_rate: float = 0.0,
+) -> list[CashLadderBucket]:
+    """Build a maturity/cash ladder from the repo book.
+
+    Groups positions by remaining tenor and computes the cash
+    maturing in each bucket + cost to refinance at the overnight rate.
+
+    Buckets: O/N (0-1d), 1W (2-7d), 1M (8-30d), 3M (31-90d),
+             6M (91-180d), 1Y+ (181+d).
+    """
+    buckets_def = [
+        ("O/N", 0, 1),
+        ("1W", 2, 7),
+        ("1M", 8, 30),
+        ("3M", 31, 90),
+        ("6M", 91, 180),
+        ("1Y+", 181, 99999),
+    ]
+
+    result = []
+    for label, lo, hi in buckets_def:
+        matching = []
+        for e in book.entries:
+            remaining = e.term_days
+            if e.start_date:
+                elapsed = (reference_date - e.start_date).days
+                remaining = max(0, e.term_days - elapsed)
+            if lo <= remaining <= hi:
+                matching.append(e)
+
+        total_cash = sum(
+            e.cash_amount * (1 if e.direction == "repo" else -1)
+            for e in matching
+        )
+        avg_rate = (
+            sum(e.repo_rate * e.cash_amount for e in matching)
+            / sum(e.cash_amount for e in matching)
+            if matching and sum(e.cash_amount for e in matching) > 0
+            else 0.0
+        )
+        # Refinancing cost: if this bucket matures, roll at ON for same term
+        mid_days = (lo + min(hi, 365)) / 2
+        refi_cost = abs(total_cash) * overnight_rate * mid_days / 365.0
+
+        result.append(CashLadderBucket(
+            bucket=label, maturing_cash=total_cash,
+            n_trades=len(matching), avg_rate=avg_rate,
+            refinancing_cost=refi_cost,
+        ))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Repo Rate DV01
+# ---------------------------------------------------------------------------
+
+def repo_rate_dv01(
+    book: RepoBook,
+    shift_bps: float = 1.0,
+) -> dict[str, float]:
+    """Carry sensitivity to a parallel 1bp repo rate shift.
+
+    Returns:
+        total_dv01: change in total carry for +1bp repo shift.
+        per_trade: list of per-trade carry changes.
+    """
+    shift = shift_bps / 10_000.0
+    base_carry = book.net_carry()
+
+    # Bump all repo rates and recompute
+    bumped_carry = 0.0
+    per_trade = []
+    for e in book.entries:
+        base_c = e.carry
+        dt = e.term_days / 365.0
+        # Carry = sign × (coupon_income - cash × (repo_rate + shift) × dt)
+        sign = 1.0 if e.direction == "repo" else -1.0
+        coupon = e.face_amount * e.coupon_rate * dt
+        financing_bumped = e.cash_amount * (e.repo_rate + shift) * dt
+        bumped_c = sign * (coupon - financing_bumped)
+        bumped_carry += bumped_c
+        per_trade.append(bumped_c - base_c)
+
+    return {
+        "total_dv01": bumped_carry - base_carry,
+        "base_carry": base_carry,
+        "bumped_carry": bumped_carry,
+        "per_trade_dv01": per_trade,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Carry P&L Decomposition
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CarryDecomposition:
+    """Carry P&L split into components."""
+    total_carry: float
+    coupon_income: float
+    repo_financing_cost: float
+    specialness_benefit: float  # GC_cost - actual_cost (positive when on special)
+    net_cash_position: float
+
+    def to_dict(self) -> dict:
+        return {
+            "total_carry": self.total_carry,
+            "coupon_income": self.coupon_income,
+            "repo_financing_cost": self.repo_financing_cost,
+            "specialness_benefit": self.specialness_benefit,
+            "net_cash_position": self.net_cash_position,
+        }
+
+
+def carry_pnl_decomposition(
+    book: RepoBook,
+    gc_rate: float,
+) -> CarryDecomposition:
+    """Decompose book carry into coupon, repo cost, and specialness.
+
+    coupon_income: total coupon earned on bonds held.
+    repo_financing_cost: total interest paid on borrowed cash.
+    specialness_benefit: savings from financing below GC (positive = good).
+    """
+    coupon_income = 0.0
+    financing_cost = 0.0
+    specialness = 0.0
+
+    for e in book.entries:
+        dt = e.term_days / 365.0
+        sign = 1.0 if e.direction == "repo" else -1.0
+
+        coupon = e.face_amount * e.coupon_rate * dt * sign
+        financing = e.cash_amount * e.repo_rate * dt * sign
+        # Specialness: what would financing cost at GC?
+        gc_financing = e.cash_amount * gc_rate * dt * sign
+        spec_benefit = gc_financing - financing  # positive when repo < GC
+
+        coupon_income += coupon
+        financing_cost += financing
+        specialness += spec_benefit
+
+    total = coupon_income - financing_cost
+    net_cash = book.total_cash_out() - book.total_cash_in()
+
+    return CarryDecomposition(
+        total_carry=total,
+        coupon_income=coupon_income,
+        repo_financing_cost=financing_cost,
+        specialness_benefit=specialness,
+        net_cash_position=net_cash,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rollover Risk
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RolloverScenario:
+    """Cost of rolling O/N repo under a rate spike."""
+    scenario_name: str
+    on_rate_spike_bps: float
+    spike_duration_days: int
+    additional_cost: float
+    annualised_impact_bps: float
+
+    def to_dict(self) -> dict:
+        return {
+            "scenario": self.scenario_name,
+            "spike_bps": self.on_rate_spike_bps,
+            "days": self.spike_duration_days,
+            "cost": self.additional_cost,
+            "impact_bps": self.annualised_impact_bps,
+        }
+
+
+def rollover_risk(
+    book: RepoBook,
+    scenarios: list[tuple[str, float, int]] | None = None,
+) -> list[RolloverScenario]:
+    """Quantify cost of O/N repo rate spikes when rolling forward.
+
+    Computes: for each scenario, how much extra financing cost
+    on the O/N portion of the book during the spike.
+
+    Default scenarios: mild (+25bp, 3d), moderate (+100bp, 5d),
+    severe (+300bp, 10d), crisis (+500bp, 30d).
+
+    Args:
+        scenarios: list of (name, spike_bps, duration_days).
+    """
+    if scenarios is None:
+        scenarios = [
+            ("mild", 25, 3),
+            ("moderate", 100, 5),
+            ("severe", 300, 10),
+            ("crisis", 500, 30),
+        ]
+
+    # O/N and short-term positions vulnerable to rollover
+    on_trades = [e for e in book.entries if e.term_days <= 7]
+    on_cash = sum(e.cash_amount for e in on_trades)
+
+    results = []
+    for name, spike_bps, days in scenarios:
+        spike = spike_bps / 10_000.0
+        extra_cost = on_cash * spike * days / 365.0
+        annualised = spike_bps * (days / 365.0) if on_cash > 0 else 0.0
+        results.append(RolloverScenario(
+            scenario_name=name,
+            on_rate_spike_bps=spike_bps,
+            spike_duration_days=days,
+            additional_cost=extra_cost,
+            annualised_impact_bps=annualised,
+        ))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Counterparty Exposure Monitor
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CounterpartyLimit:
+    """Counterparty limit and utilisation."""
+    counterparty: str
+    limit: float
+    current_exposure: float
+    utilisation_pct: float
+    breached: bool
+    headroom: float
+
+    def to_dict(self) -> dict:
+        return {
+            "counterparty": self.counterparty,
+            "limit": self.limit,
+            "exposure": self.current_exposure,
+            "utilisation_pct": self.utilisation_pct,
+            "breached": self.breached,
+            "headroom": self.headroom,
+        }
+
+
+def counterparty_exposure_monitor(
+    book: RepoBook,
+    limits: dict[str, float] | None = None,
+    default_limit: float = 500_000_000.0,
+) -> list[CounterpartyLimit]:
+    """Monitor counterparty exposure against limits.
+
+    Args:
+        limits: {counterparty: max_exposure}. Missing CPs get default_limit.
+        default_limit: default exposure limit per CP.
+
+    Returns:
+        List of CounterpartyLimit, sorted by utilisation (highest first).
+    """
+    exposures = book.by_counterparty()
+    if limits is None:
+        limits = {}
+
+    results = []
+    for cp_exp in exposures:
+        limit = limits.get(cp_exp.counterparty, default_limit)
+        exposure = abs(cp_exp.total_cash)
+        util = (exposure / limit * 100.0) if limit > 0 else 0.0
+        results.append(CounterpartyLimit(
+            counterparty=cp_exp.counterparty,
+            limit=limit,
+            current_exposure=exposure,
+            utilisation_pct=util,
+            breached=exposure > limit,
+            headroom=max(0, limit - exposure),
+        ))
+
+    return sorted(results, key=lambda r: -r.utilisation_pct)
