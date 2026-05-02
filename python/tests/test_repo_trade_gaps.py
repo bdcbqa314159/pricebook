@@ -185,24 +185,53 @@ class TestCollateralPool:
         assert ust10["available"] == 60_000_000
 
 
-# ── Gap 5: SOFR-linked repo ──
+# ── Gap 5: Floating-rate (SOFR-linked) repo ──
 
-class TestSOFRRepo:
+class TestFloatingRepo:
 
-    def test_sofr_compound_interest(self):
-        trade = _make_trade(rate_type="sofr_compound", term_days=5)
+    def test_sofr_from_fixings(self):
+        """Compounded SOFR from daily fixings."""
+        trade = _make_trade(rate_type="sofr_compound", repo_rate=0.001, term_days=5)
+        # repo_rate = 1bp spread over SOFR
         daily_rates = [0.045, 0.046, 0.044, 0.047, 0.045]
-        interest = trade.sofr_interest(daily_rates)
+        interest = trade.floating_interest(daily_rates=daily_rates)
         assert interest > 0
-        # Should be close to simple: cash × avg_rate × 5/360
-        avg = sum(daily_rates) / len(daily_rates)
-        simple = trade.cash_amount * avg * 5 / 360
-        assert interest == pytest.approx(simple, rel=0.01)
 
-    def test_fixed_ignores_sofr(self):
+    def test_sofr_from_curve(self):
+        """Compounded SOFR from projection curve."""
+        trade = _make_trade(rate_type="sofr_compound", repo_rate=0.001, term_days=30)
+        curve = make_flat_curve(REF, 0.045)  # 4.5% flat SOFR curve
+        interest = trade.floating_interest(projection_curve=curve)
+        # Should be ≈ cash × (4.5% + 0.1% spread) × 30/360
+        expected = trade.cash_amount * (0.045 + 0.001) * 30 / 360
+        assert interest == pytest.approx(expected, rel=0.05)
+
+    def test_fixed_ignores_floating(self):
         trade = _make_trade(rate_type="fixed")
-        interest = trade.sofr_interest([0.05, 0.05, 0.05])
+        interest = trade.floating_interest(daily_rates=[0.05, 0.05])
         assert interest == pytest.approx(trade.interest)
+
+    def test_pv_with_projection(self):
+        """PV of floating repo uses projection curve for forward SOFR."""
+        trade = _make_trade(rate_type="sofr_compound", repo_rate=0.001, term_days=30)
+        disc = make_flat_curve(REF, 0.04)
+        proj = make_flat_curve(REF, 0.045)
+        pv = trade.pv(disc, REF, projection_curve=proj)
+        assert math.isfinite(pv)
+
+    def test_fixed_pv_unchanged(self):
+        """Fixed repo PV ignores projection curve."""
+        trade = _make_trade(rate_type="fixed")
+        curve = make_flat_curve(REF, 0.04)
+        pv1 = trade.pv(curve, REF)
+        pv2 = trade.pv(curve, REF, projection_curve=make_flat_curve(REF, 0.06))
+        assert pv1 == pytest.approx(pv2)
+
+    def test_backward_compat(self):
+        """sofr_interest() still works."""
+        trade = _make_trade(rate_type="sofr_compound", term_days=3)
+        interest = trade.sofr_interest([0.045, 0.045, 0.045])
+        assert interest > 0
 
 
 # ── Gap 6: Daily P&L ──

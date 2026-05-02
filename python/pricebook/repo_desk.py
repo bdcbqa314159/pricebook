@@ -135,10 +135,12 @@ class RepoTrade:
 
     # ---- Pricing (Gap 8) ----
 
-    def pv(self, discount_curve, reference_date: date | None = None) -> float:
+    def pv(self, discount_curve, reference_date: date | None = None,
+           projection_curve=None) -> float:
         """Present value against a discount curve.
 
-        PV = df(maturity) × repurchase − cash_lent (for repo direction).
+        For fixed repos: PV = df(mat) × repurchase − cash.
+        For floating repos: uses projection_curve for forward SOFR rates.
         """
         ref = reference_date or self.start_date or date.today()
         mat = self.maturity_date
@@ -146,14 +148,28 @@ class RepoTrade:
             return 0.0  # open repo: PV = 0 at inception
 
         df = discount_curve.df(mat)
-        if self.direction == "repo":
-            return df * self.repurchase_amount - self.cash_amount
+
+        if self.rate_type == "sofr_compound" and projection_curve is not None:
+            repurchase = self.cash_amount + self.floating_interest(
+                projection_curve=projection_curve)
         else:
-            return self.cash_amount - df * self.repurchase_amount
+            repurchase = self.repurchase_amount
+
+        if self.direction == "repo":
+            return df * repurchase - self.cash_amount
+        else:
+            return self.cash_amount - df * repurchase
 
     def pv_ctx(self, ctx) -> float:
-        """Price from PricingContext — Trade/Portfolio integration."""
-        return self.pv(ctx.discount_curve)
+        """Price from PricingContext — Trade/Portfolio integration.
+
+        Uses projection_curves from context for SOFR repos.
+        """
+        proj = None
+        if self.rate_type == "sofr_compound" and hasattr(ctx, "projection_curves"):
+            if ctx.projection_curves:
+                proj = next(iter(ctx.projection_curves.values()), None)
+        return self.pv(ctx.discount_curve, projection_curve=proj)
 
     # ---- Variation Margin (Gap 3) ----
 
@@ -229,19 +245,55 @@ class RepoTrade:
         new_cost = self.cash_amount * new_rate * new_term_days / 360.0
         return new_cost - old_cost
 
-    # ---- SOFR-linked repo (Gap 5) ----
+    # ---- Floating-rate repo ----
+
+    def floating_interest(
+        self,
+        daily_rates: list[float] | None = None,
+        projection_curve=None,
+    ) -> float:
+        """Interest for a floating-rate (SOFR-linked) repo.
+
+        Three modes:
+        - rate_type="fixed": simple interest at repo_rate (ignores this method).
+        - rate_type="sofr_compound" + daily_rates: compound from fixings.
+        - rate_type="sofr_compound" + projection_curve: compound from curve forwards.
+
+        For SOFR repos, the rate is:
+          interest = cash × [∏(1 + SOFR_i / 360) - 1 + spread × days/360]
+
+        where spread = repo_rate (the agreed spread over SOFR).
+        """
+        if self.rate_type == "fixed":
+            return self.interest
+
+        if daily_rates is not None:
+            # From actual fixings
+            from pricebook.rfr import compound_rfr
+            day_fracs = [1.0 / 360.0] * len(daily_rates)
+            compounded = compound_rfr(daily_rates, day_fracs)
+            total_yf = len(daily_rates) / 360.0
+            # Spread on top
+            all_in = compounded + self.repo_rate * total_yf / max(total_yf, 1e-10)
+            return self.cash_amount * all_in * total_yf
+
+        if projection_curve is not None:
+            # From curve forwards (for projection / pricing)
+            from pricebook.rfr import compound_rfr_from_curve
+            mat = self.maturity_date
+            if mat is None or self.start_date is None:
+                return self.interest
+            fwd_rate = compound_rfr_from_curve(projection_curve, self.start_date, mat)
+            dt = self.term_days / 360.0
+            # All-in = compounded SOFR + spread
+            return self.cash_amount * (fwd_rate + self.repo_rate) * dt
+
+        # Fallback: use repo_rate as all-in
+        return self.interest
 
     def sofr_interest(self, daily_sofr_rates: list[float]) -> float:
-        """Compounded SOFR interest for SOFR-linked repos.
-
-        Compounds daily rates: ∏(1 + r_i / 360) - 1, applied to cash_amount.
-        """
-        if self.rate_type != "sofr_compound":
-            return self.interest
-        compound = 1.0
-        for r in daily_sofr_rates:
-            compound *= (1 + r / 360.0)
-        return self.cash_amount * (compound - 1.0)
+        """Backward-compat alias for floating_interest with fixings."""
+        return self.floating_interest(daily_rates=daily_sofr_rates)
 
     # ---- Serialisation ----
 
