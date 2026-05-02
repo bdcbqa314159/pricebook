@@ -969,3 +969,228 @@ def repo_curve_stress(
         ))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Tier 3: Settlement Fail Workflow
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FailResolution:
+    """Resolution path for a settlement fail."""
+    counterparty: str
+    issuer: str
+    face_amount: float
+    days_outstanding: int
+    penalty_cost: float
+    category: str          # "collateral", "system", "counterparty"
+    buy_in_cost: float
+    escalated: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "counterparty": self.counterparty, "issuer": self.issuer,
+            "face": self.face_amount, "days_out": self.days_outstanding,
+            "penalty": self.penalty_cost, "category": self.category,
+            "buy_in_cost": self.buy_in_cost, "escalated": self.escalated,
+        }
+
+
+def fail_workflow(
+    tracker: FailsTracker,
+    current_prices: dict[str, float] | None = None,
+    contract_prices: dict[str, float] | None = None,
+    escalation_days: int = 5,
+) -> list[FailResolution]:
+    """Process settlement fails: categorise, price buy-in, escalate.
+
+    Buy-in cost = max(0, (current - contract) / 100 × face).
+    Categories: system (≤1d), collateral (2-3d), counterparty (4d+).
+    Escalate if days > escalation_days.
+    """
+    if current_prices is None:
+        current_prices = {}
+    if contract_prices is None:
+        contract_prices = {}
+
+    results = []
+    for f in tracker.fails:
+        curr = current_prices.get(f.issuer, 100.0)
+        contract = contract_prices.get(f.issuer, 100.0)
+        buy_in = max(0, (curr - contract) / 100.0 * f.face_amount)
+
+        if f.days_outstanding <= 1:
+            category = "system"
+        elif f.days_outstanding <= 3:
+            category = "collateral"
+        else:
+            category = "counterparty"
+
+        results.append(FailResolution(
+            counterparty=f.counterparty, issuer=f.issuer,
+            face_amount=f.face_amount, days_outstanding=f.days_outstanding,
+            penalty_cost=f.penalty_cost, category=category,
+            buy_in_cost=buy_in, escalated=f.days_outstanding > escalation_days,
+        ))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Tier 3: Collateral Substitution
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SubstitutionCandidate:
+    """A substitute bond ranked by cost."""
+    bond_id: str
+    repo_rate: float
+    haircut_pct: float
+    cost_vs_original_bps: float
+    available: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "bond": self.bond_id, "repo_rate": self.repo_rate,
+            "haircut": self.haircut_pct, "cost_bp": self.cost_vs_original_bps,
+            "available": self.available,
+        }
+
+
+def find_substitutes(
+    failed_repo_rate: float,
+    alternatives: dict[str, tuple[float, float, bool]],
+) -> list[SubstitutionCandidate]:
+    """Find substitute collateral, sorted by cost.
+
+    Args:
+        failed_repo_rate: repo rate on the failed trade.
+        alternatives: {bond_id: (repo_rate, haircut_pct, available)}.
+    """
+    candidates = []
+    for bond_id, (rate, haircut, avail) in alternatives.items():
+        cost_bp = (rate - failed_repo_rate) * 10_000
+        candidates.append(SubstitutionCandidate(
+            bond_id=bond_id, repo_rate=rate,
+            haircut_pct=haircut, cost_vs_original_bps=cost_bp,
+            available=avail,
+        ))
+    return sorted(candidates, key=lambda c: c.cost_vs_original_bps)
+
+
+# ---------------------------------------------------------------------------
+# Tier 3: Balance Sheet Efficiency
+# ---------------------------------------------------------------------------
+
+@dataclass
+class BalanceSheetMetrics:
+    """Balance sheet efficiency for the repo desk."""
+    total_assets: float
+    total_capital_used: float
+    annual_carry: float
+    return_on_capital_pct: float
+    leverage_ratio: float
+
+    def to_dict(self) -> dict:
+        return {
+            "total_assets": self.total_assets, "capital_used": self.total_capital_used,
+            "annual_carry": self.annual_carry, "roc_pct": self.return_on_capital_pct,
+            "leverage": self.leverage_ratio,
+        }
+
+
+def balance_sheet_efficiency(
+    book: RepoBook,
+    haircut_pct: float = 2.0,
+) -> BalanceSheetMetrics:
+    """ROC = annualised_carry / capital. Leverage = assets / capital."""
+    total_assets = sum(e.cash_amount for e in book.entries)
+    capital = total_assets * haircut_pct / 100.0
+
+    annual_carry = sum(
+        e.carry * (365.0 / max(e.term_days, 1)) for e in book.entries
+    )
+
+    roc = (annual_carry / capital * 100.0) if capital > 0 else 0.0
+    leverage = total_assets / capital if capital > 0 else 0.0
+
+    return BalanceSheetMetrics(total_assets, capital, annual_carry, roc, leverage)
+
+
+# ---------------------------------------------------------------------------
+# Tier 3: Stress Testing Suite
+# ---------------------------------------------------------------------------
+
+@dataclass
+class StressTestResult:
+    """One stress scenario result."""
+    scenario_name: str
+    description: str
+    carry_impact: float
+    margin_call: float
+    fails_impact: float
+    total_impact: float
+
+    def to_dict(self) -> dict:
+        return {
+            "scenario": self.scenario_name, "description": self.description,
+            "carry": self.carry_impact, "margin_call": self.margin_call,
+            "fails": self.fails_impact, "total": self.total_impact,
+        }
+
+
+def stress_test_suite(
+    book: RepoBook,
+    haircut_pct: float = 2.0,
+) -> list[StressTestResult]:
+    """Pre-built stress scenarios: 2008, COVID, inversion, sector default, CB tightening."""
+    total_cash = sum(e.cash_amount for e in book.entries)
+    on_cash = sum(e.cash_amount for e in book.entries if e.term_days <= 7)
+    special_face = sum(e.face_amount for e in book.entries if e.collateral_type == "special")
+
+    scenarios = []
+
+    # 2008
+    cs_2008 = repo_curve_stress(book, [("2008", 500, 200)])
+    mc_2008 = margin_call_simulation(book, haircut_pct, [("2008", 200)])
+    fails_2008 = total_cash * 0.10 * 0.003
+    scenarios.append(StressTestResult(
+        "2008_crisis", "ON +500bp, term +200bp, 10% fails",
+        cs_2008[0].carry_impact, mc_2008[0].total_margin_call, fails_2008,
+        cs_2008[0].carry_impact + mc_2008[0].total_margin_call + fails_2008,
+    ))
+
+    # COVID
+    covid_cost = on_cash * 0.03 * 5 / 365.0
+    mc_covid = margin_call_simulation(book, haircut_pct, [("covid", 100)])
+    scenarios.append(StressTestResult(
+        "covid_mar2020", "ON +300bp for 5d, margin spike",
+        -covid_cost, mc_covid[0].total_margin_call, 0.0,
+        -covid_cost + mc_covid[0].total_margin_call,
+    ))
+
+    # Inversion
+    inv = repo_curve_stress(book, [("inv", 100, -50)])
+    scenarios.append(StressTestResult(
+        "sustained_inversion", "ON > term by 100bp, 30d",
+        inv[0].carry_impact * 30, 0.0, 0.0, inv[0].carry_impact * 30,
+    ))
+
+    # Sector default
+    fails_sector = special_face * 0.20 * 0.003
+    gc_cost = total_cash * 0.005 * 30 / 365.0
+    scenarios.append(StressTestResult(
+        "sector_default", "20% specials fail, GC +50bp",
+        -gc_cost, 0.0, fails_sector, -gc_cost + fails_sector,
+    ))
+
+    # CB tightening
+    cb = repo_curve_stress(book, [("cb", 100, 100)])
+    extra_capital = total_cash * 0.01
+    scenarios.append(StressTestResult(
+        "cb_tightening", "Parallel +100bp, haircuts +1%",
+        cb[0].carry_impact, extra_capital, 0.0,
+        cb[0].carry_impact + extra_capital,
+    ))
+
+    return scenarios
