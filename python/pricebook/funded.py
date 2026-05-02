@@ -29,6 +29,10 @@ class Repo:
     Sell bond at start, buy back at maturity at agreed price.
     Repo PV at inception ≈ 0 (fair repo rate).
 
+    Two construction modes:
+        Scalar: Repo(bond_dirty_price=98.5, repo_rate=0.04, T=0.25)
+        From bond: Repo.from_bond(bond, curve, repo_curve, T=0.25)
+
     Args:
         bond_dirty_price: current dirty price of the collateral bond (per 100).
         repo_rate: agreed annualised repo rate.
@@ -50,6 +54,32 @@ class Repo:
         self.T = T
         self.haircut = haircut
         self.notional = notional
+
+    @classmethod
+    def from_bond(
+        cls,
+        bond,
+        discount_curve,
+        repo_rate: float | None = None,
+        repo_curve=None,
+        T: float = 0.25,
+        haircut: float = 0.0,
+        notional: float = 1_000_000.0,
+    ) -> "Repo":
+        """Construct from a bond + curves.
+
+        Extracts dirty price from the bond and discount curve.
+        Repo rate from repo_curve if provided, else scalar.
+        """
+        dirty = bond.dirty_price(discount_curve)
+        if repo_curve is not None:
+            days = int(T * 365)
+            rate = repo_curve.rate(days)
+        elif repo_rate is not None:
+            rate = repo_rate
+        else:
+            raise ValueError("Must provide repo_rate or repo_curve")
+        return cls(dirty, rate, T, haircut, notional)
 
     @property
     def cash_lent(self) -> float:

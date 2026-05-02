@@ -144,9 +144,17 @@ class BondForward:
         bond: FixedRateBond,
         settlement: date,
         delivery: date,
-        repo_rate: float,
+        repo_rate: float = 0.0,
         repo_day_count: DayCountConvention = DayCountConvention.ACT_360,
+        repo_curve=None,
     ):
+        """
+        Args:
+            repo_rate: flat repo rate (scalar). Used when repo_curve is None.
+            repo_curve: RepoCurve object. When provided, extracts per-period
+                forward repo rates automatically (overrides repo_rate for
+                discrete_reinvest method).
+        """
         if delivery <= settlement:
             raise ValueError(f"delivery ({delivery}) must be after settlement ({settlement})")
         self.bond = bond
@@ -154,6 +162,23 @@ class BondForward:
         self.delivery = delivery
         self.repo_rate = repo_rate
         self.repo_day_count = repo_day_count
+        self.repo_curve = repo_curve
+
+    def _effective_repo_rate(self) -> float:
+        """Repo rate for the carry period — from curve or scalar."""
+        if self.repo_curve is not None:
+            days = (self.delivery - self.settlement).days
+            return self.repo_curve.rate(days)
+        return self.repo_rate
+
+    def _repo_forward_rate(self, d1: date, d2: date) -> float:
+        """Forward repo rate between two dates — from curve or flat."""
+        if self.repo_curve is not None:
+            days1 = (d1 - self.settlement).days
+            days2 = (d2 - self.settlement).days
+            from pricebook.repo_term import forward_repo_rate
+            return forward_repo_rate(self.repo_curve, days1, days2)
+        return self.repo_rate
 
     def _coupon_income(self) -> float:
         """Sum of coupons received between settlement and delivery (per 100 face)."""
@@ -211,8 +236,11 @@ class BondForward:
             for cpn_date, _ in coupons:
                 tau_ci = year_fraction(cpn_date, self.delivery,
                                        DayCountConvention.ACT_365_FIXED)
-                cpn_dfs.append(1.0 / (1.0 + self.repo_rate * tau_ci))
-            repo_df_spot = 1.0 / (1.0 + self.repo_rate * dt)
+                # Use per-period repo from curve if available
+                r_ci = self._repo_forward_rate(cpn_date, self.delivery)
+                cpn_dfs.append(1.0 / (1.0 + r_ci * tau_ci))
+            eff_repo = self._effective_repo_rate()
+            repo_df_spot = 1.0 / (1.0 + eff_repo * dt)
 
             # Eq 1
             dirty_grown = (spot_clean_pu + spot_accrued_pu) / repo_df_spot
@@ -225,15 +253,17 @@ class BondForward:
 
         elif method == "continuous":
             # Pucci: F = Spot × exp((r_repo - c) × τ)
+            eff_repo = self._effective_repo_rate()
             coupon_yield = self.bond.coupon_rate  # approximate
-            fwd_dirty = spot_dirty * math.exp((self.repo_rate - coupon_yield) * dt)
+            fwd_dirty = spot_dirty * math.exp((eff_repo - coupon_yield) * dt)
             fwd_clean = fwd_dirty - accrued_at_delivery
-            repo_cost = spot_dirty * self.repo_rate * dt
+            repo_cost = spot_dirty * eff_repo * dt
             carry = coupon_income_100 - repo_cost
 
         else:
             # simple_carry (default): F = Spot + repo_cost - coupons
-            repo_cost = spot_dirty * self.repo_rate * dt
+            eff_repo = self._effective_repo_rate()
+            repo_cost = spot_dirty * eff_repo * dt
             fwd_dirty = spot_dirty + repo_cost - coupon_income_100
             fwd_clean = fwd_dirty - accrued_at_delivery
             carry = coupon_income_100 - repo_cost
