@@ -2,6 +2,24 @@
 
 ---
 
+## v0.445.0 — 2026-05-02
+
+**Repo Desk Tiers 2 + 3.** 7004 tests.
+
+### Tier 2: Risk & Specialness
+- `dynamic_haircut()`: vol-driven haircut adjustment with regime detection (normal/elevated/stressed).
+- `margin_call_simulation()`: repo rate shock → margin need. 4 default scenarios (mild to crisis).
+- `forecast_specialness()`: supply-demand rules — auction proximity, borrowing demand, supply scarcity.
+- `repo_curve_stress()`: 5 curve scenarios — parallel, steepener, flattener, inversion. Carry + financing impact.
+
+### Tier 3: Operations
+- `fail_workflow()`: categorise fails (system/collateral/counterparty), buy-in pricing, escalation.
+- `find_substitutes()`: rank alternative collateral by cost vs failed position.
+- `balance_sheet_efficiency()`: ROC, leverage ratio, capital usage.
+- `stress_test_suite()`: 5 pre-built scenarios (2008, COVID, inversion, sector default, CB tightening). Decomposes into carry + margin + fails impact.
+
+---
+
 ## v0.444.0 — 2026-05-02
 
 **Repo Desk Tier 1.** 6969 tests.
