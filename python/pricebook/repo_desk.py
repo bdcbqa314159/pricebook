@@ -1194,3 +1194,377 @@ def stress_test_suite(
     ))
 
     return scenarios
+
+
+# ---------------------------------------------------------------------------
+# Tier 4: Daily Risk Dashboard
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RepoDashboard:
+    """Morning-meeting summary for the repo desk."""
+    date: date
+    net_cash: float
+    gc_rate: float | None
+    n_positions: int
+    total_carry: float
+    repo_dv01: float
+    n_fails: int
+    total_fail_face: float
+    top_cp_exposures: list[dict]
+    top_specials: list[dict]
+    rollover_exposure: float  # cash in O/N + 1W bucket
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(),
+            "net_cash": self.net_cash,
+            "gc_rate": self.gc_rate,
+            "n_positions": self.n_positions,
+            "total_carry": self.total_carry,
+            "repo_dv01": self.repo_dv01,
+            "n_fails": self.n_fails,
+            "total_fail_face": self.total_fail_face,
+            "top_cp_exposures": self.top_cp_exposures,
+            "top_specials": self.top_specials,
+            "rollover_exposure": self.rollover_exposure,
+        }
+
+
+def daily_dashboard(
+    book: RepoBook,
+    reference_date: date,
+    tracker: FailsTracker | None = None,
+    gc_rate: float | None = None,
+    cp_limits: dict[str, float] | None = None,
+) -> RepoDashboard:
+    """Build the morning-meeting dashboard in one call.
+
+    Aggregates: cash position, carry, DV01, fails, CP exposure,
+    specials, rollover risk.
+    """
+    net_cash = book.total_cash_out() - book.total_cash_in()
+    gc = gc_rate if gc_rate is not None else book.gc_rate()
+    carry = book.net_carry()
+    dv01 = repo_rate_dv01(book)["total_dv01"]
+
+    # Fails
+    n_fails = len(tracker) if tracker else 0
+    fail_face = tracker.total_face_outstanding() if tracker else 0.0
+
+    # Top CP exposures
+    cp_monitor = counterparty_exposure_monitor(book, cp_limits)
+    top_cp = [r.to_dict() for r in cp_monitor[:5]]
+
+    # Specials
+    specials = [
+        {"issuer": e.collateral_issuer, "rate": e.repo_rate, "face": e.face_amount}
+        for e in book.entries if e.collateral_type == "special"
+    ]
+    specials.sort(key=lambda s: s["rate"])
+
+    # Rollover exposure (O/N + 1W)
+    on_1w = sum(
+        e.cash_amount for e in book.entries
+        if e.term_days <= 7 and e.direction == "repo"
+    )
+
+    return RepoDashboard(
+        date=reference_date, net_cash=net_cash, gc_rate=gc,
+        n_positions=len(book), total_carry=carry,
+        repo_dv01=dv01, n_fails=n_fails, total_fail_face=fail_face,
+        top_cp_exposures=top_cp, top_specials=specials[:5],
+        rollover_exposure=on_1w,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tier 4: Hedge Recommendations
+# ---------------------------------------------------------------------------
+
+@dataclass
+class HedgeRecommendation:
+    """A suggested hedge action."""
+    action: str          # "reduce_on", "extend_term", "short_bond", "buy_futures"
+    reason: str
+    notional: float
+    urgency: str         # "immediate", "eod", "monitor"
+
+    def to_dict(self) -> dict:
+        return {
+            "action": self.action, "reason": self.reason,
+            "notional": self.notional, "urgency": self.urgency,
+        }
+
+
+def hedge_recommendations(
+    book: RepoBook,
+    dv01_limit: float = 50_000.0,
+    rollover_limit: float = 500_000_000.0,
+    concentration_limit_pct: float = 30.0,
+) -> list[HedgeRecommendation]:
+    """Generate hedge recommendations based on risk limits.
+
+    Rules:
+    - DV01 > limit → reduce exposure or extend term.
+    - Rollover > limit → lock in term repo.
+    - Single CP > concentration% of total → diversify.
+    """
+    recs = []
+    dv01 = abs(repo_rate_dv01(book)["total_dv01"])
+
+    # DV01 check
+    if dv01 > dv01_limit:
+        recs.append(HedgeRecommendation(
+            action="reduce_dv01",
+            reason=f"Repo DV01 ${dv01:,.0f} exceeds limit ${dv01_limit:,.0f}",
+            notional=dv01 - dv01_limit,
+            urgency="eod",
+        ))
+
+    # Rollover check
+    on_cash = sum(e.cash_amount for e in book.entries
+                  if e.term_days <= 7 and e.direction == "repo")
+    if on_cash > rollover_limit:
+        excess = on_cash - rollover_limit
+        recs.append(HedgeRecommendation(
+            action="extend_term",
+            reason=f"O/N+1W exposure ${on_cash:,.0f} exceeds ${rollover_limit:,.0f}",
+            notional=excess,
+            urgency="immediate",
+        ))
+
+    # Concentration check
+    total = sum(e.cash_amount for e in book.entries)
+    if total > 0:
+        by_cp = book.by_counterparty()
+        for cp in by_cp:
+            pct = abs(cp.total_cash) / total * 100
+            if pct > concentration_limit_pct:
+                recs.append(HedgeRecommendation(
+                    action="diversify_cp",
+                    reason=f"{cp.counterparty} at {pct:.0f}% (limit {concentration_limit_pct:.0f}%)",
+                    notional=abs(cp.total_cash) - total * concentration_limit_pct / 100,
+                    urgency="eod",
+                ))
+
+    if not recs:
+        recs.append(HedgeRecommendation(
+            action="none", reason="All limits within bounds",
+            notional=0.0, urgency="monitor",
+        ))
+
+    return recs
+
+
+# ---------------------------------------------------------------------------
+# Tier 4: Matched Book Analytics
+# ---------------------------------------------------------------------------
+
+@dataclass
+class MatchedBookEntry:
+    """A matched pair: repo + reverse on same collateral."""
+    issuer: str
+    repo_cash: float
+    reverse_cash: float
+    repo_rate: float
+    reverse_rate: float
+    spread_earned_bps: float
+    net_carry: float
+
+    def to_dict(self) -> dict:
+        return {
+            "issuer": self.issuer,
+            "repo_cash": self.repo_cash, "reverse_cash": self.reverse_cash,
+            "repo_rate": self.repo_rate, "reverse_rate": self.reverse_rate,
+            "spread_bps": self.spread_earned_bps, "net_carry": self.net_carry,
+        }
+
+
+def matched_book_analysis(book: RepoBook) -> list[MatchedBookEntry]:
+    """Find matched repo/reverse pairs on same collateral and compute spread.
+
+    The desk earns the spread between the rate it borrows at (repo)
+    and the rate it lends at (reverse).
+    """
+    # Group by issuer
+    by_issuer: dict[str, dict] = {}
+    for e in book.entries:
+        iss = e.collateral_issuer
+        if iss not in by_issuer:
+            by_issuer[iss] = {"repo": [], "reverse": []}
+        by_issuer[iss][e.direction].append(e)
+
+    matches = []
+    for iss, sides in by_issuer.items():
+        if not sides["repo"] or not sides["reverse"]:
+            continue
+
+        repo_cash = sum(e.cash_amount for e in sides["repo"])
+        repo_rate = (sum(e.cash_amount * e.repo_rate for e in sides["repo"])
+                     / repo_cash if repo_cash > 0 else 0.0)
+        rev_cash = sum(e.cash_amount for e in sides["reverse"])
+        rev_rate = (sum(e.cash_amount * e.repo_rate for e in sides["reverse"])
+                    / rev_cash if rev_cash > 0 else 0.0)
+
+        spread = (rev_rate - repo_rate) * 10_000  # bps earned
+        matched_amt = min(repo_cash, rev_cash)
+        avg_term = sum(e.term_days for e in sides["repo"] + sides["reverse"]) / \
+                   len(sides["repo"] + sides["reverse"])
+        net_carry = matched_amt * (rev_rate - repo_rate) * avg_term / 365.0
+
+        matches.append(MatchedBookEntry(
+            issuer=iss, repo_cash=repo_cash, reverse_cash=rev_cash,
+            repo_rate=repo_rate, reverse_rate=rev_rate,
+            spread_earned_bps=spread, net_carry=net_carry,
+        ))
+
+    return sorted(matches, key=lambda m: -abs(m.net_carry))
+
+
+# ---------------------------------------------------------------------------
+# Tier 4: Cross-Desk Funding Attribution
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FundingAttribution:
+    """P&L attribution by strategy."""
+    strategy: str
+    total_cash: float
+    total_carry: float
+    pct_of_book: float
+
+    def to_dict(self) -> dict:
+        return {
+            "strategy": self.strategy, "cash": self.total_cash,
+            "carry": self.total_carry, "pct": self.pct_of_book,
+        }
+
+
+def funding_attribution(book: RepoBook) -> list[FundingAttribution]:
+    """Attribute carry by strategy axis: GC vs special, ON vs term, repo vs reverse."""
+    total_carry = book.net_carry()
+    total_cash = sum(e.cash_amount for e in book.entries) or 1.0
+
+    axes = {
+        "GC_ON": lambda e: e.collateral_type == "GC" and e.term_days <= 1,
+        "GC_term": lambda e: e.collateral_type == "GC" and e.term_days > 1,
+        "special_ON": lambda e: e.collateral_type == "special" and e.term_days <= 1,
+        "special_term": lambda e: e.collateral_type == "special" and e.term_days > 1,
+        "reverse": lambda e: e.direction == "reverse",
+    }
+
+    result = []
+    for strat, predicate in axes.items():
+        entries = [e for e in book.entries if predicate(e)]
+        cash = sum(e.cash_amount for e in entries)
+        carry = sum(e.carry for e in entries)
+        pct = cash / total_cash * 100.0
+        result.append(FundingAttribution(strat, cash, carry, pct))
+
+    return sorted(result, key=lambda f: -abs(f.total_carry))
+
+
+# ---------------------------------------------------------------------------
+# Tier 5: RepoBook serialisation and PV
+# ---------------------------------------------------------------------------
+
+class _RepoBookMixin:
+    """Added to RepoBook via monkey-patch below."""
+    pass
+
+
+def _repo_book_to_dict(self) -> dict:
+    """Serialise the RepoBook."""
+    entries = []
+    for e in self._entries:
+        entries.append({
+            "counterparty": e.counterparty,
+            "collateral_issuer": e.collateral_issuer,
+            "collateral_type": e.collateral_type,
+            "face_amount": e.face_amount,
+            "bond_price": e.bond_price,
+            "repo_rate": e.repo_rate,
+            "term_days": e.term_days,
+            "coupon_rate": e.coupon_rate,
+            "direction": e.direction,
+            "start_date": e.start_date.isoformat() if e.start_date else None,
+        })
+    return {"type": "repo_book", "params": {
+        "name": self.name, "entries": entries,
+    }}
+
+
+@classmethod
+def _repo_book_from_dict(cls, d: dict) -> "RepoBook":
+    """Deserialise a RepoBook."""
+    p = d["params"]
+    book = cls(name=p.get("name", "repo_book"))
+    for e in p.get("entries", []):
+        sd = date.fromisoformat(e["start_date"]) if e.get("start_date") else None
+        book.add(RepoTradeEntry(
+            counterparty=e["counterparty"],
+            collateral_issuer=e["collateral_issuer"],
+            collateral_type=e.get("collateral_type", "GC"),
+            face_amount=e["face_amount"],
+            bond_price=e["bond_price"],
+            repo_rate=e["repo_rate"],
+            term_days=e["term_days"],
+            coupon_rate=e.get("coupon_rate", 0.0),
+            direction=e.get("direction", "repo"),
+            start_date=sd,
+        ))
+    return book
+
+
+RepoBook._SERIAL_TYPE = "repo_book"
+RepoBook.to_dict = _repo_book_to_dict
+RepoBook.from_dict = _repo_book_from_dict
+
+from pricebook.serialisable import _register as _reg_rb
+_reg_rb(RepoBook)
+
+
+def repo_book_pv(
+    book: RepoBook,
+    discount_curve,
+    reference_date: date,
+) -> dict[str, float]:
+    """Total PV of all repo positions against a discount curve.
+
+    Each position: PV = df(maturity) × repurchase_amount − cash_lent.
+
+    Returns total PV, per-direction breakdown.
+    """
+    from pricebook.day_count import year_fraction, DayCountConvention
+    from datetime import timedelta
+
+    total_pv = 0.0
+    repo_pv = 0.0
+    reverse_pv = 0.0
+
+    for e in book.entries:
+        start = e.start_date or reference_date
+        mat = start + timedelta(days=e.term_days)
+        df = discount_curve.df(mat)
+        dt = e.term_days / 365.0
+
+        repurchase = e.cash_amount * (1 + e.repo_rate * dt)
+
+        if e.direction == "repo":
+            # Lent bond, borrowed cash. PV = df × repurchase − cash_lent
+            pv = df * repurchase - e.cash_amount
+            repo_pv += pv
+        else:
+            # Reverse: lent cash, borrowed bond. PV = cash_lent − df × repurchase
+            pv = e.cash_amount - df * repurchase
+            reverse_pv += pv
+
+        total_pv += pv
+
+    return {
+        "total_pv": total_pv,
+        "repo_pv": repo_pv,
+        "reverse_pv": reverse_pv,
+        "n_positions": len(book),
+    }
