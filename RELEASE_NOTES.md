@@ -2,6 +2,38 @@
 
 ---
 
+## v0.449.0 — 2026-05-02
+
+**Repo engine upgrades: tri-party + all 3→4 gaps.** 7117 tests.
+
+### Tri-party repo (1→4)
+- `TriPartyRepo`: agent-managed collateral with `TriPartyAgent` (BNY/Euroclear/JPM fees).
+- `EligibilitySchedule`: asset class rules (govt/agency/IG), min rating, max maturity, haircut, concentration.
+- `allocate_collateral()`: greedy optimiser — cheapest haircut first.
+- Substitution: agent swaps collateral within eligible set + transaction fee.
+- `all_in_rate`: repo rate + agent fees.
+
+### SOFR lookback + lockout (3→4)
+- `sofr_compounded_with_lookback(rates, lookback=2, lockout=0)`: standard SOFR conventions.
+
+### Netting (3→4)
+- `netting_by_counterparty()`: gross repo, gross reverse, net exposure under GMRA.
+
+### Fail state machine (3→4)
+- `FailState`: open → investigating → resolving → resolved → bought_in.
+- `auto_escalate_fails()`: auto-advances based on days outstanding, triggers buy-in.
+
+### Repo key-rate DV01 (4→5)
+- `repo_key_rate_dv01(book, repo_curve)`: per-tenor carry sensitivity on the repo curve.
+
+### Basel III haircut floors (3→4)
+- `regulatory_haircut(asset_class, maturity, is_xccy)`: sovereign/agency/IG/HY floors + 8% FX add-on.
+
+### Cross-currency repo (3→4)
+- Any ccy pair (EUR/USD, GBP/EUR, JPY/USD). FX haircut add-on. FX margin call. Intraday FX P&L.
+
+---
+
 ## v0.448.0 — 2026-05-02
 
 **Repo deep issues fixed.** 7081 tests.
