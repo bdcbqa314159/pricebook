@@ -364,37 +364,25 @@ class TreasuryLock:
         self.lock_convention = lock_convention
         self.locked_price = locked_price
 
-    def _compute_forward(self, curve):
+    def _compute_forward(self, curve, forward_method: str = "discrete_reinvest"):
         """Common forward computation used by price() and greeks().
+
+        Uses BondForward as the centralised forward engine.
 
         Returns (fwd_clean, fwd_dirty, fwd_yield, alphas, times, T_mat, accrued_del).
         All prices per unit face.
         """
-        from pricebook.day_count import year_fraction, DayCountConvention
+        from pricebook.bond_forward import BondForward
 
         alphas, times, T_mat = self.bond.accrual_schedule(self.expiry)
-        spot_dirty = self.bond.dirty_price(curve)
-        spot_accrued = self.bond.accrued_interest(curve.reference_date)
-        tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
 
-        # Intermediate coupons and their repo DFs (Eq 1)
-        coupons = []
-        repo_dfs = []
-        for cf in self.bond.coupon_leg.cashflows:
-            if curve.reference_date < cf.payment_date <= self.expiry:
-                coupons.append(cf.amount / self.bond.face_value)
-                tau_ci = year_fraction(cf.payment_date, self.expiry, DayCountConvention.ACT_365_FIXED)
-                repo_dfs.append(1.0 / (1.0 + self.repo_rate * tau_ci))
+        # Centralised forward via BondForward with selectable method
+        bf = BondForward(self.bond, curve.reference_date, self.expiry, self.repo_rate)
+        bf_result = bf.price(curve, method=forward_method)
 
-        repo_df_spot = 1.0 / (1.0 + self.repo_rate * tau)
+        fwd_dirty = bf_result.forward_dirty / 100.0  # per unit face
+        fwd_clean = bf_result.forward_clean / 100.0
         accrued_del = self.bond.accrued_interest(self.expiry) / 100.0
-
-        fwd_clean = bond_forward_clean(
-            spot_dirty / 100.0 - spot_accrued / 100.0,
-            spot_accrued / 100.0,
-            accrued_del, coupons, repo_dfs, repo_df_spot,
-        )
-        fwd_dirty = fwd_clean + accrued_del
 
         # Forward yield via Pucci simply-compounded convention (Eq 2)
         fwd_yield = bond_irr(fwd_dirty, self.bond.coupon_rate, alphas)

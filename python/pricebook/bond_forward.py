@@ -156,31 +156,92 @@ class BondForward:
         self.repo_day_count = repo_day_count
 
     def _coupon_income(self) -> float:
-        """Sum of coupons received between settlement and delivery."""
+        """Sum of coupons received between settlement and delivery (per 100 face)."""
         total = 0.0
         for cf in self.bond.coupon_leg.cashflows:
             if self.settlement < cf.payment_date <= self.delivery:
                 total += cf.amount
         return total / self.bond.face_value * 100.0
 
-    def price(self, curve: DiscountCurve) -> BondForwardResult:
-        """Compute forward price from spot price + carry.
+    def _intermediate_coupons(self) -> list[tuple[date, float]]:
+        """Coupons paid between settlement and delivery: [(date, amount_per_unit)]."""
+        result = []
+        for cf in self.bond.coupon_leg.cashflows:
+            if self.settlement < cf.payment_date <= self.delivery:
+                result.append((cf.payment_date, cf.amount / self.bond.face_value))
+        return result
 
-        Forward dirty = spot dirty × (1 + repo × T) - coupon_income.
+    def price(
+        self,
+        curve: DiscountCurve,
+        method: str = "simple_carry",
+    ) -> BondForwardResult:
+        """Compute forward price under different carry conventions.
+
+        Methods:
+            "simple_carry" — F = Spot × (1 + r × τ) - coupons.
+                No coupon reinvestment. Market standard approximation.
+
+            "discrete_reinvest" — F = (Spot + A₀) / D_repo(T₀,T_del)
+                - Σ Cᵢ / D_repo(Tᵢ,T_del) - A_del.
+                Coupons reinvested at repo to delivery. Practitioner's
+                paper Eq 1. Theoretically correct.
+
+            "continuous" — F = Spot × exp((r_repo − c) × τ).
+                Pucci continuous-coupon-yield approximation. Fast but
+                approximate for discrete coupons.
+
+        All three agree to first order for short carry periods.
         """
         spot_dirty = self.bond.dirty_price(curve)
         dt = year_fraction(self.settlement, self.delivery, self.repo_day_count)
-        repo_cost = spot_dirty * self.repo_rate * dt
-        coupon_income = self._coupon_income()
-        fwd_dirty = spot_dirty + repo_cost - coupon_income
+        coupon_income_100 = self._coupon_income()
         accrued_at_delivery = self.bond.accrued_interest(self.delivery)
-        fwd_clean = fwd_dirty - accrued_at_delivery
-        carry = coupon_income - repo_cost
 
-        # Forward DV01: bump yield 1bp and recompute forward
+        if method == "discrete_reinvest":
+            # Practitioner's paper Eq 1: full coupon reinvestment at repo
+            spot_accrued = self.bond.accrued_interest(self.settlement)
+            spot_clean_pu = (spot_dirty - spot_accrued) / 100.0  # per unit face
+            spot_accrued_pu = spot_accrued / 100.0
+            accrued_del_pu = accrued_at_delivery / 100.0
+
+            coupons = self._intermediate_coupons()
+            cpn_amounts = [c for _, c in coupons]
+            cpn_dfs = []
+            for cpn_date, _ in coupons:
+                tau_ci = year_fraction(cpn_date, self.delivery,
+                                       DayCountConvention.ACT_365_FIXED)
+                cpn_dfs.append(1.0 / (1.0 + self.repo_rate * tau_ci))
+            repo_df_spot = 1.0 / (1.0 + self.repo_rate * dt)
+
+            # Eq 1
+            dirty_grown = (spot_clean_pu + spot_accrued_pu) / repo_df_spot
+            cpn_fv = sum(c / d for c, d in zip(cpn_amounts, cpn_dfs)) if cpn_dfs else 0.0
+            fwd_clean_pu = dirty_grown - cpn_fv - accrued_del_pu
+            fwd_dirty = (fwd_clean_pu + accrued_del_pu) * 100.0
+            fwd_clean = fwd_clean_pu * 100.0
+            repo_cost = (dirty_grown - spot_dirty / 100.0) * 100.0
+            carry = coupon_income_100 - repo_cost
+
+        elif method == "continuous":
+            # Pucci: F = Spot × exp((r_repo - c) × τ)
+            coupon_yield = self.bond.coupon_rate  # approximate
+            fwd_dirty = spot_dirty * math.exp((self.repo_rate - coupon_yield) * dt)
+            fwd_clean = fwd_dirty - accrued_at_delivery
+            repo_cost = spot_dirty * self.repo_rate * dt
+            carry = coupon_income_100 - repo_cost
+
+        else:
+            # simple_carry (default): F = Spot + repo_cost - coupons
+            repo_cost = spot_dirty * self.repo_rate * dt
+            fwd_dirty = spot_dirty + repo_cost - coupon_income_100
+            fwd_clean = fwd_dirty - accrued_at_delivery
+            carry = coupon_income_100 - repo_cost
+
+        # Forward DV01: bump yield 1bp and recompute (simple_carry for speed)
         ytm = self.bond.yield_to_maturity(spot_dirty, self.settlement)
         price_up = self.bond._price_from_ytm(ytm + 0.0001, self.settlement)
-        fwd_up = price_up + price_up * self.repo_rate * dt - coupon_income
+        fwd_up = price_up + price_up * self.repo_rate * dt - coupon_income_100
         fwd_dv01 = fwd_dirty - fwd_up
 
         return BondForwardResult(
@@ -189,7 +250,7 @@ class BondForward:
             spot_dirty=spot_dirty,
             carry=carry,
             repo_cost=repo_cost,
-            coupon_income=coupon_income,
+            coupon_income=coupon_income_100,
             forward_dv01=fwd_dv01,
         )
 
