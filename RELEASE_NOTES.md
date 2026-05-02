@@ -2,6 +2,45 @@
 
 ---
 
+## v0.447.0 — 2026-05-02
+
+**Repo trading gaps fixed.** 7059 tests.
+
+### `RepoTrade` — unified repo instrument (Gaps 1 + 8)
+- Single object: prices itself (`pv(curve)`), integrates with Trade/Portfolio (`pv_ctx(ctx)`).
+- Replaces the disconnect between `Repo` (funded.py) and `RepoTradeEntry` (desk).
+- Properties: `cash_amount` (haircut-adjusted), `effective_rate`, `repurchase_amount`, `interest`, `carry`.
+- Backward compat: `RepoTrade.from_entry(old_entry)`.
+
+### Roll mechanics (Gap 2)
+- `roll(new_rate, new_term)` → marks current as "rolled", returns new live trade.
+- `roll_cost(new_rate, new_term)` → financing difference.
+
+### Variation margin (Gap 3)
+- `margin_required(current_price)`, `margin_call(current_price)`, `variation_margin(current_price)`.
+- Tracks initial vs current margin; positive call = must post more.
+
+### Collateral pool (Gap 4)
+- `CollateralPool`: inventory tracking with `pledge()`, `release()`, `available()`, `can_pledge()`.
+- Prevents over-pledging: raises if amount > available.
+
+### SOFR-linked repo (Gap 5)
+- `sofr_interest(daily_rates)`: compounded overnight `∏(1 + r_i/360) - 1`.
+- `rate_type="sofr_compound"` vs `"fixed"`.
+
+### Daily P&L (Gap 6)
+- `repo_daily_pnl(book, curve_t0, curve_t1)` → `RepoDailyPnL`: total, carry, rate, unexplained.
+
+### Trade lifecycle (Gap 7)
+- `status`: live, matured, terminated, rolled.
+- `mature()`, `terminate_early()`, `remaining_days(as_of)`, `maturity_date`.
+- Open repos: `term_days=0`, `is_open=True`.
+
+### Serialisation
+- `RepoTrade` registered as `"repo_trade"`. Full round-trip including haircut, status, trade_id.
+
+---
+
 ## v0.446.0 — 2026-05-02
 
 **Repo Desk complete (5 tiers).** 7025 tests.
