@@ -657,3 +657,315 @@ def counterparty_exposure_monitor(
         ))
 
     return sorted(results, key=lambda r: -r.utilisation_pct)
+
+
+# ---------------------------------------------------------------------------
+# Tier 2: Dynamic Haircut Adjustment
+# ---------------------------------------------------------------------------
+
+@dataclass
+class HaircutAdjustment:
+    """Haircut adjusted for market stress."""
+    base_haircut_pct: float
+    vol_multiplier: float
+    stress_add_on_pct: float
+    adjusted_haircut_pct: float
+    regime: str  # "normal", "elevated", "stressed"
+
+    def to_dict(self) -> dict:
+        return {
+            "base": self.base_haircut_pct, "vol_mult": self.vol_multiplier,
+            "stress_add": self.stress_add_on_pct,
+            "adjusted": self.adjusted_haircut_pct, "regime": self.regime,
+        }
+
+
+def dynamic_haircut(
+    base_haircut_pct: float,
+    current_vol: float,
+    normal_vol: float = 0.05,
+    stress_threshold: float = 2.0,
+) -> HaircutAdjustment:
+    """Adjust haircut based on market volatility.
+
+    haircut_adj = base × max(1, vol / normal_vol)
+    Plus stress add-on when vol > stress_threshold × normal_vol.
+
+    Args:
+        base_haircut_pct: normal market haircut (e.g. 2.0 for treasuries).
+        current_vol: current realised or implied vol of the collateral.
+        normal_vol: long-run average vol.
+        stress_threshold: multiplier at which stress add-on kicks in.
+    """
+    vol_ratio = max(1.0, current_vol / normal_vol) if normal_vol > 0 else 1.0
+    adjusted = base_haircut_pct * vol_ratio
+
+    if current_vol > stress_threshold * normal_vol:
+        stress_add = base_haircut_pct * 0.5  # +50% of base in stress
+        adjusted += stress_add
+        regime = "stressed"
+    elif current_vol > 1.5 * normal_vol:
+        stress_add = base_haircut_pct * 0.2  # +20% in elevated
+        adjusted += stress_add
+        regime = "elevated"
+    else:
+        stress_add = 0.0
+        regime = "normal"
+
+    return HaircutAdjustment(
+        base_haircut_pct=base_haircut_pct,
+        vol_multiplier=vol_ratio,
+        stress_add_on_pct=stress_add,
+        adjusted_haircut_pct=adjusted,
+        regime=regime,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tier 2: Margin Call Simulation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class MarginCallScenario:
+    """Result of a margin call simulation under rate shock."""
+    scenario_name: str
+    rate_shock_bps: float
+    total_margin_call: float
+    n_positions_affected: int
+    largest_single_call: float
+
+    def to_dict(self) -> dict:
+        return {
+            "scenario": self.scenario_name, "shock_bps": self.rate_shock_bps,
+            "total_call": self.total_margin_call,
+            "n_affected": self.n_positions_affected,
+            "largest_call": self.largest_single_call,
+        }
+
+
+def margin_call_simulation(
+    book: RepoBook,
+    haircut_pct: float = 2.0,
+    scenarios: list[tuple[str, float]] | None = None,
+) -> list[MarginCallScenario]:
+    """Simulate margin calls under repo rate shocks.
+
+    When rates move, bond prices move, and the margin (haircut × notional)
+    changes. The desk needs to post/receive the difference.
+
+    Approximate: ΔMargin ≈ cash_amount × duration × Δrate × haircut adjustment.
+
+    Args:
+        haircut_pct: base haircut percentage.
+        scenarios: list of (name, rate_shock_bps).
+    """
+    if scenarios is None:
+        scenarios = [
+            ("mild", 25), ("moderate", 50), ("severe", 100), ("crisis", 200),
+        ]
+
+    results = []
+    for name, shock_bps in scenarios:
+        shock = shock_bps / 10_000.0
+        total_call = 0.0
+        largest = 0.0
+        n_affected = 0
+
+        for e in book.entries:
+            # Rough price impact: ΔP ≈ -duration × Δy × price
+            # Use term_days as rough duration proxy (scaled)
+            duration_proxy = min(e.term_days / 365.0, 10.0) * 5.0  # rough
+            price_move = e.bond_price * duration_proxy * shock / 100.0
+            margin_change = abs(e.face_amount * price_move / 100.0 * haircut_pct / 100.0)
+
+            if margin_change > 0:
+                total_call += margin_change
+                largest = max(largest, margin_change)
+                n_affected += 1
+
+        results.append(MarginCallScenario(
+            scenario_name=name, rate_shock_bps=shock_bps,
+            total_margin_call=total_call, n_positions_affected=n_affected,
+            largest_single_call=largest,
+        ))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Tier 2: Specialness Forecast
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SpecialnessForecast:
+    """Forecast of specialness for a bond."""
+    bond_id: str
+    current_specialness_bps: float
+    days_to_auction: int | None
+    forecast_specialness_bps: float
+    trend: str  # "widening", "stable", "collapsing"
+    confidence: str  # "high", "medium", "low"
+
+    def to_dict(self) -> dict:
+        return {
+            "bond": self.bond_id,
+            "current_bps": self.current_specialness_bps,
+            "forecast_bps": self.forecast_specialness_bps,
+            "days_to_auction": self.days_to_auction,
+            "trend": self.trend, "confidence": self.confidence,
+        }
+
+
+def forecast_specialness(
+    bond_id: str,
+    current_specialness_bps: float,
+    days_to_auction: int | None = None,
+    borrowing_demand_pct: float = 0.5,
+    supply_pct: float = 0.5,
+) -> SpecialnessForecast:
+    """Forecast specialness using supply-demand rules.
+
+    Rules:
+    - Close to auction (< 14 days): specialness widens (supply about to increase).
+    - High borrowing demand (> 70%): specialness widens.
+    - Post-auction (just happened): specialness collapses.
+    - Low demand (< 30%): specialness narrows.
+
+    Args:
+        borrowing_demand_pct: fraction of outstanding on loan (0-1).
+        supply_pct: available supply relative to demand (0-1).
+    """
+    forecast = current_specialness_bps
+    confidence = "medium"
+
+    # Auction proximity effect
+    if days_to_auction is not None:
+        if days_to_auction <= 3:
+            # Just before auction — specialness at peak, about to collapse
+            forecast *= 1.2
+            trend = "collapsing"
+            confidence = "high"
+        elif days_to_auction <= 14:
+            # Approaching auction — widening
+            forecast *= 1.1
+            trend = "widening"
+        elif days_to_auction <= 30:
+            trend = "stable"
+        else:
+            # Far from auction — demand builds slowly
+            forecast *= 0.9
+            trend = "stable"
+    else:
+        trend = "stable"
+
+    # Demand/supply
+    if borrowing_demand_pct > 0.7:
+        forecast *= 1.3
+        if trend == "stable":
+            trend = "widening"
+        confidence = "high"
+    elif borrowing_demand_pct < 0.3:
+        forecast *= 0.7
+        if trend == "stable":
+            trend = "collapsing"
+
+    if supply_pct < 0.3:
+        forecast *= 1.2  # scarce supply widens
+    elif supply_pct > 0.8:
+        forecast *= 0.8  # ample supply narrows
+
+    return SpecialnessForecast(
+        bond_id=bond_id,
+        current_specialness_bps=current_specialness_bps,
+        days_to_auction=days_to_auction,
+        forecast_specialness_bps=max(0, forecast),
+        trend=trend,
+        confidence=confidence,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tier 2: Repo Curve Stress Scenarios
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RepoCurveStress:
+    """Repo book P&L under a curve stress scenario."""
+    scenario_name: str
+    on_shift_bps: float
+    term_shift_bps: float
+    carry_impact: float
+    financing_impact: float
+    total_impact: float
+
+    def to_dict(self) -> dict:
+        return {
+            "scenario": self.scenario_name,
+            "on_shift": self.on_shift_bps, "term_shift": self.term_shift_bps,
+            "carry_impact": self.carry_impact,
+            "financing_impact": self.financing_impact,
+            "total": self.total_impact,
+        }
+
+
+def repo_curve_stress(
+    book: RepoBook,
+    scenarios: list[tuple[str, float, float]] | None = None,
+) -> list[RepoCurveStress]:
+    """Stress the repo book under curve scenarios.
+
+    Each scenario specifies O/N and term rate shifts independently,
+    capturing curve flattening/steepening as well as parallel moves.
+
+    Default scenarios:
+    - parallel_up: +50bp across all tenors
+    - parallel_down: -50bp
+    - steepener: O/N -25bp, term +50bp
+    - flattener: O/N +50bp, term -25bp
+    - inversion: O/N +100bp, term -50bp
+    """
+    if scenarios is None:
+        scenarios = [
+            ("parallel_up", 50, 50),
+            ("parallel_down", -50, -50),
+            ("steepener", -25, 50),
+            ("flattener", 50, -25),
+            ("inversion", 100, -50),
+        ]
+
+    base_carry = book.net_carry()
+
+    results = []
+    for name, on_shift, term_shift in scenarios:
+        stressed_carry = 0.0
+        for e in book.entries:
+            # O/N positions get on_shift, longer-term get term_shift
+            if e.term_days <= 7:
+                shift = on_shift / 10_000.0
+            else:
+                shift = term_shift / 10_000.0
+
+            dt = e.term_days / 365.0
+            sign = 1.0 if e.direction == "repo" else -1.0
+            coupon = e.face_amount * e.coupon_rate * dt
+            financing = e.cash_amount * (e.repo_rate + shift) * dt
+            stressed_carry += sign * (coupon - financing)
+
+        carry_impact = stressed_carry - base_carry
+        # Financing impact: extra cost from the shift
+        financing_impact = sum(
+            e.cash_amount * (on_shift if e.term_days <= 7 else term_shift) / 10_000.0
+            * e.term_days / 365.0
+            for e in book.entries
+        )
+
+        results.append(RepoCurveStress(
+            scenario_name=name,
+            on_shift_bps=on_shift,
+            term_shift_bps=term_shift,
+            carry_impact=carry_impact,
+            financing_impact=financing_impact,
+            total_impact=carry_impact,
+        ))
+
+    return results
