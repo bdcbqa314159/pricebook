@@ -69,6 +69,10 @@ class RepoTrade:
         trade_id: str = "",
         bond=None,
         settlement_days: int = 1,
+        bond_currency: str = "USD",
+        cash_currency: str = "USD",
+        fx_rate: float = 1.0,
+        fx_haircut: float = 0.0,
     ):
         self.counterparty = counterparty
         self.collateral_issuer = collateral_issuer
@@ -87,6 +91,11 @@ class RepoTrade:
         self.bond = bond  # Issue 6: reference to FixedRateBond (optional)
         self.settlement_days = settlement_days  # Issue 5: T+1 for UST
         self._margin_posted: float = 0.0
+        # Cross-currency fields
+        self.bond_currency = bond_currency
+        self.cash_currency = cash_currency
+        self.fx_rate = fx_rate            # cash_ccy per 1 bond_ccy
+        self.fx_haircut = fx_haircut      # extra haircut for FX mismatch
 
     # ---- Core properties ----
 
@@ -103,9 +112,21 @@ class RepoTrade:
         return self.face_amount * self.bond_price / 100.0
 
     @property
+    def is_cross_currency(self) -> bool:
+        return self.bond_currency != self.cash_currency
+
+    @property
     def cash_amount(self) -> float:
-        """Cash lent/borrowed (after haircut)."""
-        return self.market_value * (1 - self.haircut)
+        """Cash lent/borrowed (after haircut + FX haircut).
+
+        For cross-currency repos: bond value converted at fx_rate,
+        then total haircut = haircut + fx_haircut applied.
+        """
+        mv = self.market_value
+        if self.is_cross_currency:
+            mv = mv * self.fx_rate  # convert to cash currency
+        total_haircut = self.haircut + self.fx_haircut
+        return mv * (1 - total_haircut)
 
     @property
     def maturity_date(self) -> date | None:
@@ -231,6 +252,79 @@ class RepoTrade:
             return -mtm  # positive when contract rate < market
         else:
             return mtm   # positive when contract rate > market
+
+    # ---- Intraday snapshot ----
+
+    def snapshot(
+        self,
+        as_of: date,
+        current_bond_price: float | None = None,
+        current_repo_rate: float | None = None,
+        current_fx_rate: float | None = None,
+    ) -> dict[str, float]:
+        """Intraday position snapshot — everything you need at any point in time.
+
+        Args:
+            as_of: snapshot timestamp.
+            current_bond_price: live bond dirty price (None = use inception).
+            current_repo_rate: current market repo rate (None = use contract).
+            current_fx_rate: current FX rate for xccy repos (None = use inception).
+        """
+        price = current_bond_price or self.bond_price
+        rate = current_repo_rate or self.repo_rate
+        fx = current_fx_rate or self.fx_rate
+
+        remaining = self.remaining_days(as_of)
+        accrued = self.accrued_interest(as_of)
+        mtm = self.mark_to_market(rate, as_of) if rate != self.repo_rate else 0.0
+        vm = self.variation_margin(price) if price != self.bond_price else 0.0
+
+        # FX P&L for xccy
+        fx_pnl = 0.0
+        if self.is_cross_currency and fx != self.fx_rate:
+            fx_pnl = self.market_value * (fx - self.fx_rate)
+
+        return {
+            "trade_id": self.trade_id,
+            "as_of": as_of.isoformat(),
+            "status": self.status,
+            "remaining_days": remaining,
+            "accrued_interest": accrued,
+            "mark_to_market": mtm,
+            "variation_margin": vm,
+            "fx_pnl": fx_pnl,
+            "current_price": price,
+            "current_rate": rate,
+            "current_fx": fx,
+            "total_unrealised": mtm + vm + fx_pnl,
+        }
+
+    # ---- Cross-currency margin ----
+
+    def xccy_margin_call(
+        self,
+        current_bond_price: float,
+        current_fx_rate: float,
+    ) -> float:
+        """Margin call for cross-currency repos.
+
+        Two sources of margin change:
+        1. Bond price move (same as single-ccy)
+        2. FX rate move (changes collateral value in cash currency)
+
+        Total call = price_margin + fx_margin.
+        """
+        # Price-driven margin
+        price_margin = self.margin_call(current_bond_price)
+
+        # FX-driven margin
+        # Initial collateral in cash ccy: market_value × fx_rate_inception
+        # Current collateral in cash ccy: face × current_price / 100 × current_fx
+        initial_value_cash = self.market_value * self.fx_rate
+        current_value_cash = self.face_amount * current_bond_price / 100.0 * current_fx_rate
+        fx_margin = (current_value_cash - initial_value_cash) * self.fx_haircut
+
+        return price_margin + fx_margin
 
     # ---- Pricing (Gap 8) ----
 
@@ -412,6 +506,10 @@ class RepoTrade:
             "status": self.status,
             "rate_type": self.rate_type,
             "trade_id": self.trade_id,
+            "bond_currency": self.bond_currency,
+            "cash_currency": self.cash_currency,
+            "fx_rate": self.fx_rate,
+            "fx_haircut": self.fx_haircut,
         }}
 
     @classmethod
@@ -433,6 +531,10 @@ class RepoTrade:
             status=p.get("status", "live"),
             rate_type=p.get("rate_type", "fixed"),
             trade_id=p.get("trade_id", ""),
+            bond_currency=p.get("bond_currency", "USD"),
+            cash_currency=p.get("cash_currency", "USD"),
+            fx_rate=p.get("fx_rate", 1.0),
+            fx_haircut=p.get("fx_haircut", 0.0),
         )
 
     # Backward compat: convert from old RepoTradeEntry
