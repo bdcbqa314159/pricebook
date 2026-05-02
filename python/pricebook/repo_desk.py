@@ -2242,3 +2242,266 @@ def repo_book_pv(
         "reverse_pv": reverse_pv,
         "n_positions": len(book),
     }
+
+
+# ---------------------------------------------------------------------------
+# SOFR lookback + lockout (3→4)
+# ---------------------------------------------------------------------------
+
+def sofr_compounded_with_lookback(
+    daily_rates: list[float],
+    lookback_days: int = 2,
+    lockout_days: int = 0,
+) -> float:
+    """Compounded SOFR with lookback and lockout conventions.
+
+    Lookback: use rate from N days ago (SOFR published with lag).
+    Lockout: last N days use the rate from the lockout start.
+
+    Returns annualised compounded rate.
+    """
+    n = len(daily_rates)
+    if n == 0:
+        return 0.0
+
+    # Apply lookback: shift rates back by lookback_days
+    shifted = [0.0] * n
+    for i in range(n):
+        src = max(0, i - lookback_days)
+        shifted[i] = daily_rates[src]
+
+    # Apply lockout: freeze last N days
+    if lockout_days > 0 and n > lockout_days:
+        lock_rate = shifted[n - lockout_days - 1]
+        for i in range(n - lockout_days, n):
+            shifted[i] = lock_rate
+
+    # Compound
+    compound = 1.0
+    for r in shifted:
+        compound *= (1 + r / 360.0)
+
+    total_yf = n / 360.0
+    if total_yf <= 0:
+        return 0.0
+    return (compound - 1.0) / total_yf
+
+
+# ---------------------------------------------------------------------------
+# Netting (3→4)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class NettingResult:
+    """Net exposure after netting repos with same counterparty."""
+    counterparty: str
+    gross_repo: float
+    gross_reverse: float
+    net_exposure: float
+    n_trades: int
+
+    def to_dict(self) -> dict:
+        return {
+            "counterparty": self.counterparty,
+            "gross_repo": self.gross_repo,
+            "gross_reverse": self.gross_reverse,
+            "net": self.net_exposure,
+            "n_trades": self.n_trades,
+        }
+
+
+def netting_by_counterparty(book: RepoBook) -> list[NettingResult]:
+    """Compute net exposure per counterparty after netting.
+
+    Under ISDA/GMRA netting agreements, repo and reverse repo
+    with the same counterparty offset.
+    """
+    by_cp: dict[str, dict] = {}
+    for e in book.entries:
+        cp = e.counterparty
+        if cp not in by_cp:
+            by_cp[cp] = {"repo": 0.0, "reverse": 0.0, "n": 0}
+        if e.direction == "repo":
+            by_cp[cp]["repo"] += e.cash_amount
+        else:
+            by_cp[cp]["reverse"] += e.cash_amount
+        by_cp[cp]["n"] += 1
+
+    return [
+        NettingResult(
+            counterparty=cp,
+            gross_repo=d["repo"],
+            gross_reverse=d["reverse"],
+            net_exposure=abs(d["repo"] - d["reverse"]),
+            n_trades=d["n"],
+        )
+        for cp, d in sorted(by_cp.items())
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Fail state machine (3→4)
+# ---------------------------------------------------------------------------
+
+FAIL_STATES = ["open", "investigating", "resolving", "resolved", "bought_in"]
+
+
+@dataclass
+class FailState:
+    """Settlement fail with lifecycle state."""
+    counterparty: str
+    issuer: str
+    face_amount: float
+    fail_date: date
+    days_outstanding: int
+    state: str = "open"       # FAIL_STATES
+    buy_in_triggered: bool = False
+    buy_in_cost: float = 0.0
+
+    def advance(self, new_state: str) -> None:
+        if new_state not in FAIL_STATES:
+            raise ValueError(f"Invalid state '{new_state}'. Must be one of {FAIL_STATES}")
+        self.state = new_state
+
+    def trigger_buy_in(self, current_price: float, contract_price: float) -> None:
+        self.buy_in_triggered = True
+        self.buy_in_cost = max(0, (current_price - contract_price) / 100.0 * self.face_amount)
+        self.state = "bought_in"
+
+    def to_dict(self) -> dict:
+        return {
+            "counterparty": self.counterparty, "issuer": self.issuer,
+            "face": self.face_amount, "days": self.days_outstanding,
+            "state": self.state, "buy_in": self.buy_in_triggered,
+            "buy_in_cost": self.buy_in_cost,
+        }
+
+
+def auto_escalate_fails(
+    fails: list[FailState],
+    investigate_after: int = 2,
+    resolve_after: int = 5,
+    buy_in_after: int = 10,
+    current_prices: dict[str, float] | None = None,
+    contract_prices: dict[str, float] | None = None,
+) -> list[FailState]:
+    """Auto-advance fail states based on days outstanding."""
+    if current_prices is None:
+        current_prices = {}
+    if contract_prices is None:
+        contract_prices = {}
+
+    for f in fails:
+        if f.state == "resolved" or f.state == "bought_in":
+            continue
+        if f.days_outstanding >= buy_in_after:
+            curr = current_prices.get(f.issuer, 100.0)
+            contract = contract_prices.get(f.issuer, 100.0)
+            f.trigger_buy_in(curr, contract)
+        elif f.days_outstanding >= resolve_after:
+            f.advance("resolving")
+        elif f.days_outstanding >= investigate_after:
+            f.advance("investigating")
+
+    return fails
+
+
+# ---------------------------------------------------------------------------
+# Repo key-rate DV01 (4→5)
+# ---------------------------------------------------------------------------
+
+def repo_key_rate_dv01(
+    book: RepoBook,
+    repo_curve,
+    shift_bps: float = 1.0,
+) -> dict[int, float]:
+    """Key-rate DV01 on the repo curve — carry sensitivity per tenor bucket.
+
+    Bumps each tenor on the repo curve independently and measures
+    the carry change.
+
+    Returns: {tenor_days: carry_change_per_bp}.
+    """
+    from pricebook.repo_term import RepoCurve, RepoRate
+
+    base_carry = book.net_carry()
+    shift = shift_bps / 10_000.0
+    result = {}
+
+    for i, tenor_days in enumerate(repo_curve._days):
+        # Bump this tenor only
+        new_rates = list(repo_curve._rates)
+        new_rates[i] += shift
+        bumped = RepoCurve(
+            repo_curve.reference_date,
+            [RepoRate(d, r) for d, r in zip(repo_curve._days, new_rates)],
+        )
+
+        # Reprice all trades at bumped repo rates
+        bumped_carry = 0.0
+        for e in book.entries:
+            remaining = e.term_days
+            bumped_rate = bumped.rate(remaining)
+            dt = e.term_days / 365.0
+            sign = 1.0 if e.direction == "repo" else -1.0
+            coupon = e.face_amount * e.coupon_rate * dt
+            financing = e.cash_amount * bumped_rate * e.term_days / 360.0
+            bumped_carry += sign * (coupon - financing)
+
+        result[tenor_days] = (bumped_carry - base_carry) / shift_bps
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Regulatory haircut floors (Basel III) (3→4)
+# ---------------------------------------------------------------------------
+
+BASEL_HAIRCUT_FLOORS = {
+    # Asset class → minimum haircut % (Basel III Table 1)
+    "sovereign_0_1Y": 0.5,
+    "sovereign_1_5Y": 2.0,
+    "sovereign_5Y+": 4.0,
+    "agency_0_1Y": 1.0,
+    "agency_1_5Y": 3.0,
+    "agency_5Y+": 6.0,
+    "ig_corp_0_1Y": 2.0,
+    "ig_corp_1_5Y": 4.0,
+    "ig_corp_5Y+": 8.0,
+    "hy_corp": 15.0,
+    "equity_main_index": 15.0,
+    "equity_other": 25.0,
+    "cash_same_ccy": 0.0,
+    "fx_mismatch_add_on": 8.0,  # additional for xccy
+}
+
+
+def regulatory_haircut(
+    asset_class: str,
+    maturity_years: float,
+    is_cross_currency: bool = False,
+) -> float:
+    """Minimum regulatory haircut (Basel III).
+
+    Args:
+        asset_class: "sovereign", "agency", "ig_corp", "hy_corp", "equity"
+        maturity_years: remaining maturity of the collateral.
+        is_cross_currency: adds 8% FX add-on.
+    """
+    if asset_class in ("hy_corp", "equity_main_index", "equity_other"):
+        key = asset_class
+    else:
+        if maturity_years <= 1:
+            bucket = "0_1Y"
+        elif maturity_years <= 5:
+            bucket = "1_5Y"
+        else:
+            bucket = "5Y+"
+        key = f"{asset_class}_{bucket}"
+
+    haircut = BASEL_HAIRCUT_FLOORS.get(key, 10.0)
+
+    if is_cross_currency:
+        haircut += BASEL_HAIRCUT_FLOORS.get("fx_mismatch_add_on", 8.0)
+
+    return haircut
