@@ -67,6 +67,8 @@ class RepoTrade:
         status: str = "live",
         rate_type: str = "fixed",
         trade_id: str = "",
+        bond=None,
+        settlement_days: int = 1,
     ):
         self.counterparty = counterparty
         self.collateral_issuer = collateral_issuer
@@ -82,9 +84,18 @@ class RepoTrade:
         self.status = status
         self.rate_type = rate_type
         self.trade_id = trade_id
+        self.bond = bond  # Issue 6: reference to FixedRateBond (optional)
+        self.settlement_days = settlement_days  # Issue 5: T+1 for UST
         self._margin_posted: float = 0.0
 
     # ---- Core properties ----
+
+    @property
+    def settlement_date(self) -> date | None:
+        """Settlement date = trade date + settlement_days (Issue 5)."""
+        if self.start_date is None:
+            return None
+        return self.start_date + timedelta(days=self.settlement_days)
 
     @property
     def market_value(self) -> float:
@@ -109,7 +120,7 @@ class RepoTrade:
 
     @property
     def repurchase_amount(self) -> float:
-        """Amount to repay at maturity."""
+        """Amount to repay at maturity (ACT/360)."""
         dt = self.term_days / 360.0
         return self.cash_amount * (1 + self.repo_rate * dt)
 
@@ -119,10 +130,27 @@ class RepoTrade:
 
     @property
     def carry(self) -> float:
-        """Net carry = coupon income − financing cost."""
-        dt = self.term_days / 365.0
-        coupon = self.face_amount * self.coupon_rate * dt
+        """Net carry = coupon income − financing cost.
+
+        Issue 1 fix: coupon uses bond's day count if bond is attached,
+        otherwise ACT/365. Financing always ACT/360.
+        """
+        # Coupon accrual
+        if self.bond is not None:
+            from pricebook.day_count import year_fraction
+            sd = self.settlement_date or self.start_date
+            mat = self.maturity_date
+            if sd and mat:
+                yf = year_fraction(sd, mat, self.bond.day_count)
+            else:
+                yf = self.term_days / 365.0
+            coupon = self.face_amount * self.coupon_rate * yf
+        else:
+            coupon = self.face_amount * self.coupon_rate * self.term_days / 365.0
+
+        # Financing cost (always ACT/360)
         financing = self.cash_amount * self.repo_rate * self.term_days / 360.0
+
         sign = 1.0 if self.direction == "repo" else -1.0
         return sign * (coupon - financing)
 
@@ -132,6 +160,72 @@ class RepoTrade:
         if self.haircut >= 1:
             return float("inf")
         return self.repo_rate / (1 - self.haircut)
+
+    # ---- Coupon pass-through (Issue 2) ----
+
+    def coupons_during_term(self) -> list[tuple[date, float]]:
+        """Coupons paid on the bond during the repo term.
+
+        In a repo, the bond buyer receives coupons and must pass them
+        through to the seller (economic owner). This is called
+        "manufactured payment" or "coupon pass-through".
+
+        Returns list of (coupon_date, amount).
+        """
+        if self.bond is None:
+            return []
+        sd = self.settlement_date or self.start_date
+        mat = self.maturity_date
+        if sd is None or mat is None:
+            return []
+        result = []
+        for cf in self.bond.coupon_leg.cashflows:
+            if sd < cf.payment_date <= mat:
+                result.append((cf.payment_date, cf.amount))
+        return result
+
+    @property
+    def coupon_pass_through(self) -> float:
+        """Total coupon amount passed through during repo term."""
+        return sum(amt for _, amt in self.coupons_during_term())
+
+    # ---- Repo accrued interest (Issue 3) ----
+
+    def accrued_interest(self, as_of: date) -> float:
+        """Repo interest accrued from settlement to as_of date.
+
+        For intraday/mid-term marking. ACT/360 convention.
+        """
+        sd = self.settlement_date or self.start_date
+        if sd is None:
+            return 0.0
+        days_elapsed = max(0, (as_of - sd).days)
+        days_elapsed = min(days_elapsed, self.term_days) if self.term_days > 0 else days_elapsed
+        return self.cash_amount * self.repo_rate * days_elapsed / 360.0
+
+    # ---- Mark-to-market (Issue 4) ----
+
+    def mark_to_market(self, market_rate: float, as_of: date) -> float:
+        """Replacement-value mark-to-market.
+
+        The value of the position if you could close and re-enter at
+        the current market repo rate for the remaining term.
+
+        MTM = (contract_rate - market_rate) × cash × remaining_days / 360
+
+        Positive = you locked in below market (ahead).
+        Negative = you're above market (behind).
+        """
+        remaining = self.remaining_days(as_of)
+        if remaining <= 0:
+            return 0.0
+        mtm = (self.repo_rate - market_rate) * self.cash_amount * remaining / 360.0
+        # For repo direction: locked in low rate = good (negative mtm = you pay less)
+        # For reverse direction: locked in high rate = good
+        if self.direction == "repo":
+            return -mtm  # positive when contract rate < market
+        else:
+            return mtm   # positive when contract rate > market
 
     # ---- Pricing (Gap 8) ----
 
