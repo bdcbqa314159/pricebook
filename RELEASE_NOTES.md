@@ -2,6 +2,27 @@
 
 ---
 
+## v0.444.0 — 2026-05-02
+
+**Repo Desk Tier 1.** 6969 tests.
+
+### Cash/Maturity Ladder
+- `cash_ladder(book, ref_date, on_rate)`: groups positions by remaining tenor (O/N, 1W, 1M, 3M, 6M, 1Y+). Shows maturing cash, trade count, avg rate, refinancing cost per bucket.
+
+### Repo Rate DV01
+- `repo_rate_dv01(book)`: carry sensitivity to 1bp parallel repo shift. Per-trade breakdown. Fundamental repo risk metric.
+
+### Carry P&L Decomposition
+- `carry_pnl_decomposition(book, gc_rate)` → `CarryDecomposition`: coupon income, repo financing cost, specialness benefit (GC cost − actual cost). Answers "did I earn on carry or specialness?"
+
+### Rollover Risk
+- `rollover_risk(book)`: cost of ON rate spikes when rolling. Default scenarios: mild (+25bp/3d), moderate (+100bp/5d), severe (+300bp/10d), crisis (+500bp/30d). Only O/N + short-term positions affected.
+
+### Counterparty Exposure Monitor
+- `counterparty_exposure_monitor(book, limits)`: tracks total exposure per CP against limits. Flags breaches, computes utilisation %, headroom. Sorted by utilisation.
+
+---
+
 ## v0.443.0 — 2026-05-01
 
 **T-Lock Model Paper: practitioner's forward-bond approach.** 6941 tests.
