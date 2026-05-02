@@ -2,6 +2,30 @@
 
 ---
 
+## v0.448.0 — 2026-05-02
+
+**Repo deep issues fixed.** 7081 tests.
+
+### Day count in carry (Issue 1)
+- When bond is attached, carry uses bond's day count (ACT/ACT for UST) for coupon accrual, not hardcoded ACT/365. Financing always ACT/360.
+
+### Coupon pass-through (Issue 2)
+- `coupons_during_term()`: identifies coupons paid during repo term. The buyer must pass these to the seller (manufactured payment). `coupon_pass_through` gives the total.
+
+### Repo accrued interest (Issue 3)
+- `accrued_interest(as_of)`: daily interest accrued from settlement date. Capped at maturity. For intraday marking.
+
+### Mark-to-market (Issue 4)
+- `mark_to_market(market_rate, as_of)`: replacement-value MTM. `(contract - market) × cash × remaining/360`. Positive = locked in below market. Shrinks toward zero at maturity.
+
+### Settlement lag (Issue 5)
+- `settlement_days=1` (T+1 for UST). `settlement_date` = trade + lag. Interest accrues from settlement, not trade date.
+
+### Bond reference (Issue 6)
+- Optional `bond=FixedRateBond` attachment. Enables day count, coupon detection, accrual schedule. Everything still works without it (backward compat).
+
+---
+
 ## v0.447.0 — 2026-05-02
 
 **Repo trading gaps fixed.** 7059 tests.
