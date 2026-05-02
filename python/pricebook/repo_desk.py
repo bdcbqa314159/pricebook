@@ -109,10 +109,15 @@ class RepoTrade:
 
     @property
     def maturity_date(self) -> date | None:
-        """Maturity date (None for open repos)."""
-        if self.start_date is None or self.term_days == 0:
+        """Maturity date = settlement_date + term_days (None for open repos).
+
+        Term runs from settlement, not trade date. For T+1 UST repos,
+        maturity is 1 day later than trade + term.
+        """
+        sd = self.settlement_date
+        if sd is None or self.term_days == 0:
             return None
-        return self.start_date + timedelta(days=self.term_days)
+        return sd + timedelta(days=self.term_days)
 
     @property
     def is_open(self) -> bool:
@@ -294,12 +299,12 @@ class RepoTrade:
     # ---- Lifecycle (Gap 7) ----
 
     def remaining_days(self, as_of: date | None = None) -> int:
-        """Days remaining to maturity."""
-        if self.start_date is None or self.term_days == 0:
+        """Days remaining from as_of to maturity."""
+        mat = self.maturity_date
+        if mat is None:
             return 0
         ref = as_of or date.today()
-        mat = self.maturity_date
-        return max(0, (mat - ref).days) if mat else 0
+        return max(0, (mat - ref).days)
 
     def mature(self) -> None:
         """Mark the trade as matured."""

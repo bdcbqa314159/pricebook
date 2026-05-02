@@ -295,14 +295,24 @@ class TestLifecycle:
         assert trade.status == "terminated"
 
     def test_remaining_days(self):
-        trade = _make_trade(start_date=REF, term_days=30)
+        trade = _make_trade(start_date=REF, term_days=30, settlement_days=0)
         assert trade.remaining_days(REF) == 30
         assert trade.remaining_days(REF + timedelta(days=10)) == 20
         assert trade.remaining_days(REF + timedelta(days=40)) == 0
 
+    def test_remaining_days_t_plus_1(self):
+        trade = _make_trade(start_date=REF, term_days=30, settlement_days=1)
+        # Maturity = settlement(T+1) + 30 = REF+31
+        assert trade.remaining_days(REF) == 31
+
     def test_maturity_date(self):
-        trade = _make_trade(start_date=REF, term_days=30)
+        trade = _make_trade(start_date=REF, term_days=30, settlement_days=0)
         assert trade.maturity_date == REF + timedelta(days=30)
+
+    def test_maturity_from_settlement(self):
+        trade = _make_trade(start_date=REF, term_days=30, settlement_days=1)
+        # Maturity = settlement + term = (REF+1) + 30
+        assert trade.maturity_date == REF + timedelta(days=31)
 
     def test_open_repo(self):
         trade = _make_trade(term_days=0)
