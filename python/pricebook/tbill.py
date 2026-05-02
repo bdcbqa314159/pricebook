@@ -167,12 +167,18 @@ class TreasuryBill:
 
     @staticmethod
     def discount_to_bey(discount_yield: float, days: int) -> float:
-        """Convert discount yield to BEY."""
+        """Convert discount yield to BEY (Stigum quadratic for >182 days)."""
         price = 100.0 * (1.0 - discount_yield * days / 360.0)
         if days <= 182:
             return (100.0 - price) / price * (365.0 / days)
+        # Stigum quadratic: same formula as bond_equivalent_yield property
         dt = days / 365.0
-        return 2.0 * ((100.0 / price) ** (1.0 / (2.0 * dt)) - 1.0)
+        term1 = dt * dt
+        term2 = (2.0 * dt - 1.0) * (1.0 - 100.0 / price)
+        discriminant = term1 - term2
+        if discriminant < 0:
+            return 0.0
+        return (-2.0 * dt + 2.0 * math.sqrt(discriminant)) / (2.0 * dt - 1.0)
 
     @staticmethod
     def discount_to_mmyield(discount_yield: float, days: int) -> float:

@@ -107,6 +107,9 @@ def bond_trs_pv(
             "constant_units" (fixed units, N_C adjusts to bond price).
             Both give same PV at inception (Burgess Remark 1).
     """
+    if not 0.0 <= recovery <= 1.0:
+        raise ValueError(f"recovery must be in [0, 1], got {recovery}")
+
     N_B = bond_notional or bond.face_value
     B_0 = bond.dirty_price(discount_curve) / 100.0  # per unit face
     N_C = cash_notional or (N_B * B_0)

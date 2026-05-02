@@ -353,6 +353,8 @@ class TreasuryLock:
             lock_convention: "yield" (Eq 5), "clean_price" (Eq 3), or "dirty_price".
             locked_price: strike for clean/dirty price lock (ignored for yield lock).
         """
+        if repo_rate < -1.0:
+            raise ValueError(f"repo_rate must be > -1, got {repo_rate}")
         self.bond = bond
         self.locked_yield = locked_yield
         self.expiry = expiry
@@ -514,7 +516,7 @@ class TreasuryLock:
         d = {"type": self._SERIAL_TYPE, "params": {
             "bond": self.bond.to_dict(),
             "locked_yield": self.locked_yield,
-            "expiry": self.expiry.isoformat() if hasattr(self.expiry, 'isoformat') else str(self.expiry),
+            "expiry": self.expiry.isoformat(),
             "notional": self.notional,
             "direction": self.direction,
             "repo_rate": self.repo_rate,
@@ -544,18 +546,18 @@ class TreasuryLock:
 
     def dv01(self, curve, shift: float = 0.0001) -> float:
         """DV01: PV change for 1bp parallel yield shift."""
-        pv_base = self.pv_ctx(type("Ctx", (), {"discount_curve": curve})())
-        pv_bumped = self.pv_ctx(type("Ctx", (), {"discount_curve": curve.bumped(shift)})())
+        pv_base = self.price(curve).value
+        pv_bumped = self.price(curve.bumped(shift)).value
         return pv_bumped - pv_base
 
     def key_rate_dv01(self, curve) -> dict[str, float]:
         """Key-rate DV01: per-pillar yield sensitivity."""
-        pv_base = self.pv_ctx(type("Ctx", (), {"discount_curve": curve})())
+        pv_base = self.price(curve).value
         result = {}
         shift = 0.0001
         for i, d in enumerate(curve.pillar_dates):
             bumped = curve.bumped_at(i, shift)
-            pv_bumped = self.pv_ctx(type("Ctx", (), {"discount_curve": bumped})())
+            pv_bumped = self.price(bumped).value
             result[d.isoformat()] = (pv_bumped - pv_base) / shift
         return result
 
