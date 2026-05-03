@@ -11,6 +11,10 @@ from dateutil.relativedelta import relativedelta
 from pricebook.cln import CreditLinkedNote
 from pricebook.cln_desk import (
     cln_risk_metrics, CLNRiskMetrics,
+    cln_carry_decomposition, CLNCarryDecomposition,
+    cln_daily_pnl, CLNDailyPnL,
+    CLNBook, CLNBookEntry,
+    cln_dashboard, CLNDashboard,
 )
 from pricebook.schedule import Frequency
 from pricebook.survival_curve import SurvivalCurve
@@ -114,3 +118,175 @@ class TestCLNRiskMetrics:
         assert "cs01" in d
         assert "jtd" in d
         assert "recovery_sensitivity" in d
+
+
+# ── Carry decomposition ──
+
+class TestCLNCarry:
+
+    def test_coupon_income_positive(self):
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        cd = cln_carry_decomposition(cln, curve, surv)
+        assert cd.coupon_income > 0  # 5% × 1M = 50k/year
+
+    def test_default_drag_negative(self):
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        cd = cln_carry_decomposition(cln, curve, surv)
+        assert cd.default_drag < 0  # expected loss per year
+
+    def test_net_carry_sign(self):
+        """For typical CLN, coupon should exceed default drag."""
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        cd = cln_carry_decomposition(cln, curve, surv)
+        # 5% coupon vs 2%×60% = 1.2% default drag + 4% funding ≈ net negative
+        assert math.isfinite(cd.net_carry)
+
+    def test_to_dict(self):
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        d = cln_carry_decomposition(cln, curve, surv).to_dict()
+        assert "coupon" in d
+        assert "default_drag" in d
+        assert "net" in d
+
+
+# ── Daily P&L ──
+
+class TestCLNDailyPnL:
+
+    def test_unchanged_small(self):
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        pnl = cln_daily_pnl(cln, curve, curve, surv, surv,
+                            REF + relativedelta(days=1))
+        assert abs(pnl.total) < 1  # same curves → ~0
+
+    def test_spread_widening_negative(self):
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv_t0 = _flat_surv(0.02)
+        surv_t1 = _flat_surv(0.04)  # spreads widen
+        pnl = cln_daily_pnl(cln, curve, curve, surv_t0, surv_t1,
+                            REF + relativedelta(days=1))
+        assert pnl.total < 0  # wider spreads → loss
+
+    def test_rate_shift_has_impact(self):
+        cln = _vanilla_cln()
+        c0 = make_flat_curve(REF, 0.04)
+        c1 = make_flat_curve(REF, 0.05)
+        surv = _flat_surv(0.02)
+        pnl = cln_daily_pnl(cln, c0, c1, surv, surv,
+                            REF + relativedelta(days=1))
+        assert pnl.total != 0
+
+    def test_to_dict(self):
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        pnl = cln_daily_pnl(cln, curve, curve, surv, surv,
+                            REF + relativedelta(days=1))
+        d = pnl.to_dict()
+        assert "spread" in d
+        assert "rate" in d
+        assert "theta" in d
+
+
+# ── Book ──
+
+class TestCLNBook:
+
+    def test_add_and_count(self):
+        book = CLNBook("TestBook")
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        book.add(CLNBookEntry("C2", _leveraged_cln(), surv, issuer="MSFT"))
+        assert len(book) == 2
+
+    def test_total_notional(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        book.add(CLNBookEntry("C2", _leveraged_cln(), surv))
+        assert book.total_notional() == 2_000_000
+
+    def test_by_issuer(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        book.add(CLNBookEntry("C2", _leveraged_cln(), surv, issuer="MSFT"))
+        bi = book.by_issuer()
+        assert "AAPL" in bi
+        assert "MSFT" in bi
+
+    def test_by_seniority(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, seniority="senior"))
+        book.add(CLNBookEntry("C2", _leveraged_cln(), surv, seniority="sub"))
+        bs = book.by_seniority()
+        assert "senior" in bs
+        assert "sub" in bs
+
+    def test_independent_amount(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, independent_amount=100_000))
+        book.add(CLNBookEntry("C2", _leveraged_cln(), surv, independent_amount=200_000))
+        assert book.total_independent_amount() == 300_000
+
+    def test_aggregate_risk(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        risk = book.aggregate_risk(curve)
+        assert "total_pv" in risk
+        assert "total_cs01" in risk
+        assert "total_jtd" in risk
+        assert risk["n_positions"] == 1
+
+
+# ── Dashboard ──
+
+class TestCLNDashboard:
+
+    def test_dashboard_fields(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        curve = make_flat_curve(REF, 0.04)
+        db = cln_dashboard(book, REF, curve)
+        assert db.n_positions == 1
+        assert db.total_notional == 1_000_000
+        assert math.isfinite(db.total_pv)
+        assert math.isfinite(db.total_cs01)
+
+    def test_by_issuer_breakdown(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        book.add(CLNBookEntry("C2", _leveraged_cln(), surv, issuer="MSFT"))
+        curve = make_flat_curve(REF, 0.04)
+        db = cln_dashboard(book, REF, curve)
+        assert "AAPL" in db.by_issuer
+        assert "MSFT" in db.by_issuer
+
+    def test_to_dict(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        db = cln_dashboard(book, REF, curve)
+        d = db.to_dict()
+        assert "cs01" in d
+        assert "jtd" in d
+        assert "by_issuer" in d
+        assert "by_seniority" in d

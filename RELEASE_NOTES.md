@@ -2,6 +2,17 @@
 
 ---
 
+## v0.463.0 — 2026-05-03
+
+**CLN Desk S2-S5: Carry, P&L, book, dashboard.** 17 new tests.
+
+- `CLNCarryDecomposition`: coupon income, default drag (h×(1-R)×N), funding cost, net carry.
+- `CLNDailyPnL`: spread (cs01×Δh), rate (dv01×Δr), recovery, carry, theta (curve roll-down).
+- `CLNBook` + `CLNBookEntry`: by issuer, seniority, counterparty. Per-entry survival curve.
+- `CLNDashboard`: PV, CS01, DV01, JTD, recovery_sens, by_issuer, by_seniority.
+
+---
+
 ## v0.462.0 — 2026-05-03
 
 **CLN Desk S1: Risk metrics + L11 hand-calc verification.** 7 new tests.
