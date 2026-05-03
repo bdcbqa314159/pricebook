@@ -410,6 +410,131 @@ class CreditLinkedNote:
             par_coupon=0.0,
         )
 
+    def price_stochastic_intensity(
+        self,
+        discount_curve: DiscountCurve,
+        intensity_model,
+        x0: float | None = None,
+        n_paths: int = 50_000,
+        n_steps: int = 200,
+        seed: int = 42,
+    ) -> CLNResult:
+        """Price CLN via Monte Carlo under stochastic intensity.
+
+        For each path:
+          1. Simulate intensity λ(t) from the model.
+          2. Compute path survival Q_path(t) = exp(−∫λ ds).
+          3. Accumulate coupon × df × Q and recovery × df × ΔQ per period.
+          4. Average across paths.
+
+        Supports CIRPlusPlus, HWHazardRate, or CIRIntensity models.
+        """
+        import numpy as np
+
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if x0 is None:
+            # Use theta or first hazard as starting point
+            if hasattr(intensity_model, 'theta'):
+                x0 = intensity_model.theta
+            else:
+                x0 = 0.02
+
+        # Simulate intensity paths
+        result = intensity_model.simulate(x0, T, n_steps, n_paths, seed)
+        lambda_paths = result.lambda_paths  # (n_paths, n_steps+1)
+        dt = T / n_steps
+
+        # Cumulative survival per path: Q(t) = exp(-∫₀ᵗ λ ds)
+        cum_integral = np.cumsum(lambda_paths[:, :-1] * dt, axis=1)
+        # Prepend zero for t=0
+        cum_integral = np.concatenate([np.zeros((n_paths, 1)), cum_integral], axis=1)
+        path_survival = np.exp(-cum_integral)  # (n_paths, n_steps+1)
+
+        # Map coupon periods to simulation steps
+        coupon_pv_total = 0.0
+        recovery_pv_total = 0.0
+
+        for i in range(1, len(self.schedule)):
+            t_start = self.schedule[i - 1]
+            t_end = self.schedule[i]
+            yf_coupon = year_fraction(t_start, t_end, self.day_count)
+            t_frac = year_fraction(self.start, t_end, DayCountConvention.ACT_365_FIXED)
+            t_frac_prev = year_fraction(self.start, t_start, DayCountConvention.ACT_365_FIXED)
+
+            step_end = min(int(t_frac / dt), n_steps)
+            step_prev = min(int(t_frac_prev / dt), n_steps)
+
+            df = discount_curve.df(t_end)
+            surv_end = path_survival[:, step_end]        # (n_paths,)
+            surv_prev = path_survival[:, step_prev]      # (n_paths,)
+            default_prob = np.maximum(surv_prev - surv_end, 0.0)
+
+            # Coupon
+            if self.floating:
+                fwd = discount_curve.forward_rate(t_start, t_end)
+                coupon = self.notional * (fwd + self.coupon_rate) * yf_coupon
+            else:
+                coupon = self.notional * self.coupon_rate * yf_coupon
+
+            coupon_pv_total += float(np.mean(coupon * df * surv_end))
+
+            # Recovery on default
+            recovery_pv_total += float(np.mean(
+                self.recovery * self.notional * default_prob * df
+            ))
+
+            # Leveraged loss
+            if self.leverage > 1.0:
+                extra_loss = (self.leverage - 1.0) * (1.0 - self.recovery) * self.notional
+                recovery_pv_total -= float(np.mean(extra_loss * default_prob * df))
+
+        # Principal at maturity
+        final_surv = float(np.mean(path_survival[:, -1]))
+        principal_pv = self.notional * discount_curve.df(self.end) * final_surv
+
+        total_pv = coupon_pv_total + principal_pv + recovery_pv_total
+
+        return CLNResult(
+            price=total_pv,
+            coupon_pv=coupon_pv_total,
+            principal_pv=principal_pv,
+            recovery_pv=recovery_pv_total,
+            credit_spread=0.0,
+            par_coupon=0.0,
+        )
+
+    def price_stochastic_intensity_from_curve(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+        model_type: str = "cir++",
+        xi: float = 0.1,
+        kappa: float = 1.0,
+        n_paths: int = 50_000,
+        n_steps: int = 200,
+        seed: int = 42,
+        **model_kwargs,
+    ) -> CLNResult:
+        """Auto-calibrate stochastic model from survival curve, then price.
+
+        Combines Phase 2 (curve → model) + Phase 4 (model → MC price).
+        """
+        from pricebook.hazard_rate_models import CIRPlusPlus, HWHazardRate
+
+        if model_type == "cir++":
+            model = CIRPlusPlus.from_survival_curve(
+                survival_curve, kappa=kappa, xi=xi, **model_kwargs)
+            x0 = model.theta
+        elif model_type == "hw":
+            model = HWHazardRate.from_survival_curve(
+                survival_curve, a=kappa, sigma=xi)
+            x0 = survival_curve.pillar_hazards()[0][1] if survival_curve.pillar_hazards() else 0.02
+        else:
+            raise ValueError(f"Unknown model_type: {model_type}")
+
+        return self.price_stochastic_intensity(
+            discount_curve, model, x0, n_paths, n_steps, seed)
+
     def rec_vol_01(
         self,
         discount_curve: DiscountCurve,

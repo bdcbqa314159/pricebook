@@ -2,6 +2,22 @@
 
 ---
 
+## v0.468.0 — 2026-05-03
+
+**CLN Pipeline P3+P4: Swaption vol calibration + stochastic intensity CLN pricing.** 6 new tests.
+
+### Intensity vol calibration (P3)
+- `implied_intensity_vol()`: brentq inversion of CDS swaption price → CIR xi.
+- `calibrate_intensity_vol()`: fit xi to multiple swaption prices.
+
+### Stochastic intensity CLN pricing (P4)
+- `CreditLinkedNote.price_stochastic_intensity()`: MC pricing under CIR++/HW intensity.
+  Simulates λ(t), computes path survival Q_path(t) = exp(−∫λ ds), accumulates coupon/recovery per path.
+- `price_stochastic_intensity_from_curve()`: auto-calibrates model (CIR++ or HW) from survival curve, then prices.
+- Deterministic limit verified: xi→0 matches dirty_price() within 2%.
+
+---
+
 ## v0.467.0 — 2026-05-03
 
 **CLN Pipeline P2: Wire CIR++/HW to SurvivalCurve (auto-calibration).** 7 new tests.

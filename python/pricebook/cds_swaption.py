@@ -732,6 +732,95 @@ class StochasticIntensitySwaption:
         )
 
 
+# ---- Intensity vol calibration ----
+
+
+def implied_intensity_vol(
+    market_premium: float,
+    expiry: float,
+    cds_maturity: float,
+    strike_spread: float,
+    kappa: float,
+    theta: float,
+    flat_rate: float = 0.05,
+    recovery: float = 0.4,
+    option_type: str = "payer",
+    notional: float = 1_000_000,
+    n_paths: int = 20_000,
+    seed: int = 42,
+) -> float:
+    """Invert a single CDS swaption price to find CIR intensity vol xi.
+
+    Like implied vol for Black-Scholes, but for the CIR intensity model.
+    Uses brentq to solve StochasticIntensitySwaption.price(xi) = market_premium.
+    """
+    from pricebook.solvers import brentq
+
+    def objective(xi):
+        model = StochasticIntensitySwaption(kappa, theta, xi, flat_rate, recovery)
+        result = model.price(expiry, cds_maturity, strike_spread,
+                            notional, option_type, n_paths, n_steps=50, seed=seed)
+        return result.premium - market_premium
+
+    return brentq(objective, 0.001, 2.0)
+
+
+def calibrate_intensity_vol(
+    target_premiums: list[dict],
+    kappa: float,
+    theta: float,
+    flat_rate: float = 0.05,
+    recovery: float = 0.4,
+    n_paths: int = 20_000,
+    seed: int = 42,
+) -> dict:
+    """Calibrate CIR intensity vol (xi) from multiple CDS swaption prices.
+
+    Args:
+        target_premiums: list of dicts with keys:
+            expiry, cds_maturity, strike_spread, market_premium, option_type.
+
+    Returns dict with xi, calibration_errors, total_rmse.
+    """
+    from pricebook.solvers import brentq
+
+    # Calibrate xi to minimise total pricing error
+    # For single-parameter calibration, use average implied vol
+    implied_vols = []
+    for tp in target_premiums:
+        try:
+            iv = implied_intensity_vol(
+                tp["market_premium"], tp["expiry"], tp["cds_maturity"],
+                tp["strike_spread"], kappa, theta, flat_rate, recovery,
+                tp.get("option_type", "payer"), tp.get("notional", 1_000_000),
+                n_paths, seed,
+            )
+            implied_vols.append(iv)
+        except (ValueError, RuntimeError):
+            pass
+
+    if not implied_vols:
+        return {"xi": 0.1, "calibration_errors": [], "total_rmse": float("inf")}
+
+    xi_avg = sum(implied_vols) / len(implied_vols)
+
+    # Compute errors at calibrated xi
+    errors = []
+    model = StochasticIntensitySwaption(kappa, theta, xi_avg, flat_rate, recovery)
+    for tp in target_premiums:
+        result = model.price(
+            tp["expiry"], tp["cds_maturity"], tp["strike_spread"],
+            tp.get("notional", 1_000_000), tp.get("option_type", "payer"),
+            n_paths, n_steps=50, seed=seed,
+        )
+        errors.append(result.premium - tp["market_premium"])
+
+    import math
+    rmse = math.sqrt(sum(e**2 for e in errors) / max(len(errors), 1))
+
+    return {"xi": xi_avg, "calibration_errors": errors, "total_rmse": rmse}
+
+
 # ---- Exercise into physical CDS ----
 
 @dataclass
