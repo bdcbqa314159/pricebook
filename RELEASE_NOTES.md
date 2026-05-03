@@ -2,6 +2,16 @@
 
 ---
 
+## v0.456.0 — 2026-05-03
+
+**TRS S2: Wire MC XVA engine (full CVA/DVA/FVA/MVA decomposition).** 8 new tests.
+
+- `trs_mc_xva()`: wires `xva.simulate_exposures()` → EPE/ENE profiles → `total_xva_decomposition()`.
+- Full Lou 2015 Eq 3 decomposition: CVA, DVA, CFA, DFA, ColVA, FVA, MVA, KVA.
+- IM profile uses SIMM from Slice 1. Analytic CVA/DVA kept as fast approximations.
+
+---
+
 ## v0.455.0 — 2026-05-03
 
 **TRS S1: Wire SIMM IM (replace 5% proxy).** 6 new tests.

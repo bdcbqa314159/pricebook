@@ -15,9 +15,13 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+import numpy as np
+
 from pricebook.trs import TotalReturnSwap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.survival_curve import SurvivalCurve
+from pricebook.pricing_context import PricingContext
 
 
 def trs_simm_im(
@@ -187,3 +191,62 @@ def trs_independent_amount(
     if ia_method == "fixed" and simm_im is not None:
         return simm_im
     return trs.notional * ia_pct
+
+
+# ---------------------------------------------------------------------------
+# Monte Carlo XVA (wires xva.py engine to TRS)
+# ---------------------------------------------------------------------------
+
+def trs_mc_xva(
+    trs: TotalReturnSwap,
+    ctx: PricingContext,
+    cpty_survival: SurvivalCurve,
+    own_survival: SurvivalCurve,
+    cpty_recovery: float = 0.4,
+    own_recovery: float = 0.4,
+    funding_spread: float = 0.005,
+    n_paths: int = 1000,
+    n_steps: int = 12,
+    rate_vol: float = 0.01,
+    seed: int = 42,
+):
+    """Monte Carlo XVA for a TRS — full decomposition.
+
+    Wires the generic xva.py MC engine to TRS pricing:
+    1. simulate_exposures() diffuses rates, reprices TRS at each time step
+    2. Computes EPE/ENE profiles
+    3. total_xva_decomposition() → CVA, DVA, CFA, DFA, FVA, MVA, KVA
+
+    Returns a TotalXVAResult from xva.py.
+    """
+    from pricebook.xva import (
+        simulate_exposures, expected_positive_exposure,
+        expected_negative_exposure, total_xva_decomposition,
+    )
+
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    time_grid = [(i + 1) * T / n_steps for i in range(n_steps)]
+
+    # Pricer compatible with simulate_exposures
+    pricer = lambda c: trs.pv_ctx(c)
+
+    # Simulate exposures
+    pvs = simulate_exposures(pricer, ctx, time_grid, n_paths, rate_vol, seed)
+    epe = expected_positive_exposure(pvs)
+    ene = expected_negative_exposure(pvs)
+
+    # IM profile for MVA (SIMM at each time step — use flat approximation)
+    if ctx.discount_curve is not None:
+        im_val = trs_simm_im(trs, ctx.discount_curve)
+    else:
+        im_val = trs.notional * 0.05
+    im_profile = np.full(n_steps, im_val)
+
+    return total_xva_decomposition(
+        epe=epe, ene=ene, time_grid=time_grid,
+        discount_curve=ctx.discount_curve,
+        cpty_survival=cpty_survival, own_survival=own_survival,
+        cpty_recovery=cpty_recovery, own_recovery=own_recovery,
+        funding_spread=funding_spread,
+        im_profile=im_profile,
+    )

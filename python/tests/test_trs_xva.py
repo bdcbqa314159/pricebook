@@ -16,8 +16,11 @@ from pricebook.trs_xva import (
     trs_analytic_cva,
     trs_analytic_dva,
     trs_independent_amount,
+    trs_mc_xva,
 )
 from pricebook.bond import FixedRateBond
+from pricebook.survival_curve import SurvivalCurve
+from pricebook.pricing_context import PricingContext
 from tests.conftest import make_flat_curve
 
 
@@ -268,3 +271,110 @@ class TestIndependentAmount:
         trs = _equity_trs()
         ia = trs_independent_amount(trs, ia_method="simm")
         assert ia == 1_000_000 * 0.10
+
+
+# ── Monte Carlo XVA ──
+
+class TestMCXVA:
+
+    def _make_ctx(self, rate=0.04):
+        curve = make_flat_curve(REF, rate)
+        return PricingContext(valuation_date=REF, discount_curve=curve)
+
+    def _survival(self, hazard=0.02):
+        return SurvivalCurve.flat(REF, hazard)
+
+    def test_mc_cva_nonnegative(self):
+        """CVA >= 0 always. At inception with no price move, CVA ≈ 0."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4,
+        )
+        assert result.cva >= 0
+
+    def test_mc_cva_bond_rate_sensitive(self):
+        """Bond TRS has rate-driven exposure — CVA or DVA should be nonzero."""
+        from pricebook.bond import FixedRateBond
+        bond = FixedRateBond.treasury_note(date(2024, 2, 15), date(2034, 2, 15), 0.04125)
+        trs = TotalReturnSwap(
+            underlying=bond, notional=10_000_000,
+            start=REF, end=END,
+            funding=FundingLegSpec(spread=0.005),
+            initial_price=102.0,
+        )
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4, rate_vol=0.005,
+        )
+        # Under rate diffusion, bond TRS has exposure in both directions
+        assert result.cva >= 0
+        assert result.dva >= 0
+        assert result.cva + result.dva > 0  # at least one side has exposure
+
+    def test_mc_dva_positive(self):
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4,
+        )
+        assert result.dva > 0
+
+    def test_mc_bilateral(self):
+        """Bilateral CVA = CVA - DVA."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4,
+        )
+        assert abs(result.bilateral_cva - (result.cva - result.dva)) < 1e-10
+
+    def test_mc_fva_nonneg(self):
+        """FVA >= 0 (FVA on positive exposure; equity TRS at inception has EPE≈0)."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            funding_spread=0.01, n_paths=200, n_steps=4,
+        )
+        assert result.fva_val >= 0
+
+    def test_mc_mva_positive(self):
+        """MVA should be positive when IM profile is provided."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            funding_spread=0.01, n_paths=200, n_steps=4,
+        )
+        assert result.mva_val > 0
+
+    def test_mc_total_decomposition(self):
+        """Total = CVA - DVA + CFA - DFA + FVA + MVA + KVA."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4,
+        )
+        expected = (result.cva - result.dva + result.cfa - result.dfa
+                    + result.colva + result.fva_val + result.mva_val + result.kva_val)
+        assert abs(result.total - expected) < 1e-10
+
+    def test_mc_to_dict(self):
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=100, n_steps=4,
+        )
+        d = result.to_dict()
+        # May be wrapped in {"type": ..., "params": {...}} by serialisation
+        inner = d.get("params", d)
+        assert "cva" in inner
+        assert "dva" in inner
+        assert "total" in inner
