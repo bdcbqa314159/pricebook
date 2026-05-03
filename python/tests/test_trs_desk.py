@@ -19,7 +19,11 @@ from pricebook.trs_desk import (
     trs_stress_suite, TRSStressResult,
     trs_capital_summary, TRSCapitalSummary,
     trs_hedge_recommendations, TRSHedgeRecommendation,
+    trs_scenario_stress, trs_dv01_ladder,
+    TRSLifecycle, TRSMarginCall,
+    trs_collateral_evolution, CollateralState,
 )
+from pricebook.pricing_context import PricingContext
 from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
@@ -345,3 +349,167 @@ class TestHedgeRecommendations:
             d = recs[0].to_dict()
             assert "risk" in d
             assert "action" in d
+
+
+# ── Scenario stress (full reprice) ──
+
+class TestScenarioStress:
+
+    def _make_ctx(self, rate=0.04):
+        curve = make_flat_curve(REF, rate)
+        return PricingContext(valuation_date=REF, discount_curve=curve)
+
+    def test_scenario_returns_results(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        ctx = self._make_ctx()
+        results = trs_scenario_stress(book, ctx)
+        assert len(results) == 4  # 4 default scenarios
+
+    def test_scenario_pnl_nonzero(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        ctx = self._make_ctx()
+        results = trs_scenario_stress(book, ctx)
+        assert any(r.pnl != 0 for r in results)
+
+    def test_scenario_backward_compat(self):
+        """Old trs_stress_suite still works."""
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        results = trs_stress_suite(book, curve)
+        assert len(results) == 5
+
+
+# ── Improved P&L attribution ──
+
+class TestImprovedPnL:
+
+    def test_pnl_has_gamma(self):
+        trs = _equity_trs()
+        c0 = make_flat_curve(REF, 0.04)
+        c1 = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, c0, c1, REF + relativedelta(days=1),
+                            spot_t0=100.0, spot_t1=105.0)
+        assert math.isfinite(pnl.gamma_pnl)
+
+    def test_pnl_has_theta(self):
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, curve, curve, REF + relativedelta(days=1))
+        assert math.isfinite(pnl.theta_pnl)
+
+    def test_pnl_spread_attribution(self):
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, curve, curve, REF + relativedelta(days=1),
+                            spread_change=0.001)
+        # spread_pnl = cs01 × spread_change / 0.0001
+        assert math.isfinite(pnl.spread_pnl)
+
+    def test_pnl_vega_attribution(self):
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, curve, curve, REF + relativedelta(days=1),
+                            vol_change=0.05)
+        assert math.isfinite(pnl.vega_pnl)
+
+    def test_pnl_to_dict_has_new_fields(self):
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, curve, curve, REF + relativedelta(days=1))
+        d = pnl.to_dict()
+        assert "gamma" in d
+        assert "theta" in d
+        assert "spread" in d
+        assert "vega" in d
+
+
+# ── Lifecycle ──
+
+class TestLifecycle:
+
+    def test_reset_updates_initial_price(self):
+        trs = _equity_trs()
+        lc = TRSLifecycle(trs, "T1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        new_price = lc.process_reset(REF + relativedelta(months=3), curve, new_price=105.0)
+        assert new_price == 105.0
+        assert trs.initial_price == 105.0
+
+    def test_reset_creates_event(self):
+        trs = _equity_trs()
+        lc = TRSLifecycle(trs, "T1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        lc.process_reset(REF + relativedelta(months=3), curve, new_price=105.0)
+        assert len(lc.history) >= 2  # created + reset
+
+    def test_margin_call_above_threshold(self):
+        trs = _equity_trs()
+        lc = TRSLifecycle(trs, "T1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        mc = lc.margin_call(REF, curve, threshold=0.0, min_transfer=0)
+        if abs(trs.price(curve).value) > 0:
+            assert mc.required_transfer > 0
+
+    def test_margin_call_min_transfer(self):
+        trs = _equity_trs()
+        lc = TRSLifecycle(trs, "T1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        mc = lc.margin_call(REF, curve, threshold=0.0, min_transfer=1e15)
+        assert mc.required_transfer == 0.0
+
+    def test_early_termination(self):
+        trs = _equity_trs()
+        lc = TRSLifecycle(trs, "T1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        breakage = lc.early_terminate(REF, curve)
+        expected = trs.price(curve).value
+        assert abs(breakage - expected) < 0.01
+
+    def test_history_ordered(self):
+        trs = _equity_trs()
+        lc = TRSLifecycle(trs, "T1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        lc.process_reset(REF + relativedelta(months=3), curve, new_price=105.0)
+        hist = lc.history
+        dates = [h["date"] for h in hist]
+        assert dates == sorted(dates)
+
+
+# ── Collateral evolution ──
+
+class TestCollateralEvolution:
+
+    def test_evolution_length(self):
+        trs = _equity_trs()
+        dates = [REF + relativedelta(days=i) for i in range(5)]
+        curves = [make_flat_curve(REF, 0.04 + i * 0.005) for i in range(5)]
+        states = trs_collateral_evolution(trs, dates, curves)
+        assert len(states) == 5
+
+    def test_margin_call_triggered(self):
+        trs = _equity_trs()
+        dates = [REF, REF + relativedelta(days=1)]
+        curves = [make_flat_curve(REF, 0.04), make_flat_curve(REF, 0.10)]
+        states = trs_collateral_evolution(
+            trs, dates, curves, threshold=0.0, min_transfer=0)
+        assert any(s.margin_call != 0 for s in states)
+
+    def test_min_transfer_respected(self):
+        trs = _equity_trs()
+        dates = [REF]
+        curves = [make_flat_curve(REF, 0.04)]
+        states = trs_collateral_evolution(
+            trs, dates, curves, min_transfer=1e15)
+        assert states[0].margin_call == 0.0
+
+    def test_to_dict(self):
+        trs = _equity_trs()
+        dates = [REF]
+        curves = [make_flat_curve(REF, 0.04)]
+        states = trs_collateral_evolution(trs, dates, curves)
+        d = states[0].to_dict()
+        assert "mtm" in d
+        assert "net_exposure" in d

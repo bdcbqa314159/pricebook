@@ -2,6 +2,30 @@
 
 ---
 
+## v0.457.0 — 2026-05-03
+
+**TRS S3-S5+S7: Scenario stress, P&L attribution, lifecycle, collateral.** 18 new tests.
+
+### Scenario stress (S3)
+- `trs_scenario_stress()`: wires `scenario.run_scenarios()` for full-reprice stress (no Greek approximation).
+- `trs_dv01_ladder()`: per-pillar DV01 via `scenario.pillar_bump()`.
+
+### P&L attribution (S4)
+- `trs_daily_pnl()`: expanded with gamma, theta, spread, vega components.
+- Theta via 1-day time shift. Gamma via `0.5 × gamma × dx²`. Uses `pnl_explain.greek_pnl()`.
+
+### Lifecycle (S5)
+- `TRSLifecycle`: wraps `trade_lifecycle.ManagedTrade` with TRS-specific events.
+- `process_reset()`: updates initial_price, records versioned amendment.
+- `margin_call()`: MTM vs threshold with min_transfer filter.
+- `early_terminate()`: breakage cost = current MTM.
+
+### Collateral dynamics (S7)
+- `trs_collateral_evolution()`: simulate margin calls over date series.
+- `CollateralState`: MTM, posted collateral, net exposure, margin call at each date.
+
+---
+
 ## v0.456.0 — 2026-05-03
 
 **TRS S2: Wire MC XVA engine (full CVA/DVA/FVA/MVA decomposition).** 8 new tests.

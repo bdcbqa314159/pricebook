@@ -19,6 +19,7 @@ from datetime import date, timedelta
 
 from pricebook.trs import TotalReturnSwap, TRSResult, FundingLegSpec
 from pricebook.discount_curve import DiscountCurve
+from pricebook.pricing_context import PricingContext
 from pricebook.day_count import DayCountConvention, year_fraction
 
 
@@ -172,19 +173,25 @@ def trs_carry_decomposition(
 
 @dataclass
 class TRSDailyPnL:
-    """Daily P&L decomposition."""
+    """Daily P&L decomposition with full Greek attribution."""
     date: date
     total: float
     delta_pnl: float
+    gamma_pnl: float
     carry_pnl: float
+    theta_pnl: float
     funding_pnl: float
+    spread_pnl: float
+    vega_pnl: float
     unexplained: float
 
     def to_dict(self) -> dict:
         return {
             "date": self.date.isoformat(), "total": self.total,
-            "delta": self.delta_pnl, "carry": self.carry_pnl,
-            "funding": self.funding_pnl, "unexplained": self.unexplained,
+            "delta": self.delta_pnl, "gamma": self.gamma_pnl,
+            "carry": self.carry_pnl, "theta": self.theta_pnl,
+            "funding": self.funding_pnl, "spread": self.spread_pnl,
+            "vega": self.vega_pnl, "unexplained": self.unexplained,
         }
 
 
@@ -194,27 +201,81 @@ def trs_daily_pnl(
     curve_t1: DiscountCurve,
     date_t1: date,
     projection_curve: DiscountCurve | None = None,
+    spot_t0: float | None = None,
+    spot_t1: float | None = None,
+    vol_change: float = 0.0,
+    spread_change: float = 0.0,
 ) -> TRSDailyPnL:
-    """Daily P&L: PV change + attribution."""
+    """Daily P&L with full Greek attribution.
+
+    Components:
+    - delta: first-order price sensitivity × underlying move
+    - gamma: 0.5 × gamma × (underlying move)²
+    - carry: 1-day income accrual
+    - theta: time-decay (PV loss from 1 day passing, same curves)
+    - funding: funding leg change
+    - spread: CS01 × spread_change
+    - vega: vega × vol_change
+    - unexplained: total minus all explained
+    """
+    from pricebook.pnl_explain import greek_pnl
+
     pv_t0 = trs.price(curve_t0, projection_curve).value
     pv_t1 = trs.price(curve_t1, projection_curve).value
     total = pv_t1 - pv_t0
 
-    # Carry: 1-day accrual at t0 curves
+    # Risk metrics at t0
+    rm = trs_risk_metrics(trs, curve_t0, projection_curve)
+
+    # Carry: 1-day accrual
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
-    daily_carry = trs.price(curve_t0, projection_curve).income_return / max(T * 365, 1)
+    carry = trs.price(curve_t0, projection_curve).income_return / max(T * 365, 1)
 
-    # Delta P&L: rate move component
-    delta_pnl = total - daily_carry
+    # Delta + Gamma P&L
+    delta_pnl = 0.0
+    gamma_pnl = 0.0
+    if trs._underlying_type == "equity" and spot_t0 is not None and spot_t1 is not None:
+        dx = spot_t1 - spot_t0
+        delta_pnl = rm.delta * dx
+        gamma_pnl = 0.5 * rm.gamma * dx ** 2
+    else:
+        # Rate-driven: use DV01 × rate change
+        rate_change = 0.0
+        if hasattr(curve_t0, '_rates') and hasattr(curve_t1, '_rates'):
+            r0 = curve_t0._rates[0] if curve_t0._rates else 0
+            r1 = curve_t1._rates[0] if curve_t1._rates else 0
+            rate_change = r1 - r0
+        delta_pnl = greek_pnl(rm.dv01, rate_change * 10_000)  # DV01 is per 1bp
 
-    # Funding P&L: funding leg change
+    # Theta: time decay (advance 1 day, same curve)
+    theta_pnl = 0.0
+    old_start = trs.start
+    trs.start = old_start + timedelta(days=1)
+    try:
+        pv_t0_shifted = trs.price(curve_t0, projection_curve).value
+    except (ValueError, ZeroDivisionError):
+        pv_t0_shifted = pv_t0
+    trs.start = old_start
+    theta_pnl = pv_t0_shifted - pv_t0
+
+    # Funding P&L
     funding_t0 = trs.price(curve_t0, projection_curve).funding_leg
     funding_t1 = trs.price(curve_t1, projection_curve).funding_leg
     funding_pnl = -(funding_t1 - funding_t0)
 
-    unexplained = total - delta_pnl - daily_carry
+    # Spread P&L
+    spread_pnl = rm.cs01 * spread_change / 0.0001 if spread_change != 0 else 0.0
 
-    return TRSDailyPnL(date_t1, total, delta_pnl, daily_carry, funding_pnl, unexplained)
+    # Vega P&L
+    vega_pnl = rm.vega * vol_change if vol_change != 0 else 0.0
+
+    explained = delta_pnl + gamma_pnl + carry + theta_pnl + funding_pnl + spread_pnl + vega_pnl
+    unexplained = total - explained
+
+    return TRSDailyPnL(
+        date_t1, total, delta_pnl, gamma_pnl, carry, theta_pnl,
+        funding_pnl, spread_pnl, vega_pnl, unexplained,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -479,6 +540,56 @@ def trs_stress_suite(
 
 
 # ---------------------------------------------------------------------------
+# Scenario full-reprice stress (wires scenario.py)
+# ---------------------------------------------------------------------------
+
+def trs_scenario_stress(
+    book: TRSBook,
+    ctx: PricingContext,
+    scenarios: list | None = None,
+) -> list:
+    """Full-reprice stress testing using scenario.py engine.
+
+    Wraps TRS book into a Portfolio, then runs scenarios via
+    run_scenarios() for exact PV recomputation (no Greek approx).
+    """
+    from pricebook.scenario import parallel_shift, run_scenarios, ScenarioResult
+    from pricebook.trade import Trade, Portfolio
+
+    portfolio = Portfolio(name=book.name)
+    for e in book.entries:
+        portfolio.add(Trade(instrument=e.trs, trade_id=e.trade_id))
+
+    if scenarios is None:
+        from pricebook.scenario import parallel_shift
+        scenarios = [
+            parallel_shift(0.01, "rates_+100bp"),
+            parallel_shift(-0.01, "rates_-100bp"),
+            parallel_shift(0.02, "rates_+200bp"),
+            parallel_shift(-0.02, "rates_-200bp"),
+        ]
+
+    return run_scenarios(portfolio, ctx, scenarios)
+
+
+def trs_dv01_ladder(
+    book: TRSBook,
+    ctx: PricingContext,
+) -> list:
+    """Per-pillar DV01 ladder using scenario.py pillar_bump."""
+    from pricebook.scenario import pillar_bump, run_scenarios
+    from pricebook.trade import Trade, Portfolio
+
+    portfolio = Portfolio(name=book.name)
+    for e in book.entries:
+        portfolio.add(Trade(instrument=e.trs, trade_id=e.trade_id))
+
+    n_pillars = len(ctx.discount_curve._times) if ctx.discount_curve else 0
+    scenarios = [pillar_bump(i) for i in range(n_pillars)]
+    return run_scenarios(portfolio, ctx, scenarios)
+
+
+# ---------------------------------------------------------------------------
 # Regulatory capital summary
 # ---------------------------------------------------------------------------
 
@@ -637,3 +748,191 @@ def trs_hedge_recommendations(
             ))
 
     return recs
+
+
+# ---------------------------------------------------------------------------
+# TRS Lifecycle (resets, margin calls, early termination)
+# ---------------------------------------------------------------------------
+
+class TRSEventType:
+    RESET = "reset"
+    MARGIN_CALL = "margin_call"
+    EARLY_TERMINATION = "early_termination"
+
+
+@dataclass
+class TRSMarginCall:
+    """Result of a margin call computation."""
+    date: date
+    mtm: float
+    threshold: float
+    required_transfer: float
+    direction: str  # "receive" or "pay"
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(), "mtm": self.mtm,
+            "threshold": self.threshold, "transfer": self.required_transfer,
+            "direction": self.direction,
+        }
+
+
+class TRSLifecycle:
+    """Lifecycle management for a TRS position.
+
+    Wraps trade_lifecycle.ManagedTrade for versioned history + TRS-specific
+    events (resets, margin calls, early termination).
+    """
+
+    def __init__(self, trs: TotalReturnSwap, trade_id: str = "", creation_date: date | None = None):
+        from pricebook.trade import Trade
+        from pricebook.trade_lifecycle import ManagedTrade
+
+        self._trs = trs
+        self._trade_id = trade_id
+        trade = Trade(instrument=trs, trade_id=trade_id)
+        self._managed = ManagedTrade(trade, creation_date or trs.start)
+        self._events: list[dict] = []
+
+    @property
+    def trs(self) -> TotalReturnSwap:
+        return self._trs
+
+    @property
+    def history(self) -> list[dict]:
+        """Combined history: lifecycle events + TRS events."""
+        base = [
+            {"type": e.event_type.value, "date": e.event_date.isoformat(),
+             "version": e.version, **e.details}
+            for e in self._managed.history
+        ]
+        return sorted(base + self._events, key=lambda x: x.get("date", ""))
+
+    def process_reset(
+        self, reset_date: date, curve: DiscountCurve,
+        new_price: float | None = None,
+    ) -> float:
+        """Process a periodic reset: update initial_price, record event.
+
+        Returns the new initial price.
+        """
+        if new_price is None:
+            result = self._trs.price(curve)
+            if self._trs._underlying_type == "equity":
+                new_price = float(self._trs.underlying)
+            else:
+                new_price = result.value / self._trs.notional * 100 + (self._trs.initial_price or 100)
+
+        old_price = self._trs.initial_price
+        self._trs.initial_price = new_price
+
+        self._events.append({
+            "type": TRSEventType.RESET,
+            "date": reset_date.isoformat(),
+            "old_price": old_price,
+            "new_price": new_price,
+        })
+
+        # Record as amendment in managed trade
+        self._managed.amend(reset_date, instrument=self._trs)
+
+        return new_price
+
+    def margin_call(
+        self, as_of: date, curve: DiscountCurve,
+        threshold: float = 0.0,
+        min_transfer: float = 250_000,
+    ) -> TRSMarginCall:
+        """Compute margin call based on MTM vs threshold."""
+        result = self._trs.price(curve)
+        mtm = result.value
+        net = abs(mtm) - threshold
+        required = max(net, 0)
+        direction = "receive" if mtm > 0 else "pay"
+
+        if required < min_transfer:
+            required = 0.0
+
+        if required > 0:
+            self._events.append({
+                "type": TRSEventType.MARGIN_CALL,
+                "date": as_of.isoformat(),
+                "mtm": mtm,
+                "transfer": required,
+                "direction": direction,
+            })
+
+        return TRSMarginCall(as_of, mtm, threshold, required, direction)
+
+    def early_terminate(self, as_of: date, curve: DiscountCurve) -> float:
+        """Early termination: compute breakage cost (= current MTM)."""
+        result = self._trs.price(curve)
+        breakage = result.value
+
+        self._events.append({
+            "type": TRSEventType.EARLY_TERMINATION,
+            "date": as_of.isoformat(),
+            "breakage": breakage,
+        })
+
+        # Record as exercise in managed trade
+        self._managed.exercise(as_of, underlying_instrument=self._trs)
+
+        return breakage
+
+
+# ---------------------------------------------------------------------------
+# Collateral evolution
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CollateralState:
+    """Collateral state at a point in time."""
+    date: date
+    mtm: float
+    collateral_posted: float
+    net_exposure: float
+    margin_call: float
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(), "mtm": self.mtm,
+            "collateral": self.collateral_posted,
+            "net_exposure": self.net_exposure,
+            "margin_call": self.margin_call,
+        }
+
+
+def trs_collateral_evolution(
+    trs: TotalReturnSwap,
+    dates: list[date],
+    curves: list[DiscountCurve],
+    initial_collateral: float = 0.0,
+    threshold: float = 0.0,
+    min_transfer: float = 250_000,
+) -> list[CollateralState]:
+    """Simulate collateral evolution over a series of dates.
+
+    At each date: price TRS, compute net exposure, trigger margin
+    call if exposure exceeds threshold and amount exceeds min_transfer.
+    """
+    if len(dates) != len(curves):
+        raise ValueError("dates and curves must have same length")
+
+    states = []
+    collateral = initial_collateral
+
+    for d, curve in zip(dates, curves):
+        mtm = trs.price(curve).value
+        net_exp = mtm - collateral
+        call = 0.0
+
+        if abs(net_exp) > threshold:
+            call_amount = abs(net_exp) - threshold
+            if call_amount >= min_transfer:
+                call = call_amount if net_exp > 0 else -call_amount
+                collateral += call
+
+        states.append(CollateralState(d, mtm, collateral, mtm - collateral, call))
+
+    return states
