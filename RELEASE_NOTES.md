@@ -2,6 +2,19 @@
 
 ---
 
+## v0.452.0 — 2026-04-30
+
+**TRS XVA P3: MVA, analytic CVA/DVA, KVA, independent amount.** 24 new tests.
+
+### XVA functions (`trs_xva.py`)
+- `trs_mva()`: MVA = IM x funding_spread x T. SIMM proxy (5% notional) or explicit.
+- `trs_kva_from_sa_ccr()`: KVA from simplified SA-CCR EAD. Supervisory factors by asset class (equity 32%, bond/loan 0.5%).
+- `trs_analytic_cva()`: Gaussian EPE approximation. Equity: sigma-based. Bond/loan: MTM-based.
+- `trs_analytic_dva()`: Own-credit benefit from ENE.
+- `trs_independent_amount()`: IA computation (percentage, SIMM, or fixed methods).
+
+---
+
 ## v0.451.0 — 2026-05-03
 
 **TRS Desk P1-P2: Risk + Operations.** 7171 tests.
