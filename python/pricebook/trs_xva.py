@@ -250,3 +250,129 @@ def trs_mc_xva(
         funding_spread=funding_spread,
         im_profile=im_profile,
     )
+
+
+# ---------------------------------------------------------------------------
+# Wrong-way risk adjustment
+# ---------------------------------------------------------------------------
+
+def trs_wrong_way_cva(
+    base_cva: float,
+    spot_credit_corr: float,
+    alpha: float = 2.0,
+) -> float:
+    """Adjust CVA for wrong-way risk (Hull-White approximation).
+
+    CVA_wwr = CVA_base × (1 + alpha × rho)
+
+    - Positive rho: spot drops when credit deteriorates → higher CVA (wrong-way)
+    - Negative rho: spot rises when credit deteriorates → lower CVA (right-way)
+    - Factor bounded: floor at 0.5×, cap at 3.0×
+
+    Args:
+        base_cva: unadjusted CVA.
+        spot_credit_corr: correlation between spot and counterparty default.
+            Positive = wrong-way (exposure increases at default).
+        alpha: sensitivity parameter (Hull-White, default 2.0).
+    """
+    factor = 1.0 + alpha * spot_credit_corr
+    factor = max(0.5, min(factor, 3.0))  # floor/cap
+    return base_cva * factor
+
+
+# ---------------------------------------------------------------------------
+# Hybrid MC XVA (spot + rate diffusion for equity TRS)
+# ---------------------------------------------------------------------------
+
+def trs_hybrid_mc_xva(
+    trs: TotalReturnSwap,
+    ctx: PricingContext,
+    cpty_survival: SurvivalCurve,
+    own_survival: SurvivalCurve,
+    cpty_recovery: float = 0.4,
+    own_recovery: float = 0.4,
+    funding_spread: float = 0.005,
+    n_paths: int = 1000,
+    n_steps: int = 12,
+    rate_vol: float = 0.01,
+    spot_rate_corr: float = 0.0,
+    seed: int = 42,
+):
+    """Hybrid MC XVA: correlated spot + rate diffusion.
+
+    For equity TRS, diffuses both spot (GBM) and rate (OU) using
+    HybridMCEngine with configurable correlation. Generates realistic
+    EPE/ENE profiles where spot moves drive positive exposure.
+
+    For non-equity types, falls back to rate-only trs_mc_xva().
+    """
+    from pricebook.xva import (
+        expected_positive_exposure, expected_negative_exposure,
+        total_xva_decomposition,
+    )
+    from pricebook.hybrid_mc import HybridMCEngine, HybridFactor
+
+    # Non-equity: fall back to rate-only
+    if trs._underlying_type != "equity":
+        return trs_mc_xva(
+            trs, ctx, cpty_survival, own_survival,
+            cpty_recovery, own_recovery, funding_spread,
+            n_paths, n_steps, rate_vol, seed,
+        )
+
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    time_grid = [(i + 1) * T / n_steps for i in range(n_steps)]
+
+    spot = float(trs.underlying)
+    r = -math.log(ctx.discount_curve.df(trs.end)) / max(T, 1e-10)
+    sigma = trs.sigma if trs.sigma > 0 else 0.20
+
+    # Build 2-factor hybrid: spot (GBM) + rate (OU)
+    factors = [
+        HybridFactor("spot", spot, vol=sigma, mean_reversion=0,
+                     long_run=0, factor_type="gbm", drift=r),
+        HybridFactor("rate", r, vol=rate_vol, mean_reversion=0.1,
+                     long_run=r, factor_type="ou"),
+    ]
+    corr = np.array([[1.0, spot_rate_corr],
+                     [spot_rate_corr, 1.0]])
+
+    engine = HybridMCEngine(factors, corr)
+    result = engine.simulate(T, n_paths, n_steps, seed)
+
+    spot_paths = result.paths["spot"]  # (n_paths, n_steps+1)
+    rate_paths = result.paths["rate"]  # (n_paths, n_steps+1)
+
+    # Reprice TRS at each time step under each path
+    pvs = np.zeros((n_paths, n_steps))
+    old_underlying = trs.underlying
+
+    for j in range(n_steps):
+        for i in range(n_paths):
+            # Bump spot
+            trs.underlying = float(spot_paths[i, j + 1])
+            # Bump curve
+            rate_shift = rate_paths[i, j + 1] - r
+            bumped_curve = ctx.discount_curve.bumped(rate_shift)
+            try:
+                pvs[i, j] = trs.price(bumped_curve).value
+            except (ValueError, ZeroDivisionError):
+                pvs[i, j] = 0.0
+
+    trs.underlying = old_underlying
+
+    epe = expected_positive_exposure(pvs)
+    ene = expected_negative_exposure(pvs)
+
+    # IM profile
+    im_val = trs_simm_im(trs, ctx.discount_curve)
+    im_profile = np.full(n_steps, im_val)
+
+    return total_xva_decomposition(
+        epe=epe, ene=ene, time_grid=time_grid,
+        discount_curve=ctx.discount_curve,
+        cpty_survival=cpty_survival, own_survival=own_survival,
+        cpty_recovery=cpty_recovery, own_recovery=own_recovery,
+        funding_spread=funding_spread,
+        im_profile=im_profile,
+    )

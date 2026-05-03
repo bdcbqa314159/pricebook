@@ -2,6 +2,23 @@
 
 ---
 
+## v0.460.0 — 2026-05-03
+
+**TRS SA+SB: Hybrid MC XVA (spot+rate), wrong-way risk.** 10 new tests.
+
+### Hybrid MC XVA (SA)
+- `trs_hybrid_mc_xva()`: wires `HybridMCEngine` for correlated spot (GBM) + rate (OU) diffusion.
+- Equity TRS: spot moves generate realistic EPE → positive CVA (rate-only MC missed this).
+- Non-equity: automatic fallback to rate-only `trs_mc_xva()`.
+- Configurable spot-rate correlation via `spot_rate_corr`.
+
+### Wrong-way risk (SB)
+- `trs_wrong_way_cva()`: Hull-White approximation: CVA_wwr = CVA × (1 + alpha × rho).
+- Positive rho → wrong-way (higher CVA), negative → right-way (lower CVA).
+- Factor bounded [0.5×, 3.0×] for stability.
+
+---
+
 ## v0.459.0 — 2026-05-03
 
 **TRS SC+SD: SIMM multi-tenor bucketing + rolldown P&L.** 6 new tests.

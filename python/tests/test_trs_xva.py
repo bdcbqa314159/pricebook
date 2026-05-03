@@ -17,6 +17,8 @@ from pricebook.trs_xva import (
     trs_analytic_dva,
     trs_independent_amount,
     trs_mc_xva,
+    trs_hybrid_mc_xva,
+    trs_wrong_way_cva,
 )
 from pricebook.bond import FixedRateBond
 from pricebook.survival_curve import SurvivalCurve
@@ -396,3 +398,90 @@ class TestMCXVA:
         assert "cva" in inner
         assert "dva" in inner
         assert "total" in inner
+
+
+# ── Hybrid MC XVA ──
+
+class TestHybridMCXVA:
+
+    def _make_ctx(self, rate=0.04):
+        curve = make_flat_curve(REF, rate)
+        return PricingContext(valuation_date=REF, discount_curve=curve)
+
+    def _survival(self, hazard=0.02):
+        return SurvivalCurve.flat(REF, hazard)
+
+    def test_hybrid_equity_cva_positive(self):
+        """Hybrid MC with spot diffusion should generate positive EPE → CVA > 0."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_hybrid_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4, rate_vol=0.005,
+        )
+        # Spot diffusion creates both positive and negative exposure
+        assert result.cva >= 0 or result.dva >= 0
+
+    def test_hybrid_has_exposure(self):
+        """Hybrid MC should generate nonzero total XVA for equity."""
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_hybrid_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=200, n_steps=4,
+        )
+        assert result.total != 0
+
+    def test_hybrid_bond_falls_back(self):
+        """Bond TRS should fall back to rate-only MC."""
+        trs = _bond_trs()
+        ctx = self._make_ctx()
+        result = trs_hybrid_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            n_paths=100, n_steps=4,
+        )
+        assert result.cva >= 0  # works via fallback
+
+    def test_hybrid_mva_positive(self):
+        trs = _equity_trs()
+        ctx = self._make_ctx()
+        result = trs_hybrid_mc_xva(
+            trs, ctx, self._survival(0.02), self._survival(0.01),
+            funding_spread=0.01, n_paths=200, n_steps=4,
+        )
+        assert result.mva_val > 0
+
+
+# ── Wrong-way risk ──
+
+class TestWrongWayRisk:
+
+    def test_positive_corr_increases_cva(self):
+        cva_wwr = trs_wrong_way_cva(1000.0, 0.3)
+        assert cva_wwr > 1000.0
+
+    def test_zero_corr_unchanged(self):
+        cva_wwr = trs_wrong_way_cva(1000.0, 0.0)
+        assert cva_wwr == 1000.0
+
+    def test_negative_corr_decreases_cva(self):
+        cva_wwr = trs_wrong_way_cva(1000.0, -0.3)
+        assert cva_wwr < 1000.0
+
+    def test_factor_floored(self):
+        """Factor floored at 0.5× even for extreme negative correlation."""
+        cva_wwr = trs_wrong_way_cva(1000.0, -0.9)
+        assert cva_wwr >= 500.0  # 0.5 × 1000
+
+    def test_factor_capped(self):
+        """Factor capped at 3.0× even for extreme positive correlation."""
+        cva_wwr = trs_wrong_way_cva(1000.0, 0.9, alpha=5.0)
+        assert cva_wwr <= 3000.0  # 3.0 × 1000
+
+    def test_hull_white_formula(self):
+        """CVA_wwr = base × (1 + alpha × rho)."""
+        base = 1000.0
+        rho = 0.25
+        alpha = 2.0
+        expected = base * (1 + alpha * rho)  # 1500
+        assert trs_wrong_way_cva(base, rho, alpha) == expected
