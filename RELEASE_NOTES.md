@@ -2,6 +2,32 @@
 
 ---
 
+## v0.474.0 — 2026-05-03
+
+**Swap Trading Desk: risk, carry, P&L, book, dashboard, stress, XVA, capital, lifecycle.** 32 new tests.
+
+### Risk metrics (L11 verified)
+- `SwapRiskMetrics`: PV, par_rate, annuity, DV01 (centred), key-rate DV01 (per-pillar, dual-curve aware), gamma, theta.
+- Verified: par swap PV≈0, payer DV01 > 0, receiver DV01 < 0, key-rate sums to parallel.
+
+### Desk operations
+- `SwapBook`: by direction (payer/receiver), by counterparty, by tenor. Net DV01 (payer offsets receiver).
+- `SwapCarryDecomposition`: fixed accrual vs floating accrual vs net carry.
+- `SwapDailyPnL`: curve P&L, carry, theta (rolldown).
+- `SwapDashboard`: DV01 ladder (per-tenor), net DV01, by_direction/counterparty.
+
+### Stress + capital + XVA
+- `swap_stress_suite()`: 5 parametric scenarios with gamma adjustment.
+- `swap_scenario_stress()`: full-reprice via scenario.run_scenarios.
+- `swap_capital()`: SA-CCR (SF=0.005 for IR), SIMM IM via GIRR key-rate buckets.
+- `swap_mc_xva()`: wire xva.simulate_exposures → CVA/DVA/FVA.
+
+### Hedge + lifecycle
+- `swap_hedge_recommendations()`: DV01, net DV01, gamma limits.
+- `SwapLifecycle`: upcoming resets, maturity alerts, novation tracking.
+
+---
+
 ## v0.473.0 — 2026-05-03
 
 **Bond Trading Desk: unified risk, carry, dashboard, stress, hedge, funding, lifecycle.** 30 new tests.
