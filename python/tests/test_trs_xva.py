@@ -77,10 +77,28 @@ class TestSIMMIM:
         trs = _equity_trs()
         curve = make_flat_curve(REF, 0.04)
         im = trs_simm_im(trs, curve)
-        # EQ RW is 20% for large cap, so IM ≈ 20% × delta
-        # delta ≈ notional / spot = 10,000 shares × $100 = $1M
-        # SIMM ≈ 20% × 10,000 = $2,000 per share × shares
         assert im > 0
+
+    def test_simm_bond_multi_tenor(self):
+        """Bond TRS SIMM should span multiple GIRR tenors, not just 1Y."""
+        from pricebook.regulatory.trs_capital import trs_simm_sensitivities
+        trs = _bond_trs()
+        curve = make_flat_curve(REF, 0.04)
+        sens = trs_simm_sensitivities(trs, curve)
+        girr_tenors = set(
+            s["tenor"] for s in sens.delta_sensitivities
+            if s["risk_class"] == "GIRR"
+        )
+        assert len(girr_tenors) >= 2  # multiple tenors, not just "1Y"
+
+    def test_simm_bond_has_csr(self):
+        """Bond TRS should still have CSR sensitivity."""
+        from pricebook.regulatory.trs_capital import trs_simm_sensitivities
+        trs = _bond_trs()
+        curve = make_flat_curve(REF, 0.04)
+        sens = trs_simm_sensitivities(trs, curve)
+        csr = [s for s in sens.delta_sensitivities if s["risk_class"] == "CSR"]
+        assert len(csr) >= 1
 
 
 # ── MVA ──

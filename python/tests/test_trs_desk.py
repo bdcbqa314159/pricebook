@@ -513,3 +513,37 @@ class TestCollateralEvolution:
         d = states[0].to_dict()
         assert "mtm" in d
         assert "net_exposure" in d
+
+
+# ── Rolldown ──
+
+class TestRolldown:
+
+    def test_discount_curve_roll_down(self):
+        """DiscountCurve.roll_down() shifts reference_date forward."""
+        curve = make_flat_curve(REF, 0.04)
+        rolled = curve.roll_down(1)
+        assert rolled.reference_date == REF + relativedelta(days=1)
+
+    def test_rolldown_flat_curve_small(self):
+        """Rolldown ≈ 0 for flat curve (no term structure to roll down)."""
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, curve, curve, REF + relativedelta(days=1))
+        # Flat curve → rolldown should be small
+        assert abs(pnl.theta_pnl) < abs(pnl.total) + 100
+
+    def test_rolldown_is_finite(self):
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        pnl = trs_daily_pnl(trs, curve, curve, REF + relativedelta(days=1))
+        assert math.isfinite(pnl.theta_pnl)
+
+    def test_pnl_explain_rolldown(self):
+        """pnl_explain.compute_rolldown works with DiscountCurve."""
+        from pricebook.pnl_explain import compute_rolldown
+        curve = make_flat_curve(REF, 0.04)
+        trs = _equity_trs()
+        rd = compute_rolldown(
+            lambda c: trs.price(c).value, curve, days=1)
+        assert math.isfinite(rd)

@@ -2,6 +2,22 @@
 
 ---
 
+## v0.459.0 — 2026-05-03
+
+**TRS SC+SD: SIMM multi-tenor bucketing + rolldown P&L.** 6 new tests.
+
+### SIMM multi-tenor (SC)
+- `trs_simm_sensitivities()`: bond/loan TRS now per-pillar DV01 → mapped to nearest GIRR tenor.
+- Distributes rate risk across 12 GIRR tenors (2W→30Y) instead of dumping into "1Y".
+
+### Rolldown P&L (SD)
+- `DiscountCurve.roll_down(days)`: shifts reference_date forward, keeps curve shape.
+- `pnl_explain.compute_rolldown()`: fixed from placeholder to actual curve roll-down.
+- `trs_daily_pnl()` theta now uses proper curve roll-down.
+- Items 4 (real-time refresh) and 5 (corporate actions) documented as out-of-scope.
+
+---
+
 ## v0.458.0 — 2026-05-03
 
 **TRS S6: Product fixes (PSA speed, commodity seasonal, FX quanto, haircut schedule).** 6 new tests.

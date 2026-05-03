@@ -137,6 +137,28 @@ def trs_sa_ccr_add_on(
     )
 
 
+# ---- SIMM tenor mapping ----
+
+# GIRR tenors (years) for bucketing
+_GIRR_TENOR_MAP = [
+    (2/52, "2W"), (1/12, "1M"), (3/12, "3M"), (6/12, "6M"),
+    (1, "1Y"), (2, "2Y"), (3, "3Y"), (5, "5Y"),
+    (10, "10Y"), (15, "15Y"), (20, "20Y"), (30, "30Y"),
+]
+
+
+def _map_time_to_girr_tenor(t: float) -> str:
+    """Map a year fraction to the nearest GIRR tenor bucket."""
+    best = "1Y"
+    best_dist = float("inf")
+    for tenor_t, tenor_name in _GIRR_TENOR_MAP:
+        dist = abs(t - tenor_t)
+        if dist < best_dist:
+            best_dist = dist
+            best = tenor_name
+    return best
+
+
 # ---- SIMM sensitivities ----
 
 @dataclass
@@ -184,10 +206,22 @@ def trs_simm_sensitivities(
         }]
     elif trs._underlying_type in ("bond", "loan"):
         risk_class = "GIRR"
-        # Rate sensitivity via bump-and-reprice (1bp parallel shift)
         base_val = trs.price(curve, projection_curve).value
-        bumped = curve.bumped(0.0001)
-        rate_delta = trs.price(bumped, projection_curve).value - base_val
+
+        # Per-pillar rate sensitivity → multi-tenor GIRR bucketing
+        pillar_times = [t for t in curve.pillar_times if t > 0]
+        delta_sens = []
+        for i, t in enumerate(pillar_times):
+            bumped_i = curve.bumped_at(i, 0.0001)
+            dv01_i = trs.price(bumped_i, projection_curve).value - base_val
+            if abs(dv01_i) > 1e-12:
+                tenor = _map_time_to_girr_tenor(t)
+                delta_sens.append({
+                    "risk_class": "GIRR",
+                    "bucket": "USD",
+                    "tenor": tenor,
+                    "delta": dv01_i,
+                })
 
         # CSR: credit spread sensitivity via spread bump on funding leg
         old_spread = trs.funding.spread
@@ -201,20 +235,12 @@ def trs_simm_sensitivities(
             **{k: v for k, v in trs.funding.__dict__.items() if k != "spread"},
         )
 
-        delta_sens = [
-            {
-                "risk_class": "GIRR",
-                "bucket": "USD",
-                "tenor": "1Y",
-                "delta": rate_delta,
-            },
-            {
-                "risk_class": "CSR",
-                "bucket": "IG_corporate",
-                "tenor": "5Y",
-                "delta": cs_delta,
-            },
-        ]
+        delta_sens.append({
+            "risk_class": "CSR",
+            "bucket": "IG_corporate",
+            "tenor": "5Y",
+            "delta": cs_delta,
+        })
         vega_sens = []
     elif trs._underlying_type == "cln":
         risk_class = "CSR"

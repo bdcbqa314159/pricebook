@@ -66,23 +66,20 @@ def compute_carry(
 def compute_rolldown(
     pricer,
     base_curve,
-    dt: float = 1.0 / 252,
+    days: int = 1,
 ) -> float:
-    """Roll-down: PV change from time passing with unchanged curve.
+    """Roll-down: PV change from time passing with unchanged yield curve.
 
-    Roll-down = pricer(curve_shifted_by_dt) - pricer(curve)
-    where curve_shifted means evaluating T-1 curve at T dates.
+    Rolls the curve forward by `days` (shifts reference_date, keeps shape),
+    then reprices. The difference is the P&L from the passage of time
+    with no market moves.
 
-    Simplified: rolldown ≈ -theta * dt (from the Greeks).
+    Roll-down = pricer(rolled_curve) - pricer(base_curve)
     """
-    base_pv = pricer(base_curve)
-    # Shift curve forward by dt: bump all pillar times by -dt
-    # This is approximately: PV with shorter time to maturity
-    rolled = base_curve.bumped(0.0)  # same curve, zero bump
-    # The actual roll-down requires a time-shifted curve, which our
-    # DiscountCurve doesn't directly support. Use the approximation:
-    # rolldown ≈ parallel_dv01 * carry_rate * dt
-    return 0.0  # placeholder — proper implementation needs time-shifted curve
+    if not hasattr(base_curve, 'roll_down'):
+        return 0.0
+    rolled = base_curve.roll_down(days)
+    return pricer(rolled) - pricer(base_curve)
 
 
 def greek_pnl(

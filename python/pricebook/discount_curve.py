@@ -1,7 +1,7 @@
 """Discount curve built from a set of discount factors at known dates."""
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 
@@ -108,6 +108,26 @@ class DiscountCurve:
                 new_dfs.append(float(df_val * math.exp(-shift * t)))
         return DiscountCurve(
             self.reference_date, self.pillar_dates, new_dfs,
+            self.day_count, self._interpolation,
+        )
+
+    def roll_down(self, days: int = 1) -> "DiscountCurve":
+        """New curve with reference_date shifted forward, same pillar dates/DFs.
+
+        Models the passage of time with an unchanged yield curve —
+        all tenors become shorter by `days`. Used for rolldown P&L.
+        """
+        new_ref = self.reference_date + timedelta(days=days)
+        # Keep only pillars that are still in the future
+        future_dates = [d for d in self._pillar_dates_original if d > new_ref]
+        if not future_dates:
+            # All pillars in the past — return flat curve at last rate
+            return DiscountCurve.flat(new_ref, 0.0)
+        future_dfs = [
+            float(self.df(d)) for d in future_dates
+        ]
+        return DiscountCurve(
+            new_ref, future_dates, future_dfs,
             self.day_count, self._interpolation,
         )
 

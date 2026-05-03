@@ -8,7 +8,14 @@ Same depth as repo_desk.py — production desk infrastructure for TRS.
         trs_all_in_cost, trs_stress_suite,
         trs_capital_summary, TRSCapitalSummary,
         trs_hedge_recommendations, TRSHedgeRecommendation,
+        trs_scenario_stress, TRSLifecycle,
+        trs_collateral_evolution, CollateralState,
     )
+
+Known out-of-scope:
+- Real-time Greeks refresh: this is a pricing library, not a trading system.
+  Greeks are computed per-call via bump-and-reprice.
+- Corporate actions (splits, M&A): edge case, add per instrument as needed.
 """
 
 from __future__ import annotations
@@ -247,16 +254,12 @@ def trs_daily_pnl(
             rate_change = r1 - r0
         delta_pnl = greek_pnl(rm.dv01, rate_change * 10_000)  # DV01 is per 1bp
 
-    # Theta: time decay (advance 1 day, same curve)
-    theta_pnl = 0.0
-    old_start = trs.start
-    trs.start = old_start + timedelta(days=1)
-    try:
-        pv_t0_shifted = trs.price(curve_t0, projection_curve).value
-    except (ValueError, ZeroDivisionError):
-        pv_t0_shifted = pv_t0
-    trs.start = old_start
-    theta_pnl = pv_t0_shifted - pv_t0
+    # Theta/rolldown: PV change from time passing with unchanged curve
+    from pricebook.pnl_explain import compute_rolldown
+    theta_pnl = compute_rolldown(
+        lambda c: trs.price(c, projection_curve).value,
+        curve_t0, days=1,
+    )
 
     # Funding P&L
     funding_t0 = trs.price(curve_t0, projection_curve).funding_leg
