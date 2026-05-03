@@ -2,6 +2,27 @@
 
 ---
 
+## v0.451.0 — 2026-05-03
+
+**TRS Desk P1-P2: Risk + Operations.** 7171 tests.
+
+### Risk metrics (`trs_risk_metrics`)
+- Delta, gamma (bump-and-reprice on underlying)
+- DV01 (parallel OIS shift)
+- Funding DV01, repo DV01 (TRS-specific sensitivities)
+- Vega (equity only, vol bump)
+- CS01 (credit spread, survival curve bump)
+
+### Desk operations (`trs_desk.py`)
+- `trs_carry_decomposition()`: income, funding cost, repo cost, net carry.
+- `trs_daily_pnl()`: total, delta P&L, carry, funding, unexplained.
+- `TRSBook` + `TRSBookEntry`: aggregate by type/counterparty, independent amount (IA) tracking.
+- `trs_dashboard()`: morning-meeting summary.
+- `trs_all_in_cost()`: funding + FVA + KVA + MVA → hidden cost in bps.
+- `trs_stress_suite()`: 5 scenarios (equity crash, rates, credit, vol, combined).
+
+---
+
 ## v0.450.0 — 2026-05-03
 
 **Repo XVA + Regulatory + Product Types.** 7148 tests.
