@@ -119,6 +119,36 @@ def fx_spot_shock(base: str, quote: str, shift_pct: float, name: str | None = No
     return _Scenario(name or f"fx_{base}{quote}_{shift_pct*100:.0f}pct", apply)
 
 
+def credit_spread_shift(
+    shift: float,
+    names: list[str] | None = None,
+    name: str | None = None,
+):
+    """Parallel credit spread shift: bump all (or named) survival curves.
+
+    Args:
+        shift: hazard rate shift (e.g. 0.01 = +100bp).
+        names: if provided, only bump these credit curves.
+    """
+    def apply(ctx: PricingContext) -> PricingContext:
+        new_credit = {}
+        for k, v in ctx.credit_curves.items():
+            if names is None or k in names:
+                new_credit[k] = v.bumped(shift) if v else v
+            else:
+                new_credit[k] = v
+        return PricingContext(
+            valuation_date=ctx.valuation_date,
+            discount_curve=ctx.discount_curve,
+            projection_curves=ctx.projection_curves,
+            vol_surfaces=ctx.vol_surfaces,
+            credit_curves=new_credit,
+            fx_spots=ctx.fx_spots,
+        )
+
+    return _Scenario(name or f"credit_{shift*10000:.0f}bp", apply)
+
+
 class _Scenario:
     """Internal scenario wrapper."""
 

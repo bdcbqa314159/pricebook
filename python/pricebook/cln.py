@@ -262,13 +262,8 @@ class CreditLinkedNote:
         bumped_curve = discount_curve.bumped(0.0001)
         dv01 = self.dirty_price(bumped_curve, survival_curve) - base
 
-        # CS01: bump hazard rate by 1bp (via shifted survival curve)
-        ref = survival_curve.reference_date
-        # Build shifted survival from flat hazard approximation
-        from pricebook.day_count import year_fraction as _yf
-        T = _yf(ref, self.end, DayCountConvention.ACT_365_FIXED)
-        base_hazard = -math.log(max(survival_curve.survival(self.end), 1e-15)) / max(T, 1e-10)
-        shifted_surv = SurvivalCurve.flat(ref, base_hazard + 0.0001)
+        # CS01: parallel bump of hazard rates by +1bp
+        shifted_surv = survival_curve.bumped(0.0001)
         cs01 = self.dirty_price(discount_curve, shifted_surv) - base
 
         # Recovery sensitivity: +1% bump

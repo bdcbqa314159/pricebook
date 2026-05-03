@@ -327,7 +327,7 @@ class TestCLNStress:
         book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
         ctx = PricingContext(valuation_date=REF, discount_curve=make_flat_curve(REF, 0.04))
         results = cln_scenario_stress(book, ctx)
-        assert len(results) == 3
+        assert len(results) == 5  # 2 rate + 3 credit
 
     def test_to_dict(self):
         book = CLNBook()
@@ -507,3 +507,55 @@ class TestCLNCollateral:
         d = states[0].to_dict()
         assert "spread" in d
         assert "net_exposure" in d
+
+
+# ── Phase 1 foundations ──
+
+class TestFoundations:
+
+    def test_pillar_hazards_roundtrip(self):
+        """Extract hazards from curve, rebuild curve, verify match."""
+        surv = _flat_surv(0.02)
+        hazards = surv.pillar_hazards()
+        assert len(hazards) > 0
+        # All hazards should be ~0.02 for flat curve
+        for t, h in hazards:
+            assert abs(h - 0.02) < 0.001
+
+    def test_pillar_hazards_nonflat(self):
+        """Non-flat curve should have varying hazard rates."""
+        from pricebook.survival_curve import SurvivalCurve
+        import math
+        dates = [REF + relativedelta(years=i) for i in [1, 3, 5, 10]]
+        # Steep curve: 1% short, 3% long
+        survs = [math.exp(-0.01 * 1), math.exp(-0.015 * 3),
+                 math.exp(-0.02 * 5), math.exp(-0.03 * 10)]
+        sc = SurvivalCurve(REF, dates, survs)
+        hazards = sc.pillar_hazards()
+        assert len(hazards) >= 3
+        # Hazards should vary (not all equal)
+        h_vals = [h for _, h in hazards]
+        assert max(h_vals) > min(h_vals)
+
+    def test_cs01_uses_bumped_not_flat(self):
+        """After CS01 fix, greeks should use bumped() not flat()."""
+        cln = _vanilla_cln()
+        curve = make_flat_curve(REF, 0.04)
+        surv = _flat_surv(0.02)
+        greeks = cln.greeks(curve, surv)
+        assert greeks["cs01"] < 0  # wider spreads → lower price
+
+    def test_credit_spread_shift_scenario(self):
+        """credit_spread_shift bumps credit_curves in PricingContext."""
+        from pricebook.scenario import credit_spread_shift
+        surv = _flat_surv(0.02)
+        ctx = PricingContext(
+            valuation_date=REF,
+            discount_curve=make_flat_curve(REF, 0.04),
+            credit_curves={"AAPL": surv},
+        )
+        scenario = credit_spread_shift(0.01)
+        bumped_ctx = scenario.apply(ctx)
+        # Bumped survival should be lower (higher hazard)
+        t5 = REF + relativedelta(years=5)
+        assert bumped_ctx.credit_curves["AAPL"].survival(t5) < surv.survival(t5)

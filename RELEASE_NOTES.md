@@ -2,6 +2,18 @@
 
 ---
 
+## v0.466.0 — 2026-05-03
+
+**CLN Pipeline P1: Foundations (CS01 fix, hazard extractor, credit scenario).** 4 new tests.
+
+- Fixed CS01 in `cln.py:greeks()`: uses `survival_curve.bumped()` instead of flat approximation.
+- Centred CS01 in `cln_desk.py` (O(h²)).
+- `SurvivalCurve.pillar_hazards()`: extracts `[(time, hazard)]` — bridge to CIR++/HW calibration.
+- `credit_spread_shift()` in `scenario.py`: bumps credit_curves in PricingContext.
+- `cln_scenario_stress()` now includes 3 credit spread scenarios.
+
+---
+
 ## v0.465.0 — 2026-05-03
 
 **CLN Desk S7-S10: Stress, capital, hedge/basis, lifecycle, collateral.** 21 new tests.

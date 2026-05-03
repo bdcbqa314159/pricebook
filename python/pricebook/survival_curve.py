@@ -178,6 +178,22 @@ class SurvivalCurve:
             })
         return result
 
+    def pillar_hazards(self) -> list[tuple[float, float]]:
+        """Extract (time, piecewise_constant_hazard) pairs at each pillar.
+
+        Returns list suitable for HWHazardRate/CIRPlusPlus market_hazards parameter.
+        h_i = -ln(Q_i / Q_{i-1}) / (t_i - t_{i-1}) for each segment.
+        """
+        result = []
+        for i in range(1, len(self._times)):
+            t_prev, t_curr = float(self._times[i - 1]), float(self._times[i])
+            q_prev, q_curr = float(self._survs[i - 1]), float(self._survs[i])
+            dt = t_curr - t_prev
+            if dt > 0 and q_prev > 0 and q_curr > 0:
+                h = -math.log(q_curr / q_prev) / dt
+                result.append((t_curr, max(h, 0.0)))
+        return result
+
     def bumped_at(self, pillar_idx: int, shift: float) -> SurvivalCurve:
         """Return a new curve with one pillar's hazard rate bumped.
 

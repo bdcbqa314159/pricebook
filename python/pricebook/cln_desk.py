@@ -67,11 +67,16 @@ def cln_risk_metrics(
     base = cln.dirty_price(discount_curve, survival_curve)
     greeks = cln.greeks(discount_curve, survival_curve)
 
-    # Centred DV01 (override one-sided from greeks)
+    # Centred DV01 (O(h²))
     h = 0.0001
     pv_up = cln.dirty_price(discount_curve.bumped(h), survival_curve)
     pv_dn = cln.dirty_price(discount_curve.bumped(-h), survival_curve)
     dv01 = (pv_up - pv_dn) / 2
+
+    # Centred CS01 (O(h²))
+    surv_up = survival_curve.bumped(h)
+    surv_dn = survival_curve.bumped(-h)
+    cs01 = (cln.dirty_price(discount_curve, surv_up) - cln.dirty_price(discount_curve, surv_dn)) / 2
 
     # JTD: on immediate default, investor receives recovery × notional
     # but loses their investment (current PV)
@@ -80,7 +85,7 @@ def cln_risk_metrics(
     return CLNRiskMetrics(
         pv=base,
         dv01=dv01,
-        cs01=greeks["cs01"],
+        cs01=cs01,
         recovery_sensitivity=greeks["recovery_sensitivity"],
         jump_to_default_pnl=jtd,
         notional=cln.notional,
@@ -436,9 +441,8 @@ def cln_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice stress via scenario.py run_scenarios."""
-    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.scenario import parallel_shift, credit_spread_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
-    from pricebook.pricing_context import PricingContext
 
     portfolio = Portfolio(name=book.name)
     for e in book.entries:
@@ -448,7 +452,9 @@ def cln_scenario_stress(
         scenarios = [
             parallel_shift(0.01, "rates_+100bp"),
             parallel_shift(-0.01, "rates_-100bp"),
-            parallel_shift(0.02, "rates_+200bp"),
+            credit_spread_shift(0.01, name="spreads_+100bp"),
+            credit_spread_shift(0.02, name="spreads_+200bp"),
+            credit_spread_shift(-0.01, name="spreads_-100bp"),
         ]
 
     return run_scenarios(portfolio, ctx, scenarios)
