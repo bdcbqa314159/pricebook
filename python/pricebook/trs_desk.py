@@ -65,9 +65,10 @@ def trs_risk_metrics(
     base = trs.price(curve, projection_curve)
     h = 0.0001  # 1bp
 
-    # DV01: parallel OIS shift
+    # DV01: parallel OIS shift (centred difference, O(h²))
     pv_up = trs.price(curve.bumped(h), projection_curve).value
-    dv01 = pv_up - base.value
+    pv_dn = trs.price(curve.bumped(-h), projection_curve).value
+    dv01 = (pv_up - pv_dn) / 2
 
     # Funding DV01: bump funding spread
     old_spread = trs.funding.spread
@@ -246,12 +247,15 @@ def trs_daily_pnl(
         delta_pnl = rm.delta * dx
         gamma_pnl = 0.5 * rm.gamma * dx ** 2
     else:
-        # Rate-driven: use DV01 × rate change
+        # Rate-driven: use DV01 × rate change (infer from short-end DF)
         rate_change = 0.0
-        if hasattr(curve_t0, '_rates') and hasattr(curve_t1, '_rates'):
-            r0 = curve_t0._rates[0] if curve_t0._rates else 0
-            r1 = curve_t1._rates[0] if curve_t1._rates else 0
+        try:
+            t1y = trs.start + timedelta(days=365)
+            r0 = -math.log(curve_t0.df(t1y))
+            r1 = -math.log(curve_t1.df(t1y))
             rate_change = r1 - r0
+        except (ValueError, AttributeError):
+            pass
         delta_pnl = greek_pnl(rm.dv01, rate_change * 10_000)  # DV01 is per 1bp
 
     # Theta/rolldown: PV change from time passing with unchanged curve
@@ -475,7 +479,7 @@ def trs_all_in_cost(
     # Convert to spread
     annuity = trs.notional * T
     headline = trs.funding.spread * 10_000
-    all_in = total / annuity * 10_000 if annuity > 0 else headline
+    all_in = total / annuity * 10_000 if annuity > 1e-10 else headline
     hidden = all_in - headline
 
     return TRSAllInCost(
@@ -556,7 +560,7 @@ def trs_scenario_stress(
     Wraps TRS book into a Portfolio, then runs scenarios via
     run_scenarios() for exact PV recomputation (no Greek approx).
     """
-    from pricebook.scenario import parallel_shift, run_scenarios, ScenarioResult
+    from pricebook.scenario import parallel_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -564,7 +568,6 @@ def trs_scenario_stress(
         portfolio.add(Trade(instrument=e.trs, trade_id=e.trade_id))
 
     if scenarios is None:
-        from pricebook.scenario import parallel_shift
         scenarios = [
             parallel_shift(0.01, "rates_+100bp"),
             parallel_shift(-0.01, "rates_-100bp"),

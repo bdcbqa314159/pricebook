@@ -614,7 +614,8 @@ class TotalReturnSwap:
         # FX forward via covered interest rate parity
         forward = fx.spot * D_base / D_quote
 
-        # Quanto adjustment: forward *= exp(-rho × sigma_fx × sigma_asset × T)
+        # Quanto adjustment (Wystup 2006, Eq 1.52):
+        #   forward *= exp(-rho × sigma_fx × sigma_asset × T)
         if fx.fx_vol > 0 and fx.fx_correlation != 0 and self.sigma > 0:
             forward *= math.exp(-fx.fx_correlation * fx.fx_vol * self.sigma * T)
 

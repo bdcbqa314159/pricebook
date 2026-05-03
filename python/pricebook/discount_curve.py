@@ -121,8 +121,10 @@ class DiscountCurve:
         # Keep only pillars that are still in the future
         future_dates = [d for d in self._pillar_dates_original if d > new_ref]
         if not future_dates:
-            # All pillars in the past — return flat curve at last rate
-            return DiscountCurve.flat(new_ref, 0.0)
+            # All pillars in the past — extrapolate from last known rate
+            last_t = max(t for t in self._times if t > 0)
+            last_rate = -math.log(float(self.df(self._pillar_dates_original[-1]))) / last_t
+            return DiscountCurve.flat(new_ref, last_rate)
         future_dfs = [
             float(self.df(d)) for d in future_dates
         ]

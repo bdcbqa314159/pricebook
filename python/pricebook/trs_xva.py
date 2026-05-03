@@ -97,9 +97,9 @@ def trs_kva_from_sa_ccr(
     result = trs.price(curve)
     mtm = max(result.value, 0)
 
-    # Supervisory factor by type
-    sf = {"equity": 0.32, "bond": 0.005, "loan": 0.005, "cln": 0.005}
-    factor = sf.get(trs._underlying_type, 0.10)
+    # Supervisory factor by type (SA-CCR, Basel CRE52)
+    from pricebook.trs_desk import _SA_CCR_SF
+    factor = _SA_CCR_SF.get(trs._underlying_type, 0.10)
 
     ead = 1.4 * (mtm + trs.notional * factor * math.sqrt(min(T, 1.0)))
     capital = ead * counterparty_rw * 0.08
@@ -261,7 +261,9 @@ def trs_wrong_way_cva(
     spot_credit_corr: float,
     alpha: float = 2.0,
 ) -> float:
-    """Adjust CVA for wrong-way risk (Hull-White approximation).
+    """Adjust CVA for wrong-way risk.
+
+    Hull & White (2012), "CVA and Wrong-Way Risk", Financial Analysts Journal.
 
     CVA_wwr = CVA_base × (1 + alpha × rho)
 
@@ -347,19 +349,18 @@ def trs_hybrid_mc_xva(
     pvs = np.zeros((n_paths, n_steps))
     old_underlying = trs.underlying
 
-    for j in range(n_steps):
-        for i in range(n_paths):
-            # Bump spot
-            trs.underlying = float(spot_paths[i, j + 1])
-            # Bump curve
-            rate_shift = rate_paths[i, j + 1] - r
-            bumped_curve = ctx.discount_curve.bumped(rate_shift)
-            try:
-                pvs[i, j] = trs.price(bumped_curve).value
-            except (ValueError, ZeroDivisionError):
-                pvs[i, j] = 0.0
-
-    trs.underlying = old_underlying
+    try:
+        for j in range(n_steps):
+            for i in range(n_paths):
+                trs.underlying = float(spot_paths[i, j + 1])
+                rate_shift = rate_paths[i, j + 1] - r
+                bumped_curve = ctx.discount_curve.bumped(rate_shift)
+                try:
+                    pvs[i, j] = trs.price(bumped_curve).value
+                except (ValueError, ZeroDivisionError):
+                    pvs[i, j] = 0.0
+    finally:
+        trs.underlying = old_underlying
 
     epe = expected_positive_exposure(pvs)
     ene = expected_negative_exposure(pvs)

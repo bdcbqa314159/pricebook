@@ -2,6 +2,16 @@
 
 ---
 
+## v0.461.0 — 2026-05-03
+
+**TRS lens audit: 9 issues fixed (1 HIGH, 3 MED, 5 LOW).**
+
+- **HIGH**: `trs_hybrid_mc_xva` underlying mutation now protected by try/finally.
+- **MED**: DV01 upgraded to centred difference O(h²). Zero-notional guard in `trs_all_in_cost`. Rate change inferred from public DF API (removed `_rates` access).
+- **LOW**: Added citations (Hull-White 2012 WWR, Wystup 2006 quanto). `roll_down` fallback uses last known rate. Removed duplicate import. Consolidated SA-CCR SF dict.
+
+---
+
 ## v0.460.0 — 2026-05-03
 
 **TRS SA+SB: Hybrid MC XVA (spot+rate), wrong-way risk.** 10 new tests.
