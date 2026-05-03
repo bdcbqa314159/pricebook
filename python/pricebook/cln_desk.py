@@ -376,3 +376,449 @@ def cln_dashboard(
         by_issuer=by_issuer,
         by_seniority=by_seniority,
     )
+
+
+# ---------------------------------------------------------------------------
+# Stress testing
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CLNStressResult:
+    """One stress scenario result."""
+    scenario: str
+    description: str
+    spread_pnl: float
+    rate_pnl: float
+    recovery_pnl: float
+    total_pnl: float
+
+    def to_dict(self) -> dict:
+        return {
+            "scenario": self.scenario, "description": self.description,
+            "spread": self.spread_pnl, "rate": self.rate_pnl,
+            "recovery": self.recovery_pnl, "total": self.total_pnl,
+        }
+
+
+def cln_stress_suite(
+    book: CLNBook,
+    curve: DiscountCurve,
+) -> list[CLNStressResult]:
+    """Five CLN-specific stress scenarios using parametric Greeks."""
+    risk = book.aggregate_risk(curve)
+    cs01 = risk["total_cs01"]
+    dv01 = risk["total_dv01"]
+    rec_sens = risk["total_recovery_sens"]
+
+    scenarios = [
+        ("spread_wide", "Spreads +200bp", 200.0, 0.0, 0.0),
+        ("spread_tight", "Spreads -100bp", -100.0, 0.0, 0.0),
+        ("recovery_down", "Recovery -20%", 0.0, 0.0, -0.20),
+        ("rates_up", "Rates +100bp", 0.0, 100.0, 0.0),
+        ("combined", "Spreads +200bp, recovery -20%, rates +100bp", 200.0, 100.0, -0.20),
+    ]
+
+    results = []
+    for name, desc, spread_bp, rate_bp, rec_pct in scenarios:
+        s_pnl = cs01 * spread_bp
+        r_pnl = dv01 * rate_bp
+        # Recovery sens is per +1% (0.01), so scale by pct/0.01
+        rv_pnl = rec_sens * rec_pct / 0.01 if rec_pct != 0 else 0.0
+        total = s_pnl + r_pnl + rv_pnl
+        results.append(CLNStressResult(name, desc, s_pnl, r_pnl, rv_pnl, total))
+
+    return results
+
+
+def cln_scenario_stress(
+    book: CLNBook,
+    ctx: PricingContext,
+    scenarios: list | None = None,
+) -> list:
+    """Full-reprice stress via scenario.py run_scenarios."""
+    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.trade import Trade, Portfolio
+    from pricebook.pricing_context import PricingContext
+
+    portfolio = Portfolio(name=book.name)
+    for e in book.entries:
+        portfolio.add(Trade(instrument=e.cln, trade_id=e.trade_id))
+
+    if scenarios is None:
+        scenarios = [
+            parallel_shift(0.01, "rates_+100bp"),
+            parallel_shift(-0.01, "rates_-100bp"),
+            parallel_shift(0.02, "rates_+200bp"),
+        ]
+
+    return run_scenarios(portfolio, ctx, scenarios)
+
+
+# ---------------------------------------------------------------------------
+# Regulatory capital
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CLNCapitalEntry:
+    """Capital for one CLN position."""
+    trade_id: str
+    issuer: str
+    seniority: str
+    notional: float
+    mtm: float
+    ead: float
+    rwa: float
+    capital: float
+    simm_im: float
+
+
+@dataclass
+class CLNCapitalSummary:
+    """Regulatory capital summary for the CLN book."""
+    entries: list[CLNCapitalEntry]
+    total_ead: float
+    total_rwa: float
+    total_capital: float
+    total_simm_im: float
+    total_notional: float
+
+    def to_dict(self) -> dict:
+        return {
+            "n_positions": len(self.entries),
+            "total_ead": self.total_ead,
+            "total_rwa": self.total_rwa,
+            "total_capital": self.total_capital,
+            "total_simm_im": self.total_simm_im,
+            "total_notional": self.total_notional,
+        }
+
+
+_CLN_SA_RISK_WEIGHTS = {
+    "sovereign": 0.0, "bank": 0.20, "corporate": 1.00,
+    "hedge_fund": 1.50, "other": 1.00,
+}
+
+
+def cln_capital_summary(
+    book: CLNBook,
+    curve: DiscountCurve,
+    counterparty_type: str = "corporate",
+) -> CLNCapitalSummary:
+    """SA-CCR capital for CLN book. SF=0.005 for credit."""
+    from pricebook.cln_xva import cln_simm_im
+
+    rw = _CLN_SA_RISK_WEIGHTS.get(counterparty_type, 1.0)
+    entries = []
+
+    for e in book.entries:
+        c = e.cln
+        T = year_fraction(c.start, c.end, DayCountConvention.ACT_365_FIXED)
+        pv = c.dirty_price(curve, e.survival_curve)
+        mtm = max(pv, 0)
+
+        sf = 0.005
+        ead = 1.4 * (mtm + c.notional * sf * math.sqrt(min(T, 1.0)))
+        rwa = ead * rw
+        capital = rwa * 0.08
+        simm_im = cln_simm_im(c, curve, e.survival_curve)
+
+        entries.append(CLNCapitalEntry(
+            trade_id=e.trade_id, issuer=e.issuer, seniority=e.seniority,
+            notional=c.notional, mtm=mtm, ead=ead, rwa=rwa,
+            capital=capital, simm_im=simm_im,
+        ))
+
+    return CLNCapitalSummary(
+        entries=entries,
+        total_ead=sum(e.ead for e in entries),
+        total_rwa=sum(e.rwa for e in entries),
+        total_capital=sum(e.capital for e in entries),
+        total_simm_im=sum(e.simm_im for e in entries),
+        total_notional=sum(e.notional for e in entries),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hedge recommendations + basis monitor
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CLNHedgeRecommendation:
+    """A hedge recommendation for the CLN book."""
+    risk_type: str
+    current: float
+    limit: float
+    breach_pct: float
+    action: str
+
+    def to_dict(self) -> dict:
+        return {
+            "risk": self.risk_type, "current": self.current,
+            "limit": self.limit, "breach_pct": self.breach_pct,
+            "action": self.action,
+        }
+
+
+def cln_hedge_recommendations(
+    book: CLNBook,
+    curve: DiscountCurve,
+    cs01_limit: float = 50_000,
+    jtd_limit: float = 5_000_000,
+    recovery_limit: float = 100_000,
+    dv01_limit: float = 50_000,
+) -> list[CLNHedgeRecommendation]:
+    """Hedge recommendations with credit-specific actions."""
+    risk = book.aggregate_risk(curve)
+    recs = []
+
+    checks = [
+        ("cs01", abs(risk["total_cs01"]), cs01_limit,
+         "Buy CDS protection to reduce credit spread exposure"),
+        ("jtd", abs(risk["total_jtd"]), jtd_limit,
+         "Sell CLN or buy CDS to reduce jump-to-default risk"),
+        ("recovery", abs(risk["total_recovery_sens"]), recovery_limit,
+         "Diversify seniority mix or buy recovery swaps"),
+        ("dv01", abs(risk["total_dv01"]), dv01_limit,
+         "Hedge rate risk via interest rate swaps"),
+    ]
+
+    for risk_type, current, limit, action in checks:
+        if limit > 0 and current > limit * 0.75:
+            recs.append(CLNHedgeRecommendation(
+                risk_type=risk_type, current=current, limit=limit,
+                breach_pct=current / limit if limit > 0 else 0,
+                action=action,
+            ))
+
+    return recs
+
+
+@dataclass
+class CLNBasisPoint:
+    """CLN vs CDS basis for one issuer."""
+    issuer: str
+    cln_yield: float      # par coupon from CLN
+    cds_spread: float
+    basis: float           # cln_yield - cds_spread
+
+    def to_dict(self) -> dict:
+        return {
+            "issuer": self.issuer, "cln_yield": self.cln_yield,
+            "cds_spread": self.cds_spread, "basis": self.basis,
+        }
+
+
+def cln_basis_monitor(
+    book: CLNBook,
+    curve: DiscountCurve,
+    cds_spreads: dict[str, float],
+) -> list[CLNBasisPoint]:
+    """CLN vs CDS basis tracking.
+
+    Basis = CLN par_coupon - CDS spread. Positive = CLN cheap.
+    """
+    results = []
+    seen = set()
+    for e in book.entries:
+        if e.issuer in seen or e.issuer not in cds_spreads:
+            continue
+        seen.add(e.issuer)
+        par = e.cln._par_coupon(curve, e.survival_curve)
+        cds = cds_spreads[e.issuer]
+        results.append(CLNBasisPoint(e.issuer, par, cds, par - cds))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle (credit events, margin, early redemption)
+# ---------------------------------------------------------------------------
+
+class CLNEventType:
+    CREDIT_EVENT = "credit_event"
+    MARGIN_CALL = "margin_call"
+    EARLY_REDEMPTION = "early_redemption"
+    RESTRUCTURING = "restructuring"
+
+
+@dataclass
+class CLNMarginCall:
+    """Result of a margin call computation."""
+    date: date
+    mtm: float
+    threshold: float
+    required_transfer: float
+    direction: str
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(), "mtm": self.mtm,
+            "threshold": self.threshold, "transfer": self.required_transfer,
+            "direction": self.direction,
+        }
+
+
+class CLNLifecycle:
+    """Lifecycle management for a CLN position.
+
+    Wraps trade_lifecycle.ManagedTrade + CLN-specific credit events.
+    """
+
+    def __init__(self, cln: CreditLinkedNote, survival_curve: SurvivalCurve,
+                 trade_id: str = "", creation_date: date | None = None):
+        from pricebook.trade import Trade
+        from pricebook.trade_lifecycle import ManagedTrade
+
+        self._cln = cln
+        self._surv = survival_curve
+        self._trade_id = trade_id
+        trade = Trade(instrument=cln, trade_id=trade_id)
+        self._managed = ManagedTrade(trade, creation_date or cln.start)
+        self._events: list[dict] = []
+
+    @property
+    def cln(self) -> CreditLinkedNote:
+        return self._cln
+
+    @property
+    def history(self) -> list[dict]:
+        base = [
+            {"type": e.event_type.value, "date": e.event_date.isoformat(),
+             "version": e.version, **e.details}
+            for e in self._managed.history
+        ]
+        return sorted(base + self._events, key=lambda x: x.get("date", ""))
+
+    def credit_event(
+        self, event_date: date, curve: DiscountCurve,
+        event_type: str = "default",
+    ) -> float:
+        """Process credit event. Returns recovery payout = R × N."""
+        payout = self._cln.recovery * self._cln.notional
+
+        self._events.append({
+            "type": CLNEventType.CREDIT_EVENT,
+            "date": event_date.isoformat(),
+            "event_type": event_type,
+            "recovery_payout": payout,
+        })
+
+        self._managed.exercise(event_date, underlying_instrument=self._cln)
+        return payout
+
+    def restructuring(
+        self, event_date: date, curve: DiscountCurve,
+        new_coupon: float | None = None,
+        new_recovery: float | None = None,
+    ) -> float:
+        """Process restructuring: adjust terms."""
+        if new_coupon is not None:
+            self._cln.coupon_rate = new_coupon
+        if new_recovery is not None:
+            self._cln.recovery = new_recovery
+
+        new_pv = self._cln.dirty_price(curve, self._surv)
+
+        self._events.append({
+            "type": CLNEventType.RESTRUCTURING,
+            "date": event_date.isoformat(),
+            "new_coupon": new_coupon,
+            "new_recovery": new_recovery,
+            "new_pv": new_pv,
+        })
+
+        self._managed.amend(event_date, instrument=self._cln)
+        return new_pv
+
+    def margin_call(
+        self, as_of: date, curve: DiscountCurve,
+        threshold: float = 0.0,
+        min_transfer: float = 250_000,
+    ) -> CLNMarginCall:
+        """Compute margin call based on MTM vs threshold."""
+        mtm = self._cln.dirty_price(curve, self._surv)
+        net = abs(mtm) - threshold
+        required = max(net, 0)
+        direction = "receive" if mtm > 0 else "pay"
+
+        if required < min_transfer:
+            required = 0.0
+
+        if required > 0:
+            self._events.append({
+                "type": CLNEventType.MARGIN_CALL,
+                "date": as_of.isoformat(),
+                "mtm": mtm, "transfer": required,
+            })
+
+        return CLNMarginCall(as_of, mtm, threshold, required, direction)
+
+    def early_redeem(self, as_of: date, curve: DiscountCurve) -> float:
+        """Early redemption at current MTM."""
+        pv = self._cln.dirty_price(curve, self._surv)
+
+        self._events.append({
+            "type": CLNEventType.EARLY_REDEMPTION,
+            "date": as_of.isoformat(),
+            "redemption_pv": pv,
+        })
+
+        return pv
+
+
+# ---------------------------------------------------------------------------
+# Collateral evolution
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CLNCollateralState:
+    """Collateral state at a point in time."""
+    date: date
+    mtm: float
+    collateral_posted: float
+    net_exposure: float
+    margin_call: float
+    spread_level: float
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(), "mtm": self.mtm,
+            "collateral": self.collateral_posted,
+            "net_exposure": self.net_exposure,
+            "margin_call": self.margin_call,
+            "spread": self.spread_level,
+        }
+
+
+def cln_collateral_evolution(
+    cln: CreditLinkedNote,
+    dates: list[date],
+    curves: list[DiscountCurve],
+    survival_curves: list[SurvivalCurve],
+    initial_collateral: float = 0.0,
+    threshold: float = 0.0,
+    min_transfer: float = 250_000,
+) -> list[CLNCollateralState]:
+    """Collateral dynamics driven by spread moves."""
+    if len(dates) != len(curves) or len(dates) != len(survival_curves):
+        raise ValueError("dates, curves, and survival_curves must have same length")
+
+    states = []
+    collateral = initial_collateral
+
+    for d, curve, surv in zip(dates, curves, survival_curves):
+        mtm = cln.dirty_price(curve, surv)
+        T = year_fraction(cln.start, cln.end, DayCountConvention.ACT_365_FIXED)
+        spread = -math.log(max(surv.survival(cln.end), 1e-15)) / max(T, 1e-10)
+
+        net_exp = mtm - collateral
+        call = 0.0
+
+        if abs(net_exp) > threshold:
+            call_amount = abs(net_exp) - threshold
+            if call_amount >= min_transfer:
+                call = call_amount if net_exp > 0 else -call_amount
+                collateral += call
+
+        states.append(CLNCollateralState(d, mtm, collateral, mtm - collateral, call, spread))
+
+    return states

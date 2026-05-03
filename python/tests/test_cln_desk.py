@@ -15,7 +15,15 @@ from pricebook.cln_desk import (
     cln_daily_pnl, CLNDailyPnL,
     CLNBook, CLNBookEntry,
     cln_dashboard, CLNDashboard,
+    cln_stress_suite, CLNStressResult,
+    cln_scenario_stress,
+    cln_capital_summary, CLNCapitalSummary,
+    cln_hedge_recommendations, CLNHedgeRecommendation,
+    cln_basis_monitor, CLNBasisPoint,
+    CLNLifecycle, CLNMarginCall,
+    cln_collateral_evolution, CLNCollateralState,
 )
+from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
 from pricebook.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve
@@ -290,3 +298,212 @@ class TestCLNDashboard:
         assert "jtd" in d
         assert "by_issuer" in d
         assert "by_seniority" in d
+
+
+# ── Stress testing ──
+
+class TestCLNStress:
+
+    def test_five_scenarios(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        results = cln_stress_suite(book, curve)
+        assert len(results) == 5
+
+    def test_spread_wide_negative(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        results = cln_stress_suite(book, curve)
+        wide = [r for r in results if r.scenario == "spread_wide"][0]
+        assert wide.spread_pnl < 0  # CS01 negative × positive spread = negative
+
+    def test_scenario_stress(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        ctx = PricingContext(valuation_date=REF, discount_curve=make_flat_curve(REF, 0.04))
+        results = cln_scenario_stress(book, ctx)
+        assert len(results) == 3
+
+    def test_to_dict(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        results = cln_stress_suite(book, curve)
+        d = results[0].to_dict()
+        assert "spread" in d
+        assert "total" in d
+
+
+# ── Capital ──
+
+class TestCLNCapital:
+
+    def test_capital_summary(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        curve = make_flat_curve(REF, 0.04)
+        cap = cln_capital_summary(book, curve)
+        assert len(cap.entries) == 1
+        assert cap.total_ead > 0
+        assert cap.total_capital > 0
+
+    def test_capital_is_8pct_rwa(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        cap = cln_capital_summary(book, curve)
+        assert abs(cap.total_capital - cap.total_rwa * 0.08) < 0.01
+
+    def test_to_dict(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        d = cln_capital_summary(book, curve).to_dict()
+        assert "total_ead" in d
+
+
+# ── Hedge recommendations ──
+
+class TestCLNHedge:
+
+    def test_no_recs_within_limits(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        recs = cln_hedge_recommendations(book, curve,
+            cs01_limit=1e12, jtd_limit=1e12, recovery_limit=1e12, dv01_limit=1e12)
+        assert len(recs) == 0
+
+    def test_recs_when_breached(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv))
+        curve = make_flat_curve(REF, 0.04)
+        recs = cln_hedge_recommendations(book, curve, cs01_limit=0.001)
+        assert len(recs) >= 1
+        assert recs[0].action != ""
+
+    def test_basis_monitor(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        curve = make_flat_curve(REF, 0.04)
+        basis = cln_basis_monitor(book, curve, {"AAPL": 0.03})
+        assert len(basis) == 1
+        assert math.isfinite(basis[0].basis)
+
+    def test_basis_to_dict(self):
+        book = CLNBook()
+        surv = _flat_surv()
+        book.add(CLNBookEntry("C1", _vanilla_cln(), surv, issuer="AAPL"))
+        curve = make_flat_curve(REF, 0.04)
+        basis = cln_basis_monitor(book, curve, {"AAPL": 0.03})
+        d = basis[0].to_dict()
+        assert "basis" in d
+        assert "cln_yield" in d
+
+
+# ── Lifecycle ──
+
+class TestCLNLifecycle:
+
+    def test_credit_event_returns_recovery(self):
+        cln = _vanilla_cln()
+        surv = _flat_surv()
+        lc = CLNLifecycle(cln, surv, "C1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        payout = lc.credit_event(REF + relativedelta(years=1), curve)
+        assert payout == 0.4 * 1_000_000  # R × N
+
+    def test_restructuring_updates_terms(self):
+        cln = _vanilla_cln()
+        surv = _flat_surv()
+        lc = CLNLifecycle(cln, surv, "C1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        lc.restructuring(REF + relativedelta(months=6), curve, new_coupon=0.03)
+        assert cln.coupon_rate == 0.03
+
+    def test_margin_call_triggered(self):
+        cln = _vanilla_cln()
+        surv = _flat_surv()
+        lc = CLNLifecycle(cln, surv, "C1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        mc = lc.margin_call(REF, curve, threshold=0.0, min_transfer=0)
+        assert mc.required_transfer > 0
+
+    def test_margin_call_min_transfer(self):
+        cln = _vanilla_cln()
+        surv = _flat_surv()
+        lc = CLNLifecycle(cln, surv, "C1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        mc = lc.margin_call(REF, curve, min_transfer=1e15)
+        assert mc.required_transfer == 0.0
+
+    def test_early_redemption(self):
+        cln = _vanilla_cln()
+        surv = _flat_surv()
+        lc = CLNLifecycle(cln, surv, "C1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        pv = lc.early_redeem(REF, curve)
+        expected = cln.dirty_price(curve, surv)
+        assert abs(pv - expected) < 0.01
+
+    def test_history_ordered(self):
+        cln = _vanilla_cln()
+        surv = _flat_surv()
+        lc = CLNLifecycle(cln, surv, "C1", REF)
+        curve = make_flat_curve(REF, 0.04)
+        lc.restructuring(REF + relativedelta(months=3), curve, new_coupon=0.04)
+        hist = lc.history
+        dates = [h["date"] for h in hist]
+        assert dates == sorted(dates)
+
+
+# ── Collateral evolution ──
+
+class TestCLNCollateral:
+
+    def test_evolution_length(self):
+        cln = _vanilla_cln()
+        dates = [REF + relativedelta(days=i) for i in range(5)]
+        curves = [make_flat_curve(REF, 0.04)] * 5
+        survs = [_flat_surv(0.02 + i * 0.005) for i in range(5)]
+        states = cln_collateral_evolution(cln, dates, curves, survs)
+        assert len(states) == 5
+
+    def test_spread_tracked(self):
+        cln = _vanilla_cln()
+        dates = [REF]
+        curves = [make_flat_curve(REF, 0.04)]
+        survs = [_flat_surv(0.02)]
+        states = cln_collateral_evolution(cln, dates, curves, survs)
+        assert states[0].spread_level > 0
+
+    def test_margin_triggered(self):
+        cln = _vanilla_cln()
+        dates = [REF, REF + relativedelta(days=1)]
+        curves = [make_flat_curve(REF, 0.04)] * 2
+        survs = [_flat_surv(0.02), _flat_surv(0.10)]  # big spread move
+        states = cln_collateral_evolution(cln, dates, curves, survs,
+                                          threshold=0.0, min_transfer=0)
+        assert any(s.margin_call != 0 for s in states)
+
+    def test_to_dict(self):
+        cln = _vanilla_cln()
+        dates = [REF]
+        curves = [make_flat_curve(REF, 0.04)]
+        survs = [_flat_surv(0.02)]
+        states = cln_collateral_evolution(cln, dates, curves, survs)
+        d = states[0].to_dict()
+        assert "spread" in d
+        assert "net_exposure" in d

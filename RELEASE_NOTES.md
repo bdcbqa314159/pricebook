@@ -2,6 +2,27 @@
 
 ---
 
+## v0.465.0 — 2026-05-03
+
+**CLN Desk S7-S10: Stress, capital, hedge/basis, lifecycle, collateral.** 21 new tests.
+
+### Stress (S7)
+- `cln_stress_suite()`: 5 scenarios (spread ±, recovery -20%, rates +100bp, combined).
+- `cln_scenario_stress()`: full-reprice via scenario.run_scenarios.
+
+### Regulatory capital (S8)
+- `cln_capital_summary()`: SA-CCR EAD (SF=0.005), RWA, capital (8%), SIMM IM.
+
+### Hedge + basis (S9)
+- `cln_hedge_recommendations()`: CS01, JTD, recovery, DV01 limits. Credit-specific actions.
+- `cln_basis_monitor()`: CLN par_coupon vs CDS spread → basis per issuer.
+
+### Lifecycle + collateral (S10)
+- `CLNLifecycle`: credit_event (recovery payout), restructuring, margin_call, early_redeem.
+- `cln_collateral_evolution()`: spread-driven margin calls with spread tracking.
+
+---
+
 ## v0.464.0 — 2026-05-03
 
 **CLN Desk S6: XVA (SIMM IM, MVA, KVA, analytic CVA, wrong-way cost, MC XVA).** 13 new tests.
