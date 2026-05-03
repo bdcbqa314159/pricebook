@@ -2,6 +2,35 @@
 
 ---
 
+## v0.473.0 — 2026-05-03
+
+**Bond Trading Desk: unified risk, carry, dashboard, stress, hedge, funding, lifecycle.** 30 new tests.
+
+### Risk metrics (S1, L11 verified)
+- `BondRiskMetrics`: PV, clean, YTM, Macaulay/modified/effective duration, convexity, DV01 (yield + curve), key-rate DV01 ladder, face, accrued.
+- Effective duration via centred bump-and-reprice. Key-rate DV01 sums to parallel within 10%.
+
+### Carry-and-roll (S2)
+- `bond_carry_roll()`: prospective forecast — coupon carry, funding cost, roll-down (via DiscountCurve.roll_down), pull-to-par.
+
+### Dashboard (S3)
+- `bond_dashboard()`: morning summary with weighted duration/convexity, by-tenor, top-5 positions by DV01.
+
+### Stress testing (S4)
+- `bond_stress_suite()`: 5 parametric scenarios with DV01 + convexity adjustment.
+- `bond_scenario_stress()`: full-reprice via scenario.run_scenarios.
+
+### Hedge recommendations (S5)
+- `bond_hedge_recommendations()`: DV01, duration limits with actionable suggestions.
+
+### Funding cost (S6)
+- `bond_funding_cost()`: repo cost, balance sheet cost, all-in yield, breakeven repo.
+
+### Lifecycle (S7)
+- `BondLifecycle`: upcoming events, maturity alerts, coupon tracking via ManagedTrade.
+
+---
+
 ## v0.472.0 — 2026-05-03
 
 **CLN basket desk: tranche-level aggregation + rho01 per position. CLN → 5.0/5.0.** 11 new tests.
