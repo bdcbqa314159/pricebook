@@ -2,6 +2,16 @@
 
 ---
 
+## v0.462.0 — 2026-05-03
+
+**CLN Desk S1: Risk metrics + L11 hand-calc verification.** 7 new tests.
+
+- `cln_desk.py` (new): CLNRiskMetrics (PV, DV01, CS01, recovery_sensitivity, JTD).
+- DV01 centred O(h²). JTD = R×N - PV.
+- L11 verified: 5Y CLN (2% hazard, 40% recovery, 5% cpn, 4% rate) — all 3 legs exact match.
+
+---
+
 ## v0.461.0 — 2026-05-03
 
 **TRS lens audit: 9 issues fixed (1 HIGH, 3 MED, 5 LOW).**
