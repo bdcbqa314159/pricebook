@@ -2,6 +2,18 @@
 
 ---
 
+## v0.472.0 — 2026-05-03
+
+**CLN basket desk: tranche-level aggregation + rho01 per position. CLN → 5.0/5.0.** 11 new tests.
+
+- `BasketCLNRiskMetrics`: PV, expected_loss, CS01, rho01, DV01, attachment/detachment.
+- `basket_cln_risk_metrics()`: bump-and-reprice for all three sensitivities.
+- `BasketCLNBook` + `BasketCLNBookEntry`: by tranche, by counterparty, aggregate_risk with total rho01/cs01.
+- `BasketCLNDashboard`: morning summary with rho01 and tranche breakdown.
+- Verified sign convention: equity rho01 > 0 (long correlation), senior rho01 < 0 (short correlation).
+
+---
+
 ## v0.471.0 — 2026-05-03
 
 **CLN lens audit: 12 issues fixed (2 HIGH, 5 MED, 5 LOW).**

@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from pricebook.cln import CreditLinkedNote, CLNResult
+from pricebook.cln import CreditLinkedNote, CLNResult, BasketCLN, BasketCLNResult
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -828,3 +828,196 @@ def cln_collateral_evolution(
         states.append(CLNCollateralState(d, mtm, collateral, mtm - collateral, call, spread))
 
     return states
+
+
+# ---------------------------------------------------------------------------
+# Basket CLN desk (tranche-level aggregation + rho01)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class BasketCLNRiskMetrics:
+    """Risk metrics for a basket/tranche CLN position."""
+    pv: float
+    expected_loss: float
+    cs01: float              # average credit spread sensitivity
+    rho01: float             # correlation sensitivity (dPV / d(rho+1%))
+    dv01: float              # rate sensitivity
+    attachment: float
+    detachment: float
+    tranche_width: float
+    notional: float
+
+    def to_dict(self) -> dict:
+        return {
+            "pv": self.pv, "expected_loss": self.expected_loss,
+            "cs01": self.cs01, "rho01": self.rho01, "dv01": self.dv01,
+            "attachment": self.attachment, "detachment": self.detachment,
+            "tranche_width": self.tranche_width, "notional": self.notional,
+        }
+
+
+def basket_cln_risk_metrics(
+    basket: BasketCLN,
+    discount_curve: DiscountCurve,
+    survival_curves: list[SurvivalCurve],
+    rho: float = 0.3,
+    n_sims: int = 10_000,
+    seed: int = 42,
+) -> BasketCLNRiskMetrics:
+    """Compute risk metrics for a BasketCLN via bump-and-reprice.
+
+    CS01: average effect of bumping all survival curves by +1bp.
+    Rho01: dPV/d(rho+1%).
+    DV01: discount curve +1bp.
+    """
+    base = basket.price_mc(discount_curve, survival_curves, rho, n_sims, seed)
+
+    # DV01: centred
+    h = 0.0001
+    pv_up = basket.price_mc(discount_curve.bumped(h), survival_curves, rho, n_sims, seed).price
+    pv_dn = basket.price_mc(discount_curve.bumped(-h), survival_curves, rho, n_sims, seed).price
+    dv01 = (pv_up - pv_dn) / 2
+
+    # CS01: bump all survival curves by +1bp
+    bumped_survs = [sc.bumped(h) for sc in survival_curves]
+    pv_cs_up = basket.price_mc(discount_curve, bumped_survs, rho, n_sims, seed).price
+    cs01 = pv_cs_up - base.price
+
+    # Rho01: bump correlation by +1%
+    rho_bump = 0.01
+    pv_rho_up = basket.price_mc(discount_curve, survival_curves, rho + rho_bump, n_sims, seed).price
+    rho01 = pv_rho_up - base.price
+
+    return BasketCLNRiskMetrics(
+        pv=base.price, expected_loss=base.expected_loss,
+        cs01=cs01, rho01=rho01, dv01=dv01,
+        attachment=basket.attachment, detachment=basket.detachment,
+        tranche_width=basket.tranche_width,
+        notional=basket.notional,
+    )
+
+
+@dataclass
+class BasketCLNBookEntry:
+    """A basket CLN position in the book."""
+    trade_id: str
+    basket: BasketCLN
+    survival_curves: list[SurvivalCurve]
+    rho: float = 0.3
+    counterparty: str = ""
+    tranche_name: str = ""  # e.g. "0-3% equity", "3-7% mezz"
+    independent_amount: float = 0.0
+
+
+class BasketCLNBook:
+    """Collection of basket CLN positions with tranche-level aggregation."""
+
+    def __init__(self, name: str = "basket_cln_book"):
+        self.name = name
+        self._entries: list[BasketCLNBookEntry] = []
+
+    def add(self, entry: BasketCLNBookEntry) -> None:
+        self._entries.append(entry)
+
+    @property
+    def entries(self) -> list[BasketCLNBookEntry]:
+        return list(self._entries)
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def total_notional(self) -> float:
+        return sum(e.basket.notional for e in self._entries)
+
+    def total_independent_amount(self) -> float:
+        return sum(e.independent_amount for e in self._entries)
+
+    def by_tranche(self) -> dict[str, list[BasketCLNBookEntry]]:
+        """Group by tranche name (e.g. equity, mezz, senior)."""
+        result: dict[str, list[BasketCLNBookEntry]] = {}
+        for e in self._entries:
+            key = e.tranche_name or f"{e.basket.attachment:.0%}-{e.basket.detachment:.0%}"
+            result.setdefault(key, []).append(e)
+        return result
+
+    def by_counterparty(self) -> dict[str, list[BasketCLNBookEntry]]:
+        result: dict[str, list[BasketCLNBookEntry]] = {}
+        for e in self._entries:
+            result.setdefault(e.counterparty, []).append(e)
+        return result
+
+    def aggregate_risk(
+        self, curve: DiscountCurve, n_sims: int = 5_000, seed: int = 42,
+    ) -> dict[str, float]:
+        """Aggregate risk metrics across the basket book."""
+        total_pv = 0.0
+        total_cs01 = 0.0
+        total_rho01 = 0.0
+        total_dv01 = 0.0
+        total_el = 0.0
+
+        for e in self._entries:
+            rm = basket_cln_risk_metrics(
+                e.basket, curve, e.survival_curves, e.rho, n_sims, seed)
+            total_pv += rm.pv
+            total_cs01 += rm.cs01
+            total_rho01 += rm.rho01
+            total_dv01 += rm.dv01
+            total_el += rm.expected_loss
+
+        return {
+            "total_pv": total_pv,
+            "total_cs01": total_cs01,
+            "total_rho01": total_rho01,
+            "total_dv01": total_dv01,
+            "total_expected_loss": total_el,
+            "n_positions": len(self._entries),
+            "total_notional": self.total_notional(),
+            "total_ia": self.total_independent_amount(),
+        }
+
+
+@dataclass
+class BasketCLNDashboard:
+    """Morning-meeting summary for basket CLN desk."""
+    date: date
+    n_positions: int
+    total_pv: float
+    total_notional: float
+    total_cs01: float
+    total_rho01: float
+    total_dv01: float
+    total_expected_loss: float
+    by_tranche: dict[str, int]
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date.isoformat(), "n": self.n_positions,
+            "pv": self.total_pv, "notional": self.total_notional,
+            "cs01": self.total_cs01, "rho01": self.total_rho01,
+            "dv01": self.total_dv01, "expected_loss": self.total_expected_loss,
+            "by_tranche": self.by_tranche,
+        }
+
+
+def basket_cln_dashboard(
+    book: BasketCLNBook,
+    reference_date: date,
+    curve: DiscountCurve,
+    n_sims: int = 5_000,
+) -> BasketCLNDashboard:
+    """Build the basket CLN desk morning dashboard."""
+    risk = book.aggregate_risk(curve, n_sims)
+    by_tranche = {k: len(v) for k, v in book.by_tranche().items()}
+
+    return BasketCLNDashboard(
+        date=reference_date,
+        n_positions=risk["n_positions"],
+        total_pv=risk["total_pv"],
+        total_notional=risk["total_notional"],
+        total_cs01=risk["total_cs01"],
+        total_rho01=risk["total_rho01"],
+        total_dv01=risk["total_dv01"],
+        total_expected_loss=risk["total_expected_loss"],
+        by_tranche=by_tranche,
+    )

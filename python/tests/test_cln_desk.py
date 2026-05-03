@@ -9,6 +9,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.cln import CreditLinkedNote
+from pricebook.cln import BasketCLN
 from pricebook.cln_desk import (
     cln_risk_metrics, CLNRiskMetrics,
     cln_carry_decomposition, CLNCarryDecomposition,
@@ -22,6 +23,9 @@ from pricebook.cln_desk import (
     cln_basis_monitor, CLNBasisPoint,
     CLNLifecycle, CLNMarginCall,
     cln_collateral_evolution, CLNCollateralState,
+    basket_cln_risk_metrics, BasketCLNRiskMetrics,
+    BasketCLNBook, BasketCLNBookEntry,
+    basket_cln_dashboard, BasketCLNDashboard,
 )
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
@@ -559,3 +563,115 @@ class TestFoundations:
         # Bumped survival should be lower (higher hazard)
         t5 = REF + relativedelta(years=5)
         assert bumped_ctx.credit_curves["AAPL"].survival(t5) < surv.survival(t5)
+
+
+# ── Basket CLN desk ──
+
+def _basket_cln(attach=0.0, detach=0.03):
+    return BasketCLN(
+        start=REF, end=REF + relativedelta(years=5),
+        coupon_rate=0.05, notional=10_000_000,
+        attachment=attach, detachment=detach,
+        recovery=0.4, n_names=50,
+    )
+
+
+def _survs(n=50, h=0.02):
+    return [_flat_surv(h) for _ in range(n)]
+
+
+class TestBasketCLNRiskMetrics:
+
+    def test_pv_positive(self):
+        basket = _basket_cln()
+        curve = make_flat_curve(REF, 0.04)
+        rm = basket_cln_risk_metrics(basket, curve, _survs(), n_sims=3_000)
+        assert rm.pv > 0
+
+    def test_cs01_negative(self):
+        """Wider spreads → more defaults → lower tranche price."""
+        basket = _basket_cln()
+        curve = make_flat_curve(REF, 0.04)
+        rm = basket_cln_risk_metrics(basket, curve, _survs(), n_sims=3_000)
+        assert rm.cs01 < 0
+
+    def test_rho01_equity_positive(self):
+        """Equity tranche: higher rho → fewer idiosyncratic defaults → higher price."""
+        basket = _basket_cln(0.0, 0.03)
+        curve = make_flat_curve(REF, 0.04)
+        rm = basket_cln_risk_metrics(basket, curve, _survs(), rho=0.20, n_sims=3_000)
+        assert rm.rho01 > 0
+
+    def test_rho01_senior_negative(self):
+        """Senior tranche: higher rho → more tail risk → lower price."""
+        basket = _basket_cln(0.07, 0.10)
+        curve = make_flat_curve(REF, 0.04)
+        rm = basket_cln_risk_metrics(basket, curve, _survs(), rho=0.20, n_sims=3_000)
+        assert rm.rho01 < 0
+
+    def test_to_dict(self):
+        basket = _basket_cln()
+        curve = make_flat_curve(REF, 0.04)
+        rm = basket_cln_risk_metrics(basket, curve, _survs(), n_sims=2_000)
+        d = rm.to_dict()
+        assert "rho01" in d
+        assert "cs01" in d
+        assert "attachment" in d
+
+
+class TestBasketCLNBook:
+
+    def test_add_and_count(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(0.0, 0.03), survs, tranche_name="equity"))
+        book.add(BasketCLNBookEntry("B2", _basket_cln(0.03, 0.07), survs, tranche_name="mezz"))
+        assert len(book) == 2
+
+    def test_by_tranche(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(0.0, 0.03), survs, tranche_name="equity"))
+        book.add(BasketCLNBookEntry("B2", _basket_cln(0.03, 0.07), survs, tranche_name="mezz"))
+        bt = book.by_tranche()
+        assert "equity" in bt
+        assert "mezz" in bt
+
+    def test_total_notional(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(), survs))
+        assert book.total_notional() == 10_000_000
+
+    def test_aggregate_risk(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(), survs))
+        curve = make_flat_curve(REF, 0.04)
+        risk = book.aggregate_risk(curve, n_sims=2_000)
+        assert "total_rho01" in risk
+        assert "total_cs01" in risk
+        assert risk["n_positions"] == 1
+
+
+class TestBasketCLNDashboard:
+
+    def test_dashboard_fields(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(), survs, tranche_name="equity"))
+        curve = make_flat_curve(REF, 0.04)
+        db = basket_cln_dashboard(book, REF, curve, n_sims=2_000)
+        assert db.n_positions == 1
+        assert math.isfinite(db.total_rho01)
+        assert "equity" in db.by_tranche
+
+    def test_to_dict(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(), survs))
+        curve = make_flat_curve(REF, 0.04)
+        db = basket_cln_dashboard(book, REF, curve, n_sims=2_000)
+        d = db.to_dict()
+        assert "rho01" in d
+        assert "by_tranche" in d
