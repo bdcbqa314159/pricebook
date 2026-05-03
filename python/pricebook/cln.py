@@ -440,14 +440,14 @@ class CreditLinkedNote:
         """Price CLN via Monte Carlo under stochastic intensity.
 
         For each path:
-          1. Simulate intensity λ(t) from the model.
-          2. Compute path survival Q_path(t) = exp(−∫λ ds).
+          1. Simulate intensity λ(t) from the model (Euler or exact scheme).
+          2. Compute path survival Q_path(t) = exp(−∫₀ᵗ λ ds) via left-endpoint
+             rectangular rule (Glasserman 2003, §6.3).
           3. Accumulate coupon × df × Q and recovery × df × ΔQ per period.
           4. Average across paths.
 
         Supports CIRPlusPlus, HWHazardRate, or CIRIntensity models.
         """
-        import numpy as np
 
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
         if x0 is None:
@@ -546,7 +546,8 @@ class CreditLinkedNote:
         elif model_type == "hw":
             model = HWHazardRate.from_survival_curve(
                 survival_curve, a=kappa, sigma=xi)
-            x0 = survival_curve.pillar_hazards()[0][1] if survival_curve.pillar_hazards() else 0.02
+            hazards = survival_curve.pillar_hazards()
+            x0 = hazards[0][1] if hazards else 0.02
         else:
             raise ValueError(f"Unknown model_type: {model_type}")
 
@@ -571,13 +572,21 @@ class CreditLinkedNote:
         On neither → full coupon + principal.
 
         Simulates two correlated uniform defaults via Gaussian copula.
+        Default check: name defaults in period i when PD(t_i) > U, i.e. Q(t_i) < 1 - U.
+
+        Reference: Li (2000), "On Default Correlation", Journal of Fixed Income.
         """
         import numpy as np
+
+        if not -1.0 <= correlation <= 1.0:
+            raise ValueError(f"correlation must be in [-1, 1], got {correlation}")
+        if self.notional <= 0:
+            raise ValueError(f"notional must be positive, got {self.notional}")
 
         rng = np.random.default_rng(seed)
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
 
-        # Correlated normals via Cholesky
+        # Correlated normals via Cholesky (Li 2000)
         Z = rng.standard_normal((n_paths, 2))
         Z[:, 1] = correlation * Z[:, 0] + math.sqrt(1 - correlation**2) * Z[:, 1]
 

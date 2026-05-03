@@ -762,7 +762,12 @@ def implied_intensity_vol(
                             notional, option_type, n_paths, n_steps=50, seed=seed)
         return result.premium - market_premium
 
-    return brentq(objective, 0.001, 2.0)
+    # Check bracket: objective should change sign in [0.001, 2.0]
+    try:
+        return brentq(objective, 0.001, 2.0)
+    except ValueError:
+        # Widen bracket and retry
+        return brentq(objective, 0.0001, 5.0)
 
 
 def calibrate_intensity_vol(
@@ -782,8 +787,6 @@ def calibrate_intensity_vol(
 
     Returns dict with xi, calibration_errors, total_rmse.
     """
-    from pricebook.solvers import brentq
-
     # Calibrate xi to minimise total pricing error
     # For single-parameter calibration, use average implied vol
     implied_vols = []

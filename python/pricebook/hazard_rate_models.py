@@ -48,7 +48,10 @@ def verify_calibration(
     errors = {}
     pillar_hazards = survival_curve.pillar_hazards()
     for t, _ in pillar_hazards:
-        market_surv = float(survival_curve._interpolator(t))
+        # Use public API for market survival at pillar time
+        from pricebook.day_count import date_from_year_fraction
+        pillar_date = date_from_year_fraction(survival_curve.reference_date, t)
+        market_surv = survival_curve.survival(pillar_date)
         if hasattr(model, 'survival_analytical'):
             model_surv = model.survival_analytical(x0, t)
         else:
@@ -394,8 +397,10 @@ class CIRPlusPlus:
         then constructs the model with exact φ(t) shift.
         """
         market_hazards = survival_curve.pillar_hazards()
+        if not market_hazards:
+            raise ValueError("Cannot calibrate CIR++ from empty survival curve")
         if theta is None:
-            theta = sum(h for _, h in market_hazards) / max(len(market_hazards), 1)
+            theta = sum(h for _, h in market_hazards) / len(market_hazards)
         return cls(kappa=kappa, theta=theta, xi=xi, market_hazards=market_hazards)
 
     def phi(self, t: float, x0: float) -> float:

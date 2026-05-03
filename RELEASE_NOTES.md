@@ -2,6 +2,16 @@
 
 ---
 
+## v0.471.0 — 2026-05-03
+
+**CLN lens audit: 12 issues fixed (2 HIGH, 5 MED, 5 LOW).**
+
+- **HIGH**: Correlation bounds validated in bilateral CLN. Zero notional guard added.
+- **MED**: Empty survival curve guard in CIR++ calibration. Wider brentq bracket for implied vol. Private `_interpolator` access replaced with public API. Discretization scheme cited (Glasserman 2003 §6.3).
+- **LOW**: Added Li (2000) citation for bilateral copula. Removed redundant imports. Dimensional scaling documented. Unused brentq import removed.
+
+---
+
 ## v0.470.0 — 2026-05-03
 
 **CLN Pipeline P7+P8: PricingContext extension + end-to-end integration.** 6 new tests.

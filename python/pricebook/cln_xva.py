@@ -125,8 +125,10 @@ def cln_analytic_cva(
     greeks = cln.greeks(discount_curve, survival_curve)
 
     # EPE from spread moves: |CS01| × spread_vol × √T
+    # CS01 is per 1bp (0.0001), spread_vol is in absolute hazard units
+    # Scale: EPE($) = |CS01($/bp)| × (spread_vol / 0.0001) × √T
     spread_vol = 0.30  # 30% of hazard as typical vol
-    epe = abs(greeks["cs01"]) * spread_vol * math.sqrt(T) * 10_000  # scale CS01 from 1bp to spread vol
+    epe = abs(greeks["cs01"]) * spread_vol * math.sqrt(T) * 10_000
 
     lgd = 1 - cpty_recovery
     df_mid = discount_curve.df(cln.start + (cln.end - cln.start) // 2)
