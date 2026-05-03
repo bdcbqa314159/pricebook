@@ -2,6 +2,18 @@
 
 ---
 
+## v0.464.0 — 2026-05-03
+
+**CLN Desk S6: XVA (SIMM IM, MVA, KVA, analytic CVA, wrong-way cost, MC XVA).** 13 new tests.
+
+- `cln_xva.py` (new): full XVA stack for CLN.
+- `cln_simm_im()`: CSR + GIRR via SIMMCalculator.
+- `cln_analytic_cva()`: EPE from spread vol × |CS01| × √T.
+- `cln_wrong_way_cost()`: stochastic recovery vs deterministic via RecoverySpec.
+- `cln_mc_xva()`: wires xva.simulate_exposures → total_xva_decomposition.
+
+---
+
 ## v0.463.0 — 2026-05-03
 
 **CLN Desk S2-S5: Carry, P&L, book, dashboard.** 17 new tests.
