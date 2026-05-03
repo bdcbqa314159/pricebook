@@ -2,6 +2,31 @@
 
 ---
 
+## v0.475.0 — 2026-05-03
+
+**CDS Trading Desk: single-name + index + swaption unified desk.** 32 new tests.
+
+### Risk metrics (L11 verified)
+- `CDSRiskMetrics`: PV, par spread, RPV01, CS01 (centred), bucket CS01, rec01, theta, carry, roll-down, spread duration/convexity, JTD.
+- Verified: par ≈ h×(1-R), CS01 > 0 for buyer, rec01 < 0 for buyer.
+
+### Desk operations
+- `CDSBook`: unified book for single-name + index + swaption. By name, sector, rating, type, counterparty.
+- `CDSCarryDecomposition`: premium income, default risk accrual, roll-down.
+- `CDSDailyPnL`: spread, carry, roll-down, convexity, unexplained (wraps existing cds_pnl_attribution).
+- `CDSDashboard`: CS01, JTD, rec01, by_name, by_sector, by_type.
+
+### Stress + capital
+- `cds_stress_suite()`: 5 scenarios (spread ±, recovery -20%, combined).
+- `cds_scenario_stress()`: full-reprice via credit_spread_shift + parallel_shift.
+- `cds_capital()`: SA-CCR (SF=0.005), SIMM (CSR bucket).
+
+### Hedge + lifecycle
+- `cds_hedge_recommendations()`: CS01, JTD, single-name concentration limits.
+- `CDSLifecycle`: credit event (payout), maturity alert, succession recording.
+
+---
+
 ## v0.474.0 — 2026-05-03
 
 **Swap Trading Desk: risk, carry, P&L, book, dashboard, stress, XVA, capital, lifecycle.** 32 new tests.
