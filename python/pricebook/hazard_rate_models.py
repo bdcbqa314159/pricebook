@@ -26,6 +26,45 @@ import numpy as np
 from scipy.linalg import expm
 
 
+# ---- Calibration verification ----
+
+def verify_calibration(
+    model,
+    survival_curve,
+    x0: float | None = None,
+    tolerance: float = 0.05,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Verify stochastic model matches market survival at each pillar.
+
+    Returns dict of {pillar_time: absolute_error}.
+    Raises ValueError if max error > tolerance.
+    """
+    if x0 is None:
+        hazards = survival_curve.pillar_hazards()
+        x0 = hazards[0][1] if hazards else 0.02
+
+    errors = {}
+    pillar_hazards = survival_curve.pillar_hazards()
+    for t, _ in pillar_hazards:
+        market_surv = float(survival_curve._interpolator(t))
+        if hasattr(model, 'survival_analytical'):
+            model_surv = model.survival_analytical(x0, t)
+        else:
+            result = model.simulate(x0, t, n_steps=max(int(t * 50), 10),
+                                    n_paths=n_paths, seed=seed)
+            model_surv = result.survival_mc
+        errors[t] = abs(model_surv - market_surv)
+
+    max_err = max(errors.values()) if errors else 0.0
+    if max_err > tolerance:
+        raise ValueError(
+            f"Calibration failed: max error {max_err:.4f} > tolerance {tolerance:.4f}"
+        )
+    return errors
+
+
 # ---- Hull-White hazard rate ----
 
 @dataclass
@@ -91,6 +130,20 @@ class HWHazardRate:
         """Numerical derivative of forward hazard."""
         eps = 1e-4
         return (self._forward_hazard(t + eps) - self._forward_hazard(t - eps)) / (2 * eps)
+
+    @classmethod
+    def from_survival_curve(
+        cls,
+        survival_curve,
+        a: float = 0.5,
+        sigma: float = 0.01,
+    ) -> "HWHazardRate":
+        """Calibrate HW hazard model to a bootstrapped survival curve.
+
+        Extracts pillar hazards and constructs the model with exact θ(t).
+        """
+        market_hazards = survival_curve.pillar_hazards()
+        return cls(a=a, sigma=sigma, market_hazards=market_hazards)
 
     def survival_analytical(self, lam0: float, T: float) -> float:
         """Analytical survival probability (affine model).
@@ -326,6 +379,24 @@ class CIRPlusPlus:
         self.theta = theta
         self.xi = xi
         self._market_hazards = market_hazards or []
+
+    @classmethod
+    def from_survival_curve(
+        cls,
+        survival_curve,
+        kappa: float = 1.0,
+        xi: float = 0.1,
+        theta: float | None = None,
+    ) -> "CIRPlusPlus":
+        """Calibrate CIR++ to a bootstrapped survival curve.
+
+        Extracts pillar hazards, sets theta to average hazard if not provided,
+        then constructs the model with exact φ(t) shift.
+        """
+        market_hazards = survival_curve.pillar_hazards()
+        if theta is None:
+            theta = sum(h for _, h in market_hazards) / max(len(market_hazards), 1)
+        return cls(kappa=kappa, theta=theta, xi=xi, market_hazards=market_hazards)
 
     def phi(self, t: float, x0: float) -> float:
         """Deterministic shift φ(t) = λ_market(t) − E[x(t)]."""

@@ -2,6 +2,16 @@
 
 ---
 
+## v0.467.0 — 2026-05-03
+
+**CLN Pipeline P2: Wire CIR++/HW to SurvivalCurve (auto-calibration).** 7 new tests.
+
+- `CIRPlusPlus.from_survival_curve(curve, kappa, xi)`: auto-extracts pillar hazards, sets theta, builds model with exact φ(t).
+- `HWHazardRate.from_survival_curve(curve, a, sigma)`: same pattern for HW.
+- `verify_calibration(model, curve, tolerance)`: MC/analytical survival vs market at each pillar. Raises on breach.
+
+---
+
 ## v0.466.0 — 2026-05-03
 
 **CLN Pipeline P1: Foundations (CS01 fix, hazard extractor, credit scenario).** 4 new tests.
