@@ -60,6 +60,12 @@ class PricingContext:
     inflation_curves: dict[str, object] = field(default_factory=dict)
     repo_curves: dict[str, DiscountCurve] = field(default_factory=dict)
     reporting_currency: str = "USD"
+    # Stochastic credit models (CIR++, HW hazard rate, etc.)
+    stochastic_credit_models: dict[str, object] = field(default_factory=dict)
+    # CDS spread vol surfaces (CDSSpreadSmile per name)
+    credit_vol_surfaces: dict[str, object] = field(default_factory=dict)
+    # Credit correlations (for basket CLN)
+    credit_correlations: dict[str, float] = field(default_factory=dict)
 
     # ---- Curve accessors ----
 
@@ -163,6 +169,9 @@ class PricingContext:
             inflation_curves=kwargs.get("inflation_curves", self.inflation_curves),
             repo_curves=kwargs.get("repo_curves", self.repo_curves),
             reporting_currency=kwargs.get("reporting_currency", self.reporting_currency),
+            stochastic_credit_models=kwargs.get("stochastic_credit_models", self.stochastic_credit_models),
+            credit_vol_surfaces=kwargs.get("credit_vol_surfaces", self.credit_vol_surfaces),
+            credit_correlations=kwargs.get("credit_correlations", self.credit_correlations),
         )
 
     @classmethod

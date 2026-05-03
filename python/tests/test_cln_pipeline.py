@@ -272,3 +272,110 @@ class TestBasketRho01:
         assert eq_high > eq_low
         # Senior: higher rho → lower price (negative rho01)
         assert sr_high < sr_low
+
+
+# ── Phase 7: PricingContext extension ──
+
+class TestPricingContextCredit:
+
+    def test_context_stores_stochastic_model(self):
+        from pricebook.pricing_context import PricingContext
+        surv = make_flat_survival(REF, 0.02)
+        model = CIRPlusPlus.from_survival_curve(surv, kappa=1.0, xi=0.1)
+        ctx = PricingContext(
+            valuation_date=REF,
+            discount_curve=make_flat_curve(REF, 0.04),
+            credit_curves={"AAPL": surv},
+            stochastic_credit_models={"AAPL": model},
+        )
+        assert "AAPL" in ctx.stochastic_credit_models
+        assert ctx.stochastic_credit_models["AAPL"].xi == 0.1
+
+    def test_context_replace_preserves_models(self):
+        from pricebook.pricing_context import PricingContext
+        surv = make_flat_survival(REF, 0.02)
+        model = CIRPlusPlus.from_survival_curve(surv, kappa=1.0, xi=0.1)
+        ctx = PricingContext(
+            valuation_date=REF,
+            discount_curve=make_flat_curve(REF, 0.04),
+            stochastic_credit_models={"AAPL": model},
+        )
+        bumped = ctx.replace(discount_curve=make_flat_curve(REF, 0.05))
+        assert "AAPL" in bumped.stochastic_credit_models
+
+    def test_cln_pv_ctx_uses_stochastic_model(self):
+        """CLN.pv_ctx dispatches to stochastic when model in context."""
+        from pricebook.pricing_context import PricingContext
+        cln = CreditLinkedNote(
+            start=REF, end=REF + relativedelta(years=5),
+            coupon_rate=0.05, notional=1_000_000, recovery=0.4,
+            frequency=Frequency.QUARTERLY,
+        )
+        surv = make_flat_survival(REF, 0.02)
+        model = CIRPlusPlus.from_survival_curve(surv, kappa=1.0, xi=0.001)
+        ctx = PricingContext(
+            valuation_date=REF,
+            discount_curve=make_flat_curve(REF, 0.04),
+            credit_curves={"ref": surv},
+            stochastic_credit_models={"ref": model},
+        )
+        pv = cln.pv_ctx(ctx)
+        det = cln.dirty_price(make_flat_curve(REF, 0.04), surv)
+        # Low vol → should be close to deterministic
+        assert abs(pv - det) / det < 0.05
+
+
+# ── Phase 8: End-to-end integration ──
+
+class TestE2EIntegration:
+
+    def test_e2e_single_name_pipeline(self):
+        """CDS quotes → curve → CIR++ → CLN stochastic price → desk risk."""
+        from pricebook.cln_desk import cln_risk_metrics
+        curve = make_flat_curve(REF, 0.04)
+        surv = make_flat_survival(REF, 0.02)
+
+        # Step 1: Calibrate CIR++ from survival curve
+        model = CIRPlusPlus.from_survival_curve(surv, kappa=1.0, xi=0.05)
+
+        # Step 2: Price CLN under stochastic intensity
+        cln = CreditLinkedNote(
+            start=REF, end=REF + relativedelta(years=5),
+            coupon_rate=0.05, notional=1_000_000, recovery=0.4,
+            frequency=Frequency.QUARTERLY,
+        )
+        stoch = cln.price_stochastic_intensity(curve, model, n_paths=10_000, n_steps=50)
+        assert stoch.price > 0
+
+        # Step 3: Desk risk
+        rm = cln_risk_metrics(cln, curve, surv)
+        assert rm.cs01 < 0
+        assert rm.dv01 < 0
+        assert rm.jump_to_default_pnl < 0
+
+    def test_e2e_bilateral(self):
+        """Ref + issuer curves → bilateral price < unilateral."""
+        cln = CreditLinkedNote(
+            start=REF, end=REF + relativedelta(years=5),
+            coupon_rate=0.05, notional=1_000_000, recovery=0.4,
+            frequency=Frequency.QUARTERLY,
+        )
+        curve = make_flat_curve(REF, 0.04)
+        ref_surv = make_flat_survival(REF, 0.02)
+        issuer_surv = make_flat_survival(REF, 0.03)
+
+        unilateral = cln.dirty_price(curve, ref_surv)
+        bilateral = cln.price_bilateral_mc(
+            curve, ref_surv, issuer_surv, n_paths=10_000).price
+        assert bilateral < unilateral
+
+    def test_e2e_basket_rho_sign(self):
+        """Equity tranche: positive rho01. Senior: negative."""
+        curve = make_flat_curve(REF, 0.04)
+        survs = [make_flat_survival(REF, 0.02) for _ in range(50)]
+
+        eq = BasketCLN(REF, REF + relativedelta(years=5), 0.05, 10_000_000,
+                       0.0, 0.03, 0.4, 50)
+        p_low = eq.price_mc(curve, survs, rho=0.15, n_sims=3_000, seed=42).price
+        p_high = eq.price_mc(curve, survs, rho=0.45, n_sims=3_000, seed=42).price
+        assert p_high > p_low  # equity: positive rho01

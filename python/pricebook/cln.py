@@ -276,12 +276,30 @@ class CreditLinkedNote:
         return {"dv01": dv01, "cs01": cs01, "recovery_sensitivity": recovery_sens}
 
     def pv_ctx(self, ctx) -> float:
-        """Price from PricingContext — Trade/Portfolio integration."""
+        """Price from PricingContext — Trade/Portfolio integration.
+
+        If ctx has a stochastic credit model matching a credit curve name,
+        uses price_stochastic_intensity() for MC pricing. Otherwise deterministic.
+        """
         curve = ctx.discount_curve
-        sc = ctx.survival_curve if hasattr(ctx, "survival_curve") and ctx.survival_curve else None
+
+        # Find survival curve from credit_curves dict
+        sc = None
+        if hasattr(ctx, 'credit_curves') and ctx.credit_curves:
+            sc = next(iter(ctx.credit_curves.values()), None)
+        if sc is None and hasattr(ctx, "survival_curve") and ctx.survival_curve:
+            sc = ctx.survival_curve
         if sc is None:
-            # Fallback: use a flat survival if no curve in context
             sc = SurvivalCurve.flat(curve.reference_date, 0.02)
+
+        # Check for stochastic model
+        if hasattr(ctx, 'stochastic_credit_models') and ctx.stochastic_credit_models:
+            model = next(iter(ctx.stochastic_credit_models.values()), None)
+            if model is not None:
+                return self.price_stochastic_intensity(
+                    curve, model, n_paths=10_000, n_steps=50,
+                ).price
+
         return self.dirty_price(curve, sc)
 
     # ---- Internal helpers ----

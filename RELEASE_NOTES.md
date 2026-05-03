@@ -2,6 +2,22 @@
 
 ---
 
+## v0.470.0 — 2026-05-03
+
+**CLN Pipeline P7+P8: PricingContext extension + end-to-end integration.** 6 new tests.
+
+### PricingContext extension (P7)
+- Added `stochastic_credit_models`, `credit_vol_surfaces`, `credit_correlations` fields.
+- `replace()` preserves all new fields.
+- `CreditLinkedNote.pv_ctx()`: auto-dispatches to stochastic intensity when model in context.
+
+### End-to-end integration (P8)
+- Single-name pipeline: curve → CIR++ → stochastic CLN → desk risk (verified CS01/DV01/JTD).
+- Bilateral: ref + issuer → bilateral < unilateral (verified).
+- Basket: equity tranche positive rho01 (verified).
+
+---
+
 ## v0.469.0 — 2026-05-03
 
 **CLN Pipeline P5+P6: Bilateral CLN (dual default) + basket rho sensitivity.** 5 new tests.
