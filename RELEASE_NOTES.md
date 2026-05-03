@@ -2,6 +2,31 @@
 
 ---
 
+## v0.450.0 — 2026-05-03
+
+**Repo XVA + Regulatory + Product Types.** 7148 tests.
+
+### Repo XVA (`repo_xva.py`)
+- `repo_fva()`: funding cost = cash × spread × term. Positive when desk funding > OIS.
+- `repo_kva()`: capital cost = capital × hurdle_rate × term.
+- `repo_mva()`: margin funding cost = IM × spread × term. Uses haircut as IM proxy.
+- `repo_gap_cost()`: financing cost when collateral < cash. Reuses `xva.repo_gap_risk()`.
+- `repo_total_cost()` → `RepoAllInCost`: interest + fees + FVA + KVA + MVA + gap. Shows hidden cost in bps above headline rate.
+
+### Regulatory capital (`regulatory/repo_capital.py`)
+- `sft_ead()`: Basel CRE50 EAD = max(0, cash − collateral × (1 − haircut)). Zero when over-collateralised.
+- `repo_rwa()`: EAD × SA risk weight (sovereign 0%, bank 20%, corp 100%).
+- `repo_lcr_outflow()`: LCR treatment — L1 (0%), L2A (15%), L2B (25%), other (100%).
+- `repo_nsfr_rsf()`: NSFR RSF — L1 short 10%, L1 long 15%, other up to 100%.
+- `repo_capital_summary()`: aggregate EAD/RWA/LCR/NSFR across book.
+
+### Product types
+- `RepoTrade.buy_sell_back()`: two-leg cash trade, implied rate from spot/forward.
+- `RepoTrade.repo_to_maturity()`: term = bond maturity − settlement. Auto-computed.
+- `RepoTrade.equity_repo()`: stock collateral, regulatory haircut (15%+), dividend yield.
+
+---
+
 ## v0.449.0 — 2026-05-02
 
 **Repo engine upgrades: tri-party + all 3→4 gaps.** 7117 tests.
