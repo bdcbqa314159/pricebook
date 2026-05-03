@@ -5,7 +5,9 @@ Same depth as repo_desk.py — production desk infrastructure for TRS.
     from pricebook.trs_desk import (
         trs_risk_metrics, trs_carry_decomposition,
         trs_daily_pnl, TRSBook, trs_dashboard,
-        trs_funding_dv01, trs_repo_dv01,
+        trs_all_in_cost, trs_stress_suite,
+        trs_capital_summary, TRSCapitalSummary,
+        trs_hedge_recommendations, TRSHedgeRecommendation,
     )
 """
 
@@ -474,3 +476,162 @@ def trs_stress_suite(
         results.append(TRSStressResult(name, desc, d_pnl, g_pnl, v_pnl, f_pnl, total))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Regulatory capital summary
+# ---------------------------------------------------------------------------
+
+# SA-CCR supervisory factors by asset class
+_SA_CCR_SF = {"equity": 0.32, "bond": 0.005, "loan": 0.005, "cln": 0.005,
+              "commodity": 0.18, "fx": 0.04}
+
+# SA risk weights by counterparty type
+_SA_RISK_WEIGHTS = {
+    "sovereign": 0.0, "central_bank": 0.0, "bank": 0.20,
+    "broker_dealer": 0.20, "corporate": 1.00, "hedge_fund": 1.50,
+    "ccp": 0.02, "other": 1.00,
+}
+
+
+@dataclass
+class TRSCapitalEntry:
+    """Capital for one TRS position."""
+    trade_id: str
+    underlying_type: str
+    notional: float
+    mtm: float
+    ead: float
+    rwa: float
+    capital: float
+    simm_im: float
+
+
+@dataclass
+class TRSCapitalSummary:
+    """Regulatory capital summary for the TRS book."""
+    entries: list[TRSCapitalEntry]
+    total_ead: float
+    total_rwa: float
+    total_capital: float
+    total_simm_im: float
+    total_notional: float
+
+    def to_dict(self) -> dict:
+        return {
+            "n_positions": len(self.entries),
+            "total_ead": self.total_ead,
+            "total_rwa": self.total_rwa,
+            "total_capital": self.total_capital,
+            "total_simm_im": self.total_simm_im,
+            "total_notional": self.total_notional,
+            "by_trade": [
+                {"id": e.trade_id, "type": e.underlying_type,
+                 "notional": e.notional, "ead": e.ead,
+                 "rwa": e.rwa, "capital": e.capital}
+                for e in self.entries
+            ],
+        }
+
+
+def trs_capital_summary(
+    book: TRSBook,
+    curve: DiscountCurve,
+    counterparty_type: str = "corporate",
+    projection: DiscountCurve | None = None,
+) -> TRSCapitalSummary:
+    """Compute SA-CCR based regulatory capital for the TRS book.
+
+    EAD = 1.4 x (max(MTM, 0) + notional x SF x sqrt(min(T, 1)))
+    RWA = EAD x RW
+    Capital = RWA x 8%
+    SIMM IM ≈ notional x 5% (proxy)
+    """
+    rw = _SA_RISK_WEIGHTS.get(counterparty_type, 1.0)
+    entries = []
+
+    for e in book.entries:
+        trs = e.trs
+        T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+        result = trs.price(curve, projection)
+        mtm = max(result.value, 0)
+
+        sf = _SA_CCR_SF.get(trs._underlying_type, 0.10)
+        ead = 1.4 * (mtm + trs.notional * sf * math.sqrt(min(T, 1.0)))
+        rwa = ead * rw
+        capital = rwa * 0.08
+        simm_im = trs.notional * 0.05
+
+        entries.append(TRSCapitalEntry(
+            trade_id=e.trade_id, underlying_type=trs._underlying_type,
+            notional=trs.notional, mtm=mtm, ead=ead, rwa=rwa,
+            capital=capital, simm_im=simm_im,
+        ))
+
+    return TRSCapitalSummary(
+        entries=entries,
+        total_ead=sum(e.ead for e in entries),
+        total_rwa=sum(e.rwa for e in entries),
+        total_capital=sum(e.capital for e in entries),
+        total_simm_im=sum(e.simm_im for e in entries),
+        total_notional=sum(e.notional for e in entries),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hedge recommendations
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TRSHedgeRecommendation:
+    """A hedge recommendation for the TRS book."""
+    risk_type: str      # "delta", "dv01", "vega", "funding"
+    current: float      # current exposure
+    limit: float        # limit
+    breach_pct: float   # current / limit
+    action: str         # suggested hedge action
+
+    def to_dict(self) -> dict:
+        return {
+            "risk": self.risk_type, "current": self.current,
+            "limit": self.limit, "breach_pct": self.breach_pct,
+            "action": self.action,
+        }
+
+
+def trs_hedge_recommendations(
+    book: TRSBook,
+    curve: DiscountCurve,
+    delta_limit: float = 1_000_000,
+    dv01_limit: float = 50_000,
+    vega_limit: float = 100_000,
+    funding_dv01_limit: float = 10_000,
+    projection: DiscountCurve | None = None,
+) -> list[TRSHedgeRecommendation]:
+    """Generate hedge recommendations when risk exceeds limits.
+
+    Returns a list of recommendations for any breached limits.
+    """
+    risk = book.aggregate_risk(curve, projection)
+    recs = []
+
+    checks = [
+        ("delta", abs(risk["total_delta"]), delta_limit,
+         "Reduce equity delta via futures or offsetting TRS"),
+        ("dv01", abs(risk["total_dv01"]), dv01_limit,
+         "Hedge rate risk via interest rate swaps"),
+        ("vega", abs(risk["total_vega"]), vega_limit,
+         "Reduce vol exposure via variance swaps or options"),
+        ("funding_dv01", abs(risk["total_funding_dv01"]), funding_dv01_limit,
+         "Reduce funding exposure or term out funding"),
+    ]
+
+    for risk_type, current, limit, action in checks:
+        if limit > 0 and current > limit * 0.75:  # warn at 75% of limit
+            recs.append(TRSHedgeRecommendation(
+                risk_type=risk_type, current=current, limit=limit,
+                breach_pct=current / limit if limit > 0 else 0,
+                action=action,
+            ))
+
+    return recs

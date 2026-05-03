@@ -17,6 +17,8 @@ from pricebook.trs_desk import (
     trs_dashboard, TRSDashboard,
     trs_all_in_cost, TRSAllInCost,
     trs_stress_suite, TRSStressResult,
+    trs_capital_summary, TRSCapitalSummary,
+    trs_hedge_recommendations, TRSHedgeRecommendation,
 )
 from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
@@ -245,3 +247,101 @@ class TestStress:
         d = results[0].to_dict()
         assert "delta" in d
         assert "total" in d
+
+
+# ── Regulatory capital ──
+
+class TestCapital:
+
+    def test_capital_summary(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        book.add(TRSBookEntry("T2", _bond_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        cap = trs_capital_summary(book, curve)
+        assert len(cap.entries) == 2
+        assert cap.total_ead > 0
+        assert cap.total_rwa > 0
+        assert cap.total_capital > 0
+
+    def test_equity_higher_ead_per_notional(self):
+        """Equity SF=0.32 >> bond SF=0.005."""
+        book_eq = TRSBook()
+        book_eq.add(TRSBookEntry("T1", _equity_trs()))
+        book_bd = TRSBook()
+        book_bd.add(TRSBookEntry("T2", _bond_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        cap_eq = trs_capital_summary(book_eq, curve)
+        cap_bd = trs_capital_summary(book_bd, curve)
+        # Per-notional EAD: equity >> bond
+        assert (cap_eq.total_ead / 1_000_000) > (cap_bd.total_ead / 10_000_000)
+
+    def test_rw_affects_rwa(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        cap_corp = trs_capital_summary(book, curve, counterparty_type="corporate")
+        cap_bank = trs_capital_summary(book, curve, counterparty_type="bank")
+        assert cap_corp.total_rwa > cap_bank.total_rwa  # RW 100% > 20%
+
+    def test_capital_is_8pct_of_rwa(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        cap = trs_capital_summary(book, curve)
+        assert abs(cap.total_capital - cap.total_rwa * 0.08) < 0.01
+
+    def test_to_dict(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        cap = trs_capital_summary(book, curve)
+        d = cap.to_dict()
+        assert "total_ead" in d
+        assert "by_trade" in d
+
+
+# ── Hedge recommendations ──
+
+class TestHedgeRecommendations:
+
+    def test_no_recs_within_limits(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        recs = trs_hedge_recommendations(
+            book, curve,
+            delta_limit=1e12, dv01_limit=1e12,
+            vega_limit=1e12, funding_dv01_limit=1e12,
+        )
+        assert len(recs) == 0
+
+    def test_recs_when_breached(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        recs = trs_hedge_recommendations(
+            book, curve,
+            delta_limit=0.001,  # very tight limit
+            dv01_limit=0.001,
+        )
+        assert len(recs) >= 1
+
+    def test_rec_has_action(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        recs = trs_hedge_recommendations(book, curve, delta_limit=0.001)
+        if recs:
+            assert recs[0].action != ""
+            assert recs[0].breach_pct > 0
+
+    def test_to_dict(self):
+        book = TRSBook()
+        book.add(TRSBookEntry("T1", _equity_trs()))
+        curve = make_flat_curve(REF, 0.04)
+        recs = trs_hedge_recommendations(book, curve, delta_limit=0.001)
+        if recs:
+            d = recs[0].to_dict()
+            assert "risk" in d
+            assert "action" in d

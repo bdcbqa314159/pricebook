@@ -2,6 +2,22 @@
 
 ---
 
+## v0.454.0 — 2026-04-30
+
+**TRS Regulatory + Hedge P5: SA-CCR capital summary, hedge recommendations.** 9 new tests.
+
+### Regulatory capital (`trs_capital_summary`)
+- Per-trade SA-CCR: EAD = 1.4 x (max(MTM,0) + notional x SF x sqrt(T)).
+- Supervisory factors: equity 32%, bond/loan 0.5%, commodity 18%, FX 4%.
+- RWA by counterparty type (sovereign 0%, bank 20%, corporate 100%, hedge fund 150%).
+- Capital = RWA x 8%. SIMM IM proxy (5% notional).
+
+### Hedge recommendations (`trs_hedge_recommendations`)
+- Monitor delta, DV01, vega, funding DV01 against configurable limits.
+- Warn at 75% of limit with suggested actions.
+
+---
+
 ## v0.453.0 — 2026-04-30
 
 **TRS Product Types P4: commodity, FX, cross-currency bond TRS.** 20 new tests.
