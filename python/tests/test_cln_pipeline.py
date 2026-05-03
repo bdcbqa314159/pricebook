@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cln import CreditLinkedNote
+from pricebook.cln import CreditLinkedNote, BasketCLN
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.schedule import Frequency
 from pricebook.hazard_rate_models import (
@@ -176,3 +176,99 @@ class TestCLNStochasticIntensity:
         )
         assert math.isfinite(result.price)
         assert result.price > 0
+
+
+# ── Phase 5: Bilateral CLN ──
+
+class TestBilateralCLN:
+
+    def _cln(self):
+        return CreditLinkedNote(
+            start=REF, end=REF + relativedelta(years=5),
+            coupon_rate=0.05, notional=1_000_000, recovery=0.4,
+            frequency=Frequency.QUARTERLY,
+        )
+
+    def test_bilateral_with_zero_issuer_risk(self):
+        """Issuer hazard=0 → bilateral ≈ unilateral."""
+        cln = self._cln()
+        curve = make_flat_curve(REF, 0.04)
+        ref_surv = make_flat_survival(REF, 0.02)
+        # Zero issuer risk (hazard ≈ 0)
+        issuer_surv = make_flat_survival(REF, 0.0001)
+        bilateral = cln.price_bilateral_mc(
+            curve, ref_surv, issuer_surv,
+            n_paths=10_000, seed=42,
+        )
+        unilateral = cln.dirty_price(curve, ref_surv)
+        # Should be close
+        assert abs(bilateral.price - unilateral) / unilateral < 0.05
+
+    def test_issuer_risk_reduces_price(self):
+        """Adding issuer credit risk should reduce CLN price."""
+        cln = self._cln()
+        curve = make_flat_curve(REF, 0.04)
+        ref_surv = make_flat_survival(REF, 0.02)
+        # High issuer risk
+        issuer_surv = make_flat_survival(REF, 0.05)
+        bilateral = cln.price_bilateral_mc(
+            curve, ref_surv, issuer_surv,
+            n_paths=10_000, seed=42,
+        )
+        unilateral = cln.dirty_price(curve, ref_surv)
+        assert bilateral.price < unilateral
+
+    def test_correlation_effect(self):
+        """Correlation changes the bilateral price."""
+        cln = self._cln()
+        curve = make_flat_curve(REF, 0.04)
+        ref_surv = make_flat_survival(REF, 0.03)
+        issuer_surv = make_flat_survival(REF, 0.03)
+        p_low = cln.price_bilateral_mc(
+            curve, ref_surv, issuer_surv, correlation=0.1, n_paths=10_000).price
+        p_high = cln.price_bilateral_mc(
+            curve, ref_surv, issuer_surv, correlation=0.8, n_paths=10_000).price
+        assert p_low != p_high
+
+
+# ── Phase 6: Basket rho01 ──
+
+class TestBasketRho01:
+
+    def _basket(self, attach=0.0, detach=0.03):
+        return BasketCLN(
+            start=REF, end=REF + relativedelta(years=5),
+            coupon_rate=0.05, notional=10_000_000,
+            attachment=attach, detachment=detach,
+            recovery=0.4, n_names=50,
+        )
+
+    def _survs(self, n=50, h=0.02):
+        return [make_flat_survival(REF, h) for _ in range(n)]
+
+    def test_rho_bump_changes_price(self):
+        """Price should change when correlation bumps."""
+        basket = self._basket()
+        curve = make_flat_curve(REF, 0.04)
+        survs = self._survs()
+        p_base = basket.price_mc(curve, survs, rho=0.30, n_sims=5_000, seed=42).price
+        p_bump = basket.price_mc(curve, survs, rho=0.31, n_sims=5_000, seed=42).price
+        assert p_base != p_bump
+
+    def test_senior_vs_equity_rho_direction(self):
+        """Equity tranche: higher rho → higher price (fewer idiosyncratic defaults).
+        Senior tranche: higher rho → lower price (more tail risk)."""
+        curve = make_flat_curve(REF, 0.04)
+        survs = self._survs()
+        equity = self._basket(0.0, 0.03)
+        senior = self._basket(0.07, 0.10)
+
+        eq_low = equity.price_mc(curve, survs, rho=0.10, n_sims=5_000, seed=42).price
+        eq_high = equity.price_mc(curve, survs, rho=0.50, n_sims=5_000, seed=42).price
+        sr_low = senior.price_mc(curve, survs, rho=0.10, n_sims=5_000, seed=42).price
+        sr_high = senior.price_mc(curve, survs, rho=0.50, n_sims=5_000, seed=42).price
+
+        # Equity: higher rho → higher price (positive rho01)
+        assert eq_high > eq_low
+        # Senior: higher rho → lower price (negative rho01)
+        assert sr_high < sr_low

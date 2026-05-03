@@ -535,6 +535,92 @@ class CreditLinkedNote:
         return self.price_stochastic_intensity(
             discount_curve, model, x0, n_paths, n_steps, seed)
 
+    def price_bilateral_mc(
+        self,
+        discount_curve: DiscountCurve,
+        ref_survival: SurvivalCurve,
+        issuer_survival: SurvivalCurve,
+        issuer_recovery: float = 0.4,
+        correlation: float = 0.3,
+        n_paths: int = 50_000,
+        seed: int = 42,
+    ) -> CLNResult:
+        """Price bilateral CLN with dual default risk (ref entity + issuer).
+
+        On reference default → investor receives recovery × notional.
+        On issuer default (no ref default) → investor receives issuer_recovery × notional.
+        On both → investor receives min(recovery, issuer_recovery) × notional.
+        On neither → full coupon + principal.
+
+        Simulates two correlated uniform defaults via Gaussian copula.
+        """
+        import numpy as np
+
+        rng = np.random.default_rng(seed)
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+
+        # Correlated normals via Cholesky
+        Z = rng.standard_normal((n_paths, 2))
+        Z[:, 1] = correlation * Z[:, 0] + math.sqrt(1 - correlation**2) * Z[:, 1]
+
+        # Convert to uniform via Φ
+        from scipy.stats import norm
+        U_ref = norm.cdf(Z[:, 0])
+        U_issuer = norm.cdf(Z[:, 1])
+
+        total_pv = np.zeros(n_paths)
+
+        for path in range(n_paths):
+            # Default times from inverse survival
+            # τ where Q(τ) = U → find by scanning periods
+            ref_defaulted = False
+            issuer_defaulted = False
+            pv = 0.0
+
+            for i in range(1, len(self.schedule)):
+                t_start = self.schedule[i - 1]
+                t_end = self.schedule[i]
+                yf = year_fraction(t_start, t_end, self.day_count)
+                df = discount_curve.df(t_end)
+                surv_ref = ref_survival.survival(t_end)
+                surv_iss = issuer_survival.survival(t_end)
+
+                # Check defaults this period
+                if not ref_defaulted and surv_ref < 1 - U_ref[path]:
+                    ref_defaulted = True
+                if not issuer_defaulted and surv_iss < 1 - U_issuer[path]:
+                    issuer_defaulted = True
+
+                if ref_defaulted and issuer_defaulted:
+                    pv += min(self.recovery, issuer_recovery) * self.notional * df
+                    break
+                elif ref_defaulted:
+                    pv += self.recovery * self.notional * df
+                    break
+                elif issuer_defaulted:
+                    pv += issuer_recovery * self.notional * df
+                    break
+                else:
+                    # Coupon (conditional on both surviving)
+                    coupon = self.notional * self.coupon_rate * yf
+                    pv += coupon * df
+
+            if not ref_defaulted and not issuer_defaulted:
+                pv += self.notional * discount_curve.df(self.end)
+
+            total_pv[path] = pv
+
+        mean_pv = float(np.mean(total_pv))
+
+        return CLNResult(
+            price=mean_pv,
+            coupon_pv=0.0,
+            principal_pv=0.0,
+            recovery_pv=0.0,
+            credit_spread=0.0,
+            par_coupon=0.0,
+        )
+
     def rec_vol_01(
         self,
         discount_curve: DiscountCurve,

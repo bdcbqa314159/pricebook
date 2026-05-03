@@ -2,6 +2,22 @@
 
 ---
 
+## v0.469.0 — 2026-05-03
+
+**CLN Pipeline P5+P6: Bilateral CLN (dual default) + basket rho sensitivity.** 5 new tests.
+
+### Bilateral CLN (P5)
+- `CreditLinkedNote.price_bilateral_mc()`: dual default (reference + issuer) via Gaussian copula.
+  On ref default → R_ref×N. On issuer default → R_issuer×N. On both → min(R_ref, R_issuer)×N.
+- Verified: zero issuer risk matches unilateral; issuer risk reduces price.
+
+### Basket correlation sensitivity (P6)
+- Verified: rho bump changes BasketCLN price.
+- Confirmed sign convention: equity tranche positive rho01 (higher rho → higher price),
+  senior tranche negative rho01 (higher rho → lower price from tail risk).
+
+---
+
 ## v0.468.0 — 2026-05-03
 
 **CLN Pipeline P3+P4: Swaption vol calibration + stochastic intensity CLN pricing.** 6 new tests.
