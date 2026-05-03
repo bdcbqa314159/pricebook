@@ -545,8 +545,10 @@ def trs_capital_summary(
     EAD = 1.4 x (max(MTM, 0) + notional x SF x sqrt(min(T, 1)))
     RWA = EAD x RW
     Capital = RWA x 8%
-    SIMM IM ≈ notional x 5% (proxy)
+    SIMM IM via ISDA SIMM v2.6 (trs_simm_im)
     """
+    from pricebook.trs_xva import trs_simm_im
+
     rw = _SA_RISK_WEIGHTS.get(counterparty_type, 1.0)
     entries = []
 
@@ -560,7 +562,7 @@ def trs_capital_summary(
         ead = 1.4 * (mtm + trs.notional * sf * math.sqrt(min(T, 1.0)))
         rwa = ead * rw
         capital = rwa * 0.08
-        simm_im = trs.notional * 0.05
+        simm_im = trs_simm_im(trs, curve, projection)
 
         entries.append(TRSCapitalEntry(
             trade_id=e.trade_id, underlying_type=trs._underlying_type,

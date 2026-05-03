@@ -1,4 +1,4 @@
-"""TRS XVA: MVA, analytic CVA/DVA, KVA from SA-CCR, all-in pricing.
+"""TRS XVA: MVA, analytic CVA/DVA, KVA from SA-CCR, MC XVA, SIMM IM.
 
 Wires the generic XVA framework to TRS-specific economics.
 Unlike repos (constant exposure), TRS exposure is path-dependent
@@ -6,6 +6,7 @@ Unlike repos (constant exposure), TRS exposure is path-dependent
 
     from pricebook.trs_xva import (
         trs_mva, trs_kva_from_sa_ccr, trs_analytic_cva,
+        trs_simm_im, trs_mc_xva,
     )
 """
 
@@ -19,8 +20,42 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention, year_fraction
 
 
+def trs_simm_im(
+    trs: TotalReturnSwap,
+    curve: DiscountCurve,
+    projection_curve: DiscountCurve | None = None,
+) -> float:
+    """Compute SIMM Initial Margin for a TRS.
+
+    Wires trs_simm_sensitivities() → SIMMCalculator for proper
+    ISDA SIMM v2.6 margin instead of the flat 5% proxy.
+    """
+    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.regulatory.trs_capital import trs_simm_sensitivities
+
+    sens = trs_simm_sensitivities(trs, curve, projection_curve)
+
+    simm_inputs = []
+    for d in sens.delta_sensitivities:
+        simm_inputs.append(SIMMSensitivity(
+            risk_class=d["risk_class"], bucket=d["bucket"],
+            tenor=d["tenor"], delta=d["delta"],
+        ))
+    for v in sens.vega_sensitivities:
+        simm_inputs.append(SIMMSensitivity(
+            risk_class=v["risk_class"], bucket=v["bucket"],
+            tenor=v["tenor"], vega=v.get("vega", 0.0),
+        ))
+
+    if not simm_inputs:
+        return trs.notional * 0.05  # fallback
+
+    return SIMMCalculator().compute(simm_inputs).total_margin
+
+
 def trs_mva(
     trs: TotalReturnSwap,
+    curve: DiscountCurve | None = None,
     simm_im: float | None = None,
     funding_spread: float = 0.002,
 ) -> float:
@@ -28,11 +63,17 @@ def trs_mva(
 
     MVA = IM × funding_spread × T.
 
-    If simm_im not provided, estimates as notional × 5% (rough proxy).
+    IM resolution order:
+    1. Explicit simm_im if provided.
+    2. SIMM calculation via trs_simm_im() if curve provided.
+    3. Fallback: notional × 5% proxy.
     """
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
     if simm_im is None:
-        simm_im = trs.notional * 0.05  # 5% proxy
+        if curve is not None:
+            simm_im = trs_simm_im(trs, curve)
+        else:
+            simm_im = trs.notional * 0.05  # proxy fallback
     return simm_im * funding_spread * T
 
 

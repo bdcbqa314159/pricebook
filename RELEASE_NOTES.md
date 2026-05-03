@@ -2,6 +2,16 @@
 
 ---
 
+## v0.455.0 — 2026-05-03
+
+**TRS S1: Wire SIMM IM (replace 5% proxy).** 6 new tests.
+
+- `trs_simm_im()`: wires `trs_simm_sensitivities()` → `SIMMCalculator` for proper ISDA SIMM v2.6 margin.
+- `trs_mva()`: uses SIMM IM when curve provided, falls back to 5% proxy without.
+- `trs_capital_summary()`: uses real SIMM IM instead of flat proxy.
+
+---
+
 ## v0.454.0 — 2026-04-30
 
 **TRS Regulatory + Hedge P5: SA-CCR capital summary, hedge recommendations.** 9 new tests.

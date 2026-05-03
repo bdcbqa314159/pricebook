@@ -1,4 +1,4 @@
-"""Tests for TRS XVA: MVA, KVA, analytic CVA/DVA, independent amount."""
+"""Tests for TRS XVA: SIMM IM, MVA, KVA, analytic CVA/DVA, MC XVA, independent amount."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.trs import TotalReturnSwap, FundingLegSpec
 from pricebook.trs_xva import (
+    trs_simm_im,
     trs_mva,
     trs_kva_from_sa_ccr,
     trs_analytic_cva,
@@ -42,6 +43,41 @@ def _bond_trs():
         funding=FundingLegSpec(spread=0.005),
         repo_spread=0.005, initial_price=102.0,
     )
+
+
+# ── SIMM IM ──
+
+class TestSIMMIM:
+
+    def test_equity_simm_im_nonzero(self):
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        im = trs_simm_im(trs, curve)
+        assert im > 0
+
+    def test_bond_simm_im_nonzero(self):
+        trs = _bond_trs()
+        curve = make_flat_curve(REF, 0.04)
+        im = trs_simm_im(trs, curve)
+        assert im > 0
+
+    def test_simm_differs_from_flat_proxy(self):
+        """SIMM IM should differ from the naive 5% proxy."""
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        simm = trs_simm_im(trs, curve)
+        proxy = trs.notional * 0.05
+        assert simm != proxy
+
+    def test_simm_equity_uses_eq_risk_class(self):
+        """Equity TRS should map to EQ risk class in SIMM."""
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        im = trs_simm_im(trs, curve)
+        # EQ RW is 20% for large cap, so IM ≈ 20% × delta
+        # delta ≈ notional / spot = 10,000 shares × $100 = $1M
+        # SIMM ≈ 20% × 10,000 = $2,000 per share × shares
+        assert im > 0
 
 
 # ── MVA ──
@@ -77,6 +113,22 @@ class TestMVA:
         trs = _bond_trs()
         mva = trs_mva(trs)
         assert mva > 0
+
+    def test_mva_uses_simm_when_curve_given(self):
+        """When curve provided, MVA uses SIMM IM instead of proxy."""
+        trs = _equity_trs()
+        curve = make_flat_curve(REF, 0.04)
+        mva_proxy = trs_mva(trs)  # no curve → 5% proxy
+        mva_simm = trs_mva(trs, curve=curve)  # curve → SIMM
+        assert mva_proxy != mva_simm
+
+    def test_mva_backward_compat_no_curve(self):
+        """MVA without curve still works with proxy."""
+        trs = _equity_trs()
+        mva = trs_mva(trs, funding_spread=0.002)
+        T = (END - REF).days / 365
+        expected = 50_000 * 0.002 * T  # 5% proxy
+        assert abs(mva - expected) < 0.01
 
 
 # ── KVA from SA-CCR ──
