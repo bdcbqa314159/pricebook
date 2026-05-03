@@ -1,4 +1,4 @@
-"""Unified Total Return Swap — equity, bond, loan underlyings.
+"""Unified Total Return Swap — equity, bond, loan, commodity, FX underlyings.
 
 Single class that auto-detects the underlying type and delegates to
 the appropriate pricing engine. Supports repo financing (Lou 2018),
@@ -21,6 +21,22 @@ funding conventions.
     # Loan TRS
     trs = TotalReturnSwap(underlying=my_loan, notional=my_loan.notional,
                            start=date(2024,1,15), end=date(2025,1,15))
+
+    # Commodity TRS
+    trs = TotalReturnSwap(
+        underlying=CommodityUnderlying("WTI", spot=75.0, storage_cost=0.02,
+                                        convenience_yield=0.01),
+        notional=100_000, start=..., end=...)
+
+    # FX TRS
+    trs = TotalReturnSwap(
+        underlying=FXUnderlying("EUR", "USD", spot=1.08),
+        notional=10_000_000, start=..., end=...)
+
+    # Cross-currency Bond TRS
+    trs = TotalReturnSwap(underlying=bund, notional=10_000_000,
+        xccy=XccySpec(fx_rate=1.08, asset_currency="EUR",
+                      funding_currency="USD"))
 
     # All work with Trade/Portfolio
     portfolio.add(Trade(trs))
@@ -59,6 +75,42 @@ class LSTATerms:
     settlement_days: int = 7         # T+7 standard
     trade_type: str = "assignment"   # "assignment" or "participation"
     minimum_transfer: float = 250_000.0
+
+
+@dataclass
+class CommodityUnderlying:
+    """Commodity underlying for TRS.
+
+    Forward = spot x exp((r - convenience_yield + storage_cost) x T).
+    """
+    name: str
+    spot: float
+    storage_cost: float = 0.0      # annualised % of spot
+    convenience_yield: float = 0.0  # annualised % of spot
+
+
+@dataclass
+class FXUnderlying:
+    """FX underlying for TRS.
+
+    Forward = spot x df_base / df_quote (covered interest rate parity).
+    Performance = (spot_current / spot_initial - 1) x notional.
+    """
+    base_ccy: str   # e.g. "EUR"
+    quote_ccy: str  # e.g. "USD"
+    spot: float     # base/quote (e.g. 1.08 EUR/USD)
+
+
+@dataclass
+class XccySpec:
+    """Cross-currency specification for bond/loan TRS.
+
+    Asset denominated in asset_currency, funding in funding_currency.
+    """
+    fx_rate: float          # asset_ccy per funding_ccy at inception
+    asset_currency: str
+    funding_currency: str
+    fx_haircut: float = 0.08  # FX add-on haircut (Basel: 8%)
 
 
 @dataclass
@@ -122,6 +174,8 @@ class TotalReturnSwap:
         settlement_terms: LSTATerms | None = None,
         # CLN-specific
         survival_curve=None,
+        # Cross-currency
+        xccy: XccySpec | None = None,
     ):
         self.underlying = underlying
         self.notional = notional
@@ -140,6 +194,7 @@ class TotalReturnSwap:
         self.prepay_model = prepay_model
         self.settlement_terms = settlement_terms
         self.survival_curve = survival_curve
+        self.xccy = xccy
 
         # Detect underlying type
         self._underlying_type = self._detect_type()
@@ -147,6 +202,10 @@ class TotalReturnSwap:
     def _detect_type(self) -> str:
         if isinstance(self.underlying, (int, float)):
             return "equity"
+        if isinstance(self.underlying, CommodityUnderlying):
+            return "commodity"
+        if isinstance(self.underlying, FXUnderlying):
+            return "fx"
         cls_name = type(self.underlying).__name__
         if cls_name == "FixedRateBond":
             return "bond"
@@ -170,6 +229,10 @@ class TotalReturnSwap:
             return self._price_loan(curve, projection_curve)
         if self._underlying_type == "cln":
             return self._price_cln(curve, projection_curve)
+        if self._underlying_type == "commodity":
+            return self._price_commodity(curve, projection_curve)
+        if self._underlying_type == "fx":
+            return self._price_fx(curve, projection_curve)
         raise TypeError(f"Unsupported underlying type: {type(self.underlying).__name__}")
 
     # ---- Equity TRS ----
@@ -281,6 +344,16 @@ class TotalReturnSwap:
 
         total_return = price_return + income_scaled
         value = total_return - funding_leg - fva
+
+        # Cross-currency adjustment: convert asset-currency PV to funding currency
+        if self.xccy is not None:
+            fx = self.xccy.fx_rate
+            # Total return is in asset currency → convert
+            total_return_funding = total_return / fx
+            # Funding leg already in funding currency
+            # FX haircut adds to effective haircut
+            fx_haircut_cost = self.notional * self.xccy.fx_haircut * T * D
+            value = total_return_funding - funding_leg - fva - fx_haircut_cost
 
         return TRSResult(
             value=value, total_return_leg=total_return,
@@ -439,6 +512,106 @@ class TotalReturnSwap:
             income_return=income_scaled, fva=fva, repo_factor=repo_factor,
         )
 
+    # ---- Commodity TRS ----
+
+    def _price_commodity(self, curve, projection_curve) -> TRSResult:
+        """Commodity TRS: total return on a commodity forward.
+
+        Forward = spot x exp((r - convenience_yield + storage_cost) x T).
+        Performance = (forward / initial - 1) x notional.
+        Funding = notional x (r + spread) x T x df.
+        """
+        from pricebook.bond_forward import repo_financing_factor
+
+        comm = self.underlying  # CommodityUnderlying
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if T < 1e-5:
+            raise ValueError(f"Maturity too short: {T:.6f} years")
+
+        D = curve.df(self.end)
+        fwd_rate = -math.log(D / curve.df(self.start)) / T
+
+        # Commodity forward: cost-of-carry model
+        carry = fwd_rate - comm.convenience_yield + comm.storage_cost
+        forward = comm.spot * math.exp(carry * T)
+
+        initial = self.initial_price if self.initial_price is not None else comm.spot
+        if initial <= 0:
+            raise ValueError(f"Initial price must be positive, got {initial}")
+
+        # Performance leg (in currency units)
+        quantity = self.notional / initial
+        price_return = (forward - initial) * quantity
+
+        # Funding leg
+        r_f = fwd_rate + self.funding.spread
+        funding_leg = self.notional * r_f * T * D
+
+        # FVA (repo/financing)
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+        fva = (repo_factor - 1) * forward * quantity
+
+        value = price_return - funding_leg - fva
+
+        return TRSResult(
+            value=value, total_return_leg=price_return,
+            funding_leg=funding_leg, price_return=price_return,
+            income_return=0.0, fva=fva, repo_factor=repo_factor,
+        )
+
+    # ---- FX TRS ----
+
+    def _price_fx(self, curve, projection_curve) -> TRSResult:
+        """FX TRS: total return on an FX rate.
+
+        Forward = spot x df_base / df_quote (covered interest rate parity).
+        Performance = (current_spot / initial_spot - 1) x notional.
+        Funding = notional x (r_quote + spread) x T x df.
+
+        The projection_curve is the base-currency discount curve.
+        The main curve is the quote-currency (funding) curve.
+        """
+        from pricebook.bond_forward import repo_financing_factor
+
+        fx = self.underlying  # FXUnderlying
+        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
+        if T < 1e-5:
+            raise ValueError(f"Maturity too short: {T:.6f} years")
+
+        # curve = quote currency (e.g. USD), projection_curve = base currency (e.g. EUR)
+        quote_curve = curve
+        base_curve = projection_curve or curve
+
+        D_quote = quote_curve.df(self.end)
+        D_base = base_curve.df(self.end)
+
+        # FX forward via covered interest rate parity
+        forward = fx.spot * D_base / D_quote
+
+        initial = self.initial_price if self.initial_price is not None else fx.spot
+        if initial <= 0:
+            raise ValueError(f"Initial spot must be positive, got {initial}")
+
+        # Performance leg: notional in quote currency
+        price_return = (forward / initial - 1) * self.notional
+
+        # Funding leg (in quote currency)
+        fwd_rate = -math.log(D_quote / quote_curve.df(self.start)) / T
+        r_f = fwd_rate + self.funding.spread
+        funding_leg = self.notional * r_f * T * D_quote
+
+        # FVA
+        repo_factor = repo_financing_factor(self.repo_spread, T)
+        fva = (repo_factor - 1) * self.notional * (forward / initial)
+
+        value = price_return - funding_leg - fva
+
+        return TRSResult(
+            value=value, total_return_leg=price_return,
+            funding_leg=funding_leg, price_return=price_return,
+            income_return=0.0, fva=fva, repo_factor=repo_factor,
+        )
+
     # ---- Multi-period ----
 
     def _price_multi_period(self, curve, projection_curve) -> TRSResult:
@@ -572,6 +745,26 @@ class TotalReturnSwap:
             self.underlying = float(old) + bump
             up = self.price(curve, projection_curve)
             self.underlying = float(old) - bump
+            dn = self.price(curve, projection_curve)
+            self.underlying = old
+            delta = (up.value - dn.value) / (2 * bump)
+        elif self._underlying_type == "commodity":
+            old = self.underlying
+            bump = old.spot * 0.01
+            self.underlying = CommodityUnderlying(
+                old.name, old.spot + bump, old.storage_cost, old.convenience_yield)
+            up = self.price(curve, projection_curve)
+            self.underlying = CommodityUnderlying(
+                old.name, old.spot - bump, old.storage_cost, old.convenience_yield)
+            dn = self.price(curve, projection_curve)
+            self.underlying = old
+            delta = (up.value - dn.value) / (2 * bump)
+        elif self._underlying_type == "fx":
+            old = self.underlying
+            bump = old.spot * 0.01
+            self.underlying = FXUnderlying(old.base_ccy, old.quote_ccy, old.spot + bump)
+            up = self.price(curve, projection_curve)
+            self.underlying = FXUnderlying(old.base_ccy, old.quote_ccy, old.spot - bump)
             dn = self.price(curve, projection_curve)
             self.underlying = old
             delta = (up.value - dn.value) / (2 * bump)

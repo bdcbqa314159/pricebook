@@ -2,6 +2,26 @@
 
 ---
 
+## v0.453.0 — 2026-04-30
+
+**TRS Product Types P4: commodity, FX, cross-currency bond TRS.** 20 new tests.
+
+### New underlying types
+- `CommodityUnderlying`: cost-of-carry forward (spot x exp((r - cy + sc) x T)), storage cost, convenience yield.
+- `FXUnderlying`: covered interest rate parity forward (spot x df_base / df_quote).
+- `XccySpec`: cross-currency bond TRS with FX conversion + FX haircut.
+
+### Pricing
+- `_price_commodity()`: forward from cost-of-carry, performance leg, funding leg, FVA.
+- `_price_fx()`: dual-curve pricing (quote=funding, base=projection), IRP forward.
+- Cross-currency `_price_bond()`: FX conversion of total return + FX haircut cost.
+- Greeks: delta for commodity (spot bump) and FX (spot bump).
+
+### Dividend swap
+- Already exists in `dividend_desk.py` — verified integration with tests.
+
+---
+
 ## v0.452.0 — 2026-04-30
 
 **TRS XVA P3: MVA, analytic CVA/DVA, KVA, independent amount.** 24 new tests.
