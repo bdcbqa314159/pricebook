@@ -74,6 +74,16 @@ class RepoTrade:
         fx_rate: float = 1.0,
         fx_haircut: float = 0.0,
     ):
+        if face_amount < 0:
+            raise ValueError(f"face_amount must be >= 0, got {face_amount}")
+        if haircut < 0 or haircut >= 1:
+            raise ValueError(f"haircut must be in [0, 1), got {haircut}")
+        if fx_rate <= 0:
+            raise ValueError(f"fx_rate must be positive, got {fx_rate}")
+        if fx_haircut < 0:
+            raise ValueError(f"fx_haircut must be >= 0, got {fx_haircut}")
+        if haircut + fx_haircut >= 1:
+            raise ValueError(f"total haircut (haircut + fx_haircut) must be < 1, got {haircut + fx_haircut}")
         self.counterparty = counterparty
         self.collateral_issuer = collateral_issuer
         self.collateral_type = collateral_type
@@ -206,7 +216,8 @@ class RepoTrade:
             return []
         result = []
         for cf in self.bond.coupon_leg.cashflows:
-            if sd < cf.payment_date <= mat:
+            if sd < cf.payment_date < mat:
+                # Coupon at maturity belongs to the bond holder post-repo
                 result.append((cf.payment_date, cf.amount))
         return result
 
@@ -306,25 +317,16 @@ class RepoTrade:
         current_bond_price: float,
         current_fx_rate: float,
     ) -> float:
-        """Margin call for cross-currency repos.
+        """Margin call for cross-currency repos (all in cash currency).
 
-        Two sources of margin change:
-        1. Bond price move (same as single-ccy)
-        2. FX rate move (changes collateral value in cash currency)
-
-        Total call = price_margin + fx_margin.
+        Computes entirely in cash currency to avoid mixing dimensions.
+        margin_call = (current_collateral_value_cash - initial_collateral_value_cash)
+                      × (haircut + fx_haircut)
         """
-        # Price-driven margin
-        price_margin = self.margin_call(current_bond_price)
-
-        # FX-driven margin
-        # Initial collateral in cash ccy: market_value × fx_rate_inception
-        # Current collateral in cash ccy: face × current_price / 100 × current_fx
         initial_value_cash = self.market_value * self.fx_rate
         current_value_cash = self.face_amount * current_bond_price / 100.0 * current_fx_rate
-        fx_margin = (current_value_cash - initial_value_cash) * self.fx_haircut
-
-        return price_margin + fx_margin
+        total_haircut = self.haircut + self.fx_haircut
+        return (current_value_cash - initial_value_cash) * total_haircut
 
     # ---- Pricing (Gap 8) ----
 
@@ -2440,12 +2442,13 @@ def repo_key_rate_dv01(
         # Reprice all trades at bumped repo rates
         bumped_carry = 0.0
         for e in book.entries:
-            remaining = e.term_days
-            bumped_rate = bumped.rate(remaining)
-            dt = e.term_days / 365.0
+            bumped_rate = bumped.rate(e.term_days)
+            # Use same formula as RepoTradeEntry.carry but with bumped rate
+            dt_coupon = e.term_days / 365.0
+            dt_fin = e.term_days / 360.0  # ACT/360 for financing
             sign = 1.0 if e.direction == "repo" else -1.0
-            coupon = e.face_amount * e.coupon_rate * dt
-            financing = e.cash_amount * bumped_rate * e.term_days / 360.0
+            coupon = e.face_amount * e.coupon_rate * dt_coupon
+            financing = e.cash_amount * bumped_rate * dt_fin
             bumped_carry += sign * (coupon - financing)
 
         result[tenor_days] = (bumped_carry - base_carry) / shift_bps
