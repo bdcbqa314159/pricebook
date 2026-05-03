@@ -2,6 +2,17 @@
 
 ---
 
+## v0.458.0 — 2026-05-03
+
+**TRS S6: Product fixes (PSA speed, commodity seasonal, FX quanto, haircut schedule).** 6 new tests.
+
+- PSA multiplier: `prepay_model=("PSA", 1.5)` for configurable speed.
+- Commodity seasonal: `CommodityUnderlying(seasonal=SeasonalFactors.natural_gas())` for monthly factors.
+- FX quanto: `FXUnderlying(fx_vol=0.10, fx_correlation=0.5)` adjusts forward by `exp(-rho×sigma_fx×sigma_asset×T)`.
+- Haircut schedule: `haircut_schedule=[(date, pct)]` for time-varying haircuts in bond TRS.
+
+---
+
 ## v0.457.0 — 2026-05-03
 
 **TRS S3-S5+S7: Scenario stress, P&L attribution, lifecycle, collateral.** 18 new tests.

@@ -82,11 +82,14 @@ class CommodityUnderlying:
     """Commodity underlying for TRS.
 
     Forward = spot x exp((r - convenience_yield + storage_cost) x T).
+    Supports seasonal factors and StorageCostModel from commodity_seasonal.py.
     """
     name: str
     spot: float
     storage_cost: float = 0.0      # annualised % of spot
     convenience_yield: float = 0.0  # annualised % of spot
+    seasonal: object = None        # SeasonalFactors from commodity_seasonal.py
+    storage_model: object = None   # StorageCostModel from commodity_seasonal.py
 
 
 @dataclass
@@ -95,10 +98,13 @@ class FXUnderlying:
 
     Forward = spot x df_base / df_quote (covered interest rate parity).
     Performance = (spot_current / spot_initial - 1) x notional.
+    Supports quanto adjustment via fx_vol and fx_correlation.
     """
     base_ccy: str   # e.g. "EUR"
     quote_ccy: str  # e.g. "USD"
     spot: float     # base/quote (e.g. 1.08 EUR/USD)
+    fx_vol: float = 0.0          # annualised FX vol (for quanto)
+    fx_correlation: float = 0.0  # correlation between FX and asset (for quanto)
 
 
 @dataclass
@@ -176,6 +182,8 @@ class TotalReturnSwap:
         survival_curve=None,
         # Cross-currency
         xccy: XccySpec | None = None,
+        # Haircut schedule
+        haircut_schedule: list[tuple[date, float]] | None = None,
     ):
         self.underlying = underlying
         self.notional = notional
@@ -195,6 +203,7 @@ class TotalReturnSwap:
         self.settlement_terms = settlement_terms
         self.survival_curve = survival_curve
         self.xccy = xccy
+        self.haircut_schedule = haircut_schedule
 
         # Detect underlying type
         self._underlying_type = self._detect_type()
@@ -331,11 +340,18 @@ class TotalReturnSwap:
         yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
         funding_leg = self.notional * r_f * yf
 
+        # Effective haircut: use schedule if available
+        effective_haircut = self.haircut
+        if self.haircut_schedule:
+            for d, h in sorted(self.haircut_schedule):
+                if d <= curve.reference_date:
+                    effective_haircut = h
+
         # Blended repo rate: r̄s = (1-h)rs + h rN (Lou Eq 19)
         # Use fwd_rate as proxy for rN (bank's unsecured ~ OIS + spread)
         r_s = fwd_rate + self.repo_spread
         r_N = fwd_rate + 0.02  # unsecured funding proxy
-        rs_bar = blended_repo_rate(r_s, r_N, self.haircut)
+        rs_bar = blended_repo_rate(r_s, r_N, effective_haircut)
         rs_bar_spread = rs_bar - fwd_rate
 
         # FVA using blended rate (Lou Eq 25-26)
@@ -391,6 +407,9 @@ class TotalReturnSwap:
             from pricebook.exotic_loan import prepay_adjusted_loan, psa_cpr
             if isinstance(self.prepay_model, (int, float)):
                 cpr = float(self.prepay_model)
+            elif isinstance(self.prepay_model, tuple) and self.prepay_model[0] == "PSA":
+                speed = self.prepay_model[1] if len(self.prepay_model) > 1 else 1.0
+                cpr = psa_cpr(12, speed)
             elif self.prepay_model == "PSA":
                 cpr = psa_cpr(12, 1.0)
             else:
@@ -532,8 +551,15 @@ class TotalReturnSwap:
         fwd_rate = -math.log(D / curve.df(self.start)) / T
 
         # Commodity forward: cost-of-carry model
-        carry = fwd_rate - comm.convenience_yield + comm.storage_cost
-        forward = comm.spot * math.exp(carry * T)
+        if comm.storage_model is not None:
+            forward = comm.storage_model.implied_forward(comm.spot, fwd_rate, T)
+        elif comm.seasonal is not None:
+            seasonal_factor = comm.seasonal.factor(self.end)
+            carry = fwd_rate + comm.storage_cost
+            forward = comm.spot * seasonal_factor * math.exp(carry * T)
+        else:
+            carry = fwd_rate - comm.convenience_yield + comm.storage_cost
+            forward = comm.spot * math.exp(carry * T)
 
         initial = self.initial_price if self.initial_price is not None else comm.spot
         if initial <= 0:
@@ -587,6 +613,10 @@ class TotalReturnSwap:
 
         # FX forward via covered interest rate parity
         forward = fx.spot * D_base / D_quote
+
+        # Quanto adjustment: forward *= exp(-rho × sigma_fx × sigma_asset × T)
+        if fx.fx_vol > 0 and fx.fx_correlation != 0 and self.sigma > 0:
+            forward *= math.exp(-fx.fx_correlation * fx.fx_vol * self.sigma * T)
 
         initial = self.initial_price if self.initial_price is not None else fx.spot
         if initial <= 0:

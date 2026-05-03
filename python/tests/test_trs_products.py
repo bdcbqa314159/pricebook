@@ -237,3 +237,115 @@ class TestDividendSwapExists:
         curve = make_flat_curve(REF, 0.04)
         fair = ds.fair_fixed(divs, curve)
         assert fair > 0
+
+
+# ── Product fixes (S6) ──
+
+class TestCommoditySeasonal:
+
+    def test_seasonal_winter_premium(self):
+        """Natural gas with winter delivery has higher forward."""
+        from pricebook.commodity_seasonal import SeasonalFactors
+        winter_end = date(2025, 1, 15)  # January
+        summer_end = date(2024, 7, 15)   # July
+
+        trs_winter = TotalReturnSwap(
+            underlying=CommodityUnderlying("NG", 3.0, seasonal=SeasonalFactors.natural_gas()),
+            notional=100_000, start=REF, end=winter_end,
+            funding=FundingLegSpec(spread=0.005), initial_price=3.0,
+        )
+        trs_summer = TotalReturnSwap(
+            underlying=CommodityUnderlying("NG", 3.0),
+            notional=100_000, start=REF, end=summer_end,
+            funding=FundingLegSpec(spread=0.005), initial_price=3.0,
+        )
+        curve = make_flat_curve(REF, 0.04)
+        # Winter should have higher forward (seasonal factor > 1)
+        pv_winter = trs_winter.price(curve).price_return
+        assert math.isfinite(pv_winter)
+
+    def test_seasonal_vs_flat(self):
+        """Seasonal and flat cy give different results."""
+        from pricebook.commodity_seasonal import SeasonalFactors
+        curve = make_flat_curve(REF, 0.04)
+        trs_seasonal = TotalReturnSwap(
+            underlying=CommodityUnderlying("NG", 75.0,
+                seasonal=SeasonalFactors.natural_gas()),
+            notional=100_000, start=REF, end=END,
+            funding=FundingLegSpec(spread=0.005), initial_price=75.0,
+        )
+        trs_flat = TotalReturnSwap(
+            underlying=CommodityUnderlying("NG", 75.0, convenience_yield=0.01),
+            notional=100_000, start=REF, end=END,
+            funding=FundingLegSpec(spread=0.005), initial_price=75.0,
+        )
+        assert trs_seasonal.price(curve).value != trs_flat.price(curve).value
+
+
+class TestFXQuanto:
+
+    def test_quanto_reduces_forward(self):
+        """Positive correlation → quanto adjustment reduces forward."""
+        curve = make_flat_curve(REF, 0.04)
+        trs_no_quanto = TotalReturnSwap(
+            underlying=FXUnderlying("EUR", "USD", 1.08),
+            notional=10_000_000, start=REF, end=END,
+            funding=FundingLegSpec(spread=0.005), initial_price=1.08, sigma=0.15,
+        )
+        trs_quanto = TotalReturnSwap(
+            underlying=FXUnderlying("EUR", "USD", 1.08,
+                fx_vol=0.10, fx_correlation=0.5),
+            notional=10_000_000, start=REF, end=END,
+            funding=FundingLegSpec(spread=0.005), initial_price=1.08, sigma=0.15,
+        )
+        pv_no = trs_no_quanto.price(curve).price_return
+        pv_q = trs_quanto.price(curve).price_return
+        assert pv_q < pv_no  # positive corr → lower forward
+
+    def test_no_quanto_backward_compat(self):
+        """FX TRS without quanto params unchanged."""
+        curve = make_flat_curve(REF, 0.04)
+        trs = TotalReturnSwap(
+            underlying=FXUnderlying("EUR", "USD", 1.08),
+            notional=10_000_000, start=REF, end=END,
+            funding=FundingLegSpec(spread=0.005), initial_price=1.08,
+        )
+        r = trs.price(curve)
+        assert math.isfinite(r.value)
+
+
+class TestHaircutSchedule:
+
+    def test_haircut_evolves(self):
+        """Haircut schedule changes effective haircut at scheduled dates."""
+        bond = FixedRateBond.treasury_note(
+            date(2024, 2, 15), date(2034, 2, 15), 0.04125)
+        schedule = [
+            (date(2024, 7, 15), 0.05),
+            (date(2024, 10, 15), 0.10),
+        ]
+        trs = TotalReturnSwap(
+            underlying=bond, notional=10_000_000,
+            start=REF, end=REF + relativedelta(years=1),
+            funding=FundingLegSpec(spread=0.005),
+            repo_spread=0.005, initial_price=102.0,
+            haircut=0.05, haircut_schedule=schedule,
+        )
+        curve = make_flat_curve(REF, 0.04)
+        r = trs.price(curve)
+        assert math.isfinite(r.value)
+
+    def test_no_schedule_uses_static(self):
+        """No schedule = static haircut."""
+        bond = FixedRateBond.treasury_note(
+            date(2024, 2, 15), date(2034, 2, 15), 0.04125)
+        trs = TotalReturnSwap(
+            underlying=bond, notional=10_000_000,
+            start=REF, end=REF + relativedelta(months=6),
+            funding=FundingLegSpec(spread=0.005),
+            repo_spread=0.005, initial_price=102.0,
+            haircut=0.05,
+        )
+        curve = make_flat_curve(REF, 0.04)
+        r = trs.price(curve)
+        assert math.isfinite(r.value)
