@@ -210,18 +210,18 @@ def trs_simm_sensitivities(
 
         # Per-pillar rate sensitivity → multi-tenor GIRR bucketing
         pillar_times = [t for t in curve.pillar_times if t > 0]
+        n_pillars = len(pillar_times)
         delta_sens = []
-        for i, t in enumerate(pillar_times):
+        for i in range(n_pillars):
             bumped_i = curve.bumped_at(i, 0.0001)
             dv01_i = trs.price(bumped_i, projection_curve).value - base_val
-            if abs(dv01_i) > 1e-12:
-                tenor = _map_time_to_girr_tenor(t)
-                delta_sens.append({
-                    "risk_class": "GIRR",
-                    "bucket": "USD",
-                    "tenor": tenor,
-                    "delta": dv01_i,
-                })
+            tenor = _map_time_to_girr_tenor(pillar_times[i])
+            delta_sens.append({
+                "risk_class": "GIRR",
+                "bucket": "USD",
+                "tenor": tenor,
+                "delta": dv01_i,
+            })
 
         # CSR: credit spread sensitivity via spread bump on funding leg
         old_spread = trs.funding.spread
