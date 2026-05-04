@@ -2,6 +2,30 @@
 
 ---
 
+## v0.477.0 — 2026-05-04
+
+**CLN recovery pricing example + recovery analytics toolkit.**
+
+### Recovery analytics (`recovery_analytics.py`)
+- `recovery_curve_family()`: same CDS spreads, different h(R) at each recovery.
+- `reprice_at_recovery()`: CLN PV across recovery spectrum.
+- `recovery_greeks()`: direct (+736k/1%) + indirect (-758k/1%) decomposition.
+- `recovery_pv_surface()`: full PV grid.
+
+### CLN pricing example (`examples/cln_recovery_pricing.py`)
+9-section worked example with realistic bootstrapped curves:
+1. Base pricing (CS01, JTD, DV01)
+2. Recovery curve family (hazard doubles from R=20% to R=60%)
+3. Recovery-adjusted pricing table
+4. Recovery Greeks (indirect DOMINATES direct for IG CLN)
+5. Leveraged CLN: 2x amplifies all effects
+6. Wrong-way cost: 82k from stochastic recovery
+7. Stochastic intensity: +2k convexity adjustment
+8. Bilateral CLN: -205k issuer discount
+9. All-in cost: 211 bps/yr hidden cost
+
+---
+
 ## v0.476.0 — 2026-05-04
 
 **Recovery analytics toolkit: break the recovery-hazard entanglement.** 17 new tests.
