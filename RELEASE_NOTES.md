@@ -2,6 +2,18 @@
 
 ---
 
+## v0.484.0 — 2026-05-04
+
+**Commodity Trading Desk: consolidation layer atop 18 existing commodity modules.** 12 new tests.
+
+- `CommodityRiskMetrics`: delta, DV01, vega, gamma, theta per position.
+- `CommodityDashboard`: by commodity, by sector, limit breaches.
+- `commodity_stress_suite()`: price ±10/20%, combined with vol.
+- `commodity_hedge_recommendations()`: delta, concentration limits.
+- `CommodityLifecycle`: delivery alerts, roll recording, nomination tracking.
+
+---
+
 ## v0.483.0 — 2026-05-04
 
 **Equity Trading Desk: consolidation layer atop 25+ existing equity modules.** 15 new tests.
