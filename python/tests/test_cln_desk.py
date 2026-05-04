@@ -9,7 +9,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.cln import CreditLinkedNote
-from pricebook.cln import BasketCLN
+from pricebook.cln import BasketCLN, CreditLinkedNote
 from pricebook.cln_desk import (
     cln_risk_metrics, CLNRiskMetrics,
     cln_carry_decomposition, CLNCarryDecomposition,
@@ -26,6 +26,8 @@ from pricebook.cln_desk import (
     basket_cln_risk_metrics, BasketCLNRiskMetrics,
     BasketCLNBook, BasketCLNBookEntry,
     basket_cln_dashboard, BasketCLNDashboard,
+    basket_base_correlation_curve,
+    basket_stress_suite, BasketStressResult,
 )
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
@@ -675,3 +677,71 @@ class TestBasketCLNDashboard:
         d = db.to_dict()
         assert "rho01" in d
         assert "by_tranche" in d
+
+
+# ── Base correlation + stress ──
+
+class TestBasketCorrelationCalibration:
+
+    def test_base_corr_roundtrip(self):
+        """Price at rho=0.25, then imply back → should recover 0.25."""
+        basket = _basket_cln(0.0, 0.05)
+        curve = make_flat_curve(REF, 0.04)
+        survs = _survs()
+        # Price at rho=0.25
+        result = basket.price_mc(curve, survs, rho=0.25, n_sims=10_000, seed=42)
+        target = result.price / basket.notional
+        # Imply back
+        corr_curve = basket_base_correlation_curve(
+            basket, curve, survs, {0.05: target}, n_sims=10_000, seed=42)
+        implied = corr_curve.get(0.05, 0)
+        assert abs(implied - 0.25) < 0.05  # within 5% (MC noise)
+
+    def test_base_corr_increases_with_detachment(self):
+        """Base correlation should increase with detachment (correlation skew)."""
+        basket = _basket_cln(0.0, 0.03)
+        curve = make_flat_curve(REF, 0.04)
+        survs = _survs()
+        # Generate prices at rho=0.20 for equity, 0.30 for mezz
+        eq = BasketCLN(REF, REF + relativedelta(years=5), 0.05, 10_000_000,
+                       0.0, 0.03, 0.4, 50)
+        mz = BasketCLN(REF, REF + relativedelta(years=5), 0.05, 10_000_000,
+                       0.0, 0.07, 0.4, 50)
+        p_eq = eq.price_mc(curve, survs, rho=0.20, n_sims=5_000, seed=42).price / eq.notional
+        p_mz = mz.price_mc(curve, survs, rho=0.30, n_sims=5_000, seed=42).price / mz.notional
+        # Calibrate both
+        corr = basket_base_correlation_curve(
+            basket, curve, survs, {0.03: p_eq, 0.07: p_mz}, n_sims=5_000, seed=42)
+        if 0.03 in corr and 0.07 in corr:
+            assert corr[0.07] >= corr[0.03]  # skew: senior has higher base corr
+
+
+class TestBasketStress:
+
+    def test_five_scenarios(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(), survs))
+        curve = make_flat_curve(REF, 0.04)
+        results = basket_stress_suite(book, curve, n_sims=2_000)
+        assert len(results) == 5
+
+    def test_spread_wide_negative_for_equity(self):
+        """Spread widening → more defaults → equity tranche loses."""
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(0.0, 0.03), survs))
+        curve = make_flat_curve(REF, 0.04)
+        results = basket_stress_suite(book, curve, n_sims=2_000)
+        wide = [r for r in results if r.scenario == "spread_wide_100"][0]
+        assert wide.pnl < 0  # equity loses on spread widening
+
+    def test_stress_to_dict(self):
+        book = BasketCLNBook()
+        survs = _survs()
+        book.add(BasketCLNBookEntry("B1", _basket_cln(), survs))
+        curve = make_flat_curve(REF, 0.04)
+        results = basket_stress_suite(book, curve, n_sims=2_000)
+        d = results[0].to_dict()
+        assert "scenario" in d
+        assert "pnl" in d

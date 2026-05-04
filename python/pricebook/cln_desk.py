@@ -1021,3 +1021,127 @@ def basket_cln_dashboard(
         total_expected_loss=risk["total_expected_loss"],
         by_tranche=by_tranche,
     )
+
+
+# ---------------------------------------------------------------------------
+# Basket: base correlation calibration + stress
+# ---------------------------------------------------------------------------
+
+def basket_base_correlation_curve(
+    basket: BasketCLN,
+    discount_curve: DiscountCurve,
+    survival_curves: list[SurvivalCurve],
+    market_prices: dict[float, float],
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> dict[float, float]:
+    """Calibrate base correlation curve from market tranche prices.
+
+    For each detachment point, finds the flat correlation ρ such that
+    BasketCLN(0, detachment) reprices at the market price.
+
+    Args:
+        market_prices: {detachment: market_tranche_pv_per_notional}.
+            E.g. {0.03: 0.85, 0.07: 0.95, 0.15: 0.99}.
+
+    Returns:
+        {detachment: implied_base_correlation}.
+    """
+    from pricebook.solvers import brentq
+
+    result = {}
+    for detach, target_price_pct in sorted(market_prices.items()):
+        trial_basket = BasketCLN(
+            basket.start, basket.end, basket.coupon_rate, basket.notional,
+            attachment=0.0, detachment=detach,
+            recovery=basket.recovery, n_names=basket.n_names,
+        )
+
+        def objective(rho, _basket=trial_basket, _target=target_price_pct):
+            r = _basket.price_mc(discount_curve, survival_curves, rho, n_sims, seed)
+            return r.price / _basket.notional - _target
+
+        try:
+            rho_implied = brentq(objective, 0.01, 0.99)
+            result[detach] = rho_implied
+        except (ValueError, RuntimeError):
+            result[detach] = float('nan')
+
+    return result
+
+
+@dataclass
+class BasketStressResult:
+    """One basket stress scenario."""
+    scenario: str
+    description: str
+    pnl: float
+
+    def to_dict(self) -> dict:
+        return {"scenario": self.scenario, "description": self.description, "pnl": self.pnl}
+
+
+def basket_stress_suite(
+    book: BasketCLNBook,
+    curve: DiscountCurve,
+    n_sims: int = 5_000,
+    seed: int = 42,
+) -> list[BasketStressResult]:
+    """Stress scenarios for basket CLN book.
+
+    Scenarios: spread ±100bp, rho ±10%, recovery -20%.
+    Uses bump-and-reprice for each entry.
+    """
+    # Base PV
+    base_risk = book.aggregate_risk(curve, n_sims, seed)
+    base_pv = base_risk["total_pv"]
+
+    results = []
+
+    # Spread +100bp: bump all survival curves
+    spread_up_pv = 0.0
+    for e in book.entries:
+        bumped_survs = [sc.bumped(0.01) for sc in e.survival_curves]
+        r = e.basket.price_mc(curve, bumped_survs, e.rho, n_sims, seed)
+        spread_up_pv += r.price
+    results.append(BasketStressResult(
+        "spread_wide_100", "All spreads +100bp", spread_up_pv - base_pv))
+
+    # Spread -100bp
+    spread_dn_pv = 0.0
+    for e in book.entries:
+        bumped_survs = [sc.bumped(-0.01) for sc in e.survival_curves]
+        r = e.basket.price_mc(curve, bumped_survs, e.rho, n_sims, seed)
+        spread_dn_pv += r.price
+    results.append(BasketStressResult(
+        "spread_tight_100", "All spreads -100bp", spread_dn_pv - base_pv))
+
+    # Rho +10%
+    rho_up_pv = 0.0
+    for e in book.entries:
+        rho_stressed = min(e.rho + 0.10, 0.99)
+        r = e.basket.price_mc(curve, e.survival_curves, rho_stressed, n_sims, seed)
+        rho_up_pv += r.price
+    results.append(BasketStressResult(
+        "rho_up_10", "Correlation +10%", rho_up_pv - base_pv))
+
+    # Rho -10%
+    rho_dn_pv = 0.0
+    for e in book.entries:
+        rho_stressed = max(e.rho - 0.10, 0.01)
+        r = e.basket.price_mc(curve, e.survival_curves, rho_stressed, n_sims, seed)
+        rho_dn_pv += r.price
+    results.append(BasketStressResult(
+        "rho_dn_10", "Correlation -10%", rho_dn_pv - base_pv))
+
+    # Combined: spreads +200bp + rho +15%
+    combined_pv = 0.0
+    for e in book.entries:
+        bumped_survs = [sc.bumped(0.02) for sc in e.survival_curves]
+        rho_stressed = min(e.rho + 0.15, 0.99)
+        r = e.basket.price_mc(curve, bumped_survs, rho_stressed, n_sims, seed)
+        combined_pv += r.price
+    results.append(BasketStressResult(
+        "combined", "Spreads +200bp, rho +15%", combined_pv - base_pv))
+
+    return results

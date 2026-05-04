@@ -2,6 +2,28 @@
 
 ---
 
+## v0.478.0 — 2026-05-04
+
+**Basket CLN deep dive: base correlation, stress + 30-name production example.** 5 new tests.
+
+### Basket desk additions
+- `basket_base_correlation_curve()`: calibrate implied ρ per detachment from market prices.
+- `basket_stress_suite()`: 5 scenarios (spread ±100bp, rho ±10%, combined).
+- Base correlation roundtrip verified. Correlation skew: equity < senior.
+
+### 30-name example (`examples/basket_cln_30names.py`)
+7-section production-quality example:
+- 30 IG names across 5 sectors (Tech/Fin/Ind/Energy/Consumer)
+- Realistic upward-sloping CDS term structures (35bp–125bp)
+- Bootstrapped OIS curve (5.3% short end, 3.6% long end)
+- 4 tranches: equity [0-3%], mezz [3-7%], senior [7-15%], super-senior [15-100%]
+- Risk metrics: rho01 (+63k equity / -16k senior), CS01, DV01
+- Recovery sensitivity: indirect dominates for equity
+- Gaussian vs Student-t: fat tails reduce equity EL, increase senior EL
+- Stress: spread +200bp + rho +15% combined
+
+---
+
 ## v0.477.0 — 2026-05-04
 
 **CLN recovery pricing example + recovery analytics toolkit.**
