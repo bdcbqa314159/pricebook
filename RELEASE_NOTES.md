@@ -2,6 +2,22 @@
 
 ---
 
+## v0.482.0 — 2026-05-04
+
+**FX Trading Desk: unified consolidation layer atop 20 existing FX modules.** 15 new tests.
+
+- `FXRiskMetrics`: PV, spot delta, DV01 (base/quote), vega, gamma, theta.
+- `FXDashboard`: by pair, by currency, limit breaches.
+- `fx_stress_suite()`: spot ±5/10%, combined.
+- `fx_mc_xva()`: wire xva.simulate_exposures for FX forward/option.
+- `fx_hedge_recommendations()`: delta, currency exposure limits.
+- `FXLifecycle`: settlement alerts (T+2), NDF fixing, roll recording.
+
+FX desk was already the most complete asset class (20 modules, 22 test files).
+This adds the desk consolidation layer matching the 7 other desks.
+
+---
+
 ## v0.481.0 — 2026-05-04
 
 **All pending audit items resolved.**
