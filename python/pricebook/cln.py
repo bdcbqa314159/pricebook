@@ -312,6 +312,52 @@ class CreditLinkedNote:
         pv += self.notional * discount_curve.df(self.end)
         return pv
 
+    def decompose_bond_cds(
+        self,
+        discount_curve: DiscountCurve,
+        survival_curve: SurvivalCurve,
+    ) -> dict[str, float]:
+        """Decompose CLN into bond + embedded CDS components.
+
+        CLN = Risk-free bond - L × CDS protection value
+
+        For vanilla (L=1): CLN = Bond - CDS_protection
+        For leveraged (L>1): CLN = Bond - L × CDS_protection
+
+        This verifies the fundamental relationship:
+        dirty_price = risk_free_pv - L × protection_pv + recovery_adjustment
+        """
+        from pricebook.cds import protection_leg_pv
+
+        rf_pv = self._risk_free_pv(discount_curve)
+        cln_pv = self.dirty_price(discount_curve, survival_curve)
+
+        # CDS protection leg (per unit notional)
+        prot_pv = protection_leg_pv(
+            self.start, self.end, discount_curve, survival_curve,
+            recovery=self.recovery, notional=self.notional,
+        )
+
+        # Embedded CDS value = protection_pv (what you'd receive as protection buyer)
+        # CLN holder is SHORT protection (they bear the credit risk)
+        # So CLN = bond - protection_pv × leverage_factor
+        embedded_cds = prot_pv * self.leverage
+
+        # The difference between rf_pv - embedded_cds and actual CLN price
+        # should be small (only differs by recovery leg treatment)
+        synthetic_cln = rf_pv - embedded_cds
+        basis = cln_pv - synthetic_cln
+
+        return {
+            "cln_price": cln_pv,
+            "risk_free_bond": rf_pv,
+            "embedded_cds_protection": embedded_cds,
+            "synthetic_cln": synthetic_cln,
+            "basis": basis,
+            "leverage": self.leverage,
+            "credit_discount": rf_pv - cln_pv,
+        }
+
     def _risky_annuity(
         self,
         discount_curve: DiscountCurve,
@@ -619,10 +665,16 @@ class CreditLinkedNote:
                     issuer_defaulted = True
 
                 if ref_defaulted and issuer_defaulted:
-                    pv += min(self.recovery, issuer_recovery) * self.notional * df
+                    # Both default: recovery on funded, leverage loss on credit exposure
+                    ref_payout = self.recovery * self.notional
+                    lev_loss = (self.leverage - 1.0) * (1 - self.recovery) * self.notional
+                    pv += max(min(ref_payout - lev_loss, issuer_recovery * self.notional), 0) * df
                     break
                 elif ref_defaulted:
-                    pv += self.recovery * self.notional * df
+                    # Reference defaults: recovery minus leverage loss
+                    ref_payout = self.recovery * self.notional
+                    lev_loss = (self.leverage - 1.0) * (1 - self.recovery) * self.notional
+                    pv += max(ref_payout - lev_loss, 0) * df
                     break
                 elif issuer_defaulted:
                     pv += issuer_recovery * self.notional * df

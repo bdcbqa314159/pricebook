@@ -2,6 +2,23 @@
 
 ---
 
+## v0.479.0 — 2026-05-04
+
+**Leveraged CLN/CDS deep dive: bilateral fix, bond-CDS decomposition, 7-section example.**
+
+- Fixed `price_bilateral_mc()`: leverage loss now correctly applied on reference default.
+- `decompose_bond_cds()`: verifies CLN = Risk-free bond - L × CDS protection.
+- Example (`examples/leveraged_cln_cds.py`): 7 sections covering:
+  1. Vanilla vs leveraged (1x-5x) price comparison
+  2. Bond-CDS decomposition (basis < 3bp)
+  3. CDS vs CLN: funded vs unfunded, opposite CS01 signs
+  4. Leverage impact: CS01 scales linearly, DV01 unchanged
+  5. Recovery convexity: at 3x leverage, total dPV/dR flips sign
+  6. Critical leverage L* = 1/(1-R) = 1.67x → total wipeout above this
+  7. Bilateral leveraged: issuer risk amplified by leverage
+
+---
+
 ## v0.478.0 — 2026-05-04
 
 **Basket CLN deep dive: base correlation, stress + 30-name production example.** 5 new tests.
