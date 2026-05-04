@@ -2,6 +2,19 @@
 
 ---
 
+## v0.483.0 — 2026-05-04
+
+**Equity Trading Desk: consolidation layer atop 25+ existing equity modules.** 15 new tests.
+
+- `EquityRiskMetrics`: PV, delta, gamma, vega, theta, rho per position.
+- `EquityDashboard`: by ticker, by sector, total delta/gamma/vega, limit breaches.
+- `equity_stress_suite()`: spot ±10/20%, vol +5%, combined. Gamma convexity included.
+- `equity_mc_xva()`: wire xva.simulate_exposures for equity options.
+- `equity_hedge_recommendations()`: delta, concentration limits.
+- `EquityLifecycle`: expiry alerts, exercise recording, dividend ex-date tracking.
+
+---
+
 ## v0.482.0 — 2026-05-04
 
 **FX Trading Desk: unified consolidation layer atop 20 existing FX modules.** 15 new tests.
