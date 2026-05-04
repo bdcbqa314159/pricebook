@@ -232,3 +232,56 @@ class InflationLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Carry decomposition (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class InflationCarryDecomposition:
+    """Inflation carry: real yield + breakeven accrual."""
+    real_yield_carry: float
+    breakeven_accrual: float
+    net_carry: float
+
+    def to_dict(self) -> dict:
+        return {"real_yield": self.real_yield_carry,
+                "breakeven": self.breakeven_accrual, "net": self.net_carry}
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class InflationDailyPnL:
+    """Inflation daily P&L attribution."""
+    date: date
+    total: float
+    breakeven_pnl: float
+    real_rate_pnl: float
+    carry_pnl: float
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return {"date": self.date.isoformat(), "total": self.total,
+                "breakeven": self.breakeven_pnl, "real_rate": self.real_rate_pnl,
+                "carry": self.carry_pnl, "unexplained": self.unexplained}
+
+
+# ---------------------------------------------------------------------------
+# Capital (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class InflationCapitalResult:
+    """SA-CCR capital for inflation position."""
+    ead: float
+    rwa: float
+    capital: float
+    simm_im: float
+
+    def to_dict(self) -> dict:
+        return {"ead": self.ead, "rwa": self.rwa, "capital": self.capital,
+                "simm_im": self.simm_im}

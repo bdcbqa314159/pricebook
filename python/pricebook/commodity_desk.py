@@ -240,3 +240,40 @@ class CommodityLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Carry decomposition (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CommodityCarryDecomposition:
+    """Commodity carry: roll yield + convenience - storage."""
+    roll_yield: float
+    convenience_yield: float
+    storage_cost: float
+    net_carry: float
+
+    def to_dict(self) -> dict:
+        return {"roll": self.roll_yield, "convenience": self.convenience_yield,
+                "storage": self.storage_cost, "net": self.net_carry}
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CommodityDailyPnL:
+    """Commodity daily P&L attribution."""
+    date: date
+    total: float
+    spot_pnl: float
+    carry_pnl: float
+    roll_pnl: float
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return {"date": self.date.isoformat(), "total": self.total,
+                "spot": self.spot_pnl, "carry": self.carry_pnl,
+                "roll": self.roll_pnl, "unexplained": self.unexplained}

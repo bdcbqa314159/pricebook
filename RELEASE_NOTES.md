@@ -2,6 +2,28 @@
 
 ---
 
+## v0.487.0 — 2026-05-04
+
+**Desk Standardisation: uniform protocol + carry/PnL gaps filled + cross-asset aggregation.** 6 new tests.
+
+### Protocol (`desk_protocol.py`)
+- Documents the 9-component contract: RiskMetrics, Book, Carry, DailyPnL, Dashboard, Stress, Capital, Hedge, Lifecycle.
+- Every desk module now follows this pattern.
+
+### Gaps filled
+- FX: added `FXCarryDecomposition`, `FXDailyPnL`
+- Equity: added `EquityCarryDecomposition`, `EquityDailyPnL`
+- Commodity: added `CommodityCarryDecomposition`, `CommodityDailyPnL`
+- Inflation: added `InflationCarryDecomposition`, `InflationDailyPnL`, `InflationCapitalResult`
+- Swaption: added `SwaptionCarryDecomposition`, `SwaptionDailyPnL`
+
+### Cross-asset aggregation (`cross_asset_desk.py`)
+- `CrossAssetDesk`: register any desk book, aggregate risk across all.
+- `CrossAssetDashboard`: total PV, DV01, notional, positions, broken down by desk.
+- Works because every desk now has `aggregate_risk(curve) → dict` shape.
+
+---
+
 ## v0.486.0 — 2026-05-04
 
 **Swaption Trading Desk: book, dashboard, vega ladder, stress, capital, lifecycle.** 21 new tests. **12 desks complete.**

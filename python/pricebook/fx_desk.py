@@ -392,3 +392,46 @@ class FXLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Carry decomposition (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FXCarryDecomposition:
+    """FX carry: forward premium/discount from rate differential."""
+    forward_carry: float
+    funding_cost: float
+    net_carry: float
+
+    def to_dict(self) -> dict:
+        return {"forward_carry": self.forward_carry,
+                "funding": self.funding_cost, "net": self.net_carry}
+
+
+def fx_carry(spot: float, base_rate: float, quote_rate: float,
+             notional: float, horizon_days: int = 30) -> FXCarryDecomposition:
+    """Carry from rate differential (CIP)."""
+    dt = horizon_days / 365.0
+    carry = spot * (quote_rate - base_rate) * dt * notional
+    return FXCarryDecomposition(carry, 0.0, carry)
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FXDailyPnL:
+    """FX daily P&L attribution."""
+    date: date
+    total: float
+    spot_pnl: float
+    carry_pnl: float
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return {"date": self.date.isoformat(), "total": self.total,
+                "spot": self.spot_pnl, "carry": self.carry_pnl,
+                "unexplained": self.unexplained}

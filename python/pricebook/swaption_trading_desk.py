@@ -433,3 +433,39 @@ class SwaptionLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Carry decomposition (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SwaptionCarryDecomposition:
+    """Swaption carry: theta decay is the primary carry component."""
+    theta_decay: float
+    net_carry: float
+
+    def to_dict(self) -> dict:
+        return {"theta": self.theta_decay, "net": self.net_carry}
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SwaptionDailyPnL:
+    """Swaption daily P&L attribution."""
+    date: date
+    total: float
+    delta_pnl: float
+    gamma_pnl: float
+    vega_pnl: float
+    theta_pnl: float
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return {"date": self.date.isoformat(), "total": self.total,
+                "delta": self.delta_pnl, "gamma": self.gamma_pnl,
+                "vega": self.vega_pnl, "theta": self.theta_pnl,
+                "unexplained": self.unexplained}

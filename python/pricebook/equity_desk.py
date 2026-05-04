@@ -366,3 +366,41 @@ class EquityLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Carry decomposition (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EquityCarryDecomposition:
+    """Equity carry: dividend income vs funding cost."""
+    dividend_income: float
+    funding_cost: float
+    net_carry: float
+
+    def to_dict(self) -> dict:
+        return {"dividend": self.dividend_income,
+                "funding": self.funding_cost, "net": self.net_carry}
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (protocol compliance)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EquityDailyPnL:
+    """Equity daily P&L attribution."""
+    date: date
+    total: float
+    delta_pnl: float
+    gamma_pnl: float
+    vega_pnl: float
+    theta_pnl: float
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return {"date": self.date.isoformat(), "total": self.total,
+                "delta": self.delta_pnl, "gamma": self.gamma_pnl,
+                "vega": self.vega_pnl, "theta": self.theta_pnl,
+                "unexplained": self.unexplained}
