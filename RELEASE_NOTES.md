@@ -2,6 +2,31 @@
 
 ---
 
+## v0.480.0 — 2026-05-04
+
+**Futures Trading Desk: multi-asset (bond, IR, equity, commodity, FX).** 28 new tests.
+
+### New classes
+- `BondFuture`: stateful wrapper with pv(), pv_ctx(), dv01() (via CTD/CF), basis.
+- `FXFuture`: covered IRP forward, daily settlement P&L.
+
+### Desk operations
+- `FuturesBook`: multi-asset positions by asset class, exchange. Aggregate risk (DV01, margin, contracts).
+- `FuturesMarginState`: initial + variation margin, margin call detection.
+- `futures_daily_settlement()`: (curr - prev) × multiplier × contracts.
+- `FuturesCarryRoll`: basis carry, roll yield, financing cost.
+- `FuturesDashboard`: contracts, DV01, margin utilisation, by asset class/exchange.
+
+### Stress + hedge + lifecycle
+- `futures_stress_suite()`: rates ±100/200bp, equity -10%, combined.
+- `futures_hedge_recommendations()`: DV01, margin, contract concentration limits.
+- `FuturesLifecycle`: expiry alerts, roll recording, delivery recording.
+
+### Pending fix
+- `bond_yield.py`: widened bond_irr bisect bounds from [-0.05, 0.5] to [-0.20, 1.0].
+
+---
+
 ## v0.479.0 — 2026-05-04
 
 **Leveraged CLN/CDS deep dive: bilateral fix, bond-CDS decomposition, 7-section example.**

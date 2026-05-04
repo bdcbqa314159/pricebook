@@ -133,7 +133,7 @@ def bond_irr(
         y = max(-0.5, min(y, 2.0))
 
     # Bisect: expand bounds until root is bracketed
-    lo, hi = -0.05, 0.5
+    lo, hi = -0.20, 1.0  # wider bounds for exotic coupons
     p_lo = bond_price_from_yield(coupon_rate, accrual_factors, lo)
     p_hi = bond_price_from_yield(coupon_rate, accrual_factors, hi)
     for _ in range(20):
