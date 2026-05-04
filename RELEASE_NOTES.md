@@ -2,6 +2,22 @@
 
 ---
 
+## v0.486.0 — 2026-05-04
+
+**Swaption Trading Desk: book, dashboard, vega ladder, stress, capital, lifecycle.** 21 new tests. **12 desks complete.**
+
+- `SwaptionRiskMetrics`: PV, delta, gamma, vega, theta, forward rate, annuity.
+- `SwaptionBook`: by type (payer/receiver), by counterparty.
+- `SwaptionDashboard`: vega ladder (expiry×tenor buckets), total Greeks.
+- `swaption_stress_suite()`: rates ±100bp, vol ±5%, combined.
+- `swaption_capital()`: SA-CCR + SIMM (vega into GIRR).
+- `swaption_hedge_recommendations()`: delta, gamma, vega limits.
+- `SwaptionLifecycle`: expiry alerts, exercise/lapse recording.
+
+Extends existing `swaption_desk.py` (VolCube, combos, hedging) with full desk layer.
+
+---
+
 ## v0.485.0 — 2026-05-04
 
 **Inflation Trading Desk + Swaption desk already complete. 11 desks total.** 12 new tests.
