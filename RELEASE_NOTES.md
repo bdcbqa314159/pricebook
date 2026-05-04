@@ -2,6 +2,23 @@
 
 ---
 
+## v0.485.0 — 2026-05-04
+
+**Inflation Trading Desk + Swaption desk already complete. 11 desks total.** 12 new tests.
+
+### Inflation desk (`inflation_desk.py`)
+- `InflationRiskMetrics`: PV, IE01, real DV01, nominal DV01.
+- `InflationDashboard`: by instrument type, IE01, real DV01, limit breaches.
+- `inflation_stress_suite()`: breakeven ±50bp, real +100bp, nominal +100bp, combined.
+- `inflation_hedge_recommendations()`: IE01, real DV01 limits.
+- `InflationLifecycle`: CPI fixing alerts, maturity alerts, fixing recording.
+
+### Swaption desk
+- Already complete via `swaption_desk.py` (VolCube + combos + delta/vega hedging).
+- No new code needed.
+
+---
+
 ## v0.484.0 — 2026-05-04
 
 **Commodity Trading Desk: consolidation layer atop 18 existing commodity modules.** 12 new tests.
