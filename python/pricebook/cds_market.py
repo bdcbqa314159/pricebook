@@ -77,6 +77,69 @@ def reprice_spreads(
     return result
 
 
+# ---- Bootstrap from upfront quotes ----
+
+
+def bootstrap_from_upfronts(
+    reference_date: date,
+    upfronts: dict[int, float],
+    running_coupon: float,
+    discount_curve: DiscountCurve,
+    recovery: float = 0.4,
+) -> SurvivalCurve:
+    """Bootstrap a survival curve directly from upfront cash prices.
+
+    Instead of solving CDS_PV(at par_spread) = 0, solves:
+        CDS_PV(at running_coupon) = -upfront × notional
+
+    This is mathematically equivalent to:
+        1. Convert upfronts to par spreads
+        2. Bootstrap from par spreads
+
+    But done in one step — no circular dependency.
+
+    Args:
+        reference_date: valuation date.
+        upfronts: {tenor_years: upfront_fraction} e.g. {5: 0.0218} = 2.18 points.
+            Positive = protection buyer pays upfront.
+        running_coupon: standard coupon (e.g. 0.01 for 100bp IG).
+        discount_curve: risk-free OIS curve.
+        recovery: recovery rate assumption.
+
+    Returns:
+        SurvivalCurve that, when used to price the CDS at the running coupon,
+        produces the given upfront amounts.
+    """
+    from pricebook.cds import CDS, bootstrap_credit_curve
+    from pricebook.solvers import brentq
+
+    pillar_dates: list[date] = []
+    pillar_survs: list[float] = []
+
+    for tenor in sorted(upfronts.keys()):
+        upfront = upfronts[tenor]
+        mat = reference_date + relativedelta(years=tenor)
+
+        def objective(q_guess, _mat=mat, _upfront=upfront):
+            trial_dates = pillar_dates + [_mat]
+            trial_survs = pillar_survs + [q_guess]
+            trial_curve = SurvivalCurve(
+                reference_date, trial_dates, trial_survs,
+            )
+            # CDS(at running_coupon).pv = protection - premium(running)
+            # This equals (par_spread - running) × RPV01 = upfront
+            # So target: cds.pv = upfront
+            cds = CDS(reference_date, _mat, spread=running_coupon,
+                      notional=1.0, recovery=recovery)
+            return cds.pv(discount_curve, trial_curve) - _upfront
+
+        q_solved = brentq(objective, 1e-6, 1.0 - 1e-10)
+        pillar_dates.append(mat)
+        pillar_survs.append(q_solved)
+
+    return SurvivalCurve(reference_date, pillar_dates, pillar_survs)
+
+
 # ---- Upfront / running conversion ----
 
 def spread_to_upfront(
