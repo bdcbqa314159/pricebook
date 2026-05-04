@@ -156,10 +156,14 @@ def bond_trs_pv(
 
         # Forward price via repo (Burgess Eq 8-9):
         # B(t_i) = B(t_{i-1}) × (1 + r_repo × τ) - coupons × (1 + r_repo × τ₂)
+        # Coupon reinvestment at REPO rate (Burgess Eq 8-9).
+        # Convention: coupons received during the period are reinvested
+        # at the repo rate from coupon date to period end. This is the
+        # standard assumption for repo-financed positions.
+        # Alternative: reinvest at OIS or curve forward — not implemented.
         coupon_income = 0.0
         for cf in bond.coupon_leg.cashflows:
             if d_prev < cf.payment_date <= d_i:
-                # Reinvest coupon at repo from coupon date to period end
                 tau2 = year_fraction(cf.payment_date, d_i, DayCountConvention.ACT_365_FIXED)
                 coupon_income += cf.amount / bond.face_value * (1 + r_repo_period * tau2)
 

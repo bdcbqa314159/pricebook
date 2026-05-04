@@ -307,7 +307,8 @@ def capital_requirement(
     if pd >= 1:
         return lgd
 
-    # Asset correlation (Basel formula)
+    # Asset correlation (Basel II IRB, CRE30.17 / para 272):
+    # ρ = 0.12 × (1-e^{-50×PD})/(1-e^{-50}) + 0.24 × [1 - (1-e^{-50×PD})/(1-e^{-50})]
     if correlation is None:
         rho = 0.12 * (1 - math.exp(-50 * pd)) / (1 - math.exp(-50)) + \
               0.24 * (1 - (1 - math.exp(-50 * pd)) / (1 - math.exp(-50)))

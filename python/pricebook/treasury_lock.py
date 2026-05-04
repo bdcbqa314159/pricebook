@@ -292,7 +292,15 @@ def pv01_forward(
     half_bp = 0.00005
     p_up = bond_price_from_yield(coupon_rate, accrual_factors, forward_yield + half_bp)
     p_down = bond_price_from_yield(coupon_rate, accrual_factors, forward_yield - half_bp)
-    return abs(p_up - p_down)
+    result = abs(p_up - p_down)
+    if result < 1e-10:
+        import warnings
+        warnings.warn(
+            f"pv01_forward near zero ({result:.2e}) at yield {forward_yield:.4f} — "
+            "numerical cancellation risk. Consider analytical PV01.",
+            stacklevel=2,
+        )
+    return result
 
 
 def tlock_yield_npv(
@@ -663,14 +671,13 @@ def tlock_pnl_attribution(
     pv_t1 = tlock.price(curve_t1).value
     total = pv_t1 - pv_t0
 
-    # Carry: PV change from 1 day passing, curves unchanged
-    carry = tlock.dv01(curve_t0) * 0  # theta approximation
-    # Better: use theta directly
-    from pricebook.day_count import year_fraction, DayCountConvention
-    tau = year_fraction(curve_t0.reference_date, tlock.expiry, DayCountConvention.ACT_365_FIXED)
-    # Theta ≈ -dV/dT (from time decay of forward and discount)
-    # Approximate as dv01 × daily_rolldown
-    carry = 0.0  # placeholder — T-Lock carry is through roll, not coupon
+    # Carry: PV change from 1-day time decay (curve unchanged, time passes)
+    # T-Lock carry comes from forward convergence: as expiry approaches,
+    # the forward price converges to spot, creating theta.
+    from pricebook.pnl_explain import compute_rolldown
+    carry = compute_rolldown(
+        lambda c: tlock.price(c).value, curve_t0, days=1,
+    )
 
     # Curve P&L: PV change from curve shift at t0 repo
     curve_pnl = tlock.price(curve_t1).value - tlock.price(curve_t0).value

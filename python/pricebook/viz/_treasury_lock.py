@@ -34,7 +34,7 @@ def plot_pv_vs_yield(ax, instrument, curve, *, theme=None, **kwargs):
 
 
 def plot_greeks_vs_yield(ax, instrument, curve, *, theme=None, **kwargs):
-    """Delta and gamma across yield levels."""
+    """Delta and gamma across yield levels (twin axis)."""
     from pricebook.discount_curve import DiscountCurve
 
     ref = curve.reference_date
@@ -44,17 +44,24 @@ def plot_greeks_vs_yield(ax, instrument, curve, *, theme=None, **kwargs):
 
     rates = np.linspace(base_rate - 0.015, base_rate + 0.015, 60)
     deltas = []
+    gammas = []
     for r in rates:
         c = DiscountCurve.flat(ref, r)
         g = instrument.greeks(c)
         deltas.append(g["delta"])
+        gammas.append(g.get("gamma", 0.0))
 
-    ax.plot(rates * 100, deltas, lw=2, color="darkorange")
+    ax.plot(rates * 100, deltas, lw=2, color="darkorange", label="Delta")
     ax.axhline(0, color="k", lw=0.5)
     ax.axvline(instrument.locked_yield * 100, ls="--", color="red", alpha=0.7)
     ax.set_xlabel("OIS Rate (%)")
-    ax.set_ylabel("Delta (Pucci)")
-    ax.set_title("Delta vs Yield")
+    ax.set_ylabel("Delta (Pucci)", color="darkorange")
+    ax.set_title("Delta & Gamma vs Yield")
+
+    # Twin axis for gamma
+    ax2 = ax.twinx()
+    ax2.plot(rates * 100, gammas, lw=1.5, color="steelblue", ls="--", label="Gamma")
+    ax2.set_ylabel("Gamma", color="steelblue")
 
 
 def plot_repo_sensitivity(ax, instrument, curve, *, theme=None, **kwargs):

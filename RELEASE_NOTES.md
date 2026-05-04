@@ -2,6 +2,20 @@
 
 ---
 
+## v0.481.0 — 2026-05-04
+
+**All pending audit items resolved.**
+
+- `loan_credit.py`: Basel IRB formula cited (CRE30.17 / para 272).
+- `loan_cashflow.py`: PIK amort convention fixed — no amortization during PIK period, principal only grows.
+- `treasury_lock.py`: P&L carry replaced placeholder with `compute_rolldown()`.
+- `treasury_lock.py`: pv01_forward numerical guard — warns if result < 1e-10.
+- `viz/_treasury_lock.py`: greeks panel now plots gamma on twin axis.
+- `repo_term.py`: forward_repo_rate documented as simple interest ACT/360 (vs continuous alternative).
+- `bond_trs.py`: coupon reinvestment at repo rate documented (Burgess convention).
+
+---
+
 ## v0.480.0 — 2026-05-04
 
 **Futures Trading Desk: multi-asset (bond, IR, equity, commodity, FX).** 28 new tests.

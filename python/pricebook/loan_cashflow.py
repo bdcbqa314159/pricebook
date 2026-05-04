@@ -356,21 +356,23 @@ class PIKTermLoan(TermLoan):
             is_pik = t_end <= self.pik_end
 
             if is_pik:
-                # PIK: interest capitalises, no cash coupon
+                # PIK: interest capitalises into principal, no cash coupon paid.
+                # During PIK period, NO amortization occurs — principal only grows.
+                # Convention: PIK interest compounds on the outstanding balance.
                 pik_interest = outstanding * self.pik_rate * yf
                 outstanding += pik_interest  # outstanding grows
                 cash_interest = 0.0
+                principal = 0.0  # no amort during PIK
             else:
                 # Cash-pay: normal coupon on (now higher) outstanding
                 cash_interest = outstanding * (fwd + self.spread) * yf
-
-            if i == len(self.schedule) - 1:
-                principal = outstanding
-            else:
-                principal = min(amort_amount, outstanding)
+                if i == len(self.schedule) - 1:
+                    principal = outstanding
+                else:
+                    principal = min(amort_amount, outstanding)
 
             flows.append((t_end, cash_interest, principal))
-            if not is_pik:
+            if not is_pik and principal > 0:
                 outstanding -= principal
                 outstanding = max(outstanding, 0.0)
 

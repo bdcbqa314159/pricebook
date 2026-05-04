@@ -159,10 +159,15 @@ def forward_repo_rate(
     start_days: int,
     end_days: int,
 ) -> float:
-    """Forward repo rate between two future dates.
+    """Forward repo rate between two future dates (simple interest, ACT/360).
 
     Derived from no-arbitrage: df(0,T2) = df(0,T1) × df(T1,T2).
-    Forward rate = (df1/df2 - 1) / (T2-T1) × 360.
+
+    Uses discrete (simple interest) convention:
+        f = (df1/df2 - 1) / dt = (df1 - df2) / (dt × df2)
+
+    This matches repo market convention (money market, ACT/360).
+    For continuous compounding, use: f = ln(df1/df2) / dt.
     """
     if end_days <= start_days:
         return repo_curve.rate(start_days)
