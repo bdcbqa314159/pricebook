@@ -2,6 +2,18 @@
 
 ---
 
+## v0.476.0 — 2026-05-04
+
+**Recovery analytics toolkit: break the recovery-hazard entanglement.** 17 new tests.
+
+- `recovery_curve_family()`: bootstrap survival curves at multiple recoveries — same CDS spreads, different h(R).
+- `reprice_at_recovery()`: reprice CLN/CDS/RiskyBond at non-standard R, accounting for h adjustment.
+- `recovery_greeks()`: total dPV/dR = direct (higher R payment) + indirect (higher h from R). Direct > 0, indirect < 0. Convexity captures the nonlinearity.
+- `recovery_pv_surface()`: PV across recovery grid showing where convexity is strongest.
+- Key finding: for CLN, the indirect effect (more defaults from higher h) can dominate the direct effect (higher recovery payment) — PV is NOT monotonic in R.
+
+---
+
 ## v0.475.0 — 2026-05-03
 
 **CDS Trading Desk: single-name + index + swaption unified desk.** 32 new tests.
