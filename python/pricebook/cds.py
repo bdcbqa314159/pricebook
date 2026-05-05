@@ -21,20 +21,17 @@ def protection_leg_pv(
     discount_curve: DiscountCurve,
     survival_curve: SurvivalCurve,
     recovery: float = 0.4,
-    notional: float = 1_000_000.0,
+    notional: float | list[float] = 1_000_000.0,
     day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
     steps_per_year: int = 12,
+    schedule_dates: list[date] | None = None,
 ) -> float:
     """
     PV of the protection leg of a CDS.
 
     The protection buyer receives (1 - R) * notional if default occurs.
-    Discretised over small intervals:
-
-        PV = (1 - R) * notional * sum(df(t_mid) * (Q(t_{i-1}) - Q(t_i)))
-
-    where t_mid is the midpoint of each interval (approximation for
-    the default time within the interval).
+    For variable notional, each grid point uses the notional of the
+    premium period it falls within.
 
     Args:
         start: Protection start date.
@@ -42,13 +39,26 @@ def protection_leg_pv(
         discount_curve: Risk-free discount curve (OIS).
         survival_curve: Credit survival curve.
         recovery: Recovery rate (fraction of notional recovered on default).
-        notional: CDS notional.
+        notional: CDS notional (scalar or per-period list).
         day_count: Day count for time intervals.
         steps_per_year: Discretisation granularity (4 = quarterly steps).
+        schedule_dates: Premium schedule dates for mapping variable notional
+            to fine grid. Required when notional is a list.
     """
     from datetime import timedelta
 
-    lgd = (1.0 - recovery) * notional
+    is_list = isinstance(notional, list)
+
+    if is_list:
+        if schedule_dates is None:
+            raise ValueError("schedule_dates required when notional is a list")
+        notionals = list(notional)
+        n_periods = len(schedule_dates) - 1
+        if len(notionals) < n_periods:
+            notionals += [notionals[-1]] * (n_periods - len(notionals))
+        notionals = notionals[:n_periods]
+    else:
+        notionals = None
 
     # Generate a fine date grid for numerical integration
     total_days = (end - start).days
@@ -56,6 +66,8 @@ def protection_leg_pv(
     step_days = total_days / n_steps
 
     pv = 0.0
+    period_idx = 0  # track which premium period we're in
+
     for i in range(n_steps):
         d1 = start + timedelta(days=int(i * step_days))
         d2 = start + timedelta(days=int((i + 1) * step_days))
@@ -67,9 +79,19 @@ def protection_leg_pv(
         q2 = survival_curve.survival(d2)
         df_mid = discount_curve.df(d_mid)
 
-        pv += df_mid * (q1 - q2)
+        if is_list:
+            # Advance period index to find the period containing d_mid
+            while (period_idx < len(notionals) - 1
+                   and d_mid >= schedule_dates[period_idx + 1]):
+                period_idx += 1
+            lgd_i = (1.0 - recovery) * notionals[period_idx]
+            pv += lgd_i * df_mid * (q1 - q2)
+        else:
+            pv += df_mid * (q1 - q2)
 
-    return lgd * pv
+    if is_list:
+        return pv
+    return (1.0 - recovery) * float(notional) * pv
 
 
 def premium_leg_pv(
@@ -78,7 +100,7 @@ def premium_leg_pv(
     spread: float,
     discount_curve: DiscountCurve,
     survival_curve: SurvivalCurve,
-    notional: float = 1_000_000.0,
+    notional: float | list[float] = 1_000_000.0,
     frequency: Frequency = Frequency.QUARTERLY,
     day_count: DayCountConvention = DayCountConvention.ACT_360,
     calendar: Calendar | None = None,
@@ -89,11 +111,9 @@ def premium_leg_pv(
 
     The protection buyer pays a periodic coupon contingent on survival:
 
-        PV = notional * spread * sum(yf_i * df(t_i) * Q(t_i))
+        PV = sum(notional_i * spread * yf_i * df(t_i) * Q(t_i))
 
-    Plus an accrued interest approximation for default mid-period:
-
-        accrued = notional * spread * sum(yf_i/2 * df(t_mid) * (Q(t_{i-1}) - Q(t_i)))
+    Plus an accrued interest approximation for default mid-period.
 
     Args:
         start: Premium start date.
@@ -101,7 +121,7 @@ def premium_leg_pv(
         spread: CDS coupon (annualised, e.g. 0.01 for 100bp).
         discount_curve: Risk-free discount curve (OIS).
         survival_curve: Credit survival curve.
-        notional: CDS notional.
+        notional: CDS notional (scalar or per-period list).
         frequency: Premium payment frequency (typically quarterly).
         day_count: Day count for premium accrual.
         calendar: Business day calendar.
@@ -111,9 +131,18 @@ def premium_leg_pv(
         start, end, frequency, calendar, convention,
         StubType.SHORT_FRONT, True,
     )
+    n_periods = len(schedule) - 1
 
-    pv_scheduled = 0.0
-    pv_accrued = 0.0
+    # Normalize notional to per-period list
+    if isinstance(notional, (int, float)):
+        notionals = [float(notional)] * n_periods
+    else:
+        notionals = list(notional)
+        if len(notionals) < n_periods:
+            notionals += [notionals[-1]] * (n_periods - len(notionals))
+        notionals = notionals[:n_periods]
+
+    pv_total = 0.0
 
     for i in range(1, len(schedule)):
         d1 = schedule[i - 1]
@@ -122,16 +151,17 @@ def premium_leg_pv(
         q1 = survival_curve.survival(d1)
         q2 = survival_curve.survival(d2)
         df2 = discount_curve.df(d2)
+        n_i = notionals[i - 1]
 
         # Scheduled premium: paid if survived to payment date
-        pv_scheduled += yf * df2 * q2
+        pv_total += n_i * spread * yf * df2 * q2
 
         # Accrued on default: approximate as half-period accrual
         d_mid = date.fromordinal((d1.toordinal() + d2.toordinal()) // 2)
         df_mid = discount_curve.df(d_mid)
-        pv_accrued += (yf / 2.0) * df_mid * (q1 - q2)
+        pv_total += n_i * spread * (yf / 2.0) * df_mid * (q1 - q2)
 
-    return notional * spread * (pv_scheduled + pv_accrued)
+    return pv_total
 
 
 def risky_annuity(
@@ -150,8 +180,9 @@ def risky_annuity(
     RPV01 = sum(yf_i * df(t_i) * Q(t_i)) + accrued-on-default terms.
 
     This is premium_leg_pv / (notional * spread), independent of spread.
+    Always computed with unit notional — for weighted RPV01 with variable
+    notional, call premium_leg_pv directly with spread=1.
     """
-    # Use spread=1 and notional=1 to get the annuity factor
     return premium_leg_pv(
         start, end, spread=1.0,
         discount_curve=discount_curve, survival_curve=survival_curve,
@@ -182,7 +213,7 @@ class CDS:
         start: date,
         end: date,
         spread: float,
-        notional: float = 1_000_000.0,
+        notional: float | list[float] = 1_000_000.0,
         recovery: float = 0.4,
         frequency: Frequency = Frequency.QUARTERLY,
         day_count: DayCountConvention = DayCountConvention.ACT_360,
@@ -191,8 +222,14 @@ class CDS:
         calendar: Calendar | None = None,
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
     ):
-        if notional <= 0:
-            raise ValueError(f"notional must be positive, got {notional}")
+        if isinstance(notional, (int, float)):
+            if notional <= 0:
+                raise ValueError(f"notional must be positive, got {notional}")
+        else:
+            if not notional:
+                raise ValueError("notional schedule is empty")
+            if any(n <= 0 for n in notional):
+                raise ValueError(f"all notionals must be positive")
         if not (0 <= recovery <= 1):
             raise ValueError(f"recovery must be in [0, 1], got {recovery}")
         if start >= end:
@@ -210,6 +247,26 @@ class CDS:
         self.calendar = calendar
         self.convention = convention
 
+        # Pre-generate schedule for variable notional mapping
+        self._schedule = generate_schedule(
+            start, end, frequency, calendar, convention,
+            StubType.SHORT_FRONT, True,
+        )
+
+    @property
+    def current_notional(self) -> float:
+        """Notional of the first (current) period."""
+        if isinstance(self.notional, list):
+            return self.notional[0]
+        return self.notional
+
+    @property
+    def average_notional(self) -> float:
+        """Arithmetic mean of the notional schedule."""
+        if isinstance(self.notional, list):
+            return sum(self.notional) / len(self.notional)
+        return self.notional
+
     def pv_protection(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
     ) -> float:
@@ -219,6 +276,7 @@ class CDS:
             recovery=self.recovery, notional=self.notional,
             day_count=self.protection_day_count,
             steps_per_year=self.steps_per_year,
+            schedule_dates=self._schedule if isinstance(self.notional, list) else None,
         )
 
     def pv_premium(
@@ -259,17 +317,23 @@ class CDS:
         """
         The spread that makes PV = 0.
 
-        par_spread = PV(protection) / (notional * RPV01)
+        For variable notional, uses weighted RPV01:
+            par_spread = PV(protection) / weighted_RPV01
+        where weighted_RPV01 = premium_leg_pv(spread=1, notional=self.notional).
+        For scalar notional this reduces to PV(protection) / (N * RPV01).
         """
         prot = self.pv_protection(discount_curve, survival_curve)
-        rpv01 = risky_annuity(
-            self.start, self.end, discount_curve, survival_curve,
-            frequency=self.frequency, day_count=self.day_count,
+        # Weighted RPV01: premium leg PV with spread=1 and actual notional schedule
+        w_rpv01 = premium_leg_pv(
+            self.start, self.end, spread=1.0,
+            discount_curve=discount_curve, survival_curve=survival_curve,
+            notional=self.notional, frequency=self.frequency,
+            day_count=self.day_count,
             calendar=self.calendar, convention=self.convention,
         )
-        if abs(rpv01) < 1e-15:
+        if abs(w_rpv01) < 1e-15:
             return float('inf')
-        return prot / (self.notional * rpv01)
+        return prot / w_rpv01
 
     def upfront(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
@@ -281,7 +345,7 @@ class CDS:
         difference between the running spread and the par spread:
             upfront ≈ (par_spread - spread) * RPV01
         """
-        return self.pv(discount_curve, survival_curve) / self.notional
+        return self.pv(discount_curve, survival_curve) / self.current_notional
 
     def isda_upfront(
         self,
