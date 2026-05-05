@@ -104,8 +104,9 @@ class FixedLeg:
         """
         The DV01-weighted annuity factor: sum of year_frac * df for each period.
 
-        This is the present value of the leg per unit of fixed rate:
-            PV = rate * notional * annuity
+        This is the present value of the leg per unit of (rate × notional).
+        For uniform notional N: PV = rate * N * annuity.
+        For variable notional, use weighted_annuity() instead.
         """
         return sum(
             cf.year_frac * curve.df(cf.payment_date) for cf in self.cashflows

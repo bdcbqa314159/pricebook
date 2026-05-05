@@ -155,19 +155,22 @@ def _analyse_irs(ref, curve, **kw):
     _check_rate_not_bps(rate, "rate")
     notional = kw.get("notional", 10_000_000)
     profile = kw.get("notional_profile")
+    end = _parse_tenor(ref, tenor)
 
     # Generate notional schedule from profile if requested
     if profile is not None:
         if isinstance(notional, list):
             raise ValueError("Cannot specify both notional as list and notional_profile.")
-        end = _parse_tenor(ref, tenor)
         schedule = generate_schedule(ref, end, Frequency.SEMI_ANNUAL)
         n = len(schedule) - 1
         if profile == "amortising":
-            notional = [float(notional) * (1.0 - i / n) for i in range(n)]
+            # Linear amortisation: last period keeps small residual (not zero)
+            notional = [max(float(notional) * (1.0 - i / n), float(notional) / n)
+                        for i in range(n)]
         elif profile == "accreting":
             final = kw.get("final_notional", notional * 2)
-            notional = [float(notional) + (final - notional) * i / max(n - 1, 1) for i in range(n)]
+            notional = [float(notional) + (final - notional) * i / max(n - 1, 1)
+                        for i in range(n)]
         else:
             raise ValueError(f"Unknown notional_profile: {profile}. "
                              "Use 'amortising' or 'accreting'.")
@@ -181,7 +184,7 @@ def _analyse_irs(ref, curve, **kw):
         raise ValueError(f"Invalid direction '{kw.get('direction')}'. "
                          "Use 'payer'/'pay'/'p' or 'receiver'/'recv'/'r'.")
 
-    swap = InterestRateSwap(ref, _parse_tenor(ref, tenor), rate, direction=direction, notional=notional)
+    swap = InterestRateSwap(ref, end, rate, direction=direction, notional=notional)
     rm = swap_risk_metrics(swap, curve)
     carry = swap_carry_decomposition(swap, curve)
 
