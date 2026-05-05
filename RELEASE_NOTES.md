@@ -2,6 +2,39 @@
 
 ---
 
+## v0.490.0 — 2026-05-05
+
+**Advanced Vol Derivatives: var swap Greeks, forward variance, vol swap, dispersion, Bates, SVI.** 25 new tests.
+
+### Variance swap Greeks
+- Dollar gamma constant (2/T × notional), gamma ∝ 1/S², vega, theta.
+- Verified: at fair strike PV=0, dollar gamma invariant to spot.
+
+### Forward variance curve
+- Extract forward variance from ATM term structure.
+- Positive forward vol, non-decreasing total variance.
+
+### Volatility swap
+- Distinct from variance: pays √(realised_var).
+- Convexity adjustment: E[√V] < √E[V] via Carr-Lee (2009).
+- Fair vol = ATM - ξ²/(8σ).
+
+### Dispersion trading
+- Index vs constituent variance decomposition.
+- Implied correlation extraction, breakeven analysis.
+
+### Bates characteristic function
+- Heston + Merton jumps: full CF for COS/FFT pricing.
+- Verified: φ(0)=1, matches Heston when λ=0.
+
+### SVI calibration (Gatheral 2004)
+- Raw SVI: w(k) = a + b(ρ(k-m) + √((k-m)²+σ²)).
+- Least-squares fit with bounds.
+- Arbitrage-free conditions (slope, min variance, butterfly).
+- Verified: negative ρ for equity skew.
+
+---
+
 ## v0.489.0 — 2026-05-05
 
 **Vol Surface Deep Dive: cross-asset desk + arbitrage scanner + calibration pipeline.** 18 new tests.
