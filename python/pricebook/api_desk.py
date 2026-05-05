@@ -36,23 +36,33 @@ from pricebook.day_count import DayCountConvention, year_fraction
 
 
 def _parse_tenor(ref: date, tenor: str | date) -> date:
-    """Parse "5Y", "6M", "3W", "30D" or a date."""
+    """Parse "5Y", "6M", "3W", "30D", "0.5Y", "1.5Y" or a date."""
     if isinstance(tenor, date):
         return tenor
     t = tenor.upper().strip()
-    if t.endswith("Y"):
-        return ref + relativedelta(years=int(t[:-1]))
-    if t.endswith("M"):
-        return ref + relativedelta(months=int(t[:-1]))
-    if t.endswith("W"):
-        return ref + relativedelta(weeks=int(t[:-1]))
-    if t.endswith("D"):
-        return ref + relativedelta(days=int(t[:-1]))
-    raise ValueError(f"Cannot parse tenor: {tenor}")
+    try:
+        if t.endswith("Y"):
+            val = float(t[:-1])
+            if val == int(val):
+                return ref + relativedelta(years=int(val))
+            # Fractional year: convert to months
+            return ref + relativedelta(months=int(val * 12))
+        if t.endswith("M"):
+            return ref + relativedelta(months=int(float(t[:-1])))
+        if t.endswith("W"):
+            return ref + relativedelta(weeks=int(float(t[:-1])))
+        if t.endswith("D"):
+            return ref + relativedelta(days=int(float(t[:-1])))
+    except (ValueError, OverflowError):
+        pass
+    raise ValueError(f"Cannot parse tenor: {tenor}. Use '5Y', '6M', '3W', '30D' or a date.")
 
 
-def _flat_curve(ref: date, rate: float = 0.04) -> DiscountCurve:
-    return DiscountCurve.flat(ref, rate)
+def _require_keys(d: dict, keys: list[str], context: str = "") -> None:
+    """Validate required keys are present in a dict."""
+    missing = [k for k in keys if k not in d]
+    if missing:
+        raise ValueError(f"Missing required keys {missing} in {context or 'trade dict'}: got {list(d.keys())}")
 
 
 # ============================================================================
@@ -222,18 +232,25 @@ def repo(tenor_days, face, rate, *, haircut=0.05, notional=None) -> dict:
     """Price a repo trade in one call.
 
         desk.repo(30, 10_000_000, 0.04, haircut=0.05)
+
+    Conventions: ACT/360 interest accrual (USD repo standard).
     """
+    if not 0 <= haircut < 1:
+        raise ValueError(f"haircut must be in [0, 1), got {haircut}")
+    if face <= 0:
+        raise ValueError(f"face must be positive, got {face}")
+    if tenor_days <= 0:
+        raise ValueError(f"tenor_days must be positive, got {tenor_days}")
+
     cash_lent = face * (1 - haircut)
-    if notional is None:
-        notional = face
-    interest = cash_lent * rate * tenor_days / 360
+    interest = cash_lent * rate * tenor_days / 360  # ACT/360 convention
     maturity_amount = cash_lent + interest
-    carry = interest
 
     return {
         "type": "repo", "face": face, "cash_lent": cash_lent,
         "rate": rate, "haircut": haircut, "tenor_days": tenor_days,
         "interest": interest, "maturity_amount": maturity_amount,
+        "carry": {"income": interest, "funding": 0.0, "net": interest},
         "carry_30d": cash_lent * rate * 30 / 360,
     }
 
@@ -257,7 +274,8 @@ def vol_surface(asset_class: str, quotes: list[dict], *, spot=None, ref=None):
     )
 
     if ref is None:
-        ref = date.today()
+        raise ValueError("ref (reference date) is required for vol_surface. "
+                         "Pass ref=date(2024, 7, 15) or similar.")
 
     # Parse expiry strings to dates
     parsed = []
@@ -267,14 +285,17 @@ def vol_surface(asset_class: str, quotes: list[dict], *, spot=None, ref=None):
             pq["expiry"] = _parse_tenor(ref, pq["expiry"])
         parsed.append(pq)
 
+    # Validate spot: must be positive if provided, use sensible defaults only if None
+    effective_spot = spot if spot is not None else None
+
     if asset_class.lower() == "fx":
-        return calibrate_fx_surface(ref, parsed, spot=spot or 1.0)
+        return calibrate_fx_surface(ref, parsed, spot=effective_spot if effective_spot else 1.0)
     elif asset_class.lower() in ("equity", "eq"):
-        return calibrate_equity_surface(ref, parsed, spot=spot or 100.0)
+        return calibrate_equity_surface(ref, parsed, spot=effective_spot if effective_spot else 100.0)
     elif asset_class.lower() in ("ir", "swaption"):
         return calibrate_ir_surface(ref, parsed)
     elif asset_class.lower() in ("commodity", "commo"):
-        return calibrate_commodity_surface(ref, parsed, spot=spot or 75.0)
+        return calibrate_commodity_surface(ref, parsed, spot=effective_spot if effective_spot else 75.0)
     else:
         raise ValueError(f"Unknown asset class: {asset_class}. "
                          "Supported: fx, equity, ir, commodity")
@@ -298,6 +319,7 @@ def swap_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
     book = SwapBook()
 
     for i, t in enumerate(trades):
+        _require_keys(t, ["tenor", "rate"], f"swap trade #{i+1}")
         direction = SwapDirection.PAYER if t.get("direction", "payer") == "payer" else SwapDirection.RECEIVER
         swap = InterestRateSwap(
             ref, _parse_tenor(ref, t["tenor"]), t["rate"],
@@ -333,7 +355,9 @@ def cds_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
     book = CDSBook()
 
     for i, t in enumerate(trades):
-        hazard = t.get("hazard", t["spread"] / 0.6)  # approximate
+        _require_keys(t, ["tenor", "spread"], f"CDS trade #{i+1}")
+        # h ≈ spread / (1-R): standard flat hazard approximation (O'Kane 2008)
+        hazard = t.get("hazard", t["spread"] / 0.6)
         surv = SurvivalCurve.flat(ref, hazard)
         cds_inst = CDS(ref, _parse_tenor(ref, t["tenor"]),
                        spread=t["spread"], notional=t.get("notional", 10_000_000))
@@ -374,14 +398,18 @@ def multicurve(*, ref=None, **currencies) -> dict:
     from pricebook.sofr_curve import build_sofr_curve, build_estr_curve, build_sonia_curve
 
     if ref is None:
-        ref = date.today()
+        raise ValueError("ref (reference date) is required for multicurve. "
+                         "Pass ref=date(2024, 7, 15) or similar.")
 
     result = {}
     for ccy, data in currencies.items():
         swaps_dict = data.get("swaps", {})
-        swap_list = [(ref + relativedelta(years=int(t.rstrip("YyMm"))), r)
-                     if isinstance(t, str) else (t, r)
-                     for t, r in swaps_dict.items()]
+        swap_list = []
+        for t, r in swaps_dict.items():
+            if isinstance(t, str):
+                swap_list.append((_parse_tenor(ref, t), r))
+            else:
+                swap_list.append((t, r))
 
         ccy_upper = ccy.upper()
         if ccy_upper == "USD":
