@@ -454,6 +454,51 @@ def futures_stress_suite(
 
 
 # ---------------------------------------------------------------------------
+# Capital (SA-CCR for exchange-traded via CCP)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FuturesCapitalResult:
+    """SA-CCR capital for a futures position via CCP."""
+    ead: float
+    rwa: float
+    capital: float
+    margin_required: float
+
+    def to_dict(self) -> dict:
+        return {"ead": self.ead, "rwa": self.rwa, "capital": self.capital,
+                "margin": self.margin_required}
+
+
+def futures_capital(
+    instrument,
+    contracts: int = 1,
+    margin_per_contract: float = 0.0,
+    ccp_rw: float = 0.02,  # CCP risk weight = 2% (Basel CRE54)
+) -> FuturesCapitalResult:
+    """SA-CCR capital for exchange-traded futures.
+
+    Futures cleared via CCP have 2% risk weight (vs 20-100% for bilateral).
+    EAD = margin requirement (initial margin as exposure proxy).
+    RWA = EAD × CCP risk weight.
+    Capital = RWA × 8%.
+    """
+    margin = margin_per_contract * abs(contracts)
+
+    # EAD for CCP-cleared: simplified as margin + MTM
+    pv = 0.0
+    if isinstance(instrument, BondFuture):
+        pv = abs(instrument.pv(contracts))
+
+    ead = margin + abs(pv)
+    rwa = ead * ccp_rw
+    capital = rwa * 0.08
+
+    return FuturesCapitalResult(ead=ead, rwa=rwa, capital=capital,
+                                margin_required=margin)
+
+
+# ---------------------------------------------------------------------------
 # Hedge recommendations
 # ---------------------------------------------------------------------------
 
