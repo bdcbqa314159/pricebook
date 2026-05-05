@@ -2,6 +2,27 @@
 
 ---
 
+## v0.488.0 — 2026-05-05
+
+**IBOR Curve Framework: SOFR/ESTR/SONIA convenience + multi-curve CSA example.**
+
+### RFR curve builders (`sofr_curve.py`)
+- `build_sofr_curve()`: SOFR futures (with HW convexity) + SOFR OIS swaps → USD OIS.
+- `build_estr_curve()`: ESTR swaps → EUR OIS (ACT/360).
+- `build_sonia_curve()`: SONIA swaps → GBP OIS (ACT/365F).
+- `build_xccy_basis_curve()`: FX swap points → implied foreign DF consistent with market forwards.
+
+### Multi-curve CSA example (`examples/multicurve_csa_pricing.py`)
+6-section worked example:
+1. Build G3 RFR curves (SOFR/ESTR/SONIA) from realistic swap rates
+2. Dual-curve: EURIBOR 3M projection off ESTR discount (14.9bp basis)
+3. CSA comparison: same 5Y EUR IRS under EUR/USD/uncollateralised CSA (4.5bp difference)
+4. Par rate sensitivity to CSA (+1.4bp from EUR→USD)
+5. IBOR fallback: EURIBOR vs ESTR+spread (2-31bp gap)
+6. DV01 decomposition: 99% projection risk, 1% discount risk
+
+---
+
 ## v0.487.0 — 2026-05-04
 
 **Desk Standardisation: uniform protocol + carry/PnL gaps filled + cross-asset aggregation.** 6 new tests.
