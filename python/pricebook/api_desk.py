@@ -120,11 +120,20 @@ def analyse(instrument_type: str, *, curve: DiscountCurve, **kwargs) -> dict:
         desk.analyse("cds", tenor="5Y", spread=0.01, hazard=0.02, curve=curve)
         desk.analyse("cln", tenor="5Y", coupon=0.05, hazard=0.02, curve=curve)
         desk.analyse("bond", tenor="10Y", coupon=0.04, curve=curve)
+
+        # Amortising swap: pass notional as list or use notional_profile
+        desk.analyse("irs", notional=[50e6, 40e6, 30e6, 20e6, 10e6], ...)
+        desk.analyse("irs", notional=50e6, notional_profile="amortising", ...)
     """
     t = instrument_type.lower()
     ref = curve.reference_date
 
     if t == "irs":
+        # Route to amortising if notional is a list or profile is specified
+        notional = kwargs.get("notional")
+        profile = kwargs.get("notional_profile")
+        if isinstance(notional, list) or profile is not None:
+            return _analyse_amortising_irs(ref, curve, **kwargs)
         return _analyse_irs(ref, curve, **kwargs)
     elif t == "cds":
         return _analyse_cds(ref, curve, **kwargs)
@@ -168,6 +177,69 @@ def _analyse_irs(ref, curve, **kw):
         "gamma": rm.gamma, "theta": rm.theta,
         "carry": carry.to_dict(),
         "notional": notional, "direction": rm.direction,
+    }
+
+
+def _analyse_amortising_irs(ref, curve, **kw):
+    """Analyse an amortising/accreting/roller-coaster swap.
+
+    Accepts notional as:
+    - list[float]: explicit per-period notional schedule
+    - float + notional_profile="amortising": linear amortisation to zero
+    - float + notional_profile="accreting": linear accretion to 2x initial
+    """
+    from pricebook.amortising_swap import AmortisingSwap
+    from pricebook.schedule import Frequency
+
+    if "rate" not in kw:
+        _warn_default("rate", 0.04, "amortising IRS")
+    tenor = kw.get("tenor", "5Y")
+    rate = kw.get("rate", 0.04)
+    _check_rate_not_bps(rate, "rate")
+    notional = kw.get("notional", 10_000_000)
+    profile = kw.get("notional_profile")
+    freq = Frequency.SEMI_ANNUAL
+
+    end = _parse_tenor(ref, tenor)
+
+    if profile == "amortising":
+        if isinstance(notional, list):
+            raise ValueError("Cannot specify both notional as list and notional_profile.")
+        swap = AmortisingSwap.amortising(ref, end, rate,
+                                         initial_notional=notional, frequency=freq)
+    elif profile == "accreting":
+        if isinstance(notional, list):
+            raise ValueError("Cannot specify both notional as list and notional_profile.")
+        final = kw.get("final_notional", notional * 2)
+        swap = AmortisingSwap.accreting(ref, end, rate,
+                                        initial_notional=notional,
+                                        final_notional=final, frequency=freq)
+    elif isinstance(notional, list):
+        if not notional:
+            raise ValueError("Notional schedule is empty.")
+        swap = AmortisingSwap(ref, end, rate, notional_schedule=notional, frequency=freq)
+    else:
+        raise ValueError(f"Unknown notional_profile: {profile}. "
+                         "Use 'amortising', 'accreting', or pass notional as a list.")
+
+    # Bump-and-reprice risk
+    bp = 0.0001
+    pv_base = swap.pv(curve)
+    pv_up = swap.pv(curve.bumped(bp))
+    pv_dn = swap.pv(curve.bumped(-bp))
+    dv01 = pv_up - pv_base
+    gamma = (pv_up - 2 * pv_base + pv_dn) / (bp ** 2)
+
+    return {
+        "type": "amortising_irs",
+        "pv": pv_base,
+        "par_rate": swap.par_rate(curve),
+        "dv01": dv01,
+        "gamma": gamma,
+        "notional_schedule": swap.notionals,
+        "average_notional": swap.average_notional,
+        "weighted_average_life": swap.weighted_average_life,
+        "n_periods": len(swap.periods),
     }
 
 
