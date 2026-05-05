@@ -65,6 +65,28 @@ def _require_keys(d: dict, keys: list[str], context: str = "") -> None:
         raise ValueError(f"Missing required keys {missing} in {context or 'trade dict'}: got {list(d.keys())}")
 
 
+def _warn_default(param_name: str, default_value, context: str = "") -> None:
+    """Issue warning when using a default value for a key parameter."""
+    import warnings
+    warnings.warn(
+        f"Using default {param_name}={default_value}"
+        f"{' for ' + context if context else ''}. "
+        f"Pass {param_name}=... explicitly to suppress.",
+        stacklevel=4,
+    )
+
+
+def _check_rate_not_bps(rate: float, param_name: str = "rate") -> None:
+    """Warn if rate looks like it's in basis points instead of decimal."""
+    if abs(rate) > 1.0:
+        import warnings
+        warnings.warn(
+            f"{param_name}={rate} looks like basis points, not decimal. "
+            f"Did you mean {rate/10000}? (e.g., 0.04 not 400)",
+            stacklevel=4,
+        )
+
+
 # ============================================================================
 # SECTION 1: analyse() — Universal analytics
 # ============================================================================
@@ -97,8 +119,11 @@ def _analyse_irs(ref, curve, **kw):
     from pricebook.swap import InterestRateSwap, SwapDirection
     from pricebook.swap_desk import swap_risk_metrics, swap_carry_decomposition
 
+    if "rate" not in kw:
+        _warn_default("rate", 0.04, "IRS")
     tenor = kw.get("tenor", "5Y")
     rate = kw.get("rate", 0.04)
+    _check_rate_not_bps(rate, "rate")
     notional = kw.get("notional", 10_000_000)
     direction = SwapDirection.PAYER if kw.get("direction", "payer") == "payer" else SwapDirection.RECEIVER
 
@@ -120,8 +145,11 @@ def _analyse_cds(ref, curve, **kw):
     from pricebook.cds_market import build_cds_curve
     from pricebook.cds_desk import cds_risk_metrics, cds_carry_decomposition
 
+    if "spread" not in kw:
+        _warn_default("spread", 0.01, "CDS")
     tenor = kw.get("tenor", "5Y")
     spread = kw.get("spread", 0.01)
+    _check_rate_not_bps(spread, "spread")
     hazard = kw.get("hazard", 0.02)
     recovery = kw.get("recovery", 0.40)
     notional = kw.get("notional", 10_000_000)
@@ -144,8 +172,11 @@ def _analyse_cln(ref, curve, **kw):
     from pricebook.schedule import Frequency
     from pricebook.cln_desk import cln_risk_metrics, cln_carry_decomposition
 
+    if "coupon" not in kw:
+        _warn_default("coupon", 0.05, "CLN")
     tenor = kw.get("tenor", "5Y")
     coupon = kw.get("coupon", 0.05)
+    _check_rate_not_bps(coupon, "coupon")
     hazard = kw.get("hazard", 0.02)
     recovery = kw.get("recovery", 0.40)
     leverage = kw.get("leverage", 1.0)
@@ -183,7 +214,7 @@ def _analyse_bond(ref, curve, **kw):
         "ytm": rm.ytm, "mod_duration": rm.modified_duration,
         "eff_duration": rm.effective_duration, "convexity": rm.convexity,
         "dv01": rm.dv01, "key_rate_dv01": rm.key_rate_dv01,
-        "carry_roll": carry.to_dict(),
+        "carry": carry.to_dict(),  # consistent key with IRS/CDS/CLN
     }
 
 
@@ -204,9 +235,12 @@ def cln(tenor, coupon, curve, *, hazard=0.02, recovery=0.4, leverage=1.0,
 
 def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
         notional=10_000_000, sigma=0.20) -> dict:
-    """Price a TRS in one call.
+    """Price an equity TRS in one call.
 
-        desk.trs("6M", 100.0, curve)  # equity TRS
+        desk.trs("6M", 100.0, curve)  # equity TRS, spot=100
+
+    Note: `underlying` must be a numeric spot price (equity TRS).
+    For bond/loan/CLN TRS, use the full TotalReturnSwap class directly.
     """
     from pricebook.trs import TotalReturnSwap, FundingLegSpec
     from pricebook.trs_desk import trs_risk_metrics, trs_carry_decomposition
@@ -225,6 +259,7 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
         "type": "trs", "pv": rm.pv, "delta": rm.delta, "gamma": rm.gamma,
         "dv01": rm.dv01, "funding_dv01": rm.funding_dv01,
         "vega": rm.vega, "carry": carry.to_dict(),
+        "notional": notional, "underlying": float(underlying),
     }
 
 
@@ -276,6 +311,8 @@ def vol_surface(asset_class: str, quotes: list[dict], *, spot=None, ref=None):
     if ref is None:
         raise ValueError("ref (reference date) is required for vol_surface. "
                          "Pass ref=date(2024, 7, 15) or similar.")
+    if not quotes:
+        raise ValueError("quotes list is empty — provide at least one vol quote.")
 
     # Parse expiry strings to dates
     parsed = []
@@ -442,6 +479,9 @@ def recovery_analysis(*, cds_spreads: dict, curve: DiscountCurve,
     from pricebook.recovery_analytics import (
         recovery_curve_family, recovery_greeks, recovery_pv_surface,
     )
+
+    if not cds_spreads:
+        raise ValueError("cds_spreads is empty — provide at least one tenor:spread pair.")
 
     ref = curve.reference_date
     cln_inst = CreditLinkedNote(ref, _parse_tenor(ref, tenor), coupon_rate=coupon,
