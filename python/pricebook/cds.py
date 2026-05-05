@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
+from pricebook.fixed_leg import _normalize_notional
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.interpolation import InterpolationMethod
 from pricebook.schedule import Frequency, StubType, generate_schedule
@@ -248,7 +249,6 @@ class CDS:
             StubType.SHORT_FRONT, True,
         )
         n_periods = len(self._schedule) - 1
-        from pricebook.fixed_leg import _normalize_notional
         self.notional_schedule = _normalize_notional(notional, n_periods)
         self.notional = self.notional_schedule[0]
 

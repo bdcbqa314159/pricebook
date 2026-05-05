@@ -45,6 +45,7 @@ from scipy.stats import norm
 
 from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
+from pricebook.fixed_leg import _normalize_notional
 from pricebook.schedule import Frequency, generate_schedule
 from pricebook.survival_curve import SurvivalCurve
 
@@ -110,8 +111,6 @@ class CreditLinkedNote:
             raise ValueError(f"recovery must be in [0, 1], got {recovery}")
         if leverage < 1.0:
             raise ValueError(f"leverage must be >= 1.0, got {leverage}")
-        from pricebook.fixed_leg import _normalize_notional
-
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate

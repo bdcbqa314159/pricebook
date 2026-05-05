@@ -10,6 +10,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
 from pricebook.rate_index import CompoundingMethod, RateIndex
 from pricebook.rfr import compound_rfr
+from pricebook.fixed_leg import _normalize_notional
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
 
@@ -75,8 +76,6 @@ class FloatingLeg:
             raise ValueError(f"payment_delay_days must be >= 0, got {payment_delay_days}")
         if observation_shift_days < 0:
             raise ValueError(f"observation_shift_days must be >= 0, got {observation_shift_days}")
-
-        from pricebook.fixed_leg import _normalize_notional
 
         self.start = start
         self.end = end
