@@ -238,7 +238,7 @@ class CDS:
         self.start = start
         self.end = end
         self.spread = spread
-        self.notional = notional
+        self._notional_input = notional  # original input (scalar or list)
         self.recovery = recovery
         self.frequency = frequency
         self.day_count = day_count
@@ -254,18 +254,26 @@ class CDS:
         )
 
     @property
+    def notional(self) -> float:
+        """First period notional (always float, backward-compatible).
+
+        For the full schedule use ._notional_input (list or float).
+        """
+        if isinstance(self._notional_input, list):
+            return self._notional_input[0]
+        return self._notional_input
+
+    @property
     def current_notional(self) -> float:
         """Notional of the first (current) period."""
-        if isinstance(self.notional, list):
-            return self.notional[0]
         return self.notional
 
     @property
     def average_notional(self) -> float:
         """Arithmetic mean of the notional schedule."""
-        if isinstance(self.notional, list):
-            return sum(self.notional) / len(self.notional)
-        return self.notional
+        if isinstance(self._notional_input, list):
+            return sum(self._notional_input) / len(self._notional_input)
+        return self._notional_input
 
     def pv_protection(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
@@ -273,10 +281,10 @@ class CDS:
         """PV of the protection leg."""
         return protection_leg_pv(
             self.start, self.end, discount_curve, survival_curve,
-            recovery=self.recovery, notional=self.notional,
+            recovery=self.recovery, notional=self._notional_input,
             day_count=self.protection_day_count,
             steps_per_year=self.steps_per_year,
-            schedule_dates=self._schedule if isinstance(self.notional, list) else None,
+            schedule_dates=self._schedule if isinstance(self._notional_input, list) else None,
         )
 
     def pv_premium(
@@ -286,7 +294,7 @@ class CDS:
         return premium_leg_pv(
             self.start, self.end, self.spread,
             discount_curve, survival_curve,
-            notional=self.notional, frequency=self.frequency,
+            notional=self._notional_input, frequency=self.frequency,
             day_count=self.day_count,
             calendar=self.calendar, convention=self.convention,
         )
@@ -319,7 +327,7 @@ class CDS:
 
         For variable notional, uses weighted RPV01:
             par_spread = PV(protection) / weighted_RPV01
-        where weighted_RPV01 = premium_leg_pv(spread=1, notional=self.notional).
+        where weighted_RPV01 = premium_leg_pv(spread=1, notional=schedule).
         For scalar notional this reduces to PV(protection) / (N * RPV01).
         """
         prot = self.pv_protection(discount_curve, survival_curve)
@@ -327,7 +335,7 @@ class CDS:
         w_rpv01 = premium_leg_pv(
             self.start, self.end, spread=1.0,
             discount_curve=discount_curve, survival_curve=survival_curve,
-            notional=self.notional, frequency=self.frequency,
+            notional=self._notional_input, frequency=self.frequency,
             day_count=self.day_count,
             calendar=self.calendar, convention=self.convention,
         )

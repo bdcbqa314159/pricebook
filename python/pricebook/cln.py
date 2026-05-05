@@ -113,7 +113,7 @@ class CreditLinkedNote:
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate
-        self.notional = notional
+        self._notional_input = notional  # original input (scalar or list)
         self.recovery = recovery
         self.leverage = leverage
         self.floating = floating
@@ -130,6 +130,14 @@ class CreditLinkedNote:
             if len(ns) < n_periods:
                 ns += [ns[-1]] * (n_periods - len(ns))
             self._notionals = ns[:n_periods]
+
+    @property
+    def notional(self) -> float:
+        """First period notional (always float, backward-compatible).
+
+        For the full schedule use ._notionals (list).
+        """
+        return self._notionals[0]
 
     @property
     def current_notional(self) -> float:

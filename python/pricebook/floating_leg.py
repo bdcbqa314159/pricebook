@@ -79,7 +79,7 @@ class FloatingLeg:
         self.start = start
         self.end = end
         self.frequency = frequency
-        self.notional = notional  # original input (scalar or list)
+        self._notional_input = notional  # original input (scalar or list)
         self.spread = spread
         self.day_count = day_count
         self.calendar = calendar
@@ -138,6 +138,11 @@ class FloatingLeg:
                 year_frac=yf,
                 spread=spread,
             ))
+
+    @property
+    def notional(self) -> float:
+        """First period notional (always float, backward-compatible)."""
+        return self.notionals[0]
 
     @classmethod
     def from_rate_index(

@@ -53,7 +53,7 @@ class FixedLeg:
         self.end = end
         self.rate = rate
         self.frequency = frequency
-        self.notional = notional  # original input (scalar or list)
+        self._notional_input = notional  # original input (scalar or list)
         self.day_count = day_count
         self.payment_delay_days = payment_delay_days
 
@@ -95,6 +95,11 @@ class FixedLeg:
                 rate=rate,
                 year_frac=yf,
             ))
+
+    @property
+    def notional(self) -> float:
+        """First period notional (always float, backward-compatible)."""
+        return self.notionals[0]
 
     def pv(self, curve: DiscountCurve) -> float:
         """Present value of all cashflows discounted off the given curve."""

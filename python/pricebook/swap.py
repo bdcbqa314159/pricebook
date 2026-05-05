@@ -20,6 +20,46 @@ class SwapDirection(Enum):
     RECEIVER = "receiver"  # receive fixed, pay floating
 
 
+def _map_notional_to_schedule(
+    fixed_leg: "FixedLeg",
+    start: date,
+    end: date,
+    float_frequency: Frequency,
+    calendar=None,
+    convention=None,
+    stub=None,
+    eom=True,
+) -> list[float]:
+    """Map a fixed-leg notional schedule to floating-leg periods.
+
+    Each floating period inherits the notional of the fixed period
+    whose accrual window contains the floating period's start date.
+    This is the market convention for amortising swaps where the
+    fixed and floating legs have different frequencies.
+    """
+    from pricebook.calendar import BusinessDayConvention
+    from pricebook.schedule import StubType
+
+    _conv = convention or BusinessDayConvention.MODIFIED_FOLLOWING
+    _stub = stub or StubType.SHORT_FRONT
+    float_schedule = generate_schedule(start, end, float_frequency, calendar, _conv, _stub, eom)
+
+    fixed_periods = fixed_leg.cashflows
+    float_notionals = []
+
+    for i in range(1, len(float_schedule)):
+        float_start = float_schedule[i - 1]
+        # Find the fixed period containing this floating period start
+        matched = fixed_periods[-1].notional  # fallback to last
+        for cf in fixed_periods:
+            if cf.accrual_start <= float_start < cf.accrual_end:
+                matched = cf.notional
+                break
+        float_notionals.append(matched)
+
+    return float_notionals
+
+
 class InterestRateSwap:
     """
     A vanilla interest rate swap: fixed leg vs floating leg.
@@ -56,7 +96,7 @@ class InterestRateSwap:
         self.end = end
         self.fixed_rate = fixed_rate
         self.direction = direction
-        self.notional = notional
+        self._notional_input = notional  # original input (scalar or list)
         self.fixed_frequency = fixed_frequency
         self.float_frequency = float_frequency
         self.fixed_day_count = fixed_day_count
@@ -76,9 +116,21 @@ class InterestRateSwap:
             payment_delay_days=payment_delay_days,
         )
 
+        # For the floating leg: if notional is a list, map fixed-leg periods
+        # to floating-leg periods (which may have different frequency).
+        # Each floating period inherits the notional of the fixed period
+        # it falls within — market convention for amortising swaps.
+        if isinstance(notional, list):
+            float_notional = _map_notional_to_schedule(
+                self.fixed_leg, start, end, float_frequency,
+                calendar, convention, stub, eom,
+            )
+        else:
+            float_notional = notional
+
         self.floating_leg = FloatingLeg(
             start, end, float_frequency,
-            notional=notional, spread=spread, day_count=float_day_count,
+            notional=float_notional, spread=spread, day_count=float_day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
             payment_delay_days=payment_delay_days,
             observation_shift_days=observation_shift_days,
@@ -134,6 +186,14 @@ class InterestRateSwap:
         Fundamental for par rate, DV01, and risk decomposition.
         """
         return self.fixed_leg.annuity(curve)
+
+    @property
+    def notional(self) -> float:
+        """First period notional (always float, backward-compatible).
+
+        For the full schedule use .notionals (list).
+        """
+        return self.fixed_leg.notionals[0]
 
     @property
     def notionals(self) -> list[float]:
