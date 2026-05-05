@@ -42,11 +42,13 @@ def _parse_tenor(ref: date, tenor: str | date) -> date:
     t = tenor.upper().strip()
     try:
         if t.endswith("Y"):
-            val = float(t[:-1])
-            if val == int(val):
-                return ref + relativedelta(years=int(val))
+            raw = t[:-1]
+            if raw.lstrip("-").isdigit():
+                # Pure integer: "5Y", "10Y"
+                return ref + relativedelta(years=int(raw))
+            val = float(raw)
             # Fractional year: convert to months
-            return ref + relativedelta(months=int(val * 12))
+            return ref + relativedelta(months=round(val * 12))
         if t.endswith("M"):
             return ref + relativedelta(months=int(float(t[:-1])))
         if t.endswith("W"):
@@ -142,7 +144,6 @@ def _analyse_irs(ref, curve, **kw):
 
 def _analyse_cds(ref, curve, **kw):
     from pricebook.cds import CDS
-    from pricebook.cds_market import build_cds_curve
     from pricebook.cds_desk import cds_risk_metrics, cds_carry_decomposition
 
     if "spread" not in kw:
@@ -182,8 +183,14 @@ def _analyse_cln(ref, curve, **kw):
     coupon = kw.get("coupon", 0.05)
     _check_rate_not_bps(coupon, "coupon")
     hazard = kw.get("hazard", 0.02)
+    if hazard <= 0:
+        raise ValueError(f"hazard must be positive, got {hazard}")
     recovery = kw.get("recovery", 0.40)
+    if not 0 <= recovery < 1:
+        raise ValueError(f"recovery must be in [0, 1), got {recovery}")
     leverage = kw.get("leverage", 1.0)
+    if leverage <= 0:
+        raise ValueError(f"leverage must be positive, got {leverage}")
     notional = kw.get("notional", 10_000_000)
 
     surv = SurvivalCurve.flat(ref, hazard)
@@ -258,6 +265,8 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
     """
     if float(underlying) <= 0:
         raise ValueError(f"underlying (spot price) must be positive, got {underlying}")
+    _check_rate_not_bps(funding_spread, "funding_spread")
+    _check_rate_not_bps(repo_spread, "repo_spread")
 
     from pricebook.trs import TotalReturnSwap, FundingLegSpec
     from pricebook.trs_desk import trs_risk_metrics, trs_carry_decomposition
@@ -280,7 +289,7 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
     }
 
 
-def repo(tenor_days, face, rate, *, haircut=0.05, notional=None) -> dict:
+def repo(tenor_days, face, rate, *, haircut=0.05) -> dict:
     """Price a repo trade in one call.
 
         desk.repo(30, 10_000_000, 0.04, haircut=0.05)
@@ -293,6 +302,7 @@ def repo(tenor_days, face, rate, *, haircut=0.05, notional=None) -> dict:
         raise ValueError(f"face must be positive, got {face}")
     if tenor_days <= 0:
         raise ValueError(f"tenor_days must be positive, got {tenor_days}")
+    _check_rate_not_bps(rate, "rate")
 
     cash_lent = face * (1 - haircut)
     interest = cash_lent * rate * tenor_days / 360  # ACT/360 convention
@@ -379,7 +389,14 @@ def swap_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
 
     for i, t in enumerate(trades):
         _require_keys(t, ["tenor", "rate"], f"swap trade #{i+1}")
-        direction = SwapDirection.PAYER if t.get("direction", "payer") == "payer" else SwapDirection.RECEIVER
+        dir_str = t.get("direction", "payer").lower().strip()
+        if dir_str in ("payer", "pay", "p"):
+            direction = SwapDirection.PAYER
+        elif dir_str in ("receiver", "recv", "receive", "r"):
+            direction = SwapDirection.RECEIVER
+        else:
+            raise ValueError(f"Invalid direction '{t.get('direction')}' in swap trade #{i+1}. "
+                             "Use 'payer'/'pay'/'p' or 'receiver'/'recv'/'r'.")
         swap = InterestRateSwap(
             ref, _parse_tenor(ref, t["tenor"]), t["rate"],
             direction=direction, notional=t.get("notional", 10_000_000))
@@ -419,7 +436,8 @@ def cds_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
     for i, t in enumerate(trades):
         _require_keys(t, ["tenor", "spread"], f"CDS trade #{i+1}")
         # h ≈ spread / (1-R): standard flat hazard approximation (O'Kane 2008)
-        hazard = t.get("hazard", t["spread"] / 0.6)
+        recovery = t.get("recovery", 0.40)
+        hazard = t.get("hazard", t["spread"] / (1 - recovery))
         surv = SurvivalCurve.flat(ref, hazard)
         cds_inst = CDS(ref, _parse_tenor(ref, t["tenor"]),
                        spread=t["spread"], notional=t.get("notional", 10_000_000))
@@ -468,6 +486,9 @@ def multicurve(*, ref=None, **currencies) -> dict:
     result = {}
     for ccy, data in currencies.items():
         swaps_dict = data.get("swaps", {})
+        if not swaps_dict:
+            raise ValueError(f"No swap rates provided for {ccy.upper()}. "
+                             f"Pass swaps={{...}} with at least one tenor:rate pair.")
         swap_list = []
         for t, r in swaps_dict.items():
             if isinstance(t, date):
@@ -499,12 +520,17 @@ def multicurve(*, ref=None, **currencies) -> dict:
 # ============================================================================
 
 def recovery_analysis(*, cds_spreads: dict, curve: DiscountCurve,
-                      tenor="5Y", coupon=0.05, recoveries=None) -> dict:
+                      tenor="5Y", coupon=0.05, recovery=0.40,
+                      recoveries=None) -> dict:
     """Full recovery-hazard analysis for a CLN.
 
         desk.recovery_analysis(
             cds_spreads={1: 0.005, 5: 0.01, 10: 0.012},
             curve=curve, tenor="5Y", coupon=0.05)
+
+    Args:
+        recovery: Base recovery assumption for the CLN (default 0.40).
+        recoveries: List of recovery values to scan (default [0.2, 0.3, ..., 0.8]).
     """
     from pricebook.cln import CreditLinkedNote
     from pricebook.schedule import Frequency
@@ -517,7 +543,7 @@ def recovery_analysis(*, cds_spreads: dict, curve: DiscountCurve,
 
     ref = curve.reference_date
     cln_inst = CreditLinkedNote(ref, _parse_tenor(ref, tenor), coupon_rate=coupon,
-                                notional=10_000_000, recovery=0.40,
+                                notional=10_000_000, recovery=recovery,
                                 frequency=Frequency.QUARTERLY)
 
     family = recovery_curve_family(cds_spreads, curve, ref, recoveries)
