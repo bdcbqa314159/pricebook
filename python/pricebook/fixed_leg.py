@@ -1,5 +1,7 @@
 """Fixed leg of an interest rate swap."""
 
+from __future__ import annotations
+
 from datetime import date, timedelta
 from dataclasses import dataclass
 
@@ -39,7 +41,7 @@ class FixedLeg:
         end: date,
         rate: float,
         frequency: Frequency,
-        notional: float = 1_000_000.0,
+        notional: float | list[float] = 1_000_000.0,
         day_count: DayCountConvention = DayCountConvention.THIRTY_360,
         calendar: Calendar | None = None,
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
@@ -47,20 +49,34 @@ class FixedLeg:
         eom: bool = True,
         payment_delay_days: int = 0,
     ):
-        if notional <= 0:
-            raise ValueError(f"notional must be positive, got {notional}")
-
         self.start = start
         self.end = end
         self.rate = rate
         self.frequency = frequency
-        self.notional = notional
+        self.notional = notional  # original input (scalar or list)
         self.day_count = day_count
         self.payment_delay_days = payment_delay_days
 
         schedule = generate_schedule(
             start, end, frequency, calendar, convention, stub, eom,
         )
+        n_periods = len(schedule) - 1
+
+        # Normalize notional to per-period list
+        if isinstance(notional, (int, float)):
+            if notional <= 0:
+                raise ValueError(f"notional must be positive, got {notional}")
+            notionals = [float(notional)] * n_periods
+        else:
+            if not notional:
+                raise ValueError("notional schedule is empty")
+            if any(n <= 0 for n in notional):
+                raise ValueError(f"all notionals must be positive, got {notional}")
+            notionals = list(notional)
+            if len(notionals) < n_periods:
+                notionals += [notionals[-1]] * (n_periods - len(notionals))
+            notionals = notionals[:n_periods]
+        self.notionals = notionals
 
         self.cashflows = []
         for i in range(1, len(schedule)):
@@ -75,7 +91,7 @@ class FixedLeg:
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,
                 payment_date=payment_date,
-                notional=notional,
+                notional=notionals[i - 1],
                 rate=rate,
                 year_frac=yf,
             ))
@@ -93,4 +109,16 @@ class FixedLeg:
         """
         return sum(
             cf.year_frac * curve.df(cf.payment_date) for cf in self.cashflows
+        )
+
+    def weighted_annuity(self, curve: DiscountCurve) -> float:
+        """Notional-weighted annuity: sum of notional_i * year_frac_i * df_i.
+
+        This is the correct denominator for par rate when notional varies
+        per period (amortising, accreting, roller-coaster).  For uniform
+        notional N it equals N * annuity(curve).
+        """
+        return sum(
+            cf.notional * cf.year_frac * curve.df(cf.payment_date)
+            for cf in self.cashflows
         )

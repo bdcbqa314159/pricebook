@@ -1,5 +1,7 @@
 """Floating leg of an interest rate swap (single-curve and dual-curve)."""
 
+from __future__ import annotations
+
 from datetime import date, timedelta
 from dataclasses import dataclass
 
@@ -59,7 +61,7 @@ class FloatingLeg:
         start: date,
         end: date,
         frequency: Frequency,
-        notional: float = 1_000_000.0,
+        notional: float | list[float] = 1_000_000.0,
         spread: float = 0.0,
         day_count: DayCountConvention = DayCountConvention.ACT_360,
         calendar: Calendar | None = None,
@@ -69,8 +71,6 @@ class FloatingLeg:
         payment_delay_days: int = 0,
         observation_shift_days: int = 0,
     ):
-        if notional <= 0:
-            raise ValueError(f"notional must be positive, got {notional}")
         if payment_delay_days < 0:
             raise ValueError(f"payment_delay_days must be >= 0, got {payment_delay_days}")
         if observation_shift_days < 0:
@@ -79,7 +79,7 @@ class FloatingLeg:
         self.start = start
         self.end = end
         self.frequency = frequency
-        self.notional = notional
+        self.notional = notional  # original input (scalar or list)
         self.spread = spread
         self.day_count = day_count
         self.calendar = calendar
@@ -93,6 +93,23 @@ class FloatingLeg:
         schedule = generate_schedule(
             start, end, frequency, calendar, convention, stub, eom,
         )
+        n_periods = len(schedule) - 1
+
+        # Normalize notional to per-period list
+        if isinstance(notional, (int, float)):
+            if notional <= 0:
+                raise ValueError(f"notional must be positive, got {notional}")
+            notionals = [float(notional)] * n_periods
+        else:
+            if not notional:
+                raise ValueError("notional schedule is empty")
+            if any(n <= 0 for n in notional):
+                raise ValueError(f"all notionals must be positive, got {notional}")
+            notionals = list(notional)
+            if len(notionals) < n_periods:
+                notionals += [notionals[-1]] * (n_periods - len(notionals))
+            notionals = notionals[:n_periods]
+        self.notionals = notionals
 
         self.cashflows = []
         for i in range(1, len(schedule)):
@@ -117,7 +134,7 @@ class FloatingLeg:
                 fixing_date=fixing_date,
                 observation_start=observation_start,
                 observation_end=observation_end,
-                notional=notional,
+                notional=notionals[i - 1],
                 year_frac=yf,
                 spread=spread,
             ))
@@ -129,13 +146,13 @@ class FloatingLeg:
         start: date,
         end: date,
         frequency: Frequency,
-        notional: float = 1_000_000.0,
+        notional: float | list[float] = 1_000_000.0,
         spread: float = 0.0,
         calendar: Calendar | None = None,
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
         stub: StubType = StubType.SHORT_FRONT,
         eom: bool = True,
-    ) -> "FloatingLeg":
+    ) -> FloatingLeg:
         """Create a FloatingLeg with conventions from a RateIndex.
 
         Automatically sets day_count, observation_shift, and payment_delay

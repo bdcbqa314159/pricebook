@@ -111,7 +111,7 @@ def swap_risk_metrics(
         pv=base_pv, par_rate=par, annuity=ann,
         dv01=dv01, key_rate_dv01=key_rate,
         gamma=gamma, theta=theta,
-        notional=swap.notional, direction=swap.direction.value,
+        notional=swap.current_notional, direction=swap.direction.value,
     )
 
 
@@ -154,7 +154,7 @@ class SwapBook:
         return len(self._entries)
 
     def total_notional(self) -> float:
-        return sum(e.swap.notional for e in self._entries)
+        return sum(e.swap.current_notional for e in self._entries)
 
     def by_direction(self) -> dict[str, list[SwapBookEntry]]:
         result: dict[str, list[SwapBookEntry]] = {}
@@ -239,10 +239,10 @@ def swap_carry_decomposition(
     proj = projection_curve or curve
     dt = horizon_days / 365.0
 
-    fixed = swap.fixed_rate * swap.notional * dt
+    fixed = swap.fixed_rate * swap.current_notional * dt
     # Floating: use short-end forward rate as proxy for next reset
     fwd = proj.forward_rate(swap.start, swap.end) if swap.start < swap.end else 0.0
-    floating = (fwd + swap.spread) * swap.notional * dt
+    floating = (fwd + swap.spread) * swap.current_notional * dt
 
     if swap.direction == SwapDirection.PAYER:
         net = floating - fixed  # pay fixed, receive floating
@@ -467,7 +467,7 @@ def swap_capital(
 
     sf = 0.005  # IR supervisory factor
     mf = math.sqrt(min(T, 1.0))
-    ead = 1.4 * (mtm + swap.notional * sf * mf)
+    ead = 1.4 * (mtm + swap.average_notional * sf * mf)
     rwa = ead * counterparty_rw
     capital = rwa * 0.08
 

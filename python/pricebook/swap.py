@@ -39,7 +39,7 @@ class InterestRateSwap:
         end: date,
         fixed_rate: float,
         direction: SwapDirection = SwapDirection.PAYER,
-        notional: float = 1_000_000.0,
+        notional: float | list[float] = 1_000_000.0,
         fixed_frequency: Frequency = Frequency.SEMI_ANNUAL,
         float_frequency: Frequency = Frequency.QUARTERLY,
         fixed_day_count: DayCountConvention = DayCountConvention.THIRTY_360,
@@ -114,13 +114,18 @@ class InterestRateSwap:
         """
         The fixed rate that makes PV = 0.
 
-        par_rate = PV_float(projection, discount) / (notional * annuity(discount))
+        par_rate = PV_float / weighted_annuity
+
+        For uniform notional N: weighted_annuity = N * annuity, so this
+        equals PV_float / (N * annuity) — identical to the classic formula.
+        For variable notional (amortising/accreting), uses the correct
+        notional-weighted sum.
         """
-        annuity = self.fixed_leg.annuity(curve)
-        if abs(annuity) < 1e-15:
+        w_annuity = self.fixed_leg.weighted_annuity(curve)
+        if abs(w_annuity) < 1e-15:
             return 0.0
         pv_float = self.floating_leg.pv(curve, projection_curve)
-        return pv_float / (self.notional * annuity)
+        return pv_float / w_annuity
 
     def annuity(self, curve: DiscountCurve) -> float:
         """Fixed leg annuity (PV01): sum of year_frac × df for each period.
@@ -129,6 +134,22 @@ class InterestRateSwap:
         Fundamental for par rate, DV01, and risk decomposition.
         """
         return self.fixed_leg.annuity(curve)
+
+    @property
+    def notionals(self) -> list[float]:
+        """Per-period notional schedule (from fixed leg)."""
+        return list(self.fixed_leg.notionals)
+
+    @property
+    def current_notional(self) -> float:
+        """Notional of the first (current) period."""
+        return self.fixed_leg.notionals[0]
+
+    @property
+    def average_notional(self) -> float:
+        """Arithmetic mean of the notional schedule."""
+        ns = self.fixed_leg.notionals
+        return sum(ns) / len(ns)
 
     def pv_ctx(
         self,
