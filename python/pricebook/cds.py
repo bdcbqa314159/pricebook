@@ -47,51 +47,47 @@ def protection_leg_pv(
     """
     from datetime import timedelta
 
-    is_list = isinstance(notional, list)
+    # Normalize: if scalar, use constant LGD (original fast path).
+    # If list, map each grid point to its premium period's notional.
+    use_schedule = isinstance(notional, list) and schedule_dates is not None
 
-    if is_list:
-        if schedule_dates is None:
-            raise ValueError("schedule_dates required when notional is a list")
+    if use_schedule:
         notionals = list(notional)
         n_periods = len(schedule_dates) - 1
         if len(notionals) < n_periods:
             notionals += [notionals[-1]] * (n_periods - len(notionals))
         notionals = notionals[:n_periods]
-    else:
-        notionals = None
 
-    # Generate a fine date grid for numerical integration
     total_days = (end - start).days
     n_steps = max(1, int(year_fraction(start, end, day_count) * steps_per_year))
     step_days = total_days / n_steps
 
     pv = 0.0
-    period_idx = 0  # track which premium period we're in
+    period_idx = 0
 
     for i in range(n_steps):
         d1 = start + timedelta(days=int(i * step_days))
         d2 = start + timedelta(days=int((i + 1) * step_days))
         if i == n_steps - 1:
-            d2 = end  # ensure exact end date
+            d2 = end
         d_mid = d1 + timedelta(days=(d2 - d1).days // 2)
 
         q1 = survival_curve.survival(d1)
         q2 = survival_curve.survival(d2)
         df_mid = discount_curve.df(d_mid)
 
-        if is_list:
-            # Advance period index to find the period containing d_mid
+        if use_schedule:
             while (period_idx < len(notionals) - 1
                    and d_mid >= schedule_dates[period_idx + 1]):
                 period_idx += 1
-            lgd_i = (1.0 - recovery) * notionals[period_idx]
-            pv += lgd_i * df_mid * (q1 - q2)
+            pv += (1.0 - recovery) * notionals[period_idx] * df_mid * (q1 - q2)
         else:
             pv += df_mid * (q1 - q2)
 
-    if is_list:
+    if use_schedule:
         return pv
-    return (1.0 - recovery) * float(notional) * pv
+    n = notional[0] if isinstance(notional, list) else float(notional)
+    return (1.0 - recovery) * n * pv
 
 
 def premium_leg_pv(
@@ -238,7 +234,6 @@ class CDS:
         self.start = start
         self.end = end
         self.spread = spread
-        self._notional_input = notional  # original input (scalar or list)
         self.recovery = recovery
         self.frequency = frequency
         self.day_count = day_count
@@ -247,33 +242,20 @@ class CDS:
         self.calendar = calendar
         self.convention = convention
 
-        # Pre-generate schedule for variable notional mapping
+        # Pre-generate schedule and normalize notional
         self._schedule = generate_schedule(
             start, end, frequency, calendar, convention,
             StubType.SHORT_FRONT, True,
         )
-
-    @property
-    def notional(self) -> float:
-        """First period notional (always float, backward-compatible).
-
-        For the full schedule use ._notional_input (list or float).
-        """
-        if isinstance(self._notional_input, list):
-            return self._notional_input[0]
-        return self._notional_input
-
-    @property
-    def current_notional(self) -> float:
-        """Notional of the first (current) period."""
-        return self.notional
+        n_periods = len(self._schedule) - 1
+        from pricebook.fixed_leg import _normalize_notional
+        self.notional_schedule = _normalize_notional(notional, n_periods)
+        self.notional = self.notional_schedule[0]
 
     @property
     def average_notional(self) -> float:
         """Arithmetic mean of the notional schedule."""
-        if isinstance(self._notional_input, list):
-            return sum(self._notional_input) / len(self._notional_input)
-        return self._notional_input
+        return sum(self.notional_schedule) / len(self.notional_schedule)
 
     def pv_protection(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
@@ -281,10 +263,10 @@ class CDS:
         """PV of the protection leg."""
         return protection_leg_pv(
             self.start, self.end, discount_curve, survival_curve,
-            recovery=self.recovery, notional=self._notional_input,
+            recovery=self.recovery, notional=self.notional_schedule,
             day_count=self.protection_day_count,
             steps_per_year=self.steps_per_year,
-            schedule_dates=self._schedule if isinstance(self._notional_input, list) else None,
+            schedule_dates=self._schedule,
         )
 
     def pv_premium(
@@ -294,7 +276,7 @@ class CDS:
         return premium_leg_pv(
             self.start, self.end, self.spread,
             discount_curve, survival_curve,
-            notional=self._notional_input, frequency=self.frequency,
+            notional=self.notional_schedule, frequency=self.frequency,
             day_count=self.day_count,
             calendar=self.calendar, convention=self.convention,
         )
@@ -335,7 +317,7 @@ class CDS:
         w_rpv01 = premium_leg_pv(
             self.start, self.end, spread=1.0,
             discount_curve=discount_curve, survival_curve=survival_curve,
-            notional=self._notional_input, frequency=self.frequency,
+            notional=self.notional_schedule, frequency=self.frequency,
             day_count=self.day_count,
             calendar=self.calendar, convention=self.convention,
         )
@@ -353,7 +335,7 @@ class CDS:
         difference between the running spread and the par spread:
             upfront ≈ (par_spread - spread) * RPV01
         """
-        return self.pv(discount_curve, survival_curve) / self.current_notional
+        return self.pv(discount_curve, survival_curve) / self.notional
 
     def isda_upfront(
         self,

@@ -27,12 +27,37 @@ class Cashflow:
         return self.notional * self.rate * self.year_frac
 
 
+def _normalize_notional(notional: float | list[float], n_periods: int) -> list[float]:
+    """Normalize notional input to a per-period list.
+
+    Accepts:
+        - float: replicated across all periods
+        - list[float]: extended (last value) or truncated to match n_periods
+    """
+    if isinstance(notional, (int, float)):
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
+        return [float(notional)] * n_periods
+    if not notional:
+        raise ValueError("notional schedule is empty")
+    if any(n <= 0 for n in notional):
+        raise ValueError(f"all notionals must be positive, got {notional}")
+    ns = list(notional)
+    if len(ns) < n_periods:
+        ns += [ns[-1]] * (n_periods - len(ns))
+    return ns[:n_periods]
+
+
 class FixedLeg:
     """
     A sequence of fixed-rate coupons.
 
     Each coupon pays: notional * rate * year_fraction(accrual_start, accrual_end).
     Present value is the sum of each coupon discounted to the reference date.
+
+    Attributes:
+        notional: face amount (first period notional, always float).
+        notional_schedule: per-period notional list.
     """
 
     def __init__(
@@ -53,7 +78,6 @@ class FixedLeg:
         self.end = end
         self.rate = rate
         self.frequency = frequency
-        self._notional_input = notional  # original input (scalar or list)
         self.day_count = day_count
         self.payment_delay_days = payment_delay_days
 
@@ -62,21 +86,8 @@ class FixedLeg:
         )
         n_periods = len(schedule) - 1
 
-        # Normalize notional to per-period list
-        if isinstance(notional, (int, float)):
-            if notional <= 0:
-                raise ValueError(f"notional must be positive, got {notional}")
-            notionals = [float(notional)] * n_periods
-        else:
-            if not notional:
-                raise ValueError("notional schedule is empty")
-            if any(n <= 0 for n in notional):
-                raise ValueError(f"all notionals must be positive, got {notional}")
-            notionals = list(notional)
-            if len(notionals) < n_periods:
-                notionals += [notionals[-1]] * (n_periods - len(notionals))
-            notionals = notionals[:n_periods]
-        self.notionals = notionals
+        self.notional_schedule = _normalize_notional(notional, n_periods)
+        self.notional = self.notional_schedule[0]
 
         self.cashflows = []
         for i in range(1, len(schedule)):
@@ -91,26 +102,19 @@ class FixedLeg:
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,
                 payment_date=payment_date,
-                notional=notionals[i - 1],
+                notional=self.notional_schedule[i - 1],
                 rate=rate,
                 year_frac=yf,
             ))
-
-    @property
-    def notional(self) -> float:
-        """First period notional (always float, backward-compatible)."""
-        return self.notionals[0]
 
     def pv(self, curve: DiscountCurve) -> float:
         """Present value of all cashflows discounted off the given curve."""
         return sum(cf.amount * curve.df(cf.payment_date) for cf in self.cashflows)
 
     def annuity(self, curve: DiscountCurve) -> float:
-        """
-        The DV01-weighted annuity factor: sum of year_frac * df for each period.
+        """Per-unit annuity factor: sum of year_frac * df for each period.
 
-        This is the present value of the leg per unit of (rate × notional).
-        For uniform notional N: PV = rate * N * annuity.
+        This is the PV of the leg per unit of (rate x notional).
         For variable notional, use weighted_annuity() instead.
         """
         return sum(
@@ -120,9 +124,8 @@ class FixedLeg:
     def weighted_annuity(self, curve: DiscountCurve) -> float:
         """Notional-weighted annuity: sum of notional_i * year_frac_i * df_i.
 
-        This is the correct denominator for par rate when notional varies
-        per period (amortising, accreting, roller-coaster).  For uniform
-        notional N it equals N * annuity(curve).
+        Correct par-rate denominator for any notional schedule.
+        For uniform notional N: equals N * annuity(curve).
         """
         return sum(
             cf.notional * cf.year_frac * curve.df(cf.payment_date)

@@ -193,12 +193,12 @@ def _analyse_irs(ref, curve, **kw):
         "dv01": rm.dv01, "key_rate_dv01": rm.key_rate_dv01,
         "gamma": rm.gamma, "theta": rm.theta,
         "carry": carry.to_dict(),
-        "notional": swap.current_notional, "direction": rm.direction,
+        "notional": swap.notional, "direction": rm.direction,
     }
 
     # Enrich with schedule info when notional varies
     if isinstance(notional, list):
-        result["notional_schedule"] = swap.notionals
+        result["notional_schedule"] = swap.notional_schedule
         result["average_notional"] = swap.average_notional
 
     return result

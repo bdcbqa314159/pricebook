@@ -91,14 +91,14 @@ def cds_risk_metrics(
     sconv = cds.spread_convexity(discount_curve, survival_curve)
 
     # JTD: on immediate default, protection buyer receives (1-R)*N, loses accrued premium
-    jtd = (1 - cds.recovery) * cds.current_notional - pv  # net gain/loss
+    jtd = (1 - cds.recovery) * cds.notional - pv  # net gain/loss
 
     return CDSRiskMetrics(
         pv=pv, par_spread=par, rpv01=rpv01,
         cs01=cs01, bucket_cs01=bucket,
         rec01=rec01, theta=theta, carry=carry, roll_down=roll,
         spread_duration=sdur, spread_convexity=sconv,
-        jump_to_default=jtd, notional=cds.current_notional,
+        jump_to_default=jtd, notional=cds.notional,
     )
 
 
@@ -144,8 +144,8 @@ class CDSBook:
 
     def total_notional(self) -> float:
         return sum(
-            e.instrument.current_notional for e in self._entries
-            if hasattr(e.instrument, 'current_notional')
+            e.instrument.notional for e in self._entries
+            if hasattr(e.instrument, 'notional')
         )
 
     def by_name(self) -> dict[str, list[CDSBookEntry]]:
@@ -231,10 +231,10 @@ def cds_carry_decomposition(
     h = -math.log(max(survival_curve.survival(cds.end), 1e-15)) / max(T, 1e-10)
 
     # Premium income: spread × notional × (30/360)
-    premium = cds.spread * cds.current_notional * 30 / 360
+    premium = cds.spread * cds.notional * 30 / 360
 
     # Default risk: hazard × (1-R) × notional × (30/365)
-    default_risk = -h * (1 - cds.recovery) * cds.current_notional * 30 / 365
+    default_risk = -h * (1 - cds.recovery) * cds.notional * 30 / 365
 
     net = premium + default_risk + roll
 
@@ -511,7 +511,7 @@ def cds_hedge_recommendations(
     by_name = book.by_name()
     total = risk["total_notional"]
     for name, entries in by_name.items():
-        name_notional = sum(e.instrument.current_notional for e in entries if hasattr(e.instrument, 'current_notional'))
+        name_notional = sum(e.instrument.notional for e in entries if hasattr(e.instrument, 'notional'))
         if total > 0 and name_notional / total > concentration_limit_pct:
             recs.append(CDSHedgeRecommendation(
                 risk_type="concentration", current=name_notional / total,
@@ -566,7 +566,7 @@ class CDSLifecycle:
     def credit_event(self, event_date: date, curve: DiscountCurve,
                      event_type: str = "default") -> float:
         """Process credit event. Returns protection payout = (1-R) × N."""
-        payout = (1 - self._cds.recovery) * self._cds.current_notional
+        payout = (1 - self._cds.recovery) * self._cds.notional
         self._events.append({
             "type": CDSEventType.CREDIT_EVENT,
             "date": event_date.isoformat(),

@@ -76,10 +76,11 @@ class FloatingLeg:
         if observation_shift_days < 0:
             raise ValueError(f"observation_shift_days must be >= 0, got {observation_shift_days}")
 
+        from pricebook.fixed_leg import _normalize_notional
+
         self.start = start
         self.end = end
         self.frequency = frequency
-        self._notional_input = notional  # original input (scalar or list)
         self.spread = spread
         self.day_count = day_count
         self.calendar = calendar
@@ -95,21 +96,8 @@ class FloatingLeg:
         )
         n_periods = len(schedule) - 1
 
-        # Normalize notional to per-period list
-        if isinstance(notional, (int, float)):
-            if notional <= 0:
-                raise ValueError(f"notional must be positive, got {notional}")
-            notionals = [float(notional)] * n_periods
-        else:
-            if not notional:
-                raise ValueError("notional schedule is empty")
-            if any(n <= 0 for n in notional):
-                raise ValueError(f"all notionals must be positive, got {notional}")
-            notionals = list(notional)
-            if len(notionals) < n_periods:
-                notionals += [notionals[-1]] * (n_periods - len(notionals))
-            notionals = notionals[:n_periods]
-        self.notionals = notionals
+        self.notional_schedule = _normalize_notional(notional, n_periods)
+        self.notional = self.notional_schedule[0]
 
         self.cashflows = []
         for i in range(1, len(schedule)):
@@ -134,15 +122,10 @@ class FloatingLeg:
                 fixing_date=fixing_date,
                 observation_start=observation_start,
                 observation_end=observation_end,
-                notional=notionals[i - 1],
+                notional=self.notional_schedule[i - 1],
                 year_frac=yf,
                 spread=spread,
             ))
-
-    @property
-    def notional(self) -> float:
-        """First period notional (always float, backward-compatible)."""
-        return self.notionals[0]
 
     @classmethod
     def from_rate_index(

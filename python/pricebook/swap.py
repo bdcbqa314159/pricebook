@@ -38,7 +38,7 @@ def _map_notional_to_schedule(
     fixed and floating legs have different frequencies.
     """
     from pricebook.calendar import BusinessDayConvention
-    from pricebook.schedule import StubType
+    from pricebook.schedule import StubType, generate_schedule
 
     _conv = convention or BusinessDayConvention.MODIFIED_FOLLOWING
     _stub = stub or StubType.SHORT_FRONT
@@ -96,7 +96,6 @@ class InterestRateSwap:
         self.end = end
         self.fixed_rate = fixed_rate
         self.direction = direction
-        self._notional_input = notional  # original input (scalar or list)
         self.fixed_frequency = fixed_frequency
         self.float_frequency = float_frequency
         self.fixed_day_count = fixed_day_count
@@ -135,6 +134,9 @@ class InterestRateSwap:
             payment_delay_days=payment_delay_days,
             observation_shift_days=observation_shift_days,
         )
+
+        # Store scalar notional (face amount) — always float
+        self.notional = self.fixed_leg.notional
 
     def pv(
         self,
@@ -188,27 +190,14 @@ class InterestRateSwap:
         return self.fixed_leg.annuity(curve)
 
     @property
-    def notional(self) -> float:
-        """First period notional (always float, backward-compatible).
-
-        For the full schedule use .notionals (list).
-        """
-        return self.fixed_leg.notionals[0]
-
-    @property
-    def notionals(self) -> list[float]:
+    def notional_schedule(self) -> list[float]:
         """Per-period notional schedule (from fixed leg)."""
-        return list(self.fixed_leg.notionals)
-
-    @property
-    def current_notional(self) -> float:
-        """Notional of the first (current) period."""
-        return self.fixed_leg.notionals[0]
+        return list(self.fixed_leg.notional_schedule)
 
     @property
     def average_notional(self) -> float:
         """Arithmetic mean of the notional schedule."""
-        ns = self.fixed_leg.notionals
+        ns = self.fixed_leg.notional_schedule
         return sum(ns) / len(ns)
 
     def pv_ctx(

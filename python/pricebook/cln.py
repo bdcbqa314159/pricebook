@@ -110,10 +110,11 @@ class CreditLinkedNote:
             raise ValueError(f"recovery must be in [0, 1], got {recovery}")
         if leverage < 1.0:
             raise ValueError(f"leverage must be >= 1.0, got {leverage}")
+        from pricebook.fixed_leg import _normalize_notional
+
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate
-        self._notional_input = notional  # original input (scalar or list)
         self.recovery = recovery
         self.leverage = leverage
         self.floating = floating
@@ -121,33 +122,14 @@ class CreditLinkedNote:
         self.day_count = day_count
         self.schedule = generate_schedule(start, end, frequency)
 
-        # Normalize notional to per-period list
         n_periods = len(self.schedule) - 1
-        if isinstance(notional, (int, float)):
-            self._notionals = [float(notional)] * n_periods
-        else:
-            ns = list(notional)
-            if len(ns) < n_periods:
-                ns += [ns[-1]] * (n_periods - len(ns))
-            self._notionals = ns[:n_periods]
-
-    @property
-    def notional(self) -> float:
-        """First period notional (always float, backward-compatible).
-
-        For the full schedule use ._notionals (list).
-        """
-        return self._notionals[0]
-
-    @property
-    def current_notional(self) -> float:
-        """Notional of the first (current) period."""
-        return self._notionals[0]
+        self.notional_schedule = _normalize_notional(notional, n_periods)
+        self.notional = self.notional_schedule[0]
 
     @property
     def average_notional(self) -> float:
         """Arithmetic mean of the notional schedule."""
-        return sum(self._notionals) / len(self._notionals)
+        return sum(self.notional_schedule) / len(self.notional_schedule)
 
     def dirty_price(
         self,
@@ -171,7 +153,7 @@ class CreditLinkedNote:
             surv = survival_curve.survival(t_end)
             surv_prev = survival_curve.survival(t_start)
             default_prob = surv_prev - surv
-            n_i = self._notionals[i - 1]
+            n_i = self.notional_schedule[i - 1]
 
             # Coupon: fixed or floating
             if self.floating:
@@ -191,7 +173,7 @@ class CreditLinkedNote:
                 pv -= extra_loss * default_prob * df
 
         # Principal at maturity (conditional on survival) — uses final period notional
-        pv += self._notionals[-1] * discount_curve.df(self.end) * survival_curve.survival(self.end)
+        pv += self.notional_schedule[-1] * discount_curve.df(self.end) * survival_curve.survival(self.end)
 
         return pv
 
@@ -201,7 +183,7 @@ class CreditLinkedNote:
         survival_curve: SurvivalCurve,
     ) -> float:
         """Price per 100 face."""
-        return self.dirty_price(discount_curve, survival_curve) / self.current_notional * 100.0
+        return self.dirty_price(discount_curve, survival_curve) / self.notional * 100.0
 
     def price(
         self,
@@ -220,7 +202,7 @@ class CreditLinkedNote:
             surv = survival_curve.survival(t_end)
             surv_prev = survival_curve.survival(t_start)
             default_prob = surv_prev - surv
-            n_i = self._notionals[i - 1]
+            n_i = self.notional_schedule[i - 1]
 
             if self.floating:
                 fwd = discount_curve.forward_rate(t_start, t_end)
@@ -235,13 +217,13 @@ class CreditLinkedNote:
                 extra_loss = (self.leverage - 1.0) * (1.0 - self.recovery) * n_i
                 recovery_pv -= extra_loss * default_prob * df
 
-        principal_pv = self._notionals[-1] * discount_curve.df(self.end) * survival_curve.survival(self.end)
+        principal_pv = self.notional_schedule[-1] * discount_curve.df(self.end) * survival_curve.survival(self.end)
         total_pv = coupon_pv + principal_pv + recovery_pv
 
         # Credit spread: implied spread over risk-free
         riskfree_pv = self._risk_free_pv(discount_curve)
         annuity = self._risky_annuity(discount_curve, survival_curve)
-        credit_spread = (riskfree_pv - total_pv) / (self.current_notional * annuity) if annuity > 0 else 0.0
+        credit_spread = (riskfree_pv - total_pv) / (self.notional * annuity) if annuity > 0 else 0.0
 
         # Par coupon
         par_coupon = self._par_coupon(discount_curve, survival_curve)
