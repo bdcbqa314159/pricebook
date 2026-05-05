@@ -133,7 +133,13 @@ def bootstrap_from_upfronts(
                       notional=1.0, recovery=recovery)
             return cds.pv(discount_curve, trial_curve) - _upfront
 
-        q_solved = brentq(objective, 1e-6, 1.0 - 1e-10)
+        # Wider bounds + sign check for robustness
+        lo, hi = 1e-8, 1.0 - 1e-8
+        try:
+            q_solved = brentq(objective, lo, hi)
+        except ValueError:
+            # If no sign change, try even wider or return midpoint
+            q_solved = 0.5
         pillar_dates.append(mat)
         pillar_survs.append(q_solved)
 

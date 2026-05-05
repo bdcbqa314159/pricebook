@@ -470,27 +470,37 @@ class FuturesCapitalResult:
                 "margin": self.margin_required}
 
 
+# CCP risk weights by asset class (Basel CRE54)
+_CCP_RISK_WEIGHTS = {
+    "bond": 0.02, "ir": 0.02, "fx": 0.02,
+    "equity": 0.04, "commodity": 0.04,  # higher for some CCPs
+}
+
+
 def futures_capital(
     instrument,
     contracts: int = 1,
     margin_per_contract: float = 0.0,
-    ccp_rw: float = 0.02,  # CCP risk weight = 2% (Basel CRE54)
+    asset_class: str = "bond",
 ) -> FuturesCapitalResult:
     """SA-CCR capital for exchange-traded futures.
 
-    Futures cleared via CCP have 2% risk weight (vs 20-100% for bilateral).
-    EAD = margin requirement (initial margin as exposure proxy).
-    RWA = EAD × CCP risk weight.
-    Capital = RWA × 8%.
+    Futures cleared via CCP: risk weight per asset class (Basel CRE54).
+    Bond/IR/FX: 2%. Equity/Commodity: 4%.
+    EAD = margin + |MTM|.
     """
+    ccp_rw = _CCP_RISK_WEIGHTS.get(asset_class, 0.02)
     margin = margin_per_contract * abs(contracts)
 
-    # EAD for CCP-cleared: simplified as margin + MTM
+    # EAD: margin + MTM (guard against missing pv)
     pv = 0.0
     if isinstance(instrument, BondFuture):
-        pv = abs(instrument.pv(contracts))
+        try:
+            pv = abs(instrument.pv(contracts))
+        except (TypeError, ValueError):
+            pv = 0.0
 
-    ead = margin + abs(pv)
+    ead = max(margin + abs(pv), margin)  # floor at margin
     rwa = ead * ccp_rw
     capital = rwa * 0.08
 

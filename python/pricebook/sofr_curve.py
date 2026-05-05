@@ -64,6 +64,8 @@ def build_sofr_curve(
     # Futures with convexity adjustment
     if sofr_futures:
         for start, end, futures_rate in sorted(sofr_futures, key=lambda x: x[0]):
+            # T in ACT/365 for HW convexity (time measure)
+            # tau in ACT/360 for SOFR accrual (money market convention)
             T = year_fraction(reference_date, start, DayCountConvention.ACT_365_FIXED)
             tau = year_fraction(start, end, DayCountConvention.ACT_360)
             ca = hw_convexity_adjustment(T, tau, hw_a, hw_sigma)
@@ -77,7 +79,7 @@ def build_sofr_curve(
             swap_inputs.append((mat, rate))
 
     if not swap_inputs:
-        return DiscountCurve.flat(reference_date, 0.04)
+        raise ValueError("No inputs for SOFR curve — provide futures and/or swaps")
 
     return bootstrap_ois(reference_date, swap_inputs,
                          day_count=DayCountConvention.ACT_360,
@@ -136,7 +138,10 @@ def build_xccy_basis_curve(
         spot: FX spot rate (quote/base, e.g., 1.08 USD per EUR).
     """
     if not fx_swap_points:
-        return foreign_ois
+        return foreign_ois  # no basis data → fall back to foreign OIS (no xccy adjustment)
+
+    if spot <= 0:
+        raise ValueError(f"FX spot must be positive, got {spot}")
 
     pillar_dates = [d for d, _ in sorted(fx_swap_points, key=lambda x: x[0])]
     implied_dfs = []

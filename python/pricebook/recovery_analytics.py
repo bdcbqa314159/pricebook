@@ -59,7 +59,9 @@ def recovery_curve_family(
 
     family = {}
     for R in recoveries:
-        if R >= 1.0 or R < 0.0:
+        if R >= 1.0 or R <= 0.0:
+            import warnings
+            warnings.warn(f"Skipping invalid recovery R={R} (must be in (0, 1))", stacklevel=2)
             continue
         curve = build_cds_curve(reference_date, cds_spreads, discount_curve, recovery=R)
         family[R] = curve
@@ -130,9 +132,13 @@ def reprice_at_recovery(
     t5 = reference_date + relativedelta(years=5)
     T = year_fraction(reference_date, t5, DayCountConvention.ACT_365_FIXED)
     q5 = surv_target.survival(t5)
+    # Note: floor at 1e-15 can produce very large hazards (~35/T) for near-default names.
+    # This is intentional — represents the extreme case correctly.
     h5 = -math.log(max(q5, 1e-15)) / max(T, 1e-10)
 
-    notional = getattr(instrument, 'notional', 1_000_000)
+    notional = getattr(instrument, 'notional', None)
+    if notional is None:
+        raise ValueError("Instrument must have 'notional' attribute for recovery repricing")
     diff = pv_target - pv_conv
 
     return RecoveryAdjustedResult(

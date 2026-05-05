@@ -102,12 +102,12 @@ class VolBook:
         return result
 
     def vol_premium(self) -> dict[str, float]:
-        """Implied - realised vol premium per underlying."""
-        result: dict[str, float] = {}
+        """Implied - realised vol premium per underlying (average if multiple)."""
+        sums: dict[str, list[float]] = {}
         for p in self._positions:
             if p.implied_vol > 0 and p.realised_vol > 0:
-                result[p.underlying] = p.implied_vol - p.realised_vol
-        return result
+                sums.setdefault(p.underlying, []).append(p.implied_vol - p.realised_vol)
+        return {k: sum(v) / len(v) for k, v in sums.items()}
 
 
 # ---------------------------------------------------------------------------

@@ -79,8 +79,13 @@ def scan_surface(
         strikes: strike grid to check.
         expiries: expiry dates to check (must be sorted).
     """
+    import datetime as _dt
+
+    if not expiries or not strikes:
+        return ArbitrageScanResult(name, asset_class, 0, 0, [], True, 0.0)
+
     if ref is None:
-        ref = expiries[0] - __import__('datetime').timedelta(days=30)
+        ref = expiries[0] - _dt.timedelta(days=30)
 
     violations = []
 
@@ -97,7 +102,7 @@ def scan_surface(
                 try:
                     vol = surface.vol(exp)
                 except Exception:
-                    continue
+                    continue  # skip point if surface can't price it
 
             total_var = vol ** 2 * T
             if i > 0 and total_var < prev_total_var - 1e-10:
@@ -170,7 +175,8 @@ def enforce_no_arb(
     Butterfly: floor mid-strike vol to maintain convexity.
     """
     if ref is None:
-        ref = expiries[0] - __import__('datetime').timedelta(days=30)
+        import datetime as _dt
+        ref = expiries[0] - _dt.timedelta(days=30)
 
     adjusted = {}
     n_fixes = 0
@@ -188,7 +194,7 @@ def enforce_no_arb(
                 try:
                     vol = surface.vol(exp)
                 except Exception:
-                    vol = 0.20
+                    continue  # skip if can't price
 
             total_var = vol ** 2 * T
             if total_var < prev_total_var:

@@ -73,7 +73,11 @@ def variance_swap_greeks(
     Key property: var swap has constant dollar gamma = 2/T × notional_var.
     Delta comes from log-contract replication (strip of 1/K² weighted options).
     """
-    notional_var = notional_vega / (2 * math.sqrt(strike_var)) if strike_var > 0 else 0
+    # Guard: if strike_var very small, cap notional_var to avoid explosion
+    if strike_var > 1e-6:
+        notional_var = notional_vega / (2 * math.sqrt(strike_var))
+    else:
+        notional_var = 0.0
 
     # PV: (expected_var - strike_var) × notional × remaining
     remaining = 1.0 - elapsed_fraction
@@ -294,14 +298,25 @@ def bates_characteristic_function(
     J ~ lognormal(μ_j, σ_j²)
 
     k = E[e^J - 1] = exp(μ_j + σ_j²/2) - 1
-    """
-    # Heston part (Albrecher form for stability)
-    d = np.sqrt((rho * xi * 1j * u - kappa) ** 2 + xi ** 2 * (1j * u + u ** 2))
-    g = (kappa - rho * xi * 1j * u - d) / (kappa - rho * xi * 1j * u + d)
 
+    References:
+        Bates (1996), "Jumps and Stochastic Volatility", RFS.
+        Albrecher et al. (2007), "The Little Heston Trap", Wilmott.
+    """
+    # Heston part (Albrecher et al. 2007 rotation for numerical stability)
+    discriminant = (rho * xi * 1j * u - kappa) ** 2 + xi ** 2 * (1j * u + u ** 2)
+    d = np.sqrt(discriminant)
+    # Guard: if denominator near zero, add small epsilon for stability
+    denom = kappa - rho * xi * 1j * u + d
+    if abs(denom) < 1e-15:
+        denom = 1e-15 + 0j
+    g = (kappa - rho * xi * 1j * u - d) / denom
+
+    # Guard log argument to avoid log(0) or log(negative)
+    log_arg = (1 - g * np.exp(-d * T)) / (1 - g) if abs(1 - g) > 1e-15 else 1.0
     A = (kappa * theta / xi ** 2) * (
         (kappa - rho * xi * 1j * u - d) * T
-        - 2 * np.log((1 - g * np.exp(-d * T)) / (1 - g))
+        - 2 * np.log(log_arg)
     )
     B = ((kappa - rho * xi * 1j * u - d) / xi ** 2) * (
         (1 - np.exp(-d * T)) / (1 - g * np.exp(-d * T))

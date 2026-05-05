@@ -103,13 +103,17 @@ class CrossAssetDesk:
             except TypeError:
                 try:
                     risk = risk_fn()
-                except (TypeError, Exception):
+                except TypeError:
+                    import warnings
+                    warnings.warn(f"Desk '{name}' risk_fn failed — skipping", stacklevel=2)
                     risk = {}
 
+            # Aggregate DV01: prefer total_dv01, fall back to total_cs01 for credit desks
+            dv01 = risk.get("total_dv01", 0.0) or risk.get("total_cs01", 0.0)
             summaries.append(DeskRiskSummary(
                 name=name,
                 total_pv=risk.get("total_pv", 0.0),
-                total_dv01=risk.get("total_dv01", risk.get("total_cs01", 0.0)),
+                total_dv01=dv01,
                 n_positions=risk.get("n_positions", 0),
                 total_notional=risk.get("total_notional", 0.0),
             ))

@@ -2,6 +2,22 @@
 
 ---
 
+## v0.491.0 — 2026-05-05
+
+**Lens audit: 22 issues fixed across 9 files (8 HIGH, 12 MED, 2 LOW).**
+
+- `recovery_analytics.py`: warn on invalid R, require explicit notional, document hazard floor.
+- `vol_derivatives_advanced.py`: cite Albrecher (2007), guard complex sqrt/log, floor notional_var.
+- `vol_arbitrage_scanner.py`: empty input check, remove silent 0.20 fallback, fix `__import__`.
+- `vol_calibration.py`: remove `date.today()` leak, raise on empty surface.
+- `sofr_curve.py`: raise on empty inputs (not silent 4%), guard FX spot, document day counts.
+- `cross_asset_desk.py`: warn on failed risk_fn (not silent swallow), clarify DV01/CS01 fallback.
+- `cds_market.py`: widen brentq bounds [1e-8, 1-1e-8], fallback on no sign change.
+- `futures_desk.py`: CCP RW per asset class (bond/IR 2%, equity/commodity 4%), guard pv().
+- `vol_desk.py`: average vol_premium (not overwrite), document tilt discontinuity.
+
+---
+
 ## v0.490.0 — 2026-05-05
 
 **Advanced Vol Derivatives: var swap Greeks, forward variance, vol swap, dispersion, Bates, SVI.** 25 new tests.

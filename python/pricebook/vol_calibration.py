@@ -36,10 +36,12 @@ class CalibratedSABRNode:
     atm_vol: float
     calibration_error: float = 0.0
 
-    def vol(self, strike: float) -> float:
-        """Implied vol at any strike via SABR."""
-        from pricebook.day_count import DayCountConvention, year_fraction
-        T = max((self.expiry - date.today()).days / 365.0, 0.001)
+    def vol(self, strike: float, T: float = 1.0) -> float:
+        """Implied vol at any strike via SABR.
+
+        T defaults to 1.0 (SABR approximation is weakly T-dependent).
+        For more accuracy, pass actual time-to-expiry.
+        """
         return sabr_implied_vol(self.forward, strike, T,
                                self.alpha, self.beta, self.rho, self.nu)
 
@@ -58,7 +60,7 @@ class CalibratedVolSurface:
     def vol(self, expiry: date, strike: float | None = None) -> float:
         """Vol at (expiry, strike). Interpolates between tenors."""
         if not self._nodes:
-            return 0.20
+            raise ValueError("CalibratedVolSurface has no nodes — cannot compute vol")
 
         # Find surrounding nodes
         if expiry <= self._nodes[0].expiry:
