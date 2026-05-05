@@ -80,7 +80,7 @@ def cln_risk_metrics(
 
     # JTD: on immediate default, investor receives recovery × notional
     # but loses their investment (current PV)
-    jtd = cln.recovery * cln.notional - base
+    jtd = cln.recovery * cln.current_notional - base
 
     return CLNRiskMetrics(
         pv=base,
@@ -88,7 +88,7 @@ def cln_risk_metrics(
         cs01=cs01,
         recovery_sensitivity=greeks["recovery_sensitivity"],
         jump_to_default_pnl=jtd,
-        notional=cln.notional,
+        notional=cln.current_notional,
         leverage=cln.leverage,
     )
 
@@ -130,16 +130,16 @@ def cln_carry_decomposition(
     base = cln.dirty_price(discount_curve, survival_curve)
 
     # Annualised coupon income
-    coupon = cln.coupon_rate * cln.notional
+    coupon = cln.coupon_rate * cln.current_notional
 
     # Default drag: hazard × (1-R) × notional per year
     base_hazard = -math.log(max(survival_curve.survival(cln.end), 1e-15)) / max(T, 1e-10)
     lgd = (1 - cln.recovery) * cln.leverage
-    default_drag = -base_hazard * lgd * cln.notional
+    default_drag = -base_hazard * lgd * cln.current_notional
 
     # Funding cost: risk-free rate × notional
     r = -math.log(discount_curve.df(cln.end)) / max(T, 1e-10)
-    funding = r * cln.notional
+    funding = r * cln.current_notional
 
     net = coupon + default_drag - funding
 
@@ -277,7 +277,7 @@ class CLNBook:
         )
 
     def total_notional(self) -> float:
-        return sum(e.cln.notional for e in self._entries)
+        return sum(e.cln.current_notional for e in self._entries)
 
     def total_independent_amount(self) -> float:
         return sum(e.independent_amount for e in self._entries)
@@ -699,7 +699,7 @@ class CLNLifecycle:
         event_type: str = "default",
     ) -> float:
         """Process credit event. Returns recovery payout = R × N."""
-        payout = self._cln.recovery * self._cln.notional
+        payout = self._cln.recovery * self._cln.current_notional
 
         self._events.append({
             "type": CLNEventType.CREDIT_EVENT,
