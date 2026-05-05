@@ -143,6 +143,8 @@ def _analyse_irs(ref, curve, **kw):
 
     if "rate" not in kw:
         _warn_default("rate", 0.04, "IRS")
+    if "notional" not in kw:
+        _warn_default("notional", "10_000_000", "IRS")
     tenor = kw.get("tenor", "5Y")
     rate = kw.get("rate", 0.04)
     _check_rate_not_bps(rate, "rate")
@@ -175,6 +177,8 @@ def _analyse_cds(ref, curve, **kw):
 
     if "spread" not in kw:
         _warn_default("spread", 0.01, "CDS")
+    if "notional" not in kw:
+        _warn_default("notional", "10_000_000", "CDS")
     tenor = kw.get("tenor", "5Y")
     spread = kw.get("spread", 0.01)
     _check_rate_not_bps(spread, "spread")
@@ -206,6 +210,8 @@ def _analyse_cln(ref, curve, **kw):
 
     if "coupon" not in kw:
         _warn_default("coupon", 0.05, "CLN")
+    if "notional" not in kw:
+        _warn_default("notional", "10_000_000", "CLN")
     tenor = kw.get("tenor", "5Y")
     coupon = kw.get("coupon", 0.05)
     _check_rate_not_bps(coupon, "coupon")
@@ -282,7 +288,7 @@ def cln(tenor, coupon, curve, *, hazard=0.02, recovery=0.4, leverage=1.0,
 
 
 def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
-        notional=10_000_000, sigma=None) -> dict:
+        notional=None, sigma=None) -> dict:
     """Price an equity TRS in one call.
 
         desk.trs("6M", 100.0, curve)  # equity TRS, spot=100
@@ -295,6 +301,9 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
         raise ValueError(f"underlying (spot price) must be positive, got {underlying}")
     _check_rate_not_bps(funding_spread, "funding_spread")
     _check_rate_not_bps(repo_spread, "repo_spread")
+    if notional is None:
+        _warn_default("notional", "10_000_000", "TRS")
+        notional = 10_000_000
     if sigma is None:
         _warn_default("sigma", 0.20, "TRS vega")
         sigma = 0.20
@@ -423,6 +432,8 @@ def swap_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
     for i, t in enumerate(trades):
         _require_keys(t, ["tenor", "rate"], f"swap trade #{i+1}")
         _check_rate_not_bps(t["rate"], f"rate in swap trade #{i+1}")
+        if "notional" not in t:
+            _warn_default("notional", "10_000_000", f"swap trade #{i+1}")
         dir_str = t.get("direction", "payer").lower().strip()
         if dir_str in ("payer", "pay", "p"):
             direction = SwapDirection.PAYER
@@ -470,6 +481,8 @@ def cds_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
     for i, t in enumerate(trades):
         _require_keys(t, ["tenor", "spread"], f"CDS trade #{i+1}")
         _check_rate_not_bps(t["spread"], f"spread in CDS trade #{i+1}")
+        if "notional" not in t:
+            _warn_default("notional", "10_000_000", f"CDS trade #{i+1}")
         # h ≈ spread / (1-R): standard flat hazard approximation (O'Kane 2008)
         recovery = t.get("recovery", 0.40)
         if not 0 <= recovery < 1:

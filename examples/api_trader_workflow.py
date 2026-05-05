@@ -38,7 +38,7 @@ print(f"  Carry:    {result['carry']}")
 
 # ═══ STEP 3: Analyse a CDS ═══
 print("\n── Step 3: Analyse a 5Y CDS (buy protection at 100bp) ──")
-result = desk.analyse("cds", curve=curve, tenor="5Y", spread=0.01, hazard=0.02)
+result = desk.analyse("cds", curve=curve, tenor="5Y", spread=0.01, hazard=0.02, notional=10_000_000)
 print(f"  PV:         {result['pv']:>+12,.2f}")
 print(f"  Par spread: {result['par_spread']*10000:>10.1f}bp")
 print(f"  CS01:       {result['cs01']:>+12,.2f}")
@@ -47,7 +47,7 @@ print(f"  Carry:      {result['carry']}")
 
 # ═══ STEP 4: CLN with leverage ═══
 print("\n── Step 4: CLN (leveraged 2x) ──")
-result = desk.cln("5Y", 0.07, curve, hazard=0.02, leverage=2.0)
+result = desk.cln("5Y", 0.07, curve, hazard=0.02, leverage=2.0, notional=10_000_000)
 print(f"  PV:       {result['pv']:>12,.2f}")
 print(f"  CS01:     {result['cs01']:>+12,.2f}")
 print(f"  JTD:      {result['jtd']:>+12,.2f}")
@@ -55,7 +55,7 @@ print(f"  Leverage: {result['leverage']}x")
 
 # ═══ STEP 5: TRS ═══
 print("\n── Step 5: Equity TRS (spot=100, 6M) ──")
-result = desk.trs("6M", 100.0, curve, funding_spread=0.005)
+result = desk.trs("6M", 100.0, curve, funding_spread=0.005, notional=10_000_000, sigma=0.20)
 print(f"  PV:       {result['pv']:>+12,.2f}")
 print(f"  Delta:    {result['delta']:>12,.2f}")
 print(f"  Vega:     {result['vega']:>12,.2f}")

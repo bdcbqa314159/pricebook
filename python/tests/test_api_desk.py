@@ -26,27 +26,27 @@ def _curve():
 class TestAnalyse:
 
     def test_irs(self):
-        result = analyse("irs", curve=_curve(), tenor="5Y", rate=0.04)
+        result = analyse("irs", curve=_curve(), tenor="5Y", rate=0.04, notional=50_000_000)
         assert "pv" in result
         assert "par_rate" in result
         assert "dv01" in result
         assert "carry" in result
 
     def test_cds(self):
-        result = analyse("cds", curve=_curve(), tenor="5Y", spread=0.01, hazard=0.02)
+        result = analyse("cds", curve=_curve(), tenor="5Y", spread=0.01, hazard=0.02, notional=10_000_000)
         assert "pv" in result
         assert "cs01" in result
         assert "jtd" in result
         assert "par_spread" in result
 
     def test_cln(self):
-        result = analyse("cln", curve=_curve(), tenor="5Y", coupon=0.05, hazard=0.02)
+        result = analyse("cln", curve=_curve(), tenor="5Y", coupon=0.05, hazard=0.02, notional=10_000_000)
         assert "pv" in result
         assert "cs01" in result
         assert "jtd" in result
 
     def test_bond(self):
-        result = analyse("bond", curve=_curve(), tenor="10Y", coupon=0.04)
+        result = analyse("bond", curve=_curve(), tenor="10Y", coupon=0.04, repo_rate=0.04)
         assert "pv" in result
         assert "ytm" in result
         assert "mod_duration" in result
@@ -63,12 +63,12 @@ class TestAnalyse:
 class TestOneLiners:
 
     def test_cln_oneliner(self):
-        result = cln("5Y", 0.05, _curve())
+        result = cln("5Y", 0.05, _curve(), notional=10_000_000)
         assert result["type"] == "cln"
         assert math.isfinite(result["pv"])
 
     def test_trs_oneliner(self):
-        result = trs("6M", 100.0, _curve())
+        result = trs("6M", 100.0, _curve(), notional=10_000_000, sigma=0.20)
         assert result["type"] == "trs"
         assert "delta" in result
         assert "carry" in result
@@ -117,8 +117,8 @@ class TestBooks:
 
     def test_cds_book(self):
         result = cds_book([
-            {"name": "AAPL", "tenor": "5Y", "spread": 0.005, "sector": "tech"},
-            {"name": "JPM", "tenor": "5Y", "spread": 0.008, "sector": "financials"},
+            {"name": "AAPL", "tenor": "5Y", "spread": 0.005, "sector": "tech", "notional": 10_000_000},
+            {"name": "JPM", "tenor": "5Y", "spread": 0.008, "sector": "financials", "notional": 10_000_000},
         ], curve=_curve())
         assert result["n_positions"] == 2
         assert "total_cs01" in result
@@ -165,3 +165,10 @@ class TestDashboard:
         ], curve=_curve())
         assert "total_dv01" in result
         assert "stress" in result
+
+    def test_cds_dashboard(self):
+        result = dashboard("cds", [
+            {"name": "MSFT", "tenor": "5Y", "spread": 0.006, "sector": "tech", "notional": 25_000_000},
+        ], curve=_curve())
+        assert "total_cs01" in result
+        assert "by_sector" in result
