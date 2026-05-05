@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from dateutil.relativedelta import relativedelta
 
 from pricebook.api_desk import (
     analyse, cln, trs, repo,
@@ -136,7 +137,7 @@ class TestMulticurve:
         )
         assert "USD" in curves
         assert "EUR" in curves
-        assert curves["USD"].df(REF + __import__('dateutil.relativedelta').relativedelta.relativedelta(years=5)) < 1.0
+        assert curves["USD"].df(REF + relativedelta(years=5)) < 1.0
 
 
 # ── Recovery ──

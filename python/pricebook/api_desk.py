@@ -72,7 +72,7 @@ def _warn_default(param_name: str, default_value, context: str = "") -> None:
         f"Using default {param_name}={default_value}"
         f"{' for ' + context if context else ''}. "
         f"Pass {param_name}=... explicitly to suppress.",
-        stacklevel=4,
+        stacklevel=3,
     )
 
 
@@ -83,7 +83,7 @@ def _check_rate_not_bps(rate: float, param_name: str = "rate") -> None:
         warnings.warn(
             f"{param_name}={rate} looks like basis points, not decimal. "
             f"Did you mean {rate/10000}? (e.g., 0.04 not 400)",
-            stacklevel=4,
+            stacklevel=3,
         )
 
 
@@ -151,7 +151,11 @@ def _analyse_cds(ref, curve, **kw):
     spread = kw.get("spread", 0.01)
     _check_rate_not_bps(spread, "spread")
     hazard = kw.get("hazard", 0.02)
+    if hazard <= 0:
+        raise ValueError(f"hazard must be positive, got {hazard}")
     recovery = kw.get("recovery", 0.40)
+    if not 0 <= recovery < 1:
+        raise ValueError(f"recovery must be in [0, 1), got {recovery}")
     notional = kw.get("notional", 10_000_000)
 
     surv = SurvivalCurve.flat(ref, hazard)
@@ -201,9 +205,15 @@ def _analyse_bond(ref, curve, **kw):
     from pricebook.bond import FixedRateBond
     from pricebook.bond_trading_desk import bond_risk_metrics, bond_carry_roll
 
+    if "coupon" not in kw:
+        _warn_default("coupon", 0.04, "bond")
+    if "repo_rate" not in kw:
+        _warn_default("repo_rate", 0.04, "bond")
     tenor = kw.get("tenor", "10Y")
     coupon = kw.get("coupon", 0.04)
+    _check_rate_not_bps(coupon, "coupon")
     repo_rate = kw.get("repo_rate", 0.04)
+    _check_rate_not_bps(repo_rate, "repo_rate")
 
     bond = FixedRateBond.treasury_note(ref, _parse_tenor(ref, tenor), coupon)
     rm = bond_risk_metrics(bond, curve, ref)
@@ -228,6 +238,10 @@ def cln(tenor, coupon, curve, *, hazard=0.02, recovery=0.4, leverage=1.0,
 
         desk.cln("5Y", 0.05, curve, hazard=0.02)
     """
+    if not 0 <= recovery < 1:
+        raise ValueError(f"recovery must be in [0, 1), got {recovery}")
+    if leverage <= 0:
+        raise ValueError(f"leverage must be positive, got {leverage}")
     return analyse("cln", curve=curve, tenor=tenor, coupon=coupon,
                    hazard=hazard, recovery=recovery, leverage=leverage,
                    notional=notional)
@@ -242,6 +256,9 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
     Note: `underlying` must be a numeric spot price (equity TRS).
     For bond/loan/CLN TRS, use the full TotalReturnSwap class directly.
     """
+    if float(underlying) <= 0:
+        raise ValueError(f"underlying (spot price) must be positive, got {underlying}")
+
     from pricebook.trs import TotalReturnSwap, FundingLegSpec
     from pricebook.trs_desk import trs_risk_metrics, trs_carry_decomposition
 
@@ -322,17 +339,19 @@ def vol_surface(asset_class: str, quotes: list[dict], *, spot=None, ref=None):
             pq["expiry"] = _parse_tenor(ref, pq["expiry"])
         parsed.append(pq)
 
-    # Validate spot: must be positive if provided, use sensible defaults only if None
-    effective_spot = spot if spot is not None else None
+    # Validate spot
+    if spot is not None and spot <= 0:
+        raise ValueError(f"spot must be positive, got {spot}")
 
-    if asset_class.lower() == "fx":
-        return calibrate_fx_surface(ref, parsed, spot=effective_spot if effective_spot else 1.0)
-    elif asset_class.lower() in ("equity", "eq"):
-        return calibrate_equity_surface(ref, parsed, spot=effective_spot if effective_spot else 100.0)
-    elif asset_class.lower() in ("ir", "swaption"):
+    ac = asset_class.lower()
+    if ac == "fx":
+        return calibrate_fx_surface(ref, parsed, spot=spot if spot is not None else 1.0)
+    elif ac in ("equity", "eq"):
+        return calibrate_equity_surface(ref, parsed, spot=spot if spot is not None else 100.0)
+    elif ac in ("ir", "swaption"):
         return calibrate_ir_surface(ref, parsed)
-    elif asset_class.lower() in ("commodity", "commo"):
-        return calibrate_commodity_surface(ref, parsed, spot=effective_spot if effective_spot else 75.0)
+    elif ac in ("commodity", "commo"):
+        return calibrate_commodity_surface(ref, parsed, spot=spot if spot is not None else 75.0)
     else:
         raise ValueError(f"Unknown asset class: {asset_class}. "
                          "Supported: fx, equity, ir, commodity")
@@ -349,6 +368,9 @@ def swap_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
             {"tenor": "5Y", "rate": 0.038, "direction": "payer", "notional": 50e6},
         ], curve=curve)
     """
+    if not trades:
+        raise ValueError("trades list is empty — provide at least one swap trade.")
+
     from pricebook.swap import InterestRateSwap, SwapDirection
     from pricebook.swap_desk import SwapBook, SwapBookEntry, swap_dashboard, swap_stress_suite
 
@@ -385,6 +407,9 @@ def cds_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
             {"name": "AAPL", "tenor": "5Y", "spread": 0.007, "sector": "tech"},
         ], curve=curve)
     """
+    if not trades:
+        raise ValueError("trades list is empty — provide at least one CDS trade.")
+
     from pricebook.cds import CDS
     from pricebook.cds_desk import CDSBook, CDSBookEntry, cds_dashboard, cds_stress_suite
 
@@ -437,16 +462,23 @@ def multicurve(*, ref=None, **currencies) -> dict:
     if ref is None:
         raise ValueError("ref (reference date) is required for multicurve. "
                          "Pass ref=date(2024, 7, 15) or similar.")
+    if not currencies:
+        raise ValueError("No currencies provided — pass at least one (e.g., usd={...}).")
 
     result = {}
     for ccy, data in currencies.items():
         swaps_dict = data.get("swaps", {})
         swap_list = []
         for t, r in swaps_dict.items():
-            if isinstance(t, str):
-                swap_list.append((_parse_tenor(ref, t), r))
-            else:
+            if isinstance(t, date):
                 swap_list.append((t, r))
+            elif isinstance(t, str):
+                swap_list.append((_parse_tenor(ref, t), r))
+            elif isinstance(t, (int, float)):
+                # Numeric tenor interpreted as years (e.g., 5 → "5Y")
+                swap_list.append((_parse_tenor(ref, f"{t}Y"), r))
+            else:
+                raise ValueError(f"Unsupported tenor key type: {type(t)} for {t}")
 
         ccy_upper = ccy.upper()
         if ccy_upper == "USD":
