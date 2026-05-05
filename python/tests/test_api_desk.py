@@ -53,33 +53,35 @@ class TestAnalyse:
         assert "key_rate_dv01" in result
 
     def test_amortising_irs_with_schedule(self):
-        """Explicit per-period notional schedule."""
+        """Explicit per-period notional schedule — same code path as scalar."""
         schedule = [50e6, 40e6, 30e6, 20e6, 10e6]
         result = analyse("irs", curve=_curve(), tenor="5Y", rate=0.04,
                          notional=schedule)
-        assert result["type"] == "amortising_irs"
+        assert result["type"] == "irs"  # unified type, not "amortising_irs"
         assert len(result["notional_schedule"]) >= 5
         assert result["average_notional"] > 0
-        assert result["weighted_average_life"] > 0
         assert math.isfinite(result["pv"])
         assert math.isfinite(result["dv01"])
+        # Full risk coverage (same as scalar path)
+        assert "gamma" in result
+        assert "theta" in result
+        assert "carry" in result
+        assert "key_rate_dv01" in result
 
     def test_amortising_irs_with_profile(self):
-        """Profile-driven amortisation."""
+        """Profile-driven amortisation — same code path."""
         result = analyse("irs", curve=_curve(), tenor="5Y", rate=0.04,
                          notional=50_000_000, notional_profile="amortising")
-        assert result["type"] == "amortising_irs"
-        # Notional should decrease
+        assert result["type"] == "irs"
         sched = result["notional_schedule"]
         assert sched[0] > sched[-1]
-        assert result["n_periods"] > 1
 
     def test_accreting_irs(self):
         """Accreting notional profile."""
         result = analyse("irs", curve=_curve(), tenor="5Y", rate=0.04,
                          notional=10_000_000, notional_profile="accreting",
                          final_notional=50_000_000)
-        assert result["type"] == "amortising_irs"
+        assert result["type"] == "irs"
         sched = result["notional_schedule"]
         assert sched[-1] > sched[0]
 
