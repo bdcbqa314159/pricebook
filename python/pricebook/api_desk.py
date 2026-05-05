@@ -26,13 +26,11 @@ Extends api.py with:
 
 from __future__ import annotations
 
-import math
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.day_count import DayCountConvention, year_fraction
 
 
 def _parse_tenor(ref: date, tenor: str | date) -> date:
