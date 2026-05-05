@@ -2,6 +2,31 @@
 
 ---
 
+## v0.489.0 — 2026-05-05
+
+**Vol Surface Deep Dive: cross-asset desk + arbitrage scanner + calibration pipeline.** 18 new tests.
+
+### Cross-asset vol desk (`vol_desk.py`)
+- `VolBook`: unified vol positions across FX/equity/IR/commodity/credit.
+- `VolDashboard`: total vega/vanna/volga, vega by asset class, vega ladder, vol premium.
+- `vol_stress_report()`: parallel ±2/5%, tilt (short vs long).
+- `vol_correlation_monitor()`: implied vs realised, rich/cheap/fair signals.
+
+### Arbitrage scanner (`vol_arbitrage_scanner.py`)
+- `scan_surface()`: detect calendar (σ²T non-decreasing) + butterfly (convexity) violations.
+- `scan_all_surfaces()`: batch scan across all asset classes.
+- `enforce_no_arb()`: fix violations by flooring total variance + enforcing convexity.
+- `ArbitrageScanResult` with severity, violation count, is_clean flag.
+
+### Calibration pipeline (`vol_calibration.py`)
+- `calibrate_fx_surface()`: ATM/RR/BF → SABR cube per tenor.
+- `calibrate_equity_surface()`: strike×vol grid → SABR per expiry.
+- `calibrate_ir_surface()`: swaption ATM + optional smile → SABR cells.
+- `calibrate_commodity_surface()`: asset-specific β (crude=1, metals=0.5, power=0).
+- All return `CalibratedVolSurface` with vol(), bumped(), arb_report(), smile_at().
+
+---
+
 ## v0.488.0 — 2026-05-05
 
 **IBOR Curve Framework: SOFR/ESTR/SONIA convenience + multi-curve CSA example.**
