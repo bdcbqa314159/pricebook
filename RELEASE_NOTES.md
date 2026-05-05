@@ -2,6 +2,37 @@
 
 ---
 
+## v0.492.0 — 2026-05-05
+
+**Trader API (api_desk.py): ergonomic desk-level operations in one call.** 15 new tests.
+
+### Universal analytics
+- `analyse("irs"|"cds"|"cln"|"bond", ...)` → rich dict with PV + all Greeks + carry + risk.
+- One function, any instrument, full decomposition.
+
+### One-liner instruments
+- `cln("5Y", 0.05, curve)` → PV, CS01, JTD, carry, recovery sensitivity.
+- `trs("6M", 100.0, curve)` → PV, delta, gamma, carry, FVA.
+- `repo(30, 10_000_000, 0.04)` → cash, interest, maturity amount.
+
+### Book builders from dicts
+- `swap_book([{...}], curve=curve)` → positions + DV01 ladder + stress in one call.
+- `cds_book([{...}], curve=curve)` → CS01 + JTD + by_sector + stress.
+- `dashboard("swap"|"cds", [...], curve=curve)` → unified entry point.
+
+### Vol surface from quotes
+- `vol_surface("fx"|"equity"|"ir"|"commodity", quotes, spot=X)` → calibrated SABR cube.
+
+### Multi-curve + recovery
+- `multicurve(usd={...}, eur={...})` → G10 curves from simple dicts.
+- `recovery_analysis(cds_spreads={...}, curve=...)` → Greeks decomposition + surface.
+
+### Trader workflow example (`examples/api_trader_workflow.py`)
+10 steps: curves → swap → CDS → CLN → TRS → book → vol → multi-curve → recovery → repo.
+All in < 3 lines per product. No internal imports.
+
+---
+
 ## v0.491.0 — 2026-05-05
 
 **Lens audit: 22 issues fixed across 9 files (8 HIGH, 12 MED, 2 LOW).**
