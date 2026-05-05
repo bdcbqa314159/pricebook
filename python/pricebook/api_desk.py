@@ -36,26 +36,48 @@ from pricebook.day_count import DayCountConvention, year_fraction
 
 
 def _parse_tenor(ref: date, tenor: str | date) -> date:
-    """Parse "5Y", "6M", "3W", "30D", "0.5Y", "1.5Y" or a date."""
+    """Parse "5Y", "6M", "3W", "30D", "0.5Y", "1.5Y" or a date.
+
+    Raises ValueError for non-positive tenors (maturity must be after reference).
+    """
     if isinstance(tenor, date):
+        if tenor <= ref:
+            raise ValueError(f"Tenor date {tenor} must be after reference date {ref}.")
         return tenor
     t = tenor.upper().strip()
     try:
         if t.endswith("Y"):
             raw = t[:-1]
             if raw.lstrip("-").isdigit():
-                # Pure integer: "5Y", "10Y"
-                return ref + relativedelta(years=int(raw))
+                years = int(raw)
+                if years <= 0:
+                    raise ValueError(f"Tenor must be positive, got '{tenor}'.")
+                return ref + relativedelta(years=years)
             val = float(raw)
-            # Fractional year: convert to months
-            return ref + relativedelta(months=round(val * 12))
+            if val <= 0:
+                raise ValueError(f"Tenor must be positive, got '{tenor}'.")
+            months = round(val * 12)
+            if months <= 0:
+                raise ValueError(f"Tenor must be positive, got '{tenor}'.")
+            return ref + relativedelta(months=months)
         if t.endswith("M"):
-            return ref + relativedelta(months=int(float(t[:-1])))
+            months = int(float(t[:-1]))
+            if months <= 0:
+                raise ValueError(f"Tenor must be positive, got '{tenor}'.")
+            return ref + relativedelta(months=months)
         if t.endswith("W"):
-            return ref + relativedelta(weeks=int(float(t[:-1])))
+            weeks = int(float(t[:-1]))
+            if weeks <= 0:
+                raise ValueError(f"Tenor must be positive, got '{tenor}'.")
+            return ref + relativedelta(weeks=weeks)
         if t.endswith("D"):
-            return ref + relativedelta(days=int(float(t[:-1])))
-    except (ValueError, OverflowError):
+            days = int(float(t[:-1]))
+            if days <= 0:
+                raise ValueError(f"Tenor must be positive, got '{tenor}'.")
+            return ref + relativedelta(days=days)
+    except ValueError:
+        raise
+    except OverflowError:
         pass
     raise ValueError(f"Cannot parse tenor: {tenor}. Use '5Y', '6M', '3W', '30D' or a date.")
 
@@ -127,7 +149,14 @@ def _analyse_irs(ref, curve, **kw):
     rate = kw.get("rate", 0.04)
     _check_rate_not_bps(rate, "rate")
     notional = kw.get("notional", 10_000_000)
-    direction = SwapDirection.PAYER if kw.get("direction", "payer") == "payer" else SwapDirection.RECEIVER
+    dir_str = kw.get("direction", "payer").lower().strip()
+    if dir_str in ("payer", "pay", "p"):
+        direction = SwapDirection.PAYER
+    elif dir_str in ("receiver", "recv", "receive", "r"):
+        direction = SwapDirection.RECEIVER
+    else:
+        raise ValueError(f"Invalid direction '{kw.get('direction')}'. "
+                         "Use 'payer'/'pay'/'p' or 'receiver'/'recv'/'r'.")
 
     swap = InterestRateSwap(ref, _parse_tenor(ref, tenor), rate, direction=direction, notional=notional)
     rm = swap_risk_metrics(swap, curve)
@@ -255,10 +284,11 @@ def cln(tenor, coupon, curve, *, hazard=0.02, recovery=0.4, leverage=1.0,
 
 
 def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
-        notional=10_000_000, sigma=0.20) -> dict:
+        notional=10_000_000, sigma=None) -> dict:
     """Price an equity TRS in one call.
 
         desk.trs("6M", 100.0, curve)  # equity TRS, spot=100
+        desk.trs("6M", 100.0, curve, sigma=0.25)  # with explicit vol
 
     Note: `underlying` must be a numeric spot price (equity TRS).
     For bond/loan/CLN TRS, use the full TotalReturnSwap class directly.
@@ -267,6 +297,9 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
         raise ValueError(f"underlying (spot price) must be positive, got {underlying}")
     _check_rate_not_bps(funding_spread, "funding_spread")
     _check_rate_not_bps(repo_spread, "repo_spread")
+    if sigma is None:
+        _warn_default("sigma", 0.20, "TRS vega")
+        sigma = 0.20
 
     from pricebook.trs import TotalReturnSwap, FundingLegSpec
     from pricebook.trs_desk import trs_risk_metrics, trs_carry_decomposition
@@ -312,7 +345,7 @@ def repo(tenor_days, face, rate, *, haircut=0.05) -> dict:
         "type": "repo", "face": face, "cash_lent": cash_lent,
         "rate": rate, "haircut": haircut, "tenor_days": tenor_days,
         "interest": interest, "maturity_amount": maturity_amount,
-        "carry": {"income": interest, "funding": 0.0, "net": interest},
+        "carry": {"interest": interest, "funding": 0.0, "net": interest},
         "carry_30d": cash_lent * rate * 30 / 360,
     }
 
@@ -343,9 +376,11 @@ def vol_surface(asset_class: str, quotes: list[dict], *, spot=None, ref=None):
 
     # Parse expiry strings to dates
     parsed = []
-    for q in quotes:
+    for i, q in enumerate(quotes):
+        if "expiry" not in q:
+            raise ValueError(f"Missing 'expiry' key in vol quote #{i+1}: got {list(q.keys())}")
         pq = dict(q)
-        if isinstance(pq.get("expiry"), str):
+        if isinstance(pq["expiry"], str):
             pq["expiry"] = _parse_tenor(ref, pq["expiry"])
         parsed.append(pq)
 
@@ -389,6 +424,7 @@ def swap_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
 
     for i, t in enumerate(trades):
         _require_keys(t, ["tenor", "rate"], f"swap trade #{i+1}")
+        _check_rate_not_bps(t["rate"], f"rate in swap trade #{i+1}")
         dir_str = t.get("direction", "payer").lower().strip()
         if dir_str in ("payer", "pay", "p"):
             direction = SwapDirection.PAYER
@@ -435,8 +471,11 @@ def cds_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
 
     for i, t in enumerate(trades):
         _require_keys(t, ["tenor", "spread"], f"CDS trade #{i+1}")
+        _check_rate_not_bps(t["spread"], f"spread in CDS trade #{i+1}")
         # h ≈ spread / (1-R): standard flat hazard approximation (O'Kane 2008)
         recovery = t.get("recovery", 0.40)
+        if not 0 <= recovery < 1:
+            raise ValueError(f"recovery must be in [0, 1) in CDS trade #{i+1}, got {recovery}")
         hazard = t.get("hazard", t["spread"] / (1 - recovery))
         surv = SurvivalCurve.flat(ref, hazard)
         cds_inst = CDS(ref, _parse_tenor(ref, t["tenor"]),
@@ -497,6 +536,8 @@ def multicurve(*, ref=None, **currencies) -> dict:
                 swap_list.append((_parse_tenor(ref, t), r))
             elif isinstance(t, (int, float)):
                 # Numeric tenor interpreted as years (e.g., 5 → "5Y")
+                if t <= 0:
+                    raise ValueError(f"Tenor must be positive, got {t} for {ccy.upper()}")
                 swap_list.append((_parse_tenor(ref, f"{t}Y"), r))
             else:
                 raise ValueError(f"Unsupported tenor key type: {type(t)} for {t}")
@@ -540,6 +581,9 @@ def recovery_analysis(*, cds_spreads: dict, curve: DiscountCurve,
 
     if not cds_spreads:
         raise ValueError("cds_spreads is empty — provide at least one tenor:spread pair.")
+    _check_rate_not_bps(coupon, "coupon")
+    if not 0 <= recovery < 1:
+        raise ValueError(f"recovery must be in [0, 1), got {recovery}")
 
     ref = curve.reference_date
     cln_inst = CreditLinkedNote(ref, _parse_tenor(ref, tenor), coupon_rate=coupon,
