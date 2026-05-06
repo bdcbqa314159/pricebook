@@ -421,45 +421,8 @@ class RepoTrade:
             raise ValueError("as_of date required for remaining_days()")
         return max(0, (mat - as_of).days)
 
-    def mature(self) -> None:
-        """Mark the trade as matured."""
-        self.status = "matured"
-
-    def terminate_early(self) -> None:
-        """Mark the trade as early-terminated."""
-        self.status = "terminated"
-
-    def roll(self, new_rate: float, new_term_days: int, new_date: date | None = None) -> "RepoTrade":
-        """Roll into a new repo at a new rate and term (Gap 2).
-
-        Marks the current trade as rolled and returns the new trade.
-        """
-        self.status = "rolled"
-        if new_date is None and self.maturity_date is None:
-            raise ValueError("new_date required when maturity_date is None (open repo)")
-        roll_date = new_date or self.maturity_date
-        return RepoTrade(
-            counterparty=self.counterparty,
-            collateral_issuer=self.collateral_issuer,
-            collateral_type=self.collateral_type,
-            face_amount=self.face_amount,
-            bond_price=self.bond_price,  # same price for now
-            repo_rate=new_rate,
-            term_days=new_term_days,
-            coupon_rate=self.coupon_rate,
-            direction=self.direction,
-            start_date=roll_date,
-            haircut=self.haircut,
-            status="live",
-            rate_type=self.rate_type,
-            trade_id=self.trade_id + "_roll",
-        )
-
-    def roll_cost(self, new_rate: float, new_term_days: int) -> float:
-        """Cost of rolling: difference in financing at new vs old rate."""
-        old_cost = self.cash_amount * self.repo_rate * self.term_days / 360.0
-        new_cost = self.cash_amount * new_rate * new_term_days / 360.0
-        return new_cost - old_cost
+    # Lifecycle methods (mature, terminate, roll) moved to RepoLifecycle.
+    # Use RepoLifecycle(trade).mature(), .roll(), etc.
 
     # ---- Floating-rate repo ----
 
@@ -1640,6 +1603,61 @@ class RepoLifecycle:
             RepoEventType.MARGIN_CALL, call_date,
             amount=amount, reason=reason,
         )
+
+    # ---- Lifecycle state transitions (moved from RepoTrade) ----
+
+    @property
+    def status(self) -> str:
+        """Current trade status."""
+        return self._trade.status
+
+    def mature(self) -> None:
+        """Mark the trade as matured."""
+        self._trade.status = "matured"
+        self.record_event(RepoEventType.MATURITY,
+                          self._trade.maturity_date or date.today())
+
+    def terminate(self) -> None:
+        """Mark the trade as early-terminated."""
+        self._trade.status = "terminated"
+
+    def roll(self, new_rate: float, new_term_days: int,
+             new_date: date | None = None) -> RepoTrade:
+        """Roll into a new repo. Marks current as rolled, returns new trade.
+
+        Args:
+            new_rate: repo rate for the new trade.
+            new_term_days: term for the new trade.
+            new_date: start date for new trade (default: current maturity).
+        """
+        self._trade.status = "rolled"
+        if new_date is None and self._trade.maturity_date is None:
+            raise ValueError("new_date required when maturity_date is None (open repo)")
+        roll_date = new_date or self._trade.maturity_date
+        self.record_roll(roll_date, new_rate, new_term_days)
+        return RepoTrade(
+            counterparty=self._trade.counterparty,
+            collateral_issuer=self._trade.collateral_issuer,
+            collateral_type=self._trade.collateral_type,
+            face_amount=self._trade.face_amount,
+            bond_price=self._trade.bond_price,
+            repo_rate=new_rate,
+            term_days=new_term_days,
+            coupon_rate=self._trade.coupon_rate,
+            direction=self._trade.direction,
+            start_date=roll_date,
+            haircut=self._trade.haircut,
+            status="live",
+            rate_type=self._trade.rate_type,
+            trade_id=self._trade.trade_id + "_roll",
+        )
+
+    def roll_cost(self, new_rate: float, new_term_days: int) -> float:
+        """Cost of rolling: difference in financing at new vs old rate."""
+        t = self._trade
+        old_cost = t.cash_amount * t.repo_rate * t.term_days / 360.0
+        new_cost = t.cash_amount * new_rate * new_term_days / 360.0
+        return new_cost - old_cost
 
 
 # ---------------------------------------------------------------------------

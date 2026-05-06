@@ -11,6 +11,7 @@ from pricebook.repo_desk import (
     RepoTrade, RepoBook, RepoTradeEntry,
     CollateralPool, CollateralPosition,
     repo_daily_pnl, RepoDailyPnL,
+    RepoLifecycle,
 )
 from pricebook.serialisable import from_dict
 from tests.conftest import make_flat_curve
@@ -87,26 +88,30 @@ class TestRollMechanics:
 
     def test_roll_creates_new(self):
         trade = _make_trade()
-        new_trade = trade.roll(new_rate=0.048, new_term_days=30)
+        lc = RepoLifecycle(trade)
+        new_trade = lc.roll(new_rate=0.048, new_term_days=30)
         assert new_trade.status == "live"
         assert new_trade.repo_rate == 0.048
         assert trade.status == "rolled"
 
     def test_roll_preserves_collateral(self):
         trade = _make_trade()
-        new_trade = trade.roll(0.05, 60)
+        lc = RepoLifecycle(trade)
+        new_trade = lc.roll(0.05, 60)
         assert new_trade.collateral_issuer == trade.collateral_issuer
         assert new_trade.face_amount == trade.face_amount
         assert new_trade.counterparty == trade.counterparty
 
     def test_roll_cost(self):
         trade = _make_trade(repo_rate=0.045, term_days=30)
-        cost = trade.roll_cost(new_rate=0.050, new_term_days=30)
+        lc = RepoLifecycle(trade)
+        cost = lc.roll_cost(new_rate=0.050, new_term_days=30)
         assert cost > 0  # higher rate → more expensive
 
     def test_roll_cost_cheaper(self):
         trade = _make_trade(repo_rate=0.045, term_days=30)
-        cost = trade.roll_cost(new_rate=0.040, new_term_days=30)
+        lc = RepoLifecycle(trade)
+        cost = lc.roll_cost(new_rate=0.040, new_term_days=30)
         assert cost < 0  # cheaper to roll
 
 
@@ -286,12 +291,14 @@ class TestLifecycle:
 
     def test_mature(self):
         trade = _make_trade()
-        trade.mature()
+        lc = RepoLifecycle(trade)
+        lc.mature()
         assert trade.status == "matured"
 
     def test_terminate(self):
         trade = _make_trade()
-        trade.terminate_early()
+        lc = RepoLifecycle(trade)
+        lc.terminate()
         assert trade.status == "terminated"
 
     def test_remaining_days(self):
