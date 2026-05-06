@@ -24,6 +24,7 @@ from datetime import date, timedelta
 
 import math
 
+from pricebook.day_count import year_fraction as _year_fraction
 from pricebook.zscore import zscore as _zscore, ZScoreSignal
 
 
@@ -175,11 +176,10 @@ class RepoTrade:
         """
         # Coupon accrual
         if self.bond is not None:
-            from pricebook.day_count import year_fraction
             sd = self.settlement_date or self.start_date
             mat = self.maturity_date
             if sd and mat:
-                yf = year_fraction(sd, mat, self.bond.day_count)
+                yf = _year_fraction(sd, mat, self.bond.day_count)
             else:
                 yf = self.term_days / 365.0
             coupon = self.face_amount * self.coupon_rate * yf
@@ -842,14 +842,14 @@ class RepoBook:
         )
 
     def by_counterparty(self) -> list[RepoCounterpartyExposure]:
-        """Aggregate exposure per counterparty."""
+        """Aggregate exposure per counterparty (cash-weighted average rate)."""
         agg: dict[str, dict] = {}
         for e in self._entries:
             cp = e.counterparty
             if cp not in agg:
-                agg[cp] = {"cash": 0.0, "rate_sum": 0.0, "count": 0}
+                agg[cp] = {"cash": 0.0, "weighted_rate": 0.0, "count": 0}
             agg[cp]["cash"] += e.cash_amount
-            agg[cp]["rate_sum"] += e.repo_rate
+            agg[cp]["weighted_rate"] += e.cash_amount * e.repo_rate
             agg[cp]["count"] += 1
 
         return [
@@ -857,27 +857,27 @@ class RepoBook:
                 counterparty=cp,
                 total_cash=d["cash"],
                 n_trades=d["count"],
-                avg_rate=d["rate_sum"] / d["count"] if d["count"] > 0 else 0.0,
+                avg_rate=d["weighted_rate"] / d["cash"] if d["cash"] > 0 else 0.0,
             )
             for cp, d in sorted(agg.items())
         ]
 
     def by_collateral_type(self) -> list[RepoCollateralSummary]:
-        """Aggregate by GC vs special."""
+        """Aggregate by GC vs special (cash-weighted average rate)."""
         agg: dict[str, dict] = {}
         for e in self._entries:
             ct = e.collateral_type
             if ct not in agg:
-                agg[ct] = {"cash": 0.0, "rate_sum": 0.0, "count": 0}
+                agg[ct] = {"cash": 0.0, "weighted_rate": 0.0, "count": 0}
             agg[ct]["cash"] += e.cash_amount
-            agg[ct]["rate_sum"] += e.repo_rate
+            agg[ct]["weighted_rate"] += e.cash_amount * e.repo_rate
             agg[ct]["count"] += 1
 
         return [
             RepoCollateralSummary(
                 collateral_type=ct,
                 total_cash=d["cash"],
-                avg_rate=d["rate_sum"] / d["count"] if d["count"] > 0 else 0.0,
+                avg_rate=d["weighted_rate"] / d["cash"] if d["cash"] > 0 else 0.0,
                 n_trades=d["count"],
             )
             for ct, d in sorted(agg.items())
@@ -1470,8 +1470,9 @@ def repo_risk_metrics(
     notional = trade.face_amount
 
     # DV01: change in interest for 1bp rate move
+    # ΔInterest = cash × (term/360) × Δrate, where Δrate = 0.0001 (1bp)
     dt = trade.term_days / 360.0
-    dv01 = cash * dt * rate_bump * 10_000  # per 1bp
+    dv01 = cash * dt * 0.0001  # always per 1bp, independent of rate_bump param
 
     # PV: simplified as carry (for short-dated, PV ≈ carry)
     pv = carry
