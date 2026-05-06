@@ -18,9 +18,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 
 
@@ -283,6 +281,8 @@ class PrivatePlacementPricer:
 
         Discount each cashflow at: rf_zero_rate + total_spread.
         """
+        from datetime import timedelta
+
         ref = discount_curve.reference_date
         total_spread = self.total_spread_bp / 10_000
         n_periods = int(self.maturity_years * 2)  # semi-annual
@@ -291,18 +291,20 @@ class PrivatePlacementPricer:
         pv = 0.0
         for i in range(1, n_periods + 1):
             t = i * dt
-            # Risk-free zero rate at t
-            rf = discount_curve.zero_rate(ref)  # flat curve approx
-            total_rate = rf + total_spread
-            df = math.exp(-total_rate * t)
+            cf_date = ref + timedelta(days=int(t * 365))
+            # Risk-free DF from curve, then apply Z-spread
+            rf_df = discount_curve.df(cf_date)
+            spread_df = math.exp(-total_spread * t)
+            df = rf_df * spread_df
             coupon = self.notional * self.coupon_rate * dt
             pv += coupon * df
 
         # Principal at maturity
         t_mat = n_periods * dt
-        rf = discount_curve.zero_rate(ref)
-        df_mat = math.exp(-(rf + total_spread) * t_mat)
-        pv += self.notional * df_mat
+        mat_date = ref + timedelta(days=int(t_mat * 365))
+        rf_df_mat = discount_curve.df(mat_date)
+        spread_df_mat = math.exp(-total_spread * t_mat)
+        pv += self.notional * rf_df_mat * spread_df_mat
 
         price_100 = pv / self.notional * 100
 

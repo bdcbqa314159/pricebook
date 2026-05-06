@@ -30,6 +30,8 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
+from scipy.stats import norm as _norm
+
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
@@ -174,10 +176,10 @@ class RiskParticipation:
         survival_curve: SurvivalCurve,
         shift: float = 0.0001,
     ) -> float:
-        """Credit spread sensitivity: PV change per 1bp hazard shift."""
-        pv_base = self.price(discount_curve, survival_curve).pv
+        """Credit spread sensitivity: PV change per 1bp hazard shift (centred)."""
         pv_up = self.price(discount_curve, survival_curve.bumped(shift)).pv
-        return pv_up - pv_base
+        pv_dn = self.price(discount_curve, survival_curve.bumped(-shift)).pv
+        return (pv_up - pv_dn) / 2
 
     def jtd(
         self,
@@ -317,15 +319,13 @@ def risk_participation_capital_relief(
         maturity_years: effective maturity.
         regulatory_haircut: haircut for maturity/quality mismatch (0 to 1).
     """
-    from scipy.stats import norm
-
     # Asset correlation (Basel II formula)
     rho = 0.12 * (1 - math.exp(-50 * pd)) / (1 - math.exp(-50)) + \
           0.24 * (1 - (1 - math.exp(-50 * pd)) / (1 - math.exp(-50)))
 
     # Conditional PD at 99.9% confidence
-    cpd = norm.cdf(
-        (norm.ppf(pd) + math.sqrt(rho) * norm.ppf(0.999)) / math.sqrt(1 - rho)
+    cpd = _norm.cdf(
+        (_norm.ppf(pd) + math.sqrt(rho) * _norm.ppf(0.999)) / math.sqrt(1 - rho)
     )
 
     # Maturity adjustment
