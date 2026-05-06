@@ -339,7 +339,9 @@ class RepoTrade:
         For fixed repos: PV = df(mat) × repurchase − cash.
         For floating repos: uses projection_curve for forward SOFR rates.
         """
-        ref = reference_date or self.start_date or date.today()
+        if reference_date is None and self.start_date is None:
+            raise ValueError("reference_date required when start_date is None")
+        ref = reference_date or self.start_date
         mat = self.maturity_date
         if mat is None:
             return 0.0  # open repo: PV = 0 at inception
@@ -401,8 +403,9 @@ class RepoTrade:
         mat = self.maturity_date
         if mat is None:
             return 0
-        ref = as_of or date.today()
-        return max(0, (mat - ref).days)
+        if as_of is None:
+            raise ValueError("as_of date required for remaining_days()")
+        return max(0, (mat - as_of).days)
 
     def mature(self) -> None:
         """Mark the trade as matured."""
@@ -418,7 +421,9 @@ class RepoTrade:
         Marks the current trade as rolled and returns the new trade.
         """
         self.status = "rolled"
-        roll_date = new_date or self.maturity_date or date.today()
+        if new_date is None and self.maturity_date is None:
+            raise ValueError("new_date required when maturity_date is None (open repo)")
+        roll_date = new_date or self.maturity_date
         return RepoTrade(
             counterparty=self.counterparty,
             collateral_issuer=self.collateral_issuer,
@@ -634,8 +639,8 @@ class RepoTrade:
         Uses regulatory haircut for equities (15-25%).
         Dividend pass-through instead of coupon.
         """
-        from pricebook.repo_desk import regulatory_haircut
-        haircut = kwargs.pop("haircut", regulatory_haircut("equity_main_index", 0) / 100.0)
+        from pricebook.repo_analytics import regulatory_haircut as _reg_hc
+        haircut = kwargs.pop("haircut", _reg_hc("equity_main_index", 0) / 100.0)
         face = shares * stock_price  # "face" = market value for equities
         return cls(
             counterparty=counterparty, collateral_issuer=stock_id,
