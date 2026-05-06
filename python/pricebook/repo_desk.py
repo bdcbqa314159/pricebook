@@ -2598,3 +2598,230 @@ def regulatory_haircut(
         haircut += BASEL_HAIRCUT_FLOORS.get("fx_mismatch_add_on", 8.0)
 
     return haircut
+
+
+# ===========================================================================
+# DESK PROTOCOL COMPONENTS (added for 9-component compliance)
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Component 1: Risk Metrics
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RepoRiskMetrics:
+    """Unified risk metrics for a repo position."""
+    pv: float                # net carry PV
+    cash_amount: float       # cash lent/borrowed
+    interest: float          # repo interest
+    carry: float             # net carry (coupon - financing)
+    dv01: float              # rate sensitivity (repo rate bump)
+    notional: float          # face amount
+
+    def to_dict(self) -> dict:
+        return {
+            "pv": self.pv, "cash": self.cash_amount, "interest": self.interest,
+            "carry": self.carry, "dv01": self.dv01, "notional": self.notional,
+        }
+
+
+def repo_risk_metrics(
+    trade: RepoTrade,
+    rate_bump: float = 0.0001,
+) -> RepoRiskMetrics:
+    """Compute risk metrics for a repo trade.
+
+    Repo is a short-dated financing instrument. Key risks:
+    - Rate sensitivity (DV01): change in interest for 1bp rate move
+    - Carry: coupon income vs financing cost
+
+    Args:
+        trade: RepoTrade instance.
+        rate_bump: rate shift for DV01 (default 1bp).
+    """
+    cash = trade.cash_amount
+    interest = trade.interest
+    carry = trade.carry
+    notional = trade.face_amount
+
+    # DV01: change in interest for 1bp rate move
+    dt = trade.term_days / 360.0
+    dv01 = cash * dt * rate_bump * 10_000  # per 1bp
+
+    # PV: simplified as carry (for short-dated, PV ≈ carry)
+    pv = carry
+
+    return RepoRiskMetrics(
+        pv=pv, cash_amount=cash, interest=interest,
+        carry=carry, dv01=dv01, notional=notional,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Component 7: Capital
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RepoCapitalResult:
+    """Regulatory capital for a repo position."""
+    ead: float
+    rwa: float
+    capital: float
+    simm_im: float
+
+    def to_dict(self) -> dict:
+        return {"ead": self.ead, "rwa": self.rwa, "capital": self.capital,
+                "simm_im": self.simm_im}
+
+
+def repo_capital(
+    trade: RepoTrade,
+    counterparty_rw: float = 0.20,
+) -> RepoCapitalResult:
+    """SA-CCR capital for a repo / SFT.
+
+    For securities financing transactions:
+    EAD = max(0, exposure - collateral_value) + add-on
+
+    Repos are collateralised → EAD driven by haircut gap.
+    SIMM: repo rate sensitivity into GIRR bucket.
+
+    Args:
+        trade: RepoTrade instance.
+        counterparty_rw: counterparty risk weight.
+    """
+    import math
+
+    # SFT EAD: exposure = cash_amount, collateral = market_value × (1-haircut)
+    exposure = trade.cash_amount
+    collateral = trade.market_value
+    haircut_gap = max(exposure - collateral, 0)
+
+    # Add-on: 5% of cash amount for counterparty risk
+    add_on = exposure * 0.05
+    ead = max(haircut_gap + add_on, 0)
+
+    rwa = ead * counterparty_rw
+    capital = rwa * 0.08
+
+    # SIMM: rate sensitivity
+    dt = trade.term_days / 360.0
+    simm_sensitivity = trade.cash_amount * dt  # DV01-like
+    girr_rw = 0.002  # GIRR risk weight
+    simm_im = abs(simm_sensitivity) * girr_rw * math.sqrt(10.0 / 252.0)
+
+    return RepoCapitalResult(ead=ead, rwa=rwa, capital=capital, simm_im=simm_im)
+
+
+# ---------------------------------------------------------------------------
+# Component 9: Lifecycle
+# ---------------------------------------------------------------------------
+
+class RepoEventType:
+    MATURITY = "maturity"
+    ROLL = "roll"
+    MARGIN_CALL = "margin_call"
+    COUPON_PASS_THROUGH = "coupon_pass_through"
+    SETTLEMENT_FAIL = "settlement_fail"
+    SUBSTITUTION = "substitution"
+
+
+class RepoLifecycle:
+    """Lifecycle management for repo positions."""
+
+    def __init__(self, trade: RepoTrade):
+        self._trade = trade
+        self._events: list[dict] = []
+
+    @property
+    def history(self) -> list[dict]:
+        return sorted(self._events, key=lambda x: x.get("date", ""))
+
+    def maturity_alert(self, as_of: date, alert_days: int = 3) -> dict | None:
+        """Alert for upcoming repo maturity (short horizon for repos)."""
+        mat = self._trade.maturity_date
+        if mat is None:
+            return None  # open repo has no maturity
+        days = (mat - as_of).days
+        if 0 < days <= alert_days:
+            return {
+                "type": RepoEventType.MATURITY,
+                "date": mat.isoformat(),
+                "days_remaining": days,
+                "action": "roll or unwind",
+            }
+        return None
+
+    def roll_alert(self, as_of: date) -> dict | None:
+        """Alert when open repo should be reviewed for rate reset."""
+        if not self._trade.is_open:
+            return None
+        return {
+            "type": RepoEventType.ROLL,
+            "date": as_of.isoformat(),
+            "current_rate": self._trade.repo_rate,
+            "note": "Open repo — review rate and renew",
+        }
+
+    def coupon_alert(self, as_of: date) -> list[dict]:
+        """Alert for upcoming coupon pass-throughs during repo term."""
+        coupons = self._trade.coupons_during_term()
+        alerts = []
+        for coupon_date, amount in coupons:
+            days = (coupon_date - as_of).days
+            if 0 < days <= 5:
+                alerts.append({
+                    "type": RepoEventType.COUPON_PASS_THROUGH,
+                    "date": coupon_date.isoformat(),
+                    "amount": amount,
+                    "days_until": days,
+                })
+        return alerts
+
+    def record_event(self, event_type: str, event_date: date, **kwargs) -> dict:
+        event = {"type": event_type, "date": event_date.isoformat(), **kwargs}
+        self._events.append(event)
+        return event
+
+    def record_roll(self, roll_date: date, new_rate: float, new_term_days: int) -> dict:
+        return self.record_event(
+            RepoEventType.ROLL, roll_date,
+            old_rate=self._trade.repo_rate, new_rate=new_rate,
+            new_term_days=new_term_days,
+        )
+
+    def record_margin_call(self, call_date: date, amount: float, reason: str = "") -> dict:
+        return self.record_event(
+            RepoEventType.MARGIN_CALL, call_date,
+            amount=amount, reason=reason,
+        )
+
+
+# ---------------------------------------------------------------------------
+# aggregate_risk for cross-asset compatibility
+# ---------------------------------------------------------------------------
+
+def _repo_book_aggregate_risk(book: RepoBook) -> dict:
+    """Aggregate risk across a RepoBook for cross-asset desk integration."""
+    total_cash = 0.0
+    total_carry = 0.0
+    total_notional = 0.0
+
+    for e in book.entries:
+        total_cash += e.cash_amount
+        total_carry += e.carry
+        total_notional += e.face_amount
+
+    return {
+        "total_pv": total_carry,
+        "total_dv01": total_cash * (1 / 360) * 0.0001 * 10_000,  # approx 1bp DV01
+        "total_notional": total_notional,
+        "total_cash": total_cash,
+        "total_carry": total_carry,
+        "n_positions": len(book),
+    }
+
+
+# Monkey-patch aggregate_risk onto RepoBook for cross-asset compat
+RepoBook.aggregate_risk = lambda self, curve=None: _repo_book_aggregate_risk(self)
+RepoBook.positions = lambda self: list(self._entries)
