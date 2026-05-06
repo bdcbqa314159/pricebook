@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 # Lazy import to avoid circular: repo_desk imports from here
-def _get_repo_trade_entry():
+def _get_repo_trade_factory():
     from pricebook.repo_desk import RepoTradeEntry
     return RepoTradeEntry
 
@@ -469,7 +469,7 @@ def _repo_book_from_dict(cls, d: dict) -> "RepoBook":
     book = cls(name=p.get("name", "repo_book"))
     for e in p.get("entries", []):
         sd = date.fromisoformat(e["start_date"]) if e.get("start_date") else None
-        RTE = _get_repo_trade_entry()
+        RTE = _get_repo_trade_factory()
         book.add(RTE(
             counterparty=e["counterparty"],
             collateral_issuer=e["collateral_issuer"],

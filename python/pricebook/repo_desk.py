@@ -168,6 +168,11 @@ class RepoTrade:
         return self.repurchase_amount - self.cash_amount
 
     @property
+    def financing_cost(self) -> float:
+        """Financing cost over the term (ACT/360)."""
+        return self.cash_amount * self.repo_rate * self.term_days / 360.0
+
+    @property
     def carry(self) -> float:
         """Net carry = coupon income − financing cost.
 
@@ -717,55 +722,37 @@ def repo_daily_pnl(
     return RepoDailyPnL(ref_t1, total, daily_carry, rate_pnl, unexplained)
 
 
-# ---- Legacy: RepoTradeEntry (backward compat) ----
+# ---- RepoTradeEntry: factory alias for RepoTrade (backward compat) ----
 
-@dataclass
-class RepoTradeEntry:
-    """A single repo position with desk metadata.
+def RepoTradeEntry(
+    counterparty: str,
+    collateral_issuer: str,
+    collateral_type: str = "GC",
+    face_amount: float = 0.0,
+    bond_price: float = 100.0,
+    repo_rate: float = 0.0,
+    term_days: int = 1,
+    coupon_rate: float = 0.0,
+    direction: str = "repo",
+    start_date: date | None = None,
+) -> RepoTrade:
+    """Create a RepoTrade with haircut=0 (legacy compatibility).
 
-    Attributes:
-        counterparty: repo counterparty.
-        collateral_issuer: issuer of the collateral bond.
-        collateral_type: ``"GC"`` (general collateral) or ``"special"``.
-        face_amount: face value of the collateral bond.
-        bond_price: dirty price of the collateral (per 100 face).
-        repo_rate: annualised repo rate.
-        term_days: repo term in calendar days (0 = overnight).
-        coupon_rate: annual coupon of the collateral bond.
-        direction: ``"repo"`` (lend bond / borrow cash) or
-            ``"reverse"`` (borrow bond / lend cash).
-        start_date: repo start date.
+    DEPRECATED: Use RepoTrade directly.
     """
-    counterparty: str
-    collateral_issuer: str
-    collateral_type: str = "GC"
-    face_amount: float = 0.0
-    bond_price: float = 100.0
-    repo_rate: float = 0.0
-    term_days: int = 1
-    coupon_rate: float = 0.0
-    direction: str = "repo"
-    start_date: date | None = None
-
-    @property
-    def cash_amount(self) -> float:
-        """Cash lent / borrowed = face × dirty_price / 100."""
-        return self.face_amount * self.bond_price / 100.0
-
-    @property
-    def carry(self) -> float:
-        """Net carry = coupon income − financing cost over the term."""
-        dt_coupon = self.term_days / 365.0   # ACT/365 for coupon
-        dt_fin = self.term_days / 360.0      # ACT/360 for financing
-        coupon = self.face_amount * self.coupon_rate * dt_coupon
-        financing = self.cash_amount * self.repo_rate * dt_fin
-        sign = 1.0 if self.direction == "repo" else -1.0
-        return sign * (coupon - financing)
-
-    @property
-    def financing_cost(self) -> float:
-        dt = self.term_days / 360.0  # ACT/360
-        return self.cash_amount * self.repo_rate * dt
+    return RepoTrade(
+        counterparty=counterparty,
+        collateral_issuer=collateral_issuer,
+        collateral_type=collateral_type,
+        face_amount=face_amount,
+        bond_price=bond_price,
+        repo_rate=repo_rate,
+        term_days=term_days,
+        coupon_rate=coupon_rate,
+        direction=direction,
+        start_date=start_date,
+        haircut=0.0,
+    )
 
 
 # ---- Repo book ----
@@ -802,26 +789,8 @@ class RepoBook:
         self.name = name
         self._entries: list[RepoTrade] = []
 
-    def add(self, entry) -> None:
-        """Add a RepoTrade or RepoTradeEntry to the book.
-
-        RepoTradeEntry is auto-converted to RepoTrade (haircut=0)
-        for unified storage.
-        """
-        if isinstance(entry, RepoTradeEntry):
-            entry = RepoTrade(
-                counterparty=entry.counterparty,
-                collateral_issuer=entry.collateral_issuer,
-                collateral_type=entry.collateral_type,
-                face_amount=entry.face_amount,
-                bond_price=entry.bond_price,
-                repo_rate=entry.repo_rate,
-                term_days=entry.term_days,
-                coupon_rate=entry.coupon_rate,
-                direction=entry.direction,
-                start_date=entry.start_date,
-                haircut=0.0,  # RepoTradeEntry has no haircut
-            )
+    def add(self, entry: RepoTrade) -> None:
+        """Add a RepoTrade to the book."""
         self._entries.append(entry)
 
     @property
