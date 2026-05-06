@@ -410,17 +410,18 @@ def repo_curve_stress(
             else:
                 shift = term_shift / 10_000.0
 
-            dt = e.term_days / 365.0
+            dt_coupon = e.term_days / 365.0   # ACT/365 for coupon
+            dt_fin = e.term_days / 360.0      # ACT/360 for financing
             sign = 1.0 if e.direction == "repo" else -1.0
-            coupon = e.face_amount * e.coupon_rate * dt
-            financing = e.cash_amount * (e.repo_rate + shift) * dt
+            coupon = e.face_amount * e.coupon_rate * dt_coupon
+            financing = e.cash_amount * (e.repo_rate + shift) * dt_fin
             stressed_carry += sign * (coupon - financing)
 
         carry_impact = stressed_carry - base_carry
-        # Financing impact: extra cost from the shift
+        # Financing impact: extra cost from the shift (ACT/360)
         financing_impact = sum(
             e.cash_amount * (on_shift if e.term_days <= 7 else term_shift) / 10_000.0
-            * e.term_days / 365.0
+            * e.term_days / 360.0
             for e in book.entries
         )
 
