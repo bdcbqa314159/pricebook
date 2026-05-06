@@ -315,6 +315,122 @@ def investing_funding_ava(
 
 
 # ---------------------------------------------------------------------------
+# Early Termination AVA
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EarlyTerminationAVA:
+    """AVA for early termination — value of embedded client-callable options."""
+    option_value: float       # value of the embedded call/put
+    ava: float
+
+    def to_dict(self) -> dict:
+        return {"option_value": self.option_value, "ava": self.ava}
+
+
+def early_termination_ava(
+    bond_price_non_callable: float,
+    bond_price_callable: float,
+) -> EarlyTerminationAVA:
+    """Compute early termination AVA from embedded option value.
+
+    For callable bonds: option_value = non_callable_price - callable_price.
+    For puttable bonds: option_value = puttable_price - non_callable_price.
+    AVA = option_value (full recognition of optionality cost).
+
+    Can use callable_bond.py for the model price, or OAS for the spread.
+
+    Args:
+        bond_price_non_callable: price ignoring embedded option.
+        bond_price_callable: price including embedded option.
+    """
+    option_value = abs(bond_price_non_callable - bond_price_callable)
+    return EarlyTerminationAVA(option_value=option_value, ava=option_value)
+
+
+# ---------------------------------------------------------------------------
+# Future Admin Cost AVA
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FutureAdminCostAVA:
+    """AVA for future administration cost — ongoing cost of maintaining complex positions."""
+    notional: float
+    complexity_score: int      # 1 (vanilla) to 5 (very complex)
+    annual_admin_bp: float     # admin cost in bp per year
+    remaining_years: float
+    ava: float
+
+    def to_dict(self) -> dict:
+        return {"notional": self.notional, "complexity": self.complexity_score,
+                "admin_bp_pa": self.annual_admin_bp,
+                "years": self.remaining_years, "ava": self.ava}
+
+
+# Complexity-based admin cost (bp per year)
+_ADMIN_COST_BY_COMPLEXITY = {
+    1: 0.5,    # vanilla (IRS, bond)
+    2: 1.0,    # slightly complex (ASW, FRN, callable)
+    3: 2.0,    # complex (CLN, TRS, swaption)
+    4: 5.0,    # very complex (structured note, exotic)
+    5: 10.0,   # bespoke (SPV tranche, risk participation)
+}
+
+
+def future_admin_cost_ava(
+    notional: float,
+    remaining_years: float,
+    complexity_score: int = 2,
+) -> FutureAdminCostAVA:
+    """Compute future admin cost AVA.
+
+    Ongoing cost of maintaining a complex position: valuations, margin calls,
+    collateral management, legal, operations. Scales with complexity and tenor.
+
+    Args:
+        notional: position notional.
+        remaining_years: time to maturity.
+        complexity_score: 1 (vanilla) to 5 (bespoke).
+    """
+    score = max(1, min(complexity_score, 5))
+    annual_bp = _ADMIN_COST_BY_COMPLEXITY[score]
+    # Cap at 5 years (EBA: reasonable admin horizon)
+    horizon = min(remaining_years, 5.0)
+    ava = notional * annual_bp / 10_000 * horizon
+
+    return FutureAdminCostAVA(
+        notional=notional, complexity_score=score,
+        annual_admin_bp=annual_bp, remaining_years=remaining_years,
+        ava=max(ava, 0.0),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Model Risk AVA Integration Helper
+# ---------------------------------------------------------------------------
+
+def model_risk_ava_from_exotic_book(
+    greeks_by_model: dict[str, dict[str, float]],
+    notional: float,
+    confidence: float = 0.90,
+) -> ModelRiskAVA:
+    """Compute model risk AVA from exotic_book.model_risk_comparison output.
+
+    Wires the exotic book's multi-model Greek comparison into the
+    prudent valuation framework.
+
+    Args:
+        greeks_by_model: {model_name → {delta, gamma, vega, pv}}.
+        notional: position notional (for scaling PV-based AVA).
+        confidence: EBA confidence level.
+    """
+    pvs = [g.get("pv", 0.0) for g in greeks_by_model.values()]
+    if not pvs:
+        return ModelRiskAVA([], 0.0, 0.0, 0.0)
+    return model_risk_ava(pvs, confidence)
+
+
+# ---------------------------------------------------------------------------
 # Aggregation + Prudent Value Report
 # ---------------------------------------------------------------------------
 
@@ -328,6 +444,8 @@ class PrudentValuationReport:
     conc_ava: float           # concentration
     ucs_ava: float            # unearned credit spread
     ifc_ava: float            # investing/funding cost
+    et_ava: float             # early termination
+    fac_ava: float            # future admin cost
     total_ava: float          # sum (before diversification)
     diversification_benefit: float  # typically 50% under EBA simplified
     total_ava_diversified: float
@@ -338,6 +456,7 @@ class PrudentValuationReport:
             "mid_price": self.mid_price,
             "mpu": self.mpu_ava, "coc": self.coc_ava, "mr": self.mr_ava,
             "conc": self.conc_ava, "ucs": self.ucs_ava, "ifc": self.ifc_ava,
+            "et": self.et_ava, "fac": self.fac_ava,
             "total_ava_gross": self.total_ava,
             "diversification": self.diversification_benefit,
             "total_ava": self.total_ava_diversified,
@@ -353,6 +472,8 @@ def compute_prudent_value(
     conc: ConcentrationAVA | None = None,
     ucs: UnearnedCreditSpreadAVA | None = None,
     ifc: InvestingFundingAVA | None = None,
+    et: EarlyTerminationAVA | None = None,
+    fac: FutureAdminCostAVA | None = None,
     diversification_pct: float = 0.50,
 ) -> PrudentValuationReport:
     """Compute prudent value from individual AVAs.
@@ -364,7 +485,7 @@ def compute_prudent_value(
 
     Args:
         mid_price: fair value (mid-market).
-        mpu, coc, mr, conc, ucs, ifc: individual AVA results (None = 0).
+        mpu, coc, mr, conc, ucs, ifc, et, fac: individual AVA results (None = 0).
         diversification_pct: diversification benefit (EBA: 50%).
     """
     mpu_val = mpu.ava if mpu else 0.0
@@ -373,8 +494,10 @@ def compute_prudent_value(
     conc_val = conc.ava if conc else 0.0
     ucs_val = ucs.ava if ucs else 0.0
     ifc_val = ifc.ava if ifc else 0.0
+    et_val = et.ava if et else 0.0
+    fac_val = fac.ava if fac else 0.0
 
-    total_gross = mpu_val + coc_val + mr_val + conc_val + ucs_val + ifc_val
+    total_gross = mpu_val + coc_val + mr_val + conc_val + ucs_val + ifc_val + et_val + fac_val
 
     # Diversification: sqrt-of-sum-of-squares (correlation assumption)
     # Simplified: apply flat percentage reduction
@@ -385,6 +508,7 @@ def compute_prudent_value(
         mid_price=mid_price,
         mpu_ava=mpu_val, coc_ava=coc_val, mr_ava=mr_val,
         conc_ava=conc_val, ucs_ava=ucs_val, ifc_ava=ifc_val,
+        et_ava=et_val, fac_ava=fac_val,
         total_ava=total_gross,
         diversification_benefit=diversification,
         total_ava_diversified=total_net,

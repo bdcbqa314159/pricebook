@@ -11,6 +11,7 @@ import numpy as np
 from pricebook.prudent_valuation import (
     market_price_uncertainty_ava, close_out_cost_ava, model_risk_ava,
     concentration_ava, unearned_credit_spread_ava, investing_funding_ava,
+    early_termination_ava, future_admin_cost_ava, model_risk_ava_from_exotic_book,
     compute_prudent_value,
 )
 from pricebook.new_desk_xva import (
@@ -100,6 +101,46 @@ class TestInvestingFunding:
         r1 = investing_funding_ava(10e6, 50.0, 1.0)
         r5 = investing_funding_ava(10e6, 50.0, 5.0)
         assert r1.ava == r5.ava  # capped at 1-year horizon
+
+
+class TestEarlyTermination:
+    def test_callable_bond_ava(self):
+        r = early_termination_ava(102.0, 99.5)  # non-callable - callable
+        assert r.ava == pytest.approx(2.5)
+        assert r.option_value == 2.5
+
+    def test_zero_when_equal(self):
+        r = early_termination_ava(100.0, 100.0)
+        assert r.ava == 0.0
+
+
+class TestFutureAdminCost:
+    def test_vanilla_low(self):
+        r = future_admin_cost_ava(10e6, 5.0, complexity_score=1)
+        assert r.ava > 0
+        assert r.annual_admin_bp == 0.5
+
+    def test_complex_higher(self):
+        r1 = future_admin_cost_ava(10e6, 5.0, complexity_score=1)
+        r5 = future_admin_cost_ava(10e6, 5.0, complexity_score=5)
+        assert r5.ava > r1.ava * 10
+
+    def test_capped_at_5yr(self):
+        r5 = future_admin_cost_ava(10e6, 5.0, complexity_score=3)
+        r20 = future_admin_cost_ava(10e6, 20.0, complexity_score=3)
+        assert r5.ava == r20.ava  # capped at 5 years
+
+
+class TestModelRiskIntegration:
+    def test_from_exotic_book(self):
+        greeks = {
+            "black_scholes": {"pv": 1_000_000, "delta": 0.5},
+            "local_vol": {"pv": 1_005_000, "delta": 0.48},
+            "sabr": {"pv": 998_000, "delta": 0.51},
+        }
+        r = model_risk_ava_from_exotic_book(greeks, 10e6)
+        assert r.ava > 0
+        assert r.model_spread == 7_000  # 1005000 - 998000
 
 
 class TestPrudentValue:

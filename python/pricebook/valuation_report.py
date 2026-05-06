@@ -198,7 +198,8 @@ def valuation_report(
     """
     from pricebook.prudent_valuation import (
         market_price_uncertainty_ava, close_out_cost_ava,
-        model_risk_ava, investing_funding_ava, compute_prudent_value,
+        model_risk_ava, investing_funding_ava, future_admin_cost_ava,
+        compute_prudent_value,
     )
 
     # Trading view
@@ -215,8 +216,9 @@ def valuation_report(
     coc = close_out_cost_ava(notional, asset_class)
     mr = model_risk_ava(model_prices) if model_prices and len(model_prices) >= 2 else None
     ifc = investing_funding_ava(notional, illiquidity_bp, maturity_years) if illiquidity_bp > 0 else None
+    fac = future_admin_cost_ava(notional, maturity_years, complexity_score=2)
 
-    pv_report = compute_prudent_value(mid_price, mpu=mpu, coc=coc, mr=mr, ifc=ifc)
+    pv_report = compute_prudent_value(mid_price, mpu=mpu, coc=coc, mr=mr, ifc=ifc, fac=fac)
     prudent = PrudentView(
         mid_price=mid_price,
         total_ava=pv_report.total_ava_diversified,
