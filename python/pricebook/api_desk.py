@@ -109,6 +109,31 @@ def _check_rate_not_bps(rate: float, param_name: str = "rate") -> None:
         )
 
 
+def _apply_notional_profile(notional, profile, ref, end, frequency,
+                            final_notional=None):
+    """Generate a notional schedule from a profile name.
+
+    Returns the notional unchanged (scalar or list) if profile is None.
+    """
+    from pricebook.schedule import generate_schedule
+    if profile is None:
+        return notional
+    if isinstance(notional, list):
+        raise ValueError("Cannot specify both notional as list and notional_profile.")
+    schedule = generate_schedule(ref, end, frequency)
+    n = len(schedule) - 1
+    if profile == "amortising":
+        return [max(float(notional) * (1.0 - i / n), float(notional) / n)
+                for i in range(n)]
+    elif profile == "accreting":
+        final = final_notional if final_notional is not None else notional * 2
+        return [float(notional) + (final - notional) * i / max(n - 1, 1)
+                for i in range(n)]
+    else:
+        raise ValueError(f"Unknown notional_profile: {profile}. "
+                         "Use 'amortising' or 'accreting'.")
+
+
 # ============================================================================
 # SECTION 1: analyse() — Universal analytics
 # ============================================================================
@@ -144,7 +169,7 @@ def analyse(instrument_type: str, *, curve: DiscountCurve, **kwargs) -> dict:
 def _analyse_irs(ref, curve, **kw):
     from pricebook.swap import InterestRateSwap, SwapDirection
     from pricebook.swap_desk import swap_risk_metrics, swap_carry_decomposition
-    from pricebook.schedule import Frequency, generate_schedule
+    from pricebook.schedule import Frequency
 
     if "rate" not in kw:
         _warn_default("rate", 0.04, "IRS")
@@ -154,26 +179,10 @@ def _analyse_irs(ref, curve, **kw):
     rate = kw.get("rate", 0.04)
     _check_rate_not_bps(rate, "rate")
     notional = kw.get("notional", 10_000_000)
-    profile = kw.get("notional_profile")
     end = _parse_tenor(ref, tenor)
-
-    # Generate notional schedule from profile if requested
-    if profile is not None:
-        if isinstance(notional, list):
-            raise ValueError("Cannot specify both notional as list and notional_profile.")
-        schedule = generate_schedule(ref, end, Frequency.SEMI_ANNUAL)
-        n = len(schedule) - 1
-        if profile == "amortising":
-            # Linear amortisation: last period keeps small residual (not zero)
-            notional = [max(float(notional) * (1.0 - i / n), float(notional) / n)
-                        for i in range(n)]
-        elif profile == "accreting":
-            final = kw.get("final_notional", notional * 2)
-            notional = [float(notional) + (final - notional) * i / max(n - 1, 1)
-                        for i in range(n)]
-        else:
-            raise ValueError(f"Unknown notional_profile: {profile}. "
-                             "Use 'amortising' or 'accreting'.")
+    notional = _apply_notional_profile(
+        notional, kw.get("notional_profile"), ref, end,
+        Frequency.SEMI_ANNUAL, final_notional=kw.get("final_notional"))
 
     dir_str = kw.get("direction", "payer").lower().strip()
     if dir_str in ("payer", "pay", "p"):
@@ -207,6 +216,7 @@ def _analyse_irs(ref, curve, **kw):
 def _analyse_cds(ref, curve, **kw):
     from pricebook.cds import CDS
     from pricebook.cds_desk import cds_risk_metrics, cds_carry_decomposition
+    from pricebook.schedule import Frequency
 
     if "spread" not in kw:
         _warn_default("spread", 0.01, "CDS")
@@ -222,18 +232,26 @@ def _analyse_cds(ref, curve, **kw):
     if not 0 <= recovery < 1:
         raise ValueError(f"recovery must be in [0, 1), got {recovery}")
     notional = kw.get("notional", 10_000_000)
+    end = _parse_tenor(ref, tenor)
+    notional = _apply_notional_profile(
+        notional, kw.get("notional_profile"), ref, end,
+        Frequency.QUARTERLY, final_notional=kw.get("final_notional"))
 
     surv = SurvivalCurve.flat(ref, hazard)
-    cds = CDS(ref, _parse_tenor(ref, tenor), spread=spread, notional=notional, recovery=recovery)
+    cds = CDS(ref, end, spread=spread, notional=notional, recovery=recovery)
     rm = cds_risk_metrics(cds, curve, surv)
     carry = cds_carry_decomposition(cds, curve, surv)
 
-    return {
+    result = {
         "type": "cds", "pv": rm.pv, "par_spread": rm.par_spread,
         "cs01": rm.cs01, "rec01": rm.rec01, "jtd": rm.jump_to_default,
         "carry": carry.to_dict(), "theta": rm.theta,
         "spread_duration": rm.spread_duration,
     }
+    if isinstance(notional, list):
+        result["notional_schedule"] = cds.notional_schedule
+        result["average_notional"] = cds.average_notional
+    return result
 
 
 def _analyse_cln(ref, curve, **kw):
@@ -258,20 +276,28 @@ def _analyse_cln(ref, curve, **kw):
     if leverage <= 0:
         raise ValueError(f"leverage must be positive, got {leverage}")
     notional = kw.get("notional", 10_000_000)
+    end = _parse_tenor(ref, tenor)
+    notional = _apply_notional_profile(
+        notional, kw.get("notional_profile"), ref, end,
+        Frequency.QUARTERLY, final_notional=kw.get("final_notional"))
 
     surv = SurvivalCurve.flat(ref, hazard)
-    cln_inst = CreditLinkedNote(ref, _parse_tenor(ref, tenor), coupon_rate=coupon,
+    cln_inst = CreditLinkedNote(ref, end, coupon_rate=coupon,
                                 notional=notional, recovery=recovery, leverage=leverage,
                                 frequency=Frequency.QUARTERLY)
     rm = cln_risk_metrics(cln_inst, curve, surv)
     carry = cln_carry_decomposition(cln_inst, curve, surv)
 
-    return {
+    result = {
         "type": "cln", "pv": rm.pv, "cs01": rm.cs01,
         "recovery_sensitivity": rm.recovery_sensitivity,
         "jtd": rm.jump_to_default_pnl,
         "carry": carry.to_dict(), "leverage": leverage,
     }
+    if isinstance(notional, list):
+        result["notional_schedule"] = cln_inst.notional_schedule
+        result["average_notional"] = cln_inst.average_notional
+    return result
 
 
 def _analyse_bond(ref, curve, **kw):
