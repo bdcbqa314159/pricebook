@@ -48,7 +48,7 @@ class FixedRateBond:
         maturity: date,
         coupon_rate: float,
         frequency: Frequency = Frequency.SEMI_ANNUAL,
-        face_value: float = 100.0,
+        face_value: float | list[float] = 100.0,
         day_count: DayCountConvention = DayCountConvention.THIRTY_360,
         calendar: Calendar | None = None,
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
@@ -57,8 +57,6 @@ class FixedRateBond:
         settlement_days: int = 0,
         ex_div_days: int = 0,
     ):
-        if face_value <= 0:
-            raise ValueError(f"face_value must be positive, got {face_value}")
         if issue_date >= maturity:
             raise ValueError(f"issue_date ({issue_date}) must be before maturity ({maturity})")
 
@@ -66,7 +64,6 @@ class FixedRateBond:
         self.maturity = maturity
         self.coupon_rate = coupon_rate
         self.frequency = frequency
-        self.face_value = face_value
         self.day_count = day_count
         self.calendar = calendar
         self.convention = convention
@@ -80,6 +77,7 @@ class FixedRateBond:
             notional=face_value, day_count=day_count,
             calendar=calendar, convention=convention, stub=stub, eom=eom,
         )
+        self.face_value = self.coupon_leg.notional  # always float (first period)
 
     def settlement_date(self, trade_date: date) -> date:
         """Compute settlement date from trade date using settlement_days.
@@ -105,7 +103,9 @@ class FixedRateBond:
             for cf in self._future_cashflows(settlement)
         )
         if self.maturity > settlement:
-            pv += self.face_value * curve.df(self.maturity)
+            # Principal at maturity uses last-period face value (sinking fund support)
+            final_face = self.coupon_leg.notional_schedule[-1]
+            pv += final_face * curve.df(self.maturity)
         return pv / self.face_value * 100.0
 
     def accrued_interest(self, settlement: date) -> float:
