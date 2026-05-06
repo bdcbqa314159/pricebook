@@ -577,99 +577,90 @@ class RepoTrade:
         )
 
 
-    # ---- Product type constructors (Phase 3) ----
-
-    @classmethod
-    def buy_sell_back(
-        cls,
-        counterparty: str,
-        collateral_issuer: str,
-        face_amount: float,
-        spot_dirty_price: float,
-        forward_dirty_price: float,
-        term_days: int,
-        start_date: date,
-        **kwargs,
-    ) -> "RepoTrade":
-        """Buy/sell-back: two separate cash trades (not a repo legally).
-
-        Sell at spot dirty, agree to buy back at forward dirty.
-        The implied repo rate = (forward / spot - 1) × 360 / term.
-        Forward price includes accrued (no separate interest).
-        """
-        if spot_dirty_price <= 0:
-            raise ValueError("spot_dirty_price must be positive")
-        implied_rate = (forward_dirty_price / spot_dirty_price - 1) * 360.0 / term_days
-        return cls(
-            counterparty=counterparty, collateral_issuer=collateral_issuer,
-            face_amount=face_amount, bond_price=spot_dirty_price,
-            repo_rate=implied_rate, term_days=term_days, start_date=start_date,
-            direction="repo", **kwargs,
-        )
-
-    @classmethod
-    def repo_to_maturity(
-        cls,
-        counterparty: str,
-        bond,
-        repo_rate: float,
-        start_date: date,
-        **kwargs,
-    ) -> "RepoTrade":
-        """Repo-to-maturity: term = bond maturity - settlement.
-
-        Finances the bond from now until it matures.
-        """
-        from pricebook.day_count import year_fraction, DayCountConvention
-        settlement = start_date + timedelta(days=kwargs.get("settlement_days", 1))
-        term = (bond.maturity - settlement).days
-        if term <= 0:
-            raise ValueError(f"Bond already matured: {bond.maturity} <= {settlement}")
-        dirty = bond.dirty_price(kwargs.pop("discount_curve")) if "discount_curve" in kwargs else kwargs.pop("bond_price", 100.0)
-        return cls(
-            counterparty=counterparty, collateral_issuer=str(bond.maturity),
-            face_amount=kwargs.pop("face_amount", bond.face_value),
-            bond_price=dirty, repo_rate=repo_rate,
-            term_days=term, start_date=start_date,
-            direction="repo", bond=bond,
-            coupon_rate=bond.coupon_rate, **kwargs,
-        )
-
-    @classmethod
-    def equity_repo(
-        cls,
-        counterparty: str,
-        stock_id: str,
-        shares: int,
-        stock_price: float,
-        repo_rate: float,
-        term_days: int,
-        start_date: date,
-        dividend_yield: float = 0.0,
-        **kwargs,
-    ) -> "RepoTrade":
-        """Equity repo: stock as collateral, higher haircuts.
-
-        Uses regulatory haircut for equities (15-25%).
-        Dividend pass-through instead of coupon.
-        """
-        from pricebook.repo_analytics import regulatory_haircut as _reg_hc
-        haircut = kwargs.pop("haircut", _reg_hc("equity_main_index", 0) / 100.0)
-        face = shares * stock_price  # "face" = market value for equities
-        return cls(
-            counterparty=counterparty, collateral_issuer=stock_id,
-            collateral_type="equity",
-            face_amount=face, bond_price=100.0,  # price=100 so MV = face
-            repo_rate=repo_rate, term_days=term_days,
-            coupon_rate=dividend_yield,  # dividend yield instead of coupon
-            start_date=start_date, direction="repo",
-            haircut=haircut, **kwargs,
-        )
+    # Factory classmethods delegate to standalone functions (below)
+    buy_sell_back = classmethod(lambda cls, *a, **kw: buy_sell_back_repo(*a, **kw))
+    repo_to_maturity = classmethod(lambda cls, *a, **kw: repo_to_maturity(*a, **kw))
+    equity_repo = classmethod(lambda cls, *a, **kw: equity_repo(*a, **kw))
 
 
 RepoTrade._SERIAL_TYPE = "repo_trade"
 from pricebook.serialisable import _register as _reg_rt
 _reg_rt(RepoTrade)
+
+
+# ---------------------------------------------------------------------------
+# Standalone factory functions (extracted from RepoTrade classmethods)
+# ---------------------------------------------------------------------------
+
+def buy_sell_back_repo(
+    counterparty: str,
+    collateral_issuer: str,
+    face_amount: float,
+    spot_dirty_price: float,
+    forward_dirty_price: float,
+    term_days: int,
+    start_date: date,
+    **kwargs,
+) -> RepoTrade:
+    """Buy/sell-back: implied repo rate from spot vs forward dirty prices."""
+    if spot_dirty_price <= 0:
+        raise ValueError("spot_dirty_price must be positive")
+    implied_rate = (forward_dirty_price / spot_dirty_price - 1) * 360.0 / term_days
+    return RepoTrade(
+        counterparty=counterparty, collateral_issuer=collateral_issuer,
+        face_amount=face_amount, bond_price=spot_dirty_price,
+        repo_rate=implied_rate, term_days=term_days, start_date=start_date,
+        direction="repo", **kwargs,
+    )
+
+
+def repo_to_maturity(
+    counterparty: str,
+    bond,
+    repo_rate: float,
+    start_date: date,
+    **kwargs,
+) -> RepoTrade:
+    """Repo-to-maturity: term = bond maturity - settlement."""
+    settlement = start_date + timedelta(days=kwargs.get("settlement_days", 1))
+    term = (bond.maturity - settlement).days
+    if term <= 0:
+        raise ValueError(f"Bond already matured: {bond.maturity} <= {settlement}")
+    dirty = bond.dirty_price(kwargs.pop("discount_curve")) if "discount_curve" in kwargs else kwargs.pop("bond_price", 100.0)
+    return RepoTrade(
+        counterparty=counterparty, collateral_issuer=str(bond.maturity),
+        face_amount=kwargs.pop("face_amount", bond.face_value),
+        bond_price=dirty, repo_rate=repo_rate,
+        term_days=term, start_date=start_date,
+        direction="repo", bond=bond,
+        coupon_rate=bond.coupon_rate, **kwargs,
+    )
+
+
+def equity_repo(
+    counterparty: str,
+    stock_id: str,
+    shares: int,
+    stock_price: float,
+    repo_rate: float,
+    term_days: int,
+    start_date: date,
+    dividend_yield: float = 0.0,
+    **kwargs,
+) -> RepoTrade:
+    """Equity repo: stock as collateral, regulatory haircut."""
+    from pricebook.repo_analytics import regulatory_haircut as _reg_hc
+    haircut = kwargs.pop("haircut", _reg_hc("equity_main_index", 0) / 100.0)
+    face = shares * stock_price
+    return RepoTrade(
+        counterparty=counterparty, collateral_issuer=stock_id,
+        collateral_type="equity",
+        face_amount=face, bond_price=100.0,
+        repo_rate=repo_rate, term_days=term_days,
+        coupon_rate=dividend_yield,
+        start_date=start_date, direction="repo",
+        haircut=haircut, **kwargs,
+    )
 
 
 # ---------------------------------------------------------------------------
