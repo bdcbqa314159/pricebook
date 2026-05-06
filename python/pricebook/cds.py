@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.fixed_leg import _normalize_notional
+from pricebook.notional import normalize_notional as _normalize_notional
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.interpolation import InterpolationMethod
 from pricebook.schedule import Frequency, StubType, generate_schedule

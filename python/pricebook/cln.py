@@ -45,7 +45,7 @@ from scipy.stats import norm
 
 from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.fixed_leg import _normalize_notional
+from pricebook.notional import normalize_notional as _normalize_notional
 from pricebook.schedule import Frequency, generate_schedule
 from pricebook.survival_curve import SurvivalCurve
 

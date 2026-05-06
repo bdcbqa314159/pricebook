@@ -27,25 +27,7 @@ class Cashflow:
         return self.notional * self.rate * self.year_frac
 
 
-def _normalize_notional(notional: float | list[float], n_periods: int) -> list[float]:
-    """Normalize notional input to a per-period list.
-
-    Accepts:
-        - float: replicated across all periods
-        - list[float]: extended (last value) or truncated to match n_periods
-    """
-    if isinstance(notional, (int, float)):
-        if notional <= 0:
-            raise ValueError(f"notional must be positive, got {notional}")
-        return [float(notional)] * n_periods
-    if not notional:
-        raise ValueError("notional schedule is empty")
-    if any(n <= 0 for n in notional):
-        raise ValueError(f"all notionals must be positive, got {notional}")
-    ns = list(notional)
-    if len(ns) < n_periods:
-        ns += [ns[-1]] * (n_periods - len(ns))
-    return ns[:n_periods]
+from pricebook.notional import normalize_notional as _normalize_notional
 
 
 class FixedLeg:

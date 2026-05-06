@@ -10,7 +10,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
 from pricebook.rate_index import CompoundingMethod, RateIndex
 from pricebook.rfr import compound_rfr
-from pricebook.fixed_leg import _normalize_notional
+from pricebook.notional import normalize_notional as _normalize_notional
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
 
