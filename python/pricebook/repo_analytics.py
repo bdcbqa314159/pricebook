@@ -88,7 +88,7 @@ def term_vs_overnight(
         :class:`TermVsOvernightResult` with costs and recommendation.
     """
     cash = face_amount * bond_price / 100.0
-    dt = term_days / 365.0
+    dt = term_days / 360.0  # ACT/360 repo convention
     term_cost = cash * term_rate * dt
     overnight_cost = cash * overnight_rate * dt
 
@@ -129,11 +129,12 @@ def repo_rate_dv01(
     per_trade = []
     for e in book.entries:
         base_c = e.carry
-        dt = e.term_days / 365.0
-        # Carry = sign × (coupon_income - cash × (repo_rate + shift) × dt)
+        dt_coupon = e.term_days / 365.0    # ACT/365 for coupon
+        dt_fin = e.term_days / 360.0       # ACT/360 for financing
+        # Carry = sign × (coupon_income - cash × (repo_rate + shift) × dt_fin)
         sign = 1.0 if e.direction == "repo" else -1.0
-        coupon = e.face_amount * e.coupon_rate * dt
-        financing_bumped = e.cash_amount * (e.repo_rate + shift) * dt
+        coupon = e.face_amount * e.coupon_rate * dt_coupon
+        financing_bumped = e.cash_amount * (e.repo_rate + shift) * dt_fin
         bumped_c = sign * (coupon - financing_bumped)
         bumped_carry += bumped_c
         per_trade.append(bumped_c - base_c)
@@ -195,7 +196,7 @@ def rollover_risk(
     results = []
     for name, spike_bps, days in scenarios:
         spike = spike_bps / 10_000.0
-        extra_cost = on_cash * spike * days / 365.0
+        extra_cost = on_cash * spike * days / 360.0  # ACT/360
         annualised = spike_bps * (days / 365.0) if on_cash > 0 else 0.0
         results.append(RolloverScenario(
             scenario_name=name,
@@ -685,7 +686,7 @@ def repo_key_rate_dv01(
         bumped_carry = 0.0
         for e in book.entries:
             bumped_rate = bumped.rate(e.term_days)
-            # Use same formula as RepoTradeEntry.carry but with bumped rate
+            # Carry formula: coupon (ACT/365) - financing (ACT/360)
             dt_coupon = e.term_days / 365.0
             dt_fin = e.term_days / 360.0  # ACT/360 for financing
             sign = 1.0 if e.direction == "repo" else -1.0

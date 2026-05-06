@@ -192,8 +192,9 @@ class TestTermVsOvernight:
             face_amount=10_000_000, bond_price=100.0,
             term_rate=0.04, overnight_rate=0.05, term_days=365,
         )
-        assert result.term_cost == pytest.approx(10_000_000 * 0.04)
-        assert result.overnight_cost == pytest.approx(10_000_000 * 0.05)
+        # ACT/360: 10M × rate × (365/360)
+        assert result.term_cost == pytest.approx(10_000_000 * 0.04 * 365 / 360, rel=0.001)
+        assert result.overnight_cost == pytest.approx(10_000_000 * 0.05 * 365 / 360, rel=0.001)
 
 
 # ---- Fails tracking ----
