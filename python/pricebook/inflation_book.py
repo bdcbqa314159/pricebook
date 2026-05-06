@@ -26,6 +26,7 @@ class InflationTradeEntry:
     breakeven: float = 0.0
     ie01: float = 0.0           # breakeven DV01 per 1M notional
     real_dv01: float = 0.0      # real rate DV01 per 1M notional
+    instrument: object = None   # optional: InflationLinkedBond, ZCInflationSwap, etc.
 
 
 @dataclass
@@ -69,16 +70,18 @@ class InflationBook:
     def add(self, trade: Trade, issuer: str, product_type: str = "linker",
             currency: str | None = None, notional: float = 0.0,
             maturity: date | None = None, real_yield: float = 0.0,
-            breakeven: float = 0.0, ie01: float = 0.0, real_dv01: float = 0.0) -> None:
+            breakeven: float = 0.0, ie01: float = 0.0, real_dv01: float = 0.0,
+            instrument=None) -> None:
         self._entries.append(InflationTradeEntry(
             trade=trade, issuer=issuer, product_type=product_type,
             currency=currency or self.currency, notional=notional,
             maturity=maturity, real_yield=real_yield, breakeven=breakeven,
-            ie01=ie01, real_dv01=real_dv01,
+            ie01=ie01, real_dv01=real_dv01, instrument=instrument,
         ))
 
     @property
     def entries(self): return list(self._entries)
+    def positions(self): return list(self._entries)
     def __len__(self): return len(self._entries)
     @property
     def n_issuers(self): return len({e.issuer for e in self._entries})
@@ -133,3 +136,42 @@ class InflationBook:
             if actual > self.limits.max_real_dv01:
                 breaches.append(InflationLimitBreach("real_dv01", self.name, self.limits.max_real_dv01, actual))
         return breaches
+
+    def aggregate_risk(self, discount_curve=None, cpi_curve=None) -> dict:
+        """Aggregate risk across all positions.
+
+        When instruments and curves are available, computes risk via
+        inflation_risk_metrics. Otherwise falls back to stored ie01/real_dv01.
+
+        Returns dict compatible with cross_asset_desk (includes total_dv01).
+        """
+        total_pv = 0.0
+        total_ie01 = 0.0
+        total_real_dv01 = 0.0
+        total_nominal_dv01 = 0.0
+        total_notional = 0.0
+
+        for e in self._entries:
+            sign = e.trade.direction * e.trade.notional_scale
+            if e.instrument is not None and discount_curve is not None and cpi_curve is not None:
+                from pricebook.inflation_desk import inflation_risk_metrics
+                rm = inflation_risk_metrics(e.instrument, discount_curve, cpi_curve)
+                total_pv += sign * rm.pv
+                total_ie01 += sign * rm.ie01
+                total_real_dv01 += sign * rm.real_dv01
+                total_nominal_dv01 += sign * rm.nominal_dv01
+            else:
+                # Fallback: use stored static sensitivities
+                total_ie01 += sign * e.notional * e.ie01 / 1_000_000
+                total_real_dv01 += sign * e.notional * e.real_dv01 / 1_000_000
+            total_notional += abs(e.notional)
+
+        return {
+            "total_pv": total_pv,
+            "total_ie01": total_ie01,
+            "total_real_dv01": total_real_dv01,
+            "total_nominal_dv01": total_nominal_dv01,
+            "total_dv01": total_ie01,  # cross-asset compat: map IE01 → DV01 slot
+            "n_positions": len(self._entries),
+            "total_notional": total_notional,
+        }
