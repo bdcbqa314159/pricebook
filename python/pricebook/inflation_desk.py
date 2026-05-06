@@ -313,6 +313,43 @@ class InflationCarryDecomposition:
                 "breakeven": self.breakeven_accrual, "net": self.net_carry}
 
 
+def inflation_carry_decomposition(
+    instrument,
+    discount_curve: DiscountCurve,
+    cpi_curve,
+    horizon_days: int = 1,
+) -> InflationCarryDecomposition:
+    """Decompose inflation carry into real yield and breakeven accrual.
+
+    Real yield carry: the real coupon/rate income over the horizon.
+    Breakeven accrual: the CPI indexation (inflation expectation) over the horizon.
+    """
+    dt = horizon_days / 365.0
+
+    # Real yield component: coupon rate (for linker/swap fixed rate)
+    real_rate = getattr(instrument, 'coupon_rate',
+                        getattr(instrument, 'fixed_rate', 0.0))
+    notional = getattr(instrument, 'notional', 0.0)
+    real_yield_carry = real_rate * notional * dt
+
+    # Breakeven accrual: CPI forward rate * notional * dt
+    maturity = getattr(instrument, 'end',
+                       getattr(instrument, 'maturity', None))
+    if maturity is not None:
+        be = cpi_curve.breakeven_rate(maturity)
+    else:
+        be = 0.0
+    breakeven_accrual = be * notional * dt
+
+    net = real_yield_carry + breakeven_accrual
+
+    return InflationCarryDecomposition(
+        real_yield_carry=real_yield_carry,
+        breakeven_accrual=breakeven_accrual,
+        net_carry=net,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Daily P&L (protocol compliance)
 # ---------------------------------------------------------------------------
@@ -331,6 +368,50 @@ class InflationDailyPnL:
         return {"date": self.date.isoformat(), "total": self.total,
                 "breakeven": self.breakeven_pnl, "real_rate": self.real_rate_pnl,
                 "carry": self.carry_pnl, "unexplained": self.unexplained}
+
+
+def inflation_daily_pnl(
+    instrument,
+    disc_t0: DiscountCurve,
+    cpi_t0,
+    disc_t1: DiscountCurve,
+    cpi_t1,
+    date_t1: date,
+) -> InflationDailyPnL:
+    """Daily P&L attribution for an inflation position.
+
+    Decomposes total P&L into breakeven, real rate, carry, and unexplained.
+
+    Args:
+        instrument: inflation instrument.
+        disc_t0, cpi_t0: yesterday's curves.
+        disc_t1, cpi_t1: today's curves.
+        date_t1: today's date.
+    """
+    pv_t0 = _price_inflation(instrument, disc_t0, cpi_t0)
+    pv_t1 = _price_inflation(instrument, disc_t1, cpi_t1)
+    total = pv_t1 - pv_t0
+
+    # Breakeven P&L: reprice with new CPI curve, old discount curve
+    pv_cpi_only = _price_inflation(instrument, disc_t0, cpi_t1)
+    breakeven_pnl = pv_cpi_only - pv_t0
+
+    # Real rate P&L: reprice with new discount curve, old CPI curve
+    pv_disc_only = _price_inflation(instrument, disc_t1, cpi_t0)
+    real_rate_pnl = pv_disc_only - pv_t0
+
+    # Carry: 1-day carry from yesterday's curves
+    carry = inflation_carry_decomposition(instrument, disc_t0, cpi_t0, horizon_days=1)
+    carry_pnl = carry.net_carry
+
+    # Unexplained: residual (cross-gamma, curve shape, etc.)
+    unexplained = total - breakeven_pnl - real_rate_pnl - carry_pnl
+
+    return InflationDailyPnL(
+        date=date_t1, total=total,
+        breakeven_pnl=breakeven_pnl, real_rate_pnl=real_rate_pnl,
+        carry_pnl=carry_pnl, unexplained=unexplained,
+    )
 
 
 # ---------------------------------------------------------------------------
