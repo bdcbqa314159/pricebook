@@ -282,69 +282,9 @@ class RepoTrade:
 
     # ---- Intraday snapshot ----
 
-    def snapshot(
-        self,
-        as_of: date,
-        current_bond_price: float | None = None,
-        current_repo_rate: float | None = None,
-        current_fx_rate: float | None = None,
-    ) -> dict[str, float]:
-        """Intraday position snapshot — everything you need at any point in time.
+    # snapshot, margin, xccy_margin → standalone functions (below)
 
-        Args:
-            as_of: snapshot timestamp.
-            current_bond_price: live bond dirty price (None = use inception).
-            current_repo_rate: current market repo rate (None = use contract).
-            current_fx_rate: current FX rate for xccy repos (None = use inception).
-        """
-        price = current_bond_price or self.bond_price
-        rate = current_repo_rate or self.repo_rate
-        fx = current_fx_rate or self.fx_rate
-
-        remaining = self.remaining_days(as_of)
-        accrued = self.accrued_interest(as_of)
-        mtm = self.mark_to_market(rate, as_of) if rate != self.repo_rate else 0.0
-        vm = self.variation_margin(price) if price != self.bond_price else 0.0
-
-        # FX P&L for xccy
-        fx_pnl = 0.0
-        if self.is_cross_currency and fx != self.fx_rate:
-            fx_pnl = self.market_value * (fx - self.fx_rate)
-
-        return {
-            "trade_id": self.trade_id,
-            "as_of": as_of.isoformat(),
-            "status": self.status,
-            "remaining_days": remaining,
-            "accrued_interest": accrued,
-            "mark_to_market": mtm,
-            "variation_margin": vm,
-            "fx_pnl": fx_pnl,
-            "current_price": price,
-            "current_rate": rate,
-            "current_fx": fx,
-            "total_unrealised": mtm + vm + fx_pnl,
-        }
-
-    # ---- Cross-currency margin ----
-
-    def xccy_margin_call(
-        self,
-        current_bond_price: float,
-        current_fx_rate: float,
-    ) -> float:
-        """Margin call for cross-currency repos (all in cash currency).
-
-        Computes entirely in cash currency to avoid mixing dimensions.
-        margin_call = (current_collateral_value_cash - initial_collateral_value_cash)
-                      × (haircut + fx_haircut)
-        """
-        initial_value_cash = self.market_value * self.fx_rate
-        current_value_cash = self.face_amount * current_bond_price / 100.0 * current_fx_rate
-        total_haircut = self.haircut + self.fx_haircut
-        return (current_value_cash - initial_value_cash) * total_haircut
-
-    # ---- Pricing (Gap 8) ----
+    # ---- Pricing ----
 
     def pv(self, discount_curve, reference_date: date | None = None,
            projection_curve=None) -> float:
@@ -384,33 +324,7 @@ class RepoTrade:
                 proj = next(iter(ctx.projection_curves.values()), None)
         return self.pv(ctx.discount_curve, projection_curve=proj)
 
-    # ---- Variation Margin (Gap 3) ----
-
-    def margin_required(self, current_price: float) -> float:
-        """Margin required at current bond price.
-
-        margin = face × current_price / 100 × haircut
-        """
-        return self.face_amount * current_price / 100.0 * self.haircut
-
-    def margin_call(self, current_price: float) -> float:
-        """Margin call amount: positive = must post more, negative = receive back.
-
-        If bond drops → more margin needed (for cash lender protection).
-        """
-        new_margin = self.margin_required(current_price)
-        initial_margin = self.market_value * self.haircut
-        return new_margin - initial_margin
-
-    def variation_margin(self, current_price: float) -> float:
-        """Variation margin from price move.
-
-        VM = face × (current - inception) / 100 (sign depends on direction).
-        """
-        price_move = (current_price - self.bond_price) / 100.0 * self.face_amount
-        return price_move if self.direction == "reverse" else -price_move
-
-    # ---- Lifecycle (Gap 7) ----
+    # ---- Lifecycle ----
 
     def remaining_days(self, as_of: date | None = None) -> int:
         """Days remaining from as_of to maturity."""
@@ -540,18 +454,8 @@ class RepoTrade:
         )
 
 
-    # Deprecated classmethods — use standalone functions directly
-    @classmethod
-    def buy_sell_back(cls, *args, **kwargs) -> "RepoTrade":
-        return buy_sell_back_repo(*args, **kwargs)
-
-    @classmethod
-    def repo_to_maturity(cls, *args, **kwargs) -> "RepoTrade":
-        return repo_to_maturity_trade(*args, **kwargs)
-
-    @classmethod
-    def equity_repo(cls, *args, **kwargs) -> "RepoTrade":
-        return equity_repo_trade(*args, **kwargs)
+    # Factory functions: use buy_sell_back_repo(), repo_to_maturity_trade(),
+    # equity_repo_trade() as standalone functions (below class definition).
 
 
 RepoTrade._SERIAL_TYPE = "repo_trade"
@@ -632,6 +536,79 @@ def equity_repo_trade(
         start_date=start_date, direction="repo",
         haircut=haircut, **kwargs,
     )
+
+
+# ---------------------------------------------------------------------------
+# Margin & Snapshot (standalone functions)
+# ---------------------------------------------------------------------------
+
+def repo_margin_required(trade: RepoTrade, current_price: float) -> float:
+    """Margin required at current bond price."""
+    return trade.face_amount * current_price / 100.0 * trade.haircut
+
+
+def repo_margin_call(trade: RepoTrade, current_price: float) -> float:
+    """Margin call: positive = must post more, negative = receive back."""
+    new_margin = repo_margin_required(trade, current_price)
+    initial_margin = trade.market_value * trade.haircut
+    return new_margin - initial_margin
+
+
+def repo_variation_margin(trade: RepoTrade, current_price: float) -> float:
+    """Variation margin from price move."""
+    price_move = (current_price - trade.bond_price) / 100.0 * trade.face_amount
+    return price_move if trade.direction == "reverse" else -price_move
+
+
+def repo_xccy_margin_call(
+    trade: RepoTrade,
+    current_bond_price: float,
+    current_fx_rate: float,
+) -> float:
+    """Cross-currency margin call (all in cash currency)."""
+    initial_value_cash = trade.market_value * trade.fx_rate
+    current_value_cash = trade.face_amount * current_bond_price / 100.0 * current_fx_rate
+    total_haircut = trade.haircut + trade.fx_haircut
+    return (current_value_cash - initial_value_cash) * total_haircut
+
+
+def repo_snapshot(
+    trade: RepoTrade,
+    as_of: date,
+    current_bond_price: float | None = None,
+    current_repo_rate: float | None = None,
+    current_fx_rate: float | None = None,
+) -> dict[str, float]:
+    """Intraday position snapshot."""
+    price = current_bond_price or trade.bond_price
+    rate = current_repo_rate or trade.repo_rate
+    fx = current_fx_rate or trade.fx_rate
+
+    remaining = trade.remaining_days(as_of)
+    accrued = trade.accrued_interest(as_of)
+    mtm = trade.mark_to_market(rate, as_of) if rate != trade.repo_rate else 0.0
+    vm = repo_variation_margin(trade, price) if price != trade.bond_price else 0.0
+
+    fx_pnl = 0.0
+    if trade.is_cross_currency and fx != trade.fx_rate:
+        fx_pnl = trade.market_value * (fx - trade.fx_rate)
+
+    return {
+        "trade_id": trade.trade_id,
+        "as_of": as_of.isoformat(),
+        "status": trade.status,
+        "remaining_days": remaining,
+        "accrued_interest": accrued,
+        "mark_to_market": mtm,
+        "variation_margin": vm,
+        "fx_pnl": fx_pnl,
+        "current_price": price,
+        "current_rate": rate,
+        "current_fx": fx,
+        "total_unrealised": mtm + vm + fx_pnl,
+    }
+
+
 
 
 # ---------------------------------------------------------------------------

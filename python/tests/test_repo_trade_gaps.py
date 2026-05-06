@@ -12,6 +12,7 @@ from pricebook.repo_desk import (
     CollateralPool, CollateralPosition,
     repo_daily_pnl, RepoDailyPnL,
     RepoLifecycle,
+    repo_margin_required, repo_margin_call, repo_variation_margin,
 )
 from pricebook.serialisable import from_dict
 from tests.conftest import make_flat_curve
@@ -121,27 +122,24 @@ class TestVariationMargin:
 
     def test_margin_required(self):
         trade = _make_trade(haircut=0.02)
-        margin = trade.margin_required(102.0)
+        margin = repo_margin_required(trade, 102.0)
         expected = 50_000_000 * 102.0 / 100 * 0.02
         assert margin == pytest.approx(expected)
 
     def test_margin_call_price_drop(self):
         """Bond drops → more margin needed."""
         trade = _make_trade(bond_price=102.0, haircut=0.02)
-        call = trade.margin_call(100.0)
-        # Lower price → lower collateral value → margin call negative
-        # (counterparty needs less margin, you get some back)
+        call = repo_margin_call(trade, 100.0)
         assert call < 0
 
     def test_margin_call_price_rise(self):
         trade = _make_trade(bond_price=102.0, haircut=0.02)
-        call = trade.margin_call(104.0)
-        assert call > 0  # more collateral value → more margin posted
+        call = repo_margin_call(trade, 104.0)
+        assert call > 0
 
     def test_variation_margin_repo_direction(self):
         trade = _make_trade(direction="repo", bond_price=102.0)
-        vm = trade.variation_margin(100.0)
-        # Bond drops: repo seller (you) benefits, VM positive for you
+        vm = repo_variation_margin(trade, 100.0)
         assert vm > 0
 
 
