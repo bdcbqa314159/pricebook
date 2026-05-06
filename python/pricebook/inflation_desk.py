@@ -179,11 +179,25 @@ class InflationStressResult:
 
 
 def inflation_stress_suite(
-    total_ie01: float,
+    total_ie01: float = 0.0,
     total_real_dv01: float = 0.0,
     total_nominal_dv01: float = 0.0,
+    *,
+    book=None,
+    discount_curve: DiscountCurve | None = None,
+    cpi_curve=None,
 ) -> list[InflationStressResult]:
-    """Parametric inflation stress scenarios."""
+    """Parametric inflation stress scenarios.
+
+    Can be called with explicit risk numbers or with book + curves
+    (aggregate_risk is called automatically).
+    """
+    if book is not None and discount_curve is not None and cpi_curve is not None:
+        risk = book.aggregate_risk(discount_curve, cpi_curve)
+        total_ie01 = risk.get("total_ie01", total_ie01)
+        total_real_dv01 = risk.get("total_real_dv01", total_real_dv01)
+        total_nominal_dv01 = risk.get("total_nominal_dv01", total_nominal_dv01)
+
     scenarios = [
         ("breakeven_up_50", "Breakeven +50bp", total_ie01 * 50),
         ("breakeven_dn_50", "Breakeven -50bp", total_ie01 * -50),
