@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+import math
+
 from pricebook.zscore import zscore as _zscore, ZScoreSignal
 
 
@@ -911,20 +913,23 @@ class RepoBook:
     def aggregate_risk(self, curve=None) -> dict:
         """Aggregate risk for cross-asset desk integration.
 
-        Returns dict with total_pv, total_dv01, total_notional, n_positions.
+        DV01 computed per-position: sum of cash_i × (term_i / 360) per 1bp.
         """
         total_cash = 0.0
         total_carry = 0.0
         total_notional = 0.0
+        total_dv01 = 0.0
 
         for e in self._entries:
             total_cash += e.cash_amount
             total_carry += e.carry
             total_notional += e.face_amount
+            # Per-position DV01: interest change for 1bp rate move
+            total_dv01 += e.cash_amount * e.term_days / 360.0 * 0.0001
 
         return {
             "total_pv": total_carry,
-            "total_dv01": total_cash * (1 / 360) * 0.0001 * 10_000,
+            "total_dv01": total_dv01,
             "total_notional": total_notional,
             "total_cash": total_cash,
             "total_carry": total_carry,
@@ -1510,8 +1515,6 @@ def repo_capital(
         trade: RepoTrade instance.
         counterparty_rw: counterparty risk weight.
     """
-    import math
-
     # SFT EAD: exposure = cash_amount, collateral = market_value × (1-haircut)
     exposure = trade.cash_amount
     collateral = trade.market_value
