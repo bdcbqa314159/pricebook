@@ -107,9 +107,8 @@ def asw_risk_metrics(
     net_dv01 = bond_dv01 * face / 100.0 + swap_dv01
     basis_risk = abs(net_dv01)
 
-    # ASW01: PV change per 1bp spread move
-    # ASW01 = annuity × face × 0.0001
-    asw01 = annuity * face * bump
+    # ASW01: PV change per 1bp spread move (always 1bp, independent of bump param)
+    asw01 = annuity * face * 0.0001
 
     # Net PV: bond PV - market price (par convention)
     notional = face

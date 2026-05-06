@@ -112,6 +112,12 @@ class GuaranteedNote:
                           ("recovery_joint", recovery_joint)]:
             if not 0 <= val <= 1:
                 raise ValueError(f"{name} must be in [0, 1], got {val}")
+        if recovery_joint > min(recovery_issuer, recovery_guarantor):
+            raise ValueError(
+                f"recovery_joint ({recovery_joint}) cannot exceed "
+                f"min(recovery_issuer, recovery_guarantor) = "
+                f"{min(recovery_issuer, recovery_guarantor)}"
+            )
 
         self.start = start
         self.end = end

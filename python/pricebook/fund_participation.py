@@ -106,6 +106,7 @@ class FundParticipation:
             raise ValueError(f"commitment must be positive, got {commitment}")
 
         self.commitment = commitment
+        self.notional = commitment  # alias for desk compatibility
         self.vintage_year = vintage_year
         self.fund_life_years = fund_life_years
         self.mgmt_fee_rate = mgmt_fee_rate

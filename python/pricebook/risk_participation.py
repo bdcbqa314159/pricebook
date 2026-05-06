@@ -99,8 +99,8 @@ class RiskParticipation:
             raise ValueError(f"participation_rate must be in (0, 1], got {participation_rate}")
         if loan_notional <= 0:
             raise ValueError(f"loan_notional must be positive, got {loan_notional}")
-        if not 0 <= recovery < 1:
-            raise ValueError(f"recovery must be in [0, 1), got {recovery}")
+        if not 0 <= recovery <= 1:
+            raise ValueError(f"recovery must be in [0, 1], got {recovery}")
         if start >= end:
             raise ValueError(f"start ({start}) must be before end ({end})")
 

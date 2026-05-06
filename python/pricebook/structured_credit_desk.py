@@ -266,8 +266,11 @@ def sc_carry_decomposition(
         funding = -(inst.illiquidity_premium_bp / 10_000) * notional * dt
 
     elif isinstance(inst, FundParticipation):
-        coupon = inst.gross_return * notional * dt
-        funding = -inst.mgmt_fee_rate * notional * dt
+        # Fund carry: gross return on invested capital, fees on commitment/invested
+        m = inst.metrics()
+        invested = m.invested
+        coupon = inst.gross_return * invested * dt
+        funding = -inst.mgmt_fee_rate * (inst.commitment if inst.fee_basis == "committed" else invested) * dt
 
     net = coupon + credit_cost + funding
     return SCCarryDecomposition(coupon, credit_cost, funding, net)
