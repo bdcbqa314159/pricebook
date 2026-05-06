@@ -1,37 +1,38 @@
 """Amortising, accreting, and roller-coaster swaps.
 
-Notional varies per period according to a schedule. Each period's
-fixed and floating cashflows use that period's notional.
+DEPRECATED: Use InterestRateSwap(notional=[...]) instead.
+
+This module provides a compatibility wrapper. InterestRateSwap now
+natively supports per-period notional schedules via notional_schedule.
+
+    # New way (preferred):
+    from pricebook.swap import InterestRateSwap
+    swap = InterestRateSwap(start, end, rate, notional=[1e6, 800e3, 600e3, ...])
+
+    # Old way (deprecated, still works):
+    from pricebook.amortising_swap import AmortisingSwap
+    swap = AmortisingSwap(start, end, rate, notional_schedule=[1e6, 800e3, ...])
 """
 
 from __future__ import annotations
 
+import warnings
 from datetime import date
-
-import numpy as np
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, StubType, generate_schedule
+from pricebook.swap import InterestRateSwap
 from pricebook.calendar import Calendar, BusinessDayConvention
 
 
 class AmortisingSwap:
     """Interest rate swap with per-period notional schedule.
 
+    DEPRECATED: Use InterestRateSwap(notional=[...]) instead.
+
     Supports amortising (decreasing), accreting (increasing), and
     roller-coaster (arbitrary) notional profiles.
-
-    Args:
-        start: effective date.
-        end: maturity date.
-        fixed_rate: fixed coupon rate.
-        notional_schedule: list of notionals, one per period.
-            If shorter than the number of periods, the last value is repeated.
-        frequency: payment frequency (same for fixed and float).
-        fixed_day_count: day count for fixed leg.
-        float_day_count: day count for floating leg.
-        spread: floating leg spread.
     """
 
     def __init__(
@@ -47,23 +48,35 @@ class AmortisingSwap:
         calendar: Calendar | None = None,
         convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
     ):
+        warnings.warn(
+            "AmortisingSwap is deprecated. Use InterestRateSwap(notional=[...]) instead.",
+            DeprecationWarning, stacklevel=2,
+        )
+
+        self._swap = InterestRateSwap(
+            start, end, fixed_rate,
+            notional=notional_schedule,
+            fixed_frequency=frequency,
+            float_frequency=frequency,
+            fixed_day_count=fixed_day_count,
+            float_day_count=float_day_count,
+            spread=spread,
+            calendar=calendar,
+            convention=convention,
+        )
+
+        # Expose attributes for backward compat
         self.start = start
         self.end = end
         self.fixed_rate = fixed_rate
         self.spread = spread
         self.fixed_day_count = fixed_day_count
         self.float_day_count = float_day_count
-
-        schedule = generate_schedule(start, end, frequency, calendar, convention,
-                                     StubType.SHORT_FRONT, True)
-        self.periods = list(zip(schedule[:-1], schedule[1:]))
-        n = len(self.periods)
-
-        # Extend notional schedule if needed
-        if len(notional_schedule) < n:
-            notional_schedule = list(notional_schedule) + \
-                [notional_schedule[-1]] * (n - len(notional_schedule))
-        self.notionals = notional_schedule[:n]
+        self.notionals = list(self._swap.notional_schedule)
+        self.periods = list(zip(
+            [cf.accrual_start for cf in self._swap.fixed_leg.cashflows],
+            [cf.accrual_end for cf in self._swap.fixed_leg.cashflows],
+        ))
 
     @classmethod
     def amortising(
@@ -73,7 +86,7 @@ class AmortisingSwap:
         fixed_rate: float,
         initial_notional: float,
         **kwargs,
-    ) -> "AmortisingSwap":
+    ) -> AmortisingSwap:
         """Linear amortising swap: notional decreases evenly to zero."""
         freq = kwargs.get("frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)
@@ -90,7 +103,7 @@ class AmortisingSwap:
         initial_notional: float,
         final_notional: float,
         **kwargs,
-    ) -> "AmortisingSwap":
+    ) -> AmortisingSwap:
         """Linear accreting swap: notional increases from initial to final."""
         freq = kwargs.get("frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)
@@ -102,43 +115,18 @@ class AmortisingSwap:
         return cls(start, end, fixed_rate, notionals, **kwargs)
 
     def pv_fixed(self, curve: DiscountCurve) -> float:
-        """PV of the fixed leg."""
-        pv = 0.0
-        for (s, e), notl in zip(self.periods, self.notionals):
-            yf = year_fraction(s, e, self.fixed_day_count)
-            pv += notl * self.fixed_rate * yf * curve.df(e)
-        return pv
+        return self._swap.fixed_leg.pv(curve)
 
     def pv_float(self, curve: DiscountCurve, projection: DiscountCurve | None = None) -> float:
-        """PV of the floating leg."""
-        proj = projection or curve
-        pv = 0.0
-        for (s, e), notl in zip(self.periods, self.notionals):
-            yf = year_fraction(s, e, self.float_day_count)
-            # Forward rate using float_day_count (not the curve's internal day count)
-            df1 = proj.df(s)
-            df2 = proj.df(e)
-            fwd = (df1 - df2) / (yf * df2)
-            pv += notl * (fwd + self.spread) * yf * curve.df(e)
-        return pv
+        return self._swap.floating_leg.pv(curve, projection)
 
     def pv(self, curve: DiscountCurve, projection: DiscountCurve | None = None) -> float:
-        """PV of the swap (payer = receive float - pay fixed)."""
-        return self.pv_float(curve, projection) - self.pv_fixed(curve)
+        return self._swap.pv(curve, projection)
 
     def par_rate(self, curve: DiscountCurve, projection: DiscountCurve | None = None) -> float:
-        """Fixed rate that makes PV = 0."""
-        annuity = sum(
-            notl * year_fraction(s, e, self.fixed_day_count) * curve.df(e)
-            for (s, e), notl in zip(self.periods, self.notionals)
-        )
-        if abs(annuity) < 1e-12:
-            return 0.0
-        float_pv = self.pv_float(curve, projection)
-        return float_pv / annuity
+        return self._swap.par_rate(curve, projection)
 
     def dv01(self, curve: DiscountCurve, shift: float = 0.0001) -> float:
-        """Parallel DV01."""
         pv_base = self.pv(curve)
         pv_bumped = self.pv(curve.bumped(shift))
         return pv_bumped - pv_base
