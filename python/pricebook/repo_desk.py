@@ -24,8 +24,16 @@ from datetime import date, timedelta
 
 import math
 
+from enum import Enum
+
 from pricebook.day_count import year_fraction as _year_fraction
 from pricebook.zscore import zscore as _zscore, ZScoreSignal
+
+
+class RepoDirection(str, Enum):
+    """Repo direction: repo (lend bond) or reverse (lend cash)."""
+    REPO = "repo"
+    REVERSE = "reverse"
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +72,7 @@ class RepoTrade:
         repo_rate: float = 0.0,
         term_days: int = 1,
         coupon_rate: float = 0.0,
-        direction: str = "repo",
+        direction: str | RepoDirection = "repo",
         start_date: date | None = None,
         haircut: float = 0.0,
         status: str = "live",
@@ -95,7 +103,8 @@ class RepoTrade:
         self.repo_rate = repo_rate
         self.term_days = term_days
         self.coupon_rate = coupon_rate
-        self.direction = direction
+        # Normalize direction to string for backward compat (== "repo" still works)
+        self.direction = RepoDirection(direction).value
         self.start_date = start_date
         self.haircut = haircut
         self.status = status
