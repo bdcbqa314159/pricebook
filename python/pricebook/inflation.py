@@ -239,6 +239,10 @@ class ZCInflationSwap:
 
     def __init__(self, start: date, end: date, fixed_rate: float,
                  notional: float = 1_000_000.0):
+        if start >= end:
+            raise ValueError(f"start ({start}) must be before end ({end})")
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
         self.start = start
         self.end = end
         self.fixed_rate = fixed_rate
@@ -270,6 +274,10 @@ class YoYInflationSwap:
     def __init__(self, start: date, end: date, fixed_rate: float,
                  notional: float = 1_000_000.0,
                  frequency: Frequency = Frequency.ANNUAL):
+        if start >= end:
+            raise ValueError(f"start ({start}) must be before end ({end})")
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
         self.start = start
         self.end = end
         self.fixed_rate = fixed_rate

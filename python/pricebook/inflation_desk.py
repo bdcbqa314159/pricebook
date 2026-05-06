@@ -19,7 +19,7 @@ from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
+from pricebook.inflation import InflationLinkedBond, ZCInflationSwap, YoYInflationSwap
 
 
 # ---------------------------------------------------------------------------
@@ -46,8 +46,6 @@ class InflationRiskMetrics:
 
 def _price_inflation(instrument, discount_curve, cpi_curve) -> float:
     """Uniform pricer dispatching on instrument type."""
-    from pricebook.inflation import InflationLinkedBond, ZCInflationSwap, YoYInflationSwap
-
     if isinstance(instrument, InflationLinkedBond):
         return instrument.dirty_price(discount_curve, cpi_curve) * instrument.notional / 100.0
     elif isinstance(instrument, (ZCInflationSwap, YoYInflationSwap)):
@@ -346,25 +344,36 @@ def inflation_carry_decomposition(
 ) -> InflationCarryDecomposition:
     """Decompose inflation carry into real yield and breakeven accrual.
 
-    Real yield carry: the real coupon/rate income over the horizon.
-    Breakeven accrual: the CPI indexation (inflation expectation) over the horizon.
+    For linkers:
+        real_yield_carry = real_coupon_rate × notional × dt
+        breakeven_accrual = breakeven_rate × notional × dt (CPI indexation)
+
+    For swaps (ZC/YoY):
+        real_yield_carry = 0 (no real coupon, it's a derivative)
+        breakeven_accrual = (breakeven - fixed_rate) × notional × dt
+        (positive carry when breakeven > fixed rate = swap is in the money)
     """
     dt = horizon_days / 365.0
-
-    # Real yield component: coupon rate (for linker/swap fixed rate)
-    real_rate = getattr(instrument, 'coupon_rate',
-                        getattr(instrument, 'fixed_rate', 0.0))
     notional = getattr(instrument, 'notional', 0.0)
-    real_yield_carry = real_rate * notional * dt
 
-    # Breakeven accrual: CPI forward rate * notional * dt
     maturity = getattr(instrument, 'end',
                        getattr(instrument, 'maturity', None))
-    if maturity is not None:
-        be = cpi_curve.breakeven_rate(maturity)
+    be = cpi_curve.breakeven_rate(maturity) if maturity is not None else 0.0
+
+    if isinstance(instrument, InflationLinkedBond):
+        # Linker: real coupon + CPI indexation
+        real_yield_carry = instrument.coupon_rate * notional * dt
+        breakeven_accrual = be * notional * dt
+    elif isinstance(instrument, (ZCInflationSwap, YoYInflationSwap)):
+        # Swap: no real coupon; carry = (breakeven - fixed_rate) × notional × dt
+        real_yield_carry = 0.0
+        breakeven_accrual = (be - instrument.fixed_rate) * notional * dt
     else:
-        be = 0.0
-    breakeven_accrual = be * notional * dt
+        # Generic fallback
+        real_rate = getattr(instrument, 'coupon_rate',
+                            getattr(instrument, 'fixed_rate', 0.0))
+        real_yield_carry = real_rate * notional * dt
+        breakeven_accrual = be * notional * dt
 
     net = real_yield_carry + breakeven_accrual
 
