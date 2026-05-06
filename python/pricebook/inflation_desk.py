@@ -429,3 +429,50 @@ class InflationCapitalResult:
     def to_dict(self) -> dict:
         return {"ead": self.ead, "rwa": self.rwa, "capital": self.capital,
                 "simm_im": self.simm_im}
+
+
+def inflation_capital(
+    instrument,
+    discount_curve: DiscountCurve,
+    cpi_curve,
+    counterparty_rw: float = 0.20,
+) -> InflationCapitalResult:
+    """SA-CCR capital for an inflation position.
+
+    Uses GIRR supervisory factor (SF=0.005) for inflation products.
+    SIMM: IE01 mapped to GIRR inflation bucket.
+
+    Args:
+        instrument: inflation instrument with .notional.
+        discount_curve: nominal discount curve.
+        cpi_curve: CPICurve.
+        counterparty_rw: counterparty risk weight (default 20%).
+    """
+    from pricebook.day_count import year_fraction as _yf, DayCountConvention as _DC
+
+    rm = inflation_risk_metrics(instrument, discount_curve, cpi_curve)
+    pv = rm.pv
+    mtm = max(pv, 0)
+    notional = rm.notional
+
+    # Time to maturity
+    maturity = getattr(instrument, 'end',
+                       getattr(instrument, 'maturity', None))
+    if maturity is not None:
+        T = _yf(discount_curve.reference_date, maturity, _DC.ACT_365_FIXED)
+    else:
+        T = 1.0
+
+    # SA-CCR: SF=0.005 for GIRR
+    sf = 0.005
+    mf = math.sqrt(min(T, 1.0))
+    ead = 1.4 * (mtm + notional * sf * mf)
+    rwa = ead * counterparty_rw
+    capital = rwa * 0.08
+
+    # SIMM: IE01 into GIRR inflation bucket
+    # GIRR inflation risk weight = 16bp (ISDA SIMM 2.6)
+    girr_inflation_rw = 0.0016
+    simm_im = abs(rm.ie01) / girr_inflation_rw if girr_inflation_rw > 0 else 0.0
+
+    return InflationCapitalResult(ead=ead, rwa=rwa, capital=capital, simm_im=simm_im)
