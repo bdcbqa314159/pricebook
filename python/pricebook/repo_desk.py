@@ -425,8 +425,8 @@ class RepoTrade:
         """Mark the trade as matured."""
         self.status = "matured"
 
-    def terminate_early(self, termination_date: date | None = None) -> None:
-        """Early termination."""
+    def terminate_early(self) -> None:
+        """Mark the trade as early-terminated."""
         self.status = "terminated"
 
     def roll(self, new_rate: float, new_term_days: int, new_date: date | None = None) -> "RepoTrade":
@@ -577,10 +577,18 @@ class RepoTrade:
         )
 
 
-    # Factory classmethods delegate to standalone functions (below)
-    buy_sell_back = classmethod(lambda cls, *a, **kw: buy_sell_back_repo(*a, **kw))
-    repo_to_maturity = classmethod(lambda cls, *a, **kw: repo_to_maturity(*a, **kw))
-    equity_repo = classmethod(lambda cls, *a, **kw: equity_repo(*a, **kw))
+    # Deprecated classmethods — use standalone functions directly
+    @classmethod
+    def buy_sell_back(cls, *args, **kwargs) -> "RepoTrade":
+        return buy_sell_back_repo(*args, **kwargs)
+
+    @classmethod
+    def repo_to_maturity(cls, *args, **kwargs) -> "RepoTrade":
+        return repo_to_maturity_trade(*args, **kwargs)
+
+    @classmethod
+    def equity_repo(cls, *args, **kwargs) -> "RepoTrade":
+        return equity_repo_trade(*args, **kwargs)
 
 
 RepoTrade._SERIAL_TYPE = "repo_trade"
@@ -614,7 +622,7 @@ def buy_sell_back_repo(
     )
 
 
-def repo_to_maturity(
+def repo_to_maturity_trade(
     counterparty: str,
     bond,
     repo_rate: float,
@@ -637,7 +645,7 @@ def repo_to_maturity(
     )
 
 
-def equity_repo(
+def equity_repo_trade(
     counterparty: str,
     stock_id: str,
     shares: int,
