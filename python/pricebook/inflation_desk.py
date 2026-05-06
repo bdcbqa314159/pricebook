@@ -17,6 +17,7 @@ import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 
@@ -93,9 +94,10 @@ def inflation_risk_metrics(
     pv_disc_dn = _price_inflation(instrument, discount_curve.bumped(-bump), cpi_curve)
     real_dv01 = (pv_disc_up - pv_disc_dn) / 2
 
-    # Nominal DV01: bump both curves simultaneously
+    # Nominal DV01: bump both curves simultaneously (centred)
     pv_both_up = _price_inflation(instrument, discount_curve.bumped(bump), cpi_up)
-    nominal_dv01 = pv_both_up - base_pv
+    pv_both_dn = _price_inflation(instrument, discount_curve.bumped(-bump), cpi_dn)
+    nominal_dv01 = (pv_both_up - pv_both_dn) / 2
 
     notional = getattr(instrument, 'notional', 0.0)
 
@@ -139,7 +141,7 @@ def inflation_dashboard(
     total_real = 0.0
 
     for p in positions:
-        ptype = getattr(p, 'instrument_type', 'other')
+        ptype = getattr(p, 'product_type', 'other')
         by_type[ptype] = by_type.get(ptype, 0) + 1
         total_ie01 += getattr(p, 'ie01', 0.0)
         total_real += getattr(p, 'real_dv01', 0.0)
@@ -276,13 +278,22 @@ class InflationLifecycle:
         return sorted(self._events, key=lambda x: x.get("date", ""))
 
     def fixing_alert(self, as_of: date, alert_days: int = 5) -> dict | None:
-        """Alert for upcoming CPI fixing (typically 2-3 month lag)."""
-        # CPI is published with a lag — next fixing date is roughly as_of + 2 months
-        next_fixing = as_of + timedelta(days=60)
-        if (next_fixing - as_of).days <= alert_days + 60:
+        """Alert for upcoming CPI fixing (typically 2-3 month lag).
+
+        Returns alert if the next CPI publication is within alert_days.
+        CPI for month M is typically published around day 10-15 of month M+2.
+        """
+        # Approximate next CPI publication: 15th of (as_of.month + 2)
+        pub_month = as_of.month + 2
+        pub_year = as_of.year + (pub_month - 1) // 12
+        pub_month = (pub_month - 1) % 12 + 1
+        next_fixing = date(pub_year, pub_month, 15)
+        days_until = (next_fixing - as_of).days
+        if 0 < days_until <= alert_days:
             return {
                 "type": InflationEventType.CPI_FIXING,
                 "date": next_fixing.isoformat(),
+                "days_until": days_until,
                 "note": "CPI publication expected — check for seasonal adjustment",
             }
         return None
@@ -462,8 +473,6 @@ def inflation_capital(
         cpi_curve: CPICurve.
         counterparty_rw: counterparty risk weight (default 20%).
     """
-    from pricebook.day_count import year_fraction as _yf, DayCountConvention as _DC
-
     rm = inflation_risk_metrics(instrument, discount_curve, cpi_curve)
     pv = rm.pv
     mtm = max(pv, 0)
@@ -473,7 +482,7 @@ def inflation_capital(
     maturity = getattr(instrument, 'end',
                        getattr(instrument, 'maturity', None))
     if maturity is not None:
-        T = _yf(discount_curve.reference_date, maturity, _DC.ACT_365_FIXED)
+        T = year_fraction(discount_curve.reference_date, maturity, DayCountConvention.ACT_365_FIXED)
     else:
         T = 1.0
 
@@ -486,7 +495,9 @@ def inflation_capital(
 
     # SIMM: IE01 into GIRR inflation bucket
     # GIRR inflation risk weight = 16bp (ISDA SIMM 2.6)
+    # IM ≈ |delta_sensitivity| × risk_weight × sqrt(holding_period/year)
     girr_inflation_rw = 0.0016
-    simm_im = abs(rm.ie01) / girr_inflation_rw if girr_inflation_rw > 0 else 0.0
+    holding_period_factor = math.sqrt(10.0 / 252.0)  # 10-day MPOR
+    simm_im = abs(rm.ie01) * girr_inflation_rw * holding_period_factor
 
     return InflationCapitalResult(ead=ead, rwa=rwa, capital=capital, simm_im=simm_im)

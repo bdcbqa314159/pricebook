@@ -145,6 +145,8 @@ class InflationBook:
 
         Returns dict compatible with cross_asset_desk (includes total_dv01).
         """
+        from pricebook.inflation_desk import inflation_risk_metrics
+
         total_pv = 0.0
         total_ie01 = 0.0
         total_real_dv01 = 0.0
@@ -154,7 +156,6 @@ class InflationBook:
         for e in self._entries:
             sign = e.trade.direction * e.trade.notional_scale
             if e.instrument is not None and discount_curve is not None and cpi_curve is not None:
-                from pricebook.inflation_desk import inflation_risk_metrics
                 rm = inflation_risk_metrics(e.instrument, discount_curve, cpi_curve)
                 total_pv += sign * rm.pv
                 total_ie01 += sign * rm.ie01
