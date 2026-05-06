@@ -56,9 +56,13 @@ class CPICurve:
         self.reference_date = reference_date
         self.base_cpi = base_cpi
         self.day_count = day_count
+        self._pillar_dates = list(dates)
+        self._pillar_cpi = list(cpi_levels)
 
         times = [year_fraction(reference_date, d, day_count) for d in dates]
         log_ratios = [math.log(c / base_cpi) for c in cpi_levels]
+        self._times = times
+        self._log_ratios = log_ratios
 
         if len(times) == 1:
             self._single_rate = log_ratios[0] / times[0] if times[0] > 0 else 0.0
@@ -104,6 +108,23 @@ class CPICurve:
             t = year_fraction(reference_date, d, day_count)
             cpi_levels.append(base_cpi * (1 + r) ** t)
         return CPICurve(reference_date, base_cpi, dates, cpi_levels, day_count)
+
+    def bumped(self, shift: float) -> "CPICurve":
+        """Return a new CPI curve with all breakeven rates shifted by `shift`.
+
+        Shifts the internal log-ratios by shift * t_i, which is equivalent
+        to adding `shift` to the continuously-compounded breakeven rate at
+        each pillar. Avoids the breakeven round-trip via from_breakevens.
+
+        Args:
+            shift: parallel shift in breakeven rate (e.g., 0.0001 for 1bp).
+        """
+        shifted_cpi = [
+            self.base_cpi * math.exp(lr + shift * t)
+            for lr, t in zip(self._log_ratios, self._times)
+        ]
+        return CPICurve(self.reference_date, self.base_cpi,
+                        self._pillar_dates, shifted_cpi, self.day_count)
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +219,75 @@ def yoy_inflation_par_rate(
         num += df * (cpi_ratio - 1)
         den += df * yf
     return num / den if abs(den) > 1e-15 else 0.0
+
+
+# ---------------------------------------------------------------------------
+# Instrument wrapper classes (for desk book integration)
+# ---------------------------------------------------------------------------
+
+class ZCInflationSwap:
+    """Zero-coupon inflation swap (receiver inflation).
+
+    At maturity: receives CPI(T)/CPI(0) - 1, pays (1+K)^T - 1.
+
+    Args:
+        start: effective date.
+        end: maturity date.
+        fixed_rate: fixed inflation rate K.
+        notional: swap notional.
+    """
+
+    def __init__(self, start: date, end: date, fixed_rate: float,
+                 notional: float = 1_000_000.0):
+        self.start = start
+        self.end = end
+        self.fixed_rate = fixed_rate
+        self.notional = notional
+
+    def pv(self, discount_curve: DiscountCurve, cpi_curve: CPICurve) -> float:
+        return zc_inflation_swap_pv(
+            self.fixed_rate, discount_curve, cpi_curve,
+            self.end, notional=self.notional,
+        )
+
+    def par_rate(self, discount_curve: DiscountCurve, cpi_curve: CPICurve) -> float:
+        return zc_inflation_par_rate(discount_curve, cpi_curve, self.end)
+
+
+class YoYInflationSwap:
+    """Year-on-year inflation swap (receiver inflation).
+
+    Each period: receives CPI(t_i)/CPI(t_{i-1}) - 1, pays K * yf.
+
+    Args:
+        start: effective date.
+        end: maturity date.
+        fixed_rate: fixed YoY rate K.
+        notional: swap notional.
+        frequency: payment frequency.
+    """
+
+    def __init__(self, start: date, end: date, fixed_rate: float,
+                 notional: float = 1_000_000.0,
+                 frequency: Frequency = Frequency.ANNUAL):
+        self.start = start
+        self.end = end
+        self.fixed_rate = fixed_rate
+        self.notional = notional
+        self.frequency = frequency
+
+    def pv(self, discount_curve: DiscountCurve, cpi_curve: CPICurve) -> float:
+        return yoy_inflation_swap_pv(
+            self.fixed_rate, discount_curve, cpi_curve,
+            self.start, self.end, notional=self.notional,
+            frequency=self.frequency,
+        )
+
+    def par_rate(self, discount_curve: DiscountCurve, cpi_curve: CPICurve) -> float:
+        return yoy_inflation_par_rate(
+            discount_curve, cpi_curve, self.start, self.end,
+            frequency=self.frequency,
+        )
 
 
 # ---------------------------------------------------------------------------
