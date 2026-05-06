@@ -963,6 +963,33 @@ class RepoBook:
             return 0.0
         return sum(e.cash_amount * e.repo_rate for e in sp) / total_cash
 
+    def positions(self) -> list[RepoTradeEntry]:
+        """Return all entries (desk protocol compat)."""
+        return list(self._entries)
+
+    def aggregate_risk(self, curve=None) -> dict:
+        """Aggregate risk for cross-asset desk integration.
+
+        Returns dict with total_pv, total_dv01, total_notional, n_positions.
+        """
+        total_cash = 0.0
+        total_carry = 0.0
+        total_notional = 0.0
+
+        for e in self._entries:
+            total_cash += e.cash_amount
+            total_carry += e.carry
+            total_notional += e.face_amount
+
+        return {
+            "total_pv": total_carry,
+            "total_dv01": total_cash * (1 / 360) * 0.0001 * 10_000,
+            "total_notional": total_notional,
+            "total_cash": total_cash,
+            "total_carry": total_carry,
+            "n_positions": len(self._entries),
+        }
+
 
 # ---- Repo rate monitor ----
 
@@ -2801,27 +2828,10 @@ class RepoLifecycle:
 # aggregate_risk for cross-asset compatibility
 # ---------------------------------------------------------------------------
 
-def _repo_book_aggregate_risk(book: RepoBook) -> dict:
-    """Aggregate risk across a RepoBook for cross-asset desk integration."""
-    total_cash = 0.0
-    total_carry = 0.0
-    total_notional = 0.0
+# ---------------------------------------------------------------------------
+# Standardized function name aliases (desk protocol consistency)
+# ---------------------------------------------------------------------------
 
-    for e in book.entries:
-        total_cash += e.cash_amount
-        total_carry += e.carry
-        total_notional += e.face_amount
-
-    return {
-        "total_pv": total_carry,
-        "total_dv01": total_cash * (1 / 360) * 0.0001 * 10_000,  # approx 1bp DV01
-        "total_notional": total_notional,
-        "total_cash": total_cash,
-        "total_carry": total_carry,
-        "n_positions": len(book),
-    }
-
-
-# Monkey-patch aggregate_risk onto RepoBook for cross-asset compat
-RepoBook.aggregate_risk = lambda self, curve=None: _repo_book_aggregate_risk(self)
-RepoBook.positions = lambda self: list(self._entries)
+repo_dashboard = daily_dashboard
+repo_stress_suite = stress_test_suite
+repo_hedge_recommendations = hedge_recommendations
