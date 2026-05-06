@@ -6,7 +6,6 @@ All symbols are re-exported from repo_desk.py for backward compatibility.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 

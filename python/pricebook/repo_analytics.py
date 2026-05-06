@@ -592,7 +592,7 @@ def repo_book_pv(
         start = e.start_date or reference_date
         mat = start + timedelta(days=e.term_days)
         df = discount_curve.df(mat)
-        dt = e.term_days / 365.0
+        dt = e.term_days / 360.0  # ACT/360 repo convention
 
         repurchase = e.cash_amount * (1 + e.repo_rate * dt)
 
