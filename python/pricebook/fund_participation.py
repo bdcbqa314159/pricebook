@@ -127,6 +127,8 @@ class FundParticipation:
         total_distributed = 0.0
         drawdown_map = dict(self.drawdown_schedule)
 
+        harvest_start = max(p for p, _ in self.drawdown_schedule) + 1
+
         for period in range(1, self.fund_life_years + 1):
             # Capital call
             call_frac = drawdown_map.get(period, 0.0)
@@ -146,7 +148,6 @@ class FundParticipation:
             # Distributions: start harvesting after investment period
             distribution = 0.0
             carry = 0.0
-            harvest_start = max(p for p, _ in self.drawdown_schedule) + 1
 
             if period >= harvest_start and nav > 0:
                 # Distribute proportionally over remaining life

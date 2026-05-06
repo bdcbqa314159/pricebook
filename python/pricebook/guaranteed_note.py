@@ -27,6 +27,8 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
+from scipy.stats import norm, multivariate_normal
+
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
@@ -39,8 +41,6 @@ def _bivariate_normal_cdf(x: float, y: float, rho: float) -> float:
     For the special cases ρ=0, ±1, uses exact formulas.
     General case uses the Drezner (1978) approximation with Gauss-Legendre.
     """
-    from scipy.stats import norm, multivariate_normal
-
     if abs(rho) < 1e-10:
         return norm.cdf(x) * norm.cdf(y)
     if rho > 1 - 1e-10:
@@ -132,7 +132,6 @@ class GuaranteedNote:
         P(note survives) = 1 - P(both default)
                          = 1 - Φ₂(Φ⁻¹(PD_A), Φ⁻¹(PD_B), ρ)
         """
-        from scipy.stats import norm
 
         pd_a = 1 - issuer_surv.survival(t)
         pd_b = 1 - guarantor_surv.survival(t)
@@ -159,7 +158,6 @@ class GuaranteedNote:
            + principal × df_T × Q_eff(T)
            + recovery terms for default scenarios
         """
-        from scipy.stats import norm
 
         pv = 0.0
         for i in range(1, len(self.schedule)):

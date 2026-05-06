@@ -184,8 +184,8 @@ class SPV:
             # Interest
             interest = balance * self.pool_coupon * dt
 
-            # Scheduled principal (amortising assumption: 1/n_periods)
-            sched_principal = self.pool_balance / self.n_periods * dt * 4
+            # Scheduled principal (amortising assumption: equal across periods)
+            sched_principal = self.pool_balance / self.n_periods
 
             # Total principal
             total_principal = prepayments + sched_principal + recoveries

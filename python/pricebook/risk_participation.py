@@ -34,7 +34,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.cds import premium_leg_pv, protection_leg_pv
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.schedule import Frequency
 
 
 # ---------------------------------------------------------------------------
