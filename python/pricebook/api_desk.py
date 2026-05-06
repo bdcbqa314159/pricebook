@@ -247,6 +247,7 @@ def _analyse_cds(ref, curve, **kw):
         "cs01": rm.cs01, "rec01": rm.rec01, "jtd": rm.jump_to_default,
         "carry": carry.to_dict(), "theta": rm.theta,
         "spread_duration": rm.spread_duration,
+        "notional": cds.notional,
     }
     if isinstance(notional, list):
         result["notional_schedule"] = cds.notional_schedule
@@ -293,6 +294,7 @@ def _analyse_cln(ref, curve, **kw):
         "recovery_sensitivity": rm.recovery_sensitivity,
         "jtd": rm.jump_to_default_pnl,
         "carry": carry.to_dict(), "leverage": leverage,
+        "notional": cln_inst.notional,
     }
     if isinstance(notional, list):
         result["notional_schedule"] = cln_inst.notional_schedule
