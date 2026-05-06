@@ -59,8 +59,10 @@ class TestRepoBook:
                                 bond_price=100.0, repo_rate=0.04,
                                 term_days=365, coupon_rate=0.05,
                                 direction="repo"))
-        # coupon = 500K, financing = 400K, carry = +100K
-        assert book.net_carry() == pytest.approx(100_000)
+        # coupon = 10M × 0.05 × (365/365) = 500K
+        # financing = 10M × 0.04 × (365/360) = 405,556 (ACT/360 convention)
+        # carry = 500K - 405,556 = 94,444
+        assert book.net_carry() == pytest.approx(94_444.44, rel=0.01)
 
     def test_total_cash_out(self):
         book = RepoBook("test")

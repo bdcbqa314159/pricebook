@@ -783,34 +783,41 @@ class RepoCollateralSummary:
 class RepoBook:
     """A collection of repo positions with aggregation.
 
+    Stores RepoTrade objects. Accepts both RepoTrade and legacy
+    RepoTradeEntry (auto-converted to RepoTrade).
+
     Args:
         name: book name (e.g. "GovtRepo", "IG_Repo").
     """
 
     def __init__(self, name: str):
         self.name = name
-        self._entries: list[RepoTradeEntry] = []
+        self._entries: list[RepoTrade] = []
 
     def add(self, entry) -> None:
-        """Add a RepoTradeEntry or RepoTrade to the book."""
-        if isinstance(entry, RepoTrade):
-            # Convert RepoTrade to RepoTradeEntry for backward compat
-            entry = RepoTradeEntry(
+        """Add a RepoTrade or RepoTradeEntry to the book.
+
+        RepoTradeEntry is auto-converted to RepoTrade (haircut=0)
+        for unified storage.
+        """
+        if isinstance(entry, RepoTradeEntry):
+            entry = RepoTrade(
                 counterparty=entry.counterparty,
                 collateral_issuer=entry.collateral_issuer,
                 collateral_type=entry.collateral_type,
                 face_amount=entry.face_amount,
                 bond_price=entry.bond_price,
                 repo_rate=entry.repo_rate,
-                term_days=max(entry.term_days, 1),
+                term_days=entry.term_days,
                 coupon_rate=entry.coupon_rate,
                 direction=entry.direction,
                 start_date=entry.start_date,
+                haircut=0.0,  # RepoTradeEntry has no haircut
             )
         self._entries.append(entry)
 
     @property
-    def entries(self) -> list[RepoTradeEntry]:
+    def entries(self) -> list[RepoTrade]:
         return list(self._entries)
 
     def __len__(self) -> int:
@@ -897,7 +904,7 @@ class RepoBook:
             return 0.0
         return sum(e.cash_amount * e.repo_rate for e in sp) / total_cash
 
-    def positions(self) -> list[RepoTradeEntry]:
+    def positions(self) -> list[RepoTrade]:
         """Return all entries (desk protocol compat)."""
         return list(self._entries)
 
