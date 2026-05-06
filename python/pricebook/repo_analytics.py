@@ -33,12 +33,12 @@ class CTDRepoCandidate:
 
     @property
     def financing_cost(self) -> float:
-        return self.bond_price * self.repo_rate * self.term_days / 365.0
+        return self.bond_price * self.repo_rate * self.term_days / 360.0  # ACT/360
 
     @property
     def carry(self) -> float:
-        dt = self.term_days / 365.0
-        return self.coupon_rate * 100.0 * dt - self.financing_cost
+        dt_coupon = self.term_days / 365.0  # ACT/365 for coupon
+        return self.coupon_rate * 100.0 * dt_coupon - self.financing_cost
 
 
 def cheapest_to_deliver_repo(

@@ -28,9 +28,10 @@ class TestRepoTradeEntry:
         e = RepoTradeEntry("CP1", "UST", face_amount=10_000_000,
                            bond_price=98.5, repo_rate=0.05, term_days=365,
                            coupon_rate=0.04, direction="repo")
-        # coupon = 10M × 0.04 = 400K; financing = 9.85M × 0.05 = 492.5K
-        # carry = 400K - 492.5K = -92.5K
-        assert e.carry == pytest.approx(400_000 - 492_500)
+        # coupon = 10M × 0.04 × (365/365) = 400K (ACT/365)
+        # financing = 9.85M × 0.05 × (365/360) = 499,236 (ACT/360)
+        # carry = 400K - 499,236 = -99,236
+        assert e.carry == pytest.approx(400_000 - 9_850_000 * 0.05 * 365 / 360, rel=0.001)
 
     def test_carry_reverse_flips_sign(self):
         e = RepoTradeEntry("CP1", "UST", face_amount=10_000_000,
@@ -44,7 +45,8 @@ class TestRepoTradeEntry:
     def test_financing_cost(self):
         e = RepoTradeEntry("CP1", "UST", face_amount=10_000_000,
                            bond_price=100.0, repo_rate=0.05, term_days=365)
-        assert e.financing_cost == pytest.approx(500_000)
+        # ACT/360: 10M × 0.05 × (365/360) = 506,944
+        assert e.financing_cost == pytest.approx(10_000_000 * 0.05 * 365 / 360, rel=0.001)
 
 
 class TestRepoBook:

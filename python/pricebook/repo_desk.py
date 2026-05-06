@@ -755,15 +755,16 @@ class RepoTradeEntry:
     @property
     def carry(self) -> float:
         """Net carry = coupon income − financing cost over the term."""
-        dt = self.term_days / 365.0
-        coupon = self.face_amount * self.coupon_rate * dt
-        financing = self.cash_amount * self.repo_rate * dt
+        dt_coupon = self.term_days / 365.0   # ACT/365 for coupon
+        dt_fin = self.term_days / 360.0      # ACT/360 for financing
+        coupon = self.face_amount * self.coupon_rate * dt_coupon
+        financing = self.cash_amount * self.repo_rate * dt_fin
         sign = 1.0 if self.direction == "repo" else -1.0
         return sign * (coupon - financing)
 
     @property
     def financing_cost(self) -> float:
-        dt = self.term_days / 365.0
+        dt = self.term_days / 360.0  # ACT/360
         return self.cash_amount * self.repo_rate * dt
 
 
@@ -1016,13 +1017,14 @@ def carry_pnl_decomposition(
     specialness = 0.0
 
     for e in book.entries:
-        dt = e.term_days / 365.0
+        dt_coupon = e.term_days / 365.0   # ACT/365 for coupon
+        dt_fin = e.term_days / 360.0      # ACT/360 for financing
         sign = 1.0 if e.direction == "repo" else -1.0
 
-        coupon = e.face_amount * e.coupon_rate * dt * sign
-        financing = e.cash_amount * e.repo_rate * dt * sign
+        coupon = e.face_amount * e.coupon_rate * dt_coupon * sign
+        financing = e.cash_amount * e.repo_rate * dt_fin * sign
         # Specialness: what would financing cost at GC?
-        gc_financing = e.cash_amount * gc_rate * dt * sign
+        gc_financing = e.cash_amount * gc_rate * dt_fin * sign
         spec_benefit = gc_financing - financing  # positive when repo < GC
 
         coupon_income += coupon
