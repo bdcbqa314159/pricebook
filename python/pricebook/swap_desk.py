@@ -384,6 +384,9 @@ class SwapStressResult:
         return {"scenario": self.scenario, "description": self.description, "pnl": self.pnl}
 
 
+_H_BP = 0.0001  # 1bp in rate terms, used for gamma contribution in stress
+
+
 def swap_stress_suite(
     book: SwapBook,
     curve: DiscountCurve,
@@ -404,14 +407,10 @@ def swap_stress_suite(
 
     results = []
     for name, desc, bp in scenarios:
-        pnl = dv01 * bp + 0.5 * gamma * (bp * h_bp) ** 2
+        pnl = dv01 * bp + 0.5 * gamma * (bp * _H_BP) ** 2
         results.append(SwapStressResult(name, desc, pnl))
 
     return results
-
-
-# Avoid computing h_bp in the loop
-h_bp = 0.0001  # 1bp in rate terms
 
 
 def swap_scenario_stress(
