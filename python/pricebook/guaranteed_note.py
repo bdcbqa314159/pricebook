@@ -107,6 +107,11 @@ class GuaranteedNote:
             raise ValueError(f"notional must be positive, got {notional}")
         if not -1 <= correlation <= 1:
             raise ValueError(f"correlation must be in [-1, 1], got {correlation}")
+        for name, val in [("recovery_issuer", recovery_issuer),
+                          ("recovery_guarantor", recovery_guarantor),
+                          ("recovery_joint", recovery_joint)]:
+            if not 0 <= val <= 1:
+                raise ValueError(f"{name} must be in [0, 1], got {val}")
 
         self.start = start
         self.end = end

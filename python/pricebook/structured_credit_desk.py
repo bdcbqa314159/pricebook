@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
@@ -66,7 +66,9 @@ def _price_sc(entry: "SCBookEntry", curve: DiscountCurve) -> float:
     elif isinstance(inst, PrivatePlacementPricer):
         return inst.price(curve).pv
 
-    elif isinstance(inst, SPV) and entry.tranche_name:
+    elif isinstance(inst, SPV):
+        if not entry.tranche_name:
+            raise ValueError("SPV entry requires tranche_name to identify which tranche to price")
         return inst.tranche_pv(entry.tranche_name, curve)
 
     elif isinstance(inst, FundParticipation):
