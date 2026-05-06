@@ -32,14 +32,77 @@ class InflationRiskMetrics:
     ie01: float                # inflation expectation sensitivity (1bp breakeven)
     real_dv01: float           # real rate sensitivity
     nominal_dv01: float        # nominal rate sensitivity
+    gamma: float               # d²PV/d(breakeven)²
     notional: float
 
     def to_dict(self) -> dict:
         return {
             "pv": self.pv, "ie01": self.ie01,
             "real_dv01": self.real_dv01, "nominal_dv01": self.nominal_dv01,
-            "notional": self.notional,
+            "gamma": self.gamma, "notional": self.notional,
         }
+
+
+def _price_inflation(instrument, discount_curve, cpi_curve) -> float:
+    """Uniform pricer dispatching on instrument type."""
+    from pricebook.inflation import InflationLinkedBond, ZCInflationSwap, YoYInflationSwap
+
+    if isinstance(instrument, InflationLinkedBond):
+        return instrument.dirty_price(discount_curve, cpi_curve) * instrument.notional / 100.0
+    elif isinstance(instrument, (ZCInflationSwap, YoYInflationSwap)):
+        return instrument.pv(discount_curve, cpi_curve)
+    elif hasattr(instrument, 'pv'):
+        # Generic fallback for any instrument with .pv(disc, cpi)
+        return instrument.pv(discount_curve, cpi_curve)
+    else:
+        raise TypeError(f"Cannot price inflation instrument of type {type(instrument).__name__}")
+
+
+def inflation_risk_metrics(
+    instrument,
+    discount_curve: DiscountCurve,
+    cpi_curve,
+    bump: float = 0.0001,
+) -> InflationRiskMetrics:
+    """Compute inflation risk metrics via multi-curve bump-and-reprice.
+
+    Args:
+        instrument: InflationLinkedBond, ZCInflationSwap, YoYInflationSwap, or
+            any object with .pv(discount_curve, cpi_curve) and .notional.
+        discount_curve: nominal discount curve.
+        cpi_curve: CPICurve (expected CPI index levels).
+        bump: shift size for sensitivities (default 1bp).
+
+    Returns:
+        InflationRiskMetrics with IE01, real DV01, nominal DV01, gamma.
+    """
+    base_pv = _price_inflation(instrument, discount_curve, cpi_curve)
+
+    # IE01: bump breakeven (CPI curve) by 1bp
+    cpi_up = cpi_curve.bumped(bump)
+    cpi_dn = cpi_curve.bumped(-bump)
+    pv_cpi_up = _price_inflation(instrument, discount_curve, cpi_up)
+    pv_cpi_dn = _price_inflation(instrument, discount_curve, cpi_dn)
+    ie01 = (pv_cpi_up - pv_cpi_dn) / 2
+
+    # Gamma: second-order breakeven sensitivity
+    gamma = (pv_cpi_up - 2 * base_pv + pv_cpi_dn) / (bump ** 2)
+
+    # Real DV01: bump discount curve only (centred)
+    pv_disc_up = _price_inflation(instrument, discount_curve.bumped(bump), cpi_curve)
+    pv_disc_dn = _price_inflation(instrument, discount_curve.bumped(-bump), cpi_curve)
+    real_dv01 = (pv_disc_up - pv_disc_dn) / 2
+
+    # Nominal DV01: bump both curves simultaneously
+    pv_both_up = _price_inflation(instrument, discount_curve.bumped(bump), cpi_up)
+    nominal_dv01 = pv_both_up - base_pv
+
+    notional = getattr(instrument, 'notional', 0.0)
+
+    return InflationRiskMetrics(
+        pv=base_pv, ie01=ie01, real_dv01=real_dv01,
+        nominal_dv01=nominal_dv01, gamma=gamma, notional=notional,
+    )
 
 
 # ---------------------------------------------------------------------------

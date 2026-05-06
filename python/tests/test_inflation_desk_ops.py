@@ -24,7 +24,7 @@ class TestInflationRiskMetrics:
 
     def test_to_dict(self):
         rm = InflationRiskMetrics(pv=10_000_000, ie01=5000, real_dv01=3000,
-                                   nominal_dv01=8000, notional=50_000_000)
+                                   nominal_dv01=8000, gamma=0.0, notional=50_000_000)
         d = rm.to_dict()
         assert "ie01" in d
         assert "real_dv01" in d
