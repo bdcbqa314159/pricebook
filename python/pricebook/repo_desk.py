@@ -894,6 +894,50 @@ class RepoBook:
         """Return all entries (desk protocol compat)."""
         return list(self._entries)
 
+    _SERIAL_TYPE = "repo_book"
+
+    def to_dict(self) -> dict:
+        """Serialise the RepoBook."""
+        entries = []
+        for e in self._entries:
+            entries.append({
+                "counterparty": e.counterparty,
+                "collateral_issuer": e.collateral_issuer,
+                "collateral_type": e.collateral_type,
+                "face_amount": e.face_amount,
+                "bond_price": e.bond_price,
+                "repo_rate": e.repo_rate,
+                "term_days": e.term_days,
+                "coupon_rate": e.coupon_rate,
+                "direction": e.direction,
+                "start_date": e.start_date.isoformat() if e.start_date else None,
+            })
+        return {"type": "repo_book", "params": {
+            "name": self.name, "entries": entries,
+        }}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RepoBook":
+        """Deserialise a RepoBook."""
+        p = d["params"]
+        book = cls(name=p.get("name", "repo_book"))
+        for e in p.get("entries", []):
+            sd = date.fromisoformat(e["start_date"]) if e.get("start_date") else None
+            book.add(RepoTrade(
+                counterparty=e["counterparty"],
+                collateral_issuer=e["collateral_issuer"],
+                collateral_type=e.get("collateral_type", "GC"),
+                face_amount=e["face_amount"],
+                bond_price=e["bond_price"],
+                repo_rate=e["repo_rate"],
+                term_days=e["term_days"],
+                coupon_rate=e.get("coupon_rate", 0.0),
+                direction=e.get("direction", "repo"),
+                start_date=sd,
+                haircut=0.0,
+            ))
+        return book
+
     def aggregate_risk(self, curve=None) -> dict:
         """Aggregate risk for cross-asset desk integration.
 
@@ -1360,15 +1404,6 @@ def hedge_recommendations(
 
 
 
-
-# Import serialisation helpers from operations before using them
-from pricebook.repo_operations import (  # noqa: E402
-    _RepoBookMixin, _repo_book_to_dict, _repo_book_from_dict,
-)
-
-RepoBook._SERIAL_TYPE = "repo_book"
-RepoBook.to_dict = _repo_book_to_dict
-RepoBook.from_dict = _repo_book_from_dict
 
 from pricebook.serialisable import _register as _reg_rb
 _reg_rb(RepoBook)
