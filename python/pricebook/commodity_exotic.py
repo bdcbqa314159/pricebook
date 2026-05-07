@@ -320,3 +320,93 @@ def quanto_commodity_option(
         quanto_adjustment=float(F_quanto - F_native),
         correlation=correlation,
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def commodity_lookback_via_engine(
+    spot: float,
+    rate: float,
+    convenience_yield: float,
+    vol: float,
+    T: float,
+    is_call: bool = True,
+    is_floating: bool = True,
+    strike: float | None = None,
+    n_observations: int = 252,
+    n_paths: int = 10_000,
+    seed: int | None = 42,
+) -> CommodityLookbackResult:
+    """Commodity lookback via the unified MC engine."""
+    if is_floating:
+        from pricebook.fx_exotic import fx_lookback_floating
+        r = fx_lookback_floating(spot, rate, convenience_yield, vol, T, is_call)
+        return CommodityLookbackResult(r.price, True, is_call, n_observations)
+
+    if strike is None:
+        strike = spot
+
+    from pricebook.mc_migrate import gbm_paths
+    paths = gbm_paths(spot, rate - convenience_yield, vol, T, n_observations, n_paths, seed or 42)
+
+    if is_call:
+        extreme = paths.max(axis=1)
+        payoff = np.maximum(extreme - strike, 0.0)
+    else:
+        extreme = paths.min(axis=1)
+        payoff = np.maximum(strike - extreme, 0.0)
+
+    df = math.exp(-rate * T)
+    price = df * float(payoff.mean())
+    return CommodityLookbackResult(price, False, is_call, n_observations)
+
+
+def commodity_asian_monthly_via_engine(
+    spot: float,
+    strike: float,
+    rate: float,
+    convenience_yield: float,
+    vol: float,
+    T: float,
+    n_fixings: int = 12,
+    is_call: bool = True,
+    n_paths: int = 20_000,
+    seed: int | None = 42,
+) -> CommodityAsianResult:
+    """Commodity arithmetic Asian via unified MC engine with control variate."""
+    from pricebook.mc_migrate import gbm_paths
+
+    # Geometric closed form for control variate
+    sigma_g = vol * math.sqrt((2 * n_fixings + 1) / (6 * (n_fixings + 1)))
+    avg_factor = (n_fixings + 1) / (2 * n_fixings)
+    mu_g = (rate - convenience_yield - 0.5 * vol**2) * avg_factor + 0.5 * sigma_g**2
+    F_g = spot * math.exp(mu_g * T)
+    df = math.exp(-rate * T)
+    opt_type = OptionType.CALL if is_call else OptionType.PUT
+    geo_exact = black76_price(F_g, strike, sigma_g, T, df, opt_type)
+
+    paths = gbm_paths(spot, rate - convenience_yield, vol, T, n_fixings, n_paths, seed or 42)
+    monitoring = paths[:, 1:]
+
+    arith = monitoring.mean(axis=1)
+    geo = np.exp(np.log(monitoring).mean(axis=1))
+
+    if is_call:
+        arith_payoff = np.maximum(arith - strike, 0.0)
+        geo_payoff = np.maximum(geo - strike, 0.0)
+    else:
+        arith_payoff = np.maximum(strike - arith, 0.0)
+        geo_payoff = np.maximum(strike - geo, 0.0)
+
+    arith_mc = df * float(arith_payoff.mean())
+    geo_mc = df * float(geo_payoff.mean())
+    cv_adjustment = geo_exact - geo_mc
+    price = arith_mc + cv_adjustment
+
+    return CommodityAsianResult(
+        price=float(max(price, 0.0)),
+        is_arithmetic=True, n_fixings=n_fixings,
+        is_call=is_call, control_variate_adjustment=float(cv_adjustment),
+    )

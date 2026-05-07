@@ -145,3 +145,67 @@ def hybrid_autocallable(
     return HybridAutocallResult(
         float(pv.mean()), float(1 - alive.mean()),
         float(ir_floor_count / max(n_paths * len(observation_steps), 1)))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def callable_equity_note_via_engine(
+    spot: float, rate: float, equity_vol: float, rate_vol: float,
+    rho: float, notional: float, participation: float,
+    strike_pct: float, T: float, call_dates: list[float],
+    n_paths: int = 5_000, n_steps: int = 100, seed: int | None = 42,
+) -> CallableEquityNoteResult:
+    """Callable equity note via the unified MC engine (GBM + OU)."""
+    from pricebook.mc_migrate import gbm_paths, ou_paths
+
+    eq_paths = gbm_paths(spot, rate, equity_vol, T, n_steps, n_paths, seed or 42)
+    r_paths = ou_paths(rate, 0.1, rate, rate_vol, T, n_steps, n_paths, (seed or 42) + 1)
+
+    alive = np.ones(n_paths, dtype=bool)
+    pv = np.zeros(n_paths)
+    call_steps = set(int(t * n_steps / T) for t in call_dates)
+
+    for step in range(n_steps):
+        if (step + 1) in call_steps:
+            t = (step + 1) * T / n_steps
+            S = eq_paths[:, step + 1]
+            eq_return = S / spot - 1
+            cont_value = notional * (1 + participation * np.maximum(eq_return - strike_pct, 0))
+            called = alive & (cont_value > notional * 1.05)
+            pv += np.where(called, notional * np.exp(-rate * t), 0)
+            alive &= ~called
+
+    S_final = eq_paths[:, -1]
+    r_final = r_paths[:, -1]
+    eq_return = S_final / spot - 1
+    terminal = notional * (1 + participation * np.maximum(eq_return - strike_pct, 0))
+    pv += np.where(alive, terminal * np.exp(-r_final * T), 0)
+
+    price = float(pv.mean())
+    call_prob = float(1 - alive.mean())
+    eq_d = float(np.corrcoef(S_final, pv)[0, 1]) if pv.std() > 0 else 0
+    ir_d = float(np.corrcoef(r_final, pv)[0, 1]) if pv.std() > 0 else 0
+
+    return CallableEquityNoteResult(price, eq_d, ir_d, call_prob)
+
+
+def equity_ir_joint_simulate_via_engine(
+    spot: float, rate: float, equity_vol: float, rate_vol: float,
+    rho: float, T: float, n_paths: int = 2000, n_steps: int = 50,
+    seed: int | None = 42,
+) -> JointSimResult:
+    """Joint equity + rate simulation via the unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths, ou_paths
+
+    eq_paths = gbm_paths(spot, rate, equity_vol, T, n_steps, n_paths, seed or 42)
+    r_paths = ou_paths(rate, 0.1, rate, rate_vol, T, n_steps, n_paths, (seed or 42) + 1)
+
+    log_r_eq = np.diff(np.log(eq_paths), axis=1)
+    log_r_ir = np.diff(r_paths, axis=1)
+    corr = float(np.mean([np.corrcoef(log_r_eq[p], log_r_ir[p])[0, 1]
+                            for p in range(min(n_paths, 100))
+                            if log_r_eq[p].std() > 1e-10 and log_r_ir[p].std() > 1e-10]))
+
+    return JointSimResult(eq_paths, r_paths, corr)

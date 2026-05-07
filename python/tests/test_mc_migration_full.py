@@ -232,3 +232,90 @@ class TestFXExoticMigration:
         )
         assert result.price >= 0
         assert 0 <= result.accrual_rate <= 1
+
+
+# ── Batch D: Remaining files ──
+
+class TestFXStructuredMigration:
+
+    def test_fx_tarf_via_engine(self):
+        from pricebook.fx_structured import fx_tarf_price_via_engine
+        result = fx_tarf_price_via_engine(
+            1.10, 1.10, 0.10, 0.03, 0.01, 0.08, 1.0,
+            n_paths=5_000,
+        )
+        assert math.isfinite(result.price)
+
+    def test_fx_autocallable_via_engine(self):
+        from pricebook.fx_structured import fx_autocallable_price_via_engine
+        result = fx_autocallable_price_via_engine(
+            1.10, 1.15, 0.02, 0.03, 0.01, 0.08, 1.0,
+            [0.25, 0.5, 0.75, 1.0], n_paths=5_000,
+        )
+        assert result.price > 0
+
+
+class TestCommodityExoticMigration:
+
+    def test_commodity_lookback_fixed_via_engine(self):
+        from pricebook.commodity_exotic import commodity_lookback_via_engine
+        result = commodity_lookback_via_engine(
+            100, 0.05, 0.03, 0.25, 1.0,
+            is_floating=False, strike=100, n_paths=5_000,
+        )
+        assert result.price > 0
+
+    def test_commodity_asian_via_engine(self):
+        from pricebook.commodity_exotic import commodity_asian_monthly_via_engine
+        result = commodity_asian_monthly_via_engine(
+            100, 100, 0.05, 0.03, 0.25, 1.0,
+            n_paths=10_000,
+        )
+        assert result.price > 0
+
+
+class TestEquityRatesHybridMigration:
+
+    def test_callable_equity_note_via_engine(self):
+        from pricebook.equity_rates_hybrid import callable_equity_note_via_engine
+        result = callable_equity_note_via_engine(
+            100, 0.05, 0.20, 0.01, -0.3, 1000, 1.0,
+            0.0, 2.0, [0.5, 1.0, 1.5], n_paths=2_000,
+        )
+        assert result.price > 0
+
+    def test_equity_ir_joint_via_engine(self):
+        from pricebook.equity_rates_hybrid import equity_ir_joint_simulate_via_engine
+        result = equity_ir_joint_simulate_via_engine(
+            100, 0.05, 0.20, 0.01, -0.3, 1.0, n_paths=1_000,
+        )
+        assert result.equity_paths.shape == (1_000, 51)
+        assert result.rate_paths.shape == (1_000, 51)
+
+
+# ── Previously untested _via_engine functions ──
+
+class TestLocalVolSLVMigration:
+
+    def test_local_vol_mc_via_engine(self):
+        from pricebook.local_vol import LocalVolSurface, local_vol_mc_via_engine
+        strikes = np.array([80.0, 100.0, 120.0])
+        times = np.array([0.5, 1.0])
+        vols = np.array([[0.22, 0.20, 0.21], [0.23, 0.20, 0.22]])
+        lv = LocalVolSurface(strikes, times, vols)
+        S_T = local_vol_mc_via_engine(100, 0.05, lv, 1.0, n_steps=50, n_paths=2_000)
+        assert len(S_T) == 2_000
+        assert np.all(S_T > 0)
+
+    def test_slv_mc_via_engine(self):
+        from pricebook.local_vol import LocalVolSurface
+        from pricebook.slv import SLVModel, HestonParams, slv_mc_via_engine
+        strikes = np.array([80.0, 100.0, 120.0])
+        times = np.array([0.5, 1.0])
+        vols = np.array([[0.22, 0.20, 0.21], [0.23, 0.20, 0.22]])
+        lv = LocalVolSurface(strikes, times, vols)
+        heston = HestonParams(v0=0.04, kappa=2.0, theta=0.04, xi=0.3, rho=-0.7)
+        model = SLVModel(lv, heston, mixing=0.5)
+        S_T = slv_mc_via_engine(100, 0.05, model, 1.0, n_steps=50, n_paths=2_000)
+        assert len(S_T) == 2_000
+        assert np.all(S_T > 0)

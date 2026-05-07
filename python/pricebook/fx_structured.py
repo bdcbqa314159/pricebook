@@ -345,3 +345,119 @@ def fx_pivot_option(
     price = df * payout * prob
 
     return PivotResult(float(price), float(prob), range_low, range_high)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def fx_tarf_price_via_engine(
+    spot: float,
+    strike: float,
+    target: float,
+    rate_dom: float,
+    rate_for: float,
+    vol: float,
+    T: float,
+    n_observations: int = 12,
+    notional: float = 1.0,
+    is_buyer_long_usd: bool = True,
+    n_paths: int = 10_000,
+    seed: int | None = 42,
+) -> TARFResult:
+    """FX TARF via the unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths
+
+    paths = gbm_paths(spot, rate_dom - rate_for, vol, T, n_observations, n_paths, seed or 42)
+    dt = T / n_observations
+
+    cum_profit = np.zeros(n_paths)
+    pv = np.zeros(n_paths)
+    alive = np.ones(n_paths, dtype=bool)
+    termination_step = np.full(n_paths, n_observations)
+
+    for step in range(n_observations):
+        S = paths[:, step + 1]
+        t = (step + 1) * dt
+        df_t = math.exp(-rate_dom * t)
+
+        if is_buyer_long_usd:
+            pnl = (S - strike) * notional
+        else:
+            pnl = (strike - S) * notional
+
+        cum_profit_new = cum_profit + np.where(alive & (pnl > 0), pnl, 0.0)
+        hit_this_step = alive & (cum_profit_new >= target)
+        cap_profit = np.where(hit_this_step, target - cum_profit, pnl)
+        cap_profit = np.where(alive, cap_profit, 0.0)
+        pv += cap_profit * df_t
+        cum_profit = np.minimum(cum_profit_new, target)
+        termination_step = np.where(hit_this_step & alive, step + 1, termination_step)
+        alive &= ~hit_this_step
+
+    expected_profit = float(pv.mean())
+    prob_hit = float(1 - alive.mean())
+    mean_term = float(termination_step.mean()) * dt
+
+    return TARFResult(expected_profit, expected_profit, prob_hit, mean_term, target, strike)
+
+
+def fx_autocallable_price_via_engine(
+    spot: float,
+    autocall_barrier: float,
+    coupon: float,
+    rate_dom: float,
+    rate_for: float,
+    vol: float,
+    T: float,
+    observation_dates: list[float],
+    notional: float = 1.0,
+    protection_barrier: float | None = None,
+    has_memory: bool = True,
+    n_paths: int = 10_000,
+    seed: int | None = 42,
+) -> AutocallableResult:
+    """FX autocallable via the unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths
+
+    obs_sorted = sorted(observation_dates)
+    n_steps = max(int(T * 100), len(obs_sorted) * 3)
+    paths = gbm_paths(spot, rate_dom - rate_for, vol, T, n_steps, n_paths, seed or 42)
+    dt_step = T / n_steps
+    df_T = math.exp(-rate_dom * T)
+
+    alive = np.ones(n_paths, dtype=bool)
+    pv = np.zeros(n_paths)
+    autocall_time = np.full(n_paths, T)
+    missed_coupons = np.zeros(n_paths)
+
+    for i, t_obs in enumerate(obs_sorted):
+        step_idx = min(int(t_obs / dt_step + 0.5), n_steps)
+        S = paths[:, step_idx]
+        df_t = math.exp(-rate_dom * t_obs)
+        triggered = alive & (S >= autocall_barrier)
+        period_coupon = np.where(alive, coupon, 0.0)
+
+        if has_memory:
+            pv += np.where(triggered, (notional + missed_coupons + period_coupon) * df_t, 0.0)
+            missed_coupons = np.where(alive & ~triggered, missed_coupons + period_coupon, missed_coupons)
+        else:
+            pv += np.where(alive, period_coupon * df_t, 0.0)
+            pv += np.where(triggered, notional * df_t, 0.0)
+
+        autocall_time = np.where(triggered & alive, t_obs, autocall_time)
+        alive &= ~triggered
+
+    S_final = paths[:, -1]
+    if protection_barrier is None:
+        pv += np.where(alive, notional * df_T, 0.0)
+    else:
+        terminal = np.where(S_final < protection_barrier, notional * S_final / spot, notional)
+        pv += np.where(alive, terminal * df_T, 0.0)
+
+    price = float(pv.mean())
+    ac_prob = float(1 - alive.mean())
+    ac_mask = (autocall_time < T)
+    mean_ac = float(autocall_time[ac_mask].mean()) if ac_mask.sum() > 0 else T
+
+    return AutocallableResult(price, ac_prob, mean_ac, coupon / notional)
