@@ -452,3 +452,126 @@ def airbag_note(
     price = base + upside
 
     return AirbagResult(float(price), notional, cap, floor, float(upside))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def equity_autocallable_via_engine(
+    spot: float,
+    autocall_barrier: float,
+    coupon_barrier: float,
+    protection_barrier: float,
+    coupon: float,
+    rate: float,
+    dividend_yield: float,
+    vol: float,
+    T: float,
+    observation_dates: list[float],
+    notional: float = 1.0,
+    has_memory: bool = True,
+    n_paths: int = 10_000,
+    seed: int | None = 42,
+) -> EquityAutocallableResult:
+    """Phoenix autocallable via the unified MC engine.
+
+    Drop-in replacement for equity_autocallable().
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+
+    n_steps = max(int(T * 252), len(observation_dates) * 3)
+    process = BlackScholesProcess(spot, rate - dividend_yield, vol)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed or 42, antithetic=True)
+    paths = engine.paths
+    spots = np.exp(paths[:, :, 0] if paths.ndim == 3 else paths)
+
+    obs_sorted = sorted(observation_dates)
+    alive = np.ones(n_paths, dtype=bool)
+    pv = np.zeros(n_paths)
+    missed_coupons = np.zeros(n_paths)
+    autocall_time = np.full(n_paths, T)
+
+    dt_step = T / n_steps
+    for t_obs in obs_sorted:
+        step_idx = min(int(t_obs / dt_step + 0.5), n_steps)
+        S = spots[:, step_idx]
+        df_t = math.exp(-rate * t_obs)
+
+        triggered = alive & (S >= autocall_barrier)
+        coupon_paid = alive & (S >= coupon_barrier) & ~triggered
+
+        if has_memory:
+            pv += np.where(triggered, (notional + missed_coupons + coupon) * df_t, 0.0)
+            pv += np.where(coupon_paid, (coupon + missed_coupons) * df_t, 0.0)
+            missed_coupons = np.where(coupon_paid, 0.0, missed_coupons)
+            missed_coupons = np.where(alive & ~triggered & ~coupon_paid,
+                                       missed_coupons + coupon, missed_coupons)
+        else:
+            pv += np.where(triggered, (notional + coupon) * df_t, 0.0)
+            pv += np.where(coupon_paid, coupon * df_t, 0.0)
+
+        autocall_time = np.where(triggered & alive, t_obs, autocall_time)
+        alive &= ~triggered
+
+    df_T = math.exp(-rate * T)
+    S_final = spots[:, -1]
+    protected = alive & (S_final >= protection_barrier)
+    loss = alive & ~protected
+
+    if has_memory:
+        pv += np.where(protected, (notional + missed_coupons) * df_T, 0.0)
+    else:
+        pv += np.where(protected, notional * df_T, 0.0)
+    pv += np.where(loss, notional * (S_final / spot) * df_T, 0.0)
+
+    price = float(pv.mean())
+    ac_prob = float(1 - alive.mean())
+    loss_prob = float(loss.mean())
+    ac_mask = (autocall_time < T)
+    mean_ac = float(autocall_time[ac_mask].mean()) if ac_mask.sum() > 0 else T
+
+    return EquityAutocallableResult(price, ac_prob, mean_ac, loss_prob, notional)
+
+
+def shark_fin_via_engine(
+    spot: float,
+    strike: float,
+    knock_out_barrier: float,
+    rebate: float,
+    participation: float,
+    rate: float,
+    dividend_yield: float,
+    vol: float,
+    T: float,
+    notional: float = 1.0,
+    n_paths: int = 10_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> SharkFinResult:
+    """Shark-fin note via the unified MC engine.
+
+    Drop-in replacement for shark_fin_note().
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+
+    process = BlackScholesProcess(spot, rate - dividend_yield, vol)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed or 42, antithetic=True)
+    paths = engine.paths
+    spots = np.exp(paths[:, :, 0] if paths.ndim == 3 else paths)
+
+    alive = np.all(spots < knock_out_barrier, axis=1)
+    S_T = spots[:, -1]
+    df = math.exp(-rate * T)
+
+    terminal_return = np.where(alive,
+                                participation * np.maximum(S_T / strike - 1, 0),
+                                rebate)
+    payoff = notional * (1 + terminal_return)
+    price = df * float(payoff.mean())
+    ko_prob = float(1 - alive.mean())
+    max_payout = notional * (1 + participation * max(knock_out_barrier / strike - 1, 0))
+
+    return SharkFinResult(price, ko_prob, max_payout, notional)

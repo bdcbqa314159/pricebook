@@ -574,3 +574,66 @@ def fx_accumulator(
     expected_acc = float(accumulated.mean())
 
     return AccumulatorResult(price, ko_prob, expected_acc, strike, barrier_up)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def fx_lookback_floating_via_engine(
+    spot: float,
+    rate_dom: float,
+    rate_for: float,
+    vol: float,
+    T: float,
+    is_call: bool = True,
+    n_paths: int = 20_000,
+    n_steps: int = 252,
+    seed: int | None = 42,
+) -> LookbackResult:
+    """FX lookback (floating) via the unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths
+
+    drift_rate = rate_dom - rate_for
+    paths = gbm_paths(spot, drift_rate, vol, T, n_steps, n_paths, seed or 42)
+    df = math.exp(-rate_dom * T)
+
+    S_T = paths[:, -1]
+    if is_call:
+        S_min = paths.min(axis=1)
+        payoffs = S_T - S_min
+    else:
+        S_max = paths.max(axis=1)
+        payoffs = S_max - S_T
+
+    price = df * float(payoffs.mean())
+    return LookbackResult(price, True, is_call)
+
+
+def fx_range_accrual_via_engine(
+    spot: float,
+    rate_dom: float,
+    rate_for: float,
+    vol: float,
+    T: float,
+    range_low: float,
+    range_high: float,
+    payout_per_day: float = 1.0,
+    n_paths: int = 20_000,
+    n_steps: int = 252,
+    seed: int | None = 42,
+) -> RangeAccrualResult:
+    """FX range accrual via the unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths
+
+    drift_rate = rate_dom - rate_for
+    paths = gbm_paths(spot, drift_rate, vol, T, n_steps, n_paths, seed or 42)
+    df = math.exp(-rate_dom * T)
+
+    in_range = (paths[:, 1:] >= range_low) & (paths[:, 1:] <= range_high)
+    days_in = in_range.sum(axis=1)
+    payoffs = days_in * payout_per_day
+    price = df * float(payoffs.mean())
+    accrual_rate = float(days_in.mean()) / n_steps
+
+    return RangeAccrualResult(price, accrual_rate, n_steps, range_low, range_high)

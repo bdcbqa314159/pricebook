@@ -143,3 +143,47 @@ def sabr_mc_implied_vol(
                                 df=1.0, n_steps=n_steps, n_paths=n_paths, seed=seed)
 
     return implied_vol_black76(mc_price, forward, strike, T, df=1.0)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def sabr_mc_paths_via_engine(
+    forward: float,
+    T: float,
+    alpha: float,
+    beta: float,
+    rho: float,
+    nu: float,
+    n_steps: int = 200,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """SABR paths via the unified MC engine.
+
+    Drop-in replacement for sabr_mc_paths(). Returns (F, sigma) arrays.
+    """
+    from pricebook.mc_migrate import sabr_paths
+    return sabr_paths(forward, alpha, beta, rho, nu, T, n_steps, n_paths, seed)
+
+
+def sabr_mc_european_via_engine(
+    forward: float,
+    strike: float,
+    T: float,
+    alpha: float,
+    beta: float,
+    rho: float,
+    nu: float,
+    df: float = 1.0,
+    option_type: OptionType = OptionType.CALL,
+    n_steps: int = 200,
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> float:
+    """European option under SABR via unified MC engine."""
+    from pricebook.mc_instrument_adapters import sabr_european_mc
+    result = sabr_european_mc(forward, strike, T, alpha, beta, rho, nu,
+                               n_paths=n_paths, n_steps=n_steps, seed=seed)
+    return result.price * df

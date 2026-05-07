@@ -211,6 +211,34 @@ class BatesFXModel:
 
         return BatesFXResult(price, paths, var_paths, n_jumps_total)
 
+    def simulate_option_via_engine(
+        self,
+        spot: float,
+        strike: float,
+        rate_dom: float,
+        rate_for: float,
+        T: float,
+        is_call: bool = True,
+        n_paths: int = 10_000,
+        n_steps: int = 100,
+        seed: int | None = 42,
+    ) -> BatesFXResult:
+        """Bates FX option via the unified MC engine."""
+        from pricebook.mc_migrate import bates_paths
+        spot_paths, var_paths = bates_paths(
+            spot, self.v0, rate_dom - rate_for, self.kappa_v, self.theta_v,
+            self.xi, self.rho, self.lambda_jump, self.jump_mean, self.jump_vol,
+            T, n_steps, n_paths, seed or 42,
+        )
+        ST = spot_paths[:, -1]
+        df = math.exp(-rate_dom * T)
+        if is_call:
+            payoff = np.maximum(ST - strike, 0.0)
+        else:
+            payoff = np.maximum(strike - ST, 0.0)
+        price = df * float(payoff.mean())
+        return BatesFXResult(price, spot_paths, var_paths, 0)
+
 
 # ---- Regime switching ----
 

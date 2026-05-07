@@ -206,3 +206,35 @@ def implied_vol_term_structure(
         results.append((T, iv))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def rbergomi_mc_via_engine(
+    spot: float,
+    rate: float,
+    xi: float,
+    eta: float,
+    H: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    rho: float = -0.7,
+    div_yield: float = 0.0,
+    seed: int = 42,
+) -> np.ndarray:
+    """rBergomi MC via the unified MC engine (RoughBergomiProcess).
+
+    Drop-in replacement for rbergomi_mc().
+    Returns terminal spot values (n_paths,).
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import RoughBergomiProcess
+
+    process = RoughBergomiProcess(spot, rate - div_yield, xi, eta, H, rho)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed)
+    paths = engine.paths
+    p = paths[:, :, 0] if paths.ndim == 3 else paths
+    return np.exp(p[:, -1])

@@ -214,3 +214,65 @@ class TARF:
 
 
 _register(TARF)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def tarf_via_engine(
+    spot: float,
+    curve: DiscountCurve,
+    vol: float,
+    T: float,
+    strike: float,
+    target: float,
+    leverage: float = 2.0,
+    n_fixings: int = 12,
+    div_yield: float = 0.0,
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> TARFResult:
+    """TARF priced via the unified MC engine.
+
+    Drop-in replacement for TARF.price_mc() using MCEngine.
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+
+    ref = curve.reference_date
+    rate = -math.log(curve.df(ref + timedelta(days=int(T * 365)))) / max(T, 1e-10)
+
+    drift = rate - div_yield
+    process = BlackScholesProcess(spot, drift, vol)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_fixings), n_paths, seed)
+
+    def tarf_payoff(paths, times):
+        p = paths[:, :, 0] if paths.ndim == 3 else paths
+        spots = np.exp(p)
+        n_p, n_fix = spots.shape[0], spots.shape[1] - 1
+
+        accumulated = np.zeros(n_p)
+        pv = np.zeros(n_p)
+        knocked = np.zeros(n_p, dtype=bool)
+
+        for i in range(1, n_fix + 1):
+            s = spots[:, i]
+            active = ~knocked
+
+            gain = np.where(s > strike, (s - strike) / spot, 0.0)
+            loss = np.where(s < strike, leverage * (strike - s) / spot, 0.0)
+
+            pv[active] += gain[active] - loss[active]
+            accumulated[active] += gain[active]
+
+            knockout = active & (accumulated >= target)
+            knocked |= knockout
+
+        return pv
+
+    result = engine.price(tarf_payoff, math.exp(-rate * T))
+
+    return TARFResult(
+        price=result.price, std_error=result.stderr, n_paths=result.n_paths,
+    )

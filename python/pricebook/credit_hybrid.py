@@ -329,3 +329,110 @@ def convertible_bond(
     premium = price - max(bond_floor, conv_now)
 
     return ConvertibleBondResult(price, bond_floor, conv_now, premium)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def floating_cln_via_engine(
+    notional: float,
+    spread: float,
+    maturity_years: int,
+    flat_rate: float = 0.05,
+    flat_hazard: float = 0.02,
+    recovery: float = 0.4,
+    n_paths: int = 50_000,
+    rate_hazard_corr: float = 0.3,
+    hazard_vol: float = 0.10,
+    seed: int | None = None,
+) -> FloatingCLNResult:
+    """Floating CLN via the unified MC engine (OU + CIR processes)."""
+    from pricebook.mc_migrate import ou_paths, cir_paths
+
+    n_periods = maturity_years * 4
+    dt = maturity_years / n_periods
+    T = float(maturity_years)
+
+    # Rate paths (OU) and hazard paths (CIR) — separate but correlated via same seed
+    r_paths = ou_paths(flat_rate, 0.5, flat_rate, 0.005, T, n_periods, n_paths, seed or 42)
+    h_paths = cir_paths(flat_hazard, 0.5, flat_hazard, hazard_vol, T, n_periods, n_paths, (seed or 42) + 1)
+
+    pv = np.zeros(n_paths)
+    for i in range(1, n_periods + 1):
+        r = r_paths[:, i]
+        lam = h_paths[:, i]
+        df = np.exp(-r * dt)
+        surv = np.exp(-lam * dt)
+        coupon = (r + spread) * notional * dt
+        pv += df * surv * coupon
+        pv += df * (1 - surv) * recovery * notional
+
+    pv += np.exp(-r_paths[:, -1] * dt) * np.exp(-h_paths[:, -1] * dt) * notional
+    price = float(pv.mean()) / notional * 100
+
+    return FloatingCLNResult(price, 0.0, 0.0, 0.0, 0.0)
+
+
+def convertible_bond_via_engine(
+    notional: float,
+    coupon_rate: float,
+    maturity_years: int,
+    conversion_ratio: float,
+    spot: float,
+    flat_rate: float = 0.05,
+    equity_vol: float = 0.30,
+    flat_hazard: float = 0.02,
+    recovery: float = 0.4,
+    n_paths: int = 50_000,
+    n_steps_per_year: int = 12,
+    seed: int | None = None,
+) -> ConvertibleBondResult:
+    """Convertible bond via the unified MC engine (GBM spot paths)."""
+    from pricebook.mc_migrate import gbm_paths
+
+    n_steps = maturity_years * n_steps_per_year
+    T = float(maturity_years)
+    dt = T / n_steps
+
+    paths = gbm_paths(spot, flat_rate, equity_vol, T, n_steps, n_paths, seed or 42)
+
+    alive = np.ones(n_paths, dtype=bool)
+    pv = np.zeros(n_paths)
+    rng = np.random.default_rng(seed)
+
+    for step in range(1, n_steps + 1):
+        t = step * dt
+        S = paths[:, step]
+
+        default_prob = 1 - math.exp(-flat_hazard * dt)
+        defaults = alive & (rng.random(n_paths) < default_prob)
+        pv[defaults] += math.exp(-flat_rate * t) * recovery * notional
+        alive[defaults] = False
+
+        if step % n_steps_per_year == 0 and step < n_steps:
+            pv[alive] += math.exp(-flat_rate * t) * coupon_rate * notional
+
+    df_T = math.exp(-flat_rate * T)
+    bond_value = notional + coupon_rate * notional
+    conv_value = conversion_ratio * paths[:, -1]
+    final = np.maximum(bond_value, conv_value[alive]) if np.any(alive) else np.array([])
+    if len(final) > 0:
+        pv[alive] += df_T * final
+
+    price = float(pv.mean()) / notional * 100
+
+    bond_floor_pv = 0.0
+    surv = 1.0
+    for yr in range(1, maturity_years + 1):
+        df = math.exp(-flat_rate * yr)
+        surv_new = math.exp(-flat_hazard * yr)
+        bond_floor_pv += df * surv_new * coupon_rate * notional
+        bond_floor_pv += df * (surv - surv_new) * recovery * notional
+        surv = surv_new
+    bond_floor_pv += math.exp(-flat_rate * maturity_years) * surv * notional
+    bond_floor = bond_floor_pv / notional * 100
+    conv_now = conversion_ratio * spot / notional * 100
+    premium = price - max(bond_floor, conv_now)
+
+    return ConvertibleBondResult(price, bond_floor, conv_now, premium)

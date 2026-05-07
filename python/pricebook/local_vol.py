@@ -335,3 +335,38 @@ def local_vol_mc_paths(
         paths[:, step + 1] = S
 
     return paths
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def local_vol_mc_via_engine(
+    spot: float,
+    rate: float,
+    lv_surface: LocalVolSurface,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    div_yield: float = 0.0,
+    seed: int = 42,
+) -> np.ndarray:
+    """Local vol MC via the unified MC engine (SLV process).
+
+    Drop-in replacement for local_vol_mc().
+    Returns terminal spot values (n_paths,).
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import SLVProcess
+
+    def lv_func(S, t):
+        """Vectorised local vol lookup."""
+        if np.isscalar(S):
+            return lv_surface.vol(S, t)
+        return np.array([lv_surface.vol(float(s), float(t)) for s in S])
+
+    process = SLVProcess(spot, rate - div_yield, lv_func, mixing=1.0)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed)
+    paths = engine.paths
+    p = paths[:, :, 0] if paths.ndim == 3 else paths
+    return np.exp(p[:, -1])

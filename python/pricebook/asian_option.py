@@ -616,6 +616,17 @@ class AsianOption:
 
         return paths
 
+    def _heston_paths_via_engine(
+        spot: float, rate: float, div_yield: float,
+        v0: float, kappa: float, theta: float, xi: float, rho: float,
+        T: float, n_steps: int, n_paths: int, seed: int,
+    ) -> np.ndarray:
+        """Heston paths via unified MC engine. Returns (n_paths, n_steps+1)."""
+        from pricebook.mc_migrate import heston_paths
+        spot_paths, _ = heston_paths(spot, v0, rate, kappa, theta, xi, rho,
+                                      T, n_steps, n_paths, seed)
+        return spot_paths
+
     def greeks(
         self,
         spot: float,

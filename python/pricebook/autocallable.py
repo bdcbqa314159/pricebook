@@ -224,3 +224,49 @@ class Autocallable:
 
 
 _register(Autocallable)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def autocallable_via_engine(
+    spot: float,
+    curve: DiscountCurve,
+    vol: float,
+    T: float,
+    autocall_level: float = 1.0,
+    coupon_rate: float = 0.08,
+    put_barrier: float = 0.70,
+    observation_freq: int = 4,
+    div_yield: float = 0.0,
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> AutocallResult:
+    """Autocallable priced via the unified MC engine.
+
+    Drop-in replacement for Autocallable.price_mc() using MCEngine.
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.mc_payoffs import autocall_payoff
+
+    ref = curve.reference_date
+    rate = -math.log(curve.df(ref + timedelta(days=int(T * 365)))) / max(T, 1e-10)
+    steps = max(int(T * observation_freq * 3), 12)
+
+    barrier_abs = spot * autocall_level
+    put_abs = spot * put_barrier
+
+    process = BlackScholesProcess(spot, rate - div_yield, vol)
+    engine = MCEngine(process, TimeGrid.uniform(T, steps), n_paths, seed, antithetic=True)
+    payoff = autocall_payoff(
+        autocall_barrier=barrier_abs, autocall_coupon=coupon_rate,
+        put_barrier=put_abs, put_strike=spot,
+        observation_freq=observation_freq,
+    )
+    result = engine.price(payoff, math.exp(-rate * T))
+
+    return AutocallResult(
+        price=result.price, std_error=result.stderr, n_paths=result.n_paths,
+    )

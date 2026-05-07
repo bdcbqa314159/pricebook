@@ -273,3 +273,71 @@ def multi_asset_digital_range(
     price = df * payout * prob
 
     return MultiAssetDigitalRangeResult(price, prob, n)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def _simulate_correlated_via_engine(spots, rates, divs, vols, corr, T, n_paths, n_steps, seed):
+    """Simulate N correlated GBM assets via the unified MC engine.
+
+    Drop-in replacement for _simulate_correlated().
+    Returns (n_paths, n_steps+1, n_assets) in SPOT space.
+    """
+    from pricebook.mc_migrate import correlated_gbm_paths
+
+    n = len(spots)
+    if isinstance(rates, (int, float)):
+        mus = [float(rates) - float(divs[i]) for i in range(n)]
+    else:
+        mus = [rates[i] - divs[i] for i in range(n)]
+
+    return correlated_gbm_paths(spots, mus, vols, np.asarray(corr), T, n_steps, n_paths, seed)
+
+
+def rainbow_option_via_engine(
+    spots: list[float],
+    strikes: list[float] | float,
+    rate: float,
+    dividend_yields: list[float],
+    vols: list[float],
+    correlations: np.ndarray,
+    T: float,
+    rainbow_type: str = "best_of_call",
+    n_paths: int = 20_000,
+    n_steps: int = 1,
+    seed: int | None = 42,
+) -> RainbowResult:
+    """Rainbow option via the unified MC engine."""
+    n = len(spots)
+    if isinstance(strikes, (int, float)):
+        K = np.full(n, float(strikes))
+    else:
+        K = np.array(strikes)
+
+    paths = _simulate_correlated_via_engine(
+        spots, rate, dividend_yields, vols, correlations, T, n_paths, n_steps, seed or 42)
+    S_T = paths[:, -1, :]
+    df = math.exp(-rate * T)
+
+    if rainbow_type == "best_of_call":
+        per_asset = S_T - K
+        payoff = np.maximum(per_asset.max(axis=1), 0.0)
+    elif rainbow_type == "worst_of_call":
+        per_asset = S_T - K
+        payoff = np.maximum(per_asset.min(axis=1), 0.0)
+    elif rainbow_type == "best_of_assets":
+        payoff = np.maximum(S_T.max(axis=1) - K[0], 0.0)
+    elif rainbow_type == "atlas":
+        if n < 3:
+            payoff = np.maximum(S_T.mean(axis=1) - K[0], 0.0)
+        else:
+            sorted_S = np.sort(S_T, axis=1)
+            middle = sorted_S[:, 1:-1]
+            payoff = np.maximum(middle.mean(axis=1) - K[0], 0.0)
+    else:
+        raise ValueError(f"Unknown rainbow_type: {rainbow_type}")
+
+    price = df * float(payoff.mean())
+    return RainbowResult(price, rainbow_type, n)

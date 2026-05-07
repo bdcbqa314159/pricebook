@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import numpy as np
@@ -197,3 +197,44 @@ class Cliquet:
 
 
 _register(Cliquet)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def cliquet_via_engine(
+    spot: float,
+    curve: DiscountCurve,
+    vol: float,
+    T: float,
+    local_cap: float = 0.10,
+    local_floor: float = 0.0,
+    global_cap: float = 1.0,
+    global_floor: float = 0.0,
+    n_periods: int = 12,
+    notional: float = 1_000_000.0,
+    div_yield: float = 0.0,
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> CliquetResult:
+    """Cliquet priced via the unified MC engine.
+
+    Drop-in replacement for Cliquet.price_mc() using MCEngine.
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.mc_payoffs import cliquet_payoff
+
+    ref = curve.reference_date
+    rate = -math.log(curve.df(ref + timedelta(days=int(T * 365)))) / max(T, 1e-10)
+
+    process = BlackScholesProcess(spot, rate - div_yield, vol)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_periods), n_paths, seed, antithetic=True)
+    payoff = cliquet_payoff(cap=local_cap, floor=local_floor, global_floor=global_floor)
+    result = engine.price(payoff, math.exp(-rate * T))
+
+    return CliquetResult(
+        price=result.price * notional, std_error=result.stderr * notional,
+        n_paths=result.n_paths,
+    )

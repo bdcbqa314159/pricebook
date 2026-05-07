@@ -148,3 +148,43 @@ def slv_mc_european(
         payoffs = np.maximum(strike - S_T, 0)
 
     return float(df * payoffs.mean())
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def slv_mc_via_engine(
+    spot: float,
+    rate: float,
+    model: SLVModel,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    div_yield: float = 0.0,
+    seed: int = 42,
+) -> np.ndarray:
+    """SLV MC via the unified MC engine (SLVProcess).
+
+    Drop-in replacement for slv_mc().
+    Returns terminal spot values (n_paths,).
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import SLVProcess
+
+    h = model.heston
+    def lv_func(S, t):
+        """Vectorised local vol lookup."""
+        if np.isscalar(S):
+            return model.local_vol.vol(S, t)
+        return np.array([model.local_vol.vol(float(s), float(t)) for s in S])
+
+    process = SLVProcess(
+        spot, rate - div_yield, lv_func,
+        v0=h.v0, kappa=h.kappa, theta=h.theta,
+        xi=h.xi, rho=h.rho, mixing=model.mixing,
+    )
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed)
+    paths = engine.paths
+    p = paths[:, :, 0] if paths.ndim == 3 else paths
+    return np.exp(p[:, -1])

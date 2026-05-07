@@ -247,3 +247,57 @@ def heston_mc_barrier(
         payoff = np.where(hit, 0.0, payoff)
 
     return float(df * payoff.mean())
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def heston_euler_via_engine(
+    spot: float,
+    rate: float,
+    T: float,
+    v0: float,
+    kappa: float,
+    theta: float,
+    xi: float,
+    rho: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    div_yield: float = 0.0,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Heston paths via the unified MC engine.
+
+    Drop-in replacement for heston_euler(). Returns (S, v) arrays.
+    """
+    from pricebook.mc_migrate import heston_paths
+    return heston_paths(spot, v0, rate, kappa, theta, xi, rho, T, n_steps, n_paths, seed)
+
+
+def heston_mc_european_via_engine(
+    spot: float,
+    strike: float,
+    rate: float,
+    T: float,
+    v0: float,
+    kappa: float,
+    theta: float,
+    xi: float,
+    rho: float,
+    option_type: OptionType = OptionType.CALL,
+    div_yield: float = 0.0,
+    n_steps: int = 100,
+    n_paths: int = 50_000,
+    seed: int = 42,
+    use_conditional: bool = False,
+) -> float:
+    """European option under Heston via unified MC engine."""
+    from pricebook.mc_instrument_adapters import heston_european_mc
+    result = heston_european_mc(
+        spot, strike, rate, v0, kappa, theta, xi, rho, T,
+        option_type="call" if option_type == OptionType.CALL else "put",
+        n_paths=n_paths, n_steps=n_steps, seed=seed,
+        use_conditional=use_conditional,
+    )
+    return result.price

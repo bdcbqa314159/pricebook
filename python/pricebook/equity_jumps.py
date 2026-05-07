@@ -231,6 +231,34 @@ class SVJEquityModel:
 
         return SVJResult(price, paths, var_paths, n_jumps_total)
 
+    def simulate_option_via_engine(
+        self,
+        spot: float,
+        strike: float,
+        rate: float,
+        dividend_yield: float,
+        T: float,
+        is_call: bool = True,
+        n_paths: int = 10_000,
+        n_steps: int = 100,
+        seed: int | None = 42,
+    ) -> SVJResult:
+        """SVJ option via the unified MC engine (uses BatesProcess)."""
+        from pricebook.mc_migrate import bates_paths
+        spot_paths, var_paths = bates_paths(
+            spot, self.v0, rate - dividend_yield, self.kappa_v, self.theta_v,
+            self.xi_v, self.rho, self.lambda_jump, self.mu_j, self.sigma_j,
+            T, n_steps, n_paths, seed or 42,
+        )
+        ST = spot_paths[:, -1]
+        df = math.exp(-rate * T)
+        if is_call:
+            payoff = np.maximum(ST - strike, 0.0)
+        else:
+            payoff = np.maximum(strike - ST, 0.0)
+        price = df * float(payoff.mean())
+        return SVJResult(price, spot_paths, var_paths, 0)
+
 
 # ---- Regime switching ----
 

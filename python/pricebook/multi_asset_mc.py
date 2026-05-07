@@ -196,3 +196,62 @@ def worst_of_mc(
     returns = terminals / gen.spots[:, np.newaxis]
     worst = returns.min(axis=0)
     return float((worst < barrier).mean())
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def correlated_gbm_via_engine(
+    spots: list[float],
+    vols: list[float],
+    corr_matrix: list[list[float]] | np.ndarray,
+    rates: list[float] | float,
+    T: float,
+    n_steps: int = 1,
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> np.ndarray:
+    """Generate correlated GBM paths via the unified MC engine.
+
+    Drop-in replacement for CorrelatedGBM.generate().
+    Returns (n_assets, n_paths, n_steps+1) in SPOT space.
+    """
+    from pricebook.mc_migrate import correlated_gbm_paths
+
+    if isinstance(rates, (int, float)):
+        mus = [float(rates)] * len(spots)
+    else:
+        mus = list(rates)
+
+    corr = np.asarray(corr_matrix, dtype=float)
+    # correlated_gbm_paths returns (n_paths, n_steps+1, n_assets)
+    paths = correlated_gbm_paths(spots, mus, vols, corr, T, n_steps, n_paths, seed)
+    # Transpose to (n_assets, n_paths, n_steps+1)
+    return paths.transpose(2, 0, 1)
+
+
+def basket_option_mc_via_engine(
+    spots: list[float],
+    vols: list[float],
+    corr_matrix: list[list[float]] | np.ndarray,
+    rate: float,
+    strike: float,
+    T: float,
+    weights: list[float] | None = None,
+    option_type: str = "call",
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> MultiAssetResult:
+    """Basket option via the unified MC engine.
+
+    Drop-in replacement for basket_option_mc().
+    """
+    from pricebook.mc_instrument_adapters import basket_mc
+
+    result = basket_mc(spots, rate, vols, np.asarray(corr_matrix), strike, T,
+                       weights, option_type, n_paths, seed)
+    return MultiAssetResult(
+        price=result.price, std_error=result.stderr,
+        n_paths=result.n_paths, n_assets=len(spots),
+    )
