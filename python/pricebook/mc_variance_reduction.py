@@ -136,3 +136,72 @@ def moment_matching(values: np.ndarray, target_mean: float | None = None) -> np.
     if abs(sample_mean) < 1e-15:
         return values
     return values * (target_mean / sample_mean)
+
+
+def importance_sampling(
+    spot: float,
+    strike: float,
+    rate: float,
+    sigma: float,
+    T: float,
+    option_type: str = "call",
+    n_paths: int = 100_000,
+    seed: int = 42,
+) -> MCResult:
+    """Importance sampling for European options.
+
+    Shifts the drift toward the strike to concentrate paths in the
+    region where the payoff is large (especially useful for deep OTM).
+
+    The optimal shift for a call: μ_IS = log(K/S₀) / T.
+    Likelihood ratio: L = exp(-θZ - θ²/2) where θ = shift × √T / σ.
+
+    Args:
+        spot: initial spot.
+        strike: option strike.
+        rate: risk-free rate.
+        sigma: volatility.
+        T: maturity.
+        option_type: "call" or "put".
+        n_paths: number of paths.
+        seed: random seed.
+    """
+    import math
+
+    rng = np.random.default_rng(seed)
+
+    # Optimal drift shift (move mean of log(S_T) toward log(K))
+    log_moneyness = np.log(strike / spot)
+    drift_shift = log_moneyness / T if T > 0 else 0.0
+
+    # IS parameter
+    theta = drift_shift * np.sqrt(T) / sigma if sigma > 0 else 0.0
+
+    # Sample with shifted drift
+    z = rng.standard_normal(n_paths)
+    z_shifted = z + theta  # shift distribution
+
+    # Terminal spot under shifted measure
+    log_st = np.log(spot) + (rate - 0.5 * sigma ** 2) * T + sigma * np.sqrt(T) * z_shifted
+    st = np.exp(log_st)
+
+    # Payoff
+    if option_type == "call":
+        payoff = np.maximum(st - strike, 0.0)
+    else:
+        payoff = np.maximum(strike - st, 0.0)
+
+    # Likelihood ratio (Radon-Nikodym derivative)
+    lr = np.exp(-theta * z - 0.5 * theta ** 2)
+
+    # IS estimator
+    discounted = payoff * lr * math.exp(-rate * T)
+
+    price = float(np.mean(discounted))
+    stderr = float(np.std(discounted, ddof=1) / np.sqrt(n_paths))
+
+    return MCResult(
+        price=price, stderr=stderr,
+        n_paths=n_paths, n_steps=1,
+        confidence_95=(price - 1.96 * stderr, price + 1.96 * stderr),
+    )

@@ -495,6 +495,222 @@ def brownian_bridge_max(
     return max(m, m_min)
 
 
+# ---------------------------------------------------------------------------
+# Bates Process (Heston + Merton jumps)
+# ---------------------------------------------------------------------------
+
+def BatesProcess(
+    s0: float,
+    v0: float,
+    mu: float,
+    kappa: float,
+    theta: float,
+    xi: float,
+    rho: float,
+    jump_intensity: float,
+    jump_mean: float,
+    jump_vol: float,
+) -> ProcessSpec:
+    """Bates model: Heston stochastic vol + Merton jumps.
+
+    dS/S = (μ - λk) dt + √v dW_1 + J dN
+    dv = κ(θ-v) dt + ξ√v dW_2
+
+    J ~ N(jump_mean, jump_vol²), N ~ Poisson(λ).
+    k = E[e^J - 1].
+
+    Args:
+        s0: initial spot.
+        v0: initial variance.
+        mu: drift.
+        kappa, theta, xi: Heston variance parameters.
+        rho: spot-vol correlation.
+        jump_intensity: Poisson intensity λ.
+        jump_mean: log-jump mean.
+        jump_vol: log-jump volatility.
+
+    References:
+        Bates (1996). Jumps and Stochastic Volatility. RFS.
+    """
+    k = np.exp(jump_mean + 0.5 * jump_vol ** 2) - 1
+    drift_adj = mu - jump_intensity * k
+
+    def exact_step(x, t, dt, dw):
+        log_s = x[..., 0]
+        v = np.maximum(x[..., 1], 0.0)
+        sqrt_v = np.sqrt(v)
+
+        # Diffusion
+        new_log_s = log_s + (drift_adj - 0.5 * v) * dt + sqrt_v * dw[..., 0]
+
+        # Jumps (Poisson)
+        n_jumps = np.random.poisson(jump_intensity * dt, size=log_s.shape)
+        jump_sizes = n_jumps * jump_mean + np.sqrt(n_jumps.astype(float)) * jump_vol * np.random.randn(*log_s.shape)
+        new_log_s += jump_sizes
+
+        # Variance
+        new_v = v + kappa * (theta - v) * dt + xi * sqrt_v * dw[..., 1]
+        new_v = np.maximum(new_v, 0.0)
+
+        result = np.zeros_like(x)
+        result[..., 0] = new_log_s
+        result[..., 1] = new_v
+        return result
+
+    corr = np.array([[1.0, rho], [rho, 1.0]])
+
+    return ProcessSpec(
+        x0=np.array([np.log(s0), v0]),
+        drift=lambda x, t: np.zeros_like(x),
+        diffusion=lambda x, t: np.zeros_like(x),
+        n_factors=2, correlation=corr, exact_step=exact_step,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Variance Gamma Process
+# ---------------------------------------------------------------------------
+
+def VarianceGammaProcess(
+    s0: float,
+    mu: float,
+    sigma: float,
+    nu: float,
+    theta_vg: float,
+) -> ProcessSpec:
+    """Variance Gamma: Brownian motion with gamma time change.
+
+    X(t) = θ G(t) + σ W(G(t)), where G ~ Gamma(t/ν, ν).
+    S = S₀ exp((μ + ω)t + X(t)), ω = -ln(1 - θν - σ²ν/2)/ν.
+
+    Args:
+        s0: initial spot.
+        mu: drift.
+        sigma: diffusion vol.
+        nu: variance rate of gamma subordinator.
+        theta_vg: drift of subordinated BM (skewness).
+
+    References:
+        Madan, Carr, Chang (1998). The Variance Gamma Process. EJOR.
+    """
+    omega = -np.log(max(1 - theta_vg * nu - 0.5 * sigma ** 2 * nu, 1e-10)) / max(nu, 1e-10) if nu > 0 else 0.0
+
+    def exact_step(x, t, dt, dw):
+        # Gamma time increment: G ~ Gamma(dt/nu, nu)
+        shape = max(dt / max(nu, 1e-10), 1e-10)
+        g = np.random.gamma(shape, max(nu, 1e-10), size=x.shape)
+        g = np.maximum(g, 1e-15)
+        # Subordinated BM increment
+        vg_increment = theta_vg * g + sigma * np.sqrt(g) * np.random.randn(*x.shape)
+        return x + (mu + omega) * dt + vg_increment
+
+    return ProcessSpec(
+        x0=np.log(s0),
+        drift=lambda x, t: (mu + omega) * np.ones_like(x),
+        diffusion=lambda x, t: sigma * np.ones_like(x),
+        n_factors=1, exact_step=exact_step,
+    )
+
+
+# ---------------------------------------------------------------------------
+# CEV Process (explicit)
+# ---------------------------------------------------------------------------
+
+def CEVProcess(
+    s0: float,
+    mu: float,
+    sigma: float,
+    beta: float,
+) -> ProcessSpec:
+    """Constant Elasticity of Variance: dS = μS dt + σS^β dW.
+
+    β < 1: leverage effect (vol increases as price drops).
+    β = 1: GBM. β = 0: normal model.
+    Uses absorbing boundary at S=0.
+
+    Args:
+        s0: initial spot (must be positive).
+        mu: drift.
+        sigma: vol coefficient.
+        beta: elasticity parameter.
+    """
+    def exact_step(x, t, dt, dw):
+        s = np.maximum(x, 1e-15)
+        s_beta = np.power(s, beta)
+        new_s = s + mu * s * dt + sigma * s_beta * dw
+        return np.maximum(new_s, 0.0)
+
+    return ProcessSpec(
+        x0=s0,
+        drift=lambda x, t: mu * x,
+        diffusion=lambda x, t: sigma * np.power(np.maximum(x, 1e-15), beta),
+        n_factors=1, exact_step=exact_step,
+    )
+
+
+# ---------------------------------------------------------------------------
+# G2++ (2-factor Gaussian rates)
+# ---------------------------------------------------------------------------
+
+def G2PlusProcess(
+    x0: float = 0.0,
+    y0: float = 0.0,
+    a: float = 0.5,
+    b: float = 0.8,
+    sigma1: float = 0.01,
+    sigma2: float = 0.008,
+    rho: float = -0.7,
+    phi_func=None,
+) -> ProcessSpec:
+    """G2++ two-factor Gaussian short-rate model.
+
+    r(t) = x(t) + y(t) + φ(t)
+    dx = -a×x dt + σ₁ dW₁
+    dy = -b×y dt + σ₂ dW₂
+
+    φ(t) calibrated to initial term structure.
+
+    2-factor: X = [x, y]. r = x + y + φ(t).
+    Use for long-dated swaptions where 1-factor HW is insufficient.
+
+    Args:
+        x0, y0: initial factor values (typically 0).
+        a, b: mean reversion speeds.
+        sigma1, sigma2: factor volatilities.
+        rho: factor correlation.
+        phi_func: callable(t) → φ(t). None = 0 (flat).
+
+    References:
+        Brigo & Mercurio (2006). Interest Rate Models, Ch. 4.
+    """
+    def exact_step(x, t, dt, dw):
+        xv = x[..., 0]
+        yv = x[..., 1]
+
+        # Exact Gaussian transitions (OU processes)
+        new_x = xv * np.exp(-a * dt) + sigma1 * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a + 1e-15)) * dw[..., 0] / np.sqrt(dt + 1e-15) if dt > 0 else xv
+        new_y = yv * np.exp(-b * dt) + sigma2 * np.sqrt((1 - np.exp(-2 * b * dt)) / (2 * b + 1e-15)) * dw[..., 1] / np.sqrt(dt + 1e-15) if dt > 0 else yv
+
+        result = np.zeros_like(x)
+        result[..., 0] = new_x
+        result[..., 1] = new_y
+        return result
+
+    corr = np.array([[1.0, rho], [rho, 1.0]])
+
+    return ProcessSpec(
+        x0=np.array([x0, y0]),
+        drift=lambda x, t: np.stack([-a * x[..., 0], -b * x[..., 1]], axis=-1),
+        diffusion=lambda x, t: np.stack([sigma1 * np.ones_like(x[..., 0]),
+                                          sigma2 * np.ones_like(x[..., 1])], axis=-1),
+        n_factors=2, correlation=corr, exact_step=exact_step,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Brownian Bridge (for barrier correction)
+# ---------------------------------------------------------------------------
+
 def barrier_correction(
     paths: np.ndarray,
     barrier: float,

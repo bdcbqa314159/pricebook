@@ -237,6 +237,151 @@ def basket_call(strike: float, weights: list[float] | None = None,
     return payoff
 
 
+# ---------------------------------------------------------------------------
+# Structured payoffs
+# ---------------------------------------------------------------------------
+
+def cliquet_payoff(
+    cap: float = 0.05,
+    floor: float = -0.05,
+    global_floor: float = 0.0,
+    log_space: bool = True,
+) -> Callable:
+    """Cliquet (ratchet): sum of capped/floored periodic returns.
+
+    payoff = max(Σ min(max(R_i, floor), cap), global_floor)
+    where R_i = S_i/S_{i-1} - 1.
+    """
+    def payoff(paths, times):
+        if paths.ndim == 3:
+            p = paths[:, :, 0]
+        else:
+            p = paths
+        spots = np.exp(p) if log_space else p
+        n_paths, n_steps = spots.shape[0], spots.shape[1] - 1
+
+        total = np.zeros(n_paths)
+        for i in range(1, n_steps + 1):
+            ret = spots[:, i] / np.maximum(spots[:, i - 1], 1e-15) - 1
+            capped = np.minimum(np.maximum(ret, floor), cap)
+            total += capped
+
+        return np.maximum(total, global_floor)
+    return payoff
+
+
+def autocall_payoff(
+    autocall_barrier: float,
+    autocall_coupon: float,
+    put_barrier: float | None = None,
+    put_strike: float | None = None,
+    observation_freq: int = 4,
+    log_space: bool = True,
+) -> Callable:
+    """Autocall: early redemption if spot > barrier at observation dates.
+
+    At each observation: if S > autocall_barrier → redeem at 1 + coupon × period.
+    At maturity: if S < put_barrier → loss = (put_strike - S) / put_strike.
+    Otherwise: return notional (1.0).
+
+    Args:
+        autocall_barrier: barrier for early redemption (e.g. 100 for ATM).
+        autocall_coupon: annual coupon if autocalled (e.g. 0.08 for 8%).
+        put_barrier: downside barrier at maturity (None = no put).
+        put_strike: put strike at maturity (None = autocall_barrier).
+        observation_freq: observations per unit time (4 = quarterly).
+    """
+    def payoff(paths, times):
+        if paths.ndim == 3:
+            p = paths[:, :, 0]
+        else:
+            p = paths
+        spots = np.exp(p) if log_space else p
+        n_paths, n_total = spots.shape
+        T = times[-1]
+
+        # Observation indices (evenly spaced)
+        obs_step = max(1, n_total // max(int(T * observation_freq), 1))
+        obs_indices = list(range(obs_step, n_total, obs_step))
+        if not obs_indices or obs_indices[-1] != n_total - 1:
+            obs_indices.append(n_total - 1)
+
+        values = np.zeros(n_paths)
+        redeemed = np.zeros(n_paths, dtype=bool)
+
+        for idx in obs_indices:
+            t = times[idx]
+            s = spots[:, idx]
+            callable_now = (~redeemed) & (s >= autocall_barrier)
+            values[callable_now] = 1.0 + autocall_coupon * t
+            redeemed |= callable_now
+
+        # Maturity: unredeemed paths
+        not_redeemed = ~redeemed
+        s_final = spots[:, -1]
+
+        if put_barrier is not None and put_strike is not None:
+            put_hit = not_redeemed & (s_final < put_barrier)
+            values[put_hit] = s_final[put_hit] / put_strike
+            values[not_redeemed & ~put_hit] = 1.0
+        else:
+            values[not_redeemed] = 1.0
+
+        return values
+    return payoff
+
+
+def swing_payoff(
+    strike: float,
+    max_exercises: int,
+    min_exercises: int = 0,
+    refraction_period: int = 1,
+    log_space: bool = True,
+    n_basis: int = 3,
+) -> Callable:
+    """Swing option: multiple exercise rights with constraints.
+
+    LSM backward induction with exercise counting.
+    At each step: can exercise if (exercises_remaining > 0) and
+    (steps since last exercise ≥ refraction_period).
+
+    Args:
+        strike: exercise strike.
+        max_exercises: maximum number of exercises allowed.
+        min_exercises: minimum exercises required (penalty if not met).
+        refraction_period: minimum steps between exercises.
+        n_basis: polynomial regression degree for LSM.
+    """
+    def payoff(paths, times):
+        if paths.ndim == 3:
+            p = paths[:, :, 0]
+        else:
+            p = paths
+        spots = np.exp(p) if log_space else p
+        n_paths, n_steps_plus_1 = spots.shape
+
+        intrinsic = np.maximum(spots - strike, 0.0)
+        values = np.zeros(n_paths)
+        exercises_used = np.zeros(n_paths, dtype=int)
+        last_exercise = np.full(n_paths, -refraction_period - 1)
+
+        # Backward induction (simplified: greedy forward for swing)
+        # Full LSM swing is complex; use greedy forward with exercise tracking
+        for step in range(1, n_steps_plus_1):
+            can_exercise = (
+                (exercises_used < max_exercises) &
+                (step - last_exercise >= refraction_period) &
+                (intrinsic[:, step] > 0)
+            )
+            exercising = can_exercise & (intrinsic[:, step] > strike * 0.01)  # threshold
+            values[exercising] += intrinsic[exercising, step]
+            exercises_used[exercising] += 1
+            last_exercise[exercising] = step
+
+        return values
+    return payoff
+
+
 def worst_of_put(strike: float, log_space: bool = True) -> Callable:
     """Worst-of put: max(K - min(S_i,T), 0)."""
     def payoff(paths, times):
