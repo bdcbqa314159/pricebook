@@ -150,3 +150,63 @@ def mc_asian_arithmetic(
         std_error = float(discounted.std(ddof=1) / math.sqrt(len(discounted)))
 
     return MCResult(price=price, std_error=std_error, n_paths=len(payoffs))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def mc_asian_arithmetic_via_engine(
+    spot: float,
+    strike: float,
+    rate: float,
+    vol: float,
+    T: float,
+    n_steps: int,
+    option_type: OptionType = OptionType.CALL,
+    div_yield: float = 0.0,
+    n_paths: int = 100_000,
+    seed: int = 42,
+    antithetic: bool = False,
+    control_variate: bool = False,
+    use_sobol: bool = False,
+) -> MCResult:
+    """Asian arithmetic option priced via the unified MC engine.
+
+    Drop-in replacement for mc_asian_arithmetic() using MCEngine.
+    Supports antithetic, control variate, and Sobol.
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.mc_payoffs import asian_arithmetic, asian_geometric
+
+    process = BlackScholesProcess(spot, rate - div_yield, vol)
+    grid = TimeGrid.uniform(T, n_steps)
+    df = math.exp(-rate * T)
+
+    if use_sobol:
+        from pricebook.mc_extensions import sobol_engine
+        engine = sobol_engine(process, grid, n_paths, seed)
+    else:
+        engine = MCEngine(process, grid, n_paths, seed, antithetic=antithetic)
+
+    if option_type == OptionType.CALL:
+        payoff = asian_arithmetic(strike, log_space=True)
+    else:
+        # Asian put
+        def payoff(paths, times):
+            p = paths[:, :, 0] if paths.ndim == 3 else paths
+            spots = np.exp(p)
+            avg = np.mean(spots[:, 1:], axis=1)
+            return np.maximum(strike - avg, 0.0)
+
+    if control_variate:
+        from pricebook.mc_variance_reduction import control_variate as cv_fn
+        geo_payoff = asian_geometric(strike, log_space=True)
+        geo_exact = geometric_asian_analytical(spot, strike, rate, vol, T, n_steps, option_type, div_yield)
+        result = cv_fn(engine, payoff, geo_payoff, geo_exact, df)
+    else:
+        result = engine.price(payoff, df)
+
+    # Convert to old MCResult format
+    return MCResult(price=result.price, std_error=result.stderr, n_paths=result.n_paths)

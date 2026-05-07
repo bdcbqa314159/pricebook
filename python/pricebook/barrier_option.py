@@ -262,3 +262,67 @@ class BarrierOption:
 
 
 _register(BarrierOption)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def barrier_option_mc_via_engine(
+    spot: float,
+    strike: float,
+    barrier: float,
+    rate: float,
+    vol: float,
+    T: float,
+    barrier_type: str = "up-and-out",
+    div_yield: float = 0.0,
+    n_paths: int = 100_000,
+    n_steps: int = 252,
+    seed: int = 42,
+    bridge_correction: bool = False,
+) -> dict:
+    """Barrier option priced via the unified MC engine.
+
+    Drop-in replacement for BarrierOption._price_mc().
+    Supports Brownian bridge correction for continuous monitoring.
+    """
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess, barrier_correction
+
+    process = BlackScholesProcess(spot, rate - div_yield, vol)
+    grid = TimeGrid.uniform(T, n_steps)
+    engine = MCEngine(process, grid, n_paths, seed, antithetic=True)
+    paths = engine.paths
+    df = math.exp(-rate * T)
+
+    spots = np.exp(paths)
+    terminal = spots[:, -1]
+
+    # Barrier check
+    is_knockout = "out" in barrier_type
+    is_up = "up" in barrier_type
+
+    if bridge_correction:
+        alive = barrier_correction(
+            paths, barrier, vol, T / n_steps,
+            barrier_type="up" if is_up else "down",
+            log_space=True, seed=seed,
+        )
+    else:
+        if is_up:
+            alive = np.all(spots < barrier, axis=1)
+        else:
+            alive = np.all(spots > barrier, axis=1)
+
+    payoff = np.maximum(terminal - strike, 0.0)
+
+    if is_knockout:
+        payoff = payoff * alive
+    else:
+        payoff = payoff * (~alive)  # knock-in
+
+    price = float(df * np.mean(payoff))
+    stderr = float(df * np.std(payoff, ddof=1) / np.sqrt(n_paths))
+
+    return {"price": price, "stderr": stderr, "n_paths": n_paths}
