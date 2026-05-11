@@ -299,3 +299,21 @@ def lgd_term_structure(
         })
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def correlated_default_recovery_via_engine(
+    pd: float,
+    recovery_spec: RecoverySpec,
+    n_sims: int = 100_000,
+    seed: int = 42,
+) -> DefaultRecoveryResult:
+    """Correlated default-recovery via unified MC engine (copula sampling).
+
+    Delegates to original — copula sampling of (default, recovery) is
+    inherently single-step and doesn't benefit from SDE path generation.
+    """
+    return correlated_default_recovery(pd, recovery_spec, n_sims, seed)

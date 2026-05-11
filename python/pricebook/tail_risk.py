@@ -132,3 +132,42 @@ def extreme_value_var(
     else:
         var = threshold + scale * math.log(n_u / (n * p))
     return EVTVaRResult(float(var), confidence, float(shape), float(scale))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def tail_risk_pricing_via_engine(
+    spot: float, strike: float, rate: float, T: float,
+    tail_index: float = 3.0,
+    scale: float = 0.10,
+    n_paths: int = 50_000,
+    seed: int | None = 42,
+) -> TailRiskResult:
+    """Tail risk pricing via unified MC engine (GBM paths + Pareto mixing).
+
+    Uses gbm_paths for the normal component; Pareto tail overlay remains
+    inline as it's a distribution mix, not an SDE.
+    """
+    from pricebook.mc_migrate import gbm_paths
+
+    paths = gbm_paths(spot, rate, scale, T, 1, n_paths, seed or 42)
+    S_normal = paths[:, -1]
+
+    # Pareto tail overlay for 5% of paths
+    rng = np.random.default_rng((seed or 42) + 1)
+    tail_mask = rng.random(n_paths) < 0.05
+    drift = (rate - 0.5 * scale**2) * T
+    tail_returns = drift - genpareto.rvs(1 / tail_index, scale=scale * math.sqrt(T),
+                                          size=n_paths, random_state=rng)
+    S_tail = spot * np.exp(tail_returns)
+    S_T = np.where(tail_mask, S_tail, S_normal)
+
+    payoff = np.maximum(strike - S_T, 0.0)
+    df = math.exp(-rate * T)
+    price = df * float(payoff.mean())
+    tail_prob = float((S_T < strike).mean())
+    es = float(S_T[S_T < strike].mean()) if tail_prob > 0 else spot
+
+    return TailRiskResult(float(price), tail_prob, float(es), strike / spot * 100)

@@ -300,3 +300,75 @@ def tranche_pricing_copula(
     name = type(copula).__name__
 
     return TranchePricingResult(el, spread, name)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def copula_default_simulation_via_engine(
+    copula: Copula,
+    marginal_pds: list[float],
+    lgd: float = 0.6,
+    n_sims: int = 50_000,
+    seed: int | None = None,
+) -> CopulaDefaultResult:
+    """Copula default simulation via unified MC engine.
+
+    Uses mc_extensions.CopulaDefaultEngine for Gaussian copula,
+    falls back to original for non-Gaussian copulas.
+    """
+    if isinstance(copula, GaussianCopula):
+        from pricebook.mc_extensions import CopulaDefaultEngine
+        n = len(marginal_pds)
+        engine = CopulaDefaultEngine(
+            pds=marginal_pds,
+            lgds=[lgd] * n,
+            notionals=[1.0] * n,
+            correlation=copula.rho,
+            n_paths=n_sims,
+            seed=seed or 42,
+        )
+        sim = engine.simulate()
+        losses = sim.portfolio_loss / max(n, 1)
+        n_defs = sim.n_defaults
+        corr_est = 0.0
+        return CopulaDefaultResult(
+            float((n_defs > 0).mean()),
+            float(n_defs.mean()),
+            losses,
+            corr_est,
+        )
+    return copula_default_simulation(copula, marginal_pds, lgd, n_sims, seed)
+
+
+def tranche_pricing_copula_via_engine(
+    copula: Copula,
+    marginal_pds: list[float],
+    attach: float,
+    detach: float,
+    lgd: float = 0.6,
+    T: float = 5.0,
+    rate: float = 0.05,
+    n_sims: int = 100_000,
+    seed: int | None = None,
+) -> TranchePricingResult:
+    """CDO tranche pricing via unified MC engine."""
+    if isinstance(copula, GaussianCopula):
+        from pricebook.mc_extensions import CopulaDefaultEngine, tranche_loss
+        n = len(marginal_pds)
+        engine = CopulaDefaultEngine(
+            pds=marginal_pds,
+            lgds=[lgd] * n,
+            notionals=[1.0] * n,
+            correlation=copula.rho,
+            n_paths=n_sims,
+            seed=seed or 42,
+        )
+        sim = engine.simulate()
+        el = tranche_loss(sim, attach, detach)
+        annuity = sum(math.exp(-rate * t) for t in range(1, int(T) + 1))
+        spread = el / annuity if annuity > 0 else 0.0
+        return TranchePricingResult(el, spread, "GaussianCopula")
+    return tranche_pricing_copula(copula, marginal_pds, attach, detach,
+                                   lgd, T, rate, n_sims, seed)

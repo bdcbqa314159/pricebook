@@ -1104,3 +1104,40 @@ class BasketCLN:
 
 from pricebook.serialisable import serialisable as _serialisable
 _serialisable("cln", ["start", "end", "coupon_rate", "notional", "recovery", "leverage", "floating", "frequency", "day_count"])(CreditLinkedNote)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def cln_price_stochastic_recovery_via_engine(
+    cln_inst: CreditLinkedNote,
+    discount_curve,
+    survival_curve,
+    recovery_spec=None,
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> float:
+    """CLN stochastic recovery via unified MC engine (copula sampling).
+
+    Delegates to original — copula default indicators don't benefit from
+    engine path generation, but this provides API consistency.
+    """
+    return cln_inst.price_stochastic_recovery(
+        discount_curve, survival_curve, recovery_spec, n_sims, seed)
+
+
+def basket_cln_price_mc_via_engine(
+    basket: BasketCLN,
+    discount_curve,
+    survival_curves: list,
+    rho: float = 0.3,
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> BasketCLNResult:
+    """Basket CLN via unified MC engine (Gaussian copula).
+
+    Delegates to original — copula default sampling is inherently
+    different from SDE path generation.
+    """
+    return basket.price_mc(discount_curve, survival_curves, rho, n_sims, seed)

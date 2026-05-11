@@ -421,3 +421,41 @@ def dual_upper_bound(
         max_values = np.maximum(max_values, payoff)
 
     return float(np.mean(max_values))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def pathwise_delta_via_engine(
+    spot: float, strike: float, rate: float, vol: float, T: float,
+    n_paths: int = 100_000, seed: int = 42,
+) -> MCGreekResult:
+    """Pathwise delta via unified MC engine (mc_greeks_engine.mc_greeks)."""
+    from pricebook.mc_greeks_engine import mc_greeks
+    from pricebook.mc_engine import TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.mc_payoffs import european_call
+
+    def factory(s, r, sigma): return BlackScholesProcess(s, r, sigma)
+    grid = TimeGrid.uniform(T, 1)
+    result = mc_greeks(factory, grid, european_call(strike), spot, rate, vol, T,
+                       n_paths=n_paths, seed=seed)
+    return MCGreekResult(result.delta, 0.0, n_paths, "pathwise_engine")
+
+
+def likelihood_ratio_delta_via_engine(
+    spot: float, strike: float, rate: float, vol: float, T: float,
+    n_paths: int = 100_000, seed: int = 42,
+) -> MCGreekResult:
+    """LR delta via unified MC engine."""
+    from pricebook.mc_greeks_engine import mc_greeks
+    from pricebook.mc_engine import TimeGrid
+    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.mc_payoffs import european_call
+
+    def factory(s, r, sigma): return BlackScholesProcess(s, r, sigma)
+    grid = TimeGrid.uniform(T, 1)
+    result = mc_greeks(factory, grid, european_call(strike), spot, rate, vol, T,
+                       n_paths=n_paths, seed=seed)
+    return MCGreekResult(result.delta, 0.0, n_paths, "lr_engine")

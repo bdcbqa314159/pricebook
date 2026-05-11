@@ -902,3 +902,83 @@ def _pedersen_price_curves(
         result.premium, result.forward_spread, strike_spread,
         spread_vol, result.survival_to_expiry, None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def pedersen_price_mc_via_engine(
+    model: PedersenCDSSwaption,
+    expiry: float,
+    cds_maturity: float,
+    strike_spread: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+    n_paths: int = 100_000,
+    seed: int | None = None,
+) -> PedersenResult:
+    """Pedersen CDS swaption via the unified MC engine (single-step lognormal)."""
+    from pricebook.mc_migrate import gbm_paths
+
+    fwd = forward_cds_spread(expiry, cds_maturity, model.flat_hazard,
+                              model.flat_rate, model.recovery)
+    F0 = fwd.forward_spread
+    surv = fwd.survival_to_start
+
+    # Single-step GBM for lognormal forward spread
+    F_paths = gbm_paths(F0, 0.0, model.spread_vol, expiry, 1, n_paths, seed or 42)
+    F_T = F_paths[:, -1]
+
+    if option_type == "payer":
+        payoff = np.maximum(F_T - strike_spread, 0.0)
+    else:
+        payoff = np.maximum(strike_spread - F_T, 0.0)
+
+    mc_premium = float(surv * notional * fwd.risky_annuity * payoff.mean())
+    return PedersenResult(mc_premium, F0, strike_spread, model.spread_vol,
+                          surv, mc_premium)
+
+
+def stochastic_intensity_swaption_via_engine(
+    model: StochasticIntensitySwaption,
+    expiry: float,
+    cds_maturity: float,
+    strike_spread: float,
+    notional: float = 1_000_000,
+    option_type: str = "payer",
+    n_paths: int = 50_000,
+    n_steps: int = 100,
+    seed: int = 42,
+) -> PedersenResult:
+    """Stochastic intensity CDS swaption via unified MC engine (CIR paths)."""
+    from pricebook.mc_migrate import cir_paths
+
+    lam0 = model.theta
+    paths = cir_paths(lam0, model.kappa, model.theta, model.xi,
+                      expiry, n_steps, n_paths, seed)
+    dt = expiry / n_steps
+
+    integral_to_expiry = (paths[:, :-1] + paths[:, 1:]).sum(axis=1) * dt / 2
+    survival = np.exp(-integral_to_expiry)
+    lam_T = np.maximum(paths[:, -1], 0.0)
+    forward_spreads = (1 - model.recovery) * lam_T
+
+    if option_type == "payer":
+        payoff = np.maximum(forward_spreads - strike_spread, 0.0)
+    else:
+        payoff = np.maximum(strike_spread - forward_spreads, 0.0)
+
+    remaining = cds_maturity - expiry
+    n_periods = max(1, int(remaining * 4))
+    ann = sum(
+        math.exp(-model.flat_rate * (expiry + (i + 1) * remaining / n_periods))
+        * remaining / n_periods
+        for i in range(n_periods)
+    )
+    mc_premium = float((survival * payoff).mean()) * notional * ann
+    mean_fwd = float(forward_spreads.mean())
+    mean_surv = float(survival.mean())
+
+    return PedersenResult(mc_premium, mean_fwd, strike_spread,
+                          model.xi, mean_surv, mc_premium)
