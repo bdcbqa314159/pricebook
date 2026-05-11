@@ -326,8 +326,6 @@ class TestContextManager:
             assert db.load_entity("TEST") is not None
 
 
-# ── File Persistence ──
-
 # ── SQL Injection Defense ──
 
 class TestSQLInjection:
@@ -381,6 +379,45 @@ class TestTradeReconstruction:
 
     def test_load_missing_trade(self, db):
         assert db.load_trade("nonexist") is None
+
+
+# ── File Persistence ──
+
+# ── Edge Cases ──
+
+class TestEdgeCases:
+
+    def test_list_values_serialised_as_json(self, db):
+        db.save_table("tags", [{"name": "A", "items": [1, 2, 3]}])
+        rows = db.load_table("tags")
+        assert rows[0]["items"] == "[1, 2, 3]"  # stored as JSON string
+
+    def test_load_nonexistent_table_raises(self, db):
+        with pytest.raises(ValueError, match="does not exist"):
+            db.load_table("nonexistent_table")
+
+    def test_snapshot_preserves_created_at(self, db):
+        db.save_snapshot("2026-05-10", "discount_curve", "OIS", {"r": 0.05})
+        raw1 = db.load_snapshot_raw("2026-05-10", "discount_curve", "OIS")
+        created1 = raw1["created_at"]
+
+        # Re-snap same key — created_at should be preserved
+        db.save_snapshot("2026-05-10", "discount_curve", "OIS", {"r": 0.051})
+        raw2 = db.load_snapshot_raw("2026-05-10", "discount_curve", "OIS")
+        assert raw2["created_at"] == created1
+        assert raw2["data"]["r"] == 0.051
+
+    def test_list_snapshots_single_bound(self, db):
+        db.save_snapshot("2026-05-10", "curve", "A", {"x": 1})
+        db.save_snapshot("2026-05-12", "curve", "B", {"x": 2})
+        assert len(db.list_snapshots(date_from="2026-05-11")) == 1
+        assert len(db.list_snapshots(date_to="2026-05-11")) == 1
+
+    def test_pnl_empty_series(self, db):
+        assert db.pnl_series("nonexistent") == []
+
+    def test_empty_result_history(self, db):
+        assert db.result_history("nonexistent") == []
 
 
 # ── File Persistence ──

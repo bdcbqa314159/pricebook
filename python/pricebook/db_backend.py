@@ -85,10 +85,16 @@ class SQLiteBackend(StorageBackend):
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,))
         return len(rows) > 0
 
+    _VALID_SQL_TYPES = {"TEXT", "REAL", "INTEGER", "BLOB", "NUMERIC"}
+
     def create_table(self, name: str, columns: dict[str, str]) -> None:
         safe = _safe_name(name)
-        cols = ", ".join(f"{_safe_name(k)} {v}" for k, v in columns.items())
-        self.execute(f"CREATE TABLE IF NOT EXISTS {safe} ({cols})")
+        parts = []
+        for k, v in columns.items():
+            if v.upper() not in self._VALID_SQL_TYPES:
+                raise ValueError(f"Invalid SQL type: {v!r}")
+            parts.append(f"{_safe_name(k)} {v}")
+        self.execute(f"CREATE TABLE IF NOT EXISTS {safe} ({', '.join(parts)})")
 
     def drop_table(self, name: str) -> None:
         self.execute(f"DROP TABLE IF EXISTS {_safe_name(name)}")

@@ -41,7 +41,7 @@ def _infer_sql_type(value) -> str:
 def _serialise_value(v) -> Any:
     if isinstance(v, date):
         return v.isoformat()
-    if isinstance(v, dict):
+    if isinstance(v, (dict, list)):
         return json.dumps(v)
     return v
 
@@ -341,7 +341,7 @@ class PricebookDB:
                (snapshot_date, snapshot_type, curve_name, data_json, source, created_at)
                VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(snapshot_date, snapshot_type, curve_name) DO UPDATE SET
-               data_json=excluded.data_json, source=excluded.source, created_at=excluded.created_at""",
+               data_json=excluded.data_json, source=excluded.source""",
             (snapshot_date, snapshot_type, curve_name, data_json, source, _now()),
         )
         self._backend.commit()
@@ -380,13 +380,18 @@ class PricebookDB:
             date_from = date_from.isoformat()
         if isinstance(date_to, date):
             date_to = date_to.isoformat()
+        base = "SELECT snapshot_date, snapshot_type, curve_name, source FROM market_snapshots"
         if date_from and date_to:
             return self._backend.execute(
-                """SELECT snapshot_date, snapshot_type, curve_name, source
-                   FROM market_snapshots WHERE snapshot_date BETWEEN ? AND ?
-                   ORDER BY snapshot_date""", (date_from, date_to))
-        return self._backend.execute(
-            "SELECT snapshot_date, snapshot_type, curve_name, source FROM market_snapshots ORDER BY snapshot_date")
+                f"{base} WHERE snapshot_date BETWEEN ? AND ? ORDER BY snapshot_date",
+                (date_from, date_to))
+        if date_from:
+            return self._backend.execute(
+                f"{base} WHERE snapshot_date >= ? ORDER BY snapshot_date", (date_from,))
+        if date_to:
+            return self._backend.execute(
+                f"{base} WHERE snapshot_date <= ? ORDER BY snapshot_date", (date_to,))
+        return self._backend.execute(f"{base} ORDER BY snapshot_date")
 
     # ------------------------------------------------------------------
     # Pricing results
@@ -496,7 +501,6 @@ class PricebookDB:
 
         cols = list(rows[0].keys())
         placeholders = ", ".join("?" for _ in cols)
-        col_names = ", ".join(cols)
         safe_table = _safe_name(name)
         safe_cols = ", ".join(_safe_name(c) for c in cols)
         sql = f"INSERT INTO {safe_table} ({safe_cols}) VALUES ({placeholders})"
@@ -521,8 +525,11 @@ class PricebookDB:
 
     def load_table(self, name: str, **filters) -> list[dict]:
         """Load all rows from a custom table, optionally filtered."""
+        safe = _safe_name(name)
+        if not self._backend.table_exists(name):
+            raise ValueError(f"Table '{name}' does not exist")
         where, params = self._build_where(filters)
-        return self._backend.execute(f"SELECT * FROM {_safe_name(name)}{where}", params)
+        return self._backend.execute(f"SELECT * FROM {safe}{where}", params)
 
     def load_table_df(self, name: str, **filters):
         """Load a custom table as a pandas DataFrame."""
