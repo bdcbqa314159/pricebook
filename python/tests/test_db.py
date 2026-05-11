@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import json
-import math
 import os
 import tempfile
 from datetime import date
-from pathlib import Path
 
 import pytest
 
@@ -381,16 +378,15 @@ class TestTradeReconstruction:
         assert db.load_trade("nonexist") is None
 
 
-# ── File Persistence ──
-
 # ── Edge Cases ──
 
 class TestEdgeCases:
 
     def test_list_values_serialised_as_json(self, db):
+        import json
         db.save_table("tags", [{"name": "A", "items": [1, 2, 3]}])
         rows = db.load_table("tags")
-        assert rows[0]["items"] == "[1, 2, 3]"  # stored as JSON string
+        assert json.loads(rows[0]["items"]) == [1, 2, 3]
 
     def test_load_nonexistent_table_raises(self, db):
         with pytest.raises(ValueError, match="does not exist"):
@@ -418,6 +414,24 @@ class TestEdgeCases:
 
     def test_empty_result_history(self, db):
         assert db.result_history("nonexistent") == []
+
+    def test_append_rows_blocks_system_table(self, db):
+        with pytest.raises(ValueError, match="system table"):
+            db.append_rows("trades", [{"trade_id": "hack"}])
+
+    def test_export_csv_nonexistent_raises(self, db):
+        with pytest.raises(ValueError, match="does not exist"):
+            db.export_csv("nonexistent", "/tmp/nope.csv")
+
+    def test_delete_rows_nonexistent_raises(self, db):
+        with pytest.raises(ValueError, match="does not exist"):
+            db.delete_rows("nonexistent", x=1)
+
+    def test_sqlite_sequence_hidden(self, db):
+        # pricing_results uses AUTOINCREMENT which creates sqlite_sequence
+        db.save_result("t1", "2026-05-10", {"price": 100})
+        custom = db.list_custom_tables()
+        assert "sqlite_sequence" not in custom
 
 
 # ── File Persistence ──

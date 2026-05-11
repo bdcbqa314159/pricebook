@@ -512,6 +512,8 @@ class PricebookDB:
         """Append rows to an existing custom table."""
         if not rows:
             return
+        if name in self._SYSTEM_TABLES:
+            raise ValueError(f"Cannot append to system table '{name}'")
         if not self._backend.table_exists(name):
             return self.save_table(name, rows, replace=False)
         cols = list(rows[0].keys())
@@ -543,16 +545,21 @@ class PricebookDB:
 
     def delete_rows(self, name: str, **filters) -> None:
         """Delete rows matching filters."""
+        if not self._backend.table_exists(name):
+            raise ValueError(f"Table '{name}' does not exist")
         where, params = self._build_where(filters)
         if not where:
             raise ValueError("delete_rows requires at least one filter")
         self._backend.execute(f"DELETE FROM {_safe_name(name)}{where}", params)
         self._backend.commit()
 
+    _INTERNAL_TABLES = {"sqlite_sequence"}
+
     def list_custom_tables(self) -> list[str]:
-        """List user-created tables (excludes system tables)."""
+        """List user-created tables (excludes system and SQLite internal tables)."""
         all_tables = self._backend.list_tables()
-        return [t for t in all_tables if t not in self._SYSTEM_TABLES]
+        exclude = self._SYSTEM_TABLES | self._INTERNAL_TABLES
+        return [t for t in all_tables if t not in exclude]
 
     def drop_table(self, name: str) -> None:
         """Drop a custom table. Cannot drop system tables."""
@@ -567,7 +574,10 @@ class PricebookDB:
 
     def export_csv(self, name: str, filepath: str | Path) -> None:
         """Export a table (custom or system) to CSV."""
-        rows = self._backend.execute(f"SELECT * FROM {_safe_name(name)}")
+        safe = _safe_name(name)
+        if not self._backend.table_exists(name):
+            raise ValueError(f"Table '{name}' does not exist")
+        rows = self._backend.execute(f"SELECT * FROM {safe}")
         if not rows:
             return
         filepath = Path(filepath)
