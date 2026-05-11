@@ -198,8 +198,9 @@ def cln_daily_pnl(
     rm = cln_risk_metrics(cln, curve_t0, surv_t0)
     T = year_fraction(cln.start, cln.end, DayCountConvention.ACT_365_FIXED)
 
-    # Carry: 1-day accrual
-    carry = rm.notional * cln.coupon_rate / 365
+    # Carry: 1-day accrual (ACT/360 for CLN, matching cln.day_count)
+    days_in_year = 360 if cln.day_count == DayCountConvention.ACT_360 else 365
+    carry = rm.notional * cln.coupon_rate / days_in_year
 
     # Spread P&L: infer spread change from survival curves
     h0 = -math.log(max(surv_t0.survival(cln.end), 1e-15)) / max(T, 1e-10)

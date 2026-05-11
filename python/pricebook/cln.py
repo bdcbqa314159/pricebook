@@ -111,6 +111,12 @@ class CreditLinkedNote:
             raise ValueError(f"recovery must be in [0, 1], got {recovery}")
         if leverage < 1.0:
             raise ValueError(f"leverage must be >= 1.0, got {leverage}")
+        if start >= end:
+            raise ValueError(f"end ({end}) must be after start ({start})")
+        if isinstance(notional, (int, float)) and notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
+        if isinstance(notional, list) and any(n <= 0 for n in notional):
+            raise ValueError("all notional schedule values must be positive")
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate
@@ -830,6 +836,14 @@ class BasketCLN:
         recovery: float = 0.4,
         n_names: int = 125,
     ):
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
+        if n_names < 1:
+            raise ValueError(f"n_names must be >= 1, got {n_names}")
+        if not (0 <= attachment < detachment <= 1):
+            raise ValueError(f"need 0 <= attachment < detachment <= 1, got [{attachment}, {detachment}]")
+        if start >= end:
+            raise ValueError(f"end ({end}) must be after start ({start})")
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate

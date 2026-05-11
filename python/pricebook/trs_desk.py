@@ -29,6 +29,14 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.day_count import DayCountConvention, year_fraction
 
+from enum import Enum
+
+
+class TRSDirection(Enum):
+    """TRS economic direction."""
+    RECEIVE = "receive"
+    PAY = "pay"
+
 
 # ---------------------------------------------------------------------------
 # Risk metrics
@@ -773,7 +781,7 @@ class TRSMarginCall:
     mtm: float
     threshold: float
     required_transfer: float
-    direction: str  # "receive" or "pay"
+    direction: TRSDirection
 
     def to_dict(self) -> dict:
         return {
@@ -854,7 +862,7 @@ class TRSLifecycle:
         mtm = result.value
         net = abs(mtm) - threshold
         required = max(net, 0)
-        direction = "receive" if mtm > 0 else "pay"
+        direction = TRSDirection.RECEIVE if mtm > 0 else TRSDirection.PAY
 
         if required < min_transfer:
             required = 0.0

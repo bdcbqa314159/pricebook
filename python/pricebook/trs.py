@@ -153,6 +153,14 @@ class TRSResult:
             d.update(self.xva)
         return d
 
+    @classmethod
+    def from_dict(cls, d: dict) -> TRSResult:
+        p = d.get("params", d)
+        return cls(value=p["price"], total_return_leg=p["total_return_leg"],
+                   funding_leg=p["funding_leg"], price_return=p["price_return"],
+                   income_return=p["income_return"], fva=p["fva"],
+                   repo_factor=p["repo_factor"], dpv=p.get("dpv", 0.0))
+
 
 # ---- Unified TRS class ----
 
@@ -185,6 +193,10 @@ class TotalReturnSwap:
         # Haircut schedule
         haircut_schedule: list[tuple[date, float]] | None = None,
     ):
+        if notional <= 0:
+            raise ValueError(f"notional must be positive, got {notional}")
+        if end < start:
+            raise ValueError(f"end ({end}) must not be before start ({start})")
         self.underlying = underlying
         self.notional = notional
         self.start = start
@@ -840,66 +852,44 @@ class TotalReturnSwap:
             proj = next(iter(ctx.projection_curves.values()), None)
         return self.price(curve, proj).value
 
-from pricebook.serialisable import _register, _serialise_atom
-from pricebook.serialisable import from_dict as _s_from_dict
+    # ---- Serialisation ----
 
-TotalReturnSwap._SERIAL_TYPE = "trs"
+    _SERIAL_TYPE = "trs"
 
-def _trs_to_dict(self):
-    if isinstance(self.underlying, (int, float)):
-        underlying_d = {"type": "equity_spot", "value": float(self.underlying)}
-    elif hasattr(self.underlying, "to_dict"):
-        underlying_d = self.underlying.to_dict()
-    else:
-        underlying_d = {"type": "equity_spot", "value": 100.0}
-    return {"type": "trs", "params": {
-        "underlying": underlying_d,
-        "notional": self.notional, "start": self.start.isoformat(),
-        "end": self.end.isoformat(), "repo_spread": self.repo_spread,
-        "haircut": self.haircut, "sigma": self.sigma,
-    }}
-
-@classmethod
-def _trs_from_dict(cls, d):
-    from datetime import date as _d
-    p = d["params"]
-    u = p["underlying"]
-    if isinstance(u, (int, float)):
-        underlying = float(u)
-    elif isinstance(u, dict):
-        if u.get("type") == "equity_spot":
-            underlying = float(u["value"])
+    def to_dict(self) -> dict:
+        from pricebook.serialisable import _serialise_atom
+        if isinstance(self.underlying, (int, float)):
+            underlying_d = {"type": "equity_spot", "value": float(self.underlying)}
+        elif hasattr(self.underlying, "to_dict"):
+            underlying_d = self.underlying.to_dict()
         else:
-            underlying = _s_from_dict(u)
-    else:
-        underlying = float(u)
-    return cls(underlying=underlying, notional=p["notional"],
-               start=_d.fromisoformat(p["start"]), end=_d.fromisoformat(p["end"]),
-               repo_spread=p.get("repo_spread", 0.0),
-               haircut=p.get("haircut", 0.0), sigma=p.get("sigma", 0.20))
+            underlying_d = {"type": "equity_spot", "value": 100.0}
+        return {"type": "trs", "params": {
+            "underlying": underlying_d,
+            "notional": self.notional, "start": self.start.isoformat(),
+            "end": self.end.isoformat(), "repo_spread": self.repo_spread,
+            "haircut": self.haircut, "sigma": self.sigma,
+        }}
 
-TotalReturnSwap.to_dict = _trs_to_dict
-TotalReturnSwap.from_dict = _trs_from_dict
+    @classmethod
+    def from_dict(cls, d: dict) -> TotalReturnSwap:
+        from pricebook.serialisable import from_dict as _s_from_dict
+        p = d["params"]
+        u = p["underlying"]
+        if isinstance(u, (int, float)):
+            underlying = float(u)
+        elif isinstance(u, dict):
+            if u.get("type") == "equity_spot":
+                underlying = float(u["value"])
+            else:
+                underlying = _s_from_dict(u)
+        else:
+            underlying = float(u)
+        return cls(underlying=underlying, notional=p["notional"],
+                   start=date.fromisoformat(p["start"]), end=date.fromisoformat(p["end"]),
+                   repo_spread=p.get("repo_spread", 0.0),
+                   haircut=p.get("haircut", 0.0), sigma=p.get("sigma", 0.20))
+
+
+from pricebook.serialisable import _register
 _register(TotalReturnSwap)
-
-from pricebook.serialisable import _register as _reg_result
-
-TRSResult._SERIAL_TYPE = "trs_result"
-
-_orig_trs_result_to_dict = TRSResult.to_dict
-
-def _trs_result_to_dict_wrapped(self):
-    d = _orig_trs_result_to_dict(self)
-    return {"type": "trs_result", "params": d}
-
-@classmethod
-def _trs_result_from_dict(cls, d):
-    p = d["params"]
-    return cls(value=p["price"], total_return_leg=p["total_return_leg"],
-               funding_leg=p["funding_leg"], price_return=p["price_return"],
-               income_return=p["income_return"], fva=p["fva"],
-               repo_factor=p["repo_factor"], dpv=p.get("dpv", 0.0))
-
-TRSResult.to_dict = _trs_result_to_dict_wrapped
-TRSResult.from_dict = _trs_result_from_dict
-_reg_result(TRSResult)

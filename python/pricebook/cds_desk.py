@@ -230,11 +230,11 @@ def cds_carry_decomposition(
     T = year_fraction(cds.start, cds.end, DayCountConvention.ACT_365_FIXED)
     h = -math.log(max(survival_curve.survival(cds.end), 1e-15)) / max(T, 1e-10)
 
-    # Premium income: spread × notional × (30/360)
+    # Premium income: spread × notional × (30/360) — CDS standard ACT/360
     premium = cds.spread * cds.notional * 30 / 360
 
-    # Default risk: hazard × (1-R) × notional × (30/365)
-    default_risk = -h * (1 - cds.recovery) * cds.notional * 30 / 365
+    # Default risk: hazard × (1-R) × notional × (30/360) — same convention as premium
+    default_risk = -h * (1 - cds.recovery) * cds.notional * 30 / 360
 
     net = premium + default_risk + roll
 

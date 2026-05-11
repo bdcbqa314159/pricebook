@@ -210,11 +210,8 @@ class TestBasketCLN:
             basket.price_mc(disc, scs)
 
     def test_invalid_tranche_raises(self):
-        with pytest.raises(ValueError, match="detachment must be"):
-            basket = BasketCLN(REF, END, attachment=0.05, detachment=0.03)
-            disc = _disc()
-            scs = [_surv() for _ in range(125)]
-            basket.price_mc(disc, scs)
+        with pytest.raises(ValueError, match="attachment < detachment"):
+            BasketCLN(REF, END, attachment=0.05, detachment=0.03)
 
     def test_invalid_rho_raises(self):
         disc = _disc()
