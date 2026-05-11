@@ -150,20 +150,17 @@ def reprice_at_recovery(
 
 
 def _price_instrument(instrument, curve, survival, recovery):
-    """Price instrument with given survival curve and recovery."""
-    old_recovery = getattr(instrument, 'recovery', None)
-    try:
-        if old_recovery is not None:
-            instrument.recovery = recovery
-        if hasattr(instrument, 'dirty_price'):
-            return instrument.dirty_price(curve, survival)
-        elif hasattr(instrument, 'pv'):
-            return instrument.pv(curve, survival)
-        else:
-            raise TypeError(f"Cannot price {type(instrument).__name__}")
-    finally:
-        if old_recovery is not None:
-            instrument.recovery = old_recovery
+    """Price instrument with given survival curve and recovery (immutable)."""
+    import copy
+    inst = copy.copy(instrument)
+    if hasattr(inst, 'recovery'):
+        inst.recovery = recovery
+    if hasattr(inst, 'dirty_price'):
+        return inst.dirty_price(curve, survival)
+    elif hasattr(inst, 'pv'):
+        return inst.pv(curve, survival)
+    else:
+        raise TypeError(f"Cannot price {type(instrument).__name__}")
 
 
 # ---------------------------------------------------------------------------
