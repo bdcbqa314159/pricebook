@@ -329,3 +329,21 @@ def capital_requirement(
     # Capital
     k = lgd * cond_pd * mat_adj - pd * lgd
     return max(k, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def stochastic_recovery_sample_via_engine(
+    model: StochasticRecovery,
+    default_normals: np.ndarray,
+    seed: int = 42,
+) -> np.ndarray:
+    """``StochasticRecovery.sample_correlated`` via unified MC engine.
+
+    The correlated recovery sampling only needs correlated normals,
+    not asset paths. Delegates to the original implementation.
+    """
+    return model.sample_correlated(default_normals, seed=seed)

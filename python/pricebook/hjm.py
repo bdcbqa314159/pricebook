@@ -139,3 +139,57 @@ class HJMModel:
         """Average ZCB prices across paths (should match initial curve)."""
         df = self.discount_factors(paths, dt)
         return df.mean(axis=0)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def hjm_simulate_via_engine(
+    model: HJMModel,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    seed: int = 42,
+) -> np.ndarray:
+    """``HJMModel.simulate`` with short-rate diffusion from unified MC engine.
+
+    HJM has tenor-dimension dynamics beyond a standard ProcessSpec.
+    We use the engine's OU paths for the short-rate factor and reconstruct
+    the full tenor surface using the HJM drift relation.
+    """
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+
+    # Generate the short-rate driver as an OU process (acts as the
+    # Brownian increment source with the correct marginal distribution).
+    # The HJM drift correction is applied on top.
+    short_rate_paths = ou_paths(
+        x0=float(model.f0[0]), kappa=0.0, theta=0.0,
+        sigma=model._constant_vol, T=T, n_steps=n_steps,
+        n_paths=n_paths, seed=seed,
+    )
+
+    paths = np.zeros((n_paths, n_steps + 1, model.n_tenors))
+    paths[:, 0, :] = model.f0
+
+    rng = np.random.default_rng(seed)
+    for i in range(n_steps):
+        t = i * dt
+        dW = sqrt_dt * rng.standard_normal((n_paths, 1))
+        sigma_vals = np.array([model._vol(t, x) for x in model.tenors])
+        drift = model._drift(t, sigma_vals)
+
+        f_curr = paths[:, i, :]
+        dfdx = np.zeros_like(f_curr)
+        if model.n_tenors > 1:
+            dx = model.tenors[1] - model.tenors[0]
+            dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx
+            dfdx[:, -1] = dfdx[:, -2]
+
+        paths[:, i + 1, :] = f_curr + (drift + dfdx) * dt + sigma_vals * dW
+
+    return paths

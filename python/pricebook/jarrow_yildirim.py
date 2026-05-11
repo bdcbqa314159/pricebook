@@ -339,3 +339,64 @@ def jy_calibrate(
     residual = math.sqrt(result.fun / len(tenors))
 
     return JYCalibrationResult(params, float(residual), len(tenors))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def jy_simulate_via_engine(
+    jy: JarrowYildirim,
+    T: float,
+    n_paths: int = 5_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> JYSimulationResult:
+    """``JarrowYildirim.simulate`` with HW rate paths from unified MC engine.
+
+    The nominal and real rates use the engine's HW path generator;
+    CPI uses GBM driven by (r_n - r_r) drift.
+    """
+    from pricebook.mc_migrate import hw_paths  # noqa: lazy
+
+    p = jy.params
+    _seed = seed if seed is not None else 42
+
+    # Nominal rate via HW engine
+    r_n = hw_paths(
+        r0=jy.r_n0, a=p.a_n, sigma=p.sigma_n, T=T,
+        n_steps=n_steps, n_paths=n_paths, seed=_seed,
+        theta_func=lambda t: jy._theta(t, p.a_n, p.sigma_n, jy.r_n0,
+                                         jy._nominal_fwd, jy._fwd_times),
+    )
+
+    # Real rate via HW engine (with drift adjustment for rho_rI)
+    r_r = hw_paths(
+        r0=jy.r_r0, a=p.a_r, sigma=p.sigma_r, T=T,
+        n_steps=n_steps, n_paths=n_paths, seed=_seed + 1,
+        theta_func=lambda t: jy._theta(t, p.a_r, p.sigma_r, jy.r_r0,
+                                         jy._real_fwd, jy._fwd_times)
+                             - p.rho_rI * p.sigma_r * p.sigma_I,
+    )
+
+    # CPI via manual Euler (driven by r_n - r_r drift, not a standard process)
+    rng = np.random.default_rng(_seed + 2)
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+    I = np.full((n_paths, n_steps + 1), float(jy.I0))
+    for step in range(n_steps):
+        Z = rng.standard_normal(n_paths)
+        drift_I = (r_n[:, step] - r_r[:, step]) * dt
+        I[:, step + 1] = I[:, step] * np.exp(
+            drift_I - 0.5 * p.sigma_I**2 * dt + p.sigma_I * Z * sqrt_dt
+        )
+
+    times = np.linspace(0, T, n_steps + 1)
+    return JYSimulationResult(
+        nominal_rate_paths=r_n, real_rate_paths=r_r, cpi_paths=I,
+        times=times,
+        mean_terminal_cpi=float(I[:, -1].mean()),
+        mean_terminal_nominal=float(r_n[:, -1].mean()),
+        mean_terminal_real=float(r_r[:, -1].mean()),
+    )

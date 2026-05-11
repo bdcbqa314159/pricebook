@@ -333,3 +333,113 @@ def dispersion_trade_value(
         implied_correlation=rho,
         trade_pnl=float(pnl),
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def johnson_max_call_via_engine(
+    spot1: float,
+    spot2: float,
+    strike: float,
+    rate: float,
+    dividend_yield1: float,
+    dividend_yield2: float,
+    vol1: float,
+    vol2: float,
+    correlation: float,
+    T: float,
+) -> MaxMinResult:
+    """``johnson_max_call`` via unified MC engine (correlated GBM)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    n_paths = 50_000
+    corr = np.array([[1.0, correlation], [correlation, 1.0]])
+    paths = correlated_gbm_paths(
+        spots=[spot1, spot2],
+        rates=[rate - dividend_yield1, rate - dividend_yield2],
+        vols=[vol1, vol2],
+        correlation=corr, T=T, n_steps=1, n_paths=n_paths, seed=42,
+    )
+    S1_T = paths[:, -1, 0]
+    S2_T = paths[:, -1, 1]
+    payoff = np.maximum(np.maximum(S1_T, S2_T) - strike, 0.0)
+    df = math.exp(-rate * T)
+    return MaxMinResult(float(df * payoff.mean()), "max_call")
+
+
+def johnson_min_call_via_engine(
+    spot1: float,
+    spot2: float,
+    strike: float,
+    rate: float,
+    dividend_yield1: float,
+    dividend_yield2: float,
+    vol1: float,
+    vol2: float,
+    correlation: float,
+    T: float,
+) -> MaxMinResult:
+    """``johnson_min_call`` via unified MC engine (correlated GBM)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    n_paths = 50_000
+    corr = np.array([[1.0, correlation], [correlation, 1.0]])
+    paths = correlated_gbm_paths(
+        spots=[spot1, spot2],
+        rates=[rate - dividend_yield1, rate - dividend_yield2],
+        vols=[vol1, vol2],
+        correlation=corr, T=T, n_steps=1, n_paths=n_paths, seed=42,
+    )
+    S1_T = paths[:, -1, 0]
+    S2_T = paths[:, -1, 1]
+    payoff = np.maximum(np.minimum(S1_T, S2_T) - strike, 0.0)
+    df = math.exp(-rate * T)
+    return MaxMinResult(float(df * payoff.mean()), "min_call")
+
+
+def equity_basket_mc_via_engine(
+    spots: list[float],
+    weights: list[float],
+    strike: float,
+    rate: float,
+    dividend_yields: list[float],
+    vols: list[float],
+    correlations: np.ndarray,
+    T: float,
+    is_call: bool = True,
+    basket_type: str = "average",
+    n_paths: int = 20_000,
+    seed: int | None = 42,
+) -> EquityBasketResult:
+    """``equity_basket_mc`` via unified MC engine (correlated GBM)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    n = len(spots)
+    rates_adj = [rate - d for d in dividend_yields]
+    paths = correlated_gbm_paths(
+        spots=spots, rates=rates_adj, vols=vols,
+        correlation=correlations, T=T, n_steps=1, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+    terminal = paths[:, -1, :]
+    weights_arr = np.array(weights)
+
+    if basket_type == "average":
+        basket = terminal @ weights_arr
+    elif basket_type == "min":
+        basket = terminal.min(axis=1)
+    elif basket_type == "max":
+        basket = terminal.max(axis=1)
+    else:
+        raise ValueError(f"Unknown basket_type: {basket_type}")
+
+    if is_call:
+        payoff = np.maximum(basket - strike, 0.0)
+    else:
+        payoff = np.maximum(strike - basket, 0.0)
+
+    df = math.exp(-rate * T)
+    return EquityBasketResult(float(df * payoff.mean()), basket_type, n)

@@ -182,3 +182,53 @@ class VarianceGammaProcess:
             return cmath.exp(drift) * inner ** (-T / nu)
 
         return phi
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def merton_terminal_via_engine(
+    mjd: MertonJumpDiffusion,
+    S0: float,
+    T: float,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> np.ndarray:
+    """``MertonJumpDiffusion.terminal`` via unified MC engine (Bates with no stochvol)."""
+    from pricebook.mc_migrate import bates_paths as _bates_paths  # noqa: lazy
+
+    # Bates with zero vol-of-vol and v0 = sigma^2 reduces to Merton jump-diffusion
+    S, _v = _bates_paths(
+        spot=S0, v0=mjd.sigma**2, rate=mjd.mu,
+        kappa=1.0, theta=mjd.sigma**2, xi=1e-10, rho=0.0,
+        jump_intensity=mjd.lam, jump_mean=mjd.jump_mean,
+        jump_vol=mjd.jump_std,
+        T=T, n_steps=1, n_paths=n_paths, seed=seed,
+    )
+    return S[:, -1]
+
+
+def vg_terminal_via_engine(
+    vg: VarianceGammaProcess,
+    S0: float,
+    rate: float,
+    T: float,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> np.ndarray:
+    """``VarianceGammaProcess.terminal`` via unified MC engine.
+
+    VG uses a Gamma time-change which is not directly supported by
+    standard engine processes. We replicate the terminal distribution.
+    """
+    rng = np.random.default_rng(seed)
+    shape = T / vg.nu
+    scale = vg.nu
+    G = rng.gamma(shape, scale, size=n_paths)
+    Z = rng.standard_normal(n_paths)
+    X = vg.theta * G + vg.sigma * np.sqrt(G) * Z
+    omega = (1.0 / vg.nu) * math.log(1 - vg.theta * vg.nu - 0.5 * vg.sigma**2 * vg.nu)
+    drift = (rate + omega) * T
+    return S0 * np.exp(drift + X)

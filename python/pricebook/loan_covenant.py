@@ -370,3 +370,35 @@ def covenant_adjusted_pv(
         expected_acceleration_loss=expected_accel,
         adjusted_pv=adjusted, breach_prob=bp,
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def breach_probability_mc_via_engine(
+    current_ebitda: float,
+    debt: float,
+    threshold: float,
+    ebitda_vol: float,
+    ebitda_drift: float = 0.0,
+    horizon: float = 1.0,
+    n_steps: int = 4,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> float:
+    """``breach_probability_mc`` with GBM paths from unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+
+    ebitda_paths = gbm_paths(
+        spot=current_ebitda, rate=ebitda_drift, vol=ebitda_vol,
+        T=horizon, n_steps=n_steps, n_paths=n_paths, seed=seed,
+    )
+
+    breached = np.zeros(n_paths, dtype=bool)
+    for step in range(1, n_steps + 1):
+        leverage = debt / np.maximum(ebitda_paths[:, step], 1e-10)
+        breached |= leverage > threshold
+
+    return float(breached.mean())

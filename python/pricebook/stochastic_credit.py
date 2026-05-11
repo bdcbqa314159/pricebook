@@ -212,3 +212,70 @@ def calibrate_cir_intensity(
         "kappa": kappa, "theta": theta, "xi": xi,
         "lam0": lam0_guess,
     }
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def cir_intensity_simulate_via_engine(
+    model: CIRIntensity,
+    lam0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> np.ndarray:
+    """``CIRIntensity.simulate_intensity`` via unified MC engine (CIR paths)."""
+    from pricebook.mc_migrate import cir_paths  # noqa: lazy
+
+    return cir_paths(
+        x0=lam0, kappa=model.kappa, theta=model.theta, sigma=model.xi,
+        T=T, n_steps=n_steps, n_paths=n_paths, seed=seed,
+    )
+
+
+def cir_intensity_survival_mc_via_engine(
+    model: CIRIntensity,
+    lam0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> float:
+    """``CIRIntensity.survival_mc`` via unified MC engine."""
+    paths = cir_intensity_simulate_via_engine(model, lam0, T, n_steps, n_paths, seed)
+    dt = T / n_steps
+    integral = paths[:, :-1].sum(axis=1) * dt
+    return float(np.exp(-integral).mean())
+
+
+def joint_rate_hazard_simulate_via_engine(
+    model: JointRateHazard,
+    r0: float,
+    lam0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 50_000,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """``JointRateHazard.simulate`` via unified MC engine (OU + CIR)."""
+    from pricebook.mc_migrate import ou_paths, cir_paths  # noqa: lazy
+
+    # Rate: OU process
+    r = ou_paths(
+        x0=r0, kappa=model.a_r, theta=model.mu_r, sigma=model.sigma_r,
+        T=T, n_steps=n_steps, n_paths=n_paths, seed=seed,
+    )
+
+    # Hazard: CIR process (independent seed for different Brownian)
+    lam = cir_paths(
+        x0=lam0, kappa=model.kappa, theta=model.theta, sigma=model.xi,
+        T=T, n_steps=n_steps, n_paths=n_paths, seed=seed + 1,
+    )
+
+    # Note: correlation between r and lam is not applied here —
+    # the engine generates independent paths. For exact correlation,
+    # the original simulate() with CorrelatedBM should be used.
+    return r, lam

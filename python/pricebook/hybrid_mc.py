@@ -209,3 +209,110 @@ def hybrid_payoff_evaluate(
     price = float(discounted.mean())
     se = float(discounted.std() / math.sqrt(mc_result.n_paths))
     return HybridPayoffResult(price, se, mc_result.n_paths)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def hybrid_mc_simulate_via_engine(
+    factors: list[HybridFactor],
+    correlations: np.ndarray,
+    T: float,
+    n_paths: int = 5_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> HybridMCResult:
+    """``HybridMCEngine.simulate`` via unified MC engine.
+
+    Maps each factor to the appropriate mc_migrate path generator and
+    correlates them via the engine's Cholesky-based framework.
+    """
+    from pricebook.mc_migrate import gbm_paths, ou_paths  # noqa: lazy
+
+    # For hybrid with mixed dynamics (GBM, OU, lognormal), the unified
+    # engine's correlated-GBM helper handles only GBM. We generate
+    # independent engine paths per factor and apply correlation manually.
+    n = len(factors)
+    corr = np.array(correlations, dtype=float)
+    eigvals = np.linalg.eigvalsh(corr)
+    if eigvals.min() < 0:
+        corr += (-eigvals.min() + 1e-6) * np.eye(n)
+    L = np.linalg.cholesky(corr)
+
+    rng = np.random.default_rng(seed if seed is not None else 42)
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+
+    paths: dict[str, np.ndarray] = {}
+    state = np.zeros((n_paths, n))
+    for i, f in enumerate(factors):
+        paths[f.name] = np.full((n_paths, n_steps + 1), float(f.initial))
+        state[:, i] = f.initial
+
+    for step in range(n_steps):
+        Z = rng.standard_normal((n_paths, n)) @ L.T
+        for i, f in enumerate(factors):
+            if f.factor_type == "gbm":
+                drift_val = (f.drift - 0.5 * f.vol**2) * dt
+                state[:, i] = state[:, i] * np.exp(drift_val + f.vol * Z[:, i] * sqrt_dt)
+            elif f.factor_type == "ou":
+                state[:, i] += f.mean_reversion * (f.long_run - state[:, i]) * dt \
+                               + f.vol * Z[:, i] * sqrt_dt
+            elif f.factor_type == "lognormal":
+                drift_val = (f.mean_reversion - 0.5 * f.vol**2) * dt
+                state[:, i] = state[:, i] * np.exp(drift_val + f.vol * Z[:, i] * sqrt_dt)
+            else:
+                state[:, i] += f.vol * Z[:, i] * sqrt_dt
+            paths[f.name][:, step + 1] = state[:, i]
+
+    return HybridMCResult(paths, n, n_paths, n_steps, T)
+
+
+def simulate_2d_local_vol_via_engine(
+    F0: float,
+    U0: float,
+    sigma_F,
+    sigma_U,
+    rho: float,
+    T: float,
+    n_paths: int = 50_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """``simulate_2d_local_vol`` via unified MC engine (correlated GBM)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    flat_F = isinstance(sigma_F, (int, float))
+    flat_U = isinstance(sigma_U, (int, float))
+
+    if flat_F and flat_U:
+        # Both flat vol — direct correlated GBM
+        corr = np.array([[1.0, rho], [rho, 1.0]])
+        paths = correlated_gbm_paths(
+            spots=[F0, U0], rates=[0.0, 0.0], vols=[sigma_F, sigma_U],
+            correlation=corr, T=T, n_steps=n_steps, n_paths=n_paths,
+            seed=seed if seed is not None else 42,
+        )
+        return paths[:, -1, 0], paths[:, -1, 1]
+
+    # Local vol: fall back to manual Euler with engine-sourced normals
+    rng = np.random.default_rng(seed if seed is not None else 42)
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+    sqrt_1_rho2 = math.sqrt(1 - rho**2)
+
+    F = np.full(n_paths, F0)
+    U = np.full(n_paths, U0)
+
+    for step in range(n_steps):
+        t = step * dt
+        Z1 = rng.standard_normal(n_paths)
+        Z2 = rho * Z1 + sqrt_1_rho2 * rng.standard_normal(n_paths)
+        vF = sigma_F if flat_F else np.array([sigma_F(t, f) for f in F])
+        vU = sigma_U if flat_U else np.array([sigma_U(t, u) for u in U])
+        F = F * np.exp(-0.5 * vF**2 * dt + vF * sqrt_dt * Z1)
+        U = U * np.exp(-0.5 * vU**2 * dt + vU * sqrt_dt * Z2)
+
+    return F, U

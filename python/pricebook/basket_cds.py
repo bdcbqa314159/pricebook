@@ -213,3 +213,44 @@ class LeveragedCLN:
         pv += self.notional * discount_curve.df(d_T) * survival_curve.survival(d_T)
 
         return pv
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def simulate_defaults_copula_via_engine(
+    survival_curves: list[SurvivalCurve],
+    T: float,
+    rho: float,
+    n_sims: int = 50_000,
+    seed: int = 42,
+) -> np.ndarray:
+    """``simulate_defaults_copula`` via unified MC engine (correlated normals)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    # Gaussian copula only needs correlated normals, not asset paths.
+    # The engine's correlated-GBM helper gives correlated Brownian increments
+    # from which we extract the terminal Z values (single time-step).
+    n_names = len(survival_curves)
+    # Build uniform-correlation matrix
+    corr = np.full((n_names, n_names), rho)
+    np.fill_diagonal(corr, 1.0)
+
+    # One-step "GBM" with zero drift / unit vol → terminal log = Z * √T
+    spots = [1.0] * n_names
+    rates = [0.0] * n_names
+    vols = [1.0] * n_names  # unit vol so log(S_T/S_0) = -0.5*T + Z*√T
+
+    paths = correlated_gbm_paths(spots, rates, vols, corr,
+                                  T=1.0, n_steps=1, n_paths=n_sims, seed=seed)
+    # Extract standardised normals: log(S_T) = log(1) + (-0.5 + Z) → Z = log(S_T) + 0.5
+    Z = np.log(paths[:, -1, :]) + 0.5
+
+    ref = survival_curves[0].reference_date
+    T_date = date_from_year_fraction(ref, T)
+    thresholds = np.array([
+        norm.ppf(1 - sc.survival(T_date)) for sc in survival_curves
+    ])
+    return Z < thresholds[np.newaxis, :]

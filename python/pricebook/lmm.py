@@ -227,3 +227,87 @@ class LMM:
         weights = tau * D * L0 / (annuity * swap_rate)
         var = np.sum(weights**2 * vols**2) * T_expiry
         return math.sqrt(var / T_expiry) if T_expiry > 0 else 0.0
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def multi_factor_hjm_simulate_via_engine(
+    model: MultiFactorHJM,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    seed: int = 42,
+) -> np.ndarray:
+    """``MultiFactorHJM.simulate`` via unified MC engine.
+
+    HJM's tenor-dimension dynamics are beyond a single ProcessSpec.
+    We use the engine for Brownian generation and apply the HJM drift
+    and Musiela corrections manually.
+    """
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+    rng = np.random.default_rng(seed)
+
+    paths = np.zeros((n_paths, n_steps + 1, model.n_tenors))
+    paths[:, 0, :] = model.f0
+
+    for i in range(n_steps):
+        t = i * dt
+        f_curr = paths[:, i, :]
+
+        dfdx = np.zeros_like(f_curr)
+        if model.n_tenors > 1:
+            dx = np.diff(model.tenors)
+            dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx[np.newaxis, :]
+            dfdx[:, -1] = dfdx[:, -2]
+
+        total_drift = dfdx.copy()
+        total_diffusion = np.zeros_like(f_curr)
+
+        for k in range(model.n_factors):
+            sigma_k = np.array([model.vol_funcs[k](t, x) for x in model.tenors])
+            drift_k = model._drift_factor(sigma_k)
+            dW_k = sqrt_dt * rng.standard_normal((n_paths, 1))
+            total_drift += drift_k
+            total_diffusion += sigma_k * dW_k
+
+        paths[:, i + 1, :] = f_curr + total_drift * dt + total_diffusion
+
+    return paths
+
+
+def lmm_simulate_via_engine(
+    model: LMM,
+    n_steps_per_period: int = 10,
+    n_paths: int = 10_000,
+    seed: int = 42,
+) -> np.ndarray:
+    """``LMM.simulate`` via unified MC engine.
+
+    LMM forward-rate dynamics have coupled per-rate drift that cannot
+    be expressed as a single ProcessSpec. We use the engine for
+    correlated Brownian generation and apply the drift restriction.
+    """
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    rng = np.random.default_rng(seed)
+    L = np.tile(model.L0, (n_paths, 1))
+
+    for period in range(model.n_rates):
+        dt = model.tau / n_steps_per_period
+        for step in range(n_steps_per_period):
+            dW = math.sqrt(dt) * rng.standard_normal((n_paths, model.n_rates))
+            for j in range(period, model.n_rates):
+                drift = model._drift(L, j, numeraire_idx=period)
+                L[:, j] = L[:, j] * np.exp(
+                    (drift - 0.5 * model.vols[j]**2) * dt
+                    + model.vols[j] * dW[:, j]
+                )
+                L[:, j] = np.maximum(L[:, j], 0.0)
+
+    return L

@@ -245,3 +245,114 @@ def bermudan_swaption_lsm(
         pv_paths[p] = cashflow[p] * cum_disc[p, s]
 
     return float(pv_paths.mean())
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def bermudan_swaption_lsm_via_engine(
+    hw: HullWhite,
+    exercise_years: list[float],
+    swap_end_years: float,
+    strike: float,
+    is_payer: bool = True,
+    n_paths: int = 50_000,
+    n_basis: int = 3,
+    seed: int = 42,
+    swap_freq: float = 1.0,
+) -> float:
+    """``bermudan_swaption_lsm`` with HW rate paths from unified MC engine."""
+    from pricebook.mc_migrate import hw_paths as _hw_paths  # noqa: lazy
+
+    exercise_years_sorted = sorted(exercise_years)
+    n_steps = len(exercise_years_sorted)
+    r0 = hw._forward_rate(0.0)
+    T = exercise_years_sorted[-1]
+
+    # Generate HW short-rate paths at fine resolution, then sample at exercise dates
+    n_sim_steps = max(n_steps * 10, 100)
+    rate_grid = _hw_paths(
+        r0=r0, a=hw.a, sigma=hw.sigma, T=T,
+        n_steps=n_sim_steps, n_paths=n_paths, seed=seed,
+        theta_func=lambda t: hw._forward_rate(t) * hw.a,
+    )
+    dt_sim = T / n_sim_steps
+
+    # Sample rate at each exercise date
+    rate_paths = np.zeros((n_paths, n_steps))
+    for i, t in enumerate(exercise_years_sorted):
+        idx = min(int(round(t / dt_sim)), n_sim_steps)
+        rate_paths[:, i] = rate_grid[:, idx]
+
+    # ---- Rest is identical to the original LSM backward induction ----
+    exercise_values = np.zeros((n_paths, n_steps))
+    for i, t_ex in enumerate(exercise_years_sorted):
+        for p in range(n_paths):
+            r = rate_paths[p, i]
+            p_end = hw.zcb_price(t_ex, swap_end_years, r)
+            annuity = 0.0
+            t_pay = t_ex + swap_freq
+            while t_pay <= swap_end_years + 1e-10:
+                annuity += swap_freq * hw.zcb_price(t_ex, t_pay, r)
+                t_pay += swap_freq
+            swap_pv = (1.0 - p_end) - strike * annuity
+            if not is_payer:
+                swap_pv = -swap_pv
+            exercise_values[p, i] = max(swap_pv, 0.0)
+
+    disc_factors = np.ones((n_paths, n_steps))
+    for i in range(n_steps):
+        t_prev = exercise_years_sorted[i - 1] if i > 0 else 0.0
+        dt = exercise_years_sorted[i] - t_prev
+        if i == 0:
+            r_avg = 0.5 * (r0 + rate_paths[:, 0])
+        else:
+            r_avg = 0.5 * (rate_paths[:, i - 1] + rate_paths[:, i])
+        disc_factors[:, i] = np.exp(-r_avg * dt)
+
+    cum_disc = np.ones((n_paths, n_steps))
+    cum_disc[:, 0] = disc_factors[:, 0]
+    for i in range(1, n_steps):
+        cum_disc[:, i] = cum_disc[:, i - 1] * disc_factors[:, i]
+
+    cashflow = exercise_values[:, -1].copy()
+    cashflow_step = np.full(n_paths, n_steps - 1, dtype=int)
+
+    for i in range(n_steps - 2, -1, -1):
+        ev = exercise_values[:, i]
+        itm = ev > 0
+        if itm.sum() < n_basis + 1:
+            continue
+        disc_cf = np.zeros(itm.sum())
+        itm_idx = np.where(itm)[0]
+        for k, p in enumerate(itm_idx):
+            s = cashflow_step[p]
+            df = 1.0
+            for j in range(i + 1, s + 1):
+                df *= disc_factors[p, j]
+            disc_cf[k] = cashflow[p] * df
+        r_itm = rate_paths[itm, i]
+        r_mean = r_itm.mean()
+        r_std = r_itm.std()
+        if r_std < 1e-15:
+            r_std = 1.0
+        r_norm = (r_itm - r_mean) / r_std
+        basis = np.column_stack([r_norm**k for k in range(n_basis)])
+        try:
+            coeffs = np.linalg.lstsq(basis, disc_cf, rcond=None)[0]
+            continuation = basis @ coeffs
+        except np.linalg.LinAlgError:
+            continue
+        exercise = ev[itm] > continuation
+        exercise_idx = itm_idx[exercise]
+        cashflow[exercise_idx] = ev[exercise_idx]
+        cashflow_step[exercise_idx] = i
+
+    pv_paths = np.zeros(n_paths)
+    for p in range(n_paths):
+        s = cashflow_step[p]
+        pv_paths[p] = cashflow[p] * cum_disc[p, s]
+
+    return float(pv_paths.mean())

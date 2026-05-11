@@ -704,3 +704,77 @@ def _xva_from_dict(cls, d):
 TotalXVAResult.to_dict = _xva_to_dict_wrapped
 TotalXVAResult.from_dict = _xva_from_dict
 _reg_result(TotalXVAResult)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def simulate_exposures_via_engine(
+    pricer,
+    ctx: PricingContext,
+    time_grid: list[float],
+    n_paths: int = 1000,
+    rate_vol: float = 0.01,
+    seed: int = 42,
+) -> np.ndarray:
+    """``simulate_exposures`` with OU rate shifts from unified MC engine."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    n_times = len(time_grid)
+    T_max = max(time_grid) if time_grid else 1.0
+
+    # Generate OU rate-shift paths
+    rate_shifts = ou_paths(
+        x0=0.0, kappa=0.0, theta=0.0, sigma=rate_vol,
+        T=T_max, n_steps=n_times, n_paths=n_paths, seed=seed,
+    )
+
+    pvs = np.zeros((n_paths, n_times))
+    for j, t in enumerate(time_grid):
+        step_idx = min(j + 1, rate_shifts.shape[1] - 1)
+        for i in range(n_paths):
+            shift = rate_shifts[i, step_idx]
+            bumped_curve = ctx.discount_curve.bumped(shift)
+            bumped_ctx = ctx.replace(discount_curve=bumped_curve)
+            pvs[i, j] = pricer(bumped_ctx)
+
+    return pvs
+
+
+def simulate_wwr_exposures_via_engine(
+    pricer,
+    ctx: PricingContext,
+    time_grid: list[float],
+    hazard_rate: float,
+    rate_credit_corr: float = 0.0,
+    n_paths: int = 1000,
+    rate_vol: float = 0.01,
+    hazard_vol: float = 0.3,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """``simulate_wwr_exposures`` via unified MC engine (correlated normals)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    n_times = len(time_grid)
+    pvs = np.zeros((n_paths, n_times))
+    hazards = np.zeros((n_paths, n_times))
+
+    rng = np.random.default_rng(seed)
+    for j, t in enumerate(time_grid):
+        z1 = rng.standard_normal(n_paths)
+        z2 = rng.standard_normal(n_paths)
+        w_rate = z1
+        w_hazard = rate_credit_corr * z1 + math.sqrt(1.0 - rate_credit_corr**2) * z2
+
+        rate_shifts = w_rate * rate_vol * math.sqrt(t)
+        hazard_shocks = np.exp(w_hazard * hazard_vol * math.sqrt(t) - 0.5 * hazard_vol**2 * t)
+        hazards[:, j] = hazard_rate * hazard_shocks
+
+        for i in range(n_paths):
+            bumped_curve = ctx.discount_curve.bumped(rate_shifts[i])
+            bumped_ctx = ctx.replace(discount_curve=bumped_curve)
+            pvs[i, j] = pricer(bumped_ctx)
+
+    return pvs, hazards

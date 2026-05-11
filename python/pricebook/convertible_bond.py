@@ -555,3 +555,122 @@ def mandatory_convertible(
         low_strike=low_strike,
         high_strike=high_strike,
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def contingent_convertible_via_engine(
+    notional: float,
+    coupon_rate: float,
+    maturity_years: float,
+    conversion_trigger: float,
+    conversion_ratio: float,
+    spot: float,
+    rate: float,
+    equity_vol: float,
+    credit_spread: float = 0.0,
+    dividend_yield: float = 0.0,
+    loss_absorption: float = 0.5,
+    n_paths: int = 10_000,
+    n_steps: int | None = None,
+    seed: int | None = 42,
+) -> CoCoResult:
+    """``contingent_convertible`` with GBM paths from unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+
+    if n_steps is None:
+        n_steps = int(maturity_years * 12)
+
+    S = gbm_paths(
+        spot=spot, rate=rate, vol=equity_vol, T=maturity_years,
+        n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+        div_yield=dividend_yield,
+    )
+
+    disc_rate = rate + credit_spread
+    dt = maturity_years / n_steps
+    n_coupons_per_year = 2
+    coupon_step_interval = max(n_steps // max(int(maturity_years * n_coupons_per_year), 1), 1)
+    coupon_amount = notional * coupon_rate / n_coupons_per_year
+
+    triggered = np.zeros(n_paths, dtype=bool)
+    trigger_step = np.full(n_paths, n_steps)
+    for step in range(1, n_steps + 1):
+        new_trigger = ~triggered & (S[:, step] <= conversion_trigger)
+        trigger_step = np.where(new_trigger, step, trigger_step)
+        triggered |= new_trigger
+
+    pv = np.zeros(n_paths)
+    for p in range(n_paths):
+        if triggered[p]:
+            ts = trigger_step[p]
+            for i in range(1, n_steps + 1):
+                if i >= ts:
+                    break
+                if i % coupon_step_interval == 0:
+                    pv[p] += coupon_amount * math.exp(-disc_rate * i * dt)
+            conv_val = conversion_ratio * S[p, ts] * loss_absorption
+            pv[p] += conv_val * math.exp(-disc_rate * ts * dt)
+        else:
+            for i in range(1, n_steps + 1):
+                if i % coupon_step_interval == 0:
+                    pv[p] += coupon_amount * math.exp(-disc_rate * i * dt)
+            pv[p] += notional * math.exp(-disc_rate * maturity_years)
+
+    price = float(pv.mean())
+    conv_prob = float(triggered.mean())
+    loss_on_trigger = notional * (1 - loss_absorption)
+
+    return CoCoResult(price, conv_prob, float(conversion_trigger), float(loss_on_trigger))
+
+
+def mandatory_convertible_via_engine(
+    notional: float,
+    coupon_rate: float,
+    maturity_years: float,
+    low_strike: float,
+    high_strike: float,
+    spot: float,
+    rate: float,
+    equity_vol: float,
+    dividend_yield: float = 0.0,
+    n_paths: int = 20_000,
+    seed: int | None = 42,
+) -> MandatoryConvertibleResult:
+    """``mandatory_convertible`` with GBM terminal from unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+
+    # One-step GBM for terminal price
+    S_paths = gbm_paths(
+        spot=spot, rate=rate, vol=equity_vol, T=maturity_years,
+        n_steps=1, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+        div_yield=dividend_yield,
+    )
+    S_T = S_paths[:, -1]
+
+    n_coupons_per_year = 2
+    total_coupons = int(maturity_years * n_coupons_per_year)
+    coupon_amount = notional * coupon_rate / n_coupons_per_year
+    coupon_pv = sum(coupon_amount * math.exp(-rate * (i + 1) / n_coupons_per_year)
+                     for i in range(total_coupons))
+
+    shares_low = notional / low_strike
+    shares_high = notional / high_strike
+    payoff = np.where(
+        S_T >= high_strike, shares_high * S_T,
+        np.where(S_T >= low_strike, notional, shares_low * S_T),
+    )
+
+    df = math.exp(-rate * maturity_years)
+    terminal_pv = df * float(payoff.mean())
+    price = coupon_pv + terminal_pv
+
+    return MandatoryConvertibleResult(
+        price=float(price), min_shares=float(shares_high),
+        max_shares=float(shares_low), low_strike=low_strike, high_strike=high_strike,
+    )

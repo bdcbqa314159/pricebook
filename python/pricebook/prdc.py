@@ -278,3 +278,82 @@ def callable_prdc(
                        n_coupons, n_paths, n_steps, seed)
 
     return CallablePRDCResult(callable_price, call_prob, mean_call, base.price)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def prdc_price_via_engine(
+    spot_fx: float,
+    rate_dom: float, rate_for: float,
+    vol_fx: float, vol_dom: float, vol_for: float,
+    rho_fx_dom: float, rho_fx_for: float, rho_dom_for: float,
+    notional: float, fixed_coupon: float,
+    fx_participation: float, fx_strike: float,
+    T: float, n_coupons: int = 10,
+    n_paths: int = 5_000, n_steps: int = 100,
+    seed: int | None = 42,
+) -> PRDCResult:
+    """``prdc_price`` with correlated paths from unified MC engine.
+
+    FX follows GBM, domestic and foreign rates follow OU —
+    we use correlated GBM for FX and OU for rates via engine helpers.
+    """
+    from pricebook.mc_migrate import gbm_paths, ou_paths  # noqa: lazy
+
+    _seed = seed if seed is not None else 42
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+
+    corr = np.array([[1, rho_fx_dom, rho_fx_for],
+                      [rho_fx_dom, 1, rho_dom_for],
+                      [rho_fx_for, rho_dom_for, 1]])
+    eigvals = np.linalg.eigvalsh(corr)
+    if eigvals.min() < 0:
+        corr += (-eigvals.min() + 1e-6) * np.eye(3)
+    L = np.linalg.cholesky(corr)
+
+    # Generate correlated 3-factor paths manually (mixed GBM+OU dynamics)
+    rng = np.random.default_rng(_seed)
+    FX = np.full(n_paths, float(spot_fx))
+    r_d = np.full(n_paths, rate_dom)
+    r_f = np.full(n_paths, rate_for)
+
+    coupon_steps = [int((i + 1) * n_steps / n_coupons) for i in range(n_coupons)]
+    pv = np.zeros(n_paths)
+    total_coupon = np.zeros(n_paths)
+
+    for step in range(n_steps):
+        Z = rng.standard_normal((n_paths, 3)) @ L.T
+        r_d += 0.1 * (rate_dom - r_d) * dt + vol_dom * Z[:, 1] * sqrt_dt
+        r_f += 0.1 * (rate_for - r_f) * dt + vol_for * Z[:, 2] * sqrt_dt
+        drift_fx = (r_d - r_f - 0.5 * vol_fx**2) * dt
+        FX = FX * np.exp(drift_fx + vol_fx * Z[:, 0] * sqrt_dt)
+
+        if (step + 1) in coupon_steps:
+            t = (step + 1) * dt
+            df = np.exp(-r_d * t)
+            coupon = np.maximum(fixed_coupon + fx_participation * (FX / fx_strike - 1), 0.0)
+            pv += notional * coupon * df / n_coupons
+            total_coupon += coupon
+
+    pv += notional * np.exp(-r_d * T)
+    price = float(pv.mean())
+    mean_cpn = float(total_coupon.mean() / n_coupons)
+
+    bump = spot_fx * 0.01
+    rng2 = np.random.default_rng(_seed)
+    pv_up = _prdc_reprice(spot_fx + bump, rate_dom, rate_for, vol_fx, vol_dom,
+                           vol_for, corr, notional, fixed_coupon, fx_participation,
+                           fx_strike, T, n_coupons, n_paths, n_steps, rng2)
+    fx_d = (pv_up - price) / bump
+
+    rng3 = np.random.default_rng(_seed)
+    pv_rate_up = _prdc_reprice(spot_fx, rate_dom + 0.0001, rate_for, vol_fx, vol_dom,
+                                vol_for, corr, notional, fixed_coupon, fx_participation,
+                                fx_strike, T, n_coupons, n_paths, n_steps, rng3)
+    ir_d = (pv_rate_up - price) / 0.0001
+
+    return PRDCResult(price, mean_cpn, fx_d, ir_d, n_coupons)

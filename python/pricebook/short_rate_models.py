@@ -324,3 +324,97 @@ class AffineModel:
         zcb = math.exp(A_val - float(B_vals @ r))
 
         return AffineResult(zcb, A_val, B_vals, self.model_class)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def bk_simulate_via_engine(
+    model: BKRateModel,
+    r0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> BKRateResult:
+    """``BKRateModel.simulate`` via unified MC engine (OU on log-rate)."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    log_r0 = math.log(max(r0, 1e-10))
+    # BK: d(log r) = (theta(t) - a log r) dt + sigma dW → OU on log r
+    # theta varies with time; approximate as theta = target * a
+    target_log = model._target_log_rate(0.0)
+
+    log_r = ou_paths(
+        x0=log_r0, kappa=model.a, theta=target_log, sigma=model.sigma,
+        T=T, n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+    paths = np.exp(log_r)
+    dt = T / n_steps
+    integral = np.sum(paths[:, :-1], axis=1) * dt
+    zcb = float(np.mean(np.exp(-integral)))
+    times = np.linspace(0, T, n_steps + 1)
+    return BKRateResult(paths, zcb, times)
+
+
+def cirpp_simulate_via_engine(
+    model: CIRPPRateModel,
+    r0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> CIRPPRateResult:
+    """``CIRPPRateModel.simulate`` via unified MC engine (CIR paths)."""
+    from pricebook.mc_migrate import cir_paths  # noqa: lazy
+
+    x0 = max(r0 - model.phi(0, r0), 0.01)
+    x = cir_paths(
+        x0=x0, kappa=model.kappa, theta=model.theta, sigma=model.xi,
+        T=T, n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+    times = np.linspace(0, T, n_steps + 1)
+    phi_vals = np.array([model.phi(t, x0) for t in times])
+    rate_paths = x + phi_vals[np.newaxis, :]
+    dt = T / n_steps
+    integral = np.sum(rate_paths[:, :-1], axis=1) * dt
+    zcb_mc = float(np.mean(np.exp(-integral)))
+    zcb_a = model.zcb_analytical(r0, T)
+    return CIRPPRateResult(rate_paths, zcb_mc, zcb_a, times)
+
+
+def cheyette_simulate_via_engine(
+    model: CheyetteModel,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> CheyetteResult:
+    """``CheyetteModel.simulate`` via unified MC engine (OU for x factor)."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    # x follows dx = (y - kappa*x) dt + sigma dW — not pure OU since y evolves.
+    # Use OU paths for x as a first-order approximation (y ≈ 0 initially),
+    # then correct y deterministically.
+    x = ou_paths(
+        x0=0.0, kappa=model.kappa, theta=0.0, sigma=model.sigma,
+        T=T, n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+
+    dt = T / n_steps
+    times = np.linspace(0, T, n_steps + 1)
+    y = np.zeros((n_paths, n_steps + 1))
+    for i in range(n_steps):
+        y[:, i + 1] = y[:, i] + (model.sigma**2 - 2 * model.kappa * y[:, i]) * dt
+
+    f0_vals = np.array([model._f0(t) for t in times])
+    rate_paths = f0_vals[np.newaxis, :] + x
+    integral = np.sum(rate_paths[:, :-1], axis=1) * dt
+    zcb = float(np.mean(np.exp(-integral)))
+
+    return CheyetteResult(rate_paths, x, y, zcb, times)

@@ -345,3 +345,92 @@ def equity_compound_option(
     under_str = "call" if is_underlying_call else "put"
 
     return CompoundResult(float(price), under_str, outer_str)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def equity_lookback_fixed_via_engine(
+    spot: float,
+    strike: float,
+    rate: float,
+    dividend_yield: float,
+    vol: float,
+    T: float,
+    is_call: bool = True,
+    n_paths: int = 20_000,
+    n_steps: int = 200,
+    seed: int | None = 42,
+) -> EquityLookbackResult:
+    """``equity_lookback_fixed`` with GBM paths from unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+
+    S = gbm_paths(
+        spot=spot, rate=rate, vol=vol, T=T,
+        n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+        div_yield=dividend_yield,
+    )
+
+    df = math.exp(-rate * T)
+    if is_call:
+        payoff = np.maximum(S.max(axis=1) - strike, 0.0)
+    else:
+        payoff = np.maximum(strike - S.min(axis=1), 0.0)
+
+    price = df * float(payoff.mean())
+    return EquityLookbackResult(float(price), False, is_call)
+
+
+def equity_compound_option_via_engine(
+    spot: float,
+    strike_outer: float,
+    strike_underlying: float,
+    rate: float,
+    dividend_yield: float,
+    vol: float,
+    T1: float,
+    T2: float,
+    is_outer_call: bool = True,
+    is_underlying_call: bool = True,
+    n_iter: int = 50,
+) -> CompoundResult:
+    """``equity_compound_option`` with GBM paths from unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+
+    if T1 >= T2 or T1 <= 0 or T2 <= 0:
+        raise ValueError("Require 0 < T1 < T2")
+    if vol <= 0:
+        raise ValueError("Require positive vol")
+
+    tau = T2 - T1
+    ot = OptionType.CALL if is_underlying_call else OptionType.PUT
+
+    def inner_call(S):
+        F = S * math.exp((rate - dividend_yield) * tau)
+        df = math.exp(-rate * tau)
+        return black76_price(F, strike_underlying, vol, tau, df, ot)
+
+    n_paths = 50_000
+    S_paths = gbm_paths(
+        spot=spot, rate=rate, vol=vol, T=T1,
+        n_steps=1, n_paths=n_paths, seed=42,
+        div_yield=dividend_yield,
+    )
+    S_T1 = S_paths[:, -1]
+
+    inner_vals = np.array([inner_call(s) for s in S_T1])
+
+    if is_outer_call:
+        outer_payoff = np.maximum(inner_vals - strike_outer, 0.0)
+    else:
+        outer_payoff = np.maximum(strike_outer - inner_vals, 0.0)
+
+    df_T1 = math.exp(-rate * T1)
+    price = df_T1 * float(outer_payoff.mean())
+
+    outer_str = "call" if is_outer_call else "put"
+    under_str = "call" if is_underlying_call else "put"
+    return CompoundResult(float(price), under_str, outer_str)

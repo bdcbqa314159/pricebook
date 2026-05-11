@@ -318,3 +318,53 @@ def implied_correlation_quanto(
         model_price=-rho * fx_vol * underlying_vol * T,
         method="quanto_inversion",
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def fx_basket_option_via_engine(
+    spots: list[float],
+    weights: list[float],
+    strike: float,
+    rates_dom: float,
+    rates_for: list[float],
+    vols: list[float],
+    correlations: np.ndarray,
+    T: float,
+    is_call: bool = True,
+    basket_type: str = "average",
+    n_paths: int = 20_000,
+    seed: int | None = 42,
+) -> BasketResult:
+    """``fx_basket_option`` via unified MC engine (correlated GBM)."""
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    n = len(spots)
+    rates_adj = [rates_dom - rf for rf in rates_for]
+    paths = correlated_gbm_paths(
+        spots=spots, rates=rates_adj, vols=vols,
+        correlation=correlations, T=T, n_steps=1, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+    terminal = paths[:, -1, :]
+    weights_arr = np.array(weights)
+
+    if basket_type == "average":
+        basket = terminal @ weights_arr
+    elif basket_type == "min":
+        basket = terminal.min(axis=1)
+    elif basket_type == "max":
+        basket = terminal.max(axis=1)
+    else:
+        raise ValueError(f"Unknown basket_type: {basket_type}")
+
+    if is_call:
+        payoff = np.maximum(basket - strike, 0.0)
+    else:
+        payoff = np.maximum(strike - basket, 0.0)
+
+    df = math.exp(-rates_dom * T)
+    return BasketResult(float(df * payoff.mean()), basket_type, n, is_call)

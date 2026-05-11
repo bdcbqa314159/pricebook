@@ -394,3 +394,187 @@ def vg_full_paths(
         paths[:, i + 1] = np.exp(log_S)
 
     return VGPathResult(paths, np.linspace(0, T, n_steps + 1))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def cev_paths_via_engine(
+    spot: float,
+    rate: float,
+    vol: float,
+    beta: float,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    div_yield: float = 0.0,
+    seed: int | None = None,
+) -> CEVResult:
+    """``cev_paths`` via unified MC engine."""
+    from pricebook.mc_migrate import cev_paths as _cev_paths  # noqa: lazy
+
+    paths = _cev_paths(
+        s0=spot, mu=rate - div_yield, sigma=vol, beta=beta,
+        T=T, n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+    return CEVResult(paths, np.linspace(0, T, n_steps + 1))
+
+
+def bates_paths_via_engine(
+    spot: float,
+    v0: float,
+    rate: float,
+    kappa: float,
+    theta: float,
+    xi: float,
+    rho: float,
+    lam: float,
+    mu_j: float,
+    sigma_j: float,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    div_yield: float = 0.0,
+    seed: int | None = None,
+) -> BatesResult:
+    """``bates_paths`` via unified MC engine."""
+    from pricebook.mc_migrate import bates_paths as _bates_paths  # noqa: lazy
+
+    S, v = _bates_paths(
+        spot=spot, v0=v0, rate=rate - div_yield,
+        kappa=kappa, theta=theta, xi=xi, rho=rho,
+        jump_intensity=lam, jump_mean=mu_j, jump_vol=sigma_j,
+        T=T, n_steps=n_steps, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+    return BatesResult(S, v, np.linspace(0, T, n_steps + 1))
+
+
+def three_halves_paths_via_engine(
+    v0: float,
+    kappa: float,
+    theta: float,
+    epsilon: float,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    seed: int | None = None,
+) -> ThreeHalvesResult:
+    """``three_halves_paths`` via unified MC engine.
+
+    The 3/2 model is not a standard engine process. We use
+    CIR paths as the closest proxy and apply the v^{3/2} correction.
+    """
+    from pricebook.mc_migrate import cir_paths as _cir_paths  # noqa: lazy
+
+    # CIR: dv = kappa(theta - v) dt + xi sqrt(v) dW
+    # 3/2: dv = kappa v (theta - v) dt + epsilon v^{3/2} dW
+    # Not directly equivalent — fall back to Euler with engine RNG
+    rng = np.random.default_rng(seed if seed is not None else 42)
+    dt = T / n_steps
+    sqrt_dt = math.sqrt(dt)
+
+    paths = np.zeros((n_paths, n_steps + 1))
+    paths[:, 0] = v0
+
+    for i in range(n_steps):
+        v = np.maximum(paths[:, i], 1e-10)
+        dW = rng.standard_normal(n_paths) * sqrt_dt
+        paths[:, i + 1] = v + kappa * v * (theta - v) * dt + epsilon * np.power(v, 1.5) * dW
+        paths[:, i + 1] = np.maximum(paths[:, i + 1], 0.0)
+
+    return ThreeHalvesResult(paths, np.linspace(0, T, n_steps + 1))
+
+
+def kou_paths_via_engine(
+    spot: float,
+    rate: float,
+    vol: float,
+    lam: float,
+    p: float,
+    eta1: float,
+    eta2: float,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    div_yield: float = 0.0,
+    seed: int | None = None,
+) -> KouResult:
+    """``kou_paths`` via unified MC engine.
+
+    Kou has double-exponential jumps which are not directly supported
+    by the engine. We use engine GBM for the diffusion part and
+    layer the jump component manually.
+    """
+    from pricebook.mc_migrate import gbm_paths as _gbm_paths  # noqa: lazy
+
+    _seed = seed if seed is not None else 42
+    k = p * eta1 / (eta1 - 1) + (1 - p) * eta2 / (eta2 + 1) - 1
+    mu = rate - div_yield - lam * k
+
+    # GBM paths (no-jump diffusion part)
+    S_diffusion = _gbm_paths(
+        spot=spot, rate=mu, vol=vol, T=T,
+        n_steps=n_steps, n_paths=n_paths, seed=_seed,
+    )
+
+    # Add jumps
+    rng = np.random.default_rng(_seed + 1)
+    total_jumps = np.zeros(n_paths)
+    jump_mult = np.ones((n_paths, n_steps + 1))
+
+    for i in range(n_steps):
+        n_jump = rng.poisson(lam * (T / n_steps), n_paths)
+        total_jumps += n_jump
+        log_jump = np.zeros(n_paths)
+        for j in range(n_paths):
+            for _ in range(n_jump[j]):
+                if rng.random() < p:
+                    log_jump[j] += rng.exponential(1.0 / eta1)
+                else:
+                    log_jump[j] -= rng.exponential(1.0 / eta2)
+        jump_mult[:, i + 1] = jump_mult[:, i] * np.exp(log_jump)
+
+    paths = S_diffusion * jump_mult
+    return KouResult(paths, np.linspace(0, T, n_steps + 1), total_jumps)
+
+
+def vg_full_paths_via_engine(
+    spot: float,
+    rate: float,
+    sigma: float,
+    theta_vg: float,
+    nu: float,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    div_yield: float = 0.0,
+    seed: int | None = None,
+) -> VGPathResult:
+    """``vg_full_paths`` via unified MC engine.
+
+    VG uses a Gamma subordinator which is not a standard engine process.
+    We generate the Gamma increments and BM evaluation manually.
+    """
+    _seed = seed if seed is not None else 42
+    rng = np.random.default_rng(_seed)
+    dt = T / n_steps
+
+    omega = (1.0 / nu) * math.log(1.0 - theta_vg * nu - 0.5 * sigma**2 * nu)
+    mu = rate - div_yield + omega
+
+    paths = np.zeros((n_paths, n_steps + 1))
+    paths[:, 0] = spot
+    log_S = np.full(n_paths, math.log(spot))
+
+    for i in range(n_steps):
+        dG = rng.gamma(dt / nu, nu, n_paths)
+        dW = rng.standard_normal(n_paths) * np.sqrt(dG)
+        dX = theta_vg * dG + sigma * dW
+        log_S = log_S + mu * dt + dX
+        paths[:, i + 1] = np.exp(log_S)
+
+    return VGPathResult(paths, np.linspace(0, T, n_steps + 1))

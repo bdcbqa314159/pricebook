@@ -570,3 +570,157 @@ def bermudan_upper_bound(
     lower = lower_result.price
 
     return BermudanBoundsResult(lower, upper, upper - lower)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def _simulate_lmm_paths_via_engine(
+    forward_rates: np.ndarray,
+    inst_vols: np.ndarray,
+    T: float,
+    n_steps: int,
+    n_paths: int,
+    dt_tenor: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """``_simulate_lmm_paths`` via unified MC engine.
+
+    LMM has bespoke per-forward drift coupling that doesn't map to a single
+    ProcessSpec. We use the engine's correlated-GBM path generator for the
+    diffusion term and manually correct the drift.
+    """
+    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+
+    n_fwd = len(forward_rates)
+    # Identity correlation — each forward has its own independent Brownian
+    corr = np.eye(n_fwd)
+    spots = list(np.maximum(forward_rates, 1e-10))
+    rates = [0.0] * n_fwd
+    vols = list(inst_vols)
+
+    # Generate correlated GBM paths (log-normal diffusion only)
+    raw = correlated_gbm_paths(
+        spots, rates, vols, corr, T, n_steps, n_paths,
+        seed=int(rng.integers(0, 2**31)),
+    )
+
+    # Apply LMM terminal-measure drift correction step-by-step
+    dt = T / n_steps
+    F = np.zeros((n_paths, n_steps + 1, n_fwd))
+    F[:, 0, :] = forward_rates
+
+    for step in range(n_steps):
+        L = np.maximum(F[:, step, :], 1e-10)
+        # Ratio of raw paths gives the multiplicative increment
+        if step == 0:
+            increment = raw[:, 1, :] / raw[:, 0, :]
+        else:
+            increment = raw[:, step + 1, :] / raw[:, step, :]
+
+        for j in range(n_fwd):
+            drift = np.zeros(n_paths)
+            for k in range(j + 1, n_fwd):
+                drift -= (inst_vols[k] * inst_vols[j] * dt_tenor
+                          * L[:, k] / (1 + dt_tenor * L[:, k]))
+            F[:, step + 1, j] = L[:, j] * np.exp(drift * dt) * increment[:, j]
+
+    return F
+
+
+def bermudan_swaption_lmm_via_engine(
+    forward_rates: list[float],
+    inst_vols: list[float],
+    strike: float,
+    exercise_indices: list[int],
+    swap_end_idx: int,
+    dt_tenor: float = 0.5,
+    is_payer: bool = True,
+    n_paths: int = 20_000,
+    n_steps: int = 100,
+    n_basis: int = 3,
+    seed: int | None = None,
+) -> BermudanLMMResult:
+    """``bermudan_swaption_lmm`` with LMM paths from unified MC engine."""
+    rng = np.random.default_rng(seed)
+    fwd = np.array(forward_rates, dtype=float)
+    vols = np.array(inst_vols, dtype=float)
+
+    T = max(exercise_indices) * dt_tenor + dt_tenor
+    F = _simulate_lmm_paths_via_engine(fwd, vols, T, n_steps, n_paths, dt_tenor, rng)
+
+    # --- rest is identical to original ---
+    dt_sim = T / n_steps
+    exercise_steps = []
+    for idx in sorted(exercise_indices):
+        t_ex = idx * dt_tenor
+        step = min(int(round(t_ex / dt_sim)), n_steps)
+        exercise_steps.append((step, idx))
+
+    n_ex = len(exercise_steps)
+    ex_values = np.zeros((n_paths, n_ex))
+    ex_swap_rates = np.zeros((n_paths, n_ex))
+
+    for k, (step, start_idx) in enumerate(exercise_steps):
+        fwd_at_ex = F[:, step, :]
+        sr = _swap_rate(fwd_at_ex, start_idx, swap_end_idx, dt_tenor)
+        ann = _annuity(fwd_at_ex, start_idx, swap_end_idx, dt_tenor)
+        ex_swap_rates[:, k] = sr
+        if is_payer:
+            ex_values[:, k] = np.maximum(sr - strike, 0.0) * ann
+        else:
+            ex_values[:, k] = np.maximum(strike - sr, 0.0) * ann
+
+    cashflow = ex_values[:, -1].copy()
+    exercise_time_idx = np.full(n_paths, n_ex - 1, dtype=int)
+
+    for k in range(n_ex - 2, -1, -1):
+        ev = ex_values[:, k]
+        itm = ev > 0
+        if itm.sum() < n_basis + 1:
+            continue
+        step_k = exercise_steps[k][0]
+        disc_cf = np.zeros(itm.sum())
+        itm_idx = np.where(itm)[0]
+        for p_idx, p in enumerate(itm_idx):
+            future_k = exercise_time_idx[p]
+            future_step = exercise_steps[future_k][0]
+            dt_between = (future_step - step_k) * dt_sim
+            avg_rate = F[p, step_k, 0]
+            disc_cf[p_idx] = cashflow[p] * math.exp(-avg_rate * dt_between)
+        sr_itm = ex_swap_rates[itm, k]
+        sr_mean = sr_itm.mean()
+        sr_std = max(sr_itm.std(), 1e-10)
+        sr_norm = (sr_itm - sr_mean) / sr_std
+        basis = np.column_stack([sr_norm**j for j in range(n_basis)])
+        try:
+            coeffs = np.linalg.lstsq(basis, disc_cf, rcond=None)[0]
+            continuation = basis @ coeffs
+        except np.linalg.LinAlgError:
+            continue
+        exercise_mask = ev[itm] > continuation
+        exercise_idx = itm_idx[exercise_mask]
+        cashflow[exercise_idx] = ev[exercise_idx]
+        exercise_time_idx[exercise_idx] = k
+
+    pv = np.zeros(n_paths)
+    for p in range(n_paths):
+        k = exercise_time_idx[p]
+        step = exercise_steps[k][0]
+        t_ex = step * dt_sim
+        avg_rate = F[p, 0, 0]
+        pv[p] = cashflow[p] * math.exp(-avg_rate * t_ex)
+
+    price = float(pv.mean())
+    exercised = cashflow > 0
+    exercise_rate = float(exercised.mean())
+    if exercised.sum() > 0:
+        ex_times = np.array([exercise_steps[exercise_time_idx[p]][0] * dt_sim
+                             for p in range(n_paths) if exercised[p]])
+        mean_ex_time = float(ex_times.mean())
+    else:
+        mean_ex_time = 0.0
+
+    return BermudanLMMResult(price, exercise_rate, mean_ex_time, n_ex)

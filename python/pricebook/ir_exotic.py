@@ -403,3 +403,266 @@ def flexi_swap(
 
     return FlexiSwapResult(price, vanilla, price - vanilla,
                            float(exercises_used.mean()))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+
+def tarn_price_via_engine(
+    notional: float,
+    coupon_rate: float,
+    target: float,
+    maturity_years: int,
+    flat_rate: float = 0.05,
+    rate_vol: float = 0.01,
+    frequency: int = 4,
+    n_paths: int = 50_000,
+    seed: int | None = None,
+) -> TARNResult:
+    """``tarn_price`` with OU rate paths from unified MC engine."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = 1.0 / frequency
+    n_periods = maturity_years * frequency
+    T = float(maturity_years)
+
+    r_paths = ou_paths(
+        x0=flat_rate, kappa=0.5, theta=flat_rate, sigma=rate_vol,
+        T=T, n_steps=n_periods, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+
+    pv = np.zeros(n_paths)
+    cum_coupon = np.zeros(n_paths)
+    alive = np.ones(n_paths, dtype=bool)
+    redemption_time = np.full(n_paths, T)
+
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        coupon = coupon_rate * notional * dt
+        df = np.exp(-flat_rate * t)
+        pv[alive] += df * coupon
+        cum_coupon[alive] += coupon_rate * dt
+        target_hit = alive & (cum_coupon >= target)
+        if np.any(target_hit):
+            pv[target_hit] += df * notional
+            redemption_time[target_hit] = t
+            alive[target_hit] = False
+
+    df_T = math.exp(-flat_rate * T)
+    pv[alive] += df_T * notional
+
+    price = float(pv.mean()) / notional * 100
+    return TARNResult(price, float(redemption_time.mean()),
+                      float((~alive).mean()), float(cum_coupon.mean()))
+
+
+def snowball_price_via_engine(
+    notional: float,
+    initial_coupon: float,
+    spread: float,
+    maturity_years: int,
+    flat_rate: float = 0.05,
+    rate_vol: float = 0.01,
+    floor: float = 0.0,
+    frequency: int = 4,
+    n_paths: int = 50_000,
+    seed: int | None = None,
+) -> SnowballResult:
+    """``snowball_price`` with OU rate paths from unified MC engine."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = 1.0 / frequency
+    n_periods = maturity_years * frequency
+    T = float(maturity_years)
+
+    r = ou_paths(
+        x0=flat_rate, kappa=0.5, theta=flat_rate, sigma=rate_vol,
+        T=T, n_steps=n_periods, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+
+    coupon = np.full(n_paths, initial_coupon)
+    pv = np.zeros(n_paths)
+    total_coupon = np.zeros(n_paths)
+
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        coupon = np.maximum(coupon + spread * dt - r[:, i] * dt, floor)
+        payment = coupon * notional * dt
+        df = math.exp(-flat_rate * t)
+        pv += df * payment
+        total_coupon += coupon * dt
+
+    df_T = math.exp(-flat_rate * T)
+    pv += df_T * notional
+    price = float(pv.mean()) / notional * 100
+    return SnowballResult(price, float(coupon.mean()), float(total_coupon.mean()))
+
+
+def callable_range_accrual_via_engine(
+    notional: float,
+    coupon_rate: float,
+    lower: float,
+    upper: float,
+    maturity_years: int,
+    call_start_year: int = 1,
+    call_price: float = 100.0,
+    flat_rate: float = 0.05,
+    rate_vol: float = 0.01,
+    frequency: int = 4,
+    n_paths: int = 50_000,
+    seed: int | None = None,
+) -> CallableRangeAccrualResult:
+    """``callable_range_accrual`` with OU rate paths from unified MC engine."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = 1.0 / frequency
+    n_periods = maturity_years * frequency
+    T = float(maturity_years)
+
+    r_all = ou_paths(
+        x0=flat_rate, kappa=0.5, theta=flat_rate, sigma=rate_vol,
+        T=T, n_steps=n_periods, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+
+    pv_nc = np.zeros(n_paths)
+    coupons = np.zeros((n_paths, n_periods))
+    total_in_range = 0
+
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        in_range = (r_all[:, i] >= lower) & (r_all[:, i] <= upper)
+        total_in_range += in_range.sum()
+        coupons[:, i - 1] = np.where(in_range, coupon_rate * notional * dt, 0.0)
+        df = math.exp(-flat_rate * t)
+        pv_nc += df * coupons[:, i - 1]
+
+    df_T = math.exp(-flat_rate * T)
+    pv_nc += df_T * notional
+
+    V = np.full(n_paths, df_T * notional)
+    call_decision = np.zeros((n_paths, n_periods), dtype=bool)
+    call_start_period = call_start_year * frequency
+
+    for i in range(n_periods, 0, -1):
+        t = i * dt
+        df = math.exp(-flat_rate * t)
+        V += df * coupons[:, i - 1]
+        if i >= call_start_period:
+            par_val = call_price * notional / 100 * df
+            r_i = r_all[:, i]
+            r_norm = (r_i - r_i.mean()) / max(r_i.std(), 1e-10)
+            basis = np.column_stack([np.ones(n_paths), r_norm, r_norm**2])
+            try:
+                coeffs = np.linalg.lstsq(basis, V, rcond=None)[0]
+                est_cont = basis @ coeffs
+            except np.linalg.LinAlgError:
+                est_cont = V
+            call_decision[:, i - 1] = est_cont > par_val
+
+    alive = np.ones(n_paths, dtype=bool)
+    pv_c = np.zeros(n_paths)
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        df = math.exp(-flat_rate * t)
+        pv_c += np.where(alive, df * coupons[:, i - 1], 0.0)
+        if i >= call_start_period:
+            issuer_calls = alive & call_decision[:, i - 1]
+            pv_c += np.where(issuer_calls, call_price * notional / 100 * df, 0.0)
+            alive &= ~issuer_calls
+
+    pv_c += np.where(alive, df_T * notional, 0.0)
+
+    nc_price = float(pv_nc.mean()) / notional * 100
+    c_price = float(pv_c.mean()) / notional * 100
+    accrual = total_in_range / (n_paths * n_periods)
+
+    return CallableRangeAccrualResult(c_price, nc_price, nc_price - c_price, accrual)
+
+
+def ratchet_cap_via_engine(
+    notional: float,
+    initial_strike: float,
+    maturity_years: int,
+    flat_rate: float = 0.05,
+    rate_vol: float = 0.01,
+    frequency: int = 4,
+    n_paths: int = 50_000,
+    seed: int | None = None,
+) -> RatchetCapResult:
+    """``ratchet_cap`` with OU rate paths from unified MC engine."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = 1.0 / frequency
+    n_periods = maturity_years * frequency
+    T = float(maturity_years)
+
+    r = ou_paths(
+        x0=flat_rate, kappa=0.5, theta=flat_rate, sigma=rate_vol,
+        T=T, n_steps=n_periods, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+
+    strike = np.full(n_paths, initial_strike)
+    pv_ratchet = np.zeros(n_paths)
+    pv_standard = np.zeros(n_paths)
+
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        df = math.exp(-flat_rate * t)
+        r_i = r[:, i]
+        pv_ratchet += df * np.maximum(r_i - strike, 0.0) * notional * dt
+        pv_standard += df * np.maximum(r_i - initial_strike, 0.0) * notional * dt
+        strike = np.minimum(strike, r_i)
+
+    price = float(pv_ratchet.mean())
+    std_price = float(pv_standard.mean())
+    return RatchetCapResult(price, std_price, price - std_price)
+
+
+def flexi_swap_via_engine(
+    notional: float,
+    fixed_rate: float,
+    maturity_years: int,
+    max_exercises: int,
+    flat_rate: float = 0.05,
+    rate_vol: float = 0.01,
+    frequency: int = 4,
+    n_paths: int = 50_000,
+    seed: int | None = None,
+) -> FlexiSwapResult:
+    """``flexi_swap`` with OU rate paths from unified MC engine."""
+    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+
+    dt = 1.0 / frequency
+    n_periods = maturity_years * frequency
+    T = float(maturity_years)
+
+    r = ou_paths(
+        x0=flat_rate, kappa=0.5, theta=flat_rate, sigma=rate_vol,
+        T=T, n_steps=n_periods, n_paths=n_paths,
+        seed=seed if seed is not None else 42,
+    )
+
+    pv_flexi = np.zeros(n_paths)
+    pv_vanilla = np.zeros(n_paths)
+    exercises_used = np.zeros(n_paths, dtype=int)
+
+    for i in range(1, n_periods + 1):
+        t = i * dt
+        df = math.exp(-flat_rate * t)
+        swap_cf = (r[:, i] - fixed_rate) * notional * dt
+        pv_vanilla += df * swap_cf
+        can_exercise = exercises_used < max_exercises
+        should_exercise = can_exercise & (swap_cf > 0)
+        pv_flexi[should_exercise] += df * swap_cf[should_exercise]
+        exercises_used[should_exercise] += 1
+
+    price = float(pv_flexi.mean())
+    vanilla = float(pv_vanilla.mean())
+    return FlexiSwapResult(price, vanilla, price - vanilla,
+                           float(exercises_used.mean()))
