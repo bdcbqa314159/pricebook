@@ -17,16 +17,15 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import date, datetime
-from io import StringIO
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pricebook.db_backend import SQLiteBackend, StorageBackend
+from pricebook.db_backend import SQLiteBackend, StorageBackend, _safe_name
 
 
 def _now() -> str:
-    return datetime.now(tz=None).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _infer_sql_type(value) -> str:
@@ -132,6 +131,12 @@ class PricebookDB:
             updated_at TEXT NOT NULL,
             PRIMARY KEY (namespace, key)
         )""")
+        # Indices for common queries
+        b.execute("CREATE INDEX IF NOT EXISTS idx_trades_book ON trades(book, status)")
+        b.execute("CREATE INDEX IF NOT EXISTS idx_trades_cpty ON trades(counterparty_id)")
+        b.execute("CREATE INDEX IF NOT EXISTS idx_trades_issuer ON trades(issuer_id)")
+        b.execute("CREATE INDEX IF NOT EXISTS idx_result_trade ON pricing_results(trade_id, snapshot_date)")
+        b.execute("CREATE INDEX IF NOT EXISTS idx_snap_date ON market_snapshots(snapshot_date)")
         b.commit()
 
     # ------------------------------------------------------------------
@@ -492,7 +497,9 @@ class PricebookDB:
         cols = list(rows[0].keys())
         placeholders = ", ".join("?" for _ in cols)
         col_names = ", ".join(cols)
-        sql = f"INSERT INTO {name} ({col_names}) VALUES ({placeholders})"
+        safe_table = _safe_name(name)
+        safe_cols = ", ".join(_safe_name(c) for c in cols)
+        sql = f"INSERT INTO {safe_table} ({safe_cols}) VALUES ({placeholders})"
         self._backend.execute_many(
             sql, [tuple(_serialise_value(row.get(c)) for c in cols) for row in rows])
         self._backend.commit()
@@ -505,8 +512,9 @@ class PricebookDB:
             return self.save_table(name, rows, replace=False)
         cols = list(rows[0].keys())
         placeholders = ", ".join("?" for _ in cols)
-        col_names = ", ".join(cols)
-        sql = f"INSERT INTO {name} ({col_names}) VALUES ({placeholders})"
+        safe_table = _safe_name(name)
+        safe_cols = ", ".join(_safe_name(c) for c in cols)
+        sql = f"INSERT INTO {safe_table} ({safe_cols}) VALUES ({placeholders})"
         self._backend.execute_many(
             sql, [tuple(_serialise_value(row.get(c)) for c in cols) for row in rows])
         self._backend.commit()
@@ -514,7 +522,7 @@ class PricebookDB:
     def load_table(self, name: str, **filters) -> list[dict]:
         """Load all rows from a custom table, optionally filtered."""
         where, params = self._build_where(filters)
-        return self._backend.execute(f"SELECT * FROM {name}{where}", params)
+        return self._backend.execute(f"SELECT * FROM {_safe_name(name)}{where}", params)
 
     def load_table_df(self, name: str, **filters):
         """Load a custom table as a pandas DataFrame."""
@@ -526,14 +534,13 @@ class PricebookDB:
         """Alias for load_table with filters."""
         return self.load_table(name, **filters)
 
-    def delete_rows(self, name: str, **filters) -> int:
-        """Delete rows matching filters. Returns count deleted."""
+    def delete_rows(self, name: str, **filters) -> None:
+        """Delete rows matching filters."""
         where, params = self._build_where(filters)
         if not where:
             raise ValueError("delete_rows requires at least one filter")
-        self._backend.execute(f"DELETE FROM {name}{where}", params)
+        self._backend.execute(f"DELETE FROM {_safe_name(name)}{where}", params)
         self._backend.commit()
-        return 0  # SQLite doesn't return delete count easily via our wrapper
 
     def list_custom_tables(self) -> list[str]:
         """List user-created tables (excludes system tables)."""
@@ -553,7 +560,7 @@ class PricebookDB:
 
     def export_csv(self, name: str, filepath: str | Path) -> None:
         """Export a table (custom or system) to CSV."""
-        rows = self._backend.execute(f"SELECT * FROM {name}")
+        rows = self._backend.execute(f"SELECT * FROM {_safe_name(name)}")
         if not rows:
             return
         filepath = Path(filepath)
@@ -596,7 +603,7 @@ class PricebookDB:
         clauses = []
         params = []
         for k, v in filters.items():
-            clauses.append(f"{k} = ?")
+            clauses.append(f"{_safe_name(k)} = ?")
             params.append(v)
         return " WHERE " + " AND ".join(clauses), tuple(params)
 

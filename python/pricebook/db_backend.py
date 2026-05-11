@@ -9,9 +9,9 @@ Future: DuckDBBackend, PostgresBackend — same interface, swap one line.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from abc import ABC, abstractmethod
-from pathlib import Path
 
 
 class StorageBackend(ABC):
@@ -50,6 +50,16 @@ class StorageBackend(ABC):
         """Close the connection."""
 
 
+_VALID_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _safe_name(name: str) -> str:
+    """Validate and return a safe SQL identifier. Raises on injection attempts."""
+    if not _VALID_NAME.match(name):
+        raise ValueError(f"Invalid SQL identifier: {name!r}")
+    return name
+
+
 class SQLiteBackend(StorageBackend):
     """SQLite backend — zero dependencies, file-based or in-memory."""
 
@@ -57,7 +67,8 @@ class SQLiteBackend(StorageBackend):
         self._path = path
         self._conn = sqlite3.connect(path)
         self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
+        if path != ":memory:":
+            self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
 
     def execute(self, sql: str, params: tuple = ()) -> list[dict]:
@@ -75,11 +86,12 @@ class SQLiteBackend(StorageBackend):
         return len(rows) > 0
 
     def create_table(self, name: str, columns: dict[str, str]) -> None:
-        cols = ", ".join(f"{k} {v}" for k, v in columns.items())
-        self.execute(f"CREATE TABLE IF NOT EXISTS {name} ({cols})")
+        safe = _safe_name(name)
+        cols = ", ".join(f"{_safe_name(k)} {v}" for k, v in columns.items())
+        self.execute(f"CREATE TABLE IF NOT EXISTS {safe} ({cols})")
 
     def drop_table(self, name: str) -> None:
-        self.execute(f"DROP TABLE IF EXISTS {name}")
+        self.execute(f"DROP TABLE IF EXISTS {_safe_name(name)}")
 
     def list_tables(self) -> list[str]:
         rows = self.execute(

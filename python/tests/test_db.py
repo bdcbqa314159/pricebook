@@ -328,6 +328,63 @@ class TestContextManager:
 
 # ── File Persistence ──
 
+# ── SQL Injection Defense ──
+
+class TestSQLInjection:
+
+    def test_malicious_table_name_rejected(self, db):
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            db.save_table("trades; DROP TABLE entities", [{"x": 1}])
+
+    def test_malicious_column_name_rejected(self, db):
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            db.save_table("safe", [{"valid": 1, "1=1; --": 2}])
+
+    def test_malicious_filter_key_rejected(self, db):
+        db.save_table("data", [{"x": 1}])
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            db.load_table("data", **{"1=1; --": "x"})
+
+
+# ── Delete Rows ──
+
+class TestDeleteRows:
+
+    def test_delete_rows(self, db):
+        db.save_table("data", [
+            {"name": "A", "val": 1},
+            {"name": "B", "val": 2},
+            {"name": "C", "val": 1},
+        ])
+        db.delete_rows("data", val=1)
+        remaining = db.load_table("data")
+        assert len(remaining) == 1
+        assert remaining[0]["name"] == "B"
+
+    def test_delete_requires_filter(self, db):
+        db.save_table("data", [{"x": 1}])
+        with pytest.raises(ValueError, match="requires at least one filter"):
+            db.delete_rows("data")
+
+
+# ── Trade Reconstruction ──
+
+class TestTradeReconstruction:
+
+    def test_load_trade_reconstructs_instrument(self, db):
+        from pricebook.deposit import Deposit
+        dep = Deposit(date(2026, 1, 1), date(2026, 7, 1), 0.05, 1e6)
+        db.save_trade("dep_001", dep)
+        loaded = db.load_trade("dep_001")
+        assert loaded is not None
+        assert hasattr(loaded, "rate")
+
+    def test_load_missing_trade(self, db):
+        assert db.load_trade("nonexist") is None
+
+
+# ── File Persistence ──
+
 class TestFilePersistence:
 
     def test_data_survives_reopen(self):
