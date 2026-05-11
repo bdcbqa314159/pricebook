@@ -375,16 +375,13 @@ def simulate_two_asset_stoch_corr_via_engine(
     T: float, n_paths: int = 5_000, n_steps: int = 100,
     seed: int | None = 42,
 ) -> StochCorrPricingResult:
-    """Two-asset stochastic correlation via unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths
+    """Two-asset stochastic correlation via unified MC engine.
 
-    rho_result = cir_correlation_simulate_via_engine(corr_model, T, n_paths, n_steps, seed)
-    S1 = gbm_paths(spot1, rate - div1, vol1, T, n_steps, n_paths, (seed or 42) + 1)
-    S2 = gbm_paths(spot2, rate - div2, vol2, T, n_steps, n_paths, (seed or 42) + 2)
-
-    return StochCorrPricingResult(
-        price=0.0,
-        mean_correlation=float(rho_result.rho_paths.mean()),
-        spot1_paths=S1, spot2_paths=S2,
-        rho_paths=rho_result.rho_paths,
+    Delegates to original: the time-varying correlation ρ(t) from the CIR
+    process is applied per-step to correlate dW₁ and dW₂. Independent
+    GBM calls would lose this path-dependent correlation structure.
+    """
+    return simulate_two_asset_stoch_corr(
+        spot1, spot2, rate, div1, div2, vol1, vol2,
+        corr_model, T, n_paths, n_steps, seed,
     )

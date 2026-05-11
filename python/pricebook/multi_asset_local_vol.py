@@ -120,19 +120,14 @@ def multi_asset_slv_simulate_via_engine(
     T: float, n_paths: int = 5_000, n_steps: int = 50,
     mixing: float = 0.5, seed: int | None = 42,
 ) -> MultiAssetSLVResult:
-    """2-asset SLV via the unified MC engine (correlated GBM + CIR)."""
-    from pricebook.mc_migrate import correlated_gbm_paths, cir_paths
+    """2-asset SLV via unified MC engine.
 
-    corr = np.array([[1.0, rho_assets], [rho_assets, 1.0]])
-    mus = [rate - div1, rate - div2]
-    vols = [lv1, lv2]
-    spot_paths = correlated_gbm_paths([spot1, spot2], mus, vols, corr,
-                                       T, n_steps, n_paths, seed or 42)
-    v_paths = cir_paths(heston_v0, heston_kappa, heston_theta, heston_xi,
-                        T, n_steps, n_paths, (seed or 42) + 1)
-
-    return MultiAssetSLVResult(
-        spot_paths[:, :, 0], spot_paths[:, :, 1],
-        np.sqrt(np.maximum(v_paths, 0)), np.sqrt(np.maximum(v_paths, 0)),
-        float(spot_paths[:, -1, 0].mean()), float(spot_paths[:, -1, 1].mean()),
+    Delegates to original: three correlated Brownians (z1, z2, zv) with
+    path-dependent effective vol (mixing*lv + (1-mixing)*√v) require
+    shared increments that independent engine calls cannot provide.
+    """
+    return multi_asset_slv_simulate(
+        spot1, spot2, rate, div1, div2, lv1, lv2,
+        heston_v0, heston_kappa, heston_theta, heston_xi,
+        rho_assets, rho_vol, T, n_paths, n_steps, mixing, seed,
     )

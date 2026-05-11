@@ -461,38 +461,13 @@ def gibson_schwartz_simulate_via_engine(
     n_steps: int = 100,
     seed: int | None = 42,
 ) -> GibsonSchwartzResult:
-    """``GibsonSchwartz.simulate`` via unified MC engine (correlated GBM + OU)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    """``GibsonSchwartz.simulate`` via unified MC engine.
 
-    # Convenience yield follows OU — use engine OU paths
-    delta = ou_paths(
-        x0=convenience_yield, kappa=model.kappa, theta=model.alpha,
-        sigma=model.sigma_delta, T=T, n_steps=n_steps, n_paths=n_paths,
-        seed=seed if seed is not None else 42,
-    )
-
-    # Spot follows GBM with stochastic drift r - delta(t).
-    # Engine can't handle path-dependent drift directly; use GBM paths
-    # for the diffusion and manually layer in the OU-driven drift.
-    rng = np.random.default_rng(seed)
-    dt = T / n_steps
-    sqrt_dt = math.sqrt(dt)
-    S = np.zeros((n_paths, n_steps + 1))
-    S[:, 0] = spot
-    for step in range(n_steps):
-        z = rng.standard_normal(n_paths)
-        # Reconstruct correlated Brownian for spot from delta Brownian
-        # (simplified: independent draw since OU paths already generated)
-        drift_s = (model.r - delta[:, step] - 0.5 * model.sigma_s**2) * dt
-        S[:, step + 1] = S[:, step] * np.exp(drift_s + model.sigma_s * z * sqrt_dt)
-
-    times = np.linspace(0, T, n_steps + 1)
-    return GibsonSchwartzResult(
-        spot_paths=S, convenience_yield_paths=delta, times=times,
-        mean_terminal_spot=float(S[:, -1].mean()),
-        mean_terminal_delta=float(delta[:, -1].mean()),
-    )
+    Delegates to original: the GBM+OU cross-correlation (ρ between dW_S
+    and dW_δ) requires shared Brownian increments that independent
+    engine calls cannot provide without losing ρ.
+    """
+    return model.simulate(spot, convenience_yield, T, n_paths, n_steps, seed)
 
 
 def schwartz_smith_simulate_via_engine(

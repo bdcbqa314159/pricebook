@@ -602,14 +602,10 @@ def two_factor_simulate_via_engine(
     n_paths: int = 10_000,
     seed: int | None = None,
 ) -> TwoFactorResult:
-    """Two-factor intensity via the unified MC engine (two OU paths)."""
-    from pricebook.mc_migrate import ou_paths
+    """Two-factor intensity via unified MC engine.
 
-    x1_paths = ou_paths(0.0, model.a1, 0.0, model.sigma1, T, n_steps, n_paths, seed or 42)
-    x2_paths = ou_paths(0.0, model.a2, 0.0, model.sigma2, T, n_steps, n_paths, (seed or 42) + 1)
-    times = np.linspace(0, T, n_steps + 1)
-    dt = T / n_steps
-    lambda_paths = x1_paths + x2_paths + model.base_hazard
-    integral = np.sum(np.maximum(lambda_paths[:, :-1], 0.0), axis=1) * dt
-    surv = float(np.mean(np.exp(-integral)))
-    return TwoFactorResult(lambda_paths, x1_paths, x2_paths, surv, times)
+    Delegates to original: the two OU factors share correlated Brownians
+    (dW₂ = ρ dW₁ + √(1-ρ²) dW_perp). Independent engine OU calls
+    would lose the ρ between x₁ and x₂.
+    """
+    return model.simulate(T, n_steps, n_paths, seed)
