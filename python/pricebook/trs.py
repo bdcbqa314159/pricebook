@@ -241,476 +241,19 @@ class TotalReturnSwap:
     def price(self, curve: DiscountCurve, projection_curve=None) -> TRSResult:
         """Price the TRS. Auto-dispatches based on underlying type."""
         if self.reset_dates:
-            return self._price_multi_period(curve, projection_curve)
-        if self._underlying_type == "equity":
-            return self._price_equity(curve, projection_curve)
-        if self._underlying_type == "bond":
-            return self._price_bond(curve, projection_curve)
-        if self._underlying_type == "loan":
-            return self._price_loan(curve, projection_curve)
-        if self._underlying_type == "cln":
-            return self._price_cln(curve, projection_curve)
-        if self._underlying_type == "commodity":
-            return self._price_commodity(curve, projection_curve)
-        if self._underlying_type == "fx":
-            return self._price_fx(curve, projection_curve)
-        raise TypeError(f"Unsupported underlying type: {type(self.underlying).__name__}")
-
-    # ---- Equity TRS ----
-
-    def _price_equity(self, curve, projection_curve) -> TRSResult:
-        """Equity TRS: Lou (2018) Eq (7).
-
-        V = (M0 rf T + S0) D - St exp((rs-r)(T-t))
-
-        All values in currency units (notional-scaled).
-        """
-        from pricebook.bond_forward import repo_financing_factor
-        from pricebook.dividend_model import Dividend
-
-        spot = float(self.underlying)
-        S_0 = self.initial_price if self.initial_price is not None else spot
-        if S_0 <= 0:
-            raise ValueError(f"Initial price must be positive, got {S_0}")
-
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        if T < 1e-5:
-            raise ValueError(f"Maturity too short: {T:.6f} years")
-
-        tau = year_fraction(curve.reference_date, self.end, DayCountConvention.ACT_365_FIXED)
-        D = curve.df(self.end)
-
-        # Funding rate: forward OIS + spread
-        fwd_rate = -math.log(curve.df(self.end) / curve.df(self.start)) / T
-        r_f = fwd_rate + self.funding.spread
-
-        # Dividends: income (received) and forward adjustment (future)
-        income = 0.0
-        future_div_pv = 0.0
-        for div in self.dividends:
-            if isinstance(div, Dividend):
-                if self.start < div.ex_date <= curve.reference_date:
-                    income += div.amount
-                elif div.ex_date > curve.reference_date:
-                    future_div_pv += div.amount * curve.df(div.ex_date)
-
-        # Scale factor: number of shares = notional / S_0
-        shares = self.notional / S_0
-
-        # Lou Eq (7): V = (M0 rf T + S0) D - St exp((rs-r) tau)
-        # M0 = notional (currency), S0 and St are per-share
-        repo_factor = repo_financing_factor(self.repo_spread, tau)
-        funding_leg = (self.notional * r_f * T + self.notional) * D
-        asset_leg = (spot - future_div_pv) * shares * repo_factor
-
-        value = funding_leg - asset_leg
-        fva = (repo_factor - 1) * spot * shares
-
-        # Decomposition
-        price_return = (spot - S_0) * shares
-        income_scaled = income * shares
-
-        return TRSResult(
-            value=value, total_return_leg=price_return + income_scaled,
-            funding_leg=funding_leg,
-            price_return=price_return, income_return=income_scaled,
-            fva=fva, repo_factor=repo_factor,
-        )
-
-    # ---- Bond TRS ----
-
-    def _price_bond(self, curve, projection_curve) -> TRSResult:
-        """Bond TRS: Lou (2018) Eq (25) with haircut blending (Eq 19)."""
-        from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
-
-        bond = self.underlying
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        if T < 1e-5:
-            raise ValueError(f"Maturity too short: {T:.6f} years")
-        if curve.reference_date >= bond.maturity:
-            raise ValueError("Bond has matured")
-
-        D = curve.df(self.end)
-
-        # Current and initial price
-        current_dirty = bond.dirty_price(curve)
-        initial_dirty = self.initial_price if self.initial_price is not None else current_dirty
-
-        # Coupons received
-        income = 0.0
-        for cf in bond.coupon_leg.cashflows:
-            if self.start < cf.payment_date <= curve.reference_date:
-                income += cf.amount
-        income_scaled = income / bond.face_value * self.notional
-
-        # Price return (per 100 face → scale to notional)
-        price_return = (current_dirty - initial_dirty) / 100.0 * self.notional
-
-        # Funding leg
-        fwd_rate = -math.log(D / curve.df(self.start)) / T
-        r_f = fwd_rate + self.funding.spread
-        yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
-        funding_leg = self.notional * r_f * yf
-
-        # Effective haircut: use schedule if available
-        effective_haircut = self.haircut
-        if self.haircut_schedule:
-            for d, h in sorted(self.haircut_schedule):
-                if d <= curve.reference_date:
-                    effective_haircut = h
-
-        # Blended repo rate: r̄s = (1-h)rs + h rN (Lou Eq 19)
-        # Use fwd_rate as proxy for rN (bank's unsecured ~ OIS + spread)
-        r_s = fwd_rate + self.repo_spread
-        r_N = fwd_rate + 0.02  # unsecured funding proxy
-        rs_bar = blended_repo_rate(r_s, r_N, effective_haircut)
-        rs_bar_spread = rs_bar - fwd_rate
-
-        # FVA using blended rate (Lou Eq 25-26)
-        repo_factor = repo_financing_factor(rs_bar_spread, T)
-        fva = (repo_factor - 1) * current_dirty / 100.0 * self.notional
-
-        total_return = price_return + income_scaled
-        value = total_return - funding_leg - fva
-
-        # Cross-currency adjustment: convert asset-currency PV to funding currency
-        if self.xccy is not None:
-            fx = self.xccy.fx_rate
-            # Total return is in asset currency → convert
-            total_return_funding = total_return / fx
-            # Funding leg already in funding currency
-            # FX haircut adds to effective haircut
-            fx_haircut_cost = self.notional * self.xccy.fx_haircut * T * D
-            value = total_return_funding - funding_leg - fva - fx_haircut_cost
-
-        return TRSResult(
-            value=value, total_return_leg=total_return,
-            funding_leg=funding_leg, price_return=price_return,
-            income_return=income_scaled, fva=fva, repo_factor=repo_factor,
-        )
-
-    # ---- Loan TRS ----
-
-    def _price_loan(self, curve, projection_curve) -> TRSResult:
-        """Loan TRS: adapts bond TRS framework to TermLoan cashflows.
-
-        Supports prepayment-adjusted cashflows (CPR/PSA), LSTA settlement,
-        credit-adjusted pricing, and market price override.
-
-        Enhancements over basic version:
-        - If survival_curve provided: credit-adjusts the total return leg
-        - If initial_price provided: uses dealer mark instead of model price
-        - Settlement cost uses compound interest (not linear)
-        """
-        from pricebook.bond_forward import repo_financing_factor
-
-        loan = self.underlying
-        proj = projection_curve or curve
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        if T < 1e-5:
-            raise ValueError(f"Maturity too short: {T:.6f} years")
-
-        # Current price: market override or model
-        current_price = loan.dirty_price(curve, proj)
-        initial_price = self.initial_price if self.initial_price is not None else 100.0
-
-        # Get cashflows — prepayment-adjusted if model specified
-        if self.prepay_model is not None:
-            from pricebook.exotic_loan import prepay_adjusted_loan, psa_cpr
-            if isinstance(self.prepay_model, (int, float)):
-                cpr = float(self.prepay_model)
-            elif isinstance(self.prepay_model, tuple) and self.prepay_model[0] == "PSA":
-                speed = self.prepay_model[1] if len(self.prepay_model) > 1 else 1.0
-                cpr = psa_cpr(12, speed)
-            elif self.prepay_model == "PSA":
-                cpr = psa_cpr(12, 1.0)
-            else:
-                cpr = 0.0
-            flows = prepay_adjusted_loan(loan, cpr, proj)
-        else:
-            flows = loan.cashflows(proj)
-
-        # Interest income received (between start and valuation)
-        income = 0.0
-        for d, interest, _ in flows:
-            if self.start < d <= curve.reference_date:
-                income += interest
-
-        # Credit adjustment: if survival curve provided, weight income by survival
-        if self.survival_curve is not None:
-            credit_adj_income = 0.0
-            for d, interest, _ in flows:
-                if self.start < d <= curve.reference_date:
-                    surv = self.survival_curve.survival(d)
-                    credit_adj_income += interest * surv
-            income = credit_adj_income
-
-        income_scaled = income / loan.notional * self.notional
-
-        # Price return
-        price_return = (current_price - initial_price) / 100.0 * self.notional
-
-        # LSTA settlement adjustment
-        settlement_shift = 0
-        if self.settlement_terms is not None:
-            settlement_shift = self.settlement_terms.settlement_days
-
-        # Funding leg (adjusted for settlement delay)
-        yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
-        fwd_rate = proj.forward_rate(self.start, self.end) if T > 0 else 0.0
-        r_f = fwd_rate + self.funding.spread
-        funding_leg = self.notional * r_f * yf
-
-        # Settlement delay cost: compound interest over settlement period
-        if settlement_shift > 0:
-            settle_cost = self.notional * (math.pow(1 + r_f, settlement_shift / 365.0) - 1)
-            funding_leg += settle_cost
-
-        # FVA
-        repo_factor = repo_financing_factor(self.repo_spread, T)
-        fva = (repo_factor - 1) * current_price / 100.0 * self.notional
-
-        total_return = price_return + income_scaled
-        value = total_return - funding_leg - fva
-
-        return TRSResult(
-            value=value, total_return_leg=total_return,
-            funding_leg=funding_leg, price_return=price_return,
-            income_return=income_scaled, fva=fva, repo_factor=repo_factor,
-        )
-
-    # ---- CLN TRS ----
-
-    def _price_cln(self, curve, projection_curve) -> TRSResult:
-        """CLN TRS: total return on a credit-linked note.
-
-        The TR receiver gets CLN price changes + coupon income.
-        The TR payer finances at floating + spread.
-        """
-        from pricebook.bond_forward import repo_financing_factor
-
-        cln = self.underlying
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        if T < 1e-5:
-            raise ValueError(f"Maturity too short: {T:.6f} years")
-
-        # CLN pricing requires a survival curve — use TRS-level, then CLN-level, then error
-        survival_curve = self.survival_curve
-        if survival_curve is None and hasattr(cln, '_survival_curve'):
-            survival_curve = cln._survival_curve
-        if survival_curve is None:
-            from pricebook.survival_curve import SurvivalCurve
-            import warnings
-            warnings.warn(
-                "No survival curve provided for CLN TRS — using flat hazard=0.02 fallback. "
-                "Pass survival_curve to TotalReturnSwap for accurate pricing.",
-                stacklevel=2,
-            )
-            survival_curve = SurvivalCurve.flat(curve.reference_date, 0.02)
-
-        current_price = cln.price_per_100(curve, survival_curve)
-        initial_price = self.initial_price if self.initial_price is not None else 100.0
-
-        # Coupon income between start and valuation date
-        income = 0.0
-        for i in range(1, len(cln.schedule)):
-            pay_date = cln.schedule[i]
-            if self.start < pay_date <= curve.reference_date:
-                yf = year_fraction(cln.schedule[i-1], pay_date, cln.day_count)
-                income += cln.notional * cln.coupon_rate * yf
-        income_scaled = income / cln.notional * self.notional
-
-        # Price return
-        price_return = (current_price - initial_price) / 100.0 * self.notional
-
-        # Funding leg
-        D = curve.df(self.end)
-        fwd_rate = -math.log(D / curve.df(self.start)) / T
-        r_f = fwd_rate + self.funding.spread
-        yf = year_fraction(self.start, curve.reference_date, self.funding.day_count)
-        funding_leg = self.notional * r_f * yf
-
-        # FVA
-        repo_factor = repo_financing_factor(self.repo_spread, T)
-        fva = (repo_factor - 1) * current_price / 100.0 * self.notional
-
-        total_return = price_return + income_scaled
-        value = total_return - funding_leg - fva
-
-        return TRSResult(
-            value=value, total_return_leg=total_return,
-            funding_leg=funding_leg, price_return=price_return,
-            income_return=income_scaled, fva=fva, repo_factor=repo_factor,
-        )
-
-    # ---- Commodity TRS ----
-
-    def _price_commodity(self, curve, projection_curve) -> TRSResult:
-        """Commodity TRS: total return on a commodity forward.
-
-        Forward = spot x exp((r - convenience_yield + storage_cost) x T).
-        Performance = (forward / initial - 1) x notional.
-        Funding = notional x (r + spread) x T x df.
-        """
-        from pricebook.bond_forward import repo_financing_factor
-
-        comm = self.underlying  # CommodityUnderlying
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        if T < 1e-5:
-            raise ValueError(f"Maturity too short: {T:.6f} years")
-
-        D = curve.df(self.end)
-        fwd_rate = -math.log(D / curve.df(self.start)) / T
-
-        # Commodity forward: cost-of-carry model
-        if comm.storage_model is not None:
-            forward = comm.storage_model.implied_forward(comm.spot, fwd_rate, T)
-        elif comm.seasonal is not None:
-            seasonal_factor = comm.seasonal.factor(self.end)
-            carry = fwd_rate + comm.storage_cost
-            forward = comm.spot * seasonal_factor * math.exp(carry * T)
-        else:
-            carry = fwd_rate - comm.convenience_yield + comm.storage_cost
-            forward = comm.spot * math.exp(carry * T)
-
-        initial = self.initial_price if self.initial_price is not None else comm.spot
-        if initial <= 0:
-            raise ValueError(f"Initial price must be positive, got {initial}")
-
-        # Performance leg (in currency units)
-        quantity = self.notional / initial
-        price_return = (forward - initial) * quantity
-
-        # Funding leg
-        r_f = fwd_rate + self.funding.spread
-        funding_leg = self.notional * r_f * T * D
-
-        # FVA (repo/financing)
-        repo_factor = repo_financing_factor(self.repo_spread, T)
-        fva = (repo_factor - 1) * forward * quantity
-
-        value = price_return - funding_leg - fva
-
-        return TRSResult(
-            value=value, total_return_leg=price_return,
-            funding_leg=funding_leg, price_return=price_return,
-            income_return=0.0, fva=fva, repo_factor=repo_factor,
-        )
-
-    # ---- FX TRS ----
-
-    def _price_fx(self, curve, projection_curve) -> TRSResult:
-        """FX TRS: total return on an FX rate.
-
-        Forward = spot x df_base / df_quote (covered interest rate parity).
-        Performance = (current_spot / initial_spot - 1) x notional.
-        Funding = notional x (r_quote + spread) x T x df.
-
-        The projection_curve is the base-currency discount curve.
-        The main curve is the quote-currency (funding) curve.
-        """
-        from pricebook.bond_forward import repo_financing_factor
-
-        fx = self.underlying  # FXUnderlying
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        if T < 1e-5:
-            raise ValueError(f"Maturity too short: {T:.6f} years")
-
-        # curve = quote currency (e.g. USD), projection_curve = base currency (e.g. EUR)
-        quote_curve = curve
-        base_curve = projection_curve or curve
-
-        D_quote = quote_curve.df(self.end)
-        D_base = base_curve.df(self.end)
-
-        # FX forward via covered interest rate parity
-        forward = fx.spot * D_base / D_quote
-
-        # Quanto adjustment (Wystup 2006, Eq 1.52):
-        #   forward *= exp(-rho × sigma_fx × sigma_asset × T)
-        if fx.fx_vol > 0 and fx.fx_correlation != 0 and self.sigma > 0:
-            forward *= math.exp(-fx.fx_correlation * fx.fx_vol * self.sigma * T)
-
-        initial = self.initial_price if self.initial_price is not None else fx.spot
-        if initial <= 0:
-            raise ValueError(f"Initial spot must be positive, got {initial}")
-
-        # Performance leg: notional in quote currency
-        price_return = (forward / initial - 1) * self.notional
-
-        # Funding leg (in quote currency)
-        fwd_rate = -math.log(D_quote / quote_curve.df(self.start)) / T
-        r_f = fwd_rate + self.funding.spread
-        funding_leg = self.notional * r_f * T * D_quote
-
-        # FVA
-        repo_factor = repo_financing_factor(self.repo_spread, T)
-        fva = (repo_factor - 1) * self.notional * (forward / initial)
-
-        value = price_return - funding_leg - fva
-
-        return TRSResult(
-            value=value, total_return_leg=price_return,
-            funding_leg=funding_leg, price_return=price_return,
-            income_return=0.0, fva=fva, repo_factor=repo_factor,
-        )
-
-    # ---- Multi-period ----
-
-    def _price_multi_period(self, curve, projection_curve) -> TRSResult:
-        from pricebook.trs_lou import trs_multi_period
-
-        resets = sorted([self.start] + self.reset_dates + [self.end])
-        K = len(resets) - 1
-        periods = [year_fraction(resets[i], resets[i + 1], DayCountConvention.ACT_365_FIXED)
-                    for i in range(K)]
-        dfs = [curve.df(resets[i + 1]) for i in range(K)]
-
-        # Forwards at each reset: F_j = spot × df(start) / df(reset_j)
-        if self._underlying_type == "equity":
-            spot = float(self.underlying)
-            forwards = [spot * curve.df(self.start) / curve.df(resets[i])
-                        for i in range(K + 1)]
-        elif self._underlying_type == "bond":
-            price = self.underlying.dirty_price(curve)
-            forwards = [price * curve.df(self.start) / curve.df(resets[i])
-                        for i in range(K + 1)]
-        else:
-            forwards = [100.0 * curve.df(self.start) / curve.df(resets[i])
-                        for i in range(K + 1)]
-
-        if forwards[0] <= 0:
-            raise ValueError(f"Forward price must be positive, got {forwards[0]}")
-
-        # Funding rates: period-matched forward rate + spread
-        funding_rates = []
-        for i in range(K):
-            if periods[i] < 1e-10:
-                raise ValueError(f"Period {i} too short: {periods[i]}")
-            fwd_r = -math.log(dfs[i] / curve.df(resets[i])) / periods[i]
-            funding_rates.append(fwd_r + self.funding.spread)
-
-        # Notionals: MTM = F_j (currency), fixed = notional (currency)
-        if self.mtm_reset:
-            funding_notionals = [f * self.notional / forwards[0] for f in forwards[:K]]
-        else:
-            funding_notionals = [self.notional] * K
-
-        value = trs_multi_period(
-            forwards=forwards, funding_rates=funding_rates,
-            funding_notionals=funding_notionals, periods=periods,
-            discount_factors=dfs, recovery=self.recovery,
-        )
-
-        from pricebook.bond_forward import repo_financing_factor
-        T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
-        repo_factor = repo_financing_factor(self.repo_spread, T)
-
-        return TRSResult(
-            value=value, total_return_leg=0.0,
-            funding_leg=0.0, price_return=0.0,
-            income_return=0.0, fva=0.0, repo_factor=repo_factor,
-        )
+            return price_multi_period(self, curve, projection_curve)
+        _PRICERS = {
+            "equity": price_equity_trs,
+            "bond": price_bond_trs,
+            "loan": price_loan_trs,
+            "cln": price_cln_trs,
+            "commodity": price_commodity_trs,
+            "fx": price_fx_trs,
+        }
+        pricer = _PRICERS.get(self._underlying_type)
+        if pricer is None:
+            raise TypeError(f"Unsupported underlying type: {type(self.underlying).__name__}")
+        return pricer(self, curve, projection_curve)
 
     # ---- Tree pricing (equity only) ----
 
@@ -880,6 +423,459 @@ class TotalReturnSwap:
 
 from pricebook.serialisable import _register
 _register(TotalReturnSwap)
+
+
+# ---------------------------------------------------------------------------
+# Standalone pricing functions (extracted from TotalReturnSwap)
+# ---------------------------------------------------------------------------
+
+def price_equity_trs(trs, curve, projection_curve) -> TRSResult:
+    """Equity TRS: Lou (2018) Eq (7).
+
+    V = (M0 rf T + S0) D - St exp((rs-r)(T-t))
+
+    All values in currency units (notional-scaled).
+    """
+    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.dividend_model import Dividend
+
+    spot = float(trs.underlying)
+    S_0 = trs.initial_price if trs.initial_price is not None else spot
+    if S_0 <= 0:
+        raise ValueError(f"Initial price must be positive, got {S_0}")
+
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    if T < 1e-5:
+        raise ValueError(f"Maturity too short: {T:.6f} years")
+
+    tau = year_fraction(curve.reference_date, trs.end, DayCountConvention.ACT_365_FIXED)
+    D = curve.df(trs.end)
+
+    # Funding rate: forward OIS + spread
+    fwd_rate = -math.log(curve.df(trs.end) / curve.df(trs.start)) / T
+    r_f = fwd_rate + trs.funding.spread
+
+    # Dividends: income (received) and forward adjustment (future)
+    income = 0.0
+    future_div_pv = 0.0
+    for div in trs.dividends:
+        if isinstance(div, Dividend):
+            if trs.start < div.ex_date <= curve.reference_date:
+                income += div.amount
+            elif div.ex_date > curve.reference_date:
+                future_div_pv += div.amount * curve.df(div.ex_date)
+
+    # Scale factor: number of shares = notional / S_0
+    shares = trs.notional / S_0
+
+    # Lou Eq (7): V = (M0 rf T + S0) D - St exp((rs-r) tau)
+    # M0 = notional (currency), S0 and St are per-share
+    repo_factor = repo_financing_factor(trs.repo_spread, tau)
+    funding_leg = (trs.notional * r_f * T + trs.notional) * D
+    asset_leg = (spot - future_div_pv) * shares * repo_factor
+
+    value = funding_leg - asset_leg
+    fva = (repo_factor - 1) * spot * shares
+
+    # Decomposition
+    price_return = (spot - S_0) * shares
+    income_scaled = income * shares
+
+    return TRSResult(
+        value=value, total_return_leg=price_return + income_scaled,
+        funding_leg=funding_leg,
+        price_return=price_return, income_return=income_scaled,
+        fva=fva, repo_factor=repo_factor,
+    )
+
+
+def price_bond_trs(trs, curve, projection_curve) -> TRSResult:
+    """Bond TRS: Lou (2018) Eq (25) with haircut blending (Eq 19)."""
+    from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
+
+    bond = trs.underlying
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    if T < 1e-5:
+        raise ValueError(f"Maturity too short: {T:.6f} years")
+    if curve.reference_date >= bond.maturity:
+        raise ValueError("Bond has matured")
+
+    D = curve.df(trs.end)
+
+    # Current and initial price
+    current_dirty = bond.dirty_price(curve)
+    initial_dirty = trs.initial_price if trs.initial_price is not None else current_dirty
+
+    # Coupons received
+    income = 0.0
+    for cf in bond.coupon_leg.cashflows:
+        if trs.start < cf.payment_date <= curve.reference_date:
+            income += cf.amount
+    income_scaled = income / bond.face_value * trs.notional
+
+    # Price return (per 100 face -> scale to notional)
+    price_return = (current_dirty - initial_dirty) / 100.0 * trs.notional
+
+    # Funding leg
+    fwd_rate = -math.log(D / curve.df(trs.start)) / T
+    r_f = fwd_rate + trs.funding.spread
+    yf = year_fraction(trs.start, curve.reference_date, trs.funding.day_count)
+    funding_leg = trs.notional * r_f * yf
+
+    # Effective haircut: use schedule if available
+    effective_haircut = trs.haircut
+    if trs.haircut_schedule:
+        for d, h in sorted(trs.haircut_schedule):
+            if d <= curve.reference_date:
+                effective_haircut = h
+
+    # Blended repo rate: r_bar_s = (1-h)rs + h rN (Lou Eq 19)
+    # Use fwd_rate as proxy for rN (bank's unsecured ~ OIS + spread)
+    r_s = fwd_rate + trs.repo_spread
+    r_N = fwd_rate + 0.02  # unsecured funding proxy
+    rs_bar = blended_repo_rate(r_s, r_N, effective_haircut)
+    rs_bar_spread = rs_bar - fwd_rate
+
+    # FVA using blended rate (Lou Eq 25-26)
+    repo_factor = repo_financing_factor(rs_bar_spread, T)
+    fva = (repo_factor - 1) * current_dirty / 100.0 * trs.notional
+
+    total_return = price_return + income_scaled
+    value = total_return - funding_leg - fva
+
+    # Cross-currency adjustment: convert asset-currency PV to funding currency
+    if trs.xccy is not None:
+        fx = trs.xccy.fx_rate
+        # Total return is in asset currency -> convert
+        total_return_funding = total_return / fx
+        # Funding leg already in funding currency
+        # FX haircut adds to effective haircut
+        fx_haircut_cost = trs.notional * trs.xccy.fx_haircut * T * D
+        value = total_return_funding - funding_leg - fva - fx_haircut_cost
+
+    return TRSResult(
+        value=value, total_return_leg=total_return,
+        funding_leg=funding_leg, price_return=price_return,
+        income_return=income_scaled, fva=fva, repo_factor=repo_factor,
+    )
+
+
+def price_loan_trs(trs, curve, projection_curve) -> TRSResult:
+    """Loan TRS: adapts bond TRS framework to TermLoan cashflows.
+
+    Supports prepayment-adjusted cashflows (CPR/PSA), LSTA settlement,
+    credit-adjusted pricing, and market price override.
+
+    Enhancements over basic version:
+    - If survival_curve provided: credit-adjusts the total return leg
+    - If initial_price provided: uses dealer mark instead of model price
+    - Settlement cost uses compound interest (not linear)
+    """
+    from pricebook.bond_forward import repo_financing_factor
+
+    loan = trs.underlying
+    proj = projection_curve or curve
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    if T < 1e-5:
+        raise ValueError(f"Maturity too short: {T:.6f} years")
+
+    # Current price: market override or model
+    current_price = loan.dirty_price(curve, proj)
+    initial_price = trs.initial_price if trs.initial_price is not None else 100.0
+
+    # Get cashflows -- prepayment-adjusted if model specified
+    if trs.prepay_model is not None:
+        from pricebook.exotic_loan import prepay_adjusted_loan, psa_cpr
+        if isinstance(trs.prepay_model, (int, float)):
+            cpr = float(trs.prepay_model)
+        elif isinstance(trs.prepay_model, tuple) and trs.prepay_model[0] == "PSA":
+            speed = trs.prepay_model[1] if len(trs.prepay_model) > 1 else 1.0
+            cpr = psa_cpr(12, speed)
+        elif trs.prepay_model == "PSA":
+            cpr = psa_cpr(12, 1.0)
+        else:
+            cpr = 0.0
+        flows = prepay_adjusted_loan(loan, cpr, proj)
+    else:
+        flows = loan.cashflows(proj)
+
+    # Interest income received (between start and valuation)
+    income = 0.0
+    for d, interest, _ in flows:
+        if trs.start < d <= curve.reference_date:
+            income += interest
+
+    # Credit adjustment: if survival curve provided, weight income by survival
+    if trs.survival_curve is not None:
+        credit_adj_income = 0.0
+        for d, interest, _ in flows:
+            if trs.start < d <= curve.reference_date:
+                surv = trs.survival_curve.survival(d)
+                credit_adj_income += interest * surv
+        income = credit_adj_income
+
+    income_scaled = income / loan.notional * trs.notional
+
+    # Price return
+    price_return = (current_price - initial_price) / 100.0 * trs.notional
+
+    # LSTA settlement adjustment
+    settlement_shift = 0
+    if trs.settlement_terms is not None:
+        settlement_shift = trs.settlement_terms.settlement_days
+
+    # Funding leg (adjusted for settlement delay)
+    yf = year_fraction(trs.start, curve.reference_date, trs.funding.day_count)
+    fwd_rate = proj.forward_rate(trs.start, trs.end) if T > 0 else 0.0
+    r_f = fwd_rate + trs.funding.spread
+    funding_leg = trs.notional * r_f * yf
+
+    # Settlement delay cost: compound interest over settlement period
+    if settlement_shift > 0:
+        settle_cost = trs.notional * (math.pow(1 + r_f, settlement_shift / 365.0) - 1)
+        funding_leg += settle_cost
+
+    # FVA
+    repo_factor = repo_financing_factor(trs.repo_spread, T)
+    fva = (repo_factor - 1) * current_price / 100.0 * trs.notional
+
+    total_return = price_return + income_scaled
+    value = total_return - funding_leg - fva
+
+    return TRSResult(
+        value=value, total_return_leg=total_return,
+        funding_leg=funding_leg, price_return=price_return,
+        income_return=income_scaled, fva=fva, repo_factor=repo_factor,
+    )
+
+
+def price_cln_trs(trs, curve, projection_curve) -> TRSResult:
+    """CLN TRS: total return on a credit-linked note.
+
+    The TR receiver gets CLN price changes + coupon income.
+    The TR payer finances at floating + spread.
+    """
+    from pricebook.bond_forward import repo_financing_factor
+
+    cln = trs.underlying
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    if T < 1e-5:
+        raise ValueError(f"Maturity too short: {T:.6f} years")
+
+    # CLN pricing requires a survival curve -- use TRS-level, then CLN-level, then error
+    survival_curve = trs.survival_curve
+    if survival_curve is None and hasattr(cln, '_survival_curve'):
+        survival_curve = cln._survival_curve
+    if survival_curve is None:
+        from pricebook.survival_curve import SurvivalCurve
+        import warnings
+        warnings.warn(
+            "No survival curve provided for CLN TRS — using flat hazard=0.02 fallback. "
+            "Pass survival_curve to TotalReturnSwap for accurate pricing.",
+            stacklevel=2,
+        )
+        survival_curve = SurvivalCurve.flat(curve.reference_date, 0.02)
+
+    current_price = cln.price_per_100(curve, survival_curve)
+    initial_price = trs.initial_price if trs.initial_price is not None else 100.0
+
+    # Coupon income between start and valuation date
+    income = 0.0
+    for i in range(1, len(cln.schedule)):
+        pay_date = cln.schedule[i]
+        if trs.start < pay_date <= curve.reference_date:
+            yf = year_fraction(cln.schedule[i-1], pay_date, cln.day_count)
+            income += cln.notional * cln.coupon_rate * yf
+    income_scaled = income / cln.notional * trs.notional
+
+    # Price return
+    price_return = (current_price - initial_price) / 100.0 * trs.notional
+
+    # Funding leg
+    D = curve.df(trs.end)
+    fwd_rate = -math.log(D / curve.df(trs.start)) / T
+    r_f = fwd_rate + trs.funding.spread
+    yf = year_fraction(trs.start, curve.reference_date, trs.funding.day_count)
+    funding_leg = trs.notional * r_f * yf
+
+    # FVA
+    repo_factor = repo_financing_factor(trs.repo_spread, T)
+    fva = (repo_factor - 1) * current_price / 100.0 * trs.notional
+
+    total_return = price_return + income_scaled
+    value = total_return - funding_leg - fva
+
+    return TRSResult(
+        value=value, total_return_leg=total_return,
+        funding_leg=funding_leg, price_return=price_return,
+        income_return=income_scaled, fva=fva, repo_factor=repo_factor,
+    )
+
+
+def price_commodity_trs(trs, curve, projection_curve) -> TRSResult:
+    """Commodity TRS: total return on a commodity forward.
+
+    Forward = spot x exp((r - convenience_yield + storage_cost) x T).
+    Performance = (forward / initial - 1) x notional.
+    Funding = notional x (r + spread) x T x df.
+    """
+    from pricebook.bond_forward import repo_financing_factor
+
+    comm = trs.underlying  # CommodityUnderlying
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    if T < 1e-5:
+        raise ValueError(f"Maturity too short: {T:.6f} years")
+
+    D = curve.df(trs.end)
+    fwd_rate = -math.log(D / curve.df(trs.start)) / T
+
+    # Commodity forward: cost-of-carry model
+    if comm.storage_model is not None:
+        forward = comm.storage_model.implied_forward(comm.spot, fwd_rate, T)
+    elif comm.seasonal is not None:
+        seasonal_factor = comm.seasonal.factor(trs.end)
+        carry = fwd_rate + comm.storage_cost
+        forward = comm.spot * seasonal_factor * math.exp(carry * T)
+    else:
+        carry = fwd_rate - comm.convenience_yield + comm.storage_cost
+        forward = comm.spot * math.exp(carry * T)
+
+    initial = trs.initial_price if trs.initial_price is not None else comm.spot
+    if initial <= 0:
+        raise ValueError(f"Initial price must be positive, got {initial}")
+
+    # Performance leg (in currency units)
+    quantity = trs.notional / initial
+    price_return = (forward - initial) * quantity
+
+    # Funding leg
+    r_f = fwd_rate + trs.funding.spread
+    funding_leg = trs.notional * r_f * T * D
+
+    # FVA (repo/financing)
+    repo_factor = repo_financing_factor(trs.repo_spread, T)
+    fva = (repo_factor - 1) * forward * quantity
+
+    value = price_return - funding_leg - fva
+
+    return TRSResult(
+        value=value, total_return_leg=price_return,
+        funding_leg=funding_leg, price_return=price_return,
+        income_return=0.0, fva=fva, repo_factor=repo_factor,
+    )
+
+
+def price_fx_trs(trs, curve, projection_curve) -> TRSResult:
+    """FX TRS: total return on an FX rate.
+
+    Forward = spot x df_base / df_quote (covered interest rate parity).
+    Performance = (current_spot / initial_spot - 1) x notional.
+    Funding = notional x (r_quote + spread) x T x df.
+
+    The projection_curve is the base-currency discount curve.
+    The main curve is the quote-currency (funding) curve.
+    """
+    from pricebook.bond_forward import repo_financing_factor
+
+    fx = trs.underlying  # FXUnderlying
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    if T < 1e-5:
+        raise ValueError(f"Maturity too short: {T:.6f} years")
+
+    # curve = quote currency (e.g. USD), projection_curve = base currency (e.g. EUR)
+    quote_curve = curve
+    base_curve = projection_curve or curve
+
+    D_quote = quote_curve.df(trs.end)
+    D_base = base_curve.df(trs.end)
+
+    # FX forward via covered interest rate parity
+    forward = fx.spot * D_base / D_quote
+
+    # Quanto adjustment (Wystup 2006, Eq 1.52):
+    #   forward *= exp(-rho x sigma_fx x sigma_asset x T)
+    if fx.fx_vol > 0 and fx.fx_correlation != 0 and trs.sigma > 0:
+        forward *= math.exp(-fx.fx_correlation * fx.fx_vol * trs.sigma * T)
+
+    initial = trs.initial_price if trs.initial_price is not None else fx.spot
+    if initial <= 0:
+        raise ValueError(f"Initial spot must be positive, got {initial}")
+
+    # Performance leg: notional in quote currency
+    price_return = (forward / initial - 1) * trs.notional
+
+    # Funding leg (in quote currency)
+    fwd_rate = -math.log(D_quote / quote_curve.df(trs.start)) / T
+    r_f = fwd_rate + trs.funding.spread
+    funding_leg = trs.notional * r_f * T * D_quote
+
+    # FVA
+    repo_factor = repo_financing_factor(trs.repo_spread, T)
+    fva = (repo_factor - 1) * trs.notional * (forward / initial)
+
+    value = price_return - funding_leg - fva
+
+    return TRSResult(
+        value=value, total_return_leg=price_return,
+        funding_leg=funding_leg, price_return=price_return,
+        income_return=0.0, fva=fva, repo_factor=repo_factor,
+    )
+
+
+def price_multi_period(trs, curve, projection_curve) -> TRSResult:
+    from pricebook.trs_lou import trs_multi_period
+
+    resets = sorted([trs.start] + trs.reset_dates + [trs.end])
+    K = len(resets) - 1
+    periods = [year_fraction(resets[i], resets[i + 1], DayCountConvention.ACT_365_FIXED)
+                for i in range(K)]
+    dfs = [curve.df(resets[i + 1]) for i in range(K)]
+
+    # Forwards at each reset: F_j = spot x df(start) / df(reset_j)
+    if trs._underlying_type == "equity":
+        spot = float(trs.underlying)
+        forwards = [spot * curve.df(trs.start) / curve.df(resets[i])
+                    for i in range(K + 1)]
+    elif trs._underlying_type == "bond":
+        price = trs.underlying.dirty_price(curve)
+        forwards = [price * curve.df(trs.start) / curve.df(resets[i])
+                    for i in range(K + 1)]
+    else:
+        forwards = [100.0 * curve.df(trs.start) / curve.df(resets[i])
+                    for i in range(K + 1)]
+
+    if forwards[0] <= 0:
+        raise ValueError(f"Forward price must be positive, got {forwards[0]}")
+
+    # Funding rates: period-matched forward rate + spread
+    funding_rates = []
+    for i in range(K):
+        if periods[i] < 1e-10:
+            raise ValueError(f"Period {i} too short: {periods[i]}")
+        fwd_r = -math.log(dfs[i] / curve.df(resets[i])) / periods[i]
+        funding_rates.append(fwd_r + trs.funding.spread)
+
+    # Notionals: MTM = F_j (currency), fixed = notional (currency)
+    if trs.mtm_reset:
+        funding_notionals = [f * trs.notional / forwards[0] for f in forwards[:K]]
+    else:
+        funding_notionals = [trs.notional] * K
+
+    value = trs_multi_period(
+        forwards=forwards, funding_rates=funding_rates,
+        funding_notionals=funding_notionals, periods=periods,
+        discount_factors=dfs, recovery=trs.recovery,
+    )
+
+    from pricebook.bond_forward import repo_financing_factor
+    T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
+    repo_factor = repo_financing_factor(trs.repo_spread, T)
+
+    return TRSResult(
+        value=value, total_return_leg=0.0,
+        funding_leg=0.0, price_return=0.0,
+        income_return=0.0, fva=0.0, repo_factor=repo_factor,
+    )
 
 
 # ---------------------------------------------------------------------------
