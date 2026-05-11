@@ -197,3 +197,27 @@ class InverseGaussianProcess:
         # scipy invgauss: mu = mean/scale, scale
         return invgauss.rvs(mu=mu_param / shape, scale=shape, size=n_paths,
                             random_state=self._rng)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def cir_sample_via_engine(
+    kappa: float, theta: float, xi: float,
+    x0: float, T: float, n_steps: int, n_paths: int,
+    seed: int = 42,
+) -> np.ndarray:
+    """CIR paths via the unified MC engine."""
+    from pricebook.mc_migrate import cir_paths
+    return cir_paths(x0, kappa, theta, xi, T, n_steps, n_paths, seed)
+
+
+def ou_sample_via_engine(
+    a: float, mu: float, sigma: float,
+    x0: float, T: float, n_steps: int, n_paths: int,
+    seed: int = 42,
+) -> np.ndarray:
+    """OU paths via the unified MC engine."""
+    from pricebook.mc_migrate import ou_paths
+    return ou_paths(x0, a, mu, sigma, T, n_steps, n_paths, seed)

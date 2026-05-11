@@ -105,3 +105,34 @@ def smile_consistency_check(
     ratio = basket_vol / max(weighted, 1e-10)
     consistent = basket_vol <= weighted * 1.01 and basket_vol >= 0
     return SmileConsistencyResult(basket_vol, weighted, float(ratio), consistent)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def multi_asset_slv_simulate_via_engine(
+    spot1: float, spot2: float, rate: float,
+    div1: float, div2: float,
+    lv1: float, lv2: float,
+    heston_v0: float, heston_kappa: float, heston_theta: float,
+    heston_xi: float, rho_assets: float, rho_vol: float,
+    T: float, n_paths: int = 5_000, n_steps: int = 50,
+    mixing: float = 0.5, seed: int | None = 42,
+) -> MultiAssetSLVResult:
+    """2-asset SLV via the unified MC engine (correlated GBM + CIR)."""
+    from pricebook.mc_migrate import correlated_gbm_paths, cir_paths
+
+    corr = np.array([[1.0, rho_assets], [rho_assets, 1.0]])
+    mus = [rate - div1, rate - div2]
+    vols = [lv1, lv2]
+    spot_paths = correlated_gbm_paths([spot1, spot2], mus, vols, corr,
+                                       T, n_steps, n_paths, seed or 42)
+    v_paths = cir_paths(heston_v0, heston_kappa, heston_theta, heston_xi,
+                        T, n_steps, n_paths, (seed or 42) + 1)
+
+    return MultiAssetSLVResult(
+        spot_paths[:, :, 0], spot_paths[:, :, 1],
+        np.sqrt(np.maximum(v_paths, 0)), np.sqrt(np.maximum(v_paths, 0)),
+        float(spot_paths[:, -1, 0].mean()), float(spot_paths[:, -1, 1].mean()),
+    )

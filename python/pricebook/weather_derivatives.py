@@ -329,3 +329,34 @@ def wind_index_option(
         expected_wind_index=float(simulated_wind_index.mean()),
         strike=strike,
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def seasonal_ou_simulate_via_engine(
+    model: SeasonalOUTemperature,
+    n_days: int,
+    n_paths: int = 1000,
+    start_day_of_year: int = 1,
+    initial_residual: float = 0.0,
+    seed: int | None = 42,
+) -> TemperaturePaths:
+    """Seasonal OU temperature via the unified MC engine (OU paths)."""
+    from pricebook.mc_migrate import ou_paths
+
+    T = n_days / 365.0
+    residual_paths = ou_paths(initial_residual, model.kappa, 0.0, model.sigma,
+                               T, n_days - 1, n_paths, seed or 42)
+    # residual_paths is (n_paths, n_days)
+
+    days = np.arange(n_days) + start_day_of_year
+    means = np.array([model.seasonal_mean(d) for d in days])
+    temperatures = means[np.newaxis, :] + residual_paths[:, :n_days]
+
+    return TemperaturePaths(
+        temperatures=temperatures,
+        times=np.arange(n_days) / 365.0,
+        n_paths=n_paths,
+    )

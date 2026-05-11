@@ -287,3 +287,36 @@ def forward_variance_curve(
         xi[i] = (w[i + 1] - w[i - 1]) / (T[i + 1] - T[i - 1])
 
     return ForwardVarianceCurve(T, xi, "finite_difference")
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def rbergomi_equity_simulate_via_engine(
+    model: rBergomiEquity,
+    spot: float,
+    rate: float,
+    dividend_yield: float,
+    T: float,
+    n_paths: int = 5_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> rBergomiResult:
+    """rBergomi equity via the unified MC engine (RoughBergomiProcess)."""
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import RoughBergomiProcess
+
+    process = RoughBergomiProcess(spot, rate - dividend_yield, model.xi0,
+                                  model.eta, model.H, model.rho)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed or 42)
+    paths = engine.paths
+    p = paths[:, :, 0] if paths.ndim == 3 else paths
+    spot_paths = np.exp(p)
+
+    return rBergomiResult(
+        spot_paths=spot_paths,
+        variance_paths=np.full_like(spot_paths, model.xi0),
+        mean_terminal=float(spot_paths[:, -1].mean()),
+        H=model.H, n_paths=n_paths,
+    )

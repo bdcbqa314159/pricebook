@@ -394,3 +394,36 @@ def lmm_pathwise_greeks(
             deltas[i] = float(pathwise.mean())
 
     return LMMGreeksResult(deltas, float(deltas.sum()))
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def sabr_lmm_simulate_via_engine(
+    model: SABRLMM,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> SABRLMMResult:
+    """SABR-LMM via unified MC engine (SABR paths per forward)."""
+    from pricebook.mc_migrate import sabr_paths
+
+    F_all = np.zeros((n_paths, n_steps + 1, model.n))
+    S_all = np.zeros((n_paths, n_steps + 1, model.n))
+
+    for i in range(model.n):
+        f_paths, v_paths = sabr_paths(
+            model.fwd[i], model.init_vols[i], model.betas[i],
+            model.rhos[i], model.alphas[i],
+            T, n_steps, n_paths, (seed or 42) + i,
+        )
+        F_all[:, :, i] = f_paths
+        S_all[:, :, i] = v_paths
+
+    df = math.exp(-model.fwd[0] * model.dt)
+    payoff = np.maximum(F_all[:, -1, 0] - model.fwd[0], 0.0) * model.dt
+    price = float(df * payoff.mean())
+
+    return SABRLMMResult(F_all, S_all, price)

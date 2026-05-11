@@ -108,6 +108,29 @@ class BuhlerStochasticDividend:
         result = self.simulate(spot, T, n_paths, seed=seed)
         return float(result.spot_paths[:, -1].mean())
 
+    def simulate_via_engine(
+        self,
+        spot: float,
+        T: float,
+        n_paths: int = 5000,
+        n_steps: int = 100,
+        seed: int | None = 42,
+    ) -> BuhlerResult:
+        """Simulate via unified MC engine (GBM + OU)."""
+        from pricebook.mc_migrate import gbm_paths, ou_paths
+
+        q_paths = ou_paths(self.q0, self.kappa_q, self.theta_q, self.xi_q,
+                           T, n_steps, n_paths, seed or 42)
+        s_paths = gbm_paths(spot, self.r, self.sigma_s, T, n_steps, n_paths,
+                            (seed or 42) + 1)
+
+        return BuhlerResult(
+            spot_paths=s_paths,
+            dividend_yield_paths=np.maximum(q_paths, 0.0),
+            mean_terminal_spot=float(s_paths[:, -1].mean()),
+            mean_terminal_yield=float(np.maximum(q_paths[:, -1], 0.0).mean()),
+        )
+
 
 # ---- Dividend curve ----
 

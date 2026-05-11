@@ -240,3 +240,40 @@ def vix_option_price(
         strike=strike_vol,
         is_call=is_call,
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def vix_option_price_via_engine(
+    v0: float, kappa: float, theta: float, xi: float,
+    T_option: float, T_variance: float, strike_vol: float,
+    rate: float = 0.0, is_call: bool = True,
+    n_paths: int = 20_000, n_steps: int = 50,
+    seed: int | None = 42,
+) -> VIXOptionResult:
+    """VIX option via the unified MC engine (CIR variance paths)."""
+    from pricebook.mc_migrate import cir_paths
+
+    v_paths = cir_paths(v0, kappa, theta, xi, T_option, n_steps, n_paths, seed or 42)
+    v = v_paths[:, -1]
+
+    if kappa > 1e-10:
+        e = math.exp(-kappa * T_variance)
+        expected_var = theta + (v - theta) * (1 - e) / (kappa * T_variance)
+    else:
+        expected_var = v
+
+    vix = np.sqrt(np.maximum(expected_var, 0.0))
+    if is_call:
+        payoff = np.maximum(vix - strike_vol, 0.0)
+    else:
+        payoff = np.maximum(strike_vol - vix, 0.0)
+
+    df = math.exp(-rate * T_option)
+    price = df * float(payoff.mean())
+    forward_vix = float(vix.mean())
+
+    return VIXOptionResult(price=float(price), forward_vix=forward_vix,
+                           strike=strike_vol, is_call=is_call)

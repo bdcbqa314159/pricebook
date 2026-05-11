@@ -524,3 +524,92 @@ class TwoFactorIntensity:
         surv = float(np.mean(np.exp(-integral)))
 
         return TwoFactorResult(lambda_paths, x1, x2, surv, times)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def hw_hazard_simulate_via_engine(
+    model: HWHazardRate,
+    lam0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> HWHazardResult:
+    """HW hazard rate via the unified MC engine (HW/OU paths)."""
+    from pricebook.mc_migrate import hw_paths
+
+    theta_func = model.theta
+    paths = hw_paths(lam0, model.a, model.sigma, T, n_steps, n_paths,
+                     seed or 42, theta_func=theta_func)
+    times = np.linspace(0, T, n_steps + 1)
+    dt = T / n_steps
+    integral = np.sum(paths[:, :-1], axis=1) * dt
+    surv = float(np.mean(np.exp(-integral)))
+    return HWHazardResult(paths, surv, times)
+
+
+def bk_hazard_simulate_via_engine(
+    model: BKHazardRate,
+    lam0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> BKHazardResult:
+    """BK hazard rate via the unified MC engine (OU on log-intensity)."""
+    from pricebook.mc_migrate import ou_paths
+
+    log_lam0 = math.log(max(lam0, 1e-10))
+    log_paths = ou_paths(log_lam0, model.a, model._target_log_hazard(0.0),
+                         model.sigma, T, n_steps, n_paths, seed or 42)
+    paths = np.exp(log_paths)
+    times = np.linspace(0, T, n_steps + 1)
+    dt = T / n_steps
+    integral = np.sum(paths[:, :-1], axis=1) * dt
+    surv = float(np.mean(np.exp(-integral)))
+    return BKHazardResult(paths, surv, times)
+
+
+def cirpp_hazard_simulate_via_engine(
+    model: CIRPlusPlus,
+    x0: float,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> CIRPPResult:
+    """CIR++ hazard rate via the unified MC engine (CIR paths + shift)."""
+    from pricebook.mc_migrate import cir_paths
+
+    x_paths = cir_paths(x0, model.kappa, model.theta, model.xi,
+                        T, n_steps, n_paths, seed or 42)
+    times = np.linspace(0, T, n_steps + 1)
+    dt = T / n_steps
+    phi_vals = np.array([model.phi(t, x0) for t in times])
+    lambda_paths = x_paths + phi_vals[np.newaxis, :]
+    integral = np.sum(lambda_paths[:, :-1], axis=1) * dt
+    surv = float(np.mean(np.exp(-integral)))
+    return CIRPPResult(lambda_paths, surv, times, phi_vals)
+
+
+def two_factor_simulate_via_engine(
+    model: TwoFactorIntensity,
+    T: float,
+    n_steps: int = 100,
+    n_paths: int = 10_000,
+    seed: int | None = None,
+) -> TwoFactorResult:
+    """Two-factor intensity via the unified MC engine (two OU paths)."""
+    from pricebook.mc_migrate import ou_paths
+
+    x1_paths = ou_paths(0.0, model.a1, 0.0, model.sigma1, T, n_steps, n_paths, seed or 42)
+    x2_paths = ou_paths(0.0, model.a2, 0.0, model.sigma2, T, n_steps, n_paths, (seed or 42) + 1)
+    times = np.linspace(0, T, n_steps + 1)
+    dt = T / n_steps
+    lambda_paths = x1_paths + x2_paths + model.base_hazard
+    integral = np.sum(np.maximum(lambda_paths[:, :-1], 0.0), axis=1) * dt
+    surv = float(np.mean(np.exp(-integral)))
+    return TwoFactorResult(lambda_paths, x1_paths, x2_paths, surv, times)

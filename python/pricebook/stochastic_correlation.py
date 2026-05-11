@@ -333,3 +333,58 @@ def calibrate_stoch_corr_to_dispersion(
         index_variance_model=float(model_var),
         index_variance_target=float(index_variance_target),
     )
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def cir_correlation_simulate_via_engine(
+    model: CIRCorrelation,
+    T: float,
+    n_paths: int = 5_000,
+    n_steps: int = 100,
+    seed: int | None = 42,
+) -> CIRCorrelationResult:
+    """CIR correlation via the unified MC engine (CIR paths + transform)."""
+    from pricebook.mc_migrate import cir_paths
+
+    x0 = model._rho_to_x(model.rho0)
+    theta_x = model._rho_to_x(model.theta)
+    sigma_x = model.sigma * 2 / max((1 - model.theta)**2, 0.01)
+    feller_max = math.sqrt(2 * model.kappa * theta_x) if theta_x > 0 else 0.0
+    if feller_max > 0:
+        sigma_x = min(sigma_x, 0.999 * feller_max)
+
+    X = cir_paths(x0, model.kappa, theta_x, sigma_x, T, n_steps, n_paths, seed or 42)
+    rho_paths = (X - 1) / (X + 1)
+
+    return CIRCorrelationResult(
+        rho_paths=rho_paths,
+        mean_terminal_rho=float(rho_paths[:, -1].mean()),
+        std_terminal_rho=float(rho_paths[:, -1].std()),
+        min_rho=float(rho_paths.min()),
+        max_rho=float(rho_paths.max()),
+    )
+
+
+def simulate_two_asset_stoch_corr_via_engine(
+    spot1: float, spot2: float, rate: float,
+    div1: float, div2: float, vol1: float, vol2: float,
+    corr_model: CIRCorrelation,
+    T: float, n_paths: int = 5_000, n_steps: int = 100,
+    seed: int | None = 42,
+) -> StochCorrPricingResult:
+    """Two-asset stochastic correlation via unified MC engine."""
+    from pricebook.mc_migrate import gbm_paths
+
+    rho_result = cir_correlation_simulate_via_engine(corr_model, T, n_paths, n_steps, seed)
+    S1 = gbm_paths(spot1, rate - div1, vol1, T, n_steps, n_paths, (seed or 42) + 1)
+    S2 = gbm_paths(spot2, rate - div2, vol2, T, n_steps, n_paths, (seed or 42) + 2)
+
+    return StochCorrPricingResult(
+        price=0.0,
+        mean_correlation=float(rho_result.rho_paths.mean()),
+        spot1_paths=S1, spot2_paths=S2,
+        rho_paths=rho_result.rho_paths,
+    )

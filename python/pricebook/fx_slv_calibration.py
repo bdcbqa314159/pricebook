@@ -382,3 +382,51 @@ def slv_barrier_price(
     ko_prob = 1.0 - float(alive.mean())
 
     return SLVBarrierResult(price, ko_prob, n_paths)
+
+
+# ---------------------------------------------------------------------------
+# Unified MC Engine migration
+# ---------------------------------------------------------------------------
+
+def slv_barrier_price_via_engine(
+    spot: float, strike: float, barrier: float,
+    rate_dom: float, rate_for: float,
+    leverage: LeverageFunction,
+    v0: float, kappa: float, theta: float, xi: float, rho: float,
+    T: float, is_up: bool = True, is_call: bool = True,
+    n_paths: int = 10_000, n_steps: int = 100,
+    seed: int | None = 42,
+) -> SLVBarrierResult:
+    """SLV barrier via unified MC engine (SLVProcess)."""
+    from pricebook.mc_engine import MCEngine, TimeGrid
+    from pricebook.mc_processes import SLVProcess
+
+    def lv_func(S, t):
+        if np.isscalar(S):
+            return leverage(float(S), float(t))
+        return np.array([leverage(float(s), float(t)) for s in S])
+
+    process = SLVProcess(spot, rate_dom - rate_for, lv_func,
+                         v0=v0, kappa=kappa, theta=theta, xi=xi, rho=rho, mixing=1.0)
+    engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed or 42)
+    paths = engine.paths
+    p = paths[:, :, 0] if paths.ndim == 3 else paths
+    spots = np.exp(p)
+
+    if is_up:
+        alive = np.all(spots < barrier, axis=1)
+    else:
+        alive = np.all(spots > barrier, axis=1)
+
+    S_T = spots[:, -1]
+    if is_call:
+        payoff = np.maximum(S_T - strike, 0.0)
+    else:
+        payoff = np.maximum(strike - S_T, 0.0)
+
+    payoff = payoff * alive.astype(float)
+    df = math.exp(-rate_dom * T)
+    price = df * float(payoff.mean())
+    ko_prob = 1.0 - float(alive.mean())
+
+    return SLVBarrierResult(price, ko_prob, n_paths)
