@@ -778,69 +778,56 @@ class TotalReturnSwap:
     # ---- Greeks ----
 
     def greeks(self, curve, projection_curve=None) -> dict[str, float]:
-        """Bump-and-reprice sensitivities."""
+        """Bump-and-reprice sensitivities (immutable — no state mutation)."""
         base = self.price(curve, projection_curve)
 
-        # Delta (underlying price sensitivity)
+        # Delta via bumped copy
+        delta = 0.0
         if self._underlying_type == "equity":
-            old = self.underlying
-            bump = float(old) * 0.01
-            self.underlying = float(old) + bump
-            up = self.price(curve, projection_curve)
-            self.underlying = float(old) - bump
-            dn = self.price(curve, projection_curve)
-            self.underlying = old
-            delta = (up.value - dn.value) / (2 * bump)
+            spot = float(self.underlying)
+            bump = spot * 0.01
+            trs_up = _trs_with_underlying(self, spot + bump)
+            trs_dn = _trs_with_underlying(self, spot - bump)
+            delta = (trs_up.price(curve, projection_curve).value
+                     - trs_dn.price(curve, projection_curve).value) / (2 * bump)
         elif self._underlying_type == "commodity":
-            old = self.underlying
-            bump = old.spot * 0.01
-            self.underlying = CommodityUnderlying(
-                old.name, old.spot + bump, old.storage_cost, old.convenience_yield)
-            up = self.price(curve, projection_curve)
-            self.underlying = CommodityUnderlying(
-                old.name, old.spot - bump, old.storage_cost, old.convenience_yield)
-            dn = self.price(curve, projection_curve)
-            self.underlying = old
-            delta = (up.value - dn.value) / (2 * bump)
+            bump = self.underlying.spot * 0.01
+            trs_up = _trs_with_underlying(self, CommodityUnderlying(
+                self.underlying.name, self.underlying.spot + bump,
+                self.underlying.storage_cost, self.underlying.convenience_yield))
+            trs_dn = _trs_with_underlying(self, CommodityUnderlying(
+                self.underlying.name, self.underlying.spot - bump,
+                self.underlying.storage_cost, self.underlying.convenience_yield))
+            delta = (trs_up.price(curve, projection_curve).value
+                     - trs_dn.price(curve, projection_curve).value) / (2 * bump)
         elif self._underlying_type == "fx":
-            old = self.underlying
-            bump = old.spot * 0.01
-            self.underlying = FXUnderlying(old.base_ccy, old.quote_ccy, old.spot + bump)
-            up = self.price(curve, projection_curve)
-            self.underlying = FXUnderlying(old.base_ccy, old.quote_ccy, old.spot - bump)
-            dn = self.price(curve, projection_curve)
-            self.underlying = old
-            delta = (up.value - dn.value) / (2 * bump)
-        else:
-            delta = 0.0  # bond/loan delta via DV01
+            bump = self.underlying.spot * 0.01
+            trs_up = _trs_with_underlying(self, FXUnderlying(
+                self.underlying.base_ccy, self.underlying.quote_ccy,
+                self.underlying.spot + bump))
+            trs_dn = _trs_with_underlying(self, FXUnderlying(
+                self.underlying.base_ccy, self.underlying.quote_ccy,
+                self.underlying.spot - bump))
+            delta = (trs_up.price(curve, projection_curve).value
+                     - trs_dn.price(curve, projection_curve).value) / (2 * bump)
 
-        # Repo sensitivity
-        old_repo = self.repo_spread
-        self.repo_spread = old_repo + 0.0001
-        up_repo = self.price(curve, projection_curve)
-        self.repo_spread = old_repo
-        repo_sens = (up_repo.value - base.value) / 0.0001
+        # Repo sensitivity via bumped copy
+        trs_repo_up = _trs_with_repo_spread(self, self.repo_spread + 0.0001)
+        repo_sens = (trs_repo_up.price(curve, projection_curve).value - base.value) / 0.0001
 
         return {"delta": delta, "repo_sensitivity": repo_sens, "fva": base.fva}
 
     # ---- Breakeven spread ----
 
     def breakeven_spread(self, curve, projection_curve=None) -> float:
-        """Fair TRS spread that makes NPV = 0."""
+        """Fair TRS spread that makes NPV = 0 (immutable — no state mutation)."""
         from pricebook.solvers import brentq
 
         def objective(sf):
-            self.funding = FundingLegSpec(spread=sf, **{
-                k: v for k, v in self.funding.__dict__.items() if k != "spread"
-            })
-            return self.price(curve, projection_curve).value
+            trs_bumped = _trs_with_funding_spread(self, sf)
+            return trs_bumped.price(curve, projection_curve).value
 
-        old_funding = self.funding
-        try:
-            sf = brentq(objective, -0.10, 0.10)
-        finally:
-            self.funding = old_funding
-        return sf
+        return brentq(objective, -0.10, 0.10)
 
     # ---- Trade/Portfolio integration ----
 
@@ -893,3 +880,59 @@ class TotalReturnSwap:
 
 from pricebook.serialisable import _register
 _register(TotalReturnSwap)
+
+
+# ---------------------------------------------------------------------------
+# Immutable copy helpers (for bump-and-reprice without state mutation)
+# ---------------------------------------------------------------------------
+
+def _trs_with_underlying(trs: TotalReturnSwap, new_underlying) -> TotalReturnSwap:
+    """Return a copy with a different underlying (no mutation)."""
+    return TotalReturnSwap(
+        underlying=new_underlying, notional=trs.notional,
+        start=trs.start, end=trs.end, funding=trs.funding,
+        dividends=trs.dividends, initial_price=trs.initial_price,
+        repo_spread=trs.repo_spread, haircut=trs.haircut,
+        credit_curve_name=trs.credit_curve_name, recovery=trs.recovery,
+        reset_dates=trs.reset_dates, mtm_reset=trs.mtm_reset,
+        sigma=trs.sigma, prepay_model=trs.prepay_model,
+        settlement_terms=trs.settlement_terms,
+        survival_curve=trs.survival_curve, xccy=trs.xccy,
+        haircut_schedule=trs.haircut_schedule,
+    )
+
+
+def _trs_with_repo_spread(trs: TotalReturnSwap, new_spread: float) -> TotalReturnSwap:
+    """Return a copy with a different repo spread."""
+    return TotalReturnSwap(
+        underlying=trs.underlying, notional=trs.notional,
+        start=trs.start, end=trs.end, funding=trs.funding,
+        dividends=trs.dividends, initial_price=trs.initial_price,
+        repo_spread=new_spread, haircut=trs.haircut,
+        credit_curve_name=trs.credit_curve_name, recovery=trs.recovery,
+        reset_dates=trs.reset_dates, mtm_reset=trs.mtm_reset,
+        sigma=trs.sigma, prepay_model=trs.prepay_model,
+        settlement_terms=trs.settlement_terms,
+        survival_curve=trs.survival_curve, xccy=trs.xccy,
+        haircut_schedule=trs.haircut_schedule,
+    )
+
+
+def _trs_with_funding_spread(trs: TotalReturnSwap, new_spread: float) -> TotalReturnSwap:
+    """Return a copy with a different funding spread."""
+    new_funding = FundingLegSpec(
+        spread=new_spread,
+        **{k: v for k, v in trs.funding.__dict__.items() if k != "spread"}
+    )
+    return TotalReturnSwap(
+        underlying=trs.underlying, notional=trs.notional,
+        start=trs.start, end=trs.end, funding=new_funding,
+        dividends=trs.dividends, initial_price=trs.initial_price,
+        repo_spread=trs.repo_spread, haircut=trs.haircut,
+        credit_curve_name=trs.credit_curve_name, recovery=trs.recovery,
+        reset_dates=trs.reset_dates, mtm_reset=trs.mtm_reset,
+        sigma=trs.sigma, prepay_model=trs.prepay_model,
+        settlement_terms=trs.settlement_terms,
+        survival_curve=trs.survival_curve, xccy=trs.xccy,
+        haircut_schedule=trs.haircut_schedule,
+    )

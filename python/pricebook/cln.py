@@ -266,7 +266,7 @@ class CreditLinkedNote:
         discount_curve: DiscountCurve,
         survival_curve: SurvivalCurve,
     ) -> dict[str, float]:
-        """Bump-and-reprice sensitivities.
+        """Bump-and-reprice sensitivities (immutable — no state mutation).
 
         Returns:
             dv01: price change for +1bp parallel rate shift.
@@ -283,12 +283,13 @@ class CreditLinkedNote:
         shifted_surv = survival_curve.bumped(0.0001)
         cs01 = self.dirty_price(discount_curve, shifted_surv) - base
 
-        # Recovery sensitivity: +1% bump
-        old_recovery = self.recovery
-        self.recovery = old_recovery + 0.01
-        rec_up = self.dirty_price(discount_curve, survival_curve)
-        self.recovery = old_recovery
-        recovery_sens = rec_up - base
+        # Recovery sensitivity: +1% bump via copy (no mutation)
+        cln_bumped = CreditLinkedNote(
+            self.start, self.end, self.coupon_rate,
+            self.notional_schedule, self.recovery + 0.01,
+            self.leverage, self.floating, self.frequency, self.day_count,
+        )
+        recovery_sens = cln_bumped.dirty_price(discount_curve, survival_curve) - base
 
         return {"dv01": dv01, "cs01": cs01, "recovery_sensitivity": recovery_sens}
 
