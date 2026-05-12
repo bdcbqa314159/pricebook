@@ -16,10 +16,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.black76 import black76_price, OptionType
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-
 
 # ---------------------------------------------------------------------------
 # 1. CMS spread range accrual
@@ -79,7 +75,7 @@ def cms_spread_range_accrual(
 
     for _ in range(n_observations):
         z1 = rng.standard_normal(n_paths)
-        z2 = correlation * z1 + math.sqrt(1 - correlation**2) * rng.standard_normal(n_paths)
+        z2 = correlation * z1 + math.sqrt(max(1 - correlation**2, 0.0)) * rng.standard_normal(n_paths)
 
         # OU-like mean-reverting dynamics
         long_rate += 0.1 * (cms_long_rate - long_rate) * dt + cms_long_vol * sqrt_dt * z1

@@ -10,7 +10,6 @@ References:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 from pricebook.black76 import (

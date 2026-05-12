@@ -350,7 +350,7 @@ def outperformance_option(
         correlation: return correlation between the two assets.
     """
     # Spread vol
-    sigma = math.sqrt(vol1**2 + vol2**2 - 2 * correlation * vol1 * vol2)
+    sigma = math.sqrt(max(vol1**2 + vol2**2 - 2 * correlation * vol1 * vol2, 0.0))
 
     # Margrabe: option to exchange asset2 for asset1
     F1 = math.exp((rate - div1) * T)  # normalised forward (S1/S1_0)
@@ -431,7 +431,6 @@ def equity_accumulator(
 
     paths = gbm_paths(spot, rate - dividend_yield, vol, T, n_steps, n_paths, seed or 42)
     dt = T / n_steps
-    df = math.exp(-rate * T)
 
     alive = np.ones(n_paths, dtype=bool)
     pv = np.zeros(n_paths)

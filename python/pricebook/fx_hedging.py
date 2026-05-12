@@ -44,7 +44,7 @@ def window_barrier_option(
     paths = gbm_paths(spot, drift, vol, T, n_steps, n_paths, seed or 42)
     dt = T / n_steps
     df = math.exp(-rate_dom * T)
-    s0 = max(1, int(window_start / dt))
+    s0 = max(0, int(window_start / dt))
     s1 = min(n_steps, int(window_end / dt))
     w = paths[:, s0:s1 + 1]
     hit = np.any(w >= barrier, axis=1) if is_up else np.any(w <= barrier, axis=1)
