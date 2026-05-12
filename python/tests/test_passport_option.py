@@ -1,6 +1,5 @@
 """Tests for passport option."""
 from __future__ import annotations
-import math
 import pytest
 from pricebook.passport_option import passport_option
 

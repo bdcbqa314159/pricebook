@@ -1,9 +1,9 @@
 """Tests for structured notes."""
 from __future__ import annotations
-import math
 import pytest
 from pricebook.structured_notes import (
     capital_protected_note, dual_digital, bonus_certificate,
+    outperformance_certificate,
 )
 
 
@@ -54,7 +54,6 @@ class TestBonusCertificate:
 
 class TestOutperformanceCert:
     def test_price_positive(self):
-        from pricebook.structured_notes import outperformance_certificate
         r = outperformance_certificate(100, 0.05, 0.02, 0.20, 1.0)
         assert r.price > 0
 

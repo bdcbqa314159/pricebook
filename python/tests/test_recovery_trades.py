@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from datetime import date
 
 import pytest
@@ -10,7 +9,6 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.bootstrap import bootstrap
 from pricebook.cds_market import build_cds_curve
-from pricebook.survival_curve import SurvivalCurve
 from pricebook.recovery_trades import (
     market_implied_recovery,
     recovery_by_spread_regime,
@@ -47,6 +45,12 @@ class TestMarketImpliedRecovery:
         result = market_implied_recovery(0.0100, ois, REF, bond_asw_spread=0.0130)
         assert result.recovery_bond is not None
         assert result.method == "cds_bond_average"
+
+    def test_zero_spread_returns_default(self):
+        ois = _ois()
+        result = market_implied_recovery(0.0, ois, REF)
+        assert result.method == "zero_spread"
+        assert result.recovery_cds == 0.40
 
     def test_distressed_lower_recovery(self):
         ois = _ois()
