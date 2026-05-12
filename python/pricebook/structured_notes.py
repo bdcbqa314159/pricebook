@@ -49,7 +49,8 @@ def capital_protected_note(
     call = black76_price(F, spot, vol, T, df, OptionType.CALL)
 
     if participation is None:
-        participation = budget / (call * notional / spot) if call > 1e-10 else 0.0
+        denom = call * notional / spot if spot > 0 else 0.0
+        participation = budget / denom if denom > 1e-10 else 0.0
 
     option_value = participation * call * notional / spot
     price = bond_floor + option_value
