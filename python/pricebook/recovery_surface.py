@@ -260,7 +260,7 @@ def implied_recovery(
         # Method 1: spread ratio
         if s_sub > 1e-8:
             R_implied = 1.0 - s_sen * (1.0 - sub_recovery) / s_sub
-            R_implied = max(0.0, min(1.0, R_implied))
+            R_implied = max(0.0, min(0.95, R_implied))
         else:
             R_implied = senior_recovery
 
