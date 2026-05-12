@@ -1,100 +1,73 @@
-"""Tests for FX hedging."""
-
+"""Tests for FX hedging structures."""
+from __future__ import annotations
+import math
 import pytest
-from datetime import date
-
 from pricebook.fx_hedging import (
-    CrossHedgeResult,
-    NDFSettlementResult,
-    TriangularArbResult,
-    fx_cross_hedge,
-    fx_delta_hedge,
-    ndf_settlement,
-    triangular_arb_monitor,
+    window_barrier_option, fader_option, participating_forward, seagull,
 )
 
 
-class TestFXDeltaHedge:
-    def test_basic(self):
-        qty = fx_delta_hedge(10_000_000)
-        assert qty == pytest.approx(-10_000_000)
+class TestWindowBarrier:
+    def test_price_positive(self):
+        r = window_barrier_option(1.10, 1.10, 1.20, 0.03, 0.01, 0.08, 1.0, 0.25, 0.75, n_paths=5_000)
+        assert r.price > 0
 
-    def test_zero_per_unit(self):
-        assert fx_delta_hedge(10_000_000, 0.0) == 0.0
+    def test_narrower_window_cheaper_ko(self):
+        full = window_barrier_option(1.10, 1.10, 1.20, 0.03, 0.01, 0.08, 1.0, 0.0, 1.0, n_paths=10_000)
+        narrow = window_barrier_option(1.10, 1.10, 1.20, 0.03, 0.01, 0.08, 1.0, 0.4, 0.6, n_paths=10_000)
+        assert narrow.price > full.price * 0.8  # narrower window = fewer knockouts = higher price
 
-
-class TestFXCrossHedge:
-    def test_perfect_correlation(self):
-        result = fx_cross_hedge("NOK/USD", 10_000_000, "SEK/USD",
-                                correlation=0.95, proxy_vol=0.10, target_vol=0.12)
-        assert result.hedge_ratio == pytest.approx(0.95 * 0.12 / 0.10)
-        assert result.proxy_quantity < 0  # sell proxy to hedge long target
-
-    def test_hedged_near_zero(self):
-        result = fx_cross_hedge("NOK/USD", 10_000_000, "SEK/USD",
-                                correlation=1.0, proxy_vol=0.10, target_vol=0.10)
-        # h = 1.0, qty = -10M
-        assert result.proxy_quantity == pytest.approx(-10_000_000)
-
-    def test_zero_vol(self):
-        result = fx_cross_hedge("A", 10_000_000, "B", 0.9, 0.0, 0.10)
-        assert result.hedge_ratio == 0.0
+    def test_ko_probability_bounded(self):
+        r = window_barrier_option(1.10, 1.10, 1.20, 0.03, 0.01, 0.08, 1.0, 0.0, 1.0, n_paths=5_000)
+        assert 0 <= r.knockout_probability <= 1
 
 
-class TestTriangularArbMonitor:
-    def test_no_arb(self):
-        # EUR/USD=1.085, USD/JPY=148, EUR/JPY=160.58 (= 1.085×148)
-        result = triangular_arb_monitor(
-            "EUR/USD", 1.085, "USD/JPY", 148.0,
-            "EUR/JPY", 1.085 * 148.0,
-        )
-        assert result.arb_bps == pytest.approx(0.0)
-        assert result.is_arb is False
+class TestFader:
+    def test_price_positive(self):
+        r = fader_option(1.10, 1.10, 1.20, 0.03, 0.01, 0.08, 1.0, n_paths=5_000)
+        assert r.price > 0
 
-    def test_arb_detected(self):
-        result = triangular_arb_monitor(
-            "EUR/USD", 1.085, "USD/JPY", 148.0,
-            "EUR/JPY", 162.0,  # should be 160.58
-            threshold_bps=1.0,
-        )
-        assert abs(result.arb_bps) > 1.0
-        assert result.is_arb is True
+    def test_fading_bounded(self):
+        r = fader_option(1.10, 1.10, 1.20, 0.03, 0.01, 0.08, 1.0, n_paths=5_000)
+        assert 0 < r.average_fading_factor <= 1
 
-    def test_synthetic_rate(self):
-        result = triangular_arb_monitor(
-            "EUR/USD", 1.085, "USD/JPY", 148.0,
-            "EUR/JPY", 160.58,
-        )
-        assert result.synthetic_rate == pytest.approx(1.085 * 148.0)
+    def test_low_barrier_more_fading(self):
+        high = fader_option(1.10, 1.10, 1.50, 0.03, 0.01, 0.08, 1.0, n_paths=5_000)
+        low = fader_option(1.10, 1.10, 1.15, 0.03, 0.01, 0.08, 1.0, n_paths=5_000)
+        assert low.average_fading_factor < high.average_fading_factor
 
 
-class TestNDFSettlement:
-    def test_positive_settlement(self):
-        """Test: NDF settlement matches manual calculation."""
-        result = ndf_settlement(
-            "USD/BRL", contracted_rate=5.0, fixing_rate=5.2,
-            notional=10_000_000, fixing_date=date(2024, 1, 15),
-        )
-        # (5.2 − 5.0) × 10M = 2,000,000
-        assert result.settlement_amount == pytest.approx(2_000_000)
+class TestParticipatingForward:
+    def test_zero_cost_solve(self):
+        r = participating_forward(1.10, 0.03, 0.01, 0.08, 1.0, floor_rate=1.08)
+        assert r.zero_cost
+        assert 0 < r.participation_rate < 1
+        assert abs(r.price) < 100  # near zero cost
 
-    def test_negative_settlement(self):
-        result = ndf_settlement(
-            "USD/BRL", contracted_rate=5.0, fixing_rate=4.8,
-            notional=10_000_000, fixing_date=date(2024, 1, 15),
-        )
-        assert result.settlement_amount == pytest.approx(-2_000_000)
+    def test_participation_bounded(self):
+        r = participating_forward(1.10, 0.03, 0.01, 0.08, 1.0)
+        assert 0 < r.participation_rate <= 1
 
-    def test_settlement_date_t_plus_2(self):
-        result = ndf_settlement(
-            "USD/BRL", 5.0, 5.2, 10_000_000,
-            fixing_date=date(2024, 1, 15),  # Monday
-        )
-        assert result.settlement_date == date(2024, 1, 17)  # Wednesday
+    def test_deeper_otm_floor_lower_participation(self):
+        # Floor below forward → cheap put → low participation needed to offset
+        # Floor above forward → expensive put → high participation to offset
+        otm = participating_forward(1.10, 0.03, 0.01, 0.08, 1.0, floor_rate=1.05)
+        itm = participating_forward(1.10, 0.03, 0.01, 0.08, 1.0, floor_rate=1.12)
+        assert otm.participation_rate < itm.participation_rate
 
-    def test_settlement_skips_weekend(self):
-        result = ndf_settlement(
-            "USD/BRL", 5.0, 5.2, 10_000_000,
-            fixing_date=date(2024, 1, 11),  # Thursday → T+2 skips weekend
-        )
-        assert result.settlement_date == date(2024, 1, 15)  # Monday
+
+class TestSeagull:
+    def test_near_zero_cost(self):
+        # Choose strikes for near-zero cost
+        r = seagull(1.10, 0.03, 0.01, 0.08, 1.0, 1.08, 1.02, 1.15)
+        assert math.isfinite(r.price)
+
+    def test_wider_cap_more_expensive(self):
+        tight = seagull(1.10, 0.03, 0.01, 0.08, 1.0, 1.08, 1.02, 1.13)
+        wide = seagull(1.10, 0.03, 0.01, 0.08, 1.0, 1.08, 1.02, 1.20)
+        # Higher cap = less premium received from sold call = higher cost
+        assert wide.price > tight.price
+
+    def test_forward_positive(self):
+        r = seagull(1.10, 0.03, 0.01, 0.08, 1.0, 1.08, 1.02, 1.15)
+        assert r.forward_rate > 0

@@ -1,146 +1,150 @@
-"""FX hedging: delta hedge, cross-hedge, triangular arb, NDF settlement.
+"""FX hedging structures and extended barriers.
 
-* :func:`fx_delta_hedge` — spot or forward hedge quantity.
-* :func:`fx_cross_hedge` — proxy hedge (e.g. NOK via SEK).
-* :func:`triangular_arb_monitor` — synthetic cross vs direct.
-* :func:`ndf_settlement` — cash settlement from FX fixing.
+* :func:`window_barrier_option` — barrier active only during a window.
+* :func:`fader_option` — barrier that phases in/out gradually.
+* :func:`participating_forward` — floor + leveraged upside participation.
+* :func:`seagull` — risk reversal + cap (3-strike structure).
+
+References:
+    Wystup (2017). FX Options and Structured Products, 2nd ed., Ch. 2-3.
+    Clark (2011). FX Option Pricing, Ch. 5-6.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from datetime import date
 
-from pricebook.settlement import add_business_days
+import numpy as np
 
+from pricebook.black76 import black76_price, OptionType
 
-# ---- Delta hedge ----
-
-def fx_delta_hedge(
-    book_delta: float,
-    hedge_delta_per_unit: float = 1.0,
-) -> float:
-    """Quantity to trade to flatten FX delta.
-
-    ``quantity = -book_delta / hedge_delta_per_unit``.
-    """
-    if abs(hedge_delta_per_unit) < 1e-15:
-        return 0.0
-    return -book_delta / hedge_delta_per_unit
-
-
-# ---- Cross-hedge ----
 
 @dataclass
-class CrossHedgeResult:
-    """Proxy hedge recommendation."""
-    target_pair: str
-    proxy_pair: str
-    hedge_ratio: float
-    proxy_quantity: float
+class WindowBarrierResult:
+    price: float
+    knockout_probability: float
+    window_start: float
+    window_end: float
+    barrier: float
+    def to_dict(self) -> dict:
+        return vars(self)
 
 
-def fx_cross_hedge(
-    target_pair: str,
-    target_delta: float,
-    proxy_pair: str,
-    correlation: float,
-    proxy_vol: float,
-    target_vol: float,
-) -> CrossHedgeResult:
-    """Cross-hedge: hedge one pair using a correlated proxy.
+def window_barrier_option(
+    spot: float, strike: float, barrier: float,
+    rate_dom: float, rate_for: float, vol: float, T: float,
+    window_start: float, window_end: float,
+    is_up: bool = True, is_knock_out: bool = True, is_call: bool = True,
+    n_paths: int = 20_000, n_steps: int = 252, seed: int | None = 42,
+) -> WindowBarrierResult:
+    """Barrier active only during [window_start, window_end]."""
+    from pricebook.mc_migrate import gbm_paths
+    drift = rate_dom - rate_for
+    paths = gbm_paths(spot, drift, vol, T, n_steps, n_paths, seed or 42)
+    dt = T / n_steps
+    df = math.exp(-rate_dom * T)
+    s0 = max(1, int(window_start / dt))
+    s1 = min(n_steps, int(window_end / dt))
+    w = paths[:, s0:s1 + 1]
+    hit = np.any(w >= barrier, axis=1) if is_up else np.any(w <= barrier, axis=1)
+    S_T = paths[:, -1]
+    payoff = np.maximum(S_T - strike, 0.0) if is_call else np.maximum(strike - S_T, 0.0)
+    payoff = payoff * (~hit) if is_knock_out else payoff * hit
+    return WindowBarrierResult(df * float(payoff.mean()), float(hit.mean()),
+                                window_start, window_end, barrier)
 
-    Optimal hedge ratio (minimum-variance):
-        h = ρ × σ_target / σ_proxy
 
-    Args:
-        target_delta: delta to hedge (in target pair notional).
-        correlation: historical correlation between the two pairs.
-        proxy_vol / target_vol: annualised vols.
-    """
-    if proxy_vol <= 0:
-        h = 0.0
+@dataclass
+class FaderResult:
+    price: float
+    average_fading_factor: float
+    n_observations: int
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def fader_option(
+    spot: float, strike: float, barrier: float,
+    rate_dom: float, rate_for: float, vol: float, T: float,
+    n_observations: int = 12, is_up: bool = True, is_call: bool = True,
+    n_paths: int = 20_000, seed: int | None = 42,
+) -> FaderResult:
+    """Fader: payoff = vanilla x (fraction of observations NOT breached)."""
+    from pricebook.mc_migrate import gbm_paths
+    paths = gbm_paths(spot, rate_dom - rate_for, vol, T, n_observations, n_paths, seed or 42)
+    df = math.exp(-rate_dom * T)
+    m = paths[:, 1:]
+    not_hit = (m < barrier) if is_up else (m > barrier)
+    fading = not_hit.sum(axis=1) / n_observations
+    S_T = paths[:, -1]
+    payoff = np.maximum(S_T - strike, 0.0) if is_call else np.maximum(strike - S_T, 0.0)
+    return FaderResult(df * float((payoff * fading).mean()), float(fading.mean()), n_observations)
+
+
+@dataclass
+class ParticipatingForwardResult:
+    price: float
+    floor_rate: float
+    participation_rate: float
+    forward_rate: float
+    zero_cost: bool
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def participating_forward(
+    spot: float, rate_dom: float, rate_for: float, vol: float, T: float,
+    floor_rate: float | None = None, participation: float | None = None,
+    notional: float = 1_000_000,
+) -> ParticipatingForwardResult:
+    """Participating forward: guaranteed floor + partial upside. Zero-cost solve."""
+    F = spot * math.exp((rate_dom - rate_for) * T)
+    df = math.exp(-rate_dom * T)
+    if floor_rate is None and participation is None:
+        floor_rate = F
+    if participation is None:
+        p = black76_price(F, floor_rate, vol, T, df, OptionType.PUT)
+        c = black76_price(F, floor_rate, vol, T, df, OptionType.CALL)
+        participation = p / c if c > 1e-10 else 0.0
+        zc = True
+    elif floor_rate is None:
+        from pricebook.solvers import brentq
+        def obj(K):
+            return (black76_price(F, K, vol, T, df, OptionType.PUT)
+                    - participation * black76_price(F, K, vol, T, df, OptionType.CALL))
+        floor_rate = brentq(obj, spot * 0.5, spot * 1.5)
+        zc = True
     else:
-        h = correlation * target_vol / proxy_vol
-    qty = -target_delta * h
-    return CrossHedgeResult(target_pair, proxy_pair, h, qty)
+        zc = False
+    put_pv = black76_price(F, floor_rate, vol, T, df, OptionType.PUT) * notional
+    call_pv = black76_price(F, floor_rate, vol, T, df, OptionType.CALL) * notional
+    return ParticipatingForwardResult(float(put_pv - participation * call_pv),
+                                       float(floor_rate), float(participation), float(F), zc)
 
-
-# ---- Triangular arbitrage ----
 
 @dataclass
-class TriangularArbResult:
-    """Triangular arbitrage monitor."""
-    pair_ab: str
-    pair_bc: str
-    pair_ac: str
-    direct_rate: float
-    synthetic_rate: float
-    arb_bps: float
-    is_arb: bool
+class SeagullResult:
+    price: float
+    put_strike: float
+    call_strike_low: float
+    call_strike_high: float
+    max_gain: float
+    forward_rate: float
+    def to_dict(self) -> dict:
+        return vars(self)
 
 
-def triangular_arb_monitor(
-    pair_ab: str,
-    rate_ab: float,
-    pair_bc: str,
-    rate_bc: float,
-    pair_ac: str,
-    rate_ac: float,
-    threshold_bps: float = 1.0,
-) -> TriangularArbResult:
-    """Check for triangular arbitrage: A/C direct vs A/B × B/C synthetic.
-
-    ``synthetic_ac = rate_ab × rate_bc``.
-    ``arb = (direct − synthetic) / direct × 10000`` (in bps).
-    """
-    synthetic = rate_ab * rate_bc
-    if rate_ac <= 0:
-        arb_bps = 0.0
-    else:
-        arb_bps = (rate_ac - synthetic) / rate_ac * 10_000
-    return TriangularArbResult(
-        pair_ab, pair_bc, pair_ac,
-        direct_rate=rate_ac,
-        synthetic_rate=synthetic,
-        arb_bps=arb_bps,
-        is_arb=abs(arb_bps) > threshold_bps,
-    )
-
-
-# ---- NDF settlement ----
-
-@dataclass
-class NDFSettlementResult:
-    """NDF cash settlement."""
-    pair: str
-    contracted_rate: float
-    fixing_rate: float
-    notional: float
-    settlement_amount: float
-    settlement_date: date
-
-
-def ndf_settlement(
-    pair: str,
-    contracted_rate: float,
-    fixing_rate: float,
-    notional: float,
-    fixing_date: date,
-    calendar: object | None = None,
-) -> NDFSettlementResult:
-    """Compute NDF cash settlement.
-
-    ``settlement = (fixing − contracted) × notional``.
-    Settlement date is T+2 from the fixing date.
-    """
-    amount = (fixing_rate - contracted_rate) * notional
-    settle_date = add_business_days(fixing_date, 2, calendar)
-    return NDFSettlementResult(
-        pair=pair,
-        contracted_rate=contracted_rate,
-        fixing_rate=fixing_rate,
-        notional=notional,
-        settlement_amount=amount,
-        settlement_date=settle_date,
-    )
+def seagull(
+    spot: float, rate_dom: float, rate_for: float, vol: float, T: float,
+    put_strike: float, call_strike_low: float, call_strike_high: float,
+    notional: float = 1_000_000,
+) -> SeagullResult:
+    """Seagull: long put + short put (lower) + short call = zero-cost collar variant."""
+    F = spot * math.exp((rate_dom - rate_for) * T)
+    df = math.exp(-rate_dom * T)
+    lp = black76_price(F, put_strike, vol, T, df, OptionType.PUT)
+    sp = black76_price(F, call_strike_low, vol, T, df, OptionType.PUT)
+    sc = black76_price(F, call_strike_high, vol, T, df, OptionType.CALL)
+    return SeagullResult(float((lp - sp - sc) * notional), put_strike,
+                          call_strike_low, call_strike_high, float(max(call_strike_high - F, 0)), float(F))
