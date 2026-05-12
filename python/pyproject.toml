@@ -23,12 +23,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-viz = ["plotly", "matplotlib"]
+viz = ["plotly", "matplotlib", "seaborn"]
 codec = ["zstandard", "lz4", "msgpack"]
 docs = ["sphinx", "myst-parser", "sphinx-book-theme"]
 dev = [
     "pytest", "pytest-cov", "pytest-xdist",
-    "plotly", "matplotlib",
+    "plotly", "matplotlib", "seaborn",
     "zstandard", "lz4", "msgpack",
     "sphinx", "myst-parser", "sphinx-book-theme",
 ]
