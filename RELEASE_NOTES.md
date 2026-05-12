@@ -2,6 +2,51 @@
 
 ---
 
+## v0.505.0 — 2026-05-12
+
+**Bond desk + Treasury note pricing.** 16 new tests.
+
+### Bond desk hardening
+- `bond_daily_pnl()` and `bond_pnl_attribution()` wired into `bond_trading_desk.py` — 9/9 protocol complete.
+- Input validation: maturity check in `bond_risk_metrics()`, horizon guard in `bond_carry_roll()`.
+
+### Treasury quoting (`treasury_quoting.py`)
+- `to_32nds()` / `from_32nds()` — decimal ↔ 32nds with + (half-32nd) notation.
+- `TreasuryReopen` — new issue vs reopening (premium/discount, WAP, total outstanding).
+- `delivery_option_value()` — quality + timing + wild card option decomposition for futures.
+
+### Treasury note roundtrip notebook (`notebooks/treasury_note_roundtrip.ipynb`)
+- Full pricing: build SOFR curve → create 10Y T-Note → dirty/clean/AI/YTM/32nds.
+- Risk metrics: duration, DV01, convexity, key-rate profile (via `greeks_profile`).
+- Carry: coupon vs financing at 5.20% repo, roll-down forecast.
+- Convexity: actual P&L vs duration approximation across ±200bp.
+- Uses pricebook `viz` (seaborn theme, `greeks_profile`, `apply_theme`).
+
+---
+
+## v0.504.0 — 2026-05-12
+
+**Seaborn integration + passport option + 7 audit passes.** 22 new tests.
+
+### Seaborn viz (`viz/_seaborn.py`)
+- Theme layer: `configure_theme(seaborn_style="whitegrid", seaborn_context="talk", seaborn_palette="colorblind")`.
+- 6 finance plots: `correlation_heatmap`, `pnl_distribution` (VaR/CVaR markers), `recovery_heatmap`, `greeks_profile`, `sensitivity_grid`, `exposure_profile` (EPE/ENE/PFE bands).
+- `seaborn` added to `pyproject.toml` (viz optional + dev) and `requirements.txt`.
+
+### Passport option (`passport_option.py`)
+- Bang-bang optimal strategy MC + analytical straddle upper bound (Shreve & Vecer 2000).
+
+### Audit fixes (7 passes)
+- `capital_protected_note`: ZeroDivisionError on zero notional.
+- `outperformance_option` / `cms_spread_range_accrual`: sqrt guard for extreme correlation.
+- `recovery_surface`: implied recovery clamped at 0.95 not 1.0.
+- `recovery_trades`: zero-spread handling, unused params removed.
+- `himalaya_option`: proper `notional` param instead of arbitrary spot scaling.
+- `credit_index_options`: put-call parity test added.
+- `configure_theme`: preserves current theme when only seaborn params change.
+
+---
+
 ## v0.503.0 — 2026-05-11
 
 **Rates structured + outperformance certificate.** 12 new tests.
