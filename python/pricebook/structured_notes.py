@@ -136,3 +136,62 @@ def bonus_certificate(
     price = df * float(payoff.mean()) * notional / spot
 
     return BonusCertificateResult(float(price), bonus_level, barrier, float(hit.mean()))
+
+
+# ---------------------------------------------------------------------------
+# 4. Outperformance certificate
+# ---------------------------------------------------------------------------
+
+@dataclass
+class OutperformanceCertResult:
+    """Outperformance certificate result."""
+    price: float
+    participation: float
+    cap: float | None
+    expected_return: float
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def outperformance_certificate(
+    spot: float,
+    rate: float,
+    dividend_yield: float,
+    vol: float,
+    T: float,
+    participation: float = 1.5,
+    cap: float | None = None,
+    notional: float = 1.0,
+) -> OutperformanceCertResult:
+    """Outperformance certificate: leveraged upside, full downside.
+
+    Payoff at T:
+    - If S_T >= S_0: notional x (1 + participation x (S_T/S_0 - 1)), capped at cap.
+    - If S_T < S_0: notional x S_T/S_0 (full loss).
+
+    Structure = stock + (participation - 1) x ATM call - (participation) x OTM call at cap.
+    Participation > 1 amplifies gains. Cap limits maximum payout.
+
+    Args:
+        participation: upside multiplier (e.g., 1.5 = 150%).
+        cap: maximum return (e.g., 0.30 = 30% cap). None = uncapped.
+    """
+    F = spot * math.exp((rate - dividend_yield) * T)
+    df = math.exp(-rate * T)
+
+    # Stock component
+    stock_pv = spot * math.exp(-dividend_yield * T) * df * notional / spot
+
+    # Extra calls for participation
+    extra_calls = (participation - 1) * black76_price(F, spot, vol, T, df, OptionType.CALL) * notional / spot
+
+    # Cap via short call
+    cap_cost = 0.0
+    if cap is not None:
+        cap_strike = spot * (1 + cap)
+        cap_cost = participation * black76_price(F, cap_strike, vol, T, df, OptionType.CALL) * notional / spot
+
+    price = stock_pv + extra_calls - cap_cost
+    expected_ret = (F / spot - 1) * participation
+
+    return OutperformanceCertResult(float(price), participation, cap, float(expected_ret))
