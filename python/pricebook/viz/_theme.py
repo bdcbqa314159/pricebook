@@ -95,8 +95,10 @@ def configure_theme(
         _current_theme = theme
     elif dark:
         _current_theme = DARK
-    else:
+    elif seaborn_style is None and seaborn_context is None and seaborn_palette is None:
+        # No args at all → reset to LIGHT
         _current_theme = LIGHT
+    # else: keep current theme, only update seaborn params below
 
     # Apply seaborn globally if available
     if _has_seaborn():

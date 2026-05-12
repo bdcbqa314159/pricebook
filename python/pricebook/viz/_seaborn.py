@@ -167,7 +167,6 @@ def greeks_profile(
         spot_range: list of spot values.
         greeks_by_spot: {greek_name: [values_per_spot]}.
     """
-    sns = _require_seaborn()
     import matplotlib.pyplot as plt
 
     n = len(greeks_by_spot)
@@ -254,7 +253,6 @@ def exposure_profile(
         ene: expected negative exposure (optional).
         pfe_95 / pfe_99: potential future exposure at 95th/99th percentile.
     """
-    sns = _require_seaborn()
     import matplotlib.pyplot as plt
 
     theme = get_theme()
