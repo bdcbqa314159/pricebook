@@ -16,6 +16,14 @@
 from pricebook.viz._dispatch import plot
 from pricebook.viz._builder import PlotBuilder
 from pricebook.viz._theme import LIGHT, DARK, PricebookTheme, configure_theme
+from pricebook.viz._seaborn import (
+    correlation_heatmap,
+    pnl_distribution,
+    recovery_heatmap,
+    greeks_profile,
+    sensitivity_grid,
+    exposure_profile,
+)
 
 # Register product modules (triggers @register_instrument decorators)
 import pricebook.viz._tlock          # noqa: F401
@@ -25,4 +33,8 @@ import pricebook.viz._hybrid         # noqa: F401
 import pricebook.viz._trs            # noqa: F401
 import pricebook.viz._treasury_lock  # noqa: F401
 
-__all__ = ["plot", "PlotBuilder", "LIGHT", "DARK", "PricebookTheme", "configure_theme"]
+__all__ = [
+    "plot", "PlotBuilder", "LIGHT", "DARK", "PricebookTheme", "configure_theme",
+    "correlation_heatmap", "pnl_distribution", "recovery_heatmap",
+    "greeks_profile", "sensitivity_grid", "exposure_profile",
+]

@@ -1,4 +1,10 @@
-"""Pricebook visual theme: colors, fonts, light/dark."""
+"""Pricebook visual theme: colors, fonts, light/dark, seaborn integration.
+
+Uses seaborn styling when available, falls back to pure matplotlib.
+
+    from pricebook.viz import configure_theme
+    configure_theme(dark=True, seaborn_style="darkgrid")
+"""
 
 from __future__ import annotations
 
@@ -17,6 +23,9 @@ class PricebookTheme:
     font_size: int
     title_size: int
     line_width: float
+    seaborn_style: str = "whitegrid"
+    seaborn_context: str = "notebook"
+    seaborn_palette: str | None = None
 
 
 LIGHT = PricebookTheme(
@@ -29,6 +38,9 @@ LIGHT = PricebookTheme(
     font_size=11,
     title_size=13,
     line_width=1.8,
+    seaborn_style="whitegrid",
+    seaborn_context="notebook",
+    seaborn_palette="deep",
 )
 
 DARK = PricebookTheme(
@@ -41,13 +53,43 @@ DARK = PricebookTheme(
     font_size=11,
     title_size=13,
     line_width=1.8,
+    seaborn_style="darkgrid",
+    seaborn_context="notebook",
+    seaborn_palette="bright",
 )
 
 _current_theme: PricebookTheme = LIGHT
+_seaborn_available: bool | None = None
 
 
-def configure_theme(theme: PricebookTheme | None = None, dark: bool = False) -> None:
-    """Set the global pricebook theme."""
+def _has_seaborn() -> bool:
+    """Check if seaborn is importable (cached)."""
+    global _seaborn_available
+    if _seaborn_available is None:
+        try:
+            import seaborn  # noqa: F401
+            _seaborn_available = True
+        except ImportError:
+            _seaborn_available = False
+    return _seaborn_available
+
+
+def configure_theme(
+    theme: PricebookTheme | None = None,
+    dark: bool = False,
+    seaborn_style: str | None = None,
+    seaborn_context: str | None = None,
+    seaborn_palette: str | None = None,
+) -> None:
+    """Set the global pricebook theme.
+
+    Args:
+        theme: custom theme (overrides dark).
+        dark: use dark mode.
+        seaborn_style: "whitegrid", "darkgrid", "white", "dark", "ticks".
+        seaborn_context: "paper", "notebook", "talk", "poster".
+        seaborn_palette: "deep", "muted", "bright", "pastel", "dark", "colorblind".
+    """
     global _current_theme
     if theme is not None:
         _current_theme = theme
@@ -55,6 +97,16 @@ def configure_theme(theme: PricebookTheme | None = None, dark: bool = False) -> 
         _current_theme = DARK
     else:
         _current_theme = LIGHT
+
+    # Apply seaborn globally if available
+    if _has_seaborn():
+        import seaborn as sns
+        style = seaborn_style or _current_theme.seaborn_style
+        context = seaborn_context or _current_theme.seaborn_context
+        palette = seaborn_palette or _current_theme.seaborn_palette
+        sns.set_theme(style=style, context=context, palette=palette,
+                      font=_current_theme.font_family,
+                      font_scale=_current_theme.font_size / 11.0)
 
 
 def get_theme(dark: bool | None = None) -> PricebookTheme:

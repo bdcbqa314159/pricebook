@@ -1,20 +1,32 @@
-"""Matplotlib backend wrapper for pricebook charts."""
+"""Matplotlib + seaborn backend wrapper for pricebook charts."""
 
 from __future__ import annotations
 
 from contextlib import contextmanager
 
-from pricebook.viz._theme import PricebookTheme, get_theme
+from pricebook.viz._theme import PricebookTheme, get_theme, _has_seaborn
 
 
 @contextmanager
 def apply_theme(theme: PricebookTheme | None = None):
-    """Apply pricebook theme to matplotlib rcParams, restore on exit."""
+    """Apply pricebook theme to matplotlib (+ seaborn if available), restore on exit."""
     import matplotlib.pyplot as plt
 
     t = theme or get_theme()
     old = dict(plt.rcParams)
     try:
+        # Seaborn styling first (sets a clean baseline)
+        if _has_seaborn():
+            import seaborn as sns
+            sns.set_theme(
+                style=t.seaborn_style,
+                context=t.seaborn_context,
+                palette=t.seaborn_palette or list(t.colors),
+                font=t.font_family,
+                font_scale=t.font_size / 11.0,
+            )
+
+        # Pricebook overrides on top of seaborn
         plt.rcParams.update({
             "figure.facecolor": t.background,
             "axes.facecolor": t.background,
