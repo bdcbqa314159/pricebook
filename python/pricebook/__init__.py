@@ -1,23 +1,49 @@
-__version__ = "0.375.0"
+__version__ = "0.501.0"
 
-# Top-level imports for convenience
+# ── Core infrastructure ──
 from pricebook.pricing_context import PricingContext
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.trade import Trade, Portfolio
 from pricebook.book import Book, Desk, BookLimits, Position
 from pricebook.daily_pnl import compute_daily_pnl, attribute_pnl, DailyPnL, BookAttribution
+
+# ── Instruments ──
 from pricebook.swap import InterestRateSwap
 from pricebook.bond import FixedRateBond
 from pricebook.fra import FRA
 from pricebook.cds import CDS
+from pricebook.cln import CreditLinkedNote
 from pricebook.swaption import Swaption
 from pricebook.capfloor import CapFloor
 from pricebook.frn import FloatingRateNote
 from pricebook.fx_forward import FXForward
 from pricebook.fx_option import fx_option_price
 from pricebook.equity_option import equity_option_price
+from pricebook.trs import TotalReturnSwap, TRSResult, FundingLegSpec
+from pricebook.repo_desk import RepoTrade, RepoBook, RepoDirection
+from pricebook.autocallable import Autocallable
+from pricebook.barrier_option import BarrierOption
+from pricebook.asian_option import AsianOption
+from pricebook.cliquet import Cliquet
+from pricebook.tarf import TARF
+
+# ── Vol ──
 from pricebook.vol_surface import FlatVol
+
+# ── MC engine ──
+from pricebook.mc_engine import MCEngine, TimeGrid, MCResult
+
+# ── Database ──
+from pricebook.db import PricebookDB
+
+# ── Recovery ──
+from pricebook.recovery_surface import RecoverySurface
+
+# ── Trader API ──
+from pricebook.api_desk import analyse
+
+# ── Serialisation ──
 from pricebook.serialization import (
     to_json,
     from_json,

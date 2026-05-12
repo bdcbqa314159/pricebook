@@ -124,6 +124,67 @@
 
 ---
 
+## v0.496.0 — 2026-05-07
+
+**MC engine foundation.** 3 commits, 50 tests.
+
+- `MCEngine` + `ProcessSpec` + `TimeGrid` — unified path generation.
+- 7 processes: GBM, Heston, OU, CIR, JumpDiffusion, CorrelatedGBM, BlackScholes.
+- 10 payoffs: European call/put, digital, Asian arith/geo, lookback, barrier KO/KI, American LSM, basket.
+- Variance reduction: antithetic, control variate, moment matching.
+- Greeks estimator: bump-and-reprice delta/gamma/vega/theta/rho.
+- XVA exposure engine: EPE/ENE/PFE/CVA/DVA/FVA.
+- Extensions: Sobol quasi-random, MLMC, pathwise+LR Greeks, copula default engine.
+
+---
+
+## v0.495.0 — 2026-05-06
+
+**Structured credit desk + multi-department framework.** ~150 tests.
+
+### Structured credit (4 products + desk)
+- Risk participations: `RiskParticipation`, `SubParticipation`, Basel IRB capital relief.
+- Guaranteed notes: joint default copula, CS01 issuer+guarantor, rho01.
+- SPV: cashflow projection, tranche IRR, credit enhancement, break-even CDR.
+- Fund participation: LP economics, MOIC/DPI/TVPI/IRR, J-curve, secondary NAV.
+- Illiquid pricing: MatrixPricer, Amihud liquidity premium, PrivatePlacementPricer.
+- Unified structured credit desk: 9-component protocol.
+
+### Multi-department framework
+- Prudent valuation: 8 AVA categories (MPU, close-out, model risk, concentration, UCS, IFC, early termination, future admin cost).
+- New desk XVA: inflation CVA/FVA, ASW FVA/KVA, structured credit CVA.
+- Market risk enhanced: incremental VaR (Euler + historical), stressed VaR, copula ES.
+- Valuation report: unified output for trading/prudent/XVA/regulatory/risk.
+
+---
+
+## v0.494.0 — 2026-05-06
+
+**Asset swap desk + inflation desk consolidation.** ~57 tests.
+
+### Asset swap desk (9/9 protocol)
+- Par/proceeds ASW, CMASW, Z-spread bridge, carry/basis/hedge, lifecycle.
+
+### Inflation desk (9/9 protocol)
+- `CPICurve.bumped()`, ZC/YoY inflation swap wrappers.
+- `inflation_risk_metrics()`: multi-curve IE01/real DV01.
+- Carry decomposition, daily PnL, capital (SA-CCR + SIMM GIRR inflation).
+
+---
+
+## v0.493.0 — 2026-05-05
+
+**Notional schedule refactoring.** ~23 tests.
+
+- `.notional` = float (face amount), `.notional_schedule` = list[float] (per-period).
+- `normalize_notional()` in `notional.py` — shared across IRS, CDS, CLN, Bond.
+- `FixedLeg`/`FloatingLeg`/`IRS` accept `float | list[float]`.
+- `par_rate` uses `weighted_annuity`, `par_spread` uses weighted RPV01.
+- `AmortisingSwap` deprecated as wrapper.
+- `api_desk.py`: `notional_profile="amortising"/"accreting"` support.
+
+---
+
 ## v0.492.0 — 2026-05-05
 
 **Trader API (api_desk.py): ergonomic desk-level operations in one call.** 15 new tests.
