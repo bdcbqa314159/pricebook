@@ -72,6 +72,8 @@ def bond_risk_metrics(
     effective duration and per-pillar key-rate DV01.
     """
     settle = settlement or curve.reference_date
+    if settle >= bond.maturity:
+        raise ValueError(f"settlement ({settle}) must be before maturity ({bond.maturity})")
     dp = bond.dirty_price(curve)
     cp = bond.clean_price(curve, settle)
     ai = bond.accrued_interest(settle)
@@ -157,6 +159,9 @@ def bond_carry_roll(
 
     What the bond earns over `horizon_days` if the curve doesn't move.
     """
+    if horizon_days <= 0:
+        raise ValueError(f"horizon_days must be positive, got {horizon_days}")
+
     from pricebook.pnl_explain import compute_rolldown
 
     settle = settlement or curve.reference_date
@@ -558,3 +563,48 @@ class BondLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Daily P&L (wired from bond_daily_pnl.py)
+# ---------------------------------------------------------------------------
+
+def bond_daily_pnl(
+    book,
+    prior_prices: dict[str, float],
+    current_prices: dict[str, float],
+    prior_date: date,
+    current_date: date,
+    accrual_rates: dict[str, float] | None = None,
+    new_trades=None,
+    amendments: dict[str, float] | None = None,
+):
+    """Daily P&L for the bond book — delegates to bond_daily_pnl module.
+
+    Returns BondDailyPnL with mtm, accrual, new trade, amendment breakdown.
+    """
+    from pricebook.bond_daily_pnl import compute_bond_daily_pnl
+    return compute_bond_daily_pnl(
+        book, prior_prices, current_prices, prior_date, current_date,
+        accrual_rates, new_trades, amendments,
+    )
+
+
+def bond_pnl_attribution(
+    book,
+    prior_prices: dict[str, float],
+    current_prices: dict[str, float],
+    prior_date: date,
+    current_date: date,
+    curve_t0=None,
+    curve_t1=None,
+):
+    """P&L attribution for the bond book — delegates to bond_daily_pnl module.
+
+    Returns BondBookAttribution with carry, roll-down, curve, spread, unexplained.
+    """
+    from pricebook.bond_daily_pnl import attribute_bond_pnl
+    return attribute_bond_pnl(
+        book, prior_prices, current_prices, prior_date, current_date,
+        curve_t0, curve_t1,
+    )
