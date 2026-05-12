@@ -24,7 +24,6 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-import numpy as np
 from dateutil.relativedelta import relativedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -88,10 +87,16 @@ def market_implied_recovery(
     """
     spread = cds_spread
 
+    if spread <= 0:
+        # Zero or negative spread → no default risk, recovery is irrelevant
+        return MarketImpliedRecoveryResult(
+            recovery_cds=0.40, recovery_bond=None, recovery_combined=0.40,
+            spread_bps=spread * 1e4, hazard_bps=0.0, method="zero_spread")
+
     if initial_hazard_guess is not None:
         h = initial_hazard_guess
     else:
-        # Default: assume R=0.40 to get initial h, then iterate
+        # Default: assume R=0.40 to get initial h
         h = spread / 0.60  # h = s / (1-R) with R=0.40
 
     # CDS-implied recovery: R = 1 - s/h
@@ -580,8 +585,6 @@ def senior_sub_basis(
 
 
 def cs01_neutral_ratio(
-    senior_spread: float,
-    sub_spread: float,
     senior_recovery: float = 0.45,
     sub_recovery: float = 0.25,
 ) -> float:
@@ -589,10 +592,6 @@ def cs01_neutral_ratio(
 
     Approximation: ratio ≈ (1 - R_senior) / (1 - R_sub)
     because CS01 ∝ RPV01 ∝ 1/(1-R) for similar hazard rates.
-
-    Args:
-        senior_spread / sub_spread: par spreads.
-        senior_recovery / sub_recovery: recovery assumptions.
 
     Returns:
         sub_notional / senior_notional ratio for CS01 neutrality.

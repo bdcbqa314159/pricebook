@@ -199,7 +199,7 @@ class TestSeniorSubBasis:
         assert 0 < result.implied_senior_recovery < 1
 
     def test_cs01_ratio(self):
-        ratio = cs01_neutral_ratio(0.0080, 0.0200)
+        ratio = cs01_neutral_ratio(0.45, 0.25)
         # (1 - 0.45) / (1 - 0.25) = 0.55 / 0.75 ≈ 0.733
         assert ratio == pytest.approx(0.733, abs=0.01)
 

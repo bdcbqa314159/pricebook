@@ -329,8 +329,6 @@ def recovery_term_structure(
     # Method 'slope': calibrate tenor-dependent recovery
     # Use the approximation h ≈ s / (1-R) per tenor
     # and find R(T) that makes forward hazards smooth
-    from pricebook.solvers import brentq
-
     tenors_sorted = sorted(cds_spreads.keys())
     points = []
     prev_h = None
