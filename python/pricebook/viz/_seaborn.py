@@ -7,7 +7,8 @@ Higher-level plots using seaborn for statistical and multi-dimensional data:
         greeks_profile, sensitivity_grid, exposure_profile,
     )
 
-Falls back gracefully if seaborn is not installed.
+Heatmaps and distributions require seaborn. Greeks profile and exposure
+profile work with pure matplotlib.
 """
 
 from __future__ import annotations
@@ -91,6 +92,8 @@ def pnl_distribution(
     import matplotlib.pyplot as plt
 
     values = np.array(pnl_values)
+    if len(values) == 0:
+        raise ValueError("pnl_values must not be empty")
     theme = get_theme()
     var = float(np.quantile(values, var_quantile))
     cvar = float(values[values <= var].mean()) if (values <= var).any() else var
@@ -169,6 +172,8 @@ def greeks_profile(
     """
     import matplotlib.pyplot as plt
 
+    if not greeks_by_spot:
+        raise ValueError("greeks_by_spot must not be empty")
     n = len(greeks_by_spot)
     fig, axes = plt.subplots(1, n, figsize=figsize, sharex=True)
     if n == 1:
@@ -177,8 +182,9 @@ def greeks_profile(
     theme = get_theme()
     spots = np.array(spot_range)
 
+    keys = list(greeks_by_spot.keys())
     for ax, (name, values) in zip(axes, greeks_by_spot.items()):
-        color = theme.colors[list(greeks_by_spot.keys()).index(name) % len(theme.colors)]
+        color = theme.colors[keys.index(name) % len(theme.colors)]
         ax.plot(spots, values, color=color, linewidth=theme.line_width)
         ax.fill_between(spots, values, alpha=0.1, color=color)
         ax.set_title(name, fontsize=theme.title_size)
@@ -267,10 +273,10 @@ def exposure_profile(
         ax.fill_between(t, ene, 0, alpha=0.15, color=theme.colors[1])
 
     if pfe_95 is not None:
-        ax.plot(t, pfe_95, color=theme.colors[3], linewidth=1.0, linestyle='--', label="PFE 95%")
+        ax.plot(t, pfe_95, color=theme.colors[3 % len(theme.colors)], linewidth=1.0, linestyle='--', label="PFE 95%")
 
     if pfe_99 is not None:
-        ax.plot(t, pfe_99, color=theme.colors[4], linewidth=1.0, linestyle=':', label="PFE 99%")
+        ax.plot(t, pfe_99, color=theme.colors[4 % len(theme.colors)], linewidth=1.0, linestyle=':', label="PFE 99%")
 
     ax.axhline(0, color='gray', linewidth=0.5)
     ax.set_xlabel("Time (years)")
