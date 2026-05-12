@@ -2,6 +2,128 @@
 
 ---
 
+## v0.501.0 — 2026-05-11
+
+**Recovery surface, trades, and roundtrip notebook.** 42 new tests.
+
+### Recovery surface (`recovery_surface.py`)
+- `RecoverySurface` — 2D (seniority x tenor) interpolated surface from Moody's table.
+- `implied_recovery()` — extract R from senior vs subordinated CDS spread ratio.
+- `recovery_term_structure()` — flat or slope method for tenor-dependent R.
+- Immutable `_price_instrument()` — no more state mutation during bump-and-reprice.
+
+### Recovery trades (`recovery_trades.py`)
+- `market_implied_recovery()` — back out R from CDS spread (and optionally bond ASW).
+- `recovery_by_spread_regime()` — empirical R calibration by spread level (distressed names).
+- `downturn_lgd()` — Basel IRB downturn LGD with seniority dampening.
+- `portfolio_recovery_stress()` — joint R + spread shock across portfolio.
+- `recovery_swap_pv()` — PV of fixed vs floating recovery swap.
+- `recovery_lock_greeks()` — delta R, delta spread, gamma for recovery locks.
+- `senior_sub_basis()` — full trade analysis: basis, carry, CS01, implied R.
+- `cs01_neutral_ratio()` — notional ratio for CS01-neutral seniority trades.
+
+### Recovery roundtrip notebook (`notebooks/recovery_roundtrip.ipynb`)
+- 6 sections: bootstrap roundtrip, upfront equivalence, recovery surface plot, curve family, Greeks decomposition (direct vs indirect), PV surface + term structure.
+
+### Foundation hardening
+- Guards for `log(df<=0)` in `discount_curve.zero_rate()`.
+- Guards for `tau<=0` and `df2<=0` in `discount_curve.forward_rate()`.
+- FRA date validation in `bootstrap.py`.
+
+---
+
+## v0.500.0 — 2026-05-11
+
+**Database layer: PricebookDB.** 54 tests, 3 audit passes.
+
+### Core (`db.py`, `db_backend.py`)
+- `PricebookDB` — SQLite-backed persistence with abstract `StorageBackend` for future DuckDB/PostgreSQL.
+- 7 system tables: entities, ratings, trades, market_snapshots, pricing_results, pnl_history, kv_store.
+- Custom tables: any columns, inferred from first row, DataFrame-native via `load_table_df()`.
+- CSV round-trip: `export_csv()` / `import_csv()`.
+- Key-value store: `put()` / `get()` / `list_keys()` with namespaces.
+
+### Reference data
+- `save_entity()` — issuers, counterparties, guarantors with LEI, sector, country, custom attributes.
+- `save_rating()` — per-entity, per-agency time-series with outlook.
+- `latest_rating()` / `rating_history()`.
+
+### Trade metadata
+- `save_trade()` — instrument JSON + queryable columns (book, desk, direction, notional, currency, counterparty, trader, tags).
+- `list_trades()` — filter by any combination.
+
+### Security
+- SQL injection defense: `_safe_name()` validates all identifiers against `[a-zA-Z_][a-zA-Z0-9_]*`.
+- SQL type whitelist: only TEXT/REAL/INTEGER/BLOB/NUMERIC allowed in `create_table`.
+- System tables protected from drop/overwrite/append.
+
+---
+
+## v0.499.0 — 2026-05-11
+
+**TRS + CLN class split and desk hardening.** Pure pricing, zero state mutations.
+
+### TRS refactor
+- `TotalReturnSwap` class: 772 → 257 lines (class body only).
+- 7 pricing methods extracted to standalone functions: `price_equity_trs()`, `price_bond_trs()`, `price_loan_trs()`, `price_cln_trs()`, `price_commodity_trs()`, `price_fx_trs()`, `price_multi_period()`.
+- `greeks()` and `breakeven_spread()` no longer mutate `self` — use immutable copy helpers.
+- `to_dict`/`from_dict` moved from monkey-patch to proper class methods.
+- `TRSDirection` enum replaces string literals.
+- Validation: `notional > 0`, `end >= start`.
+
+### CLN refactor
+- `CreditLinkedNote` class: 708 → 445 lines.
+- 5 MC methods extracted to `cln_mc.py` (367 lines): `cln_stochastic_recovery()`, `cln_stochastic_intensity()`, `cln_bilateral_mc()`, `cln_rec_vol_01()`, `cln_stochastic_intensity_from_curve()`.
+- `greeks()` no longer mutates `self.recovery` — creates bumped copy.
+- Validation: `notional > 0`, `start < end`, BasketCLN `attachment < detachment`, `n_names >= 1`.
+
+### CDS desk
+- Carry decomposition: default risk changed from 30/365 to 30/360 (matching premium convention).
+- CLN daily carry: hardcoded `/365` replaced with day_count-aware calculation.
+
+---
+
+## v0.498.0 — 2026-05-07
+
+**MC engine migration — CLOSED.** 102 `_via_engine` functions, 105 migration tests, zero gaps.
+
+### Engine core (11 files, ~5,400 lines)
+- `MCEngine`, `TimeGrid`, `ProcessSpec`, `MCResult`.
+- 16 processes: GBM, BlackScholes, Heston, SABR, rBergomi, SLV, OU, CIR, HullWhite, JumpDiffusion, CorrelatedGBM, Bates, VarianceGamma, CEV, G2Plus, ForwardCurve.
+- 13 payoffs: European call/put, digital, Asian arithmetic/geometric, lookback, barrier KO/KI, American LSM, basket, worst-of, cliquet, autocall, swing.
+- Variance reduction: antithetic, control variate, moment matching, stratified, importance sampling.
+- Conditional MC (Romano-Touzi), Sobol quasi-random, MLMC.
+- XVA exposure engine (EPE/ENE/PFE/CVA/DVA/FVA).
+
+### Migration (5 waves, 102 functions across every file with RNG)
+- Wave 1: 18 core instrument files (Asian, barrier, autocallable, Heston, SABR, etc.)
+- Wave 2: 3 structured files (fx_structured, commodity_exotic, equity_rates_hybrid)
+- Wave 3: 21 rates/credit/commodity files (bermudan, LMM, HJM, commodity models, etc.)
+- Wave 4: 12 Euler-loop files (hazard rates, special processes, Bergomi, weather, etc.)
+- Wave 5: 6 non-Euler files (CDS swaption, CLN copula, MC Greeks, recovery, tail risk)
+
+### Audit
+- 7 `_via_engine` functions with lost cross-factor correlation fixed (delegate to originals for correlated SDEs).
+
+---
+
+## v0.497.0 — 2026-05-07
+
+**Repo desk hard refactor.** 21 audit passes, 10/10 design score.
+
+### Split
+- `repo_desk.py` (1,685 lines) → `RepoTrade` pure pricing (584 lines, 24 methods).
+- `repo_operations.py` (593 lines) — settlement fails, collateral, margin, netting, substitution.
+- `repo_analytics.py` (750 lines) — CTD, specialness, balance sheet, DV01 ladder, SOFR.
+
+### Cleanup
+- `RepoLifecycle` — mature/terminate/roll extracted from RepoTrade.
+- `RepoDirection` enum, single-source DV01, ACT/360 uniform.
+- Zero `date.today()` leaks, zero monkey-patching.
+- `RepoTradeEntry` → standalone factory function.
+
+---
+
 ## v0.492.0 — 2026-05-05
 
 **Trader API (api_desk.py): ergonomic desk-level operations in one call.** 15 new tests.
