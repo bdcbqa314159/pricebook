@@ -80,6 +80,8 @@ def bootstrap(
     # --- Middle: FRAs give df(end) from df(start) ---
     if fras:
         for start_date, end_date, fra_rate in fras:
+            if start_date >= end_date:
+                raise ValueError(f"FRA start {start_date} must be before end {end_date}")
             tau = year_fraction(start_date, end_date, deposit_day_count)
             # Interpolate df(start) from existing pillars
             # Use ACT_365_FIXED to match the final curve's internal time axis

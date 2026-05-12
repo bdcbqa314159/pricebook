@@ -170,7 +170,10 @@ class DiscountCurve:
                 if df1 > 0:
                     return -math.log(df1) / float(self._times[1])
             return 0.0
-        return -math.log(self.df(d)) / t
+        df_val = self.df(d)
+        if df_val <= 0:
+            return 0.0
+        return -math.log(df_val) / t
 
     def instantaneous_forward(self, t_or_date) -> float:
         """Instantaneous forward rate: f(t) = -d/dt ln P(t) via finite difference.
@@ -207,6 +210,8 @@ class DiscountCurve:
         df1 = self.df(d1)
         df2 = self.df(d2)
         tau = year_fraction(d1, d2, self.day_count)
+        if tau <= 0 or df2 <= 0:
+            return 0.0
         return (df1 - df2) / (tau * df2)
 
 from pricebook.serialisable import _register, _serialise_atom
