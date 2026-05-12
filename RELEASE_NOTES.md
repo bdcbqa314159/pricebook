@@ -2,6 +2,38 @@
 
 ---
 
+## v0.502.0 — 2026-05-11
+
+**New traded products: 17 products across 5 desks.** 53 new tests.
+
+### Equity exotics (`equity_exotic_extended.py`)
+- `forward_start_option()` — strike set at future date, building block for cliquets.
+- `chooser_option()` — choose call or put at T_choose (Rubinstein 1991).
+- `quanto_equity_option()` — equity payoff in different currency with quanto adjustment.
+- `himalaya_option()` — mountain range: remove best performer each period, lock return.
+- `outperformance_option()` — relative S1/S2 performance (Margrabe).
+- `equity_accumulator()` — KODA: daily purchase at discount with knockout barrier.
+
+### FX hedging (`fx_hedging.py`)
+- `window_barrier_option()` — barrier active only during [T_start, T_end].
+- `fader_option()` — payoff scaled by fraction of observations not breached.
+- `participating_forward()` — floor + upside participation, zero-cost solve.
+- `seagull()` — 3-strike collar: long put + short put + short call.
+
+### Structured notes (`structured_notes.py`)
+- `capital_protected_note()` — zero-coupon bond + call, max participation solve.
+- `dual_digital()` — pays if two conditions met simultaneously (MC).
+- `bonus_certificate()` — stock + down-and-in put at bonus level.
+
+### Credit index (`credit_index_options.py`)
+- `credit_index_option()` — Black-76 on CDX/iTraxx spread.
+- `index_option_greeks()` — delta, gamma, vega, theta on index spread.
+
+### Rates (`midcurve_swaption.py`)
+- `midcurve_swaption()` — option expiry before swap start, with gap and Greeks.
+
+---
+
 ## v0.501.0 — 2026-05-11
 
 **Recovery surface, trades, and roundtrip notebook.** 42 new tests.
