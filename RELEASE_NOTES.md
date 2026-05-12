@@ -2,6 +2,17 @@
 
 ---
 
+## v0.503.0 — 2026-05-11
+
+**Rates structured + outperformance certificate.** 12 new tests.
+
+- `cms_spread_range_accrual()` — accrues when CMS10-CMS2 in range (bet on steepness).
+- `callable_step_up_bond()` — issuer-callable with increasing coupons, MC pricing.
+- `inflation_range_accrual()` — accrues when YoY inflation in range.
+- `outperformance_certificate()` — leveraged upside (150%+), optional cap, full downside.
+
+---
+
 ## v0.502.0 — 2026-05-11
 
 **New traded products: 17 products across 5 desks.** 53 new tests.
