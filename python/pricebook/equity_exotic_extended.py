@@ -73,10 +73,7 @@ def forward_start_option(
         raise ValueError(f"T_end ({T_end}) must be after T_start ({T_start})")
 
     tau = T_end - T_start
-    df_start = math.exp(-rate * T_start)
-    df_end = math.exp(-rate * T_end)
     F = spot * math.exp((rate - dividend_yield) * tau)
-    K = moneyness * spot * math.exp((rate - dividend_yield) * T_start)
 
     # Under GBM: forward-start = e^{-q*T_start} x BS(S, moneyness*S, vol, tau)
     scale = math.exp(-dividend_yield * T_start)
@@ -245,6 +242,7 @@ def himalaya_option(
     T: float,
     n_periods: int | None = None,
     is_call: bool = True,
+    notional: float = 1.0,
     n_paths: int = 20_000,
     seed: int | None = 42,
 ) -> HimalayaResult:
@@ -304,9 +302,9 @@ def himalaya_option(
     else:
         payoff = np.maximum(-avg_return, 0.0)
 
-    discounted = df * payoff
-    price = float(discounted.mean()) * spots_arr.mean()  # scale to notional-like
-    stderr = float(discounted.std(ddof=1) / math.sqrt(n_paths)) * spots_arr.mean()
+    discounted = df * payoff * notional
+    price = float(discounted.mean())
+    stderr = float(discounted.std(ddof=1) / math.sqrt(n_paths))
 
     return HimalayaResult(price=price, std_error=stderr, n_paths=n_paths, n_assets=n)
 
