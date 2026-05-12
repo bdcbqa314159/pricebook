@@ -225,4 +225,4 @@ def oas(
             )
         return model_price - market_price
 
-    return brentq(objective, -0.05, 0.20)
+    return brentq(objective, -0.10, 0.50)
