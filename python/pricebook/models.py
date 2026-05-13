@@ -212,12 +212,6 @@ class HullWhiteModel:
         fwd = swaption.forward_swap_rate(curve, projection_curve)
         ann = swaption.annuity(curve)
 
-        # HW bond vol: B(0, T) = (1 - e^{-aT}) / a
-        if a > 1e-10:
-            B_T = (1 - math.exp(-a * expiry_years)) / a
-        else:
-            B_T = expiry_years
-
         # Integrated HW vol: sqrt((1 - e^{-2aT}) / (2a))
         if a > 1e-10:
             integrated = math.sqrt((1 - math.exp(-2 * a * expiry_years)) / (2 * a))

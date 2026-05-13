@@ -136,6 +136,55 @@ class CapFloor:
         return results
 
 
+    def price(
+        self,
+        model,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ) -> float:
+        """Price using a pluggable model (Black76Model, BachelierModel, SABRModel, etc.).
+
+        Each caplet/floorlet is priced individually via model.price_ir_option().
+        The model receives (forward, strike, annuity_caplet, T_fix, option_type)
+        where annuity_caplet = yf * df(T_pay).
+
+        Args:
+            model: any object implementing ``price_ir_option(forward, strike, annuity, T, option_type)``.
+            curve: discount curve.
+            projection_curve: forward projection curve (None = single-curve).
+        """
+        if not hasattr(model, "price_ir_option"):
+            raise TypeError(
+                f"{type(model).__name__} does not implement price_ir_option() "
+                f"— cannot price a cap/floor with this model"
+            )
+
+        proj = projection_curve if projection_curve is not None else curve
+        total = 0.0
+        for accrual_start, accrual_end in self.periods:
+            yf = year_fraction(accrual_start, accrual_end, self.day_count)
+            df1 = proj.df(accrual_start)
+            df2 = proj.df(accrual_end)
+            fwd = (df1 - df2) / (yf * df2)
+
+            t_fix = year_fraction(curve.reference_date, accrual_start,
+                                  DayCountConvention.ACT_365_FIXED)
+            if t_fix <= 0:
+                if self.option_type == OptionType.CALL:
+                    payoff = max(fwd - self.strike, 0.0)
+                else:
+                    payoff = max(self.strike - fwd, 0.0)
+                total += self.notional * yf * curve.df(accrual_end) * payoff
+                continue
+
+            # Caplet annuity = yf * df(payment_date)
+            caplet_annuity = yf * curve.df(accrual_end)
+            total += self.notional * model.price_ir_option(
+                fwd, self.strike, caplet_annuity, t_fix, self.option_type)
+
+        return total
+
+
 def strip_caplet_vols(
     cap_flat_vols: list[tuple[date, float]],
     strike: float,
