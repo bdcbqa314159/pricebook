@@ -657,6 +657,9 @@ def roll_schedule(
 ) -> list[RollRecommendation]:
     """Generate roll recommendations for positions approaching expiry.
 
+    Roll cost is set to 0.0 (requires front/back month prices for actual cost).
+    Default next expiry assumes quarterly contracts (+91 days).
+
     Args:
         book: futures position book.
         as_of: current date.
@@ -712,7 +715,7 @@ def futures_cash_basis_rv(
     futures_rate: float,
     cash_rate: float,
     historical_mean: float = 0.0,
-    historical_std: float = 0.0001,
+    historical_std: float = 0.005,
     label_futures: str = "futures",
     label_cash: str = "cash",
 ) -> CrossMarketRV:

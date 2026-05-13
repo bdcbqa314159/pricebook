@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
 
@@ -26,7 +27,7 @@ class FuturesType(Enum):
 
 
 class IRFuture:
-    """SOFR interest rate future.
+    """Interest rate future (SOFR, Euribor).
 
     Quoted as 100 - rate. Settlement based on compounded daily SOFR
     over the reference period.
@@ -197,8 +198,6 @@ def futures_strip_rates(
 # Pack / Bundle / Butterfly
 # ---------------------------------------------------------------------------
 
-from dataclasses import dataclass
-
 
 @dataclass
 class PackResult:
@@ -351,5 +350,5 @@ def fed_funds_implied_probability(
         the market prices more than one move or a different-sized move.
     """
     if abs(move_size) < 1e-10:
-        return 0.0
+        raise ValueError("move_size cannot be zero")
     return (futures_rate - current_rate) / move_size
