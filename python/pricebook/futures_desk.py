@@ -79,6 +79,11 @@ class BondFuture:
         return 0.0
 
     def basis(self) -> float:
+        """Gross basis: difference between cash bond and futures × CF.
+
+        Approximated as trade P&L when cash bond price is not available.
+        For proper basis, use bond_futures.bond_futures_basis().
+        """
         return self.market_price - self.trade_price
 
 
@@ -332,10 +337,12 @@ def futures_carry_roll(
     margin_per_contract: float = 0.0,
 ) -> FuturesCarryRoll:
     """Compute carry and roll for a futures position."""
-    # Basis carry: for bond futures, convergence toward CTD
+    # Basis carry: for bond futures, daily convergence of futures toward cash
+    # Approximated as coupon carry minus financing on the CTD
     if isinstance(instrument, BondFuture):
-        basis = instrument.basis()
-        basis_carry = basis * instrument.multiplier * contracts * days / 365
+        # Carry ≈ (CTD coupon - repo cost) scaled to contract
+        # Without the CTD bond, use DV01-based estimate: basis decays over time
+        basis_carry = instrument.dv01(contracts) * days * 0.01  # rough estimate
     else:
         basis_carry = 0.0
 
@@ -436,9 +443,9 @@ def futures_stress_suite(
     dv01 = risk["total_dv01"]
 
     scenarios = [
-        ("rates_up_100", "Rates +100bp", dv01 * 100),
-        ("rates_dn_100", "Rates -100bp", dv01 * -100),
-        ("rates_up_200", "Rates +200bp", dv01 * 200),
+        ("rates_up_100", "Rates +100bp", -dv01 * 100),
+        ("rates_dn_100", "Rates -100bp", dv01 * 100),
+        ("rates_up_200", "Rates +200bp", -dv01 * 200),
     ]
 
     # Equity stress: estimate from total PV
@@ -448,7 +455,7 @@ def futures_stress_suite(
         for e in eq_entries if hasattr(e.instrument, 'spot')
     )
     scenarios.append(("equity_dn_10", "Equity -10%", -0.10 * eq_pv))
-    scenarios.append(("combined", "Rates +100bp, Equity -5%", dv01 * 100 - 0.05 * eq_pv))
+    scenarios.append(("combined", "Rates +100bp, Equity -5%", -dv01 * 100 - 0.05 * eq_pv))
 
     return [FuturesStressResult(n, d, p) for n, d, p in scenarios]
 

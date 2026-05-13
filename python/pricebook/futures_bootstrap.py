@@ -38,7 +38,7 @@ def futures_strip(
         swaps: list of (maturity, par_rate) for vanilla IRS.
         hw_a: Hull-White mean reversion for convexity adjustment.
         hw_sigma: Hull-White volatility for convexity adjustment.
-        turn_of_year: additional spread (bp) for year-end funding premium.
+        turn_of_year: additional spread (decimal, e.g. 0.001 = 10bp) for year-end funding premium.
         deposit_day_count: day count for deposits.
         swap_day_count: day count for swaps.
         interpolation: interpolation method for the curve.

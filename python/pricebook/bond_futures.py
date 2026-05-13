@@ -94,10 +94,11 @@ def cheapest_to_deliver(
     deliverables: list[DeliverableBond],
     futures_price: float,
 ) -> CTDResult:
-    """Find the cheapest-to-deliver bond.
+    """Find the cheapest-to-deliver bond by minimum gross basis.
 
-    CTD minimises: bond_price - CF × futures_price (gross basis).
-    Equivalently, CTD has the highest implied repo rate.
+    This is a quick approximation using gross basis only (ignores carry).
+    For proper CTD identification accounting for carry, use
+    ``delivery_basket()`` which ranks by highest implied repo rate.
 
     Args:
         deliverables: list of deliverable bonds with prices and CFs.
@@ -116,7 +117,7 @@ def cheapest_to_deliver(
             "cf": d.conversion_factor,
         })
 
-    # CTD = minimum gross basis
+    # CTD = minimum gross basis (approximation — ignores carry)
     ctd_idx = min(range(len(bases)), key=lambda i: bases[i]["gross_basis"])
     ctd = deliverables[ctd_idx]
     gross = bases[ctd_idx]["gross_basis"]
@@ -125,8 +126,8 @@ def cheapest_to_deliver(
         ctd_index=ctd_idx,
         ctd_bond=ctd,
         gross_basis=gross,
-        net_basis=gross,  # simplified: net basis assumes no carry adjustment
-        implied_repo=float("nan"),  # use implied_repo_rate() to compute explicitly
+        net_basis=gross,  # simplified: use delivery_basket() for carry-adjusted net basis
+        implied_repo=float("nan"),  # use delivery_basket() for implied repo ranking
         all_bases=bases,
     )
 
@@ -144,7 +145,7 @@ def implied_repo_rate(
 ) -> float:
     """Implied repo rate from bond futures delivery.
 
-    repo = (futures_invoice - purchase_cost + coupon_income) / purchase_cost × (365/days).
+    repo = (futures_invoice - purchase_cost + coupon_income) / purchase_cost × (360/days).
 
     Args:
         bond_price: clean purchase price.

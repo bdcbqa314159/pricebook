@@ -34,8 +34,12 @@ class CommodityCalendarSpread:
 
     def pv(self, curve: dict[date, float]) -> float:
         """PV = direction × qty × (near_fwd − far_fwd)."""
-        near = curve.get(self.near_delivery, 0.0)
-        far = curve.get(self.far_delivery, 0.0)
+        if self.near_delivery not in curve:
+            raise KeyError(f"near delivery date {self.near_delivery} not in curve")
+        if self.far_delivery not in curve:
+            raise KeyError(f"far delivery date {self.far_delivery} not in curve")
+        near = curve[self.near_delivery]
+        far = curve[self.far_delivery]
         return self.direction * self.quantity * (near - far)
 
     def parallel_exposure(self) -> float:
@@ -64,8 +68,12 @@ class CommoditySteepener:
 
     def pv(self, curve: dict[date, float]) -> float:
         """PV = direction × qty × (far_fwd − near_fwd)."""
-        near = curve.get(self.near_delivery, 0.0)
-        far = curve.get(self.far_delivery, 0.0)
+        if self.near_delivery not in curve:
+            raise KeyError(f"near delivery date {self.near_delivery} not in curve")
+        if self.far_delivery not in curve:
+            raise KeyError(f"far delivery date {self.far_delivery} not in curve")
+        near = curve[self.near_delivery]
+        far = curve[self.far_delivery]
         return self.direction * self.quantity * (far - near)
 
     def parallel_exposure(self) -> float:
@@ -94,9 +102,13 @@ class CommodityButterfly:
 
     def pv(self, curve: dict[date, float]) -> float:
         """PV = direction × qty × (2 × mid − near − far)."""
-        near = curve.get(self.near_delivery, 0.0)
-        mid = curve.get(self.mid_delivery, 0.0)
-        far = curve.get(self.far_delivery, 0.0)
+        for d, label in [(self.near_delivery, "near"), (self.mid_delivery, "mid"),
+                         (self.far_delivery, "far")]:
+            if d not in curve:
+                raise KeyError(f"{label} delivery date {d} not in curve")
+        near = curve[self.near_delivery]
+        mid = curve[self.mid_delivery]
+        far = curve[self.far_delivery]
         return self.direction * self.quantity * (2.0 * mid - near - far)
 
     def parallel_exposure(self) -> float:

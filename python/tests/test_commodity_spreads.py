@@ -167,7 +167,8 @@ class TestGenericSpread:
             name="custom",
             legs=[SpreadLeg("A", 1.0), SpreadLeg("B", -1.0)],
         )
-        assert gs.spread_value({"A": 50.0}) == pytest.approx(50.0)
+        with pytest.raises(KeyError, match="B"):
+            gs.spread_value({"A": 50.0})
 
     def test_residual_exposure(self):
         gs = GenericSpread(

@@ -46,10 +46,10 @@ class GenericSpread:
 
     def spread_value(self, prices: dict[str, float]) -> float:
         """Spread level: Σ weight_i × price_i."""
-        return sum(
-            leg.weight * prices.get(leg.commodity, 0.0)
-            for leg in self.legs
-        )
+        for leg in self.legs:
+            if leg.commodity not in prices:
+                raise KeyError(f"commodity {leg.commodity!r} not in prices")
+        return sum(leg.weight * prices[leg.commodity] for leg in self.legs)
 
     def pv(self, prices: dict[str, float]) -> float:
         """PV = direction × quantity × spread_value."""
