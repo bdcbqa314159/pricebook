@@ -255,9 +255,16 @@ class Swaption:
         if valuation_date is None:
             valuation_date = curve.reference_date
 
-        # Duck-type: tree models get the full swaption
+        # Duck-type: HW-style models get the full swaption + all context
         if hasattr(model, "price_swaption"):
-            return self.notional * model.price_swaption(self, curve)
+            return self.notional * model.price_swaption(
+                self, curve, projection_curve, valuation_date)
+
+        if not hasattr(model, "price_ir_option"):
+            raise TypeError(
+                f"{type(model).__name__} does not implement price_ir_option() "
+                f"or price_swaption() — cannot price a swaption with this model"
+            )
 
         fwd = self.forward_swap_rate(curve, projection_curve)
         ann = self.annuity(curve)

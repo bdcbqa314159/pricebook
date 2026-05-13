@@ -21,6 +21,7 @@ Two protocols:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -77,14 +78,8 @@ class SABRParams:
     nu: float       # vol-of-vol
 
 
-@dataclass(frozen=True)
-class HestonParams:
-    """Heston stochastic vol parameters."""
-    v0: float       # initial variance
-    kappa: float    # mean reversion speed
-    theta: float    # long-run variance
-    xi: float       # vol of vol
-    rho: float      # correlation (spot vs vol)
+# Reuse HestonParams from slv.py to avoid duplication
+from pricebook.slv import HestonParams
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -161,87 +156,84 @@ class SABRModel:
                                        df=1.0, option_type=option_type)
 
     @classmethod
-    def from_context(cls, ctx, expiry, tenor=None):
-        """Calibrate SABR from context's vol surface at a given expiry."""
-        from pricebook.sabr import sabr_calibrate
-        vs = ctx.get_vol_surface("ir")
-        # Extract smile at this expiry
-        strikes = [vs.vol(expiry, None)]  # fallback: ATM only
-        # For full calibration, would need strike grid from surface
-        # Simplified: use ATM vol as alpha proxy with default beta/rho/nu
-        atm_vol = vs.vol(expiry, None)
-        return cls(SABRParams(alpha=atm_vol, beta=0.5, rho=-0.2, nu=0.3))
+    def from_atm(cls, atm_vol: float, beta: float = 0.5,
+                 rho: float = -0.2, nu: float = 0.3) -> SABRModel:
+        """Quick SABR from ATM vol with default smile params.
+
+        This is an approximation, not a calibration. For proper calibration,
+        construct SABRParams via sabr_calibrate() from sabr.py.
+        """
+        return cls(SABRParams(alpha=atm_vol, beta=beta, rho=rho, nu=nu))
 
     def __repr__(self):
         p = self.params
         return f"SABRModel(alpha={p.alpha:.4f}, beta={p.beta}, rho={p.rho}, nu={p.nu})"
 
 
-class HullWhiteTreeModel:
-    """Hull-White tree model for swaptions.
+class HullWhiteModel:
+    """Hull-White analytical swaption model.
 
-    Uses backward induction on a trinomial rate tree.
-    This model implements `price_swaption(swaption, curve)` instead of
-    the generic `price_ir_option()` because HW needs the full curve
-    structure, not just (forward, strike, annuity, T).
+    Uses the Rebonato approximation to compute an HW-implied Black vol,
+    then prices with Black-76. This is an analytical approximation —
+    for exact tree-based pricing, use the callable_bond module directly.
+
+    The HW-implied vol for a swaption expiring at T into a swap with
+    payment dates {T_1, ..., T_n} is:
+
+        sigma_sw^2 = (1/T) * [sum_i w_i * B(0, T_i)]^2 * integral
+
+    where B(s, t) = (1 - e^{-a(t-s)}) / a is the HW bond sensitivity.
+
+    Simplified here as: sigma_sw ≈ sigma * B(0, T) / T * sum(w_i * B(0, T_i))
 
     Args:
         hw: HullWhite model instance (with a, sigma, curve).
-        n_steps: number of tree steps.
     """
 
-    def __init__(self, hw, n_steps: int = 100):
+    def __init__(self, hw):
         self.hw = hw
-        self.n_steps = n_steps
 
-    def price_swaption(self, swaption, curve):
-        """Price a swaption via HW tree.
+    def price_swaption(self, swaption, curve, projection_curve=None,
+                       valuation_date=None):
+        """Price a swaption via HW analytical approximation."""
+        if valuation_date is None:
+            valuation_date = curve.reference_date
 
-        Builds a tree, prices the underlying swap at expiry on each node,
-        then backward-inducts with the option exercise decision.
-        """
-        from pricebook.hull_white import HullWhite
-        import math
-
-        hw = self.hw
-        expiry_years = (swaption.expiry - curve.reference_date).days / 365.25
-        swap_end_years = (swaption.swap_end - curve.reference_date).days / 365.25
+        expiry_years = (swaption.expiry - valuation_date).days / 365.25
 
         if expiry_years <= 0:
-            # Expired: intrinsic
-            fwd = swaption.forward_swap_rate(curve)
+            fwd = swaption.forward_swap_rate(curve, projection_curve)
             ann = swaption.annuity(curve)
             if swaption.swaption_type.value == "payer":
                 return ann * max(fwd - swaption.strike, 0.0)
             return ann * max(swaption.strike - fwd, 0.0)
 
-        # Use HW analytical swaption approximation (Jamshidian decomposition)
-        # Simplified: use the model's own _forward_rate and discount
-        # For a proper implementation, decompose into ZCB options
-        # Here we use the tree-based approach from callable_bond
-        from pricebook.callable_bond import _trinomial_backward
-        import numpy as np
-
-        # Price swap-like cashflows on HW tree
-        dt = expiry_years / self.n_steps
-        a, sigma = hw.a, hw.sigma
-
-        # Forward swap rate and annuity for Black-76 fallback with HW vol
-        fwd = swaption.forward_swap_rate(curve)
+        a, sigma = self.hw.a, self.hw.sigma
+        fwd = swaption.forward_swap_rate(curve, projection_curve)
         ann = swaption.annuity(curve)
-        swap_tenor = swap_end_years - expiry_years
 
-        # HW-implied swaption vol (Rebonato approximation)
-        hw_vol = sigma * (1 - math.exp(-a * expiry_years)) / (a * expiry_years) if a > 1e-10 else sigma
-        hw_vol *= math.sqrt(swap_tenor)
+        # HW bond vol: B(0, T) = (1 - e^{-aT}) / a
+        if a > 1e-10:
+            B_T = (1 - math.exp(-a * expiry_years)) / a
+        else:
+            B_T = expiry_years
 
-        from pricebook.black76 import black76_price, OptionType
+        # Integrated HW vol: sqrt((1 - e^{-2aT}) / (2a))
+        if a > 1e-10:
+            integrated = math.sqrt((1 - math.exp(-2 * a * expiry_years)) / (2 * a))
+        else:
+            integrated = math.sqrt(expiry_years)
+
+        # Approximate swaption vol (Rebonato-style)
+        hw_vol = sigma * integrated / math.sqrt(expiry_years) if expiry_years > 0 else sigma
+
+        from pricebook.black76 import black76_price
         opt_type = OptionType.CALL if swaption.swaption_type.value == "payer" else OptionType.PUT
         return ann * black76_price(fwd, swaption.strike, hw_vol, expiry_years,
                                    df=1.0, option_type=opt_type)
 
     def __repr__(self):
-        return f"HullWhiteTreeModel(a={self.hw.a}, sigma={self.hw.sigma})"
+        return f"HullWhiteModel(a={self.hw.a}, sigma={self.hw.sigma})"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -310,12 +302,11 @@ class MCEquityModel:
 
     def price_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
         from pricebook.mc_engine import MCEngine, TimeGrid
-        import math
         import numpy as np
 
         grid = TimeGrid.uniform(T, self.n_steps)
         engine = MCEngine(self.process, grid, self.n_paths, seed=self.seed)
-        paths = engine.simulate()
+        paths = engine.generate_paths()
         S_T = paths[:, -1]
         df = math.exp(-rate * T)
 
