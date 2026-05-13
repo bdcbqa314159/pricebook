@@ -230,5 +230,51 @@ class Swaption:
             vega=vega,
         )
 
+    def price(
+        self,
+        model,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+        valuation_date: date | None = None,
+    ) -> float:
+        """Price using a pluggable model (Black76Model, BachelierModel, SABRModel, etc.).
+
+        The model handles the option-pricing step. The swaption computes its own
+        forward swap rate, annuity, and time to expiry.
+
+        For tree-based models (HullWhiteTreeModel), the model receives the full
+        swaption object via duck-typed ``price_swaption()``.
+
+        Args:
+            model: any object implementing ``price_ir_option(forward, strike, annuity, T, option_type)``
+                   or ``price_swaption(swaption, curve)`` for tree models.
+            curve: discount curve.
+            projection_curve: forward projection curve (None = single-curve).
+            valuation_date: date for computing time to expiry.
+        """
+        if valuation_date is None:
+            valuation_date = curve.reference_date
+
+        # Duck-type: tree models get the full swaption
+        if hasattr(model, "price_swaption"):
+            return self.notional * model.price_swaption(self, curve)
+
+        fwd = self.forward_swap_rate(curve, projection_curve)
+        ann = self.annuity(curve)
+
+        if self.expiry <= valuation_date:
+            if self.swaption_type == SwaptionType.PAYER:
+                return self.notional * ann * max(fwd - self.strike, 0.0)
+            return self.notional * ann * max(self.strike - fwd, 0.0)
+
+        T = year_fraction(valuation_date, self.expiry, DayCountConvention.ACT_365_FIXED)
+        option_type = (
+            OptionType.CALL if self.swaption_type == SwaptionType.PAYER
+            else OptionType.PUT
+        )
+
+        return self.notional * model.price_ir_option(fwd, self.strike, ann, T, option_type)
+
+
 from pricebook.serialisable import serialisable as _serialisable
 _serialisable("swaption", ["expiry", "swap_end", "strike", "swaption_type", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count"])(Swaption)
