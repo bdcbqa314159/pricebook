@@ -82,9 +82,8 @@ def swaption_risk_metrics(
     fwd = swaption.forward_swap_rate(curve, proj)
     ann = swaption.annuity(curve)
 
-    # Greeks from instrument (still uses vol_surface for analytical greeks)
-    vol_surf = _FlatVol(vol) if isinstance(vol, (int, float)) else vol
-    g = swaption.greeks(curve, vol_surf, proj)
+    # Greeks from instrument via model
+    g = swaption.greeks(model, curve, proj)
 
     # Swap tenor label
     T_swap = year_fraction(swaption.expiry, swaption.swap_end, DayCountConvention.ACT_365_FIXED)
@@ -322,8 +321,8 @@ def swaption_capital(
 
     # SIMM: vega into GIRR bucket
     from pricebook.simm import SIMMCalculator, SIMMSensitivity
-    vol_surf = _FlatVol(vol) if isinstance(vol, (int, float)) else vol
-    g = swaption.greeks(curve, vol_surf, projection)
+    from pricebook.models import Black76Model as _B76
+    g = swaption.greeks(_B76(vol=vol_val), curve, projection)
     simm_inputs = [
         SIMMSensitivity(risk_class="GIRR", bucket="USD", tenor="5Y", delta=0, vega=g.vega),
     ]

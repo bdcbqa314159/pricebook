@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pricebook.black76 import OptionType, black76_price, black76_delta, black76_gamma, black76_vega
+from pricebook.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.greeks import Greeks
 from pricebook.discount_curve import DiscountCurve
@@ -143,36 +143,56 @@ class Swaption:
 
     def greeks(
         self,
+        model,
         curve: DiscountCurve,
-        vol_surface,
         projection_curve: DiscountCurve | None = None,
         valuation_date: date | None = None,
     ) -> Greeks:
-        """Swaption Greeks via Black-76 analytical formulas."""
+        """Swaption Greeks using a pluggable model.
+
+        If model implements ``greeks_ir_option()``, uses analytical greeks.
+        Otherwise falls back to bump-and-reprice.
+
+        Args:
+            model: any IROptionModel (Black76Model, BachelierModel, SABRModel, etc.).
+            curve: discount curve.
+            projection_curve: forward projection curve (None = single-curve).
+            valuation_date: date for computing time to expiry.
+        """
         if valuation_date is None:
             valuation_date = curve.reference_date
 
         fwd = self.forward_swap_rate(curve, projection_curve)
         ann = self.annuity(curve)
-        T = year_fraction(valuation_date, self.expiry, DayCountConvention.ACT_365_FIXED)
-        vol = vol_surface.vol(self.expiry, self.strike)
 
+        if self.expiry <= valuation_date:
+            intrinsic = self.price(model, curve, projection_curve, valuation_date)
+            return Greeks(price=intrinsic)
+
+        T = year_fraction(valuation_date, self.expiry, DayCountConvention.ACT_365_FIXED)
         option_type = (
             OptionType.CALL if self.swaption_type == SwaptionType.PAYER
             else OptionType.PUT
         )
 
-        price = self.notional * ann * black76_price(fwd, self.strike, vol, T, 1.0, option_type)
-        delta = self.notional * ann * black76_delta(fwd, self.strike, vol, T, 1.0, option_type)
-        gamma = self.notional * ann * black76_gamma(fwd, self.strike, vol, T, 1.0)
-        vega = self.notional * ann * black76_vega(fwd, self.strike, vol, T, 1.0)
+        if hasattr(model, "greeks_ir_option"):
+            raw = model.greeks_ir_option(fwd, self.strike, ann, T, option_type)
+            return Greeks(
+                price=self.notional * raw.price,
+                delta=self.notional * raw.delta,
+                gamma=self.notional * raw.gamma,
+                vega=self.notional * raw.vega,
+                theta=self.notional * raw.theta,
+            )
 
-        return Greeks(
-            price=price,
-            delta=delta,
-            gamma=gamma,
-            vega=vega,
-        )
+        # Fallback: bump-and-reprice
+        base = self.price(model, curve, projection_curve, valuation_date)
+        bump = 0.0001
+        up = self.price(model, curve.bumped(bump), projection_curve, valuation_date)
+        dn = self.price(model, curve.bumped(-bump), projection_curve, valuation_date)
+        delta = (up - dn) / (2 * bump)
+        gamma = (up - 2 * base + dn) / (bump ** 2)
+        return Greeks(price=base, delta=delta, gamma=gamma)
 
     def price(
         self,

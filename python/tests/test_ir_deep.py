@@ -64,22 +64,24 @@ class TestSwaptionDeep:
 
     def test_greeks_delta_sign(self):
         """Payer delta > 0, receiver delta < 0."""
+        from pricebook.models import Black76Model
         curve = make_flat_curve(REF, 0.04)
-        vol = FlatVol(0.20)
+        m = Black76Model(vol=0.20)
         payer = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
                          0.04, SwaptionType.PAYER)
         recvr = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
                          0.04, SwaptionType.RECEIVER)
-        assert payer.greeks(curve, vol).delta > 0
-        assert recvr.greeks(curve, vol).delta < 0
+        assert payer.greeks(m, curve).delta > 0
+        assert recvr.greeks(m, curve).delta < 0
 
     def test_greeks_vega_positive(self):
         """Vega is always positive for both payer and receiver."""
+        from pricebook.models import Black76Model
         curve = make_flat_curve(REF, 0.04)
-        vol = FlatVol(0.20)
+        m = Black76Model(vol=0.20)
         payer = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
                          0.04, SwaptionType.PAYER)
-        assert payer.greeks(curve, vol).vega > 0
+        assert payer.greeks(m, curve).vega > 0
 
 
 # ---- Cap/Floor ----

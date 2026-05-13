@@ -315,10 +315,11 @@ def swaption(
     swap_end = _parse_tenor(exp, swap_tenor)
     st = SwaptionType.PAYER if swaption_type.lower() == "payer" else SwaptionType.RECEIVER
     swpn = Swaption(exp, swap_end, strike, swaption_type=st, notional=notional)
-    if return_greeks:
-        return swpn.greeks(curve, FlatVol(vol), projection_curve)
     from pricebook.models import Black76Model
-    return swpn.price(Black76Model(vol=vol), curve, projection_curve)
+    model = Black76Model(vol=vol)
+    if return_greeks:
+        return swpn.greeks(model, curve, projection_curve)
+    return swpn.price(model, curve, projection_curve)
 
 
 # ============================================================================

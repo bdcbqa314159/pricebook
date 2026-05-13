@@ -18,12 +18,10 @@ class TestIRGreeksConsistency:
         from pricebook.swaption import Swaption, SwaptionType
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
-        vol = FlatVol(0.30)
-        swpn = Swaption(date(2027, 4, 21), date(2032, 4, 21), 0.04)
-        g = swpn.greeks(curve, vol)
-        # Bump forward by 1bp and reprice
         from pricebook.models import Black76Model
         model = Black76Model(vol=0.30)
+        swpn = Swaption(date(2027, 4, 21), date(2032, 4, 21), 0.04)
+        g = swpn.greeks(model, curve)
         bumped = curve.bumped(0.0001)
         pv_up = swpn.price(model, bumped)
         pv_base = swpn.price(model, curve)
