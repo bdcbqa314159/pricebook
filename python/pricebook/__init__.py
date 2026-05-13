@@ -27,6 +27,18 @@ from pricebook.barrier_option import BarrierOption
 from pricebook.asian_option import AsianOption
 from pricebook.cliquet import Cliquet
 from pricebook.tarf import TARF
+from pricebook.convertible_bond import (
+    ConvertibleBond, ConvertibleResult,
+    convertible_delta_hedge, convertible_soft_call,
+    contingent_convertible, exchangeable_bond, mandatory_convertible,
+)
+from pricebook.convertible_bond_desk import (
+    cb_risk_metrics, CBRiskMetrics,
+    CBBook, CBBookEntry,
+    cb_carry_decomposition, cb_daily_pnl, cb_dashboard,
+    cb_stress_suite, cb_capital, cb_hedge_recommendations,
+    CBLifecycle,
+)
 
 # ── Vol ──
 from pricebook.vol_surface import FlatVol
