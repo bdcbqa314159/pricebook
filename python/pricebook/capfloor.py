@@ -61,45 +61,6 @@ class CapFloor:
         for i in range(1, len(schedule)):
             self.periods.append((schedule[i - 1], schedule[i]))
 
-    def pv(
-        self,
-        curve: DiscountCurve,
-        vol_surface,
-        projection_curve: DiscountCurve | None = None,
-    ) -> float:
-        """Convenience: price via Black-76 using a vol surface.
-
-        Equivalent to ``self.price(Black76Model(vol), curve)`` with per-caplet vol
-        extracted from the surface. For other models, use ``.price(model, curve)``.
-        """
-        from pricebook.models import Black76Model
-        # Per-caplet vol extraction — use the first caplet's vol as proxy
-        # (for flat vol surface this is exact; for smile surfaces it's approximate)
-        # More precise: price each caplet with its own vol
-        proj = projection_curve if projection_curve is not None else curve
-        total = 0.0
-        for accrual_start, accrual_end in self.periods:
-            yf = year_fraction(accrual_start, accrual_end, self.day_count)
-            df1 = proj.df(accrual_start)
-            df2 = proj.df(accrual_end)
-            fwd = (df1 - df2) / (yf * df2)
-            t_fix = year_fraction(curve.reference_date, accrual_start,
-                                  DayCountConvention.ACT_365_FIXED)
-            if t_fix <= 0:
-                if self.option_type == OptionType.CALL:
-                    payoff = max(fwd - self.strike, 0.0)
-                else:
-                    payoff = max(self.strike - fwd, 0.0)
-                total += self.notional * yf * curve.df(accrual_end) * payoff
-                continue
-
-            vol = vol_surface.vol(accrual_start, self.strike)
-            caplet_annuity = yf * curve.df(accrual_end)
-            model = Black76Model(vol=vol)
-            total += self.notional * model.price_ir_option(
-                fwd, self.strike, caplet_annuity, t_fix, self.option_type)
-        return total
-
     def caplet_pvs(
         self,
         curve: DiscountCurve,
@@ -201,7 +162,7 @@ def strip_caplet_vols(
 
     Returns list of (fixing_date, caplet_vol).
     """
-    from pricebook.vol_surface import FlatVol
+    from pricebook.models import Black76Model
 
     sorted_quotes = sorted(cap_flat_vols, key=lambda x: x[0])
     caplet_vols: list[tuple[date, float]] = []
@@ -210,7 +171,7 @@ def strip_caplet_vols(
 
     for mat, flat_vol in sorted_quotes:
         cap = CapFloor(start, mat, strike, OptionType.CALL, 1.0, frequency, day_count)
-        total_pv = cap.pv(curve, FlatVol(flat_vol))
+        total_pv = cap.price(Black76Model(vol=flat_vol), curve)
         marginal_pv = total_pv - prev_pv
 
         if cap.periods and len(cap.periods) > len(prev_periods):

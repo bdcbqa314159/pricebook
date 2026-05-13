@@ -23,6 +23,7 @@ from pricebook.sabr import sabr_implied_vol, sabr_calibrate
 from pricebook.schedule import Frequency
 from pricebook.vol_arb import detect_calendar_arb
 from pricebook.vol_surface import FlatVol
+from pricebook.models import Black76Model
 
 
 # ---- Helpers ----
@@ -96,7 +97,7 @@ class TestXI7R2CapCaplet:
         curve = _curve(REF)
         cap = CapFloor(REF, REF + timedelta(days=1825), strike=0.035,
                        option_type=OptionType.CALL)
-        pv = cap.pv(curve, FlatVol(0.20))
+        pv = cap.price(Black76Model(vol=0.20), curve)
         assert pv > 0
 
     def test_floor_positive_price(self):
@@ -104,7 +105,7 @@ class TestXI7R2CapCaplet:
         curve = _curve(REF)
         floor = CapFloor(REF, REF + timedelta(days=1825), strike=0.035,
                          option_type=OptionType.PUT)
-        pv = floor.pv(curve, FlatVol(0.20))
+        pv = floor.price(Black76Model(vol=0.20), curve)
         assert pv > 0
 
     def test_cap_floor_parity(self):
@@ -118,8 +119,8 @@ class TestXI7R2CapCaplet:
         cap = CapFloor(start, end, strike=K, option_type=OptionType.CALL)
         floor = CapFloor(start, end, strike=K, option_type=OptionType.PUT)
 
-        cap_pv = cap.pv(curve, vol)
-        floor_pv = floor.pv(curve, vol)
+        cap_pv = cap.price(Black76Model(vol=0.20), curve)
+        floor_pv = floor.price(Black76Model(vol=0.20), curve)
 
         # Cap - Floor ≈ PV of floating - PV of fixed at strike K
         # Should be finite and well-defined
@@ -130,8 +131,8 @@ class TestXI7R2CapCaplet:
         """Higher vol → higher cap price."""
         curve = _curve(REF)
         cap = CapFloor(REF, REF + timedelta(days=1825), strike=0.035)
-        pv_low = cap.pv(curve, FlatVol(0.10))
-        pv_high = cap.pv(curve, FlatVol(0.30))
+        pv_low = cap.price(Black76Model(vol=0.10), curve)
+        pv_high = cap.price(Black76Model(vol=0.30), curve)
         assert pv_high > pv_low
 
     def test_caplet_strip_round_trip(self):
@@ -161,7 +162,7 @@ class TestXI7R2CapCaplet:
         cap = CapFloor(REF, REF + timedelta(days=1825), strike=0.035)
         vol = FlatVol(0.20)
 
-        total_pv = cap.pv(curve, vol)
+        total_pv = cap.price(Black76Model(vol=0.20), curve)
         caplet_details = cap.caplet_pvs(curve, vol)
         sum_caplet_pvs = sum(c["pv"] for c in caplet_details)
 

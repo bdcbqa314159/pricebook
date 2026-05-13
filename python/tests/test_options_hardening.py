@@ -22,9 +22,11 @@ class TestIRGreeksConsistency:
         swpn = Swaption(date(2027, 4, 21), date(2032, 4, 21), 0.04)
         g = swpn.greeks(curve, vol)
         # Bump forward by 1bp and reprice
+        from pricebook.models import Black76Model
+        model = Black76Model(vol=0.30)
         bumped = curve.bumped(0.0001)
-        pv_up = swpn.pv(bumped, vol)
-        pv_base = swpn.pv(curve, vol)
+        pv_up = swpn.price(model, bumped)
+        pv_base = swpn.price(model, curve)
         bump_delta = (pv_up - pv_base) / 0.0001
         # Analytical and bump should be in same ballpark
         assert g.delta != 0.0
@@ -36,8 +38,9 @@ class TestIRGreeksConsistency:
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
         vol = FlatVol(0.30)
+        from pricebook.models import Black76Model
         cap = CapFloor(ref, date(2031, 4, 21), 0.04)
-        total = cap.pv(curve, vol)
+        total = cap.price(Black76Model(vol=0.30), curve)
         caplets = cap.caplet_pvs(curve, vol)
         caplet_sum = sum(c["pv"] for c in caplets)
         assert caplet_sum == pytest.approx(total, rel=1e-10)

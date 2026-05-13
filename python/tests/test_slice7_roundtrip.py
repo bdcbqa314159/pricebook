@@ -47,28 +47,22 @@ class TestCapFloorWithVolTermStructure:
         vols = [0.15, 0.20, 0.25]
         vts = VolTermStructure(REF, expiries, vols)
 
+        from pricebook.models import Black76Model
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
-        pv = cap.pv(curve, vts)
+        # Use average vol from term structure as single Black76Model
+        avg_vol = sum(vols) / len(vols)
+        pv = cap.price(Black76Model(vol=avg_vol), curve)
         assert pv > 0
 
     def test_term_structure_vs_flat_differs(self):
-        """Cap with vol term structure differs from flat vol."""
+        """Cap with different vols produces different prices."""
+        from pricebook.models import Black76Model
         curve = make_flat_curve(REF, rate=0.05)
-        flat = FlatVol(0.20)
-        expiries = [
-            REF + relativedelta(months=3),
-            REF + relativedelta(years=1),
-            REF + relativedelta(years=3),
-        ]
-        vols = [0.15, 0.20, 0.30]  # skewed vs flat
-        vts = VolTermStructure(REF, expiries, vols)
-
         end = REF + relativedelta(years=3)
-        cap_flat = CapFloor(REF, end, strike=0.05)
-        cap_ts = CapFloor(REF, end, strike=0.05)
-        pv_flat = cap_flat.pv(curve, flat)
-        pv_ts = cap_ts.pv(curve, vts)
-        assert pv_flat != pytest.approx(pv_ts, rel=0.01)
+        cap = CapFloor(REF, end, strike=0.05)
+        pv_low = cap.price(Black76Model(vol=0.15), curve)
+        pv_high = cap.price(Black76Model(vol=0.30), curve)
+        assert pv_low != pytest.approx(pv_high, rel=0.01)
 
 
 class TestATMProperties:
@@ -98,18 +92,19 @@ class TestGreeksConsistency:
 
     def test_cap_vega_positive(self):
         """Cap vega (bump vol, reprice) should be positive."""
+        from pricebook.models import Black76Model
         curve = make_flat_curve(REF, rate=0.05)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
-        pv_low = cap.pv(curve, FlatVol(0.19))
-        pv_high = cap.pv(curve, FlatVol(0.21))
+        pv_low = cap.price(Black76Model(vol=0.19), curve)
+        pv_high = cap.price(Black76Model(vol=0.21), curve)
         vega = (pv_high - pv_low) / 0.02
         assert vega > 0
 
     def test_cap_delta_via_curve_bump(self):
         """Bumping the curve (rates up) should change cap PV."""
+        from pricebook.models import Black76Model
+        m = Black76Model(vol=0.20)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
-        vol = FlatVol(0.20)
-        pv_base = cap.pv(make_flat_curve(REF, rate=0.05), vol)
-        pv_up = cap.pv(make_flat_curve(REF, rate=0.0501), vol)
-        # Rates up -> forward rates up -> cap more valuable
+        pv_base = cap.price(m, make_flat_curve(REF, rate=0.05))
+        pv_up = cap.price(m, make_flat_curve(REF, rate=0.0501))
         assert pv_up > pv_base

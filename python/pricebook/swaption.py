@@ -115,22 +115,6 @@ class Swaption:
         """Annuity of the underlying swap's fixed leg."""
         return self.underlying.fixed_leg.annuity(curve)
 
-    def pv(
-        self,
-        curve: DiscountCurve,
-        vol_surface,
-        projection_curve: DiscountCurve | None = None,
-        valuation_date: date | None = None,
-    ) -> float:
-        """Convenience: price via Black-76 using a vol surface.
-
-        Equivalent to ``self.price(Black76Model(vol_surface.vol(...)), curve)``.
-        For other models (Bachelier, SABR, HW), use ``.price(model, curve)`` directly.
-        """
-        from pricebook.models import Black76Model
-        vol = vol_surface.vol(self.expiry, self.strike)
-        return self.price(Black76Model(vol=vol), curve, projection_curve, valuation_date)
-
     def pv_ctx(
         self,
         ctx: PricingContext,

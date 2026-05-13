@@ -6,7 +6,6 @@ from dateutil.relativedelta import relativedelta
 import pytest
 
 from pricebook.bootstrap import bootstrap
-from pricebook.vol_surface import FlatVol
 from pricebook.black76 import OptionType
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.capfloor import CapFloor
@@ -80,19 +79,15 @@ class TestProtocols:
 # ═══════════════════════════════════════════════════════════════
 
 class TestSwaptionBlack76:
-    def test_payer_matches_old(self):
+    def test_payer_positive(self):
         curve = _curve()
         sw = _swaption(SwaptionType.PAYER)
-        old = sw.pv(curve, FlatVol(0.20))
-        new = sw.price(Black76Model(vol=0.20), curve)
-        assert abs(old - new) < 0.01
+        assert sw.price(Black76Model(vol=0.20), curve) > 0
 
-    def test_receiver_matches_old(self):
+    def test_receiver_positive(self):
         curve = _curve()
         sw = _swaption(SwaptionType.RECEIVER)
-        old = sw.pv(curve, FlatVol(0.20))
-        new = sw.price(Black76Model(vol=0.20), curve)
-        assert abs(old - new) < 0.01
+        assert sw.price(Black76Model(vol=0.20), curve) > 0
 
     def test_higher_vol_higher_price(self):
         curve = _curve()
@@ -190,19 +185,15 @@ class TestSwaptionGuards:
 # ═══════════════════════════════════════════════════════════════
 
 class TestCapFloorBlack76:
-    def test_cap_matches_old(self):
+    def test_cap_positive(self):
         curve = _curve()
         cap = _capfloor(OptionType.CALL)
-        old = cap.pv(curve, FlatVol(0.20))
-        new = cap.price(Black76Model(vol=0.20), curve)
-        assert abs(old - new) < 0.01
+        assert cap.price(Black76Model(vol=0.20), curve) > 0
 
-    def test_floor_matches_old(self):
+    def test_floor_positive(self):
         curve = _curve()
         floor = _capfloor(OptionType.PUT)
-        old = floor.pv(curve, FlatVol(0.20))
-        new = floor.price(Black76Model(vol=0.20), curve)
-        assert abs(old - new) < 0.01
+        assert floor.price(Black76Model(vol=0.20), curve) > 0
 
     def test_higher_vol_higher_price(self):
         curve = _curve()

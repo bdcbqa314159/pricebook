@@ -41,7 +41,9 @@ class TestSwaptionDeep:
                          strike, SwaptionType.PAYER)
         recvr = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
                          strike, SwaptionType.RECEIVER)
-        diff = payer.pv(curve, vol) - recvr.pv(curve, vol)
+        from pricebook.models import Black76Model
+        m = Black76Model(vol=0.25)
+        diff = payer.price(m, curve) - recvr.price(m, curve)
         fwd = payer.forward_swap_rate(curve)
         ann = payer.annuity(curve)
         expected = payer.notional * ann * (fwd - strike)
@@ -56,7 +58,8 @@ class TestSwaptionDeep:
         fwd = swn.forward_swap_rate(curve)
         ann = swn.annuity(curve)
         intrinsic = swn.notional * ann * max(fwd - 0.03, 0)
-        pv = swn.pv(curve, vol)
+        from pricebook.models import Black76Model
+        pv = swn.price(Black76Model(vol=1e-6), curve)
         assert pv == pytest.approx(intrinsic, rel=0.01)
 
     def test_greeks_delta_sign(self):
@@ -100,8 +103,10 @@ class TestCapFloorDeep:
         floor = CapFloor(REF, end, strike=avg_fwd, option_type=OptionType.PUT,
                          frequency=Frequency.QUARTERLY, day_count=DayCountConvention.ACT_360)
 
-        cap_pv = cap.pv(curve, vol)
-        floor_pv = floor.pv(curve, vol)
+        from pricebook.models import Black76Model
+        m = Black76Model(vol=0.20)
+        cap_pv = cap.price(m, curve)
+        floor_pv = floor.price(m, curve)
 
         # On a flat curve, ATM cap ≈ ATM floor (within a few bps of notional)
         assert abs(cap_pv - floor_pv) / 1_000_000 < 0.01
@@ -111,9 +116,11 @@ class TestCapFloorDeep:
         discount = make_flat_curve(REF, 0.03)
         projection = make_flat_curve(REF, 0.06)
         vol = FlatVol(0.20)
+        from pricebook.models import Black76Model
+        m = Black76Model(vol=0.20)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
-        pv_single = cap.pv(discount, vol)
-        pv_dual = cap.pv(discount, vol, projection_curve=projection)
+        pv_single = cap.price(m, discount)
+        pv_dual = cap.price(m, discount, projection_curve=projection)
         assert pv_dual > pv_single  # higher forwards → higher cap value
 
 

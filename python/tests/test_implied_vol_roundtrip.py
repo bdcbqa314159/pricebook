@@ -107,11 +107,14 @@ class TestSmileSurfaceWithPricing:
             swap_end=date(2030, 1, 15),
             strike=0.03,
         )
-        pv = swn.pv(curve, surface)
+        from pricebook.models import Black76Model
+        vol = surface.vol(swn.expiry, swn.strike)
+        pv = swn.price(Black76Model(vol=vol), curve)
         assert pv > 0
 
     def test_capfloor_with_smile_surface(self):
         """Cap prices with a strike-dependent vol surface."""
+        from pricebook.models import Black76Model
         curve = make_flat_curve(REF, 0.03)
         smile = VolSmile([0.01, 0.03, 0.05], [0.22, 0.20, 0.22])
         surface = VolSurfaceStrike(REF, [date(2025, 1, 15)], [smile])
@@ -123,7 +126,8 @@ class TestSmileSurfaceWithPricing:
             option_type=OptionType.CALL,
             frequency=Frequency.QUARTERLY,
         )
-        pv = cap.pv(curve, surface)
+        vol = surface.vol(date(2025, 1, 15), 0.03)
+        pv = cap.price(Black76Model(vol=vol), curve)
         assert pv > 0
 
     def test_otm_swaption_smile_vs_flat(self):
@@ -135,12 +139,13 @@ class TestSmileSurfaceWithPricing:
         smile = VolSmile([0.01, 0.03, 0.05, 0.07], [0.28, 0.20, 0.20, 0.28])
         surface = VolSurfaceStrike(REF, [date(2025, 1, 15)], [smile])
 
+        from pricebook.models import Black76Model
         swn = Swaption(
             expiry=date(2025, 1, 15),
             swap_end=date(2030, 1, 15),
             strike=0.06,  # OTM
         )
-        pv_flat = swn.pv(curve, flat)
-        pv_smile = swn.pv(curve, surface)
+        pv_flat = swn.price(Black76Model(vol=flat.vol(swn.expiry, swn.strike)), curve)
+        pv_smile = swn.price(Black76Model(vol=surface.vol(swn.expiry, swn.strike)), curve)
         # Smile has higher vol at OTM strikes → higher price
         assert pv_smile > pv_flat

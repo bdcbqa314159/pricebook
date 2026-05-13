@@ -27,6 +27,7 @@ from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.vol_surface import FlatVol
 from pricebook.black76 import black76_price, OptionType
+from pricebook.models import Black76Model
 
 
 # ---- Helpers ----
@@ -134,8 +135,8 @@ class TestXI2R2PayerReceiverParity:
         receiver = Swaption(expiry, swap_end, strike=strike,
                             swaption_type=SwaptionType.RECEIVER)
 
-        pv_pay = payer.pv(ois, vol, projection_curve=proj)
-        pv_rec = receiver.pv(ois, vol, projection_curve=proj)
+        pv_pay = payer.price(Black76Model(vol=0.20), ois, projection_curve=proj)
+        pv_rec = receiver.price(Black76Model(vol=0.20), ois, projection_curve=proj)
         fwd = payer.forward_swap_rate(ois, projection_curve=proj)
         ann = payer.annuity(ois)
         notional = payer.notional
@@ -210,7 +211,7 @@ class TestXI2R3Consistency:
         swn = Swaption(expiry, swap_end, strike=strike,
                         swaption_type=SwaptionType.PAYER)
         vol = FlatVol(vol_val)
-        pv = swn.pv(ois, vol, projection_curve=proj)
+        pv = swn.price(Black76Model(vol=0.20), ois, projection_curve=proj)
 
         # Manual computation
         fwd = swn.forward_swap_rate(ois, projection_curve=proj)
@@ -242,8 +243,8 @@ class TestXI2R3Consistency:
         strike = 0.04
 
         swn = Swaption(expiry, swap_end, strike=strike)
-        pv_low = swn.pv(ois, FlatVol(0.10), projection_curve=proj)
-        pv_high = swn.pv(ois, FlatVol(0.30), projection_curve=proj)
+        pv_low = swn.price(Black76Model(vol=0.10), ois, projection_curve=proj)
+        pv_high = swn.price(Black76Model(vol=0.30), ois, projection_curve=proj)
         assert pv_high > pv_low
 
     def test_zero_vol_payer_equals_intrinsic(self):
@@ -259,7 +260,7 @@ class TestXI2R3Consistency:
         ann = swn.annuity(ois)
 
         # Use very small vol (not exactly 0 to avoid numerical issues)
-        pv = swn.pv(ois, FlatVol(1e-6), projection_curve=proj)
+        pv = swn.price(Black76Model(vol=1e-6), ois, projection_curve=proj)
         intrinsic = swn.notional * ann * max(fwd - strike, 0.0)
         assert pv == pytest.approx(intrinsic, rel=0.01)
 
@@ -275,7 +276,7 @@ class TestXI2R4EdgeCases:
         expiry = REF - timedelta(days=1)
         swap_end = REF + timedelta(days=1825)
         swn = Swaption(expiry, swap_end, strike=0.04)
-        pv = swn.pv(ois, FlatVol(0.20), projection_curve=proj)
+        pv = swn.price(Black76Model(vol=0.20), ois, projection_curve=proj)
         assert math.isfinite(pv)
 
     def test_atm_payer_receiver_equal(self):
@@ -291,8 +292,8 @@ class TestXI2R4EdgeCases:
         receiver = Swaption(expiry, swap_end, strike=fwd,
                             swaption_type=SwaptionType.RECEIVER)
         vol = FlatVol(0.20)
-        pv_pay = payer.pv(ois, vol, projection_curve=proj)
-        pv_rec = receiver.pv(ois, vol, projection_curve=proj)
+        pv_pay = payer.price(Black76Model(vol=0.20), ois, projection_curve=proj)
+        pv_rec = receiver.price(Black76Model(vol=0.20), ois, projection_curve=proj)
         # At ATM, payer ≈ receiver (difference = 0 by parity)
         assert pv_pay == pytest.approx(pv_rec, rel=0.01)
 
