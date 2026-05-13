@@ -1,10 +1,13 @@
-"""Extended equity exotics: forward-start, chooser, quanto, Himalaya, outperformance, accumulator.
+"""Extended equity exotics and dividend derivatives.
 
-Products commonly traded on equity desks but not yet in the core exotic module.
+Products commonly traded on equity desks:
+    forward-start, chooser, quanto, Himalaya, outperformance, accumulator,
+    dividend futures, dividend swaps, dividend options.
 
     from pricebook.equity_exotic_extended import (
         forward_start_option, chooser_option, quanto_equity_option,
         himalaya_option, outperformance_option, equity_accumulator,
+        dividend_future, dividend_swap, dividend_option,
     )
 
 References:
@@ -12,6 +15,7 @@ References:
     Zhang (1998). Exotic Options, Ch. 15-18.
     Bouzoubaa & Osseiran (2010). Exotic Options and Hybrids, Ch. 7-9.
     Wystup (2006). FX Options and Structured Products, Ch. 3.
+    Bos et al. (2003). Valuation of Dividend Derivatives.
 """
 
 from __future__ import annotations
@@ -466,4 +470,158 @@ def equity_accumulator(
         price=price, knockout_probability=ko_prob,
         expected_accumulation=expected_acc,
         strike=strike, barrier=barrier,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dividend future
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DividendFutureResult:
+    """Dividend future pricing result."""
+    price: float
+    implied_dividend: float
+    forward_price: float
+    present_value: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def dividend_future(
+    spot: float,
+    rate: float,
+    dividend_yield: float,
+    T: float,
+    notional: float = 1.0,
+) -> DividendFutureResult:
+    """Dividend future: forward contract on expected dividends over [0, T].
+
+    The fair price is the PV of expected dividends:
+        D = S × (1 - e^{-q×T})
+
+    where q is the continuous dividend yield.
+
+    Args:
+        spot: current stock/index price.
+        dividend_yield: continuous dividend yield (e.g. 0.02 for 2%).
+        T: time to maturity in years.
+    """
+    expected_div = spot * (1 - math.exp(-dividend_yield * T))
+    df = math.exp(-rate * T)
+    fwd = expected_div  # no-arbitrage: futures ≈ expected dividends
+    pv = df * expected_div * notional
+
+    return DividendFutureResult(
+        price=float(fwd * notional),
+        implied_dividend=float(expected_div),
+        forward_price=float(fwd),
+        present_value=float(pv),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dividend swap
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DividendSwapResult:
+    """Dividend swap pricing result."""
+    pv: float
+    fixed_rate: float
+    implied_dividend: float
+    notional: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def dividend_swap(
+    spot: float,
+    rate: float,
+    dividend_yield: float,
+    fixed_dividend: float,
+    T: float,
+    notional: float = 1_000_000,
+    n_periods: int | None = None,
+) -> DividendSwapResult:
+    """Dividend swap: float realised dividends vs fixed.
+
+    Receiver pays fixed_dividend per period,
+    receives implied_dividend per period.
+
+    PV = Σ df(t_i) × notional × (implied_div_i - fixed_div_i).
+
+    Args:
+        fixed_dividend: fixed annual dividend (in index points, e.g. 85).
+        dividend_yield: implied continuous dividend yield.
+    """
+    if n_periods is None:
+        n_periods = max(int(T), 1)
+    dt = T / n_periods
+
+    implied_annual = spot * dividend_yield
+
+    pv = 0.0
+    for i in range(n_periods):
+        t = (i + 1) * dt
+        df = math.exp(-rate * t)
+        pv += df * notional * (implied_annual - fixed_dividend) * dt
+
+    return DividendSwapResult(
+        pv=float(pv),
+        fixed_rate=fixed_dividend,
+        implied_dividend=float(implied_annual),
+        notional=notional,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dividend option
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DividendOptionResult:
+    """Dividend option pricing result."""
+    price: float
+    implied_dividend: float
+    strike: float
+    is_call: bool
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def dividend_option(
+    spot: float,
+    strike: float,
+    rate: float,
+    dividend_yield: float,
+    div_vol: float,
+    T: float,
+    is_call: bool = True,
+    notional: float = 1_000_000,
+) -> DividendOptionResult:
+    """Option on realised dividends via Black-76.
+
+    Underlying = expected cumulative dividend over [0, T].
+    Strike = fixed dividend level.
+
+    Args:
+        strike: dividend strike (in same units as spot, e.g. index points).
+        div_vol: volatility of the dividend index.
+    """
+    from pricebook.black76 import black76_price as _b76, OptionType
+
+    implied_div = spot * (1 - math.exp(-dividend_yield * T))
+    df = math.exp(-rate * T)
+    opt_type = OptionType.CALL if is_call else OptionType.PUT
+    unit_price = _b76(implied_div, strike, div_vol, T, df, opt_type)
+
+    return DividendOptionResult(
+        price=float(unit_price * notional),
+        implied_dividend=float(implied_div),
+        strike=strike,
+        is_call=is_call,
     )

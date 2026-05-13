@@ -1,8 +1,11 @@
-"""Rates structured products: CMS spread range accrual, callable step-up bonds.
+"""Rates structured products.
 
 * :func:`cms_spread_range_accrual` — accrues when CMS10-CMS2 in range.
 * :func:`callable_step_up_bond` — issuer-callable bond with increasing coupon.
 * :func:`inflation_range_accrual` — accrues when inflation in range.
+* :func:`zc_swaption` — option on a zero-coupon swap rate.
+* :func:`inverse_floater` — fixed minus floating (leveraged rate bet).
+* :func:`capped_floater` — FRN with coupon cap.
 
 References:
     Brigo & Mercurio (2006). Interest Rate Models, Ch. 13 (CMS).
@@ -250,3 +253,192 @@ def inflation_range_accrual(
     return InflationRangeAccrualResult(
         price, float(accrual_fraction.mean()), coupon_rate,
         inflation_range_low, inflation_range_high)
+
+
+# ---------------------------------------------------------------------------
+# 4. Zero-coupon swaption
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ZCSwaptionResult:
+    """Zero-coupon swaption pricing result."""
+    price: float
+    forward_zc_rate: float
+    vol: float
+    delta: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def zc_swaption(
+    forward_zc_rate: float,
+    strike: float,
+    vol: float,
+    T_option: float,
+    T_swap: float,
+    notional: float = 1_000_000,
+    rate: float = 0.04,
+    is_payer: bool = True,
+) -> ZCSwaptionResult:
+    """Option on a zero-coupon swap rate via Black-76.
+
+    A ZC swaption pays (ZC_rate(T_option, T_swap) - K) at T_swap,
+    discounted. The zero-coupon rate is the single-period rate
+    from T_option to T_swap.
+
+    Args:
+        forward_zc_rate: forward zero-coupon rate from T_option to T_swap.
+        strike: strike rate.
+        vol: Black vol of the ZC rate.
+        T_option: option expiry (years).
+        T_swap: swap maturity (years).
+        is_payer: True for payer (right to pay fixed), False for receiver.
+    """
+    from pricebook.black76 import black76_price, OptionType
+
+    df = math.exp(-rate * T_swap)
+    tau = T_swap - T_option
+    opt_type = OptionType.CALL if is_payer else OptionType.PUT
+    unit_price = black76_price(forward_zc_rate, strike, vol, T_option, df, opt_type)
+    price = float(unit_price * notional * tau)
+
+    # Delta via bump
+    bump = forward_zc_rate * 0.01
+    up = black76_price(forward_zc_rate + bump, strike, vol, T_option, df, opt_type)
+    delta = float((up - unit_price) / bump * notional * tau)
+
+    return ZCSwaptionResult(price, forward_zc_rate, vol, delta)
+
+
+# ---------------------------------------------------------------------------
+# 5. Inverse floater
+# ---------------------------------------------------------------------------
+
+@dataclass
+class InverseFloaterResult:
+    """Inverse floater pricing result."""
+    price: float
+    fixed_rate: float
+    leverage: float
+    expected_coupon: float
+    floor: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def inverse_floater(
+    notional: float,
+    fixed_rate: float,
+    leverage: float,
+    rate: float,
+    vol: float,
+    T: float,
+    n_periods: int = 10,
+    floor: float = 0.0,
+    n_paths: int = 10_000,
+    seed: int | None = 42,
+) -> InverseFloaterResult:
+    """Inverse floater: coupon = max(fixed - leverage × floating, floor).
+
+    Long duration bet: benefits from falling rates.
+
+    Coupon at each period: max(fixed_rate - leverage × r(t), floor).
+
+    Args:
+        fixed_rate: fixed component (e.g. 0.08 for 8%).
+        leverage: multiplier on floating rate (e.g. 1.0 or 2.0).
+        floor: minimum coupon (typically 0).
+    """
+    from pricebook.mc_migrate import ou_paths
+
+    r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths, seed or 42)
+    dt = T / n_periods
+
+    pv = np.zeros(n_paths)
+    total_coupon = np.zeros(n_paths)
+
+    for i in range(n_periods):
+        t = (i + 1) * dt
+        r_t = r_paths[:, i + 1]
+        coupon = np.maximum(fixed_rate - leverage * r_t, floor)
+        total_coupon += coupon
+        df_t = np.exp(-r_t * t)
+        pv += notional * coupon * dt * df_t
+
+    # Principal at maturity
+    pv += notional * np.exp(-r_paths[:, -1] * T)
+
+    price = float(pv.mean())
+    avg_coupon = float(total_coupon.mean() / n_periods)
+
+    return InverseFloaterResult(price, fixed_rate, leverage, avg_coupon, floor)
+
+
+# ---------------------------------------------------------------------------
+# 6. Capped floater
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CappedFloaterResult:
+    """Capped floater pricing result."""
+    price: float
+    cap_rate: float
+    spread: float
+    expected_coupon: float
+    cap_cost: float         # price difference vs uncapped FRN
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def capped_floater(
+    notional: float,
+    spread: float,
+    cap_rate: float,
+    rate: float,
+    vol: float,
+    T: float,
+    n_periods: int = 10,
+    n_paths: int = 10_000,
+    seed: int | None = 42,
+) -> CappedFloaterResult:
+    """FRN with coupon cap: coupon = min(floating + spread, cap).
+
+    Issuer is long a cap (benefits when rates rise above cap_rate).
+    Holder gives up upside above cap in exchange for higher initial spread.
+
+    Args:
+        spread: fixed spread over floating (e.g. 0.005 = 50bp).
+        cap_rate: maximum coupon rate.
+    """
+    from pricebook.mc_migrate import ou_paths
+
+    r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths, seed or 42)
+    dt = T / n_periods
+
+    pv_capped = np.zeros(n_paths)
+    pv_uncapped = np.zeros(n_paths)
+    total_coupon = np.zeros(n_paths)
+
+    for i in range(n_periods):
+        t = (i + 1) * dt
+        r_t = r_paths[:, i + 1]
+        floating_coupon = r_t + spread
+        capped_coupon = np.minimum(floating_coupon, cap_rate)
+        total_coupon += capped_coupon
+        df_t = np.exp(-r_t * t)
+        pv_capped += notional * capped_coupon * dt * df_t
+        pv_uncapped += notional * floating_coupon * dt * df_t
+
+    # Principal
+    pv_capped += notional * np.exp(-r_paths[:, -1] * T)
+    pv_uncapped += notional * np.exp(-r_paths[:, -1] * T)
+
+    price = float(pv_capped.mean())
+    uncapped_price = float(pv_uncapped.mean())
+    avg_coupon = float(total_coupon.mean() / n_periods)
+    cap_cost = uncapped_price - price
+
+    return CappedFloaterResult(price, cap_rate, spread, avg_coupon, float(cap_cost))

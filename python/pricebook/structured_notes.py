@@ -1,10 +1,11 @@
-"""Structured notes: capital-protected, dual digital, bonus certificate.
+"""Structured notes: capital-protected, dual digital, bonus certificate, participation note.
 
 Common wealth management / private banking products:
 
 * :func:`capital_protected_note` — zero-coupon bond + call option.
 * :func:`dual_digital` — pays if TWO conditions met simultaneously.
 * :func:`bonus_certificate` — down-and-in put + cap.
+* :func:`participation_note` — capital protection + equity participation.
 
 References:
     Bouzoubaa & Osseiran (2010). Exotic Options and Hybrids, Ch. 9-11.
@@ -196,3 +197,89 @@ def outperformance_certificate(
     expected_ret = (F / spot - 1) * participation
 
     return OutperformanceCertResult(float(price), participation, cap, float(expected_ret))
+
+
+# ---------------------------------------------------------------------------
+# Participation note
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ParticipationNoteResult:
+    """Participation note pricing result."""
+    price: float
+    bond_floor: float           # PV of zero-coupon bond (capital protection)
+    option_value: float         # PV of the equity participation
+    participation_rate: float   # effective participation after cost
+    protection_level: float     # fraction of principal protected (0 to 1)
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def participation_note(
+    notional: float,
+    spot: float,
+    rate: float,
+    vol: float,
+    T: float,
+    protection: float = 1.0,
+    participation: float | None = None,
+    cap: float | None = None,
+    dividend_yield: float = 0.0,
+) -> ParticipationNoteResult:
+    """Capital-protected participation note.
+
+    Structure: zero-coupon bond (for capital protection) + call option
+    (for equity upside). The participation rate is determined by how
+    much option budget remains after funding the bond floor.
+
+    If participation is None, solve for max participation at zero cost.
+    If cap is given, sell a call at cap to fund higher participation.
+
+    Args:
+        protection: fraction of principal protected (e.g. 1.0 = 100%, 0.9 = 90%).
+        participation: if None, solve for zero-cost participation rate.
+        cap: optional upside cap as fraction above spot (e.g. 0.5 = 50% cap).
+    """
+    from pricebook.black76 import black76_price as _b76, OptionType
+
+    # Bond floor: PV of protected principal
+    df = math.exp(-rate * T)
+    bond_floor = protection * notional * df
+
+    # Option budget: notional - bond_floor
+    option_budget = notional - bond_floor
+    if option_budget <= 0:
+        return ParticipationNoteResult(
+            float(bond_floor), float(bond_floor), 0.0, 0.0, protection)
+
+    # ATM call price
+    F = spot * math.exp((rate - dividend_yield) * T)
+    atm_call = _b76(F, spot, vol, T, df, OptionType.CALL) * notional / spot
+
+    if cap is not None:
+        cap_strike = spot * (1 + cap)
+        cap_value = _b76(F, cap_strike, vol, T, df, OptionType.CALL) * notional / spot
+    else:
+        cap_value = 0.0
+
+    # Net call cost per unit participation
+    call_cost_per_unit = atm_call - cap_value
+
+    if participation is None:
+        # Solve: participation × call_cost = option_budget
+        if call_cost_per_unit > 1e-10:
+            participation = option_budget / call_cost_per_unit
+        else:
+            participation = 0.0
+
+    option_value = participation * call_cost_per_unit
+    price = bond_floor + option_value
+
+    return ParticipationNoteResult(
+        price=float(price),
+        bond_floor=float(bond_floor),
+        option_value=float(option_value),
+        participation_rate=float(participation),
+        protection_level=protection,
+    )

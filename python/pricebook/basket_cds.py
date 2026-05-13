@@ -1,5 +1,5 @@
 """
-Basket CDS and exotic CLN via Gaussian copula.
+Basket CDS, exotic CLN, and bespoke tranches via Gaussian copula.
 
 Gaussian copula: correlated default times from a one-factor model.
     Each name: Z_i = sqrt(rho)*M + sqrt(1-rho)*epsilon_i
@@ -7,15 +7,18 @@ Gaussian copula: correlated default times from a one-factor model.
 
 First-to-default (FTD): protection triggered by first default.
 Nth-to-default (NTD): protection triggered by Nth default.
+Bespoke tranche: custom [attach, detach] on a bespoke portfolio.
 
 Exotic CLN: leveraged notional, digital recovery.
 
     ftd_spread = ftd_basket_spread(survival_curves, discount_curve, rho=0.3, T=5)
+    bt = bespoke_tranche(pds, attach=0.03, detach=0.07, rho=0.3)
 """
 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
@@ -254,3 +257,91 @@ def simulate_defaults_copula_via_engine(
         norm.ppf(1 - sc.survival(T_date)) for sc in survival_curves
     ])
     return Z < thresholds[np.newaxis, :]
+
+
+# ---------------------------------------------------------------------------
+# Bespoke tranche
+# ---------------------------------------------------------------------------
+
+@dataclass
+class BespokeTrancheResult:
+    """Bespoke tranche pricing result."""
+    expected_loss: float        # expected tranche loss (fraction of tranche width)
+    tranche_spread: float       # fair spread (annualised)
+    attach: float
+    detach: float
+    portfolio_el: float         # portfolio expected loss
+    n_names: int
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def bespoke_tranche(
+    marginal_pds: list[float],
+    attach: float,
+    detach: float,
+    rho: float = 0.30,
+    lgd: float = 0.60,
+    T: float = 5.0,
+    rate: float = 0.04,
+    n_sims: int = 50_000,
+    seed: int | None = 42,
+) -> BespokeTrancheResult:
+    """Bespoke tranche: custom [attach, detach] on a bespoke credit portfolio.
+
+    Uses one-factor Gaussian copula to simulate correlated defaults.
+    Each name has its own marginal PD; correlation is flat.
+
+    Tranche loss = max(0, min(portfolio_loss - attach, detach - attach))
+                   / (detach - attach)
+
+    The fair spread equates the PV of expected tranche loss payments
+    to the PV of spread payments on surviving tranche notional.
+
+    Args:
+        marginal_pds: list of marginal default probabilities (one per name).
+        attach: attachment point (e.g. 0.03 for 3%).
+        detach: detachment point (e.g. 0.07 for 7%).
+        rho: flat pairwise correlation.
+        lgd: loss given default (uniform across names).
+    """
+    if attach >= detach:
+        raise ValueError(f"attach ({attach}) must be < detach ({detach})")
+
+    n_names = len(marginal_pds)
+    rng = np.random.default_rng(seed)
+
+    # One-factor Gaussian copula
+    sqrt_rho = math.sqrt(max(rho, 0.0))
+    sqrt_1_rho = math.sqrt(max(1 - rho, 0.0))
+
+    thresholds = np.array([norm.ppf(pd) for pd in marginal_pds])
+
+    # Simulate
+    M = rng.standard_normal(n_sims)  # systematic factor
+    eps = rng.standard_normal((n_sims, n_names))  # idiosyncratic
+    Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+    defaults = Z < thresholds[np.newaxis, :]  # (n_sims, n_names)
+
+    # Portfolio loss fraction
+    portfolio_loss = defaults.sum(axis=1) * lgd / n_names
+    portfolio_el = float(portfolio_loss.mean())
+
+    # Tranche loss
+    width = detach - attach
+    tranche_loss = np.maximum(0, np.minimum(portfolio_loss - attach, width)) / width
+    el = float(tranche_loss.mean())
+
+    # Fair spread: EL / risky annuity
+    annuity = sum(math.exp(-rate * t) for t in range(1, int(T) + 1))
+    tranche_spread = el / annuity if annuity > 0 else 0.0
+
+    return BespokeTrancheResult(
+        expected_loss=el,
+        tranche_spread=float(tranche_spread),
+        attach=attach,
+        detach=detach,
+        portfolio_el=portfolio_el,
+        n_names=n_names,
+    )
