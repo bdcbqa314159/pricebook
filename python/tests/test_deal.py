@@ -9,7 +9,6 @@ from pricebook.trade import Trade
 from pricebook.swaption import Swaption
 from pricebook.pricing_context import PricingContext
 from pricebook.discount_curve import DiscountCurve
-from pricebook.vol_surface import FlatVol
 
 
 REF = date(2024, 1, 15)

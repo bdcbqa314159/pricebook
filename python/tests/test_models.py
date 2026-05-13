@@ -75,7 +75,7 @@ class TestProtocols:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Swaption: .price(model) vs .pv() equivalence
+# Swaption: .price(model, curve)
 # ═══════════════════════════════════════════════════════════════
 
 class TestSwaptionBlack76:
@@ -181,7 +181,7 @@ class TestSwaptionGuards:
 
 
 # ═══════════════════════════════════════════════════════════════
-# CapFloor: .price(model) vs .pv() equivalence
+# CapFloor: .price(model, curve)
 # ═══════════════════════════════════════════════════════════════
 
 class TestCapFloorBlack76:
