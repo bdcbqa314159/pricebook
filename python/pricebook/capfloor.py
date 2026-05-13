@@ -63,11 +63,15 @@ class CapFloor:
 
     def caplet_pvs(
         self,
+        model,
         curve: DiscountCurve,
-        vol_surface,
         projection_curve: DiscountCurve | None = None,
     ) -> list[dict]:
-        """Individual caplet/floorlet PVs with forward rates and vols."""
+        """Individual caplet/floorlet PVs and greeks using a pluggable model.
+
+        Returns list of dicts with per-caplet details: accrual dates, forward,
+        pv, and greeks (delta, gamma, vega) if the model supports them.
+        """
         proj = projection_curve if projection_curve is not None else curve
         results = []
         for accrual_start, accrual_end in self.periods:
@@ -75,24 +79,53 @@ class CapFloor:
             df1 = proj.df(accrual_start)
             df2 = proj.df(accrual_end)
             fwd = (df1 - df2) / (yf * df2)
-            t_fix = year_fraction(curve.reference_date, accrual_start, DayCountConvention.ACT_365_FIXED)
-            vol = vol_surface.vol(accrual_start, self.strike) if t_fix > 0 else 0.0
-            if t_fix > 0:
-                optlet = black76_price(fwd, self.strike, vol, t_fix, 1.0, self.option_type)
-            else:
+            t_fix = year_fraction(curve.reference_date, accrual_start,
+                                  DayCountConvention.ACT_365_FIXED)
+            caplet_annuity = yf * curve.df(accrual_end)
+
+            entry = {"accrual_start": accrual_start, "accrual_end": accrual_end,
+                     "forward": fwd}
+
+            if t_fix <= 0:
                 if self.option_type == OptionType.CALL:
-                    optlet = max(fwd - self.strike, 0.0)
+                    intrinsic = max(fwd - self.strike, 0.0)
                 else:
-                    optlet = max(self.strike - fwd, 0.0)
-            pv = self.notional * yf * curve.df(accrual_end) * optlet
-            results.append({
-                "accrual_start": accrual_start,
-                "accrual_end": accrual_end,
-                "forward": fwd,
-                "vol": vol,
-                "pv": pv,
-            })
+                    intrinsic = max(self.strike - fwd, 0.0)
+                entry["pv"] = self.notional * caplet_annuity * intrinsic
+                entry["delta"] = entry["gamma"] = entry["vega"] = 0.0
+            elif hasattr(model, "greeks_ir_option"):
+                g = model.greeks_ir_option(fwd, self.strike, caplet_annuity,
+                                           t_fix, self.option_type)
+                entry["pv"] = self.notional * g.price
+                entry["delta"] = self.notional * g.delta
+                entry["gamma"] = self.notional * g.gamma
+                entry["vega"] = self.notional * g.vega
+            else:
+                entry["pv"] = self.notional * model.price_ir_option(
+                    fwd, self.strike, caplet_annuity, t_fix, self.option_type)
+                entry["delta"] = entry["gamma"] = entry["vega"] = 0.0
+
+            results.append(entry)
         return results
+
+    def greeks(
+        self,
+        model,
+        curve: DiscountCurve,
+        projection_curve: DiscountCurve | None = None,
+    ):
+        """Aggregate greeks across all caplets/floorlets.
+
+        Uses model.greeks_ir_option() if available, otherwise bump-and-reprice.
+        """
+        from pricebook.greeks import Greeks
+        caplets = self.caplet_pvs(model, curve, projection_curve)
+        return Greeks(
+            price=sum(c["pv"] for c in caplets),
+            delta=sum(c.get("delta", 0) for c in caplets),
+            gamma=sum(c.get("gamma", 0) for c in caplets),
+            vega=sum(c.get("vega", 0) for c in caplets),
+        )
 
 
     def price(

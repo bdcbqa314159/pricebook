@@ -37,9 +37,10 @@ class TestIRGreeksConsistency:
         curve = make_flat_curve(ref, rate=0.04)
         vol = FlatVol(0.30)
         from pricebook.models import Black76Model
+        m = Black76Model(vol=0.30)
         cap = CapFloor(ref, date(2031, 4, 21), 0.04)
-        total = cap.price(Black76Model(vol=0.30), curve)
-        caplets = cap.caplet_pvs(curve, vol)
+        total = cap.price(m, curve)
+        caplets = cap.caplet_pvs(m, curve)
         caplet_sum = sum(c["pv"] for c in caplets)
         assert caplet_sum == pytest.approx(total, rel=1e-10)
 

@@ -97,7 +97,8 @@ class TestCapFloorDeep:
         # Find ATM forward rate for cap/floor (using cap day count)
         cap_test = CapFloor(REF, end, strike=0.05, option_type=OptionType.CALL,
                             frequency=Frequency.QUARTERLY, day_count=DayCountConvention.ACT_360)
-        pvs = cap_test.caplet_pvs(curve, vol)
+        from pricebook.models import Black76Model
+        pvs = cap_test.caplet_pvs(Black76Model(vol=0.20), curve)
         avg_fwd = sum(p['forward'] for p in pvs) / len(pvs)
 
         cap = CapFloor(REF, end, strike=avg_fwd, option_type=OptionType.CALL,

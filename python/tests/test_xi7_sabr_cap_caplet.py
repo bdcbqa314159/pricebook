@@ -162,8 +162,9 @@ class TestXI7R2CapCaplet:
         cap = CapFloor(REF, REF + timedelta(days=1825), strike=0.035)
         vol = FlatVol(0.20)
 
-        total_pv = cap.price(Black76Model(vol=0.20), curve)
-        caplet_details = cap.caplet_pvs(curve, vol)
+        m = Black76Model(vol=0.20)
+        total_pv = cap.price(m, curve)
+        caplet_details = cap.caplet_pvs(m, curve)
         sum_caplet_pvs = sum(c["pv"] for c in caplet_details)
 
         assert sum_caplet_pvs == pytest.approx(total_pv, rel=1e-6)
