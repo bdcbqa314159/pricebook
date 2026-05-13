@@ -73,13 +73,17 @@ def swaption_risk_metrics(
     projection_curve: DiscountCurve | None = None,
 ) -> SwaptionRiskMetrics:
     """Compute unified risk metrics for a swaption."""
+    from pricebook.models import Black76Model
+
     proj = projection_curve or curve
-    vol_surf = _FlatVol(vol) if isinstance(vol, (int, float)) else vol
-    pv = swaption.pv(curve, vol_surf, proj)
+    vol_val = vol if isinstance(vol, (int, float)) else vol.vol(swaption.expiry, swaption.strike)
+    model = Black76Model(vol=vol_val)
+    pv = swaption.price(model, curve, proj)
     fwd = swaption.forward_swap_rate(curve, proj)
     ann = swaption.annuity(curve)
 
-    # Greeks from instrument
+    # Greeks from instrument (still uses vol_surface for analytical greeks)
+    vol_surf = _FlatVol(vol) if isinstance(vol, (int, float)) else vol
     g = swaption.greeks(curve, vol_surf, proj)
 
     # Swap tenor label
@@ -88,7 +92,7 @@ def swaption_risk_metrics(
 
     # Theta via rolldown
     from pricebook.pnl_explain import compute_rolldown
-    theta = compute_rolldown(lambda c: swaption.pv(c, vol_surf, proj), curve, days=1)
+    theta = compute_rolldown(lambda c: swaption.price(model, c, proj), curve, days=1)
 
     return SwaptionRiskMetrics(
         pv=pv, delta=g.delta, gamma=g.gamma, vega=g.vega,
@@ -303,9 +307,11 @@ def swaption_capital(
     counterparty_rw: float = 0.20,
 ) -> SwaptionCapitalResult:
     """SA-CCR capital for a swaption. SF=0.005 for IR."""
+    from pricebook.models import Black76Model
+
     T = year_fraction(swaption.expiry, swaption.swap_end, DayCountConvention.ACT_365_FIXED)
-    vol_surf = _FlatVol(vol) if isinstance(vol, (int, float)) else vol
-    pv = swaption.pv(curve, vol_surf, projection)
+    vol_val = vol if isinstance(vol, (int, float)) else vol.vol(swaption.expiry, swaption.strike)
+    pv = swaption.price(Black76Model(vol=vol_val), curve, projection)
     mtm = max(pv, 0)
 
     sf = 0.005
@@ -316,6 +322,7 @@ def swaption_capital(
 
     # SIMM: vega into GIRR bucket
     from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    vol_surf = _FlatVol(vol) if isinstance(vol, (int, float)) else vol
     g = swaption.greeks(curve, vol_surf, projection)
     simm_inputs = [
         SIMMSensitivity(risk_class="GIRR", bucket="USD", tenor="5Y", delta=0, vega=g.vega),

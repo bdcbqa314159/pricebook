@@ -122,48 +122,14 @@ class Swaption:
         projection_curve: DiscountCurve | None = None,
         valuation_date: date | None = None,
     ) -> float:
+        """Convenience: price via Black-76 using a vol surface.
+
+        Equivalent to ``self.price(Black76Model(vol_surface.vol(...)), curve)``.
+        For other models (Bachelier, SABR, HW), use ``.price(model, curve)`` directly.
         """
-        Swaption price using Black-76.
-
-        price = notional * annuity * Black76(F, K, vol, T)
-
-        Args:
-            curve: discount curve.
-            vol_surface: object with vol(expiry, strike) method.
-            projection_curve: forward projection curve (None = single-curve).
-            valuation_date: date for computing time to expiry.
-                Defaults to curve's reference date.
-        """
-        if valuation_date is None:
-            valuation_date = curve.reference_date
-
-        fwd = self.forward_swap_rate(curve, projection_curve)
-        ann = self.annuity(curve)
-
-        if self.expiry <= valuation_date:
-            # Expired: return intrinsic value
-            if self.swaption_type == SwaptionType.PAYER:
-                return self.notional * ann * max(fwd - self.strike, 0.0)
-            else:
-                return self.notional * ann * max(self.strike - fwd, 0.0)
-
-        time_to_expiry = year_fraction(
-            valuation_date, self.expiry, DayCountConvention.ACT_365_FIXED,
-        )
-
+        from pricebook.models import Black76Model
         vol = vol_surface.vol(self.expiry, self.strike)
-
-        option_type = (
-            OptionType.CALL
-            if self.swaption_type == SwaptionType.PAYER
-            else OptionType.PUT
-        )
-
-        # Black-76 with df=1 because the annuity already contains discounting
-        unit_price = black76_price(fwd, self.strike, vol, time_to_expiry, df=1.0,
-                                   option_type=option_type)
-
-        return self.notional * ann * unit_price
+        return self.price(Black76Model(vol=vol), curve, projection_curve, valuation_date)
 
     def pv_ctx(
         self,
@@ -171,15 +137,7 @@ class Swaption:
         vol_surface_name: str = "ir",
         projection_curve_name: str | None = None,
     ) -> float:
-        """
-        Price the swaption from a PricingContext.
-
-        Args:
-            ctx: pricing context with curves and vol surfaces.
-            vol_surface_name: key for the vol surface in the context.
-            projection_curve_name: key for the projection curve.
-                If None, single-curve pricing (discount curve used for both).
-        """
+        """Price the swaption from a PricingContext (Black-76 via vol surface)."""
         if ctx.discount_curve is None:
             raise ValueError("PricingContext must have a discount_curve")
 
@@ -190,9 +148,11 @@ class Swaption:
             else None
         )
 
-        return self.pv(
+        from pricebook.models import Black76Model
+        vol = vol_surface.vol(self.expiry, self.strike)
+        return self.price(
+            Black76Model(vol=vol),
             ctx.discount_curve,
-            vol_surface,
             projection_curve,
             valuation_date=ctx.valuation_date,
         )

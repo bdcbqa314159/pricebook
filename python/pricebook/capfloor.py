@@ -67,27 +67,25 @@ class CapFloor:
         vol_surface,
         projection_curve: DiscountCurve | None = None,
     ) -> float:
-        """
-        PV of the cap/floor.
+        """Convenience: price via Black-76 using a vol surface.
 
-        Args:
-            curve: discount curve.
-            vol_surface: object with vol(expiry, strike) method.
-            projection_curve: forward projection curve. If None, single-curve pricing.
+        Equivalent to ``self.price(Black76Model(vol), curve)`` with per-caplet vol
+        extracted from the surface. For other models, use ``.price(model, curve)``.
         """
+        from pricebook.models import Black76Model
+        # Per-caplet vol extraction — use the first caplet's vol as proxy
+        # (for flat vol surface this is exact; for smile surfaces it's approximate)
+        # More precise: price each caplet with its own vol
         proj = projection_curve if projection_curve is not None else curve
         total = 0.0
         for accrual_start, accrual_end in self.periods:
             yf = year_fraction(accrual_start, accrual_end, self.day_count)
-            # Forward rate for this period (from projection curve)
             df1 = proj.df(accrual_start)
             df2 = proj.df(accrual_end)
             fwd = (df1 - df2) / (yf * df2)
-
-            # Time to fixing — always ACT/365F for Black-76
-            t_fix = year_fraction(curve.reference_date, accrual_start, DayCountConvention.ACT_365_FIXED)
+            t_fix = year_fraction(curve.reference_date, accrual_start,
+                                  DayCountConvention.ACT_365_FIXED)
             if t_fix <= 0:
-                # Already fixed — use intrinsic value
                 if self.option_type == OptionType.CALL:
                     payoff = max(fwd - self.strike, 0.0)
                 else:
@@ -96,10 +94,10 @@ class CapFloor:
                 continue
 
             vol = vol_surface.vol(accrual_start, self.strike)
-            # Black-76 price per unit notional
-            optlet = black76_price(fwd, self.strike, vol, t_fix, 1.0, self.option_type)
-            total += self.notional * yf * curve.df(accrual_end) * optlet
-
+            caplet_annuity = yf * curve.df(accrual_end)
+            model = Black76Model(vol=vol)
+            total += self.notional * model.price_ir_option(
+                fwd, self.strike, caplet_annuity, t_fix, self.option_type)
         return total
 
     def caplet_pvs(

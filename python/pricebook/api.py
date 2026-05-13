@@ -278,9 +278,10 @@ def cap(
 
         pb.cap("5Y", 0.04, 0.30, curve)
     """
+    from pricebook.models import Black76Model
     s = start or curve.reference_date
     return CapFloor(s, _parse_tenor(s, tenor), strike,
-                    OptionType.CALL, notional).pv(curve, FlatVol(vol))
+                    OptionType.CALL, notional).price(Black76Model(vol=vol), curve)
 
 
 def floor(
@@ -291,9 +292,10 @@ def floor(
 
         pb.floor("5Y", 0.03, 0.30, curve)
     """
+    from pricebook.models import Black76Model
     s = start or curve.reference_date
     return CapFloor(s, _parse_tenor(s, tenor), strike,
-                    OptionType.PUT, notional).pv(curve, FlatVol(vol))
+                    OptionType.PUT, notional).price(Black76Model(vol=vol), curve)
 
 
 def swaption(
@@ -315,7 +317,8 @@ def swaption(
     swpn = Swaption(exp, swap_end, strike, swaption_type=st, notional=notional)
     if return_greeks:
         return swpn.greeks(curve, FlatVol(vol), projection_curve)
-    return swpn.pv(curve, FlatVol(vol), projection_curve)
+    from pricebook.models import Black76Model
+    return swpn.price(Black76Model(vol=vol), curve, projection_curve)
 
 
 # ============================================================================

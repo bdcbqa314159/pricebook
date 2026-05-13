@@ -140,41 +140,29 @@ def _swaption_greeks(
     time_shift: float = 1.0 / 365,
 ) -> dict[str, float]:
     """Compute Greeks for a swaption via bump-and-reprice."""
-    base_pv = swn.pv(curve, vol_surface)
+    from pricebook.models import Black76Model
+
+    vol = vol_surface.vol(swn.expiry, swn.strike) if hasattr(vol_surface, 'vol') else float(vol_surface)
+    model = Black76Model(vol=vol)
+    base_pv = swn.price(model, curve)
 
     # Delta (rate sensitivity)
     bumped_curve = curve.bumped(rate_shift)
-    delta = (swn.pv(bumped_curve, vol_surface) - base_pv) / rate_shift
+    delta = (swn.price(model, bumped_curve) - base_pv) / rate_shift
 
     # Gamma
     down_curve = curve.bumped(-rate_shift)
-    gamma = (swn.pv(bumped_curve, vol_surface) - 2 * base_pv
-             + swn.pv(down_curve, vol_surface)) / (rate_shift ** 2)
+    gamma = (swn.price(model, bumped_curve) - 2 * base_pv
+             + swn.price(model, down_curve)) / (rate_shift ** 2)
 
     # Vega (vol sensitivity)
-    if isinstance(vol_surface, FlatVol):
-        bumped_vol = FlatVol(vol_surface._vol + vol_shift)
-    elif hasattr(vol_surface, '_vols'):
-        # SwaptionVolSurface or VolCube: parallel bump all vols
-        import numpy as np
-        from pricebook.swaption_vol import SwaptionVolSurface
-        raw = vol_surface.atm if hasattr(vol_surface, 'atm') else vol_surface
-        new_vols = (raw._vols + vol_shift).tolist()
-        expiry_dates = [
-            date_from_year_fraction(raw.reference_date, t)
-            for t in raw._expiry_times
-        ]
-        bumped_vol = SwaptionVolSurface(
-            raw.reference_date, expiry_dates, raw._tenors.tolist(), new_vols,
-        )
-    else:
-        bumped_vol = vol_surface  # fallback: vega = 0
-    vega = (swn.pv(curve, bumped_vol) - base_pv) / vol_shift
+    model_up = Black76Model(vol=vol + vol_shift)
+    vega = (swn.price(model_up, curve) - base_pv) / vol_shift
 
     # Theta (1-day time decay)
     ref = curve.reference_date
     new_ref = date.fromordinal(ref.toordinal() + 1)
-    theta = swn.pv(curve, vol_surface, valuation_date=new_ref) - base_pv
+    theta = swn.price(model, curve, valuation_date=new_ref) - base_pv
 
     return {"pv": base_pv, "delta": delta, "gamma": gamma, "vega": vega, "theta": theta}
 
