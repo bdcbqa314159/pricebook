@@ -452,6 +452,30 @@ class PricebookDB:
             """SELECT * FROM pnl_history WHERE trade_id = ?
                ORDER BY valuation_date""", (trade_id,))
 
+    def pnl_series_by_book(self, book: str) -> list[dict]:
+        """Aggregate P&L history across all trades in a book."""
+        return self._backend.execute(
+            """SELECT h.valuation_date,
+                      SUM(h.pv) as pv, SUM(h.pnl_1d) as pnl_1d,
+                      SUM(h.delta) as delta, SUM(h.gamma) as gamma,
+                      SUM(h.vega) as vega, SUM(h.dv01) as dv01, SUM(h.cs01) as cs01
+               FROM pnl_history h JOIN trades t ON h.trade_id = t.trade_id
+               WHERE t.book = ?
+               GROUP BY h.valuation_date ORDER BY h.valuation_date""",
+            (book,))
+
+    def pnl_series_by_desk(self, desk: str) -> list[dict]:
+        """Aggregate P&L history across all trades in a desk."""
+        return self._backend.execute(
+            """SELECT h.valuation_date,
+                      SUM(h.pv) as pv, SUM(h.pnl_1d) as pnl_1d,
+                      SUM(h.delta) as delta, SUM(h.gamma) as gamma,
+                      SUM(h.vega) as vega, SUM(h.dv01) as dv01, SUM(h.cs01) as cs01
+               FROM pnl_history h JOIN trades t ON h.trade_id = t.trade_id
+               WHERE t.desk = ?
+               GROUP BY h.valuation_date ORDER BY h.valuation_date""",
+            (desk,))
+
     # ------------------------------------------------------------------
     # Key-value store
     # ------------------------------------------------------------------

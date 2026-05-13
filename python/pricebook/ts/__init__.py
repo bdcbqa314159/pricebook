@@ -27,6 +27,20 @@ from pricebook.ts._rolling import (
     rolling_beta, rolling_skew, rolling_kurtosis,
 )
 
+# I/O
+from pricebook.ts._io import from_db, from_db_book, from_db_desk, from_csv, greeks_from_db
+
+# Replay
+from pricebook.ts._replay import (
+    replay, replay_book, replay_desk,
+    drawdown_analysis, rolling_performance,
+    ReplayResult, DrawdownPeriod,
+)
+from pricebook.ts._replay_viz import (
+    plot_equity_curve, plot_pnl_histogram, plot_rolling_sharpe,
+    plot_drawdowns, plot_dashboard,
+)
+
 # ── Bind methods on TimeSeries for fluent API ──
 TimeSeries.simple_returns = lambda self: simple_returns(self)
 TimeSeries.log_returns = lambda self: log_returns(self)
@@ -51,4 +65,10 @@ __all__ = [
     "drawdown_series", "recovery_time", "performance",
     "rolling_mean", "rolling_vol", "rolling_sharpe",
     "rolling_beta", "rolling_skew", "rolling_kurtosis",
+    "from_db", "from_db_book", "from_db_desk", "from_csv", "greeks_from_db",
+    "replay", "replay_book", "replay_desk",
+    "drawdown_analysis", "rolling_performance",
+    "ReplayResult", "DrawdownPeriod",
+    "plot_equity_curve", "plot_pnl_histogram", "plot_rolling_sharpe",
+    "plot_drawdowns", "plot_dashboard",
 ]
