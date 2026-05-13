@@ -1,4 +1,13 @@
-"""Interest rate futures: SOFR futures (1M/3M) with convexity adjustment."""
+"""Interest rate futures: SOFR/Euribor futures, convexity, packs, bundles, butterflies.
+
+* :class:`IRFuture` — single SOFR/Euribor future with HW convexity.
+* :func:`hw_convexity_adjustment` — analytical convexity for rate futures.
+* :func:`futures_strip_rates` — compute rates for a strip with convexity.
+* :func:`futures_pack` — 4-quarter pack (average price of 4 consecutive futures).
+* :func:`futures_bundle` — multi-year bundle (average price of N consecutive futures).
+* :func:`futures_butterfly` — weighted butterfly on 3 consecutive futures.
+* :func:`fed_funds_implied_probability` — implied probability of a rate move from FF futures.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +22,7 @@ from pricebook.discount_curve import DiscountCurve
 class FuturesType(Enum):
     SOFR_1M = "sofr_1m"
     SOFR_3M = "sofr_3m"
+    EURIBOR_3M = "euribor_3m"
 
 
 class IRFuture:
@@ -181,3 +191,165 @@ def futures_strip_rates(
         })
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Pack / Bundle / Butterfly
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass
+
+
+@dataclass
+class PackResult:
+    """Pack pricing result."""
+    price: float              # average price of the 4 futures
+    dv01: float               # total DV01 of the pack
+    implied_rate: float       # average implied rate
+    n_contracts: int
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def futures_pack(
+    futures: list[IRFuture],
+    curve: DiscountCurve,
+    a: float = 0.0,
+    sigma: float = 0.0,
+) -> PackResult:
+    """Price a pack of 4 consecutive quarterly futures.
+
+    A pack is the average price of 4 consecutive quarterly futures,
+    traded as a single unit. Standard packs: white (Y1), red (Y2),
+    green (Y3), blue (Y4), gold (Y5).
+
+    Args:
+        futures: exactly 4 consecutive quarterly futures.
+    """
+    if len(futures) != 4:
+        raise ValueError(f"pack requires exactly 4 futures, got {len(futures)}")
+
+    strips = futures_strip_rates(futures, curve, a, sigma)
+    avg_price = sum(s["price"] for s in strips) / 4
+    avg_rate = sum(s["futures_rate"] for s in strips) / 4
+    total_dv01 = sum(f.tick_value for f in futures)
+
+    return PackResult(
+        price=avg_price,
+        dv01=total_dv01,
+        implied_rate=avg_rate,
+        n_contracts=4,
+    )
+
+
+@dataclass
+class BundleResult:
+    """Bundle pricing result."""
+    price: float
+    dv01: float
+    implied_rate: float
+    n_contracts: int
+    years: int
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def futures_bundle(
+    futures: list[IRFuture],
+    curve: DiscountCurve,
+    a: float = 0.0,
+    sigma: float = 0.0,
+) -> BundleResult:
+    """Price a bundle of consecutive quarterly futures.
+
+    A bundle is the average price of N consecutive quarterly futures
+    spanning multiple years. Standard bundles: 2Y (8 contracts),
+    3Y (12), 5Y (20).
+
+    Args:
+        futures: list of consecutive quarterly futures (4, 8, 12, 16, or 20).
+    """
+    n = len(futures)
+    if n < 4 or n % 4 != 0:
+        raise ValueError(f"bundle requires a multiple of 4 futures, got {n}")
+
+    strips = futures_strip_rates(futures, curve, a, sigma)
+    avg_price = sum(s["price"] for s in strips) / n
+    avg_rate = sum(s["futures_rate"] for s in strips) / n
+    total_dv01 = sum(f.tick_value for f in futures)
+
+    return BundleResult(
+        price=avg_price,
+        dv01=total_dv01,
+        implied_rate=avg_rate,
+        n_contracts=n,
+        years=n // 4,
+    )
+
+
+@dataclass
+class FuturesButterfly:
+    """Butterfly on 3 consecutive futures."""
+    spread: float       # 2 × mid - front - back
+    front_price: float
+    mid_price: float
+    back_price: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def futures_butterfly(
+    front: IRFuture,
+    mid: IRFuture,
+    back: IRFuture,
+    curve: DiscountCurve,
+    a: float = 0.0,
+    sigma: float = 0.0,
+) -> FuturesButterfly:
+    """Price a butterfly on 3 consecutive quarterly futures.
+
+    Butterfly = 2 × mid - front - back.
+    Positive when the curve is convex (mid trades rich).
+
+    Args:
+        front, mid, back: three consecutive quarterly futures.
+    """
+    strips = futures_strip_rates([front, mid, back], curve, a, sigma)
+    fp, mp, bp = strips[0]["price"], strips[1]["price"], strips[2]["price"]
+
+    return FuturesButterfly(
+        spread=2 * mp - fp - bp,
+        front_price=fp,
+        mid_price=mp,
+        back_price=bp,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fed Funds implied probability
+# ---------------------------------------------------------------------------
+
+def fed_funds_implied_probability(
+    futures_rate: float,
+    current_rate: float,
+    move_size: float = 0.0025,
+) -> float:
+    """Implied probability of a rate move from Fed Funds futures.
+
+    P(hike) = (futures_rate - current_rate) / move_size
+
+    Args:
+        futures_rate: implied rate from the Fed Funds future (1 - price/100).
+        current_rate: current effective Fed Funds rate.
+        move_size: expected move size (default 25bp = 0.0025).
+
+    Returns:
+        Probability of a move (0 to 1). Values outside [0, 1] indicate
+        the market prices more than one move or a different-sized move.
+    """
+    if abs(move_size) < 1e-10:
+        return 0.0
+    return (futures_rate - current_rate) / move_size

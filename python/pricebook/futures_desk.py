@@ -625,3 +625,116 @@ class FuturesLifecycle:
         }
         self._events.append(event)
         return event
+
+
+# ---------------------------------------------------------------------------
+# Roll automation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RollRecommendation:
+    """Recommendation to roll a futures position."""
+    trade_id: str
+    current_expiry: date
+    next_expiry: date
+    days_to_expiry: int
+    roll_cost: float
+    action: str
+
+    def to_dict(self) -> dict:
+        return {
+            "trade_id": self.trade_id, "current_expiry": self.current_expiry.isoformat(),
+            "next_expiry": self.next_expiry.isoformat(), "days_to_expiry": self.days_to_expiry,
+            "roll_cost": self.roll_cost, "action": self.action,
+        }
+
+
+def roll_schedule(
+    book: FuturesBook,
+    as_of: date,
+    roll_days_before: int = 5,
+    next_expiry_map: dict[date, date] | None = None,
+) -> list[RollRecommendation]:
+    """Generate roll recommendations for positions approaching expiry.
+
+    Args:
+        book: futures position book.
+        as_of: current date.
+        roll_days_before: days before expiry to trigger roll.
+        next_expiry_map: mapping from current expiry to next expiry date.
+    """
+    recs = []
+    for entry in book.entries:
+        expiry = getattr(entry.instrument, 'expiry',
+                         getattr(entry.instrument, 'accrual_end', None))
+        if expiry is None:
+            continue
+
+        days_to = (expiry - as_of).days
+        if days_to <= 0 or days_to > roll_days_before:
+            continue
+
+        if next_expiry_map and expiry in next_expiry_map:
+            next_exp = next_expiry_map[expiry]
+        else:
+            next_exp = expiry + timedelta(days=91)
+
+        recs.append(RollRecommendation(
+            trade_id=entry.trade_id,
+            current_expiry=expiry,
+            next_expiry=next_exp,
+            days_to_expiry=days_to,
+            roll_cost=0.0,
+            action=f"Roll {entry.contracts} contracts from {expiry} to {next_exp}",
+        ))
+
+    return recs
+
+
+# ---------------------------------------------------------------------------
+# Cross-market relative value
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CrossMarketRV:
+    """Cross-market relative value signal."""
+    market_a: str
+    market_b: str
+    spread: float
+    z_score: float
+    signal: str
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def futures_cash_basis_rv(
+    futures_rate: float,
+    cash_rate: float,
+    historical_mean: float = 0.0,
+    historical_std: float = 0.0001,
+    label_futures: str = "futures",
+    label_cash: str = "cash",
+) -> CrossMarketRV:
+    """Relative value: futures rate vs cash/swap rate.
+
+    A positive basis means futures are cheap (high rate = low price)
+    relative to swaps.
+    """
+    spread = futures_rate - cash_rate
+    z = (spread - historical_mean) / max(historical_std, 1e-8)
+
+    if z > 1.5:
+        signal = f"cheap_{label_futures}"
+    elif z < -1.5:
+        signal = f"rich_{label_futures}"
+    else:
+        signal = "fair"
+
+    return CrossMarketRV(
+        market_a=label_futures,
+        market_b=label_cash,
+        spread=spread,
+        z_score=z,
+        signal=signal,
+    )
