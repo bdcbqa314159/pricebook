@@ -157,3 +157,68 @@ def bachelier_price(
     if option_type == OptionType.CALL:
         return df * ((forward - strike) * _norm_cdf(d) + stdev * _norm_pdf(d))
     return df * ((strike - forward) * _norm_cdf(-d) + stdev * _norm_pdf(d))
+
+
+def bachelier_delta(
+    forward: float,
+    strike: float,
+    vol_normal: float,
+    time_to_expiry: float,
+    df: float,
+    option_type: OptionType = OptionType.CALL,
+) -> float:
+    """Bachelier delta: ∂Price/∂Forward."""
+    if time_to_expiry <= 0 or vol_normal <= 0:
+        if option_type == OptionType.CALL:
+            return df if forward > strike else 0.0
+        return -df if forward < strike else 0.0
+    d = (forward - strike) / (vol_normal * math.sqrt(time_to_expiry))
+    if option_type == OptionType.CALL:
+        return df * _norm_cdf(d)
+    return -df * _norm_cdf(-d)
+
+
+def bachelier_gamma(
+    forward: float,
+    strike: float,
+    vol_normal: float,
+    time_to_expiry: float,
+    df: float,
+) -> float:
+    """Bachelier gamma: ∂²Price/∂Forward²."""
+    if time_to_expiry <= 0 or vol_normal <= 0:
+        return 0.0
+    stdev = vol_normal * math.sqrt(time_to_expiry)
+    d = (forward - strike) / stdev
+    return df * _norm_pdf(d) / stdev
+
+
+def bachelier_vega(
+    forward: float,
+    strike: float,
+    vol_normal: float,
+    time_to_expiry: float,
+    df: float,
+) -> float:
+    """Bachelier vega: ∂Price/∂σ_normal."""
+    if time_to_expiry <= 0 or vol_normal <= 0:
+        return 0.0
+    sqrt_t = math.sqrt(time_to_expiry)
+    d = (forward - strike) / (vol_normal * sqrt_t)
+    return df * sqrt_t * _norm_pdf(d)
+
+
+def bachelier_theta(
+    forward: float,
+    strike: float,
+    vol_normal: float,
+    time_to_expiry: float,
+    df: float,
+    option_type: OptionType = OptionType.CALL,
+) -> float:
+    """Bachelier theta: ∂Price/∂t (per year, negative for long options)."""
+    if time_to_expiry <= 0 or vol_normal <= 0:
+        return 0.0
+    sqrt_t = math.sqrt(time_to_expiry)
+    d = (forward - strike) / (vol_normal * sqrt_t)
+    return -df * vol_normal * _norm_pdf(d) / (2 * sqrt_t)

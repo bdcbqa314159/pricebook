@@ -101,6 +101,18 @@ class Black76Model:
         return annuity * black76_price(forward, strike, self.vol, T,
                                        df=1.0, option_type=option_type)
 
+    def greeks_ir_option(self, forward, strike, annuity, T, option_type):
+        from pricebook.black76 import (black76_price, black76_delta,
+                                        black76_gamma, black76_vega, black76_theta)
+        from pricebook.greeks import Greeks
+        return Greeks(
+            price=annuity * black76_price(forward, strike, self.vol, T, 1.0, option_type),
+            delta=annuity * black76_delta(forward, strike, self.vol, T, 1.0, option_type),
+            gamma=annuity * black76_gamma(forward, strike, self.vol, T, 1.0),
+            vega=annuity * black76_vega(forward, strike, self.vol, T, 1.0),
+            theta=annuity * black76_theta(forward, strike, self.vol, T, 1.0, option_type),
+        )
+
     @classmethod
     def from_context(cls, ctx, expiry, strike=None):
         """Extract vol from context's IR vol surface."""
@@ -126,6 +138,18 @@ class BachelierModel:
         from pricebook.black76 import bachelier_price
         return annuity * bachelier_price(forward, strike, self.vol_normal, T,
                                          df=1.0, option_type=option_type)
+
+    def greeks_ir_option(self, forward, strike, annuity, T, option_type):
+        from pricebook.black76 import (bachelier_price, bachelier_delta,
+                                        bachelier_gamma, bachelier_vega, bachelier_theta)
+        from pricebook.greeks import Greeks
+        return Greeks(
+            price=annuity * bachelier_price(forward, strike, self.vol_normal, T, 1.0, option_type),
+            delta=annuity * bachelier_delta(forward, strike, self.vol_normal, T, 1.0, option_type),
+            gamma=annuity * bachelier_gamma(forward, strike, self.vol_normal, T, 1.0),
+            vega=annuity * bachelier_vega(forward, strike, self.vol_normal, T, 1.0),
+            theta=annuity * bachelier_theta(forward, strike, self.vol_normal, T, 1.0, option_type),
+        )
 
     def __repr__(self):
         return f"BachelierModel(vol_normal={self.vol_normal:.6f})"
@@ -154,6 +178,31 @@ class SABRModel:
         )
         return annuity * black76_price(forward, strike, vol, T,
                                        df=1.0, option_type=option_type)
+
+    def greeks_ir_option(self, forward, strike, annuity, T, option_type):
+        """SABR greeks via composite: SABR implied vol → Black-76 greeks.
+
+        This is the standard approximation — it ignores ∂σ_impl/∂F
+        (the SABR delta adjustment). For most practical purposes this is
+        sufficient; the full Hagan ∂σ/∂F correction is a Phase 2 enhancement.
+        """
+        from pricebook.sabr import sabr_implied_vol
+        from pricebook.black76 import (black76_price, black76_delta,
+                                        black76_gamma, black76_vega, black76_theta)
+        from pricebook.greeks import Greeks
+
+        vol = sabr_implied_vol(
+            forward, strike, T,
+            self.params.alpha, self.params.beta,
+            self.params.rho, self.params.nu,
+        )
+        return Greeks(
+            price=annuity * black76_price(forward, strike, vol, T, 1.0, option_type),
+            delta=annuity * black76_delta(forward, strike, vol, T, 1.0, option_type),
+            gamma=annuity * black76_gamma(forward, strike, vol, T, 1.0),
+            vega=annuity * black76_vega(forward, strike, vol, T, 1.0),
+            theta=annuity * black76_theta(forward, strike, vol, T, 1.0, option_type),
+        )
 
     @classmethod
     def from_atm(cls, atm_vol: float, beta: float = 0.5,
@@ -247,6 +296,10 @@ class BSModel:
     def price_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
         from pricebook.equity_option import equity_option_price
         return equity_option_price(spot, strike, rate, self.vol, T, option_type, div_yield)
+
+    def greeks_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
+        from pricebook.equity_option import equity_greeks
+        return equity_greeks(spot, strike, rate, self.vol, T, option_type, div_yield)
 
     def __repr__(self):
         return f"BSModel(vol={self.vol:.4f})"
