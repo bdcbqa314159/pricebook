@@ -308,6 +308,8 @@ def bespoke_tranche(
     """
     if attach >= detach:
         raise ValueError(f"attach ({attach}) must be < detach ({detach})")
+    if not marginal_pds:
+        raise ValueError("marginal_pds must not be empty")
 
     n_names = len(marginal_pds)
     rng = np.random.default_rng(seed)
@@ -316,7 +318,9 @@ def bespoke_tranche(
     sqrt_rho = math.sqrt(max(rho, 0.0))
     sqrt_1_rho = math.sqrt(max(1 - rho, 0.0))
 
-    thresholds = np.array([norm.ppf(pd) for pd in marginal_pds])
+    # Clamp PDs to (0, 1) to avoid inf from norm.ppf
+    clamped_pds = [max(1e-10, min(1 - 1e-10, pd)) for pd in marginal_pds]
+    thresholds = np.array([norm.ppf(pd) for pd in clamped_pds])
 
     # Simulate
     M = rng.standard_normal(n_sims)  # systematic factor
@@ -333,9 +337,19 @@ def bespoke_tranche(
     tranche_loss = np.maximum(0, np.minimum(portfolio_loss - attach, width)) / width
     el = float(tranche_loss.mean())
 
-    # Fair spread: EL / risky annuity
-    annuity = sum(math.exp(-rate * t) for t in range(1, int(T) + 1))
-    tranche_spread = el / annuity if annuity > 0 else 0.0
+    # Fair spread: EL / risky annuity (weighted by tranche survival)
+    n_annual = max(int(T), 1)
+    risky_annuity = 0.0
+    for yr in range(1, n_annual + 1):
+        # Fraction of time up to yr
+        t_yr = yr * T / n_annual
+        # Portfolio loss up to this point (approximate: scale by time fraction)
+        loss_at_yr = portfolio_loss * (yr / n_annual)
+        tranche_loss_yr = np.maximum(0, np.minimum(loss_at_yr - attach, width)) / width
+        tranche_survival = 1.0 - tranche_loss_yr
+        risky_annuity += math.exp(-rate * t_yr) * float(tranche_survival.mean())
+
+    tranche_spread = el / risky_annuity if risky_annuity > 0 else 0.0
 
     return BespokeTrancheResult(
         expected_loss=el,

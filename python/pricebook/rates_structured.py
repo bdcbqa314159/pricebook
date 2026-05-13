@@ -304,7 +304,7 @@ def zc_swaption(
     price = float(unit_price * notional * tau)
 
     # Delta via bump
-    bump = forward_zc_rate * 0.01
+    bump = max(abs(forward_zc_rate) * 0.01, 1e-6)
     up = black76_price(forward_zc_rate + bump, strike, vol, T_option, df, opt_type)
     delta = float((up - unit_price) / bump * notional * tau)
 
@@ -353,22 +353,24 @@ def inverse_floater(
     """
     from pricebook.mc_migrate import ou_paths
 
-    r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths, seed or 42)
+    r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths,
+                       seed if seed is not None else 42)
     dt = T / n_periods
 
     pv = np.zeros(n_paths)
     total_coupon = np.zeros(n_paths)
+    cum_r = np.zeros(n_paths)  # path-integrated discount
 
     for i in range(n_periods):
-        t = (i + 1) * dt
         r_t = r_paths[:, i + 1]
+        cum_r += r_t * dt
         coupon = np.maximum(fixed_rate - leverage * r_t, floor)
         total_coupon += coupon
-        df_t = np.exp(-r_t * t)
+        df_t = np.exp(-cum_r)
         pv += notional * coupon * dt * df_t
 
     # Principal at maturity
-    pv += notional * np.exp(-r_paths[:, -1] * T)
+    pv += notional * np.exp(-cum_r)
 
     price = float(pv.mean())
     avg_coupon = float(total_coupon.mean() / n_periods)
@@ -415,26 +417,28 @@ def capped_floater(
     """
     from pricebook.mc_migrate import ou_paths
 
-    r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths, seed or 42)
+    r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths,
+                       seed if seed is not None else 42)
     dt = T / n_periods
 
     pv_capped = np.zeros(n_paths)
     pv_uncapped = np.zeros(n_paths)
     total_coupon = np.zeros(n_paths)
+    cum_r = np.zeros(n_paths)  # path-integrated discount
 
     for i in range(n_periods):
-        t = (i + 1) * dt
         r_t = r_paths[:, i + 1]
-        floating_coupon = r_t + spread
+        cum_r += r_t * dt
+        floating_coupon = np.maximum(r_t + spread, 0.0)  # floor at 0
         capped_coupon = np.minimum(floating_coupon, cap_rate)
         total_coupon += capped_coupon
-        df_t = np.exp(-r_t * t)
+        df_t = np.exp(-cum_r)
         pv_capped += notional * capped_coupon * dt * df_t
         pv_uncapped += notional * floating_coupon * dt * df_t
 
     # Principal
-    pv_capped += notional * np.exp(-r_paths[:, -1] * T)
-    pv_uncapped += notional * np.exp(-r_paths[:, -1] * T)
+    pv_capped += notional * np.exp(-cum_r)
+    pv_uncapped += notional * np.exp(-cum_r)
 
     price = float(pv_capped.mean())
     uncapped_price = float(pv_uncapped.mean())

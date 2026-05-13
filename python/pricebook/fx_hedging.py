@@ -194,6 +194,9 @@ def ratio_forward(
     F = spot * math.exp((rate_dom - rate_for) * T)
     df = math.exp(-rate_dom * T)
 
+    if ratio <= 0:
+        raise ValueError(f"ratio must be positive, got {ratio}")
+
     if enhanced_strike is None:
         # Solve for zero-cost: put(K) = ratio × call(K)
         from pricebook.solvers import brentq
@@ -201,7 +204,7 @@ def ratio_forward(
         def obj(K):
             return (black76_price(F, K, vol, T, df, OptionType.PUT)
                     - ratio * black76_price(F, K, vol, T, df, OptionType.CALL))
-        enhanced_strike = brentq(obj, F * 0.8, F * 1.2)
+        enhanced_strike = brentq(obj, F * 0.5, F * 1.5)
 
     put_pv = black76_price(F, enhanced_strike, vol, T, df, OptionType.PUT) * notional
     call_pv = black76_price(F, enhanced_strike, vol, T, df, OptionType.CALL) * notional * ratio
@@ -210,7 +213,7 @@ def ratio_forward(
     return RatioForwardResult(
         price=price,
         enhanced_strike=float(enhanced_strike),
-        ratio=ratio,
+        ratio=float(ratio),
         forward_rate=float(F),
         max_loss_unlimited=True,
     )
@@ -259,6 +262,9 @@ def knock_in_reverse(
         barrier: knock-in barrier (below spot, e.g. 0.85 × spot).
         coupon_rate: enhanced annual coupon rate.
     """
+    if barrier >= spot:
+        raise ValueError(f"barrier ({barrier}) must be below spot ({spot})")
+
     from pricebook.mc_migrate import gbm_paths
 
     drift = rate_dom - rate_for
@@ -289,7 +295,7 @@ def knock_in_reverse(
     expected_loss = df * float(loss.mean())
 
     # Enhanced yield vs risk-free
-    enhanced_yield = coupon_rate - (rate_dom * T) / T  # excess over risk-free
+    enhanced_yield = coupon_rate - rate_dom
 
     return KnockInReverseResult(
         price=float(total_pv),

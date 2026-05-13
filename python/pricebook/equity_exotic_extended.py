@@ -614,7 +614,13 @@ def dividend_option(
     """
     from pricebook.black76 import black76_price as _b76, OptionType
 
+    if dividend_yield <= 0 or T <= 0:
+        return DividendOptionResult(0.0, 0.0, strike, is_call)
+
     implied_div = spot * (1 - math.exp(-dividend_yield * T))
+    if implied_div <= 0 or strike <= 0:
+        return DividendOptionResult(0.0, float(implied_div), strike, is_call)
+
     df = math.exp(-rate * T)
     opt_type = OptionType.CALL if is_call else OptionType.PUT
     unit_price = _b76(implied_div, strike, div_vol, T, df, opt_type)
@@ -622,6 +628,6 @@ def dividend_option(
     return DividendOptionResult(
         price=float(unit_price * notional),
         implied_dividend=float(implied_div),
-        strike=strike,
+        strike=float(strike),
         is_call=is_call,
     )
