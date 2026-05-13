@@ -116,11 +116,16 @@ def multicurve_newton(
             if i >= n_proj:
                 break
             # Projection swap: forwards from proj curve, discounted on OIS
-            # par = PV_float / annuity_ois
-            df_T = proj.df(inst['maturity'])
+            # Correct dual-curve: PV_float = sum(fwd_j * tau_j * ois_df_j)
             dates_up_to = [d for d in projection_pillar_dates if d <= inst['maturity']]
-            # PV_float from projection curve telescoping: 1 - proj_df(T)
-            pv_float = 1.0 - df_T
+            pv_float = 0.0
+            for j in range(1, len(dates_up_to)):
+                d_start = dates_up_to[j - 1]
+                d_end = dates_up_to[j]
+                tau_j = year_fraction(d_start, d_end, day_count)
+                if tau_j > 0:
+                    fwd_j = (proj.df(d_start) / proj.df(d_end) - 1.0) / tau_j
+                    pv_float += fwd_j * tau_j * ois.df(d_end)
             # Annuity on OIS curve
             annuity = _compute_annuity(ois, dates_up_to, day_count)
             model_rate = pv_float / max(annuity, 1e-10) if annuity > 0 else 0
@@ -159,7 +164,7 @@ def multicurve_newton(
             x_new = x + step * dx
             if np.all(x_new > 0):  # DFs must be positive
                 F_new = _reprice_errors(x_new)
-                if np.max(np.abs(F_new)) < residual * 1.1:
+                if np.max(np.abs(F_new)) <= residual:
                     break
             step *= 0.5
         x = x + step * dx

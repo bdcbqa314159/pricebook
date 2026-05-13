@@ -2,7 +2,7 @@
 
 Instead of sequential bootstrap (one pillar at a time), solves the
 entire system F(df) = 0 simultaneously using Newton's method with
-an analytical Jacobian.
+a finite-difference Jacobian.
 
 Enables coupled multi-curve solving where OIS and projection curves
 are interdependent.
@@ -71,7 +71,6 @@ def global_bootstrap(
         curve = _make_curve(df_vec)
         res = np.zeros(n)
 
-        inst_idx = 0
         for inst_type, mat, rate in all_instruments:
             idx = pillar_idx[mat]
 
@@ -106,9 +105,12 @@ def global_bootstrap(
         return J
 
     # Newton iteration
+    import warnings
+    converged = False
     for iteration in range(max_iter):
         res = _residuals(dfs)
         if np.max(np.abs(res)) < tol:
+            converged = True
             break
         J = _jacobian(dfs)
         try:
@@ -117,6 +119,13 @@ def global_bootstrap(
             break
         dfs += delta
         dfs = np.maximum(dfs, 1e-10)  # keep positive
+
+    if not converged:
+        warnings.warn(
+            f"global_bootstrap did not converge after {max_iter} iterations "
+            f"(residual={np.max(np.abs(_residuals(dfs))):.2e})",
+            RuntimeWarning,
+        )
 
     return _make_curve(dfs)
 
@@ -229,9 +238,12 @@ def coupled_bootstrap(
             J[:, j] = (_residuals(x_bump) - f0) / eps
         return J
 
+    import warnings
+    converged = False
     for iteration in range(max_iter):
         res = _residuals(x)
         if np.max(np.abs(res)) < tol:
+            converged = True
             break
         J = _jacobian(x)
         try:
@@ -240,6 +252,13 @@ def coupled_bootstrap(
             break
         x += delta
         x = np.maximum(x, 1e-10)
+
+    if not converged:
+        warnings.warn(
+            f"coupled_bootstrap did not converge after {max_iter} iterations "
+            f"(residual={np.max(np.abs(_residuals(x))):.2e})",
+            RuntimeWarning,
+        )
 
     ois, proj = _make_curves(x)
     return ois, proj
