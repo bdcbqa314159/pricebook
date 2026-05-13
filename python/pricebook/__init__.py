@@ -1,4 +1,5 @@
-__version__ = "0.515.0"
+__version__ = "0.516.0"
+__version__ = "0.516.0"
 
 # ── Core infrastructure ──
 from pricebook.pricing_context import PricingContext
@@ -39,6 +40,15 @@ from pricebook.convertible_bond_desk import (
     cb_stress_suite, cb_capital, cb_hedge_recommendations,
     CBLifecycle,
 )
+
+# ── Models ──
+from pricebook.models import (
+    Black76Model, BachelierModel, SABRModel, SABRParams,
+    HullWhiteModel, BSModel, HestonModel, MCEquityModel,
+    IROptionModel, EquityOptionModel,
+    price_european,
+)
+from pricebook.slv import HestonParams
 
 # ── Vol ──
 from pricebook.vol_surface import FlatVol

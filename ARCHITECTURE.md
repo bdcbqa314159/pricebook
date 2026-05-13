@@ -119,6 +119,53 @@ PricingContext(
 
 ---
 
+## Layer 3.5: Models
+
+**File:** `models.py`
+
+The model layer sits between PricingContext and instruments. It separates **what** to price (instrument) from **how** to price (model). Instruments call `model.price_ir_option()` or `model.greeks_ir_option()` instead of hardcoding Black-76.
+
+### Two Protocols
+
+```python
+class IROptionModel(Protocol):
+    def price_ir_option(self, forward, strike, annuity, T, option_type) -> float: ...
+    def greeks_ir_option(self, forward, strike, annuity, T, option_type) -> Greeks: ...
+
+class EquityOptionModel(Protocol):
+    def price_european(self, spot, strike, rate, T, option_type, div_yield) -> float: ...
+    def greeks_european(self, spot, strike, rate, T, option_type, div_yield) -> Greeks: ...
+```
+
+### IR Models
+
+| Model | Params | Wraps | Greeks |
+|-------|--------|-------|--------|
+| `Black76Model(vol)` | Lognormal vol | `black76_price()` | Analytical |
+| `BachelierModel(vol_normal)` | Normal vol | `bachelier_price()` | Analytical |
+| `SABRModel(SABRParams)` | alpha, beta, rho, nu | `sabr_implied_vol()` + Black-76 | Composite |
+| `HullWhiteModel(hw)` | HullWhite object | Rebonato approximation | Bump-and-reprice |
+
+### Equity Models
+
+| Model | Params | Wraps | Greeks |
+|-------|--------|-------|--------|
+| `BSModel(vol)` | Lognormal vol | `equity_option_price()` | Analytical |
+| `HestonModel(HestonParams)` | v0, kappa, theta, xi, rho | `heston_price()` | Bump-and-reprice |
+| `MCEquityModel(process)` | Any ProcessSpec | MCEngine | Bump-and-reprice |
+
+### Usage
+
+```python
+from pricebook.models import Black76Model, BachelierModel
+
+swaption.price(Black76Model(vol=0.20), curve)
+swaption.greeks(BachelierModel(vol_normal=0.005), curve)
+capfloor.price(SABRModel(SABRParams(...)), curve)
+```
+
+---
+
 ## Layer 4: Instruments
 
 All modern instruments implement `pv_ctx(ctx: PricingContext) -> float`.
