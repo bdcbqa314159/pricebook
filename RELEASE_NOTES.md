@@ -2,6 +2,21 @@
 
 ---
 
+## v0.554.0 — 2026-05-14
+
+**CCAR/DFAST stress capital projection.**
+
+- `regulatory/ccar.py` — NEW: 9-quarter capital trajectory under Fed-style stress.
+- `CCARConfig` — starting capital/RWA, PPNR, dividends/buybacks, minimums (CET1 4.5%).
+- `QuarterResult` — PPNR, credit/market/op losses, net income, capital actions, CET1 ratio, breach flag.
+- `project_capital_trajectory()` → `CCARResult` — quarter-by-quarter CET1, trough ratio, pass/fail.
+- `run_ccar_suite()` — 3 scenarios (baseline, adverse, severely_adverse) from stress_irrbb.
+- `ccar_summary()` — worst scenario, trough ratios, overall pass/fail.
+- Buyback suspension under stress, PPNR stress factors, RWA adjustment from stressed PD/LGD.
+- 12 tests including undercapitalised bank failure case.
+
+---
+
 ## v0.553.0 — 2026-05-14
 
 **Portfolio-wide LCR/NSFR.**
