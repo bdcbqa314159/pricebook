@@ -2,6 +2,23 @@
 
 ---
 
+## v0.547.0 — 2026-05-14
+
+**Unitranche & direct lending.**
+
+- `unitranche.py` — NEW: unitranche, FOLO, DDTL, direct lending economics.
+- `FOLO` — first-out/last-out split with absolute priority recovery allocation.
+- `folo_recovery_split()` — FO gets paid first; LO absorbs losses.
+- `Unitranche(TermLoan)` — blended spread, OID, FOLO, call protection.
+- `DelayedDrawTermLoan(TermLoan)` — ticking fee before draw, normal coupon after.
+- `CallProtectionSchedule` — NC/101/par step-down with `call_price()`, `is_callable()`.
+- `direct_lending_economics()` — all-in yield: coupon + OID amort + upfront fee amort.
+- `hold_to_maturity_yield()` — brentq solver for HTM yield given market price.
+- `unitranche_blended_spread()` — weighted FO/LO spread.
+- 27 tests.
+
+---
+
 ## v0.546.0 — 2026-05-14
 
 **PE-specific visualisation.**
