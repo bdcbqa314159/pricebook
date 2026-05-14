@@ -99,7 +99,8 @@ def euler_allocation(
     """Euler (risk contribution) allocation.
 
     If correlation_matrix provided:
-        RC_i = (Sigma @ w)_i × w_i / portfolio_vol
+        RC_i = w_i × (Cov @ w)_i  (marginal variance contribution)
+        allocated_i = RC_i / sum(RC) × portfolio_capital
     Otherwise: proportional to standalone capital.
 
     Properties: sum(allocated) = portfolio_capital.
@@ -127,10 +128,7 @@ def euler_allocation(
         corr = np.asarray(correlation_matrix)
         # Covariance: Sigma_ij = s_i × s_j × rho_ij (treat standalone as std dev proxy)
         cov = np.outer(standalones, standalones) * corr
-        # Portfolio variance: w' Sigma w where w_i = s_i / sum(s)
         w = standalones / total_standalone
-        portfolio_var = float(w @ cov @ w)
-        portfolio_vol = float(np.sqrt(max(portfolio_var, 0.0)))
 
         if portfolio_capital is None:
             # Diversified capital = sqrt(sum_ij s_i * s_j * rho_ij)
