@@ -341,11 +341,12 @@ class MCEquityModel:
     """
 
     def __init__(self, process, n_paths: int = 100_000, n_steps: int = 200,
-                 seed: int | None = 42):
+                 seed: int | None = 42, process_spec: dict | None = None):
         self.process = process
         self.n_paths = n_paths
         self.n_steps = n_steps
         self.seed = seed
+        self._process_spec = process_spec
 
     def price_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
         from pricebook.mc_engine import MCEngine, TimeGrid
@@ -400,7 +401,11 @@ def _model_to_dict(model) -> dict:
         return {"type": "sabr", "alpha": p.alpha, "beta": p.beta,
                 "rho": p.rho, "nu": p.nu}
     if isinstance(model, HullWhiteModel):
-        return {"type": "hull_white", "a": model.hw.a, "sigma": model.hw.sigma}
+        hw = model.hw
+        d = {"type": "hull_white", "a": hw.a, "sigma": hw.sigma}
+        if hasattr(hw, 'curve') and hw.curve is not None:
+            d["curve"] = hw.curve.to_dict()
+        return d
     if isinstance(model, BSModel):
         return {"type": "bs", "vol": model.vol}
     if isinstance(model, HestonModel):
@@ -408,8 +413,12 @@ def _model_to_dict(model) -> dict:
         return {"type": "heston", "v0": p.v0, "kappa": p.kappa,
                 "theta": p.theta, "xi": p.xi, "rho": p.rho}
     if isinstance(model, MCEquityModel):
-        return {"type": "mc_equity", "n_paths": model.n_paths,
-                "n_steps": model.n_steps, "seed": model.seed}
+        d = {"type": "mc_equity", "n_paths": model.n_paths,
+             "n_steps": model.n_steps, "seed": model.seed}
+        # Store process construction info if available
+        if hasattr(model, '_process_spec'):
+            d["process_spec"] = model._process_spec
+        return d
     raise TypeError(f"unsupported model type: {type(model).__name__}")
 
 
@@ -424,13 +433,28 @@ def _model_from_dict(d: dict):
         return SABRModel(SABRParams(d["alpha"], d["beta"], d["rho"], d["nu"]))
     if t == "hull_white":
         from pricebook.hull_white import HullWhite
-        # HW needs a curve — create a stub; caller must replace
-        return HullWhiteModel(HullWhite(a=d["a"], sigma=d["sigma"], curve=None))
+        curve = None
+        if "curve" in d:
+            from pricebook.discount_curve import DiscountCurve
+            curve = DiscountCurve.from_dict(d["curve"])
+        return HullWhiteModel(HullWhite(a=d["a"], sigma=d["sigma"], curve=curve))
     if t == "bs":
         return BSModel(vol=d["vol"])
     if t == "heston":
         return HestonModel(HestonParams(d["v0"], d["kappa"], d["theta"],
                                          d["xi"], d["rho"]))
+    if t == "mc_equity":
+        spec = d.get("process_spec")
+        if spec is None:
+            raise ValueError("mc_equity model requires process_spec for deserialisation")
+        from pricebook import mc_processes as _mp
+        proc_fn = getattr(_mp, spec["name"], None)
+        if proc_fn is None:
+            raise ValueError(f"unknown process: {spec['name']!r}")
+        process = proc_fn(**spec["args"])
+        return MCEquityModel(process, d.get("n_paths", 100_000),
+                             d.get("n_steps", 200), d.get("seed", 42),
+                             process_spec=spec)
     raise ValueError(f"unknown model type: {t!r}")
 
 

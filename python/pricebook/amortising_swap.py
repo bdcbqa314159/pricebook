@@ -143,3 +143,30 @@ class AmortisingSwap:
             mid = year_fraction(self.start, e, DayCountConvention.ACT_365_FIXED)
             total += notl * mid
         return total / sum(self.notionals)
+
+from pricebook.serialisable import serialisable as _serialisable
+
+
+# Manual to_dict/from_dict because init param (notional_schedule) differs from stored field (notionals)
+def _amort_to_dict(self):
+    return {"type": "amortising_swap", "params": {
+        "start": self.start.isoformat(), "end": self.end.isoformat(),
+        "fixed_rate": self.fixed_rate, "notional_schedule": self.notionals,
+        "spread": self.spread,
+    }}
+
+@classmethod
+def _amort_from_dict(cls, d):
+    from datetime import date as _date
+    p = d["params"]
+    return cls(
+        start=_date.fromisoformat(p["start"]),
+        end=_date.fromisoformat(p["end"]),
+        fixed_rate=p["fixed_rate"],
+        notional_schedule=p["notional_schedule"],
+        spread=p.get("spread", 0.0),
+    )
+
+AmortisingSwap.to_dict = _amort_to_dict
+AmortisingSwap.from_dict = _amort_from_dict
+AmortisingSwap._SERIAL_TYPE = "amortising_swap"
