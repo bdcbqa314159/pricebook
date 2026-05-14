@@ -1,4 +1,4 @@
-__version__ = "0.544.0"
+__version__ = "0.545.0"
 
 # ── Core infrastructure ──
 from pricebook.pricing_context import PricingContext
@@ -38,6 +38,25 @@ from pricebook.convertible_bond_desk import (
     cb_carry_decomposition, cb_daily_pnl, cb_dashboard,
     cb_stress_suite, cb_capital, cb_hedge_recommendations,
     CBLifecycle,
+)
+
+# ── Private Equity ──
+from pricebook.lbo import LBOModel, LBOResult, SourcesAndUses, ExitAnalysis
+from pricebook.dcf import DCFModel, WACCInputs, DCFResult, FootballField, EVBridge
+from pricebook.pe_performance import (
+    kaplan_schoar_pme, direct_alpha, long_nickels_pme,
+    vintage_cohort, commitment_pacing, gp_economics,
+    PMEResult, GPEconomics,
+)
+from pricebook.fund_participation import (
+    FundParticipation, FundMetrics, PEFundParticipation, WaterfallConfig,
+)
+from pricebook.pe_desk import (
+    pe_risk_metrics, PERiskMetrics,
+    PEBook, PEBookEntry,
+    pe_carry_decomposition, pe_daily_pnl, pe_dashboard,
+    pe_stress_suite, pe_capital, pe_hedge_recommendations,
+    PELifecycle,
 )
 
 # ── Models ──

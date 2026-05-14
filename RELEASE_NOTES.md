@@ -2,6 +2,25 @@
 
 ---
 
+## v0.545.0 — 2026-05-14
+
+**PE trading desk (9-component protocol) + exports.**
+
+- `pe_desk.py` — NEW: full 9-component desk for PE fund management.
+- `PERiskMetrics` — NAV, IRR, TVPI, DPI, MOIC, unfunded commitment; dispatches across fund/LBO/DCF.
+- `PEBook` / `PEBookEntry` — portfolio book with by_vintage, by_manager, by_sector aggregations.
+- `pe_carry_decomposition()` — management fee, carry, distribution income, J-curve drag.
+- `pe_daily_pnl()` — NAV change + fee drag attribution.
+- `pe_dashboard()` — morning meeting: NAV-weighted IRR/TVPI, position counts, concentrations.
+- `pe_stress_suite()` — 5 parametric NAV shocks (±10%, ±25%, -50%).
+- `pe_capital()` — Basel PE equity framework: 250% risk weight, unfunded as contingent.
+- `pe_hedge_recommendations()` — manager concentration + unfunded ratio breach detection.
+- `PELifecycle` — capital call, distribution, secondary sale, GP-led continuation, maturity alerts.
+- `__init__.py` exports: LBOModel, DCFModel, WACCInputs, PE performance functions, PEFundParticipation, desk components.
+- 28 tests.
+
+---
+
 ## v0.544.0 — 2026-05-14
 
 **PE fund waterfall extensions.**
