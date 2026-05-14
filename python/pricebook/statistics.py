@@ -251,3 +251,192 @@ def rolling_stats(
             r_kurt[i] = 3.0
 
     return RollingStatsResult(r_mean, r_vol, r_sharpe, r_skew, r_kurt, window)
+
+
+# ============================================================================
+# Time Series Diagnostics
+# ============================================================================
+
+def acf(x: np.ndarray, max_lag: int = 40) -> np.ndarray:
+    """Autocorrelation function.
+
+    Returns array of length max_lag+1 where acf[0] = 1.0.
+    """
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    xm = x - x.mean()
+    c0 = np.dot(xm, xm) / n
+    if c0 < 1e-15:
+        return np.zeros(min(max_lag + 1, n))
+    lags = min(max_lag, n - 1)
+    result = np.zeros(lags + 1)
+    result[0] = 1.0
+    for k in range(1, lags + 1):
+        result[k] = np.dot(xm[:n - k], xm[k:]) / (n * c0)
+    return result
+
+
+def pacf(x: np.ndarray, max_lag: int = 40) -> np.ndarray:
+    """Partial autocorrelation function via Levinson-Durbin recursion.
+
+    Returns array of length max_lag+1 where pacf[0] = 1.0.
+    """
+    r = acf(x, max_lag)
+    lags = len(r) - 1
+    result = np.zeros(lags + 1)
+    result[0] = 1.0
+    if lags == 0:
+        return result
+
+    # Levinson-Durbin
+    phi = np.zeros((lags + 1, lags + 1))
+    phi[1, 1] = r[1]
+    result[1] = r[1]
+
+    for k in range(2, lags + 1):
+        num = r[k] - sum(phi[k - 1, j] * r[k - j] for j in range(1, k))
+        den = 1.0 - sum(phi[k - 1, j] * r[j] for j in range(1, k))
+        if abs(den) < 1e-15:
+            break
+        phi[k, k] = num / den
+        result[k] = phi[k, k]
+        for j in range(1, k):
+            phi[k, j] = phi[k - 1, j] - phi[k, k] * phi[k - 1, k - j]
+
+    return result
+
+
+@dataclass
+class LjungBoxResult:
+    """Ljung-Box Q test result."""
+    statistic: float
+    p_value: float
+    lags: int
+    reject: bool           # True = significant serial correlation
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def ljung_box(x: np.ndarray, lags: int = 20, significance: float = 0.05) -> LjungBoxResult:
+    """Ljung-Box Q test for serial correlation.
+
+    H0: no autocorrelation up to lag k.
+    Q = n(n+2) Σ_{k=1}^{K} rho_k^2 / (n-k)
+
+    Uses chi-squared critical value with K degrees of freedom.
+    """
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    r = acf(x, lags)
+    Q = n * (n + 2) * sum(r[k] ** 2 / (n - k) for k in range(1, min(lags + 1, len(r))))
+
+    # Chi-squared CDF approximation (Wilson-Hilferty)
+    k = lags
+    z = ((Q / k) ** (1 / 3) - (1 - 2 / (9 * k))) / math.sqrt(2 / (9 * k))
+    # Normal CDF approximation for p-value
+    p_value = 1.0 - 0.5 * (1.0 + math.erf(z / math.sqrt(2)))
+
+    return LjungBoxResult(
+        statistic=float(Q),
+        p_value=max(0.0, min(1.0, p_value)),
+        lags=lags,
+        reject=p_value < significance,
+    )
+
+
+@dataclass
+class ADFResult:
+    """Augmented Dickey-Fuller test result."""
+    statistic: float
+    p_value: float         # approximate
+    lags_used: int
+    reject: bool           # True = reject unit root → series is stationary
+    critical_values: dict  # 1%, 5%, 10%
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def adf_test(x: np.ndarray, max_lag: int | None = None,
+             significance: float = 0.05) -> ADFResult:
+    """Augmented Dickey-Fuller unit root test.
+
+    H0: unit root (non-stationary).
+    Rejects when test statistic < critical value (more negative).
+
+    Uses OLS regression: Δy_t = α + γ y_{t-1} + Σ β_i Δy_{t-i} + ε_t
+    Test statistic = γ / se(γ).
+
+    Critical values from MacKinnon (1994) for constant, no trend.
+    """
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    if max_lag is None:
+        max_lag = int(np.floor((n - 1) ** (1 / 3)))
+
+    dx = np.diff(x)
+    # Build regression matrix: [1, y_{t-1}, Δy_{t-1}, ..., Δy_{t-p}]
+    T = len(dx) - max_lag
+    if T < 5:
+        return ADFResult(0.0, 1.0, max_lag, False, {})
+
+    Y = dx[max_lag:]
+    X = np.ones((T, 2 + max_lag))
+    X[:, 1] = x[max_lag:max_lag + T]  # y_{t-1}
+    for j in range(max_lag):
+        X[:, 2 + j] = dx[max_lag - 1 - j:max_lag - 1 - j + T]
+
+    # OLS
+    try:
+        beta = np.linalg.lstsq(X, Y, rcond=None)[0]
+    except np.linalg.LinAlgError:
+        return ADFResult(0.0, 1.0, max_lag, False, {})
+
+    resid = Y - X @ beta
+    sigma2 = float(np.dot(resid, resid) / max(T - X.shape[1], 1))
+    try:
+        cov = sigma2 * np.linalg.inv(X.T @ X)
+    except np.linalg.LinAlgError:
+        return ADFResult(0.0, 1.0, max_lag, False, {})
+
+    gamma = beta[1]
+    se_gamma = math.sqrt(max(cov[1, 1], 1e-20))
+    t_stat = gamma / se_gamma
+
+    # MacKinnon critical values (constant, no trend, T → ∞)
+    criticals = {"1%": -3.43, "5%": -2.86, "10%": -2.57}
+
+    # Approximate p-value (linear interpolation of MacKinnon table)
+    if t_stat < -3.43:
+        p = 0.005
+    elif t_stat < -2.86:
+        p = 0.01 + (t_stat + 3.43) / (-2.86 + 3.43) * 0.04
+    elif t_stat < -2.57:
+        p = 0.05 + (t_stat + 2.86) / (-2.57 + 2.86) * 0.05
+    elif t_stat < -1.94:
+        p = 0.10 + (t_stat + 2.57) / (-1.94 + 2.57) * 0.15
+    else:
+        p = 0.25 + min(0.75, max(0, (t_stat + 1.94) / 3.0))
+
+    return ADFResult(
+        statistic=float(t_stat),
+        p_value=float(p),
+        lags_used=max_lag,
+        reject=t_stat < criticals.get(f"{int(significance * 100)}%", -2.86),
+        critical_values=criticals,
+    )
+
+
+def durbin_watson(residuals: np.ndarray) -> float:
+    """Durbin-Watson statistic for first-order serial correlation in residuals.
+
+    DW ≈ 2: no autocorrelation.
+    DW < 2: positive autocorrelation.
+    DW > 2: negative autocorrelation.
+    """
+    r = np.asarray(residuals, dtype=float)
+    if len(r) < 2:
+        return 2.0
+    diff = np.diff(r)
+    return float(np.dot(diff, diff) / np.dot(r, r))
