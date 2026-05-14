@@ -2,6 +2,146 @@
 
 ---
 
+## v0.539.0 — 2026-05-14
+
+**`pricebook.numerical` — complete self-contained numerical methods package.**
+
+### Numerical package (`numerical/`) — 12 modules, ~1,800 lines
+- `_distributions.py` — Normal, StudentT, LogNormal, Uniform, Exponential (wraps scipy.stats).
+- `_linalg.py` — expm, logm, QR, Cholesky, LU, GMRES, BiCGSTAB, Sylvester, Lyapunov.
+- `_ode.py` — Euler, RK4, RK45 (adaptive), BDF (stiff), Adams.
+- `_optimize.py` — unified minimize (NM/BFGS/L-BFGS-B/DE/CMA-ES), LP (HiGHS), QP with inequality, interior-point (barrier), proximal gradient (ISTA/FISTA), projection operators.
+- `_quadrature.py` — Gauss-Jacobi, tanh-sinh, Clenshaw-Curtis.
+- `_interpolation.py` — 2D bilinear, bicubic, RBF (scattered data).
+- `_rootfinding.py` — bisection, unified find_root dispatcher.
+- `_mc.py` — QE Heston (Andersen), antithetic variates, multilevel MC (Giles).
+- `_pde.py` — Hundsdorfer-Verwer ADI (full 4-stage), 2D PSOR (American), operator splitting (Lie/Strang).
+- `_trees.py` — tree Greeks (delta/gamma/vega/theta), 2D binomial (Rubinstein).
+- `_fourier.py` — fractional FFT (chirp-z), Hilbert transform, wavelet (Haar/Db2), CharacteristicFunction class.
+- `_distributions_theory.py` — Schwartz test functions, tempered distributions, Fourier transform, convolution, Sobolev norms.
+- 35 tests covering all modules.
+- 3 audit rounds: 23 issues found and fixed (HV ADI stages, Lyapunov sign, PSOR order, Strang splitting, etc.).
+
+---
+
+## v0.527.0 — 2026-05-14
+
+**Advanced regression.**
+
+- `regression.py` — NEW: OLS, Ridge, Lasso (coordinate descent), Elastic Net, quantile (IRLS), robust (Huber/Tukey).
+
+---
+
+## v0.526.0 — 2026-05-14
+
+**Clustering and regime detection.**
+
+- `clustering.py` — NEW: K-means (Lloyd), silhouette score, optimal k, hierarchical (Ward), HMM regime switching (Baum-Welch EM, Viterbi).
+
+---
+
+## v0.525.0 — 2026-05-14
+
+**Distribution fitting.**
+
+- `distribution_fit.py` — NEW: MLE fitting (normal, Student-t, GEV), Kolmogorov-Smirnov test, Anderson-Darling, Q-Q plot data.
+
+---
+
+## v0.524.0 — 2026-05-14
+
+**Kalman filter.**
+
+- `kalman.py` — NEW: linear Gaussian state-space model, RTS smoother, dynamic beta, dynamic hedge ratio, trend extraction.
+
+---
+
+## v0.523.0 — 2026-05-14
+
+**Volatility forecasting.**
+
+- `garch.py` — NEW: GARCH(1,1) MLE, EGARCH (leverage), EWMA (RiskMetrics), realized vol, GARCH VaR.
+
+---
+
+## v0.522.0 — 2026-05-14
+
+**Time series diagnostics.**
+
+- `statistics.py` extended: ACF, PACF (Levinson-Durbin), Ljung-Box Q test, Augmented Dickey-Fuller, Durbin-Watson.
+
+---
+
+## v0.521.0 — 2026-05-14
+
+**Performance ratios.**
+
+- `ts/_stats.py` extended: information ratio, tracking error, Treynor, Omega, gain-to-pain, Kelly criterion (discrete + continuous).
+
+---
+
+## v0.520.0 — 2026-05-13
+
+**Serialisation + curve construction + factories.**
+
+### Serialisation complete (26/26 classes roundtrip)
+- Added: FRN, FXSwap, NDF, EquityForward, ZCSwap, ConvertibleBond, AmortisingSwap.
+- Model serialisation: all 8 models (Black76, Bachelier, SABR, HW with curve, BS, Heston, MCEquity with process_spec).
+- TimeSeries: `to_dict()` (NaN→None) + `from_serialised()`.
+- CurrencyPair deserialisation in `serialisable.py`.
+- Dividend `to_dict()`/`from_dict()`.
+
+### AmortisingSwap removed
+- Use `InterestRateSwap.amortising()`, `.accreting()`, `.roller_coaster()` instead.
+- One class per instrument, factory classmethods for common shapes.
+
+### Unified curve builder
+- `build_curves(method=...)` — 5 methods: sequential, global_newton, nelson_siegel, svensson, smith_wilson.
+
+---
+
+## v0.519.0 — 2026-05-13
+
+**AAD bootstrap.**
+
+- `aad_bootstrap()` in `aad_curves.py` — sensitivities to every input quote via reverse-mode AD, matches FD to 6 decimals.
+
+---
+
+## v0.518.0 — 2026-05-13
+
+**Analytical Jacobian.**
+
+- `global_solver.py` — analytical Jacobian for global bootstrap, O(n) per iteration, exact match with sequential.
+
+### Curve audit fixes
+- `multicurve_solver.py` — dual-curve float leg corrected (was using wrong telescoping identity).
+- Armijo condition tightened to strict non-increase.
+- Convergence warnings on non-convergence.
+
+---
+
+## v0.517.0 — 2026-05-13
+
+**Futures desk: audit + gaps + notebook.**
+
+### Futures audit fixes
+- Stress PnL signs corrected (rates up → negative for long bonds).
+- Silent-zero guards in commodity trades/spreads.
+- CTD docstring, implied repo 360, turn-of-year docs.
+
+### IR futures extensions
+- Pack/bundle/butterfly strategies.
+- `FuturesType.EURIBOR_3M`.
+- `fed_funds_implied_probability()`.
+- `roll_schedule()` — automated roll recommendations.
+- `futures_cash_basis_rv()` — cross-market relative value.
+
+### Notebook
+- `futures_desk.ipynb` — curve from futures, bond basis, delivery options, IR strip, commodity term structure, multi-asset book.
+
+---
+
 ## v0.516.0 — 2026-05-13
 
 **Documentation + exports.**
