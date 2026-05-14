@@ -722,3 +722,113 @@ def rolling_correlation(
     ax.set_title(title, fontsize=theme.title_size)
     plt.tight_layout()
     return fig
+
+
+# ---------------------------------------------------------------------------
+# 11. Football field (valuation range)
+# ---------------------------------------------------------------------------
+
+def football_field(
+    methods: list[str],
+    low: list[float],
+    mid: list[float],
+    high: list[float],
+    title: str = "Valuation Range",
+    figsize: tuple[float, float] = (12, 5),
+    fmt: str = ",.0f",
+):
+    """Horizontal range chart showing valuation from multiple methods.
+
+    Each method is a horizontal bar from low to high with a diamond at mid.
+
+    Args:
+        methods: method names (e.g. ["DCF (perpetuity)", "DCF (exit multiple)"]).
+        low: low-end valuation per method.
+        mid: midpoint valuation per method.
+        high: high-end valuation per method.
+        fmt: number format for annotations.
+
+    Returns:
+        matplotlib.Figure
+    """
+    import matplotlib.pyplot as plt
+
+    if not methods:
+        raise ValueError("methods must not be empty")
+
+    theme = get_theme()
+    n = len(methods)
+    y_pos = np.arange(n)
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    for i in range(n):
+        color = theme.colors[i % len(theme.colors)]
+        ax.barh(y_pos[i], high[i] - low[i], left=low[i],
+                color=color, alpha=0.3, height=0.5, edgecolor=color, linewidth=1.0)
+        ax.plot(mid[i], y_pos[i], "D", color=color, markersize=8, zorder=5)
+        ax.text(low[i], y_pos[i] + 0.3, f"{low[i]:{fmt}}", ha="center",
+                fontsize=theme.font_size - 2, color=theme.foreground)
+        ax.text(high[i], y_pos[i] + 0.3, f"{high[i]:{fmt}}", ha="center",
+                fontsize=theme.font_size - 2, color=theme.foreground)
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(methods)
+    ax.invert_yaxis()
+    ax.set_xlabel("Equity Value")
+    ax.set_title(title, fontsize=theme.title_size)
+    plt.tight_layout()
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 12. J-curve
+# ---------------------------------------------------------------------------
+
+def j_curve(
+    periods: list[int] | Any,
+    tvpi: list[float] | Any,
+    title: str = "J-Curve",
+    figsize: tuple[float, float] = (10, 5),
+):
+    """PE fund J-curve: TVPI over time.
+
+    Shows the characteristic dip below 1.0x in early years (fee drag,
+    unrealised investments) followed by recovery as portfolio matures.
+
+    Args:
+        periods: year numbers (e.g. [1, 2, ..., 8]).
+        tvpi: TVPI at each period.
+
+    Returns:
+        matplotlib.Figure
+    """
+    import matplotlib.pyplot as plt
+
+    if not periods:
+        raise ValueError("periods must not be empty")
+
+    theme = get_theme()
+    t = np.array(periods)
+    v = np.array(tvpi)
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    ax.plot(t, v, color=theme.colors[0], linewidth=theme.line_width, zorder=3)
+    ax.fill_between(t, v, 1.0, where=v < 1.0,
+                    color=theme.colors[1], alpha=0.15, interpolate=True)
+    ax.fill_between(t, v, 1.0, where=v >= 1.0,
+                    color=theme.colors[2] if len(theme.colors) > 2 else "#2ca02c",
+                    alpha=0.15, interpolate=True)
+
+    trough_idx = int(np.argmin(v))
+    ax.plot(t[trough_idx], v[trough_idx], "v", color=theme.colors[1],
+            markersize=10, zorder=5, label=f"Trough: {v[trough_idx]:.2f}x")
+
+    ax.axhline(1.0, color="gray", linewidth=0.5, linestyle="--", label="1.0x breakeven")
+    ax.set_xlabel("Year")
+    ax.set_ylabel("TVPI")
+    ax.set_title(title, fontsize=theme.title_size)
+    ax.legend(fontsize=theme.font_size - 1)
+    plt.tight_layout()
+    return fig

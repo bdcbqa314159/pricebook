@@ -2,6 +2,15 @@
 
 ---
 
+## v0.546.0 — 2026-05-14
+
+**PE-specific visualisation.**
+
+- `football_field()` — horizontal range chart for valuation from multiple methods (DCF perpetuity, exit multiple, WACC sensitivity).
+- `j_curve()` — PE fund TVPI over time with trough marker, breakeven line, red/green fill below/above 1.0x.
+
+---
+
 ## v0.545.0 — 2026-05-14
 
 **PE trading desk (9-component protocol) + exports.**

@@ -35,6 +35,8 @@ from pricebook.viz._risk import (
     greeks_evolution,
     hedge_pnl_tracking,
     rolling_correlation,
+    football_field,
+    j_curve,
 )
 
 # Register product modules (triggers @register_instrument decorators)
@@ -53,4 +55,5 @@ __all__ = [
     "tenor_bucketing", "vega_ladder", "pnl_table",
     "greeks_surface", "greeks_evolution",
     "hedge_pnl_tracking", "rolling_correlation",
+    "football_field", "j_curve",
 ]
