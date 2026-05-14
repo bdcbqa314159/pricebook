@@ -23,6 +23,19 @@ import numpy as np
 from pricebook.viz._theme import get_theme
 
 
+def _set_date_ticks(ax, dates, x, max_labels: int = 10):
+    """Set x-axis tick labels for date arrays, thinning if crowded."""
+    n = len(dates)
+    if n > max_labels * 2:
+        step = max(1, n // max_labels)
+        ax.set_xticks(x[::step])
+        ax.set_xticklabels([str(dates[i]) for i in range(0, n, step)],
+                           rotation=30, ha="right")
+    else:
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(d) for d in dates], rotation=30, ha="right")
+
+
 # ---------------------------------------------------------------------------
 # 1. P&L waterfall / bridge chart
 # ---------------------------------------------------------------------------
@@ -47,6 +60,9 @@ def pnl_waterfall(
     """
     import matplotlib.pyplot as plt
 
+    if not components:
+        raise ValueError("components must not be empty")
+
     theme = get_theme()
     names = list(components.keys())
     values = list(components.values())
@@ -56,22 +72,17 @@ def pnl_waterfall(
         values.append(sum(components.values()))
 
     n = len(names)
-    cumulative = np.zeros(n + 1)
-    for i, v in enumerate(values):
-        if show_total and i == n - 1:
-            cumulative[i] = 0.0
-        else:
-            cumulative[i + 1] = cumulative[i] + v if i < n - 1 else cumulative[i]
-            if i > 0:
-                cumulative[i] = cumulative[i]
 
-    # Compute bar starts and widths
+    # Compute bar starts: each bar starts where the previous cumulative ends.
+    # Total bar always starts at 0.
     starts = np.zeros(n)
+    running = 0.0
     for i in range(n):
         if show_total and i == n - 1:
             starts[i] = 0.0
         else:
-            starts[i] = sum(values[:i])
+            starts[i] = running
+            running += values[i]
 
     color_pos = theme.colors[2] if len(theme.colors) > 2 else "#2ca02c"
     color_neg = theme.colors[1] if len(theme.colors) > 1 else "#d62728"
@@ -92,14 +103,15 @@ def pnl_waterfall(
         ax.barh(y_pos[i], v, left=starts[i], color=color, edgecolor="white",
                 height=0.6, linewidth=0.5)
 
-        # Value label
+        # Value label at bar end
         x_label = starts[i] + v
         ha = "left" if v >= 0 else "right"
         ax.text(x_label, y_pos[i], f" {v:{fmt}} ", ha=ha, va="center",
                 fontsize=theme.font_size - 1, color=theme.foreground)
 
-    # Connector lines between bars
-    for i in range(n - 1):
+    # Connector lines between component bars (not to Total)
+    n_components = (n - 1) if show_total else n
+    for i in range(n_components - 1):
         end_x = starts[i] + values[i]
         ax.plot([end_x, end_x], [y_pos[i] - 0.35, y_pos[i + 1] + 0.35],
                 color="gray", linewidth=0.5, linestyle=":")
@@ -137,6 +149,9 @@ def risk_decomposition(
         matplotlib.Figure
     """
     import matplotlib.pyplot as plt
+
+    if not labels:
+        raise ValueError("labels must not be empty")
 
     theme = get_theme()
     vals = np.array(values, dtype=float)
@@ -192,6 +207,9 @@ def stress_comparison(
         matplotlib.Figure
     """
     import matplotlib.pyplot as plt
+
+    if not scenarios:
+        raise ValueError("scenarios must not be empty")
 
     theme = get_theme()
     names = [s["name"] for s in scenarios]
@@ -269,14 +287,16 @@ def tenor_bucketing(
         matplotlib.Figure
     """
     import matplotlib.pyplot as plt
-    from matplotlib.cm import get_cmap
+
+    if not buckets:
+        raise ValueError("buckets must not be empty")
 
     theme = get_theme()
     vals = np.array(values, dtype=float)
     n = len(vals)
 
     # Color gradient: blue shading by tenor (short→long)
-    cmap = get_cmap("Blues")
+    cmap = plt.colormaps["Blues"]
     colors = [cmap(0.3 + 0.6 * i / max(n - 1, 1)) for i in range(n)]
     # Override with red for negative values
     for i in range(n):
@@ -325,6 +345,9 @@ def vega_ladder(
     """
     import matplotlib.pyplot as plt
 
+    if not expiry_buckets:
+        raise ValueError("expiry_buckets must not be empty")
+
     theme = get_theme()
     vals = np.array(vega_values, dtype=float)
     n = len(vals)
@@ -347,17 +370,19 @@ def vega_ladder(
     y_pos = np.arange(n)
     ax.barh(y_pos, vals, color=colors, height=0.6, edgecolor="white", linewidth=0.5)
 
+    # Determine max bar magnitude for consistent label placement
+    abs_max = float(np.max(np.abs(vals))) if len(vals) > 0 else 1.0
+
     for i, v in enumerate(vals):
-        # Place label at the end of the bar, outside
+        prem_str = f"  (prem: {vol_premium[i]:+.1f}%)" if vol_premium is not None else ""
+        # Always place label to the right of the bar, outside
         if v >= 0:
-            ha, x_off = "left", v
+            ax.text(v, y_pos[i], f" {v:,.0f}{prem_str}", ha="left", va="center",
+                    fontsize=theme.font_size - 1, color=theme.foreground)
         else:
-            ha, x_off = "left", 0
-        label = f" {v:,.0f}"
-        if vol_premium is not None:
-            label += f"  (prem: {vol_premium[i]:+.1f}%)"
-        ax.text(x_off, y_pos[i], label, ha=ha, va="center",
-                fontsize=theme.font_size - 1, color=theme.foreground)
+            # Place label inside the bar or at x=0, whichever avoids y-tick overlap
+            ax.text(0, y_pos[i], f" {v:,.0f}{prem_str}", ha="left", va="center",
+                    fontsize=theme.font_size - 1, color=theme.foreground)
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(expiry_buckets)
@@ -589,6 +614,9 @@ def hedge_pnl_tracking(
     """
     import matplotlib.pyplot as plt
 
+    if len(dates) == 0:
+        raise ValueError("dates must not be empty")
+
     theme = get_theme()
     pos = np.array(position_pnl, dtype=float)
     hdg = np.array(hedge_pnl, dtype=float)
@@ -614,18 +642,7 @@ def hedge_pnl_tracking(
     ax.axhline(0, color="gray", linewidth=0.5)
     ax.set_xlabel("Date")
     ax.set_ylabel("Cumulative P&L" if cumulative else "P&L")
-
-    # Tick labels: show subset to avoid crowding
-    n = len(dates)
-    if n > 20:
-        step = max(1, n // 10)
-        ax.set_xticks(x[::step])
-        ax.set_xticklabels([str(dates[i]) for i in range(0, n, step)],
-                           rotation=30, ha="right")
-    else:
-        ax.set_xticks(x)
-        ax.set_xticklabels([str(d) for d in dates], rotation=30, ha="right")
-
+    _set_date_ticks(ax, dates, x)
     ax.legend(fontsize=theme.font_size - 1)
     ax.set_title(title, fontsize=theme.title_size)
     plt.tight_layout()
@@ -656,6 +673,9 @@ def rolling_correlation(
     """
     import matplotlib.pyplot as plt
 
+    if not corr_series:
+        raise ValueError("corr_series must not be empty")
+
     theme = get_theme()
     fig, ax = plt.subplots(figsize=figsize)
     x = np.arange(len(dates))
@@ -674,17 +694,7 @@ def rolling_correlation(
     ax.set_ylim(-1.1, 1.1)
     ax.set_ylabel("Correlation")
     ax.set_xlabel("Date")
-
-    n = len(dates)
-    if n > 20:
-        step = max(1, n // 10)
-        ax.set_xticks(x[::step])
-        ax.set_xticklabels([str(dates[i]) for i in range(0, n, step)],
-                           rotation=30, ha="right")
-    else:
-        ax.set_xticks(x)
-        ax.set_xticklabels([str(d) for d in dates], rotation=30, ha="right")
-
+    _set_date_ticks(ax, dates, x)
     ax.legend(fontsize=theme.font_size - 1)
     ax.set_title(title, fontsize=theme.title_size)
     plt.tight_layout()
