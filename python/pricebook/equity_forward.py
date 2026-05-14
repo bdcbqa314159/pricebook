@@ -106,3 +106,6 @@ class EquityForward:
         fwd_base = self.forward_price(curve)
         fwd_bumped = self.forward_price(curve.bumped(shift))
         return fwd_bumped - fwd_base
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("equity_forward", ["spot", "maturity", "valuation_date", "div_yield", "borrow_cost"])(EquityForward)

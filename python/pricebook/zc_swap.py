@@ -214,3 +214,6 @@ def digital_cms_cap(
         total += notional * payout * digital
 
     return total
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("zc_swap", ["start", "end", "fixed_rate", "direction", "notional", "day_count"])(ZeroCouponSwap)

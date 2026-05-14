@@ -383,3 +383,62 @@ def price_european(
 ) -> float:
     """Price a European option using any EquityOptionModel."""
     return model.price_european(spot, strike, rate, T, option_type, div_yield)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Serialisation
+# ═══════════════════════════════════════════════════════════════
+
+def _model_to_dict(model) -> dict:
+    """Serialise any model to a dict."""
+    if isinstance(model, Black76Model):
+        return {"type": "black76", "vol": model.vol}
+    if isinstance(model, BachelierModel):
+        return {"type": "bachelier", "vol_normal": model.vol_normal}
+    if isinstance(model, SABRModel):
+        p = model.params
+        return {"type": "sabr", "alpha": p.alpha, "beta": p.beta,
+                "rho": p.rho, "nu": p.nu}
+    if isinstance(model, HullWhiteModel):
+        return {"type": "hull_white", "a": model.hw.a, "sigma": model.hw.sigma}
+    if isinstance(model, BSModel):
+        return {"type": "bs", "vol": model.vol}
+    if isinstance(model, HestonModel):
+        p = model.params
+        return {"type": "heston", "v0": p.v0, "kappa": p.kappa,
+                "theta": p.theta, "xi": p.xi, "rho": p.rho}
+    if isinstance(model, MCEquityModel):
+        return {"type": "mc_equity", "n_paths": model.n_paths,
+                "n_steps": model.n_steps, "seed": model.seed}
+    raise TypeError(f"unsupported model type: {type(model).__name__}")
+
+
+def _model_from_dict(d: dict):
+    """Deserialise a model from a dict."""
+    t = d["type"]
+    if t == "black76":
+        return Black76Model(vol=d["vol"])
+    if t == "bachelier":
+        return BachelierModel(vol_normal=d["vol_normal"])
+    if t == "sabr":
+        return SABRModel(SABRParams(d["alpha"], d["beta"], d["rho"], d["nu"]))
+    if t == "hull_white":
+        from pricebook.hull_white import HullWhite
+        # HW needs a curve — create a stub; caller must replace
+        return HullWhiteModel(HullWhite(a=d["a"], sigma=d["sigma"], curve=None))
+    if t == "bs":
+        return BSModel(vol=d["vol"])
+    if t == "heston":
+        return HestonModel(HestonParams(d["v0"], d["kappa"], d["theta"],
+                                         d["xi"], d["rho"]))
+    raise ValueError(f"unknown model type: {t!r}")
+
+
+# Bind to_dict on each model class
+Black76Model.to_dict = lambda self: _model_to_dict(self)
+BachelierModel.to_dict = lambda self: _model_to_dict(self)
+SABRModel.to_dict = lambda self: _model_to_dict(self)
+HullWhiteModel.to_dict = lambda self: _model_to_dict(self)
+BSModel.to_dict = lambda self: _model_to_dict(self)
+HestonModel.to_dict = lambda self: _model_to_dict(self)
+MCEquityModel.to_dict = lambda self: _model_to_dict(self)

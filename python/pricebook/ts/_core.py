@@ -50,6 +50,21 @@ class TimeSeries:
         return cls(np.array([], dtype="datetime64[D]"),
                    np.array([], dtype=np.float64), name)
 
+    # ── Serialisation ──
+
+    def to_dict(self) -> dict:
+        """Serialise to a dict {name, dates, values}."""
+        return {
+            "name": self.name,
+            "dates": [str(d) for d in self.dates],
+            "values": [float(v) for v in self.values],
+        }
+
+    @classmethod
+    def from_serialised(cls, d: dict) -> "TimeSeries":
+        """Deserialise from a dict produced by to_dict()."""
+        return cls.from_lists(d["dates"], d["values"], d.get("name", ""))
+
     # ── Properties ──
 
     def __len__(self) -> int:

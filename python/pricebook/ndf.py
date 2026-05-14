@@ -113,3 +113,6 @@ class NDF:
         """Spot delta: PV change per 1-pip spot move."""
         pv_base = self.pv(spot, base_curve, quote_curve)
         return self.pv(spot + shift, base_curve, quote_curve) - pv_base
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("ndf", ["pair", "maturity", "contracted_rate", "notional", "settlement_currency"])(NDF)

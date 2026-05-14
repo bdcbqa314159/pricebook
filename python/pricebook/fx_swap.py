@@ -103,3 +103,6 @@ class FXSwap:
         """PV sensitivity to 1bp parallel shift in both curves."""
         pv_base = self.pv(spot, base_curve, quote_curve)
         return self.pv(spot, base_curve.bumped(shift), quote_curve.bumped(shift)) - pv_base
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("fx_swap", ["pair", "near_date", "far_date", "near_rate", "far_rate", "notional"])(FXSwap)

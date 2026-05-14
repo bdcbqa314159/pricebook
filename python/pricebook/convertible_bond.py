@@ -674,3 +674,6 @@ def mandatory_convertible_via_engine(
         price=float(price), min_shares=float(shares_high),
         max_shares=float(shares_low), low_strike=low_strike, high_strike=high_strike,
     )
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("convertible_bond", ["notional", "coupon_rate", "maturity_years", "conversion_ratio", "n_coupons_per_year"])(ConvertibleBond)

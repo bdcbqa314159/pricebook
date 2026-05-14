@@ -148,3 +148,6 @@ class FloatingRateNote:
             return shifted.dirty_price(curve, projection_curve) - market_price
 
         return brentq(objective, -0.05, 0.05)
+
+from pricebook.serialisable import serialisable as _serialisable
+_serialisable("frn", ["start", "end", "spread", "notional"])(FloatingRateNote)
