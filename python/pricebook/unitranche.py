@@ -13,13 +13,13 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.loan import TermLoan
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.schedule import Frequency
 from pricebook.solvers import brentq
 
 
@@ -82,13 +82,25 @@ class CallProtectionSchedule:
     premiums: list[float]   # call premium at each step (e.g. [0.02, 0.01, 0.0])
 
     def call_price(self, call_date: date) -> float:
-        """Call price (per 100) at a given date."""
-        for i, d in enumerate(self.par_dates):
-            if call_date < d:
-                if i == 0:
-                    return float('inf')  # non-call period
-                return 100.0 * (1 + self.premiums[i - 1])
-        # After all step-down dates: use last premium
+        """Call price (per 100) at a given date.
+
+        premiums[i] applies between par_dates[i] and par_dates[i+1].
+        Before par_dates[0]: non-callable (inf).
+        After par_dates[-1]: premiums[-1].
+        """
+        if not self.par_dates:
+            return 100.0 * (1 + self.premiums[0]) if self.premiums else 100.0
+
+        if call_date < self.par_dates[0]:
+            return float('inf')  # non-call period
+
+        # Find which interval the call_date falls in
+        for i in range(len(self.par_dates) - 1):
+            if call_date < self.par_dates[i + 1]:
+                prem_idx = min(i, len(self.premiums) - 1)
+                return 100.0 * (1 + self.premiums[prem_idx])
+
+        # After last par_date
         return 100.0 * (1 + self.premiums[-1]) if self.premiums else 100.0
 
     def is_callable(self, call_date: date) -> bool:
@@ -388,7 +400,6 @@ class DelayedDrawTermLoan(TermLoan):
 
         if market_spread is not None and market_spread != self.spread:
             # Compute PV with market spread (what it would cost to get same loan today)
-            from copy import copy
             market_loan = DelayedDrawTermLoan(
                 self.start, self.end,
                 spread=market_spread, notional=self.notional,

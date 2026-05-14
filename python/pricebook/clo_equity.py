@@ -236,17 +236,17 @@ class CLOEquityMC:
             loan_notional = par / max(self.n_loans, 1)
             default_par = n_defaults * loan_notional
 
-            # Recovery on defaults
-            if default_par > 0:
-                recovery_rate = np.clip(
-                    rng.normal(self.recovery_mean, self.recovery_vol),
+            # Recovery on defaults (per-loan recovery sampling)
+            if default_par > 0 and n_defaults > 0:
+                recovery_rates = np.clip(
+                    rng.normal(self.recovery_mean, self.recovery_vol, n_defaults),
                     0.0, 1.0,
                 )
-                recovery = default_par * recovery_rate
+                recovery = loan_notional * float(np.sum(recovery_rates))
             else:
                 recovery = 0.0
 
-            loss = default_par - recovery
+            loss = default_par - recovery  # net loss after recovery
             total_defaults += default_par
 
             # Prepayments
@@ -259,14 +259,14 @@ class CLOEquityMC:
             if p < reinvest_end:
                 # Manager reinvests — par stays constant
                 # But net losses still erode equity cushion
-                cumulative_net_losses += max(loss - recovery, 0.0)
+                cumulative_net_losses += loss
             else:
                 # Post-reinvestment: par declines from defaults and prepayments
                 par = par - default_par - prepay
                 par = max(par, 0.0)
 
             # Waterfall: income net of losses
-            net_income = income - max(loss - recovery, 0.0)
+            net_income = income - loss
 
             if net_income > 0:
                 payments = self.waterfall.distribute_interest(net_income, par)

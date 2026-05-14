@@ -288,9 +288,16 @@ def migration_matrix(
     for i, rating in enumerate(initial_ratings):
         initial_dist[rating] = initial_dist.get(rating, 0.0) + notionals_arr[i]
 
-    # All ratings
-    all_ratings = sorted(set(list(transition_probs.keys()) +
-                             [r for probs in transition_probs.values() for r in probs]))
+    # All ratings — maintain order from transition_probs keys (assumed credit quality order)
+    # then append any destinations not already seen
+    all_ratings: list[str] = []
+    for r in transition_probs:
+        if r not in all_ratings:
+            all_ratings.append(r)
+    for probs in transition_probs.values():
+        for r in probs:
+            if r not in all_ratings:
+                all_ratings.append(r)
 
     # Build transition matrix
     n_ratings = len(all_ratings)

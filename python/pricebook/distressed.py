@@ -14,12 +14,8 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
-
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.schedule import Frequency, generate_schedule
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -372,7 +368,7 @@ class ExchangeOffer:
         """
         return self.old_notional * post_exchange_price / 100
 
-    def prisoners_dilemma(self, n_holders: int = 100) -> dict[str, float]:
+    def prisoners_dilemma(self) -> dict[str, float]:
         """Game theory: cooperative vs defect payoffs.
 
         Cooperate = tender, Defect = holdout.
