@@ -2,6 +2,21 @@
 
 ---
 
+## v0.549.0 — 2026-05-14
+
+**Loan portfolio stress testing.**
+
+- `loan_stress.py` — NEW: correlated defaults, macro scenarios, migration, concentration.
+- `correlated_default_simulation()` — one-factor Gaussian copula, (n_paths × n_obligors) default matrix.
+- `portfolio_loss_distribution()` — full loss distribution with VaR/ES/by-industry, macro scenario overlays.
+- `MacroScenario` — GDP shock, rate/spread shock, PD multiplier, recovery haircut.
+- 5 predefined scenarios: recession, stagflation, credit_crisis, rate_shock, recovery.
+- `concentration_metrics()` — HHI, top-10%, industry HHI, granularity adjustment, effective N.
+- `migration_matrix()` — rating transition via matrix power (multi-year), upgrade/downgrade/default%.
+- 20 tests.
+
+---
+
 ## v0.548.0 — 2026-05-14
 
 **CLO equity Monte Carlo.**
