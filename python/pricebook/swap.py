@@ -268,5 +268,70 @@ class InterestRateSwap:
             })
         return sorted(rows, key=lambda r: r["payment_date"])
 
+    # ── Factory classmethods ──
+
+    @classmethod
+    def amortising(
+        cls,
+        start: date,
+        end: date,
+        fixed_rate: float,
+        initial_notional: float = 1_000_000.0,
+        direction: SwapDirection = SwapDirection.PAYER,
+        **kwargs,
+    ) -> "InterestRateSwap":
+        """Amortising swap: notional decreases linearly to zero.
+
+            swap = InterestRateSwap.amortising(start, end, 0.04, 1_000_000)
+        """
+        from pricebook.schedule import generate_schedule
+        freq = kwargs.get("fixed_frequency", Frequency.SEMI_ANNUAL)
+        schedule = generate_schedule(start, end, freq)
+        n = len(schedule) - 1
+        notionals = [initial_notional * (1.0 - i / n) for i in range(n)]
+        return cls(start, end, fixed_rate, direction, notional=notionals, **kwargs)
+
+    @classmethod
+    def accreting(
+        cls,
+        start: date,
+        end: date,
+        fixed_rate: float,
+        initial_notional: float = 500_000.0,
+        final_notional: float = 1_000_000.0,
+        direction: SwapDirection = SwapDirection.PAYER,
+        **kwargs,
+    ) -> "InterestRateSwap":
+        """Accreting swap: notional increases linearly.
+
+            swap = InterestRateSwap.accreting(start, end, 0.04, 500_000, 1_000_000)
+        """
+        from pricebook.schedule import generate_schedule
+        freq = kwargs.get("fixed_frequency", Frequency.SEMI_ANNUAL)
+        schedule = generate_schedule(start, end, freq)
+        n = len(schedule) - 1
+        notionals = [
+            initial_notional + (final_notional - initial_notional) * i / max(n - 1, 1)
+            for i in range(n)
+        ]
+        return cls(start, end, fixed_rate, direction, notional=notionals, **kwargs)
+
+    @classmethod
+    def roller_coaster(
+        cls,
+        start: date,
+        end: date,
+        fixed_rate: float,
+        notional_schedule: list[float],
+        direction: SwapDirection = SwapDirection.PAYER,
+        **kwargs,
+    ) -> "InterestRateSwap":
+        """Roller-coaster swap: arbitrary notional schedule.
+
+            swap = InterestRateSwap.roller_coaster(start, end, 0.04, [1e6, 2e6, 1e6])
+        """
+        return cls(start, end, fixed_rate, direction, notional=notional_schedule, **kwargs)
+
+
 from pricebook.serialisable import serialisable as _serialisable
 _serialisable("irs", ["start", "end", "fixed_rate", "direction", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "spread"])(InterestRateSwap)
