@@ -1,0 +1,209 @@
+"""Linear algebra: matrix operations, sparse solvers, decompositions.
+
+    from pricebook.numerical import expm, logm, qr, cholesky, gmres, sylvester
+
+Wraps scipy.linalg and numpy.linalg behind a clean interface.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+
+# ═══════════════════════════════════════════════════════════════
+# Matrix decompositions
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class QRResult:
+    Q: np.ndarray
+    R: np.ndarray
+
+    def to_dict(self) -> dict:
+        return {"Q_shape": list(self.Q.shape), "R_shape": list(self.R.shape)}
+
+
+def qr(A: np.ndarray) -> QRResult:
+    """QR factorisation: A = QR where Q is orthogonal, R is upper triangular."""
+    Q, R = np.linalg.qr(A)
+    return QRResult(Q, R)
+
+
+def cholesky(A: np.ndarray) -> np.ndarray:
+    """Cholesky factorisation: A = LL' for symmetric positive definite A.
+
+    Returns lower triangular L.
+    """
+    return np.linalg.cholesky(A)
+
+
+def lu(A: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """LU factorisation: PA = LU.
+
+    Returns (P, L, U) where P is permutation, L lower, U upper.
+    """
+    from scipy.linalg import lu as _lu
+    return _lu(A)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Matrix functions
+# ═══════════════════════════════════════════════════════════════
+
+def expm(A: np.ndarray) -> np.ndarray:
+    """Matrix exponential: exp(A).
+
+    Uses Padé approximation via scipy.linalg.expm.
+    Essential for transition matrices, generator matrices.
+    """
+    from scipy.linalg import expm as _expm
+    return _expm(A)
+
+
+def logm(A: np.ndarray) -> np.ndarray:
+    """Matrix logarithm: log(A) such that exp(log(A)) = A.
+
+    Requires A to have no negative real eigenvalues.
+    """
+    from scipy.linalg import logm as _logm
+    return _logm(A)
+
+
+def sqrtm(A: np.ndarray) -> np.ndarray:
+    """Matrix square root: B such that B @ B = A."""
+    from scipy.linalg import sqrtm as _sqrtm
+    return _sqrtm(A)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Linear system solvers
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class IterativeSolveResult:
+    x: np.ndarray
+    iterations: int
+    converged: bool
+    residual_norm: float
+
+    def to_dict(self) -> dict:
+        return {"iterations": self.iterations, "converged": self.converged,
+                "residual_norm": self.residual_norm}
+
+
+def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Direct solve Ax = b (dense)."""
+    return np.linalg.solve(A, b)
+
+
+def lstsq(A: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Least-squares solve: min ||Ax - b||₂."""
+    return np.linalg.lstsq(A, b, rcond=None)[0]
+
+
+def gmres(
+    A,
+    b: np.ndarray,
+    x0: np.ndarray | None = None,
+    tol: float = 1e-10,
+    maxiter: int = 1000,
+) -> IterativeSolveResult:
+    """GMRES: Generalised Minimum Residual for non-symmetric systems.
+
+    Works for any square system Ax = b. More general than CG
+    (which requires A to be symmetric positive definite).
+    """
+    from scipy.sparse.linalg import gmres as _gmres
+    from scipy.sparse import issparse
+
+    if not issparse(A):
+        A_op = np.atleast_2d(A)
+    else:
+        A_op = A
+
+    x, info = _gmres(A_op, b, x0=x0, rtol=tol, maxiter=maxiter)
+    residual = np.linalg.norm(A_op @ x - b) if not issparse(A_op) else np.linalg.norm(A_op.dot(x) - b)
+
+    return IterativeSolveResult(
+        x=x,
+        iterations=maxiter if info > 0 else info,
+        converged=(info == 0),
+        residual_norm=float(residual),
+    )
+
+
+def bicgstab(
+    A,
+    b: np.ndarray,
+    x0: np.ndarray | None = None,
+    tol: float = 1e-10,
+    maxiter: int = 1000,
+) -> IterativeSolveResult:
+    """BiCGSTAB: Bi-Conjugate Gradient Stabilised for non-symmetric systems.
+
+    Often faster than GMRES for certain non-symmetric problems.
+    """
+    from scipy.sparse.linalg import bicgstab as _bicgstab
+    from scipy.sparse import issparse
+
+    if not issparse(A):
+        A_op = np.atleast_2d(A)
+    else:
+        A_op = A
+
+    x, info = _bicgstab(A_op, b, x0=x0, rtol=tol, maxiter=maxiter)
+    residual = np.linalg.norm(A_op @ x - b) if not issparse(A_op) else np.linalg.norm(A_op.dot(x) - b)
+
+    return IterativeSolveResult(
+        x=x,
+        iterations=maxiter if info > 0 else info,
+        converged=(info == 0),
+        residual_norm=float(residual),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Matrix equations
+# ═══════════════════════════════════════════════════════════════
+
+def sylvester(A: np.ndarray, B: np.ndarray, C: np.ndarray) -> np.ndarray:
+    """Solve the Sylvester equation AX + XB = C.
+
+    Arises in control theory, model reduction, Lyapunov equations.
+    """
+    from scipy.linalg import solve_sylvester
+    return solve_sylvester(A, B, C)
+
+
+def lyapunov(A: np.ndarray, Q: np.ndarray) -> np.ndarray:
+    """Solve the continuous Lyapunov equation AX + XA' = Q.
+
+    Special case of Sylvester with B = A'.
+    """
+    return sylvester(A, A.T, Q)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Condition and properties
+# ═══════════════════════════════════════════════════════════════
+
+def cond(A: np.ndarray) -> float:
+    """Condition number (2-norm): kappa = sigma_max / sigma_min."""
+    return float(np.linalg.cond(A))
+
+
+def rank(A: np.ndarray, tol: float = 1e-10) -> int:
+    """Numerical rank via SVD."""
+    s = np.linalg.svd(A, compute_uv=False)
+    return int(np.sum(s > tol))
+
+
+def is_positive_definite(A: np.ndarray) -> bool:
+    """Check if A is symmetric positive definite via Cholesky."""
+    try:
+        np.linalg.cholesky(A)
+        return True
+    except np.linalg.LinAlgError:
+        return False

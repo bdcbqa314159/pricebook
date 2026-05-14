@@ -1,4 +1,4 @@
-__version__ = "0.527.0"
+__version__ = "0.528.0"
 __version__ = "0.516.0"
 
 # ── Core infrastructure ──
