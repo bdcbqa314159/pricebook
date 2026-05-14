@@ -2,6 +2,20 @@
 
 ---
 
+## v0.544.0 — 2026-05-14
+
+**PE fund waterfall extensions.**
+
+- `fund_participation.py` extended with PE waterfall mechanics.
+- `WaterfallConfig` — European (whole-fund) vs American (deal-by-deal) carry, catch-up rate, GP commitment, clawback, recycling.
+- `WaterfallResult` — per-period: return of capital → preferred return → GP catch-up → carried interest → LP residual.
+- `ClawbackResult` — total carry distributed vs entitled, clawback trigger.
+- `PEFundParticipation(FundParticipation)` — subclass with `project_waterfall()`, `clawback_analysis()`, `gp_commitment_cashflows()`.
+- Inherits all base methods (metrics, secondary_pricing) and passes isinstance checks.
+- 20 tests.
+
+---
+
 ## v0.543.0 — 2026-05-14
 
 **PE performance benchmarking.**
