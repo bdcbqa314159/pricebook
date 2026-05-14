@@ -157,6 +157,9 @@ def risk_decomposition(
     vals = np.array(values, dtype=float)
     labs = list(labels)
 
+    if len(vals) != len(labs):
+        raise ValueError(f"labels ({len(labs)}) and values ({len(vals)}) must have same length")
+
     if sort:
         idx = np.argsort(np.abs(vals))[::-1]
         vals = vals[idx]
@@ -295,6 +298,9 @@ def tenor_bucketing(
     vals = np.array(values, dtype=float)
     n = len(vals)
 
+    if n != len(buckets):
+        raise ValueError(f"buckets ({len(buckets)}) and values ({n}) must have same length")
+
     # Color gradient: blue shading by tenor (short→long)
     cmap = plt.colormaps["Blues"]
     colors = [cmap(0.3 + 0.6 * i / max(n - 1, 1)) for i in range(n)]
@@ -353,6 +359,10 @@ def vega_ladder(
     n = len(vals)
 
     if vol_premium is not None:
+        if len(vol_premium) != n:
+            raise ValueError(
+                f"vol_premium ({len(vol_premium)}) must match vega_values ({n})"
+            )
         prem = np.array(vol_premium, dtype=float)
         # Rich (premium > 0) = green, Cheap (< 0) = red, neutral = theme default
         colors = []
@@ -369,9 +379,6 @@ def vega_ladder(
     fig, ax = plt.subplots(figsize=figsize)
     y_pos = np.arange(n)
     ax.barh(y_pos, vals, color=colors, height=0.6, edgecolor="white", linewidth=0.5)
-
-    # Determine max bar magnitude for consistent label placement
-    abs_max = float(np.max(np.abs(vals))) if len(vals) > 0 else 1.0
 
     for i, v in enumerate(vals):
         prem_str = f"  (prem: {vol_premium[i]:+.1f}%)" if vol_premium is not None else ""
@@ -569,7 +576,6 @@ def greeks_evolution(
     else:
         axes = np.array(axes).flatten()
 
-    keys = list(greeks_by_time.keys())
     for i, (name, vals) in enumerate(greeks_by_time.items()):
         ax = axes[i]
         color = theme.colors[i % len(theme.colors)]
