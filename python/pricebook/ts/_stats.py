@@ -92,3 +92,94 @@ def performance(ts: TimeSeries, initial_capital: float = 1_000_000.0):
     """Full performance metrics — delegates to backtest.compute_metrics."""
     from pricebook.backtest import compute_metrics
     return compute_metrics(ts.values, initial_capital)
+
+
+def information_ratio(ts: TimeSeries, benchmark: TimeSeries, annualise: int = 252) -> float:
+    """Information ratio: annualised excess return / tracking error.
+
+    IR = mean(r - b) / std(r - b) × sqrt(annualise)
+    """
+    from pricebook.ts._core import _align_intersect
+    a, b = _align_intersect(ts, benchmark)
+    if len(a) < 2:
+        return 0.0
+    excess = a.values - b.values
+    te = float(np.nanstd(excess))
+    if te < 1e-10:
+        return 0.0
+    return float(np.nanmean(excess)) / te * math.sqrt(annualise)
+
+
+def tracking_error(ts: TimeSeries, benchmark: TimeSeries, annualise: int = 252) -> float:
+    """Annualised tracking error: std(excess returns) × sqrt(annualise)."""
+    from pricebook.ts._core import _align_intersect
+    a, b = _align_intersect(ts, benchmark)
+    if len(a) < 2:
+        return 0.0
+    return float(np.nanstd(a.values - b.values)) * math.sqrt(annualise)
+
+
+def treynor_ratio(ts: TimeSeries, benchmark: TimeSeries,
+                  risk_free: float = 0.0, annualise: int = 252) -> float:
+    """Treynor ratio: (portfolio return - rf) / beta.
+
+    Measures excess return per unit of systematic risk.
+    """
+    from pricebook.ts._core import _align_intersect
+    a, b = _align_intersect(ts, benchmark)
+    if len(a) < 2:
+        return 0.0
+    cov = np.cov(a.values, b.values)
+    beta = cov[0, 1] / cov[1, 1] if cov[1, 1] > 1e-15 else 0.0
+    if abs(beta) < 1e-10:
+        return 0.0
+    port_ret = float(np.nanmean(a.values)) * annualise
+    return (port_ret - risk_free) / beta
+
+
+def omega_ratio(ts: TimeSeries, threshold: float = 0.0) -> float:
+    """Omega ratio: sum(gains above threshold) / sum(losses below threshold).
+
+    Omega > 1 means the distribution is favourable.
+    Uses the full return distribution, not just mean/variance.
+    """
+    if len(ts) == 0:
+        return 0.0
+    gains = np.sum(np.maximum(ts.values - threshold, 0.0))
+    losses = np.sum(np.maximum(threshold - ts.values, 0.0))
+    if losses < 1e-15:
+        return float('inf') if gains > 0 else 0.0
+    return float(gains / losses)
+
+
+def gain_to_pain(ts: TimeSeries) -> float:
+    """Gain-to-pain ratio: sum(returns) / sum(abs(negative returns))."""
+    if len(ts) == 0:
+        return 0.0
+    total = float(np.sum(ts.values))
+    pain = float(np.sum(np.abs(np.minimum(ts.values, 0.0))))
+    if pain < 1e-15:
+        return float('inf') if total > 0 else 0.0
+    return total / pain
+
+
+def kelly_fraction(win_prob: float, win_loss_ratio: float) -> float:
+    """Kelly criterion (discrete): f* = p - (1-p)/b.
+
+    Args:
+        win_prob: probability of winning (0 to 1).
+        win_loss_ratio: average win / average loss.
+    """
+    if win_loss_ratio < 1e-10:
+        return 0.0
+    return win_prob - (1.0 - win_prob) / win_loss_ratio
+
+
+def kelly_continuous(mean_return: float, variance: float) -> float:
+    """Kelly criterion (continuous): f* = mu / sigma^2.
+
+    Optimal fraction of capital to invest assuming log-normal returns.
+    """
+    if variance < 1e-15:
+        return 0.0
+    return mean_return / variance

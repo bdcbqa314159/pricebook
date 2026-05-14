@@ -19,6 +19,8 @@ from pricebook.ts._returns import simple_returns, log_returns, period_returns
 from pricebook.ts._stats import (
     mean, vol, sharpe, sortino, max_drawdown,
     drawdown_series, recovery_time, performance,
+    information_ratio, tracking_error, treynor_ratio,
+    omega_ratio, gain_to_pain, kelly_fraction, kelly_continuous,
 )
 
 # Rolling
@@ -57,12 +59,19 @@ TimeSeries.rolling_mean = lambda self, window=60: rolling_mean(self, window)
 TimeSeries.rolling_vol = lambda self, window=60: rolling_vol(self, window)
 TimeSeries.rolling_sharpe = lambda self, window=60: rolling_sharpe(self, window)
 TimeSeries.rolling_beta = lambda self, bench, window=60: rolling_beta(self, bench, window)
+TimeSeries.information_ratio = lambda self, bench, ann=252: information_ratio(self, bench, ann)
+TimeSeries.tracking_error = lambda self, bench, ann=252: tracking_error(self, bench, ann)
+TimeSeries.treynor_ratio = lambda self, bench, rf=0.0: treynor_ratio(self, bench, rf)
+TimeSeries.omega_ratio = lambda self, threshold=0.0: omega_ratio(self, threshold)
+TimeSeries.gain_to_pain = lambda self: gain_to_pain(self)
 
 __all__ = [
     "TimeSeries",
     "simple_returns", "log_returns", "period_returns",
     "mean", "vol", "sharpe", "sortino", "max_drawdown",
     "drawdown_series", "recovery_time", "performance",
+    "information_ratio", "tracking_error", "treynor_ratio",
+    "omega_ratio", "gain_to_pain", "kelly_fraction", "kelly_continuous",
     "rolling_mean", "rolling_vol", "rolling_sharpe",
     "rolling_beta", "rolling_skew", "rolling_kurtosis",
     "from_db", "from_db_book", "from_db_desk", "from_csv", "greeks_from_db",
