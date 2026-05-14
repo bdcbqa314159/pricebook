@@ -2,6 +2,19 @@
 
 ---
 
+## v0.551.0 — 2026-05-14
+
+**Capital allocation & RORC.**
+
+- `regulatory/capital_allocation.py` — NEW: Euler allocation, RORC, capital limits.
+- `euler_allocation()` — risk-contribution allocation with optional correlation matrix.
+- `allocate_and_report()` — full report: diversification benefit, RORC per desk, hurdle checks, best/worst desk.
+- `capital_limit_monitor()` — breach detection against per-desk limits.
+- `DeskCapitalInput`, `DeskAllocation`, `CapitalAllocationResult` dataclasses.
+- 16 tests.
+
+---
+
 ## v0.550.0 — 2026-05-14
 
 **Distressed debt: DIP, fulcrum, exchange, recovery waterfall, Chapter 11.**
