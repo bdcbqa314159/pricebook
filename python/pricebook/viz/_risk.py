@@ -241,10 +241,14 @@ def stress_comparison(
             pos = np.where(vals_arr >= 0, vals_arr, 0)
             neg = np.where(vals_arr < 0, vals_arr, 0)
 
-            ax.bar(x, pos, bottom=bottoms_pos, color=color, label=key,
+            # Assign label to whichever bar set has data, avoiding invisible legend entries
+            has_pos = np.any(pos > 0)
+            ax.bar(x, pos, bottom=bottoms_pos, color=color,
+                   label=key if has_pos else None,
                    width=0.6, edgecolor="white", linewidth=0.5)
             ax.bar(x, neg, bottom=bottoms_neg, color=color,
-                   width=0.6, edgecolor="white", linewidth=0.5, alpha=0.7)
+                   label=key if not has_pos else None,
+                   width=0.6, edgecolor="white", linewidth=0.5)
 
             bottoms_pos += pos
             bottoms_neg += neg
@@ -358,6 +362,11 @@ def vega_ladder(
     vals = np.array(vega_values, dtype=float)
     n = len(vals)
 
+    if n != len(expiry_buckets):
+        raise ValueError(
+            f"expiry_buckets ({len(expiry_buckets)}) and vega_values ({n}) must have same length"
+        )
+
     if vol_premium is not None:
         if len(vol_premium) != n:
             raise ValueError(
@@ -434,8 +443,10 @@ def pnl_table(
         cell_row = []
         for c in cols:
             v = row.get(c, "")
-            if isinstance(v, float):
+            if isinstance(v, (float, np.floating)):
                 cell_row.append(f"{v:,.2f}")
+            elif isinstance(v, (int, np.integer)) and not isinstance(v, bool):
+                cell_row.append(f"{v:,d}")
             else:
                 cell_row.append(str(v))
         cell_text.append(cell_row)
@@ -590,8 +601,8 @@ def greeks_evolution(
     for j in range(n, len(axes)):
         axes[j].set_visible(False)
 
-    fig.suptitle(title, fontsize=theme.title_size + 1, y=1.01)
-    plt.tight_layout()
+    fig.suptitle(title, fontsize=theme.title_size + 1)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     return fig
 
 
@@ -626,6 +637,12 @@ def hedge_pnl_tracking(
     theme = get_theme()
     pos = np.array(position_pnl, dtype=float)
     hdg = np.array(hedge_pnl, dtype=float)
+
+    if len(pos) != len(dates) or len(hdg) != len(dates):
+        raise ValueError(
+            f"dates ({len(dates)}), position_pnl ({len(pos)}), "
+            f"and hedge_pnl ({len(hdg)}) must have same length"
+        )
 
     if cumulative:
         pos = np.cumsum(pos)
