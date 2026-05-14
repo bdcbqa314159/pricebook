@@ -2,6 +2,21 @@
 
 ---
 
+## v0.550.0 — 2026-05-14
+
+**Distressed debt: DIP, fulcrum, exchange, recovery waterfall, Chapter 11.**
+
+- `distressed.py` — NEW: distressed debt analytics and restructuring.
+- `DIPLoan` — super-priority DIP financing with roll-up, carve-out, upfront fee.
+- `RecoveryWaterfall` — absolute priority distribution across capital structure.
+- `FulcrumAnalysis` — identify fulcrum security (most senior impaired class); `sensitivity()` for recovery curves across EV range.
+- `ExchangeOffer` — tender economics: exchange premium, holdout value, prisoner's dilemma payoffs.
+- `Chapter11Timeline` — standard/pre-pack/complex milestones; `estimate_recovery()` with admin cost haircuts.
+- `CapitalStructureLayer` — name, notional, seniority, secured flag.
+- 25 tests.
+
+---
+
 ## v0.549.0 — 2026-05-14
 
 **Loan portfolio stress testing.**
