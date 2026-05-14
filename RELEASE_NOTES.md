@@ -2,6 +2,21 @@
 
 ---
 
+## v0.541.0 — 2026-05-14
+
+**LBO deal model — PE underwriting.**
+
+- `lbo.py` — NEW: `LBOModel` for leveraged buyout deal structuring.
+- `SourcesAndUses` — equity, senior debt, mezzanine, rollover, transaction/financing fees.
+- `FCFProjection` — EBITDA → revenue → EBIT → taxes → capex → NWC → FCF.
+- `DebtYear` — annual debt schedule with senior amort, excess cash flow sweep, mezzanine PIK.
+- `ExitAnalysis` — exit EV, net debt, equity value, IRR, MOIC at given multiple/year.
+- `LBOModel.run()` — full model across multiple exit scenarios.
+- `LBOModel.sensitivity_table()` — IRR grid across exit multiple × hold period (or growth).
+- 40 tests.
+
+---
+
 ## v0.540.0 — 2026-05-14
 
 **Risk visualisation — 10 new chart types in `pricebook.viz`.**
