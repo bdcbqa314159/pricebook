@@ -18,6 +18,7 @@
 - `hedge_pnl_tracking()` — position vs hedge cumulative P&L with net overlay.
 - `rolling_correlation()` — multi-line rolling correlation with optional confidence bands.
 - All functions: pure matplotlib, consume plain data (no instrument imports), theme-aware.
+- 3 audit rounds: 17 issues found and fixed (waterfall dead code, label overlap, deprecated get_cmap, length mismatch guards, numpy type formatting, suptitle clipping, stacked legend, dead variables).
 
 ---
 
