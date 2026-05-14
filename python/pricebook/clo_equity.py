@@ -93,6 +93,12 @@ class CLOEquityMC:
     During reinvestment period: defaulted par is replaced at par.
     Post-reinvestment: portfolio amortises from defaults/prepayments.
 
+    Known limitation: debt tranche notionals are held constant — prepayment
+    proceeds are not applied via distribute_principal() to reduce debt
+    outstanding. This makes terminal equity NAV conservative (understated)
+    when prepayment rates are high. Enhancement: call
+    waterfall.distribute_principal(prepay) each period post-reinvestment.
+
     Args:
         waterfall: CLOWaterfall instance defining the tranche structure.
         n_loans: number of loans in the reference portfolio.
