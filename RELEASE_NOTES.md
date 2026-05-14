@@ -2,6 +2,28 @@
 
 ---
 
+## v0.555.0 — 2026-05-14
+
+**FRTB-IMA desk bridge + reverse stress testing.**
+
+### IMA Bridge (`regulatory/ima_bridge.py`)
+- `DeskRiskExtract` — desk_id, risk_class, delta/gamma/vega/DV01/CS01, obligor, rating.
+- `extract_risk_factors_from_desk()` — maps desk sensitivities → `ESRiskFactor` (delta→ES via vol×z_97.5, vega→separate factor, CS01→credit spread).
+- `extract_drc_positions_from_desk()` — credit desks → `DRCPosition` for IMA DRC.
+- `extract_from_risk_metrics()` — generic bridge from any desk's `risk_metrics().to_dict()`.
+- `aggregate_desk_ima()` → `IMABridgeResult` — runs full IMA pipeline + PLA evaluation.
+- `RISK_CLASS_MAP` — 12 desk types mapped to risk class/sub_category.
+
+### Reverse Stress Testing (`regulatory/reverse_stress.py`)
+- `ReverseStressTarget` — metric, threshold, direction (below/above).
+- `reverse_stress_portfolio()` — scipy.optimize.minimize to find minimum-severity scenario breaching threshold.
+- `reverse_stress_ccar()` — reverse stress against CCAR capital trajectory (uses project_capital_trajectory).
+- `scenario_surface()` — 2D grid of metric values across two macro variables.
+- Default bounds per macro variable (GDP -10%/+5%, equity -80%/+20%, etc.).
+- 23 tests across both modules.
+
+---
+
 ## v0.554.0 — 2026-05-14
 
 **CCAR/DFAST stress capital projection.**
