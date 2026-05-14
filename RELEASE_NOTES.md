@@ -2,6 +2,25 @@
 
 ---
 
+## v0.540.0 — 2026-05-14
+
+**Risk visualisation — 10 new chart types in `pricebook.viz`.**
+
+### New: `viz/_risk.py` — desk-level risk charts
+- `pnl_waterfall()` — waterfall/bridge chart for P&L attribution (carry, rate, vol, FX, etc.).
+- `risk_decomposition()` — horizontal bar chart sorted by magnitude (key-rate DV01, vega by asset class).
+- `stress_comparison()` — grouped or stacked bar chart across stress scenarios.
+- `tenor_bucketing()` — vertical bar chart with color gradient by tenor bucket.
+- `vega_ladder()` — horizontal bar chart of vega by expiry bucket with rich/cheap coloring.
+- `pnl_table()` — formatted matplotlib table for P&L explain with alternating row colors.
+- `greeks_surface()` — 2D contour plot of a Greek across strike × expiry.
+- `greeks_evolution()` — multi-panel line chart of Greeks vs time-to-expiry.
+- `hedge_pnl_tracking()` — position vs hedge cumulative P&L with net overlay.
+- `rolling_correlation()` — multi-line rolling correlation with optional confidence bands.
+- All functions: pure matplotlib, consume plain data (no instrument imports), theme-aware.
+
+---
+
 ## v0.539.0 — 2026-05-14
 
 **`pricebook.numerical` — complete self-contained numerical methods package.**

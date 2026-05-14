@@ -24,6 +24,18 @@ from pricebook.viz._seaborn import (
     sensitivity_grid,
     exposure_profile,
 )
+from pricebook.viz._risk import (
+    pnl_waterfall,
+    risk_decomposition,
+    stress_comparison,
+    tenor_bucketing,
+    vega_ladder,
+    pnl_table,
+    greeks_surface,
+    greeks_evolution,
+    hedge_pnl_tracking,
+    rolling_correlation,
+)
 
 # Register product modules (triggers @register_instrument decorators)
 import pricebook.viz._tlock          # noqa: F401
@@ -37,4 +49,8 @@ __all__ = [
     "plot", "PlotBuilder", "LIGHT", "DARK", "PricebookTheme", "configure_theme",
     "correlation_heatmap", "pnl_distribution", "recovery_heatmap",
     "greeks_profile", "sensitivity_grid", "exposure_profile",
+    "pnl_waterfall", "risk_decomposition", "stress_comparison",
+    "tenor_bucketing", "vega_ladder", "pnl_table",
+    "greeks_surface", "greeks_evolution",
+    "hedge_pnl_tracking", "rolling_correlation",
 ]
