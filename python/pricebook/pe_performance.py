@@ -15,7 +15,6 @@ References:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -207,8 +206,8 @@ def vintage_cohort(
 
         median_irr = _median(irrs)
         mean_irr = sum(irrs) / n
-        uq = irrs[int(n * 0.75)] if n >= 4 else irrs[-1]
-        lq = irrs[int(n * 0.25)] if n >= 4 else irrs[0]
+        uq = float(np.percentile(irrs, 75)) if n >= 4 else irrs[-1]
+        lq = float(np.percentile(irrs, 25)) if n >= 4 else irrs[0]
 
         cohorts.append(VintageCohort(
             vintage_year=vy, n_funds=n,
@@ -262,8 +261,11 @@ def commitment_pacing(
         # Target NAV
         target_nav = total_portfolio * target_allocation
 
-        # New commitments needed
-        gap = max(target_nav - nav - unfunded * (1 - call_rate ** 2), 0.0)
+        # New commitments needed.
+        # Estimate how much of unfunded will convert to NAV:
+        # after ~2 call cycles, (1-call_rate)^2 remains unfunded.
+        expected_from_unfunded = unfunded * (1 - (1 - call_rate) ** 2)
+        gap = max(target_nav - nav - expected_from_unfunded, 0.0)
         new_commitment = gap * 0.5  # conservative: commit half the gap
 
         # Calls from existing + new unfunded
@@ -360,8 +362,11 @@ def gp_economics(
     gp_terminal = gp_commitment * (1 + gross_return) ** fund_life
     gp_commitment_return = gp_terminal - gp_commitment
 
-    # Clawback exposure
-    clawback = clawback_exposure(carry_total, carry_total, gp_commitment_return)
+    # Clawback exposure: if deal-by-deal carry were distributed early and
+    # remaining portfolio dropped to zero, how much would GP owe back?
+    # In a whole-fund model this is the carry itself (worst-case exposure).
+    # In practice: max(carry_distributed - entitled_on_realized, 0).
+    clawback = carry_total  # worst-case: all carry could be clawed back
 
     total_revenue = mgmt_fee_total + carry_total + gp_commitment_return
 

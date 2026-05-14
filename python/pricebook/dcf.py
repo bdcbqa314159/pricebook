@@ -18,8 +18,7 @@ References:
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -382,8 +381,6 @@ class DCFModel:
         # 2. DCF exit multiple (if configured)
         if self.terminal_ebitda is not None and self.terminal_multiple is not None:
             mult = self.terminal_multiple
-            for low_m, mid_m, high_m in [(mult - 1, mult, mult + 1)]:
-                pass
             m_low = DCFModel(self.fcfs, self.wacc_inputs, net_debt=self.net_debt,
                              terminal_ebitda=self.terminal_ebitda,
                              terminal_multiple=mult - 1).value("exit_multiple")
@@ -400,7 +397,6 @@ class DCFModel:
 
         # 3. WACC sensitivity
         try:
-            from copy import copy
             wacc_low = WACCInputs(
                 self.wacc_inputs.risk_free_rate,
                 self.wacc_inputs.equity_risk_premium,

@@ -362,15 +362,12 @@ class PEFundParticipation(FundParticipation):
         carry = remaining * wf.carry_rate
         lp_residual = remaining - carry
 
-        total_dist = roc + pref + lp_residual
-        total_gp = catchup + carry
-
         return WaterfallResult(
             period=period, available=available,
             return_of_capital=roc, preferred_return=pref,
             gp_catchup=catchup, carried_interest=carry,
             lp_residual=lp_residual,
-            total_distribution=total_dist,
+            total_distribution=roc + pref + catchup + carry + lp_residual,
         )
 
     def project_waterfall(self) -> list[WaterfallResult]:
@@ -389,9 +386,10 @@ class PEFundParticipation(FundParticipation):
             # NAV growth is the "available" for distribution
             available = cf.distribution + cf.carried_interest
 
-            # Preferred return accrual
+            # Preferred return accrual (compound: accrue on unreturned + unpaid pref)
             unreturned_capital = max(total_invested - total_returned, 0.0)
-            preferred_this_period = unreturned_capital * wf.hurdle_rate
+            preferred_base = unreturned_capital + cumulative_preferred
+            preferred_this_period = preferred_base * wf.hurdle_rate
             cumulative_preferred += preferred_this_period
 
             if available > 0:
