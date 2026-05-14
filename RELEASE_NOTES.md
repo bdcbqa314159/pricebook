@@ -2,6 +2,20 @@
 
 ---
 
+## v0.553.0 — 2026-05-14
+
+**Portfolio-wide LCR/NSFR.**
+
+- `regulatory/liquidity.py` — NEW: product-type-aware LCR and NSFR.
+- `LiquidityPosition` — position_id, product_type, notional, rating, hqla_level, counterparty_type.
+- `calculate_portfolio_lcr()` → `PortfolioLiquidityResult` — HQLA classification, outflow/inflow rates, LCR%, NSFR%, compliance flags, product breakdown.
+- Product classification: cash (L1), sovereign AAA bonds (L1), IG bonds (L2A), deposits (retail stable 3% / wholesale 100%), loans (inflow if ≤30d).
+- NSFR: ASF/RSF factors by product type and maturity (retail deposits 90%, cash RSF 0%, long-term loans 85%).
+- `liquidity_stress()` — stressed LCR with outflow multiplier and HQLA haircut.
+- 11 tests.
+
+---
+
 ## v0.552.0 — 2026-05-14
 
 **Operational risk SMA (Basel III OPE25).**
