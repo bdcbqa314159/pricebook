@@ -109,13 +109,7 @@ def clenshaw_curtis(
     mapped = mid + half * nodes
     fvals = np.array([f(x) for x in mapped])
 
-    # Weights via DCT-I
-    c = np.zeros(n + 1)
-    c[0] = fvals[0] + fvals[-1]
-    for k in range(1, n):
-        c[k] = 2 * fvals[k]
-
-    # Compute weights using the formula
+    # Compute weights
     weights = np.zeros(n + 1)
     weights[0] = 1.0 / (n * n - 1) if n > 1 else 1.0
     weights[n] = weights[0]

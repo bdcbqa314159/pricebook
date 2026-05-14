@@ -148,6 +148,8 @@ def rbf_interpolate(
     else:
         Phi = D
 
+    # Add small regularization for numerical stability (esp. linear kernel)
+    Phi += 1e-10 * np.eye(n)
     weights = np.linalg.solve(Phi, values)
 
     return RBFResult(weights, centers, kernel)

@@ -190,6 +190,6 @@ def sobolev_norm(
     F = np.fft.fft(f) * dx
     freqs = np.fft.fftfreq(n, d=dx) * 2 * math.pi
     weight = (1 + freqs ** 2) ** s
-    hs = float(math.sqrt(np.sum(weight * np.abs(F) ** 2) / n))
+    hs = float(math.sqrt(np.sum(weight * np.abs(F) ** 2) / (n * dx)))
 
     return SobolevNorm(h0, h1, hs, s)
