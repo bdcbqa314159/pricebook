@@ -11,7 +11,6 @@ Verifies the notional schedule refactoring across all instrument types:
 from __future__ import annotations
 
 import math
-import warnings
 from datetime import date
 
 import pytest
@@ -73,57 +72,39 @@ class TestIdentity:
         assert scalar.dirty_price(curve) == pytest.approx(uniform.dirty_price(curve), abs=1e-6)
 
 
-# ── AmortisingSwap equivalence ──
+# ── Factory classmethod equivalence ──
 
-class TestAmortisingEquivalence:
-    """Deprecated AmortisingSwap must match InterestRateSwap with same schedule."""
+class TestFactoryEquivalence:
+    """Factory classmethods produce valid swaps matching direct construction."""
 
-    def test_pv_matches(self):
+    def test_amortising_factory_matches_direct(self):
         curve = _curve()
-        schedule = [1e6 * (1 - i/10) for i in range(10)]
+        factory = InterestRateSwap.amortising(REF, END, 0.04, 1_000_000)
+        # Direct construction with same schedule
+        direct = InterestRateSwap(REF, END, 0.04,
+                                  notional=factory.notional_schedule,
+                                  fixed_frequency=Frequency.SEMI_ANNUAL,
+                                  float_frequency=Frequency.QUARTERLY)
+        assert factory.pv(curve) == pytest.approx(direct.pv(curve), abs=1.0)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            from pricebook.amortising_swap import AmortisingSwap
-            old = AmortisingSwap(REF, END, 0.04, notional_schedule=schedule,
-                                 frequency=Frequency.SEMI_ANNUAL)
-
-        new = InterestRateSwap(REF, END, 0.04, notional=schedule,
-                               fixed_frequency=Frequency.SEMI_ANNUAL,
-                               float_frequency=Frequency.SEMI_ANNUAL)
-        assert old.pv(curve) == pytest.approx(new.pv(curve), abs=1.0)
-
-    def test_par_rate_matches(self):
+    def test_accreting_factory_matches_direct(self):
         curve = _curve()
-        schedule = [1e6 * (1 - i/10) for i in range(10)]
+        factory = InterestRateSwap.accreting(REF, END, 0.04, 500_000, 1_000_000)
+        direct = InterestRateSwap(REF, END, 0.04,
+                                  notional=factory.notional_schedule,
+                                  fixed_frequency=Frequency.SEMI_ANNUAL,
+                                  float_frequency=Frequency.QUARTERLY)
+        assert factory.pv(curve) == pytest.approx(direct.pv(curve), abs=1.0)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            from pricebook.amortising_swap import AmortisingSwap
-            old = AmortisingSwap(REF, END, 0.04, notional_schedule=schedule,
-                                 frequency=Frequency.SEMI_ANNUAL)
-
-        new = InterestRateSwap(REF, END, 0.04, notional=schedule,
-                               fixed_frequency=Frequency.SEMI_ANNUAL,
-                               float_frequency=Frequency.SEMI_ANNUAL)
-        assert old.par_rate(curve) == pytest.approx(new.par_rate(curve), abs=1e-8)
-
-    def test_dv01_matches(self):
+    def test_roller_coaster_factory_matches_direct(self):
         curve = _curve()
-        schedule = [1e6 * (1 - i/10) for i in range(10)]
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            from pricebook.amortising_swap import AmortisingSwap
-            old = AmortisingSwap(REF, END, 0.04, notional_schedule=schedule,
-                                 frequency=Frequency.SEMI_ANNUAL)
-
-        new = InterestRateSwap(REF, END, 0.04, notional=schedule,
-                               fixed_frequency=Frequency.SEMI_ANNUAL,
-                               float_frequency=Frequency.SEMI_ANNUAL)
-        old_dv01 = old.pv(curve.bumped(0.0001)) - old.pv(curve)
-        new_dv01 = new.pv(curve.bumped(0.0001)) - new.pv(curve)
-        assert old_dv01 == pytest.approx(new_dv01, abs=1.0)
+        schedule = [1e6, 2e6, 1e6, 2e6, 1e6]
+        factory = InterestRateSwap.roller_coaster(REF, END, 0.04, schedule)
+        direct = InterestRateSwap(REF, END, 0.04,
+                                  notional=schedule,
+                                  fixed_frequency=Frequency.SEMI_ANNUAL,
+                                  float_frequency=Frequency.QUARTERLY)
+        assert factory.pv(curve) == pytest.approx(direct.pv(curve), abs=1.0)
 
 
 # ── Variable notional properties ──

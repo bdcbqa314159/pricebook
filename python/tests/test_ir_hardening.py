@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.amortising_swap import AmortisingSwap
+from pricebook.swap import InterestRateSwap
 from pricebook.basis_swap import BasisSwap
 from pricebook.day_count import DayCountConvention
 from pricebook.fixings import FixingsStore
@@ -45,18 +45,17 @@ class TestSwapFixedLegDelay:
             assert cf.payment_date == cf.accrual_end
 
 
-# ---- #5: AmortisingSwap typo fixed ----
+# ---- #5: Amortising swap via factory ----
 
-class TestAmortisingSwapName:
-    def test_class_importable(self):
-        """AmortisingSwap (single 's') should be importable."""
-        assert AmortisingSwap is not None
+class TestAmortisingSwapFactory:
+    def test_factory_importable(self):
+        assert hasattr(InterestRateSwap, 'amortising')
 
     def test_amortising_factory(self):
-        swap = AmortisingSwap.amortising(
+        swap = InterestRateSwap.amortising(
             date(2026, 4, 21), date(2031, 4, 21), 0.04, 1_000_000,
         )
-        assert swap.notionals[0] > swap.notionals[-1]
+        assert swap.notional_schedule[0] > swap.notional_schedule[-1]
 
 
 # ---- #8: ZC swap day_count parameter ----

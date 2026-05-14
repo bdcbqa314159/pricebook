@@ -16,7 +16,6 @@ from pricebook.capfloor import CapFloor
 from pricebook.black76 import OptionType
 from pricebook.fra import FRA
 from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.amortising_swap import AmortisingSwap
 from pricebook.basis_swap import BasisSwap
 from pricebook.zc_swap import ZeroCouponSwap
 from pricebook.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
@@ -163,8 +162,8 @@ class TestAmortisingSwapDeep:
         curve = make_flat_curve(REF, 0.04)
         end = REF + relativedelta(years=5)
         vanilla = InterestRateSwap(REF, end, fixed_rate=0.04, notional=1_000_000)
-        amort = AmortisingSwap(REF, end, fixed_rate=0.04,
-                               notional_schedule=[1_000_000] * 20)
+        amort = InterestRateSwap(REF, end, fixed_rate=0.04,
+                                 notional=[1_000_000] * 10)
         assert amort.pv(curve) == pytest.approx(vanilla.pv(curve), abs=10.0)
 
     def test_par_rate_accepts_projection(self):
@@ -172,10 +171,10 @@ class TestAmortisingSwapDeep:
         discount = make_flat_curve(REF, 0.03)
         projection = make_flat_curve(REF, 0.06)
         end = REF + relativedelta(years=5)
-        amort = AmortisingSwap(REF, end, fixed_rate=0.0,
-                               notional_schedule=[1_000_000, 800_000, 600_000, 400_000, 200_000])
+        amort = InterestRateSwap.amortising(REF, end, fixed_rate=0.0,
+                                            initial_notional=1_000_000)
         par_single = amort.par_rate(discount)
-        par_dual = amort.par_rate(discount, projection=projection)
+        par_dual = amort.par_rate(discount, projection_curve=projection)
         assert par_dual > par_single  # higher projection → higher par rate
 
 
