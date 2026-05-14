@@ -2,6 +2,22 @@
 
 ---
 
+## v0.542.0 — 2026-05-14
+
+**DCF / enterprise valuation.**
+
+- `dcf.py` — NEW: `DCFModel` for discounted cash flow valuation.
+- `WACCInputs` — CAPM cost of equity, after-tax cost of debt, WACC.
+- `terminal_value_perpetuity()` — Gordon growth model.
+- `terminal_value_exit_multiple()` — EV/EBITDA terminal value.
+- `ev_to_equity()` — EV → equity bridge (net debt, minorities, associates, per-share).
+- `DCFModel.value()` — PV of FCFs + PV of terminal value → EV → equity.
+- `DCFModel.scenario_analysis()` — bull/base/bear with parameter overrides.
+- `DCFModel.football_field()` — valuation range from perpetuity, exit multiple, WACC sensitivity.
+- 27 tests including hand-verified Gordon growth crosscheck.
+
+---
+
 ## v0.541.0 — 2026-05-14
 
 **LBO deal model — PE underwriting.**
