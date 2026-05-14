@@ -2,6 +2,20 @@
 
 ---
 
+## v0.548.0 — 2026-05-14
+
+**CLO equity Monte Carlo.**
+
+- `clo_equity.py` — NEW: MC engine for CLO equity IRR distribution and loss analysis.
+- `CLOEquityMC` — simulates correlated defaults (one-factor Gaussian copula), recoveries, prepayments through CLOWaterfall.
+- Reinvestment period: defaulted/prepaid par replaced at par; post-reinvestment: portfolio amortises.
+- `CLOEquityResult` — IRR mean/std/percentiles (5/25/50/75/95), loss distribution, mean cashflows.
+- `CLOEquityCashflow` — per-period: income, defaults, recovery, tranche payments, equity distribution.
+- `warehouse_risk()` — spread MTM VaR, net carry, ramp shortfall probability.
+- 14 tests.
+
+---
+
 ## v0.547.0 — 2026-05-14
 
 **Unitranche & direct lending.**

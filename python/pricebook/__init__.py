@@ -1,4 +1,4 @@
-__version__ = "0.547.0"
+__version__ = "0.548.0"
 
 # ── Core infrastructure ──
 from pricebook.pricing_context import PricingContext
