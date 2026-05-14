@@ -2,6 +2,22 @@
 
 ---
 
+## v0.543.0 — 2026-05-14
+
+**PE performance benchmarking.**
+
+- `pe_performance.py` — NEW: PE fund benchmarking and GP economics.
+- `kaplan_schoar_pme()` — Public Market Equivalent (Kaplan & Schoar 2005).
+- `direct_alpha()` — fund IRR minus index IRR.
+- `long_nickels_pme()` — since-inception wealth ratio (Long & Nickels 1996).
+- `vintage_cohort()` — aggregate FundParticipation metrics by vintage year (median/mean/UQ/LQ IRR, TVPI).
+- `commitment_pacing()` — deterministic LP commitment pacing model (target allocation, calls, distributions, NAV).
+- `gp_economics()` — management fee NPV, carry NPV, GP commitment return, clawback exposure.
+- `clawback_exposure()` — GP clawback trigger calculation.
+- 31 tests.
+
+---
+
 ## v0.542.0 — 2026-05-14
 
 **DCF / enterprise valuation.**
