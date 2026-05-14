@@ -265,15 +265,13 @@ def liquidity_stress(
     """
     stressed = []
     for pos in positions:
-        p = LiquidityPosition(
+        notional = pos.notional * outflow_multiplier if not pos.is_asset else pos.notional
+        mv = (pos.market_value or pos.notional) * (1 - hqla_haircut) if pos.is_asset else pos.market_value
+        stressed.append(LiquidityPosition(
             position_id=pos.position_id, product_type=pos.product_type,
-            notional=pos.notional,
-            market_value=(pos.market_value or pos.notional) * (1 - hqla_haircut) if pos.is_asset else pos.market_value,
+            notional=notional, market_value=mv,
             maturity_days=pos.maturity_days, rating=pos.rating,
             is_asset=pos.is_asset, counterparty_type=pos.counterparty_type,
             hqla_level=pos.hqla_level, is_secured=pos.is_secured,
-        )
-        if not p.is_asset:
-            p.notional = pos.notional * outflow_multiplier
-        stressed.append(p)
+        ))
     return calculate_portfolio_lcr(stressed)

@@ -14,7 +14,6 @@ References:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -126,17 +125,16 @@ def euler_allocation(
 
     if correlation_matrix is not None:
         corr = np.asarray(correlation_matrix)
-        # Covariance from standalone capitals and correlation
-        # Treat standalone as std dev proxy
+        # Covariance: Sigma_ij = s_i × s_j × rho_ij (treat standalone as std dev proxy)
         cov = np.outer(standalones, standalones) * corr
-        portfolio_var = float(standalones @ cov @ standalones) / (total_standalone ** 2)
-        portfolio_vol = math.sqrt(max(portfolio_var, 0.0))
+        # Portfolio variance: w' Sigma w where w_i = s_i / sum(s)
+        w = standalones / total_standalone
+        portfolio_var = float(w @ cov @ w)
+        portfolio_vol = float(np.sqrt(max(portfolio_var, 0.0)))
 
         if portfolio_capital is None:
-            portfolio_capital = total_standalone * portfolio_vol
-
-        # Euler: RC_i = (Cov @ w)_i × w_i / portfolio_vol
-        w = standalones / total_standalone
+            # Diversified capital = sqrt(sum_ij s_i * s_j * rho_ij)
+            portfolio_capital = float(np.sqrt(max(float(standalones @ corr @ standalones), 0.0)))
         marginal = cov @ w
         risk_contributions = marginal * w
         rc_total = float(np.sum(risk_contributions))
