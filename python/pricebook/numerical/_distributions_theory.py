@@ -111,18 +111,10 @@ class TemperedDistribution:
         parent_s = other
 
         def conv_action(phi):
-            # Approximate via quadrature
-            x = np.linspace(-10, 10, 500)
-            dx = x[1] - x[0]
-
-            # ⟨T*S, φ⟩ ≈ ∫∫ T(y) S(x-y) φ(x) dx dy
-            # For simplicity, if both are regular, use direct integration
-            total = 0.0
-            for xi in x:
-                def shifted_phi(y):
-                    return phi(xi) * dx
-                total += parent_t._action(lambda y, _xi=xi: phi(_xi))
-            return total * dx
+            # ⟨T*S, φ⟩ = ⟨T_x, ⟨S_y, φ(x+y)⟩⟩
+            def inner(x):
+                return parent_s._action(lambda y: phi(x + y))
+            return parent_t._action(inner)
 
         return TemperedDistribution(conv_action)
 

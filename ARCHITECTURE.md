@@ -491,6 +491,29 @@ trinomial_tree.py    -> TrinomialTree.h/.cpp
 - All `*_desk.py` — desk protocol (business logic)
 - `api.py`, `api_desk.py` — trader API
 
+---
+
+## Numerical Methods Package (`numerical/`)
+
+Self-contained toolkit — scipy/numpy are the backend, users import from `pricebook.numerical`.
+
+| Module | What |
+|--------|------|
+| `_distributions.py` | Normal, StudentT, LogNormal, Uniform, Exponential |
+| `_linalg.py` | expm, logm, QR, Cholesky, LU, GMRES, BiCGSTAB, Sylvester, Lyapunov |
+| `_ode.py` | Euler, RK4, RK45 (adaptive), BDF (stiff), Adams |
+| `_optimize.py` | minimize (NM/BFGS/L-BFGS-B/DE/CMA-ES), LP, QP, interior-point, proximal (ISTA/FISTA) |
+| `_quadrature.py` | Gauss-Jacobi, tanh-sinh, Clenshaw-Curtis |
+| `_interpolation.py` | 2D bilinear, bicubic, RBF (scattered data) |
+| `_rootfinding.py` | bisection, unified find_root dispatcher |
+| `_mc.py` | QE Heston, antithetic variates, multilevel MC |
+| `_pde.py` | Hundsdorfer-Verwer ADI, 2D PSOR, operator splitting (Lie/Strang) |
+| `_trees.py` | tree Greeks (delta/gamma/vega/theta), 2D binomial |
+| `_fourier.py` | fractional FFT, Hilbert transform, wavelet (Haar/Db2), CharacteristicFunction |
+| `_distributions_theory.py` | Schwartz test functions, tempered distributions, Fourier transform, Sobolev norms |
+
+---
+
 ### C++ ↔ Python Bridge
 
 Use pybind11 to expose C++ curves and instruments back to Python, replacing the pure-Python implementations transparently. The `PricingContext` stays Python but holds C++ curve objects.

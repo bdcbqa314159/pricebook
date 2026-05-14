@@ -118,6 +118,8 @@ def linprog(
 
     r = _linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq,
                  bounds=bounds, method="highs")
+    if r.x is None:
+        return LPResult(np.zeros(len(c)), float('inf'), False)
     return LPResult(r.x, float(r.fun), r.success)
 
 
@@ -207,6 +209,7 @@ def interior_point(
     x = np.asarray(x0, dtype=float).copy()
     t = 1.0
     mu = 10.0  # barrier growth rate
+    converged = False
 
     for outer in range(maxiter):
         # Barrier subproblem
@@ -232,11 +235,12 @@ def interior_point(
         # Check convergence
         n_ineq = len(inequality_constraints) if inequality_constraints else 0
         if n_ineq > 0 and n_ineq / t < tol:
+            converged = True
             break
 
         t *= mu
 
-    return OptimizeResult(x, float(objective(x)), outer + 1, True,
+    return OptimizeResult(x, float(objective(x)), outer + 1, converged,
                           "interior_point")
 
 
@@ -298,7 +302,10 @@ def projection_simplex(x: np.ndarray) -> np.ndarray:
     n = len(x)
     u = np.sort(x)[::-1]
     cssv = np.cumsum(u) - 1
-    rho = np.nonzero(u * np.arange(1, n + 1) > cssv)[0][-1]
+    mask = u * np.arange(1, n + 1) > cssv
+    if not np.any(mask):
+        return np.ones(n) / n  # fallback: uniform
+    rho = np.nonzero(mask)[0][-1]
     theta = cssv[rho] / (rho + 1)
     return np.maximum(x - theta, 0)
 

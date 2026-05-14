@@ -56,7 +56,7 @@ class Normal:
         return rng.normal(self.mu, self.sigma, size)
 
     def moment(self, n: int) -> float:
-        """n-th central moment."""
+        """n-th raw moment (n=1: mean, n=2: variance, n=3: skew×σ³, n=4: 3σ⁴)."""
         if n == 1:
             return self.mu
         if n == 2:

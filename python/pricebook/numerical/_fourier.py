@@ -46,7 +46,7 @@ def fractional_fft(
     B = np.fft.fft(b)
     C = np.fft.ifft(A * B)
 
-    return (C[:N] * chirp).real
+    return C[:N] * chirp  # complex — caller takes .real if needed
 
 
 def hilbert_transform(x: np.ndarray) -> np.ndarray:

@@ -128,7 +128,7 @@ def gmres(
 
     return IterativeSolveResult(
         x=x,
-        iterations=maxiter if info > 0 else info,
+        iterations=info if info > 0 else 0,
         converged=(info == 0),
         residual_norm=float(residual),
     )
@@ -158,7 +158,7 @@ def bicgstab(
 
     return IterativeSolveResult(
         x=x,
-        iterations=maxiter if info > 0 else info,
+        iterations=info if info > 0 else 0,
         converged=(info == 0),
         residual_norm=float(residual),
     )
@@ -178,11 +178,11 @@ def sylvester(A: np.ndarray, B: np.ndarray, C: np.ndarray) -> np.ndarray:
 
 
 def lyapunov(A: np.ndarray, Q: np.ndarray) -> np.ndarray:
-    """Solve the continuous Lyapunov equation AX + XA' = Q.
+    """Solve the continuous Lyapunov equation AX + XA' + Q = 0.
 
-    Special case of Sylvester with B = A'.
+    Equivalently: AX + XA' = -Q.
     """
-    return sylvester(A, A.T, Q)
+    return sylvester(A, A.T, -Q)
 
 
 # ═══════════════════════════════════════════════════════════════

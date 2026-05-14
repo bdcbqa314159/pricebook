@@ -57,15 +57,19 @@ def hundsdorfer_verwer(
     for step in range(n_time):
         V_old = V.copy()
 
-        # Explicit predictor (full 2D)
+        # Explicit predictor (full 2D including mixed derivative)
         Y0 = V_old.copy()
         for i in range(1, nx - 1):
             for j in range(1, ny - 1):
-                dxx = (V_old[i+1, j] - 2*V_old[i, j] + V_old[i-1, j]) / (0.5*(dx[i-1]+dx[i]))**2 if isinstance(a_x, (int, float)) else 0
-                dyy = (V_old[i, j+1] - 2*V_old[i, j] + V_old[i, j-1]) / (0.5*(dy[j-1]+dy[j]))**2 if isinstance(a_y, (int, float)) else 0
+                hx = 0.5 * (dx[i-1] + dx[i])
+                hy = 0.5 * (dy[j-1] + dy[j])
+                dxx = (V_old[i+1, j] - 2*V_old[i, j] + V_old[i-1, j]) / (hx ** 2)
+                dyy = (V_old[i, j+1] - 2*V_old[i, j] + V_old[i, j-1]) / (hy ** 2)
+                dxy = (V_old[i+1, j+1] - V_old[i+1, j-1] - V_old[i-1, j+1] + V_old[i-1, j-1]) / (4 * hx * hy)
                 a_x_val = a_x if isinstance(a_x, (int, float)) else a_x[i, j]
                 a_y_val = a_y if isinstance(a_y, (int, float)) else a_y[i, j]
-                Y0[i, j] = V_old[i, j] + dt * (a_x_val * dxx + a_y_val * dyy - r * V_old[i, j])
+                a_xy_val = a_xy if isinstance(a_xy, (int, float)) else a_xy[i, j]
+                Y0[i, j] = V_old[i, j] + dt * (a_x_val * dxx + a_y_val * dyy + a_xy_val * dxy - r * V_old[i, j])
 
         # Implicit correction in x-direction
         Y1 = Y0.copy()
@@ -150,10 +154,10 @@ def psor_2d(
                     rhs += dt * a_y_val * (V[i, j+1] + V[i, j-1]) / (hy/2)**2
 
                     v_new = rhs / diag
-                    # Project: enforce V >= exercise
-                    v_new = max(v_new, exercise[i, j])
-                    # SOR relaxation
+                    # SOR relaxation first
                     v_new = V[i, j] + omega * (v_new - V[i, j])
+                    # Then project: enforce V >= exercise (must come after SOR)
+                    v_new = max(v_new, exercise[i, j])
 
                     change = abs(v_new - V[i, j])
                     max_change = max(max_change, change)
@@ -189,14 +193,19 @@ def operator_splitting(
             for op in operators:
                 V = op(V, dt)
         elif method == "strang":
-            if len(operators) >= 2:
-                V = operators[0](V, dt / 2)
-                for op in operators[1:-1]:
-                    V = op(V, dt)
-                V = operators[-1](V, dt)
-                V = operators[0](V, dt / 2)
-            else:
+            # Symmetric Strang: L1(dt/2) L2(dt/2) ... Ln(dt) ... L2(dt/2) L1(dt/2)
+            n_ops = len(operators)
+            if n_ops == 1:
                 V = operators[0](V, dt)
+            else:
+                # Forward half-steps
+                for k in range(n_ops - 1):
+                    V = operators[k](V, dt / 2)
+                # Full step on last operator
+                V = operators[-1](V, dt)
+                # Backward half-steps
+                for k in range(n_ops - 2, -1, -1):
+                    V = operators[k](V, dt / 2)
         else:
             raise ValueError(f"unknown splitting method: {method!r}")
 
