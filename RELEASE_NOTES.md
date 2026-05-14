@@ -2,6 +2,21 @@
 
 ---
 
+## v0.552.0 — 2026-05-14
+
+**Operational risk SMA (Basel III OPE25).**
+
+- `regulatory/operational_risk.py` — NEW: Standardised Measurement Approach.
+- `SMAInputs` — 3-year P&L items (interest, fees, trading, leasing) + 10-year loss data.
+- `calculate_sma_full()` → `SMAResult` — BI averaging, bucket (1/2/3), BIC (marginal 12%/15%/18%), ILM, capital, RWA.
+- `calculate_bic()` — Business Indicator Component with marginal coefficients.
+- `calculate_ilm()` — Internal Loss Multiplier: ln(e-1 + (LC/BIC)^0.8).
+- `sma_sensitivity()` — capital sensitivity to loss component ratio.
+- Legacy comparison: BIA capital computed alongside for benchmarking.
+- 18 tests including hand-verified BIC calculations.
+
+---
+
 ## v0.551.0 — 2026-05-14
 
 **Capital allocation & RORC.**
