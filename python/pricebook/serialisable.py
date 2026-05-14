@@ -135,6 +135,14 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
             return from_dict(v)
         return v
 
+    # CurrencyPair — deserialise from "EUR/USD" string
+    if isinstance(hint, type) and hint.__name__ == "CurrencyPair":
+        if isinstance(v, str) and "/" in v:
+            from pricebook.currency import CurrencyPair, Currency
+            base_str, quote_str = v.split("/")
+            return CurrencyPair(Currency(base_str), Currency(quote_str))
+        return v
+
     # list[date] — check if hint is list[X]
     if get_origin(hint) is list:
         args = get_args(hint)

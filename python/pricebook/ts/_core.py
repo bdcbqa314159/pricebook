@@ -53,17 +53,18 @@ class TimeSeries:
     # ── Serialisation ──
 
     def to_dict(self) -> dict:
-        """Serialise to a dict {name, dates, values}."""
+        """Serialise to a dict {name, dates, values}. NaN becomes None (JSON-safe)."""
         return {
             "name": self.name,
             "dates": [str(d) for d in self.dates],
-            "values": [float(v) for v in self.values],
+            "values": [None if np.isnan(v) else float(v) for v in self.values],
         }
 
     @classmethod
     def from_serialised(cls, d: dict) -> "TimeSeries":
-        """Deserialise from a dict produced by to_dict()."""
-        return cls.from_lists(d["dates"], d["values"], d.get("name", ""))
+        """Deserialise from a dict produced by to_dict(). None becomes NaN."""
+        values = [float('nan') if v is None else v for v in d["values"]]
+        return cls.from_lists(d["dates"], values, d.get("name", ""))
 
     # ── Properties ──
 

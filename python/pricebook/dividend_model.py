@@ -29,6 +29,13 @@ class Dividend:
     ex_date: date
     amount: float
 
+    def to_dict(self) -> dict:
+        return {"ex_date": self.ex_date.isoformat(), "amount": self.amount}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Dividend":
+        return cls(ex_date=date.fromisoformat(d["ex_date"]), amount=d["amount"])
+
 
 def pv_dividends(
     dividends: list[Dividend],

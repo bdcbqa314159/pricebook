@@ -60,6 +60,8 @@ class FloatingRateNote:
         self.end = end
         self.spread = spread
         self.notional = notional
+        self.frequency = frequency
+        self.day_count = day_count
 
         self.floating_leg = FloatingLeg(
             start, end, frequency,
@@ -150,4 +152,4 @@ class FloatingRateNote:
         return brentq(objective, -0.05, 0.05)
 
 from pricebook.serialisable import serialisable as _serialisable
-_serialisable("frn", ["start", "end", "spread", "notional"])(FloatingRateNote)
+_serialisable("frn", ["start", "end", "spread", "notional", "frequency", "day_count"])(FloatingRateNote)

@@ -107,5 +107,28 @@ class EquityForward:
         fwd_bumped = self.forward_price(curve.bumped(shift))
         return fwd_bumped - fwd_base
 
-from pricebook.serialisable import serialisable as _serialisable
-_serialisable("equity_forward", ["spot", "maturity", "valuation_date", "div_yield", "borrow_cost"])(EquityForward)
+def _ef_to_dict(self):
+    d = {"type": "equity_forward", "params": {
+        "spot": self.spot, "maturity": self.maturity.isoformat(),
+        "valuation_date": self.valuation_date.isoformat(),
+        "div_yield": self.div_yield, "borrow_cost": self.borrow_cost,
+    }}
+    if self.dividends:
+        d["params"]["dividends"] = [div.to_dict() for div in self.dividends]
+    return d
+
+@classmethod
+def _ef_from_dict(cls, d):
+    from pricebook.dividend_model import Dividend
+    p = d["params"]
+    divs = [Dividend.from_dict(x) for x in p.get("dividends", [])] or None
+    return cls(
+        spot=p["spot"], maturity=date.fromisoformat(p["maturity"]),
+        valuation_date=date.fromisoformat(p["valuation_date"]),
+        div_yield=p.get("div_yield", 0.0), borrow_cost=p.get("borrow_cost", 0.0),
+        dividends=divs,
+    )
+
+EquityForward.to_dict = _ef_to_dict
+EquityForward.from_dict = _ef_from_dict
+EquityForward._SERIAL_TYPE = "equity_forward"
