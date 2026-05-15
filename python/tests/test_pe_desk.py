@@ -4,8 +4,8 @@ import pytest
 from datetime import date
 
 from pricebook.fund_participation import FundParticipation, PEFundParticipation, WaterfallConfig
-from pricebook.lbo import LBOModel
-from pricebook.pe_desk import (
+from pricebook.pe.lbo import LBOModel
+from pricebook.pe.pe_desk import (
     PERiskMetrics, pe_risk_metrics,
     PEBook, PEBookEntry,
     PECarryDecomposition, pe_carry_decomposition,

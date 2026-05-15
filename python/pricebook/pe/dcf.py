@@ -1,6 +1,6 @@
 """DCF and enterprise valuation: WACC, terminal value, EV bridge.
 
-    from pricebook.dcf import DCFModel, WACCInputs, compute_wacc
+    from pricebook.pe.dcf import DCFModel, WACCInputs, compute_wacc
 
     wacc = WACCInputs(risk_free_rate=0.04, equity_risk_premium=0.05,
                        beta=1.2, cost_of_debt=0.05, tax_rate=0.25,

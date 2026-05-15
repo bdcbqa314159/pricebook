@@ -3,7 +3,7 @@
 import math
 import pytest
 
-from pricebook.lbo import (
+from pricebook.pe.lbo import (
     LBOModel, SourcesAndUses, FCFProjection, DebtYear, ExitAnalysis,
     LBOResult, _irr_simple,
 )

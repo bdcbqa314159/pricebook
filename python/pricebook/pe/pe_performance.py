@@ -1,6 +1,6 @@
 """PE performance benchmarking: PME, direct alpha, vintage cohorts, GP economics.
 
-    from pricebook.pe_performance import (
+    from pricebook.pe.pe_performance import (
         kaplan_schoar_pme, direct_alpha, long_nickels_pme,
         vintage_cohort, commitment_pacing, gp_economics,
     )

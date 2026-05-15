@@ -2,7 +2,7 @@
 
 Core PE underwriting tool for leveraged buyout deal structuring.
 
-    from pricebook.lbo import LBOModel
+    from pricebook.pe.lbo import LBOModel
 
     model = LBOModel(
         enterprise_value=500_000_000,

@@ -3,7 +3,7 @@ and portfolio company valuations.
 
 9-component desk protocol for PE fund management and deal monitoring.
 
-    from pricebook.pe_desk import (
+    from pricebook.pe.pe_desk import (
         pe_risk_metrics, PERiskMetrics,
         PEBook, PEBookEntry,
         pe_carry_decomposition, PECarryDecomposition,
@@ -62,7 +62,7 @@ def pe_risk_metrics(entry: PEBookEntry) -> PERiskMetrics:
         )
 
     elif product_type == "lbo":
-        from pricebook.lbo import LBOModel
+        from pricebook.pe.lbo import LBOModel
         result = inst.run()
         # Use middle exit analysis as representative
         mid_idx = len(result.exit_analyses) // 2
@@ -80,7 +80,7 @@ def pe_risk_metrics(entry: PEBookEntry) -> PERiskMetrics:
         )
 
     elif product_type == "dcf":
-        from pricebook.dcf import DCFModel
+        from pricebook.pe.dcf import DCFModel
         result = inst.value()
         return PERiskMetrics(
             nav=result.ev_bridge.equity_value,
