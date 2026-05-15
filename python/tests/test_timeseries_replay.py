@@ -7,7 +7,7 @@ from datetime import date, timedelta
 import numpy as np
 import pytest
 
-from pricebook.db import PricebookDB
+from pricebook.db.db import PricebookDB
 from pricebook.ts import (
     TimeSeries,
     from_db, from_db_book, from_db_desk, from_csv, greeks_from_db,

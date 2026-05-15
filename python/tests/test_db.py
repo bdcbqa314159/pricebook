@@ -8,7 +8,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.db import PricebookDB
+from pricebook.db.db import PricebookDB
 
 
 @pytest.fixture

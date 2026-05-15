@@ -3,7 +3,7 @@
 Default: SQLiteBackend (zero dependencies).
 Future: DuckDBBackend, PostgresBackend — same interface, swap one line.
 
-    from pricebook.db_backend import SQLiteBackend
+    from pricebook.db.db_backend import SQLiteBackend
     backend = SQLiteBackend("my_book.db")
 """
 

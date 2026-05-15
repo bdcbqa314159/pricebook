@@ -4,7 +4,7 @@ SQLite-backed with backend abstraction for future DuckDB/PostgreSQL upgrade.
 Stores pricebook objects via to_dict/from_dict, plus custom reference data
 (issuers, ratings, counterparties) and arbitrary user tables.
 
-    from pricebook.db import PricebookDB
+    from pricebook.db.db import PricebookDB
 
     db = PricebookDB("my_book.db")
     db.save_entity("JPM", legal_name="JPMorgan Chase & Co.",
@@ -21,7 +21,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pricebook.db_backend import SQLiteBackend, StorageBackend, _safe_name
+from pricebook.db.db_backend import SQLiteBackend, StorageBackend, _safe_name
 
 
 def _now() -> str:
