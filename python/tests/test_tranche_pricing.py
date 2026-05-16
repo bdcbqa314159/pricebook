@@ -12,9 +12,9 @@ from pricebook.tranche_pricing import (
     TrancheCDS, TrancheResult, expected_tranche_loss,
     calibrate_base_correlation, STANDARD_TRANCHES,
 )
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 MAT = REF + timedelta(days=1825)

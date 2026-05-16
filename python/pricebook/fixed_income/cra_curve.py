@@ -21,10 +21,10 @@ import math
 from datetime import date, timedelta
 from typing import Any
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import _register
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import _register
 
 
 class CRADiscountCurve:
@@ -139,7 +139,7 @@ class CRADiscountCurve:
 
     @classmethod
     def from_dict(cls, d: dict) -> CRADiscountCurve:
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(
             risk_free_curve=_fd(p["risk_free_curve"]),

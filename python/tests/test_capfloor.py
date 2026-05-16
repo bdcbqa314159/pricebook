@@ -8,7 +8,7 @@ from pricebook.options.capfloor import CapFloor
 from pricebook.models.black76 import OptionType
 from pricebook.models.models import Black76Model
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

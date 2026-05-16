@@ -15,10 +15,10 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.schedule import Frequency, generate_schedule
 
 
 # ---------------------------------------------------------------------------

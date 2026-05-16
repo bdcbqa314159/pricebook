@@ -6,7 +6,7 @@ from datetime import date
 import numpy as np
 import pytest
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.curves.multicurve_solver import (
     CurveValidationResult,
     validate_curve,

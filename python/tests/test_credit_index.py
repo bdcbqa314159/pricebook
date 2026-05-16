@@ -8,8 +8,8 @@ from pricebook.credit_index import (
     index_skew, index_roll_pnl,
 )
 from pricebook.cds import CDS
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 REF = date(2024, 1, 15)

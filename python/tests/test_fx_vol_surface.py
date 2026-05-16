@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
+from pricebook.fx.fx_vol_surface import FXVolSurface, FXVolQuote
 from pricebook.fx.fx_option import fx_forward, fx_forward_delta, fx_option_price
 from pricebook.models.black76 import OptionType
 

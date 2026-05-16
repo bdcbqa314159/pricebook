@@ -3,7 +3,7 @@
 All serialisation goes through pricebook.serialisable. This module
 re-exports the public API and provides backward-compat aliases.
 
-    from pricebook.serialization import to_dict, from_dict, to_json, from_json
+    from pricebook.core.serialization import to_dict, from_dict, to_json, from_json
 
     d = to_dict(my_irs)       # calls my_irs.to_dict()
     irs = from_dict(d)        # dispatches via registry
@@ -17,7 +17,7 @@ import json
 from datetime import date
 from typing import Any
 
-from pricebook.serialisable import (
+from pricebook.core.serialisable import (
     _REGISTRY,
     _register,
     _serialise_atom as serialise_value,
@@ -111,7 +111,7 @@ def deserialise_enum(enum_cls, v):
     return enum_cls(v)
 
 def deserialise_currency_pair(s: str):
-    from pricebook.currency import CurrencyPair, Currency
+    from pricebook.core.currency import CurrencyPair, Currency
     base_s, quote_s = s.split("/")
     return CurrencyPair(Currency(base_s), Currency(quote_s))
 
@@ -153,7 +153,7 @@ def load_trade(data: dict[str, Any]):
         return from_dict(data)
     # Legacy format: {"instrument": {...}, "trade_id": ..., ...}
     if "instrument" in data:
-        from pricebook.trade import Trade
+        from pricebook.core.trade import Trade
         inst = from_dict(data["instrument"])
         return Trade(
             instrument=inst,
@@ -167,7 +167,7 @@ def load_trade(data: dict[str, Any]):
 
 def load_portfolio(data):
     """Load a Portfolio. Accepts list of trade dicts or portfolio dict."""
-    from pricebook.trade import Portfolio
+    from pricebook.core.trade import Portfolio
     if isinstance(data, list):
         trades = [load_trade(td) for td in data]
         return Portfolio(trades=trades)

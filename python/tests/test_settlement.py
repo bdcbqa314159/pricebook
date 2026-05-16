@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.settlement import (
+from pricebook.core.settlement import (
     SettlementType, get_convention,
     cash_settlement,
     cds_settlement_physical, cds_settlement_cash,

@@ -32,11 +32,11 @@ from datetime import date
 
 from scipy.stats import norm as _norm
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.cds import premium_leg_pv, protection_leg_pv
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 
 
 # ---------------------------------------------------------------------------

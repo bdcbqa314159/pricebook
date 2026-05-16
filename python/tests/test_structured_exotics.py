@@ -10,8 +10,8 @@ import pytest
 
 from pricebook.options.autocallable import Autocallable, AutocallResult
 from pricebook.options.cliquet import Cliquet, CliquetResult
-from pricebook.discount_curve import DiscountCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 

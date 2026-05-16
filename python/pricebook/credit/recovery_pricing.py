@@ -27,8 +27,8 @@ from typing import Any
 import numpy as np
 from scipy.stats import norm, beta as beta_dist
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---------------------------------------------------------------------------

@@ -14,11 +14,11 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.schedule import Frequency, generate_schedule
-from pricebook.solvers import brentq
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.core.solvers import brentq
 
 
 class RiskyBond:
@@ -76,7 +76,7 @@ class RiskyBond:
             # Recovery on default in this period (ISDA: default at mid-period)
             surv_prev = survival_curve.survival(t_start)
             default_prob = surv_prev - surv
-            from pricebook.day_count import date_from_year_fraction, year_fraction as _yf
+            from pricebook.core.day_count import date_from_year_fraction, year_fraction as _yf
             t_mid_yf = _yf(discount_curve.reference_date, t_start, discount_curve.day_count) + yf / 2
             t_mid_date = date_from_year_fraction(discount_curve.reference_date, t_mid_yf)
             df_mid = discount_curve.df(t_mid_date)

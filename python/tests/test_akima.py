@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.interpolation import (
+from pricebook.core.interpolation import (
     AkimaInterpolator,
     InterpolationMethod,
     LinearInterpolator,
@@ -13,7 +13,7 @@ from pricebook.interpolation import (
     MonotoneCubicInterpolator,
     create_interpolator,
 )
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from datetime import date
 
 

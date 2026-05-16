@@ -16,10 +16,10 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod, create_interpolator
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod, create_interpolator
+from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.models.black76 import OptionType, black76_price, black76_vega
 
 

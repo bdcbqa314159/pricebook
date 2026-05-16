@@ -6,14 +6,14 @@ import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.notional import normalize_notional as _normalize_notional
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.interpolation import InterpolationMethod
-from pricebook.schedule import Frequency, StubType, generate_schedule
-from pricebook.solvers import brentq
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.notional import normalize_notional as _normalize_notional
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.schedule import Frequency, StubType, generate_schedule
+from pricebook.core.solvers import brentq
+from pricebook.core.calendar import Calendar, BusinessDayConvention
 
 
 def protection_leg_pv(
@@ -420,7 +420,7 @@ class CDS:
 
         carry ≈ spread × notional × year_frac × survival_to_horizon
         """
-        from pricebook.day_count import year_fraction as _yf
+        from pricebook.core.day_count import year_fraction as _yf
         horizon = self.start + timedelta(days=horizon_days)
         yf = _yf(self.start, horizon, self.day_count)
         surv = survival_curve.survival(horizon)
@@ -790,7 +790,7 @@ class StandardCDS(CDS):
     # ---- Serialisation ----
 
     def to_dict(self) -> dict:
-        from pricebook.serialisable import _serialise_atom
+        from pricebook.core.serialisable import _serialise_atom
         return {"type": self._SERIAL_TYPE, "params": {
             "start": self.start.isoformat(), "end": self.end.isoformat(),
             "spread": self.spread, "standard_coupon": self.standard_coupon,
@@ -804,7 +804,7 @@ class StandardCDS(CDS):
 
     @classmethod
     def from_dict(cls, d: dict) -> StandardCDS:
-        from pricebook.serialisable import _deserialise_atom
+        from pricebook.core.serialisable import _deserialise_atom
         p = d["params"]
         return cls(
             start=date.fromisoformat(p["start"]), end=date.fromisoformat(p["end"]),
@@ -818,7 +818,7 @@ class StandardCDS(CDS):
         )
 
 
-from pricebook.serialisable import _register as _reg_std
+from pricebook.core.serialisable import _register as _reg_std
 _reg_std(StandardCDS)
 
 
@@ -934,5 +934,5 @@ def _verify_credit_round_trip(
         msg = "Credit bootstrap round-trip failures:\n" + "\n".join(errors)
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count", "protection_day_count", "steps_per_year"])(CDS)

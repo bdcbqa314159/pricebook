@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.floating_leg import FloatingLeg
-from pricebook.schedule import Frequency, StubType
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.core.schedule import Frequency, StubType
+from pricebook.core.calendar import Calendar, BusinessDayConvention
 
 
 class BasisSwap:
@@ -155,5 +155,5 @@ class BasisSwap:
         )
         return pv_bumped - pv_base
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("basis_swap", ["start", "end", "spread", "notional", "leg1_frequency", "leg2_frequency", "day_count"])(BasisSwap)

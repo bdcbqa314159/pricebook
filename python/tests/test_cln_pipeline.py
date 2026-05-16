@@ -9,8 +9,8 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.cln import CreditLinkedNote, BasketCLN
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.schedule import Frequency
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.schedule import Frequency
 from pricebook.hazard_rate_models import (
     HWHazardRate, CIRPlusPlus, verify_calibration,
 )
@@ -279,7 +279,7 @@ class TestBasketRho01:
 class TestPricingContextCredit:
 
     def test_context_stores_stochastic_model(self):
-        from pricebook.pricing_context import PricingContext
+        from pricebook.core.pricing_context import PricingContext
         surv = make_flat_survival(REF, 0.02)
         model = CIRPlusPlus.from_survival_curve(surv, kappa=1.0, xi=0.1)
         ctx = PricingContext(
@@ -292,7 +292,7 @@ class TestPricingContextCredit:
         assert ctx.stochastic_credit_models["AAPL"].xi == 0.1
 
     def test_context_replace_preserves_models(self):
-        from pricebook.pricing_context import PricingContext
+        from pricebook.core.pricing_context import PricingContext
         surv = make_flat_survival(REF, 0.02)
         model = CIRPlusPlus.from_survival_curve(surv, kappa=1.0, xi=0.1)
         ctx = PricingContext(
@@ -305,7 +305,7 @@ class TestPricingContextCredit:
 
     def test_cln_pv_ctx_uses_stochastic_model(self):
         """CLN.pv_ctx dispatches to stochastic when model in context."""
-        from pricebook.pricing_context import PricingContext
+        from pricebook.core.pricing_context import PricingContext
         cln = CreditLinkedNote(
             start=REF, end=REF + relativedelta(years=5),
             coupon_rate=0.05, notional=1_000_000, recovery=0.4,

@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 
 import pytest
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.inflation import (
     CPICurve, InflationLinkedBond, ZCInflationSwap, YoYInflationSwap,
     zc_inflation_swap_pv, yoy_inflation_swap_pv,
@@ -22,8 +22,8 @@ from pricebook.desks.inflation_desk import (
     inflation_dashboard,
 )
 from pricebook.desks.inflation_book import InflationBook, InflationTradeEntry
-from pricebook.trade import Trade
-from pricebook.schedule import Frequency
+from pricebook.core.trade import Trade
+from pricebook.core.schedule import Frequency
 
 
 REF = date(2024, 7, 15)

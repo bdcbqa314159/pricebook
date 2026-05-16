@@ -4,7 +4,7 @@ Shared utility for converting a notional input (scalar or list) into
 a per-period list. Used by FixedLeg, FloatingLeg, CDS, CLN, and any
 instrument that supports variable notional schedules.
 
-    from pricebook.notional import normalize_notional
+    from pricebook.core.notional import normalize_notional
 
     schedule = normalize_notional(50_000_000, n_periods=10)
     # [50e6, 50e6, ..., 50e6]

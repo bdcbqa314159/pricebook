@@ -188,7 +188,7 @@ class TestVarianceSwap:
 class TestFXVolSurfaceBumped:
     def test_fx_surface_builds(self):
         """FX vol surface builds from ATM/RR/BF quotes."""
-        from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
+        from pricebook.fx.fx_vol_surface import FXVolSurface, FXVolQuote
         quotes = [
             FXVolQuote(date(2027, 4, 21), 0.08, 0.01, 0.005),
             FXVolQuote(date(2028, 4, 21), 0.09, 0.012, 0.006),
@@ -199,7 +199,7 @@ class TestFXVolSurfaceBumped:
         assert v > 0
 
     def test_fx_surface_bumped(self):
-        from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
+        from pricebook.fx.fx_vol_surface import FXVolSurface, FXVolQuote
         quotes = [FXVolQuote(date(2027, 4, 21), 0.08, 0.01, 0.005)]
         surface = FXVolSurface(1.10, 0.04, 0.03, quotes,
                                reference_date=date(2026, 4, 21))

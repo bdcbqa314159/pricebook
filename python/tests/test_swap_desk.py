@@ -21,7 +21,7 @@ from pricebook.desks.swap_desk import (
     swap_hedge_recommendations, SwapHedgeRecommendation,
     SwapLifecycle,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from tests.conftest import make_flat_curve
 
 

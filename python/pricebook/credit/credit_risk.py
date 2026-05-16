@@ -17,10 +17,10 @@ from datetime import date
 from typing import Any
 
 from pricebook.cds import CDS
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.trade import Trade
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.trade import Trade
 
 
 # ---- Survival curve bumping ----

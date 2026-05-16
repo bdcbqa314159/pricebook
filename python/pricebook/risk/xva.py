@@ -8,10 +8,10 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.day_count import date_from_year_fraction
-from pricebook.pricing_context import PricingContext
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.day_count import date_from_year_fraction
+from pricebook.core.pricing_context import PricingContext
 
 
 # ---------------------------------------------------------------------------
@@ -683,7 +683,7 @@ def implied_repo_rate_from_gap(
         raise ValueError(f"collateral_coverage must be in [0, 1], got {collateral_coverage}")
     return repo_rate + (funding_rate - repo_rate) * (1.0 - collateral_coverage)
 
-from pricebook.serialisable import _register as _reg_result
+from pricebook.core.serialisable import _register as _reg_result
 
 TotalXVAResult._SERIAL_TYPE = "total_xva_result"
 

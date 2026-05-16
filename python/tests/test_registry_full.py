@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.registry import (
+from pricebook.core.registry import (
     get_pricer,
     list_pricers,
     get_greek_engine,

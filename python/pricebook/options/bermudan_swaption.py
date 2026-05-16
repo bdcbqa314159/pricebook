@@ -18,7 +18,7 @@ import math
 import numpy as np
 
 from pricebook.models.hull_white import HullWhite
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.models.brownian import WienerProcess
 
 

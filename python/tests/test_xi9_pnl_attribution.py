@@ -17,9 +17,9 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.risk.pnl_explain import greek_pnl, pnl_decompose, compute_carry
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 

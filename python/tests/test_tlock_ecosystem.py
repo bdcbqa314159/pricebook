@@ -15,8 +15,8 @@ from pricebook.fixed_income.tbill import TreasuryBill
 from pricebook.fixed_income.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
 from pricebook.fixed_income.repo_term import RepoCurve, RepoRate
 from pricebook.fixed_income.funded import Repo, ReverseRepo, RepoFinancedPosition
-from pricebook.schedule import Frequency
-from pricebook.serialisable import from_dict
+from pricebook.core.schedule import Frequency
+from pricebook.core.serialisable import from_dict
 from tests.conftest import make_flat_curve
 
 
@@ -203,7 +203,7 @@ class TestTreasuryNote:
 
     def test_correct_conventions(self):
         """Treasury note should use ACT/ACT ICMA and T+1."""
-        from pricebook.day_count import DayCountConvention
+        from pricebook.core.day_count import DayCountConvention
         bond = FixedRateBond.treasury_note(
             REF - relativedelta(years=1),
             REF + relativedelta(years=9),

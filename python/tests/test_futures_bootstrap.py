@@ -6,7 +6,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.futures_bootstrap import futures_strip
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

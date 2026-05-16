@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 class TestACT360:

@@ -10,8 +10,8 @@ import math
 from datetime import date
 from typing import Any
 
-from pricebook.pricing_context import PricingContext
-from pricebook.trade import Trade, Portfolio
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.trade import Trade, Portfolio
 
 
 # ---------------------------------------------------------------------------

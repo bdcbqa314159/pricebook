@@ -9,7 +9,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 
 def plot_pv_vs_yield(ax, instrument, curve, *, theme=None, **kwargs):
     """T-Lock PV as function of OIS rate (yield proxy)."""
-    from pricebook.discount_curve import DiscountCurve
+    from pricebook.core.discount_curve import DiscountCurve
 
     ref = curve.reference_date
     base_rate = -np.log(curve.df(instrument.expiry)) / (
@@ -35,7 +35,7 @@ def plot_pv_vs_yield(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_greeks_vs_yield(ax, instrument, curve, *, theme=None, **kwargs):
     """Delta and gamma across yield levels (twin axis)."""
-    from pricebook.discount_curve import DiscountCurve
+    from pricebook.core.discount_curve import DiscountCurve
 
     ref = curve.reference_date
     base_rate = -np.log(curve.df(instrument.expiry)) / (

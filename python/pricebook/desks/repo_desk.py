@@ -26,7 +26,7 @@ import math
 
 from enum import Enum
 
-from pricebook.day_count import year_fraction as _year_fraction
+from pricebook.core.day_count import year_fraction as _year_fraction
 from pricebook.statistics.zscore import zscore as _zscore, ZScoreSignal
 
 
@@ -459,7 +459,7 @@ class RepoTrade:
 
 
 RepoTrade._SERIAL_TYPE = "repo_trade"
-from pricebook.serialisable import _register as _reg_rt
+from pricebook.core.serialisable import _register as _reg_rt
 _reg_rt(RepoTrade)
 
 
@@ -1344,7 +1344,7 @@ def hedge_recommendations(
 
 
 
-from pricebook.serialisable import _register as _reg_rb
+from pricebook.core.serialisable import _register as _reg_rb
 _reg_rb(RepoBook)
 
 

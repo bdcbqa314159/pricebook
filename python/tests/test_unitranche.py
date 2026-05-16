@@ -10,7 +10,7 @@ from pricebook.unitranche import (
     folo_recovery_split, unitranche_blended_spread,
     direct_lending_economics, hold_to_maturity_yield,
 )
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 @pytest.fixture
@@ -227,7 +227,7 @@ class TestHTMYield:
         assert y > 0  # positive yield
         # Verify roundtrip: discounting at y should recover the price
         total = 0.0
-        from pricebook.day_count import DayCountConvention, year_fraction
+        from pricebook.core.day_count import DayCountConvention, year_fraction
         for d, interest, principal in loan.cashflows(flat_curve):
             t = year_fraction(loan.start, d, DayCountConvention.ACT_365_FIXED)
             df = 1.0 / (1 + y) ** t

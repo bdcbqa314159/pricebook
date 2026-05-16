@@ -3,7 +3,7 @@ Registry for numerical methods.
 
 Factory functions with string-based lookup for swapping implementations.
 
-    from pricebook.registry import get_solver, get_tree_pricer
+    from pricebook.core.registry import get_solver, get_tree_pricer
 
     solver = get_solver("newton")
     result = solver(f, fprime, x0=0.5)

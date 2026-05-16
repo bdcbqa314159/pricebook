@@ -5,7 +5,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.serialization import (
+from pricebook.core.serialization import (
     get_instrument_class,
     list_instruments,
     load_trade,
@@ -16,7 +16,7 @@ from pricebook.serialization import (
     trade_to_dict,
     portfolio_to_dict,
 )
-from pricebook.reporting import (
+from pricebook.desks.reporting import (
     portfolio_risk_report,
     scenario_grid,
     trade_blotter,
@@ -121,8 +121,8 @@ class TestFromJson:
         assert type(swap2).__name__ == "InterestRateSwap"
 
     def test_roundtrip_context(self):
-        from pricebook.pricing_context import PricingContext
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.pricing_context import PricingContext
+        from pricebook.core.discount_curve import DiscountCurve
         ctx = PricingContext(
             valuation_date=REF,
             discount_curve=DiscountCurve.flat(REF, 0.05),

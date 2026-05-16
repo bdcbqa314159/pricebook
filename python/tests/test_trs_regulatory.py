@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
 from pricebook.loan import TermLoan
 from pricebook.regulatory.trs_capital import (

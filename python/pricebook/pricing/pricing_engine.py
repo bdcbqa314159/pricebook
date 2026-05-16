@@ -25,7 +25,7 @@ import time
 from datetime import date
 from typing import Any
 
-from pricebook.serialization import (
+from pricebook.core.serialization import (
     instrument_from_dict,
     discount_curve_from_dict,
     survival_curve_from_dict,
@@ -104,8 +104,8 @@ def price_from_dict(request: dict[str, Any]) -> dict[str, Any]:
 
 def _build_context(val_date: date, market_data: dict) -> Any:
     """Build a PricingContext from the market_data section."""
-    from pricebook.pricing_context import PricingContext
-    from pricebook.discount_curve import DiscountCurve
+    from pricebook.core.pricing_context import PricingContext
+    from pricebook.core.discount_curve import DiscountCurve
     from pricebook.options.vol_surface import FlatVol
 
     discount = None
@@ -211,7 +211,7 @@ def _price_one(
             pv = instrument.pv(ctx.discount_curve)
         except TypeError:
             # Some instruments need extra curves (e.g. CDS needs survival_curve)
-            from pricebook.survival_curve import SurvivalCurve
+            from pricebook.core.survival_curve import SurvivalCurve
             sc = None
             if ctx.credit_curves:
                 sc = next(iter(ctx.credit_curves.values()))
@@ -242,7 +242,7 @@ def _price_one(
 
 def _pv_fallback(instrument, ctx, val_date):
     """Try pv() with various argument combinations."""
-    from pricebook.survival_curve import SurvivalCurve
+    from pricebook.core.survival_curve import SurvivalCurve
     sc = None
     if ctx.credit_curves:
         sc = next(iter(ctx.credit_curves.values()))

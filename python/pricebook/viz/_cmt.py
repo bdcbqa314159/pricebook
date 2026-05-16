@@ -12,7 +12,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 def plot_cc_vs_vol(ax, instrument, curve, *, theme=None, **kwargs):
     """CC vs volatility for all three variants (A/B/C)."""
     from pricebook.structured.cmt import cmt_convexity_corrections
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
     Ts = year_fraction(curve.reference_date, instrument.fixing_date,
@@ -51,7 +51,7 @@ def plot_cc_vs_vol(ax, instrument, curve, *, theme=None, **kwargs):
 def plot_cc_vs_hazard(ax, instrument, curve, *, theme=None, **kwargs):
     """CC vs hazard rate."""
     from pricebook.structured.cmt import cmt_convexity_corrections, cmt_cc_no_default
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
     Ts = year_fraction(curve.reference_date, instrument.fixing_date,
@@ -95,7 +95,7 @@ def plot_cc_vs_hazard(ax, instrument, curve, *, theme=None, **kwargs):
 def plot_pelsser_overlay(ax, instrument, curve, *, theme=None, **kwargs):
     """No-default limit: all CCs collapse to Pelsser/Hagan."""
     from pricebook.structured.cmt import cmt_convexity_corrections, cmt_cc_no_default
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
     from pricebook.credit_adjustment import risky_swap_rate, risky_annuity
 

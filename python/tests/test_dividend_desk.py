@@ -9,7 +9,7 @@ from pricebook.desks.dividend_desk import (
     DividendSwap, dividend_forward, dividend_risk,
 )
 from pricebook.equity.dividend_model import Dividend, dividend_adjusted_forward
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

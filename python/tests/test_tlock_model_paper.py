@@ -17,8 +17,8 @@ from pricebook.fixed_income.treasury_lock import (
     tlock_yield_npv, tlock_dirty_price_npv, pv01_forward,
 )
 from pricebook.fixed_income.bond_yield import bond_irr, bond_price_from_yield, bond_risk_factor
-from pricebook.discount_curve import DiscountCurve
-from pricebook.schedule import Frequency
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

@@ -14,14 +14,14 @@ from pricebook.risk.prudent_valuation import (
     early_termination_ava, future_admin_cost_ava, model_risk_ava_from_exotic_book,
     compute_prudent_value,
 )
-from pricebook.new_desk_xva import (
+from pricebook.risk.new_desk_xva import (
     inflation_analytic_xva, asw_xva, structured_credit_xva,
 )
 from pricebook.risk.market_risk_enhanced import (
     incremental_var, stressed_var, copula_es,
 )
 from pricebook.risk.valuation_report import valuation_report, ValuationReport
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 7, 15)

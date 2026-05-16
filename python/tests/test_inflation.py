@@ -12,7 +12,7 @@ from pricebook.fixed_income.inflation import (
     InflationLinkedBond,
     bootstrap_cpi_curve,
 )
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

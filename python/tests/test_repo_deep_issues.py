@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.desks.repo_desk import RepoTrade
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

@@ -12,7 +12,7 @@ from pricebook.risk.var import (
     stress_test,
     STANDARD_STRESSES,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
 from pricebook.options.swaption import Swaption
 from tests.conftest import make_flat_curve

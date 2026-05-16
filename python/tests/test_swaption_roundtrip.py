@@ -14,7 +14,7 @@ from datetime import date
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.swaption_vol import SwaptionVolSurface
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
 from pricebook.models.models import Black76Model
 from tests.conftest import make_flat_curve

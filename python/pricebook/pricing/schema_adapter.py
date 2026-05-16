@@ -27,7 +27,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from pricebook.serialisable import _REGISTRY
+from pricebook.core.serialisable import _REGISTRY
 
 
 # ---------------------------------------------------------------------------

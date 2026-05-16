@@ -10,7 +10,7 @@ from pricebook.desks.fx_book import (
     FXPairPosition,
 )
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 
 
 def _instr():

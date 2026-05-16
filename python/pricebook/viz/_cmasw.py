@@ -12,7 +12,7 @@ def plot_cc_heatmap(ax, instrument, curve, *, theme=None,
     """CC heatmap: sigma_asw vs rho."""
     from pricebook.structured.cmasw import cmasw_cc_lognormal
     import math
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
 
     T0 = year_fraction(curve.reference_date, instrument.fixing_date,
                         DayCountConvention.ACT_365_FIXED)
@@ -47,7 +47,7 @@ def plot_cc_heatmap(ax, instrument, curve, *, theme=None,
 def plot_cc_vs_rho(ax, instrument, curve, *, theme=None, **kwargs):
     """CC vs rho line plot for multiple sigma_asw."""
     from pricebook.structured.cmasw import cmasw_cc_lognormal
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
     T0 = year_fraction(curve.reference_date, instrument.fixing_date,
@@ -77,7 +77,7 @@ def plot_cc_vs_rho(ax, instrument, curve, *, theme=None, **kwargs):
 def plot_displaced_vs_lognormal(ax, instrument, curve, *, theme=None, **kwargs):
     """Displaced vs lognormal CC comparison."""
     from pricebook.structured.cmasw import cmasw_cc_lognormal, cmasw_convexity_correction
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
     T0 = year_fraction(curve.reference_date, instrument.fixing_date,

@@ -43,11 +43,11 @@ from datetime import date
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.notional import normalize_notional as _normalize_notional
-from pricebook.schedule import Frequency, generate_schedule
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction, date_from_year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.notional import normalize_notional as _normalize_notional
+from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 @dataclass
@@ -248,7 +248,7 @@ class CreditLinkedNote:
         survival_curve: SurvivalCurve,
     ) -> float:
         """Spread that makes CLN price = notional (par)."""
-        from pricebook.solvers import brentq
+        from pricebook.core.solvers import brentq
 
         def objective(s: float) -> float:
             shifted = CreditLinkedNote(
@@ -855,7 +855,7 @@ class BasketCLN:
         result = self.price_mc(curve, scs, rho=rho)
         return result.price
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("cln", ["start", "end", "coupon_rate", "notional", "recovery", "leverage", "floating", "frequency", "day_count"])(CreditLinkedNote)
 
 

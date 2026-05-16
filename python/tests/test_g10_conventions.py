@@ -4,12 +4,12 @@ from datetime import date
 import math
 import pytest
 
-from pricebook.calendar import (
+from pricebook.core.calendar import (
     SEKCalendar, NOKCalendar, NZDCalendar,
     USSettlementCalendar, TARGETCalendar, LondonCalendar,
     TokyoCalendar, CHFCalendar, AUDCalendar, CADCalendar,
 )
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.curves.curve_builder import build_curves, _CONVENTIONS
 
 
@@ -132,7 +132,7 @@ class TestG10Conventions:
         assert c.float_day_count == DayCountConvention.ACT_365_FIXED
 
     def test_eur_annual_fixed(self):
-        from pricebook.schedule import Frequency
+        from pricebook.core.schedule import Frequency
         c = _CONVENTIONS["EUR"]
         assert c.fixed_frequency == Frequency.ANNUAL
 

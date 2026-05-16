@@ -4,8 +4,8 @@ import pytest
 from datetime import date
 
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
 from tests.conftest import make_flat_curve
 
 

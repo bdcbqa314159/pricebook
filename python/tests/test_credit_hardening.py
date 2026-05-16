@@ -9,8 +9,8 @@ import pytest
 from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.credit_risk import _bump_survival_curve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread, asset_swap_spread
-from pricebook.schedule import Frequency
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.schedule import Frequency
+from pricebook.core.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve
 
 

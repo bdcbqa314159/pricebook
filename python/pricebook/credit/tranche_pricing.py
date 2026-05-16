@@ -27,11 +27,11 @@ from typing import Any
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.solvers import brentq
-from pricebook.serialisable import _register, _serialise_atom
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.solvers import brentq
+from pricebook.core.serialisable import _register, _serialise_atom
 
 
 # Standard index tranches

@@ -11,7 +11,7 @@ from pricebook.curves.curve_risk import (
     curve_rolldown,
     rolldown_pnl,
 )
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

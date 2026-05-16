@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.pricing.schema_adapter import analyse_json, SchemaAdapter, SchemaHint
-from pricebook.serialisable import from_dict
+from pricebook.core.serialisable import from_dict
 
 
 # ---- Analysis ----
@@ -149,7 +149,7 @@ class TestSchemaAdapter:
 
     def test_pv_after_translate(self):
         """Translate external → construct → price → verify finite."""
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         adapter = SchemaAdapter()
         external = {"type": "swap", "fixedRate": 0.035, "startDate": "2026-04-28",
                      "endDate": "2031-04-28", "notional": 10_000_000}

@@ -3,7 +3,7 @@
 Each RateIndex defines the fixing lag, day count, compounding method,
 and calendar used by a specific interest rate benchmark.
 
-    from pricebook.rate_index import get_rate_index, RateIndex
+    from pricebook.core.rate_index import get_rate_index, RateIndex
 
     sofr = get_rate_index("SOFR")
     assert sofr.fixing_lag == 0
@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from pricebook.day_count import DayCountConvention
+from pricebook.core.day_count import DayCountConvention
 
 
 class CompoundingMethod(Enum):

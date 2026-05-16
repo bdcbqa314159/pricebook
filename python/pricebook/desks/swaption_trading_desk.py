@@ -24,9 +24,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from pricebook.options.swaption import Swaption, SwaptionType
-from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 class _FlatVol:
@@ -268,7 +268,7 @@ def swaption_scenario_stress(
 ) -> list:
     """Full-reprice swaption stress via scenario.py."""
     from pricebook.risk.scenario import parallel_shift, run_scenarios
-    from pricebook.trade import Trade, Portfolio
+    from pricebook.core.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
     for e in book.entries:

@@ -7,8 +7,8 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.interpolation import (
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.interpolation import (
     InterpolationMethod,
     create_interpolator,
     Interpolator,
@@ -172,7 +172,7 @@ def validate_vol_surface(
         total_variance_monotone=tv_mono,
     )
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 FlatVol._SERIAL_TYPE = "flat_vol"
 

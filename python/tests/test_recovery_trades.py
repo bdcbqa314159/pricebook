@@ -111,7 +111,7 @@ class TestPortfolioRecoveryStress:
 
     def test_recovery_shock_negative_pv(self):
         from pricebook.cln import CreditLinkedNote
-        from pricebook.schedule import Frequency
+        from pricebook.core.schedule import Frequency
         ois = _ois()
         cln = CreditLinkedNote(REF, REF + relativedelta(years=5),
                                 coupon_rate=0.05, notional=10e6, recovery=0.40,
@@ -123,7 +123,7 @@ class TestPortfolioRecoveryStress:
 
     def test_combined_shock(self):
         from pricebook.cln import CreditLinkedNote
-        from pricebook.schedule import Frequency
+        from pricebook.core.schedule import Frequency
         ois = _ois()
         cln = CreditLinkedNote(REF, REF + relativedelta(years=5),
                                 coupon_rate=0.05, notional=10e6, recovery=0.40,

@@ -155,7 +155,7 @@ class IndexLinkedHybridInstrument:
 
     def price(self, curve) -> IndexLinkedHybridResult:
         """Price the index-linked hybrid using a discount curve."""
-        from pricebook.day_count import year_fraction, DayCountConvention
+        from pricebook.core.day_count import year_fraction, DayCountConvention
         from datetime import timedelta
 
         T = year_fraction(curve.reference_date, self.expiry,

@@ -13,7 +13,7 @@ from pricebook.models.processes_extended import (
     three_halves_paths,
     vg_full_paths,
 )
-from pricebook.numerical_safety import martingale_test
+from pricebook.core.numerical_safety import martingale_test
 
 
 # ---- CEV ----

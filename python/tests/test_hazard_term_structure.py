@@ -8,8 +8,8 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.cds import bootstrap_credit_curve
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.hazard_term_structure import (
     proxy_survival_curve, liquidity_spread, spread_from_survival, compare_curves,
 )

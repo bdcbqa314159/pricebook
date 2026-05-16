@@ -7,8 +7,8 @@ from dateutil.relativedelta import relativedelta
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.fixed_income.deposit import Deposit
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
 
 
 REF = date(2024, 1, 15)

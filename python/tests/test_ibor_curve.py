@@ -8,8 +8,8 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap_forward_curve
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.ibor_curve import (
     IBORCurve,
     IBORConventions,
@@ -19,8 +19,8 @@ from pricebook.fixed_income.ibor_curve import (
     TIBOR_3M_CONVENTIONS,
 )
 from pricebook.fixed_income.ois import bootstrap_ois
-from pricebook.rate_index import EURIBOR_3M, EURIBOR_6M, TIBOR_3M
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.core.rate_index import EURIBOR_3M, EURIBOR_6M, TIBOR_3M
+from pricebook.core.schedule import Frequency, generate_schedule
 
 REF = date(2026, 4, 27)
 

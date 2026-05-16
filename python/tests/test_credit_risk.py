@@ -9,9 +9,9 @@ from pricebook.credit_risk import (
     _bump_survival_curve,
 )
 from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.trade import Trade
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.trade import Trade
 
 
 REF = date(2024, 1, 15)

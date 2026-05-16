@@ -8,8 +8,8 @@ from pricebook.curves.bootstrap import bootstrap_forward_curve
 from pricebook.fixed_income.ois import bootstrap_ois, OISSwap
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.fixed_income.fra import FRA
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
 
 
 REF = date(2024, 1, 15)

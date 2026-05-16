@@ -25,14 +25,14 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.floating_leg import FloatingLeg
-from pricebook.schedule import Frequency, StubType
-from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.solvers import brentq
-from pricebook.serialisable import _register, _serialise_atom
+from pricebook.core.schedule import Frequency, StubType
+from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.solvers import brentq
+from pricebook.core.serialisable import _register, _serialise_atom
 
 
 # ---------------------------------------------------------------------------

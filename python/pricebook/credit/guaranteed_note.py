@@ -29,10 +29,10 @@ from datetime import date
 
 from scipy.stats import norm, multivariate_normal
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.schedule import Frequency, generate_schedule
 
 
 def _bivariate_normal_cdf(x: float, y: float, rho: float) -> float:

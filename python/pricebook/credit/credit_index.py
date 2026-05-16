@@ -20,8 +20,8 @@ from typing import Any
 
 from pricebook.cds import CDS, risky_annuity
 from pricebook.cds_index import CDSIndex
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---- Index definition ----

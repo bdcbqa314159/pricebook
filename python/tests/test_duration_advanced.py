@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pytest
-from pricebook.duration_advanced import (
+from pricebook.fixed_income.duration_advanced import (
     key_rate_immunise, barbell_bullet_analysis, ldi_cashflow_match,
     cross_currency_duration_hedge,
 )

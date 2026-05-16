@@ -170,7 +170,7 @@ class TestCurveSet:
         assert ctx.discount_curve is not None
 
     def test_add_curve(self):
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         cs = CurveSet(name="TEST", currency="USD")
         curve = DiscountCurve.flat(REF, 0.05)
         cs.add("OIS", curve, CurveRole.DISCOUNT)

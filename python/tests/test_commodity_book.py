@@ -12,7 +12,7 @@ from pricebook.desks.commodity_book import (
     commodity_tenor_bucket,
 )
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 
 
 REF = date(2024, 1, 15)

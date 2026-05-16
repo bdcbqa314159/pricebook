@@ -157,7 +157,7 @@ class TestRepoFinancedPosition:
         assert pos.pv() == pytest.approx(pos.net_carry())
 
     def test_pv_ctx(self):
-        from pricebook.pricing_context import PricingContext
+        from pricebook.core.pricing_context import PricingContext
         disc = _disc()
         ctx = PricingContext(valuation_date=REF, discount_curve=disc)
         pos = RepoFinancedPosition(

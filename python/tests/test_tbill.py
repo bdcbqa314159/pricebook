@@ -178,7 +178,7 @@ class TestPVRisk:
 class TestSerialisation:
 
     def test_round_trip(self):
-        from pricebook.serialisable import from_dict
+        from pricebook.core.serialisable import from_dict
         mat = REF + relativedelta(days=90)
         bill = TreasuryBill(REF, mat, price=98.75)
         d = bill.to_dict()

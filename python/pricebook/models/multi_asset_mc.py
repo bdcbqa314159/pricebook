@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 
 @dataclass

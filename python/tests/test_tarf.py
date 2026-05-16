@@ -9,8 +9,8 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.options.tarf import TARF, TARFResult
-from pricebook.discount_curve import DiscountCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 

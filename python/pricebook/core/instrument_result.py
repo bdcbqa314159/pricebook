@@ -4,7 +4,7 @@ All instrument result dataclasses should implement:
 - `.price` property: the primary valuation metric
 - `.to_dict()`: flat dictionary for risk systems
 
-    from pricebook.instrument_result import InstrumentResult
+    from pricebook.core.instrument_result import InstrumentResult
 
     isinstance(result, InstrumentResult)  # True for all product results
 """

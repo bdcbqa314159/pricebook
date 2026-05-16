@@ -28,8 +28,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 @dataclass
@@ -186,7 +186,7 @@ class PricingContext:
 
         Convenience for quick pricing and testing.
         """
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         from pricebook.options.vol_surface import FlatVol
 
         curve = DiscountCurve.flat(valuation_date, rate)
@@ -196,7 +196,7 @@ class PricingContext:
 
         credit_curves = {}
         if hazard is not None:
-            from pricebook.survival_curve import SurvivalCurve
+            from pricebook.core.survival_curve import SurvivalCurve
             credit_curves["default"] = SurvivalCurve.flat(valuation_date, hazard)
 
         return cls(
@@ -206,7 +206,7 @@ class PricingContext:
             credit_curves=credit_curves,
         )
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 PricingContext._SERIAL_TYPE = "pricing_context"
 
@@ -233,7 +233,7 @@ def _ctx_to_dict(self):
 @classmethod
 def _ctx_from_dict(cls, d):
     from datetime import date as _d
-    from pricebook.serialisable import from_dict as _fd
+    from pricebook.core.serialisable import from_dict as _fd
     p = d["params"]
     disc = _fd(p["discount_curve"]) if "discount_curve" in p else None
     proj = {n: _fd(c) for n, c in p.get("projection_curves", {}).items()} or None

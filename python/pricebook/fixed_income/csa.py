@@ -19,9 +19,9 @@ from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +528,7 @@ def non_cash_collateral_discount_rate(
         collateral_costs=costs,
     )
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 CSA._SERIAL_TYPE = "csa"
 

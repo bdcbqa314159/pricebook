@@ -26,8 +26,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +347,7 @@ def bond_scenario_stress(
 ) -> list:
     """Full-reprice stress via scenario.py run_scenarios."""
     from pricebook.risk.scenario import parallel_shift, run_scenarios
-    from pricebook.trade import Trade, Portfolio
+    from pricebook.core.trade import Trade, Portfolio
 
     portfolio = Portfolio(name="bond_stress")
     for trade_id, bond, face in positions:
@@ -499,7 +499,7 @@ class BondLifecycle:
 
     def __init__(self, bond: FixedRateBond, trade_id: str = "",
                  creation_date: date | None = None):
-        from pricebook.trade import Trade
+        from pricebook.core.trade import Trade
         from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._bond = bond

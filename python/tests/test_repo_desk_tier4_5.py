@@ -15,7 +15,7 @@ from pricebook.desks.repo_desk import (
     funding_attribution, FundingAttribution,
     repo_book_pv,
 )
-from pricebook.serialisable import from_dict
+from pricebook.core.serialisable import from_dict
 from tests.conftest import make_flat_curve
 
 REF = date(2024, 7, 15)

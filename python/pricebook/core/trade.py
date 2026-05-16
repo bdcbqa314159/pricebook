@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 
 
 @dataclass
@@ -79,7 +79,7 @@ class Portfolio:
     def __len__(self) -> int:
         return len(self.trades)
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 Trade._SERIAL_TYPE = "trade"
 
@@ -95,7 +95,7 @@ def _trade_to_dict(self):
 
 @classmethod
 def _trade_from_dict(cls, d):
-    from pricebook.serialisable import from_dict as _fd
+    from pricebook.core.serialisable import from_dict as _fd
     from datetime import date as _d
     p = d["params"]
     inst = _fd(p["instrument"])
@@ -117,7 +117,7 @@ def _port_to_dict(self):
 
 @classmethod
 def _port_from_dict(cls, d):
-    from pricebook.serialisable import from_dict as _fd
+    from pricebook.core.serialisable import from_dict as _fd
     p = d["params"]
     trades = [_fd(td) for td in p["trades"]]
     return cls(trades=trades, name=p.get("name", ""))

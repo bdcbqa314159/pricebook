@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 class FRA:
@@ -74,5 +74,5 @@ class FRA:
         proj = projection_curve if projection_curve is not None else curve
         return self.forward_rate(proj)
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("fra", ["start", "end", "strike", "notional"])(FRA)

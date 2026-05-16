@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pricebook.pricing_context import PricingContext
-from pricebook.trade import Trade
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.trade import Trade
 
 
 # ---- Position dataclasses ----

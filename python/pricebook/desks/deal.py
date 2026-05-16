@@ -18,8 +18,8 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
-from pricebook.pricing_context import PricingContext
-from pricebook.trade import Trade
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.trade import Trade
 
 
 class DealRole(Enum):
@@ -150,7 +150,7 @@ class Deal:
     # ----- Serialization -----
 
     def to_dict(self) -> dict[str, Any]:
-        from pricebook.serialization import trade_to_dict
+        from pricebook.core.serialization import trade_to_dict
         return {
             "deal_id": self.deal_id,
             "counterparty": self.counterparty,
@@ -169,7 +169,7 @@ class Deal:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Deal:
-        from pricebook.serialization import trade_from_dict
+        from pricebook.core.serialization import trade_from_dict
         deal = cls(
             deal_id=d["deal_id"],
             counterparty=d.get("counterparty", ""),

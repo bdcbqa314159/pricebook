@@ -19,8 +19,8 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 class Repo:
@@ -409,7 +409,7 @@ class RepoFinancedPosition:
         return self.net_carry()
 
 
-from pricebook.serialisable import serialisable as _ser_funded
+from pricebook.core.serialisable import serialisable as _ser_funded
 _ser_funded("repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(Repo)
 _ser_funded("reverse_repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(ReverseRepo)
 _ser_funded("repo_financed_position", ["bond_dirty_price", "repo_rate", "trs_spread", "asset_yield", "T", "haircut", "funding_rate", "notional", "specialness"])(RepoFinancedPosition)

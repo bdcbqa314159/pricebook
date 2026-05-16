@@ -3,14 +3,14 @@
 import pytest
 from datetime import date
 
-from pricebook.daily_pnl import (
+from pricebook.core.daily_pnl import (
     DailyPnL, compute_daily_pnl, compute_desk_pnl,
     TradeAttribution, BookAttribution, attribute_pnl,
 )
-from pricebook.book import Book, Desk
-from pricebook.trade import Trade
+from pricebook.core.book import Book, Desk
+from pricebook.core.trade import Trade
 from pricebook.options.swaption import Swaption
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 
 
 REF = date(2024, 1, 15)

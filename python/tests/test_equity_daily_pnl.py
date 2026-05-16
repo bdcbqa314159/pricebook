@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.desks.equity_book import EquityBook
 from pricebook.desks.equity_daily_pnl import (
     EquityDailyPnL,
@@ -13,9 +13,9 @@ from pricebook.desks.equity_daily_pnl import (
     attribute_equity_pnl,
     compute_equity_daily_pnl,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from pricebook.options.vol_surface import FlatVol
 
 

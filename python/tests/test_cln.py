@@ -121,7 +121,7 @@ class TestCreditLinkedNote:
 
     def test_pv_ctx(self):
         """pv_ctx integration with PricingContext."""
-        from pricebook.pricing_context import PricingContext
+        from pricebook.core.pricing_context import PricingContext
         disc = _disc()
         ctx = PricingContext(valuation_date=REF, discount_curve=disc)
         cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000)
@@ -264,8 +264,8 @@ class TestCLNTRS:
     def test_cln_trs_in_portfolio(self):
         """CLN TRS works in Trade/Portfolio."""
         from pricebook.equity.trs import TotalReturnSwap
-        from pricebook.pricing_context import PricingContext
-        from pricebook.trade import Trade, Portfolio
+        from pricebook.core.pricing_context import PricingContext
+        from pricebook.core.trade import Trade, Portfolio
         disc = _disc()
         sc = _surv()
         ctx = PricingContext(valuation_date=REF, discount_curve=disc)

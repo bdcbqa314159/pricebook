@@ -29,8 +29,8 @@ from __future__ import annotations
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 def _parse_tenor(ref: date, tenor: str | date) -> date:
@@ -115,7 +115,7 @@ def _apply_notional_profile(notional, profile, ref, end, frequency,
 
     Returns the notional unchanged (scalar or list) if profile is None.
     """
-    from pricebook.schedule import generate_schedule
+    from pricebook.core.schedule import generate_schedule
     if profile is None:
         return notional
     if isinstance(notional, list):
@@ -169,7 +169,7 @@ def analyse(instrument_type: str, *, curve: DiscountCurve, **kwargs) -> dict:
 def _analyse_irs(ref, curve, **kw):
     from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
     from pricebook.desks.swap_desk import swap_risk_metrics, swap_carry_decomposition
-    from pricebook.schedule import Frequency
+    from pricebook.core.schedule import Frequency
 
     if "rate" not in kw:
         _warn_default("rate", 0.04, "IRS")
@@ -216,7 +216,7 @@ def _analyse_irs(ref, curve, **kw):
 def _analyse_cds(ref, curve, **kw):
     from pricebook.credit.cds import CDS
     from pricebook.desks.cds_desk import cds_risk_metrics, cds_carry_decomposition
-    from pricebook.schedule import Frequency
+    from pricebook.core.schedule import Frequency
 
     if "spread" not in kw:
         _warn_default("spread", 0.01, "CDS")
@@ -257,7 +257,7 @@ def _analyse_cds(ref, curve, **kw):
 
 def _analyse_cln(ref, curve, **kw):
     from pricebook.credit.cln import CreditLinkedNote
-    from pricebook.schedule import Frequency
+    from pricebook.core.schedule import Frequency
     from pricebook.desks.cln_desk import cln_risk_metrics, cln_carry_decomposition
 
     if "coupon" not in kw:
@@ -646,7 +646,7 @@ def recovery_analysis(*, cds_spreads: dict, curve: DiscountCurve,
         recoveries: List of recovery values to scan (default [0.2, 0.3, ..., 0.8]).
     """
     from pricebook.credit.cln import CreditLinkedNote
-    from pricebook.schedule import Frequency
+    from pricebook.core.schedule import Frequency
     from pricebook.credit.recovery_analytics import (
         recovery_curve_family, recovery_greeks, recovery_pv_surface,
     )

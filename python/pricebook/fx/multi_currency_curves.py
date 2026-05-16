@@ -19,11 +19,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.ibor_curve import IBORCurve, IBORConventions, bootstrap_ibor
 from pricebook.fixed_income.ibor_curve import EURIBOR_3M_CONVENTIONS, EURIBOR_6M_CONVENTIONS
 from pricebook.fixed_income.ois import bootstrap_ois
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.fixed_income.tenor_basis import TenorBasis, bootstrap_tenor_basis
 
 
@@ -268,7 +268,7 @@ class MultiCurrencyCurveSet:
         result.add_currency("EUR", ois, ibor_curves, tenor_bases)
         return result
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 MultiCurrencyCurveSet._SERIAL_TYPE = "multi_currency_curve_set"
 
@@ -301,7 +301,7 @@ def _mcs_to_dict(self):
 
 @classmethod
 def _mcs_from_dict(cls, d):
-    from pricebook.serialisable import from_dict as _fd
+    from pricebook.core.serialisable import from_dict as _fd
     from datetime import date as _d
     p = d["params"]
     mcs = cls()

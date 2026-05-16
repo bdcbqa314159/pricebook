@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.floating_leg import FloatingLeg
-from pricebook.schedule import Frequency, StubType
-from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.solvers import brentq
+from pricebook.core.schedule import Frequency, StubType
+from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.core.solvers import brentq
 
 
 class FloatingRateNote:
@@ -151,5 +151,5 @@ class FloatingRateNote:
 
         return brentq(objective, -0.05, 0.05)
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("frn", ["start", "end", "spread", "notional", "frequency", "day_count"])(FloatingRateNote)

@@ -3,7 +3,7 @@
 import pytest
 from datetime import date, timedelta
 
-from pricebook.calendar import (
+from pricebook.core.calendar import (
     AUDCalendar,
     CADCalendar,
     CHFCalendar,
@@ -12,7 +12,7 @@ from pricebook.calendar import (
     TARGETCalendar,
     USSettlementCalendar,
 )
-from pricebook.settlement import (
+from pricebook.core.settlement import (
     add_business_days,
     bond_settlement_date,
     fx_spot_date,

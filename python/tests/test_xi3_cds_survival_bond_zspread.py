@@ -19,11 +19,11 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread
-from pricebook.schedule import Frequency
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.schedule import Frequency
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---- Helpers ----

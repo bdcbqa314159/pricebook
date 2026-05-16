@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 def dv01_curve(

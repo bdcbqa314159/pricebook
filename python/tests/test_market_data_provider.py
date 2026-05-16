@@ -7,7 +7,7 @@ from pricebook.pricing.market_data_provider import (
     RateSeries, SampleProvider, build_curve_from_yields,
     FRED_SERIES, ECB_SERIES, FREDProvider, ECBProvider,
 )
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 6, 15)

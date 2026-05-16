@@ -14,9 +14,9 @@ from pricebook.cds_strategies import (
     cds_bond_basis, basis_trade,
     recovery_lock_pv, digital_cds_spread,
 )
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 

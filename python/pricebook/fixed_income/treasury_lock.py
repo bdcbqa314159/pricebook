@@ -471,7 +471,7 @@ class TreasuryLock:
         curve = ctx.discount_curve
         # Try to get repo rate from context
         if hasattr(ctx, "repo_curves") and ctx.repo_curves:
-            from pricebook.day_count import year_fraction, DayCountConvention
+            from pricebook.core.day_count import year_fraction, DayCountConvention
             rc = next(iter(ctx.repo_curves.values()))
             tau = year_fraction(curve.reference_date, self.expiry, DayCountConvention.ACT_365_FIXED)
             days = int(tau * 365)
@@ -524,7 +524,7 @@ class TreasuryLock:
 
     @classmethod
     def from_dict(cls, d: dict) -> "TreasuryLock":
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         from datetime import date
         p = d["params"]
         return cls(
@@ -582,7 +582,7 @@ class TreasuryLock:
         return (pv_yr_up - pv_y_up - pv_r_up + pv_base) / (y_shift * r_shift)
 
 
-from pricebook.serialisable import _register as _reg_tlock
+from pricebook.core.serialisable import _register as _reg_tlock
 _reg_tlock(TreasuryLock)
 
 

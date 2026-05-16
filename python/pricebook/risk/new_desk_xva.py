@@ -3,7 +3,7 @@
 Extends the XVA framework to the recently-built desks that don't yet
 have CVA/FVA/MVA/KVA coverage.
 
-    from pricebook.new_desk_xva import (
+    from pricebook.risk.new_desk_xva import (
         inflation_analytic_cva, inflation_fva,
         asw_fva, asw_kva,
         structured_credit_cva,
@@ -19,9 +19,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---------------------------------------------------------------------------

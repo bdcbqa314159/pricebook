@@ -14,7 +14,7 @@ from pricebook.desks.repo_desk import (
     RepoLifecycle,
     repo_margin_required, repo_margin_call, repo_variation_margin,
 )
-from pricebook.serialisable import from_dict
+from pricebook.core.serialisable import from_dict
 from tests.conftest import make_flat_curve
 
 

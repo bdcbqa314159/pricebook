@@ -11,7 +11,7 @@ from pricebook.desks.swaption_desk import (
 )
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.swaption_vol import SwaptionVolSurface
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.options.vol_surface import FlatVol
 from pricebook.options.sabr import sabr_implied_vol
 

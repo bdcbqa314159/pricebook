@@ -19,7 +19,7 @@ from pricebook.desks.bond_trading_desk import (
     bond_funding_cost, BondFundingCost,
     BondLifecycle,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from tests.conftest import make_flat_curve
 
 

@@ -138,7 +138,7 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
     # CurrencyPair — deserialise from "EUR/USD" string
     if isinstance(hint, type) and hint.__name__ == "CurrencyPair":
         if isinstance(v, str) and "/" in v:
-            from pricebook.currency import CurrencyPair, Currency
+            from pricebook.core.currency import CurrencyPair, Currency
             base_str, quote_str = v.split("/")
             return CurrencyPair(Currency(base_str), Currency(quote_str))
         return v

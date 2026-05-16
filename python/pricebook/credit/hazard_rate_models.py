@@ -49,7 +49,7 @@ def verify_calibration(
     pillar_hazards = survival_curve.pillar_hazards()
     for t, _ in pillar_hazards:
         # Use public API for market survival at pillar time
-        from pricebook.day_count import date_from_year_fraction
+        from pricebook.core.day_count import date_from_year_fraction
         pillar_date = date_from_year_fraction(survival_curve.reference_date, t)
         market_surv = survival_curve.survival(pillar_date)
         if hasattr(model, 'survival_analytical'):

@@ -28,8 +28,8 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 @dataclass
@@ -138,7 +138,7 @@ class ParAssetSwap:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ParAssetSwap":
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(
             bond=_fd(p["bond"]),
@@ -217,7 +217,7 @@ class ProceedsAssetSwap:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProceedsAssetSwap":
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(
             bond=_fd(p["bond"]),
@@ -226,7 +226,7 @@ class ProceedsAssetSwap:
         )
 
 
-from pricebook.serialisable import _register as _reg_asw
+from pricebook.core.serialisable import _register as _reg_asw
 _reg_asw(ParAssetSwap)
 _reg_asw(ProceedsAssetSwap)
 

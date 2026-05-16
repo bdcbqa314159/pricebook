@@ -5,7 +5,7 @@ CurveCache: LRU cache for discount factor lookups with invalidation.
 CalibrationCache: stores calibrated model params, invalidates on input change.
 LazyValue: defers computation until first access.
 
-    from pricebook.caching import CurveCache, CalibrationCache, LazyValue
+    from pricebook.core.caching import CurveCache, CalibrationCache, LazyValue
 
     cache = CurveCache(maxsize=1024)
     df = cache.get_or_compute("ois", date(2029,1,15), lambda: curve.df(d))

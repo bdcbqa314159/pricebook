@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import date, timedelta
 from dataclasses import dataclass
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.schedule import Frequency, StubType, generate_schedule
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.schedule import Frequency, StubType, generate_schedule
+from pricebook.core.calendar import Calendar, BusinessDayConvention
 
 
 @dataclass
@@ -27,7 +27,7 @@ class Cashflow:
         return self.notional * self.rate * self.year_frac
 
 
-from pricebook.notional import normalize_notional as _normalize_notional
+from pricebook.core.notional import normalize_notional as _normalize_notional
 
 
 class FixedLeg:

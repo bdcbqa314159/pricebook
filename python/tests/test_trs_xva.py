@@ -21,8 +21,8 @@ from pricebook.equity.trs_xva import (
     trs_wrong_way_cva,
 )
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.pricing_context import PricingContext
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
 from tests.conftest import make_flat_curve
 
 

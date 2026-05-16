@@ -9,8 +9,8 @@ from pricebook.desks.cva_desk import (
     cva_cs01, cva_ir01, cva_by_trade,
     cva_hedge, incremental_cva,
 )
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.risk.xva import cva
 
 

@@ -9,11 +9,11 @@ import pytest
 
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.equity.dividend_model import Dividend
-from pricebook.pricing_context import PricingContext
-from pricebook.schedule import Frequency
-from pricebook.trade import Trade, Portfolio
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.schedule import Frequency
+from pricebook.core.trade import Trade, Portfolio
 from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec, TRSResult
 
 

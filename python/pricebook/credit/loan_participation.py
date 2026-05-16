@@ -25,11 +25,11 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.loan import TermLoan, RevolvingFacility
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import _register, _serialise_atom
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import _register, _serialise_atom
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ class LoanParticipation:
 
     @classmethod
     def from_dict(cls, d: dict) -> LoanParticipation:
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(
             underlying=_fd(p["underlying"]),
@@ -321,7 +321,7 @@ class PartialFundedParticipation:
         if survival_curve is None:
             # No credit risk: premium income (no protection payouts)
             # Use proper annuity = Σ τ_i × df(t_i) for scheduled periods
-            from pricebook.schedule import generate_schedule
+            from pricebook.core.schedule import generate_schedule
             dates = generate_schedule(self.underlying.start, self.underlying.end,
                                        self.underlying.frequency)
             ann = 0.0
@@ -378,7 +378,7 @@ class PartialFundedParticipation:
 
     @classmethod
     def from_dict(cls, d: dict) -> PartialFundedParticipation:
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(
             underlying=_fd(p["underlying"]),

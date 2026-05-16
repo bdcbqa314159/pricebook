@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.caching import CurveCache, CalibrationCache, LazyValue
+from pricebook.core.caching import CurveCache, CalibrationCache, LazyValue
 
 
 class TestCurveCache:

@@ -5,8 +5,8 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.day_count import DayCountConvention
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention
 from tests.conftest import make_flat_survival
 
 
@@ -27,7 +27,7 @@ class TestSurvival:
         h = 0.02
         curve = make_flat_survival(REF, hazard=h)
         d = REF + relativedelta(years=5)
-        from pricebook.day_count import year_fraction
+        from pricebook.core.day_count import year_fraction
         t_actual = year_fraction(REF, d, DayCountConvention.ACT_365_FIXED)
         expected = math.exp(-h * t_actual)
         assert curve.survival(d) == pytest.approx(expected, rel=1e-6)

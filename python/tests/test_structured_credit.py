@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.spv import SPV, SPVTranche
 from pricebook.fund_participation import FundParticipation
 from pricebook.illiquid_pricing import (

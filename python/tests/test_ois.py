@@ -5,8 +5,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.ois import OISSwap, bootstrap_ois
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
 from tests.conftest import make_flat_curve
 
 

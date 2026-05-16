@@ -15,9 +15,9 @@ from typing import Any
 import numpy as np
 
 from pricebook.credit.credit_risk import _bump_survival_curve
-from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.risk.xva import (
     simulate_exposures, expected_positive_exposure, cva,
 )

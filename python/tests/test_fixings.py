@@ -6,7 +6,7 @@ import tempfile
 import pytest
 from datetime import date
 
-from pricebook.fixings import FixingsStore, create_sample_fixings
+from pricebook.core.fixings import FixingsStore, create_sample_fixings
 
 
 REF = date(2024, 6, 15)

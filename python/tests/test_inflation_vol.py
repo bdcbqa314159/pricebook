@@ -9,7 +9,7 @@ from pricebook.fixed_income.inflation_vol import (
 )
 from pricebook.fixed_income.inflation import CPICurve, zc_inflation_swap_pv
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

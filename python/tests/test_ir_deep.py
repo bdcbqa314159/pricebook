@@ -9,8 +9,8 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.capfloor import CapFloor
 from pricebook.models.black76 import OptionType
@@ -20,7 +20,7 @@ from pricebook.fixed_income.basis_swap import BasisSwap
 from pricebook.fixed_income.zc_swap import ZeroCouponSwap
 from pricebook.options.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
 from pricebook.options.vol_surface import FlatVol
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

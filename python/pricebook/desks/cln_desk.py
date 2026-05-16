@@ -23,9 +23,9 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from pricebook.credit.cln import CreditLinkedNote, CLNResult, BasketCLN, BasketCLNResult
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +443,7 @@ def cln_scenario_stress(
 ) -> list:
     """Full-reprice stress via scenario.py run_scenarios."""
     from pricebook.risk.scenario import parallel_shift, credit_spread_shift, run_scenarios
-    from pricebook.trade import Trade, Portfolio
+    from pricebook.core.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
     for e in book.entries:
@@ -672,7 +672,7 @@ class CLNLifecycle:
 
     def __init__(self, cln: CreditLinkedNote, survival_curve: SurvivalCurve,
                  trade_id: str = "", creation_date: date | None = None):
-        from pricebook.trade import Trade
+        from pricebook.core.trade import Trade
         from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._cln = cln
@@ -1048,7 +1048,7 @@ def basket_base_correlation_curve(
     Returns:
         {detachment: implied_base_correlation}.
     """
-    from pricebook.solvers import brentq
+    from pricebook.core.solvers import brentq
 
     result = {}
     for detach, target_price_pct in sorted(market_prices.items()):

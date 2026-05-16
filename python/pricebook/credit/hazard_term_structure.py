@@ -20,8 +20,8 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 def proxy_survival_curve(

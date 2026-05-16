@@ -14,8 +14,8 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.curves.curve_builder import build_curves
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.curves.multicurve_solver import validate_curve
 
 
@@ -35,7 +35,7 @@ class TestIRSwapRoundTrip:
     def test_swap_pv_zero_at_par(self):
         """A swap at the par rate should have PV ≈ 0."""
         from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-        from pricebook.schedule import Frequency, generate_schedule, StubType
+        from pricebook.core.schedule import Frequency, generate_schedule, StubType
 
         curves = _usd_curves()
         ois = curves.ois
@@ -108,7 +108,7 @@ class TestBondConsistency:
 class TestFXConsistency:
     def test_cip_holds(self):
         """Covered interest parity: F/S = exp((r_d − r_f) × T)."""
-        from pricebook.currency import CurrencyPair, Currency
+        from pricebook.core.currency import CurrencyPair, Currency
         pair = CurrencyPair.from_currencies(Currency.EUR, Currency.USD)
         spot = 1.10
         r_eur = 0.03
@@ -121,7 +121,7 @@ class TestFXConsistency:
 
     def test_triangular_consistency(self):
         """EUR/JPY from EUR/USD × USD/JPY."""
-        from pricebook.currency import CurrencyPair, Currency
+        from pricebook.core.currency import CurrencyPair, Currency
         eurusd = 1.10
         usdjpy = 150.0
         eurjpy_implied = eurusd * usdjpy
@@ -212,10 +212,10 @@ class TestG10CurveValidity:
 class TestInflationConsistency:
     def test_index_ratio_at_base(self):
         """Index ratio at base date = 1.0."""
-        from pricebook.market_conventions import index_ratio
+        from pricebook.core.market_conventions import index_ratio
         assert index_ratio(260, 260) == pytest.approx(1.0)
 
     def test_index_ratio_positive(self):
-        from pricebook.market_conventions import index_ratio
+        from pricebook.core.market_conventions import index_ratio
         assert index_ratio(250, 260) > 1.0  # inflation positive
         assert index_ratio(250, 240) < 1.0  # deflation

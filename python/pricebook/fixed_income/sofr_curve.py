@@ -23,11 +23,11 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.fixed_income.ois import bootstrap_ois
-from pricebook.schedule import Frequency
-from pricebook.interpolation import InterpolationMethod
+from pricebook.core.schedule import Frequency
+from pricebook.core.interpolation import InterpolationMethod
 
 
 def build_sofr_curve(

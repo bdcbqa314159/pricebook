@@ -11,8 +11,8 @@ import pytest
 from pricebook.options.american_option import AmericanOption, AmericanResult
 from pricebook.options.basket_option import BasketOption
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 MAT = REF + timedelta(days=365)

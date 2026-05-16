@@ -4,16 +4,16 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.calendar import USSettlementCalendar
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.fixings import FixingsStore
+from pricebook.core.calendar import USSettlementCalendar
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.fixings import FixingsStore
 from pricebook.fixed_income.floating_leg import FloatingCashflow, FloatingLeg
-from pricebook.rate_index import (
+from pricebook.core.rate_index import (
     CompoundingMethod, RateIndex, get_rate_index, all_rate_indices,
     overnight_indices, indices_for_currency,
 )
-from pricebook.schedule import Frequency, StubType, generate_schedule
+from pricebook.core.schedule import Frequency, StubType, generate_schedule
 
 
 # ---- Helpers ----

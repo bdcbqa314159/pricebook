@@ -15,7 +15,7 @@ from pricebook.desks.equity_desk import (
     EquityLifecycle,
 )
 from pricebook.desks.equity_book import EquityBook
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from tests.conftest import make_flat_curve
 
 

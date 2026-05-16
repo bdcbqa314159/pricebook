@@ -1,7 +1,7 @@
 """
 Numerical root-finding solvers.
 
-    from pricebook.solvers import newton, brentq, SolverResult
+    from pricebook.core.solvers import newton, brentq, SolverResult
 
     result = newton(f, fprime, x0=0.5)
     print(result.root, result.iterations, result.converged)

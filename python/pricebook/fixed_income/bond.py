@@ -9,12 +9,12 @@ from __future__ import annotations
 import math
 from datetime import date, timedelta
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.fixed_leg import FixedLeg
-from pricebook.schedule import Frequency, StubType
-from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.solvers import brentq
+from pricebook.core.schedule import Frequency, StubType
+from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.core.solvers import brentq
 
 
 # ---- Yield-based bond pricing (re-exported from bond_yield.py) ----
@@ -313,5 +313,5 @@ class FixedRateBond:
         )
 
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("bond", ["issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count", "settlement_days"])(FixedRateBond)

@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.cln import CreditLinkedNote
 from pricebook.cds import CDS
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from pricebook.recovery_analytics import (
     recovery_curve_family,
     reprice_at_recovery,

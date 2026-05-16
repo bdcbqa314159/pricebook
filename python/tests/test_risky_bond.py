@@ -78,7 +78,7 @@ class TestZSpread:
         # Reprice with bumped curve
         bumped = disc.bumped(z)
         pv = 0.0
-        from pricebook.day_count import year_fraction
+        from pricebook.core.day_count import year_fraction
         for i in range(1, len(rb.schedule)):
             yf = year_fraction(rb.schedule[i-1], rb.schedule[i], rb.day_count)
             pv += rb.notional * rb.coupon_rate * yf * bumped.df(rb.schedule[i])

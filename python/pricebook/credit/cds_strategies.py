@@ -21,10 +21,10 @@ from datetime import date, timedelta
 from typing import Any
 
 from pricebook.cds import CDS
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import _register
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import _register
 
 
 # ---- Curve trades ----
@@ -101,7 +101,7 @@ class CDSCurveTrade:
 
     @classmethod
     def from_dict(cls, d: dict) -> CDSCurveTrade:
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(short_cds=_fd(p["short_cds"]), long_cds=_fd(p["long_cds"]))
 

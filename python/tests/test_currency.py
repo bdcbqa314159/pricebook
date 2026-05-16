@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.currency import Currency, CurrencyPair
+from pricebook.core.currency import Currency, CurrencyPair
 
 
 class TestCurrencyPair:

@@ -28,7 +28,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 @dataclass

@@ -20,12 +20,12 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.cds import CDS
-from pricebook.schedule import Frequency, generate_schedule
-from pricebook.solvers import brentq
+from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.core.solvers import brentq
 
 
 class CDSIndex:

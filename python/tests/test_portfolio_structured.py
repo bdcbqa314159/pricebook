@@ -11,12 +11,12 @@ from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.structured.cmasw import CMASWInstrument
 from pricebook.structured.cmt import CMTInstrument
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.structured.index_linked_hybrid import IndexLinkedHybridInstrument
-from pricebook.instrument_result import InstrumentResult
-from pricebook.pricing_context import PricingContext
-from pricebook.schedule import Frequency
-from pricebook.trade import Trade, Portfolio
+from pricebook.core.instrument_result import InstrumentResult
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.schedule import Frequency
+from pricebook.core.trade import Trade, Portfolio
 from pricebook.fixed_income.treasury_lock import TreasuryLock
 
 

@@ -7,8 +7,8 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.interpolation import (
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.interpolation import (
     InterpolationMethod,
     create_interpolator,
     Interpolator,
@@ -207,7 +207,7 @@ class SurvivalCurve:
         from pricebook.credit_risk import _bump_survival_curve
         return _bump_survival_curve(self, shift)
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 SurvivalCurve._SERIAL_TYPE = "survival_curve"
 
@@ -223,7 +223,7 @@ def _sc_to_dict(self):
 @classmethod
 def _sc_from_dict(cls, d):
     from datetime import date as _d
-    from pricebook.interpolation import InterpolationMethod
+    from pricebook.core.interpolation import InterpolationMethod
     p = d["params"]
     interp = InterpolationMethod(p["interpolation"]) if "interpolation" in p else InterpolationMethod.LOG_LINEAR
     return cls(reference_date=_d.fromisoformat(p["reference_date"]),

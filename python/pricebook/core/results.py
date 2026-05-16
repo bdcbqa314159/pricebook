@@ -5,7 +5,7 @@ Canonical result dataclasses used across the numerics layer.
 Some are defined in their home module (SolverResult, QuadratureResult, MCResult)
 and re-exported here. Others (TreeResult, PDEResult) are defined here.
 
-    from pricebook.results import TreeResult, PDEResult, MCResult
+    from pricebook.core.results import TreeResult, PDEResult, MCResult
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # Re-export from home modules
-from pricebook.solvers import SolverResult
+from pricebook.core.solvers import SolverResult
 from pricebook.curves.quadrature import QuadratureResult
 from pricebook.models.mc_pricer import MCResult
 from pricebook.statistics.optimization import OptimizerResult

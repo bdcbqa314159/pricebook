@@ -5,14 +5,14 @@ from __future__ import annotations
 from datetime import date, timedelta
 from dataclasses import dataclass
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.fixings import FixingsStore
-from pricebook.rate_index import CompoundingMethod, RateIndex
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.fixings import FixingsStore
+from pricebook.core.rate_index import CompoundingMethod, RateIndex
 from pricebook.fixed_income.rfr import compound_rfr
-from pricebook.notional import normalize_notional as _normalize_notional
-from pricebook.schedule import Frequency, StubType, generate_schedule
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.core.notional import normalize_notional as _normalize_notional
+from pricebook.core.schedule import Frequency, StubType, generate_schedule
+from pricebook.core.calendar import Calendar, BusinessDayConvention
 
 
 @dataclass
@@ -221,7 +221,7 @@ class FloatingLeg:
         weekends only. Returns the annualised compounded rate, or None
         if insufficient fixings.
         """
-        from pricebook.calendar import Calendar
+        from pricebook.core.calendar import Calendar
 
         daily_rates: list[float] = []
         day_fracs: list[float] = []

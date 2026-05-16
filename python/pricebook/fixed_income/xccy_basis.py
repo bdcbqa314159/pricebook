@@ -3,10 +3,10 @@
 import math
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod
-from pricebook.solvers import brentq
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.solvers import brentq
 
 
 def implied_basis_spread(

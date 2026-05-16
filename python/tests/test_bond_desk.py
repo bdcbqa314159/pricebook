@@ -8,7 +8,7 @@ from pricebook.desks.bond_desk import (
     repo_carry, securities_lending_fee,
 )
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

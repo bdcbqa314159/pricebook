@@ -222,7 +222,7 @@ class CMTInstrument:
 
     def price(self, curve, hazard_rate: float | None = None) -> CMTConvexityResult:
         """Price the CMT-let. Uses stored hazard_rate if not overridden."""
-        from pricebook.day_count import year_fraction, DayCountConvention
+        from pricebook.core.day_count import year_fraction, DayCountConvention
         from datetime import timedelta
 
         gamma = hazard_rate if hazard_rate is not None else self.hazard_rate

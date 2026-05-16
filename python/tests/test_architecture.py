@@ -3,14 +3,14 @@
 import pytest
 import math
 
-from pricebook.protocols import (
+from pricebook.core.protocols import (
     VolSurface,
     SolverResult,
     QuadratureResult,
     MCResult,
 )
-from pricebook.results import TreeResult, PDEResult
-from pricebook.registry import (
+from pricebook.core.results import TreeResult, PDEResult
+from pricebook.core.registry import (
     get_solver,
     get_integrator,
     get_tree_european,
@@ -25,7 +25,7 @@ from pricebook.options.vol_surface import FlatVol
 from pricebook.options.vol_smile import VolSmile
 from pricebook.options.vol_surface_strike import VolSurfaceStrike
 from pricebook.options.swaption_vol import SwaptionVolSurface
-from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
+from pricebook.fx.fx_vol_surface import FXVolSurface, FXVolQuote
 from pricebook.models.black76 import OptionType
 from pricebook.options.equity_option import equity_option_price
 from datetime import date

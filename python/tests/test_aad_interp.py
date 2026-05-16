@@ -58,7 +58,7 @@ class TestAADLinearInterp:
 
     def test_matches_float_interp(self):
         """AAD values match plain float interpolation."""
-        from pricebook.interpolation import LinearInterpolator
+        from pricebook.core.interpolation import LinearInterpolator
         import numpy as np
 
         xs = [0.0, 1.0, 2.0, 5.0]
@@ -131,7 +131,7 @@ class TestAADLogLinearInterp:
 
     def test_matches_float_interp(self):
         """AAD values match plain float log-linear interpolation."""
-        from pricebook.interpolation import LogLinearInterpolator
+        from pricebook.core.interpolation import LogLinearInterpolator
         import numpy as np
 
         xs = [0.0, 1.0, 2.0, 5.0]

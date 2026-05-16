@@ -4,7 +4,7 @@ Dependency graph for incremental risk computation.
 DAG of market data → curves → instruments → portfolio. When a market
 data node changes, only downstream dependents are recomputed.
 
-    from pricebook.dependency_graph import DependencyGraph, GraphNode
+    from pricebook.core.dependency_graph import DependencyGraph, GraphNode
 
     g = DependencyGraph()
     rate = g.add_node("ois_5y", category="market_data")

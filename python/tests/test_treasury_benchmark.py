@@ -8,7 +8,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.treasury_benchmark import (
     TreasuryBenchmark, AUCTION_SCHEDULE, TLOCK_TENORS,
     create_benchmark_set, when_issued_bond,
@@ -138,7 +138,7 @@ class TestWhenIssued:
 
     def test_from_wi_yield(self):
         """Coupon = floor(WI_yield to nearest 1/8%)."""
-        from pricebook.day_count import DayCountConvention
+        from pricebook.core.day_count import DayCountConvention
         bond = when_issued_bond(REF, 10, wi_yield=0.0425)
         # 4.25% → 4.25% (already 1/8%)
         assert bond.coupon_rate == pytest.approx(0.0425, abs=0.002)

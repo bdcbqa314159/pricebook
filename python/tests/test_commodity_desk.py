@@ -15,7 +15,7 @@ from pricebook.desks.commodity_desk import (
     CommodityLifecycle,
 )
 from pricebook.desks.commodity_book import CommodityBook
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from tests.conftest import make_flat_curve
 
 

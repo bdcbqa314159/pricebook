@@ -8,7 +8,7 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 
 
 # ---------------------------------------------------------------------------

@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 def make_flat_curve(ref: date, rate: float) -> DiscountCurve:

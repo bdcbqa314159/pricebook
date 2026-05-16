@@ -8,7 +8,7 @@ from pricebook.fixed_income.zc_swap import (
     ZeroCouponSwap, digital_capfloor, digital_cms_cap,
 )
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 

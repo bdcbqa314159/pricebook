@@ -28,10 +28,10 @@ from pricebook.cds_conventions import (
     standard_cds_dates, STANDARD_COUPONS_BPS, STANDARD_RECOVERY,
 )
 from pricebook.cds_index import CDSIndex
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import _register, _serialise_atom
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import _register, _serialise_atom
 
 
 @dataclass

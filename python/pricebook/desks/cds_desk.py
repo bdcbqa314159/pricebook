@@ -22,10 +22,10 @@ from datetime import date, timedelta
 from enum import Enum
 
 from pricebook.credit.cds import CDS
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -402,7 +402,7 @@ def cds_scenario_stress(
 ) -> list:
     """Full-reprice stress via scenario.py."""
     from pricebook.risk.scenario import parallel_shift, credit_spread_shift, run_scenarios
-    from pricebook.trade import Trade, Portfolio
+    from pricebook.core.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
     for e in book.entries:
@@ -540,7 +540,7 @@ class CDSLifecycle:
 
     def __init__(self, cds: CDS, survival_curve: SurvivalCurve,
                  trade_id: str = "", creation_date: date | None = None):
-        from pricebook.trade import Trade
+        from pricebook.core.trade import Trade
         from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._cds = cds

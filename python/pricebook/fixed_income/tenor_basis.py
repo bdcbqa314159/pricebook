@@ -22,12 +22,12 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.fixed_income.basis_swap import BasisSwap
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.ibor_curve import IBORCurve, IBORConventions
-from pricebook.interpolation import InterpolationMethod
-from pricebook.schedule import Frequency, generate_schedule
-from pricebook.solvers import brentq
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.core.solvers import brentq
 
 
 @dataclass

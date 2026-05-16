@@ -17,8 +17,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---- Multi-curve Newton solver ----

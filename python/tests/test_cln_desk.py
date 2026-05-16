@@ -29,9 +29,9 @@ from pricebook.desks.cln_desk import (
     basket_base_correlation_curve,
     basket_stress_suite, BasketStressResult,
 )
-from pricebook.pricing_context import PricingContext
-from pricebook.schedule import Frequency
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.schedule import Frequency
+from pricebook.core.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve
 
 
@@ -530,7 +530,7 @@ class TestFoundations:
 
     def test_pillar_hazards_nonflat(self):
         """Non-flat curve should have varying hazard rates."""
-        from pricebook.survival_curve import SurvivalCurve
+        from pricebook.core.survival_curve import SurvivalCurve
         import math
         dates = [REF + relativedelta(years=i) for i in [1, 3, 5, 10]]
         # Steep curve: 1% short, 3% long

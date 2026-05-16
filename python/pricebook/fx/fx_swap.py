@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from pricebook.currency import CurrencyPair
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.currency import CurrencyPair
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fx.fx_forward import FXForward
 
 
@@ -104,5 +104,5 @@ class FXSwap:
         pv_base = self.pv(spot, base_curve, quote_curve)
         return self.pv(spot, base_curve.bumped(shift), quote_curve.bumped(shift)) - pv_base
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("fx_swap", ["pair", "near_date", "far_date", "near_rate", "far_rate", "notional"])(FXSwap)

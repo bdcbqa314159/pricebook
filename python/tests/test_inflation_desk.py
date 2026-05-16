@@ -15,7 +15,7 @@ from pricebook.fixed_income.inflation_trading import (
     inflation_risk_decomposition, seasonal_carry,
 )
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 
 
 def _trade(direction=1, trade_id="t"):

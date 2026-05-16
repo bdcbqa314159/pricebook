@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.duration_management import (
+from pricebook.fixed_income.duration_management import (
     BarbellVsBullet,
     CurveDV01,
     DV01Ladder,

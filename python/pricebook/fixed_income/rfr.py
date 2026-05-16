@@ -19,10 +19,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod, create_interpolator
-from pricebook.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod, create_interpolator
+from pricebook.core.schedule import Frequency
 from pricebook.models.special_process import OUProcess
 
 
@@ -154,8 +154,8 @@ def bootstrap_spread_curve(
         fixed_frequency: fixed leg frequency.
         fixed_day_count: fixed leg day count.
     """
-    from pricebook.solvers import brentq as _brentq
-    from pricebook.schedule import generate_schedule
+    from pricebook.core.solvers import brentq as _brentq
+    from pricebook.core.schedule import generate_schedule
 
     dates = []
     spreads = []
@@ -244,7 +244,7 @@ def ibor_fallback_rate(
     """
     return rfr_compounded + config.spread_adjustment
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 SpreadCurve._SERIAL_TYPE = "spread_curve"
 

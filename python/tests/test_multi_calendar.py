@@ -3,7 +3,7 @@
 import pytest
 from datetime import date, timedelta
 
-from pricebook.calendar import (
+from pricebook.core.calendar import (
     TARGETCalendar,
     LondonCalendar,
     TokyoCalendar,
@@ -11,7 +11,7 @@ from pricebook.calendar import (
     USSettlementCalendar,
     BusinessDayConvention,
 )
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 class TestTARGETCalendar:

@@ -20,8 +20,8 @@ from typing import Any
 from dateutil.relativedelta import relativedelta
 
 from pricebook.cds import CDS, bootstrap_credit_curve, risky_annuity
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---- Curve building ----
@@ -111,7 +111,7 @@ def bootstrap_from_upfronts(
         produces the given upfront amounts.
     """
     from pricebook.cds import CDS, bootstrap_credit_curve
-    from pricebook.solvers import brentq
+    from pricebook.core.solvers import brentq
 
     pillar_dates: list[date] = []
     pillar_survs: list[float] = []

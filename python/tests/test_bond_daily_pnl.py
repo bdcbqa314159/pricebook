@@ -12,7 +12,7 @@ from pricebook.desks.bond_daily_pnl import (
     compute_bond_daily_pnl,
 )
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 
 
 PRIOR = date(2024, 1, 15)

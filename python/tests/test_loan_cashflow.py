@@ -8,12 +8,12 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.loan_cashflow import (
     FlooredTermLoan, PIKTermLoan, PricingGrid,
     ExcessCashFlowSweep, SOFRCSAAdjustment, SOFR_CSA_BPS,
 )
-from pricebook.serialisable import from_dict
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 END = REF + timedelta(days=1825)

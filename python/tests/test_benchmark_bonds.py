@@ -36,7 +36,7 @@ class TestBenchmarkConventions:
     def test_all_markets_exist(self):
         assert len(CONVENTIONS) == 6
 
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 
 class TestBenchmarkUniverse:
     def test_create_ust(self):

@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.loan import TermLoan
 from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec, LSTATerms
 
@@ -163,8 +163,8 @@ class TestRevolvingFacilityTRS:
         assert r.utilization == pytest.approx(0.60)
 
     def test_revolver_in_portfolio(self):
-        from pricebook.pricing_context import PricingContext
-        from pricebook.trade import Trade, Portfolio
+        from pricebook.core.pricing_context import PricingContext
+        from pricebook.core.trade import Trade, Portfolio
         from pricebook.loan import RevolvingFacility
 
         curve = _curve(REF)
@@ -215,8 +215,8 @@ class TestDistressedLoanTRS:
 class TestLoanTRSPortfolio:
 
     def test_prepay_loan_in_portfolio(self):
-        from pricebook.pricing_context import PricingContext
-        from pricebook.trade import Trade, Portfolio
+        from pricebook.core.pricing_context import PricingContext
+        from pricebook.core.trade import Trade, Portfolio
 
         curve = _curve(REF)
         ctx = PricingContext(valuation_date=REF, discount_curve=curve)

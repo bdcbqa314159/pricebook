@@ -9,9 +9,9 @@ from pricebook.risk.risk import dv01_curve, key_rate_durations
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

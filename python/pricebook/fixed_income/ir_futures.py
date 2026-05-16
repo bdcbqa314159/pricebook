@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 class FuturesType(Enum):

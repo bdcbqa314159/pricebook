@@ -21,8 +21,8 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 def _df_at(discount_curve: DiscountCurve | None, flat_rate: float, t: float, ref: date | None = None) -> float:

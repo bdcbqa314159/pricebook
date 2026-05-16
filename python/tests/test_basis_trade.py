@@ -9,8 +9,8 @@ from pricebook.fixed_income.basis_trade import (
 )
 from pricebook.cds import CDS
 from pricebook.fixed_income.risky_bond import RiskyBond
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 REF = date(2024, 1, 15)

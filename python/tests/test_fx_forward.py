@@ -5,7 +5,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.fx.fx_forward import FXForward
-from pricebook.currency import Currency, CurrencyPair
+from pricebook.core.currency import Currency, CurrencyPair
 from tests.conftest import make_flat_curve
 
 

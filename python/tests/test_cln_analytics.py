@@ -65,7 +65,7 @@ class TestRecoverySurface:
 class TestCLNSerialisation:
 
     def test_cln_round_trip(self):
-        from pricebook.serialisable import from_dict
+        from pricebook.core.serialisable import from_dict
         cln = CreditLinkedNote(REF, END_5Y, coupon_rate=0.06,
                                 notional=1_000_000, recovery=0.35)
         d = cln.to_dict()

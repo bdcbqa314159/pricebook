@@ -5,8 +5,8 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
-from pricebook.interpolation import (
+from pricebook.core.day_count import DayCountConvention, year_fraction, date_from_year_fraction
+from pricebook.core.interpolation import (
     InterpolationMethod,
     create_interpolator,
     Interpolator,
@@ -214,7 +214,7 @@ class DiscountCurve:
             return 0.0
         return (df1 - df2) / (tau * df2)
 
-from pricebook.serialisable import _register, _serialise_atom
+from pricebook.core.serialisable import _register, _serialise_atom
 
 DiscountCurve._SERIAL_TYPE = "discount_curve"
 DiscountCurve._SERIAL_FIELDS = []  # custom

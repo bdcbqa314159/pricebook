@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 
 from pricebook.fixed_income.xccy_swap import CrossCurrencySwap
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

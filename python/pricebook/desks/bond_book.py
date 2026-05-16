@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 
 
 # ---- Position dataclasses ----

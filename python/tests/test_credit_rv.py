@@ -7,8 +7,8 @@ from pricebook.credit_rv import (
     cross_name_rv, term_structure_rv, sector_screen,
 )
 from pricebook.cds import CDS
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 REF = date(2024, 1, 15)

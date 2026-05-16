@@ -13,10 +13,10 @@ from pricebook.fixed_income.csa import (
     collateral_adjusted_pv,
     funding_benefit_analysis,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from tests.conftest import make_flat_curve
 
 

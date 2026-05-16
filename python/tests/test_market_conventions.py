@@ -1,6 +1,6 @@
 """Tests for equity, commodity, and inflation conventions."""
 import pytest
-from pricebook.market_conventions import (
+from pricebook.core.market_conventions import (
     get_equity_index, get_commodity_contract, get_linker_convention,
     index_ratio, EQUITY_INDICES, COMMODITY_CONTRACTS, LME_METALS, LINKER_CONVENTIONS,
 )

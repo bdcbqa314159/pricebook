@@ -5,7 +5,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.serialization import (
+from pricebook.core.serialization import (
     discount_curve_to_dict,
     discount_curve_from_dict,
     survival_curve_to_dict,
@@ -20,9 +20,9 @@ from pricebook.serialization import (
     portfolio_from_dict,
     to_json,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
-from pricebook.trade import Trade, Portfolio
+from pricebook.core.trade import Trade, Portfolio
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

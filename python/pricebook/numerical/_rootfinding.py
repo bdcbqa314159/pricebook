@@ -74,7 +74,7 @@ def find_root(
         bracket: (a, b) bracketing interval (for bisection, Brent, ITP).
         fprime: derivative (for Newton, Halley).
     """
-    from pricebook.solvers import brentq, newton, secant, halley, itp
+    from pricebook.core.solvers import brentq, newton, secant, halley, itp
 
     if method == "bisection":
         if bracket is None:

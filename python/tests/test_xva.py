@@ -17,7 +17,7 @@ from pricebook.risk.xva import (
     kva,
     XVAResult,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
 from pricebook.options.swaption import Swaption
 from tests.conftest import make_flat_curve, make_flat_survival

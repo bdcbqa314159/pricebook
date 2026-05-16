@@ -19,9 +19,9 @@ from datetime import date
 from typing import Any
 
 from pricebook.cds import CDS
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread, asset_swap_spread
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---- CDS-bond basis ----

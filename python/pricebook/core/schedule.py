@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from enum import Enum
 from dateutil.relativedelta import relativedelta
 
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.core.calendar import Calendar, BusinessDayConvention
 
 
 class Frequency(Enum):

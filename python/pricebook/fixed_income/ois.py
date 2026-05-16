@@ -2,13 +2,13 @@
 
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.fixed_leg import FixedLeg
-from pricebook.schedule import Frequency, StubType, generate_schedule
-from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.solvers import brentq
-from pricebook.interpolation import InterpolationMethod
+from pricebook.core.schedule import Frequency, StubType, generate_schedule
+from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.core.solvers import brentq
+from pricebook.core.interpolation import InterpolationMethod
 
 
 class OISSwap:
@@ -153,5 +153,5 @@ def bootstrap_ois(
         interpolation=interpolation,
     )
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("ois", ["start", "end", "fixed_rate", "notional", "fixed_frequency", "day_count"])(OISSwap)

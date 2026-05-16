@@ -9,8 +9,8 @@ from pricebook.cds_market import (
     pricing_ladder, mark_to_market, roll_pnl,
 )
 from pricebook.cds import CDS
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 REF = date(2024, 1, 15)

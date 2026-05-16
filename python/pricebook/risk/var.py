@@ -106,7 +106,7 @@ def stress_test(
         ctx = base_ctx
         if "rate_shift" in shocks:
             if ctx.discount_curve is not None:
-                from pricebook.pricing_context import PricingContext
+                from pricebook.core.pricing_context import PricingContext
                 new_disc = ctx.discount_curve.bumped(shocks["rate_shift"])
                 ctx = PricingContext(
                     valuation_date=ctx.valuation_date,

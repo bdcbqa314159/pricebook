@@ -16,8 +16,8 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.equity.dividend_model import Dividend, pv_dividends
 
 

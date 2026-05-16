@@ -16,9 +16,9 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.models.black76 import black76_price, OptionType
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.schedule import Frequency, generate_schedule
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
@@ -215,5 +215,5 @@ def digital_cms_cap(
 
     return total
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("zc_swap", ["start", "end", "fixed_rate", "direction", "notional", "day_count"])(ZeroCouponSwap)

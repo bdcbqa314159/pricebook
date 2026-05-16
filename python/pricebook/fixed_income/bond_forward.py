@@ -24,8 +24,8 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 # ---- Repo financing utilities ----
@@ -289,7 +289,7 @@ class BondForward:
     _SERIAL_TYPE = "bond_forward"
 
     def to_dict(self) -> dict:
-        from pricebook.serialisable import _serialise_atom
+        from pricebook.core.serialisable import _serialise_atom
         return {"type": self._SERIAL_TYPE, "params": {
             "bond": self.bond.to_dict(),
             "settlement": self.settlement.isoformat(),
@@ -300,7 +300,7 @@ class BondForward:
 
     @classmethod
     def from_dict(cls, d: dict) -> "BondForward":
-        from pricebook.serialisable import from_dict as _fd
+        from pricebook.core.serialisable import from_dict as _fd
         p = d["params"]
         return cls(
             bond=_fd(p["bond"]),
@@ -311,6 +311,6 @@ class BondForward:
         )
 
 
-from pricebook.serialisable import _register as _reg_bf
+from pricebook.core.serialisable import _register as _reg_bf
 BondForward._SERIAL_TYPE = "bond_forward"
 _reg_bf(BondForward)

@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.serialization import (
+from pricebook.core.serialization import (
     instrument_to_dict, instrument_from_dict,
     discount_curve_to_dict, discount_curve_from_dict,
     survival_curve_to_dict, survival_curve_from_dict,
@@ -143,7 +143,7 @@ class TestRevolverRoundTrip:
 class TestFXForwardRoundTrip:
     def test_round_trip(self):
         from pricebook.fx.fx_forward import FXForward
-        from pricebook.currency import CurrencyPair, Currency
+        from pricebook.core.currency import CurrencyPair, Currency
         pair = CurrencyPair(Currency.EUR, Currency.USD)
         fwd = FXForward(pair, maturity=END_5Y, strike=1.10, notional=1_000_000)
         d = instrument_to_dict(fwd)
@@ -214,14 +214,14 @@ class TestTRSRoundTrip:
 
 class TestCurveRoundTrip:
     def test_discount_curve(self):
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         curve = DiscountCurve.flat(REF, 0.03)
         d = discount_curve_to_dict(curve)
         curve2 = discount_curve_from_dict(d)
         assert curve2.df(END_5Y) == pytest.approx(curve.df(END_5Y))
 
     def test_survival_curve(self):
-        from pricebook.survival_curve import SurvivalCurve
+        from pricebook.core.survival_curve import SurvivalCurve
         sc = SurvivalCurve.flat(REF, 0.02)
         d = survival_curve_to_dict(sc)
         sc2 = survival_curve_from_dict(d)
@@ -229,7 +229,7 @@ class TestCurveRoundTrip:
 
     def test_spread_curve(self):
         from pricebook.fixed_income.rfr import SpreadCurve
-        from pricebook.serialization import spread_curve_to_dict, spread_curve_from_dict
+        from pricebook.core.serialization import spread_curve_to_dict, spread_curve_from_dict
         sc = SpreadCurve(REF, [END_5Y, END_10Y], [0.003, 0.005])
         d = spread_curve_to_dict(sc)
         sc2 = spread_curve_from_dict(d)
@@ -245,8 +245,8 @@ class TestCurveRoundTrip:
 
     def test_ibor_curve(self):
         from pricebook.fixed_income.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
-        from pricebook.discount_curve import DiscountCurve
-        from pricebook.serialization import ibor_curve_to_dict, ibor_curve_from_dict
+        from pricebook.core.discount_curve import DiscountCurve
+        from pricebook.core.serialization import ibor_curve_to_dict, ibor_curve_from_dict
         ois = DiscountCurve.flat(REF, 0.03)
         ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois,
                               swaps=[(END_5Y, 0.035)])
@@ -260,7 +260,7 @@ class TestCurveRoundTrip:
 
     def test_ibor_curve_json(self):
         from pricebook.fixed_income.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         ois = DiscountCurve.flat(REF, 0.03)
         ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois,
                               swaps=[(END_5Y, 0.035)])
@@ -270,8 +270,8 @@ class TestCurveRoundTrip:
 
     def test_funding_curve(self):
         from pricebook.fixed_income.funding_curve import FundingCurve
-        from pricebook.discount_curve import DiscountCurve
-        from pricebook.serialization import funding_curve_to_dict, funding_curve_from_dict
+        from pricebook.core.discount_curve import DiscountCurve
+        from pricebook.core.serialization import funding_curve_to_dict, funding_curve_from_dict
         ois = DiscountCurve.flat(REF, 0.03)
         fc = FundingCurve.flat_spread(ois, 0.005)
         d = funding_curve_to_dict(fc)
@@ -280,7 +280,7 @@ class TestCurveRoundTrip:
 
     def test_funding_curve_json(self):
         from pricebook.fixed_income.funding_curve import FundingCurve
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         ois = DiscountCurve.flat(REF, 0.03)
         fc = FundingCurve.flat_spread(ois, 0.005)
         s = to_json(fc)
@@ -293,7 +293,7 @@ class TestCurveRoundTrip:
 class TestCSARoundTrip:
     def test_csa(self):
         from pricebook.fixed_income.csa import CSA, CollateralType, MarginFrequency
-        from pricebook.serialization import csa_to_dict, csa_from_dict
+        from pricebook.core.serialization import csa_to_dict, csa_from_dict
         csa = CSA(threshold=1_000_000, mta=50_000, currency="EUR",
                   haircut=0.02, rehypothecation=False)
         d = csa_to_dict(csa)
@@ -316,7 +316,7 @@ class TestCSARoundTrip:
 class TestMultiCurrencyCurveSetRoundTrip:
     def test_usd_only(self):
         from pricebook.fx.multi_currency_curves import MultiCurrencyCurveSet
-        from pricebook.serialization import (
+        from pricebook.core.serialization import (
             multi_currency_curves_to_dict, multi_currency_curves_from_dict)
         mcs = MultiCurrencyCurveSet.usd_post_libor(REF, [
             (REF + timedelta(days=365), 0.04),
@@ -330,7 +330,7 @@ class TestMultiCurrencyCurveSetRoundTrip:
 
     def test_eur_with_euribor(self):
         from pricebook.fx.multi_currency_curves import MultiCurrencyCurveSet
-        from pricebook.serialization import (
+        from pricebook.core.serialization import (
             multi_currency_curves_to_dict, multi_currency_curves_from_dict)
         mcs = MultiCurrencyCurveSet.eur_with_euribor(
             REF,
@@ -358,7 +358,7 @@ class TestMultiCurrencyCurveSetRoundTrip:
 class TestTradePortfolioRoundTrip:
     def test_trade(self):
         from pricebook.fixed_income.swap import InterestRateSwap
-        from pricebook.trade import Trade
+        from pricebook.core.trade import Trade
         irs = InterestRateSwap(REF, END_5Y, fixed_rate=0.035)
         trade = Trade(irs, trade_id="T1", counterparty="ACME")
         d = trade_to_dict(trade)
@@ -368,7 +368,7 @@ class TestTradePortfolioRoundTrip:
 
     def test_portfolio(self):
         from pricebook.fixed_income.swap import InterestRateSwap
-        from pricebook.trade import Trade, Portfolio
+        from pricebook.core.trade import Trade, Portfolio
         trades = [
             Trade(InterestRateSwap(REF, END_5Y, fixed_rate=0.03), trade_id="T1"),
             Trade(InterestRateSwap(REF, END_10Y, fixed_rate=0.035), trade_id="T2"),

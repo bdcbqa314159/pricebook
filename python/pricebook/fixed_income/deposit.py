@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 class Deposit:
@@ -67,5 +67,5 @@ class Deposit:
             df = df_or_curve
         return self.cashflow * df - self.notional
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("deposit", ["start", "end", "rate", "notional", "day_count"])(Deposit)

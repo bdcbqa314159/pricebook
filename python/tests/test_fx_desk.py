@@ -15,9 +15,9 @@ from pricebook.desks.fx_desk import (
     FXLifecycle,
 )
 from pricebook.fx.fx_forward import FXForward
-from pricebook.currency import Currency, CurrencyPair
+from pricebook.core.currency import Currency, CurrencyPair
 from pricebook.desks.fx_book import FXBook
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from tests.conftest import make_flat_curve
 
 

@@ -10,7 +10,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 def plot_price_vs_rho(ax, instrument, curve, *, theme=None, n_rhos=20, **kwargs):
     """Hybrid price vs correlation (payer + receiver)."""
     from pricebook.structured.index_linked_hybrid import index_linked_hybrid_price
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
     import math
 
@@ -71,7 +71,7 @@ def plot_cash_annuity(ax, instrument, curve, *, theme=None, **kwargs):
 def plot_martingale(ax, instrument, curve, *, theme=None, **kwargs):
     """Martingale diagnostics: E[F_T]/F0 and E[U_T]/U0 across seeds."""
     from pricebook.models.hybrid_mc import simulate_2d_local_vol
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
     T = year_fraction(curve.reference_date, instrument.expiry,

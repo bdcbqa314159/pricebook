@@ -12,7 +12,7 @@ from pricebook.models.black76 import (
 )
 from pricebook.options.capfloor import CapFloor
 from pricebook.options.vol_surface import VolTermStructure
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

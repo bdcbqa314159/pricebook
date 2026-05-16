@@ -5,7 +5,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.fra import FRA
-from pricebook.day_count import DayCountConvention
+from pricebook.core.day_count import DayCountConvention
 from pricebook.curves.bootstrap import bootstrap
 from tests.conftest import make_flat_curve
 

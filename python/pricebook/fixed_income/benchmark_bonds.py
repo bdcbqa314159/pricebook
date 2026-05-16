@@ -26,9 +26,9 @@ import numpy as np
 from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.schedule import Frequency
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.schedule import Frequency
 
 
 # ---------------------------------------------------------------------------

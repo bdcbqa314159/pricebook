@@ -6,7 +6,7 @@ import pytest
 from datetime import date
 
 from pricebook.models.black76 import OptionType
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.options.equity_option import equity_option_price, equity_vega
 from pricebook.desks.equity_vol_desk import (
     CalendarSpread,

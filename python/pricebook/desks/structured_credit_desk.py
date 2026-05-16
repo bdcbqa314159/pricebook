@@ -23,13 +23,13 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.credit.fund_participation import FundParticipation
 from pricebook.credit.guaranteed_note import GuaranteedNote
 from pricebook.credit.illiquid_pricing import PrivatePlacementPricer
 from pricebook.credit.spv import SPV
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---------------------------------------------------------------------------

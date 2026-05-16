@@ -14,8 +14,8 @@ from pricebook.fixed_income.bond_futures import conversion_factor, implied_repo_
 from pricebook.fixed_income.callable_bond import callable_bond_price, puttable_bond_price
 from pricebook.fixed_income.risky_bond import RiskyBond
 from pricebook.fixed_income.zc_swap import ZeroCouponSwap
-from pricebook.day_count import DayCountConvention
-from pricebook.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.swap import SwapDirection
 from tests.conftest import make_flat_curve
 
@@ -167,7 +167,7 @@ class TestRiskyBond:
     def test_risky_leq_riskfree(self):
         """Risky bond ≤ risk-free bond (default risk reduces value)."""
         curve = make_flat_curve(REF, 0.04)
-        from pricebook.survival_curve import SurvivalCurve
+        from pricebook.core.survival_curve import SurvivalCurve
         surv = SurvivalCurve.flat(REF, 0.02)  # 2% annual hazard
         risky = RiskyBond(REF, REF + relativedelta(years=5), 0.05, recovery=0.4)
         rf_bond = FixedRateBond(REF, REF + relativedelta(years=5), 0.05)

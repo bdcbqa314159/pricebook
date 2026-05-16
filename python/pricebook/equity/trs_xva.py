@@ -18,10 +18,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from pricebook.equity.trs import TotalReturnSwap
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.pricing_context import PricingContext
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
 
 
 def trs_simm_im(

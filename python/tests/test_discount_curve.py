@@ -4,9 +4,9 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.day_count import DayCountConvention
-from pricebook.interpolation import InterpolationMethod
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.deposit import Deposit
 
 
@@ -71,7 +71,7 @@ class TestZeroRate:
         # df = exp(-r * t) => r = -ln(df) / t
         d = date(2024, 7, 15)
         df = simple_curve.df(d)
-        from pricebook.day_count import year_fraction
+        from pricebook.core.day_count import year_fraction
         t = year_fraction(date(2024, 1, 15), d, DayCountConvention.ACT_365_FIXED)
         expected_r = -math.log(df) / t
         assert simple_curve.zero_rate(d) == pytest.approx(expected_r)
@@ -89,7 +89,7 @@ class TestForwardRate:
         d1, d2 = date(2024, 4, 15), date(2024, 7, 15)
         df1 = simple_curve.df(d1)
         df2 = simple_curve.df(d2)
-        from pricebook.day_count import year_fraction
+        from pricebook.core.day_count import year_fraction
         tau = year_fraction(d1, d2, DayCountConvention.ACT_365_FIXED)
         expected = (df1 / df2 - 1.0) / tau
         assert simple_curve.forward_rate(d1, d2) == pytest.approx(expected)

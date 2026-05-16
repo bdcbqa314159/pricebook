@@ -23,8 +23,8 @@ import math
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 # ---------------------------------------------------------------------------

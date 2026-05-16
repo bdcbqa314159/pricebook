@@ -583,7 +583,7 @@ def repo_book_pv(
 
     Returns total PV, per-direction breakdown.
     """
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
     total_pv = 0.0

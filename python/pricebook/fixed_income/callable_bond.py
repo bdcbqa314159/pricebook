@@ -24,9 +24,9 @@ from datetime import date
 import numpy as np
 
 from pricebook.models.hull_white import HullWhite
-from pricebook.day_count import date_from_year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.solvers import brentq
+from pricebook.core.day_count import date_from_year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.solvers import brentq
 
 
 def _straight_bond_hw(

@@ -30,8 +30,8 @@ from datetime import date
 import numpy as np
 from dateutil.relativedelta import relativedelta
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +243,7 @@ def implied_recovery(
         senior_recovery / sub_recovery: assumed recoveries.
     """
     from pricebook.cds_market import build_cds_curve
-    from pricebook.day_count import DayCountConvention, year_fraction
+    from pricebook.core.day_count import DayCountConvention, year_fraction
 
     results = []
     common_tenors = sorted(set(senior_spreads.keys()) & set(sub_spreads.keys()))
@@ -311,7 +311,7 @@ def recovery_term_structure(
     Returns one point per CDS tenor.
     """
     from pricebook.cds_market import build_cds_curve
-    from pricebook.day_count import DayCountConvention, year_fraction
+    from pricebook.core.day_count import DayCountConvention, year_fraction
 
     if method == "flat":
         surv = build_cds_curve(reference_date, cds_spreads, discount_curve,

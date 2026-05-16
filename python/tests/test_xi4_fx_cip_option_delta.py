@@ -20,7 +20,7 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fx.fx_forward import FXForward
 from pricebook.fx.fx_option import (
     fx_forward,
@@ -119,7 +119,7 @@ class TestXI4R1CIPConsistency:
         mat = REF + timedelta(days=365)
         fwd = FXForward.forward_rate(SPOT, mat, eur, usd)
 
-        from pricebook.currency import CurrencyPair
+        from pricebook.core.currency import CurrencyPair
         pair = CurrencyPair("EUR", "USD")
         contract = FXForward(pair, mat, strike=fwd)
         pv = contract.pv(SPOT, eur, usd)

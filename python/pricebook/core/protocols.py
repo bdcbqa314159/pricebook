@@ -109,7 +109,7 @@ class CharFunc(Protocol):
 # These are imported from their home modules to avoid duplication.
 # The protocol module re-exports them for convenience.
 
-from pricebook.solvers import SolverResult  # noqa: E402
+from pricebook.core.solvers import SolverResult  # noqa: E402
 from pricebook.curves.quadrature import QuadratureResult  # noqa: E402
 from pricebook.models.mc_pricer import MCResult  # noqa: E402
 

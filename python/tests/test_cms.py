@@ -9,8 +9,8 @@ from pricebook.structured.cms import (
     cms_cap, cms_spread_option, range_accrual,
 )
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
-from pricebook.schedule import Frequency
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 

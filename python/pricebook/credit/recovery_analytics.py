@@ -23,8 +23,8 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.cds_market import build_cds_curve
 
 
@@ -127,7 +127,7 @@ def reprice_at_recovery(
     pv_target = _price_instrument(instrument, discount_curve, surv_target, target_recovery)
 
     # Implied hazard at 5Y
-    from pricebook.day_count import DayCountConvention, year_fraction
+    from pricebook.core.day_count import DayCountConvention, year_fraction
     from dateutil.relativedelta import relativedelta
     t5 = reference_date + relativedelta(years=5)
     T = year_fraction(reference_date, t5, DayCountConvention.ACT_365_FIXED)
@@ -265,7 +265,7 @@ def recovery_pv_surface(
     if recoveries is None:
         recoveries = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80]
 
-    from pricebook.day_count import DayCountConvention, year_fraction
+    from pricebook.core.day_count import DayCountConvention, year_fraction
     from dateutil.relativedelta import relativedelta
 
     points = []

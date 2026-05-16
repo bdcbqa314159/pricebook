@@ -9,8 +9,8 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.curves.curve_builder import build_curves
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.curves.multicurve_solver import validate_curve
 
 

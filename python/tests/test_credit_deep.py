@@ -15,8 +15,8 @@ from pricebook.cdo import portfolio_loss_distribution, tranche_expected_loss, tr
 from pricebook.basket_cds import ftd_spread, ntd_spread
 from pricebook.rating_transition import RatingTransitionMatrix, standard_generator
 from pricebook.structural_credit import merton_equity_credit, kmv_distance_to_default
-from pricebook.day_count import DayCountConvention
-from pricebook.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

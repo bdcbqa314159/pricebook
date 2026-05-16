@@ -4,7 +4,7 @@ import math
 from datetime import date
 import pytest
 
-from pricebook.currency import Currency, CurrencyPair, all_g10_pairs
+from pricebook.core.currency import Currency, CurrencyPair, all_g10_pairs
 
 
 class TestG10FXPairs:

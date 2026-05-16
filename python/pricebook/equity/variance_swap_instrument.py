@@ -17,10 +17,10 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.equity.variance_swap import variance_swap_pv
-from pricebook.serialisable import _register, _serialise_atom
+from pricebook.core.serialisable import _register, _serialise_atom
 
 
 @dataclass

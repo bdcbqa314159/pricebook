@@ -8,9 +8,9 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.fixed_income.csa import CSA
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.funding_curve import FundingCurve, CollateralisedPricer, CollateralisedResult
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.fixed_income.rfr import SpreadCurve
 from pricebook.fixed_income.swap import InterestRateSwap
 

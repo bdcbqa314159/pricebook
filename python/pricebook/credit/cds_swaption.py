@@ -374,7 +374,7 @@ def cds_swaption_black_curves(
         recovery: recovery rate for protection leg.
     """
     from pricebook.cds import forward_cds_par_spread
-    from pricebook.day_count import DayCountConvention, year_fraction
+    from pricebook.core.day_count import DayCountConvention, year_fraction
 
     fwd = forward_cds_par_spread(
         discount_curve, survival_curve, expiry_date, maturity_date,
@@ -754,7 +754,7 @@ def implied_intensity_vol(
     Like implied vol for Black-Scholes, but for the CIR intensity model.
     Uses brentq to solve StochasticIntensitySwaption.price(xi) = market_premium.
     """
-    from pricebook.solvers import brentq
+    from pricebook.core.solvers import brentq
 
     def objective(xi):
         model = StochasticIntensitySwaption(kappa, theta, xi, flat_rate, recovery)

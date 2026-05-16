@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.dependency_graph import DependencyGraph, GraphNode, NodeCategory
+from pricebook.core.dependency_graph import DependencyGraph, GraphNode, NodeCategory
 
 
 class TestGraphConstruction:

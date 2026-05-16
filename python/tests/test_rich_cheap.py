@@ -8,7 +8,7 @@ from pricebook.equity.rich_cheap import (
     relative_value, rv_from_curve,
     spread_monitor, butterfly_monitor,
 )
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 

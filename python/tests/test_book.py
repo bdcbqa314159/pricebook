@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from pricebook.book import (
+from pricebook.core.book import (
     Book, Desk, BookLimits, Position, LimitBreach,
     tenor_bucket,
 )
-from pricebook.trade import Trade
-from pricebook.pricing_context import PricingContext
+from pricebook.core.trade import Trade
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.swaption import Swaption
 
 

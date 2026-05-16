@@ -10,8 +10,8 @@ import pytest
 
 from pricebook.options.barrier_option import BarrierOption, BarrierResult
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 MAT = REF + timedelta(days=365)

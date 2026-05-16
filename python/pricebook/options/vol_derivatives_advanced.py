@@ -27,7 +27,7 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------

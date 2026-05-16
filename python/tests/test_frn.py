@@ -5,7 +5,7 @@ import math
 from datetime import date
 
 from pricebook.fixed_income.frn import FloatingRateNote
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from tests.conftest import make_flat_curve
 
 

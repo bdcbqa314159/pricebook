@@ -14,7 +14,7 @@ from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.desks.swap_desk import SwapBook, SwapBookEntry
 from pricebook.cds import CDS
 from pricebook.desks.cds_desk import CDSBook, CDSBookEntry, CDSProductType
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

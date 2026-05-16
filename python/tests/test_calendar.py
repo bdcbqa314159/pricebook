@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.calendar import (
+from pricebook.core.calendar import (
     BusinessDayConvention,
     USSettlementCalendar,
 )

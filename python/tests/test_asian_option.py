@@ -12,8 +12,8 @@ from pricebook.options.asian_option import (
     AsianOption, AsianSchedule, AsianResult, turnbull_wakeman, curran_asian,
 )
 from pricebook.models.black76 import OptionType
-from pricebook.discount_curve import DiscountCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 END = REF + timedelta(days=365)

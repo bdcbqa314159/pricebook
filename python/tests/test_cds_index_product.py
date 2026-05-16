@@ -9,9 +9,9 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.cds_index_product import CDSIndexProduct, IndexResult
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.serialisable import from_dict
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.serialisable import from_dict
 
 REF = date(2026, 4, 28)
 

@@ -28,10 +28,10 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod
-from pricebook.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.schedule import Frequency
 
 
 # ---- Currency conventions ----
@@ -190,7 +190,7 @@ def build_curves(
             float_frequency=conv.float_frequency,
             interpolation=conv.interpolation,
         )
-        from pricebook.day_count import year_fraction as _yf
+        from pricebook.core.day_count import year_fraction as _yf
         all_dates = sorted(set([d for d, _ in ois_deposits] + [d for d, _ in ois_swaps]))
         tenors = [_yf(reference_date, d, conv.deposit_day_count) for d in all_dates]
         yields = [temp_curve.zero_rate(d) for d in all_dates]
@@ -226,7 +226,7 @@ def build_curves(
             float_frequency=conv.float_frequency,
             interpolation=conv.interpolation,
         )
-        from pricebook.day_count import year_fraction as _yf
+        from pricebook.core.day_count import year_fraction as _yf
         all_dates = sorted(set([d for d, _ in ois_deposits] + [d for d, _ in ois_swaps]))
         maturities = [_yf(reference_date, d, conv.deposit_day_count) for d in all_dates]
         market_dfs = [temp_curve.df(d) for d in all_dates]

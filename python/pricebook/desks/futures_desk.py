@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------

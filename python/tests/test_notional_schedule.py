@@ -16,13 +16,13 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.fixed_income.swap import InterestRateSwap
 from pricebook.cds import CDS
 from pricebook.cln import CreditLinkedNote
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from pricebook.desks.api_desk import analyse
 from tests.conftest import make_flat_curve
 

@@ -21,7 +21,7 @@ from typing import Callable
 
 import numpy as np
 
-from pricebook.numerical_safety import convergence_rate, ConvergenceResult
+from pricebook.core.numerical_safety import convergence_rate, ConvergenceResult
 
 
 @dataclass

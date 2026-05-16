@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.currency import Currency, CurrencyPair
+from pricebook.core.currency import Currency, CurrencyPair
 from pricebook.fx.fx_forward import FXForward
 from pricebook.fx.fx_forward_curve import FXForwardCurve
 from pricebook.fx.fx_swap import FXSwap

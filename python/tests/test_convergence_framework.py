@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.convergence_framework import (
+from pricebook.core.convergence_framework import (
     ConvergenceStudyResult,
     SchemeComparisonResult,
     scheme_comparison,

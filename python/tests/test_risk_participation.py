@@ -7,8 +7,8 @@ from datetime import date
 
 import pytest
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.risk_participation import (
     RiskParticipation, SubParticipation, risk_participation_capital_relief,
 )

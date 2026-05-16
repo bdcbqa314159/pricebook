@@ -11,7 +11,7 @@ from datetime import date
 
 from pricebook.curves.aad import Number
 from pricebook.curves.aad_interp import aad_log_linear_interp
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 class AADDiscountCurve:
@@ -154,7 +154,7 @@ def aad_bootstrap(
             print(dep.adjoint)   # dpv/d(dep_rate)
             print(swap.adjoint)  # dpv/d(swap_rate)
     """
-    from pricebook.schedule import Frequency, generate_schedule
+    from pricebook.core.schedule import Frequency, generate_schedule
 
     pillar_dates: list[date] = []
     pillar_dfs: list[Number] = []

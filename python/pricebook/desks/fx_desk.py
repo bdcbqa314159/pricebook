@@ -22,9 +22,9 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ def fx_scenario_stress(
 ) -> list:
     """Full-reprice FX stress via scenario.py."""
     from pricebook.risk.scenario import parallel_shift, fx_spot_shock, run_scenarios
-    from pricebook.trade import Trade, Portfolio
+    from pricebook.core.trade import Trade, Portfolio
 
     portfolio = Portfolio(name="fx_stress")
     for entry in book._entries:

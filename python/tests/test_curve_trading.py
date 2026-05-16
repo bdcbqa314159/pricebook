@@ -8,7 +8,7 @@ from pricebook.curves.curve_trading import (
     swap_carry, breakeven_rate_move,
 )
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

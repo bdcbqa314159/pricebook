@@ -12,8 +12,8 @@ from pricebook.risk.scenario import (
     dv01_ladder,
     ScenarioResult,
 )
-from pricebook.trade import Trade, Portfolio
-from pricebook.pricing_context import PricingContext
+from pricebook.core.trade import Trade, Portfolio
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.swaption import Swaption
 from pricebook.options.vol_surface import FlatVol
 from tests.conftest import make_flat_curve

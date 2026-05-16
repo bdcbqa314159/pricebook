@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.approximation import (
+from pricebook.core.approximation import (
     ChebyshevInterpolant,
     PadeApproximant,
     RichardsonTable,

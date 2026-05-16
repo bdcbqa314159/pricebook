@@ -18,7 +18,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---- Cash-and-carry ----

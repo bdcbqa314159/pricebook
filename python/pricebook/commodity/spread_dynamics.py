@@ -22,10 +22,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.day_count import date_from_year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.day_count import date_from_year_fraction
 from pricebook.fixed_income.rfr import StochasticBasis
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.risk.xva import fva as fva_deterministic, total_xva_decomposition, TotalXVAResult
 
 

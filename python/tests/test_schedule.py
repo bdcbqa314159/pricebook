@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from pricebook.schedule import (
+from pricebook.core.schedule import (
     Frequency,
     StubType,
     generate_schedule,
 )
-from pricebook.calendar import USSettlementCalendar, BusinessDayConvention
+from pricebook.core.calendar import USSettlementCalendar, BusinessDayConvention
 
 
 class TestBasicSchedule:

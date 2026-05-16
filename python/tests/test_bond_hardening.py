@@ -6,8 +6,8 @@ from datetime import date
 import pytest
 
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
 from pricebook.fixed_income.amortising_bond import psa_schedule
 from pricebook.fixed_income.bond_futures import (
     bond_futures_basis, implied_repo_rate, invoice_price,
@@ -15,7 +15,7 @@ from pricebook.fixed_income.bond_futures import (
     futures_hedge_ratio, tail_adjusted_hedge_ratio, calendar_spread,
 )
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve
 
 

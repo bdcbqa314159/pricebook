@@ -13,11 +13,11 @@ from pricebook.risk.xva import (
     cva,
     expected_positive_exposure,
 )
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
 from pricebook.options.swaption import Swaption
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 REF = date(2024, 1, 15)

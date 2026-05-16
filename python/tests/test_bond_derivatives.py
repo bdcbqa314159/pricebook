@@ -10,7 +10,7 @@ from pricebook.fixed_income.bond_forward import BondForward
 from pricebook.structured.cmo import sequential_cmo, io_po_strip, pac_schedule, CMOTranche
 from pricebook.fixed_income.par_asset_swap import ParAssetSwap
 from pricebook.fixed_income.repo_term import RepoCurve, RepoRate, forward_repo_rate, identify_specials
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.strips import strip_bond, price_strip, strip_yield, reconstruct_bond_price
 from pricebook.equity.total_return_swap import TotalReturnSwap
 from pricebook.fixed_income.xccy_bond import fx_hedged_yield, cross_currency_pickup, breakeven_fx_move

@@ -435,7 +435,7 @@ def _model_from_dict(d: dict):
         from pricebook.models.hull_white import HullWhite
         curve = None
         if "curve" in d:
-            from pricebook.discount_curve import DiscountCurve
+            from pricebook.core.discount_curve import DiscountCurve
             curve = DiscountCurve.from_dict(d["curve"])
         return HullWhiteModel(HullWhite(a=d["a"], sigma=d["sigma"], curve=curve))
     if t == "bs":

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.optimal_transport import (
+from pricebook.models.optimal_transport import (
     MOTBounds,
     SinkhornResult,
     martingale_ot_bounds,

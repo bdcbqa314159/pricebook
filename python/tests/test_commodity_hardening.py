@@ -8,7 +8,7 @@ from pricebook.commodity.commodity import CommodityForwardCurve, CommoditySwap
 from pricebook.commodity.commodity_spreads import crush_spread, crack_spread_321
 from pricebook.commodity.commodity_storage import StorageFacility
 from pricebook.commodity.commodity_term_trading import commodity_roll_down
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

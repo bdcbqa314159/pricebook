@@ -13,7 +13,7 @@ from datetime import date
 
 from pricebook.fixed_income.frn import FloatingRateNote
 from pricebook.fixed_income.basis_swap import BasisSwap
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 
@@ -30,7 +30,7 @@ class TestFRNAtPar:
 
     def test_par_on_steep_curve(self):
         """Zero spread at par even on a non-flat curve (single-curve)."""
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         import math
         dates = [date(2024 + i, 1, 15) for i in range(1, 11)]
         dfs = [math.exp(-0.03 * i - 0.002 * i * i) for i in range(1, 11)]

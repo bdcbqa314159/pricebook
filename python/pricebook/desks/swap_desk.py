@@ -27,9 +27,9 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +420,7 @@ def swap_scenario_stress(
 ) -> list:
     """Full-reprice stress via scenario.py."""
     from pricebook.risk.scenario import parallel_shift, run_scenarios
-    from pricebook.trade import Trade, Portfolio
+    from pricebook.core.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
     for e in book.entries:
@@ -585,7 +585,7 @@ class SwapLifecycle:
 
     def __init__(self, swap: InterestRateSwap, trade_id: str = "",
                  creation_date: date | None = None):
-        from pricebook.trade import Trade
+        from pricebook.core.trade import Trade
         from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._swap = swap

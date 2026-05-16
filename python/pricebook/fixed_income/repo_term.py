@@ -16,7 +16,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
+from pricebook.core.day_count import DayCountConvention, year_fraction
 
 
 @dataclass
@@ -88,8 +88,8 @@ class RepoCurve:
         Uses simple-rate discount factors: df = 1 / (1 + r × T).
         This bridges RepoCurve into any function expecting DiscountCurve.
         """
-        from pricebook.discount_curve import DiscountCurve
-        from pricebook.day_count import date_from_year_fraction
+        from pricebook.core.discount_curve import DiscountCurve
+        from pricebook.core.day_count import date_from_year_fraction
         from datetime import timedelta
 
         dates = [self.reference_date + timedelta(days=d) for d in self._days]
@@ -214,6 +214,6 @@ def identify_specials(
     return results
 
 
-from pricebook.serialisable import _register as _reg_rc
+from pricebook.core.serialisable import _register as _reg_rc
 RepoCurve._SERIAL_TYPE = "repo_curve"
 _reg_rc(RepoCurve)

@@ -111,7 +111,7 @@ def participating_forward(
         participation = p / c if c > 1e-10 else 0.0
         zc = True
     elif floor_rate is None:
-        from pricebook.solvers import brentq
+        from pricebook.core.solvers import brentq
         def obj(K):
             return (black76_price(F, K, vol, T, df, OptionType.PUT)
                     - participation * black76_price(F, K, vol, T, df, OptionType.CALL))
@@ -199,7 +199,7 @@ def ratio_forward(
 
     if enhanced_strike is None:
         # Solve for zero-cost: put(K) = ratio × call(K)
-        from pricebook.solvers import brentq
+        from pricebook.core.solvers import brentq
 
         def obj(K):
             return (black76_price(F, K, vol, T, df, OptionType.PUT)

@@ -10,9 +10,9 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.day_count import DayCountConvention
-from pricebook.schedule import Frequency
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

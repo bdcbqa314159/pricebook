@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.numerical_safety import (
+from pricebook.core.numerical_safety import (
     CFLResult,
     ConvergenceResult,
     FellerResult,

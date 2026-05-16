@@ -5,10 +5,10 @@ import pytest
 from datetime import date
 
 from pricebook.desks.deal import Deal, DealRole
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from pricebook.options.swaption import Swaption
-from pricebook.pricing_context import PricingContext
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.discount_curve import DiscountCurve
 
 
 REF = date(2024, 1, 15)

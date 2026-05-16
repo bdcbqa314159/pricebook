@@ -6,10 +6,10 @@ import pytest
 
 from pricebook.fixed_income.swap import InterestRateSwap
 from pricebook.fixed_income.basis_swap import BasisSwap
-from pricebook.day_count import DayCountConvention
-from pricebook.fixings import FixingsStore
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.fixings import FixingsStore
 from pricebook.fixed_income.ois import OISSwap
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.fixed_income.zc_swap import ZeroCouponSwap
 from tests.conftest import make_flat_curve

@@ -3,7 +3,7 @@
 Defines settlement types and conventions, computes settlement amounts
 for different products, and models the settlement risk exposure window.
 
-    from pricebook.settlement import (
+    from pricebook.core.settlement import (
         SettlementType, cash_settlement, physical_settlement,
         cds_settlement, option_settlement, futures_settlement,
     )

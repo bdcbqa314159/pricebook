@@ -9,11 +9,11 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod
 from pricebook.fixed_income.ir_futures import hw_convexity_adjustment
-from pricebook.solvers import brentq
+from pricebook.core.solvers import brentq
 
 
 def futures_strip(
@@ -86,7 +86,7 @@ def futures_strip(
         pillar_dfs.append(df_end)
 
     # Phase 3: Swaps (long end)
-    from pricebook.schedule import Frequency, generate_schedule
+    from pricebook.core.schedule import Frequency, generate_schedule
 
     for mat, par_rate in sorted(swaps, key=lambda x: x[0]):
         schedule = generate_schedule(reference_date, mat, Frequency.SEMI_ANNUAL)

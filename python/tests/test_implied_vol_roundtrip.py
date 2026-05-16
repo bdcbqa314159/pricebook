@@ -19,7 +19,7 @@ from pricebook.options.vol_surface_strike import VolSurfaceStrike
 from pricebook.options.equity_option import equity_option_price
 from pricebook.options.capfloor import CapFloor
 from pricebook.options.swaption import Swaption
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

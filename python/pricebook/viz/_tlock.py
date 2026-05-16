@@ -60,7 +60,7 @@ def plot_repo_sensitivity(ax, instrument, curve, *, theme=None, **kwargs):
     from pricebook.fixed_income.bond_forward import forward_price_repo
 
     alphas, _, _ = instrument.bond.accrual_schedule(instrument.expiry)
-    from pricebook.day_count import year_fraction, DayCountConvention
+    from pricebook.core.day_count import year_fraction, DayCountConvention
     tau = year_fraction(curve.reference_date, instrument.expiry, DayCountConvention.ACT_365_FIXED)
     mkt = instrument.bond.dirty_price(curve) / 100.0
     K = bond_price_from_yield(instrument.bond.coupon_rate, alphas, instrument.locked_yield)

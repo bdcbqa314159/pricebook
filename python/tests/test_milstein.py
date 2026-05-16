@@ -12,7 +12,7 @@ from pricebook.models.milstein import (
     milstein_gbm,
     milstein_paths,
 )
-from pricebook.numerical_safety import martingale_test, convergence_rate
+from pricebook.core.numerical_safety import martingale_test, convergence_rate
 
 
 SPOT, RATE, VOL, T = 100.0, 0.05, 0.20, 1.0

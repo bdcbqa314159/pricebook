@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.day_count import DayCountConvention
+from pricebook.core.day_count import DayCountConvention
 from pricebook.fixed_income.deposit import Deposit
 
 

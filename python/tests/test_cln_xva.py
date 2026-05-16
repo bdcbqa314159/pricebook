@@ -12,9 +12,9 @@ from pricebook.cln_xva import (
     cln_simm_im, cln_mva, cln_kva,
     cln_analytic_cva, cln_wrong_way_cost, cln_mc_xva,
 )
-from pricebook.schedule import Frequency
-from pricebook.survival_curve import SurvivalCurve
-from pricebook.pricing_context import PricingContext
+from pricebook.core.schedule import Frequency
+from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
 from tests.conftest import make_flat_curve
 
 

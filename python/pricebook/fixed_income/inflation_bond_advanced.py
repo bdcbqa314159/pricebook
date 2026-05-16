@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.solvers import brentq
+from pricebook.core.solvers import brentq
 
 
 @dataclass

@@ -17,13 +17,13 @@ import pytest
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.currency import CurrencyPair
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.currency import CurrencyPair
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fx.fx_forward import FXForward
-from pricebook.pricing_context import PricingContext
-from pricebook.schedule import Frequency
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
-from pricebook.trade import Trade, Portfolio
+from pricebook.core.trade import Trade, Portfolio
 from pricebook.risk.var import historical_var
 
 

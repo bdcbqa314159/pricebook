@@ -26,8 +26,8 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 class TreasuryBill:
@@ -256,6 +256,6 @@ class TreasuryBill:
         )
 
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 TreasuryBill._SERIAL_TYPE = "tbill"
 _register(TreasuryBill)

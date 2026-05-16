@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.fx_vol_desk import (
+from pricebook.desks.fx_vol_desk import (
     FXButterfly,
     FXRiskReversal,
     FXSkewSignal,

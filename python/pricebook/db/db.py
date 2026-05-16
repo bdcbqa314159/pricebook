@@ -287,7 +287,7 @@ class PricebookDB:
             "SELECT instrument_json FROM trades WHERE trade_id = ?", (trade_id,))
         if not rows:
             return None
-        from pricebook.serialisable import from_dict
+        from pricebook.core.serialisable import from_dict
         return from_dict(json.loads(rows[0]["instrument_json"]))
 
     def load_trade_raw(self, trade_id: str) -> dict | None:
@@ -357,7 +357,7 @@ class PricebookDB:
         )
         if not rows:
             return None
-        from pricebook.serialisable import from_dict
+        from pricebook.core.serialisable import from_dict
         return from_dict(json.loads(rows[0]["data_json"]))
 
     def load_snapshot_raw(self, snapshot_date: date | str, snapshot_type: str, curve_name: str) -> dict | None:

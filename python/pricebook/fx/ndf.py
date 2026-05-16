@@ -26,8 +26,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 class NDF:
@@ -114,5 +114,5 @@ class NDF:
         pv_base = self.pv(spot, base_curve, quote_curve)
         return self.pv(spot + shift, base_curve, quote_curve) - pv_base
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("ndf", ["pair", "maturity", "contracted_rate", "notional", "settlement_currency"])(NDF)

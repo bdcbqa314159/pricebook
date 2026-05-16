@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.solvers import newton, secant, halley, itp, brentq, SolverResult
+from pricebook.core.solvers import newton, secant, halley, itp, brentq, SolverResult
 
 
 # Test functions

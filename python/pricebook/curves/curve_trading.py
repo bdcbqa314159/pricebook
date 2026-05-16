@@ -18,7 +18,7 @@ from typing import Any
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 

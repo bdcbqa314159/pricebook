@@ -25,14 +25,14 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from pricebook.curves.bootstrap import bootstrap_forward_curve
-from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import InterpolationMethod
-from pricebook.rate_index import (
+from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import InterpolationMethod
+from pricebook.core.rate_index import (
     RateIndex, EURIBOR_3M, EURIBOR_6M, TIBOR_3M,
 )
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 
 
 # ---- Conventions ----
@@ -283,7 +283,7 @@ def bootstrap_ibor(
 
     return IBORCurve(projection, conventions, discount_curve)
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 
 IBORCurve._SERIAL_TYPE = "ibor_curve"
 
@@ -298,7 +298,7 @@ def _ibor_to_dict(self):
 
 @classmethod
 def _ibor_from_dict(cls, d):
-    from pricebook.serialisable import from_dict as _fd
+    from pricebook.core.serialisable import from_dict as _fd
     p = d["params"]
     conventions = get_conventions(p["conventions_name"])
     proj = _fd(p["projection_curve"])

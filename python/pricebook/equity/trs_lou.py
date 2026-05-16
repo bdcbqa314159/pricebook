@@ -402,7 +402,7 @@ class TotalReturnSwapLou:
 
     def price(self, curve) -> TRSResult:
         """Price the TRS using a discount curve (full CSA)."""
-        from pricebook.day_count import year_fraction, DayCountConvention
+        from pricebook.core.day_count import year_fraction, DayCountConvention
         from datetime import timedelta
 
         ref = curve.reference_date

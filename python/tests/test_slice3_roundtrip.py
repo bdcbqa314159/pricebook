@@ -12,8 +12,8 @@ from dateutil.relativedelta import relativedelta
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.risk.risk import dv01_curve, key_rate_durations
-from pricebook.schedule import Frequency
-from pricebook.day_count import DayCountConvention
+from pricebook.core.schedule import Frequency
+from pricebook.core.day_count import DayCountConvention
 
 
 REF = date(2024, 1, 15)

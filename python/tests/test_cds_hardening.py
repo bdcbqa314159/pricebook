@@ -253,7 +253,7 @@ class TestSerialisation:
     def test_cds_round_trip(self):
         cds = CDS(REF, END_5Y, spread=0.015, notional=5_000_000, recovery=0.35)
         d = cds.to_dict()
-        from pricebook.serialisable import from_dict
+        from pricebook.core.serialisable import from_dict
         cds2 = from_dict(d)
         assert cds2.spread == cds.spread
         assert cds2.notional == cds.notional

@@ -3,11 +3,11 @@
 import pytest
 from datetime import date
 
-from pricebook.pricing_context import PricingContext
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.options.vol_surface import FlatVol
-from pricebook.day_count import DayCountConvention
+from pricebook.core.day_count import DayCountConvention
 
 
 def _make_curve(ref: date) -> DiscountCurve:

@@ -19,9 +19,9 @@ from datetime import date, timedelta
 from typing import Any
 
 from pricebook.cds import CDS
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 
 
 # ---- Restructuring clauses ----
@@ -129,7 +129,7 @@ def recovery_breakeven(
 
     Solves: protection_leg(R_be) = premium_leg.
     """
-    from pricebook.solvers import brentq
+    from pricebook.core.solvers import brentq
     from pricebook.cds import protection_leg_pv, premium_leg_pv
 
     prem = premium_leg_pv(cds.start, cds.end, cds.spread, discount_curve,

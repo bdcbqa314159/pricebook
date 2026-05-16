@@ -13,7 +13,7 @@ from pricebook.fixed_income.par_asset_swap import (
     ParAssetSwap, ProceedsAssetSwap,
     asw_vs_zspread, SpreadComparison,
 )
-from pricebook.schedule import Frequency
+from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 
 

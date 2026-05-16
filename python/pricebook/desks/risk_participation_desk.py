@@ -21,9 +21,9 @@ import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.survival_curve import SurvivalCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.credit.risk_participation import RiskParticipation
 
 

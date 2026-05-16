@@ -4,8 +4,8 @@ import pytest
 from datetime import date
 
 from pricebook.fixed_income.swap import InterestRateSwap
-from pricebook.discount_curve import DiscountCurve
-from pricebook.schedule import Frequency
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.schedule import Frequency
 
 
 REF = date(2024, 1, 15)

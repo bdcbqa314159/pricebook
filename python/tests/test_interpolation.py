@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.interpolation import (
+from pricebook.core.interpolation import (
     InterpolationMethod,
     LinearInterpolator,
     LogLinearInterpolator,

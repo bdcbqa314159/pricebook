@@ -6,13 +6,13 @@ from datetime import date
 from dataclasses import dataclass
 from enum import Enum
 
-from pricebook.day_count import DayCountConvention
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.fixed_leg import FixedLeg
-from pricebook.fixings import FixingsStore
+from pricebook.core.fixings import FixingsStore
 from pricebook.fixed_income.floating_leg import FloatingLeg
-from pricebook.schedule import Frequency, StubType
-from pricebook.calendar import Calendar, BusinessDayConvention
+from pricebook.core.schedule import Frequency, StubType
+from pricebook.core.calendar import Calendar, BusinessDayConvention
 
 
 class SwapDirection(Enum):
@@ -37,8 +37,8 @@ def _map_notional_to_schedule(
     This is the market convention for amortising swaps where the
     fixed and floating legs have different frequencies.
     """
-    from pricebook.calendar import BusinessDayConvention
-    from pricebook.schedule import StubType, generate_schedule
+    from pricebook.core.calendar import BusinessDayConvention
+    from pricebook.core.schedule import StubType, generate_schedule
 
     _conv = convention or BusinessDayConvention.MODIFIED_FOLLOWING
     _stub = stub or StubType.SHORT_FRONT
@@ -284,7 +284,7 @@ class InterestRateSwap:
 
             swap = InterestRateSwap.amortising(start, end, 0.04, 1_000_000)
         """
-        from pricebook.schedule import generate_schedule
+        from pricebook.core.schedule import generate_schedule
         freq = kwargs.get("fixed_frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)
         n = len(schedule) - 1
@@ -306,7 +306,7 @@ class InterestRateSwap:
 
             swap = InterestRateSwap.accreting(start, end, 0.04, 500_000, 1_000_000)
         """
-        from pricebook.schedule import generate_schedule
+        from pricebook.core.schedule import generate_schedule
         freq = kwargs.get("fixed_frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)
         n = len(schedule) - 1
@@ -333,5 +333,5 @@ class InterestRateSwap:
         return cls(start, end, fixed_rate, direction, notional=notional_schedule, **kwargs)
 
 
-from pricebook.serialisable import serialisable as _serialisable
+from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("irs", ["start", "end", "fixed_rate", "direction", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "spread"])(InterestRateSwap)

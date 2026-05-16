@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.discount_curve import DiscountCurve
 from pricebook.desks.equity_book import EquityBook
 from pricebook.desks.commodity_book import CommodityBook
-from pricebook.pricing_context import PricingContext
+from pricebook.core.pricing_context import PricingContext
 from pricebook.options.swaption import Swaption
-from pricebook.trade import Trade
+from pricebook.core.trade import Trade
 from pricebook.options.vol_surface import FlatVol
 
 

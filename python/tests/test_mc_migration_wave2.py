@@ -11,7 +11,7 @@ import pytest
 class TestBasketCDSMigration:
     def test_simulate_defaults_via_engine(self):
         from pricebook.basket_cds import simulate_defaults_copula_via_engine
-        from pricebook.survival_curve import SurvivalCurve
+        from pricebook.core.survival_curve import SurvivalCurve
         from datetime import date
         curves = [SurvivalCurve.flat(date(2026, 1, 1), 0.02), SurvivalCurve.flat(date(2026, 1, 1), 0.03)]
         result = simulate_defaults_copula_via_engine(curves, T=5.0, rho=0.3, n_sims=1_000)
@@ -22,7 +22,7 @@ class TestBermudanSwaptionMigration:
     def test_bermudan_swaption_via_engine(self):
         from pricebook.options.bermudan_swaption import bermudan_swaption_lsm_via_engine
         from pricebook.models.hull_white import HullWhite
-        from pricebook.discount_curve import DiscountCurve
+        from pricebook.core.discount_curve import DiscountCurve
         from datetime import date
         curve = DiscountCurve.flat(date(2026, 1, 1), 0.05)
         hw = HullWhite(a=0.1, sigma=0.01, curve=curve)

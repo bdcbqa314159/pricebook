@@ -15,9 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_context import PricingContext
-from pricebook.trade import Portfolio
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.pricing_context import PricingContext
+from pricebook.core.trade import Portfolio
 
 
 @dataclass

@@ -12,7 +12,7 @@ from pricebook.models.exact_simulation import (
     implicit_euler_paths,
     implicit_euler_step,
 )
-from pricebook.numerical_safety import martingale_test
+from pricebook.core.numerical_safety import martingale_test
 
 
 # ---- Exact CIR ----

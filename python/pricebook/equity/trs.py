@@ -52,8 +52,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Union
 
-from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.discount_curve import DiscountCurve
+from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.discount_curve import DiscountCurve
 
 
 # ---- Result and spec dataclasses ----
@@ -364,7 +364,7 @@ class TotalReturnSwap:
 
     def breakeven_spread(self, curve, projection_curve=None) -> float:
         """Fair TRS spread that makes NPV = 0 (immutable — no state mutation)."""
-        from pricebook.solvers import brentq
+        from pricebook.core.solvers import brentq
 
         def objective(sf):
             trs_bumped = _trs_with_funding_spread(self, sf)
@@ -387,7 +387,7 @@ class TotalReturnSwap:
     _SERIAL_TYPE = "trs"
 
     def to_dict(self) -> dict:
-        from pricebook.serialisable import _serialise_atom
+        from pricebook.core.serialisable import _serialise_atom
         if isinstance(self.underlying, (int, float)):
             underlying_d = {"type": "equity_spot", "value": float(self.underlying)}
         elif hasattr(self.underlying, "to_dict"):
@@ -403,7 +403,7 @@ class TotalReturnSwap:
 
     @classmethod
     def from_dict(cls, d: dict) -> TotalReturnSwap:
-        from pricebook.serialisable import from_dict as _s_from_dict
+        from pricebook.core.serialisable import from_dict as _s_from_dict
         p = d["params"]
         u = p["underlying"]
         if isinstance(u, (int, float)):
@@ -421,7 +421,7 @@ class TotalReturnSwap:
                    haircut=p.get("haircut", 0.0), sigma=p.get("sigma", 0.20))
 
 
-from pricebook.serialisable import _register
+from pricebook.core.serialisable import _register
 _register(TotalReturnSwap)
 
 
@@ -667,7 +667,7 @@ def price_cln_trs(trs, curve, projection_curve) -> TRSResult:
     if survival_curve is None and hasattr(cln, '_survival_curve'):
         survival_curve = cln._survival_curve
     if survival_curve is None:
-        from pricebook.survival_curve import SurvivalCurve
+        from pricebook.core.survival_curve import SurvivalCurve
         import warnings
         warnings.warn(
             "No survival curve provided for CLN TRS — using flat hazard=0.02 fallback. "

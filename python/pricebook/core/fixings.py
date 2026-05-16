@@ -3,7 +3,7 @@
 File-based storage for SOFR, EURIBOR, CPI, and other daily fixings.
 Used for retroactive floating leg valuation and historical analysis.
 
-    from pricebook.fixings import FixingsStore
+    from pricebook.core.fixings import FixingsStore
 
     store = FixingsStore()
     store.set("SOFR", date(2024, 1, 15), 0.043)

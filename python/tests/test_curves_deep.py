@@ -11,9 +11,9 @@ import numpy as np
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
-from pricebook.discount_curve import DiscountCurve
-from pricebook.interpolation import (
+from pricebook.core.day_count import DayCountConvention, year_fraction, date_from_year_fraction
+from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.interpolation import (
     InterpolationMethod,
     LogLinearInterpolator,
     LinearInterpolator,
@@ -329,7 +329,7 @@ class TestBootstrapPrecision:
         curve = bootstrap(REF, deposits, swaps)
         for mat, par_rate in swaps:
             # Verify by computing PV of fixed and float legs
-            from pricebook.schedule import Frequency, StubType, generate_schedule
+            from pricebook.core.schedule import Frequency, StubType, generate_schedule
             fixed_sched = generate_schedule(REF, mat, Frequency.SEMI_ANNUAL)
             float_sched = generate_schedule(REF, mat, Frequency.QUARTERLY)
             pv_fixed = sum(

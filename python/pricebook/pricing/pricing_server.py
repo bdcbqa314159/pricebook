@@ -88,8 +88,8 @@ def _handle_request(request: PricingRequest) -> PricingResponse:
 
 def _build_context(val_date: date, md: MarketDataEnvelope):
     """Build a PricingContext from market data."""
-    from pricebook.pricing_context import PricingContext
-    from pricebook.discount_curve import DiscountCurve
+    from pricebook.core.pricing_context import PricingContext
+    from pricebook.core.discount_curve import DiscountCurve
 
     if md.mode == "quotes":
         # Bootstrap from quotes
@@ -151,7 +151,7 @@ def _price_trade(te: TradeEnvelope, ctx, config: PricingConfig) -> TradeResult:
     params.pop("currency", None)
 
     # Build instrument via serialization registry
-    from pricebook.serialization import instrument_from_dict
+    from pricebook.core.serialization import instrument_from_dict
     inst_dict = {"type": te.instrument_type, "params": params}
     instrument = instrument_from_dict(inst_dict)
 
