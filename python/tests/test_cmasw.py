@@ -10,11 +10,11 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.cms import (
+from pricebook.structured.cms import (
     linear_swap_rate_calibrate,
     displaced_lognormal_cross_moment,
 )
-from pricebook.cmasw import (
+from pricebook.structured.cmasw import (
     cmasw_convexity_correction,
     cmasw_cc_lognormal,
 )

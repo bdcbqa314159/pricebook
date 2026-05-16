@@ -7,9 +7,9 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.cms import cash_annuity
+from pricebook.structured.cms import cash_annuity
 from pricebook.hybrid_mc import simulate_2d_local_vol, local_vol_hybrid_price
-from pricebook.index_linked_hybrid import index_linked_hybrid_price
+from pricebook.structured.index_linked_hybrid import index_linked_hybrid_price
 
 
 # ---- Test parameters ----

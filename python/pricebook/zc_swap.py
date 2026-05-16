@@ -174,7 +174,7 @@ def digital_cms_cap(
     Pays `payout` if CMS rate > strike (call) or < strike (put).
     CMS forward includes convexity adjustment.
     """
-    from pricebook.cms import cms_convexity_adjustment
+    from pricebook.structured.cms import cms_convexity_adjustment
 
     ref = curve.reference_date
     schedule = generate_schedule(start, end, frequency)

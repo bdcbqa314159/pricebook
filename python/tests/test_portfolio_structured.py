@@ -9,10 +9,10 @@ import pytest
 
 from pricebook.bond import FixedRateBond
 from pricebook.bootstrap import bootstrap
-from pricebook.cmasw import CMASWInstrument
-from pricebook.cmt import CMTInstrument
+from pricebook.structured.cmasw import CMASWInstrument
+from pricebook.structured.cmt import CMTInstrument
 from pricebook.discount_curve import DiscountCurve
-from pricebook.index_linked_hybrid import IndexLinkedHybridInstrument
+from pricebook.structured.index_linked_hybrid import IndexLinkedHybridInstrument
 from pricebook.instrument_result import InstrumentResult
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency

@@ -9,7 +9,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 
 def plot_price_vs_rho(ax, instrument, curve, *, theme=None, n_rhos=20, **kwargs):
     """Hybrid price vs correlation (payer + receiver)."""
-    from pricebook.index_linked_hybrid import index_linked_hybrid_price
+    from pricebook.structured.index_linked_hybrid import index_linked_hybrid_price
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
     import math
@@ -116,7 +116,7 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 
 def _register():
-    from pricebook.index_linked_hybrid import IndexLinkedHybridInstrument
+    from pricebook.structured.index_linked_hybrid import IndexLinkedHybridInstrument
     register_instrument(IndexLinkedHybridInstrument)(_default_dashboard)
     register_panels(IndexLinkedHybridInstrument, {
         "payoff": plot_price_vs_rho,

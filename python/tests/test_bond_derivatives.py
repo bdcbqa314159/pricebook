@@ -7,7 +7,7 @@ import pytest
 
 from pricebook.bond import FixedRateBond
 from pricebook.bond_forward import BondForward
-from pricebook.cmo import sequential_cmo, io_po_strip, pac_schedule, CMOTranche
+from pricebook.structured.cmo import sequential_cmo, io_po_strip, pac_schedule, CMOTranche
 from pricebook.par_asset_swap import ParAssetSwap
 from pricebook.repo_term import RepoCurve, RepoRate, forward_repo_rate, identify_specials
 from pricebook.schedule import Frequency

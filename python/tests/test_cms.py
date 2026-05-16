@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.cms import (
+from pricebook.structured.cms import (
     cms_convexity_adjustment, CMSLeg,
     cms_cap, cms_spread_option, range_accrual,
 )

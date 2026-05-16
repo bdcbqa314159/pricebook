@@ -19,7 +19,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pricebook.cms import (
+from pricebook.structured.cms import (
     cra_discount,
     risky_annuity,
     risky_swap_rate,

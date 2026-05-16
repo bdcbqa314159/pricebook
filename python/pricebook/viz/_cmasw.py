@@ -10,7 +10,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 def plot_cc_heatmap(ax, instrument, curve, *, theme=None,
                     sigma_range=(0.10, 0.50, 5), rho_range=(-0.9, 0.9, 5), **kwargs):
     """CC heatmap: sigma_asw vs rho."""
-    from pricebook.cmasw import cmasw_cc_lognormal
+    from pricebook.structured.cmasw import cmasw_cc_lognormal
     import math
     from pricebook.day_count import year_fraction, DayCountConvention
 
@@ -46,7 +46,7 @@ def plot_cc_heatmap(ax, instrument, curve, *, theme=None,
 
 def plot_cc_vs_rho(ax, instrument, curve, *, theme=None, **kwargs):
     """CC vs rho line plot for multiple sigma_asw."""
-    from pricebook.cmasw import cmasw_cc_lognormal
+    from pricebook.structured.cmasw import cmasw_cc_lognormal
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
@@ -76,7 +76,7 @@ def plot_cc_vs_rho(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_displaced_vs_lognormal(ax, instrument, curve, *, theme=None, **kwargs):
     """Displaced vs lognormal CC comparison."""
-    from pricebook.cmasw import cmasw_cc_lognormal, cmasw_convexity_correction
+    from pricebook.structured.cmasw import cmasw_cc_lognormal, cmasw_convexity_correction
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
@@ -124,7 +124,7 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 
 def _register():
-    from pricebook.cmasw import CMASWInstrument
+    from pricebook.structured.cmasw import CMASWInstrument
     register_instrument(CMASWInstrument)(_default_dashboard)
     register_panels(CMASWInstrument, {
         "payoff": plot_cc_vs_rho,

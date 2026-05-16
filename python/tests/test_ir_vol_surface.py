@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.ir_vol_surface import (
+from pricebook.structured.ir_vol_surface import (
     SABRSmileNode,
     SmileDynamicsResult,
     SwaptionVolCube,

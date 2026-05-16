@@ -4,7 +4,7 @@ A CMS (Constant Maturity Swap) leg pays a long-dated swap rate observed
 at each fixing. Due to the convexity of the swap rate payoff, the
 expected CMS rate exceeds the forward swap rate by a convexity adjustment.
 
-    from pricebook.cms import (
+    from pricebook.structured.cms import (
         cms_convexity_adjustment, CMSLeg, cms_cap, cms_spread_option,
         range_accrual,
     )

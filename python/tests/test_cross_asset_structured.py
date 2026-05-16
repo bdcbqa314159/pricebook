@@ -1,6 +1,6 @@
 """Tests for cross-asset structured notes."""
 import math, numpy as np, pytest
-from pricebook.cross_asset_structured import (
+from pricebook.structured.cross_asset_structured import (
     equity_fx_fusion_note, correlation_trigger_note,
     commodity_equity_autocall, dual_asset_range_accrual,
 )

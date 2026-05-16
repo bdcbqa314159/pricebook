@@ -11,7 +11,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 
 def plot_cc_vs_vol(ax, instrument, curve, *, theme=None, **kwargs):
     """CC vs volatility for all three variants (A/B/C)."""
-    from pricebook.cmt import cmt_convexity_corrections
+    from pricebook.structured.cmt import cmt_convexity_corrections
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
@@ -50,7 +50,7 @@ def plot_cc_vs_vol(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_cc_vs_hazard(ax, instrument, curve, *, theme=None, **kwargs):
     """CC vs hazard rate."""
-    from pricebook.cmt import cmt_convexity_corrections, cmt_cc_no_default
+    from pricebook.structured.cmt import cmt_convexity_corrections, cmt_cc_no_default
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 
@@ -94,7 +94,7 @@ def plot_cc_vs_hazard(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_pelsser_overlay(ax, instrument, curve, *, theme=None, **kwargs):
     """No-default limit: all CCs collapse to Pelsser/Hagan."""
-    from pricebook.cmt import cmt_convexity_corrections, cmt_cc_no_default
+    from pricebook.structured.cmt import cmt_convexity_corrections, cmt_cc_no_default
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
     from pricebook.credit_adjustment import risky_swap_rate, risky_annuity
@@ -140,7 +140,7 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 
 def _register():
-    from pricebook.cmt import CMTInstrument
+    from pricebook.structured.cmt import CMTInstrument
     register_instrument(CMTInstrument)(_default_dashboard)
     register_panels(CMTInstrument, {
         "payoff": plot_cc_vs_vol,

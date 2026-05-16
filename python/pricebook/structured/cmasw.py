@@ -19,7 +19,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pricebook.cms import (
+from pricebook.structured.cms import (
     linear_swap_rate_calibrate,
     displaced_lognormal_cross_moment,
 )

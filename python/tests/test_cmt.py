@@ -7,11 +7,11 @@ import math
 import pytest
 
 from pricebook.bond import ytm_cmt_bridge
-from pricebook.cms import (
+from pricebook.structured.cms import (
     cra_discount, risky_annuity, risky_swap_rate,
     linear_swap_rate_calibrate,
 )
-from pricebook.cmt import (
+from pricebook.structured.cmt import (
     cmt_cc_ab, cmt_cc_c, cmt_cc_no_default,
     cmt_convexity_corrections,
 )

@@ -1,7 +1,7 @@
 """Tests for rates structured products."""
 from __future__ import annotations
 import pytest
-from pricebook.rates_structured import (
+from pricebook.structured.rates_structured import (
     cms_spread_range_accrual, callable_step_up_bond, inflation_range_accrual,
 )
 

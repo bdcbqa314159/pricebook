@@ -7,7 +7,7 @@ CMO structures redirect mortgage pool cashflows through a waterfall:
 - IO/PO: Interest-Only and Principal-Only strips.
 - Z-bond: accrual tranche — receives no cash until all prior tranches retire.
 
-    from pricebook.cmo import CMOPool, sequential_cmo, pac_cmo, io_po_strip
+    from pricebook.structured.cmo import CMOPool, sequential_cmo, pac_cmo, io_po_strip
 
 References:
     Fabozzi, *Handbook of Mortgage-Backed Securities*, McGraw-Hill, 2016.

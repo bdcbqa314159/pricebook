@@ -1,7 +1,7 @@
 """Tests for structured notes."""
 from __future__ import annotations
 import pytest
-from pricebook.structured_notes import (
+from pricebook.structured.structured_notes import (
     capital_protected_note, dual_digital, bonus_certificate,
     outperformance_certificate,
 )
@@ -58,13 +58,13 @@ class TestOutperformanceCert:
         assert r.price > 0
 
     def test_higher_participation_higher_price(self):
-        from pricebook.structured_notes import outperformance_certificate
+        from pricebook.structured.structured_notes import outperformance_certificate
         low = outperformance_certificate(100, 0.05, 0.02, 0.20, 1.0, participation=1.2)
         high = outperformance_certificate(100, 0.05, 0.02, 0.20, 1.0, participation=2.0)
         assert high.price > low.price
 
     def test_cap_reduces_price(self):
-        from pricebook.structured_notes import outperformance_certificate
+        from pricebook.structured.structured_notes import outperformance_certificate
         uncapped = outperformance_certificate(100, 0.05, 0.02, 0.20, 1.0, participation=1.5)
         capped = outperformance_certificate(100, 0.05, 0.02, 0.20, 1.0, participation=1.5, cap=0.20)
         assert capped.price < uncapped.price
