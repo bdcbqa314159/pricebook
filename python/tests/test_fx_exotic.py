@@ -115,7 +115,7 @@ class TestLookbackFixed:
     def test_greater_than_vanilla(self):
         """Fixed-strike lookback call (max(S)-K)+ exceeds vanilla (S_T-K)+
         because max(S) ≥ S_T always."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 1.0 * math.exp((0.02 - 0.01) * 1.0)
         vanilla = black76_price(F, 1.0, 0.15, 1.0, math.exp(-0.02), OptionType.CALL)
         lookback = fx_lookback_fixed(1.0, 1.0, 0.02, 0.01, 0.15, 1.0,
@@ -135,7 +135,7 @@ class TestAsianGeometric:
 
     def test_less_than_vanilla(self):
         """Asian call should be cheaper than vanilla (averaging reduces vol)."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 1.0 * math.exp((0.02 - 0.01) * 1.0)
         vanilla = black76_price(F, 1.0, 0.15, 1.0, math.exp(-0.02), OptionType.CALL)
         asian = fx_asian_geometric(1.0, 1.0, 0.02, 0.01, 0.15, 1.0, n_fixings=50)

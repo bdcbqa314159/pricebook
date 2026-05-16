@@ -293,7 +293,7 @@ def reverse_convertible(
         coupon_rate: annualised coupon rate (higher than risk-free).
         n_coupons: number of coupon payments over T.
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     # Bond leg: notional at T + coupons
     bond_pv = 0.0
@@ -432,7 +432,7 @@ def airbag_note(
 
     where floor_K = spot × (1 + floor), cap_K = spot × (1 + cap).
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     F = spot * math.exp((rate - dividend_yield) * T)
     df = math.exp(-rate * T)
@@ -478,8 +478,8 @@ def equity_autocallable_via_engine(
 
     Drop-in replacement for equity_autocallable().
     """
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import BlackScholesProcess
 
     n_steps = max(int(T * 252), len(observation_dates) * 3)
     process = BlackScholesProcess(spot, rate - dividend_yield, vol)
@@ -554,8 +554,8 @@ def shark_fin_via_engine(
 
     Drop-in replacement for shark_fin_note().
     """
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import BlackScholesProcess
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import BlackScholesProcess
 
     process = BlackScholesProcess(spot, rate - dividend_yield, vol)
     engine = MCEngine(process, TimeGrid.uniform(T, n_steps), n_paths, seed or 42, antithetic=True)

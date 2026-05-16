@@ -231,7 +231,7 @@ def simulate_defaults_copula_via_engine(
     seed: int = 42,
 ) -> np.ndarray:
     """``simulate_defaults_copula`` via unified MC engine (correlated normals)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     # Gaussian copula only needs correlated normals, not asset paths.
     # The engine's correlated-GBM helper gives correlated Brownian increments

@@ -4,11 +4,11 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.rough_vol import (
+from pricebook.models.rough_vol import (
     fbm_covariance, simulate_fbm,
     rbergomi_mc, rbergomi_european,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT = 100.0

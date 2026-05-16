@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.vasicek import Vasicek, G2PlusPlus
+from pricebook.models.vasicek import Vasicek, G2PlusPlus
 from tests.conftest import make_flat_curve
 from datetime import date
 

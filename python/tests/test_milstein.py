@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.milstein import (
+from pricebook.models.milstein import (
     MilsteinResult,
     milstein_cev,
     milstein_cir,

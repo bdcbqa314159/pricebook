@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.stochastic_correlation import (
+from pricebook.models.stochastic_correlation import (
     CIRCorrelation,
     CIRCorrelationResult,
     DispersionCalibrationResult,

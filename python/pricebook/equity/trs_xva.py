@@ -312,7 +312,7 @@ def trs_hybrid_mc_xva(
         expected_positive_exposure, expected_negative_exposure,
         total_xva_decomposition,
     )
-    from pricebook.hybrid_mc import HybridMCEngine, HybridFactor
+    from pricebook.models.hybrid_mc import HybridMCEngine, HybridFactor
 
     # Non-equity: fall back to rate-only
     if trs._underlying_type != "equity":

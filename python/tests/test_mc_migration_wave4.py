@@ -59,12 +59,12 @@ class TestCopulasMigration:
 
 class TestMCGreeksMigration:
     def test_pathwise_delta_via_engine(self):
-        from pricebook.mc_greeks import pathwise_delta_via_engine
+        from pricebook.models.mc_greeks import pathwise_delta_via_engine
         result = pathwise_delta_via_engine(100, 100, 0.05, 0.20, 1.0, n_paths=10_000)
         assert 0 < result.value < 1
 
     def test_lr_delta_via_engine(self):
-        from pricebook.mc_greeks import likelihood_ratio_delta_via_engine
+        from pricebook.models.mc_greeks import likelihood_ratio_delta_via_engine
         result = likelihood_ratio_delta_via_engine(100, 100, 0.05, 0.20, 1.0, n_paths=10_000)
         assert 0 < result.value < 1
 

@@ -24,7 +24,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 
 
 # ---- Touch options ----
@@ -592,7 +592,7 @@ def fx_lookback_floating_via_engine(
     seed: int | None = 42,
 ) -> LookbackResult:
     """FX lookback (floating) via the unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     drift_rate = rate_dom - rate_for
     paths = gbm_paths(spot, drift_rate, vol, T, n_steps, n_paths, seed or 42)
@@ -624,7 +624,7 @@ def fx_range_accrual_via_engine(
     seed: int | None = 42,
 ) -> RangeAccrualResult:
     """FX range accrual via the unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     drift_rate = rate_dom - rate_for
     paths = gbm_paths(spot, drift_rate, vol, T, n_steps, n_paths, seed or 42)

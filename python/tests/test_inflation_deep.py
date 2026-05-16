@@ -13,7 +13,7 @@ from pricebook.inflation import (
     yoy_inflation_swap_pv, InflationLinkedBond, CPICurve,
 )
 from pricebook.inflation_vol import zc_inflation_cap
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 
 

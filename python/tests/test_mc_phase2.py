@@ -8,16 +8,16 @@ import numpy as np
 import pytest
 from scipy.stats import norm
 
-from pricebook.mc_engine import MCEngine, TimeGrid
-from pricebook.mc_processes import (
+from pricebook.models.mc_engine import MCEngine, TimeGrid
+from pricebook.models.mc_processes import (
     BatesProcess, VarianceGammaProcess, CEVProcess, G2PlusProcess,
     BlackScholesProcess, HestonProcess,
 )
-from pricebook.mc_payoffs import (
+from pricebook.models.mc_payoffs import (
     european_call, cliquet_payoff, autocall_payoff, swing_payoff,
 )
-from pricebook.mc_variance_reduction import importance_sampling
-from pricebook.mc_conditional import conditional_mc_heston, conditional_mc_generic
+from pricebook.models.mc_variance_reduction import importance_sampling
+from pricebook.models.mc_conditional import conditional_mc_heston, conditional_mc_generic
 
 
 def bs_call(s0, k, r, sigma, T):
@@ -269,7 +269,7 @@ class TestConditionalMC:
 
     def test_generic_conditional(self):
         """Generic conditional MC with pre-simulated vol paths."""
-        from pricebook.mc_processes import CIRProcess
+        from pricebook.models.mc_processes import CIRProcess
         vol_engine = MCEngine(
             CIRProcess(0.04, 2.0, 0.04, 0.1),
             TimeGrid.uniform(1.0, 100), 20_000, seed=42,

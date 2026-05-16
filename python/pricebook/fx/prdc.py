@@ -301,7 +301,7 @@ def prdc_price_via_engine(
     FX follows GBM, domestic and foreign rates follow OU —
     we use correlated GBM for FX and OU for rates via engine helpers.
     """
-    from pricebook.mc_migrate import gbm_paths, ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import gbm_paths, ou_paths  # noqa: lazy
 
     _seed = seed if seed is not None else 42
     dt = T / n_steps

@@ -7,7 +7,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.black76 import (
+from pricebook.models.black76 import (
     black76_price, black76_delta, black76_gamma, black76_vega, OptionType,
 )
 from pricebook.capfloor import CapFloor
@@ -47,7 +47,7 @@ class TestCapFloorWithVolTermStructure:
         vols = [0.15, 0.20, 0.25]
         vts = VolTermStructure(REF, expiries, vols)
 
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
         # Use average vol from term structure as single Black76Model
         avg_vol = sum(vols) / len(vols)
@@ -56,7 +56,7 @@ class TestCapFloorWithVolTermStructure:
 
     def test_term_structure_vs_flat_differs(self):
         """Cap with different vols produces different prices."""
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         curve = make_flat_curve(REF, rate=0.05)
         end = REF + relativedelta(years=3)
         cap = CapFloor(REF, end, strike=0.05)
@@ -92,7 +92,7 @@ class TestGreeksConsistency:
 
     def test_cap_vega_positive(self):
         """Cap vega (bump vol, reprice) should be positive."""
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         curve = make_flat_curve(REF, rate=0.05)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
         pv_low = cap.price(Black76Model(vol=0.19), curve)
@@ -102,7 +102,7 @@ class TestGreeksConsistency:
 
     def test_cap_delta_via_curve_bump(self):
         """Bumping the curve (rates up) should change cap PV."""
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         m = Black76Model(vol=0.20)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
         pv_base = cap.price(m, make_flat_curve(REF, rate=0.05))

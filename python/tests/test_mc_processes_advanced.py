@@ -7,13 +7,13 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.mc_engine import MCEngine, TimeGrid
-from pricebook.mc_processes import (
+from pricebook.models.mc_engine import MCEngine, TimeGrid
+from pricebook.models.mc_processes import (
     SABRProcess, RoughBergomiProcess, SLVProcess,
     HullWhiteProcess, brownian_bridge_max, barrier_correction,
     BlackScholesProcess,
 )
-from pricebook.mc_payoffs import european_call, european_put, barrier_knockout
+from pricebook.models.mc_payoffs import european_call, european_put, barrier_knockout
 
 
 # ── SABR ──

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- Barrier with smile ----
@@ -365,7 +365,7 @@ def equity_lookback_fixed_via_engine(
     seed: int | None = 42,
 ) -> EquityLookbackResult:
     """``equity_lookback_fixed`` with GBM paths from unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import gbm_paths  # noqa: lazy
 
     S = gbm_paths(
         spot=spot, rate=rate, vol=vol, T=T,
@@ -398,7 +398,7 @@ def equity_compound_option_via_engine(
     n_iter: int = 50,
 ) -> CompoundResult:
     """``equity_compound_option`` with GBM paths from unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import gbm_paths  # noqa: lazy
 
     if T1 >= T2 or T1 <= 0 or T2 <= 0:
         raise ValueError("Require 0 < T1 < T2")

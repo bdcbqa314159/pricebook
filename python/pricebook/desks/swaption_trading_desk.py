@@ -73,7 +73,7 @@ def swaption_risk_metrics(
     projection_curve: DiscountCurve | None = None,
 ) -> SwaptionRiskMetrics:
     """Compute unified risk metrics for a swaption."""
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
 
     proj = projection_curve or curve
     vol_val = vol if isinstance(vol, (int, float)) else vol.vol(swaption.expiry, swaption.strike)
@@ -306,7 +306,7 @@ def swaption_capital(
     counterparty_rw: float = 0.20,
 ) -> SwaptionCapitalResult:
     """SA-CCR capital for a swaption. SF=0.005 for IR."""
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
 
     T = year_fraction(swaption.expiry, swaption.swap_end, DayCountConvention.ACT_365_FIXED)
     vol_val = vol if isinstance(vol, (int, float)) else vol.vol(swaption.expiry, swaption.strike)
@@ -321,7 +321,7 @@ def swaption_capital(
 
     # SIMM: vega into GIRR bucket
     from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
-    from pricebook.models import Black76Model as _B76
+    from pricebook.models.models import Black76Model as _B76
     g = swaption.greeks(_B76(vol=vol_val), curve, projection)
     simm_inputs = [
         SIMMSensitivity(risk_class="GIRR", bucket="USD", tenor="5Y", delta=0, vega=g.vega),

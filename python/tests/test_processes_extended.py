@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.processes_extended import (
+from pricebook.models.processes_extended import (
     bates_paths,
     cev_paths,
     hawkes_paths,

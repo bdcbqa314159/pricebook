@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.special_process import (
+from pricebook.models.special_process import (
     CIRProcess,
     OUProcess,
     BesselProcess,

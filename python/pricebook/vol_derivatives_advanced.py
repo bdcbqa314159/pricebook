@@ -345,7 +345,7 @@ def bates_price(
 
     Uses characteristic function with COS expansion for fast pricing.
     """
-    from pricebook.cos_method import cos_price
+    from pricebook.models.cos_method import cos_price
 
     def cf(u):
         return bates_characteristic_function(

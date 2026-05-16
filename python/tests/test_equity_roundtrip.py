@@ -24,8 +24,8 @@ from pricebook.equity.dividend_model import (
     dividend_adjusted_forward,
     equity_option_discrete_divs,
 )
-from pricebook.mc_pricer import mc_european
-from pricebook.black76 import OptionType
+from pricebook.models.mc_pricer import mc_european
+from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 
 

@@ -28,7 +28,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.fx.fx_option import fx_forward, strike_from_delta
 from pricebook.vol_smile import VolSmile

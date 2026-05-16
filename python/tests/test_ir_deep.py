@@ -13,7 +13,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.capfloor import CapFloor
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.fra import FRA
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.basis_swap import BasisSwap
@@ -40,7 +40,7 @@ class TestSwaptionDeep:
                          strike, SwaptionType.PAYER)
         recvr = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
                          strike, SwaptionType.RECEIVER)
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         m = Black76Model(vol=0.25)
         diff = payer.price(m, curve) - recvr.price(m, curve)
         fwd = payer.forward_swap_rate(curve)
@@ -57,13 +57,13 @@ class TestSwaptionDeep:
         fwd = swn.forward_swap_rate(curve)
         ann = swn.annuity(curve)
         intrinsic = swn.notional * ann * max(fwd - 0.03, 0)
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         pv = swn.price(Black76Model(vol=1e-6), curve)
         assert pv == pytest.approx(intrinsic, rel=0.01)
 
     def test_greeks_delta_sign(self):
         """Payer delta > 0, receiver delta < 0."""
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         curve = make_flat_curve(REF, 0.04)
         m = Black76Model(vol=0.20)
         payer = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
@@ -75,7 +75,7 @@ class TestSwaptionDeep:
 
     def test_greeks_vega_positive(self):
         """Vega is always positive for both payer and receiver."""
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         curve = make_flat_curve(REF, 0.04)
         m = Black76Model(vol=0.20)
         payer = Swaption(REF + relativedelta(years=1), REF + relativedelta(years=6),
@@ -96,7 +96,7 @@ class TestCapFloorDeep:
         # Find ATM forward rate for cap/floor (using cap day count)
         cap_test = CapFloor(REF, end, strike=0.05, option_type=OptionType.CALL,
                             frequency=Frequency.QUARTERLY, day_count=DayCountConvention.ACT_360)
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         pvs = cap_test.caplet_pvs(Black76Model(vol=0.20), curve)
         avg_fwd = sum(p['forward'] for p in pvs) / len(pvs)
 
@@ -105,7 +105,7 @@ class TestCapFloorDeep:
         floor = CapFloor(REF, end, strike=avg_fwd, option_type=OptionType.PUT,
                          frequency=Frequency.QUARTERLY, day_count=DayCountConvention.ACT_360)
 
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         m = Black76Model(vol=0.20)
         cap_pv = cap.price(m, curve)
         floor_pv = floor.price(m, curve)
@@ -118,7 +118,7 @@ class TestCapFloorDeep:
         discount = make_flat_curve(REF, 0.03)
         projection = make_flat_curve(REF, 0.06)
         vol = FlatVol(0.20)
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         m = Black76Model(vol=0.20)
         cap = CapFloor(REF, REF + relativedelta(years=3), strike=0.05)
         pv_single = cap.price(m, discount)
@@ -204,7 +204,7 @@ class TestZCSwapDeep:
 class TestBermudanBounds:
 
     def _hw(self):
-        from pricebook.hull_white import HullWhite
+        from pricebook.models.hull_white import HullWhite
         curve = make_flat_curve(REF, 0.04)
         return HullWhite(a=0.03, sigma=0.01, curve=curve)
 

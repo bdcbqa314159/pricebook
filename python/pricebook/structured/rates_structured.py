@@ -153,7 +153,7 @@ def callable_step_up_bond(
     nc_price += face * math.exp(-rate * T)
 
     # MC for callable
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
     r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths, seed or 42)
 
     alive = np.ones(n_paths, dtype=bool)
@@ -237,7 +237,7 @@ def inflation_range_accrual(
         inflation_vol: vol of inflation rate.
         mean_reversion: OU mean reversion of inflation.
     """
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
 
     inf_paths = ou_paths(initial_inflation, mean_reversion, initial_inflation,
                           inflation_vol, T, n_observations, n_paths, seed or 42)
@@ -295,7 +295,7 @@ def zc_swaption(
         T_swap: swap maturity (years).
         is_payer: True for payer (right to pay fixed), False for receiver.
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     df = math.exp(-rate * T_swap)
     tau = T_swap - T_option
@@ -351,7 +351,7 @@ def inverse_floater(
         leverage: multiplier on floating rate (e.g. 1.0 or 2.0).
         floor: minimum coupon (typically 0).
     """
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
 
     r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths,
                        seed if seed is not None else 42)
@@ -415,7 +415,7 @@ def capped_floater(
         spread: fixed spread over floating (e.g. 0.005 = 50bp).
         cap_rate: maximum coupon rate.
     """
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
 
     r_paths = ou_paths(rate, 0.1, rate, vol, T, n_periods, n_paths,
                        seed if seed is not None else 42)

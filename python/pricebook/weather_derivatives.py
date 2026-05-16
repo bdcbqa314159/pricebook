@@ -344,7 +344,7 @@ def seasonal_ou_simulate_via_engine(
     seed: int | None = 42,
 ) -> TemperaturePaths:
     """Seasonal OU temperature via the unified MC engine (OU paths)."""
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
 
     T = n_days / 365.0
     residual_paths = ou_paths(initial_residual, model.kappa, 0.0, model.sigma,

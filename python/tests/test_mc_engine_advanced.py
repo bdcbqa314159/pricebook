@@ -8,14 +8,14 @@ import numpy as np
 import pytest
 from scipy.stats import norm
 
-from pricebook.mc_engine import MCEngine, TimeGrid
-from pricebook.mc_processes import BlackScholesProcess, OUProcess
-from pricebook.mc_payoffs import (
+from pricebook.models.mc_engine import MCEngine, TimeGrid
+from pricebook.models.mc_processes import BlackScholesProcess, OUProcess
+from pricebook.models.mc_payoffs import (
     european_call, european_put, asian_arithmetic, asian_geometric,
 )
-from pricebook.mc_variance_reduction import control_variate, moment_matching
-from pricebook.mc_greeks_engine import mc_greeks
-from pricebook.mc_exposure import ExposureEngine
+from pricebook.models.mc_variance_reduction import control_variate, moment_matching
+from pricebook.models.mc_greeks_engine import mc_greeks
+from pricebook.models.mc_exposure import ExposureEngine
 
 
 def bs_call(s0, k, r, sigma, T):

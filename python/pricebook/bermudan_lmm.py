@@ -592,7 +592,7 @@ def _simulate_lmm_paths_via_engine(
     ProcessSpec. We use the engine's correlated-GBM path generator for the
     diffusion term and manually correct the drift.
     """
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     n_fwd = len(forward_rates)
     # Identity correlation — each forward has its own independent Brownian

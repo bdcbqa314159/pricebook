@@ -26,8 +26,8 @@ from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.vol_surface import FlatVol
-from pricebook.black76 import black76_price, OptionType
-from pricebook.models import Black76Model
+from pricebook.models.black76 import black76_price, OptionType
+from pricebook.models.models import Black76Model
 
 
 # ---- Helpers ----

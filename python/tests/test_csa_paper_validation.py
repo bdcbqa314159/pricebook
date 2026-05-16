@@ -18,7 +18,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.bond_forward import repo_financing_factor
 

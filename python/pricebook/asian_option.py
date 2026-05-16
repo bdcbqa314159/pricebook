@@ -27,11 +27,11 @@ from typing import Any
 import numpy as np
 
 from pricebook.asian import geometric_asian_analytical, mc_asian_arithmetic
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.gbm import GBMGenerator
-from pricebook.mc_pricer import MCResult
+from pricebook.models.gbm import GBMGenerator
+from pricebook.models.mc_pricer import MCResult
 from pricebook.serialisable import serialisable as _serialisable, _serialise_atom
 
 
@@ -622,7 +622,7 @@ class AsianOption:
         T: float, n_steps: int, n_paths: int, seed: int,
     ) -> np.ndarray:
         """Heston paths via unified MC engine. Returns (n_paths, n_steps+1)."""
-        from pricebook.mc_migrate import heston_paths
+        from pricebook.models.mc_migrate import heston_paths
         spot_paths, _ = heston_paths(spot, v0, rate, kappa, theta, xi, rho,
                                       T, n_steps, n_paths, seed)
         return spot_paths

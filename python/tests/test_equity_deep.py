@@ -15,7 +15,7 @@ from pricebook.equity_option import (
 )
 from pricebook.equity.equity_forward import EquityForward, pv_dividends
 from pricebook.equity.equity_jumps import kou_equity_price, merton_equity_hybrid
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 
 

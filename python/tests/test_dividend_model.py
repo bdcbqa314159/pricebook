@@ -11,7 +11,7 @@ from pricebook.equity.dividend_model import (
     equity_option_discrete_divs,
 )
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 
 

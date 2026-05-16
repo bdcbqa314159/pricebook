@@ -20,7 +20,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.equity_option import equity_option_price, equity_vega
 from pricebook.vol_smile import VolSmile

@@ -15,7 +15,7 @@ import math
 
 import numpy as np
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.sabr import sabr_implied_vol
 
 
@@ -164,7 +164,7 @@ def sabr_mc_paths_via_engine(
 
     Drop-in replacement for sabr_mc_paths(). Returns (F, sigma) arrays.
     """
-    from pricebook.mc_migrate import sabr_paths
+    from pricebook.models.mc_migrate import sabr_paths
     return sabr_paths(forward, alpha, beta, rho, nu, T, n_steps, n_paths, seed)
 
 
@@ -183,7 +183,7 @@ def sabr_mc_european_via_engine(
     seed: int = 42,
 ) -> float:
     """European option under SABR via unified MC engine."""
-    from pricebook.mc_instrument_adapters import sabr_european_mc
+    from pricebook.models.mc_instrument_adapters import sabr_european_mc
     result = sabr_european_mc(forward, strike, T, alpha, beta, rho, nu,
                                n_paths=n_paths, n_steps=n_steps, seed=seed)
     return result.price * df

@@ -720,7 +720,7 @@ def simulate_exposures_via_engine(
     seed: int = 42,
 ) -> np.ndarray:
     """``simulate_exposures`` with OU rate shifts from unified MC engine."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     n_times = len(time_grid)
     T_max = max(time_grid) if time_grid else 1.0
@@ -755,7 +755,7 @@ def simulate_wwr_exposures_via_engine(
     seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
     """``simulate_wwr_exposures`` via unified MC engine (correlated normals)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     n_times = len(time_grid)
     pvs = np.zeros((n_paths, n_times))

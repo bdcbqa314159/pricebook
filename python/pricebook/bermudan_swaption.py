@@ -17,9 +17,9 @@ import math
 
 import numpy as np
 
-from pricebook.hull_white import HullWhite
+from pricebook.models.hull_white import HullWhite
 from pricebook.discount_curve import DiscountCurve
-from pricebook.brownian import WienerProcess
+from pricebook.models.brownian import WienerProcess
 
 
 def bermudan_swaption_tree(
@@ -264,7 +264,7 @@ def bermudan_swaption_lsm_via_engine(
     swap_freq: float = 1.0,
 ) -> float:
     """``bermudan_swaption_lsm`` with HW rate paths from unified MC engine."""
-    from pricebook.mc_migrate import hw_paths as _hw_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import hw_paths as _hw_paths  # noqa: lazy
 
     exercise_years_sorted = sorted(exercise_years)
     n_steps = len(exercise_years_sorted)

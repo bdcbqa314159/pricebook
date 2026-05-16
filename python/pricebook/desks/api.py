@@ -48,7 +48,7 @@ from pricebook.survival_curve import SurvivalCurve
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.vol_surface import FlatVol
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 # ============================================================================
@@ -278,7 +278,7 @@ def cap(
 
         pb.cap("5Y", 0.04, 0.30, curve)
     """
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
     s = start or curve.reference_date
     return CapFloor(s, _parse_tenor(s, tenor), strike,
                     OptionType.CALL, notional).price(Black76Model(vol=vol), curve)
@@ -292,7 +292,7 @@ def floor(
 
         pb.floor("5Y", 0.03, 0.30, curve)
     """
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
     s = start or curve.reference_date
     return CapFloor(s, _parse_tenor(s, tenor), strike,
                     OptionType.PUT, notional).price(Black76Model(vol=vol), curve)
@@ -315,7 +315,7 @@ def swaption(
     swap_end = _parse_tenor(exp, swap_tenor)
     st = SwaptionType.PAYER if swaption_type.lower() == "payer" else SwaptionType.RECEIVER
     swpn = Swaption(exp, swap_end, strike, swaption_type=st, notional=notional)
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
     model = Black76Model(vol=vol)
     if return_greeks:
         return swpn.greeks(model, curve, projection_curve)
@@ -864,7 +864,7 @@ def asian_option(
     """
     adj_vol = vol / math.sqrt(3)
     ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
-    from pricebook.black76 import black76_price
+    from pricebook.models.black76 import black76_price
     return black76_price(spot, strike, adj_vol, T, df, ot)
 
 
@@ -876,7 +876,7 @@ def digital_option(
 
         pb.digital_option(100, 105, 0.20, 1.0, payout=1000)
     """
-    from pricebook.black76 import _norm_cdf
+    from pricebook.models.black76 import _norm_cdf
     sqrt_t = math.sqrt(T) if T > 0 else 1e-10
     d2 = (math.log(spot / strike) + (- 0.5 * vol**2) * T) / (vol * sqrt_t)
     if option_type.lower() == "call":

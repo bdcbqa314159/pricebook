@@ -112,7 +112,7 @@ class TestBlackScholesIntegral:
     def test_bs_via_quadrature(self):
         S, K, r, vol, T = 100, 100, 0.05, 0.20, 1.0
         from pricebook.equity_option import equity_option_price
-        from pricebook.black76 import OptionType
+        from pricebook.models.black76 import OptionType
 
         bs_price = equity_option_price(S, K, r, vol, T, OptionType.CALL)
 

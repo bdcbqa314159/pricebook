@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.lmm_advanced import (
+from pricebook.models.lmm_advanced import (
     SABRLMM,
     LMMCalibrationResult,
     LMMGreeksResult,

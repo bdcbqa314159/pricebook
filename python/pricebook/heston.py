@@ -17,7 +17,7 @@ import cmath
 
 import numpy as np
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.curves.quadrature import gauss_legendre
 
 

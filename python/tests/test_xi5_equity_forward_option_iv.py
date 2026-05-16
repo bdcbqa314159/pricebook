@@ -16,7 +16,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.discount_curve import DiscountCurve
 from pricebook.equity.dividend_model import (
     Dividend, pv_dividends, dividend_adjusted_forward, equity_option_discrete_divs,

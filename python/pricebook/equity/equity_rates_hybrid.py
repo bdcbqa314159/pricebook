@@ -158,7 +158,7 @@ def callable_equity_note_via_engine(
     n_paths: int = 5_000, n_steps: int = 100, seed: int | None = 42,
 ) -> CallableEquityNoteResult:
     """Callable equity note via the unified MC engine (GBM + OU)."""
-    from pricebook.mc_migrate import gbm_paths, ou_paths
+    from pricebook.models.mc_migrate import gbm_paths, ou_paths
 
     eq_paths = gbm_paths(spot, rate, equity_vol, T, n_steps, n_paths, seed or 42)
     r_paths = ou_paths(rate, 0.1, rate, rate_vol, T, n_steps, n_paths, (seed or 42) + 1)
@@ -197,7 +197,7 @@ def equity_ir_joint_simulate_via_engine(
     seed: int | None = 42,
 ) -> JointSimResult:
     """Joint equity + rate simulation via the unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths, ou_paths
+    from pricebook.models.mc_migrate import gbm_paths, ou_paths
 
     eq_paths = gbm_paths(spot, rate, equity_vol, T, n_steps, n_paths, seed or 42)
     r_paths = ou_paths(rate, 0.1, rate, rate_vol, T, n_steps, n_paths, (seed or 42) + 1)

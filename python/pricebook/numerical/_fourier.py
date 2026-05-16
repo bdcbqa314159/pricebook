@@ -223,7 +223,7 @@ class CharacteristicFunction:
         n_terms: int = 128,
     ) -> float:
         """Price European option via COS method."""
-        from pricebook.cos_method import cos_european
+        from pricebook.models.cos_method import cos_european
         return cos_european(
             spot, strike, rate, self.T, self.cf, is_call=is_call, N=n_terms,
         )

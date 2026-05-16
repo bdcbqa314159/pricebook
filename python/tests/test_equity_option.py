@@ -11,7 +11,7 @@ from pricebook.equity_option import (
     equity_theta,
     equity_rho,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

@@ -5,7 +5,7 @@ import math
 import numpy as np
 from datetime import date
 
-from pricebook.hjm import HJMModel
+from pricebook.models.hjm import HJMModel
 from tests.conftest import make_flat_curve
 
 

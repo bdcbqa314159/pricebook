@@ -10,7 +10,7 @@ import math
 
 import numpy as np
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 def heston_euler(
@@ -271,7 +271,7 @@ def heston_euler_via_engine(
 
     Drop-in replacement for heston_euler(). Returns (S, v) arrays.
     """
-    from pricebook.mc_migrate import heston_paths
+    from pricebook.models.mc_migrate import heston_paths
     return heston_paths(spot, v0, rate, kappa, theta, xi, rho, T, n_steps, n_paths, seed)
 
 
@@ -293,7 +293,7 @@ def heston_mc_european_via_engine(
     use_conditional: bool = False,
 ) -> float:
     """European option under Heston via unified MC engine."""
-    from pricebook.mc_instrument_adapters import heston_european_mc
+    from pricebook.models.mc_instrument_adapters import heston_european_mc
     result = heston_european_mc(
         spot, strike, rate, v0, kappa, theta, xi, rho, T,
         option_type="call" if option_type == OptionType.CALL else "put",

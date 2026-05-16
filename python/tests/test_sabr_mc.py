@@ -11,7 +11,7 @@ from pricebook.sabr_mc import (
     sabr_mc_implied_vol,
 )
 from pricebook.sabr import sabr_implied_vol
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 
 
 F, K, T = 100.0, 100.0, 1.0

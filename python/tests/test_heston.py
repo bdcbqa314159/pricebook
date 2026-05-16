@@ -5,7 +5,7 @@ import math
 
 from pricebook.heston import heston_price, _heston_f, heston_calibrate
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, T = 100.0, 100.0, 0.05, 1.0

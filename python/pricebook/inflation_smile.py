@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy.optimize import minimize
 from pricebook.sabr import sabr_implied_vol
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 @dataclass

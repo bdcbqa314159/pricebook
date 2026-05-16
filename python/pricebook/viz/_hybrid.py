@@ -70,7 +70,7 @@ def plot_cash_annuity(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_martingale(ax, instrument, curve, *, theme=None, **kwargs):
     """Martingale diagnostics: E[F_T]/F0 and E[U_T]/U0 across seeds."""
-    from pricebook.hybrid_mc import simulate_2d_local_vol
+    from pricebook.models.hybrid_mc import simulate_2d_local_vol
     from pricebook.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
 

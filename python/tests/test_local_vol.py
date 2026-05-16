@@ -7,7 +7,7 @@ import numpy as np
 from pricebook.local_vol import (
     LocalVolSurface, local_vol_mc, local_vol_mc_european,
 )
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 SPOT = 100.0

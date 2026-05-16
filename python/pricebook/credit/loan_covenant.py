@@ -389,7 +389,7 @@ def breach_probability_mc_via_engine(
     seed: int = 42,
 ) -> float:
     """``breach_probability_mc`` with GBM paths from unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import gbm_paths  # noqa: lazy
 
     ebitda_paths = gbm_paths(
         spot=current_ebitda, rate=ebitda_drift, vol=ebitda_vol,

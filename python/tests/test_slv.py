@@ -6,7 +6,7 @@ import numpy as np
 
 from pricebook.slv import SLVModel, HestonParams, slv_mc, slv_mc_european
 from pricebook.local_vol import LocalVolSurface, local_vol_mc_european
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT = 100.0

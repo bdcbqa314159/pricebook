@@ -422,7 +422,7 @@ def tarn_price_via_engine(
     seed: int | None = None,
 ) -> TARNResult:
     """``tarn_price`` with OU rate paths from unified MC engine."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -472,7 +472,7 @@ def snowball_price_via_engine(
     seed: int | None = None,
 ) -> SnowballResult:
     """``snowball_price`` with OU rate paths from unified MC engine."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -517,7 +517,7 @@ def callable_range_accrual_via_engine(
     seed: int | None = None,
 ) -> CallableRangeAccrualResult:
     """``callable_range_accrual`` with OU rate paths from unified MC engine."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -595,7 +595,7 @@ def ratchet_cap_via_engine(
     seed: int | None = None,
 ) -> RatchetCapResult:
     """``ratchet_cap`` with OU rate paths from unified MC engine."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -636,7 +636,7 @@ def flexi_swap_via_engine(
     seed: int | None = None,
 ) -> FlexiSwapResult:
     """``flexi_swap`` with OU rate paths from unified MC engine."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency

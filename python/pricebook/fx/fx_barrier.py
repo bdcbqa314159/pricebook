@@ -11,8 +11,8 @@ import math
 
 import numpy as np
 
-from pricebook.black76 import OptionType, black76_price, black76_vega
-from pricebook.finite_difference import fd_barrier_knockout, fd_barrier_knockin
+from pricebook.models.black76 import OptionType, black76_price, black76_vega
+from pricebook.models.finite_difference import fd_barrier_knockout, fd_barrier_knockin
 
 
 def fx_barrier_pde(

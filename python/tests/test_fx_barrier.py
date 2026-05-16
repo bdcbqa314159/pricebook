@@ -6,7 +6,7 @@ from pricebook.fx.fx_barrier import (
     fx_barrier_pde,
     vanna_volga_barrier,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 S, K, RD, RF, VOL, T = 1.10, 1.10, 0.05, 0.03, 0.10, 1.0

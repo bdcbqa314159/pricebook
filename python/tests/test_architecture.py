@@ -26,7 +26,7 @@ from pricebook.vol_smile import VolSmile
 from pricebook.vol_surface_strike import VolSurfaceStrike
 from pricebook.swaption_vol import SwaptionVolSurface
 from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.equity_option import equity_option_price
 from datetime import date
 

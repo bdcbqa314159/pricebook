@@ -348,7 +348,7 @@ def floating_cln_via_engine(
     seed: int | None = None,
 ) -> FloatingCLNResult:
     """Floating CLN via the unified MC engine (OU + CIR processes)."""
-    from pricebook.mc_migrate import ou_paths, cir_paths
+    from pricebook.models.mc_migrate import ou_paths, cir_paths
 
     n_periods = maturity_years * 4
     dt = maturity_years / n_periods
@@ -389,7 +389,7 @@ def convertible_bond_via_engine(
     seed: int | None = None,
 ) -> ConvertibleBondResult:
     """Convertible bond via the unified MC engine (GBM spot paths)."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     n_steps = maturity_years * n_steps_per_year
     T = float(maturity_years)

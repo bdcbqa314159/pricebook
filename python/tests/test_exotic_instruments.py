@@ -10,7 +10,7 @@ import pytest
 
 from pricebook.american_option import AmericanOption, AmericanResult
 from pricebook.basket_option import BasketOption
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import from_dict
 

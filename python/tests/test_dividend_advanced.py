@@ -82,7 +82,7 @@ class TestImpliedDividendYield:
         # C - P = S e^{-qT} - K e^{-rT} = 100×0.9802 - 100×0.9704 = 0.98
         # So q = 0.02 via parity
         # Use approximate call/put prices consistent with q=0.02
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp((0.03 - 0.02) * 1.0)
         df = math.exp(-0.03)
         C = black76_price(F, 100, 0.20, 1.0, df, OptionType.CALL)
@@ -94,7 +94,7 @@ class TestImpliedDividendYield:
 
     def test_zero_dividend(self):
         """If C-P = S - K×DF, implied q=0."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp(0.03 * 1.0)
         df = math.exp(-0.03)
         C = black76_price(F, 100, 0.20, 1.0, df, OptionType.CALL)
@@ -104,7 +104,7 @@ class TestImpliedDividendYield:
         assert result.implied_yield == pytest.approx(0.0, abs=0.005)
 
     def test_forward_consistent(self):
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F_true = 100 * math.exp((0.03 - 0.025) * 1.0)
         df = math.exp(-0.03)
         C = black76_price(F_true, 100, 0.20, 1.0, df, OptionType.CALL)

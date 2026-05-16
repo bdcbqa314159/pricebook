@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 
-from pricebook.black76 import (
+from pricebook.models.black76 import (
     OptionType,
     black76_price,
     black76_vega,

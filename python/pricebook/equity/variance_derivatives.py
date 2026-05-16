@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- Variance swap replication ----

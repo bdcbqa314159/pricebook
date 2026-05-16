@@ -13,7 +13,7 @@ import pytest
 class TestAutocallableMigrationFull:
 
     def test_engine_price_positive(self):
-        from pricebook.mc_instrument_adapters import autocallable_mc
+        from pricebook.models.mc_instrument_adapters import autocallable_mc
         result = autocallable_mc(100, 0.05, 0.20, 3.0, n_paths=20_000)
         assert result.price > 0
 
@@ -25,7 +25,7 @@ class TestAutocallableMigrationFull:
 class TestCliquetMigrationFull:
 
     def test_engine_price_positive(self):
-        from pricebook.mc_instrument_adapters import cliquet_mc
+        from pricebook.models.mc_instrument_adapters import cliquet_mc
         result = cliquet_mc(100, 0.05, 0.20, 1.0, n_paths=20_000)
         assert result.price > 0
 
@@ -37,7 +37,7 @@ class TestCliquetMigrationFull:
 class TestTARFMigrationFull:
 
     def test_engine_price_finite(self):
-        from pricebook.mc_instrument_adapters import tarf_mc
+        from pricebook.models.mc_instrument_adapters import tarf_mc
         result = tarf_mc(1.10, 0.02, 0.01, 0.08, 1.10, 0.10, 1.0, n_paths=20_000)
         assert math.isfinite(result.price)
 
@@ -49,7 +49,7 @@ class TestTARFMigrationFull:
 class TestMultiAssetMCMigration:
 
     def test_correlated_gbm_via_engine_shape(self):
-        from pricebook.multi_asset_mc import correlated_gbm_via_engine
+        from pricebook.models.multi_asset_mc import correlated_gbm_via_engine
         paths = correlated_gbm_via_engine(
             [100.0, 50.0], [0.20, 0.25],
             [[1.0, 0.5], [0.5, 1.0]], [0.05, 0.05],
@@ -59,7 +59,7 @@ class TestMultiAssetMCMigration:
         assert np.all(paths[:, :, 0] > 0)
 
     def test_basket_via_engine_positive(self):
-        from pricebook.multi_asset_mc import basket_option_mc_via_engine
+        from pricebook.models.multi_asset_mc import basket_option_mc_via_engine
         result = basket_option_mc_via_engine(
             [100.0, 100.0], [0.20, 0.25],
             [[1.0, 0.5], [0.5, 1.0]], 0.05, 100.0, 1.0,
@@ -190,7 +190,7 @@ class TestJumpModelsMigration:
 class TestRoughVolMigration:
 
     def test_rbergomi_via_engine(self):
-        from pricebook.rough_vol import rbergomi_mc_via_engine
+        from pricebook.models.rough_vol import rbergomi_mc_via_engine
         S_T = rbergomi_mc_via_engine(
             100, 0.05, 0.04, 1.5, 0.1, 1.0,
             n_steps=50, n_paths=2_000,

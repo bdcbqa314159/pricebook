@@ -21,7 +21,7 @@ from pricebook.fx.fx_option import (
     strike_from_delta,
 )
 from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 REF = date(2024, 1, 15)

@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import _register, _serialise_atom
@@ -247,9 +247,9 @@ def autocallable_via_engine(
 
     Drop-in replacement for Autocallable.price_mc() using MCEngine.
     """
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import BlackScholesProcess
-    from pricebook.mc_payoffs import autocall_payoff
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import BlackScholesProcess
+    from pricebook.models.mc_payoffs import autocall_payoff
 
     ref = curve.reference_date
     rate = -math.log(curve.df(ref + timedelta(days=int(T * 365)))) / max(T, 1e-10)

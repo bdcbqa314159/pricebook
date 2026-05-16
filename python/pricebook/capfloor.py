@@ -6,7 +6,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, StubType, generate_schedule
 from pricebook.calendar import Calendar, BusinessDayConvention
-from pricebook.black76 import black76_price, black76_vega, OptionType
+from pricebook.models.black76 import black76_price, black76_vega, OptionType
 from pricebook.solvers import brentq
 
 
@@ -195,7 +195,7 @@ def strip_caplet_vols(
 
     Returns list of (fixing_date, caplet_vol).
     """
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
 
     sorted_quotes = sorted(cap_flat_vols, key=lambda x: x[0])
     caplet_vols: list[tuple[date, float]] = []

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- Kou equity ----
@@ -244,7 +244,7 @@ class SVJEquityModel:
         seed: int | None = 42,
     ) -> SVJResult:
         """SVJ option via the unified MC engine (uses BatesProcess)."""
-        from pricebook.mc_migrate import bates_paths
+        from pricebook.models.mc_migrate import bates_paths
         spot_paths, var_paths = bates_paths(
             spot, self.v0, rate - dividend_yield, self.kappa_v, self.theta_v,
             self.xi_v, self.rho, self.lambda_jump, self.mu_j, self.sigma_j,

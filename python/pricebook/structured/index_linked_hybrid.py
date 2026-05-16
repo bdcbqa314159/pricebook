@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from pricebook.structured.cms import cash_annuity
-from pricebook.hybrid_mc import simulate_2d_local_vol, LocalVolHybridResult
+from pricebook.models.hybrid_mc import simulate_2d_local_vol, LocalVolHybridResult
 
 
 @dataclass

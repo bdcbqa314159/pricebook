@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 @dataclass
@@ -41,7 +41,7 @@ def window_barrier_option(
     n_paths: int = 20_000, n_steps: int = 252, seed: int | None = 42,
 ) -> WindowBarrierResult:
     """Barrier active only during [window_start, window_end]."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
     drift = rate_dom - rate_for
     paths = gbm_paths(spot, drift, vol, T, n_steps, n_paths, seed or 42)
     dt = T / n_steps
@@ -73,7 +73,7 @@ def fader_option(
     n_paths: int = 20_000, seed: int | None = 42,
 ) -> FaderResult:
     """Fader: payoff = vanilla x (fraction of observations NOT breached)."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
     paths = gbm_paths(spot, rate_dom - rate_for, vol, T, n_observations, n_paths, seed or 42)
     df = math.exp(-rate_dom * T)
     m = paths[:, 1:]
@@ -265,7 +265,7 @@ def knock_in_reverse(
     if barrier >= spot:
         raise ValueError(f"barrier ({barrier}) must be below spot ({spot})")
 
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     drift = rate_dom - rate_for
     paths = gbm_paths(spot, drift, vol, T, n_steps, n_paths, seed or 42)

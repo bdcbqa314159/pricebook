@@ -118,7 +118,7 @@ class TestAccruedInterest:
 class TestCallableBondBounds:
 
     def _hw(self):
-        from pricebook.hull_white import HullWhite
+        from pricebook.models.hull_white import HullWhite
         curve = make_flat_curve(REF, 0.04)
         return HullWhite(a=0.03, sigma=0.01, curve=curve)
 

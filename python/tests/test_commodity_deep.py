@@ -11,7 +11,7 @@ from datetime import date
 from pricebook.commodity.commodity import CommodityForwardCurve, commodity_option_price
 from pricebook.commodity.commodity_seasonal import SeasonalFactors, SeasonalForwardCurve, calendar_spread_option
 from pricebook.commodity.commodity_vol_surface import kirk_spread_smile
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 REF = date(2024, 1, 15)

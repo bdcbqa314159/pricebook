@@ -91,7 +91,7 @@ def cms_rate_replication(
 
     Simplified: uses lognormal swaption prices with trapezoidal integration.
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     S0 = forward_swap_rate
     # Generate strikes around forward

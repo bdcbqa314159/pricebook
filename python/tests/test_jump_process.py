@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.jump_process import (
+from pricebook.models.jump_process import (
     PoissonProcess,
     CompoundPoissonProcess,
     MertonJumpDiffusion,
@@ -83,8 +83,8 @@ class TestMertonJumpDiffusion:
 
     def test_cos_matches_mc(self):
         """COS with Merton char func ≈ MC price."""
-        from pricebook.cos_method import cos_price
-        from pricebook.black76 import OptionType
+        from pricebook.models.cos_method import cos_price
+        from pricebook.models.black76 import OptionType
 
         mjd = MertonJumpDiffusion(mu=0.05, sigma=0.20, lam=1.0,
                                    jump_mean=-0.05, jump_std=0.10)
@@ -120,8 +120,8 @@ class TestVarianceGamma:
 
     def test_cos_matches_mc(self):
         """COS with VG char func ≈ MC."""
-        from pricebook.cos_method import cos_price
-        from pricebook.black76 import OptionType
+        from pricebook.models.cos_method import cos_price
+        from pricebook.models.black76 import OptionType
 
         vg = VarianceGammaProcess(sigma=0.20, theta=-0.10, nu=0.25)
 

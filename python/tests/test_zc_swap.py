@@ -7,7 +7,7 @@ from datetime import date
 from pricebook.zc_swap import (
     ZeroCouponSwap, digital_capfloor, digital_cms_cap,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.swap import InterestRateSwap, SwapDirection
 

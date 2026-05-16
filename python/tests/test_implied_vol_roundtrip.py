@@ -13,7 +13,7 @@ import math
 from datetime import date
 
 from pricebook.implied_vol import implied_vol_black76, implied_vol_bachelier
-from pricebook.black76 import OptionType, black76_price, bachelier_price
+from pricebook.models.black76 import OptionType, black76_price, bachelier_price
 from pricebook.vol_smile import VolSmile
 from pricebook.vol_surface_strike import VolSurfaceStrike
 from pricebook.equity_option import equity_option_price
@@ -107,14 +107,14 @@ class TestSmileSurfaceWithPricing:
             swap_end=date(2030, 1, 15),
             strike=0.03,
         )
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         vol = surface.vol(swn.expiry, swn.strike)
         pv = swn.price(Black76Model(vol=vol), curve)
         assert pv > 0
 
     def test_capfloor_with_smile_surface(self):
         """Cap prices with a strike-dependent vol surface."""
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         curve = make_flat_curve(REF, 0.03)
         smile = VolSmile([0.01, 0.03, 0.05], [0.22, 0.20, 0.22])
         surface = VolSurfaceStrike(REF, [date(2025, 1, 15)], [smile])
@@ -139,7 +139,7 @@ class TestSmileSurfaceWithPricing:
         smile = VolSmile([0.01, 0.03, 0.05, 0.07], [0.28, 0.20, 0.20, 0.28])
         surface = VolSurfaceStrike(REF, [date(2025, 1, 15)], [smile])
 
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         swn = Swaption(
             expiry=date(2025, 1, 15),
             swap_end=date(2030, 1, 15),

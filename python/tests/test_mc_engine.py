@@ -8,12 +8,12 @@ import numpy as np
 import pytest
 from scipy.stats import norm
 
-from pricebook.mc_engine import MCEngine, TimeGrid, MCResult, ProcessSpec
-from pricebook.mc_processes import (
+from pricebook.models.mc_engine import MCEngine, TimeGrid, MCResult, ProcessSpec
+from pricebook.models.mc_processes import (
     GBMProcess, BlackScholesProcess, HestonProcess,
     OUProcess, CIRProcess, CorrelatedGBMProcess,
 )
-from pricebook.mc_payoffs import (
+from pricebook.models.mc_payoffs import (
     european_call, european_put, digital_call,
     asian_arithmetic, asian_geometric, lookback_call,
     barrier_knockout, american_put,

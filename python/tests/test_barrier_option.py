@@ -9,7 +9,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.barrier_option import BarrierOption, BarrierResult
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import from_dict
 

@@ -539,7 +539,7 @@ def hw_hazard_simulate_via_engine(
     seed: int | None = None,
 ) -> HWHazardResult:
     """HW hazard rate via the unified MC engine (HW/OU paths)."""
-    from pricebook.mc_migrate import hw_paths
+    from pricebook.models.mc_migrate import hw_paths
 
     theta_func = model.theta
     paths = hw_paths(lam0, model.a, model.sigma, T, n_steps, n_paths,
@@ -560,7 +560,7 @@ def bk_hazard_simulate_via_engine(
     seed: int | None = None,
 ) -> BKHazardResult:
     """BK hazard rate via the unified MC engine (OU on log-intensity)."""
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
 
     log_lam0 = math.log(max(lam0, 1e-10))
     log_paths = ou_paths(log_lam0, model.a, model._target_log_hazard(0.0),
@@ -582,7 +582,7 @@ def cirpp_hazard_simulate_via_engine(
     seed: int | None = None,
 ) -> CIRPPResult:
     """CIR++ hazard rate via the unified MC engine (CIR paths + shift)."""
-    from pricebook.mc_migrate import cir_paths
+    from pricebook.models.mc_migrate import cir_paths
 
     x_paths = cir_paths(x0, model.kappa, model.theta, model.xi,
                         T, n_steps, n_paths, seed or 42)

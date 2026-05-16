@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.short_rate_models import (
+from pricebook.models.short_rate_models import (
     AffineModel,
     BKRateModel,
     CIRPPRateModel,

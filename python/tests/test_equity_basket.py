@@ -68,7 +68,7 @@ class TestJohnsonMaxMin:
 
     def test_max_greater_than_single(self):
         """Max call ≥ single-asset call on either leg."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp((0.03 - 0.02) * 1.0)
         single = black76_price(F, 100, 0.20, 1.0, math.exp(-0.03), OptionType.CALL)
         max_c = johnson_max_call(100, 100, 100, 0.03, 0.02, 0.02, 0.20, 0.20, 0.0, 1.0)

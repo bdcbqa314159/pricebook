@@ -4,7 +4,7 @@ import pytest
 import math
 
 from pricebook.implied_vol import implied_vol_black76, implied_vol_bachelier
-from pricebook.black76 import OptionType, black76_price, bachelier_price
+from pricebook.models.black76 import OptionType, black76_price, bachelier_price
 
 
 F, K, T, DF = 100.0, 100.0, 1.0, math.exp(-0.05)

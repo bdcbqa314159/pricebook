@@ -10,7 +10,7 @@ from pricebook.callable_bond import (
     oas,
     _straight_bond_hw,
 )
-from pricebook.hull_white import HullWhite
+from pricebook.models.hull_white import HullWhite
 from tests.conftest import make_flat_curve
 
 

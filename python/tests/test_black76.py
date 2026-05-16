@@ -3,7 +3,7 @@
 import math
 import pytest
 
-from pricebook.black76 import (
+from pricebook.models.black76 import (
     black76_price, bachelier_price, OptionType, _norm_cdf,
     black76_delta, black76_gamma, black76_vega, black76_theta,
 )

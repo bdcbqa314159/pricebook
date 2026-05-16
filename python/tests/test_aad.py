@@ -189,7 +189,7 @@ class TestBlackScholesGreeks:
         price.propagate_to_start()
 
         from pricebook.equity_option import equity_delta
-        from pricebook.black76 import OptionType
+        from pricebook.models.black76 import OptionType
         analytical = equity_delta(100, 100, 0.05, 0.20, 1.0, OptionType.CALL)
 
         assert S.adjoint == pytest.approx(analytical, rel=0.01)
@@ -220,7 +220,7 @@ class TestBlackScholesGreeks:
         price.propagate_to_start()
 
         from pricebook.equity_option import equity_rho
-        from pricebook.black76 import OptionType
+        from pricebook.models.black76 import OptionType
         analytical = equity_rho(100, 100, 0.05, 0.20, 1.0, OptionType.CALL)
 
         assert r.adjoint == pytest.approx(analytical, rel=0.01)

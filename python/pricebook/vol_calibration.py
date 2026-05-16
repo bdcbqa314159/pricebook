@@ -150,7 +150,7 @@ def calibrate_fx_surface(
         forward = spot  # simplified: forward ≈ spot for short tenors
 
         # Strikes from 25-delta (approximate)
-        from pricebook.black76 import black76_price
+        from pricebook.models.black76 import black76_price
         k_put = forward * math.exp(-0.674 * vol_put * math.sqrt(T))  # ~25D put
         k_call = forward * math.exp(0.674 * vol_call * math.sqrt(T))  # ~25D call
 

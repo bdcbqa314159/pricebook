@@ -5,9 +5,9 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.equity_option import equity_option_price
-from pricebook.pde_advanced import (
+from pricebook.models.pde_advanced import (
     MOLResult,
     PSORResult,
     SpectralResult,

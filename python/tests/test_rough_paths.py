@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.rough_paths import (
+from pricebook.models.rough_paths import (
     FBMResult,
     SignatureResult,
     fbm_circulant,

@@ -14,7 +14,7 @@ import numpy as np
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 
 
 class SeasonalFactors:
@@ -136,6 +136,6 @@ def calendar_spread_option(
 
     # Spreads can be negative — use Bachelier (normal model) for robustness
     # Normal vol = spread_vol × representative forward level
-    from pricebook.black76 import bachelier_price
+    from pricebook.models.black76 import bachelier_price
     normal_vol = spread_vol * max(abs(spread_forward), abs(forward_near) * 0.5)
     return bachelier_price(spread_forward, strike, normal_vol, T, df, option_type)

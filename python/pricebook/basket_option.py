@@ -20,10 +20,10 @@ from typing import Any
 
 import numpy as np
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.multi_asset_mc import CorrelatedGBM, MultiAssetResult
+from pricebook.models.multi_asset_mc import CorrelatedGBM, MultiAssetResult
 from pricebook.serialisable import _register, _serialise_atom
 
 

@@ -38,7 +38,7 @@ class TestForwardStart:
 
 class TestChooser:
     def test_worth_more_than_call(self):
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp(0.03 * 1.0)
         df = math.exp(-0.05 * 1.0)
         call = black76_price(F, 100, 0.20, 1.0, df, OptionType.CALL)

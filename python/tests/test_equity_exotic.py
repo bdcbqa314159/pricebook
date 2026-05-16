@@ -35,7 +35,7 @@ class TestEquityBarrier:
 
     def test_knock_out_less_than_vanilla(self):
         """Knock-out call ≤ vanilla call."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp((0.05 - 0.02) * 1.0)
         vanilla = black76_price(F, 100, 0.20, 1.0, math.exp(-0.05), OptionType.CALL)
         ko = equity_barrier_smile(
@@ -141,7 +141,7 @@ class TestEquityLookbackFixed:
 
     def test_exceeds_vanilla(self):
         """Fixed-strike lookback call ≥ vanilla call."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp((0.05 - 0.02) * 1.0)
         vanilla = black76_price(F, 100, 0.20, 1.0, math.exp(-0.05), OptionType.CALL)
         lb = equity_lookback_fixed(100, 100, 0.05, 0.02, 0.20, 1.0,
@@ -164,7 +164,7 @@ class TestCompoundOption:
 
     def test_compound_cheaper_than_underlying(self):
         """Call-on-call ≤ underlying call (paying strike_outer for the option)."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp((0.05 - 0.02) * 1.0)
         underlying_call = black76_price(F, 100, 0.20, 1.0, math.exp(-0.05), OptionType.CALL)
         compound = equity_compound_option(100, 5, 100, 0.05, 0.02, 0.20, 0.5, 1.0)

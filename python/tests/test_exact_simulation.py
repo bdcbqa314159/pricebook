@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.exact_simulation import (
+from pricebook.models.exact_simulation import (
     ExactCIRResult,
     exact_cir,
     exact_cir_zcb,

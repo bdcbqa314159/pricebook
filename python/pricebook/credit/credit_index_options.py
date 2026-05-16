@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook.black76 import (
+from pricebook.models.black76 import (
     black76_price, black76_delta, black76_gamma, black76_vega, black76_theta,
     OptionType,
 )

@@ -317,7 +317,7 @@ def check_butterfly_arbitrage(
     At a fixed tenor T, the call price must be convex in strike.
     Violations indicate a butterfly arbitrage opportunity.
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     F = cube.spot * math.exp((cube.rate_dom - cube.rate_for) * T)
     df = math.exp(-cube.rate_dom * T)

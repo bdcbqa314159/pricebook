@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.risk.greeks import Greeks
 from pricebook.discount_curve import DiscountCurve
@@ -132,7 +132,7 @@ class Swaption:
             else None
         )
 
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         vol = vol_surface.vol(self.expiry, self.strike)
         return self.price(
             Black76Model(vol=vol),

@@ -3,10 +3,10 @@
 import pytest
 import math
 
-from pricebook.lsm import lsm_american
-from pricebook.binomial_tree import binomial_american, binomial_european
-from pricebook.mc_pricer import mc_european, MCResult
-from pricebook.black76 import OptionType
+from pricebook.models.lsm import lsm_american
+from pricebook.models.binomial_tree import binomial_american, binomial_european
+from pricebook.models.mc_pricer import mc_european, MCResult
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

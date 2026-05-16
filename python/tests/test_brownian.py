@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.brownian import WienerProcess, CorrelatedBM, BrownianBridge
+from pricebook.models.brownian import WienerProcess, CorrelatedBM, BrownianBridge
 
 
 class TestWienerProcess:

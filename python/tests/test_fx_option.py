@@ -12,7 +12,7 @@ from pricebook.fx.fx_option import (
     fx_vega,
     strike_from_delta,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT = 1.0850  # EUR/USD

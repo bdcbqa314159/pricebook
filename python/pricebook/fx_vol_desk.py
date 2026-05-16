@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.fx.fx_option import fx_option_price, fx_vega
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.statistics.zscore import zscore as _zscore_impl
 
 

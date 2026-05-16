@@ -47,27 +47,27 @@ class TestHazardRateModelsMigration:
 
 class TestSpecialProcessMigration:
     def test_cir_via_engine(self):
-        from pricebook.special_process import cir_sample_via_engine
+        from pricebook.models.special_process import cir_sample_via_engine
         paths = cir_sample_via_engine(2.0, 0.04, 0.3, 0.04, 5.0, 50, 2_000)
         assert paths.shape == (2_000, 51)
         assert np.all(paths >= 0)
 
     def test_ou_via_engine(self):
-        from pricebook.special_process import ou_sample_via_engine
+        from pricebook.models.special_process import ou_sample_via_engine
         paths = ou_sample_via_engine(1.0, 0.0, 0.5, 0.0, 5.0, 50, 2_000)
         assert paths.shape == (2_000, 51)
 
 
 class TestStochasticCorrelationMigration:
     def test_cir_correlation_via_engine(self):
-        from pricebook.stochastic_correlation import CIRCorrelation, cir_correlation_simulate_via_engine
+        from pricebook.models.stochastic_correlation import CIRCorrelation, cir_correlation_simulate_via_engine
         model = CIRCorrelation(rho0=0.5, kappa=2.0, theta=0.3, sigma=0.2)
         result = cir_correlation_simulate_via_engine(model, 1.0, n_paths=2_000)
         assert result.rho_paths.shape[0] == 2_000
         assert -1 < result.mean_terminal_rho < 1
 
     def test_two_asset_stoch_corr_via_engine(self):
-        from pricebook.stochastic_correlation import CIRCorrelation, simulate_two_asset_stoch_corr_via_engine
+        from pricebook.models.stochastic_correlation import CIRCorrelation, simulate_two_asset_stoch_corr_via_engine
         model = CIRCorrelation(rho0=0.5, kappa=2.0, theta=0.3, sigma=0.2)
         result = simulate_two_asset_stoch_corr_via_engine(
             100, 50, 0.05, 0.02, 0.01, 0.20, 0.25, model, 1.0, n_paths=1_000)
@@ -123,7 +123,7 @@ class TestRiskyFloatingMCMigration:
 
 class TestRoughEquityMigration:
     def test_rbergomi_equity_via_engine(self):
-        from pricebook.rough_equity import rBergomiEquity, rbergomi_equity_simulate_via_engine
+        from pricebook.models.rough_equity import rBergomiEquity, rbergomi_equity_simulate_via_engine
         model = rBergomiEquity(xi0=0.04, eta=1.5, H=0.1)
         result = rbergomi_equity_simulate_via_engine(
             model, 100, 0.05, 0.02, 1.0, n_paths=1_000, n_steps=50,
@@ -134,7 +134,7 @@ class TestRoughEquityMigration:
 
 class TestLMMAdvancedMigration:
     def test_sabr_lmm_via_engine(self):
-        from pricebook.lmm_advanced import SABRLMM, sabr_lmm_simulate_via_engine
+        from pricebook.models.lmm_advanced import SABRLMM, sabr_lmm_simulate_via_engine
         model = SABRLMM([0.05] * 5)
         result = sabr_lmm_simulate_via_engine(model, 2.0, n_steps=50, n_paths=1_000)
         assert result.forward_paths.shape == (1_000, 51, 5)

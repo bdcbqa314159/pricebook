@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 from scipy.stats import norm
 
-from pricebook.mc_engine import MCEngine, TimeGrid
-from pricebook.mc_processes import BlackScholesProcess, OUProcess
-from pricebook.mc_payoffs import european_call, european_put, asian_arithmetic
-from pricebook.mc_extensions import (
+from pricebook.models.mc_engine import MCEngine, TimeGrid
+from pricebook.models.mc_processes import BlackScholesProcess, OUProcess
+from pricebook.models.mc_payoffs import european_call, european_put, asian_arithmetic
+from pricebook.models.mc_extensions import (
     sobol_engine, mlmc_price,
     pathwise_delta, likelihood_ratio_delta,
     CopulaDefaultEngine, tranche_loss,
@@ -129,7 +129,7 @@ class TestPathwiseGreeks:
 
     def test_lr_delta_digital(self):
         """LR works for digitals (pathwise doesn't)."""
-        from pricebook.mc_payoffs import digital_call
+        from pricebook.models.mc_payoffs import digital_call
         engine = MCEngine(
             BlackScholesProcess(100, 0.05, 0.20),
             TimeGrid.uniform(1.0, 1),

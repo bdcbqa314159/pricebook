@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import _register, _serialise_atom
@@ -141,7 +141,7 @@ class BarrierOption:
 
     def _price_pde(self, spot, rate, vol, T, div_yield, n_steps) -> float:
         """Price via finite difference PDE."""
-        from pricebook.finite_difference import fd_barrier_knockout, fd_barrier_knockin
+        from pricebook.models.finite_difference import fd_barrier_knockout, fd_barrier_knockin
 
         is_knockout = "out" in self.barrier_type
         is_up = "up" in self.barrier_type
@@ -287,8 +287,8 @@ def barrier_option_mc_via_engine(
     Drop-in replacement for BarrierOption._price_mc().
     Supports Brownian bridge correction for continuous monitoring.
     """
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import BlackScholesProcess, barrier_correction
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import BlackScholesProcess, barrier_correction
 
     process = BlackScholesProcess(spot, rate - div_yield, vol)
     grid = TimeGrid.uniform(T, n_steps)

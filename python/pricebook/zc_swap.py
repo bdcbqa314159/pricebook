@@ -15,7 +15,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, generate_schedule

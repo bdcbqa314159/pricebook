@@ -7,7 +7,7 @@ from pricebook.swaption import Swaption, SwaptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.vol_surface import FlatVol
-from pricebook.models import Black76Model
+from pricebook.models.models import Black76Model
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 from tests.conftest import make_flat_curve

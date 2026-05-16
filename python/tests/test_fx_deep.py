@@ -13,7 +13,7 @@ from pricebook.fx.fx_forward import FXForward
 from pricebook.fx.fx_option import fx_option_price, fx_spot_delta, fx_forward_delta, strike_from_delta
 from pricebook.fx.fx_barrier import fx_barrier_pde
 from pricebook.fx.ndf import NDF
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 
 

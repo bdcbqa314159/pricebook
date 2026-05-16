@@ -21,8 +21,8 @@ import math
 
 import numpy as np
 
-from pricebook.special_process import CIRProcess
-from pricebook.brownian import CorrelatedBM
+from pricebook.models.special_process import CIRProcess
+from pricebook.models.brownian import CorrelatedBM
 from pricebook.statistics.optimization import minimize
 
 
@@ -228,7 +228,7 @@ def cir_intensity_simulate_via_engine(
     seed: int = 42,
 ) -> np.ndarray:
     """``CIRIntensity.simulate_intensity`` via unified MC engine (CIR paths)."""
-    from pricebook.mc_migrate import cir_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import cir_paths  # noqa: lazy
 
     return cir_paths(
         x0=lam0, kappa=model.kappa, theta=model.theta, sigma=model.xi,
@@ -261,7 +261,7 @@ def joint_rate_hazard_simulate_via_engine(
     seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
     """``JointRateHazard.simulate`` via unified MC engine (OU + CIR)."""
-    from pricebook.mc_migrate import ou_paths, cir_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths, cir_paths  # noqa: lazy
 
     # Rate: OU process
     r = ou_paths(

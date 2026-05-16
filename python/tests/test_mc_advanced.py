@@ -3,10 +3,10 @@
 import pytest
 import math
 
-from pricebook.mc_advanced import mc_stratified, mc_importance, mc_mlmc
-from pricebook.mc_pricer import mc_european
+from pricebook.models.mc_advanced import mc_stratified, mc_importance, mc_mlmc
+from pricebook.models.mc_pricer import mc_european
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

@@ -68,7 +68,7 @@ class TestAPIX3:
 
 class TestAPIX4:
     def test_implied_vol(self):
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         price = black76_price(100, 100, 0.20, 1.0, 0.96, OptionType.CALL)
         iv = pb.implied_vol(price, 100, 100, 1.0, 0.96)
         assert iv == pytest.approx(0.20, rel=0.01)

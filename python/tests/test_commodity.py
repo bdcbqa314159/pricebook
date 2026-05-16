@@ -10,7 +10,7 @@ from pricebook.commodity.commodity import (
     commodity_option_price,
 )
 from pricebook.schedule import Frequency
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from tests.conftest import make_flat_curve
 
 

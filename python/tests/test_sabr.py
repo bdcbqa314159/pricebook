@@ -4,7 +4,7 @@ import pytest
 import math
 
 from pricebook.sabr import sabr_implied_vol, sabr_price, sabr_calibrate
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 
 
 F = 0.03  # forward swap rate

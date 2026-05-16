@@ -121,8 +121,8 @@ class BuhlerStochasticDividend:
         Maps Buhler (GBM spot + OU div yield with ρ) onto HestonProcess
         which provides correlated 2-factor Euler with shared Brownians.
         """
-        from pricebook.mc_engine import MCEngine, TimeGrid
-        from pricebook.mc_processes import HestonProcess
+        from pricebook.models.mc_engine import MCEngine, TimeGrid
+        from pricebook.models.mc_processes import HestonProcess
 
         # Heston is: dS = (r - 0.5v)dt + √v dW₁, dv = κ(θ-v)dt + ξ√v dW₂
         # Buhler is: dS = (r - q)dt + σ_S dW₁, dq = κ_q(θ_q - q)dt + ξ_q dW₂

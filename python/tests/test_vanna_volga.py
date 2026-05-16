@@ -68,7 +68,7 @@ class TestVVVanilla:
         result = vv_adjust_vanilla(1.0, K_25c, 0.02, 0.01,
                                     0.10, 0.11, 0.12, 1.0, is_call=True)
         # VV price should equal the market price using 25D call vol
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 1.0 * math.exp((0.02 - 0.01) * 1.0)
         df = math.exp(-0.02)
         mkt = black76_price(F, K_25c, 0.11, 1.0, df, OptionType.CALL)

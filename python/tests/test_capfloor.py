@@ -5,8 +5,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.capfloor import CapFloor
-from pricebook.black76 import OptionType
-from pricebook.models import Black76Model
+from pricebook.models.black76 import OptionType
+from pricebook.models.models import Black76Model
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve

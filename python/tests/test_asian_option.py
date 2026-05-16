@@ -11,7 +11,7 @@ import pytest
 from pricebook.asian_option import (
     AsianOption, AsianSchedule, AsianResult, turnbull_wakeman, curran_asian,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import from_dict
 
@@ -86,7 +86,7 @@ class TestTurnbullWakeman:
 
     def test_atm_lower_than_european(self):
         """Asian ATM < European ATM (averaging reduces uncertainty)."""
-        from pricebook.black76 import black76_price
+        from pricebook.models.black76 import black76_price
         times = [i * 0.25 for i in range(1, 5)]
         weights = [0.25] * 4
         asian = turnbull_wakeman(100, 100, 0.03, 0.20, times, weights, 1.0)

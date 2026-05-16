@@ -20,7 +20,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.interpolation import InterpolationMethod, create_interpolator
 from pricebook.schedule import Frequency, generate_schedule
-from pricebook.black76 import OptionType, black76_price, black76_vega
+from pricebook.models.black76 import OptionType, black76_price, black76_vega
 
 
 class CommodityForwardCurve:

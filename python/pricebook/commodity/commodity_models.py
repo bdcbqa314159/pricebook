@@ -436,7 +436,7 @@ def schwartz_one_factor_simulate_via_engine(
     seed: int | None = 42,
 ) -> SchwartzOneFactorResult:
     """``SchwartzOneFactor.simulate`` via unified MC engine (OU on log-spot)."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     log_s0 = math.log(spot)
     log_paths = ou_paths(
@@ -480,7 +480,7 @@ def schwartz_smith_simulate_via_engine(
     seed: int | None = 42,
 ) -> SchwartzSmithResult:
     """``SchwartzSmith.simulate`` via unified MC engine (OU + BM)."""
-    from pricebook.mc_migrate import ou_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import ou_paths  # noqa: lazy
 
     # chi: OU with mean 0
     chi = ou_paths(

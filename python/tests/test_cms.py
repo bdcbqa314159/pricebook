@@ -8,7 +8,7 @@ from pricebook.structured.cms import (
     cms_convexity_adjustment, CMSLeg,
     cms_cap, cms_spread_option, range_accrual,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection

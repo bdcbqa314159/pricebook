@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 from pricebook.local_vol import LocalVolSurface
 
 
@@ -169,8 +169,8 @@ def slv_mc_via_engine(
     Drop-in replacement for slv_mc().
     Returns terminal spot values (n_paths,).
     """
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import SLVProcess
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import SLVProcess
 
     h = model.heston
     def lv_func(S, t):

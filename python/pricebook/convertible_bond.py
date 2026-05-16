@@ -579,7 +579,7 @@ def contingent_convertible_via_engine(
     seed: int | None = 42,
 ) -> CoCoResult:
     """``contingent_convertible`` with GBM paths from unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import gbm_paths  # noqa: lazy
 
     if n_steps is None:
         n_steps = int(maturity_years * 12)
@@ -642,7 +642,7 @@ def mandatory_convertible_via_engine(
     seed: int | None = 42,
 ) -> MandatoryConvertibleResult:
     """``mandatory_convertible`` with GBM terminal from unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import gbm_paths  # noqa: lazy
 
     # One-step GBM for terminal price
     S_paths = gbm_paths(

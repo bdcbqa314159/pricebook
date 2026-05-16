@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pricebook.nd_solvers import (
+from pricebook.models.nd_solvers import (
     NDSolverResult,
     broyden,
     damped_newton,

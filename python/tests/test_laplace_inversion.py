@@ -5,7 +5,7 @@ import cmath
 
 import pytest
 
-from pricebook.laplace_inversion import (
+from pricebook.models.laplace_inversion import (
     LaplaceInversionResult,
     euler_inversion,
     gaver_stehfest,

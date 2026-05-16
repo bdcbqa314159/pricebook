@@ -31,7 +31,7 @@ class TestCommodityBarrier:
         assert result.price >= 0
 
     def test_ko_less_than_vanilla(self):
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 80 * math.exp((0.03 - 0.05) * 1.0)  # backwardation
         vanilla = black76_price(F, 80, 0.30, 1.0, math.exp(-0.03), OptionType.CALL)
         ko = commodity_barrier_smile(
@@ -46,7 +46,7 @@ class TestCommodityBarrier:
                                        is_up=True, is_knock_in=False)
         ki = commodity_barrier_smile(80, 80, 95, 0.03, 0.05, 0.30, 0.30, 0.30, 1.0,
                                        is_up=True, is_knock_in=True)
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 80 * math.exp((0.03 - 0.05) * 1.0)
         vanilla = black76_price(F, 80, 0.30, 1.0, math.exp(-0.03), OptionType.CALL)
         # parity approximate due to VV smile adjustments
@@ -71,7 +71,7 @@ class TestCommodityLookback:
 
     def test_fixed_exceeds_vanilla(self):
         """Fixed-strike lookback call ≥ vanilla (max(S) ≥ S_T)."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 80 * math.exp((0.03 - 0.05) * 1.0)
         vanilla = black76_price(F, 80, 0.30, 1.0, math.exp(-0.03), OptionType.CALL)
         lb = commodity_lookback(80, 0.03, 0.05, 0.30, 1.0,
@@ -116,7 +116,7 @@ class TestCommodityAsian:
 
     def test_asian_less_than_vanilla(self):
         """Asian < vanilla (averaging reduces effective vol)."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 80 * math.exp((0.03 - 0.05) * 1.0)
         vanilla = black76_price(F, 80, 0.30, 1.0, math.exp(-0.03), OptionType.CALL)
         asian = commodity_asian_monthly(80, 80, 0.03, 0.05, 0.30, 1.0, is_arithmetic=False)

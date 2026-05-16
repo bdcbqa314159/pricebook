@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- Merton FX ----
@@ -224,7 +224,7 @@ class BatesFXModel:
         seed: int | None = 42,
     ) -> BatesFXResult:
         """Bates FX option via the unified MC engine."""
-        from pricebook.mc_migrate import bates_paths
+        from pricebook.models.mc_migrate import bates_paths
         spot_paths, var_paths = bates_paths(
             spot, self.v0, rate_dom - rate_for, self.kappa_v, self.theta_v,
             self.xi, self.rho, self.lambda_jump, self.jump_mean, self.jump_vol,

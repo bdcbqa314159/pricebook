@@ -157,7 +157,7 @@ class TestCreditConsistency:
 class TestOptionConsistency:
     def test_european_put_call_parity(self):
         """C − P = DF × (F − K) for European options."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100.0
         K = 100.0
         vol = 0.20
@@ -170,7 +170,7 @@ class TestOptionConsistency:
 
     def test_otm_put_call_parity(self):
         """Put-call parity for OTM strike."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100.0
         K = 110.0
         vol = 0.20

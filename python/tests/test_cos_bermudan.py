@@ -5,9 +5,9 @@ import cmath
 
 import pytest
 
-from pricebook.black76 import OptionType
-from pricebook.cos_bermudan import cos_american, cos_bermudan
-from pricebook.cos_method import cos_price, bs_char_func
+from pricebook.models.black76 import OptionType
+from pricebook.models.cos_bermudan import cos_american, cos_bermudan
+from pricebook.models.cos_method import cos_price, bs_char_func
 from pricebook.equity_option import equity_option_price
 
 

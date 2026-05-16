@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 @dataclass
@@ -83,7 +83,7 @@ def dual_digital(
     Condition 2: S2(T) >= barrier2 (or <= if is_above2=False).
     Payoff = payout if both conditions true, else 0.
     """
-    from pricebook.mc_migrate import correlated_gbm_paths
+    from pricebook.models.mc_migrate import correlated_gbm_paths
 
     corr = np.array([[1.0, correlation], [correlation, 1.0]])
     paths = correlated_gbm_paths([spot1, spot2], [rate - div1, rate - div2],
@@ -124,7 +124,7 @@ def bonus_certificate(
     If barrier hit: certificate = stock (no bonus).
     If barrier not hit: certificate = max(S_T, bonus_level).
     """
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     paths_arr = gbm_paths(spot, rate - dividend_yield, vol, T, n_steps, n_paths, seed or 42)
     df = math.exp(-rate * T)
@@ -241,7 +241,7 @@ def participation_note(
         participation: if None, solve for zero-cost participation rate.
         cap: optional upside cap as fraction above spot (e.g. 0.5 = 50% cap).
     """
-    from pricebook.black76 import black76_price as _b76, OptionType
+    from pricebook.models.black76 import black76_price as _b76, OptionType
 
     # Bond floor: PV of protected principal
     df = math.exp(-rate * T)

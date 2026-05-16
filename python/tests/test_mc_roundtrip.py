@@ -10,9 +10,9 @@ Slice 9 round-trip validation: Monte Carlo engine.
 import pytest
 import math
 
-from pricebook.mc_pricer import mc_european
+from pricebook.models.mc_pricer import mc_european
 from pricebook.asian import geometric_asian_analytical, mc_asian_arithmetic
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0
@@ -89,7 +89,7 @@ class TestAsianGeometricConsistency:
     """MC geometric average matches analytical formula."""
 
     def test_geometric_mc_vs_analytical(self):
-        from pricebook.gbm import GBMGenerator
+        from pricebook.models.gbm import GBMGenerator
         from pricebook.statistics.rng import PseudoRandom
         import numpy as np
 
@@ -110,7 +110,7 @@ class TestAsianGeometricConsistency:
         assert mc_price == pytest.approx(analytical, rel=0.03)
 
     def test_geometric_put(self):
-        from pricebook.gbm import GBMGenerator
+        from pricebook.models.gbm import GBMGenerator
         from pricebook.statistics.rng import PseudoRandom
         import numpy as np
 

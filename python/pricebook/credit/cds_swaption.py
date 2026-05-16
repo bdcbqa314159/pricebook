@@ -32,7 +32,7 @@ from typing import Any
 
 import numpy as np
 
-from pricebook.black76 import OptionType, black76_price, bachelier_price, _norm_cdf
+from pricebook.models.black76 import OptionType, black76_price, bachelier_price, _norm_cdf
 
 
 # ---- Forward CDS spread ----
@@ -919,7 +919,7 @@ def pedersen_price_mc_via_engine(
     seed: int | None = None,
 ) -> PedersenResult:
     """Pedersen CDS swaption via the unified MC engine (single-step lognormal)."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     fwd = forward_cds_spread(expiry, cds_maturity, model.flat_hazard,
                               model.flat_rate, model.recovery)
@@ -952,7 +952,7 @@ def stochastic_intensity_swaption_via_engine(
     seed: int = 42,
 ) -> PedersenResult:
     """Stochastic intensity CDS swaption via unified MC engine (CIR paths)."""
-    from pricebook.mc_migrate import cir_paths
+    from pricebook.models.mc_migrate import cir_paths
 
     lam0 = model.theta
     paths = cir_paths(lam0, model.kappa, model.theta, model.xi,

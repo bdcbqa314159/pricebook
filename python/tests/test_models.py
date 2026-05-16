@@ -6,10 +6,10 @@ from dateutil.relativedelta import relativedelta
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.capfloor import CapFloor
-from pricebook.models import (
+from pricebook.models.models import (
     Black76Model, BachelierModel, SABRModel, SABRParams,
     HullWhiteModel, BSModel, HestonModel, HestonParams,
     MCEquityModel, IROptionModel, EquityOptionModel,
@@ -150,7 +150,7 @@ class TestSwaptionSABR:
 
 class TestSwaptionHullWhite:
     def test_positive_price(self):
-        from pricebook.hull_white import HullWhite
+        from pricebook.models.hull_white import HullWhite
         curve = _curve()
         hw = HullWhite(a=0.03, sigma=0.01, curve=curve)
         sw = _swaption()
@@ -158,7 +158,7 @@ class TestSwaptionHullWhite:
         assert sw.price(model, curve) > 0
 
     def test_higher_sigma_higher_price(self):
-        from pricebook.hull_white import HullWhite
+        from pricebook.models.hull_white import HullWhite
         curve = _curve()
         sw = _swaption()
         p1 = sw.price(HullWhiteModel(HullWhite(a=0.03, sigma=0.005, curve=curve)), curve)
@@ -316,7 +316,7 @@ class TestParams:
         assert "SABR" in repr(SABRModel(SABRParams(0.03, 0.5, -0.3, 0.4)))
 
     def test_hw_repr(self):
-        from pricebook.hull_white import HullWhite
+        from pricebook.models.hull_white import HullWhite
         curve = _curve()
         hw = HullWhite(a=0.03, sigma=0.01, curve=curve)
         assert "HullWhite" in repr(HullWhiteModel(hw))

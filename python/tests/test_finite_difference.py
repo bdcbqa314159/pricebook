@@ -3,10 +3,10 @@
 import pytest
 import math
 
-from pricebook.finite_difference import fd_european, fd_american, FDScheme
+from pricebook.models.finite_difference import fd_european, fd_american, FDScheme
 from pricebook.equity_option import equity_option_price
-from pricebook.binomial_tree import binomial_american
-from pricebook.black76 import OptionType
+from pricebook.models.binomial_tree import binomial_american
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

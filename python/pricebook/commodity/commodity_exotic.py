@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- Commodity barrier with smile ----
@@ -348,7 +348,7 @@ def commodity_lookback_via_engine(
     if strike is None:
         strike = spot
 
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
     paths = gbm_paths(spot, rate - convenience_yield, vol, T, n_observations, n_paths, seed or 42)
 
     if is_call:
@@ -376,7 +376,7 @@ def commodity_asian_monthly_via_engine(
     seed: int | None = 42,
 ) -> CommodityAsianResult:
     """Commodity arithmetic Asian via unified MC engine with control variate."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     # Geometric closed form for control variate
     sigma_g = vol * math.sqrt((2 * n_fixings + 1) / (6 * (n_fixings + 1)))

@@ -9,11 +9,11 @@ import numpy as np
 import pytest
 
 from pricebook.local_vol import calibrate_dupire, LocalVolSurface
-from pricebook.multi_asset_mc import CorrelatedGBM, basket_option_mc, worst_of_mc
+from pricebook.models.multi_asset_mc import CorrelatedGBM, basket_option_mc, worst_of_mc
 from pricebook.sabr import calibrate_sabr_smile, sabr_implied_vol
 from pricebook.risk.pathwise_greeks import pathwise_asian_delta, pathwise_european_delta
-from pricebook.black76 import OptionType
-from pricebook.gbm import GBMGenerator
+from pricebook.models.black76 import OptionType
+from pricebook.models.gbm import GBMGenerator
 from pricebook.statistics.rng import PseudoRandom
 
 

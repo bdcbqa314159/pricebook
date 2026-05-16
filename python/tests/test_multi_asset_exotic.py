@@ -21,7 +21,7 @@ class TestRainbow:
 
     def test_best_geq_single(self):
         """Best-of call ≥ single-asset call."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp(0.01)
         single = black76_price(F, 100, 0.20, 1.0, math.exp(-0.03), OptionType.CALL)
         best = rainbow_option([100, 100], 100, 0.03, [0.02, 0.02], [0.20, 0.20],
@@ -64,7 +64,7 @@ class TestKnockoutBasket:
         ko = knockout_basket([100, 100], 0.03, [0.02, 0.02], [0.20, 0.25],
                               _corr2(), 1.0, 0, 110, True, 1, 100, n_paths=5000, seed=42)
         # Simple vanilla on asset 1
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         F = 100 * math.exp(0.01)
         vanilla = black76_price(F, 100, 0.25, 1.0, math.exp(-0.03), OptionType.CALL)
         assert ko.price <= vanilla + 1.0

@@ -266,7 +266,7 @@ def fx_dual_currency_deposit(
         notional: deposit amount in ccy1.
         strike: conversion strike.
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     # Value of short put on FX
     F = spot * math.exp((rate_dom - rate_for) * T)
@@ -366,7 +366,7 @@ def fx_tarf_price_via_engine(
     seed: int | None = 42,
 ) -> TARFResult:
     """FX TARF via the unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     paths = gbm_paths(spot, rate_dom - rate_for, vol, T, n_observations, n_paths, seed or 42)
     dt = T / n_observations
@@ -418,7 +418,7 @@ def fx_autocallable_price_via_engine(
     seed: int | None = 42,
 ) -> AutocallableResult:
     """FX autocallable via the unified MC engine."""
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     obs_sorted = sorted(observation_dates)
     n_steps = max(int(T * 100), len(obs_sorted) * 3)

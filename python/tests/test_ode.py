@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.ode import rk4, rk45, bdf, ODEResult
+from pricebook.models.ode import rk4, rk45, bdf, ODEResult
 
 
 class TestRK4:

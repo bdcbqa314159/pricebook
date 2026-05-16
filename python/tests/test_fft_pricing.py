@@ -5,10 +5,10 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.black76 import OptionType
-from pricebook.cos_method import bs_char_func, cos_price, heston_char_func_cos
+from pricebook.models.black76 import OptionType
+from pricebook.models.cos_method import bs_char_func, cos_price, heston_char_func_cos
 from pricebook.equity_option import equity_option_price
-from pricebook.fft_pricing import (
+from pricebook.models.fft_pricing import (
     DensityResult,
     FFTResult,
     carr_madan_fft,
@@ -79,7 +79,7 @@ class TestLewisPrice:
         price = lewis_price(cf, SPOT, SPOT, RATE, T)
         assert price > 0
         # Should be close to Black-76
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         fwd = SPOT * math.exp(RATE * T)
         df = math.exp(-RATE * T)
         bs = black76_price(fwd, SPOT, VOL, T, df, OptionType.CALL)

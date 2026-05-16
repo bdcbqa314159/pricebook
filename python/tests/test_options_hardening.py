@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 from pricebook.vol_surface import FlatVol
 from tests.conftest import make_flat_curve
 
@@ -18,7 +18,7 @@ class TestIRGreeksConsistency:
         from pricebook.swaption import Swaption, SwaptionType
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         model = Black76Model(vol=0.30)
         swpn = Swaption(date(2027, 4, 21), date(2032, 4, 21), 0.04)
         g = swpn.greeks(model, curve)
@@ -36,7 +36,7 @@ class TestIRGreeksConsistency:
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
         vol = FlatVol(0.30)
-        from pricebook.models import Black76Model
+        from pricebook.models.models import Black76Model
         m = Black76Model(vol=0.30)
         cap = CapFloor(ref, date(2031, 4, 21), 0.04)
         total = cap.price(m, curve)

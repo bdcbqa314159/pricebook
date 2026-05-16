@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
@@ -139,7 +139,7 @@ def _swaption_greeks(
     time_shift: float = 1.0 / 365,
 ) -> dict[str, float]:
     """Compute Greeks for a swaption via bump-and-reprice."""
-    from pricebook.models import Black76Model
+    from pricebook.models.models import Black76Model
 
     vol = vol_surface.vol(swn.expiry, swn.strike) if hasattr(vol_surface, 'vol') else float(vol_surface)
     model = Black76Model(vol=vol)

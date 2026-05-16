@@ -398,8 +398,8 @@ def slv_barrier_price_via_engine(
     seed: int | None = 42,
 ) -> SLVBarrierResult:
     """SLV barrier via unified MC engine (SLVProcess)."""
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import SLVProcess
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import SLVProcess
 
     def lv_func(S, t):
         if np.isscalar(S):

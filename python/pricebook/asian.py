@@ -17,9 +17,9 @@ import math
 
 import numpy as np
 
-from pricebook.black76 import OptionType, black76_price
-from pricebook.gbm import GBMGenerator
-from pricebook.mc_pricer import MCResult
+from pricebook.models.black76 import OptionType, black76_price
+from pricebook.models.gbm import GBMGenerator
+from pricebook.models.mc_pricer import MCResult
 from pricebook.statistics.rng import PseudoRandom
 
 
@@ -176,16 +176,16 @@ def mc_asian_arithmetic_via_engine(
     Drop-in replacement for mc_asian_arithmetic() using MCEngine.
     Supports antithetic, control variate, and Sobol.
     """
-    from pricebook.mc_engine import MCEngine, TimeGrid
-    from pricebook.mc_processes import BlackScholesProcess
-    from pricebook.mc_payoffs import asian_arithmetic, asian_geometric
+    from pricebook.models.mc_engine import MCEngine, TimeGrid
+    from pricebook.models.mc_processes import BlackScholesProcess
+    from pricebook.models.mc_payoffs import asian_arithmetic, asian_geometric
 
     process = BlackScholesProcess(spot, rate - div_yield, vol)
     grid = TimeGrid.uniform(T, n_steps)
     df = math.exp(-rate * T)
 
     if use_sobol:
-        from pricebook.mc_extensions import sobol_engine
+        from pricebook.models.mc_extensions import sobol_engine
         engine = sobol_engine(process, grid, n_paths, seed)
     else:
         engine = MCEngine(process, grid, n_paths, seed, antithetic=antithetic)
@@ -201,7 +201,7 @@ def mc_asian_arithmetic_via_engine(
             return np.maximum(strike - avg, 0.0)
 
     if control_variate:
-        from pricebook.mc_variance_reduction import control_variate as cv_fn
+        from pricebook.models.mc_variance_reduction import control_variate as cv_fn
         geo_payoff = asian_geometric(strike, log_space=True)
         geo_exact = geometric_asian_analytical(spot, strike, rate, vol, T, n_steps, option_type, div_yield)
         result = cv_fn(engine, payoff, geo_payoff, geo_exact, df)

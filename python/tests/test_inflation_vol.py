@@ -8,7 +8,7 @@ from pricebook.inflation_vol import (
     zc_inflation_cap, yoy_inflation_cap, InflationVolSurface,
 )
 from pricebook.inflation import CPICurve, zc_inflation_swap_pv
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 
 

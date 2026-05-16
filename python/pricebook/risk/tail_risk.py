@@ -150,7 +150,7 @@ def tail_risk_pricing_via_engine(
     Uses gbm_paths for the normal component; Pareto tail overlay remains
     inline as it's a distribution mix, not an SDE.
     """
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     paths = gbm_paths(spot, rate, scale, T, 1, n_paths, seed or 42)
     S_normal = paths[:, -1]

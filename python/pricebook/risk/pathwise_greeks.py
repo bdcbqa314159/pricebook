@@ -19,7 +19,7 @@ import math
 
 import numpy as np
 
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 def pathwise_asian_delta(

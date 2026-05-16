@@ -3,9 +3,9 @@
 import math
 import pytest
 
-from pricebook.adi import two_asset_option
+from pricebook.models.adi import two_asset_option
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 S1, S2, K, R, T = 100.0, 100.0, 0.0, 0.05, 1.0

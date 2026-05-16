@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.rough_equity import (
+from pricebook.models.rough_equity import (
     ForwardVarianceCurve,
     RoughHestonParams,
     forward_variance_curve,

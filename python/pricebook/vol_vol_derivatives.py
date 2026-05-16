@@ -254,7 +254,7 @@ def vix_option_price_via_engine(
     seed: int | None = 42,
 ) -> VIXOptionResult:
     """VIX option via the unified MC engine (CIR variance paths)."""
-    from pricebook.mc_migrate import cir_paths
+    from pricebook.models.mc_migrate import cir_paths
 
     v_paths = cir_paths(v0, kappa, theta, xi, T_option, n_steps, n_paths, seed or 42)
     v = v_paths[:, -1]

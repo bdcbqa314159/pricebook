@@ -18,7 +18,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, StubType, generate_schedule
@@ -292,7 +292,7 @@ def cms_spread_option(
 
         # Black-76 requires positive forward and strike; use Bachelier for near-zero
         if strike <= 0 or spread_fwd <= 0:
-            from pricebook.black76 import bachelier_price
+            from pricebook.models.black76 import bachelier_price
             # Convert lognormal vol to absolute (normal) vol via fwd-rate scaling
             # Use a representative rate to scale: max(|fwd|, 0.01)
             absolute_vol = spread_vol * max(abs(spread_fwd), 0.01)

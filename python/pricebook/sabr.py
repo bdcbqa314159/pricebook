@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 
 
 def sabr_implied_vol(

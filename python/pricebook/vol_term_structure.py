@@ -126,7 +126,7 @@ def bergomi_2f_simulate_via_engine(
     seed: int | None = 42,
 ) -> Bergomi2FactorResult:
     """Bergomi 2-factor via the unified MC engine (two OU Brownians)."""
-    from pricebook.mc_migrate import ou_paths
+    from pricebook.models.mc_migrate import ou_paths
 
     # Two independent BMs (OU with a=0, mu=0, sigma=1 gives BM)
     W1 = ou_paths(0.0, 0.0, 0.0, 1.0, T, n_steps, n_paths, seed or 42)

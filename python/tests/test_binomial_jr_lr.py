@@ -3,15 +3,15 @@
 import math
 import pytest
 
-from pricebook.binomial_jr_lr import (
+from pricebook.models.binomial_jr_lr import (
     jr_european,
     jr_american,
     lr_european,
     lr_american,
     _peizer_pratt,
 )
-from pricebook.binomial_tree import binomial_european, binomial_american
-from pricebook.black76 import OptionType
+from pricebook.models.binomial_tree import binomial_european, binomial_american
+from pricebook.models.black76 import OptionType
 from pricebook.equity_option import equity_option_price
 
 

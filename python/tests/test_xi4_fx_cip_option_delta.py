@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fx.fx_forward import FXForward
 from pricebook.fx.fx_option import (

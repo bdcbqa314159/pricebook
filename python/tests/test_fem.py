@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.fem import (
+from pricebook.models.fem import (
     _p1_mass,
     _p1_stiffness,
     _p2_mass,
@@ -15,7 +15,7 @@ from pricebook.fem import (
     fem_bs_european,
 )
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 class TestElementMatrices:
@@ -137,32 +137,32 @@ class TestBSFEM:
 class TestSUPG:
     def test_call_accuracy(self):
         """Non-uniform mesh FEM should match analytical within 7%."""
-        from pricebook.fem import fem_bs_supg
+        from pricebook.models.fem import fem_bs_supg
         bs = equity_option_price(100, 100, 0.05, 0.20, 1.0)
         supg = fem_bs_supg(100, 100, 0.05, 0.20, 1.0)
         assert supg == pytest.approx(bs, rel=0.07)
 
     def test_put_accuracy(self):
-        from pricebook.fem import fem_bs_supg
+        from pricebook.models.fem import fem_bs_supg
         bs = equity_option_price(100, 100, 0.05, 0.20, 1.0, OptionType.PUT)
         supg = fem_bs_supg(100, 100, 0.05, 0.20, 1.0, is_call=False)
         assert supg == pytest.approx(bs, rel=0.07)
 
     def test_itm(self):
-        from pricebook.fem import fem_bs_supg
+        from pricebook.models.fem import fem_bs_supg
         bs = equity_option_price(120, 100, 0.05, 0.20, 1.0)
         supg = fem_bs_supg(120, 100, 0.05, 0.20, 1.0)
         assert supg == pytest.approx(bs, rel=0.10)
 
     def test_otm(self):
-        from pricebook.fem import fem_bs_supg
+        from pricebook.models.fem import fem_bs_supg
         bs = equity_option_price(100, 120, 0.05, 0.20, 1.0)
         supg = fem_bs_supg(100, 120, 0.05, 0.20, 1.0)
         assert supg == pytest.approx(bs, rel=0.10)
 
     def test_atm_better_than_heat_transform(self):
         """Non-uniform mesh should be more accurate ATM than uniform mesh."""
-        from pricebook.fem import fem_bs_supg
+        from pricebook.models.fem import fem_bs_supg
         bs = equity_option_price(100, 100, 0.05, 0.20, 1.0)
         heat = fem_bs_european(100, 100, 0.05, 0.20, 1.0, n_spatial=100, n_time=100)
         supg = fem_bs_supg(100, 100, 0.05, 0.20, 1.0, n_spatial=100, n_time=100)

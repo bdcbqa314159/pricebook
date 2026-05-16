@@ -353,7 +353,7 @@ def johnson_max_call_via_engine(
     T: float,
 ) -> MaxMinResult:
     """``johnson_max_call`` via unified MC engine (correlated GBM)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     n_paths = 50_000
     corr = np.array([[1.0, correlation], [correlation, 1.0]])
@@ -383,7 +383,7 @@ def johnson_min_call_via_engine(
     T: float,
 ) -> MaxMinResult:
     """``johnson_min_call`` via unified MC engine (correlated GBM)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     n_paths = 50_000
     corr = np.array([[1.0, correlation], [correlation, 1.0]])
@@ -415,7 +415,7 @@ def equity_basket_mc_via_engine(
     seed: int | None = 42,
 ) -> EquityBasketResult:
     """``equity_basket_mc`` via unified MC engine (correlated GBM)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     n = len(spots)
     rates_adj = [rate - d for d in dividend_yields]

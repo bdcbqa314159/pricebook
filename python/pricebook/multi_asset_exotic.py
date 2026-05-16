@@ -285,7 +285,7 @@ def _simulate_correlated_via_engine(spots, rates, divs, vols, corr, T, n_paths, 
     Drop-in replacement for _simulate_correlated().
     Returns (n_paths, n_steps+1, n_assets) in SPOT space.
     """
-    from pricebook.mc_migrate import correlated_gbm_paths
+    from pricebook.models.mc_migrate import correlated_gbm_paths
 
     n = len(spots)
     if isinstance(rates, (int, float)):

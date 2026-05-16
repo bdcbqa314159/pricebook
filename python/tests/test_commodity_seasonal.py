@@ -10,7 +10,7 @@ from pricebook.commodity.commodity_seasonal import (
     StorageCostModel,
     calendar_spread_option,
 )
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 REF = date(2024, 1, 15)

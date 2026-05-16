@@ -226,7 +226,7 @@ def kirk_spread_smile(
     F_spread = forward1 - forward2
     K_eff = strike
 
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
     opt = OptionType.CALL if is_call else OptionType.PUT
     flat_price = black76_price(F_spread, K_eff, sigma, T, df, opt)
     smile_price = black76_price(F_spread, K_eff, sigma_smile, T, df, opt)

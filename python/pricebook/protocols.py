@@ -111,7 +111,7 @@ class CharFunc(Protocol):
 
 from pricebook.solvers import SolverResult  # noqa: E402
 from pricebook.curves.quadrature import QuadratureResult  # noqa: E402
-from pricebook.mc_pricer import MCResult  # noqa: E402
+from pricebook.models.mc_pricer import MCResult  # noqa: E402
 
 
 __all__ = [

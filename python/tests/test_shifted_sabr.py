@@ -10,7 +10,7 @@ from pricebook.sabr import (
     shifted_sabr_price,
     sabr_normal_vol,
 )
-from pricebook.black76 import OptionType, bachelier_price
+from pricebook.models.black76 import OptionType, bachelier_price
 
 
 F, K, T = 0.02, 0.02, 5.0  # low rate environment

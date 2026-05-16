@@ -3,8 +3,8 @@
 import pytest
 import math
 
-from pricebook.mc_pricer import mc_european, MCResult
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.mc_pricer import mc_european, MCResult
+from pricebook.models.black76 import OptionType, black76_price
 
 
 # Analytical Black-Scholes price for cross-checking

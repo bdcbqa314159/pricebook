@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.loan import TermLoan

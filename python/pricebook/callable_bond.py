@@ -23,7 +23,7 @@ from datetime import date
 
 import numpy as np
 
-from pricebook.hull_white import HullWhite
+from pricebook.models.hull_white import HullWhite
 from pricebook.day_count import date_from_year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.solvers import brentq

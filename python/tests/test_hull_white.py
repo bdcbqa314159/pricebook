@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.hull_white import HullWhite
+from pricebook.models.hull_white import HullWhite
 from tests.conftest import make_flat_curve
 
 

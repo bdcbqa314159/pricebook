@@ -28,7 +28,7 @@ class TestMertonFX:
 
     def test_no_jumps_matches_bs(self):
         """λ=0 → Merton reduces to Black-Scholes."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         result = merton_fx_price(1.0, 1.0, 0.02, 0.01, 0.10, 1.0,
                                    lambda_jump=0.0, jump_mean=0.0, jump_vol=0.01)
         F = 1.0 * math.exp((0.02 - 0.01) * 1.0)

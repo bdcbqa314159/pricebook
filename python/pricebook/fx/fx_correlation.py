@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- Triangular correlation ----
@@ -340,7 +340,7 @@ def fx_basket_option_via_engine(
     seed: int | None = 42,
 ) -> BasketResult:
     """``fx_basket_option`` via unified MC engine (correlated GBM)."""
-    from pricebook.mc_migrate import correlated_gbm_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import correlated_gbm_paths  # noqa: lazy
 
     n = len(spots)
     rates_adj = [rates_dom - rf for rf in rates_for]

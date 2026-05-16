@@ -3,10 +3,10 @@
 import pytest
 import math
 
-from pricebook.cos_method import cos_price, bs_char_func, heston_char_func_cos
+from pricebook.models.cos_method import cos_price, bs_char_func, heston_char_func_cos
 from pricebook.equity_option import equity_option_price
 from pricebook.heston import heston_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

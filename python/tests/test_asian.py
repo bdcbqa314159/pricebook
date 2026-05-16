@@ -7,8 +7,8 @@ from pricebook.asian import (
     geometric_asian_analytical,
     mc_asian_arithmetic,
 )
-from pricebook.mc_pricer import MCResult
-from pricebook.black76 import OptionType
+from pricebook.models.mc_pricer import MCResult
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0
@@ -22,7 +22,7 @@ class TestGeometricAnalytical:
 
     def test_call_less_than_european(self):
         """Asian option is worth less than European (averaging reduces vol)."""
-        from pricebook.black76 import black76_price
+        from pricebook.models.black76 import black76_price
         forward = SPOT * math.exp(RATE * T)
         df = math.exp(-RATE * T)
         european = black76_price(forward, STRIKE, VOL, T, df, OptionType.CALL)
@@ -61,7 +61,7 @@ class TestArithmeticMC:
 
     def test_less_than_european(self):
         """Arithmetic Asian call is worth less than European call."""
-        from pricebook.black76 import black76_price
+        from pricebook.models.black76 import black76_price
         forward = SPOT * math.exp(RATE * T)
         df = math.exp(-RATE * T)
         european = black76_price(forward, STRIKE, VOL, T, df, OptionType.CALL)
@@ -112,7 +112,7 @@ class TestVarianceReduction:
 class TestGeometricMCMatchesAnalytical:
     def test_geometric_mc_vs_analytical(self):
         """MC geometric average should match the closed-form."""
-        from pricebook.gbm import GBMGenerator
+        from pricebook.models.gbm import GBMGenerator
         from pricebook.statistics.rng import PseudoRandom
         import numpy as np
 

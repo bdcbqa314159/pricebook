@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import black76_price, black76_vega, OptionType
+from pricebook.models.black76 import black76_price, black76_vega, OptionType
 
 
 # ---- Helper: BS FX pricing ----

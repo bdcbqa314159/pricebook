@@ -1,6 +1,6 @@
 """Tests for multi-factor hybrid MC."""
 import math, numpy as np, pytest
-from pricebook.hybrid_mc import HybridFactor, HybridMCEngine, hybrid_payoff_evaluate
+from pricebook.models.hybrid_mc import HybridFactor, HybridMCEngine, hybrid_payoff_evaluate
 
 class TestHybridMCEngine:
     def test_basic(self):

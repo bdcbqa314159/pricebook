@@ -28,7 +28,7 @@ class TestKouEquity:
 
     def test_no_jumps_matches_bs(self):
         """λ=0 → Kou reduces to Black-Scholes."""
-        from pricebook.black76 import black76_price, OptionType
+        from pricebook.models.black76 import black76_price, OptionType
         result = kou_equity_price(100, 100, 0.03, 0.02, 0.20, 1.0,
                                     0.0, 0.4, 10, 5)
         F = 100 * math.exp((0.03 - 0.02) * 1.0)

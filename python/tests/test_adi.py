@@ -3,10 +3,10 @@
 import pytest
 import math
 
-from pricebook.adi import heston_pde
+from pricebook.models.adi import heston_pde
 from pricebook.heston import heston_price
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, T = 100.0, 100.0, 0.05, 1.0

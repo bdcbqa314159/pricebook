@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.calibration_utils import (
+from pricebook.models.calibration_utils import (
     tikhonov_regularise,
     enforce_bounds,
     calibration_quality,

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.black76 import OptionType, black76_price
+from pricebook.models.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import _register, _serialise_atom
@@ -91,12 +91,12 @@ class AmericanOption:
         euro = black76_price(fwd, self.strike, vol, T, df, self.option_type)
 
         if method == "pde":
-            from pricebook.finite_difference import fd_american
+            from pricebook.models.finite_difference import fd_american
             am_price = fd_american(spot, self.strike, rate, vol, T,
                                     self.option_type, div_yield,
                                     n_spot=n_steps, n_time=n_steps)
         else:
-            from pricebook.lsm import lsm_american
+            from pricebook.models.lsm import lsm_american
             result = lsm_american(spot, self.strike, rate, vol, T,
                                    n_steps=min(n_steps, 50), n_paths=n_paths,
                                    option_type=self.option_type,

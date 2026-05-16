@@ -3,9 +3,9 @@
 import pytest
 import math
 
-from pricebook.binomial_tree import binomial_european, binomial_american
+from pricebook.models.binomial_tree import binomial_european, binomial_american
 from pricebook.equity_option import equity_option_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

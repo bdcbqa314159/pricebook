@@ -21,7 +21,7 @@ class TestBasketCDSMigration:
 class TestBermudanSwaptionMigration:
     def test_bermudan_swaption_via_engine(self):
         from pricebook.bermudan_swaption import bermudan_swaption_lsm_via_engine
-        from pricebook.hull_white import HullWhite
+        from pricebook.models.hull_white import HullWhite
         from pricebook.discount_curve import DiscountCurve
         from datetime import date
         curve = DiscountCurve.flat(date(2026, 1, 1), 0.05)
@@ -94,13 +94,13 @@ class TestFXCorrelationMigration:
 
 class TestHJMMigration:
     def test_hjm_simulate_via_engine(self):
-        from pricebook.hjm import hjm_simulate_via_engine
+        from pricebook.models.hjm import hjm_simulate_via_engine
         assert callable(hjm_simulate_via_engine)
 
 
 class TestHybridMCMigration:
     def test_hybrid_mc_via_engine(self):
-        from pricebook.hybrid_mc import hybrid_mc_simulate_via_engine
+        from pricebook.models.hybrid_mc import hybrid_mc_simulate_via_engine
         assert callable(hybrid_mc_simulate_via_engine)
 
 
@@ -132,7 +132,7 @@ class TestJarrowYildirimMigration:
 
 class TestJumpProcessMigration:
     def test_merton_terminal_via_engine(self):
-        from pricebook.jump_process import MertonJumpDiffusion, merton_terminal_via_engine
+        from pricebook.models.jump_process import MertonJumpDiffusion, merton_terminal_via_engine
         mjd = MertonJumpDiffusion(mu=0.05, sigma=0.20, lam=0.5, jump_mean=-0.05, jump_std=0.10)
         S_T = merton_terminal_via_engine(mjd, S0=100, T=1.0, n_paths=5_000)
         assert len(S_T) == 5_000
@@ -141,7 +141,7 @@ class TestJumpProcessMigration:
 
 class TestLMMMigration:
     def test_lmm_simulate_via_engine(self):
-        from pricebook.lmm import lmm_simulate_via_engine
+        from pricebook.models.lmm import lmm_simulate_via_engine
         assert callable(lmm_simulate_via_engine)
 
 
@@ -153,7 +153,7 @@ class TestPRDCMigration:
 
 class TestProcessesExtendedMigration:
     def test_cev_paths_via_engine(self):
-        from pricebook.processes_extended import cev_paths_via_engine
+        from pricebook.models.processes_extended import cev_paths_via_engine
         result = cev_paths_via_engine(
             spot=100, rate=0.05, vol=0.20, beta=0.5,
             T=1.0, n_steps=50, n_paths=2_000,
@@ -161,7 +161,7 @@ class TestProcessesExtendedMigration:
         assert result is not None
 
     def test_bates_paths_via_engine(self):
-        from pricebook.processes_extended import bates_paths_via_engine
+        from pricebook.models.processes_extended import bates_paths_via_engine
         result = bates_paths_via_engine(
             spot=100, v0=0.04, rate=0.05, kappa=2.0, theta=0.04,
             xi=0.3, rho=-0.7, lam=0.5, mu_j=-0.05, sigma_j=0.10,
@@ -172,13 +172,13 @@ class TestProcessesExtendedMigration:
 
 class TestShortRateModelsMigration:
     def test_bk_simulate_via_engine(self):
-        from pricebook.short_rate_models import BKRateModel, bk_simulate_via_engine
+        from pricebook.models.short_rate_models import BKRateModel, bk_simulate_via_engine
         model = BKRateModel(a=0.1, sigma=0.01)
         result = bk_simulate_via_engine(model, r0=0.05, T=5.0, n_steps=50, n_paths=2_000)
         assert result is not None
 
     def test_cirpp_simulate_via_engine(self):
-        from pricebook.short_rate_models import CIRPPRateModel, cirpp_simulate_via_engine
+        from pricebook.models.short_rate_models import CIRPPRateModel, cirpp_simulate_via_engine
         model = CIRPPRateModel(kappa=0.5, theta=0.05, xi=0.01)
         result = cirpp_simulate_via_engine(model, r0=0.05, T=5.0, n_steps=50, n_paths=2_000)
         assert result is not None

@@ -10,7 +10,7 @@ from pricebook.heston_mc import (
     heston_mc_barrier,
 )
 from pricebook.heston import heston_price
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 # Standard Heston params

@@ -319,7 +319,7 @@ def copula_default_simulation_via_engine(
     falls back to original for non-Gaussian copulas.
     """
     if isinstance(copula, GaussianCopula):
-        from pricebook.mc_extensions import CopulaDefaultEngine
+        from pricebook.models.mc_extensions import CopulaDefaultEngine
         n = len(marginal_pds)
         engine = CopulaDefaultEngine(
             pds=marginal_pds,
@@ -355,7 +355,7 @@ def tranche_pricing_copula_via_engine(
 ) -> TranchePricingResult:
     """CDO tranche pricing via unified MC engine."""
     if isinstance(copula, GaussianCopula):
-        from pricebook.mc_extensions import CopulaDefaultEngine, tranche_loss
+        from pricebook.models.mc_extensions import CopulaDefaultEngine, tranche_loss
         n = len(marginal_pds)
         engine = CopulaDefaultEngine(
             pds=marginal_pds,

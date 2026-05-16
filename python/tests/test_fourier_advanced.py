@@ -6,8 +6,8 @@ import cmath
 import numpy as np
 import pytest
 
-from pricebook.cos_method import bs_char_func
-from pricebook.fourier_advanced import (
+from pricebook.models.cos_method import bs_char_func
+from pricebook.models.fourier_advanced import (
     CumulantResult,
     FFT2DResult,
     cumulants_from_cf,
@@ -107,7 +107,7 @@ class TestFFT2DBasket:
     def test_at_the_money(self):
         """ATM basket call on two identical assets ≈ single-asset ATM call."""
         from pricebook.equity_option import equity_option_price
-        from pricebook.black76 import OptionType
+        from pricebook.models.black76 import OptionType
 
         def cf_2d(u1, u2):
             mu = (RATE - 0.5 * VOL**2) * T
@@ -126,7 +126,7 @@ class TestMellinPowerOption:
     def test_power_1_is_call(self):
         """Power option with p=1 = standard call."""
         from pricebook.equity_option import equity_option_price
-        from pricebook.black76 import OptionType
+        from pricebook.models.black76 import OptionType
         bs = equity_option_price(SPOT, SPOT, RATE, VOL, T, OptionType.CALL)
         power = mellin_power_option(SPOT, SPOT, RATE, VOL, T, power=1.0)
         assert power == pytest.approx(bs, rel=0.05)

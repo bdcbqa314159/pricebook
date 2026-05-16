@@ -259,7 +259,7 @@ def jy_yoy_caplet(
 
     Priced via Black on the forward YoY rate with JY effective vol.
     """
-    from pricebook.black76 import black76_price, OptionType
+    from pricebook.models.black76 import black76_price, OptionType
 
     p = params
     tau = T_end - T_start
@@ -358,7 +358,7 @@ def jy_simulate_via_engine(
     The nominal and real rates use the engine's HW path generator;
     CPI uses GBM driven by (r_n - r_r) drift.
     """
-    from pricebook.mc_migrate import hw_paths  # noqa: lazy
+    from pricebook.models.mc_migrate import hw_paths  # noqa: lazy
 
     p = jy.params
     _seed = seed if seed is not None else 42

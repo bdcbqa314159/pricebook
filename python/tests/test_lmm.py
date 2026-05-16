@@ -4,9 +4,9 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.lmm import MultiFactorHJM, LMM
-from pricebook.hjm import HJMModel
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.lmm import MultiFactorHJM, LMM
+from pricebook.models.hjm import HJMModel
+from pricebook.models.black76 import black76_price, OptionType
 
 
 TENORS = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0]

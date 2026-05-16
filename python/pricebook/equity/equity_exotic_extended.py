@@ -26,7 +26,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.black76 import black76_price, OptionType
+from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@ def himalaya_option(
         n_periods = n
     n_periods = min(n_periods, n)
 
-    from pricebook.mc_migrate import correlated_gbm_paths
+    from pricebook.models.mc_migrate import correlated_gbm_paths
 
     mus = [rate - q for q in dividend_yields]
     paths = correlated_gbm_paths(spots, mus, vols, correlations, T, n_periods, n_paths, seed or 42)
@@ -431,7 +431,7 @@ def equity_accumulator(
         daily_quantity: shares accumulated per day above strike.
         leverage: multiplier for shares below strike (typically 2x).
     """
-    from pricebook.mc_migrate import gbm_paths
+    from pricebook.models.mc_migrate import gbm_paths
 
     paths = gbm_paths(spot, rate - dividend_yield, vol, T, n_steps, n_paths, seed or 42)
     dt = T / n_steps
@@ -612,7 +612,7 @@ def dividend_option(
         strike: dividend strike (in same units as spot, e.g. index points).
         div_vol: volatility of the dividend index.
     """
-    from pricebook.black76 import black76_price as _b76, OptionType
+    from pricebook.models.black76 import black76_price as _b76, OptionType
 
     if dividend_yield <= 0 or T <= 0:
         return DividendOptionResult(0.0, 0.0, strike, is_call)

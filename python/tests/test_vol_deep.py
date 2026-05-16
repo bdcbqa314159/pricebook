@@ -15,7 +15,7 @@ from pricebook.vol_smile import VolSmile
 from pricebook.vol_surface_strike import VolSurfaceStrike
 from pricebook.vol_arb import detect_calendar_arb
 from pricebook.vol_term_structure import forward_vol_from_term
-from pricebook.black76 import OptionType
+from pricebook.models.black76 import OptionType
 
 
 REF = date(2024, 1, 15)

@@ -23,7 +23,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.interpolation import InterpolationMethod, create_interpolator
 from pricebook.schedule import Frequency
-from pricebook.special_process import OUProcess
+from pricebook.models.special_process import OUProcess
 
 
 def compound_rfr(

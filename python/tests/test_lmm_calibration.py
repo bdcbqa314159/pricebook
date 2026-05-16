@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.lmm_calibration import (
+from pricebook.models.lmm_calibration import (
     rebonato_swaption_vol, exponential_correlation,
     calibrate_lmm_vols,
     MultiFactorSABR, SABRSlice, calibrate_multi_factor_sabr,
