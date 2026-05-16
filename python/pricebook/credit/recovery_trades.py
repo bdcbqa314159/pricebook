@@ -146,7 +146,7 @@ def recovery_by_spread_regime(
     Returns:
         Estimated recovery rate.
     """
-    from pricebook.recovery_surface import SENIORITY_TABLE
+    from pricebook.credit.recovery_surface import SENIORITY_TABLE
 
     base_R = SENIORITY_TABLE.get(seniority, (0.40, 0.20, -0.008))[0]
 
@@ -291,8 +291,8 @@ def portfolio_recovery_stress(
         spread_shock_bps: parallel spread bump in bp (e.g., +200).
         base_recovery: starting recovery assumption.
     """
-    from pricebook.cds_market import build_cds_curve
-    from pricebook.recovery_analytics import _price_instrument
+    from pricebook.credit.cds_market import build_cds_curve
+    from pricebook.credit.recovery_analytics import _price_instrument
 
     # Base pricing
     surv_base = build_cds_curve(reference_date, cds_spreads, discount_curve,
@@ -436,7 +436,7 @@ def recovery_lock_greeks(
     Args:
         lock_strike: recovery strike (e.g., 0.35).
     """
-    from pricebook.cds_market import build_cds_curve
+    from pricebook.credit.cds_market import build_cds_curve
 
     def _pv_at(R, spreads):
         surv = build_cds_curve(reference_date, spreads, discount_curve, recovery=R)
@@ -520,8 +520,8 @@ def senior_sub_basis(
         sub_spread: subordinated CDS par spread.
         senior_recovery / sub_recovery: seniority-appropriate recovery.
     """
-    from pricebook.cds import CDS
-    from pricebook.cds_market import build_cds_curve
+    from pricebook.credit.cds import CDS
+    from pricebook.credit.cds_market import build_cds_curve
 
     mat = reference_date + relativedelta(years=tenor_years)
 

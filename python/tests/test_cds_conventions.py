@@ -3,7 +3,7 @@
 from datetime import date
 import pytest
 
-from pricebook.cds_conventions import (
+from pricebook.credit.cds_conventions import (
     CDS_SETTLEMENT,
     CDSIndexSpec,
     STANDARD_COUPONS_BPS,

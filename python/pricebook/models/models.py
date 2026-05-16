@@ -447,7 +447,7 @@ def _model_from_dict(d: dict):
         spec = d.get("process_spec")
         if spec is None:
             raise ValueError("mc_equity model requires process_spec for deserialisation")
-        from pricebook import mc_processes as _mp
+        from pricebook.models.models import mc_processes as _mp
         proc_fn = getattr(_mp, spec["name"], None)
         if proc_fn is None:
             raise ValueError(f"unknown process: {spec['name']!r}")

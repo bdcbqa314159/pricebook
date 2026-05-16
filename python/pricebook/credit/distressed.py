@@ -1,7 +1,7 @@
 """Distressed debt: DIP financing, fulcrum analysis, exchange offers,
 recovery waterfalls, Chapter 11 timeline.
 
-    from pricebook.distressed import (
+    from pricebook.credit.distressed import (
         DIPLoan, FulcrumAnalysis, RecoveryWaterfall,
         ExchangeOffer, Chapter11Timeline,
     )

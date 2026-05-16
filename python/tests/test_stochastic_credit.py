@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.stochastic_credit import (
+from pricebook.credit.stochastic_credit import (
     CIRIntensity,
     cox_default_mc,
     JointRateHazard,

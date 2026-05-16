@@ -4,7 +4,7 @@ The core insight: E[(1-R) × 1_default] ≠ (1-E[R]) × P[default] when
 recovery R and default are correlated. This module provides the tools
 to price with stochastic recovery and quantify the wrong-way premium.
 
-    from pricebook.recovery_pricing import (
+    from pricebook.credit.recovery_pricing import (
         RecoverySpec, correlated_default_recovery,
         wrong_way_premium, lgd_term_structure,
     )

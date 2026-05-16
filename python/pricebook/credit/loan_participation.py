@@ -3,7 +3,7 @@
 L2: LoanParticipation — funded credit risk transfer on a loan.
 L3: PartialFundedParticipation — split into funded + unfunded (CDS-like) legs.
 
-    from pricebook.loan_participation import LoanParticipation, PartialFundedParticipation
+    from pricebook.credit.loan_participation import LoanParticipation, PartialFundedParticipation
 
     # Full participation
     part = LoanParticipation(loan, participation_rate=0.10, recovery=0.6)
@@ -27,7 +27,7 @@ from typing import Any
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan import TermLoan, RevolvingFacility
+from pricebook.credit.loan import TermLoan, RevolvingFacility
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.serialisable import _register, _serialise_atom
 
@@ -331,13 +331,13 @@ class PartialFundedParticipation:
             return self.unfunded_spread * unfunded_notional * ann
 
         # Premium leg (earn spread while alive)
-        from pricebook.cds import risky_annuity
+        from pricebook.credit.cds import risky_annuity
         ann = risky_annuity(self.underlying.start, self.underlying.end,
                             discount_curve, survival_curve)
         premium_pv = self.unfunded_spread * unfunded_notional * ann
 
         # Protection leg (pay on default)
-        from pricebook.cds import protection_leg_pv
+        from pricebook.credit.cds import protection_leg_pv
         prot_pv = protection_leg_pv(
             self.underlying.start, self.underlying.end,
             discount_curve, survival_curve,

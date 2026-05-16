@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.waterfall import (
+from pricebook.credit.waterfall import (
     Tranche,
     Trigger,
     WaterfallEngine,

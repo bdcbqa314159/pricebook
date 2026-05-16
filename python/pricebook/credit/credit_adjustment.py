@@ -3,7 +3,7 @@
 Shared across CMASW (Pucci 2012a), CMT (Pucci 2014), and future
 credit-aware constant maturity products.
 
-    from pricebook.credit_adjustment import (
+    from pricebook.credit.credit_adjustment import (
         cra_discount, risky_annuity, risky_swap_rate,
         linear_swap_rate_calibrate, displaced_lognormal_cross_moment,
     )

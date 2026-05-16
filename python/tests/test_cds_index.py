@@ -4,8 +4,8 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds_index import CDSIndex, VanillaCLN
-from pricebook.cds import CDS
+from pricebook.credit.cds_index import CDSIndex, VanillaCLN
+from pricebook.credit.cds import CDS
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

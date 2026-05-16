@@ -3,7 +3,7 @@
 Tranche delta, spread sensitivity, correlation skew analysis, and
 base correlation bumps for CDO tranche trading.
 
-    from pricebook.tranche_trading import (
+    from pricebook.credit.tranche_trading import (
         tranche_delta, tranche_cs01, correlation_skew, skew_bump,
     )
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.cdo import (
+from pricebook.credit.cdo import (
     portfolio_loss_distribution, tranche_expected_loss,
     tranche_spread, base_correlation,
 )

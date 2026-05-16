@@ -9,7 +9,7 @@ Cox process: default at first jump of Poisson with stochastic intensity.
 
 Joint (rate, hazard) simulation for wrong-way risk.
 
-    from pricebook.stochastic_credit import CIRIntensity, cox_default_mc
+    from pricebook.credit.stochastic_credit import CIRIntensity, cox_default_mc
 
     model = CIRIntensity(kappa=1.0, theta=0.02, xi=0.1)
     surv = model.survival_analytical(lam0=0.02, T=5.0)

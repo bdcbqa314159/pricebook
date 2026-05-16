@@ -10,7 +10,7 @@ import pytest
 
 class TestBasketCDSMigration:
     def test_simulate_defaults_via_engine(self):
-        from pricebook.basket_cds import simulate_defaults_copula_via_engine
+        from pricebook.credit.basket_cds import simulate_defaults_copula_via_engine
         from pricebook.core.survival_curve import SurvivalCurve
         from datetime import date
         curves = [SurvivalCurve.flat(date(2026, 1, 1), 0.02), SurvivalCurve.flat(date(2026, 1, 1), 0.03)]
@@ -186,7 +186,7 @@ class TestShortRateModelsMigration:
 
 class TestStochasticCreditMigration:
     def test_cir_intensity_via_engine(self):
-        from pricebook.stochastic_credit import CIRIntensity, cir_intensity_simulate_via_engine
+        from pricebook.credit.stochastic_credit import CIRIntensity, cir_intensity_simulate_via_engine
         model = CIRIntensity(kappa=0.5, theta=0.02, xi=0.05)
         paths = cir_intensity_simulate_via_engine(model, lam0=0.02, T=5.0, n_steps=50, n_paths=2_000)
         assert paths.shape == (2_000, 51)
@@ -200,7 +200,7 @@ class TestXVAMigration:
 
 class TestLoanMigration:
     def test_breach_probability_via_engine(self):
-        from pricebook.loan_covenant import breach_probability_mc_via_engine
+        from pricebook.credit.loan_covenant import breach_probability_mc_via_engine
         result = breach_probability_mc_via_engine(
             current_ebitda=10e6, debt=20e6, threshold=1.5,
             ebitda_vol=0.20, horizon=1.0, n_paths=5_000,
@@ -208,5 +208,5 @@ class TestLoanMigration:
         assert 0 <= result <= 1
 
     def test_stochastic_recovery_via_engine(self):
-        from pricebook.loan_credit import stochastic_recovery_sample_via_engine
+        from pricebook.credit.loan_credit import stochastic_recovery_sample_via_engine
         assert callable(stochastic_recovery_sample_via_engine)

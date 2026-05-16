@@ -25,7 +25,7 @@ import numpy as np
 from scipy.linalg import logm, expm
 from scipy.optimize import minimize
 
-from pricebook.rating_transition import RatingTransitionMatrix
+from pricebook.credit.rating_transition import RatingTransitionMatrix
 
 
 # ---- Generator calibration ----

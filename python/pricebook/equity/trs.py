@@ -585,7 +585,7 @@ def price_loan_trs(trs, curve, projection_curve) -> TRSResult:
 
     # Get cashflows -- prepayment-adjusted if model specified
     if trs.prepay_model is not None:
-        from pricebook.exotic_loan import prepay_adjusted_loan, psa_cpr
+        from pricebook.credit.exotic_loan import prepay_adjusted_loan, psa_cpr
         if isinstance(trs.prepay_model, (int, float)):
             cpr = float(trs.prepay_model)
         elif isinstance(trs.prepay_model, tuple) and trs.prepay_model[0] == "PSA":

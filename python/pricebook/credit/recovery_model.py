@@ -5,7 +5,7 @@ BetaRecovery: recovery rate drawn from Beta distribution at default.
 LGDModel: Loss Given Default = 1 - R, with distributional properties.
 CorrelatedRecovery: recovery depends on a systematic factor M (downturn LGD).
 
-    from pricebook.recovery_model import BetaRecovery, CorrelatedRecovery
+    from pricebook.credit.recovery_model import BetaRecovery, CorrelatedRecovery
 
     rec = BetaRecovery(mean=0.40, std=0.20)
     samples = rec.sample(n=10000)

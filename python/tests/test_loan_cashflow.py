@@ -9,7 +9,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan_cashflow import (
+from pricebook.credit.loan_cashflow import (
     FlooredTermLoan, PIKTermLoan, PricingGrid,
     ExcessCashFlowSweep, SOFRCSAAdjustment, SOFR_CSA_BPS,
 )
@@ -39,7 +39,7 @@ class TestFlooredTermLoan:
         yf = interest / (10_000_000 * 0.08)  # approximate year fraction
         assert interest > 0
         # Compare with unfloored
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         unfloored = TermLoan(REF, END, spread=0.03, notional=10_000_000)
         _, int_unfl, _ = unfloored.cashflows(disc)[0]
         assert interest > int_unfl  # floored coupon is higher
@@ -49,7 +49,7 @@ class TestFlooredTermLoan:
         loan = FlooredTermLoan(REF, END, spread=0.03, floor_rate=0.01,
                                 notional=10_000_000)
         disc = _disc(0.05)  # SOFR at 5%, floor at 1%
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         unfloored = TermLoan(REF, END, spread=0.03, notional=10_000_000)
         pv_fl = loan.pv(disc)
         pv_unfl = unfloored.pv(disc)

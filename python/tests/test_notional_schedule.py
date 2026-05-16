@@ -19,8 +19,8 @@ from dateutil.relativedelta import relativedelta
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.fixed_income.swap import InterestRateSwap
-from pricebook.cds import CDS
-from pricebook.cln import CreditLinkedNote
+from pricebook.credit.cds import CDS
+from pricebook.credit.cln import CreditLinkedNote
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.core.schedule import Frequency
 from pricebook.desks.api_desk import analyse

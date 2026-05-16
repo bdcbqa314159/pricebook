@@ -3,7 +3,7 @@
 CS01, spread DV01, jump-to-default risk for CDS trades.
 CreditBook extends Book for credit-specific aggregation.
 
-    from pricebook.credit_risk import cs01, jump_to_default, CreditBook
+    from pricebook.credit.credit_risk import cs01, jump_to_default, CreditBook
 
     cs = cs01(cds, discount_curve, survival_curve)
     jtd = jump_to_default(cds, discount_curve)
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.pricing_context import PricingContext

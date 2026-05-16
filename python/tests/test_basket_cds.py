@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.basket_cds import (
+from pricebook.credit.basket_cds import (
     simulate_defaults_copula,
     count_defaults,
     ftd_spread,

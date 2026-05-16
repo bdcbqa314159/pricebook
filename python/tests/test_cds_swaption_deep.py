@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds_swaption import (
+from pricebook.credit.cds_swaption import (
     cds_swaption_black, cds_swaption_black_curves,
     cds_swaption_bachelier, cds_swaption_greeks,
     CDSSwaptionGreeks, CDSSpreadSmile,

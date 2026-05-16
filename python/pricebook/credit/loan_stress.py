@@ -1,7 +1,7 @@
 """Loan portfolio stress testing: correlated defaults, macro scenarios,
 migration matrices, concentration risk.
 
-    from pricebook.loan_stress import (
+    from pricebook.credit.loan_stress import (
         portfolio_loss_distribution, correlated_default_simulation,
         macro_stress_scenario, concentration_metrics, PREDEFINED_SCENARIOS,
     )

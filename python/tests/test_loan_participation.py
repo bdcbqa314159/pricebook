@@ -9,9 +9,9 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.loan_participation import (
+from pricebook.credit.loan_participation import (
     LoanParticipation, PartialFundedParticipation, ParticipationResult,
 )
 from pricebook.core.serialisable import from_dict

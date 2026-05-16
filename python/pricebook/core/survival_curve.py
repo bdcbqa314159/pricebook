@@ -199,12 +199,12 @@ class SurvivalCurve:
 
         Public API for per-pillar sensitivity (previously internal in credit_risk.py).
         """
-        from pricebook.credit_risk import _bump_survival_curve_at
+        from pricebook.credit.credit_risk import _bump_survival_curve_at
         return _bump_survival_curve_at(self, pillar_idx, shift)
 
     def bumped(self, shift: float) -> SurvivalCurve:
         """Return a new curve with all hazard rates parallel-shifted."""
-        from pricebook.credit_risk import _bump_survival_curve
+        from pricebook.credit.credit_risk import _bump_survival_curve
         return _bump_survival_curve(self, shift)
 
 from pricebook.core.serialisable import _register

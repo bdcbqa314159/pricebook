@@ -2,7 +2,7 @@
 
 Wires the generic XVA framework to CLN-specific credit economics.
 
-    from pricebook.cln_xva import (
+    from pricebook.credit.cln_xva import (
         cln_simm_im, cln_mva, cln_kva,
         cln_analytic_cva, cln_wrong_way_cost, cln_mc_xva,
     )
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.cln import CreditLinkedNote
+from pricebook.credit.cln import CreditLinkedNote
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.pricing_context import PricingContext
@@ -157,7 +157,7 @@ def cln_wrong_way_cost(
     base = cln.dirty_price(discount_curve, survival_curve)
 
     if recovery_spec is None:
-        from pricebook.recovery_pricing import RecoverySpec
+        from pricebook.credit.recovery_pricing import RecoverySpec
         recovery_spec = RecoverySpec(
             mean=cln.recovery, std=0.15,
             distribution="beta", correlation_to_default=-0.3,

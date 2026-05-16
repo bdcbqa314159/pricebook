@@ -98,7 +98,7 @@ class TestFRARoundTrip:
 
 class TestCDSRoundTrip:
     def test_round_trip(self):
-        from pricebook.cds import CDS
+        from pricebook.credit.cds import CDS
         cds = CDS(REF, END_5Y, spread=0.01, notional=10_000_000)
         d = instrument_to_dict(cds)
         assert d["type"] == "cds"
@@ -108,7 +108,7 @@ class TestCDSRoundTrip:
 
 class TestCLNRoundTrip:
     def test_round_trip(self):
-        from pricebook.cln import CreditLinkedNote
+        from pricebook.credit.cln import CreditLinkedNote
         cln = CreditLinkedNote(REF, END_5Y, coupon_rate=0.06, notional=1_000_000,
                                leverage=2.0)
         d = instrument_to_dict(cln)
@@ -120,7 +120,7 @@ class TestCLNRoundTrip:
 
 class TestTermLoanRoundTrip:
     def test_round_trip(self):
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(REF, END_5Y, spread=0.03, notional=10_000_000)
         d = instrument_to_dict(loan)
         assert d["type"] == "term_loan"
@@ -130,7 +130,7 @@ class TestTermLoanRoundTrip:
 
 class TestRevolverRoundTrip:
     def test_round_trip(self):
-        from pricebook.loan import RevolvingFacility
+        from pricebook.credit.loan import RevolvingFacility
         rev = RevolvingFacility(REF, END_5Y, max_commitment=50_000_000,
                                 drawn_amount=30_000_000, drawn_spread=0.025)
         d = instrument_to_dict(rev)
@@ -189,7 +189,7 @@ class TestTRSRoundTrip:
 
     def test_loan_trs(self):
         from pricebook.equity.trs import TotalReturnSwap
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(REF, END_5Y, spread=0.03, notional=10_000_000)
         trs = TotalReturnSwap(underlying=loan, notional=10_000_000,
                               start=REF, end=REF + timedelta(days=365))

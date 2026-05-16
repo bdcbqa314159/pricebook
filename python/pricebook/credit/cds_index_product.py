@@ -3,7 +3,7 @@
 Wraps CDSIndex with roll mechanics, intrinsic vs market spread,
 index basis decomposition, and serialisation.
 
-    from pricebook.cds_index_product import CDSIndexProduct
+    from pricebook.credit.cds_index_product import CDSIndexProduct
 
     product = CDSIndexProduct.from_spec("CDX.NA.IG", series=42,
                                          market_spread=0.005, notional=10_000_000)
@@ -22,12 +22,12 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.cds_conventions import (
+from pricebook.credit.cds import CDS, bootstrap_credit_curve
+from pricebook.credit.cds_conventions import (
     CDSIndexSpec, get_index_spec, cds_index_roll_date, next_imm_date,
     standard_cds_dates, STANDARD_COUPONS_BPS, STANDARD_RECOVERY,
 )
-from pricebook.cds_index import CDSIndex
+from pricebook.credit.cds_index import CDSIndex
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
@@ -171,7 +171,7 @@ class CDSIndexProduct:
         basis = (self.market_spread - intrinsic) * 10_000  # in bp
 
         # Upfront
-        from pricebook.cds import risky_annuity
+        from pricebook.credit.cds import risky_annuity
         ann = risky_annuity(start, end, discount_curve,
                             survival_curves[0])  # approximate with first
         upfront_pct = (self.market_spread - self.standard_coupon) * ann
@@ -283,7 +283,7 @@ class CDSIndexProduct:
         shift: float = 0.0001,
     ) -> float:
         """Index CS01: PV change for 1bp parallel shift in all constituent hazards."""
-        from pricebook.credit_risk import _bump_survival_curve
+        from pricebook.credit.credit_risk import _bump_survival_curve
         pv_base = self.price(discount_curve, survival_curves).pv
         bumped = [_bump_survival_curve(sc, shift) for sc in survival_curves]
         pv_bumped = self.price(discount_curve, bumped).pv
@@ -296,7 +296,7 @@ class CDSIndexProduct:
         shift: float = 0.0001,
     ) -> list[float]:
         """Per-name CS01 contribution to the index."""
-        from pricebook.credit_risk import _bump_survival_curve
+        from pricebook.credit.credit_risk import _bump_survival_curve
         ref = discount_curve.reference_date
         start = self.start or ref
         end = self.end or (ref + timedelta(days=1825))
@@ -409,8 +409,8 @@ class CDSIndexOption:
         Forward index spread = average of constituent forward spreads.
         Annuity = average of constituent forward annuities.
         """
-        from pricebook.cds import forward_cds_par_spread
-        from pricebook.cds_swaption import cds_swaption_black
+        from pricebook.credit.cds import forward_cds_par_spread
+        from pricebook.credit.cds_swaption import cds_swaption_black
 
         ref = discount_curve.reference_date
         expiry = self.expiry_date or (ref + timedelta(days=365))

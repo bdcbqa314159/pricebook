@@ -8,8 +8,8 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cln import CreditLinkedNote
-from pricebook.cln import BasketCLN, CreditLinkedNote
+from pricebook.credit.cln import CreditLinkedNote
+from pricebook.credit.cln import BasketCLN, CreditLinkedNote
 from pricebook.desks.cln_desk import (
     cln_risk_metrics, CLNRiskMetrics,
     cln_carry_decomposition, CLNCarryDecomposition,

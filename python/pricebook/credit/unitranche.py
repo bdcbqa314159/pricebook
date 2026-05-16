@@ -1,6 +1,6 @@
 """Unitranche & direct lending: FOLO, call protection, DDTL, HTM yield.
 
-    from pricebook.unitranche import Unitranche, FOLO, DelayedDrawTermLoan
+    from pricebook.credit.unitranche import Unitranche, FOLO, DelayedDrawTermLoan
 
     loan = Unitranche(start, end, spread=0.055, notional=50_000_000,
                        folo=FOLO(30_000_000, 20_000_000, 0.04, 0.075))
@@ -18,7 +18,7 @@ from datetime import date
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 from pricebook.core.schedule import Frequency
 from pricebook.core.solvers import brentq
 

@@ -133,7 +133,7 @@ class TestFXConsistency:
 class TestCreditConsistency:
     def test_upfront_round_trip(self):
         """Par spread → upfront → par spread should round-trip."""
-        from pricebook.cds_conventions import upfront_from_par_spread, par_spread_from_upfront
+        from pricebook.credit.cds_conventions import upfront_from_par_spread, par_spread_from_upfront
         original = 175.0  # 175bp par spread
         uf = upfront_from_par_spread(original, 100, 4.2)
         recovered = par_spread_from_upfront(uf.upfront_pct, 100, 4.2)
@@ -141,13 +141,13 @@ class TestCreditConsistency:
 
     def test_ig_upfront_sign(self):
         """IG: spread > 100bp → buyer pays upfront (positive)."""
-        from pricebook.cds_conventions import upfront_from_par_spread
+        from pricebook.credit.cds_conventions import upfront_from_par_spread
         result = upfront_from_par_spread(150, 100, 4.0)
         assert result.upfront_pct > 0
 
     def test_hy_upfront_sign(self):
         """HY: spread < 500bp → buyer receives upfront (negative)."""
-        from pricebook.cds_conventions import upfront_from_par_spread
+        from pricebook.credit.cds_conventions import upfront_from_par_spread
         result = upfront_from_par_spread(350, 500, 4.0)
         assert result.upfront_pct < 0
 

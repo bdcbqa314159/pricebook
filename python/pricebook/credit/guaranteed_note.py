@@ -11,7 +11,7 @@ The note defaults only when both issuer and guarantor default.
 The effective survival probability is:
     Q_eff(t) = 1 - PD_A(t) - PD_B(t) + PD_joint(t)
 
-    from pricebook.guaranteed_note import (
+    from pricebook.credit.guaranteed_note import (
         GuaranteedNote, guarantee_value, guarantee_spread,
     )
 

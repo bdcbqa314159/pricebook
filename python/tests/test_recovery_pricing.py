@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.recovery_pricing import (
+from pricebook.credit.recovery_pricing import (
     RecoverySpec, SENIORITY_RECOVERY,
     correlated_default_recovery, DefaultRecoveryResult,
     wrong_way_premium, lgd_term_structure,

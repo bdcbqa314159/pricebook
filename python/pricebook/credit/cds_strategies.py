@@ -2,7 +2,7 @@
 
 Trade construction and analytics for credit desk strategies.
 
-    from pricebook.cds_strategies import flatten, cds_bond_basis, recovery_lock_pv
+    from pricebook.credit.cds_strategies import flatten, cds_bond_basis, recovery_lock_pv
 
     trade = flatten(ref, disc, sc, short_tenor=5, long_tenor=10)
     basis = cds_bond_basis(cds_spread=0.005, asw_spread=0.006)
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
@@ -235,7 +235,7 @@ def recovery_lock_pv(
 
     If lock_recovery > market recovery: seller profits.
     """
-    from pricebook.cds import protection_leg_pv
+    from pricebook.credit.cds import protection_leg_pv
     # Protection at market recovery
     prot_market = protection_leg_pv(
         cds.start, cds.end, discount_curve, survival_curve,

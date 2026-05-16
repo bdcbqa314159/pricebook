@@ -25,7 +25,7 @@ def plot_cc_vs_vol(ax, instrument, curve, *, theme=None, **kwargs):
     rf_df_Ts = curve.df(instrument.fixing_date)
     rf_df_Tp = curve.df(instrument.payment_date)
 
-    from pricebook.credit_adjustment import risky_annuity, risky_swap_rate
+    from pricebook.credit.credit_adjustment import risky_annuity, risky_swap_rate
     times = [Ts + dt * (i+1) for i in range(n)]
     cra_dfs = [d * math.exp(-instrument.hazard_rate * t) for d, t in zip(rf_dfs, times)]
     cra_Ts = rf_df_Ts * math.exp(-instrument.hazard_rate * Ts)
@@ -64,7 +64,7 @@ def plot_cc_vs_hazard(ax, instrument, curve, *, theme=None, **kwargs):
     rf_df_Ts = curve.df(instrument.fixing_date)
     rf_df_Tp = curve.df(instrument.payment_date)
 
-    from pricebook.credit_adjustment import risky_annuity, risky_swap_rate
+    from pricebook.credit.credit_adjustment import risky_annuity, risky_swap_rate
 
     gammas = np.linspace(0.0, 0.05, 50)
     cc_a, cc_c = [], []
@@ -97,7 +97,7 @@ def plot_pelsser_overlay(ax, instrument, curve, *, theme=None, **kwargs):
     from pricebook.structured.cmt import cmt_convexity_corrections, cmt_cc_no_default
     from pricebook.core.day_count import year_fraction, DayCountConvention
     from datetime import timedelta
-    from pricebook.credit_adjustment import risky_swap_rate, risky_annuity
+    from pricebook.credit.credit_adjustment import risky_swap_rate, risky_annuity
 
     Ts = year_fraction(curve.reference_date, instrument.fixing_date,
                         DayCountConvention.ACT_365_FIXED)

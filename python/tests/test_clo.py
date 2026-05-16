@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from pricebook.clo import (
+from pricebook.credit.clo import (
     CLOTranche, CLOWaterfall,
     oc_ratio, ic_ratio, ccc_concentration,
     wal_test, warf_test, weighted_average_rating_factor,

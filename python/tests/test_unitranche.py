@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.unitranche import (
+from pricebook.credit.unitranche import (
     FOLO, FOLORecoveryResult, CallProtectionSchedule, DirectLendingYield,
     Unitranche, DelayedDrawTermLoan,
     folo_recovery_split, unitranche_blended_spread,
@@ -220,7 +220,7 @@ class TestDDTL:
 class TestHTMYield:
     def test_par_price(self, flat_curve):
         """At par price, solving back should give a consistent yield."""
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(date(2024, 1, 1), date(2029, 1, 1), spread=0.03, notional=1_000_000)
         price = loan.dirty_price(flat_curve)
         y = hold_to_maturity_yield(loan, price, flat_curve)
@@ -237,7 +237,7 @@ class TestHTMYield:
 
     def test_discount_price_higher_yield(self, flat_curve):
         """At below par, HTM yield > coupon yield."""
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(date(2024, 1, 1), date(2029, 1, 1), spread=0.03, notional=1_000_000)
         y = hold_to_maturity_yield(loan, 95.0, flat_curve)
         assert y > 0.08  # higher yield when buying at discount

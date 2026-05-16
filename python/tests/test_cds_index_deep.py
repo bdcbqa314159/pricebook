@@ -8,9 +8,9 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import CDS
-from pricebook.cds_index import CDSIndex
-from pricebook.cds_index_product import (
+from pricebook.credit.cds import CDS
+from pricebook.credit.cds_index import CDSIndex
+from pricebook.credit.cds_index_product import (
     CDSIndexProduct, IndexResult,
     CDSIndexOption, IndexOptionResult,
     index_basis_decomposition, BasisDecomposition,

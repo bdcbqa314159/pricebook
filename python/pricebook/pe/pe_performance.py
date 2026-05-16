@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pricebook.fund_participation import FundParticipation
+    from pricebook.credit.fund_participation import FundParticipation
 
 import numpy as np
 

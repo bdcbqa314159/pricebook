@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from scipy.linalg import expm
 
-from pricebook.rating_transition import RatingTransitionMatrix, standard_generator
-from pricebook.rating_models import (
+from pricebook.credit.rating_transition import RatingTransitionMatrix, standard_generator
+from pricebook.credit.rating_models import (
     CalibrationResult,
     MomentumTransitionMatrix,
     TTCPITResult,

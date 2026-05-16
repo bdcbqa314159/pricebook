@@ -9,7 +9,7 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec, LSTATerms
 
 
@@ -128,7 +128,7 @@ class TestRevolvingFacilityTRS:
     def test_fully_drawn_like_term_loan(self):
         """Fully drawn revolver should behave like a term loan."""
         curve = _curve(REF)
-        from pricebook.loan import RevolvingFacility
+        from pricebook.credit.loan import RevolvingFacility
         revolver = RevolvingFacility(
             REF, REF + timedelta(days=1825),
             max_commitment=10_000_000, drawn_amount=10_000_000,
@@ -143,7 +143,7 @@ class TestRevolvingFacilityTRS:
     def test_zero_drawn_pure_fee(self):
         """Zero drawn = pure commitment fee income."""
         curve = _curve(REF)
-        from pricebook.loan import RevolvingFacility
+        from pricebook.credit.loan import RevolvingFacility
         revolver = RevolvingFacility(
             REF, REF + timedelta(days=1825),
             max_commitment=10_000_000, drawn_amount=0.0,
@@ -156,7 +156,7 @@ class TestRevolvingFacilityTRS:
         assert math.isfinite(result.value)
 
     def test_utilization(self):
-        from pricebook.loan import RevolvingFacility
+        from pricebook.credit.loan import RevolvingFacility
         r = RevolvingFacility(
             REF, REF + timedelta(days=1825),
             max_commitment=100_000_000, drawn_amount=60_000_000)
@@ -165,7 +165,7 @@ class TestRevolvingFacilityTRS:
     def test_revolver_in_portfolio(self):
         from pricebook.core.pricing_context import PricingContext
         from pricebook.core.trade import Trade, Portfolio
-        from pricebook.loan import RevolvingFacility
+        from pricebook.credit.loan import RevolvingFacility
 
         curve = _curve(REF)
         ctx = PricingContext(valuation_date=REF, discount_curve=curve)
@@ -189,7 +189,7 @@ class TestDistressedLoanTRS:
     def test_covenant_loan_trs(self):
         """CovenantLoan as TRS underlying."""
         curve = _curve(REF)
-        from pricebook.exotic_loan import CovenantLoan
+        from pricebook.credit.exotic_loan import CovenantLoan
         base = _loan(REF)
         covenant = CovenantLoan(base, breach_prob_per_period=0.05)
 

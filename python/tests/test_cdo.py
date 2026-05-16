@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.cdo import (
+from pricebook.credit.cdo import (
     vasicek_conditional_pd,
     portfolio_loss_distribution,
     tranche_expected_loss,

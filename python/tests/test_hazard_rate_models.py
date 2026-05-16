@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.hazard_rate_models import (
+from pricebook.credit.hazard_rate_models import (
     BKHazardRate,
     CIRPlusPlus,
     HWHazardRate,

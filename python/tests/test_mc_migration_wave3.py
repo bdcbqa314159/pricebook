@@ -20,26 +20,26 @@ class TestDividendAdvancedMigration:
 
 class TestHazardRateModelsMigration:
     def test_hw_hazard_via_engine(self):
-        from pricebook.hazard_rate_models import HWHazardRate, hw_hazard_simulate_via_engine
+        from pricebook.credit.hazard_rate_models import HWHazardRate, hw_hazard_simulate_via_engine
         model = HWHazardRate(a=0.5, sigma=0.01)
         result = hw_hazard_simulate_via_engine(model, 0.02, 5.0, n_paths=2_000)
         assert result.lambda_paths.shape == (2_000, 101)
         assert 0 < result.survival_mc < 1
 
     def test_bk_hazard_via_engine(self):
-        from pricebook.hazard_rate_models import BKHazardRate, bk_hazard_simulate_via_engine
+        from pricebook.credit.hazard_rate_models import BKHazardRate, bk_hazard_simulate_via_engine
         model = BKHazardRate(a=0.5, sigma=0.10)
         result = bk_hazard_simulate_via_engine(model, 0.02, 5.0, n_paths=2_000)
         assert 0 < result.survival_mc < 1
 
     def test_cirpp_hazard_via_engine(self):
-        from pricebook.hazard_rate_models import CIRPlusPlus, cirpp_hazard_simulate_via_engine
+        from pricebook.credit.hazard_rate_models import CIRPlusPlus, cirpp_hazard_simulate_via_engine
         model = CIRPlusPlus(kappa=1.0, theta=0.02, xi=0.05)
         result = cirpp_hazard_simulate_via_engine(model, 0.02, 5.0, n_paths=2_000)
         assert 0 < result.survival_mc < 1
 
     def test_two_factor_via_engine(self):
-        from pricebook.hazard_rate_models import TwoFactorIntensity, two_factor_simulate_via_engine
+        from pricebook.credit.hazard_rate_models import TwoFactorIntensity, two_factor_simulate_via_engine
         model = TwoFactorIntensity(a1=0.1, sigma1=0.01, a2=1.0, sigma2=0.005)
         result = two_factor_simulate_via_engine(model, 5.0, n_paths=2_000)
         assert 0 < result.survival_mc < 1

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.cds_swaption import cds_swaption_black, forward_cds_spread
+from pricebook.credit.cds_swaption import cds_swaption_black, forward_cds_spread
 
 
 # ---- Leveraged CDS ----

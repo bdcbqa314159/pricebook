@@ -3,7 +3,7 @@
 Compare CDS spreads across names, analyse curve slope, and screen
 sectors for cheapest/richest names.
 
-    from pricebook.credit_rv import (
+    from pricebook.credit.credit_rv import (
         cross_name_rv, term_structure_rv, sector_screen,
     )
 """
@@ -14,7 +14,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 

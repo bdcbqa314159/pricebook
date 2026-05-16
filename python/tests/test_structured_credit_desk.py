@@ -9,10 +9,10 @@ import pytest
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.guaranteed_note import GuaranteedNote
-from pricebook.spv import SPV, SPVTranche
-from pricebook.fund_participation import FundParticipation
-from pricebook.illiquid_pricing import PrivatePlacementPricer
+from pricebook.credit.guaranteed_note import GuaranteedNote
+from pricebook.credit.spv import SPV, SPVTranche
+from pricebook.credit.fund_participation import FundParticipation
+from pricebook.credit.illiquid_pricing import PrivatePlacementPricer
 from pricebook.desks.structured_credit_desk import (
     sc_risk_metrics, SCRiskMetrics, SCBookEntry,
     StructuredCreditBook,

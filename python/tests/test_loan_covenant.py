@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.loan_covenant import (
+from pricebook.credit.loan_covenant import (
     Covenant, CovenantSchedule,
     covenant_cushion, cushion_trajectory, periods_to_breach,
     breach_probability, breach_probability_mc,

@@ -1,7 +1,7 @@
 """Loan credit modelling: recovery by seniority, stochastic LGD,
 spread-dependent prepayment, regulatory LGD.
 
-    from pricebook.loan_credit import (
+    from pricebook.credit.loan_credit import (
         RecoveryModel, StochasticRecovery, SpreadPrepayModel,
         lgd_regulatory, capital_requirement,
     )

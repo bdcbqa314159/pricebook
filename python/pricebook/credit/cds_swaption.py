@@ -373,7 +373,7 @@ def cds_swaption_black_curves(
         option_type: "payer" or "receiver".
         recovery: recovery rate for protection leg.
     """
-    from pricebook.cds import forward_cds_par_spread
+    from pricebook.credit.cds import forward_cds_par_spread
     from pricebook.core.day_count import DayCountConvention, year_fraction
 
     fwd = forward_cds_par_spread(
@@ -670,7 +670,7 @@ class StochasticIntensitySwaption:
         2. At expiry: compute forward spread from simulated λ.
         3. Payoff = max(F − K, 0) for payer, knockout if defaulted.
         """
-        from pricebook.stochastic_credit import CIRIntensity
+        from pricebook.credit.stochastic_credit import CIRIntensity
 
         cir = CIRIntensity(self.kappa, self.theta, self.xi)
         lam0 = self.theta

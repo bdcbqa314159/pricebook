@@ -1,7 +1,7 @@
 """Loan covenant analytics: specification, cushion, breach probability,
 waiver/amendment pricing, covenant-adjusted PV.
 
-    from pricebook.loan_covenant import (
+    from pricebook.credit.loan_covenant import (
         Covenant, CovenantSchedule, covenant_cushion,
         breach_probability, waiver_cost, covenant_adjusted_pv,
     )

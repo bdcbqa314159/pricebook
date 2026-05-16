@@ -8,9 +8,9 @@ from datetime import date
 import pytest
 
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.spv import SPV, SPVTranche
-from pricebook.fund_participation import FundParticipation
-from pricebook.illiquid_pricing import (
+from pricebook.credit.spv import SPV, SPVTranche
+from pricebook.credit.fund_participation import FundParticipation
+from pricebook.credit.illiquid_pricing import (
     MatrixPricer, Comparable, LiquidityPremiumModel, PrivatePlacementPricer,
 )
 

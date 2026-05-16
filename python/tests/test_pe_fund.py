@@ -3,7 +3,7 @@
 import math
 import pytest
 
-from pricebook.fund_participation import (
+from pricebook.credit.fund_participation import (
     FundParticipation, FundCashflow, FundMetrics,
     PEFundParticipation, WaterfallConfig, WaterfallResult, ClawbackResult,
 )

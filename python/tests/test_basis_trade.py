@@ -7,7 +7,7 @@ from pricebook.fixed_income.basis_trade import (
     cds_bond_basis, negative_basis_trade, positive_basis_trade,
     basis_monitor,
 )
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.fixed_income.risky_bond import RiskyBond
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve

@@ -43,8 +43,8 @@ def cln_stochastic_recovery(
         recovery_spec: RecoverySpec (from recovery_pricing module).
             If None, uses fixed recovery at cln.recovery.
     """
-    from pricebook.cln import CLNResult
-    from pricebook.recovery_pricing import RecoverySpec
+    from pricebook.credit.cln import CLNResult
+    from pricebook.credit.recovery_pricing import RecoverySpec
 
     if recovery_spec is None:
         recovery_spec = RecoverySpec.fixed(cln.recovery)
@@ -124,7 +124,7 @@ def cln_stochastic_intensity(
 
     Supports CIRPlusPlus, HWHazardRate, or CIRIntensity models.
     """
-    from pricebook.cln import CLNResult
+    from pricebook.credit.cln import CLNResult
 
     T = year_fraction(cln.start, cln.end, DayCountConvention.ACT_365_FIXED)
     if x0 is None:
@@ -215,7 +215,7 @@ def cln_stochastic_intensity_from_curve(
 
     Combines Phase 2 (curve -> model) + Phase 4 (model -> MC price).
     """
-    from pricebook.hazard_rate_models import CIRPlusPlus, HWHazardRate
+    from pricebook.credit.hazard_rate_models import CIRPlusPlus, HWHazardRate
 
     if model_type == "cir++":
         model = CIRPlusPlus.from_survival_curve(
@@ -255,7 +255,7 @@ def cln_bilateral_mc(
 
     Reference: Li (2000), "On Default Correlation", Journal of Fixed Income.
     """
-    from pricebook.cln import CLNResult
+    from pricebook.credit.cln import CLNResult
 
     if not -1.0 <= correlation <= 1.0:
         raise ValueError(f"correlation must be in [-1, 1], got {correlation}")
@@ -344,7 +344,7 @@ def cln_rec_vol_01(
 
     Higher recovery vol -> more wrong-way risk -> lower CLN PV.
     """
-    from pricebook.recovery_pricing import RecoverySpec
+    from pricebook.credit.recovery_pricing import RecoverySpec
 
     if recovery_spec is None:
         recovery_spec = RecoverySpec(mean=cln.recovery, std=0.15,

@@ -1,7 +1,7 @@
 """Tests for credit index options."""
 from __future__ import annotations
 import pytest
-from pricebook.credit_index_options import credit_index_option, index_option_greeks
+from pricebook.credit.credit_index_options import credit_index_option, index_option_greeks
 
 
 class TestCreditIndexOption:

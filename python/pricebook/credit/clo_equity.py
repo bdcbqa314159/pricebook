@@ -1,6 +1,6 @@
 """CLO equity Monte Carlo: IRR distribution, loss analysis, warehouse risk.
 
-    from pricebook.clo_equity import CLOEquityMC, warehouse_risk
+    from pricebook.credit.clo_equity import CLOEquityMC, warehouse_risk
 
     mc = CLOEquityMC(waterfall=wf, n_loans=200, default_prob=0.02)
     result = mc.simulate(n_paths=1000)
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.clo import CLOWaterfall
+from pricebook.credit.clo import CLOWaterfall
 
 
 # ═══════════════════════════════════════════════════════════════

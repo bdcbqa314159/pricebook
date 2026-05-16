@@ -3,7 +3,7 @@
 Standard tranches on credit indices (iTraxx, CDX). Uses Gaussian copula
 for expected tranche loss calculation and base correlation calibration.
 
-    from pricebook.tranche_pricing import TrancheCDS, calibrate_base_correlation
+    from pricebook.credit.tranche_pricing import TrancheCDS, calibrate_base_correlation
 
     tranche = TrancheCDS(attachment=0.0, detachment=0.03, maturity=date(2031,3,20))
     result = tranche.price(discount_curve, survival_curves, correlation=0.3)

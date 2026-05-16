@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.ecl_provisioning import (
+from pricebook.credit.ecl_provisioning import (
     ECLResult,
     PortfolioECLResult,
     ScenarioECL,

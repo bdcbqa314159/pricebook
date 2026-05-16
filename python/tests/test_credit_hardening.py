@@ -6,8 +6,8 @@ from datetime import date
 
 import pytest
 
-from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.credit_risk import _bump_survival_curve
+from pricebook.credit.cds import CDS, bootstrap_credit_curve
+from pricebook.credit.credit_risk import _bump_survival_curve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread, asset_swap_spread
 from pricebook.core.schedule import Frequency
 from pricebook.core.survival_curve import SurvivalCurve
@@ -98,7 +98,7 @@ class TestCDSConvenience:
         assert cs > 0
 
     def test_rpv01_matches_standalone(self):
-        from pricebook.cds import risky_annuity
+        from pricebook.credit.cds import risky_annuity
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
         surv = _make_surv(ref, 0.02)

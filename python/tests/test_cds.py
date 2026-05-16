@@ -5,7 +5,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import protection_leg_pv, premium_leg_pv, CDS, bootstrap_credit_curve
+from pricebook.credit.cds import protection_leg_pv, premium_leg_pv, CDS, bootstrap_credit_curve
 from pricebook.core.day_count import DayCountConvention
 from tests.conftest import make_flat_curve, make_flat_survival
 

@@ -10,8 +10,8 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.cds_market import build_cds_curve
-from pricebook.recovery_surface import (
+from pricebook.credit.cds_market import build_cds_curve
+from pricebook.credit.recovery_surface import (
     RecoverySurface, implied_recovery, recovery_term_structure,
     SENIORITY_TABLE,
 )
@@ -181,7 +181,7 @@ class TestRecoveryRoundtrip:
         R = surface.recovery("senior_unsecured", 5.0)
 
         surv = build_cds_curve(REF, CDS_SPREADS, ois, recovery=R)
-        from pricebook.cds import CDS
+        from pricebook.credit.cds import CDS
         cds = CDS(REF, REF + relativedelta(years=5), spread=CDS_SPREADS[5],
                    notional=1.0, recovery=R)
         par = cds.par_spread(ois, surv)
@@ -189,11 +189,11 @@ class TestRecoveryRoundtrip:
 
     def test_recovery_family_all_reprice(self):
         """Each R in the family reprices CDS at par."""
-        from pricebook.recovery_analytics import recovery_curve_family
+        from pricebook.credit.recovery_analytics import recovery_curve_family
         ois = _ois()
         family = recovery_curve_family(CDS_SPREADS, ois, REF,
                                         recoveries=[0.20, 0.40, 0.60])
-        from pricebook.cds import CDS
+        from pricebook.credit.cds import CDS
         for R, surv in family.items():
             cds = CDS(REF, REF + relativedelta(years=5), spread=CDS_SPREADS[5],
                        notional=1.0, recovery=R)

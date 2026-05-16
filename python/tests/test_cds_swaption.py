@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.cds_swaption import (
+from pricebook.credit.cds_swaption import (
     CDSSwaption,
     ForwardCDSResult,
     PedersenCDSSwaption,

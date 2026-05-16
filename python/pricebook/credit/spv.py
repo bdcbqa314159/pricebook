@@ -9,7 +9,7 @@ Supports:
 - Cashflow projection with default and prepayment assumptions
 - Tranche IRR, credit enhancement, break-even default rate
 
-    from pricebook.spv import SPV, SPVTranche, SPVProjection
+    from pricebook.credit.spv import SPV, SPVTranche, SPVProjection
 
 References:
     Fabozzi (2007). Fixed Income Analysis, Ch. 11 (ABS/MBS).

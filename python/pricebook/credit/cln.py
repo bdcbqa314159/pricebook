@@ -5,7 +5,7 @@ under a single ``CreditLinkedNote`` class with Trade/Portfolio integration.
 
 Also provides ``BasketCLN`` for multi-name structures using Gaussian copula.
 
-    from pricebook.cln import CreditLinkedNote, BasketCLN
+    from pricebook.credit.cln import CreditLinkedNote, BasketCLN
 
     cln = CreditLinkedNote(start, end, coupon_rate=0.06,
                            notional=1_000_000, recovery=0.4)
@@ -345,7 +345,7 @@ class CreditLinkedNote:
         This verifies the fundamental relationship:
         dirty_price = risk_free_pv - L × protection_pv + recovery_adjustment
         """
-        from pricebook.cds import protection_leg_pv
+        from pricebook.credit.cds import protection_leg_pv
 
         rf_pv = self._risk_free_pv(discount_curve)
         cln_pv = self.dirty_price(discount_curve, survival_curve)
@@ -425,7 +425,7 @@ class CreditLinkedNote:
         seed: int = 42,
     ) -> CLNResult:
         """Price CLN with stochastic recovery correlated to default."""
-        from pricebook.cln_mc import cln_stochastic_recovery
+        from pricebook.credit.cln_mc import cln_stochastic_recovery
         return cln_stochastic_recovery(
             self, discount_curve, survival_curve, recovery_spec, n_sims, seed)
 
@@ -439,7 +439,7 @@ class CreditLinkedNote:
         seed: int = 42,
     ) -> CLNResult:
         """Price CLN via Monte Carlo under stochastic intensity."""
-        from pricebook.cln_mc import cln_stochastic_intensity
+        from pricebook.credit.cln_mc import cln_stochastic_intensity
         return cln_stochastic_intensity(
             self, discount_curve, intensity_model, x0, n_paths, n_steps, seed)
 
@@ -456,7 +456,7 @@ class CreditLinkedNote:
         **model_kwargs,
     ) -> CLNResult:
         """Auto-calibrate stochastic model from survival curve, then price."""
-        from pricebook.cln_mc import cln_stochastic_intensity_from_curve
+        from pricebook.credit.cln_mc import cln_stochastic_intensity_from_curve
         return cln_stochastic_intensity_from_curve(
             self, discount_curve, survival_curve, model_type, xi, kappa,
             n_paths, n_steps, seed, **model_kwargs)
@@ -472,7 +472,7 @@ class CreditLinkedNote:
         seed: int = 42,
     ) -> CLNResult:
         """Price bilateral CLN with dual default risk (ref entity + issuer)."""
-        from pricebook.cln_mc import cln_bilateral_mc
+        from pricebook.credit.cln_mc import cln_bilateral_mc
         return cln_bilateral_mc(
             self, discount_curve, ref_survival, issuer_survival,
             issuer_recovery, correlation, n_paths, seed)
@@ -486,7 +486,7 @@ class CreditLinkedNote:
         seed: int = 42,
     ) -> float:
         """Recovery vol sensitivity: PV change for 1% increase in recovery std."""
-        from pricebook.cln_mc import cln_rec_vol_01
+        from pricebook.credit.cln_mc import cln_rec_vol_01
         return cln_rec_vol_01(
             self, discount_curve, survival_curve, recovery_spec, n_sims, seed)
 
@@ -505,7 +505,7 @@ class CreditLinkedNote:
 
         1L: recovery ≈ 77%. 2L: ≈ 43%. Sub: ≈ 28%.
         """
-        from pricebook.recovery_pricing import SENIORITY_RECOVERY
+        from pricebook.credit.recovery_pricing import SENIORITY_RECOVERY
         if seniority not in SENIORITY_RECOVERY:
             raise ValueError(f"Unknown seniority '{seniority}'")
         mean, _ = SENIORITY_RECOVERY[seniority]

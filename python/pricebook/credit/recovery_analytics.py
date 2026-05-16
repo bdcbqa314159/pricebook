@@ -5,7 +5,7 @@ but the hazard rate h = spread / (1-R) depends on the assumed recovery.
 This module provides tools to reprice instruments across different
 recovery assumptions while keeping CDS spreads constant.
 
-    from pricebook.recovery_analytics import (
+    from pricebook.credit.recovery_analytics import (
         recovery_curve_family,
         reprice_at_recovery,
         recovery_greeks,
@@ -25,7 +25,7 @@ from datetime import date
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.cds_market import build_cds_curve
+from pricebook.credit.cds_market import build_cds_curve
 
 
 # ---------------------------------------------------------------------------

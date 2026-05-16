@@ -13,16 +13,16 @@ Factory functions with string-based lookup for swapping implementations.
 
 from __future__ import annotations
 
-from pricebook import solvers
-from pricebook import quadrature
-from pricebook import binomial_tree
-from pricebook import binomial_jr_lr
-from pricebook import trinomial_tree
-from pricebook import finite_difference
-from pricebook import adi
-from pricebook import mc_pricer
-from pricebook import mc_advanced
-from pricebook import lsm
+from pricebook.core import solvers
+from pricebook.curves import quadrature
+from pricebook.models import binomial_tree
+from pricebook.models import binomial_jr_lr
+from pricebook.models import trinomial_tree
+from pricebook.models import finite_difference
+from pricebook.models import adi
+from pricebook.models import mc_pricer
+from pricebook.models import mc_advanced
+from pricebook.models import lsm
 
 
 # ---------------------------------------------------------------------------
@@ -187,10 +187,10 @@ def list_optimizers() -> list[str]:
 # ODE solvers
 # ---------------------------------------------------------------------------
 
-from pricebook import ode  # noqa: E402
-from pricebook import cos_method  # noqa: E402
-from pricebook import aad_pricing  # noqa: E402
-from pricebook import risk  # noqa: E402
+from pricebook.models import ode  # noqa: E402
+from pricebook.models import cos_method  # noqa: E402
+from pricebook.curves import aad_pricing  # noqa: E402
+from pricebook.risk import risk  # noqa: E402
 
 _ODE_SOLVERS = {
     "rk4": ode.rk4,

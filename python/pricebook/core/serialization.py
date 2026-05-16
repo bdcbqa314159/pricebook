@@ -36,30 +36,30 @@ def _ensure_loaded():
     if _loaded:
         return
     _loaded = True
-    import pricebook.swap           # noqa: F401
-    import pricebook.bond           # noqa: F401
-    import pricebook.cds            # noqa: F401
-    import pricebook.fra            # noqa: F401
-    import pricebook.deposit        # noqa: F401
-    import pricebook.ois            # noqa: F401
-    import pricebook.basis_swap     # noqa: F401
-    import pricebook.swaption       # noqa: F401
-    import pricebook.capfloor       # noqa: F401
-    import pricebook.loan           # noqa: F401
-    import pricebook.cln            # noqa: F401
-    import pricebook.fx_forward     # noqa: F401
-    import pricebook.trs            # noqa: F401
-    import pricebook.discount_curve # noqa: F401
-    import pricebook.survival_curve # noqa: F401
-    import pricebook.rfr            # noqa: F401
-    import pricebook.ibor_curve     # noqa: F401
-    import pricebook.funding_curve  # noqa: F401
-    import pricebook.vol_surface    # noqa: F401
-    import pricebook.csa            # noqa: F401
-    import pricebook.trade          # noqa: F401
-    import pricebook.pricing_context # noqa: F401
-    import pricebook.multi_currency_curves # noqa: F401
-    import pricebook.xva            # noqa: F401
+    import pricebook.fixed_income.swap           # noqa: F401
+    import pricebook.fixed_income.bond           # noqa: F401
+    import pricebook.credit.cds                  # noqa: F401
+    import pricebook.fixed_income.fra            # noqa: F401
+    import pricebook.fixed_income.deposit        # noqa: F401
+    import pricebook.fixed_income.ois            # noqa: F401
+    import pricebook.fixed_income.basis_swap     # noqa: F401
+    import pricebook.options.swaption            # noqa: F401
+    import pricebook.options.capfloor            # noqa: F401
+    import pricebook.credit.loan                 # noqa: F401
+    import pricebook.credit.cln                  # noqa: F401
+    import pricebook.fx.fx_forward               # noqa: F401
+    import pricebook.equity.trs                  # noqa: F401
+    import pricebook.core.discount_curve         # noqa: F401
+    import pricebook.core.survival_curve         # noqa: F401
+    import pricebook.fixed_income.rfr            # noqa: F401
+    import pricebook.fixed_income.ibor_curve     # noqa: F401
+    import pricebook.fixed_income.funding_curve  # noqa: F401
+    import pricebook.options.vol_surface         # noqa: F401
+    import pricebook.fixed_income.csa            # noqa: F401
+    import pricebook.core.trade                  # noqa: F401
+    import pricebook.core.pricing_context        # noqa: F401
+    import pricebook.fx.multi_currency_curves    # noqa: F401
+    import pricebook.risk.xva                    # noqa: F401
 
 
 # ---------------------------------------------------------------------------

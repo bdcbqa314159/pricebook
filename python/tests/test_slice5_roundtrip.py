@@ -8,7 +8,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import CDS, bootstrap_credit_curve
+from pricebook.credit.cds import CDS, bootstrap_credit_curve
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.day_count import DayCountConvention

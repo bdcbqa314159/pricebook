@@ -10,7 +10,7 @@ import pytest
 
 class TestCDSSwaptionMigration:
     def test_pedersen_via_engine(self):
-        from pricebook.cds_swaption import PedersenCDSSwaption, pedersen_price_mc_via_engine
+        from pricebook.credit.cds_swaption import PedersenCDSSwaption, pedersen_price_mc_via_engine
         model = PedersenCDSSwaption(flat_hazard=0.02, spread_vol=0.40, flat_rate=0.05)
         result = pedersen_price_mc_via_engine(
             model, expiry=1.0, cds_maturity=5.0,
@@ -19,7 +19,7 @@ class TestCDSSwaptionMigration:
         assert result.premium >= 0
 
     def test_stochastic_intensity_via_engine(self):
-        from pricebook.cds_swaption import StochasticIntensitySwaption, stochastic_intensity_swaption_via_engine
+        from pricebook.credit.cds_swaption import StochasticIntensitySwaption, stochastic_intensity_swaption_via_engine
         model = StochasticIntensitySwaption(kappa=1.0, theta=0.02, xi=0.1)
         result = stochastic_intensity_swaption_via_engine(
             model, expiry=1.0, cds_maturity=5.0,
@@ -30,11 +30,11 @@ class TestCDSSwaptionMigration:
 
 class TestCLNMigration:
     def test_cln_via_engine_import(self):
-        from pricebook.cln import cln_price_stochastic_recovery_via_engine
+        from pricebook.credit.cln import cln_price_stochastic_recovery_via_engine
         assert callable(cln_price_stochastic_recovery_via_engine)
 
     def test_basket_cln_via_engine_import(self):
-        from pricebook.cln import basket_cln_price_mc_via_engine
+        from pricebook.credit.cln import basket_cln_price_mc_via_engine
         assert callable(basket_cln_price_mc_via_engine)
 
 
@@ -71,7 +71,7 @@ class TestMCGreeksMigration:
 
 class TestRecoveryPricingMigration:
     def test_correlated_default_recovery_via_engine(self):
-        from pricebook.recovery_pricing import RecoverySpec, correlated_default_recovery_via_engine
+        from pricebook.credit.recovery_pricing import RecoverySpec, correlated_default_recovery_via_engine
         spec = RecoverySpec(mean=0.4, std=0.15, correlation_to_default=-0.3)
         result = correlated_default_recovery_via_engine(0.05, spec, n_sims=10_000)
         assert 0 < result.expected_loss < 1

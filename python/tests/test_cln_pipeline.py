@@ -8,13 +8,13 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cln import CreditLinkedNote, BasketCLN
+from pricebook.credit.cln import CreditLinkedNote, BasketCLN
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.schedule import Frequency
-from pricebook.hazard_rate_models import (
+from pricebook.credit.hazard_rate_models import (
     HWHazardRate, CIRPlusPlus, verify_calibration,
 )
-from pricebook.cds_swaption import (
+from pricebook.credit.cds_swaption import (
     StochasticIntensitySwaption, implied_intensity_vol,
 )
 from tests.conftest import make_flat_curve, make_flat_survival

@@ -379,7 +379,7 @@ class CDS:
 
         Bumps the survival curve's hazard rates by `shift` and reprices.
         """
-        from pricebook.credit_risk import _bump_survival_curve
+        from pricebook.credit.credit_risk import _bump_survival_curve
         pv_base = self.pv(discount_curve, survival_curve)
         pv_bumped = self.pv(discount_curve, _bump_survival_curve(survival_curve, shift))
         return pv_bumped - pv_base
@@ -459,7 +459,7 @@ class CDS:
 
         Returns dict mapping pillar date → CS01 contribution.
         """
-        from pricebook.credit_risk import _bump_survival_curve_at
+        from pricebook.credit.credit_risk import _bump_survival_curve_at
         pv_base = self.pv(discount_curve, survival_curve)
         shift = shift_bps / 10_000
         result = {}
@@ -541,7 +541,7 @@ class CDS:
 
         Normalised by notional (not PV) to avoid singularity near par.
         """
-        from pricebook.credit_risk import _bump_survival_curve
+        from pricebook.credit.credit_risk import _bump_survival_curve
         pv_base = self.pv(discount_curve, survival_curve)
         pv_up = self.pv(discount_curve, _bump_survival_curve(survival_curve, shift))
         pv_down = self.pv(discount_curve, _bump_survival_curve(survival_curve, -shift))
@@ -767,7 +767,7 @@ class StandardCDS(CDS):
         - Recovery: 40% (IG) or 25% (HY)
         - Dates: IMM-snapped from cds_conventions
         """
-        from pricebook.cds_conventions import (
+        from pricebook.credit.cds_conventions import (
             standard_cds_dates, STANDARD_COUPONS_BPS, STANDARD_RECOVERY,
         )
         dates = standard_cds_dates(reference_date, maturity_years)

@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.recovery_advanced import (
+from pricebook.credit.recovery_advanced import (
     LGDCycleResult,
     StochasticRecoveryCDSResult,
     WaterfallResult,

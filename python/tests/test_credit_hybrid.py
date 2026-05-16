@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.credit_hybrid import (
+from pricebook.credit.credit_hybrid import (
     CallableRiskyBondResult,
     ConvertibleBondResult,
     FloatingCLNResult,

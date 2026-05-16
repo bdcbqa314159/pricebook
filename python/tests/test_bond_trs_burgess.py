@@ -13,7 +13,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.fixed_income.bond_trs import bond_trs_pv, par_funding_spread, BondTRSResult
-from pricebook.cds import protection_leg_pv
+from pricebook.credit.cds import protection_leg_pv
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.schedule import Frequency
 from pricebook.core.survival_curve import SurvivalCurve

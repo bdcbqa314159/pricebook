@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.cds import bootstrap_credit_curve
+from pricebook.credit.cds import bootstrap_credit_curve
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.pricing_context import PricingContext
 from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity

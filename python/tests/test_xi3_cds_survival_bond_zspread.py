@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.cds import CDS, bootstrap_credit_curve
+from pricebook.credit.cds import CDS, bootstrap_credit_curve
 from pricebook.core.day_count import DayCountConvention
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread

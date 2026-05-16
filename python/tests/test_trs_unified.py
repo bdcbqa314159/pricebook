@@ -121,7 +121,7 @@ class TestBondTRS:
 class TestLoanTRS:
     def test_basic_price(self):
         curve = _curve(REF)
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(REF, REF + timedelta(days=1825), spread=0.03,
                         notional=10_000_000)
         trs = TotalReturnSwap(underlying=loan, notional=10_000_000,
@@ -133,7 +133,7 @@ class TestLoanTRS:
     def test_pv_ctx(self):
         curve = _curve(REF)
         ctx = PricingContext(valuation_date=REF, discount_curve=curve)
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(REF, REF + timedelta(days=1825), spread=0.03,
                         notional=10_000_000)
         trs = TotalReturnSwap(underlying=loan, notional=10_000_000,
@@ -179,7 +179,7 @@ class TestPortfolioIntegration:
         ctx = PricingContext(valuation_date=REF, discount_curve=curve)
 
         bond = FixedRateBond(REF, REF + timedelta(days=3650), coupon_rate=0.03)
-        from pricebook.loan import TermLoan
+        from pricebook.credit.loan import TermLoan
         loan = TermLoan(REF, REF + timedelta(days=1825), spread=0.03,
                         notional=5_000_000)
 

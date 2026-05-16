@@ -6,7 +6,7 @@ Models a limited partner's interest in a credit fund with:
 - NAV-based secondary pricing
 - Performance metrics: MOIC, DPI, TVPI, IRR
 
-    from pricebook.fund_participation import FundParticipation
+    from pricebook.credit.fund_participation import FundParticipation
 
 References:
     Metrick & Yasuda (2010). The Economics of Private Equity Funds.

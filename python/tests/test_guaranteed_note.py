@@ -9,7 +9,7 @@ import pytest
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.guaranteed_note import (
+from pricebook.credit.guaranteed_note import (
     GuaranteedNote, guarantee_value, guarantee_spread,
 )
 

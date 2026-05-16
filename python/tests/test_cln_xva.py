@@ -7,8 +7,8 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cln import CreditLinkedNote
-from pricebook.cln_xva import (
+from pricebook.credit.cln import CreditLinkedNote
+from pricebook.credit.cln_xva import (
     cln_simm_im, cln_mva, cln_kva,
     cln_analytic_cva, cln_wrong_way_cost, cln_mc_xva,
 )

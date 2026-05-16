@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from pricebook.cds_market import (
+from pricebook.credit.cds_market import (
     build_cds_curve, reprice_spreads,
     spread_to_upfront, upfront_to_spread,
     pricing_ladder, mark_to_market, roll_pnl,
 )
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 

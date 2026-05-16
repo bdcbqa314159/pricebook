@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.cln import CreditLinkedNote, BasketCLN, CLNResult
+from pricebook.credit.cln import CreditLinkedNote, BasketCLN, CLNResult
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

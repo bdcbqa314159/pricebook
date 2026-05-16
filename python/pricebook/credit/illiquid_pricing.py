@@ -4,7 +4,7 @@ For instruments without observable market prices — private placements,
 bilateral loans, unlisted bonds — pricing via comparable spread analysis,
 liquidity premium models, and composite spread construction.
 
-    from pricebook.illiquid_pricing import (
+    from pricebook.credit.illiquid_pricing import (
         MatrixPricer, LiquidityPremiumModel, PrivatePlacementPricer,
     )
 

@@ -3,14 +3,14 @@
 import pytest
 from datetime import date
 
-from pricebook.exotic_loan import (
+from pricebook.credit.exotic_loan import (
     cpr_to_smm,
     psa_cpr,
     prepay_adjusted_loan,
     prepay_adjusted_wal,
     CovenantLoan,
 )
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 from tests.conftest import make_flat_curve
 
 

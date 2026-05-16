@@ -9,7 +9,7 @@ from pricebook.pe.pe_performance import (
     vintage_cohort, commitment_pacing, gp_economics,
     clawback_exposure, _pe_irr, _compound_return, _median,
 )
-from pricebook.fund_participation import FundParticipation
+from pricebook.credit.fund_participation import FundParticipation
 
 
 # ═══════════════════════════════════════════════════════════════

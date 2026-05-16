@@ -8,8 +8,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.cds import CDS
-from pricebook.cds_strategies import (
+from pricebook.credit.cds import CDS
+from pricebook.credit.cds_strategies import (
     CDSCurveTrade, flatten, steepen,
     cds_bond_basis, basis_trade,
     recovery_lock_pv, digital_cds_spread,

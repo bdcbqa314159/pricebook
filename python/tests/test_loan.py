@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 from pricebook.core.schedule import Frequency
 from tests.conftest import make_flat_curve
 

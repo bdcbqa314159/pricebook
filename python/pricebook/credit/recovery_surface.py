@@ -5,7 +5,7 @@ A recovery surface captures how recovery varies across:
 - Tenor: short-dated defaults typically have higher recovery than long-dated
 - Credit quality: distressed names show recovery declining with tenor
 
-    from pricebook.recovery_surface import RecoverySurface, implied_recovery
+    from pricebook.credit.recovery_surface import RecoverySurface, implied_recovery
 
     # From Moody's seniority table
     surface = RecoverySurface.from_seniority_table()
@@ -242,7 +242,7 @@ def implied_recovery(
         sub_spreads: {tenor: spread} for subordinated CDS.
         senior_recovery / sub_recovery: assumed recoveries.
     """
-    from pricebook.cds_market import build_cds_curve
+    from pricebook.credit.cds_market import build_cds_curve
     from pricebook.core.day_count import DayCountConvention, year_fraction
 
     results = []
@@ -310,7 +310,7 @@ def recovery_term_structure(
 
     Returns one point per CDS tenor.
     """
-    from pricebook.cds_market import build_cds_curve
+    from pricebook.credit.cds_market import build_cds_curve
     from pricebook.core.day_count import DayCountConvention, year_fraction
 
     if method == "flat":

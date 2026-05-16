@@ -6,7 +6,7 @@ Transition probability: P(t) = exp(Q*t) via matrix exponential.
 Jarrow-Lando-Turnbull: risky ZCB per rating.
 MC simulation of rating migration paths.
 
-    from pricebook.rating_transition import RatingTransitionMatrix
+    from pricebook.credit.rating_transition import RatingTransitionMatrix
 
     Q = RatingTransitionMatrix(
         ratings=["AAA", "AA", "A", "BBB", "BB", "B", "CCC", "D"],

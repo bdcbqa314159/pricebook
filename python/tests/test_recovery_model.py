@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.recovery_model import BetaRecovery, LGDModel, CorrelatedRecovery
+from pricebook.credit.recovery_model import BetaRecovery, LGDModel, CorrelatedRecovery
 
 
 class TestBetaRecovery:

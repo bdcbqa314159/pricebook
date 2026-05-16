@@ -5,7 +5,7 @@ Prepayment: CPR/PSA models adjust expected cashflows.
 Covenant: financial triggers that accelerate the loan.
 TRS: total return swap referencing a loan.
 
-    from pricebook.exotic_loan import prepay_adjusted_cashflows, CovenantLoan
+    from pricebook.credit.exotic_loan import prepay_adjusted_cashflows, CovenantLoan
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import numpy as np
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 
 
 def cpr_to_smm(cpr: float) -> float:

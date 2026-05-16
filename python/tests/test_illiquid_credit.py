@@ -7,10 +7,10 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.illiquid_credit import (
+from pricebook.credit.illiquid_credit import (
     distressed_recovery_sensitivity, is_distressed,
     implied_default_prob, recovery_breakeven,
     RESTRUCTURING_CLAUSES, EM_CONVENTIONS,

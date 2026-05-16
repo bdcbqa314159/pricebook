@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import (
+from pricebook.credit.cds import (
     CDS, StandardCDS,
     cds_pnl_attribution, CDSPnLAttribution,
     forward_cds_par_spread, forward_risky_annuity,
@@ -198,7 +198,7 @@ class TestForwardCDS:
 
     def test_matches_flat_cds_swaption(self):
         """For flat curves, forward spread should match cds_swaption.forward_cds_spread()."""
-        from pricebook.cds_swaption import forward_cds_spread as fwd_flat
+        from pricebook.credit.cds_swaption import forward_cds_spread as fwd_flat
         dc = make_flat_curve(REF, 0.04)
         sc = make_flat_survival(REF, 0.02)
 
@@ -220,7 +220,7 @@ class TestForwardRiskyAnnuity:
 
     def test_spot_annuity(self):
         """Forward annuity starting today = spot annuity."""
-        from pricebook.cds import risky_annuity
+        from pricebook.credit.cds import risky_annuity
         dc = make_flat_curve(REF, 0.04)
         sc = make_flat_survival(REF, 0.02)
 

@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.credit_exotic import (
+from pricebook.credit.credit_exotic import (
     capped_coupon_bond, digital_cds,
     credit_range_accrual, credit_linked_loan,
 )

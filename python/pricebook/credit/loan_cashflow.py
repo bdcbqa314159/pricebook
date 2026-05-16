@@ -4,7 +4,7 @@ pricing grid, SOFR CSA adjustment.
 These are the building blocks that make leveraged loan cashflows realistic.
 Each can be composed with TermLoan or used standalone.
 
-    from pricebook.loan_cashflow import (
+    from pricebook.credit.loan_cashflow import (
         FlooredTermLoan, ExcessCashFlowSweep, PIKTermLoan,
         PricingGrid, SOFRCSAAdjustment,
     )
@@ -24,7 +24,7 @@ from typing import Any
 from pricebook.models.black76 import OptionType, black76_price
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.loan import TermLoan
+from pricebook.credit.loan import TermLoan
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.core.serialisable import _register, _serialise_atom
 

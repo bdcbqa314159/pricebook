@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.credit_bond_tools import (
+from pricebook.credit.credit_bond_tools import (
     ConcentrationResult,
     CrossSectorRV,
     MigrationImpact,

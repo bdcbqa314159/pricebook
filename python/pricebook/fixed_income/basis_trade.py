@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread, asset_swap_spread
 from pricebook.core.survival_curve import SurvivalCurve

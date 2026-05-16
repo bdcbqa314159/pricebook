@@ -3,7 +3,7 @@
 Manages CDX/iTraxx index series with on-the-run/off-the-run tracking,
 roll mechanics, and index-vs-intrinsic basis (skew) analysis.
 
-    from pricebook.credit_index import (
+    from pricebook.credit.credit_index import (
         IndexDefinition, IndexSeries, index_skew, index_roll_pnl,
     )
 
@@ -18,8 +18,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from pricebook.cds import CDS, risky_annuity
-from pricebook.cds_index import CDSIndex
+from pricebook.credit.cds import CDS, risky_annuity
+from pricebook.credit.cds_index import CDSIndex
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 

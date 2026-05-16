@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from pricebook.credit_risk import (
+from pricebook.credit.credit_risk import (
     cs01, spread_dv01, jump_to_default,
     CreditBook, CreditPosition,
     _bump_survival_curve,
 )
-from pricebook.cds import CDS, bootstrap_credit_curve
+from pricebook.credit.cds import CDS, bootstrap_credit_curve
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.trade import Trade

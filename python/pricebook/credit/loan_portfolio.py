@@ -1,6 +1,6 @@
 """Loan portfolio analytics: aggregation, risk decomposition, WAM/WAL.
 
-    from pricebook.loan_portfolio import LoanBook
+    from pricebook.credit.loan_portfolio import LoanBook
 
     book = LoanBook("CLO_1")
     book.add(participation_1)
@@ -90,7 +90,7 @@ class LoanBook:
 
         Dispatches by checking instrument type explicitly (not try/except).
         """
-        from pricebook.loan_participation import LoanParticipation, PartialFundedParticipation
+        from pricebook.credit.loan_participation import LoanParticipation, PartialFundedParticipation
 
         total = 0.0
         for pos in self._positions:

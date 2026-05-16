@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.tranche_pricing import (
+from pricebook.credit.tranche_pricing import (
     TrancheCDS, TrancheResult, expected_tranche_loss,
     calibrate_base_correlation, STANDARD_TRANCHES,
 )

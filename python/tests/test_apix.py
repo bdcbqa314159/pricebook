@@ -5,7 +5,7 @@ from datetime import date
 import numpy as np
 import pytest
 
-import pricebook.api as pb
+import pricebook.desks.api as pb
 from pricebook.fixed_income.inflation import CPICurve
 from pricebook.fixed_income.repo_term import RepoCurve, RepoRate
 

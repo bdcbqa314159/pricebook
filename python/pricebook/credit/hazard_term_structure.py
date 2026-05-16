@@ -3,7 +3,7 @@
 Tools for illiquid names that don't have their own liquid CDS market.
 Build proxy survival curves from similar liquid names with adjustments.
 
-    from pricebook.hazard_term_structure import proxy_survival_curve, liquidity_spread
+    from pricebook.credit.hazard_term_structure import proxy_survival_curve, liquidity_spread
 
     proxy = proxy_survival_curve(liquid_curve, additive_shift=0.005)
     liq = liquidity_spread(total_spread=0.015, credit_spread=0.010)

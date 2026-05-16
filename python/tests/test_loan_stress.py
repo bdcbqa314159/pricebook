@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 
-from pricebook.loan_stress import (
+from pricebook.credit.loan_stress import (
     MacroScenario, PREDEFINED_SCENARIOS,
     PortfolioStressResult, ConcentrationMetrics, MigrationResult,
     macro_stress_scenario, correlated_default_simulation,

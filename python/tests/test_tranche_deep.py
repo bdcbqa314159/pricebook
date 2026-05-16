@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.tranche_pricing import (
+from pricebook.credit.tranche_pricing import (
     expected_tranche_loss, expected_tranche_loss_t,
     price_tranche_multiperiod,
     tranche_rho01,

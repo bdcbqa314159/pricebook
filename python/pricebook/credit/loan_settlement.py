@@ -3,7 +3,7 @@
 LSTA conventions for secondary loan trading: delayed compensation,
 break funding, failed settlement penalties, trade P&L.
 
-    from pricebook.loan_settlement import (
+    from pricebook.credit.loan_settlement import (
         LoanSettlement, delayed_compensation, break_funding,
         LoanTradeEcon, loan_bond_basis,
     )

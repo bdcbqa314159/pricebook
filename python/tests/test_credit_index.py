@@ -3,11 +3,11 @@
 import pytest
 from datetime import date
 
-from pricebook.credit_index import (
+from pricebook.credit.credit_index import (
     IndexConstituent, IndexDefinition, IndexSeries,
     index_skew, index_roll_pnl,
 )
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 

@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.distressed import (
+from pricebook.credit.distressed import (
     CapitalStructureLayer, DIPResult, FulcrumResult, RecoveryDistribution,
     ExchangeResult, Chapter11Milestone, Chapter11Result,
     DIPLoan, RecoveryWaterfall, FulcrumAnalysis,

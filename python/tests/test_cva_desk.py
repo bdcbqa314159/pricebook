@@ -53,7 +53,7 @@ class TestCVACS01:
         dc = _dc()
         sc = _sc(0.02)
         epe = _epe()
-        from pricebook.credit_risk import _bump_survival_curve
+        from pricebook.credit.credit_risk import _bump_survival_curve
         base = cva(epe, TIME_GRID, dc, sc)
         bumped_sc = _bump_survival_curve(sc, 0.0001)
         bumped = cva(epe, TIME_GRID, dc, bumped_sc)

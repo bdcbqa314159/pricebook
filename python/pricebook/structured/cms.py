@@ -68,7 +68,7 @@ def cms_convexity_adjustment(
 # Canonical locations: pricebook.cash_settlement, pricebook.credit_adjustment
 
 from pricebook.fixed_income.cash_settlement import cash_annuity  # noqa: F401
-from pricebook.credit_adjustment import (  # noqa: F401
+from pricebook.credit.credit_adjustment import (  # noqa: F401
     cra_discount,
     risky_annuity,
     risky_swap_rate,

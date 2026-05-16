@@ -3,8 +3,8 @@
 import pytest
 import numpy as np
 
-from pricebook.clo import CLOTranche, CLOWaterfall
-from pricebook.clo_equity import CLOEquityMC, CLOEquityResult, warehouse_risk, _mc_irr
+from pricebook.credit.clo import CLOTranche, CLOWaterfall
+from pricebook.credit.clo_equity import CLOEquityMC, CLOEquityResult, warehouse_risk, _mc_irr
 
 
 @pytest.fixture

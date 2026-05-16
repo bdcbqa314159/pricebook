@@ -3,7 +3,7 @@
 Collateralised Loan Obligation: tranched securitisation of leveraged loans.
 Senior-to-equity waterfall with OC/IC tests, diversity score, reinvestment.
 
-    from pricebook.clo import (
+    from pricebook.credit.clo import (
         CLOTranche, CLOWaterfall,
         oc_ratio, ic_ratio, ccc_concentration,
         wal_test, warf_test,

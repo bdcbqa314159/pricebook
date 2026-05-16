@@ -3,7 +3,7 @@
 Build survival curves from market par spreads, generate bid/ask ladders,
 mark-to-market seasoned CDS, and compute roll P&L.
 
-    from pricebook.cds_market import (
+    from pricebook.credit.cds_market import (
         build_cds_curve, pricing_ladder, mark_to_market, roll_pnl,
     )
 
@@ -19,7 +19,7 @@ from typing import Any
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cds import CDS, bootstrap_credit_curve, risky_annuity
+from pricebook.credit.cds import CDS, bootstrap_credit_curve, risky_annuity
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 
@@ -110,7 +110,7 @@ def bootstrap_from_upfronts(
         SurvivalCurve that, when used to price the CDS at the running coupon,
         produces the given upfront amounts.
     """
-    from pricebook.cds import CDS, bootstrap_credit_curve
+    from pricebook.credit.cds import CDS, bootstrap_credit_curve
     from pricebook.core.solvers import brentq
 
     pillar_dates: list[date] = []

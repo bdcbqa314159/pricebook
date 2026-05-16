@@ -3,10 +3,10 @@
 import pytest
 from datetime import date
 
-from pricebook.credit_rv import (
+from pricebook.credit.credit_rv import (
     cross_name_rv, term_structure_rv, sector_screen,
 )
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 

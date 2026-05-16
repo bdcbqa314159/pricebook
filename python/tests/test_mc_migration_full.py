@@ -202,7 +202,7 @@ class TestRoughVolMigration:
 class TestCreditHybridMigration:
 
     def test_convertible_bond_via_engine(self):
-        from pricebook.credit_hybrid import convertible_bond_via_engine
+        from pricebook.credit.credit_hybrid import convertible_bond_via_engine
         result = convertible_bond_via_engine(
             1000, 0.05, 5, 10, 100, n_paths=5_000,
         )
@@ -210,7 +210,7 @@ class TestCreditHybridMigration:
         assert result.bond_floor > 0
 
     def test_floating_cln_via_engine(self):
-        from pricebook.credit_hybrid import floating_cln_via_engine
+        from pricebook.credit.credit_hybrid import floating_cln_via_engine
         result = floating_cln_via_engine(1_000_000, 0.01, 5, n_paths=5_000)
         assert result.price > 0
 

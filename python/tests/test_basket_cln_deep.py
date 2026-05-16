@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cln import BasketCLN
+from pricebook.credit.cln import BasketCLN
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

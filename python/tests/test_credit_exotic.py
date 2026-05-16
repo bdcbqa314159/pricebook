@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.credit_exotic import (
+from pricebook.credit.credit_exotic import (
     CappedCouponBondResult,
     CreditLinkedLoanResult,
     CreditRangeAccrualResult,

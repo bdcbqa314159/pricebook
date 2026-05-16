@@ -16,7 +16,7 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.fixed_income.bond import FixedRateBond
-from pricebook.cds import CDS, bootstrap_credit_curve
+from pricebook.credit.cds import CDS, bootstrap_credit_curve
 from pricebook.core.currency import CurrencyPair
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fx.fx_forward import FXForward

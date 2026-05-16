@@ -49,7 +49,7 @@ def pe_risk_metrics(entry: PEBookEntry) -> PERiskMetrics:
     product_type = entry.product_type
 
     if product_type == "fund":
-        from pricebook.fund_participation import FundParticipation
+        from pricebook.credit.fund_participation import FundParticipation
         m = inst.metrics()
         called = sum(frac for _, frac in inst.drawdown_schedule)
         unfunded = inst.commitment * max(1 - called, 0)

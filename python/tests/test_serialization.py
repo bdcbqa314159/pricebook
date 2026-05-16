@@ -149,7 +149,7 @@ class TestBondSerialization:
 
 class TestCDSSerialization:
     def test_roundtrip(self):
-        from pricebook.cds import CDS
+        from pricebook.credit.cds import CDS
         cds = CDS(date(2024, 1, 15), date(2029, 1, 15), 0.01)
         d = instrument_to_dict(cds)
         cds2 = instrument_from_dict(d)
@@ -200,7 +200,7 @@ class TestTradeSerialization:
 class TestPortfolioSerialization:
     def test_roundtrip(self):
         from pricebook.fixed_income.swap import InterestRateSwap
-        from pricebook.cds import CDS
+        from pricebook.credit.cds import CDS
         swap = InterestRateSwap(date(2024, 1, 15), date(2029, 1, 15), 0.05)
         cds = CDS(date(2024, 1, 15), date(2029, 1, 15), 0.01)
         port = Portfolio([

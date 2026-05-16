@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.rating_transition import (
+from pricebook.credit.rating_transition import (
     RatingTransitionMatrix,
     risky_zcb_jlt,
     standard_generator,

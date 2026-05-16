@@ -23,7 +23,7 @@ from datetime import date
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.core.solvers import brentq
 
@@ -77,7 +77,7 @@ class CDSIndex:
         Uses Newton-Raphson with RPV01 as Jacobian (3-5 iterations),
         falling back to Brent if Newton fails.
         """
-        from pricebook.cds import risky_annuity as _ra
+        from pricebook.credit.cds import risky_annuity as _ra
         index_pv = self.pv(discount_curve, survival_curves)
         template = self.constituents[0]
         target = index_pv / self.n

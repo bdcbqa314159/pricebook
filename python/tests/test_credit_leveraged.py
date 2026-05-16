@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.credit_leveraged import (
+from pricebook.credit.credit_leveraged import (
     CDSStraddleResult,
     CMCDSResult,
     CreditTRSResult,

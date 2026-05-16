@@ -1,6 +1,6 @@
 """Tests for structural credit."""
 import math, pytest
-from pricebook.structural_credit import merton_equity_credit, kmv_distance_to_default, black_cox_first_passage, implied_credit_from_equity
+from pricebook.credit.structural_credit import merton_equity_credit, kmv_distance_to_default, black_cox_first_passage, implied_credit_from_equity
 
 class TestMerton:
     def test_basic(self):

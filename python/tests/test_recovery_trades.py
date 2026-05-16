@@ -8,8 +8,8 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.cds_market import build_cds_curve
-from pricebook.recovery_trades import (
+from pricebook.credit.cds_market import build_cds_curve
+from pricebook.credit.recovery_trades import (
     market_implied_recovery,
     recovery_by_spread_regime,
     downturn_lgd,
@@ -110,7 +110,7 @@ class TestDownturnLGD:
 class TestPortfolioRecoveryStress:
 
     def test_recovery_shock_negative_pv(self):
-        from pricebook.cln import CreditLinkedNote
+        from pricebook.credit.cln import CreditLinkedNote
         from pricebook.core.schedule import Frequency
         ois = _ois()
         cln = CreditLinkedNote(REF, REF + relativedelta(years=5),
@@ -122,7 +122,7 @@ class TestPortfolioRecoveryStress:
         assert result.n_positions == 1
 
     def test_combined_shock(self):
-        from pricebook.cln import CreditLinkedNote
+        from pricebook.credit.cln import CreditLinkedNote
         from pricebook.core.schedule import Frequency
         ois = _ois()
         cln = CreditLinkedNote(REF, REF + relativedelta(years=5),

@@ -9,7 +9,7 @@ import pytest
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.risk_participation import (
+from pricebook.credit.risk_participation import (
     RiskParticipation, SubParticipation, risk_participation_capital_relief,
 )
 from pricebook.desks.risk_participation_desk import (

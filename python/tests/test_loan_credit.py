@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.loan_credit import (
+from pricebook.credit.loan_credit import (
     RecoveryModel, StochasticRecovery, SpreadPrepayModel,
     lgd_regulatory, capital_requirement,
     RECOVERY_BY_SENIORITY, REGULATORY_LGD,

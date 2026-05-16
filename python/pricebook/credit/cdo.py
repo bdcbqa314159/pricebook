@@ -4,7 +4,7 @@ CDO tranche pricing: loss distribution, tranching, base correlation.
 Vasicek large homogeneous pool: conditional on systematic factor M,
 defaults are independent. Integrate over M for unconditional loss.
 
-    from pricebook.cdo import portfolio_loss_distribution, tranche_expected_loss
+    from pricebook.credit.cdo import portfolio_loss_distribution, tranche_expected_loss
 
     loss_dist = portfolio_loss_distribution(pd=0.02, rho=0.3, lgd=0.6, n_names=100)
     eq_loss = tranche_expected_loss(loss_dist, 0.0, 0.03)

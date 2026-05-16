@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.loan_settlement import (
+from pricebook.credit.loan_settlement import (
     LoanSettlement, delayed_compensation, break_funding,
     failed_settlement_penalty, LoanTradeEcon,
     loan_bond_basis, basis_z_score,

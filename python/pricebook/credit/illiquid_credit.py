@@ -2,7 +2,7 @@
 
 Tools for names without liquid CDS markets or trading in distressed regime.
 
-    from pricebook.illiquid_credit import distressed_recovery_sensitivity
+    from pricebook.credit.illiquid_credit import distressed_recovery_sensitivity
 
     sens = distressed_recovery_sensitivity(cds, disc, sc, recovery_range=(0.1, 0.6))
 
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from pricebook.cds import CDS
+from pricebook.credit.cds import CDS
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
@@ -130,7 +130,7 @@ def recovery_breakeven(
     Solves: protection_leg(R_be) = premium_leg.
     """
     from pricebook.core.solvers import brentq
-    from pricebook.cds import protection_leg_pv, premium_leg_pv
+    from pricebook.credit.cds import protection_leg_pv, premium_leg_pv
 
     prem = premium_leg_pv(cds.start, cds.end, cds.spread, discount_curve,
                            survival_curve, cds.notional)

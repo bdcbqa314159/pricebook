@@ -3,11 +3,11 @@
 import math
 import pytest
 
-from pricebook.tranche_trading import (
+from pricebook.credit.tranche_trading import (
     tranche_delta, tranche_cs01, correlation_sensitivity,
     correlation_skew, skew_bump,
 )
-from pricebook.cdo import portfolio_loss_distribution, tranche_spread
+from pricebook.credit.cdo import portfolio_loss_distribution, tranche_spread
 
 
 PD = 0.02
