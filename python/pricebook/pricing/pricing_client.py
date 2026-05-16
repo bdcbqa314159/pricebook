@@ -1,6 +1,6 @@
 """Pricing client: synchronous TCP client for the pricing server.
 
-    from pricebook.pricing_client import PricingClient
+    from pricebook.pricing.pricing_client import PricingClient
 
     client = PricingClient("127.0.0.1", 9090)
     client.connect()
@@ -16,8 +16,8 @@ import socket
 import struct
 from typing import Any
 
-from pricebook.pricing_codec import Codec, CodecFormat, Compression, HEADER_SIZE
-from pricebook.pricing_schema import PricingRequest, PricingResponse
+from pricebook.pricing.pricing_codec import Codec, CodecFormat, Compression, HEADER_SIZE
+from pricebook.pricing.pricing_schema import PricingRequest, PricingResponse
 
 
 class PricingClient:

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from pricebook.pricing_schema import (
+from pricebook.pricing.pricing_schema import (
     PricingRequest, PricingResponse,
     MarketDataEnvelope, TradeEnvelope, TradeResult,
     PricingConfig, QuoteMsg, CurveMsg, CSAMsg,

@@ -2,7 +2,7 @@
 
 Extends existing market_data.py with practical tools for daily use.
 
-    from pricebook.market_data_tools import (
+    from pricebook.pricing.market_data_tools import (
         synthetic_market, parse_json_quotes, MarketSnapshot,
     )
 """

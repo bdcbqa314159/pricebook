@@ -9,7 +9,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.pricing_engine import price_from_json, price_from_dict
+from pricebook.pricing.pricing_engine import price_from_json, price_from_dict
 from pricebook.serialization import discount_curve_to_dict, survival_curve_to_dict
 
 

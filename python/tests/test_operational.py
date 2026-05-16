@@ -9,7 +9,7 @@ import pytest
 from pricebook.statistics.statistics import (
     cointegration_test, regime_detect, bootstrap_ci, rolling_stats,
 )
-from pricebook.market_data_tools import (
+from pricebook.pricing.market_data_tools import (
     synthetic_market, parse_json_quotes, MarketSnapshot,
 )
 from pricebook.eod import (

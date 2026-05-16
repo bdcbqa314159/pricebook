@@ -1,6 +1,6 @@
 """Pricing server: asyncio TCP server accepting framed pricing requests.
 
-    from pricebook.pricing_server import PricingServer
+    from pricebook.pricing.pricing_server import PricingServer
 
     server = PricingServer(host="0.0.0.0", port=9090)
     asyncio.run(server.run())
@@ -21,8 +21,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from typing import Any
 
-from pricebook.pricing_codec import Codec, CodecFormat, Compression, HEADER_SIZE
-from pricebook.pricing_schema import (
+from pricebook.pricing.pricing_codec import Codec, CodecFormat, Compression, HEADER_SIZE
+from pricebook.pricing.pricing_schema import (
     PricingRequest, PricingResponse, TradeResult,
     MarketDataEnvelope, TradeEnvelope, PricingConfig, QuoteMsg,
 )
@@ -114,7 +114,7 @@ def _build_context(val_date: date, md: MarketDataEnvelope):
 
     elif md.mode == "curves":
         # Use pre-built curves
-        from pricebook.pricing_schema import CurveMsg
+        from pricebook.pricing.pricing_schema import CurveMsg
 
         curves = {}
         for cd in md.curves:

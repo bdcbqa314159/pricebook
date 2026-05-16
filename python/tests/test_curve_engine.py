@@ -12,7 +12,7 @@ from pricebook.curve_engine import (
     ExtrapolationPolicy,
     build_curve,
 )
-from pricebook.market_data import MarketDataSnapshot, Quote, QuoteType, MissingQuoteError
+from pricebook.pricing.market_data import MarketDataSnapshot, Quote, QuoteType, MissingQuoteError
 
 
 REF = date(2024, 1, 15)

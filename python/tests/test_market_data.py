@@ -5,7 +5,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.market_data import (
+from pricebook.pricing.market_data import (
     Quote,
     QuoteType,
     MarketDataSnapshot,

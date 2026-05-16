@@ -4,7 +4,7 @@ All messages are dataclasses with to_dict()/from_dict(). All field types are
 JSON-native (str, float, int, bool, list, dict). Dates are ISO strings.
 Enums are strings. This maps 1:1 to protobuf for future migration.
 
-    from pricebook.pricing_schema import PricingRequest, PricingResponse
+    from pricebook.pricing.pricing_schema import PricingRequest, PricingResponse
 
     req = PricingRequest(
         valuation_date="2026-04-28",

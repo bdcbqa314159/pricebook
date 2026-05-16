@@ -4,7 +4,7 @@ Single entry point for pricing any pricebook instrument from a JSON
 (or dict) specification. Builds curves, constructs instruments,
 computes PV and Greeks, returns structured results.
 
-    from pricebook.pricing_engine import price_from_json, price_from_dict
+    from pricebook.pricing.pricing_engine import price_from_json, price_from_dict
 
     result_json = price_from_json('''
     {

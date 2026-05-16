@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.schema_adapter import analyse_json, SchemaAdapter, SchemaHint
+from pricebook.pricing.schema_adapter import analyse_json, SchemaAdapter, SchemaHint
 from pricebook.serialisable import from_dict
 
 

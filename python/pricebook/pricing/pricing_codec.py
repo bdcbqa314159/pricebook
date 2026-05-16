@@ -3,7 +3,7 @@
 Pluggable format (JSON now, MessagePack/Protobuf later) with optional
 compression. Wire frame: [4-byte length][1-byte format][1-byte compression][payload].
 
-    from pricebook.pricing_codec import Codec, CodecFormat, Compression
+    from pricebook.pricing.pricing_codec import Codec, CodecFormat, Compression
 
     codec = Codec(format=CodecFormat.JSON, compression=Compression.NONE)
     data = codec.encode(request.to_dict())   # → bytes (framed)

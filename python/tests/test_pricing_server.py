@@ -10,13 +10,13 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.pricing_client import PricingClient
-from pricebook.pricing_codec import Codec
-from pricebook.pricing_schema import (
+from pricebook.pricing.pricing_client import PricingClient
+from pricebook.pricing.pricing_codec import Codec
+from pricebook.pricing.pricing_schema import (
     PricingRequest, PricingResponse, PricingConfig, QuoteMsg, TradeResult,
     irs_trade, bond_trade, quotes_market_data,
 )
-from pricebook.pricing_server import PricingServer, _handle_request, _tenor_to_date
+from pricebook.pricing.pricing_server import PricingServer, _handle_request, _tenor_to_date
 
 
 REF = date(2026, 4, 28)

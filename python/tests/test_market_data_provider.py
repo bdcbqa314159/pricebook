@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.market_data_provider import (
+from pricebook.pricing.market_data_provider import (
     RateSeries, SampleProvider, build_curve_from_yields,
     FRED_SERIES, ECB_SERIES, FREDProvider, ECBProvider,
 )

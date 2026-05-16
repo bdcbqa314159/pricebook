@@ -6,10 +6,10 @@ import json
 
 import pytest
 
-from pricebook.pricing_codec import (
+from pricebook.pricing.pricing_codec import (
     Codec, CodecFormat, Compression, HEADER_SIZE,
 )
-from pricebook.pricing_schema import (
+from pricebook.pricing.pricing_schema import (
     PricingRequest, PricingConfig, QuoteMsg,
     irs_trade, quotes_market_data,
 )

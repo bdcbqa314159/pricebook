@@ -3,7 +3,7 @@
 Fetch rates, yields, and CPI from external sources. Providers return
 standardised time series that can be converted to curves.
 
-    from pricebook.market_data_provider import (
+    from pricebook.pricing.market_data_provider import (
         FREDProvider, ECBProvider, SampleProvider,
         build_curve_from_series,
     )

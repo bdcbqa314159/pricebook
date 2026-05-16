@@ -5,7 +5,7 @@ market data provider), the field names and structure may not match
 pricebook's `{"type": ..., "params": {...}}` convention. This adapter
 analyses incoming JSON and suggests mappings.
 
-    from pricebook.schema_adapter import SchemaAdapter, analyse_json
+    from pricebook.pricing.schema_adapter import SchemaAdapter, analyse_json
 
     # Analyse unknown JSON and get hints
     hints = analyse_json(external_data)
