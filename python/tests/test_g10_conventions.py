@@ -10,7 +10,7 @@ from pricebook.calendar import (
     TokyoCalendar, CHFCalendar, AUDCalendar, CADCalendar,
 )
 from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.curve_builder import build_curves, _CONVENTIONS
+from pricebook.curves.curve_builder import build_curves, _CONVENTIONS
 
 
 # ---- Calendars: all G10 exist ----

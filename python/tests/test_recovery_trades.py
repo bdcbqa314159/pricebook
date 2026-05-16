@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.cds_market import build_cds_curve
 from pricebook.recovery_trades import (
     market_implied_recovery,

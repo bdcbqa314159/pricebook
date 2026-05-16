@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.curve_advanced import (
+from pricebook.curves.curve_advanced import (
     NSFitResult,
     SmoothForwardResult,
     SvenssonFitResult,

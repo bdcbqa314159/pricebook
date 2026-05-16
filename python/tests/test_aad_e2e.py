@@ -6,9 +6,9 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.aad import Number, Tape
-from pricebook.aad_curves import AADDiscountCurve, AADSurvivalCurve
-from pricebook.aad_pricing import aad_black_scholes, aad_swap_pv, aad_cds_pv
+from pricebook.curves.aad import Number, Tape
+from pricebook.curves.aad_curves import AADDiscountCurve, AADSurvivalCurve
+from pricebook.curves.aad_pricing import aad_black_scholes, aad_swap_pv, aad_cds_pv
 
 
 REF = date(2024, 1, 15)

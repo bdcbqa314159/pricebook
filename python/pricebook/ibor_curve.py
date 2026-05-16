@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from pricebook.bootstrap import bootstrap_forward_curve
+from pricebook.curves.bootstrap import bootstrap_forward_curve
 from pricebook.calendar import Calendar, BusinessDayConvention
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve

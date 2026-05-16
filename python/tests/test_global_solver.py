@@ -5,8 +5,8 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.global_solver import global_bootstrap, coupled_bootstrap
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.global_solver import global_bootstrap, coupled_bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.swap import InterestRateSwap
 
 

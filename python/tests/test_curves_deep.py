@@ -20,7 +20,7 @@ from pricebook.interpolation import (
     MonotoneCubicInterpolator,
     create_interpolator,
 )
-from pricebook.bootstrap import bootstrap, bootstrap_forward_curve
+from pricebook.curves.bootstrap import bootstrap, bootstrap_forward_curve
 from pricebook.ois import bootstrap_ois
 from pricebook.deposit import Deposit
 

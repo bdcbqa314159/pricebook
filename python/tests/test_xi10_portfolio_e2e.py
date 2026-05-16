@@ -14,7 +14,7 @@ from datetime import date, timedelta
 import numpy as np
 import pytest
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.bond import FixedRateBond
 from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.currency import CurrencyPair

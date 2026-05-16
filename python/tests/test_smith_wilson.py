@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.smith_wilson import (
+from pricebook.curves.smith_wilson import (
     smith_wilson_calibrate,
     smith_wilson_df,
     smith_wilson_forward,

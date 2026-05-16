@@ -187,7 +187,7 @@ def build_curve(
     # bootstrap() handles deposits via simple interest and swaps via
     # iterative Brent root-finding on discount factors — mathematically
     # correct unlike the previous naive df=exp(-r*t) approach.
-    from pricebook.bootstrap import bootstrap as _bootstrap
+    from pricebook.curves.bootstrap import bootstrap as _bootstrap
 
     sorted_deposits = sorted(deposits)
     sorted_swaps = sorted(swaps)
@@ -202,7 +202,7 @@ def build_curve(
 
     # Apply Smith-Wilson extrapolation if requested
     if definition.extrapolation == ExtrapolationPolicy.SMITH_WILSON:
-        from pricebook.smith_wilson import smith_wilson_curve
+        from pricebook.curves.smith_wilson import smith_wilson_curve
         maturities = [tenor_to_years(s.tenor) for s in definition.instruments]
         pillar_dfs = [curve.df(tenor_to_date(ref, s.tenor))
                       for s in definition.instruments]

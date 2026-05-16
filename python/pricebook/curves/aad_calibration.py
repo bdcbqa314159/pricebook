@@ -10,7 +10,7 @@ import math
 
 import numpy as np
 
-from pricebook.aad import Number, Tape
+from pricebook.curves.aad import Number, Tape
 
 
 def sabr_jacobian(
@@ -72,7 +72,7 @@ def _sabr_hagan_aad(
     alpha: Number, beta: float, rho: Number, nu: Number,
 ) -> Number:
     """SABR Hagan formula with Number inputs for AAD."""
-    from pricebook.aad import log, sqrt
+    from pricebook.curves.aad import log, sqrt
 
     if T <= 0:
         return alpha

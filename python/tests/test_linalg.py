@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pricebook.linalg import (
+from pricebook.curves.linalg import (
     ConditionReport,
     EigenResult,
     PCAResult,

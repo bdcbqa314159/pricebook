@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.bond import FixedRateBond
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.structured.cmasw import CMASWInstrument
 from pricebook.structured.cmt import CMTInstrument
 from pricebook.discount_curve import DiscountCurve

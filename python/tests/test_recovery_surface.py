@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.cds_market import build_cds_curve
 from pricebook.recovery_surface import (
     RecoverySurface, implied_recovery, recovery_term_structure,

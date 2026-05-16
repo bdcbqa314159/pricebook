@@ -7,7 +7,7 @@ in a single pass.
 
 Translated from the CompFinance C++ engine. See REFERENCES.md (Savine).
 
-    from pricebook.aad import Number, Tape
+    from pricebook.curves.aad import Number, Tape
 
     tape = Tape()
     Number.tape = tape

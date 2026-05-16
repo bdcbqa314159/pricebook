@@ -9,7 +9,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.bond import FixedRateBond
 from pricebook.risk.risk import dv01_curve, key_rate_durations
 from pricebook.schedule import Frequency

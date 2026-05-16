@@ -4,7 +4,7 @@ Numerical integration (quadrature).
 Gauss quadrature rules for finite, semi-infinite, and infinite intervals.
 Adaptive integration with automatic refinement.
 
-    from pricebook.quadrature import gauss_legendre, adaptive_simpson
+    from pricebook.curves.quadrature import gauss_legendre, adaptive_simpson
 
     result = gauss_legendre(f, a=0, b=1, n=16)
     print(result.value, result.error_estimate)

@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 
 import pytest
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.black76 import OptionType
 from pricebook.swaption import Swaption, SwaptionType
 from pricebook.capfloor import CapFloor

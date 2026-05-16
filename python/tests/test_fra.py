@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.fra import FRA
 from pricebook.day_count import DayCountConvention
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from tests.conftest import make_flat_curve
 
 

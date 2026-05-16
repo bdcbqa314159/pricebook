@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.nelson_siegel import (
+from pricebook.curves.nelson_siegel import (
     nelson_siegel_yield,
     svensson_yield,
     ns_discount_curve,

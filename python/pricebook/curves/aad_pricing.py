@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 
-from pricebook.aad import Number, norm_cdf, log, exp
+from pricebook.curves.aad import Number, norm_cdf, log, exp
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ def aad_swap_pv(
     Simplified: each payment period has uniform accrual.
     PV = notional * sum_i (fixed_rate * tau_i * df_i) - notional * (1 - df_N)
     """
-    from pricebook.aad_interp import aad_log_linear_interp
+    from pricebook.curves.aad_interp import aad_log_linear_interp
 
     pv = Number(0.0)
     for i, t in enumerate(payment_times):
@@ -86,7 +86,7 @@ def aad_cds_pv(
     Single loop computes both premium and protection legs, reusing
     interpolated values.
     """
-    from pricebook.aad_interp import aad_log_linear_interp
+    from pricebook.curves.aad_interp import aad_log_linear_interp
 
     premium = Number(0.0)
     protection = Number(0.0)

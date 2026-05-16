@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 from datetime import date
 
-from pricebook.curve_risk import (
+from pricebook.curves.curve_risk import (
     curve_jacobian,
     input_jacobian,
     curve_rolldown,

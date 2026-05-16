@@ -3,7 +3,7 @@
 Build DV01-neutral spread and butterfly trades. Analyse carry and
 roll-down from curve shape. Compute breakeven rate moves.
 
-    from pricebook.curve_trading import spread_trade, butterfly_trade
+    from pricebook.curves.curve_trading import spread_trade, butterfly_trade
 
     legs = spread_trade(curve, start, end_short=2, end_long=10)
     assert abs(legs["net_dv01"]) < 1e-6

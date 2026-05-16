@@ -18,7 +18,7 @@ import cmath
 import numpy as np
 
 from pricebook.black76 import OptionType
-from pricebook.quadrature import gauss_legendre
+from pricebook.curves.quadrature import gauss_legendre
 
 
 def _heston_f(

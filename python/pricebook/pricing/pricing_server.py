@@ -93,7 +93,7 @@ def _build_context(val_date: date, md: MarketDataEnvelope):
 
     if md.mode == "quotes":
         # Bootstrap from quotes
-        from pricebook.bootstrap import bootstrap
+        from pricebook.curves.bootstrap import bootstrap
 
         deposits = []
         swaps = []

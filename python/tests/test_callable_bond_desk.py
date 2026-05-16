@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.desks.callable_bond_desk import callable_bond_analytics
 
 REF = date(2024, 7, 15)

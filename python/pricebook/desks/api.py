@@ -31,7 +31,7 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 
 from pricebook.bond import FixedRateBond
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.capfloor import CapFloor
 from pricebook.credit.cds import CDS, bootstrap_credit_curve
 from pricebook.commodity.commodity import CommodityForwardCurve, CommoditySwap

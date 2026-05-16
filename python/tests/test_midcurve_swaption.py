@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.midcurve_swaption import midcurve_swaption
 
 

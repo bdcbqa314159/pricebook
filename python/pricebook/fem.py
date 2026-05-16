@@ -10,7 +10,7 @@ import math
 
 import numpy as np
 
-from pricebook.sparse import SparseMatrix
+from pricebook.curves.sparse import SparseMatrix
 
 
 # ---------------------------------------------------------------------------

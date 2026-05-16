@@ -3,8 +3,8 @@
 import math
 import pytest
 
-from pricebook.aad import Number, Tape
-from pricebook.aad_interp import aad_linear_interp, aad_log_linear_interp
+from pricebook.curves.aad import Number, Tape
+from pricebook.curves.aad_interp import aad_linear_interp, aad_log_linear_interp
 
 
 class TestAADLinearInterp:

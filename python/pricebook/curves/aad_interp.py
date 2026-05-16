@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import bisect
 
-from pricebook.aad import Number
+from pricebook.curves.aad import Number
 
 
 def _find_segment(x: float, xs: list[float]) -> int:

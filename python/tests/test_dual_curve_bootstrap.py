@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bootstrap import bootstrap_forward_curve
+from pricebook.curves.bootstrap import bootstrap_forward_curve
 from pricebook.ois import bootstrap_ois, OISSwap
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.fra import FRA

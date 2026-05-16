@@ -7,11 +7,11 @@ from datetime import date
 import numpy as np
 import pytest
 
-from pricebook.bootstrap import bootstrap
-from pricebook.curve_builder import build_curves
+from pricebook.curves.bootstrap import bootstrap
+from pricebook.curves.curve_builder import build_curves
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.multicurve_solver import validate_curve
+from pricebook.curves.multicurve_solver import validate_curve
 
 
 # ---- Round-trip repricing ----

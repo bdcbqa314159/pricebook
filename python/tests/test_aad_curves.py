@@ -5,8 +5,8 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.aad import Number, Tape
-from pricebook.aad_curves import AADDiscountCurve, AADSurvivalCurve
+from pricebook.curves.aad import Number, Tape
+from pricebook.curves.aad_curves import AADDiscountCurve, AADSurvivalCurve
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 

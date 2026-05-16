@@ -3,8 +3,8 @@
 import math
 import pytest
 
-from pricebook.aad import Number, Tape
-from pricebook.aad_pricing import aad_swaption_pv, aad_caplet_pv
+from pricebook.curves.aad import Number, Tape
+from pricebook.curves.aad_pricing import aad_swaption_pv, aad_caplet_pv
 from pricebook.black76 import black76_price, OptionType
 
 

@@ -3,7 +3,7 @@
 Single function to build OIS + projection curves from raw market quotes.
 Supports multiple construction methods:
 
-    from pricebook.curve_builder import build_curves
+    from pricebook.curves.curve_builder import build_curves
 
     # Sequential bootstrap (default, fastest)
     curves = build_curves("USD", ref, deposits, swaps)
@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.interpolation import InterpolationMethod
@@ -166,7 +166,7 @@ def build_curves(
         )
 
     elif method == "global_newton":
-        from pricebook.global_solver import global_bootstrap
+        from pricebook.curves.global_solver import global_bootstrap
         ois_curve = global_bootstrap(
             reference_date=reference_date,
             deposits=ois_deposits,
@@ -195,7 +195,7 @@ def build_curves(
         tenors = [_yf(reference_date, d, conv.deposit_day_count) for d in all_dates]
         yields = [temp_curve.zero_rate(d) for d in all_dates]
 
-        from pricebook.nelson_siegel import (
+        from pricebook.curves.nelson_siegel import (
             calibrate_nelson_siegel, calibrate_svensson,
             ns_discount_curve, svensson_discount_curve,
         )
@@ -231,7 +231,7 @@ def build_curves(
         maturities = [_yf(reference_date, d, conv.deposit_day_count) for d in all_dates]
         market_dfs = [temp_curve.df(d) for d in all_dates]
 
-        from pricebook.smith_wilson import smith_wilson_curve
+        from pricebook.curves.smith_wilson import smith_wilson_curve
         ois_curve = smith_wilson_curve(reference_date, maturities, market_dfs)
 
     else:
@@ -240,7 +240,7 @@ def build_curves(
     # 2. Build projection curve (if quotes provided) — always sequential
     projection_curve = None
     if projection_swaps:
-        from pricebook.bootstrap import bootstrap_forward_curve
+        from pricebook.curves.bootstrap import bootstrap_forward_curve
         projection_curve = bootstrap_forward_curve(
             reference_date=reference_date,
             swaps=projection_swaps,

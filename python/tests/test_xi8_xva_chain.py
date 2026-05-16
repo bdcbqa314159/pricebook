@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import numpy as np
 import pytest
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.cds import bootstrap_credit_curve
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext

@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.quadrature import (
+from pricebook.curves.quadrature import (
     gauss_legendre,
     gauss_laguerre,
     gauss_hermite,

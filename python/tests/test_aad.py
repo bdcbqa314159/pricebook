@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.aad import Number, Tape, exp, log, sqrt, maximum, minimum, norm_cdf, norm_pdf
+from pricebook.curves.aad import Number, Tape, exp, log, sqrt, maximum, minimum, norm_cdf, norm_pdf
 
 
 @pytest.fixture(autouse=True)

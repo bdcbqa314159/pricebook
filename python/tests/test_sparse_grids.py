@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.sparse_grids import (
+from pricebook.curves.sparse_grids import (
     clenshaw_curtis_nodes,
     smolyak_grid,
     sparse_grid_count,

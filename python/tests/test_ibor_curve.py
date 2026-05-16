@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.bootstrap import bootstrap_forward_curve
+from pricebook.curves.bootstrap import bootstrap_forward_curve
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.ibor_curve import (

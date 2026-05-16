@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 
-from pricebook.sparse import (
+from pricebook.curves.sparse import (
     SparseMatrix,
     sparse_solve,
     sparse_lu,

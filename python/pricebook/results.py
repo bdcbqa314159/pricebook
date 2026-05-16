@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 # Re-export from home modules
 from pricebook.solvers import SolverResult
-from pricebook.quadrature import QuadratureResult
+from pricebook.curves.quadrature import QuadratureResult
 from pricebook.mc_pricer import MCResult
 from pricebook.statistics.optimization import OptimizerResult
 from pricebook.ode import ODEResult

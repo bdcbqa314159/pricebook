@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.multicurve_solver import (
+from pricebook.curves.multicurve_solver import (
     CurveValidationResult,
     validate_curve,
     curve_analytical_jacobian,

@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.curve_engine import (
+from pricebook.curves.curve_engine import (
     CurveDefinition,
     CurveRole,
     CurveSet,

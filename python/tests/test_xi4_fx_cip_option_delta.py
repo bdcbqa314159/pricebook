@@ -18,7 +18,7 @@ from datetime import date, timedelta
 import numpy as np
 import pytest
 
-from pricebook.bootstrap import bootstrap
+from pricebook.curves.bootstrap import bootstrap
 from pricebook.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fx.fx_forward import FXForward

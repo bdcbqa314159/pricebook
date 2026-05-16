@@ -19,7 +19,7 @@ from datetime import date, timedelta
 import numpy as np
 import pytest
 
-from pricebook.bootstrap import bootstrap, bootstrap_forward_curve
+from pricebook.curves.bootstrap import bootstrap, bootstrap_forward_curve
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
