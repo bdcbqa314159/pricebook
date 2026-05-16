@@ -7,14 +7,14 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.equity_desk import (
+from pricebook.desks.equity_desk import (
     equity_risk_metrics, EquityRiskMetrics,
     equity_dashboard, EquityDashboard,
     equity_stress_suite, EquityStressResult,
     equity_hedge_recommendations, EquityHedgeRecommendation,
     EquityLifecycle,
 )
-from pricebook.equity_book import EquityBook
+from pricebook.desks.equity_book import EquityBook
 from pricebook.trade import Trade
 from tests.conftest import make_flat_curve
 

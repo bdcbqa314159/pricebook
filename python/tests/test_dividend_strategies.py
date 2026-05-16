@@ -6,7 +6,7 @@ import pytest
 from datetime import date
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.dividend_desk import DividendSwap
+from pricebook.desks.dividend_desk import DividendSwap
 from pricebook.equity.dividend_model import Dividend
 from pricebook.equity.dividend_strategies import (
     BacktestResult,

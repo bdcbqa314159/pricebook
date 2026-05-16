@@ -8,7 +8,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.swaption import Swaption, SwaptionType
-from pricebook.swaption_trading_desk import (
+from pricebook.desks.swaption_trading_desk import (
     swaption_risk_metrics, SwaptionRiskMetrics,
     SwaptionBook, SwaptionBookEntry,
     swaption_dashboard, SwaptionDashboard,

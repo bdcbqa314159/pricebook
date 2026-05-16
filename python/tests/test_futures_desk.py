@@ -7,7 +7,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.futures_desk import (
+from pricebook.desks.futures_desk import (
     BondFuture, FXFuture, FuturesAssetClass,
     futures_risk_metrics, FuturesRiskMetrics,
     FuturesBook, FuturesBookEntry,

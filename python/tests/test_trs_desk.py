@@ -9,7 +9,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
-from pricebook.trs_desk import (
+from pricebook.desks.trs_desk import (
     trs_risk_metrics, TRSRiskMetrics,
     trs_carry_decomposition, TRSCarryDecomposition,
     trs_daily_pnl, TRSDailyPnL,

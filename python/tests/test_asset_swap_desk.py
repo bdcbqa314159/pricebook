@@ -10,7 +10,7 @@ import pytest
 from pricebook.bond import FixedRateBond
 from pricebook.discount_curve import DiscountCurve
 from pricebook.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
-from pricebook.asset_swap_desk import (
+from pricebook.desks.asset_swap_desk import (
     asw_risk_metrics, ASWRiskMetrics,
     ASWBook, ASWBookEntry,
     asw_carry_decomposition, ASWCarryDecomposition,

@@ -3,8 +3,8 @@
 import pytest
 from datetime import date
 
-from pricebook.bond_book import BondBook, BondTradeEntry
-from pricebook.bond_daily_pnl import (
+from pricebook.desks.bond_book import BondBook, BondTradeEntry
+from pricebook.desks.bond_daily_pnl import (
     BondBookAttribution,
     BondDailyPnL,
     BondTradeAttribution,

@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.repo_desk import (
+from pricebook.desks.repo_desk import (
     RepoTrade, RepoBook, RepoTradeEntry,
     RepoRiskMetrics, repo_risk_metrics,
     RepoCapitalResult, repo_capital,

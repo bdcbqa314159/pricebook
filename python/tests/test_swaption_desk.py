@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.swaption_desk import (
+from pricebook.desks.swaption_desk import (
     VolCube, SABRCell,
     straddle, strangle, risk_reversal,
     delta_hedge, vega_hedge,

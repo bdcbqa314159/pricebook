@@ -4,8 +4,8 @@ import pytest
 from datetime import date
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.equity_book import EquityBook
-from pricebook.equity_daily_pnl import (
+from pricebook.desks.equity_book import EquityBook
+from pricebook.desks.equity_daily_pnl import (
     EquityDailyPnL,
     GreekAttribution,
     EquityBookAttribution,

@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 from datetime import date
 
-from pricebook.cva_desk import (
+from pricebook.desks.cva_desk import (
     cva_cs01, cva_ir01, cva_by_trade,
     cva_hedge, incremental_cva,
 )

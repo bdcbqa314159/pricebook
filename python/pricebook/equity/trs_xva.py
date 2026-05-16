@@ -98,7 +98,7 @@ def trs_kva_from_sa_ccr(
     mtm = max(result.value, 0)
 
     # Supervisory factor by type (SA-CCR, Basel CRE52)
-    from pricebook.trs_desk import _SA_CCR_SF
+    from pricebook.desks.trs_desk import _SA_CCR_SF
     factor = _SA_CCR_SF.get(trs._underlying_type, 0.10)
 
     ead = 1.4 * (mtm + trs.notional * factor * math.sqrt(min(T, 1.0)))

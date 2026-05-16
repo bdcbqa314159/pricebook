@@ -7,7 +7,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.inflation_desk import (
+from pricebook.desks.inflation_desk import (
     InflationRiskMetrics,
     InflationDashboard,
     inflation_stress_suite, InflationStressResult,

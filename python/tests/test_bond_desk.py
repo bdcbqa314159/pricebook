@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.bond_desk import (
+from pricebook.desks.bond_desk import (
     fit_curve_from_bonds, bond_rich_cheap,
     repo_carry, securities_lending_fee,
 )

@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.repo_desk import RepoTrade
+from pricebook.desks.repo_desk import RepoTrade
 
 
 def repo_fva(

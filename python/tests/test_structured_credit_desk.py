@@ -13,7 +13,7 @@ from pricebook.guaranteed_note import GuaranteedNote
 from pricebook.spv import SPV, SPVTranche
 from pricebook.fund_participation import FundParticipation
 from pricebook.illiquid_pricing import PrivatePlacementPricer
-from pricebook.structured_credit_desk import (
+from pricebook.desks.structured_credit_desk import (
     sc_risk_metrics, SCRiskMetrics, SCBookEntry,
     StructuredCreditBook,
     sc_carry_decomposition, SCCarryDecomposition,

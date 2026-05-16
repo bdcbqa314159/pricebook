@@ -7,13 +7,13 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.cross_asset_desk import (
+from pricebook.desks.cross_asset_desk import (
     CrossAssetDesk, CrossAssetDashboard, DeskRiskSummary,
 )
 from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.swap_desk import SwapBook, SwapBookEntry
+from pricebook.desks.swap_desk import SwapBook, SwapBookEntry
 from pricebook.cds import CDS
-from pricebook.cds_desk import CDSBook, CDSBookEntry, CDSProductType
+from pricebook.desks.cds_desk import CDSBook, CDSBookEntry, CDSProductType
 from pricebook.survival_curve import SurvivalCurve
 from tests.conftest import make_flat_curve, make_flat_survival
 

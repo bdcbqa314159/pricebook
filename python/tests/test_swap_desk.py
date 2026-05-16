@@ -9,7 +9,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.swap_desk import (
+from pricebook.desks.swap_desk import (
     swap_risk_metrics, SwapRiskMetrics,
     SwapBook, SwapBookEntry,
     swap_carry_decomposition, SwapCarryDecomposition,

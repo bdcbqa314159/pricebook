@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook.options_book import OptionsBook, OptionEntry
+from pricebook.desks.options_book import OptionsBook, OptionEntry
 
 
 # ---- Unified attribution ----

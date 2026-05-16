@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 from pricebook.bootstrap import bootstrap
-from pricebook.callable_bond_desk import callable_bond_analytics
+from pricebook.desks.callable_bond_desk import callable_bond_analytics
 
 REF = date(2024, 7, 15)
 
@@ -46,7 +46,7 @@ class TestCallableBondAnalytics:
         rc = callable_bond_analytics(curve, 98.0, 0.05, 10.0, n_steps=50)
         # Callable bond effective duration should be less than straight bond
         # (call caps upside, shortens effective maturity)
-        from pricebook.bond_trading_desk import bond_risk_metrics
+        from pricebook.desks.bond_trading_desk import bond_risk_metrics
         from pricebook.bond import FixedRateBond
         straight = FixedRateBond(REF - relativedelta(months=6),
                                   REF + relativedelta(years=10), 0.05)

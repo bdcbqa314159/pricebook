@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.repo_desk import (
+from pricebook.desks.repo_desk import (
     CTDRepoCandidate,
     FailsTracker,
     RepoBook,

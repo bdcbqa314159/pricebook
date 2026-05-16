@@ -7,7 +7,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.fx_desk import (
+from pricebook.desks.fx_desk import (
     fx_risk_metrics, FXRiskMetrics,
     fx_dashboard, FXDashboard,
     fx_stress_suite, FXStressResult,
@@ -16,7 +16,7 @@ from pricebook.fx_desk import (
 )
 from pricebook.fx.fx_forward import FXForward
 from pricebook.currency import Currency, CurrencyPair
-from pricebook.fx_book import FXBook
+from pricebook.desks.fx_book import FXBook
 from pricebook.trade import Trade
 from tests.conftest import make_flat_curve
 

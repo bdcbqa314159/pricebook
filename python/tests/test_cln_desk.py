@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.cln import CreditLinkedNote
 from pricebook.cln import BasketCLN, CreditLinkedNote
-from pricebook.cln_desk import (
+from pricebook.desks.cln_desk import (
     cln_risk_metrics, CLNRiskMetrics,
     cln_carry_decomposition, CLNCarryDecomposition,
     cln_daily_pnl, CLNDailyPnL,

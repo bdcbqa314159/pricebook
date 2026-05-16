@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.dividend_desk import (
+from pricebook.desks.dividend_desk import (
     implied_dividend_pv, implied_dividends_term_structure,
     strip_discrete_dividends,
     DividendSwap, dividend_forward, dividend_risk,

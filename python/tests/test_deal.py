@@ -4,7 +4,7 @@ import json
 import pytest
 from datetime import date
 
-from pricebook.deal import Deal, DealRole
+from pricebook.desks.deal import Deal, DealRole
 from pricebook.trade import Trade
 from pricebook.swaption import Swaption
 from pricebook.pricing_context import PricingContext

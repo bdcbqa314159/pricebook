@@ -9,7 +9,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.cds import CDS
-from pricebook.cds_desk import (
+from pricebook.desks.cds_desk import (
     cds_risk_metrics, CDSRiskMetrics,
     CDSBook, CDSBookEntry, CDSProductType,
     cds_carry_decomposition, CDSCarryDecomposition,

@@ -7,14 +7,14 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.commodity_desk import (
+from pricebook.desks.commodity_desk import (
     CommodityRiskMetrics,
     commodity_dashboard, CommodityDashboard,
     commodity_stress_suite, CommodityStressResult,
     commodity_hedge_recommendations, CommodityHedgeRecommendation,
     CommodityLifecycle,
 )
-from pricebook.commodity_book import CommodityBook
+from pricebook.desks.commodity_book import CommodityBook
 from pricebook.trade import Trade
 from tests.conftest import make_flat_curve
 

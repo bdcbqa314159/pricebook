@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.commodity_capital import (
+from pricebook.desks.commodity_capital import (
     CommodityCapitalReport,
     CommodityClassification,
     CommodityRiskInputs,

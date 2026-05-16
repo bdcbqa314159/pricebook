@@ -8,7 +8,7 @@ from datetime import date
 from pricebook.black76 import OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.equity_option import equity_option_price, equity_vega
-from pricebook.equity_vol_desk import (
+from pricebook.desks.equity_vol_desk import (
     CalendarSpread,
     EquityVolSurface,
     RiskReversal,

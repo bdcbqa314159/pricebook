@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.repo_desk import (
+from pricebook.desks.repo_desk import (
     RepoTrade, RepoBook, RepoTradeEntry,
     CollateralPool, CollateralPosition,
     repo_daily_pnl, RepoDailyPnL,

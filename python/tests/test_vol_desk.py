@@ -7,7 +7,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.vol_desk import (
+from pricebook.desks.vol_desk import (
     VolBook, VolPosition, vol_dashboard, VolDashboard,
     vol_stress_report, vol_correlation_monitor,
 )

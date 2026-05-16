@@ -6,7 +6,7 @@ import math
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.api_desk import (
+from pricebook.desks.api_desk import (
     analyse, cln, trs, repo,
     vol_surface, swap_book, cds_book,
     multicurve, recovery_analysis, dashboard,

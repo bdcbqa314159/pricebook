@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.inflation_book import (
+from pricebook.desks.inflation_book import (
     InflationBook, InflationLimits, InflationPosition,
 )
 from pricebook.inflation_trading import (

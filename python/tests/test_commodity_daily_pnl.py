@@ -3,8 +3,8 @@
 import pytest
 from datetime import date
 
-from pricebook.commodity_book import CommodityBook, CommodityTradeEntry
-from pricebook.commodity_daily_pnl import (
+from pricebook.desks.commodity_book import CommodityBook, CommodityTradeEntry
+from pricebook.desks.commodity_daily_pnl import (
     CommodityAttribution,
     CommodityDailyPnL,
     attribute_commodity_pnl,

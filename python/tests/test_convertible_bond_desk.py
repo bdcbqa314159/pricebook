@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from pricebook.convertible_bond import ConvertibleBond
-from pricebook.convertible_bond_desk import (
+from pricebook.desks.convertible_bond_desk import (
     cb_risk_metrics, CBRiskMetrics,
     CBBook, CBBookEntry,
     cb_carry_decomposition, CBCarryDecomposition,

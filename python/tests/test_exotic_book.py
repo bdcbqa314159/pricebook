@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.exotic_book import (
+from pricebook.desks.exotic_book import (
     ExoticBook,
     ExoticEntry,
     ExoticHedgeResult,

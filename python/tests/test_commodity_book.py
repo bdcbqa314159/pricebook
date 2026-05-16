@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.commodity_book import (
+from pricebook.desks.commodity_book import (
     CommodityBook,
     CommodityLimits,
     CommodityPosition,

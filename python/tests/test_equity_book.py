@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.equity_book import (
+from pricebook.desks.equity_book import (
     EquityBook, EquityLimits, EquityPosition, SectorExposure,
 )
 from pricebook.trade import Trade

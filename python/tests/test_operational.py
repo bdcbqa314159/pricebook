@@ -12,7 +12,7 @@ from pricebook.statistics.statistics import (
 from pricebook.pricing.market_data_tools import (
     synthetic_market, parse_json_quotes, MarketSnapshot,
 )
-from pricebook.eod import (
+from pricebook.desks.eod import (
     eod_mtm, eod_pnl, attribute_pnl, eod_risk_report, check_limits,
 )
 

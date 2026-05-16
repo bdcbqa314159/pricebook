@@ -12,7 +12,7 @@ from pricebook.survival_curve import SurvivalCurve
 from pricebook.risk_participation import (
     RiskParticipation, SubParticipation, risk_participation_capital_relief,
 )
-from pricebook.risk_participation_desk import (
+from pricebook.desks.risk_participation_desk import (
     rp_risk_metrics, RPRiskMetrics,
     RPBook, RPBookEntry,
     rp_carry_decomposition, RPCarryDecomposition,

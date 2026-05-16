@@ -331,7 +331,7 @@ class TestE2EIntegration:
 
     def test_e2e_single_name_pipeline(self):
         """CDS quotes → curve → CIR++ → CLN stochastic price → desk risk."""
-        from pricebook.cln_desk import cln_risk_metrics
+        from pricebook.desks.cln_desk import cln_risk_metrics
         curve = make_flat_curve(REF, 0.04)
         surv = make_flat_survival(REF, 0.02)
 

@@ -5,7 +5,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.dispersion_desk import (
+from pricebook.desks.dispersion_desk import (
     CorrelationTermStructure,
     DispersionTrade,
     historical_correlation,

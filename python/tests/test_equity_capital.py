@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pricebook.equity_capital import (
+from pricebook.desks.equity_capital import (
     EquityCapitalReport,
     EquityClassification,
     EquityRiskInputs,

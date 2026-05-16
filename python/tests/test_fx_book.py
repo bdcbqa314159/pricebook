@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.fx_book import (
+from pricebook.desks.fx_book import (
     CurrencyExposure,
     FXBook,
     FXLimits,

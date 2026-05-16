@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.repo_desk import (
+from pricebook.desks.repo_desk import (
     RepoBook, RepoTradeEntry,
     cash_ladder, CashLadderBucket,
     repo_rate_dv01,

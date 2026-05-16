@@ -23,7 +23,7 @@ from pricebook.cds import CDS
 from pricebook.cln import CreditLinkedNote
 from pricebook.bond import FixedRateBond
 from pricebook.schedule import Frequency
-from pricebook.api_desk import analyse
+from pricebook.desks.api_desk import analyse
 from tests.conftest import make_flat_curve
 
 

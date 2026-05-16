@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.bond_capital import (
+from pricebook.desks.bond_capital import (
     BondCapitalReport,
     BondRiskInputs,
     bond_frtb_capital,

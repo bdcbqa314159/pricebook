@@ -9,7 +9,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from pricebook.bond import FixedRateBond
-from pricebook.repo_desk import RepoTrade
+from pricebook.desks.repo_desk import RepoTrade
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
 

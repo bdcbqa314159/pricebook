@@ -3,8 +3,8 @@
 import pytest
 from datetime import date
 
-from pricebook.fx_book import FXBook
-from pricebook.fx_daily_pnl import (
+from pricebook.desks.fx_book import FXBook
+from pricebook.desks.fx_daily_pnl import (
     FXBookAttribution,
     FXDailyPnL,
     attribute_fx_pnl,

@@ -11,7 +11,7 @@ from pricebook.repo_triparty import (
     TriPartyAgent, EligibilitySchedule, EligibilityRule,
     TriPartyRepo, CollateralAllocation, allocate_collateral,
 )
-from pricebook.repo_desk import (
+from pricebook.desks.repo_desk import (
     RepoBook, RepoTradeEntry,
     sofr_compounded_with_lookback,
     netting_by_counterparty, NettingResult,

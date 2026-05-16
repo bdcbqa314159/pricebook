@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.options_book import (
+from pricebook.desks.options_book import (
     AssetClassExposure,
     ExpiryBucket,
     OptionEntry,

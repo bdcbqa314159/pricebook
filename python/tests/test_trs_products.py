@@ -206,11 +206,11 @@ class TestXccyBondTRS:
 class TestDividendSwapExists:
 
     def test_import(self):
-        from pricebook.dividend_desk import DividendSwap
+        from pricebook.desks.dividend_desk import DividendSwap
         assert DividendSwap is not None
 
     def test_pv(self):
-        from pricebook.dividend_desk import DividendSwap
+        from pricebook.desks.dividend_desk import DividendSwap
         from pricebook.equity.dividend_model import Dividend
         ds = DividendSwap(
             start=REF, end=END,
@@ -227,7 +227,7 @@ class TestDividendSwapExists:
         assert math.isfinite(pv)
 
     def test_fair_fixed(self):
-        from pricebook.dividend_desk import DividendSwap
+        from pricebook.desks.dividend_desk import DividendSwap
         from pricebook.equity.dividend_model import Dividend
         ds = DividendSwap(start=REF, end=END, fixed_div=0.0, notional=1000)
         divs = [

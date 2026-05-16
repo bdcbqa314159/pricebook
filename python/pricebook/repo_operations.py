@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 # Lazy import to avoid circular: repo_desk imports from here
 def _get_repo_trade_factory():
-    from pricebook.repo_desk import RepoTradeEntry
+    from pricebook.desks.repo_desk import RepoTradeEntry
     return RepoTradeEntry
 
 

@@ -292,7 +292,7 @@ def duration_neutral_spread(
 
     E.g., 2s10s steepener: long 10Y, short 2Y.
     """
-    from pricebook.bond_trading_desk import bond_risk_metrics
+    from pricebook.desks.bond_trading_desk import bond_risk_metrics
 
     short_bm = universe.bond_at(short_tenor)
     long_bm = universe.bond_at(long_tenor)
@@ -347,7 +347,7 @@ def butterfly_trade(
     Profits from belly cheapening relative to wings.
     Weights set so total DV01 = 0 and total convexity ≈ 0.
     """
-    from pricebook.bond_trading_desk import bond_risk_metrics
+    from pricebook.desks.bond_trading_desk import bond_risk_metrics
 
     bm_s = universe.bond_at(short_tenor)
     bm_b = universe.bond_at(belly_tenor)
@@ -406,7 +406,7 @@ def barbell_vs_bullet(
     Barbell has more convexity (good) but lower yield (bad).
     Breakeven = yield shift where convexity gain offsets yield loss.
     """
-    from pricebook.bond_trading_desk import bond_risk_metrics
+    from pricebook.desks.bond_trading_desk import bond_risk_metrics
 
     bm_s = universe.bond_at(short_tenor)
     bm_m = universe.bond_at(bullet_tenor)
@@ -472,7 +472,7 @@ def roll_down_ranking(
     Roll-down = price gain from moving down the curve over horizon.
     Higher roll-down = steeper local curve = more attractive carry.
     """
-    from pricebook.bond_trading_desk import bond_carry_roll
+    from pricebook.desks.bond_trading_desk import bond_carry_roll
 
     rankings = []
     for b in universe.bonds:
@@ -498,7 +498,7 @@ def carry_ranking(
     horizon_days: int = 30,
 ) -> list[BondRanking]:
     """Rank bonds by net carry (coupon income - financing cost)."""
-    from pricebook.bond_trading_desk import bond_carry_roll
+    from pricebook.desks.bond_trading_desk import bond_carry_roll
 
     rankings = []
     for b in universe.bonds:
@@ -529,7 +529,7 @@ def rv_scorecard(
     Score = -rich_cheap_bps + carry_bps + rolldown_bps.
     Positive = attractive (cheap + high carry + good roll).
     """
-    from pricebook.bond_trading_desk import bond_carry_roll
+    from pricebook.desks.bond_trading_desk import bond_carry_roll
 
     rankings = []
     for b in universe.bonds:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.fx_capital import (
+from pricebook.desks.fx_capital import (
     FXCapitalReport,
     FXRiskInputs,
     fx_frtb_capital,

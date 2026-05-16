@@ -13,7 +13,7 @@ from pricebook.inflation import (
     CPICurve, InflationLinkedBond, ZCInflationSwap, YoYInflationSwap,
     zc_inflation_swap_pv, yoy_inflation_swap_pv,
 )
-from pricebook.inflation_desk import (
+from pricebook.desks.inflation_desk import (
     inflation_risk_metrics, InflationRiskMetrics,
     inflation_carry_decomposition, InflationCarryDecomposition,
     inflation_daily_pnl, InflationDailyPnL,
@@ -21,7 +21,7 @@ from pricebook.inflation_desk import (
     inflation_stress_suite, InflationStressResult,
     inflation_dashboard,
 )
-from pricebook.inflation_book import InflationBook, InflationTradeEntry
+from pricebook.desks.inflation_book import InflationBook, InflationTradeEntry
 from pricebook.trade import Trade
 from pricebook.schedule import Frequency
 
@@ -289,7 +289,7 @@ class TestInflationStressBook:
 class TestCrossAssetInflation:
 
     def test_inflation_registers_in_cross_asset(self):
-        from pricebook.cross_asset_desk import CrossAssetDesk
+        from pricebook.desks.cross_asset_desk import CrossAssetDesk
         desk = CrossAssetDesk()
         book = InflationBook("inflation")
         book.add(_trade(1), "US", "zc_swap", notional=10e6, ie01=5000)
@@ -297,7 +297,7 @@ class TestCrossAssetInflation:
         assert "inflation" in desk.desk_names
 
     def test_dashboard_includes_inflation(self):
-        from pricebook.cross_asset_desk import CrossAssetDesk
+        from pricebook.desks.cross_asset_desk import CrossAssetDesk
         desk = CrossAssetDesk()
         book = InflationBook("inflation")
         book.add(_trade(1), "US", "zc_swap", notional=10e6, ie01=5000)
