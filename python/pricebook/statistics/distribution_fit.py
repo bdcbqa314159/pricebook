@@ -1,6 +1,6 @@
 """Distribution fitting: MLE, goodness-of-fit tests, Q-Q plot data.
 
-    from pricebook.distribution_fit import (
+    from pricebook.statistics.distribution_fit import (
         fit_normal, fit_student_t, fit_gev,
         ks_test, anderson_darling, qq_data,
     )

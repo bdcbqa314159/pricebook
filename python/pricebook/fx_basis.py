@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook.zscore import zscore as _zscore_impl
+from pricebook.statistics.zscore import zscore as _zscore_impl
 
 
 def _zscore(current, history, threshold=2.0):

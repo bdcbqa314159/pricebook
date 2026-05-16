@@ -5,7 +5,7 @@ import numpy as np
 import math
 
 from pricebook.gbm import GBMGenerator
-from pricebook.rng import PseudoRandom, QuasiRandom
+from pricebook.statistics.rng import PseudoRandom, QuasiRandom
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 """Volatility forecasting: GARCH(1,1), EGARCH, EWMA, realized volatility.
 
-    from pricebook.garch import (
+    from pricebook.statistics.garch import (
         ewma_vol, realized_vol,
         garch_11_fit, garch_11_forecast, garch_var,
         egarch_fit,

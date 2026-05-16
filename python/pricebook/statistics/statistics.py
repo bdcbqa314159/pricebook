@@ -1,6 +1,6 @@
 """Statistical toolkit: cointegration, regime detection, bootstrap, rolling analytics.
 
-    from pricebook.statistics import (
+    from pricebook.statistics.statistics import (
         cointegration_test, regime_detect, bootstrap_ci, rolling_stats,
     )
 

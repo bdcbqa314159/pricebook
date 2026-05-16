@@ -81,7 +81,7 @@ class TestMultiStart:
             return math.sin(5 * x[0])**2 + (x[0] - 1)**2
 
         # Single start from bad point
-        from pricebook.optimization import minimize
+        from pricebook.statistics.optimization import minimize
         single = minimize(multimodal, x0=[4.0], method="nelder_mead")
 
         multi = multi_start_calibrate(

@@ -10,7 +10,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from pricebook.zscore import zscore as _zscore, ZScoreSignal
+from pricebook.statistics.zscore import zscore as _zscore, ZScoreSignal
 
 
 def repo_rate_monitor(

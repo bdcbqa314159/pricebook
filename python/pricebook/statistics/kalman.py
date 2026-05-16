@@ -1,6 +1,6 @@
 """Kalman filter: state-space models, dynamic beta, signal extraction.
 
-    from pricebook.kalman import KalmanFilter, dynamic_beta, dynamic_hedge_ratio
+    from pricebook.statistics.kalman import KalmanFilter, dynamic_beta, dynamic_hedge_ratio
 
 References:
     Kalman (1960). A New Approach to Linear Filtering and Prediction Problems.

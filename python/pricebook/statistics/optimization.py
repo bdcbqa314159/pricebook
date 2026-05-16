@@ -4,7 +4,7 @@ Optimization toolkit for model calibration.
 Wraps scipy optimizers with consistent interface, result types,
 and registration in the pricebook registry.
 
-    from pricebook.optimization import minimize, OptimizerResult
+    from pricebook.statistics.optimization import minimize, OptimizerResult
 
     result = minimize(objective, x0=[0.5, -0.1, 0.3], method="nelder_mead")
     print(result.x, result.fun, result.converged)

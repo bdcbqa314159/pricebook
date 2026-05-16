@@ -586,7 +586,7 @@ class CDSSpreadSmile:
         Fixes beta and calibrates (alpha, rho, nu).
         """
         from pricebook.sabr import sabr_implied_vol
-        from pricebook.optimization import minimize
+        from pricebook.statistics.optimization import minimize
 
         def objective(params):
             alpha, rho, nu = params

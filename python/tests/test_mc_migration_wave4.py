@@ -40,7 +40,7 @@ class TestCLNMigration:
 
 class TestCopulasMigration:
     def test_copula_default_via_engine(self):
-        from pricebook.copulas import GaussianCopula, copula_default_simulation_via_engine
+        from pricebook.statistics.copulas import GaussianCopula, copula_default_simulation_via_engine
         copula = GaussianCopula(rho=0.3)
         result = copula_default_simulation_via_engine(
             copula, [0.02, 0.03, 0.01], n_sims=5_000,
@@ -48,7 +48,7 @@ class TestCopulasMigration:
         assert result.n_defaults_mean >= 0
 
     def test_tranche_pricing_via_engine(self):
-        from pricebook.copulas import GaussianCopula, tranche_pricing_copula_via_engine
+        from pricebook.statistics.copulas import GaussianCopula, tranche_pricing_copula_via_engine
         copula = GaussianCopula(rho=0.3)
         result = tranche_pricing_copula_via_engine(
             copula, [0.02] * 100, attach=0.03, detach=0.07,

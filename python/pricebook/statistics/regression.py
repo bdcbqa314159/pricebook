@@ -1,6 +1,6 @@
 """Advanced regression: Ridge, Lasso, Elastic Net, quantile, robust.
 
-    from pricebook.regression import ridge, lasso, elastic_net, quantile_regression, robust_regression
+    from pricebook.statistics.regression import ridge, lasso, elastic_net, quantile_regression, robust_regression
 
 References:
     Hoerl & Kennard (1970). Ridge Regression.

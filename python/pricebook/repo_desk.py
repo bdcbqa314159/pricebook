@@ -27,7 +27,7 @@ import math
 from enum import Enum
 
 from pricebook.day_count import year_fraction as _year_fraction
-from pricebook.zscore import zscore as _zscore, ZScoreSignal
+from pricebook.statistics.zscore import zscore as _zscore, ZScoreSignal
 
 
 class RepoDirection(str, Enum):

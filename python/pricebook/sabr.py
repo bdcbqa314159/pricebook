@@ -132,7 +132,7 @@ def sabr_calibrate(
     Returns:
         dict with keys: alpha, beta, rho, nu, rmse.
     """
-    from pricebook.optimization import minimize as pb_minimize
+    from pricebook.statistics.optimization import minimize as pb_minimize
 
     if initial_guess is None:
         atm_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - forward))

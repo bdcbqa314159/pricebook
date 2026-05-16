@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from pricebook.rng import PseudoRandom, QuasiRandom
+from pricebook.statistics.rng import PseudoRandom, QuasiRandom
 
 
 class GBMGenerator:

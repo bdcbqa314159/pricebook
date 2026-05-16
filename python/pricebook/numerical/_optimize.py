@@ -61,7 +61,7 @@ def minimize(
     x0 = np.asarray(x0, dtype=float)
 
     if method == "cma_es":
-        from pricebook.optimisation_advanced import cma_es
+        from pricebook.statistics.optimisation_advanced import cma_es
         r = cma_es(objective, x0, sigma0=kwargs.get("sigma0", 0.5),
                    tol=tol, max_iter=maxiter)
         return OptimizeResult(r.x, r.objective, r.iterations, r.converged,
@@ -159,7 +159,7 @@ def qp(
 
     # If no inequalities, use direct KKT (faster)
     if A_ub is None and bounds is None:
-        from pricebook.optimisation_advanced import quadratic_program
+        from pricebook.statistics.optimisation_advanced import quadratic_program
         r = quadratic_program(H, c, A_eq, b_eq)
         return QPResult(r.x, r.objective, r.converged, 1)
 

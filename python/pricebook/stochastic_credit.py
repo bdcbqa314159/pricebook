@@ -23,7 +23,7 @@ import numpy as np
 
 from pricebook.special_process import CIRProcess
 from pricebook.brownian import CorrelatedBM
-from pricebook.optimization import minimize
+from pricebook.statistics.optimization import minimize
 
 
 class CIRIntensity:

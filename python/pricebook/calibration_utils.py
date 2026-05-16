@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from pricebook.optimization import minimize
+from pricebook.statistics.optimization import minimize
 
 
 @dataclass

@@ -1,6 +1,6 @@
 """Clustering and regime detection: K-means, hierarchical, HMM.
 
-    from pricebook.clustering import kmeans, hierarchical_cluster, optimal_k, HMMRegime
+    from pricebook.statistics.clustering import kmeans, hierarchical_cluster, optimal_k, HMMRegime
 
 References:
     Lloyd (1982). Least Squares Quantization in PCM (K-means).

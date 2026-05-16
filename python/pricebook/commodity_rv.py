@@ -14,7 +14,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.zscore import zscore as _zscore_impl, ZScoreSignal
+from pricebook.statistics.zscore import zscore as _zscore_impl, ZScoreSignal
 
 
 def _zscore_and_signal(

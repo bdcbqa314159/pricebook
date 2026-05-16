@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.distribution_theory import (
+from pricebook.statistics.distribution_theory import (
     Distribution,
     FeynmanKacPDE,
     FeynmanKacVerification,

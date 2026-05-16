@@ -457,7 +457,7 @@ class AsianOption:
 
         if method == "mc_sobol":
             # Quasi-random (Sobol) MC for faster convergence
-            from pricebook.rng import QuasiRandom
+            from pricebook.statistics.rng import QuasiRandom
             n_steps = self.schedule.n_fixings
             gen = GBMGenerator(spot=spot, rate=rate, vol=vol, div_yield=div_yield)
             rng = QuasiRandom(dimension=n_steps, seed=seed)

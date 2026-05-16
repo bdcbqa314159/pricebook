@@ -17,7 +17,7 @@ from datetime import date
 
 from pricebook.fx_option import fx_option_price, fx_vega
 from pricebook.black76 import OptionType
-from pricebook.zscore import zscore as _zscore_impl
+from pricebook.statistics.zscore import zscore as _zscore_impl
 
 
 def _zscore(current, history, threshold=2.0):

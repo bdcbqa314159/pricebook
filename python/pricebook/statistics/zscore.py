@@ -3,7 +3,7 @@
 Used across equity, commodity, bond, FX, inflation, and credit desks.
 Eliminates ~120 lines of duplicated z-score logic.
 
-    from pricebook.zscore import zscore, ZScoreSignal
+    from pricebook.statistics.zscore import zscore, ZScoreSignal
 
     signal = zscore(current=0.25, history=[0.18, 0.19, 0.20, 0.21],
                     threshold=2.0, labels=("rich", "cheap", "fair"))

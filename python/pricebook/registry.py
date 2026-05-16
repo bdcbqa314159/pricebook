@@ -161,7 +161,7 @@ def list_mc_pricers() -> list[str]:
 # ---------------------------------------------------------------------------
 
 from functools import partial  # noqa: E402
-from pricebook import optimization  # noqa: E402
+from pricebook.statistics import optimization  # noqa: E402
 
 _OPTIMIZERS = {
     "nelder_mead": partial(optimization.minimize, method="nelder_mead"),

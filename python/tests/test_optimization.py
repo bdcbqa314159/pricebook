@@ -4,7 +4,7 @@ import pytest
 import math
 import numpy as np
 
-from pricebook.optimization import minimize, minimize_least_squares, OptimizerResult
+from pricebook.statistics.optimization import minimize, minimize_least_squares, OptimizerResult
 from pricebook.registry import get_optimizer, list_optimizers
 
 

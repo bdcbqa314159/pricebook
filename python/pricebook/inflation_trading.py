@@ -17,7 +17,7 @@ from pricebook.regulatory.market_risk_sa import (
     GIRR_INFLATION_RW,
     calculate_frtb_sa,
 )
-from pricebook.zscore import zscore as _zscore_impl
+from pricebook.statistics.zscore import zscore as _zscore_impl
 
 
 def _zscore(current, history, threshold=2.0):

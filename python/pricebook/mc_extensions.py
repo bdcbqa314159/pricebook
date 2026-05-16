@@ -46,7 +46,7 @@ def sobol_engine(
 
     Uses the existing rng.py QuasiRandom class internally.
     """
-    from pricebook.rng import QuasiRandom
+    from pricebook.statistics.rng import QuasiRandom
 
     # Generate Sobol normals for all steps
     qrng = QuasiRandom(dimension=time_grid.n_steps, seed=seed)

@@ -6,7 +6,7 @@ from datetime import date
 import numpy as np
 import pytest
 
-from pricebook.statistics import (
+from pricebook.statistics.statistics import (
     cointegration_test, regime_detect, bootstrap_ci, rolling_stats,
 )
 from pricebook.market_data_tools import (

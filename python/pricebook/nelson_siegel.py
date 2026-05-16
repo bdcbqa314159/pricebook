@@ -17,7 +17,7 @@ import numpy as np
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention, year_fraction, date_from_year_fraction
-from pricebook.optimization import minimize
+from pricebook.statistics.optimization import minimize
 
 
 def _ns_factor1(t: float, tau: float) -> float:

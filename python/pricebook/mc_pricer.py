@@ -20,7 +20,7 @@ import numpy as np
 
 from pricebook.black76 import OptionType, black76_price
 from pricebook.gbm import GBMGenerator
-from pricebook.rng import PseudoRandom, QuasiRandom
+from pricebook.statistics.rng import PseudoRandom, QuasiRandom
 
 
 @dataclass

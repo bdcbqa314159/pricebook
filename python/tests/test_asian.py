@@ -113,7 +113,7 @@ class TestGeometricMCMatchesAnalytical:
     def test_geometric_mc_vs_analytical(self):
         """MC geometric average should match the closed-form."""
         from pricebook.gbm import GBMGenerator
-        from pricebook.rng import PseudoRandom
+        from pricebook.statistics.rng import PseudoRandom
         import numpy as np
 
         gen = GBMGenerator(spot=SPOT, rate=RATE, vol=VOL)

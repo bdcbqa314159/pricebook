@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pricebook.solvers import SolverResult
 from pricebook.quadrature import QuadratureResult
 from pricebook.mc_pricer import MCResult
-from pricebook.optimization import OptimizerResult
+from pricebook.statistics.optimization import OptimizerResult
 from pricebook.ode import ODEResult
 
 

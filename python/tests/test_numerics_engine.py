@@ -14,7 +14,7 @@ from pricebook.sabr import calibrate_sabr_smile, sabr_implied_vol
 from pricebook.pathwise_greeks import pathwise_asian_delta, pathwise_european_delta
 from pricebook.black76 import OptionType
 from pricebook.gbm import GBMGenerator
-from pricebook.rng import PseudoRandom
+from pricebook.statistics.rng import PseudoRandom
 
 
 # ---- D1: Dupire calibration ----

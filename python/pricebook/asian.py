@@ -20,7 +20,7 @@ import numpy as np
 from pricebook.black76 import OptionType, black76_price
 from pricebook.gbm import GBMGenerator
 from pricebook.mc_pricer import MCResult
-from pricebook.rng import PseudoRandom
+from pricebook.statistics.rng import PseudoRandom
 
 
 def geometric_asian_analytical(

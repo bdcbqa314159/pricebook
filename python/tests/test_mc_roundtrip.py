@@ -90,7 +90,7 @@ class TestAsianGeometricConsistency:
 
     def test_geometric_mc_vs_analytical(self):
         from pricebook.gbm import GBMGenerator
-        from pricebook.rng import PseudoRandom
+        from pricebook.statistics.rng import PseudoRandom
         import numpy as np
 
         n_steps = 50
@@ -111,7 +111,7 @@ class TestAsianGeometricConsistency:
 
     def test_geometric_put(self):
         from pricebook.gbm import GBMGenerator
-        from pricebook.rng import PseudoRandom
+        from pricebook.statistics.rng import PseudoRandom
         import numpy as np
 
         n_steps = 50

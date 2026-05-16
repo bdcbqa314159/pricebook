@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.copulas import (
+from pricebook.statistics.copulas import (
     ClaytonCopula,
     CopulaDefaultResult,
     FrankCopula,

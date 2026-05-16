@@ -136,7 +136,7 @@ def heston_calibrate(
 
     Fits: v0, kappa, theta, xi, rho via differential evolution.
     """
-    from pricebook.optimization import minimize as pb_minimize
+    from pricebook.statistics.optimization import minimize as pb_minimize
 
     def objective(params):
         v0, kappa, theta, xi, rho = params

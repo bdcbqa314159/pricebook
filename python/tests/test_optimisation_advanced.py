@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.optimisation_advanced import (
+from pricebook.statistics.optimisation_advanced import (
     ADMMResult,
     CMAESResult,
     ConstrainedResult,
