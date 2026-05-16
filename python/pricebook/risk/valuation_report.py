@@ -7,7 +7,7 @@ Single entry point that prices an instrument for ALL departments:
 - Regulatory: SA-CCR EAD, SIMM IM, FRTB capital
 - Market Risk: VaR contribution, stress P&L
 
-    from pricebook.valuation_report import valuation_report, ValuationReport
+    from pricebook.risk.valuation_report import valuation_report, ValuationReport
 
     report = valuation_report(instrument, curve, ...)
     report.mid_price       # Trading
@@ -196,7 +196,7 @@ def valuation_report(
 
     This function assembles the output.
     """
-    from pricebook.prudent_valuation import (
+    from pricebook.risk.prudent_valuation import (
         market_price_uncertainty_ava, close_out_cost_ava,
         model_risk_ava, investing_funding_ava, future_admin_cost_ava,
         compute_prudent_value,

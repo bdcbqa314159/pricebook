@@ -1,6 +1,6 @@
 """Tests for cross-gamma hedging."""
 import numpy as np, pytest
-from pricebook.cross_gamma_hedging import (
+from pricebook.risk.cross_gamma_hedging import (
     optimal_multi_asset_hedge, cross_asset_vega_netting,
     correlation_aware_sizing, minimum_variance_exotic_hedge,
 )

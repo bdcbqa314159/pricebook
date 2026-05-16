@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from datetime import date
 
-from pricebook.xva import (
+from pricebook.risk.xva import (
     simulate_exposures,
     expected_positive_exposure,
     expected_negative_exposure,

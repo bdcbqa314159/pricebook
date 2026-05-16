@@ -18,7 +18,7 @@ import pytest
 
 from pricebook.bootstrap import bootstrap
 from pricebook.discount_curve import DiscountCurve
-from pricebook.pnl_explain import greek_pnl, pnl_decompose, compute_carry
+from pricebook.risk.pnl_explain import greek_pnl, pnl_decompose, compute_carry
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection
 

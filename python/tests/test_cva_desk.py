@@ -11,7 +11,7 @@ from pricebook.desks.cva_desk import (
 )
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.xva import cva
+from pricebook.risk.xva import cva
 
 
 REF = date(2024, 1, 15)

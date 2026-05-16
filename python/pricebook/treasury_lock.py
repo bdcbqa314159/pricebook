@@ -674,7 +674,7 @@ def tlock_pnl_attribution(
     # Carry: PV change from 1-day time decay (curve unchanged, time passes)
     # T-Lock carry comes from forward convergence: as expiry approaches,
     # the forward price converges to spot, creating theta.
-    from pricebook.pnl_explain import compute_rolldown
+    from pricebook.risk.pnl_explain import compute_rolldown
     carry = compute_rolldown(
         lambda c: tlock.price(c).value, curve_t0, days=1,
     )

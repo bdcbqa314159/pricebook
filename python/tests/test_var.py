@@ -5,7 +5,7 @@ import math
 import numpy as np
 from datetime import date
 
-from pricebook.var import (
+from pricebook.risk.var import (
     historical_var,
     historical_cvar,
     parametric_var,

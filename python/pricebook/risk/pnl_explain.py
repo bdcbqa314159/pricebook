@@ -4,7 +4,7 @@ P&L Explain: attribution of portfolio value changes.
 Decomposes total P&L into: carry, roll-down, rate moves, vol moves,
 credit moves, FX moves, and unexplained.
 
-    from pricebook.pnl_explain import pnl_decompose, PnLResult
+    from pricebook.risk.pnl_explain import pnl_decompose, PnLResult
 
     result = pnl_decompose(
         base_pv=100_000, current_pv=101_500,

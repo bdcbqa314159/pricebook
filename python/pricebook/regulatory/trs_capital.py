@@ -308,7 +308,7 @@ def trs_kva(
         rwa_multiplier: risk weight multiplier (default 1.0 = 100% RW).
         n_steps: number of time steps for capital profile.
     """
-    from pricebook.xva import kva
+    from pricebook.risk.xva import kva
 
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
     dt = T / n_steps

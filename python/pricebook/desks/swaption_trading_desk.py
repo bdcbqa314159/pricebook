@@ -90,7 +90,7 @@ def swaption_risk_metrics(
     tenor = f"{int(round(T_swap))}Y"
 
     # Theta via rolldown
-    from pricebook.pnl_explain import compute_rolldown
+    from pricebook.risk.pnl_explain import compute_rolldown
     theta = compute_rolldown(lambda c: swaption.price(model, c, proj), curve, days=1)
 
     return SwaptionRiskMetrics(
@@ -267,7 +267,7 @@ def swaption_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice swaption stress via scenario.py."""
-    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -320,7 +320,7 @@ def swaption_capital(
     capital = rwa * 0.08
 
     # SIMM: vega into GIRR bucket
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
     from pricebook.models import Black76Model as _B76
     g = swaption.greeks(_B76(vol=vol_val), curve, projection)
     simm_inputs = [

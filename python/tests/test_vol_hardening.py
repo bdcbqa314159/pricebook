@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from pricebook.black76 import black76_price, OptionType
-from pricebook.greeks import Greeks, bump_greeks
+from pricebook.risk.greeks import Greeks, bump_greeks
 from pricebook.equity.variance_swap import fair_variance_from_vols, variance_swap_pv
 from pricebook.vol_surface import (
     FlatVol, VolTermStructure,

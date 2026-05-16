@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 
 from pricebook.desks.options_book import OptionEntry, OptionsBook
-from pricebook.cross_asset_greeks import (
+from pricebook.risk.cross_asset_greeks import (
     BookGreekAttribution,
     StressScenario,
     StressResult,

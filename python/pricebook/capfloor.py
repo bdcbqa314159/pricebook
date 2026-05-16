@@ -118,7 +118,7 @@ class CapFloor:
 
         Uses model.greeks_ir_option() if available, otherwise bump-and-reprice.
         """
-        from pricebook.greeks import Greeks
+        from pricebook.risk.greeks import Greeks
         caplets = self.caplet_pvs(model, curve, projection_curve)
         return Greeks(
             price=sum(c["pv"] for c in caplets),

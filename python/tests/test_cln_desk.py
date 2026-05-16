@@ -553,7 +553,7 @@ class TestFoundations:
 
     def test_credit_spread_shift_scenario(self):
         """credit_spread_shift bumps credit_curves in PricingContext."""
-        from pricebook.scenario import credit_spread_shift
+        from pricebook.risk.scenario import credit_spread_shift
         surv = _flat_surv(0.02)
         ctx = PricingContext(
             valuation_date=REF,

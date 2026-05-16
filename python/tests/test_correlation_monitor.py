@@ -1,6 +1,6 @@
 """Tests for correlation monitoring."""
 import numpy as np, pytest
-from pricebook.correlation_monitor import (
+from pricebook.risk.correlation_monitor import (
     implied_vs_realised_correlation, correlation_term_structure,
     correlation_stress_matrix, multi_asset_smile_arb_check,
 )

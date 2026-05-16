@@ -5,7 +5,7 @@ Historical VaR: full revaluation under historical scenarios.
 Parametric VaR: delta-normal approximation.
 Stress testing: predefined or custom risk factor shocks.
 
-    from pricebook.var import historical_var, parametric_var, stress_test
+    from pricebook.risk.var import historical_var, parametric_var, stress_test
 
     var_95 = historical_var(pnl_series, confidence=0.95)
     var_dn = parametric_var(deltas, cov_matrix, confidence=0.99)

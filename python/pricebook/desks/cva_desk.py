@@ -18,7 +18,7 @@ from pricebook.credit.credit_risk import _bump_survival_curve
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.xva import (
+from pricebook.risk.xva import (
     simulate_exposures, expected_positive_exposure, cva,
 )
 

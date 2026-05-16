@@ -1,6 +1,6 @@
 """Risk framework: VaR, CVaR, stress testing, drawdown management.
 
-    from pricebook.risk_framework import historical_var, parametric_var, stress_test
+    from pricebook.risk.risk_framework import historical_var, parametric_var, stress_test
 
     var_95 = historical_var(returns, confidence=0.95)
     pvar = parametric_var(portfolio_dv01, portfolio_vol, confidence=0.99)

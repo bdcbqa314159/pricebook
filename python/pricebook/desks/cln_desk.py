@@ -189,7 +189,7 @@ def cln_daily_pnl(
     Spread change inferred from survival curve shift.
     Rate change inferred from discount factor shift.
     """
-    from pricebook.pnl_explain import greek_pnl, compute_rolldown
+    from pricebook.risk.pnl_explain import greek_pnl, compute_rolldown
 
     pv_t0 = cln.dirty_price(curve_t0, surv_t0)
     pv_t1 = cln.dirty_price(curve_t1, surv_t1)
@@ -442,7 +442,7 @@ def cln_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice stress via scenario.py run_scenarios."""
-    from pricebook.scenario import parallel_shift, credit_spread_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, credit_spread_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -673,7 +673,7 @@ class CLNLifecycle:
     def __init__(self, cln: CreditLinkedNote, survival_curve: SurvivalCurve,
                  trade_id: str = "", creation_date: date | None = None):
         from pricebook.trade import Trade
-        from pricebook.trade_lifecycle import ManagedTrade
+        from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._cln = cln
         self._surv = survival_curve

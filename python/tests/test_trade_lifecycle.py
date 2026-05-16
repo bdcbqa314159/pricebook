@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 
 from pricebook.trade import Trade
-from pricebook.trade_lifecycle import (
+from pricebook.risk.trade_lifecycle import (
     ManagedTrade,
     EventType,
     LifecycleEvent,

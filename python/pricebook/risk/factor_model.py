@@ -1,6 +1,6 @@
 """Cross-asset factor models: construction, attribution, covariance, timing.
 
-    from pricebook.factor_model import (
+    from pricebook.risk.factor_model import (
         build_factors, factor_attribution, factor_covariance, factor_timing,
     )
 

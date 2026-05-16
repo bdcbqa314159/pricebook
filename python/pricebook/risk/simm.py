@@ -4,7 +4,7 @@ Computes regulatory initial margin for non-cleared derivatives.
 Sensitivity-based: delta, vega, curvature per risk factor → within-bucket
 aggregation → across-bucket aggregation → across risk class.
 
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
 
     sensitivities = [
         SIMMSensitivity("GIRR", "USD", "2Y", delta=50_000),

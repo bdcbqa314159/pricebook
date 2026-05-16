@@ -3,7 +3,7 @@
 Extends the existing VaR/ES framework (var.py, regulatory/var_es.py)
 with position-level risk attribution and stressed market measures.
 
-    from pricebook.market_risk_enhanced import (
+    from pricebook.risk.market_risk_enhanced import (
         incremental_var, IncrementalVaRResult,
         stressed_var, StressedVaRResult,
         copula_es, CopulaESResult,

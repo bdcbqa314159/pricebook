@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.correlation_greeks import (
+from pricebook.risk.correlation_greeks import (
     CorrelationDeltaResult,
     CorrelationGammaResult,
     CorrelationLadder,

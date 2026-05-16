@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.xva import effective_discount_rate, xva_spread_decomposition
+from pricebook.risk.xva import effective_discount_rate, xva_spread_decomposition
 
 
 @dataclass

@@ -90,7 +90,7 @@ def recovery_time(ts: TimeSeries) -> int:
 
 def performance(ts: TimeSeries, initial_capital: float = 1_000_000.0):
     """Full performance metrics — delegates to backtest.compute_metrics."""
-    from pricebook.backtest import compute_metrics
+    from pricebook.risk.backtest import compute_metrics
     return compute_metrics(ts.values, initial_capital)
 
 

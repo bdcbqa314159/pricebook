@@ -12,7 +12,7 @@ EBA RTS 2014/2017 for fair-valued positions:
 
 Prudent value = mid_price - total_AVA
 
-    from pricebook.prudent_valuation import (
+    from pricebook.risk.prudent_valuation import (
         PrudentValuationReport, compute_prudent_value,
         MarketPriceUncertaintyAVA, CloseOutCostAVA, ModelRiskAVA,
         ConcentrationAVA, UnearnedCreditSpreadAVA, InvestingFundingAVA,

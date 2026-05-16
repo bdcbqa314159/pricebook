@@ -3,7 +3,7 @@
 No re-simulation needed — delta computed from the same paths used
 for pricing. For GBM: ∂S(t)/∂S₀ = S(t)/S₀.
 
-    from pricebook.pathwise_greeks import pathwise_asian_delta
+    from pricebook.risk.pathwise_greeks import pathwise_asian_delta
 
     delta = pathwise_asian_delta(paths, strike, spot, rate, T)
 

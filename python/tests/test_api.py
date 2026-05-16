@@ -6,7 +6,7 @@ import pytest
 
 import pricebook.api as pb
 from pricebook.commodity.commodity import CommodityForwardCurve
-from pricebook.greeks import Greeks
+from pricebook.risk.greeks import Greeks
 
 
 REF = date(2026, 4, 21)

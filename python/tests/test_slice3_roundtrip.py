@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.bootstrap import bootstrap
 from pricebook.bond import FixedRateBond
-from pricebook.risk import dv01_curve, key_rate_durations
+from pricebook.risk.risk import dv01_curve, key_rate_durations
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 

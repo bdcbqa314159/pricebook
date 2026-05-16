@@ -79,7 +79,7 @@ class TestRecoveryPricingMigration:
 
 class TestTailRiskMigration:
     def test_tail_risk_pricing_via_engine(self):
-        from pricebook.tail_risk import tail_risk_pricing_via_engine
+        from pricebook.risk.tail_risk import tail_risk_pricing_via_engine
         result = tail_risk_pricing_via_engine(
             100, 70, 0.05, 1.0, n_paths=10_000,
         )

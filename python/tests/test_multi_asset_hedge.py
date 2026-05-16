@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.multi_asset_hedge import (
+from pricebook.risk.multi_asset_hedge import (
     HedgeAllocation,
     HedgeInstrument,
     HedgeRecommendation,

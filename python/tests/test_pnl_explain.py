@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.pnl_explain import (
+from pricebook.risk.pnl_explain import (
     PnLResult,
     compute_carry,
     greek_pnl,

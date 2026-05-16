@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pricebook.correlation_repair import (
+from pricebook.risk.correlation_repair import (
     NearestCorrResult,
     correlation_interpolation,
     eigenvalue_floor,

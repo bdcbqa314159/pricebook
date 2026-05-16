@@ -34,7 +34,7 @@ def trs_simm_im(
     Wires trs_simm_sensitivities() → SIMMCalculator for proper
     ISDA SIMM v2.6 margin instead of the flat 5% proxy.
     """
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
     from pricebook.regulatory.trs_capital import trs_simm_sensitivities
 
     sens = trs_simm_sensitivities(trs, curve, projection_curve)
@@ -219,7 +219,7 @@ def trs_mc_xva(
 
     Returns a TotalXVAResult from xva.py.
     """
-    from pricebook.xva import (
+    from pricebook.risk.xva import (
         simulate_exposures, expected_positive_exposure,
         expected_negative_exposure, total_xva_decomposition,
     )
@@ -308,7 +308,7 @@ def trs_hybrid_mc_xva(
 
     For non-equity types, falls back to rate-only trs_mc_xva().
     """
-    from pricebook.xva import (
+    from pricebook.risk.xva import (
         expected_positive_exposure, expected_negative_exposure,
         total_xva_decomposition,
     )

@@ -194,7 +194,7 @@ class TestStochasticCreditMigration:
 
 class TestXVAMigration:
     def test_simulate_exposures_via_engine(self):
-        from pricebook.xva import simulate_exposures_via_engine
+        from pricebook.risk.xva import simulate_exposures_via_engine
         assert callable(simulate_exposures_via_engine)
 
 

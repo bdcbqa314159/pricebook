@@ -1,6 +1,6 @@
 """Tests for vol surface stress testing."""
 import numpy as np, pytest
-from pricebook.vol_stress import parallel_vol_bump, tilt_vol_bump, twist_vol_bump, vol_scenario_replay, cross_asset_vol_stress
+from pricebook.risk.vol_stress import parallel_vol_bump, tilt_vol_bump, twist_vol_bump, vol_scenario_replay, cross_asset_vol_stress
 
 class TestParallel:
     def test_basic(self):

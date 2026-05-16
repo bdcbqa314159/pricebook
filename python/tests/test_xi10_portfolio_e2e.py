@@ -24,7 +24,7 @@ from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection
 from pricebook.trade import Trade, Portfolio
-from pricebook.var import historical_var
+from pricebook.risk.var import historical_var
 
 
 # ---- Helpers ----

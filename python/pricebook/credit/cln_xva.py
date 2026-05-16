@@ -37,7 +37,7 @@ def cln_simm_im(
     - CSR: CS01 (credit spread delta)
     - GIRR: DV01 (rate delta)
     """
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
 
     greeks = cln.greeks(discount_curve, survival_curve)
 
@@ -194,7 +194,7 @@ def cln_mc_xva(
 
     Returns TotalXVAResult from xva.py.
     """
-    from pricebook.xva import (
+    from pricebook.risk.xva import (
         simulate_exposures, expected_positive_exposure,
         expected_negative_exposure, total_xva_decomposition,
     )

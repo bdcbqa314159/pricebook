@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 import numpy as np
 
-from pricebook.prudent_valuation import (
+from pricebook.risk.prudent_valuation import (
     market_price_uncertainty_ava, close_out_cost_ava, model_risk_ava,
     concentration_ava, unearned_credit_spread_ava, investing_funding_ava,
     early_termination_ava, future_admin_cost_ava, model_risk_ava_from_exotic_book,
@@ -17,10 +17,10 @@ from pricebook.prudent_valuation import (
 from pricebook.new_desk_xva import (
     inflation_analytic_xva, asw_xva, structured_credit_xva,
 )
-from pricebook.market_risk_enhanced import (
+from pricebook.risk.market_risk_enhanced import (
     incremental_var, stressed_var, copula_es,
 )
-from pricebook.valuation_report import valuation_report, ValuationReport
+from pricebook.risk.valuation_report import valuation_report, ValuationReport
 from pricebook.discount_curve import DiscountCurve
 
 

@@ -1,6 +1,6 @@
 """Tests for tail risk."""
 import math, numpy as np, pytest
-from pricebook.tail_risk import roger_lee_bounds, svi_wings_fit, tail_risk_pricing, extreme_value_var
+from pricebook.risk.tail_risk import roger_lee_bounds, svi_wings_fit, tail_risk_pricing, extreme_value_var
 
 class TestRogerLee:
     def test_valid_surface(self):

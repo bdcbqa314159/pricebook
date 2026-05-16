@@ -162,7 +162,7 @@ def bond_carry_roll(
     if horizon_days <= 0:
         raise ValueError(f"horizon_days must be positive, got {horizon_days}")
 
-    from pricebook.pnl_explain import compute_rolldown
+    from pricebook.risk.pnl_explain import compute_rolldown
 
     settle = settlement or curve.reference_date
     dp = bond.dirty_price(curve)
@@ -346,7 +346,7 @@ def bond_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice stress via scenario.py run_scenarios."""
-    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name="bond_stress")
@@ -500,7 +500,7 @@ class BondLifecycle:
     def __init__(self, bond: FixedRateBond, trade_id: str = "",
                  creation_date: date | None = None):
         from pricebook.trade import Trade
-        from pricebook.trade_lifecycle import ManagedTrade
+        from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._bond = bond
         self._trade_id = trade_id

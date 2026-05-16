@@ -234,7 +234,7 @@ def trs_daily_pnl(
     - vega: vega × vol_change
     - unexplained: total minus all explained
     """
-    from pricebook.pnl_explain import greek_pnl
+    from pricebook.risk.pnl_explain import greek_pnl
 
     pv_t0 = trs.price(curve_t0, projection_curve).value
     pv_t1 = trs.price(curve_t1, projection_curve).value
@@ -267,7 +267,7 @@ def trs_daily_pnl(
         delta_pnl = greek_pnl(rm.dv01, rate_change * 10_000)  # DV01 is per 1bp
 
     # Theta/rolldown: PV change from time passing with unchanged curve
-    from pricebook.pnl_explain import compute_rolldown
+    from pricebook.risk.pnl_explain import compute_rolldown
     theta_pnl = compute_rolldown(
         lambda c: trs.price(c, projection_curve).value,
         curve_t0, days=1,
@@ -568,7 +568,7 @@ def trs_scenario_stress(
     Wraps TRS book into a Portfolio, then runs scenarios via
     run_scenarios() for exact PV recomputation (no Greek approx).
     """
-    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -591,7 +591,7 @@ def trs_dv01_ladder(
     ctx: PricingContext,
 ) -> list:
     """Per-pillar DV01 ladder using scenario.py pillar_bump."""
-    from pricebook.scenario import pillar_bump, run_scenarios
+    from pricebook.risk.scenario import pillar_bump, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -800,7 +800,7 @@ class TRSLifecycle:
 
     def __init__(self, trs: TotalReturnSwap, trade_id: str = "", creation_date: date | None = None):
         from pricebook.trade import Trade
-        from pricebook.trade_lifecycle import ManagedTrade
+        from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._trs = trs
         self._trade_id = trade_id

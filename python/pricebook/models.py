@@ -104,7 +104,7 @@ class Black76Model:
     def greeks_ir_option(self, forward, strike, annuity, T, option_type):
         from pricebook.black76 import (black76_price, black76_delta,
                                         black76_gamma, black76_vega, black76_theta)
-        from pricebook.greeks import Greeks
+        from pricebook.risk.greeks import Greeks
         return Greeks(
             price=annuity * black76_price(forward, strike, self.vol, T, 1.0, option_type),
             delta=annuity * black76_delta(forward, strike, self.vol, T, 1.0, option_type),
@@ -142,7 +142,7 @@ class BachelierModel:
     def greeks_ir_option(self, forward, strike, annuity, T, option_type):
         from pricebook.black76 import (bachelier_price, bachelier_delta,
                                         bachelier_gamma, bachelier_vega, bachelier_theta)
-        from pricebook.greeks import Greeks
+        from pricebook.risk.greeks import Greeks
         return Greeks(
             price=annuity * bachelier_price(forward, strike, self.vol_normal, T, 1.0, option_type),
             delta=annuity * bachelier_delta(forward, strike, self.vol_normal, T, 1.0, option_type),
@@ -189,7 +189,7 @@ class SABRModel:
         from pricebook.sabr import sabr_implied_vol
         from pricebook.black76 import (black76_price, black76_delta,
                                         black76_gamma, black76_vega, black76_theta)
-        from pricebook.greeks import Greeks
+        from pricebook.risk.greeks import Greeks
 
         vol = sabr_implied_vol(
             forward, strike, T,

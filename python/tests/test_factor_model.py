@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pricebook.factor_model import (
+from pricebook.risk.factor_model import (
     build_factor, build_multi_asset_factors, factor_attribution,
     factor_covariance, factor_timing, zscore, percentile_rank,
 )

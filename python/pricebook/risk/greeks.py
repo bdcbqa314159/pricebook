@@ -3,7 +3,7 @@
 Every option pricer should return a Greeks object with standard sensitivities.
 For analytical pricers, populate directly. For MC/PDE, use bump_greeks() helper.
 
-    from pricebook.greeks import Greeks, bump_greeks
+    from pricebook.risk.greeks import Greeks, bump_greeks
 
     # Analytical
     g = Greeks(price=5.23, delta=0.55, gamma=0.03, vega=15.2, theta=-0.05, rho=0.12)

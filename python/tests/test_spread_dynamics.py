@@ -130,7 +130,7 @@ class TestXVASpreadDynamics:
         cpty = make_flat_survival(REF, 0.02)
         own = make_flat_survival(REF, 0.01)
 
-        from pricebook.xva import total_xva_decomposition
+        from pricebook.risk.xva import total_xva_decomposition
         epe = _epe()
         ene = np.array([10_000, 15_000, 20_000, 25_000, 30_000], dtype=float)
 

@@ -1,6 +1,6 @@
 """Tests for hybrid XVA."""
 import numpy as np, pytest
-from pricebook.hybrid_xva import hybrid_cva, wrong_way_risk_adjustment, hybrid_fva
+from pricebook.risk.hybrid_xva import hybrid_cva, wrong_way_risk_adjustment, hybrid_fva
 
 class TestHybridCVA:
     def test_basic(self):

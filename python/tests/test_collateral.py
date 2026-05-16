@@ -9,7 +9,7 @@ from pricebook.csa import (
     CSA, csa_discount_curve, colva,
     cheapest_collateral, cleared_vs_bilateral,
 )
-from pricebook.simm import SIMMCalculator, SIMMSensitivity
+from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
 from tests.conftest import make_flat_curve
 
 

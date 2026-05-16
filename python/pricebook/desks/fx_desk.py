@@ -213,7 +213,7 @@ def fx_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice FX stress via scenario.py."""
-    from pricebook.scenario import parallel_shift, fx_spot_shock, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, fx_spot_shock, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name="fx_stress")
@@ -247,7 +247,7 @@ def fx_mc_xva(
 ):
     """MC XVA for FX forward/option — wires xva.simulate_exposures."""
     import numpy as np
-    from pricebook.xva import (
+    from pricebook.risk.xva import (
         simulate_exposures, expected_positive_exposure,
         expected_negative_exposure, total_xva_decomposition,
     )

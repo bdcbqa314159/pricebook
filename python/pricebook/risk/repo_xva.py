@@ -4,7 +4,7 @@ Wires the generic XVA framework (xva.py) to repo-specific economics.
 For repos, exposure is constant (cash amount, not path-dependent),
 so XVA computations simplify to deterministic formulas.
 
-    from pricebook.repo_xva import (
+    from pricebook.risk.repo_xva import (
         repo_fva, repo_kva, repo_mva,
         repo_total_cost, RepoAllInCost,
     )
@@ -92,7 +92,7 @@ def repo_gap_cost(
 
     Reuses: xva.repo_gap_risk() formula.
     """
-    from pricebook.xva import repo_gap_risk
+    from pricebook.risk.xva import repo_gap_risk
     return repo_gap_risk(
         trade.cash_amount, trade.repo_rate,
         funding_rate, collateral_coverage,

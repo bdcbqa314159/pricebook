@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.scenario import (
+from pricebook.risk.scenario import (
     parallel_shift,
     pillar_bump,
     vol_bump,

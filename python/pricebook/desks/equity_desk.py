@@ -200,7 +200,7 @@ def equity_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice equity stress via scenario.py."""
-    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, run_scenarios
     from pricebook.trade import Portfolio
 
     portfolio = Portfolio(name="equity_stress")
@@ -233,7 +233,7 @@ def equity_mc_xva(
 ):
     """MC XVA for equity option — wires xva.simulate_exposures."""
     import numpy as np
-    from pricebook.xva import (
+    from pricebook.risk.xva import (
         simulate_exposures, expected_positive_exposure,
         expected_negative_exposure, total_xva_decomposition,
     )

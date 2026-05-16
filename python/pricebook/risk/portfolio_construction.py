@@ -1,6 +1,6 @@
 """Portfolio construction: mean-variance, Black-Litterman, risk parity, rebalancing.
 
-    from pricebook.portfolio_construction import (
+    from pricebook.risk.portfolio_construction import (
         mean_variance, black_litterman, risk_parity, rebalance,
     )
 

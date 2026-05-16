@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 from datetime import date
 
-from pricebook.xva import (
+from pricebook.risk.xva import (
     simulate_wwr_exposures,
     cva_wrong_way,
     cva_collateralised,

@@ -9,7 +9,7 @@ from datetime import date
 import numpy as np
 import pytest
 
-from pricebook.xva import (
+from pricebook.risk.xva import (
     total_xva_decomposition,
     irs_xva,
     repo_gap_risk,

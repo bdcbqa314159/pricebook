@@ -26,7 +26,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import date_from_year_fraction
 from pricebook.rfr import StochasticBasis
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.xva import fva as fva_deterministic, total_xva_decomposition, TotalXVAResult
+from pricebook.risk.xva import fva as fva_deterministic, total_xva_decomposition, TotalXVAResult
 
 
 @dataclass

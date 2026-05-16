@@ -541,7 +541,7 @@ class TestRolldown:
 
     def test_pnl_explain_rolldown(self):
         """pnl_explain.compute_rolldown works with DiscountCurve."""
-        from pricebook.pnl_explain import compute_rolldown
+        from pricebook.risk.pnl_explain import compute_rolldown
         curve = make_flat_curve(REF, 0.04)
         trs = _equity_trs()
         rd = compute_rolldown(

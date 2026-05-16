@@ -40,7 +40,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.equity.equity_forward import EquityForward
 from pricebook.fra import FRA
 from pricebook.fx.fx_forward import FXForward
-from pricebook.greeks import Greeks
+from pricebook.risk.greeks import Greeks
 from pricebook.inflation import CPICurve, zc_inflation_swap_pv, zc_inflation_par_rate
 from pricebook.ois import bootstrap_ois
 from pricebook.schedule import Frequency
@@ -750,7 +750,7 @@ def simm(
             {"risk_class": "FX", "bucket": "EUR/USD", "tenor": "spot", "delta": 5_000_000},
         ])
     """
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
     sens = [SIMMSensitivity(**s) for s in sensitivities]
     return SIMMCalculator().compute(sens).total_margin
 
@@ -968,7 +968,7 @@ def var(returns, confidence: float = 0.95) -> float:
 
         pb.var(daily_returns, 0.99)
     """
-    from pricebook.risk_framework import historical_var
+    from pricebook.risk.risk_framework import historical_var
     return historical_var(np.asarray(returns), confidence).var
 
 
@@ -977,7 +977,7 @@ def stress(base_pv: float, sensitivities: dict[str, float]) -> list[dict]:
 
         results = pb.stress(1_000_000, {"rates": -50_000, "equity": 200_000})
     """
-    from pricebook.risk_framework import stress_test
+    from pricebook.risk.risk_framework import stress_test
     return [{"scenario": r.scenario, "pnl": r.pnl} for r in stress_test(base_pv, sensitivities)]
 
 
@@ -986,7 +986,7 @@ def drawdown(equity_curve) -> dict:
 
         pb.drawdown([100, 105, 95, 98, 103])
     """
-    from pricebook.risk_framework import analyse_drawdown
+    from pricebook.risk.risk_framework import analyse_drawdown
     r = analyse_drawdown(np.asarray(equity_curve))
     return {"current": r.current_drawdown, "max": r.max_drawdown,
             "max_duration": r.max_drawdown_duration}
@@ -1218,7 +1218,7 @@ def backtest(returns, signals, slippage_bps: float = 0.0) -> dict:
 
         result = pb.backtest(returns, signals, slippage_bps=5)
     """
-    from pricebook.backtest import run_backtest, BacktestConfig
+    from pricebook.risk.backtest import run_backtest, BacktestConfig
     cfg = BacktestConfig(slippage_bps=slippage_bps)
     r = run_backtest(np.asarray(returns), np.asarray(signals), cfg)
     return {"sharpe": r.metrics.sharpe, "total_return": r.metrics.total_return,
@@ -1233,7 +1233,7 @@ def build_factors(
 
         factors = pb.build_factors({"SPX": spx_ret, "UST": ust_ret})
     """
-    from pricebook.factor_model import build_multi_asset_factors
+    from pricebook.risk.factor_model import build_multi_asset_factors
     asset_ret = {k: np.asarray(v) for k, v in returns.items()}
     result = build_multi_asset_factors(asset_ret, factor_types, window)
     return {ft: {asset: f.z_scores[-1] for asset, f in assets.items()}
@@ -1245,6 +1245,6 @@ def risk_parity_weights(covariance, names: list[str] | None = None) -> dict:
 
         w = pb.risk_parity_weights(cov_matrix, ["stocks", "bonds", "gold"])
     """
-    from pricebook.portfolio_construction import risk_parity
+    from pricebook.risk.portfolio_construction import risk_parity
     r = risk_parity(np.asarray(covariance), names=names)
     return dict(zip(r.names, r.weights.tolist()))

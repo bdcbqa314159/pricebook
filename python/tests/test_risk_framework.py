@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.risk_framework import (
+from pricebook.risk.risk_framework import (
     historical_var, parametric_var, delta_gamma_var, component_var,
     stress_test, StressScenario, STANDARD_SCENARIOS,
     analyse_drawdown, concentration_check,

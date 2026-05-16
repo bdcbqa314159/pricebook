@@ -3,7 +3,7 @@
 Run systematic strategies on historical data with realistic execution,
 walk-forward validation, and proper statistical evaluation.
 
-    from pricebook.backtest import Backtest, Strategy
+    from pricebook.risk.backtest import Backtest, Strategy
 
     strategy = Strategy(signal_func=my_signal, sizing_func=my_sizing)
     result = Backtest(returns, strategy).run()

@@ -102,7 +102,7 @@ def swap_risk_metrics(
         key_rate[label] = kr
 
     # Theta: rolldown via curve roll_down
-    from pricebook.pnl_explain import compute_rolldown
+    from pricebook.risk.pnl_explain import compute_rolldown
     theta = compute_rolldown(
         lambda c: swap.pv(c, proj if proj is curve else proj), curve, days=1,
     )
@@ -286,7 +286,7 @@ def swap_daily_pnl(
     projection_t1: DiscountCurve | None = None,
 ) -> SwapDailyPnL:
     """Daily P&L with curve/carry/theta attribution."""
-    from pricebook.pnl_explain import compute_rolldown
+    from pricebook.risk.pnl_explain import compute_rolldown
 
     proj_t0 = projection_t0 or curve_t0
     proj_t1 = projection_t1 or curve_t1
@@ -419,7 +419,7 @@ def swap_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice stress via scenario.py."""
-    from pricebook.scenario import parallel_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -471,7 +471,7 @@ def swap_capital(
     capital = rwa * 0.08
 
     # SIMM: wire DV01 to GIRR
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
     rm = swap_risk_metrics(swap, curve, projection)
     simm_inputs = []
     for tenor, kr_dv01 in rm.key_rate_dv01.items():
@@ -497,7 +497,7 @@ def swap_mc_xva(
 ):
     """MC XVA for a swap — wires xva.simulate_exposures."""
     import numpy as np
-    from pricebook.xva import (
+    from pricebook.risk.xva import (
         simulate_exposures, expected_positive_exposure,
         expected_negative_exposure, total_xva_decomposition,
     )
@@ -586,7 +586,7 @@ class SwapLifecycle:
     def __init__(self, swap: InterestRateSwap, trade_id: str = "",
                  creation_date: date | None = None):
         from pricebook.trade import Trade
-        from pricebook.trade_lifecycle import ManagedTrade
+        from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._swap = swap
         self._trade_id = trade_id

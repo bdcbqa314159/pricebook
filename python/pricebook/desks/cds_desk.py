@@ -401,7 +401,7 @@ def cds_scenario_stress(
     scenarios: list | None = None,
 ) -> list:
     """Full-reprice stress via scenario.py."""
-    from pricebook.scenario import parallel_shift, credit_spread_shift, run_scenarios
+    from pricebook.risk.scenario import parallel_shift, credit_spread_shift, run_scenarios
     from pricebook.trade import Trade, Portfolio
 
     portfolio = Portfolio(name=book.name)
@@ -453,7 +453,7 @@ def cds_capital(
     capital = rwa * 0.08
 
     # SIMM: CS01 into CSR bucket
-    from pricebook.simm import SIMMCalculator, SIMMSensitivity
+    from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
     rm = cds_risk_metrics(cds, discount_curve, survival_curve)
     simm_inputs = [SIMMSensitivity(
         risk_class="CSR", bucket="IG_corporate", tenor="5Y", delta=rm.cs01)]
@@ -541,7 +541,7 @@ class CDSLifecycle:
     def __init__(self, cds: CDS, survival_curve: SurvivalCurve,
                  trade_id: str = "", creation_date: date | None = None):
         from pricebook.trade import Trade
-        from pricebook.trade_lifecycle import ManagedTrade
+        from pricebook.risk.trade_lifecycle import ManagedTrade
 
         self._cds = cds
         self._surv = survival_curve

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.backtest import (
+from pricebook.risk.backtest import (
     BacktestConfig, run_backtest, compute_metrics,
     walk_forward, combine_signals, deflated_sharpe,
     bonferroni_threshold, fdr_threshold,
