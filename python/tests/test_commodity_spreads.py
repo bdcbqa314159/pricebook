@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.commodity_spreads import (
+from pricebook.commodity.commodity_spreads import (
     DarkSpread,
     GenericSpread,
     SparkSpread,

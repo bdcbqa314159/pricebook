@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_vol_surface import (
+from pricebook.commodity.commodity_vol_surface import (
     CommoditySmileNode,
     CommodityVolCube,
     KirkResult,

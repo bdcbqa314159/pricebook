@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.commodity_term_trading import (
+from pricebook.commodity.commodity_term_trading import (
     CommodityButterfly,
     CommodityCalendarSpread,
     CommoditySteepener,

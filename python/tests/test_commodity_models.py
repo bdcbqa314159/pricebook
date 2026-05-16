@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_models import (
+from pricebook.commodity.commodity_models import (
     CommodityJumpDiffusion,
     CommodityJumpResult,
     GibsonSchwartz,

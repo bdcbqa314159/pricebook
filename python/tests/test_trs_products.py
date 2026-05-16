@@ -245,7 +245,7 @@ class TestCommoditySeasonal:
 
     def test_seasonal_winter_premium(self):
         """Natural gas with winter delivery has higher forward."""
-        from pricebook.commodity_seasonal import SeasonalFactors
+        from pricebook.commodity.commodity_seasonal import SeasonalFactors
         winter_end = date(2025, 1, 15)  # January
         summer_end = date(2024, 7, 15)   # July
 
@@ -266,7 +266,7 @@ class TestCommoditySeasonal:
 
     def test_seasonal_vs_flat(self):
         """Seasonal and flat cy give different results."""
-        from pricebook.commodity_seasonal import SeasonalFactors
+        from pricebook.commodity.commodity_seasonal import SeasonalFactors
         curve = make_flat_curve(REF, 0.04)
         trs_seasonal = TotalReturnSwap(
             underlying=CommodityUnderlying("NG", 75.0,

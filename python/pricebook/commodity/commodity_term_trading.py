@@ -240,7 +240,7 @@ def commodity_roll_down(
     Returns:
         RollDownResult with P&L per unit.
     """
-    from pricebook.commodity import CommodityForwardCurve
+    from pricebook.commodity.commodity import CommodityForwardCurve
     from datetime import timedelta
 
     current = forward_curve.forward(delivery)

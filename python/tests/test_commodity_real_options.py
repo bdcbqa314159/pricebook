@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_real_options import (
+from pricebook.commodity.commodity_real_options import (
     FTRResult,
     MineValuation,
     MineValuationResult,

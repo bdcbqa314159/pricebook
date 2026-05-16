@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_exotic import (
+from pricebook.commodity.commodity_exotic import (
     CommodityAsianResult,
     CommodityBarrierResult,
     CommodityLookbackResult,

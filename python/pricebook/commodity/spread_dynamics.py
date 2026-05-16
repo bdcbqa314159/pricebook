@@ -4,7 +4,7 @@ Wires StochasticBasis into the XVA framework to compute FVA with
 stochastic funding spread paths, capturing the convexity adjustment
 between deterministic and stochastic spread assumptions.
 
-    from pricebook.spread_dynamics import fva_with_spread_dynamics
+    from pricebook.commodity.spread_dynamics import fva_with_spread_dynamics
 
     result = fva_with_spread_dynamics(
         epe, time_grid, ois_curve, stochastic_basis,

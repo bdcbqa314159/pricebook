@@ -8,9 +8,9 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.commodity import CommodityForwardCurve, commodity_option_price
-from pricebook.commodity_seasonal import SeasonalFactors, SeasonalForwardCurve, calendar_spread_option
-from pricebook.commodity_vol_surface import kirk_spread_smile
+from pricebook.commodity.commodity import CommodityForwardCurve, commodity_option_price
+from pricebook.commodity.commodity_seasonal import SeasonalFactors, SeasonalForwardCurve, calendar_spread_option
+from pricebook.commodity.commodity_vol_surface import kirk_spread_smile
 from pricebook.black76 import OptionType
 
 

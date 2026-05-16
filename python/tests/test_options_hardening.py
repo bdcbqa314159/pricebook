@@ -184,12 +184,12 @@ class TestFXGreeksUnified:
 class TestCreditCommodityOptions:
     def test_commodity_option_positive(self):
         """Black-76 commodity option should be positive."""
-        from pricebook.commodity import commodity_option_price
+        from pricebook.commodity.commodity import commodity_option_price
         p = commodity_option_price(70.0, 72.0, 0.30, 0.5, 0.98)
         assert p > 0
 
     def test_commodity_option_put_call_parity(self):
-        from pricebook.commodity import commodity_option_price
+        from pricebook.commodity.commodity import commodity_option_price
         F, K, vol, T, df = 70.0, 72.0, 0.30, 0.5, 0.98
         call = commodity_option_price(F, K, vol, T, df, OptionType.CALL)
         put = commodity_option_price(F, K, vol, T, df, OptionType.PUT)
@@ -203,7 +203,7 @@ class TestCrossAssetConsistency:
         """All asset classes should use Black-76 as the option kernel."""
         from pricebook.equity_option import equity_option_price
         from pricebook.fx_option import fx_option_price
-        from pricebook.commodity import commodity_option_price
+        from pricebook.commodity.commodity import commodity_option_price
 
         # Same forward/strike/vol/T/df → same price regardless of asset class
         F, K, vol, T, df = 100.0, 100.0, 0.20, 1.0, 0.96

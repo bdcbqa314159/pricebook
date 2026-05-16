@@ -34,7 +34,7 @@ from pricebook.bond import FixedRateBond
 from pricebook.bootstrap import bootstrap
 from pricebook.capfloor import CapFloor
 from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.commodity import CommodityForwardCurve, CommoditySwap
+from pricebook.commodity.commodity import CommodityForwardCurve, CommoditySwap
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.equity_forward import EquityForward

@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 import pricebook.api as pb
-from pricebook.commodity import CommodityForwardCurve
+from pricebook.commodity.commodity import CommodityForwardCurve
 from pricebook.greeks import Greeks
 
 

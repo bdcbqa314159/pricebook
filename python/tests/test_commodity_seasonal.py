@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.commodity_seasonal import (
+from pricebook.commodity.commodity_seasonal import (
     SeasonalFactors,
     SeasonalForwardCurve,
     StorageCostModel,

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_basis import (
+from pricebook.commodity.commodity_basis import (
     BasisCurve,
     GasBasisResult,
     PowerLocationalBasis,

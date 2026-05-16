@@ -46,7 +46,7 @@ class TestBermudanLMMMigration:
 
 class TestCommodityModelsMigration:
     def test_schwartz_one_factor_via_engine(self):
-        from pricebook.commodity_models import SchwartzOneFactor, schwartz_one_factor_simulate_via_engine
+        from pricebook.commodity.commodity_models import SchwartzOneFactor, schwartz_one_factor_simulate_via_engine
         model = SchwartzOneFactor(kappa=0.5, mu=4.6, sigma=0.3)
         result = schwartz_one_factor_simulate_via_engine(model, spot=100, T=1.0, n_paths=1_000)
         assert result is not None

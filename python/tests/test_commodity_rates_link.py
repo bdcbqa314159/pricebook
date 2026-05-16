@@ -1,6 +1,6 @@
 """Tests for commodity-rates link."""
 import numpy as np, pytest
-from pricebook.commodity_rates_link import inflation_commodity_factor_model, commodity_inflation_swap
+from pricebook.commodity.commodity_rates_link import inflation_commodity_factor_model, commodity_inflation_swap
 
 class TestCrossAssetPCA:
     def test_basic(self):

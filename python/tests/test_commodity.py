@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.commodity import (
+from pricebook.commodity.commodity import (
     CommodityForwardCurve,
     CommoditySwap,
     commodity_option_price,

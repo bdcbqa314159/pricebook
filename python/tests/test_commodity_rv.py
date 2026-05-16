@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.commodity_rv import (
+from pricebook.commodity.commodity_rv import (
     RatioLevel,
     RollCandidate,
     SeasonalLevel,

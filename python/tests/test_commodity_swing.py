@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_swing import (
+from pricebook.commodity.commodity_swing import (
     NominationResult,
     SwingOptionResult,
     VirtualGasStorage,

@@ -5,7 +5,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.commodity_storage import (
+from pricebook.commodity.commodity_storage import (
     CashAndCarryResult,
     StorageFacility,
     cash_and_carry,

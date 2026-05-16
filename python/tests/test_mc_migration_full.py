@@ -258,7 +258,7 @@ class TestFXStructuredMigration:
 class TestCommodityExoticMigration:
 
     def test_commodity_lookback_fixed_via_engine(self):
-        from pricebook.commodity_exotic import commodity_lookback_via_engine
+        from pricebook.commodity.commodity_exotic import commodity_lookback_via_engine
         result = commodity_lookback_via_engine(
             100, 0.05, 0.03, 0.25, 1.0,
             is_floating=False, strike=100, n_paths=5_000,
@@ -266,7 +266,7 @@ class TestCommodityExoticMigration:
         assert result.price > 0
 
     def test_commodity_asian_via_engine(self):
-        from pricebook.commodity_exotic import commodity_asian_monthly_via_engine
+        from pricebook.commodity.commodity_exotic import commodity_asian_monthly_via_engine
         result = commodity_asian_monthly_via_engine(
             100, 100, 0.05, 0.03, 0.25, 1.0,
             n_paths=10_000,

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.commodity_structured import (
+from pricebook.commodity.commodity_structured import (
     CommodityAutocallResult,
     CommodityLinkedBondResult,
     CommodityRangeAccrualResult,
