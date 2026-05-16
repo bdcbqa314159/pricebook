@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_structured import (
+from pricebook.equity.equity_structured import (
     AirbagResult,
     EquityAutocallableResult,
     ReverseConvertibleResult,

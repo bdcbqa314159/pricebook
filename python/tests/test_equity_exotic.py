@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_exotic import (
+from pricebook.equity.equity_exotic import (
     CompoundResult,
     DigitalResult,
     EquityBarrierResult,

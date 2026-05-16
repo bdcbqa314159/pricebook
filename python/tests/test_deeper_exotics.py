@@ -37,7 +37,7 @@ class TestPRDC:
 
 class TestMultiAssetCorrelation:
     def test_basket_option(self):
-        from pricebook.equity_basket import equity_basket_mc
+        from pricebook.equity.equity_basket import equity_basket_mc
         result = equity_basket_mc(
             spots=[100.0, 100.0],
             weights=[0.5, 0.5],
@@ -51,7 +51,7 @@ class TestMultiAssetCorrelation:
         assert result.price > 0
 
     def test_worst_of(self):
-        from pricebook.equity_structured import worst_of_autocallable
+        from pricebook.equity.equity_structured import worst_of_autocallable
         result = worst_of_autocallable(
             spots=[100.0, 100.0],
             autocall_barrier_pct=1.0, coupon=5.0,
@@ -82,7 +82,7 @@ class TestCallableBond:
 
 class TestAutocall:
     def test_phoenix_autocall(self):
-        from pricebook.equity_structured import equity_autocallable
+        from pricebook.equity.equity_structured import equity_autocallable
         result = equity_autocallable(
             spot=100.0, autocall_barrier=110.0,
             coupon_barrier=90.0, protection_barrier=80.0,
@@ -95,7 +95,7 @@ class TestAutocall:
         assert 0 <= result.autocall_probability <= 1
 
     def test_higher_coupon_barrier_lower_price(self):
-        from pricebook.equity_structured import equity_autocallable
+        from pricebook.equity.equity_structured import equity_autocallable
         low = equity_autocallable(
             spot=100, autocall_barrier=120, coupon_barrier=80,
             protection_barrier=70, coupon=5,

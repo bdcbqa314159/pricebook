@@ -6,7 +6,7 @@ Fair variance strike from the strip of OTM options:
 This is model-free: it depends only on observable option prices,
 not on any specific vol model.
 
-    from pricebook.variance_swap import fair_variance, variance_swap_pv
+    from pricebook.equity.variance_swap import fair_variance, variance_swap_pv
 
 References:
     Demeterfi, Derman, Kamal & Zou, *More Than You Ever Wanted to Know

@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from pricebook.trs_lou import (
+from pricebook.equity.trs_lou import (
     trs_precrisis,
     trs_equity_full_csa,
     trs_fva,

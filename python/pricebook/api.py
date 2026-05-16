@@ -37,7 +37,7 @@ from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.commodity.commodity import CommodityForwardCurve, CommoditySwap
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
-from pricebook.equity_forward import EquityForward
+from pricebook.equity.equity_forward import EquityForward
 from pricebook.fra import FRA
 from pricebook.fx.fx_forward import FXForward
 from pricebook.greeks import Greeks
@@ -704,7 +704,7 @@ def variance_swap(
 
         pb.variance_swap(0.04, 0.035, 100_000, 0.5, 0.98)
     """
-    from pricebook.variance_swap import variance_swap_pv
+    from pricebook.equity.variance_swap import variance_swap_pv
     return variance_swap_pv(fair_var, strike_var, notional_vega, T, df).pv
 
 

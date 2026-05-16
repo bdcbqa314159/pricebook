@@ -18,10 +18,10 @@ import pytest
 
 from pricebook.black76 import OptionType, black76_price
 from pricebook.discount_curve import DiscountCurve
-from pricebook.dividend_model import (
+from pricebook.equity.dividend_model import (
     Dividend, pv_dividends, dividend_adjusted_forward, equity_option_discrete_divs,
 )
-from pricebook.equity_forward import EquityForward
+from pricebook.equity.equity_forward import EquityForward
 from pricebook.equity_option import equity_option_price
 from pricebook.implied_vol import implied_vol_black76
 

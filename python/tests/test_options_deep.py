@@ -9,7 +9,7 @@ import pytest
 from pricebook.black76 import black76_price, black76_delta, black76_vega, OptionType
 from pricebook.implied_vol import implied_vol_black76
 from pricebook.fft_pricing import lewis_price
-from pricebook.variance_swap import fair_variance_from_vols
+from pricebook.equity.variance_swap import fair_variance_from_vols
 
 
 class TestBlack76:

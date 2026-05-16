@@ -4,8 +4,8 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.equity_forward import EquityForward
-from pricebook.dividend_model import Dividend
+from pricebook.equity.equity_forward import EquityForward
+from pricebook.equity.dividend_model import Dividend
 from tests.conftest import make_flat_curve
 
 

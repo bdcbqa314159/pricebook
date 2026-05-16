@@ -3,7 +3,7 @@
 Wraps existing `variance_swap_pv()` and `fair_variance()` from
 `variance_swap.py` in a proper instrument class.
 
-    from pricebook.variance_swap_instrument import VarianceSwapOption
+    from pricebook.equity.variance_swap_instrument import VarianceSwapOption
 
     vs = VarianceSwapOption(strike_vol=0.20, notional_vega=100_000,
                             maturity=date(2027,4,28))
@@ -19,7 +19,7 @@ from typing import Any
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.variance_swap import variance_swap_pv
+from pricebook.equity.variance_swap import variance_swap_pv
 from pricebook.serialisable import _register, _serialise_atom
 
 

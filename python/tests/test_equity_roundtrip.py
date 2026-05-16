@@ -18,9 +18,9 @@ from pricebook.equity_option import (
     equity_vega,
     equity_rho,
 )
-from pricebook.equity_forward import EquityForward
-from pricebook.dividend_model import Dividend
-from pricebook.dividend_model import (
+from pricebook.equity.equity_forward import EquityForward
+from pricebook.equity.dividend_model import Dividend
+from pricebook.equity.dividend_model import (
     dividend_adjusted_forward,
     equity_option_discrete_divs,
 )

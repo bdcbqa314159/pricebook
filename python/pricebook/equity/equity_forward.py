@@ -18,7 +18,7 @@ from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.dividend_model import Dividend, pv_dividends
+from pricebook.equity.dividend_model import Dividend, pv_dividends
 
 
 class EquityForward:
@@ -119,7 +119,7 @@ def _ef_to_dict(self):
 
 @classmethod
 def _ef_from_dict(cls, d):
-    from pricebook.dividend_model import Dividend
+    from pricebook.equity.dividend_model import Dividend
     p = d["params"]
     divs = [Dividend.from_dict(x) for x in p.get("dividends", [])] or None
     return cls(

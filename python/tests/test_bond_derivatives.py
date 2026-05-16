@@ -12,7 +12,7 @@ from pricebook.par_asset_swap import ParAssetSwap
 from pricebook.repo_term import RepoCurve, RepoRate, forward_repo_rate, identify_specials
 from pricebook.schedule import Frequency
 from pricebook.strips import strip_bond, price_strip, strip_yield, reconstruct_bond_price
-from pricebook.total_return_swap import TotalReturnSwap
+from pricebook.equity.total_return_swap import TotalReturnSwap
 from pricebook.xccy_bond import fx_hedged_yield, cross_currency_pickup, breakeven_fx_move
 from tests.conftest import make_flat_curve
 

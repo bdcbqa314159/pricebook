@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.dividend_model import (
+from pricebook.equity.dividend_model import (
     Dividend,
     pv_dividends,
     dividend_adjusted_forward,

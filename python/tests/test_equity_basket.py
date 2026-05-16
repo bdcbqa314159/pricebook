@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_basket import (
+from pricebook.equity.equity_basket import (
     CorrelationSwapResult,
     DispersionTradeResult,
     EquityBasketResult,

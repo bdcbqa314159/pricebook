@@ -4,7 +4,7 @@ Products commonly traded on equity desks:
     forward-start, chooser, quanto, Himalaya, outperformance, accumulator,
     dividend futures, dividend swaps, dividend options.
 
-    from pricebook.equity_exotic_extended import (
+    from pricebook.equity.equity_exotic_extended import (
         forward_start_option, chooser_option, quanto_equity_option,
         himalaya_option, outperformance_option, equity_accumulator,
         dividend_future, dividend_swap, dividend_option,

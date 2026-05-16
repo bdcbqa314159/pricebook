@@ -10,7 +10,7 @@ import pytest
 from pricebook.bootstrap import bootstrap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.loan import TermLoan
-from pricebook.trs import TotalReturnSwap, FundingLegSpec, LSTATerms
+from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec, LSTATerms
 
 
 REF = date(2026, 4, 27)

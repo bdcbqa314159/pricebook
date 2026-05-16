@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_exotic_extended import (
+from pricebook.equity.equity_exotic_extended import (
     forward_start_option,
     chooser_option,
     quanto_equity_option,

@@ -10,8 +10,8 @@ import math
 
 import pytest
 
-from pricebook.trs_lou import trs_equity_full_csa, trs_fva, trs_repo_style_symmetric
-from pricebook.trs_tree import trs_trinomial_tree, trs_tree_xva
+from pricebook.equity.trs_lou import trs_equity_full_csa, trs_fva, trs_repo_style_symmetric
+from pricebook.equity.trs_tree import trs_trinomial_tree, trs_tree_xva
 
 
 # ---- Table 1: Full CSA, no repo spread ----
@@ -71,7 +71,7 @@ class TestTable1:
 
         Key: ATI uses period-matched 3M Libor, not 1Y Libor.
         """
-        from pricebook.trs_tree import trs_trinomial_tree_multi
+        from pricebook.equity.trs_tree import trs_trinomial_tree_multi
 
         n_periods = 4
         dt_period = self.T / n_periods
@@ -100,7 +100,7 @@ class TestTable1:
             V_analytic += funding - security
 
         # Tree
-        from pricebook.trs_tree import trs_trinomial_tree_multi
+        from pricebook.equity.trs_tree import trs_trinomial_tree_multi
         result = trs_trinomial_tree_multi(
             self.S0, libor_3M, self.T, self.r, 0.0, self.sigma,
             n_periods=n_periods, n_steps_per_period=50)

@@ -10,11 +10,11 @@ import pytest
 from pricebook.bond import FixedRateBond
 from pricebook.bootstrap import bootstrap
 from pricebook.discount_curve import DiscountCurve
-from pricebook.dividend_model import Dividend
+from pricebook.equity.dividend_model import Dividend
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
 from pricebook.trade import Trade, Portfolio
-from pricebook.trs import TotalReturnSwap, FundingLegSpec, TRSResult
+from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec, TRSResult
 
 
 REF = date(2026, 4, 27)

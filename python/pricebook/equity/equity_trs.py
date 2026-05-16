@@ -5,7 +5,7 @@ Receive leg: floating rate + TRS spread.
 
 Used for: leveraged equity exposure, balance sheet management, tax efficiency.
 
-    from pricebook.equity_trs import EquityTRS
+    from pricebook.equity.equity_trs import EquityTRS
 
     trs = EquityTRS(ticker, notional, trs_spread, start, end)
     result = trs.mark_to_market(initial_price, current_price, divs_received, curve)

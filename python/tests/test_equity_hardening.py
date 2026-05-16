@@ -4,9 +4,9 @@ from datetime import date
 
 import pytest
 
-from pricebook.dividend_model import Dividend, pv_dividends, implied_dividends_from_forwards
-from pricebook.equity_forward import EquityForward
-from pricebook.equity_trs import EquityTRS
+from pricebook.equity.dividend_model import Dividend, pv_dividends, implied_dividends_from_forwards
+from pricebook.equity.equity_forward import EquityForward
+from pricebook.equity.equity_trs import EquityTRS
 from tests.conftest import make_flat_curve
 
 

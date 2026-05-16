@@ -250,7 +250,7 @@ class TestCLNTRS:
 
     def test_cln_trs_basic(self):
         """CLN as TRS underlying produces finite value."""
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         disc = _disc()
         sc = _surv()
         cln = CreditLinkedNote(REF, END, coupon_rate=0.06, notional=1_000_000)
@@ -263,7 +263,7 @@ class TestCLNTRS:
 
     def test_cln_trs_in_portfolio(self):
         """CLN TRS works in Trade/Portfolio."""
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         from pricebook.pricing_context import PricingContext
         from pricebook.trade import Trade, Portfolio
         disc = _disc()
@@ -281,7 +281,7 @@ class TestCLNTRS:
         assert math.isfinite(pv)
 
     def test_cln_trs_type_detection(self):
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         cln = CreditLinkedNote(REF, END)
         trs = TotalReturnSwap(underlying=cln, notional=1_000_000,
                               start=REF, end=REF + timedelta(days=365))

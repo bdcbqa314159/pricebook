@@ -24,7 +24,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from pricebook.trs import TotalReturnSwap, TRSResult, FundingLegSpec
+from pricebook.equity.trs import TotalReturnSwap, TRSResult, FundingLegSpec
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.day_count import DayCountConvention, year_fraction
@@ -672,7 +672,7 @@ def trs_capital_summary(
     Capital = RWA x 8%
     SIMM IM via ISDA SIMM v2.6 (trs_simm_im)
     """
-    from pricebook.trs_xva import trs_simm_im
+    from pricebook.equity.trs_xva import trs_simm_im
 
     rw = _SA_RISK_WEIGHTS.get(counterparty_type, 1.0)
     entries = []

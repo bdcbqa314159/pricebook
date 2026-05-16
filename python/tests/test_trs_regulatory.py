@@ -9,7 +9,7 @@ import pytest
 
 from pricebook.bootstrap import bootstrap
 from pricebook.discount_curve import DiscountCurve
-from pricebook.trs import TotalReturnSwap, FundingLegSpec
+from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
 from pricebook.loan import TermLoan
 from pricebook.regulatory.trs_capital import (
     trs_sa_ccr_add_on,

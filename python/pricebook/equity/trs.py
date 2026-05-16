@@ -5,7 +5,7 @@ the appropriate pricing engine. Supports repo financing (Lou 2018),
 discrete dividends, multi-period with MTM notional reset, and SOFR
 funding conventions.
 
-    from pricebook.trs import TotalReturnSwap, FundingLegSpec
+    from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
 
     # Equity TRS
     trs = TotalReturnSwap(underlying=100.0, notional=10_000_000,
@@ -263,7 +263,7 @@ class TotalReturnSwap:
         if self._underlying_type != "equity":
             raise NotImplementedError("Tree pricing only for equity TRS")
 
-        from pricebook.trs_tree import trs_trinomial_tree
+        from pricebook.equity.trs_tree import trs_trinomial_tree
 
         spot = float(self.underlying)
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
@@ -296,7 +296,7 @@ class TotalReturnSwap:
         if self._underlying_type != "equity":
             raise NotImplementedError("XVA pricing only for equity TRS")
 
-        from pricebook.trs_tree import trs_tree_xva
+        from pricebook.equity.trs_tree import trs_tree_xva
 
         spot = float(self.underlying)
         T = year_fraction(self.start, self.end, DayCountConvention.ACT_365_FIXED)
@@ -437,7 +437,7 @@ def price_equity_trs(trs, curve, projection_curve) -> TRSResult:
     All values in currency units (notional-scaled).
     """
     from pricebook.bond_forward import repo_financing_factor
-    from pricebook.dividend_model import Dividend
+    from pricebook.equity.dividend_model import Dividend
 
     spot = float(trs.underlying)
     S_0 = trs.initial_price if trs.initial_price is not None else spot
@@ -823,7 +823,7 @@ def price_fx_trs(trs, curve, projection_curve) -> TRSResult:
 
 
 def price_multi_period(trs, curve, projection_curve) -> TRSResult:
-    from pricebook.trs_lou import trs_multi_period
+    from pricebook.equity.trs_lou import trs_multi_period
 
     resets = sorted([trs.start] + trs.reset_dates + [trs.end])
     K = len(resets) - 1

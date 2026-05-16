@@ -8,7 +8,7 @@ from pricebook.dividend_desk import (
     strip_discrete_dividends,
     DividendSwap, dividend_forward, dividend_risk,
 )
-from pricebook.dividend_model import Dividend, dividend_adjusted_forward
+from pricebook.equity.dividend_model import Dividend, dividend_adjusted_forward
 from pricebook.discount_curve import DiscountCurve
 
 

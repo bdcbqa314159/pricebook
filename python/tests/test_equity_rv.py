@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.equity_rv import (
+from pricebook.equity.equity_rv import (
     BookExposure,
     CalendarLevel,
     HedgeAllocation,

@@ -72,7 +72,7 @@ class TestMultiAssetMCMigration:
 class TestEquityStructuredMigration:
 
     def test_equity_autocallable_via_engine(self):
-        from pricebook.equity_structured import equity_autocallable_via_engine
+        from pricebook.equity.equity_structured import equity_autocallable_via_engine
         result = equity_autocallable_via_engine(
             spot=100, autocall_barrier=105, coupon_barrier=100,
             protection_barrier=70, coupon=0.08, rate=0.05,
@@ -83,7 +83,7 @@ class TestEquityStructuredMigration:
         assert result.price > 0
 
     def test_shark_fin_via_engine(self):
-        from pricebook.equity_structured import shark_fin_via_engine
+        from pricebook.equity.equity_structured import shark_fin_via_engine
         result = shark_fin_via_engine(
             spot=100, strike=100, knock_out_barrier=130,
             rebate=0.02, participation=1.0, rate=0.05,
@@ -177,7 +177,7 @@ class TestJumpModelsMigration:
         assert result.price > 0
 
     def test_svj_equity_via_engine(self):
-        from pricebook.equity_jumps import SVJEquityModel
+        from pricebook.equity.equity_jumps import SVJEquityModel
         model = SVJEquityModel(0.04, 2.0, 0.04, 0.3, -0.7, 0.5, -0.05, 0.10)
         result = model.simulate_option_via_engine(
             100, 100, 0.05, 0.02, 1.0, n_paths=5_000,
@@ -277,7 +277,7 @@ class TestCommodityExoticMigration:
 class TestEquityRatesHybridMigration:
 
     def test_callable_equity_note_via_engine(self):
-        from pricebook.equity_rates_hybrid import callable_equity_note_via_engine
+        from pricebook.equity.equity_rates_hybrid import callable_equity_note_via_engine
         result = callable_equity_note_via_engine(
             100, 0.05, 0.20, 0.01, -0.3, 1000, 1.0,
             0.0, 2.0, [0.5, 1.0, 1.5], n_paths=2_000,
@@ -285,7 +285,7 @@ class TestEquityRatesHybridMigration:
         assert result.price > 0
 
     def test_equity_ir_joint_via_engine(self):
-        from pricebook.equity_rates_hybrid import equity_ir_joint_simulate_via_engine
+        from pricebook.equity.equity_rates_hybrid import equity_ir_joint_simulate_via_engine
         result = equity_ir_joint_simulate_via_engine(
             100, 0.05, 0.20, 0.01, -0.3, 1.0, n_paths=1_000,
         )

@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.trs import TotalReturnSwap, FundingLegSpec
+from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
 from pricebook.trs_desk import (
     trs_risk_metrics, TRSRiskMetrics,
     trs_carry_decomposition, TRSCarryDecomposition,

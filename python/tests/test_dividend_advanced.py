@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.dividend_advanced import (
+from pricebook.equity.dividend_advanced import (
     BuhlerResult,
     BuhlerStochasticDividend,
     DividendBasisResult,

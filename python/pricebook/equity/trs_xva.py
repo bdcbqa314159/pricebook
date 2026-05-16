@@ -4,7 +4,7 @@ Wires the generic XVA framework to TRS-specific economics.
 Unlike repos (constant exposure), TRS exposure is path-dependent
 (equity moves, credit spreads widen).
 
-    from pricebook.trs_xva import (
+    from pricebook.equity.trs_xva import (
         trs_mva, trs_kva_from_sa_ccr, trs_analytic_cva,
         trs_simm_im, trs_mc_xva,
     )
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.trs import TotalReturnSwap
+from pricebook.equity.trs import TotalReturnSwap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.survival_curve import SurvivalCurve

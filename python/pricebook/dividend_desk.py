@@ -16,7 +16,7 @@ from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.dividend_model import Dividend, pv_dividends, dividend_adjusted_forward
+from pricebook.equity.dividend_model import Dividend, pv_dividends, dividend_adjusted_forward
 
 
 # ---- Implied dividends from put-call parity ----

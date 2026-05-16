@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_jumps import (
+from pricebook.equity.equity_jumps import (
     KouResult,
     MertonHybridResult,
     RegimeResult,

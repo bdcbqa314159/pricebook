@@ -165,7 +165,7 @@ class TestSwaptionRoundTrip:
 
 class TestTRSRoundTrip:
     def test_equity_trs(self):
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         trs = TotalReturnSwap(underlying=100.0, notional=10_000_000,
                               start=REF, end=REF + timedelta(days=365))
         d = instrument_to_dict(trs)
@@ -176,7 +176,7 @@ class TestTRSRoundTrip:
         assert trs2.notional == 10_000_000
 
     def test_bond_trs(self):
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         from pricebook.bond import FixedRateBond
         bond = FixedRateBond(face_value=100, coupon_rate=0.05, maturity=END_10Y,
                              issue_date=REF)
@@ -188,7 +188,7 @@ class TestTRSRoundTrip:
         assert type(trs2.underlying).__name__ == "FixedRateBond"
 
     def test_loan_trs(self):
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         from pricebook.loan import TermLoan
         loan = TermLoan(REF, END_5Y, spread=0.03, notional=10_000_000)
         trs = TotalReturnSwap(underlying=loan, notional=10_000_000,
@@ -199,7 +199,7 @@ class TestTRSRoundTrip:
         assert type(trs2.underlying).__name__ == "TermLoan"
 
     def test_json_round_trip(self):
-        from pricebook.trs import TotalReturnSwap
+        from pricebook.equity.trs import TotalReturnSwap
         trs = TotalReturnSwap(underlying=100.0, notional=5_000_000,
                               start=REF, end=REF + timedelta(days=365),
                               repo_spread=0.002, sigma=0.25)

@@ -13,8 +13,8 @@ from pricebook.equity_option import (
     equity_option_price, equity_delta, equity_gamma, equity_vega,
     equity_theta, equity_rho,
 )
-from pricebook.equity_forward import EquityForward, pv_dividends
-from pricebook.equity_jumps import kou_equity_price, merton_equity_hybrid
+from pricebook.equity.equity_forward import EquityForward, pv_dividends
+from pricebook.equity.equity_jumps import kou_equity_price, merton_equity_hybrid
 from pricebook.black76 import OptionType
 from tests.conftest import make_flat_curve
 

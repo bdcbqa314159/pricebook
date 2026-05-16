@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_smile import (
+from pricebook.equity.equity_smile import (
     EquityCubeNode,
     EquityVolCube,
     ForwardVolResult,

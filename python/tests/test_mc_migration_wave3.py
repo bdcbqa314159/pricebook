@@ -10,7 +10,7 @@ import pytest
 
 class TestDividendAdvancedMigration:
     def test_buhler_via_engine(self):
-        from pricebook.dividend_advanced import BuhlerStochasticDividend
+        from pricebook.equity.dividend_advanced import BuhlerStochasticDividend
         model = BuhlerStochasticDividend(r=0.05, q0=0.02, kappa_q=1.0,
                                          theta_q=0.02, xi_q=0.01, sigma_s=0.20)
         result = model.simulate_via_engine(100, 1.0, n_paths=2_000)

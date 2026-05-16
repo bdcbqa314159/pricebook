@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.rich_cheap import (
+from pricebook.equity.rich_cheap import (
     relative_value, rv_from_curve,
     spread_monitor, butterfly_monitor,
 )

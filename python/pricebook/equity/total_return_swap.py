@@ -5,7 +5,7 @@ Receive leg: floating rate + spread.
 
 Used for: leverage, synthetic bond exposure, balance sheet optimisation.
 
-    from pricebook.total_return_swap import TotalReturnSwap
+    from pricebook.equity.total_return_swap import TotalReturnSwap
 
     trs = TotalReturnSwap(bond, notional, trs_spread)
     mtm = trs.mark_to_market(initial_dirty, current_curve, projection_curve)

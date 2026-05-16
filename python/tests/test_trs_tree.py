@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from pricebook.trs_lou import trs_equity_full_csa
-from pricebook.trs_tree import (
+from pricebook.equity.trs_lou import trs_equity_full_csa
+from pricebook.equity.trs_tree import (
     _trinomial_probabilities,
     trs_trinomial_tree,
     trs_tree_xva,

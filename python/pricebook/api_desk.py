@@ -369,7 +369,7 @@ def trs(tenor, underlying, curve, *, funding_spread=0.005, repo_spread=0.01,
         _warn_default("sigma", 0.20, "TRS vega")
         sigma = 0.20
 
-    from pricebook.trs import TotalReturnSwap, FundingLegSpec
+    from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
     from pricebook.trs_desk import trs_risk_metrics, trs_carry_decomposition
 
     ref = curve.reference_date

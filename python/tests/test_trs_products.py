@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.trs import (
+from pricebook.equity.trs import (
     TotalReturnSwap, FundingLegSpec,
     CommodityUnderlying, FXUnderlying, XccySpec,
 )
@@ -211,7 +211,7 @@ class TestDividendSwapExists:
 
     def test_pv(self):
         from pricebook.dividend_desk import DividendSwap
-        from pricebook.dividend_model import Dividend
+        from pricebook.equity.dividend_model import Dividend
         ds = DividendSwap(
             start=REF, end=END,
             fixed_div=2.0, notional=1000,
@@ -228,7 +228,7 @@ class TestDividendSwapExists:
 
     def test_fair_fixed(self):
         from pricebook.dividend_desk import DividendSwap
-        from pricebook.dividend_model import Dividend
+        from pricebook.equity.dividend_model import Dividend
         ds = DividendSwap(start=REF, end=END, fixed_div=0.0, notional=1000)
         divs = [
             Dividend(amount=0.50, ex_date=REF + relativedelta(months=3)),

@@ -3,7 +3,7 @@
 Compare market swap rates to model-implied rates, compute z-scores,
 and monitor spread/butterfly levels for trading signals.
 
-    from pricebook.rich_cheap import (
+    from pricebook.equity.rich_cheap import (
         relative_value, spread_monitor, butterfly_monitor,
     )
 

@@ -1,6 +1,6 @@
 """Tests for equity-rates hybrids."""
 import math, numpy as np, pytest
-from pricebook.equity_rates_hybrid import callable_equity_note, equity_ir_joint_simulate, hybrid_autocallable
+from pricebook.equity.equity_rates_hybrid import callable_equity_note, equity_ir_joint_simulate, hybrid_autocallable
 
 class TestCallableEquityNote:
     def test_basic(self):

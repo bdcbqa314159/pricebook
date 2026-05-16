@@ -20,7 +20,7 @@ from pricebook.frn import FloatingRateNote
 from pricebook.fx.fx_forward import FXForward
 from pricebook.fx.fx_option import fx_option_price
 from pricebook.equity_option import equity_option_price
-from pricebook.trs import TotalReturnSwap, TRSResult, FundingLegSpec
+from pricebook.equity.trs import TotalReturnSwap, TRSResult, FundingLegSpec
 from pricebook.repo_desk import RepoTrade, RepoBook, RepoDirection
 from pricebook.autocallable import Autocallable
 from pricebook.barrier_option import BarrierOption

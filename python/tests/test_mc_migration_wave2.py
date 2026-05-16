@@ -60,7 +60,7 @@ class TestConvertibleBondMigration:
 
 class TestEquityBasketMigration:
     def test_equity_basket_mc_via_engine(self):
-        from pricebook.equity_basket import equity_basket_mc_via_engine
+        from pricebook.equity.equity_basket import equity_basket_mc_via_engine
         corr = np.array([[1.0, 0.5], [0.5, 1.0]])
         result = equity_basket_mc_via_engine(
             spots=[100.0, 100.0], weights=[0.5, 0.5], strike=100.0,
@@ -72,7 +72,7 @@ class TestEquityBasketMigration:
 
 class TestEquityExoticMigration:
     def test_lookback_fixed_via_engine(self):
-        from pricebook.equity_exotic import equity_lookback_fixed_via_engine
+        from pricebook.equity.equity_exotic import equity_lookback_fixed_via_engine
         result = equity_lookback_fixed_via_engine(
             spot=100, strike=100, rate=0.05, dividend_yield=0.02,
             vol=0.20, T=1.0, n_paths=5_000,

@@ -11,7 +11,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 
 def plot_value_vs_spot(ax, instrument, curve, *, theme=None, **kwargs):
     """TRS value vs spot — pre-crisis vs repo-adjusted."""
-    from pricebook.trs_lou import trs_equity_full_csa, trs_precrisis
+    from pricebook.equity.trs_lou import trs_equity_full_csa, trs_precrisis
     from datetime import timedelta
 
     S0 = instrument.spot
@@ -37,7 +37,7 @@ def plot_value_vs_spot(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_fva_vs_repo(ax, instrument, curve, *, theme=None, **kwargs):
     """FVA as function of repo spread."""
-    from pricebook.trs_lou import trs_fva
+    from pricebook.equity.trs_lou import trs_fva
 
     spreads = np.linspace(0, 0.10, 100)
     fvas = [trs_fva(instrument.spot, rs, instrument.maturity) for rs in spreads]
@@ -54,8 +54,8 @@ def plot_fva_vs_repo(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_tree_convergence(ax, instrument, curve, *, theme=None, **kwargs):
     """Tree convergence to analytic."""
-    from pricebook.trs_lou import trs_equity_full_csa
-    from pricebook.trs_tree import trs_trinomial_tree
+    from pricebook.equity.trs_lou import trs_equity_full_csa
+    from pricebook.equity.trs_tree import trs_trinomial_tree
     from datetime import timedelta
 
     mat_date = curve.reference_date + timedelta(days=int(instrument.maturity * 365))
@@ -96,8 +96,8 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 
 def _register():
-    from pricebook.trs_lou import TotalReturnSwapLou
-    from pricebook.trs import TotalReturnSwap
+    from pricebook.equity.trs_lou import TotalReturnSwapLou
+    from pricebook.equity.trs import TotalReturnSwap
 
     register_instrument(TotalReturnSwapLou)(_default_dashboard)
     register_instrument(TotalReturnSwap)(_default_dashboard)

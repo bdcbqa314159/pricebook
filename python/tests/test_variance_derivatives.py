@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.variance_derivatives import (
+from pricebook.equity.variance_derivatives import (
     VRPResult,
     VarianceFuturesResult,
     VarianceSwapResult,

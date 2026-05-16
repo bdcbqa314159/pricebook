@@ -8,8 +8,8 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.trs import TotalReturnSwap, FundingLegSpec
-from pricebook.trs_xva import (
+from pricebook.equity.trs import TotalReturnSwap, FundingLegSpec
+from pricebook.equity.trs_xva import (
     trs_simm_im,
     trs_mva,
     trs_kva_from_sa_ccr,
