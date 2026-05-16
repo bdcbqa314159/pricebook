@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.fx_barrier import (
+from pricebook.fx.fx_barrier import (
     fx_barrier_pde,
     vanna_volga_barrier,
 )
@@ -19,7 +19,7 @@ class TestFXBarrierPDE:
         assert price > 0
 
     def test_knockout_leq_vanilla(self):
-        from pricebook.fx_option import fx_option_price
+        from pricebook.fx.fx_option import fx_option_price
         vanilla = fx_option_price(S, K, RD, RF, VOL, T)
         ko = fx_barrier_pde(S, K, 0.90, RD, RF, VOL, T,
                             is_up=False, is_knock_in=False)
@@ -35,7 +35,7 @@ class TestFXBarrierPDE:
                             is_up=False, is_knock_in=False)
         ki = fx_barrier_pde(S, K, 0.95, RD, RF, VOL, T,
                             is_up=False, is_knock_in=True)
-        from pricebook.fx_option import fx_option_price
+        from pricebook.fx.fx_option import fx_option_price
         vanilla = fx_option_price(S, K, RD, RF, VOL, T)
         assert ko + ki == pytest.approx(vanilla, rel=0.05)
 

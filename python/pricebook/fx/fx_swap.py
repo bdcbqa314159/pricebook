@@ -4,7 +4,7 @@ from datetime import date
 
 from pricebook.currency import CurrencyPair
 from pricebook.discount_curve import DiscountCurve
-from pricebook.fx_forward import FXForward
+from pricebook.fx.fx_forward import FXForward
 
 
 class FXSwap:

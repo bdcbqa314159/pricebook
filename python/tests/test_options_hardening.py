@@ -49,30 +49,30 @@ class TestIRGreeksConsistency:
 
 class TestFXDeltaConventions:
     def test_spot_delta_call_positive(self):
-        from pricebook.fx_option import fx_spot_delta
+        from pricebook.fx.fx_option import fx_spot_delta
         d = fx_spot_delta(1.10, 1.10, 0.04, 0.03, 0.08, 1.0, OptionType.CALL)
         assert 0.3 < d < 0.8  # ATM call delta ~0.5
 
     def test_spot_delta_put_negative(self):
-        from pricebook.fx_option import fx_spot_delta
+        from pricebook.fx.fx_option import fx_spot_delta
         d = fx_spot_delta(1.10, 1.10, 0.04, 0.03, 0.08, 1.0, OptionType.PUT)
         assert d < 0
 
     def test_forward_delta_no_discount(self):
         """Forward delta doesn't include discount factor."""
-        from pricebook.fx_option import fx_forward_delta
+        from pricebook.fx.fx_option import fx_forward_delta
         d = fx_forward_delta(1.10, 1.10, 0.04, 0.03, 0.08, 1.0, OptionType.CALL)
         assert 0.4 < d < 0.7  # closer to 0.5 than spot delta
 
     def test_premium_adjusted_delta(self):
         """Premium-adjusted delta uses N(d2) for calls."""
-        from pricebook.fx_option import fx_premium_adjusted_delta
+        from pricebook.fx.fx_option import fx_premium_adjusted_delta
         d = fx_premium_adjusted_delta(1.10, 1.10, 0.04, 0.03, 0.08, 1.0, OptionType.CALL)
         assert 0.3 < d < 0.6
 
     def test_strike_from_delta_round_trip(self):
         """strike_from_delta → delta(strike) should round-trip."""
-        from pricebook.fx_option import strike_from_delta, fx_forward_delta
+        from pricebook.fx.fx_option import strike_from_delta, fx_forward_delta
         K = strike_from_delta(1.10, 0.25, 0.04, 0.03, 0.08, 1.0,
                               delta_type="forward", option_type=OptionType.CALL)
         d = fx_forward_delta(1.10, K, 0.04, 0.03, 0.08, 1.0, OptionType.CALL)
@@ -129,7 +129,7 @@ class TestPutCallParity:
 
     def test_fx_put_call_parity(self):
         """FX: C - P = S×exp(-r_f×T) - K×exp(-r_d×T)."""
-        from pricebook.fx_option import fx_option_price
+        from pricebook.fx.fx_option import fx_option_price
         S, K = 1.10, 1.10
         r_d, r_f, vol, T = 0.04, 0.03, 0.08, 1.0
         call = fx_option_price(S, K, r_d, r_f, vol, T, OptionType.CALL)
@@ -172,7 +172,7 @@ class TestEquityGreeksConsistency:
 
 class TestFXGreeksUnified:
     def test_fx_greeks(self):
-        from pricebook.fx_option import fx_greeks
+        from pricebook.fx.fx_option import fx_greeks
         g = fx_greeks(1.10, 1.10, 0.04, 0.03, 0.08, 1.0)
         assert g.price > 0
         assert g.delta > 0
@@ -202,7 +202,7 @@ class TestCrossAssetConsistency:
     def test_black76_is_the_kernel(self):
         """All asset classes should use Black-76 as the option kernel."""
         from pricebook.equity_option import equity_option_price
-        from pricebook.fx_option import fx_option_price
+        from pricebook.fx.fx_option import fx_option_price
         from pricebook.commodity.commodity import commodity_option_price
 
         # Same forward/strike/vol/T/df → same price regardless of asset class

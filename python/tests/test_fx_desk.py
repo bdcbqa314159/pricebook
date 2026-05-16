@@ -14,7 +14,7 @@ from pricebook.fx_desk import (
     fx_hedge_recommendations, FXHedgeRecommendation,
     FXLifecycle,
 )
-from pricebook.fx_forward import FXForward
+from pricebook.fx.fx_forward import FXForward
 from pricebook.currency import Currency, CurrencyPair
 from pricebook.fx_book import FXBook
 from pricebook.trade import Trade

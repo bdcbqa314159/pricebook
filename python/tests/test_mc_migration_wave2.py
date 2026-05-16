@@ -82,7 +82,7 @@ class TestEquityExoticMigration:
 
 class TestFXCorrelationMigration:
     def test_fx_basket_via_engine(self):
-        from pricebook.fx_correlation import fx_basket_option_via_engine
+        from pricebook.fx.fx_correlation import fx_basket_option_via_engine
         corr = np.array([[1.0, 0.3], [0.3, 1.0]])
         result = fx_basket_option_via_engine(
             spots=[1.10, 130.0], weights=[0.5, 0.5], strike=1.0,
@@ -147,7 +147,7 @@ class TestLMMMigration:
 
 class TestPRDCMigration:
     def test_prdc_via_engine(self):
-        from pricebook.prdc import prdc_price_via_engine
+        from pricebook.fx.prdc import prdc_price_via_engine
         assert callable(prdc_price_via_engine)
 
 

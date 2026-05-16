@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_correlation import (
+from pricebook.fx.fx_correlation import (
     BasketResult,
     ImpliedCorrelationResult,
     MargrabeResult,

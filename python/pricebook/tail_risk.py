@@ -59,7 +59,7 @@ def svi_wings_fit(
     log_moneyness: list[float], implied_vols: list[float], T: float,
 ) -> SVIWingsResult:
     """SVI fit with Roger Lee wing constraints."""
-    from pricebook.fx_smile_cube import svi_fit, SVIParams
+    from pricebook.fx.fx_smile_cube import svi_fit, SVIParams
     params = svi_fit(log_moneyness, implied_vols, T)
     # Wing slopes: β_± = b(1 ± ρ)
     left_slope = params.b * (1 - params.rho)

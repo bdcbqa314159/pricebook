@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.fx_option import (
+from pricebook.fx.fx_option import (
     fx_forward,
     fx_option_price,
     fx_spot_delta,

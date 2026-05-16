@@ -265,7 +265,7 @@ def vv_adjust_touch(
     Args:
         payout: cash payout on touch.
     """
-    from pricebook.fx_exotic import fx_one_touch
+    from pricebook.fx.fx_exotic import fx_one_touch
 
     # BS touch price (flat vol)
     bs_result = fx_one_touch(spot, barrier, rate_dom, rate_for, vol_atm, T,

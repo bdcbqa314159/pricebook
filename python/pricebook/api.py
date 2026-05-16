@@ -39,7 +39,7 @@ from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.equity_forward import EquityForward
 from pricebook.fra import FRA
-from pricebook.fx_forward import FXForward
+from pricebook.fx.fx_forward import FXForward
 from pricebook.greeks import Greeks
 from pricebook.inflation import CPICurve, zc_inflation_swap_pv, zc_inflation_par_rate
 from pricebook.ois import bootstrap_ois
@@ -455,7 +455,7 @@ def fx_option(
 
         pb.fx_option(1.10, 1.12, "6M", 0.08, eur_curve, usd_curve)
     """
-    from pricebook.fx_option import fx_option_price, fx_greeks
+    from pricebook.fx.fx_option import fx_option_price, fx_greeks
     ref = reference_date or base_curve.reference_date
     mat = _parse_tenor(ref, tenor)
     from pricebook.day_count import year_fraction as _yf
@@ -675,7 +675,7 @@ def ndf(
 
         pb.ndf("USD/CNY", 7.25, "1Y", 7.20, usd_curve, cny_curve)
     """
-    from pricebook.ndf import NDF
+    from pricebook.fx.ndf import NDF
     ref = reference_date or base_curve.reference_date
     return NDF(pair, _parse_tenor(ref, tenor), contracted_rate,
                notional).pv(spot, base_curve, quote_curve)

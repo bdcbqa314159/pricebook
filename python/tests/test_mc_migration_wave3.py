@@ -142,7 +142,7 @@ class TestLMMAdvancedMigration:
 
 class TestFXSLVCalibrationMigration:
     def test_slv_barrier_via_engine(self):
-        from pricebook.fx_slv_calibration import LeverageFunction, slv_barrier_price_via_engine
+        from pricebook.fx.fx_slv_calibration import LeverageFunction, slv_barrier_price_via_engine
         lev = LeverageFunction(np.array([0.0, 0.5, 1.0]),
                                 np.array([0.5, 1.0, 2.0]),
                                 np.array([[1.0, 1.0, 1.0],

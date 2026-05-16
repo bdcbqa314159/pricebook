@@ -9,7 +9,7 @@ import pytest
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.ibor_curve import bootstrap_ibor, EURIBOR_3M_CONVENTIONS
-from pricebook.multi_currency_curves import (
+from pricebook.fx.multi_currency_curves import (
     MultiCurrencyCurveSet,
     CurrencyCurveSetSpec,
     IBORCurveSpec,

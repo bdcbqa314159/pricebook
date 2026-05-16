@@ -9,8 +9,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.currency import Currency, CurrencyPair
-from pricebook.fx_forward import FXForward
-from pricebook.fx_swap import FXSwap
+from pricebook.fx.fx_forward import FXForward
+from pricebook.fx.fx_swap import FXSwap
 from pricebook.xccy_basis import implied_basis_spread, bootstrap_basis_curve
 from tests.conftest import make_flat_curve
 

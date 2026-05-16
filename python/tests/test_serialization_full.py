@@ -142,7 +142,7 @@ class TestRevolverRoundTrip:
 
 class TestFXForwardRoundTrip:
     def test_round_trip(self):
-        from pricebook.fx_forward import FXForward
+        from pricebook.fx.fx_forward import FXForward
         from pricebook.currency import CurrencyPair, Currency
         pair = CurrencyPair(Currency.EUR, Currency.USD)
         fwd = FXForward(pair, maturity=END_5Y, strike=1.10, notional=1_000_000)
@@ -315,7 +315,7 @@ class TestCSARoundTrip:
 
 class TestMultiCurrencyCurveSetRoundTrip:
     def test_usd_only(self):
-        from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+        from pricebook.fx.multi_currency_curves import MultiCurrencyCurveSet
         from pricebook.serialization import (
             multi_currency_curves_to_dict, multi_currency_curves_from_dict)
         mcs = MultiCurrencyCurveSet.usd_post_libor(REF, [
@@ -329,7 +329,7 @@ class TestMultiCurrencyCurveSetRoundTrip:
             mcs.ois("USD").df(END_5Y), rel=1e-6)
 
     def test_eur_with_euribor(self):
-        from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+        from pricebook.fx.multi_currency_curves import MultiCurrencyCurveSet
         from pricebook.serialization import (
             multi_currency_curves_to_dict, multi_currency_curves_from_dict)
         mcs = MultiCurrencyCurveSet.eur_with_euribor(
@@ -344,7 +344,7 @@ class TestMultiCurrencyCurveSetRoundTrip:
         assert ibor.conventions.name == "EURIBOR_3M"
 
     def test_json_round_trip(self):
-        from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+        from pricebook.fx.multi_currency_curves import MultiCurrencyCurveSet
         mcs = MultiCurrencyCurveSet.usd_post_libor(REF, [
             (REF + timedelta(days=365), 0.04),
         ])

@@ -336,7 +336,7 @@ def fx_pivot_option(
         prob = norm.cdf(d_lo) - norm.cdf(d_hi)
     else:
         # Path-dependent via MC (approximated for simplicity)
-        from pricebook.fx_exotic import fx_double_no_touch
+        from pricebook.fx.fx_exotic import fx_double_no_touch
         dnt = fx_double_no_touch(spot, range_low, range_high,
                                   rate_dom, rate_for, vol, T, payout)
         return PivotResult(dnt.price, dnt.price / max(df * payout, 1e-10),

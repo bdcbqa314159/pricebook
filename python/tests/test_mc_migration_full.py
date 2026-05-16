@@ -169,7 +169,7 @@ class TestSABRMCMigration:
 class TestJumpModelsMigration:
 
     def test_bates_fx_via_engine(self):
-        from pricebook.fx_jumps import BatesFXModel
+        from pricebook.fx.fx_jumps import BatesFXModel
         model = BatesFXModel(0.04, 2.0, 0.04, 0.3, -0.7, 0.5, -0.05, 0.10)
         result = model.simulate_option_via_engine(
             1.10, 1.10, 0.03, 0.01, 1.0, n_paths=5_000,
@@ -218,14 +218,14 @@ class TestCreditHybridMigration:
 class TestFXExoticMigration:
 
     def test_lookback_via_engine(self):
-        from pricebook.fx_exotic import fx_lookback_floating_via_engine
+        from pricebook.fx.fx_exotic import fx_lookback_floating_via_engine
         result = fx_lookback_floating_via_engine(
             1.10, 0.03, 0.01, 0.10, 1.0, n_paths=5_000,
         )
         assert result.price > 0
 
     def test_range_accrual_via_engine(self):
-        from pricebook.fx_exotic import fx_range_accrual_via_engine
+        from pricebook.fx.fx_exotic import fx_range_accrual_via_engine
         result = fx_range_accrual_via_engine(
             1.10, 0.03, 0.01, 0.08, 1.0, 1.05, 1.15,
             n_paths=5_000,
@@ -239,7 +239,7 @@ class TestFXExoticMigration:
 class TestFXStructuredMigration:
 
     def test_fx_tarf_via_engine(self):
-        from pricebook.fx_structured import fx_tarf_price_via_engine
+        from pricebook.fx.fx_structured import fx_tarf_price_via_engine
         result = fx_tarf_price_via_engine(
             1.10, 1.10, 0.10, 0.03, 0.01, 0.08, 1.0,
             n_paths=5_000,
@@ -247,7 +247,7 @@ class TestFXStructuredMigration:
         assert math.isfinite(result.price)
 
     def test_fx_autocallable_via_engine(self):
-        from pricebook.fx_structured import fx_autocallable_price_via_engine
+        from pricebook.fx.fx_structured import fx_autocallable_price_via_engine
         result = fx_autocallable_price_via_engine(
             1.10, 1.15, 0.02, 0.03, 0.01, 0.08, 1.0,
             [0.25, 0.5, 0.75, 1.0], n_paths=5_000,

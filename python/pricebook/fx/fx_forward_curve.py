@@ -3,7 +3,7 @@
 Stores the full forward point curve for a currency pair, derived from
 the spot rate and two discount curves via CIP.
 
-    from pricebook.fx_forward_curve import FXForwardCurve
+    from pricebook.fx.fx_forward_curve import FXForwardCurve
 
     curve = FXForwardCurve.from_curves("EUR/USD", 1.10, ref, eur_curve, usd_curve, tenors)
 

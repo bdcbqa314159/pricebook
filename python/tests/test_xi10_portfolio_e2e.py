@@ -19,7 +19,7 @@ from pricebook.bond import FixedRateBond
 from pricebook.cds import CDS, bootstrap_credit_curve
 from pricebook.currency import CurrencyPair
 from pricebook.discount_curve import DiscountCurve
-from pricebook.fx_forward import FXForward
+from pricebook.fx.fx_forward import FXForward
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_structured import (
+from pricebook.fx.fx_structured import (
     AutocallableResult,
     DCDResult,
     PivotResult,

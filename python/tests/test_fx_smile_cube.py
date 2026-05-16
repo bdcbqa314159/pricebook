@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_smile_cube import (
+from pricebook.fx.fx_smile_cube import (
     ArbitrageCheckResult,
     FXSmileNode,
     FXVolCube,

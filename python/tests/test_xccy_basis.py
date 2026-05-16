@@ -6,7 +6,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.xccy_basis import implied_basis_spread, bootstrap_basis_curve
-from pricebook.fx_forward import FXForward
+from pricebook.fx.fx_forward import FXForward
 from tests.conftest import make_flat_curve
 
 

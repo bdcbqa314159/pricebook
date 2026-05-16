@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_exotic import (
+from pricebook.fx.fx_exotic import (
     AccumulatorResult,
     AsianResult,
     LookbackResult,

@@ -63,7 +63,7 @@ def commodity_barrier_smile(
         T: time to expiry.
         is_up / is_knock_in / is_call: standard barrier flags.
     """
-    from pricebook.fx_barrier import vanna_volga_barrier, fx_barrier_pde
+    from pricebook.fx.fx_barrier import vanna_volga_barrier, fx_barrier_pde
 
     opt_type = OptionType.CALL if is_call else OptionType.PUT
 
@@ -127,7 +127,7 @@ def commodity_lookback(
     """
     if is_floating:
         # Use GSG closed form via fx_lookback_floating
-        from pricebook.fx_exotic import fx_lookback_floating
+        from pricebook.fx.fx_exotic import fx_lookback_floating
         r = fx_lookback_floating(spot, rate, convenience_yield, vol, T, is_call)
         return CommodityLookbackResult(r.price, True, is_call, n_observations)
 
@@ -341,7 +341,7 @@ def commodity_lookback_via_engine(
 ) -> CommodityLookbackResult:
     """Commodity lookback via the unified MC engine."""
     if is_floating:
-        from pricebook.fx_exotic import fx_lookback_floating
+        from pricebook.fx.fx_exotic import fx_lookback_floating
         r = fx_lookback_floating(spot, rate, convenience_yield, vol, T, is_call)
         return CommodityLookbackResult(r.price, True, is_call, n_observations)
 

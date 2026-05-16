@@ -21,8 +21,8 @@ import pytest
 from pricebook.bootstrap import bootstrap
 from pricebook.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
-from pricebook.fx_forward import FXForward
-from pricebook.fx_option import (
+from pricebook.fx.fx_forward import FXForward
+from pricebook.fx.fx_option import (
     fx_forward,
     fx_option_price,
     fx_spot_delta,

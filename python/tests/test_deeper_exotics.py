@@ -8,7 +8,7 @@ import pytest
 
 class TestPRDC:
     def test_prdc_positive(self):
-        from pricebook.prdc import prdc_price
+        from pricebook.fx.prdc import prdc_price
         result = prdc_price(
             spot_fx=110.0, rate_dom=0.04, rate_for=0.01,
             vol_fx=0.10, vol_dom=0.005, vol_for=0.005,
@@ -20,7 +20,7 @@ class TestPRDC:
         assert result.price > 0
 
     def test_callable_has_call_value(self):
-        from pricebook.prdc import callable_prdc
+        from pricebook.fx.prdc import callable_prdc
         result = callable_prdc(
             spot_fx=110.0, rate_dom=0.04, rate_for=0.01,
             vol_fx=0.10, vol_dom=0.005, vol_for=0.005,

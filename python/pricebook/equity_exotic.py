@@ -69,7 +69,7 @@ def equity_barrier_smile(
         is_knock_in: True for knock-in, False for knock-out.
         is_call: True for call payoff, False for put.
     """
-    from pricebook.fx_barrier import vanna_volga_barrier, fx_barrier_pde
+    from pricebook.fx.fx_barrier import vanna_volga_barrier, fx_barrier_pde
 
     opt_type = OptionType.CALL if is_call else OptionType.PUT
 
@@ -217,7 +217,7 @@ def equity_lookback_floating(
 
     For equity, "rate_for" = dividend_yield (continuous).
     """
-    from pricebook.fx_exotic import fx_lookback_floating
+    from pricebook.fx.fx_exotic import fx_lookback_floating
     r = fx_lookback_floating(spot, rate, dividend_yield, vol, T, is_call,
                               running_extreme)
     return EquityLookbackResult(r.price, True, is_call)
@@ -236,7 +236,7 @@ def equity_lookback_fixed(
     seed: int | None = 42,
 ) -> EquityLookbackResult:
     """Fixed-strike lookback: payoff max(max(S) − K, 0) (call)."""
-    from pricebook.fx_exotic import fx_lookback_fixed
+    from pricebook.fx.fx_exotic import fx_lookback_fixed
     r = fx_lookback_fixed(spot, strike, rate, dividend_yield, vol, T,
                            is_call, n_paths, n_steps, seed)
     return EquityLookbackResult(r.price, False, is_call)

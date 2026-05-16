@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_greeks import (
+from pricebook.fx.fx_greeks import (
     SmileGreeksResult,
     VegaBucket,
     VegaLadder,

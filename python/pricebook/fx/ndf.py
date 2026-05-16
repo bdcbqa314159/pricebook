@@ -11,7 +11,7 @@ For quote-currency settlement (EMTA standard):
 
 Used for: CNY, KRW, INR, BRL, TWD, and other restricted currencies.
 
-    from pricebook.ndf import NDF
+    from pricebook.fx.ndf import NDF
 
     ndf = NDF("USD/CNY", date(2026,10,21), 7.25, 1_000_000)
     pv = ndf.pv(spot=7.20, base_curve=usd, quote_curve=cny)

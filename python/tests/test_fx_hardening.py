@@ -5,10 +5,10 @@ from datetime import date
 import pytest
 
 from pricebook.currency import Currency, CurrencyPair
-from pricebook.fx_forward import FXForward
-from pricebook.fx_forward_curve import FXForwardCurve
-from pricebook.fx_swap import FXSwap
-from pricebook.ndf import NDF
+from pricebook.fx.fx_forward import FXForward
+from pricebook.fx.fx_forward_curve import FXForwardCurve
+from pricebook.fx.fx_swap import FXSwap
+from pricebook.fx.ndf import NDF
 from tests.conftest import make_flat_curve
 
 

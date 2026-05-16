@@ -1,6 +1,6 @@
 """Tests for PRDC."""
 import math, pytest
-from pricebook.prdc import prdc_price, callable_prdc
+from pricebook.fx.prdc import prdc_price, callable_prdc
 
 class TestPRDC:
     def test_basic(self):

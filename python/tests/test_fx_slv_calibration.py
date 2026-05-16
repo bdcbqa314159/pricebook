@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_slv_calibration import (
+from pricebook.fx.fx_slv_calibration import (
     LeverageFunction,
     MixingResult,
     ParticleCalibrationResult,

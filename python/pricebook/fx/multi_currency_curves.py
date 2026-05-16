@@ -3,7 +3,7 @@
 Builds and stores OIS + IBOR + tenor basis + xccy basis for one or
 more currencies. Provides factory methods for standard configurations.
 
-    from pricebook.multi_currency_curves import MultiCurrencyCurveSet
+    from pricebook.fx.multi_currency_curves import MultiCurrencyCurveSet
 
     curves = MultiCurrencyCurveSet.eur_with_euribor(
         ref, estr_rates, euribor_3m_swaps)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import math
 import pytest
-from pricebook.fx_hedging import (
+from pricebook.fx.fx_hedging import (
     window_barrier_option, fader_option, participating_forward, seagull,
 )
 

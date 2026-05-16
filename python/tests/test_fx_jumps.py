@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.fx_jumps import (
+from pricebook.fx.fx_jumps import (
     BatesFXModel,
     BatesFXResult,
     InterventionResult,

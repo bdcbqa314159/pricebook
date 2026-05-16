@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.fx_carry import (
+from pricebook.fx.fx_carry import (
     CarryRanking,
     CarrySignal,
     NDFCarry,

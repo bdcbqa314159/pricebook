@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.fx_basis import (
+from pricebook.fx.fx_basis import (
     BasisCurveTrade,
     BasisRVEntry,
     BasisSignal,
