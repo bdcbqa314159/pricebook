@@ -21,7 +21,7 @@ from pricebook.serialization import (
     to_json,
 )
 from pricebook.pricing_context import PricingContext
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_surface import FlatVol
 from pricebook.trade import Trade, Portfolio
 from tests.conftest import make_flat_curve, make_flat_survival
 
@@ -170,7 +170,7 @@ class TestFRASerialization:
 
 class TestSwaptionSerialization:
     def test_roundtrip(self):
-        from pricebook.swaption import Swaption
+        from pricebook.options.swaption import Swaption
         swn = Swaption(date(2025, 1, 15), date(2030, 1, 15), 0.05)
         d = instrument_to_dict(swn)
         swn2 = instrument_from_dict(d)

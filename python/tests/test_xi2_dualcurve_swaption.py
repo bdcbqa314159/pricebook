@@ -24,8 +24,8 @@ from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
 from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.swaption import Swaption, SwaptionType
-from pricebook.vol_surface import FlatVol
+from pricebook.options.swaption import Swaption, SwaptionType
+from pricebook.options.vol_surface import FlatVol
 from pricebook.models.black76 import black76_price, OptionType
 from pricebook.models.models import Black76Model
 

@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.equity_option import (
+from pricebook.options.equity_option import (
     equity_option_price,
     equity_delta,
     equity_gamma,
@@ -121,7 +121,7 @@ class TestTheta:
 
     def test_theta_vs_bump(self):
         """Full theta via bump: change T, recompute everything."""
-        from pricebook.equity_option import equity_option_price as equity_price
+        from pricebook.options.equity_option import equity_option_price as equity_price
         dt = 1e-4
         p1 = equity_price(SPOT, STRIKE, RATE, VOL, T, OptionType.CALL)
         p2 = equity_price(SPOT, STRIKE, RATE, VOL, T - dt, OptionType.CALL)

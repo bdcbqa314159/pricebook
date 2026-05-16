@@ -24,7 +24,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.convertible_bond import (
+from pricebook.options.convertible_bond import (
     ConvertibleBond, ConvertibleResult,
     convertible_delta_hedge, DeltaHedgeResult,
 )

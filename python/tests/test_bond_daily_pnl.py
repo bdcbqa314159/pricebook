@@ -11,7 +11,7 @@ from pricebook.desks.bond_daily_pnl import (
     attribute_bond_pnl,
     compute_bond_daily_pnl,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

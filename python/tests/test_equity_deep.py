@@ -9,7 +9,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.equity_option import (
+from pricebook.options.equity_option import (
     equity_option_price, equity_delta, equity_gamma, equity_vega,
     equity_theta, equity_rho,
 )

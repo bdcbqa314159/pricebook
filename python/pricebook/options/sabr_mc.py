@@ -16,7 +16,7 @@ import math
 import numpy as np
 
 from pricebook.models.black76 import OptionType, black76_price
-from pricebook.sabr import sabr_implied_vol
+from pricebook.options.sabr import sabr_implied_vol
 
 
 def sabr_mc_paths(
@@ -137,7 +137,7 @@ def sabr_mc_implied_vol(
     seed: int = 42,
 ) -> float:
     """Implied vol from SABR MC price (for comparison with Hagan)."""
-    from pricebook.implied_vol import implied_vol_black76
+    from pricebook.options.implied_vol import implied_vol_black76
 
     mc_price = sabr_mc_european(forward, strike, T, alpha, beta, rho, nu,
                                 df=1.0, n_steps=n_steps, n_paths=n_paths, seed=seed)

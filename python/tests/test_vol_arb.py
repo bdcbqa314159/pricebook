@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.vol_arb import (
+from pricebook.options.vol_arb import (
     CalendarArbViolation,
     ButterflyArbViolation,
     SurfaceArbReport,

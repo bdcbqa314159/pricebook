@@ -20,7 +20,7 @@ class TestBasketCDSMigration:
 
 class TestBermudanSwaptionMigration:
     def test_bermudan_swaption_via_engine(self):
-        from pricebook.bermudan_swaption import bermudan_swaption_lsm_via_engine
+        from pricebook.options.bermudan_swaption import bermudan_swaption_lsm_via_engine
         from pricebook.models.hull_white import HullWhite
         from pricebook.discount_curve import DiscountCurve
         from datetime import date
@@ -35,7 +35,7 @@ class TestBermudanSwaptionMigration:
 
 class TestBermudanLMMMigration:
     def test_bermudan_lmm_via_engine(self):
-        from pricebook.bermudan_lmm import bermudan_swaption_lmm_via_engine
+        from pricebook.options.bermudan_lmm import bermudan_swaption_lmm_via_engine
         result = bermudan_swaption_lmm_via_engine(
             forward_rates=[0.05] * 10, inst_vols=[0.20] * 10,
             strike=0.05, exercise_indices=[2, 4, 6, 8],
@@ -54,7 +54,7 @@ class TestCommodityModelsMigration:
 
 class TestConvertibleBondMigration:
     def test_convertible_via_engine(self):
-        from pricebook.convertible_bond import contingent_convertible_via_engine
+        from pricebook.options.convertible_bond import contingent_convertible_via_engine
         assert callable(contingent_convertible_via_engine)
 
 
@@ -106,7 +106,7 @@ class TestHybridMCMigration:
 
 class TestIRExoticMigration:
     def test_tarn_via_engine(self):
-        from pricebook.ir_exotic import tarn_price_via_engine
+        from pricebook.options.ir_exotic import tarn_price_via_engine
         result = tarn_price_via_engine(
             notional=1_000_000, coupon_rate=0.05, target=0.10,
             maturity_years=5, flat_rate=0.05, rate_vol=0.01,
@@ -115,7 +115,7 @@ class TestIRExoticMigration:
         assert result is not None
 
     def test_snowball_via_engine(self):
-        from pricebook.ir_exotic import snowball_price_via_engine
+        from pricebook.options.ir_exotic import snowball_price_via_engine
         result = snowball_price_via_engine(
             notional=1_000_000, initial_coupon=0.06, spread=0.01,
             maturity_years=3, flat_rate=0.05, rate_vol=0.01,

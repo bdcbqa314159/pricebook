@@ -8,8 +8,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.autocallable import Autocallable, AutocallResult
-from pricebook.cliquet import Cliquet, CliquetResult
+from pricebook.options.autocallable import Autocallable, AutocallResult
+from pricebook.options.cliquet import Cliquet, CliquetResult
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import from_dict
 

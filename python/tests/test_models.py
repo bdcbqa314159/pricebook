@@ -7,8 +7,8 @@ import pytest
 
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.models.black76 import OptionType
-from pricebook.swaption import Swaption, SwaptionType
-from pricebook.capfloor import CapFloor
+from pricebook.options.swaption import Swaption, SwaptionType
+from pricebook.options.capfloor import CapFloor
 from pricebook.models.models import (
     Black76Model, BachelierModel, SABRModel, SABRParams,
     HullWhiteModel, BSModel, HestonModel, HestonParams,
@@ -253,7 +253,7 @@ class TestBSModel:
         assert p2 > p1
 
     def test_matches_equity_option_price(self):
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         model = BSModel(vol=0.25)
         p1 = model.price_european(100, 105, 0.05, 1.0, OptionType.CALL, 0.02)
         p2 = equity_option_price(100, 105, 0.05, 0.25, 1.0, OptionType.CALL, 0.02)
@@ -268,7 +268,7 @@ class TestHestonModel:
         assert p > 0
 
     def test_matches_heston_price(self):
-        from pricebook.heston import heston_price
+        from pricebook.options.heston import heston_price
         params = HestonParams(v0=0.04, kappa=2.0, theta=0.04, xi=0.3, rho=-0.7)
         model = HestonModel(params)
         p1 = model.price_european(100, 105, 0.05, 1.0, OptionType.CALL, 0.02)

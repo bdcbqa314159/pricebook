@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.equity_option import equity_delta, equity_vega
+from pricebook.options.equity_option import equity_delta, equity_vega
 from pricebook.models.mc_greeks import (
     MCGreekResult,
     OptimalMLMCResult,
@@ -118,7 +118,7 @@ class TestOptimalMLMC:
         assert len(result.paths_per_level) == result.n_levels
 
     def test_price_reasonable(self):
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.models.black76 import OptionType
         bs = equity_option_price(SPOT, STRIKE, RATE, VOL, T, OptionType.CALL)
         result = optimal_mlmc(None, self._simulate_level,
@@ -154,7 +154,7 @@ class TestLSMWithBasis:
         assert price > 0
 
     def test_american_put_exceeds_european(self):
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.models.black76 import OptionType
         euro = equity_option_price(SPOT, STRIKE, RATE, VOL, T, OptionType.PUT)
         paths = self._gbm_paths()
@@ -185,7 +185,7 @@ class TestDualUpperBound:
 
     def test_bracket_contains_european(self):
         """LSM ≤ upper, and European ≤ upper."""
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.models.black76 import OptionType
         euro = equity_option_price(SPOT, STRIKE, RATE, VOL, T, OptionType.PUT)
 

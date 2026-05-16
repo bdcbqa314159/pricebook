@@ -9,7 +9,7 @@ from pricebook.registry import (
     list_greek_engines,
     get_pde_pricer,
 )
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 
 
 class TestCOSRegistry:

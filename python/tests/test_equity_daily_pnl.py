@@ -14,9 +14,9 @@ from pricebook.desks.equity_daily_pnl import (
     compute_equity_daily_pnl,
 )
 from pricebook.pricing_context import PricingContext
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_surface import FlatVol
 
 
 PRIOR = date(2024, 1, 15)

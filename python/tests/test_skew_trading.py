@@ -1,6 +1,6 @@
 """Tests for skew trading."""
 import pytest
-from pricebook.skew_trading import risk_reversal_strategy, skew_mean_reversion_signal, skew_carry_trade, cross_asset_skew_comparison
+from pricebook.options.skew_trading import risk_reversal_strategy, skew_mean_reversion_signal, skew_carry_trade, cross_asset_skew_comparison
 
 class TestRR:
     def test_put_skew(self):

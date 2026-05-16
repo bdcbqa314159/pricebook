@@ -76,7 +76,7 @@ class TestStochasticCorrelationMigration:
 
 class TestVolTermStructureMigration:
     def test_bergomi_2f_via_engine(self):
-        from pricebook.vol_term_structure import Bergomi2Factor, bergomi_2f_simulate_via_engine
+        from pricebook.options.vol_term_structure import Bergomi2Factor, bergomi_2f_simulate_via_engine
         model = Bergomi2Factor(xi0=0.04, eta1=0.5, eta2=0.3)
         result = bergomi_2f_simulate_via_engine(model, 1.0, n_paths=2_000)
         assert result.vol_paths.shape[0] == 2_000
@@ -85,7 +85,7 @@ class TestVolTermStructureMigration:
 
 class TestVolVolDerivativesMigration:
     def test_vix_option_via_engine(self):
-        from pricebook.vol_vol_derivatives import vix_option_price_via_engine
+        from pricebook.options.vol_vol_derivatives import vix_option_price_via_engine
         result = vix_option_price_via_engine(
             v0=0.04, kappa=2.0, theta=0.04, xi=0.3,
             T_option=0.25, T_variance=30/365, strike_vol=0.20,
@@ -97,7 +97,7 @@ class TestVolVolDerivativesMigration:
 
 class TestWeatherDerivativesMigration:
     def test_seasonal_ou_via_engine(self):
-        from pricebook.weather_derivatives import SeasonalOUTemperature, seasonal_ou_simulate_via_engine
+        from pricebook.options.weather_derivatives import SeasonalOUTemperature, seasonal_ou_simulate_via_engine
         model = SeasonalOUTemperature()
         result = seasonal_ou_simulate_via_engine(model, 90, n_paths=500)
         assert result.temperatures.shape == (500, 90)
@@ -105,7 +105,7 @@ class TestWeatherDerivativesMigration:
 
 class TestMultiAssetLocalVolMigration:
     def test_multi_asset_slv_via_engine(self):
-        from pricebook.multi_asset_local_vol import multi_asset_slv_simulate_via_engine
+        from pricebook.options.multi_asset_local_vol import multi_asset_slv_simulate_via_engine
         result = multi_asset_slv_simulate_via_engine(
             100, 50, 0.05, 0.02, 0.01, 0.20, 0.25,
             0.04, 2.0, 0.04, 0.3, 0.5, -0.3,

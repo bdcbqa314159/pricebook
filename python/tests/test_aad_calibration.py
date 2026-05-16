@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 
 from pricebook.curves.aad_calibration import sabr_jacobian, calibration_risk
-from pricebook.sabr import sabr_implied_vol
+from pricebook.options.sabr import sabr_implied_vol
 
 
 F, T = 0.05, 5.0

@@ -230,7 +230,7 @@ def fx_smile_consistent_greeks(
 
     Computed by bumping spot/vol and re-pricing under VV.
     """
-    from pricebook.vanna_volga import vv_adjust_vanilla
+    from pricebook.options.vanna_volga import vv_adjust_vanilla
 
     def vv_price(S, atm, c, p):
         return vv_adjust_vanilla(S, strike, rate_dom, rate_for, atm, c, p, T, is_call).vv_price

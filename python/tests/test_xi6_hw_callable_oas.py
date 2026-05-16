@@ -16,7 +16,7 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.bermudan_swaption import bermudan_swaption_tree
+from pricebook.options.bermudan_swaption import bermudan_swaption_tree
 from pricebook.callable_bond import callable_bond_price, oas, _straight_bond_hw
 from pricebook.discount_curve import DiscountCurve
 from pricebook.models.hull_white import HullWhite

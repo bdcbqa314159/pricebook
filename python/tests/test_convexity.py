@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.convexity import (
+from pricebook.options.convexity import (
     ArrearsResult,
     CMSConvexityResult,
     QuantoIRResult,

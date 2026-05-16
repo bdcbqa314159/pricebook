@@ -90,7 +90,7 @@ def scenario_grid(
     Returns:
         {"base_pv": float, "scenarios": [{"name", "pv", "pnl"}, ...]}
     """
-    from pricebook.vol_surface import FlatVol
+    from pricebook.options.vol_surface import FlatVol
 
     base_pv = portfolio.pv(ctx)
     results = []

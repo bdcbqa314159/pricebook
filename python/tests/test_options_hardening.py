@@ -6,7 +6,7 @@ from datetime import date
 import pytest
 
 from pricebook.models.black76 import black76_price, OptionType
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_surface import FlatVol
 from tests.conftest import make_flat_curve
 
 
@@ -15,7 +15,7 @@ from tests.conftest import make_flat_curve
 class TestIRGreeksConsistency:
     def test_swaption_greeks_vs_bump(self):
         """Analytical swaption delta should match bump-and-reprice."""
-        from pricebook.swaption import Swaption, SwaptionType
+        from pricebook.options.swaption import Swaption, SwaptionType
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
         from pricebook.models.models import Black76Model
@@ -32,7 +32,7 @@ class TestIRGreeksConsistency:
 
     def test_cap_caplet_pvs_sum(self):
         """Sum of individual caplet PVs should equal cap PV."""
-        from pricebook.capfloor import CapFloor
+        from pricebook.options.capfloor import CapFloor
         ref = date(2026, 4, 21)
         curve = make_flat_curve(ref, rate=0.04)
         vol = FlatVol(0.30)
@@ -142,7 +142,7 @@ class TestPutCallParity:
 
 class TestEquityGreeksConsistency:
     def test_equity_greeks_call(self):
-        from pricebook.equity_option import equity_greeks
+        from pricebook.options.equity_option import equity_greeks
         g = equity_greeks(100, 100, 0.04, 0.20, 1.0, OptionType.CALL)
         assert g.price > 0
         assert 0.4 < g.delta < 0.7
@@ -152,14 +152,14 @@ class TestEquityGreeksConsistency:
         assert g.rho > 0
 
     def test_equity_greeks_put(self):
-        from pricebook.equity_option import equity_greeks
+        from pricebook.options.equity_option import equity_greeks
         g = equity_greeks(100, 100, 0.04, 0.20, 1.0, OptionType.PUT)
         assert g.delta < 0
         assert g.rho < 0
 
     def test_equity_delta_vs_bump(self):
         """Analytical delta should match bump-and-reprice."""
-        from pricebook.equity_option import equity_option_price, equity_delta
+        from pricebook.options.equity_option import equity_option_price, equity_delta
         S, K, r, vol, T = 100, 100, 0.04, 0.20, 1.0
         bump = 0.01
         analytical = equity_delta(S, K, r, vol, T)
@@ -201,7 +201,7 @@ class TestCreditCommodityOptions:
 class TestCrossAssetConsistency:
     def test_black76_is_the_kernel(self):
         """All asset classes should use Black-76 as the option kernel."""
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.fx.fx_option import fx_option_price
         from pricebook.commodity.commodity import commodity_option_price
 

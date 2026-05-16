@@ -4,7 +4,7 @@ A mid-curve swaption (e.g., 1Y into 5Y starting in 2Y) gives the right
 to enter a forward-starting swap. The option expires at T_option, but
 the underlying swap starts at T_swap_start > T_option.
 
-    from pricebook.midcurve_swaption import midcurve_swaption, MidCurveResult
+    from pricebook.options.midcurve_swaption import midcurve_swaption, MidCurveResult
 
     result = midcurve_swaption(
         spot_date, option_expiry, swap_start, swap_end,

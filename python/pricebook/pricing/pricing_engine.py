@@ -106,7 +106,7 @@ def _build_context(val_date: date, market_data: dict) -> Any:
     """Build a PricingContext from the market_data section."""
     from pricebook.pricing_context import PricingContext
     from pricebook.discount_curve import DiscountCurve
-    from pricebook.vol_surface import FlatVol
+    from pricebook.options.vol_surface import FlatVol
 
     discount = None
     if "discount_curve" in market_data:

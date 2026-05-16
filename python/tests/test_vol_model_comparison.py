@@ -1,6 +1,6 @@
 """Tests for vol model comparison."""
 import math, numpy as np, pytest
-from pricebook.vol_model_comparison import compare_models, model_risk_quantification, model_selection_guide
+from pricebook.options.vol_model_comparison import compare_models, model_risk_quantification, model_selection_guide
 
 class TestCompareModels:
     def test_baseline_only(self):

@@ -8,7 +8,7 @@ import pytest
 from pricebook.models.black76 import OptionType
 from pricebook.models.cos_bermudan import cos_american, cos_bermudan
 from pricebook.models.cos_method import cos_price, bs_char_func
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 
 
 SPOT, STRIKE, RATE, VOL, T = 100.0, 100.0, 0.05, 0.20, 1.0

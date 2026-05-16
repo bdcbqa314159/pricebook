@@ -8,7 +8,7 @@ from pricebook.models.finite_difference import (
     fd_barrier_knockout,
     fd_barrier_knockin,
 )
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

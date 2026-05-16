@@ -11,7 +11,7 @@ import pytest
 import math
 
 from pricebook.models.mc_pricer import mc_european
-from pricebook.asian import geometric_asian_analytical, mc_asian_arithmetic
+from pricebook.options.asian import geometric_asian_analytical, mc_asian_arithmetic
 from pricebook.models.black76 import OptionType, black76_price
 
 

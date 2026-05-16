@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.convertible_bond import (
+from pricebook.options.convertible_bond import (
     CoCoResult,
     ConvertibleBond,
     ConvertibleResult,

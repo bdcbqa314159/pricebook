@@ -10,7 +10,7 @@ from pricebook.desks.fx_daily_pnl import (
     attribute_fx_pnl,
     compute_fx_daily_pnl,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

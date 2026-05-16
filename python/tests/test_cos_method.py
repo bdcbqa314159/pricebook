@@ -4,8 +4,8 @@ import pytest
 import math
 
 from pricebook.models.cos_method import cos_price, bs_char_func, heston_char_func_cos
-from pricebook.equity_option import equity_option_price
-from pricebook.heston import heston_price
+from pricebook.options.equity_option import equity_option_price
+from pricebook.options.heston import heston_price
 from pricebook.models.black76 import OptionType
 
 

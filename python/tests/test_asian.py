@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.asian import (
+from pricebook.options.asian import (
     geometric_asian_analytical,
     mc_asian_arithmetic,
 )

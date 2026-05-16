@@ -5,7 +5,7 @@ import math
 
 from pricebook.models.mc_advanced import mc_stratified, mc_importance, mc_mlmc
 from pricebook.models.mc_pricer import mc_european
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

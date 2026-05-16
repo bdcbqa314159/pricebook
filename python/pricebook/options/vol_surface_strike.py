@@ -18,7 +18,7 @@ import math
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.vol_smile import VolSmile
+from pricebook.options.vol_smile import VolSmile
 
 
 class VolSurfaceStrike:

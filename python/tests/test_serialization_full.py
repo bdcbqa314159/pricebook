@@ -152,7 +152,7 @@ class TestFXForwardRoundTrip:
 
 class TestSwaptionRoundTrip:
     def test_round_trip(self):
-        from pricebook.swaption import Swaption
+        from pricebook.options.swaption import Swaption
         sw = Swaption(expiry=REF + timedelta(days=365), swap_end=END_5Y,
                       strike=0.035, notional=10_000_000)
         d = instrument_to_dict(sw)

@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.swaption_vol import SwaptionVolSurface
+from pricebook.options.swaption_vol import SwaptionVolSurface
 
 
 @pytest.fixture

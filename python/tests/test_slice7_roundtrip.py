@@ -10,8 +10,8 @@ from dateutil.relativedelta import relativedelta
 from pricebook.models.black76 import (
     black76_price, black76_delta, black76_gamma, black76_vega, OptionType,
 )
-from pricebook.capfloor import CapFloor
-from pricebook.vol_surface import VolTermStructure
+from pricebook.options.capfloor import CapFloor
+from pricebook.options.vol_surface import VolTermStructure
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
 

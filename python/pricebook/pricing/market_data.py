@@ -13,7 +13,7 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.day_count import date_from_year_fraction
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_surface import FlatVol
 
 
 # ---------------------------------------------------------------------------

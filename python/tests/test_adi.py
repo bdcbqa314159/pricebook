@@ -4,8 +4,8 @@ import pytest
 import math
 
 from pricebook.models.adi import heston_pde
-from pricebook.heston import heston_price
-from pricebook.equity_option import equity_option_price
+from pricebook.options.heston import heston_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

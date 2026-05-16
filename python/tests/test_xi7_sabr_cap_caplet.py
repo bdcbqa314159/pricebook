@@ -17,12 +17,12 @@ import pytest
 
 from pricebook.models.black76 import OptionType
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.capfloor import CapFloor, strip_caplet_vols
+from pricebook.options.capfloor import CapFloor, strip_caplet_vols
 from pricebook.discount_curve import DiscountCurve
-from pricebook.sabr import sabr_implied_vol, sabr_calibrate
+from pricebook.options.sabr import sabr_implied_vol, sabr_calibrate
 from pricebook.schedule import Frequency
-from pricebook.vol_arb import detect_calendar_arb
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_arb import detect_calendar_arb
+from pricebook.options.vol_surface import FlatVol
 from pricebook.models.models import Black76Model
 
 

@@ -10,7 +10,7 @@ from pricebook.desks.commodity_daily_pnl import (
     attribute_commodity_pnl,
     compute_commodity_daily_pnl,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

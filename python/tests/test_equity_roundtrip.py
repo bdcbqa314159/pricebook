@@ -11,7 +11,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.equity_option import (
+from pricebook.options.equity_option import (
     equity_option_price,
     equity_delta,
     equity_gamma,

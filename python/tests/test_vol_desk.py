@@ -11,14 +11,14 @@ from pricebook.desks.vol_desk import (
     VolBook, VolPosition, vol_dashboard, VolDashboard,
     vol_stress_report, vol_correlation_monitor,
 )
-from pricebook.vol_arbitrage_scanner import (
+from pricebook.options.vol_arbitrage_scanner import (
     scan_surface, ArbitrageScanResult, enforce_no_arb,
 )
-from pricebook.vol_calibration import (
+from pricebook.options.vol_calibration import (
     calibrate_fx_surface, calibrate_equity_surface,
     calibrate_ir_surface, CalibratedVolSurface,
 )
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_surface import FlatVol
 
 
 REF = date(2024, 7, 15)

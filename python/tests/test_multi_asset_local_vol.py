@@ -1,6 +1,6 @@
 """Tests for multi-asset local vol."""
 import numpy as np, pytest
-from pricebook.multi_asset_local_vol import (
+from pricebook.options.multi_asset_local_vol import (
     dupire_2d_local_vol, multi_asset_slv_simulate, smile_consistency_check,
 )
 

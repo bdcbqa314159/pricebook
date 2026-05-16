@@ -14,7 +14,7 @@ from pricebook.models.fem import (
     fem_heat_cn,
     fem_bs_european,
 )
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

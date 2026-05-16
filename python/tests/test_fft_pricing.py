@@ -7,7 +7,7 @@ import pytest
 
 from pricebook.models.black76 import OptionType
 from pricebook.models.cos_method import bs_char_func, cos_price, heston_char_func_cos
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.fft_pricing import (
     DensityResult,
     FFTResult,

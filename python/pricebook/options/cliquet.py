@@ -3,7 +3,7 @@
 Each period: local_return = clip(S(end)/S(start) - 1, local_floor, local_cap).
 Total payoff = clip(Σ local_returns, global_floor, global_cap) × notional.
 
-    from pricebook.cliquet import Cliquet
+    from pricebook.options.cliquet import Cliquet
 
     cliq = Cliquet(reset_dates=[...], local_floor=0.0, local_cap=0.05,
                     global_floor=0.0, global_cap=0.30, notional=1_000_000)

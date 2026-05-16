@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.sabr import sabr_implied_vol, sabr_calibrate
+from pricebook.options.sabr import sabr_implied_vol, sabr_calibrate
 
 
 # ---- Rebonato's swaption vol approximation ----

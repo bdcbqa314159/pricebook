@@ -4,7 +4,7 @@ import math
 import pytest
 
 from pricebook.models.adi import two_asset_option
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

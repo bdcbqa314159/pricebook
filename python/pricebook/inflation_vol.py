@@ -23,7 +23,7 @@ from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.inflation import CPICurve
 from pricebook.schedule import Frequency, generate_schedule
-from pricebook.sabr import sabr_implied_vol, sabr_calibrate
+from pricebook.options.sabr import sabr_implied_vol, sabr_calibrate
 
 
 # ---- Zero-coupon inflation cap/floor ----

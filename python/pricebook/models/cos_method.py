@@ -130,7 +130,7 @@ def heston_char_func_cos(
     T: float,
 ):
     """Heston characteristic function of log(S_T/S_0) for COS method."""
-    from pricebook.heston import _heston_f
+    from pricebook.options.heston import _heston_f
 
     def phi(u: float) -> complex:
         return _heston_f(u, T, rate, div_yield, v0, kappa, theta, xi, rho, 0.0, 2)

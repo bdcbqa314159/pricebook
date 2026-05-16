@@ -135,7 +135,7 @@ class rBergomiEquity:
         price = df * float(payoff.mean())
 
         # Invert BS for implied vol
-        from pricebook.implied_vol import implied_vol_black76
+        from pricebook.options.implied_vol import implied_vol_black76
         from pricebook.models.black76 import OptionType
         try:
             F = spot * math.exp((rate - dividend_yield) * T)

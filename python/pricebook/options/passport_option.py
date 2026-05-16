@@ -6,7 +6,7 @@ at each instant. At expiry, payoff = max(account_value, 0).
 The optimal strategy is bang-bang: q = +1 or -1, switching based on
 whether current account value is positive or negative.
 
-    from pricebook.passport_option import passport_option
+    from pricebook.options.passport_option import passport_option
 
     result = passport_option(spot=100, rate=0.05, vol=0.20, T=1.0)
 

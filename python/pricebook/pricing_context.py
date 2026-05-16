@@ -187,7 +187,7 @@ class PricingContext:
         Convenience for quick pricing and testing.
         """
         from pricebook.discount_curve import DiscountCurve
-        from pricebook.vol_surface import FlatVol
+        from pricebook.options.vol_surface import FlatVol
 
         curve = DiscountCurve.flat(valuation_date, rate)
         vol_surfaces = {}

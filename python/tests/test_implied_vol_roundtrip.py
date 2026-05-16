@@ -12,13 +12,13 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.implied_vol import implied_vol_black76, implied_vol_bachelier
+from pricebook.options.implied_vol import implied_vol_black76, implied_vol_bachelier
 from pricebook.models.black76 import OptionType, black76_price, bachelier_price
-from pricebook.vol_smile import VolSmile
-from pricebook.vol_surface_strike import VolSurfaceStrike
-from pricebook.equity_option import equity_option_price
-from pricebook.capfloor import CapFloor
-from pricebook.swaption import Swaption
+from pricebook.options.vol_smile import VolSmile
+from pricebook.options.vol_surface_strike import VolSurfaceStrike
+from pricebook.options.equity_option import equity_option_price
+from pricebook.options.capfloor import CapFloor
+from pricebook.options.swaption import Swaption
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
 
@@ -134,7 +134,7 @@ class TestSmileSurfaceWithPricing:
         """OTM swaption with smile should differ from flat vol pricing."""
         curve = make_flat_curve(REF, 0.03)
 
-        from pricebook.vol_surface import FlatVol
+        from pricebook.options.vol_surface import FlatVol
         flat = FlatVol(0.20)
         smile = VolSmile([0.01, 0.03, 0.05, 0.07], [0.28, 0.20, 0.20, 0.28])
         surface = VolSurfaceStrike(REF, [date(2025, 1, 15)], [smile])

@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 from pricebook.models.black76 import OptionType
-from pricebook.asian import mc_asian_arithmetic, mc_asian_arithmetic_via_engine
-from pricebook.barrier_option import barrier_option_mc_via_engine
+from pricebook.options.asian import mc_asian_arithmetic, mc_asian_arithmetic_via_engine
+from pricebook.options.barrier_option import barrier_option_mc_via_engine
 from pricebook.models.mc_instrument_adapters import (
     autocallable_mc, cliquet_mc, basket_mc,
     heston_european_mc, sabr_european_mc, tarf_mc,

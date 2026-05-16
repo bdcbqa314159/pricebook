@@ -1,7 +1,7 @@
 """Tests for bond futures delivery options."""
 import math
 import pytest
-from pricebook.bond_futures_options import (
+from pricebook.options.bond_futures_options import (
     end_of_month_option, quality_option, timing_option,
     net_basis_decomposition, joint_delivery_option_value,
 )

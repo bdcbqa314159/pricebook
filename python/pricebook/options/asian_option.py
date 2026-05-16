@@ -4,7 +4,7 @@ Builds on asian.py (raw MC functions) with a proper instrument class
 that carries its averaging schedule, supports partial fixings, and
 is serialisable from day one.
 
-    from pricebook.asian_option import AsianOption, AsianSchedule
+    from pricebook.options.asian_option import AsianOption, AsianSchedule
 
     schedule = AsianSchedule.monthly(start, end)
     opt = AsianOption(schedule=schedule, strike=100, notional=1_000_000)
@@ -26,7 +26,7 @@ from typing import Any
 
 import numpy as np
 
-from pricebook.asian import geometric_asian_analytical, mc_asian_arithmetic
+from pricebook.options.asian import geometric_asian_analytical, mc_asian_arithmetic
 from pricebook.models.black76 import OptionType, black76_price
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
@@ -490,7 +490,7 @@ class AsianOption:
         if method == "local_vol":
             # Smile-consistent MC using local vol surface
             # Requires vol_surface keyword (LocalVolSurface)
-            from pricebook.local_vol import local_vol_mc_paths
+            from pricebook.options.local_vol import local_vol_mc_paths
             lv_surface = kwargs.get("vol_surface")
             if lv_surface is None:
                 raise ValueError("method='local_vol' requires vol_surface=LocalVolSurface")
@@ -501,7 +501,7 @@ class AsianOption:
 
         if method == "sabr":
             # SABR stochastic vol MC
-            from pricebook.sabr_mc import sabr_mc_paths
+            from pricebook.options.sabr_mc import sabr_mc_paths
             alpha = kwargs.get("alpha", vol)
             beta = kwargs.get("beta", 1.0)
             rho = kwargs.get("rho", 0.0)

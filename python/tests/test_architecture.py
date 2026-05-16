@@ -21,13 +21,13 @@ from pricebook.registry import (
     list_integrators,
     list_mc_pricers,
 )
-from pricebook.vol_surface import FlatVol
-from pricebook.vol_smile import VolSmile
-from pricebook.vol_surface_strike import VolSurfaceStrike
-from pricebook.swaption_vol import SwaptionVolSurface
+from pricebook.options.vol_surface import FlatVol
+from pricebook.options.vol_smile import VolSmile
+from pricebook.options.vol_surface_strike import VolSurfaceStrike
+from pricebook.options.swaption_vol import SwaptionVolSurface
 from pricebook.fx_vol_surface import FXVolSurface, FXVolQuote
 from pricebook.models.black76 import OptionType
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from datetime import date
 
 

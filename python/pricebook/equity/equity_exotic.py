@@ -143,7 +143,7 @@ def equity_digital_cash(
         return DigitalResult(float(price_bs), float(prob), "cash", is_call)
 
     # Smile-adjusted via call spread
-    from pricebook.vanna_volga import vv_adjust_vanilla
+    from pricebook.options.vanna_volga import vv_adjust_vanilla
     atm, c25, p25 = smile_vols
     h = spot * 0.0005
     up = vv_adjust_vanilla(spot, strike + h, rate, dividend_yield,

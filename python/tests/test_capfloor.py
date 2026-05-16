@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.capfloor import CapFloor
+from pricebook.options.capfloor import CapFloor
 from pricebook.models.black76 import OptionType
 from pricebook.models.models import Black76Model
 from pricebook.swap import InterestRateSwap, SwapDirection

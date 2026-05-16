@@ -14,8 +14,8 @@ from pricebook.risk.xva import (
     expected_positive_exposure,
 )
 from pricebook.pricing_context import PricingContext
-from pricebook.vol_surface import FlatVol
-from pricebook.swaption import Swaption
+from pricebook.options.vol_surface import FlatVol
+from pricebook.options.swaption import Swaption
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 

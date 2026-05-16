@@ -3,7 +3,7 @@
 Wraps existing `fd_barrier_knockout/knockin` from `finite_difference.py`
 in a proper instrument class with serialisation.
 
-    from pricebook.barrier_option import BarrierOption
+    from pricebook.options.barrier_option import BarrierOption
 
     opt = BarrierOption(strike=100, barrier=120, barrier_type="up_out",
                         maturity=date(2027,4,28), notional=1_000_000)

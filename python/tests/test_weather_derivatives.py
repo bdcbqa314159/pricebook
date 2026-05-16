@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.weather_derivatives import (
+from pricebook.options.weather_derivatives import (
     DegreeDayIndex,
     RainfallResult,
     SeasonalOUTemperature,

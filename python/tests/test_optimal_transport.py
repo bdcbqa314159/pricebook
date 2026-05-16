@@ -14,7 +14,7 @@ from pricebook.optimal_transport import (
     wasserstein_discrete,
     wasserstein_gaussian,
 )
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

@@ -3,13 +3,13 @@
 import math
 import pytest
 
-from pricebook.heston_mc import (
+from pricebook.options.heston_mc import (
     heston_euler,
     heston_qe,
     heston_mc_european,
     heston_mc_barrier,
 )
-from pricebook.heston import heston_price
+from pricebook.options.heston import heston_price
 from pricebook.models.black76 import OptionType
 
 

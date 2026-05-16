@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.bermudan_lmm import (
+from pricebook.options.bermudan_lmm import (
     BermudanBoundsResult,
     BermudanLMMResult,
     ExerciseBoundary,

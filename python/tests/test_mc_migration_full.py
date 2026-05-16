@@ -18,7 +18,7 @@ class TestAutocallableMigrationFull:
         assert result.price > 0
 
     def test_autocallable_via_engine_import(self):
-        from pricebook.autocallable import autocallable_via_engine
+        from pricebook.options.autocallable import autocallable_via_engine
         assert callable(autocallable_via_engine)
 
 
@@ -30,7 +30,7 @@ class TestCliquetMigrationFull:
         assert result.price > 0
 
     def test_cliquet_via_engine_import(self):
-        from pricebook.cliquet import cliquet_via_engine
+        from pricebook.options.cliquet import cliquet_via_engine
         assert callable(cliquet_via_engine)
 
 
@@ -42,7 +42,7 @@ class TestTARFMigrationFull:
         assert math.isfinite(result.price)
 
     def test_tarf_via_engine_import(self):
-        from pricebook.tarf import tarf_via_engine
+        from pricebook.options.tarf import tarf_via_engine
         assert callable(tarf_via_engine)
 
 
@@ -97,7 +97,7 @@ class TestEquityStructuredMigration:
 class TestMultiAssetExoticMigration:
 
     def test_simulate_correlated_via_engine(self):
-        from pricebook.multi_asset_exotic import _simulate_correlated_via_engine
+        from pricebook.options.multi_asset_exotic import _simulate_correlated_via_engine
         corr = np.array([[1.0, 0.5], [0.5, 1.0]])
         paths = _simulate_correlated_via_engine(
             [100.0, 50.0], 0.05, [0.02, 0.01], [0.20, 0.25],
@@ -106,7 +106,7 @@ class TestMultiAssetExoticMigration:
         assert paths.shape == (1_000, 11, 2)
 
     def test_rainbow_via_engine(self):
-        from pricebook.multi_asset_exotic import rainbow_option_via_engine
+        from pricebook.options.multi_asset_exotic import rainbow_option_via_engine
         corr = np.array([[1.0, 0.5], [0.5, 1.0]])
         result = rainbow_option_via_engine(
             [100.0, 100.0], 100.0, 0.05, [0.02, 0.02],
@@ -120,7 +120,7 @@ class TestMultiAssetExoticMigration:
 class TestHestonMCMigration:
 
     def test_heston_euler_via_engine(self):
-        from pricebook.heston_mc import heston_euler_via_engine
+        from pricebook.options.heston_mc import heston_euler_via_engine
         S, v = heston_euler_via_engine(
             100, 0.05, 1.0, 0.04, 2.0, 0.04, 0.3, -0.7,
             n_steps=50, n_paths=5_000,
@@ -130,7 +130,7 @@ class TestHestonMCMigration:
         assert np.all(S[:, 0] > 0)
 
     def test_heston_european_via_engine(self):
-        from pricebook.heston_mc import heston_mc_european_via_engine
+        from pricebook.options.heston_mc import heston_mc_european_via_engine
         price = heston_mc_european_via_engine(
             100, 100, 0.05, 1.0, 0.04, 2.0, 0.04, 0.3, -0.7,
             n_paths=20_000,
@@ -138,7 +138,7 @@ class TestHestonMCMigration:
         assert price > 0
 
     def test_heston_conditional_via_engine(self):
-        from pricebook.heston_mc import heston_mc_european_via_engine
+        from pricebook.options.heston_mc import heston_mc_european_via_engine
         price = heston_mc_european_via_engine(
             100, 100, 0.05, 1.0, 0.04, 2.0, 0.04, 0.3, -0.7,
             n_paths=10_000, use_conditional=True,
@@ -149,7 +149,7 @@ class TestHestonMCMigration:
 class TestSABRMCMigration:
 
     def test_sabr_paths_via_engine(self):
-        from pricebook.sabr_mc import sabr_mc_paths_via_engine
+        from pricebook.options.sabr_mc import sabr_mc_paths_via_engine
         F, sig = sabr_mc_paths_via_engine(
             0.05, 1.0, 0.30, 0.5, -0.3, 0.4,
             n_steps=50, n_paths=5_000,
@@ -158,7 +158,7 @@ class TestSABRMCMigration:
         assert sig.shape == (5_000, 51)
 
     def test_sabr_european_via_engine(self):
-        from pricebook.sabr_mc import sabr_mc_european_via_engine
+        from pricebook.options.sabr_mc import sabr_mc_european_via_engine
         price = sabr_mc_european_via_engine(
             0.05, 0.05, 1.0, 0.30, 0.5, -0.3, 0.4,
             n_paths=20_000,
@@ -298,7 +298,7 @@ class TestEquityRatesHybridMigration:
 class TestLocalVolSLVMigration:
 
     def test_local_vol_mc_via_engine(self):
-        from pricebook.local_vol import LocalVolSurface, local_vol_mc_via_engine
+        from pricebook.options.local_vol import LocalVolSurface, local_vol_mc_via_engine
         strikes = np.array([80.0, 100.0, 120.0])
         times = np.array([0.5, 1.0])
         vols = np.array([[0.22, 0.20, 0.21], [0.23, 0.20, 0.22]])
@@ -308,8 +308,8 @@ class TestLocalVolSLVMigration:
         assert np.all(S_T > 0)
 
     def test_slv_mc_via_engine(self):
-        from pricebook.local_vol import LocalVolSurface
-        from pricebook.slv import SLVModel, HestonParams, slv_mc_via_engine
+        from pricebook.options.local_vol import LocalVolSurface
+        from pricebook.options.slv import SLVModel, HestonParams, slv_mc_via_engine
         strikes = np.array([80.0, 100.0, 120.0])
         times = np.array([0.5, 1.0])
         vols = np.array([[0.22, 0.20, 0.21], [0.23, 0.20, 0.22]])

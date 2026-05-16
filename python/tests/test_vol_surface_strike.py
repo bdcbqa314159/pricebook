@@ -3,8 +3,8 @@
 import pytest
 from datetime import date
 
-from pricebook.vol_smile import VolSmile
-from pricebook.vol_surface_strike import VolSurfaceStrike
+from pricebook.options.vol_smile import VolSmile
+from pricebook.options.vol_surface_strike import VolSurfaceStrike
 
 
 REF = date(2024, 1, 15)

@@ -3,7 +3,7 @@
 import math
 import pytest
 
-from pricebook.sabr import (
+from pricebook.options.sabr import (
     sabr_implied_vol,
     sabr_price,
     shifted_sabr_implied_vol,

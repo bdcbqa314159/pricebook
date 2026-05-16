@@ -187,7 +187,7 @@ def implied_vol_term_structure(
     Returns (T, implied_vol) pairs. The ATM skew should follow
     a power law ∝ T^{H-0.5}.
     """
-    from pricebook.implied_vol import implied_vol_newton
+    from pricebook.options.implied_vol import implied_vol_newton
 
     results = []
     for T in expiries:

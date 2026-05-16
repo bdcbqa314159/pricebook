@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pytest
-from pricebook.vol_vol_derivatives import (
+from pricebook.options.vol_vol_derivatives import (
     option_on_variance_swap, gamma_swap_price, corridor_variance_swap, vix_option_price,
 )
 

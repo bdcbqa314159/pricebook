@@ -9,7 +9,7 @@ from datetime import date
 import numpy as np
 from dateutil.relativedelta import relativedelta
 
-from pricebook.vol_derivatives_advanced import (
+from pricebook.options.vol_derivatives_advanced import (
     variance_swap_greeks, VarianceSwapGreeks,
     forward_variance_curve, ForwardVarianceCurve,
     volatility_swap_price, VolSwapResult,

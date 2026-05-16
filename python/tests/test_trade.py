@@ -5,8 +5,8 @@ from datetime import date
 
 from pricebook.trade import Trade, Portfolio
 from pricebook.pricing_context import PricingContext
-from pricebook.swaption import Swaption, SwaptionType
-from pricebook.vol_surface import FlatVol
+from pricebook.options.swaption import Swaption, SwaptionType
+from pricebook.options.vol_surface import FlatVol
 from tests.conftest import make_flat_curve
 
 

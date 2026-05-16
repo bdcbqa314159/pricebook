@@ -5,7 +5,7 @@ A bermudan swaption can be exercised at any coupon date of the
 underlying swap. At each exercise date, the holder decides whether
 to exercise (enter the swap) or continue holding the option.
 
-    from pricebook.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
+    from pricebook.options.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
 
     price = bermudan_swaption_tree(hw, expiry_years=[1,2,3,4,5],
                                     swap_end=10, strike=0.05)

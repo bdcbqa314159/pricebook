@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.tarf import TARF, TARFResult
+from pricebook.options.tarf import TARF, TARFResult
 from pricebook.discount_curve import DiscountCurve
 from pricebook.serialisable import from_dict
 

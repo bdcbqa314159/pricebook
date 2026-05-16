@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.midcurve_swaption import midcurve_swaption
+from pricebook.options.midcurve_swaption import midcurve_swaption
 
 
 REF = date(2024, 7, 15)

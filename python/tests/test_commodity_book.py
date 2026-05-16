@@ -11,7 +11,7 @@ from pricebook.desks.commodity_book import (
     TermStructureBucket,
     commodity_tenor_bucket,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

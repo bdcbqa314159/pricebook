@@ -18,8 +18,8 @@ from pricebook.risk.xva import (
     XVAResult,
 )
 from pricebook.pricing_context import PricingContext
-from pricebook.vol_surface import FlatVol
-from pricebook.swaption import Swaption
+from pricebook.options.vol_surface import FlatVol
+from pricebook.options.swaption import Swaption
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

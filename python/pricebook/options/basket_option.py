@@ -3,7 +3,7 @@
 Wraps CorrelatedGBM for multi-asset payoffs: weighted basket,
 best-of, worst-of.
 
-    from pricebook.basket_option import BasketOption
+    from pricebook.options.basket_option import BasketOption
 
     opt = BasketOption(strikes=[100], weights=[0.5, 0.3, 0.2],
                         maturity=date(2027,4,28), n_assets=3)

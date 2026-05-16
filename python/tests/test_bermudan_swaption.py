@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
+from pricebook.options.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
 from pricebook.models.hull_white import HullWhite
 from tests.conftest import make_flat_curve
 

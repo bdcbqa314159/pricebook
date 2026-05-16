@@ -9,7 +9,7 @@ from pricebook.desks.fx_book import (
     FXLimits,
     FXPairPosition,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

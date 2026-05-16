@@ -9,7 +9,7 @@ calibration of local vol via a leverage function.
 
 where L(S, t) is calibrated so that the model reprices vanillas.
 
-    from pricebook.slv import SLVModel, slv_mc_european
+    from pricebook.options.slv import SLVModel, slv_mc_european
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from pricebook.models.black76 import black76_price, OptionType
-from pricebook.local_vol import LocalVolSurface
+from pricebook.options.local_vol import LocalVolSurface
 
 
 # ---- SLV Model ----

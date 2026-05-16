@@ -4,7 +4,7 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.local_vol import (
+from pricebook.options.local_vol import (
     LocalVolSurface, local_vol_mc, local_vol_mc_european,
 )
 from pricebook.models.black76 import black76_price, OptionType

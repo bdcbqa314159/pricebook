@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.sabr import sabr_implied_vol, sabr_price, sabr_calibrate
+from pricebook.options.sabr import sabr_implied_vol, sabr_price, sabr_calibrate
 from pricebook.models.black76 import OptionType, black76_price
 
 

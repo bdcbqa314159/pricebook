@@ -4,13 +4,13 @@ import math
 import pytest
 import numpy as np
 
-from pricebook.sabr_mc import (
+from pricebook.options.sabr_mc import (
     sabr_mc_paths,
     sabr_mc_european,
     sabr_mc_asian,
     sabr_mc_implied_vol,
 )
-from pricebook.sabr import sabr_implied_vol
+from pricebook.options.sabr import sabr_implied_vol
 from pricebook.models.black76 import OptionType, black76_price
 
 

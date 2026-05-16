@@ -230,7 +230,7 @@ def fft_2d_basket(
     basket_vol = math.sqrt(basket_var / T)
 
     # Price via BS on the basket
-    from pricebook.equity_option import equity_option_price
+    from pricebook.options.equity_option import equity_option_price
     from pricebook.models.black76 import OptionType
     price = equity_option_price(basket_fwd, strike, rate, basket_vol, T, OptionType.CALL)
 

@@ -7,7 +7,7 @@ Each period: if S(t) > strike, buyer profits (S(t) - K) × notional.
 Accumulated profit is tracked. Once target is hit, contract terminates.
 If S(t) < strike, buyer has a leveraged loss (knock-in leverage).
 
-    from pricebook.tarf import TARF
+    from pricebook.options.tarf import TARF
 
     tarf = TARF(strike=1.10, target=0.10, leverage=2.0,
                 fixing_dates=[...], notional=1_000_000)

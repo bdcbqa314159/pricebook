@@ -7,7 +7,7 @@ variance swap, FFT convergence to BS.
 import math
 import pytest
 from pricebook.models.black76 import black76_price, black76_delta, black76_vega, OptionType
-from pricebook.implied_vol import implied_vol_black76
+from pricebook.options.implied_vol import implied_vol_black76
 from pricebook.models.fft_pricing import lewis_price
 from pricebook.equity.variance_swap import fair_variance_from_vols
 

@@ -23,7 +23,7 @@ import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from pricebook.swaption import Swaption, SwaptionType
+from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.day_count import DayCountConvention, year_fraction

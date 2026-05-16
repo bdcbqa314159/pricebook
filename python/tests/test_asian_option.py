@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.asian_option import (
+from pricebook.options.asian_option import (
     AsianOption, AsianSchedule, AsianResult, turnbull_wakeman, curran_asian,
 )
 from pricebook.models.black76 import OptionType
@@ -235,7 +235,7 @@ class TestAsianSmile:
 
     def test_local_vol(self):
         """Local vol Asian should produce finite price."""
-        from pricebook.local_vol import LocalVolSurface
+        from pricebook.options.local_vol import LocalVolSurface
         import numpy as np
         strikes = np.array([80, 90, 100, 110, 120], dtype=float)
         times = np.array([0.25, 0.5, 1.0], dtype=float)
@@ -253,7 +253,7 @@ class TestAsianSmile:
 
     def test_local_vol_differs_from_flat(self):
         """Smile should produce different price from flat vol."""
-        from pricebook.local_vol import LocalVolSurface
+        from pricebook.options.local_vol import LocalVolSurface
         import numpy as np
         strikes = np.array([80, 90, 100, 110, 120], dtype=float)
         times = np.array([0.25, 0.5, 1.0], dtype=float)

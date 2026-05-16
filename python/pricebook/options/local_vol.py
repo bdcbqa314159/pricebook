@@ -3,7 +3,7 @@
 Computes the Dupire local vol surface from market implied vols, then
 simulates spot paths under local vol dynamics for exotic pricing.
 
-    from pricebook.local_vol import LocalVolSurface, local_vol_mc
+    from pricebook.options.local_vol import LocalVolSurface, local_vol_mc
 
     lv = LocalVolSurface.from_implied_vols(spot, rate, strikes, expiries, vols)
     paths = local_vol_mc(spot, rate, lv, T, n_steps, n_paths)

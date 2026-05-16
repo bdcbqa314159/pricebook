@@ -3,7 +3,7 @@
 One-call calibration per asset class. Each returns a calibrated surface
 with vol(), arb_report(), and bumped() methods.
 
-    from pricebook.vol_calibration import (
+    from pricebook.options.vol_calibration import (
         calibrate_fx_surface, calibrate_equity_surface,
         calibrate_ir_surface, calibrate_commodity_surface,
     )
@@ -20,8 +20,8 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from pricebook.sabr import sabr_implied_vol
-from pricebook.vol_surface import FlatVol
+from pricebook.options.sabr import sabr_implied_vol
+from pricebook.options.vol_surface import FlatVol
 
 
 @dataclass
@@ -97,7 +97,7 @@ class CalibratedVolSurface:
 
     def arb_report(self, strikes: list[float] | None = None):
         """Run arbitrage scan on this surface."""
-        from pricebook.vol_arbitrage_scanner import scan_surface
+        from pricebook.options.vol_arbitrage_scanner import scan_surface
         if strikes is None:
             # Default strike grid around ATM
             atm = self._nodes[0].forward if self._nodes else 100.0
@@ -133,7 +133,7 @@ def calibrate_fx_surface(
         spot: FX spot rate.
         beta: SABR beta (0.5 typical for FX).
     """
-    from pricebook.sabr import sabr_calibrate
+    from pricebook.options.sabr import sabr_calibrate
 
     nodes = []
     for q in sorted(quotes, key=lambda x: x["expiry"]):
@@ -182,7 +182,7 @@ def calibrate_equity_surface(
         quotes: list of {"expiry": date, "strikes": [K], "vols": [σ]}.
         spot: current spot price.
     """
-    from pricebook.sabr import sabr_calibrate
+    from pricebook.options.sabr import sabr_calibrate
 
     nodes = []
     for q in sorted(quotes, key=lambda x: x["expiry"]):
@@ -218,7 +218,7 @@ def calibrate_ir_surface(
         quotes: list of {"expiry": date, "tenor": str, "atm": float,
                          "strikes": [K], "vols": [σ]} (strikes/vols optional).
     """
-    from pricebook.sabr import sabr_calibrate
+    from pricebook.options.sabr import sabr_calibrate
 
     nodes = []
     for q in sorted(quotes, key=lambda x: x["expiry"]):

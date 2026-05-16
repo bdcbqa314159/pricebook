@@ -4,7 +4,7 @@ vol swaps, dispersion, Bates CF, SVI calibration.
 Extends the existing vol_vol_derivatives.py with production-grade
 tools for volatility trading desks.
 
-    from pricebook.vol_derivatives_advanced import (
+    from pricebook.options.vol_derivatives_advanced import (
         variance_swap_greeks, VarianceSwapGreeks,
         forward_variance_curve, ForwardVarianceCurve,
         volatility_swap_price, VolSwapResult,

@@ -6,7 +6,7 @@ from datetime import date
 
 from pricebook.desks.deal import Deal, DealRole
 from pricebook.trade import Trade
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.pricing_context import PricingContext
 from pricebook.discount_curve import DiscountCurve
 

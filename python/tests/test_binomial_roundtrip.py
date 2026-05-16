@@ -13,7 +13,7 @@ import pytest
 import math
 
 from pricebook.models.binomial_tree import binomial_european, binomial_american
-from pricebook.equity_option import equity_option_price, equity_delta, equity_gamma
+from pricebook.options.equity_option import equity_option_price, equity_delta, equity_gamma
 from pricebook.models.black76 import OptionType
 
 

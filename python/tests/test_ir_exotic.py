@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.ir_exotic import (
+from pricebook.options.ir_exotic import (
     CallableRangeAccrualResult,
     FlexiSwapResult,
     RatchetCapResult,

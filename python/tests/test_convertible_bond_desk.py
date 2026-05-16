@@ -3,7 +3,7 @@
 from datetime import date
 import pytest
 
-from pricebook.convertible_bond import ConvertibleBond
+from pricebook.options.convertible_bond import ConvertibleBond
 from pricebook.desks.convertible_bond_desk import (
     cb_risk_metrics, CBRiskMetrics,
     CBBook, CBBookEntry,

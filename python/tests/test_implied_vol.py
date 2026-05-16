@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from pricebook.implied_vol import implied_vol_black76, implied_vol_bachelier
+from pricebook.options.implied_vol import implied_vol_black76, implied_vol_bachelier
 from pricebook.models.black76 import OptionType, black76_price, bachelier_price
 
 

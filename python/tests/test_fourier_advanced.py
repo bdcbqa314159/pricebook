@@ -106,7 +106,7 @@ class TestFFT2DBasket:
 
     def test_at_the_money(self):
         """ATM basket call on two identical assets ≈ single-asset ATM call."""
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.models.black76 import OptionType
 
         def cf_2d(u1, u2):
@@ -125,7 +125,7 @@ class TestFFT2DBasket:
 class TestMellinPowerOption:
     def test_power_1_is_call(self):
         """Power option with p=1 = standard call."""
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.models.black76 import OptionType
         bs = equity_option_price(SPOT, SPOT, RATE, VOL, T, OptionType.CALL)
         power = mellin_power_option(SPOT, SPOT, RATE, VOL, T, power=1.0)

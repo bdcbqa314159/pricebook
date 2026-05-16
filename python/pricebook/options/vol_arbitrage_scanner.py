@@ -3,7 +3,7 @@
 Practical tool wrapping vol_arb.py for trader use: scan any surface,
 report violations, optionally enforce no-arb constraints.
 
-    from pricebook.vol_arbitrage_scanner import (
+    from pricebook.options.vol_arbitrage_scanner import (
         scan_surface, scan_all_surfaces, enforce_no_arb,
         ArbitrageScanResult,
     )

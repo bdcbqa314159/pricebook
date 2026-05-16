@@ -9,7 +9,7 @@ from pricebook.book import (
 )
 from pricebook.trade import Trade
 from pricebook.pricing_context import PricingContext
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 
 
 REF = date(2024, 1, 15)

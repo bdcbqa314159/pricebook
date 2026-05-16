@@ -161,7 +161,7 @@ class TestFeynmanKac:
 
     def test_bs_pde_mc_consistency(self):
         """BS PDE price should match MC price (the Feynman-Kac theorem)."""
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         from pricebook.models.black76 import OptionType
         from pricebook.models.finite_difference import fd_european
 

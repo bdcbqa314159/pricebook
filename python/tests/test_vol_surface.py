@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.vol_surface import FlatVol, VolTermStructure
+from pricebook.options.vol_surface import FlatVol, VolTermStructure
 
 
 REF = date(2024, 1, 15)

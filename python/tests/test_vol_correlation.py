@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.vol_correlation import (
+from pricebook.options.vol_correlation import (
     CorrelationSignal,
     CorrelationTrade,
     build_correlation_trade,

@@ -3,7 +3,7 @@
 Wraps existing `lsm_american()` and `fd_american()` in a proper
 instrument class with exercise boundary output.
 
-    from pricebook.american_option import AmericanOption
+    from pricebook.options.american_option import AmericanOption
 
     opt = AmericanOption(strike=100, maturity=date(2027,4,28),
                           option_type=OptionType.PUT, notional=1_000_000)

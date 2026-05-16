@@ -9,11 +9,11 @@ from pricebook.desks.swaption_desk import (
     delta_hedge, vega_hedge,
     _swaption_greeks,
 )
-from pricebook.swaption import Swaption, SwaptionType
-from pricebook.swaption_vol import SwaptionVolSurface
+from pricebook.options.swaption import Swaption, SwaptionType
+from pricebook.options.swaption_vol import SwaptionVolSurface
 from pricebook.discount_curve import DiscountCurve
-from pricebook.vol_surface import FlatVol
-from pricebook.sabr import sabr_implied_vol
+from pricebook.options.vol_surface import FlatVol
+from pricebook.options.sabr import sabr_implied_vol
 
 
 REF = date(2024, 1, 15)

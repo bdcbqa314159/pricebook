@@ -79,7 +79,7 @@ class SABRParams:
 
 
 # Reuse HestonParams from slv.py to avoid duplication
-from pricebook.slv import HestonParams
+from pricebook.options.slv import HestonParams
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -168,7 +168,7 @@ class SABRModel:
         self.params = params
 
     def price_ir_option(self, forward, strike, annuity, T, option_type):
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         from pricebook.models.black76 import black76_price
 
         vol = sabr_implied_vol(
@@ -186,7 +186,7 @@ class SABRModel:
         (the SABR delta adjustment). For most practical purposes this is
         sufficient; the full Hagan ∂σ/∂F correction is a Phase 2 enhancement.
         """
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         from pricebook.models.black76 import (black76_price, black76_delta,
                                         black76_gamma, black76_vega, black76_theta)
         from pricebook.risk.greeks import Greeks
@@ -294,11 +294,11 @@ class BSModel:
         self.vol = vol
 
     def price_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
-        from pricebook.equity_option import equity_option_price
+        from pricebook.options.equity_option import equity_option_price
         return equity_option_price(spot, strike, rate, self.vol, T, option_type, div_yield)
 
     def greeks_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
-        from pricebook.equity_option import equity_greeks
+        from pricebook.options.equity_option import equity_greeks
         return equity_greeks(spot, strike, rate, self.vol, T, option_type, div_yield)
 
     def __repr__(self):
@@ -318,7 +318,7 @@ class HestonModel:
         self.params = params
 
     def price_european(self, spot, strike, rate, T, option_type, div_yield=0.0):
-        from pricebook.heston import heston_price
+        from pricebook.options.heston import heston_price
         p = self.params
         return heston_price(spot, strike, rate, T, p.v0, p.kappa, p.theta,
                            p.xi, p.rho, option_type, div_yield)

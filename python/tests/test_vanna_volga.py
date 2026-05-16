@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.vanna_volga import (
+from pricebook.options.vanna_volga import (
     VVResult,
     VVWeights,
     vv_adjust_digital,
@@ -63,7 +63,7 @@ class TestVVVanilla:
     def test_reprices_25d(self):
         """VV should exactly reprice 25D strikes (approximately)."""
         from scipy.stats import norm
-        from pricebook.vanna_volga import _strike_from_delta
+        from pricebook.options.vanna_volga import _strike_from_delta
         K_25c = _strike_from_delta(1.0, 0.02, 0.01, 0.11, 1.0, 0.25, True)
         result = vv_adjust_vanilla(1.0, K_25c, 0.02, 0.01,
                                     0.10, 0.11, 0.12, 1.0, is_call=True)

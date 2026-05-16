@@ -3,8 +3,8 @@
 import pytest
 import math
 
-from pricebook.heston import heston_price, _heston_f, heston_calibrate
-from pricebook.equity_option import equity_option_price
+from pricebook.options.heston import heston_price, _heston_f, heston_calibrate
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 
 

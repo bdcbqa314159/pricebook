@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pytest
-from pricebook.multi_asset_exotic import (
+from pricebook.options.multi_asset_exotic import (
     rainbow_option, knockout_basket, conditional_barrier, multi_asset_digital_range,
 )
 

@@ -4,7 +4,7 @@ Early-termination note that pays coupons if underlying stays above
 a coupon barrier, and terminates early if it reaches the autocall
 barrier. At maturity, if put barrier is breached, investor takes loss.
 
-    from pricebook.autocallable import Autocallable
+    from pricebook.options.autocallable import Autocallable
 
     ac = Autocallable(
         observation_dates=[...], autocall_level=1.05,

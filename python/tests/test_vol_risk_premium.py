@@ -1,6 +1,6 @@
 """Tests for vol risk premium."""
 import pytest
-from pricebook.vol_risk_premium import vrp_single_asset, vrp_term_structure, cross_asset_vrp_comparison, vrp_strategy_signal
+from pricebook.options.vol_risk_premium import vrp_single_asset, vrp_term_structure, cross_asset_vrp_comparison, vrp_strategy_signal
 
 class TestVRP:
     def test_positive(self):

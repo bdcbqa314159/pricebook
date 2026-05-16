@@ -14,8 +14,8 @@ from pricebook.risk.scenario import (
 )
 from pricebook.trade import Trade, Portfolio
 from pricebook.pricing_context import PricingContext
-from pricebook.swaption import Swaption
-from pricebook.vol_surface import FlatVol
+from pricebook.options.swaption import Swaption
+from pricebook.options.vol_surface import FlatVol
 from tests.conftest import make_flat_curve
 
 

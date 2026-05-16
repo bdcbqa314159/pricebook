@@ -22,8 +22,8 @@ from pricebook.equity.dividend_model import (
     Dividend, pv_dividends, dividend_adjusted_forward, equity_option_discrete_divs,
 )
 from pricebook.equity.equity_forward import EquityForward
-from pricebook.equity_option import equity_option_price
-from pricebook.implied_vol import implied_vol_black76
+from pricebook.options.equity_option import equity_option_price
+from pricebook.options.implied_vol import implied_vol_black76
 
 
 # ---- Helpers ----

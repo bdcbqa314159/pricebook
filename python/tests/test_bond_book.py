@@ -11,7 +11,7 @@ from pricebook.desks.bond_book import (
     BondTenorBucket,
     bond_tenor_bucket,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

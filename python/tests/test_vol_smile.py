@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 
-from pricebook.vol_smile import VolSmile
+from pricebook.options.vol_smile import VolSmile
 
 
 STRIKES = [90.0, 95.0, 100.0, 105.0, 110.0]

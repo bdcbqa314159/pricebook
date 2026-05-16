@@ -9,7 +9,7 @@ from pricebook.models.lmm_calibration import (
     calibrate_lmm_vols,
     MultiFactorSABR, SABRSlice, calibrate_multi_factor_sabr,
 )
-from pricebook.sabr import sabr_implied_vol
+from pricebook.options.sabr import sabr_implied_vol
 
 
 # ---- Rebonato approximation ----

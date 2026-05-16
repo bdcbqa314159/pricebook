@@ -1,6 +1,6 @@
 """Tests for vol term structure."""
 import math, numpy as np, pytest
-from pricebook.vol_term_structure import forward_vol_from_term, calendar_spread_strategy, vol_curve_shape, Bergomi2Factor
+from pricebook.options.vol_term_structure import forward_vol_from_term, calendar_spread_strategy, vol_curve_shape, Bergomi2Factor
 
 class TestForwardVol:
     def test_basic(self):

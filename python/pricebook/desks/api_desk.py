@@ -431,7 +431,7 @@ def vol_surface(asset_class: str, quotes: list[dict], *, spot=None, ref=None):
         ], spot=1.08)
         surface.vol(expiry_date, strike)
     """
-    from pricebook.vol_calibration import (
+    from pricebook.options.vol_calibration import (
         calibrate_fx_surface, calibrate_equity_surface,
         calibrate_ir_surface, calibrate_commodity_surface,
     )

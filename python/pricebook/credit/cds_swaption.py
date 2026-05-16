@@ -558,7 +558,7 @@ class CDSSpreadSmile:
 
     def implied_vol(self, strike: float, T: float = 1.0) -> float:
         """SABR implied Black vol for given strike and expiry."""
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         return sabr_implied_vol(
             self.forward, strike, T,
             self.alpha, self.beta, self.rho, self.nu,
@@ -585,7 +585,7 @@ class CDSSpreadSmile:
 
         Fixes beta and calibrates (alpha, rho, nu).
         """
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         from pricebook.statistics.optimization import minimize
 
         def objective(params):

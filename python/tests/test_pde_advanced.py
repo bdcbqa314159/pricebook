@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from pricebook.models.black76 import OptionType
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.pde_advanced import (
     MOLResult,
     PSORResult,

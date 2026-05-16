@@ -14,7 +14,7 @@ from pricebook.inflation_trading import (
     inflation_carry, inflation_frtb_capital,
     inflation_risk_decomposition, seasonal_carry,
 )
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.trade import Trade
 
 

@@ -14,7 +14,7 @@ from pricebook.structured.ir_vol_surface import (
     calibrate_sabr_smile,
     smile_dynamics,
 )
-from pricebook.sabr import sabr_implied_vol
+from pricebook.options.sabr import sabr_implied_vol
 
 
 # ---- SABR smile calibration ----

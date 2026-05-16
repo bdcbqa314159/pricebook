@@ -9,7 +9,7 @@ from pricebook.daily_pnl import (
 )
 from pricebook.book import Book, Desk
 from pricebook.trade import Trade
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 from pricebook.pricing_context import PricingContext
 
 

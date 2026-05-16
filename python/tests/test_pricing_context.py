@@ -6,7 +6,7 @@ from datetime import date
 from pricebook.pricing_context import PricingContext
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.vol_surface import FlatVol
+from pricebook.options.vol_surface import FlatVol
 from pricebook.day_count import DayCountConvention
 
 

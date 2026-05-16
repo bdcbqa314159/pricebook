@@ -12,7 +12,7 @@ from pricebook.models.binomial_jr_lr import (
 )
 from pricebook.models.binomial_tree import binomial_european, binomial_american
 from pricebook.models.black76 import OptionType
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 
 
 S, K, R, VOL, T = 100.0, 105.0, 0.05, 0.20, 1.0

@@ -1,7 +1,7 @@
 """Tests for passport option."""
 from __future__ import annotations
 import pytest
-from pricebook.passport_option import passport_option
+from pricebook.options.passport_option import passport_option
 
 
 class TestPassportOption:

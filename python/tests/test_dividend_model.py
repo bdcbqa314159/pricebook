@@ -10,7 +10,7 @@ from pricebook.equity.dividend_model import (
     piecewise_forward,
     equity_option_discrete_divs,
 )
-from pricebook.equity_option import equity_option_price
+from pricebook.options.equity_option import equity_option_price
 from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 

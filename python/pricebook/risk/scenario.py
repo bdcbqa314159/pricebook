@@ -80,7 +80,7 @@ def pillar_bump(pillar_idx: int, shift: float = 0.0001, name: str | None = None)
 
 def vol_bump(shift: float, surface_name: str = "ir", name: str | None = None):
     """Bump all vol surfaces by a flat amount."""
-    from pricebook.vol_surface import FlatVol
+    from pricebook.options.vol_surface import FlatVol
 
     def apply(ctx: PricingContext) -> PricingContext:
         new_vols = dict(ctx.vol_surfaces)

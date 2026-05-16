@@ -7,7 +7,7 @@ from pricebook.desks.equity_book import (
     EquityBook, EquityLimits, EquityPosition, SectorExposure,
 )
 from pricebook.trade import Trade
-from pricebook.swaption import Swaption
+from pricebook.options.swaption import Swaption
 
 
 REF = date(2024, 1, 15)

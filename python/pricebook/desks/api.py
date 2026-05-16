@@ -32,7 +32,7 @@ import numpy as np
 
 from pricebook.bond import FixedRateBond
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.capfloor import CapFloor
+from pricebook.options.capfloor import CapFloor
 from pricebook.credit.cds import CDS, bootstrap_credit_curve
 from pricebook.commodity.commodity import CommodityForwardCurve, CommoditySwap
 from pricebook.day_count import DayCountConvention
@@ -46,8 +46,8 @@ from pricebook.ois import bootstrap_ois
 from pricebook.schedule import Frequency
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.swaption import Swaption, SwaptionType
-from pricebook.vol_surface import FlatVol
+from pricebook.options.swaption import Swaption, SwaptionType
+from pricebook.options.vol_surface import FlatVol
 from pricebook.models.black76 import OptionType
 
 
@@ -499,7 +499,7 @@ def equity_option(
         pb.equity_option(100, 105, "1Y", 0.20, curve)
         pb.equity_option(100, 105, "1Y", 0.20, curve, return_greeks=True)
     """
-    from pricebook.equity_option import equity_option_price, equity_greeks
+    from pricebook.options.equity_option import equity_option_price, equity_greeks
     ref = reference_date or curve.reference_date
     mat = _parse_tenor(ref, maturity)
     from pricebook.day_count import year_fraction as _yf
@@ -941,7 +941,7 @@ def calibrate_sabr(
 
         params = pb.calibrate_sabr(0.04, strikes, vols, 1.0)
     """
-    from pricebook.sabr import sabr_calibrate
+    from pricebook.options.sabr import sabr_calibrate
     alpha, rho, nu = sabr_calibrate(forward, strikes, market_vols, T, beta)
     return {"alpha": alpha, "beta": beta, "rho": rho, "nu": nu}
 
@@ -954,7 +954,7 @@ def implied_vol(
 
         iv = pb.implied_vol(5.0, 100, 100, 1.0, 0.96)
     """
-    from pricebook.implied_vol import implied_vol_black76
+    from pricebook.options.implied_vol import implied_vol_black76
     ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
     return implied_vol_black76(price, forward, strike, T, df, ot)
 
@@ -1078,7 +1078,7 @@ def heston_price(
 
         pb.heston_price(100, 100, 1.0, 0.04, 1.5, 0.04, 0.3, -0.7)
     """
-    from pricebook.heston import heston_price as _hp
+    from pricebook.options.heston import heston_price as _hp
     ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
     return _hp(spot, strike, rate, T, v0, kappa, theta, xi, rho, ot)
 
@@ -1091,7 +1091,7 @@ def sabr_vol(
 
         vol = pb.sabr_vol(0.04, 0.04, 1.0, 0.03)
     """
-    from pricebook.sabr import sabr_implied_vol
+    from pricebook.options.sabr import sabr_implied_vol
     return sabr_implied_vol(forward, strike, T, alpha, beta, rho, nu)
 
 

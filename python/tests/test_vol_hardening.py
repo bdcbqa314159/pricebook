@@ -9,12 +9,12 @@ import pytest
 from pricebook.models.black76 import black76_price, OptionType
 from pricebook.risk.greeks import Greeks, bump_greeks
 from pricebook.equity.variance_swap import fair_variance_from_vols, variance_swap_pv
-from pricebook.vol_surface import (
+from pricebook.options.vol_surface import (
     FlatVol, VolTermStructure,
     check_calendar_arbitrage, check_butterfly_arbitrage, validate_vol_surface,
 )
-from pricebook.vol_smile import VolSmile
-from pricebook.vol_surface_strike import VolSurfaceStrike
+from pricebook.options.vol_smile import VolSmile
+from pricebook.options.vol_surface_strike import VolSurfaceStrike
 
 
 # ---- VH5: VolSurface.bumped() ----
@@ -213,7 +213,7 @@ class TestFXVolSurfaceBumped:
 
 class TestSwaptionVolBumped:
     def test_swaption_vol_bumped(self):
-        from pricebook.swaption_vol import SwaptionVolSurface
+        from pricebook.options.swaption_vol import SwaptionVolSurface
         svs = SwaptionVolSurface(
             date(2026, 4, 21),
             [date(2027, 4, 21), date(2028, 4, 21)],
@@ -230,32 +230,32 @@ class TestSwaptionVolBumped:
 
 class TestSABREdgeCases:
     def test_atm_vol_positive(self):
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         # Standard params
         v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, -0.3, 0.4)
         assert v > 0
 
     def test_beta_zero_normal(self):
         """β=0: normal SABR should give positive vol."""
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.0, -0.3, 0.4)
         assert v > 0
 
     def test_beta_one_lognormal(self):
         """β=1: lognormal SABR."""
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 1.0, -0.3, 0.4)
         assert v > 0
 
     def test_high_nu_no_crash(self):
         """High vol-of-vol should not crash."""
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         v = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, -0.3, 1.5)
         assert v > 0
 
     def test_extreme_rho_no_crash(self):
         """Near-extreme correlation should not crash."""
-        from pricebook.sabr import sabr_implied_vol
+        from pricebook.options.sabr import sabr_implied_vol
         v1 = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, -0.95, 0.4)
         v2 = sabr_implied_vol(0.04, 0.04, 1.0, 0.03, 0.5, 0.95, 0.4)
         assert v1 > 0
@@ -266,7 +266,7 @@ class TestSABREdgeCases:
 
 class TestHestonConvergence:
     def test_standard_params(self):
-        from pricebook.heston import heston_price
+        from pricebook.options.heston import heston_price
         # heston_price(spot, strike, rate, T, v0, kappa, theta, xi, rho)
         price = heston_price(100, 100, 0.04, 1.0, 0.04, 1.5, 0.04, 0.3, -0.7)
         assert price > 0
@@ -274,18 +274,18 @@ class TestHestonConvergence:
 
     def test_high_vol_of_vol(self):
         """High ξ should still converge."""
-        from pricebook.heston import heston_price
+        from pricebook.options.heston import heston_price
         price = heston_price(100, 100, 0.04, 1.0, 0.04, 1.5, 0.04, 1.0, -0.7)
         assert price > 0
 
     def test_near_zero_kappa(self):
         """Low mean reversion should still converge."""
-        from pricebook.heston import heston_price
+        from pricebook.options.heston import heston_price
         price = heston_price(100, 100, 0.04, 1.0, 0.04, 0.01, 0.04, 0.3, -0.7)
         assert price > 0
 
     def test_deep_otm(self):
         """Deep OTM option should be very small but positive."""
-        from pricebook.heston import heston_price
+        from pricebook.options.heston import heston_price
         price = heston_price(100, 200, 0.04, 1.0, 0.04, 1.5, 0.04, 0.3, -0.7)
         assert 0 <= price < 1.0

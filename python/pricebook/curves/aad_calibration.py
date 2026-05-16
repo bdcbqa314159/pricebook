@@ -36,7 +36,7 @@ def sabr_jacobian(
             - d_rho: list of d(vol)/d(rho) per strike
             - d_nu: list of d(vol)/d(nu) per strike
     """
-    from pricebook.sabr import sabr_implied_vol
+    from pricebook.options.sabr import sabr_implied_vol
 
     model_vols = []
     d_alpha_list = []
