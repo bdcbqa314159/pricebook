@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.curves.global_solver import global_bootstrap, coupled_bootstrap
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.swap import InterestRateSwap
+from pricebook.fixed_income.swap import InterestRateSwap
 
 
 REF = date(2024, 1, 15)

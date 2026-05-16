@@ -7,12 +7,12 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.csa import CSA
+from pricebook.fixed_income.csa import CSA
 from pricebook.discount_curve import DiscountCurve
-from pricebook.funding_curve import FundingCurve, CollateralisedPricer, CollateralisedResult
+from pricebook.fixed_income.funding_curve import FundingCurve, CollateralisedPricer, CollateralisedResult
 from pricebook.pricing_context import PricingContext
-from pricebook.rfr import SpreadCurve
-from pricebook.swap import InterestRateSwap
+from pricebook.fixed_income.rfr import SpreadCurve
+from pricebook.fixed_income.swap import InterestRateSwap
 
 
 REF = date(2026, 4, 27)

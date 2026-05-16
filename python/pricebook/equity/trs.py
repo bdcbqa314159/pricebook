@@ -278,7 +278,7 @@ class TotalReturnSwap:
             r_b=r_b, r_c=r_c, M_0=self.notional,
             margin_style=margin_style)
 
-        from pricebook.bond_forward import repo_financing_factor
+        from pricebook.fixed_income.bond_forward import repo_financing_factor
         repo_factor = repo_financing_factor(self.repo_spread, T)
 
         return TRSResult(
@@ -436,7 +436,7 @@ def price_equity_trs(trs, curve, projection_curve) -> TRSResult:
 
     All values in currency units (notional-scaled).
     """
-    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.fixed_income.bond_forward import repo_financing_factor
     from pricebook.equity.dividend_model import Dividend
 
     spot = float(trs.underlying)
@@ -491,7 +491,7 @@ def price_equity_trs(trs, curve, projection_curve) -> TRSResult:
 
 def price_bond_trs(trs, curve, projection_curve) -> TRSResult:
     """Bond TRS: Lou (2018) Eq (25) with haircut blending (Eq 19)."""
-    from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
+    from pricebook.fixed_income.bond_forward import repo_financing_factor, blended_repo_rate
 
     bond = trs.underlying
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
@@ -571,7 +571,7 @@ def price_loan_trs(trs, curve, projection_curve) -> TRSResult:
     - If initial_price provided: uses dealer mark instead of model price
     - Settlement cost uses compound interest (not linear)
     """
-    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.fixed_income.bond_forward import repo_financing_factor
 
     loan = trs.underlying
     proj = projection_curve or curve
@@ -655,7 +655,7 @@ def price_cln_trs(trs, curve, projection_curve) -> TRSResult:
     The TR receiver gets CLN price changes + coupon income.
     The TR payer finances at floating + spread.
     """
-    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.fixed_income.bond_forward import repo_financing_factor
 
     cln = trs.underlying
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
@@ -719,7 +719,7 @@ def price_commodity_trs(trs, curve, projection_curve) -> TRSResult:
     Performance = (forward / initial - 1) x notional.
     Funding = notional x (r + spread) x T x df.
     """
-    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.fixed_income.bond_forward import repo_financing_factor
 
     comm = trs.underlying  # CommodityUnderlying
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
@@ -775,7 +775,7 @@ def price_fx_trs(trs, curve, projection_curve) -> TRSResult:
     The projection_curve is the base-currency discount curve.
     The main curve is the quote-currency (funding) curve.
     """
-    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.fixed_income.bond_forward import repo_financing_factor
 
     fx = trs.underlying  # FXUnderlying
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
@@ -867,7 +867,7 @@ def price_multi_period(trs, curve, projection_curve) -> TRSResult:
         discount_factors=dfs, recovery=trs.recovery,
     )
 
-    from pricebook.bond_forward import repo_financing_factor
+    from pricebook.fixed_income.bond_forward import repo_financing_factor
     T = year_fraction(trs.start, trs.end, DayCountConvention.ACT_365_FIXED)
     repo_factor = repo_financing_factor(trs.repo_spread, T)
 

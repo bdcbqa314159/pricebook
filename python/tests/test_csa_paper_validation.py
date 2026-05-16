@@ -19,8 +19,8 @@ from dateutil.relativedelta import relativedelta
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.models.black76 import OptionType, black76_price
-from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.bond_forward import repo_financing_factor
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.bond_forward import repo_financing_factor
 
 
 REF = date(2024, 1, 15)

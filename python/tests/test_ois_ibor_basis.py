@@ -8,11 +8,11 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.ibor_curve import (
+from pricebook.fixed_income.ibor_curve import (
     bootstrap_ibor, EURIBOR_3M_CONVENTIONS,
 )
-from pricebook.ois_ibor_basis import OISIBORBasis
-from pricebook.rfr import SpreadCurve, bootstrap_spread_curve, IBORProjection
+from pricebook.fixed_income.ois_ibor_basis import OISIBORBasis
+from pricebook.fixed_income.rfr import SpreadCurve, bootstrap_spread_curve, IBORProjection
 from pricebook.schedule import Frequency
 
 REF = date(2026, 4, 27)

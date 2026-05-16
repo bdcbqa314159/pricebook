@@ -26,7 +26,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.day_count import DayCountConvention, year_fraction

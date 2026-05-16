@@ -7,7 +7,7 @@ from pricebook.desks.bond_desk import (
     fit_curve_from_bonds, bond_rich_cheap,
     repo_carry, securities_lending_fee,
 )
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.discount_curve import DiscountCurve
 
 

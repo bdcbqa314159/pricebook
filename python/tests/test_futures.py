@@ -4,7 +4,7 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.futures import (
+from pricebook.fixed_income.futures import (
     EquityFuture, CommodityFuture,
     contango_or_backwardation, roll_yield,
     calendar_spread, futures_strip_curve, implied_convenience_yield,

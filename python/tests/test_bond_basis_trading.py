@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.bond_basis_trading import (
+from pricebook.fixed_income.bond_basis_trading import (
     CTDScenario,
     DeliveryOptionValue,
     SwitchTrade,
@@ -12,7 +12,7 @@ from pricebook.bond_basis_trading import (
     ctd_switch_scenarios,
     delivery_option_value,
 )
-from pricebook.govt_bond_trading import basis_decomposition
+from pricebook.fixed_income.govt_bond_trading import basis_decomposition
 
 
 BONDS = [

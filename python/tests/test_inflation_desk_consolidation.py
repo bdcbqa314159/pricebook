@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.inflation import (
+from pricebook.fixed_income.inflation import (
     CPICurve, InflationLinkedBond, ZCInflationSwap, YoYInflationSwap,
     zc_inflation_swap_pv, yoy_inflation_swap_pv,
 )

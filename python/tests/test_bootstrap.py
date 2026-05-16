@@ -5,8 +5,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.deposit import Deposit
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.deposit import Deposit
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 

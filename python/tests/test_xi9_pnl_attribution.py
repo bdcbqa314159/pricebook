@@ -20,7 +20,7 @@ from pricebook.curves.bootstrap import bootstrap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.risk.pnl_explain import greek_pnl, pnl_decompose, compute_carry
 from pricebook.schedule import Frequency
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 # ---- Helpers ----

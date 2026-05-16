@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 # ---- Relative value ----

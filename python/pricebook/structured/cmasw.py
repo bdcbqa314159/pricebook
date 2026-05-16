@@ -140,7 +140,7 @@ class CMASWInstrument:
         """Price the CMASW-let using a discount curve."""
         import math
         from pricebook.day_count import year_fraction, DayCountConvention
-        from pricebook.par_asset_swap import forward_asw_spread
+        from pricebook.fixed_income.par_asset_swap import forward_asw_spread
 
         T0 = year_fraction(curve.reference_date, self.fixing_date,
                            DayCountConvention.ACT_365_FIXED)

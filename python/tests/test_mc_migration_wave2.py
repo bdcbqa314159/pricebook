@@ -126,7 +126,7 @@ class TestIRExoticMigration:
 
 class TestJarrowYildirimMigration:
     def test_jy_simulate_via_engine(self):
-        from pricebook.jarrow_yildirim import jy_simulate_via_engine
+        from pricebook.fixed_income.jarrow_yildirim import jy_simulate_via_engine
         assert callable(jy_simulate_via_engine)
 
 

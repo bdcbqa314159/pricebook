@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.funded import Repo, ReverseRepo, RepoFinancedPosition
+from pricebook.fixed_income.funded import Repo, ReverseRepo, RepoFinancedPosition
 from tests.conftest import make_flat_curve
 
 

@@ -20,11 +20,11 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.ibor_curve import IBORCurve, IBORConventions, bootstrap_ibor
-from pricebook.ibor_curve import EURIBOR_3M_CONVENTIONS, EURIBOR_6M_CONVENTIONS
-from pricebook.ois import bootstrap_ois
+from pricebook.fixed_income.ibor_curve import IBORCurve, IBORConventions, bootstrap_ibor
+from pricebook.fixed_income.ibor_curve import EURIBOR_3M_CONVENTIONS, EURIBOR_6M_CONVENTIONS
+from pricebook.fixed_income.ois import bootstrap_ois
 from pricebook.pricing_context import PricingContext
-from pricebook.tenor_basis import TenorBasis, bootstrap_tenor_basis
+from pricebook.fixed_income.tenor_basis import TenorBasis, bootstrap_tenor_basis
 
 
 @dataclass

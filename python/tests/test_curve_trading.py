@@ -7,7 +7,7 @@ from pricebook.curves.curve_trading import (
     swap_dv01, spread_trade, butterfly_trade,
     swap_carry, breakeven_rate_move,
 )
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.discount_curve import DiscountCurve
 
 

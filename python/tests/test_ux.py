@@ -114,7 +114,7 @@ class TestLoadTrade:
 
 class TestFromJson:
     def test_roundtrip_instrument(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(REF, date(2029, 1, 15), 0.05)
         j = to_json(swap)
         swap2 = from_json(j)

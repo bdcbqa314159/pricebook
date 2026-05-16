@@ -4,12 +4,12 @@ import math
 import pytest
 from datetime import date
 
-from pricebook.zc_swap import (
+from pricebook.fixed_income.zc_swap import (
     ZeroCouponSwap, digital_capfloor, digital_cms_cap,
 )
 from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 REF = date(2024, 1, 15)

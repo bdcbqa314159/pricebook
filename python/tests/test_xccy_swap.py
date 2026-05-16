@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.xccy_swap import CrossCurrencySwap
+from pricebook.fixed_income.xccy_swap import CrossCurrencySwap
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
 

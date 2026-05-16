@@ -94,7 +94,7 @@ class TestTrades:
         assert raw["instrument"]["type"] == "irs"
 
     def test_save_trade_with_to_dict(self, db):
-        from pricebook.deposit import Deposit
+        from pricebook.fixed_income.deposit import Deposit
         dep = Deposit(date(2026, 1, 1), date(2026, 7, 1), 0.05, 1e6)
         db.save_trade("dep_001", dep, book="mm")
         raw = db.load_trade_raw("dep_001")
@@ -367,7 +367,7 @@ class TestDeleteRows:
 class TestTradeReconstruction:
 
     def test_load_trade_reconstructs_instrument(self, db):
-        from pricebook.deposit import Deposit
+        from pricebook.fixed_income.deposit import Deposit
         dep = Deposit(date(2026, 1, 1), date(2026, 7, 1), 0.05, 1e6)
         db.save_trade("dep_001", dep)
         loaded = db.load_trade("dep_001")

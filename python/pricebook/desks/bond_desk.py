@@ -14,7 +14,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.solvers import brentq
@@ -85,7 +85,7 @@ def fit_curve_from_bonds(
 
         # Z-spread (may fail to converge for distressed bonds)
         try:
-            from pricebook.risky_bond import z_spread as _zs, RiskyBond
+            from pricebook.fixed_income.risky_bond import z_spread as _zs, RiskyBond
             rb = RiskyBond(bond.issue_date, bond.maturity, bond.coupon_rate,
                           bond.face_value, bond.frequency, bond.day_count)
             zs = _zs(rb, mkt_price, fitted_curve)

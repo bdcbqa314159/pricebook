@@ -51,7 +51,7 @@ def plot_price_vs_rho(ax, instrument, curve, *, theme=None, n_rhos=20, **kwargs)
 
 def plot_cash_annuity(ax, instrument, curve, *, theme=None, **kwargs):
     """Cash annuity Â(S) as function of swap rate."""
-    from pricebook.cash_settlement import cash_annuity
+    from pricebook.fixed_income.cash_settlement import cash_annuity
 
     n = instrument.swap_tenor * instrument.frequency
     dt = 1.0 / instrument.frequency

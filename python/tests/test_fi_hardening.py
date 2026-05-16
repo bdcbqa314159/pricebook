@@ -4,14 +4,14 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.calendar import USSettlementCalendar
 from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.fixed_leg import FixedLeg
-from pricebook.fra import FRA
+from pricebook.fixed_income.fixed_leg import FixedLeg
+from pricebook.fixed_income.fra import FRA
 from pricebook.schedule import Frequency, generate_schedule
-from pricebook.swap import InterestRateSwap
-from pricebook.xccy_swap import CrossCurrencySwap
+from pricebook.fixed_income.swap import InterestRateSwap
+from pricebook.fixed_income.xccy_swap import CrossCurrencySwap
 from tests.conftest import make_flat_curve
 
 

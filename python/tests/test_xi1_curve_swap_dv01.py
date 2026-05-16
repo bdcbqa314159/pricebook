@@ -22,7 +22,7 @@ from pricebook.curves.bootstrap import bootstrap
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 # ---- Helpers ----

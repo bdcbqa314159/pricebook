@@ -1,6 +1,6 @@
 """Tests for inflation carry."""
 import pytest
-from pricebook.inflation_carry import real_yield_rolldown, linker_carry_decomposition, inflation_carry_vs_vol
+from pricebook.fixed_income.inflation_carry import real_yield_rolldown, linker_carry_decomposition, inflation_carry_vs_vol
 
 class TestRealYieldRolldown:
     def test_positive_rolldown(self):

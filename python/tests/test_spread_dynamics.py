@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.rfr import StochasticBasis
+from pricebook.fixed_income.rfr import StochasticBasis
 from pricebook.commodity.spread_dynamics import (
     fva_with_spread_dynamics,
     xva_with_spread_dynamics,

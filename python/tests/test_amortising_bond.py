@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.amortising_bond import (
+from pricebook.fixed_income.amortising_bond import (
     AmortisingBond,
     AmortisingBondResult,
     PrepaymentBondResult,

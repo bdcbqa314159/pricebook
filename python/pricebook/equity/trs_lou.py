@@ -24,7 +24,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pricebook.bond_forward import repo_financing_factor, blended_repo_rate
+from pricebook.fixed_income.bond_forward import repo_financing_factor, blended_repo_rate
 
 
 # ---- Result dataclasses ----

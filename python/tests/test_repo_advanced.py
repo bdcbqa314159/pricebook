@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.repo_advanced import (
+from pricebook.fixed_income.repo_advanced import (
     FinancingPlan,
     HaircutCurve,
     RepoCounterparty,

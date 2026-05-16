@@ -4,7 +4,7 @@ import pytest
 from datetime import date
 
 from pricebook.day_count import DayCountConvention
-from pricebook.deposit import Deposit
+from pricebook.fixed_income.deposit import Deposit
 
 
 class TestDeposit:

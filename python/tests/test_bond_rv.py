@@ -2,7 +2,7 @@
 
 import pytest
 
-from pricebook.bond_rv import (
+from pricebook.fixed_income.bond_rv import (
     CrossMarketRV,
     CrossoverSignal,
     CreditSpreadCurveTrade,

@@ -319,7 +319,7 @@ class TestPVAccuracy:
 
     def test_irs_matches_direct(self):
         """PV from engine matches direct InterestRateSwap.pv()."""
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
 
         end = REF + timedelta(days=1825)  # 2031-04-27
         curve = DiscountCurve.flat(REF, 0.03)

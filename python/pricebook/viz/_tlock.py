@@ -9,7 +9,7 @@ from pricebook.viz._dispatch import register_instrument, register_panels
 
 def plot_payoff(ax, instrument, curve, *, theme=None, **kwargs):
     """T-Lock payoff vs yield with overhedge comparison."""
-    from pricebook.bond_yield import bond_price_from_yield, bond_risk_factor
+    from pricebook.fixed_income.bond_yield import bond_price_from_yield, bond_risk_factor
 
     alphas, times, T_mat = instrument.bond.accrual_schedule(instrument.expiry)
     L = instrument.locked_yield
@@ -33,7 +33,7 @@ def plot_payoff(ax, instrument, curve, *, theme=None, **kwargs):
 
 def plot_greeks(ax, instrument, curve, *, theme=None, **kwargs):
     """Delta and gamma profiles vs yield."""
-    from pricebook.treasury_lock import tlock_delta, tlock_gamma
+    from pricebook.fixed_income.treasury_lock import tlock_delta, tlock_gamma
 
     alphas, times, T_mat = instrument.bond.accrual_schedule(instrument.expiry)
     L = instrument.locked_yield
@@ -56,8 +56,8 @@ def plot_greeks(ax, instrument, curve, *, theme=None, **kwargs):
 def plot_repo_sensitivity(ax, instrument, curve, *, theme=None, **kwargs):
     """PV sensitivity to repo rate."""
     import math
-    from pricebook.bond_yield import bond_price_from_yield
-    from pricebook.bond_forward import forward_price_repo
+    from pricebook.fixed_income.bond_yield import bond_price_from_yield
+    from pricebook.fixed_income.bond_forward import forward_price_repo
 
     alphas, _, _ = instrument.bond.accrual_schedule(instrument.expiry)
     from pricebook.day_count import year_fraction, DayCountConvention
@@ -83,7 +83,7 @@ def plot_roll_surface(ax, instrument, curve, *, theme=None,
                       dc_range=(-0.01, 0.01), dR_range=(-0.005, 0.005),
                       n_grid=40, **kwargs):
     """Roll P&L contour surface."""
-    from pricebook.treasury_lock import roll_pnl
+    from pricebook.fixed_income.treasury_lock import roll_pnl
 
     alphas, times, T_mat = instrument.bond.accrual_schedule(instrument.expiry)
     L = instrument.locked_yield
@@ -121,7 +121,7 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 
 def _register():
-    from pricebook.treasury_lock import TreasuryLock
+    from pricebook.fixed_income.treasury_lock import TreasuryLock
     register_instrument(TreasuryLock)(_default_dashboard)
     register_panels(TreasuryLock, {
         "payoff": plot_payoff,

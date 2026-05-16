@@ -5,7 +5,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.ir_futures import (
+from pricebook.fixed_income.ir_futures import (
     IRFuture,
     FuturesType,
     hw_convexity_adjustment,

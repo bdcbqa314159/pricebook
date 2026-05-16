@@ -47,7 +47,7 @@ class TestCallableBondAnalytics:
         # Callable bond effective duration should be less than straight bond
         # (call caps upside, shortens effective maturity)
         from pricebook.desks.bond_trading_desk import bond_risk_metrics
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         straight = FixedRateBond(REF - relativedelta(months=6),
                                   REF + relativedelta(years=10), 0.05)
         rm = bond_risk_metrics(straight, curve)

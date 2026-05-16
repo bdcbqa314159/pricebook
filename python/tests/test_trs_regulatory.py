@@ -47,7 +47,7 @@ class TestTRSSACCR:
     def test_bond_trs_ead(self):
         """Bond TRS defaults to CR_BBB."""
         curve = _curve()
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         bond = FixedRateBond(
             face_value=100, coupon_rate=0.05,
             maturity=REF + timedelta(days=3650),
@@ -113,7 +113,7 @@ class TestTRSSIMM:
     def test_bond_trs_simm(self):
         """Bond TRS should produce GIRR + CSR sensitivities."""
         curve = _curve()
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         bond = FixedRateBond(
             face_value=100, coupon_rate=0.05,
             maturity=REF + timedelta(days=3650),

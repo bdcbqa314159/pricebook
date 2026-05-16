@@ -97,7 +97,7 @@ def _default_dashboard(instrument, curve, *, figsize=None, theme=None, **kwargs)
 
 
 def _register():
-    from pricebook.treasury_lock import TreasuryLock
+    from pricebook.fixed_income.treasury_lock import TreasuryLock
 
     register_instrument(TreasuryLock)(_default_dashboard)
     register_panels(TreasuryLock, {

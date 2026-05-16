@@ -1,6 +1,6 @@
 """Tests for inflation basis."""
 import pytest
-from pricebook.inflation_basis import zc_yoy_basis, cross_market_inflation_basis, inflation_basis_trade
+from pricebook.fixed_income.inflation_basis import zc_yoy_basis, cross_market_inflation_basis, inflation_basis_trade
 
 class TestZCYoYBasis:
     def test_basic(self):

@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.desks.swap_desk import (
     swap_risk_metrics, SwapRiskMetrics,
     SwapBook, SwapBookEntry,

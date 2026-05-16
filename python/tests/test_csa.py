@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.csa import (
+from pricebook.fixed_income.csa import (
     CSA,
     CollateralType,
     MarginFrequency,

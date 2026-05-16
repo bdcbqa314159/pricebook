@@ -3,7 +3,7 @@
 from datetime import date
 
 from pricebook.day_count import DayCountConvention, year_fraction
-from pricebook.deposit import Deposit
+from pricebook.fixed_income.deposit import Deposit
 from pricebook.discount_curve import DiscountCurve
 from pricebook.interpolation import InterpolationMethod
 from pricebook.schedule import Frequency, StubType, generate_schedule

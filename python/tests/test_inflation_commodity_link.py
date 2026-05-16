@@ -1,6 +1,6 @@
 """Tests for inflation-commodity link."""
 import math, numpy as np, pytest
-from pricebook.inflation_commodity_link import oil_breakeven_regression, commodity_inflation_hybrid
+from pricebook.fixed_income.inflation_commodity_link import oil_breakeven_regression, commodity_inflation_hybrid
 
 class TestOilBreakevenRegression:
     def test_basic(self):

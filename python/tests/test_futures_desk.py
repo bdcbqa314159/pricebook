@@ -18,8 +18,8 @@ from pricebook.desks.futures_desk import (
     futures_hedge_recommendations,
     FuturesLifecycle,
 )
-from pricebook.futures import EquityFuture
-from pricebook.ir_futures import IRFuture, FuturesType
+from pricebook.fixed_income.futures import EquityFuture
+from pricebook.fixed_income.ir_futures import IRFuture, FuturesType
 from tests.conftest import make_flat_curve
 
 

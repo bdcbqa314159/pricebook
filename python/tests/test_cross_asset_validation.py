@@ -34,7 +34,7 @@ def _usd_curves():
 class TestIRSwapRoundTrip:
     def test_swap_pv_zero_at_par(self):
         """A swap at the par rate should have PV ≈ 0."""
-        from pricebook.swap import InterestRateSwap, SwapDirection
+        from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
         from pricebook.schedule import Frequency, generate_schedule, StubType
 
         curves = _usd_curves()
@@ -57,7 +57,7 @@ class TestIRSwapRoundTrip:
 
     def test_dv01_positive_for_receiver(self):
         """Receiver swap (receive fixed) has positive DV01."""
-        from pricebook.swap import InterestRateSwap, SwapDirection
+        from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
         curves = _usd_curves()
         swap = InterestRateSwap(
             start=curves.reference_date, end=date(2031, 4, 21),
@@ -74,7 +74,7 @@ class TestIRSwapRoundTrip:
 class TestBondConsistency:
     def test_dirty_equals_clean_plus_accrued(self):
         """Fundamental bond identity: dirty = clean + accrued."""
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         ref = date(2026, 4, 21)
         bond = FixedRateBond(
             issue_date=date(2021, 4, 21),
@@ -89,7 +89,7 @@ class TestBondConsistency:
 
     def test_ytm_consistency(self):
         """YTM should be close to the zero rate for a par bond."""
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         ref = date(2026, 4, 21)
         bond = FixedRateBond(
             issue_date=date(2021, 4, 21),

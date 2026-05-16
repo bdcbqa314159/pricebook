@@ -9,12 +9,12 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.floating_leg import FloatingLeg
+from pricebook.fixed_income.floating_leg import FloatingLeg
 from pricebook.schedule import Frequency
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.risky_floating import risky_floating_pv, CreditRiskyFRN
-from pricebook.cra_curve import CRADiscountCurve
-from pricebook.risky_floating_mc import price_risky_frn_mc
+from pricebook.fixed_income.risky_floating import risky_floating_pv, CreditRiskyFRN
+from pricebook.fixed_income.cra_curve import CRADiscountCurve
+from pricebook.fixed_income.risky_floating_mc import price_risky_frn_mc
 from pricebook.serialisable import from_dict
 
 REF = date(2026, 4, 28)

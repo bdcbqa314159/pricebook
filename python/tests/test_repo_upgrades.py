@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.repo_triparty import (
+from pricebook.fixed_income.repo_triparty import (
     TriPartyAgent, EligibilitySchedule, EligibilityRule,
     TriPartyRepo, CollateralAllocation, allocate_collateral,
 )
@@ -19,7 +19,7 @@ from pricebook.desks.repo_desk import (
     repo_key_rate_dv01,
     regulatory_haircut, BASEL_HAIRCUT_FLOORS,
 )
-from pricebook.repo_term import RepoCurve, RepoRate
+from pricebook.fixed_income.repo_term import RepoCurve, RepoRate
 from tests.conftest import make_flat_curve
 
 

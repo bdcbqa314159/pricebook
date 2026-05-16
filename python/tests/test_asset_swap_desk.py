@@ -7,9 +7,9 @@ from datetime import date
 
 import pytest
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.discount_curve import DiscountCurve
-from pricebook.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
+from pricebook.fixed_income.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
 from pricebook.desks.asset_swap_desk import (
     asw_risk_metrics, ASWRiskMetrics,
     ASWBook, ASWBookEntry,

@@ -201,7 +201,7 @@ class TestCommodity:
 
 class TestInflation:
     def test_breakeven(self):
-        from pricebook.inflation import CPICurve
+        from pricebook.fixed_income.inflation import CPICurve
         cpi = CPICurve.from_breakevens(REF, 300.0,
                                        [date(2031, 4, 21)], [0.025])
         be = pb.inflation_breakeven("5Y", cpi, REF)

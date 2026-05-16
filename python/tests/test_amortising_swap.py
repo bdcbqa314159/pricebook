@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.swap import InterestRateSwap
+from pricebook.fixed_income.swap import InterestRateSwap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
 

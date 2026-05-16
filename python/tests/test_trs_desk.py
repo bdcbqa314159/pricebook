@@ -24,7 +24,7 @@ from pricebook.desks.trs_desk import (
     trs_collateral_evolution, CollateralState,
 )
 from pricebook.pricing_context import PricingContext
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
 

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.sovereign_bond import (
+from pricebook.fixed_income.sovereign_bond import (
     AuctionResult,
     CrossCountryRV,
     OTROFRResult,

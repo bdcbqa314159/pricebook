@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 from pricebook.desks.cross_asset_desk import (
     CrossAssetDesk, CrossAssetDashboard, DeskRiskSummary,
 )
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.desks.swap_desk import SwapBook, SwapBookEntry
 from pricebook.cds import CDS
 from pricebook.desks.cds_desk import CDSBook, CDSBookEntry, CDSProductType

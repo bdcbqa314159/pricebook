@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pytest
-from pricebook.inflation_bond_advanced import (
+from pricebook.fixed_income.inflation_bond_advanced import (
     real_yield_curve_bootstrap, breakeven_trade, seasonality_adjusted_breakeven,
     linker_asw, deflation_floor_value,
 )

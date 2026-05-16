@@ -5,7 +5,7 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.futures_bootstrap import futures_strip
+from pricebook.fixed_income.futures_bootstrap import futures_strip
 from pricebook.discount_curve import DiscountCurve
 
 
@@ -88,7 +88,7 @@ class TestFuturesStrip:
         """Swap portion should reprice at par."""
         curve = futures_strip(REF, _make_deposits(), _make_futures(), _make_swaps())
         # The 5Y swap should have par rate close to input
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(REF, REF + relativedelta(years=5), 0.047)
         par = swap.par_rate(curve)
         assert par == pytest.approx(0.047, abs=0.003)

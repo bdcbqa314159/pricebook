@@ -8,13 +8,13 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
-from pricebook.bond_forward import BondForward
-from pricebook.treasury_lock import TreasuryLock, tlock_portfolio_risk, tlock_pnl_attribution
-from pricebook.tbill import TreasuryBill
-from pricebook.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
-from pricebook.repo_term import RepoCurve, RepoRate
-from pricebook.funded import Repo, ReverseRepo, RepoFinancedPosition
+from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.bond_forward import BondForward
+from pricebook.fixed_income.treasury_lock import TreasuryLock, tlock_portfolio_risk, tlock_pnl_attribution
+from pricebook.fixed_income.tbill import TreasuryBill
+from pricebook.fixed_income.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
+from pricebook.fixed_income.repo_term import RepoCurve, RepoRate
+from pricebook.fixed_income.funded import Repo, ReverseRepo, RepoFinancedPosition
 from pricebook.schedule import Frequency
 from pricebook.serialisable import from_dict
 from tests.conftest import make_flat_curve

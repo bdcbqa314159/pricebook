@@ -3,11 +3,11 @@
 import pytest
 from datetime import date
 
-from pricebook.bond_futures import (
+from pricebook.fixed_income.bond_futures import (
     conversion_factor, DeliverableBond, cheapest_to_deliver,
     implied_repo_rate, bond_futures_basis,
 )
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 
 
 REF = date(2024, 1, 15)

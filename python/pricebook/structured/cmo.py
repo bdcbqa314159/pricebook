@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from pricebook.amortising_bond import cpr_to_smm, psa_schedule
+from pricebook.fixed_income.amortising_bond import cpr_to_smm, psa_schedule
 
 
 @dataclass

@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from pricebook.basis_trade import (
+from pricebook.fixed_income.basis_trade import (
     cds_bond_basis, negative_basis_trade, positive_basis_trade,
     basis_monitor,
 )
 from pricebook.cds import CDS
-from pricebook.risky_bond import RiskyBond
+from pricebook.fixed_income.risky_bond import RiskyBond
 from pricebook.discount_curve import DiscountCurve
 from pricebook.survival_curve import SurvivalCurve
 

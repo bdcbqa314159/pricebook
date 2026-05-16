@@ -20,7 +20,7 @@ from pricebook.equity.trs_xva import (
     trs_hybrid_mc_xva,
     trs_wrong_way_cva,
 )
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.pricing_context import PricingContext
 from tests.conftest import make_flat_curve
@@ -316,7 +316,7 @@ class TestMCXVA:
 
     def test_mc_cva_bond_rate_sensitive(self):
         """Bond TRS has rate-driven exposure — CVA or DVA should be nonzero."""
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         bond = FixedRateBond.treasury_note(date(2024, 2, 15), date(2034, 2, 15), 0.04125)
         trs = TotalReturnSwap(
             underlying=bond, notional=10_000_000,

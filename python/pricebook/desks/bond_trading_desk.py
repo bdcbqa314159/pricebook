@@ -25,7 +25,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.discount_curve import DiscountCurve
 from pricebook.day_count import DayCountConvention, year_fraction
 

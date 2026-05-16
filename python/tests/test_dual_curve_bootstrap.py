@@ -5,9 +5,9 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.curves.bootstrap import bootstrap_forward_curve
-from pricebook.ois import bootstrap_ois, OISSwap
-from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.fra import FRA
+from pricebook.fixed_income.ois import bootstrap_ois, OISSwap
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.fra import FRA
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 

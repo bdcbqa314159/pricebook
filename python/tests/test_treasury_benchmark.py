@@ -7,18 +7,18 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.schedule import Frequency
-from pricebook.treasury_benchmark import (
+from pricebook.fixed_income.treasury_benchmark import (
     TreasuryBenchmark, AUCTION_SCHEDULE, TLOCK_TENORS,
     create_benchmark_set, when_issued_bond,
     SpecialnessProfile, ctd_switch_analysis,
 )
-from pricebook.govt_bond_trading import (
+from pricebook.fixed_income.govt_bond_trading import (
     otr_ofr_spread, when_issued_price, auction_analytics,
     basis_decomposition, ctd_switch_monitor,
 )
-from pricebook.bond_futures import bond_futures_basis
+from pricebook.fixed_income.bond_futures import bond_futures_basis
 
 
 REF = date(2024, 7, 15)

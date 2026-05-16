@@ -8,8 +8,8 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
-from pricebook.par_asset_swap import (
+from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.par_asset_swap import (
     ParAssetSwap, ProceedsAssetSwap,
     asw_vs_zspread, SpreadComparison,
 )

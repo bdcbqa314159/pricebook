@@ -9,7 +9,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.cds import CDS, bootstrap_credit_curve
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.day_count import DayCountConvention
 from pricebook.schedule import Frequency

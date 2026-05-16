@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 import math
 import pytest
-from pricebook.treasury_quoting import (
+from pricebook.fixed_income.treasury_quoting import (
     to_32nds, from_32nds, tick_value, tick_value_half,
     TreasuryReopen, delivery_option_value,
 )

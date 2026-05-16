@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.funded import Repo, TotalReturnSwap, FundedParticipation
+from pricebook.fixed_income.funded import Repo, TotalReturnSwap, FundedParticipation
 from tests.conftest import make_flat_curve
 
 

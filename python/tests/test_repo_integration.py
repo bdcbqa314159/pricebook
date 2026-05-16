@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.repo_term import (
+from pricebook.fixed_income.repo_term import (
     RepoCurve, RepoRate, forward_repo_rate,
     repo_ois_basis, term_repo_carry,
 )

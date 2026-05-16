@@ -9,14 +9,14 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
-from pricebook.bond_futures import conversion_factor, implied_repo_rate, bond_futures_basis
-from pricebook.callable_bond import callable_bond_price, puttable_bond_price
-from pricebook.risky_bond import RiskyBond
-from pricebook.zc_swap import ZeroCouponSwap
+from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.bond_futures import conversion_factor, implied_repo_rate, bond_futures_basis
+from pricebook.fixed_income.callable_bond import callable_bond_price, puttable_bond_price
+from pricebook.fixed_income.risky_bond import RiskyBond
+from pricebook.fixed_income.zc_swap import ZeroCouponSwap
 from pricebook.day_count import DayCountConvention
 from pricebook.schedule import Frequency
-from pricebook.swap import SwapDirection
+from pricebook.fixed_income.swap import SwapDirection
 from tests.conftest import make_flat_curve
 
 

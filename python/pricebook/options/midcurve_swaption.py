@@ -26,7 +26,7 @@ from pricebook.models.black76 import black76_price, black76_delta, black76_vega,
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, generate_schedule
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 @dataclass

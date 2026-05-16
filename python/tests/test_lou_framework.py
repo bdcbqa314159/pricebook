@@ -16,7 +16,7 @@ from pricebook.risk.xva import (
     implied_repo_rate_from_gap,
     TotalXVAResult,
 )
-from pricebook.csa import (
+from pricebook.fixed_income.csa import (
     non_cash_collateral_discount_rate,
     NonCashCollateralAsset,
 )

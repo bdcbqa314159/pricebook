@@ -122,7 +122,7 @@ class TestPricingContextSerialization:
 
 class TestSwapSerialization:
     def test_roundtrip(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(date(2024, 1, 15), date(2029, 1, 15), 0.05)
         d = instrument_to_dict(swap)
         swap2 = instrument_from_dict(d)
@@ -130,7 +130,7 @@ class TestSwapSerialization:
         assert swap2.pv(curve) == pytest.approx(swap.pv(curve), rel=1e-10)
 
     def test_type_field(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(date(2024, 1, 15), date(2029, 1, 15), 0.05)
         d = instrument_to_dict(swap)
         assert d["type"] == "irs"
@@ -138,7 +138,7 @@ class TestSwapSerialization:
 
 class TestBondSerialization:
     def test_roundtrip(self):
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         bond = FixedRateBond(date(2020, 1, 15), date(2030, 1, 15), 0.04)
         d = instrument_to_dict(bond)
         bond2 = instrument_from_dict(d)
@@ -160,7 +160,7 @@ class TestCDSSerialization:
 
 class TestFRASerialization:
     def test_roundtrip(self):
-        from pricebook.fra import FRA
+        from pricebook.fixed_income.fra import FRA
         fra = FRA(date(2024, 7, 15), date(2024, 10, 15), 0.05)
         d = instrument_to_dict(fra)
         fra2 = instrument_from_dict(d)
@@ -184,7 +184,7 @@ class TestSwaptionSerialization:
 
 class TestTradeSerialization:
     def test_roundtrip(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(date(2024, 1, 15), date(2029, 1, 15), 0.05)
         trade = Trade(swap, direction=1, notional_scale=2.0,
                       trade_id="t1", counterparty="ACME",
@@ -199,7 +199,7 @@ class TestTradeSerialization:
 
 class TestPortfolioSerialization:
     def test_roundtrip(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         from pricebook.cds import CDS
         swap = InterestRateSwap(date(2024, 1, 15), date(2029, 1, 15), 0.05)
         cds = CDS(date(2024, 1, 15), date(2029, 1, 15), 0.01)
@@ -213,7 +213,7 @@ class TestPortfolioSerialization:
         assert len(port2.trades) == 2
 
     def test_json_roundtrip(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(date(2024, 1, 15), date(2029, 1, 15), 0.05)
         port = Portfolio([Trade(swap, trade_id="s1")], name="book")
         j = to_json(port)

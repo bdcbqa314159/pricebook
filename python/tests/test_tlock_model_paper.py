@@ -11,12 +11,12 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
-from pricebook.treasury_lock import (
+from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.treasury_lock import (
     TreasuryLock, bond_forward_clean, tlock_clean_price_npv,
     tlock_yield_npv, tlock_dirty_price_npv, pv01_forward,
 )
-from pricebook.bond_yield import bond_irr, bond_price_from_yield, bond_risk_factor
+from pricebook.fixed_income.bond_yield import bond_irr, bond_price_from_yield, bond_risk_factor
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve

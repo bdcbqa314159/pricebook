@@ -18,7 +18,7 @@ from pricebook.structured.cmasw import (
     cmasw_convexity_correction,
     cmasw_cc_lognormal,
 )
-from pricebook.par_asset_swap import forward_asw_spread
+from pricebook.fixed_income.par_asset_swap import forward_asw_spread
 
 
 # ---- Standard test parameters (paper Section 6) ----

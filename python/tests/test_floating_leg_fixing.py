@@ -8,7 +8,7 @@ from pricebook.calendar import USSettlementCalendar
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.fixings import FixingsStore
-from pricebook.floating_leg import FloatingCashflow, FloatingLeg
+from pricebook.fixed_income.floating_leg import FloatingCashflow, FloatingLeg
 from pricebook.rate_index import (
     CompoundingMethod, RateIndex, get_rate_index, all_rate_indices,
     overnight_indices, indices_for_currency,
@@ -697,7 +697,7 @@ class TestForwardRateObservation:
 class TestConsumerAPIPassthrough:
     def test_swap_payment_delay(self):
         """InterestRateSwap passes payment_delay to FloatingLeg."""
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(
             date(2026, 4, 21), date(2031, 4, 21), fixed_rate=0.04,
             payment_delay_days=2, observation_shift_days=2,
@@ -708,7 +708,7 @@ class TestConsumerAPIPassthrough:
 
     def test_frn_observation_shift(self):
         """FloatingRateNote passes observation_shift to FloatingLeg."""
-        from pricebook.frn import FloatingRateNote
+        from pricebook.fixed_income.frn import FloatingRateNote
         frn = FloatingRateNote(
             date(2026, 4, 21), date(2031, 4, 21), spread=0.005,
             observation_shift_days=2,
@@ -718,7 +718,7 @@ class TestConsumerAPIPassthrough:
 
     def test_basis_swap_both_legs(self):
         """BasisSwap passes params to both legs."""
-        from pricebook.basis_swap import BasisSwap
+        from pricebook.fixed_income.basis_swap import BasisSwap
         swap = BasisSwap(
             date(2026, 4, 21), date(2031, 4, 21), spread=0.001,
             payment_delay_days=2, observation_shift_days=2,
@@ -730,7 +730,7 @@ class TestConsumerAPIPassthrough:
 
     def test_swap_backward_compat(self):
         """Without new params, swap works exactly as before."""
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         swap = InterestRateSwap(
             date(2026, 4, 21), date(2031, 4, 21), fixed_rate=0.04,
         )
@@ -744,7 +744,7 @@ class TestConsumerAPIPassthrough:
 class TestThrowawayPreservesSettings:
     def test_basis_swap_par_spread_preserves_delay(self):
         """BasisSwap.par_spread() throwaway leg preserves payment_delay."""
-        from pricebook.basis_swap import BasisSwap
+        from pricebook.fixed_income.basis_swap import BasisSwap
         ref = date(2026, 4, 21)
         curve = _flat_curve(ref, rate=0.04)
         proj1 = _flat_curve(ref, rate=0.042)
@@ -760,7 +760,7 @@ class TestThrowawayPreservesSettings:
 
     def test_frn_discount_margin_preserves_shift(self):
         """FRN.discount_margin() throwaway FRN preserves observation_shift."""
-        from pricebook.frn import FloatingRateNote
+        from pricebook.fixed_income.frn import FloatingRateNote
         ref = date(2026, 4, 21)
         curve = _flat_curve(ref, rate=0.04)
 

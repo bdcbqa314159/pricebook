@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from pricebook.bond import ytm_cmt_bridge
+from pricebook.fixed_income.bond import ytm_cmt_bridge
 from pricebook.structured.cms import (
     cra_discount, risky_annuity, risky_swap_rate,
     linear_swap_rate_calibrate,

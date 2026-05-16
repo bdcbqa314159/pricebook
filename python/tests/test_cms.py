@@ -11,7 +11,7 @@ from pricebook.structured.cms import (
 from pricebook.models.black76 import OptionType
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 REF = date(2024, 1, 15)
@@ -167,7 +167,7 @@ class TestRangeAccrual:
             curve, 0.20,
         )
         # Compare to a simple fixed coupon stream
-        from pricebook.fixed_leg import FixedLeg
+        from pricebook.fixed_income.fixed_leg import FixedLeg
         fixed = FixedLeg(REF, date(2029, 1, 15), 0.05, Frequency.QUARTERLY,
                          notional=1_000_000)
         fixed_pv = fixed.pv(curve)

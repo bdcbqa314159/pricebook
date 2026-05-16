@@ -7,7 +7,7 @@ from datetime import date
 from pricebook.day_count import DayCountConvention
 from pricebook.interpolation import InterpolationMethod
 from pricebook.discount_curve import DiscountCurve
-from pricebook.deposit import Deposit
+from pricebook.fixed_income.deposit import Deposit
 
 
 @pytest.fixture

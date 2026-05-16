@@ -8,11 +8,11 @@ import pytest
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from pricebook.inflation import (
+from pricebook.fixed_income.inflation import (
     zc_inflation_swap_pv, zc_inflation_par_rate,
     yoy_inflation_swap_pv, InflationLinkedBond, CPICurve,
 )
-from pricebook.inflation_vol import zc_inflation_cap
+from pricebook.fixed_income.inflation_vol import zc_inflation_cap
 from pricebook.models.black76 import OptionType
 from tests.conftest import make_flat_curve
 

@@ -22,7 +22,7 @@ from pricebook.models.black76 import black76_price, OptionType
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency, StubType, generate_schedule
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 # ---- CMS convexity adjustment ----
@@ -67,7 +67,7 @@ def cms_convexity_adjustment(
 # ---- Re-exports from dedicated modules (backward compatibility) ----
 # Canonical locations: pricebook.cash_settlement, pricebook.credit_adjustment
 
-from pricebook.cash_settlement import cash_annuity  # noqa: F401
+from pricebook.fixed_income.cash_settlement import cash_annuity  # noqa: F401
 from pricebook.credit_adjustment import (  # noqa: F401
     cra_discount,
     risky_annuity,

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.inflation_advanced import (
+from pricebook.fixed_income.inflation_advanced import (
     InflationSwaptionResult,
     LPIResult,
     RealRateSwaptionResult,

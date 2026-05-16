@@ -117,7 +117,7 @@ class TestMultiAssetLocalVolMigration:
 
 class TestRiskyFloatingMCMigration:
     def test_via_engine_import(self):
-        from pricebook.risky_floating_mc import price_risky_frn_mc_via_engine
+        from pricebook.fixed_income.risky_floating_mc import price_risky_frn_mc_via_engine
         assert callable(price_risky_frn_mc_via_engine)
 
 

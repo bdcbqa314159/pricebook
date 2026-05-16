@@ -21,8 +21,8 @@ from pricebook.interpolation import (
     create_interpolator,
 )
 from pricebook.curves.bootstrap import bootstrap, bootstrap_forward_curve
-from pricebook.ois import bootstrap_ois
-from pricebook.deposit import Deposit
+from pricebook.fixed_income.ois import bootstrap_ois
+from pricebook.fixed_income.deposit import Deposit
 
 
 REF = date(2024, 1, 15)
@@ -357,7 +357,7 @@ class TestBootstrapPrecision:
         ]
         curve = bootstrap_ois(REF, ois_rates)
         for mat, par_rate in ois_rates:
-            from pricebook.ois import OISSwap
+            from pricebook.fixed_income.ois import OISSwap
             ois = OISSwap(REF, mat, fixed_rate=par_rate)
             pv = ois.pv(curve)
             # PV should be very close to zero (< $1 on $1M notional)

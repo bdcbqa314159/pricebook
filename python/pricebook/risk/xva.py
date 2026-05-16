@@ -527,7 +527,7 @@ def total_xva_decomposition(
     # ColVA
     colva_val = 0.0
     if collateral_profile is not None and len(collateral_profile) == len(time_grid):
-        from pricebook.csa import colva as colva_fn
+        from pricebook.fixed_income.csa import colva as colva_fn
         dt = time_grid[1] - time_grid[0] if len(time_grid) > 1 else 1.0
         colva_val = colva_fn(
             list(epe), collateral_profile,

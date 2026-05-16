@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from pricebook.jarrow_yildirim import (
+from pricebook.fixed_income.jarrow_yildirim import (
     JYCalibrationResult,
     JYCapletResult,
     JYParams,

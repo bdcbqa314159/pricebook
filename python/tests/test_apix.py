@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 import pricebook.api as pb
-from pricebook.inflation import CPICurve
-from pricebook.repo_term import RepoCurve, RepoRate
+from pricebook.fixed_income.inflation import CPICurve
+from pricebook.fixed_income.repo_term import RepoCurve, RepoRate
 
 REF = date(2026, 4, 21)
 

@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 from dateutil.relativedelta import relativedelta
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.benchmark_bonds import (
+from pricebook.fixed_income.benchmark_bonds import (
     create_ust_universe, create_bund_universe, create_universe,
     fitted_curve_nss, duration_neutral_spread, butterfly_trade,
     barbell_vs_bullet, roll_down_ranking, carry_ranking, rv_scorecard,

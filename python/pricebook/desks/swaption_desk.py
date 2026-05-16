@@ -23,7 +23,7 @@ from pricebook.pricing_context import PricingContext
 from pricebook.options.sabr import sabr_calibrate, sabr_implied_vol, shifted_sabr_implied_vol
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.swaption_vol import SwaptionVolSurface
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 # ---- Vol Cube: ATM grid + SABR smile per cell ----

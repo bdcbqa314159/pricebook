@@ -23,7 +23,7 @@ from pricebook.curves.bootstrap import bootstrap, bootstrap_forward_curve
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.vol_surface import FlatVol
 from pricebook.models.black76 import black76_price, OptionType

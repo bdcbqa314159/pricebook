@@ -24,7 +24,7 @@ from datetime import date, timedelta
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
+from pricebook.fixed_income.par_asset_swap import ParAssetSwap, ProceedsAssetSwap
 
 
 # ---------------------------------------------------------------------------

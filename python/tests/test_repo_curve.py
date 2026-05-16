@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
-from pricebook.repo_curve import (
+from pricebook.fixed_income.repo_curve import (
     build_repo_curve, forward_repo_rate, special_gc_spread,
     repo_carry_from_curve, RepoCurve,
 )

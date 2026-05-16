@@ -22,7 +22,7 @@ from pricebook.cds import bootstrap_credit_curve
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.risk.simm import SIMMCalculator, SIMMSensitivity
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.survival_curve import SurvivalCurve
 from pricebook.risk.xva import simulate_exposures, expected_positive_exposure, cva
 

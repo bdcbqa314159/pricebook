@@ -8,14 +8,14 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.discount_curve import DiscountCurve
-from pricebook.ibor_curve import bootstrap_ibor, EURIBOR_3M_CONVENTIONS
+from pricebook.fixed_income.ibor_curve import bootstrap_ibor, EURIBOR_3M_CONVENTIONS
 from pricebook.fx.multi_currency_curves import (
     MultiCurrencyCurveSet,
     CurrencyCurveSetSpec,
     IBORCurveSpec,
 )
-from pricebook.ois import bootstrap_ois
-from pricebook.swap import InterestRateSwap
+from pricebook.fixed_income.ois import bootstrap_ois
+from pricebook.fixed_income.swap import InterestRateSwap
 
 
 REF = date(2026, 4, 27)

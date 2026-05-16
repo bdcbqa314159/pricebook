@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pytest
-from pricebook.bond_rv_advanced import (
+from pricebook.fixed_income.bond_rv_advanced import (
     issuer_curve_fit, invoice_spread, ois_asw_decomposition, bond_yield_pca,
 )
 

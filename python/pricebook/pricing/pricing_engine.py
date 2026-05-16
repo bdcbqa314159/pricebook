@@ -123,7 +123,7 @@ def _build_context(val_date: date, market_data: dict) -> Any:
     projection_curves = {}
     for name, cd in market_data.get("projection_curves", {}).items():
         if cd.get("type") == "IBORCurve":
-            from pricebook.ibor_curve import IBORCurve
+            from pricebook.fixed_income.ibor_curve import IBORCurve
             ibor = ibor_curve_from_dict(cd)
             projection_curves[name] = ibor.projection_curve
         else:

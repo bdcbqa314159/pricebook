@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention
 from tests.conftest import make_flat_curve

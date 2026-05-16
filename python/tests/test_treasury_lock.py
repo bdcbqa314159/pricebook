@@ -9,7 +9,7 @@ import math
 
 import pytest
 
-from pricebook.bond import (
+from pricebook.fixed_income.bond import (
     bond_price_from_yield,
     bond_price_from_yield_stub,
     bond_price_continuous,
@@ -18,8 +18,8 @@ from pricebook.bond import (
     bond_risk_factor,
     bond_dv01_from_yield,
 )
-from pricebook.bond_forward import forward_price_repo, forward_price_haircut
-from pricebook.treasury_lock import (
+from pricebook.fixed_income.bond_forward import forward_price_repo, forward_price_haircut
+from pricebook.fixed_income.treasury_lock import (
     tlock_payoff,
     tlock_booking_value,
     tlock_delta,

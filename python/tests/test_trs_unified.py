@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.discount_curve import DiscountCurve
 from pricebook.equity.dividend_model import Dividend

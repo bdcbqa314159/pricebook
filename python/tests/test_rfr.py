@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.rfr import (
+from pricebook.fixed_income.rfr import (
     compound_rfr,
     compound_rfr_from_curve,
     SpreadCurve,

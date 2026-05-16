@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.desks.bond_trading_desk import (
     bond_risk_metrics, BondRiskMetrics,
     bond_carry_roll, BondCarryRollDecomposition,

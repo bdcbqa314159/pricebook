@@ -4,14 +4,14 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.swap import InterestRateSwap
-from pricebook.basis_swap import BasisSwap
+from pricebook.fixed_income.swap import InterestRateSwap
+from pricebook.fixed_income.basis_swap import BasisSwap
 from pricebook.day_count import DayCountConvention
 from pricebook.fixings import FixingsStore
-from pricebook.ois import OISSwap
+from pricebook.fixed_income.ois import OISSwap
 from pricebook.schedule import Frequency
-from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.zc_swap import ZeroCouponSwap
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.zc_swap import ZeroCouponSwap
 from tests.conftest import make_flat_curve
 
 

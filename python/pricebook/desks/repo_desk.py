@@ -362,7 +362,7 @@ class RepoTrade:
 
         if daily_rates is not None:
             # From actual fixings
-            from pricebook.rfr import compound_rfr
+            from pricebook.fixed_income.rfr import compound_rfr
             day_fracs = [1.0 / 360.0] * len(daily_rates)
             compounded = compound_rfr(daily_rates, day_fracs)
             total_yf = len(daily_rates) / 360.0
@@ -372,7 +372,7 @@ class RepoTrade:
 
         if projection_curve is not None:
             # From curve forwards (for projection / pricing)
-            from pricebook.rfr import compound_rfr_from_curve
+            from pricebook.fixed_income.rfr import compound_rfr_from_curve
             mat = self.maturity_date
             if mat is None or self.start_date is None:
                 return self.interest
@@ -524,7 +524,7 @@ def equity_repo_trade(
     **kwargs,
 ) -> RepoTrade:
     """Equity repo: stock as collateral, regulatory haircut."""
-    from pricebook.repo_analytics import regulatory_haircut as _reg_hc
+    from pricebook.fixed_income.repo_analytics import regulatory_haircut as _reg_hc
     haircut = kwargs.pop("haircut", _reg_hc("equity_main_index", 0) / 100.0)
     face = shares * stock_price
     return RepoTrade(
@@ -1654,7 +1654,7 @@ repo_hedge_recommendations = hedge_recommendations
 # Backward-compatible re-exports from split modules
 # ===========================================================================
 
-from pricebook.repo_operations import (  # noqa: F401, E402
+from pricebook.fixed_income.repo_operations import (  # noqa: F401, E402
     CollateralPosition, CollateralPool,
     SettlementFail, FailsTracker,
     CashLadderBucket, cash_ladder,
@@ -1667,7 +1667,7 @@ from pricebook.repo_operations import (  # noqa: F401, E402
     FAIL_STATES,
 )
 
-from pricebook.repo_analytics import (  # noqa: F401, E402
+from pricebook.fixed_income.repo_analytics import (  # noqa: F401, E402
     repo_rate_monitor,
     CTDRepoCandidate, cheapest_to_deliver_repo,
     TermVsOvernightResult, term_vs_overnight,

@@ -1,6 +1,6 @@
 """Tests for CPI seasonality."""
 import numpy as np, pytest
-from pricebook.cpi_seasonality import estimate_seasonal_factors, deseasonalise_breakeven, seasonal_carry_signal
+from pricebook.fixed_income.cpi_seasonality import estimate_seasonal_factors, deseasonalise_breakeven, seasonal_carry_signal
 
 class TestSeasonalFactors:
     def test_basic(self):

@@ -167,7 +167,7 @@ def analyse(instrument_type: str, *, curve: DiscountCurve, **kwargs) -> dict:
 
 
 def _analyse_irs(ref, curve, **kw):
-    from pricebook.swap import InterestRateSwap, SwapDirection
+    from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
     from pricebook.desks.swap_desk import swap_risk_metrics, swap_carry_decomposition
     from pricebook.schedule import Frequency
 
@@ -303,7 +303,7 @@ def _analyse_cln(ref, curve, **kw):
 
 
 def _analyse_bond(ref, curve, **kw):
-    from pricebook.bond import FixedRateBond
+    from pricebook.fixed_income.bond import FixedRateBond
     from pricebook.desks.bond_trading_desk import bond_risk_metrics, bond_carry_roll
 
     if "coupon" not in kw:
@@ -484,7 +484,7 @@ def swap_book(trades: list[dict], *, curve: DiscountCurve) -> dict:
     if not trades:
         raise ValueError("trades list is empty — provide at least one swap trade.")
 
-    from pricebook.swap import InterestRateSwap, SwapDirection
+    from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
     from pricebook.desks.swap_desk import SwapBook, SwapBookEntry, swap_dashboard, swap_stress_suite
 
     ref = curve.reference_date
@@ -586,7 +586,7 @@ def multicurve(*, ref=None, **currencies) -> dict:
         )
         curves["USD"].df(date)
     """
-    from pricebook.sofr_curve import build_sofr_curve, build_estr_curve, build_sonia_curve
+    from pricebook.fixed_income.sofr_curve import build_sofr_curve, build_estr_curve, build_sonia_curve
 
     if ref is None:
         raise ValueError("ref (reference date) is required for multicurve. "
@@ -622,7 +622,7 @@ def multicurve(*, ref=None, **currencies) -> dict:
         elif ccy_upper == "GBP":
             result[ccy_upper] = build_sonia_curve(ref, swap_list)
         else:
-            from pricebook.ois import bootstrap_ois
+            from pricebook.fixed_income.ois import bootstrap_ois
             result[ccy_upper] = bootstrap_ois(ref, swap_list)
 
     return result

@@ -24,7 +24,7 @@ from pricebook.risk.greeks import Greeks
 from pricebook.discount_curve import DiscountCurve
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency, StubType
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.calendar import Calendar, BusinessDayConvention
 
 

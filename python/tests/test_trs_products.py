@@ -12,7 +12,7 @@ from pricebook.equity.trs import (
     TotalReturnSwap, FundingLegSpec,
     CommodityUnderlying, FXUnderlying, XccySpec,
 )
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from tests.conftest import make_flat_curve
 
 

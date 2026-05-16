@@ -10,7 +10,7 @@ import pytest
 from pricebook.curves.bootstrap import bootstrap_forward_curve
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.ibor_curve import (
+from pricebook.fixed_income.ibor_curve import (
     IBORCurve,
     IBORConventions,
     bootstrap_ibor,
@@ -18,7 +18,7 @@ from pricebook.ibor_curve import (
     EURIBOR_6M_CONVENTIONS,
     TIBOR_3M_CONVENTIONS,
 )
-from pricebook.ois import bootstrap_ois
+from pricebook.fixed_income.ois import bootstrap_ois
 from pricebook.rate_index import EURIBOR_3M, EURIBOR_6M, TIBOR_3M
 from pricebook.schedule import Frequency, generate_schedule
 

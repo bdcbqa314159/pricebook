@@ -6,8 +6,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from pricebook.risk.risk import dv01_curve, key_rate_durations
-from pricebook.bond import FixedRateBond
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention

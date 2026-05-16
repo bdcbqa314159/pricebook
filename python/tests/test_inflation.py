@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.inflation import (
+from pricebook.fixed_income.inflation import (
     CPICurve,
     zc_inflation_swap_pv,
     zc_inflation_par_rate,

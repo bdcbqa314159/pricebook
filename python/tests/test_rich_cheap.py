@@ -9,7 +9,7 @@ from pricebook.equity.rich_cheap import (
     spread_monitor, butterfly_monitor,
 )
 from pricebook.discount_curve import DiscountCurve
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 
 
 REF = date(2024, 1, 15)

@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.csa import (
+from pricebook.fixed_income.csa import (
     CSA, csa_discount_curve, colva,
     cheapest_collateral, cleared_vs_bilateral,
 )

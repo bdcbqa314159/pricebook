@@ -11,8 +11,8 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.bond import FixedRateBond
-from pricebook.bond_trs import bond_trs_pv, par_funding_spread, BondTRSResult
+from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.bond_trs import bond_trs_pv, par_funding_spread, BondTRSResult
 from pricebook.cds import protection_leg_pv
 from pricebook.discount_curve import DiscountCurve
 from pricebook.schedule import Frequency

@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.fixed_leg import FixedLeg, Cashflow
+from pricebook.fixed_income.fixed_leg import FixedLeg, Cashflow
 from pricebook.schedule import Frequency
 from pricebook.day_count import DayCountConvention, year_fraction
 from tests.conftest import make_flat_curve

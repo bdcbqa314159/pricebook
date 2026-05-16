@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.risky_bond import RiskyBond, z_spread, asset_swap_spread
+from pricebook.fixed_income.risky_bond import RiskyBond, z_spread, asset_swap_spread
 from tests.conftest import make_flat_curve, make_flat_survival
 
 

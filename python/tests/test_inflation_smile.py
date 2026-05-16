@@ -1,6 +1,6 @@
 """Tests for inflation smile."""
 import math, numpy as np, pytest
-from pricebook.inflation_smile import calibrate_inflation_sabr, InflationVolCube, zc_inflation_cap_smile
+from pricebook.fixed_income.inflation_smile import calibrate_inflation_sabr, InflationVolCube, zc_inflation_cap_smile
 from pricebook.options.sabr import sabr_implied_vol
 
 class TestInflationSABR:

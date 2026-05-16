@@ -9,12 +9,12 @@ import pytest
 
 from pricebook.day_count import DayCountConvention, year_fraction
 from pricebook.discount_curve import DiscountCurve
-from pricebook.ibor_curve import (
+from pricebook.fixed_income.ibor_curve import (
     IBORCurve, bootstrap_ibor,
     EURIBOR_3M_CONVENTIONS, EURIBOR_6M_CONVENTIONS,
 )
 from pricebook.schedule import Frequency, generate_schedule
-from pricebook.tenor_basis import TenorBasis, bootstrap_tenor_basis
+from pricebook.fixed_income.tenor_basis import TenorBasis, bootstrap_tenor_basis
 
 
 REF = date(2026, 4, 27)

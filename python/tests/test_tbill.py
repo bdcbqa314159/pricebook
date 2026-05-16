@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from pricebook.tbill import TreasuryBill
+from pricebook.fixed_income.tbill import TreasuryBill
 from tests.conftest import make_flat_curve
 
 

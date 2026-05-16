@@ -11,8 +11,8 @@ Slice 14 round-trip validation: FRN + basis swap.
 import pytest
 from datetime import date
 
-from pricebook.frn import FloatingRateNote
-from pricebook.basis_swap import BasisSwap
+from pricebook.fixed_income.frn import FloatingRateNote
+from pricebook.fixed_income.basis_swap import BasisSwap
 from pricebook.schedule import Frequency
 from tests.conftest import make_flat_curve
 

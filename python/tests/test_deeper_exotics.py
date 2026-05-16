@@ -69,7 +69,7 @@ class TestMultiAssetCorrelation:
 class TestCallableBond:
     def test_callable_bond(self):
         from pricebook.models.hull_white import HullWhite
-        from pricebook.callable_bond import callable_bond_price
+        from pricebook.fixed_income.callable_bond import callable_bond_price
         from tests.conftest import make_flat_curve
         from datetime import date
         curve = make_flat_curve(date(2026, 4, 21), 0.04)

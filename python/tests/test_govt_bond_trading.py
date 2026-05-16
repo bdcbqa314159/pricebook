@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.govt_bond_trading import (
+from pricebook.fixed_income.govt_bond_trading import (
     AuctionResult,
     BasisDecomposition,
     CTDSwitchEntry,

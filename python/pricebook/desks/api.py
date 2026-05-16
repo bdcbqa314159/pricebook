@@ -30,7 +30,7 @@ from dateutil.relativedelta import relativedelta
 
 import numpy as np
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.options.capfloor import CapFloor
 from pricebook.credit.cds import CDS, bootstrap_credit_curve
@@ -38,14 +38,14 @@ from pricebook.commodity.commodity import CommodityForwardCurve, CommoditySwap
 from pricebook.day_count import DayCountConvention
 from pricebook.discount_curve import DiscountCurve
 from pricebook.equity.equity_forward import EquityForward
-from pricebook.fra import FRA
+from pricebook.fixed_income.fra import FRA
 from pricebook.fx.fx_forward import FXForward
 from pricebook.risk.greeks import Greeks
-from pricebook.inflation import CPICurve, zc_inflation_swap_pv, zc_inflation_par_rate
-from pricebook.ois import bootstrap_ois
+from pricebook.fixed_income.inflation import CPICurve, zc_inflation_swap_pv, zc_inflation_par_rate
+from pricebook.fixed_income.ois import bootstrap_ois
 from pricebook.schedule import Frequency
 from pricebook.survival_curve import SurvivalCurve
-from pricebook.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.vol_surface import FlatVol
 from pricebook.models.black76 import OptionType
@@ -389,7 +389,7 @@ def z_spread(
 
         zs = pb.z_spread("10Y", 0.05, 95.0, curve)
     """
-    from pricebook.risky_bond import RiskyBond, z_spread as _z_spread
+    from pricebook.fixed_income.risky_bond import RiskyBond, z_spread as _z_spread
     s = start or curve.reference_date
     rb = RiskyBond(s, _parse_tenor(s, maturity), coupon_rate)
     return _z_spread(rb, market_price, curve)
@@ -629,7 +629,7 @@ def ois(
 
         pb.ois("2Y", 0.04, curve)
     """
-    from pricebook.ois import OISSwap
+    from pricebook.fixed_income.ois import OISSwap
     s = start or curve.reference_date
     conv = conventions(ccy)
     return OISSwap(s, _parse_tenor(s, tenor), fixed_rate,
@@ -646,7 +646,7 @@ def basis_swap(
 
         pb.basis_swap("5Y", 0.001, disc, proj_3m, proj_6m)
     """
-    from pricebook.basis_swap import BasisSwap
+    from pricebook.fixed_income.basis_swap import BasisSwap
     s = start or curve.reference_date
     return BasisSwap(s, _parse_tenor(s, tenor), spread,
                      notional=notional).pv(curve, proj1, proj2)
@@ -660,7 +660,7 @@ def frn(
 
         pb.frn("5Y", 0.005, curve)
     """
-    from pricebook.frn import FloatingRateNote
+    from pricebook.fixed_income.frn import FloatingRateNote
     s = start or curve.reference_date
     return FloatingRateNote(s, _parse_tenor(s, maturity), spread,
                             notional=notional).dirty_price(curve)
@@ -690,7 +690,7 @@ def risky_bond(
 
         pb.risky_bond("10Y", 0.05, curve, surv)
     """
-    from pricebook.risky_bond import RiskyBond
+    from pricebook.fixed_income.risky_bond import RiskyBond
     s = start or discount_curve.reference_date
     return RiskyBond(s, _parse_tenor(s, maturity), coupon_rate,
                      recovery=recovery).dirty_price(discount_curve, survival_curve)
@@ -791,7 +791,7 @@ def ctd(deliverables: list[dict], futures_price: float) -> dict:
 
         result = pb.ctd([{"price": 98, "cf": 0.95}, {"price": 102, "cf": 1.02}], 100)
     """
-    from pricebook.bond_futures import DeliverableBond, cheapest_to_deliver, FixedRateBond
+    from pricebook.fixed_income.bond_futures import DeliverableBond, cheapest_to_deliver, FixedRateBond
     dl = []
     for d in deliverables:
         bond = FixedRateBond(date.today(), date.today() + relativedelta(years=10), 0.04)
@@ -809,7 +809,7 @@ def implied_repo(
 
         pb.implied_repo(98, 100, 0.95, 1.5, 2.0, 90)
     """
-    from pricebook.bond_futures import implied_repo_rate
+    from pricebook.fixed_income.bond_futures import implied_repo_rate
     return implied_repo_rate(bond_price, futures_price, cf, accrued_delivery,
                              coupon_income, days, accrued_purchase)
 
@@ -819,7 +819,7 @@ def futures_hedge_ratio(bond_dv01: float, ctd_dv01: float, cf: float) -> float:
 
         hr = pb.futures_hedge_ratio(0.08, 0.10, 0.95)
     """
-    from pricebook.bond_futures import futures_hedge_ratio as _fhr
+    from pricebook.fixed_income.bond_futures import futures_hedge_ratio as _fhr
     return _fhr(bond_dv01, ctd_dv01, cf)
 
 
@@ -831,7 +831,7 @@ def bond_forward_price(
 
         pb.bond_forward_price(101.5, 0.04, 90, coupon_income=2.0)
     """
-    from pricebook.bond_futures import forward_bond_price
+    from pricebook.fixed_income.bond_futures import forward_bond_price
     return forward_bond_price(dirty_price, repo_rate, days, coupon_income,
                                accrued_at_forward).forward_dirty
 
@@ -841,7 +841,7 @@ def strips(maturity: str | date, coupon_rate: float, start: date | None = None) 
 
         result = pb.strips("10Y", 0.04)
     """
-    from pricebook.strips import strip_bond
+    from pricebook.fixed_income.strips import strip_bond
     s = start or _today()
     b = FixedRateBond(s, _parse_tenor(s, maturity), coupon_rate)
     r = strip_bond(b)
@@ -923,7 +923,7 @@ def inflation_linker(
 
         pb.inflation_linker("10Y", 0.01, disc, cpi, base_cpi=300)
     """
-    from pricebook.inflation import InflationLinkedBond
+    from pricebook.fixed_income.inflation import InflationLinkedBond
     s = start or discount_curve.reference_date
     return InflationLinkedBond(s, _parse_tenor(s, maturity), coupon_rate,
                                base_cpi).dirty_price(discount_curve, cpi_curve)
@@ -1112,7 +1112,7 @@ def forward_repo(start_days: int, end_days: int, repo_curve) -> float:
 
         pb.forward_repo(30, 90, repo_curve)
     """
-    from pricebook.repo_term import forward_repo_rate
+    from pricebook.fixed_income.repo_term import forward_repo_rate
     return forward_repo_rate(repo_curve, start_days, end_days)
 
 

@@ -26,7 +26,7 @@ END_10Y = REF + timedelta(days=3650)
 
 class TestIRSRoundTrip:
     def test_round_trip(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         irs = InterestRateSwap(REF, END_5Y, fixed_rate=0.035, notional=10_000_000)
         d = instrument_to_dict(irs)
         assert d["type"] == "irs"
@@ -35,7 +35,7 @@ class TestIRSRoundTrip:
         assert irs2.notional == 10_000_000
 
     def test_json_round_trip(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         irs = InterestRateSwap(REF, END_5Y, fixed_rate=0.035)
         s = to_json(irs)
         irs2 = from_json(s)
@@ -44,7 +44,7 @@ class TestIRSRoundTrip:
 
 class TestOISSwapRoundTrip:
     def test_round_trip(self):
-        from pricebook.ois import OISSwap
+        from pricebook.fixed_income.ois import OISSwap
         ois = OISSwap(REF, END_5Y, fixed_rate=0.03, notional=1_000_000)
         d = instrument_to_dict(ois)
         assert d["type"] == "ois"
@@ -55,7 +55,7 @@ class TestOISSwapRoundTrip:
 
 class TestBasisSwapRoundTrip:
     def test_round_trip(self):
-        from pricebook.basis_swap import BasisSwap
+        from pricebook.fixed_income.basis_swap import BasisSwap
         bs = BasisSwap(REF, END_5Y, spread=0.001, notional=5_000_000)
         d = instrument_to_dict(bs)
         assert d["type"] == "basis_swap"
@@ -66,7 +66,7 @@ class TestBasisSwapRoundTrip:
 
 class TestDepositRoundTrip:
     def test_round_trip(self):
-        from pricebook.deposit import Deposit
+        from pricebook.fixed_income.deposit import Deposit
         dep = Deposit(REF, REF + timedelta(days=91), rate=0.03)
         d = instrument_to_dict(dep)
         assert d["type"] == "deposit"
@@ -76,7 +76,7 @@ class TestDepositRoundTrip:
 
 class TestBondRoundTrip:
     def test_round_trip(self):
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         bond = FixedRateBond(face_value=100, coupon_rate=0.05, maturity=END_10Y,
                              issue_date=REF)
         d = instrument_to_dict(bond)
@@ -87,7 +87,7 @@ class TestBondRoundTrip:
 
 class TestFRARoundTrip:
     def test_round_trip(self):
-        from pricebook.fra import FRA
+        from pricebook.fixed_income.fra import FRA
         fra = FRA(REF + timedelta(days=91), REF + timedelta(days=182),
                   strike=0.035, notional=1_000_000)
         d = instrument_to_dict(fra)
@@ -177,7 +177,7 @@ class TestTRSRoundTrip:
 
     def test_bond_trs(self):
         from pricebook.equity.trs import TotalReturnSwap
-        from pricebook.bond import FixedRateBond
+        from pricebook.fixed_income.bond import FixedRateBond
         bond = FixedRateBond(face_value=100, coupon_rate=0.05, maturity=END_10Y,
                              issue_date=REF)
         trs = TotalReturnSwap(underlying=bond, notional=50_000_000,
@@ -228,7 +228,7 @@ class TestCurveRoundTrip:
         assert sc2.survival(END_5Y) == pytest.approx(sc.survival(END_5Y))
 
     def test_spread_curve(self):
-        from pricebook.rfr import SpreadCurve
+        from pricebook.fixed_income.rfr import SpreadCurve
         from pricebook.serialization import spread_curve_to_dict, spread_curve_from_dict
         sc = SpreadCurve(REF, [END_5Y, END_10Y], [0.003, 0.005])
         d = spread_curve_to_dict(sc)
@@ -237,14 +237,14 @@ class TestCurveRoundTrip:
         assert sc2.spread(END_10Y) == pytest.approx(0.005)
 
     def test_spread_curve_json(self):
-        from pricebook.rfr import SpreadCurve
+        from pricebook.fixed_income.rfr import SpreadCurve
         sc = SpreadCurve(REF, [END_5Y], [0.004])
         s = to_json(sc)
         sc2 = from_json(s)
         assert sc2.spread(END_5Y) == pytest.approx(0.004)
 
     def test_ibor_curve(self):
-        from pricebook.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
+        from pricebook.fixed_income.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
         from pricebook.discount_curve import DiscountCurve
         from pricebook.serialization import ibor_curve_to_dict, ibor_curve_from_dict
         ois = DiscountCurve.flat(REF, 0.03)
@@ -259,7 +259,7 @@ class TestCurveRoundTrip:
             pytest.approx(ibor.forward_rate(REF + timedelta(days=365), REF + timedelta(days=456)))
 
     def test_ibor_curve_json(self):
-        from pricebook.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
+        from pricebook.fixed_income.ibor_curve import IBORCurve, EURIBOR_3M_CONVENTIONS, bootstrap_ibor
         from pricebook.discount_curve import DiscountCurve
         ois = DiscountCurve.flat(REF, 0.03)
         ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois,
@@ -269,7 +269,7 @@ class TestCurveRoundTrip:
         assert ibor2.conventions.name == "EURIBOR_3M"
 
     def test_funding_curve(self):
-        from pricebook.funding_curve import FundingCurve
+        from pricebook.fixed_income.funding_curve import FundingCurve
         from pricebook.discount_curve import DiscountCurve
         from pricebook.serialization import funding_curve_to_dict, funding_curve_from_dict
         ois = DiscountCurve.flat(REF, 0.03)
@@ -279,7 +279,7 @@ class TestCurveRoundTrip:
         assert fc2.df(END_5Y) == pytest.approx(fc.df(END_5Y), rel=1e-4)
 
     def test_funding_curve_json(self):
-        from pricebook.funding_curve import FundingCurve
+        from pricebook.fixed_income.funding_curve import FundingCurve
         from pricebook.discount_curve import DiscountCurve
         ois = DiscountCurve.flat(REF, 0.03)
         fc = FundingCurve.flat_spread(ois, 0.005)
@@ -292,7 +292,7 @@ class TestCurveRoundTrip:
 
 class TestCSARoundTrip:
     def test_csa(self):
-        from pricebook.csa import CSA, CollateralType, MarginFrequency
+        from pricebook.fixed_income.csa import CSA, CollateralType, MarginFrequency
         from pricebook.serialization import csa_to_dict, csa_from_dict
         csa = CSA(threshold=1_000_000, mta=50_000, currency="EUR",
                   haircut=0.02, rehypothecation=False)
@@ -304,7 +304,7 @@ class TestCSARoundTrip:
         assert csa2.haircut == 0.02
 
     def test_csa_json(self):
-        from pricebook.csa import CSA
+        from pricebook.fixed_income.csa import CSA
         csa = CSA(threshold=500_000, currency="USD")
         s = to_json(csa)
         csa2 = from_json(s)
@@ -357,7 +357,7 @@ class TestMultiCurrencyCurveSetRoundTrip:
 
 class TestTradePortfolioRoundTrip:
     def test_trade(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         from pricebook.trade import Trade
         irs = InterestRateSwap(REF, END_5Y, fixed_rate=0.035)
         trade = Trade(irs, trade_id="T1", counterparty="ACME")
@@ -367,7 +367,7 @@ class TestTradePortfolioRoundTrip:
         assert trade2.instrument.fixed_rate == 0.035
 
     def test_portfolio(self):
-        from pricebook.swap import InterestRateSwap
+        from pricebook.fixed_income.swap import InterestRateSwap
         from pricebook.trade import Trade, Portfolio
         trades = [
             Trade(InterestRateSwap(REF, END_5Y, fixed_rate=0.03), trade_id="T1"),

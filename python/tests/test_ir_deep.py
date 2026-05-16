@@ -14,10 +14,10 @@ from pricebook.discount_curve import DiscountCurve
 from pricebook.options.swaption import Swaption, SwaptionType
 from pricebook.options.capfloor import CapFloor
 from pricebook.models.black76 import OptionType
-from pricebook.fra import FRA
-from pricebook.swap import InterestRateSwap, SwapDirection
-from pricebook.basis_swap import BasisSwap
-from pricebook.zc_swap import ZeroCouponSwap
+from pricebook.fixed_income.fra import FRA
+from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
+from pricebook.fixed_income.basis_swap import BasisSwap
+from pricebook.fixed_income.zc_swap import ZeroCouponSwap
 from pricebook.options.bermudan_swaption import bermudan_swaption_tree, bermudan_swaption_lsm
 from pricebook.options.vol_surface import FlatVol
 from pricebook.schedule import Frequency

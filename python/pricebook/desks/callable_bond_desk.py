@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from pricebook.discount_curve import DiscountCurve
 from pricebook.models.hull_white import HullWhite
-from pricebook.callable_bond import callable_bond_price, puttable_bond_price, oas
+from pricebook.fixed_income.callable_bond import callable_bond_price, puttable_bond_price, oas
 
 
 @dataclass

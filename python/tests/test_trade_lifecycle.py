@@ -12,7 +12,7 @@ from pricebook.risk.trade_lifecycle import (
 from pricebook.pricing_context import PricingContext
 from pricebook.options.vol_surface import FlatVol
 from pricebook.options.swaption import Swaption
-from pricebook.swap import InterestRateSwap
+from pricebook.fixed_income.swap import InterestRateSwap
 from tests.conftest import make_flat_curve
 
 

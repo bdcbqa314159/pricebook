@@ -6,7 +6,7 @@ from datetime import date
 from pricebook.desks.inflation_book import (
     InflationBook, InflationLimits, InflationPosition,
 )
-from pricebook.inflation_trading import (
+from pricebook.fixed_income.inflation_trading import (
     BreakevenTrade, CrossMarketInflationRV, InflationCapitalReport,
     InflationCarry, InflationRiskDecomposition, SeasonalCarrySignal,
     breakeven_basis_monitor, breakeven_term_structure,

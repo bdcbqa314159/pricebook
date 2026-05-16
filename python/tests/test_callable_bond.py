@@ -4,7 +4,7 @@ import pytest
 import math
 from datetime import date
 
-from pricebook.callable_bond import (
+from pricebook.fixed_income.callable_bond import (
     callable_bond_price,
     puttable_bond_price,
     oas,

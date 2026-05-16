@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pricebook.bond import FixedRateBond
+from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.structured.cmasw import CMASWInstrument
 from pricebook.structured.cmt import CMTInstrument
@@ -17,7 +17,7 @@ from pricebook.instrument_result import InstrumentResult
 from pricebook.pricing_context import PricingContext
 from pricebook.schedule import Frequency
 from pricebook.trade import Trade, Portfolio
-from pricebook.treasury_lock import TreasuryLock
+from pricebook.fixed_income.treasury_lock import TreasuryLock
 
 
 REF = date(2026, 4, 26)
