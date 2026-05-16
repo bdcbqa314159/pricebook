@@ -2,6 +2,31 @@
 
 ---
 
+## v0.556.0 — 2026-05-15
+
+**Codebase restructuring: 433 flat files → 16 sub-packages.**
+
+- `pricebook/core/` — 29 files: discount_curve, schedule, day_count, trade, book, pricing_context, serialisation.
+- `pricebook/fixed_income/` — 65 files: bonds, swaps, FRA, repos, inflation, deposits, xccy.
+- `pricebook/credit/` — 56 files: CDS, CLN, CLO, loans, recovery, distressed, unitranche, waterfall.
+- `pricebook/options/` — 44 files: equity/FX/IR options, exotics, vol surfaces, SABR, Heston.
+- `pricebook/models/` — 51 files: MC engine, PDE, trees, processes, Black-76, Hull-White.
+- `pricebook/fx/` — 18 files: FX forwards, swaps, barriers, exotics, hedging.
+- `pricebook/equity/` — 22 files: equity TRS, dividends, variance swaps, RV.
+- `pricebook/commodity/` — 15 files: commodity instruments, storage, seasonal, models.
+- `pricebook/desks/` — 46 files: all 16+ trading desks, books, daily P&L, capital.
+- `pricebook/risk/` — 26 files: greeks, hedging, XVA, VaR, scenario, stress, SIMM.
+- `pricebook/curves/` — 19 files: bootstrap, curve building, AAD, Nelson-Siegel.
+- `pricebook/statistics/` — 12 files: GARCH, Kalman, copulas, regression, clustering.
+- `pricebook/pe/` — 4 files: LBO, DCF, PE performance, PE desk.
+- `pricebook/structured/` — 9 files: CMS, CMO, structured notes, hybrids.
+- `pricebook/pricing/` — 9 files: pricing engine, market data, codecs.
+- `pricebook/db/` — 2 files: database (SQLite + JSON).
+- Clean break: no backward-compatible re-exports from old paths.
+- Protected: `numerical/`, `regulatory/`, `ts/`, `viz/` untouched.
+
+---
+
 ## v0.555.0 — 2026-05-14
 
 **FRTB-IMA desk bridge + reverse stress testing.**
