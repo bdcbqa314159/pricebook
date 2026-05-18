@@ -25,19 +25,8 @@ from pricebook.options.local_vol import LocalVolSurface
 
 # ---- SLV Model ----
 
-@dataclass
-class HestonParams:
-    """Heston model parameters."""
-    v0: float      # initial variance
-    kappa: float   # mean reversion speed
-    theta: float   # long-run variance
-    xi: float      # vol of vol
-    rho: float     # correlation
-
-
-
-    def to_dict(self) -> dict:
-        return vars(self)
+# HestonParams canonical definition is in models.models — re-export for compatibility
+from pricebook.models.models import HestonParams  # noqa: F401
 class SLVModel:
     """Stochastic Local Vol model.
 

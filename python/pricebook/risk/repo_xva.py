@@ -19,7 +19,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.desks.repo_desk import RepoTrade
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pricebook.desks.repo_desk import RepoTrade
 
 
 def repo_fva(

@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook.desks.options_book import OptionsBook, OptionEntry
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pricebook.desks.options_book import OptionsBook, OptionEntry
 
 
 # ---- Unified attribution ----

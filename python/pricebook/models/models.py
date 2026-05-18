@@ -81,8 +81,18 @@ class SABRParams:
 
     def to_dict(self) -> dict:
         return vars(self)
-# Reuse HestonParams from slv.py to avoid duplication
-from pricebook.options.slv import HestonParams
+# HestonParams defined here (canonical location) — also available in options/slv.py
+@dataclass(frozen=True)
+class HestonParams:
+    """Heston model parameters."""
+    v0: float      # initial variance
+    kappa: float   # mean reversion speed
+    theta: float   # long-run variance
+    xi: float      # vol of vol
+    rho: float     # correlation
+
+    def to_dict(self) -> dict:
+        return vars(self)
 
 
 # ═══════════════════════════════════════════════════════════════

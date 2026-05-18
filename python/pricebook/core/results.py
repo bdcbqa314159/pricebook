@@ -12,12 +12,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Re-export from home modules
+# Re-export from same-layer modules (safe)
 from pricebook.core.solvers import SolverResult
-from pricebook.curves.quadrature import QuadratureResult
-from pricebook.models.mc_pricer import MCResult
-from pricebook.statistics.optimization import OptimizerResult
-from pricebook.models.ode import ODEResult
+
+# Higher-layer re-exports — TYPE_CHECKING only to avoid circular deps.
+# At runtime, import directly from the home module.
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pricebook.curves.quadrature import QuadratureResult
+    from pricebook.models.mc_pricer import MCResult
+    from pricebook.statistics.optimization import OptimizerResult
+    from pricebook.models.ode import ODEResult
 
 
 @dataclass

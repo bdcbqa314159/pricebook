@@ -18,7 +18,9 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.core.discount_curve import DiscountCurve
-from pricebook.desks.dividend_desk import DividendSwap
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pricebook.desks.dividend_desk import DividendSwap
 from pricebook.equity.dividend_model import Dividend
 
 

@@ -106,12 +106,15 @@ class CharFunc(Protocol):
 # Result types (canonical definitions)
 # ---------------------------------------------------------------------------
 
-# These are imported from their home modules to avoid duplication.
-# The protocol module re-exports them for convenience.
+# Result types — available for type hints via TYPE_CHECKING,
+# runtime access via their home modules.
 
-from pricebook.core.solvers import SolverResult  # noqa: E402
-from pricebook.curves.quadrature import QuadratureResult  # noqa: E402
-from pricebook.models.mc_pricer import MCResult  # noqa: E402
+from pricebook.core.solvers import SolverResult  # noqa: E402  (same package — safe)
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pricebook.curves.quadrature import QuadratureResult  # noqa: E402
+    from pricebook.models.mc_pricer import MCResult  # noqa: E402
 
 
 __all__ = [
@@ -123,6 +126,4 @@ __all__ = [
     "VolModel",
     "VolSurface",
     "SolverResult",
-    "QuadratureResult",
-    "MCResult",
 ]
