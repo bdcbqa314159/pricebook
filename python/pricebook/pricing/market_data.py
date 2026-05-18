@@ -13,7 +13,8 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.pricing_context import PricingContext
 from pricebook.core.day_count import date_from_year_fraction
-from pricebook.options.vol_surface import FlatVol
+# Lazy import to avoid pricing→options→curves→pricing cycle
+# FlatVol imported inside function that uses it
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +234,7 @@ def build_context(
         if vols:
             # Use average vol as flat vol (simplification for educational library)
             avg = sum(q.value for q in vols) / len(vols)
+            from pricebook.options.vol_surface import FlatVol
             vol_surfaces[surf_name] = FlatVol(avg)
 
     fx_spots: dict[tuple[str, str], float] = {}
