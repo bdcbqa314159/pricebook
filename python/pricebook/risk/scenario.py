@@ -33,6 +33,9 @@ class ScenarioResult:
         return self.scenario_pv - self.base_pv
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---------------------------------------------------------------------------
 # Scenario constructors
 # ---------------------------------------------------------------------------

@@ -78,6 +78,9 @@ class HWHazardResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class HWHazardRate:
     """Hull-White model for default intensity.
 
@@ -209,6 +212,9 @@ class BKHazardResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class BKHazardRate:
     """Black-Karasinski model for default intensity.
 
@@ -353,6 +359,9 @@ class CIRPPResult:
     phi: np.ndarray  # deterministic shift function
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CIRPlusPlus:
     """CIR++ model: λ(t) = x(t) + φ(t).
 
@@ -466,6 +475,9 @@ class TwoFactorResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class TwoFactorIntensity:
     """Two-factor intensity: λ(t) = x₁(t) + x₂(t) + φ(t).
 

@@ -143,6 +143,9 @@ class CBBookEntry:
     hedge_ratio: float = 0.0   # current delta hedge fraction
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CBBook:
     """Convertible bond position book."""
 

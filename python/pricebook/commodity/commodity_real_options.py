@@ -36,6 +36,9 @@ class MineValuationResult:
     restart_option: float       # extra value from flexibility
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class MineValuation:
     """Brennan-Schwartz (1985) mine valuation with output flexibility.
 
@@ -134,6 +137,9 @@ class PowerPlantResult:
     dispatch_ratio: float           # fraction of hours operating
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def power_plant_dispatch_value(
     power_paths: np.ndarray,        # (n_paths, n_hours)
     gas_paths: np.ndarray,          # (n_paths, n_hours)
@@ -185,6 +191,9 @@ class UnitCommitmentResult:
     startup_cost: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def unit_commitment_value(
     power_paths: np.ndarray,
     gas_paths: np.ndarray,
@@ -264,6 +273,9 @@ class FTRResult:
     positive_congestion_hours: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def pipeline_ftr_value(
     lmp_source: np.ndarray,         # (n_paths, n_hours) source node prices
     lmp_sink: np.ndarray,           # (n_paths, n_hours) sink node prices

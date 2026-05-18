@@ -37,6 +37,9 @@ class FXDailyPnL:
     total_pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def compute_fx_daily_pnl(
     book: FXBook,
     prior_spots: dict[str, float],
@@ -109,6 +112,9 @@ class FXPairAttribution:
     total_pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FXCurrencyAttribution:
     """P&L attributed to a single currency (across all pairs)."""
@@ -116,6 +122,9 @@ class FXCurrencyAttribution:
     pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FXBookAttribution:
     """Aggregate FX attribution."""
@@ -128,6 +137,9 @@ class FXBookAttribution:
     by_currency: list[FXCurrencyAttribution]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def attribute_fx_pnl(
     book: FXBook,
     prior_spots: dict[str, float],

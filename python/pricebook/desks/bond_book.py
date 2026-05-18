@@ -37,6 +37,9 @@ class BondPosition:
     trade_count: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BondSectorExposure:
     """Aggregate exposure by sector."""
@@ -49,6 +52,9 @@ class BondSectorExposure:
     n_issuers: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BondTenorBucket:
     """Exposure within a maturity bucket."""
@@ -59,6 +65,9 @@ class BondTenorBucket:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BondLimitBreach:
     """Limit violation for a bond book."""
@@ -69,6 +78,9 @@ class BondLimitBreach:
     details: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BondLimits:
     """Position limits for a bond book.
@@ -87,6 +99,9 @@ class BondLimits:
     max_duration: float | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Trade entry ----
 
 @dataclass
@@ -105,6 +120,9 @@ class BondTradeEntry:
     duration: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Tenor bucketing ----
 
 BOND_TENOR_BOUNDARIES = [1, 2, 3, 5, 7, 10, 20, 30]

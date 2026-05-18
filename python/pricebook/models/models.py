@@ -78,6 +78,9 @@ class SABRParams:
     nu: float       # vol-of-vol
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # Reuse HestonParams from slv.py to avoid duplication
 from pricebook.options.slv import HestonParams
 

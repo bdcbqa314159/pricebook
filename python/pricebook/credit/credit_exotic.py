@@ -53,6 +53,9 @@ class CappedCouponBondResult:
     risk_free_price: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def capped_coupon_bond(
     notional: float,
     floating_rate: float,
@@ -126,6 +129,9 @@ class DigitalCDSResult:
     par_spread: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def digital_cds(
     notional: float,
     digital_payout: float,
@@ -191,6 +197,9 @@ class CreditRangeAccrualResult:
     accrual_fraction: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def credit_range_accrual(
     notional: float,
     coupon_rate: float,
@@ -263,6 +272,9 @@ class CreditLinkedLoanResult:
     effective_spread: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def credit_linked_loan(
     principal: float,
     base_rate: float,

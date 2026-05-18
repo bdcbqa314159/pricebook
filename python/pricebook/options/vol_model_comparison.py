@@ -29,6 +29,9 @@ class ModelPriceEntry:
     implied_vol: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class ModelComparisonResult:
     """Comparison across models."""
@@ -40,6 +43,9 @@ class ModelComparisonResult:
     best_model: str             # closest to mean (proxy for "most robust")
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def compare_models(
     forward: float,
     strike: float,
@@ -139,6 +145,9 @@ class ModelRiskResult:
     n_strikes: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def model_risk_quantification(
     forward: float,
     T: float,
@@ -198,6 +207,9 @@ class ModelGuideResult:
     alternatives: list[str]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def model_selection_guide(product_type: str) -> ModelGuideResult:
     """Recommend best vol model per product type.
 

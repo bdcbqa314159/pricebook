@@ -33,6 +33,9 @@ class StripSecurity:
     source_bond_coupon: float | None   # original bond coupon rate (for C-STRIP)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class StripResult:
     """Result of stripping a bond."""
@@ -41,6 +44,9 @@ class StripResult:
     total_face: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def strip_bond(bond: FixedRateBond) -> StripResult:
     """Strip a coupon bond into C-STRIPS and P-STRIP.
 

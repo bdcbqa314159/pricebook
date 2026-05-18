@@ -37,6 +37,9 @@ class IBORCurveSpec:
     swaps: list[tuple[date, float]] | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CurrencyCurveSetSpec:
     """Specification for all curves in one currency."""
@@ -46,6 +49,9 @@ class CurrencyCurveSetSpec:
     basis_swap_quotes: dict[str, list[tuple[date, float]]] = field(default_factory=dict)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class MultiCurrencyCurveSet:
     """Complete curve environment: OIS + IBOR per tenor + basis + xccy.
 

@@ -26,6 +26,9 @@ class RogerLeeBoundsResult:
     observed_right: float
     is_valid: bool
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def roger_lee_bounds(
     log_moneyness: list[float], total_variance: list[float],
 ) -> RogerLeeBoundsResult:
@@ -55,6 +58,9 @@ class SVIWingsResult:
     right_wing_slope: float
     is_no_arb: bool
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def svi_wings_fit(
     log_moneyness: list[float], implied_vols: list[float], T: float,
 ) -> SVIWingsResult:
@@ -76,6 +82,9 @@ class TailRiskResult:
     expected_shortfall: float
     strike_pct: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def tail_risk_pricing(
     spot: float, strike: float, rate: float, T: float,
     tail_index: float = 3.0,
@@ -112,6 +121,9 @@ class EVTVaRResult:
     gpd_shape: float
     gpd_scale: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def extreme_value_var(
     losses: list[float], confidence: float = 0.99,
     threshold_quantile: float = 0.90,

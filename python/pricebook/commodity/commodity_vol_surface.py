@@ -37,6 +37,9 @@ class CommoditySmileNode:
     residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calibrate_commodity_sabr(
     forward: float,
     expiry: float,
@@ -147,6 +150,9 @@ class CommodityVolCube:
         )
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_commodity_cube(
     commodity: str,
     tenors: list[float],
@@ -182,6 +188,9 @@ class KirkResult:
     smile_adjustment: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def kirk_spread_smile(
     forward1: float,
     forward2: float,

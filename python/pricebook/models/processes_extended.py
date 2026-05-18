@@ -37,6 +37,9 @@ class CEVResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cev_paths(
     spot: float,
     rate: float,
@@ -80,6 +83,9 @@ class ThreeHalvesResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def three_halves_paths(
     v0: float,
     kappa: float,
@@ -120,6 +126,9 @@ class KouResult:
     n_jumps: np.ndarray  # total jumps per path
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def kou_paths(
     spot: float,
     rate: float,
@@ -192,6 +201,9 @@ class BatesResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def bates_paths(
     spot: float,
     v0: float,
@@ -268,6 +280,9 @@ class HawkesResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def hawkes_paths(
     mu: float,
     alpha: float,
@@ -347,6 +362,9 @@ class VGPathResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def vg_full_paths(
     spot: float,
     rate: float,

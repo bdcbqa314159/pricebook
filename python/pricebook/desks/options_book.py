@@ -31,6 +31,9 @@ class OptionEntry:
     rho: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Aggregation dataclasses ----
 
 @dataclass
@@ -44,6 +47,9 @@ class AssetClassExposure:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class ExpiryBucket:
     """Aggregated vega by expiry bucket."""
@@ -52,6 +58,9 @@ class ExpiryBucket:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class VolPnLAttribution:
     """Daily vol P&L by asset class."""
@@ -62,6 +71,9 @@ class VolPnLAttribution:
     total_pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Options book ----
 
 class OptionsBook:

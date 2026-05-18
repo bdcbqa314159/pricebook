@@ -31,6 +31,9 @@ class CTDScenario:
     all_bonds: list[BasisDecomposition]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ctd_switch_scenarios(
     bonds: list[dict],
     futures_price: float,
@@ -116,6 +119,9 @@ class DeliveryOptionValue:
     total: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def delivery_option_value(
     net_basis_ctd: float,
     avg_net_basis_others: float,
@@ -162,6 +168,9 @@ class SwitchTrade:
     face_amount: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def construct_switch_trade(
     old_ctd: BasisDecomposition,
     new_ctd: BasisDecomposition,

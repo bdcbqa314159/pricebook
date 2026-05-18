@@ -58,6 +58,9 @@ class LeverageFunction:
                      + v10 * ft*(1-fs) + v11 * ft*fs)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calibrate_leverage_function(
     spot: float,
     local_vols: np.ndarray,
@@ -156,6 +159,9 @@ class ParticleCalibrationResult:
     residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def particle_slv_calibration(
     spot: float,
     local_vols: np.ndarray,
@@ -254,6 +260,9 @@ class MixingResult:
     residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def slv_mixing_calibration(
     spot: float,
     target_exotic_price: float,
@@ -315,6 +324,9 @@ class SLVBarrierResult:
     n_paths: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def slv_barrier_price(
     spot: float,
     strike: float,

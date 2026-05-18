@@ -104,6 +104,9 @@ class LMMCalibrationResult:
     rmse: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calibrate_lmm_vols(
     forward_rates: list[float],
     target_swaption_vols: dict[tuple[int, int], float],
@@ -178,6 +181,9 @@ class SABRSlice:
     nu: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class MultiFactorSABR:
     """SABR with term structure of parameters.
 

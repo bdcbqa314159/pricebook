@@ -37,6 +37,9 @@ class IndexConstituent:
     rating: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class IndexDefinition:
     """A credit index with named, weighted constituents.
 
@@ -132,6 +135,9 @@ class IndexSeries:
         return [d for s, d in sorted(self.series.items()) if s != self.on_the_run]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Index skew ----
 
 @dataclass
@@ -145,6 +151,9 @@ class SkewResult:
     n_names: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def index_skew(
     index_def: IndexDefinition,
     market_spread: float,
@@ -182,6 +191,9 @@ class RollResult:
     names_removed: list[str]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def index_roll_pnl(
     old_def: IndexDefinition,
     new_def: IndexDefinition,

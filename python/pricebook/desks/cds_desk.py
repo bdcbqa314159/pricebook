@@ -125,6 +125,9 @@ class CDSBookEntry:
     rating: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CDSBook:
     """Collection of CDS positions with multi-dimensional aggregation."""
 

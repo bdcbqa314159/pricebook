@@ -34,6 +34,9 @@ class FBMResult:
     hurst: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fbm_circulant(
     hurst: float,
     T: float,
@@ -116,6 +119,9 @@ class SignatureResult:
     path_dim: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def path_signature(
     path: np.ndarray,
     depth: int = 3,

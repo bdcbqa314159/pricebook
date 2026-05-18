@@ -48,6 +48,9 @@ class InstrumentSpec:
     convention: str = ""  # for future use (e.g. "deposit", "future", "swap")
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CurveDefinition:
     """Declarative specification for building one curve.
@@ -278,3 +281,7 @@ class CurveSet:
             curve = build_curve(defn, snapshot)
             cs.add(defn.name, curve, defn.role)
         return cs
+
+
+    def to_dict(self) -> dict:
+        return vars(self)

@@ -35,6 +35,9 @@ class RelativeValueResult:
     signal: str  # "rich", "cheap", or "fair"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def relative_value(
     market_rate: float,
     model_rate: float,
@@ -112,6 +115,9 @@ class SpreadLevel:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def spread_monitor(
     curve: DiscountCurve,
     start: date,
@@ -168,6 +174,9 @@ class ButterflyLevel:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def butterfly_monitor(
     curve: DiscountCurve,
     start: date,

@@ -74,6 +74,9 @@ class VVWeights:
     volga: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def vv_weights(
     spot: float,
     strike: float,
@@ -155,6 +158,9 @@ class VVResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def vv_adjust_vanilla(
     spot: float,
     strike: float,

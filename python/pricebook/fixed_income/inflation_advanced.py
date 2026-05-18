@@ -34,6 +34,9 @@ class YoYConvexityResult:
     tenor: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def yoy_convexity_adjustment(
     zc_inflation_rate: float,
     nominal_vol: float,
@@ -85,6 +88,9 @@ class LPIResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def lpi_swap_price(
     notional: float,
     zc_inflation_rate: float,
@@ -167,6 +173,9 @@ class InflationSwaptionResult:
     is_payer: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_swaption_price(
     notional: float,
     forward_breakeven: float,
@@ -218,6 +227,9 @@ class RealRateSwaptionResult:
     vol: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def real_rate_swaption_price(
     notional: float,
     forward_real_rate: float,

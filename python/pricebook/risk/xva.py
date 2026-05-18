@@ -265,6 +265,9 @@ class XVAResult:
         return self.cva - self.dva + self.fva + self.mva + self.kva
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---------------------------------------------------------------------------
 # Wrong-way risk
 # ---------------------------------------------------------------------------

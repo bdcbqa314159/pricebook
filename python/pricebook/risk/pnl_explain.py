@@ -46,6 +46,9 @@ class PnLResult:
         return self.total - self.explained
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def compute_carry(
     coupon_income: float,
     funding_cost: float,

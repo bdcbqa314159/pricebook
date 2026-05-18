@@ -33,6 +33,9 @@ class MarketQuote:
     quote_type: str = "mid"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def parse_csv_quotes(filepath: str, date_col: str = "date",
                      instrument_col: str = "instrument",
                      value_col: str = "value") -> list[MarketQuote]:
@@ -78,6 +81,9 @@ class SyntheticMarket:
     commodity_spots: dict[str, float]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def synthetic_market(
     reference_date: date | None = None,
     base_rate: float = 0.04,
@@ -115,6 +121,9 @@ class MarketSnapshot:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def save_snapshot(snapshot: MarketSnapshot, filepath: str) -> None:
     """Save snapshot to JSON."""
     with open(filepath, "w") as f:

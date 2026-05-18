@@ -31,6 +31,9 @@ class RealYieldCurveResult:
     breakevens: np.ndarray | None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def real_yield_curve_bootstrap(
     linker_prices: list[float],
     notionals: list[float],
@@ -90,6 +93,9 @@ class BreakevenTradeResult:
     risk_premium_est: float         # estimated inflation risk premium
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def breakeven_trade(
     nominal_yield_pct: float,
     real_yield_pct: float,
@@ -127,6 +133,9 @@ class SeasonalBreakevenResult:
     adjusted_breakeven_pct: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def seasonality_adjusted_breakeven(
     raw_breakeven_pct: float,
     seasonal_factor: float,
@@ -158,6 +167,9 @@ class LinkerASWResult:
     real_asw_bps: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def linker_asw(
     linker_real_yield_pct: float,
     real_swap_rate_pct: float,
@@ -185,6 +197,9 @@ class DeflationFloorResult:
     probability_deflation: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def deflation_floor_value(
     breakeven: float,
     inflation_vol: float,

@@ -33,6 +33,9 @@ class FundCashflow:
     carried_interest: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FundMetrics:
     """Fund performance metrics."""

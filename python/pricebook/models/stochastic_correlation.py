@@ -34,6 +34,9 @@ class CIRCorrelationResult:
     max_rho: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CIRCorrelation:
     """Mean-reverting correlation via transformed CIR process.
 
@@ -116,6 +119,9 @@ class StochCorrPricingResult:
     rho_paths: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def simulate_two_asset_stoch_corr(
     spot1: float,
     spot2: float,
@@ -182,6 +188,9 @@ class WishartResult:
     is_pd: bool                     # all paths remain positive-definite
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class WishartCovariance:
     """Wishart covariance matrix process.
 
@@ -285,6 +294,9 @@ class DispersionCalibrationResult:
     index_variance_target: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calibrate_stoch_corr_to_dispersion(
     component_vols: list[float],
     weights: list[float],

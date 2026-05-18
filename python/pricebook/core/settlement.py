@@ -62,6 +62,9 @@ class CashSettlementResult:
     currency: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cash_settlement(
     pv: float,
     exercise_date: date,
@@ -85,6 +88,9 @@ class CDSSettlementResult:
     settlement_date: date
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cds_settlement_physical(
     notional: float,
     recovery: float,
@@ -134,6 +140,9 @@ class OptionSettlementResult:
     settlement_date: date
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def option_settlement_cash(
     spot: float,
     strike: float,
@@ -191,6 +200,9 @@ class FuturesSettlementResult:
     settlement_date: date
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def futures_settlement_cash(
     entry_price: float,
     final_price: float,
@@ -234,6 +246,9 @@ class SettlementRiskResult:
     settlement_type: SettlementType
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Business-day-aware helpers ----
 
 def add_business_days(

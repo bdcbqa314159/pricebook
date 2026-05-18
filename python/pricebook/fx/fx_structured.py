@@ -33,6 +33,9 @@ class TARFResult:
     strike: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_tarf_price(
     spot: float,
     strike: float,
@@ -130,6 +133,9 @@ class AutocallableResult:
     coupon_rate: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_autocallable_price(
     spot: float,
     autocall_barrier: float,
@@ -243,6 +249,9 @@ class DCDResult:
     strike: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_dual_currency_deposit(
     notional: float,
     spot: float,
@@ -306,6 +315,9 @@ class PivotResult:
     range_high: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_pivot_option(
     spot: float,
     range_low: float,

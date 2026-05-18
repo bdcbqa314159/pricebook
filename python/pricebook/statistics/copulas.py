@@ -226,6 +226,9 @@ class CopulaDefaultResult:
     correlation_estimate: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def copula_default_simulation(
     copula: Copula,
     marginal_pds: list[float],
@@ -266,6 +269,9 @@ class TranchePricingResult:
     copula_name: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def tranche_pricing_copula(
     copula: Copula,
     marginal_pds: list[float],

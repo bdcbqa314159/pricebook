@@ -714,6 +714,9 @@ class RepoCounterpartyExposure:
     avg_rate: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class RepoCollateralSummary:
     """Aggregate by collateral type (GC vs special)."""
@@ -723,6 +726,9 @@ class RepoCollateralSummary:
     n_trades: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class RepoBook:
     """A collection of repo positions with aggregation.
 

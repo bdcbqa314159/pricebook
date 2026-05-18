@@ -31,6 +31,9 @@ class BuhlerResult:
     mean_terminal_yield: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class BuhlerStochasticDividend:
     """Bühler stochastic dividend yield model.
 
@@ -144,6 +147,9 @@ class DividendCurve:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dividend_curve_bootstrap(
     spot: float,
     rate: float,
@@ -189,6 +195,9 @@ class ImpliedDividendResult:
     residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def implied_dividend_yield(
     spot: float,
     strike: float,
@@ -243,6 +252,9 @@ class DividendBasisResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dividend_basis_trade(
     cash_dividends: list[tuple[float, float]],  # (time, amount)
     rate: float,
@@ -284,6 +296,9 @@ class DividendHedgeResult:
     residual_risk: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dividend_hedge_ratio(
     spot: float,
     dividend_yield: float,

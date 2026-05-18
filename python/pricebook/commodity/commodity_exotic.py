@@ -35,6 +35,9 @@ class CommodityBarrierResult:
     is_up: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_barrier_smile(
     spot: float,
     strike: float,
@@ -99,6 +102,9 @@ class CommodityLookbackResult:
     n_observations: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_lookback(
     spot: float,
     rate: float,
@@ -174,6 +180,9 @@ class CommodityAsianResult:
     control_variate_adjustment: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_asian_monthly(
     spot: float,
     strike: float,
@@ -271,6 +280,9 @@ class QuantoCommodityResult:
     correlation: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def quanto_commodity_option(
     spot: float,                # commodity spot in native (USD typically)
     strike: float,              # strike in quanto currency

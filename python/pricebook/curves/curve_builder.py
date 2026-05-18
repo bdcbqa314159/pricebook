@@ -47,6 +47,9 @@ class CurrencyConventions:
     interpolation: InterpolationMethod
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 _CONVENTIONS = {
     "USD": CurrencyConventions(
         DayCountConvention.ACT_360, DayCountConvention.THIRTY_360,
@@ -110,6 +113,9 @@ class CurveSetResult:
     reference_date: date
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_curves(
     currency: str,
     reference_date: date,

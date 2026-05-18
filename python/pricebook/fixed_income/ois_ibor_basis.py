@@ -154,3 +154,7 @@ class OISIBORBasis:
         self.liquidity_component = SpreadCurve(
             self.reference_date, credit_dates, liq_spreads,
         )
+
+
+    def to_dict(self) -> dict:
+        return vars(self)

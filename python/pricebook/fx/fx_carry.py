@@ -26,6 +26,9 @@ class CarrySignal:
     carry_direction: str     # "long_base" or "short_base"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def carry_signal(
     pair: str,
     spot: float,
@@ -66,6 +69,9 @@ class CarryRanking:
     rank: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def g10_carry_ranking(
     pairs: list[tuple[str, float, float, int]],
 ) -> list[CarryRanking]:
@@ -98,6 +104,9 @@ class NDFCarry:
     ndf_points: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ndf_carry(
     pair: str,
     spot: float,

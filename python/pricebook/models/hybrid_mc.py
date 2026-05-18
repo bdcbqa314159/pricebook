@@ -26,6 +26,9 @@ class HybridFactor:
     drift: float = 0.0          # risk-neutral drift for GBM (r - q)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class HybridMCResult:
     """Multi-factor hybrid simulation result."""
@@ -36,6 +39,9 @@ class HybridMCResult:
     T: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class HybridMCEngine:
     """N-factor correlated MC engine for hybrid products."""
 
@@ -96,6 +102,9 @@ class LocalVolHybridResult:
     mean_U: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def simulate_2d_local_vol(
     F0: float,
     U0: float,
@@ -192,6 +201,9 @@ class HybridPayoffResult:
     std_error: float
     n_paths: int
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def hybrid_payoff_evaluate(
     mc_result: HybridMCResult,
     payoff_fn,

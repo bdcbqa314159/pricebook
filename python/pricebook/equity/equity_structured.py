@@ -32,6 +32,9 @@ class EquityAutocallableResult:
     notional: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_autocallable(
     spot: float,
     autocall_barrier: float,
@@ -148,6 +151,9 @@ class WorstOfAutocallResult:
     n_assets: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def worst_of_autocallable(
     spots: list[float],
     autocall_barrier_pct: float,     # as fraction of initial spots
@@ -267,6 +273,9 @@ class ReverseConvertibleResult:
     notional: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def reverse_convertible(
     spot: float,
     strike: float,
@@ -339,6 +348,9 @@ class SharkFinResult:
     notional: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def shark_fin_note(
     spot: float,
     strike: float,
@@ -412,6 +424,9 @@ class AirbagResult:
     upside: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def airbag_note(
     spot: float,
     strike: float,

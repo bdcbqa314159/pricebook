@@ -21,6 +21,9 @@ class RealYieldRolldownResult:
     rolldown_bps: float
     horizon_years: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def real_yield_rolldown(
     tenors: list[float], real_yields: list[float],
     position_tenor: float, horizon: float = 1.0,
@@ -40,6 +43,9 @@ class LinkerCarryResult:
     breakeven_carry: float
     financing_cost: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def linker_carry_decomposition(
     real_yield: float, breakeven: float, repo_rate: float,
     duration: float, horizon: float = 1.0,
@@ -63,6 +69,9 @@ class InflationCarryVolResult:
     sharpe: float
     signal: str
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_carry_vs_vol(
     carry_bps: float, breakeven_vol_bps: float,
 ) -> InflationCarryVolResult:

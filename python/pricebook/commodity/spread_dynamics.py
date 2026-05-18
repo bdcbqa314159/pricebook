@@ -40,6 +40,9 @@ class SpreadDynamicsResult:
     std_error: float = 0.0     # MC standard error on fva_stochastic
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fva_with_spread_dynamics(
     epe: np.ndarray,
     time_grid: list[float],

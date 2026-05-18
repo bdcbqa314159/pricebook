@@ -34,6 +34,9 @@ class PSORResult:
     grid_size: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def psor_american(
     spot: float,
     strike: float,
@@ -163,6 +166,9 @@ class SpectralResult:
     max_residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def chebyshev_bs(
     spot: float,
     strike: float,
@@ -276,6 +282,9 @@ class MOLResult:
     n_time_steps: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def method_of_lines(
     spot: float,
     strike: float,

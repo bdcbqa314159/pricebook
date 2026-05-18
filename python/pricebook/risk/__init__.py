@@ -1,1 +1,2 @@
-"""pricebook.risk — Greeks, hedging, XVA, VaR, stress testing, backtesting."""
+"""pricebook.risk — Greeks, hedging, XVA, VaR, stress, SIMM."""
+from pricebook.risk.greeks import Greeks

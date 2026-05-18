@@ -33,6 +33,9 @@ class CointegrationResult:
     half_life: float         # mean reversion half-life in periods
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cointegration_test(
     y: np.ndarray,
     x: np.ndarray,
@@ -101,6 +104,9 @@ class RegimeResult:
     transition_matrix: np.ndarray | None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def regime_detect(
     returns: np.ndarray,
     n_regimes: int = 2,
@@ -161,6 +167,9 @@ class BootstrapCI:
     n_bootstrap: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def bootstrap_ci(
     data: np.ndarray,
     statistic: str = "mean",
@@ -217,6 +226,9 @@ class RollingStatsResult:
     window: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def rolling_stats(
     returns: np.ndarray,
     window: int = 60,

@@ -32,6 +32,9 @@ class CommodityAutocallResult:
     notional: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_autocallable(
     spot_paths: np.ndarray,         # (n_paths, n_obs+1)
     autocall_barrier: float,
@@ -123,6 +126,9 @@ class CommodityLinkedBondResult:
     notional: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_linked_bond(
     spot_paths: np.ndarray,         # (n_paths, n_times+1)
     base_coupon: float,             # fixed base coupon
@@ -191,6 +197,9 @@ class CommodityTARFResult:
     mean_termination_time: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_tarf(
     spot_paths: np.ndarray,         # (n_paths, n_obs+1)
     strike: float,
@@ -259,6 +268,9 @@ class CommodityRangeAccrualResult:
     n_observations: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_range_accrual(
     spot_paths: np.ndarray,         # (n_paths, n_obs+1)
     range_low: float,
@@ -303,6 +315,9 @@ class DualCommodityResult:
     floor_return: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dual_commodity_note(
     long_paths: np.ndarray,
     short_paths: np.ndarray,

@@ -46,6 +46,9 @@ class CalibratedSABRNode:
                                self.alpha, self.beta, self.rho, self.nu)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CalibratedVolSurface:
     """Universal calibrated vol surface with arbitrage reporting."""
 

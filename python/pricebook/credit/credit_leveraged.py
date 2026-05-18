@@ -36,6 +36,9 @@ class LeveragedCDSResult:
     max_loss: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def leveraged_cds(
     notional: float,
     leverage: float,
@@ -102,6 +105,9 @@ class DigitalCLNResult:
     leverage: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def digital_cln_leveraged(
     notional: float,
     coupon_rate: float,
@@ -158,6 +164,9 @@ class CMCDSResult:
     forward_spread: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def constant_maturity_cds(
     reference_maturity: int,
     flat_hazard: float,
@@ -218,6 +227,9 @@ class CDSStraddleResult:
     breakeven_move: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cds_straddle(
     flat_hazard: float,
     strike_spread: float | None = None,
@@ -269,6 +281,9 @@ class CreditTRSResult:
     credit_pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def credit_trs(
     index_notional: float,
     index_spread_start: float,

@@ -93,6 +93,9 @@ class CcyConventions:
     settlement_days: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 _CCY_CONVENTIONS = {
     "USD": CcyConventions("US", DayCountConvention.THIRTY_360, DayCountConvention.ACT_360,
                            Frequency.SEMI_ANNUAL, Frequency.QUARTERLY, 2),
@@ -593,6 +596,9 @@ class MarketEnv:
         raise ValueError(f"No FX spot for {pair}")
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def market_env(
     reference_date: date | None = None,
     curves: dict[str, DiscountCurve] | None = None,
@@ -767,6 +773,9 @@ class PortfolioResult:
     n_trades: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def portfolio_pv(
     trades: dict[str, float],
 ) -> PortfolioResult:

@@ -34,6 +34,9 @@ class ExoticEntry:
     model: str = "black_scholes"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class ExoticTypeExposure:
     """Aggregated exposure by exotic type."""
@@ -44,6 +47,9 @@ class ExoticTypeExposure:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class ExoticUnderlyingExposure:
     """Aggregated exposure by underlying."""
@@ -54,6 +60,9 @@ class ExoticUnderlyingExposure:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Exotic book ----
 
 class ExoticBook:
@@ -121,6 +130,9 @@ class ModelComparison:
     max_vega_diff: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def model_risk_comparison(
     greeks_by_model: dict[str, dict[str, float]],
     trade_id: str = "",
@@ -150,6 +162,9 @@ class ExoticHedgeResult:
     residual_vega: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def hedge_exotic_book(
     book: ExoticBook,
     vanilla_delta_per_unit: float = 1.0,

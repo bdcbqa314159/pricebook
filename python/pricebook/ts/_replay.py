@@ -22,6 +22,9 @@ class DrawdownPeriod:
     recovery: int | None    # days from trough to recovery
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class ReplayResult:
     """Complete replay analysis of historical P&L."""
@@ -33,6 +36,9 @@ class ReplayResult:
     greeks: dict[str, TimeSeries] | None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _build_replay(pnl: TimeSeries, greeks: dict[str, TimeSeries] | None = None) -> ReplayResult:
     """Build a ReplayResult from a P&L TimeSeries."""
     cum = pnl.cumsum()

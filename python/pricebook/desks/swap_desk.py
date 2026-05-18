@@ -136,6 +136,9 @@ class SwapBookEntry:
     currency: str = "USD"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class SwapBook:
     """Collection of swap positions with aggregation."""
 

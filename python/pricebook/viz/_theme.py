@@ -28,6 +28,9 @@ class PricebookTheme:
     seaborn_palette: str | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 LIGHT = PricebookTheme(
     background="#ffffff",
     foreground="#1a1a2e",

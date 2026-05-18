@@ -53,6 +53,9 @@ class RainbowResult:
     n_assets: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def rainbow_option(
     spots: list[float],
     strikes: list[float] | float,
@@ -121,6 +124,9 @@ class KnockoutBasketResult:
     payoff_asset_idx: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def knockout_basket(
     spots: list[float],
     rate: float,
@@ -174,6 +180,9 @@ class ConditionalBarrierResult:
     both_triggered: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def conditional_barrier(
     spots: list[float],
     rate: float,
@@ -241,6 +250,9 @@ class MultiAssetDigitalRangeResult:
     n_assets: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def multi_asset_digital_range(
     spots: list[float],
     rate: float,

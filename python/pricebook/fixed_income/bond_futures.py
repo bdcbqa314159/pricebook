@@ -73,6 +73,9 @@ class DeliverableBond:
     accrued: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Cheapest-to-deliver ----
 
 @dataclass
@@ -255,6 +258,9 @@ class ForwardBondPrice:
     coupon_income: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def forward_bond_price(
     dirty_price: float,
     repo_rate: float,
@@ -303,6 +309,9 @@ class BasketBondAnalytics:
     switch_yield: float | None   # yield at which this bond becomes CTD
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class DeliveryBasketResult:
     """Full delivery basket analysis."""
@@ -310,6 +319,9 @@ class DeliveryBasketResult:
     bonds: list[BasketBondAnalytics]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def delivery_basket(
     deliverables: list[DeliverableBond],
     futures_price: float,
@@ -400,6 +412,9 @@ class CalendarSpreadResult:
     back_carry: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calendar_spread(
     front_price: float,
     back_price: float,

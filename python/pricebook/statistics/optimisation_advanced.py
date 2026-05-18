@@ -31,6 +31,9 @@ class QPResult:
     converged: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def quadratic_program(
     H: np.ndarray | list[list[float]],
     c: np.ndarray | list[float],
@@ -131,6 +134,9 @@ class ConstrainedResult:
     converged: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def constrained_minimize(
     f: callable,
     x0: np.ndarray | list[float],
@@ -214,6 +220,9 @@ class ADMMResult:
     converged: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def admm_lasso(
     A: np.ndarray | list[list[float]],
     b: np.ndarray | list[float],
@@ -288,6 +297,9 @@ class CMAESResult:
     n_evaluations: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cma_es(
     f: callable,
     x0: np.ndarray | list[float],

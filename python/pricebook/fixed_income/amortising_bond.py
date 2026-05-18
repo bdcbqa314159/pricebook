@@ -32,6 +32,9 @@ class AmortisingBondResult:
     schedule: list[tuple[float, float, float]]  # (time, principal, interest)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class AmortisingBond:
     """Bond with amortising principal schedule.
@@ -122,6 +125,9 @@ class AmortisingBond:
         )
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Prepayment models ----
 
 def cpr_to_smm(cpr: float) -> float:
@@ -175,6 +181,9 @@ class PrepaymentBondResult:
     n_months: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def prepayment_bond_price(
     notional: float,
     coupon_rate: float,
@@ -287,6 +296,9 @@ class SinkerComparisonResult:
     bullet_duration: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def sinker_vs_bullet(
     notional: float,
     coupon_rate: float,

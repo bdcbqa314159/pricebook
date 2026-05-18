@@ -89,6 +89,9 @@ class NearestCorrResult:
     is_pd: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def nearest_correlation_matrix(
     matrix: np.ndarray | list[list[float]],
     max_iter: int = 100,

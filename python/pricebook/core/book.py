@@ -80,6 +80,9 @@ class Position:
     trade_count: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Limit framework ----
 
 @dataclass
@@ -92,6 +95,9 @@ class LimitBreach:
     details: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BookLimits:
     """Position limits for a book.
@@ -106,6 +112,9 @@ class BookLimits:
     tenor_dv01_limits: dict[str, float] = field(default_factory=dict)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Book ----
 
 class Book:

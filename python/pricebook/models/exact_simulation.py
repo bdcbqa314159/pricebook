@@ -33,6 +33,9 @@ class ExactCIRResult:
     n_steps: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def exact_cir(
     v0: float,
     kappa: float,

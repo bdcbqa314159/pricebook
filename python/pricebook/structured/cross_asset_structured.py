@@ -23,6 +23,9 @@ class FusionNoteResult:
     fx_delta: float
     notional: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_fx_fusion_note(
     equity_paths: np.ndarray, fx_paths: np.ndarray,
     strike_pct: float, participation: float, notional: float,
@@ -49,6 +52,9 @@ class CorrelationTriggerResult:
     mean_realised_corr: float
     threshold: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def correlation_trigger_note(
     asset1_paths: np.ndarray, asset2_paths: np.ndarray,
     coupon: float, corr_threshold: float, notional: float,
@@ -81,6 +87,9 @@ class CommodityEquityAutocallResult:
     autocall_probability: float
     commodity_ko_probability: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_equity_autocall(
     equity_paths: np.ndarray, commodity_paths: np.ndarray,
     eq_autocall_barrier: float, commodity_ko_level: float,
@@ -114,6 +123,9 @@ class DualRangeAccrualResult:
     accrual_rate: float
     n_observations: int
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dual_asset_range_accrual(
     asset1_paths: np.ndarray, asset2_paths: np.ndarray,
     range1: tuple[float, float], range2: tuple[float, float],

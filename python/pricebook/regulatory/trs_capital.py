@@ -68,6 +68,9 @@ class TRSSACCRResult:
     adjusted_notional: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def trs_sa_ccr_add_on(
     trs,
     curve: DiscountCurve,
@@ -171,6 +174,9 @@ class TRSSIMMSensitivities:
     total_vega: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def trs_simm_sensitivities(
     trs,
     curve: DiscountCurve,
@@ -289,6 +295,9 @@ class TRSKVAResult:
     hurdle_rate: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def trs_kva(
     trs,
     curve: DiscountCurve,
@@ -359,6 +368,9 @@ class TRSLeverageResult:
     is_off_balance_sheet: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def trs_leverage_exposure(
     trs,
     curve: DiscountCurve,

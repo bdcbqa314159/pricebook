@@ -36,6 +36,9 @@ class JYParams:
     rho_rI: float   # correlation: real × CPI
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class JYSimulationResult:
     """JY simulation result."""
@@ -48,6 +51,9 @@ class JYSimulationResult:
     mean_terminal_real: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class JarrowYildirim:
     """Jarrow-Yildirim three-factor inflation model.
 
@@ -190,6 +196,9 @@ class JYZCSwapResult:
     convexity_adjustment: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def jy_zc_inflation_swap(
     params: JYParams,
     r_n0: float,
@@ -244,6 +253,9 @@ class JYCapletResult:
     strike: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def jy_yoy_caplet(
     params: JYParams,
     r_n0: float,
@@ -300,6 +312,9 @@ class JYCalibrationResult:
     n_instruments: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def jy_calibrate(
     zc_swap_rates: dict[float, float],      # {T: fair_ZC_rate}
     r_n0: float,

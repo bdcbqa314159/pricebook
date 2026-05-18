@@ -26,6 +26,9 @@ class ODEResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def rk4(
     f,
     t_span: tuple[float, float],

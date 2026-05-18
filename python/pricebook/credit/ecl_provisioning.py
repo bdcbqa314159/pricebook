@@ -40,6 +40,9 @@ class StageResult:
     pd_change: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def stage_classification(
     pd_origination: float,
     pd_current: float,
@@ -97,6 +100,9 @@ class ECLResult:
     n_periods: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ecl_12_month(
     pd_12m: float,
     lgd: float,
@@ -185,6 +191,9 @@ class ScenarioECL:
     weighted_ecl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class PortfolioECLResult:
     """Portfolio-level probability-weighted ECL."""
@@ -193,6 +202,9 @@ class PortfolioECLResult:
     n_exposures: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ecl_portfolio(
     exposures: list[dict],
     scenarios: list[tuple[str, float, float]],

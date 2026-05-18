@@ -32,6 +32,9 @@ class FittedBond:
     z_spread: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fit_curve_from_bonds(
     reference_date: date,
     bonds: list[tuple[FixedRateBond, float]],
@@ -115,6 +118,9 @@ class BondRichCheap:
     signal: str  # "rich", "cheap", "fair"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def bond_rich_cheap(
     bonds: list[tuple[FixedRateBond, float]],
     curve: DiscountCurve,
@@ -162,6 +168,9 @@ class RepoPosition:
     direction: str  # "repo" (lend bond, borrow cash) or "reverse" (borrow bond, lend cash)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def repo_carry(
     bond_price: float,
     coupon_rate: float,

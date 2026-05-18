@@ -23,6 +23,9 @@ class ZCYoYBasisResult:
     tenor: float
     convexity_component: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def zc_yoy_basis(
     zc_rate: float, yoy_rate: float, tenor: float,
     convexity_adj: float = 0.0,
@@ -43,6 +46,9 @@ class CrossMarketBasisResult:
     basis_bps: float
     z_score: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_market_inflation_basis(
     market1: str, rate1: float, market2: str, rate2: float,
     historical_basis_bps: list[float] | None = None,
@@ -65,6 +71,9 @@ class InflationBasisTradeResult:
     dv01_per_bp: float
     expected_pnl: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_basis_trade(
     leg1_rate: float, leg2_rate: float,
     notional: float, dv01_per_bp: float,

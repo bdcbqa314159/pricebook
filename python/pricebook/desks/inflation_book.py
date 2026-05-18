@@ -29,6 +29,9 @@ class InflationTradeEntry:
     instrument: object = None   # optional: InflationLinkedBond, ZCInflationSwap, etc.
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class InflationPosition:
     """Aggregated inflation position per issuer."""
@@ -42,6 +45,9 @@ class InflationPosition:
     trade_count: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class InflationLimitBreach:
     limit_type: str
@@ -51,6 +57,9 @@ class InflationLimitBreach:
     details: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class InflationLimits:
     max_notional_per_issuer: dict[str, float] = field(default_factory=dict)
@@ -58,6 +67,9 @@ class InflationLimits:
     max_real_dv01: float | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class InflationBook:
     """Inflation position book with per-issuer/type aggregation and limits."""
 

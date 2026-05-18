@@ -33,6 +33,9 @@ class MultiCurveResult:
     jacobian: np.ndarray | None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def multicurve_newton(
     reference_date,
     ois_instruments: list[dict],
@@ -195,6 +198,9 @@ class CurveValidationResult:
     min_forward_rate: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def validate_curve(
     curve: DiscountCurve,
     max_forward_rate: float = 0.20,
@@ -286,6 +292,9 @@ class AnalyticalJacobianResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def curve_analytical_jacobian(
     curve: DiscountCurve,
     output_times: list[float] | None = None,

@@ -264,6 +264,9 @@ class RegulatoryPosition:
     ccy: str = "USD"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class RegulatoryPortfolio:
     """Unified portfolio for VaR + IRC + RWA calculations.
 

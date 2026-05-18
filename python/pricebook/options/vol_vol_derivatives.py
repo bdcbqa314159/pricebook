@@ -30,6 +30,9 @@ class OptionOnVarianceResult:
     is_call: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def option_on_variance_swap(
     expected_variance: float,
     vol_of_variance: float,
@@ -84,6 +87,9 @@ class GammaSwapResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def gamma_swap_price(
     spot_paths: np.ndarray,     # (n_paths, n_steps+1)
     rate: float = 0.0,
@@ -133,6 +139,9 @@ class CorridorVarianceResult:
     range_high: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def corridor_variance_swap(
     spot_paths: np.ndarray,
     range_low: float,
@@ -173,6 +182,9 @@ class VIXOptionResult:
     is_call: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def vix_option_price(
     v0: float,
     kappa: float,

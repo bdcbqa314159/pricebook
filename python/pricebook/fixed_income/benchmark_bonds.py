@@ -56,6 +56,9 @@ class BondConvention:
         )
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 UST = BondConvention("US", DayCountConvention.ACT_ACT_ICMA, Frequency.SEMI_ANNUAL, 1, "32nds", [2, 3, 5, 7, 10, 20, 30])
 BUND = BondConvention("DE", DayCountConvention.ACT_ACT_ICMA, Frequency.ANNUAL, 2, "decimal", [2, 5, 10, 30])
 GILT = BondConvention("GB", DayCountConvention.ACT_ACT_ICMA, Frequency.SEMI_ANNUAL, 1, "decimal", [5, 10, 30])

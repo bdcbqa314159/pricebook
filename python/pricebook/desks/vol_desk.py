@@ -37,6 +37,9 @@ class VolPosition:
     realised_vol: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class VolBook:
     """Cross-asset vol book."""
 

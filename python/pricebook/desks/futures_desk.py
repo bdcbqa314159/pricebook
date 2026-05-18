@@ -206,6 +206,9 @@ class FuturesBookEntry:
         return self.margin_per_contract * abs(self.contracts)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class FuturesBook:
     """Multi-asset futures book."""
 

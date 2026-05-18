@@ -1,1 +1,1 @@
-"""pricebook.options — Equity/FX/IR options, exotics, volatility."""
+"""pricebook.options — Options, volatility surfaces, exotics."""

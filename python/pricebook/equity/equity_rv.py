@@ -53,6 +53,9 @@ class SkewLevel:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def skew_monitor(
     expiry: date,
     rr_level: float,
@@ -88,6 +91,9 @@ class CalendarLevel:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calendar_monitor(
     short_expiry: date,
     long_expiry: date,
@@ -120,6 +126,9 @@ class BookExposure:
     vega: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class HedgeInstrument:
     """A single hedge: provides per-unit delta and vega."""
@@ -128,6 +137,9 @@ class HedgeInstrument:
     vega: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class HedgeAllocation:
     """Quantity of a hedge instrument."""
@@ -135,6 +147,9 @@ class HedgeAllocation:
     quantity: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def delta_hedge(
     book_delta: float,
     hedge_delta_per_unit: float = 1.0,

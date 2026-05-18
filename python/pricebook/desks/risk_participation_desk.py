@@ -93,6 +93,9 @@ class RPBookEntry:
     direction: int = 1         # +1 = participant (long risk), -1 = originator
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class RPBook:
     """Risk participation position book."""
 

@@ -32,6 +32,9 @@ class CallableRiskyBondResult:
     oas: float  # option-adjusted spread
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def callable_risky_bond(
     notional: float,
     coupon_rate: float,
@@ -127,6 +130,9 @@ class FloatingCLNResult:
     par_spread: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def floating_cln(
     notional: float,
     spread: float,
@@ -240,6 +246,9 @@ class ConvertibleBondResult:
     conversion_premium: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def convertible_bond(
     notional: float,
     coupon_rate: float,

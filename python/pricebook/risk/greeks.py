@@ -44,6 +44,9 @@ class Greeks:
         return 0.5 * self.gamma  # caller should multiply by S² × move²
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def bump_greeks(
     price_func,
     spot: float,

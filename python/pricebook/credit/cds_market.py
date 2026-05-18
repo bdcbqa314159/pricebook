@@ -196,6 +196,9 @@ class LadderRung:
     upfront: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def pricing_ladder(
     cds: CDS,
     discount_curve: DiscountCurve,

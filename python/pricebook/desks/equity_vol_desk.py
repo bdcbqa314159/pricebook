@@ -37,6 +37,9 @@ class VolPillar:
     vols: list[float]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class EquityVolSurface:
     """Equity vol surface anchored on an ATM strike.
 
@@ -186,6 +189,9 @@ class CalendarSpread:
         return self.direction * self.quantity * (p_s - p_l)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class RiskReversal:
     """Long out-of-the-money call, short out-of-the-money put (or reverse).
@@ -217,6 +223,9 @@ class RiskReversal:
         return self.direction * self.quantity * (call - put)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class VarianceSwap:
     """Variance swap priced via static call/put strip replication.
@@ -283,6 +292,9 @@ class VarianceSwap:
         return self.direction * self.notional * (fair - self.var_strike) * df
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Vega ladder + cross-Greeks ----
 
 @dataclass
@@ -293,6 +305,9 @@ class VegaBucket:
     vega: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def vega_ladder(
     positions: list[tuple[date, float, float]],
 ) -> list[VegaBucket]:

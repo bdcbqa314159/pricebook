@@ -31,6 +31,9 @@ class XccyBondResult:
     carry_pickup: float    # hedged yield - domestic benchmark
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_hedged_yield(
     foreign_ytm: float,
     domestic_rate: float,

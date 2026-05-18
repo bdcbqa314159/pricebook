@@ -52,6 +52,9 @@ class Trade:
         return self.direction * self.notional_scale * raw_pv
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class Portfolio:
     """A collection of trades.
 

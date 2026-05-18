@@ -36,6 +36,9 @@ class BKRateResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class BKRateModel:
     """Black-Karasinski short rate model.
 
@@ -96,6 +99,9 @@ class CIRPPRateResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CIRPPRateModel:
     """CIR++ short rate: r(t) = x(t) + φ(t).
 
@@ -183,6 +189,9 @@ class CheyetteResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CheyetteModel:
     """Cheyette (Markovian HJM) with state variables (x, y).
 
@@ -255,6 +264,9 @@ class AffineResult:
     model_class: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class AffineModel:
     """Unified affine term structure model A_m(n).
 

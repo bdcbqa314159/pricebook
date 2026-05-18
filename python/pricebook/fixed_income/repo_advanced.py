@@ -45,6 +45,9 @@ class RepoCurve:
         return notional * rate / 100 * days / 360
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_repo_curve(
     tenors_days: list[int],
     rates_pct: list[float],
@@ -70,6 +73,9 @@ class RepoOISSpread:
     regime: str                     # "normal", "tightening", "stressed"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def repo_spread_to_ois(
     repo_curve: RepoCurve,
     ois_rate_pct: float,
@@ -112,6 +118,9 @@ class SpecialBond:
     is_ultra_special: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def identify_specials(
     gc_rate_pct: float,
     bond_repo_rates: dict[str, float],
@@ -152,6 +161,9 @@ class RepoCounterparty:
     credit_quality: str             # "AAA", "AA", etc.
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FinancingPlan:
     """Result of multi-counterparty financing optimisation."""
@@ -162,6 +174,9 @@ class FinancingPlan:
     unmet_demand: float             # amount we couldn't finance
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def optimise_financing(
     notional_needed: float,
     counterparties: list[RepoCounterparty],
@@ -216,6 +231,9 @@ class HaircutCurve:
         return float(np.interp(days, self.tenor_days, self.haircuts_pct))
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def repo_haircut_curve(
     asset_type: str = "treasury",
 ) -> HaircutCurve:

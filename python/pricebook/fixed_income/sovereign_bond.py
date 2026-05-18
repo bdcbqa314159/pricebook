@@ -50,6 +50,9 @@ class SovereignSpreadCurve:
         return (current - mu) / max(sigma, 1e-10)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_spread_curve(
     country: str,
     benchmark: str,
@@ -76,6 +79,9 @@ class SovereignBasisResult:
     cds_futures_basis_bps: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def sovereign_basis(
     bond_yield_pct: float,
     swap_rate_pct: float,
@@ -127,6 +133,9 @@ class CrossCountryRV:
     std_historical: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_country_rv(
     country1: str,
     country2: str,
@@ -168,6 +177,9 @@ class AuctionResult:
     quality_score: float            # simple 0-10 score
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def auction_analytics(
     instrument: str,
     amount_offered: float,
@@ -229,6 +241,9 @@ class OTROFRResult:
     is_squeeze: bool            # flagged if premium unusually large
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def otr_ofr_analysis(
     tenor: float,
     otr_yield_pct: float,

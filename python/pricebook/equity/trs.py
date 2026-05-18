@@ -69,6 +69,9 @@ class FundingLegSpec:
     day_count: DayCountConvention = DayCountConvention.ACT_360
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class LSTATerms:
     """LSTA settlement conventions for loan TRS."""
@@ -77,6 +80,9 @@ class LSTATerms:
     minimum_transfer: float = 250_000.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CommodityUnderlying:
     """Commodity underlying for TRS.
@@ -92,6 +98,9 @@ class CommodityUnderlying:
     storage_model: object = None   # StorageCostModel from commodity_seasonal.py
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FXUnderlying:
     """FX underlying for TRS.
@@ -107,6 +116,9 @@ class FXUnderlying:
     fx_correlation: float = 0.0  # correlation between FX and asset (for quanto)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class XccySpec:
     """Cross-currency specification for bond/loan TRS.
@@ -119,6 +131,9 @@ class XccySpec:
     fx_haircut: float = 0.08  # FX add-on haircut (Basel: 8%)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class TRSResult:
     """Unified TRS pricing result."""

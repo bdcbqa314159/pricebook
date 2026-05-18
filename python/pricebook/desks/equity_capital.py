@@ -46,6 +46,9 @@ class EquityRiskInputs:
     notional: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class EquityClassification:
     """Per-name regulatory classification.
@@ -65,6 +68,9 @@ class EquityClassification:
     is_exotic: bool = False
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Bucket mapping ----
 
 # BCBS large-cap threshold per MAR21.78: market cap > USD 2bn.
@@ -197,6 +203,9 @@ class EquityCapitalReport:
         return self.delta_capital + self.vega_capital + self.curvature_capital
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_frtb_capital(
     inputs: list[EquityRiskInputs],
     classifications: dict[str, EquityClassification],

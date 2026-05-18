@@ -39,6 +39,9 @@ class TouchResult:
     barrier_upper: float | None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_one_touch(
     spot: float,
     barrier: float,
@@ -224,6 +227,9 @@ class LookbackResult:
     is_call: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_lookback_floating(
     spot: float,
     rate_dom: float,
@@ -349,6 +355,9 @@ class AsianResult:
     n_fixings: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_asian_geometric(
     spot: float,
     strike: float,
@@ -457,6 +466,9 @@ class RangeAccrualResult:
     range_high: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_range_accrual(
     spot: float,
     range_low: float,
@@ -510,6 +522,9 @@ class AccumulatorResult:
     barrier: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_accumulator(
     spot: float,
     strike: float,

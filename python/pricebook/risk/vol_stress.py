@@ -24,6 +24,9 @@ class VolBumpResult:
     bump_type: str
     bump_size: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def parallel_vol_bump(
     base_vols: list[float], vega_ladder: list[float], bump_bps: float = 100,
 ) -> VolBumpResult:
@@ -67,6 +70,9 @@ class VolReplayResult:
     pnl: float
     max_vol_change: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def vol_scenario_replay(
     scenario_name: str,
     historical_vol_changes: list[float],
@@ -87,6 +93,9 @@ class CrossAssetVolStressResult:
     worst_asset: str
     diversification_benefit: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_asset_vol_stress(
     asset_vegas: dict[str, list[float]],
     bumps_bps: dict[str, float],

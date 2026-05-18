@@ -22,6 +22,9 @@ class OilBreakevenRegressionResult:
     residual_std: float
     n_observations: int
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def oil_breakeven_regression(
     oil_changes: list[float], breakeven_changes_bps: list[float],
 ) -> OilBreakevenRegressionResult:
@@ -48,6 +51,9 @@ class CommodityInflationHybridResult:
     commodity_delta: float
     inflation_delta: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_inflation_hybrid(
     commodity_paths: np.ndarray, inflation_paths: np.ndarray,
     commodity_weight: float, inflation_weight: float,

@@ -72,6 +72,9 @@ class IBORConventions:
         return self.index.name
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # Pre-built convention sets for standard IBOR indices
 
 EURIBOR_3M_CONVENTIONS = IBORConventions(

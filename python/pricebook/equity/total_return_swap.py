@@ -34,6 +34,9 @@ class TRSResult:
     coupon_return: float       # coupon income component
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class TotalReturnSwap:
     """Total return swap on a fixed-rate bond.
 

@@ -40,6 +40,9 @@ class DealComponent:
     linked_to: str = ""  # name of another component this is linked to
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class Deal:
     """A structured deal: collection of linked instruments.
 

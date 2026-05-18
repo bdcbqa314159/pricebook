@@ -39,6 +39,9 @@ class Trade:
     commission: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BacktestConfig:
     """Backtest execution parameters."""
@@ -49,6 +52,9 @@ class BacktestConfig:
     rebalance_frequency: int = 1     # rebalance every N periods
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class PerformanceMetrics:
     """Strategy performance statistics."""
@@ -68,6 +74,9 @@ class PerformanceMetrics:
     n_periods: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BacktestResult:
     """Complete backtest output."""
@@ -79,6 +88,9 @@ class BacktestResult:
     config: BacktestConfig
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ============================================================================
 # Performance computation
 # ============================================================================
@@ -230,6 +242,9 @@ class WalkForwardResult:
     is_vs_oos_decay: float     # IS Sharpe - OOS Sharpe (overfitting measure)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def walk_forward(
     returns: np.ndarray,
     signal_func: Callable[[np.ndarray], np.ndarray],

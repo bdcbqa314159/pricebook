@@ -1,1 +1,2 @@
-"""pricebook.commodity — Commodity instruments, models, and analytics."""
+"""pricebook.commodity — Commodity instruments, models, analytics."""
+from pricebook.commodity.commodity import CommodityForwardCurve

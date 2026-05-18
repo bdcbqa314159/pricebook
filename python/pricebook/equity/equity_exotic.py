@@ -38,6 +38,9 @@ class EquityBarrierResult:
     is_up: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_barrier_smile(
     spot: float,
     strike: float,
@@ -105,6 +108,9 @@ class DigitalResult:
     is_call: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_digital_cash(
     spot: float,
     strike: float,
@@ -202,6 +208,9 @@ class EquityLookbackResult:
     is_call: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_lookback_floating(
     spot: float,
     rate: float,
@@ -252,6 +261,9 @@ class CompoundResult:
     outer_type: str             # "call" or "put" (e.g. "call on call")
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_compound_option(
     spot: float,
     strike_outer: float,

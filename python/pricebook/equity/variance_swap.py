@@ -33,6 +33,9 @@ class VarianceSwapResult:
     n_strikes: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fair_variance(
     forward: float,
     df: float,
@@ -119,6 +122,9 @@ class VarianceSwapPV:
     notional_variance: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def variance_swap_pv(
     fair_var: float,
     strike_var: float,

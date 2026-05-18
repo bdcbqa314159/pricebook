@@ -37,6 +37,9 @@ class CumulantResult:
     excess_kurtosis: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cumulants_from_cf(
     char_func: Callable[[float], complex],
     eps: float = 1e-4,
@@ -173,6 +176,9 @@ class FFT2DResult:
     n_points: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fft_2d_basket(
     char_func_2d: Callable[[float, float], complex],
     spots: tuple[float, float],

@@ -33,6 +33,9 @@ class EquityTRSResult:
     dividend_return: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class EquityTRS:
     """Total return swap on equity (stock or index).
 

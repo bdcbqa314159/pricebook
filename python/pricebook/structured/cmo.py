@@ -33,6 +33,9 @@ class CMOTranche:
     tranche_type: str  # "sequential", "PAC", "TAC", "Z", "IO", "PO"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class TrancheCashflow:
     """Monthly cashflow for a tranche."""
@@ -42,6 +45,9 @@ class TrancheCashflow:
     balance: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CMOResult:
     """CMO structuring result."""
@@ -52,6 +58,9 @@ class CMOResult:
     prices: dict[str, float]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _pool_cashflows(
     pool_balance: float,
     wac: float,

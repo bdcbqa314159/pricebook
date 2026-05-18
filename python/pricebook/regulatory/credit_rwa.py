@@ -173,6 +173,9 @@ class SAExposure:
     income_producing: bool = False
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calculate_sa_rwa(exposure: SAExposure) -> dict:
     """Compute SA-CR RWA for a single exposure."""
     cls = exposure.asset_class

@@ -35,6 +35,9 @@ class CashAndCarryResult:
     implied_convenience_yield: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cash_and_carry(
     spot: float,
     forward: float,
@@ -153,6 +156,9 @@ class StorageScheduleEntry:
     cost: float          # injection/withdrawal variable cost
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class StorageFacility:
     """A physical commodity storage facility (e.g. salt cavern, tank farm).
@@ -278,3 +284,7 @@ class StorageFacility:
         iv = self.intrinsic_value(forwards, rate, initial_inventory)
         ev = self.extrinsic_value(forwards, vol, rate, initial_inventory)
         return iv + ev
+
+
+    def to_dict(self) -> dict:
+        return vars(self)

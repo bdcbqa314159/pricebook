@@ -38,6 +38,9 @@ class MertonFXResult:
     jump_vol: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def merton_fx_price(
     spot: float,
     strike: float,
@@ -118,6 +121,9 @@ class BatesFXResult:
     n_jumps_total: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class BatesFXModel:
     """Bates model for FX: Heston + Merton jumps.
 
@@ -251,6 +257,9 @@ class RegimeSwitchingResult:
     mean_regime_duration: dict[int, float]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class RegimeSwitchingVol:
     """Markov regime-switching FX vol model.
 
@@ -351,6 +360,9 @@ class InterventionResult:
     break_probability: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_intervention_adjustment(
     spot: float,
     strike: float,

@@ -23,6 +23,9 @@ class CrossAssetPCAResult:
     series_names: list[str]
     dominant_factor: str
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_commodity_factor_model(
     series_data: dict[str, list[float]],
     n_factors: int = 3,
@@ -56,6 +59,9 @@ class CommodityInflationSwapResult:
     inflation_component: float
     notional: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_inflation_swap(
     commodity_paths: np.ndarray,
     cpi_paths: np.ndarray,

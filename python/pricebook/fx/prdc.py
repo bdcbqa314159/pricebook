@@ -23,6 +23,9 @@ class PRDCResult:
     ir_delta: float
     n_coupons: int
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _prdc_reprice(
     spot_fx, rate_dom, rate_for, vol_fx, vol_dom, vol_for,
     corr, notional, fixed_coupon, fx_participation, fx_strike,
@@ -136,6 +139,9 @@ class CallablePRDCResult:
     mean_call_time: float
     price_no_call: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def callable_prdc(
     spot_fx: float,
     rate_dom: float, rate_for: float,

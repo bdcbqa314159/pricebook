@@ -32,6 +32,9 @@ class WaterfallResult:
     total_recovery: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def seniority_waterfall(
     asset_recovery: float,
     senior_face: float,
@@ -104,6 +107,9 @@ class LGDCycleResult:
     regime: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def lgd_cycle(
     base_lgd: float,
     default_rate: float,
@@ -155,6 +161,9 @@ class StochasticRecoveryCDSResult:
     wrong_way_premium: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def stochastic_recovery_cds(
     flat_hazard: float,
     base_recovery: float,
@@ -230,6 +239,9 @@ class WrongWayRecoveryCVA:
     wrong_way_adjustment: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def wrong_way_recovery_cva(
     epe: list[float],
     time_grid: list[float],

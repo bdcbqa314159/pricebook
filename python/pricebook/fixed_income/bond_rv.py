@@ -35,6 +35,9 @@ class FittedCurveRV:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fitted_curve_rv(
     issuer: str,
     market_yield: float,
@@ -68,6 +71,9 @@ class CrossMarketRV:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_market_rv(
     market_a: str,
     yield_a: float,
@@ -102,6 +108,9 @@ class SpreadMonitorResult:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def asw_spread_monitor(
     issuer: str,
     asw_bps: float,
@@ -159,6 +168,9 @@ class CreditSpreadCurveTrade:
         return net / gross < 0.01 if gross > 0 else True
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_credit_curve_trade(
     short_tenor: str,
     long_tenor: str,
@@ -204,6 +216,9 @@ class CrossoverSignal:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def crossover_monitor(
     bbb_spread_bps: float,
     bb_spread_bps: float,
@@ -230,6 +245,9 @@ class NewIssuePremium:
     premium_bps: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def new_issue_premium(
     issuer: str,
     new_issue_spread_bps: float,

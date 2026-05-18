@@ -187,6 +187,9 @@ class DefaultRecoveryResult:
     wrong_way_premium: float        # expected_loss - naive_expected_loss
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def correlated_default_recovery(
     pd: float,
     recovery_spec: RecoverySpec,

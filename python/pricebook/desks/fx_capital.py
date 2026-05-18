@@ -29,6 +29,9 @@ class FXRiskInputs:
     is_liquid: bool = False
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Liquid pair classification ----
 
 LIQUID_PAIRS = {
@@ -84,6 +87,9 @@ class FXCapitalReport:
     n_pairs: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_frtb_capital(
     inputs: list[FXRiskInputs],
 ) -> FXCapitalReport:

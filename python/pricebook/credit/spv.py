@@ -62,6 +62,9 @@ class SPVTranche:
         self.losses_absorbed = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---------------------------------------------------------------------------
 # SPV Cashflow Projection
 # ---------------------------------------------------------------------------
@@ -82,6 +85,9 @@ class SPVPeriodResult:
     equity_cashflow: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class SPVProjection:
     """Full cashflow projection for an SPV."""

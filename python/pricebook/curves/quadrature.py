@@ -29,6 +29,9 @@ class QuadratureResult:
     n_evaluations: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def gauss_legendre(
     f,
     a: float,

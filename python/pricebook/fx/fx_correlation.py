@@ -36,6 +36,9 @@ class TriangularResult:
     basis: float | None        # σ_implied - σ_market
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def triangular_correlation(
     vol_pair1: float,
     vol_pair2: float,
@@ -98,6 +101,9 @@ class BasketResult:
     is_call: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def fx_basket_option(
     spots: list[float],
     weights: list[float],
@@ -231,6 +237,9 @@ class MargrabeResult:
     vol_combined: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def margrabe_fx_exchange(
     spot1: float,
     spot2: float,
@@ -289,6 +298,9 @@ class ImpliedCorrelationResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def implied_correlation_quanto(
     spot: float,
     strike: float,

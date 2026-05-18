@@ -35,6 +35,9 @@ class HestonParams:
     rho: float     # correlation
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class SLVModel:
     """Stochastic Local Vol model.
 

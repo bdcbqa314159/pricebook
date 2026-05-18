@@ -142,6 +142,9 @@ class CalendarSpreadResult:
     structure: str  # "contango" or "backwardation" or "flat"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def calendar_spread(
     near: CommodityFuture,
     far: CommodityFuture,

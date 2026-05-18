@@ -33,6 +33,9 @@ class VaRResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def historical_var(
     returns: np.ndarray | list[float],
     confidence: float = 0.95,
@@ -119,6 +122,9 @@ class ComponentVaRResult:
     pct_contributions: dict[str, float]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def component_var(
     positions: dict[str, float],
     covariance: np.ndarray,
@@ -167,6 +173,9 @@ class StressScenario:
     description: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class StressResult:
     """Result of a stress test."""
@@ -177,6 +186,9 @@ class StressResult:
     pnl_pct: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # Pre-defined scenarios
 GFC_2008 = StressScenario(
     "GFC 2008",
@@ -253,6 +265,9 @@ class DrawdownResult:
     trough: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def analyse_drawdown(equity_curve: np.ndarray | list[float]) -> DrawdownResult:
     """Analyse drawdown from an equity curve.
 
@@ -306,6 +321,9 @@ class ConcentrationResult:
     is_concentrated: bool       # HHI > threshold
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def concentration_check(
     positions: dict[str, float],
     hhi_threshold: float = 0.15,

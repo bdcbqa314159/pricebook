@@ -129,6 +129,9 @@ class BondForwardResult:
     forward_dv01: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class BondForward:
     """Forward contract on a fixed-rate bond.
 

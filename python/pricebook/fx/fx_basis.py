@@ -30,6 +30,9 @@ class BasisSignal:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def basis_monitor(
     pair: str,
     tenor: str,
@@ -50,6 +53,9 @@ class BasisTermPoint:
     basis_bps: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def basis_term_structure(
     pair: str,
     tenors: list[tuple[str, float]],
@@ -72,6 +78,9 @@ class BasisRVEntry:
     rank: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_market_basis_rv(
     pairs: list[tuple[str, float, list[float]]],
     threshold: float = 2.0,
@@ -132,3 +141,7 @@ class BasisCurveTrade:
         old_spread = self.long_basis_bps - self.short_basis_bps
         new_spread = new_long_bps - new_short_bps
         return self.direction * self.notional * (new_spread - old_spread) / 10_000
+
+
+    def to_dict(self) -> dict:
+        return vars(self)

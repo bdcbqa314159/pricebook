@@ -33,6 +33,9 @@ class NameRV:
     signal: str  # "rich", "cheap", "fair"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_name_rv(
     names: dict[str, tuple[CDS, SurvivalCurve]],
     discount_curve: DiscountCurve,
@@ -87,6 +90,9 @@ class TermStructureRV:
     signal: str  # "steep", "flat", "fair"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def term_structure_rv(
     name: str,
     short_cds: CDS,
@@ -151,6 +157,9 @@ class SectorStats:
     richest_spread: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def sector_screen(
     names: dict[str, tuple[CDS, SurvivalCurve, str]],
     discount_curve: DiscountCurve,

@@ -151,6 +151,9 @@ class SCBookEntry:
     guarantor_surv: SurvivalCurve | None = None  # for GuaranteedNote
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class StructuredCreditBook:
     """Unified book for all structured credit products."""
 

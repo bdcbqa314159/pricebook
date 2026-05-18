@@ -44,6 +44,9 @@ class ChebyshevInterpolant:
         return float(np.max(np.abs(self.coefficients[-3:])))
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def chebyshev_interpolate(
     f: Callable[[float | np.ndarray], float | np.ndarray],
     a: float,
@@ -126,6 +129,9 @@ class PadeApproximant:
         return num / den
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def pade_approximant(
     taylor_coeffs: list[float] | np.ndarray,
     L: int,
@@ -192,6 +198,9 @@ class RichardsonTable:
     estimates: list[float]  # diagonal entries
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def richardson_table(
     values: list[float],
     order: int = 2,

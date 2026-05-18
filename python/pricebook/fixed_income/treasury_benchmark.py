@@ -288,6 +288,9 @@ class CTDTransition:
     probability: str         # "high", "medium", "low"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ctd_switch_analysis(
     deliverables: list[dict],
     yield_range: tuple[float, float] = (-0.01, 0.01),

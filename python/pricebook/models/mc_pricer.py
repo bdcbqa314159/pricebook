@@ -38,6 +38,9 @@ class MCResult:
     n_paths: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def mc_european(
     spot: float,
     strike: float,

@@ -209,6 +209,9 @@ class BondDashboardEntry:
     duration: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BondDashboard:
     """Morning-meeting summary for the bond desk."""

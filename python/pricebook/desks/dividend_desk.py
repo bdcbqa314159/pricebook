@@ -130,6 +130,9 @@ class DividendSwap:
         return pv_divs / df_T
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Dividend forward ----
 
 def dividend_forward(
@@ -161,6 +164,9 @@ class DividendRisk:
     div_rho: float    # dF/d(1bp div yield change)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dividend_risk(
     spot: float,
     dividends: list[Dividend],

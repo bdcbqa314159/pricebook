@@ -46,6 +46,9 @@ class ForwardCDSResult:
     survival_to_start: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def forward_cds_spread(
     start_years: float,
     end_years: float,
@@ -108,6 +111,9 @@ class CDSSwaption:
     option_type: str  # "payer" or "receiver"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cds_swaption_black(
     forward_spread: float,
     strike_spread: float,
@@ -176,6 +182,9 @@ class PedersenResult:
     mc_premium: float | None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class PedersenCDSSwaption:
     """Pedersen (2003) model for CDS swaptions.
 
@@ -307,6 +316,9 @@ class PutCallParityResult:
     holds: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cds_swaption_put_call_parity(
     forward_spread: float,
     strike_spread: float,

@@ -41,6 +41,9 @@ class CTDRepoCandidate:
         return self.coupon_rate * 100.0 * dt_coupon - self.financing_cost
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cheapest_to_deliver_repo(
     candidates: list[CTDRepoCandidate],
 ) -> CTDRepoCandidate | None:
@@ -66,6 +69,9 @@ class TermVsOvernightResult:
     recommendation: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def term_vs_overnight(
     face_amount: float,
     bond_price: float,

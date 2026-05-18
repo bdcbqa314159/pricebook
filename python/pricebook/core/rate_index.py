@@ -41,6 +41,9 @@ class RateIndex:
     administrator: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Registry ----
 
 _REGISTRY: dict[str, RateIndex] = {}

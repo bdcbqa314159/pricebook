@@ -37,6 +37,9 @@ class CFLResult:
     recommendation: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def check_cfl(
     vol: float,
     rate: float,
@@ -101,6 +104,9 @@ class FellerResult:
     recommendation: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def check_feller(
     kappa: float,
     theta: float,
@@ -145,6 +151,9 @@ class MartingaleTestResult:
     std_error: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def martingale_test(
     terminal_values: np.ndarray | list[float],
     spot: float,
@@ -199,6 +208,9 @@ class ConvergenceResult:
     expected_order: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def convergence_rate(
     resolutions: list[float],
     errors: list[float],

@@ -255,6 +255,9 @@ class CLNBookEntry:
         return "leveraged" if self.cln.leverage > 1.0 else "vanilla"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CLNBook:
     """Collection of CLN positions with aggregation."""
 
@@ -479,6 +482,9 @@ class CLNCapitalEntry:
     simm_im: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CLNCapitalSummary:
     """Regulatory capital summary for the CLN book."""
@@ -910,6 +916,9 @@ class BasketCLNBookEntry:
     independent_amount: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class BasketCLNBook:
     """Collection of basket CLN positions with tranche-level aggregation."""
 

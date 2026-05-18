@@ -72,6 +72,9 @@ class _FDGrid:
     cn_c: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _build_grid(
     spot: float, strike: float, rate: float, vol: float, T: float,
     option_type: OptionType, div_yield: float,

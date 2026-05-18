@@ -23,6 +23,9 @@ class RiskReversalResult:
     delta: float                # residual delta
     strategy: str
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def risk_reversal_strategy(
     vol_25d_call: float, vol_25d_put: float, atm_vol: float,
     spot: float, rate: float, T: float,
@@ -42,6 +45,9 @@ class SkewMeanReversionSignal:
     z_score: float
     signal: str                 # "buy_skew", "sell_skew", "neutral"
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def skew_mean_reversion_signal(
     current_rr: float, historical_rrs: list[float],
 ) -> SkewMeanReversionSignal:
@@ -60,6 +66,9 @@ class SkewCarryResult:
     breakeven_days: int         # days to breakeven
     carry_ratio: float          # annualised carry / vol
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def skew_carry_trade(
     rr_cost: float, daily_theta: float, skew_vol: float,
 ) -> SkewCarryResult:
@@ -78,6 +87,9 @@ class CrossAssetSkewResult:
     steepest_skew: str
     flattest_skew: str
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_asset_skew_comparison(
     skews: dict[str, float],
 ) -> CrossAssetSkewResult:

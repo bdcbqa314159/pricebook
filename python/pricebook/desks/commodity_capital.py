@@ -59,6 +59,9 @@ class CommodityRiskInputs:
     notional: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CommodityClassification:
     """Per-commodity FRTB SA classification.
@@ -76,6 +79,9 @@ class CommodityClassification:
     is_exotic: bool = False
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Bucket mapping ----
 
 COMMODITY_SECTOR_MAP: dict[str, str] = {
@@ -204,6 +210,9 @@ class CommodityCapitalReport:
         return self.delta_capital + self.vega_capital + self.curvature_capital
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def commodity_frtb_capital(
     inputs: list[CommodityRiskInputs],
     classifications: dict[str, CommodityClassification] | None = None,

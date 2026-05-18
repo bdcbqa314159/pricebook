@@ -38,6 +38,9 @@ class CommodityPosition:
     trade_count: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CommoditySectorExposure:
     """Aggregate notional exposure by sector."""
@@ -48,6 +51,9 @@ class CommoditySectorExposure:
     n_commodities: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class TermStructureBucket:
     """Net notional within a tenor bucket of a single commodity book."""
@@ -56,6 +62,9 @@ class TermStructureBucket:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CommodityLimitBreach:
     """Limit violation for a commodity book."""
@@ -66,6 +75,9 @@ class CommodityLimitBreach:
     details: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CommodityLimits:
     """Position limits for a commodity book.
@@ -84,6 +96,9 @@ class CommodityLimits:
     max_notional_per_tenor: dict[str, float] = field(default_factory=dict)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Trade entry ----
 
 @dataclass
@@ -103,6 +118,9 @@ class CommodityTradeEntry:
     currency: str = "USD"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Tenor bucketing ----
 
 def commodity_tenor_bucket(

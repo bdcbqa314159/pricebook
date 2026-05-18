@@ -42,6 +42,9 @@ class AssetSwapResult:
     upfront: float             # par - market = upfront payment
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def forward_asw_spread(
     bond_rf_price: float,
     bond_risky_price: float,

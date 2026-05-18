@@ -43,6 +43,9 @@ class FXSmileNode:
     residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _strike_from_delta_fx(spot, rd, rf, vol, T, delta, is_call):
     """Spot delta to strike conversion."""
     sign = 1 if is_call else -1
@@ -194,6 +197,9 @@ class FXVolCube:
         )
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_fx_vol_cube(
     spot: float,
     rate_dom: float,
@@ -248,6 +254,9 @@ class SVIParams:
     expiry: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _svi_variance(k: float, p: SVIParams) -> float:
     """SVI total variance at log-moneyness k."""
     return p.a + p.b * (p.rho * (k - p.m) + math.sqrt((k - p.m)**2 + p.sigma**2))
@@ -306,6 +315,9 @@ class ArbitrageCheckResult:
     n_tenors_checked: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def check_butterfly_arbitrage(
     cube: FXVolCube,
     T: float,

@@ -49,6 +49,9 @@ class RatioLevel:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ratio_monitor(
     numerator: str,
     denominator: str,
@@ -87,6 +90,9 @@ class SeasonalLevel:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def seasonality_monitor(
     commodity: str,
     month: int,
@@ -128,6 +134,9 @@ class RollCandidate:
     roll_cost: float      # −roll_spread × quantity (positive = cost)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def roll_pnl(
     old_price: float,
     new_price: float,

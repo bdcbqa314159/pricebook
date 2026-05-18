@@ -32,6 +32,9 @@ class Tranche:
         return self.outstanding <= 0.01
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class Trigger:
     """A coverage test that can divert cashflows.
@@ -49,6 +52,9 @@ class Trigger:
         return value < self.threshold
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class WaterfallEngine:
     """Allocates cashflows through a priority waterfall.
 
@@ -169,6 +175,9 @@ class AutocallObservation:
     redemption: float = 1.0  # fraction of notional returned
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def autocall_payoff(
     reference_path: list[float],
     observations: list[AutocallObservation],

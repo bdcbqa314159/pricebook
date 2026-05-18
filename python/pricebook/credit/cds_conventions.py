@@ -102,6 +102,9 @@ class UpfrontResult:
     risky_annuity: float        # PV01 of the CDS
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def upfront_from_par_spread(
     par_spread_bps: float,
     standard_coupon_bps: float = 100,
@@ -150,6 +153,9 @@ class CDSIndexSpec:
     tenor_years: int            # standard tenor (5Y for most)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 _INDEX_SPECS = {
     "CDX.NA.IG": CDSIndexSpec("CDX.NA.IG", "NA", "IG", 125, 100, 0.40, [3, 9], 5),
     "CDX.NA.HY": CDSIndexSpec("CDX.NA.HY", "NA", "HY", 100, 500, 0.25, [3, 9], 5),
@@ -194,6 +200,9 @@ class CDSSettlementConvention:
     accrued_on_default: bool    # whether accrued premium is paid on default
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 CDS_SETTLEMENT = CDSSettlementConvention(
     method="auction",
     auction_timing_days=30,

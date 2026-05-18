@@ -35,6 +35,9 @@ class EquityPosition:
     trade_count: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class SectorExposure:
     """Aggregate exposure by sector."""
@@ -45,6 +48,9 @@ class SectorExposure:
     n_names: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class EquityLimitBreach:
     """Limit violation for equity book."""
@@ -55,6 +61,9 @@ class EquityLimitBreach:
     details: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class EquityLimits:
     """Position limits for an equity book.
@@ -73,6 +82,9 @@ class EquityLimits:
     max_beta_exposure: float | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Equity trade entry ----
 
 @dataclass
@@ -91,6 +103,9 @@ class EquityTradeEntry:
     delta_per_unit: float = 1.0  # delta sensitivity (1.0 for stock, ≤1 for options)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Equity Book ----
 
 class EquityBook:

@@ -27,6 +27,9 @@ class Cashflow:
         return self.notional * self.rate * self.year_frac
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 from pricebook.core.notional import normalize_notional as _normalize_notional
 
 

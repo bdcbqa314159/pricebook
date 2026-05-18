@@ -36,6 +36,9 @@ class GreekAttribution:
         return self.gamma_pnl
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BookGreekAttribution:
     """Full book attribution across all asset classes."""
@@ -56,6 +59,9 @@ class BookGreekAttribution:
         return self.gamma_pnl
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def greek_attribution(
     book: OptionsBook,
     spot_changes: dict[str, float],
@@ -118,6 +124,9 @@ class StressScenario:
     rate_shock: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class StressResult:
     """P&L under a stress scenario."""
@@ -130,6 +139,9 @@ class StressResult:
     total_pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def multi_factor_stress(
     book: OptionsBook,
     scenario: StressScenario,

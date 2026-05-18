@@ -34,6 +34,9 @@ class FXPairPosition:
     trade_count: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CurrencyExposure:
     """Net exposure to a single currency (across all pairs)."""
@@ -41,6 +44,9 @@ class CurrencyExposure:
     net_exposure: float       # positive = long, negative = short
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FXLimitBreach:
     """Limit violation for an FX book."""
@@ -51,6 +57,9 @@ class FXLimitBreach:
     details: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FXLimits:
     """Position limits for an FX book.
@@ -65,6 +74,9 @@ class FXLimits:
     max_gross_notional: float | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Trade entry ----
 
 @dataclass
@@ -94,6 +106,9 @@ class FXTradeEntry:
         return self.pair.split("/")[1]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- FX Book ----
 
 class FXBook:

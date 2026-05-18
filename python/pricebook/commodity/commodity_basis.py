@@ -47,6 +47,9 @@ class BasisCurve:
         return benchmark_forward + self.basis(T)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def basis_curve_from_futures(
     tenors: list[float],
     benchmark_forwards: list[float],
@@ -73,6 +76,9 @@ class WTIBrentResult:
     backwardation_ratio: float      # signed measure of shape
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def wti_brent_basis(
     tenors: list[float],
     wti_forwards: list[float],
@@ -106,6 +112,9 @@ class PowerLocationalBasis:
     max_congestion: float           # max absolute basis (congestion rent proxy)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def power_locational_basis(
     tenors: list[float],
     hub_forwards: list[float],
@@ -140,6 +149,9 @@ class GasBasisResult:
     annual_mean_basis: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def gas_basis_curve(
     tenors: list[float],
     hh_forwards: list[float],
@@ -183,6 +195,9 @@ class QualityBasisResult:
     adjustments_breakdown: dict[str, float]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def quality_basis(
     reference_price: float,
     api_gravity_delta: float = 0.0,

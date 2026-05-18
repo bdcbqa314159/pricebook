@@ -35,6 +35,9 @@ class BreakevenLevel:
     breakeven: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def breakeven_term_structure(
     tenors: list[tuple[str, float, float]],
 ) -> list[BreakevenLevel]:
@@ -59,6 +62,9 @@ class BreakevenBasisSignal:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def breakeven_basis_monitor(
     tenor: str,
     breakeven: float,
@@ -98,6 +104,9 @@ class BreakevenTrade:
                 - self.nominal_notional * self.nominal_dv01)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def build_breakeven_trade(
     tenor: str,
     notional: float,
@@ -129,6 +138,9 @@ class InflationCarry:
     net_carry: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_carry(
     notional: float,
     real_yield: float,
@@ -158,6 +170,9 @@ class SeasonalCarrySignal:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def seasonal_carry(
     month: int,
     seasonal_factors: dict[int, float],
@@ -188,6 +203,9 @@ class CrossMarketInflationRV:
     signal: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_market_inflation_rv(
     market_a: str, breakeven_a: float,
     market_b: str, breakeven_b: float,
@@ -212,6 +230,9 @@ class InflationRiskDecomposition:
     residual: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_risk_decomposition(
     ie01: float,
     real_dv01: float,
@@ -232,6 +253,9 @@ class InflationCapitalReport:
     n_positions: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def inflation_frtb_capital(
     inflation_sensitivities: list[dict],
 ) -> InflationCapitalReport:

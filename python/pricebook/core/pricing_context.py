@@ -206,6 +206,9 @@ class PricingContext:
             credit_curves=credit_curves,
         )
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 from pricebook.core.serialisable import _register
 
 PricingContext._SERIAL_TYPE = "pricing_context"

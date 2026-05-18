@@ -33,6 +33,9 @@ class NDSolverResult:
     residual_norm: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Finite-difference Jacobian ----
 
 def finite_difference_jacobian(

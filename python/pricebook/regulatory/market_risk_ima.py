@@ -40,6 +40,9 @@ class ESRiskFactor:
     stressed_es_10day: float | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class DRCPosition:
     """A single position for the internal DRC model."""
@@ -55,6 +58,9 @@ class DRCPosition:
     is_long: bool = True
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class DeskPLA:
     """P&L Attribution Test results for a single desk."""
@@ -63,6 +69,9 @@ class DeskPLA:
     kl_divergence: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class FRTBIMAConfig:
     """Configuration for FRTB-IMA."""
@@ -75,6 +84,9 @@ class FRTBIMAConfig:
     backtesting_exceptions: int = 0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Liquidity Horizons (MAR31.13) ----
 
 LIQUIDITY_HORIZONS: dict[tuple[str, str], int] = {

@@ -38,6 +38,9 @@ class SABRCell:
     shift: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class VolCube:
     """ATM vol grid with optional SABR smile at each cell.
 
@@ -130,6 +133,9 @@ class SwaptionCombo:
     theta: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _swaption_greeks(
     swn: Swaption,
     curve: DiscountCurve,

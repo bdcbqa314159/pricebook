@@ -36,6 +36,9 @@ class MilsteinResult:
     dt: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Generic Milstein ----
 
 def milstein_step(

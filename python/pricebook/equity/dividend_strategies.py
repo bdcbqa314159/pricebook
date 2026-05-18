@@ -72,6 +72,9 @@ class DividendFuture:
         return self.settlement_value(dividends)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Dividend basis ----
 
 def dividend_basis(option_implied: float, traded: float) -> float:
@@ -123,6 +126,9 @@ class EquityCarryTrade:
         return self.stock_value() - swap_pv
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Roll-down ----
 
 def dividend_curve_carry(
@@ -163,6 +169,9 @@ class BacktestResult:
     bias: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def implied_vs_realised_backtest(
     pairs: list[tuple[float, float]],
 ) -> BacktestResult:

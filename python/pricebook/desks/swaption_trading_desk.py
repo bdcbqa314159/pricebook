@@ -114,6 +114,9 @@ class SwaptionBookEntry:
     counterparty: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class SwaptionBook:
     """Collection of swaption positions."""
 

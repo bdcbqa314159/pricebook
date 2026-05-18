@@ -36,6 +36,9 @@ class VarianceSwapResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def variance_swap_replication(
     spot: float,
     forward: float,
@@ -119,6 +122,9 @@ class VolatilitySwapResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def volatility_swap_heston(
     v0: float,
     kappa: float,
@@ -209,6 +215,9 @@ class VarianceFuturesResult:
     underlying_forward: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def variance_future_price(
     forward: float,
     rate: float,
@@ -258,6 +267,9 @@ class VRPResult:
     period: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def variance_risk_premium(
     implied_variance: float,
     realised_variance: float,

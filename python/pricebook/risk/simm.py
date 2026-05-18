@@ -83,6 +83,9 @@ class SIMMSensitivity:
     curvature: float = 0.0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class SIMMBucketResult:
     """Margin for a single bucket."""
@@ -91,6 +94,9 @@ class SIMMBucketResult:
     margin: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class SIMMRiskClassResult:
     """Margin for a single risk class."""
@@ -102,6 +108,9 @@ class SIMMRiskClassResult:
     total: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class SIMMResult:
     """Total SIMM margin."""
@@ -110,6 +119,9 @@ class SIMMResult:
     n_sensitivities: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Calculator ----
 
 class SIMMCalculator:

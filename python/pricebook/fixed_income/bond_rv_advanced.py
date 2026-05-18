@@ -31,6 +31,9 @@ class IssuerCurveFitResult:
     rich_cheap: dict[str, float]  # bond_id → residual
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _ns_yield(t, b0, b1, b2, tau):
     if t < 1e-10:
         return b0 + b1
@@ -79,6 +82,9 @@ class InvoiceSpreadResult:
     invoice_spread_bps: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def invoice_spread(
     bond_asw_bps: float,
     futures_implied_asw_bps: float,
@@ -102,6 +108,9 @@ class OISASWResult:
     ibor_ois_basis_bps: float   # swap - OIS
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ois_asw_decomposition(
     bond_yield_pct: float,
     swap_rate_pct: float,
@@ -129,6 +138,9 @@ class PCAResult:
     cumulative_explained: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def bond_yield_pca(
     yield_changes: np.ndarray,      # (n_obs, n_tenors)
     n_components: int = 3,

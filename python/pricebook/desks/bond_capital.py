@@ -51,6 +51,9 @@ class BondRiskInputs:
     is_long: bool = True
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Bucket mapping ----
 
 def _girr_rw(tenor_years: float) -> float:
@@ -144,6 +147,9 @@ class BondCapitalReport:
         return self.girr_capital + self.csr_capital
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def bond_frtb_capital(
     inputs: list[BondRiskInputs],
 ) -> BondCapitalReport:

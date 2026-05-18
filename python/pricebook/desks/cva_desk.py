@@ -95,6 +95,9 @@ class CVAHedgeResult:
     residual_cs01: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cva_hedge(
     epe: np.ndarray,
     time_grid: list[float],

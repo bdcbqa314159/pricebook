@@ -45,6 +45,9 @@ class FXVolQuote:
     bf25: float      # 25-delta butterfly
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class FXVolSurface:
     """FX vol surface built from ATM / RR / BF quotes.
 

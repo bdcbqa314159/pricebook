@@ -35,6 +35,9 @@ class DailyPnL:
     total_pnl: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def compute_daily_pnl(
     book: Book,
     prior_ctx: PricingContext,
@@ -110,6 +113,9 @@ class TradeAttribution:
         return self.rate_pnl + self.vol_pnl + self.theta_pnl
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class BookAttribution:
     """P&L attribution for a book."""
@@ -123,6 +129,9 @@ class BookAttribution:
     by_bucket: dict[str, dict[str, float]]
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def _attribute_trade(
     trade: Trade,
     prior_ctx: PricingContext,

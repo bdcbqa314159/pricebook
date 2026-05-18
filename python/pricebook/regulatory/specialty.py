@@ -203,6 +203,9 @@ class UnconsolidatedEntity:
     past_support_provided: bool = False
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class StepInAssessment:
     entity: UnconsolidatedEntity
@@ -211,6 +214,9 @@ class StepInAssessment:
     risk_level: str = "low"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def assess_step_in_indicators(
     entity: UnconsolidatedEntity,
     has_implicit_support_expectation: bool = False,
@@ -342,6 +348,9 @@ class FXRates:
         return pair.replace("/", "").replace("-", "").upper()
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def get_default_fx_rates() -> FXRates:
     """Approximate FX rates for testing/demos."""
     fx = FXRates()

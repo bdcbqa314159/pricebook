@@ -100,6 +100,9 @@ class VolSurfaceArbitrageResult:
     total_variance_monotone: bool
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def check_calendar_arbitrage(
     expiry_times: list[float],
     atm_vols: list[float],

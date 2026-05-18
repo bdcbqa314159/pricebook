@@ -24,6 +24,9 @@ class LocalVol2DResult:
     spots: np.ndarray
     method: str
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def dupire_2d_local_vol(
     marginal_vols_1: np.ndarray, marginal_vols_2: np.ndarray,
     times: np.ndarray, spots: np.ndarray,
@@ -45,6 +48,9 @@ class MultiAssetSLVResult:
     mean_terminal_1: float
     mean_terminal_2: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def multi_asset_slv_simulate(
     spot1: float, spot2: float, rate: float,
     div1: float, div2: float,
@@ -90,6 +96,9 @@ class SmileConsistencyResult:
     consistency_ratio: float   # basket_vol / weighted (should be < 1)
     is_consistent: bool
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def smile_consistency_check(
     basket_vol: float, component_vols: list[float],
     weights: list[float], correlation: float,

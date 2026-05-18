@@ -25,6 +25,9 @@ class OptimalHedgeResult:
     variance_reduction_pct: float
     n_instruments: int
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def optimal_multi_asset_hedge(
     target_greeks: np.ndarray,       # (n_greeks,) portfolio Greeks to neutralise
     instrument_greeks: np.ndarray,   # (n_instruments, n_greeks) per instrument
@@ -59,6 +62,9 @@ class VegaNettingResult:
     netting_benefit_pct: float
     per_asset_vega: dict[str, float]
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def cross_asset_vega_netting(
     vega_by_asset: dict[str, float],
     correlations: dict[tuple[str, str], float] | None = None,
@@ -93,6 +99,9 @@ class CorrelationAwareSizingResult:
     max_loss_at_conf: float
     correlation_impact: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def correlation_aware_sizing(
     expected_pnl: float,
     pnl_vol: float,
@@ -134,6 +143,9 @@ class MinVarianceExoticHedgeResult:
     unhedged_std: float
     variance_reduction_pct: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def minimum_variance_exotic_hedge(
     exotic_pnl: np.ndarray,         # (n_scenarios,) P&L of exotic
     hedge_pnls: np.ndarray,         # (n_scenarios, n_hedges) P&L of hedge instruments

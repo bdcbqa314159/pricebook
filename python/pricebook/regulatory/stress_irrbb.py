@@ -88,6 +88,9 @@ class StressScenario:
     description: str = ""
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class PortfolioData:
     """Portfolio inputs for stress testing."""
@@ -102,6 +105,9 @@ class PortfolioData:
     liquidity_outflows: float = 0
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Credit stress ----
 
 def calculate_pd_stress_multiplier(

@@ -44,6 +44,9 @@ class FloatingCashflow:
         return self.notional * (self.forward_rate(projection_curve) + self.spread) * self.year_frac
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class FloatingLeg:
     """
     A sequence of floating-rate coupons.

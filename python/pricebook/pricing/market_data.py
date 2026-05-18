@@ -153,6 +153,9 @@ class CurveConfig:
     name: str = ""  # for CDS: issuer name
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class PipelineConfig:
     """Configuration for building a full PricingContext from a snapshot."""
@@ -163,6 +166,9 @@ class PipelineConfig:
     fx_pairs: list[tuple[str, str]] = field(default_factory=list)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class MissingQuoteError(Exception):
     """Raised when required quotes are not found in snapshot."""
 

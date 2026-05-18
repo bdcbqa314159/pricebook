@@ -33,6 +33,9 @@ class PortfolioOptResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def mean_variance(
     expected_returns: np.ndarray | list[float],
     covariance: np.ndarray,
@@ -92,6 +95,9 @@ class BlackLittermanResult:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def black_litterman(
     market_weights: np.ndarray,
     covariance: np.ndarray,
@@ -209,6 +215,9 @@ class RebalanceResult:
     reason: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def rebalance(
     current_weights: np.ndarray,
     target_weights: np.ndarray,

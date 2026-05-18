@@ -32,6 +32,9 @@ class TARNResult:
     mean_total_coupon: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def tarn_price(
     notional: float,
     coupon_rate: float,
@@ -107,6 +110,9 @@ class SnowballResult:
     mean_total_coupon: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def snowball_price(
     notional: float,
     initial_coupon: float,
@@ -172,6 +178,9 @@ class CallableRangeAccrualResult:
     accrual_fraction: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def callable_range_accrual(
     notional: float,
     coupon_rate: float,
@@ -286,6 +295,9 @@ class RatchetCapResult:
     ratchet_premium: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ratchet_cap(
     notional: float,
     initial_strike: float,
@@ -352,6 +364,9 @@ class FlexiSwapResult:
     mean_exercises: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def flexi_swap(
     notional: float,
     fixed_rate: float,

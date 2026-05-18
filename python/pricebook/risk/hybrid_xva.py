@@ -24,6 +24,9 @@ class HybridCVAResult:
     peak_exposure: float
     wrong_way_adjustment: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def hybrid_cva(
     exposure_paths: np.ndarray,     # (n_paths, n_steps+1)
     default_probs: np.ndarray,      # (n_steps+1,) cumulative PD
@@ -66,6 +69,9 @@ class WrongWayRiskResult:
     adjustment_pct: float
     correlation_equity_credit: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def wrong_way_risk_adjustment(
     equity_paths: np.ndarray,       # (n_paths, n_steps+1)
     exposure_paths: np.ndarray,
@@ -106,6 +112,9 @@ class HybridFVAResult:
     funding_spread_bps: float
     expected_funding: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def hybrid_fva(
     exposure_paths: np.ndarray,
     funding_spread_bps: float,

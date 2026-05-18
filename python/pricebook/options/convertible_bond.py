@@ -36,6 +36,9 @@ class ConvertibleResult:
     n_paths: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class ConvertibleBond:
     """Convertible bond specification.
@@ -206,6 +209,9 @@ class ConvertibleBond:
         return (up_price - base_price) / (spot_up - spot_base)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Convertible delta hedge ----
 
 @dataclass
@@ -217,6 +223,9 @@ class DeltaHedgeResult:
     residual_pnl: float         # unhedged (gamma + higher-order)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def convertible_delta_hedge(
     cb_result: ConvertibleResult,
     spot: float,
@@ -254,6 +263,9 @@ class SoftCallResult:
     trigger_level: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def convertible_soft_call(
     cb: ConvertibleBond,
     spot: float,
@@ -340,6 +352,9 @@ class CoCoResult:
     loss_on_trigger: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def contingent_convertible(
     notional: float,
     coupon_rate: float,
@@ -438,6 +453,9 @@ class ExchangeableResult:
     underlying_spot: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def exchangeable_bond(
     notional: float,
     coupon_rate: float,
@@ -491,6 +509,9 @@ class MandatoryConvertibleResult:
     high_strike: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def mandatory_convertible(
     notional: float,
     coupon_rate: float,

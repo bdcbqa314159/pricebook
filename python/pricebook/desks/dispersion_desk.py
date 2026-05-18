@@ -196,6 +196,9 @@ class DispersionTrade:
         return self.direction * (basket_var - idx_var)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Correlation term structure ----
 
 @dataclass
@@ -234,3 +237,7 @@ class CorrelationTermStructure:
     @property
     def n_pillars(self) -> int:
         return len(self.expiries)
+
+
+    def to_dict(self) -> dict:
+        return vars(self)

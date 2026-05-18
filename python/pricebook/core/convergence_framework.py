@@ -36,6 +36,9 @@ class ConvergenceStudyResult:
     error_type: str  # "strong" or "weak"
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Strong convergence study ----
 
 def strong_convergence_study(
@@ -157,6 +160,9 @@ class SchemeComparisonResult:
     best_order: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def scheme_comparison(
     studies: list[ConvergenceStudyResult],
 ) -> SchemeComparisonResult:

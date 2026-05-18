@@ -33,6 +33,9 @@ class rBergomiResult:
     n_paths: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class rBergomiEquity:
     """rBergomi model for equity.
 
@@ -159,6 +162,9 @@ class RoughHestonParams:
     H: float           # Hurst parameter (0 < H < 0.5)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def rough_heston_cf(
     u: complex,
     T: float,
@@ -264,6 +270,9 @@ class ForwardVarianceCurve:
     method: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def forward_variance_curve(
     tenors: list[float],
     atm_variance: list[float],

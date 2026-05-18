@@ -1,1 +1,1 @@
-"""pricebook.statistics — Statistical methods: GARCH, Kalman, copulas, regression."""
+"""pricebook.statistics — GARCH, Kalman, copulas, regression, clustering."""

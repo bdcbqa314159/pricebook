@@ -26,6 +26,9 @@ class RepoRate:
     rate: float      # simple rate, annualised
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class RepoCurve:
     """Term structure of repo rates.
 
@@ -187,6 +190,9 @@ class SpecialRepoSpread:
     is_special: bool        # spread > threshold
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def identify_specials(
     gc_rate: float,
     collateral_rates: dict[str, float],

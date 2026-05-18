@@ -106,6 +106,9 @@ class SpreadCurve:
         return float(self._interp(max(t, 0.0)))
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class IBORProjection:
     """IBOR rate = RFR forward rate + deterministic spread.
 
@@ -234,6 +237,9 @@ class FallbackConfig:
     cessation_date: date
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def ibor_fallback_rate(
     rfr_compounded: float,
     config: FallbackConfig,

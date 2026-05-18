@@ -60,6 +60,9 @@ class RateSeries:
         return RateSeries(self.name, self.currency, self.unit, list(dates), list(values))
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Provider interface ----
 
 class MarketDataProvider:

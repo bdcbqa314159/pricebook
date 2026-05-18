@@ -111,6 +111,9 @@ class SkewPoint:
     base_corr: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 @dataclass
 class CorrelationSkew:
     """Base correlation curve with skew measures."""
@@ -118,6 +121,9 @@ class CorrelationSkew:
     skew: float  # difference between senior and equity base corr
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def correlation_skew(
     market_spreads: dict[float, float],
     pd: float,

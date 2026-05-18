@@ -34,6 +34,9 @@ class SchwartzOneFactorResult:
     long_run_level: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class SchwartzOneFactor:
     """Schwartz (1997) Model 1: mean-reverting log-spot.
 
@@ -109,6 +112,9 @@ class GibsonSchwartzResult:
     mean_terminal_delta: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class GibsonSchwartz:
     """Gibson-Schwartz (1990) two-factor commodity model.
 
@@ -225,6 +231,9 @@ class SchwartzSmithResult:
     times: np.ndarray
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class SchwartzSmith:
     """Schwartz-Smith (2000) long-short two-factor decomposition.
 
@@ -336,6 +345,9 @@ class CommodityJumpResult:
     mean_jumps_per_path: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class CommodityJumpDiffusion:
     """Merton-style jump-diffusion for commodities.
 

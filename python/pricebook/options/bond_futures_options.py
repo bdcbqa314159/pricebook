@@ -27,6 +27,9 @@ class EOMOptionResult:
     daily_option_value: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def end_of_month_option(
     futures_dv01: float,
     daily_vol_bps: float,
@@ -66,6 +69,9 @@ class QualityOptionResult:
     n_deliverables: int
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def quality_option(
     deliverable_bases: dict[str, float],
     yield_vol_bps: float,
@@ -126,6 +132,9 @@ class TimingOptionResult:
     optimal_delivery_day: str
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def timing_option(
     futures_price: float,
     coupon_rate: float,
@@ -177,6 +186,9 @@ class NetBasisResult:
     delivery_option_value: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def net_basis_decomposition(
     bond_price: float,
     conversion_factor: float,
@@ -219,6 +231,9 @@ class JointDeliveryResult:
     timing_value: float
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def joint_delivery_option_value(
     eom: EOMOptionResult,
     quality: QualityOptionResult,

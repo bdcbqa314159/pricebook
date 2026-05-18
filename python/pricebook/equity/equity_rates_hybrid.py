@@ -22,6 +22,9 @@ class CallableEquityNoteResult:
     rate_delta: float
     call_probability: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def callable_equity_note(
     spot: float, rate: float, equity_vol: float, rate_vol: float,
     rho: float, notional: float, participation: float,
@@ -73,6 +76,9 @@ class JointSimResult:
     rate_paths: np.ndarray
     correlation_realised: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def equity_ir_joint_simulate(
     spot: float, rate: float, equity_vol: float, rate_vol: float,
     rho: float, T: float, n_paths: int = 2000, n_steps: int = 50,
@@ -106,6 +112,9 @@ class HybridAutocallResult:
     autocall_probability: float
     ir_floor_triggered: float
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def hybrid_autocallable(
     spot: float, rate: float, equity_vol: float, rate_vol: float,
     rho: float, notional: float, coupon: float,

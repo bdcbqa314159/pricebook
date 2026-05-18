@@ -201,6 +201,9 @@ class IRCPosition:
     lgd: float | None = None
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 def get_lgd(pos: IRCPosition) -> float:
     """LGD with override priority."""
     if pos.lgd is not None:
@@ -225,6 +228,9 @@ class IRCConfig:
         return get_transition_matrix(self.transition_matrix)
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 # ---- Duration helpers ----
 
 def calculate_modified_duration(

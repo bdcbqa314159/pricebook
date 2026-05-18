@@ -143,6 +143,9 @@ class ASWBookEntry:
     direction: int = 1            # +1 long, -1 short
 
 
+
+    def to_dict(self) -> dict:
+        return vars(self)
 class ASWBook:
     """Asset swap position book."""
 
