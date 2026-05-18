@@ -2,31 +2,6 @@
 
 ---
 
-## v0.556.0 — 2026-05-15
-
-**Codebase restructuring: 433 flat files → 16 sub-packages.**
-
-- `pricebook/core/` — 29 files: discount_curve, schedule, day_count, trade, book, pricing_context, serialisation.
-- `pricebook/fixed_income/` — 65 files: bonds, swaps, FRA, repos, inflation, deposits, xccy.
-- `pricebook/credit/` — 56 files: CDS, CLN, CLO, loans, recovery, distressed, unitranche, waterfall.
-- `pricebook/options/` — 44 files: equity/FX/IR options, exotics, vol surfaces, SABR, Heston.
-- `pricebook/models/` — 51 files: MC engine, PDE, trees, processes, Black-76, Hull-White.
-- `pricebook/fx/` — 18 files: FX forwards, swaps, barriers, exotics, hedging.
-- `pricebook/equity/` — 22 files: equity TRS, dividends, variance swaps, RV.
-- `pricebook/commodity/` — 15 files: commodity instruments, storage, seasonal, models.
-- `pricebook/desks/` — 46 files: all 16+ trading desks, books, daily P&L, capital.
-- `pricebook/risk/` — 26 files: greeks, hedging, XVA, VaR, scenario, stress, SIMM.
-- `pricebook/curves/` — 19 files: bootstrap, curve building, AAD, Nelson-Siegel.
-- `pricebook/statistics/` — 12 files: GARCH, Kalman, copulas, regression, clustering.
-- `pricebook/pe/` — 4 files: LBO, DCF, PE performance, PE desk.
-- `pricebook/structured/` — 9 files: CMS, CMO, structured notes, hybrids.
-- `pricebook/pricing/` — 9 files: pricing engine, market data, codecs.
-- `pricebook/db/` — 2 files: database (SQLite + JSON).
-- Clean break: no backward-compatible re-exports from old paths.
-- Protected: `numerical/`, `regulatory/`, `ts/`, `viz/` untouched.
-
----
-
 ## v0.563.0 — 2026-05-18
 
 **Sell-side / buy-side gap closure — 5 modules.**
@@ -63,12 +38,15 @@
 
 ## v0.558.0 — 2026-05-18
 
-**Codebase restructuring + circular dep elimination.**
+**Codebase restructuring + circular dep elimination + structural hardening.**
 
-- 433 flat files → 20 sub-packages.
-- 9 clean dependency layers, 0 circular dependencies.
-- 677 `to_dict()` added, `__init__.py` re-exports, Layer 0 testing to 84%.
-- See ARCHITECTURE.md for full layer diagram.
+- 433 flat files → 20 sub-packages with 9 clean dependency layers.
+- 0 circular dependencies (7 broken: TYPE_CHECKING guards, lazy imports, file moves, registry to root).
+- 677 `to_dict()` auto-added to dataclasses.
+- `__init__.py` re-exports for core, fx, equity, commodity, curves, risk.
+- Layer 0 testing from 20% to 84% (72 new tests: statistics, viz, numerical, ts, db).
+- ARCHITECTURE.md fully updated.
+- See ARCHITECTURE.md for complete layer diagram and package inventory.
 
 ---
 
