@@ -27,6 +27,51 @@
 
 ---
 
+## v0.563.0 — 2026-05-18
+
+**Sell-side / buy-side gap closure — 5 modules.**
+
+### IPV Workflow (`risk/ipv.py`)
+- `FairValueLevel` — Level 1 (market) / Level 2 (comparable) / Level 3 (model).
+- `BCBS287_BID_ASK` — 15 asset-class-specific bid-ask tables.
+- `ipv_single_trade()` → `IPVResult` — automated AVA via existing prudent_valuation.
+- `ipv_portfolio()` → `IPVReport` — portfolio aggregation, level summary, breach detection.
+
+### Mandate Compliance (`core/mandate.py`)
+- `Mandate` — configurable policy: eligible_asset_classes, min_rating, max_single_name_pct, max_sector_pct, max_country_pct, currency_restrictions, max_duration.
+- `check_mandate()` → `MandateReport` — pass/fail per rule with breach details.
+- Predefined templates: investment_grade, sovereign_only, balanced, high_yield.
+
+### Term Sheet Generator (`desks/term_sheet.py`)
+- `generate_term_sheet()` → `TermSheet` — markdown-based: Deal Summary, Key Terms, Risk Profile, Scenario Analysis.
+- `TermSheet.to_markdown()` → str (externally convertible to HTML/PDF).
+
+### Middle Office Operations (`risk/trade_operations.py`)
+- `TradeStatusTracker` — state machine: PENDING → CONFIRMED → ALLOCATED → SETTLED → MATURED/TERMINATED/DEFAULTED.
+- `AuditEntry` — immutable audit trail (who, when, what, why).
+- `generate_settlement()` → `SettlementInstruction`, `match_confirmation()` → `ConfirmationRecord`.
+- `generate_margin_calls()` → `MarginCallReport` — daily margin calls with MTA enforcement.
+
+### Collateral Optimisation (`risk/collateral_optimisation.py`)
+- `CollateralOptimiser` — LP solver (scipy.optimize.linprog): min cost across multiple CSAs.
+- Constraints: coverage ≥ required, allocated ≤ available, eligibility per CSA.
+- `what_if_substitution()` → cost impact of swapping assets.
+- `stress_collateral()` → stressed cost + margin shortfall (mild/moderate/severe/crisis).
+- 51 new tests across all 5 modules.
+
+---
+
+## v0.558.0 — 2026-05-18
+
+**Codebase restructuring + circular dep elimination.**
+
+- 433 flat files → 20 sub-packages.
+- 9 clean dependency layers, 0 circular dependencies.
+- 677 `to_dict()` added, `__init__.py` re-exports, Layer 0 testing to 84%.
+- See ARCHITECTURE.md for full layer diagram.
+
+---
+
 ## v0.555.0 — 2026-05-14
 
 **FRTB-IMA desk bridge + reverse stress testing.**
