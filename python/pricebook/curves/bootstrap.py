@@ -3,7 +3,6 @@
 from datetime import date
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
-from pricebook.fixed_income.deposit import Deposit
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
 from pricebook.core.schedule import Frequency, StubType, generate_schedule
@@ -73,9 +72,9 @@ def bootstrap(
 
     # --- Short end: deposits give discount factors directly ---
     for mat, rate in deposits:
-        dep = Deposit(reference_date, mat, rate, day_count=deposit_day_count)
+        yf = year_fraction(reference_date, mat, deposit_day_count)
         pillar_dates.append(mat)
-        pillar_dfs.append(dep.discount_factor)
+        pillar_dfs.append(1.0 / (1.0 + rate * yf))
 
     # --- Middle: FRAs give df(end) from df(start) ---
     if fras:
@@ -349,9 +348,9 @@ def bootstrap_forward_curve(
         if swaps and deposits[-1][0] >= swaps[0][0]:
             raise ValueError("deposit maturities must come before swap maturities")
         for mat, rate in deposits:
-            dep = Deposit(reference_date, mat, rate, day_count=deposit_day_count)
+            yf = year_fraction(reference_date, mat, deposit_day_count)
             pillar_dates.append(mat)
-            pillar_dfs.append(dep.discount_factor)
+            pillar_dfs.append(1.0 / (1.0 + rate * yf))
 
     # Long end: solve for forward curve df at each swap maturity
     for mat, par_rate in swaps:

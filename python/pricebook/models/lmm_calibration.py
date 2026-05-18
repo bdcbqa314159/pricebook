@@ -17,7 +17,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.options.sabr import sabr_implied_vol, sabr_calibrate
+# Lazy import to avoid models→options circular dependency
+# sabr_implied_vol and sabr_calibrate imported inside functions that use them
 
 
 # ---- Rebonato's swaption vol approximation ----
@@ -198,6 +199,7 @@ class MultiFactorSABR:
 
     def vol(self, forward: float, strike: float, T: float) -> float:
         """Interpolated SABR vol at arbitrary expiry."""
+        from pricebook.options.sabr import sabr_implied_vol
         if len(self.slices) == 1:
             s = self.slices[0]
             return sabr_implied_vol(forward, strike, T, s.alpha, s.beta, s.rho, s.nu)
@@ -249,6 +251,7 @@ def calibrate_multi_factor_sabr(
     Returns:
         MultiFactorSABR with calibrated slices.
     """
+    from pricebook.options.sabr import sabr_calibrate
     slices = []
     for fwd, T, strikes, mkt_vols in zip(forwards, expiries, strikes_per_expiry, vols_per_expiry):
         result = sabr_calibrate(fwd, strikes, mkt_vols, T, beta=beta)

@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from pricebook.curves.curve_trading import (
+from pricebook.fixed_income.curve_trading import (
     swap_dv01, spread_trade, butterfly_trade,
     swap_carry, breakeven_rate_move,
 )
