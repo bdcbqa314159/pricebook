@@ -49,9 +49,14 @@ class BondInput:
     frequency: int = 2     # coupons per year
     recovery: float = 0.40 # assumed recovery on default (fraction of par)
     weight: float = 1.0    # fitting weight (lower for illiquid bonds)
+    liquidity_spread_bp: float = 0.0  # liquidity premium to strip before credit extraction
 
     def to_dict(self) -> dict:
         return {**vars(self), "maturity": self.maturity.isoformat()}
+
+
+RECOVERY_PAR = "par"
+RECOVERY_MARKET_VALUE = "market_value"
 
 
 @dataclass
@@ -141,6 +146,97 @@ def _price_risky_bond(
     return pv
 
 
+def _price_risky_bond_rmv(
+    reference_date: date,
+    maturity: date,
+    coupon: float,
+    frequency: int,
+    recovery: float,
+    discount_curve: DiscountCurve,
+    survival_curve: SurvivalCurve,
+) -> float:
+    """Price a risky bond under recovery of market value (Duffie-Singleton 1999).
+
+    Under RMV, recovery on default = R × V(t⁻) (fraction of pre-default value).
+    This simplifies to discounting all cashflows at adjusted survival:
+
+        Q̃(t) = Q(t)^(1-R)
+
+    PV = Σ c × τ × df(t_i) × Q̃(t_i) + Face × df(T) × Q̃(T)
+
+    No separate recovery leg — recovery is embedded in the discounting.
+
+    Reference: Duffie & Singleton (1999), eq. (6).
+    """
+    freq_map = {1: Frequency.ANNUAL, 2: Frequency.SEMI_ANNUAL, 4: Frequency.QUARTERLY}
+    freq = freq_map.get(frequency, Frequency.SEMI_ANNUAL)
+
+    schedule = generate_schedule(reference_date, maturity, freq)
+    dc = DayCountConvention.ACT_365_FIXED
+
+    lgd = 1.0 - recovery  # loss given default
+
+    pv = 0.0
+    for i in range(1, len(schedule)):
+        t_start = schedule[i - 1]
+        t_end = schedule[i]
+        yf = year_fraction(t_start, t_end, dc)
+        df = discount_curve.df(t_end)
+        q = survival_curve.survival(t_end)
+        q_adj = q ** lgd  # Duffie-Singleton adjusted survival
+
+        # Coupon
+        pv += coupon * yf * df * q_adj * 100.0
+
+    # Principal at maturity
+    q_mat = survival_curve.survival(maturity)
+    q_adj_mat = q_mat ** (1.0 - recovery)
+    pv += 100.0 * discount_curve.df(maturity) * q_adj_mat
+
+    return pv
+
+
+def _price_bond(
+    reference_date: date,
+    maturity: date,
+    coupon: float,
+    frequency: int,
+    recovery: float,
+    discount_curve: DiscountCurve,
+    survival_curve: SurvivalCurve,
+    recovery_mode: str = RECOVERY_PAR,
+) -> float:
+    """Dispatch to the appropriate risky bond pricer."""
+    if recovery_mode == RECOVERY_MARKET_VALUE:
+        return _price_risky_bond_rmv(
+            reference_date, maturity, coupon, frequency,
+            recovery, discount_curve, survival_curve,
+        )
+    return _price_risky_bond(
+        reference_date, maturity, coupon, frequency,
+        recovery, discount_curve, survival_curve,
+    )
+
+
+def _adjust_curve_for_liquidity(
+    discount_curve: DiscountCurve,
+    liquidity_bp: float,
+    reference_date: date,
+) -> DiscountCurve:
+    """Bump discount curve by liquidity spread to isolate credit component.
+
+    If the bond spread = credit + liquidity, we shift the risk-free curve
+    UP by the liquidity premium so the residual spread is credit-only.
+
+    This is equivalent to treating the liquidity premium as a known component
+    of the bond's yield and removing it before hazard extraction.
+    """
+    if liquidity_bp == 0.0:
+        return discount_curve
+    bump = liquidity_bp / 10_000
+    return discount_curve.bumped(bump)
+
+
 # ═══════════════════════════════════════════════════════════════
 # Sequential Bootstrap (exact fit, N bonds → N hazard pillars)
 # ═══════════════════════════════════════════════════════════════
@@ -149,6 +245,7 @@ def _bootstrap_sequential(
     reference_date: date,
     bonds: list[BondInput],
     discount_curve: DiscountCurve,
+    recovery_mode: str = RECOVERY_PAR,
 ) -> HazardBootstrapResult:
     """Sequential bootstrap: one bond per maturity, exact fit.
 
@@ -166,16 +263,21 @@ def _bootstrap_sequential(
     fitted_prices = []
 
     for i, bond in enumerate(sorted_bonds):
+        # Adjust discount curve for this bond's liquidity premium
+        dc_adj = _adjust_curve_for_liquidity(
+            discount_curve, bond.liquidity_spread_bp, reference_date,
+        )
+
         # Build trial survival curve with prior pillars + new pillar guess
-        def objective(q_new: float) -> float:
-            trial_dates = pillar_dates + [bond.maturity]
+        def objective(q_new: float, _bond=bond, _dc=dc_adj) -> float:
+            trial_dates = pillar_dates + [_bond.maturity]
             trial_survivals = pillar_survivals + [max(q_new, 1e-10)]
             trial_curve = SurvivalCurve(reference_date, trial_dates[1:], trial_survivals[1:])
-            model_price = _price_risky_bond(
-                reference_date, bond.maturity, bond.coupon, bond.frequency,
-                bond.recovery, discount_curve, trial_curve,
+            model_price = _price_bond(
+                reference_date, _bond.maturity, _bond.coupon, _bond.frequency,
+                _bond.recovery, _dc, trial_curve, recovery_mode,
             )
-            return model_price - bond.market_price
+            return model_price - _bond.market_price
 
         # Solve for Q(T) that reprices this bond
         try:
@@ -187,11 +289,11 @@ def _bootstrap_sequential(
         pillar_dates.append(bond.maturity)
         pillar_survivals.append(q_solved)
 
-        # Compute fitted price
+        # Compute fitted price (using adjusted curve)
         curve = SurvivalCurve(reference_date, pillar_dates[1:], pillar_survivals[1:])
-        fitted = _price_risky_bond(
+        fitted = _price_bond(
             reference_date, bond.maturity, bond.coupon, bond.frequency,
-            bond.recovery, discount_curve, curve,
+            bond.recovery, dc_adj, curve, recovery_mode,
         )
         fitted_prices.append(fitted)
 
@@ -238,6 +340,7 @@ def _bootstrap_global(
     bonds: list[BondInput],
     discount_curve: DiscountCurve,
     n_pillars: int | None = None,
+    recovery_mode: str = RECOVERY_PAR,
 ) -> HazardBootstrapResult:
     """Global least-squares fit: fit M hazard pillars to N bond prices.
 
@@ -251,6 +354,12 @@ def _bootstrap_global(
     n = len(sorted_bonds)
     if n_pillars is None:
         n_pillars = min(n, 5)
+
+    # Pre-compute per-bond adjusted discount curves for liquidity
+    dc_per_bond = [
+        _adjust_curve_for_liquidity(discount_curve, b.liquidity_spread_bp, reference_date)
+        for b in sorted_bonds
+    ]
 
     # Create pillar dates evenly spaced across bond maturities
     dc = DayCountConvention.ACT_365_FIXED
@@ -279,10 +388,10 @@ def _bootstrap_global(
             return 1e10
 
         total_err = 0.0
-        for bond in sorted_bonds:
-            model = _price_risky_bond(
+        for j, bond in enumerate(sorted_bonds):
+            model = _price_bond(
                 reference_date, bond.maturity, bond.coupon, bond.frequency,
-                bond.recovery, discount_curve, curve,
+                bond.recovery, dc_per_bond[j], curve, recovery_mode,
             )
             err_bp = (model - bond.market_price) * 100  # in bp of par
             total_err += bond.weight * err_bp ** 2
@@ -319,10 +428,10 @@ def _bootstrap_global(
 
     # Compute fitted prices and residuals
     fitted_prices = []
-    for bond in sorted_bonds:
-        fitted = _price_risky_bond(
+    for j, bond in enumerate(sorted_bonds):
+        fitted = _price_bond(
             reference_date, bond.maturity, bond.coupon, bond.frequency,
-            bond.recovery, discount_curve, final_curve,
+            bond.recovery, dc_per_bond[j], final_curve, recovery_mode,
         )
         fitted_prices.append(fitted)
 
@@ -355,6 +464,7 @@ def bootstrap_hazard_from_bonds(
     discount_curve: DiscountCurve,
     method: str = "auto",
     n_pillars: int | None = None,
+    recovery_mode: str = RECOVERY_PAR,
 ) -> HazardBootstrapResult:
     """Bootstrap a survival/hazard curve from risky bond prices.
 
@@ -366,11 +476,25 @@ def bootstrap_hazard_from_bonds(
                 "global" (least-squares, N bonds → M pillars),
                 "auto" (sequential if N ≤ 8 with distinct maturities, else global).
         n_pillars: for global method, number of hazard segments.
+        recovery_mode: "par" (ISDA standard, R × Face on default) or
+                       "market_value" (Duffie-Singleton 1999, R × V(t⁻)).
 
     Returns:
         HazardBootstrapResult with survival curve and diagnostics.
 
-    Minimum bonds: 1 (flat hazard), 2 (2-segment), recommended 3-8.
+    Recovery modes:
+        - "par": on default, investor receives R × 100 (Face).
+          This is the ISDA CDS standard and most common for corporate bonds.
+          Requires separate recovery leg in pricing.
+        - "market_value": on default, investor receives R × V(t⁻) where V(t⁻) is
+          the pre-default risky bond value. Duffie-Singleton (1999) shows this reduces
+          to discounting at adjusted survival Q̃(t) = Q(t)^(1-R). No recovery leg.
+          Produces lower hazard rates for the same market prices.
+
+    Liquidity spread:
+        Each BondInput may specify liquidity_spread_bp. The bootstrap bumps the
+        discount curve by this amount before extracting the credit component,
+        so the resulting hazard rates reflect pure credit risk, not liquidity.
 
     Edge cases:
         - 1 bond: flat hazard rate (single pillar)
@@ -380,6 +504,8 @@ def bootstrap_hazard_from_bonds(
     """
     if not bonds:
         raise ValueError("At least one bond required")
+    if recovery_mode not in (RECOVERY_PAR, RECOVERY_MARKET_VALUE):
+        raise ValueError(f"recovery_mode must be '{RECOVERY_PAR}' or '{RECOVERY_MARKET_VALUE}'")
 
     n = len(bonds)
     sorted_bonds = sorted(bonds, key=lambda b: b.maturity)
@@ -400,9 +526,11 @@ def bootstrap_hazard_from_bonds(
                 f"Sequential method requires distinct maturities, "
                 f"got {n} bonds with {unique_mats} unique maturities. Use method='global'."
             )
-        return _bootstrap_sequential(reference_date, sorted_bonds, discount_curve)
+        return _bootstrap_sequential(reference_date, sorted_bonds, discount_curve, recovery_mode)
     else:
-        return _bootstrap_global(reference_date, sorted_bonds, discount_curve, n_pillars)
+        return _bootstrap_global(
+            reference_date, sorted_bonds, discount_curve, n_pillars, recovery_mode,
+        )
 
 
 def implied_hazard_from_spread(

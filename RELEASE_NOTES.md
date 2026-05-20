@@ -2,6 +2,28 @@
 
 ---
 
+## v0.565.0 — 2026-05-20
+
+**Bond hazard bootstrap — recovery of market value & liquidity premium separation.**
+
+### Recovery of Market Value (`credit/bond_hazard_bootstrap.py`)
+- `_price_risky_bond_rmv()` — Duffie-Singleton (1999) pricing: recovery = R × V(t⁻), reduces to discounting at Q̃(t) = Q(t)^(1-R). No separate recovery leg.
+- `recovery_mode` parameter on `bootstrap_hazard_from_bonds()`: `"par"` (ISDA standard, default) or `"market_value"` (Duffie-Singleton).
+- RMV produces lower hazard rates than RP for the same market prices (less recovery → less hazard needed to explain low price).
+- `RECOVERY_PAR`, `RECOVERY_MARKET_VALUE` constants exported.
+
+### Liquidity Premium Separation (`credit/bond_hazard_bootstrap.py`)
+- `BondInput.liquidity_spread_bp` — per-bond liquidity premium assumption (bp).
+- Bootstrap bumps the discount curve by liquidity spread before credit extraction, isolating pure credit hazard.
+- Per-bond liquidity (e.g. higher for illiquid long-end) supported in both sequential and global methods.
+- Combined with RMV recovery mode for full flexibility.
+
+### Tests
+- 14 new tests (31 total): RMV pricing, RMV bootstrap round-trip, liquidity spread effect, per-bond liquidity, combined RMV+liquidity, edge cases.
+- 8836 tests pass.
+
+---
+
 ## v0.563.0 — 2026-05-18
 
 **Sell-side / buy-side gap closure — 5 modules.**
