@@ -2,6 +2,24 @@
 
 ---
 
+## v0.593.0 — 2026-05-21
+
+**1.1: RFR compounding conventions — 12 currencies, full ISDA mechanics.**
+
+### RFR Compounding (`fixed_income/rfr_compounding.py`)
+- `RFRAccrualConfig` — observation shift, lookback, lockout, rate cut-off, payment delay, fixing lag.
+- 12 frozen configs: SOFR, ESTR, SONIA, TONA, SARON, CORRA, AONIA (G10) + CDI, KOFR, SORA, HONIA, THOR (EM).
+- `compound_rfr_full()` — backward-looking compounded rate with all ISDA adjustments from fixings.
+- `compound_rfr_from_curve()` — forward-looking from discount curve (for pricing).
+- `rfr_accrual_schedule()` — full observation/weight schedule per business day.
+- `get_rfr_config()`, `list_rfr_configs()` — registry.
+
+### Tests
+- 23 new tests: registry, schedule mechanics (obs shift, lookback, weekend weight), flat/varying rates, multi-currency, lockout, rate cut-off.
+- 9340 tests pass.
+
+---
+
 ## v0.592.0 — 2026-05-21
 
 **Hardening audit (L1-L11) — 10 fixes across 9 modules + 3 hand-calculation verifications.**
