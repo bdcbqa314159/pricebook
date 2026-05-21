@@ -2,6 +2,23 @@
 
 ---
 
+## v0.569.0 — 2026-05-21
+
+**D2: NDF-implied discount curve construction for restricted EM currencies.**
+
+### NDF-Implied Curves (`curves/ndf_implied.py`)
+- `build_ndf_implied_curve()` — derive EM discount curve from FX NDF prices + G10 base curve via covered interest parity: df_em(T) = df_base(T) × Spot / NDF(T).
+- `ndf_from_curves()` — compute theoretical NDF prices from two discount curves (for CIP deviation checking).
+- `cip_basis()` — measure covered interest parity basis in bp (funding stress indicator).
+- `NDFQuote` dataclass with bid/ask/mid support.
+- `NDFImpliedResult` with implied DFs, zero rates, forward points, to_dict().
+
+### Tests
+- 19 new tests: construction, round-trip, CIP basis, multi-currency (CNY, INR, KRW, BRL), edge cases, helpers.
+- 8974 tests pass.
+
+---
+
 ## v0.568.0 — 2026-05-21
 
 **D4: Sovereign bond factory — 50 markets with correct conventions.**
