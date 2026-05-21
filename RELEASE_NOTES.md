@@ -2,6 +2,25 @@
 
 ---
 
+## v0.578.0 — 2026-05-21
+
+**A1: Regime-switching credit — HMM with state-dependent hazard rates.**
+
+### Regime-Switching Credit (`credit/regime_switching.py`)
+- `RegimeSwitchingCredit` — continuous-time Markov chain with state-dependent default intensities.
+- Survival via matrix exponential: Q(t) = π₀ × exp((Q-Λ)t) × 1.
+- `survival()`, `implied_hazard()`, `implied_spread()` — with optional conditioning on initial state.
+- `regime_probabilities()`, `expected_hazard()`, `stationary_distribution()`.
+- `spread_term_structure()` — term structure under regime uncertainty.
+- `calibrate_regime_model()` — fit 2 or 3 state model from observed CDS spread curve.
+- 2-state (expansion/recession) and 3-state (expansion/normal/recession) support.
+
+### Tests
+- 21 new tests: survival bounds, conditional, 3-state, calibration, repricing, serialization.
+- 9138 tests pass.
+
+---
+
 ## v0.577.0 — 2026-05-21
 
 **D14: Sovereign FRNs — 3 floating-rate sovereign markets.**
