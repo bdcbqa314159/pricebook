@@ -1,7 +1,13 @@
 """Day count conventions for year fraction calculations."""
 
-from datetime import date
+from __future__ import annotations
+
+from datetime import date, timedelta
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pricebook.core.calendar import Calendar
 
 
 class DayCountConvention(Enum):
@@ -11,6 +17,7 @@ class DayCountConvention(Enum):
     THIRTY_E_360 = "30E/360"
     ACT_ACT_ISDA = "ACT/ACT ISDA"
     ACT_ACT_ICMA = "ACT/ACT ICMA"
+    BUS_252 = "BUS/252"
 
 
 def year_fraction(
@@ -20,6 +27,7 @@ def year_fraction(
     ref_start: date | None = None,
     ref_end: date | None = None,
     frequency: int | None = None,
+    calendar: Calendar | None = None,
 ) -> float:
     """Compute the year fraction between two dates under a given convention.
 
@@ -30,6 +38,7 @@ def year_fraction(
         ref_start: coupon period start (needed for ACT/ACT ICMA).
         ref_end: coupon period end (needed for ACT/ACT ICMA).
         frequency: coupons per year (needed for ACT/ACT ICMA).
+        calendar: business day calendar (required for BUS/252).
     """
     if start == end:
         return 0.0
@@ -48,6 +57,8 @@ def year_fraction(
         return _act_act_isda(start, end)
     elif convention == DayCountConvention.ACT_ACT_ICMA:
         return _act_act_icma(start, end, ref_start, ref_end, frequency)
+    elif convention == DayCountConvention.BUS_252:
+        return _bus_252(start, end, calendar)
     else:
         raise ValueError(f"Unsupported convention: {convention}")
 
@@ -163,6 +174,37 @@ def _act_act_icma(
     return (end - start).days / (period_days * frequency)
 
 
+def _bus_252(start: date, end: date, calendar: Calendar | None = None) -> float:
+    """BUS/252 (Brazilian convention): business days between dates / 252.
+
+    Used by all BRL-denominated instruments: NTN-F, NTN-B, LTN, DI futures.
+    The denominator is always 252 (the conventional number of business days
+    per year in Brazil).
+
+    If no calendar is provided, defaults to São Paulo calendar.
+    """
+    if calendar is None:
+        from pricebook.core.calendar import SaoPauloCalendar
+        calendar = SaoPauloCalendar()
+    bd = business_days_between(start, end, calendar)
+    return bd / 252.0
+
+
+def business_days_between(start: date, end: date, calendar: Calendar) -> int:
+    """Count business days between start (exclusive) and end (inclusive).
+
+    This matches the market convention: the settlement date counts,
+    the trade date does not.
+    """
+    count = 0
+    current = start + timedelta(days=1)
+    while current <= end:
+        if calendar.is_business_day(current):
+            count += 1
+        current += timedelta(days=1)
+    return count
+
+
 def date_from_year_fraction(reference_date: date, t: float) -> date:
     """Convert a year fraction to a date, avoiding int(t*365) drift.
 
@@ -173,5 +215,4 @@ def date_from_year_fraction(reference_date: date, t: float) -> date:
     """
     if t <= 0:
         return reference_date
-    from datetime import timedelta
     return reference_date + timedelta(days=round(t * 365.25))

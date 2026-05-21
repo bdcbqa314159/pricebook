@@ -2,6 +2,23 @@
 
 ---
 
+## v0.567.0 — 2026-05-21
+
+**D3: BUS/252 day count convention for Brazilian markets.**
+
+### BUS/252 (`core/day_count.py`)
+- `DayCountConvention.BUS_252` — business days / 252, the standard for all BRL instruments (NTN-F, NTN-B, LTN, DI futures).
+- `business_days_between(start, end, calendar)` — count business days between two dates (start exclusive, end inclusive).
+- `year_fraction(..., calendar=)` — new optional `calendar` parameter for BUS/252.
+- Defaults to São Paulo calendar when no calendar provided.
+- Works with any calendar (e.g. USD for testing).
+
+### Tests
+- 7 new BUS/252 tests: week count, year approximation, carnival skip, weekend skip, default calendar, US calendar, Independence Day.
+- 8920 tests pass.
+
+---
+
 ## v0.566.0 — 2026-05-21
 
 **D1: EM Calendars — 24 new calendars + registry.**
