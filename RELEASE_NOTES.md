@@ -2,6 +2,22 @@
 
 ---
 
+## v0.576.0 — 2026-05-21
+
+**D11: Cross-market sovereign relative value framework.**
+
+### Sovereign RV (`fixed_income/sovereign_rv.py`)
+- `sovereign_spread_decomposition()` — decomposes spread into credit (CDS), fundamental (macro), liquidity (bid-ask/turnover), and technical (residual) components.
+- `cross_market_rv_scores()` — cross-sectional Z-scores, percentiles, and CHEAP/FAIR/RICH signals across N sovereign markets.
+- `SovereignRVInput` — macro fundamentals: debt/GDP, fiscal balance, current account, rating, FX vol, reserves.
+- `SpreadDecomposition`, `RVScore` result dataclasses with `to_dict()`.
+
+### Tests
+- 14 new tests: decomposition, component sum, high/low risk, Z-scores, sorting, signals, edge cases.
+- 9112 tests pass.
+
+---
+
 ## v0.575.0 — 2026-05-21
 
 **D12: EM local currency curve builders — 16 currencies + CDI/TIIE/SHIBOR.**
