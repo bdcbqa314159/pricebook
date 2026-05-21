@@ -2,6 +2,48 @@
 
 ---
 
+## v0.590.0 — 2026-05-21
+
+**Phase 5: All remaining plan items — 14 modules completing the 36-item roadmap.**
+
+### A2: ML-based PD (`credit/ml_pd.py`)
+- `LogisticPD` — logistic regression from 9 financial ratios → PD, rating, Altman Z-score, hazard.
+
+### A3: Sovereign CDS-bond basis (`credit/cds_bond_basis.py`)
+- `compute_basis()` → funding, delivery option, restructuring decomposition. Z-score, negative-basis PnL.
+
+### A5: Joint equity-credit calibration (`credit/joint_equity_credit.py`)
+- `joint_calibrate()` — fit CreditGrades (σ_A, leverage) to equity vol + CDS spread simultaneously.
+
+### B3-B6: CLN Advanced (`credit/cln_advanced.py`)
+- B3 spread-driven XVA (exposure depends on ref spread), B4 dynamic funding (CSA-threshold-aware), B5 wrong-way risk (2nd-order), B6 collateral haircut stress.
+
+### C5: Covered Bonds (`fixed_income/covered_bond.py`)
+- Dual-recourse pricing: issuer + cover pool. OC, LTV, pool-type spread benefits.
+
+### C6: Bond Forwards + Credit (`fixed_income/bond_forward.py`)
+- `credit_adjusted_forward_price()` — forward with default risk during carry period.
+
+### C8: Convertible (not yet — deferred to separate slice)
+
+### C9: Issuer Spread Curve (`credit/issuer_curve.py`)
+- Nelson-Siegel on spreads. `fit_issuer_curve()` from observed bond spreads.
+
+### D7: Sukuk (`fixed_income/sukuk.py`)
+- 7 Sukuk types (Ijara, Mudaraba, Murabaha, Wakala, Musharaka, Salam, Istisna). Conventions + spread pricing.
+
+### D8: ESG Bond Labelling (`fixed_income/esg_bond.py`)
+- ICMA Green Bond Principles, SLB KPI triggers, 12 use-of-proceeds categories, greenium estimation.
+
+### D9: Supranationals (`fixed_income/supranational.py`)
+- 10 issuers (EIB, IBRD, IFC, ADB, EBRD, AfDB, AIIB, IADB, NIB, KfW). AAA-rated quasi-sovereign curves.
+
+### Tests
+- 55 new tests across all modules.
+- 9302 tests pass.
+
+---
+
 ## v0.586.0 — 2026-05-21
 
 **Phase 4: Bond-Credit — C3 CoCo/AT1, C4 perpetuals, C1 callable+credit OAS, C2 spread decomposition.**

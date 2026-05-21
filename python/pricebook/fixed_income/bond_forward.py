@@ -317,3 +317,47 @@ class BondForward:
 from pricebook.core.serialisable import _register as _reg_bf
 BondForward._SERIAL_TYPE = "bond_forward"
 _reg_bf(BondForward)
+
+
+def credit_adjusted_forward_price(
+    spot_dirty: float,
+    repo_rate: float,
+    forward_years: float,
+    survival_prob: float,
+    recovery: float = 0.40,
+) -> dict:
+    """Credit-adjusted bond forward price.
+
+    The forward buyer bears credit risk during the carry period.
+    If the issuer defaults before delivery, the buyer receives recovery.
+
+    F_credit = Q × F_riskfree + (1-Q) × R × Face
+
+    where Q = survival probability to delivery, R = recovery.
+
+    Args:
+        spot_dirty: current dirty price.
+        repo_rate: repo financing rate.
+        forward_years: time to delivery.
+        survival_prob: P(no default before delivery).
+        recovery: recovery on default (fraction of face).
+
+    Returns:
+        Dict with forward_price, credit_charge, riskfree_forward.
+    """
+    # Risk-free forward (simple carry)
+    fwd_rf = spot_dirty * (1 + repo_rate * forward_years)
+
+    # Credit charge: expected loss from default before delivery
+    face = 100.0
+    credit_charge = (1 - survival_prob) * (fwd_rf - recovery * face)
+
+    fwd_credit = fwd_rf - credit_charge
+
+    return {
+        "forward_price": fwd_credit,
+        "riskfree_forward": fwd_rf,
+        "credit_charge": credit_charge,
+        "survival_prob": survival_prob,
+        "default_prob": 1 - survival_prob,
+    }
