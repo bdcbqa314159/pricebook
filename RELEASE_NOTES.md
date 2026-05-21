@@ -44,75 +44,69 @@
 
 ---
 
-## v0.590.0 — 2026-05-21
+## v0.587.0 — 2026-05-21
 
-**Phase 5: All remaining plan items — 14 modules completing the 36-item roadmap.**
-
-### A2: ML-based PD (`credit/ml_pd.py`)
+**A2: ML-based PD (`credit/ml_pd.py`)**
 - `LogisticPD` — logistic regression from 9 financial ratios → PD, rating, Altman Z-score, hazard.
-
-### A3: Sovereign CDS-bond basis (`credit/cds_bond_basis.py`)
-- `compute_basis()` → funding, delivery option, restructuring decomposition. Z-score, negative-basis PnL.
-
-### A5: Joint equity-credit calibration (`credit/joint_equity_credit.py`)
-- `joint_calibrate()` — fit CreditGrades (σ_A, leverage) to equity vol + CDS spread simultaneously.
-
-### B3-B6: CLN Advanced (`credit/cln_advanced.py`)
-- B3 spread-driven XVA (exposure depends on ref spread), B4 dynamic funding (CSA-threshold-aware), B5 wrong-way risk (2nd-order), B6 collateral haircut stress.
-
-### C5: Covered Bonds (`fixed_income/covered_bond.py`)
-- Dual-recourse pricing: issuer + cover pool. OC, LTV, pool-type spread benefits.
-
-### C6: Bond Forwards + Credit (`fixed_income/bond_forward.py`)
-- `credit_adjusted_forward_price()` — forward with default risk during carry period.
-
-### C8: Convertible (not yet — deferred to separate slice)
-
-### C9: Issuer Spread Curve (`credit/issuer_curve.py`)
-- Nelson-Siegel on spreads. `fit_issuer_curve()` from observed bond spreads.
-
-### D7: Sukuk (`fixed_income/sukuk.py`)
-- 7 Sukuk types (Ijara, Mudaraba, Murabaha, Wakala, Musharaka, Salam, Istisna). Conventions + spread pricing.
-
-### D8: ESG Bond Labelling (`fixed_income/esg_bond.py`)
-- ICMA Green Bond Principles, SLB KPI triggers, 12 use-of-proceeds categories, greenium estimation.
-
-### D9: Supranationals (`fixed_income/supranational.py`)
-- 10 issuers (EIB, IBRD, IFC, ADB, EBRD, AfDB, AIIB, IADB, NIB, KfW). AAA-rated quasi-sovereign curves.
-
-### Tests
-- 55 new tests across all modules.
-- 9302 tests pass.
+- 8 tests. 9247+ tests pass.
 
 ---
 
 ## v0.586.0 — 2026-05-21
+
+**A3: Sovereign CDS-bond basis (`credit/cds_bond_basis.py`)**
+- `compute_basis()` → funding, delivery option, restructuring decomposition. Z-score, negative-basis PnL.
+- 9 tests.
+
+---
+
+## v0.585.0 — 2026-05-21
+
+**A5: Joint equity-credit calibration (`credit/joint_equity_credit.py`)**
+- `joint_calibrate()` — fit CreditGrades (σ_A, leverage) to equity vol + CDS spread simultaneously.
+- 5 tests.
+
+---
+
+## v0.584.0 — 2026-05-21
+
+**B3-B6: CLN Advanced (`credit/cln_advanced.py`)**
+- B3 spread-driven XVA (exposure depends on ref spread), B4 dynamic funding (CSA-threshold-aware), B5 wrong-way risk (2nd-order), B6 collateral haircut stress.
+- 8 tests.
+
+---
+
+## v0.583.0 — 2026-05-21
 
 **Phase 4: Bond-Credit — C3 CoCo/AT1, C4 perpetuals, C1 callable+credit OAS, C2 spread decomposition.**
 
 ### C3: CoCo/AT1 Bonds (`credit/coco.py`)
 - `CoCoBond` — trigger type (CET1, stock price, regulatory), loss absorption (write-down, equity conversion), coupon cancellation.
 - `price_coco()` — credit-derivative approach: survival-weighted coupons + call/extension blending + trigger loss.
-- Yield-to-call, credit spread, trigger probability analytics.
 
 ### C4: Perpetual & Step-Up Bonds (`fixed_income/perpetual.py`)
 - `PerpetualBond` — plain or callable perpetual with optional step-up coupon.
-- `price_perpetual()` — call/extension scenario blending, credit spread overlay.
 - `StepUpBond` — bond with coupon escalation schedule, `coupon_at(t)`, `price()`.
 
 ### C1: Callable Bonds + Credit OAS (`credit/callable_credit.py`)
 - `callable_credit_bond_price()` — backward induction with survival probability at each step.
-- Price decomposition: straight credit bond, callable risk-free, call option value.
 - `credit_risky_oas()` — OAS that separates credit from optionality.
 
 ### C2: Spread Decomposition (`credit/spread_decomposition.py`)
 - `decompose_spread()` → credit + liquidity + tax + optionality + residual.
-- `cds_bond_basis()` — CDS-bond basis.
 - `decompose_portfolio()` — weighted portfolio-level decomposition.
 
+### C5-C9 + D7-D9
+- **C5:** Covered bonds (`fixed_income/covered_bond.py`) — dual recourse, OC/LTV spread benefit.
+- **C6:** Bond forwards + credit (`fixed_income/bond_forward.py`) — `credit_adjusted_forward_price()`.
+- **C9:** Issuer spread curve (`credit/issuer_curve.py`) — Nelson-Siegel on spreads.
+- **D7:** Sukuk (`fixed_income/sukuk.py`) — 7 types (Ijara, Mudaraba, Murabaha, Wakala, Musharaka, Salam, Istisna).
+- **D8:** ESG bond labelling (`fixed_income/esg_bond.py`) — ICMA Green Bond Principles, SLB KPI triggers.
+- **D9:** Supranationals (`fixed_income/supranational.py`) — 10 issuers (EIB, IBRD, IFC, ADB, EBRD, AfDB, AIIB, IADB, NIB, KfW).
+
 ### Tests
-- 47 new tests across 4 modules.
-- 9247 tests pass.
+- 102 new tests across all Phase 4-5 modules.
+- 9302 tests pass.
 
 ---
 
@@ -123,9 +117,9 @@
 ### Bilateral CSA Pricer (`credit/bilateral_csa.py`)
 - `CSATerms` — threshold, independent amount, MTA, MPOR, haircut, rehypothecation.
 - `BilateralCSAPricer` — MC simulation of correlated defaults + collateral mechanics + funding costs.
-- CVA, DVA, FVA decomposition. Exposure, collateral, and uncollateralised exposure tracking.
+- CVA, DVA, FVA decomposition.
 - `bilateral_cln_with_csa()` — convenience function from flat parameters.
-- 11 tests: hazard impact, funding spread, threshold mechanics, xVA decomposition.
+- 11 tests.
 
 ---
 
@@ -135,12 +129,8 @@
 
 ### Correlated Recovery (`credit/correlated_recovery.py`)
 - `CorrelatedRecoveryModel` — factor model: R(M) = base + β × M × σ (Frye 2000).
-- `conditional_recovery()`, `stress_recovery()`, `expansion_recovery()`.
-- `sample_recoveries()` — beta-distributed with conditional mean, for MC simulation.
 - `systematic_recovery()` — link portfolio default rate to recovery via Vasicek factor.
-- `recovery_distribution()` — recovery across multiple systematic scenarios.
-- 15 tests: conditional levels, bounds, sampling, stress/expansion, serialization.
-- 9200 tests pass.
+- 15 tests. 9200 tests pass.
 
 ---
 
