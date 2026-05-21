@@ -2,6 +2,24 @@
 
 ---
 
+## v0.575.0 — 2026-05-21
+
+**D12: EM local currency curve builders — 16 currencies + CDI/TIIE/SHIBOR.**
+
+### EM Curve Builder (`curves/em_curve_builder.py`)
+- `EMCurveConventions` — per-currency deposit/swap day count, frequency, interpolation.
+- 16 EM currencies: BRL, MXN, CNY, KRW, ZAR, INR, SGD, HKD, THB, PLN, CZK, HUF, COP, CLP, TRY, IDR.
+- `build_em_curve(currency, ref, deposits, swaps)` — generic builder with correct conventions.
+- `build_cdi_curve(ref, di_futures)` — Brazil CDI from DI futures (df = 1/(1+r)^(bd/252)).
+- `build_tiie_curve()`, `build_shibor_curve()` — Mexico and China convenience wrappers.
+- `get_em_curve_conventions()`, `list_em_curve_currencies()`.
+
+### Tests
+- 14 new tests: conventions, all-currency build, CDI formula verification, TIIE, SHIBOR.
+- 9098 tests pass.
+
+---
+
 ## v0.574.0 — 2026-05-21
 
 **D10: EM sovereign credit curves — 31 sovereigns + CDS hazard bootstrap.**
