@@ -2,6 +2,29 @@
 
 ---
 
+## v0.566.0 — 2026-05-21
+
+**D1: EM Calendars — 24 new calendars + registry.**
+
+### EM Calendars (`core/calendar.py`)
+- **CEE (4):** Warsaw (PLN), Prague (CZK), Budapest (HUF), Bucharest (RON, Orthodox Easter).
+- **Turkey & MENA (4):** Istanbul (TRY), Riyadh (SAR), Tel Aviv (ILS, Fri-Sat weekend), Cairo (EGP).
+- **Africa (3):** Johannesburg (ZAR, Sun→Mon observance), Nairobi (KES), Lagos (NGN).
+- **LatAm (4):** São Paulo (BRL, Carnival), Mexico City (MXN, Maundy Thu), Santiago (CLP), Bogotá (COP, emiliani Monday law).
+- **Asia (8):** Beijing (CNY), Seoul (KRW), Mumbai (INR), Singapore (SGD), Hong Kong (HKD), Jakarta (IDR), Kuala Lumpur (MYR), Bangkok (THB), Manila (PHP).
+- **Other DM (1):** Denmark (DKK, Store Bededag removed post-2023).
+- Orthodox Easter algorithm for Romania (Julian + 13-day Gregorian offset).
+
+### Calendar Registry (`core/calendar.py`)
+- `get_calendar(currency_code)` — 35 currencies (11 G10 + 24 EM).
+- `list_calendars()` — sorted list of available codes.
+
+### Tests
+- 56 new tests covering holidays, business day conventions, Orthodox Easter, cross-calendar consistency, joint calendar.
+- 8913 tests pass.
+
+---
+
 ## v0.565.0 — 2026-05-20
 
 **Bond hazard bootstrap — recovery of market value & liquidity premium separation.**
