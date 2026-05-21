@@ -2,6 +2,30 @@
 
 ---
 
+## v0.592.0 — 2026-05-21
+
+**Hardening audit (L1-L11) — 10 fixes across 9 modules + 3 hand-calculation verifications.**
+
+### Input Validation Fixes
+- `regime_switching.py` — transition matrix must be stochastic (rows sum to 1, entries in [0,1]).
+- `bilateral_csa.py` — correlation bounds validated in constructor.
+- `coco.py` — trigger_intensity must be non-negative.
+- `sovereign_cds.py` — tenor must be positive integer.
+- `covered_bond.py` — LTV in (0, 1.5], OC >= 1.0.
+
+### Numerical Stability Fixes
+- `ndf_implied.py` — skip NDF quotes producing df > 2.0 (data error guard).
+- `callable_credit.py` — clamp conditional survival to [0, 1] for floating-point safety.
+- `yield_convention.py` — wider solver bracket [-50%, 500%], approximate fallback on failure.
+- `spread_decomposition.py` — fixed tax formula unit error (was off by ×100).
+
+### L11 Hand-Calculation Verification
+- **CreditGrades**: Q(5Y) = 0.87053497, spread = 138.65bp — exact match (8 decimal places).
+- **BRL BUS/252**: 254 business days, yf = 1.007937 — exact. Yield roundtrip perfect.
+- **Convertible equity-credit**: default prob 9.44% (hand: 9.52%), bond floor 90.27 (hand: 90.65), δ>0, CS01<0, ρ-sens<0 — all correct.
+
+---
+
 ## v0.591.0 — 2026-05-21
 
 **C8: Convertible equity-credit correlation — joint (stock, hazard) Monte Carlo.**
