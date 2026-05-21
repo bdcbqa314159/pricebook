@@ -2,6 +2,23 @@
 
 ---
 
+## v0.580.0 — 2026-05-21
+
+**A6: Term structure of recovery — maturity-dependent + stochastic recovery.**
+
+### Recovery Curve (`credit/recovery_curve.py`)
+- `RecoveryCurve` — interpolated recovery by maturity: `flat()`, `linear()`, `from_seniority()`.
+- `RecoverySeniority` enum: 5 levels (senior secured → junior subordinated) with Moody's historical averages.
+- `StochasticRecovery` — beta-distributed recovery with `sample()`, `percentile()`, `from_seniority()`.
+- `recovery_by_seniority()`, `recovery_vol_by_seniority()` — lookup functions.
+- Seniority ordering: SR_SEC(53%) > SR_UNS(40%) > SR_SUB(32%) > SUB(28%) > JR_SUB(18%).
+
+### Tests
+- 16 new tests: curve shapes, seniority ordering, stochastic sampling, percentiles.
+- 9174 tests pass.
+
+---
+
 ## v0.579.0 — 2026-05-21
 
 **A4: CreditGrades model — first-passage Merton with stochastic barrier.**
