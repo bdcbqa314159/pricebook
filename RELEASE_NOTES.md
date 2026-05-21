@@ -2,6 +2,23 @@
 
 ---
 
+## v0.574.0 — 2026-05-21
+
+**D10: EM sovereign credit curves — 31 sovereigns + CDS hazard bootstrap.**
+
+### Sovereign CDS (`credit/sovereign_cds.py`)
+- `SovereignCDSConventions` — restructuring clause (CR/MR/MM/XR), recovery rate, standard tenors, doc clause.
+- 31 sovereigns: LatAm (BR, MX, CO, CL, PE, AR), CEEMEA (TR, ZA, PL, HU, RO, RU, EG, NG, KE), Asia (CN, KR, ID, PH, MY, TH, IN, VN), W. Europe (IT, ES, PT, GR, IE), MENA (SA, QA, IL).
+- `bootstrap_sovereign_hazard()` — sequential bootstrap from CDS spreads → SurvivalCurve.
+- `RestructuringClause` enum: CR, MR, MM, XR.
+- `get_sovereign_cds_conventions()`, `list_sovereign_cds()`.
+
+### Tests
+- 18 new tests: conventions, bootstrap, term structure, distressed, IG, recovery override, multi-country.
+- 9084 tests pass.
+
+---
+
 ## v0.573.0 — 2026-05-21
 
 **D15: Market-convention yield quotation — yield↔price for all 53 sovereign markets.**
