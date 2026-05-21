@@ -2,6 +2,23 @@
 
 ---
 
+## v0.573.0 — 2026-05-21
+
+**D15: Market-convention yield quotation — yield↔price for all 53 sovereign markets.**
+
+### Yield Conventions (`fixed_income/yield_convention.py`)
+- `YieldConvention` enum: SEMI_ANNUAL, ANNUAL, QUARTERLY, CONTINUOUS, SIMPLE, DISCOUNT.
+- `yield_to_price()` / `price_to_yield()` — convert between yield and clean price under any convention.
+- `convert_yield()` — convert between conventions (exact for zeros, price roundtrip for coupon bonds).
+- `get_yield_convention(market_code)` — street convention for all 53 sovereign markets.
+- Market mapping: UST/GILT/JGB semi-annual, BUND/OAT annual, NTN_F/LTN continuous, RPGB quarterly, USTBILL/CETES bank discount.
+
+### Tests
+- 30 new tests: roundtrips, known values, conversions, market mapping, all-53-markets coverage.
+- 9066 tests pass.
+
+---
+
 ## v0.572.0 — 2026-05-21
 
 **D13: Zero-coupon sovereign bonds — ZeroCouponBond class + factory.**
