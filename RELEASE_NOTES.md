@@ -2,6 +2,24 @@
 
 ---
 
+## v0.579.0 — 2026-05-21
+
+**A4: CreditGrades model — first-passage Merton with stochastic barrier.**
+
+### CreditGrades (`credit/credit_grades.py`)
+- `CreditGrades` class: asset vol, leverage, recovery mean/vol → survival, spreads, distance to default.
+- First-passage survival via barrier-crossing formula: Q(t) = Φ(α) − d̄ × Φ(β).
+- σ̄² = σ² + λ² (combined asset + barrier uncertainty).
+- `survival()`, `cds_spread()`, `spread_term_structure()`, `distance_to_default()`, `evaluate()`.
+- Convenience functions: `credit_grades_survival()`, `credit_grades_spread()`.
+- Produces realistic spreads: IG ~30bp, HY ~900bp at 5Y.
+
+### Tests
+- 20 new tests: survival monotonicity, IG/HY levels, vol/leverage sensitivity, DD ordering, edge cases.
+- 9158 tests pass.
+
+---
+
 ## v0.578.0 — 2026-05-21
 
 **A1: Regime-switching credit — HMM with state-dependent hazard rates.**
