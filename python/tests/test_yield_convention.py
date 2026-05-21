@@ -171,7 +171,7 @@ class TestMarketMapping:
         with pytest.raises(ValueError):
             get_yield_convention("FAKE")
 
-    def test_all_53_markets_covered(self):
+    def test_all_markets_covered(self):
         """Every sovereign market should have a yield convention."""
         from pricebook.fixed_income.sovereign_bonds import list_markets
         for code in list_markets():

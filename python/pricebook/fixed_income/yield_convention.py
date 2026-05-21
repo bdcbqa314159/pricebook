@@ -185,6 +185,10 @@ _MARKET_YIELD_CONVENTION: dict[str, YieldConvention] = {
     "QATGB": YieldConvention.SEMI_ANNUAL,
     # Quarterly
     "RPGB": YieldConvention.QUARTERLY,
+    # Sovereign FRNs (quoted on spread basis, but yield convention is semi/quarterly)
+    "USTFRN": YieldConvention.QUARTERLY,
+    "GILTFRN": YieldConvention.QUARTERLY,
+    "BTPFRN": YieldConvention.SEMI_ANNUAL,
     # Zero-coupon / T-Bill
     "USTBILL": YieldConvention.DISCOUNT,
     "UKTBILL": YieldConvention.DISCOUNT,

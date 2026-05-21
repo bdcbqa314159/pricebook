@@ -11,8 +11,8 @@ from pricebook.core.day_count import DayCountConvention
 from pricebook.core.schedule import Frequency
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.sovereign_bonds import (
-    create_sovereign_bond, create_sovereign_zero, get_conventions,
-    list_markets, list_zero_coupon_markets,
+    create_sovereign_bond, create_sovereign_zero, create_sovereign_frn,
+    get_conventions, list_markets, list_zero_coupon_markets, list_frn_markets,
     markets_by_region, SovereignConventions,
 )
 
@@ -100,7 +100,7 @@ class TestConventionLookup:
 class TestMarketEnumeration:
     def test_list_markets_count(self):
         markets = list_markets()
-        assert len(markets) == 53  # 50 coupon + 3 T-Bill
+        assert len(markets) == 56  # 50 coupon + 3 T-Bill + 3 FRN
 
     def test_list_markets_sorted(self):
         markets = list_markets()
@@ -111,7 +111,7 @@ class TestMarketEnumeration:
         all_codes = []
         for codes in regions.values():
             all_codes.extend(codes)
-        assert len(all_codes) == 53
+        assert len(all_codes) == 56
         assert set(all_codes) == set(list_markets())
 
     def test_g10_core(self):
@@ -119,7 +119,8 @@ class TestMarketEnumeration:
         assert "UST" in regions["G10_core"]
         assert "BUND" in regions["G10_core"]
         assert "USTBILL" in regions["G10_core"]
-        assert len(regions["G10_core"]) == 9
+        assert "USTFRN" in regions["G10_core"]
+        assert len(regions["G10_core"]) == 12
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -330,3 +331,43 @@ class TestZeroCoupon:
         dr = bill.discount_rate(price)
         p2 = bill.price_from_discount_rate(dr)
         assert abs(p2 - price) < 0.001
+
+
+# ═══════════════════════════════════════════════════════════════
+# Sovereign FRNs
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestFRN:
+    @pytest.fixture
+    def flat_curve(self):
+        return DiscountCurve.flat(REF, 0.04)
+
+    def test_list_frn_markets(self):
+        frns = list_frn_markets()
+        assert "USTFRN" in frns
+        assert "GILTFRN" in frns
+        assert "BTPFRN" in frns
+        assert len(frns) == 3
+
+    def test_create_ustfrn(self, flat_curve):
+        frn = create_sovereign_frn("USTFRN", REF, MAT_5Y, spread=0.001)
+        assert frn.spread == 0.001
+        dirty = frn.dirty_price(flat_curve)
+        assert 95.0 < dirty < 105.0  # near par for FRN
+
+    def test_create_giltfrn(self, flat_curve):
+        frn = create_sovereign_frn("GILTFRN", REF, MAT_5Y, spread=0.0005)
+        dirty = frn.dirty_price(flat_curve)
+        assert dirty > 0
+
+    def test_create_btpfrn(self, flat_curve):
+        frn = create_sovereign_frn("BTPFRN", REF, MAT_5Y)
+        dirty = frn.dirty_price(flat_curve)
+        assert dirty > 0
+
+    def test_frn_near_par_zero_spread(self, flat_curve):
+        """FRN with zero spread should price near par."""
+        frn = create_sovereign_frn("USTFRN", REF, MAT_5Y, spread=0.0)
+        dirty = frn.dirty_price(flat_curve)
+        assert abs(dirty - 100.0) < 2.0  # within 2 points of par

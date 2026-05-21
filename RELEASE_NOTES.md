@@ -2,6 +2,23 @@
 
 ---
 
+## v0.577.0 — 2026-05-21
+
+**D14: Sovereign FRNs — 3 floating-rate sovereign markets.**
+
+### Sovereign FRN Factory (`fixed_income/sovereign_bonds.py`)
+- USTFRN (US 2Y FRN, quarterly ACT/360, T-Bill linked), GILTFRN (UK, quarterly ACT/365F, SONIA-linked), BTPFRN (Italy, semi-annual, ESTR-linked).
+- `create_sovereign_frn(market_code, issue, maturity, spread)` — factory.
+- `list_frn_markets()` — 3 FRN codes.
+- Yield convention mapping updated for FRNs.
+- 56 total sovereign markets (50 coupon + 3 T-Bill + 3 FRN).
+
+### Tests
+- 5 new FRN tests: factory, pricing, near-par.
+- 9117 tests pass.
+
+---
+
 ## v0.576.0 — 2026-05-21
 
 **D11: Cross-market sovereign relative value framework.**

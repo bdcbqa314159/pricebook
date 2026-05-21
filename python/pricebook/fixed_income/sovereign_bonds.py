@@ -28,6 +28,7 @@ from pricebook.core.day_count import DayCountConvention
 from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.fixed_income.zero_coupon_bond import ZeroCouponBond
+from pricebook.fixed_income.frn import FloatingRateNote
 
 
 @dataclass(frozen=True)
@@ -106,6 +107,23 @@ _reg(SovereignConventions(
     Frequency.ANNUAL, DayCountConvention.ACT_360, 2, "EUR",
     is_zero_coupon=True,
     notes="Eurozone T-Bills (BTF France, Bubills Germany, BOT Italy). ACT/360."))
+
+# --- Sovereign FRNs ---
+
+_reg(SovereignConventions(
+    "USTFRN", "United States", "USD",
+    Frequency.QUARTERLY, DayCountConvention.ACT_360, 1, "USD",
+    notes="US Treasury 2Y FRN. Quarterly, ACT/360, spread over 13-week T-Bill."))
+
+_reg(SovereignConventions(
+    "GILTFRN", "United Kingdom", "GBP",
+    Frequency.QUARTERLY, DayCountConvention.ACT_365_FIXED, 1, "GBP",
+    notes="UK floating-rate gilts. Quarterly, ACT/365F, SONIA-linked."))
+
+_reg(SovereignConventions(
+    "BTPFRN", "Italy", "EUR",
+    Frequency.SEMI_ANNUAL, DayCountConvention.ACT_ACT_ICMA, 2, "EUR",
+    notes="BTP Italia / CCTeu (Italian floating-rate). Semi-annual, ESTR-linked."))
 
 # --- Other DM ---
 
@@ -457,10 +475,49 @@ def list_zero_coupon_markets() -> list[str]:
     return sorted(k for k, v in _CONVENTIONS.items() if v.is_zero_coupon)
 
 
+def create_sovereign_frn(
+    market_code: str,
+    issue_date: date,
+    maturity: date,
+    spread: float = 0.0,
+    face_value: float = 100.0,
+) -> FloatingRateNote:
+    """Create a FloatingRateNote with correct conventions for a sovereign FRN.
+
+    Args:
+        market_code: FRN market code (e.g. "USTFRN", "GILTFRN", "BTPFRN").
+        issue_date: issue date.
+        maturity: maturity date.
+        spread: fixed spread over the floating index (e.g. 0.001 = 10bp).
+        face_value: face value (default 100).
+
+    Returns:
+        FloatingRateNote configured with correct conventions.
+    """
+    conv = get_conventions(market_code)
+    cal = get_calendar(conv.calendar_currency)
+
+    return FloatingRateNote(
+        start=issue_date,
+        end=maturity,
+        spread=spread,
+        notional=face_value,
+        frequency=conv.frequency,
+        day_count=conv.day_count,
+        calendar=cal,
+    )
+
+
+def list_frn_markets() -> list[str]:
+    """Return sorted list of sovereign FRN market codes."""
+    return sorted(k for k, v in _CONVENTIONS.items() if "FRN" in k)
+
+
 def markets_by_region() -> dict[str, list[str]]:
     """Return market codes grouped by region."""
     regions: dict[str, list[str]] = {
-        "G10_core": ["UST", "USTBILL", "BUND", "GILT", "UKTBILL", "JGB", "OAT", "BTP", "EURTBILL"],
+        "G10_core": ["UST", "USTBILL", "USTFRN", "BUND", "GILT", "UKTBILL", "GILTFRN",
+                     "JGB", "OAT", "BTP", "BTPFRN", "EURTBILL"],
         "other_dm": ["ACGB", "NZGB", "CGB_CA", "DGB", "SGB", "NGB", "CONFED"],
         "eurozone": ["BONO", "BGB", "DSL", "RAGB", "RFGB", "IRISH", "PGB", "GGB"],
         "cee": ["POLGB", "CZGB", "HGB", "ROMGB"],
