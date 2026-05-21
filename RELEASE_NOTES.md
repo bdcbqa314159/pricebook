@@ -2,6 +2,33 @@
 
 ---
 
+## v0.568.0 — 2026-05-21
+
+**D4: Sovereign bond factory — 50 markets with correct conventions.**
+
+### Sovereign Bond Factory (`fixed_income/sovereign_bonds.py`)
+- `SovereignConventions` — frozen dataclass: market_code, currency, frequency, day_count, settlement_days, calendar, ex_div_days.
+- `create_sovereign_bond(market_code, issue, maturity, coupon)` — factory returning correctly-configured `FixedRateBond`.
+- `get_conventions(market_code)` — lookup conventions by market code.
+- `list_markets()` — 50 sovereign markets.
+- `markets_by_region()` — grouped by G10_core, other_dm, eurozone, cee, turkey_mena, africa, latam, asia.
+
+### Markets (50)
+- **G10 core (6):** UST, BUND, GILT, JGB, OAT, BTP.
+- **Other DM (7):** ACGB, NZGB, CGB_CA, DGB, SGB, NGB, CONFED.
+- **Eurozone (8):** BONO, BGB, DSL, RAGB, RFGB, IRISH, PGB, GGB (T+3).
+- **CEE (4):** POLGB, CZGB, HGB (ACT/365F), ROMGB (semi-annual).
+- **Turkey & MENA (6):** TURKGB (T+0!), SAGB_SA, ADGB, QATGB (30/360), ILGB, EGGB.
+- **Africa (3):** SAGB (T+3), NGGB, KEGB.
+- **LatAm (7):** NTN_F, NTN_B, LTN (BUS/252), MBONO (ACT/360!), CETES, BTP_CL, TES.
+- **Asia (9):** CGB, KTB, GSEC (30/360!), SGS, HKGB, INDOGB, MGS, THAIGB, RPGB (quarterly!).
+
+### Tests
+- 35 new tests: convention lookup, factory creation, all-market creation, pricing sanity, coverage checks.
+- 8955 tests pass.
+
+---
+
 ## v0.567.0 — 2026-05-21
 
 **D3: BUS/252 day count convention for Brazilian markets.**
