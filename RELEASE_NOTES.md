@@ -2,6 +2,19 @@
 
 ---
 
+## v0.594.0 — 2026-05-21
+
+**1.2: RFR futures instruments — SOFR/SONIA/ESTR/SARON/TONA contract generation + convexity.**
+
+### RFR Futures (`fixed_income/rfr_futures.py`)
+- `RFRFutureSpec` — generic 1M/3M contracts for any RFR currency.
+- `generate_rfr_contracts(currency, ref_date)` — serial (1M) and IMM quarterly (3M) date generation for USD, GBP, EUR, CHF, JPY.
+- `rfr_futures_convexity()` — Hull-White convexity adjustment per contract.
+- `rfr_futures_to_forwards()` — convert futures prices to forward rates for bootstrap.
+- 16 tests. 9356 tests pass.
+
+---
+
 ## v0.593.0 — 2026-05-21
 
 **1.1: RFR compounding conventions — 12 currencies, full ISDA mechanics.**
