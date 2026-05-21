@@ -2,6 +2,34 @@
 
 ---
 
+## v0.582.0 — 2026-05-21
+
+**B1: Bilateral CLN + CSA integration.**
+
+### Bilateral CSA Pricer (`credit/bilateral_csa.py`)
+- `CSATerms` — threshold, independent amount, MTA, MPOR, haircut, rehypothecation.
+- `BilateralCSAPricer` — MC simulation of correlated defaults + collateral mechanics + funding costs.
+- CVA, DVA, FVA decomposition. Exposure, collateral, and uncollateralised exposure tracking.
+- `bilateral_cln_with_csa()` — convenience function from flat parameters.
+- 11 tests: hazard impact, funding spread, threshold mechanics, xVA decomposition.
+
+---
+
+## v0.581.0 — 2026-05-21
+
+**B2: Correlated recovery model.**
+
+### Correlated Recovery (`credit/correlated_recovery.py`)
+- `CorrelatedRecoveryModel` — factor model: R(M) = base + β × M × σ (Frye 2000).
+- `conditional_recovery()`, `stress_recovery()`, `expansion_recovery()`.
+- `sample_recoveries()` — beta-distributed with conditional mean, for MC simulation.
+- `systematic_recovery()` — link portfolio default rate to recovery via Vasicek factor.
+- `recovery_distribution()` — recovery across multiple systematic scenarios.
+- 15 tests: conditional levels, bounds, sampling, stress/expansion, serialization.
+- 9200 tests pass.
+
+---
+
 ## v0.580.0 — 2026-05-21
 
 **A6: Term structure of recovery — maturity-dependent + stochastic recovery.**
