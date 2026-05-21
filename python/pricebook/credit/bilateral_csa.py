@@ -99,6 +99,8 @@ class BilateralCSAPricer:
         self.discount_curve = discount_curve
         self.ref_recovery = ref_recovery
         self.issuer_recovery = issuer_recovery
+        if not -1.0 <= correlation <= 1.0:
+            raise ValueError(f"correlation must be in [-1, 1], got {correlation}")
         self.correlation = correlation
         self.csa = csa or CSATerms()
         self.funding_spread = funding_spread

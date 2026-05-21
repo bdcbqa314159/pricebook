@@ -94,8 +94,9 @@ def decompose_spread(
         # No CDS: estimate credit as ~70% of spread (Longstaff et al. 2005)
         credit = total * 0.70
 
-    # 2. Tax component
-    tax = tax_rate * (total + risk_free_bp) / 100 * 10_000 if tax_rate > 0 else 0.0
+    # 2. Tax component: taxable portion of spread reduces after-tax yield
+    # Tax effect ≈ tax_rate × spread (in bp)
+    tax = tax_rate * total if tax_rate > 0 else 0.0
     tax = min(tax, max(total - credit, 0))
 
     # 3. Optionality component

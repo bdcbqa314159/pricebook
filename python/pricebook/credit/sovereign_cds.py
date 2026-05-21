@@ -210,6 +210,8 @@ def bootstrap_sovereign_hazard(
     fitted_spreads = []
 
     for tenor in sorted_tenors:
+        if not isinstance(tenor, int) or tenor <= 0:
+            raise ValueError(f"Tenor must be a positive integer (years), got {tenor!r}")
         spread = spreads_bp[tenor] / 10_000
         target_date = date(reference_date.year + tenor, reference_date.month, reference_date.day)
 

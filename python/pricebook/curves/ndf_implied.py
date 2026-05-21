@@ -148,8 +148,11 @@ def build_ndf_implied_curve(
         # Implied EM discount factor: df_em = df_base × Spot / NDF
         df_em = df_base * spot_rate / ndf
 
-        # Clamp to (0, 1+small] — discount factor must be positive
+        # Clamp to (0, 2] — df > 1 implies negative EM rates (possible for some markets)
+        # df > 2 indicates data error
         df_em = max(df_em, 1e-10)
+        if df_em > 2.0:
+            continue  # skip clearly erroneous data point
 
         # Implied zero rate (continuous compounding)
         zero_rate = -math.log(df_em) / t

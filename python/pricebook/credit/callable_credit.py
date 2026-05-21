@@ -101,7 +101,7 @@ def callable_credit_bond_price(
         # Conditional survival over this step
         q_prev = survs[step]
         q_next = survs[step + 1]
-        p_survive = q_next / q_prev if q_prev > 0 else 0.0
+        p_survive = min(q_next / q_prev, 1.0) if q_prev > 0 else 0.0
         p_default = 1.0 - p_survive
 
         # One-step discount

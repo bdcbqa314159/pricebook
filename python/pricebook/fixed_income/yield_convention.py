@@ -98,9 +98,12 @@ def price_to_yield(
         return yield_to_price(y, coupon_rate, maturity_years, convention, frequency, face) - price
 
     try:
-        return brentq(objective, -0.20, 2.0)
+        return brentq(objective, -0.50, 5.0)
     except ValueError:
-        return 0.0
+        # Bracket failure — price outside achievable range for this convention
+        # Return approximate yield from simple formula as fallback
+        tau = max(maturity_years, 0.01)
+        return (coupon_rate * face + (face - price) / tau) / ((face + price) / 2)
 
 
 def convert_yield(

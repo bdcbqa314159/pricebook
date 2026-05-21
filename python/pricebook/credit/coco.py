@@ -124,6 +124,8 @@ def price_coco(
     Returns:
         CoCoPricingResult with price breakdown and analytics.
     """
+    if trigger_intensity < 0:
+        raise ValueError(f"trigger_intensity must be >= 0, got {trigger_intensity}")
     face = coco.face_value
     T_call = coco.first_call_years
     T_mat = coco.maturity_years or T_call  # perpetual AT1: price to call

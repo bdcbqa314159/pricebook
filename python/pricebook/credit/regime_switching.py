@@ -71,9 +71,13 @@ class RegimeSwitchingCredit:
         self.n_states = len(hazard_rates)
         self.hazard_rates = np.array(hazard_rates)
 
-        P = np.array(transition_matrix)
+        P = np.array(transition_matrix, dtype=float)
         if P.shape != (self.n_states, self.n_states):
             raise ValueError(f"Transition matrix must be {self.n_states}×{self.n_states}")
+        if (P < 0).any() or (P > 1).any():
+            raise ValueError("Transition matrix entries must be in [0, 1]")
+        if not np.allclose(P.sum(axis=1), 1.0, atol=1e-8):
+            raise ValueError("Transition matrix rows must sum to 1")
 
         # Convert annual transition probability matrix to generator
         # Q = logm(P) — but for stability, use Q = P - I for small dt

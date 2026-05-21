@@ -65,6 +65,10 @@ def price_covered_bond(
     2. Cover pool quality (lower LTV → lower spread)
     3. Pool type (mortgage > public sector in some jurisdictions)
     """
+    if not 0 < cover_pool.avg_ltv <= 1.5:
+        raise ValueError(f"avg_ltv must be in (0, 1.5], got {cover_pool.avg_ltv}")
+    if cover_pool.overcollateralisation < 1.0:
+        raise ValueError(f"OC must be >= 1.0, got {cover_pool.overcollateralisation}")
     ref = discount_curve.reference_date
 
     # Spread benefit from dual recourse
