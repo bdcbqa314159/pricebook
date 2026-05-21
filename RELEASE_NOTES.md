@@ -2,6 +2,23 @@
 
 ---
 
+## v0.571.0 — 2026-05-21
+
+**D6: EM inflation indices — 16 indices + linker factory.**
+
+### Inflation Index Registry (`fixed_income/inflation_indices.py`)
+- `InflationIndexDef` — frozen dataclass: name, currency, lag, frequency, interpolation, deflation floor, linker conventions.
+- `IndexInterpolation` enum: FLAT (UK ILG), LINEAR (TIPS, most), DAILY (UDI/UF/UVR).
+- 16 indices: CPI_US (TIPS), HICP_XT (OAT€i/BTP€i), RPI/CPIH (UK), CPI_JP, CPI_CA, CPI_AU, IPCA (BRL), UDI (MXN daily), UF (CLP daily), UVR (COP daily), CPI_ZA, CPI_IL, CPI_TR, CPI_IN (30/360!), CPI_KR.
+- `get_inflation_index()`, `list_inflation_indices()`, `indices_by_currency()`, `indices_with_floor()`, `daily_indices()`.
+- `create_inflation_linker()` — factory returning correct kwargs for `InflationLinkedBond`.
+
+### Tests
+- 31 new tests: all 16 indices, registry API, linker factory (TIPS, NTN-B, OAT€i, UK ILG, UDIBONO), serialization.
+- 9026 tests pass.
+
+---
+
 ## v0.570.0 — 2026-05-21
 
 **D5: EM RFR/IBOR rate indices — 14 new indices across 13 EM currencies.**
