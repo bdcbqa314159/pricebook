@@ -2,6 +2,25 @@
 
 ---
 
+## v0.595.0 — 2026-05-21
+
+**1.3: Multi-RFR OIS bootstrap — production-grade curve builder for 7 currencies.**
+
+### RFR Bootstrap (`curves/rfr_bootstrap.py`)
+- `bootstrap_rfr(currency, ref_date, inputs)` — full instrument stack: O/N + term rates + futures + OIS swaps.
+- `RFRCurveInputs` — overnight_rate, term_rates, futures_1m/3m, ois_swaps, deposits.
+- `RFRCurveResult` — curve, pillar zeros, round-trip error, convexity adjustments per contract.
+- `RFROISConventions` — per-currency: day counts, frequencies, calendar for USD/SOFR, EUR/ESTR, GBP/SONIA, JPY/TONA, CHF/SARON, CAD/CORRA, AUD/AONIA.
+- Sequential (Brent) and global (Newton) methods.
+- Futures convexity adjustments from item 1.2 wired in.
+- Round-trip verification on deposit repricing.
+
+### Tests
+- 18 new tests: conventions, USD full stack, deposits-only, futures+swaps, all 7 G7 currencies, term rates, edge cases.
+- 9374 tests pass.
+
+---
+
 ## v0.594.0 — 2026-05-21
 
 **1.2: RFR futures instruments — SOFR/SONIA/ESTR/SARON/TONA contract generation + convexity.**
