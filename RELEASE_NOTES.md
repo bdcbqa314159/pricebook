@@ -2,6 +2,36 @@
 
 ---
 
+## v0.586.0 — 2026-05-21
+
+**Phase 4: Bond-Credit — C3 CoCo/AT1, C4 perpetuals, C1 callable+credit OAS, C2 spread decomposition.**
+
+### C3: CoCo/AT1 Bonds (`credit/coco.py`)
+- `CoCoBond` — trigger type (CET1, stock price, regulatory), loss absorption (write-down, equity conversion), coupon cancellation.
+- `price_coco()` — credit-derivative approach: survival-weighted coupons + call/extension blending + trigger loss.
+- Yield-to-call, credit spread, trigger probability analytics.
+
+### C4: Perpetual & Step-Up Bonds (`fixed_income/perpetual.py`)
+- `PerpetualBond` — plain or callable perpetual with optional step-up coupon.
+- `price_perpetual()` — call/extension scenario blending, credit spread overlay.
+- `StepUpBond` — bond with coupon escalation schedule, `coupon_at(t)`, `price()`.
+
+### C1: Callable Bonds + Credit OAS (`credit/callable_credit.py`)
+- `callable_credit_bond_price()` — backward induction with survival probability at each step.
+- Price decomposition: straight credit bond, callable risk-free, call option value.
+- `credit_risky_oas()` — OAS that separates credit from optionality.
+
+### C2: Spread Decomposition (`credit/spread_decomposition.py`)
+- `decompose_spread()` → credit + liquidity + tax + optionality + residual.
+- `cds_bond_basis()` — CDS-bond basis.
+- `decompose_portfolio()` — weighted portfolio-level decomposition.
+
+### Tests
+- 47 new tests across 4 modules.
+- 9247 tests pass.
+
+---
+
 ## v0.582.0 — 2026-05-21
 
 **B1: Bilateral CLN + CSA integration.**
