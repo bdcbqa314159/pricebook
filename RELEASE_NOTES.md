@@ -2,6 +2,24 @@
 
 ---
 
+## v0.591.0 — 2026-05-21
+
+**C8: Convertible equity-credit correlation — joint (stock, hazard) Monte Carlo.**
+
+### Convertible Equity-Credit (`credit/convertible_equity_credit.py`)
+- Joint process: equity GBM + hazard CIR with correlation ρ (negative = wrong-way risk).
+- Default via cumulative hazard vs exponential threshold (Cox process).
+- LSM (Longstaff-Schwartz) backward induction for optimal conversion.
+- Full Greeks: delta, gamma, vega, CS01, ρ-sensitivity — all via bump-and-reprice with common random numbers.
+- Risky bond floor computation with survival-weighted cashflows.
+- `convertible_equity_credit_price()` — single entry point.
+
+### Tests
+- 15 tests: pricing bounds, equity/credit/correlation sensitivity, Greeks signs, serialization.
+- 9317 tests pass.
+
+---
+
 ## v0.590.0 — 2026-05-21
 
 **Phase 5: All remaining plan items — 14 modules completing the 36-item roadmap.**
