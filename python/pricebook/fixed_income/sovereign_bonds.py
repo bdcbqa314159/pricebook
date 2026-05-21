@@ -27,6 +27,7 @@ from pricebook.core.calendar import (
 from pricebook.core.day_count import DayCountConvention
 from pricebook.core.schedule import Frequency
 from pricebook.fixed_income.bond import FixedRateBond
+from pricebook.fixed_income.zero_coupon_bond import ZeroCouponBond
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class SovereignConventions:
     settlement_days: int    # T+N
     calendar_currency: str  # currency code for get_calendar()
     ex_div_days: int = 0
+    is_zero_coupon: bool = False
     notes: str = ""
 
 
@@ -63,6 +65,12 @@ _reg(SovereignConventions(
     notes="US Treasury notes/bonds. T-Bills use ACT/360 discount."))
 
 _reg(SovereignConventions(
+    "USTBILL", "United States", "USD",
+    Frequency.ANNUAL, DayCountConvention.ACT_360, 1, "USD",
+    is_zero_coupon=True,
+    notes="US T-Bills. Quoted on bank discount basis, ACT/360."))
+
+_reg(SovereignConventions(
     "BUND", "Germany", "EUR",
     Frequency.ANNUAL, DayCountConvention.ACT_ACT_ICMA, 2, "EUR",
     notes="Bundesanleihen. Also covers Schatz (2Y), Bobl (5Y)."))
@@ -71,6 +79,12 @@ _reg(SovereignConventions(
     "GILT", "United Kingdom", "GBP",
     Frequency.SEMI_ANNUAL, DayCountConvention.ACT_ACT_ICMA, 1, "GBP",
     ex_div_days=7, notes="UK Gilts. 7 business day ex-dividend period."))
+
+_reg(SovereignConventions(
+    "UKTBILL", "United Kingdom", "GBP",
+    Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, 1, "GBP",
+    is_zero_coupon=True,
+    notes="UK T-Bills. ACT/365F, sterling discount."))
 
 _reg(SovereignConventions(
     "JGB", "Japan", "JPY",
@@ -86,6 +100,12 @@ _reg(SovereignConventions(
     "BTP", "Italy", "EUR",
     Frequency.SEMI_ANNUAL, DayCountConvention.ACT_ACT_ICMA, 2, "EUR",
     notes="Buoni del Tesoro Poliennali."))
+
+_reg(SovereignConventions(
+    "EURTBILL", "Eurozone", "EUR",
+    Frequency.ANNUAL, DayCountConvention.ACT_360, 2, "EUR",
+    is_zero_coupon=True,
+    notes="Eurozone T-Bills (BTF France, Bubills Germany, BOT Italy). ACT/360."))
 
 # --- Other DM ---
 
@@ -252,6 +272,7 @@ _reg(SovereignConventions(
 _reg(SovereignConventions(
     "LTN", "Brazil", "BRL",
     Frequency.ANNUAL, DayCountConvention.BUS_252, 1, "BRL",
+    is_zero_coupon=True,
     notes="LTN (zero-coupon, bullet at maturity). BUS/252."))
 
 _reg(SovereignConventions(
@@ -262,6 +283,7 @@ _reg(SovereignConventions(
 _reg(SovereignConventions(
     "CETES", "Mexico", "MXN",
     Frequency.ANNUAL, DayCountConvention.ACT_360, 2, "MXN",
+    is_zero_coupon=True,
     notes="CETES (zero-coupon T-bills). ACT/360."))
 
 _reg(SovereignConventions(
@@ -393,10 +415,52 @@ def create_sovereign_bond(
     )
 
 
+def create_sovereign_zero(
+    market_code: str,
+    issue_date: date,
+    maturity: date,
+    face_value: float = 100.0,
+) -> ZeroCouponBond:
+    """Create a ZeroCouponBond with correct conventions for the given market.
+
+    Args:
+        market_code: zero-coupon market code (e.g. "LTN", "CETES", "USTBILL").
+        issue_date: bond issue / settlement date.
+        maturity: maturity date.
+        face_value: face value (default 100).
+
+    Returns:
+        ZeroCouponBond with correct day count, calendar, and settlement.
+
+    Raises:
+        ValueError: if market code is not a zero-coupon market.
+    """
+    conv = get_conventions(market_code)
+    if not conv.is_zero_coupon:
+        raise ValueError(
+            f"{market_code} is not a zero-coupon market. "
+            f"Use create_sovereign_bond() for coupon bonds."
+        )
+    cal = get_calendar(conv.calendar_currency)
+    return ZeroCouponBond(
+        issue_date=issue_date,
+        maturity=maturity,
+        face_value=face_value,
+        day_count=conv.day_count,
+        calendar=cal,
+        settlement_days=conv.settlement_days,
+    )
+
+
+def list_zero_coupon_markets() -> list[str]:
+    """Return sorted list of zero-coupon sovereign market codes."""
+    return sorted(k for k, v in _CONVENTIONS.items() if v.is_zero_coupon)
+
+
 def markets_by_region() -> dict[str, list[str]]:
     """Return market codes grouped by region."""
     regions: dict[str, list[str]] = {
-        "G10_core": ["UST", "BUND", "GILT", "JGB", "OAT", "BTP"],
+        "G10_core": ["UST", "USTBILL", "BUND", "GILT", "UKTBILL", "JGB", "OAT", "BTP", "EURTBILL"],
         "other_dm": ["ACGB", "NZGB", "CGB_CA", "DGB", "SGB", "NGB", "CONFED"],
         "eurozone": ["BONO", "BGB", "DSL", "RAGB", "RFGB", "IRISH", "PGB", "GGB"],
         "cee": ["POLGB", "CZGB", "HGB", "ROMGB"],

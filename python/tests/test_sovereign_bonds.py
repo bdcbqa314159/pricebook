@@ -11,7 +11,8 @@ from pricebook.core.day_count import DayCountConvention
 from pricebook.core.schedule import Frequency
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.sovereign_bonds import (
-    create_sovereign_bond, get_conventions, list_markets,
+    create_sovereign_bond, create_sovereign_zero, get_conventions,
+    list_markets, list_zero_coupon_markets,
     markets_by_region, SovereignConventions,
 )
 
@@ -99,7 +100,7 @@ class TestConventionLookup:
 class TestMarketEnumeration:
     def test_list_markets_count(self):
         markets = list_markets()
-        assert len(markets) == 50
+        assert len(markets) == 53  # 50 coupon + 3 T-Bill
 
     def test_list_markets_sorted(self):
         markets = list_markets()
@@ -110,14 +111,15 @@ class TestMarketEnumeration:
         all_codes = []
         for codes in regions.values():
             all_codes.extend(codes)
-        assert len(all_codes) == 50
+        assert len(all_codes) == 53
         assert set(all_codes) == set(list_markets())
 
     def test_g10_core(self):
         regions = markets_by_region()
         assert "UST" in regions["G10_core"]
         assert "BUND" in regions["G10_core"]
-        assert len(regions["G10_core"]) == 6
+        assert "USTBILL" in regions["G10_core"]
+        assert len(regions["G10_core"]) == 9
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -253,3 +255,78 @@ class TestConventionCoverage:
         c = get_conventions("UST")
         with pytest.raises(Exception):
             c.currency = "GBP"
+
+
+# ═══════════════════════════════════════════════════════════════
+# Zero-coupon bonds
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestZeroCoupon:
+    @pytest.fixture
+    def flat_curve(self):
+        return DiscountCurve.flat(REF, 0.04)
+
+    def test_list_zero_coupon(self):
+        zeros = list_zero_coupon_markets()
+        assert "LTN" in zeros
+        assert "CETES" in zeros
+        assert "USTBILL" in zeros
+        assert "UKTBILL" in zeros
+        assert "EURTBILL" in zeros
+        assert len(zeros) == 5
+
+    def test_create_ltn(self, flat_curve):
+        bill = create_sovereign_zero("LTN", REF, MAT_5Y)
+        assert bill.face_value == 100.0
+        assert bill.day_count == DayCountConvention.BUS_252
+        price = bill.price(flat_curve)
+        assert 70.0 < price < 100.0  # below par (zero coupon)
+
+    def test_create_cetes(self, flat_curve):
+        mat_6m = date(2024, 7, 15)
+        bill = create_sovereign_zero("CETES", REF, mat_6m)
+        assert bill.day_count == DayCountConvention.ACT_360
+        price = bill.price(flat_curve)
+        assert 97.0 < price < 100.0  # close to par for 6m
+
+    def test_create_ustbill(self, flat_curve):
+        mat_3m = date(2024, 4, 15)
+        bill = create_sovereign_zero("USTBILL", REF, mat_3m)
+        assert bill.day_count == DayCountConvention.ACT_360
+        price = bill.price(flat_curve)
+        assert 99.0 < price < 100.0
+
+    def test_create_uktbill(self, flat_curve):
+        bill = create_sovereign_zero("UKTBILL", REF, date(2024, 7, 15))
+        assert bill.day_count == DayCountConvention.ACT_365_FIXED
+
+    def test_create_eurtbill(self, flat_curve):
+        bill = create_sovereign_zero("EURTBILL", REF, date(2024, 7, 15))
+        assert bill.day_count == DayCountConvention.ACT_360
+
+    def test_coupon_bond_not_zero(self):
+        """create_sovereign_zero rejects coupon bonds."""
+        with pytest.raises(ValueError, match="not a zero-coupon"):
+            create_sovereign_zero("UST", REF, MAT_5Y)
+
+    def test_zero_yield_roundtrip(self, flat_curve):
+        """Price → yield → price roundtrip."""
+        bill = create_sovereign_zero("USTBILL", REF, date(2024, 7, 15))
+        price = bill.price(flat_curve)
+        y = bill.yield_simple(price)
+        p2 = bill.price_from_yield_simple(y)
+        assert abs(p2 - price) < 0.001
+
+    def test_zero_dv01(self, flat_curve):
+        bill = create_sovereign_zero("LTN", REF, MAT_5Y)
+        dv01 = bill.dv01(flat_curve)
+        assert dv01 > 0
+
+    def test_zero_discount_rate(self, flat_curve):
+        """Bank discount rate for T-Bill."""
+        bill = create_sovereign_zero("USTBILL", REF, date(2024, 7, 15))
+        price = bill.price(flat_curve)
+        dr = bill.discount_rate(price)
+        p2 = bill.price_from_discount_rate(dr)
+        assert abs(p2 - price) < 0.001

@@ -2,6 +2,32 @@
 
 ---
 
+## v0.572.0 — 2026-05-21
+
+**D13: Zero-coupon sovereign bonds — ZeroCouponBond class + factory.**
+
+### ZeroCouponBond (`fixed_income/zero_coupon_bond.py`)
+- `price()` / `dirty_price()` — Face × df(T) from discount curve.
+- `price_from_yield_simple()` — money-market convention: Face / (1 + r × τ).
+- `price_from_discount_rate()` — bank discount: Face × (1 - d × τ).
+- `price_from_yield_continuous()` — Face × exp(-r × τ).
+- `yield_simple()`, `discount_rate()`, `yield_continuous()` — inverse functions.
+- `dv01()`, `modified_duration()`, `to_dict()`.
+
+### Sovereign Factory Updates (`fixed_income/sovereign_bonds.py`)
+- `is_zero_coupon` field on `SovereignConventions`.
+- 3 new T-Bill markets: USTBILL (ACT/360), UKTBILL (ACT/365F), EURTBILL (ACT/360).
+- LTN and CETES flagged as zero-coupon.
+- `create_sovereign_zero()` — factory for zero-coupon bonds.
+- `list_zero_coupon_markets()` — returns 5 zero-coupon codes.
+- 53 total markets (50 coupon + 3 T-Bill).
+
+### Tests
+- 10 new zero-coupon tests: factory, pricing, yield roundtrip, DV01, discount rate.
+- 9036 tests pass.
+
+---
+
 ## v0.571.0 — 2026-05-21
 
 **D6: EM inflation indices — 16 indices + linker factory.**
