@@ -156,6 +156,137 @@ TIBOR_3M = _register(RateIndex(
 ))
 
 
+# ---- EM overnight / RFR indices ----
+
+CDI = _register(RateIndex(
+    name="CDI", currency="BRL",
+    day_count=DayCountConvention.BUS_252,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="B3",
+))
+
+KOFR = _register(RateIndex(
+    name="KOFR", currency="KRW",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="BOK",
+))
+
+SORA = _register(RateIndex(
+    name="SORA", currency="SGD",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="MAS",
+))
+
+HONIA = _register(RateIndex(
+    name="HONIA", currency="HKD",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="TMA",
+))
+
+THOR = _register(RateIndex(
+    name="THOR", currency="THB",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="BOT",
+))
+
+# ---- EM term IBOR indices (still active in many EM markets) ----
+
+TIIE_28D = _register(RateIndex(
+    name="TIIE_28D", currency="MXN",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=1, compounding=CompoundingMethod.FLAT,
+    observation_shift=0, payment_delay=0,
+    tenor_months=1, is_overnight=False,
+    administrator="BANXICO",
+))
+
+SHIBOR_3M = _register(RateIndex(
+    name="SHIBOR_3M", currency="CNY",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=0, compounding=CompoundingMethod.FLAT,
+    observation_shift=0, payment_delay=0,
+    tenor_months=3, is_overnight=False,
+    administrator="CFETS",
+))
+
+DR007 = _register(RateIndex(
+    name="DR007", currency="CNY",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.AVERAGED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="CFETS",
+))
+
+WIBOR_3M = _register(RateIndex(
+    name="WIBOR_3M", currency="PLN",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=2, compounding=CompoundingMethod.FLAT,
+    observation_shift=0, payment_delay=0,
+    tenor_months=3, is_overnight=False,
+    administrator="GPW",
+))
+
+PRIBOR_3M = _register(RateIndex(
+    name="PRIBOR_3M", currency="CZK",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=2, compounding=CompoundingMethod.FLAT,
+    observation_shift=0, payment_delay=0,
+    tenor_months=3, is_overnight=False,
+    administrator="CNB",
+))
+
+BUBOR_3M = _register(RateIndex(
+    name="BUBOR_3M", currency="HUF",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=2, compounding=CompoundingMethod.FLAT,
+    observation_shift=0, payment_delay=0,
+    tenor_months=3, is_overnight=False,
+    administrator="MNB",
+))
+
+JIBAR_3M = _register(RateIndex(
+    name="JIBAR_3M", currency="ZAR",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.FLAT,
+    observation_shift=0, payment_delay=0,
+    tenor_months=3, is_overnight=False,
+    administrator="SARB",
+))
+
+IBR = _register(RateIndex(
+    name="IBR", currency="COP",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="BRC",
+))
+
+TPM = _register(RateIndex(
+    name="TPM", currency="CLP",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="BCCh",
+))
+
+
 def get_rate_index(name: str) -> RateIndex:
     """Look up a rate index by name. Raises ValueError if not found."""
     if name not in _REGISTRY:

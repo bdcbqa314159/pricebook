@@ -400,14 +400,14 @@ class TestRateIndexRegistry:
             get_rate_index("NONEXISTENT")
 
     def test_all_indices_count(self):
-        """We have 11 registered indices."""
+        """We have 25 registered indices (11 G10 + 14 EM)."""
         indices = all_rate_indices()
-        assert len(indices) == 11
+        assert len(indices) == 25
 
     def test_overnight_indices(self):
-        """8 overnight RFR indices (one per G10 currency except SEK/NOK)."""
+        """16 overnight RFR indices (8 G10 + 8 EM)."""
         overnight = overnight_indices()
-        assert len(overnight) == 8
+        assert len(overnight) == 16
         assert all(idx.is_overnight for idx in overnight)
 
     def test_indices_for_currency(self):
@@ -427,7 +427,7 @@ class TestRateIndexRegistry:
         """Major G10 overnight RFRs are all present."""
         expected = {"SOFR", "ESTR", "SONIA", "TONA", "SARON", "CORRA", "AONIA", "NZOCR"}
         actual = {idx.name for idx in overnight_indices()}
-        assert expected == actual
+        assert expected.issubset(actual)
 
 
 # ---- FX6: Calendar-Aware Lag ----

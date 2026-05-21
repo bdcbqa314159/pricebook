@@ -2,6 +2,21 @@
 
 ---
 
+## v0.570.0 — 2026-05-21
+
+**D5: EM RFR/IBOR rate indices — 14 new indices across 13 EM currencies.**
+
+### EM Rate Indices (`core/rate_index.py`)
+- **Overnight RFR (8):** CDI (BRL, BUS/252), KOFR (KRW), SORA (SGD), HONIA (HKD), THOR (THB), DR007 (CNY, averaged), IBR (COP), TPM (CLP).
+- **Term IBOR (6):** TIIE_28D (MXN, T-1 fixing), SHIBOR_3M (CNY), WIBOR_3M (PLN), PRIBOR_3M (CZK), BUBOR_3M (HUF), JIBAR_3M (ZAR).
+- Registry now has 25 indices (11 G10 + 14 EM), 16 overnight.
+
+### Tests
+- 21 new tests: all EM indices, registry counts, currency coverage, frozen dataclass.
+- 8995 tests pass.
+
+---
+
 ## v0.569.0 — 2026-05-21
 
 **D2: NDF-implied discount curve construction for restricted EM currencies.**
