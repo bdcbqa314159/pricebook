@@ -2,6 +2,29 @@
 
 ---
 
+## v0.595.0 — 2026-05-21
+
+**Repo Phase 2: Counterparty credit — CVA + wrong-way risk, dynamic haircuts, correlated XVA.**
+
+### 2.1 Repo CVA (`risk/repo_cva.py`)
+- `repo_cva()` — CVA on unsecured exposure after haircut, time-grid integration.
+- `repo_wrong_way_risk()` — three channels: issuer (classic), sector (systemic), spiral (margin).
+- `repo_bilateral_cva()` — CVA + DVA + WWR combined.
+
+### 2.2 Dynamic Haircuts (`risk/dynamic_haircuts.py`)
+- `DynamicHaircutModel` — spread-driven + vol-driven + rating trigger + BCBS 261 procyclicality buffer.
+- `haircut_stress_scenarios()` — 7 standard scenarios.
+- `credit_spread_to_haircut()` — continuous spread → haircut mapping.
+- `rating_trigger_impact()` — step function per downgrade notch.
+
+### 2.3 Correlated XVA (`risk/repo_xva_advanced.py`)
+- `repo_xva_correlated()` — joint MC: counterparty default + collateral spread (Gaussian copula).
+- CVA + FVA + KVA + MVA + gap cost, fully correlated.
+- `repo_all_in_xva()` — profitability: interest income vs total XVA.
+- 26 tests. 9535 tests pass.
+
+---
+
 ## v0.594.0 — 2026-05-21
 
 **Repo 1.3 + 1.4: Specialness analytics (6 markets) + repo rate Greeks.**
