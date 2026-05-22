@@ -2,6 +2,20 @@
 
 ---
 
+## v0.598.0 — 2026-05-21
+
+**2.1: N-curve simultaneous global solver — damped Newton for 1-N curves.**
+
+### N-Curve Solver (`curves/ncurve_solver.py`)
+- `InstrumentPricer` protocol — each instrument reprices given named curves.
+- Concrete pricers: `DepositPricer`, `OISSwapPricer`, `BasisSwapPricer`.
+- `CurveSpec` — per-curve pillar dates, initial guess, interpolation.
+- `ncurve_solve()` — damped Newton-Raphson, numerical Jacobian, LU/lstsq, positivity-preserving step control.
+- Tested: 1-curve (deposits, OIS swaps), 2-curve (OIS+projection, basis), 3-curve (OIS+1M+3M).
+- 8 tests. 9405 tests pass.
+
+---
+
 ## v0.597.0 — 2026-05-21
 
 **2.2 + 2.3: Forward rate interpolation + key-rate DV01 framework.**
