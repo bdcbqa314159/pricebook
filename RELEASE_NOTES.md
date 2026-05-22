@@ -2,6 +2,36 @@
 
 ---
 
+## v0.605.0 — 2026-05-21
+
+**Phase 4: Curve blending, seasonal, diffusion, storage.**
+
+### 4.1 Curve Blending (`curves/curve_blending.py`)
+- `splice_curves()` — short/long curve splicing with linear, sigmoid, or step transition.
+- `blend_curves()` — weighted blend of N curves in log-DF space.
+- 6 tests.
+
+### 4.2 Seasonal Term Structure (`curves/seasonal_curve.py`)
+- `SeasonalCurve` — base curve with year-end/quarter-end/month-end spread overlay.
+- `SeasonalPattern` — configurable decay, pre-built USD/EUR/GBP patterns.
+- `extract_seasonal_pattern()` — fit from historical O/N fixings.
+- `strip_seasonal()` — remove seasonal for smooth analysis.
+- 6 tests.
+
+### 4.3 Curve Diffusion (`curves/curve_diffusion.py`)
+- `CurveDiffusionEngine` — multi-factor HJM simulation, exponentially decaying vol.
+- Each path at each step → standard `DiscountCurve` (all pricing code works unchanged).
+- Forward rate statistics (mean, std) across paths.
+- 5 tests.
+
+### 4.4 Curve Storage (`curves/curve_storage.py`)
+- `CurveSnapshot` — timestamped zero-rate snapshot with `from_curve()` / `to_curve()`.
+- `CurveDelta` — sparse delta between snapshots (bp shifts).
+- `CurveStore` — in-memory save/load/history/diff.
+- 7 tests. 9449 tests pass.
+
+---
+
 ## v0.601.0 — 2026-05-21
 
 **Phase 3: FX forward curves, curve scenarios, real-time bumper.**
