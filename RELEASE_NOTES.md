@@ -2,7 +2,7 @@
 
 ---
 
-## v0.606.0 — 2026-05-21
+## v0.593.0 — 2026-05-21
 
 **Repo Phase 1: Multi-currency funding curves, carry breakeven, credit-collateral integration.**
 
@@ -26,7 +26,7 @@
 
 ---
 
-## v0.605.0 — 2026-05-21
+## v0.592.0 — 2026-05-21
 
 **Phase 4: Curve blending, seasonal, diffusion, storage.**
 
@@ -56,7 +56,7 @@
 
 ---
 
-## v0.601.0 — 2026-05-21
+## v0.591.0 — 2026-05-21
 
 **Phase 3: FX forward curves, curve scenarios, real-time bumper.**
 
@@ -83,7 +83,7 @@
 
 ---
 
-## v0.598.0 — 2026-05-21
+## v0.590.0 — 2026-05-21
 
 **2.1: N-curve simultaneous global solver — damped Newton for 1-N curves.**
 
@@ -97,7 +97,7 @@
 
 ---
 
-## v0.597.0 — 2026-05-21
+## v0.589.0 — 2026-05-21
 
 **2.2 + 2.3: Forward rate interpolation + key-rate DV01 framework.**
 
@@ -120,7 +120,7 @@
 
 ---
 
-## v0.595.0 — 2026-05-21
+## v0.588.0 — 2026-05-21
 
 **1.3: Multi-RFR OIS bootstrap — production-grade curve builder for 7 currencies.**
 
@@ -139,7 +139,7 @@
 
 ---
 
-## v0.594.0 — 2026-05-21
+## v0.587.0 — 2026-05-21
 
 **1.2: RFR futures instruments — SOFR/SONIA/ESTR/SARON/TONA contract generation + convexity.**
 
@@ -152,7 +152,7 @@
 
 ---
 
-## v0.593.0 — 2026-05-21
+## v0.586.0 — 2026-05-21
 
 **1.1: RFR compounding conventions — 12 currencies, full ISDA mechanics.**
 
@@ -170,7 +170,7 @@
 
 ---
 
-## v0.592.0 — 2026-05-21
+## v0.585.0 — 2026-05-21
 
 **Hardening audit (L1-L11) — 10 fixes across 9 modules + 3 hand-calculation verifications.**
 
@@ -194,7 +194,7 @@
 
 ---
 
-## v0.591.0 — 2026-05-21
+## v0.584.0 — 2026-05-21
 
 **C8: Convertible equity-credit correlation — joint (stock, hazard) Monte Carlo.**
 
@@ -212,7 +212,7 @@
 
 ---
 
-## v0.590.0 — 2026-05-21
+## v0.583.0 — 2026-05-21
 
 **Phase 5 complete — all remaining plan items (A2, A3, A5, B3-B6, C5-C9, D7-D9).**
 
@@ -233,7 +233,7 @@
 
 ---
 
-## v0.586.0 — 2026-05-21
+## v0.582.0 — 2026-05-21
 
 **Phase 4: Bond-Credit — C3 CoCo/AT1, C4 perpetuals, C1 callable+credit OAS, C2 spread decomposition.**
 
@@ -245,7 +245,7 @@
 
 ---
 
-## v0.582.0 — 2026-05-21
+## v0.581.0 — 2026-05-21
 
 **B1 + B2: Bilateral CLN+CSA + correlated recovery.**
 
