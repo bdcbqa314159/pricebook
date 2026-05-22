@@ -2,6 +2,22 @@
 
 ---
 
+## v0.596.0 — 2026-05-21
+
+**Repo Phase 3: Leverage optimization + collateral transformation.**
+
+### 3.1 Leverage Optimization (`risk/leverage_optimisation.py`)
+- `optimise_leverage()` — LP: maximize carry subject to haircut + capital + concentration constraints.
+- `leverage_frontier()` — efficient frontier of carry vs leverage ratio (1× to 20×).
+
+### 3.2 Collateral Transformation (`risk/collateral_transformation.py`)
+- `transformation_cost()` — all-in cost: repo spread + xccy basis + capital - haircut benefit.
+- `optimise_transformation()` — greedy upgrade of available collateral to target quality.
+- `funding_arbitrage()` — identify mispriced collateral vs funding value.
+- 13 tests. 9548 tests pass.
+
+---
+
 ## v0.595.0 — 2026-05-21
 
 **Repo Phase 2: Counterparty credit — CVA + wrong-way risk, dynamic haircuts, correlated XVA.**
