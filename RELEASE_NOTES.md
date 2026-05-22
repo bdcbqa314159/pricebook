@@ -2,6 +2,24 @@
 
 ---
 
+## v0.594.0 — 2026-05-21
+
+**Repo 1.3 + 1.4: Specialness analytics (6 markets) + repo rate Greeks.**
+
+### Specialness Analytics (`fixed_income/repo_specialness.py`)
+- `SpecialnessConventions` — 6 sovereign markets (UST, Bund, Gilt, JGB, OAT, BTP).
+- `forecast_specialness()` — mean-reversion + auction-cycle seasonality.
+- `specialness_term_structure()` — GC-special spread curve.
+- `supply_demand_indicator()` — fail rate, on-the-run, short interest signals.
+
+### Repo Rate Greeks (`fixed_income/repo_greeks.py`)
+- `repo_dv01()` — trade-level interest + carry sensitivity per 1bp.
+- `carry_sensitivity_ladder()` — by tenor bucket (O/N, 1W, 1M, 3M, 6M, 1Y+).
+- `repo_portfolio_greeks()` — aggregated DV01, carry DV01, roll theta.
+- 24 tests. 9509 tests pass.
+
+---
+
 ## v0.593.0 — 2026-05-21
 
 **Repo Phase 1: Multi-currency funding curves, carry breakeven, credit-collateral integration.**
