@@ -2,6 +2,33 @@
 
 ---
 
+## v0.601.0 — 2026-05-21
+
+**Phase 3: FX forward curves, curve scenarios, real-time bumper.**
+
+### 3.1 FX Forward Builder (`fx/fx_forward_builder.py`)
+- `build_fx_implied_curve()` — from spot + swap points + domestic OIS via CIP.
+- 14 FX pair conventions (settlement, pip factor, quoting direction).
+- Basis spread extraction vs known foreign curve.
+- 6 tests.
+
+### 3.2 Curve Scenario Engine (`curves/curve_scenarios.py`)
+- `parallel_shift()`, `steepener()`, `flattener()`, `bear_steepener()`, `bull_flattener()`.
+- `butterfly()`, `inversion()`, `historical_scenario()`.
+- `pca_scenarios()` — PCA level/slope/curvature from historical data.
+- `standard_scenario_set()` — 11 canned scenarios per currency.
+- `run_scenarios()` — batch execution with PnL.
+- 9 tests.
+
+### 3.3 Real-Time Curve Bumper (`curves/curve_bumper.py`)
+- `CurveBumper` — Jacobian pre-computation, fast repricing via J·Δz.
+- `bump_and_reprice()` (fast, ~μs) vs `full_rebuild_and_reprice()` (exact).
+- `parallel_dv01()`, `key_rate_dv01s()`, `cross_gamma()`.
+- `risk_report()` — full instrument risk (DV01, key-rate, convexity).
+- 5 tests. 9425 tests pass.
+
+---
+
 ## v0.598.0 — 2026-05-21
 
 **2.1: N-curve simultaneous global solver — damped Newton for 1-N curves.**
