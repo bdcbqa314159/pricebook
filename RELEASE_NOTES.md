@@ -2,6 +2,29 @@
 
 ---
 
+## v0.597.0 — 2026-05-21
+
+**2.2 + 2.3: Forward rate interpolation + key-rate DV01 framework.**
+
+### Forward Rate Interpolation (`core/forward_interpolation.py`)
+- `ForwardInterpolationMethod` — piecewise constant, piecewise linear, monotone convex (Hagan-West 2006).
+- `build_forward_curve()` — builds DiscountCurve by interpolating on forwards and integrating.
+- `monotone_convex_forwards()` — smooth, positive, shape-preserving forward function.
+- `extract_forwards()` — extract instantaneous forwards from any curve.
+
+### Key-Rate DV01 (`curves/key_rate_risk.py`)
+- `BumpProfile` — triangular (partition of unity), Gaussian, pillar-only.
+- `key_rate_dv01()` — localised bumps, DV01 per tenor, optional gamma.
+- `bucket_risk()` — tenor bucket aggregation (0-1Y, 1-2Y, ..., 20-30Y).
+- `risk_ladder()` — formatted report with % contribution.
+- `standard_tenors(currency)` — per-currency key-rate sets (USD, EUR, GBP, JPY, CHF).
+
+### Tests
+- 23 new tests: all methods, flat/upward curves, 10Y swap concentration, gamma, bucket risk, risk ladder.
+- 9397 tests pass.
+
+---
+
 ## v0.595.0 — 2026-05-21
 
 **1.3: Multi-RFR OIS bootstrap — production-grade curve builder for 7 currencies.**
