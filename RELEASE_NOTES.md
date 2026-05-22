@@ -2,6 +2,30 @@
 
 ---
 
+## v0.608.0 — 2026-05-21
+
+**Repo Phase 1: Multi-currency funding curves, carry breakeven, credit-collateral integration.**
+
+### 1.1 Dealer Funding Curve (`fixed_income/repo_funding_curve.py`)
+- `DealerFundingCurve` — secured + unsecured legs, blended rate with haircut.
+- `RepoMarketConventions` — 11 currencies (USD/EUR/GBP/JPY/CHF/CAD/AUD/BRL/MXN/ZAR/TRY) with day count, settlement, benchmark, GC collateral types.
+- `build_dealer_funding_curve()`, `to_discount_curve()`.
+- 15 tests.
+
+### 1.2 Carry Breakeven (`fixed_income/repo_carry.py`)
+- `carry_breakeven()` — GC vs special, term vs O/N, breakeven rate.
+- `xccy_repo_carry()` — cross-currency with FX basis.
+- `multi_ccy_carry_comparison()` — rank carry across currencies for same bond.
+
+### 1.5 Credit-Collateral Integration (`fixed_income/repo_credit_collateral.py`)
+- `CreditCollateralSpec` — issuer hazard, rating, sector, seniority.
+- `credit_adjusted_haircut()` — base + PD add-on + spread-vol add-on. 8 asset classes: sovereign, IG, HY, bank senior, AT1/T2, structured IG/HY, equity.
+- `repo_price_with_collateral_credit()` — all-in: interest - collateral default - counterparty credit - wrong-way risk - gap risk.
+- `hazard_to_haircut_mapping()` — continuous hazard → haircut schedule.
+- 21 tests. 9485 tests pass.
+
+---
+
 ## v0.605.0 — 2026-05-21
 
 **Phase 4: Curve blending, seasonal, diffusion, storage.**
