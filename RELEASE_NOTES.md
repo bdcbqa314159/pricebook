@@ -2,7 +2,7 @@
 
 ---
 
-## v0.608.0 — 2026-05-21
+## v0.606.0 — 2026-05-21
 
 **Repo Phase 1: Multi-currency funding curves, carry breakeven, credit-collateral integration.**
 
