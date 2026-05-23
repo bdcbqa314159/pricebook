@@ -2,6 +2,20 @@
 
 ---
 
+## v0.601.0 — 2026-05-23
+
+**Phase 2 (2.1-2.3): Information theory — entropy, divergence, MI, Fisher information.**
+
+### Information Theory (`statistics/information_theory.py`)
+- **Entropy:** `shannon_entropy()`, `differential_entropy()` (KDE or histogram).
+- **Divergence:** `kl_divergence()`, `js_divergence()` (symmetric), `cross_entropy()`, `wasserstein_distance()`.
+- **Mutual Information:** `mutual_information()`, `conditional_mutual_information()`, `information_gain()` (feature ranking).
+- **Fisher Information:** `fisher_information_matrix()` (numerical Hessian), `cramer_rao_bound()`, `parameter_confidence_intervals()`.
+- **Use cases:** model risk (KL P‖Q), feature selection for PD, parameter uncertainty in HW/SABR calibration.
+- 18 tests. 9637 tests pass.
+
+---
+
 ## v0.600.0 — 2026-05-23
 
 **1.3 + 1.4: Regime-switching process + regime-dependent market data.**
