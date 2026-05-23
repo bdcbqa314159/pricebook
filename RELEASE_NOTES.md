@@ -2,6 +2,25 @@
 
 ---
 
+## v0.598.0 — 2026-05-23
+
+**1.1: Generalised HMM framework — pluggable emissions, Baum-Welch, Viterbi.**
+
+### HMM Core (`statistics/hmm.py`)
+- `EmissionModel(ABC)` — pluggable observation distributions: `log_prob()`, `fit_params()`, `sample()`.
+- Concrete emissions: `GaussianEmission`, `StudentTEmission`, `MixtureEmission`, `MultivariateGaussianEmission`.
+- `EmissionType` enum + `create_emission()` factory (follows Interpolator pattern).
+- `HMM(n_states, emission)` — generalised HMM class.
+  - `fit()` — Baum-Welch EM with scaled forward-backward.
+  - `filter()` — online filtering of new observations.
+  - `predict_state()` — Viterbi decoding.
+- `HMMFitResult` — transition matrix, emission params, stationary dist, AIC/BIC, filtered probs, Viterbi labels.
+- Supports 2+ states, any univariate or multivariate emission.
+- **Use cases:** vol regime, credit regime, yield curve regime, any latent-state time series.
+- 20 tests. 9591 tests pass.
+
+---
+
 ## v0.597.0 — 2026-05-21
 
 **Repo Phase 3b + 4: Matched book, BS allocation, margin, settlement, sec lending.**
