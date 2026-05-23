@@ -2,6 +2,20 @@
 
 ---
 
+## v0.602.0 — 2026-05-23
+
+**2.4: Maximum entropy option pricing — model-free risk-neutral density.**
+
+### Entropy Pricing (`options/entropy_pricing.py`)
+- `max_entropy_density()` — recover RN density maximising Shannon entropy subject to option price constraints.
+- Buchen-Kelly dual formulation with analytical gradient (L-BFGS-B).
+- `MaxEntropyResult` — density grid, entropy, forward, repricing errors, `call_price()`, `put_price()`, `implied_vol_at()`.
+- `entropy_implied_vol()` — extract full implied vol smile from sparse quotes.
+- **Use cases:** model-free pricing from sparse option data, smile interpolation without parametric model.
+- 11 tests. 9648 tests pass.
+
+---
+
 ## v0.601.0 — 2026-05-23
 
 **Phase 2 (2.1-2.3): Information theory — entropy, divergence, MI, Fisher information.**
