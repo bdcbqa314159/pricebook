@@ -2,6 +2,32 @@
 
 ---
 
+## v0.603.0 — 2026-05-23
+
+**Phase 3: Game theory — Shapley, cooperative games, Nash, auction.**
+
+### 3.1 Shapley Value (`risk/shapley.py`)
+- `shapley_value()` — exact (2^N coalitions). `shapley_sampling()` — MC for large N.
+- Satisfies all 4 axioms: efficiency, symmetry, dummy, additivity.
+- `shapley_capital_allocation()` — fair desk-level capital allocation.
+
+### 3.2 Cooperative Games (`risk/cooperative_games.py`)
+- `CooperativeGame` — characteristic function + Shapley + core check.
+- `NettingSetGame` — netting benefit allocation across counterparties.
+- `CollateralPoolGame` — funding cost reduction from shared pool.
+
+### 3.3 Nash & Microstructure (`models/game_equilibrium.py`)
+- `nash_2player()` — support enumeration for bimatrix games.
+- `market_maker_equilibrium()` — Avellaneda-Stoikov optimal spread with inventory.
+- `optimal_execution_game()` — Almgren-Chriss front-loaded schedule.
+
+### 3.4 Auction Theory (`fixed_income/auction.py`)
+- `BondAuction` — uniform/discriminatory price, bid-to-cover, tail.
+- `winners_curse_adjustment()`, `expected_revenue()`.
+- 25 tests. 9673 tests pass.
+
+---
+
 ## v0.602.0 — 2026-05-23
 
 **2.4: Maximum entropy option pricing — model-free risk-neutral density.**
