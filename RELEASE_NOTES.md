@@ -2,6 +2,20 @@
 
 ---
 
+## v0.599.0 — 2026-05-23
+
+**1.2: Particle filter — sequential Monte Carlo for non-linear state estimation.**
+
+### Particle Filter (`statistics/particle_filter.py`)
+- `ParticleFilter(n_particles, transition_fn, observation_log_likelihood)` — bootstrap filter.
+- Pluggable dynamics: any `transition_fn(particles, rng) → particles` + `obs_log_lik(y, particles) → log_weights`.
+- Systematic resampling with ESS monitoring.
+- `ParticleFilterResult` — filtered means/stds, ESS trajectory, log-likelihood, final particles.
+- **Use cases:** stochastic vol filtering (Heston latent vol), non-linear credit dynamics, any non-Gaussian state-space.
+- 10 tests. 9601 tests pass.
+
+---
+
 ## v0.598.0 — 2026-05-23
 
 **1.1: Generalised HMM framework — pluggable emissions, Baum-Welch, Viterbi.**
