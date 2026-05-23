@@ -2,6 +2,24 @@
 
 ---
 
+## v0.600.0 — 2026-05-23
+
+**1.3 + 1.4: Regime-switching process + regime-dependent market data.**
+
+### Regime Process (`models/regime_process.py`)
+- `RegimeProcessSpec` — regime-dependent drift/diffusion with Markov transitions.
+- `create_regime_gbm()` — regime-switching GBM (equity/FX).
+- `create_regime_ou()` — regime-switching OU (rates/spreads).
+- Simulates paths + regime labels jointly.
+
+### Regime Surfaces (`models/regime_surfaces.py`)
+- `RegimeVolSurface` — N vol surfaces blended by regime probabilities (variance or linear blend).
+- `RegimeCurve` — N discount curves blended by regime probabilities.
+- `regime_price()` — price under each regime and blend by posterior.
+- 18 tests. 9619 tests pass.
+
+---
+
 ## v0.599.0 — 2026-05-23
 
 **1.2: Particle filter — sequential Monte Carlo for non-linear state estimation.**
