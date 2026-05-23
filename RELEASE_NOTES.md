@@ -2,6 +2,32 @@
 
 ---
 
+## v0.597.0 — 2026-05-21
+
+**Repo Phase 3b + 4: Matched book, BS allocation, margin, settlement, sec lending.**
+
+### 3.3 Matched Book (`desks/matched_book.py`)
+- `MatchedBookPosition` — paired repo/reverse with spread, gap, PnL.
+- `matched_book_optimise()` — greedy selection by spread, subject to gap + notional limits.
+
+### 3.4 Balance Sheet Allocation (`regulatory/balance_sheet_allocation.py`)
+- `rank_by_roc()` — return on capital ranking.
+- `optimise_allocation()` — LP: maximize total ROC subject to capital + RWA constraints.
+
+### 4.1 Margin Mechanics (`fixed_income/repo_margin.py`)
+- `calculate_vm()`, `margin_call()` (threshold + MTA), `margin_forecast()`.
+
+### 4.2 Settlement Fails (`fixed_income/repo_settlement.py`)
+- `propagate_fails()` — cascade through matched book.
+- `buy_in_process()` — CSDR mandatory buy-in.
+- `fail_cost_analysis()` — penalty + opportunity + reputation.
+
+### 4.3 Securities Lending (`fixed_income/securities_lending.py`)
+- `SecLendingTrade`, `lending_vs_repo_arbitrage()`, `locate_availability()`.
+- 23 tests. 9571 tests pass.
+
+---
+
 ## v0.596.0 — 2026-05-21
 
 **Repo Phase 3: Leverage optimization + collateral transformation.**
