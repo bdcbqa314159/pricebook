@@ -2,6 +2,16 @@
 
 ---
 
+## v0.614.0 — 2026-05-24
+
+**Final migration cleanup — delete _quadrature.py, auto-scale global_solver FD eps.**
+
+- Deleted `numerical/_quadrature.py` — fully superseded by `_integrate.py`, no importers remain.
+- `curves/global_solver.py` — replaced hardcoded `eps=1e-8` with auto-scaled `h = max(|x_j| × 1e-7, 1e-10)` in both Jacobian functions.
+- 9844 tests pass.
+
+---
+
 ## v0.613.0 — 2026-05-24
 
 **Fix Leisen-Reimer Peizer-Pratt formula — extra 0.5 factor removed.**

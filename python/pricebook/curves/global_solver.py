@@ -139,15 +139,16 @@ def global_bootstrap(
 
         return J
 
-    def _jacobian_fd(df_vec, eps=1e-8):
-        """Finite-difference Jacobian (fallback)."""
+    def _jacobian_fd(df_vec, eps=None):
+        """Finite-difference Jacobian (fallback). Auto-scales eps per element."""
         f0 = _residuals(df_vec)
         J = np.zeros((n, n))
         for j in range(n):
+            h = eps or max(abs(df_vec[j]) * 1e-7, 1e-10)
             df_bump = df_vec.copy()
-            df_bump[j] += eps
+            df_bump[j] += h
             f_bump = _residuals(df_bump)
-            J[:, j] = (f_bump - f0) / eps
+            J[:, j] = (f_bump - f0) / h
         return J
 
     _jacobian = _jacobian_analytical
@@ -277,13 +278,14 @@ def coupled_bootstrap(
 
         return res
 
-    def _jacobian(xvec, eps=1e-8):
+    def _jacobian(xvec, eps=None):
         f0 = _residuals(xvec)
         J = np.zeros((n_total, n_total))
         for j in range(n_total):
+            h = eps or max(abs(xvec[j]) * 1e-7, 1e-10)
             x_bump = xvec.copy()
-            x_bump[j] += eps
-            J[:, j] = (_residuals(x_bump) - f0) / eps
+            x_bump[j] += h
+            J[:, j] = (_residuals(x_bump) - f0) / h
         return J
 
     import warnings
