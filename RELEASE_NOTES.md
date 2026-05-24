@@ -2,6 +2,30 @@
 
 ---
 
+## v0.604.0 — 2026-05-23
+
+**Phase 4: Graph theory — network, contagion, algorithms, correlation network.**
+
+### 4.1 Financial Network (`risk/network.py`)
+- `FinancialNetwork` — degree, betweenness, eigenvector centrality, PageRank.
+- `NetworkResult` with composite systemic risk ranking.
+
+### 4.2 Default Cascade (`risk/contagion.py`)
+- `DefaultCascade` — Eisenberg-Noe cascade with capital buffers, multi-round propagation.
+- `stress_test()` — multiple scenarios. Contagion multiplier metric.
+
+### 4.3 Graph Algorithms (`numerical/_graph.py`)
+- `dijkstra()`, `shortest_path()`, `minimum_spanning_tree()` (Prim), `max_flow()` (Edmonds-Karp), `connected_components()`. Pure numpy.
+
+### 4.4 Correlation Network (`risk/correlation_network.py`)
+- `correlation_to_distance()` — Mantegna (1999).
+- `mst_portfolio()` — MST from return correlations.
+- `hierarchical_risk_parity()` — López de Prado (2016) HRP weights.
+- `community_detection()` — spectral clustering on Laplacian.
+- 21 tests. 9694 tests pass.
+
+---
+
 ## v0.603.0 — 2026-05-23
 
 **Phase 3: Game theory — Shapley, cooperative games, Nash, auction.**
