@@ -2,6 +2,33 @@
 
 ---
 
+## v0.610.0 — 2026-05-24
+
+**Bayesian statistics — MCMC, conjugate priors, model selection, changepoint detection.**
+
+### Bayesian Module (`statistics/bayesian.py`)
+- **MCMC Sampling:**
+  - `MetropolisHastings` — random-walk MH with configurable proposal, acceptance tracking, ESS computation.
+  - `GibbsSampler` — component-wise sampling from full conditionals.
+  - `MCMCResult` — samples, log-posteriors, credible intervals, effective sample size, `to_dict()`.
+
+- **Conjugate Priors:**
+  - `BayesianLinearRegression` — Normal-Inverse-Gamma conjugate. Closed-form posterior, credible intervals, posterior predictive, log marginal likelihood (evidence).
+  - `beta_binomial_update()` — Beta-Binomial for PD estimation. Posterior mean, mode, credible interval.
+
+- **Model Selection:**
+  - `bayes_factor()` — log Bayes factor with Kass-Raftery interpretation (decisive/strong/moderate/weak).
+  - `credible_interval()`, `hpd_interval()` — equal-tailed and HPD credible intervals.
+  - `posterior_predictive()` — MC posterior predictive distribution.
+
+- **Changepoint Detection:**
+  - `bayesian_changepoint()` — Bayes factor scan for structural breaks. Posterior probability per time point.
+
+- **Use cases:** Bayesian PD estimation, parameter uncertainty in calibrated models, model comparison (SABR vs Heston), regime change detection, Bayesian VaR.
+- 24 tests. 9849 tests pass.
+
+---
+
 ## v0.609.0 — 2026-05-24
 
 **Tree solver redesign — class-based, 5 methods, Bermudan, barriers, Greeks from nodes.**
