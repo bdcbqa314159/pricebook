@@ -135,12 +135,13 @@ def _lr_params(spot, strike, r, q, vol, T, n_steps):
     dt = T / n_steps
     d1 = (math.log(spot / strike) + (r - q + 0.5*vol**2)*T) / (vol * math.sqrt(T))
     d2 = d1 - vol * math.sqrt(T)
-    p = _peizer_pratt(d2, n_steps)
     p_prime = _peizer_pratt(d1, n_steps)
-    u = math.exp((r - q) * dt) * p_prime / p
-    d = (math.exp((r - q) * dt) - p * u) / (1 - p)
+    p = _peizer_pratt(d2, n_steps)
+    ern = math.exp((r - q) * dt)
+    u = ern * p_prime / p
+    d = (ern - p * u) / (1.0 - p)
     disc = math.exp(-r * dt)
-    return u, d, max(0, min(1, p)), disc, n_steps
+    return u, d, max(0.001, min(0.999, p)), disc, n_steps
 
 
 def _trinomial_params(r, q, vol, dt, lam=None):
@@ -231,8 +232,8 @@ class TreeSolver:
         else:
             u, d, p, disc = _crr_params(rate, div_yield, vol, dt)
 
-        # Build spot tree at maturity
-        S = np.array([spot * u**(n - i) * d**i for i in range(n + 1)])
+        # Build spot tree at maturity (index 0 = all down, index n = all up)
+        S = np.array([spot * d**(n - j) * u**j for j in range(n + 1)])
 
         # Apply discrete dividends (shift spots)
         for step, amount in self.dividends.items():
@@ -254,12 +255,12 @@ class TreeSolver:
         # Snapshots for Greeks (steps n, n-1, n-2)
         V_snapshots = {n: V.copy()}
 
-        # Backward induction
+        # Backward induction (index 0 = min S, index i = more up-moves)
         for step in range(n - 1, -1, -1):
-            V = disc * (p * V[:-1] + (1 - p) * V[1:])
+            V = disc * (p * V[1:] + (1 - p) * V[:-1])
 
-            # Spot prices at this step
-            S_step = np.array([spot * u**(step - i) * d**i for i in range(step + 1)])
+            # Spot prices at this step (same convention: 0 = all down)
+            S_step = np.array([spot * d**(step - j) * u**j for j in range(step + 1)])
 
             # Exercise
             if self._should_exercise(step):
@@ -375,20 +376,21 @@ class TreeSolver:
 
     def _extract_greeks_binomial(self, snaps, spot, u, d, dt, n):
         delta = gamma = theta = 0.0
+        # Convention: index 0 = all down (min S), index n = all up (max S)
         if 1 in snaps and len(snaps[1]) >= 2:
-            S_u = spot * u
             S_d = spot * d
-            V_u = snaps[1][0]
-            V_d = snaps[1][1]
+            S_u = spot * u
+            V_d = snaps[1][0]   # index 0 = down
+            V_u = snaps[1][1]   # index 1 = up
             delta = (V_u - V_d) / (S_u - S_d) if S_u != S_d else 0.0
 
         if 2 in snaps and len(snaps[2]) >= 3:
-            S_uu = spot * u**2
-            S_ud = spot
             S_dd = spot * d**2
-            V_uu = snaps[2][0]
+            S_ud = spot * u * d
+            S_uu = spot * u**2
+            V_dd = snaps[2][0]
             V_ud = snaps[2][1]
-            V_dd = snaps[2][2]
+            V_uu = snaps[2][2]
             delta_u = (V_uu - V_ud) / (S_uu - S_ud) if S_uu != S_ud else 0.0
             delta_d = (V_ud - V_dd) / (S_ud - S_dd) if S_ud != S_dd else 0.0
             gamma = (delta_u - delta_d) / (0.5 * (S_uu - S_dd)) if S_uu != S_dd else 0.0
