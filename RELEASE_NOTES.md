@@ -2,6 +2,31 @@
 
 ---
 
+## v0.608.0 — 2026-05-24
+
+**Integration + differentiation redesign — unified frameworks, 9+5 methods.**
+
+### Numerical Integration (`numerical/_integrate.py`)
+- `IntegrationMethod` enum: ADAPTIVE (scipy quad), GAUSS_LEGENDRE, GAUSS_LAGUERRE (semi-infinite), GAUSS_HERMITE (infinite), TANH_SINH (singular), CLENSHAW_CURTIS, SIMPSON, TRAPEZOID, ROMBERG.
+- `integrate(f, a, b, method)` — main entry with auto method selection.
+- `integrate_2d()` — double integral via scipy.dblquad.
+- `integrate_semi_infinite()` — ∫ₐ^∞ with Gauss-Laguerre or adaptive.
+- `integrate_complex_contour()` — ∮ f(z)dz along parameterised contour.
+- `IntegrationResult` — value, error estimate, n_evaluations, converged.
+- Backward compatible: old `gauss_jacobi`, `tanh_sinh`, `clenshaw_curtis` still work.
+
+### Numerical Differentiation (`numerical/_differentiate.py`)
+- `DiffMethod` enum: FORWARD (O(h)), CENTRAL (O(h²)), COMPLEX_STEP (machine ε), RICHARDSON (O(h⁴)), FIVE_POINT (O(h⁴)).
+- `derivative(f, x, method, order)` — 1st and 2nd derivatives.
+- `gradient(f, x)` — ∇f for scalar functions of vectors.
+- `jacobian(f, x)` — J[i,j] = ∂fᵢ/∂xⱼ for vector functions.
+- `hessian(f, x)` — H[i,j] = ∂²f/∂xᵢ∂xⱼ for scalar functions.
+- Auto step size selection: optimal h based on method order + machine epsilon.
+- `DiffResult` — value, error estimate, method, n_evaluations.
+- 30 tests. 9803 tests pass.
+
+---
+
 ## v0.607.0 — 2026-05-24
 
 **PDE solver redesign — class-based, 7 methods, grids, Greeks extraction.**
