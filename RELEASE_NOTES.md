@@ -2,6 +2,26 @@
 
 ---
 
+## v0.605.0 — 2026-05-24
+
+**ODE solver redesign — class-based, 9 methods, Riccati, backward, dense output.**
+
+### ODE Solver (`numerical/_ode.py`)
+- `ODESolver` class — configurable method, tolerance, dense output, reusable.
+- `ODEMethod` enum: EULER, RK4, RK45, RK23, BDF, RADAU, LSODA, DOP853, IMPLICIT_EULER (9 methods).
+- `solve_ode()` — main entry with runtime method selection + Jacobian + events.
+- `solve_backward()` — backward-in-time integration for PDE time-stepping.
+- `solve_riccati(a, b, c, ...)` — Riccati ODE dy/dt = a + by + cy² with analytical Jacobian. Supports complex coefficients (Heston CF).
+- `solve_system()` — auto stiffness detection via LSODA.
+- Implicit Euler via Newton iteration with optional Jacobian.
+- Dense output for arbitrary-time evaluation (scipy interpolant + linear fallback).
+- `ODEResult.__call__(t)` — evaluate solution at any time.
+- Full backward compatibility: `euler()`, `rk4()`, `rk45()`, `bdf()`, `adams()` still work.
+- 31 tests (up from 4): all methods, stiff systems, Jacobian, dense output, backward, Riccati (linear, quadratic, tanh), 2D rotation, Lorenz.
+- 9721 tests pass.
+
+---
+
 ## v0.604.0 — 2026-05-23
 
 **Phase 4: Graph theory — network, contagion, algorithms, correlation network.**
