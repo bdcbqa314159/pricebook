@@ -45,28 +45,11 @@ def finite_difference_jacobian(
 ) -> np.ndarray:
     """Compute the Jacobian of f at x via central finite differences.
 
-    J[i,j] = ∂f_i / ∂x_j ≈ (f(x + e_j ε) − f(x − e_j ε)) / (2ε)
-
-    Args:
-        f: vector function R^n → R^m.
-        x: point at which to evaluate the Jacobian.
-        eps: perturbation size.
-
-    Returns:
-        (m, n) Jacobian matrix.
+    Delegates to pricebook.numerical._differentiate.jacobian.
     """
-    x = np.asarray(x, dtype=float)
-    f0 = np.asarray(f(x), dtype=float)
-    n = len(x)
-    m = len(f0)
-    J = np.zeros((m, n))
-    for j in range(n):
-        x_up = x.copy()
-        x_dn = x.copy()
-        x_up[j] += eps
-        x_dn[j] -= eps
-        J[:, j] = (np.asarray(f(x_up)) - np.asarray(f(x_dn))) / (2.0 * eps)
-    return J
+    from pricebook.numerical._differentiate import jacobian, DiffMethod
+    result = jacobian(f, np.asarray(x, dtype=float), DiffMethod.CENTRAL, h=eps)
+    return result.value
 
 
 # ---- Newton-Raphson ----

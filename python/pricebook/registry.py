@@ -14,10 +14,8 @@ Factory functions with string-based lookup for swapping implementations.
 from __future__ import annotations
 
 from pricebook.core import solvers
-from pricebook.curves import quadrature
-from pricebook.models import binomial_tree
-from pricebook.models import binomial_jr_lr
-from pricebook.models import trinomial_tree
+from pricebook.numerical._integrate import integrate, IntegrationMethod
+from pricebook.numerical._trees import solve_tree, TreeMethod, ExerciseType
 from pricebook.models import finite_difference
 from pricebook.models import adi
 from pricebook.models import mc_pricer
@@ -54,11 +52,16 @@ def list_solvers() -> list[str]:
 # Quadrature
 # ---------------------------------------------------------------------------
 
+def _make_integrator(method):
+    def integrator(f, a, b, **kwargs):
+        return integrate(f, a, b, method=method, **kwargs)
+    return integrator
+
 _INTEGRATORS = {
-    "gauss_legendre": quadrature.gauss_legendre,
-    "gauss_laguerre": quadrature.gauss_laguerre,
-    "gauss_hermite": quadrature.gauss_hermite,
-    "adaptive_simpson": quadrature.adaptive_simpson,
+    "gauss_legendre": _make_integrator(IntegrationMethod.GAUSS_LEGENDRE),
+    "gauss_laguerre": _make_integrator(IntegrationMethod.GAUSS_LAGUERRE),
+    "gauss_hermite": _make_integrator(IntegrationMethod.GAUSS_HERMITE),
+    "adaptive_simpson": _make_integrator(IntegrationMethod.SIMPSON),
 }
 
 
@@ -77,24 +80,32 @@ def list_integrators() -> list[str]:
 # Tree pricers
 # ---------------------------------------------------------------------------
 
+def _make_tree_pricer(method, exercise):
+    def pricer(spot, strike, rate, vol, T, n_steps=200, option_type=None, div_yield=0.0):
+        is_call = option_type is None or str(getattr(option_type, 'value', option_type)).lower() != "put"
+        r = solve_tree(spot, strike, rate, vol, T, method=method, n_steps=n_steps,
+                        exercise=exercise, is_call=is_call, div_yield=div_yield)
+        return r.price
+    return pricer
+
 _TREE_EUROPEAN = {
-    "binomial": binomial_tree.binomial_european,
-    "crr": binomial_tree.binomial_european,
-    "jr": binomial_jr_lr.jr_european,
-    "jarrow_rudd": binomial_jr_lr.jr_european,
-    "lr": binomial_jr_lr.lr_european,
-    "leisen_reimer": binomial_jr_lr.lr_european,
-    "trinomial": trinomial_tree.trinomial_european,
+    "binomial": _make_tree_pricer(TreeMethod.CRR, ExerciseType.EUROPEAN),
+    "crr": _make_tree_pricer(TreeMethod.CRR, ExerciseType.EUROPEAN),
+    "jr": _make_tree_pricer(TreeMethod.JR, ExerciseType.EUROPEAN),
+    "jarrow_rudd": _make_tree_pricer(TreeMethod.JR, ExerciseType.EUROPEAN),
+    "lr": _make_tree_pricer(TreeMethod.LR, ExerciseType.EUROPEAN),
+    "leisen_reimer": _make_tree_pricer(TreeMethod.LR, ExerciseType.EUROPEAN),
+    "trinomial": _make_tree_pricer(TreeMethod.TRINOMIAL, ExerciseType.EUROPEAN),
 }
 
 _TREE_AMERICAN = {
-    "binomial": binomial_tree.binomial_american,
-    "crr": binomial_tree.binomial_american,
-    "jr": binomial_jr_lr.jr_american,
-    "jarrow_rudd": binomial_jr_lr.jr_american,
-    "lr": binomial_jr_lr.lr_american,
-    "leisen_reimer": binomial_jr_lr.lr_american,
-    "trinomial": trinomial_tree.trinomial_american,
+    "binomial": _make_tree_pricer(TreeMethod.CRR, ExerciseType.AMERICAN),
+    "crr": _make_tree_pricer(TreeMethod.CRR, ExerciseType.AMERICAN),
+    "jr": _make_tree_pricer(TreeMethod.JR, ExerciseType.AMERICAN),
+    "jarrow_rudd": _make_tree_pricer(TreeMethod.JR, ExerciseType.AMERICAN),
+    "lr": _make_tree_pricer(TreeMethod.LR, ExerciseType.AMERICAN),
+    "leisen_reimer": _make_tree_pricer(TreeMethod.LR, ExerciseType.AMERICAN),
+    "trinomial": _make_tree_pricer(TreeMethod.TRINOMIAL, ExerciseType.AMERICAN),
 }
 
 

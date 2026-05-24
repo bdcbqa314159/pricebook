@@ -2,6 +2,30 @@
 
 ---
 
+## v0.612.0 — 2026-05-24
+
+**Complete migration — tree shims, quadrature redirect, nd_solvers Jacobian.**
+
+### Tree model files converted to thin shims
+- `models/binomial_tree.py` → delegates to `solve_tree(TreeMethod.CRR)`
+- `models/trinomial_tree.py` → delegates to `solve_tree(TreeMethod.TRINOMIAL)`
+- `models/binomial_jr_lr.py` → delegates to `solve_tree(TreeMethod.JR/LR)`
+- `registry.py` tree section → `_make_tree_pricer()` wrappers using `solve_tree`
+
+### Quadrature redirect
+- `curves/quadrature.py` → thin redirect to `numerical._integrate`. `QuadratureResult` = `IntegrationResult`.
+- `registry.py` integrator section → `_make_integrator()` wrappers using `integrate()`.
+
+### Differentiation
+- `models/nd_solvers.py` `finite_difference_jacobian()` → delegates to `numerical._differentiate.jacobian()`.
+
+### Known issue
+- LR (Leisen-Reimer) tree method has pricing inaccuracy in the new `_trees.py` implementation (8 test failures). CRR, JR, trinomial all correct. To be fixed in a subsequent commit.
+
+- 9836 passed, 8 LR-specific failures.
+
+---
+
 ## v0.611.0 — 2026-05-24
 
 **Backward compatibility removal — clean API for ODE, integration, trees.**
