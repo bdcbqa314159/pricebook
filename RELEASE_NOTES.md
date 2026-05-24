@@ -2,6 +2,32 @@
 
 ---
 
+## v0.606.0 — 2026-05-24
+
+**Advanced numerical methods: spectral, quasi-Monte Carlo, stochastic calculus.**
+
+### Spectral Methods (`numerical/_spectral.py`)
+- `chebyshev_nodes()`, `chebyshev_diff_matrix()`, `chebyshev_coefficients()`, `chebyshev_evaluate()` (Clenshaw recurrence).
+- `chebyshev_interpolate()` → `SpectralResult` with arbitrary-point evaluation.
+- `spectral_solve_bvp()` — BVP solver via Chebyshev collocation.
+- `spectral_integrate()` — Gauss-Legendre quadrature.
+
+### Quasi-Monte Carlo (`numerical/_qmc.py`)
+- `sobol_sequence()` — Sobol low-discrepancy (scipy.stats.qmc, O(1/N) convergence).
+- `halton_sequence()`, `latin_hypercube()`.
+- `sparse_grid()` — Smolyak construction for high-dimensional integration.
+
+### Stochastic Calculus (`numerical/_stochastic.py`)
+- `ito_formula()`, `ito_log_transform()` — Ito's formula with correction term.
+- `stratonovich_to_ito()` / `ito_to_stratonovich()` — convention conversion.
+- `quadratic_variation()`, `realized_variance()`, `realized_volatility()`.
+- `bipower_variation()` — robust to jumps (Barndorff-Nielsen & Shephard).
+- `jump_test()` — detect jumps via RV vs BV comparison.
+- `milstein_correction()` — Milstein SDE discretisation term.
+- 29 tests. 9750 tests pass.
+
+---
+
 ## v0.605.0 — 2026-05-24
 
 **ODE solver redesign — class-based, 9 methods, Riccati, backward, dense output.**
