@@ -11,18 +11,18 @@ from pricebook.numerical import (
     # Linear algebra
     qr, cholesky, expm, gmres, sylvester, cond, is_positive_definite,
     # ODE
-    euler, rk4, rk45, bdf,
+    solve_ode, ODEMethod, ODEResult,
     # Optimisation
     minimize, linprog, qp, bisection, find_root,
     proximal_gradient, projection_simplex, soft_threshold,
-    # Quadrature
-    gauss_jacobi, tanh_sinh, clenshaw_curtis,
+    # Integration
+    integrate, IntegrationMethod,
     # Interpolation
     bilinear, rbf_interpolate,
     # MC
     qe_heston_step,
     # Trees
-    binomial_2d,
+    solve_tree, solve_tree_2d, TreeMethod,
     # Fourier
     fractional_fft, hilbert_transform, wavelet_transform,
     # Distribution theory
@@ -115,15 +115,15 @@ class TestLinAlg:
 
 class TestODE:
     def test_euler_decay(self):
-        r = euler(lambda t, y: -y, (0, 5), 1.0, n_steps=10000)
+        r = solve_ode(lambda t, y: -y, (0, 5), 1.0, ODEMethod.EULER, n_steps=10000)
         assert r.y[-1, 0] == pytest.approx(math.exp(-5), abs=1e-3)
 
     def test_rk4_accuracy(self):
-        r = rk4(lambda t, y: -y, (0, 5), 1.0, n_steps=100)
+        r = solve_ode(lambda t, y: -y, (0, 5), 1.0, ODEMethod.RK4, n_steps=100)
         assert r.y[-1, 0] == pytest.approx(math.exp(-5), abs=1e-8)
 
     def test_rk45_adaptive(self):
-        r = rk45(lambda t, y: -y, (0, 5), 1.0, tol=1e-10)
+        r = solve_ode(lambda t, y: -y, (0, 5), 1.0, ODEMethod.RK45, tol=1e-10)
         assert r.success
         assert r.y[-1, 0] == pytest.approx(math.exp(-5), abs=1e-9)
 
@@ -169,11 +169,11 @@ class TestOptimize:
 class TestQuadrature:
     def test_gauss_jacobi_legendre(self):
         # alpha=beta=0 → Gauss-Legendre
-        r = gauss_jacobi(lambda x: x ** 2, n=8, a=0, b=1)
+        r = integrate(lambda x: x ** 2, 0, 1, IntegrationMethod.GAUSS_LEGENDRE, n=8)
         assert r.value == pytest.approx(1.0 / 3, abs=1e-10)
 
     def test_clenshaw_curtis(self):
-        r = clenshaw_curtis(lambda x: x ** 2, a=0, b=1, n=16)
+        r = integrate(lambda x: x ** 2, 0, 1, IntegrationMethod.CLENSHAW_CURTIS, n=16)
         assert r.value == pytest.approx(1.0 / 3, abs=1e-6)
 
 
@@ -219,11 +219,11 @@ class TestMC:
 
 class TestTrees:
     def test_2d_binomial_positive(self):
-        r = binomial_2d(100, 100, 5, 0.05, 0.2, 0.2, 0.5, 1.0, n_steps=30)
+        r = solve_tree_2d(100, 100, 5, 0.05, 0.2, 0.2, 0.5, 1.0, n_steps=30)
         assert r.price > 0
 
     def test_2d_spread_put_positive(self):
-        r = binomial_2d(100, 100, 5, 0.05, 0.2, 0.2, 0.5, 1.0,
+        r = solve_tree_2d(100, 100, 5, 0.05, 0.2, 0.2, 0.5, 1.0,
                         n_steps=30, payoff_type="spread_put")
         assert r.price >= 0
 

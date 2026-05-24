@@ -362,21 +362,3 @@ def solve_system(
     return solve_ode(f, t_span, y0, method, jac, tol)
 
 
-# ═══════════════════════════════════════════════════════════════
-# Backward compatibility: old function names still work
-# ═══════════════════════════════════════════════════════════════
-
-def euler(f, t_span, y0, n_steps=100):
-    return solve_ode(f, t_span, y0, ODEMethod.EULER, n_steps=n_steps)
-
-def rk4(f, t_span, y0, n_steps=100):
-    return solve_ode(f, t_span, y0, ODEMethod.RK4, n_steps=n_steps)
-
-def rk45(f, t_span, y0, tol=1e-6, max_step=None):
-    return solve_ode(f, t_span, y0, ODEMethod.RK45, tol=tol, max_step=max_step)
-
-def bdf(f, t_span, y0, jac=None, tol=1e-6):
-    return solve_ode(f, t_span, y0, ODEMethod.BDF, jac=jac, tol=tol)
-
-def adams(f, t_span, y0, tol=1e-6):
-    return solve_ode(f, t_span, y0, ODEMethod.LSODA, tol=tol)

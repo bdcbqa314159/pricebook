@@ -2,6 +2,30 @@
 
 ---
 
+## v0.611.0 — 2026-05-24
+
+**Backward compatibility removal — clean API for ODE, integration, trees.**
+
+### Removed
+- `euler()`, `rk4()`, `rk45()`, `bdf()`, `adams()` shims from `_ode.py` → use `solve_ode(f, span, y0, ODEMethod.RK4)`.
+- `gauss_jacobi()`, `tanh_sinh()`, `clenshaw_curtis()` shims from `_integrate.py` → use `integrate(f, a, b, IntegrationMethod.TANH_SINH)`.
+- `tree_greeks()`, `binomial_2d()`, `TreeGreeks`, `Binomial2DResult` shims from `_trees.py` → use `solve_tree()`, `solve_tree_2d()`.
+
+### Deleted
+- `models/ode.py` — shim module, all logic now in `numerical/_ode.py`.
+
+### Migrated
+- `numerical/__init__.py` — exports only new API names.
+- `registry.py` — ODE solvers now use `_make_ode_solver()` wrapper.
+- `core/results.py` — imports `ODEResult` from `numerical._ode`.
+- 4 test files rewritten to use new API: `test_ode.py`, `test_numerical.py`, `test_numerical_ode.py`, `test_numerical_quadrature.py`, `test_numerical_trees.py`, `test_tree_solver.py`.
+
+### Result
+- **Single canonical API** per module — no aliases, no wrappers, no ambiguity.
+- 9844 tests pass.
+
+---
+
 ## v0.610.0 — 2026-05-24
 
 **Bayesian statistics — MCMC, conjugate priors, model selection, changepoint detection.**

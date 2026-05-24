@@ -278,10 +278,3 @@ def _romberg(f, a, b, tol=1e-10):
     return IntegrationResult(float(value), 0.0, 0, "romberg", True)
 
 
-# Backward compatibility
-gauss_jacobi = lambda f, n=16, alpha=0.0, beta=0.0, a=-1.0, b=1.0: integrate(
-    f, a, b, IntegrationMethod.GAUSS_LEGENDRE, n)
-tanh_sinh = lambda f, a=-1.0, b=1.0, n=64, h=0.1: integrate(
-    f, a, b, IntegrationMethod.TANH_SINH, n)
-clenshaw_curtis = lambda f, a=-1.0, b=1.0, n=32: integrate(
-    f, a, b, IntegrationMethod.CLENSHAW_CURTIS, n)

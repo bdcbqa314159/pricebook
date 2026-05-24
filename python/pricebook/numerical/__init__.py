@@ -5,12 +5,12 @@ Clean interface over scipy/numpy — users never import scipy directly.
     from pricebook.numerical import Normal, StudentT, LogNormal
     from pricebook.numerical import expm, qr, cholesky, gmres
     from pricebook.numerical import minimize, linprog, qp
-    from pricebook.numerical import rk45, bdf, euler
-    from pricebook.numerical import gauss_jacobi, tanh_sinh
+    from pricebook.numerical import solve_ode, ODEMethod
+    from pricebook.numerical import integrate, IntegrationMethod
     from pricebook.numerical import bilinear, bicubic, rbf_interpolate
     from pricebook.numerical import bisection, find_root
     from pricebook.numerical import qe_heston_step, multilevel_mc
-    from pricebook.numerical import tree_greeks, binomial_2d
+    from pricebook.numerical import solve_tree, TreeMethod
     from pricebook.numerical import fractional_fft, hilbert_transform, CharacteristicFunction
     from pricebook.numerical import TemperedDistribution, dirac_delta, sobolev_norm
 """
@@ -30,7 +30,8 @@ from pricebook.numerical._linalg import (
 
 # ODE integrators
 from pricebook.numerical._ode import (
-    euler, rk4, rk45, bdf, adams,
+    ODESolver, ODEMethod, ODEResult,
+    solve_ode, solve_backward, solve_riccati, solve_system,
 )
 
 # Optimisation
@@ -39,9 +40,10 @@ from pricebook.numerical._optimize import (
     proximal_gradient, projection_simplex, projection_l1_ball, soft_threshold,
 )
 
-# Quadrature
-from pricebook.numerical._quadrature import (
-    gauss_jacobi, tanh_sinh, clenshaw_curtis,
+# Integration
+from pricebook.numerical._integrate import (
+    integrate, IntegrationMethod, IntegrationResult,
+    integrate_2d, integrate_semi_infinite,
 )
 
 # 2D Interpolation
@@ -59,9 +61,10 @@ from pricebook.numerical._mc import (
     qe_heston_step, antithetic_paths, multilevel_mc,
 )
 
-# Tree improvements
+# Trees
 from pricebook.numerical._trees import (
-    tree_greeks, binomial_2d,
+    TreeSolver, TreeMethod, ExerciseType, BarrierType, TreeResult,
+    solve_tree, solve_tree_2d,
 )
 
 # Fourier
@@ -91,12 +94,12 @@ __all__ = [
     "sylvester", "lyapunov",
     "cond", "rank", "is_positive_definite",
     # ODE
-    "euler", "rk4", "rk45", "bdf", "adams",
+    "ODESolver", "ODEMethod", "ODEResult", "solve_ode", "solve_backward", "solve_riccati",
     # Optimisation
     "minimize", "linprog", "qp", "interior_point",
     "proximal_gradient", "projection_simplex", "projection_l1_ball", "soft_threshold",
-    # Quadrature
-    "gauss_jacobi", "tanh_sinh", "clenshaw_curtis",
+    # Integration
+    "integrate", "IntegrationMethod", "IntegrationResult",
     # Interpolation
     "bilinear", "bicubic", "rbf_interpolate",
     # Root finding
@@ -104,7 +107,7 @@ __all__ = [
     # MC
     "qe_heston_step", "antithetic_paths", "multilevel_mc",
     # Trees
-    "tree_greeks", "binomial_2d",
+    "TreeSolver", "TreeMethod", "ExerciseType", "TreeResult", "solve_tree", "solve_tree_2d",
     # Fourier
     "fractional_fft", "hilbert_transform", "wavelet_transform", "CharacteristicFunction",
     # PDE

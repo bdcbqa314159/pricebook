@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from pricebook.curves.quadrature import QuadratureResult
     from pricebook.models.mc_pricer import MCResult
     from pricebook.statistics.optimization import OptimizerResult
-    from pricebook.models.ode import ODEResult
+    from pricebook.numerical._ode import ODEResult
 
 
 @dataclass

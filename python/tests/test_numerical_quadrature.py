@@ -1,18 +1,18 @@
-"""Tests for numerical._quadrature: gauss_jacobi, tanh_sinh, clenshaw_curtis."""
+"""Tests for numerical integration — migrated from old quadrature API."""
 import pytest, math
-from pricebook.numerical._quadrature import gauss_jacobi, tanh_sinh, clenshaw_curtis
+from pricebook.numerical._integrate import integrate, IntegrationMethod
 
-class TestGaussJacobi:
+class TestGaussLegendre:
     def test_polynomial(self):
-        result = gauss_jacobi(lambda x: x**2, n=8, a=-1, b=1)
+        result = integrate(lambda x: x**2, -1, 1, IntegrationMethod.GAUSS_LEGENDRE, n=8)
         assert abs(result.value - 2/3) < 1e-10
 
 class TestTanhSinh:
     def test_smooth(self):
-        result = tanh_sinh(lambda x: math.exp(x), a=0, b=1)
+        result = integrate(lambda x: math.exp(x), 0, 1, IntegrationMethod.TANH_SINH)
         assert abs(result.value - (math.e - 1)) < 0.01
 
 class TestClenshawCurtis:
     def test_trig(self):
-        result = clenshaw_curtis(lambda x: math.cos(x), a=0, b=math.pi)
-        assert abs(result.value - 0.0) < 0.01  # ∫cos = sin(π)-sin(0) = 0
+        result = integrate(lambda x: math.cos(x), 0, math.pi, IntegrationMethod.CLENSHAW_CURTIS)
+        assert abs(result.value - 0.0) < 0.01

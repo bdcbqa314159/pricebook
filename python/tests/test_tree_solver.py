@@ -8,7 +8,6 @@ from scipy.stats import norm
 from pricebook.numerical._trees import (
     TreeSolver, TreeMethod, ExerciseType, BarrierType, TreeResult,
     solve_tree, solve_tree_2d,
-    tree_greeks, binomial_2d, TreeGreeks, Binomial2DResult,
 )
 
 
@@ -163,21 +162,3 @@ class TestClassAPI:
         assert "price" in d and "delta" in d and "method" in d
 
 
-# ═══════════════════════════════════════════════════════════════
-# Backward compatibility
-# ═══════════════════════════════════════════════════════════════
-
-class TestBackwardCompat:
-    def test_tree_greeks_old_api(self):
-        def pricer(spot, strike, rate, vol, T, n, is_call, is_am, q):
-            return solve_tree(spot, strike, rate, vol, T, n_steps=n,
-                               exercise=ExerciseType.AMERICAN if is_am else ExerciseType.EUROPEAN,
-                               is_call=is_call, div_yield=q).price
-        g = tree_greeks(pricer, 100, 0.04, 0.25, 1.0, 100, n_steps=100)
-        assert isinstance(g, TreeGreeks)
-        assert g.price > 0
-
-    def test_binomial_2d_old_api(self):
-        r = binomial_2d(100, 90, 5, 0.04, 0.20, 0.25, 0.5, 1.0)
-        assert isinstance(r, Binomial2DResult)
-        assert r.price > 0

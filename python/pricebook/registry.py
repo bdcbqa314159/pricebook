@@ -187,15 +187,21 @@ def list_optimizers() -> list[str]:
 # ODE solvers
 # ---------------------------------------------------------------------------
 
-from pricebook.models import ode  # noqa: E402
+from pricebook.numerical._ode import solve_ode, ODEMethod  # noqa: E402
 from pricebook.models import cos_method  # noqa: E402
 from pricebook.curves import aad_pricing  # noqa: E402
 from pricebook.risk import risk  # noqa: E402
 
+
+def _make_ode_solver(method):
+    def solver(f, t_span, y0, **kwargs):
+        return solve_ode(f, t_span, y0, method=method, **kwargs)
+    return solver
+
 _ODE_SOLVERS = {
-    "rk4": ode.rk4,
-    "rk45": ode.rk45,
-    "bdf": ode.bdf,
+    "rk4": _make_ode_solver(ODEMethod.RK4),
+    "rk45": _make_ode_solver(ODEMethod.RK45),
+    "bdf": _make_ode_solver(ODEMethod.BDF),
 }
 
 

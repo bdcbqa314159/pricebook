@@ -7,33 +7,32 @@ import numpy as np
 from pricebook.numerical._ode import (
     ODESolver, ODEMethod, ODEResult,
     solve_ode, solve_backward, solve_riccati, solve_system,
-    euler, rk4, rk45, bdf, adams,
 )
 
 
 # ═══════════════════════════════════════════════════════════════
-# Backward compatibility (old API still works)
+# All methods via new API
 # ═══════════════════════════════════════════════════════════════
 
-class TestBackwardCompat:
+class TestNewAPI:
     def test_euler(self):
-        result = euler(lambda t, y: y, (0, 1), [1.0], n_steps=1000)
+        result = solve_ode(lambda t, y: y, (0, 1), [1.0], ODEMethod.EULER, n_steps=1000)
         assert abs(result.y[-1][0] - math.e) < 0.01
 
     def test_rk4(self):
-        result = rk4(lambda t, y: y, (0, 1), [1.0], n_steps=100)
+        result = solve_ode(lambda t, y: y, (0, 1), [1.0], ODEMethod.RK4, n_steps=100)
         assert abs(result.y[-1][0] - math.e) < 1e-6
 
     def test_rk45(self):
-        result = rk45(lambda t, y: y, (0, 1), [1.0])
+        result = solve_ode(lambda t, y: y, (0, 1), [1.0], ODEMethod.RK45)
         assert abs(result.y[-1][0] - math.e) < 1e-4
 
     def test_bdf(self):
-        result = bdf(lambda t, y: -100 * np.array(y), (0, 0.1), [1.0])
+        result = solve_ode(lambda t, y: -100 * np.array(y), (0, 0.1), [1.0], ODEMethod.BDF)
         assert abs(result.y[-1][0] - math.exp(-10)) < 0.05
 
-    def test_adams(self):
-        result = adams(lambda t, y: y, (0, 1), [1.0])
+    def test_lsoda(self):
+        result = solve_ode(lambda t, y: y, (0, 1), [1.0], ODEMethod.LSODA)
         assert abs(result.y[-1][0] - math.e) < 1e-4
 
 
