@@ -2,6 +2,27 @@
 
 ---
 
+## v0.607.0 — 2026-05-24
+
+**PDE solver redesign — class-based, 7 methods, grids, Greeks extraction.**
+
+### PDE Solver (`numerical/_pde.py`)
+- `PDESolver1D` class — configurable method, grid, reusable.
+- `PDEMethod` enum: EXPLICIT, IMPLICIT, CRANK_NICOLSON, RANNACHER, CRAIG_SNEYD, HUNDSDORFER_VERWER, METHOD_OF_LINES.
+- `GridType` enum: UNIFORM, LOG, SINH (Tavella-Randall concentration), CHEBYSHEV.
+- `BoundaryCondition` enum: DIRICHLET, NEUMANN, LINEAR, FREE.
+- `build_grid()` — spatial grid builder with strike/barrier concentration.
+- `extract_greeks()` — delta, gamma, theta from grid solution via finite differences.
+- `solve_bs_pde()` — one-line Black-Scholes PDE for European/American options.
+- `solve_pde_with_vega()` — vega via bump-and-reprice.
+- `PDEResult` — values, grid, price, delta, gamma, theta, vega, to_dict().
+- Thomas algorithm tridiagonal solver.
+- American via payoff projection. Rannacher smoothing.
+- 23 tests: all methods, ATM/ITM/OTM, put, American, Greeks vs BS, grid types.
+- 9773 tests pass.
+
+---
+
 ## v0.606.0 — 2026-05-24
 
 **Advanced numerical methods: spectral, quasi-Monte Carlo, stochastic calculus.**

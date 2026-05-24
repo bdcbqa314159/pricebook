@@ -71,7 +71,8 @@ from pricebook.numerical._fourier import (
 
 # PDE
 from pricebook.numerical._pde import (
-    hundsdorfer_verwer, psor_2d, operator_splitting,
+    PDESolver1D, PDEMethod, PDEResult, GridType, BoundaryCondition,
+    solve_bs_pde, build_grid, extract_greeks,
 )
 
 # Distribution theory
@@ -107,7 +108,7 @@ __all__ = [
     # Fourier
     "fractional_fft", "hilbert_transform", "wavelet_transform", "CharacteristicFunction",
     # PDE
-    "hundsdorfer_verwer", "psor_2d", "operator_splitting",
+    "PDESolver1D", "PDEMethod", "PDEResult", "GridType", "solve_bs_pde",
     # Distribution theory
     "SchwartzTestFunction", "TemperedDistribution",
     "dirac_delta", "heaviside", "regular", "sobolev_norm",
