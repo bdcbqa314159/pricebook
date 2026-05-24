@@ -2,6 +2,16 @@
 
 ---
 
+## v0.613.0 — 2026-05-24
+
+**Fix Leisen-Reimer Peizer-Pratt formula — extra 0.5 factor removed.**
+
+- Root cause: `copysign(0.5, z) * sqrt(...)` instead of `copysign(sqrt(...), z)`. The extra 0.5 multiplier halved the probability deviation from 0.5, collapsing all tree prices to ~50% of BS.
+- All 8 LR-specific test failures now pass. LR(51) matches BS to 4+ decimals as designed.
+- 9844 tests pass, 0 failures.
+
+---
+
 ## v0.612.0 — 2026-05-24
 
 **Complete migration — tree shims, quadrature redirect, nd_solvers Jacobian.**

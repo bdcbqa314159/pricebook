@@ -125,8 +125,10 @@ def _peizer_pratt(z, n):
     if abs(z) < 1e-10:
         return 0.5
     m = n + 1.0/3 + 0.1/(n + 1)
-    return 0.5 + math.copysign(0.5, z) * math.sqrt(
-        0.25 - 0.25 * math.exp(-(z / m)**2 * (n + 1.0/6)))
+    return 0.5 + math.copysign(
+        math.sqrt(0.25 - 0.25 * math.exp(-(z / m)**2 * (n + 1.0/6))),
+        z,
+    )
 
 
 def _lr_params(spot, strike, r, q, vol, T, n_steps):
