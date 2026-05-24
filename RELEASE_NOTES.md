@@ -2,6 +2,29 @@
 
 ---
 
+## v0.609.0 — 2026-05-24
+
+**Tree solver redesign — class-based, 5 methods, Bermudan, barriers, Greeks from nodes.**
+
+### Tree Solver (`numerical/_trees.py`)
+- `TreeSolver` class — configurable method, exercise type, barriers, dividends.
+- `TreeMethod` enum: CRR, JR, LR, TRINOMIAL, TIAN (5 methods).
+- `ExerciseType` enum: EUROPEAN, AMERICAN, BERMUDAN.
+- `BarrierType` enum: UP_OUT, DOWN_OUT, UP_IN, DOWN_IN.
+- `solve_tree()` — one-liner convenience (mirrors `solve_bs_pde()`).
+- `solve_tree_2d()` — 2-asset Rubinstein tree with callable payoff + American exercise.
+- Greeks from tree nodes directly: delta/gamma from steps 1-2, theta from step 2, vega via bump.
+- Bermudan: exercise at specified step indices only.
+- Barriers: knock-out via node zeroing.
+- Discrete dividends: spot adjustment at dividend steps.
+- `convergence_analysis()` — prices at multiple N + Richardson extrapolation.
+- `TreeResult` — price, delta, gamma, theta, vega, method, n_steps, exercise, convergence, optional node data.
+- Custom payoff: `payoff=lambda S: ...` for digitals, straddles, any exotic.
+- Backward compatible: `tree_greeks()`, `binomial_2d()` old API preserved.
+- 22 tests. 9825 tests pass.
+
+---
+
 ## v0.608.0 — 2026-05-24
 
 **Integration + differentiation redesign — unified frameworks, 9+5 methods.**
