@@ -4,7 +4,7 @@ import pytest
 import math
 
 from pricebook.models.lsm import lsm_american
-from pricebook.models.binomial_tree import binomial_american, binomial_european
+from pricebook.numerical._trees import solve_tree, TreeMethod, ExerciseType
 from pricebook.models.mc_pricer import mc_european, MCResult
 from pricebook.models.black76 import OptionType
 
@@ -26,7 +26,8 @@ class TestLSMPut:
         """LSM American put ≈ binomial tree."""
         lsm = lsm_american(SPOT, STRIKE, RATE, VOL, T,
                             n_steps=50, n_paths=200_000)
-        tree = binomial_american(SPOT, STRIKE, RATE, VOL, T, 500, OptionType.PUT)
+        tree = solve_tree(SPOT, STRIKE, RATE, VOL, T, TreeMethod.CRR, 500,
+                          ExerciseType.AMERICAN, is_call=False).price
         assert lsm.price == pytest.approx(tree, rel=0.03)
 
     def test_geq_european(self):

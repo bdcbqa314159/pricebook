@@ -2,6 +2,17 @@
 
 ---
 
+## v0.616.0 — 2026-05-25
+
+**Delete tree model shims — all callers migrated to solve_tree().**
+
+- Deleted `models/binomial_tree.py`, `models/trinomial_tree.py`, `models/binomial_jr_lr.py` — thin shims, zero remaining importers.
+- Migrated 6 test files to import directly from `numerical._trees`: `test_binomial_tree.py`, `test_trinomial_tree.py`, `test_binomial_jr_lr.py`, `test_binomial_roundtrip.py`, `test_finite_difference.py`, `test_lsm.py`.
+- Registry already clean (uses `solve_tree` since v0.612.0).
+- 9844 tests pass.
+
+---
+
 ## v0.615.0 — 2026-05-25
 
 **Standardise all numerical modules to Enum + Result + to_dict pattern.**

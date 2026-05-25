@@ -5,7 +5,7 @@ import math
 
 from pricebook.models.finite_difference import fd_european, fd_american, FDScheme
 from pricebook.options.equity_option import equity_option_price
-from pricebook.models.binomial_tree import binomial_american
+from pricebook.numerical._trees import solve_tree, TreeMethod, ExerciseType
 from pricebook.models.black76 import OptionType
 
 
@@ -87,7 +87,8 @@ class TestAmericanFD:
     def test_american_put_matches_binomial(self):
         am_fd = fd_american(SPOT, STRIKE, RATE, VOL, T, OptionType.PUT,
                             n_spot=N_S, n_time=N_T)
-        am_tree = binomial_american(SPOT, STRIKE, RATE, VOL, T, 500, OptionType.PUT)
+        am_tree = solve_tree(SPOT, STRIKE, RATE, VOL, T, TreeMethod.CRR, 500,
+                              ExerciseType.AMERICAN, is_call=False).price
         assert am_fd == pytest.approx(am_tree, rel=0.01)
 
     def test_deep_itm_put_early_exercise(self):
