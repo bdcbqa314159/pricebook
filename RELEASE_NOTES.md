@@ -2,6 +2,24 @@
 
 ---
 
+## v0.615.0 — 2026-05-25
+
+**Standardise all numerical modules to Enum + Result + to_dict pattern.**
+
+- `_rootfinding.py` — add `RootMethod` enum (BISECTION, BRENT, NEWTON, SECANT, HALLEY, ITP); `find_root()` accepts enum or string.
+- `_optimize.py` — add `OptimMethod` enum (NELDER_MEAD, BFGS, L_BFGS_B, CG, NEWTON_CG, DIFFERENTIAL_EVOLUTION, BASIN_HOPPING, CMA_ES); `minimize()` accepts enum or string.
+- `_graph.py` — add `ShortestPathResult`, `MSTResult`, `MaxFlowResult` dataclasses with `to_dict()`; add `dijkstra_full()`, `minimum_spanning_tree_full()`, `max_flow_full()` returning typed results.
+- `_distributions.py` — add `to_dict()` to Normal, StudentT, LogNormal, Uniform, Exponential.
+- `_linalg.py` — add `DecompMethod`, `IterativeMethod` enums; `SVDResult`, `LUResult` dataclasses; `decompose()` and `iterative_solve()` dispatchers; `method` field on `IterativeSolveResult`.
+- `_mc.py` — add `MCVarianceReduction`, `MCDiscrMethod` enums.
+- `_fourier.py` — add `FourierMethod`, `WaveletType` enums; `to_dict()` on `CharacteristicFunction`; wavelet_transform accepts enum.
+- `_interpolation.py` — add `InterpMethod2D`, `RBFKernel` enums; `interpolate_2d()` dispatcher; `rbf_interpolate()` accepts enum.
+- Updated `numerical/__init__.py` — export all new enums, result types, and dispatchers.
+- All string-based callers continue to work (backward compatible).
+- 9844 tests pass.
+
+---
+
 ## v0.614.0 — 2026-05-24
 
 **Final migration cleanup — delete _quadrature.py, auto-scale global_solver FD eps.**

@@ -2,6 +2,7 @@
 
     from pricebook.numerical._graph import (
         dijkstra, minimum_spanning_tree, max_flow, connected_components,
+        ShortestPathResult, MSTResult, MaxFlowResult,
     )
 
 References:
@@ -10,7 +11,53 @@ References:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
+
+
+@dataclass
+class ShortestPathResult:
+    """Result of shortest-path computation."""
+    distances: np.ndarray
+    predecessors: np.ndarray
+    source: int
+
+    def path_to(self, target: int) -> list[int]:
+        """Reconstruct path from source to target."""
+        if np.isinf(self.distances[target]):
+            return []
+        path = [target]
+        current = target
+        while self.predecessors[current] != -1:
+            current = self.predecessors[current]
+            path.append(current)
+        return list(reversed(path))
+
+    def to_dict(self) -> dict:
+        return {"source": self.source,
+                "n_reachable": int(np.sum(~np.isinf(self.distances))),
+                "max_distance": float(np.max(self.distances[~np.isinf(self.distances)]))}
+
+
+@dataclass
+class MSTResult:
+    """Result of minimum spanning tree computation."""
+    edges: list[tuple[int, int, float]]
+    total_weight: float
+
+    def to_dict(self) -> dict:
+        return {"n_edges": len(self.edges), "total_weight": self.total_weight}
+
+
+@dataclass
+class MaxFlowResult:
+    """Result of maximum flow computation."""
+    max_flow: float
+    residual: np.ndarray
+
+    def to_dict(self) -> dict:
+        return {"max_flow": self.max_flow}
 
 
 def dijkstra(
@@ -49,6 +96,15 @@ def dijkstra(
                     pred[v] = u
 
     return dist, pred
+
+
+def dijkstra_full(
+    adj_matrix: np.ndarray,
+    source: int,
+) -> ShortestPathResult:
+    """Dijkstra's shortest path returning a ShortestPathResult."""
+    dist, pred = dijkstra(adj_matrix, source)
+    return ShortestPathResult(dist, pred, source)
 
 
 def shortest_path(
@@ -103,6 +159,15 @@ def minimum_spanning_tree(
                 parent[v] = u
 
     return edges
+
+
+def minimum_spanning_tree_full(
+    weight_matrix: np.ndarray,
+) -> MSTResult:
+    """Prim's MST returning an MSTResult."""
+    edges = minimum_spanning_tree(weight_matrix)
+    total = sum(e[2] for e in edges)
+    return MSTResult(edges, total)
 
 
 def max_flow(
@@ -163,6 +228,54 @@ def max_flow(
         total_flow += path_flow
 
     return total_flow
+
+
+def max_flow_full(
+    capacity: np.ndarray,
+    source: int,
+    sink: int,
+) -> MaxFlowResult:
+    """Ford-Fulkerson max-flow returning a MaxFlowResult."""
+    n = capacity.shape[0]
+    residual = capacity.copy().astype(float)
+    total_flow = 0.0
+
+    while True:
+        parent = np.full(n, -1, dtype=int)
+        visited = np.zeros(n, dtype=bool)
+        visited[source] = True
+        queue = [source]
+
+        while queue:
+            u = queue.pop(0)
+            for v in range(n):
+                if not visited[v] and residual[u, v] > 1e-10:
+                    visited[v] = True
+                    parent[v] = u
+                    queue.append(v)
+                    if v == sink:
+                        break
+
+        if not visited[sink]:
+            break
+
+        path_flow = np.inf
+        v = sink
+        while v != source:
+            u = parent[v]
+            path_flow = min(path_flow, residual[u, v])
+            v = u
+
+        v = sink
+        while v != source:
+            u = parent[v]
+            residual[u, v] -= path_flow
+            residual[v, u] += path_flow
+            v = u
+
+        total_flow += path_flow
+
+    return MaxFlowResult(total_flow, residual)
 
 
 def connected_components(adj_matrix: np.ndarray) -> np.ndarray:

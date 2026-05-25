@@ -1,14 +1,31 @@
 """MC improvements: QE Heston, antithetic variates, MLMC, Sobol.
 
     from pricebook.numerical import qe_heston_step, antithetic_paths, multilevel_mc
+    from pricebook.numerical import MCVarianceReduction, MLMCResult
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
+
+
+class MCVarianceReduction(Enum):
+    """Monte Carlo variance reduction techniques."""
+    NONE = "none"
+    ANTITHETIC = "antithetic"
+    CONTROL_VARIATE = "control_variate"
+    IMPORTANCE_SAMPLING = "importance_sampling"
+
+
+class MCDiscrMethod(Enum):
+    """Stochastic process discretisation schemes."""
+    EULER = "euler"
+    MILSTEIN = "milstein"
+    QE_HESTON = "qe_heston"
 
 
 def qe_heston_step(
@@ -22,7 +39,7 @@ def qe_heston_step(
 ) -> np.ndarray:
     """Andersen's Quadratic Exponential (QE) scheme for Heston variance.
 
-    Splits into two regimes based on psi = s²/m²:
+    Splits into two regimes based on psi = s^2/m^2:
     - psi <= psi_c: quadratic approximation (matching first two moments)
     - psi > psi_c: exponential approximation (mass at zero + exponential)
 
@@ -61,7 +78,7 @@ def qe_heston_step(
     if np.any(exp_mask):
         p = (psi[exp_mask] - 1) / (psi[exp_mask] + 1)
         beta_param = (1 - p) / np.maximum(m[exp_mask], 1e-20)
-        # Inverse CDF: if U <= p → 0, else → -log((1-p)/(1-U)) / beta
+        # Inverse CDF: if U <= p -> 0, else -> -log((1-p)/(1-U)) / beta
         v_next[exp_mask] = np.where(
             U[exp_mask] <= p,
             0.0,
@@ -124,8 +141,8 @@ def multilevel_mc(
     where P_l is the payoff at refinement level l.
 
     Args:
-        payoff: callable(paths) → array of payoff values.
-        process_fn: callable(n_paths, n_steps, seed) → paths array (n_paths, n_steps+1).
+        payoff: callable(paths) -> array of payoff values.
+        process_fn: callable(n_paths, n_steps, seed) -> paths array (n_paths, n_steps+1).
         T: time horizon.
         levels: number of refinement levels.
         base_steps: number of time steps at coarsest level.

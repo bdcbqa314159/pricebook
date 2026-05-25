@@ -1,6 +1,7 @@
 """2D interpolation and RBF: bilinear, bicubic, radial basis functions.
 
     from pricebook.numerical import bilinear, bicubic, rbf_interpolate
+    from pricebook.numerical import InterpMethod2D, RBFKernel
 
 Extends pricebook.interpolation (1D) with multi-dimensional methods.
 """
@@ -9,8 +10,25 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
+
+
+class InterpMethod2D(Enum):
+    """2D interpolation methods."""
+    BILINEAR = "bilinear"
+    BICUBIC = "bicubic"
+    RBF = "rbf"
+
+
+class RBFKernel(Enum):
+    """Radial basis function kernels."""
+    MULTIQUADRIC = "multiquadric"
+    INVERSE_MULTIQUADRIC = "inverse_multiquadric"
+    GAUSSIAN = "gaussian"
+    THIN_PLATE = "thin_plate"
+    LINEAR = "linear"
 
 
 def bilinear(
@@ -81,6 +99,46 @@ def bicubic(
     return float(spline(x, y)[0, 0])
 
 
+def interpolate_2d(
+    x: float,
+    y: float,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    zs: np.ndarray,
+    method: InterpMethod2D | str = InterpMethod2D.BILINEAR,
+) -> float:
+    """Unified 2D interpolation dispatcher.
+
+    Args:
+        x, y: query point.
+        xs, ys: grid coordinates.
+        zs: grid values.
+        method: InterpMethod2D enum or string name.
+    """
+    if isinstance(method, str):
+        method = InterpMethod2D(method.lower())
+
+    if method == InterpMethod2D.BILINEAR:
+        return bilinear(x, y, xs, ys, zs)
+    if method == InterpMethod2D.BICUBIC:
+        return bicubic(x, y, xs, ys, zs)
+    raise ValueError(f"Use rbf_interpolate() for RBF; method={method!r}")
+
+
+def _rbf_kernel_matrix(D: np.ndarray, kernel: RBFKernel) -> np.ndarray:
+    """Compute RBF kernel matrix from distance matrix."""
+    if kernel == RBFKernel.MULTIQUADRIC:
+        return np.sqrt(1 + D ** 2)
+    if kernel == RBFKernel.INVERSE_MULTIQUADRIC:
+        return 1.0 / np.sqrt(1 + D ** 2)
+    if kernel == RBFKernel.GAUSSIAN:
+        return np.exp(-D ** 2)
+    if kernel == RBFKernel.THIN_PLATE:
+        return np.where(D > 0, D ** 2 * np.log(D + 1e-300), 0.0)
+    # LINEAR
+    return D
+
+
 @dataclass
 class RBFResult:
     """RBF interpolation result."""
@@ -96,16 +154,8 @@ class RBFResult:
         D = np.zeros((m, n))
         for j in range(n):
             D[:, j] = np.sqrt(np.sum((x - self.centers[j]) ** 2, axis=1))
-        if self.kernel == "multiquadric":
-            Phi = np.sqrt(1 + D ** 2)
-        elif self.kernel == "inverse_multiquadric":
-            Phi = 1.0 / np.sqrt(1 + D ** 2)
-        elif self.kernel == "gaussian":
-            Phi = np.exp(-D ** 2)
-        elif self.kernel == "thin_plate":
-            Phi = np.where(D > 0, D ** 2 * np.log(D + 1e-300), 0.0)
-        else:
-            Phi = D  # linear
+        kernel_enum = RBFKernel(self.kernel)
+        Phi = _rbf_kernel_matrix(D, kernel_enum)
         return Phi @ self.weights
 
     def to_dict(self) -> dict:
@@ -115,41 +165,35 @@ class RBFResult:
 def rbf_interpolate(
     centers: np.ndarray,
     values: np.ndarray,
-    kernel: str = "multiquadric",
+    kernel: RBFKernel | str = RBFKernel.MULTIQUADRIC,
 ) -> RBFResult:
     """Radial Basis Function interpolation for scattered data.
 
     Args:
         centers: (n, d) data point locations.
         values: (n,) values at centers.
-        kernel: 'multiquadric', 'inverse_multiquadric', 'gaussian', 'thin_plate', 'linear'.
+        kernel: RBFKernel enum or string name.
 
     Returns:
         RBFResult with weights and evaluate() method.
     """
+    if isinstance(kernel, str):
+        kernel = RBFKernel(kernel.lower())
+
     centers = np.atleast_2d(centers)
     values = np.asarray(values)
     n = len(centers)
 
-    # Build kernel matrix
+    # Build distance matrix
     D = np.zeros((n, n))
     for i in range(n):
         for j in range(n):
             D[i, j] = np.sqrt(np.sum((centers[i] - centers[j]) ** 2))
 
-    if kernel == "multiquadric":
-        Phi = np.sqrt(1 + D ** 2)
-    elif kernel == "inverse_multiquadric":
-        Phi = 1.0 / np.sqrt(1 + D ** 2)
-    elif kernel == "gaussian":
-        Phi = np.exp(-D ** 2)
-    elif kernel == "thin_plate":
-        Phi = np.where(D > 0, D ** 2 * np.log(D + 1e-300), 0.0)
-    else:
-        Phi = D
+    Phi = _rbf_kernel_matrix(D, kernel)
 
-    # Add small regularization for numerical stability (esp. linear kernel)
+    # Add small regularization for numerical stability
     Phi += 1e-10 * np.eye(n)
     weights = np.linalg.solve(Phi, values)
 
-    return RBFResult(weights, centers, kernel)
+    return RBFResult(weights, centers, kernel.value)

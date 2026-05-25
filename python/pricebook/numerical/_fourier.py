@@ -2,14 +2,30 @@
 
     from pricebook.numerical import fractional_fft, hilbert_transform, wavelet_transform
     from pricebook.numerical import CharacteristicFunction
+    from pricebook.numerical import FourierMethod, WaveletType
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
+
+
+class FourierMethod(Enum):
+    """Fourier pricing / transform methods."""
+    FFT = "fft"
+    FRACTIONAL_FFT = "fractional_fft"
+    COS = "cos"
+    LEWIS = "lewis"
+
+
+class WaveletType(Enum):
+    """Available wavelet basis functions."""
+    HAAR = "haar"
+    DB2 = "db2"
 
 
 def fractional_fft(
@@ -19,9 +35,9 @@ def fractional_fft(
     """Fractional FFT (chirp-z transform).
 
     Computes DFT at non-uniform frequency spacing:
-    X_k = sum_n x_n exp(-2πi α k n / N)
+    X_k = sum_n x_n exp(-2 pi i alpha k n / N)
 
-    Standard FFT has α = 1. Fractional allows arbitrary frequency grids.
+    Standard FFT has alpha = 1. Fractional allows arbitrary frequency grids.
 
     Uses Bluestein's algorithm: O(N log N) via convolution.
     """
@@ -30,7 +46,7 @@ def fractional_fft(
     while M < 2 * N:
         M *= 2  # next power of 2
 
-    # Chirp: w_n = exp(-πi α n² / N)
+    # Chirp: w_n = exp(-pi i alpha n^2 / N)
     n = np.arange(N)
     chirp = np.exp(-1j * math.pi * alpha * n ** 2 / N)
 
@@ -46,7 +62,7 @@ def fractional_fft(
     B = np.fft.fft(b)
     C = np.fft.ifft(A * B)
 
-    return C[:N] * chirp  # complex — caller takes .real if needed
+    return C[:N] * chirp  # complex -- caller takes .real if needed
 
 
 def hilbert_transform(x: np.ndarray) -> np.ndarray:
@@ -88,7 +104,7 @@ class WaveletResult:
 def wavelet_transform(
     x: np.ndarray,
     levels: int = 3,
-    wavelet: str = "haar",
+    wavelet: WaveletType | str = WaveletType.HAAR,
 ) -> WaveletResult:
     """Discrete wavelet transform (DWT) via lifting scheme.
 
@@ -98,8 +114,12 @@ def wavelet_transform(
     Args:
         x: input signal (length should be power of 2 for best results).
         levels: number of decomposition levels.
-        wavelet: 'haar' (step function) or 'db2' (Daubechies-2).
+        wavelet: WaveletType enum or string name.
     """
+    if isinstance(wavelet, str):
+        wavelet = WaveletType(wavelet.lower())
+
+    wavelet_name = wavelet.value
     x = np.asarray(x, dtype=float).copy()
     n = len(x)
     all_coeffs = []
@@ -109,11 +129,11 @@ def wavelet_transform(
         if half < 1:
             break
 
-        if wavelet == "haar":
+        if wavelet == WaveletType.HAAR:
             # Haar: a = (x[even] + x[odd]) / sqrt(2), d = (x[even] - x[odd]) / sqrt(2)
             approx = (x[0::2] + x[1::2]) / math.sqrt(2)
             detail = (x[0::2] - x[1::2]) / math.sqrt(2)
-        elif wavelet == "db2":
+        elif wavelet == WaveletType.DB2:
             # Daubechies-2 (4 coefficients)
             h = np.array([
                 (1 + math.sqrt(3)) / (4 * math.sqrt(2)),
@@ -138,7 +158,7 @@ def wavelet_transform(
     all_coeffs.append(x)  # final approximation
     coefficients = np.concatenate(all_coeffs[::-1])
 
-    return WaveletResult(coefficients, levels, wavelet)
+    return WaveletResult(coefficients, levels, wavelet_name)
 
 
 @dataclass
@@ -155,7 +175,7 @@ class CFResult:
 class CharacteristicFunction:
     """Unified characteristic function interface.
 
-    Wraps a CF φ(u) and provides cumulant extraction, density recovery,
+    Wraps a CF phi(u) and provides cumulant extraction, density recovery,
     and pricing via COS/FFT methods.
 
     Usage:
@@ -168,16 +188,16 @@ class CharacteristicFunction:
     def __init__(self, cf_func, T: float = 1.0):
         """
         Args:
-            cf_func: callable(u) → complex, the characteristic function φ(u).
+            cf_func: callable(u) -> complex, the characteristic function phi(u).
             T: time parameter.
         """
         self.cf = cf_func
         self.T = T
 
     def cumulants(self, max_order: int = 4) -> dict[str, float]:
-        """Extract cumulants from CF via finite differences on log(φ).
+        """Extract cumulants from CF via finite differences on log(phi).
 
-        κ_n = (-i)^n (d^n/du^n log φ)(0)
+        kappa_n = (-i)^n (d^n/du^n log phi)(0)
         """
         h = 1e-4
         log_cf = lambda u: np.log(self.cf(u + 0j))
@@ -200,7 +220,7 @@ class CharacteristicFunction:
     def density(self, x_grid: np.ndarray, n_quad: int = 200) -> np.ndarray:
         """Recover density via Fourier inversion.
 
-        f(x) = (1/2π) ∫ exp(-iux) φ(u) du
+        f(x) = (1/2pi) integral exp(-iux) phi(u) du
         """
         x = np.asarray(x_grid)
         u_max = 50.0
@@ -227,3 +247,7 @@ class CharacteristicFunction:
         return cos_european(
             spot, strike, rate, self.T, self.cf, is_call=is_call, N=n_terms,
         )
+
+    def to_dict(self) -> dict:
+        c = self.cumulants(2)
+        return {"T": self.T, "mean": c["mean"], "variance": c["variance"]}

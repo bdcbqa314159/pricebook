@@ -1,15 +1,26 @@
-"""Root finding: unified interface + bisection.
+"""Root finding: unified interface with enum-based method selection.
 
-    from pricebook.numerical import bisection, find_root
+    from pricebook.numerical import find_root, RootMethod, RootResult
 
-Extends existing solvers.py with bisection and a unified dispatcher.
+Methods: BISECTION, BRENT, NEWTON, SECANT, HALLEY, ITP.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
+
+
+class RootMethod(Enum):
+    """Available root-finding methods."""
+    BISECTION = "bisection"
+    BRENT = "brent"
+    NEWTON = "newton"
+    SECANT = "secant"
+    HALLEY = "halley"
+    ITP = "itp"
 
 
 @dataclass
@@ -60,55 +71,59 @@ def find_root(
     f,
     x0: float | None = None,
     bracket: tuple[float, float] | None = None,
-    method: str = "brent",
+    method: RootMethod | str = RootMethod.BRENT,
     fprime=None,
     tol: float = 1e-12,
     maxiter: int = 100,
 ) -> RootResult:
     """Unified root finder dispatching to the appropriate method.
 
-    Methods: bisection, brent, newton, secant, halley, itp.
-
     Args:
+        f: scalar function to find root of.
         x0: initial guess (for Newton, secant).
         bracket: (a, b) bracketing interval (for bisection, Brent, ITP).
+        method: RootMethod enum or string name.
         fprime: derivative (for Newton, Halley).
+        tol: convergence tolerance.
+        maxiter: maximum iterations.
     """
     from pricebook.core.solvers import brentq, newton, secant, halley, itp
 
-    if method == "bisection":
+    if isinstance(method, str):
+        method = RootMethod(method.lower())
+
+    if method == RootMethod.BISECTION:
         if bracket is None:
             raise ValueError("bisection requires bracket=(a, b)")
         return bisection(f, bracket[0], bracket[1], tol, maxiter)
 
-    if method == "brent":
+    if method == RootMethod.BRENT:
         if bracket is None:
             raise ValueError("brent requires bracket=(a, b)")
         root = brentq(f, bracket[0], bracket[1], tol, maxiter)
         return RootResult(root, 0, True, float(f(root)), "brent")
 
-    if method == "itp":
+    if method == RootMethod.ITP:
         if bracket is None:
             raise ValueError("itp requires bracket=(a, b)")
         r = itp(f, bracket[0], bracket[1], tol, maxiter)
         return RootResult(r.root, r.iterations, r.converged, r.function_value, "itp")
 
-    if method == "newton":
+    if method == RootMethod.NEWTON:
         if x0 is None or fprime is None:
             raise ValueError("newton requires x0 and fprime")
         r = newton(f, fprime, x0, tol, maxiter)
         return RootResult(r.root, r.iterations, r.converged, r.function_value, "newton")
 
-    if method == "secant":
+    if method == RootMethod.SECANT:
         if x0 is None:
             raise ValueError("secant requires x0")
         r = secant(f, x0, x0 + 0.01, tol, maxiter)
         return RootResult(r.root, r.iterations, r.converged, r.function_value, "secant")
 
-    if method == "halley":
+    if method == RootMethod.HALLEY:
         if x0 is None or fprime is None:
             raise ValueError("halley requires x0, fprime, and fprime2")
-        # Halley needs f'' — approximate via FD if not provided
         def fprime2(x):
             h = 1e-5
             return (fprime(x + h) - fprime(x - h)) / (2 * h)

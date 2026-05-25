@@ -67,6 +67,9 @@ class Normal:
             return 3.0 * self.sigma ** 4
         raise ValueError(f"moment {n} not supported")
 
+    def to_dict(self) -> dict:
+        return {"type": "Normal", "mu": self.mu, "sigma": self.sigma}
+
 
 # Module-level standard normal for convenience (most common use case)
 _std_normal = Normal()
@@ -108,6 +111,9 @@ class StudentT:
         return 2 * t.cdf(-math.sqrt((self.df + 1) / (self.df - 1 + 1e-10)),
                          self.df + 1)
 
+    def to_dict(self) -> dict:
+        return {"type": "StudentT", "df": self.df, "mu": self.mu, "sigma": self.sigma}
+
 
 class LogNormal:
     """Log-normal distribution: log(X) ~ N(mu, sigma²).
@@ -148,6 +154,9 @@ class LogNormal:
     def variance(self) -> float:
         return (math.exp(self.sigma ** 2) - 1) * math.exp(2 * self.mu + self.sigma ** 2)
 
+    def to_dict(self) -> dict:
+        return {"type": "LogNormal", "mu": self.mu, "sigma": self.sigma}
+
 
 class Uniform:
     """Uniform distribution on [a, b]."""
@@ -172,6 +181,9 @@ class Uniform:
         if rng is None:
             rng = np.random.default_rng()
         return rng.uniform(self.a, self.b, size)
+
+    def to_dict(self) -> dict:
+        return {"type": "Uniform", "a": self.a, "b": self.b}
 
 
 class Exponential:
@@ -200,6 +212,9 @@ class Exponential:
 
     def mean(self) -> float:
         return 1.0 / self.rate
+
+    def to_dict(self) -> dict:
+        return {"type": "Exponential", "rate": self.rate}
 
 
 # ═══════════════════════════════════════════════════════════════

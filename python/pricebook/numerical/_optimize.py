@@ -1,7 +1,7 @@
 """Unified optimisation: unconstrained, LP, QP, interior-point, proximal.
 
-    from pricebook.numerical import minimize, linprog, qp, interior_point
-    from pricebook.numerical import proximal_gradient, projection_simplex
+    from pricebook.numerical import minimize, OptimMethod, OptimizeResult
+    from pricebook.numerical import linprog, qp, interior_point
 
 Single entry point for all optimisation — scipy is the backend.
 """
@@ -10,8 +10,21 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
+
+
+class OptimMethod(Enum):
+    """Available unconstrained optimisation methods."""
+    NELDER_MEAD = "nelder_mead"
+    BFGS = "bfgs"
+    L_BFGS_B = "l_bfgs_b"
+    CG = "cg"
+    NEWTON_CG = "newton_cg"
+    DIFFERENTIAL_EVOLUTION = "differential_evolution"
+    BASIN_HOPPING = "basin_hopping"
+    CMA_ES = "cma_es"
 
 
 @dataclass
@@ -26,17 +39,27 @@ class OptimizeResult:
 
     def to_dict(self) -> dict:
         return {"method": self.method, "fun": self.fun,
-                "iterations": self.iterations, "converged": self.converged}
+                "iterations": self.iterations, "converged": self.converged,
+                "n_evaluations": self.n_evaluations}
 
 
 # ═══════════════════════════════════════════════════════════════
 # Unconstrained / box-constrained
 # ═══════════════════════════════════════════════════════════════
 
+_SCIPY_METHOD_MAP = {
+    OptimMethod.NELDER_MEAD: "Nelder-Mead",
+    OptimMethod.BFGS: "BFGS",
+    OptimMethod.L_BFGS_B: "L-BFGS-B",
+    OptimMethod.CG: "CG",
+    OptimMethod.NEWTON_CG: "Newton-CG",
+}
+
+
 def minimize(
     objective,
     x0: np.ndarray,
-    method: str = "bfgs",
+    method: OptimMethod | str = OptimMethod.BFGS,
     bounds=None,
     gradient=None,
     tol: float = 1e-8,
@@ -45,45 +68,46 @@ def minimize(
 ) -> OptimizeResult:
     """Unified minimiser.
 
-    Methods: nelder_mead, bfgs, l_bfgs_b, cg, newton_cg,
-             differential_evolution, basin_hopping, cma_es.
+    Args:
+        objective: scalar function to minimise.
+        x0: initial guess.
+        method: OptimMethod enum or string name.
+        bounds: variable bounds for L-BFGS-B or differential evolution.
+        gradient: gradient function (for BFGS, CG, Newton-CG).
+        tol: convergence tolerance.
+        maxiter: maximum iterations.
     """
     from scipy.optimize import minimize as _minimize, differential_evolution as _de, basinhopping as _bh
 
-    method_map = {
-        "nelder_mead": "Nelder-Mead",
-        "bfgs": "BFGS",
-        "l_bfgs_b": "L-BFGS-B",
-        "cg": "CG",
-        "newton_cg": "Newton-CG",
-    }
+    if isinstance(method, str):
+        method = OptimMethod(method.lower())
 
     x0 = np.asarray(x0, dtype=float)
 
-    if method == "cma_es":
+    if method == OptimMethod.CMA_ES:
         from pricebook.statistics.optimisation_advanced import cma_es
         r = cma_es(objective, x0, sigma0=kwargs.get("sigma0", 0.5),
                    tol=tol, max_iter=maxiter)
         return OptimizeResult(r.x, r.objective, r.iterations, r.converged,
                               "cma_es", r.n_evaluations)
 
-    if method == "differential_evolution":
+    if method == OptimMethod.DIFFERENTIAL_EVOLUTION:
         if bounds is None:
             bounds = [(-10, 10)] * len(x0)
         r = _de(objective, bounds, tol=tol, maxiter=maxiter, seed=kwargs.get("seed", 42))
         return OptimizeResult(r.x, float(r.fun), r.nit, r.success,
                               "differential_evolution", r.nfev)
 
-    if method == "basin_hopping":
+    if method == OptimMethod.BASIN_HOPPING:
         r = _bh(objective, x0, niter=maxiter, T=kwargs.get("T", 1.0),
                 seed=kwargs.get("seed", 42))
         return OptimizeResult(r.x, float(r.fun), r.nit, True, "basin_hopping")
 
-    scipy_method = method_map.get(method, method)
+    scipy_method = _SCIPY_METHOD_MAP.get(method, method.value)
     r = _minimize(objective, x0, method=scipy_method, jac=gradient,
                   bounds=bounds, tol=tol, options={"maxiter": maxiter})
     return OptimizeResult(r.x, float(r.fun), r.nit if hasattr(r, 'nit') else 0,
-                          r.success, method, r.nfev if hasattr(r, 'nfev') else 0)
+                          r.success, method.value, r.nfev if hasattr(r, 'nfev') else 0)
 
 
 # ═══════════════════════════════════════════════════════════════
