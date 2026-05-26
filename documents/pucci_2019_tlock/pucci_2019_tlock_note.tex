@@ -1,0 +1,374 @@
+% =====================================================================
+% Note on: Hedging the Treasury Lock — Mario Pucci, 2019
+% ssrn:3386521
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{pucci\_2019\_tlock}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Hedging the Treasury Lock}\\
+       \large Mario Pucci (Banca IMI), 2019}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Hedging the Treasury Lock \\
+Author(s)       & Mario Pucci (Banca IMI SpA) \\
+Year / version  & 19 August 2019 \\
+Source          & \href{https://ssrn.com/abstract=3386521}{ssrn:3386521} \\
+Local file      & \texttt{papers/pucci\_2019\_tlock/ssrn3386521.pdf} \\
+Tags            & \texttt{treasury}, \texttt{forward}, \texttt{repo},
+                  \texttt{convexity}, \texttt{pre-hedge}, \texttt{hedge-accounting} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A T-Lock pays the client $N \cdot \Riskf_{t_e} \cdot (\IRR_{t_e} - \Lock)$
+at expiry $t_e$, where $\IRR$ is the bond's internal rate of return and
+$\Riskf = -\partial P/\partial y \cdot 10^4$ (i.e.\ $-10^4 \cdot \DVone$).
+Because $P(y)$ is convex, the linear payoff in $\IRR$ is, in fact,
+\emph{globally below} the negative of $P$ when viewed as a function of
+yield --- so booking a short T-Lock as a long forward contract on the
+same bond, struck at $\Bond{t_e}{\Lock}$, is an overhedge. The paper
+quantifies that overhedge error, shows the gamma is locally negative
+(so delta-hedging the proxy forward generates gamma profits), and
+extends the argument to Then-Current-T-Locks via a benchmark-roll P\&L
+analysis backed by 2008--2019 Treasury auction statistics. The natural
+hedge is a reverse repo on the underlying bond; the bond-specific repo
+rate is the right drift in the forward price.
+
+% =====================================================================
+\section{Setup and notation}
+
+The paper's symbols mostly align with the house notation, with one
+collision worth flagging: $P_t(y)$ in the paper is the \emph{bond}
+price as a function of yield, not a discount factor. House notation
+keeps $\Bond{t}{y}$ for the bond and $\Disc{t}{T}$ for the discount
+factor; they should not be confused.
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper & House & Meaning \\
+\midrule
+$P_t(y)$       & $\Bond{t}{y}$        & Dirty price of the bond at time $t$ as a function of yield $y$ \\
+$P_t^{mkt}$    & $\Bond{t}{\IRR_t}$   & Observed market dirty price \\
+$\IRR_t$       & $\IRR_t$             & Internal rate of return solving $\Bond{t}{\IRR_t} = P_t^{mkt}$ \\
+$L$            & $\Lock$              & Locked yield (strike) \\
+$\Riskf_t$     & $\Riskf_t$           & $-\partial \Bond{t}{y}/\partial y$ at $y=\IRR_t$. Equals $-10^4 \cdot \DVone$. \\
+$D_{t\,t_e}$   & $\Disc{t}{t_e}$      & Risk-free DF from $t$ to $t_e$ \\
+$\mathrm{ForwardPrice}_t(t_e)$ & $\Fwdpx{t}{t_e}$ & Forward bond price for delivery at $t_e$ \\
+$r^{\mathrm{repo}}_{tt_e}$ & $\Repo_{t,t_e}$ & Simply-compounded forward repo rate $t \to t_e$ \\
+$a$            & $a \in \{+1,-1\}$    & Long ($+1$) / short ($-1$) T-Lock \\
+$P_t^{(0)}$    & ---                  & Bond price stripped of coupons ($c=0$); zero-bond proxy \\
+$A_t(y)$       & $\Ann{t}(y)$         & Coupon annuity $\sum \alpha_i e^{-(t_i-t)y}$ \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Payoff and IRR definition.}
+\begin{equation}\label{eq:payoff}
+  g \;=\; a \cdot \Riskf_{t_e} \cdot (\IRR_{t_e} - \Lock).
+\end{equation}
+\textit{Says:} a long ($a=1$) T-Lock pays the bondholder when yields
+rise (because $\Riskf>0$); a short pays when yields fall.
+
+\begin{equation}\label{eq:irr-def}
+  \Bond{t}{\IRR_t} \;=\; P_t^{mkt}, \qquad
+  \Bond{t}{y} \;=\; \prod_{i=1}^n \frac{1}{1+\alpha_i y}
+   + c \sum_{i=1}^n \alpha_i \prod_{j=1}^i \frac{1}{1+\alpha_j y}.
+\end{equation}
+\textit{Says:} the IRR is the yield that reprices the bond to its
+dirty market price; $\Bond{t}{\cdot}$ uses the \emph{compounded} yield
+convention (not continuously compounded --- this matters for code).
+
+\paragraph{Continuous-compounding form (used for greeks).}
+For the sensitivity analysis, the paper switches to
+\begin{equation}\label{eq:bond-cc}
+  \Bond{t}{y} \;=\; e^{-(t_n - t)y} \;+\; c \sum_{t_i > t} \alpha_i e^{-(t_i-t)y},
+\end{equation}
+with derivatives (B.84--87)
+\begin{equation}\label{eq:bond-derivs}
+  \Diff{y}{k}[\Bond{t}{\cdot}] \;=\; (t - t_n)^k e^{-(t_n - t)y}
+                             \;+\; c \sum_{t_i > t} \alpha_i (t-t_i)^k e^{-(t_i-t)y}.
+\end{equation}
+\textit{Says:} closed-form derivatives of all orders in $y$, sign
+alternating with $k$. $\Diff{y}{1}<0$, $\Diff{y}{2}>0$, $\Diff{y}{3}<0$.
+
+\paragraph{Linear (forward) approximation.}
+\begin{equation}\label{eq:linear-approx}
+  g \;\simeq\; a \cdot \bigl(\Bond{t_e}{\Lock} - \Bond{t_e}{\IRR_{t_e}}\bigr)
+       \;=\; a \cdot \bigl(\Bond{t_e}{\Lock} - P_{t_e}^{mkt}\bigr).
+\end{equation}
+\textit{Says:} at first order, the T-Lock is a forward contract on the
+bond struck at $\Strike = \Bond{t_e}{\Lock}$. Booking a short T-Lock
+as a long forward at this strike is the operational shortcut.
+
+\paragraph{Overhedge error bound.}
+With the remainder $R_1(y) = \Bond{}{y} - \Bond{}{\Lock} - \Diff{y}{1}[\Bond{}{\cdot}](y-\Lock)$,
+\begin{equation}\label{eq:overhedge}
+  \lvert R_1(y) \rvert \;\le\; \frac{M\,(y-\Lock)^2}{2},
+  \qquad M = \max_I \bigl|\Diff{y}{2}[\Bond{}{\cdot}]\bigr|.
+\end{equation}
+\textit{Says:} for the 10Y benchmark with $M \approx 150$ and a 30\%
+yield change (i.e.\ $|y-\Lock| \approx 0.3\Lock$), the price error is
+about \textbf{0.005\%} on 100\% notional. The approximation is tight.
+
+\paragraph{Delta and gamma.}
+\begin{equation}\label{eq:delta}
+  \Delta \;=\; \Diff{P}{1}[g] \cdot \Disc{t}{t_e}, \qquad
+  \Diff{y}{1}[g] \;=\; -a \cdot \bigl[\Diff{y}{2}[\Bond{}{\cdot}](y-\Lock) + \Diff{y}{1}[\Bond{}{\cdot}]\bigr],
+\end{equation}
+\begin{equation}\label{eq:gamma-local}
+  \Gam \;=\; \Diff{P}{2}[g] \;\simeq\; -a \cdot \Diff{y}{2}[\Bond{}{\cdot}] \cdot \bigl[1/\Diff{y}{1}[\Bond{}{\cdot}]\bigr]^2
+  \qquad \text{(local, } |y-\Lock| \text{ small)}.
+\end{equation}
+\textit{Says:} for $a=1$ near $\Lock$, $\Delta < 0$ (consistent with
+``long T-Lock = synthetic short bond'') and $\Gam < 0$. The negative
+gamma is what makes the linear proxy an overhedge --- the bank gains
+on dynamic delta-rebalancing.
+
+\paragraph{Sharp sign conditions} (resolve \eqref{eq:delta} and the gamma directly):
+\begin{align}
+  \Delta < 0 &\iff y - \Lock \;<\; -\Diff{y}{1}[\Bond{}{\cdot}] \;/\; \Diff{y}{2}[\Bond{}{\cdot}] \;>\; 0, \label{eq:delta-cond}\\
+  \Gam   < 0 &\iff y - \Lock \;<\; \frac{\Diff{y}{1}[\Bond{}{\cdot}] \cdot \Diff{y}{3}[\Bond{}{\cdot}]}{(\Diff{y}{2}[\Bond{}{\cdot}])^2 - \Diff{y}{1}[\Bond{}{\cdot}] \cdot \Diff{y}{3}[\Bond{}{\cdot}]} > 0. \label{eq:gamma-cond}
+\end{align}
+\textit{Says:} both bounds give exact yield thresholds beyond which
+the sign flips. In ``normal'' yield regimes ($y$ not far above
+$\Lock$), $\Delta < 0$ and $\Gam < 0$ both hold.
+
+\paragraph{Forward price via repo (Appendix D).}
+For zero haircut,
+\begin{equation}\label{eq:fwd-repo}
+  \Fwdpx{t}{t_e} \;=\; P_t^{mkt} \, e^{\Repo \cdot (t_e - t)}
+                  \;-\; \sum_{t < t_i \le t_e} c_i \, e^{\Repo \cdot (t_e - t_i)}.
+\end{equation}
+\textit{Says:} the forward bond price drifts at the \emph{repo} rate,
+not the OIS / risk-free rate. Coupons paid before $t_e$ are forwarded
+to $t_e$ at the same repo rate. With a haircut $h$ blend in the
+unsecured funding rate $\Fund$.
+
+\paragraph{Then-Current-T-Lock: strike at roll.}
+\begin{equation}\label{eq:tcurr-strike}
+  \Strike \;=\; 1 + \Riskf_{t_e} \cdot (R_t - \Lock),
+\end{equation}
+\begin{equation}\label{eq:tcurr-strikegap}
+  \mathrm{StrikeGap}
+   \;=\; (\widehat{\Riskf}_{t_e} - \Riskf_{t_e})\cdot(\widehat{R}_{t_{\mathrm{roll}}} - \Lock)
+   \;-\; \Riskf_{t_e}\cdot(R_{t_{\mathrm{roll}}} - \widehat{R}_{t_{\mathrm{roll}}}).
+\end{equation}
+\textit{Says:} when the on-the-run rolls, the strike updates. The
+first term captures the risk-factor jump between old and new
+benchmark; the second the IRR jump at the roll date.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The key trick is \eqref{eq:linear-approx}: turning the T-Lock payoff
+$g = -\Delta\Bond{}{\cdot} \cdot (y - \Lock)$ into the secant
+$\Bond{t_e}{\Lock} - \Bond{t_e}{\IRR_{t_e}}$ uses the first-order
+Taylor identity $\Bond{}{\IRR} - \Bond{}{\Lock} \simeq \Diff{y}{1}[\Bond{}{\cdot}](\IRR - \Lock)$.
+The sign of the remainder is fixed by convexity ($\Diff{y}{2}[\Bond{}{\cdot}] > 0$
+always for a bond with positive cashflows), which is why the bank's
+position is conservative \emph{globally}, not just locally. Importantly,
+the gamma being negative is the \emph{opposite} sign to what a naive
+``T-Lock $\approx$ CMS-let'' intuition would give --- the CMT
+interpretation freezes $\Riskf_{t_e}$ and obscures the dependence of
+the risk factor on yield (which is what flips the convexity).
+\end{commentary}
+
+\begin{commentary}
+The repo rate in \eqref{eq:fwd-repo} is bond-specific. A benchmark
+Treasury can trade ``special'' --- the paper notes historical episodes
+of the 10Y repo rate going to $-300$~bps. For validation, the test
+case in the paper uses GC rates (Tab.~\ref{tab:repo-jan2019}); the
+specialness premium must be added as a separate spread input.
+\end{commentary}
+
+\begin{commentary}
+The continuous-compounding form \eqref{eq:bond-cc} is used purely for
+the analytic greeks. The \emph{contract definition} \eqref{eq:irr-def}
+uses compounded (i.e.\ $1/(1+\alpha y)$) discounting --- mixing them
+in a pricing function is a common bug. House rule: keep two separate
+bond-price functions, one per convention, and only the compounded
+one defines $\IRR$.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item $\Bond{t}{y}$, the bond dirty price as a function of yield, in
+        two distinct conventions:
+        \emph{compounded} (eq.~\ref{eq:irr-def}) and
+        \emph{continuously compounded} (eq.~\ref{eq:bond-cc}).
+        Only the compounded form defines the contractual $\IRR$.
+  \item $\IRR_t$, the unique solution of $\Bond{t}{\IRR_t} = P^{mkt}_t$
+        with $\Bond{t}{\cdot}$ in the compounded convention.
+  \item $\Diff{y}{k}[\Bond{t}{\cdot}]$, the $k$-th derivative of the
+        bond price with respect to yield, in closed form
+        (eq.~\ref{eq:bond-derivs}).
+  \item $\Riskf_t = -\Diff{y}{1}[\Bond{t}{y}]\big|_{y=\IRR_t}$.
+  \item $\Fwdpx{t}{t_e}$, the $t_e$-forward bond price under a repo
+        rate (eq.~\ref{eq:fwd-repo}), zero-haircut limit.
+  \item $g(y)$, the T-Lock payoff as a function of yield
+        (eq.~\ref{eq:payoff}), and its derivatives
+        $\Diff{y}{1}[g]$, $\Diff{y}{2}[g]$ in closed form
+        (eqs.~\ref{eq:delta}, \ref{eq:gamma-local}).
+\end{itemize}
+
+\textbf{Canonical numerical case} (paper, p.~4):
+\begin{itemize}[noitemsep]
+  \item Instrument: US Treasury, coupon 3.125\%, maturity 25-Nov-2028, ISIN US9128285M81.
+  \item As-of: 24 January 2019; $t_e - t = 3$ months.
+  \item $P^{mkt} = 104.1055$ (dirty), clean price $= 103.4922$.
+  \item $\IRR = 2.717\%$ spot.
+  \item 3M GC repo $\Repo = 2.46\%$ (mid of bid/ask, Tab.~\ref{tab:repo-jan2019}).
+  \item Forward: $\IRR_{\mathrm{fwd}} = 2.53\%$, dirty $104.74\%$, clean $103.36\%$.
+  \item $\Lock = 2.717\%$.
+\end{itemize}
+
+\textbf{Expected numerical values:}
+
+\smallskip
+\begin{tabular}{@{}p{6cm}rl@{}}
+\toprule
+Quantity                                                              & Value                      & Tolerance \\
+\midrule
+$\Fwdpx{t}{t_e}$ (dirty)                                              & $104.74$                   & $\pm 0.01$ \\
+$\Fwdpx{t}{t_e}$ (clean)                                              & $103.36$                   & $\pm 0.01$ \\
+Forward $\IRR$                                                        & $2.53\%$                   & $\pm 1$~bp \\
+$|R_1(y)|$ at 10Y, $|y-\Lock| \approx 0.3\Lock$                       & $\sim 0.005\%$ notional    & order-of-mag. \\
+$M = \max_I |\Diff{y}{2}[\Bond{}{\cdot}]|$ (10Y benchmark)            & $\sim 150$                 & order-of-mag. \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\begin{center}
+\textit{Repo rates for the 10Y as of 24-Jan-2019 (Paper Tab.~1)}\\[2pt]
+\begin{tabular}{@{}lll@{}}
+\toprule
+Maturity & bid    & ask    \\
+\midrule
+1M       & 2.57\% & 2.52\% \\
+3M       & 2.60\% & 2.55\% \\
+6M       & 2.63\% & 2.58\% \\
+12M      & 2.70\% & 2.65\% \\
+\bottomrule
+\end{tabular}
+\refstepcounter{table}\label{tab:repo-jan2019}
+\end{center}
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                                     & Symbol                                             & Quantity \\
+\midrule
+\eqref{eq:irr-def}                            & $\Bond{t}{y}$, $\IRR_t$                            & dirty price (compounded); the $y$ for which $\Bond{t}{y}=P^{mkt}_t$ \\
+\eqref{eq:bond-cc}                            & $\Bond{t}{y}$ (CC)                                 & dirty price (continuously compounded) \\
+\eqref{eq:bond-derivs}                        & $\Diff{y}{k}[\Bond{}{\cdot}]$                      & closed-form $k$-th yield derivative \\
+\eqref{eq:linear-approx}                      & $g \simeq a\,(\Bond{t_e}{\Lock} - P^{mkt}_{t_e})$  & first-order proxy for the T-Lock payoff \\
+\eqref{eq:fwd-repo}                           & $\Fwdpx{t}{t_e}$                                   & forward bond price under repo (zero haircut) \\
+\eqref{eq:delta},\eqref{eq:gamma-local}       & $\Delta$, $\Gam$                                   & T-Lock first and second derivatives \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item $\Bond{t}{\IRR_t} = P^{mkt}_t$ holds at the canonical case
+        ($P^{mkt} = 104.1055$, $\IRR = 2.717\%$) within float tolerance.
+  \item Eq.~\eqref{eq:fwd-repo} evaluated at the canonical inputs equals
+        $104.74$ (dirty) within $\pm 0.01$.
+  \item \emph{Overhedge inequality}: for any $\Lock$, any $y$ in a
+        reasonable yield range, and any positive-coupon schedule,
+        \[
+          \Bond{}{\Lock} + \Diff{y}{1}[\Bond{}{\cdot}](y - \Lock) \;\le\; \Bond{}{y}.
+        \]
+        A global property, following from $\Diff{y}{2}[\Bond{}{\cdot}] > 0$.
+  \item \emph{Gamma sign (local)}: for $a=1$ and $y$ in a neighbourhood
+        of $\Lock$, $\Diff{y}{2}[g] < 0$. Sharp threshold given by
+        \eqref{eq:gamma-cond}.
+  \item \emph{Closed-form vs.\ numerical agreement}: the closed-form
+        derivative \eqref{eq:bond-derivs} equals a numerical derivative
+        of $\Bond{t}{y}$ at any test yield.
+  \item \emph{Monotonicity in repo}: $\Fwdpx{t}{t_e}$ in
+        \eqref{eq:fwd-repo} is strictly increasing in $\Repo$ (under
+        the standing assumption that the spot price exceeds the present
+        value of intermediate coupons --- true here).
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$P_t(y)$        & Bond dirty price at $t$ as a function of yield $y$ \\
+$P_t^{mkt}$     & Observed market dirty price ($= P_t(\IRR_t)$) \\
+$\IRR_t$        & Internal rate of return at $t$ \\
+$L$             & Locked yield (T-Lock strike) \\
+$\Riskf_t$      & $-\partial P_t/\partial y$ at $y=\IRR_t$; equivalently $-10^4 \cdot \DVone$ \\
+$\DVone$        & Price change per 1~bp positive yield shift \\
+$g$             & T-Lock payoff at expiry \\
+$a$             & $+1$ (long) or $-1$ (short) unitary T-Lock \\
+$t_e$           & T-Lock expiry \\
+$D_{tt_e}$      & Risk-free discount factor from $t$ to $t_e$ \\
+$D_y^k[\,\cdot\,]$ & Euler shorthand for $\partial^k/\partial y^k$ \\
+$P_t^{(0)}$     & Bond price stripped of coupons (coupon $c=0$); pure-discount component \\
+$A_t(y)$        & Coupon annuity $\sum_{t_i>t} \alpha_i e^{-(t_i-t)y}$ (CC form) \\
+$\alpha_i$      & Year fraction for accrual period ending at $t_i$ \\
+$r^{\mathrm{repo}}_{uv}$ & Simply-compounded forward repo rate, $u \to v$ \\
+$r^{\mathrm{fun}}$ & Unsecured funding rate \\
+$h^{\mathrm{cut}}$ & Repo haircut, $\in [0,1]$ \\
+$\mathrm{ForwardPrice}_t(t_e)$ & $t_e$-forward bond price at $t$ \\
+$R_t$ ($\widehat{R}_t$) & IRR of the current (new) on-the-run benchmark at $t$ \\
+$t_{\mathrm{roll}}$ & Date of benchmark roll in a Then-Current-T-Lock \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Reproduce Fig.~1 (T-Lock payoff vs.\ forward overhedge) on the
+        24-Jan-2019 test case. Provides a visual smoke test for the
+        dirty-price and forward-price formulas.
+  \item Reproduce Fig.~2 \& 3 (Delta, Gamma plots) --- shows the
+        sign-flip at extreme yields predicted by \eqref{eq:delta-cond}
+        and \eqref{eq:gamma-cond}.
+  \item Section 4 statistical analysis: implement the roll-P\&L
+        estimator and check against paper's Table 2 (IRR statistics
+        from 2008 Treasury auction history). Lower priority since
+        this is empirical, not formula-validation.
+  \item Repo-special scenario: re-price the test case with $\Repo$ shifted
+        $-300$~bps (paper p.~12) to confirm forward price moves in the
+        documented direction.
+  \item Open question: paper assumes a flat short-term repo curve in
+        Sec.~2.4 (around eq.~50). How sensitive is the analysis to
+        the curve shape? Should the validation suite include a
+        non-flat repo curve case?
+\end{itemize}
+\end{todobox}
+
+\end{document}

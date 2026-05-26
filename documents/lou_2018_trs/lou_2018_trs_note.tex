@@ -1,0 +1,486 @@
+% =====================================================================
+% Note on: Pricing Total Return Swap
+% Wujiang Lou (NYU Courant), 2018  —  ssrn:3217420
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{lou\_2018\_trs}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Pricing Total Return Swap}\\
+       \large Wujiang Lou (NYU Courant), 2018}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Pricing Total Return Swap \\
+Author          & Wujiang Lou (NYU Courant Institute of Mathematics) \\
+Date            & 16 July 2018 \\
+Source          & \href{https://ssrn.com/abstract=3217420}{ssrn:3217420} \\
+Local file      & \texttt{papers/lou\_2018\_trs/SSRNid32174202.pdf} \\
+Tags            & \texttt{trs}, \texttt{repo}, \texttt{fva}, \texttt{csa},
+                  \texttt{defaultable-underlying}, \texttt{trinomial-tree}, \texttt{xva} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+The paper resolves the post-2008 ``TRS pricing dilemma'' (Libor
+discounting double-counts upfront funding; firm-funding discounting
+breaks the law of one price) by separating two channels through which
+the cost of hedge financing enters: the \emph{security leg} carries
+the repo financing cost of the underlying via a stock-rate drift
+$r_s - q$, and the \emph{funding leg} continues to be discounted at
+the collateral / OIS rate. A self-financing wealth equation derived
+from the dealer's hedge portfolio yields a single nonlinear PDE
+\eqref{eq:lou-pde} whose discount rate $r_e$ switches based on the
+sign of the unsecured exposure $W = V - L$. For fully collateralised
+TRS, the analytic solution \eqref{eq:lou-V-full} shows the funding
+premium discounted at $r$ (OIS) and the asset leg reduced by
+$\mathrm{fva} = (\exp(\int_t^T (r_s - r)\,\dd u) - 1)\, S_t$, the
+repo-spread cost of hedging. Under repo-style margin (collateral
+follows the bond price minus accrued interest), \eqref{eq:lou-V-repo}
+gives a tractable analytic form when $r_b = r_c$. For
+uncollateralised or partially collateralised trades, a
+recursive binomial / trinomial tree (Sec.\ 3) with switching discount
+rate solves the BSDE; total CRA decomposes into cva, dva, cfa, dfa
+\eqref{eq:lou-xva}. The framework extends to defaultable bond
+underliers \eqref{eq:lou-defaultable-V} where the security-leg fva
+acquires terms for coupon and recovery savings. Numerical tables
+provide tight tree-vs.-analytic benchmarks (relative error $\sim
+10^{-13}$ at full collateral, $\sim 10^{-4}$ at repo-style margin
+with 250 daily steps).
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper             & House                       & Meaning \\
+\midrule
+$S_t$             & $S_t$                       & Reference security (stock or bond) market price \\
+$M_0$             & ---                         & Funding notional ($= S_0$ typically) \\
+$r_f$             & ---                         & TRS funding rate $= l + s_f$ (e.g.\ Libor + spread) \\
+$s_f$             & ---                         & Fixed funding premium spread \\
+$r$               & $\Coll$                     & Risk-free / OIS rate \\
+$r_s$             & $\Repo$                     & Repo rate on the underlying security ($r_s \ge r$) \\
+$r_b, r_c$        & ---                         & Senior unsecured bond rates of dealer (B) / counterparty (C) \\
+$r_w$             & ---                         & $r_b \Ind_{W \le 0} + r_c \Ind_{W > 0}$ \\
+$r_N$             & ---                         & Dealer's debt issuance rate \\
+$r_e$             & ---                         & Effective derivative discount rate \eqref{eq:lou-re} \\
+$q$               & ---                         & Continuous dividend yield \\
+$L_t$             & ---                         & Cash collateral posted \\
+$W_t$             & ---                         & Unsecured exposure $W_t = V_t - L_t$ \\
+$\mu_t$           & ---                         & Collateral-to-PV ratio $\mu_t = L_t / V_t$ \\
+$h$               & ---                         & Repo haircut \\
+$\Delta_t$        & ---                         & Hedge ratio $-\partial V / \partial S$ \\
+$\lambda$         & ---                         & Underlying default intensity (Sec.\ 5) \\
+$R$               & $\Rec$                      & Recovery rate \\
+$\Gamma_t$        & ---                         & Joint survival indicator (1 at time $t$ if both survive) \\
+$\mathrm{fva}$    & ---                         & Funding value adj.\ to the asset leg (lower-case: TRS-specific) \\
+cva, dva, cfa, dfa & ---                        & XVA components from credit / funding basis split \\
+$\widetilde V_t$  & $V^*_t$                      & Counterparty-risk-free / OIS-discounted PV \\
+$U_t$             & ---                         & $V^*_t - V_t$, total counterparty risk adjustment (CRA) \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Pre-crisis baseline (Libor discounting):}
+\begin{equation}\label{eq:lou-precrisis}
+  V(t) \;=\; \mathbb{E}^Q_t\!\left[ e^{-\int_t^T r\,\dd u}\, \bigl( M_0 r_f (T - t_0) - (S_T - S_0) \bigr) \right]
+        \;=\; S_0 (1 + r_f (T - t_0))\, \Disc{t}{T} \;-\; S_t,
+\end{equation}
+(non-dividend, $M_0 = S_0$).
+\textit{Says:} the textbook valuation. At-the-issue,
+$V_0 = s_f (T - t_0)\, S_0\, \Disc{0}{T}$ --- the PV of the
+\emph{whole} future funding premium, which under a CSA forces an
+upfront collateral posting equal to that PV. This is the repo
+trader's complaint.
+
+\paragraph{Self-financing wealth equation} (Sec.\ 2.2, eq.\ (6) in paper):
+\begin{equation}\label{eq:lou-self-finance}
+  \begin{aligned}
+  \dd M_t \;=\; & r M_t \dd t + (1 - \Gamma_t)\bigl[\dd W_t - r_w W_t \dd t
+              + \dd N_t - r_N N_t \dd t + \dd L_t - r L_t \dd t \\
+              & + \Delta_t S_t q \dd t - \dd\Delta_t (S_t + \dd S_t)
+              + \dd L^s_t - r_s L^s_t \dd t \bigr],
+  \end{aligned}
+\end{equation}
+with $L^s_t = \Delta_t S_t$ the stock-repo account.
+\textit{Says:} pre-default, the dealer holds: a hedge in $\Delta_t$
+shares financed at $r_s$ in the repo market, posts/receives
+collateral $L_t$ earning $r$, finances the unsecured exposure $W_t$
+at $r_w$, and rolls debt $N_t$ at $r_N$. Net cash flows into the
+deposit account $M_t$ earning $r$.
+
+\paragraph{The pricing PDE (collateralised, with hedge financing):}
+\begin{equation}\label{eq:lou-pde}
+  \frac{\partial V}{\partial t}
+  \;+\; (r_s - q)\, S\, \frac{\partial V}{\partial S}
+  \;+\; \tfrac{1}{2}\, \sigma^2\, S^2\, \frac{\partial^2 V}{\partial S^2}
+  \;-\; r L \;-\; r_w (V - L) \;=\; 0,
+\end{equation}
+or equivalently with $\mu = L/V$,
+\begin{equation}\label{eq:lou-pde-mu}
+  \frac{\partial V}{\partial t}
+  \;+\; (r_s - q)\, S\, \frac{\partial V}{\partial S}
+  \;+\; \tfrac{1}{2}\, \sigma^2\, S^2\, \frac{\partial^2 V}{\partial S^2}
+  \;-\; \bigl(\mu r + (1 - \mu) r_w\bigr)\, V \;=\; 0.
+\end{equation}
+\textit{Says:} \textbf{drift = repo} ($r_s - q$, the cost of carry of
+the hedge), \textbf{discount = effective rate} $r_e$ on the RHS. The
+discount rate switches on the sign of $W$, hence on the sign of
+$V - L$.
+
+\paragraph{Effective derivative discount rate:}
+\begin{equation}\label{eq:lou-re}
+  r_e(t) \;=\; \mu\, r \;+\; (1 - \mu)\, \bigl[r_b(t) \Ind_{W(t) \le 0} + r_c(t) \Ind_{W(t) > 0}\bigr].
+\end{equation}
+\textit{Says:} Feynman-Kac gives $V(t) = \mathbb{E}^Q_t[\exp(-\int_t^T r_e\,\dd u)\, H(T)]$.
+At full CSA ($\mu = 1$), $r_e = r$; at zero collateral ($\mu = 0$),
+$r_e = r_w$ which switches between dealer and counterparty
+funding rates.
+
+\paragraph{Fully collateralised TRS (closed form):}
+\begin{equation}\label{eq:lou-V-full}
+  V(t) \;=\; \bigl( M_0 r_f (T - t_0) + S_0 \bigr)\, \Disc{t}{T}
+            \;-\; S_t\, e^{\int_t^T (r_s - r)\,\dd u}.
+\end{equation}
+\textit{Says:} the funding premium $M_0 r_f (T - t_0)$ and the
+initial security price $S_0$ are both discounted at the OIS rate
+$r$; the asset leg is the current price $S_t$ \emph{multiplied} by
+the repo-cost compounding factor. The OIS discounting of the funding
+premium contradicts the trader-funding-rate FVA argument
+(Fries-Lichtner) and resolves the dilemma in favour of the
+repo-channel interpretation.
+
+\paragraph{Repo-financing fva on the asset leg:}
+\begin{equation}\label{eq:lou-fva}
+  \mathrm{fva} \;=\; \bigl( e^{\int_t^T (r_s - r)\,\dd u} - 1 \bigr)\, S_t \;\ge\; 0,
+\end{equation}
+since $r_s \ge r$. \textit{Says:} this is a deterministic adjustment
+to the asset leg PV, distinct from the capital-F FVA reserved for
+uncollateralised swaps. Equivalently:
+$\mathrm{fva} = (F - S_t) - $ (textbook value), where
+$F = S_t e^{\int_t^T (r_s - q)\,\dd u}$ is the equity forward at the
+repo rate.
+
+\paragraph{Repo-style margin (Sec.\ 2.4):}
+\begin{equation}\label{eq:lou-repo-margin}
+  L_t \;=\; S_0 - S_t + r_F M_0 (t - t_0).
+\end{equation}
+\textit{Says:} collateral follows the price-return ($S_0 - S_t$) plus
+the accrued interest of the period. Lets the funding-leg discounting
+``de facto disappear'' on the variation-margin side, mirroring how
+repos accrue funding periodically.
+
+\paragraph{Closed form under repo-style margin, $r_b = r_c$:}
+\begin{equation}\label{eq:lou-V-repo}
+  V(t) \;=\; -S \left( \frac{r_b - r - (r_s - r)\, D_{T, r_b - r_s}}{r_b - r_s} \right)
+            \;+\; (S_0 - t_0 M_0 r_f)\!\left(1 - r\, \frac{1 - D_{T, r_b}}{r_b}\right)
+            \;+\; M_0 r_f\!\left[ \frac{T D_{T, r_b} r}{r_b} + \left(t + \frac{1 - D_{T, r_b}}{r_b}\right) \frac{r_b - r}{r_b} \right],
+\end{equation}
+where $D_{T,x} = e^{-\int_t^T x\,\dd u}$ is a placeholder discount.
+\textit{Says:} explicit but unwieldy; useful as a tree-validation
+target.
+
+\paragraph{Total counterparty-risk adjustment (CRA):}
+\begin{equation}\label{eq:lou-cra}
+  U(t) \;\equiv\; V^*(t) - V(t)
+       \;=\; \mathbb{E}^Q_t\!\left[ \int_t^T (r_w - r)\, \bigl( V^*(s) - L(s) \bigr)\, e^{-\int_t^s r_w\,\dd u}\, \dd s \right],
+\end{equation}
+with $V^*$ the OIS-discounted (counterparty-risk-free) value.
+Decomposes into four parts:
+\begin{equation}\label{eq:lou-xva}
+  U_t \;=\; \mathrm{cva}_t - \mathrm{dva}_t + \mathrm{cfa}_t - \mathrm{dfa}_t,
+\end{equation}
+with each term in \eqref{eq:lou-cra} restricted by an indicator on
+$\{V > 0\}$ or $\{V \le 0\}$ and multiplied by a credit spread $s_c$
+or $s_b$ (CDS-implied) or a funding-basis spread $\mu_c$ or $\mu_b$,
+where $r_c - r = s_c + \mu_c$, $r_b - r = s_b + \mu_b$.
+
+\paragraph{Defaultable underlying} (Sec.\ 5, intensity $\lambda$):
+\begin{equation}\label{eq:lou-defaultable-V}
+  V(t) \;=\; M_0 r_f T\, \overline D(t, T) \;+\; B_0\!\left( \overline D(t, T) + \mathbb{E}^Q_t\!\left[ \int_t^T \lambda\, e^{-\int_t^\tau (r + \lambda)\,\dd u}\, \dd\tau \right]\right) - B_t - \mathrm{fva},
+\end{equation}
+with risky DF $\overline D(t, T) = \mathbb{E}^Q_t[e^{-\int_t^T (r + \lambda)\,\dd u}]$
+and $\overline r_s = (1 - h) r_s + h r_N$ the all-in funding cost
+under haircut $h$.
+\textit{Says:} the funding premium is now \emph{risky-discounted}
+(survival-weighted); the asset leg gains coupon-savings and
+recovery-savings terms in the fva \eqref{eq:lou-fva-bond}.
+
+\paragraph{Bond-fva:}
+\begin{equation}\label{eq:lou-fva-bond}
+  \mathrm{fva} \;=\; \gamma(t, T)\, B_t \;-\; \sum_{i:\, T \ge T_i > t} c_i\, \overline D(t, T_i)\, \gamma(t, T) \;-\; \mathbb{E}^Q_t\!\left[ \int_t^T \lambda R\, \gamma(\tau, T)\, e^{-\int_t^\tau (r + \lambda)\,\dd u}\, \dd\tau \right],
+\end{equation}
+with $\gamma(t, T) = e^{\int_t^T (\overline r_s - r)\,\dd u} - 1$.
+\textit{Says:} three contributions ---  (i) repo-spread cost on
+current bond price, (ii) savings on coupons received before $T$,
+(iii) savings on recovery payment on default.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The headline resolution: \textbf{funding leg discounted at OIS, asset
+leg charged the repo spread}. This is the clean statement of where
+the cost of carry actually enters. Compared with Burgess's
+single-risky-DF framework, Lou's setup is more explicit: there is no
+single ``risky DF'' shared by both legs; the repo cost is a
+modification of the security-leg drift, not of the discount factor.
+At full CSA the two views can be reconciled, but partial / no CSA
+breaks any single-rate description.
+\end{commentary}
+
+\begin{commentary}
+The PDE \eqref{eq:lou-pde-mu} is structurally the same as the
+\emph{Anonymous Discounting} note's eq.~(8): drift uses
+$r^{\text{repo}}$ (Lou's $r_s$); discount uses an effective rate
+$\mu r + (1-\mu) r_w$ that under perfect CSA collapses to $r$. The
+$\mu$-formulation \eqref{eq:lou-pde-mu} makes the
+``how much of the exposure is collateralised'' parameter explicit,
+which is the right level of abstraction for partial-CSA modelling.
+\end{commentary}
+
+\begin{commentary}
+\textbf{The nonlinearity.} The effective discount rate $r_e$ in
+\eqref{eq:lou-re} depends on the sign of $W = V - L$. So $V$ depends
+on $r_e$ which depends on $V$. This makes pricing a BSDE, not a
+linear PDE. The tree-model trick (Sec.\ 3) is to fix the sign of $W$
+at the previous time step before rolling backward --- decoupling
+discount rate and fair value within each step. This is the same
+device used in Lou (2017) for uncollateralised options.
+\end{commentary}
+
+\begin{commentary}
+The numerical tables are useful anchors: Table 1 shows the tree
+matches the analytic full-CSA formula to $\sim 10^{-13}$ on six test
+cases. Table 2 shows repo-style margin convergence in number of
+steps. Table 3 contrasts the no-CSA payer and receiver values at
+asymmetric funding rates ($r_b = 12\%$, $r_c = 15\%$), showing a
+$-0.4068$ bid-ask gap dominated by cva-dva asymmetry. Repo-style
+margin reduces XVAs by an order of magnitude.
+\end{commentary}
+
+\begin{commentary}
+The defaultable-bond extension (Sec.\ 5) is the part most directly
+useful for fixed-income work. The fva now contains three terms
+\eqref{eq:lou-fva-bond}: the cost on the current price, savings from
+coupons that get repo-financed only until they're paid, and savings
+from the recovery payment that arrives before TRS maturity (in
+expectation). Operationally, the all-in repo cost
+$\overline r_s = (1 - h) r_s + h r_N$ packages haircut into a single
+effective rate.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Pre-crisis TRS value \eqref{eq:lou-precrisis}.
+  \item The pricing PDE \eqref{eq:lou-pde}/\eqref{eq:lou-pde-mu} and
+        its effective discount rate $r_e$ \eqref{eq:lou-re}.
+  \item Closed-form fully-collateralised TRS PV \eqref{eq:lou-V-full}.
+  \item Hedge-financing adjustment $\mathrm{fva}$ \eqref{eq:lou-fva}.
+  \item Closed-form repo-style margin PV \eqref{eq:lou-V-repo}
+        (under $r_b = r_c$).
+  \item Total CRA \eqref{eq:lou-cra} and its four-component
+        decomposition \eqref{eq:lou-xva}.
+  \item Defaultable-bond TRS PV \eqref{eq:lou-defaultable-V} and
+        bond-fva \eqref{eq:lou-fva-bond}.
+\end{itemize}
+
+\textbf{Canonical numerical cases} (Tables 1--3):
+
+\smallskip
+\textit{Case A --- Tree vs.\ analytic, full CSA} (Table 1):
+$S = 100$, $\sigma = 50\%$, $r = 10\%$, $q = 0$, repo spread = 0
+(last column = 5\%), $T = 1$.
+
+\smallskip
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Case                              & ATI 1p        & ATI 1p $K=80$  & 1 stub $t_0=0.25$ & ATI 4p          & 4p $t_0=0.1$     & 4p $t_0=0.1$ repo=5\% \\
+\midrule
+Analytic                          & $0$           & $-1.9032516$   & $2.5315121$        & $-0.3597770$    & $0.7160658$      & $0.7391666$ \\
+Binomial Tree                     & $1.42 \times 10^{-13}$ & $-1.9032516$   & $2.5315121$        & $-0.3597770$    & $0.7160658$      & $0.7391666$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textit{Case B --- Repo-style margin convergence} (Table 2):
+$r_b = r_c = 2\%$, 1Y ATI, repo spread 5\%, other inputs as Case A.
+
+\smallskip
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Time steps                        & 100              & 250              & 500              & 1000             & Analytic \\
+\midrule
+NPV                               & $-0.52348862$    & $-0.52336251$    & $-0.52332021$    & $-0.52329901$    & $-0.52327778$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textit{Case C --- Uncollateralised TRS XVAs} (Table 3):
+$S = 100$, $K = 100$, $\sigma = 0.5$, $q = 0$, $T = 1$, $r = 0.1$,
+$r_s = 0.02$, $r_f = 12.131\%$, $r_b = 0.12$, $r_c = 0.15$;
+spreads $s_b = 1.7\%$, $s_c = 4.2\%$, $\mu_b = 0.3\%$, $\mu_c = 0.8\%$.
+
+\smallskip
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Quantity                          & Payer no CSA    & Receiver no CSA & Payer repo margin & Receiver repo margin \\
+\midrule
+dva                               & $0.1199$         & $0.1120$         & $0.0137$           & $0.0069$ \\
+cva                               & $0.2760$         & $0.2948$         & $0.0168$           & $0.0334$ \\
+dfa                               & $0.0212$         & $0.0198$         & $0.0024$           & $0.0012$ \\
+cfa                               & $0.0526$         & $0.0561$         & $0.0032$           & $0.0064$ \\
+$V^*$                             & $-0.5701$        & $0.5701$         & $-0.5701$          & $0.5701$ \\
+$V$                               & $-0.7577$        & $0.3509$         & $-0.5742$          & $0.5384$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                            & Symbol                & Quantity \\
+\midrule
+\eqref{eq:lou-precrisis}             & $V(t)$ (pre-crisis)    & textbook Libor-discounted TRS PV \\
+\eqref{eq:lou-pde}--\eqref{eq:lou-pde-mu} & PDE on $V$         & pricing PDE with separate drift / discount \\
+\eqref{eq:lou-re}                    & $r_e$                  & effective discount rate (switching on sign of $W$) \\
+\eqref{eq:lou-V-full}                & $V$ (full CSA)         & closed-form fully-collateralised TRS PV \\
+\eqref{eq:lou-fva}                   & $\mathrm{fva}$         & repo-financing cost adjustment to asset leg \\
+\eqref{eq:lou-repo-margin}--\eqref{eq:lou-V-repo} & $L_t$, $V(t)$ & repo-style margin and resulting closed form \\
+\eqref{eq:lou-cra}--\eqref{eq:lou-xva} & $U_t = \mathrm{cva} - \mathrm{dva} + \mathrm{cfa} - \mathrm{dfa}$ & total CRA and its 4-way split \\
+\eqref{eq:lou-defaultable-V}--\eqref{eq:lou-fva-bond} & $V$, $\mathrm{fva}$ & defaultable-bond TRS PV and bond-fva \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Pre-crisis day-1 value identity}: at-the-issue with
+        $r_f = l + s_f$, the textbook formula gives
+        $V_0 = s_f (T - t_0)\, S_0\, \Disc{0}{T}$ exactly --- the PV
+        of the entire funding premium.
+  \item \emph{Full-CSA $\to$ pre-crisis identity}: when $r_s = r$
+        (no repo special), \eqref{eq:lou-V-full} reduces to
+        \eqref{eq:lou-precrisis} adjusted for dividends; specifically
+        $\mathrm{fva} \to 0$ and the asset leg is simply $S_t$.
+  \item \emph{Reproduction of Table 1}: the closed-form
+        \eqref{eq:lou-V-full} on the six test cases matches the
+        analytic column to all digits printed ($\sim 10^{-7}$); the
+        tree is within $\sim 10^{-13}$.
+  \item \emph{Repo-style margin convergence (Table 2)}: as the
+        number of time steps doubles, the tree NPV approaches the
+        \eqref{eq:lou-V-repo} analytic value $-0.52327778$
+        quasi-linearly in $\Delta t$.
+  \item \emph{Bid-ask gap from XVA asymmetry}: at $r_b = 12\%$,
+        $r_c = 15\%$ (Table 3), $V^{\text{payer}} - V^{\text{receiver}}$
+        equals minus the sum of $2\,\mathrm{cva} - 2\,\mathrm{dva} + 2\,\mathrm{cfa} - 2\,\mathrm{dfa}$.
+  \item \emph{Repo-style margin reduces XVA by an order of magnitude}:
+        each row of Table 3 has the repo-margin XVA roughly $10\times$
+        smaller than the no-CSA value.
+  \item \emph{Full CSA $\implies$ zero CRA}: in \eqref{eq:lou-cra}
+        $U \equiv 0$ when $L = V^* = V$.
+  \item \emph{Defaultable bond limit}: as $\lambda \to 0$,
+        \eqref{eq:lou-defaultable-V} reduces to the non-defaultable
+        full-CSA formula \eqref{eq:lou-V-full} with $S = B$, and
+        \eqref{eq:lou-fva-bond} reduces to the simple equity-fva
+        \eqref{eq:lou-fva}.
+  \item \emph{Implied par premium}: setting $V = 0$ and solving for
+        $r_f - l$ in the full-CSA formula gives a closed-form
+        breakeven funding spread; for the worked Case C, fixing the
+        repo spread at $2\%$, the payer fair premium is
+        $r_f - l = 12.9541\%$ and receiver $12.5136\%$
+        (bid-ask 44 bp).
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$S_t$             & Reference security spot price \\
+$M_0$             & Funding leg notional (often $= S_0$) \\
+$T, t_0, t_i$     & Maturity, previous payment date, future payment dates \\
+$r_f = l + s_f$   & Funding rate (Libor + spread); $l$ is the floating fixing, $s_f$ a fixed premium \\
+$r$               & Risk-free / OIS short rate \\
+$r_s$             & Repo rate on the underlying security ($r_s \ge r$) \\
+$q$               & Continuous dividend yield \\
+$r_b, r_c$        & Dealer / counterparty senior unsecured rates \\
+$s_b, s_c$        & CDS spread components of $r_b - r$, $r_c - r$ \\
+$\mu_b, \mu_c$    & Funding-basis components ($r_b - r = s_b + \mu_b$) \\
+$r_w$             & $r_b \Ind_{W \le 0} + r_c \Ind_{W > 0}$ \\
+$r_N$             & Dealer's rolled-debt rate \\
+$r_e$             & Effective derivative discount rate \\
+$L_t$             & Cash collateral at $t$ \\
+$W_t$             & $V_t - L_t$, unsecured exposure \\
+$\mu_t$           & $L_t / V_t$, collateral ratio \\
+$\Delta_t$        & $-\partial V / \partial S$, hedge ratio \\
+$h$               & Repo haircut \\
+$\overline r_s$   & $(1 - h) r_s + h r_N$, all-in bond hedge funding cost \\
+$\Gamma_t$        & Joint default indicator (0 pre-default, 1 post) \\
+$\lambda$         & Underlying default intensity (Sec.\ 5) \\
+$R$               & Bond recovery rate \\
+$\overline D(t, T)$ & Risky DF $\mathbb{E}^Q_t[e^{-\int_t^T (r + \lambda)\,\dd u}]$ \\
+$\mathrm{fva}$    & Funding value adj.\ to asset leg (TRS-specific; lower case) \\
+cva, dva, cfa, dfa & Credit/funding adjustment components \\
+$V^*_t$           & OIS-discounted counterparty-risk-free PV \\
+$U_t$             & $V^*_t - V_t$, total CRA \\
+$D_{T, x}$        & Discount factor $e^{-\int_t^T x\,\dd u}$ for placeholder rate $x$ \\
+$\gamma(t, T)$    & $e^{\int_t^T (\overline r_s - r)\,\dd u} - 1$, repo funding cost factor \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Reproduce Table 1 (full-CSA tree vs.\ analytic) on the six
+        test cases. Convergence target: $\sim 10^{-13}$ relative
+        error.
+  \item Reproduce Table 2 (repo-style margin convergence) with 100,
+        250, 500, 1000 steps; check linear-in-$\Delta t$ convergence
+        toward $-0.52327778$.
+  \item Reproduce Table 3 (uncollateralised XVAs) using the
+        trinomial tree; verify the bid-ask gap and the order-of-magnitude
+        reduction under repo-style margin.
+  \item Equity forward consistency check: $F = S_t e^{\int_t^T (r_s - q)\,\dd u}$
+        should agree with the asset-leg-only term of
+        \eqref{eq:lou-V-full} when $r_f = 0$ and $M_0 r_f (T - t_0) \to F$;
+        i.e.\ a bond forward is a TRS with zero funding leg
+        (mentioned at the end of \S 5).
+  \item Defaultable-bond extension: build the $\lambda$-trinomial tree
+        from Sec.\ 5 and price a bond forward as a TRS with
+        $r_f = 0$, then solve $V(t) = 0$ for $F$; compare against an
+        independent forward bond calculation under the same
+        assumptions.
+  \item Cross-check against Burgess: at full CSA, both frameworks
+        should give the same PV. Identify the parameters under which
+        the Burgess single-risky-DF treatment is exactly equivalent
+        to Lou's split treatment.
+\end{itemize}
+\end{todobox}
+
+\end{document}

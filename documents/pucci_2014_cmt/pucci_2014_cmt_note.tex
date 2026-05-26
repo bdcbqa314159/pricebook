@@ -1,0 +1,368 @@
+% =====================================================================
+% Note on: Constant Maturity Treasury Convexity Correction
+% Mario Pucci, IJTAF 17(8), 2014  -- ssrn:3387961
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{pucci\_2014\_cmt}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Constant Maturity Treasury Convexity Correction}\\
+       \large Mario Pucci (Banca IMI), IJTAF 17(8), 2014}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Constant Maturity Treasury Convexity Correction \\
+Author          & Mario Pucci (Banca IMI SpA) \\
+Published       & International Journal of Theoretical and Applied Finance 17(8), 2014 \\
+Dates           & Received 13 Sep 2013; revised 31 Mar 2014, 4 Jul 2014; accepted 20 Aug 2014 \\
+Source          & \href{https://ssrn.com/abstract=3387961}{ssrn:3387961} \\
+Local file      & \texttt{papers/pucci\_2014\_cmt/ssrn3387961.pdf} \\
+Tags            & \texttt{cmt}, \texttt{convexity}, \texttt{default-risk},
+                  \texttt{partial-filtration}, \texttt{risky-annuity}, \texttt{lognormal} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+The paper develops a pricing framework for derivatives whose payoff
+depends on a Constant Maturity Treasury (CMT) yield, taking default
+risk of the bond issuer into account. The key conceptual move is to
+identify $\Rcmt_t$ with a \emph{risky forward swap rate with recovery}
+on a credit-risk-adjusted curve, so that it is a ratio of tradable
+assets and therefore a martingale under the corresponding annuity
+(swaption) measure. The naive risky swap rate has a singularity at
+default; the partial filtration / credit-risk-adjusted framework
+(Bielecki--Jeanblanc--Rutkowsky, Jamshidian) sidesteps this. Three
+versions of a CMT-let payoff are priced (A: survival to payment date;
+B: survival to fixing; C: B plus pre-default value if default precedes
+fixing), and closed-form convexity corrections are obtained under a
+one-factor linear swap-rate model with lognormal $\Rcmt$ dynamics. In
+the no-default limit, the results collapse to Pelsser's classical
+convexity correction.
+
+% =====================================================================
+\section{Setup and notation}
+
+The paper distinguishes carefully between three discount-bond objects:
+risk-free $\Disc{t}{T}$, risky $\widetilde{\Disc{t}{T}}$ (zero at
+default), and \emph{credit-risk-adjusted / pre-default}
+$\widehat{\Disc{t}{T}}$ (the analytically convenient version that
+remains continuous through default). The risky annuity $\widehat{\Ann{t}}$
+is the natural numeraire for $\Rcmt$.
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper           & House                        & Meaning \\
+\midrule
+$R^{ytm}_t$     & $R^{ytm}_t$                   & Yield-to-maturity of the reference bond at $t$ \\
+$R^{cmt}_t$     & $\Rcmt_t$                     & Constant Maturity Treasury rate; risky par-coupon rate \\
+$\widehat R^{swp}_t$ & $\widehat\Rswp_t$         & Risky forward swap rate with recovery (= $\Rcmt_t$ at $T_s$) \\
+$B_t$           & $\Bond{t}{\cdot}$              & Reference bond price \\
+$D_{tT}$        & $\Disc{t}{T}$                 & Risk-free DF \\
+$\widetilde D_{tT}$ & $\widetilde{\Disc{t}{T}}$ & Risky DF (= $0$ for $t \ge \tau$) \\
+$\widehat D_{tT}$ & $\widehat{\Disc{t}{T}}$     & Pre-default / credit-risk-adjusted DF (continuous in $t$) \\
+$\widehat D^{(R)}_{tT}$ & ---                   & Risky DF with deterministic recovery $\Rec$ at default \\
+$A_t, \widehat A_t$ & $\Ann{t}, \widehat{\Ann{t}}$ & Risky annuity, credit-risk-adjusted annuity \\
+$N_t$           & $\Numer{t}$                   & Numeraire process \\
+$\tau$          & $\tau$                        & Default time \\
+$\Gamma_t$      & $\Gamma_t$                    & Hazard process: $e^{-\Gamma_t} = \mathbb{P}^N[\tau>t|\Ftime{t}]$ \\
+$\gamma_t$      & $\gamma_t$                    & Default intensity, $\Gamma_t = \int_0^t \gamma_u\,\dd u$ under (AC) \\
+$\chi_t$        & $\chi_t = e^{\Gamma_{T_s}-\Gamma_t}$ & Forward survival ratio \\
+$\Rec$          & $\Rec$                        & Recovery rate (deterministic, level-independent) \\
+$T_s, T_p$      & $T_s, T_p$                    & Fixing date, payment date \\
+$y_i$           & $\alpha_i$                    & Year fractions $yf(T_{i-1},T_i)$ \\
+$K$             & $K$                           & Bond coupon rate \\
+$\alpha, \beta_U$ & $\alpha, \beta_U$           & Linear-model coefficients in $G_U(x) = \alpha + \beta_U x$ \\
+$\sigma$        & $\sigma$                      & CMT lognormal vol \\
+DI, AC          & DI, AC                        & Default independence; absolute continuity of $F_t$ \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Bond price as function of YTM} (compounded convention):
+\begin{equation}\label{eq:cmt-ytm}
+  \Bond{T_s}{} \;=\; \prod_{i=1}^{n} \frac{1}{1 + \alpha_i R^{ytm}_{T_s}}
+                  \;+\; K \sum_{i=1}^n \alpha_i \prod_{j=1}^i \frac{1}{1 + \alpha_j R^{ytm}_{T_s}}.
+\end{equation}
+\textit{Says:} same compounded form as in Pucci's T-Lock paper; the
+YTM is a non-linear function of the bond price.
+
+\paragraph{Definition of $\Rcmt$ (par-coupon on the risky curve).}
+\begin{equation}\label{eq:cmt-def}
+  1 \;=\; R^{cmt}_{T_s} \widehat A_{T_s} \;+\; \widehat D_{T_s T_n} \;+\; \Rec\, [\text{default leg}]_{T_s}.
+\end{equation}
+\textit{Says:} $\Rcmt_{T_s}$ is the fixed rate that prices a risky
+coupon bond at par, with the three summands being coupon PV, notional
+PV, and the recovery default leg. Equivalent definitions on the
+credit-risk-adjusted curve sidestep the default-time discontinuity.
+
+\paragraph{Link between YTM and CMT} (Proposition 2.1):
+\begin{equation}\label{eq:ytm-cmt}
+  R^{ytm}(B, K) \;\cong\; R^{cmt} + (K - R^{cmt}) - \frac{R^{cmt}}{1 - (1+R^{cmt})^{-n}} (B - 1)
+                \;\cong\; R^{cmt} + (K - R^{cmt}) - \frac{B - 1}{n}.
+\end{equation}
+\textit{Says:} first-order Taylor expansion of $R^{ytm}$ around the
+``at par'' point $(B, K) = (1, R^{cmt})$. The expansion linearises YTM
+in $B$ and $K$, so CMY pricing on the risky curve reduces (to first
+order) to a CMT-on-risky-swap-rate problem.
+
+\paragraph{Three CMT-let payoffs} (Defs.\ 3.1--3.3, payment at $T_p \ge T_s$):
+\begin{align}
+  \text{(A)} \quad & \Ind_{[\tau > T_p]}\, R^{ytm}_{T_s}, \label{eq:payoff-A}\\
+  \text{(B)} \quad & \Ind_{[\tau > T_s]}\, R^{ytm}_{T_s}, \label{eq:payoff-B}\\
+  \text{(C)} \quad & \Ind_{[\tau > T_s]}\, R^{ytm}_{T_s} \;+\; \Ind_{[\tau \le T_s]}\, R^{ytm}_{\tau-}. \label{eq:payoff-C}
+\end{align}
+\textit{Says:} (A) is a survival-contingent payoff (no payment if
+default occurs in $[T_s, T_p]$); (B) is contingent on survival to the
+fixing date only; (C) is non-contingent: if default occurs before
+fixing, pays the last available fixing. NPV ordering:
+$\NPV^{(C)} \ge \NPV^{(B)} \ge \NPV^{(A)}$.
+
+\paragraph{Convexity correction (definition):}
+\begin{equation}\label{eq:cc-def}
+  CC^{(i)} \;\equiv\; \frac{\NPV^{(i)}}{D \cdot F} - 1, \qquad i \in \{A, B, C\},
+\end{equation}
+where $F$ is the forward of the rate and $D$ the natural discount.
+\textit{Says:} the convexity correction is what you add to the
+``forward rate times discount'' deterministic value to obtain the
+true risk-neutral price.
+
+\paragraph{One-factor linear swap-rate model} (Sec.\ 5):
+\begin{equation}\label{eq:linear-G}
+  \frac{\widehat D_{T_s U}}{\widehat A_{T_s}} \;=\; G_U(\Rcmt_{T_s}) \;=\; \alpha + \beta_U \Rcmt_{T_s},
+\end{equation}
+for all $U \in \{T_p, T_1, \ldots, T_n\}$, with
+\begin{equation}\label{eq:linear-calib}
+  \alpha = \frac{1}{\sum_{i=1}^n \alpha_i}, \qquad
+  \beta_U = \frac{\chi_0 \widehat D_{0U} / \widehat A_0 - \alpha}{\Rcmt_0}.
+\end{equation}
+\textit{Says:} the ratio of risky DF to risky annuity is modelled as a
+linear function of $\Rcmt$. Calibration is forced by $\Rcmt_0 \to 0$
+limit (for $\alpha$) and martingale property under the annuity measure
+(for $\beta_U$).
+
+\paragraph{Lognormal CMT dynamics:}
+\begin{equation}\label{eq:lognormal-dyn}
+  \frac{\dd \Rcmt_t}{\Rcmt_t} \;=\; \sigma \, \dd W^{\widehat A}_t.
+\end{equation}
+\textit{Says:} $\Rcmt$ is lognormal under the annuity measure, with
+volatility $\sigma$. Combined with $W^{\widehat A}$ being a Brownian
+motion under the enlarged filtration $\mathcal G$, this gives
+closed-form expectations.
+
+\paragraph{Closed-form convexity corrections} (Proposition 6.1, under DI + lognormal; AC + constant intensity $\gamma$ for (C)):
+\begin{align}
+  CC^{(A)}_0 \;=\; CC^{(B)}_0 &= \bigl(e^{\sigma^2 T_s} - 1\bigr) \left(1 - \frac{\alpha \widehat A_0}{\chi_0 \widehat D_{0 T_p}}\right), \label{eq:cc-AB}\\
+  CC^{(C)}_0 &= \bigl(1 + CC^{(B)}_0\bigr) \frac{\widehat D_{0 T_s}}{D_{0 T_s}} - 1
+              + \frac{\alpha \widehat A_0}{\chi_0 \widehat D_{0 T_p}}\bigl(1 - e^{-\gamma T_s}\bigr)
+              + \left(1 - \frac{\alpha \widehat A_0}{\chi_0 \widehat D_{0 T_p}}\right) \frac{e^{(\sigma^2 - \gamma) T_s} - 1}{\sigma^2 - \gamma}\, \gamma. \label{eq:cc-C}
+\end{align}
+\textit{Says:} clean closed forms. $CC^{(A)} = CC^{(B)}$ holds because
+the survival difference between the two payoffs is exactly absorbed
+by the credit-risk-adjusted DF ratio in the discount. $CC^{(C)}$ has
+three distinct contributions: rate convexity (B), default-driven jump
+to pre-default value, and a $\gamma$-weighted integral. All vanish at
+$\sigma = 0$ (verified explicitly in the paper).
+
+\paragraph{No-default limit} (Sec.\ 6, $\gamma \to 0$):
+\begin{equation}\label{eq:no-default-limit}
+  CC^{(A)}_0 \;=\; CC^{(B)}_0 \;=\; CC^{(C)}_0
+  \;\longrightarrow\; \bigl(e^{\sigma^2 T_s} - 1\bigr)\left(1 - \frac{\alpha A_0}{D_{0 T_p}}\right),
+\end{equation}
+\textit{Says:} recovers the classical Pelsser (2001) convexity
+correction for a CMS-let under the linear swap-rate model.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The key structural move is identifying $\Rcmt$ with the risky forward
+swap rate with recovery: in the appendix Pucci shows
+$\Rcmt_{T_s} = \widehat R^{swp}_{T_s}$ at fixing. This buys two things:
+(i) $\Rcmt$ is a ratio of tradable assets, hence a martingale under
+the credit-risk-adjusted annuity measure $\widehat A$; (ii) the
+machinery from CMS pricing (Hagan, Hunt--Kennedy linear swap-rate
+model) transfers almost verbatim, with $\widehat D$ and $\widehat A$
+in place of $D$ and $A$.
+\end{commentary}
+
+\begin{commentary}
+The three payoff variants (A/B/C) matter operationally because they
+correspond to different contract designs. (A) and (B) are commonly
+embedded in survival-contingent structures (e.g.\ a swap that
+cancels on credit event). (C) is the building block for
+non-contingent CMT-linked notes. The ordering $\NPV^{(C)} \ge
+\NPV^{(B)} \ge \NPV^{(A)}$ is structural, not assumption-dependent.
+\end{commentary}
+
+\begin{commentary}
+The Taylor link \eqref{eq:ytm-cmt} is a small but useful result on its
+own: it says that to first order in $(B-1)$ and $(K - R^{cmt})$, the
+non-linear YTM equals an affine function of CMT. So once you can price
+CMT-contingent payoffs, you can approximate CMY-contingent payoffs by
+the same formula plus a known linear correction. The expansion
+deteriorates for bonds far from par; for ARM-mortgage indexing
+applications (the paper's motivating use case) the bonds are near par
+and the approximation is tight.
+\end{commentary}
+
+\begin{commentary}
+The $CC^{(C)}$ formula has a special structure worth noting: the
+$\gamma \to \sigma^2$ limit is regular (the $(\sigma^2 - \gamma)^{-1}$
+factor cancels against the exponential), and the
+$\gamma \to 0$ limit collapses all three corrections to
+Pelsser. So the closed forms degrade smoothly as default risk
+disappears --- a desirable property for a risky CMT framework.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Bond price as function of YTM (eq.~\ref{eq:cmt-ytm}), and its
+        inverse $R^{ytm}(B, K)$ defined implicitly.
+  \item $\Rcmt_{T_s}$ as the risky par-coupon rate defined by
+        \eqref{eq:cmt-def}.
+  \item The YTM--CMT link \eqref{eq:ytm-cmt} (first-order Taylor).
+  \item Three CMT-let payoffs $\NPV^{(A,B,C)}$ given by
+        \eqref{eq:payoff-A}--\eqref{eq:payoff-C}.
+  \item Linear swap-rate model coefficients $\alpha, \beta_U$ from
+        \eqref{eq:linear-calib}.
+  \item Closed-form convexity corrections $CC^{(A)}, CC^{(B)}, CC^{(C)}$
+        in \eqref{eq:cc-AB}--\eqref{eq:cc-C}.
+\end{itemize}
+
+\textbf{Canonical numerical case:} the paper provides no worked
+numerical example in the body. Suggested test bench: a 10Y CMT-let
+on a par bond with $T_s = 5$Y, $T_p = T_s + 6$M, annual coupon (so
+$n = 10$, $\alpha_i = 1$), flat hazard $\gamma$ across
+$\{0\%, 1\%, 3\%\}$, lognormal vol $\sigma \in \{10\%, 20\%\}$,
+flat risk-free curve at $2\%$.
+
+\textbf{Expected numerical values:} no quantitative benchmarks
+printed in the paper. Validation is by closed-form vs.\ Monte Carlo
+simulation of the lognormal dynamics, plus limiting-case identities
+below.
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                & Symbol                                 & Quantity \\
+\midrule
+\eqref{eq:cmt-ytm}       & $\Bond{T_s}{R^{ytm}}$                  & bond price as function of YTM \\
+\eqref{eq:cmt-def}       & $\Rcmt_{T_s}$                          & risky par-coupon rate \\
+\eqref{eq:ytm-cmt}       & $R^{ytm}(B, K)$                        & first-order Taylor link to $\Rcmt$ \\
+\eqref{eq:payoff-A}--\eqref{eq:payoff-C} & $\NPV^{(A,B,C)}$       & three CMT-let payoff variants \\
+\eqref{eq:linear-G}--\eqref{eq:linear-calib} & $\alpha, \beta_U$  & linear swap-rate model coefficients \\
+\eqref{eq:cc-AB}         & $CC^{(A)} = CC^{(B)}$                  & closed-form CC for (A) and (B) \\
+\eqref{eq:cc-C}          & $CC^{(C)}$                             & closed-form CC for (C) under AC + const.\ $\gamma$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{YTM-CMT consistency}: at $B = 1$ and $K = R^{cmt}$,
+        $R^{ytm}(B, K) = R^{cmt}$ exactly. (Pin point of the Taylor
+        expansion.)
+  \item \emph{$CC^{(A)} = CC^{(B)}$ identity}: the equality in
+        \eqref{eq:cc-AB} should hold for any valid set of inputs
+        under DI, not just at the canonical case.
+  \item \emph{Vanishing at zero vol}: $CC^{(A)} = CC^{(B)} = 0$ at
+        $\sigma = 0$. $CC^{(C)}$ should also vanish identically at
+        $\sigma = 0$ under DI + AC + constant $\gamma$; this is
+        verified algebraically in the paper.
+  \item \emph{No-default limit}: as $\gamma \to 0$ (i.e.\
+        $\widehat A \to A$, $\widehat D \to D$, $\chi \to 1$), all
+        three corrections collapse to the Pelsser
+        single-curve form $(e^{\sigma^2 T_s} - 1)(1 - \alpha A_0 / D_{0T_p})$.
+  \item \emph{NPV ordering}: $\NPV^{(C)} \ge \NPV^{(B)} \ge \NPV^{(A)}$
+        for any feasible inputs.
+  \item \emph{Regular limit at $\gamma = \sigma^2$}: $CC^{(C)}$ does
+        not blow up at $\gamma = \sigma^2$; the integral in
+        \eqref{eq:cc-C} has a removable singularity and the limiting
+        value can be evaluated via L'H\^opital.
+  \item \emph{Closed form vs.\ Monte Carlo}: simulate $\Rcmt$ under
+        \eqref{eq:lognormal-dyn} together with a doubly-stochastic
+        default time of intensity $\gamma$; the MC estimator of
+        $CC^{(C)}$ should match \eqref{eq:cc-C} within statistical
+        error.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$T_s, T_1, \ldots, T_n$ & Payment schedule of the reference bond \\
+$T_p$            & Payment date of the CMT-let, $T_p \ge T_s$ \\
+$y_i$            & Year fractions $\mathrm{yf}(T_{i-1}, T_i)$ \\
+$K$              & Coupon rate of the reference bond \\
+$B_t$            & Reference bond price at $t$ \\
+$R^{ytm}_t$      & Yield-to-maturity at $t$ \\
+$R^{cmt}_{T_s}$  & Constant Maturity Treasury rate at $T_s$ \\
+$\widehat R^{swp}_t$ & Risky forward swap rate with recovery (equals $R^{cmt}$ at $T_s$) \\
+$D_{tT}$         & Risk-free discount bond price \\
+$\widetilde D_{tT}$ & Risky discount bond ($= 0$ for $t \ge \tau$) \\
+$\widehat D_{tT}$ & Pre-default (credit-risk-adjusted) risky DF, continuous in $t$ \\
+$\widehat D^{(R)}_{tT}$ & Risky DF with deterministic recovery $\Rec$ on default \\
+$A_t, \widehat A_t$ & Risky annuity, credit-risk-adjusted annuity \\
+$N_t$            & Numeraire process (paper picks $N = \widehat A$) \\
+$\tau$           & Default time \\
+$\Gamma_t$       & Hazard process; $e^{-\Gamma_t} = \mathbb{P}^N[\tau > t | \Ftime{t}]$ \\
+$\gamma_t$       & Default intensity (under AC, $\Gamma_t = \int_0^t \gamma_u\,\dd u$) \\
+$\chi_t$         & $e^{\Gamma_{T_s} - \Gamma_t}$, forward survival ratio \\
+$\Rec$           & Deterministic recovery rate \\
+$\mathcal F_t, \mathcal G_t$ & Default-free / market filtration \\
+$\sigma$         & Volatility of $R^{cmt}$ under lognormal dynamics \\
+$\alpha, \beta_U$ & Coefficients of the linear swap-rate model \\
+$CC^{(i)}$       & Convexity correction for payoff $i \in \{A, B, C\}$ \\
+DI               & ``Default Independence'' axiom: $\tau \perp \mathcal F$ \\
+AC               & ``Absolute Continuity'' axiom: $F_t = 1 - e^{-\Gamma_t}$ is AC \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Build a canonical numerical test (10Y CMT-let, 5Y fixing,
+        flat hazard $\gamma \in \{0\%, 1\%, 3\%\}$, $\sigma \in
+        \{10\%, 20\%\}$) and produce a small table of
+        $CC^{(A,B,C)}$ to anchor the closed forms.
+  \item Monte Carlo cross-check: simulate $\Rcmt$ under
+        \eqref{eq:lognormal-dyn} jointly with a Cox-process default
+        time, estimate $\NPV^{(C)}$, compare to \eqref{eq:cc-C}.
+  \item Verify the $\gamma \to \sigma^2$ regularity of $CC^{(C)}$
+        numerically; evaluate by L'H\^opital and compare to a
+        small-$\epsilon$ direct evaluation.
+  \item Code the YTM--CMT Taylor link \eqref{eq:ytm-cmt} and quantify
+        the second-order error for bonds at $\pm 5\%$ off par.
+  \item Smile extension: the paper sketches a static-replication
+        approach for incorporating $\Rcmt$ smile via the
+        $\mathbb{E}[(\Rcmt_{T_s})^2]$ term; not in scope for
+        first-pass validation.
+\end{itemize}
+\end{todobox}
+
+\end{document}

@@ -1,0 +1,370 @@
+% =====================================================================
+% Note on: Bond Total Return Swaps — Theory, Pricing & Practice
+% Nicholas Burgess — ssrn author 1728976
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{burgess\_trs}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Bond Total Return Swaps --- Theory, Pricing \& Practice}\\
+       \large Nicholas Burgess}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Bond Total Return Swaps: Theory, Pricing \& Practice \\
+Author          & Nicholas Burgess \\
+Date            & Not stated on cover \\
+Source          & \href{https://ssrn.com/author=1728976}{ssrn:author=1728976};
+                  companion repo \url{https://github.com/nburgessx/SwapsBook} \\
+Local file      & \texttt{papers/burgess\_trs/5024091.pdf} \\
+Tags            & \texttt{trs}, \texttt{bond}, \texttt{repo}, \texttt{par-spread},
+                  \texttt{lgd}, \texttt{risky-annuity}, \texttt{practitioner} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A practitioner write-up of bond TRS pricing in three components:
+bond coupons, bond performance (change in price), and the funding
+leg, all discounted with a \emph{risky discount factor}
+$\widetilde P(t_0, t_i) = Q(t_0, t_i)\, P(t_0, t_i)$ that combines a
+survival probability $Q$ and a risk-free DF $P$, plus a
+loss-given-default (LGD) term to account for unwind on bond default.
+The PV identity decomposes into four summations
+(coupons + performance $-$ funding $-$ LGD), each carrying the same
+risky DF. Future bond prices are projected at the repo rate,
+$B_T = B_t(1 + r\,\tau_1 - r\,c\,\tau_2)$, with repo interest
+deducted on intermediate coupons. The \emph{par spread} $p$ is
+defined as the funding spread that makes PV zero; rearranging gives
+$p = \mathrm{PV}(\mathrm{TRS}|s=0) / \mathrm{RiskyAnnuity}^{\mathrm{float}}$.
+The appendix offers a compact alternative valuation: net the TRS as
+``full bond cashflows to bond maturity $+$ funding leg to TRS
+maturity $+$ a negative notional exchange equal to the current bond
+price paid at TRS maturity'', useful for investment-grade bonds
+where the LGD term is small.
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper                 & House                        & Meaning \\
+\midrule
+$\phi$                & $\phi \in \{+1, -1\}$        & $+1$ receiver of bond coupons, $-1$ payer \\
+$N_B$                 & ---                          & Bond notional $=$ Units $\times$ Face Value \\
+$N_C$                 & ---                          & Cash notional of the funding leg \\
+$r$                   & ---                          & Bond coupon rate (fixed) \\
+$\tau_i$              & $\alpha_i$                   & Year fraction of bond coupon period $i$ \\
+$\tau_j$              & $\alpha_j$                   & Year fraction of funding-leg period $j$ \\
+$F_j$                 & ---                          & Floating funding index fixing (e.g.\ SOFR) at $j$ \\
+$s$                   & ---                          & Funding spread (added to $F$) \\
+$p$                   & ---                          & Par / breakeven funding spread \\
+$B(t)$                & $\Bond{t}{\cdot}$            & Dirty bond price at $t$ \\
+$Q(t_0, t_i)$         & $Q(t_0, t_i)$                & Survival probability from $t_0$ to $t_i$ \\
+$P(t_0, t_i)$         & $\Disc{t_0}{t_i}$            & Risk-free discount factor \\
+$\widetilde P(t_0, t_i)$ & ---                       & Risky DF $= Q \cdot P$ \\
+$RR$                  & ---                          & Recovery rate (paper convention: 40\% senior subordinated) \\
+$1 - RR$              & ---                          & LGD per unit notional \\
+$r^{\text{repo}}$     & $\Repo$                      & Repo rate (bond-specific) \\
+$c$                   & ---                          & Coupon paid during projection window \\
+$\tau_1, \tau_2$      & ---                          & Time from $t$ to $T$; time from coupon date to $T$ \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{TRS PV (top-level structure):}
+\begin{equation}\label{eq:btrs-top}
+  \mathrm{PV}_{\mathrm{TRS}} \;=\; \phi \Bigl( \mathrm{PV}(\text{Bond Coupons}) + \mathrm{PV}(\text{Performance}) - \mathrm{PV}(\text{Funding}) \Bigr),
+\end{equation}
+with $\phi = +1$ if receiving bond coupons (paying funding), $-1$
+otherwise. LGD added separately as shown below.
+
+\paragraph{PV of bond coupons.}
+\begin{equation}\label{eq:btrs-coupons}
+  \mathrm{PV}(\text{Bond Coupons}) \;=\; \sum_{i=1}^{n} N_B\, r\, \tau_i\, \underbrace{Q(t_0, t_i)\, P(t_0, t_i)}_{= \widetilde P(t_0, t_i)}.
+\end{equation}
+\textit{Says:} each fixed coupon $N_B r \tau_i$ is discounted by the
+risky DF combining survival to $t_i$ and risk-free discounting from
+$t_0$ to $t_i$.
+
+\paragraph{PV of bond performance --- two settlement conventions.}
+Performance paid on each coupon date:
+\begin{equation}\label{eq:btrs-perf-periodic}
+  \mathrm{PV}(\text{Performance}) \;=\; \sum_{i=1}^{n} N_B\, \bigl( B(t_{i-1}) - B(t_i) \bigr)\, Q(t_0, t_i)\, P(t_0, t_i).
+\end{equation}
+Performance paid at maturity $T$ only:
+\begin{equation}\label{eq:btrs-perf-bullet}
+  \mathrm{PV}(\text{Performance}) \;=\; N_B\, \bigl( B(t_0) - B(T) \bigr)\, Q(t_0, T)\, P(t_0, T).
+\end{equation}
+\textit{Says:} performance is the running change in bond price. The
+periodic version reduces PFE and XVA costs (Trade Feature \#9) at the
+expense of more frequent operational settlement.
+
+\paragraph{PV of the funding leg.}
+\begin{equation}\label{eq:btrs-funding}
+  \mathrm{PV}(\text{Funding}) \;=\; \sum_{j=1}^{m} N_C\, (F_j + s)\, \tau_j\, Q(t_0, t_j)\, P(t_0, t_j).
+\end{equation}
+\textit{Says:} floating index $F$ plus spread $s$, accruing on cash
+notional $N_C$. The same survival weighting applies because the TRS
+unwinds on bond default --- the funding leg also stops.
+
+\paragraph{Full TRS PV with LGD.}
+\begin{equation}\label{eq:btrs-full}
+  \begin{aligned}
+  \mathrm{PV}_{\mathrm{TRS}} \;=\; \phi \biggl[\,
+    & \sum_{i=1}^{n} N_B\, r\, \tau_i\, \widetilde P(t_0, t_i)
+    + \sum_{i=1}^{n} N_B\, \bigl(B(t_{i-1}) - B(t_i)\bigr)\, \widetilde P(t_0, t_i) \\
+    & - \sum_{j=1}^{m} N_C\, (F_j + s)\, \tau_j\, \widetilde P(t_0, t_j)
+    \;-\; \sum_{i=1}^{n} N_B\, (1 - RR)\, \bigl(Q(t_0, t_{i-1}) - Q(t_0, t_i)\bigr)\, P(t_0, t_i)
+  \,\biggr].
+  \end{aligned}
+\end{equation}
+\textit{Says:} the fourth summation is the LGD term. Default in
+$[t_{i-1}, t_i]$ has probability $Q(t_0, t_{i-1}) - Q(t_0, t_i)$;
+multiplied by the (risk-free) discount and the LGD per unit notional.
+
+\paragraph{Bond forward via repo} (Burgess uses simple compounding):
+\begin{equation}\label{eq:btrs-fwd-noc}
+  B_T \;=\; B_t\,(1 + r^{\text{repo}}\, \tau).
+\end{equation}
+With intermediate coupons $c$ deducted at the repo rate from coupon
+date to $T$:
+\begin{equation}\label{eq:btrs-fwd-coupon}
+  B_T \;=\; B_t\,(1 + r^{\text{repo}}\, \tau_1) - c\,(1 + r^{\text{repo}}\, \tau_2)\, \big|_{\text{summed over coupons in } [t, T]}.
+\end{equation}
+\textit{Says:} the dirty bond is treated as ``on deposit'' earning
+the repo rate. Intermediate coupons accrete to $T$ at the same rate.
+This is the simple-compounding analogue of Pucci's
+$\mathrm{Fwd}_t(t_e) = P^{mkt}_t e^{\Repo (t_e - t)} - \sum c_i e^{\Repo (t_e - t_i)}$.
+
+\paragraph{Par (breakeven) funding spread.}
+\begin{equation}\label{eq:btrs-par-spread}
+  p \;=\; \frac{\mathrm{PV}(\mathrm{TRS}\,|\,s=0)}{\sum_j N_C\, \tau_j\, \widetilde P(t_0, t_j)},
+  \qquad
+  \text{Risky Annuity (float leg)} \;=\; \sum_j N_C\, \tau_j\, \widetilde P(t_0, t_j).
+\end{equation}
+\textit{Says:} solve PV $= 0$ for $s$; $p$ is the spread that makes
+the two legs of equal value. The denominator is the risky annuity of
+the funding leg.
+
+\paragraph{Approximate decomposition} (Appendix):
+\begin{itemize}[noitemsep]
+  \item \textit{Full bond cashflows to bond maturity.}
+  \item \textit{Funding leg to TRS maturity.}
+  \item \textit{A negative notional exchange equal to the current
+        bond price paid at TRS maturity} --- this is what represents
+        the short performance leg in compact form.
+  \item For investment-grade bonds, set $Q \equiv 1$ and drop LGD.
+\end{itemize}
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The note is operational, not theoretical. The PV structure
+\eqref{eq:btrs-full} treats every cashflow under the \emph{same}
+risky DF $\widetilde P$, which is internally consistent given the
+``TRS unwinds on default'' clause: if the bond defaults, both legs
+stop simultaneously and an LGD payment closes out the position. The
+single-curve setup hides several subtleties that the post-2008
+Lou (2018) paper makes explicit (separate repo for the bond hedge
+vs.\ collateral/OIS for derivative discounting).
+\end{commentary}
+
+\begin{commentary}
+Two notational conflicts to watch when reading alongside other notes:
+\textbf{(i)} Burgess uses $\phi$ for the long/short flag where Pucci
+uses $a$ and others use $\theta$. \textbf{(ii)} $Q$ is the survival
+probability here, not (as in some credit-derivatives texts) the
+risk-neutral measure. The risky DF
+$\widetilde P = Q \cdot P$ is then the credit-flavoured analogue of
+Pucci's pre-default $\widehat{\Disc{t}{T}}$ under default-independence
+(DI) and absolute-continuity (AC); they coincide under DI with
+$Q(t,T) = e^{-\int_t^T \gamma_u\,\dd u}$.
+\end{commentary}
+
+\begin{commentary}
+The repo-projection formula \eqref{eq:btrs-fwd-noc}--\eqref{eq:btrs-fwd-coupon}
+is the simple-compounding version of what the anonymous Treasury
+Lock Model and Pucci 2019 derive in continuous form. For short tenors
+($\tau \lesssim 1$Y) the simple form is fine; for longer projections
+the compound version (or the continuous $e^{r\tau}$ used in the
+T-Lock paper) drifts apart and the choice matters.
+\end{commentary}
+
+\begin{commentary}
+``Constant Units'' vs.\ ``Constant Notional'' is a contract feature,
+not a pricing distinction. Under \emph{Constant Units} the bond
+quantity is fixed and the cash notional varies (periodic notional
+exchanges required, bond fixings needed). Under \emph{Constant
+Notional} the cash side is fixed and the bond quantity drifts.
+Pricing uses the same building blocks; only the bookkeeping of
+$N_B$ vs.\ $N_C$ in successive periods changes.
+\end{commentary}
+
+\begin{commentary}
+The appendix's compact valuation
+(``bond + funding leg + negative notional payment at maturity'') is
+useful because it lets one re-use existing bond-pricer and IRS-pricer
+without building dedicated TRS code. For investment-grade names where
+LGD is small it's accurate enough to be the production fallback. The
+key insight is that the receiver of performance is essentially long
+the bond \emph{minus} the bond price paid at TRS maturity, which is
+exactly the payoff of buying the bond now and selling it at $T$ at
+the forward price.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item The risky discount factor $\widetilde P(t_0, t_i) =
+        Q(t_0, t_i)\, P(t_0, t_i)$.
+  \item Four PV components: bond coupons \eqref{eq:btrs-coupons},
+        bond performance (periodic \eqref{eq:btrs-perf-periodic} or
+        bullet \eqref{eq:btrs-perf-bullet}), funding leg
+        \eqref{eq:btrs-funding}, and the LGD term in
+        \eqref{eq:btrs-full}.
+  \item Forward bond price under simple repo compounding
+        \eqref{eq:btrs-fwd-noc}--\eqref{eq:btrs-fwd-coupon}.
+  \item The par funding spread $p$ via \eqref{eq:btrs-par-spread} and
+        the risky annuity of the float leg.
+\end{itemize}
+
+\textbf{Canonical numerical case} (pages 7--9):
+\begin{itemize}[noitemsep]
+  \item 50,000 bonds purchased at $104.5433\%$;
+        cash equivalent USD $5{,}227{,}165$.
+  \item Bond leg specified in Units.
+  \item Funding: SOFR $+\,100$~bps.
+  \item Performance paid at maturity only.
+  \item Recovery rate $RR = 40\%$ (paper assumption for senior subordinated).
+  \item Coupon worked example: $80{,}736 \times 100 \times 3.85\% \times 0.5 = 155{,}416.80$;
+        $\text{Units} = 10{,}000{,}000 / (100 \times 123.86\%) = 80{,}736$.
+\end{itemize}
+
+\textbf{Expected numerical values}: no PV bottom-line printed in the
+document --- only the per-period coupon arithmetic above. The
+formulas are self-validating by structure.
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                                 & Symbol                      & Quantity \\
+\midrule
+\eqref{eq:btrs-coupons}                   & $\mathrm{PV}(\text{Coupons})$       & risky-discounted bond coupon stream \\
+\eqref{eq:btrs-perf-periodic}             & $\mathrm{PV}(\text{Performance})$   & periodic bond-price change PV \\
+\eqref{eq:btrs-perf-bullet}               & $\mathrm{PV}(\text{Performance})$   & bullet (maturity-only) performance PV \\
+\eqref{eq:btrs-funding}                   & $\mathrm{PV}(\text{Funding})$       & risky-discounted floating coupon PV \\
+\eqref{eq:btrs-full}                      & $\mathrm{PV}_{\mathrm{TRS}}$        & full PV with LGD \\
+\eqref{eq:btrs-fwd-noc}--\eqref{eq:btrs-fwd-coupon} & $B_T$              & forward bond price via simple repo \\
+\eqref{eq:btrs-par-spread}                & $p$                          & breakeven funding spread \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Risky DF factorisation}: $\widetilde P(t_0, t_i) =
+        Q(t_0, t_i)\, P(t_0, t_i)$ holds by definition; in
+        particular $\widetilde P \to P$ as $Q \to 1$ (no default).
+  \item \emph{Par spread reproduction}: pricing the TRS at spread
+        $s = p$ from \eqref{eq:btrs-par-spread} returns
+        $\mathrm{PV}_{\mathrm{TRS}} = 0$ within float tolerance.
+  \item \emph{Periodic vs.\ bullet performance equivalence}: in the
+        zero-default-zero-discounting limit ($Q \equiv 1$, $P \equiv 1$),
+        $\sum_i (B(t_{i-1}) - B(t_i)) = B(t_0) - B(T)$ telescopes
+        exactly; the two performance formulations differ only by
+        survival/discount weights on intermediate periods.
+  \item \emph{Investment-grade limit}: with $Q \equiv 1$, the LGD term
+        vanishes (because the survival differences are zero) and
+        \eqref{eq:btrs-full} reduces to a plain bond-vs-floater swap.
+  \item \emph{Coupon arithmetic} (worked example): $80{,}736 \times
+        100 \times 3.85\% \times 0.5 = 155{,}416.80$, and
+        $10{,}000{,}000 / (100 \times 123.86\%) = 80{,}736$ (rounded).
+  \item \emph{Default-period sum}: $\sum_{i=1}^{n}
+        \bigl(Q(t_0, t_{i-1}) - Q(t_0, t_i)\bigr) = Q(t_0, t_0) -
+        Q(t_0, t_n) = 1 - Q(t_0, t_n)$ (telescoping); used in the
+        LGD term.
+  \item \emph{Repo forward consistency}: \eqref{eq:btrs-fwd-noc} is
+        the first-order Taylor approximation of $B_T = B_t e^{r\tau}$
+        (Pucci's continuous form, eq.~50); the relative error at
+        $r = 5\%$, $\tau = 1$Y is $\sim 0.12\%$. For TRS tenors
+        beyond a few years, the compound form should be used.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$\phi$                & $+1$ receiver of bond / $-1$ payer of bond \\
+$N_B$                 & Bond notional, $\text{Units} \times \text{Face Value}$ \\
+$N_C$                 & Cash notional of the funding leg \\
+$r$                   & Fixed bond coupon rate \\
+$\tau_i$              & Year fraction of coupon period $i$ \\
+$\tau_j$              & Year fraction of funding period $j$ \\
+$F_j$                 & Floating funding index fixing at $j$ (e.g.\ SOFR) \\
+$s$                   & Funding spread (added to $F$) \\
+$p$                   & Par / breakeven funding spread \\
+$B(t)$                & Dirty bond price at $t$ \\
+$Q(t_0, t_i)$         & Survival probability from $t_0$ to $t_i$ \\
+$P(t_0, t_i)$         & Risk-free discount factor from $t_0$ to $t_i$ \\
+$\widetilde P(t_0, t_i)$ & Risky discount factor $= Q \cdot P$ \\
+$RR$                  & Recovery rate (paper assumes 40\% senior subordinated) \\
+$1 - RR$              & LGD per unit notional \\
+$r^{\text{repo}}$     & Repo rate of the underlying bond \\
+$c$                   & Coupon amount paid during a projection window \\
+$\tau_1, \tau_2$      & Times: $t \to T$ and coupon date $\to T$ \\
+$T$                   & TRS maturity date \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Build a worked end-to-end PV computation on the case-study
+        inputs (50,000 units at $104.5433\%$, SOFR + 100~bps, $RR =
+        40\%$, sensible curve). The paper sets up the inputs but
+        does not print a bottom-line PV.
+  \item Cross-check the simple-repo forward \eqref{eq:btrs-fwd-noc}
+        against the continuous form $B_t e^{r\tau}$ for $\tau \in
+        \{0.5, 1, 2, 5\}$Y at $r^{\text{repo}} \in \{2\%, 5\%\}$ ---
+        quantify the gap.
+  \item Implement the approximate decomposition in the appendix and
+        compare with the full \eqref{eq:btrs-full} for an
+        investment-grade name (low $1 - Q$); the gap should be the
+        LGD term.
+  \item Par-spread sensitivity to recovery rate at fixed curve and
+        survival: should depend on $RR$ only through the LGD term.
+  \item Reconcile the Burgess setup (single risky DF for both legs)
+        with the Lou (2018) ``security leg + premium leg under
+        different discounting'' picture. They should agree under
+        Burgess's assumption that the TRS unwinds at default; they
+        will disagree if the funding leg discounting is taken to be
+        the dealer's funding rate.
+\end{itemize}
+\end{todobox}
+
+\end{document}

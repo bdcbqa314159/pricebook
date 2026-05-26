@@ -1,0 +1,50 @@
+% =====================================================================
+% READING TRACKER — compact log of papers in the project.
+% One row per paper: identity, status, date read, tags.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{reading\_tracker}
+
+\input{_common/preamble}
+\input{_common/notation}
+
+\usepackage{pdflscape}
+
+\title{Reading Tracker}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle\vspace{-2em}
+
+\begin{landscape}
+\noindent\small
+\begin{tabular}{@{}p{0.5cm}p{5cm}p{3cm}p{0.8cm}p{2cm}p{11.5cm}@{}}
+\toprule
+\#  & Title                                                                & Author(s)               & Year  & Source            & Tags / one-liner \\
+\midrule
+1   & Hedging the Treasury Lock                                            & Pucci, M.               & 2019  & ssrn:3386521      & \texttt{tlock, repo, forward, convexity}; T-Lock $\approx$ forward via repo overhedge \\
+2   & Constant Maturity Treasury Convexity Correction                      & Pucci, M.               & 2014  & ssrn:3387961      & \texttt{cmt, convexity, default-risk}; risky CMT under partial filtration \\
+3   & Constant Maturity Asset Swap Convexity Correction                    & Pucci, M.               & 2012  & ssrn:1961545      & \texttt{cmasw, convexity, asset-swap}; analytical convexity for asset-swap spread \\
+4   & Pricing Index-Linked Hybrids under a Local Volatility Market Model   & Pucci, M.               & 2012  & ssrn:2056277      & \texttt{hybrid, local-vol, swaption}; cash-settled swaption with equity-index strike \\
+5   & Bond Total Return Swaps: Theory, Pricing \& Practice                 & Burgess, N.             & ---   & ssrn:1728976      & \texttt{trs, bond, repo}; practitioner write-up with worked case study \\
+6   & Pricing Total Return Swap                                            & Lou, W.                 & 2018  & ssrn:3217420      & \texttt{trs, fva, funding, repo}; TRS under collateralisation; recursive tree \\
+7   & Bond Implied CDS Spread and CDS-Bond Basis                           & Zhou, R.                & 2008  & ssrn:1265548      & \texttt{cds, basis, asset-swap}; bond-implied CDS spread via risky annuities \\
+8   & On the pricing of Credit-Linked Notes: Swedish market                & Axelsson \& Renström    & 2013  & SSE thesis        & \texttt{cln, structured-products, empirical}; CLN overpricing 0.6\%--6.4\% in Sweden \\
+9   & Treasury Lock Model                                                  & Anonymous               & ---   & finpricing.com    & \texttt{tlock, repo, pv01, model-doc}; T-Lock model doc (clean/yield/dirty lock) \\
+10  & Why We Don't Discount at the ``Risk-Free Rate''                      & Anonymous               & ---   & ---               & \texttt{discounting, repo, csa, ois, xva}; drift = repo, discount = collateral \\
+11  & CDS Market Formulas and Models                                       & Brigo \& Morini         & 2005  & no SSRN ID         & \texttt{cds, cds-option, market-model, cmcds}; Black formula for CDS options via defaultable-PV01 numeraire \\
+12  & Everything You Always Wanted to Know About Multiple Interest Rate Curve Bootstrapping But Were Afraid To Ask & Ametrano \& Bianchetti & 2013  & ssrn:2219548       & \texttt{multicurve, ois-discounting, bootstrap, basis-swap}; one OIS discount curve + tenor-specific FRA curves, EUR worked example, QuantLib \\
+\midrule
+\multicolumn{6}{@{}l}{\textit{Personal work --- integrated studies derived from the papers above:}} \\
+P1  & The Treasury Lock --- a comprehensive study                          & Personal               & 2026  & ---               & \texttt{tlock, repo, forward, convexity, personal-work}; Pucci + anon practitioner, Part I/II + appendices \\
+\bottomrule
+\end{tabular}
+
+\bigskip
+\normalsize
+\textit{For full source metadata (abstracts, keywords, contents, references), see \texttt{papers/textbook\_bib.pdf}.}
+\end{landscape}
+
+\end{document}

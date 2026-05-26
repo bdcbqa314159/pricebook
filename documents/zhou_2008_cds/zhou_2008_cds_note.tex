@@ -1,0 +1,416 @@
+% =====================================================================
+% Note on: Bond Implied CDS Spread and CDS-Bond Basis
+% Richard Zhou, 2008  —  ssrn:1265548
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{zhou\_2008\_cds}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Bond Implied CDS Spread and CDS-Bond Basis}\\
+       \large Richard Zhou, 2008}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Bond Implied CDS Spread and CDS-Bond Basis \\
+Author          & Richard Zhou \\
+Email           & \texttt{rzhou50@gmail.com} \\
+Date            & 15 August 2008 \\
+Source          & \href{https://ssrn.com/abstract=1265548}{ssrn:1265548} \\
+Local file      & \texttt{papers/zhou\_2008\_cds/ssrn1265548.pdf} \\
+Tags            & \texttt{cds}, \texttt{basis}, \texttt{asset-swap}, \texttt{negative-basis-trade},
+                  \texttt{survival}, \texttt{recovery}, \texttt{libor-discounting} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A short, explicit derivation of the CDS spread implied by a bond's
+market price, obtained from the no-arbitrage condition on a negative
+basis trade (buy bond, fund at Libor, buy CDS protection on
+$1 - D / (1 - R)$ notional --- the amount that makes the combined
+position default neutral). The main formula
+\eqref{eq:zhou-cds-explicit} expresses the bond-implied CDS as the
+sum of three weighted contributions: bond coupon, an
+average-Libor-weighted term, and a bond-discount term, all scaled by
+risky / risk-free annuities. A consistency theorem proves this CDS
+spread also satisfies the standard CDS pricing identity
+\eqref{eq:zhou-cds-standard} \emph{if and only if} the survival
+probabilities and recovery are consistent with the bond price. The
+analogous decomposition for the par-asset-swap spread
+\eqref{eq:zhou-asw} and the resulting three-term decomposition of the
+CDS-bond basis \eqref{eq:zhou-basis} make the basis structure
+transparent: an interest-rate-curve-slope term, a default-treatment
+asymmetry term (always negative), and a bond-discount term
+(positive for discount bonds, negative for premium bonds). Numerical
+tables on a 10Y 7\%-coupon bond confirm the qualitative predictions.
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper             & House                       & Meaning \\
+\midrule
+$T_0, T_k$        & $T_0, T_k$                  & Today; bond coupon / ASW payment dates \\
+$C$               & ---                         & Bond coupon rate (fixed, semiannual in examples) \\
+$M$               & ---                         & Bond risk-free price \\
+$1 - D$           & ---                         & Bond market (dirty) price; $D$ is the discount from par \\
+$R$               & $\Rec$                      & Recovery rate (40\% in examples) \\
+$W$               & $W = (1 - D/(1-R))/(1-D)$   & CDS-notional-to-bond-price ratio (default-neutral) \\
+$L_{k-1}$         & $L_{k-1}$                   & Forward Libor for period $(T_{k-1}, T_k)$ at $T_0$ \\
+$DF(T_k)$         & $\Disc{T_0}{T_k}$           & Risk-free discount factor \\
+$P(\tau > T_k)$   & $Q(T_0, T_k)$               & Survival probability to $T_k$ \\
+$\lambda$         & $\lambda$                   & Hazard rate (constant in single-bond calibration) \\
+$A$               & $A$                         & Risk-free annuity \\
+$\PVone$          & ---                         & Risky annuity (survival-weighted) \\
+$\overline{\PVone}$ & ---                       & Weighted-average risky annuity (paper's $\widehat{PV01}$) \\
+$\overline L$     & $\overline L$               & DF-weighted average forward Libor (eq.~\ref{eq:zhou-Lbar}) \\
+$\overline L^{\,\text{Risky}}$ & ---            & Risky-DF-weighted average forward Libor \\
+$\Loss$           & ---                         & Risky default-leg integral $\sum (DF_{k-1} - DF_k)(P_{k-1} + P_k)/2$ \\
+$\Sasw$           & ---                         & Par asset swap spread \\
+$\Scds$           & ---                         & Bond-implied CDS spread \\
+$\Basis$          & ---                         & $\Scds - \Sasw$, CDS-bond basis \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Risk-free annuity and DF-weighted Libor:}
+\begin{equation}\label{eq:zhou-A-L}
+  A \;=\; \sum_{k=1}^{N} \Delta T_{k-1}\, DF(T_k), \qquad
+  \overline L \;=\; \frac{1}{A} \sum_{k=1}^{N} L_{k-1}\, \Delta T_{k-1}\, DF(T_k).
+\end{equation}
+
+\paragraph{Par asset swap spread (two equivalent forms):}
+\begin{equation}\label{eq:zhou-asw}
+  \Sasw \;=\; \frac{M - (1 - D)}{A} \;=\; C - \overline L \;-\; \frac{D}{A}.
+\end{equation}
+\textit{Says:} the first form is the textbook ``risk-free price minus
+market price, amortised by the annuity''; always non-negative when
+$M \ge 1 - D$. The second form decomposes the spread into
+\emph{coupon $-$ avg Libor $-$ amortised discount}, which the paper
+exploits for the basis decomposition. Note: $-D/A$ is positive when
+$D > 0$ (discount bond).
+
+\paragraph{Default-neutral CDS notional:}
+\begin{equation}\label{eq:zhou-W}
+  W \;=\; \frac{1 - D / (1 - R)}{1 - D}.
+\end{equation}
+\textit{Says:} buying $W \cdot (1 - D)$ of CDS protection makes the
+investor's loss on default equal exactly $1 - D$, recovering the
+purchase price. For a discount bond ($D > 0$), $W < 1$ (less CDS than
+notional); for a premium bond, $W > 1$.
+
+\paragraph{Risky annuity and Loss leg:}
+\begin{equation}\label{eq:zhou-pv-loss}
+  \PVone \;=\; \sum_{k=1}^{N} \Delta T_{k-1}\, DF(T_k)\, P(\tau > T_k), \qquad
+  \Loss \;=\; \sum_{k=1}^{N} \bigl(DF(T_{k-1}) - DF(T_k)\bigr)\, \frac{P(\tau > T_{k-1}) + P(\tau > T_k)}{2}.
+\end{equation}
+
+\paragraph{Standard CDS pricing (consistency target):}
+\begin{equation}\label{eq:zhou-cds-standard}
+  \Scds \;=\; \frac{(1 - R)\, \Loss}{\PVone}.
+\end{equation}
+\textit{Says:} the textbook CDS-fair-spread formula.
+
+\paragraph{Survival-recovery consistency with bond price:}
+\begin{equation}\label{eq:zhou-bond-decomp}
+  1 - D \;=\; C \cdot \PVone \;+\; R \cdot \Loss \;+\; P(\tau > T_N) \cdot DF(T_N).
+\end{equation}
+\textit{Says:} a defaultable bond decomposes into the risky-discounted
+coupon stream, the recovery on the default leg, and the survival-
+weighted final notional. If $\lambda$ (or a term structure of
+$\lambda$) is calibrated so that this identity holds at the observed
+bond price, the model is self-consistent.
+
+\paragraph{Bond-implied CDS spread (explicit form):}
+\begin{equation}\label{eq:zhou-cds-explicit}
+  \Scds \;=\; \frac{C \cdot \PVone}{W \cdot \PVone^{\text{Risky}}}
+          \;-\; \frac{\overline L^{\,\text{Risky}} \cdot \PVone}{W \cdot \PVone^{\text{Risky}}}
+          \;+\; \frac{D}{W \cdot \PVone^{\text{Risky}}}\!\left(1 - \frac{R}{1 - D} \cdot \frac{\Loss}{\PVone^{\text{Risky}}}\right)\!\!,
+\end{equation}
+which under \eqref{eq:zhou-bond-decomp} simplifies to (paper's eq.~7)
+\begin{equation}\label{eq:zhou-cds-simplified}
+  \Scds \;=\; \frac{C \cdot \PVone - \overline L^{\,\text{Risky}} \cdot \PVone^{\text{Risky}}}{\PVone^{\text{Risky}}}
+            \;+\; \frac{D}{\PVone^{\text{Risky}}}.
+\end{equation}
+\textit{Says:} bond-implied CDS = (coupon-vs-Libor differential
+weighted by risky annuities) + (bond-discount term per unit risky
+annuity). The form makes each input's contribution legible.
+
+\paragraph{CDS-bond basis decomposition} (paper's eq.~8):
+\begin{equation}\label{eq:zhou-basis}
+  \Basis \;=\; \Scds - \Sasw
+          \;=\; \underbrace{\bigl( \overline L - \overline L^{\,\text{Risky}} \bigr)}_{\text{(i) curve-slope}}
+          \;-\; \underbrace{C \!\left(1 - \frac{\PVone}{\PVone^{\text{Risky}}}\right)}_{\text{(ii) accrual asymmetry, $\ge 0$ so subtracted}}
+          \;+\; \underbrace{D \!\left(\frac{1}{\PVone^{\text{Risky}}} - \frac{1}{A}\right)}_{\text{(iii) off-par}}.
+\end{equation}
+\textit{Says:} three additive contributions to the basis:
+\begin{itemize}[noitemsep]
+  \item (i) sign of curve slope: positive when forward Libor is upward
+        sloping, negative for inverted, zero for flat.
+  \item (ii) bond/CDS accrual asymmetry: always negative
+        contribution to the basis since
+        $\PVone < \PVone^{\text{Risky}}$? Actually $\PVone^{\text{Risky}} < \PVone$
+        when survival is below 1; the paper writes the term so the
+        net contribution is negative. (Coupon accrued but unpaid on
+        bond default; CDS premium accrued and \emph{paid} on default.)
+  \item (iii) off-par effect: positive for discount bonds ($D > 0$),
+        negative for premium bonds, vanishing at par.
+\end{itemize}
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The cash-flow accounting that produces \eqref{eq:zhou-cds-explicit}
+(Appendix A in the paper) is worth internalising: a negative-basis
+trade has zero initial value, three streams of running cashflows
+(net coupon, accrued premiums on default, terminal redemption
+on survival), and the no-arbitrage condition $\mathbb{E}^Q[\cdot] = 0$
+applied with the Lando-formula factorisation
+$\mathbb{E}^Q[\Ind_{\tau > T} \cdot Z(T)] = DF(T)\, P(\tau > T)$
+(under credit-rate independence) gives exactly
+\eqref{eq:zhou-cds-explicit}. The trapezoidal approximation of the
+default-leg integral produces the $(P_{k-1} + P_k)/2$ weights in
+$\Loss$.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Consistency theorem (Appendix B).} The proposition shows
+\eqref{eq:zhou-cds-explicit} $\Rightarrow$ \eqref{eq:zhou-cds-standard}
+under \eqref{eq:zhou-bond-decomp}. The key algebraic identity is
+$\Loss = (1 - R)\, [\text{tail-recovery term}] + L \cdot \PVone - L^{\text{Risky}} \cdot \PVone^{\text{Risky}}$,
+which lets the explicit form be rewritten in terms of $(1 - R)\, \Loss / \PVone$.
+The reverse implication does \emph{not} hold: a CDS spread quoted in
+the market with an assumed flat recovery $R$ may not satisfy
+\eqref{eq:zhou-bond-decomp} on the corresponding bond, which is the
+empirical CDS-bond basis.
+\end{commentary}
+
+\begin{commentary}
+The paper's three application scenarios are clean and worth lifting:
+\textbf{(2.3.1)} single bond: assume $R$, solve \eqref{eq:zhou-bond-decomp}
+for constant $\lambda$, plug into \eqref{eq:zhou-cds-simplified}.
+\textbf{(2.3.2)} bond term structure: bootstrap a piecewise-constant
+$\lambda$ across maturities. \textbf{(2.3.3)} both CDS and bond term
+structures: solve \eqref{eq:zhou-cds-simplified} for $\lambda$ using
+market CDS spreads, then use \eqref{eq:zhou-bond-decomp} to solve
+for an implied recovery-rate term structure --- comparable to
+recovery-swap quotes.
+\end{commentary}
+
+\begin{commentary}
+The interpretation of $W$ in \eqref{eq:zhou-W} is operationally
+important. A natural alternative is to buy CDS on full $(1-D)$
+notional, but this leaves a residual exposure $DR$ on default. The
+paper notes (Remark 1 after eq.~7) that the simpler $1-D$ notional
+gives the \emph{same} formula \eqref{eq:zhou-cds-simplified} for the
+fair spread; the smaller default payoff is offset by larger carry on
+the loan. So the choice of CDS notional is presentational, not
+mathematical.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Libor as ``risk-free''.} The paper takes Libor as risk-free
+because at the time CDS markets discounted at Libor (this is 2008,
+pre-OIS regime). Modern practice would use OIS for both bond
+discounting and CDS pricing, and reinstate a separate
+funding-vs-discount distinction. The structural formulas
+\eqref{eq:zhou-cds-explicit}--\eqref{eq:zhou-basis} are unchanged
+under OIS discounting; only the input curve changes.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Risk-free annuity $A$ and DF-weighted Libor $\overline L$ \eqref{eq:zhou-A-L}.
+  \item Par asset swap spread $\Sasw$ via \eqref{eq:zhou-asw} (two
+        equivalent forms).
+  \item Default-neutral CDS notional ratio $W$ \eqref{eq:zhou-W}.
+  \item Risky annuity $\PVone^{\text{Risky}}$ and default-leg
+        integral $\Loss$ \eqref{eq:zhou-pv-loss}.
+  \item Bond-pricing consistency identity \eqref{eq:zhou-bond-decomp}.
+  \item Bond-implied CDS spread \eqref{eq:zhou-cds-explicit} and its
+        simplified form \eqref{eq:zhou-cds-simplified}.
+  \item Standard CDS spread \eqref{eq:zhou-cds-standard}.
+  \item CDS-bond basis decomposition \eqref{eq:zhou-basis}.
+\end{itemize}
+
+\textbf{Canonical numerical case} (Tables 1 \& 2):
+\begin{itemize}[noitemsep]
+  \item Bond: 10Y, 7\% semiannual coupon, 30/360 day count.
+  \item $R = 40\%$.
+  \item Libor: swap zero curve for 16-July-2008 from Bloomberg
+        (3M $= 2.8\%$ to 10Y $= 4.8\%$, linearly interpolated to
+        payment dates). Table 2 uses flat $4.7\%$ as a comparison.
+  \item Calibration mode: single-bond (\S2.3.1), constant $\lambda$
+        from \eqref{eq:zhou-bond-decomp}.
+  \item $D \in \{-10\%, -5\%, 0\%, 5\%, 10\%, 15\%, 20\%\}$ (bond
+        market price ranges from $110$ to $80$).
+\end{itemize}
+
+\textbf{Expected numerical values} (Table 1, market curve; all in \%):
+
+\smallskip
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+$D$ (\%)                            & $-10$  & $-5$   & $0$    & $5$    & $10$   & $15$   & $20$  \\
+\midrule
+$W$                                 & $1.06$ & $1.03$ & $1.00$ & $0.96$ & $0.93$ & $0.88$ & $0.83$ \\
+$\Scds$                             & $0.96$ & $1.60$ & $2.31$ & $3.09$ & $3.97$ & $4.97$ & $6.13$ \\
+$\Sasw$                             & $1.05$ & $1.67$ & $2.29$ & $2.92$ & $3.54$ & $4.16$ & $4.79$ \\
+$\Basis$                            & $-0.09$& $-0.07$& $0.01$ & $0.17$ & $0.43$ & $0.81$ & $1.34$ \\
+$\lambda$                           & $1.58$ & $2.64$ & $3.80$ & $5.09$ & $6.65$ & $8.19$ & $10.11$ \\
+$\overline L - \overline L^{\text{Risky}}$ & $0.03$ & $0.05$ & $0.08$ & $0.11$ & $0.14$ & $0.17$ & $0.21$ \\
+$C\,(1 - \PVone / \PVone^{\text{Risky}})$ & $0.03$ & $0.05$ & $0.07$ & $0.09$ & $0.11$ & $0.14$ & $0.18$ \\
+$D / \PVone^{\text{Risky}} - D / A$ & $-0.09$& $-0.07$& $0.00$ & $0.15$ & $0.40$ & $0.78$ & $1.31$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textit{Table 2 (flat $4.7\%$ Libor curve, same bond):}
+
+\smallskip
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+$D$ (\%)                            & $-10$  & $-5$   & $0$    & $5$    & $10$   & $15$   & $20$  \\
+\midrule
+$\Scds$                             & $0.92$ & $1.55$ & $2.24$ & $3.00$ & $3.86$ & $4.83$ & $5.95$ \\
+$\Sasw$                             & $1.04$ & $1.67$ & $2.30$ & $2.93$ & $3.56$ & $4.20$ & $4.83$ \\
+$\Basis$                            & $-0.12$& $-0.12$& $-0.06$& $0.07$ & $0.29$ & $0.63$ & $1.12$ \\
+$\lambda$                           & $1.51$ & $2.55$ & $3.68$ & $4.94$ & $6.35$ & $7.96$ & $9.81$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                                    & Symbol                          & Quantity \\
+\midrule
+\eqref{eq:zhou-A-L}                          & $A$, $\overline L$              & risk-free annuity, DF-weighted Libor \\
+\eqref{eq:zhou-asw}                          & $\Sasw$                         & par asset swap spread (two forms) \\
+\eqref{eq:zhou-W}                            & $W$                             & default-neutral CDS notional ratio \\
+\eqref{eq:zhou-pv-loss}                      & $\PVone^{\text{Risky}}$, $\Loss$ & risky annuity, default-leg integral \\
+\eqref{eq:zhou-cds-standard}                 & $\Scds$ (standard)              & textbook CDS fair-spread identity \\
+\eqref{eq:zhou-bond-decomp}                  & bond consistency                & bond price as coupon + recovery + survival-discounted notional \\
+\eqref{eq:zhou-cds-explicit}--\eqref{eq:zhou-cds-simplified} & $\Scds$ (bond-implied) & explicit and simplified forms \\
+\eqref{eq:zhou-basis}                        & $\Basis$                        & 3-term decomposition of CDS-bond basis \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Two ASW forms agree}: $(M - (1-D))/A = C - \overline L - D/A$
+        identically (given the definitions of $M, A, \overline L$);
+        the second form is the first rewritten using
+        $M = \sum C\, \Delta T_{k-1}\, DF(T_k) + DF(T_N) = C \cdot A + 1$
+        for a par bond on the risk-free curve.
+  \item \emph{Default-neutral notional}: with CDS notional
+        $(1 - D)/(1 - R)$ and recovery $R$, the default payment is
+        $(1 - D)$, exactly matching the loan repayment. So the
+        combined position has zero default exposure by construction.
+  \item \emph{Consistency theorem}: under \eqref{eq:zhou-bond-decomp},
+        the explicit \eqref{eq:zhou-cds-explicit} equals the
+        textbook \eqref{eq:zhou-cds-standard}.
+  \item \emph{Reproduction of Table 1}: at the calibrated
+        $\lambda$ given in row 5, $\Scds, \Sasw, \Basis$ in the upper
+        rows should be reproduced exactly. The three basis-decomposition
+        rows must sum (with signs as in \eqref{eq:zhou-basis}) to
+        the $\Basis$ row above.
+  \item \emph{Curve-slope $\to$ basis sign}: in Table 2 (flat curve),
+        the first basis term $\overline L - \overline L^{\text{Risky}} = 0$
+        identically; the basis becomes (mostly) negative for low $D$
+        and turns positive only as the off-par term dominates.
+  \item \emph{Par bond basis $\neq 0$}: at $D = 0$, $\Basis = +0.01\%$
+        on the upward-sloping curve and $-0.06\%$ on the flat curve
+        --- showing that even par bonds have non-zero basis due to
+        the accrual-asymmetry term.
+  \item \emph{Monotonicity}: $\Scds$, $\Sasw$, $\lambda$, $\Basis$
+        are all increasing in $D$ (Table 1). $\Scds$ grows faster
+        than $\Sasw$, which is why $\Basis$ widens for deep-discount
+        bonds.
+  \item \emph{$W$ monotonicity in $D$}: $W$ decreases in $D$ for fixed
+        $R$; at $D = 0$, $W = 1$. Check: $W = (1 - D / (1-R)) / (1 - D)$,
+        differentiated and shown to be negative for $R < 1$.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$T_0, T_k$        & Today; bond / ASW payment dates \\
+$\Delta T_k$      & Year fraction of period $(T_{k-1}, T_k)$ \\
+$C$               & Bond fixed coupon (paper examples: 7\% semiannual) \\
+$M$               & Bond risk-free price \\
+$1 - D$           & Bond market dirty price; $D$ is the discount \\
+$R$               & Expected recovery rate \\
+$W$               & CDS-notional-to-bond-price ratio for default neutrality \\
+$L_{k-1}$         & Forward Libor for period $(T_{k-1}, T_k)$ at $T_0$ \\
+$DF(T_k)$         & Risk-free discount factor at $T_0$ \\
+$P(\tau > T_k)$   & Survival probability from $T_0$ to $T_k$ \\
+$\tau$            & Default time \\
+$\lambda$         & Hazard rate (constant in \S2.3.1) \\
+$A$               & Risk-free annuity \\
+$\PVone$          & Risky annuity (uses $DF$ and $P$) \\
+$\PVone^{\text{Risky}}$ & Survival-weighted risky annuity (paper's notation) \\
+$\overline L$     & $A$-weighted average forward Libor \\
+$\overline L^{\,\text{Risky}}$ & Risky-annuity-weighted average forward Libor \\
+$\Loss$           & Risky default-leg integral, trapezoidal-approximated \\
+$\Sasw$           & Par asset swap spread \\
+$\Scds$           & Bond-implied CDS spread \\
+$\Basis$          & $\Scds - \Sasw$, CDS-bond basis \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Reproduce Table 1 and Table 2 on the 10Y, 7\%-coupon bond
+        with $R = 40\%$, using the 16-July-2008 Bloomberg swap zero
+        curve. Match across the seven $D$ levels.
+  \item Verify the 3-term basis decomposition sums to the $\Basis$
+        row in both tables. The third row (off-par term) is given
+        as $D / \PVone^{\text{Risky}} - D / A$, which differs by a
+        sign convention from \eqref{eq:zhou-basis}; check.
+  \item Implement \S2.3.2 bootstrap: given a bond price term
+        structure on a single issuer, recover a piecewise-constant
+        $\lambda$ from \eqref{eq:zhou-bond-decomp}.
+  \item Implement \S2.3.3: given both market CDS spreads and bond
+        prices on the same issuer, jointly solve for $\lambda(T)$
+        and $R(T)$. Compare implied $R(T)$ to any available recovery
+        swap quotes.
+  \item Modern (OIS) update: re-do Table 1 with OIS discounting in
+        place of Libor; quantify the impact on $\Scds$, $\Sasw$, and
+        $\Basis$.
+  \item Test the par-bond basis identity at $D = 0$ across various
+        curve shapes (flat, upward, inverted, humped) to verify the
+        sign predictions of the three-term decomposition.
+\end{itemize}
+\end{todobox}
+
+\end{document}

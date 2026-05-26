@@ -1,0 +1,346 @@
+% =====================================================================
+% Note on: Constant Maturity Asset Swap Convexity Correction
+% Mario Pucci (Banca IMI), 2012 — ssrn:1961545
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{pucci\_2012\_cmasw}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Constant Maturity Asset Swap Convexity Correction}\\
+       \large Mario Pucci (Banca IMI), 2012}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Constant Maturity Asset Swap Convexity Correction \\
+Author          & Mario Pucci (Banca IMI, Milan) \\
+Date            & 27 February 2012 \\
+Source          & \href{https://ssrn.com/abstract=1961545}{ssrn:1961545} \\
+Local file      & \texttt{papers/pucci\_2012\_cmasw/ssrn1961545.pdf} \\
+Tags            & \texttt{cmasw}, \texttt{asset-swap}, \texttt{convexity},
+                  \texttt{linear-swap-rate}, \texttt{displaced-lognormal}, \texttt{correlation} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+The paper prices an ``ASW-let'' --- a payoff that pays a fixing of the
+forward asset swap spread of a reference bond at a future date --- as
+the constant-maturity analogue of a CMS-let. The forward ASW spread
+$R^{asw}_t$ is shown to be a ratio of risk-free tradables and so a
+martingale under the swaption measure $A_t$. Under the
+Hunt--Kennedy/Pelsser one-factor linear swap-rate model
+($D_{T_0 U}/A_{T_0} = \alpha + \beta_U R^{swp}_{T_0}$), the convexity
+correction reduces to a single covariance
+$\mathbb{E}^N_0[R^{asw}_{T_0} R^{swp}_{T_0}]$ between the ASW spread
+and the swap rate. With both rates modelled as displaced-lognormal
+(allowing negative ASW spreads --- relevant for premium bonds), the
+correction admits a clean closed form. A numerical example calibrated
+to plausible Italian sovereign levels (ASW = 490~bp, swap = 4.29\%, 5Y)
+gives convexity corrections in the range $-0.19\%$ to $+0.37\%$
+depending on correlation $\rho \in \{-90\%, \ldots, +90\%\}$ and ASW
+vol $\sigma^{asw} \in \{20\%, 30\%, 50\%\}$.
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper                   & House                        & Meaning \\
+\midrule
+$R^{asw}_{t T_0}$       & $R^{asw}_t$                  & Forward asset swap spread at $t$ for ASW starting at $T_0$ \\
+$R^{swp}_t$             & $R^{swp}_t$                  & Forward swap rate at $t$, same tenor as the ASW \\
+$B_t$                   & $\Bond{t}{\cdot}$            & Reference bond price process \\
+$B^{\text{risk-free}}_t$ & ---                         & Hypothetical risk-free version of the same bond (benchmark) \\
+$D_{tT}$                & $\Disc{t}{T}$                & Risk-free discount factor \\
+$A_t$                   & $\Ann{t}$                    & Risk-free annuity, $\sum_{i} \alpha_i \Disc{t}{T_i}$ \\
+$N_t$                   & $\Numer{t}$                  & Numeraire (paper picks $N = A$) \\
+$T_0, T_p$              & $T_0, T_p$                   & Fixing date, payment date ($T_p \ge T_0$, usually $T_p = T_1$) \\
+$\alpha, \beta_U$       & $\alpha, \beta_U$            & Linear-model coefficients \\
+$\sigma^{swp}, \sigma^{asw}$ & ---                     & Displaced-lognormal vols \\
+$a^{swp}, a^{asw}$      & ---                          & Displacements \\
+$\rho$                  & $\rho$                       & Instantaneous correlation between the two driving BMs \\
+$CC$                    & ---                          & Convexity correction (definition in eq.~\ref{eq:cmasw-cc-def}) \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Forward ASW spread (definition):}
+\begin{equation}\label{eq:cmasw-asw-def}
+  R^{asw}_{t T_0} \;\equiv\; \frac{B^{\text{risk-free}}_t - B_t}{\Ann{t}}.
+\end{equation}
+\textit{Says:} the forward ASW spread is the gap between a risk-free
+benchmark bond and the actual bond, expressed as a per-period
+annuity-weighted rate. As a ratio of tradable assets, it is a
+martingale under the swaption measure (with numeraire $\Ann{}$).
+
+\paragraph{Convexity correction (definition):}
+\begin{equation}\label{eq:cmasw-cc-def}
+  CC \;\equiv\; \frac{\Numer{0}}{\Disc{0}{T_p}}\, \E^N_0\!\left[ R^{asw}_{T_0}\, \Disc{T_0}{T_p} / \Numer{T_0} \right] \;-\; R^{asw}_0.
+\end{equation}
+\textit{Says:} the correction is the difference between the forward
+price of an $R^{asw}_{T_0}$ payment at $T_p$ and the
+``no-volatility'' value $R^{asw}_0 \Disc{0}{T_p}$.
+
+\paragraph{Linear swap-rate model.}
+\begin{equation}\label{eq:cmasw-linearG}
+  \frac{\Disc{T_0}{U}}{\Ann{T_0}} \;=\; G_U(R^{swp}_{T_0}) \;=\; \alpha + \beta_U R^{swp}_{T_0},
+\end{equation}
+for all $U \in \{T_p, T_1, \ldots, T_n\}$, with
+\begin{equation}\label{eq:cmasw-calib}
+  \alpha \;=\; \frac{1}{\sum_{i=1}^n \alpha_i}, \qquad
+  \beta_U \;=\; \frac{\Disc{0}{U}/\Ann{0} - \alpha}{R^{swp}_0}.
+\end{equation}
+\textit{Says:} same calibration as in Pucci's CMT paper; here the
+swap rate plays the role that $\Rcmt$ played there.
+
+\paragraph{Linear-swap ASW convexity correction} (Proposition 1):
+\begin{equation}\label{eq:cmasw-cc-prop}
+  CC \;=\; \left(1 - \frac{\Ann{0}\, \alpha}{\Disc{0}{T_p}}\right) \left( \frac{\E^N_0[R^{asw}_{T_0} R^{swp}_{T_0}]}{R^{swp}_0} - R^{asw}_0 \right).
+\end{equation}
+\textit{Says:} the correction is the product of (i) a discount-curve
+geometric factor and (ii) the covariance excess of
+$R^{asw}_{T_0} R^{swp}_{T_0}$ over its deterministic value. Sign
+follows the sign of correlation when both rates are martingales.
+
+\paragraph{Displaced-lognormal dynamics:}
+\begin{align}
+  \frac{\dd R^{swp}_t}{R^{swp}_t + a^{swp}} &= \sigma^{swp}\, \dd W^{swp}_t, \label{eq:cmasw-dl-swp}\\
+  \frac{\dd R^{asw}_t}{R^{asw}_t + a^{asw}} &= \sigma^{asw}\, \dd W^{asw}_t, \label{eq:cmasw-dl-asw}\\
+  \rho &= \dd\langle W^{swp}, W^{asw}\rangle_t / \dd t.
+\end{align}
+\textit{Says:} the displacement $a$ allows the rate to become
+negative; this matters here because asset-swap spreads can be
+negative on premium bonds (mentioned in the introduction).
+
+\paragraph{Cross-expectation under displaced-lognormal} (eq.~(7) in body):
+\begin{equation}\label{eq:cmasw-cross-exp}
+  \begin{split}
+    \E^N_0[R^{swp}_{T_0} R^{asw}_{T_0}]
+    \;=\; & (R^{swp}_0 + a^{swp})(R^{asw}_0 + a^{asw})\, \exp(\sigma^{swp}\sigma^{asw}\, \rho\, T_0) \\
+    & - a^{swp}(R^{asw}_0 + a^{asw}) - a^{asw}(R^{swp}_0 + a^{swp}) + a^{swp} a^{asw}.
+  \end{split}
+\end{equation}
+\textit{Says:} closed-form cross-moment in the DL model. Substitute
+into \eqref{eq:cmasw-cc-prop} for the full $CC$.
+
+\paragraph{Pure lognormal limit} (Corollary 3, $a^{swp} = a^{asw} = 0$):
+\begin{equation}\label{eq:cmasw-cc-lognormal}
+  CC \;=\; R^{asw}_0\, \left(1 - \frac{\Ann{0}\, \alpha}{\Disc{0}{T_p}}\right)\, \bigl( \exp(\sigma^{swp}\, \sigma^{asw}\, \rho\, T_0) - 1 \bigr).
+\end{equation}
+\textit{Says:} the cleanest case. The convexity correction is
+proportional to $R^{asw}_0$ and to the correlation-weighted
+covariance factor; sign of $CC$ equals sign of $\rho$ (with the
+geometric prefactor positive in the usual regime $\Ann{0}\, \alpha < \Disc{0}{T_p}$).
+
+\paragraph{Validity conditions for displaced-diffusion} (Remark 2):
+\begin{equation}\label{eq:cmasw-dl-validity}
+  R^{asw}_0 > -a^{asw} \quad \text{(DL lognormal)} \qquad \text{or} \qquad 0 < R^{asw}_0 < -a^{asw} \quad \text{(DL anti-lognormal)},
+\end{equation}
+and similarly for $R^{swp}$.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The headline move is the same as in the CMT paper: identify
+$R^{asw}$ with a ratio of tradables (here just on the risk-free curve,
+no defaultable processes needed). Under the swaption measure with
+numeraire $A$, $R^{asw}$ is a martingale and CMS machinery transfers
+directly. The catch is that the dynamics of $R^{asw}$ and $R^{swp}$
+must be modelled jointly --- $CC$ depends on their
+\emph{cross-moment}, not just on individual variances. So this is a
+correlation product, with all the calibration problems that implies.
+\end{commentary}
+
+\begin{commentary}
+The choice of displaced-lognormal instead of plain lognormal is
+operationally important: ASW spreads on premium bonds (where the
+bond's coupon exceeds market levels) can be \emph{negative}. The
+paper notes that this used to be the case for treasuries when
+interbank deposits were perceived less risk-free. A pure lognormal
+process forbids this, so DL is the safer modelling default even when
+$R^{asw}_0 > 0$ today.
+\end{commentary}
+
+\begin{commentary}
+The paper's $\S 8$ honestly enumerates the model's weaknesses:
+\textbf{(i)} the linear-$G_U$ assumption may not be realistic for
+long-tenor bonds (richer functional forms in Hagan's Convexity
+Conundrums exist); \textbf{(ii)} the ASW vol is hard to imply since
+liquid ASW options don't exist --- historical estimation is needed,
+possibly supplemented by bond-option quotes; \textbf{(iii)} static
+replication a la Hagan doesn't trivially apply to ASW-let because
+the swaption-measure formula contains \emph{both} $R^{asw}_{T_0}$
+and $R^{swp}_{T_0}$ explicitly; \textbf{(iv)} correlation is also
+not market-implied.
+\end{commentary}
+
+\begin{commentary}
+The forward ASW package embeds a forward position on the underlying
+bond. Forward repo on sovereigns is thin; the paper notes that for
+issuers with a deep curve (FR, IT, BE, DE) the forward bond can be
+synthesised by coupon-stripping or bootstrapping a zero curve.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Forward ASW spread $R^{asw}_{t T_0}$ via
+        \eqref{eq:cmasw-asw-def}.
+  \item Convexity correction $CC$ via \eqref{eq:cmasw-cc-def}.
+  \item Linear-model coefficients $\alpha, \beta_U$ via
+        \eqref{eq:cmasw-calib}.
+  \item Linear-swap closed-form $CC$ via \eqref{eq:cmasw-cc-prop}.
+  \item Cross-expectation under DL dynamics
+        \eqref{eq:cmasw-cross-exp}, and its lognormal limit
+        \eqref{eq:cmasw-cc-lognormal}.
+\end{itemize}
+
+\textbf{Canonical numerical case} (paper Tables 1, 4, 5; section 7):
+\begin{itemize}[noitemsep]
+  \item Reference: Italian sovereign bond schedule (paper Tab.~4);
+        $T_p = 08/02/2017$ (one specific period).
+  \item Forward swap rate $R^{swp}_0 = 4.29\%$ (matched to discount
+        curve, Tab.~5).
+  \item Forward ASW spread $R^{asw}_0 = 490$~bp (sovereign-flavoured).
+  \item Forward swap-rate vol $\sigma^{swp} = 30\%$.
+  \item Tested grid: $\sigma^{asw} \in \{20\%, 30\%, 50\%\}$,
+        $\rho \in \{-90\%, -50\%, 0\%, +50\%, +90\%\}$.
+\end{itemize}
+
+\textbf{Expected numerical values} (Table 2 of the paper, pure-lognormal $CC$):
+
+\smallskip
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+$\sigma^{asw} \backslash \rho$ & $-90\%$ & $-50\%$ & $0\%$ & $+50\%$ & $+90\%$ \\
+\midrule
+$20\%$ & $-0.09\%$ & $-0.05\%$ & $0.00\%$ & $+0.06\%$ & $+0.12\%$ \\
+$30\%$ & $-0.13\%$ & $-0.08\%$ & $0.00\%$ & $+0.10\%$ & $+0.19\%$ \\
+$50\%$ & $-0.19\%$ & $-0.12\%$ & $0.00\%$ & $+0.18\%$ & $+0.37\%$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textit{Sensitivity to ASW slope} (paper Table 3, DL skew impact):
+
+\smallskip
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+$\sigma^{asw} \backslash \rho$ & $-90\%$ & $-50\%$ & $0\%$ & $+50\%$ & $+90\%$ \\
+\midrule
+$20\%$ & $0.02\%$ & $0.01\%$ & $0.00\%$ & $0.01\%$ & $0.03\%$ \\
+$30\%$ & $0.05\%$ & $0.02\%$ & $0.00\%$ & $0.02\%$ & $0.08\%$ \\
+$50\%$ & $0.11\%$ & $0.04\%$ & $0.00\%$ & $0.07\%$ & $0.28\%$ \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                     & Symbol                          & Quantity \\
+\midrule
+\eqref{eq:cmasw-asw-def}      & $R^{asw}_{t T_0}$               & forward ASW spread as ratio of risk-free tradables \\
+\eqref{eq:cmasw-cc-def}       & $CC$                            & convexity correction (definition) \\
+\eqref{eq:cmasw-linearG}--\eqref{eq:cmasw-calib} & $\alpha, \beta_U$ & linear swap-rate model coefficients \\
+\eqref{eq:cmasw-cc-prop}      & $CC$                            & closed-form CC under linear model \\
+\eqref{eq:cmasw-cross-exp}    & $\E^N_0[R^{swp}_{T_0} R^{asw}_{T_0}]$ & DL cross-expectation \\
+\eqref{eq:cmasw-cc-lognormal} & $CC$ (lognormal limit)          & pure lognormal closed form \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Reproduction of Table 2}: the lognormal closed form
+        \eqref{eq:cmasw-cc-lognormal} with $R^{asw}_0 = 490$~bp,
+        $\sigma^{swp} = 30\%$, $T_0 \approx 5$Y, and the appropriate
+        $\Ann{0}\alpha/\Disc{0}{T_p}$ factor should reproduce the
+        $\sigma^{asw} \times \rho$ grid above to within $0.01\%$.
+  \item \emph{Linear-calibration consistency}: $\alpha + \beta_{T_p} R^{swp}_0 = \Disc{0}{T_p}/\Ann{0}$
+        and the sum $\sum_{i} \alpha_i (\alpha + \beta_{T_i} R^{swp}_0) = 1$
+        hold by construction.
+  \item \emph{DL $\to$ lognormal limit}: as $a^{swp}, a^{asw} \to 0$,
+        \eqref{eq:cmasw-cross-exp} reduces to
+        $(R^{swp}_0)(R^{asw}_0)\exp(\sigma^{swp}\sigma^{asw}\rho T_0)$,
+        and the full CC reduces to \eqref{eq:cmasw-cc-lognormal}.
+  \item \emph{Sign of $CC$}: under lognormal dynamics and the typical
+        regime $\Ann{0}\alpha < \Disc{0}{T_p}$, the sign of $CC$
+        equals the sign of $\rho$.
+  \item \emph{Vanishing at zero vol}: $CC = 0$ whenever
+        $\sigma^{swp} \sigma^{asw} = 0$ (lognormal limit), or
+        whenever both rates are independent ($\rho = 0$ in lognormal).
+  \item \emph{DL validity}: the conditions \eqref{eq:cmasw-dl-validity}
+        must hold for the chosen $(a^{swp}, a^{asw})$ pair; otherwise
+        the implied dynamics are inadmissible.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$R^{asw}_{t T_0}$       & Forward asset swap spread at $t$ for ASW starting at $T_0$ \\
+$R^{swp}_t$             & Forward swap rate at $t$ \\
+$B_t$                   & Reference bond price process \\
+$B^{\text{risk-free}}_t$ & Hypothetical risk-free version of the same bond \\
+$D_{tT}$                & Risk-free DF \\
+$A_t$                   & Risk-free annuity over the schedule \\
+$T_0$                   & Fixing date \\
+$T_p$                   & Payment date, $T_p \ge T_0$ \\
+$T_1, \ldots, T_n$      & Bond / annuity schedule dates \\
+$yf(T_{i-1}, T_i)$      & Year fraction (often denoted $\alpha_i$ in the paper) \\
+$N_t$                   & Numeraire process (paper picks $N = A$) \\
+$\alpha, \beta_U$       & Linear-model coefficients \\
+$\sigma^{swp}, \sigma^{asw}$ & DL vols of the swap rate / ASW spread \\
+$a^{swp}, a^{asw}$      & DL displacements \\
+$\rho$                  & Instantaneous correlation \\
+$W^{swp}, W^{asw}$      & Driving Brownian motions \\
+$CC$                    & Convexity correction (paper's eq.~(3)) \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Reproduce Table 2 in full (lognormal grid) and Table 3 in
+        full (DL slope sensitivity) using \eqref{eq:cmasw-cc-lognormal}
+        and \eqref{eq:cmasw-cross-exp}.
+  \item Schedule used in the paper's example: bond schedule from
+        Tab.~4 (not transcribed here); recover from paper if a full
+        end-to-end reproduction is needed.
+  \item Discount curve from Tab.~5: not transcribed; the linear-model
+        coefficients $\alpha, \beta_U$ for the canonical case must
+        be derived from the same curve to reproduce Table 2.
+  \item Multi-curve generalisation: the paper notes (end of \S5) that
+        formula \eqref{eq:cmasw-cc-prop} extends naturally to a
+        multi-curve framework where the swap-rate projection and
+        discount are independent. Not in scope for first-pass
+        validation but worth bookmarking.
+\end{itemize}
+\end{todobox}
+
+\end{document}

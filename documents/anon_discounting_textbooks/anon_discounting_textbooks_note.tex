@@ -1,0 +1,351 @@
+% =====================================================================
+% Note on: Why We Don't Discount at the "Risk-Free Rate" (anonymous)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{anon\_discounting\_textbooks}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Why We Don't Discount at the ``Risk-Free Rate''}\\
+       \large Anonymous expository note}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Why We Don't Discount at the ``Risk-Free Rate'' \\
+Author(s)       & Not stated \\
+Date            & Not stated \\
+Source          & No SSRN/DOI; pedagogical note \\
+Local file      & \texttt{papers/anon\_discounting\_textbooks/What\_Textbooks\_Get\_Wrong\_About\_Discounting\_1777005506.pdf} \\
+Tags            & \texttt{discounting}, \texttt{repo}, \texttt{collateral},
+                  \texttt{csa}, \texttt{ois}, \texttt{xva}, \texttt{multi-curve}, \texttt{expository} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+An expository piece arguing that the textbook ``discount at the
+risk-free rate'' is a placeholder for two distinct rates: the repo
+rate $\Repo$ of the hedge instrument, which enters the \emph{drift}
+of the underlying under $\Q$ (and so the forward price); and the
+collateral rate $\Coll$ specified in the CSA, which enters the
+\emph{discount factor} applied to the derivative's value. The pre-2008
+practice of collapsing both into a single LIBOR-flat rate was
+operationally fine when LIBOR-OIS spreads were small; the crisis
+forced an explicit split. The note works through three collateral
+regimes (perfect CSA, no CSA, partial CSA), a worked 5-year USD swap
+example showing a $\$570$k discount-rate impact on $\$100$m notional,
+and a second channel by which repo enters discounting (non-cash
+collateral). It is pedagogical rather than novel; equations exist
+chiefly to anchor the worked examples.
+
+% =====================================================================
+\section{Setup and notation}
+
+The note uses constant-rate examples throughout for pedagogical
+clarity, while stating that production systems implement the
+stochastic versions (eqs.~1--6 in the paper).
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper            & House                  & Meaning \\
+\midrule
+$r(t)$           & ---                     & Short rate (textbook) \\
+$r^{\text{repo}}(t)$ & $\Repo$             & Repo rate on the hedge instrument; drift under $\Q$ \\
+$r_c(s)$         & $\Coll$                 & CSA / collateral rate; entered into discounting \\
+$r_f(s)$         & $\Fund$                 & Unsecured funding rate of the dealer \\
+$r_{\text{eff}}(s)$ & ---                  & Path-dependent effective rate under partial CSA \\
+$V(t)$           & $V_t$                   & Derivative value \\
+$S(t)$           & $S_t$                   & Underlying \\
+$\sigma(t, S(t))$& $\sigma_t$              & Local volatility \\
+$\lambda_C, \lambda_D$ & ---               & Default intensity of counterparty / dealer \\
+$R_C, R_D$       & ---                     & Recovery rates of counterparty / dealer \\
+$H$              & ---                     & CSA threshold \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{General stochastic pricing formula (uncollateralised).}
+\begin{equation}\label{eq:general-pricing}
+  V(t) \;=\; \Et{\Q}\!\left[ \exp\!\left(-\int_t^T r(s)\,\dd s\right) V(T) \,\Big|\, \Ftime{t} \right].
+\end{equation}
+\textit{Says:} the standard textbook formula --- but only when one
+single rate $r(s)$ correctly captures both the cost of carry and the
+discounting, which holds essentially never in modern practice.
+
+\paragraph{Underlying dynamics under $\Q$ (with repo).}
+\begin{equation}\label{eq:underlying-dyn}
+  \dd S(t) \;=\; r^{\text{repo}}(t)\,S(t)\,\dd t \;+\; \sigma(t, S(t))\, S(t)\, \dd W^{\Q}(t).
+\end{equation}
+\textit{Says:} the drift of $S$ under the pricing measure is the
+\emph{repo} rate of $S$, not a universal $r$. This is the cost of
+carry of the replicating hedge.
+
+\paragraph{Collateralised pricing.}
+\begin{equation}\label{eq:coll-pricing}
+  V(t) \;=\; \Et{\Q}\!\left[ \exp\!\left(-\int_t^T r_c(s)\,\dd s\right) V(T) \,\Big|\, \Ftime{t} \right].
+\end{equation}
+\textit{Says:} under a CSA with cash collateral earning $r_c$, the
+discount rate is exactly $r_c$. This is forced by the no-arbitrage
+martingale condition on $\exp(-\int_0^t r_c\,\dd s)\, V(t)$.
+
+\paragraph{XVA components} (verbatim from paper):
+\begin{align}
+  \text{CVA} &= \Et{\Q}\!\left[\int_t^T e^{-\int_t^s r_c(u)\,\dd u}\,\lambda_C(s)\,(1-R_C)\,(V(s))^+ \dd s\,\Big|\,\Ftime{t}\right], \label{eq:cva}\\
+  \text{DVA} &= \Et{\Q}\!\left[\int_t^T e^{-\int_t^s r_c(u)\,\dd u}\,\lambda_D(s)\,(1-R_D)\,(-V(s))^+ \dd s\,\Big|\,\Ftime{t}\right], \label{eq:dva}\\
+  \text{FVA} &= \Et{\Q}\!\left[\int_t^T e^{-\int_t^s r_c(u)\,\dd u}\,(r_f(s) - r_c(s))\, V(s)\,\dd s\,\Big|\,\Ftime{t}\right]. \label{eq:fva}
+\end{align}
+\textit{Says:} CVA charges expected positive exposure for counterparty
+default; DVA gives credit for the dealer's own default risk on negative
+exposures; FVA charges the spread between funding and collateral rates
+on the net exposure. All three discount at $r_c$, consistent with
+\eqref{eq:coll-pricing}.
+
+\paragraph{Pricing PDE with separated drift and discounting.}
+For an equity derivative on $S$ with cash-collateralised PV:
+\begin{equation}\label{eq:pde-split}
+  \frac{\partial V}{\partial t}
+  \;+\; r^{\text{repo}}\, S\, \frac{\partial V}{\partial S}
+  \;+\; \tfrac{1}{2}\,\sigma^2\, S^2\, \frac{\partial^2 V}{\partial S^2}
+  \;=\; r_c \cdot V.
+\end{equation}
+\textit{Says:} $r^{\text{repo}}$ in the drift term, $r_c$ on the RHS.
+Collapsing them to a single $r$ (Black--Scholes) misses the post-2008
+distinction.
+
+\paragraph{Forward price under repo} (equity example):
+\begin{equation}\label{eq:fwd-equity}
+  F \;=\; S_0 \cdot e^{r^{\text{repo}} \cdot T}.
+\end{equation}
+\textit{Says:} the implied forward uses the repo rate, not the
+risk-free rate. The example: $S_0 = \pounds 100$, $T = 1$,
+$r^{\text{repo}} = 5.5\%$ gives $F \approx \pounds 105.65$, versus
+the textbook $\pounds 105.13$ at $r = 5\%$ --- a $52$p difference
+per share before any option valuation.
+
+\paragraph{Three regimes for the discount rate}:
+\begin{align}
+  \text{Perfect CSA:} \quad V(t) &= e^{-r_c (T-t)}\, \Et{\Q}[V(T) | \Ftime{t}], \label{eq:reg-perfect}\\
+  \text{No CSA:}      \quad V(t) &= e^{-r_f (T-t)}\, \Et{\Q}[V(T) | \Ftime{t}], \label{eq:reg-none}\\
+  \text{Partial CSA:} \quad V(t) &= e^{-r_{\text{eff}} (T-t)}\, \Et{\Q}[V(T) | \Ftime{t}], \label{eq:reg-partial}
+\end{align}
+with $r_{\text{eff}}(s) = r_c(s)\,\Ind_{\{|V(s)| > H\}} + r_f(s)\,\Ind_{\{|V(s)| \le H\}}$.
+\textit{Says:} the effective discount rate is path-dependent under
+partial collateralisation --- which is why even constant-rate partial
+CSAs require simulation.
+
+\paragraph{Cross-currency CSA discrepancy.}
+\begin{equation}\label{eq:xccy-csa}
+  V^A(t) \;=\; e^{-r_c^{\text{EUR}} (T-t)}\, \Et{\Q}[V(T) | \Ftime{t}],
+  \quad
+  V^B(t) \;=\; e^{-r_c^{\text{USD}} (T-t)}\, \Et{\Q}[V(T) | \Ftime{t}].
+\end{equation}
+\textit{Says:} the same derivative has two different values under two
+CSAs with different collateral currencies. The cross-currency basis
+prices this difference.
+
+\paragraph{Discount rate under non-cash (bond) collateral.}
+\begin{equation}\label{eq:disc-bond-coll}
+  r_{\text{eff}} \;=\; r^{\text{bond}}_{\text{repo}} + h,
+\end{equation}
+where $h$ is the haircut cost.
+\textit{Says:} when the CSA permits bond collateral, the bank must
+repo the bond to convert it into spendable cash; the effective
+discount rate is the bond's repo rate (plus haircut), not the CSA
+overnight rate. Distinct channel from the drift-side repo in
+\eqref{eq:underlying-dyn}.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The note's structural insight is the clean separation:
+\emph{drift = repo, discount = collateral}. Both rates are typed
+incorrectly in textbook treatments under the universal symbol $r$.
+The summary table in \S3.3 is the operational decision rule and is
+worth lifting into one's own notation:
+\begin{center}
+\begin{tabular}{@{}p{4cm}p{5cm}p{5cm}@{}}
+\toprule
+                  & Repo $\Repo$                    & Collateral $\Coll$ \\
+\midrule
+Role              & Drift of underlying under $\Q$  & Discount factor on $V$ \\
+Determined by     & Repo market of the hedge asset  & CSA contract \\
+Can differ?       & Yes, always                     & Yes, always \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{commentary}
+
+\begin{commentary}
+The two repo channels (\S3 drift and \S6.5 discount-via-non-cash-collateral)
+are easy to conflate. They involve different bonds: the drift channel
+uses the repo rate of \emph{the hedge instrument}; the discount channel
+uses the repo rate of \emph{the bond posted as collateral}. These will
+generally trade at different rates on the same day, especially when
+specialness is involved.
+\end{commentary}
+
+\begin{commentary}
+The note's \S6.3 worked example ($5$-year receiver swap, $\$100$m,
+fixed rate $3.50\%$, $r_c = 4\%$ OIS, $r_f = 4.8\%$ unsecured) gives:
+PV of fixed leg under perfect CSA $= \$15.54$m; no CSA $= \$14.97$m
+($-\$570$k); partial CSA with $\pounds 10$m threshold $\approx \$15.29$m
+($-\$250$k). Useful as a sanity-check anchor for any multi-curve
+implementation.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Three regime-specific present-value formulas
+        (eqs.~\ref{eq:reg-perfect}, \ref{eq:reg-none}, \ref{eq:reg-partial}).
+  \item Equity forward price under repo (eq.~\ref{eq:fwd-equity}).
+  \item Bond forward price under GC repo with coupon carry
+        ($F^{\text{Gilt}} = P_0 \cdot e^{(r_{GC} - c) T}$, paper \S3.2).
+  \item CVA, DVA, FVA integrals (eqs.~\ref{eq:cva}--\ref{eq:fva}).
+  \item Effective discount rate under bond collateral
+        (eq.~\ref{eq:disc-bond-coll}).
+\end{itemize}
+
+\textbf{Canonical numerical cases} (from worked examples in the paper):
+
+\smallskip
+\textit{Case A --- Equity forward, \S3.1:}
+$S_0 = \pounds 100$, $T = 1$, $r^{\text{repo}} = 5.5\%$, $r = 5\%$ (textbook comparison).
+
+\smallskip
+\textit{Case B --- 5Y receiver swap, \S6.3:}
+$\$100$m notional, fix rate $3.50\%$ received, SOFR paid,
+$r_c = 4.00\%$, $r_f = 4.80\%$, $5$Y tenor.
+
+\smallskip
+\textit{Case C --- Bond collateral ColVA, \S6.5:}
+$\pounds 20$m Gilt posted as collateral on a 10Y swap, duration $\approx 8.5$,
+GC repo $4.95\%$ vs.\ SONIA $5.00\%$, or special repo $3.50\%$ vs.\
+SONIA $5.00\%$.
+
+\textbf{Expected numerical values:}
+
+\smallskip
+\begin{tabular}{@{}p{6cm}rl@{}}
+\toprule
+Quantity                                                & Value          & Tolerance \\
+\midrule
+Case A: equity forward $F$                              & $\pounds 105.65$ & $\pm 0.01$ \\
+Case A: textbook (mis)forward                           & $\pounds 105.13$ & $\pm 0.01$ \\
+Case B: PV fixed leg, perfect CSA                       & $\$15.54$m      & $\pm \$0.01$m \\
+Case B: PV fixed leg, no CSA                            & $\$14.97$m      & $\pm \$0.01$m \\
+Case B: impact vs.\ OIS, no CSA                         & $-\$570$k       & $\pm \$10$k \\
+Case B: PV fixed leg, partial CSA (\$10m thresh.)       & $\$15.29$m      & $\pm \$0.01$m \\
+Case C: ColVA, GC repo case                             & $\pounds 85$k    & order-of-mag. \\
+Case C: ColVA, special repo case                        & $\pounds 2.55$m  & order-of-mag. \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                  & Symbol         & Quantity \\
+\midrule
+\eqref{eq:underlying-dyn}  & $\dd S(t)$     & dynamics of underlying with repo drift \\
+\eqref{eq:coll-pricing}    & $V(t)$         & present value under perfect CSA \\
+\eqref{eq:cva}--\eqref{eq:fva} & CVA, DVA, FVA & XVA components (all discount at $r_c$) \\
+\eqref{eq:pde-split}       & ---            & pricing PDE with separated drift and discount \\
+\eqref{eq:fwd-equity}      & $F$            & equity forward at repo rate \\
+\eqref{eq:reg-perfect}--\eqref{eq:reg-partial} & $V(t)$ & PV in three collateral regimes \\
+\eqref{eq:xccy-csa}        & $V^A, V^B$     & PVs under two different CSA currencies \\
+\eqref{eq:disc-bond-coll}  & $r_{\text{eff}}$ & effective discount under bond collateral \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{No-arbitrage on collateralised process}: the process
+        $\exp(-\int_0^t r_c\,\dd s)\, V(t)$ is a $\Q$-martingale under
+        a perfect CSA; equivalently, discounting at any rate
+        $\tilde r \neq r_c$ produces a deterministic drift $(r_c - \tilde r) V(t)$,
+        which is an arbitrage.
+  \item \emph{Forward reconstruction (Case A)}: $S_0 e^{r^{\text{repo}} T}
+        = \pounds 105.65$ at the canonical inputs within $\pm 0.01$.
+  \item \emph{Discount-rate impact (Case B)}: changing the discount
+        rate from $r_c = 4\%$ to $r_f = 4.8\%$ on a $\$100$m
+        $5$-year swap fixed leg at $3.50\%$ moves the PV by
+        $\approx -\$570$k.
+  \item \emph{Limit consistency}: the partial-CSA formula
+        \eqref{eq:reg-partial} reduces to \eqref{eq:reg-perfect}
+        as $H \to 0$, and to \eqref{eq:reg-none} as $H \to \infty$.
+  \item \emph{Cross-currency CSA disagreement}: \eqref{eq:xccy-csa}
+        produces a strict inequality $V^A \neq V^B$ whenever
+        $r_c^{\text{EUR}} \neq r_c^{\text{USD}}$, with the sign of
+        the gap determined by the sign of $V(T)$ and the rate gap.
+  \item \emph{Specialness $\to$ ColVA monotonicity (Case C)}: ColVA in
+        eq.~\eqref{eq:disc-bond-coll} is decreasing in
+        $r^{\text{bond}}_{\text{repo}}$ at fixed $r_c$. The
+        $\pounds 85$k $\to \pounds 2.55$m jump between GC and special
+        cases reflects a $145$~bp rate gap on $\pounds 20$m at
+        duration $8.5$.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$r(t)$           & Generic short rate (textbook) \\
+$r^{\text{repo}}(t)$ & Instantaneous repo rate process; cost of carry for the hedge \\
+$r_c(s)$         & Stochastic collateral / CSA rate \\
+$r_f(s)$         & Stochastic unsecured funding rate of the dealer \\
+$r_{\text{eff}}(s)$ & Path-dependent effective rate under partial CSA \\
+$V(t)$           & Derivative value \\
+$S(t)$           & Underlying \\
+$\sigma(t, S(t))$& Local volatility \\
+$W^{\Q}(t)$      & Brownian motion under risk-neutral measure $\Q$ \\
+$\lambda_C(t)$, $\lambda_D(t)$ & Default intensity of counterparty / dealer \\
+$R_C, R_D$       & Recovery rates of counterparty / dealer \\
+$H$              & CSA threshold (collateral floor) \\
+$P_0, c$         & Bond clean price, coupon (in Gilt example) \\
+$h$              & Haircut cost under non-cash collateral \\
+SOFR, SONIA, €STR & Overnight rates in USD, GBP, EUR \\
+GC               & General collateral (repo) \\
+ColVA            & Collateral valuation adjustment \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Cross-check the Case B numbers ($\$15.54$m perfect CSA,
+        $\$14.97$m uncollateralised) against a vanilla swap pricer
+        with a hand-built OIS-only flat curve at $4\%$ and $4.8\%$.
+  \item Implement a partial-CSA simulator that reproduces the
+        $\$15.29$m blended PV for the \$10m-threshold case.
+  \item Tab.~6.5 (Case C) gives a $\pounds 2.55$m ColVA gap purely
+        from collateral specialness. Reproduce on a simple 10Y swap
+        with bond-collateral option.
+\end{itemize}
+\end{todobox}
+
+\end{document}

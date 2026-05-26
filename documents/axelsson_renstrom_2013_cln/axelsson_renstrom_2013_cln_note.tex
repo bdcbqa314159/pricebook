@@ -1,0 +1,429 @@
+% =====================================================================
+% Note on: On the pricing of Credit-Linked Notes: Evidence from the Swedish market
+% Marc Axelsson & Tobias Renström (SSE), 2013
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{axelsson\_renstrom\_2013\_cln}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{On the pricing of Credit-Linked Notes: Evidence from the Swedish market}\\
+       \large Marc Axelsson \& Tobias Renström (SSE), 2013}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & On the pricing of Credit-Linked Notes: Evidence from the Swedish market \\
+Authors         & Marc Axelsson, Tobias Renström \\
+Affiliation     & Stockholm School of Economics (master's thesis); tutor: Michael Halling \\
+Date            & 15 May 2013 \\
+Source          & SSE thesis; no SSRN ID printed on document \\
+Local file      & \texttt{papers/axelsson\_renstrom\_2013\_cln/cln\_swedish\_mkt.pdf} \\
+Tags            & \texttt{cln}, \texttt{structured-products}, \texttt{reduced-form},
+                  \texttt{cds-bootstrap}, \texttt{gaussian-copula}, \texttt{counterparty-risk},
+                  \texttt{empirical}, \texttt{nordea} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A master's thesis that builds a reduced-form pricing model for
+credit-linked notes (CLNs) and applies it to 11 Nordea-issued CLNs in
+the Swedish market (2012--2013). The valuation is a survival-weighted
+coupon bond \eqref{eq:cln-V} with floating coupons set via forward
+rates and survival probabilities bootstrapped from CDS spreads via the
+piecewise-flat hazard rate model of O'Kane \& Turnbull (2003).
+Counterparty credit risk (issuer Nordea) is layered on top via a
+bivariate Gaussian copula on the joint survival of the reference
+entity and the issuer, with default correlations estimated from
+5Y CDS-spread time series. Empirically: all 11 CLNs are overpriced
+relative to the model, by 0.6\%--6.4\% under the baseline 40\%
+recovery and up to 8.5\% once issuer (Nordea) counterparty risk is
+priced in. The theoretical price tracks the 5Y CDS spread on the
+reference name almost perfectly, validating the model's accuracy. The
+authors attribute the residual mispricing to retail-investor
+willingness-to-pay, possible ``too-big-to-fail'' perception of the
+issuer, and limited liquidity. Yield-curve interpolation uses
+Nelson-Siegel-Svensson on STIBOR + Swedish swap zero curve.
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper                  & House                       & Meaning \\
+\midrule
+$V^{CLN}$              & ---                         & Theoretical CLN value at valuation date $t$ \\
+$C$                    & ---                         & Coupon rate (in body: fixed; in practice STIBOR + spread) \\
+$F$                    & ---                         & Notional / face value \\
+$R$                    & $\Rec$                      & Recovery rate (baseline 40\%) \\
+$T_i$                  & $T_i$                       & Coupon payment dates ($i = 1, \ldots, N$) \\
+$N$                    & $N$                         & Number of coupons (4 quarterly, then yearly to maturity) \\
+$Z(t, T_i)$            & $\Disc{t}{T_i}$             & Risk-free / STIBOR discount factor \\
+$Q(t, T_i)$            & $Q(t, T_i)$                 & Survival probability of the reference entity \\
+$f_{t_1, t_2}$         & $f_{t_1, t_2}$              & Forward rate, eq.~\ref{eq:cln-fwd} \\
+$\lambda$              & $\lambda$                   & Hazard rate (piecewise-flat) \\
+$S(t_0, t_N)$          & ---                         & CDS contractual spread \\
+$\Delta(t_{n-1}, t_n)$ & $\alpha_n$                  & Day-count fraction in the appropriate convention \\
+$M$                    & ---                         & Discretisation steps per year for the protection leg \\
+$Q^C_{rp}$             & ---                         & Joint reference-issuer survival via Gaussian copula \\
+$\rho$                 & $\rho$                      & Default correlation (estimated from 5Y CDS correlations) \\
+$\Phi, \Phi_\Sigma$    & ---                         & Univariate / bivariate standard normal CDF \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{CLN value (risk-free issuer):}
+\begin{equation}\label{eq:cln-V}
+  V^{CLN} \;=\; \left[ \sum_{i=1}^{N} Z(t, T_i)\, Q(t, T_i)\, C \;+\; Z(t, T_N)\, Q(t, T_N) \right] F
+              \;+\; \sum_{i=1}^{N} Z(t, T_i)\, \bigl( Q(t, T_{i-1}) - Q(t, T_i) \bigr)\, R\, F.
+\end{equation}
+\textit{Says:} present value of coupons (risk-discounted by both $Z$
+and $Q$) plus the survival-weighted notional plus a recovery payment
+on default in each interval. Structurally identical to a defaultable
+coupon bond with constant recovery (Bomfim 2005).
+
+\paragraph{Forward rate for floating coupons:}
+\begin{equation}\label{eq:cln-fwd}
+  f_{t_1, t_2} \;=\; \left( \frac{(1 + r_2)^{t_2 - t_0}}{(1 + r_1)^{t_1 - t_0}} \right)^{\!\!1/(t_2 - t_1)} \;-\; 1.
+\end{equation}
+\textit{Says:} Fabozzi--Mann forward rate from observed spot rates;
+$r_1, r_2$ are spot rates to $t_1, t_2$. The fixed CLN spread $b$ is
+added on top of $f$ to get the per-period coupon.
+
+\paragraph{Reduced-form hazard model (Jarrow-Turnbull):}
+\begin{equation}\label{eq:cln-hazard}
+  \mathbb{P}[\tau < t + \dd t \,|\, \tau \ge t] \;=\; \lambda(t)\, \dd t,
+  \qquad
+  Q(t_V, T) \;=\; \exp\!\left( -\int_{t_V}^T \lambda(s)\, \dd s \right).
+\end{equation}
+\textit{Says:} default times follow an inhomogeneous Poisson process
+with deterministic intensity $\lambda(t)$, assumed independent of
+interest rates and recovery.
+
+\paragraph{CDS premium leg (with accrued):}
+\begin{equation}\label{eq:cln-cds-prem}
+  \text{Premium PV} \;=\; S(t_0, t_N) \sum_{n=1}^{N} \Delta(t_{n-1}, t_n)\, Z(t_V, t_n)\!
+    \left[ Q(t_V, t_n) + \tfrac{1}{2}\bigl(Q(t_V, t_{n-1}) - Q(t_V, t_n)\bigr) \right].
+\end{equation}
+\textit{Says:} O'Kane-Turnbull approximation: the half-period accrued
+premium on default is added to the full-period premium on survival
+to coupon date.
+
+\paragraph{CDS protection leg:}
+\begin{equation}\label{eq:cln-cds-prot}
+  \text{Protection PV} \;=\; (1 - R) \sum_{m=1}^{M \times t_N} Z(t_V, t_m)\, \bigl( Q(t_V, t_{m-1}) - Q(t_V, t_m) \bigr).
+\end{equation}
+\textit{Says:} default-leg integral discretised at $M$ steps per year.
+Discretisation error of order $r / (2 M)$; at $M = 4$, $r = 2\%$,
+500~bp CDS spread, error $\approx 0.25\%$ relative or 1.25~bp absolute.
+
+\paragraph{CDS breakeven (par) spread:}
+\begin{equation}\label{eq:cln-cds-par}
+  S(t_V, t_N) \;=\; \frac{(1 - R) \sum_{m=1}^{M \times t_N} Z(t_V, t_m)\, [Q(t_V, t_{m-1}) - Q(t_V, t_m)]}
+                          {\sum_{n=1}^{N} \Delta(t_{n-1}, t_n)\, Z(t_V, t_n)\, [Q(t_V, t_n) + \frac{1}{2}(Q(t_V, t_{n-1}) - Q(t_V, t_n))]}.
+\end{equation}
+\textit{Says:} sets premium PV = protection PV. The denominator is
+the risky annuity (with accrued-on-default correction).
+
+\paragraph{Piecewise-flat hazard term structure} (bootstrap target):
+\begin{equation}\label{eq:cln-hazard-piecewise}
+  Q(t_V, T) \;=\;
+  \begin{cases}
+    e^{-\lambda_{0,1}\, \tau} & 0 < \tau \le 1 \\
+    e^{-\lambda_{0,1} - \lambda_{1,3}(\tau - 1)} & 1 < \tau \le 3 \\
+    e^{-\lambda_{0,1} - 2\lambda_{1,3} - \lambda_{3,5}(\tau - 3)} & 3 < \tau \le 5 \\
+    e^{-\lambda_{0,1} - 2\lambda_{1,3} - 2\lambda_{3,5} - \lambda_{5,7}(\tau - 5)} & 5 < \tau \le 7 \\
+    e^{-\lambda_{0,1} - 2\lambda_{1,3} - 2\lambda_{3,5} - 2\lambda_{5,7} - \lambda_{7,10}(\tau - 7)} & \tau > 7 \\
+  \end{cases}
+\end{equation}
+where $\tau = T - t_V$ and $\lambda_{i,j}$ is bootstrapped from CDS
+quotes at maturities $\{1, 3, 5, 7, 10\}$Y.
+
+\paragraph{Nelson-Siegel-Svensson yield curve:}
+\begin{equation}\label{eq:cln-nss}
+  y(\tau) \;=\; \beta_1 \;+\; \beta_2 \!\left( \frac{1 - e^{-\lambda_1 \tau}}{\lambda_1 \tau} \right)
+              \;+\; \beta_3 \!\left( \frac{1 - e^{-\lambda_1 \tau}}{\lambda_1 \tau} - e^{-\lambda_1 \tau} \right)
+              \;+\; \beta_4 \!\left( \frac{1 - e^{-\lambda_2 \tau}}{\lambda_2 \tau} - e^{-\lambda_1 \tau} \right).
+\end{equation}
+\textit{Says:} parametric zero-curve fit on STIBOR + Swedish swap zero
+quotes; the same form the Swedish Riksbank uses.
+
+\paragraph{Gaussian copula joint survival (counterparty risk):}
+\begin{equation}\label{eq:cln-gauss-copula}
+  Q^C_{rp}(\tau, T) \;=\; \Phi_\Sigma\!\left( \Phi^{-1}\!\bigl(e^{-\lambda_p (T - \tau)}\bigr),\, \Phi^{-1}\!\bigl(e^{-\lambda_r (T - \tau)}\bigr);\, \rho \right),
+  \qquad
+  \Sigma = \begin{pmatrix} 1 & \rho \\ \rho & 1 \end{pmatrix}.
+\end{equation}
+\textit{Says:} the joint survival of reference $r$ and issuer
+counterparty $p$ is obtained by inverting the marginal survival
+probabilities through the standard normal CDF, then evaluating the
+bivariate normal CDF at the resulting quantiles with correlation
+$\rho$.
+
+\paragraph{Alternative (Bomfim) joint survival via Venn intersection:}
+\begin{equation}\label{eq:cln-bomfim}
+  Q_{rp}(\tau, T_j) \;=\; \prod_{i=1}^{j} \bigl\{ 1 - [\lambda_r(\tau, T_i) + \lambda_p(\tau, T_i) - \lambda_{rp}(\tau, T_i)] \bigr\}.
+\end{equation}
+\textit{Says:} uses conditional default probabilities. Agrees with the
+unconditional copula version \eqref{eq:cln-gauss-copula} to
+within a few basis points at the relevant time horizons (paper
+reports gap of $[0.1, 26, 57, 89]$~bp at $[1, 2, 3, 4]$Y for
+$\lambda = [0.05, 0.08]$, $\rho = 0.2$); the copula form is used in
+the empirical work.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The valuation is intentionally simple: \eqref{eq:cln-V} is just a
+defaultable bond. The work of the paper is in feeding it with
+properly bootstrapped survival probabilities (from CDS markets) and
+in layering counterparty risk via a Gaussian copula. The
+non-trivial empirical fact is the consistent overpricing of all 11
+CLNs by an economically meaningful 0.6\%--6.4\% (raw) or up to 8.5\%
+(with issuer-counterparty risk priced in), which is interpreted as
+willingness-to-pay / liquidity premium / too-big-to-fail effect.
+\end{commentary}
+
+\begin{commentary}
+The reduced-form choice is well-justified for a daily pricing
+exercise. Structural (Merton-style) models require firm-value
+volatility and balance-sheet inputs that update at most quarterly,
+giving them very limited daily variation. Reduced-form with
+CDS-bootstrapped hazards is the natural daily-frequency choice and
+also captures the credit-market view of risk rather than the
+fundamental view.
+\end{commentary}
+
+\begin{commentary}
+The bootstrap \eqref{eq:cln-hazard-piecewise} from $\{1, 3, 5, 7, 10\}$Y
+CDS quotes is the standard JPMorgan / O'Kane construction. For Nordea
+CLNs with ~5Y final maturity, the survival probability is dominated
+by $\lambda_{0,1}, \lambda_{1,3}, \lambda_{3,5}$, with the largest
+sensitivity to $\lambda_{3,5}$ because the principal is repaid at
+maturity (durations confirm this --- mostly the 5Y bucket).
+\end{commentary}
+
+\begin{commentary}
+The Gaussian copula choice ducks the well-known tail-dependence issue
+(Li 2000; the copula that ``broke the world'' in 2008). The authors
+acknowledge that the Clayton copula --- with stronger lower-tail
+dependence --- would be more conservative for stress scenarios, but
+argue that the short sample (one year of post-crisis data) cannot
+support a more elaborate model. For first-pass validation work the
+Gaussian copula is fine, but stress-testing should be re-done under
+a Clayton or t-copula.
+\end{commentary}
+
+\begin{commentary}
+The empirical finding that theoretical prices ``mirror the 5Y CDS
+spread almost perfectly'' is the strongest validation of the model
+specification. The interest-certificate structure removes
+interest-rate sensitivity by construction (floating coupon plus
+quarterly resets), leaving only credit risk. A daily-frequency match
+between modelled price changes and the 5Y CDS spread says the model
+is doing what it should; the mispricing level is then a market
+anomaly, not a model error.
+\end{commentary}
+
+\begin{commentary}
+Default-correlation estimation \eqref{eq:cln-gauss-copula}: rather
+than equity-return correlation (the common practice, Hull \& White
+2004), the authors use 5Y-CDS-spread correlations because (i) one
+reference name (Stena) is not publicly traded and (ii) other
+reference entities trade in multiple currencies, introducing FX
+contamination. CDS quotes are all EUR-denominated. Estimated
+correlations are in $[0.13, 0.26]$, with the largest for ArcelorMittal
+(0.26) and Volkswagen (0.23).
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item CLN value $V^{CLN}$ via \eqref{eq:cln-V} under a risk-free
+        issuer.
+  \item Forward rate $f_{t_1, t_2}$ via \eqref{eq:cln-fwd} for
+        floating-coupon construction.
+  \item Survival $Q(t_V, T)$ via the reduced-form hazard model
+        \eqref{eq:cln-hazard} and its piecewise-flat realisation
+        \eqref{eq:cln-hazard-piecewise}.
+  \item CDS premium and protection legs
+        \eqref{eq:cln-cds-prem}--\eqref{eq:cln-cds-prot} and the
+        breakeven CDS spread \eqref{eq:cln-cds-par}.
+  \item Yield curve via Nelson-Siegel-Svensson \eqref{eq:cln-nss}.
+  \item Joint survival under counterparty risk: Gaussian copula
+        \eqref{eq:cln-gauss-copula} and Bomfim alternative
+        \eqref{eq:cln-bomfim}.
+\end{itemize}
+
+\textbf{Canonical empirical setup} (\S5):
+\begin{itemize}[noitemsep]
+  \item 11 CLNs issued by Nordea (Apr 2012 -- Apr 2013), 5Y
+        maturity, quarterly coupons (3M STIBOR + reference-specific spread).
+  \item Reference entities: ArcelorMittal, Carlsberg, Ericsson,
+        Metso, Nokia, Stena, StoraEnso, Telefonica, UPM-Kymmene,
+        Volkswagen, Volvo.
+  \item Coupon spreads range from STIBOR + 2.05\% (Metso) to
+        STIBOR + 5.45\% (Stena).
+  \item CDS spreads at $\{1, 3, 5, 7, 10\}$Y from Bloomberg / Reuters / FactSet.
+  \item Baseline recovery $R = 40\%$.
+  \item Stressed recovery $R = 10\%$ (post-crisis worst case, Rathgeber-Wang 2011).
+  \item Discount curve: STIBOR + Swedish swap zero curve fitted via NSS \eqref{eq:cln-nss}.
+  \item Default correlations $\rho \in [0.13, 0.26]$ estimated from
+        5Y CDS time series.
+\end{itemize}
+
+\textbf{Expected headline numerical findings:}
+
+\smallskip
+\begin{tabular}{@{}p{8cm}rl@{}}
+\toprule
+Quantity                                                                  & Value                  & Source \\
+\midrule
+Overpricing range, $R = 40\%$, no counterparty risk                       & $0.6\%$--$6.4\%$       & \S6.1 \\
+Overpricing range, with counterparty (Nordea) credit risk                 & up to $8.5\%$          & \S6.3 \\
+Default-correlation range across 11 names                                 & $[0.13, 0.26]$         & Tab.~I \\
+CDS-discretisation error, $M = 4$, $r = 2\%$, $S = 500$~bp                & $\sim 0.25\%$ relative & p.~15 \\
+Copula vs.\ Bomfim joint-survival gap at 4Y, $\lambda \in \{5\%, 8\%\}$, $\rho = 0.2$ & $\sim 89$~bp & p.~22 \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                                       & Symbol                          & Quantity \\
+\midrule
+\eqref{eq:cln-V}                                & $V^{CLN}$                       & CLN value, risk-free issuer case \\
+\eqref{eq:cln-fwd}                              & $f_{t_1, t_2}$                  & forward rate from spot rates \\
+\eqref{eq:cln-hazard}                           & $\lambda$, $Q$                  & Jarrow-Turnbull hazard / survival \\
+\eqref{eq:cln-cds-prem}--\eqref{eq:cln-cds-prot} & premium / protection PV        & CDS pricing components (O'Kane-Turnbull) \\
+\eqref{eq:cln-cds-par}                          & $S(t_V, t_N)$                   & breakeven CDS spread \\
+\eqref{eq:cln-hazard-piecewise}                 & $Q(t_V, T)$                     & piecewise-flat hazard from $\{1,3,5,7,10\}$Y bootstrap \\
+\eqref{eq:cln-nss}                              & $y(\tau)$                       & NSS yield curve interpolation \\
+\eqref{eq:cln-gauss-copula}                     & $Q^C_{rp}$                      & joint survival under Gaussian copula \\
+\eqref{eq:cln-bomfim}                           & $Q_{rp}$                        & joint survival via Venn intersection (Bomfim) \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Risk-free limit}: as $R \to 1$ and $\lambda \to 0$
+        ($Q \equiv 1$), \eqref{eq:cln-V} reduces to a plain
+        coupon-bond PV: $\sum_i Z(t, T_i) C\, F + Z(t, T_N) F$.
+  \item \emph{Bootstrap closure}: \eqref{eq:cln-cds-par} evaluated
+        at the bootstrapped hazards should reproduce the input CDS
+        spreads at $\{1, 3, 5, 7, 10\}$Y exactly (by construction).
+  \item \emph{Hazard piecewise structure}: \eqref{eq:cln-hazard-piecewise}
+        is continuous in $\tau$ across the boundary points
+        $\{1, 3, 5, 7, 10\}$Y; check that the survival is monotonically
+        decreasing in $\tau$ for any non-negative $\lambda$ vector.
+  \item \emph{Discretisation error scaling}: as $M$ increases, the
+        protection-leg sum in \eqref{eq:cln-cds-prot} approaches the
+        integral \eqref{eq:cln-cds-prot}; the relative error is
+        $O(1/M)$.
+  \item \emph{Copula limits}: at $\rho = 0$ (independence), the
+        Gaussian-copula joint survival in \eqref{eq:cln-gauss-copula}
+        equals the product $Q_r \cdot Q_p$. At $\rho = 1$, it equals
+        $\min(Q_r, Q_p)$.
+  \item \emph{NSS endpoints}: $y(\tau) \to \beta_1$ as $\tau \to \infty$
+        and $y(\tau) \to \beta_1 + \beta_2$ as $\tau \to 0$. Both
+        limits should be recovered by the NSS implementation.
+  \item \emph{CDS-spread tracking}: empirical correlation between
+        model-implied CLN price changes and observed 5Y CDS spread
+        changes should be near $-1$ for the reference names where
+        the empirical match is reported as tight (Nokia, Stena,
+        ArcelorMittal).
+  \item \emph{Two joint-survival agreements}: \eqref{eq:cln-gauss-copula}
+        and \eqref{eq:cln-bomfim} agree at $\rho = 0$ exactly; the
+        gap at $\rho = 0.2$ should match the order-of-magnitude
+        figure (89~bp at 4Y for $\lambda \in \{5\%, 8\%\}$).
+  \item \emph{Counterparty-risk monotonicity}: at fixed reference
+        hazards, increasing $\rho$ increases the joint survival
+        probability (lowest-tranche effect noted by Bomfim), hence
+        \emph{decreases} the counterparty-risk impact on $V^{CLN}$.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$V^{CLN}$                  & Theoretical CLN value at $t$ \\
+$C$                        & Coupon rate (constant in eq.~\ref{eq:cln-V}; floating in practice) \\
+$F$                        & CLN notional \\
+$R$                        & Recovery rate \\
+$T_i, T_N$                 & Coupon dates ($i = 1, \ldots, N$), maturity \\
+$Z(t, T_i)$                & Risk-free discount factor (STIBOR-based) \\
+$Q(t, T_i)$                & Survival probability of reference entity \\
+$f_{t_1, t_2}$             & Forward rate from spot rates $r_1, r_2$ \\
+$\lambda(t)$               & Hazard rate \\
+$\lambda_{i,j}$            & Piecewise-flat hazard in maturity bucket $[i, j]$Y \\
+$S(t_0, t_N)$              & Contractual CDS spread, maturity $t_N$ \\
+$\Delta(t_{n-1}, t_n)$     & Day-count fraction \\
+$M$                        & Protection-leg discretisation steps per year \\
+$\beta_1, \ldots, \beta_4$ & NSS yield-curve parameters \\
+$\lambda_1, \lambda_2$     & NSS exponential decay parameters \\
+$\Phi, \Phi_\Sigma$        & Univariate / bivariate normal CDF \\
+$\rho$                     & Default correlation (5Y CDS-spread correlation) \\
+$Q^C_{rp}$                 & Gaussian-copula joint survival \\
+$Q_{rp}$                   & Bomfim conditional-default joint survival \\
+$r, p$                     & Reference entity / counterparty (issuer) subscripts \\
+STIBOR                     & Stockholm Interbank Offered Rate, Swedish Libor analogue \\
+$U_1, U_2$                 & Uniform random variables for copula construction \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Implement the CDS-spread bootstrap \eqref{eq:cln-cds-par}
+        $\to$ piecewise-flat hazards \eqref{eq:cln-hazard-piecewise}
+        on a sample input (e.g.\ Nokia 2012 CDS quotes); verify that
+        the bootstrapped hazards reproduce the input spreads
+        exactly.
+  \item Implement the CLN valuation \eqref{eq:cln-V} for one Nordea
+        CLN (e.g.\ Nokia, 3M~STIBOR + 3.35\%, maturity 2017-04-20)
+        and verify the result tracks the 5Y CDS spread daily.
+  \item Implement NSS \eqref{eq:cln-nss} and fit to a sample STIBOR +
+        swap zero curve; cross-check against the Riksbank's
+        published rates.
+  \item Compare Gaussian copula \eqref{eq:cln-gauss-copula} to
+        Bomfim's conditional approach \eqref{eq:cln-bomfim} on
+        $\lambda \in \{5\%, 8\%\}$, $\rho = 0.2$, time horizon 4Y;
+        target a gap of $\sim 89$~bp in joint survival probability.
+  \item Sensitivity analysis: reproduce the overpricing range
+        $0.6\%$--$6.4\%$ (baseline) and $\le 8.5\%$ (with counterparty
+        risk). The discrepancy is the headline empirical finding.
+  \item Recovery-rate sensitivity: re-do the valuation at $R = 10\%$
+        (post-crisis worst case from Rathgeber-Wang 2011) to bound
+        the model risk on the recovery assumption.
+  \item Robustness: re-do with CDS spreads from a different data
+        source (the paper checks Bloomberg vs.\ Reuters vs.\
+        FactSet); should not move the headline conclusion materially.
+\end{itemize}
+\end{todobox}
+
+\end{document}

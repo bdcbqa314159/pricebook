@@ -1,0 +1,694 @@
+% =====================================================================
+% TEXTBOOK BIB — verbose source metadata for every paper in the project.
+% One entry per paper: identification, abstract, keywords, contents,
+% references. All content verbatim from the source documents.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{textbook\_bib}
+
+\input{_common/preamble}
+\input{_common/notation}
+
+\title{Project Bibliography\\
+       \large Source metadata for all papers, verbatim}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Pucci (2019) --- Hedging the Treasury Lock}
+\label{bib:pucci-2019-tlock}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Hedging the Treasury Lock \\
+Author          & Mario Pucci \\
+Affiliation     & Banca IMI SpA, Largo Mattioli 3, Milan, 20121, Italy \\
+Email           & \texttt{mario.pucci@bancaimi.com} \\
+Date            & 19 August 2019 \\
+Source          & \href{https://ssrn.com/abstract=3386521}{ssrn:3386521} \\
+Local file      & \texttt{papers/pucci\_2019\_tlock/ssrn3386521.pdf} \\
+Length          & 25 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+The Treasury lock is a common pre-hedging derivative strategy the
+Street offers to their corporate clients. The paper provides a
+justification of the common practice of booking a short position in
+the Treasury lock as a forward contract on the underlying benchmark
+and a short position in the Then-Current Treasury lock as a forward
+contract on underlying benchmark rolled over the life of the contract.
+\end{quote}
+
+\subsection*{Keywords}
+Treasury, lock, T-Lock, hedging, arbitrage-free, convexity, gamma, repo.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Introduction (Trade Description; Pricing the Standard T-Lock; Approximating a T-Lock as a Forward Contract).
+  \item Hedging the Standard T-Lock (Overhedge Error; Delta; Gamma; Replication via Repo).
+  \item Trading the Then-Current-T-Lock (Roll P\&L; Forming the New Benchmark).
+  \item Statistical Analysis (Overhedge Error Estimation; Negative Gamma Bounds; Assessment of Roll Risk).
+  \item Valuation Adjustments.
+  \item Conclusions.
+  \item Appendices A--D: Simple Math; Key Derivatives; More Math; The Forward Price and the Repo.
+\end{enumerate}
+
+\subsection*{References}
+22 numbered references. Notable: Hunt \& Kennedy (\emph{Financial Derivatives in Theory and Practice}, 2004); Hull (\emph{Options, Futures and Other Derivatives}, 9th ed., 2015); Taleb (\emph{Dynamic Hedging}, 1996); Apostol (\emph{Calculus}, 1967); Carr \& Madan (\emph{Towards a Theory of Volatility Trading}, 2002); Andersen, Duffie \& Song (\emph{Funding value adjustments}, J. Finance 74:1, 2019); Adams \& Smith (\emph{Pre-Issuance Hedging of Fixed-Rate Debt}, J. Applied Corporate Finance 23:4, 2011); Pucci (\emph{CMT Convexity Correction}, IJTAF 17:8, 2014); Ramirez (\emph{Accounting for Derivatives}, Wiley 2015); Morini \& Prampolini (\emph{Risky Funding}, Landmarks in XVA 2016).
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Pucci (2014) --- Constant Maturity Treasury Convexity Correction}
+\label{bib:pucci-2014-cmt}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Constant Maturity Treasury Convexity Correction \\
+Author          & Mario Pucci \\
+Affiliation     & Banca IMI SpA, Largo Mattioli 3, Milan, 20121, Italy \\
+Email           & \texttt{mario.pucci@bancaimi.com} \\
+Dates           & Received 13 Sep 2013; Revised 31 Mar 2014, 4 Jul 2014; Accepted 20 Aug 2014 \\
+Published       & \emph{International Journal of Theoretical and Applied Finance} 17(8), 2014 \\
+Source          & \href{https://ssrn.com/abstract=3387961}{ssrn:3387961} \\
+Local file      & \texttt{papers/pucci\_2014\_cmt/ssrn3387961.pdf} \\
+Length          & 15 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+In a Constant Maturity Treasury swap the exotic leg pays, for a given
+tenor, the yield-to-maturity computed out of a reference bond curve.
+This paper introduces a theoretical framework for the modelling of
+constant maturity treasury that takes into account default risk of
+bond issuer. As an application, we obtain, under simple but standard
+assumptions, analytical convexity corrections for some fundamental
+payoffs contingent on the constant maturity treasury.
+\end{quote}
+
+\subsection*{Keywords}
+Convexity adjustment; default risk; constant maturity.
+
+\subsection*{Contents}
+Sections (from document body):
+\begin{enumerate}[noitemsep]
+  \item Introduction.
+  \item Yield To Maturity and Constant Maturity Treasury.
+  \item Vanilla payoffs and the forward CMT.
+  \item Pricing framework (partial filtration).
+  \item Convexity correction under standard assumptions.
+  \item A hint on incorporating the smile.
+\end{enumerate}
+
+\subsection*{References}
+Approximately 12 numbered references. Notable: Hagan (\emph{Convexity Conundrums}, Wilmott 2003); Pelsser (\emph{Mathematical Foundation of Convexity Correction}, Quantitative Finance 2001); Hunt \& Kennedy (Wiley 2004); Boenkost \& Schmidt (notes on convexity and quanto adjustments, 2003); Davies \& Pugachevsky (Risk 2005).
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Pucci (2012a) --- Constant Maturity Asset Swap Convexity Correction}
+\label{bib:pucci-2012-cmasw}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Constant Maturity Asset Swap Convexity Correction \\
+Author          & Mario Pucci \\
+Affiliation     & Banca IMI, Milan \\
+Email           & \texttt{mariopucci@hotmail.it} \\
+Date            & 27 February 2012 (revision timestamp) \\
+Source          & \href{https://ssrn.com/abstract=1961545}{ssrn:1961545} \\
+Local file      & \texttt{papers/pucci\_2012\_cmasw/ssrn1961545.pdf} \\
+Length          & 10 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+As a consequence of the high volatility regime recently established
+in the government bond market, investors may seek hedging their
+exposure to floating asset swap spreads. We obtain an analytical
+convexity correction for the asset swap spread which is instrumental
+to the pricing of constant maturity asset swaps.
+\end{quote}
+
+\subsection*{Keywords}
+Not stated explicitly. Topics: asset swap, convexity correction, CMS, constant maturity asset swap.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Introduction.
+  \item Constant Maturity Asset Swaps.
+  \item Definitions.
+  \item Pricing Framework.
+  \item One-Factor Linear Model.
+  \item Hedging Considerations.
+  \item Numerical Example.
+  \item Model Limitations.
+  \item Conclusions.
+\end{enumerate}
+
+\subsection*{References}
+13 numbered references. Notable: Hagan (\emph{Convexity Conundrums}, Wilmott 2003); Pelsser (\emph{Mathematical Foundation of Convexity Correction}, Quantitative Finance 2001); Hunt \& Kennedy (Wiley 2004); Zheng \& Kwok (\emph{Convexity meets replication}, J.\ Futures Markets 31, 2010); Nelson \& Siegel (\emph{Parsimonious modeling of yield curves}, J.\ Business 60, 1987); Lee \& Wang (\emph{Displaced Lognormal Volatility Skews}, Annals of Finance 2009); Choudhry (\emph{CDS basis}, YieldCurve.com 2006); BIS (\emph{Zero-coupon yield curves: technical documentation}, BIS Papers No 25, 2005).
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Pucci (2012b) --- Pricing Index-Linked Hybrids under a Local Volatility Market Model}
+\label{bib:pucci-2012-hybrid}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Pricing Index-Linked Hybrids under a Local Volatility Market Model \\
+Author          & Mario Pucci \\
+Affiliation     & Banca IMI, Milan \\
+Email           & \texttt{mariopucci@hotmail.it} \\
+Date            & 22 February 2012 (with May 2012 revision) \\
+Source          & \href{https://ssrn.com/abstract=2056277}{ssrn:2056277} \\
+Local file      & \texttt{papers/pucci\_2012\_hybrid/ssrn2056277.pdf} \\
+Length          & 5 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+We present a methodology to price a cash-settled swaption with strike
+contingent on the level of an equity index. The hybrid local
+volatility framework allows for calibration to market skew/smile and
+straightforward specification of an exogenous correlation. The
+framework can be extended to other multi-asset hybrid payoffs of
+European type.
+\end{quote}
+
+\subsection*{Keywords}
+Not stated explicitly. Topics: hybrid product, local volatility,
+cash-settled swaption, equity-rates hybrid, index-linked,
+correlation.
+
+\subsection*{Contents}
+Single-paper format, no explicit TOC. Discusses: hybrid product
+pricing problems (unobservable factors, correlation, smile);
+proposed local-volatility methodology; calibration to market
+skew/smile; extension to other European multi-asset hybrid payoffs.
+
+\subsection*{References}
+6 numbered references including: Grzelak \& Oosterlee
+(\emph{An Equity-Interest Rate Hybrid Model With Stochastic Volatility
+and the Interest Rate Smile}, 2010); Piterbarg
+(\emph{Smiling hybrids}, Risk, May 2006).
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Burgess --- Bond Total Return Swaps: Theory, Pricing \& Practice}
+\label{bib:burgess-trs}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Bond Total Return Swaps: Theory, Pricing \& Practice \\
+Author          & Nicholas Burgess \\
+Affiliation     & Not stated in document \\
+Date            & Not stated on cover \\
+Source          & \url{https://ssrn.com/author=1728976}; companion repo at \url{https://github.com/nburgessx/SwapsBook} \\
+Local file      & \texttt{papers/burgess\_trs/5024091.pdf} \\
+Length          & 23 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+No abstract printed.
+
+\subsection*{Keywords}
+Not stated. Topics: bond total return swap (TRS); contract specifications; constant units vs.\ constant notional; pricing formulae; worked case study.
+
+\subsection*{Contents}
+\textbf{Part One: Theory --- Bond Total Return Swaps.}
+\begin{itemize}[noitemsep]
+  \item Introduction to Bond TRS.
+  \item Why Trade a TRS?
+  \item Contract Specifications.
+  \item Constant Units vs Constant Notional.
+\end{itemize}
+\textbf{Part Two: Pricing \& Practice --- Case Studies.}
+\begin{itemize}[noitemsep]
+  \item Pricing Formulae.
+  \item Bond TRS Case Study.
+\end{itemize}
+
+\subsection*{References}
+No formal numbered reference list is printed. The document links to
+the author's SSRN author page (\url{ssrn.com/author=1728976}) and a
+companion GitHub repository (\url{github.com/nburgessx/SwapsBook}),
+and to the author's book \emph{Low Latency Interest Rate Markets}.
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Lou (2018) --- Pricing Total Return Swap}
+\label{bib:lou-2018-trs}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Pricing Total Return Swap \\
+Author          & Wujiang Lou \\
+Affiliation     & New York University, Courant Institute of Mathematics \\
+Date            & 16 July 2018 \\
+Source          & \href{https://ssrn.com/abstract=3217420}{ssrn:3217420} \\
+Local file      & \texttt{papers/lou\_2018\_trs/SSRNid32174202.pdf} \\
+Length          & 25 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+Total return swap (TRS) involves a pricing dilemma: Libor discounting
+of its premium leg forces upfront payment of future funding premium,
+and yet replacing Libor with a firm's own funding rate falls into the
+well-known FVA debate trap. We consider TRS hedge financing from a
+repo market perspective and apply post-crisis derivatives valuation
+with collateralization and funding to TRS. We find that the financing
+cost of the TRS hedge should be reflected on the security leg, and
+the funding premium can only be discounted in conjunction with the
+TRS as a whole, depending on margining schemes. An easy to implement,
+recursive tree model is developed to value TRS with repo-style
+margining or defaultable underlying, together with any value
+adjustments.
+\end{quote}
+
+\subsection*{Keywords}
+Total return swap, TRS pricing dilemma, funding costs, funding
+valuation adjustment, liability-side pricing, bond forward.
+
+\subsection*{Contents}
+Topics (from inline section headings):
+\begin{enumerate}[noitemsep]
+  \item Introduction.
+  \item TRS mechanics (security leg, funding leg, repo financing).
+  \item Pricing under collateralisation and funding.
+  \item Recursive tree model for repo-style margining and defaultable underlying.
+  \item Value adjustments (XVA components).
+  \item Appendix: bond forward derivation under deterministic interest and repo rates.
+\end{enumerate}
+
+\subsection*{References}
+References to the post-2008 funding / XVA literature including
+Andersen, Duffie \& Song (FVA); Burgard \& Kjaer; Piterbarg
+(\emph{Funding beyond discounting}). Detailed list verified from
+the document body.
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Zhou (2008) --- Bond Implied CDS Spread and CDS-Bond Basis}
+\label{bib:zhou-2008-cds}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Bond Implied CDS Spread and CDS-Bond Basis \\
+Author          & Richard Zhou \\
+Email           & \texttt{rzhou50@gmail.com} \\
+Affiliation     & Not stated; disclaimer notes views are author's own \\
+Date            & 15 August 2008 \\
+Source          & \href{https://ssrn.com/abstract=1265548}{ssrn:1265548} \\
+Local file      & \texttt{papers/zhou\_2008\_cds/ssrn1265548.pdf} \\
+Length          & 12 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+We derive a simple formula for calculating the CDS spread implied by
+the bond market price. Using no-arbitrage argument, the formula
+expresses the bond implied CDS spread as the sum of bond price, bond
+coupon and Libor zero curve weighted by risky annuities. We show that
+the bond implied CDS spread is consistent with the standard CDS
+pricing model if the survival probabilities and recovery are
+consistent with the bond price.
+\end{quote}
+
+\subsection*{Keywords}
+Not stated explicitly. Topics: CDS spread, asset swap spread, CDS-bond basis, survival probability, recovery rate, bond-implied CDS.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Introduction.
+  \item CDS and Asset Swap Spreads (theory; main formulas; model applications).
+  \item Numerical examples.
+  \item Conclusions.
+  \item Appendix A: model derivation.
+  \item Appendix B: details.
+\end{enumerate}
+
+\subsection*{References}
+Numbered list referencing standard credit-derivatives literature including: Davies \& Pugachevsky on bond-implied CDS approximations; Berd et al.\ on survival-based modelling; the standard CDS pricing model literature; references on factors driving CDS-bond basis.
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Axelsson \& Renström (2013) --- Credit-Linked Notes: Swedish Market Evidence}
+\label{bib:axelsson-renstrom-2013-cln}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & On the pricing of Credit-Linked Notes: Evidence from the Swedish market \\
+Authors         & Marc Axelsson, Tobias Renström \\
+Emails          & \texttt{40272@student.hhs.se}, \texttt{40278@student.hhs.se} \\
+Affiliation     & Stockholm School of Economics (SSE) --- master's thesis; tutor: Michael Halling, Department of Finance \\
+Date            & 15 May 2013 \\
+Source          & No SSRN listed on document \\
+Local file      & \texttt{papers/axelsson\_renstrom\_2013\_cln/cln\_swedish\_mkt.pdf} \\
+Length          & 50 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+Based on international evidence of overpricing, we study the newly
+established credit-linked note (CLN) market in Sweden during the
+period 2012--2013. We derive a theoretical pricing model based on a
+reduced form framework and value the outstanding CLNs in the Swedish
+market. Our results suggest significant and consistent overpricing,
+ranging from 0.6\% to 6.4\%. Furthermore, when accounting for the
+counterparty credit risk exposure in the issuer, the overpricing
+increases substantially to a maximum of 8.5\%. Given this considerable
+overpricing, it is possible that the counterparty risk is not priced
+in the CLNs. Plausibly, investors perceive the issuer as ``too big to
+fail'', which is supported by previous findings of Arora et al.\
+(2012). Lastly, our study indicates the existence of market frictions
+that influence the market pricing mechanism, obfuscating the
+relationship between observed prices and credit risk. Based on
+findings of Blanco et al.\ (2005), this could be a result of limited
+liquidity.
+\end{quote}
+
+\subsection*{Keywords}
+Structured products, interest certificates, credit-linked notes, reduced form models.
+
+\subsection*{Contents}
+Master's-thesis format (introduction, literature review, theory,
+data, empirical analysis, conclusion). Major sections expected:
+introduction; literature review (Burth et al.\ 2001; Stoimenov \&
+Wilkens 2005; Blanco et al.\ 2005; Arora et al.\ 2012); reduced-form
+pricing model; data and methodology; empirical results
+(overpricing 0.6\%--6.4\% raw, up to 8.5\% with CVA); discussion of
+market frictions and liquidity; conclusion.
+
+\subsection*{References}
+Extensive thesis-style reference list. Notable: Burth, Kraus \&
+Wuhrmann (Swiss structured product pricing, 2001); Stoimenov \&
+Wilkens (German equity-linked structured products, 2005); Blanco,
+Brennan \& Marsh (CDS-bond basis, 2005); Arora, Gandhi \& Longstaff
+(counterparty risk and CDS spreads, 2012); Yiu (2012); Swedberg
+(2010).
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Anonymous --- Treasury Lock Model}
+\label{bib:anon-tlock-model}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Treasury Lock Model \\
+Author          & Not stated (anonymous model documentation) \\
+Affiliation     & Document references \url{https://finpricing.com/lib/FiZeroBond.html}, suggesting FinPricing \\
+Date            & Not stated \\
+Source          & No SSRN/DOI on document \\
+Local file      & \texttt{papers/anon\_treasury\_lock\_model/31670362145195.pdf} \\
+Length          & 4 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+No abstract printed. The opening paragraph reads:
+\begin{quote}\itshape
+Treasury Lock (T-Lock) is a customized agreement that fixes the yield
+or price on a specified treasury security for a specific period.
+The buyer of the T-Lock is protected from a rise in the yield (i.e.\
+a fall in price) of the underlying treasury security during the lock
+period. The period or term of the T-Lock is normally from one week to
+twelve months.
+\end{quote}
+
+\subsection*{Keywords}
+Not stated. Topics: Treasury Lock, bond forward pricing, repo curve,
+clean/dirty price, locked yield, PV01.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Bond forward pricing formula (clean price form, repo discount factor).
+  \item Model inputs.
+  \item T-Lock NPV for clean-price lock.
+  \item T-Lock NPV for yield lock (with finite-difference PV01).
+  \item T-Lock NPV for dirty-price lock.
+  \item Note on PV01/NDELTA as approximate sensitivities.
+\end{enumerate}
+
+\subsection*{References}
+One external link cited inline: \url{https://finpricing.com/lib/FiZeroBond.html}. No formal reference list.
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Anonymous --- Why We Don't Discount at the ``Risk-Free Rate''}
+\label{bib:anon-discounting}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Why We Don't Discount at the ``Risk-Free Rate'' \\
+Subtitle        & What Textbooks Get Wrong About Derivatives Pricing, and What Trading Desks Actually Do \\
+Author          & Not stated (anonymous) \\
+Date            & Not stated \\
+Source          & No SSRN/DOI on document \\
+Local file      & \texttt{papers/anon\_discounting\_textbooks/What\_Textbooks\_Get\_Wrong\_About\_Discounting\_1777005506.pdf} \\
+Length          & 9 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+No abstract printed. The opening paragraphs read:
+\begin{quote}\itshape
+If you studied derivatives pricing at university, you were almost
+certainly taught that derivatives are priced by taking the expected
+payoff under the risk-neutral measure and discounting at the
+risk-free rate. \dots\ It's also, in its na\"ive form, wrong. \dots\
+The question ``what rate do I discount at?'' turns out to be far
+more subtle than the textbooks suggest, and the answer has reshaped
+the entire derivatives industry since 2008.
+\end{quote}
+
+\subsection*{Keywords}
+Not stated. Topics: collateral rate, repo rate, funding rate, CSA,
+OIS, multi-curve, XVA (CVA/DVA/FVA), ColVA, partial CSA,
+cross-currency basis.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item The General Framework.
+  \item The Textbook Argument, and Where It Hides Its Assumptions.
+  \item What the Rate Actually Represents: The Repo Rate (incl.\ equity, bond examples; summary table repo vs.\ collateral).
+  \item The CSA Revolution.
+  \item Collateral Regimes and the Discount Rate (perfect CSA; no CSA; partial CSA).
+  \item Linking the Collateral Rate to the Discount Rate (cash flow mechanics; martingale argument; worked swap example; cross-currency CSA; non-cash collateral; decision tree).
+  \item From Single-Curve to Multi-Curve.
+  \item The Correct Mental Model.
+\end{enumerate}
+
+\subsection*{References}
+No formal reference list. Hull and Shreve mentioned as textbook examples.
+
+\bigskip\hrule\bigskip
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Brigo \& Morini (2005) --- CDS Market Formulas and Models}
+\label{bib:brigo-morini-2005}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & CDS Market Formulas and Models \\
+Authors         & Damiano Brigo, Massimo Morini \\
+Affiliation     & Brigo: Credit Models, Banca IMI, Milan. Morini: Università di Milano Bicocca \\
+Date            & September 2005 \\
+Source          & Working paper, no SSRN ID printed on document \\
+Local file      & \texttt{papers/brigo\_morini\_2005\_cdsmm/cdsmktfor.pdf} \\
+Length          & 28 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+In this work we analyze market payoffs of Credit Default Swaps (CDS)
+and we derive rigorous standard market formulas for pricing options
+on CDS. Formulas are based on modelling CDS spreads which are
+consistent with simple market payoffs, and we introduce a
+subfiltration structure allowing all measures to be equivalent to
+the risk neutral measure. Then we investigate market CDS spreads
+through change of measure and consider possible choices of rates for
+modelling a complete term structure of CDS spreads. We also consider
+approximations and apply them to pricing of specific market
+contracts. Results are derived in a probabilistic framework similar
+to that of Jamshidian (2004).
+\end{quote}
+
+\subsection*{Keywords}
+CDS, CDS option, market model, swap market model, subfiltration,
+change of measure, defaultable PV01, Black formula, CMCDS,
+constant maturity CDS, conditional independence.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Introduction.
+  \item Credit Default Swaps and Options (par CDS spread; CDS option payoff).
+  \item Standard Market Formula for CDS (numeraire $C_{a,b}$, change of measure, dynamics of $R_{a,b}$, empirical application).
+  \item Variables for a general CDS Market Model (one-period CDS forward rates; CDS spreads as forward conditional probability ratios; dynamics under different measures).
+  \item Dynamics and Constant Maturity CDS (Libor + CDS Market Model under independence; CMCDS pricing with drift-freezing approximation; empirical application on Fiat; alternative model with approximated payoff).
+  \item Conclusion.
+  \item Appendix (propositions and proofs).
+\end{enumerate}
+
+\subsection*{References}
+Brigo (2004, 2005), Brigo \& Mercurio (2001), Jamshidian (1997, 2004),
+Jeanblanc \& Rutkowski (2000), Hull \& White (2003), Schönbucher
+(1999, 2000, 2004), Bielecki \& Rutkowski (2001), Wu (2005), and
+the seminal Black (1976) and Brace-Gatarek-Musiela (1997).
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Ametrano \& Bianchetti (2013) --- Multiple Interest Rate Curve Bootstrapping}
+\label{bib:ametrano-bianchetti-2013}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Everything You Always Wanted to Know About Multiple Interest Rate Curve Bootstrapping But Were Afraid To Ask \\
+Authors         & Ferdinando M.\ Ametrano, Marco Bianchetti \\
+Affiliation     & Ametrano: Financial Engineering, Banca IMI, Milan. Bianchetti: Market Risk Management, Banca Intesa Sanpaolo, Milan \\
+Date            & 2 April 2013 (first version 4 February 2013) \\
+Source          & \href{https://ssrn.com/abstract=2219548}{ssrn:2219548}.
+                  Also a chapter in \emph{Interest Rate Modelling After the Financial Crisis} (Bianchetti \& Morini eds., Risk Books, 2013) \\
+Local file      & \texttt{papers/ametrano\_bianchetti\_2013\_multicurve/ssrn2219548.pdf} \\
+Length          & 82 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract}
+\begin{quote}\itshape
+After the credit and liquidity crisis started in summer 2007 the
+market has recognized that multiple yield curves are required for
+estimation of both discount and FRA rates with different tenors
+(e.g.\ Overnight, Libor 3 months, etc.), consistently with the large
+basis spreads and the wide diffusion of bilateral collateral
+agreements and central counterparties for derivatives transactions
+observed on the market.\dots The theoretical pricing framework is
+introduced and modern pricing formulas for plain vanilla interest rate
+derivatives, such as Deposits, Forward Rate Agreements (FRA),
+Futures, Swaps, OIS, and Basis Swaps, are derived from scratch. The
+concrete EUR market case is worked out\dots The implementation of
+the proposed algorithms is available open source within the QuantLib
+framework.
+\end{quote}
+
+\subsection*{Keywords}
+crisis, crunch, liquidity risk, funding risk, credit risk, counterparty risk,
+collateral, CSA, fixed income, interest rates, negative rates, Libor,
+Euribor, Eonia, yield curve, FRA curve, discount curve, single-curve,
+multiple-curve, bootstrapping, no-arbitrage, pricing, hedging,
+interest rate derivatives, Deposit, FRA, Futures, Swap, IRS, OIS,
+Basis Swap, turn of year, spline, greeks, sensitivity, QuantLib.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Introduction.
+  \item Classical and Modern Pricing \& Hedging of Interest Rate Derivatives (single-curve vs.\ multiple-curve approach).
+  \item Notation and Basic Theoretical Framework (contract description, funding and collateral, pricing under collateral, interest rates, yield curves).
+  \item Bootstrapping Interest Rate Yield Curves (classical vs.\ modern bootstrapping; instruments selection --- Deposits, FRA, Futures, IRS, OIS, Basis Swaps; synthetic instruments; interpolation; negative rates; endogenous vs.\ exogenous; turn of year effect; multiple deltas \& hedging; performance and yield curve checks).
+  \item Implementation and Examples of Bootstrapping (Eonia ON, Euribor 1M / 3M / 6M / 12M, basis curves; full EUR market 11-Dec-2012 case).
+  \item Conclusions.
+  \item Appendices: pricing under collateral, Feynman-Kac, derivations of pricing formulas for FRA, Futures, IRS, OIS, IRBS.
+\end{enumerate}
+
+\subsection*{References}
+Includes Mercurio (multiple-curve work), Brigo \& Mercurio
+(\emph{Interest-Rate Models}), Andersen \& Piterbarg (\emph{Interest
+Rate Modeling}), Hagan \& West (curve interpolation), White
+(OpenGamma multi-curve), ISDA standard CSA documentation, plus
+the open-source QuantLib library which implements the paper's
+algorithms.
+
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Personal Work --- The Treasury Lock: a comprehensive study}
+\label{bib:personal-tlock-comprehensive}
+
+\subsection*{Identification}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & The Treasury Lock --- a comprehensive study \\
+Type            & Personal-work integrated study (not a third-party paper) \\
+Sources         & (1) Anonymous practitioner T-Lock note; (2) Pucci 2019 (ssrn:3386521) \\
+Date assembled  & 2026 \\
+Local file      & \texttt{papers/personalWork/tlock\_comprehensive/tlock\_comprehensive.tex} \\
+Length          & 10 pages \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Abstract (own)}
+A unified treatment of Treasury Lock pricing combining the operational
+pricing recipe of the anonymous practitioner note (three lock
+conventions reduced to the bond forward formula) and the theoretical
+justification of Pucci~(2019) (payoff identity, forward-contract
+overhedge, negative-gamma bound, repo replication, Then-Current
+roll). Two parts (Part~I practitioner, Part~II theoretical) plus a
+unified validation block reconciling the simple-vs-continuous
+compounding conventions on Pucci's 24-Jan-2019 worked example.
+
+\subsection*{Keywords}
+T-Lock, repo, forward, convexity, gamma, pre-hedge, overhedge,
+Then-Current.
+
+\subsection*{Contents}
+\begin{enumerate}[noitemsep]
+  \item Introduction and Trade Description.
+  \item Unified Notation.
+  \item \textbf{Part I --- Practitioner Pricing Model:} bond forward
+        building block; three lock conventions; practitioner risks
+        and sensitivities.
+  \item \textbf{Part II --- Hedging and Convexity Analysis (Pucci 2019):}
+        arbitrage-free pricing formula; forward proxy and overhedge;
+        greeks (delta, gamma, sign conditions); repo replication;
+        Then-Current T-Lock and roll risk; valuation adjustments;
+        conclusions.
+  \item Validation \& numerical examples (canonical 24-Jan-2019 case).
+\end{enumerate}
+
+\subsection*{References}
+\begin{itemize}[noitemsep]
+\item Anonymous (n.d.), \emph{Treasury Lock Model}, practitioner note.
+\item Pucci, M.\ (2019), \emph{Hedging the Treasury Lock}, Banca IMI SpA, SSRN 3386521.
+\end{itemize}
+
+\end{document}

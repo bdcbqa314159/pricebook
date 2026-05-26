@@ -1,0 +1,264 @@
+% =====================================================================
+% Note on: Treasury Lock Model (anonymous, 4 pages)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{anon\_treasury\_lock\_model}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Treasury Lock Model}\\
+       \large Anonymous model documentation}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Treasury Lock Model \\
+Author(s)       & Not stated \\
+Date            & Not stated \\
+Source          & Document references \url{finpricing.com}; no SSRN/DOI \\
+Local file      & \texttt{papers/anon\_treasury\_lock\_model/31670362145195.pdf} \\
+Tags            & \texttt{treasury}, \texttt{t-lock}, \texttt{forward},
+                  \texttt{repo}, \texttt{pv01}, \texttt{model-doc} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A four-page model-documentation note describing the implementation of a
+T-Lock pricer. It states the bond forward price as a clean-price formula
+discounted with the repo curve, then writes the T-Lock NPV in three
+equivalent forms depending on what is locked: the clean price, the
+yield (via PV01), or the dirty price. The yield-lock form uses a
+discrete two-sided PV01 around the forward yield rather than a
+closed-form derivative. The document closes with a caveat that PV01
+and NDELTA are underlier-related and only approximate the T-Lock's own
+sensitivities.
+
+% =====================================================================
+\section{Setup and notation}
+
+The document mixes price-quote conventions (clean/dirty/forward) with
+yield-locked conventions. It uses one repo discount factor for the
+forward-price construction and a separate ``bond zero curve''
+discount factor for the T-Lock NPV. This dual-curve structure is not
+typical of more academic treatments (e.g.\ Pucci 2019, where a single
+risk-free DF $\Disc{t}{t_e}$ is used and the repo enters only in the
+forward drift).
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Document         & House                  & Meaning \\
+\midrule
+$P_0$            & $P^{mkt,\text{clean}}_t$ & Clean price of the underlying bond at spot \\
+$A_0, A_{del}$   & ---                     & Accrued interest at spot, at delivery \\
+$T_0, T_{del}$   & $t$, $t_e$              & Spot settlement, forward settlement (delivery) dates \\
+$N$              & ---                     & Number of coupons between $T_0$ and $T_{del}$ \\
+$C_i, T_i$       & $c_i, t_i$              & $i$-th coupon and its payment date \\
+$B_f$            & $\Fwdpx{t}{t_e}$ (clean) & Bond forward (clean) price at delivery \\
+$D_{repo}(\cdot,\cdot)$ & ---              & Discount factor from the repo zero curve \\
+$D_{\text{T-Lock}}(\cdot,\cdot)$ & ---     & Discount factor from the bond zero curve (used to discount T-Lock NPV) \\
+$M$              & $N$ (notional)          & Trade amount \\
+$y_f$            & $\IRR_{\text{fwd}}$     & Forward bond yield at delivery \\
+$y_{\text{T-Lock}}$ & $\Lock$              & Locked yield \\
+$P_{\text{T-Lock}}$ & $\Lock^{(P)}$        & Locked clean price \\
+$PV01(y_f)$      & ---                     & Two-sided finite-difference PV01 at $y_f$ \\
+$B(y)$           & $\Bond{t}{y}$           & Bond PV at yield $y$ \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Bond forward (clean) price.}
+\begin{equation}\label{eq:fwd-clean}
+  B_f \;=\; \frac{P_0 + A_0}{D_{repo}(T_0, T_{del})}
+          \;-\; \sum_{i=1}^{N} \frac{C_i}{D_{repo}(T_i, T_{del})}
+          \;-\; A_{del}.
+\end{equation}
+\textit{Says:} accrete the dirty spot price $(P_0 + A_0)$ to delivery
+at the repo rate, subtract coupon flows that occur in $[T_0, T_{del}]$
+each accreted to delivery, then strip the delivery-date accrued
+interest to land on a \emph{clean} forward. This is the same content
+as Pucci's eq.~(49) in continuous form, here in discrete-DF form, and
+expressed clean instead of dirty.
+
+\paragraph{T-Lock NPV: clean-price lock.}
+\begin{equation}\label{eq:npv-clean}
+  \mathrm{NPV}_{\text{T-Lock}} \;=\; N \cdot \bigl(P_{\text{T-Lock}} - B_f\bigr) \cdot D_{\text{T-Lock}}(t, T_{del}).
+\end{equation}
+\textit{Says:} a forward contract on the clean price. The reference
+forward $B_f$ is computed from \eqref{eq:fwd-clean} using the repo
+curve; the resulting payoff is then discounted to $t$ using a separate
+``bond zero'' discount curve.
+
+\paragraph{T-Lock NPV: yield lock (via PV01).}
+\begin{equation}\label{eq:npv-yield}
+  \mathrm{NPV}_{\text{T-Lock}} \;=\; M \cdot (y_f - y_{\text{T-Lock}}) \cdot PV01(y_f) \cdot D_{\text{T-Lock}}(t, T_{del}),
+\end{equation}
+with the PV01 defined as a two-sided finite difference
+\begin{equation}\label{eq:pv01-fd}
+  PV01(y_f) \;=\; B(y_f + 0.5\,\text{bp}) - B(y_f - 0.5\,\text{bp}).
+\end{equation}
+\textit{Says:} the linear payoff $(y_f - L) \cdot \text{PV01}$ is the
+discrete analogue of Pucci's $\Riskf_{t_e} \cdot (\IRR_{t_e} - \Lock)$.
+The sign convention here makes $PV01(y_f)$ \emph{positive} (because a
+positive yield shift lowers price, but the formula computes
+$B(y_f+) - B(y_f-)$ with $B$ decreasing in $y$, giving a negative
+quantity --- see commentary).
+
+\paragraph{T-Lock NPV: dirty-price lock.}
+The document states that the dirty case is obtained from the
+clean-price case via $P^{dirty} = P^{clean} + A$, i.e.\ it computes the
+clean-price lock and adjusts by accrued interest. No new formula.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The PV01 sign convention in \eqref{eq:pv01-fd} as written gives a
+\emph{negative} number (because $B$ is decreasing in $y$). If one
+takes the document's formula literally then a long T-Lock with $y_f >
+y_{\text{T-Lock}} = \Lock$ produces a negative NPV, which contradicts
+the intent (long T-Lock pays when yields rise). The conventional
+practice is either (a) define PV01 as the absolute price change per
+$+1$~bp, or (b) flip the sign of $(y_f - \Lock)$. The document does
+not say which it adopts. House interpretation: take
+$\widetilde{PV01}(y_f) = -[B(y_f + 0.5\text{bp}) - B(y_f - 0.5\text{bp})] > 0$,
+which matches Pucci's $\Riskf_{t_e} = -\partial \Bond{}{y}/\partial y > 0$
+in the limit of small bump width.
+\end{commentary}
+
+\begin{commentary}
+The document uses two distinct discount curves: a repo curve for the
+forward bond price, and a ``bond zero curve'' for the T-Lock NPV.
+The choice of the latter is unusual; Pucci (2019) and standard
+post-2008 practice would use a collateral/OIS rate for derivative
+discounting, not a bond curve. This is the kind of detail that should
+be confirmed against the firm's actual CSA before using the formula.
+\end{commentary}
+
+\begin{commentary}
+The finite-difference PV01 in \eqref{eq:pv01-fd} differs from a
+closed-form $-\partial \Bond{}{y}/\partial y$ by terms of order
+$\text{bp}^2$. For practical purposes ($1$~bp is small) the difference
+is negligible, but a property test should compare the two and check
+that the finite-difference converges to the analytic derivative as
+the bump shrinks.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item $B_f$ in \eqref{eq:fwd-clean}, the clean forward bond price
+        constructed from the repo-curve discount factors.
+  \item $\mathrm{NPV}_{\text{T-Lock}}$ in three equivalent
+        formulations: clean-price lock \eqref{eq:npv-clean},
+        yield lock \eqref{eq:npv-yield}, dirty-price lock (derived).
+  \item $PV01(y_f)$ as a two-sided finite difference
+        \eqref{eq:pv01-fd}.
+\end{itemize}
+
+\textbf{Canonical numerical case:}
+The document provides no worked example. For validation purposes,
+re-use the Pucci 2019 canonical case (US Treasury 3.125\% 25-Nov-2028,
+ISIN US9128285M81, 24-Jan-2019, $t_e - t = 3$ months,
+$P^{mkt,dirty} = 104.1055$, $\IRR = 2.717\%$, $\Repo = 2.46\%$); the
+two documents should agree to first order.
+
+\textbf{Expected numerical values:} not available in this document.
+Cross-check is against the Pucci numbers ($B_f$ dirty $= 104.74$;
+forward IRR $= 2.53\%$) within $\pm 0.01$ and $\pm 1$~bp.
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                & Symbol                                & Quantity \\
+\midrule
+\eqref{eq:fwd-clean}     & $B_f$                                 & clean forward bond price via repo discount factors \\
+\eqref{eq:npv-clean}     & $\mathrm{NPV}_{\text{T-Lock}}$        & T-Lock NPV when the clean price is locked \\
+\eqref{eq:npv-yield}     & $\mathrm{NPV}_{\text{T-Lock}}$        & T-Lock NPV when the yield is locked, via PV01 \\
+\eqref{eq:pv01-fd}       & $PV01(y_f)$                           & two-sided finite-difference PV01 at the forward yield \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Equivalence of clean and dirty locks}: the dirty-price
+        formulation, after subtracting $A_{del}$ from the locked
+        price, equals the clean-price formulation
+        \eqref{eq:npv-clean}.
+  \item \emph{First-order agreement with the analytic derivative}: as
+        the FD bump width $\to 0$, $PV01(y_f) / \text{bp}$ converges
+        to $-\partial \Bond{}{y} / \partial y |_{y=y_f}$.
+  \item \emph{First-order agreement of yield and clean-price locks}:
+        for $y_{\text{T-Lock}}$ near $y_f$, the clean-price and yield
+        formulations agree to $O((y_f - y_{\text{T-Lock}})^2)$ when
+        the locked clean price is $\Bond{t_e}{y_{\text{T-Lock}}}$.
+  \item \emph{Repo-curve consistency}: $B_f$ as constructed in
+        \eqref{eq:fwd-clean} satisfies the no-arbitrage condition that
+        a repo strategy returns zero P\&L when valued at $T_{del}$.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$P_0$                                 & Clean price of the underlying bond at spot \\
+$A_0$                                 & Accrued interest on a unit underlying bond at $T_0$ \\
+$T_0$                                 & Spot settlement date \\
+$T_{del}$                             & Delivery date (forward settlement date) \\
+$A_{del}$                             & Accrued interest on a unit underlying bond at $T_{del}$ \\
+$N$ (eq.~\ref{eq:fwd-clean})          & Number of coupons paid in $[T_0, T_{del}]$ \\
+$N$ (eq.~\ref{eq:npv-clean})          & Quantity of the underlying bond (notional) \\
+$C_i$                                 & $i$-th coupon of the unit underlying bond \\
+$T_i$                                 & $i$-th coupon payment date \\
+$D_{repo}(t_1, t_2)$                  & Discount factor from $t_2$ back to $t_1$, repo zero curve \\
+$D_{\text{T-Lock}}(t_1, t_2)$         & Discount factor from $t_2$ back to $t_1$, bond zero yield curve \\
+$B_f$                                 & Bond forward clean price at delivery \\
+$P_{\text{T-Lock}}$                   & Locked clean price for the underlying bond \\
+$M$                                   & Trade amount of the underlying bond \\
+$y_f$                                 & Forward bond yield (as if bond settles at delivery) \\
+$y_{\text{T-Lock}}$                   & Locked bond yield \\
+$PV01(y_f)$                           & $B(y_f + 0.5\,\text{bp}) - B(y_f - 0.5\,\text{bp})$ \\
+$B(y)$                                & Present value of the underlying bond given yield $y$ \\
+$t$                                   & Valuation date \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Confirm the PV01 sign convention used in eq.~\ref{eq:npv-yield}
+        --- as written, the signs of $(y_f - \Lock)$ and the FD-PV01
+        do not produce the conventional ``long T-Lock pays on yield
+        rise'' behaviour.
+  \item The document uses a separate ``bond zero curve'' for
+        discounting the T-Lock NPV. Confirm against firm CSA whether
+        this is appropriate; modern practice would normally use
+        OIS/collateral.
+  \item No worked numerical example in the document. Cross-validate
+        \eqref{eq:fwd-clean} against the Pucci 24-Jan-2019 case.
+\end{itemize}
+\end{todobox}
+
+\end{document}

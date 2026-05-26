@@ -1,0 +1,55 @@
+% =====================================================================
+% House notation: shared symbols used across all paper notes.
+% Each note imports this and may shadow individual macros if a paper
+% uses a clashing convention — but the *default* meaning is fixed here.
+%
+% Include with:  \input{../_common/notation}
+% =====================================================================
+
+% --- Measures and expectations ---
+\newcommand{\Q}{\mathbb{Q}}              % risk-neutral measure
+\newcommand{\Qt}{\mathbb{Q}^{T}}         % T-forward measure
+\newcommand{\E}{\mathbb{E}}              % expectation
+\newcommand{\Et}[1]{\E^{#1}}             % expectation under measure #1
+\newcommand{\Ftime}[1]{\mathcal{F}_{#1}} % filtration at #1
+
+% --- Discount and forward objects ---
+\newcommand{\Disc}[2]{D_{#1,#2}}         % discount factor D_{t,T}
+\newcommand{\Bond}[2]{P_{#1}(#2)}        % bond price P_t(y)
+\newcommand{\Ann}[1]{A_{#1}}             % annuity / level
+\newcommand{\Numer}[1]{N_{#1}}           % numeraire
+\newcommand{\Fwd}[2]{F_{#1,#2}}          % forward price F_{t,T}
+\newcommand{\Fwdpx}[2]{\mathrm{Fwd}_{#1}(#2)} % verbose forward-price F_t(T)
+
+% --- Rates ---
+\newcommand{\IRR}{\mathrm{IRR}}          % internal rate of return
+\newcommand{\Yld}{y}                     % bond yield variable
+\newcommand{\Strike}{K}                  % strike (price-space)
+\newcommand{\Lock}{L}                    % locked yield / rate
+\newcommand{\Repo}{r^{\mathrm{repo}}}    % repo rate
+\newcommand{\Fund}{r^{\mathrm{fun}}}     % unsecured funding rate
+\newcommand{\OIS}{r^{\mathrm{ois}}}      % OIS rate
+\newcommand{\Coll}{r^{\mathrm{c}}}       % collateral rate
+\newcommand{\Rcmt}{R^{\mathrm{cmt}}}     % constant-maturity-treasury rate
+\newcommand{\Rswp}{R^{\mathrm{swp}}}     % swap rate (used for risky variant)
+\newcommand{\Rec}{\mathrm{Rec}}          % recovery rate
+\newcommand{\NPV}{\mathrm{NPV}}          % present-value functional
+\newcommand{\PVone}{\mathrm{PV01}}       % risky annuity
+\newcommand{\Loss}{\mathrm{Loss}}        % default-leg integral
+\newcommand{\Sasw}{S^{\mathrm{ASW}}}     % asset-swap spread
+\newcommand{\Scds}{S^{\mathrm{CDS}}}     % CDS spread
+\newcommand{\Basis}{\mathrm{Basis}}      % CDS-bond basis
+
+% --- Sensitivities ---
+\newcommand{\Diff}[2]{D_{#1}^{#2}}       % Euler's notation: D_x^k[f]
+\newcommand{\Riskf}{\mathrm{RiskFactor}} % bond risk factor (= -DV01*1e4)
+\newcommand{\DVone}{\mathrm{DV01}}
+
+% --- Indicator / misc ---
+\newcommand{\Ind}{\mathbf{1}}
+\newcommand{\given}{\,|\,}
+\newcommand{\dd}{\,\mathrm{d}}
+
+% --- Greeks-style ---
+\newcommand{\Gam}{\Gamma}
+\newcommand{\Vega}{\mathcal{V}}

@@ -1,0 +1,317 @@
+% =====================================================================
+% Note on: Pricing Index-Linked Hybrids under a Local Volatility Market Model
+% Mario Pucci (Banca IMI), 2012 — ssrn:2056277
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{pucci\_2012\_hybrid}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Pricing Index-Linked Hybrids under a Local Volatility Market Model}\\
+       \large Mario Pucci (Banca IMI), 2012}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Pricing Index-Linked Hybrids under a Local Volatility Market Model \\
+Author          & Mario Pucci (Banca IMI, Milan) \\
+Date            & 22 February 2012 (revised May 2012) \\
+Source          & \href{https://ssrn.com/abstract=2056277}{ssrn:2056277} \\
+Local file      & \texttt{papers/pucci\_2012\_hybrid/ssrn2056277.pdf} \\
+Tags            & \texttt{hybrid}, \texttt{equity-rates}, \texttt{cash-swaption},
+                  \texttt{local-vol}, \texttt{cms}, \texttt{forward-measure} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A short note proposing a ``market model'' for pricing a cash-settled
+swaption whose strike depends on the level of an equity index at the
+exercise date $T$: payoff
+$\widehat A_T \cdot (\theta(S_T - U_T))^+$ where $\widehat A_T$ is the
+cash annuity, $S_T$ the forward swap rate, and $U_T$ the index
+forward. The key trick is to switch from the swaption measure to the
+$T$-forward measure: the cash annuity then becomes a deterministic
+function of the convexity-adjusted forward swap rate $F_{T T} = S_T$,
+so only the joint distribution of $(F, U)$ matters. Both $F$ and $U$
+are modelled as local-volatility martingales under the $T$-forward
+measure (calibratable individually to vanilla swaption and vanilla
+index option markets), with an exogenously specified correlation
+$\rho$. The framework keeps every dynamics ``market observable'':
+$F_{0T}$ from CMS quotes / static replication, $\sigma_F$ from
+swaptions, $\sigma_U$ from index options, $\rho$ from historical
+data.
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper                   & House                       & Meaning \\
+\midrule
+$U_t$                   & ---                         & Spot index level \\
+$U_{tT}$                & ---                         & Forward price of the index at $t$ for delivery $T$ \\
+$S_t$                   & $R^{swp}_t$                 & Forward swap rate at $t$ for tenor $T_1, \ldots, T_n$ \\
+$A_t$                   & $\Ann{t}$                   & Risk-free annuity, $\sum_i \alpha_i \Disc{t}{T_i}$ \\
+$\widehat A_T$          & $\widehat{\Ann{T}}$         & Cash annuity (flat-curve discount on $S_T$) \\
+$\theta$                & $\theta \in \{+1, -1\}$     & Call ($+1$) / put ($-1$) flag \\
+$T = T_0$               & $T$                         & Swaption exercise date \\
+$T_1, \ldots, T_n$      & $T_i$                       & Underlying swap payment dates \\
+$D_{tT_i}$              & $\Disc{t}{T_i}$             & Risk-free DF \\
+$F_{tT}$                & $F_{tT}$                    & $\mathbb{E}^T_t[S_T]$, convexity-adjusted forward swap rate \\
+$\sigma_F, \sigma_U$    & ---                         & Local volatility functions \\
+$W^F, W^U$              & ---                         & Driving BMs under the $T$-forward measure \\
+$\rho$                  & $\rho$                      & Instantaneous correlation \\
+$K$                     & $K$                         & Vanilla swaption / index option strike \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Cash annuity (flat-curve proxy):}
+\begin{equation}\label{eq:hybrid-cash-ann}
+  \widehat A_T \;=\; \sum_{i=1}^{n} \frac{\alpha_i}{\bigl(1 + \alpha_i S_T\bigr)^{\mathrm{yf}(T, T_i)}},
+\end{equation}
+with $\alpha_i = \mathrm{yf}(T_{i-1}, T_i)$.
+\textit{Says:} the cash annuity replaces market discount factors with
+synthetic ones computed from a flat curve at $S_T$. Standard for
+cash-settled swaptions in the European market. By construction,
+$\widehat A_T$ is a function of $S_T$ alone.
+
+\paragraph{Index-linked cash-settled swaption payoff:}
+\begin{equation}\label{eq:hybrid-payoff}
+  \widehat A_T \, \bigl(\theta(S_T - U_T)\bigr)^+.
+\end{equation}
+\textit{Says:} a cash-settled swaption with strike replaced by the
+realised level of the index $U_T$.
+
+\paragraph{Generic numeraire-pair PV:}
+\begin{equation}\label{eq:hybrid-pv-generic}
+  V_t \;=\; \Numer{t} \, \mathbb{E}^N_t\!\left[ \theta \, \widehat A_T \, (\theta(S_T - U_T))^+ / \Numer{T} \right].
+\end{equation}
+
+\paragraph{Switch to $T$-forward measure:}
+With $F_{tT} \equiv \mathbb{E}^T_t[S_T]$ the convexity-adjusted
+forward swap rate and noting $F_{TT} = S_T$,
+\begin{equation}\label{eq:hybrid-pv-fwd}
+  V_t \;=\; \Disc{t}{T}\, \mathbb{E}^T_t\!\left[ \widehat A_T \, \bigl(\theta(F_{TT} - U_{TT})\bigr)^+ \right].
+\end{equation}
+\textit{Says:} the change of numeraire reduces the joint problem to
+specifying the bivariate distribution of $(F_{TT}, U_{TT})$ under the
+$T$-forward measure; no need to model $\widehat A_T / A_T$ separately
+because $\widehat A_T$ is a function of $S_T = F_{TT}$.
+
+\paragraph{Vanilla calibration targets} (priced under the same model):
+
+vanilla swaption (cash-settled):
+\begin{equation}\label{eq:hybrid-vanilla-swp}
+  V^{\text{swp}}_t \;=\; \Disc{t}{T}\, \mathbb{E}^T_t\!\left[ \widehat A_T \, \bigl(\theta(F_{TT} - K)\bigr)^+ \right],
+\end{equation}
+
+CMS cap / floor on the convexity-adjusted rate (often not liquid):
+\begin{equation}\label{eq:hybrid-vanilla-cms}
+  V^{\text{cms}}_t \;=\; \Disc{t}{T}\, \mathbb{E}^T_t\!\left[ \bigl(\theta(F_{TT} - K)\bigr)^+ \right],
+\end{equation}
+
+vanilla index option:
+\begin{equation}\label{eq:hybrid-vanilla-idx}
+  V^{\text{idx}}_t \;=\; \Disc{t}{T}\, \mathbb{E}^T_t\!\left[ \bigl(\theta(U_{TT} - K)\bigr)^+ \right].
+\end{equation}
+
+\paragraph{Local-volatility dynamics under $T$-forward measure:}
+\begin{align}
+  \frac{\dd F_{tT}}{F_{tT}} &= \sigma_F(t, F_{tT})\, \dd (W^F)^T_t, \label{eq:hybrid-dyn-F}\\
+  \frac{\dd U_{tT}}{U_{tT}} &= \sigma_U(t, U_{tT})\, \dd (W^U)^T_t, \label{eq:hybrid-dyn-U}\\
+  \dd\langle (W^F)^T, (W^U)^T\rangle_t &= \rho\, \dd t.
+\end{align}
+\textit{Says:} both forwards are martingales under $\mathbb{Q}^T$,
+each with its own Dupire-style local-volatility function. The
+correlation $\rho$ is exogenous to the calibration of marginals.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+The structural simplification is that $\widehat A_T$ is, by
+definition \eqref{eq:hybrid-cash-ann}, a deterministic function of
+$S_T$. So switching to $T$-forward leaves a problem entirely in
+$(F_{TT}, U_{TT})$. Compared with traditional hybrid approaches
+(short-rate + equity, e.g.\ G2++/BS or Heston-HW), this is much
+lighter: no unobservable short-rate factors, no joint
+stochastic-volatility specification, no FX-style hybrid correlation
+matrix.
+\end{commentary}
+
+\begin{commentary}
+The trade-off is honesty about correlation. $\rho$ between
+$F_{tT}$ and $U_{tT}$ is not directly observable: there is no
+liquid product whose price depends only on it. The paper's
+suggestions are (i) interpolate forward swap rates along zero curves
+of an index series as a proxy for the convexity-adjusted rate, then
+estimate historical $\rho$ with $U_{tT}$; or (ii) use Black's ATM
+approximation on historical forward swap rates to back out a
+historical $F_{tT}$ time series. Both are heuristics. As with the
+CMASW paper, the model honestly admits that correlation is the soft
+spot.
+\end{commentary}
+
+\begin{commentary}
+The convexity-adjusted CMS rate $F_{0T}$ is treated as a market
+input. Practically, this is read off CMS spread quotes or a CMS
+interpolator (often SABR-based) on the rates desk. The note's
+calibration recipe is therefore:
+\begin{enumerate}[noitemsep]
+  \item $F_{0T}$ from CMS market.
+  \item $\sigma_F(\cdot, \cdot)$ from swaption smile via
+        \eqref{eq:hybrid-vanilla-swp} (Dupire on the
+        cash-swaption-implied marginal of $F$).
+  \item $\sigma_U(\cdot, \cdot)$ from index option smile via
+        \eqref{eq:hybrid-vanilla-idx} (standard Dupire on the index).
+  \item $\rho$ exogenous, ideally historical.
+\end{enumerate}
+\end{commentary}
+
+\begin{commentary}
+The paper says the framework extends to ``other multi-asset hybrid
+payoffs of European type''. The key ingredients are: (i) the payoff
+must be European; (ii) the cash component must reduce to a function
+of a single underlying after the measure change; (iii) the remaining
+underlyings need vanilla-option markets for marginal calibration.
+Cliquets, autocallables and other path-dependent hybrids are out of
+scope.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Cash annuity $\widehat A_T$ via \eqref{eq:hybrid-cash-ann},
+        a deterministic function of $S_T$.
+  \item Index-linked cash-swaption payoff at $T$ via
+        \eqref{eq:hybrid-payoff}.
+  \item $T$-forward measure pricing formula
+        \eqref{eq:hybrid-pv-fwd}; convexity-adjusted forward
+        $F_{tT} = \mathbb{E}^T_t[S_T]$.
+  \item Three vanilla-option pricing formulas in the same framework
+        \eqref{eq:hybrid-vanilla-swp}--\eqref{eq:hybrid-vanilla-idx},
+        used as calibration targets.
+  \item Joint local-volatility dynamics
+        \eqref{eq:hybrid-dyn-F}--\eqref{eq:hybrid-dyn-U} with
+        instantaneous correlation $\rho$.
+\end{itemize}
+
+\textbf{Canonical numerical case}: the paper provides no worked
+numerical example. Suggested test bench: a 1Y expiry on a 10Y
+cash-settled swaption (10Y tenor, annual payments) struck against a
+major equity index (e.g.\ S\&P 500 or EuroStoxx 50). Use $F_{0T}$
+read off a CMS interpolator, swaption ATM vol $\sim 30\%$, index ATM
+vol $\sim 20\%$, $\rho \in \{-0.3, 0.0, +0.3\}$ as a sensitivity grid.
+
+\textbf{Expected numerical values}: none printed in the paper.
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                          & Symbol                  & Quantity \\
+\midrule
+\eqref{eq:hybrid-cash-ann}         & $\widehat A_T$          & cash annuity as deterministic fn of $S_T$ \\
+\eqref{eq:hybrid-payoff}           & $\widehat A_T (S_T - U_T)^+$ & index-linked cash-swaption payoff \\
+\eqref{eq:hybrid-pv-fwd}           & $V_t$                   & price under $T$-forward measure \\
+\eqref{eq:hybrid-vanilla-swp}      & $V^{\text{swp}}_t$      & vanilla cash-swaption price (calibration target) \\
+\eqref{eq:hybrid-vanilla-cms}      & $V^{\text{cms}}_t$      & CMS cap/floor price (alt.\ calibration target) \\
+\eqref{eq:hybrid-vanilla-idx}      & $V^{\text{idx}}_t$      & vanilla index option price (calibration target) \\
+\eqref{eq:hybrid-dyn-F}--\eqref{eq:hybrid-dyn-U} & $F_{tT}, U_{tT}$ & local-vol dynamics under $T$-forward \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Cash annuity at par}: $\widehat A_T$ evaluated at
+        $S_T = R^{swp}_0$ (i.e.\ ATM forward) should match the level
+        consistent with the market discount curve to within a
+        first-order correction; the gap is the cash-vs-market annuity
+        difference standard in cash-settled-swaption pricing.
+  \item \emph{Recovery of vanilla prices}: pricing
+        \eqref{eq:hybrid-vanilla-swp} via the calibrated $\sigma_F$
+        reproduces the input swaption smile by construction
+        (Dupire); same for \eqref{eq:hybrid-vanilla-idx}.
+  \item \emph{Forward consistency}: $F_{tT}$ is a $\mathbb{Q}^T$-martingale
+        by construction, so $\mathbb{E}^T_t[F_{TT}] = F_{tT}$. Same
+        for $U_{tT}$.
+  \item \emph{Limit at $\rho = 0$}: with independent $F$ and $U$,
+        the hybrid price reduces to an iterated expectation over
+        their marginals, computable in 1D once $\sigma_F, \sigma_U$
+        are pinned.
+  \item \emph{Strike intermediate values}: replacing $U_T$ in the
+        payoff by a constant $K$ reduces \eqref{eq:hybrid-pv-fwd} to
+        \eqref{eq:hybrid-vanilla-swp}, the vanilla cash-swaption,
+        and the hybrid model and vanilla model must agree.
+  \item \emph{Convexity adjustment consistency}: at $t = 0$, the
+        difference between $F_{0T}$ (the convexity-adjusted forward)
+        and the spot forward swap rate $S_0$ should equal the
+        Hagan / Pelsser convexity adjustment under matching
+        assumptions.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$U_t$                   & Spot equity index level at $t$ \\
+$U_{tT}$                & Forward price of $U$ at $t$ for delivery $T$ \\
+$S_t$                   & Forward swap rate at $t$ with payment schedule $T_1, \ldots, T_n$ \\
+$A_t$                   & Risk-free annuity \\
+$\widehat A_T$          & Cash annuity (flat-curve discount on $S_T$) \\
+$\theta$                & $+1$ payer / $-1$ receiver flag \\
+$T = T_0$               & Swaption exercise date \\
+$T_1, \ldots, T_n$      & Underlying swap payment dates \\
+$D_{tT}$                & Risk-free discount factor \\
+$F_{tT}$                & Convexity-adjusted forward swap rate, $\mathbb{E}^T_t[S_T]$ \\
+$\mathbb{Q}^T$          & $T$-forward measure (numeraire $D_{tT}$) \\
+$\sigma_F, \sigma_U$    & Local-volatility functions for $F$ and $U$ \\
+$(W^F)^T, (W^U)^T$      & Driving Brownian motions under $\mathbb{Q}^T$ \\
+$\rho$                  & Instantaneous correlation of $(W^F)^T$ and $(W^U)^T$ \\
+$K$                     & Strike for vanilla calibration instruments \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Build a worked numerical example since the paper provides
+        none: 1Y$\times$10Y cash-swaption with strike $= U_T$ where
+        $U$ is a major equity index; benchmark against an iterated
+        BS-style approximation as a sanity check.
+  \item Calibration pipeline: implement steps (i)--(iv) on a synthetic
+        market (flat smiles, synthetic CMS rates) to verify that
+        vanilla prices are recovered exactly.
+  \item Correlation sensitivity: produce a price-vs-$\rho$ curve at
+        plausible ATM vols ($\sigma_F, \sigma_U \sim 20\%-30\%$) to
+        gauge model risk on the unobservable input.
+  \item Compare with a flat-vol Black approximation
+        $V \approx D_{0T} \widehat A_0 \cdot \text{BS}(F_0, U_0, \tilde\sigma, T)$
+        with $\tilde\sigma^2 = \sigma_F^2 - 2\rho\sigma_F\sigma_U + \sigma_U^2$.
+\end{itemize}
+\end{todobox}
+
+\end{document}

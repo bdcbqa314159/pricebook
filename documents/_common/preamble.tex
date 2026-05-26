@@ -1,0 +1,92 @@
+% =====================================================================
+% Shared preamble for paper notes
+% Include with:  \input{../_common/preamble}
+% =====================================================================
+
+% --- Core packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+% --- Hyperref styling ---
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!50!black,
+  citecolor=blue!50!black
+}
+
+% --- Theorem-like environments ---
+\theoremstyle{definition}
+\newtheorem{defn}{Definition}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+
+\theoremstyle{plain}
+\newtheorem{prop}{Proposition}
+\newtheorem{lemma}{Lemma}
+
+% --- Coloured boxes for the structured sections ---
+% Validation block, commentary, TODOs use coloured frames so the eye
+% can find them when flipping through the note.
+\usepackage[most]{tcolorbox}
+
+\newtcolorbox{commentary}{
+  colback=yellow!5,
+  colframe=yellow!50!black,
+  title=Commentary,
+  fonttitle=\bfseries,
+  breakable
+}
+
+\newtcolorbox{validation}{
+  colback=green!3,
+  colframe=green!50!black,
+  title=Validation,
+  fonttitle=\bfseries,
+  breakable
+}
+
+\newtcolorbox{todobox}{
+  colback=red!3,
+  colframe=red!50!black,
+  title=TODO / Open questions,
+  fonttitle=\bfseries,
+  breakable
+}
+
+% --- Code listing style for Python snippets in validation blocks ---
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{gray},
+  stringstyle=\color{red!60!black},
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{gray!30}
+}
+
+% --- Page header: shows paper tag so a printed note is identifiable ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{\papertag}}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Section spacing: tighter than article default ---
+\titlespacing*{\section}{0pt}{1.5ex plus 0.5ex minus 0.2ex}{1ex plus 0.2ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 0.3ex minus 0.2ex}{0.6ex plus 0.2ex}

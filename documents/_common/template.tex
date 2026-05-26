@@ -1,0 +1,151 @@
+% =====================================================================
+% TEMPLATE — copy this file to start a new paper note.
+% Filename convention:  papers/<firstauthor>_<year>_<shortslug>/note.tex
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% Paper tag shown in header; set BEFORE \input{preamble}
+\newcommand{\papertag}{author\_year\_slug}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{<Paper Title>}}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & \\
+Author(s)       & \\
+Year / version  & \\
+Source          & \href{https://ssrn.com/abstract=XXXX}{ssrn:XXXX} \\
+Local file      & \texttt{papers/<dir>/source.pdf} \\
+Tags            & \texttt{tag1}, \texttt{tag2} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+% In your own words: what problem, what's the contribution, what's the
+% punchline. If you can't write this without looking at the paper,
+% you haven't read it yet.
+
+% =====================================================================
+\section{Setup and notation}
+% Map the paper's symbols onto the house notation (or note where they
+% clash). This is the bridge to the validation block.
+
+\begin{tabular}{@{}p{3cm}p{4cm}p{8cm}@{}}
+\toprule
+Paper symbol & House symbol & Meaning \\
+\midrule
+$X$ & \texttt{X} & \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+% The 5--15 equations that matter. Number them with your own labels
+% (eq:summary-1, eq:price, ...) so the validation block can reference
+% them. Each equation gets a one-line annotation.
+
+\begin{equation}\label{eq:placeholder}
+  X = Y
+\end{equation}
+\textit{Says:} ...
+
+% =====================================================================
+\section{Derivations \& commentary}
+% Only the bits you had to work out yourself, or where you disagree
+% with the paper's presentation.
+
+\begin{commentary}
+% A boxed note. Use for the things you'd tell a colleague.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+% This block is a SPECIFICATION of mathematical objects and the values
+% they should take. It is deliberately API-agnostic: name quantities by
+% their mathematics, never by library function names. Procedural verbs
+% like "invoke", "bump", "round-trip" don't belong here — they describe
+% how you test, not what's true.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item $X$ --- description, with reference to its defining equation.
+  \item ...
+\end{itemize}
+
+\textbf{Canonical numerical case} (from the paper):
+\begin{itemize}[noitemsep]
+  \item Inputs: ...
+  \item As-of date: ...
+\end{itemize}
+
+\textbf{Expected numerical values} (from paper's Table/Figure X):
+
+\smallskip
+\begin{tabular}{@{}p{6cm}rl@{}}
+\toprule
+Quantity & Value & Tolerance \\
+\midrule
+$X$ & ... & ... \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{4cm}p{6cm}@{}}
+\toprule
+Paper eq. & Symbol & Quantity \\
+\midrule
+\eqref{eq:placeholder} & $X$ & described as a mathematical object \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Defining identity}: an equation that should hold at the
+        canonical inputs within float tolerance.
+  \item \emph{Direct numerical match}: the value of a quantity from the
+        paper's table, reproduced from its closed form.
+  \item \emph{Global property}: an inequality or invariant that holds
+        across a range of inputs (not just the canonical case).
+  \item \emph{Closed-form vs.\ numerical agreement}: a derivative or
+        integral given in closed form agrees with a numerical equivalent.
+  \item \emph{Monotonicity / sign}: a sensitivity that should have a
+        definite sign under stated assumptions.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+Symbol & Meaning (verbatim from paper) \\
+\midrule
+$X$ & ... \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item ...
+\end{itemize}
+\end{todobox}
+
+\end{document}

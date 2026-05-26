@@ -1,0 +1,500 @@
+% =====================================================================
+% Note on: Everything You Always Wanted to Know About Multiple
+%          Interest Rate Curve Bootstrapping But Were Afraid To Ask
+% Ferdinando M. Ametrano and Marco Bianchetti, 2013
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\newcommand{\papertag}{ametrano\_bianchetti\_2013\_multicurve}
+
+\input{../_common/preamble}
+\input{../_common/notation}
+
+\title{Note on: \emph{Everything You Always Wanted to Know About Multiple Interest Rate Curve Bootstrapping But Were Afraid To Ask}\\
+       \large Ferdinando M.\ Ametrano \& Marco Bianchetti, 2013}
+\author{Reading notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section*{Metadata}
+\begin{tabular}{@{}p{3.5cm}p{11cm}@{}}
+\toprule
+Title           & Everything You Always Wanted to Know About Multiple Interest Rate Curve Bootstrapping But Were Afraid To Ask \\
+Authors         & Ferdinando M.\ Ametrano (Banca IMI), Marco Bianchetti (Banca Intesa Sanpaolo) \\
+Date            & 2 April 2013 (first version 4 February 2013) \\
+Source          & \href{https://ssrn.com/abstract=2219548}{ssrn:2219548}.
+                  Also appears as a chapter in \emph{Interest Rate Modelling After the Financial Crisis} (Bianchetti \& Morini eds., Risk Books, 2013) \\
+Local file      & \texttt{papers/ametrano\_bianchetti\_2013\_multicurve/ssrn2219548.pdf} \\
+Tags            & \texttt{multicurve}, \texttt{bootstrap}, \texttt{ois-discounting},
+                  \texttt{fra}, \texttt{basis-swap}, \texttt{collateral}, \texttt{csa},
+                  \texttt{quantlib}, \texttt{eur-market} \\
+Date read       & \today \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section*{One-paragraph summary}
+A comprehensive practitioner-grade treatment of post-crisis interest
+rate yield curve construction: how to build a discount curve and one
+or more FRA curves consistent with the diffusion of collateral
+agreements (CSA) and the persistence of large Basis-Swap spreads
+between tenors. The theoretical core (\S3): under a perfect CSA with
+collateral rate $r_c$, the value of a derivative on a generic
+underlying $X$ obeys the PDE $\partial_t \Pi + r_f X \partial_X \Pi +
+\tfrac12 \sigma^2 X^2 \partial^2_{XX}\Pi = r_c \Pi$ ---
+\emph{drift uses the funding rate $r_f$, discount uses the collateral
+rate $r_c$} \eqref{eq:mc-pde}. The OIS curve plays the role of
+discounting curve; tenor-specific FRA curves play the role of
+forwarding curves. The practical core (\S4): the bootstrap is a
+recursive application of pricing formulas to a curated set of market
+instruments (Deposits, FRAs, Futures, IRS, OIS, Basis Swaps), with
+attention to interpolation, synthetic instruments for short-end
+coverage, negative rates (post-2012 EUR), turn-of-year effect, and
+the loss of the classical telescoping identity for IRS rates
+\eqref{eq:mc-no-telescope}. The implementation core (\S5): a full
+EUR-market case study (11-Dec-2012) bootstrapping the Eonia
+discount curve plus four FRA curves (1M, 3M, 6M, 12M), with all code
+released open-source in QuantLib.
+
+% =====================================================================
+\section{Setup and notation}
+
+\begin{tabular}{@{}p{3cm}p{3.5cm}p{8.5cm}@{}}
+\toprule
+Paper                    & House                       & Meaning \\
+\midrule
+$B_\alpha(t)$            & ---                         & Generic funding account at rate $r_\alpha$ \\
+$B_f(t)$                 & ---                         & Treasury (unsecured) funding account, rate $r_f$ \\
+$B_c(t)$                 & $B_c(t)$                    & Collateral account, rate $r_c$ (typically Eonia / OIS) \\
+$r_f(t)$                 & $\Fund$                     & Unsecured funding rate (Libor + spread) \\
+$r_c(t)$                 & $\Coll$                     & Collateral rate (OIS, set by CSA) \\
+$\Pi(t, X)$              & ---                         & Derivative price on underlying $X$ \\
+$P_c(t, T)$              & $P_c(t,T)$                  & Collateral zero-coupon bond, discount factor on $\mathcal{C}_c$ \\
+$P_x(t, T)$              & $P_x(t,T)$                  & Forward-curve zero-coupon factor (tenor $x$) \\
+$L_x(T_{i-1}, T_i)$      & ---                         & Spot Libor rate for tenor $x$ \\
+$F_x(t; T_{i-1}, T_i) = F_{x,i}(t)$ & ---              & Forward Libor rate (tenor $x$) at $t$ \\
+$Q_f$                    & ---                         & Probability measure with numeraire $B_f$ \\
+$Q_f^T$                  & ---                         & $T$-forward measure under $P_c(t, T)$ \\
+$\tau(T_a, T_b, dc)$     & $\alpha_i$                  & Year fraction \\
+$\mathcal{C}_x$          & $\mathcal{C}_x$             & Yield curve indexed by tenor $x$ (e.g.\ $\mathcal{C}^{EUR}_{6M}$) \\
+$\mathcal{C}_c$          & $\mathcal{C}_c$             & Discounting (OIS / collateral) yield curve \\
+$\mathcal{C}^P_x, \mathcal{C}^F_x$ & ---               & Discount-factor curve, FRA curve representations of $\mathcal{C}_x$ \\
+$A_c(t; \mathcal{S})$    & $A_c$                       & Collateral annuity $\sum_j P_c(t, S_j)\tau_K(S_{j-1}, S_j)$ \\
+$C^{\text{FRA}}_{c,x}(t; T)$ & ---                     & Convexity adjustment between $\mathcal{C}_c$ and $\mathcal{C}_x$ \\
+$R^{\text{OIS}}_{\text{on}}(t; \mathcal{T}, \mathcal{S})$ & --- & Par OIS rate \\
+$R^{\text{IRS}}_x(t; \mathcal{T}, \mathcal{S})$       & ---    & Par IRS rate (tenor $x$ floating leg) \\
+$\Delta(t; \mathcal{T}_x, \mathcal{T}_y, \mathcal{S})$ & ---   & Par Basis-Swap spread (tenor $x$ vs.\ $y$) \\
+$\omega$                 & ---                         & Payer/receiver indicator ($\pm 1$) \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\section{Key equations}
+
+\paragraph{Pricing under perfect CSA} (\S3.3, eq.~9):
+\begin{equation}\label{eq:mc-pde}
+  \frac{\partial \Pi}{\partial t}
+  \;+\; r_f(t)\, X(t)\, \frac{\partial \Pi}{\partial X}
+  \;+\; \tfrac{1}{2}\, \sigma^2(t, X)\, X^2(t)\, \frac{\partial^2 \Pi}{\partial X^2}
+  \;=\; r_c(t)\, \Pi(t, X).
+\end{equation}
+\textit{Says:} the drift on the underlying uses the unsecured
+funding rate $r_f$ (the rate at which the hedge is financed), while
+the discount rate on the derivative is the collateral rate $r_c$
+(the rate the cash collateral earns). The two rates are now
+genuinely different and not interchangeable. Feynman-Kac gives
+\begin{equation}\label{eq:mc-fk}
+  \Pi(t, X) \;=\; \E^{Q_f}_t\!\left[ \exp\!\left(-\int_t^T r_c(u)\,\dd u\right) \Pi(T, X) \right],
+\end{equation}
+under the funding measure $Q_f$ where $X$ has drift $r_f X$. The
+change of numeraire from $B_c$ to $P_c(t, T)$ gives the cleaner
+forward-measure expression:
+\begin{equation}\label{eq:mc-forward}
+  \Pi(t, X) \;=\; P_c(t, T)\, \E^{Q_f^T}_t[\Pi(T, X)],
+  \qquad
+  P_c(t, T) \;=\; \E^{Q_f}_t\!\left[\exp\!\left(-\int_t^T r_c(u)\,\dd u\right)\right].
+\end{equation}
+\textit{Says:} discounting is done at the collateral rate, hence the
+``OIS discounting'' name for the post-crisis convention.
+
+\paragraph{Deposit pricing and bootstrap relation} (\S4.3.1, eq.~40--41):
+\begin{equation}\label{eq:mc-depo}
+  \text{Depo}(t; T_i) \;=\; N\, P_x(t, T_i)\, \bigl[ 1 + R^{\text{Depo}}_x(T^F_0; T_i)\, \tau_L(T_0, T_i) \bigr],
+\end{equation}
+\begin{equation}\label{eq:mc-depo-boot}
+  P_x(T_0, T_i) \;=\; \frac{1}{1 + R^{\text{Depo}}_x(t_0; T_i)\, \tau_L(T_0, T_i)}.
+\end{equation}
+\textit{Says:} Deposits are unsecured, so the discount factor used
+is the tenor-$x$ curve factor $P_x$ (not the collateral factor
+$P_c$). Eq.~\ref{eq:mc-depo-boot} bootstraps a short-end pillar of
+$\mathcal{C}_x$ from the quoted deposit rate.
+
+\paragraph{Market FRA pricing} (\S4.3.2, eq.~43--44):
+\begin{equation}\label{eq:mc-fra}
+  \text{FRA}^{\text{Mkt}}(t; \mathcal{T}, K, \omega)
+  \;=\; N \omega\, P_c(t, T_{i-1})
+        \left[ 1 \;-\; \frac{1 + K\, \tau_x(T_{i-1}, T_i)}{1 + F_{x,i}(t)\, \tau_x(T_{i-1}, T_i)}\, e^{C^{\text{FRA}}_{c,x}(t; T_{i-1})} \right].
+\end{equation}
+\textit{Says:} the actual market-FRA payoff is paid at $T_{i-1}$
+(start of accrual), not at $T_i$ as in textbook FRAs --- so the
+exposure-resetting convention introduces a forward-discount-factor
+ratio. The convexity adjustment $C^{\text{FRA}}_{c,x}$ accounts for
+the correlation between $F_{d,i}$ (the discount-curve forward) and
+$F_{x,i}$ (the tenor-$x$ forward); small in typical post-crisis
+markets.
+
+\paragraph{IRS pricing under multicurve} (\S4.3.4, eq.~61--63):
+\begin{equation}\label{eq:mc-irs}
+  \text{IRS}(t; \mathcal{T}, \mathcal{S}, L_x, K, \omega) \;=\; \omega N\, [R^{\text{IRS}}_x(t; \mathcal{T}, \mathcal{S}) - K]\, A_c(t; \mathcal{S}),
+\end{equation}
+\begin{equation}\label{eq:mc-irs-rate}
+  R^{\text{IRS}}_x(t; \mathcal{T}, \mathcal{S})
+  \;=\; \frac{\sum_{i=1}^{n} P_c(t, T_i)\, F_{x,i}(t)\, \tau_L(T_{i-1}, T_i)}{A_c(t; \mathcal{S})},
+  \qquad
+  A_c(t; \mathcal{S}) \;=\; \sum_{j=1}^{m} P_c(t, S_j)\, \tau_K(S_{j-1}, S_j).
+\end{equation}
+\textit{Says:} the par IRS rate is the ratio of the floating leg PV
+to the fixed-leg annuity. Both legs are discounted on the
+\emph{collateral} curve $P_c$, but the floating leg uses the
+\emph{tenor-$x$ forward} $F_{x,i}$. \emph{Two curves, one rate.}
+
+\paragraph{Loss of the classical telescoping identity} (\S4.3.4, eq.~64--65):
+\begin{equation}\label{eq:mc-no-telescope}
+  \sum_{i=1}^{n} P_c(t, T_i)\, F_{x,i}(t)\, \tau_L(T_{i-1}, T_i)
+  \;\ne\; P_c(t, T_0) \;-\; P_c(t, T_n).
+\end{equation}
+\textit{Says:} in the single-curve world this identity held
+exactly (because $F_i = (P_{i-1}/P_i - 1)/\alpha_i$); in the
+multicurve world it fails because the discount curve and the
+forward curve are different. A spot-starting at-par IRS no longer has
+each leg worth $1$; only the \emph{difference} is zero.
+
+\paragraph{Bootstrap formula for IRS pillar} (\S4.3.4, eq.~66):
+\begin{equation}\label{eq:mc-irs-boot}
+  F_{x,i}(T_0)
+  \;=\; \frac{R^{\text{IRS}}_x(T_0; T_i)\, A_c(T_0; T_i) \;-\; \sum_{\alpha=1}^{i-1} P_c(T_0, T_\alpha)\, F_{x,\alpha}(T_0)\, \tau_L(T_{\alpha-1}, T_\alpha)}
+              {P_c(T_0, T_i)\, \tau_L(T_{i-1}, T_i)}.
+\end{equation}
+\textit{Says:} solve for the next forward $F_{x,i}$ given known
+earlier forwards and an IRS quote. The presence of $A_c$ on the
+RHS means the bootstrap of $\mathcal{C}_x$ requires the
+discount curve $\mathcal{C}_c$ as input --- they are coupled, but
+sequentially: build $\mathcal{C}_c$ first from OIS, then build each
+$\mathcal{C}_x$ using $\mathcal{C}_c$.
+
+\paragraph{OIS pricing identity} (\S4.3.5, eq.~73--74):
+\begin{equation}\label{eq:mc-ois}
+  R^{\text{OIS}}_{\text{on}}(t; \mathcal{T}, \mathcal{S})
+  \;=\; \frac{\sum_{i=1}^{n} P_c(t, T_i)\, R_{\text{on}}(t; T_i)\, \tau_{\text{on}}(T_{i-1}, T_i)}{A_c(t; \mathcal{S})}
+  \;=\; \frac{P_c(t, T_0) - P_c(t, T_n)}{A_c(t; \mathcal{S})}.
+\end{equation}
+\textit{Says:} the second equality holds because the OIS
+\emph{floating} leg is also discounted on the collateral curve ---
+forward overnight rates can be replicated using $P_c$, so the
+classical telescoping identity is recovered. This is the
+\emph{single-curve property of OIS}: OIS reduces to plain
+discount-curve arithmetic, which is why OIS is used to build the
+discount curve.
+
+\paragraph{Bootstrap formula for OIS pillar} (\S4.3.5, eq.~76):
+\begin{equation}\label{eq:mc-ois-boot}
+  P_c(T_0, T_i)
+  \;=\; \frac{\bigl[R^{\text{OIS}}_{\text{on}}(T_0, T_{i-1}) - R^{\text{OIS}}_{\text{on}}(T_0, T_i)\bigr] A_c(T_0, T_i) + P_c(T_0, T_{i-1})}
+              {1 + R^{\text{OIS}}_{\text{on}}(T_0, T_i)\, \tau_K(T_{i-1}, T_i)}.
+\end{equation}
+\textit{Says:} solves for the next collateral discount factor given
+the next OIS quote and the previous one. This is the recursive
+bootstrap of $\mathcal{C}_c$.
+
+\paragraph{Basis Swap as portfolio of two IRS} (\S4.3.6, eq.~81):
+\begin{equation}\label{eq:mc-basis}
+  \Delta(t; \mathcal{T}_x, \mathcal{T}_y, \mathcal{S})
+  \;=\; \frac{\text{IRS}_{x,\text{float}}(t; \mathcal{T}_x, L_x) - \text{IRS}_{y,\text{float}}(t; \mathcal{T}_y, L_y)}{N\, A_c(t; \mathcal{S})}.
+\end{equation}
+\textit{Says:} the par Basis-Swap spread is the difference of the
+two floating-leg PVs divided by the common fixed-leg annuity ---
+analogous to the par IRS rate, but with two floating legs in the
+numerator. Used to bootstrap $\mathcal{C}_x$ from $\mathcal{C}_y$
+(with $\mathcal{C}_y$ already built) when no direct $x$-tenor IRS is
+quoted.
+
+% =====================================================================
+\section{Derivations \& commentary}
+
+\begin{commentary}
+\textbf{The big idea}: pre-crisis, ``one curve fits all'' --- Libor
+was treated as risk-free, basis spreads were negligible,
+single-curve discounting and FRA computation. Post-2007:
+\textbf{(i)} Libor became risky (credit/liquidity premium); \textbf{(ii)} basis
+spreads exploded (3M-6M EUR basis hit $\sim 40$~bp in late 2008);
+\textbf{(iii)} CSA become near-universal so collateral mattered for
+pricing. The multicurve framework is the no-arbitrage response:
+one discount curve (collateral / OIS) and a separate forward curve
+for each Libor tenor. The paper is the most thorough practitioner
+write-up of the bootstrap mechanics.
+\end{commentary}
+
+\begin{commentary}
+\textbf{The PDE \eqref{eq:mc-pde}} is the foundational result.
+Drift = funding rate (the cost of holding the hedge),
+discount = collateral rate (the cost of cash). The two were
+collapsed pre-crisis when ``Libor was both''. Post-crisis they are
+genuinely distinct. The same structure appears in Lou (2018) for
+TRS, in Piterbarg's funding-cost papers, and in the anonymous
+discounting note (\texttt{anon\_discounting\_textbooks}) which makes
+the same point in textbook form.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Why OIS for discounting?} Three reasons:
+\textbf{(1)} The standard CSA pays interest on cash collateral at the
+overnight rate (Fed Funds, Eonia, SONIA), so $r_c =$ OIS rate by
+contract definition. \textbf{(2)} OIS has the single-curve property
+\eqref{eq:mc-ois}: forwarding and discounting collapse onto the same
+curve, so the bootstrap is just discount-factor algebra.
+\textbf{(3)} OIS is liquid out to long maturities post-crisis,
+so it provides a full term structure of pillars.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Bootstrap order matters.} Build $\mathcal{C}_c$ first from
+OIS \eqref{eq:mc-ois-boot}; then build each tenor-$x$ FRA curve
+$\mathcal{C}_x$ using IRS, FRA, Futures, and Basis-Swap quotes for
+that tenor, \eqref{eq:mc-irs-boot}, taking $\mathcal{C}_c$ as input.
+The dependency is one-way: $\mathcal{C}_c$ does \emph{not} depend
+on any $\mathcal{C}_x$, but every $\mathcal{C}_x$ depends on
+$\mathcal{C}_c$. (Iterative joint solution is possible but rarely
+needed since OIS pillars are abundant.)
+\end{commentary}
+
+\begin{commentary}
+\textbf{Loss of telescoping is structurally important.} In the
+single-curve world, the floating leg of an IRS is worth $P_c(t, T_0) -
+P_c(t, T_n)$ identically because $F_i \alpha_i = P_c(t, T_{i-1})/P_c(t, T_i) - 1$.
+In the multicurve world, $F_{x,i} = (P_x(t, T_{i-1})/P_x(t, T_i) - 1)/\tau_L$
+involves the forward curve $P_x$, not $P_c$ --- so the cancellation
+doesn't happen. Practitioner consequence: \textbf{(i)} a spot-starting
+at-par IRS does not have each leg equal to par with notional exchange
+at maturity; \textbf{(ii)} valuation libraries written under the
+old assumption silently produce wrong P\&L; \textbf{(iii)} basis
+sensitivities decompose differently --- one delta per curve, not
+one delta total.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Interpolation is part of the bootstrap, not after it.}
+Eq.~\eqref{eq:mc-irs-boot} at year $i$ requires $P_c(T_0, T_\alpha)$
+at intermediate dates $T_\alpha$ that may not be on the bootstrap
+grid (e.g.\ the IRS fixed leg pays annually but the floating leg
+pays semi-annually --- 9.5Y appears in a 10Y IRS bootstrap). Hence
+the interpolation choice (linear-in-zero-rates, log-linear in
+discount factors, cubic spline on instantaneous forwards, etc.)
+\emph{interacts with the bootstrap}, and inconsistent choices
+produce kinks or non-monotonic FRA curves. The paper recommends
+log-cubic spline on discount factors as a default.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Negative rates} (\S4.6). EUR Eonia went negative in 2012,
+killing libraries built on assumed-positive zero rates. The fix is
+to interpolate \emph{discount factors} (always positive) rather than
+zero rates: $P_c$ stays well-defined, $\partial_T P_c$ can become
+positive (giving negative instantaneous forwards) without crashing
+the interpolator. Quoting from the paper (p.~44): ``the simplest
+remedy is to interpolate the discount factors directly''.
+\end{commentary}
+
+\begin{commentary}
+\textbf{Synthetic instruments} (\S4.4). The short end of the FRA
+curve is sparse: Deposits cover up to 12M, but for tenors $\ge 3$M
+the first FRA might not start until 1M or 3M from spot. The paper
+constructs \emph{synthetic Deposits} (interpolated from the front
+end of the OIS curve corrected by the basis) and \emph{synthetic
+FRAs} (interpolated from the longer-tenor quotes) to fill the gap.
+These are not market-quoted instruments but consistent shadow
+instruments that maintain a smooth term structure across pillar
+choices.
+\end{commentary}
+
+% =====================================================================
+\section{Validation}
+
+\begin{validation}
+This is a \emph{specification} of mathematical objects the paper
+defines and the numerical values they should take. It says nothing
+about how those objects are implemented or invoked.
+
+\textbf{Quantities the paper defines:}
+\begin{itemize}[noitemsep]
+  \item Collateral-discounted derivative price under perfect CSA via
+        the PDE \eqref{eq:mc-pde} and the corresponding
+        Feynman-Kac/forward-measure representations \eqref{eq:mc-fk},
+        \eqref{eq:mc-forward}.
+  \item Bootstrap formulas: Deposit \eqref{eq:mc-depo-boot}, IRS
+        \eqref{eq:mc-irs-boot}, OIS \eqref{eq:mc-ois-boot}.
+  \item Par IRS rate \eqref{eq:mc-irs-rate}, par OIS rate
+        \eqref{eq:mc-ois}, par Basis-Swap spread \eqref{eq:mc-basis}.
+  \item Market-FRA pricing \eqref{eq:mc-fra} (including the
+        convexity adjustment $C^{\text{FRA}}_{c,x}$).
+  \item Discounting curve $\mathcal{C}_c$ and tenor-specific FRA
+        curves $\mathcal{C}_x$ for $x \in \{1M, 3M, 6M, 12M\}$.
+\end{itemize}
+
+\textbf{Canonical numerical case} (\S5, EUR market, 11-Dec-2012):
+\begin{itemize}[noitemsep]
+  \item Reference date $t_0 = $ 11-Dec-2012, spot date $T_0 = $ 13-Dec-2012.
+  \item Calendar: TARGET. Day count for floating legs: act/360. Day count for fixed legs: 30/360 (bond basis).
+  \item Eonia discount curve $\mathcal{C}^{EUR}_{ON}$: bootstrapped
+        from Eonia ON-1Y Deposits + 1Y--30Y OIS strip + ECB-dated
+        forward OIS (handles MPC meeting jumps in front end).
+  \item Euribor1M curve $\mathcal{C}^{EUR}_{1M}$: bootstrapped from
+        synthetic short Deposits + 1M Deposit + short-term 1M IRS
+        + medium/long IRS-1M (derived from IRS-6M $+$ Basis 1M vs.\ 6M).
+        Last 4 pillars 35--60Y are flat extrapolation from 30Y.
+  \item Euribor3M, Euribor6M, Euribor12M curves similarly, each on
+        its own instrument selection (FRA, Futures, IRS, Basis).
+  \item Sample short-end OIS quotes (Eonia bid--ask--mid, p.~56):
+        ON $0.040\%$; 1W $0.070\%$; 1M $0.074\%$; 3M $0.047\%$;
+        6M $0.018\%$; 1Y $0.000\%$. \emph{Note negative quotes from 4M onward}.
+  \item Sample IRS-6M quotes (p.~28): 1Y $0.286\%$; 5Y $0.762\%$;
+        10Y $1.584\%$; 30Y $2.256\%$.
+  \item Bootstrap engine: open-source QuantLib implementation accompanying the paper.
+\end{itemize}
+
+\textbf{Equation $\leftrightarrow$ quantity map:}
+
+\smallskip
+\begin{tabular}{@{}p{2.8cm}p{3.8cm}p{6.2cm}@{}}
+\toprule
+Paper eq.                                & Symbol                            & Quantity \\
+\midrule
+\eqref{eq:mc-pde}                        & PDE                               & pricing under perfect CSA \\
+\eqref{eq:mc-fk}--\eqref{eq:mc-forward}  & $\Pi(t, X)$                       & FK + forward-measure representations \\
+\eqref{eq:mc-depo}--\eqref{eq:mc-depo-boot} & Depo, $P_x(T_0, T_i)$         & deposit price and bootstrap \\
+\eqref{eq:mc-fra}                        & $\text{FRA}^{\text{Mkt}}$        & market-FRA price with convexity adj. \\
+\eqref{eq:mc-irs}--\eqref{eq:mc-irs-rate} & $\text{IRS}, R^{\text{IRS}}_x$  & multicurve IRS pricing \\
+\eqref{eq:mc-no-telescope}               & telescoping failure              & structural identity \emph{not} valid \\
+\eqref{eq:mc-irs-boot}                   & $F_{x,i}(T_0)$                    & IRS pillar bootstrap (next forward) \\
+\eqref{eq:mc-ois}                        & $R^{\text{OIS}}_{\text{on}}$      & par OIS rate (telescoping recovered) \\
+\eqref{eq:mc-ois-boot}                   & $P_c(T_0, T_i)$                   & OIS pillar bootstrap (next discount) \\
+\eqref{eq:mc-basis}                      & $\Delta$                          & par Basis-Swap spread \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\textbf{Invariants and identities to verify:}
+\begin{enumerate}[noitemsep]
+  \item \emph{Single-curve limit}: at $r_c \equiv r_f$, the PDE
+        \eqref{eq:mc-pde} reduces to the Black-Scholes-Merton case;
+        IRS formulas reduce to the classical telescoping identity
+        \eqref{eq:mc-no-telescope} with equality; multicurve and
+        single-curve agree.
+  \item \emph{OIS single-curve property}: identity
+        $\sum_i P_c(t, T_i) R_{\text{on}}(t; T_i) \tau_{\text{on}} =
+        P_c(t, T_0) - P_c(t, T_n)$ in \eqref{eq:mc-ois} must hold
+        exactly under the OIS-discounted forward-rate replication.
+  \item \emph{Bootstrap exact-fit}: re-pricing each input instrument
+        with the bootstrapped curves recovers its market quote (to
+        the bootstrap tolerance, $\sim 10^{-12}$ for a well-conditioned
+        problem).
+  \item \emph{Curve nesting}: at any pillar $T_i$ on $\mathcal{C}_c$,
+        $P_c(T_0, T_i) > 0$; at any pillar on $\mathcal{C}_x$,
+        $P_x(T_0, T_i) > 0$. Allowed: $P_x > 1$ or
+        $P_c$ non-monotone in $T_i$ in pathological short-end cases
+        (negative rates), but never zero or negative.
+  \item \emph{Basis-Swap consistency}: with $\mathcal{C}_y$ already
+        built, bootstrapping $\mathcal{C}_x$ from a Basis Swap (x
+        vs.\ y) quote via \eqref{eq:mc-basis} and then re-pricing
+        the basis swap on the resulting curves recovers the quote
+        exactly.
+  \item \emph{FRA convexity adjustment small}: in typical
+        post-crisis EUR market conditions
+        $|C^{\text{FRA}}_{c,x}(t; T_{i-1})| \lesssim 1$ bp; in
+        validation tests, switching it off and on shouldn't move
+        the bootstrap pillars by more than $\sim 0.1$ bp.
+  \item \emph{Floating leg PV $\ne$ Notional at par IRS}: for a
+        canonical 10Y IRS-6M at par, the floating-leg PV computed
+        on the bootstrapped curves should differ from $1$ by an
+        amount of order $\sum P_c(t, T_i) F_{x,i} \tau - (1 - P_c(t, T_n))$
+        --- exactly the structural deviation
+        \eqref{eq:mc-no-telescope}.
+  \item \emph{Endogenous vs.\ exogenous bootstrap} (\S4.7): the
+        endogenous variant builds $\mathcal{C}_x$ \emph{and}
+        $\mathcal{C}_c$ jointly; the exogenous variant takes
+        $\mathcal{C}_c$ as already built. Both should give the same
+        $\mathcal{C}_x$ to within numerical tolerance, since the
+        $\mathcal{C}_c$-on-OIS bootstrap is unique.
+\end{enumerate}
+\end{validation}
+
+% =====================================================================
+\section{Glossary of symbols (paper's notation)}
+\begin{tabular}{@{}p{3cm}p{12cm}@{}}
+\toprule
+$\mathcal{C}_c, \mathcal{C}_x$ & Discount (collateral / OIS) curve, FRA curve for tenor $x$ \\
+$P_c(t, T), P_x(t, T)$       & Discount factors on the respective curves \\
+$L_x(T_{i-1}, T_i)$          & Spot Libor / Euribor rate for tenor $x$ \\
+$F_{x,i}(t)$                 & Forward Libor for $(T_{i-1}, T_i)$ at $t$, tenor $x$ \\
+$r_f(t), r_c(t)$             & Unsecured funding rate / collateral rate (overnight) \\
+$Q_f, Q_f^T$                 & Funding-account measure / $T$-forward measure under $P_c$ \\
+$\tau(T_a, T_b, dc)$         & Year fraction with day count $dc$ \\
+$\tau_L, \tau_K, \tau_x, \tau_{\text{on}}$ & Year fractions for floating, fixed, FRA, OIS legs \\
+$A_c(t; \mathcal{S})$        & Collateral annuity $\sum_j P_c(t, S_j) \tau_K$ \\
+$R^{\text{OIS}}_{\text{on}}, R^{\text{IRS}}_x$ & Par OIS rate, par IRS rate (tenor $x$) \\
+$\Delta(t; \mathcal{T}_x, \mathcal{T}_y, \mathcal{S})$ & Par Basis Swap spread (tenor $x$ vs $y$) \\
+$C^{\text{FRA}}_{c,x}(t; T)$ & FRA convexity adjustment between $\mathcal{C}_c$ and $\mathcal{C}_x$ \\
+$\omega$                     & $\pm 1$ payer/receiver flag \\
+$N$                          & Notional \\
+$\mathcal{T} = \{T_0, \ldots, T_n\}$ & Floating leg schedule \\
+$\mathcal{S} = \{S_0, \ldots, S_m\}$ & Fixed leg schedule \\
+ON, TN, SN                   & Overnight, Tomorrow-Next, Spot-Next (deposit tenors) \\
+Eonia, Euribor, Libor        & EUR overnight, EUR Libor, generic Libor \\
+TARGET                       & Trans-european Automated Real-time Gross settlement (EUR calendar) \\
+QuantLib                     & Open-source library implementing the algorithms \\
+\bottomrule
+\end{tabular}
+
+% =====================================================================
+\begin{todobox}
+\begin{itemize}[noitemsep]
+  \item Implement OIS bootstrap of $\mathcal{C}^{EUR}_{ON}$ on the
+        11-Dec-2012 Eonia strip using \eqref{eq:mc-ois-boot};
+        verify negative short-end discount factors $> 1$ for $T < 1$Y
+        (because of negative OIS rates).
+  \item Implement IRS-6M bootstrap of $\mathcal{C}^{EUR}_{6M}$ using
+        \eqref{eq:mc-irs-boot}, taking $\mathcal{C}^{EUR}_{ON}$ as
+        input; re-price all 36 IRS-6M instruments to verify exact
+        fit at every pillar.
+  \item Implement multicurve FRA pricing \eqref{eq:mc-fra} with and
+        without convexity adjustment; quantify the gap on the
+        EUR-3M FRA strip.
+  \item Implement Basis-Swap based bootstrap: given $\mathcal{C}^{EUR}_{6M}$
+        and Basis-Swap 1M-vs-6M quotes, derive $\mathcal{C}^{EUR}_{1M}$
+        via \eqref{eq:mc-basis}; cross-check against the IRS-1M-based
+        bootstrap.
+  \item Cross-check loss of telescoping numerically: for a 10Y at-par
+        IRS-6M with notional 1, compute the floating-leg PV; it should
+        equal $1 - P_c(t, 10Y)$ in the single-curve approximation but
+        differ by a measurable amount under multicurve --- quantify.
+  \item Compare interpolation schemes (linear-on-zero-rates,
+        log-linear-on-DF, monotonic cubic spline on instantaneous
+        forwards) on the same instrument set; characterise the
+        differences at intermediate dates (turn of year is the
+        natural stress point).
+  \item Cross-reference with the anonymous discounting note
+        (\texttt{anon\_discounting\_textbooks}): same PDE structure
+        (drift = repo/funding, discount = collateral), different
+        contexts.
+  \item Implement turn-of-year jump handling (\S4.8) as a
+        deterministic offset between Dec.~31 and Jan.~1 on the
+        instantaneous forward curve.
+  \item For each of the 4 FRA curves (1M, 3M, 6M, 12M), produce a
+        smooth instantaneous-forward chart; eyeball test for
+        kinks at IMM/turn-of-year/ECB-meeting dates.
+\end{itemize}
+\end{todobox}
+
+\end{document}
