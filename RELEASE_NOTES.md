@@ -2,6 +2,17 @@
 
 ---
 
+## v0.617.0 — 2026-05-26
+
+**Phase 5 advanced theory integration — regime pricing, calibration quality, network XVA.**
+
+- `models/regime_pricing.py` — `RegimePricingEngine`: HMM-driven option pricing under regime switching. Fits HMM to returns, extracts regime-conditional vols, prices under each regime and blends by filtered probabilities. Includes `regime_option_price()`, `regime_greeks()`, risk decomposition by regime.
+- `statistics/calibration_quality.py` — information-theoretic calibration assessment: `calibration_entropy()` (RMSE, R², entropy of residuals), `calibration_kl()` (KL-based model comparison), `parameter_stability()` (CV, drift across recalibrations), `model_comparison()` (AIC/BIC/JS divergence), `fisher_parameter_quality()` (FIM + Cramer-Rao bounds).
+- `risk/network_xva.py` — `NetworkXVAEngine`: systemic risk adjustments to CVA. Integrates financial network centrality and Eisenberg-Noe contagion cascades. CVA_network = CVA × (1 + α × centrality × contagion_multiplier). Includes `stress_test()`, `systemic_ranking()`, convenience `contagion_cva_stress()`.
+- 36 new tests (test_phase5_integration.py). 9880 tests pass.
+
+---
+
 ## v0.616.0 — 2026-05-25
 
 **Delete tree model shims — all callers migrated to solve_tree().**
