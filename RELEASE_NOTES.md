@@ -2,6 +2,17 @@
 
 ---
 
+## v0.619.0 — 2026-05-26
+
+**Add `@serialisable_convention` decorator for frozen dataclasses.**
+
+- New `serialisable_convention(serial_type)` decorator in `core/serialisable.py` — auto-derives `_SERIAL_FIELDS` from `dataclasses.fields()`, produces flat dicts (no type/params nesting), handles enum/date round-trip.
+- Applied to `SovereignConventions` — first convention with full `to_dict()`/`from_dict()` round-trip.
+- **Backward compat:** `SovereignConventions.to_dict()` now exists where it didn't before (additive, no breakage). The existing `get_conventions()` / `create_sovereign_bond()` APIs unchanged.
+- 9880 tests pass.
+
+---
+
 ## v0.618.0 — 2026-05-26
 
 **Restore clean dependency layers — 0 cycles, 9 layers.**

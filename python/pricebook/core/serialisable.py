@@ -14,6 +14,18 @@ Usage — two things to declare:
 
 That's it. to_dict() and from_dict() are auto-generated.
 
+For frozen dataclasses (convention objects), use @serialisable_convention:
+    @serialisable_convention("sovereign_conventions")
+    @dataclass(frozen=True)
+    class SovereignConventions:
+        market_code: str
+        country: str
+        ...
+
+    # Fields auto-derived from dataclasses.fields().
+    # to_dict() returns flat dict (no "type"/"params" nesting — pure data).
+    # from_dict() reconstructs with enum/date resolution.
+
 How it works:
     to_dict():  reads self.X for each field in _SERIAL_FIELDS
                 auto-converts: date→isoformat, Enum→.value, Serialisable→.to_dict()
@@ -256,6 +268,80 @@ def serialisable(serial_type: str, fields: list[str]):
 
         cls.to_dict = to_dict
         cls.from_dict = cls_from_dict
+        _register(cls)
+        return cls
+
+    return decorator
+
+
+# ---------------------------------------------------------------------------
+# Convention decorator (for frozen dataclasses — pure data)
+# ---------------------------------------------------------------------------
+
+def serialisable_convention(serial_type: str):
+    """Decorator: add serialisation to frozen dataclasses (convention objects).
+
+    Unlike @serialisable, this auto-derives _SERIAL_FIELDS from
+    dataclasses.fields() and produces flat dicts (no "type"/"params"
+    nesting) — because conventions are pure data, not polymorphic
+    instruments.
+
+    @serialisable_convention("sovereign_conventions")
+    @dataclass(frozen=True)
+    class SovereignConventions:
+        market_code: str
+        country: str
+        currency: str
+        frequency: Frequency
+        ...
+
+    conv.to_dict()
+    # → {"market_code": "UST", "country": "US", "currency": "USD",
+    #    "frequency": 6, ...}
+
+    SovereignConventions.from_dict(d)
+    # → SovereignConventions(market_code="UST", ...)
+    """
+    import dataclasses
+
+    def decorator(cls):
+        if not dataclasses.is_dataclass(cls):
+            raise TypeError(f"@serialisable_convention requires a dataclass, got {cls}")
+
+        field_names = [f.name for f in dataclasses.fields(cls)]
+        cls._SERIAL_TYPE = serial_type
+        cls._SERIAL_FIELDS = field_names
+
+        # Flat to_dict (no type/params nesting — pure data)
+        def to_dict(self) -> dict[str, Any]:
+            d = {}
+            for field in field_names:
+                v = getattr(self, field)
+                d[field] = _serialise_atom(v)
+            return d
+
+        @classmethod
+        def cls_from_dict(klass, d: dict[str, Any]) -> Any:
+            # Accept both flat dict and {"type": ..., "params": {...}} format
+            if "params" in d and "type" in d:
+                p = d["params"]
+            else:
+                p = d
+            hints = _get_init_hints(klass)
+            kwargs = {}
+            for field in field_names:
+                if field not in p:
+                    continue
+                v = p[field]
+                if field in hints:
+                    kwargs[field] = _deserialise_atom(v, hints[field])
+                else:
+                    kwargs[field] = v
+            return klass(**kwargs)
+
+        cls.to_dict = to_dict
+        cls.from_dict = cls_from_dict
+        # Register so from_dict dispatch works for nested conventions
         _register(cls)
         return cls
 

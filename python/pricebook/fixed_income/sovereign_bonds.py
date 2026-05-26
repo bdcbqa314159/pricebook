@@ -26,11 +26,13 @@ from pricebook.core.calendar import (
 )
 from pricebook.core.day_count import DayCountConvention
 from pricebook.core.schedule import Frequency
+from pricebook.core.serialisable import serialisable_convention
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.fixed_income.zero_coupon_bond import ZeroCouponBond
 from pricebook.fixed_income.frn import FloatingRateNote
 
 
+@serialisable_convention("sovereign_conventions")
 @dataclass(frozen=True)
 class SovereignConventions:
     """Bond market conventions for a sovereign issuer."""
