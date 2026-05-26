@@ -39,9 +39,6 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
 from pricebook.core.calendar import get_calendar
 from pricebook.curves.bootstrap import bootstrap
-from pricebook.fixed_income.rfr_futures import (
-    RFRFutureSpec, rfr_futures_to_forwards,
-)
 
 
 @dataclass
@@ -222,6 +219,7 @@ def bootstrap_rfr(
     if all_futures:
         priced_futures = [f for f in all_futures if f.price > 0]
         if priced_futures:
+            from pricebook.fixed_income.rfr_futures import rfr_futures_to_forwards
             fras_list = rfr_futures_to_forwards(priced_futures, reference_date, hw_a, hw_sigma)
             if fras_list:
                 fras = fras_list

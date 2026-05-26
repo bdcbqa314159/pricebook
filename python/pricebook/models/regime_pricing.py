@@ -24,7 +24,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from pricebook.options.equity_option import equity_option_price, equity_delta, equity_gamma, equity_vega
 from pricebook.models.black76 import OptionType
 
 
@@ -150,6 +149,8 @@ class RegimePricingEngine:
             div_yield: continuous dividend yield.
             regime_probs: override HMM-filtered probabilities.
         """
+        from pricebook.options.equity_option import equity_option_price
+
         if self._regime_vols is None:
             raise ValueError("Must call fit() before price()")
 
@@ -192,6 +193,8 @@ class RegimePricingEngine:
         regime_probs: np.ndarray | None = None,
     ) -> RegimeGreeksResult:
         """Regime-blended Greeks."""
+        from pricebook.options.equity_option import equity_delta, equity_gamma, equity_vega
+
         if self._regime_vols is None:
             raise ValueError("Must call fit() before greeks()")
 
@@ -302,6 +305,8 @@ def regime_option_price(
 
     No HMM fitting required — for when regime parameters are known.
     """
+    from pricebook.options.equity_option import equity_option_price
+
     probs = np.array(regime_probs)
     probs = probs / probs.sum()
     vols = np.array(regime_vols)
@@ -334,6 +339,8 @@ def regime_greeks(
     div_yield: float = 0.0,
 ) -> RegimeGreeksResult:
     """Compute regime-blended Greeks from explicit parameters."""
+    from pricebook.options.equity_option import equity_delta, equity_gamma, equity_vega
+
     probs = np.array(regime_probs)
     probs = probs / probs.sum()
 

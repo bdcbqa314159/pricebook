@@ -2,6 +2,19 @@
 
 ---
 
+## v0.618.0 — 2026-05-26
+
+**Restore clean dependency layers — 0 cycles, 9 layers.**
+
+- Made 2 module-level imports lazy (moved inside function bodies):
+  - `models/regime_pricing.py` — `equity_option_price`, `equity_delta`, `equity_gamma`, `equity_vega` from options
+  - `curves/rfr_bootstrap.py` — `RFRFutureSpec`, `rfr_futures_to_forwards` from fixed_income
+- AST-verified: 0 bidirectional cycles at module level across all 20 packages.
+- Architecture: 9 clean layers, 566 modules, 20 packages.
+- 9880 tests pass.
+
+---
+
 ## v0.617.0 — 2026-05-26
 
 **Phase 5 advanced theory integration — regime pricing, calibration quality, network XVA.**
