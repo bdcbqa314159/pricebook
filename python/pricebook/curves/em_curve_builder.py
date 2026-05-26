@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+
+from pricebook.core.serialisable import serialisable_convention
 from datetime import date
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
@@ -36,6 +38,7 @@ from pricebook.core.calendar import get_calendar
 from pricebook.curves.bootstrap import bootstrap
 
 
+@serialisable_convention("em_curve_conventions")
 @dataclass(frozen=True)
 class EMCurveConventions:
     """Swap/curve conventions for an EM currency."""
@@ -47,17 +50,6 @@ class EMCurveConventions:
     float_frequency: Frequency
     interpolation: InterpolationMethod
     calendar_currency: str
-
-    def to_dict(self) -> dict:
-        return {
-            "currency": self.currency,
-            "deposit_day_count": self.deposit_day_count.value,
-            "fixed_day_count": self.fixed_day_count.value,
-            "float_day_count": self.float_day_count.value,
-            "fixed_frequency": self.fixed_frequency.value,
-            "float_frequency": self.float_frequency.value,
-        }
-
 
 # ═══════════════════════════════════════════════════════════════
 # Convention registry

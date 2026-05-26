@@ -14,7 +14,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pricebook.core.serialisable import serialisable_convention
 
+
+@serialisable_convention("supranational_issuer")
 @dataclass(frozen=True)
 class SupranationalIssuer:
     """Supranational issuer definition."""
@@ -25,13 +28,6 @@ class SupranationalIssuer:
     typical_maturities: str      # e.g. "2-30Y"
     spread_vs_sovereign_bp: float  # typical spread over domestic sovereign
     notes: str = ""
-
-    def to_dict(self) -> dict:
-        return {
-            "code": self.code, "name": self.name, "rating": self.rating,
-            "typical_currencies": self.typical_currencies,
-            "spread_vs_sovereign_bp": self.spread_vs_sovereign_bp,
-        }
 
 
 _REGISTRY: dict[str, SupranationalIssuer] = {}

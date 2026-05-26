@@ -2,6 +2,19 @@
 
 ---
 
+## v0.620.0 — 2026-05-26
+
+**Apply `@serialisable_convention` to all 13 convention dataclasses.**
+
+- All convention types now have `to_dict()`/`from_dict()` round-trip via the decorator:
+  RateIndex, EquityIndexSpec, CommodityContractSpec, LinkerConvention, InflationIndexDef, SpecialnessConventions, SupranationalIssuer, CDSIndexSpec, CDSSettlementConvention, SovereignCDSConventions, CurrencyConventions, EMCurveConventions, SukukConventions.
+- 6 dataclasses made `frozen=True` (were mutable): EquityIndexSpec, CommodityContractSpec, LinkerConvention, CDSIndexSpec, CDSSettlementConvention, CurrencyConventions.
+- Manual `to_dict()` methods removed (decorator auto-generates with proper enum serialisation).
+- **Backward compat:** `to_dict()` output now includes all fields (some manual implementations omitted fields like `notes`, `settlement_days`). Existing `get_X()` / `list_X()` APIs unchanged. `from_dict()` is new (additive). Making dataclasses frozen could break code that mutates convention objects — none found in tests.
+- 9880 tests pass.
+
+---
+
 ## v0.619.0 — 2026-05-26
 
 **Add `@serialisable_convention` decorator for frozen dataclasses.**

@@ -16,10 +16,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pricebook.core.serialisable import serialisable_convention
+
 
 # ---- Equity index conventions ----
 
-@dataclass
+@serialisable_convention("equity_index_spec")
+@dataclass(frozen=True)
 class EquityIndexSpec:
     """Equity index specification."""
     ticker: str
@@ -33,9 +36,6 @@ class EquityIndexSpec:
     ex_date_rule: str           # "T-1" (US), "T-2" (some EU), "record_date" (varies)
 
 
-
-    def to_dict(self) -> dict:
-        return vars(self)
 EQUITY_INDICES = {
     "SPX": EquityIndexSpec("SPX", "S&P 500", "CBOE", "USD", 2, "european", 100.0, "quarterly", "T-1"),
     "NDX": EquityIndexSpec("NDX", "Nasdaq 100", "CBOE", "USD", 2, "european", 100.0, "quarterly", "T-1"),
@@ -59,7 +59,8 @@ def get_equity_index(ticker: str) -> EquityIndexSpec:
 
 # ---- Commodity contract conventions ----
 
-@dataclass
+@serialisable_convention("commodity_contract_spec")
+@dataclass(frozen=True)
 class CommodityContractSpec:
     """Commodity futures contract specification."""
     symbol: str
@@ -75,9 +76,6 @@ class CommodityContractSpec:
     price_quotation: str        # e.g., "$/barrel", "cents/bushel"
 
 
-
-    def to_dict(self) -> dict:
-        return vars(self)
 COMMODITY_CONTRACTS = {
     "CL": CommodityContractSpec("CL", "WTI Crude Oil", "NYMEX/CME", "USD",
         "barrels", 1000, 0.01, 10.0, "FGHJKMNQUVXZ", "physical", "$/barrel"),
@@ -125,7 +123,8 @@ def get_commodity_contract(symbol: str) -> CommodityContractSpec:
 
 # ---- Inflation linker conventions ----
 
-@dataclass
+@serialisable_convention("linker_convention")
+@dataclass(frozen=True)
 class LinkerConvention:
     """Inflation-linked bond convention per country."""
     country: str
@@ -137,9 +136,6 @@ class LinkerConvention:
     index_ratio_method: str     # "daily_linear" (US/UK) or "monthly" (some)
 
 
-
-    def to_dict(self) -> dict:
-        return vars(self)
 LINKER_CONVENTIONS = {
     "US": LinkerConvention("US", "CPI-U (All Urban)", 3, "semi-annual",
         "ACT/ACT", True, "daily_linear"),

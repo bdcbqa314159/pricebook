@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+
+from pricebook.core.serialisable import serialisable_convention
 from datetime import date
 from enum import Enum
 
@@ -36,6 +38,7 @@ class RestructuringClause(Enum):
     XR = "XR"       # No restructuring — North American standard, most sovereigns
 
 
+@serialisable_convention("sovereign_cds_conventions")
 @dataclass(frozen=True)
 class SovereignCDSConventions:
     """CDS conventions for a sovereign reference entity."""
@@ -47,19 +50,6 @@ class SovereignCDSConventions:
     standard_tenors: list[int]  # Standard CDS tenors in years
     doc_clause: str             # ISDA doc clause identifier
     notes: str = ""
-
-    def to_dict(self) -> dict:
-        return {
-            "country_code": self.country_code,
-            "country_name": self.country_name,
-            "currency": self.currency,
-            "restructuring": self.restructuring.value,
-            "recovery_rate": self.recovery_rate,
-            "standard_tenors": self.standard_tenors,
-            "doc_clause": self.doc_clause,
-            "notes": self.notes,
-        }
-
 
 # ═══════════════════════════════════════════════════════════════
 # Convention registry (~30 sovereigns)

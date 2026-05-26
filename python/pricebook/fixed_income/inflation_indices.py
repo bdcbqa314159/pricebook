@@ -19,6 +19,8 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from pricebook.core.serialisable import serialisable_convention
 from datetime import date
 from enum import Enum
 
@@ -33,6 +35,7 @@ class IndexInterpolation(Enum):
     DAILY = "daily"                # Daily accrual (UF Chile)
 
 
+@serialisable_convention("inflation_index_def")
 @dataclass(frozen=True)
 class InflationIndexDef:
     """Definition of an inflation index for linker pricing."""
@@ -48,16 +51,6 @@ class InflationIndexDef:
     linker_day_count: DayCountConvention
     linker_frequency: Frequency
     notes: str = ""
-
-    def to_dict(self) -> dict:
-        return {
-            **{k: v for k, v in vars(self).items()
-               if k not in ("interpolation", "linker_day_count", "linker_frequency")},
-            "interpolation": self.interpolation.value,
-            "linker_day_count": self.linker_day_count.value,
-            "linker_frequency": self.linker_frequency.value,
-        }
-
 
 # ═══════════════════════════════════════════════════════════════
 # Index definitions

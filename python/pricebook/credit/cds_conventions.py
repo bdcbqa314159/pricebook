@@ -18,6 +18,8 @@ import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from pricebook.core.serialisable import serialisable_convention
+
 import numpy as np
 
 
@@ -140,7 +142,8 @@ def par_spread_from_upfront(
 
 # ---- CDS Index specs ----
 
-@dataclass
+@serialisable_convention("cds_index_spec")
+@dataclass(frozen=True)
 class CDSIndexSpec:
     """Credit index specification."""
     name: str
@@ -153,9 +156,6 @@ class CDSIndexSpec:
     tenor_years: int            # standard tenor (5Y for most)
 
 
-
-    def to_dict(self) -> dict:
-        return vars(self)
 _INDEX_SPECS = {
     "CDX.NA.IG": CDSIndexSpec("CDX.NA.IG", "NA", "IG", 125, 100, 0.40, [3, 9], 5),
     "CDX.NA.HY": CDSIndexSpec("CDX.NA.HY", "NA", "HY", 100, 500, 0.25, [3, 9], 5),
@@ -192,7 +192,8 @@ def cds_index_roll_date(index_name: str, ref: date) -> date:
 
 # ---- Settlement conventions ----
 
-@dataclass
+@serialisable_convention("cds_settlement_convention")
+@dataclass(frozen=True)
 class CDSSettlementConvention:
     """CDS settlement convention."""
     method: str                 # "auction", "physical", "cash"
@@ -200,9 +201,6 @@ class CDSSettlementConvention:
     accrued_on_default: bool    # whether accrued premium is paid on default
 
 
-
-    def to_dict(self) -> dict:
-        return vars(self)
 CDS_SETTLEMENT = CDSSettlementConvention(
     method="auction",
     auction_timing_days=30,

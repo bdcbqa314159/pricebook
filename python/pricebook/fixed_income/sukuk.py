@@ -15,6 +15,8 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from pricebook.core.serialisable import serialisable_convention
 from enum import Enum
 
 
@@ -29,6 +31,7 @@ class SukukType(Enum):
     ISTISNA = "istisna"          # Manufacturing: construction/project
 
 
+@serialisable_convention("sukuk_conventions")
 @dataclass(frozen=True)
 class SukukConventions:
     """Conventions for a Sukuk type."""
@@ -40,17 +43,6 @@ class SukukConventions:
     major_currencies: list[str]  # USD, MYR, SAR, IDR, etc.
     pricing_approach: str        # how to price (spread, yield, etc.)
     notes: str = ""
-
-    def to_dict(self) -> dict:
-        return {
-            "type": self.type.value,
-            "profit_mechanism": self.profit_mechanism,
-            "asset_requirement": self.asset_requirement,
-            "tradeable": self.tradeable,
-            "typical_tenor_years": self.typical_tenor_years,
-            "major_currencies": self.major_currencies,
-            "pricing_approach": self.pricing_approach,
-        }
 
 
 _CONVENTIONS: dict[SukukType, SukukConventions] = {}

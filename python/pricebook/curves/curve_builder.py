@@ -27,6 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from pricebook.core.serialisable import serialisable_convention
 from pricebook.curves.bootstrap import bootstrap
 from pricebook.core.day_count import DayCountConvention
 from pricebook.core.discount_curve import DiscountCurve
@@ -36,7 +37,8 @@ from pricebook.core.schedule import Frequency
 
 # ---- Currency conventions ----
 
-@dataclass
+@serialisable_convention("currency_conventions")
+@dataclass(frozen=True)
 class CurrencyConventions:
     """Market conventions for a currency."""
     deposit_day_count: DayCountConvention
@@ -47,9 +49,6 @@ class CurrencyConventions:
     interpolation: InterpolationMethod
 
 
-
-    def to_dict(self) -> dict:
-        return vars(self)
 _CONVENTIONS = {
     "USD": CurrencyConventions(
         DayCountConvention.ACT_360, DayCountConvention.THIRTY_360,

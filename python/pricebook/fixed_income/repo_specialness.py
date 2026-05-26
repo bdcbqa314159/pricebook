@@ -14,11 +14,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+
+from pricebook.core.serialisable import serialisable_convention
 from datetime import date
 
 import numpy as np
 
 
+@serialisable_convention("specialness_conventions")
 @dataclass(frozen=True)
 class SpecialnessConventions:
     """Per-market specialness conventions."""
@@ -27,14 +30,6 @@ class SpecialnessConventions:
     auction_frequency: str       # "monthly", "quarterly"
     typical_special_range_bp: tuple[float, float]  # (min, max) typical special spread
     settlement_days: int
-
-    def to_dict(self) -> dict:
-        return {
-            "market": self.market,
-            "on_the_run_tenors": self.on_the_run_tenors,
-            "auction_frequency": self.auction_frequency,
-            "typical_special_range_bp": self.typical_special_range_bp,
-        }
 
 
 _CONVENTIONS: dict[str, SpecialnessConventions] = {

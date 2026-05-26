@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from pricebook.core.day_count import DayCountConvention
+from pricebook.core.serialisable import serialisable_convention
 
 
 class CompoundingMethod(Enum):
@@ -25,6 +26,7 @@ class CompoundingMethod(Enum):
     FLAT = "flat"                 # Single fixing at period start (IBOR-style)
 
 
+@serialisable_convention("rate_index")
 @dataclass(frozen=True)
 class RateIndex:
     """A benchmark interest rate index."""
@@ -39,11 +41,6 @@ class RateIndex:
     tenor_months: int | None                 # None for overnight, 1/3/6 for term
     is_overnight: bool
     administrator: str
-
-
-
-    def to_dict(self) -> dict:
-        return vars(self)
 # ---- Registry ----
 
 _REGISTRY: dict[str, RateIndex] = {}
