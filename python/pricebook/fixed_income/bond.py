@@ -313,5 +313,24 @@ class FixedRateBond:
         )
 
 
+@classmethod
+def _bond_from_convention(cls, conv, issue_date, maturity, coupon_rate, face_value=100.0):
+    """Create FixedRateBond from a convention object (SovereignConventions or similar).
+
+    The convention provides: frequency, day_count, calendar_currency, settlement_days, ex_div_days.
+    The caller provides: issue_date, maturity, coupon_rate, face_value.
+    """
+    from pricebook.core.calendar import get_calendar, BusinessDayConvention
+    cal = get_calendar(conv.calendar_currency) if hasattr(conv, 'calendar_currency') else None
+    return cls(
+        issue_date=issue_date, maturity=maturity, coupon_rate=coupon_rate,
+        frequency=conv.frequency, face_value=face_value, day_count=conv.day_count,
+        calendar=cal, convention=BusinessDayConvention.MODIFIED_FOLLOWING,
+        settlement_days=getattr(conv, 'settlement_days', 0),
+        ex_div_days=getattr(conv, 'ex_div_days', 0),
+    )
+
+FixedRateBond.from_convention = _bond_from_convention
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("bond", ["issue_date", "maturity", "coupon_rate", "frequency", "face_value", "day_count", "settlement_days"])(FixedRateBond)

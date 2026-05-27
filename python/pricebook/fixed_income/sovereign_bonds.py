@@ -419,20 +419,7 @@ def create_sovereign_bond(
         True
     """
     conv = get_conventions(market_code)
-    cal = get_calendar(conv.calendar_currency)
-
-    return FixedRateBond(
-        issue_date=issue_date,
-        maturity=maturity,
-        coupon_rate=coupon_rate,
-        frequency=conv.frequency,
-        face_value=face_value,
-        day_count=conv.day_count,
-        calendar=cal,
-        convention=BusinessDayConvention.MODIFIED_FOLLOWING,
-        settlement_days=conv.settlement_days,
-        ex_div_days=conv.ex_div_days,
-    )
+    return FixedRateBond.from_convention(conv, issue_date, maturity, coupon_rate, face_value)
 
 
 def create_sovereign_zero(
@@ -461,15 +448,7 @@ def create_sovereign_zero(
             f"{market_code} is not a zero-coupon market. "
             f"Use create_sovereign_bond() for coupon bonds."
         )
-    cal = get_calendar(conv.calendar_currency)
-    return ZeroCouponBond(
-        issue_date=issue_date,
-        maturity=maturity,
-        face_value=face_value,
-        day_count=conv.day_count,
-        calendar=cal,
-        settlement_days=conv.settlement_days,
-    )
+    return ZeroCouponBond.from_convention(conv, issue_date, maturity, face_value)
 
 
 def list_zero_coupon_markets() -> list[str]:
@@ -497,17 +476,7 @@ def create_sovereign_frn(
         FloatingRateNote configured with correct conventions.
     """
     conv = get_conventions(market_code)
-    cal = get_calendar(conv.calendar_currency)
-
-    return FloatingRateNote(
-        start=issue_date,
-        end=maturity,
-        spread=spread,
-        notional=face_value,
-        frequency=conv.frequency,
-        day_count=conv.day_count,
-        calendar=cal,
-    )
+    return FloatingRateNote.from_convention(conv, issue_date, maturity, spread, face_value)
 
 
 def list_frn_markets() -> list[str]:

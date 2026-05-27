@@ -161,5 +161,15 @@ class FloatingRateNote:
             proj = next(iter(ctx.projection_curves.values()), None)
         return self.dirty_price(curve, proj) * self.notional / 100.0
 
+@classmethod
+def _frn_from_convention(cls, conv, start, end, spread=0.0, notional=1_000_000.0):
+    """Create FloatingRateNote from a convention object (SovereignConventions or similar)."""
+    return cls(
+        start=start, end=end, spread=spread, notional=notional,
+        frequency=conv.frequency, day_count=conv.day_count,
+    )
+
+FloatingRateNote.from_convention = _frn_from_convention
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("frn", ["start", "end", "spread", "notional", "frequency", "day_count"])(FloatingRateNote)

@@ -2,6 +2,25 @@
 
 ---
 
+## v0.626.0 — 2026-05-27
+
+**from_convention factories on 6 core instrument classes.**
+
+- `FixedRateBond.from_convention(conv, issue_date, maturity, coupon_rate)` — accepts SovereignConventions or any object with frequency/day_count/calendar_currency.
+- `ZeroCouponBond.from_convention(conv, issue_date, maturity)` — same convention protocol.
+- `FloatingRateNote.from_convention(conv, start, end, spread)` — uses convention frequency/day_count.
+- `InterestRateSwap.from_convention(conv, start, end, fixed_rate)` — accepts CurrencyConventions (fixed/float freq+dc).
+- `CDS.from_convention(conv, start, end, spread)` — accepts SovereignCDSConventions or CDSIndexSpec (extracts recovery).
+- `OISSwap.from_convention(conv, start, end, fixed_rate)` — already added in v0.622.0.
+- New `create_swap(currency, start, end, rate)` convenience function.
+- New `get_conventions(currency)` in `curves/curve_builder.py`.
+- Rewired `create_sovereign_bond`, `create_sovereign_zero`, `create_sovereign_frn` to use `from_convention` internally.
+- **Backward compat:** All new classmethods and functions are additive. Existing factory functions (`create_sovereign_bond` etc.) now delegate to `from_convention` — same output, thinner implementation. FX instruments skipped (pair IS the convention — no separate convention layer needed).
+- Factory coverage: 3/39 → ~8/39 products with `from_convention`.
+- 9880 tests pass.
+
+---
+
 ## v0.625.0 — 2026-05-27
 
 **Serialisation hardening — @serialisable on 15 more instrument classes.**

@@ -934,5 +934,13 @@ def _verify_credit_round_trip(
         msg = "Credit bootstrap round-trip failures:\n" + "\n".join(errors)
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
+@classmethod
+def _cds_from_convention(cls, conv, start, end, spread, notional=1_000_000.0):
+    """Create CDS from a SovereignCDSConventions or CDSIndexSpec object."""
+    recovery = getattr(conv, 'recovery_rate', getattr(conv, 'standard_recovery', 0.4))
+    return cls(start=start, end=end, spread=spread, notional=notional, recovery=recovery)
+
+CDS.from_convention = _cds_from_convention
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count", "protection_day_count", "steps_per_year"])(CDS)

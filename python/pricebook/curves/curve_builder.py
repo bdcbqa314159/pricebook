@@ -103,6 +103,14 @@ _CONVENTIONS = {
 }
 
 
+def get_conventions(currency: str) -> CurrencyConventions:
+    """Look up swap/curve conventions by currency."""
+    key = currency.upper()
+    if key not in _CONVENTIONS:
+        raise ValueError(f"Unknown currency: {key}. Available: {sorted(_CONVENTIONS)}")
+    return _CONVENTIONS[key]
+
+
 @dataclass
 class CurveSetResult:
     """Result of build_curves: OIS + optional projection curve."""

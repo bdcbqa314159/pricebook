@@ -178,6 +178,17 @@ class ZeroCouponBond:
             raise ValueError("No discount curve in context")
         return self.pv(curve)
 
+    @classmethod
+    def from_convention(cls, conv, issue_date, maturity, face_value=100.0):
+        """Create ZeroCouponBond from a convention object."""
+        from pricebook.core.calendar import get_calendar
+        cal = get_calendar(conv.calendar_currency) if hasattr(conv, 'calendar_currency') else None
+        return cls(
+            issue_date=issue_date, maturity=maturity, face_value=face_value,
+            day_count=conv.day_count, calendar=cal,
+            settlement_days=getattr(conv, 'settlement_days', 0),
+        )
+
     def to_dict(self) -> dict:
         return {
             "type": "zero_coupon_bond",

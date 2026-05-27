@@ -333,5 +333,36 @@ class InterestRateSwap:
         return cls(start, end, fixed_rate, direction, notional=notional_schedule, **kwargs)
 
 
+@classmethod
+def _irs_from_convention(cls, conv, start, end, fixed_rate,
+                         direction=SwapDirection.PAYER, notional=1_000_000.0, spread=0.0):
+    """Create InterestRateSwap from a CurrencyConventions object.
+
+    The convention provides: fixed/float frequency, fixed/float day_count.
+    The caller provides: start, end, fixed_rate, direction, notional, spread.
+    """
+    return cls(
+        start, end, fixed_rate, direction, notional,
+        fixed_frequency=conv.fixed_frequency,
+        float_frequency=conv.float_frequency,
+        fixed_day_count=conv.fixed_day_count,
+        float_day_count=conv.float_day_count,
+        spread=spread,
+    )
+
+InterestRateSwap.from_convention = _irs_from_convention
+
+
+def create_swap(currency: str, start, end, fixed_rate,
+                direction=SwapDirection.PAYER, notional=1_000_000.0, spread=0.0):
+    """Create an InterestRateSwap with correct conventions for the currency.
+
+    Convenience wrapper around InterestRateSwap.from_convention().
+    """
+    from pricebook.curves.curve_builder import get_conventions as _get_curve_conv
+    conv = _get_curve_conv(currency)
+    return InterestRateSwap.from_convention(conv, start, end, fixed_rate, direction, notional, spread)
+
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("irs", ["start", "end", "fixed_rate", "direction", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "spread"])(InterestRateSwap)
