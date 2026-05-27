@@ -67,5 +67,12 @@ class Deposit:
             df = df_or_curve
         return self.cashflow * df - self.notional
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        return self.pv(curve)
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("deposit", ["start", "end", "rate", "notional", "day_count"])(Deposit)

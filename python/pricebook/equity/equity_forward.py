@@ -132,3 +132,14 @@ def _ef_from_dict(cls, d):
 EquityForward.to_dict = _ef_to_dict
 EquityForward.from_dict = _ef_from_dict
 EquityForward._SERIAL_TYPE = "equity_forward"
+
+
+def _ef_pv_ctx(self, ctx) -> float:
+    """PV using PricingContext."""
+    curve = ctx.discount_curve
+    if curve is None:
+        raise ValueError("No discount curve in context")
+    strike = getattr(self, '_strike', self.spot)  # use spot as strike if not set
+    return self.pv(strike, curve)
+
+EquityForward.pv_ctx = _ef_pv_ctx

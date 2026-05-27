@@ -114,5 +114,12 @@ class NDF:
         pv_base = self.pv(spot, base_curve, quote_curve)
         return self.pv(spot + shift, base_curve, quote_curve) - pv_base
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        spot = ctx.get_fx_spot(self.pair.base.value, self.pair.quote.value)
+        base_curve = ctx.get_discount_curve(self.pair.base.value)
+        quote_curve = ctx.get_discount_curve(self.pair.quote.value)
+        return self.pv(spot, base_curve, quote_curve)
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("ndf", ["pair", "maturity", "contracted_rate", "notional", "settlement_currency"])(NDF)

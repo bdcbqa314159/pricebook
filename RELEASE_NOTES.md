@@ -2,6 +2,19 @@
 
 ---
 
+## v0.622.0 — 2026-05-27
+
+**OIS convention + pv_ctx on 8 vanilla instruments.**
+
+- New `OISConvention` dataclass with `create_swap()` factory (10 currencies: USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD, SEK, NOK). `get_ois_convention(currency)` lookup.
+- `OISSwap.from_convention()` classmethod + `pv_ctx()`.
+- Added `pv_ctx()` to 7 more instruments: Deposit, FRA, ZeroCouponBond, BasisSwap, FloatingRateNote, FXSwap, NDF, EquityForward.
+- **Backward compat:** All new methods are additive. Existing `pv()` signatures unchanged. `OISConvention` + `get_ois_convention` are new exports. `pv_ctx` on BasisSwap picks first two projection curves from context — callers with specific curve needs should still use `pv()` directly.
+- PricingContext coverage: 25/39 → 33/39 products.
+- 9880 tests pass.
+
+---
+
 ## v0.621.0 — 2026-05-26
 
 **Static data layer — 13 JSON convention files + loader utility.**

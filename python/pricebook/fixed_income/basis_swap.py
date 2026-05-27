@@ -155,5 +155,16 @@ class BasisSwap:
         )
         return pv_bumped - pv_base
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        projs = ctx.projection_curves if hasattr(ctx, 'projection_curves') else {}
+        proj_list = list(projs.values())
+        proj1 = proj_list[0] if len(proj_list) > 0 else curve
+        proj2 = proj_list[1] if len(proj_list) > 1 else curve
+        return self.pv(curve, proj1, proj2)
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("basis_swap", ["start", "end", "spread", "notional", "leg1_frequency", "leg2_frequency", "day_count"])(BasisSwap)

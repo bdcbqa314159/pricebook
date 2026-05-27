@@ -74,5 +74,15 @@ class FRA:
         proj = projection_curve if projection_curve is not None else curve
         return self.forward_rate(proj)
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        proj = None
+        if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
+            proj = next(iter(ctx.projection_curves.values()), None)
+        return self.pv(curve, proj)
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("fra", ["start", "end", "strike", "notional"])(FRA)

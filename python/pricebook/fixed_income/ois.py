@@ -1,14 +1,61 @@
 """Overnight index swap (OIS)."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 from datetime import date
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import serialisable_convention
 from pricebook.fixed_income.fixed_leg import FixedLeg
 from pricebook.core.schedule import Frequency, StubType, generate_schedule
-from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.core.calendar import Calendar, BusinessDayConvention, get_calendar
 from pricebook.core.solvers import brentq
 from pricebook.core.interpolation import InterpolationMethod
+
+
+@serialisable_convention("ois_convention")
+@dataclass(frozen=True)
+class OISConvention:
+    """OIS market convention for a currency."""
+    currency: str
+    fixed_frequency: Frequency
+    day_count: DayCountConvention
+    calendar_currency: str
+    settlement_days: int = 2
+    payment_delay_days: int = 2
+
+    def create_swap(self, start: date, end: date, fixed_rate: float,
+                    notional: float = 1_000_000.0) -> OISSwap:
+        """Create an OISSwap with these conventions."""
+        cal = get_calendar(self.calendar_currency)
+        return OISSwap(
+            start, end, fixed_rate, notional,
+            self.fixed_frequency, self.day_count, cal,
+        )
+
+
+_OIS_CONVENTIONS: dict[str, OISConvention] = {
+    "USD": OISConvention("USD", Frequency.ANNUAL, DayCountConvention.ACT_360, "USD"),
+    "EUR": OISConvention("EUR", Frequency.ANNUAL, DayCountConvention.ACT_360, "EUR"),
+    "GBP": OISConvention("GBP", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "GBP"),
+    "JPY": OISConvention("JPY", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "JPY"),
+    "CHF": OISConvention("CHF", Frequency.ANNUAL, DayCountConvention.ACT_360, "CHF"),
+    "CAD": OISConvention("CAD", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "CAD"),
+    "AUD": OISConvention("AUD", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "AUD"),
+    "NZD": OISConvention("NZD", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "NZD"),
+    "SEK": OISConvention("SEK", Frequency.ANNUAL, DayCountConvention.ACT_360, "SEK"),
+    "NOK": OISConvention("NOK", Frequency.ANNUAL, DayCountConvention.ACT_360, "NOK"),
+}
+
+
+def get_ois_convention(currency: str) -> OISConvention:
+    """Look up OIS convention by currency."""
+    key = currency.upper()
+    if key not in _OIS_CONVENTIONS:
+        raise ValueError(f"Unknown currency: {key}. Available: {sorted(_OIS_CONVENTIONS)}")
+    return _OIS_CONVENTIONS[key]
 
 
 class OISSwap:
@@ -79,6 +126,23 @@ class OISSwap:
         """Parallel DV01: PV change for a 1bp parallel shift."""
         pv_base = self.pv(curve)
         return self.pv(curve.bumped(shift)) - pv_base
+
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext (extracts discount curve)."""
+        curve = ctx.discount_curve
+        if curve is None:
+            ccy = getattr(self, '_currency', None)
+            if ccy and hasattr(ctx, 'discount_curves'):
+                curve = ctx.discount_curves.get(ccy)
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        return self.pv(curve)
+
+    @classmethod
+    def from_convention(cls, conv: OISConvention, start: date, end: date,
+                        fixed_rate: float, notional: float = 1_000_000.0) -> OISSwap:
+        """Create OISSwap from convention object."""
+        return conv.create_swap(start, end, fixed_rate, notional)
 
 
 def bootstrap_ois(

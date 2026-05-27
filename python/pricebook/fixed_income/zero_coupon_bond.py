@@ -171,6 +171,13 @@ class ZeroCouponBond:
         denom = 1.0 + r * tau
         return tau / denom if denom > 0 else tau
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        return self.pv(curve)
+
     def to_dict(self) -> dict:
         return {
             "type": "zero_coupon_bond",

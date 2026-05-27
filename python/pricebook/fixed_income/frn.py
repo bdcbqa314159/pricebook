@@ -151,5 +151,15 @@ class FloatingRateNote:
 
         return brentq(objective, -0.05, 0.05)
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext (dirty price × notional / 100)."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        proj = None
+        if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
+            proj = next(iter(ctx.projection_curves.values()), None)
+        return self.dirty_price(curve, proj) * self.notional / 100.0
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("frn", ["start", "end", "spread", "notional", "frequency", "day_count"])(FloatingRateNote)
