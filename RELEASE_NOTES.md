@@ -2,6 +2,20 @@
 
 ---
 
+## v0.627.0 — 2026-05-27
+
+**from_convention on 5 more instruments — total 11 product types with factory.**
+
+- `RiskyBond.from_convention(conv, start, end, coupon_rate, recovery)` — uses bond convention frequency/day_count.
+- `CreditLinkedNote.from_convention(conv, start, end, coupon_rate, recovery)` — same pattern.
+- `InflationLinkedBond.from_convention(conv, start, end, coupon_rate, base_cpi)` — accepts LinkerConvention or InflationIndexDef (auto-resolves frequency/day_count/lag from either).
+- `BasisSwap.from_convention(conv, start, end, spread)` — uses CurrencyConventions float/fixed frequencies.
+- **Backward compat:** All additive classmethods. No existing API changes.
+- Factory coverage: 8→11/39 products with `from_convention`.
+- 9880 tests pass.
+
+---
+
 ## v0.626.0 — 2026-05-27
 
 **from_convention factories on 6 core instrument classes.**

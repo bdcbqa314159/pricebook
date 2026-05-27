@@ -497,3 +497,23 @@ _serialisable("zc_inflation_swap", ['start', 'end', 'fixed_rate', 'notional'])(Z
 _serialisable("yoy_inflation_swap", ['start', 'end', 'fixed_rate', 'notional', 'frequency'])(YoYInflationSwap)
 
 _serialisable("inflation_linked_bond", ['start', 'end', 'coupon_rate', 'base_cpi_value', 'notional', 'frequency', 'day_count', 'cpi_lag_months'])(InflationLinkedBond)
+
+
+@classmethod
+def _linker_from_convention(cls, conv, start, end, coupon_rate, base_cpi_value, notional=100.0):
+    """Create InflationLinkedBond from a LinkerConvention or InflationIndexDef.
+
+    Convention provides: frequency (via linker_frequency), day_count (via linker_day_count), lag.
+    """
+    freq_val = getattr(conv, 'linker_frequency', getattr(conv, 'frequency', Frequency.SEMI_ANNUAL))
+    if isinstance(freq_val, str):
+        freq_map = {"semi-annual": Frequency.SEMI_ANNUAL, "annual": Frequency.ANNUAL,
+                     "quarterly": Frequency.QUARTERLY}
+        freq_val = freq_map.get(freq_val, Frequency.SEMI_ANNUAL)
+    dc_val = getattr(conv, 'linker_day_count', getattr(conv, 'day_count', DayCountConvention.ACT_365_FIXED))
+    if isinstance(dc_val, str):
+        dc_val = DayCountConvention(dc_val) if dc_val in [e.value for e in DayCountConvention] else DayCountConvention.ACT_365_FIXED
+    lag = getattr(conv, 'publication_lag_months', getattr(conv, 'lag_months', 3))
+    return cls(start, end, coupon_rate, base_cpi_value, notional, freq_val, dc_val, lag)
+
+InflationLinkedBond.from_convention = _linker_from_convention

@@ -224,4 +224,13 @@ def _risky_bond_pv_ctx(self, ctx) -> float:
 
 RiskyBond.pv_ctx = _risky_bond_pv_ctx
 
+
+@classmethod
+def _risky_from_convention(cls, conv, start, end, coupon_rate, notional=100.0, recovery=0.4):
+    """Create RiskyBond from a convention (SovereignConventions or similar)."""
+    return cls(start, end, coupon_rate, notional,
+               frequency=conv.frequency, day_count=conv.day_count, recovery=recovery)
+
+RiskyBond.from_convention = _risky_from_convention
+
 _serialisable("risky_bond", ['start', 'end', 'coupon_rate', 'notional', 'frequency', 'day_count', 'recovery'])(RiskyBond)

@@ -166,5 +166,15 @@ class BasisSwap:
         proj2 = proj_list[1] if len(proj_list) > 1 else curve
         return self.pv(curve, proj1, proj2)
 
+@classmethod
+def _basis_from_convention(cls, conv, start, end, spread=0.0, notional=1_000_000.0):
+    """Create BasisSwap from CurrencyConventions (uses float_frequency for both legs by default)."""
+    return cls(start, end, spread, notional,
+               leg1_frequency=conv.float_frequency,
+               leg2_frequency=conv.fixed_frequency,
+               day_count=conv.float_day_count)
+
+BasisSwap.from_convention = _basis_from_convention
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("basis_swap", ["start", "end", "spread", "notional", "leg1_frequency", "leg2_frequency", "day_count"])(BasisSwap)

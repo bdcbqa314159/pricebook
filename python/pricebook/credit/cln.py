@@ -859,6 +859,15 @@ from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("cln", ["start", "end", "coupon_rate", "notional", "recovery", "leverage", "floating", "frequency", "day_count"])(CreditLinkedNote)
 
 
+@classmethod
+def _cln_from_convention(cls, conv, start, end, coupon_rate, notional=100.0, recovery=0.4):
+    """Create CreditLinkedNote from a convention (bond convention for coupon structure)."""
+    return cls(start, end, coupon_rate, notional, recovery=recovery,
+               frequency=conv.frequency, day_count=conv.day_count)
+
+CreditLinkedNote.from_convention = _cln_from_convention
+
+
 # ---------------------------------------------------------------------------
 # Unified MC Engine migration
 # ---------------------------------------------------------------------------
