@@ -1,0 +1,101 @@
+[
+  {
+    "ticker": "SPX",
+    "name": "S&P 500",
+    "exchange": "CBOE",
+    "currency": "USD",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 100.0,
+    "dividend_frequency": "quarterly",
+    "ex_date_rule": "T-1"
+  },
+  {
+    "ticker": "NDX",
+    "name": "Nasdaq 100",
+    "exchange": "CBOE",
+    "currency": "USD",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 100.0,
+    "dividend_frequency": "quarterly",
+    "ex_date_rule": "T-1"
+  },
+  {
+    "ticker": "SX5E",
+    "name": "Euro Stoxx 50",
+    "exchange": "Eurex",
+    "currency": "EUR",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 10.0,
+    "dividend_frequency": "annual",
+    "ex_date_rule": "T-2"
+  },
+  {
+    "ticker": "DAX",
+    "name": "DAX 40",
+    "exchange": "Eurex",
+    "currency": "EUR",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 5.0,
+    "dividend_frequency": "annual",
+    "ex_date_rule": "T-2"
+  },
+  {
+    "ticker": "UKX",
+    "name": "FTSE 100",
+    "exchange": "ICE",
+    "currency": "GBP",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 10.0,
+    "dividend_frequency": "quarterly",
+    "ex_date_rule": "T-1"
+  },
+  {
+    "ticker": "NKY",
+    "name": "Nikkei 225",
+    "exchange": "OSE",
+    "currency": "JPY",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 1000.0,
+    "dividend_frequency": "semi-annual",
+    "ex_date_rule": "T-2"
+  },
+  {
+    "ticker": "HSI",
+    "name": "Hang Seng",
+    "exchange": "HKEX",
+    "currency": "HKD",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 50.0,
+    "dividend_frequency": "semi-annual",
+    "ex_date_rule": "T-1"
+  },
+  {
+    "ticker": "AS51",
+    "name": "ASX 200",
+    "exchange": "ASX",
+    "currency": "AUD",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 25.0,
+    "dividend_frequency": "semi-annual",
+    "ex_date_rule": "T-2"
+  },
+  {
+    "ticker": "SPTSX",
+    "name": "S&P/TSX 60",
+    "exchange": "TMX",
+    "currency": "CAD",
+    "settlement_lag": 2,
+    "option_style": "european",
+    "option_multiplier": 200.0,
+    "dividend_frequency": "quarterly",
+    "ex_date_rule": "T-1"
+  }
+]

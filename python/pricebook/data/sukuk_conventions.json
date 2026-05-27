@@ -1,0 +1,100 @@
+[
+  {
+    "type": "ijara",
+    "profit_mechanism": "Rental income from leased asset",
+    "asset_requirement": true,
+    "tradeable": true,
+    "typical_tenor_years": "5-30Y",
+    "major_currencies": [
+      "USD",
+      "MYR",
+      "SAR",
+      "IDR"
+    ],
+    "pricing_approach": "Spread over sovereign + asset quality adjustment",
+    "notes": "Most common sovereign Sukuk. Saudi, Malaysia, Indonesia."
+  },
+  {
+    "type": "mudaraba",
+    "profit_mechanism": "Profit share from managed investment",
+    "asset_requirement": false,
+    "tradeable": true,
+    "typical_tenor_years": "3-10Y",
+    "major_currencies": [
+      "MYR",
+      "BHD",
+      "PKR"
+    ],
+    "pricing_approach": "Spread over sovereign + profit rate benchmark",
+    "notes": "Common in Malaysia (BNM Sukuk)."
+  },
+  {
+    "type": "murabaha",
+    "profit_mechanism": "Cost-plus markup on commodity purchase",
+    "asset_requirement": true,
+    "tradeable": false,
+    "typical_tenor_years": "1-5Y",
+    "major_currencies": [
+      "USD",
+      "SAR",
+      "BHD"
+    ],
+    "pricing_approach": "Discount rate (like T-Bill)",
+    "notes": "Not tradeable on secondary — used for interbank."
+  },
+  {
+    "type": "wakala",
+    "profit_mechanism": "Agency fee from managed portfolio",
+    "asset_requirement": true,
+    "tradeable": true,
+    "typical_tenor_years": "3-10Y",
+    "major_currencies": [
+      "USD",
+      "MYR",
+      "TRY"
+    ],
+    "pricing_approach": "Spread over sovereign",
+    "notes": "Increasingly popular. Turkey sovereign Sukuk."
+  },
+  {
+    "type": "musharaka",
+    "profit_mechanism": "Profit/loss sharing from joint venture",
+    "asset_requirement": true,
+    "tradeable": true,
+    "typical_tenor_years": "5-15Y",
+    "major_currencies": [
+      "MYR",
+      "PKR",
+      "IDR"
+    ],
+    "pricing_approach": "Spread over sovereign + equity-like risk premium",
+    "notes": ""
+  },
+  {
+    "type": "salam",
+    "profit_mechanism": "Forward sale of commodity at agreed price",
+    "asset_requirement": true,
+    "tradeable": false,
+    "typical_tenor_years": "< 1Y",
+    "major_currencies": [
+      "BHD",
+      "SDR"
+    ],
+    "pricing_approach": "Discount rate",
+    "notes": ""
+  },
+  {
+    "type": "istisna",
+    "profit_mechanism": "Progress payments for construction/manufacturing",
+    "asset_requirement": true,
+    "tradeable": true,
+    "typical_tenor_years": "3-20Y",
+    "major_currencies": [
+      "USD",
+      "SAR",
+      "QAR"
+    ],
+    "pricing_approach": "Spread over sovereign + project risk",
+    "notes": ""
+  }
+]

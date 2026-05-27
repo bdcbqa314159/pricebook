@@ -1,0 +1,138 @@
+[
+  {
+    "code": "EIB",
+    "name": "European Investment Bank",
+    "rating": "AAA",
+    "typical_currencies": [
+      "EUR",
+      "USD",
+      "GBP"
+    ],
+    "typical_maturities": "2-30Y",
+    "spread_vs_sovereign_bp": 5.0,
+    "notes": "Largest supranational issuer. EU policy bank."
+  },
+  {
+    "code": "IBRD",
+    "name": "International Bank for Reconstruction and Development",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "EUR",
+      "AUD",
+      "NZD"
+    ],
+    "typical_maturities": "2-30Y",
+    "spread_vs_sovereign_bp": 8.0,
+    "notes": "World Bank lending arm."
+  },
+  {
+    "code": "IFC",
+    "name": "International Finance Corporation",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "EUR",
+      "AUD"
+    ],
+    "typical_maturities": "3-10Y",
+    "spread_vs_sovereign_bp": 10.0,
+    "notes": "World Bank private sector arm."
+  },
+  {
+    "code": "ADB",
+    "name": "Asian Development Bank",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "AUD",
+      "NZD",
+      "INR"
+    ],
+    "typical_maturities": "2-20Y",
+    "spread_vs_sovereign_bp": 7.0,
+    "notes": "Regional development bank for Asia-Pacific."
+  },
+  {
+    "code": "EBRD",
+    "name": "European Bank for Reconstruction and Development",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "EUR",
+      "GBP",
+      "TRY"
+    ],
+    "typical_maturities": "2-15Y",
+    "spread_vs_sovereign_bp": 8.0,
+    "notes": "Focus on Central/Eastern Europe and Central Asia."
+  },
+  {
+    "code": "AFDB",
+    "name": "African Development Bank",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "EUR",
+      "ZAR",
+      "NGN"
+    ],
+    "typical_maturities": "3-15Y",
+    "spread_vs_sovereign_bp": 12.0,
+    "notes": "Regional development bank for Africa."
+  },
+  {
+    "code": "AIIB",
+    "name": "Asian Infrastructure Investment Bank",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "EUR",
+      "CNY"
+    ],
+    "typical_maturities": "3-10Y",
+    "spread_vs_sovereign_bp": 10.0,
+    "notes": "China-led multilateral. Founded 2016."
+  },
+  {
+    "code": "IADB",
+    "name": "Inter-American Development Bank",
+    "rating": "AAA",
+    "typical_currencies": [
+      "USD",
+      "EUR",
+      "BRL",
+      "MXN"
+    ],
+    "typical_maturities": "2-20Y",
+    "spread_vs_sovereign_bp": 9.0,
+    "notes": "Regional development bank for Latin America."
+  },
+  {
+    "code": "NIB",
+    "name": "Nordic Investment Bank",
+    "rating": "AAA",
+    "typical_currencies": [
+      "EUR",
+      "USD",
+      "SEK",
+      "NOK"
+    ],
+    "typical_maturities": "2-10Y",
+    "spread_vs_sovereign_bp": 6.0,
+    "notes": "Nordic/Baltic regional bank."
+  },
+  {
+    "code": "KFW",
+    "name": "KfW Bankengruppe",
+    "rating": "AAA",
+    "typical_currencies": [
+      "EUR",
+      "USD",
+      "GBP"
+    ],
+    "typical_maturities": "2-30Y",
+    "spread_vs_sovereign_bp": 3.0,
+    "notes": "German state development bank. Quasi-sovereign, not strictly supranational."
+  }
+]

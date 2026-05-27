@@ -1,0 +1,162 @@
+[
+  {
+    "currency": "BRL",
+    "deposit_day_count": "BUS/252",
+    "fixed_day_count": "BUS/252",
+    "float_day_count": "BUS/252",
+    "fixed_frequency": 12,
+    "float_frequency": 12,
+    "interpolation": "log_linear",
+    "calendar_currency": "BRL"
+  },
+  {
+    "currency": "MXN",
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "MXN"
+  },
+  {
+    "currency": "CNY",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "CNY"
+  },
+  {
+    "currency": "KRW",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "KRW"
+  },
+  {
+    "currency": "ZAR",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "ZAR"
+  },
+  {
+    "currency": "INR",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "INR"
+  },
+  {
+    "currency": "SGD",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "SGD"
+  },
+  {
+    "currency": "HKD",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "HKD"
+  },
+  {
+    "currency": "THB",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "THB"
+  },
+  {
+    "currency": "PLN",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "PLN"
+  },
+  {
+    "currency": "CZK",
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 12,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "CZK"
+  },
+  {
+    "currency": "HUF",
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 12,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "HUF"
+  },
+  {
+    "currency": "COP",
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "COP"
+  },
+  {
+    "currency": "CLP",
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "calendar_currency": "CLP"
+  },
+  {
+    "currency": "TRY",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 12,
+    "float_frequency": 12,
+    "interpolation": "log_linear",
+    "calendar_currency": "TRY"
+  },
+  {
+    "currency": "IDR",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "IDR"
+  }
+]

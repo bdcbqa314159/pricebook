@@ -2,6 +2,19 @@
 
 ---
 
+## v0.621.0 — 2026-05-26
+
+**Static data layer — 13 JSON convention files + loader utility.**
+
+- Created `data/` directory with 13 JSON files (62 KB total, 212 entries):
+  sovereign_conventions (56), rate_indices (25), equity_indices (9), commodity_contracts (13), linker_conventions (8), inflation_indices (16), repo_specialness (6), supranational_issuers (10), cds_indices (5), sovereign_cds (31), curve_conventions_g10 (10), curve_conventions_em (16), sukuk_conventions (7).
+- New `core/data_registry.py` — `load_conventions()`, `save_conventions()`, `load_or_default()` utilities for JSON ↔ convention dataclass round-trip.
+- All 12 convention types verified: JSON → from_dict → to_dict → JSON matches original.
+- **Backward compat:** JSON files are additive — existing hardcoded registries remain the source of truth. JSON files serve as export/inspection/override format. No existing APIs changed.
+- 9880 tests pass.
+
+---
+
 ## v0.620.0 — 2026-05-26
 
 **Apply `@serialisable_convention` to all 13 convention dataclasses.**

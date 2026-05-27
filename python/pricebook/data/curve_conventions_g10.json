@@ -1,0 +1,92 @@
+[
+  {
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "30/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 6,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "_currency": "USD"
+  },
+  {
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "30/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 12,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "_currency": "EUR"
+  },
+  {
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "_currency": "GBP"
+  },
+  {
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "_currency": "JPY"
+  },
+  {
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "30/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 12,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "_currency": "CHF"
+  },
+  {
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "_currency": "CAD"
+  },
+  {
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "_currency": "AUD"
+  },
+  {
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 6,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "_currency": "NZD"
+  },
+  {
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "30/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 12,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "_currency": "SEK"
+  },
+  {
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "30/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 12,
+    "float_frequency": 6,
+    "interpolation": "log_linear",
+    "_currency": "NOK"
+  }
+]

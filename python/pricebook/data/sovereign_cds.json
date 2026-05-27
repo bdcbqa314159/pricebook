@@ -1,0 +1,535 @@
+[
+  {
+    "country_code": "BR",
+    "country_name": "Brazil",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "LatAm14",
+    "notes": ""
+  },
+  {
+    "country_code": "MX",
+    "country_name": "Mexico",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "LatAm14",
+    "notes": ""
+  },
+  {
+    "country_code": "CO",
+    "country_name": "Colombia",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "LatAm14",
+    "notes": ""
+  },
+  {
+    "country_code": "CL",
+    "country_name": "Chile",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "LatAm14",
+    "notes": ""
+  },
+  {
+    "country_code": "PE",
+    "country_name": "Peru",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "LatAm14",
+    "notes": ""
+  },
+  {
+    "country_code": "AR",
+    "country_name": "Argentina",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "LatAm14",
+    "notes": "Frequently distressed. Wide bid-ask."
+  },
+  {
+    "country_code": "TR",
+    "country_name": "Turkey",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "ZA",
+    "country_name": "South Africa",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "PL",
+    "country_name": "Poland",
+    "currency": "USD",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Euro14",
+    "notes": "EU member, modified-modified restructuring."
+  },
+  {
+    "country_code": "HU",
+    "country_name": "Hungary",
+    "currency": "USD",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Euro14",
+    "notes": ""
+  },
+  {
+    "country_code": "RO",
+    "country_name": "Romania",
+    "currency": "USD",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Euro14",
+    "notes": ""
+  },
+  {
+    "country_code": "RU",
+    "country_name": "Russia",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": "Sanctioned since 2022 — CDS settlement affected."
+  },
+  {
+    "country_code": "EG",
+    "country_name": "Egypt",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "NG",
+    "country_name": "Nigeria",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "KE",
+    "country_name": "Kenya",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "CN",
+    "country_name": "China",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "KR",
+    "country_name": "South Korea",
+    "currency": "USD",
+    "restructuring": "XR",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "ID",
+    "country_name": "Indonesia",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "PH",
+    "country_name": "Philippines",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "MY",
+    "country_name": "Malaysia",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "TH",
+    "country_name": "Thailand",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "IN",
+    "country_name": "India",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "VN",
+    "country_name": "Vietnam",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Asia14",
+    "notes": ""
+  },
+  {
+    "country_code": "IT",
+    "country_name": "Italy",
+    "currency": "EUR",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10,
+      15,
+      20,
+      30
+    ],
+    "doc_clause": "Euro14",
+    "notes": ""
+  },
+  {
+    "country_code": "ES",
+    "country_name": "Spain",
+    "currency": "EUR",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10,
+      15,
+      20,
+      30
+    ],
+    "doc_clause": "Euro14",
+    "notes": ""
+  },
+  {
+    "country_code": "PT",
+    "country_name": "Portugal",
+    "currency": "EUR",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Euro14",
+    "notes": ""
+  },
+  {
+    "country_code": "GR",
+    "country_name": "Greece",
+    "currency": "EUR",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Euro14",
+    "notes": "Post-2012 restructuring — new bonds under UK law."
+  },
+  {
+    "country_code": "IE",
+    "country_name": "Ireland",
+    "currency": "EUR",
+    "restructuring": "MM",
+    "recovery_rate": 0.4,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "Euro14",
+    "notes": ""
+  },
+  {
+    "country_code": "SA",
+    "country_name": "Saudi Arabia",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "QA",
+    "country_name": "Qatar",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  },
+  {
+    "country_code": "IL",
+    "country_name": "Israel",
+    "currency": "USD",
+    "restructuring": "CR",
+    "recovery_rate": 0.25,
+    "standard_tenors": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      10
+    ],
+    "doc_clause": "EMEA14",
+    "notes": ""
+  }
+]

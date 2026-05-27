@@ -1,0 +1,67 @@
+[
+  {
+    "name": "CDX.NA.IG",
+    "region": "NA",
+    "grade": "IG",
+    "n_names": 125,
+    "standard_coupon_bps": 100,
+    "standard_recovery": 0.4,
+    "roll_months": [
+      3,
+      9
+    ],
+    "tenor_years": 5
+  },
+  {
+    "name": "CDX.NA.HY",
+    "region": "NA",
+    "grade": "HY",
+    "n_names": 100,
+    "standard_coupon_bps": 500,
+    "standard_recovery": 0.25,
+    "roll_months": [
+      3,
+      9
+    ],
+    "tenor_years": 5
+  },
+  {
+    "name": "iTraxx Europe",
+    "region": "EU",
+    "grade": "IG",
+    "n_names": 125,
+    "standard_coupon_bps": 100,
+    "standard_recovery": 0.4,
+    "roll_months": [
+      3,
+      9
+    ],
+    "tenor_years": 5
+  },
+  {
+    "name": "iTraxx Crossover",
+    "region": "EU",
+    "grade": "XOVER",
+    "n_names": 75,
+    "standard_coupon_bps": 500,
+    "standard_recovery": 0.4,
+    "roll_months": [
+      3,
+      9
+    ],
+    "tenor_years": 5
+  },
+  {
+    "name": "iTraxx Senior Fin",
+    "region": "EU",
+    "grade": "IG",
+    "n_names": 30,
+    "standard_coupon_bps": 100,
+    "standard_recovery": 0.4,
+    "roll_months": [
+      3,
+      9
+    ],
+    "tenor_years": 5
+  }
+]

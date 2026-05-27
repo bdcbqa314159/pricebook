@@ -1,0 +1,74 @@
+[
+  {
+    "country": "US",
+    "index_name": "CPI-U (All Urban)",
+    "lag_months": 3,
+    "coupon_frequency": "semi-annual",
+    "day_count": "ACT/ACT",
+    "deflation_floor": true,
+    "index_ratio_method": "daily_linear"
+  },
+  {
+    "country": "UK",
+    "index_name": "RPI",
+    "lag_months": 8,
+    "coupon_frequency": "semi-annual",
+    "day_count": "ACT/ACT",
+    "deflation_floor": false,
+    "index_ratio_method": "daily_linear"
+  },
+  {
+    "country": "FR",
+    "index_name": "HICP ex-tobacco",
+    "lag_months": 3,
+    "coupon_frequency": "annual",
+    "day_count": "ACT/ACT",
+    "deflation_floor": false,
+    "index_ratio_method": "daily_linear"
+  },
+  {
+    "country": "IT",
+    "index_name": "HICP ex-tobacco",
+    "lag_months": 3,
+    "coupon_frequency": "annual",
+    "day_count": "ACT/ACT",
+    "deflation_floor": false,
+    "index_ratio_method": "daily_linear"
+  },
+  {
+    "country": "DE",
+    "index_name": "HICP ex-tobacco",
+    "lag_months": 3,
+    "coupon_frequency": "annual",
+    "day_count": "ACT/ACT",
+    "deflation_floor": false,
+    "index_ratio_method": "daily_linear"
+  },
+  {
+    "country": "CA",
+    "index_name": "CPI (All Items)",
+    "lag_months": 3,
+    "coupon_frequency": "semi-annual",
+    "day_count": "ACT/365F",
+    "deflation_floor": true,
+    "index_ratio_method": "daily_linear"
+  },
+  {
+    "country": "AU",
+    "index_name": "CPI (Weighted Average)",
+    "lag_months": 6,
+    "coupon_frequency": "quarterly",
+    "day_count": "ACT/ACT",
+    "deflation_floor": false,
+    "index_ratio_method": "quarterly"
+  },
+  {
+    "country": "JP",
+    "index_name": "CPI (ex-fresh food)",
+    "lag_months": 3,
+    "coupon_frequency": "semi-annual",
+    "day_count": "ACT/365F",
+    "deflation_floor": true,
+    "index_ratio_method": "daily_linear"
+  }
+]

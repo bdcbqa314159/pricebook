@@ -1,0 +1,100 @@
+[
+  {
+    "market": "UST",
+    "on_the_run_tenors": [
+      "2Y",
+      "3Y",
+      "5Y",
+      "7Y",
+      "10Y",
+      "20Y",
+      "30Y"
+    ],
+    "auction_frequency": "monthly",
+    "typical_special_range_bp": [
+      5,
+      200
+    ],
+    "settlement_days": 1
+  },
+  {
+    "market": "BUND",
+    "on_the_run_tenors": [
+      "2Y",
+      "5Y",
+      "10Y",
+      "30Y"
+    ],
+    "auction_frequency": "monthly",
+    "typical_special_range_bp": [
+      5,
+      100
+    ],
+    "settlement_days": 2
+  },
+  {
+    "market": "GILT",
+    "on_the_run_tenors": [
+      "2Y",
+      "5Y",
+      "10Y",
+      "30Y",
+      "50Y"
+    ],
+    "auction_frequency": "monthly",
+    "typical_special_range_bp": [
+      5,
+      150
+    ],
+    "settlement_days": 1
+  },
+  {
+    "market": "JGB",
+    "on_the_run_tenors": [
+      "2Y",
+      "5Y",
+      "10Y",
+      "20Y",
+      "30Y",
+      "40Y"
+    ],
+    "auction_frequency": "monthly",
+    "typical_special_range_bp": [
+      2,
+      50
+    ],
+    "settlement_days": 2
+  },
+  {
+    "market": "OAT",
+    "on_the_run_tenors": [
+      "2Y",
+      "5Y",
+      "10Y",
+      "30Y"
+    ],
+    "auction_frequency": "monthly",
+    "typical_special_range_bp": [
+      5,
+      80
+    ],
+    "settlement_days": 2
+  },
+  {
+    "market": "BTP",
+    "on_the_run_tenors": [
+      "3Y",
+      "5Y",
+      "7Y",
+      "10Y",
+      "15Y",
+      "30Y"
+    ],
+    "auction_frequency": "monthly",
+    "typical_special_range_bp": [
+      10,
+      150
+    ],
+    "settlement_days": 2
+  }
+]
