@@ -2,6 +2,20 @@
 
 ---
 
+## v0.632.0 — 2026-05-27
+
+**Convention + factory integration tests — 30 new tests, 9910 total.**
+
+- New `test_convention_factory.py` with 30 tests covering the full chain:
+  - Convention JSON round-trip (6 types)
+  - Convention → factory → instrument (10 products: UST, Bund, ZCB, IRS USD/EUR, OIS, CDS, Swaption, Deposit, FRA)
+  - Instrument → pv_ctx (5 products)
+  - Instrument → to_dict → from_dict (5 products)
+  - End-to-end: JSON load → convention → factory → price → serialise (4 chains)
+- 9910 tests pass (was 9880).
+
+---
+
 ## v0.631.0 — 2026-05-27
 
 **from_convention on 3 more credit products — total 23 with factory.**
