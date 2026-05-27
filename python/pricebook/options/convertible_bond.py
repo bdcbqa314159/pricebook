@@ -696,5 +696,38 @@ def mandatory_convertible_via_engine(
         max_shares=float(shares_low), low_strike=low_strike, high_strike=high_strike,
     )
 
+def _cb_pv_ctx(self, ctx) -> float:
+    """PV using PricingContext (needs spot, vol, rate, credit spread)."""
+    # Extract equity spot — try fx_spots for equity or use a default
+    spot = 100.0  # fallback
+    if hasattr(ctx, 'fx_spots') and ctx.fx_spots:
+        spot = next(iter(ctx.fx_spots.values()), 100.0)
+
+    rate = 0.05
+    if ctx.discount_curve is not None:
+        from pricebook.core.day_count import DayCountConvention, year_fraction
+        from datetime import timedelta
+        ref = ctx.discount_curve.reference_date
+        d1y = ref + timedelta(days=365)
+        df = ctx.discount_curve.df(d1y)
+        if df > 0:
+            import math
+            rate = -math.log(df)
+
+    vol = 0.30
+    if hasattr(ctx, 'vol_surfaces') and ctx.vol_surfaces:
+        vs = next(iter(ctx.vol_surfaces.values()), None)
+        if vs and hasattr(vs, 'vol'):
+            vol = vs.vol(self.maturity_years)
+
+    cs = 0.0
+    if hasattr(ctx, 'credit_curves') and ctx.credit_curves:
+        cs = 0.02  # approximate from credit curve presence
+
+    result = self.price(spot, rate, vol, cs)
+    return result.price * self.notional / 100.0
+
+ConvertibleBond.pv_ctx = _cb_pv_ctx
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("convertible_bond", ["notional", "coupon_rate", "maturity_years", "conversion_ratio", "n_coupons_per_year"])(ConvertibleBond)

@@ -67,6 +67,7 @@ def cms_convexity_adjustment(
 # ---- Re-exports from dedicated modules (backward compatibility) ----
 # Canonical locations: pricebook.cash_settlement, pricebook.credit_adjustment
 
+from pricebook.core.serialisable import serialisable as _serialisable
 from pricebook.fixed_income.cash_settlement import cash_annuity  # noqa: F401
 from pricebook.credit.credit_adjustment import (  # noqa: F401
     cra_discount,
@@ -401,3 +402,5 @@ def _digital_range_prob(
     d2_lower = (math.log(forward / lower) - 0.5 * vol ** 2 * T) / (vol * math.sqrt(T))
 
     return float(norm.cdf(-d2_upper) - norm.cdf(-d2_lower))
+
+_serialisable("cms_leg", ['start', 'end', 'cms_tenor', 'notional', 'frequency', 'spread', 'day_count'])(CMSLeg)

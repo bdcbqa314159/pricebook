@@ -22,6 +22,7 @@ from enum import Enum
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---------------------------------------------------------------------------
@@ -744,3 +745,7 @@ def futures_cash_basis_rv(
         z_score=z,
         signal=signal,
     )
+
+_serialisable("bond_future", ['trade_price', 'market_price', 'expiry', 'multiplier', 'ctd_dv01', 'ctd_cf', 'notional'])(BondFuture)
+
+_serialisable("fx_future", ['base_ccy', 'quote_ccy', 'spot', 'expiry', 'contract_size'])(FXFuture)

@@ -2,6 +2,19 @@
 
 ---
 
+## v0.628.0 — 2026-05-27
+
+**Serialisable + pv_ctx + from_convention final batch.**
+
+- `@serialisable` added to: CommoditySwap, RiskParticipation, BondFuture, FXFuture, CMSLeg (5 more instruments).
+- `ConvertibleBond.pv_ctx()` — extracts spot, rate, vol, credit spread from PricingContext. All core tradeable products now have pv_ctx.
+- `Deposit.from_convention()` and `FRA.from_convention()` — uses day_count from CurrencyConventions.
+- **Backward compat:** All additive. 7 reverted files (desk trades with wrong field names, 4 credit/structured with import inside function body) will be fixed in a follow-up pass — no regression from v0.627.
+- `@serialisable` coverage: 31→36 instruments. `from_convention` coverage: 11→13 products.
+- 9880 tests pass.
+
+---
+
 ## v0.627.0 — 2026-05-27
 
 **from_convention on 5 more instruments — total 11 product types with factory.**

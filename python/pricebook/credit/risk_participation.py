@@ -37,6 +37,7 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.credit.cds import premium_leg_pv, protection_leg_pv
 from pricebook.core.schedule import Frequency
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---------------------------------------------------------------------------
@@ -338,3 +339,5 @@ def risk_participation_capital_relief(
     # Capital relief
     relief = k * loan_notional * participation_rate * (1 - regulatory_haircut)
     return relief
+
+_serialisable("risk_participation", ['start', 'end', 'loan_notional', 'participation_rate', 'spread', 'recovery', 'upfront_fee', 'settlement'])(RiskParticipation)

@@ -84,5 +84,16 @@ class FRA:
             proj = next(iter(ctx.projection_curves.values()), None)
         return self.pv(curve, proj)
 
+@classmethod
+def _fra_from_convention(cls, conv, start, end, strike, notional=1_000_000.0):
+    """Create FRA from a convention (uses float day_count)."""
+    dc = getattr(conv, 'float_day_count', getattr(conv, 'day_count', None))
+    if dc is None:
+        from pricebook.core.day_count import DayCountConvention
+        dc = DayCountConvention.ACT_360
+    return cls(start, end, strike, notional, dc)
+
+FRA.from_convention = _fra_from_convention
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("fra", ["start", "end", "strike", "notional"])(FRA)

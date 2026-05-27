@@ -21,6 +21,7 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod, create_interpolator
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.models.black76 import OptionType, black76_price, black76_vega
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 class CommodityForwardCurve:
@@ -260,3 +261,5 @@ def commodity_option_price(
 ) -> float:
     """European commodity option price (Black-76 on the forward)."""
     return black76_price(forward, strike, vol, T, df, option_type)
+
+_serialisable("commodity_swap", ['start', 'end', 'fixed_price', 'quantity', 'frequency'])(CommoditySwap)

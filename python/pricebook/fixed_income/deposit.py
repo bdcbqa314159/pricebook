@@ -74,5 +74,16 @@ class Deposit:
             raise ValueError("No discount curve in context")
         return self.pv(curve)
 
+@classmethod
+def _deposit_from_convention(cls, conv, start, end, rate, notional=1.0):
+    """Create Deposit from a convention (uses day_count from convention)."""
+    dc = getattr(conv, 'deposit_day_count', getattr(conv, 'day_count', None))
+    if dc is None:
+        from pricebook.core.day_count import DayCountConvention
+        dc = DayCountConvention.ACT_360
+    return cls(start, end, rate, notional, dc)
+
+Deposit.from_convention = _deposit_from_convention
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("deposit", ["start", "end", "rate", "notional", "day_count"])(Deposit)
