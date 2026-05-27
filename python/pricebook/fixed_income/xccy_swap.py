@@ -190,3 +190,10 @@ class CrossCurrencySwap:
         """Sensitivity to FX rate move."""
         pv_base = self.pv(domestic_curve, foreign_curve, current_fx)
         return self.pv(domestic_curve, foreign_curve, current_fx + shift) - pv_base
+
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        dom_curve = ctx.get_discount_curve(self.domestic_currency)
+        for_curve = ctx.get_discount_curve(self.foreign_currency)
+        fx = ctx.get_fx_spot(self.foreign_currency, self.domestic_currency)
+        return self.pv(dom_curve, for_curve, fx)

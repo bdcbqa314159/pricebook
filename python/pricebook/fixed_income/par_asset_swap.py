@@ -229,6 +229,16 @@ class ProceedsAssetSwap:
         )
 
 
+def _asw_pv_ctx(self, ctx) -> float:
+    """PV using PricingContext."""
+    curve = ctx.discount_curve
+    if curve is None:
+        raise ValueError("No discount curve in context")
+    return self.price(curve).pv
+
+ParAssetSwap.pv_ctx = _asw_pv_ctx
+ProceedsAssetSwap.pv_ctx = _asw_pv_ctx
+
 from pricebook.core.serialisable import _register as _reg_asw
 _reg_asw(ParAssetSwap)
 _reg_asw(ProceedsAssetSwap)

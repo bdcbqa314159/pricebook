@@ -2,6 +2,19 @@
 
 ---
 
+## v0.624.0 — 2026-05-27
+
+**pv_ctx on 10 more instruments — coverage 35→39/39 (near-complete).**
+
+- Added `pv_ctx()` to: ZeroCouponSwap, TreasuryBill, IRFuture, CrossCurrencySwap, ZCInflationSwap, YoYInflationSwap, InflationLinkedBond, BondForward, ParAssetSwap, ProceedsAssetSwap.
+- CrossCurrencySwap.pv_ctx extracts domestic + foreign discount curves + FX spot from context.
+- Inflation instruments extract CPI curve from `ctx.inflation_curves`.
+- **Backward compat:** All additive — existing pricing signatures unchanged. `pv_ctx` methods use best-effort curve extraction.
+- PricingContext coverage on core tradeable instruments: near-complete. Remaining gaps are desk-level aggregators (Book, Desk), result dataclasses, and niche credit exotics.
+- 9880 tests pass.
+
+---
+
 ## v0.623.0 — 2026-05-27
 
 **pv_ctx on CapFloor and RiskyBond.**

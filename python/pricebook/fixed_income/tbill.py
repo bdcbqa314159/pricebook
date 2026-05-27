@@ -256,6 +256,14 @@ class TreasuryBill:
         )
 
 
+
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        return self.pv(curve)
+
 from pricebook.core.serialisable import _register
 TreasuryBill._SERIAL_TYPE = "tbill"
 _register(TreasuryBill)

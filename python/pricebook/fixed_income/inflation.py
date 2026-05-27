@@ -257,6 +257,18 @@ class ZCInflationSwap:
     def par_rate(self, discount_curve: DiscountCurve, cpi_curve: CPICurve) -> float:
         return zc_inflation_par_rate(discount_curve, cpi_curve, self.end)
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext (needs discount + inflation curve)."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        cpi = None
+        if hasattr(ctx, 'inflation_curves') and ctx.inflation_curves:
+            cpi = next(iter(ctx.inflation_curves.values()), None)
+        if cpi is None:
+            raise ValueError("No inflation curve in context")
+        return self.pv(curve, cpi)
+
 
 class YoYInflationSwap:
     """Year-on-year inflation swap (receiver inflation).
@@ -296,6 +308,18 @@ class YoYInflationSwap:
             discount_curve, cpi_curve, self.start, self.end,
             frequency=self.frequency,
         )
+
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        cpi = None
+        if hasattr(ctx, 'inflation_curves') and ctx.inflation_curves:
+            cpi = next(iter(ctx.inflation_curves.values()), None)
+        if cpi is None:
+            raise ValueError("No inflation curve in context")
+        return self.pv(curve, cpi)
 
 
 # ---------------------------------------------------------------------------
@@ -424,6 +448,18 @@ class InflationLinkedBond:
         )
         price_bumped = self.dirty_price(discount_curve, bumped_cpi, settle)
         return price_bumped - price_base
+
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext (dirty price × notional / 100)."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        cpi = None
+        if hasattr(ctx, 'inflation_curves') and ctx.inflation_curves:
+            cpi = next(iter(ctx.inflation_curves.values()), None)
+        if cpi is None:
+            raise ValueError("No inflation curve in context")
+        return self.dirty_price(curve, cpi) * self.notional / 100.0
 
 
 # ---------------------------------------------------------------------------

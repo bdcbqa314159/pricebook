@@ -121,6 +121,14 @@ class IRFuture:
 # ---------------------------------------------------------------------------
 
 
+
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        return self.pv(curve)
+
 def hw_convexity_adjustment(
     a: float,
     sigma: float,

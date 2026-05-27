@@ -314,6 +314,14 @@ class BondForward:
         )
 
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        result = self.price(curve)
+        return result.forward_dirty * self.bond.face_value / 100.0 - self.bond.dirty_price(curve)
+
 from pricebook.core.serialisable import _register as _reg_bf
 BondForward._SERIAL_TYPE = "bond_forward"
 _reg_bf(BondForward)
