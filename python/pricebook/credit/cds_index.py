@@ -217,3 +217,11 @@ class VanillaCLN:
         return (riskfree - risky) / (self.notional * annuity)
 
 _serialisable("vanilla_cln", ['start', 'end', 'coupon_rate', 'notional', 'recovery', 'frequency', 'day_count'])(VanillaCLN)
+
+@classmethod
+def _vcln_from_convention(cls, conv, start, end, coupon_rate, notional=100.0, recovery=0.4):
+    """Create VanillaCLN from convention (uses frequency + day_count)."""
+    return cls(start, end, coupon_rate, notional, recovery,
+               frequency=conv.frequency, day_count=conv.day_count)
+
+VanillaCLN.from_convention = _vcln_from_convention

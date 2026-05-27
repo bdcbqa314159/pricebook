@@ -326,3 +326,12 @@ def guarantee_spread(
     return result.guarantee_spread_bp
 
 _serialisable("guaranteed_note", ['start', 'end', 'coupon_rate', 'notional', 'recovery_issuer', 'recovery_guarantor', 'recovery_joint', 'correlation', 'frequency', 'day_count'])(GuaranteedNote)
+
+@classmethod
+def _gn_from_convention(cls, conv, start, end, coupon_rate, notional=100.0,
+                         recovery_issuer=0.4, recovery_guarantor=0.4, recovery_joint=0.6, correlation=0.3):
+    """Create GuaranteedNote from convention (uses frequency + day_count)."""
+    return cls(start, end, coupon_rate, notional, recovery_issuer, recovery_guarantor,
+               recovery_joint, correlation, frequency=conv.frequency, day_count=conv.day_count)
+
+GuaranteedNote.from_convention = _gn_from_convention

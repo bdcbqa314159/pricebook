@@ -296,3 +296,11 @@ class CreditRiskyFRN:
 
 
 _register(CreditRiskyFRN)
+
+@classmethod
+def _rfrn_from_convention(cls, conv, start, end, spread, notional=1_000_000.0, recovery=0.4):
+    """Create CreditRiskyFRN from convention (uses frequency + day_count)."""
+    return cls(start, end, spread, notional, recovery,
+               frequency=conv.frequency, day_count=conv.day_count)
+
+CreditRiskyFRN.from_convention = _rfrn_from_convention

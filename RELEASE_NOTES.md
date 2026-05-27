@@ -2,6 +2,19 @@
 
 ---
 
+## v0.631.0 — 2026-05-27
+
+**from_convention on 3 more credit products — total 23 with factory.**
+
+- `GuaranteedNote.from_convention()` — uses frequency/day_count from bond conventions.
+- `VanillaCLN.from_convention()` — same pattern.
+- `CreditRiskyFRN.from_convention()` — uses convention frequency/day_count for floating schedule.
+- **Backward compat:** All additive.
+- from_convention coverage: 20→23/39 products.
+- 9880 tests pass.
+
+---
+
 ## v0.630.0 — 2026-05-27
 
 **from_convention on 7 more products — total 20 with factory.**
