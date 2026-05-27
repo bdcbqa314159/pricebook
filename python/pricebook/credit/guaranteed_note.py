@@ -33,6 +33,7 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 def _bivariate_normal_cdf(x: float, y: float, rho: float) -> float:
@@ -323,3 +324,5 @@ def guarantee_spread(
     )
     result = gn.price(discount_curve, issuer_surv, guarantor_surv)
     return result.guarantee_spread_bp
+
+_serialisable("guaranteed_note", ['start', 'end', 'coupon_rate', 'notional', 'recovery_issuer', 'recovery_guarantor', 'recovery_joint', 'correlation', 'frequency', 'day_count'])(GuaranteedNote)

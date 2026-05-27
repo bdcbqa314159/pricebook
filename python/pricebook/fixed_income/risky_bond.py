@@ -19,6 +19,7 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.core.solvers import brentq
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 class RiskyBond:
@@ -222,3 +223,5 @@ def _risky_bond_pv_ctx(self, ctx) -> float:
     return self.dirty_price(curve, credit_curve)
 
 RiskyBond.pv_ctx = _risky_bond_pv_ctx
+
+_serialisable("risky_bond", ['start', 'end', 'coupon_rate', 'notional', 'frequency', 'day_count', 'recovery'])(RiskyBond)

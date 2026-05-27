@@ -26,6 +26,7 @@ from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.credit.cds import CDS
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.core.solvers import brentq
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 class CDSIndex:
@@ -214,3 +215,5 @@ class VanillaCLN:
         if annuity == 0:
             return 0.0
         return (riskfree - risky) / (self.notional * annuity)
+
+_serialisable("vanilla_cln", ['start', 'end', 'coupon_rate', 'notional', 'recovery', 'frequency', 'day_count'])(VanillaCLN)

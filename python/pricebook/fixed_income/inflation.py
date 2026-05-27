@@ -27,6 +27,7 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod, create_interpolator
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.core.solvers import brentq
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 class CPICurve:
@@ -490,3 +491,9 @@ def bootstrap_cpi_curve(
         cpi_levels.append(cpi_T)
 
     return CPICurve(reference_date, base_cpi, dates, cpi_levels, day_count)
+
+_serialisable("zc_inflation_swap", ['start', 'end', 'fixed_rate', 'notional'])(ZCInflationSwap)
+
+_serialisable("yoy_inflation_swap", ['start', 'end', 'fixed_rate', 'notional', 'frequency'])(YoYInflationSwap)
+
+_serialisable("inflation_linked_bond", ['start', 'end', 'coupon_rate', 'base_cpi_value', 'notional', 'frequency', 'day_count', 'cpi_lag_months'])(InflationLinkedBond)

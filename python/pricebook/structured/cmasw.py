@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from pricebook.core.serialisable import serialisable as _serialisable
 from pricebook.structured.cms import (
     linear_swap_rate_calibrate,
     displaced_lognormal_cross_moment,
@@ -196,3 +197,5 @@ def cmasw_cc_lognormal(
     prefactor = 1.0 - annuity * alpha / payment_df
 
     return R_asw_0 * prefactor * (math.exp(sigma_swp * sigma_asw * rho * T0) - 1)
+
+_serialisable("cmasw_instrument", ['fixing_date', 'payment_date', 'swap_tenor', 'bond_price', 'notional'])(CMASWInstrument)

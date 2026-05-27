@@ -86,4 +86,5 @@ class TestStepUpBond:
     def test_to_dict(self):
         bond = StepUpBond(REF, 10.0, 0.04, [(5, 0.06)])
         d = bond.to_dict()
-        assert d["initial_coupon"] == 0.04
+        assert d["type"] == "step_up_bond"
+        assert d["params"]["initial_coupon"] == 0.04

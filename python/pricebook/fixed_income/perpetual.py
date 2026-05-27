@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 @dataclass
@@ -214,3 +215,5 @@ def _solve_ytc_perp(price, coupon, call_years, face, call_price, freq):
         return brentq(obj, -0.10, 1.0)
     except ValueError:
         return coupon
+
+_serialisable("step_up_bond", ['issue_date', 'maturity_years', 'initial_coupon', 'step_up_schedule', 'face_value'])(StepUpBond)

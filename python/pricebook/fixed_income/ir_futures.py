@@ -18,6 +18,7 @@ from enum import Enum
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 class FuturesType(Enum):
@@ -360,3 +361,5 @@ def fed_funds_implied_probability(
     if abs(move_size) < 1e-10:
         raise ValueError("move_size cannot be zero")
     return (futures_rate - current_rate) / move_size
+
+_serialisable("ir_future", ['accrual_start', 'accrual_end', 'futures_type', 'tick_value', 'notional', 'day_count'])(IRFuture)

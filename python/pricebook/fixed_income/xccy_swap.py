@@ -7,6 +7,7 @@ from datetime import date
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 class CrossCurrencySwap:
@@ -197,3 +198,5 @@ class CrossCurrencySwap:
         for_curve = ctx.get_discount_curve(self.foreign_currency)
         fx = ctx.get_fx_spot(self.foreign_currency, self.domestic_currency)
         return self.pv(dom_curve, for_curve, fx)
+
+_serialisable("xccy_swap", ['start', 'end', 'domestic_notional', 'fx_rate', 'domestic_spread', 'frequency'])(CrossCurrencySwap)

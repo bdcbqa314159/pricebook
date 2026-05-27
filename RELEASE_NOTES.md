@@ -2,6 +2,17 @@
 
 ---
 
+## v0.625.0 — 2026-05-27
+
+**Serialisation hardening — @serialisable on 15 more instrument classes.**
+
+- Added `@serialisable` to: ZCInflationSwap, YoYInflationSwap, InflationLinkedBond, CrossCurrencySwap, StepUpBond, RiskyBond, Repo (already had via alias), IRFuture, AmortisingBond, VanillaCLN, BasketCLN, GuaranteedNote, CMASWInstrument, CMTInstrument.
+- Total serialisable instruments: 16→31 (now 80% of core tradeables).
+- **Backward compat:** StepUpBond `to_dict()` output changed from flat dict to `{"type": "step_up_bond", "params": {...}}` format (standard instrument format). Other classes that had no `to_dict()` now have one (additive). Test updated.
+- 9880 tests pass.
+
+---
+
 ## v0.624.0 — 2026-05-27
 
 **pv_ctx on 10 more instruments — coverage 35→39/39 (near-complete).**

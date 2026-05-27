@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from pricebook.core.serialisable import serialisable as _serialisable
 from pricebook.structured.cms import (
     cra_discount,
     risky_annuity,
@@ -264,3 +265,5 @@ class CMTInstrument:
         result = self.price(curve, hazard_rate=gamma)
         df_tp = curve.df(self.payment_date)
         return self.notional * df_tp * result.R_cmt_0 * (1 + result.cc_A)
+
+_serialisable("cmt_instrument", ['fixing_date', 'payment_date', 'bond_tenor', 'notional'])(CMTInstrument)

@@ -18,6 +18,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---- Amortising bond ----
@@ -332,3 +333,5 @@ def sinker_vs_bullet(
         sinker_duration=float(sinker_res.duration),
         bullet_duration=float(bullet_duration),
     )
+
+_serialisable("amortising_bond", ['face_value', 'coupon_rate', 'n_periods', 'frequency'])(AmortisingBond)

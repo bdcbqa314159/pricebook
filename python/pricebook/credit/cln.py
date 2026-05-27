@@ -894,3 +894,5 @@ def basket_cln_price_mc_via_engine(
     different from SDE path generation.
     """
     return basket.price_mc(discount_curve, survival_curves, rho, n_sims, seed)
+
+_serialisable("basket_cln", ['start', 'end', 'coupon_rate', 'notional', 'attachment', 'detachment', 'recovery', 'n_names'])(BasketCLN)
