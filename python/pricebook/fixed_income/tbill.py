@@ -267,3 +267,15 @@ class TreasuryBill:
 from pricebook.core.serialisable import _register
 TreasuryBill._SERIAL_TYPE = "tbill"
 _register(TreasuryBill)
+
+@classmethod
+def _tbill_from_convention(cls, conv, issue_date, maturity, face_value=100.0):
+    """Create TreasuryBill from SovereignConventions (uses day_count, settlement_days)."""
+    from pricebook.core.calendar import get_calendar
+    cal = get_calendar(conv.calendar_currency) if hasattr(conv, 'calendar_currency') else None
+    return cls(
+        issue_date=issue_date, maturity=maturity, face_value=face_value,
+        day_count=conv.day_count, settlement_days=getattr(conv, 'settlement_days', 1),
+    )
+
+TreasuryBill.from_convention = _tbill_from_convention

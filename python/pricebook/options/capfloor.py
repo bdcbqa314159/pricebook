@@ -253,3 +253,14 @@ def strip_caplet_vols(
 
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("capfloor", ["start", "end", "strike", "option_type", "notional", "frequency", "day_count"])(CapFloor)
+
+@classmethod
+def _cf_from_convention(cls, conv, start, end, strike, option_type=None, notional=1_000_000.0):
+    """Create CapFloor from CurrencyConventions (uses float freq/dc)."""
+    if option_type is None:
+        from pricebook.models.black76 import OptionType
+        option_type = OptionType.CALL
+    return cls(start, end, strike, option_type, notional,
+               frequency=conv.float_frequency, day_count=conv.float_day_count)
+
+CapFloor.from_convention = _cf_from_convention

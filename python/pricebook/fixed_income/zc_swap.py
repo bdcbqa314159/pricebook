@@ -225,3 +225,10 @@ def digital_cms_cap(
 
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("zc_swap", ["start", "end", "fixed_rate", "direction", "notional", "day_count"])(ZeroCouponSwap)
+
+@classmethod
+def _zcs_from_convention(cls, conv, start, end, fixed_rate, notional=1_000_000.0, direction=1):
+    """Create ZeroCouponSwap from CurrencyConventions."""
+    return cls(start, end, fixed_rate, direction, notional, day_count=conv.fixed_day_count)
+
+ZeroCouponSwap.from_convention = _zcs_from_convention

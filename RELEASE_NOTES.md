@@ -2,6 +2,23 @@
 
 ---
 
+## v0.630.0 — 2026-05-27
+
+**from_convention on 7 more products — total 20 with factory.**
+
+- `ZeroCouponSwap.from_convention()` — uses fixed_day_count from CurrencyConventions.
+- `CrossCurrencySwap.from_convention()` — uses float freq/dc.
+- `TermLoan.from_convention()` — uses float freq/dc for floating coupon.
+- `Swaption.from_convention()` — uses fixed/float freq+dc from CurrencyConventions for underlying swap.
+- `CapFloor.from_convention()` — uses float freq/dc for caplet/floorlet schedule.
+- `TreasuryBill.from_convention()` — uses day_count + settlement from SovereignConventions.
+- `Deposit.from_convention()` + `FRA.from_convention()` — already added in v0.628.0.
+- **Backward compat:** All additive classmethods. IRFuture skipped (exchange-specific, not convention-driven).
+- from_convention coverage: 13→20/39 products. Remaining ~19 are exotics (TRS, autocallable, etc.) or desk aggregates where conventions don't apply the same way.
+- 9880 tests pass.
+
+---
+
 ## v0.629.0 — 2026-05-27
 
 **Complete @serialisable coverage — all 7 remaining gaps fixed.**

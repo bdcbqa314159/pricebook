@@ -249,3 +249,16 @@ class Swaption:
 
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("swaption", ["expiry", "swap_end", "strike", "swaption_type", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count"])(Swaption)
+
+@classmethod
+def _swaption_from_convention(cls, conv, expiry, swap_end, strike,
+                               swaption_type=None, notional=1_000_000.0):
+    """Create Swaption from CurrencyConventions (swap freq/dc from convention)."""
+    if swaption_type is None:
+        from pricebook.options.swaption import SwaptionType
+        swaption_type = SwaptionType.PAYER
+    return cls(expiry, swap_end, strike, swaption_type, notional,
+               fixed_frequency=conv.fixed_frequency, float_frequency=conv.float_frequency,
+               fixed_day_count=conv.fixed_day_count, float_day_count=conv.float_day_count)
+
+Swaption.from_convention = _swaption_from_convention

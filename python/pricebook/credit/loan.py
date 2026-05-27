@@ -327,3 +327,11 @@ class RevolvingFacility:
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("term_loan", ["start", "end", "spread", "notional", "amort_rate", "frequency", "day_count"])(TermLoan)
 _serialisable("revolver", ["start", "end", "max_commitment", "drawn_amount", "drawn_spread", "undrawn_fee", "frequency", "day_count"])(RevolvingFacility)
+
+@classmethod
+def _loan_from_convention(cls, conv, start, end, spread, notional=1_000_000.0, amort_rate=0.0):
+    """Create TermLoan from CurrencyConventions (uses float freq/dc)."""
+    return cls(start, end, spread, notional, amort_rate,
+               frequency=conv.float_frequency, day_count=conv.float_day_count)
+
+TermLoan.from_convention = _loan_from_convention

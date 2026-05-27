@@ -200,3 +200,11 @@ class CrossCurrencySwap:
         return self.pv(dom_curve, for_curve, fx)
 
 _serialisable("xccy_swap", ['start', 'end', 'domestic_notional', 'fx_rate', 'domestic_spread', 'frequency'])(CrossCurrencySwap)
+
+@classmethod
+def _xccy_from_convention(cls, conv, start, end, domestic_notional, fx_rate, domestic_spread=0.0):
+    """Create CrossCurrencySwap from CurrencyConventions (uses float frequency/dc)."""
+    return cls(start, end, domestic_notional, fx_rate, domestic_spread,
+               frequency=conv.float_frequency, domestic_dc=conv.float_day_count)
+
+CrossCurrencySwap.from_convention = _xccy_from_convention
