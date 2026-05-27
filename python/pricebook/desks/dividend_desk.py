@@ -17,6 +17,7 @@ from datetime import date
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.equity.dividend_model import Dividend, pv_dividends, dividend_adjusted_forward
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---- Implied dividends from put-call parity ----
@@ -199,3 +200,4 @@ def dividend_risk(
         div_delta=div_delta,
         div_rho=div_rho,
     )
+_serialisable("dividend_swap", ["start", "end", "fixed_div", "notional"])(DividendSwap)

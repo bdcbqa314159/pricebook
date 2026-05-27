@@ -27,6 +27,7 @@ from scipy.stats import norm
 
 from pricebook.core.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.serialisable import serialisable as _serialisable
 from pricebook.core.survival_curve import SurvivalCurve
 
 
@@ -359,3 +360,5 @@ def bespoke_tranche(
         portfolio_el=portfolio_el,
         n_names=n_names,
     )
+
+_serialisable("leveraged_cln", ["notional", "leverage", "coupon_rate", "recovery", "T"])(LeveragedCLN)

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---------------------------------------------------------------------------
@@ -364,3 +365,4 @@ def allocate_collateral(
         remaining -= alloc.collateral_value
 
     return allocations
+_serialisable("triparty_repo", ["cash_lender", "cash_borrower", "agent", "cash_amount", "repo_rate", "term_days", "start_date", "cash_currency"])(TriPartyRepo)

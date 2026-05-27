@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---- Implied correlation ----
@@ -241,3 +242,5 @@ class CorrelationTermStructure:
 
     def to_dict(self) -> dict:
         return vars(self)
+
+_serialisable("dispersion_trade", ["tickers", "weights", "single_strikes", "single_notionals", "index_strike", "index_notional", "direction"])(DispersionTrade)

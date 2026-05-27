@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -483,3 +484,4 @@ class Chapter11Timeline:
             recovery_by_class=recovery_by_class,
             administrative_costs_pct=administrative_cost_pct,
         )
+_serialisable("dip_loan", ["notional", "spread", "maturity_months", "roll_up_amount", "carve_out", "upfront_fee"])(DIPLoan)

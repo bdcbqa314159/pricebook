@@ -54,8 +54,9 @@ class TestDIPLoan:
 
     def test_to_dict(self):
         d = DIPLoan(50_000_000).to_dict()
-        assert "notional" in d
-        assert "spread" in d
+        assert d["type"] == "dip_loan"
+        assert "notional" in d["params"]
+        assert "spread" in d["params"]
 
 
 # ═══════════════════════════════════════════════════════════════

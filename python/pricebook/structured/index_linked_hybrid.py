@@ -21,6 +21,7 @@ import numpy as np
 
 from pricebook.structured.cms import cash_annuity
 from pricebook.models.hybrid_mc import simulate_2d_local_vol, LocalVolHybridResult
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 @dataclass
@@ -183,3 +184,4 @@ class IndexLinkedHybridInstrument:
         """Price from PricingContext — compatible with Trade.pv()."""
         result = self.price(ctx.discount_curve)
         return self.notional * result.price
+_serialisable("index_linked_hybrid", ["expiry", "swap_tenor", "index_forward", "notional"])(IndexLinkedHybridInstrument)

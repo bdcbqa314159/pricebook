@@ -2,6 +2,18 @@
 
 ---
 
+## v0.629.0 — 2026-05-27
+
+**Complete @serialisable coverage — all 7 remaining gaps fixed.**
+
+- `@serialisable` added to: LeveragedCLN, DIPLoan, TriPartyRepo, IndexLinkedHybridInstrument, DispersionTrade, DividendSwap, RiskReversal, VarianceSwap (8 classes).
+- Total serialisable instrument classes: **44** (was 36).
+- **Backward compat:** DIPLoan and TriPartyRepo `to_dict()` output changed from flat dict to standard `{"type": ..., "params": {...}}` format. Tests updated. TriPartyRepo serial type is `"triparty_repo"` (was `"tri_party_repo"` in one test).
+- Only CDSIndex, CovenantLoan, PedersenCDSSwaption, StochasticIntensitySwaption, TotalReturnSwapLou remain without @serialisable (complex/nested params that need manual from_dict).
+- 9880 tests pass.
+
+---
+
 ## v0.628.0 — 2026-05-27
 
 **Serialisable + pv_ctx + from_convention final batch.**

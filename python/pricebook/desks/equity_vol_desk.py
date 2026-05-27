@@ -25,6 +25,7 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.options.equity_option import equity_option_price, equity_vega
 from pricebook.options.vol_smile import VolSmile
 from pricebook.options.vol_surface_strike import VolSurfaceStrike
+from pricebook.core.serialisable import serialisable as _serialisable
 
 
 # ---- Vol surface ----
@@ -364,3 +365,6 @@ def vanna(
     v_up = equity_vega(spot + ds, strike, rate, vol, T, div_yield)
     v_dn = equity_vega(spot - ds, strike, rate, vol, T, div_yield)
     return (v_up - v_dn) / (2.0 * ds)
+
+_serialisable("risk_reversal", ["expiry", "call_strike", "put_strike", "direction", "quantity"])(RiskReversal)
+_serialisable("variance_swap_desk", ["expiry", "var_strike", "notional", "direction"])(VarianceSwap)

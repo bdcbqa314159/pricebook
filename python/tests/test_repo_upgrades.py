@@ -101,7 +101,7 @@ class TestTriParty:
             cash_amount=50_000_000, repo_rate=0.045, term_days=30, start_date=REF,
         )
         d = tp.to_dict()
-        assert d["type"] == "tri_party_repo"
+        assert d["type"] == "triparty_repo"
         assert d["params"]["agent"]["name"] == "BNY"
 
 
