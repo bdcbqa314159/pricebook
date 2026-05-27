@@ -2,6 +2,18 @@
 
 ---
 
+## v0.623.0 — 2026-05-27
+
+**pv_ctx on CapFloor and RiskyBond.**
+
+- `CapFloor.pv_ctx()` — extracts discount + projection curves + IR vol from context, falls back to flat 20% vol.
+- `RiskyBond.pv_ctx()` — extracts discount + credit curves, falls back to risk-free pricing if no credit curve.
+- **Backward compat:** Additive — existing `price()` / `dirty_price()` signatures unchanged. `pv_ctx` uses best-effort curve extraction from context.
+- PricingContext coverage: 33/39 → 35/39 products.
+- 9880 tests pass.
+
+---
+
 ## v0.622.0 — 2026-05-27
 
 **OIS convention + pv_ctx on 8 vanilla instruments.**

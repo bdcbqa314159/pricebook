@@ -206,3 +206,19 @@ def asset_swap_spread(
 
     risk_free_pv = bond.risk_free_price(discount_curve, settle)
     return (risk_free_pv - market_price) / (bond.notional * annuity)
+
+
+def _risky_bond_pv_ctx(self, ctx) -> float:
+    """PV using PricingContext (needs discount + credit curve)."""
+    curve = ctx.discount_curve
+    if curve is None:
+        raise ValueError("No discount curve in context")
+    credit_name = getattr(self, '_issuer', None) or "default"
+    credit_curve = ctx.credit_curves.get(credit_name) if hasattr(ctx, 'credit_curves') else None
+    if credit_curve is None and hasattr(ctx, 'credit_curves') and ctx.credit_curves:
+        credit_curve = next(iter(ctx.credit_curves.values()))
+    if credit_curve is None:
+        return self.risk_free_price(curve)
+    return self.dirty_price(curve, credit_curve)
+
+RiskyBond.pv_ctx = _risky_bond_pv_ctx

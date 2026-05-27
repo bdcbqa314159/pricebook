@@ -234,5 +234,22 @@ def strip_caplet_vols(
 
     return caplet_vols
 
+    def pv_ctx(self, ctx) -> float:
+        """PV using PricingContext (requires vol_surface for model)."""
+        curve = ctx.discount_curve
+        if curve is None:
+            raise ValueError("No discount curve in context")
+        proj = None
+        if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
+            proj = next(iter(ctx.projection_curves.values()), None)
+        # Use flat vol model from context if available
+        from pricebook.models.models import Black76Model
+        vol_surface = ctx.vol_surfaces.get("ir") if hasattr(ctx, 'vol_surfaces') else None
+        if vol_surface and hasattr(vol_surface, 'vol'):
+            model = Black76Model(vol_surface.vol())
+        else:
+            model = Black76Model(0.20)  # fallback
+        return self.price(model, curve, proj)
+
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("capfloor", ["start", "end", "strike", "option_type", "notional", "frequency", "day_count"])(CapFloor)
