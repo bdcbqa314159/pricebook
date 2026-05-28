@@ -119,9 +119,10 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
     if v is None:
         return None
 
-    # Unwrap Optional (X | None)
+    # Unwrap Optional (X | None) — handles both typing.Union and types.UnionType (3.10+)
+    import types as _types
     origin = get_origin(hint)
-    if origin is Union:
+    if origin is Union or isinstance(hint, _types.UnionType):
         args = [a for a in get_args(hint) if a is not type(None)]
         if len(args) == 1:
             hint = args[0]
@@ -144,7 +145,11 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
     # Nested serialisable (has _SERIAL_TYPE)
     if isinstance(hint, type) and hasattr(hint, "_SERIAL_TYPE"):
         if isinstance(v, dict):
-            return from_dict(v)
+            # Convention objects use flat dicts (no "type"/"params" nesting).
+            # If the dict has no "type" key, call hint.from_dict directly.
+            if "type" in v:
+                return from_dict(v)
+            return hint.from_dict(v)
         return v
 
     # CurrencyPair — deserialise from "EUR/USD" string

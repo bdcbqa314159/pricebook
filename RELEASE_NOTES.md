@@ -2,6 +2,19 @@
 
 ---
 
+## v0.637.0 — 2026-05-28
+
+**Composite convention pattern for exotic trees — TRS-on-SPV with nested conventions.**
+
+- New `models/composite_convention.py` with 5 convention types: CouponCapSpec, FundingConvention, CollateralConvention, SPVNoteConvention, BondTRSConvention.
+- `create_trs_on_spv()` convenience function. `BondTRSConvention.create()` builds underlying from nested conventions.
+- Fixed `_deserialise_atom` for Python 3.10+ `types.UnionType` (`X | None`) and flat convention dict deserialisation.
+- Full round-trip: nested convention → JSON → from_dict → create → instrument.
+- **Backward compat:** Two fixes to core/serialisable.py improve nested deserialisation. No existing behaviour changed.
+- 9910 tests pass.
+
+---
+
 ## v0.636.0 — 2026-05-28
 
 **Supranational bond factory + pricing.**
