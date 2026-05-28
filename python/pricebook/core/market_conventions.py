@@ -48,6 +48,9 @@ EQUITY_INDICES = {
     "SPTSX": EquityIndexSpec("SPTSX", "S&P/TSX 60", "TMX", "CAD", 2, "european", 200.0, "quarterly", "T-1"),
 }
 
+from pricebook.core.data_registry import load_registry as _load_reg
+EQUITY_INDICES = _load_reg("equity_indices.json", EquityIndexSpec, lambda e: e.ticker, EQUITY_INDICES)
+
 
 def get_equity_index(ticker: str) -> EquityIndexSpec:
     """Look up equity index spec by ticker."""
@@ -109,6 +112,12 @@ LME_METALS = {
         "tonnes", 25, 0.50, 12.50, "prompt", "physical", "$/tonne"),
 }
 
+# Load commodities from JSON (merges COMMODITY_CONTRACTS + LME_METALS for lookup)
+_all_commodity = {**COMMODITY_CONTRACTS, **LME_METALS}
+_all_commodity = _load_reg("commodity_contracts.json", CommodityContractSpec, lambda c: c.symbol, _all_commodity)
+COMMODITY_CONTRACTS = {k: v for k, v in _all_commodity.items() if v.exchange != "LME"}
+LME_METALS = {k: v for k, v in _all_commodity.items() if v.exchange == "LME"}
+
 
 def get_commodity_contract(symbol: str) -> CommodityContractSpec:
     """Look up commodity contract spec by symbol."""
@@ -154,6 +163,8 @@ LINKER_CONVENTIONS = {
     "JP": LinkerConvention("JP", "CPI (ex-fresh food)", 3, "semi-annual",
         "ACT/365F", True, "daily_linear"),
 }
+
+LINKER_CONVENTIONS = _load_reg("linker_conventions.json", LinkerConvention, lambda c: c.country, LINKER_CONVENTIONS)
 
 
 def get_linker_convention(country: str) -> LinkerConvention:

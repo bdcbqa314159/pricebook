@@ -111,3 +111,31 @@ def load_or_default(
     if loaded:
         return loaded
     return defaults
+
+
+def load_registry(
+    filename: str,
+    item_type: type[T],
+    key_fn,
+    defaults: dict[str, T],
+) -> dict[str, T]:
+    """Load a keyed registry from JSON, falling back to hardcoded defaults.
+
+    This is the standard pattern for convention modules that use a dict registry:
+    1. Try to load from JSON
+    2. Build dict using key_fn to extract the key from each item
+    3. If JSON missing/empty, return the defaults dict
+
+    Args:
+        filename: JSON file name (relative to DATA_DIR).
+        item_type: dataclass type with from_dict().
+        key_fn: function to extract dict key from each item (e.g. lambda c: c.market_code).
+        defaults: hardcoded default registry dict.
+
+    Returns:
+        Dict mapping key → convention object.
+    """
+    loaded = load_conventions(filename, item_type)
+    if loaded:
+        return {key_fn(item): item for item in loaded}
+    return defaults

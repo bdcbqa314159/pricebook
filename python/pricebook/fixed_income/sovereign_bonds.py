@@ -364,6 +364,14 @@ _reg(SovereignConventions(
     notes="Republic of the Philippines Government Bonds. Quarterly coupon!"))
 
 
+# Load from JSON if available (overrides hardcoded defaults above)
+from pricebook.core.data_registry import load_registry as _load_reg
+_CONVENTIONS = _load_reg(
+    "sovereign_conventions.json", SovereignConventions,
+    lambda c: c.market_code, _CONVENTIONS,
+)
+
+
 # ═══════════════════════════════════════════════════════════════
 # Factory and helpers
 # ═══════════════════════════════════════════════════════════════

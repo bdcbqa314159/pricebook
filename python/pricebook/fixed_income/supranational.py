@@ -87,6 +87,9 @@ _reg(SupranationalIssuer(
     ["EUR", "USD", "GBP"], "2-30Y", 3.0,
     "German state development bank. Quasi-sovereign, not strictly supranational."))
 
+from pricebook.core.data_registry import load_registry as _load_reg
+_REGISTRY = _load_reg("supranational_issuers.json", SupranationalIssuer, lambda s: s.code, _REGISTRY)
+
 
 def get_supranational(code: str) -> SupranationalIssuer:
     """Look up a supranational issuer by code."""

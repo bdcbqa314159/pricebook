@@ -6,10 +6,7 @@
     "n_names": 125,
     "standard_coupon_bps": 100,
     "standard_recovery": 0.4,
-    "roll_months": [
-      3,
-      9
-    ],
+    "roll_months": [3, 9],
     "tenor_years": 5
   },
   {
@@ -19,49 +16,37 @@
     "n_names": 100,
     "standard_coupon_bps": 500,
     "standard_recovery": 0.25,
-    "roll_months": [
-      3,
-      9
-    ],
+    "roll_months": [3, 9],
     "tenor_years": 5
   },
   {
-    "name": "iTraxx Europe",
+    "name": "ITRAXX.EUR.IG",
     "region": "EU",
     "grade": "IG",
     "n_names": 125,
     "standard_coupon_bps": 100,
     "standard_recovery": 0.4,
-    "roll_months": [
-      3,
-      9
-    ],
+    "roll_months": [3, 9],
     "tenor_years": 5
   },
   {
-    "name": "iTraxx Crossover",
+    "name": "ITRAXX.EUR.XOVER",
     "region": "EU",
     "grade": "XOVER",
     "n_names": 75,
     "standard_coupon_bps": 500,
     "standard_recovery": 0.4,
-    "roll_months": [
-      3,
-      9
-    ],
+    "roll_months": [3, 9],
     "tenor_years": 5
   },
   {
-    "name": "iTraxx Senior Fin",
+    "name": "ITRAXX.EUR.SENIOR",
     "region": "EU",
     "grade": "IG",
     "n_names": 30,
     "standard_coupon_bps": 100,
     "standard_recovery": 0.4,
-    "roll_months": [
-      3,
-      9
-    ],
+    "roll_months": [3, 9],
     "tenor_years": 5
   }
 ]

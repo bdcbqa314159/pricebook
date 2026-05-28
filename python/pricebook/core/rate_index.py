@@ -283,6 +283,10 @@ TPM = _register(RateIndex(
     administrator="BCCh",
 ))
 
+# Load from JSON if available
+from pricebook.core.data_registry import load_registry as _load_reg
+_REGISTRY = _load_reg("rate_indices.json", RateIndex, lambda r: r.name, _REGISTRY)
+
 
 def get_rate_index(name: str) -> RateIndex:
     """Look up a rate index by name. Raises ValueError if not found."""

@@ -159,10 +159,13 @@ class CDSIndexSpec:
 _INDEX_SPECS = {
     "CDX.NA.IG": CDSIndexSpec("CDX.NA.IG", "NA", "IG", 125, 100, 0.40, [3, 9], 5),
     "CDX.NA.HY": CDSIndexSpec("CDX.NA.HY", "NA", "HY", 100, 500, 0.25, [3, 9], 5),
-    "ITRAXX.EUR.IG": CDSIndexSpec("iTraxx Europe", "EU", "IG", 125, 100, 0.40, [3, 9], 5),
-    "ITRAXX.EUR.XOVER": CDSIndexSpec("iTraxx Crossover", "EU", "XOVER", 75, 500, 0.40, [3, 9], 5),
-    "ITRAXX.EUR.SENIOR": CDSIndexSpec("iTraxx Senior Fin", "EU", "IG", 30, 100, 0.40, [3, 9], 5),
+    "ITRAXX.EUR.IG": CDSIndexSpec("ITRAXX.EUR.IG", "EU", "IG", 125, 100, 0.40, [3, 9], 5),
+    "ITRAXX.EUR.XOVER": CDSIndexSpec("ITRAXX.EUR.XOVER", "EU", "XOVER", 75, 500, 0.40, [3, 9], 5),
+    "ITRAXX.EUR.SENIOR": CDSIndexSpec("ITRAXX.EUR.SENIOR", "EU", "IG", 30, 100, 0.40, [3, 9], 5),
 }
+
+from pricebook.core.data_registry import load_registry as _load_reg
+_INDEX_SPECS = _load_reg("cds_indices.json", CDSIndexSpec, lambda c: c.name.upper(), _INDEX_SPECS)
 
 
 def get_index_spec(name: str) -> CDSIndexSpec:

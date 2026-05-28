@@ -111,6 +111,10 @@ _reg(SovereignCDSConventions("IL", "Israel", "USD", RestructuringClause.CR, 0.25
 
 
 # ═══════════════════════════════════════════════════════════════
+# Load from JSON if available
+from pricebook.core.data_registry import load_registry as _load_reg
+_REGISTRY = _load_reg("sovereign_cds.json", SovereignCDSConventions, lambda c: c.country_code, _REGISTRY)
+
 # Registry API
 # ═══════════════════════════════════════════════════════════════
 

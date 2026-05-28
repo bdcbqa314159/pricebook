@@ -47,6 +47,9 @@ _CONVENTIONS: dict[str, SpecialnessConventions] = {
                                    "monthly", (10, 150), 2),
 }
 
+from pricebook.core.data_registry import load_registry as _load_reg
+_CONVENTIONS = _load_reg("repo_specialness.json", SpecialnessConventions, lambda c: c.market, _CONVENTIONS)
+
 
 def get_specialness_conventions(market: str) -> SpecialnessConventions:
     key = market.upper()

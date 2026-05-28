@@ -223,6 +223,10 @@ _reg(InflationIndexDef(
     notes="Used by KTBi (Korea inflation-linked bonds)."))
 
 
+# Load from JSON if available
+from pricebook.core.data_registry import load_registry as _load_reg
+_REGISTRY = _load_reg("inflation_indices.json", InflationIndexDef, lambda i: i.name, _REGISTRY)
+
 # ═══════════════════════════════════════════════════════════════
 # Registry API
 # ═══════════════════════════════════════════════════════════════

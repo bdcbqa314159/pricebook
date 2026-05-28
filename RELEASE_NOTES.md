@@ -2,6 +2,20 @@
 
 ---
 
+## v0.634.0 — 2026-05-28
+
+**JSON is now source of truth for all 11 convention registries.**
+
+- All convention registries now load from JSON first, falling back to hardcoded Python defaults.
+- New `load_registry()` utility in `core/data_registry.py` — populates keyed dicts from JSON arrays.
+- Wired into: sovereign_conventions, rate_indices, equity_indices, commodity_contracts, linker_conventions, inflation_indices, repo_specialness, supranational_issuers, cds_indices, sovereign_cds, curve_conventions_em.
+- Fixed CDS index names: `"iTraxx Europe"` → `"ITRAXX.EUR.IG"` etc. — name field now matches the lookup key (was a key/name mismatch from the original hardcoded dict).
+- **Backward compat:** All `get_X()` APIs unchanged. JSON overrides hardcoded defaults when present. Editing a JSON file immediately changes what `get_conventions()` returns. CDS index spec name field changed from display name to canonical key — callers using `get_index_spec("ITRAXX.EUR.IG")` unaffected.
+- G10 curve conventions (curve_builder.py) not wired — CurrencyConventions lacks a currency field for keying.
+- 9910 tests pass.
+
+---
+
 ## v0.633.0 — 2026-05-28
 
 **from_convention on 12 more products — total 35 with factory.**

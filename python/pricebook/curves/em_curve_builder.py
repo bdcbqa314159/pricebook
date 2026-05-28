@@ -160,6 +160,10 @@ _reg(EMCurveConventions(
 
 
 # ═══════════════════════════════════════════════════════════════
+# Load from JSON if available
+from pricebook.core.data_registry import load_registry as _load_reg
+_CONVENTIONS = _load_reg("curve_conventions_em.json", EMCurveConventions, lambda c: c.currency, _CONVENTIONS)
+
 # Registry API
 # ═══════════════════════════════════════════════════════════════
 
