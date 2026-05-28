@@ -2,6 +2,19 @@
 
 ---
 
+## v0.638.0 — 2026-05-28
+
+**Sukuk instrument + pricing (D7).**
+
+- New `SukukBond` class: profit rate (coupon equivalent), 7 Sukuk types (Ijara, Mudaraba, Murabaha, Wakala, Musharaka, Salam, Istisna).
+- Curve-based pricing via internal FixedRateBond delegation. Spread-based pricing via `price_from_spread()`.
+- Full architecture: `from_convention()`, `pv_ctx()`, `to_dict()`/`from_dict()`, `@serialisable`.
+- `create_sukuk(type, issue, maturity, rate)` factory function.
+- **Backward compat:** Additive. Existing `price_sukuk_as_bond()` unchanged.
+- 9910 tests pass.
+
+---
+
 ## v0.637.0 — 2026-05-28
 
 **Composite convention pattern for exotic trees — TRS-on-SPV with nested conventions.**
