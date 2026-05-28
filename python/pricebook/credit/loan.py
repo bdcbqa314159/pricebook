@@ -335,3 +335,12 @@ def _loan_from_convention(cls, conv, start, end, spread, notional=1_000_000.0, a
                frequency=conv.float_frequency, day_count=conv.float_day_count)
 
 TermLoan.from_convention = _loan_from_convention
+
+@classmethod
+def _revolver_from_convention(cls, conv, start, end, max_commitment, drawn_amount,
+                               drawn_spread, undrawn_fee=0.0025):
+    """Create RevolvingFacility from CurrencyConventions."""
+    return cls(start, end, max_commitment, drawn_amount, drawn_spread, undrawn_fee,
+               frequency=conv.float_frequency, day_count=conv.float_day_count)
+
+RevolvingFacility.from_convention = _revolver_from_convention

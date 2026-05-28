@@ -390,3 +390,10 @@ class PartialFundedParticipation:
 
 
 _register(PartialFundedParticipation)
+
+@classmethod
+def _lp_from_convention(cls, conv, underlying_loan, participation_rate=1.0, upfront_fee=0.0):
+    """Create LoanParticipation from convention (pass-through)."""
+    return cls(underlying_loan, participation_rate, upfront_fee)
+
+LoanParticipation.from_convention = _lp_from_convention

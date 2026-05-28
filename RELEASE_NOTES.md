@@ -2,6 +2,21 @@
 
 ---
 
+## v0.633.0 — 2026-05-28
+
+**from_convention on 12 more products — total 35 with factory.**
+
+- Group 1 (FI): ZCInflationSwap, YoYInflationSwap, RevolvingFacility, AmortisingBond.
+- Group 4 (Credit): CDSIndexProduct (alias from_spec), TrancheCDS, LoanParticipation, BasketCLN.
+- Group 5 (Commodity): CommoditySwap (uses CommodityContractSpec).
+- Group 8 (Repo): Repo, ReverseRepo (uses haircut from convention).
+- **Backward compat:** CDSIndexProduct.from_convention = CDSIndexProduct.from_spec (alias). All others additive.
+- Remaining without from_convention: options (strike/vol-driven, 10), desk trades (8), model-driven structured (4), TRS (3) — conventions don't apply the same way to these products.
+- from_convention coverage: 23→35/39 core products. The 4 excluded categories (options/desk/structured-model/TRS) represent products where the concept of "market convention" is either the strike+vol (options) or the underlying itself (TRS).
+- 9910 tests pass.
+
+---
+
 ## v0.632.0 — 2026-05-27
 
 **Convention + factory integration tests — 30 new tests, 9910 total.**

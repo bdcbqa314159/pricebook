@@ -547,3 +547,6 @@ def index_basis_decomposition(
     liquidity_bp = (market - flat) * 10_000
 
     return BasisDecomposition(total_bp, dispersion_bp, liquidity_bp)
+
+# Alias from_spec as from_convention for uniform API
+CDSIndexProduct.from_convention = CDSIndexProduct.from_spec

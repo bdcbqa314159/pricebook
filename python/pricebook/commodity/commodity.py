@@ -263,3 +263,11 @@ def commodity_option_price(
     return black76_price(forward, strike, vol, T, df, option_type)
 
 _serialisable("commodity_swap", ['start', 'end', 'fixed_price', 'quantity', 'frequency'])(CommoditySwap)
+
+@classmethod
+def _cs_from_convention(cls, conv, start, end, fixed_price, quantity=1.0):
+    """Create CommoditySwap from CommodityContractSpec (uses contract_size as quantity default)."""
+    qty = getattr(conv, 'contract_size', quantity)
+    return cls(start, end, fixed_price, qty)
+
+CommoditySwap.from_convention = _cs_from_convention

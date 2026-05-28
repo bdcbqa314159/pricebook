@@ -413,3 +413,12 @@ from pricebook.core.serialisable import serialisable as _ser_funded
 _ser_funded("repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(Repo)
 _ser_funded("reverse_repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(ReverseRepo)
 _ser_funded("repo_financed_position", ["bond_dirty_price", "repo_rate", "trs_spread", "asset_yield", "T", "haircut", "funding_rate", "notional", "specialness"])(RepoFinancedPosition)
+
+@classmethod
+def _repo_from_convention(cls, conv, bond_dirty_price, repo_rate, T, notional=1_000_000.0):
+    """Create Repo from convention (uses haircut from RepoConvention if available)."""
+    haircut = getattr(conv, 'haircut_default', getattr(conv, 'haircut', 0.02))
+    return cls(bond_dirty_price, repo_rate, T, haircut, notional)
+
+Repo.from_convention = _repo_from_convention
+ReverseRepo.from_convention = _repo_from_convention

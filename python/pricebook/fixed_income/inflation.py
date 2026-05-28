@@ -517,3 +517,22 @@ def _linker_from_convention(cls, conv, start, end, coupon_rate, base_cpi_value, 
     return cls(start, end, coupon_rate, base_cpi_value, notional, freq_val, dc_val, lag)
 
 InflationLinkedBond.from_convention = _linker_from_convention
+
+@classmethod
+def _zci_from_convention(cls, conv, start, end, fixed_rate, notional=1_000_000.0):
+    """Create ZCInflationSwap from InflationIndexDef or convention with frequency."""
+    return cls(start, end, fixed_rate, notional)
+
+ZCInflationSwap.from_convention = _zci_from_convention
+
+
+@classmethod
+def _yoy_from_convention(cls, conv, start, end, fixed_rate, notional=1_000_000.0):
+    """Create YoYInflationSwap from convention (uses linker_frequency if available)."""
+    freq_val = getattr(conv, 'linker_frequency', getattr(conv, 'frequency', Frequency.ANNUAL))
+    if isinstance(freq_val, str):
+        freq_map = {"semi-annual": Frequency.SEMI_ANNUAL, "annual": Frequency.ANNUAL, "quarterly": Frequency.QUARTERLY}
+        freq_val = freq_map.get(freq_val, Frequency.ANNUAL)
+    return cls(start, end, fixed_rate, notional, freq_val)
+
+YoYInflationSwap.from_convention = _yoy_from_convention

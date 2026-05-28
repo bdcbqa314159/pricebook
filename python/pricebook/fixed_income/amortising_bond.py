@@ -335,3 +335,10 @@ def sinker_vs_bullet(
     )
 
 _serialisable("amortising_bond", ['face_value', 'coupon_rate', 'n_periods', 'frequency'])(AmortisingBond)
+
+@classmethod
+def _amort_from_convention(cls, conv, face_value, coupon_rate, n_periods):
+    """Create AmortisingBond from convention (uses frequency)."""
+    return cls(face_value, coupon_rate, n_periods, frequency=conv.frequency)
+
+AmortisingBond.from_convention = _amort_from_convention

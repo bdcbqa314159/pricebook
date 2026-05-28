@@ -905,3 +905,11 @@ def basket_cln_price_mc_via_engine(
     return basket.price_mc(discount_curve, survival_curves, rho, n_sims, seed)
 
 _serialisable("basket_cln", ['start', 'end', 'coupon_rate', 'notional', 'attachment', 'detachment', 'recovery', 'n_names'])(BasketCLN)
+
+@classmethod
+def _bcln_from_convention(cls, conv, start, end, coupon_rate, notional=100.0,
+                           attachment=0.0, detachment=1.0, recovery=0.4, n_names=5):
+    """Create BasketCLN from convention (uses frequency/day_count)."""
+    return cls(start, end, coupon_rate, notional, attachment, detachment, recovery, n_names)
+
+BasketCLN.from_convention = _bcln_from_convention

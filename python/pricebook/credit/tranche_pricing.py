@@ -501,3 +501,12 @@ def interpolate_base_correlation(
             return corrs[i] + frac * (corrs[i + 1] - corrs[i])
 
     return corrs[-1]
+
+@classmethod
+def _tranche_from_convention(cls, conv, attachment, detachment, maturity, spread, notional=10_000_000.0):
+    """Create TrancheCDS from CDSIndexSpec convention."""
+    recovery = getattr(conv, 'standard_recovery', getattr(conv, 'recovery_rate', 0.4))
+    n_names = getattr(conv, 'n_names', 125)
+    return cls(attachment, detachment, maturity, spread, notional, recovery, n_names)
+
+TrancheCDS.from_convention = _tranche_from_convention
