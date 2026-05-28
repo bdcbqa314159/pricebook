@@ -158,3 +158,26 @@ class CovenantLoan:
             survival *= (1 - self.breach_prob)
 
         return pv
+
+
+def _cl_to_dict(self):
+    return {
+        "type": "covenant_loan",
+        "params": {
+            "base_loan": self.loan.to_dict(),
+            "breach_prob_per_period": self.breach_prob,
+        }
+    }
+
+@classmethod
+def _cl_from_dict(cls, d):
+    from pricebook.core.serialisable import from_dict as _fd
+    p = d["params"]
+    base_loan = _fd(p["base_loan"])
+    return cls(base_loan, p["breach_prob_per_period"])
+
+CovenantLoan.to_dict = _cl_to_dict
+CovenantLoan.from_dict = _cl_from_dict
+CovenantLoan._SERIAL_TYPE = "covenant_loan"
+from pricebook.core.serialisable import _register as _reg_cl
+_reg_cl(CovenantLoan)

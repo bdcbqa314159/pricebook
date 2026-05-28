@@ -994,3 +994,7 @@ def stochastic_intensity_swaption_via_engine(
 
     return PedersenResult(mc_premium, mean_fwd, strike_spread,
                           model.xi, mean_surv, mc_premium)
+
+from pricebook.core.serialisable import serialisable as _serialisable
+_serialisable("pedersen_cds_swaption", ["flat_hazard", "flat_rate", "recovery", "spread_vol"])(PedersenCDSSwaption)
+_serialisable("stochastic_intensity_swaption", ["kappa", "theta", "xi", "flat_rate", "recovery"])(StochasticIntensitySwaption)

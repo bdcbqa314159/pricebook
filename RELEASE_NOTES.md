@@ -2,6 +2,20 @@
 
 ---
 
+## v0.635.0 — 2026-05-28
+
+**Complete @serialisable — all 5 remaining complex classes done.**
+
+- `PedersenCDSSwaption`, `StochasticIntensitySwaption` — scalar params, standard decorator.
+- `TotalReturnSwapLou` — scalar params, standard decorator.
+- `CDSIndex` — custom to_dict/from_dict: serialises list of CDS constituents recursively.
+- `CovenantLoan` — custom to_dict/from_dict: serialises nested TermLoan.
+- **Backward compat:** All additive. CDSIndex and CovenantLoan use custom from_dict that dispatches via the Serialisable registry for nested objects.
+- Total @serialisable instruments: **49** (was 44). Zero remaining gaps.
+- 9910 tests pass.
+
+---
+
 ## v0.634.0 — 2026-05-28
 
 **JSON is now source of truth for all 11 convention registries.**

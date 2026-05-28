@@ -225,3 +225,26 @@ def _vcln_from_convention(cls, conv, start, end, coupon_rate, notional=100.0, re
                frequency=conv.frequency, day_count=conv.day_count)
 
 VanillaCLN.from_convention = _vcln_from_convention
+
+
+def _cds_index_to_dict(self):
+    return {
+        "type": "cds_index",
+        "params": {
+            "constituents": [c.to_dict() for c in self.constituents],
+            "notional": self.notional,
+        }
+    }
+
+@classmethod
+def _cds_index_from_dict(cls, d):
+    from pricebook.core.serialisable import from_dict as _fd
+    p = d["params"]
+    constituents = [_fd(c) for c in p["constituents"]]
+    return cls(constituents, p.get("notional", 1_000_000.0))
+
+CDSIndex.to_dict = _cds_index_to_dict
+CDSIndex.from_dict = _cds_index_from_dict
+CDSIndex._SERIAL_TYPE = "cds_index"
+from pricebook.core.serialisable import _register as _reg_cdsi
+_reg_cdsi(CDSIndex)

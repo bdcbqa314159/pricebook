@@ -440,3 +440,6 @@ class TotalReturnSwapLou:
         """Price from PricingContext — compatible with Trade.pv()."""
         result = self.price(ctx.discount_curve)
         return result.value
+
+from pricebook.core.serialisable import serialisable as _serialisable
+_serialisable("trs_lou", ["spot", "funding_rate", "repo_spread", "maturity", "sigma", "notional", "div_yield"])(TotalReturnSwapLou)
