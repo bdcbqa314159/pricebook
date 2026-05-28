@@ -2,6 +2,19 @@
 
 ---
 
+## v0.636.0 — 2026-05-28
+
+**Supranational bond factory + pricing.**
+
+- `create_supranational_bond(issuer, currency, issue, maturity, coupon)` — creates FixedRateBond with domestic sovereign conventions for the issuance currency. Maps 10 currencies to sovereign market codes.
+- `price_supranational()` — full pricing with spread vs sovereign computation.
+- `SupranationalBondResult` — clean/dirty price, YTM, spread, rating.
+- Warns if issuing in a non-typical currency for the supranational.
+- **Backward compat:** Additive — existing `get_supranational()` / `list_supranationals()` unchanged.
+- 9910 tests pass.
+
+---
+
 ## v0.635.0 — 2026-05-28
 
 **Complete @serialisable — all 5 remaining complex classes done.**

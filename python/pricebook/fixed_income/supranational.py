@@ -104,3 +104,109 @@ def get_supranational(code: str) -> SupranationalIssuer:
 def list_supranationals() -> list[str]:
     """Return sorted list of supranational issuer codes."""
     return sorted(_REGISTRY.keys())
+
+
+def create_supranational_bond(
+    issuer_code: str,
+    currency: str,
+    issue_date: "date",
+    maturity: "date",
+    coupon_rate: float,
+    face_value: float = 100.0,
+):
+    """Create a FixedRateBond for a supranational issuer.
+
+    Uses the currency's sovereign bond conventions (frequency, day_count,
+    settlement) since supranationals follow the domestic market convention
+    of the issuance currency.
+
+    Args:
+        issuer_code: supranational code (e.g. "EIB", "IBRD").
+        currency: issuance currency (e.g. "EUR", "USD").
+        issue_date: bond issue date.
+        maturity: bond maturity date.
+        coupon_rate: annual coupon rate.
+        face_value: face value (default 100).
+
+    Returns:
+        FixedRateBond configured with the currency's sovereign conventions.
+    """
+    from datetime import date as _date
+    issuer = get_supranational(issuer_code)
+    if currency.upper() not in [c.upper() for c in issuer.typical_currencies]:
+        import warnings
+        warnings.warn(
+            f"{issuer_code} does not typically issue in {currency}. "
+            f"Typical currencies: {issuer.typical_currencies}",
+            RuntimeWarning, stacklevel=2,
+        )
+
+    # Map currency to sovereign market convention
+    _CURRENCY_TO_MARKET = {
+        "USD": "UST", "EUR": "BUND", "GBP": "GILT", "JPY": "JGB",
+        "CHF": "CONFED", "CAD": "CGB_CA", "AUD": "ACGB", "NZD": "NZGB",
+        "SEK": "SGB", "NOK": "NGB",
+    }
+    market_code = _CURRENCY_TO_MARKET.get(currency.upper(), "UST")
+
+    from pricebook.fixed_income.sovereign_bonds import get_conventions
+    from pricebook.fixed_income.bond import FixedRateBond
+    conv = get_conventions(market_code)
+    return FixedRateBond.from_convention(conv, issue_date, maturity, coupon_rate, face_value)
+
+
+@dataclass
+class SupranationalBondResult:
+    """Pricing result for a supranational bond."""
+    clean_price: float
+    dirty_price: float
+    yield_to_maturity: float
+    spread_vs_sovereign_bp: float
+    issuer: str
+    currency: str
+    rating: str
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def price_supranational(
+    issuer_code: str,
+    currency: str,
+    issue_date: "date",
+    maturity: "date",
+    coupon_rate: float,
+    discount_curve: "DiscountCurve",
+    sovereign_curve: "DiscountCurve | None" = None,
+    face_value: float = 100.0,
+) -> SupranationalBondResult:
+    """Price a supranational bond and compute spread vs sovereign.
+
+    Args:
+        discount_curve: OIS/risk-free discount curve.
+        sovereign_curve: sovereign bond curve (for spread computation).
+            If None, uses discount_curve (spread will be ~0).
+    """
+    from pricebook.core.discount_curve import DiscountCurve
+
+    issuer = get_supranational(issuer_code)
+    bond = create_supranational_bond(issuer_code, currency, issue_date, maturity,
+                                      coupon_rate, face_value)
+
+    dirty = bond.dirty_price(discount_curve)
+    clean = bond.clean_price(discount_curve)
+    ytm = bond.yield_to_maturity(dirty / 100.0 * face_value)
+
+    # Spread vs sovereign
+    if sovereign_curve is not None:
+        sov_dirty = bond.dirty_price(sovereign_curve)
+        sov_ytm = bond.yield_to_maturity(sov_dirty / 100.0 * face_value)
+        spread_bp = (ytm - sov_ytm) * 10_000
+    else:
+        spread_bp = issuer.spread_vs_sovereign_bp
+
+    return SupranationalBondResult(
+        clean_price=clean, dirty_price=dirty,
+        yield_to_maturity=ytm, spread_vs_sovereign_bp=spread_bp,
+        issuer=issuer_code, currency=currency, rating=issuer.rating,
+    )
