@@ -2,6 +2,19 @@
 
 ---
 
+## v0.640.0 — 2026-05-29
+
+**Supranational analytics — RV, universe pricing, curve spread (D9).**
+
+- `supranational_rv()` — relative value: z-score vs historical spread, peer ranking, RICH/CHEAP/FAIR signal.
+- `price_supranational_universe()` — price bonds across all issuers × currencies. Returns aggregated SupraUniverseResult with tightest/widest/average spread.
+- `supranational_curve_spread()` — spread term structure across tenors for a single issuer.
+- `SupraRVResult`, `SupraUniverseResult` dataclasses with `to_dict()`.
+- **Backward compat:** Additive — existing `create_supranational_bond()` and `price_supranational()` unchanged.
+- 9910 tests pass.
+
+---
+
 ## v0.639.0 — 2026-05-28
 
 **ESG bond labelling framework (D8).**

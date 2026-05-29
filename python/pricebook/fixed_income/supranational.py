@@ -210,3 +210,186 @@ def price_supranational(
         yield_to_maturity=ytm, spread_vs_sovereign_bp=spread_bp,
         issuer=issuer_code, currency=currency, rating=issuer.rating,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Relative value analytics
+# ═══════════════════════════════════════════════════════════════
+
+
+@dataclass
+class SupraRVResult:
+    """Relative value analysis across supranational issuers."""
+    issuer: str
+    currency: str
+    tenor_years: float
+    yield_pct: float
+    spread_vs_sovereign_bp: float
+    spread_vs_ois_bp: float
+    z_score: float              # vs historical average spread
+    signal: str                 # "RICH", "CHEAP", "FAIR"
+    peer_rank: int              # rank within peer group (1 = tightest)
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def supranational_rv(
+    issuer_code: str,
+    currency: str,
+    tenor_years: float,
+    current_spread_bp: float,
+    historical_mean_bp: float,
+    historical_std_bp: float,
+    ois_spread_bp: float | None = None,
+    peer_spreads: dict[str, float] | None = None,
+) -> SupraRVResult:
+    """Relative value analysis for a supranational bond.
+
+    Computes z-score vs historical spread and ranks against peers.
+
+    Args:
+        current_spread_bp: current spread over sovereign.
+        historical_mean_bp: average spread over lookback.
+        historical_std_bp: spread volatility over lookback.
+        ois_spread_bp: spread over OIS (if available).
+        peer_spreads: {issuer_code: spread_bp} for ranking.
+    """
+    issuer = get_supranational(issuer_code)
+
+    z = (current_spread_bp - historical_mean_bp) / max(historical_std_bp, 0.1)
+    if z < -1.0:
+        signal = "RICH"
+    elif z > 1.0:
+        signal = "CHEAP"
+    else:
+        signal = "FAIR"
+
+    # Peer ranking
+    rank = 1
+    if peer_spreads:
+        sorted_peers = sorted(peer_spreads.items(), key=lambda x: x[1])
+        for i, (code, sp) in enumerate(sorted_peers):
+            if code.upper() == issuer_code.upper():
+                rank = i + 1
+                break
+
+    return SupraRVResult(
+        issuer=issuer_code, currency=currency,
+        tenor_years=tenor_years,
+        yield_pct=0.0,  # caller fills if needed
+        spread_vs_sovereign_bp=current_spread_bp,
+        spread_vs_ois_bp=ois_spread_bp or current_spread_bp,
+        z_score=z, signal=signal, peer_rank=rank,
+    )
+
+
+@dataclass
+class SupraUniverseResult:
+    """Result of pricing a universe of supranational bonds."""
+    bonds: list[SupranationalBondResult]
+    n_issuers: int
+    n_currencies: int
+    average_spread_bp: float
+    widest: str                 # issuer with widest spread
+    tightest: str               # issuer with tightest spread
+
+    def to_dict(self) -> dict:
+        return {
+            "n_issuers": self.n_issuers,
+            "n_currencies": self.n_currencies,
+            "average_spread_bp": self.average_spread_bp,
+            "widest": self.widest,
+            "tightest": self.tightest,
+            "bonds": [b.to_dict() for b in self.bonds],
+        }
+
+
+def price_supranational_universe(
+    issue_date,
+    maturity,
+    coupon_rate: float,
+    discount_curve,
+    issuers: list[str] | None = None,
+    currencies: list[str] | None = None,
+) -> SupraUniverseResult:
+    """Price bonds across multiple supranational issuers and currencies.
+
+    Creates and prices one bond per (issuer, currency) pair.
+
+    Args:
+        issuers: list of issuer codes (default: all registered).
+        currencies: list of currencies to price in (default: ["USD", "EUR"]).
+    """
+    if issuers is None:
+        issuers = list_supranationals()
+    if currencies is None:
+        currencies = ["USD", "EUR"]
+
+    results = []
+    for code in issuers:
+        issuer = get_supranational(code)
+        for ccy in currencies:
+            if ccy.upper() not in [c.upper() for c in issuer.typical_currencies]:
+                continue
+            try:
+                r = price_supranational(code, ccy, issue_date, maturity,
+                                        coupon_rate, discount_curve)
+                results.append(r)
+            except Exception:
+                continue
+
+    if not results:
+        return SupraUniverseResult([], 0, 0, 0.0, "", "")
+
+    avg_spread = sum(r.spread_vs_sovereign_bp for r in results) / len(results)
+    widest = max(results, key=lambda r: r.spread_vs_sovereign_bp)
+    tightest = min(results, key=lambda r: r.spread_vs_sovereign_bp)
+
+    unique_issuers = len(set(r.issuer for r in results))
+    unique_currencies = len(set(r.currency for r in results))
+
+    return SupraUniverseResult(
+        bonds=results, n_issuers=unique_issuers,
+        n_currencies=unique_currencies,
+        average_spread_bp=avg_spread,
+        widest=widest.issuer, tightest=tightest.issuer,
+    )
+
+
+def supranational_curve_spread(
+    issuer_code: str,
+    currency: str,
+    discount_curve,
+    tenors_years: list[int] | None = None,
+    coupon_rate: float = 0.03,
+    face_value: float = 100.0,
+) -> list[dict]:
+    """Compute spread term structure for a supranational issuer.
+
+    Returns a list of {tenor, yield, spread_bp} dicts across tenors.
+    """
+    from datetime import date
+    from dateutil.relativedelta import relativedelta
+
+    if tenors_years is None:
+        tenors_years = [2, 3, 5, 7, 10, 15, 20, 30]
+
+    ref = discount_curve.reference_date
+    results = []
+    for t in tenors_years:
+        mat = ref + relativedelta(years=t)
+        issue = ref - relativedelta(months=6)
+        try:
+            r = price_supranational(issuer_code, currency, issue, mat,
+                                    coupon_rate, discount_curve)
+            results.append({
+                "tenor_years": t,
+                "yield_pct": r.yield_to_maturity * 100,
+                "spread_bp": r.spread_vs_sovereign_bp,
+                "clean_price": r.clean_price,
+            })
+        except Exception:
+            continue
+
+    return results
