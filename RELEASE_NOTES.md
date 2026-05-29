@@ -2,6 +2,25 @@
 
 ---
 
+## v0.642.0 — 2026-05-29
+
+**Paper 1 validation: Ametrano & Bianchetti (2013) — Multicurve Bootstrap.**
+
+- New `tests/validation/test_paper_01_multicurve.py` — 10 tests reproducing EUR multicurve case study (11-Dec-2012):
+  - OIS bootstrap from Eonia strip (12 pillars, round-trip < 1bp)
+  - Negative rate handling (1Y OIS = 0%, DF ≈ 1.0)
+  - IRS-6M projection curve bootstrap with OIS discounting
+  - Loss of telescoping identity (eq. 64-65) — deviation confirmed
+  - OIS single-curve property (eq. 73-74) — telescoping holds
+- New `notebooks/paper_01_multicurve.ipynb` — interactive notebook with pricebook.viz:
+  - OIS discount factor and zero rate plots
+  - OIS vs Euribor 6M projection curve comparison with basis spread fill
+  - Bootstrap round-trip verification table
+  - LaTeX-rendered key equations
+- 9920 tests pass (+10 new).
+
+---
+
 ## v0.641.0 — 2026-05-29
 
 **Hard migration — remove aliases, tighten pv_ctx curve lookups.**
