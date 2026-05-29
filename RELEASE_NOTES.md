@@ -2,6 +2,24 @@
 
 ---
 
+## v0.639.0 — 2026-05-28
+
+**ESG bond labelling framework (D8).**
+
+- New `fixed_income/esg_bonds.py`:
+  - `ESGLabel` enum: GREEN, SOCIAL, SUSTAINABILITY, SUSTAINABILITY_LINKED, TRANSITION, BLUE.
+  - `UseOfProceeds` enum: 14 ICMA taxonomy categories.
+  - `ESGBondSpec` convention: label, issuer, use-of-proceeds, KPI target, coupon step-up/down, taxonomy alignment, reviewer.
+  - `greenium()` — green premium calculation (yield difference green vs conventional).
+  - `esg_adjusted_spread()` — spread decomposition: credit + greenium + liquidity.
+  - `slb_coupon_adjustment()` — sustainability-linked bond coupon step-up/down on KPI miss/achieve.
+  - `create_green_bond()` — factory returning (FixedRateBond, ESGBondSpec) tuple.
+- Full `@serialisable_convention` on ESGBondSpec with round-trip.
+- **Backward compat:** Additive — new module, no changes to existing code.
+- 9910 tests pass.
+
+---
+
 ## v0.638.0 — 2026-05-28
 
 **Sukuk instrument + pricing (D7).**
