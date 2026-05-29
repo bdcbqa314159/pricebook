@@ -2,6 +2,21 @@
 
 ---
 
+## v0.643.0 — 2026-05-29
+
+**Paper 2 validation: Anonymous — Discounting Textbooks.**
+
+- New `tests/validation/test_paper_02_discounting.py` — 9 tests:
+  - Case A: equity forward with repo drift (£105.65 vs textbook £105.13)
+  - Case B: 5Y receiver swap under 3 CSA regimes, PV ordering verified
+  - Case C: ColVA for bond collateral (GC £85k vs special £2.55m)
+- New `notebooks/paper_02_discounting.ipynb` with pricebook.viz:
+  - CSA regime bar chart comparison
+  - ColVA vs repo rate curve with GC/special annotations
+- 9929 tests pass (+9 new).
+
+---
+
 ## v0.642.0 — 2026-05-29
 
 **Paper 1 validation: Ametrano & Bianchetti (2013) — Multicurve Bootstrap.**
