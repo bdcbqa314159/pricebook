@@ -2,6 +2,24 @@
 
 ---
 
+## v0.641.0 — 2026-05-29
+
+**Hard migration — remove aliases, tighten pv_ctx curve lookups.**
+
+- Renamed `CDSIndexProduct.from_spec` → `from_convention` (removed alias). All callers + tests updated.
+- Tightened `pv_ctx` curve extraction in 6 instruments:
+  - `FRA`: tries keyed lookup by day_count before falling back to first projection curve.
+  - `FRN`: same keyed lookup pattern.
+  - `BasisSwap`: warns if fewer than 2 projection curves available.
+  - `CapFloor`: **raises ValueError** if no IR vol surface in context (was silently using flat 20%).
+  - `ConvertibleBond`: **raises ValueError** if missing spot, discount curve, or vol surface (was guessing defaults).
+  - `RiskyBond`: warns if no credit curve found (falls back to risk-free with warning instead of silently).
+- Old numerical shims: verified already removed in v0.612-v0.616. No action needed.
+- **Breaking changes:** CapFloor.pv_ctx and ConvertibleBond.pv_ctx now raise instead of silently using bad defaults. Code that relied on the fallback behaviour must now provide proper market data in PricingContext.
+- 9910 tests pass.
+
+---
+
 ## v0.640.0 — 2026-05-29
 
 **Supranational analytics — RV, universe pricing, curve spread (D9).**

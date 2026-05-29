@@ -27,8 +27,8 @@ def _survival_curves(n=5, base_hazard=0.02):
 
 class TestCDSIndexProduct:
 
-    def test_from_spec(self):
-        p = CDSIndexProduct.from_spec("CDX.NA.IG", series=42,
+    def test_from_convention(self):
+        p = CDSIndexProduct.from_convention("CDX.NA.IG", series=42,
                                        market_spread=0.005,
                                        reference_date=REF)
         assert p.index_name == "CDX.NA.IG"
@@ -76,7 +76,7 @@ class TestCDSIndexProduct:
         assert ctp["widest_name"] == "E"
 
     def test_next_roll(self):
-        p = CDSIndexProduct.from_spec("CDX.NA.IG", reference_date=REF)
+        p = CDSIndexProduct.from_convention("CDX.NA.IG", reference_date=REF)
         roll = p.next_roll_date(REF)
         assert roll > REF
 
@@ -109,8 +109,8 @@ class TestCDSIndexSerialisation:
         p2 = from_dict(json.loads(s))
         assert p2.index_name == "iTraxx Europe"
 
-    def test_from_spec_serial(self):
-        p = CDSIndexProduct.from_spec("CDX.NA.IG", reference_date=REF)
+    def test_from_convention_serial(self):
+        p = CDSIndexProduct.from_convention("CDX.NA.IG", reference_date=REF)
         d = p.to_dict()
         p2 = from_dict(d)
         assert p2.standard_coupon == p.standard_coupon

@@ -5,8 +5,8 @@ index basis decomposition, and serialisation.
 
     from pricebook.credit.cds_index_product import CDSIndexProduct
 
-    product = CDSIndexProduct.from_spec("CDX.NA.IG", series=42,
-                                         market_spread=0.005, notional=10_000_000)
+    product = CDSIndexProduct.from_convention("CDX.NA.IG", series=42,
+                                               market_spread=0.005, notional=10_000_000)
     result = product.price(discount_curve, survival_curves)
 
 References:
@@ -107,7 +107,7 @@ class CDSIndexProduct:
         return self.notional * self.factor
 
     @classmethod
-    def from_spec(
+    def from_convention(
         cls,
         index_name: str,
         series: int = 1,
@@ -548,5 +548,3 @@ def index_basis_decomposition(
 
     return BasisDecomposition(total_bp, dispersion_bp, liquidity_bp)
 
-# Alias from_spec as from_convention for uniform API
-CDSIndexProduct.from_convention = CDSIndexProduct.from_spec

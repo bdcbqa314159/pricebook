@@ -235,20 +235,29 @@ def strip_caplet_vols(
     return caplet_vols
 
     def pv_ctx(self, ctx) -> float:
-        """PV using PricingContext (requires vol_surface for model)."""
+        """PV using PricingContext.
+
+        Requires ctx.vol_surfaces to contain an IR vol surface (keyed "ir"
+        or first available). Raises ValueError if no vol surface found.
+        """
         curve = ctx.discount_curve
         if curve is None:
             raise ValueError("No discount curve in context")
         proj = None
         if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
-            proj = next(iter(ctx.projection_curves.values()), None)
-        # Use flat vol model from context if available
+            dc_key = self.day_count.value
+            if dc_key in ctx.projection_curves:
+                proj = ctx.projection_curves[dc_key]
+            else:
+                proj = next(iter(ctx.projection_curves.values()))
+
         from pricebook.models.models import Black76Model
-        vol_surface = ctx.vol_surfaces.get("ir") if hasattr(ctx, 'vol_surfaces') else None
-        if vol_surface and hasattr(vol_surface, 'vol'):
-            model = Black76Model(vol_surface.vol())
-        else:
-            model = Black76Model(0.20)  # fallback
+        vol_surface = None
+        if hasattr(ctx, 'vol_surfaces') and ctx.vol_surfaces:
+            vol_surface = ctx.vol_surfaces.get("ir") or next(iter(ctx.vol_surfaces.values()), None)
+        if vol_surface is None or not hasattr(vol_surface, 'vol'):
+            raise ValueError("CapFloor.pv_ctx requires an IR vol surface in ctx.vol_surfaces")
+        model = Black76Model(vol_surface.vol())
         return self.price(model, curve, proj)
 
 from pricebook.core.serialisable import serialisable as _serialisable

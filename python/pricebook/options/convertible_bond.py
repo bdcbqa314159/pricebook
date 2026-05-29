@@ -697,32 +697,45 @@ def mandatory_convertible_via_engine(
     )
 
 def _cb_pv_ctx(self, ctx) -> float:
-    """PV using PricingContext (needs spot, vol, rate, credit spread)."""
-    # Extract equity spot — try fx_spots for equity or use a default
-    spot = 100.0  # fallback
-    if hasattr(ctx, 'fx_spots') and ctx.fx_spots:
-        spot = next(iter(ctx.fx_spots.values()), 100.0)
+    """PV using PricingContext.
 
-    rate = 0.05
-    if ctx.discount_curve is not None:
-        from pricebook.core.day_count import DayCountConvention, year_fraction
-        from datetime import timedelta
-        ref = ctx.discount_curve.reference_date
-        d1y = ref + timedelta(days=365)
-        df = ctx.discount_curve.df(d1y)
-        if df > 0:
-            import math
-            rate = -math.log(df)
+    Requires:
+        ctx.fx_spots: must contain equity spot (keyed by ticker or first value)
+        ctx.discount_curve: for risk-free rate extraction
+        ctx.vol_surfaces: equity vol surface (keyed "equity" or first)
+        ctx.credit_curves: issuer credit curve for credit spread (optional)
+    """
+    import math
+    from datetime import timedelta
 
-    vol = 0.30
-    if hasattr(ctx, 'vol_surfaces') and ctx.vol_surfaces:
-        vs = next(iter(ctx.vol_surfaces.values()), None)
-        if vs and hasattr(vs, 'vol'):
-            vol = vs.vol(self.maturity_years)
+    # Spot — required
+    if not hasattr(ctx, 'fx_spots') or not ctx.fx_spots:
+        raise ValueError("ConvertibleBond.pv_ctx requires equity spot in ctx.fx_spots")
+    spot = next(iter(ctx.fx_spots.values()))
 
+    # Rate — from discount curve
+    if ctx.discount_curve is None:
+        raise ValueError("ConvertibleBond.pv_ctx requires ctx.discount_curve")
+    ref = ctx.discount_curve.reference_date
+    d1y = ref + timedelta(days=365)
+    df = ctx.discount_curve.df(d1y)
+    rate = -math.log(max(df, 1e-10))
+
+    # Vol — required
+    if not hasattr(ctx, 'vol_surfaces') or not ctx.vol_surfaces:
+        raise ValueError("ConvertibleBond.pv_ctx requires equity vol in ctx.vol_surfaces")
+    vs = ctx.vol_surfaces.get("equity") or next(iter(ctx.vol_surfaces.values()))
+    vol = vs.vol(self.maturity_years) if hasattr(vs, 'vol') else float(vs)
+
+    # Credit spread — optional, default 0
     cs = 0.0
     if hasattr(ctx, 'credit_curves') and ctx.credit_curves:
-        cs = 0.02  # approximate from credit curve presence
+        # Extract approximate hazard rate from first credit curve
+        cc = next(iter(ctx.credit_curves.values()))
+        if hasattr(cc, 'hazard_rate'):
+            cs = cc.hazard_rate(d1y) if callable(cc.hazard_rate) else 0.02
+        else:
+            cs = 0.02
 
     result = self.price(spot, rate, vol, cs)
     return result.price * self.notional / 100.0

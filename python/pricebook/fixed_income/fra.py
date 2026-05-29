@@ -75,13 +75,22 @@ class FRA:
         return self.forward_rate(proj)
 
     def pv_ctx(self, ctx) -> float:
-        """PV using PricingContext."""
+        """PV using PricingContext.
+
+        Uses ctx.projection_curves keyed by day_count name (e.g. "ACT/360")
+        or first available projection curve. Falls back to discount curve.
+        """
         curve = ctx.discount_curve
         if curve is None:
             raise ValueError("No discount curve in context")
         proj = None
         if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
-            proj = next(iter(ctx.projection_curves.values()), None)
+            # Try keyed lookup by day count convention name
+            dc_key = self.day_count.value if hasattr(self, 'day_count') else None
+            if dc_key and dc_key in ctx.projection_curves:
+                proj = ctx.projection_curves[dc_key]
+            else:
+                proj = next(iter(ctx.projection_curves.values()))
         return self.pv(curve, proj)
 
 @classmethod

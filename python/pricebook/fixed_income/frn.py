@@ -152,13 +152,21 @@ class FloatingRateNote:
         return brentq(objective, -0.05, 0.05)
 
     def pv_ctx(self, ctx) -> float:
-        """PV using PricingContext (dirty price × notional / 100)."""
+        """PV using PricingContext (dirty price × notional / 100).
+
+        Uses first available projection curve for forward rate estimation.
+        Falls back to discount curve for single-curve pricing.
+        """
         curve = ctx.discount_curve
         if curve is None:
             raise ValueError("No discount curve in context")
         proj = None
         if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
-            proj = next(iter(ctx.projection_curves.values()), None)
+            dc_key = self.day_count.value if hasattr(self.floating_leg, 'day_count') else None
+            if dc_key and dc_key in ctx.projection_curves:
+                proj = ctx.projection_curves[dc_key]
+            else:
+                proj = next(iter(ctx.projection_curves.values()))
         return self.dirty_price(curve, proj) * self.notional / 100.0
 
 @classmethod

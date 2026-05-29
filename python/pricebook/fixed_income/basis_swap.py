@@ -156,12 +156,23 @@ class BasisSwap:
         return pv_bumped - pv_base
 
     def pv_ctx(self, ctx) -> float:
-        """PV using PricingContext."""
+        """PV using PricingContext.
+
+        Requires at least 2 projection curves in ctx.projection_curves
+        for the two floating legs. Falls back to discount curve if not available.
+        """
         curve = ctx.discount_curve
         if curve is None:
             raise ValueError("No discount curve in context")
         projs = ctx.projection_curves if hasattr(ctx, 'projection_curves') else {}
         proj_list = list(projs.values())
+        if len(proj_list) < 2:
+            import warnings
+            warnings.warn(
+                f"BasisSwap.pv_ctx needs 2 projection curves, got {len(proj_list)}. "
+                f"Using discount curve as fallback.",
+                RuntimeWarning, stacklevel=2,
+            )
         proj1 = proj_list[0] if len(proj_list) > 0 else curve
         proj2 = proj_list[1] if len(proj_list) > 1 else curve
         return self.pv(curve, proj1, proj2)

@@ -210,15 +210,30 @@ def asset_swap_spread(
 
 
 def _risky_bond_pv_ctx(self, ctx) -> float:
-    """PV using PricingContext (needs discount + credit curve)."""
+    """PV using PricingContext.
+
+    Requires ctx.credit_curves for credit-risky pricing.
+    Falls back to risk-free pricing with warning if no credit curve found.
+    """
     curve = ctx.discount_curve
     if curve is None:
         raise ValueError("No discount curve in context")
-    credit_name = getattr(self, '_issuer', None) or "default"
-    credit_curve = ctx.credit_curves.get(credit_name) if hasattr(ctx, 'credit_curves') else None
-    if credit_curve is None and hasattr(ctx, 'credit_curves') and ctx.credit_curves:
-        credit_curve = next(iter(ctx.credit_curves.values()))
+    credit_curve = None
+    if hasattr(ctx, 'credit_curves') and ctx.credit_curves:
+        # Try keyed lookup by issuer name if set
+        issuer = getattr(self, '_issuer', None)
+        if issuer and issuer in ctx.credit_curves:
+            credit_curve = ctx.credit_curves[issuer]
+        elif "default" in ctx.credit_curves:
+            credit_curve = ctx.credit_curves["default"]
+        else:
+            credit_curve = next(iter(ctx.credit_curves.values()))
     if credit_curve is None:
+        import warnings
+        warnings.warn(
+            "RiskyBond.pv_ctx: no credit curve in context, using risk-free pricing",
+            RuntimeWarning, stacklevel=2,
+        )
         return self.risk_free_price(curve)
     return self.dirty_price(curve, credit_curve)
 
