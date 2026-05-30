@@ -2,6 +2,18 @@
 
 ---
 
+## v0.644.0 — 2026-05-30
+
+**Papers 3 + 4 validation: T-Lock model + CLN.**
+
+- Paper 3 (Anon T-Lock): 7 tests — bond forward (Bf_dirty ≈ 104.74), PV01 convergence, clean/dirty equivalence, repo no-arbitrage. Cross-validates with Pucci 2019.
+- Paper 4 (Axelsson-Renström CLN): 9 tests — CDS bootstrap (hazard rates positive + increasing), CDS round-trip, CLN below risk-free, recovery sensitivity, discretisation error.
+- Notebooks: `paper_03_tlock_model.ipynb` (PV01 convergence + T-Lock payoff plots), `paper_04_cln.ipynb` (survival curves + CLN price vs recovery).
+- **Chunk 1 complete** (4/4 papers validated).
+- 9945 tests pass (+16 new).
+
+---
+
 ## v0.643.0 — 2026-05-29
 
 **Paper 2 validation: Anonymous — Discounting Textbooks.**
