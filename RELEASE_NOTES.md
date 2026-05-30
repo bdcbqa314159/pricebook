@@ -2,6 +2,22 @@
 
 ---
 
+## v0.661.0 — 2026-05-30
+
+**Chile (CLP) derivatives: Cámara swap, BCP, BCU (UF-linked), breakeven inflation.**
+
+- New `fixed_income/chilean.py`:
+  - `CamaraSwap` — TPM-based overnight swap.
+  - `BCPBond` — nominal CLP sovereign bond.
+  - `BCUBond` — UF-denominated sovereign (real/nominal dual pricing).
+  - `build_clp_curve()`, `build_uf_curve()` — nominal + real curve construction.
+  - `breakeven_inflation()` — BEI term structure from nominal vs real curves.
+  - Synthetic CLP + UF strips.
+- 9 new tests: curves, swap, BCP, BCU UF scaling, BEI positive (~3.75%).
+- 10,112 tests pass.
+
+---
+
 ## v0.660.0 — 2026-05-30
 
 **Mexico (MXN) derivatives: TIIE swap, CETES, Udibonos.**
