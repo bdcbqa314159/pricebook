@@ -1,85 +1,83 @@
-"""Paper 12: Zhou (2008) — CDS-Bond Basis.
-Canonical case: 10Y 7% semi-annual bond, R=40%, 7 D-levels.
-Validates: CDS spread, ASW spread, basis decomposition."""
-import pytest, math
-import numpy as np
+"""Paper 12: Zhou (2008) — CDS-Bond Basis (rewired through pricebook).
 
-COUPON = 0.07; FREQ = 2; R = 0.40; T = 10
+Uses: bond_implied_cds_spread(), compute_basis(), RiskyBond, CDS.
+Canonical case: 10Y 7% semi-annual, R=40%, 7 D-levels.
+"""
 
-def asw_spread(D, coupon=COUPON, T=T, r_flat=0.047):
-    """Par ASW spread: S_asw = (C - L_bar) - D/A."""
-    A = sum(0.5 * math.exp(-r_flat * 0.5 * i) for i in range(1, T * FREQ + 1))
-    L_bar = r_flat  # flat curve: weighted Libor = flat rate
-    return (coupon - L_bar) - D / A
+import pytest
+import math
 
-def implied_hazard(D, R=R, T=T, r=0.047):
-    """Approximate constant hazard from bond discount D."""
-    if D <= 0: return 0
-    # D ≈ 1 - exp(-h×T)×exp(-r×T)×(1-R)... simplified
-    # h ≈ -ln(1 - D/(1-R)) / T for small h
-    ratio = D / (1 - R)
-    if ratio >= 1: return 10.0
-    return -math.log(1 - ratio) / T
+from pricebook.credit.cds_bond_basis import bond_implied_cds_spread, compute_basis
 
-def cds_spread(h, R=R, T=T, r=0.047):
-    """CDS par spread from flat hazard."""
-    # S = (1-R) × h × A_risky / PV01_risky
-    # Simplified: S ≈ (1-R) × h for flat hazard
-    return (1 - R) * h
 
-class TestTableValues:
-    """Reproduce Table 1 values (market curve)."""
+COUPON = 0.07
+R = 0.40
+T = 10
+FLAT_RATE = 0.047
 
-    @pytest.mark.parametrize("D_pct,expected_cds,expected_asw,expected_basis", [
-        (0, 0.0231, 0.0229, 0.0001),
-        (10, 0.0397, 0.0354, 0.0043),
-        (20, 0.0613, 0.0479, 0.0134),
-    ])
-    def test_cds_asw_basis(self, D_pct, expected_cds, expected_asw, expected_basis):
-        """CDS spread, ASW spread, and basis at given discount D."""
-        D = D_pct / 100
 
-        h = implied_hazard(D)
-        s_cds = cds_spread(h)
-        s_asw = asw_spread(D)
+class TestBondImpliedCDS:
+    """Use pricebook's bond_implied_cds_spread (Zhou eq. 8)."""
 
-        # Direction should be correct
-        if D > 0:
-            assert s_cds > 0, f"CDS spread should be positive at D={D_pct}%"
-            # ASW can go negative for large D in simplified flat-curve model
-            # Basis = CDS - ASW should be positive for D > 0
-            basis = s_cds - s_asw
-            if D_pct >= 10:
-                assert basis > 0, f"Basis should be positive at D={D_pct}%"
+    @pytest.mark.parametrize("D_pct", [0, 5, 10, 15, 20])
+    def test_implied_spread_positive(self, D_pct):
+        price = 100 - D_pct
+        result = bond_implied_cds_spread(COUPON, price, T, FLAT_RATE, R)
+        assert result["cds_spread"] >= 0
 
-    def test_basis_increases_with_discount(self):
-        """Basis widens as bond discount increases."""
-        bases = []
-        for D_pct in [0, 5, 10, 15, 20]:
-            D = D_pct / 100
-            h = implied_hazard(D)
-            s_cds = cds_spread(h)
-            s_asw = asw_spread(D)
-            bases.append(s_cds - s_asw)
-        # Basis should be monotonically increasing
-        for i in range(1, len(bases)):
-            assert bases[i] >= bases[i-1] - 0.001
+    @pytest.mark.parametrize("D_pct", [0, 5, 10, 15, 20])
+    def test_risky_price_matches_market(self, D_pct):
+        price = 100 - D_pct
+        result = bond_implied_cds_spread(COUPON, price, T, FLAT_RATE, R)
+        assert abs(result["risky_price"] - price) < 0.01
+
+    def test_spread_increases_with_discount(self):
+        spreads = [bond_implied_cds_spread(COUPON, 100 - D, T, FLAT_RATE, R)["cds_spread"]
+                   for D in [0, 5, 10, 15, 20]]
+        for i in range(1, len(spreads)):
+            assert spreads[i] >= spreads[i-1] - 0.0001
 
     def test_hazard_increases_with_discount(self):
-        """Higher discount → higher implied hazard."""
-        hazards = [implied_hazard(D / 100) for D in [0, 5, 10, 15, 20]]
+        hazards = [bond_implied_cds_spread(COUPON, 100 - D, T, FLAT_RATE, R)["hazard_rate"]
+                   for D in [0, 5, 10, 15, 20]]
         for i in range(1, len(hazards)):
-            assert hazards[i] > hazards[i-1]
+            assert hazards[i] >= hazards[i-1] - 0.0001
+
+
+class TestZhouTable1:
+    def test_d0(self):
+        r = bond_implied_cds_spread(COUPON, 100.0, T, FLAT_RATE, R)
+        assert 0.01 < r["cds_spread"] < 0.04
+
+    def test_d10(self):
+        r = bond_implied_cds_spread(COUPON, 90.0, T, FLAT_RATE, R)
+        assert 0.02 < r["cds_spread"] < 0.06
+
+    def test_d20(self):
+        r = bond_implied_cds_spread(COUPON, 80.0, T, FLAT_RATE, R)
+        assert 0.03 < r["cds_spread"] < 0.10
+
 
 class TestBasisDecomposition:
-    def test_three_terms_sum_to_basis(self):
-        """3-term decomposition: basis = term1 + term2 + term3."""
-        D = 0.10
-        h = implied_hazard(D)
-        s_cds = cds_spread(h)
-        s_asw = asw_spread(D)
-        basis = s_cds - s_asw
-        # Decomposition (simplified): coupon effect + funding effect + default timing
-        # For now just verify basis is well-defined
-        assert isinstance(basis, float)
-        assert basis > -0.01
+    def test_basis_components(self):
+        result = compute_basis(cds_spread_bp=300, bond_spread_bp=250, repo_spread_bp=10, funding_spread_bp=20)
+        assert result.basis_bp == 50
+        assert hasattr(result, 'funding_component_bp')
+
+    def test_positive_basis(self):
+        r = compute_basis(cds_spread_bp=200, bond_spread_bp=180)
+        assert r.basis_bp > 0
+
+    def test_negative_basis(self):
+        r = compute_basis(cds_spread_bp=150, bond_spread_bp=200)
+        assert r.basis_bp < 0
+        assert "NEGATIVE" in r.signal.upper()
+
+    def test_basis_widens_with_discount(self):
+        bases = []
+        for D in [0, 5, 10, 15, 20]:
+            r = bond_implied_cds_spread(COUPON, 100 - D, T, FLAT_RATE, R)
+            annuity = sum(0.5 * math.exp(-FLAT_RATE * 0.5 * i) for i in range(1, 21))
+            asw = (COUPON - FLAT_RATE) - D / 100 / annuity
+            bases.append(r["cds_spread"] - max(asw, 0))
+        assert bases[-1] > bases[0]

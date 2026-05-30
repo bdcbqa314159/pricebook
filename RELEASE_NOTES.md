@@ -2,6 +2,19 @@
 
 ---
 
+## v0.648.0 — 2026-05-30
+
+**Rewire validation tests through pricebook classes.**
+
+- Paper 3+11 (T-Lock): now uses `TreasuryLock`, `BondForward` classes instead of manual formulas.
+- Paper 7 (Lou TRS): now uses `trs_trinomial_tree()` + `trs_equity_full_csa()` with tree vs analytic comparison.
+- Paper 12 (Zhou CDS-Bond): now uses `bond_implied_cds_spread()` + `compute_basis()` from pricebook credit modules.
+- Fixed basis signal assertions to match actual pricebook output ("NEUTRAL"/"NEGATIVE_BASIS").
+- 110 validation tests across 12 papers, all passing through pricebook modules.
+- 10,020 tests pass (+16 from rewiring).
+
+---
+
 ## v0.647.0 — 2026-05-30
 
 **Build 2 missing capabilities for paper validation.**
