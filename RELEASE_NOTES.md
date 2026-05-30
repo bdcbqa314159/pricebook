@@ -2,6 +2,21 @@
 
 ---
 
+## v0.660.0 — 2026-05-30
+
+**Mexico (MXN) derivatives: TIIE swap, CETES, Udibonos.**
+
+- New `fixed_income/mexican.py`:
+  - `TIIESwap` — 28-day period swap (unique Mexican structure), par rate, DV01.
+  - `CETESBill` — discount bill pricing (ACT/360, MXN 10 face).
+  - `UDIBond` — UDI-linked bond (real coupon × daily inflation unit), dual real/nominal pricing.
+  - `build_tiie_curve()` — TIIE discount curve from swap strip.
+  - `synthetic_tiie_strip()`, `synthetic_cetes_quotes()` — realistic data generators.
+- 15 new tests: TIIE curve, 28-day periods, CETES discount, UDI nominal scaling, MBONO sovereign pricing.
+- 10,103 tests pass.
+
+---
+
 ## v0.658.0 — 2026-05-30
 
 **Fix notebooks: remove `apply_theme` (not exported from viz).**
