@@ -2,6 +2,18 @@
 
 ---
 
+## v0.654.0 — 2026-05-30
+
+**Hawkes credit derivatives — Layers 2-4: survival, CDS, basket, tranche.**
+
+- `credit/hawkes_survival.py` — `HawkesSurvivalCurve`: MC survival Q(T) from intensity paths, implied hazard, conversion to pricebook `SurvivalCurve`.
+- `credit/hawkes_cds.py` — `hawkes_cds_spread()`: par CDS spread under Hawkes intensity. `hawkes_cds_spread_comparison()`: shows spread widening from self-excitation (120bp at α=0 → 185bp at α=0.9).
+- `credit/hawkes_basket.py` — `hawkes_basket_defaults()`: multivariate Hawkes default simulation for N names. `hawkes_tranche_spread()`: CDO tranche pricing. `hawkes_ftd_spread()`: first-to-default. `hawkes_vs_copula()`: side-by-side Hawkes vs Gaussian copula comparison (tail losses, clustering).
+- Tranche hierarchy verified: equity > mezzanine > senior.
+- 10,043 tests pass.
+
+---
+
 ## v0.653.0 — 2026-05-30
 
 **Fractional Hawkes process for credit derivatives — Phase 1.**
