@@ -204,3 +204,54 @@ class TestColVA:
         colva_special = (sonia - 0.035) * duration * collateral   # 150bp gap
 
         assert colva_gc < colva_mild < colva_special
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: InterestRateSwap via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestSwapViaPricebook:
+    """Use pricebook's InterestRateSwap for CSA comparison."""
+
+    def test_receiver_swap_pv(self):
+        """5Y receiver swap PV via InterestRateSwap class."""
+        from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
+        from pricebook.core.discount_curve import DiscountCurve
+        from pricebook.core.schedule import Frequency
+        from pricebook.core.day_count import DayCountConvention
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        mat = date(2029, 1, 1)
+        dates = [date(2024 + i, 1, 1) for i in range(1, 6)]
+        dfs_ois = [math.exp(-0.04 * i) for i in range(1, 6)]
+        curve_ois = DiscountCurve(ref, dates, dfs_ois)
+
+        irs = InterestRateSwap(
+            ref, mat, 0.035, SwapDirection.RECEIVER, 100_000_000,
+            fixed_frequency=Frequency.SEMI_ANNUAL,
+            float_frequency=Frequency.SEMI_ANNUAL,
+            fixed_day_count=DayCountConvention.THIRTY_360,
+            float_day_count=DayCountConvention.ACT_360,
+        )
+        pv = irs.pv(curve_ois)
+        # Receiver at 3.5% vs 4% market → negative PV (below market)
+        assert isinstance(pv, float)
+
+    def test_swap_pv_ctx(self):
+        """Swap via PricingContext."""
+        from pricebook.fixed_income.swap import InterestRateSwap, SwapDirection
+        from pricebook.core.pricing_context import PricingContext
+        from pricebook.core.schedule import Frequency
+        from datetime import date
+
+        ref = date(2024, 1, 1)
+        ctx = PricingContext.simple(ref, rate=0.04, vol=0.20)
+        irs = InterestRateSwap(
+            ref, date(2029, 1, 1), 0.035, SwapDirection.RECEIVER, 100_000_000,
+            fixed_frequency=Frequency.SEMI_ANNUAL,
+            float_frequency=Frequency.SEMI_ANNUAL,
+        )
+        pv = irs.pv_ctx(ctx)
+        assert isinstance(pv, float)

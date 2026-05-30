@@ -181,3 +181,69 @@ class TestDiscretisationError:
         # The PV should be near zero at par spread (by construction)
         # The discretisation error is in the annuity computation
         assert abs(pv_q) < 50000, f"CDS at par should be near zero: {pv_q:.0f}"
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: CDS bootstrap via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestCDSBootstrapPricebook:
+    """Use pricebook's CDS class for round-trip validation."""
+
+    def test_cds_par_spread_via_class(self):
+        """CDS at par spread should have PV ≈ 0 via pricebook CDS class."""
+        from pricebook.credit.cds import CDS
+        from pricebook.core.survival_curve import SurvivalCurve
+        from pricebook.core.schedule import Frequency
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+        import math
+
+        spread = 0.0150  # 150bp
+        h = spread / (1 - RECOVERY)
+        mat = REF + relativedelta(years=5)
+        surv_dates = [REF + relativedelta(years=i) for i in range(1, 6)]
+        surv_probs = [math.exp(-h * i) for i in range(1, 6)]
+        surv = SurvivalCurve(REF, surv_dates, surv_probs)
+
+        cds = CDS(REF, mat, spread, recovery=RECOVERY, frequency=Frequency.QUARTERLY)
+        pv = cds.pv(DISC_CURVE, surv)
+        assert abs(pv) < 5000, f"CDS at par: PV={pv:.0f}"
+
+    def test_cds_pv_ctx(self):
+        """CDS via PricingContext."""
+        from pricebook.credit.cds import CDS
+        from pricebook.core.pricing_context import PricingContext
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+
+        ctx = PricingContext.simple(REF, rate=0.02, vol=0.20, hazard=0.025)
+        cds = CDS(REF, REF + relativedelta(years=5), 0.015, recovery=RECOVERY)
+        pv = cds.pv_ctx(ctx)
+        assert isinstance(pv, float)
+
+
+class TestCLNViaPricebook:
+    """Use pricebook's CreditLinkedNote with from_convention."""
+
+    def test_cln_from_convention(self):
+        """Create CLN via from_convention classmethod."""
+        from pricebook.credit.cln import CreditLinkedNote
+        from pricebook.fixed_income.sovereign_bonds import get_conventions
+        from pricebook.core.survival_curve import SurvivalCurve
+        from dateutil.relativedelta import relativedelta
+        import math
+
+        conv = get_conventions("BUND")  # EUR convention
+        cln = CreditLinkedNote.from_convention(
+            conv, REF, REF + relativedelta(years=5),
+            coupon_rate=0.05, notional=1_000_000, recovery=RECOVERY,
+        )
+
+        h = 0.025
+        surv_dates = [REF + relativedelta(years=i) for i in range(1, 11)]
+        surv_probs = [math.exp(-h * i) for i in range(1, 11)]
+        surv = SurvivalCurve(REF, surv_dates, surv_probs)
+
+        pv = cln.dirty_price(DISC_CURVE, surv)
+        assert pv > 0

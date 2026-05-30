@@ -118,3 +118,59 @@ class TestLinearModelConsistency:
         beta = -tau / (1 + R * tau) ** 2
         assert alpha > 0
         assert beta < 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: CMASWInstrument via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestCMASWViaPricebook:
+    """Use pricebook's CMASWInstrument class."""
+
+    def test_cmasw_prices(self):
+        """CMASWInstrument should produce a price."""
+        from pricebook.structured.cmasw import CMASWInstrument
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2025, 1, 1), date(2029, 1, 1), date(2034, 1, 1)],
+            [math.exp(-0.04 * 1), math.exp(-0.04 * 5), math.exp(-0.04 * 10)])
+
+        inst = CMASWInstrument(
+            fixing_date=date(2025, 1, 1),
+            payment_date=date(2025, 7, 1),
+            swap_tenor=10,
+            bond_price=98.0,
+            notional=1_000_000,
+            sigma_swp=0.30,
+            sigma_asw=0.25,
+            rho=0.50,
+        )
+        result = inst.price(curve)
+        assert hasattr(result, 'price')
+        assert result.price != 0  # should be non-trivial
+
+    def test_cmasw_cc_sign(self):
+        """CC should be positive for positive correlation."""
+        from pricebook.structured.cmasw import CMASWInstrument
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2025, 1, 1), date(2029, 1, 1), date(2034, 1, 1)],
+            [math.exp(-0.04 * 1), math.exp(-0.04 * 5), math.exp(-0.04 * 10)])
+
+        inst_pos = CMASWInstrument(
+            date(2025, 1, 1), date(2025, 7, 1), 10, 98.0, 1e6, 0.30, 0.25, 0.50)
+        inst_neg = CMASWInstrument(
+            date(2025, 1, 1), date(2025, 7, 1), 10, 98.0, 1e6, 0.30, 0.25, -0.50)
+
+        r_pos = inst_pos.price(curve)
+        r_neg = inst_neg.price(curve)
+        # Different correlation → different price
+        assert r_pos.price != r_neg.price

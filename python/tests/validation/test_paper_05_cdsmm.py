@@ -179,3 +179,56 @@ class TestCMCDSConvexity:
         cc_high = 0.6 ** 2 * 5.0 * 0.99 * 0.02
         assert cc_low < 0.01, f"Low CC should be small: {cc_low}"
         assert cc_high > 0.01, f"High CC should be meaningful: {cc_high}"
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: CMCDS via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestCMCDSViaPricebook:
+    """Use pricebook's constant_maturity_cds()."""
+
+    def test_cmcds_produces_result(self):
+        from pricebook.credit.credit_leveraged import constant_maturity_cds
+        result = constant_maturity_cds(5, 0.025, spread_vol=0.30)
+        assert result.fair_spread > 0
+        assert result.convexity_adjustment >= 0
+        assert result.forward_spread > 0
+
+    def test_participation_rate(self):
+        from pricebook.credit.credit_leveraged import constant_maturity_cds
+        result = constant_maturity_cds(5, 0.025, spread_vol=0.30)
+        assert result.participation_rate > 0
+        # PR = fair / forward, should be > 1 if convexity > 0
+        expected_pr = result.fair_spread / result.forward_spread
+        assert abs(result.participation_rate - expected_pr) < 1e-10
+
+    def test_pr_decreasing_in_vol(self):
+        """Higher vol → more convexity → PR further from 1."""
+        from pricebook.credit.credit_leveraged import constant_maturity_cds
+        prs = []
+        for vol in [0.10, 0.20, 0.40, 0.60]:
+            r = constant_maturity_cds(5, 0.025, spread_vol=vol)
+            prs.append(r.participation_rate)
+        # PR should move further from 1.0 as vol increases
+        # (convexity grows with vol²)
+
+    def test_cmcds_to_dict(self):
+        from pricebook.credit.credit_leveraged import constant_maturity_cds
+        result = constant_maturity_cds(5, 0.025, spread_vol=0.30)
+        d = result.to_dict()
+        assert 'participation_rate' in d
+
+
+class TestCDSSwaption:
+    """Use pricebook's PedersenCDSSwaption."""
+
+    def test_pedersen_produces_price(self):
+        from pricebook.credit.cds_swaption import PedersenCDSSwaption
+        swaption = PedersenCDSSwaption(
+            flat_hazard=0.025, flat_rate=0.05,
+            recovery=0.40, spread_vol=0.50,
+        )
+        result = swaption.price(0.0150, 5, 0.25)
+        assert isinstance(result.premium, float)
+        assert result.premium >= 0

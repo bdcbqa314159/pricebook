@@ -2,6 +2,22 @@
 
 ---
 
+## v0.649.0 — 2026-05-30
+
+**Complete rewiring: all 12 papers use pricebook classes. 127 validation tests.**
+
+- Paper 1: added `multicurve_newton()` + `build_curves()` tests (simultaneous OIS + projection).
+- Paper 2: added `InterestRateSwap.pv()` + `pv_ctx()` for receiver swap.
+- Paper 4: added `CDS` round-trip via class + `CreditLinkedNote.from_convention()`.
+- Paper 5: added `constant_maturity_cds()` (participation rate) + `PedersenCDSSwaption.price()`.
+- Paper 6: added `TotalReturnSwap.price()` + serialisation round-trip.
+- Paper 8: added `CMASWInstrument.price()` with correlation sensitivity.
+- All 12 papers now import from pricebook modules, not standalone math.
+- 127 validation tests across 12 papers (+17 new).
+- 10,037 tests pass.
+
+---
+
 ## v0.648.0 — 2026-05-30
 
 **Rewire validation tests through pricebook classes.**

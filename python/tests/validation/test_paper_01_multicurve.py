@@ -267,3 +267,73 @@ class TestSampleRates:
         """OIS rates should be near zero / slightly negative for Dec-2012."""
         # 1Y OIS = 0.000%
         assert OIS_QUOTES[3][1] == 0.0  # 1Y exactly zero
+
+
+# ═══════════════════════════════════════════════════════════════
+# Test 6: Multicurve Newton solver (pricebook module)
+# ═══════════════════════════════════════════════════════════════
+
+class TestMulticurveNewton:
+    """Use pricebook's multicurve_newton() for simultaneous OIS + projection."""
+
+    def test_multicurve_solver_runs(self):
+        """multicurve_newton should produce both curves."""
+        from pricebook.curves.multicurve_solver import multicurve_newton
+
+        ois_insts = [{"type": "swap", "maturity": mat, "rate": rate}
+                     for mat, rate in OIS_QUOTES[:6]]
+        proj_insts = [{"type": "swap", "maturity": mat, "rate": rate}
+                      for mat, rate in IRS_6M_QUOTES[:4]]
+
+        ois_dates = [d["maturity"] for d in ois_insts]
+        proj_dates = [d["maturity"] for d in proj_insts]
+
+        result = multicurve_newton(
+            SPOT_DATE, ois_insts, proj_insts, ois_dates, proj_dates,
+        )
+        assert result.ois_curve is not None
+        assert result.projection_curve is not None
+        for d in ois_dates:
+            assert result.ois_curve.df(d) > 0
+        for d in proj_dates:
+            assert result.projection_curve.df(d) > 0
+
+    def test_ois_and_projection_differ(self):
+        """Newton solver should produce different OIS and projection curves."""
+        from pricebook.curves.multicurve_solver import multicurve_newton
+
+        ois_insts = [{"type": "swap", "maturity": mat, "rate": rate}
+                     for mat, rate in OIS_QUOTES[:4]]
+        proj_insts = [{"type": "swap", "maturity": mat, "rate": rate}
+                      for mat, rate in IRS_6M_QUOTES[:3]]
+
+        result = multicurve_newton(
+            SPOT_DATE, ois_insts, proj_insts,
+            [d["maturity"] for d in ois_insts],
+            [d["maturity"] for d in proj_insts],
+        )
+        d3y = date(2015, 12, 14)
+        df_ois = result.ois_curve.df(d3y)
+        df_proj = result.projection_curve.df(d3y)
+        assert abs(df_ois - df_proj) > 1e-6
+
+
+# ═══════════════════════════════════════════════════════════════
+# Test 7: build_curves entry point
+# ═══════════════════════════════════════════════════════════════
+
+class TestBuildCurves:
+    """Use pricebook's build_curves() as entry point."""
+
+    def test_build_curves_eur(self):
+        """build_curves('EUR', ...) should produce OIS + projection."""
+        from pricebook.curves.curve_builder import build_curves
+
+        result = build_curves(
+            "EUR", SPOT_DATE,
+            ois_deposits=[(OIS_QUOTES[0][0], OIS_QUOTES[0][1])],
+            ois_swaps=OIS_QUOTES[1:6],
+            projection_swaps=IRS_6M_QUOTES[:4],
+        )
+        assert result.ois is not None
+        assert result.currency == "EUR"

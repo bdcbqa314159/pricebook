@@ -106,3 +106,44 @@ class TestRecoverySensitivity:
             lgd_low = 1 - r_low
             lgd_high = 1 - r_high
             assert lgd_low > lgd_high  # higher LGD = wider spread
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: TotalReturnSwap via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestTRSViaPricebook:
+    """Use pricebook's TotalReturnSwap class."""
+
+    def test_trs_prices(self):
+        """TRS on equity should produce a price."""
+        from pricebook.equity.trs import TotalReturnSwap
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2024, 7, 1), date(2025, 1, 1)],
+            [math.exp(-0.05 * 0.5), math.exp(-0.05 * 1.0)])
+
+        trs = TotalReturnSwap(
+            underlying=100.0, notional=5_000_000,
+            start=ref, end=date(2025, 1, 1),
+            repo_spread=0.01,
+        )
+        result = trs.price(curve)
+        assert hasattr(result, 'price')
+
+    def test_trs_serialisation(self):
+        """TRS should round-trip via to_dict/from_dict."""
+        from pricebook.equity.trs import TotalReturnSwap
+        from pricebook.core.serialisable import from_dict
+        from datetime import date
+
+        trs = TotalReturnSwap(
+            underlying=100.0, notional=5_000_000,
+            start=date(2024, 1, 1), end=date(2025, 1, 1),
+        )
+        d = trs.to_dict()
+        assert d["type"] == "trs"
