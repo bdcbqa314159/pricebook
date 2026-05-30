@@ -2,6 +2,16 @@
 
 ---
 
+## v0.658.0 — 2026-05-30
+
+**Fix notebooks: remove `apply_theme` (not exported from viz).**
+
+- Replaced `from pricebook.viz import apply_theme` with `configure_theme` only across all 14 notebooks.
+- `apply_theme` is an internal context manager in `viz/_backend.py`, not part of the public API. `configure_theme()` at the top of each notebook sets the theme globally.
+- 10,088 tests pass.
+
+---
+
 ## v0.657.0 — 2026-05-30
 
 **Brazilian credit derivatives notebook — end-to-end calibration.**
