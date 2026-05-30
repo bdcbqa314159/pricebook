@@ -2,6 +2,20 @@
 
 ---
 
+## v0.645.0 — 2026-05-30
+
+**Chunk 2 complete: Papers 5-8 validation (CDS, TRS×2, CMASW).**
+
+- Paper 5 (Brigo-Morini CDS Market Model): 11 tests — CDS option implied vol (C1=61.9% vs paper 62.2%), recovery independence, CMCDS convexity monotonicity, participation rate.
+- Paper 6 (Burgess Bond TRS): 8 tests — coupon $155,416.80, simple vs continuous forward, carry direction, recovery sensitivity.
+- Paper 7 (Lou TRS Framework): 8 tests — forward consistency (r_s < r → F < S), FVA direction, CVA/DVA signs, margin convergence.
+- Paper 8 (Pucci CMASW): 10 tests — CC formula (zero at σ=0 or ρ=0), CC grid, vol/correlation monotonicity, antisymmetry in ρ.
+- 4 notebooks with pricebook.viz: implied vol table, CMCDS convexity/participation plots, TRS forward comparison, XVA waterfall, CMASW CC heatmap.
+- **Chunks 1+2 complete** (8/12 papers validated).
+- 9982 tests pass (+37 new).
+
+---
+
 ## v0.644.0 — 2026-05-30
 
 **Papers 3 + 4 validation: T-Lock model + CLN.**
