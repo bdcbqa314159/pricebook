@@ -2,6 +2,24 @@
 
 ---
 
+## v0.653.0 — 2026-05-30
+
+**Fractional Hawkes process for credit derivatives — Phase 1.**
+
+- New `models/hawkes_credit.py`:
+  - `FractionalHawkesProcess` — 4 kernel types: exponential, power-law (fractional), Mittag-Leffler, sum-of-exponentials.
+  - `MultivariateHawkesProcess` — N-name cross-excitation matrix for credit contagion.
+  - `HawkesKernel` enum, `HawkesCreditResult`, `MultivariateHawkesResult` dataclasses with `to_dict()`.
+  - `evaluate_kernel()` — unified kernel evaluation.
+  - `branching_ratio()` — stationarity check (warns if ≥ 1).
+  - `approximate_power_law()` — Bochner sum-of-exponentials approximation of power-law kernel.
+  - `hawkes_mle_exponential()` — MLE calibration for exponential kernel.
+  - Ogata thinning adapted for non-Markovian kernels (dynamic intensity upper bound).
+- **Next:** Layers 2-5 (survival curves, CDS pricing, basket/tranche, analytics).
+- 10,043 tests pass.
+
+---
+
 ## v0.652.0 — 2026-05-30
 
 **Fix all moderate audit issues — input validation, magic number docs, edge case guards.**
