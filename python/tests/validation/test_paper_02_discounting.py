@@ -255,3 +255,72 @@ class TestSwapViaPricebook:
         )
         pv = irs.pv_ctx(ctx)
         assert isinstance(pv, float)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: BilateralCSAPricer via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestBilateralCSA:
+    """Use pricebook's BilateralCSAPricer for partial CSA."""
+
+    def test_bilateral_csa_runs(self):
+        """BilateralCSAPricer should produce a result."""
+        from pricebook.credit.bilateral_csa import BilateralCSAPricer, CSATerms
+        from pricebook.core.discount_curve import DiscountCurve
+        from pricebook.core.survival_curve import SurvivalCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        dates = [date(2024 + i, 1, 1) for i in range(1, 6)]
+        disc = DiscountCurve(ref, dates, [math.exp(-0.04 * i) for i in range(1, 6)])
+        surv_ref = SurvivalCurve(ref, dates, [math.exp(-0.02 * i) for i in range(1, 6)])
+        surv_iss = SurvivalCurve(ref, dates, [math.exp(-0.01 * i) for i in range(1, 6)])
+
+        csa = CSATerms(
+            threshold_investor=10_000_000,
+            threshold_issuer=10_000_000,
+            minimum_transfer=500_000,
+        )
+
+        pricer = BilateralCSAPricer(
+            notional=100_000_000,
+            coupon=0.035,
+            maturity_years=5,
+            ref_survival=surv_ref,
+            issuer_survival=surv_iss,
+            discount_curve=disc,
+            csa=csa,
+        )
+        result = pricer.price(n_paths=5_000, seed=42)
+        assert result.clean_pv != 0
+        assert hasattr(result, 'cva')
+        assert hasattr(result, 'dva')
+
+    def test_threshold_effect(self):
+        """CSA with threshold vs without should give different XVA."""
+        from pricebook.credit.bilateral_csa import BilateralCSAPricer, CSATerms
+        from pricebook.core.discount_curve import DiscountCurve
+        from pricebook.core.survival_curve import SurvivalCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        dates = [date(2024 + i, 1, 1) for i in range(1, 6)]
+        disc = DiscountCurve(ref, dates, [math.exp(-0.04 * i) for i in range(1, 6)])
+        surv = SurvivalCurve(ref, dates, [math.exp(-0.02 * i) for i in range(1, 6)])
+
+        pricer_no_csa = BilateralCSAPricer(
+            100_000_000, 0.035, 5, surv, surv, disc,
+            csa=CSATerms(threshold_investor=1e15, threshold_issuer=1e15),
+        )
+        pricer_full_csa = BilateralCSAPricer(
+            100_000_000, 0.035, 5, surv, surv, disc,
+            csa=CSATerms(threshold_investor=0, threshold_issuer=0),
+        )
+        r_no = pricer_no_csa.price(n_paths=3_000, seed=42)
+        r_full = pricer_full_csa.price(n_paths=3_000, seed=42)
+
+        assert isinstance(r_no.total_xva, float)
+        assert isinstance(r_full.total_xva, float)

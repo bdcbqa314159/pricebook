@@ -34,3 +34,53 @@ class TestCMTConvexity:
             for T in [5.0, 10.0]:
                 cc = cc_cmt(sigma, T)
                 assert 0 < cc < 0.1, f"CC({sigma}, {T}) = {cc:.4f}"
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: CMTInstrument via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestCMTViaPricebook:
+    """Use pricebook's CMTInstrument."""
+
+    def test_cmt_prices(self):
+        """CMTInstrument should produce a price."""
+        from pricebook.structured.cmt import CMTInstrument
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2025, 1, 1), date(2029, 1, 1), date(2034, 1, 1)],
+            [math.exp(-0.04), math.exp(-0.04 * 5), math.exp(-0.04 * 10)])
+
+        inst = CMTInstrument(
+            fixing_date=date(2029, 1, 1),
+            payment_date=date(2029, 7, 1),
+            bond_tenor=10,
+            notional=1_000_000,
+            sigma=0.20,
+        )
+        result = inst.price(curve)
+        assert hasattr(result, 'price')
+
+    def test_cmt_vol_sensitivity(self):
+        """Higher vol → larger convexity correction."""
+        from pricebook.structured.cmt import CMTInstrument
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2025, 1, 1), date(2029, 1, 1), date(2034, 1, 1)],
+            [math.exp(-0.04), math.exp(-0.04 * 5), math.exp(-0.04 * 10)])
+
+        prices = []
+        for sigma in [0.10, 0.20, 0.30]:
+            inst = CMTInstrument(date(2029, 1, 1), date(2029, 7, 1), 10, 1e6, sigma)
+            prices.append(inst.price(curve).price)
+
+        # Higher vol should change the price (convexity effect)
+        assert prices[0] != prices[2], "Vol should affect CMT price"

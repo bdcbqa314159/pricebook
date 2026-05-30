@@ -36,3 +36,57 @@ class TestCashAnnuity:
         def annuity(R, n=20):
             return sum(0.5 / (1 + 0.5 * R)**i for i in range(1, n+1))
         assert annuity(0.03) > annuity(0.04) > annuity(0.05)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rewired: IndexLinkedHybridInstrument via pricebook
+# ═══════════════════════════════════════════════════════════════
+
+class TestHybridViaPricebook:
+    """Use pricebook's IndexLinkedHybridInstrument."""
+
+    def test_hybrid_prices(self):
+        """Hybrid instrument should produce a price."""
+        from pricebook.structured.index_linked_hybrid import IndexLinkedHybridInstrument
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        expiry = date(2025, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2025, 1, 1), date(2029, 1, 1), date(2034, 1, 1)],
+            [math.exp(-0.04), math.exp(-0.04 * 5), math.exp(-0.04 * 10)])
+
+        inst = IndexLinkedHybridInstrument(
+            expiry=expiry, swap_tenor=10, index_forward=0.04,
+            notional=1_000_000, theta=1,
+            sigma_F=0.30, sigma_U=0.20, rho=0.3,
+            n_paths=5_000, n_steps=50, seed=42,
+        )
+        result = inst.price(curve)
+        assert hasattr(result, 'price')
+        assert isinstance(result.price, float)
+
+    def test_hybrid_rho_sensitivity(self):
+        """Price changes with correlation."""
+        from pricebook.structured.index_linked_hybrid import IndexLinkedHybridInstrument
+        from pricebook.core.discount_curve import DiscountCurve
+        from datetime import date
+        import math
+
+        ref = date(2024, 1, 1)
+        expiry = date(2025, 1, 1)
+        curve = DiscountCurve(ref,
+            [date(2025, 1, 1), date(2034, 1, 1)],
+            [math.exp(-0.04), math.exp(-0.04 * 10)])
+
+        prices = []
+        for rho in [-0.3, 0.0, 0.3]:
+            inst = IndexLinkedHybridInstrument(
+                expiry, 10, 0.04, 1e6, 1, 0.30, 0.20, rho,
+                n_paths=3_000, n_steps=30, seed=42,
+            )
+            prices.append(inst.price(curve).price)
+
+        assert len(set(f"{p:.2f}" for p in prices)) >= 2, "Prices should vary with rho"

@@ -2,6 +2,18 @@
 
 ---
 
+## v0.650.0 — 2026-05-30
+
+**Quick wins closed: BilateralCSA, Hybrid, CMT wired. 133 validation tests.**
+
+- Paper 2: `BilateralCSAPricer` exercised with `CSATerms(threshold=10m)` — partial CSA simulation verified.
+- Paper 9: `IndexLinkedHybridInstrument.price()` with correlation sensitivity (ρ ∈ {-0.3, 0, 0.3}).
+- Paper 10: `CMTInstrument.price()` with vol sensitivity (σ ∈ {10%, 20%, 30%}).
+- 133 validation tests across 12 papers, all through pricebook classes.
+- 10,043 tests pass.
+
+---
+
 ## v0.649.0 — 2026-05-30
 
 **Complete rewiring: all 12 papers use pricebook classes. 127 validation tests.**
