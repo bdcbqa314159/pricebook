@@ -2,6 +2,20 @@
 
 ---
 
+## v0.646.0 — 2026-05-30
+
+**Chunk 3 complete: Papers 9-12. All 12 papers validated. 10,004 tests.**
+
+- Paper 9 (Pucci Hybrid): 4 tests — correlation sensitivity, cash annuity.
+- Paper 10 (Pucci CMT): 6 tests — CC formula, vol/fixing monotonicity, no-default limit.
+- Paper 11 (Pucci T-Lock): 6 tests — forward dirty ≈ 104.74, carry, overhedge, delta.
+- Paper 12 (Zhou CDS-Bond Basis): 6 tests — CDS/ASW at 3 D-levels, basis widening, hazard monotonicity.
+- 4 notebooks for Chunk 3.
+- **All 12 papers validated** with 94 total validation tests across 12 test files.
+- **10,004 tests pass** (milestone: crossed 10k).
+
+---
+
 ## v0.645.0 — 2026-05-30
 
 **Chunk 2 complete: Papers 5-8 validation (CDS, TRS×2, CMASW).**
