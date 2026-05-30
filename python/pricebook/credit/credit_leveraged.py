@@ -162,8 +162,7 @@ class CMCDSResult:
     fair_spread: float
     convexity_adjustment: float
     forward_spread: float
-
-
+    participation_rate: float = 0.0
 
     def to_dict(self) -> dict:
         return vars(self)
@@ -212,8 +211,9 @@ def constant_maturity_cds(
         convexity = 0.0
 
     fair_spread = forward_spread + convexity
+    participation = fair_spread / forward_spread if forward_spread > 0 else 1.0
 
-    return CMCDSResult(fair_spread, convexity, forward_spread)
+    return CMCDSResult(fair_spread, convexity, forward_spread, participation)
 
 
 # ---- CDS straddle ----

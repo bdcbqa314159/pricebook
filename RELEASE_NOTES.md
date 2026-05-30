@@ -2,6 +2,17 @@
 
 ---
 
+## v0.647.0 — 2026-05-30
+
+**Build 2 missing capabilities for paper validation.**
+
+- New `bond_implied_cds_spread()` in `credit/cds_bond_basis.py` — solves for flat hazard rate that reprices a risky bond at its market price, then converts to CDS spread. Enables Zhou Table 1 reproduction.
+- `CMCDSResult.participation_rate` field added in `credit/credit_leveraged.py` — φ = fair_spread / forward_spread. Enables Brigo-Morini participation rate validation.
+- **Backward compat:** Both additive. CMCDSResult has new field with default 0.0.
+- 10,004 tests pass.
+
+---
+
 ## v0.646.0 — 2026-05-30
 
 **Chunk 3 complete: Papers 9-12. All 12 papers validated. 10,004 tests.**

@@ -150,3 +150,73 @@ def negative_basis_pnl(
         "total_pnl": mtm_pnl + carry_pnl,
         "hold_years": hold_years,
     }
+
+
+def bond_implied_cds_spread(
+    coupon_rate: float,
+    market_price: float,
+    maturity_years: float,
+    discount_rate: float,
+    recovery: float = 0.40,
+    frequency: int = 2,
+) -> dict:
+    """Compute the CDS spread implied by a bond's market price (Zhou 2008 eq. 8).
+
+    Solves for the flat hazard rate h such that the risky bond price
+    (survival-weighted cashflows + recovery on default) equals the market price.
+    Then converts h to a par CDS spread via S = (1-R) × h.
+
+    Args:
+        coupon_rate: annual coupon rate (e.g. 0.07 = 7%).
+        market_price: dirty price per 100 face.
+        maturity_years: time to maturity in years.
+        discount_rate: flat risk-free rate for discounting.
+        recovery: recovery rate (default 40%).
+        frequency: coupon frequency (2 = semi-annual).
+
+    Returns:
+        dict with: cds_spread, hazard_rate, risky_price, discount (D = 100 - price).
+    """
+    from pricebook.core.solvers import brentq
+
+    c = coupon_rate / frequency
+    n = int(maturity_years * frequency)
+
+    def risky_bond_price(h):
+        """Compute risky bond price given flat hazard rate h."""
+        pv = 0.0
+        for i in range(1, n + 1):
+            t = i / frequency
+            df = math.exp(-discount_rate * t)
+            surv = math.exp(-h * t)
+            surv_prev = math.exp(-h * (t - 1 / frequency))
+            default_prob = surv_prev - surv
+
+            # Coupon conditional on survival
+            pv += 100 * c * df * surv
+
+            # Recovery on default in this period
+            t_mid = t - 0.5 / frequency
+            df_mid = math.exp(-discount_rate * t_mid)
+            pv += recovery * 100 * default_prob * df_mid
+
+        # Principal at maturity conditional on survival
+        df_T = math.exp(-discount_rate * maturity_years)
+        surv_T = math.exp(-h * maturity_years)
+        pv += 100 * df_T * surv_T
+
+        return pv
+
+    # Solve: find h such that risky_bond_price(h) = market_price
+    def objective(h):
+        return risky_bond_price(h) - market_price
+
+    h = brentq(objective, 0.0, 2.0)
+    cds_spread = (1 - recovery) * h
+
+    return {
+        "cds_spread": cds_spread,
+        "hazard_rate": h,
+        "risky_price": risky_bond_price(h),
+        "discount_pct": (100 - market_price),
+    }
