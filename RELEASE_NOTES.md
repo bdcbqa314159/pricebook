@@ -2,6 +2,23 @@
 
 ---
 
+## v0.657.0 — 2026-05-30
+
+**Brazilian credit derivatives notebook — end-to-end calibration.**
+
+- New `notebooks/brazilian_credit_derivatives.ipynb` — 18 cells with pricebook.viz:
+  1. CDI curve from DI futures (term structure plot)
+  2. NTN-F/LTN bond pricing via CDI curve
+  3. Bond-implied CDS spreads from corporate discount (hazard rate extraction)
+  4. Survival curve + CDS par spread term structure
+  5. CLN pricing with credit charge decomposition
+  6. TRS on NTN-F with CDI funding
+  7. Summary dashboard (4-panel: CDI curve, bond prices, implied spreads, CLN decomposition)
+- Full chain: DI quotes → CDI curve → bond prices → hazard rates → CDS curve → CLN/TRS pricing.
+- 10,088 tests pass.
+
+---
+
 ## v0.656.0 — 2026-05-30
 
 **Brazilian derivatives full stack: CDI curve, DI futures, DI swap, LFT, cupom cambial.**
