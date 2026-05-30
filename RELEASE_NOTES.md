@@ -2,6 +2,24 @@
 
 ---
 
+## v0.656.0 — 2026-05-30
+
+**Brazilian derivatives full stack: CDI curve, DI futures, DI swap, LFT, cupom cambial.**
+
+- New `fixed_income/brazilian.py` (~400 lines):
+  - `DIFuture` — B3 DI futures: PU pricing, DV01, implied rate round-trip.
+  - `DISwap` — Pré × CDI swap: fixed vs CDI compounded, par rate, PV.
+  - `LFTBond` — CDI-linked floating sovereign: VNA accrual, spread pricing, spread duration.
+  - `build_cdi_curve_from_di()` — CDI discount curve from DI futures strip.
+  - `synthetic_di_strip()` — realistic DI futures data generator (Selic-based upward slope).
+  - `cupom_cambial()` — USD rate from USDBRL forward + DI rate (CIP).
+  - `cupom_cambial_curve()` — cupom cambial term structure.
+- LFT added to sovereign bonds registry (57 markets total) + yield convention + region mapping.
+- 25 new tests covering: BUS/252 helpers, CDI curve construction, DI futures, DI swap, LFT, cupom cambial, NTN-F/LTN sovereign pricing.
+- 10,088 tests pass.
+
+---
+
 ## v0.655.0 — 2026-05-30
 
 **Hawkes credit framework complete — analytics + 20 tests.**

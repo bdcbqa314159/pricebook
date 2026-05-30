@@ -670,5 +670,17 @@
     "ex_div_days": 0,
     "is_zero_coupon": false,
     "notes": "Republic of the Philippines Government Bonds. Quarterly coupon!"
+  },
+  {
+    "market_code": "LFT",
+    "country": "Brazil",
+    "currency": "BRL",
+    "frequency": 12,
+    "day_count": "BUS/252",
+    "settlement_days": 1,
+    "calendar_currency": "BRL",
+    "ex_div_days": 0,
+    "is_zero_coupon": false,
+    "notes": "LFT (CDI-linked floating). Face accrues at CDI daily. Trades at spread over CDI."
   }
 ]

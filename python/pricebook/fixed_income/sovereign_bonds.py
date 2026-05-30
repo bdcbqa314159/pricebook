@@ -296,6 +296,11 @@ _reg(SovereignConventions(
     notes="LTN (zero-coupon, bullet at maturity). BUS/252."))
 
 _reg(SovereignConventions(
+    "LFT", "Brazil", "BRL",
+    Frequency.ANNUAL, DayCountConvention.BUS_252, 1, "BRL",
+    notes="LFT (CDI-linked floating). Face accrues at CDI daily. Trades at spread over CDI."))
+
+_reg(SovereignConventions(
     "MBONO", "Mexico", "MXN",
     Frequency.SEMI_ANNUAL, DayCountConvention.ACT_360, 2, "MXN",
     notes="MBONOs. ACT/360 — unusual for a government bond!"))
@@ -502,7 +507,7 @@ def markets_by_region() -> dict[str, list[str]]:
         "cee": ["POLGB", "CZGB", "HGB", "ROMGB"],
         "turkey_mena": ["TURKGB", "SAGB_SA", "ADGB", "QATGB", "ILGB", "EGGB"],
         "africa": ["SAGB", "NGGB", "KEGB"],
-        "latam": ["NTN_F", "NTN_B", "LTN", "MBONO", "CETES", "BTP_CL", "TES"],
+        "latam": ["NTN_F", "NTN_B", "LTN", "LFT", "MBONO", "CETES", "BTP_CL", "TES"],
         "asia": ["CGB", "KTB", "GSEC", "SGS", "HKGB", "INDOGB", "MGS", "THAIGB", "RPGB"],
     }
     return regions

@@ -172,6 +172,7 @@ _MARKET_YIELD_CONVENTION: dict[str, YieldConvention] = {
     "NTN_F": YieldConvention.CONTINUOUS,
     "NTN_B": YieldConvention.CONTINUOUS,
     "LTN": YieldConvention.CONTINUOUS,
+    "LFT": YieldConvention.CONTINUOUS,
     # Semi-annual (EM)
     "MBONO": YieldConvention.SEMI_ANNUAL,
     "TURKGB": YieldConvention.SEMI_ANNUAL,
