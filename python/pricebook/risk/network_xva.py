@@ -103,8 +103,15 @@ class NetworkXVAEngine:
         self.counterparties = counterparties
         self.exposures = np.array(exposure_matrix, dtype=float)
         self.buffers = np.array(capital_buffers, dtype=float)
-        self.recovery = recovery_rate
         self.n = len(counterparties)
+
+        if self.exposures.shape != (self.n, self.n):
+            raise ValueError(f"exposure_matrix must be ({self.n}, {self.n}), got {self.exposures.shape}")
+        if self.buffers.shape != (self.n,):
+            raise ValueError(f"capital_buffers must be ({self.n},), got {self.buffers.shape}")
+        if not 0 <= recovery_rate <= 1:
+            raise ValueError(f"recovery_rate must be in [0, 1], got {recovery_rate}")
+        self.recovery = recovery_rate
         self._idx = {name: i for i, name in enumerate(counterparties)}
 
         # Pre-compute network metrics
@@ -176,6 +183,7 @@ class NetworkXVAEngine:
         multiplier = cascade["multiplier"]
 
         # Network adjustment: higher centrality + more contagion = higher CVA
+        # Floor multiplier at 1.0: no contagion means no adjustment (multiplicative identity)
         adjustment = alpha * centrality * max(multiplier, 1.0)
         network_cva = standalone_cva * (1.0 + adjustment)
 

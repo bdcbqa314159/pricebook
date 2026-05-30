@@ -143,8 +143,8 @@ def greenium(
 
 def esg_adjusted_spread(
     total_spread_bps: float,
-    estimated_greenium_bps: float = 5.0,
-    liquidity_premium_bps: float = 3.0,
+    estimated_greenium_bps: float = 5.0,    # Zerbib (2019): IG green bonds trade 2-10bp tighter
+    liquidity_premium_bps: float = 3.0,    # typical new-issue concession for ESG bonds
     esg_label: ESGLabel = ESGLabel.GREEN,
     issuer: str = "",
 ) -> ESGAdjustedSpreadResult:

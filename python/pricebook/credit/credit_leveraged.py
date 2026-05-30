@@ -191,6 +191,13 @@ def constant_maturity_cds(
         reset_frequency: how often the spread resets.
         payment_years: total CMCDS tenor.
     """
+    if reference_maturity <= 0:
+        raise ValueError(f"reference_maturity must be positive, got {reference_maturity}")
+    if not 0 <= recovery < 1:
+        raise ValueError(f"recovery must be in [0, 1), got {recovery}")
+    if spread_vol < 0:
+        raise ValueError(f"spread_vol must be non-negative, got {spread_vol}")
+
     fwd = forward_cds_spread(
         0.0, float(reference_maturity), flat_hazard, flat_rate, recovery,
     )
@@ -308,7 +315,9 @@ def credit_trs(
     """
     # Spread tightening = positive return for TR receiver
     # Approximate price change: −duration × Δspread
-    duration = 4.0  # typical IG index duration
+    # Spread DV01 ≈ 4.0Y for 5Y IG index (CDX.NA.IG, iTraxx Main)
+    # Source: Markit iTraxx/CDX index factsheets
+    duration = 4.0
     price_change = -duration * (index_spread_end - index_spread_start) / 10_000
 
     # Carry: spread income

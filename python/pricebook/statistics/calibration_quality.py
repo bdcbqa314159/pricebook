@@ -106,8 +106,14 @@ def calibration_entropy(
         market_vols: (n,) market implied vols (optional, used for vol-space metrics).
         model_vols: (n,) model implied vols (optional).
     """
-    errors = np.array(model_prices) - np.array(market_prices)
+    market_prices = np.asarray(market_prices, dtype=float)
+    model_prices = np.asarray(model_prices, dtype=float)
+    if len(market_prices) != len(model_prices):
+        raise ValueError(f"market_prices ({len(market_prices)}) and model_prices ({len(model_prices)}) must have same length")
+    errors = model_prices - market_prices
     n = len(errors)
+    if n < 1:
+        raise ValueError("Need at least 1 price for calibration assessment")
 
     rmse = float(np.sqrt(np.mean(errors ** 2)))
     max_err = float(np.max(np.abs(errors)))
@@ -238,11 +244,19 @@ def model_comparison(
     Uses Akaike and Bayesian Information Criteria alongside
     information-theoretic divergence measures.
     """
-    n = len(market_prices)
-    market = np.array(market_prices)
+    market = np.asarray(market_prices, dtype=float)
+    model_a = np.asarray(model_a_prices, dtype=float)
+    model_b = np.asarray(model_b_prices, dtype=float)
+    n = len(market)
+    if n < 2:
+        raise ValueError("Need at least 2 prices for model comparison")
+    if len(model_a) != n or len(model_b) != n:
+        raise ValueError("All price arrays must have same length")
+    if n_params_a < 0 or n_params_b < 0:
+        raise ValueError("n_params must be non-negative")
 
-    err_a = np.array(model_a_prices) - market
-    err_b = np.array(model_b_prices) - market
+    err_a = model_a - market
+    err_b = model_b - market
 
     sse_a = float(np.sum(err_a ** 2))
     sse_b = float(np.sum(err_b ** 2))

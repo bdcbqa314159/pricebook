@@ -66,9 +66,11 @@ def compute_basis(
     funding = funding_spread_bp
 
     # Delivery option: CDS buyer can deliver cheapest bond → CDS wider
+    # ~5bp for IG deliverable basket (De Wit 2006, Bai & Collin-Dufresne 2019)
     delivery = 5.0 if is_deliverable_basket else 0.0
 
     # Restructuring: if CDS triggers on restructuring but bond doesn't default
+    # ~10bp for Modified Restructuring clause (ISDA 2003/2014)
     restructuring = 10.0 if has_restructuring else 0.0
 
     # Repo: bond on special (negative repo) → depresses bond spread → widens basis
@@ -78,6 +80,7 @@ def compute_basis(
     residual = basis - funding - delivery - restructuring - repo_effect
 
     # Signal
+    # ±20bp threshold: basis within this range is considered neutral (market noise)
     if basis < -20:
         signal = "NEGATIVE_BASIS"
     elif basis > 20:
@@ -178,6 +181,15 @@ def bond_implied_cds_spread(
         dict with: cds_spread, hazard_rate, risky_price, discount (D = 100 - price).
     """
     from pricebook.core.solvers import brentq
+
+    if maturity_years <= 0:
+        raise ValueError(f"maturity_years must be positive, got {maturity_years}")
+    if frequency <= 0:
+        raise ValueError(f"frequency must be positive, got {frequency}")
+    if not 0 <= recovery < 1:
+        raise ValueError(f"recovery must be in [0, 1), got {recovery}")
+    if market_price <= 0:
+        raise ValueError(f"market_price must be positive, got {market_price}")
 
     c = coupon_rate / frequency
     n = int(maturity_years * frequency)

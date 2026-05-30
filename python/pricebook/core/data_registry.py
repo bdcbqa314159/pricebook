@@ -27,6 +27,12 @@ T = TypeVar("T")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
+def _validate_filename(filename: str) -> None:
+    """Guard against path traversal and invalid filenames."""
+    if not filename or ".." in filename or filename.startswith("/"):
+        raise ValueError(f"Invalid filename: {filename!r}. Must be a simple name relative to DATA_DIR.")
+
+
 def load_conventions(
     filename: str,
     item_type: type[T],
@@ -35,19 +41,25 @@ def load_conventions(
     """Load convention objects from a JSON file.
 
     Args:
-        filename: JSON file name (relative to DATA_DIR).
+        filename: JSON file name (relative to DATA_DIR). Must not contain '..'.
         item_type: dataclass type with from_dict() classmethod.
         key_fn: optional function to extract key (for dedup).
 
     Returns:
         List of convention objects. Empty list if file not found.
     """
+    _validate_filename(filename)
     path = DATA_DIR / filename
     if not path.exists():
         return []
 
     with open(path) as f:
         data = json.load(f)
+
+    if not isinstance(data, list):
+        import warnings
+        warnings.warn(f"{filename}: expected JSON array, got {type(data).__name__}", RuntimeWarning, stacklevel=2)
+        return []
 
     items = []
     for entry in data:
@@ -72,12 +84,13 @@ def save_conventions(
     """Save convention objects to a JSON file.
 
     Args:
-        filename: JSON file name (relative to DATA_DIR).
+        filename: JSON file name (relative to DATA_DIR). Must not contain '..'.
         items: list of convention objects with to_dict() method.
 
     Returns:
         Path to the written file.
     """
+    _validate_filename(filename)
     path = DATA_DIR / filename
     data = [item.to_dict() for item in items]
 
@@ -95,11 +108,6 @@ def load_or_default(
     key_fn=None,
 ) -> list[T]:
     """Load from JSON if present, otherwise return defaults.
-
-    This is the standard pattern for convention modules:
-    1. Try to load from JSON
-    2. If file missing or empty, use hardcoded defaults
-    3. Return the list either way
 
     Args:
         filename: JSON file name.
@@ -121,20 +129,21 @@ def load_registry(
 ) -> dict[str, T]:
     """Load a keyed registry from JSON, falling back to hardcoded defaults.
 
-    This is the standard pattern for convention modules that use a dict registry:
-    1. Try to load from JSON
-    2. Build dict using key_fn to extract the key from each item
-    3. If JSON missing/empty, return the defaults dict
-
     Args:
         filename: JSON file name (relative to DATA_DIR).
         item_type: dataclass type with from_dict().
         key_fn: function to extract dict key from each item (e.g. lambda c: c.market_code).
+            Must not be None.
         defaults: hardcoded default registry dict.
 
     Returns:
         Dict mapping key → convention object.
+
+    Raises:
+        ValueError: if key_fn is None.
     """
+    if key_fn is None:
+        raise ValueError("key_fn must not be None for load_registry")
     loaded = load_conventions(filename, item_type)
     if loaded:
         return {key_fn(item): item for item in loaded}

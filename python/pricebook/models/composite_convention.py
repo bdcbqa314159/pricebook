@@ -127,6 +127,12 @@ class BondTRSConvention:
     spv: SPVNoteConvention | None = None    # nested SPV convention for exotic
     notes: str = ""
 
+    def __post_init__(self):
+        if not 0 <= self.haircut <= 1:
+            raise ValueError(f"haircut must be in [0, 1], got {self.haircut}")
+        if not 0 <= self.recovery <= 1:
+            raise ValueError(f"recovery must be in [0, 1], got {self.recovery}")
+
     def create(
         self,
         issue_date: date,

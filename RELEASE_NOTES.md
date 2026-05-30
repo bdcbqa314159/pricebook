@@ -2,6 +2,21 @@
 
 ---
 
+## v0.652.0 — 2026-05-30
+
+**Fix all moderate audit issues — input validation, magic number docs, edge case guards.**
+
+- `data_registry.py`: path traversal guard (`_validate_filename`), JSON array type check, `key_fn` None validation.
+- `network_xva.py`: exposure matrix shape validation (N,N), capital buffers shape (N,), recovery in [0,1].
+- `calibration_quality.py`: array length mismatch check, n < 1 guard in `calibration_entropy`, n < 2 guard + n_params validation in `model_comparison`.
+- `composite_convention.py`: `__post_init__` validates haircut ∈ [0,1] and recovery ∈ [0,1].
+- `esg_bonds.py`: documented greenium 5bp (Zerbib 2019) and liquidity 3bp sources.
+- `cds_bond_basis.py`: documented delivery 5bp (De Wit 2006), restructuring 10bp (ISDA), ±20bp neutral threshold. Added input validation to `bond_implied_cds_spread` (maturity > 0, frequency > 0, recovery ∈ [0,1), price > 0).
+- `credit_leveraged.py`: documented duration 4.0 (Markit index factsheets), input validation on `constant_maturity_cds` (maturity > 0, recovery ∈ [0,1), vol ≥ 0).
+- 10,043 tests pass.
+
+---
+
 ## v0.651.0 — 2026-05-30
 
 **Code audit fixes — 3 critical issues from 11-lens audit.**
