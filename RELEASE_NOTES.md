@@ -2,6 +2,28 @@
 
 ---
 
+## v0.655.0 — 2026-05-30
+
+**Hawkes credit framework complete — analytics + 20 tests.**
+
+- `credit/hawkes_analytics.py`:
+  - `contagion_scenario()` — intensity jump analysis ("what if name X defaults?")
+  - `clustering_metrics()` — inter-arrival CV + burstiness (CV>1 = clustered, B>0 = bursty)
+  - `kernel_comparison()` — exponential vs power-law kernel side-by-side
+  - `hawkes_term_structure()` — CDS spread across maturities under Hawkes
+- 20 new tests (`test_hawkes_credit.py`):
+  - Kernel formulas (exp, power-law, Mittag-Leffler γ=1 → exp)
+  - Poisson limit (α=0), self-excitation increases events
+  - Intensity non-negative, stationarity warning
+  - CDS spread positive + increases with α
+  - Tranche hierarchy (equity ≥ senior)
+  - Contagion scenario (cross-excitation raises intensity)
+  - Clustering CV, MLE direction, sum-exp approximation
+- **Full Hawkes stack: 5 layers, 4 files, ~1600 lines.**
+- 10,063 tests pass (+20 new).
+
+---
+
 ## v0.654.0 — 2026-05-30
 
 **Hawkes credit derivatives — Layers 2-4: survival, CDS, basket, tranche.**
