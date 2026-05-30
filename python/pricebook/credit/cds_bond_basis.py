@@ -211,6 +211,15 @@ def bond_implied_cds_spread(
     def objective(h):
         return risky_bond_price(h) - market_price
 
+    # Validate bracket: f(0) and f(2) should have opposite signs
+    f_lo, f_hi = objective(0.0), objective(2.0)
+    if f_lo * f_hi > 0:
+        raise ValueError(
+            f"No root in [0, 2] for bond_implied_cds_spread: "
+            f"f(0)={f_lo:.4f}, f(2)={f_hi:.4f}. "
+            f"Market price {market_price:.2f} may be outside feasible range."
+        )
+
     h = brentq(objective, 0.0, 2.0)
     cds_spread = (1 - recovery) * h
 

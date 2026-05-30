@@ -155,7 +155,10 @@ class RegimePricingEngine:
             raise ValueError("Must call fit() before price()")
 
         probs = np.array(regime_probs) if regime_probs is not None else self._filtered_probs
-        probs = probs / probs.sum()
+        prob_sum = probs.sum()
+        if prob_sum <= 0:
+            raise ValueError("Regime probabilities sum to zero or negative")
+        probs = probs / prob_sum
 
         # Price under each regime
         prices = []
@@ -199,7 +202,10 @@ class RegimePricingEngine:
             raise ValueError("Must call fit() before greeks()")
 
         probs = np.array(regime_probs) if regime_probs is not None else self._filtered_probs
-        probs = probs / probs.sum()
+        prob_sum = probs.sum()
+        if prob_sum <= 0:
+            raise ValueError("Regime probabilities sum to zero or negative")
+        probs = probs / prob_sum
 
         deltas, gammas, vegas = [], [], []
         for i in range(self.n_regimes):
@@ -308,7 +314,10 @@ def regime_option_price(
     from pricebook.options.equity_option import equity_option_price
 
     probs = np.array(regime_probs)
-    probs = probs / probs.sum()
+    prob_sum = probs.sum()
+    if prob_sum <= 0:
+        raise ValueError("Regime probabilities sum to zero or negative")
+    probs = probs / prob_sum
     vols = np.array(regime_vols)
 
     prices = [equity_option_price(spot, strike, rate, v, T, option_type, div_yield)
@@ -342,7 +351,10 @@ def regime_greeks(
     from pricebook.options.equity_option import equity_delta, equity_gamma, equity_vega
 
     probs = np.array(regime_probs)
-    probs = probs / probs.sum()
+    prob_sum = probs.sum()
+    if prob_sum <= 0:
+        raise ValueError("Regime probabilities sum to zero or negative")
+    probs = probs / prob_sum
 
     deltas, gammas, vegas = [], [], []
     for v in regime_vols:

@@ -2,6 +2,18 @@
 
 ---
 
+## v0.651.0 — 2026-05-30
+
+**Code audit fixes — 3 critical issues from 11-lens audit.**
+
+- Fixed `credit_leveraged.py` line 131: `effective_leverage = min(leverage, 1.0 / 1e-10)` was a no-op (1e10 cap). Changed to direct assignment — leverage applies directly to digital CLN loss.
+- Fixed `regime_pricing.py`: all `probs / probs.sum()` calls now validate `sum > 0` before dividing. Raises `ValueError` on zero-sum regime probabilities instead of silently producing NaN.
+- Fixed `cds_bond_basis.py`: `bond_implied_cds_spread()` now validates bracket `f(0) × f(2) < 0` before calling brentq. Raises informative `ValueError` if market price is outside feasible range.
+- Audit covered 9 files (6 new, 3 modified), 10 quality dimensions.
+- 10,043 tests pass.
+
+---
+
 ## v0.650.0 — 2026-05-30
 
 **Quick wins closed: BilateralCSA, Hybrid, CMT wired. 133 validation tests.**

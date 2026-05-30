@@ -128,7 +128,7 @@ def digital_cln_leveraged(
     """
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
-    effective_leverage = min(leverage, 1.0 / (1e-10 + 0))  # no cap needed for digital
+    effective_leverage = leverage  # digital CLN: leverage applied directly to loss
 
     coupon_pv = 0.0
     digital_loss_pv = 0.0
