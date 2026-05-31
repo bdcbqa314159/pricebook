@@ -2,6 +2,21 @@
 
 ---
 
+## v0.683.0 — 2026-05-31
+
+**Base correlation surface with cubic spline interpolation and arbitrage checks.**
+
+- New `BaseCorrelationSurface` class in `credit/tranche_pricing.py`:
+  - `interpolate(detachment, method)` — linear or cubic spline with monotonicity enforcement.
+  - `check_arbitrage()` — detects non-monotonicity and out-of-bounds correlations.
+  - `bump(shift)` — parallel shift with clamping to (0, 1).
+  - `from_calibration()` — build from `calibrate_base_correlation()` output.
+  - Callable: `surface(0.07)` returns interpolated base correlation.
+- 13 new tests.
+- 10,340 tests pass.
+
+---
+
 ## v0.682.0 — 2026-05-31
 
 **Configurable time discretization in basket CDS (quarterly default).**

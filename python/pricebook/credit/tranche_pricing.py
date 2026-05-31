@@ -309,6 +309,88 @@ def calibrate_base_correlation(
 
 
 # ---------------------------------------------------------------------------
+# Base correlation surface with interpolation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class BaseCorrelationSurface:
+    """Calibrated base correlation surface with interpolation.
+
+    Stores calibrated (detachment, rho) pairs and provides smooth
+    interpolation for bespoke detachment points.
+
+    Base correlation is monotonically non-decreasing in detachment:
+    equity tranche has lower correlation than senior.
+    """
+    detachments: list[float]
+    base_correlations: list[float]
+
+    def __post_init__(self):
+        if len(self.detachments) != len(self.base_correlations):
+            raise ValueError("detachments and base_correlations must have same length")
+
+    def __call__(self, detachment: float) -> float:
+        """Interpolate base correlation at a given detachment point."""
+        return self.interpolate(detachment)
+
+    def interpolate(self, detachment: float, method: str = "cubic") -> float:
+        """Interpolate base correlation.
+
+        Args:
+            method: "linear" or "cubic" (cubic spline with monotonicity).
+        """
+        dets = np.array(self.detachments)
+        corrs = np.array(self.base_correlations)
+
+        if method == "linear":
+            return float(np.interp(detachment, dets, corrs))
+        elif method == "cubic":
+            if len(dets) < 3:
+                return float(np.interp(detachment, dets, corrs))
+            from scipy.interpolate import CubicSpline
+            cs = CubicSpline(dets, corrs, bc_type="clamped")
+            val = float(cs(detachment))
+            # Enforce monotonicity: clamp to range
+            return max(float(corrs[0]), min(float(corrs[-1]), val))
+        else:
+            raise ValueError(f"Unknown method '{method}'. Use 'linear' or 'cubic'.")
+
+    def check_arbitrage(self) -> dict:
+        """Check for arbitrage violations in the base correlation surface.
+
+        Violations:
+        1. Non-monotonicity: base_corr must be non-decreasing in detachment.
+        2. Out of bounds: correlations must be in (0, 1).
+        """
+        issues = []
+        for i in range(len(self.base_correlations)):
+            r = self.base_correlations[i]
+            if r <= 0 or r >= 1:
+                issues.append(f"Correlation {r:.4f} at det={self.detachments[i]:.2f} out of (0,1)")
+            if i > 0 and r < self.base_correlations[i - 1] - 1e-6:
+                issues.append(
+                    f"Non-monotonic: rho({self.detachments[i]:.2f})={r:.4f} < "
+                    f"rho({self.detachments[i-1]:.2f})={self.base_correlations[i-1]:.4f}")
+        return {"valid": len(issues) == 0, "issues": issues}
+
+    def bump(self, shift: float) -> "BaseCorrelationSurface":
+        """Return a new surface with all correlations bumped by shift."""
+        bumped = [max(0.001, min(0.999, r + shift)) for r in self.base_correlations]
+        return BaseCorrelationSurface(self.detachments[:], bumped)
+
+    def to_dict(self) -> dict:
+        return {"detachments": self.detachments,
+                "base_correlations": self.base_correlations}
+
+    @classmethod
+    def from_calibration(cls, base_corr: dict[float, float]) -> "BaseCorrelationSurface":
+        """Build from calibrate_base_correlation() output."""
+        dets = sorted(base_corr.keys())
+        corrs = [base_corr[d] for d in dets]
+        return cls(dets, corrs)
+
+
+# ---------------------------------------------------------------------------
 # Multi-period tranche pricing
 # ---------------------------------------------------------------------------
 
