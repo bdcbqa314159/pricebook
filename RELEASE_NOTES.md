@@ -2,6 +2,20 @@
 
 ---
 
+## v0.670.0 — 2026-05-31
+
+**Dividend strip analytics: decomposition, carry, growth rates.**
+
+- New `equity/dividend_strip.py`:
+  - `decompose_strip()` — split DividendCurve into per-period strips with forward div, PV, weight.
+  - `strip_carry()` — carry-and-roll analytics per strip (yield vs funding).
+  - `dividend_growth_rate()` — log-linear regression for implied growth from forward term structure.
+  - Custom period breaks or equal-width periods.
+- 11 new tests: sum-to-total, weights, constant/growing growth, carry.
+- 10,233 tests pass.
+
+---
+
 ## v0.669.0 — 2026-05-31
 
 **Dividend term structure calibration (optimisation, spline, options-implied).**
