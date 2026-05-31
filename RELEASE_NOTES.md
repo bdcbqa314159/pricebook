@@ -2,6 +2,20 @@
 
 ---
 
+## v0.672.0 — 2026-05-31
+
+**American option early exercise around ex-dividend dates.**
+
+- New `options/american_dividend.py`:
+  - `american_with_dividends()` — binomial tree with ex-dates as explicit nodes, dividend spot drop.
+  - `roll_geske_whaley()` — closed-form for single discrete dividend (Newton for critical spot S*).
+  - `exercise_boundary_around_exdate()` — exercise vs hold decision across spot levels.
+  - American call ≥ European call verified; early exercise premium ≥ 0.
+- 17 new tests: Am≥Eu, premium positive, boundary transition, RGW critical spot, div-after-expiry.
+- 10,261 tests pass.
+
+---
+
 ## v0.671.0 — 2026-05-31
 
 **Enhanced dividend Greeks: cross-gamma, theta decomposition, scenario ladder.**
