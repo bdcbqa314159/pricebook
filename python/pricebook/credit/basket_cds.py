@@ -82,14 +82,20 @@ def ftd_spread(
     recovery: float = 0.4,
     n_sims: int = 50_000,
     seed: int = 42,
+    recovery_specs=None,
 ) -> float:
     """First-to-default basket spread via MC simulation.
 
     Thin wrapper around ntd_spread with n=1.
+
+    Args:
+        recovery_specs: optional list of RecoverySpec (one per name) for
+            stochastic correlated recovery. Overrides flat recovery.
     """
     return ntd_spread(
         survival_curves, discount_curve, rho, T,
         n=1, recovery=recovery, n_sims=n_sims, seed=seed,
+        recovery_specs=recovery_specs,
     )
 
 
@@ -102,11 +108,16 @@ def ntd_spread(
     recovery: float = 0.4,
     n_sims: int = 50_000,
     seed: int = 42,
+    recovery_specs=None,
 ) -> float:
     """Nth-to-default basket spread.
 
     Args:
         n: trigger on the Nth default (1 = FTD).
+        recovery_specs: optional list of RecoverySpec (one per name) for
+            stochastic correlated recovery. When provided, recovery is
+            sampled per-name per-path using the systematic factor M.
+            Overrides the flat recovery parameter.
     """
     # Simulate defaults at multiple time points for proper timing
     ref = survival_curves[0].reference_date
@@ -133,11 +144,30 @@ def ntd_spread(
         n_defaults_t = defaults_t.sum(axis=1)
         ntd_by_time.append(n_defaults_t >= n)
 
-    # Protection leg: (1-R) * df(T) * P(ntd triggered by T)
+    # Protection leg
     T_date = date_from_year_fraction(ref, T)
     df_T = discount_curve.df(T_date)
     ntd_final = ntd_by_time[-1]
-    protection = (1 - recovery) * df_T * ntd_final.mean()
+
+    if recovery_specs is not None:
+        # Stochastic correlated recovery: sample R per-name per-path
+        # using systematic factor M for wrong-way risk
+        defaults_at_T = Z < np.array([
+            norm.ppf(max(1 - sc.survival(T_date), 1e-15)) for sc in survival_curves
+        ])[np.newaxis, :]  # (n_sims, n_names)
+
+        lgd_per_path = np.zeros(n_sims)
+        for j in range(n_names):
+            R_j = recovery_specs[j].sample(n_sims, systematic_factor=M, seed=seed + j + 1)
+            lgd_per_path += defaults_at_T[:, j] * (1 - R_j)
+        # Average LGD across defaulted names per path
+        n_def_per_path = defaults_at_T.sum(axis=1).astype(float)
+        safe_n_def = np.maximum(n_def_per_path, 1.0)
+        avg_lgd = np.where(n_def_per_path > 0,
+                           lgd_per_path / safe_n_def, 1 - recovery)
+        protection = float((avg_lgd * ntd_final).mean()) * df_T
+    else:
+        protection = (1 - recovery) * df_T * ntd_final.mean()
 
     # Risky annuity: per-simulation survival at each annual point
     annuity = 0.0
@@ -288,6 +318,7 @@ def bespoke_tranche(
     rate: float = 0.04,
     n_sims: int = 50_000,
     seed: int | None = 42,
+    recovery_specs=None,
 ) -> BespokeTrancheResult:
     """Bespoke tranche: custom [attach, detach] on a bespoke credit portfolio.
 
@@ -297,15 +328,15 @@ def bespoke_tranche(
     Tranche loss = max(0, min(portfolio_loss - attach, detach - attach))
                    / (detach - attach)
 
-    The fair spread equates the PV of expected tranche loss payments
-    to the PV of spread payments on surviving tranche notional.
-
     Args:
         marginal_pds: list of marginal default probabilities (one per name).
         attach: attachment point (e.g. 0.03 for 3%).
         detach: detachment point (e.g. 0.07 for 7%).
         rho: flat pairwise correlation.
         lgd: loss given default (uniform across names).
+        recovery_specs: optional list of RecoverySpec (one per name).
+            When provided, per-name stochastic recovery is sampled
+            correlated to the systematic factor M. Overrides flat lgd.
     """
     if attach >= detach:
         raise ValueError(f"attach ({attach}) must be < detach ({detach})")
@@ -330,7 +361,15 @@ def bespoke_tranche(
     defaults = Z < thresholds[np.newaxis, :]  # (n_sims, n_names)
 
     # Portfolio loss fraction
-    portfolio_loss = defaults.sum(axis=1) * lgd / n_names
+    if recovery_specs is not None:
+        # Per-name stochastic recovery correlated to systematic factor M
+        lgd_matrix = np.zeros((n_sims, n_names))
+        for j in range(n_names):
+            R_j = recovery_specs[j].sample(n_sims, systematic_factor=M, seed=(seed or 0) + j + 1)
+            lgd_matrix[:, j] = 1 - R_j
+        portfolio_loss = (defaults * lgd_matrix).sum(axis=1) / n_names
+    else:
+        portfolio_loss = defaults.sum(axis=1) * lgd / n_names
     portfolio_el = float(portfolio_loss.mean())
 
     # Tranche loss

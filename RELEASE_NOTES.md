@@ -2,6 +2,20 @@
 
 ---
 
+## v0.678.0 — 2026-05-31
+
+**Stochastic correlated recovery in basket CDS (FTD/NTD/bespoke).**
+
+- `ftd_spread()`, `ntd_spread()`, `bespoke_tranche()`: new optional `recovery_specs` parameter.
+- Accepts `list[RecoverySpec]` — per-name stochastic recovery correlated to systematic factor M.
+- Wrong-way risk: negative default-recovery correlation increases FTD spread.
+- Heterogeneous seniority: mix senior secured (R=65%) and subordinated (R=28%) in same basket.
+- Fixed RecoverySpec(0.4, 0) reproduces flat recovery exactly. Backward compatible.
+- 8 new tests.
+- 10,300 tests pass.
+
+---
+
 ## v0.677.0 — 2026-05-31
 
 **Fix LSM American put discounting + continuous barrier monitoring.**
