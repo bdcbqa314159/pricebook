@@ -2,6 +2,18 @@
 
 ---
 
+## v0.677.0 — 2026-05-31
+
+**Fix LSM American put discounting + continuous barrier monitoring.**
+
+- **American put LSM**: added `r` parameter for proper discounting of continuation values in backward induction. Higher r → earlier exercise (correct behavior). American ≥ European verified.
+- **Barrier options**: added `continuous=True, sigma=σ` parameters to `barrier_knockout` and `barrier_knockin`. Uses Brownian bridge max/min sampling for continuous monitoring from discrete paths. Continuous up-out ≤ discrete up-out (more knockouts). Knockin + knockout ≈ vanilla (parity check).
+- Backward compatible: defaults match old behavior (r=0, continuous=False).
+- 11 new tests.
+- 10,292 tests pass.
+
+---
+
 ## v0.676.0 — 2026-05-31
 
 **Fix non-reproducible MC paths in Merton, Bates, and Variance Gamma processes.**

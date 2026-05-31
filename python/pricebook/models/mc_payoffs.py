@@ -102,10 +102,18 @@ def barrier_knockout(
     barrier: float,
     barrier_type: str = "up-and-out",
     log_space: bool = True,
+    continuous: bool = False,
+    sigma: float | None = None,
+    seed: int | None = None,
 ) -> Callable:
     """Barrier knockout option.
 
-    barrier_type: "up-and-out", "down-and-out".
+    Args:
+        barrier_type: "up-and-out" or "down-and-out".
+        continuous: if True, use Brownian bridge correction for
+            continuous monitoring from discrete paths. Requires sigma.
+        sigma: spot volatility (needed for bridge correction).
+        seed: RNG seed for bridge sampling.
     """
     def payoff(paths, times):
         if paths.ndim == 3:
@@ -113,13 +121,35 @@ def barrier_knockout(
         else:
             p = paths
         spots = np.exp(p) if log_space else p
+        n_paths, n_steps_plus_1 = spots.shape
 
-        if barrier_type == "up-and-out":
-            alive = np.all(spots < barrier, axis=1)
-        elif barrier_type == "down-and-out":
-            alive = np.all(spots > barrier, axis=1)
+        if not continuous:
+            # Discrete monitoring
+            if barrier_type == "up-and-out":
+                alive = np.all(spots < barrier, axis=1)
+            elif barrier_type == "down-and-out":
+                alive = np.all(spots > barrier, axis=1)
+            else:
+                raise ValueError(f"Unknown barrier_type: {barrier_type}")
         else:
-            raise ValueError(f"Unknown barrier_type: {barrier_type}")
+            # Continuous monitoring via Brownian bridge
+            from pricebook.models.mc_processes import brownian_bridge_max
+            rng = np.random.default_rng(seed)
+            alive = np.ones(n_paths, dtype=bool)
+            vol = sigma if sigma is not None else 0.20
+
+            for step in range(n_steps_plus_1 - 1):
+                dt = times[step + 1] - times[step]
+                for i in range(n_paths):
+                    if not alive[i]:
+                        continue
+                    s0, s1 = spots[i, step], spots[i, step + 1]
+                    bridge_max = brownian_bridge_max(s0, s1, dt, vol * s0, rng)
+                    bridge_min = s0 + s1 - brownian_bridge_max(s0, s1, dt, vol * s0, rng)
+                    if barrier_type == "up-and-out" and bridge_max >= barrier:
+                        alive[i] = False
+                    elif barrier_type == "down-and-out" and bridge_min <= barrier:
+                        alive[i] = False
 
         terminal = spots[:, -1]
         return np.where(alive, np.maximum(terminal - strike, 0.0), 0.0)
@@ -131,10 +161,17 @@ def barrier_knockin(
     barrier: float,
     barrier_type: str = "up-and-in",
     log_space: bool = True,
+    continuous: bool = False,
+    sigma: float | None = None,
+    seed: int | None = None,
 ) -> Callable:
     """Barrier knockin option.
 
-    barrier_type: "up-and-in", "down-and-in".
+    Args:
+        barrier_type: "up-and-in" or "down-and-in".
+        continuous: if True, use Brownian bridge correction.
+        sigma: spot volatility (needed for bridge correction).
+        seed: RNG seed for bridge sampling.
     """
     def payoff(paths, times):
         if paths.ndim == 3:
@@ -142,13 +179,35 @@ def barrier_knockin(
         else:
             p = paths
         spots = np.exp(p) if log_space else p
+        n_paths, n_steps_plus_1 = spots.shape
 
-        if barrier_type == "up-and-in":
-            triggered = np.any(spots >= barrier, axis=1)
-        elif barrier_type == "down-and-in":
-            triggered = np.any(spots <= barrier, axis=1)
+        if not continuous:
+            # Discrete monitoring
+            if barrier_type == "up-and-in":
+                triggered = np.any(spots >= barrier, axis=1)
+            elif barrier_type == "down-and-in":
+                triggered = np.any(spots <= barrier, axis=1)
+            else:
+                raise ValueError(f"Unknown barrier_type: {barrier_type}")
         else:
-            raise ValueError(f"Unknown barrier_type: {barrier_type}")
+            # Continuous monitoring via Brownian bridge
+            from pricebook.models.mc_processes import brownian_bridge_max
+            rng = np.random.default_rng(seed)
+            triggered = np.zeros(n_paths, dtype=bool)
+            vol = sigma if sigma is not None else 0.20
+
+            for step in range(n_steps_plus_1 - 1):
+                dt = times[step + 1] - times[step]
+                for i in range(n_paths):
+                    if triggered[i]:
+                        continue
+                    s0, s1 = spots[i, step], spots[i, step + 1]
+                    bridge_max = brownian_bridge_max(s0, s1, dt, vol * s0, rng)
+                    bridge_min = s0 + s1 - brownian_bridge_max(s0, s1, dt, vol * s0, rng)
+                    if barrier_type == "up-and-in" and bridge_max >= barrier:
+                        triggered[i] = True
+                    elif barrier_type == "down-and-in" and bridge_min <= barrier:
+                        triggered[i] = True
 
         terminal = spots[:, -1]
         return np.where(triggered, np.maximum(terminal - strike, 0.0), 0.0)
@@ -161,6 +220,7 @@ def barrier_knockin(
 
 def american_put(
     strike: float,
+    r: float = 0.0,
     log_space: bool = True,
     n_basis: int = 3,
 ) -> Callable:
@@ -168,6 +228,12 @@ def american_put(
 
     Returns a payoff callable that performs backward LSM regression
     on the paths to find the optimal exercise strategy.
+
+    Args:
+        strike: exercise price.
+        r: risk-free rate for discounting continuation values.
+        log_space: if True, paths are in log-space (exp to get spots).
+        n_basis: polynomial basis degree for regression.
     """
     def payoff(paths, times):
         if paths.ndim == 3:
@@ -184,22 +250,23 @@ def american_put(
         values = exercise[:, -1].copy()
         exercise_time = np.full(n_paths, n_steps_plus_1 - 1)
 
-        # Backward induction
-        dt = np.diff(times)
+        # Backward induction with discounting
         for step in range(n_steps_plus_1 - 2, 0, -1):
+            # Discount continuation values by one period
+            dt_step = times[step + 1] - times[step]
+            df = np.exp(-r * dt_step)
+            continuation = values * df
+
             itm = exercise[:, step] > 0
             if not np.any(itm):
+                values = continuation
                 continue
-
-            # Discount continuation
-            # Simple: use exp(-r*dt) but r is embedded in the process
-            # For now, no discounting within LSM (payoff is undiscounted)
-            continuation = values.copy()
 
             # Regression: E[continuation | S_t] via polynomial
             x = spots[itm, step]
             y = continuation[itm]
             if len(x) < n_basis + 1:
+                values = continuation
                 continue
 
             # Polynomial regression
@@ -209,6 +276,8 @@ def american_put(
             # Exercise if intrinsic > continuation estimate
             exercise_now = exercise[itm, step] > fitted
             idx_itm = np.where(itm)[0]
+
+            values = continuation  # default: hold
             for j, ex in zip(idx_itm, exercise_now):
                 if ex:
                     values[j] = exercise[j, step]
