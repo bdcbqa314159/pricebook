@@ -2,6 +2,20 @@
 
 ---
 
+## v0.667.0 — 2026-05-31
+
+**Jump model calibration to implied vol surfaces.**
+
+- New `models/jump_calibration.py`:
+  - `calibrate_jump_model()` — fits any of 6 jump models (Merton, VG, Kou, NIG, CGMY, Bates) to market implied vols via COS pricing + differential evolution.
+  - `calibrate_jump_surface()` — multi-expiry independent calibration.
+  - `jump_model_comparison()` — fits all models, ranks by AIC (penalises parameter count).
+  - Round-trip: Merton calibration recovers params with < 0.5 vol pt RMSE.
+- 10 new tests: round-trip, cross-model fitting, multi-expiry, model comparison.
+- 10,200 tests pass.
+
+---
+
 ## v0.666.0 — 2026-05-31
 
 **NIG and CGMY Lévy processes with characteristic functions.**
