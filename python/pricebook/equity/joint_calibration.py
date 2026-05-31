@@ -59,6 +59,8 @@ class ForwardErrorDecomp:
             "total_error": self.total_error,
             "vol_component": self.vol_component,
             "div_component": self.div_component,
+            "residual": self.residual,
+            "n_tenors": len(self.per_tenor),
         }
 
 

@@ -201,7 +201,11 @@ def vg_char_func(
         rate: risk-free rate.
         T: time to maturity.
     """
-    omega = (1.0 / nu) * math.log(1 - theta * nu - 0.5 * sigma**2 * nu)
+    inner = 1 - theta * nu - 0.5 * sigma**2 * nu
+    if inner <= 0:
+        raise ValueError(f"VG parameters invalid: 1 - θν - 0.5σ²ν = {inner:.4f} ≤ 0. "
+                         f"Reduce theta ({theta}), nu ({nu}), or sigma ({sigma}).")
+    omega = (1.0 / nu) * math.log(inner)
 
     def phi(u: complex) -> complex:
         drift = 1j * u * (rate + omega) * T

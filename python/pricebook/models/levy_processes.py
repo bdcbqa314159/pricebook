@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import cmath
 import math
-from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
@@ -33,17 +32,6 @@ import numpy as np
 # ═══════════════════════════════════════════════════════════════
 # Normal Inverse Gaussian (NIG)
 # ═══════════════════════════════════════════════════════════════
-
-@dataclass
-class NIGResult:
-    """NIG terminal simulation result."""
-    terminal: np.ndarray
-    mean: float
-    std: float
-
-    def to_dict(self) -> dict:
-        return {"mean": self.mean, "std": self.std, "n_paths": len(self.terminal)}
-
 
 class NIGProcess:
     """Normal Inverse Gaussian process.
@@ -65,6 +53,9 @@ class NIGProcess:
     def __init__(self, alpha: float, beta: float, delta: float, mu: float = 0.0):
         if alpha <= abs(beta):
             raise ValueError(f"NIG requires alpha > |beta|, got alpha={alpha}, beta={beta}")
+        if alpha <= abs(beta + 1):
+            raise ValueError(f"NIG risk-neutral measure requires alpha > |beta+1|, "
+                             f"got alpha={alpha}, beta+1={beta+1}")
         if delta <= 0:
             raise ValueError(f"NIG requires delta > 0, got {delta}")
         self.alpha = alpha
@@ -127,17 +118,6 @@ class NIGProcess:
 # CGMY
 # ═══════════════════════════════════════════════════════════════
 
-@dataclass
-class CGMYResult:
-    """CGMY terminal simulation result."""
-    terminal: np.ndarray
-    mean: float
-    std: float
-
-    def to_dict(self) -> dict:
-        return {"mean": self.mean, "std": self.std, "n_paths": len(self.terminal)}
-
-
 class CGMYProcess:
     """CGMY (Carr-Geman-Madan-Yor) process.
 
@@ -166,6 +146,8 @@ class CGMYProcess:
             raise ValueError(f"CGMY requires G > 0, M > 0, got G={G}, M={M}")
         if Y >= 2:
             raise ValueError(f"CGMY requires Y < 2, got {Y}")
+        if abs(Y - 1.0) < 1e-10:
+            raise ValueError(f"CGMY Y=1 is a pole of Γ(-Y). Use Y slightly different from 1.")
         self.C = C
         self.G = G
         self.M = M

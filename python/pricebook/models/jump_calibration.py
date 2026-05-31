@@ -166,14 +166,9 @@ def calibrate_jump_model(
     param_names = spec["names"]
     n_strikes = len(strikes)
 
-    # Constraint for NIG: alpha > |beta|
-    def nig_constraint(params):
-        if model_type == "nig":
-            return params[0] - abs(params[1]) - 0.1  # alpha > |beta| + margin
-        return 1.0
-
     def objective(params):
-        if model_type == "nig" and params[0] <= abs(params[1]):
+        # NIG: alpha must be > |beta| and > |beta+1| for risk-neutral measure
+        if model_type == "nig" and (params[0] <= abs(params[1]) or params[0] <= abs(params[1] + 1)):
             return 1e6
         try:
             phi = spec["build_cf"](params, rate, T, div_yield=div_yield)

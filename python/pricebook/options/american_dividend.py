@@ -23,7 +23,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
@@ -102,59 +102,65 @@ def american_with_dividends(
         step = max(1, min(step, n_steps - 1))
         div_at_step[step] = div_at_step.get(step, 0.0) + amount
 
-    # Build terminal spots
-    spots = np.zeros(n_steps + 1)
-    spots[0] = spot * u**n_steps
-    for j in range(1, n_steps + 1):
-        spots[j] = spots[j - 1] * d / u  # spots[j] = S0 * u^(n-2j)
+    # Spot-adjustment approach: subtract PV of all future dividends from spot,
+    # build CRR tree on adjusted spot, add back PV at each step.
+    # This keeps the tree recombining.
 
-    # Apply dividends forward to get adjusted terminal spots
-    # Actually, easier to backward-induct with dividend at the step
-    # Reset: build spot tree during backward pass
-    # Use 1D array backward induction
+    # PV of all dividends at time 0
+    total_div_pv = sum(amt * math.exp(-rate * t) for t, amt in dividends if 0 < t <= T)
+    s_adj = max(spot - total_div_pv, 0.01)
+
+    # Helper: PV of dividends remaining after step i
+    def _pv_future_divs(step_idx: int) -> float:
+        t_step = step_idx * dt
+        return sum(amt * math.exp(-rate * (t - t_step))
+                   for t, amt in dividends if t > t_step and t <= T)
+
+    # Terminal spots (adjusted tree + add back future divs = 0 at terminal)
+    term_spots = np.zeros(n_steps + 1)
+    for j in range(n_steps + 1):
+        term_spots[j] = s_adj * u**(n_steps - 2 * j)
+    # At terminal, no future dividends remain
 
     # Terminal payoff
     if option_type == OptionType.CALL:
-        values = np.maximum(spots - strike, 0.0)
+        values = np.maximum(term_spots - strike, 0.0)
     else:
-        values = np.maximum(strike - spots, 0.0)
+        values = np.maximum(strike - term_spots, 0.0)
 
-    # European values (no early exercise)
     eu_values = values.copy()
-
     exercise_boundary = [0.0] * (n_steps + 1)
 
     # Backward induction
     for i in range(n_steps - 1, -1, -1):
-        # Spots at step i
-        step_spots = np.zeros(i + 1)
-        step_spots[0] = spot * u**i
-        for j in range(1, i + 1):
-            step_spots[j] = step_spots[j - 1] * d / u
+        # Adjusted spots at step i
+        step_spots_adj = np.zeros(i + 1)
+        for j in range(i + 1):
+            step_spots_adj[j] = s_adj * u**(i - 2 * j)
 
-        # Apply dividend at this step (spot drops)
-        if i in div_at_step:
-            step_spots = np.maximum(step_spots - div_at_step[i], 0.01)
+        # True spots = adjusted + PV of remaining dividends
+        pv_rem = _pv_future_divs(i)
+        step_spots_true = step_spots_adj + pv_rem
 
         # Continuation value
         cont = df_step * (p * values[:i + 1] + (1 - p) * values[1:i + 2])
         eu_cont = df_step * (p * eu_values[:i + 1] + (1 - p) * eu_values[1:i + 2])
 
-        # Intrinsic value
+        # Intrinsic value (uses true spot including dividend PV)
         if option_type == OptionType.CALL:
-            intrinsic = np.maximum(step_spots - strike, 0.0)
+            intrinsic = np.maximum(step_spots_true - strike, 0.0)
         else:
-            intrinsic = np.maximum(strike - step_spots, 0.0)
+            intrinsic = np.maximum(strike - step_spots_true, 0.0)
 
         # American: max(intrinsic, continuation)
         values = np.maximum(intrinsic, cont)
-        eu_values = eu_cont  # no early exercise for European
+        eu_values = eu_cont
 
-        # Exercise boundary: find critical spot
+        # Exercise boundary
         exercised = intrinsic > cont
         if np.any(exercised):
             idx = np.where(exercised)[0]
-            exercise_boundary[i] = float(step_spots[idx[0]])
+            exercise_boundary[i] = float(step_spots_true[idx[0]])
 
     am_price = float(values[0])
     eu_price = float(eu_values[0])
@@ -177,10 +183,12 @@ def roll_geske_whaley(
     div_amount: float,
     div_time: float,
 ) -> RGWResult:
-    """Roll-Geske-Whaley formula for American call with single dividend.
+    """Roll-Geske-Whaley approximation for American call with single dividend.
 
-    Closed-form approximation. The call may be exercised just before
-    the ex-dividend date if the dividend exceeds the time value.
+    Simplified implementation: uses univariate normal probabilities and
+    Newton's method for critical spot S*. The full RGW formula uses
+    bivariate normal integrals; this version provides a reasonable
+    approximation for moderate dividend sizes.
 
     Args:
         spot: current spot.

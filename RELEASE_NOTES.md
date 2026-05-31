@@ -2,6 +2,21 @@
 
 ---
 
+## v0.674.0 — 2026-05-31
+
+**Code assessment fixes across jump + dividend modules.**
+
+- **CGMY**: reject Y=1 (pole of Γ(-Y)) at construction.
+- **NIG**: validate `alpha > |beta+1|` (risk-neutral measure existence).
+- **VG**: guard `1 - θν - 0.5σ²ν > 0` with clear error message.
+- **American tree**: rewrote to spot-adjustment model — subtract PV of all future dividends, build CRR on adjusted spot, add PV back for intrinsic comparison. Fixes dividend propagation bug.
+- **RGW**: documented as simplified approximation (univariate, not bivariate normal).
+- Removed dead code: unused `NIGResult`/`CGMYResult` dataclasses, `nig_constraint`, dead `field` imports.
+- Fixed `ForwardErrorDecomp.to_dict()` missing fields.
+- 10,272 tests pass.
+
+---
+
 ## v0.673.0 — 2026-05-31
 
 **Dividend surface + joint vol-dividend calibration.**
