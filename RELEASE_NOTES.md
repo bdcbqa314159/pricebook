@@ -2,6 +2,20 @@
 
 ---
 
+## v0.671.0 — 2026-05-31
+
+**Enhanced dividend Greeks: cross-gamma, theta decomposition, scenario ladder.**
+
+- New `equity/dividend_greeks.py`:
+  - `compute_dividend_greeks()` — div_delta, div_gamma, cross_gamma_spot_div, div_theta, spot_delta via central finite differences.
+  - `theta_decomposition()` — split theta into carry, dividend accrual, vol decay.
+  - `dividend_scenario_ladder()` — price grid across dividend bump scenarios.
+  - Cross-gamma d²V/(dS·d(div)): the key missing second-order Greek.
+- 11 new tests: sign checks (call div_delta < 0, put > 0), cross-gamma finite, theta negative, ladder monotonicity.
+- 10,244 tests pass.
+
+---
+
 ## v0.670.0 — 2026-05-31
 
 **Dividend strip analytics: decomposition, carry, growth rates.**
