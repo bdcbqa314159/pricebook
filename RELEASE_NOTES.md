@@ -2,6 +2,20 @@
 
 ---
 
+## v0.668.0 — 2026-05-31
+
+**Jump model cross-validation framework (COS vs MC vs FFT).**
+
+- New `models/jump_cross_validation.py`:
+  - `cross_validate_model()` — COS vs MC comparison for any of 6 jump models.
+  - `cross_validate_all()` — all models, sorted by accuracy.
+  - Per-strike results: COS price, MC price, FFT price, % difference.
+  - Verified: Merton, VG, NIG all within 5% COS/MC mean difference.
+- 10 new tests.
+- 10,210 tests pass.
+
+---
+
 ## v0.667.0 — 2026-05-31
 
 **Jump model calibration to implied vol surfaces.**
