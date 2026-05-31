@@ -140,3 +140,112 @@ def pnl_decompose(
         fx_pnl=fx_pnl,
         theta_pnl=theta_pnl,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Non-linear P&L attribution
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class NonLinearPnLResult:
+    """Non-linear P&L decomposition with surface and gamma components."""
+    total_pnl: float
+    atm_vol_pnl: float          # ATM level move contribution
+    skew_pnl: float             # skew (25d risk reversal) move
+    smile_pnl: float            # smile (butterfly) move
+    term_structure_pnl: float   # vol term structure move
+    gamma_realised: float       # realised variance contribution
+    gamma_implied: float        # implied variance cost
+    gamma_pnl: float            # net gamma P&L
+    unexplained: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def surface_pnl(
+    pricer,
+    base_surface: dict[str, float],
+    current_surface: dict[str, float],
+    base_params: dict,
+) -> NonLinearPnLResult:
+    """Decompose P&L from vol surface moves.
+
+    Args:
+        pricer: callable(vol_surface_dict, **base_params) → float.
+        base_surface: yesterday's vol surface {"atm": σ, "skew": Δskew, "smile": fly, "term": slope}.
+        current_surface: today's vol surface (same keys).
+        base_params: other pricing params.
+
+    Returns:
+        NonLinearPnLResult with per-component attribution.
+    """
+    base_pv = pricer(base_surface, **base_params)
+    current_pv = pricer(current_surface, **base_params)
+    total = current_pv - base_pv
+
+    # Sequential attribution: bump one component at a time
+    s = dict(base_surface)
+    components = {}
+
+    for key in ["atm", "skew", "smile", "term"]:
+        if key in current_surface:
+            prev_pv = pricer(s, **base_params)
+            s[key] = current_surface[key]
+            new_pv = pricer(s, **base_params)
+            components[key] = new_pv - prev_pv
+
+    unexplained = total - sum(components.values())
+
+    return NonLinearPnLResult(
+        total_pnl=total,
+        atm_vol_pnl=components.get("atm", 0),
+        skew_pnl=components.get("skew", 0),
+        smile_pnl=components.get("smile", 0),
+        term_structure_pnl=components.get("term", 0),
+        gamma_realised=0.0, gamma_implied=0.0, gamma_pnl=0.0,
+        unexplained=unexplained,
+    )
+
+
+def gamma_pnl_decompose(
+    delta: float,
+    gamma: float,
+    spot_change: float,
+    realised_vol: float,
+    implied_vol: float,
+    dt: float,
+    spot: float = 100.0,
+) -> dict:
+    """Separate gamma P&L into realised vs implied components.
+
+    Gamma P&L = 0.5 × Γ × S² × (σ²_realised - σ²_implied) × dt
+
+    Positive when realised > implied (gamma is profitable).
+
+    Args:
+        delta: portfolio delta.
+        gamma: portfolio gamma (per unit spot).
+        spot_change: ΔS over period.
+        realised_vol: annualised realised volatility.
+        implied_vol: annualised implied volatility.
+        dt: time period (years).
+        spot: spot level.
+    """
+    gamma_realised = 0.5 * gamma * spot**2 * realised_vol**2 * dt
+    gamma_implied = 0.5 * gamma * spot**2 * implied_vol**2 * dt
+    gamma_pnl = gamma_realised - gamma_implied
+
+    # Delta P&L for reference
+    delta_pnl = delta * spot_change
+    # Gamma P&L from actual move
+    gamma_actual = 0.5 * gamma * spot_change**2
+
+    return {
+        "delta_pnl": delta_pnl,
+        "gamma_actual": gamma_actual,
+        "gamma_realised": gamma_realised,
+        "gamma_implied": gamma_implied,
+        "gamma_pnl": gamma_pnl,
+        "total_greeks_pnl": delta_pnl + gamma_actual,
+    }

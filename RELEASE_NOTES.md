@@ -2,6 +2,33 @@
 
 ---
 
+## v0.688.0 — 2026-05-31
+
+**Model reserves framework: parameter uncertainty, reserves, P&L attribution, model selection.**
+
+- New `risk/parameter_uncertainty.py`:
+  - `ParameterBand` — confidence interval for calibrated parameter.
+  - `calibration_uncertainty()` — bootstrap CI from market data.
+  - `sensitivity_ladder()` — PV impact at band edges, sorted by magnitude.
+  - `joint_parameter_surface()` — 2D PV surface over two parameter bands.
+- New `risk/model_reserve.py`:
+  - `compute_model_reserve()` — worst-case or quadrature (√Σ) reserve from bands.
+  - `reserve_by_risk_factor()` — per-parameter reserve breakdown.
+  - `model_risk_reserve_ava()` — EBA-compatible AVA format.
+- New `risk/model_selection.py`:
+  - `ModelCandidate` — model with pricer, weight, AIC/BIC.
+  - `model_committee_price()` — weighted average + dispersion + uncertainty reserve.
+  - `bayesian_model_average()` — posterior weights from AIC/BIC.
+  - `model_risk_matrix()` — price all models under all scenarios.
+- Extended `risk/pnl_explain.py`:
+  - `surface_pnl()` — ATM/skew/smile/term structure P&L decomposition.
+  - `gamma_pnl_decompose()` — realised vs implied gamma, net gamma P&L.
+  - `NonLinearPnLResult` dataclass.
+- 21 new tests.
+- 10,403 tests pass.
+
+---
+
 ## v0.687.0 — 2026-05-31
 
 **Recovery extras: heterogeneous specs, seniority waterfall, bid-ask surface.**
