@@ -2,6 +2,25 @@
 
 ---
 
+## v0.687.0 — 2026-05-31
+
+**Recovery extras: heterogeneous specs, seniority waterfall, bid-ask surface.**
+
+- New in `credit/recovery_pricing.py`:
+  - `build_recovery_specs(seniorities)` — from Moody's table per-name.
+  - `validate_recovery_specs(specs, n_names)` — length check.
+  - `recovery_spec_summary(specs)` — portfolio-level stats.
+  - `SeniorityWaterfall` — capital structure priority distribution.
+    - `distribute(total_recovery)` — senior gets first, sub gets remainder.
+    - `recovery_rates(total_pct)` — per-tranche recovery rates.
+    - `to_recovery_specs()` — waterfall-consistent RecoverySpec list.
+  - `implied_recovery(spread, hazard)` — R = 1 - s/h.
+  - `recovery_bid_ask_surface()` — term structure of implied recovery with bid-ask.
+- 17 new tests.
+- 10,382 tests pass.
+
+---
+
 ## v0.686.0 — 2026-05-31
 
 **OU exact step + MC convergence diagnostics.**

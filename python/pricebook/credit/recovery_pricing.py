@@ -320,3 +320,203 @@ def correlated_default_recovery_via_engine(
     inherently single-step and doesn't benefit from SDE path generation.
     """
     return correlated_default_recovery(pd, recovery_spec, n_sims, seed)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Per-name heterogeneous RecoverySpec utilities
+# ═══════════════════════════════════════════════════════════════
+
+
+def build_recovery_specs(
+    seniorities: list[str],
+    correlation: float = -0.3,
+) -> list[RecoverySpec]:
+    """Build a list of RecoverySpec from seniority levels.
+
+    Args:
+        seniorities: per-name seniority (e.g. ["1L", "senior", "sub"]).
+        correlation: default-recovery correlation (same for all names).
+
+    Returns:
+        List of RecoverySpec, one per name.
+    """
+    return [RecoverySpec.from_seniority(s, correlation) for s in seniorities]
+
+
+def validate_recovery_specs(
+    specs: list[RecoverySpec],
+    n_names: int,
+) -> None:
+    """Validate that recovery specs match portfolio size.
+
+    Raises ValueError if lengths don't match.
+    """
+    if len(specs) != n_names:
+        raise ValueError(f"Expected {n_names} RecoverySpec, got {len(specs)}")
+
+
+def recovery_spec_summary(specs: list[RecoverySpec]) -> dict:
+    """Portfolio-level summary of recovery specifications.
+
+    Returns dict with weighted average recovery, LGD, and per-seniority counts.
+    """
+    if not specs:
+        return {"n_names": 0, "avg_recovery": 0.0, "avg_lgd": 0.0}
+
+    avg_r = sum(s.mean for s in specs) / len(specs)
+    avg_lgd = 1 - avg_r
+    min_r = min(s.mean for s in specs)
+    max_r = max(s.mean for s in specs)
+    avg_corr = sum(s.correlation_to_default for s in specs) / len(specs)
+
+    return {
+        "n_names": len(specs),
+        "avg_recovery": avg_r,
+        "avg_lgd": avg_lgd,
+        "min_recovery": min_r,
+        "max_recovery": max_r,
+        "avg_correlation": avg_corr,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Seniority waterfall
+# ═══════════════════════════════════════════════════════════════
+
+
+@dataclass
+class SeniorityWaterfall:
+    """Capital structure waterfall for recovery distribution.
+
+    Distributes total recovery amount across tranches in priority order:
+    senior_secured → senior → mezzanine → subordinated → equity.
+
+    Args:
+        tranches: list of (seniority_name, notional) in priority order.
+    """
+    tranches: list[tuple[str, float]]
+
+    def distribute(self, total_recovery: float) -> dict[str, float]:
+        """Distribute total recovery amount across tranches.
+
+        Higher-priority tranches absorb recovery first (waterfall).
+
+        Args:
+            total_recovery: total recovery amount (in currency).
+
+        Returns:
+            {seniority: recovery_amount} per tranche.
+        """
+        remaining = total_recovery
+        result = {}
+        for name, notional in self.tranches:
+            absorbed = min(remaining, notional)
+            result[name] = absorbed
+            remaining -= absorbed
+        return result
+
+    def recovery_rates(self, total_recovery_pct: float) -> dict[str, float]:
+        """Per-tranche recovery rates given total asset recovery %.
+
+        Args:
+            total_recovery_pct: total recovery as fraction of total notional (0 to 1).
+
+        Returns:
+            {seniority: recovery_rate} per tranche (0 to 1).
+        """
+        total_notional = sum(n for _, n in self.tranches)
+        total_amount = total_recovery_pct * total_notional
+        dist = self.distribute(total_amount)
+        return {name: dist[name] / notional if notional > 0 else 0.0
+                for name, notional in self.tranches}
+
+    def to_recovery_specs(
+        self,
+        total_recovery_mean: float = 0.45,
+        total_recovery_std: float = 0.20,
+        correlation: float = -0.3,
+    ) -> list[RecoverySpec]:
+        """Generate per-tranche RecoverySpec consistent with waterfall.
+
+        Uses the mean recovery rate per tranche from the waterfall
+        with the given total recovery distribution.
+        """
+        rates = self.recovery_rates(total_recovery_mean)
+        return [RecoverySpec(mean=max(0.01, min(0.99, rates[name])),
+                             std=total_recovery_std * 0.5,  # tranche vol < total
+                             correlation_to_default=correlation)
+                for name, _ in self.tranches]
+
+    def to_dict(self) -> dict:
+        return {"tranches": [(n, v) for n, v in self.tranches]}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Recovery bid-ask surface (CDS-implied)
+# ═══════════════════════════════════════════════════════════════
+
+
+@dataclass
+class RecoveryBidAsk:
+    """Recovery bid-ask for a single tenor."""
+    tenor: float
+    bid: float      # lower recovery estimate
+    ask: float      # upper recovery estimate
+    mid: float      # mid-market recovery
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def implied_recovery(
+    cds_spread: float,
+    hazard_rate: float,
+) -> float:
+    """Back out implied recovery from CDS spread and hazard rate.
+
+    From: spread ≈ (1-R) × h
+    Solve: R = 1 - spread/h
+
+    Args:
+        cds_spread: CDS par spread (decimal, e.g. 0.01 = 100bp).
+        hazard_rate: default intensity (continuous).
+
+    Returns:
+        Implied recovery rate.
+    """
+    if hazard_rate <= 1e-10:
+        return 0.4  # default assumption
+    r = 1 - cds_spread / hazard_rate
+    return max(0.0, min(1.0, r))
+
+
+def recovery_bid_ask_surface(
+    spreads_by_tenor: dict[float, float],
+    hazards_by_tenor: dict[float, float],
+    spread_width_bp: float = 5.0,
+) -> list[RecoveryBidAsk]:
+    """Build term structure of implied recovery with bid-ask.
+
+    Args:
+        spreads_by_tenor: {tenor_years: cds_spread}.
+        hazards_by_tenor: {tenor_years: hazard_rate}.
+        spread_width_bp: bid-ask spread width in bp (default 5bp).
+
+    Returns:
+        List of RecoveryBidAsk, one per tenor.
+    """
+    half_width = spread_width_bp / 10_000 / 2
+
+    results = []
+    for tenor in sorted(spreads_by_tenor.keys()):
+        s = spreads_by_tenor[tenor]
+        h = hazards_by_tenor.get(tenor, 0.02)
+
+        mid = implied_recovery(s, h)
+        # Wider spread → lower recovery (bid), tighter → higher (ask)
+        bid = implied_recovery(s + half_width, h)
+        ask = implied_recovery(s - half_width, h)
+
+        results.append(RecoveryBidAsk(tenor, bid, ask, mid))
+
+    return results
