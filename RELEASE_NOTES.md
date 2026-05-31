@@ -2,6 +2,19 @@
 
 ---
 
+## v0.676.0 — 2026-05-31
+
+**Fix non-reproducible MC paths in Merton, Bates, and Variance Gamma processes.**
+
+- `JumpDiffusionProcess`, `BatesProcess`, `VarianceGammaProcess` now accept `seed` parameter.
+- Replaced global `np.random.poisson()`/`np.random.randn()`/`np.random.gamma()` with closure-captured `np.random.default_rng(seed)`.
+- Same seed → identical paths guaranteed. Different seeds → different paths.
+- Backward compatible: `seed=None` uses unseeded RNG (old behavior).
+- 7 new tests verifying reproducibility.
+- 10,281 tests pass.
+
+---
+
 ## v0.675.0 — 2026-05-31
 
 **Deep fixes for remaining known limitations.**

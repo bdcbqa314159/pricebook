@@ -143,25 +143,27 @@ def JumpDiffusionProcess(
     jump_intensity: float,
     jump_mean: float,
     jump_vol: float,
+    seed: int | None = None,
 ) -> ProcessSpec:
     """Merton jump-diffusion: dS/S = (μ-λk) dt + σ dW + J dN.
 
     J ~ N(jump_mean, jump_vol²), N ~ Poisson(λ).
     k = E[e^J - 1] = exp(jump_mean + jump_vol²/2) - 1.
+
+    Args:
+        seed: RNG seed for jump sampling (reproducibility).
     """
     k = np.exp(jump_mean + 0.5 * jump_vol ** 2) - 1
     drift_adj = mu - jump_intensity * k
+    jump_rng = np.random.default_rng(seed)
 
     def exact_step(x, t, dt, dw):
         # Diffusion part (log-space)
         new_x = x + (drift_adj - 0.5 * sigma ** 2) * dt + sigma * dw
 
-        # Jump part: sample number of jumps, then jump sizes
-        # Note: dw is from the engine's RNG; we need a separate source for jumps.
-        # For simplicity, use a deterministic approximation:
-        # average jump contribution per step
-        n_jumps = np.random.poisson(jump_intensity * dt, size=x.shape)
-        jump_sizes = n_jumps * jump_mean + np.sqrt(n_jumps.astype(float)) * jump_vol * np.random.randn(*x.shape)
+        # Jump part: seeded RNG for reproducibility
+        n_jumps = jump_rng.poisson(jump_intensity * dt, size=x.shape)
+        jump_sizes = n_jumps * jump_mean + np.sqrt(n_jumps.astype(float)) * jump_vol * jump_rng.standard_normal(x.shape)
         new_x += jump_sizes
 
         return new_x
@@ -510,6 +512,7 @@ def BatesProcess(
     jump_intensity: float,
     jump_mean: float,
     jump_vol: float,
+    seed: int | None = None,
 ) -> ProcessSpec:
     """Bates model: Heston stochastic vol + Merton jumps.
 
@@ -528,12 +531,14 @@ def BatesProcess(
         jump_intensity: Poisson intensity λ.
         jump_mean: log-jump mean.
         jump_vol: log-jump volatility.
+        seed: RNG seed for jump sampling (reproducibility).
 
     References:
         Bates (1996). Jumps and Stochastic Volatility. RFS.
     """
     k = np.exp(jump_mean + 0.5 * jump_vol ** 2) - 1
     drift_adj = mu - jump_intensity * k
+    jump_rng = np.random.default_rng(seed)
 
     def exact_step(x, t, dt, dw):
         log_s = x[..., 0]
@@ -543,9 +548,9 @@ def BatesProcess(
         # Diffusion
         new_log_s = log_s + (drift_adj - 0.5 * v) * dt + sqrt_v * dw[..., 0]
 
-        # Jumps (Poisson)
-        n_jumps = np.random.poisson(jump_intensity * dt, size=log_s.shape)
-        jump_sizes = n_jumps * jump_mean + np.sqrt(n_jumps.astype(float)) * jump_vol * np.random.randn(*log_s.shape)
+        # Jumps (seeded RNG)
+        n_jumps = jump_rng.poisson(jump_intensity * dt, size=log_s.shape)
+        jump_sizes = n_jumps * jump_mean + np.sqrt(n_jumps.astype(float)) * jump_vol * jump_rng.standard_normal(log_s.shape)
         new_log_s += jump_sizes
 
         # Variance
@@ -577,6 +582,7 @@ def VarianceGammaProcess(
     sigma: float,
     nu: float,
     theta_vg: float,
+    seed: int | None = None,
 ) -> ProcessSpec:
     """Variance Gamma: Brownian motion with gamma time change.
 
@@ -589,19 +595,21 @@ def VarianceGammaProcess(
         sigma: diffusion vol.
         nu: variance rate of gamma subordinator.
         theta_vg: drift of subordinated BM (skewness).
+        seed: RNG seed for gamma/normal sampling (reproducibility).
 
     References:
         Madan, Carr, Chang (1998). The Variance Gamma Process. EJOR.
     """
     omega = -np.log(max(1 - theta_vg * nu - 0.5 * sigma ** 2 * nu, 1e-10)) / max(nu, 1e-10) if nu > 0 else 0.0
+    vg_rng = np.random.default_rng(seed)
 
     def exact_step(x, t, dt, dw):
         # Gamma time increment: G ~ Gamma(dt/nu, nu)
         shape = max(dt / max(nu, 1e-10), 1e-10)
-        g = np.random.gamma(shape, max(nu, 1e-10), size=x.shape)
+        g = vg_rng.gamma(shape, max(nu, 1e-10), size=x.shape)
         g = np.maximum(g, 1e-15)
         # Subordinated BM increment
-        vg_increment = theta_vg * g + sigma * np.sqrt(g) * np.random.randn(*x.shape)
+        vg_increment = theta_vg * g + sigma * np.sqrt(g) * vg_rng.standard_normal(x.shape)
         return x + (mu + omega) * dt + vg_increment
 
     return ProcessSpec(
