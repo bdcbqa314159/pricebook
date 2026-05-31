@@ -84,20 +84,21 @@ def ftd_spread(
     seed: int = 42,
     recovery_specs=None,
     frequency: int = 4,
+    copula=None,
 ) -> float:
     """First-to-default basket spread via MC simulation.
 
-    Thin wrapper around ntd_spread with n=1.
-
     Args:
-        recovery_specs: optional list of RecoverySpec (one per name) for
-            stochastic correlated recovery. Overrides flat recovery.
+        recovery_specs: optional list of RecoverySpec for stochastic recovery.
         frequency: time steps per year (1=annual, 4=quarterly, 12=monthly).
+        copula: optional Copula instance (from statistics/copulas.py).
+            When provided, uses this copula instead of Gaussian.
     """
     return ntd_spread(
         survival_curves, discount_curve, rho, T,
         n=1, recovery=recovery, n_sims=n_sims, seed=seed,
         recovery_specs=recovery_specs, frequency=frequency,
+        copula=copula,
     )
 
 
@@ -112,30 +113,41 @@ def ntd_spread(
     seed: int = 42,
     recovery_specs=None,
     frequency: int = 4,
+    copula=None,
 ) -> float:
     """Nth-to-default basket spread.
 
     Args:
         n: trigger on the Nth default (1 = FTD).
-        recovery_specs: optional list of RecoverySpec (one per name) for
-            stochastic correlated recovery. When provided, recovery is
-            sampled per-name per-path using the systematic factor M.
-            Overrides the flat recovery parameter.
+        recovery_specs: optional list of RecoverySpec for stochastic recovery.
         frequency: time steps per year (1=annual, 4=quarterly, 12=monthly).
+        copula: optional Copula instance. When provided, uses this copula
+            for default correlation instead of Gaussian. Supports Student-t,
+            Clayton, Frank, Gumbel from statistics/copulas.py.
     """
     # Simulate defaults at multiple time points
     ref = survival_curves[0].reference_date
     n_periods = max(1, int(T * frequency))
     annual_times = [min(i / frequency, T) for i in range(1, n_periods + 1)]
 
-    # Simulate at each annual time point
     n_names = len(survival_curves)
     rng = np.random.default_rng(seed)
-    M = rng.standard_normal(n_sims)
-    eps = rng.standard_normal((n_sims, n_names))
-    sqrt_rho = math.sqrt(max(rho, 0.0))
-    sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
-    Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+
+    if copula is not None:
+        # Use provided copula for correlation structure
+        # Copula generates uniform marginals; we convert to default indicators per period
+        U = copula.sample(n_sims, n_names, rng)
+        # Convert uniforms to correlated normals for threshold comparison
+        Z = norm.ppf(np.clip(U, 1e-10, 1 - 1e-10))
+        # Extract systematic factor for recovery correlation (if Gaussian copula)
+        M = Z.mean(axis=1) / max(math.sqrt(rho), 0.01)  # approximate M
+    else:
+        # Default: one-factor Gaussian copula
+        M = rng.standard_normal(n_sims)
+        eps = rng.standard_normal((n_sims, n_names))
+        sqrt_rho = math.sqrt(max(rho, 0.0))
+        sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
+        Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
 
     # For each time point, check if nth default has occurred
     ntd_by_time = []

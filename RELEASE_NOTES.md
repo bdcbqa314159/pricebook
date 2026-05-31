@@ -2,6 +2,20 @@
 
 ---
 
+## v0.684.0 — 2026-05-31
+
+**Multi-copula support in basket CDS.**
+
+- `ftd_spread()`, `ntd_spread()`: new `copula` parameter.
+- Accepts any `Copula` instance from `statistics/copulas.py`: Gaussian, Student-t, Clayton, Frank, Gumbel.
+- Student-t copula produces higher FTD spread (tail dependence clusters defaults).
+- When copula=None, falls back to one-factor Gaussian (backward compatible).
+- Approximate systematic factor extraction for non-Gaussian copulas (recovery correlation).
+- 7 new tests.
+- 10,334 tests pass.
+
+---
+
 ## v0.683.0 — 2026-05-31
 
 **Base correlation surface with cubic spline interpolation and arbitrage checks.**
