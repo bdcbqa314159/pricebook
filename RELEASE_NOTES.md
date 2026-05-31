@@ -2,6 +2,19 @@
 
 ---
 
+## v0.682.0 — 2026-05-31
+
+**Configurable time discretization in basket CDS (quarterly default).**
+
+- `ftd_spread()`, `ntd_spread()`: new `frequency` parameter (1=annual, 4=quarterly, 12=monthly).
+- Default changed from annual (frequency=1) to quarterly (frequency=4).
+- More time points → finer survival/default assessment.
+- Convergence: monthly ≈ quarterly (verified).
+- 5 new tests.
+- 10,327 tests pass.
+
+---
+
 ## v0.681.0 — 2026-05-31
 
 **MC portfolio loss distribution with stochastic recovery for CDO.**

@@ -83,6 +83,7 @@ def ftd_spread(
     n_sims: int = 50_000,
     seed: int = 42,
     recovery_specs=None,
+    frequency: int = 4,
 ) -> float:
     """First-to-default basket spread via MC simulation.
 
@@ -91,11 +92,12 @@ def ftd_spread(
     Args:
         recovery_specs: optional list of RecoverySpec (one per name) for
             stochastic correlated recovery. Overrides flat recovery.
+        frequency: time steps per year (1=annual, 4=quarterly, 12=monthly).
     """
     return ntd_spread(
         survival_curves, discount_curve, rho, T,
         n=1, recovery=recovery, n_sims=n_sims, seed=seed,
-        recovery_specs=recovery_specs,
+        recovery_specs=recovery_specs, frequency=frequency,
     )
 
 
@@ -109,6 +111,7 @@ def ntd_spread(
     n_sims: int = 50_000,
     seed: int = 42,
     recovery_specs=None,
+    frequency: int = 4,
 ) -> float:
     """Nth-to-default basket spread.
 
@@ -118,11 +121,12 @@ def ntd_spread(
             stochastic correlated recovery. When provided, recovery is
             sampled per-name per-path using the systematic factor M.
             Overrides the flat recovery parameter.
+        frequency: time steps per year (1=annual, 4=quarterly, 12=monthly).
     """
-    # Simulate defaults at multiple time points for proper timing
+    # Simulate defaults at multiple time points
     ref = survival_curves[0].reference_date
-    n_years = max(1, int(T))
-    annual_times = [min(yr, T) for yr in range(1, n_years + 1)]
+    n_periods = max(1, int(T * frequency))
+    annual_times = [min(i / frequency, T) for i in range(1, n_periods + 1)]
 
     # Simulate at each annual time point
     n_names = len(survival_curves)
