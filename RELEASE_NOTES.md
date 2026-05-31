@@ -2,6 +2,28 @@
 
 ---
 
+## v0.692.0 — 2026-06-01
+
+**Yield curve bootstrapping from bond prices alone.**
+
+- New `curves/bond_curve.py`:
+  - `BondQuote` — bond observation (maturity, coupon, dirty price, weight, on-the-run flag).
+  - `bootstrap_curve_from_bonds()` — unified entry point with 4 methods:
+    - `"sequential"` — exact fit, one bond per pillar (like CDS bootstrap but for DFs).
+    - `"global"` — least-squares, robust to noise, supports n_pillars < n_bonds.
+    - `"nelson_siegel"` — 4-parameter smooth curve fitted directly to bond prices (not zero rates).
+    - `"svensson"` — 6-parameter smooth curve (captures humps better than NS).
+    - `"auto"` — sequential if ≤8 distinct maturities, else global.
+  - On-the-run bonds get 2× weight in global/parametric fits.
+  - Zero-coupon bonds (T-Bills): exact DF extraction.
+  - NS long-end converges to β₀. Svensson fits at least as well as NS.
+  - Cross-method: 5Y zero rate consistent within 200bp across all methods.
+- `BondCurveResult` with discount_curve, pillar zeros, fitted prices, RMSE, parameters.
+- 22 new tests.
+- 10,444 tests pass.
+
+---
+
 ## v0.691.0 — 2026-06-01
 
 **FRN hazard bootstrapping, mixed fixed+float, and liquid/illiquid regime handling.**
