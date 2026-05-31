@@ -78,6 +78,17 @@ class GaussianCopula(Copula):
         Z = math.sqrt(self.rho) * M[:, np.newaxis] + math.sqrt(1 - self.rho) * eps
         return norm.cdf(Z)
 
+    def sample_with_factor(self, n: int, d: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+        """Sample uniform marginals and return the systematic factor M.
+
+        Returns:
+            (U, M) where U is (n, d) uniform marginals and M is (n,) systematic factor.
+        """
+        M = rng.standard_normal(n)
+        eps = rng.standard_normal((n, d))
+        Z = math.sqrt(self.rho) * M[:, np.newaxis] + math.sqrt(1 - self.rho) * eps
+        return norm.cdf(Z), M
+
 
 # ---- Student-t copula ----
 
@@ -235,13 +246,42 @@ def copula_default_simulation(
     lgd: float = 0.6,
     n_sims: int = 50_000,
     seed: int | None = None,
+    recovery_specs=None,
 ) -> CopulaDefaultResult:
-    """Simulate portfolio defaults under a copula model."""
-    defaults = copula.default_indicators(marginal_pds, n_sims, seed)
-    n_names = len(marginal_pds)
+    """Simulate portfolio defaults under a copula model.
 
-    n_defaults = defaults.sum(axis=1)
-    losses = n_defaults * lgd / n_names  # loss as fraction of portfolio
+    Args:
+        recovery_specs: optional list of RecoverySpec (one per name).
+            When provided, per-name stochastic recovery is sampled.
+            For GaussianCopula, recovery is correlated to systematic
+            factor M. For other copulas, unconditional sampling.
+    """
+    n_names = len(marginal_pds)
+    rng = np.random.default_rng(seed)
+
+    # Get defaults and (optionally) systematic factor
+    systematic_factor = None
+    if hasattr(copula, 'sample_with_factor') and recovery_specs is not None:
+        U, systematic_factor = copula.sample_with_factor(n_sims, n_names, rng)
+        thresholds = np.array(marginal_pds)
+        defaults = U < thresholds[np.newaxis, :]
+    else:
+        defaults = copula.default_indicators(marginal_pds, n_sims, seed)
+
+    if recovery_specs is not None:
+        # Per-name stochastic recovery
+        lgd_matrix = np.zeros((n_sims, n_names))
+        for j in range(n_names):
+            R_j = recovery_specs[j].sample(
+                n_sims,
+                systematic_factor=systematic_factor,
+                seed=(seed or 0) + j + 1,
+            )
+            lgd_matrix[:, j] = 1 - R_j
+        losses = (defaults * lgd_matrix).sum(axis=1) / n_names
+    else:
+        n_defaults = defaults.sum(axis=1)
+        losses = n_defaults * lgd / n_names
 
     # Estimate pairwise default correlation
     if n_names >= 2:
@@ -255,7 +295,7 @@ def copula_default_simulation(
 
     return CopulaDefaultResult(
         float(defaults.any(axis=1).mean()),
-        float(n_defaults.mean()),
+        float(defaults.sum(axis=1).mean()),
         losses,
         corr,
     )
@@ -282,14 +322,17 @@ def tranche_pricing_copula(
     rate: float = 0.05,
     n_sims: int = 100_000,
     seed: int | None = None,
+    recovery_specs=None,
 ) -> TranchePricingResult:
     """Price a CDO tranche under any copula model.
 
     Args:
         attach: attachment point (e.g. 0.03 for 3%).
         detach: detachment point (e.g. 0.07 for 7%).
+        recovery_specs: optional list of RecoverySpec for stochastic recovery.
     """
-    result = copula_default_simulation(copula, marginal_pds, lgd, n_sims, seed)
+    result = copula_default_simulation(copula, marginal_pds, lgd, n_sims, seed,
+                                        recovery_specs=recovery_specs)
 
     # Tranche loss: max(min(portfolio_loss, detach) - attach, 0) / (detach - attach)
     thickness = detach - attach

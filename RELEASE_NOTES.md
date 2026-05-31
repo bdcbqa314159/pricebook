@@ -2,6 +2,19 @@
 
 ---
 
+## v0.680.0 — 2026-05-31
+
+**Per-name stochastic recovery in copula default simulation.**
+
+- `copula_default_simulation()`, `tranche_pricing_copula()`: new `recovery_specs` parameter.
+- `GaussianCopula.sample_with_factor()`: returns (U, M) — uniform marginals + systematic factor.
+- For Gaussian copula: recovery correlated to M. For non-Gaussian (Clayton, Gumbel, Frank): unconditional recovery.
+- Heterogeneous seniority: mix senior + subordinated recovery in same portfolio.
+- 8 new tests.
+- 10,314 tests pass.
+
+---
+
 ## v0.679.0 — 2026-05-31
 
 **Stochastic correlated recovery in CDO tranche pricing.**
