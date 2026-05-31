@@ -2,6 +2,21 @@
 
 ---
 
+## v0.685.0 — 2026-05-31
+
+**Heterogeneous portfolios: per-name notional and LGD in bespoke tranches.**
+
+- `bespoke_tranche()`: new `notionals` and `lgds` parameters.
+- `notionals`: per-name portfolio weights (default: equal weight).
+- `lgds`: per-name loss given default (overrides uniform `lgd`).
+- Concentrated portfolio: name with 5x weight dominates loss.
+- Uniform notionals/lgds reproduce current flat behavior exactly.
+- Works with `recovery_specs` for full per-name stochastic recovery.
+- 6 new tests.
+- 10,352 tests pass.
+
+---
+
 ## v0.684.0 — 2026-05-31
 
 **Multi-copula support in basket CDS.**

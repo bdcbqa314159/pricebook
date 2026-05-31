@@ -335,24 +335,23 @@ def bespoke_tranche(
     n_sims: int = 50_000,
     seed: int | None = 42,
     recovery_specs=None,
+    notionals: list[float] | None = None,
+    lgds: list[float] | None = None,
 ) -> BespokeTrancheResult:
     """Bespoke tranche: custom [attach, detach] on a bespoke credit portfolio.
 
     Uses one-factor Gaussian copula to simulate correlated defaults.
     Each name has its own marginal PD; correlation is flat.
 
-    Tranche loss = max(0, min(portfolio_loss - attach, detach - attach))
-                   / (detach - attach)
-
     Args:
-        marginal_pds: list of marginal default probabilities (one per name).
+        marginal_pds: per-name default probabilities.
         attach: attachment point (e.g. 0.03 for 3%).
         detach: detachment point (e.g. 0.07 for 7%).
         rho: flat pairwise correlation.
-        lgd: loss given default (uniform across names).
-        recovery_specs: optional list of RecoverySpec (one per name).
-            When provided, per-name stochastic recovery is sampled
-            correlated to the systematic factor M. Overrides flat lgd.
+        lgd: uniform loss given default (used when lgds/recovery_specs not provided).
+        recovery_specs: optional list of RecoverySpec for stochastic recovery.
+        notionals: optional per-name notionals (default: equal weight).
+        lgds: optional per-name LGDs (overrides uniform lgd but not recovery_specs).
     """
     if attach >= detach:
         raise ValueError(f"attach ({attach}) must be < detach ({detach})")
@@ -376,16 +375,21 @@ def bespoke_tranche(
     Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
     defaults = Z < thresholds[np.newaxis, :]  # (n_sims, n_names)
 
-    # Portfolio loss fraction
+    # Portfolio loss fraction — supports per-name notionals and LGDs
+    weights = np.array(notionals) if notionals is not None else np.ones(n_names)
+    total_notional = weights.sum()
+
     if recovery_specs is not None:
-        # Per-name stochastic recovery correlated to systematic factor M
         lgd_matrix = np.zeros((n_sims, n_names))
         for j in range(n_names):
             R_j = recovery_specs[j].sample(n_sims, systematic_factor=M, seed=(seed or 0) + j + 1)
             lgd_matrix[:, j] = 1 - R_j
-        portfolio_loss = (defaults * lgd_matrix).sum(axis=1) / n_names
+        portfolio_loss = (defaults * lgd_matrix * weights[np.newaxis, :]).sum(axis=1) / total_notional
+    elif lgds is not None:
+        lgd_arr = np.array(lgds)
+        portfolio_loss = (defaults * lgd_arr[np.newaxis, :] * weights[np.newaxis, :]).sum(axis=1) / total_notional
     else:
-        portfolio_loss = defaults.sum(axis=1) * lgd / n_names
+        portfolio_loss = (defaults * weights[np.newaxis, :]).sum(axis=1) * lgd / total_notional
     portfolio_el = float(portfolio_loss.mean())
 
     # Tranche loss
