@@ -2,6 +2,21 @@
 
 ---
 
+## v0.663.0 — 2026-05-31
+
+**Unified inflation unit framework (UDI/UF/UVR/CER).**
+
+- New `fixed_income/inflation_unit.py`:
+  - `InflationUnit` — frozen dataclass for daily inflation units (name, currency, publisher, conventions).
+  - `InflationUnitBond` — generic bond denominated in any inflation unit, dual real/nominal pricing.
+  - `dual_curve_breakeven()` — BEI from any pair of nominal + real curves.
+  - `compare_units()` — cross-country comparison table.
+  - Registry: UDI (MXN), UF (CLP), UVR (COP), CER (ARS).
+- 15 new tests: registry lookups, pricing for all 4 units, par bond, BEI, zero BEI.
+- 10,147 tests pass.
+
+---
+
 ## v0.662.0 — 2026-05-31
 
 **Americas Phase 4-6: Peru, Argentina, Canada — full fixed income stack.**
