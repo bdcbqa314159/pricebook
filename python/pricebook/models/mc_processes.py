@@ -105,6 +105,7 @@ def OUProcess(x0: float, kappa: float, theta: float, sigma: float) -> ProcessSpe
     """Ornstein-Uhlenbeck: dX = κ(θ-X) dt + σ dW.
 
     Mean-reverting process for rates, spreads, vol.
+    Exact transition: X(t+dt) = X(t)e^{-κdt} + θ(1-e^{-κdt}) + σ√((1-e^{-2κdt})/(2κ))·Z.
     """
     def drift(x, t):
         return kappa * (theta - x)
@@ -112,7 +113,18 @@ def OUProcess(x0: float, kappa: float, theta: float, sigma: float) -> ProcessSpe
     def diffusion(x, t):
         return sigma * np.ones_like(x)
 
-    return ProcessSpec(x0=x0, drift=drift, diffusion=diffusion, n_factors=1)
+    def exact_step(x, t, dt, dw):
+        exp_kdt = np.exp(-kappa * dt)
+        mean = x * exp_kdt + theta * (1 - exp_kdt)
+        if kappa > 1e-10:
+            std = sigma * np.sqrt((1 - np.exp(-2 * kappa * dt)) / (2 * kappa))
+        else:
+            std = sigma * np.sqrt(dt)
+        # dw is Z * sqrt(dt) from engine; divide by sqrt(dt) to recover Z
+        return mean + std * dw / np.sqrt(dt) if dt > 0 else x
+
+    return ProcessSpec(x0=x0, drift=drift, diffusion=diffusion, n_factors=1,
+                       exact_step=exact_step)
 
 
 def CIRProcess(x0: float, kappa: float, theta: float, sigma: float) -> ProcessSpec:

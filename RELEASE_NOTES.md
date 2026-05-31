@@ -2,6 +2,21 @@
 
 ---
 
+## v0.686.0 — 2026-05-31
+
+**OU exact step + MC convergence diagnostics.**
+
+- `OUProcess`: exact Gaussian transition (was Euler). Mean reversion to θ, stationary variance σ²/(2κ) verified.
+- New `models/mc_diagnostics.py`:
+  - `batch_means()` — robust SE estimation via inter-batch variance.
+  - `effective_sample_size()` — autocorrelation-adjusted ESS via FFT.
+  - `convergence_table()` — running mean/SE at checkpoints.
+  - ESS = N for iid, ESS < N for AR(1) verified.
+- 13 new tests.
+- 10,365 tests pass.
+
+---
+
 ## v0.685.0 — 2026-05-31
 
 **Heterogeneous portfolios: per-name notional and LGD in bespoke tranches.**
