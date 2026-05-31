@@ -75,14 +75,18 @@ def expected_tranche_loss(
     recovery: float = 0.4,
     n_sims: int = 50_000,
     seed: int = 42,
+    recovery_specs=None,
 ) -> float:
     """Expected tranche loss via Gaussian copula MC.
 
     L_tranche = clip(L_portfolio - a, 0, d-a) / (d-a)
 
-    Args rho must be in [0, 1].
-
     where L_portfolio = (n_defaults / N) × (1-R).
+
+    Args:
+        recovery_specs: optional list of RecoverySpec (one per name).
+            When provided, per-name stochastic recovery is sampled
+            correlated to the systematic factor M. Overrides flat recovery.
     """
     width = detachment - attachment
     if width <= 0:
@@ -107,8 +111,17 @@ def expected_tranche_loss(
         for sc in survival_curves
     ])
     defaults = Z < thresholds[np.newaxis, :]
-    n_defaults = defaults.sum(axis=1).astype(float)
-    portfolio_loss = n_defaults / n_names * (1.0 - recovery)
+
+    if recovery_specs is not None:
+        # Per-name stochastic recovery correlated to systematic factor M
+        lgd_matrix = np.zeros((n_sims, n_names))
+        for j in range(n_names):
+            R_j = recovery_specs[j].sample(n_sims, systematic_factor=M, seed=seed + j + 1)
+            lgd_matrix[:, j] = 1 - R_j
+        portfolio_loss = (defaults * lgd_matrix).sum(axis=1) / n_names
+    else:
+        n_defaults = defaults.sum(axis=1).astype(float)
+        portfolio_loss = n_defaults / n_names * (1.0 - recovery)
 
     tranche_loss = np.clip(portfolio_loss - attachment, 0.0, width) / width
     return float(tranche_loss.mean())
@@ -167,8 +180,13 @@ class TrancheCDS:
         correlation: float = 0.3,
         n_sims: int = 50_000,
         seed: int = 42,
+        recovery_specs=None,
     ) -> TrancheResult:
-        """Price the tranche via Gaussian copula MC."""
+        """Price the tranche via Gaussian copula MC.
+
+        Args:
+            recovery_specs: optional list of RecoverySpec (one per name).
+        """
         ref = discount_curve.reference_date
         T = year_fraction(ref, self.maturity, DayCountConvention.ACT_365_FIXED)
         df = discount_curve.df(self.maturity)
@@ -176,6 +194,7 @@ class TrancheCDS:
         el = expected_tranche_loss(
             self.attachment, self.detachment, survival_curves,
             discount_curve, correlation, T, self.recovery, n_sims, seed,
+            recovery_specs=recovery_specs,
         )
 
         # Protection leg: (1 - EL_start) → EL_end transition
@@ -382,6 +401,7 @@ def expected_tranche_loss_t(
     recovery: float = 0.4,
     n_sims: int = 50_000,
     seed: int = 42,
+    recovery_specs=None,
 ) -> float:
     """Expected tranche loss via Student-t copula MC.
 
@@ -392,6 +412,7 @@ def expected_tranche_loss_t(
 
     Args:
         nu: degrees of freedom (lower = fatter tails).
+        recovery_specs: optional list of RecoverySpec for stochastic recovery.
     """
     from scipy.stats import t as t_dist
 
@@ -406,24 +427,31 @@ def expected_tranche_loss_t(
     sqrt_rho = math.sqrt(max(rho, 0.0))
     sqrt_1_rho = math.sqrt(max(1.0 - rho, 0.0))
 
-    # t-distributed systematic and idiosyncratic factors
-    # Chi-squared mixing variable (clamped for stability)
     chi2 = np.maximum(rng.chisquare(nu, n_sims), 0.01)
-    W = np.sqrt(nu / chi2)  # mixing variable
+    W = np.sqrt(nu / chi2)
 
-    M = rng.standard_normal(n_sims) * W
+    M_normal = rng.standard_normal(n_sims)
+    M = M_normal * W
     eps = rng.standard_normal((n_sims, n_names)) * W[:, np.newaxis]
     Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
 
     T_date = ref + timedelta(days=int(T * 365))
-    # Use t-distribution CDF for thresholds
     thresholds = np.array([
         t_dist.ppf(max(1.0 - sc.survival(T_date), 1e-15), nu)
         for sc in survival_curves
     ])
     defaults = Z < thresholds[np.newaxis, :]
-    n_defaults = defaults.sum(axis=1).astype(float)
-    portfolio_loss = n_defaults / n_names * (1.0 - recovery)
+
+    if recovery_specs is not None:
+        # Use the underlying normal M for recovery correlation
+        lgd_matrix = np.zeros((n_sims, n_names))
+        for j in range(n_names):
+            R_j = recovery_specs[j].sample(n_sims, systematic_factor=M_normal, seed=seed + j + 1)
+            lgd_matrix[:, j] = 1 - R_j
+        portfolio_loss = (defaults * lgd_matrix).sum(axis=1) / n_names
+    else:
+        n_defaults = defaults.sum(axis=1).astype(float)
+        portfolio_loss = n_defaults / n_names * (1.0 - recovery)
 
     tranche_loss = np.clip(portfolio_loss - attachment, 0.0, width) / width
     return float(tranche_loss.mean())

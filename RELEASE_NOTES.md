@@ -2,6 +2,20 @@
 
 ---
 
+## v0.679.0 — 2026-05-31
+
+**Stochastic correlated recovery in CDO tranche pricing.**
+
+- `expected_tranche_loss()`, `expected_tranche_loss_t()`, `TrancheCDS.price()`: new optional `recovery_specs` parameter.
+- Per-name stochastic recovery sampled correlated to systematic factor M.
+- Student-t copula: uses underlying normal M for recovery correlation (not t-scaled).
+- Wrong-way risk verified: equity tranche EL increases; senior tranche less affected.
+- Fixed RecoverySpec reproduces flat recovery. Backward compatible.
+- 6 new tests.
+- 10,306 tests pass.
+
+---
+
 ## v0.678.0 — 2026-05-31
 
 **Stochastic correlated recovery in basket CDS (FTD/NTD/bespoke).**
