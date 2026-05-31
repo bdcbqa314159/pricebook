@@ -158,5 +158,25 @@
     "float_frequency": 3,
     "interpolation": "log_linear",
     "calendar_currency": "IDR"
+  },
+  {
+    "currency": "PEN",
+    "deposit_day_count": "ACT/360",
+    "fixed_day_count": "ACT/360",
+    "float_day_count": "ACT/360",
+    "fixed_frequency": 3,
+    "float_frequency": 3,
+    "interpolation": "log_linear",
+    "calendar_currency": "PEN"
+  },
+  {
+    "currency": "ARS",
+    "deposit_day_count": "ACT/365F",
+    "fixed_day_count": "ACT/365F",
+    "float_day_count": "ACT/365F",
+    "fixed_frequency": 1,
+    "float_frequency": 1,
+    "interpolation": "log_linear",
+    "calendar_currency": "ARS"
   }
 ]

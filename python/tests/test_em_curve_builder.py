@@ -40,7 +40,7 @@ class TestConventions:
 
     def test_list_count(self):
         currencies = list_em_curve_currencies()
-        assert len(currencies) == 16
+        assert len(currencies) == 18
 
     def test_unknown_raises(self):
         with pytest.raises(ValueError, match="No EM curve"):

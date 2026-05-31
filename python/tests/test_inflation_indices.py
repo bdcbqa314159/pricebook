@@ -125,7 +125,7 @@ class TestIndexLookup:
 class TestRegistryAPI:
     def test_list_count(self):
         indices = list_inflation_indices()
-        assert len(indices) == 16
+        assert len(indices) == 18
 
     def test_list_sorted(self):
         indices = list_inflation_indices()
@@ -154,7 +154,7 @@ class TestRegistryAPI:
         """UDI, UF, UVR are daily."""
         daily = daily_indices()
         names = {i.name for i in daily}
-        assert names == {"UDI", "UF", "UVR"}
+        assert names == {"UDI", "UF", "UVR", "CER"}
 
     def test_no_floor_for_europe(self):
         """European linkers (OATi, BTPi) have no deflation floor."""

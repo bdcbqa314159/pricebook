@@ -172,6 +172,26 @@ _reg(InflationIndexDef(
     linker_frequency=Frequency.ANNUAL,
     notes="UVR updated daily (BanRep). Used by TES UVR."))
 
+# --- Peru ---
+_reg(InflationIndexDef(
+    "IPC_PE", "Peru CPI (Lima Metropolitana)", "PEN", "Peru",
+    publication_lag_months=1, publication_frequency="monthly",
+    interpolation=IndexInterpolation.LINEAR,
+    deflation_floor=False, base_year=2009,
+    linker_day_count=DayCountConvention.ACT_365_FIXED,
+    linker_frequency=Frequency.SEMI_ANNUAL,
+    notes="Used by VAC bonds (Valor Adquisitivo Constante)."))
+
+# --- Argentina ---
+_reg(InflationIndexDef(
+    "CER", "Argentina CER (Coeficiente de Estabilización de Referencia)", "ARS", "Argentina",
+    publication_lag_months=1, publication_frequency="daily",
+    interpolation=IndexInterpolation.DAILY,
+    deflation_floor=False, base_year=2002,
+    linker_day_count=DayCountConvention.ACT_365_FIXED,
+    linker_frequency=Frequency.SEMI_ANNUAL,
+    notes="CER: daily inflation coefficient (BCRA). Used by Lecer, Boncer."))
+
 # --- South Africa ---
 _reg(InflationIndexDef(
     "CPI_ZA", "South Africa CPI (All Urban)", "ZAR", "South Africa",

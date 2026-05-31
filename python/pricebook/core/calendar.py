@@ -895,6 +895,51 @@ class BogotaCalendar(Calendar):
         return d + timedelta(days=(7 - d.weekday()))
 
 
+class LimaCalendar(Calendar):
+    """Peruvian banking calendar (Lima / PEN)."""
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))      # New Year's
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=3))  # Maundy Thursday
+        holidays.add(easter - timedelta(days=2))  # Good Friday
+        holidays.add(date(year, 5, 1))      # Labour Day
+        holidays.add(date(year, 6, 29))     # St Peter & St Paul
+        holidays.add(date(year, 7, 28))     # Independence Day
+        holidays.add(date(year, 7, 29))     # Independence Day
+        holidays.add(date(year, 8, 30))     # Santa Rosa de Lima
+        holidays.add(date(year, 10, 8))     # Battle of Angamos
+        holidays.add(date(year, 11, 1))     # All Saints'
+        holidays.add(date(year, 12, 8))     # Immaculate Conception
+        holidays.add(date(year, 12, 25))    # Christmas
+        return holidays
+
+
+class BuenosAiresCalendar(Calendar):
+    """Argentine banking calendar (Buenos Aires / ARS)."""
+
+    def _compute_holidays(self, year: int) -> set[date]:
+        holidays = set()
+        holidays.add(date(year, 1, 1))      # New Year's
+        easter = TARGETCalendar._easter(year)
+        holidays.add(easter - timedelta(days=48))  # Carnival Monday
+        holidays.add(easter - timedelta(days=47))  # Carnival Tuesday
+        holidays.add(easter - timedelta(days=2))   # Good Friday
+        holidays.add(date(year, 3, 24))     # Day of Remembrance
+        holidays.add(date(year, 4, 2))      # Malvinas Day
+        holidays.add(date(year, 5, 1))      # Labour Day
+        holidays.add(date(year, 5, 25))     # May Revolution
+        holidays.add(date(year, 6, 20))     # Flag Day
+        holidays.add(date(year, 7, 9))      # Independence Day
+        holidays.add(date(year, 8, 17))     # San Martín Day
+        holidays.add(date(year, 10, 12))    # Respect for Cultural Diversity
+        holidays.add(date(year, 11, 20))    # National Sovereignty Day
+        holidays.add(date(year, 12, 8))     # Immaculate Conception
+        holidays.add(date(year, 12, 25))    # Christmas
+        return holidays
+
+
 # ═══════════════════════════════════════════════════════════════
 # EM Calendars — Asia
 # ═══════════════════════════════════════════════════════════════
@@ -1231,6 +1276,8 @@ _CALENDAR_REGISTRY: dict[str, type[Calendar]] = {
     "MXN": MexicoCityCalendar,
     "CLP": SantiagoCalendar,
     "COP": BogotaCalendar,
+    "PEN": LimaCalendar,
+    "ARS": BuenosAiresCalendar,
     # Asia
     "CNY": BeijingCalendar,
     "KRW": SeoulCalendar,

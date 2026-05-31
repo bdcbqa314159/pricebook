@@ -158,6 +158,18 @@ _reg(EMCurveConventions(
     DayCountConvention.ACT_365_FIXED, Frequency.QUARTERLY, Frequency.QUARTERLY,
     InterpolationMethod.LOG_LINEAR, "IDR"))
 
+# Peru — TIPM swaps
+_reg(EMCurveConventions(
+    "PEN", DayCountConvention.ACT_360, DayCountConvention.ACT_360,
+    DayCountConvention.ACT_360, Frequency.QUARTERLY, Frequency.QUARTERLY,
+    InterpolationMethod.LOG_LINEAR, "PEN"))
+
+# Argentina — BADLAR/policy rate
+_reg(EMCurveConventions(
+    "ARS", DayCountConvention.ACT_365_FIXED, DayCountConvention.ACT_365_FIXED,
+    DayCountConvention.ACT_365_FIXED, Frequency.MONTHLY, Frequency.MONTHLY,
+    InterpolationMethod.LOG_LINEAR, "ARS"))
+
 
 # ═══════════════════════════════════════════════════════════════
 # Load from JSON if available

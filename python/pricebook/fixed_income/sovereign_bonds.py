@@ -321,6 +321,21 @@ _reg(SovereignConventions(
     Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, 2, "COP",
     notes="TES (Títulos de Tesorería). Annual coupon."))
 
+_reg(SovereignConventions(
+    "BTP_PE", "Peru", "PEN",
+    Frequency.SEMI_ANNUAL, DayCountConvention.ACT_365_FIXED, 2, "PEN",
+    notes="Bonos del Tesoro Público. Peruvian sovereign."))
+
+_reg(SovereignConventions(
+    "BONAR", "Argentina", "ARS",
+    Frequency.SEMI_ANNUAL, DayCountConvention.ACT_365_FIXED, 2, "ARS",
+    notes="Bonares. ARS-denominated Argentine sovereign."))
+
+_reg(SovereignConventions(
+    "GLOBAL_AR", "Argentina", "USD",
+    Frequency.SEMI_ANNUAL, DayCountConvention.ACT_ACT_ICMA, 2, "USD",
+    notes="Argentine Globales. USD-denominated sovereign (NY law)."))
+
 # --- Asia (9) ---
 
 _reg(SovereignConventions(
@@ -507,7 +522,8 @@ def markets_by_region() -> dict[str, list[str]]:
         "cee": ["POLGB", "CZGB", "HGB", "ROMGB"],
         "turkey_mena": ["TURKGB", "SAGB_SA", "ADGB", "QATGB", "ILGB", "EGGB"],
         "africa": ["SAGB", "NGGB", "KEGB"],
-        "latam": ["NTN_F", "NTN_B", "LTN", "LFT", "MBONO", "CETES", "BTP_CL", "TES"],
+        "latam": ["NTN_F", "NTN_B", "LTN", "LFT", "MBONO", "CETES", "BTP_CL", "TES",
+                  "BTP_PE", "BONAR", "GLOBAL_AR"],
         "asia": ["CGB", "KTB", "GSEC", "SGS", "HKGB", "INDOGB", "MGS", "THAIGB", "RPGB"],
     }
     return regions

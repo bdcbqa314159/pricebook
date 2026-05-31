@@ -73,7 +73,7 @@ class TestCalendarRegistry:
 
     def test_registry_count(self):
         codes = list_calendars()
-        assert len(codes) == 35
+        assert len(codes) == 37
 
 
 # ═══════════════════════════════════════════════════════════════

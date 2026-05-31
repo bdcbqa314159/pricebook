@@ -100,7 +100,7 @@ class TestConventionLookup:
 class TestMarketEnumeration:
     def test_list_markets_count(self):
         markets = list_markets()
-        assert len(markets) == 57  # 50 coupon + 3 T-Bill + 3 FRN + 1 LFT
+        assert len(markets) == 60  # 50 coupon + 3 T-Bill + 3 FRN + 1 LFT + 3 Americas
 
     def test_list_markets_sorted(self):
         markets = list_markets()
@@ -111,7 +111,7 @@ class TestMarketEnumeration:
         all_codes = []
         for codes in regions.values():
             all_codes.extend(codes)
-        assert len(all_codes) == 57  # includes LFT
+        assert len(all_codes) == 60  # includes LFT + 3 Americas
         assert set(all_codes) == set(list_markets())
 
     def test_g10_core(self):

@@ -25,7 +25,7 @@
     "base_year": 2015,
     "linker_day_count": "ACT/ACT ICMA",
     "linker_frequency": 12,
-    "notes": "Used by OAT€i, BTP€i, Bund€i. No deflation floor (unlike TIPS)."
+    "notes": "Used by OAT\u20aci, BTP\u20aci, Bund\u20aci. No deflation floor (unlike TIPS)."
   },
   {
     "name": "RPI",
@@ -99,7 +99,7 @@
   },
   {
     "name": "IPCA",
-    "description": "IPCA (Índice Nacional de Preços ao Consumidor Amplo)",
+    "description": "IPCA (\u00cdndice Nacional de Pre\u00e7os ao Consumidor Amplo)",
     "currency": "BRL",
     "country": "Brazil",
     "publication_lag_months": 1,
@@ -113,7 +113,7 @@
   },
   {
     "name": "UDI",
-    "description": "UDI (Unidades de Inversión)",
+    "description": "UDI (Unidades de Inversi\u00f3n)",
     "currency": "MXN",
     "country": "Mexico",
     "publication_lag_months": 0,
@@ -222,5 +222,33 @@
     "linker_day_count": "ACT/ACT ICMA",
     "linker_frequency": 6,
     "notes": "Used by KTBi (Korea inflation-linked bonds)."
+  },
+  {
+    "name": "IPC_PE",
+    "description": "Peru CPI (Lima Metropolitana)",
+    "currency": "PEN",
+    "country": "Peru",
+    "publication_lag_months": 1,
+    "publication_frequency": "monthly",
+    "interpolation": "linear",
+    "deflation_floor": false,
+    "base_year": 2009,
+    "linker_day_count": "ACT/365F",
+    "linker_frequency": 6,
+    "notes": "Used by VAC bonds (Valor Adquisitivo Constante)."
+  },
+  {
+    "name": "CER",
+    "description": "Argentina CER (Coeficiente de Estabilizaci\u00f3n de Referencia)",
+    "currency": "ARS",
+    "country": "Argentina",
+    "publication_lag_months": 1,
+    "publication_frequency": "daily",
+    "interpolation": "daily",
+    "deflation_floor": false,
+    "base_year": 2002,
+    "linker_day_count": "ACT/365F",
+    "linker_frequency": 6,
+    "notes": "CER: daily inflation coefficient (BCRA). Used by Lecer, Boncer."
   }
 ]

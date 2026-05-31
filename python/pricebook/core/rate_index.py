@@ -283,6 +283,24 @@ TPM = _register(RateIndex(
     administrator="BCCh",
 ))
 
+TIPM = _register(RateIndex(
+    name="TIPM", currency="PEN",
+    day_count=DayCountConvention.ACT_360,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=True,
+    administrator="BCRP",
+))
+
+BADLAR = _register(RateIndex(
+    name="BADLAR", currency="ARS",
+    day_count=DayCountConvention.ACT_365_FIXED,
+    fixing_lag=0, compounding=CompoundingMethod.COMPOUNDED,
+    observation_shift=0, payment_delay=0,
+    tenor_months=None, is_overnight=False,
+    administrator="BCRA",
+))
+
 # Load from JSON if available
 from pricebook.core.data_registry import load_registry as _load_reg
 _REGISTRY = _load_reg("rate_indices.json", RateIndex, lambda r: r.name, _REGISTRY)

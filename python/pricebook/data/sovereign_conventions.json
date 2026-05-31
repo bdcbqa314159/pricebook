@@ -81,7 +81,7 @@
     "calendar_currency": "EUR",
     "ex_div_days": 0,
     "is_zero_coupon": false,
-    "notes": "Obligations Assimilables du Trésor."
+    "notes": "Obligations Assimilables du Tr\u00e9sor."
   },
   {
     "market_code": "BTP",
@@ -525,7 +525,7 @@
     "calendar_currency": "MXN",
     "ex_div_days": 0,
     "is_zero_coupon": false,
-    "notes": "MBONOs. ACT/360 — unusual for a government bond!"
+    "notes": "MBONOs. ACT/360 \u2014 unusual for a government bond!"
   },
   {
     "market_code": "CETES",
@@ -561,7 +561,7 @@
     "calendar_currency": "COP",
     "ex_div_days": 0,
     "is_zero_coupon": false,
-    "notes": "TES (Títulos de Tesorería). Annual coupon."
+    "notes": "TES (T\u00edtulos de Tesorer\u00eda). Annual coupon."
   },
   {
     "market_code": "CGB",
@@ -597,7 +597,7 @@
     "calendar_currency": "INR",
     "ex_div_days": 0,
     "is_zero_coupon": false,
-    "notes": "Indian Government Securities. 30/360 — unusual for sovereign."
+    "notes": "Indian Government Securities. 30/360 \u2014 unusual for sovereign."
   },
   {
     "market_code": "SGS",
@@ -682,5 +682,41 @@
     "ex_div_days": 0,
     "is_zero_coupon": false,
     "notes": "LFT (CDI-linked floating). Face accrues at CDI daily. Trades at spread over CDI."
+  },
+  {
+    "market_code": "BTP_PE",
+    "country": "Peru",
+    "currency": "PEN",
+    "frequency": 6,
+    "day_count": "ACT/365F",
+    "settlement_days": 2,
+    "calendar_currency": "PEN",
+    "ex_div_days": 0,
+    "is_zero_coupon": false,
+    "notes": "Bonos del Tesoro P\u00fablico. Peruvian sovereign."
+  },
+  {
+    "market_code": "BONAR",
+    "country": "Argentina",
+    "currency": "ARS",
+    "frequency": 6,
+    "day_count": "ACT/365F",
+    "settlement_days": 2,
+    "calendar_currency": "ARS",
+    "ex_div_days": 0,
+    "is_zero_coupon": false,
+    "notes": "Bonares. ARS-denominated Argentine sovereign."
+  },
+  {
+    "market_code": "GLOBAL_AR",
+    "country": "Argentina",
+    "currency": "USD",
+    "frequency": 6,
+    "day_count": "ACT/ACT ICMA",
+    "settlement_days": 2,
+    "calendar_currency": "USD",
+    "ex_div_days": 0,
+    "is_zero_coupon": false,
+    "notes": "Argentine Globales. USD-denominated sovereign (NY law)."
   }
 ]

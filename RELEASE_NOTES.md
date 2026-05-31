@@ -2,6 +2,34 @@
 
 ---
 
+## v0.662.0 — 2026-05-31
+
+**Americas Phase 4-6: Peru, Argentina, Canada — full fixed income stack.**
+
+- New `fixed_income/peruvian.py`:
+  - `BTPPeru` — Peruvian sovereign bond (ACT/365F, semi-annual).
+  - `VACBond` — inflation-linked bond (IPC-adjusted, real/nominal pricing).
+  - `build_pen_curve()`, `synthetic_pen_strip()` — PEN discount curve.
+- New `fixed_income/argentine.py`:
+  - `LecapBond` — zero-coupon capitalisation bond (handles 40%+ rates).
+  - `LecerBond` — CER-linked inflation bond (daily accrual).
+  - `BONARBond` — ARS-denominated sovereign (semi-annual coupon).
+  - `build_ars_curve()`, `synthetic_ars_strip()` — ARS discount curve.
+- New `fixed_income/canadian.py`:
+  - `CORRASwap` — CORRA overnight swap (par rate, DV01).
+  - `RRBBond` — Real Return Bond (CPI-linked, deflation floor).
+  - `build_corra_curve()`, `synthetic_corra_strip()` — CORRA discount curve.
+- Infrastructure:
+  - `LimaCalendar`, `BuenosAiresCalendar` in `core/calendar.py`.
+  - TIPM (PEN), BADLAR (ARS) rate indices in `rate_indices.json`.
+  - BTP_PE, BONAR, GLOBAL_AR sovereign conventions in `sovereign_conventions.json`.
+  - IPC_PE (Peru), CER (Argentina) inflation indices in `inflation_indices.json`.
+  - PEN, ARS EM curve conventions in `curve_conventions_em.json`.
+- 20 new tests in `test_americas.py` (Colombia, Peru, Argentina, Canada).
+- 10,132 tests pass.
+
+---
+
 ## v0.661.0 — 2026-05-30
 
 **Chile (CLP) derivatives: Cámara swap, BCP, BCU (UF-linked), breakeven inflation.**
