@@ -2,6 +2,24 @@
 
 ---
 
+## v0.666.0 — 2026-05-31
+
+**NIG and CGMY Lévy processes with characteristic functions.**
+
+- New `models/levy_processes.py`:
+  - `NIGProcess(alpha, beta, delta)` — Normal Inverse Gaussian with char_func + MC terminal.
+  - `CGMYProcess(C, G, M, Y)` — tempered stable Lévy process, generalises VG.
+  - `nig_char_func()`, `cgmy_char_func()` — standalone risk-neutral CFs.
+  - Both support complex u input (FFT-compatible).
+  - NIG: inverse Gaussian subordinator simulation, exact RN drift correction.
+  - CGMY: Y→0 limit handled separately (recovers VG char func).
+- COS pricing verified: NIG vs MC within 5%, CGMY produces reasonable prices.
+- Cross-model: both produce heavier tails than Black-Scholes (higher OTM put prices).
+- 25 new tests.
+- 10,190 tests pass.
+
+---
+
 ## v0.665.0 — 2026-05-31
 
 **Characteristic function protocol + standalone factories for Kou, Bates/SVJ.**
