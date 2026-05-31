@@ -2,6 +2,24 @@
 
 ---
 
+## v0.673.0 — 2026-05-31
+
+**Dividend surface + joint vol-dividend calibration.**
+
+- New `equity/dividend_surface.py`:
+  - `DividendSurface` — tenors × yield levels × yield vols × spot correlation.
+  - `build_dividend_surface()` — from futures + optional dividend options.
+  - `simulate_dividend_surface()` — correlated spot + OU dividend yield MC paths.
+- New `equity/joint_calibration.py`:
+  - `joint_calibrate()` — simultaneous vol + dividend yield fitting.
+  - Models: "bsm+continuous" (flat vol + q), "term+continuous" (piecewise σ + q).
+  - `decompose_forward_error()` — attribute mispricing to vol vs dividend assumptions.
+  - Round-trip: recovers σ and q within 1% on synthetic data.
+- 11 new tests.
+- 10,272 tests pass.
+
+---
+
 ## v0.672.0 — 2026-05-31
 
 **American option early exercise around ex-dividend dates.**
