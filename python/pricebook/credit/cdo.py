@@ -217,11 +217,12 @@ def portfolio_loss_distribution_mc(
         n_defaults = defaults.sum(axis=1)
         portfolio_loss = n_defaults * lgd / n_names
 
-    # Histogram
+    # Histogram — return PMF (probability mass) to match analytical version
     max_loss = max(float(portfolio_loss.max()), lgd + 0.01)
     bins = np.linspace(0, max_loss, n_bins + 1)
     counts, _ = np.histogram(portfolio_loss, bins=bins)
-    density = counts.astype(float) / (n_sims * (bins[1] - bins[0]))
+    # Normalise to probability mass (each bin = probability of loss in that range)
+    density = counts.astype(float) / n_sims
 
     loss_grid = 0.5 * (bins[:-1] + bins[1:])
     return loss_grid, density

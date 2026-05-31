@@ -135,12 +135,15 @@ def ntd_spread(
 
     if copula is not None:
         # Use provided copula for correlation structure
-        # Copula generates uniform marginals; we convert to default indicators per period
-        U = copula.sample(n_sims, n_names, rng)
+        if hasattr(copula, 'sample_with_factor') and recovery_specs is not None:
+            # Gaussian copula: extract systematic factor for recovery correlation
+            U, M = copula.sample_with_factor(n_sims, n_names, rng)
+        else:
+            # Non-Gaussian: no systematic factor available
+            U = copula.sample(n_sims, n_names, rng)
+            M = rng.standard_normal(n_sims)  # uncorrelated fallback for recovery
         # Convert uniforms to correlated normals for threshold comparison
         Z = norm.ppf(np.clip(U, 1e-10, 1 - 1e-10))
-        # Extract systematic factor for recovery correlation (if Gaussian copula)
-        M = Z.mean(axis=1) / max(math.sqrt(rho), 0.01)  # approximate M
     else:
         # Default: one-factor Gaussian copula
         M = rng.standard_normal(n_sims)

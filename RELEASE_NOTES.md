@@ -2,6 +2,19 @@
 
 ---
 
+## v0.689.0 — 2026-05-31
+
+**Code review fixes: CDO PMF, barrier bridge, copula M factor, dt guard, BMA default.**
+
+- **CDO MC**: fixed PDF/PMF mismatch — `portfolio_loss_distribution_mc` now returns PMF (probability mass) consistent with analytical Vasicek. `tranche_expected_loss_mc` now produces correct results.
+- **Barrier bridge**: fixed bridge_min formula for down-and-out/down-and-in — now uses correct conditional probability `P(min < b) = exp(-2(s0-b)(s1-b)/(σ²dt))` instead of incorrect `s0 + s1 - max` approximation.
+- **Non-Gaussian copula**: systematic factor M now uses `sample_with_factor()` for Gaussian copula (correct), and independent fallback for non-Gaussian (honest about limitation, was previously using meaningless Z.mean approximation).
+- **OU exact step**: added `dt < 1e-14` guard to prevent `dw/sqrt(dt)` numerical instability.
+- **BMA**: None AIC/BIC now gets mean IC of other models (was 0.0, which gave infinite weight).
+- 10,403 tests pass.
+
+---
+
 ## v0.688.0 — 2026-05-31
 
 **Model reserves framework: parameter uncertainty, reserves, P&L attribution, model selection.**

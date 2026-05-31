@@ -21,8 +21,8 @@ class TestPortfolioLossDistributionMC:
 
         loss_grid_mc, density_mc = portfolio_loss_distribution_mc(
             pd, rho, lgd=lgd, n_names=200, n_sims=200_000, seed=42)
-        dx = loss_grid_mc[1] - loss_grid_mc[0]
-        el_mc = float((loss_grid_mc * density_mc).sum() * dx)
+        # density is PMF (sums to ~1), so EL = sum(loss * pmf)
+        el_mc = float((loss_grid_mc * density_mc).sum())
 
         assert el_mc == pytest.approx(el_analytical, rel=0.20)
 
@@ -54,11 +54,11 @@ class TestPortfolioLossDistributionMC:
             0.02, 0.3, recovery_spec=spec, seed=42)
         assert np.all(density >= 0)
 
-    def test_density_integrates_near_one(self):
+    def test_density_sums_near_one(self):
+        """PMF should sum to ~1."""
         loss_grid, density = portfolio_loss_distribution_mc(
             0.02, 0.3, lgd=0.6, n_sims=50_000, seed=42)
-        dx = loss_grid[1] - loss_grid[0]
-        total = density.sum() * dx
+        total = density.sum()
         assert total == pytest.approx(1.0, abs=0.05)
 
 

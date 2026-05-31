@@ -104,8 +104,14 @@ def bayesian_model_average(
     for c in candidates:
         ic = c.bic if use_bic else c.aic
         if ic is None:
-            ic = 0.0  # neutral weight
+            # No IC available — assign equal weight by using the mean IC of others
+            ic = float("inf")  # will get near-zero weight; overridden below
         ic_values.append(ic)
+
+    # Replace inf entries with mean of finite values (equal prior)
+    finite_ics = [v for v in ic_values if math.isfinite(v)]
+    mean_ic = sum(finite_ics) / len(finite_ics) if finite_ics else 0.0
+    ic_values = [v if math.isfinite(v) else mean_ic for v in ic_values]
 
     # Shift for numerical stability
     ic_min = min(ic_values)

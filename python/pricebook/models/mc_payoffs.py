@@ -12,6 +12,7 @@ into MCEngine.price().
 
 from __future__ import annotations
 
+import math
 from typing import Callable
 
 import numpy as np
@@ -140,16 +141,27 @@ def barrier_knockout(
 
             for step in range(n_steps_plus_1 - 1):
                 dt = times[step + 1] - times[step]
+                if dt < 1e-14:
+                    continue
                 for i in range(n_paths):
                     if not alive[i]:
                         continue
                     s0, s1 = spots[i, step], spots[i, step + 1]
-                    bridge_max = brownian_bridge_max(s0, s1, dt, vol * s0, rng)
-                    bridge_min = s0 + s1 - brownian_bridge_max(s0, s1, dt, vol * s0, rng)
-                    if barrier_type == "up-and-out" and bridge_max >= barrier:
-                        alive[i] = False
-                    elif barrier_type == "down-and-out" and bridge_min <= barrier:
-                        alive[i] = False
+                    local_sigma = vol * s0
+                    if barrier_type == "up-and-out":
+                        bridge_max = brownian_bridge_max(s0, s1, dt, local_sigma, rng)
+                        if bridge_max >= barrier:
+                            alive[i] = False
+                    elif barrier_type == "down-and-out":
+                        # P(min < b | s0, s1) = exp(-2(s0-b)(s1-b)/(σ²dt))
+                        # if both s0, s1 > barrier
+                        if s0 <= barrier or s1 <= barrier:
+                            alive[i] = False
+                        elif local_sigma > 0 and dt > 0:
+                            p_cross = math.exp(-2 * (s0 - barrier) * (s1 - barrier)
+                                                / (local_sigma**2 * dt))
+                            if rng.random() < p_cross:
+                                alive[i] = False
 
         terminal = spots[:, -1]
         return np.where(alive, np.maximum(terminal - strike, 0.0), 0.0)
@@ -198,16 +210,25 @@ def barrier_knockin(
 
             for step in range(n_steps_plus_1 - 1):
                 dt = times[step + 1] - times[step]
+                if dt < 1e-14:
+                    continue
                 for i in range(n_paths):
                     if triggered[i]:
                         continue
                     s0, s1 = spots[i, step], spots[i, step + 1]
-                    bridge_max = brownian_bridge_max(s0, s1, dt, vol * s0, rng)
-                    bridge_min = s0 + s1 - brownian_bridge_max(s0, s1, dt, vol * s0, rng)
-                    if barrier_type == "up-and-in" and bridge_max >= barrier:
-                        triggered[i] = True
-                    elif barrier_type == "down-and-in" and bridge_min <= barrier:
-                        triggered[i] = True
+                    local_sigma = vol * s0
+                    if barrier_type == "up-and-in":
+                        bridge_max = brownian_bridge_max(s0, s1, dt, local_sigma, rng)
+                        if bridge_max >= barrier:
+                            triggered[i] = True
+                    elif barrier_type == "down-and-in":
+                        if s0 <= barrier or s1 <= barrier:
+                            triggered[i] = True
+                        elif local_sigma > 0 and dt > 0:
+                            p_cross = math.exp(-2 * (s0 - barrier) * (s1 - barrier)
+                                                / (local_sigma**2 * dt))
+                            if rng.random() < p_cross:
+                                triggered[i] = True
 
         terminal = spots[:, -1]
         return np.where(triggered, np.maximum(terminal - strike, 0.0), 0.0)

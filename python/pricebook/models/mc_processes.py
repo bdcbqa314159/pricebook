@@ -114,6 +114,8 @@ def OUProcess(x0: float, kappa: float, theta: float, sigma: float) -> ProcessSpe
         return sigma * np.ones_like(x)
 
     def exact_step(x, t, dt, dw):
+        if dt < 1e-14:
+            return x
         exp_kdt = np.exp(-kappa * dt)
         mean = x * exp_kdt + theta * (1 - exp_kdt)
         if kappa > 1e-10:
@@ -121,7 +123,7 @@ def OUProcess(x0: float, kappa: float, theta: float, sigma: float) -> ProcessSpe
         else:
             std = sigma * np.sqrt(dt)
         # dw is Z * sqrt(dt) from engine; divide by sqrt(dt) to recover Z
-        return mean + std * dw / np.sqrt(dt) if dt > 0 else x
+        return mean + std * dw / np.sqrt(dt)
 
     return ProcessSpec(x0=x0, drift=drift, diffusion=diffusion, n_factors=1,
                        exact_step=exact_step)
