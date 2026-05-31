@@ -50,7 +50,10 @@ class BondQuote:
         maturity: bond maturity date.
         coupon: annual coupon rate (e.g. 0.05 = 5%).
         dirty_price: observed dirty price per 100 face.
-        frequency: coupon payments per year (1, 2, or 4).
+        frequency: coupon payments per year (1, 2, 4, or 12).
+        day_count: accrual day count convention (default ACT/ACT ICMA).
+        settlement_days: T+N settlement.
+        calendar_ccy: currency code for BUS/252 calendar (e.g. "BRL").
         weight: fitting weight (lower for illiquid / off-the-run).
         is_on_the_run: True for benchmark bonds (higher weight in fitting).
     """
@@ -58,11 +61,49 @@ class BondQuote:
     coupon: float
     dirty_price: float
     frequency: int = 2
+    day_count: DayCountConvention = DayCountConvention.ACT_ACT_ICMA
+    settlement_days: int = 0
+    calendar_ccy: str | None = None
     weight: float = 1.0
     is_on_the_run: bool = False
 
     def to_dict(self) -> dict:
-        return {**vars(self), "maturity": self.maturity.isoformat()}
+        d = {**vars(self), "maturity": self.maturity.isoformat()}
+        d["day_count"] = self.day_count.value
+        return d
+
+    @classmethod
+    def from_sovereign(
+        cls,
+        market_code: str,
+        maturity: date,
+        coupon: float,
+        dirty_price: float,
+        weight: float = 1.0,
+        is_on_the_run: bool = False,
+    ) -> "BondQuote":
+        """Create BondQuote with correct conventions from sovereign market code.
+
+        Automatically sets frequency, day count, settlement from the sovereign
+        bond convention registry. Supports all 60 markets.
+
+            BondQuote.from_sovereign("UST",   mat, 0.045, 95.0)  # ACT/ACT ICMA, semi-annual, T+1
+            BondQuote.from_sovereign("BUND",  mat, 0.025, 98.0)  # ACT/ACT ICMA, annual, T+2
+            BondQuote.from_sovereign("JGB",   mat, 0.005, 99.5)  # ACT/365F, semi-annual, T+2
+            BondQuote.from_sovereign("NTN_F", mat, 0.10,  90.0)  # BUS/252, semi-annual, T+1
+            BondQuote.from_sovereign("MBONO", mat, 0.08,  95.0)  # ACT/360, semi-annual, T+2
+        """
+        from pricebook.fixed_income.sovereign_bonds import get_conventions
+        conv = get_conventions(market_code)
+        freq_months = conv.frequency.value
+        freq_int = 12 // freq_months if freq_months > 0 else 2
+        return cls(
+            maturity=maturity, coupon=coupon, dirty_price=dirty_price,
+            frequency=freq_int, day_count=conv.day_count,
+            settlement_days=conv.settlement_days,
+            calendar_ccy=conv.calendar_currency,
+            weight=weight, is_on_the_run=is_on_the_run,
+        )
 
 
 @dataclass
@@ -99,27 +140,49 @@ class BondCurveResult:
 
 def _price_bond(
     reference_date: date,
-    maturity: date,
-    coupon: float,
-    frequency: int,
+    quote: BondQuote,
     discount_curve: DiscountCurve,
 ) -> float:
-    """Price a risk-free coupon bond per 100 face.
+    """Price a risk-free coupon bond per 100 face using the quote's conventions.
 
-    PV = Σ (coupon × τ × df(t_i)) + 100 × df(T)
+    PV = Σ (coupon × τ(dc) × df(t_i)) + 100 × df(T)
+
+    Handles all day count conventions:
+    - ACT/ACT ICMA: passes coupon period boundaries and frequency.
+    - BUS/252: loads the appropriate calendar from calendar_ccy.
+    - ACT/360, ACT/365F, 30/360, 30E/360: straightforward.
     """
-    freq_map = {1: Frequency.ANNUAL, 2: Frequency.SEMI_ANNUAL, 4: Frequency.QUARTERLY}
-    freq = freq_map.get(frequency, Frequency.SEMI_ANNUAL)
-    schedule = generate_schedule(reference_date, maturity, freq)
-    dc = DayCountConvention.ACT_365_FIXED
+    freq_map = {1: Frequency.ANNUAL, 2: Frequency.SEMI_ANNUAL,
+                4: Frequency.QUARTERLY, 12: Frequency.MONTHLY}
+    freq = freq_map.get(quote.frequency, Frequency.SEMI_ANNUAL)
+    schedule = generate_schedule(reference_date, quote.maturity, freq)
+    dc = quote.day_count
+
+    # Calendar for BUS/252
+    cal = None
+    if dc == DayCountConvention.BUS_252 and quote.calendar_ccy:
+        from pricebook.core.calendar import get_calendar
+        cal = get_calendar(quote.calendar_ccy)
 
     pv = 0.0
     for i in range(1, len(schedule)):
-        tau = year_fraction(schedule[i - 1], schedule[i], dc)
-        df = discount_curve.df(schedule[i])
-        pv += coupon * tau * 100 * df
+        t_start = schedule[i - 1]
+        t_end = schedule[i]
 
-    pv += 100 * discount_curve.df(maturity)
+        # Year fraction with full convention support
+        if dc == DayCountConvention.ACT_ACT_ICMA:
+            tau = year_fraction(t_start, t_end, dc,
+                                ref_start=t_start, ref_end=t_end,
+                                frequency=quote.frequency)
+        elif dc == DayCountConvention.BUS_252:
+            tau = year_fraction(t_start, t_end, dc, calendar=cal)
+        else:
+            tau = year_fraction(t_start, t_end, dc)
+
+        df = discount_curve.df(t_end)
+        pv += quote.coupon * tau * 100 * df
+
+    pv += 100 * discount_curve.df(quote.maturity)
     return pv
 
 
@@ -145,37 +208,46 @@ def _bootstrap_sequential(
     pillar_dfs = []
 
     for q in sorted_quotes:
-        freq_map = {1: Frequency.ANNUAL, 2: Frequency.SEMI_ANNUAL, 4: Frequency.QUARTERLY}
+        freq_map = {1: Frequency.ANNUAL, 2: Frequency.SEMI_ANNUAL,
+                    4: Frequency.QUARTERLY, 12: Frequency.MONTHLY}
         freq = freq_map.get(q.frequency, Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(reference_date, q.maturity, freq)
-        dc = DayCountConvention.ACT_365_FIXED
+        dc = q.day_count
+
+        # Calendar for BUS/252
+        cal = None
+        if dc == DayCountConvention.BUS_252 and q.calendar_ccy:
+            from pricebook.core.calendar import get_calendar
+            cal = get_calendar(q.calendar_ccy)
+
+        def _tau(t_start, t_end):
+            if dc == DayCountConvention.ACT_ACT_ICMA:
+                return year_fraction(t_start, t_end, dc,
+                                      ref_start=t_start, ref_end=t_end,
+                                      frequency=q.frequency)
+            elif dc == DayCountConvention.BUS_252:
+                return year_fraction(t_start, t_end, dc, calendar=cal)
+            return year_fraction(t_start, t_end, dc)
 
         # PV of known cashflows (coupons before maturity, using already-known DFs)
         known_pv = 0.0
         for i in range(1, len(schedule)):
             t_end = schedule[i]
-            tau = year_fraction(schedule[i - 1], schedule[i], dc)
+            tau = _tau(schedule[i - 1], schedule[i])
             if t_end < q.maturity or (pillar_dates and t_end <= pillar_dates[-1]):
-                # Use already-bootstrapped curve for these cashflows
                 if pillar_dates:
                     trial_curve = DiscountCurve(reference_date, pillar_dates, pillar_dfs,
                                                  interpolation=interpolation)
                     df = trial_curve.df(t_end)
                 else:
-                    # No pillars yet — approximate with flat rate
-                    t_yf = year_fraction(reference_date, t_end, dc)
-                    df = 1.0  # will be refined
-                known_pv += coupon_cf(q.coupon, tau) * df
+                    df = 1.0
+                known_pv += q.coupon * tau * 100 * df
 
         # Remaining: coupon at maturity + principal, discounted at unknown df(T)
-        # P = known_pv + (coupon_at_mat + 100) × df(T)
-        # Solve: df(T) = (P - known_pv) / (coupon_at_mat + 100)
-        last_tau = year_fraction(schedule[-2], schedule[-1], dc) if len(schedule) > 1 else 1.0 / q.frequency
-        final_cf = q.coupon * last_tau * 100 + 100  # last coupon + principal
+        last_tau = _tau(schedule[-2], schedule[-1]) if len(schedule) > 1 else 1.0 / q.frequency
+        final_cf = q.coupon * last_tau * 100 + 100
         remaining = q.dirty_price - known_pv
         df_T = remaining / final_cf if final_cf > 0 else 0.5
-
-        # Clamp to valid range
         df_T = max(0.001, min(1.0, df_T))
 
         pillar_dates.append(q.maturity)
@@ -194,10 +266,6 @@ def _bootstrap_sequential(
         _rmse(residuals), _max_err(residuals), len(quotes),
         "sequential", True,
     )
-
-
-def coupon_cf(coupon_rate: float, tau: float) -> float:
-    return coupon_rate * tau * 100
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -237,8 +305,7 @@ def _bootstrap_global(
                                interpolation=interpolation)
         total = 0.0
         for q in quotes:
-            model_px = _price_bond(reference_date, q.maturity, q.coupon,
-                                    q.frequency, curve)
+            model_px = _price_bond(reference_date, q, curve)
             err = (model_px - q.dirty_price) / 100
             w = q.weight * (2.0 if q.is_on_the_run else 1.0)
             total += w * err**2
@@ -328,7 +395,7 @@ def _bootstrap_parametric(
             curve = _make_curve(params)
             total = 0.0
             for q in quotes:
-                mp = _price_bond(reference_date, q.maturity, q.coupon, q.frequency, curve)
+                mp = _price_bond(reference_date, q, curve)
                 err = (mp - q.dirty_price) / 100
                 w = q.weight * (2.0 if q.is_on_the_run else 1.0)
                 total += w * err**2
@@ -362,7 +429,7 @@ def _bootstrap_parametric(
             curve = _make_curve_sv(params)
             total = 0.0
             for q in quotes:
-                mp = _price_bond(reference_date, q.maturity, q.coupon, q.frequency, curve)
+                mp = _price_bond(reference_date, q, curve)
                 err = (mp - q.dirty_price) / 100
                 w = q.weight * (2.0 if q.is_on_the_run else 1.0)
                 total += w * err**2
@@ -464,7 +531,7 @@ def _compute_diagnostics(
     market = []
     residuals = []
     for q in quotes:
-        mp = _price_bond(reference_date, q.maturity, q.coupon, q.frequency, curve)
+        mp = _price_bond(reference_date, q, curve)
         fitted.append(mp)
         market.append(q.dirty_price)
         residuals.append((mp - q.dirty_price) * 100)  # bp of par

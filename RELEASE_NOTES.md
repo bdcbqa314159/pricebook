@@ -2,6 +2,28 @@
 
 ---
 
+## v0.693.0 — 2026-06-01
+
+**Market-accurate bond curve: per-bond day count convention + sovereign factory.**
+
+- `BondQuote` now supports `day_count`, `settlement_days`, `calendar_ccy` fields.
+- `BondQuote.from_sovereign(market_code, ...)` — auto-sets conventions from the 60-market sovereign registry:
+  - UST: ACT/ACT ICMA, semi-annual, T+1
+  - BUND: ACT/ACT ICMA, annual, T+2
+  - JGB: ACT/365F, semi-annual, T+2
+  - NTN_F: BUS/252, semi-annual, T+1 (loads BRL calendar)
+  - MBONO: ACT/360, semi-annual, T+2
+- `_price_bond()` rewritten: uses the bond's own day count for accrual fractions.
+  - ACT/ACT ICMA: passes coupon period boundaries + frequency.
+  - BUS/252: loads calendar from `calendar_ccy`.
+  - All other conventions: straightforward.
+- Sequential and global bootstrap both use per-bond conventions.
+- Verified: different day counts produce different implied zero rates.
+- 8 new tests (sovereign factories, multi-market curves, day count impact).
+- 10,452 tests pass.
+
+---
+
 ## v0.692.0 — 2026-06-01
 
 **Yield curve bootstrapping from bond prices alone.**

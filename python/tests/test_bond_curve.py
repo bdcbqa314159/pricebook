@@ -198,7 +198,70 @@ class TestBondQuote:
         d = q.to_dict()
         assert "maturity" in d
         assert d["coupon"] == 0.045
+        assert d["day_count"] == "ACT/ACT ICMA"
 
     def test_on_the_run(self):
         q = BondQuote(date(2029, 6, 1), 0.045, 97.0, is_on_the_run=True)
         assert q.is_on_the_run
+
+    def test_from_sovereign_ust(self):
+        q = BondQuote.from_sovereign("UST", date(2034, 6, 1), 0.045, 95.0)
+        assert q.frequency == 2  # semi-annual
+        assert q.day_count.value == "ACT/ACT ICMA"
+        assert q.settlement_days == 1
+
+    def test_from_sovereign_bund(self):
+        q = BondQuote.from_sovereign("BUND", date(2034, 6, 1), 0.025, 98.0)
+        assert q.frequency == 1  # annual
+        assert q.settlement_days == 2
+
+    def test_from_sovereign_jgb(self):
+        q = BondQuote.from_sovereign("JGB", date(2034, 6, 1), 0.005, 99.5)
+        assert q.day_count.value == "ACT/365F"
+        assert q.frequency == 2
+
+    def test_from_sovereign_ntn_f(self):
+        q = BondQuote.from_sovereign("NTN_F", date(2034, 6, 1), 0.10, 90.0)
+        assert q.day_count.value == "BUS/252"
+        assert q.calendar_ccy == "BRL"
+
+    def test_from_sovereign_mbono(self):
+        q = BondQuote.from_sovereign("MBONO", date(2034, 6, 1), 0.08, 95.0)
+        assert q.day_count.value == "ACT/360"
+
+    def test_day_count_affects_pricing(self):
+        """Different day counts should produce different prices."""
+        from pricebook.core.day_count import DayCountConvention
+        # Same bond, different day count conventions
+        q_act365 = BondQuote(date(2029, 6, 1), 0.05, 97.0,
+                              day_count=DayCountConvention.ACT_365_FIXED)
+        q_act360 = BondQuote(date(2029, 6, 1), 0.05, 97.0,
+                              day_count=DayCountConvention.ACT_360)
+        # ACT/360 year fractions are larger → higher coupon PV
+        r1 = bootstrap_curve_from_bonds(REF, [q_act365], method="sequential")
+        r2 = bootstrap_curve_from_bonds(REF, [q_act360], method="sequential")
+        # Different conventions → different implied zero rates
+        assert r1.pillar_zeros[0] != r2.pillar_zeros[0]
+
+
+class TestMultiMarketCurve:
+    def test_bund_curve(self):
+        """Build a Bund curve (annual, ACT/ACT ICMA)."""
+        quotes = [
+            BondQuote.from_sovereign("BUND", date(2026, 6, 1), 0.00,  99.5),
+            BondQuote.from_sovereign("BUND", date(2029, 6, 1), 0.025, 98.0),
+            BondQuote.from_sovereign("BUND", date(2034, 6, 1), 0.03,  96.0),
+        ]
+        result = bootstrap_curve_from_bonds(REF, quotes, method="global")
+        assert result.converged
+        assert all(z > -0.01 for z in result.pillar_zeros)  # EUR can be near zero
+
+    def test_jgb_curve(self):
+        """Build a JGB curve (semi-annual, ACT/365F)."""
+        quotes = [
+            BondQuote.from_sovereign("JGB", date(2026, 6, 1), 0.001, 100.2),
+            BondQuote.from_sovereign("JGB", date(2029, 6, 1), 0.005, 100.0),
+            BondQuote.from_sovereign("JGB", date(2034, 6, 1), 0.01,  99.0),
+        ]
+        result = bootstrap_curve_from_bonds(REF, quotes, method="global")
+        assert result.converged
