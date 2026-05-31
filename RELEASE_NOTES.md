@@ -2,6 +2,24 @@
 
 ---
 
+## v0.664.0 — 2026-05-31
+
+**Americas derivatives notebooks: Mexico, Chile, Colombia, Peru, Argentina, Canada.**
+
+- 6 new notebooks in `notebooks/`:
+  - `mexican_derivatives.ipynb` — TIIE 28D swap, CETES, MBONO, Udibono (UDI), BEI.
+  - `chilean_derivatives.ipynb` — Cámara swap, BCP, BCU (UF), dual-curve BEI.
+  - `colombian_derivatives.ipynb` — IBR swap, TES, TES UVR, BEI.
+  - `peruvian_derivatives.ipynb` — PEN curve, BTP Peru, VAC bond, BEI.
+  - `argentine_derivatives.ipynb` — ARS curve (40%+), Lecap, Lecer (CER), Bonares, BEI.
+  - `canadian_derivatives.ipynb` — CORRA swap, CGB, RRB (deflation floor), BEI.
+- Each notebook uses `pricebook.viz` (configure_theme, apply_theme, create_figure).
+- Breakeven inflation term structures for all 6 markets.
+- All 6 notebooks execute cleanly.
+- 10,147 tests pass.
+
+---
+
 ## v0.663.0 — 2026-05-31
 
 **Unified inflation unit framework (UDI/UF/UVR/CER).**
