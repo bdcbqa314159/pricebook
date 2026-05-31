@@ -2,6 +2,21 @@
 
 ---
 
+## v0.681.0 — 2026-05-31
+
+**MC portfolio loss distribution with stochastic recovery for CDO.**
+
+- New `portfolio_loss_distribution_mc()` in `credit/cdo.py`:
+  - Monte Carlo complement to analytical Vasicek (which requires constant LGD).
+  - Accepts `RecoverySpec` for per-name stochastic recovery correlated to M.
+  - MC with fixed recovery converges to analytical EL = PD × LGD.
+- New `tranche_expected_loss_mc()` — wraps MC loss dist with tranche clipping.
+- Equity EL > Senior EL verified. Density non-negative, integrates to 1.
+- 8 new tests.
+- 10,322 tests pass.
+
+---
+
 ## v0.680.0 — 2026-05-31
 
 **Per-name stochastic recovery in copula default simulation.**

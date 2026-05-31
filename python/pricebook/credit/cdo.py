@@ -159,3 +159,90 @@ def base_correlation(
     err_low = abs(objective(0.001))
     err_high = abs(objective(0.999))
     return 0.001 if err_low < err_high else 0.999
+
+
+# ═══════════════════════════════════════════════════════════════
+# MC-based loss distribution with stochastic recovery
+# ═══════════════════════════════════════════════════════════════
+
+
+def portfolio_loss_distribution_mc(
+    pd: float,
+    rho: float,
+    recovery_spec=None,
+    lgd: float = 0.6,
+    n_names: int = 100,
+    n_sims: int = 100_000,
+    n_bins: int = 200,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Monte Carlo portfolio loss distribution with optional stochastic recovery.
+
+    Complements the analytical Vasicek formula (which requires constant LGD).
+    When recovery_spec is provided, per-name recovery is sampled correlated
+    to the systematic factor M.
+
+    Args:
+        pd: marginal default probability (uniform across names).
+        rho: asset correlation (one-factor Gaussian copula).
+        recovery_spec: RecoverySpec for stochastic recovery. If None, uses flat lgd.
+        lgd: loss given default (used when recovery_spec is None).
+        n_names: number of reference entities.
+        n_sims: number of MC simulations.
+        n_bins: number of histogram bins for loss distribution.
+        seed: random seed.
+
+    Returns:
+        (loss_grid, density) — discretised PDF of portfolio loss fraction.
+    """
+    rng = np.random.default_rng(seed)
+
+    sqrt_rho = math.sqrt(max(rho, 0.0))
+    sqrt_1_rho = math.sqrt(max(1 - rho, 0.0))
+    threshold = norm.ppf(max(pd, 1e-15))
+
+    M = rng.standard_normal(n_sims)
+    eps = rng.standard_normal((n_sims, n_names))
+    Z = sqrt_rho * M[:, np.newaxis] + sqrt_1_rho * eps
+    defaults = Z < threshold  # (n_sims, n_names)
+
+    if recovery_spec is not None:
+        # Per-name stochastic recovery correlated to M
+        lgd_matrix = np.zeros((n_sims, n_names))
+        for j in range(n_names):
+            R_j = recovery_spec.sample(n_sims, systematic_factor=M, seed=seed + j + 1)
+            lgd_matrix[:, j] = 1 - R_j
+        portfolio_loss = (defaults * lgd_matrix).sum(axis=1) / n_names
+    else:
+        n_defaults = defaults.sum(axis=1)
+        portfolio_loss = n_defaults * lgd / n_names
+
+    # Histogram
+    max_loss = max(float(portfolio_loss.max()), lgd + 0.01)
+    bins = np.linspace(0, max_loss, n_bins + 1)
+    counts, _ = np.histogram(portfolio_loss, bins=bins)
+    density = counts.astype(float) / (n_sims * (bins[1] - bins[0]))
+
+    loss_grid = 0.5 * (bins[:-1] + bins[1:])
+    return loss_grid, density
+
+
+def tranche_expected_loss_mc(
+    pd: float,
+    rho: float,
+    attach: float,
+    detach: float,
+    recovery_spec=None,
+    lgd: float = 0.6,
+    n_names: int = 100,
+    n_sims: int = 100_000,
+    seed: int = 42,
+) -> float:
+    """Expected tranche loss via MC (supports stochastic recovery).
+
+    Wraps portfolio_loss_distribution_mc with tranche clipping.
+    """
+    loss_grid, density = portfolio_loss_distribution_mc(
+        pd, rho, recovery_spec, lgd, n_names, n_sims, seed=seed,
+    )
+    return tranche_expected_loss(loss_grid, density, attach, detach)
