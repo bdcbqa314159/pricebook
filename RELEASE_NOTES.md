@@ -2,6 +2,20 @@
 
 ---
 
+## v0.669.0 — 2026-05-31
+
+**Dividend term structure calibration (optimisation, spline, options-implied).**
+
+- New `equity/dividend_calibration.py`:
+  - `calibrate_dividend_curve()` — 3 methods: "linear" (existing), "optimize" (piecewise-constant yield via L-BFGS-B), "spline" (cubic spline on cumulative).
+  - `calibrate_from_options()` — extract dividend curve from put-call parity across expiries.
+  - `dividend_curve_seasonality()` — quarterly weight decomposition, peak/trough detection.
+  - Optimised method fits at least as well as linear on non-constant yield data.
+- 12 new tests: round-trip calibration, options-implied, seasonality, Q2-heavy detection.
+- 10,222 tests pass.
+
+---
+
 ## v0.668.0 — 2026-05-31
 
 **Jump model cross-validation framework (COS vs MC vs FFT).**
