@@ -2,6 +2,27 @@
 
 ---
 
+## v0.691.0 — 2026-06-01
+
+**FRN hazard bootstrapping, mixed fixed+float, and liquid/illiquid regime handling.**
+
+- New in `credit/bond_hazard_bootstrap.py`:
+  - `FRNInput` — floating-rate note observation (spread, benchmark, market price).
+  - `_price_risky_frn()` — risky FRN pricing with survival-weighted floating coupons and recovery leg.
+  - `bootstrap_hazard_mixed()` — global fit from mix of fixed-rate bonds and FRNs. Returns piecewise hazard curve.
+  - `LiquidityAssessment` — regime classification (liquid/semi_liquid/illiquid) with recommended method, n_pillars, confidence.
+  - `assess_liquidity()` — heuristic assessment from bond count, bid-ask widths, price levels, maturity coverage.
+  - `bootstrap_hazard_adaptive()` — auto-selects method based on liquidity:
+    - Liquid: sequential bootstrap (exact fit).
+    - Semi-liquid: global fit with bid-ask-adjusted weights.
+    - Illiquid: global fit with 1-3 pillars.
+  - Bid-ask weighting: `w = 1/(1 + ba/100)` — wider spread → lower weight.
+  - Distressed bonds (50-60 cents): produces high hazard rates, survival still decreasing.
+- 19 new tests.
+- 10,422 tests pass.
+
+---
+
 ## v0.690.0 — 2026-06-01
 
 **Fix remaining known limitations: Frank copula, tranche annuity, barrier vectorization.**

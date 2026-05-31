@@ -569,3 +569,427 @@ def minimum_bonds_for_calibration(
             "Distressed (spread > 1000bp): use global fit with tight bounds",
         ],
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# FRN (Floating-Rate Note) Input
+# ═══════════════════════════════════════════════════════════════
+
+
+@dataclass
+class FRNInput:
+    """A floating-rate note observation for hazard rate calibration.
+
+    FRNs pay benchmark + spread. The credit component is in the discount
+    margin (DM) — the spread that reprices the FRN to market.
+
+    Args:
+        maturity: maturity date.
+        spread: contractual spread over benchmark (e.g. 0.015 = 150bp).
+        market_price: dirty price per 100 face.
+        benchmark_rate: current benchmark fixing (e.g. SOFR = 0.053).
+        frequency: coupons per year (4=quarterly, typical for FRNs).
+        recovery: assumed recovery on default.
+        weight: fitting weight (lower for illiquid).
+        liquidity_spread_bp: liquidity premium to strip.
+    """
+    maturity: date
+    spread: float              # contractual spread over benchmark
+    market_price: float        # dirty price per 100 face
+    benchmark_rate: float      # current benchmark rate
+    frequency: int = 4         # quarterly (standard for FRNs)
+    recovery: float = 0.40
+    weight: float = 1.0
+    liquidity_spread_bp: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {**vars(self), "maturity": self.maturity.isoformat()}
+
+
+def _price_risky_frn(
+    reference_date: date,
+    frn: FRNInput,
+    discount_curve: DiscountCurve,
+    survival_probs: dict[date, float],
+    recovery: float,
+) -> float:
+    """Price a risky FRN given survival probabilities.
+
+    PV = Σ (benchmark + spread) × τ × df × Q + 100 × df(T) × Q(T)
+         + R × 100 × Σ df_mid × (Q_{i-1} - Q_i)
+
+    Assumes flat forward rates at current benchmark (no projection curve).
+    """
+    # Generate coupon schedule
+    freq = {1: Frequency.ANNUAL, 2: Frequency.SEMI_ANNUAL,
+            4: Frequency.QUARTERLY}.get(frn.frequency, Frequency.QUARTERLY)
+    schedule = generate_schedule(reference_date, frn.maturity, freq)
+
+    def _get_q(d):
+        if d in survival_probs:
+            return survival_probs[d]
+        # Interpolate from nearest
+        dates_sorted = sorted(survival_probs.keys())
+        if d <= dates_sorted[0]:
+            return survival_probs[dates_sorted[0]]
+        if d >= dates_sorted[-1]:
+            return survival_probs[dates_sorted[-1]]
+        for k in range(len(dates_sorted) - 1):
+            if dates_sorted[k] <= d <= dates_sorted[k + 1]:
+                t1 = year_fraction(reference_date, dates_sorted[k], DayCountConvention.ACT_365_FIXED)
+                t2 = year_fraction(reference_date, dates_sorted[k + 1], DayCountConvention.ACT_365_FIXED)
+                t = year_fraction(reference_date, d, DayCountConvention.ACT_365_FIXED)
+                q1 = survival_probs[dates_sorted[k]]
+                q2 = survival_probs[dates_sorted[k + 1]]
+                if t2 > t1:
+                    w = (t - t1) / (t2 - t1)
+                    return q1 * (q2 / q1) ** w  # log-linear
+                return q1
+        return 1.0
+
+    pv = 0.0
+    prev_q = 1.0
+
+    # Apply liquidity spread to discount curve
+    liq_bump = frn.liquidity_spread_bp / 10_000
+
+    for i in range(1, len(schedule)):
+        t_prev, t_now = schedule[i - 1], schedule[i]
+        tau = year_fraction(t_prev, t_now, DayCountConvention.ACT_365_FIXED)
+
+        df = discount_curve.df(t_now) * math.exp(-liq_bump * year_fraction(
+            reference_date, t_now, DayCountConvention.ACT_365_FIXED))
+        q = _get_q(t_now)
+
+        # Coupon: (benchmark + spread) × τ × df × Q
+        coupon = (frn.benchmark_rate + frn.spread) * tau * 100
+        pv += coupon * df * q
+
+        # Recovery: R × 100 × df_mid × ΔPD
+        t_mid_years = 0.5 * (
+            year_fraction(reference_date, t_prev, DayCountConvention.ACT_365_FIXED)
+            + year_fraction(reference_date, t_now, DayCountConvention.ACT_365_FIXED)
+        )
+        df_mid = discount_curve.df(t_prev) * math.exp(-liq_bump * t_mid_years)
+        default_prob = prev_q - q
+        pv += recovery * 100 * df_mid * max(default_prob, 0)
+
+        prev_q = q
+
+    # Principal at maturity
+    df_T = discount_curve.df(frn.maturity) * math.exp(-liq_bump * year_fraction(
+        reference_date, frn.maturity, DayCountConvention.ACT_365_FIXED))
+    q_T = _get_q(frn.maturity)
+    pv += 100 * df_T * q_T
+
+    return pv
+
+
+# ═══════════════════════════════════════════════════════════════
+# Mixed Fixed + Float Bootstrap
+# ═══════════════════════════════════════════════════════════════
+
+
+def bootstrap_hazard_mixed(
+    reference_date: date,
+    fixed_bonds: list[BondInput] | None = None,
+    floaters: list[FRNInput] | None = None,
+    discount_curve: DiscountCurve = None,
+    method: str = "global",
+    n_pillars: int | None = None,
+    recovery_mode: str = RECOVERY_PAR,
+) -> HazardBootstrapResult:
+    """Bootstrap hazard rates from a mix of fixed-rate bonds and FRNs.
+
+    Handles the case where an issuer has both fixed and floating debt.
+    Uses global (least-squares) fit by default since mixed instruments
+    rarely have enough maturity diversity for sequential bootstrap.
+
+    Args:
+        fixed_bonds: list of BondInput (fixed-rate bonds).
+        floaters: list of FRNInput (floating-rate notes).
+        discount_curve: risk-free discount curve.
+        method: "global" (default) or "sequential" (fixed only).
+        n_pillars: number of hazard pillars (default: auto).
+        recovery_mode: "par" or "market_value".
+
+    Returns:
+        HazardBootstrapResult with survival curve and diagnostics.
+    """
+    fixed_bonds = fixed_bonds or []
+    floaters = floaters or []
+
+    if not fixed_bonds and not floaters:
+        raise ValueError("Need at least one bond or FRN")
+
+    # Collect all maturities
+    all_maturities = sorted(set(
+        [b.maturity for b in fixed_bonds] + [f.maturity for f in floaters]
+    ))
+
+    if n_pillars is None:
+        n_pillars = min(len(all_maturities), 8)
+
+    # Pillar dates: evenly spaced across maturity range
+    if n_pillars >= len(all_maturities):
+        pillar_dates = all_maturities
+    else:
+        # Select n_pillars evenly spaced from all maturities
+        indices = np.linspace(0, len(all_maturities) - 1, n_pillars, dtype=int)
+        pillar_dates = [all_maturities[i] for i in indices]
+
+    n_p = len(pillar_dates)
+
+    def _objective(log_survivals):
+        """Objective: weighted sum of squared pricing errors."""
+        survivals = np.exp(-np.abs(log_survivals))  # ensure Q in (0, 1)
+        surv_list = [float(survivals[k]) for k in range(n_p)]
+        sc = SurvivalCurve(reference_date, pillar_dates, surv_list)
+        surv_dict = {pillar_dates[k]: float(survivals[k]) for k in range(n_p)}
+
+        total_err = 0.0
+
+        # Fixed bonds — use existing _price_risky_bond with correct signature
+        for b in fixed_bonds:
+            liq_bump = b.liquidity_spread_bp / 10_000
+            dc_adj = discount_curve  # TODO: bump for liquidity
+            model_px = _price_risky_bond(
+                reference_date, b.maturity, b.coupon, b.frequency,
+                b.recovery, dc_adj, sc,
+            )  # returns per 100 face
+            err = (model_px - b.market_price) / 100
+            total_err += b.weight * err**2
+
+        # FRNs
+        for f in floaters:
+            model_px = _price_risky_frn(reference_date, f, discount_curve,
+                                         surv_dict, f.recovery)
+            err = (model_px - f.market_price) / 100
+            total_err += f.weight * err**2
+
+        return total_err
+
+    # Initial guess: survival at each pillar from flat hazard
+    avg_spread = 0.02  # 200bp initial guess
+    x0 = []
+    for pd in pillar_dates:
+        t = year_fraction(reference_date, pd, DayCountConvention.ACT_365_FIXED)
+        x0.append(avg_spread * t)  # -log(Q) = h*t
+
+    result = minimize(_objective, x0, method="L-BFGS-B",
+                       bounds=[(0.001, 5.0)] * n_p)
+
+    survivals = np.exp(-np.abs(result.x))
+    surv_dict = {pillar_dates[k]: float(survivals[k]) for k in range(n_p)}
+
+    # Build survival curve
+    sc = SurvivalCurve(reference_date, pillar_dates, [surv_dict[d] for d in pillar_dates])
+
+    # Compute fitted prices and residuals
+    fitted_prices = []
+    market_prices = []
+    residuals = []
+
+    for b in fixed_bonds:
+        mp = _price_risky_bond(reference_date, b.maturity, b.coupon, b.frequency,
+                                b.recovery, discount_curve, sc)
+        fitted_prices.append(mp)
+        market_prices.append(b.market_price)
+        residuals.append((mp - b.market_price) * 100)  # bp of par
+
+    for f in floaters:
+        mp = _price_risky_frn(reference_date, f, discount_curve, surv_dict, f.recovery)
+        fitted_prices.append(mp)
+        market_prices.append(f.market_price)
+        residuals.append((mp - f.market_price) * 100)
+
+    rmse = math.sqrt(np.mean(np.array(residuals)**2)) if residuals else 0.0
+
+    # Extract piecewise hazard rates
+    hazards = []
+    prev_t = 0.0
+    prev_q = 1.0
+    for d in pillar_dates:
+        t = year_fraction(reference_date, d, DayCountConvention.ACT_365_FIXED)
+        q = surv_dict[d]
+        if t > prev_t and q > 0 and prev_q > 0:
+            h = -math.log(q / prev_q) / (t - prev_t)
+        else:
+            h = 0.0
+        hazards.append(max(h, 0.0))
+        prev_t = t
+        prev_q = q
+
+    return HazardBootstrapResult(
+        survival_curve=sc,
+        pillar_dates=pillar_dates,
+        pillar_hazards=hazards,
+        fitted_prices=fitted_prices,
+        market_prices=market_prices,
+        residuals_bp=residuals,
+        rmse_bp=rmse,
+        max_error_bp=max(abs(r) for r in residuals) if residuals else 0.0,
+        n_bonds=len(fixed_bonds) + len(floaters),
+        method="global_mixed",
+        converged=result.success,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Liquid vs Illiquid Regime
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class LiquidityAssessment:
+    """Assessment of bond liquidity for hazard bootstrapping."""
+    regime: str                 # "liquid", "semi_liquid", "illiquid"
+    recommended_method: str     # "sequential", "global", "global_mixed"
+    recommended_n_pillars: int
+    bid_ask_bp: float           # estimated bid-ask in bp
+    confidence: str             # "high", "medium", "low"
+    notes: list[str]
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def assess_liquidity(
+    bonds: list[BondInput] | None = None,
+    floaters: list[FRNInput] | None = None,
+    bid_ask_widths_bp: list[float] | None = None,
+) -> LiquidityAssessment:
+    """Assess bond pool liquidity and recommend bootstrap strategy.
+
+    Heuristics:
+    - Liquid: ≥3 bonds, bid-ask < 50bp, well-spaced maturities.
+    - Semi-liquid: 2-5 bonds, bid-ask 50-200bp, some maturity gaps.
+    - Illiquid: 1 bond or bid-ask > 200bp.
+
+    Args:
+        bonds: fixed-rate bonds.
+        floaters: floating-rate notes.
+        bid_ask_widths_bp: per-bond bid-ask widths in bp (optional).
+    """
+    bonds = bonds or []
+    floaters = floaters or []
+    n_total = len(bonds) + len(floaters)
+
+    if n_total == 0:
+        return LiquidityAssessment("illiquid", "none", 0, 0, "low",
+                                    ["No bonds provided"])
+
+    # Bid-ask assessment
+    avg_ba = 0.0
+    if bid_ask_widths_bp:
+        avg_ba = sum(bid_ask_widths_bp) / len(bid_ask_widths_bp)
+    else:
+        # Estimate from price levels (distressed bonds have wider spreads)
+        prices = [b.market_price for b in bonds] + [f.market_price for f in floaters]
+        avg_price = sum(prices) / len(prices) if prices else 100
+        if avg_price < 70:
+            avg_ba = 200  # distressed
+        elif avg_price < 90:
+            avg_ba = 100
+        else:
+            avg_ba = 30
+
+    # Maturity coverage
+    all_mats = sorted(set(
+        [b.maturity for b in bonds] + [f.maturity for f in floaters]
+    ))
+    n_distinct = len(all_mats)
+
+    notes = []
+
+    # Determine regime
+    if n_total >= 3 and avg_ba < 50 and n_distinct >= 3:
+        regime = "liquid"
+        method = "sequential" if n_total <= 8 and not floaters else "global_mixed"
+        n_pillars = min(n_distinct, 8)
+        confidence = "high"
+        notes.append("Good liquidity — sequential or global fit appropriate")
+    elif n_total >= 2 and avg_ba < 200:
+        regime = "semi_liquid"
+        method = "global_mixed" if floaters else "global"
+        n_pillars = min(n_distinct, 5)
+        confidence = "medium"
+        notes.append("Moderate liquidity — use global fit with weights")
+        if avg_ba > 100:
+            notes.append("Wide bid-ask — reduce weight on widest bonds")
+    else:
+        regime = "illiquid"
+        method = "global"
+        n_pillars = min(n_distinct, 3)
+        confidence = "low"
+        notes.append("Low liquidity — flat or 2-pillar hazard only")
+        if n_total == 1:
+            notes.append("Single bond — can only extract flat hazard rate")
+            n_pillars = 1
+        if avg_ba > 200:
+            notes.append("Very wide bid-ask — consider mid-market average")
+
+    if floaters:
+        notes.append(f"{len(floaters)} FRN(s) — benchmark rate drives coupon; DM gives credit info")
+
+    return LiquidityAssessment(
+        regime=regime,
+        recommended_method=method,
+        recommended_n_pillars=n_pillars,
+        bid_ask_bp=avg_ba,
+        confidence=confidence,
+        notes=notes,
+    )
+
+
+def bootstrap_hazard_adaptive(
+    reference_date: date,
+    bonds: list[BondInput] | None = None,
+    floaters: list[FRNInput] | None = None,
+    discount_curve: DiscountCurve = None,
+    bid_ask_widths_bp: list[float] | None = None,
+    recovery_mode: str = RECOVERY_PAR,
+) -> HazardBootstrapResult:
+    """Adaptive hazard bootstrapping based on liquidity assessment.
+
+    Automatically selects the best method and parameters based on
+    the available data quality:
+    - Liquid: sequential bootstrap (exact fit, N pillars)
+    - Semi-liquid: global fit with reduced pillars and weights
+    - Illiquid: global fit with 1-3 pillars, heavy regularisation
+
+    Args:
+        bonds: fixed-rate bonds.
+        floaters: floating-rate notes.
+        discount_curve: risk-free curve.
+        bid_ask_widths_bp: per-instrument bid-ask widths.
+        recovery_mode: "par" or "market_value".
+
+    Returns:
+        HazardBootstrapResult (method field indicates regime).
+    """
+    assessment = assess_liquidity(bonds, floaters, bid_ask_widths_bp)
+
+    if assessment.regime == "liquid" and not floaters:
+        # Pure fixed-rate, liquid — use the existing sequential/auto bootstrap
+        return bootstrap_hazard_from_bonds(
+            reference_date, bonds, discount_curve,
+            method="auto", recovery_mode=recovery_mode,
+        )
+    else:
+        # Mixed or illiquid — use global mixed bootstrap
+        # Adjust weights for illiquid bonds
+        if bid_ask_widths_bp and bonds:
+            for i, ba in enumerate(bid_ask_widths_bp[:len(bonds)]):
+                # Wider bid-ask → lower weight: w = 1 / (1 + ba/100)
+                bonds[i].weight = 1.0 / (1 + ba / 100)
+
+        if bid_ask_widths_bp and floaters:
+            offset = len(bonds or [])
+            for i, ba in enumerate(bid_ask_widths_bp[offset:offset + len(floaters)]):
+                floaters[i].weight = 1.0 / (1 + ba / 100)
+
+        return bootstrap_hazard_mixed(
+            reference_date, bonds, floaters, discount_curve,
+            method="global", n_pillars=assessment.recommended_n_pillars,
+            recovery_mode=recovery_mode,
+        )
