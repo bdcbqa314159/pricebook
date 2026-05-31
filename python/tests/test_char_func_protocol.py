@@ -49,7 +49,7 @@ class TestValidation:
         assert result["valid"]
 
     def test_vg_validates(self):
-        phi = vg_char_func(0.2, 0.25, -0.14, 0.05, 1.0)
+        phi = vg_char_func(0.05, 0.2, 0.25, -0.14, 1.0)
         result = validate_char_func(phi)
         assert result["valid"]
 
@@ -83,13 +83,13 @@ class TestCumulants:
 
     def test_vg_skewness(self):
         """VG with negative theta should have negative skewness."""
-        phi = vg_char_func(0.2, 0.25, -0.14, 0.05, 1.0)
+        phi = vg_char_func(0.05, 0.2, 0.25, -0.14, 1.0)
         info = extract_cumulants(phi)
         assert info.skewness < 0
 
     def test_vg_excess_kurtosis(self):
         """VG has positive excess kurtosis (heavy tails)."""
-        phi = vg_char_func(0.2, 0.25, -0.14, 0.05, 1.0)
+        phi = vg_char_func(0.05, 0.2, 0.25, -0.14, 1.0)
         info = extract_cumulants(phi)
         assert info.excess_kurtosis > 0
 
@@ -138,7 +138,7 @@ class TestCOSvsMC:
         phi_class = vg.char_func(rate, T)
         cos_call = cos_price(phi_class, spot, strike, rate, T, OptionType.CALL, N=256)
 
-        phi_standalone = vg_char_func(0.20, 0.25, -0.14, rate, T)
+        phi_standalone = vg_char_func(rate, 0.20, 0.25, -0.14, T)
         cos_standalone = cos_price(phi_standalone, spot, strike, rate, T, OptionType.CALL, N=256)
 
         assert cos_call == pytest.approx(mc_call, rel=0.05)

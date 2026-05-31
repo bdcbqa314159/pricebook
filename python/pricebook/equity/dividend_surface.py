@@ -16,6 +16,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# Note: DividendSimResult is defined after DividendSurface below
+
 
 @dataclass
 class DividendSurface:
@@ -77,22 +79,50 @@ def build_dividend_surface(
     return DividendSurface(tenors, yields, yield_vols, rho)
 
 
+@dataclass
+class DividendSimResult:
+    """Result of dividend surface simulation."""
+    spot_paths: np.ndarray
+    yield_paths: np.ndarray
+    terminal_spot_mean: float
+    terminal_yield_mean: float
+    terminal_spot_std: float
+    terminal_yield_std: float
+
+    def to_dict(self) -> dict:
+        return {
+            "terminal_spot_mean": self.terminal_spot_mean,
+            "terminal_yield_mean": self.terminal_yield_mean,
+            "terminal_spot_std": self.terminal_spot_std,
+            "terminal_yield_std": self.terminal_yield_std,
+            "n_paths": self.spot_paths.shape[0],
+            "n_steps": self.spot_paths.shape[1] - 1,
+        }
+
+
 def simulate_dividend_surface(
     surface: DividendSurface,
     spot: float,
     rate: float,
     T: float,
+    spot_vol: float = 0.20,
+    kappa_q: float = 2.0,
     n_paths: int = 10_000,
     n_steps: int = 100,
     seed: int = 42,
-) -> dict:
+) -> DividendSimResult:
     """Simulate correlated spot and dividend yield paths.
 
-    Spot: GBM dS/S = (r - q(t))dt + σ_S dW_S
+    Spot: GBM dS/S = (r - q(t))dt + σ_S dW_S  (log-Euler scheme)
     Div yield: OU dq = κ(θ - q)dt + ξ dW_q
     dW_S·dW_q = ρ dt
 
-    Returns dict with spot_paths, yield_paths, terminal stats.
+    Args:
+        spot_vol: annualised spot volatility.
+        kappa_q: mean-reversion speed of dividend yield OU process.
+
+    Returns:
+        DividendSimResult with spot and yield paths.
     """
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -100,14 +130,16 @@ def simulate_dividend_surface(
     # Surface parameters at T
     q0, xi = surface.interpolate(T)
     theta_q = q0
-    kappa_q = 2.0  # mean reversion speed
-    sigma_s = 0.20  # spot vol (could be parameterised)
     rho = surface.spot_correlation
+
+    # Validate correlation
+    rho = max(-0.999, min(0.999, rho))
 
     # Cholesky for correlation
     L = np.array([[1.0, 0.0], [rho, math.sqrt(1 - rho**2)]])
 
-    S = np.full(n_paths, spot)
+    # Log-Euler for spot (prevents negative spot)
+    log_S = np.full(n_paths, math.log(spot))
     q = np.full(n_paths, q0)
 
     spot_paths = np.zeros((n_paths, n_steps + 1))
@@ -115,26 +147,28 @@ def simulate_dividend_surface(
     spot_paths[:, 0] = spot
     yield_paths[:, 0] = q0
 
+    sqrt_dt = math.sqrt(dt)
+
     for t in range(n_steps):
         Z = rng.standard_normal((n_paths, 2))
         W = Z @ L.T  # correlated increments
 
-        # Spot
-        dS = S * ((rate - q) * dt + sigma_s * math.sqrt(dt) * W[:, 0])
-        S = np.maximum(S + dS, 0.01)
+        # Spot (log-Euler): d(log S) = (r - q - 0.5σ²)dt + σ dW
+        log_S += (rate - q - 0.5 * spot_vol**2) * dt + spot_vol * sqrt_dt * W[:, 0]
 
-        # Dividend yield (OU)
-        dq = kappa_q * (theta_q - q) * dt + xi * math.sqrt(dt) * W[:, 1]
+        # Dividend yield (OU, exact discretisation)
+        dq = kappa_q * (theta_q - q) * dt + xi * sqrt_dt * W[:, 1]
         q = np.maximum(q + dq, 0.0)
 
-        spot_paths[:, t + 1] = S
+        spot_paths[:, t + 1] = np.exp(log_S)
         yield_paths[:, t + 1] = q
 
-    return {
-        "spot_paths": spot_paths,
-        "yield_paths": yield_paths,
-        "terminal_spot_mean": float(np.mean(S)),
-        "terminal_yield_mean": float(np.mean(q)),
-        "terminal_spot_std": float(np.std(S)),
-        "terminal_yield_std": float(np.std(q)),
-    }
+    S_terminal = np.exp(log_S)
+    return DividendSimResult(
+        spot_paths=spot_paths,
+        yield_paths=yield_paths,
+        terminal_spot_mean=float(np.mean(S_terminal)),
+        terminal_yield_mean=float(np.mean(q)),
+        terminal_spot_std=float(np.std(S_terminal)),
+        terminal_yield_std=float(np.std(q)),
+    )

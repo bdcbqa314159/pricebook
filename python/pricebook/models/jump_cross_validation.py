@@ -87,13 +87,13 @@ def _build_char_func(model_name: str, T: float, params: dict | None = None):
     if model_name == "merton":
         return merton_char_func(p["rate"], p["sigma"], p["lam"], p["mu_j"], p["sigma_j"], T)
     elif model_name == "vg":
-        return vg_char_func(p["sigma"], p["nu"], p["theta"], p["rate"], T)
+        return vg_char_func(p["rate"], p["sigma"], p["nu"], p["theta"], T)
     elif model_name == "kou":
         return kou_char_func(p["rate"], p["sigma"], T, p["lam"], p["p"], p["eta1"], p["eta2"])
     elif model_name == "nig":
-        return nig_char_func(p["alpha"], p["beta"], p["delta"], p["rate"], T)
+        return nig_char_func(p["rate"], p["alpha"], p["beta"], p["delta"], T)
     elif model_name == "cgmy":
-        return cgmy_char_func(p["C"], p["G"], p["M"], p["Y"], p["rate"], T)
+        return cgmy_char_func(p["rate"], p["C"], p["G"], p["M"], p["Y"], T)
     elif model_name == "bates":
         return bates_char_func(p["rate"], p["v0"], p["kappa"], p["theta"],
                                 p["xi"], p["rho"], p["lam"], p["mu_j"], p["sigma_j"], T)
@@ -102,23 +102,55 @@ def _build_char_func(model_name: str, T: float, params: dict | None = None):
 
 
 def _mc_price_model(model_name: str, spot: float, strike: float,
-                     rate: float, T: float, n_paths: int, seed: int) -> float:
+                     rate: float, T: float, n_paths: int, seed: int,
+                     params: dict | None = None) -> float:
     """Price a call option via MC simulation for a given model."""
+    p = params or _DEFAULT_PARAMS.get(model_name, {})
+
     if model_name == "merton":
         from pricebook.models.jump_process import MertonJumpDiffusion
-        p = _DEFAULT_PARAMS["merton"]
         mjd = MertonJumpDiffusion(p["rate"], p["sigma"], p["lam"], p["mu_j"], p["sigma_j"])
         st = mjd.terminal(spot, T, n_paths, seed)
     elif model_name == "vg":
         from pricebook.models.jump_process import VarianceGammaProcess
-        p = _DEFAULT_PARAMS["vg"]
         vg = VarianceGammaProcess(p["sigma"], p["theta"], p["nu"])
         st = vg.terminal(spot, p["rate"], T, n_paths, seed)
     elif model_name == "nig":
         from pricebook.models.levy_processes import NIGProcess
-        p = _DEFAULT_PARAMS["nig"]
         nig = NIGProcess(p["alpha"], p["beta"], p["delta"])
         st = nig.terminal(spot, p["rate"], T, n_paths, seed)
+    elif model_name == "cgmy":
+        from pricebook.models.levy_processes import CGMYProcess
+        cgmy = CGMYProcess(p["C"], p["G"], p["M"], p["Y"])
+        st = cgmy.terminal(spot, p["rate"], T, n_paths, seed)
+    elif model_name == "kou":
+        # Kou MC via compound Poisson with double-exponential jumps
+        rng = np.random.default_rng(seed)
+        sigma, lam = p["sigma"], p["lam"]
+        p_up, eta1, eta2 = p["p"], p["eta1"], p["eta2"]
+        zeta = p_up * eta1 / (eta1 - 1) + (1 - p_up) * eta2 / (eta2 + 1) - 1
+        drift = (rate - lam * zeta - 0.5 * sigma**2) * T
+        diffusion = sigma * math.sqrt(T) * rng.standard_normal(n_paths)
+        N = rng.poisson(lam * T, size=n_paths)
+        N_max = max(int(N.max()), 1)
+        # Double-exponential jumps
+        U = rng.random((n_paths, N_max))
+        E1 = rng.exponential(1.0 / eta1, (n_paths, N_max))  # up
+        E2 = rng.exponential(1.0 / eta2, (n_paths, N_max))  # down
+        jumps = np.where(U < p_up, E1, -E2)
+        mask = np.arange(N_max) < N[:, None]
+        jump_sum = (jumps * mask).sum(axis=1)
+        st = spot * np.exp(drift + diffusion + jump_sum)
+    elif model_name == "bates":
+        # Bates via mc_migrate
+        from pricebook.models.mc_migrate import bates_paths
+        S, _v = bates_paths(
+            spot=spot, v0=p["v0"], rate=p["rate"],
+            kappa=p["kappa"], theta=p["theta"], xi=p["xi"], rho=p["rho"],
+            jump_intensity=p["lam"], jump_mean=p["mu_j"], jump_vol=p["sigma_j"],
+            T=T, n_steps=max(int(T * 252), 50), n_paths=n_paths, seed=seed,
+        )
+        st = S[:, -1]
     else:
         return float("nan")
 
@@ -173,13 +205,15 @@ def cross_validate_model(
         pass
 
     results = []
-    has_mc = model_name in ("merton", "vg", "nig")
+    # All models now support MC
+    has_mc = model_name in ("merton", "vg", "nig", "kou", "cgmy", "bates")
 
     for i, k in enumerate(strikes):
         cos_p = cos_price(phi, spot, k, rate, T, OptionType.CALL, N=256)
 
         if has_mc:
-            mc_p = _mc_price_model(model_name, spot, k, rate, T, n_mc_paths, seed)
+            mc_p = _mc_price_model(model_name, spot, k, rate, T, n_mc_paths, seed,
+                                    params or _DEFAULT_PARAMS.get(model_name))
         else:
             mc_p = float("nan")
 

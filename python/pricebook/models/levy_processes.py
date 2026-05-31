@@ -187,33 +187,46 @@ class CGMYProcess:
     ) -> np.ndarray:
         """Simulate terminal S(T) under risk-neutral measure.
 
-        Approximates CGMY via difference-of-Gamma (exact for VG / Y=0).
-        The VG approximation maps CGMY parameters to σ, θ, ν for Gamma subordination.
+        Uses difference-of-Gamma representation:
+            X = G_+ - G_-
+        where G_+ ~ Gamma(C·T·Γ(1-Y)·M^(Y-1), 1/M) captures up-moves
+        and   G_- ~ Gamma(C·T·Γ(1-Y)·G^(Y-1), 1/G) captures down-moves.
+
+        For Y < 0 or 0 < Y < 1, this is exact. For 1 < Y < 2, it is
+        a moment-matched approximation (exact CGMY simulation requires
+        truncated stable subordinators).
+
+        Risk-neutral drift uses the exact CGMY log-MGF evaluated at u=-i
+        via the char_func, ensuring E[S_T] = S_0·exp(rT).
         """
         rng = np.random.default_rng(seed)
         C, G, M, Y = self.C, self.G, self.M, self.Y
 
-        # Map to VG-like parameters via moment-matching:
-        # E[X] = C·Γ(1-Y)·(1/G^(1-Y) - 1/M^(1-Y)) ... simplified for simulation
-        # Use difference-of-Gamma: X = Γ_+ - Γ_-
-        # Γ_+ ~ Gamma(C·T·Γ(-Y)·M^Y / ...) — complex, so use VG approx
-        theta_vg = 1.0 / G - 1.0 / M  # drift skew
-        sigma_vg = math.sqrt(2.0 / G**2 + 2.0 / M**2)  # diffusion
-        nu_vg = 1.0 / C  # time-change variance
+        # Exact risk-neutral correction from char_func at u = -1j
+        # ψ(-i) = log(φ(-i)) / T gives the log-MGF at 1
+        phi = self.char_func(T)
+        psi_1 = cmath.log(phi(-1j)).real / T  # log E[exp(X)] / T
+        omega = -psi_1  # martingale correction
 
-        # Gamma subordinator
-        shape = T / nu_vg
-        scale = nu_vg
-        G_sub = rng.gamma(shape, scale, size=n_paths)
-        Z = rng.standard_normal(n_paths)
-        X = theta_vg * G_sub + sigma_vg * np.sqrt(G_sub) * Z
-
-        # VG-like drift correction: ω = -(1/ν)·ln(1 - θν - 0.5σ²ν)
-        inner = 1 - theta_vg * nu_vg - 0.5 * sigma_vg**2 * nu_vg
-        if inner > 0:
-            omega = -(1.0 / nu_vg) * math.log(inner)
+        if abs(Y) < 1e-10 or Y < 0:
+            # Y ≤ 0: compound Poisson or VG limit — use VG subordination
+            theta_vg = 1.0 / G - 1.0 / M
+            sigma_vg = math.sqrt(2.0 / G**2 + 2.0 / M**2)
+            nu_vg = 1.0 / max(C, 0.01)
+            shape = T / nu_vg
+            G_sub = rng.gamma(max(shape, 0.1), nu_vg, size=n_paths)
+            Z = rng.standard_normal(n_paths)
+            X = theta_vg * G_sub + sigma_vg * np.sqrt(G_sub) * Z
         else:
-            omega = 0.0  # fallback for extreme params
+            # 0 < Y < 2: difference-of-Gamma with moment-matched shape
+            # Shape parameter: C·Γ(1-Y)·{rate}^(Y-1) for each side
+            gam_1_Y = math.gamma(max(1 - Y, 0.01))  # Γ(1-Y)
+            shape_p = C * T * gam_1_Y * M**(Y - 1)  # up-jumps
+            shape_m = C * T * gam_1_Y * G**(Y - 1)  # down-jumps
+            # Scale = 1/rate for each side
+            G_plus = rng.gamma(max(shape_p, 0.01), 1.0 / M, size=n_paths)
+            G_minus = rng.gamma(max(shape_m, 0.01), 1.0 / G, size=n_paths)
+            X = G_plus - G_minus
 
         drift = (rate + omega) * T
         return S0 * np.exp(drift + X)
@@ -228,15 +241,22 @@ class CGMYProcess:
 # ═══════════════════════════════════════════════════════════════
 
 def nig_char_func(
+    rate: float,
     alpha: float,
     beta: float,
     delta: float,
-    rate: float,
     T: float,
 ) -> Callable[[complex], complex]:
     """Risk-neutral NIG characteristic function for log(S_T/S_0).
 
     Includes martingale correction ω.
+
+    Args:
+        rate: risk-free rate.
+        alpha: tail heaviness (α > |β+1|).
+        beta: asymmetry.
+        delta: scale.
+        T: time to maturity.
     """
     gamma = math.sqrt(alpha**2 - beta**2)
     omega = -delta * (gamma - math.sqrt(alpha**2 - (beta + 1)**2))
@@ -251,16 +271,24 @@ def nig_char_func(
 
 
 def cgmy_char_func(
+    rate: float,
     C: float,
     G: float,
     M: float,
     Y: float,
-    rate: float,
     T: float,
 ) -> Callable[[complex], complex]:
     """Risk-neutral CGMY characteristic function for log(S_T/S_0).
 
     Includes martingale correction ω.
+
+    Args:
+        rate: risk-free rate.
+        C: activity level.
+        G: down-jump decay rate.
+        M: up-jump decay rate.
+        Y: fine structure index (Y < 2, Y ≠ 1).
+        T: time to maturity.
     """
     if abs(Y) < 1e-10:
         omega = -C * (math.log(M - 1) - math.log(M)

@@ -78,7 +78,7 @@ _MODEL_SPECS = {
     "vg": {
         "names": ["sigma", "nu", "theta"],
         "bounds": [(0.05, 0.80), (0.01, 2.0), (-0.5, 0.1)],
-        "build_cf": lambda p, rate, T, **kw: vg_char_func(p[0], p[1], p[2], rate, T),
+        "build_cf": lambda p, rate, T, **kw: vg_char_func(rate, p[0], p[1], p[2], T),
     },
     "kou": {
         "names": ["sigma", "lam", "p", "eta1", "eta2"],
@@ -88,12 +88,12 @@ _MODEL_SPECS = {
     "nig": {
         "names": ["alpha", "beta", "delta"],
         "bounds": [(1.0, 50.0), (-25.0, 5.0), (0.01, 2.0)],
-        "build_cf": lambda p, rate, T, **kw: nig_char_func(p[0], p[1], p[2], rate, T),
+        "build_cf": lambda p, rate, T, **kw: nig_char_func(rate, p[0], p[1], p[2], T),
     },
     "cgmy": {
         "names": ["C", "G", "M", "Y"],
         "bounds": [(0.1, 20.0), (1.0, 50.0), (1.0, 50.0), (-0.5, 1.9)],
-        "build_cf": lambda p, rate, T, **kw: cgmy_char_func(p[0], p[1], p[2], p[3], rate, T),
+        "build_cf": lambda p, rate, T, **kw: cgmy_char_func(rate, p[0], p[1], p[2], p[3], T),
     },
     "bates": {
         "names": ["v0", "kappa", "theta", "xi", "rho", "lam", "mu_j", "sigma_j"],

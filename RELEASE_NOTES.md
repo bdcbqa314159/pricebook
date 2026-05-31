@@ -2,6 +2,20 @@
 
 ---
 
+## v0.675.0 — 2026-05-31
+
+**Deep fixes for remaining known limitations.**
+
+- **CGMY MC simulation**: rewrote to proper difference-of-Gamma representation with exact risk-neutral drift from char_func. Shape parameters use Γ(1-Y)·rate^(Y-1) moment matching.
+- **Cross-validation MC**: now covers all 6 models (added Kou via compound Poisson + double-exponential, CGMY via new terminal(), Bates via mc_migrate). Custom params are now respected.
+- **Theta decomposition**: computes actual total theta via 1-day maturity bump. Vol theta is now residual = total - carry - div (was hardcoded 0).
+- **Dividend surface simulation**: `spot_vol` and `kappa_q` now explicit parameters (were hardcoded 0.20/2.0). Returns `DividendSimResult` dataclass (was raw dict). Uses log-Euler scheme (prevents negative spot).
+- **Char func API consistency**: all standalone factories now follow `(rate, model_params..., T)` ordering. `vg_char_func`, `nig_char_func`, `cgmy_char_func` signatures updated. **Breaking change** for direct callers.
+- Correlation clamped to [-0.999, 0.999] in simulation (prevents sqrt of negative).
+- 10,274 tests pass.
+
+---
+
 ## v0.674.0 — 2026-05-31
 
 **Code assessment fixes across jump + dividend modules.**

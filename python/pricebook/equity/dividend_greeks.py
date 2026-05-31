@@ -105,31 +105,44 @@ def theta_decomposition(
 ) -> dict:
     """Decompose theta into carry, dividend accrual, and vol decay.
 
-    Returns dict with:
-        total_theta: full theta
-        carry_theta: time value of money (r × V)
-        div_theta: dividend accrual effect
-        vol_theta: residual (total - carry - div)
+    Total theta is computed via a 1-day time bump (shifting maturity by -1 day).
+    Components:
+        carry_theta: -r × V / 365 (cost of financing)
+        div_theta: (price_with_divs - price_without_divs) / 365
+        vol_theta: residual = total - carry - div
+
+    Returns dict with total_theta, carry_theta, div_theta, vol_theta.
     """
+    from datetime import timedelta
+
     base = equity_option_discrete_divs(spot, strike, dividends, curve, vol, maturity, option_type)
 
-    # Carry: r × V (cost of financing the option)
-    carry_theta = -rate * base / 365  # per day
+    # Total theta: price tomorrow (maturity 1 day closer) vs today
+    maturity_minus_1d = maturity - timedelta(days=1)
+    if maturity_minus_1d > curve.reference_date:
+        base_1d = equity_option_discrete_divs(spot, strike, dividends, curve, vol, maturity_minus_1d, option_type)
+        total_theta = base_1d - base  # negative for long options
+    else:
+        total_theta = -base  # option expires tomorrow
 
-    # Div component: price without divs vs with
+    # Carry: r × V (cost of financing the option position)
+    carry_theta = -rate * base / 365
+
+    # Div component: price with divs vs without, daily
     no_divs = equity_option_discrete_divs(spot, strike, [], curve, vol, maturity, option_type)
-    div_effect = base - no_divs
-    div_theta = -div_effect / 365  # daily approximation
+    no_divs_1d = equity_option_discrete_divs(spot, strike, [], curve, vol, maturity_minus_1d, option_type) \
+        if maturity_minus_1d > curve.reference_date else 0.0
+    theta_no_div = no_divs_1d - no_divs
+    div_theta = total_theta - theta_no_div  # dividend contribution to theta
 
-    # Total theta via vol bump (time → vol sensitivity)
-    # Approximate total as decay per day
-    total_theta = carry_theta + div_theta  # vol decay is residual
+    # Vol/time decay: residual after carry and dividends
+    vol_theta = total_theta - carry_theta - div_theta
 
     return {
         "total_theta": total_theta,
         "carry_theta": carry_theta,
         "div_theta": div_theta,
-        "vol_theta": 0.0,  # residual = total - carry - div
+        "vol_theta": vol_theta,
     }
 
 

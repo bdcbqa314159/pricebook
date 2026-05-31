@@ -55,9 +55,30 @@ class TestDividendSurface:
             -0.3,
         )
         result = simulate_dividend_surface(s, 100, 0.05, 1.0, n_paths=5000)
-        assert result["spot_paths"].shape == (5000, 101)
-        assert result["terminal_spot_mean"] > 50
-        assert result["terminal_yield_mean"] > 0
+        assert result.spot_paths.shape == (5000, 101)
+        assert result.terminal_spot_mean > 50
+        assert result.terminal_yield_mean > 0
+
+    def test_simulate_custom_params(self):
+        """spot_vol and kappa_q should be parameterised, not hardcoded."""
+        s = DividendSurface(
+            np.array([1.0]), np.array([0.02]),
+            np.array([0.005]), -0.3,
+        )
+        r1 = simulate_dividend_surface(s, 100, 0.05, 1.0, spot_vol=0.10, kappa_q=5.0, n_paths=1000)
+        r2 = simulate_dividend_surface(s, 100, 0.05, 1.0, spot_vol=0.40, kappa_q=0.5, n_paths=1000)
+        # Higher vol → higher std
+        assert r2.terminal_spot_std > r1.terminal_spot_std
+
+    def test_simulate_to_dict(self):
+        s = DividendSurface(
+            np.array([1.0]), np.array([0.02]),
+            np.array([0.005]), -0.3,
+        )
+        result = simulate_dividend_surface(s, 100, 0.05, 1.0, n_paths=500)
+        d = result.to_dict()
+        assert "terminal_spot_mean" in d
+        assert d["n_paths"] == 500
 
 
 class TestJointCalibration:

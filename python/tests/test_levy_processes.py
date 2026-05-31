@@ -36,19 +36,19 @@ class TestNIGProcess:
         assert abs(phi(0.0) - 1.0) < 1e-10
 
     def test_char_func_validates(self):
-        phi = nig_char_func(15, -5, 0.5, 0.05, 1.0)
+        phi = nig_char_func(0.05, 15, -5, 0.5, 1.0)
         result = validate_char_func(phi)
         assert result["valid"]
 
     def test_negative_beta_negative_skew(self):
         """Negative β → negative skewness."""
-        phi = nig_char_func(15, -5, 0.5, 0.05, 1.0)
+        phi = nig_char_func(0.05, 15, -5, 0.5, 1.0)
         info = extract_cumulants(phi)
         assert info.skewness < 0
 
     def test_positive_excess_kurtosis(self):
         """NIG always has positive excess kurtosis."""
-        phi = nig_char_func(15, -5, 0.5, 0.05, 1.0)
+        phi = nig_char_func(0.05, 15, -5, 0.5, 1.0)
         info = extract_cumulants(phi)
         assert info.excess_kurtosis > 0
 
@@ -71,13 +71,13 @@ class TestNIGProcess:
         st = nig.terminal(spot, rate, T, 200_000, seed=42)
         mc_call = math.exp(-rate * T) * np.maximum(st - strike, 0).mean()
 
-        phi = nig_char_func(15, -5, 0.5, rate, T)
+        phi = nig_char_func(rate, 15, -5, 0.5, T)
         cos_call = cos_price(phi, spot, strike, rate, T, OptionType.CALL, N=256)
 
         assert cos_call == pytest.approx(mc_call, rel=0.05)
 
     def test_complex_u(self):
-        phi = nig_char_func(15, -5, 0.5, 0.05, 1.0)
+        phi = nig_char_func(0.05, 15, -5, 0.5, 1.0)
         val = phi(complex(5.0, -1.5))
         assert math.isfinite(val.real)
         assert math.isfinite(val.imag)
@@ -112,7 +112,7 @@ class TestCGMYProcess:
         assert abs(phi(0.0) - 1.0) < 1e-10
 
     def test_char_func_validates(self):
-        phi = cgmy_char_func(1.0, 5.0, 10.0, 0.5, 0.05, 1.0)
+        phi = cgmy_char_func(0.05, 1.0, 5.0, 10.0, 0.5, 1.0)
         result = validate_char_func(phi)
         assert result["valid"]
 
@@ -124,18 +124,18 @@ class TestCGMYProcess:
         # Map to CGMY: C=1/ν=4, G=..., M=...
         # Exact mapping: C = 1/ν, G = (√(θ²ν²/4 + σ²ν/2) - θν/2)⁻¹ etc.
         # Just verify the Y=0 char func doesn't explode
-        phi = cgmy_char_func(4.0, 5.0, 10.0, 0.0, 0.05, 1.0)
+        phi = cgmy_char_func(0.05, 4.0, 5.0, 10.0, 0.0, 1.0)
         result = validate_char_func(phi)
         assert result["valid"]
 
     def test_asymmetric_gm(self):
         """G < M → more negative jumps → negative skew."""
-        phi = cgmy_char_func(1.0, 5.0, 10.0, 0.5, 0.05, 1.0)
+        phi = cgmy_char_func(0.05, 1.0, 5.0, 10.0, 0.5, 1.0)
         info = extract_cumulants(phi)
         assert info.skewness < 0  # G < M → left-skewed
 
     def test_positive_excess_kurtosis(self):
-        phi = cgmy_char_func(1.0, 5.0, 10.0, 0.5, 0.05, 1.0)
+        phi = cgmy_char_func(0.05, 1.0, 5.0, 10.0, 0.5, 1.0)
         info = extract_cumulants(phi)
         assert info.excess_kurtosis > 0
 
@@ -152,13 +152,13 @@ class TestCGMYProcess:
         from pricebook.models.black76 import OptionType
 
         spot, strike, rate, T = 100, 100, 0.05, 1.0
-        phi = cgmy_char_func(1.0, 5.0, 10.0, 0.5, rate, T)
+        phi = cgmy_char_func(rate, 1.0, 5.0, 10.0, 0.5, T)
         cos_call = cos_price(phi, spot, strike, rate, T, OptionType.CALL, N=256)
 
         assert 5 < cos_call < 25  # reasonable ATM call
 
     def test_complex_u(self):
-        phi = cgmy_char_func(1.0, 5.0, 10.0, 0.5, 0.05, 1.0)
+        phi = cgmy_char_func(0.05, 1.0, 5.0, 10.0, 0.5, 1.0)
         val = phi(complex(5.0, -1.5))
         assert math.isfinite(val.real)
 
@@ -185,7 +185,7 @@ class TestCrossModel:
         phi_bs = bs_char_func(rate, 0.0, 0.20, T)
         put_bs = cos_price(phi_bs, spot, strike, rate, T, OptionType.PUT, N=256)
 
-        phi_nig = nig_char_func(15, -5, 0.5, rate, T)
+        phi_nig = nig_char_func(rate, 15, -5, 0.5, T)
         put_nig = cos_price(phi_nig, spot, strike, rate, T, OptionType.PUT, N=256)
 
         assert put_nig > put_bs  # fat tails → higher OTM puts
@@ -201,7 +201,7 @@ class TestCrossModel:
         phi_bs = bs_char_func(rate, 0.0, 0.20, T)
         put_bs = cos_price(phi_bs, spot, strike, rate, T, OptionType.PUT, N=256)
 
-        phi_cgmy = cgmy_char_func(1.0, 5.0, 10.0, 0.5, rate, T)
+        phi_cgmy = cgmy_char_func(rate, 1.0, 5.0, 10.0, 0.5, T)
         put_cgmy = cos_price(phi_cgmy, spot, strike, rate, T, OptionType.PUT, N=256)
 
         assert put_cgmy > put_bs

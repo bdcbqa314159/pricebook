@@ -184,10 +184,10 @@ def merton_char_func(
 
 
 def vg_char_func(
+    rate: float,
     sigma: float,
     nu: float,
     theta: float,
-    rate: float,
     T: float,
 ) -> Callable[[complex], complex]:
     """Variance Gamma characteristic function.
@@ -195,10 +195,10 @@ def vg_char_func(
     φ(u) for log(S_T/S_0) under risk-neutral measure.
 
     Args:
+        rate: risk-free rate.
         sigma: volatility of BM component.
         nu: variance rate of Gamma subordinator.
         theta: drift of BM component.
-        rate: risk-free rate.
         T: time to maturity.
     """
     inner = 1 - theta * nu - 0.5 * sigma**2 * nu
