@@ -2,6 +2,23 @@
 
 ---
 
+## v0.665.0 — 2026-05-31
+
+**Characteristic function protocol + standalone factories for Kou, Bates/SVJ.**
+
+- New `models/char_func_protocol.py`:
+  - `CharFuncModel` — `@runtime_checkable` Protocol for Fourier-based pricing.
+  - `validate_char_func()` — checks φ(0)=1, boundedness, Hermitian symmetry.
+  - `extract_cumulants()` — c1–c4, skewness, excess kurtosis from any CF.
+  - Standalone factories: `merton_char_func()`, `vg_char_func()`, `kou_char_func()`, `bates_char_func()`, `svj_char_func()`.
+  - All accept complex u (Carr-Madan FFT compatible).
+- Kou CF: double-exponential jump CF with p·η₁/(η₁-iu) + (1-p)·η₂/(η₂+iu).
+- Bates CF: Heston CF × Merton jump component (Schoutens form).
+- 18 new tests: protocol compliance, validation, cumulants, COS vs MC cross-validation, complex u input.
+- 10,165 tests pass.
+
+---
+
 ## v0.664.0 — 2026-05-31
 
 **Americas derivatives notebooks: Mexico, Chile, Colombia, Peru, Argentina, Canada.**
