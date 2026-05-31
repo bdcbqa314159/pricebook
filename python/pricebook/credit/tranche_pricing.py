@@ -181,35 +181,62 @@ class TrancheCDS:
         n_sims: int = 50_000,
         seed: int = 42,
         recovery_specs=None,
+        frequency: int = 4,
     ) -> TrancheResult:
-        """Price the tranche via Gaussian copula MC.
+        """Price the tranche via Gaussian copula MC with multi-period legs.
 
         Args:
             recovery_specs: optional list of RecoverySpec (one per name).
+            frequency: payment frequency (4=quarterly, default).
         """
         ref = discount_curve.reference_date
         T = year_fraction(ref, self.maturity, DayCountConvention.ACT_365_FIXED)
-        df = discount_curve.df(self.maturity)
+        dt = 1.0 / frequency
+        n_periods = max(1, int(T * frequency))
 
-        el = expected_tranche_loss(
-            self.attachment, self.detachment, survival_curves,
-            discount_curve, correlation, T, self.recovery, n_sims, seed,
-            recovery_specs=recovery_specs,
-        )
+        # Compute EL at each payment date
+        els = [0.0]
+        for i in range(1, n_periods + 1):
+            t = min(i * dt, T)
+            el = expected_tranche_loss(
+                self.attachment, self.detachment, survival_curves,
+                discount_curve, correlation, t, self.recovery, n_sims, seed,
+                recovery_specs=recovery_specs,
+            )
+            els.append(el)
 
-        # Protection leg: (1 - EL_start) → EL_end transition
-        protection_pv = el * self.width * self.notional * df
+        def _date_at(t_years):
+            return ref + timedelta(days=round(t_years * 365))
 
-        # Premium leg: spread × surviving notional × annuity
-        # Approximate surviving = 1 - EL
-        annuity = T * df  # simplified single-period
-        premium_pv = self.spread * (1 - el) * self.notional * annuity
+        # Premium leg: Σ spread × (1-EL_i) × dt × df_i
+        premium_pv = 0.0
+        for i in range(1, n_periods + 1):
+            t = min(i * dt, T)
+            df = discount_curve.df(_date_at(t))
+            premium_pv += self.spread * (1 - els[i]) * dt * df
+        premium_pv *= self.notional
+
+        # Protection leg: Σ (EL_i - EL_{i-1}) × width × df_i
+        protection_pv = 0.0
+        for i in range(1, n_periods + 1):
+            t = min(i * dt, T)
+            df = discount_curve.df(_date_at(t))
+            protection_pv += (els[i] - els[i - 1]) * self.width * df
+        protection_pv *= self.notional
 
         pv = protection_pv - premium_pv
 
-        # Par spread
-        if (1 - el) * annuity > 1e-10:
-            par_spread = (el * self.width * df) / ((1 - el) * annuity)
+        # Par spread: solve spread such that pv = 0
+        risky_annuity = sum(
+            (1 - els[i]) * dt * discount_curve.df(_date_at(min(i * dt, T)))
+            for i in range(1, n_periods + 1)
+        )
+        if risky_annuity > 1e-10:
+            prot_ratio = sum(
+                (els[i] - els[i - 1]) * self.width * discount_curve.df(_date_at(min(i * dt, T)))
+                for i in range(1, n_periods + 1)
+            )
+            par_spread = prot_ratio / risky_annuity
         else:
             par_spread = 0.0
 

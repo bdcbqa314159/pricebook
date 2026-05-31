@@ -133,8 +133,7 @@ def barrier_knockout(
             else:
                 raise ValueError(f"Unknown barrier_type: {barrier_type}")
         else:
-            # Continuous monitoring via Brownian bridge
-            from pricebook.models.mc_processes import brownian_bridge_max
+            # Continuous monitoring via Brownian bridge (vectorized)
             rng = np.random.default_rng(seed)
             alive = np.ones(n_paths, dtype=bool)
             vol = sigma if sigma is not None else 0.20
@@ -143,25 +142,39 @@ def barrier_knockout(
                 dt = times[step + 1] - times[step]
                 if dt < 1e-14:
                     continue
-                for i in range(n_paths):
-                    if not alive[i]:
-                        continue
-                    s0, s1 = spots[i, step], spots[i, step + 1]
-                    local_sigma = vol * s0
-                    if barrier_type == "up-and-out":
-                        bridge_max = brownian_bridge_max(s0, s1, dt, local_sigma, rng)
-                        if bridge_max >= barrier:
-                            alive[i] = False
-                    elif barrier_type == "down-and-out":
-                        # P(min < b | s0, s1) = exp(-2(s0-b)(s1-b)/(σ²dt))
-                        # if both s0, s1 > barrier
-                        if s0 <= barrier or s1 <= barrier:
-                            alive[i] = False
-                        elif local_sigma > 0 and dt > 0:
-                            p_cross = math.exp(-2 * (s0 - barrier) * (s1 - barrier)
-                                                / (local_sigma**2 * dt))
-                            if rng.random() < p_cross:
-                                alive[i] = False
+                s0 = spots[:, step]
+                s1 = spots[:, step + 1]
+                local_sigma = vol * s0
+
+                if barrier_type == "up-and-out":
+                    # Bridge max: P(max >= b) = exp(-2(b-s0)(b-s1)/(σ²dt))
+                    # for paths where both s0, s1 < barrier
+                    both_below = alive & (s0 < barrier) & (s1 < barrier)
+                    if np.any(both_below):
+                        sig2dt = np.maximum(local_sigma[both_below]**2 * dt, 1e-30)
+                        p_cross = np.exp(-2 * (barrier - s0[both_below]) *
+                                          (barrier - s1[both_below]) / sig2dt)
+                        u = rng.random(int(both_below.sum()))
+                        knocked = u < p_cross
+                        idx = np.where(both_below)[0]
+                        alive[idx[knocked]] = False
+                    # Paths already crossing discretely
+                    alive &= ~((s0 >= barrier) | (s1 >= barrier))
+
+                elif barrier_type == "down-and-out":
+                    # Paths already crossing discretely
+                    discrete_hit = (s0 <= barrier) | (s1 <= barrier)
+                    alive &= ~discrete_hit
+                    # Bridge min: P(min <= b) = exp(-2(s0-b)(s1-b)/(σ²dt))
+                    both_above = alive & (s0 > barrier) & (s1 > barrier)
+                    if np.any(both_above):
+                        sig2dt = np.maximum(local_sigma[both_above]**2 * dt, 1e-30)
+                        p_cross = np.exp(-2 * (s0[both_above] - barrier) *
+                                          (s1[both_above] - barrier) / sig2dt)
+                        u = rng.random(int(both_above.sum()))
+                        knocked = u < p_cross
+                        idx = np.where(both_above)[0]
+                        alive[idx[knocked]] = False
 
         terminal = spots[:, -1]
         return np.where(alive, np.maximum(terminal - strike, 0.0), 0.0)
@@ -202,8 +215,7 @@ def barrier_knockin(
             else:
                 raise ValueError(f"Unknown barrier_type: {barrier_type}")
         else:
-            # Continuous monitoring via Brownian bridge
-            from pricebook.models.mc_processes import brownian_bridge_max
+            # Continuous monitoring via Brownian bridge (vectorized)
             rng = np.random.default_rng(seed)
             triggered = np.zeros(n_paths, dtype=bool)
             vol = sigma if sigma is not None else 0.20
@@ -212,23 +224,35 @@ def barrier_knockin(
                 dt = times[step + 1] - times[step]
                 if dt < 1e-14:
                     continue
-                for i in range(n_paths):
-                    if triggered[i]:
-                        continue
-                    s0, s1 = spots[i, step], spots[i, step + 1]
-                    local_sigma = vol * s0
-                    if barrier_type == "up-and-in":
-                        bridge_max = brownian_bridge_max(s0, s1, dt, local_sigma, rng)
-                        if bridge_max >= barrier:
-                            triggered[i] = True
-                    elif barrier_type == "down-and-in":
-                        if s0 <= barrier or s1 <= barrier:
-                            triggered[i] = True
-                        elif local_sigma > 0 and dt > 0:
-                            p_cross = math.exp(-2 * (s0 - barrier) * (s1 - barrier)
-                                                / (local_sigma**2 * dt))
-                            if rng.random() < p_cross:
-                                triggered[i] = True
+                s0 = spots[:, step]
+                s1 = spots[:, step + 1]
+                local_sigma = vol * s0
+
+                if barrier_type == "up-and-in":
+                    # Discrete trigger
+                    triggered |= (s0 >= barrier) | (s1 >= barrier)
+                    # Bridge trigger for remaining
+                    eligible = ~triggered & (s0 < barrier) & (s1 < barrier)
+                    if np.any(eligible):
+                        sig2dt = np.maximum(local_sigma[eligible]**2 * dt, 1e-30)
+                        p_cross = np.exp(-2 * (barrier - s0[eligible]) *
+                                          (barrier - s1[eligible]) / sig2dt)
+                        u = rng.random(int(eligible.sum()))
+                        idx = np.where(eligible)[0]
+                        triggered[idx[u < p_cross]] = True
+
+                elif barrier_type == "down-and-in":
+                    # Discrete trigger
+                    triggered |= (s0 <= barrier) | (s1 <= barrier)
+                    # Bridge trigger for remaining
+                    eligible = ~triggered & (s0 > barrier) & (s1 > barrier)
+                    if np.any(eligible):
+                        sig2dt = np.maximum(local_sigma[eligible]**2 * dt, 1e-30)
+                        p_cross = np.exp(-2 * (s0[eligible] - barrier) *
+                                          (s1[eligible] - barrier) / sig2dt)
+                        u = rng.random(int(eligible.sum()))
+                        idx = np.where(eligible)[0]
+                        triggered[idx[u < p_cross]] = True
 
         terminal = spots[:, -1]
         return np.where(triggered, np.maximum(terminal - strike, 0.0), 0.0)

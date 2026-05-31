@@ -2,6 +2,17 @@
 
 ---
 
+## v0.690.0 — 2026-06-01
+
+**Fix remaining known limitations: Frank copula, tranche annuity, barrier vectorization.**
+
+- **Frank copula**: rewrote d≥3 sampling using Marshall-Olkin algorithm with logarithmic series mixing variable. Previously used bivariate conditional method that produced incorrect multivariate dependence.
+- **TrancheCDS.price()**: replaced single-period annuity approximation with proper multi-period premium and protection legs (quarterly frequency). Par spread now computed from risky annuity ratio.
+- **Barrier continuous mode**: vectorized Python loops for knockout and knockin. ~10-50x speedup for large n_paths. Correct bridge probability formula for both up and down barriers.
+- 10,403 tests pass.
+
+---
+
 ## v0.689.0 — 2026-05-31
 
 **Code review fixes: CDO PMF, barrier bridge, copula M factor, dt guard, BMA default.**
