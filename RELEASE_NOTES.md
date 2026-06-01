@@ -2,6 +2,22 @@
 
 ---
 
+## v0.712.0 — 2026-06-01
+
+**End-to-end callable pricing workflow notebook with pricebook.viz.**
+
+- New `notebooks/rates/callable_pricing_workflow.ipynb`:
+  - EUR yield curve: 3 methods (log-linear, Nelson-Siegel 1.6bp, Svensson). Realistic humped term structure.
+  - HW calibration from 8 swaption vols. Per-swaption fit diagnostics.
+  - Swaption vol cube: ATM heatmap + SABR smile.
+  - Callable bond: straight 110.76 vs callable 99.37 (call value 11.39). Negative convexity.
+  - Bermudan 5nc1: 19bp early exercise premium over European.
+  - Multi-currency HW params (6 currencies, G10 vs EM).
+  - All visuals use pricebook.viz.
+- 10,710 tests pass.
+
+---
+
 ## v0.711.0 — 2026-06-01
 
 **Synthetic curve data, SABR-HW blended pricing, cap/floor SABR.**
