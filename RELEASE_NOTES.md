@@ -2,6 +2,45 @@
 
 ---
 
+## v0.725.0 — 2026-06-02
+
+**Distressed CDS: upfront quoting, implied CPD, distressed basis.**
+
+- Modified `credit/distressed.py`:
+  - `distressed_cds_upfront()` — convert running spread to upfront payment.
+  - `implied_cpd_from_upfront()` — Newton-Raphson inversion for CPD.
+  - `distressed_basis()` — CDS-bond basis in distressed context.
+  - Wide spread → positive upfront. Tight < running → negative.
+- 6 new tests.
+
+---
+
+## v0.724.0 — 2026-06-02
+
+**Succession events: merger, spin-off, split.**
+
+- New `credit/succession.py`:
+  - `SuccessionEvent` — entity, type, successors, weights.
+  - `apply_succession()` — notional split by economic weight.
+  - Per-successor spread adjustments. Notional conservation verified.
+  - 5 ISDA succession types: merger, spin-off, split, reverse merger, acquisition.
+- 5 new tests.
+
+---
+
+## v0.723.0 — 2026-06-02
+
+**Weighted portfolio CDS: arbitrary long/short basket.**
+
+- New `credit/portfolio_cds.py`:
+  - `portfolio_cds_pv()` — PV of arbitrary-weight CDS basket.
+  - Long/short positions, different notionals per name.
+  - `constituent_cs01()` — per-name CS01 with % contribution.
+  - Gross and net CS01. Par spread for the basket.
+- 5 new tests.
+
+---
+
 ## v0.722.0 — 2026-05-31
 
 **Credit event auction simulation.**

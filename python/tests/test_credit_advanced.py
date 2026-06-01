@@ -480,3 +480,182 @@ class TestCreditEvent:
         d = r.to_dict()
         assert "final_price" in d
         assert "recovery_rate" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Weighted Portfolio CDS (C10)
+# ═══════════════════════════════════════════════════════════════
+
+class TestPortfolioCDS:
+    def test_basic_pricing(self):
+        from pricebook.credit.portfolio_cds import portfolio_cds_pv, PortfolioPosition
+        dc, sc = _make_curves()
+        positions = [
+            PortfolioPosition("A", 5_000_000, 0.01),
+            PortfolioPosition("B", 3_000_000, 0.02),
+        ]
+        _, sc2 = _make_curves(hazard=0.03)
+        r = portfolio_cds_pv(REF, 5.0, positions, dc, [sc, sc2])
+        assert r.n_positions == 2
+        assert r.total_notional == 8_000_000
+
+    def test_long_short(self):
+        from pricebook.credit.portfolio_cds import portfolio_cds_pv, PortfolioPosition
+        dc, sc = _make_curves()
+        positions = [
+            PortfolioPosition("A", 5_000_000, 0.01),   # long protection
+            PortfolioPosition("B", -3_000_000, 0.02),   # short protection
+        ]
+        _, sc2 = _make_curves(hazard=0.03)
+        r = portfolio_cds_pv(REF, 5.0, positions, dc, [sc, sc2])
+        assert r.net_notional == 2_000_000
+
+    def test_par_spread_positive(self):
+        from pricebook.credit.portfolio_cds import portfolio_cds_pv, PortfolioPosition
+        dc, sc = _make_curves()
+        positions = [PortfolioPosition("A", 10_000_000, 0.01)]
+        r = portfolio_cds_pv(REF, 5.0, positions, dc, [sc])
+        assert r.par_spread > 0
+
+    def test_constituent_cs01(self):
+        from pricebook.credit.portfolio_cds import constituent_cs01, PortfolioPosition
+        dc, sc = _make_curves()
+        _, sc2 = _make_curves(hazard=0.03)
+        positions = [
+            PortfolioPosition("A", 5_000_000, 0.01),
+            PortfolioPosition("B", 3_000_000, 0.02),
+        ]
+        result = constituent_cs01(REF, 5.0, positions, dc, [sc, sc2])
+        assert len(result) == 2
+        assert all(r["cs01"] > 0 for r in result)
+        total_pct = sum(r["pct_contribution"] for r in result)
+        assert total_pct == pytest.approx(100.0, abs=0.1)
+
+    def test_to_dict(self):
+        from pricebook.credit.portfolio_cds import portfolio_cds_pv, PortfolioPosition
+        dc, sc = _make_curves()
+        positions = [PortfolioPosition("A", 10_000_000, 0.01)]
+        r = portfolio_cds_pv(REF, 5.0, positions, dc, [sc])
+        d = r.to_dict()
+        assert "gross_cs01" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Succession Events (C11)
+# ═══════════════════════════════════════════════════════════════
+
+class TestSuccession:
+    def test_merger(self):
+        from pricebook.credit.succession import (
+            apply_succession, SuccessionEvent, SuccessionType,
+        )
+        event = SuccessionEvent(
+            "OldCo", SuccessionType.MERGER, date(2024, 6, 1),
+            successors=["NewCo"], weights=[1.0],
+            original_notional=10_000_000,
+        )
+        r = apply_succession(event, 0.01)
+        assert len(r.successor_cds) == 1
+        assert r.successor_cds[0].notional == pytest.approx(10_000_000)
+        assert r.notional_conserved
+
+    def test_spin_off(self):
+        from pricebook.credit.succession import (
+            apply_succession, SuccessionEvent, SuccessionType,
+        )
+        event = SuccessionEvent(
+            "ParentCo", SuccessionType.SPIN_OFF, date(2024, 6, 1),
+            successors=["ParentCo", "SpinCo"], weights=[0.7, 0.3],
+            original_notional=10_000_000,
+        )
+        r = apply_succession(event, 0.01)
+        assert len(r.successor_cds) == 2
+        assert r.successor_cds[0].notional == pytest.approx(7_000_000)
+        assert r.successor_cds[1].notional == pytest.approx(3_000_000)
+        assert r.notional_conserved
+
+    def test_three_way_split(self):
+        from pricebook.credit.succession import (
+            apply_succession, SuccessionEvent, SuccessionType,
+        )
+        event = SuccessionEvent(
+            "BigCo", SuccessionType.SPLIT, date(2024, 6, 1),
+            successors=["A", "B", "C"], weights=[0.5, 0.3, 0.2],
+        )
+        r = apply_succession(event, 0.01, original_notional=10_000_000)
+        total = sum(s.notional for s in r.successor_cds)
+        assert total == pytest.approx(10_000_000)
+
+    def test_spread_adjustments(self):
+        from pricebook.credit.succession import (
+            apply_succession, SuccessionEvent, SuccessionType,
+        )
+        event = SuccessionEvent(
+            "Co", SuccessionType.SPIN_OFF, date(2024, 6, 1),
+            successors=["Parent", "Child"], weights=[0.6, 0.4],
+        )
+        r = apply_succession(event, 0.01, 10_000_000,
+                              spread_adjustments=[-0.002, 0.005])
+        assert r.successor_cds[0].spread == pytest.approx(0.008)
+        assert r.successor_cds[1].spread == pytest.approx(0.015)
+
+    def test_to_dict(self):
+        from pricebook.credit.succession import (
+            apply_succession, SuccessionEvent, SuccessionType,
+        )
+        event = SuccessionEvent(
+            "Co", SuccessionType.MERGER, date(2024, 6, 1),
+            successors=["NewCo"], weights=[1.0],
+        )
+        r = apply_succession(event, 0.01, 10_000_000)
+        d = r.to_dict()
+        assert "notional_conserved" in d
+        assert d["notional_conserved"] is True
+
+
+# ═══════════════════════════════════════════════════════════════
+# Distressed CDS Workflow (C12)
+# ═══════════════════════════════════════════════════════════════
+
+class TestDistressedCDS:
+    def test_upfront_positive_for_wide_spread(self):
+        """Wide spread → positive upfront (buyer pays)."""
+        from pricebook.credit.distressed import distressed_cds_upfront
+        r = distressed_cds_upfront(0.10, running_coupon=0.05)
+        assert r.upfront_pct > 0
+
+    def test_upfront_negative_for_tight_spread(self):
+        """Tight spread < running coupon → negative upfront (buyer receives)."""
+        from pricebook.credit.distressed import distressed_cds_upfront
+        r = distressed_cds_upfront(0.03, running_coupon=0.05)
+        assert r.upfront_pct < 0
+
+    def test_implied_cpd(self):
+        from pricebook.credit.distressed import distressed_cds_upfront
+        r = distressed_cds_upfront(0.10)
+        assert 0 < r.implied_cpd < 1
+        # Higher spread → higher CPD
+        r2 = distressed_cds_upfront(0.20)
+        assert r2.implied_cpd > r.implied_cpd
+
+    def test_implied_cpd_from_upfront(self):
+        from pricebook.credit.distressed import (
+            distressed_cds_upfront, implied_cpd_from_upfront,
+        )
+        r = distressed_cds_upfront(0.10)
+        cpd = implied_cpd_from_upfront(r.upfront_pct)
+        assert cpd == pytest.approx(r.implied_cpd, abs=0.02)
+
+    def test_distressed_basis(self):
+        from pricebook.credit.distressed import distressed_basis
+        # CDS upfront 20% → implied bond price ~80
+        # Actual bond at 65 → positive basis (CDS expensive vs bond)
+        basis = distressed_basis(0.20, 65.0)
+        assert basis > 0
+
+    def test_to_dict(self):
+        from pricebook.credit.distressed import distressed_cds_upfront
+        r = distressed_cds_upfront(0.10)
+        d = r.to_dict()
+        assert "upfront_pct" in d
+        assert "implied_cpd" in d
