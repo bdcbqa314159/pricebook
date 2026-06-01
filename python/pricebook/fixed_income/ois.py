@@ -47,6 +47,7 @@ _OIS_CONVENTIONS: dict[str, OISConvention] = {
     "NZD": OISConvention("NZD", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "NZD"),
     "SEK": OISConvention("SEK", Frequency.ANNUAL, DayCountConvention.ACT_360, "SEK"),
     "NOK": OISConvention("NOK", Frequency.ANNUAL, DayCountConvention.ACT_360, "NOK"),
+    "DKK": OISConvention("DKK", Frequency.ANNUAL, DayCountConvention.ACT_360, "DKK"),
 }
 
 

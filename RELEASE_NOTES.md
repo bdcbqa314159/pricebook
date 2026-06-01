@@ -2,6 +2,20 @@
 
 ---
 
+## v0.696.0 — 2026-06-01
+
+**Switzerland + Nordics: SARON, SWESTR, NOWA, DESTR swaps + sovereign bonds.**
+
+- New `fixed_income/swiss.py`: SARONSwap (ACT/360), ConfedBond (annual ACT/ACT ICMA). Handles negative rates (CHF DF > 1 verified).
+- New `fixed_income/swedish.py`: SWESTRSwap, SGBBond. SWESTR rate index added.
+- New `fixed_income/norwegian.py`: NOWASwap, NGBBond. NOWA rate index added.
+- New `fixed_income/danish.py`: DESTRSwap, DGBBond. DESTR rate index added. DKK OIS convention added to ois.py.
+- 3 new overnight rate indices in rate_indices.json: SWESTR (Riksbank), NOWA (Norges Bank), DESTR (Danmarks Nationalbank).
+- 21 new tests (6 CHF + 5 SEK + 5 NOK + 5 DKK).
+- 10,499 tests pass.
+
+---
+
 ## v0.695.0 — 2026-06-01
 
 **UK: SONIA swap, Gilt, Index-Linked Gilt (ILG), breakeven inflation.**
