@@ -2,6 +2,20 @@
 
 ---
 
+## v0.714.0 — 2026-06-01
+
+**Bermudan CDS swaption: multiple exercise dates.**
+
+- New `credit/bermudan_cds_swaption.py`:
+  - `bermudan_cds_swaption_price()` — backward induction on hazard/discount tree.
+  - At each exercise date: max(continuation, forward CDS PV).
+  - Bermudan ≥ European verified. Single date → equals European.
+  - Payer and receiver. ITM > OTM. Exercise probability tracked.
+- 8 new tests.
+- 10,718 tests pass.
+
+---
+
 ## v0.713.0 — 2026-06-01
 
 **Code review fixes across curve + vol infrastructure.**
