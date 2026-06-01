@@ -2,6 +2,35 @@
 
 ---
 
+## v0.719.0 — 2026-05-31
+
+**Recovery-locked CDS and Loan CDS (LCDS).**
+
+- New `credit/recovery_locked_cds.py`:
+  - `price_recovery_locked_cds()` — fixed recovery eliminates auction risk.
+  - `recovery_lock_premium()` — premium for locking recovery vs market.
+  - `price_lcds()` — Loan CDS with prepayment cancellation.
+  - Higher loan recovery (70-80%), effective maturity shortened by CPR.
+  - Cancellation value: RPV01 difference with/without prepayment.
+- 4 new tests.
+
+---
+
+## v0.718.0 — 2026-05-31
+
+**Index CDS swaption: Black-76 and Bachelier on forward index spread.**
+
+- New `credit/index_cds_swaption.py`:
+  - `index_forward_spread()` — annuity-weighted forward (Jensen's inequality).
+  - `index_cds_swaption_black()` — Black-76 on forward index spread.
+  - `index_cds_swaption_bachelier()` — Bachelier (normal) model.
+  - `index_swaption_greeks()` — delta, gamma, vega, theta via finite diff.
+  - `price_index_cds_swaption()` — full pricing from curves.
+  - Put-call parity verified.
+- 7 new tests.
+
+---
+
 ## v0.717.0 — 2026-05-31
 
 **Credit portfolio VaR: historical, parametric, and copula-based.**

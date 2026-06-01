@@ -1,4 +1,4 @@
-"""Tests for credit spread vol surface, quanto CDS, credit portfolio VaR."""
+"""Tests for credit spread vol, quanto CDS, credit VaR, index swaption, recovery-locked CDS."""
 
 import pytest
 import math
@@ -172,3 +172,143 @@ class TestCreditVaR:
         d = result.to_dict()
         assert "var_amount" in d
         assert "method" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Index CDS Swaption (C2)
+# ═══════════════════════════════════════════════════════════════
+
+class TestIndexCDSSwaption:
+    def _make_index_curves(self, n=5):
+        """Create n slightly different survival curves for index constituents."""
+        dc, _ = _make_curves()
+        scs = []
+        for i in range(n):
+            hazard = 0.015 + i * 0.005
+            _, sc = _make_curves(hazard=hazard)
+            scs.append(sc)
+        return dc, scs
+
+    def test_payer_positive(self):
+        from pricebook.credit.index_cds_swaption import index_cds_swaption_black
+        r = index_cds_swaption_black(0.005, 0.004, 0.40, 1.0, 4.0, 0.95)
+        assert r.premium > 0
+
+    def test_receiver_positive(self):
+        from pricebook.credit.index_cds_swaption import index_cds_swaption_black
+        r = index_cds_swaption_black(0.004, 0.005, 0.40, 1.0, 4.0, 0.95,
+                                      option_type="receiver")
+        assert r.premium > 0
+
+    def test_put_call_parity(self):
+        """Payer - Receiver = forward value."""
+        from pricebook.credit.index_cds_swaption import index_cds_swaption_black
+        F, K = 0.005, 0.004
+        ann, surv, N = 4.0, 0.95, 10_000_000
+        p = index_cds_swaption_black(F, K, 0.40, 1.0, ann, surv, N, "payer")
+        r = index_cds_swaption_black(F, K, 0.40, 1.0, ann, surv, N, "receiver")
+        forward_value = (F - K) * N * surv * ann
+        assert p.premium - r.premium == pytest.approx(forward_value, rel=1e-6)
+
+    def test_bachelier(self):
+        from pricebook.credit.index_cds_swaption import index_cds_swaption_bachelier
+        r = index_cds_swaption_bachelier(0.005, 0.004, 0.002, 1.0, 4.0, 0.95)
+        assert r.premium > 0
+        assert r.model == "bachelier"
+
+    def test_forward_index_spread(self):
+        from pricebook.credit.index_cds_swaption import index_forward_spread
+        dc, scs = self._make_index_curves(5)
+        expiry = REF + relativedelta(years=1)
+        maturity = REF + relativedelta(years=6)
+        fwd = index_forward_spread(dc, scs, expiry, maturity)
+        assert fwd.forward_spread > 0
+        assert len(fwd.constituent_forwards) == 5
+        assert fwd.index_annuity > 0
+
+    def test_greeks(self):
+        from pricebook.credit.index_cds_swaption import index_swaption_greeks
+        r = index_swaption_greeks(0.005, 0.004, 0.40, 1.0, 4.0, 0.95)
+        assert r.delta > 0  # payer delta positive
+        assert r.vega > 0   # long vol
+        assert r.theta < 0  # time decay
+
+    def test_full_pricing(self):
+        from pricebook.credit.index_cds_swaption import price_index_cds_swaption
+        dc, scs = self._make_index_curves(5)
+        expiry = REF + relativedelta(years=1)
+        maturity = REF + relativedelta(years=6)
+        r = price_index_cds_swaption(dc, scs, expiry, maturity, 0.005, 0.40)
+        assert r.premium > 0
+        assert r.delta != 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# Recovery-Locked CDS + LCDS (C5)
+# ═══════════════════════════════════════════════════════════════
+
+class TestRecoveryLockedCDS:
+    def test_lock_premium_higher_recovery(self):
+        """Higher locked recovery → negative premium (less protection)."""
+        from pricebook.credit.recovery_locked_cds import recovery_lock_premium
+        prem = recovery_lock_premium(0.01, 0.60, 0.40)
+        assert prem < 0  # locked recovery 60% > market 40%
+
+    def test_lock_premium_lower_recovery(self):
+        """Lower locked recovery → positive premium (more protection)."""
+        from pricebook.credit.recovery_locked_cds import recovery_lock_premium
+        prem = recovery_lock_premium(0.01, 0.20, 0.40)
+        assert prem > 0
+
+    def test_lock_premium_equal(self):
+        from pricebook.credit.recovery_locked_cds import recovery_lock_premium
+        prem = recovery_lock_premium(0.01, 0.40, 0.40)
+        assert prem == pytest.approx(0.0)
+
+    def test_price_recovery_locked(self):
+        from pricebook.credit.recovery_locked_cds import price_recovery_locked_cds
+        dc, sc = _make_curves()
+        r = price_recovery_locked_cds(REF, 5.0, 0.01, 0.30, dc, sc)
+        assert r.par_spread > 0
+        assert r.rpv01 > 0
+        assert r.locked_recovery == 0.30
+
+    def test_higher_recovery_lower_spread(self):
+        """Higher locked recovery → lower par spread."""
+        from pricebook.credit.recovery_locked_cds import price_recovery_locked_cds
+        dc, sc = _make_curves()
+        low_r = price_recovery_locked_cds(REF, 5.0, 0.01, 0.30, dc, sc)
+        high_r = price_recovery_locked_cds(REF, 5.0, 0.01, 0.60, dc, sc)
+        assert low_r.par_spread > high_r.par_spread
+
+
+class TestLCDS:
+    def test_lcds_higher_recovery(self):
+        """LCDS has higher recovery than standard CDS → lower spread."""
+        from pricebook.credit.recovery_locked_cds import price_lcds
+        dc, sc = _make_curves()
+        r = price_lcds(REF, 5.0, 0.005, dc, sc, recovery=0.70)
+        assert r.par_spread > 0
+        assert r.par_spread < 0.02  # lower than bond CDS
+
+    def test_prepayment_shortens_maturity(self):
+        """Prepayment reduces effective maturity."""
+        from pricebook.credit.recovery_locked_cds import price_lcds
+        dc, sc = _make_curves()
+        no_prepay = price_lcds(REF, 5.0, 0.005, dc, sc, prepayment_rate=0.0)
+        with_prepay = price_lcds(REF, 5.0, 0.005, dc, sc, prepayment_rate=0.20)
+        assert with_prepay.effective_maturity < no_prepay.effective_maturity
+
+    def test_cancellation_value_positive(self):
+        from pricebook.credit.recovery_locked_cds import price_lcds
+        dc, sc = _make_curves()
+        r = price_lcds(REF, 5.0, 0.005, dc, sc, prepayment_rate=0.15)
+        assert r.cancellation_value > 0  # seller benefits from cancellation
+
+    def test_to_dict(self):
+        from pricebook.credit.recovery_locked_cds import price_lcds
+        dc, sc = _make_curves()
+        r = price_lcds(REF, 5.0, 0.005, dc, sc)
+        d = r.to_dict()
+        assert "prepayment_rate" in d
+        assert "cancellation_value" in d
