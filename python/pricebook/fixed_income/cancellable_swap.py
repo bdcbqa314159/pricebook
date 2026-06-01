@@ -92,7 +92,7 @@ def cancellable_swap_price(
         pillar_dfs = [math.exp(-r0 * y) for y in range(1, int(swap_end_years) + 5)]
         flat_curve = DiscountCurve(ref, pillar_dates, pillar_dfs, interpolation=InterpolationMethod.LOG_LINEAR)
         hw = HullWhite(a=hw_a, sigma=hw_sigma, curve=flat_curve)
-    except (ImportError, Exception):
+    except (ImportError, TypeError, ValueError):
         class _HW:
             def __init__(self, a, sigma, r0):
                 self.a, self.sigma, self.r0 = a, sigma, r0
@@ -136,11 +136,16 @@ def cancellable_swap_price(
 
     swaption_value = max(swaption_value, 0)
 
-    # Cancellable PV = vanilla - swaption (option reduces PV for the non-optioned party)
-    cancellable_pv = vanilla_pv - swaption_value if is_payer else vanilla_pv + swaption_value
+    # Cancellable PV: the cancellation right always reduces the PV for the
+    # non-option-holding party (regardless of payer/receiver direction).
+    # The embedded swaption is held by the counterparty — its value is
+    # subtracted from the swap PV.
+    if vanilla_pv >= 0:
+        cancellable_pv = vanilla_pv - swaption_value
+    else:
+        cancellable_pv = vanilla_pv + swaption_value  # negative PV gets closer to zero
 
-    # Adjusted par rate (rate that makes cancellable PV = 0)
-    # Simplified: par_cancellable ≈ par_vanilla ± swaption_value / annuity
+    # Adjusted par rate
     adj = swaption_value / annuity if annuity > 0 else 0
     par_cancellable = par_rate + adj if is_payer else par_rate - adj
 

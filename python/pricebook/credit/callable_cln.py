@@ -123,15 +123,15 @@ def callable_cln_price(
         # Continuation value (looking forward from t_end)
         forward_value = period_values[i + 1]
 
-        # This period's cashflow
-        coupon = notional * coupon_rate * tau
+        # This period's cashflow (coupon conditional on survival)
+        coupon = notional * coupon_rate * tau * p_survive
         recovery_cf = recovery * notional * p_default
 
         # Value at t_start: discount back
-        cont_value = (p_survive * forward_value + recovery_cf) * df_ratio + coupon * df_ratio
+        cont_value = (p_survive * forward_value + recovery_cf + coupon) * df_ratio
 
-        # Apply call constraint
-        is_call_date = t_end in call_date_set
+        # Apply call constraint (snap to nearest schedule date within 5 days)
+        is_call_date = any(abs((t_end - cd).days) <= 5 for cd in call_dates)
         if is_call_date:
             total_call_dates += 1
             if cont_value > call_price:

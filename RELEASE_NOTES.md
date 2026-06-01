@@ -2,6 +2,18 @@
 
 ---
 
+## v0.704.0 — 2026-06-01
+
+**Code review fixes for callable/cancellable modules.**
+
+- **callable_cds.py**: fixed discount factor — now uses `df(t_next)/df(t)` instead of `exp(-zero_rate*dt)`. Fixed date arithmetic to use `timedelta(days=round(t*365.25))` instead of `int(t*365)`.
+- **cancellable_swap.py**: fixed receiver swap sign logic — cancellation right always reduces PV for the non-option-holder regardless of direction.
+- **callable_cln.py**: coupon now survival-weighted (`coupon * p_survive`). Call date matching uses 5-day tolerance instead of exact equality.
+- **Exception handling**: narrowed from bare `except Exception` to `except (ImportError, TypeError, ValueError)` in cancellable_swap and extendible.
+- 10,636 tests pass.
+
+---
+
 ## v0.703.0 — 2026-06-01
 
 **Callable/cancellable derivatives: cancellable swap, extendible, callable CDS, callable CLN.**

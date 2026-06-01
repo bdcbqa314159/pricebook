@@ -83,7 +83,7 @@ def extendible_swap_price(
         pf = [math.exp(-r0*y) for y in range(1, int(extended_maturity_years)+5)]
         fc = DiscountCurve(ref, pd, pf, interpolation=InterpolationMethod.LOG_LINEAR)
         hw = HullWhite(a=hw_a, sigma=hw_sigma, curve=fc)
-    except (ImportError, Exception):
+    except (ImportError, TypeError, ValueError):
         class _HW:
             def __init__(self, a, sigma, r0):
                 self.a, self.sigma, self.r0 = a, sigma, r0

@@ -112,15 +112,17 @@ def callable_cds_price(
         t_next = (step + 1) * dt
 
         # Survival probabilities
-        t_date = date.fromordinal(reference_date.toordinal() + int(t * 365))
-        t_next_date = date.fromordinal(reference_date.toordinal() + int(t_next * 365))
+        from datetime import timedelta
+        t_date = reference_date + timedelta(days=round(t * 365.25))
+        t_next_date = reference_date + timedelta(days=round(t_next * 365.25))
 
         q_t = survival_curve.survival(t_date)
         q_next = survival_curve.survival(t_next_date)
         p_survive = min(q_next / max(q_t, 1e-10), 1.0)
         p_default = max(1 - p_survive, 0.0)
 
-        df = math.exp(-discount_curve.zero_rate(t_next_date) * dt) if t_next < T else 1.0
+        # Single-step DF = df(t_next) / df(t)
+        df = discount_curve.df(t_next_date) / max(discount_curve.df(t_date), 1e-10) if t_next < T else 1.0
 
         # Continuation value
         cont = values[step + 1] * p_survive * df
