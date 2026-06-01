@@ -2,6 +2,24 @@
 
 ---
 
+## v0.698.0 — 2026-06-01
+
+**Danish mortgage bonds (realkreditobligationer) — callable covered bonds with prepayment.**
+
+- New `fixed_income/danish_mortgage.py` (300 lines):
+  - `DanishMortgageBond` — callable at par, bullet or pass-through amortisation.
+  - `prepayment_model()` — CPR as function of refinancing incentive (coupon - market rate), with seasoning ramp-up.
+  - `psa_curve()` — PSA-standard prepayment ramp (30-month, configurable speed).
+  - `MortgageBondResult` — dirty price, OAS, effective duration, WAL, expected CPR, callable value.
+  - Effective duration via ±10bp parallel bump (non-recursive).
+  - Callable price ≤ non-callable (negative convexity verified).
+  - Higher CPR → shorter WAL. Pass-through WAL < bullet WAL.
+  - OAS > 0 for callable bonds with refinancing incentive.
+- 16 new tests.
+- 10,544 tests pass.
+
+---
+
 ## v0.697.0 — 2026-06-01
 
 **CEE + Turkey: PLN, CZK, HUF, TRY — dual IBOR+RFR swaps + inflation linkers.**
