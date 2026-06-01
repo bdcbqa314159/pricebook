@@ -2,6 +2,18 @@
 
 ---
 
+## v0.701.0 — 2026-06-01
+
+**BEI (breakeven inflation) added to 9 markets — now 16 markets have BEI.**
+
+- Added `breakeven_inflation_XX()` convenience functions to: BRL, MXN, COP, PEN, ARS, PLN, CZK, HUF, TRY.
+- Total markets with BEI: 16 (GBP, CAD, CLP, JPY, AUD, ZAR, ILS + 9 new).
+- All follow same pattern: nominal_rate - real_rate from two discount curves.
+- Argentina/Turkey: extreme BEI values expected (~30%+ / ~35%+).
+- 10,576 tests pass.
+
+---
+
 ## v0.700.0 — 2026-06-01
 
 **Japan, Australia, South Africa, Israel: full derivatives with inflation linkers + BEI.**

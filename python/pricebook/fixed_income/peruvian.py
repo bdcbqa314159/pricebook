@@ -90,3 +90,27 @@ class VACBond:
 
     def to_dict(self) -> dict:
         return {"type": "vac_bond", "maturity": self.maturity.isoformat()}
+
+
+def breakeven_inflation_pe(
+    nominal_curve: DiscountCurve,
+    real_curve: DiscountCurve,
+    maturities_years: list[float] | None = None,
+    reference_date: date | None = None,
+) -> list[dict]:
+    """PEN BEI from PEN nominal vs IPC real curves."""
+    from dateutil.relativedelta import relativedelta
+    if maturities_years is None:
+        maturities_years = [1, 2, 5, 10, 20]
+    ref = reference_date or nominal_curve.reference_date
+    results = []
+    for T in maturities_years:
+        mat = ref + relativedelta(years=int(T))
+        df_nom, df_real = nominal_curve.df(mat), real_curve.df(mat)
+        if df_nom > 0 and df_real > 0 and T > 0:
+            nom, real = -math.log(df_nom) / T, -math.log(df_real) / T
+            bei = nom - real
+        else:
+            nom = real = bei = 0.0
+        results.append({"years": T, "nominal_rate": nom, "real_rate": real, "bei": bei})
+    return results
