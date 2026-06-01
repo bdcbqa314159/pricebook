@@ -312,3 +312,171 @@ class TestLCDS:
         d = r.to_dict()
         assert "prepayment_rate" in d
         assert "cancellation_value" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Index Roll Mechanics (C6)
+# ═══════════════════════════════════════════════════════════════
+
+class TestIndexRoll:
+    def _make_constituents(self, n=5, base_spread=0.005):
+        from pricebook.credit.index_roll import Constituent
+        return [Constituent(f"Name_{i}", base_spread + i * 0.001) for i in range(n)]
+
+    def test_series_transition(self):
+        from pricebook.credit.index_roll import series_transition, Constituent
+        old = self._make_constituents(5)
+        additions = [Constituent("NewCo", 0.004)]
+        removals = ["Name_4"]
+        new = series_transition(old, additions, removals)
+        assert len(new) == 5
+        names = {c.name for c in new}
+        assert "NewCo" in names
+        assert "Name_4" not in names
+
+    def test_roll_pnl(self):
+        from pricebook.credit.index_roll import index_roll_pnl
+        old = self._make_constituents(5, 0.006)
+        new = self._make_constituents(5, 0.005)  # tighter
+        r = index_roll_pnl(old, new, 41, 42, rpv01=4.5)
+        assert r.roll_pnl > 0  # buyer benefits from tighter new series
+        assert r.spread_change_bp < 0
+
+    def test_otr_basis(self):
+        from pricebook.credit.index_roll import on_the_run_basis
+        otr = self._make_constituents(5, 0.004)  # tighter (liquid)
+        off = self._make_constituents(5, 0.005)   # wider (off-run)
+        r = on_the_run_basis(otr, off, 42, 41)
+        assert r.basis_bp < 0  # OTR trades tighter
+
+    def test_series_transition_pnl(self):
+        from pricebook.credit.index_roll import series_transition_pnl, Constituent
+        old = self._make_constituents(5, 0.006)
+        add = [Constituent("NewCo", 0.003)]
+        rem = ["Name_4"]  # removing widest name
+        r = series_transition_pnl(old, add, rem, 41, rpv01=4.5)
+        assert r.new_series == 42
+        assert "NewCo" in r.names_added
+
+    def test_to_dict(self):
+        from pricebook.credit.index_roll import index_roll_pnl
+        old = self._make_constituents(3)
+        new = self._make_constituents(3)
+        r = index_roll_pnl(old, new, 1, 2, rpv01=4.0)
+        d = r.to_dict()
+        assert "roll_pnl" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Index Replication (C7)
+# ═══════════════════════════════════════════════════════════════
+
+class TestIndexReplication:
+    def test_full_replication(self):
+        from pricebook.credit.index_replication import replicate_index
+        rng = np.random.default_rng(42)
+        N, T = 10, 250
+        spreads = rng.normal(0, 0.0005, (T, N))
+        weights_true = np.ones(N) / N
+        index = spreads @ weights_true + rng.normal(0, 0.00001, T)
+        r = replicate_index(index, spreads)
+        assert r.r_squared > 0.9
+        assert r.tracking_error < 0.01
+
+    def test_sparse_replication(self):
+        from pricebook.credit.index_replication import replicate_index
+        rng = np.random.default_rng(42)
+        N, T = 20, 250
+        spreads = rng.normal(0, 0.0005, (T, N))
+        weights_true = np.zeros(N)
+        weights_true[:5] = 0.2
+        index = spreads @ weights_true
+        r = replicate_index(index, spreads, n_select=5)
+        assert r.n_active <= 5
+        assert r.r_squared > 0.8
+
+    def test_te_decreases_with_more_names(self):
+        from pricebook.credit.index_replication import replicate_index
+        rng = np.random.default_rng(42)
+        N, T = 20, 250
+        spreads = rng.normal(0, 0.0005, (T, N))
+        index = spreads.mean(axis=1)
+        te_5 = replicate_index(index, spreads, n_select=5).tracking_error
+        te_15 = replicate_index(index, spreads, n_select=15).tracking_error
+        assert te_15 <= te_5 * 1.1  # more names → lower TE
+
+    def test_l1_sparsity(self):
+        from pricebook.credit.index_replication import replicate_index
+        rng = np.random.default_rng(42)
+        N, T = 10, 250
+        spreads = rng.normal(0, 0.0005, (T, N))
+        index = spreads.mean(axis=1)
+        dense = replicate_index(index, spreads, l1_penalty=0.0)
+        sparse = replicate_index(index, spreads, l1_penalty=0.01)
+        assert sparse.n_active <= dense.n_active
+
+    def test_tracking_error_fn(self):
+        from pricebook.credit.index_replication import tracking_error
+        rng = np.random.default_rng(42)
+        idx = rng.normal(0, 0.001, 250)
+        rep = idx + rng.normal(0, 0.0001, 250)
+        te = tracking_error(idx, rep)
+        assert te > 0
+        assert te < 0.01  # small residual
+
+
+# ═══════════════════════════════════════════════════════════════
+# Credit Event Auction (C8)
+# ═══════════════════════════════════════════════════════════════
+
+class TestCreditEvent:
+    def test_simulate_auction(self):
+        from pricebook.credit.credit_event import simulate_auction
+        r = simulate_auction(expected_recovery=0.40, seed=42)
+        assert 0 <= r.final_price <= 100
+        assert r.n_dealers == 14
+        assert 0 <= r.recovery_rate <= 1
+
+    def test_auction_near_expected(self):
+        from pricebook.credit.credit_event import simulate_auction
+        results = [simulate_auction(0.30, seed=i) for i in range(100)]
+        avg = np.mean([r.final_price for r in results])
+        assert 20 < avg < 40  # near expected 30
+
+    def test_settlement_buyer(self):
+        from pricebook.credit.credit_event import settlement_amount
+        s = settlement_amount(10_000_000, 35.0, is_protection_buyer=True)
+        assert s == pytest.approx(10_000_000 * 0.65)
+
+    def test_settlement_seller(self):
+        from pricebook.credit.credit_event import settlement_amount
+        s = settlement_amount(10_000_000, 35.0, is_protection_buyer=False)
+        assert s < 0
+
+    def test_credit_event_timeline(self):
+        from pricebook.credit.credit_event import CreditEvent, CreditEventTimeline, EventType
+        event = CreditEvent("WidgetCo", EventType.BANKRUPTCY, date(2024, 6, 1))
+        tl = CreditEventTimeline(event)
+        dates = tl.timeline()
+        assert dates["event_date"] == "2024-06-01"
+        assert "auction_date" in dates
+
+    def test_process_credit_event(self):
+        from pricebook.credit.credit_event import (
+            process_credit_event, CreditEvent, EventType,
+        )
+        event = CreditEvent("WidgetCo", EventType.FAILURE_TO_PAY, date(2024, 6, 1))
+        result = process_credit_event(event, 10_000_000, seed=42)
+        assert abs(result["settlement_amount"]) > 0
+        assert "auction" in result
+
+    def test_event_types(self):
+        from pricebook.credit.credit_event import EventType
+        assert len(EventType) >= 6
+
+    def test_to_dict(self):
+        from pricebook.credit.credit_event import simulate_auction
+        r = simulate_auction(seed=42)
+        d = r.to_dict()
+        assert "final_price" in d
+        assert "recovery_rate" in d

@@ -2,6 +2,47 @@
 
 ---
 
+## v0.722.0 — 2026-05-31
+
+**Credit event auction simulation.**
+
+- New `credit/credit_event.py`:
+  - `CreditEvent` — entity, event type (6 ISDA types), dates.
+  - `simulate_auction()` — two-stage ISDA auction (initial bidding + Dutch).
+  - `settlement_amount()` — CDS payout from auction final price.
+  - `CreditEventTimeline` — event → determination → auction → settlement.
+  - `process_credit_event()` — end-to-end credit event processing.
+- 8 new tests.
+
+---
+
+## v0.721.0 — 2026-05-31
+
+**Index replication and tracking error.**
+
+- New `credit/index_replication.py`:
+  - `replicate_index()` — optimal weights via least squares / LASSO.
+  - Greedy name selection by correlation for sparse replication.
+  - L1-regularised coordinate descent for sparsity.
+  - `tracking_error()` — annualised TE vs full index.
+  - TE decreases with more names (verified).
+- 5 new tests.
+
+---
+
+## v0.720.0 — 2026-05-31
+
+**Index roll mechanics: series transition and OTR basis.**
+
+- New `credit/index_roll.py`:
+  - `series_transition()` — apply name additions/removals.
+  - `index_roll_pnl()` — P&L from rolling to new series.
+  - `on_the_run_basis()` — OTR vs off-the-run spread difference.
+  - `series_transition_pnl()` — transition + P&L in one step.
+- 5 new tests.
+
+---
+
 ## v0.719.0 — 2026-05-31
 
 **Recovery-locked CDS and Loan CDS (LCDS).**
