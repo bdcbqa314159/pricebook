@@ -2,6 +2,21 @@
 
 ---
 
+## v0.707.0 — 2026-06-01
+
+**Unified curve methods: all 33 currencies now have 5 construction methods.**
+
+- `get_conventions()` in `curve_builder.py` now falls through from G10 to EM registry.
+- `build_curves()` accepts ANY of the 33 currencies (was limited to 10 G10).
+- EM currencies (BRL, MXN, CNY, KRW, INR, ZAR, PLN, etc.) can now use:
+  - Sequential bootstrap, Global Newton, Nelson-Siegel, Svensson, Smith-Wilson.
+- Cross-method consistency: 5Y zero rate within 100bp across methods.
+- Note: Smith-Wilson fails at extreme rates (TRY 45%) — use sequential for extreme EM.
+- 17 new tests.
+- 10,661 tests pass.
+
+---
+
 ## v0.706.0 — 2026-06-01
 
 **Hull-White calibration from swaption volatilities — CRITICAL GAP FILLED.**

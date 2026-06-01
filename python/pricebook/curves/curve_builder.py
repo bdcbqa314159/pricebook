@@ -104,11 +104,29 @@ _CONVENTIONS = {
 
 
 def get_conventions(currency: str) -> CurrencyConventions:
-    """Look up swap/curve conventions by currency."""
+    """Look up swap/curve conventions by currency.
+
+    First checks G10 registry, then falls through to EM conventions.
+    This gives all 33+ currencies access to all 5 curve methods.
+    """
     key = currency.upper()
-    if key not in _CONVENTIONS:
-        raise ValueError(f"Unknown currency: {key}. Available: {sorted(_CONVENTIONS)}")
-    return _CONVENTIONS[key]
+    if key in _CONVENTIONS:
+        return _CONVENTIONS[key]
+
+    # Fall through to EM conventions
+    try:
+        from pricebook.curves.em_curve_builder import get_em_curve_conventions
+        em = get_em_curve_conventions(key)
+        return CurrencyConventions(
+            em.deposit_day_count, em.fixed_day_count, em.float_day_count,
+            em.fixed_frequency, em.float_frequency, em.interpolation,
+        )
+    except (ValueError, ImportError):
+        pass
+
+    raise ValueError(f"Unknown currency: {key}. "
+                     f"G10: {sorted(_CONVENTIONS)}. "
+                     f"Use build_em_curve() for EM or add conventions.")
 
 
 @dataclass
@@ -159,9 +177,7 @@ def build_curves(
     Returns:
         CurveSetResult with OIS curve and optional projection curve.
     """
-    conv = _CONVENTIONS.get(currency.upper())
-    if conv is None:
-        conv = _CONVENTIONS["USD"]
+    conv = get_conventions(currency)  # unified G10 + EM lookup
 
     # 1. Build OIS discount curve
     if method == "sequential":
