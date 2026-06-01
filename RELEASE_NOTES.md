@@ -2,6 +2,24 @@
 
 ---
 
+## v0.708.0 — 2026-06-01
+
+**Swaption vol cube: 3D (expiry × tenor × strike) with SABR smile.**
+
+- New `options/swaption_vol_cube.py`:
+  - `SwaptionVolCube` — ATM backbone (bilinear interpolation) + per-node SABR smile.
+  - `vol(expiry, tenor, strike)` — full 3D interpolation.
+  - `smile(expiry, tenor, strikes)` — vol smile across strikes.
+  - `bumped(shift)` — parallel vol shift.
+  - `build_swaption_vol_cube()` — construct from ATM grid + smile quotes.
+  - `SABRNode` — per-(expiry, tenor) SABR params (alpha, beta, rho, nu).
+  - SABR calibration via `sabr_calibrate()` at each smile node.
+- OTM vol differs from ATM when SABR is fitted (smile verified).
+- 12 new tests.
+- 10,673 tests pass.
+
+---
+
 ## v0.707.0 — 2026-06-01
 
 **Unified curve methods: all 33 currencies now have 5 construction methods.**
