@@ -2,6 +2,29 @@
 
 ---
 
+## v0.703.0 — 2026-06-01
+
+**Callable/cancellable derivatives: cancellable swap, extendible, callable CDS, callable CLN.**
+
+- New `fixed_income/cancellable_swap.py`:
+  - `cancellable_swap_price()` — swap + embedded Bermudan swaption decomposition.
+  - Cancellable PV ≤ vanilla PV (option costs the holder). Par rate adjusted.
+- New `fixed_income/extendible.py`:
+  - `extendible_swap_price()` — base swap + European swaption on extension period.
+  - Extendible PV ≥ base PV (extension adds value for holder).
+- New `credit/callable_cds.py`:
+  - `callable_cds_price()` — CDS with seller termination right via backward induction.
+  - Callable PV ≤ vanilla. Callable spread ≥ vanilla spread.
+- New `credit/callable_cln.py`:
+  - `callable_cln_price()` — CLN with issuer early redemption via backward induction.
+  - Callable ≤ straight CLN. Higher coupon → more call value.
+  - Call probability, expected call date, par spread for callable.
+- All compose over existing Hull-White tree / survival curve infrastructure.
+- 17 new tests.
+- 10,636 tests pass.
+
+---
+
 ## v0.702.0 — 2026-06-01
 
 **Asia build-out: 9 currencies — CNY, KRW, INR, SGD, HKD, THB, IDR, MYR, PHP.**
