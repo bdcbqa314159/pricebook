@@ -2,6 +2,20 @@
 
 ---
 
+## v0.699.0 — 2026-06-01
+
+**Code review fixes across all new market modules.**
+
+- **Nordic template placeholders**: fixed `{country}` → "Swedish"/"Norwegian"/"Danish" in 6 docstrings.
+- **CEE linker conventions**: changed frequency from semi-annual to annual (PLN, CZK, HUF linkers). Fixed CZK/HUF linker day counts from ACT/360 to ACT/365F to match inflation_indices.json.
+- **PLN IRS**: fixed leg frequency changed from semi-annual to annual (market standard).
+- **Gilt**: added past cashflow filtering in `dirty_price()` (was including past coupons).
+- **Danish mortgage**: removed unused `import numpy`.
+- **Rate indices JSON**: SWESTR and NOWA observation_shift corrected from 0 to 2.
+- 10,544 tests pass.
+
+---
+
 ## v0.698.0 — 2026-06-01
 
 **Danish mortgage bonds (realkreditobligationer) — callable covered bonds with prepayment.**

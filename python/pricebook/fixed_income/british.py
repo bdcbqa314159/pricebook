@@ -126,6 +126,8 @@ class GiltBond:
 
         pv = 0.0
         for i in range(1, len(schedule)):
+            if schedule[i] <= curve.reference_date:
+                continue
             tau = year_fraction(schedule[i-1], schedule[i], DayCountConvention.ACT_ACT_ICMA,
                                 ref_start=schedule[i-1], ref_end=schedule[i], frequency=2)
             df = curve.df(schedule[i])

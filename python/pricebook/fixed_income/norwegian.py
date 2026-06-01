@@ -57,7 +57,7 @@ class NOWASwapResult:
 
 
 class NOWASwap:
-    """{country} NOWA overnight swap. Annual fixed, ACT/360."""
+    """Norwegian NOWA overnight swap. Annual fixed, ACT/360."""
 
     def __init__(self, start: date, end: date, fixed_rate: float,
                  notional: float = 10_000_000.0, direction: int = 1):
@@ -88,7 +88,7 @@ class NOWASwap:
 
 
 class NGBBond:
-    """{country} government bond. Annual coupon, ACT/ACT ICMA, T+2."""
+    """Norwegian government bond (NGB). Annual coupon, ACT/ACT ICMA, T+2."""
 
     def __init__(self, issue_date: date, maturity: date, coupon: float, face: float = 100):
         self.issue_date, self.maturity, self.coupon, self.face = issue_date, maturity, coupon, face

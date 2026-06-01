@@ -85,7 +85,7 @@ class WIBORSwapResult:
 class WIBORSwap:
     """Polish WIBOR 3M interest rate swap.
 
-    Fixed leg: semi-annual, ACT/365F.
+    Fixed leg: annual, ACT/365F.
     Floating leg: 3M WIBOR, quarterly reset (telescoping valuation).
 
     Args:
@@ -104,7 +104,7 @@ class WIBORSwap:
     def price(self, curve: DiscountCurve) -> WIBORSwapResult:
         from pricebook.core.schedule import Frequency, generate_schedule
         dc = DayCountConvention.ACT_365_FIXED
-        schedule = generate_schedule(self.start, self.end, Frequency.SEMI_ANNUAL)
+        schedule = generate_schedule(self.start, self.end, Frequency.ANNUAL)
 
         # Fixed leg: Σ fixed_rate × τ × df(t_i)
         fixed_pv = sum(self.fixed_rate * year_fraction(schedule[i-1], schedule[i], dc)
@@ -211,7 +211,7 @@ class POLGBLinkerResult:
 class POLGBLinker:
     """Polish CPI-linked government bond. CPI_PL indexed, no deflation floor.
 
-    Semi-annual coupon, ACT/365F. No deflation floor on principal.
+    Annual coupon, ACT/365F. No deflation floor on principal.
 
     Args:
         issue_date: bond issue date.
@@ -229,7 +229,7 @@ class POLGBLinker:
     def price(self, ref: date, real_curve: DiscountCurve,
               current_cpi: float) -> POLGBLinkerResult:
         from pricebook.core.schedule import Frequency, generate_schedule
-        schedule = generate_schedule(self.issue_date, self.maturity, Frequency.SEMI_ANNUAL)
+        schedule = generate_schedule(self.issue_date, self.maturity, Frequency.ANNUAL)
         cpi_ratio = current_cpi / self.base_cpi  # no deflation floor
 
         rpv = sum(self.face * self.real_coupon * _pln_yf(schedule[i-1], schedule[i])

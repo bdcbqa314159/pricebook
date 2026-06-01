@@ -211,7 +211,7 @@ class CZGBLinkerResult:
 class CZGBLinker:
     """Czech CPI-linked government bond. CPI_CZ indexed, 3-month lag, no floor.
 
-    Semi-annual coupon, ACT/360. No deflation floor on principal.
+    Annual coupon, ACT/365F. No deflation floor on principal.
 
     Args:
         issue_date: bond issue date.
@@ -229,16 +229,17 @@ class CZGBLinker:
     def price(self, ref: date, real_curve: DiscountCurve,
               current_cpi: float) -> CZGBLinkerResult:
         from pricebook.core.schedule import Frequency, generate_schedule
-        schedule = generate_schedule(self.issue_date, self.maturity, Frequency.SEMI_ANNUAL)
+        schedule = generate_schedule(self.issue_date, self.maturity, Frequency.ANNUAL)
         cpi_ratio = current_cpi / self.base_cpi  # no deflation floor
 
-        rpv = sum(self.face * self.real_coupon * _czk_yf(schedule[i-1], schedule[i])
+        dc = DayCountConvention.ACT_365_FIXED
+        rpv = sum(self.face * self.real_coupon * year_fraction(schedule[i-1], schedule[i], dc)
                   * real_curve.df(schedule[i])
                   for i in range(1, len(schedule)) if schedule[i] > ref)
         rpv += self.face * real_curve.df(self.maturity)
         nominal = rpv * cpi_ratio
 
-        T = _czk_yf(ref, self.maturity)
+        T = year_fraction(ref, self.maturity, dc)
         ry = -math.log(max(rpv / self.face, 1e-10)) / max(T, 1e-10) if T > 0 else 0
         return CZGBLinkerResult(rpv, nominal, cpi_ratio, ry)
 

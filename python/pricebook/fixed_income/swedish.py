@@ -57,7 +57,7 @@ class SWESTRSwapResult:
 
 
 class SWESTRSwap:
-    """{country} SWESTR overnight swap. Annual fixed, ACT/360."""
+    """Swedish SWESTR overnight swap. Annual fixed, ACT/360."""
 
     def __init__(self, start: date, end: date, fixed_rate: float,
                  notional: float = 10_000_000.0, direction: int = 1):
@@ -88,7 +88,7 @@ class SWESTRSwap:
 
 
 class SGBBond:
-    """{country} government bond. Annual coupon, ACT/ACT ICMA, T+2."""
+    """Swedish government bond (SGB). Annual coupon, ACT/ACT ICMA, T+2."""
 
     def __init__(self, issue_date: date, maturity: date, coupon: float, face: float = 100):
         self.issue_date, self.maturity, self.coupon, self.face = issue_date, maturity, coupon, face
