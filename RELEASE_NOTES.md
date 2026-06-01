@@ -2,6 +2,26 @@
 
 ---
 
+## v0.709.0 — 2026-06-01
+
+**Swaption infrastructure: per-currency conventions, synthetic data, HW per currency.**
+
+- New `options/swaption_conventions.py`:
+  - `SwaptionConvention` per currency: vol quote type (Black/Normal/Shifted), frequencies, SABR type, standard grids.
+  - 11 currencies: USD (shifted-SABR), EUR (Normal/Bachelier), GBP, JPY, CHF, CAD, AUD, BRL (BUS/252), MXN, KRW, ZAR.
+- New `options/synthetic_swaption_data.py`:
+  - `synthetic_atm_surface(currency)` — realistic ATM vols (USD ~60bp, JPY ~25bp, BRL ~200bp).
+  - `synthetic_smile_data(currency)` — RR25/BF25 per node.
+  - `synthetic_hw_targets(currency)` — swaption vol targets for HW calibration.
+- New `models/hw_per_currency.py`:
+  - `calibrate_hw_for_currency(currency, ref, curve)` — full pipeline: synthetic vols → HW calibration.
+  - Default parameters for 33 currencies (G10, EM, Asia, CEE).
+  - EM defaults: higher mean reversion + vol (BRL a=0.10, TRY a=0.15).
+- 16 new tests.
+- 10,689 tests pass.
+
+---
+
 ## v0.708.0 — 2026-06-01
 
 **Swaption vol cube: 3D (expiry × tenor × strike) with SABR smile.**
