@@ -2,6 +2,23 @@
 
 ---
 
+## v0.705.0 — 2026-06-01
+
+**Reorganise notebooks into thematic subdirectories.**
+
+- `notebooks/americas/` — argentina, canada, chile, colombia, mexico, peru (6)
+- `notebooks/rates/` — treasury_note_roundtrip, treasury_multicurve, asw_btp_bund (3)
+- `notebooks/credit/` — recovery_roundtrip (1)
+- `notebooks/structured/` — prdc_structuring, tarf_risk_profile, xccy_basis_pricing (3)
+- `notebooks/desks/` — bond_trading_desk, futures_desk (2)
+- `notebooks/validation/` — cmasw_pucci_2012a, cmt_pucci_2014, index_linked_hybrid_pucci_2012b, treasury_lock_pucci_2019, trs_lou_2018 (5)
+- Renamed for consistency: `*_derivatives.ipynb` → short country names, `*_validation.ipynb` → paper names only.
+- Fixed `sys.path` in all 20 notebooks for 2-level-deep directory structure.
+- Cleaned up stale `.ipynb_checkpoints`.
+- 10,636 tests pass.
+
+---
+
 ## v0.704.0 — 2026-06-01
 
 **Code review fixes for callable/cancellable modules.**
