@@ -2,6 +2,20 @@
 
 ---
 
+## v0.700.0 — 2026-06-01
+
+**Japan, Australia, South Africa, Israel: full derivatives with inflation linkers + BEI.**
+
+- New `fixed_income/japanese.py`: TONASwap, JGBBond, JGBiLinker (CPI_JP, 3M lag, **deflation floor**), BEI. Near-zero rate handling.
+- New `fixed_income/australian.py`: AONIASwap, ACGBBond, TIBBond (CPI_AU, **quarterly coupon** — only quarterly linker globally, **no deflation floor**), BEI.
+- New `fixed_income/south_african.py`: JIBARSwap (**quarterly** fixed), SAGBBond (T+3), SAILBBond (CPI_ZA, no floor), BEI.
+- New `fixed_income/israeli.py`: TelborSwap, ShaharBond, GalilBond (CPI_IL, **1-month lag**, **annual coupon**, no floor), BEI.
+- Markets with full derivatives: 20 → 24.
+- 32 new tests.
+- 10,576 tests pass.
+
+---
+
 ## v0.699.0 — 2026-06-01
 
 **Code review fixes across all new market modules.**
