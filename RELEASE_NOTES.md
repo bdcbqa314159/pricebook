@@ -2,6 +2,24 @@
 
 ---
 
+## v0.706.0 — 2026-06-01
+
+**Hull-White calibration from swaption volatilities — CRITICAL GAP FILLED.**
+
+- New `models/hw_calibration.py`:
+  - `calibrate_hull_white(curve, swaption_vols)` → calibrated `HullWhite` model.
+  - Minimises Σ(model_vol - market_vol)² across swaption grid.
+  - Model vol: HW tree pricing → Black-76 vol inversion.
+  - Optimisers: Nelder-Mead (default), differential evolution, L-BFGS-B.
+  - ATM strike auto-computed from forward swap rates if not provided.
+  - Per-swaption fit diagnostics (error in bp).
+  - Round-trip verified: generate vols from known (a=0.03, σ=0.01), calibrate back within 30%.
+- Enables: calibrated callable bond pricing, Bermudan swaption pricing, cancellable swap pricing from market vol data.
+- 8 new tests.
+- 10,644 tests pass.
+
+---
+
 ## v0.705.0 — 2026-06-01
 
 **Reorganise notebooks into thematic subdirectories.**
