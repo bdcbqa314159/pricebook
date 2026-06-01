@@ -485,3 +485,161 @@ class Chapter11Timeline:
             administrative_costs_pct=administrative_cost_pct,
         )
 _serialisable("dip_loan", ["notional", "spread", "maturity_months", "roll_up_amount", "carve_out", "upfront_fee"])(DIPLoan)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Distressed CDS: Upfront Quoting + Implied CPD
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class DistressedCDSResult:
+    """Distressed CDS pricing result (upfront convention)."""
+    upfront_pct: float          # upfront payment as % of notional
+    running_spread: float       # fixed running coupon (100bp or 500bp)
+    implied_cpd: float          # cumulative probability of default
+    implied_hazard: float       # flat hazard rate
+    recovery: float
+    maturity_years: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def distressed_cds_upfront(
+    market_spread: float,
+    maturity_years: float = 5.0,
+    running_coupon: float = 0.05,
+    recovery: float = 0.40,
+    discount_rate: float = 0.04,
+    coupon_frequency: int = 4,
+) -> DistressedCDSResult:
+    """Convert distressed running spread to upfront payment.
+
+    Distressed CDS trade with an upfront payment plus a fixed running
+    coupon (typically 500bp for HY). The upfront is:
+
+        upfront = (market_spread − running_coupon) × RPV01
+
+    where RPV01 is the risky annuity.
+
+    Also computes implied cumulative probability of default (CPD)
+    and the implied flat hazard rate.
+
+    Args:
+        market_spread: quoted CDS spread (decimal, e.g. 0.05 = 500bp).
+        maturity_years: CDS maturity.
+        running_coupon: fixed running coupon (decimal).
+        recovery: recovery rate.
+        discount_rate: risk-free rate for discounting.
+        coupon_frequency: payments per year.
+    """
+    import math
+
+    dt = 1.0 / coupon_frequency
+    n = int(maturity_years * coupon_frequency)
+
+    # Implied hazard from market spread
+    # spread ≈ hazard × (1 - recovery), so hazard ≈ spread / (1 - recovery)
+    if recovery < 1.0:
+        implied_hazard = market_spread / (1 - recovery)
+    else:
+        implied_hazard = 0.0
+
+    # RPV01 with implied hazard
+    rpv01 = 0.0
+    for i in range(1, n + 1):
+        t = i * dt
+        q = math.exp(-implied_hazard * t)
+        df = math.exp(-discount_rate * t)
+        rpv01 += dt * q * df
+
+    # Upfront = (market - running) × RPV01
+    upfront = (market_spread - running_coupon) * rpv01
+
+    # Implied CPD = 1 - Q(T)
+    cpd = 1.0 - math.exp(-implied_hazard * maturity_years)
+
+    return DistressedCDSResult(
+        upfront_pct=upfront,
+        running_spread=running_coupon,
+        implied_cpd=cpd,
+        implied_hazard=implied_hazard,
+        recovery=recovery,
+        maturity_years=maturity_years,
+    )
+
+
+def implied_cpd_from_upfront(
+    upfront_pct: float,
+    maturity_years: float = 5.0,
+    running_coupon: float = 0.05,
+    recovery: float = 0.40,
+    discount_rate: float = 0.04,
+) -> float:
+    """Implied cumulative default probability from upfront payment.
+
+    Inverts the upfront formula to get the implied hazard rate,
+    then computes CPD = 1 − exp(−λT).
+
+    Uses Newton-Raphson to solve for λ.
+    """
+    import math
+
+    coupon_frequency = 4
+    dt = 1.0 / coupon_frequency
+    n = int(maturity_years * coupon_frequency)
+
+    def _upfront_for_hazard(h: float) -> float:
+        rpv01 = 0.0
+        prot = 0.0
+        prev_q = 1.0
+        for i in range(1, n + 1):
+            t = i * dt
+            q = math.exp(-h * t)
+            df = math.exp(-discount_rate * t)
+            rpv01 += dt * q * df
+            prot += (1 - recovery) * (prev_q - q) * df
+            prev_q = q
+        return prot - running_coupon * rpv01
+
+    # Newton-Raphson
+    h = 0.05  # initial guess
+    for _ in range(50):
+        f = _upfront_for_hazard(h) - upfront_pct
+        dh = 0.0001
+        fp = (_upfront_for_hazard(h + dh) - _upfront_for_hazard(h - dh)) / (2 * dh)
+        if abs(fp) < 1e-15:
+            break
+        h -= f / fp
+        h = max(h, 1e-6)
+
+    return 1.0 - math.exp(-h * maturity_years)
+
+
+def distressed_basis(
+    cds_upfront: float,
+    bond_price: float,
+    recovery: float = 0.40,
+) -> float:
+    """Distressed CDS-bond basis.
+
+    basis = implied_bond_price_from_CDS − actual_bond_price
+
+    implied_bond_price = par − cds_upfront × par
+    (since upfront ≈ protection value as fraction of notional)
+
+    Positive basis: CDS protection is more expensive than bond discount.
+    Negative basis: bond trades wider than CDS (common in distress).
+
+    Args:
+        cds_upfront: upfront CDS payment as fraction of notional.
+        bond_price: clean bond price (% of par, e.g. 65 for 65 cents).
+        recovery: recovery rate.
+
+    Returns:
+        Basis in price points (% of par).
+    """
+    # Bond implied spread from price: spread ≈ (1 - price/100) / duration
+    # CDS implied bond price: par - upfront - (1 - recovery) component
+    implied_bond = 100 * (1 - cds_upfront)
+    return implied_bond - bond_price
