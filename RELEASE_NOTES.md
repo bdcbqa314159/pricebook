@@ -2,6 +2,23 @@
 
 ---
 
+## v0.702.0 — 2026-06-01
+
+**Asia build-out: 9 currencies — CNY, KRW, INR, SGD, HKD, THB, IDR, MYR, PHP.**
+
+- New modules: chinese.py, korean.py, singaporean.py, hong_kong.py, thai.py, indian.py, indonesian.py, malaysian.py, philippine.py.
+- **Korea (KRW)**: KOFRSwap + KTB + KTBi linker (CPI_KR, deflation floor) + BEI.
+- **India (INR)**: MIBORSwap + GSEC (**30/360** — only sovereign globally) + IIB linker (CPI_IN, deflation floor) + BEI. MIBOR rate index added.
+- **Philippines (PHP)**: PHIREFSwap + RPGB (**quarterly coupon** — only quarterly sovereign globally). PHIREF rate index added.
+- **China (CNY)**: DR007Swap + CGB. **Indonesia**: INDONIASwap + INDOGB. **Malaysia**: MYORSwap + MGS. **Singapore**: SORASwap + SGS. **HK**: HONIASwap + HKGB. **Thailand**: THORSwap + THAIGB.
+- 4 new rate indices: MIBOR (FBIL), INDONIA (BI), MYOR (BNM), PHIREF (BSP).
+- 9 new OIS conventions added.
+- 43 new tests.
+- Markets with full derivatives: 24 → 33.
+- 10,619 tests pass.
+
+---
+
 ## v0.701.0 — 2026-06-01
 
 **BEI (breakeven inflation) added to 9 markets — now 16 markets have BEI.**

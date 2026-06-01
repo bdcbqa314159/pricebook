@@ -48,6 +48,16 @@ _OIS_CONVENTIONS: dict[str, OISConvention] = {
     "SEK": OISConvention("SEK", Frequency.ANNUAL, DayCountConvention.ACT_360, "SEK"),
     "NOK": OISConvention("NOK", Frequency.ANNUAL, DayCountConvention.ACT_360, "NOK"),
     "DKK": OISConvention("DKK", Frequency.ANNUAL, DayCountConvention.ACT_360, "DKK"),
+    # Asia
+    "CNY": OISConvention("CNY", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "CNY"),
+    "KRW": OISConvention("KRW", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "KRW"),
+    "SGD": OISConvention("SGD", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "SGD"),
+    "HKD": OISConvention("HKD", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "HKD"),
+    "THB": OISConvention("THB", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "THB"),
+    "INR": OISConvention("INR", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "INR"),
+    "IDR": OISConvention("IDR", Frequency.ANNUAL, DayCountConvention.ACT_360, "IDR"),
+    "MYR": OISConvention("MYR", Frequency.ANNUAL, DayCountConvention.ACT_365_FIXED, "MYR"),
+    "PHP": OISConvention("PHP", Frequency.ANNUAL, DayCountConvention.ACT_360, "PHP"),
 }
 
 

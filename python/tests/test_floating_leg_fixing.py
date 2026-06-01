@@ -400,14 +400,14 @@ class TestRateIndexRegistry:
             get_rate_index("NONEXISTENT")
 
     def test_all_indices_count(self):
-        """We have 34 registered indices (11 G10 + 16 EM + 3 Nordic + 4 CEE/TRY)."""
+        """We have 38 registered indices (11 G10 + 16 EM + 3 Nordic + 4 CEE/TRY + 4 Asia)."""
         indices = all_rate_indices()
-        assert len(indices) == 34
+        assert len(indices) == 38
 
     def test_overnight_indices(self):
-        """24 overnight RFR indices (8 G10 + 9 EM + 3 Nordic + 4 CEE/TRY)."""
+        """28 overnight RFR indices (8 G10 + 9 EM + 3 Nordic + 4 CEE/TRY + 4 Asia)."""
         overnight = overnight_indices()
-        assert len(overnight) == 24
+        assert len(overnight) == 28
         assert all(idx.is_overnight for idx in overnight)
 
     def test_indices_for_currency(self):
