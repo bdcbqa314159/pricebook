@@ -250,5 +250,47 @@
     "linker_day_count": "ACT/365F",
     "linker_frequency": 6,
     "notes": "CER: daily inflation coefficient (BCRA). Used by Lecer, Boncer."
+  },
+  {
+    "name": "CPI_PL",
+    "description": "Poland CPI (GUS)",
+    "currency": "PLN",
+    "country": "Poland",
+    "publication_lag_months": 1,
+    "publication_frequency": "monthly",
+    "interpolation": "linear",
+    "deflation_floor": false,
+    "base_year": 2015,
+    "linker_day_count": "ACT/365F",
+    "linker_frequency": 6,
+    "notes": "Used by Polish inflation-linked bonds."
+  },
+  {
+    "name": "CPI_CZ",
+    "description": "Czech CPI (CZSO)",
+    "currency": "CZK",
+    "country": "Czech Republic",
+    "publication_lag_months": 3,
+    "publication_frequency": "monthly",
+    "interpolation": "linear",
+    "deflation_floor": false,
+    "base_year": 2015,
+    "linker_day_count": "ACT/365F",
+    "linker_frequency": 6,
+    "notes": "Used by Czech inflation-linked bonds."
+  },
+  {
+    "name": "CPI_HU",
+    "description": "Hungary CPI (KSH)",
+    "currency": "HUF",
+    "country": "Hungary",
+    "publication_lag_months": 3,
+    "publication_frequency": "monthly",
+    "interpolation": "linear",
+    "deflation_floor": false,
+    "base_year": 2015,
+    "linker_day_count": "ACT/365F",
+    "linker_frequency": 6,
+    "notes": "Used by Hungarian inflation-linked bonds."
   }
 ]

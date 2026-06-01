@@ -125,7 +125,7 @@ class TestIndexLookup:
 class TestRegistryAPI:
     def test_list_count(self):
         indices = list_inflation_indices()
-        assert len(indices) == 18
+        assert len(indices) == 21  # 18 + CPI_PL + CPI_CZ + CPI_HU
 
     def test_list_sorted(self):
         indices = list_inflation_indices()

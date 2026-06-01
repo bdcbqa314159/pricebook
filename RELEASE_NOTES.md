@@ -2,6 +2,21 @@
 
 ---
 
+## v0.697.0 — 2026-06-01
+
+**CEE + Turkey: PLN, CZK, HUF, TRY — dual IBOR+RFR swaps + inflation linkers.**
+
+- New `fixed_income/polish.py`: WIBORSwap (3M), WIRONSwap (overnight), POLGBBond (annual ACT/ACT ICMA), POLGBLinker (CPI_PL). WIRON rate index added.
+- New `fixed_income/czech.py`: PRIBORSwap (3M), CZEONIASwap (overnight), CZGBBond, CZGBLinker (CPI_CZ). CZEONIA rate index added.
+- New `fixed_income/hungarian.py`: BUBORSwap (3M), HUFONIASwap (overnight), HGBBond (**ACT/365F** — unique among CEE), HGBLinker (CPI_HU). HUFONIA rate index added.
+- New `fixed_income/turkish.py`: TLREFSwap, TURKGBBond (semi-annual ACT/365F, **T+0 settlement**), TurkishCPILinker (CPI_TR, 2-month lag). Handles 45%+ extreme rates. TLREF rate index added.
+- 4 new overnight rate indices: WIRON, CZEONIA, HUFONIA, TLREF.
+- 3 new inflation indices: CPI_PL, CPI_CZ, CPI_HU.
+- 29 new tests (8 PLN + 7 CZK + 7 HUF + 7 TRY).
+- 10,528 tests pass.
+
+---
+
 ## v0.696.0 — 2026-06-01
 
 **Switzerland + Nordics: SARON, SWESTR, NOWA, DESTR swaps + sovereign bonds.**

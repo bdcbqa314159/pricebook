@@ -100,14 +100,14 @@ class TestEMTermIndices:
 
 class TestRegistryCounts:
     def test_total_count(self):
-        """11 G10 + 16 EM + 3 Nordic = 30 total indices."""
+        """11 G10 + 16 EM + 3 Nordic + 4 CEE/TRY = 34 total indices."""
         all_idx = all_rate_indices()
-        assert len(all_idx) == 30
+        assert len(all_idx) == 34
 
     def test_overnight_count(self):
-        """8 G10 overnight + 9 EM overnight + 3 Nordic = 20."""
+        """8 G10 + 9 EM + 3 Nordic + 4 CEE/TRY overnight = 24."""
         ovn = overnight_indices()
-        assert len(ovn) == 20
+        assert len(ovn) == 24
 
     def test_cny_has_two(self):
         """CNY has DR007 (overnight) and SHIBOR_3M (term)."""

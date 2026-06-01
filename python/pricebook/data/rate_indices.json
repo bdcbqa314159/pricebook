@@ -358,5 +358,53 @@
     "tenor_months": null,
     "is_overnight": true,
     "administrator": "Danmarks Nationalbank"
+  },
+  {
+    "name": "WIRON",
+    "currency": "PLN",
+    "day_count": "ACT/ACT ISDA",
+    "fixing_lag": 0,
+    "compounding": "compounded",
+    "observation_shift": 0,
+    "payment_delay": 0,
+    "tenor_months": null,
+    "is_overnight": true,
+    "administrator": "GPW Benchmark"
+  },
+  {
+    "name": "CZEONIA",
+    "currency": "CZK",
+    "day_count": "ACT/360",
+    "fixing_lag": 0,
+    "compounding": "compounded",
+    "observation_shift": 0,
+    "payment_delay": 0,
+    "tenor_months": null,
+    "is_overnight": true,
+    "administrator": "CNB"
+  },
+  {
+    "name": "HUFONIA",
+    "currency": "HUF",
+    "day_count": "ACT/360",
+    "fixing_lag": 0,
+    "compounding": "compounded",
+    "observation_shift": 0,
+    "payment_delay": 0,
+    "tenor_months": null,
+    "is_overnight": true,
+    "administrator": "MNB"
+  },
+  {
+    "name": "TLREF",
+    "currency": "TRY",
+    "day_count": "ACT/365F",
+    "fixing_lag": 0,
+    "compounding": "compounded",
+    "observation_shift": 0,
+    "payment_delay": 0,
+    "tenor_months": null,
+    "is_overnight": true,
+    "administrator": "BIST"
   }
 ]
