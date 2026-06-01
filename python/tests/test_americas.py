@@ -167,3 +167,82 @@ class TestCanada:
         corra = get_rate_index("CORRA")
         assert corra.currency == "CAD"
         assert corra.is_overnight
+
+    def test_cgb_bond(self):
+        from pricebook.fixed_income.canadian import CGBBond, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        cgb = CGBBond(REF, REF + relativedelta(years=10), 0.035)
+        price = cgb.dirty_price(curve)
+        assert 80 < price < 110
+
+    def test_cgb_yield(self):
+        from pricebook.fixed_income.canadian import CGBBond, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        cgb = CGBBond(REF, REF + relativedelta(years=10), 0.035)
+        price = cgb.dirty_price(curve)
+        ytm = cgb.yield_to_maturity(price, REF)
+        assert 0.01 < ytm < 0.10
+
+    def test_canadian_irs(self):
+        from pricebook.fixed_income.canadian import CanadianIRS, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        irs = CanadianIRS(REF, REF + relativedelta(years=5), 0.04)
+        r = irs.price(curve)
+        assert r.dv01 > 0
+        assert r.par_rate > 0
+
+    def test_irs_direction_symmetry(self):
+        from pricebook.fixed_income.canadian import CanadianIRS, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        pay = CanadianIRS(REF, REF + relativedelta(years=5), 0.04, direction=1)
+        rec = CanadianIRS(REF, REF + relativedelta(years=5), 0.04, direction=-1)
+        assert pay.price(curve).pv == pytest.approx(-rec.price(curve).pv)
+
+    def test_synthetic_cgb_strip(self):
+        from pricebook.fixed_income.canadian import synthetic_cgb_strip
+        strip = synthetic_cgb_strip(REF)
+        assert len(strip) == 4
+        assert all(s["price"] > 0 for s in strip)
+
+    def test_provincial_bond(self):
+        from pricebook.fixed_income.canadian import ProvincialBond, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        on_bond = ProvincialBond("ON", REF, REF + relativedelta(years=10), 0.04)
+        price = on_bond.dirty_price(curve)
+        assert 70 < price < 110
+
+    def test_provincial_spread_ordering(self):
+        """BC (tightest) > ON > QC (widest) in price terms."""
+        from pricebook.fixed_income.canadian import ProvincialBond, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        bc = ProvincialBond("BC", REF, REF + relativedelta(years=10), 0.04)
+        on = ProvincialBond("ON", REF, REF + relativedelta(years=10), 0.04)
+        qc = ProvincialBond("QC", REF, REF + relativedelta(years=10), 0.04)
+        # Tighter spread → higher price
+        assert bc.dirty_price(curve) > on.dirty_price(curve)
+        assert on.dirty_price(curve) > qc.dirty_price(curve)
+
+    def test_provincial_spread_duration(self):
+        from pricebook.fixed_income.canadian import ProvincialBond, build_corra_curve, synthetic_corra_strip
+        curve = build_corra_curve(REF, synthetic_corra_strip(REF))
+        bond = ProvincialBond("ON", REF, REF + relativedelta(years=10), 0.04)
+        sd = bond.spread_duration(curve)
+        assert sd > 0  # price falls when spread widens
+
+    def test_breakeven_inflation_ca(self):
+        from pricebook.fixed_income.canadian import (
+            breakeven_inflation_ca, build_corra_curve, synthetic_corra_strip)
+        nom = build_corra_curve(REF, synthetic_corra_strip(REF, corra=0.04))
+        real = build_corra_curve(REF, synthetic_corra_strip(REF, corra=0.015))
+        bei = breakeven_inflation_ca(nom, real)
+        assert len(bei) == 5
+        assert all(row["bei"] > 0 for row in bei)
+
+    def test_breakeven_term_structure(self):
+        from pricebook.fixed_income.canadian import (
+            breakeven_inflation_ca, build_corra_curve, synthetic_corra_strip)
+        nom = build_corra_curve(REF, synthetic_corra_strip(REF, corra=0.04))
+        real = build_corra_curve(REF, synthetic_corra_strip(REF, corra=0.015))
+        bei = breakeven_inflation_ca(nom, real, [2, 5, 10, 30])
+        # BEI should be ~2.5% (nom 4% - real 1.5%)
+        assert all(0.01 < row["bei"] < 0.05 for row in bei)

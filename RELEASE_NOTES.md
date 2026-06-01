@@ -2,6 +2,23 @@
 
 ---
 
+## v0.694.0 — 2026-06-01
+
+**Canada deepening: CGB, Canadian IRS, provincial bonds, breakeven inflation.**
+
+- Extended `fixed_income/canadian.py` (117→340 lines):
+  - `CGBBond` — Canadian Government Bond, semi-annual ACT/365F, yield-to-maturity solver.
+  - `CanadianIRS` — fixed semi-annual vs CORRA compound, par rate, DV01.
+  - `ProvincialBond` — spread over federal CGB curve (ON, QC, BC, AB, MB, SK).
+  - `breakeven_inflation_ca()` — CORRA nominal vs RRB real curves.
+  - `synthetic_cgb_strip()` — 4 benchmark CGB quotes (2Y, 5Y, 10Y, 30Y).
+  - Provincial spread ordering verified: BC (25bp) < AB (30bp) < ON (35bp) < QC (40bp).
+  - IRS direction symmetry: pay_fixed PV = -receive_fixed PV.
+- 10 new tests.
+- 10,462 tests pass.
+
+---
+
 ## v0.693.0 — 2026-06-01
 
 **Market-accurate bond curve: per-bond day count convention + sovereign factory.**
