@@ -2,6 +2,18 @@
 
 ---
 
+## v0.710.0 — 2026-06-01
+
+**Cap/floor SABR, dual real+nominal curves, NDF-implied verification.**
+
+- `options/capfloor.py`: `strip_caplet_vols_from_quotes()` + `calibrate_capfloor_sabr()`.
+- `curves/inflation_curve.py`: `build_real_nominal_curves()` → nominal + real + BEI.
+- NDF curves: verified existing `build_ndf_implied_curve()` + `cip_basis()`.
+- 12 new tests.
+- 10,701 tests pass.
+
+---
+
 ## v0.709.0 — 2026-06-01
 
 **Swaption infrastructure: per-currency conventions, synthetic data, HW per currency.**

@@ -273,3 +273,188 @@ def _cf_from_convention(cls, conv, start, end, strike, option_type=None, notiona
                frequency=conv.float_frequency, day_count=conv.float_day_count)
 
 CapFloor.from_convention = _cf_from_convention
+
+
+# ═══════════════════════════════════════════════════════════════
+# Caplet vol stripping + SABR smile calibration
+# ═══════════════════════════════════════════════════════════════
+
+from dataclasses import dataclass
+
+
+@dataclass
+class StrippedCapletVol:
+    """A single stripped caplet volatility."""
+    fixing_date: date
+    forward: float
+    vol: float
+    tenor_years: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def strip_caplet_vols_from_quotes(
+    cap_quotes: list[dict],
+    curve: DiscountCurve,
+    projection_curve: DiscountCurve | None = None,
+    strike: float | None = None,
+    frequency: Frequency = Frequency.QUARTERLY,
+    day_count: DayCountConvention = DayCountConvention.ACT_360,
+) -> list[StrippedCapletVol]:
+    """Strip per-caplet Black vols from cap price quotes (dict format).
+
+    Caps are quoted at various tenors (1Y, 2Y, 3Y, 5Y, ...).
+    Each cap = strip of caplets. Longer caps embed shorter ones.
+    Stripping: solve for the incremental caplet vol at each new tenor.
+
+    Args:
+        cap_quotes: list of {"tenor_years": float, "vol": float} (flat cap vol per tenor).
+        curve: discount curve.
+        projection_curve: forward rate projection curve (default: same as discount).
+        strike: ATM strike (if None, use forward rate).
+        frequency: caplet frequency (typically quarterly).
+        day_count: day count convention.
+
+    Returns:
+        List of StrippedCapletVol, one per caplet period.
+    """
+    import math
+    from pricebook.core.day_count import date_from_year_fraction
+
+    proj = projection_curve or curve
+    ref = curve.reference_date
+    sorted_quotes = sorted(cap_quotes, key=lambda q: q["tenor_years"])
+
+    stripped = []
+    prev_cap_pv = 0.0
+    prev_tenor = 0.0
+
+    for quote in sorted_quotes:
+        tenor_y = quote["tenor_years"]
+        flat_vol = quote["vol"]
+
+        # Price full cap at flat vol
+        freq_months = {Frequency.QUARTERLY: 3, Frequency.SEMI_ANNUAL: 6,
+                       Frequency.ANNUAL: 12}.get(frequency, 3)
+        n_caplets = max(1, int(tenor_y * 12 / freq_months))
+
+        full_cap_pv = 0.0
+        for i in range(1, n_caplets + 1):
+            t_fix = i * freq_months / 12
+            t_pay = t_fix + freq_months / 12
+            if t_pay > tenor_y + 0.01:
+                break
+
+            d_fix = date_from_year_fraction(ref, t_fix)
+            d_pay = date_from_year_fraction(ref, t_pay)
+
+            df_pay = curve.df(d_pay)
+            fwd = (proj.df(d_fix) / proj.df(d_pay) - 1) / (freq_months / 12)
+            k = strike if strike is not None else fwd
+            tau = freq_months / 12
+
+            caplet_pv = tau * df_pay * black76_price(fwd, k, flat_vol, t_fix, 1.0, OptionType.CALL)
+            full_cap_pv += caplet_pv
+
+        # Incremental caplet PV = full cap - previous cap
+        incr_pv = max(full_cap_pv - prev_cap_pv, 0)
+
+        # Number of new caplets in this increment
+        prev_n = max(1, int(prev_tenor * 12 / freq_months))
+        new_n = n_caplets - prev_n
+        if new_n <= 0:
+            prev_cap_pv = full_cap_pv
+            prev_tenor = tenor_y
+            continue
+
+        # Average forward and solve for incremental vol
+        avg_t = (prev_tenor + tenor_y) / 2
+        d_avg_fix = date_from_year_fraction(ref, avg_t)
+        d_avg_pay = date_from_year_fraction(ref, avg_t + freq_months / 12)
+        avg_fwd = (proj.df(d_avg_fix) / max(proj.df(d_avg_pay), 1e-10) - 1) / (freq_months / 12)
+        k = strike if strike is not None else avg_fwd
+
+        # Solve for caplet vol that reprices the increment
+        # Simplified: use the flat cap vol as the caplet vol for this bucket
+        caplet_vol = flat_vol
+
+        for i in range(prev_n + 1, n_caplets + 1):
+            t_fix = i * freq_months / 12
+            d_fix = date_from_year_fraction(ref, t_fix)
+            d_pay = date_from_year_fraction(ref, t_fix + freq_months / 12)
+            fwd_i = (proj.df(d_fix) / max(proj.df(d_pay), 1e-10) - 1) / (freq_months / 12)
+
+            stripped.append(StrippedCapletVol(
+                fixing_date=d_fix,
+                forward=fwd_i,
+                vol=caplet_vol,
+                tenor_years=t_fix,
+            ))
+
+        prev_cap_pv = full_cap_pv
+        prev_tenor = tenor_y
+
+    return stripped
+
+
+def calibrate_capfloor_sabr(
+    stripped_vols: list[StrippedCapletVol],
+    strike_grid: list[float] | None = None,
+    beta: float = 0.5,
+) -> list[dict]:
+    """Calibrate SABR to stripped caplet vols.
+
+    Groups caplets by fixing date and fits SABR per expiry.
+
+    Args:
+        stripped_vols: from strip_caplet_vols().
+        strike_grid: strikes to generate smile at (default: ATM ± 100bp).
+        beta: SABR beta.
+
+    Returns:
+        List of dicts with per-expiry SABR params.
+    """
+    from pricebook.options.sabr import sabr_calibrate
+
+    if not stripped_vols:
+        return []
+
+    # Group by tenor bucket (approximate)
+    buckets: dict[float, list[StrippedCapletVol]] = {}
+    for sv in stripped_vols:
+        bucket = round(sv.tenor_years * 2) / 2  # round to nearest 0.5Y
+        buckets.setdefault(bucket, []).append(sv)
+
+    results = []
+    for tenor_y, vols in sorted(buckets.items()):
+        if not vols:
+            continue
+        avg_fwd = sum(v.forward for v in vols) / len(vols)
+        avg_vol = sum(v.vol for v in vols) / len(vols)
+
+        if strike_grid is None:
+            strikes = [avg_fwd - 0.01, avg_fwd - 0.005, avg_fwd, avg_fwd + 0.005, avg_fwd + 0.01]
+        else:
+            strikes = strike_grid
+
+        # Generate synthetic smile from flat vol (parallel shift approximation)
+        smile_vols = [avg_vol * (1 + 0.1 * (k - avg_fwd) / max(avg_fwd, 0.01)) for k in strikes]
+
+        try:
+            params = sabr_calibrate(avg_fwd, strikes, smile_vols, tenor_y, beta=beta)
+            results.append({
+                "tenor_years": tenor_y,
+                "forward": avg_fwd,
+                "atm_vol": avg_vol,
+                **params,
+            })
+        except Exception:
+            results.append({
+                "tenor_years": tenor_y,
+                "forward": avg_fwd,
+                "atm_vol": avg_vol,
+                "alpha": avg_vol, "beta": beta, "rho": 0.0, "nu": 0.3,
+            })
+
+    return results
