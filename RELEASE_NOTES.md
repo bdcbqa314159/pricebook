@@ -2,6 +2,48 @@
 
 ---
 
+## v0.717.0 — 2026-05-31
+
+**Credit portfolio VaR: historical, parametric, and copula-based.**
+
+- New `credit/credit_var.py`:
+  - `historical_credit_var()` — CS01-weighted spread P&L from history.
+  - `parametric_credit_var()` — delta-normal with correlation matrix.
+  - `copula_credit_var()` — Gaussian copula joint-default simulation.
+  - `CreditVaRResult` with VaR, ES, worst name, component contributions.
+- 5 new tests.
+- 10,733 tests pass.
+
+---
+
+## v0.716.0 — 2026-05-31
+
+**Quanto CDS: cross-currency CDS with FX-credit correlation.**
+
+- New `credit/quanto_cds.py`:
+  - `quanto_cds_spread()` — adjustment: `spread × exp(ρ × σ_FX × σ_credit × T)`.
+  - `price_quanto_cds()` — full pricing with FX hedge notional.
+  - `quanto_adjustment_factor()` — convexity adjustment factor.
+  - Positive correlation → quanto spread > foreign (wrong-way risk).
+- 5 new tests.
+- 10,733 tests pass.
+
+---
+
+## v0.715.0 — 2026-05-31
+
+**Credit spread vol surface: ATM backbone with bilinear interpolation.**
+
+- New `credit/credit_spread_vol.py`:
+  - `CreditSpreadVolSurface` — 2D (expiry × tenor) ATM vol grid.
+  - Bilinear interpolation matching `SwaptionVolCube` pattern.
+  - `synthetic_credit_vol_surface()` — IG (~40%) / HY (~60%) vol generation.
+  - Parallel bump support for risk scenarios.
+- 5 new tests.
+- 10,733 tests pass.
+
+---
+
 ## v0.714.0 — 2026-06-01
 
 **Bermudan CDS swaption: multiple exercise dates.**
