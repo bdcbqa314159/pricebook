@@ -129,13 +129,18 @@ class SwaptionVolCube:
         return [self.vol_by_years(expiry_years, tenor, k) for k in strikes]
 
     def bumped(self, shift: float) -> "SwaptionVolCube":
-        """Parallel shift all vols by shift (additive)."""
+        """Parallel shift all vols by shift (additive).
+
+        Shifts both the ATM grid and SABR alpha (vol level parameter)
+        to ensure consistent smile across all strikes.
+        """
         new_atm = (self._atm_grid + shift).tolist()
         new_nodes = []
         for node in self._sabr.values():
             new_nodes.append(SABRNode(
                 node.expiry_years, node.tenor_years, node.forward,
-                node.alpha, node.beta, node.rho, node.nu,
+                max(node.alpha + shift, 1e-6),  # shift alpha too for smile consistency
+                node.beta, node.rho, node.nu,
                 node.atm_vol + shift,
             ))
         return SwaptionVolCube(

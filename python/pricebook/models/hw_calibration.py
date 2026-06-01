@@ -17,7 +17,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
@@ -105,8 +105,6 @@ def _hw_implied_vol(
     fwd_swap = (df_expiry - df_end) / annuity
     if fwd_swap <= 0:
         fwd_swap = strike
-
-    df_settle = curve.df(date_from_year_fraction(ref, expiry_years))
 
     try:
         iv = implied_vol_black76(

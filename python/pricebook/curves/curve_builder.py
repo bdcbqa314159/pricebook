@@ -140,7 +140,10 @@ class CurveSetResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return {"currency": self.currency,
+                "reference_date": self.reference_date.isoformat(),
+                "has_projection": self.projection is not None}
+
 def build_curves(
     currency: str,
     reference_date: date,

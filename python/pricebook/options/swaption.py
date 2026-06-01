@@ -330,7 +330,6 @@ def price_swaption_sabr_hw(
 
     # Price via Black-76
     opt_type = OptionType.CALL if swaption.swaption_type == SwaptionType.PAYER else OptionType.PUT
-    df = curve.df(swaption.expiry)
     price = ann * black76_price(fwd, swaption.strike, blended_vol, T, 1.0, opt_type)
 
     return price * swaption.notional

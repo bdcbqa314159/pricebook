@@ -2,6 +2,20 @@
 
 ---
 
+## v0.713.0 — 2026-06-01
+
+**Code review fixes across curve + vol infrastructure.**
+
+- **capfloor.py**: fixed unreachable `pv_ctx` (was dead code after `return` inside wrong function). Moved to module level and assigned to `CapFloor.pv_ctx`. Fixed broken indentation.
+- **curve_builder.py**: `CurveSetResult.to_dict()` now returns serialisable dict (was `vars(self)` with DiscountCurve objects).
+- **swaption_vol_cube.py**: `bumped()` now shifts SABR alpha alongside ATM vol for consistent smile bumps.
+- **swaption.py**: removed dead `df` variable in `price_swaption_sabr_hw`.
+- **hw_calibration.py**: removed dead `df_settle` variable and unused `field` import.
+- **hw_per_currency.py**: removed unused `math` import.
+- 10,710 tests pass.
+
+---
+
 ## v0.712.0 — 2026-06-01
 
 **End-to-end callable pricing workflow notebook with pricebook.viz.**
