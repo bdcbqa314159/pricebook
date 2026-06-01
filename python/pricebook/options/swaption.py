@@ -262,3 +262,75 @@ def _swaption_from_convention(cls, conv, expiry, swap_end, strike,
                fixed_day_count=conv.fixed_day_count, float_day_count=conv.float_day_count)
 
 Swaption.from_convention = _swaption_from_convention
+
+
+# ═══════════════════════════════════════════════════════════════
+# SABR-HW blended pricing
+# ═══════════════════════════════════════════════════════════════
+
+
+def price_swaption_sabr_hw(
+    swaption: Swaption,
+    sabr_cube,
+    hw_model,
+    curve,
+    blend_half_life: float = 5.0,
+) -> float:
+    """Price a swaption blending SABR smile with Hull-White term structure.
+
+    At short expiry, SABR dominates (smile accuracy).
+    At long expiry, HW dominates (mean reversion term structure).
+
+    Weighting: vol = w_sabr × sabr_vol + (1-w_sabr) × hw_vol
+    where w_sabr = exp(-expiry / blend_half_life).
+
+    Args:
+        swaption: Swaption to price.
+        sabr_cube: SwaptionVolCube with SABR smile.
+        hw_model: calibrated HullWhite model.
+        curve: discount curve.
+        blend_half_life: years at which SABR weight = 0.5.
+
+    Returns:
+        Blended swaption price.
+    """
+    import math
+    from pricebook.core.day_count import DayCountConvention, year_fraction
+    from pricebook.models.black76 import black76_price, OptionType
+
+    ref = curve.reference_date
+    T = year_fraction(ref, swaption.expiry, DayCountConvention.ACT_365_FIXED)
+    if T <= 0:
+        return 0.0
+
+    # Forward swap rate and annuity
+    fwd = swaption.forward_swap_rate(curve)
+    ann = swaption.annuity(curve)
+
+    # SABR vol (from cube)
+    tenor = year_fraction(swaption.expiry, swaption.swap_end,
+                           DayCountConvention.ACT_365_FIXED)
+    sabr_vol = sabr_cube.vol(swaption.expiry, tenor, swaption.strike)
+
+    # HW vol (from tree → implied vol)
+    from pricebook.models.hw_calibration import _hw_implied_vol
+    hw_vol = _hw_implied_vol(hw_model.a, hw_model.sigma, curve,
+                              T, tenor, swaption.strike, n_steps=30)
+
+    # Blending weight
+    w_sabr = math.exp(-T / blend_half_life)
+
+    # Blended vol
+    if sabr_vol > 0 and hw_vol > 0:
+        blended_vol = w_sabr * sabr_vol + (1 - w_sabr) * hw_vol
+    elif sabr_vol > 0:
+        blended_vol = sabr_vol
+    else:
+        blended_vol = hw_vol if hw_vol > 0 else 0.01
+
+    # Price via Black-76
+    opt_type = OptionType.CALL if swaption.swaption_type == SwaptionType.PAYER else OptionType.PUT
+    df = curve.df(swaption.expiry)
+    price = ann * black76_price(fwd, swaption.strike, blended_vol, T, 1.0, opt_type)
+
+    return price * swaption.notional

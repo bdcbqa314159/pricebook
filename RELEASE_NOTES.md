@@ -2,6 +2,24 @@
 
 ---
 
+## v0.711.0 — 2026-06-01
+
+**Synthetic curve data, SABR-HW blended pricing, cap/floor SABR.**
+
+- New `curves/synthetic_market_data.py`:
+  - `synthetic_curve_inputs(currency)` — realistic deposits + swaps for 32 currencies.
+  - USD ~5%, JPY ~0.1%, BRL ~11%, TRY ~45%. Enables testing all methods without market data.
+- Extended `options/swaption.py`:
+  - `price_swaption_sabr_hw()` — blends SABR smile (short end) with HW term structure (long end).
+  - Weighting: `w_sabr = exp(-expiry / half_life)`. Configurable blend.
+- Extended `options/capfloor.py`:
+  - `strip_caplet_vols_from_quotes()` — per-caplet vol stripping from cap quotes.
+  - `calibrate_capfloor_sabr()` — per-expiry SABR from caplet vols.
+- 9 new tests (synthetic data, SABR-HW blending).
+- 10,710 tests pass.
+
+---
+
 ## v0.710.0 — 2026-06-01
 
 **Cap/floor SABR, dual real+nominal curves, NDF-implied verification.**
