@@ -2,6 +2,24 @@
 
 ---
 
+## v0.695.0 — 2026-06-01
+
+**UK: SONIA swap, Gilt, Index-Linked Gilt (ILG), breakeven inflation.**
+
+- New `fixed_income/british.py` (330 lines):
+  - `SONIASwap` — annual ACT/365F, par rate, DV01, direction symmetry.
+  - `GiltBond` — semi-annual ACT/ACT ICMA, 7-day ex-dividend, T+1.
+  - `ILGBond` — **8-month RPI lag, flat interpolation** (not linear like TIPS), **no deflation floor** (unlike TIPS). Nominal = real × RPI ratio.
+  - `build_sonia_curve()` — ACT/365F bootstrap.
+  - `breakeven_inflation_uk()` — nominal Gilt vs real ILG curves (2Y-50Y).
+  - `synthetic_sonia_strip()`, `synthetic_gilt_strip()`.
+- ILG deflation: RPI ratio < 1.0 when RPI falls (verified — no floor).
+- UK BEI (RPI-based) ~3.5%, consistent with market.
+- 16 new tests.
+- 10,478 tests pass.
+
+---
+
 ## v0.694.0 — 2026-06-01
 
 **Canada deepening: CGB, Canadian IRS, provincial bonds, breakeven inflation.**
