@@ -2,6 +2,51 @@
 
 ---
 
+## v0.729.0 — 2026-06-02
+
+**Spread options: Kirk's approximation with full Greeks.**
+
+- New `commodity/spread_options.py`:
+  - `kirk_spread_option()` — Kirk's approximation for 2-asset spread options.
+  - `crack_spread_option()` — option on refining margin.
+  - `calendar_spread_option()` — option on front-back spread.
+  - `intercommodity_spread_option()` — WTI-Brent and similar.
+  - Cross-gamma, correlation sensitivity via finite differences.
+  - Put-call parity verified.
+- 9 new tests.
+
+---
+
+## v0.728.0 — 2026-06-02
+
+**Commodity futures options with seasonal vol and Samuelson effect.**
+
+- New `commodity/commodity_options.py`:
+  - `commodity_option_price()` — Black-76 with seasonal vol adjustment.
+  - `seasonal_vol()` — per-commodity monthly patterns (NG, CL, ZC, ZW, ZS, GC, SI).
+  - `vol_term_structure()` — Samuelson effect (front-month vol > back-month).
+  - `commodity_option_strip()` — price strip across delivery months.
+  - `commodity_implied_vol()` — Newton-Raphson implied vol extraction.
+- 8 new tests.
+
+---
+
+## v0.727.0 — 2026-06-02
+
+**Futures options: unified product with contract specs and BAW.**
+
+- New `options/futures_options.py`:
+  - `FuturesOption` — option on any futures contract (ES, CL, GC, ZN, etc.).
+  - Black-76 + Bachelier pricing. Barone-Adesi-Whaley for American exercise.
+  - Full Greeks: delta, gamma, vega, theta — per-unit and dollar amounts.
+  - 14 contract specs (equity index, commodity, bond, IR).
+  - `futures_option_strip()` — strip across expiries.
+  - `futures_option_vol_surface()` — build and interpolate vol surface.
+  - Put-call parity verified.
+- 11 new tests.
+
+---
+
 ## v0.726.0 — 2026-06-02
 
 **Code review fixes across CDS infrastructure.**
