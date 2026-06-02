@@ -266,3 +266,167 @@ class TestCMBS:
         d = r.to_dict()
         assert "balloon_risk_pct" in d
         assert "wa_ltv" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Advanced Autocall (S4)
+# ═══════════════════════════════════════════════════════════════
+
+class TestAdvancedAutocall:
+    def test_discrete_autocall(self):
+        from pricebook.options.autocall_advanced import discrete_autocall
+        obs = [0.5, 1.0, 1.5, 2.0]
+        r = discrete_autocall(100, 1.0, 0.80, 0.60, 0.03, obs, 0.20, n_sims=10_000)
+        assert r.price > 0
+        assert 0 <= r.autocall_probability <= 1
+        assert r.expected_life > 0
+
+    def test_memory_coupon_adds_value(self):
+        from pricebook.options.autocall_advanced import discrete_autocall
+        obs = [0.5, 1.0, 1.5, 2.0]
+        no_mem = discrete_autocall(100, 1.0, 0.80, 0.60, 0.03, obs, 0.20, n_sims=10_000, memory_coupon=False)
+        with_mem = discrete_autocall(100, 1.0, 0.80, 0.60, 0.03, obs, 0.20, n_sims=10_000, memory_coupon=True)
+        assert with_mem.price >= no_mem.price * 0.99  # memory adds value
+
+    def test_worst_of(self):
+        from pricebook.options.autocall_advanced import worst_of_discrete_autocall
+        obs = [0.5, 1.0, 1.5, 2.0]
+        corr = [[1, 0.5, 0.3], [0.5, 1, 0.4], [0.3, 0.4, 1]]
+        r = worst_of_discrete_autocall(
+            [100, 50, 200], 1.0, 0.80, 0.60, 0.03, obs,
+            [0.20, 0.25, 0.30], corr, n_sims=10_000,
+        )
+        assert r.price > 0
+        assert r.n_observations == 4
+
+    def test_step_down(self):
+        from pricebook.options.autocall_advanced import step_down_autocall
+        obs = [0.5, 1.0, 1.5, 2.0]
+        r = step_down_autocall(100, 1.0, 0.05, 0.80, 0.60, 0.03, obs, 0.20, n_sims=10_000)
+        assert r.autocall_probability > 0  # step-down makes autocall more likely
+
+    def test_to_dict(self):
+        from pricebook.options.autocall_advanced import discrete_autocall
+        obs = [0.5, 1.0]
+        r = discrete_autocall(100, 1.0, 0.80, 0.60, 0.03, obs, 0.20, n_sims=5_000)
+        d = r.to_dict()
+        assert "memory_coupon_value" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Bespoke CDO (S5)
+# ═══════════════════════════════════════════════════════════════
+
+class TestBespokeCDO:
+    def test_bespoke_tranche(self):
+        from pricebook.credit.bespoke_cdo import bespoke_tranche_price
+        pds = [0.02] * 50
+        lgds = [0.6] * 50
+        notionals = [1_000_000] * 50
+        r = bespoke_tranche_price(pds, lgds, notionals, 0.03, 0.07, 0.30)
+        assert r.tranche_spread > 0
+        assert r.expected_loss_pct > 0
+
+    def test_senior_lower_spread(self):
+        from pricebook.credit.bespoke_cdo import bespoke_tranche_price
+        pds = [0.02] * 50
+        lgds = [0.6] * 50
+        notionals = [1_000_000] * 50
+        junior = bespoke_tranche_price(pds, lgds, notionals, 0.03, 0.07, 0.30)
+        senior = bespoke_tranche_price(pds, lgds, notionals, 0.15, 1.0, 0.30)
+        assert senior.tranche_spread < junior.tranche_spread
+
+    def test_lss(self):
+        from pricebook.credit.bespoke_cdo import leveraged_super_senior
+        pds = [0.02] * 50
+        lgds = [0.6] * 50
+        notionals = [1_000_000] * 50
+        r = leveraged_super_senior(pds, lgds, notionals, 0.15, leverage=10.0)
+        assert r.leveraged_spread > r.unleveraged_spread
+        assert r.leverage == 10.0
+
+    def test_tranche_greeks(self):
+        from pricebook.credit.bespoke_cdo import tranche_greeks
+        pds = [0.02] * 50
+        lgds = [0.6] * 50
+        notionals = [1_000_000] * 50
+        r = tranche_greeks(pds, lgds, notionals, 0.03, 0.07, 0.30)
+        assert r.spread_delta != 0
+        assert r.correlation_delta != 0
+
+    def test_calibrate_correlation(self):
+        from pricebook.credit.bespoke_cdo import bespoke_tranche_price, calibrate_bespoke_correlation
+        pds = [0.02] * 50
+        lgds = [0.6] * 50
+        notionals = [1_000_000] * 50
+        target = bespoke_tranche_price(pds, lgds, notionals, 0.03, 0.07, 0.40)
+        calib = calibrate_bespoke_correlation(
+            pds, lgds, notionals, 0.03, 0.07, target.tranche_spread,
+        )
+        # Verify calibrated correlation reproduces the spread
+        check = bespoke_tranche_price(pds, lgds, notionals, 0.03, 0.07, calib)
+        assert abs(check.tranche_spread - target.tranche_spread) < 5  # within 5bp
+
+
+# ═══════════════════════════════════════════════════════════════
+# Steepener (S6)
+# ═══════════════════════════════════════════════════════════════
+
+class TestSteepener:
+    def test_steepener_note(self):
+        from pricebook.structured.steepener import steepener_note
+        r = steepener_note(0.04, 0.035, 0.008, 0.006, 0.85, leverage=3.0, n_sims=10_000)
+        assert r.price > 0
+        assert r.expected_coupon > 0
+
+    def test_slope_range_accrual(self):
+        from pricebook.structured.steepener import slope_range_accrual
+        r = slope_range_accrual(0.04, 0.035, 0.008, 0.006, 0.85, n_sims=10_000)
+        assert r.price > 0
+        assert r.expected_coupon > 0
+
+    def test_digital_steepener(self):
+        from pricebook.structured.steepener import digital_steepener
+        r = digital_steepener(0.04, 0.035, 0.008, 0.006, 0.85, n_sims=10_000)
+        assert r.price > 0
+
+    def test_to_dict(self):
+        from pricebook.structured.steepener import steepener_note
+        r = steepener_note(0.04, 0.035, 0.008, 0.006, 0.85, n_sims=5_000)
+        d = r.to_dict()
+        assert "prob_floor_hit" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Secondary Pricing (S7)
+# ═══════════════════════════════════════════════════════════════
+
+class TestSecondaryPricing:
+    def test_spread_aging(self):
+        from pricebook.structured.secondary_pricing import spread_aging
+        r = spread_aging(200, 5.0, 2.0, current_market_spread_bp=250)
+        assert r.aged_spread_bp > r.original_spread_bp  # market wider
+
+    def test_mark_to_bid(self):
+        from pricebook.structured.secondary_pricing import mark_to_bid
+        r = mark_to_bid(100.0, bid_ask_spread_pct=3.0, liquidity_score=0.3)
+        assert r.bid_price < r.mid_price
+        assert r.haircut_pct > 0
+
+    def test_stale_price_detection(self):
+        from pricebook.structured.secondary_pricing import stale_price_detector
+        stale = [100.0] * 10  # unchanged for 10 days
+        r = stale_price_detector(stale, threshold_days=5)
+        assert r.is_stale is True
+
+    def test_active_price_not_stale(self):
+        from pricebook.structured.secondary_pricing import stale_price_detector
+        active = [100 + i * 0.5 for i in range(20)]
+        r = stale_price_detector(active, threshold_days=5)
+        assert r.is_stale is False
+
+    def test_liquidity_premium(self):
+        from pricebook.structured.secondary_pricing import liquidity_premium
+        r = liquidity_premium(bid_ask_bp=50, holding_period_years=2.0, rating_notch=7)
+        assert r.premium_bp > 0
+        assert r.credit_component > 0
