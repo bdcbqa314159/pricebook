@@ -153,3 +153,135 @@ def convergence_table(
         entries.append(ConvergenceEntry(cp, mean, se, rel))
 
     return entries
+
+
+# ═══════════════════════════════════════════════════════════════
+# Extended diagnostics (P4)
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class MCFullDiagnostics:
+    """Complete MC diagnostics with VRE and convergence rate."""
+    n_samples: int
+    mean: float
+    std_error: float
+    std_error_batch: float
+    ess: float
+    ess_ratio: float
+    vre: float                  # variance reduction efficiency
+    convergence_rate: float     # estimated order
+    ci_95: tuple[float, float]
+    ci_99: tuple[float, float]
+    skewness: float
+    kurtosis: float
+    relative_error_pct: float
+    is_converged: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "n_samples": self.n_samples,
+            "mean": self.mean,
+            "std_error": self.std_error,
+            "std_error_batch": self.std_error_batch,
+            "ess": round(self.ess, 1),
+            "ess_ratio": round(self.ess_ratio, 3),
+            "vre": round(self.vre, 2),
+            "convergence_rate": round(self.convergence_rate, 3),
+            "ci_95": [round(x, 6) for x in self.ci_95],
+            "relative_error_pct": round(self.relative_error_pct, 4),
+            "is_converged": self.is_converged,
+        }
+
+
+def full_diagnostics(
+    values: np.ndarray,
+    values_crude: np.ndarray | None = None,
+    n_batches: int = 20,
+    convergence_threshold_pct: float = 1.0,
+) -> MCFullDiagnostics:
+    """Run complete diagnostics on MC output.
+
+    Args:
+        values: discounted payoff values (after VR).
+        values_crude: values WITHOUT variance reduction (for VRE).
+        n_batches: batches for batch means SE.
+        convergence_threshold_pct: relative error threshold for convergence.
+    """
+    n = len(values)
+    mean = float(np.mean(values))
+    se = float(np.std(values, ddof=1) / math.sqrt(n))
+
+    bm = batch_means(values, n_batches)
+    ess = effective_sample_size(values)
+    ess_ratio = ess / n if n > 0 else 0
+
+    vre = variance_reduction_efficiency(values_crude, values) if values_crude is not None else 1.0
+
+    ci_95 = (mean - 1.96 * se, mean + 1.96 * se)
+    ci_99 = (mean - 2.576 * se, mean + 2.576 * se)
+
+    # Higher moments
+    if n > 3:
+        centered = values - mean
+        m2 = float(np.mean(centered**2))
+        m3 = float(np.mean(centered**3))
+        m4 = float(np.mean(centered**4))
+        skew = m3 / (m2**1.5) if m2 > 1e-15 else 0
+        kurt = m4 / (m2**2) - 3.0 if m2 > 1e-15 else 0
+    else:
+        skew, kurt = 0.0, 0.0
+
+    rel_err = abs(se / mean) * 100 if abs(mean) > 1e-10 else 0
+
+    return MCFullDiagnostics(
+        n_samples=n, mean=mean, std_error=se,
+        std_error_batch=bm.se, ess=ess, ess_ratio=ess_ratio,
+        vre=vre, convergence_rate=0.5,
+        ci_95=ci_95, ci_99=ci_99,
+        skewness=skew, kurtosis=kurt,
+        relative_error_pct=rel_err,
+        is_converged=rel_err < convergence_threshold_pct,
+    )
+
+
+def variance_reduction_efficiency(
+    values_crude: np.ndarray,
+    values_reduced: np.ndarray,
+) -> float:
+    """VRE = Var(crude) / Var(reduced). >1 means VR helped."""
+    var_crude = float(np.var(values_crude))
+    var_reduced = float(np.var(values_reduced))
+    if var_reduced < 1e-15:
+        return float('inf') if var_crude > 0 else 1.0
+    return var_crude / var_reduced
+
+
+def estimate_convergence_rate(
+    prices_at_n: list[tuple[int, float]],
+) -> float:
+    """Estimate convergence order from prices at different N.
+
+    MC: rate ≈ 0.5 (error ~ 1/√N). QMC: rate ≈ 1.0 (error ~ 1/N).
+    Fits log(error) = -rate × log(N) + const.
+    """
+    if len(prices_at_n) < 3:
+        return 0.5
+
+    sorted_pairs = sorted(prices_at_n, key=lambda x: x[0])
+    true_price = sorted_pairs[-1][1]
+
+    log_n, log_err = [], []
+    for n, p in sorted_pairs[:-1]:
+        err = abs(p - true_price)
+        if err > 1e-15 and n > 0:
+            log_n.append(math.log(n))
+            log_err.append(math.log(err))
+
+    if len(log_n) < 2:
+        return 0.5
+
+    x = np.array(log_n)
+    y = np.array(log_err)
+    coeffs = np.polyfit(x, y, 1)
+    rate = -coeffs[0]
+    return max(0.1, min(rate, 2.0))
