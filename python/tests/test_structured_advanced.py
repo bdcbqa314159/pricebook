@@ -1,0 +1,268 @@
+"""Tests for MBS, ABS, and CMBS structured products."""
+
+import pytest
+import math
+import numpy as np
+from datetime import date
+from dateutil.relativedelta import relativedelta
+
+REF = date(2024, 11, 4)
+
+
+def _make_curve(rate=0.04):
+    from pricebook.core.discount_curve import DiscountCurve
+    from pricebook.core.interpolation import InterpolationMethod
+    dates = [REF + relativedelta(years=y) for y in range(1, 35)]
+    dfs = [math.exp(-rate * y) for y in range(1, 35)]
+    return DiscountCurve(REF, dates, dfs, interpolation=InterpolationMethod.LOG_LINEAR)
+
+
+# ═══════════════════════════════════════════════════════════════
+# MBS (S1)
+# ═══════════════════════════════════════════════════════════════
+
+class TestMBS:
+    def test_psa_ramp(self):
+        from pricebook.structured.mbs import psa_speed
+        assert psa_speed(1) == pytest.approx(0.002, abs=0.001)
+        assert psa_speed(15) == pytest.approx(0.03, abs=0.001)
+        assert psa_speed(30) == pytest.approx(0.06, abs=0.001)
+        assert psa_speed(60) == pytest.approx(0.06, abs=0.001)
+
+    def test_psa_200(self):
+        from pricebook.structured.mbs import psa_speed
+        assert psa_speed(30, 2.0) == pytest.approx(0.12, abs=0.001)
+
+    def test_cpr_smm_roundtrip(self):
+        from pricebook.structured.mbs import cpr_to_smm, smm_to_cpr
+        cpr = 0.06
+        smm = cpr_to_smm(cpr)
+        assert smm_to_cpr(smm) == pytest.approx(cpr, abs=1e-10)
+
+    def test_price_mbs(self):
+        from pricebook.structured.mbs import MBSPool, price_mbs
+        dc = _make_curve()
+        pool = MBSPool(1_000_000, 0.06, 360, 0.055, age=0)
+        r = price_mbs(pool, dc, psa_speed=1.0)
+        assert r.price > 0
+        assert r.wal > 0
+        assert r.wal < 30  # WAL < maturity due to prepayment
+
+    def test_faster_prepay_shorter_wal(self):
+        from pricebook.structured.mbs import MBSPool, price_mbs
+        dc = _make_curve()
+        pool = MBSPool(1_000_000, 0.06, 360, 0.055)
+        slow = price_mbs(pool, dc, psa_speed=1.0)
+        fast = price_mbs(pool, dc, psa_speed=3.0)
+        assert fast.wal < slow.wal
+
+    def test_oas(self):
+        from pricebook.structured.mbs import MBSPool, price_mbs, oas_mbs
+        dc = _make_curve()
+        pool = MBSPool(1_000_000, 0.06, 360, 0.055)
+        base = price_mbs(pool, dc, psa_speed=1.0)
+        oas = oas_mbs(pool, dc, base.price - 2, psa_speed=1.0)
+        assert oas.oas_bp > 0  # price below par → positive OAS
+
+    def test_io_po_strips(self):
+        from pricebook.structured.mbs import MBSPool, io_po_strips
+        dc = _make_curve()
+        pool = MBSPool(1_000_000, 0.06, 360, 0.055)
+        r = io_po_strips(pool, dc)
+        assert r.io_price > 0
+        assert r.po_price > 0
+        # IO + PO ≈ total (approximately)
+        assert r.io_price + r.po_price > 50
+
+    def test_io_po_duration_signs(self):
+        """PO has positive duration, IO can have negative duration."""
+        from pricebook.structured.mbs import MBSPool, io_po_strips
+        dc = _make_curve()
+        pool = MBSPool(1_000_000, 0.06, 360, 0.055)
+        r = io_po_strips(pool, dc)
+        assert r.po_duration > 0
+
+    def test_prepayment_model(self):
+        from pricebook.structured.mbs import prepayment_model
+        # High incentive: WAC 6%, current 4% → high CPR
+        high = prepayment_model(60, 0.06, 0.04)
+        low = prepayment_model(60, 0.06, 0.07)  # rates above WAC
+        assert high > low
+
+    def test_to_dict(self):
+        from pricebook.structured.mbs import MBSPool, price_mbs
+        dc = _make_curve()
+        pool = MBSPool(1_000_000, 0.06, 360, 0.055)
+        r = price_mbs(pool, dc)
+        d = r.to_dict()
+        assert "wal" in d
+        assert "modified_duration" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# ABS (S2)
+# ═══════════════════════════════════════════════════════════════
+
+class TestAutoABS:
+    def test_price_auto(self):
+        from pricebook.structured.abs import ABSPool, ABSTranche, price_auto_abs
+        dc = _make_curve()
+        pool = ABSPool(100_000_000, 0.05, 60, charge_off_rate=0.015)
+        tranches = [
+            ABSTranche("A", 85_000_000, 0.035, 0),
+            ABSTranche("B", 10_000_000, 0.045, 1),
+            ABSTranche("C", 5_000_000, 0.065, 2),
+        ]
+        results = price_auto_abs(pool, tranches, dc)
+        assert len(results) == 3
+        assert all(r.price > 0 for r in results)
+
+    def test_senior_ce(self):
+        """Senior tranche has highest credit enhancement."""
+        from pricebook.structured.abs import ABSPool, ABSTranche, price_auto_abs
+        dc = _make_curve()
+        pool = ABSPool(100_000_000, 0.05, 60)
+        tranches = [
+            ABSTranche("A", 85_000_000, 0.035, 0),
+            ABSTranche("B", 10_000_000, 0.045, 1),
+            ABSTranche("C", 5_000_000, 0.065, 2),
+        ]
+        results = price_auto_abs(pool, tranches, dc)
+        assert results[0].credit_enhancement_pct > results[1].credit_enhancement_pct
+
+    def test_to_dict(self):
+        from pricebook.structured.abs import ABSPool, ABSTranche, price_auto_abs
+        dc = _make_curve()
+        pool = ABSPool(100_000_000, 0.05, 60)
+        tranches = [ABSTranche("A", 100_000_000, 0.035, 0)]
+        r = price_auto_abs(pool, tranches, dc)[0]
+        d = r.to_dict()
+        assert "credit_enhancement_pct" in d
+
+
+class TestCreditCardABS:
+    def test_price_cc(self):
+        from pricebook.structured.abs import price_credit_card_abs
+        dc = _make_curve()
+        r = price_credit_card_abs(
+            50_000_000, 0.18, 0.15, 0.05, 0.04,
+            revolving_months=24, amort_months=12,
+            discount_curve=dc,
+        )
+        assert r.price > 0
+        assert r.wal > 0
+
+    def test_excess_spread(self):
+        """Excess spread = yield - coupon - losses."""
+        from pricebook.structured.abs import price_credit_card_abs
+        r = price_credit_card_abs(50_000_000, 0.18, 0.15, 0.05, 0.04)
+        assert r.excess_spread_pct > 0  # 18% yield - 4% coupon - 5% loss = 9%
+
+    def test_to_dict(self):
+        from pricebook.structured.abs import price_credit_card_abs
+        r = price_credit_card_abs(50_000_000, 0.18, 0.15, 0.05, 0.04)
+        d = r.to_dict()
+        assert "mpr" in d
+        assert "excess_spread_pct" in d
+
+
+class TestStudentLoanABS:
+    def test_price_student(self):
+        from pricebook.structured.abs import price_student_loan_abs
+        r = price_student_loan_abs(30_000_000, 0.06, 240, grace_months=6)
+        assert r.price > 0
+        assert r.wal > 0
+
+    def test_grace_delays_wal(self):
+        from pricebook.structured.abs import price_student_loan_abs
+        no_grace = price_student_loan_abs(30_000_000, 0.06, 240, grace_months=0)
+        with_grace = price_student_loan_abs(30_000_000, 0.06, 240, grace_months=12)
+        assert with_grace.wal > no_grace.wal
+
+
+# ═══════════════════════════════════════════════════════════════
+# CMBS (S3)
+# ═══════════════════════════════════════════════════════════════
+
+class TestCMBS:
+    def _make_pool(self):
+        from pricebook.structured.cmbs import CMBSLoan, CMBSPool, PropertyType
+        loans = [
+            CMBSLoan(10_000_000, 15_000_000, 1_200_000, 0.045, 120, PropertyType.OFFICE),
+            CMBSLoan(8_000_000, 12_000_000, 1_000_000, 0.05, 84, PropertyType.RETAIL),
+            CMBSLoan(5_000_000, 10_000_000, 700_000, 0.04, 60, PropertyType.MULTIFAMILY),
+        ]
+        return CMBSPool(loans)
+
+    def test_ltv_dscr(self):
+        from pricebook.structured.cmbs import CMBSLoan, PropertyType
+        loan = CMBSLoan(10_000_000, 15_000_000, 1_200_000, 0.045, 120, PropertyType.OFFICE)
+        assert loan.ltv == pytest.approx(10/15, rel=0.01)
+        assert loan.dscr > 1.0  # NOI > debt service
+
+    def test_pool_metrics(self):
+        pool = self._make_pool()
+        assert pool.total_balance == 23_000_000
+        assert 0 < pool.wa_ltv < 1
+        assert pool.wa_dscr > 1.0
+
+    def test_concentration(self):
+        pool = self._make_pool()
+        conc = pool.concentration()
+        assert "office" in conc
+        assert sum(conc.values()) == pytest.approx(100, abs=0.1)
+
+    def test_price_cmbs(self):
+        from pricebook.structured.cmbs import price_cmbs
+        dc = _make_curve()
+        pool = self._make_pool()
+        tranches = [
+            {"name": "A", "notional": 18_000_000, "coupon": 0.04, "seniority": 0},
+            {"name": "B", "notional": 3_000_000, "coupon": 0.055, "seniority": 1},
+            {"name": "C", "notional": 2_000_000, "coupon": 0.07, "seniority": 2},
+        ]
+        results = price_cmbs(pool, tranches, dc)
+        assert len(results) == 3
+        assert all(r.price > 0 for r in results)
+
+    def test_senior_has_more_ce(self):
+        from pricebook.structured.cmbs import price_cmbs
+        dc = _make_curve()
+        pool = self._make_pool()
+        tranches = [
+            {"name": "A", "notional": 18_000_000, "coupon": 0.04, "seniority": 0},
+            {"name": "B", "notional": 3_000_000, "coupon": 0.055, "seniority": 1},
+            {"name": "C", "notional": 2_000_000, "coupon": 0.07, "seniority": 2},
+        ]
+        results = price_cmbs(pool, tranches, dc)
+        assert results[0].credit_enhancement_pct > results[1].credit_enhancement_pct
+
+    def test_stress(self):
+        from pricebook.structured.cmbs import cmbs_stress
+        pool = self._make_pool()
+        r = cmbs_stress(pool, property_shock=-0.30, noi_shock=-0.20)
+        assert r["stressed_wa_ltv"] > r["base_wa_ltv"]
+        assert r["stressed_wa_dscr"] < r["base_wa_dscr"]
+
+    def test_defeasance(self):
+        from pricebook.structured.cmbs import defeasance_cost
+        cost = defeasance_cost(10_000_000, 0.05, 60, 0.03)
+        assert cost > 0  # coupon > treasury → positive cost
+
+    def test_yield_maintenance(self):
+        from pricebook.structured.cmbs import yield_maintenance
+        penalty = yield_maintenance(10_000_000, 0.05, 60, 0.03)
+        assert penalty > 0
+        # If rates above coupon: no penalty
+        no_penalty = yield_maintenance(10_000_000, 0.05, 60, 0.06)
+        assert no_penalty == 0
+
+    def test_to_dict(self):
+        from pricebook.structured.cmbs import price_cmbs
+        dc = _make_curve()
+        pool = self._make_pool()
+        tranches = [{"name": "A", "notional": 23_000_000, "coupon": 0.04, "seniority": 0}]
+        r = price_cmbs(pool, tranches, dc)[0]
+        d = r.to_dict()
+        assert "balloon_risk_pct" in d
+        assert "wa_ltv" in d

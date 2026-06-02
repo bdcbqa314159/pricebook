@@ -2,6 +2,48 @@
 
 ---
 
+## v0.732.0 — 2026-06-02
+
+**CMBS analytics: LTV, DSCR, balloon risk, defeasance.**
+
+- New `structured/cmbs.py`:
+  - `CMBSLoan` — LTV, DSCR, debt yield per loan.
+  - `CMBSPool` — weighted averages, property type concentration.
+  - `price_cmbs()` — tranche pricing with credit enhancement.
+  - `cmbs_stress()` — property value and NOI shocks.
+  - `defeasance_cost()`, `yield_maintenance()` — prepayment penalties.
+- 10 new tests.
+
+---
+
+## v0.731.0 — 2026-06-02
+
+**ABS cashflow engine: auto loans, credit cards, student loans.**
+
+- New `structured/abs.py`:
+  - `price_auto_abs()` — amortising auto loan ABS with sequential waterfall.
+  - `price_credit_card_abs()` — revolving + controlled amortisation.
+  - `price_student_loan_abs()` — grace period, IDR, default.
+  - Credit enhancement, excess spread, break-even loss rate.
+- 7 new tests.
+
+---
+
+## v0.730.0 — 2026-06-02
+
+**MBS prepayment modelling, OAS, IO/PO strips.**
+
+- New `structured/mbs.py`:
+  - `psa_speed()` — PSA benchmark (ramp + plateau).
+  - `cpr_to_smm()`, `smm_to_cpr()` — prepayment conversions.
+  - `prepayment_model()` — turnover + refinancing + burnout + seasonality.
+  - `price_mbs()` — pass-through pricing with prepay-adjusted duration/convexity.
+  - `oas_mbs()` — OAS via Newton-Raphson.
+  - `io_po_strips()` — interest-only / principal-only decomposition.
+- 10 new tests.
+
+---
+
 ## v0.729.0 — 2026-06-02
 
 **Spread options: Kirk's approximation with full Greeks.**
