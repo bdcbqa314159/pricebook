@@ -430,3 +430,120 @@ class TestSecondaryPricing:
         r = liquidity_premium(bid_ask_bp=50, holding_period_years=2.0, rating_notch=7)
         assert r.premium_bp > 0
         assert r.credit_component > 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# Stochastic Correlation (X1)
+# ═══════════════════════════════════════════════════════════════
+
+class TestStochasticCorrelation:
+    def test_regime_switching(self):
+        from pricebook.credit.stochastic_correlation import regime_switching_correlation
+        r = regime_switching_correlation(0.02, 0.6, 0.03, 0.07, [0.20, 0.60], [0.7, 0.3])
+        assert r.tranche_spread > 0
+        assert r.expected_loss_pct > 0
+
+    def test_correlation_smile(self):
+        from pricebook.credit.stochastic_correlation import correlation_smile
+        # Generate target spreads from known correlations, then re-calibrate
+        from pricebook.credit.stochastic_correlation import _vasicek_tranche_el
+        atts = [0.0, 0.03, 0.07, 0.15]
+        dets = [0.03, 0.07, 0.15, 1.0]
+        # Use corrs that increase for senior tranches (smile)
+        test_corrs = [0.15, 0.25, 0.40, 0.60]
+        spreads = []
+        for att, det, c in zip(atts, dets, test_corrs):
+            el = _vasicek_tranche_el(0.02, 0.6, c, att, det)
+            width = det - att
+            ann = sum(math.exp(-0.04 * t) for t in np.arange(0.25, 5.01, 0.25)) * 0.25
+            spreads.append(el / (width * ann) * 10_000 if width * ann > 0 else 0)
+        smile = correlation_smile(0.02, 0.6, spreads, atts, dets)
+        assert len(smile) == 4
+        # Verify calibrated correlations are reasonable
+        assert all(s.implied_correlation > 0 for s in smile)
+
+    def test_stochastic_corr_tranche(self):
+        from pricebook.credit.stochastic_correlation import stochastic_corr_tranche
+        r = stochastic_corr_tranche(0.02, 0.6, 0.03, 0.07, corr_mean=0.30, n_sims=5_000)
+        assert r.tranche_spread > 0
+
+    def test_to_dict(self):
+        from pricebook.credit.stochastic_correlation import regime_switching_correlation
+        r = regime_switching_correlation(0.02, 0.6, 0.03, 0.07, [0.30], [1.0])
+        d = r.to_dict()
+        assert "n_regimes" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Mountain Range (X2)
+# ═══════════════════════════════════════════════════════════════
+
+class TestMountainRange:
+    def _corr(self, n):
+        corr = np.eye(n)
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    corr[i, j] = 0.5
+        return corr.tolist()
+
+    def test_napoleon(self):
+        from pricebook.equity.mountain_range import napoleon_option
+        r = napoleon_option([100, 50, 200], [0.20, 0.25, 0.30], self._corr(3),
+                             [0.5, 1.0, 1.5, 2.0], n_sims=10_000)
+        assert r.price > 0
+        assert r.product == "napoleon"
+
+    def test_everest(self):
+        from pricebook.equity.mountain_range import everest_option
+        r = everest_option([100, 50, 200], [0.20, 0.25, 0.30], self._corr(3), n_sims=10_000)
+        assert r.price >= 0
+        assert r.product == "everest"
+
+    def test_atlas(self):
+        from pricebook.equity.mountain_range import atlas_option
+        r = atlas_option([100, 50, 200, 80, 120], [0.20]*5, self._corr(5),
+                          n_remove=1, n_sims=10_000)
+        assert r.price >= 0
+        assert r.n_assets == 5
+
+    def test_altiplano(self):
+        from pricebook.equity.mountain_range import altiplano_option
+        r = altiplano_option([100, 50, 200], [0.20, 0.25, 0.30], self._corr(3),
+                              barrier=0.80, coupon=0.10, n_sims=10_000)
+        assert 0 <= r.price <= 12  # max = coupon × notional × df
+
+
+# ═══════════════════════════════════════════════════════════════
+# Power Derivatives (X3)
+# ═══════════════════════════════════════════════════════════════
+
+class TestPowerDerivatives:
+    def test_swing_option(self):
+        from pricebook.commodity.power_derivatives import swing_option_price
+        forwards = [50 + i for i in range(12)]
+        r = swing_option_price(forwards, 52, 3, 8, n_sims=10_000)
+        assert r.price > 0
+        assert r.min_take <= r.expected_exercises <= r.max_take + 0.5
+
+    def test_tolling(self):
+        from pricebook.commodity.power_derivatives import tolling_agreement
+        power = [55, 60, 50, 65]
+        gas = [3.5, 3.8, 3.2, 4.0]
+        r = tolling_agreement(power, gas, heat_rate=7.0, capacity_mw=100)
+        assert r.value > 0
+        assert r.expected_generation_hours > 0
+
+    def test_capacity_option(self):
+        from pricebook.commodity.power_derivatives import capacity_option
+        forwards = [50, 55, 45, 60, 40, 65]
+        r = capacity_option(forwards, 50, capacity_mw=100, n_sims=10_000)
+        assert r.price > 0
+
+    def test_block_forward(self):
+        from pricebook.commodity.power_derivatives import block_forward
+        # Peak hours (7-22) get higher prices
+        hourly = [30 if h < 7 or h >= 22 else 60 for h in range(24)]
+        r = block_forward(hourly)
+        assert r.peak_price > r.off_peak_price
+        assert r.peak_premium > 0

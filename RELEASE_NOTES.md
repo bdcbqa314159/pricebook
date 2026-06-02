@@ -2,6 +2,46 @@
 
 ---
 
+## v0.746.0 — 2026-06-02
+
+**Power/electricity derivatives: swing, tolling, capacity.**
+
+- New `commodity/power_derivatives.py`:
+  - `swing_option_price()` — volume flexibility with min/max take.
+  - `tolling_agreement()` — virtual power plant economics.
+  - `capacity_option()` — option on generation dispatch.
+  - `block_forward()` — peak/off-peak block pricing.
+- 4 new tests.
+
+---
+
+## v0.745.0 — 2026-06-02
+
+**Mountain range options: Napoleon, Everest, Atlas, Altiplano.**
+
+- New `equity/mountain_range.py`:
+  - `napoleon_option()` — worst-of cliquet with local caps/floors.
+  - `everest_option()` — payoff on worst performer.
+  - `atlas_option()` — remove best/worst, payoff on remainder.
+  - `altiplano_option()` — digital basket (all above barrier).
+  - Correlated GBM Monte Carlo.
+- 4 new tests.
+
+---
+
+## v0.744.0 — 2026-06-02
+
+**Stochastic correlation for credit tranches.**
+
+- New `credit/stochastic_correlation.py`:
+  - `regime_switching_correlation()` — multi-regime tranche pricing.
+  - `correlation_smile()` — calibrate implied correlation across tranches.
+  - `stochastic_corr_tranche()` — beta-distributed correlation MC.
+  - Vasicek one-factor tranche expected loss.
+- 4 new tests.
+
+---
+
 ## v0.743.0 — 2026-06-02
 
 **Secondary market structured product pricing.**
