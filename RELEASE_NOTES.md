@@ -2,6 +2,116 @@
 
 ---
 
+## v0.788.0 — 2026-06-02
+
+**PDE boundary condition library.**
+
+- New `numerical/pde_boundary.py`:
+  - `BCSpec` — unified BC specification: Dirichlet, Neumann, Robin, linear extrapolation, outflow.
+  - `apply_bc()` — apply BCs to solution vector.
+  - Financial BC factories: `call_bcs()`, `put_bcs()`, `barrier_bcs()`.
+- 5 new tests.
+
+---
+
+## v0.787.0 — 2026-06-02
+
+**PDE convergence diagnostics and scheme selection.**
+
+- New `models/pde_diagnostics.py`:
+  - `convergence_study()` — grid refinement analysis with Richardson extrapolation.
+  - `recommend_scheme()` — automatic method/grid recommendation.
+  - `stability_check()` — CFL verification with warnings.
+- 3 new tests.
+
+---
+
+## v0.786.0 — 2026-06-02
+
+**American 2D: Heston American via ADI + penalty.**
+
+- New `models/pde_american_2d.py`:
+  - `heston_american_pde()` — Heston American put via Craig-Sneyd ADI + penalty method.
+  - Penalty λ converts free boundary to nonlinear fixed-domain PDE.
+  - American ≥ European verified.
+- 2 new tests.
+
+---
+
+## v0.785.0 — 2026-06-02
+
+**Adaptive grid refinement for PDE.**
+
+- New `models/pde_adaptive.py`:
+  - `error_indicator()` — gradient-based error estimate per cell.
+  - `refine_grid()` — insert nodes where curvature is high.
+  - `adaptive_pde()` — iterative solve-refine-solve with convergence check.
+- 2 new tests.
+
+---
+
+## v0.784.0 — 2026-06-02
+
+**SABR PDE via 2D ADI.**
+
+- New `models/pde_sabr.py`:
+  - `sabr_pde()` — 2D ADI in (F, σ) space with absorbing boundary at F=0.
+  - Craig-Sneyd splitting with mixed derivative term.
+  - ITM > ATM verified.
+- 2 new tests.
+
+---
+
+## v0.783.0 — 2026-06-02
+
+**Jump-diffusion PIDE: Merton and Kou.**
+
+- New `models/pide_solver.py`:
+  - `merton_pide()` — operator splitting: diffusion (CN) + jump integral (quadrature).
+  - `kou_pide()` — double-exponential jump-diffusion.
+  - No jumps → matches BS. Jumps add value for OTM options.
+- 3 new tests.
+
+---
+
+## v0.782.0 — 2026-06-02
+
+**Time-dependent PDE coefficients.**
+
+- New `models/pde_time_dependent.py`:
+  - `TermStructureCoefficients` — piecewise-linear r(t), σ(t), q(t).
+  - `time_dependent_pde()` — BS PDE with non-constant coefficients.
+  - Constant term structure → matches standard PDE.
+- 2 new tests.
+
+---
+
+## v0.781.0 — 2026-06-02
+
+**Local volatility PDE solver.**
+
+- New `models/pde_local_vol.py`:
+  - `local_vol_pde()` — BS PDE with σ(S,t) from Dupire surface.
+  - `local_vol_barrier_pde()` — barrier under local vol.
+  - Flat surface → matches BS. Non-flat → prices differ.
+- 2 new tests.
+
+---
+
+## v0.780.0 — 2026-06-02
+
+**Unified PDE protocol.**
+
+- New `models/pde_protocol.py`:
+  - `PDECoefficients` — callable a(S,t), b(S,t), c(S,t) with factories for BS, local vol, time-dep.
+  - `PDESpec` — full problem spec (coefficients, domain, BCs, payoff, American).
+  - `PDEEngine` — solver with configurable method, grid, resolution.
+  - `PDEPricingResult` — unified result with Greeks and convergence info.
+  - `pde_price()` — one-function entry point. Matches BS to 2%.
+- 6 new tests.
+
+---
+
 ## v0.778.0 — 2026-06-02
 
 **Code review fixes across portfolio optimisation and game theory.**
