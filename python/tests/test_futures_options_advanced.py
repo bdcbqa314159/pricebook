@@ -228,3 +228,163 @@ class TestSpreadOptions:
         d = r.to_dict()
         assert "cross_gamma" in d
         assert "correlation_sensitivity" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# VIX/Variance Futures (F4)
+# ═══════════════════════════════════════════════════════════════
+
+class TestVarianceFutures:
+    def test_vix_fair_value_contango(self):
+        """VIX futures typically trade above spot (contango)."""
+        from pricebook.options.variance_futures import vix_futures_fair_value
+        r = vix_futures_fair_value(15, 30)
+        assert r.fair_value >= r.spot_vix  # contango
+
+    def test_vix_mean_reversion(self):
+        """High VIX reverts toward long-run level."""
+        from pricebook.options.variance_futures import vix_futures_fair_value
+        r = vix_futures_fair_value(40, 90, long_run_vol=20)
+        assert r.fair_value < 40  # reverts down
+
+    def test_variance_swap(self):
+        from pricebook.options.variance_futures import variance_swap_price
+        strikes = [90, 95, 100, 105, 110]
+        calls = [12.0, 8.0, 5.0, 3.0, 1.5]
+        puts = [2.0, 3.5, 5.5, 8.5, 12.0]
+        r = variance_swap_price(100, strikes, calls, puts, 0.25)
+        assert r.fair_vol > 0
+
+    def test_term_structure(self):
+        from pricebook.options.variance_futures import vix_term_structure
+        ts = vix_term_structure(15, [(30, 16), (60, 17), (90, 17.5)])
+        assert len(ts) == 3
+        assert all(p.contango for p in ts)
+
+    def test_to_dict(self):
+        from pricebook.options.variance_futures import vix_futures_fair_value
+        r = vix_futures_fair_value(15, 30)
+        d = r.to_dict()
+        assert "basis" in d
+        assert "roll_yield_annual" in d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Commodity Calibration (F5)
+# ═══════════════════════════════════════════════════════════════
+
+class TestCommodityCalibration:
+    def test_schwartz_calibration(self):
+        from pricebook.commodity.commodity_calibration import calibrate_schwartz
+        spot = 75
+        # Generate synthetic futures (slight contango)
+        prices = [75 * math.exp(0.02 * T) for T in [0.25, 0.5, 1, 2, 3]]
+        maturities = [0.25, 0.5, 1, 2, 3]
+        r = calibrate_schwartz(spot, prices, maturities)
+        assert r.kappa > 0
+        assert r.sigma > 0
+        assert r.rmse < 5
+
+    def test_gibson_schwartz_calibration(self):
+        from pricebook.commodity.commodity_calibration import calibrate_gibson_schwartz
+        spot = 75
+        prices = [75 * math.exp(0.01 * T) for T in [0.25, 0.5, 1, 2, 3]]
+        maturities = [0.25, 0.5, 1, 2, 3]
+        r = calibrate_gibson_schwartz(spot, prices, maturities)
+        assert r.sigma_s > 0
+        assert r.rmse < 5
+
+    def test_seasonal_decomposition(self):
+        from pricebook.commodity.commodity_calibration import seasonal_decomposition
+        # Generate seasonal data
+        prices = [70 + 5 * math.sin(2 * math.pi * m / 12) + m * 0.1 for m in range(24)]
+        r = seasonal_decomposition(prices, period=12)
+        assert len(r.seasonal_factors) == 12
+        assert r.seasonal_factors.max() > r.seasonal_factors.min()
+
+    def test_implied_convenience_yield(self):
+        from pricebook.commodity.commodity_calibration import implied_convenience_yield_term
+        # Backwardation → positive convenience yield
+        spot = 80
+        prices = [79, 78, 77]  # declining forward curve
+        maturities = [0.25, 0.5, 1.0]
+        result = implied_convenience_yield_term(spot, prices, maturities)
+        assert len(result) == 3
+        assert all(y > 0 for _, y in result)  # positive convenience yield
+
+
+# ═══════════════════════════════════════════════════════════════
+# SABR Convexity (F6)
+# ═══════════════════════════════════════════════════════════════
+
+class TestFuturesConvexity:
+    def test_sabr_convexity_negative(self):
+        """Convexity adjustment is negative (futures rate > forward rate)."""
+        from pricebook.fixed_income.futures_convexity import sabr_convexity_adjustment
+        r = sabr_convexity_adjustment(0.04, 2.0)
+        assert r.adjustment_bp < 0
+        assert r.forward_rate < r.futures_rate
+
+    def test_sabr_increases_with_maturity(self):
+        from pricebook.fixed_income.futures_convexity import sabr_convexity_adjustment
+        short = sabr_convexity_adjustment(0.04, 0.5)
+        long = sabr_convexity_adjustment(0.04, 5.0)
+        assert abs(long.adjustment_bp) > abs(short.adjustment_bp)
+
+    def test_hw_convexity(self):
+        from pricebook.fixed_income.futures_convexity import hw_convexity_adjustment
+        r = hw_convexity_adjustment(0.04, 2.0)
+        assert r.adjustment_bp < 0
+
+    def test_compare_models(self):
+        from pricebook.fixed_income.futures_convexity import compare_convexity_models
+        r = compare_convexity_models(0.04, 2.0)
+        assert "sabr" in r
+        assert "hw" in r
+        # Both should be negative
+        assert r["sabr"].adjustment_bp < 0
+        assert r["hw"].adjustment_bp < 0
+
+    def test_empirical(self):
+        from pricebook.fixed_income.futures_convexity import empirical_convexity
+        r = empirical_convexity([0.0405, 0.0412], [0.0400, 0.0405], [1.0, 2.0])
+        assert len(r) == 2
+        assert all(c.adjustment_bp > 0 for c in r)  # futures > OIS
+
+
+# ═══════════════════════════════════════════════════════════════
+# Cost of Carry (F7)
+# ═══════════════════════════════════════════════════════════════
+
+class TestCostOfCarry:
+    def test_contango(self):
+        from pricebook.fixed_income.cost_of_carry import cost_of_carry
+        r = cost_of_carry(100, 102, 1.0, rate=0.04)
+        assert r.contango is True
+        assert r.forward_premium_pct > 0
+
+    def test_backwardation(self):
+        from pricebook.fixed_income.cost_of_carry import cost_of_carry
+        r = cost_of_carry(100, 97, 1.0, rate=0.04)
+        assert r.contango is False
+        assert r.convenience_yield > r.risk_free_rate  # backwardation implies high CY
+
+    def test_cash_and_carry_arb(self):
+        from pricebook.fixed_income.cost_of_carry import cash_and_carry_arb
+        # Futures too expensive relative to cost of carry
+        r = cash_and_carry_arb(100, 110, 1.0, rate=0.04, storage_cost=0.01)
+        assert r.profit_per_unit > 0
+        assert r.feasible is True
+
+    def test_no_arb(self):
+        from pricebook.fixed_income.cost_of_carry import cash_and_carry_arb
+        fair = 100 * math.exp(0.04 * 1.0)
+        r = cash_and_carry_arb(100, fair, 1.0, rate=0.04)
+        assert abs(r.profit_per_unit) < 0.01
+
+    def test_carry_roll_decomposition(self):
+        from pricebook.fixed_income.cost_of_carry import carry_roll_decomposition
+        r = carry_roll_decomposition(100, 101, 102, 0.25, 0.50, rate=0.04)
+        assert "carry" in r
+        assert "roll" in r
+        assert "contango" in r

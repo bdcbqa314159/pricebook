@@ -2,6 +2,58 @@
 
 ---
 
+## v0.736.0 — 2026-06-02
+
+**Cost-of-carry decomposition and arbitrage detection.**
+
+- New `fixed_income/cost_of_carry.py`:
+  - `cost_of_carry()` — decompose forward premium: r + storage − convenience yield.
+  - `cash_and_carry_arb()` — detect cash-and-carry arbitrage.
+  - `reverse_cash_and_carry_arb()` — detect reverse arb.
+  - `carry_roll_decomposition()` — carry vs roll return attribution.
+- 5 new tests.
+
+---
+
+## v0.735.0 — 2026-06-02
+
+**SABR convexity for RFR futures.**
+
+- New `fixed_income/futures_convexity.py`:
+  - `sabr_convexity_adjustment()` — Piterbarg approximation with SABR smile.
+  - `hw_convexity_adjustment()` — Hull-White for comparison.
+  - `empirical_convexity()` — calibrate from futures vs OIS spread.
+  - `compare_convexity_models()` — side-by-side SABR vs HW.
+- 5 new tests.
+
+---
+
+## v0.734.0 — 2026-06-02
+
+**Commodity model calibration to futures strip.**
+
+- New `commodity/commodity_calibration.py`:
+  - `calibrate_schwartz()` — Schwartz 1F to observed futures curve.
+  - `calibrate_gibson_schwartz()` — Gibson-Schwartz 2F (spot + convenience yield).
+  - `seasonal_decomposition()` — multiplicative trend + seasonal extraction.
+  - `implied_convenience_yield_term()` — convenience yield term structure.
+- 4 new tests.
+
+---
+
+## v0.733.0 — 2026-06-02
+
+**VIX futures, variance swaps, vol-of-vol.**
+
+- New `options/variance_futures.py`:
+  - `vix_futures_fair_value()` — mean-reversion model with term premium.
+  - `variance_swap_price()` — model-free replication from option strip.
+  - `vix_term_structure()` — contango/backwardation analysis.
+  - `vol_of_vol()` — implied vol-of-vol from VIX options.
+- 5 new tests.
+
+---
+
 ## v0.732.0 — 2026-06-02
 
 **CMBS analytics: LTV, DSCR, balloon risk, defeasance.**
