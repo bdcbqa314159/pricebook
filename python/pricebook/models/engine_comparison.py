@@ -164,5 +164,5 @@ def validate_greeks(
             "pass": rel_diff < tolerance,
         }
 
-    checks["all_pass"] = all(c["pass"] for c in checks.values() if isinstance(c, dict))
+    checks["all_pass"] = all(checks[g]["pass"] for g in ["delta", "gamma", "vega"])
     return checks

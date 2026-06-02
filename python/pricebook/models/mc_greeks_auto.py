@@ -38,8 +38,6 @@ class PayoffType(Enum):
 # Payoff names that are smooth (pathwise-safe)
 _SMOOTH_PAYOFFS = {
     "european_call", "european_put", "call", "put",
-    "asian_arithmetic", "asian_geometric",
-    "lookback_call", "lookback_put",
     "basket_call", "basket_put",
 }
 
@@ -54,6 +52,8 @@ _DISCONTINUOUS_PAYOFFS = {
 _PATH_DEPENDENT_PAYOFFS = {
     "autocall", "cliquet", "tarf", "swing",
     "american_put", "american_call",
+    "asian_arithmetic", "asian_geometric",
+    "lookback_call", "lookback_put",
 }
 
 

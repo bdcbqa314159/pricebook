@@ -25,8 +25,7 @@ import numpy as np
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.models.black76 import (
     OptionType, black76_price, black76_delta, black76_gamma,
-    black76_vega, black76_theta, bachelier_price,
-    _norm_cdf, _norm_pdf,
+    black76_vega, black76_theta,
 )
 
 
@@ -107,7 +106,7 @@ def vol_term_structure(
 ) -> float:
     """Samuelson effect: front-month vol > back-month vol.
 
-    σ(T) = base_vol × exp(α × (T_max − T))
+    σ(T) = base_vol × exp(−α × T)
 
     where α > 0 means vol decays as maturity increases.
 

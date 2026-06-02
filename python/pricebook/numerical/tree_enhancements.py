@@ -156,7 +156,7 @@ def adaptive_barrier_tree(
 
     # Barrier accuracy: closest node to barrier
     nodes = [spot * u_adj ** j for j in range(-n, n + 1)]
-    barrier_dist = min(abs(s - barrier) / barrier for s in nodes if s > 0) * 100
+    barrier_dist = min(abs(s - barrier) / max(barrier, 1e-10) for s in nodes if s > 0) * 100
 
     return AdaptiveTreeResult(
         price=price, delta=delta, gamma=gamma,

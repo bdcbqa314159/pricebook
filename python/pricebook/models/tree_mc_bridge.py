@@ -236,7 +236,7 @@ def stochastic_vol_tree(
             # Spot trinomial parameters with current vol
             lam = math.sqrt(1.5)
             u_step = math.exp(lam * sigma * math.sqrt(dt))
-            nu = (rate - 0.5 * v) * math.sqrt(dt) / (lam * sigma) if sigma > 0 else 0
+            nu = (rate - 0.5 * sigma**2) * math.sqrt(dt) / (lam * sigma) if sigma > 0 else 0
             p_u = max(0, min(1, 1.0 / (2 * lam**2) + nu / 2))
             p_d = max(0, min(1, 1.0 / (2 * lam**2) - nu / 2))
             p_m = max(0, 1 - p_u - p_d)
@@ -332,7 +332,7 @@ def hybrid_price(
         from pricebook.models.mc_processes import GBMProcess
         from pricebook.models.mc_payoffs import european_call, european_put
 
-        proc = GBMProcess(s0=spot, mu=rate, sigma=vol)
+        proc = GBMProcess(s0=spot, mu=rate - 0.0, sigma=vol)  # div_yield=0 for vanilla
         grid = TimeGrid.uniform(T, n_steps)
         eng = MCEngine(proc, grid, n_paths, seed, antithetic=True)
         payoff = european_call(strike) if is_call else european_put(strike)

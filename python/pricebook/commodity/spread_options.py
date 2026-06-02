@@ -22,8 +22,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-import numpy as np
-
 from pricebook.models.black76 import OptionType, _norm_cdf, _norm_pdf
 
 

@@ -373,7 +373,7 @@ def fx_local_vol(
         df = math.exp(-r_d * T)
         for j, K in enumerate(K_arr):
             sigma = implied_vols[i][j]
-            if T > 0 and sigma > 0:
+            if T > 0 and sigma > 0 and K > 0 and fwd > 0:
                 sqrt_t = math.sqrt(T)
                 d1 = (math.log(fwd / K) + 0.5 * sigma**2 * T) / (sigma * sqrt_t)
                 d2 = d1 - sigma * sqrt_t

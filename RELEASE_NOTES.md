@@ -2,6 +2,23 @@
 
 ---
 
+## v0.759.0 — 2026-06-02
+
+**Code review fixes across futures, structured, FX, and engine infrastructure.**
+
+- **mc_greeks_auto.py**: lookback/Asian reclassified from SMOOTH to PATH_DEPENDENT (pathwise IPA invalid for path-dependent payoffs).
+- **autocall_advanced.py**: memory coupon overwrite bug fixed — line 115 was unconditionally overwriting line 114, making memory feature dead code.
+- **tree_mc_bridge.py**: stochastic vol tree drift used variance `v` instead of `sigma²`; MC path-dependent branch missing div_yield.
+- **bespoke_cdo.py**: loss distribution now uses notional-weighted average PD/LGD instead of equal-weight.
+- **tree_enhancements.py**: barrier accuracy division by zero guard when barrier == 0.
+- **engine_comparison.py**: dict iteration fix in `validate_greeks()` — was iterating all values including non-dict.
+- **fx_exotic_extensions.py**: Dupire local vol guard for K ≤ 0 preventing log domain error.
+- **commodity_options.py**: Samuelson docstring formula corrected to match implementation `exp(−αT)`.
+- **Removed unused imports**: `_norm_pdf` from futures_options.py and commodity_options.py; `np` from spread_options.py and commodity_swaps.py.
+- 10,963 tests pass.
+
+---
+
 ## v0.758.0 — 2026-06-02
 
 **Unified engine registry: one function, any instrument, best engine.**

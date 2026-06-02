@@ -117,14 +117,12 @@ def bespoke_tranche_price(
     if width <= 0:
         return BespokeCDOResult(0, 0, attachment, detachment, correlation, len(pds))
 
-    # Normalise PDs and LGDs to portfolio level
-    w_pds = [pd * n / total_notional for pd, n in zip(pds, notionals)]
-    w_lgds = [lgd * n / total_notional for lgd, n in zip(lgds, notionals)]
-    avg_pd = sum(w_pds)
-    avg_lgd = sum(w_lgds)
+    # Notional-weighted average PD and LGD
+    avg_pd = sum(pd * n for pd, n in zip(pds, notionals)) / total_notional
+    avg_lgd = sum(lgd * n for lgd, n in zip(lgds, notionals)) / total_notional
 
-    # Loss distribution
-    loss_grid, loss_probs = _vasicek_loss_dist(pds, lgds, correlation)
+    # Loss distribution using notional-weighted averages
+    loss_grid, loss_probs = _vasicek_loss_dist([avg_pd], [avg_lgd], correlation)
 
     # Tranche expected loss
     tranche_el = 0.0

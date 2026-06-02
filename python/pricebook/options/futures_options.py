@@ -28,7 +28,7 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.models.black76 import (
     OptionType, black76_price, black76_delta, black76_gamma,
     black76_vega, black76_theta, bachelier_price,
-    _norm_cdf, _norm_pdf,
+    _norm_cdf,
 )
 
 

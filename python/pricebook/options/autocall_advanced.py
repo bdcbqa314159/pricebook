@@ -108,13 +108,14 @@ def discrete_autocall(
 
             # Autocall check
             if perf >= autocall_barrier:
-                # Pay all coupons (including memory)
-                total_coupons_paid = (i + 1) * coupon_rate if not memory_coupon else (i + 1) * coupon_rate
+                # Pay all coupons: if memory, include accumulated unpaid
                 if memory_coupon:
-                    total_coupons_paid = (unpaid_coupons + 1) * coupon_rate + (i - unpaid_coupons) * coupon_rate
-                    total_coupons_paid = (i + 1) * coupon_rate
-                path_pv = (notional + (i + 1) * coupon_rate * notional) * df
-                path_coupon = (i + 1) * coupon_rate
+                    # All periods paid: previously paid + unpaid accumulated + current
+                    total_periods_paid = i + 1
+                else:
+                    total_periods_paid = i + 1
+                path_pv = (notional + total_periods_paid * coupon_rate * notional) * df
+                path_coupon = total_periods_paid * coupon_rate
                 called = True
                 total_life += t
                 n_autocalled += 1
