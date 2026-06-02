@@ -388,3 +388,95 @@ class TestCostOfCarry:
         assert "carry" in r
         assert "roll" in r
         assert "contango" in r
+
+
+# ═══════════════════════════════════════════════════════════════
+# Futures Roll (F8)
+# ═══════════════════════════════════════════════════════════════
+
+class TestFuturesRoll:
+    def test_roll_schedule(self):
+        from pricebook.fixed_income.futures_roll import generate_roll_schedule
+        schedule = generate_roll_schedule(
+            date(2024, 1, 1), date(2024, 12, 31),
+            [3, 6, 9, 12],
+            [75, 76, 77, 78], [76, 77, 78, 79],
+        )
+        assert schedule.n_rolls > 0
+        assert schedule.total_roll_cost > 0
+
+    def test_roll_slippage(self):
+        from pricebook.fixed_income.futures_roll import roll_slippage
+        small = roll_slippage(0.02, 10, 100)
+        large = roll_slippage(0.02, 100, 100)
+        assert large > small  # more contracts = more slippage
+
+    def test_liquidity_curve(self):
+        from pricebook.fixed_income.futures_roll import liquidity_curve
+        r = liquidity_curve([5000, 3000, 1000], ["CLZ24", "CLF25", "CLG25"])
+        assert r[0]["contract"] == "CLZ24"  # highest volume first
+
+
+# ═══════════════════════════════════════════════════════════════
+# Dividend Futures (F9)
+# ═══════════════════════════════════════════════════════════════
+
+class TestDividendFutures:
+    def test_dividend_future(self):
+        from pricebook.equity.dividend_futures import dividend_future_price
+        r = dividend_future_price(100, 98, 0.04, 1.0)
+        assert r.implied_dividend > 0
+        assert r.dividend_yield > 0
+
+    def test_dividend_swap(self):
+        from pricebook.equity.dividend_futures import dividend_swap_fair_value
+        r = dividend_swap_fair_value([2.0, 2.1, 2.2], [0.25, 0.5, 0.75])
+        assert r.fixed_rate > 0
+
+    def test_dividend_option(self):
+        from pricebook.equity.dividend_futures import dividend_option_price
+        r = dividend_option_price(8.0, 7.5, 0.25, 0.5)
+        assert r.price > 0
+        assert r.delta > 0  # call delta positive
+
+    def test_total_return_future(self):
+        from pricebook.equity.dividend_futures import total_return_future
+        r = total_return_future(100, 1.0, rate=0.04, div_yield=0.02)
+        assert r.tr_futures_price > r.price_futures_price
+
+
+# ═══════════════════════════════════════════════════════════════
+# Commodity Swaps (F10)
+# ═══════════════════════════════════════════════════════════════
+
+class TestCommoditySwaps:
+    def test_commodity_swap(self):
+        from pricebook.commodity.commodity_swaps import commodity_swap_price
+        forwards = [75, 76, 77, 78]
+        times = [0.25, 0.5, 0.75, 1.0]
+        r = commodity_swap_price(forwards, times, 76.0)
+        assert r.fair_fixed > 0
+        assert r.n_periods == 4
+
+    def test_swap_pv_at_fair(self):
+        from pricebook.commodity.commodity_swaps import commodity_swap_price
+        forwards = [75, 76, 77, 78]
+        times = [0.25, 0.5, 0.75, 1.0]
+        r = commodity_swap_price(forwards, times, 76.0)
+        # At fair fixed, PV should be near zero
+        r2 = commodity_swap_price(forwards, times, r.fair_fixed)
+        assert abs(r2.pv) < 1
+
+    def test_swaption(self):
+        from pricebook.commodity.commodity_swaps import commodity_swaption_price
+        forwards = [75, 76, 77, 78]
+        times = [0.25, 0.5, 0.75, 1.0]
+        r = commodity_swaption_price(forwards, times, 76, 0.30, 0.25)
+        assert r.premium > 0
+        assert r.delta > 0  # call delta
+
+    def test_asian_swap(self):
+        from pricebook.commodity.commodity_swaps import asian_commodity_swap
+        forwards = [75 + i * 0.1 for i in range(20)]
+        r = asian_commodity_swap(forwards, 20, 75.5)
+        assert r.fair_fixed > 0

@@ -2,6 +2,95 @@
 
 ---
 
+## v0.743.0 — 2026-06-02
+
+**Secondary market structured product pricing.**
+
+- New `structured/secondary_pricing.py`:
+  - `spread_aging()` — CLN spread adjustment for time since issuance.
+  - `mark_to_bid()` — haircut for illiquidity with stress multiplier.
+  - `stale_price_detector()` — flag unchanged prices.
+  - `liquidity_premium()` — model-based illiquidity premium.
+- 5 new tests.
+
+---
+
+## v0.742.0 — 2026-06-02
+
+**Steepener/flattener structured notes.**
+
+- New `structured/steepener.py`:
+  - `steepener_note()` — leveraged CMS10−CMS2 with floor/cap.
+  - `slope_range_accrual()` — accrues when slope in range.
+  - `digital_steepener()` — digital payout on curve slope.
+  - MC pricing with correlated CMS dynamics.
+- 4 new tests.
+
+---
+
+## v0.741.0 — 2026-06-02
+
+**Bespoke CDO: custom portfolio, LSS, tranche Greeks.**
+
+- New `credit/bespoke_cdo.py`:
+  - `bespoke_tranche_price()` — Vasicek loss distribution for custom portfolio.
+  - `calibrate_bespoke_correlation()` — bisection to match market spread.
+  - `leveraged_super_senior()` — LSS with gap risk.
+  - `tranche_greeks()` — spread delta, correlation delta.
+- 5 new tests.
+
+---
+
+## v0.740.0 — 2026-06-02
+
+**Advanced autocall: discrete observation, memory coupon, step-down.**
+
+- New `options/autocall_advanced.py`:
+  - `discrete_autocall()` — discrete observation dates with memory coupon.
+  - `worst_of_discrete_autocall()` — multi-asset worst-of with correlated MC.
+  - `step_down_autocall()` — declining autocall barriers.
+- 5 new tests.
+
+---
+
+## v0.739.0 — 2026-06-02
+
+**Commodity swaps and swaptions.**
+
+- New `commodity/commodity_swaps.py`:
+  - `commodity_swap_price()` — fixed-for-floating commodity swap.
+  - `commodity_swaption_price()` — Black-76 on forward swap rate.
+  - `asian_commodity_swap()` — averaging settlement.
+- 4 new tests.
+
+---
+
+## v0.738.0 — 2026-06-02
+
+**Dividend futures, swaps, options, total return futures.**
+
+- New `equity/dividend_futures.py`:
+  - `dividend_future_price()` — implied dividend from cost-of-carry.
+  - `dividend_swap_fair_value()` — fair fixed rate.
+  - `dividend_option_price()` — Black-76 on dividend forward.
+  - `total_return_future()` — TR vs price return decomposition.
+- 4 new tests.
+
+---
+
+## v0.737.0 — 2026-06-02
+
+**Futures roll mechanics: schedule, slippage, liquidity.**
+
+- New `fixed_income/futures_roll.py`:
+  - `generate_roll_schedule()` — auto-roll calendar with costs.
+  - `roll_adjusted_returns()` — continuous return series.
+  - `roll_slippage()` — market impact estimation.
+  - `liquidity_curve()` — volume distribution by contract month.
+- 3 new tests.
+
+---
+
 ## v0.736.0 — 2026-06-02
 
 **Cost-of-carry decomposition and arbitrage detection.**
