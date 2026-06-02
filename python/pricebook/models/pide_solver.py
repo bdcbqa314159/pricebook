@@ -137,8 +137,7 @@ def merton_pide(
             V_jump[0] = strike * math.exp(-rate * (step + 1) * dt) - S[0]
             V_jump[-1] = 0
 
-        if step == n_time - 2:
-            V_prev = V.copy()
+        V_prev = V.copy()
         V = V_jump
 
     greeks = extract_greeks(S, V, spot, V_prev, dt)
@@ -248,8 +247,7 @@ def kou_pide(
             V_new[0] = strike * math.exp(-rate * (step + 1) * dt) - S[0]
             V_new[-1] = 0
 
-        if step == n_time - 2:
-            V_prev = V.copy()
+        V_prev = V.copy()
         V = V_new
 
     greeks = extract_greeks(S, V, spot, V_prev, dt)

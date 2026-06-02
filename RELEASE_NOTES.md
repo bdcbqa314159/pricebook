@@ -2,6 +2,18 @@
 
 ---
 
+## v0.789.0 — 2026-06-02
+
+**PDE code review fixes.**
+
+- **pde_adaptive.py**: CRITICAL — grid refinement midpoint formula used `grid[i+1]+grid[i+2]` instead of `grid[i]+grid[i+1]`, inserting nodes at wrong locations. FD formula aligned with protocol (was using different convection discretisation).
+- **pde_local_vol.py**: barrier BC removed degenerate `if not is_call else 0.0` (always 0). Knock-in parity fixed — was passing contradictory `vol=0.20` alongside `vol_surface`.
+- **pide_solver.py**: V_prev now saved every step (was only at `n_time-2`), fixing theta Greek computation for both Merton and Kou.
+- **pde_boundary.py**: Robin BC sign error fixed — derivation `a*V + b*∂V/∂S = g` now correctly solved for V[0].
+- 11,027 tests pass.
+
+---
+
 ## v0.788.0 — 2026-06-02
 
 **PDE boundary condition library.**

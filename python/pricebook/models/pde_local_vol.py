@@ -108,10 +108,10 @@ def local_vol_barrier_pde(
 
     # Barrier BC: value = 0 at barrier
     if is_up:
-        bc_lo = lambda S, t: 0.0 if not is_call else 0.0
-        bc_hi = lambda S, t: 0.0  # knocked out at barrier
+        bc_lo = lambda S, t: 0.0
+        bc_hi = lambda S, t: 0.0  # knocked out at upper barrier
     else:
-        bc_lo = lambda S, t: 0.0  # knocked out at barrier
+        bc_lo = lambda S, t: 0.0  # knocked out at lower barrier
         bc_hi = lambda S, t: S - strike * math.exp(-rate * t) if is_call else 0.0
 
     spec = PDESpec(
@@ -128,9 +128,8 @@ def local_vol_barrier_pde(
         return ko_result
 
     # Knock-in via parity: KI = vanilla - KO
-    from pricebook.models.pde_protocol import pde_price
-    vanilla = pde_price(spot, strike, 0.20, rate, T, is_call, vol_surface=vol_surface,
-                         n_space=n_space, n_time=n_time)
+    vanilla = local_vol_pde(spot, strike, rate, T, vol_surface, is_call,
+                             n_space=n_space, n_time=n_time)
     ki_price = vanilla.price - ko_result.price
 
     return PDEPricingResult(

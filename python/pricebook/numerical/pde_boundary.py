@@ -113,18 +113,21 @@ def _apply_single_bc(V, grid, idx, t, bc, is_lower):
             return V[-2] + flux * ds
 
     elif bc.bc_type == BCType.ROBIN:
-        # a V + b ∂V/∂S = g
+        # a V + b ∂V/∂S = g  →  a*V[0] + b*(V[1]-V[0])/ds = g
+        # V[0] = (g*ds - b*V[1]) / (a*ds - b)
         g = bc.value_fn(S, t)
         a, b = bc.robin_a, bc.robin_b
         if is_lower:
             ds = grid[1] - grid[0]
-            if abs(a + b / ds) > 1e-15:
-                return (g + b * V[1] / ds) / (a + b / ds)
+            denom = a * ds - b
+            if abs(denom) > 1e-15:
+                return (g * ds - b * V[1]) / denom
             return V[1]
         else:
             ds = grid[-1] - grid[-2]
-            if abs(a - b / ds) > 1e-15:
-                return (g - b * V[-2] / ds) / (a - b / ds)
+            denom = a * ds + b
+            if abs(denom) > 1e-15:
+                return (g * ds + b * V[-2]) / denom
             return V[-2]
 
     elif bc.bc_type == BCType.LINEAR_EXTRAP:

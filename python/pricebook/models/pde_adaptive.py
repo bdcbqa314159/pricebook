@@ -78,7 +78,7 @@ def refine_grid(
     new_points = []
     for i in range(len(indicators)):
         if indicators[i] >= threshold and len(new_points) < max_new_points:
-            midpoint = 0.5 * (grid[i + 1] + grid[i + 2])
+            midpoint = 0.5 * (grid[i] + grid[i + 1])
             new_points.append(midpoint)
 
     if not new_points:
@@ -172,9 +172,9 @@ def _solve_on_grid(grid, spec, spot, n_time, compute_vega=False):
             conv = spec.coefficients.convection(S, t)
             react = spec.coefficients.reaction(S, t)
 
-            a[i] = diff / (ds_dn * ds_avg) - conv / (ds_dn + ds_up)
-            c[i] = diff / (ds_up * ds_avg) + conv / (ds_dn + ds_up)
-            b[i] = -a[i] - c[i] + react
+            a[i] = diff / (ds_dn * ds_avg) - conv / (2 * ds_avg)
+            c[i] = diff / (ds_up * ds_avg) + conv / (2 * ds_avg)
+            b[i] = -(diff / (ds_up * ds_avg) + diff / (ds_dn * ds_avg)) + react
 
         rhs = V.copy()
         for i in range(1, N - 1):
