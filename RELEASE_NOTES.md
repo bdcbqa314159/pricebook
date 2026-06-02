@@ -2,6 +2,22 @@
 
 ---
 
+## v0.747.0 — 2026-06-02
+
+**FX exotic extensions: digitals, quantos, var swaps, local vol, double barriers, compound, chooser.**
+
+- New `fx/fx_exotic_extensions.py`:
+  - `fx_digital_option()` — European digital (cash-or-nothing, asset-or-nothing), overhedge, both payout currencies.
+  - `fx_quanto_option()` — quanto-adjusted GK with correlation drift, FX rate scaling.
+  - `fx_variance_swap()` — fair strike from ATM + butterfly, MTM with realised.
+  - `fx_local_vol()` — Dupire local vol surface from implied vol grid via finite differences.
+  - `fx_double_barrier_option()` — double knock-out/knock-in via MC, parity verified.
+  - `fx_compound_option()` — option on option (call-on-call, put-on-call, etc.) via MC.
+  - `fx_chooser_option()` — call-or-put choice at future date, probability tracking.
+- 25 new tests.
+
+---
+
 ## v0.746.0 — 2026-06-02
 
 **Power/electricity derivatives: swing, tolling, capacity.**
