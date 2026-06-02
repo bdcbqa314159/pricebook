@@ -124,14 +124,13 @@ def glosten_milgrom(
     """
     alpha = prob_informed
 
-    # Posterior given BUY: informed buy if v=v_H, noise buy with prob 0.5
-    num_buy = alpha * prior_high + (1 - alpha) * 0.5
-    post_high_buy = (alpha * prior_high + (1 - alpha) * 0.5 * prior_high) / num_buy if num_buy > 0 else prior_high
-    # More precise: P(v=H|buy) = [α×1×prior + (1-α)×0.5×prior] / [α×prior + (1-α)×0.5]
-    post_high_buy = (alpha * prior_high + (1 - alpha) * 0.5 * prior_high) / (alpha * prior_high + (1 - alpha) * 0.5)
+    # Posterior given BUY: P(v=H|buy) = [α×prior + (1-α)×0.5×prior] / [α×prior + (1-α)×0.5]
+    denom_buy = alpha * prior_high + (1 - alpha) * 0.5
+    post_high_buy = (alpha * prior_high + (1 - alpha) * 0.5 * prior_high) / max(denom_buy, 1e-10)
 
     # Posterior given SELL: informed sell if v=v_L
-    post_high_sell = ((1 - alpha) * 0.5 * prior_high) / (alpha * (1 - prior_high) + (1 - alpha) * 0.5)
+    denom_sell = alpha * (1 - prior_high) + (1 - alpha) * 0.5
+    post_high_sell = ((1 - alpha) * 0.5 * prior_high) / max(denom_sell, 1e-10)
 
     ask = post_high_buy * v_high + (1 - post_high_buy) * v_low
     bid = post_high_sell * v_high + (1 - post_high_sell) * v_low
@@ -243,12 +242,14 @@ def information_share(
     price_changes: list[np.ndarray],
     market_names: list[str] | None = None,
 ) -> dict:
-    """Hasbrouck information share decomposition.
+    """Variance-based information share decomposition.
 
     Decomposes price discovery across multiple markets trading
-    the same security. Higher share = more information contribution.
+    the same security via variance shares. Higher share = more
+    information contribution.
 
-    Uses variance decomposition from a VECM.
+    Simplified approach using variance decomposition (not full
+    Hasbrouck VECM; suitable for approximate analysis).
 
     Args:
         price_changes: list of (T,) arrays of price changes per market.

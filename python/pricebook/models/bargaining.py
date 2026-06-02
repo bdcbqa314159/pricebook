@@ -155,7 +155,7 @@ def kalai_smorodinsky(
         # Distance along the line
         dist = u1 - d1
         expected_u2 = d2 + slope * dist
-        if abs(u2 - expected_u2) < abs(u2 - expected_u2) * 0.1 + 0.01:
+        if abs(u2 - expected_u2) < 0.1 * abs(expected_u2) + 0.01:
             if dist > best_dist:
                 best_dist = dist
                 best_idx = i

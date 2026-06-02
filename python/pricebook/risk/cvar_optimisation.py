@@ -21,7 +21,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.optimize import linprog, minimize
+from scipy.optimize import linprog
 
 
 @dataclass
@@ -137,7 +137,6 @@ def cvar_portfolio(
     port_returns = returns @ w
     mu_port = float(np.mean(port_returns))
     var_val = float(np.percentile(-port_returns, alpha * 100))
-    cvar_actual = float(np.mean(-port_returns[-port_returns <= -var_val])) if np.any(-port_returns >= var_val) else var_val
 
     return CVaRPortfolioResult(
         weights=w,

@@ -263,8 +263,6 @@ def _compute_payoffs(payoff_matrices, strategies):
     # General: tensor contraction
     payoffs = []
     for player in range(n):
-        val = _marginalise(payoff_matrices[player], player, 0,
-                          [strategies[j] for j in range(n) if j != player], n)
         # Weighted sum over player's own actions
         total = sum(
             strategies[player][a] * _marginalise(

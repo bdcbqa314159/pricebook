@@ -72,10 +72,11 @@ def stackelberg_cournot(
     pi_L = (price - c_leader) * q_L
     pi_F = (price - c_follower) * q_F
 
-    # Cournot (simultaneous) for comparison
-    q_cournot = (a - 2 * c_leader + c_follower) / (3 * b)
-    p_cournot = a - b * 2 * q_cournot  # symmetric case
-    pi_cournot = (p_cournot - c_leader) * q_cournot
+    # Cournot (simultaneous) for comparison — asymmetric costs
+    q1_cournot = (a - 2 * c_leader + c_follower) / (3 * b)
+    q2_cournot = (a + c_leader - 2 * c_follower) / (3 * b)
+    p_cournot = a - b * (q1_cournot + q2_cournot)
+    pi_cournot = (p_cournot - c_leader) * q1_cournot
 
     return StackelbergResult(
         leader_action=q_L,
@@ -177,9 +178,9 @@ def credit_market_stackelberg(
         s_F = follower_br(s_L)
         # Market share: leader gets more if cheaper
         if s_L < s_F:
-            share = min(0.8, 0.5 + demand_elasticity * (s_F - s_L))
+            share = max(0.0, min(1.0, 0.5 + demand_elasticity * (s_F - s_L)))
         else:
-            share = max(0.2, 0.5 - demand_elasticity * (s_L - s_F))
+            share = max(0.0, min(1.0, 0.5 - demand_elasticity * (s_L - s_F)))
         profit = (s_L - be_leader) * share * total_demand
         return -profit
 

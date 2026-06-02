@@ -98,8 +98,9 @@ def portfolio_metrics(
     kurt = float(np.mean((returns - np.mean(returns))**4) / np.std(returns)**4 - 3) if np.std(returns) > 0 else 0
 
     # VaR / CVaR
-    var_95 = float(np.percentile(-returns, 95))
-    tail = -returns[-returns >= -np.percentile(returns, 5)]
+    losses = -returns
+    var_95 = float(np.percentile(losses, 95))
+    tail = losses[losses >= var_95]
     cvar_95 = float(np.mean(tail)) if len(tail) > 0 else var_95
 
     return PortfolioMetrics(

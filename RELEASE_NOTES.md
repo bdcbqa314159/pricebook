@@ -2,6 +2,21 @@
 
 ---
 
+## v0.778.0 — 2026-06-02
+
+**Code review fixes across portfolio optimisation and game theory.**
+
+- **hierarchical_risk_parity.py**: CRITICAL — `import math` was at end of file, used on line 118. Moved to top.
+- **cvar_optimisation.py**: removed dead `cvar_actual` computation with wrong tail condition; removed unused `minimize` import.
+- **portfolio_analytics.py**: CVaR tail selection logic fixed — was convoluted double-negation, now clean `losses[losses >= var_95]`.
+- **stackelberg.py**: Cournot benchmark now handles asymmetric costs correctly (was using symmetric formula). Market share clamped to [0,1].
+- **bargaining.py**: Kalai-Smorodinsky tolerance check was self-referential (`abs(x) < abs(x)*0.1`). Fixed to `abs(x) < 0.1*abs(expected) + 0.01`.
+- **market_microstructure_games.py**: Glosten-Milgrom removed dead code (double `post_high_buy` computation), added division-by-zero guard. Information share docstring corrected from "Hasbrouck" to "variance-based" (simplified approach).
+- **n_player_nash.py**: removed unused `val` variable in `_compute_payoffs`.
+- 11,000 tests pass.
+
+---
+
 ## v0.777.0 — 2026-06-02
 
 **Unified portfolio analytics: Sharpe, Sortino, Calmar, drawdowns, tracking.**

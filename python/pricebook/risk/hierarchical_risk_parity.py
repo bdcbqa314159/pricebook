@@ -15,6 +15,7 @@ References:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -163,6 +164,3 @@ def _cluster_variance(cov: np.ndarray, indices: list[int]) -> float:
     inv_var = 1.0 / np.maximum(diag, 1e-10)
     w = inv_var / inv_var.sum()
     return float(w @ sub_cov @ w)
-
-
-import math
