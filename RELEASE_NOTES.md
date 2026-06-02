@@ -2,6 +2,167 @@
 
 ---
 
+## v0.777.0 — 2026-06-02
+
+**Unified portfolio analytics: Sharpe, Sortino, Calmar, drawdowns, tracking.**
+
+- New `risk/portfolio_analytics.py`:
+  - `portfolio_metrics()` — 15 metrics: Sharpe, Sortino, Calmar, max DD, VaR/CVaR, skew/kurt.
+  - `tracking_metrics()` — tracking error, information ratio, alpha, beta.
+- 2 new tests.
+
+---
+
+## v0.776.0 — 2026-06-02
+
+**Multi-period dynamic allocation: CPPI, target-date, lifecycle.**
+
+- New `risk/dynamic_allocation.py`:
+  - `cppi_allocation()` — constant proportion portfolio insurance with floor.
+  - `target_date_glide()` — linear/convex/concave glide paths.
+  - `multi_period_mv()` — multi-period mean-variance with rebalancing costs.
+- 2 new tests.
+
+---
+
+## v0.775.0 — 2026-06-02
+
+**Transaction cost-aware portfolio optimisation.**
+
+- New `risk/transaction_cost_opt.py`:
+  - `tc_aware_rebalance()` — turnover penalty in MV objective.
+  - `no_trade_region()` — Leland-Davis no-trade bands.
+  - `optimal_rebalance_frequency()` — cost-benefit analysis.
+- 2 new tests.
+
+---
+
+## v0.774.0 — 2026-06-02
+
+**Robust portfolio optimisation: worst-case, uncertainty sets.**
+
+- New `risk/robust_optimisation.py`:
+  - `robust_mean_variance()` — worst-case mean-variance.
+  - `ellipsoidal_uncertainty()` — Goldfarb-Iyengar ellipsoidal sets.
+  - `box_uncertainty()` — interval return uncertainty.
+- 2 new tests.
+
+---
+
+## v0.773.0 — 2026-06-02
+
+**Kelly criterion: optimal bet sizing.**
+
+- New `risk/kelly.py`:
+  - `kelly_fraction()` — single-asset f* = μ/σ².
+  - `fractional_kelly()` — conservative half-Kelly.
+  - `multi_asset_kelly()` — portfolio Kelly via Σ⁻¹ × excess.
+- 3 new tests.
+
+---
+
+## v0.772.0 — 2026-06-02
+
+**Brinson-Fachler performance attribution.**
+
+- New `risk/brinson_attribution.py`:
+  - `brinson_attribution()` — allocation + selection + interaction.
+  - `brinson_multi_period()` — geometric linking.
+  - `factor_based_attribution()` — OLS factor decomposition.
+  - Sum of effects = active return (verified).
+- 2 new tests.
+
+---
+
+## v0.771.0 — 2026-06-02
+
+**Hierarchical Risk Parity (López de Prado 2016).**
+
+- New `risk/hierarchical_risk_parity.py`:
+  - `hrp_portfolio()` — tree clustering + quasi-diagonalisation + recursive bisection.
+  - `cluster_assets()` — hierarchical clustering by correlation distance.
+  - No covariance inversion → robust to estimation error.
+- 2 new tests.
+
+---
+
+## v0.770.0 — 2026-06-02
+
+**Efficient frontier: full curve, tangency, CML.**
+
+- New `risk/efficient_frontier.py`:
+  - `efficient_frontier()` — full mean-variance frontier sweep.
+  - `tangency_portfolio()` — max Sharpe via SLSQP.
+  - `minimum_variance_portfolio()` — analytical or numerical.
+  - `capital_market_line()` — CML from rf to tangency.
+- 4 new tests.
+
+---
+
+## v0.769.0 — 2026-06-02
+
+**CVaR portfolio optimisation via Rockafellar-Uryasev LP.**
+
+- New `risk/cvar_optimisation.py`:
+  - `cvar_portfolio()` — LP formulation for CVaR-optimal weights.
+  - `min_cvar_target_return()` — minimum CVaR for given return.
+  - `cvar_risk_budget()` — component CVaR decomposition.
+  - `mean_cvar_frontier()` — efficient frontier in mean-CVaR space.
+- 4 new tests.
+
+---
+
+## v0.768.0 — 2026-06-02
+
+**Strategic market microstructure: Kyle, Glosten-Milgrom.**
+
+- New `models/market_microstructure_games.py`:
+  - `kyle_lambda()` — Kyle (1985) price impact, insider profit, market depth.
+  - `glosten_milgrom()` — sequential trade with adverse selection.
+  - `optimal_order_splitting()` — Almgren-Chriss extended.
+  - `information_share()` — Hasbrouck multi-market decomposition.
+- 5 new tests.
+
+---
+
+## v0.767.0 — 2026-06-02
+
+**Bargaining theory: Nash, Rubinstein, Kalai-Smorodinsky.**
+
+- New `models/bargaining.py`:
+  - `nash_bargaining()` — Nash bargaining solution on feasible set.
+  - `rubinstein_alternating()` — Rubinstein SPE (patience → surplus).
+  - `kalai_smorodinsky()` — monotonic solution via ideal point.
+  - `debt_restructuring_bargain()` — creditor-debtor Rubinstein.
+- 3 new tests.
+
+---
+
+## v0.766.0 — 2026-06-02
+
+**Stackelberg leader-follower games.**
+
+- New `models/stackelberg.py`:
+  - `stackelberg_cournot()` — quantity competition with first-mover advantage.
+  - `stackelberg_bertrand()` — price competition.
+  - `credit_market_stackelberg()` — lead bank spread-setting game.
+  - `general_stackelberg()` — generic two-player framework.
+- 3 new tests.
+
+---
+
+## v0.765.0 — 2026-06-02
+
+**N-player Nash equilibrium: fictitious play, support enumeration.**
+
+- New `models/n_player_nash.py`:
+  - `fictitious_play()` — iterative best-response for N players.
+  - `lemke_howson_2p()` — support enumeration for bimatrix.
+  - `correlated_equilibrium()` — LP for correlated equilibrium.
+- 3 new tests.
+
+---
+
 ## v0.759.0 — 2026-06-02
 
 **Code review fixes across futures, structured, FX, and engine infrastructure.**
