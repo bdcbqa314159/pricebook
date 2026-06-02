@@ -2,6 +2,24 @@
 
 ---
 
+## v0.790.0 — 2026-06-02
+
+**Notebook consolidation: single location under python/notebooks/.**
+
+- Consolidated 45 notebooks + examples from 3 locations (notebooks/, python/notebooks/, examples/) into one structure:
+  - `python/notebooks/papers/` — 12 paper validations
+  - `python/notebooks/markets/` — 6 Americas market notebooks
+  - `python/notebooks/rates/` — 4 rates workflows
+  - `python/notebooks/credit/` — 2 credit notebooks
+  - `python/notebooks/structured/` — 3 structured product notebooks
+  - `python/notebooks/desks/` — 2 desk notebooks
+  - `python/notebooks/validation/` — 5 Pucci et al. validations
+  - `python/notebooks/examples/` — 10 Python examples + 2 example notebooks
+- Removed empty root `notebooks/` and `examples/` directories.
+- 11,027 tests pass.
+
+---
+
 ## v0.789.0 — 2026-06-02
 
 **PDE code review fixes.**
