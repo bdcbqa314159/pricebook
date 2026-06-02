@@ -2,6 +2,135 @@
 
 ---
 
+## v0.758.0 — 2026-06-02
+
+**Unified engine registry: one function, any instrument, best engine.**
+
+- New `models/engine_registry.py`:
+  - `price()` — auto-select best engine for instrument type.
+  - `InstrumentType` enum: 14 instrument classes.
+  - Per-type engine recommendations (analytical → tree → MC).
+  - `register_engine()` for custom engines. `list_engines()`.
+- 6 new tests.
+
+---
+
+## v0.757.0 — 2026-06-02
+
+**Engine comparison and validation.**
+
+- New `models/engine_comparison.py`:
+  - `compare_engines()` — price via analytical, tree, MC side-by-side.
+  - `validate_greeks()` — check Greek consistency across engines.
+  - Reports price spread, Greek agreement, compute time.
+- 3 new tests.
+
+---
+
+## v0.756.0 — 2026-06-02
+
+**Tree-MC bridge: hybrid engine for early exercise + path dependence.**
+
+- New `models/tree_mc_bridge.py`:
+  - `lsm_on_tree()` — LSM using CRR transition probabilities.
+  - `stochastic_vol_tree()` — 2D trinomial (spot × variance) for Heston.
+  - `hybrid_price()` — auto-select tree, MC, or hybrid by instrument features.
+- 3 new tests.
+
+---
+
+## v0.755.0 — 2026-06-02
+
+**Tree enhancements: adaptive barrier mesh, non-recombining scaffold.**
+
+- New `numerical/tree_enhancements.py`:
+  - `adaptive_barrier_tree()` — grid-adjusted trinomial near barrier.
+  - `NonRecombiningTree` — linked-list tree with path-dependent state.
+  - `asian_on_tree()` — Asian option via non-recombining tree.
+- 3 new tests.
+
+---
+
+## v0.754.0 — 2026-06-02
+
+**Derman-Kani implied binomial tree.**
+
+- New `numerical/implied_tree.py`:
+  - `build_implied_tree()` — calibrate recombining tree to market options.
+  - `price_on_implied_tree()` — exotic pricing on smile-consistent tree.
+  - `extract_local_vol()` — local vol from Arrow-Debreu state prices.
+- 3 new tests.
+
+---
+
+## v0.753.0 — 2026-06-02
+
+**Black-Derman-Toy (BDT) log-normal rate tree.**
+
+- New `models/bdt_tree.py`:
+  - `BDTTree` — calibrated log-normal rate tree with Arrow-Debreu state prices.
+  - `bdt_callable_bond()` — callable bond via BDT backward induction.
+  - `bdt_bermudan_swaption()` — Bermudan swaption on BDT.
+  - Calibrates to match market discount curve exactly.
+- 3 new tests.
+
+---
+
+## v0.752.0 — 2026-06-02
+
+**MC convergence diagnostics (extended).**
+
+- Extended `models/mc_diagnostics.py`:
+  - `full_diagnostics()` — unified diagnostics with ESS, VRE, CI, skewness/kurtosis.
+  - `variance_reduction_efficiency()` — Var(crude)/Var(reduced).
+  - `estimate_convergence_rate()` — fit rate from prices at different N.
+  - `MCFullDiagnostics.is_converged` — heuristic convergence check.
+- 3 new tests.
+
+---
+
+## v0.751.0 — 2026-06-02
+
+**Auto-Greek method selection with path caching.**
+
+- New `models/mc_greeks_auto.py`:
+  - `classify_payoff()` — detect smooth/discontinuous/path-dependent.
+  - `select_greek_method()` — pathwise for smooth, LR for digital, bump for rest.
+  - `auto_greeks()` — compute all Greeks with best method per Greek.
+  - `PathCache` — LRU cache for MC paths, shared across Greeks.
+- 5 new tests.
+
+---
+
+## v0.750.0 — 2026-06-02
+
+**Declarative MC configuration and factory.**
+
+- New `models/mc_config.py`:
+  - `MCConfig` — all settings in one dataclass (process, VR, Greeks method, discretisation).
+  - `preset_configs()` — fast, production, high_precision, heston, exotic, xva.
+  - `build_process_from_config()` — factory for ProcessSpec.
+  - `mc_pricer_from_config()` — build MCPricingEngine from config.
+  - `with_overrides()` for mode switching.
+- 4 new tests.
+
+---
+
+## v0.749.0 — 2026-06-02
+
+**Unified pricing engine protocol.**
+
+- New `models/engine_protocol.py`:
+  - `PricingResult` — unified result: price, GreeksBundle, ConvergenceInfo.
+  - `PricingEngine` protocol: `.price_vanilla()`, `.engine_type`.
+  - `MCPricingEngine` — wraps MCEngine behind protocol.
+  - `TreePricingEngine` — wraps TreeSolver behind protocol.
+  - `AnalyticalEngine` — Black-Scholes behind protocol.
+  - All three engines agree on European call within 3%.
+- 6 new tests.
+
+---
+
 ## v0.747.0 — 2026-06-02
 
 **FX exotic extensions: digitals, quantos, var swaps, local vol, double barriers, compound, chooser.**
