@@ -2,6 +2,21 @@
 
 ---
 
+## v0.726.0 — 2026-06-02
+
+**Code review fixes across CDS infrastructure.**
+
+- **credit_spread_vol.py**: `build_credit_vol_surface()` nearest-neighbour fill now uses expiry/tenor distance instead of global min.
+- **credit_var.py**: copula VaR sign convention aligned with historical/parametric (negative = loss).
+- **credit_event.py**: auction open interest clipped to [-1, 1].
+- **index_cds_swaption.py**: added `strike_spread <= 0` guard to prevent log domain error.
+- **recovery_locked_cds.py**: removed unused `prev_q_c` variable in effective maturity loop.
+- **distressed.py**: `distressed_cds_upfront()` now uses full protection + premium leg model (was simple spread × RPV01), consistent with `implied_cpd_from_upfront()` inversion.
+- Tightened test tolerances: VaR ES assertion, distressed CPD round-trip to 0.2%.
+- 10,783 tests pass.
+
+---
+
 ## v0.725.0 — 2026-06-02
 
 **Distressed CDS: upfront quoting, implied CPD, distressed basis.**

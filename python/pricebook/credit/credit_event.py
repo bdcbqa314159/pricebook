@@ -118,7 +118,7 @@ def simulate_auction(
     # Positive = net buy (more physical settlement requests than limit orders)
     oi_mean = 0.0
     oi_vol = 0.15
-    open_interest = float(rng.normal(oi_mean, oi_vol))
+    open_interest = float(np.clip(rng.normal(oi_mean, oi_vol), -1.0, 1.0))
     is_buy_side = open_interest > 0
 
     # Stage 2: Dutch auction — price adjusts to clear open interest

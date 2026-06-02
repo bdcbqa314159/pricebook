@@ -224,7 +224,6 @@ def price_lcds(
     # Effective maturity (duration-weighted)
     if prem_pv > 0:
         eff_mat_num = 0.0
-        prev_q_c = 1.0
         for i in range(1, n_periods + 1):
             t = i * dt
             t_date = reference_date + timedelta(days=round(t * 365.25))
@@ -232,7 +231,6 @@ def price_lcds(
             q_p = math.exp(-prepayment_rate * t)
             df = discount_curve.df(t_date)
             eff_mat_num += t * dt * q_c * q_p * df
-            prev_q_c = q_c
         eff_mat = eff_mat_num / prem_pv
     else:
         eff_mat = maturity_years

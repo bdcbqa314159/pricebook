@@ -157,7 +157,7 @@ def index_cds_swaption_black(
         notional: index notional.
         option_type: "payer" or "receiver".
     """
-    if expiry_years <= 0 or spread_vol <= 0 or forward_spread <= 0:
+    if expiry_years <= 0 or spread_vol <= 0 or forward_spread <= 0 or strike_spread <= 0:
         intrinsic = _intrinsic(forward_spread, strike_spread, option_type)
         premium = max(intrinsic, 0) * notional * portfolio_survival * index_annuity
         return IndexCDSSwaptionResult(

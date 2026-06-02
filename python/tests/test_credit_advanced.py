@@ -125,7 +125,7 @@ class TestCreditVaR:
         }
         result = historical_credit_var(positions, spread_changes, confidence=0.99)
         assert abs(result.var_amount) > 0  # VaR is non-zero
-        assert abs(result.es_amount) >= abs(result.var_amount) - 1  # |ES| ≥ |VaR|
+        assert abs(result.es_amount) >= abs(result.var_amount) * 0.99  # |ES| ≥ |VaR|
 
     def test_parametric_var(self):
         from pricebook.credit.credit_var import parametric_credit_var
@@ -644,7 +644,7 @@ class TestDistressedCDS:
         )
         r = distressed_cds_upfront(0.10)
         cpd = implied_cpd_from_upfront(r.upfront_pct)
-        assert cpd == pytest.approx(r.implied_cpd, abs=0.02)
+        assert cpd == pytest.approx(r.implied_cpd, abs=0.002)
 
     def test_distressed_basis(self):
         from pricebook.credit.distressed import distressed_basis

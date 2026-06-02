@@ -545,16 +545,20 @@ def distressed_cds_upfront(
     else:
         implied_hazard = 0.0
 
-    # RPV01 with implied hazard
+    # Compute protection leg and RPV01 with implied hazard
     rpv01 = 0.0
+    prot_pv = 0.0
+    prev_q = 1.0
     for i in range(1, n + 1):
         t = i * dt
         q = math.exp(-implied_hazard * t)
         df = math.exp(-discount_rate * t)
         rpv01 += dt * q * df
+        prot_pv += (1 - recovery) * (prev_q - q) * df
+        prev_q = q
 
-    # Upfront = (market - running) × RPV01
-    upfront = (market_spread - running_coupon) * rpv01
+    # Upfront = protection_leg - running_coupon × RPV01
+    upfront = prot_pv - running_coupon * rpv01
 
     # Implied CPD = 1 - Q(T)
     cpd = 1.0 - math.exp(-implied_hazard * maturity_years)

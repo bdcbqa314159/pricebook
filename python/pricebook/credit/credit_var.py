@@ -218,16 +218,19 @@ def copula_credit_var(
     copula = GaussianCopula(correlation)
     defaults = copula.default_indicators(pds, n_sims, seed=seed)  # (n_sims, n)
 
-    # Loss per simulation
+    # Loss per simulation (positive = loss)
     unit_loss = notionals * lgd_vec  # (n,)
     losses = defaults.astype(float) @ unit_loss  # (n_sims,)
 
-    # VaR: upper percentile of loss distribution
-    var_pctl = confidence * 100.0
-    var_amount = float(np.percentile(losses, var_pctl))
+    # Convert to P&L convention: negative = loss (consistent with historical/parametric)
+    pnl = -losses
 
-    # ES: mean of losses exceeding VaR
-    tail = losses[losses >= var_amount]
+    # VaR: left tail of P&L distribution
+    var_pctl = (1.0 - confidence) * 100.0
+    var_amount = float(np.percentile(pnl, var_pctl))
+
+    # ES: mean of P&L worse than VaR
+    tail = pnl[pnl <= var_amount]
     es_amount = float(np.mean(tail)) if len(tail) > 0 else var_amount
 
     # Worst name: highest expected loss contribution

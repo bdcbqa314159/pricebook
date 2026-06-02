@@ -205,11 +205,14 @@ def build_credit_vol_surface(
             if (e, t) in vol_map:
                 row.append(vol_map[(e, t)])
             else:
-                # Nearest available vol
-                nearest = min(
-                    vol_map.values(),
-                    default=0.40,
-                )
+                # Nearest available vol by expiry/tenor distance
+                if vol_map:
+                    nearest = min(
+                        vol_map.items(),
+                        key=lambda kv: (kv[0][0] - e) ** 2 + (kv[0][1] - t) ** 2,
+                    )[1]
+                else:
+                    nearest = 0.40
                 row.append(nearest)
         vols.append(row)
 
