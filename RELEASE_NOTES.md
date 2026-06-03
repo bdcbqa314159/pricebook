@@ -2,6 +2,21 @@
 
 ---
 
+## v0.806.0 — 2026-06-03
+
+**Convexity tools and Frank-Wolfe optimisation.**
+
+- New `numerical/convexity_tools.py`:
+  - `is_convex()` — Hessian eigenvalue sampling.
+  - `verify_kkt()` — KKT condition verification.
+  - `cardinality_portfolio()` — max N assets via greedy selection.
+- New `numerical/frank_wolfe.py`:
+  - `frank_wolfe()` — conditional gradient with LMO.
+  - `frank_wolfe_portfolio()` — O(n) per iteration MV.
+- 5 new tests.
+
+---
+
 ## v0.804.0 — 2026-06-03
 
 **Oscillatory quadrature: Filon and Levin methods.**

@@ -351,3 +351,48 @@ class TestOscillatoryQuad:
         from pricebook.numerical.oscillatory_quad import fourier_integral
         r = fourier_integral(lambda x: math.exp(-x**2), -5, 5, 30)
         assert r.n_evaluations > 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# CO4: Frank-Wolfe
+# ═══════════════════════════════════════════════════════════════
+
+class TestFrankWolfe:
+    def test_portfolio(self):
+        from pricebook.numerical.frank_wolfe import frank_wolfe_portfolio
+        mu = np.array([0.08, 0.12, 0.06, 0.10])
+        cov = np.eye(4) * 0.04
+        r = frank_wolfe_portfolio(mu, cov, risk_aversion=1.0, max_weight=0.5)
+        assert abs(sum(r.x) - 1.0) < 0.01
+        assert all(r.x >= -0.01)
+        assert r.converged
+
+    def test_simplex_lmo(self):
+        from pricebook.numerical.frank_wolfe import simplex_lmo
+        s = simplex_lmo(np.array([3.0, 1.0, 2.0]))
+        assert s[1] == 1.0  # cheapest
+
+
+# ═══════════════════════════════════════════════════════════════
+# CO5: Convexity Tools
+# ═══════════════════════════════════════════════════════════════
+
+class TestConvexityTools:
+    def test_is_convex_quadratic(self):
+        from pricebook.numerical.convexity_tools import is_convex
+        r = is_convex(lambda x: float(np.dot(x, x)), [(-5, 5), (-5, 5)], n_samples=20)
+        assert r.is_convex
+        assert r.min_eigenvalue > 0
+
+    def test_not_convex(self):
+        from pricebook.numerical.convexity_tools import is_convex
+        r = is_convex(lambda x: -float(np.dot(x, x)), [(-5, 5), (-5, 5)], n_samples=20)
+        assert not r.is_convex
+
+    def test_cardinality_portfolio(self):
+        from pricebook.numerical.convexity_tools import cardinality_portfolio
+        mu = np.array([0.08, 0.12, 0.06, 0.10, 0.09])
+        cov = np.eye(5) * 0.04
+        r = cardinality_portfolio(mu, cov, max_assets=3)
+        assert r.n_active <= 3
+        assert abs(sum(r.weights) - 1.0) < 0.01
