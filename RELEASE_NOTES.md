@@ -2,6 +2,21 @@
 
 ---
 
+## v0.792.0 — 2026-06-03
+
+**Package ready for PyPI: README, LICENSE, build verified.**
+
+- Added `python/README.md` — full package description with install, quick start, feature list.
+- Copied `LICENSE` into `python/` — required by PyPI alongside pyproject.toml.
+- Added `readme = "README.md"` to pyproject.toml.
+- Version synced to 0.791.0 in `__init__.py`.
+- Build verified: `python -m build` produces valid sdist (2.2MB) + wheel (1.9MB).
+  - 716 .py modules in wheel, no tests or notebooks leaked.
+  - METADATA correct: classifiers, keywords, license expression.
+- Ready to publish: `twine upload dist/*` with PyPI credentials.
+
+---
+
 ## v0.791.0 — 2026-06-02
 
 **Python package: version sync, pyproject.toml, py.typed marker.**
