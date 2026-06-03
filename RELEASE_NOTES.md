@@ -2,6 +2,80 @@
 
 ---
 
+## v0.798.0 — 2026-06-03
+
+**SOCP solver: robust portfolio and tracking error.**
+
+- New `numerical/socp.py`:
+  - `socp_solve()` — general SOCP via barrier method.
+  - `robust_portfolio_socp()` — robust MV with norm constraints.
+  - `tracking_error_socp()` — min TE vs benchmark.
+- 2 new tests.
+
+---
+
+## v0.797.0 — 2026-06-03
+
+**Numerical method recommendation map.**
+
+- New `core/numerical_method_map.py`:
+  - `recommend()` — given instrument features, recommend best method.
+  - `compare_methods()` — price via analytical/COS/PDE/tree, report agreement.
+  - 14 instrument feature types, rule-based selection.
+- 6 new tests.
+
+---
+
+## v0.796.0 — 2026-06-03
+
+**Feynman-Kac bridge: SDE ↔ PDE connection.**
+
+- New `models/feynman_kac.py`:
+  - `sde_to_pde()` — derive PDE coefficients from SDE dynamics.
+  - `pde_to_sde()` — extract SDE from PDE coefficients.
+  - `verify_feynman_kac()` — cross-validate MC vs PDE (consistent within 3σ).
+- 3 new tests.
+
+---
+
+## v0.795.0 — 2026-06-03
+
+**Automatic differentiation via dual numbers.**
+
+- New `numerical/auto_diff.py`:
+  - `Dual` class — overloaded arithmetic (+ − × / pow).
+  - Math functions: `exp`, `log`, `sqrt`, `sin`, `cos`, `max_dual`.
+  - `grad()` — gradient of f: ℝⁿ → ℝ via forward AD.
+  - `jacobian_ad()` — Jacobian via forward AD.
+  - `derivative()` — f(x) and f'(x) simultaneously, machine-precision.
+  - BS delta via AD matches analytical.
+- 7 new tests.
+
+---
+
+## v0.794.0 — 2026-06-03
+
+**Fourier Greeks: delta, gamma, vega, theta via COS/Lewis.**
+
+- New `models/fourier_greeks.py`:
+  - `cos_greeks()` — full Greeks via COS with spot/vol/time bumps.
+  - `lewis_greeks()` — Greeks via Lewis formula.
+  - `fourier_greeks()` — unified entry point.
+  - Vega via CF variance perturbation (no vol parameter needed).
+- 3 new tests.
+
+---
+
+## v0.793.0 — 2026-06-03
+
+**Fix: CharacteristicFunction.price_european() was broken.**
+
+- `numerical/_fourier.py`: `cos_european` → `cos_price` with correct OptionType argument.
+- Now correctly prices European options via COS method.
+- 1 new test.
+
+---
+
 ## v0.792.0 — 2026-06-03
 
 **Package ready for PyPI: README, LICENSE, build verified.**

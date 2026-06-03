@@ -243,10 +243,10 @@ class CharacteristicFunction:
         n_terms: int = 128,
     ) -> float:
         """Price European option via COS method."""
-        from pricebook.models.cos_method import cos_european
-        return cos_european(
-            spot, strike, rate, self.T, self.cf, is_call=is_call, N=n_terms,
-        )
+        from pricebook.models.cos_method import cos_price
+        from pricebook.models.black76 import OptionType
+        otype = OptionType.CALL if is_call else OptionType.PUT
+        return cos_price(self.cf, spot, strike, rate, self.T, otype, N=n_terms)
 
     def to_dict(self) -> dict:
         c = self.cumulants(2)
