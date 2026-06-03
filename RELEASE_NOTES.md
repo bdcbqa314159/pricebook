@@ -2,6 +2,66 @@
 
 ---
 
+## v0.804.0 — 2026-06-03
+
+**Oscillatory quadrature: Filon and Levin methods.**
+
+- New `numerical/oscillatory_quad.py`:
+  - `filon_quad()` — Filon's method for ∫f(x)cos(ωx)dx (O(h³/ω)).
+  - `levin_quad()` — Levin collocation for general ∫f(x)e^{iωx}dx.
+  - `fourier_integral()` — adaptive: standard quad (low ω) or Filon (high ω).
+- 3 new tests.
+
+---
+
+## v0.803.0 — 2026-06-03
+
+**LP duality framework: shadow prices, sensitivity.**
+
+- New `numerical/duality.py`:
+  - `lp_with_duals()` — LP with dual variable extraction via perturbation.
+  - `shadow_prices()` — marginal cost of constraints.
+  - `parametric_lp()` — sweep RHS of one constraint.
+- 3 new tests.
+
+---
+
+## v0.802.0 — 2026-06-03
+
+**Fokker-Planck forward density evolution.**
+
+- New `models/fokker_planck.py`:
+  - `fokker_planck_1d()` — 1D density evolution in log-space (GBM/local vol).
+  - `density_to_option_prices()` — price options from risk-neutral density.
+  - Density integrates to 1, mean matches forward.
+- 3 new tests.
+
+---
+
+## v0.801.0 — 2026-06-03
+
+**True 2D FFT for two-asset options.**
+
+- New `models/fft_2d.py`:
+  - `joint_bs_char_func()` — joint CF for correlated GBM.
+  - `fft_2d_price()` — full (u₁,u₂) grid with 2D Simpson weights.
+  - Spread, basket, best-of payoffs.
+- 2 new tests.
+
+---
+
+## v0.800.0 — 2026-06-03
+
+**Rough Heston CF via fractional Riccati ODE.**
+
+- New `models/rough_heston_cf.py`:
+  - `rough_heston_char_func()` — Adams scheme on fractional Riccati (El Euch & Rosenbaum 2019).
+  - `rough_heston_price()` — European via COS + rough Heston CF.
+  - H < 0.5 gives rough regime; differs from smooth Heston (H≈0.5).
+- 2 new tests.
+
+---
+
 ## v0.798.0 — 2026-06-03
 
 **SOCP solver: robust portfolio and tracking error.**
