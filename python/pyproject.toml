@@ -13,7 +13,22 @@ authors = [
 ]
 keywords = [
     "finance", "derivatives", "pricing", "risk", "quant",
-    "bonds", "swaps", "options", "cds",
+    "bonds", "swaps", "options", "cds", "credit",
+    "fixed-income", "fx", "commodities", "structured-products",
+    "monte-carlo", "pde", "lattice", "portfolio-optimization",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=1.21.0",
@@ -39,9 +54,18 @@ version = {attr = "pricebook.__version__"}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pricebook*"]
-exclude = ["tests*"]
+exclude = ["tests*", "notebooks*"]
+
+[tool.setuptools.package-data]
+pricebook = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = ["-v", "--tb=short"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

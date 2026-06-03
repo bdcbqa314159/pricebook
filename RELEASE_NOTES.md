@@ -2,6 +2,22 @@
 
 ---
 
+## v0.791.0 — 2026-06-02
+
+**Python package: version sync, pyproject.toml, py.typed marker.**
+
+- Version synced to 0.790.0 in `__init__.py` (was 0.614.0).
+- `pyproject.toml` updated:
+  - Trove classifiers (Financial, Science/Research, Typed).
+  - Extended keywords (structured-products, monte-carlo, pde, portfolio-optimization).
+  - `py.typed` marker for PEP 561 type checking support.
+  - `[tool.mypy]` section for type checking config.
+  - Notebooks excluded from package distribution.
+- Verified: `pip install -e .` works, all imports functional, `pricebook.__version__` correct.
+- 11,027 tests pass.
+
+---
+
 ## v0.790.0 — 2026-06-02
 
 **Notebook consolidation: single location under python/notebooks/.**
