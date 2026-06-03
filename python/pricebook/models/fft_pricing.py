@@ -305,3 +305,67 @@ def density_from_cf(
         density[i] = integral / math.pi
 
     return density
+
+
+# ---- Fractional FFT for non-uniform strikes (F5) ----
+
+def carr_madan_fractional(
+    char_func: Callable[[float], complex],
+    spot: float,
+    rate: float,
+    T: float,
+    strikes: np.ndarray | list[float],
+    alpha: float = 1.5,
+    N: int = 4096,
+    eta: float = 0.25,
+    div_yield: float = 0.0,
+) -> np.ndarray:
+    """Carr-Madan with fractional FFT for arbitrary (non-uniform) strikes.
+
+    Standard Carr-Madan produces prices on a uniform log-strike grid.
+    This version uses the fractional FFT (Chourdakis 2004) to evaluate
+    at user-specified strikes directly.
+
+    Args:
+        strikes: array of desired strike prices (arbitrary spacing).
+        Other args: same as carr_madan_fft.
+
+    Returns:
+        Array of call prices at each strike.
+
+    Reference:
+        Chourdakis, *Option Pricing Using the Fractional FFT*, QF, 2004.
+    """
+    from pricebook.numerical._fourier import fractional_fft
+
+    df = math.exp(-rate * T)
+    target_strikes = np.asarray(strikes, dtype=float)
+    log_strikes = np.log(target_strikes / spot)
+
+    # Build integrand (same as standard Carr-Madan)
+    v = np.arange(N) * eta
+    psi = np.zeros(N, dtype=complex)
+    for j in range(N):
+        vj = v[j]
+        u = complex(vj, -(alpha + 1))
+        phi = char_func(u)
+        denom = alpha * alpha + alpha - vj * vj + 1j * vj * (2 * alpha + 1)
+        if abs(denom) < 1e-30:
+            psi[j] = 0.0
+        else:
+            psi[j] = df * phi / denom
+
+    # Simpson weights
+    simpson = 3 + (-1) ** np.arange(1, N + 1)
+    simpson[0] = 1
+    simpson = simpson.astype(float) * eta / 3.0
+
+    # For each target strike, evaluate the inverse transform
+    prices = np.zeros(len(target_strikes))
+    for i, k in enumerate(log_strikes):
+        # Direct evaluation: sum_j psi[j] * simpson[j] * exp(i*k*v[j])
+        integrand = psi * simpson * np.exp(1j * k * v)
+        val = float(np.sum(integrand).real)
+        prices[i] = spot * np.exp(-alpha * k) / math.pi * val
+
+    return np.maximum(prices, 0)

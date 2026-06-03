@@ -200,6 +200,9 @@ def list_optimizers() -> list[str]:
 
 from pricebook.numerical._ode import solve_ode, ODEMethod  # noqa: E402
 from pricebook.models import cos_method  # noqa: E402
+from pricebook.models import fft_pricing  # noqa: E402
+from pricebook.models import cos_bermudan  # noqa: E402
+from pricebook.models import fourier_greeks  # noqa: E402
 from pricebook.curves import aad_pricing  # noqa: E402
 from pricebook.risk import risk  # noqa: E402
 
@@ -243,11 +246,31 @@ _PRICERS = {
         ),
         kw["spot"], kw["strike"], kw["rate"], kw["T"],
     ),
+    # FFT-based (multi-strike)
+    "fft_bs": lambda **kw: fft_pricing.carr_madan_fft(
+        cos_method.bs_char_func(kw["rate"], kw.get("div_yield", 0.0), kw["vol"], kw["T"]),
+        kw["spot"], kw["rate"], kw["T"],
+    ),
+    # Lewis contour integral
+    "lewis_bs": lambda **kw: fft_pricing.lewis_price(
+        cos_method.bs_char_func(kw["rate"], kw.get("div_yield", 0.0), kw["vol"], kw["T"]),
+        kw["spot"], kw["strike"], kw["rate"], kw["T"],
+    ),
+    # Bermudan COS
+    "cos_bermudan": lambda **kw: cos_bermudan.cos_american(
+        cos_method.bs_char_func(kw["rate"], kw.get("div_yield", 0.0), kw["vol"], kw["T"] / kw.get("n_exercise", 50)),
+        kw["spot"], kw["strike"], kw["rate"], kw["T"],
+    ),
+    # Fourier Greeks
+    "fourier_greeks_bs": lambda **kw: fourier_greeks.cos_greeks(
+        cos_method.bs_char_func(kw["rate"], kw.get("div_yield", 0.0), kw["vol"], kw["T"]),
+        kw["spot"], kw["strike"], kw["rate"], kw["T"],
+    ),
 }
 
 
 def get_pricer(name: str):
-    """Get a pricer by name (e.g. 'cos_bs', 'cos_heston')."""
+    """Get a pricer by name (e.g. 'cos_bs', 'fft_bs', 'lewis_bs', 'cos_bermudan')."""
     if name not in _PRICERS:
         raise KeyError(f"Unknown pricer '{name}'. Available: {list(_PRICERS.keys())}")
     return _PRICERS[name]

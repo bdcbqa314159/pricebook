@@ -396,3 +396,117 @@ class TestConvexityTools:
         r = cardinality_portfolio(mu, cov, max_assets=3)
         assert r.n_active <= 3
         assert abs(sum(r.weights) - 1.0) < 0.01
+
+
+# ═══════════════════════════════════════════════════════════════
+# F5: Fractional FFT
+# ═══════════════════════════════════════════════════════════════
+
+class TestFractionalFFT:
+    def test_carr_madan_fractional(self):
+        from pricebook.models.fft_pricing import carr_madan_fractional
+        from pricebook.models.cos_method import bs_char_func
+        cf = bs_char_func(0.04, 0.0, 0.20, 1.0)
+        strikes = np.array([90, 95, 100, 105, 110], dtype=float)
+        prices = carr_madan_fractional(cf, 100, 0.04, 1.0, strikes)
+        assert len(prices) == 5
+        assert all(p > 0 for p in prices)
+
+
+# ═══════════════════════════════════════════════════════════════
+# F6: Registry Extended
+# ═══════════════════════════════════════════════════════════════
+
+class TestRegistryExtended:
+    def test_fft_registered(self):
+        from pricebook.registry import list_pricers
+        pricers = list_pricers()
+        assert "fft_bs" in pricers
+        assert "lewis_bs" in pricers
+
+
+# ═══════════════════════════════════════════════════════════════
+# S1: Adaptive SDE
+# ═══════════════════════════════════════════════════════════════
+
+class TestAdaptiveSDE:
+    def test_adaptive_euler_gbm(self):
+        from pricebook.models.sde_adaptive import adaptive_euler
+        r = adaptive_euler(100, lambda x, t: 0.04 * x, lambda x, t: 0.20 * x,
+                            T=1.0, n_paths=1000, tol=0.1)
+        mean = float(np.mean(r.terminal_values))
+        assert mean == pytest.approx(100 * math.exp(0.04), rel=0.15)
+        assert r.n_steps_avg > 5
+
+
+# ═══════════════════════════════════════════════════════════════
+# X2: Von Neumann Stability
+# ═══════════════════════════════════════════════════════════════
+
+class TestVonNeumann:
+    def test_explicit_stable(self):
+        from pricebook.numerical.von_neumann import scheme_analysis
+        r = scheme_analysis(0.0, 0.4)
+        assert r.stable
+
+    def test_explicit_unstable(self):
+        from pricebook.numerical.von_neumann import scheme_analysis
+        r = scheme_analysis(0.0, 0.6)
+        assert not r.stable
+
+    def test_cn_always_stable(self):
+        from pricebook.numerical.von_neumann import scheme_analysis
+        r = scheme_analysis(0.5, 10.0)
+        assert r.stable
+
+    def test_cfl_limit(self):
+        from pricebook.numerical.von_neumann import cfl_limit
+        assert cfl_limit(0.0) == pytest.approx(0.5)
+        assert cfl_limit(0.5) == float('inf')
+
+
+# ═══════════════════════════════════════════════════════════════
+# X3: Density Evolution
+# ═══════════════════════════════════════════════════════════════
+
+class TestDensityEvolution:
+    def test_three_ways_consistent(self):
+        from pricebook.models.density_evolution import density_three_ways
+        r = density_three_ways(100, 0.04, 0.20, 1.0, n_points=100)
+        assert r.consistent
+
+
+# ═══════════════════════════════════════════════════════════════
+# X4: Operator Splitting
+# ═══════════════════════════════════════════════════════════════
+
+class TestOperatorSplitting:
+    def test_strang_vs_lie(self):
+        from pricebook.numerical.operator_splitting import lie_trotter, strang_splitting
+        def step_A(V, dt):
+            V_new = V.copy()
+            for i in range(1, len(V) - 1):
+                V_new[i] = V[i] + 0.3 * dt * (V[i-1] - 2*V[i] + V[i+1])
+            return V_new
+        def step_B(V, dt):
+            return V * (1 - 0.01 * dt)
+
+        V0 = np.zeros(50)
+        V0[25] = 1.0
+        lt = lie_trotter(step_A, step_B, V0, 0.01, 100)
+        st = strang_splitting(step_A, step_B, V0, 0.01, 100)
+        assert np.linalg.norm(lt.values - st.values) < 0.1
+
+    def test_splitting_error(self):
+        from pricebook.numerical.operator_splitting import splitting_error_estimate
+        def step_A(V, dt):
+            V_new = V.copy()
+            for i in range(1, len(V) - 1):
+                V_new[i] = V[i] + 0.3 * dt * (V[i-1] - 2*V[i] + V[i+1])
+            return V_new
+        def step_B(V, dt):
+            return V * (1 - 0.01 * dt)
+        V0 = np.zeros(50)
+        V0[25] = 1.0
+        err = splitting_error_estimate(step_A, step_B, V0, 0.01, 50)
+        assert err >= 0

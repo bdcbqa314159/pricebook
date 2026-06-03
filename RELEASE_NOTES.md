@@ -2,6 +2,20 @@
 
 ---
 
+## v0.816.0 — 2026-06-03
+
+**Remaining numerical plan: Tiers 3+4 complete.**
+
+- **F5** `fft_pricing.py`: `carr_madan_fractional()` — non-uniform strikes via direct Fourier evaluation.
+- **F6** `registry.py`: registered FFT, Lewis, Bermudan COS, Fourier Greeks pricers.
+- **S1** `sde_adaptive.py`: `adaptive_euler()`, `adaptive_milstein()` — step-size control via error pair.
+- **X2** `von_neumann.py`: amplification factor, stability region, CFL limit for θ-scheme.
+- **X3** `density_evolution.py`: three-way density cross-validation (FP + Fourier + Breeden-Litzenberger).
+- **X4** `operator_splitting.py`: Lie-Trotter (O(dt)), Strang (O(dt²)), PIDE splitting.
+- 10 new tests. 11,077 tests pass.
+
+---
+
 ## v0.806.0 — 2026-06-03
 
 **Convexity tools and Frank-Wolfe optimisation.**
