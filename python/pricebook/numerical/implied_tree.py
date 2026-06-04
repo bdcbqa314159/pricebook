@@ -22,8 +22,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.models.black76 import OptionType, black76_price, _norm_cdf
-
 
 @dataclass
 class ImpliedTreeNode:
@@ -151,6 +149,7 @@ def build_implied_tree(
                 if k_idx < len(market_vols[step - 1]):
                     mkt_vol = market_vols[step - 1][k_idx]
                     fwd = spot * math.exp((rate - div_yield) * t_step)
+                    from pricebook.models.black76 import black76_price, OptionType
                     mkt_price = black76_price(fwd, K, mkt_vol, t_step, math.exp(-rate * t_step), OptionType.CALL)
                     tree_price = sum(
                         new_ad[j] * max(new_spots[j] - K, 0)
