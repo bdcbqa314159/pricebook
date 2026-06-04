@@ -136,23 +136,32 @@ def fetch_date(target_date: date, retries: int = 3, delay: float = 1.0) -> Eurib
     return None
 
 
-def fetch_year(year: int, retries: int = 3, delay: float = 1.0) -> list[EuriborFixing]:
-    """Fetch all daily fixings for a given year (3M tenor from yearly page).
+def fetch_year(year: int, tenor: str = "3m", retries: int = 3, delay: float = 1.0) -> list[EuriborFixing]:
+    """Fetch all daily fixings for a given year and tenor.
 
-    For full tenor data, use fetch_date() per day.
+    Uses the ?term= parameter to select tenor.
 
     Attribution: Data from https://euriborrates.com/
+
+    Args:
+        year: calendar year (1999–present).
+        tenor: "1w", "1m", "3m", "6m", or "12m".
     """
     import urllib.request
 
-    url = f"{_SOURCE_URL}/en/historical-euribor/{year}/"
+    url = f"{_SOURCE_URL}/en/historical-euribor/{year}/?term={tenor}"
 
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "pricebook/euribor-loader"})
             with urllib.request.urlopen(req, timeout=30) as resp:
                 html = resp.read().decode("utf-8")
-            return _parse_year_page(html, year)
+            fixings = _parse_year_page(html, year)
+            # Tag with correct tenor (parser defaults to 3m key)
+            for f in fixings:
+                if "3m" in f.rates and tenor != "3m":
+                    f.rates[tenor] = f.rates.pop("3m")
+            return fixings
         except Exception:
             if attempt < retries - 1:
                 time.sleep(delay)
@@ -160,16 +169,51 @@ def fetch_year(year: int, retries: int = 3, delay: float = 1.0) -> list[EuriborF
     return []
 
 
+def fetch_year_all_tenors(
+    year: int,
+    delay_between_tenors: float = 2.0,
+) -> list[EuriborFixing]:
+    """Fetch all 5 tenors for a given year, merge into single fixings per date.
+
+    Makes 5 requests (one per tenor) and combines into complete daily fixings.
+
+    Attribution: Data from https://euriborrates.com/
+
+    Args:
+        year: calendar year.
+        delay_between_tenors: polite delay between requests (seconds).
+    """
+    # Collect all tenors
+    tenor_data: dict[date, dict[str, float]] = {}
+
+    for tenor in TENORS:
+        fixings = fetch_year(year, tenor)
+        for f in fixings:
+            if f.date not in tenor_data:
+                tenor_data[f.date] = {}
+            tenor_data[f.date].update(f.rates)
+        if tenor != TENORS[-1]:
+            time.sleep(delay_between_tenors)
+
+    # Merge into EuriborFixing list
+    result = []
+    for d in sorted(tenor_data.keys()):
+        result.append(EuriborFixing(date=d, rates=tenor_data[d]))
+
+    return result
+
+
 def fetch_all_history(
     start_year: int = 1999,
     end_year: int | None = None,
     cache_dir: Path | str | None = None,
+    all_tenors: bool = True,
     delay_between_years: float = 2.0,
 ) -> list[EuriborFixing]:
     """Fetch complete Euribor history from 1999 to present.
 
-    Fetches yearly pages (3M rate). For all tenors per day,
-    use fetch_date() individually (slower but complete).
+    With all_tenors=True (default), fetches all 5 tenors per year
+    (135 requests for 27 years, ~5 minutes with polite delays).
 
     Saves to local CSV cache after fetching.
 
@@ -179,7 +223,8 @@ def fetch_all_history(
         start_year: first year to fetch (default 1999).
         end_year: last year (default: current year).
         cache_dir: directory to save CSV cache.
-        delay_between_years: polite delay between requests (seconds).
+        all_tenors: if True, fetch all 5 tenors (recommended).
+        delay_between_years: polite delay between years.
     """
     if end_year is None:
         end_year = date.today().year
@@ -187,7 +232,10 @@ def fetch_all_history(
     all_fixings = []
 
     for year in range(start_year, end_year + 1):
-        fixings = fetch_year(year)
+        if all_tenors:
+            fixings = fetch_year_all_tenors(year)
+        else:
+            fixings = fetch_year(year, "3m")
         all_fixings.extend(fixings)
         if year < end_year:
             time.sleep(delay_between_years)
@@ -196,8 +244,7 @@ def fetch_all_history(
     all_fixings.sort(key=lambda f: f.date)
 
     # Cache locally
-    if cache_dir is not None or True:
-        save_to_csv(all_fixings, cache_dir or _DEFAULT_CACHE_DIR)
+    save_to_csv(all_fixings, cache_dir or _DEFAULT_CACHE_DIR)
 
     return all_fixings
 
