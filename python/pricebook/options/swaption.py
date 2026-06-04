@@ -20,7 +20,7 @@ from enum import Enum
 
 from pricebook.models.black76 import OptionType
 from pricebook.core.day_count import DayCountConvention, year_fraction
-from pricebook.risk.greeks import Greeks
+from pricebook.core.greeks import Greeks
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.pricing_context import PricingContext
 from pricebook.core.schedule import Frequency, StubType

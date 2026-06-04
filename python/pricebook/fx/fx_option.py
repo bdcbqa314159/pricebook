@@ -24,7 +24,7 @@ from pricebook.models.black76 import (
     black76_vega,
     _norm_cdf,
 )
-from pricebook.risk.greeks import Greeks
+from pricebook.core.greeks import Greeks
 
 
 def fx_forward(spot: float, r_d: float, r_f: float, T: float) -> float:

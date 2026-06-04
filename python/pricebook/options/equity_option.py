@@ -20,7 +20,7 @@ from pricebook.models.black76 import (
     _norm_cdf,
     _norm_pdf,
 )
-from pricebook.risk.greeks import Greeks
+from pricebook.core.greeks import Greeks
 
 
 def _forward_and_df(spot, rate, div_yield, T):
