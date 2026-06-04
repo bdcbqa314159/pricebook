@@ -13,10 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.regulatory.market_risk_sa import (
-    GIRR_INFLATION_RW,
-    calculate_frtb_sa,
-)
 from pricebook.statistics.zscore import zscore as _zscore_impl
 
 
@@ -268,6 +264,7 @@ def inflation_frtb_capital(
         inflation_sensitivities: list of ``{bucket, sensitivity}`` dicts.
             ``bucket`` is the currency; ``sensitivity`` is the IE01.
     """
+    from pricebook.regulatory.market_risk_sa import GIRR_INFLATION_RW, calculate_frtb_sa
     girr_pos = []
     for pos in inflation_sensitivities:
         girr_pos.append({

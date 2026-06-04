@@ -25,7 +25,6 @@ from scipy.optimize import differential_evolution, minimize as scipy_minimize
 
 from pricebook.models.black76 import OptionType, black76_price
 from pricebook.models.cos_method import cos_price
-from pricebook.options.implied_vol import implied_vol_black76
 from pricebook.models.char_func_protocol import (
     merton_char_func, vg_char_func, kou_char_func, bates_char_func,
 )
@@ -126,6 +125,7 @@ def _cos_implied_vol(
     if price <= intrinsic + 1e-10:
         return 0.0
     try:
+        from pricebook.options.implied_vol import implied_vol_black76
         return implied_vol_black76(price, fwd, strike, T, df, OptionType.CALL)
     except Exception:
         return 0.0

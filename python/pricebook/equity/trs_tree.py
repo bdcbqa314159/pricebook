@@ -18,7 +18,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.risk.xva import effective_discount_rate, xva_spread_decomposition
+def _effective_discount_rate(mu: float, r: float, r_b: float, r_c: float, exposure_sign: float) -> float:
+    """Switching effective discount rate (Lou 2018, Eq 5)."""
+    rw = r_b if exposure_sign <= 0 else r_c
+    return mu * r + (1 - mu) * rw
 
 
 @dataclass
@@ -183,7 +186,7 @@ def trs_trinomial_tree(
             else:
                 raise ValueError(f"Unknown margin_style: {margin_style!r}")
 
-            re = effective_discount_rate(mu, r, r_b, r_c, W)
+            re = _effective_discount_rate(mu, r, r_b, r_c, W)
             df = math.exp(-re * dt)
             df_star = math.exp(-r * dt)
 
@@ -388,7 +391,7 @@ def trs_tree_xva(
                 raise ValueError(f"Unknown margin_style: {margin_style!r}")
 
             # Switching discount
-            re = effective_discount_rate(mu, r, r_b, r_c, W)
+            re = _effective_discount_rate(mu, r, r_b, r_c, W)
             df = math.exp(-re * dt)
             df_star = math.exp(-r * dt)
 

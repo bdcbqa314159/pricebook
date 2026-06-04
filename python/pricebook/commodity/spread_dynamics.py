@@ -26,7 +26,6 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import date_from_year_fraction
 from pricebook.fixed_income.rfr import StochasticBasis
 from pricebook.core.survival_curve import SurvivalCurve
-from pricebook.risk.xva import fva as fva_deterministic, total_xva_decomposition, TotalXVAResult
 
 
 @dataclass
@@ -80,6 +79,7 @@ def fva_with_spread_dynamics(
     )
 
     # Deterministic FVA with initial spread (apples-to-apples comparison)
+    from pricebook.risk.xva import fva as fva_deterministic
     fva_det = fva_deterministic(epe, time_grid, discount_curve, initial_spread)
 
     # Stochastic FVA: average over paths
@@ -127,12 +127,13 @@ def xva_with_spread_dynamics(
     n_spread_paths: int = 1000,
     seed: int | None = 42,
     **xva_kwargs,
-) -> TotalXVAResult:
+) -> "TotalXVAResult":
     """Total XVA decomposition with stochastic funding spread.
 
     Computes CVA, DVA, etc. deterministically, but replaces FVA
     with the stochastic spread result.
     """
+    from pricebook.risk.xva import total_xva_decomposition, TotalXVAResult
     # Base XVA with deterministic spread
     mean_spread = stochastic_basis.stationary_mean()
     base = total_xva_decomposition(
