@@ -2,6 +2,32 @@
 
 ---
 
+## v0.823.0 — 2026-06-04
+
+**Backlog closed: HV ADI, Strang MC, SDP, sparse Jacobian.**
+
+- New `models/hundsdorfer_verwer.py`:
+  - `hv_adi_heston()` — double-pass HV ADI for Heston (6-step scheme).
+  - More stable than Craig-Sneyd for strong mixed derivatives.
+  - HV agrees with CS within 15%.
+- New `models/sde_strang.py`:
+  - `strang_merton_mc()` — Merton jump-diffusion: diffusion(dt/2)→jump(dt)→diffusion(dt/2).
+  - `strang_bates_mc()` — Bates (Heston + jumps) via Strang splitting.
+  - Zero jumps matches BS. O(dt²) splitting error.
+- New `numerical/sdp.py`:
+  - `nearest_psd()` — PSD cone projection.
+  - `nearest_correlation_sdp()` — Higham (2002) Dykstra alternating projections.
+  - `factor_covariance_bounds()` — covariance from factor model.
+  - `sdp_solve()` — small-scale general SDP via projected gradient.
+- New `numerical/sparse_jacobian.py`:
+  - `sparse_jacobian()` — Jacobian via graph colouring + grouped perturbation.
+  - `banded_jacobian()` — tridiagonal: 3 evaluations instead of n.
+  - `detect_sparsity()` — probe-based sparsity detection.
+  - `greedy_colouring()` — distance-1 column grouping.
+- 12 new tests. 11,089 tests pass.
+
+---
+
 ## v0.816.0 — 2026-06-03
 
 **Remaining numerical plan: Tiers 3+4 complete.**
