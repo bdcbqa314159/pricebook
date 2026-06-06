@@ -2,6 +2,19 @@
 
 ---
 
+## v0.824.0 — 2026-06-01
+
+**Quanto (differential) interest rate swaps.**
+
+- New `fixed_income/quanto_swap.py`:
+  - `quanto_swap_price()` — quanto IR swap: foreign floating rate paid in domestic currency with convexity adjustment E^d[L^f] = L^f × (1 − σ_L × σ_FX × ρ × T).
+  - `differential_swap_price()` — diff swap paying rate_1 − rate_2 in single currency, both rates quanto-adjusted.
+  - `quanto_adjustment_term_structure()` — adjustment per tenor in bps.
+  - `quanto_fra()` — single-period quanto forward rate agreement.
+- 22 tests: correlation sign, par spread, pay/receive symmetry, vol sensitivity, maturity scaling.
+
+---
+
 ## v0.823.0 — 2026-06-04
 
 **Backlog closed: HV ADI, Strang MC, SDP, sparse Jacobian.**
