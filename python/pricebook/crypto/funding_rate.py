@@ -218,3 +218,104 @@ def historical_funding_stats(
         annualised_mean=float(np.mean(arr) * intervals_per_year * 100),
         n_periods=len(rates),
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD4: Interest Rate Component, Capital Efficiency, Seasonality
+# ═══════════════════════════════════════════════════════════════
+
+def binance_funding_rate(
+    premium_index: float,
+    interest_rate: float = 0.0001,
+    clamp: float = 0.0005,
+) -> float:
+    """Binance-style funding rate formula.
+
+    funding = premium_index + clamp(interest_rate − premium_index, ±clamp)
+
+    The interest rate component reflects the cost difference between
+    holding crypto vs USD. Typically 0.01%/8h (≈3.65% annualised).
+
+    Args:
+        premium_index: (perp_twap − index_twap) / index.
+        interest_rate: base interest rate per interval (0.01% default).
+        clamp: maximum deviation from interest rate.
+    """
+    deviation = interest_rate - premium_index
+    clamped = max(-clamp, min(deviation, clamp))
+    return premium_index + clamped
+
+
+def basis_trade_capital_efficiency(
+    spot_price: float,
+    funding_rate: float,
+    leverage: float = 1.0,
+    margin_requirement: float = 0.10,
+    interval_hours: float = 8.0,
+) -> dict:
+    """Capital efficiency of a basis trade.
+
+    Capital deployed: spot (full) + perp margin (1/leverage).
+    Return on capital: funding income / capital deployed.
+
+    Args:
+        spot_price: spot leg price.
+        funding_rate: per-interval funding rate.
+        leverage: leverage on perp leg.
+        margin_requirement: initial margin as fraction.
+    """
+    spot_capital = spot_price
+    perp_margin = spot_price * margin_requirement
+    total_capital = spot_capital + perp_margin
+
+    intervals_per_year = 365 * 24 / interval_hours
+    annual_funding = funding_rate * intervals_per_year * spot_price
+
+    roc = annual_funding / total_capital * 100 if total_capital > 0 else 0
+    capital_efficiency = spot_price / total_capital
+
+    return {
+        "total_capital": total_capital,
+        "annual_funding_income": annual_funding,
+        "return_on_capital_pct": roc,
+        "capital_efficiency": capital_efficiency,
+        "leverage_effective": capital_efficiency,
+    }
+
+
+def funding_seasonality(
+    rates: list[float],
+    hours: list[int],
+) -> dict:
+    """Funding rate seasonality by hour of day.
+
+    Crypto funding rates show patterns:
+    - Higher during US hours (more speculative activity).
+    - Lower during Asian hours.
+    - Spikes around options expiry (Deribit Friday 08:00 UTC).
+
+    Args:
+        rates: historical funding rates.
+        hours: hour of settlement (0–23 UTC) per rate.
+    """
+    by_hour: dict[int, list[float]] = {h: [] for h in range(24)}
+    for r, h in zip(rates, hours):
+        by_hour[h % 24].append(r)
+
+    hourly_avg = {}
+    for h in range(24):
+        if by_hour[h]:
+            hourly_avg[h] = float(np.mean(by_hour[h]))
+        else:
+            hourly_avg[h] = 0.0
+
+    peak_hour = max(hourly_avg, key=hourly_avg.get)
+    trough_hour = min(hourly_avg, key=hourly_avg.get)
+
+    return {
+        "hourly_avg": hourly_avg,
+        "peak_hour_utc": peak_hour,
+        "trough_hour_utc": trough_hour,
+        "peak_rate": hourly_avg[peak_hour],
+        "trough_rate": hourly_avg[trough_hour],
+    }

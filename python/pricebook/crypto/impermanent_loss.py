@@ -155,3 +155,92 @@ def il_table(
             "il_pct": round(il.il_pct, 4),
         })
     return result
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD7: Multi-Asset IL, Hedging Strategies
+# ═══════════════════════════════════════════════════════════════
+
+def multi_asset_il(price_ratios: list[float], weights: list[float]) -> ILResult:
+    """IL for multi-asset weighted pool (Balancer-style).
+
+    IL = Π(r_i^{w_i}) / Σ(w_i × r_i) − 1
+
+    Args:
+        price_ratios: final/initial price per asset.
+        weights: normalised weights.
+    """
+    import math as m
+    n = len(price_ratios)
+    geometric = 1.0
+    arithmetic = 0.0
+    for r, w in zip(price_ratios, weights):
+        geometric *= r ** w
+        arithmetic += w * r
+    il_factor = geometric / arithmetic if arithmetic > 0 else 1
+    il_pct = (il_factor - 1) * 100
+    avg_change = (arithmetic - 1) * 100
+    return ILResult(il_pct, il_factor, avg_change, abs(il_pct))
+
+
+@dataclass
+class ILHedgeResult:
+    """IL hedging strategy result."""
+    strategy: str
+    hedge_cost: float
+    net_il_after_hedge: float
+    hedge_effectiveness: float  # % of IL hedged
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def il_hedge_with_perp(
+    il_pct: float,
+    position_value: float,
+    funding_rate: float = 0.0001,
+    hedge_ratio: float = 0.5,
+    days: int = 30,
+) -> ILHedgeResult:
+    """Hedge IL with perpetual short position.
+
+    Short perp at 50% of LP position to hedge delta.
+    Cost = funding × hedge_notional × days.
+
+    Args:
+        il_pct: expected IL (negative).
+        position_value: LP position value.
+        funding_rate: per-8h funding rate.
+        hedge_ratio: fraction of position to hedge (0.5 = delta neutral).
+        days: holding period.
+    """
+    hedge_notional = position_value * hedge_ratio
+    funding_cost = abs(funding_rate) * 3 * days * hedge_notional  # 3 intervals/day
+    il_dollar = abs(il_pct / 100) * position_value
+    net_il = il_dollar - hedge_notional * abs(il_pct / 100) * 0.5  # simplified
+    effectiveness = 1 - net_il / il_dollar if il_dollar > 0 else 0
+
+    return ILHedgeResult("perp_short", funding_cost, net_il, effectiveness * 100)
+
+
+def il_hedge_with_options(
+    il_pct: float,
+    position_value: float,
+    put_cost_pct: float = 0.05,
+    put_protection_pct: float = 0.80,
+) -> ILHedgeResult:
+    """Hedge IL with put options.
+
+    Buy puts at (1 − protection) strike. Expensive but capped loss.
+
+    Args:
+        put_cost_pct: put premium as % of notional.
+        put_protection_pct: how much of the downside is covered.
+    """
+    cost = position_value * put_cost_pct
+    il_dollar = abs(il_pct / 100) * position_value
+    hedged = il_dollar * put_protection_pct
+    net = il_dollar - hedged
+    effectiveness = hedged / il_dollar * 100 if il_dollar > 0 else 0
+
+    return ILHedgeResult("put_options", cost, net, effectiveness)

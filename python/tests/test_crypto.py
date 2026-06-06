@@ -422,3 +422,66 @@ class TestSmartContractRisk:
         safe = oracle_risk(n_price_sources=21, update_frequency_seconds=12, uses_twap=True)
         risky = oracle_risk(n_price_sources=1, update_frequency_seconds=7200)
         assert safe.score < risky.score
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD4-CD9 extensions
+# ═══════════════════════════════════════════════════════════════
+
+class TestBalancer:
+    def test_weighted(self):
+        from pricebook.crypto.amm import balancer_weighted_price
+        r = balancer_weighted_price([1e6, 1e6], [0.8, 0.2], 10_000)
+        assert r.amount_out > 0
+        assert r.pool_type == "balancer"
+
+class TestMEV:
+    def test_sandwich(self):
+        from pricebook.crypto.amm import mev_sandwich_cost
+        r = mev_sandwich_cost(100_000, 10_000_000)
+        assert r["expected_loss"] > 0
+        assert r["safe_trade_size"] > 0
+
+class TestFlashLoan:
+    def test_arb(self):
+        from pricebook.crypto.defi_rates import flash_loan_arb
+        r = flash_loan_arb(1_000_000, 0.005)  # 0.5% arb
+        assert r.profitable
+
+class TestYieldRoute:
+    def test_route(self):
+        from pricebook.crypto.defi_rates import yield_route
+        routes = [{"protocol": "Aave", "action": "deposit", "apy": 0.03},
+                  {"protocol": "Compound", "action": "borrow", "apy": 0.02},
+                  {"protocol": "Curve", "action": "lend", "apy": 0.05}]
+        r = yield_route(100_000, routes)
+        assert r.net_apy > 0
+
+class TestMultiAssetIL:
+    def test_three_token(self):
+        from pricebook.crypto.impermanent_loss import multi_asset_il
+        r = multi_asset_il([1.5, 0.8, 1.2], [0.5, 0.3, 0.2])
+        assert r.il_pct < 0
+
+class TestILHedge:
+    def test_perp_hedge(self):
+        from pricebook.crypto.impermanent_loss import il_hedge_with_perp
+        r = il_hedge_with_perp(-5.0, 100_000)
+        assert r.hedge_cost > 0
+
+    def test_options_hedge(self):
+        from pricebook.crypto.impermanent_loss import il_hedge_with_options
+        r = il_hedge_with_options(-5.0, 100_000)
+        assert r.hedge_effectiveness > 0
+
+class TestBinanceFunding:
+    def test_formula(self):
+        from pricebook.crypto.funding_rate import binance_funding_rate
+        rate = binance_funding_rate(0.0005, 0.0001)
+        assert rate > 0
+
+class TestCapitalEfficiency:
+    def test_basis_trade(self):
+        from pricebook.crypto.funding_rate import basis_trade_capital_efficiency
+        r = basis_trade_capital_efficiency(50000, 0.0001, leverage=5)
+        assert r["return_on_capital_pct"] > 0

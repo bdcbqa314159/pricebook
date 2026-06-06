@@ -158,3 +158,121 @@ def liquidation_threshold(
         liquidation_price=liq_price,
         current_ltv=current_ltv,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD6: Flash Loans, Yield Routing, Per-Collateral Risk
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class FlashLoanResult:
+    """Flash loan economics."""
+    borrow_amount: float
+    fee: float
+    profit: float
+    profitable: bool
+    gas_cost: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def flash_loan_arb(
+    borrow_amount: float,
+    arb_profit_pct: float,
+    flash_fee_pct: float = 0.0009,
+    gas_cost_usd: float = 20.0,
+) -> FlashLoanResult:
+    """Flash loan arbitrage profitability.
+
+    Flash loan: borrow, arb, repay in one transaction.
+    Profit = arb_return − flash_fee − gas.
+
+    Args:
+        borrow_amount: flash loan size.
+        arb_profit_pct: arbitrage return (decimal).
+        flash_fee_pct: Aave flash loan fee (0.09%).
+        gas_cost_usd: gas cost for the transaction.
+    """
+    gross = borrow_amount * arb_profit_pct
+    fee = borrow_amount * flash_fee_pct
+    net = gross - fee - gas_cost_usd
+    return FlashLoanResult(borrow_amount, fee, net, net > 0, gas_cost_usd)
+
+
+@dataclass
+class YieldRouteResult:
+    """Multi-protocol yield routing result."""
+    net_apy: float
+    steps: list[dict]
+    total_gas_cost: float
+    capital_efficiency: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def yield_route(
+    deposit_amount: float,
+    routes: list[dict],
+) -> YieldRouteResult:
+    """Multi-protocol yield routing optimisation.
+
+    Each route: {"protocol", "action" (deposit/borrow/lend), "apy", "gas_usd"}.
+    Net APY = Σ(apy_i × weight_i) − Σ(gas / deposit × annualise).
+
+    Args:
+        deposit_amount: initial capital.
+        routes: ordered list of protocol steps.
+    """
+    total_apy = 0.0
+    total_gas = 0.0
+    steps = []
+
+    for r in routes:
+        apy = r.get("apy", 0)
+        gas = r.get("gas_usd", 5)
+        action = r.get("action", "deposit")
+        protocol = r.get("protocol", "unknown")
+
+        if action == "borrow":
+            total_apy -= apy  # borrowing costs
+        else:
+            total_apy += apy
+
+        total_gas += gas
+        steps.append({"protocol": protocol, "action": action, "apy": apy})
+
+    gas_drag = total_gas / deposit_amount * 365 if deposit_amount > 0 else 0
+    net = total_apy - gas_drag
+    efficiency = net / total_apy if total_apy > 0 else 0
+
+    return YieldRouteResult(net * 100, steps, total_gas, efficiency)
+
+
+@dataclass
+class CollateralRiskParams:
+    """Per-collateral risk parameters (Aave v3 style)."""
+    asset: str
+    max_ltv: float
+    liquidation_ltv: float
+    liquidation_bonus: float    # bonus for liquidators (e.g. 5%)
+    supply_cap: float           # max supply in protocol
+    borrow_cap: float           # max borrow
+    is_isolated: bool           # isolated collateral mode
+    e_mode_category: int        # efficiency mode (0 = none)
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+# Standard risk params for major assets (Aave v3 Ethereum)
+AAVE_V3_RISK_PARAMS = {
+    "ETH": CollateralRiskParams("ETH", 0.825, 0.86, 0.05, 0, 0, False, 1),
+    "WBTC": CollateralRiskParams("WBTC", 0.73, 0.78, 0.065, 0, 0, False, 0),
+    "USDC": CollateralRiskParams("USDC", 0.77, 0.80, 0.045, 0, 0, False, 2),
+    "DAI": CollateralRiskParams("DAI", 0.67, 0.77, 0.045, 0, 0, False, 2),
+    "LINK": CollateralRiskParams("LINK", 0.68, 0.74, 0.07, 0, 0, False, 0),
+    "AAVE": CollateralRiskParams("AAVE", 0.66, 0.73, 0.075, 0, 0, False, 0),
+    "stETH": CollateralRiskParams("stETH", 0.81, 0.84, 0.05, 0, 0, False, 1),
+}

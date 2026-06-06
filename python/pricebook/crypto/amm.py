@@ -296,3 +296,56 @@ def lp_return_v2(
         hodl_value=hodl_value,
         lp_value=lp_value,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD5: Balancer Weighted Pools, MEV Sandwich Cost
+# ═══════════════════════════════════════════════════════════════
+
+def balancer_weighted_price(
+    reserves: list[float],
+    weights: list[float],
+    amount_in: float,
+    token_in: int = 0,
+    token_out: int = 1,
+    fee: float = 0.003,
+) -> AMMQuote:
+    """Balancer weighted pool: Π(R_i^{w_i}) = k.
+
+    Amount out = R_out × (1 − (R_in/(R_in+in))^{w_in/w_out}).
+
+    Args:
+        reserves: reserves per token.
+        weights: normalised weights (sum to 1).
+    """
+    r_in, r_out = reserves[token_in], reserves[token_out]
+    w_in, w_out = weights[token_in], weights[token_out]
+    mid_price = (r_out / w_out) / (r_in / w_in)
+    in_after_fee = amount_in * (1 - fee)
+    ratio = r_in / (r_in + in_after_fee)
+    amount_out = r_out * (1 - ratio ** (w_in / w_out))
+    exec_price = amount_out / amount_in if amount_in > 0 else 0
+    impact = abs(mid_price - exec_price) / mid_price * 100 if mid_price > 0 else 0
+    return AMMQuote(amount_in, max(amount_out, 0), exec_price, impact,
+                     amount_in * fee, "balancer")
+
+
+def mev_sandwich_cost(
+    trade_size: float,
+    pool_reserves: float,
+    gas_cost_usd: float = 5.0,
+) -> dict:
+    """Estimate MEV sandwich attack cost.
+
+    Your loss ≈ (trade_size / pool_reserves)² × pool_reserves × 0.5.
+    Sandwich profitable when loss > 2 × gas_cost.
+    Safe trade size: where MEV profit < gas cost.
+    """
+    impact_ratio = trade_size / pool_reserves if pool_reserves > 0 else 0
+    expected_loss = impact_ratio * trade_size * 0.5
+    safe_size = math.sqrt(2 * gas_cost_usd * pool_reserves) if pool_reserves > 0 else 0
+    return {
+        "expected_loss": expected_loss,
+        "safe_trade_size": safe_size,
+        "profitable_for_attacker": expected_loss > 2 * gas_cost_usd,
+    }
