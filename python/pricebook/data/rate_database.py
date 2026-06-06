@@ -44,6 +44,10 @@ class RateDatabase:
         self._conn.row_factory = sqlite3.Row
         self._create_tables()
 
+    @property
+    def path(self) -> Path:
+        return self._path
+
     def _create_tables(self):
         self._conn.executescript("""
             CREATE TABLE IF NOT EXISTS fixings (
@@ -142,8 +146,10 @@ class RateDatabase:
                     ns = curve.ns_fit()
                     self.store_curve_params(f.date, source.currency, source.source_name,
                                            "nelson_siegel", ns)
-                except Exception:
-                    pass  # skip days where calibration fails
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"Calibration failed for {f.date}: {e}")
 
         if progress:
             print(f"  Done. {len(fixings)} fixings stored.")
@@ -200,8 +206,9 @@ class RateDatabase:
                 ns = curve.ns_fit()
                 self.store_curve_params(today, source.currency, source.source_name,
                                        "nelson_siegel", ns)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Calibration failed for {today}: {e}")
 
         return True
 
@@ -256,8 +263,7 @@ class RateDatabase:
             return None
         return json.loads(row["params"])
 
-    def curve(self, d: date, currency: str = "EUR",
-              source: str = "euriborrates.com") -> Any:
+    def curve(self, d: date, currency: str, source: str) -> Any:
         """Build a MarketCurve from stored fixings for a date.
 
         No network request — uses only the local database.
@@ -297,6 +303,7 @@ class RateDatabase:
 
     def date_range(self, currency: str = "EUR",
                    source: str = "euriborrates.com") -> tuple[date, date] | None:
+        # Note: defaults kept for backward compat but caller should specify
         """Get earliest and latest dates in DB."""
         row = self._conn.execute(
             "SELECT MIN(date) as min_d, MAX(date) as max_d FROM fixings WHERE currency=? AND source=?",

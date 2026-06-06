@@ -37,24 +37,28 @@ def main():
     db = RateDatabase(args.db)
 
     print(f"[{datetime.now().isoformat()}] Euribor daily update")
-    print(f"  Database: {db._path}")
+    print(f"  Database: {db.path}")
     print(f"  Source: {source.attribution}")
     print()
 
-    if args.historical:
-        db.ingest_history(source, start_year=1999)
-    elif args.year:
-        db.ingest_year(source, args.year)
-    else:
-        today = date.today()
-        stored = db.ingest_today(source)
-        if stored:
-            rates = db.query_date(today, "EUR", source.source_name)
-            print(f"  Stored fixings for {today}:")
-            for tenor, rate in sorted(rates.items()):
-                print(f"    {tenor}: {rate*100:.3f}%")
+    try:
+        if args.historical:
+            db.ingest_history(source, start_year=1999)
+        elif args.year:
+            db.ingest_year(source, args.year)
         else:
-            print(f"  No new data for {today} (already stored or weekend/holiday)")
+            today = date.today()
+            stored = db.ingest_today(source)
+            if stored:
+                rates = db.query_date(today, "EUR", source.source_name)
+                print(f"  Stored fixings for {today}:")
+                for tenor, rate in sorted(rates.items()):
+                    print(f"    {tenor}: {rate*100:.3f}%")
+            else:
+                print(f"  No new data for {today} (already stored or weekend/holiday)")
+    except Exception as e:
+        print(f"  ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print()
     s = db.summary()

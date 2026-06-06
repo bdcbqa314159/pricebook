@@ -51,8 +51,8 @@ class EuriborFixing:
     date: date
     rates: dict[str, float]  # tenor → rate (decimal, e.g. 0.03782)
 
-    def rate(self, tenor: str) -> float:
-        return self.rates.get(tenor, 0.0)
+    def rate(self, tenor: str) -> float | None:
+        return self.rates.get(tenor)
 
     def to_dict(self) -> dict:
         return {"date": self.date.isoformat(), "source": _SOURCE_URL, **self.rates}
@@ -77,7 +77,9 @@ def _parse_daily_page(html: str, target_date: date) -> EuriborFixing | None:
     for pattern, tenor in patterns:
         match = re.search(pattern, html, re.DOTALL)
         if match:
-            rates[tenor] = float(match.group(1)) / 100.0  # convert % to decimal
+            val = float(match.group(1)) / 100.0
+            if -0.05 <= val <= 0.20:  # sanity: -5% to 20%
+                rates[tenor] = val
 
     if not rates:
         return None
@@ -129,9 +131,12 @@ def fetch_date(target_date: date, retries: int = 3, delay: float = 1.0) -> Eurib
             fixing = _parse_daily_page(html, target_date)
             if fixing:
                 return fixing
-        except Exception:
+        except Exception as e:
             if attempt < retries - 1:
                 time.sleep(delay)
+            else:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to fetch {url}: {e}")
 
     return None
 
@@ -162,9 +167,12 @@ def fetch_year(year: int, tenor: str = "3m", retries: int = 3, delay: float = 1.
                 if "3m" in f.rates and tenor != "3m":
                     f.rates[tenor] = f.rates.pop("3m")
             return fixings
-        except Exception:
+        except Exception as e:
             if attempt < retries - 1:
                 time.sleep(delay)
+            else:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to fetch {url}: {e}")
 
     return []
 
@@ -259,7 +267,7 @@ def save_to_csv(fixings: list[EuriborFixing], cache_dir: Path | str):
 
     filepath = cache_dir / "euribor_history.csv"
 
-    with open(filepath, "w", newline="") as f:
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
         f.write(f"# {_SOURCE_ATTRIBUTION}\n")
         f.write(f"# Downloaded: {datetime.now().isoformat()}\n")
 
