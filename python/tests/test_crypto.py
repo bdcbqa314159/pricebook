@@ -140,3 +140,105 @@ class TestCryptoVol:
         assert 0.70 < v < 0.80
         ts = surf.atm_term_structure
         assert len(ts) == 3
+
+
+class TestAMM:
+    def test_uniswap_v2(self):
+        from pricebook.crypto.amm import uniswap_v2_price
+        r = uniswap_v2_price(1_000_000, 1_000_000, 10_000)
+        assert r.amount_out > 0
+        assert r.amount_out < 10_000
+        assert r.price_impact_pct > 0
+
+    def test_curve_stableswap(self):
+        from pricebook.crypto.amm import curve_stableswap
+        r = curve_stableswap([1_000_000, 1_000_000], 10_000, A=100)
+        assert r.amount_out > 9_900
+        assert r.price_impact_pct < 1
+
+    def test_lp_return(self):
+        from pricebook.crypto.amm import lp_return_v2
+        r = lp_return_v2(500, 500, 2.0, fee_income=50)
+        assert r.impermanent_loss < 0
+
+
+class TestImpermanentLoss:
+    def test_no_change(self):
+        from pricebook.crypto.impermanent_loss import impermanent_loss
+        r = impermanent_loss(1.0)
+        assert r.il_pct == pytest.approx(0, abs=0.01)
+
+    def test_2x(self):
+        from pricebook.crypto.impermanent_loss import impermanent_loss
+        r = impermanent_loss(2.0)
+        assert r.il_pct == pytest.approx(-5.72, abs=0.1)
+
+    def test_table(self):
+        from pricebook.crypto.impermanent_loss import il_table
+        assert len(il_table()) > 10
+
+
+class TestDeFiRates:
+    def test_aave(self):
+        from pricebook.crypto.defi_rates import aave_rate
+        r = aave_rate(0.5)
+        assert r.supply_apy < r.borrow_apy
+
+    def test_aave_kink(self):
+        from pricebook.crypto.defi_rates import aave_rate
+        assert aave_rate(0.95).borrow_apy > aave_rate(0.7).borrow_apy
+
+    def test_liquidation(self):
+        from pricebook.crypto.defi_rates import liquidation_threshold
+        r = liquidation_threshold(10_000, 7_000, 2_000)
+        assert r.health_factor > 1
+
+
+class TestStaking:
+    def test_eth_yield(self):
+        from pricebook.crypto.staking import eth_staking_yield
+        r = eth_staking_yield()
+        assert r.net_yield < r.total_yield
+
+    def test_liquid_staking(self):
+        from pricebook.crypto.staking import liquid_staking_premium
+        r = liquid_staking_premium(0.99, 1.0, 0.04)
+        assert r.premium_pct < 0
+
+    def test_slashing(self):
+        from pricebook.crypto.staking import slashing_risk
+        assert slashing_risk().expected_loss_pct < 1
+
+
+class TestBasisArb:
+    def test_spot_perp(self):
+        from pricebook.crypto.basis_arb import spot_perp_basis
+        assert spot_perp_basis(50000, 50050, 0.0001).annualised_yield > 0
+
+    def test_triangular(self):
+        from pricebook.crypto.basis_arb import triangular_arb
+        r = triangular_arb(50000, 3000, 0.06)
+        assert abs(r.profit_pct) < 2
+
+    def test_cross_exchange(self):
+        from pricebook.crypto.basis_arb import cross_exchange_arb
+        assert cross_exchange_arb(50000, 50100)["gross_spread_bps"] > 0
+
+
+class TestCryptoRisk:
+    def test_var(self):
+        from pricebook.crypto.crypto_risk import crypto_var
+        rng = np.random.default_rng(42)
+        r = crypto_var(rng.normal(0, 0.03, 720).tolist(), interval_hours=1)
+        assert r.var_1d > r.var_1h
+
+    def test_tail(self):
+        from pricebook.crypto.crypto_risk import tail_risk
+        rng = np.random.default_rng(42)
+        r = tail_risk(rng.standard_t(3, 1000).tolist())
+        assert r.is_heavy_tailed
+
+    def test_exchange_risk(self):
+        from pricebook.crypto.crypto_risk import exchange_risk
+        r = exchange_risk({"Binance": 80_000, "Coinbase": 15_000, "Kraken": 5_000})
+        assert r["concentrated"]
