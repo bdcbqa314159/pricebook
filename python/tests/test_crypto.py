@@ -242,3 +242,29 @@ class TestCryptoRisk:
         from pricebook.crypto.crypto_risk import exchange_risk
         r = exchange_risk({"Binance": 80_000, "Coinbase": 15_000, "Kraken": 5_000})
         assert r["concentrated"]
+
+
+class TestCryptoDesk:
+    def test_book(self):
+        from pricebook.desks.crypto_desk import CryptoBook, CryptoPosition, CryptoInstrument
+        book = CryptoBook("test")
+        book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 51000, "Binance", 10))
+        book.add(CryptoPosition("ETH", CryptoInstrument.SPOT, 10.0, 3000, 3100, "Coinbase"))
+        assert book.total_notional() > 0
+        assert book.total_pnl() > 0
+        assert len(book.by_symbol()) == 2
+
+    def test_pnl(self):
+        from pricebook.desks.crypto_desk import CryptoBook, CryptoPosition, CryptoInstrument, crypto_pnl
+        book = CryptoBook()
+        book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 51000, funding_accumulated=50))
+        r = crypto_pnl(book)
+        assert r.spot_pnl == 1000
+        assert r.pnl_btc > 0
+
+    def test_risk_report(self):
+        from pricebook.desks.crypto_desk import CryptoBook, CryptoPosition, CryptoInstrument, crypto_risk_report
+        book = CryptoBook()
+        book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 51000, "Binance", 10))
+        r = crypto_risk_report(book)
+        assert r["max_leverage"] == 10
