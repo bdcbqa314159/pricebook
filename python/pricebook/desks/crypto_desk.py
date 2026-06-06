@@ -176,3 +176,208 @@ def crypto_risk_report(book: CryptoBook) -> dict:
         "n_symbols": len(book.by_symbol()),
         "instruments": list(book.by_instrument().keys()),
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD14: Greeks Aggregation, Margin Monitor, Scenarios, Fees, Hedge
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class CryptoGreeksAgg:
+    """Aggregated Greeks for crypto options book."""
+    net_delta_usd: float
+    net_delta_btc: float
+    net_gamma_usd: float
+    net_vega: float
+    net_theta: float
+    gamma_pnl_1pct: float       # P&L from 1% spot move
+    n_options: int
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def aggregate_options_greeks(
+    book: CryptoBook,
+    spot: float,
+) -> CryptoGreeksAgg:
+    """Aggregate Greeks across all option positions in a crypto book.
+
+    Requires positions to have greeks dict: {"delta", "gamma", "vega", "theta"}.
+    """
+    d_usd = 0.0
+    g_usd = 0.0
+    v = 0.0
+    th = 0.0
+    n_opt = 0
+
+    for p in book.positions:
+        if p.instrument != CryptoInstrument.OPTION:
+            continue
+        greeks = getattr(p, 'greeks', None)
+        if greeks is None:
+            continue
+        qty = p.quantity
+        d_usd += greeks.get("delta", 0) * qty * spot
+        g_usd += greeks.get("gamma", 0) * qty * spot**2
+        v += greeks.get("vega", 0) * qty
+        th += greeks.get("theta", 0) * qty
+        n_opt += 1
+
+    gamma_1pct = 0.5 * g_usd * 0.01**2
+
+    return CryptoGreeksAgg(d_usd, d_usd / spot if spot > 0 else 0,
+                            g_usd, v, th, gamma_1pct, n_opt)
+
+
+@dataclass
+class MarginMonitorResult:
+    """Cross-exchange margin monitoring."""
+    total_equity: float
+    total_used_margin: float
+    total_available: float
+    worst_exchange: str
+    worst_margin_ratio: float
+    alerts: list[str]
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def margin_monitor(
+    book: CryptoBook,
+    exchange_equity: dict[str, float],
+    warning_ratio: float = 0.70,
+    danger_ratio: float = 0.90,
+) -> MarginMonitorResult:
+    """Monitor margin utilisation across exchanges.
+
+    Args:
+        book: crypto book with positions.
+        exchange_equity: {exchange: equity} available margin per exchange.
+        warning_ratio: margin ratio triggering warning.
+        danger_ratio: margin ratio triggering danger alert.
+    """
+    by_exchange = book.by_exchange()
+    alerts = []
+    worst = ("", 0.0)
+    total_equity = sum(exchange_equity.values())
+    total_used = 0.0
+
+    for exchange, positions in by_exchange.items():
+        equity = exchange_equity.get(exchange, 0)
+        used = sum(p.notional_usd / p.leverage for p in positions)
+        total_used += used
+
+        ratio = used / equity if equity > 0 else float('inf')
+        if ratio > worst[1]:
+            worst = (exchange, ratio)
+
+        if ratio > danger_ratio:
+            alerts.append(f"DANGER: {exchange} margin ratio {ratio:.1%}")
+        elif ratio > warning_ratio:
+            alerts.append(f"WARNING: {exchange} margin ratio {ratio:.1%}")
+
+    return MarginMonitorResult(
+        total_equity=total_equity,
+        total_used_margin=total_used,
+        total_available=total_equity - total_used,
+        worst_exchange=worst[0],
+        worst_margin_ratio=worst[1],
+        alerts=alerts,
+    )
+
+
+@dataclass
+class ScenarioResult:
+    """Crypto scenario analysis result."""
+    scenario_name: str
+    spot_shock_pct: float
+    vol_shock_pct: float
+    pnl_impact: float
+    new_margin_ratio: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def scenario_analysis(
+    book: CryptoBook,
+    scenarios: list[dict],
+    current_equity: float,
+) -> list[ScenarioResult]:
+    """Run stress scenarios on crypto book.
+
+    Each scenario: {"name", "spot_shock" (decimal), "vol_shock" (decimal)}.
+
+    Args:
+        book: crypto book.
+        scenarios: list of scenario dicts.
+        current_equity: current total equity.
+    """
+    results = []
+    for s in scenarios:
+        name = s.get("name", "unnamed")
+        spot_shock = s.get("spot_shock", 0)
+        vol_shock = s.get("vol_shock", 0)
+
+        pnl = 0.0
+        for p in book.positions:
+            # Spot P&L
+            price_change = p.current_price * spot_shock
+            pnl += p.quantity * price_change
+
+        new_equity = current_equity + pnl
+        used = sum(p.notional_usd / p.leverage for p in book.positions)
+        new_ratio = used / new_equity if new_equity > 0 else float('inf')
+
+        results.append(ScenarioResult(name, spot_shock * 100, vol_shock * 100,
+                                       pnl, new_ratio))
+
+    return results
+
+
+def fee_attribution(book: CryptoBook) -> dict:
+    """Fee P&L attribution per exchange and instrument type."""
+    by_exchange: dict[str, float] = {}
+    by_instrument: dict[str, float] = {}
+
+    for p in book.positions:
+        # Estimate fees from notional × taker fee
+        est_fee = p.notional_usd * 0.0005  # 5bps estimate
+        by_exchange[p.exchange] = by_exchange.get(p.exchange, 0) + est_fee
+        by_instrument[p.instrument.value] = by_instrument.get(p.instrument.value, 0) + est_fee
+
+    return {
+        "total_estimated_fees": sum(by_exchange.values()),
+        "by_exchange": by_exchange,
+        "by_instrument": by_instrument,
+    }
+
+
+def hedge_recommendations(
+    book: CryptoBook,
+    spot: float,
+    delta_limit_usd: float = 50_000.0,
+) -> list[dict]:
+    """Hedge recommendations based on current exposure.
+
+    If net delta exceeds limit, recommend hedging with perp.
+    """
+    net = book.net_exposure()
+    recs = []
+
+    for symbol, exposure in net.items():
+        if abs(exposure) > delta_limit_usd:
+            direction = "sell" if exposure > 0 else "buy"
+            size_usd = abs(exposure) - delta_limit_usd
+            size_qty = size_usd / spot if spot > 0 else 0
+            recs.append({
+                "symbol": symbol,
+                "action": f"{direction} {symbol}-PERP",
+                "size_usd": size_usd,
+                "size_qty": size_qty,
+                "reason": f"Net {symbol} exposure ${exposure:,.0f} exceeds limit ${delta_limit_usd:,.0f}",
+            })
+
+    return recs

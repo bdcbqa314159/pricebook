@@ -171,3 +171,176 @@ def exchange_risk(
         "largest_share_pct": round(largest[1] * 100, 1),
         "n_exchanges": len(balances),
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD13: Liquidity Depth, Correlation Breakdown, Gas Cost
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class LiquidityDepthResult:
+    """Orderbook liquidity depth analysis."""
+    bid_depth_usd: float        # total bid liquidity within X%
+    ask_depth_usd: float
+    bid_ask_spread_bps: float
+    slippage_1pct: float        # expected slippage for 1% of depth
+    time_to_exit_hours: float   # estimated time to exit position
+    liquidity_score: float      # 0–100
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def liquidity_depth(
+    bids: list[tuple[float, float]],
+    asks: list[tuple[float, float]],
+    position_size_usd: float = 100_000.0,
+    daily_volume_usd: float = 10_000_000.0,
+    pct_range: float = 0.02,
+) -> LiquidityDepthResult:
+    """Analyse orderbook depth and execution quality.
+
+    Args:
+        bids: [(price, qty_usd), ...] sorted descending by price.
+        asks: [(price, qty_usd), ...] sorted ascending by price.
+        position_size_usd: position to exit.
+        daily_volume_usd: average daily volume.
+        pct_range: depth range (±2% from mid).
+    """
+    if not bids or not asks:
+        return LiquidityDepthResult(0, 0, 0, 0, 0, 0)
+
+    mid = (bids[0][0] + asks[0][0]) / 2
+    spread_bps = (asks[0][0] - bids[0][0]) / mid * 10_000
+
+    # Depth within range
+    bid_depth = sum(qty for p, qty in bids if p >= mid * (1 - pct_range))
+    ask_depth = sum(qty for p, qty in asks if p <= mid * (1 + pct_range))
+
+    # Slippage estimate: walk the book
+    remaining = position_size_usd
+    total_cost = 0.0
+    for price, qty in bids:
+        fill = min(remaining, qty)
+        total_cost += fill
+        remaining -= fill
+        if remaining <= 0:
+            break
+    slippage = (mid - total_cost / position_size_usd * mid) / mid * 100 if position_size_usd > 0 and total_cost > 0 else 0
+
+    # Time to exit: position / (participation_rate × daily_volume)
+    participation = 0.10  # 10% of volume
+    tte = position_size_usd / (participation * daily_volume_usd) * 24 if daily_volume_usd > 0 else float('inf')
+
+    # Score: 0–100 based on depth relative to position
+    depth_ratio = (bid_depth + ask_depth) / max(position_size_usd, 1)
+    score = min(depth_ratio * 50, 100)
+
+    return LiquidityDepthResult(bid_depth, ask_depth, spread_bps, abs(slippage), tte, score)
+
+
+@dataclass
+class StressCorrelationResult:
+    """Correlation breakdown analysis under stress."""
+    normal_correlation: float
+    stress_correlation: float
+    correlation_jump: float
+    diversification_loss_pct: float
+    n_assets: int
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def correlation_stress_test(
+    returns: dict[str, list[float]],
+    stress_threshold: float = -0.05,
+) -> StressCorrelationResult:
+    """Test correlation breakdown during market stress.
+
+    Crypto correlations spike to ~1.0 in crashes.
+    Diversification benefit evaporates exactly when needed most.
+
+    Computes correlation in normal times vs stress times
+    (days when any major asset drops > threshold).
+
+    Args:
+        returns: {asset: [daily_returns]}.
+        stress_threshold: return below which = stress day.
+    """
+    assets = list(returns.keys())
+    n = len(assets)
+    min_len = min(len(v) for v in returns.values())
+
+    data = np.column_stack([np.array(returns[a][:min_len]) for a in assets])
+
+    # Identify stress days: any asset drops below threshold
+    stress_mask = np.any(data < stress_threshold, axis=1)
+    normal_mask = ~stress_mask
+
+    if np.sum(stress_mask) < 3 or np.sum(normal_mask) < 3:
+        # Not enough data
+        corr_all = np.corrcoef(data, rowvar=False)
+        avg = float(np.mean(corr_all[np.triu_indices(n, k=1)]))
+        return StressCorrelationResult(avg, avg, 0, 0, n)
+
+    # Normal correlation
+    normal_data = data[normal_mask]
+    corr_normal = np.corrcoef(normal_data, rowvar=False)
+    avg_normal = float(np.mean(corr_normal[np.triu_indices(n, k=1)]))
+
+    # Stress correlation
+    stress_data = data[stress_mask]
+    corr_stress = np.corrcoef(stress_data, rowvar=False)
+    avg_stress = float(np.mean(corr_stress[np.triu_indices(n, k=1)]))
+
+    jump = avg_stress - avg_normal
+    div_loss = jump / (1 - avg_normal) * 100 if avg_normal < 1 else 0
+
+    return StressCorrelationResult(avg_normal, avg_stress, jump, div_loss, n)
+
+
+@dataclass
+class GasCostResult:
+    """Gas cost analysis for DeFi operations."""
+    base_fee_gwei: float
+    priority_fee_gwei: float
+    total_gas_usd: float
+    cost_as_pct_of_trade: float
+    profitable_above_usd: float  # min trade size to be profitable
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def gas_cost_analysis(
+    base_fee_gwei: float = 30.0,
+    priority_fee_gwei: float = 2.0,
+    gas_units: int = 150_000,
+    eth_price_usd: float = 3000.0,
+    trade_size_usd: float = 10_000.0,
+    expected_profit_pct: float = 0.005,
+) -> GasCostResult:
+    """Analyse gas costs impact on DeFi profitability.
+
+    EIP-1559: total_fee = (base_fee + priority_fee) × gas_units.
+    Cost in USD: total_fee_gwei × 1e-9 × eth_price.
+
+    Args:
+        base_fee_gwei: current base fee.
+        priority_fee_gwei: tip for faster inclusion.
+        gas_units: gas needed for operation (swap ~150k, complex ~500k).
+        eth_price_usd: ETH price for USD conversion.
+        trade_size_usd: trade notional.
+        expected_profit_pct: expected profit before gas.
+    """
+    total_gwei = (base_fee_gwei + priority_fee_gwei) * gas_units
+    total_eth = total_gwei * 1e-9
+    total_usd = total_eth * eth_price_usd
+
+    cost_pct = total_usd / trade_size_usd * 100 if trade_size_usd > 0 else 0
+
+    # Min trade size to be profitable
+    min_trade = total_usd / expected_profit_pct if expected_profit_pct > 0 else float('inf')
+
+    return GasCostResult(base_fee_gwei, priority_fee_gwei, total_usd, cost_pct, min_trade)

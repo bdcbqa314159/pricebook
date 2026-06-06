@@ -485,3 +485,95 @@ class TestCapitalEfficiency:
         from pricebook.crypto.funding_rate import basis_trade_capital_efficiency
         r = basis_trade_capital_efficiency(50000, 0.0001, leverage=5)
         assert r["return_on_capital_pct"] > 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD13: Liquidity, Correlation Stress, Gas
+# ═══════════════════════════════════════════════════════════════
+
+class TestLiquidityDepth:
+    def test_depth(self):
+        from pricebook.crypto.crypto_risk import liquidity_depth
+        bids = [(50000, 100000), (49900, 200000), (49800, 150000)]
+        asks = [(50100, 100000), (50200, 200000), (50300, 150000)]
+        r = liquidity_depth(bids, asks, position_size_usd=50000)
+        assert r.bid_depth_usd > 0
+        assert r.bid_ask_spread_bps > 0
+        assert r.liquidity_score > 0
+
+class TestCorrelationStress:
+    def test_stress(self):
+        from pricebook.crypto.crypto_risk import correlation_stress_test
+        rng = np.random.default_rng(42)
+        n = 500
+        common = rng.normal(0, 0.02, n)
+        returns = {
+            "BTC": (common + rng.normal(0, 0.01, n)).tolist(),
+            "ETH": (common * 1.2 + rng.normal(0, 0.015, n)).tolist(),
+            "SOL": (common * 1.5 + rng.normal(0, 0.02, n)).tolist(),
+        }
+        r = correlation_stress_test(returns)
+        assert r.n_assets == 3
+        assert r.stress_correlation != r.normal_correlation  # correlation changes under stress
+
+class TestGasCost:
+    def test_gas(self):
+        from pricebook.crypto.crypto_risk import gas_cost_analysis
+        r = gas_cost_analysis(base_fee_gwei=30, eth_price_usd=3000, trade_size_usd=1000)
+        assert r.total_gas_usd > 0
+        assert r.cost_as_pct_of_trade > 0
+        assert r.profitable_above_usd > 0
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD14: Desk Extensions
+# ═══════════════════════════════════════════════════════════════
+
+class TestMarginMonitor:
+    def test_monitor(self):
+        from pricebook.desks.crypto_desk import (
+            CryptoBook, CryptoPosition, CryptoInstrument, margin_monitor,
+        )
+        book = CryptoBook()
+        book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 51000, "Binance", 10))
+        book.add(CryptoPosition("ETH", CryptoInstrument.PERPETUAL, 10.0, 3000, 3100, "Coinbase", 5))
+        r = margin_monitor(book, {"Binance": 20000, "Coinbase": 15000})
+        assert r.total_equity > 0
+        assert len(r.alerts) >= 0
+
+class TestScenarioAnalysis:
+    def test_scenarios(self):
+        from pricebook.desks.crypto_desk import (
+            CryptoBook, CryptoPosition, CryptoInstrument, scenario_analysis,
+        )
+        book = CryptoBook()
+        book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 50000, "Binance", 10))
+        scenarios = [
+            {"name": "crash", "spot_shock": -0.20},
+            {"name": "rally", "spot_shock": 0.10},
+        ]
+        results = scenario_analysis(book, scenarios, 10000)
+        assert len(results) == 2
+        assert results[0].pnl_impact < 0  # crash = loss for long
+        assert results[1].pnl_impact > 0  # rally = gain
+
+class TestFeeAttribution:
+    def test_fees(self):
+        from pricebook.desks.crypto_desk import (
+            CryptoBook, CryptoPosition, CryptoInstrument, fee_attribution,
+        )
+        book = CryptoBook()
+        book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 51000, "Binance", 10))
+        r = fee_attribution(book)
+        assert r["total_estimated_fees"] > 0
+
+class TestHedgeRec:
+    def test_hedge(self):
+        from pricebook.desks.crypto_desk import (
+            CryptoBook, CryptoPosition, CryptoInstrument, hedge_recommendations,
+        )
+        book = CryptoBook()
+        book.add(CryptoPosition("BTC", CryptoInstrument.SPOT, 2.0, 50000, 50000, "Binance"))
+        recs = hedge_recommendations(book, 50000, delta_limit_usd=50000)
+        assert len(recs) == 1  # 100k exposure > 50k limit
+        assert "sell" in recs[0]["action"]
