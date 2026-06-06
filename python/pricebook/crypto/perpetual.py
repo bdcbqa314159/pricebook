@@ -306,3 +306,238 @@ def liquidation_price(
         leverage=leverage,
         distance_pct=distance,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# CD3: Margin Modes, Partial Liquidation, ADL, Insurance Fund
+# ═══════════════════════════════════════════════════════════════
+
+class MarginMode(Enum):
+    """Margin mode."""
+    ISOLATED = "isolated"       # each position has separate margin
+    CROSS = "cross"             # all positions share margin pool
+
+
+@dataclass
+class MarginAccountResult:
+    """Margin account status."""
+    total_equity: float
+    used_margin: float
+    available_margin: float
+    margin_ratio: float         # used / total (>1 = liquidation)
+    mode: str
+    n_positions: int
+    liquidation_risk: str       # "safe", "warning", "danger"
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def margin_account(
+    equity: float,
+    positions: list[dict],
+    mode: MarginMode = MarginMode.CROSS,
+) -> MarginAccountResult:
+    """Compute margin account status.
+
+    Cross margin: all positions share equity pool.
+    Isolated: each position has its own margin.
+
+    Each position dict: {"notional", "leverage", "unrealised_pnl", "maintenance_margin"}.
+
+    Args:
+        equity: total account equity (deposits + realised PnL).
+        positions: list of position dicts.
+        mode: CROSS or ISOLATED.
+    """
+    total_equity = equity + sum(p.get("unrealised_pnl", 0) for p in positions)
+
+    if mode == MarginMode.CROSS:
+        used = sum(p["notional"] * p.get("maintenance_margin", 0.005) for p in positions)
+    else:
+        used = sum(p["notional"] / p.get("leverage", 1) for p in positions)
+
+    available = total_equity - used
+    ratio = used / total_equity if total_equity > 0 else float('inf')
+
+    if ratio < 0.5:
+        risk = "safe"
+    elif ratio < 0.8:
+        risk = "warning"
+    else:
+        risk = "danger"
+
+    return MarginAccountResult(
+        total_equity=total_equity,
+        used_margin=used,
+        available_margin=max(available, 0),
+        margin_ratio=ratio,
+        mode=mode.value,
+        n_positions=len(positions),
+        liquidation_risk=risk,
+    )
+
+
+@dataclass
+class PartialLiquidationResult:
+    """Partial liquidation result."""
+    liquidated_qty: float       # quantity liquidated
+    remaining_qty: float
+    new_leverage: float
+    new_margin: float
+    liquidation_fee: float
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def partial_liquidation(
+    position_qty: float,
+    entry_price: float,
+    mark_price: float,
+    leverage: float,
+    maintenance_margin: float = 0.005,
+    liquidation_fee: float = 0.0005,
+    target_margin_ratio: float = 0.03,
+) -> PartialLiquidationResult:
+    """Partial liquidation: reduce position to restore margin.
+
+    Instead of liquidating the entire position, exchanges reduce
+    it to bring the margin ratio back to a safe level.
+
+    liquidated_qty = position × (1 − target_margin / current_margin_deficit)
+
+    Args:
+        position_qty: current position size.
+        entry_price: position entry price.
+        mark_price: current mark price.
+        leverage: current leverage.
+        target_margin_ratio: margin ratio to restore to.
+    """
+    margin = position_qty * entry_price / leverage
+    pnl = position_qty * (mark_price - entry_price)
+    equity = margin + pnl
+
+    required_margin = abs(position_qty * mark_price) * maintenance_margin
+    deficit = required_margin - equity
+
+    if deficit <= 0:
+        # No liquidation needed
+        return PartialLiquidationResult(0, position_qty, leverage, margin, 0)
+
+    # How much to liquidate to restore target margin
+    target_qty = equity / (mark_price * target_margin_ratio) if mark_price > 0 else 0
+    liquidated = max(abs(position_qty) - abs(target_qty), 0)
+
+    remaining = abs(position_qty) - liquidated
+    new_leverage = remaining * mark_price / equity if equity > 0 else 0
+    fee = liquidated * mark_price * liquidation_fee
+
+    return PartialLiquidationResult(
+        liquidated_qty=liquidated,
+        remaining_qty=remaining,
+        new_leverage=new_leverage,
+        new_margin=equity - fee,
+        liquidation_fee=fee,
+    )
+
+
+@dataclass
+class ADLResult:
+    """Auto-deleverage (ADL) ranking result."""
+    adl_rank: int               # 1 = most likely to be ADL'd
+    quantile: float             # 0-1 (higher = more at risk)
+    unrealised_pnl_pct: float
+    leverage: float
+    adl_score: float            # pnl_pct × leverage
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def adl_ranking(
+    positions: list[dict],
+) -> list[ADLResult]:
+    """Auto-deleverage ranking.
+
+    When a liquidation can't be filled and the insurance fund is
+    depleted, the exchange auto-deleverages the most profitable
+    opposing positions.
+
+    ADL score = unrealised_pnl_pct × leverage (highest = first to ADL).
+
+    Each position dict: {"unrealised_pnl", "entry_price", "quantity", "leverage"}.
+    """
+    results = []
+    for p in positions:
+        pnl = p.get("unrealised_pnl", 0)
+        entry = p.get("entry_price", 1)
+        qty = p.get("quantity", 0)
+        lev = p.get("leverage", 1)
+
+        pnl_pct = pnl / (abs(qty) * entry) * 100 if qty != 0 and entry > 0 else 0
+        score = abs(pnl_pct) * lev
+
+        results.append(ADLResult(0, 0, pnl_pct, lev, score))
+
+    # Rank by score (highest = first to be ADL'd)
+    results.sort(key=lambda r: r.adl_score, reverse=True)
+    for i, r in enumerate(results):
+        r.adl_rank = i + 1
+        r.quantile = (i + 1) / len(results) if results else 0
+
+    return results
+
+
+@dataclass
+class InsuranceFundResult:
+    """Insurance fund analysis."""
+    fund_balance: float
+    daily_inflow: float         # from liquidation fees
+    daily_outflow: float        # from socialized losses
+    runway_days: float          # balance / net_outflow
+    depletion_risk: str
+
+    def to_dict(self) -> dict:
+        return vars(self)
+
+
+def insurance_fund_analysis(
+    fund_balance: float,
+    daily_liquidation_volume: float,
+    liquidation_fee: float = 0.0005,
+    loss_rate: float = 0.10,
+    avg_loss_per_liquidation: float = 0.02,
+) -> InsuranceFundResult:
+    """Analyse insurance fund sustainability.
+
+    Inflow: liquidation_volume × liquidation_fee.
+    Outflow: liquidation_volume × loss_rate × avg_loss.
+
+    If outflow > inflow, fund depletes → ADL events increase.
+
+    Args:
+        fund_balance: current insurance fund balance.
+        daily_liquidation_volume: daily liquidation volume.
+        liquidation_fee: fee charged per liquidation.
+        loss_rate: fraction of liquidations that result in loss.
+        avg_loss_per_liquidation: average loss when liquidation fails.
+    """
+    inflow = daily_liquidation_volume * liquidation_fee
+    outflow = daily_liquidation_volume * loss_rate * avg_loss_per_liquidation
+
+    net = inflow - outflow
+    if net < 0:
+        runway = fund_balance / abs(net) if abs(net) > 0 else float('inf')
+        risk = "depleting" if runway < 30 else "warning"
+    else:
+        runway = float('inf')
+        risk = "healthy"
+
+    return InsuranceFundResult(
+        fund_balance=fund_balance,
+        daily_inflow=inflow,
+        daily_outflow=outflow,
+        runway_days=runway,
+        depletion_risk=risk,
+    )

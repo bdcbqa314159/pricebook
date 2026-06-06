@@ -268,3 +268,157 @@ class TestCryptoDesk:
         book.add(CryptoPosition("BTC", CryptoInstrument.PERPETUAL, 1.0, 50000, 51000, "Binance", 10))
         r = crypto_risk_report(book)
         assert r["max_leverage"] == 10
+
+
+# ═══════════════════════════════════════════════════════════════
+# Deep Crypto: CD1–CD12
+# ═══════════════════════════════════════════════════════════════
+
+class TestMoveContract:
+    def test_move_positive(self):
+        from pricebook.crypto.crypto_options import move_contract
+        r = move_contract(50000, 0.80, 7/365)
+        assert r.price > 0
+        assert r.breakeven_move_pct > 0
+
+class TestVarianceSwap:
+    def test_var_swap(self):
+        from pricebook.crypto.crypto_options import crypto_variance_swap
+        r = crypto_variance_swap(0.80, skew_adjustment=0.03)
+        assert r.fair_vol > 80
+
+class TestGreeksPnL:
+    def test_explain(self):
+        from pricebook.crypto.crypto_options import greeks_pnl_explain
+        r = greeks_pnl_explain(0.5, 0.001, 200, -50, spot_move=1000, vol_move=0.02, actual_pnl=800)
+        assert r.total_pnl == 800
+        assert r.delta_pnl == 500
+
+class TestPortfolioGreeks:
+    def test_aggregate(self):
+        from pricebook.crypto.crypto_options import aggregate_greeks
+        pos = [{"delta": 0.5, "gamma": 0.001, "vega": 200, "theta": -50, "quantity": 2}]
+        r = aggregate_greeks(pos, 50000)
+        assert r.net_delta == 1.0
+
+class TestCrossCorrelation:
+    def test_correlation(self):
+        from pricebook.crypto.crypto_vol import cross_asset_correlation
+        rng = np.random.default_rng(42)
+        r = cross_asset_correlation({"BTC": rng.normal(0, 0.03, 100).tolist(),
+                                      "ETH": rng.normal(0, 0.04, 100).tolist()})
+        assert len(r.assets) == 2
+
+class TestJumpDecomp:
+    def test_decomp(self):
+        from pricebook.crypto.crypto_vol import jump_decomposition
+        rng = np.random.default_rng(42)
+        returns = rng.standard_t(3, 500).tolist()
+        r = jump_decomposition(returns)
+        assert r.jump_fraction > 0
+        assert r.n_jumps > 0
+
+class TestMarginAccount:
+    def test_cross_margin(self):
+        from pricebook.crypto.perpetual import margin_account, MarginMode
+        r = margin_account(10000, [{"notional": 50000, "leverage": 5, "unrealised_pnl": 500}])
+        assert r.liquidation_risk in ["safe", "warning", "danger"]
+
+class TestPartialLiq:
+    def test_partial(self):
+        from pricebook.crypto.perpetual import partial_liquidation
+        r = partial_liquidation(1.0, 50000, 45000, 10)
+        assert r.liquidated_qty > 0
+
+class TestADL:
+    def test_ranking(self):
+        from pricebook.crypto.perpetual import adl_ranking
+        r = adl_ranking([{"unrealised_pnl": 1000, "entry_price": 50000, "quantity": 1, "leverage": 10},
+                          {"unrealised_pnl": 500, "entry_price": 50000, "quantity": 1, "leverage": 5}])
+        assert r[0].adl_rank == 1
+
+class TestInsuranceFund:
+    def test_healthy(self):
+        from pricebook.crypto.perpetual import insurance_fund_analysis
+        r = insurance_fund_analysis(50_000_000, 10_000_000)
+        assert r.depletion_risk in ["healthy", "warning", "depleting"]
+
+class TestTokenomics:
+    def test_supply(self):
+        from pricebook.crypto.tokenomics import token_supply_schedule
+        r = token_supply_schedule(500_000_000, 1_000_000_000, 10_000_000)
+        assert r.circulating[-1] > r.circulating[0]
+
+    def test_dcf(self):
+        from pricebook.crypto.tokenomics import token_dcf
+        r = token_dcf(100_000_000)
+        assert r.fair_value_per_token > 0
+
+class TestStablecoin:
+    def test_peg_health(self):
+        from pricebook.crypto.stablecoin import peg_health
+        r = peg_health(0.998)
+        assert r.severity == "normal"
+        r2 = peg_health(0.95)
+        assert r2.severity == "depeg"
+
+    def test_depeg_risk(self):
+        from pricebook.crypto.stablecoin import depeg_risk_score, StablecoinType
+        r = depeg_risk_score(StablecoinType.FIAT_BACKED, collateral_ratio=1.01)
+        assert r.risk_level in ["low", "medium"]
+
+    def test_arb(self):
+        from pricebook.crypto.stablecoin import stablecoin_arb
+        r = stablecoin_arb(0.995)
+        assert r["direction"] == "buy_redeem"
+
+class TestStructuredCrypto:
+    def test_dual_investment(self):
+        from pricebook.crypto.structured_crypto import dual_investment
+        r = dual_investment(50000, 48000, 0.80, 7/365)
+        assert r.enhanced_yield_apy > r.base_yield_apy
+
+    def test_shark_fin(self):
+        from pricebook.crypto.structured_crypto import crypto_shark_fin
+        r = crypto_shark_fin(50000, 0.80, 30/365, 55000)
+        assert r.max_return_pct > 0
+
+    def test_snowball(self):
+        from pricebook.crypto.structured_crypto import crypto_snowball
+        r = crypto_snowball(50000, 0.80, 90/365, n_sims=5000)
+        assert 0 < r.price < 2
+
+class TestCascade:
+    def test_simulate(self):
+        from pricebook.crypto.liquidation_cascade import simulate_cascade, LeveragedPosition
+        positions = [LeveragedPosition(100000, 10, 45000, "long") for _ in range(50)]
+        r = simulate_cascade(positions, 50000, -0.12)
+        assert r.n_liquidations > 0
+
+    def test_risk_score(self):
+        from pricebook.crypto.liquidation_cascade import cascade_risk_score, LeveragedPosition
+        positions = [LeveragedPosition(100000, 20, 48000, "long") for _ in range(100)]
+        r = cascade_risk_score(positions, 50000, 10_000_000, 100_000_000)
+        assert r.score > 0
+
+class TestSmartContractRisk:
+    def test_contract_score(self):
+        from pricebook.crypto.smart_contract_risk import contract_risk_score, AuditStatus
+        safe = contract_risk_score(AuditStatus.FORMALLY_VERIFIED, age_days=1000, tvl_usd=1e9,
+                                    is_upgradeable=False, multisig_signers=5, multisig_threshold=3,
+                                    has_timelock=True, bug_bounty_usd=1_000_000)
+        risky = contract_risk_score(AuditStatus.UNAUDITED, age_days=30)
+        assert safe.score < risky.score
+
+    def test_composability(self):
+        from pricebook.crypto.smart_contract_risk import composability_risk
+        r = composability_risk({"Aave": 15, "Curve": 20, "Uniswap": 10},
+                                ["Aave", "Curve", "Uniswap"])
+        assert r.total_score > 0
+        assert r.chain_depth == 3
+
+    def test_oracle_risk(self):
+        from pricebook.crypto.smart_contract_risk import oracle_risk
+        safe = oracle_risk(n_price_sources=21, update_frequency_seconds=12, uses_twap=True)
+        risky = oracle_risk(n_price_sources=1, update_frequency_seconds=7200)
+        assert safe.score < risky.score
