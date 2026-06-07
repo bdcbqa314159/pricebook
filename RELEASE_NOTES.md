@@ -2,6 +2,19 @@
 
 ---
 
+## v0.834.0 — 2026-06-07
+
+**Exotic option payoffs: ladder, shout, installment.**
+
+- New `options/exotic_payoffs.py`:
+  - `ladder_option()` — MC with rung-based lock-in of intrinsic.
+  - `shout_option()` — MC multi-shout option.
+  - `shout_option_analytical()` — Dai-Kwok-Wu closed form via lookback equivalence.
+  - `installment_option()` — MC with rational abandonment at each payment date.
+- 12 tests.
+
+---
+
 ## v0.833.0 — 2026-06-07
 
 **Freight derivatives.**
