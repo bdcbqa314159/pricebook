@@ -2,6 +2,18 @@
 
 ---
 
+## v0.847.0 — 2026-06-07
+
+**Callable and puttable floating rate notes.**
+
+- New `fixed_income/callable_floater.py`:
+  - `callable_frn()` — HW tree with call constraint on coupon dates.
+  - `puttable_frn()` — HW tree with put constraint.
+  - `callable_frn_oas()` — OAS via Brent root-find.
+- 8 tests.
+
+---
+
 ## v0.846.0 — 2026-06-07
 
 **Bermudan cap/floor.**
