@@ -2,6 +2,21 @@
 
 ---
 
+## v0.839.0 — 2026-06-07
+
+**Longevity and mortality derivatives.**
+
+- New `structured/longevity.py`:
+  - `q_forward()` — mortality rate swap (q-forward).
+  - `longevity_swap()` — multi-cohort fixed vs realised mortality.
+  - `survivor_index()` — population projection with mortality improvement.
+  - `lee_carter_forecast()` — Lee-Carter SVD mortality forecasting.
+  - `mortality_bond_price()` — principal-at-risk mortality bond.
+  - `value_of_life_annuity()` — life-contingent annuity PV.
+- 16 tests.
+
+---
+
 ## v0.838.0 — 2026-06-07
 
 **Catastrophe bonds and ILS.**
