@@ -2,6 +2,17 @@
 
 ---
 
+## v0.855.0 — 2026-06-07
+
+**G2++ callable bond, CMS spread, callable floater.**
+
+- New `fixed_income/callable_bond_g2pp.py`: callable/puttable bonds on G2++ 2D tree.
+- New `structured/cms_spread_g2pp.py`: CMS spread pricing + options + correlation diagnostic under G2++. Key: under 1F correlation=1.0; under G2++ correlation<1.0.
+- New `fixed_income/callable_floater_g2pp.py`: callable/puttable FRN on G2++ 2D tree.
+- 10 tests.
+
+---
+
 ## v0.854.0 — 2026-06-07
 
 **G2++ 2D tree and Bermudan swaption.**
