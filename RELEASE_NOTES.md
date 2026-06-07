@@ -2,6 +2,19 @@
 
 ---
 
+## v0.851.0 — 2026-06-07
+
+**Bermudan barrier options.**
+
+- New `options/bermudan_barrier.py`:
+  - `bermudan_barrier_option()` — LSM with continuous barrier monitoring.
+  - `american_barrier_option()` — American exercise + barrier knock-out.
+  - `bermudan_double_barrier()` — double barrier with early exercise.
+  - `barrier_exercise_interaction()` — decompose barrier vs exercise premium.
+- 9 tests.
+
+---
+
 ## v0.850.0 — 2026-06-07
 
 **American multi-asset options.**
