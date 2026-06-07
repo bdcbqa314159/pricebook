@@ -2,6 +2,20 @@
 
 ---
 
+## v0.827.0 — 2026-06-07
+
+**Equity spread options.**
+
+- New `equity/equity_spread_option.py`:
+  - `kirk_equity_spread()` — Kirk's approximation with dividend yields.
+  - `bjerksund_stensland_spread()` — improved accuracy for non-zero strikes.
+  - `mc_spread_option()` — Monte Carlo benchmark with antithetic variates.
+  - `outperformance_option()` — Margrabe special case (K=0).
+  - `relative_performance_option()` — percentage outperformance.
+- 11 tests.
+
+---
+
 ## v0.826.0 — 2026-06-07
 
 **Equity-linked notes (ELN).**
