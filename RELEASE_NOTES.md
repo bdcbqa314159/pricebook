@@ -2,6 +2,19 @@
 
 ---
 
+## v0.850.0 — 2026-06-07
+
+**American multi-asset options.**
+
+- New `options/american_multi_asset.py`:
+  - `american_spread_option()` — LSM with 6-term basis on (S1, S2).
+  - `american_basket_option()` — LSM on weighted basket.
+  - `american_best_of()` — LSM on max(S1, S2).
+  - `american_worst_of_put()` — LSM on min(S1, S2), key for structured products.
+- 10 tests.
+
+---
+
 ## v0.849.0 — 2026-06-07
 
 **Stochastic credit Bermudan CDS swaption.**
