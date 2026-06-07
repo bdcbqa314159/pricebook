@@ -2,6 +2,19 @@
 
 ---
 
+## v0.829.0 — 2026-06-07
+
+**Money market instruments.**
+
+- New `fixed_income/money_market.py`:
+  - `CertificateOfDeposit` — interest-bearing, dirty/clean price, YTM.
+  - `CommercialPaper` — discount instrument, credit spread.
+  - `BankersAcceptance` — bank-guaranteed CP with acceptance fee.
+  - `RepoRate` — implied repo and haircut-adjusted rate helpers.
+- 11 tests.
+
+---
+
 ## v0.828.0 — 2026-06-07
 
 **Cross-currency swaptions.**
