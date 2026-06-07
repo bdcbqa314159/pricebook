@@ -113,6 +113,12 @@ def quanto_futures_price(
     Returns:
         :class:`QuantoFuturesResult` with the quanto fair value and components.
     """
+    if spot_index <= 0:
+        raise ValueError("spot_index must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if index_vol < 0 or fx_vol < 0:
+        raise ValueError("volatilities must be non-negative")
     quanto_adj_exponent = -correlation * index_vol * fx_vol * T
     quanto_adjustment = math.exp(quanto_adj_exponent)
 
@@ -211,8 +217,10 @@ def implied_correlation(
     Raises:
         ValueError: If *fx_vol*, *index_vol* or *T* is zero.
     """
-    if fx_vol == 0.0 or index_vol == 0.0:
+    if abs(fx_vol) < 1e-15 or abs(index_vol) < 1e-15:
         raise ValueError("fx_vol and index_vol must be non-zero.")
+    if spot_index <= 0 or quanto_price <= 0:
+        raise ValueError("spot_index and quanto_price must be positive")
     if T <= 0.0:
         raise ValueError("T must be positive.")
 

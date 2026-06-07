@@ -137,6 +137,13 @@ def carbon_option_price(
     Returns:
         :class:`CarbonOptionResult` with price and Greeks.
     """
+    if spot <= 0 or strike <= 0:
+        raise ValueError("spot and strike must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if vol <= 0:
+        raise ValueError("vol must be positive")
+
     ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
     df = math.exp(-rate * T)
 

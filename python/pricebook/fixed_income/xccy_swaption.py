@@ -185,12 +185,19 @@ def xccy_forward_spread(
 
     ann = _annuity(reference_date, domestic_curve, start_years, tenor_years, frequency)
 
-    # PV of foreign notional exchange converted to domestic, net of domestic notional exchange
-    # Net PV (normalised to 1 unit domestic notional at start):
-    #   = fwd_fx_end / fwd_fx_start - 1
-    # Spread balances this over the annuity
-    net_pv = fwd_fx_end / fwd_fx_start - 1.0
-    spread = net_pv / ann if ann > 1e-12 else 0.0
+    # Full floating-leg PV replication (Brigo & Mercurio Ch. 13).
+    #
+    # Domestic floating leg PV (par floater): df_dom(start) - df_dom(end).
+    # Foreign floating leg PV in domestic currency (notional exchanged at spot):
+    #   FX_spot × N_for × (df_for(start) - df_for(end))
+    # where N_for = 1/FX_spot (unit domestic notional → foreign notional).
+    # So foreign PV in domestic = df_for(start) - df_for(end).
+    #
+    # The basis spread S on the domestic leg makes PV = 0:
+    #   df_dom(start) - df_dom(end) + S × ann = df_for(start) - df_for(end)
+    dom_float_pv = df_dom_start - df_dom_end
+    for_float_pv = df_for_start - df_for_end
+    spread = (dom_float_pv - for_float_pv) / ann if ann > 1e-12 else 0.0
     return spread
 
 

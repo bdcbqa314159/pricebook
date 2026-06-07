@@ -15,8 +15,9 @@ References:
 from __future__ import annotations
 
 import math
-import random
 from dataclasses import dataclass
+
+import numpy as np
 
 from pricebook.models.black76 import OptionType, _norm_cdf, black76_price
 
@@ -419,33 +420,26 @@ def worst_of_eln(
     drifts = [(rate - div_yields[i] - 0.5 * vols[i] ** 2) * T for i in range(n)]
     sigmas = [vols[i] * math.sqrt(T) for i in range(n)]
 
-    rng = random.Random(seed)
+    rng = np.random.default_rng(seed)
 
-    def _randn() -> float:
-        # Box-Muller
-        while True:
-            u1 = rng.random()
-            u2 = rng.random()
-            if u1 > 0.0:
-                return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
+    # Cholesky matrix as numpy array
+    L_arr = np.array(L)  # (n, n) lower triangular
 
-    coupon_hits = 0
-    for _ in range(n_paths):
-        # Generate n independent normals
-        z = [_randn() for _ in range(n)]
-        # Correlate via Cholesky
-        w = [sum(L[i][j] * z[j] for j in range(i + 1)) for i in range(n)]
+    # Vectorised MC: generate all paths at once
+    z = rng.standard_normal((n_paths, n))  # independent normals
+    w = z @ L_arr.T  # correlated normals: (n_paths, n)
 
-        breached = False
-        for i in range(n):
-            s_T = spots[i] * math.exp(drifts[i] + sigmas[i] * w[i])
-            if s_T < barrier * spots[i]:
-                breached = True
-                break
-        if not breached:
-            coupon_hits += 1
+    # Terminal asset prices for each path
+    drifts_arr = np.array(drifts)   # (n,)
+    sigmas_arr = np.array(sigmas)   # (n,)
+    spots_arr = np.array(spots)     # (n,)
 
-    prob_coupon = coupon_hits / n_paths
+    s_T = spots_arr * np.exp(drifts_arr + sigmas_arr * w)  # (n_paths, n)
+
+    # Check if any asset breached the barrier
+    barrier_levels = barrier * spots_arr  # (n,)
+    breached = np.any(s_T < barrier_levels, axis=1)  # (n_paths,)
+    prob_coupon = float(np.mean(~breached))
     coupon_pv = coupon * notional * df * prob_coupon
     option_component = coupon_pv
 

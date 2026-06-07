@@ -174,6 +174,14 @@ def kirk_equity_spread(
     Returns:
         :class:`SpreadOptionResult` with price and Greeks.
     """
+    if S1 <= 0 or S2 <= 0:
+        raise ValueError("spot prices must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if vol1 < 0 or vol2 < 0:
+        raise ValueError("volatilities must be non-negative")
+    if not -1 <= rho <= 1:
+        raise ValueError("correlation must be in [-1, 1]")
     price = _kirk_price_equity(S1, S2, K, vol1, vol2, rho, T, r, q1, q2, option_type)
 
     d1, d2, g1, g2, xg, v1, v2, rs = _finite_diff_greeks(

@@ -2,6 +2,17 @@
 
 ---
 
+## v0.842.0 — 2026-06-07
+
+**Fix remaining known limitations.**
+
+- `xccy_swaption.py`: correct `xccy_forward_spread` to use full floating-leg PV replication (Brigo & Mercurio Ch. 13) — par floater identity for both legs, notional exchange at spot.
+- `exotic_payoffs.py`: fix `shout_option_analytical` r=q branch to use Goldman-Sosin-Gatto (1979) lookback formula correctly.
+- `equity_linked_note.py`: replace stdlib `random` MC in `worst_of_eln` with vectorised numpy (Cholesky @ standard_normal).
+- Input validation added across 6 modules: `equity_spread_option`, `exotic_payoffs`, `carbon_credit`, `freight`, `quanto_futures` — guards for spot>0, T>0, vol>0, rho∈[-1,1].
+
+---
+
 ## v0.841.0 — 2026-06-07
 
 **Code review fixes across 12 modules.**

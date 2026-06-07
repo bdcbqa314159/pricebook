@@ -191,6 +191,12 @@ def ladder_option(
     -------
     LadderOptionResult
     """
+    if spot <= 0:
+        raise ValueError("spot must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if vol <= 0:
+        raise ValueError("vol must be positive")
     if option_type not in ("call", "put"):
         raise ValueError("option_type must be 'call' or 'put'")
 
@@ -381,6 +387,13 @@ def shout_option_analytical(
     float
         Analytical single-shout call price.
     """
+    if spot <= 0 or strike <= 0:
+        raise ValueError("spot and strike must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if vol <= 0:
+        raise ValueError("vol must be positive")
+
     from scipy.stats import norm  # type: ignore[import]
     N = norm.cdf
 
@@ -399,9 +412,10 @@ def shout_option_analytical(
     d2 = d1 - vol * sqT
 
     if abs(r - q) < 1e-10:
-        # r == q: degenerate formula
-        lp = (S * math.exp(-q * T) * vol * sqT * (norm.pdf(d1) + d1 * N(d1) - d1)
-              - m * math.exp(-r * T) * N(d2))
+        # r == q: Goldman-Sosin-Gatto (1979) degenerate case.
+        # With m = S, d1 = 0.5 * vol * sqT, d2 = -0.5 * vol * sqT.
+        # LP = S * e^{-rT} * [vol*sqT*n(d1) + (1 - 2*N(-d1))]  (textbook form)
+        lp = S * math.exp(-r * T) * (vol * sqT * norm.pdf(d1) + 1.0 - 2.0 * N(-d1))
     else:
         theta = 2.0 * (r - q) / (vol ** 2)
         lp = (S * math.exp(-q * T) * N(-d1)

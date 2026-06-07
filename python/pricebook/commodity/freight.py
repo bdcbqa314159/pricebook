@@ -153,6 +153,13 @@ def freight_option_price(
     Returns:
         :class:`FreightOptionResult` with price and Greeks.
     """
+    if ffa_rate <= 0 or strike <= 0:
+        raise ValueError("ffa_rate and strike must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if vol <= 0:
+        raise ValueError("vol must be positive")
+
     ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
     df = math.exp(-r * T)
 
