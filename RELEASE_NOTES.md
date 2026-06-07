@@ -2,6 +2,22 @@
 
 ---
 
+## v0.854.0 — 2026-06-07
+
+**G2++ 2D tree and Bermudan swaption.**
+
+- New `models/g2pp_tree.py`:
+  - `G2PPTree` — 2D recombining trinomial lattice with correlation.
+  - `backward_induction()` — generic 2D backward induction with pluggable option constraint.
+  - `g2pp_european_swaption_tree()` — verification against analytical.
+- New `options/bermudan_swaption_g2pp.py`:
+  - `bermudan_swaption_g2pp_tree()` — Bermudan swaption on 2D tree.
+  - `bermudan_swaption_g2pp_lsm()` — LSM with (1, x, y, x², y², xy) basis.
+  - `g2pp_vs_hw1f_bermudan()` — compare 1F vs 2F Bermudan prices.
+- 14 tests.
+
+---
+
 ## v0.853.0 — 2026-06-07
 
 **G2++ (2-factor Hull-White) calibration.**
