@@ -2,6 +2,18 @@
 
 ---
 
+## v0.848.0 — 2026-06-07
+
+**Callable structured notes.**
+
+- New `structured/callable_structured.py`:
+  - `callable_steepener()` — LSM on CMS spread with issuer call.
+  - `callable_cms_spread()` — callable CMS spread note.
+  - `callable_inverse_floater()` — callable inverse floater.
+- 6 tests.
+
+---
+
 ## v0.847.0 — 2026-06-07
 
 **Callable and puttable floating rate notes.**
