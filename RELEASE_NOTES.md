@@ -2,6 +2,17 @@
 
 ---
 
+## v0.846.0 — 2026-06-07
+
+**Bermudan cap/floor.**
+
+- New `options/bermudan_capfloor.py`:
+  - `bermudan_cap()` / `bermudan_floor()` — HW trinomial tree with Bermudan exercise on remaining caplet/floorlet strip.
+  - `bermudan_collar()` — long cap + short floor with Bermudan exercise.
+- 9 tests.
+
+---
+
 ## v0.845.0 — 2026-06-07
 
 **American commodity options.**
