@@ -2,6 +2,19 @@
 
 ---
 
+## v0.845.0 — 2026-06-07
+
+**American commodity options.**
+
+- New `commodity/commodity_american.py`:
+  - `american_commodity_option()` — BAW/tree with convenience yield.
+  - `american_energy_option()` — seasonal vol adjustment.
+  - `american_commodity_spread()` — LSM on correlated commodity pair.
+  - `early_exercise_test()` — optimal exercise diagnostic.
+- 10 tests.
+
+---
+
 ## v0.844.0 — 2026-06-07
 
 **American FX options.**
