@@ -2,6 +2,25 @@
 
 ---
 
+## v0.840.0 — 2026-06-07
+
+**Insurance annuity guarantees and real estate derivatives.**
+
+- New `structured/insurance_annuity.py`:
+  - `gmab()` — Guaranteed Minimum Accumulation Benefit (MC).
+  - `gmdb()` — Guaranteed Minimum Death Benefit with mortality weighting.
+  - `gmwb()` — Guaranteed Minimum Withdrawal Benefit with ruin tracking.
+  - `ratchet_gmab()` — GMAB with periodic ratchet reset.
+- New `structured/real_estate_derivative.py`:
+  - `property_total_return_swap()` — TRS on property index.
+  - `property_index_forward()` — illiquidity-adjusted forward.
+  - `property_option()` — Black-76 on property index.
+  - `reit_nav_model()` — REIT net asset value.
+  - `housing_affordability()` — payment-to-income metrics.
+- 18 tests.
+
+---
+
 ## v0.839.0 — 2026-06-07
 
 **Longevity and mortality derivatives.**
