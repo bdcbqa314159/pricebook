@@ -2,6 +2,17 @@
 
 ---
 
+## v0.853.0 — 2026-06-07
+
+**G2++ (2-factor Hull-White) calibration.**
+
+- New `models/g2pp_calibration.py`:
+  - `g2pp_swaption_price()` — Brigo-Mercurio analytical via Gauss-Hermite + Jamshidian.
+  - `calibrate_g2pp()` — fit (a, b, σ₁, σ₂, ρ) to swaption vol grid via DE + L-BFGS-B.
+  - `g2pp_vs_hw1f()` — compare 1F vs 2F calibration quality.
+
+---
+
 ## v0.852.0 — 2026-06-07
 
 **Exercise boundary extraction.**
