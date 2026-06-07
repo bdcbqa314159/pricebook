@@ -2,6 +2,20 @@
 
 ---
 
+## v0.852.0 — 2026-06-07
+
+**Exercise boundary extraction.**
+
+- New `options/exercise_boundary.py`:
+  - `pde_exercise_boundary()` — extract boundary from Crank-Nicolson PDE.
+  - `tree_exercise_boundary()` — extract from CRR binomial tree.
+  - `lsm_exercise_boundary()` — extract from LSM regression.
+  - `boundary_analytics()` — slope, convexity, critical price analysis.
+  - `compare_boundaries()` — cross-method comparison.
+- 10 tests.
+
+---
+
 ## v0.851.0 — 2026-06-07
 
 **Bermudan barrier options.**
