@@ -2,6 +2,23 @@
 
 ---
 
+## v0.835.0 — 2026-06-07
+
+**Quanto futures and ETF products.**
+
+- New `equity/quanto_futures.py`:
+  - `quanto_futures_price()` — F_Q = S × exp((r_d − q − ρσ_Sσ_FX) × T).
+  - `implied_correlation()` — back-solve ρ from observed quanto price.
+  - `compo_vs_quanto()` — compare composite vs quanto forwards.
+- New `equity/etf.py`:
+  - `etf_nav()` — NAV from holdings basket.
+  - `creation_redemption_arb()` — AP arbitrage evaluation.
+  - `tracking_error()`, `tracking_difference()` — index tracking metrics.
+  - `leveraged_etf_decay()` — volatility drag formula.
+- 15 tests.
+
+---
+
 ## v0.834.0 — 2026-06-07
 
 **Exotic option payoffs: ladder, shout, installment.**
