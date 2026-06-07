@@ -2,6 +2,21 @@
 
 ---
 
+## v0.826.0 — 2026-06-07
+
+**Equity-linked notes (ELN).**
+
+- New `structured/equity_linked_note.py`:
+  - `buffered_eln()` — downside buffer, coupon if index holds.
+  - `capped_eln()` — participation with cap.
+  - `bear_eln()` — inverse ELN paying on index decline.
+  - `digital_eln()` — enhanced coupon if above barrier.
+  - `twin_win_eln()` — profits from both directions unless barrier breached.
+  - `worst_of_eln()` — MC basket ELN on worst performer.
+- 12 tests.
+
+---
+
 ## v0.825.0 — 2026-06-07
 
 **Equity index futures pricing.**
