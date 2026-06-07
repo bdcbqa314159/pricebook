@@ -2,6 +2,20 @@
 
 ---
 
+## v0.836.0 — 2026-06-07
+
+**Tranche options.**
+
+- New `credit/tranche_option.py`:
+  - `tranche_option_black()` — Black-76 on tranche spread.
+  - `tranche_option_bachelier()` — normal model for tight/negative spreads.
+  - `tranche_option_greeks()` — numerical spread delta, gamma, vega, theta.
+  - `tranche_straddle()` — ATM straddle with breakeven levels.
+  - `tranche_forward_spread()` — loss-adjusted forward tranche spread.
+- 20 tests.
+
+---
+
 ## v0.835.0 — 2026-06-07
 
 **Quanto futures and ETF products.**
