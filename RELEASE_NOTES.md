@@ -2,6 +2,19 @@
 
 ---
 
+## v0.831.0 — 2026-06-07
+
+**Capped/floored/collar floaters.**
+
+- New `structured/capped_floored_floater.py`:
+  - `floored_floater()` — FRN with minimum coupon via floorlet strip.
+  - `collar_floater()` — FRN with cap and floor (short caplets, long floorlets).
+  - `reverse_floater()` — coupon = fixed − leverage × floating, with embedded cap.
+  - `inverse_floater_duration()` — amplified effective duration.
+- 12 tests.
+
+---
+
 ## v0.830.0 — 2026-06-07
 
 **CPDO simulation.**
