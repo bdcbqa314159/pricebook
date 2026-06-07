@@ -2,6 +2,18 @@
 
 ---
 
+## v0.849.0 — 2026-06-07
+
+**Stochastic credit Bermudan CDS swaption.**
+
+- New `credit/stochastic_bermudan_cds.py`:
+  - `stochastic_bermudan_cds_swaption()` — LSM under CIR intensity with exact non-central chi-squared simulation.
+  - `cir_cds_pv()` — analytical CDS PV under CIR via Riccati ODE.
+  - `stochastic_vs_deterministic()` — compare stochastic vs deterministic approaches.
+- 7 tests.
+
+---
+
 ## v0.848.0 — 2026-06-07
 
 **Callable structured notes.**
