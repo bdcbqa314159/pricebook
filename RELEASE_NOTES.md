@@ -2,6 +2,20 @@
 
 ---
 
+## v0.833.0 — 2026-06-07
+
+**Freight derivatives.**
+
+- New `commodity/freight.py`:
+  - `ffa_price()` — Forward Freight Agreement (average/point settlement).
+  - `freight_option_price()` — Black-76 on FFA rate.
+  - `time_charter_equivalent()` — TCE calculation.
+  - `freight_forward_curve()` — seasonal forward curve builder.
+  - `bunker_spread()` — P&L sensitivity to bunker fuel cost.
+- 7 tests (freight). Combined test file with carbon.
+
+---
+
 ## v0.832.0 — 2026-06-07
 
 **Carbon/emission credit pricing.**
