@@ -2,6 +2,19 @@
 
 ---
 
+## v0.843.0 — 2026-06-07
+
+**Analytical American approximations.**
+
+- New `options/american_analytical.py`:
+  - `ju_zhong()` — Ju & Zhong (1999) second-order correction to BAW.
+  - `kim_integral()` — Kim (1990) integral equation for exact exercise boundary.
+  - `medvedev_scaillet()` — near-expiry asymptotic expansion.
+  - `american_comparison()` — run all methods and compare.
+- 14 tests.
+
+---
+
 ## v0.842.0 — 2026-06-07
 
 **Fix remaining known limitations.**
