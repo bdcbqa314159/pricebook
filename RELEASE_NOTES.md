@@ -2,6 +2,21 @@
 
 ---
 
+## v0.838.0 — 2026-06-07
+
+**Catastrophe bonds and ILS.**
+
+- New `structured/cat_bond.py`:
+  - `cat_bond_price()` — Poisson-arrival loss model with coupon/principal at risk.
+  - `parametric_trigger_prob()` — Gumbel extreme value trigger probability.
+  - `indemnity_trigger_loss()` — MC lognormal loss with attachment/exhaustion.
+  - `cat_bond_spread_decomposition()` — EL + risk premium + expense.
+  - `ils_portfolio()` — Gaussian copula portfolio of cat bonds.
+  - `seasonal_adjustment()` — hurricane/earthquake seasonal probability.
+- 16 tests.
+
+---
+
 ## v0.837.0 — 2026-06-07
 
 **Portfolio margin / SPAN.**
