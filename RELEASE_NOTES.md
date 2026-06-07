@@ -2,6 +2,17 @@
 
 ---
 
+## v0.857.0 — 2026-06-07
+
+**G2++ code review fixes.**
+
+- `g2pp_tree.py`: fix correlation correction (remove spurious `dt` factor, add renormalization); fix `_phi` division by zero for a≈0 or b≈0.
+- `g2pp_calibration.py`: fix `_g2pp_V` division by zero guards.
+- `bermudan_swaption_g2pp.py`: fix `_phi` and `_V` division by zero guards.
+- `cms_spread_g2pp.py`: fix `_forward_zcb` to use V(T)-V(t) not V(τ); fix `_V` division by zero.
+
+---
+
 ## v0.856.0 — 2026-06-07
 
 **Unify Hull-White interface and fix mc_extensions.**

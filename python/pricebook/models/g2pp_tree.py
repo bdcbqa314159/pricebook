@@ -249,11 +249,12 @@ class G2PPTree:
         a, b_ = g.a, g.b
         s1, s2, rho = g.sigma1, g.sigma2, g.rho
 
-        ea = (1.0 - math.exp(-a * t)) if a > 0 else t
-        eb = (1.0 - math.exp(-b_ * t)) if b_ > 0 else t
-        corr = (s1**2 / (2.0 * a**2) * ea**2
-                + s2**2 / (2.0 * b_**2) * eb**2
-                + rho * s1 * s2 / (a * b_) * ea * eb)
+        ea = (1.0 - math.exp(-a * t)) if a > 1e-12 else t
+        eb = (1.0 - math.exp(-b_ * t)) if b_ > 1e-12 else t
+        ca = ea**2 / (2.0 * a**2) if a > 1e-12 else t**2 / 2.0
+        cb = eb**2 / (2.0 * b_**2) if b_ > 1e-12 else t**2 / 2.0
+        cab = ea * eb / (a * b_) if a > 1e-12 and b_ > 1e-12 else t**2
+        corr = s1**2 * ca + s2**2 * cb + rho * s1 * s2 * cab
         return self._fwd_rate(t) + corr
 
     # ------------------------------------------------------------------
@@ -373,27 +374,24 @@ class G2PPTree:
                     dy_d = dest_y[yi]
 
                     # Expected continuation over 9 joint branches
-                    ev = 0.0
+                    # Collect probabilities, apply correlation correction, renormalize
+                    p_list = []
+                    v_list = []
                     for bx in range(3):
                         xi2 = dx_d[bx]
                         sign_x = bx - 1   # -1, 0, +1
                         for by in range(3):
                             yi2 = dy_d[by]
                             sign_y = by - 1
-
-                            # First-order correlation correction
-                            # (Brigo-Mercurio 4.3.3; mid-branch has sign=0
-                            #  so correction vanishes there automatically)
-                            p_joint = px[bx] * py[by]
+                            # Hull-White (1994): corner branches get rho/4 correction
+                            p_j = px[bx] * py[by]
                             if sign_x != 0 and sign_y != 0:
-                                # Approximate: sqrt(p*(1-p)) ≈ 1/sqrt(6)
-                                # for trinomial edge probs ~ 1/6
-                                p_joint += (rho * sign_x * sign_y
-                                            * math.sqrt(px[bx] * (1.0 - px[bx]))
-                                            * math.sqrt(py[by] * (1.0 - py[by]))
-                                            * dt)
-                            p_joint = max(p_joint, 0.0)
-                            ev += p_joint * V[xi2, yi2]
+                                p_j += rho * sign_x * sign_y * 0.25
+                            p_list.append(max(p_j, 0.0))
+                            v_list.append(V[xi2, yi2])
+                    # Renormalize to ensure sum = 1
+                    p_sum = sum(p_list)
+                    ev = sum(p * v for p, v in zip(p_list, v_list)) / p_sum if p_sum > 0 else 0.0
 
                     # Discount: use x+y+phi as short rate approximation
                     x_val = self.x_nodes[xi]

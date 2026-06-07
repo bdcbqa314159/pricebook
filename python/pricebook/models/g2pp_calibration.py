@@ -75,11 +75,10 @@ def _g2pp_V(a: float, b: float, s1: float, s2: float, rho: float,
 
     Ba = Bf(a, T)
     Bb = Bf(b, T)
-    return (
-        (s1 / a) ** 2 * (T - 2 * Ba + Bf(2 * a, T))
-        + (s2 / b) ** 2 * (T - 2 * Bb + Bf(2 * b, T))
-        + 2 * rho * s1 * s2 / (a * b) * (T - Ba - Bb + Bf(a + b, T))
-    )
+    ca = (T - 2 * Ba + Bf(2 * a, T)) / a**2 if a > 1e-12 else T**3 / 3
+    cb = (T - 2 * Bb + Bf(2 * b, T)) / b**2 if b > 1e-12 else T**3 / 3
+    cab = (T - Ba - Bb + Bf(a + b, T)) / (a * b) if a > 1e-12 and b > 1e-12 else T**3 / 3
+    return s1**2 * ca + s2**2 * cb + 2 * rho * s1 * s2 * cab
 
 
 def _g2pp_zcb(

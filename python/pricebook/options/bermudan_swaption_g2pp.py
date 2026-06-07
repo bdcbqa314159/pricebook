@@ -344,10 +344,12 @@ def bermudan_swaption_g2pp_lsm(
             p1 = g2pp.curve.df(d1)
             p2 = g2pp.curve.df(d2)
             fwd = -math.log(p2 / p1) / (2.0 * eps)
-        ea = (1.0 - math.exp(-a * t)) if a > 0 else t
-        eb = (1.0 - math.exp(-b_ * t)) if b_ > 0 else t
-        return fwd + s1**2 / (2.0 * a**2) * ea**2 + s2**2 / (2.0 * b_**2) * eb**2 \
-               + rho * s1 * s2 / (a * b_) * ea * eb
+        ea = (1.0 - math.exp(-a * t)) if a > 1e-12 else t
+        eb = (1.0 - math.exp(-b_ * t)) if b_ > 1e-12 else t
+        ca = ea**2 / (2.0 * a**2) if a > 1e-12 else t**2 / 2.0
+        cb = eb**2 / (2.0 * b_**2) if b_ > 1e-12 else t**2 / 2.0
+        cab = ea * eb / (a * b_) if a > 1e-12 and b_ > 1e-12 else t**2
+        return fwd + s1**2 * ca + s2**2 * cb + rho * s1 * s2 * cab
 
     # Compute discount factor from 0 to each exercise step via path integral
     # ∫_0^T r dt ≈ sum_{i} r(t_i) * dt_sim
@@ -371,12 +373,10 @@ def bermudan_swaption_g2pp_lsm(
             return (1.0 - math.exp(-k * tt)) / k if k > 0 else tt
 
         def _V(tt):
-            return (
-                s1**2 / a**2 * (tt - 2.0 * Bk(a, tt) + Bk(2.0 * a, tt))
-                + s2**2 / b_**2 * (tt - 2.0 * Bk(b_, tt) + Bk(2.0 * b_, tt))
-                + 2.0 * rho * s1 * s2 / (a * b_) * (
-                    tt - Bk(a, tt) - Bk(b_, tt) + Bk(a + b_, tt))
-            )
+            ca = (tt - 2.0 * Bk(a, tt) + Bk(2.0 * a, tt)) / a**2 if a > 1e-12 else tt**3 / 3
+            cb = (tt - 2.0 * Bk(b_, tt) + Bk(2.0 * b_, tt)) / b_**2 if b_ > 1e-12 else tt**3 / 3
+            cab = (tt - Bk(a, tt) - Bk(b_, tt) + Bk(a + b_, tt)) / (a * b_) if a > 1e-12 and b_ > 1e-12 else tt**3 / 3
+            return s1**2 * ca + s2**2 * cb + 2.0 * rho * s1 * s2 * cab
 
         from pricebook.core.day_count import date_from_year_fraction as _dyf
         ref = g2pp.curve.reference_date

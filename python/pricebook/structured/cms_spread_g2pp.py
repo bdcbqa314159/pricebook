@@ -150,11 +150,10 @@ def _cms_rate_from_zcb(
     def _V(tau: float) -> float:
         Ba = _B(a, tau)
         Bb = _B(b_, tau)
-        return (
-            s1**2 / a**2 * (tau - 2 * Ba + _B(2 * a, tau))
-            + s2**2 / b_**2 * (tau - 2 * Bb + _B(2 * b_, tau))
-            + 2 * rho * s1 * s2 / (a * b_) * (tau - Ba - Bb + _B(a + b_, tau))
-        )
+        ca = (tau - 2 * Ba + _B(2 * a, tau)) / a**2 if a > 1e-12 else tau**3 / 3
+        cb = (tau - 2 * Bb + _B(2 * b_, tau)) / b_**2 if b_ > 1e-12 else tau**3 / 3
+        cab = (tau - Ba - Bb + _B(a + b_, tau)) / (a * b_) if a > 1e-12 and b_ > 1e-12 else tau**3 / 3
+        return s1**2 * ca + s2**2 * cb + 2 * rho * s1 * s2 * cab
 
     def _forward_zcb(tau: float) -> np.ndarray:
         """Forward ZCB P(x, y; t_start, t_start+tau) as array over paths."""
@@ -168,9 +167,10 @@ def _cms_rate_from_zcb(
 
         Bx = _B(a, tau)
         By = _B(b_, tau)
-        V = _V(tau)
+        # Correct: use V(T_abs) - V(t_start), not V(tau)
+        half_dV = 0.5 * (_V(T_abs) - _V(t_start))
 
-        return (p_T / p_t) * np.exp(-Bx * x - By * y + 0.5 * V)
+        return (p_T / p_t) * np.exp(-Bx * x - By * y + half_dV)
 
     # Annuity: sum over fixed leg payment dates
     period = 1.0 / freq
