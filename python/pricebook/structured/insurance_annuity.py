@@ -109,12 +109,12 @@ def gmab(
     payoffs = np.maximum(G - A_T, 0.0)
     guarantee_cost = _df(risk_free_rate, T) * float(np.mean(payoffs))
 
-    # PV of fee stream (continuous fee on account value)
+    # PV of fee stream — discount each step's fee at its own time
+    dt = T / steps
+    step_times = np.arange(1, steps + 1) * dt  # shape (steps,)
+    disc_factors = np.exp(-risk_free_rate * step_times)  # shape (steps,)
     fee_pv = float(np.mean(
-        np.sum(
-            fee_rate * paths[:, 1:] * (T / steps) * _df(risk_free_rate, T),
-            axis=1,
-        )
+        np.sum(fee_rate * paths[:, 1:] * dt * disc_factors, axis=1)
     ))
 
     account_value = float(np.mean(A_T))

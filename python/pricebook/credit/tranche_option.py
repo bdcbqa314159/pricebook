@@ -127,6 +127,11 @@ def tranche_option_black(
             tranche_spread_forward=tranche_spread, annuity=annuity,
         )
 
+    if tranche_spread <= 0 or strike_spread <= 0:
+        raise ValueError(
+            "Black-76 requires positive spreads; use tranche_option_bachelier "
+            "for spreads near zero or negative."
+        )
     sqrt_T = math.sqrt(T)
     d1 = (math.log(tranche_spread / strike_spread) + 0.5 * vol ** 2 * T) / (vol * sqrt_T)
     d2 = d1 - vol * sqrt_T

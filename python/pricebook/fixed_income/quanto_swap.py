@@ -105,7 +105,8 @@ def quanto_swap_price(
         fwd_foreign = (df_for_start / df_for_end - 1) / dt if df_for_end > 0 else 0
 
         # Quanto adjustment: E^d[L] = L × (1 − σ_L × σ_FX × ρ × T_fix)
-        adjustment = -fwd_foreign * rate_vol * fx_vol * correlation * t_end
+        # T_fix is the fixing time (start of accrual period), not payment time
+        adjustment = -fwd_foreign * rate_vol * fx_vol * correlation * t_start
         adjusted_rate = fwd_foreign + adjustment + spread
 
         # Domestic discount factor for payment
@@ -193,7 +194,7 @@ def differential_swap_price(
     """
     n_per_year = {
         Frequency.QUARTERLY: 4, Frequency.SEMI_ANNUAL: 2,
-        Frequency.ANNUAL: 1,
+        Frequency.ANNUAL: 1, Frequency.MONTHLY: 12,
     }.get(frequency, 4)
 
     dt = 1.0 / n_per_year
@@ -218,9 +219,11 @@ def differential_swap_price(
         df2_e = curve_2.df(end_date)
         fwd_2 = (df2_s / df2_e - 1) / dt if df2_e > 0 else 0
 
-        # Quanto adjustments (rate_2 needs FX adjustment; rate_1 is in payment ccy)
-        adj_1 = 0.0  # rate_1 is in payment currency → no adjustment
-        adj_2 = -fwd_2 * vol_2 * fx_vol * corr_2_fx * t
+        # Quanto adjustments — both rates adjusted to payment currency
+        # T_fix is start of accrual period
+        t_fix = (i - 1) * dt
+        adj_1 = -fwd_1 * vol_1 * fx_vol * corr_1_fx * t_fix
+        adj_2 = -fwd_2 * vol_2 * fx_vol * corr_2_fx * t_fix
 
         adjusted_1 = fwd_1 + adj_1
         adjusted_2 = fwd_2 + adj_2

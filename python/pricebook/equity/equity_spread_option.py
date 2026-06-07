@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pricebook.models.black76 import OptionType, _norm_cdf, _norm_pdf
+from pricebook.models.black76 import _norm_cdf
 
 
 @dataclass
@@ -119,11 +119,16 @@ def _finite_diff_greeks(
     p_dd = price_fn(S1 - h1, S2 - h2, *args)
     cross_gamma = (p_uu - p_ud - p_du + p_dd) / (4.0 * h1 * h2)
 
-    vega_1 = price_fn(S1, S2, K, vol1 + dv, vol2, rho, T, r, q1, q2, option_type) - base_price
-    vega_2 = price_fn(S1, S2, K, vol1, vol2 + dv, rho, T, r, q1, q2, option_type) - base_price
+    # Central differences for vega and rho
+    vega_1 = (price_fn(S1, S2, K, vol1 + dv, vol2, rho, T, r, q1, q2, option_type)
+              - price_fn(S1, S2, K, max(vol1 - dv, 1e-8), vol2, rho, T, r, q1, q2, option_type)) / 2
+    vega_2 = (price_fn(S1, S2, K, vol1, vol2 + dv, rho, T, r, q1, q2, option_type)
+              - price_fn(S1, S2, K, vol1, max(vol2 - dv, 1e-8), rho, T, r, q1, q2, option_type)) / 2
 
     rho_up = min(rho + dr, 0.9999)
-    rho_sens = price_fn(S1, S2, K, vol1, vol2, rho_up, T, r, q1, q2, option_type) - base_price
+    rho_dn = max(rho - dr, -0.9999)
+    rho_sens = (price_fn(S1, S2, K, vol1, vol2, rho_up, T, r, q1, q2, option_type)
+                - price_fn(S1, S2, K, vol1, vol2, rho_dn, T, r, q1, q2, option_type)) / 2
 
     return delta_1, delta_2, gamma_1, gamma_2, cross_gamma, vega_1, vega_2, rho_sens
 
@@ -440,9 +445,6 @@ def outperformance_option(
     """
     price = _margrabe_price(S1, S2, vol1, vol2, rho, T, r, q1, q2, "call")
 
-    def _fn(s1, s2, k, v1, v2, rh, t, r_, q1_, q2_, otype):
-        return _margrabe_price(s1, s2, v1, v2, rh, t, r_, q1_, q2_, otype)
-
     h1 = max(S1 * 1e-3, 1e-4)
     h2 = max(S2 * 1e-3, 1e-4)
     dv = 0.01
@@ -464,9 +466,14 @@ def outperformance_option(
     p_dd = _margrabe_price(S1 - h1, S2 - h2, vol1, vol2, rho, T, r, q1, q2)
     cross_gamma = (p_uu - p_ud - p_du + p_dd) / (4.0 * h1 * h2)
 
-    vega_1 = _margrabe_price(S1, S2, vol1 + dv, vol2, rho, T, r, q1, q2) - price
-    vega_2 = _margrabe_price(S1, S2, vol1, vol2 + dv, rho, T, r, q1, q2) - price
-    rho_sens = _margrabe_price(S1, S2, vol1, vol2, min(rho + dr, 0.9999), T, r, q1, q2) - price
+    vega_1 = (_margrabe_price(S1, S2, vol1 + dv, vol2, rho, T, r, q1, q2)
+              - _margrabe_price(S1, S2, max(vol1 - dv, 1e-8), vol2, rho, T, r, q1, q2)) / 2
+    vega_2 = (_margrabe_price(S1, S2, vol1, vol2 + dv, rho, T, r, q1, q2)
+              - _margrabe_price(S1, S2, vol1, max(vol2 - dv, 1e-8), rho, T, r, q1, q2)) / 2
+    rho_up = min(rho + dr, 0.9999)
+    rho_dn = max(rho - dr, -0.9999)
+    rho_sens = (_margrabe_price(S1, S2, vol1, vol2, rho_up, T, r, q1, q2)
+                - _margrabe_price(S1, S2, vol1, vol2, rho_dn, T, r, q1, q2)) / 2
 
     dt = 1.0 / 365.0
     p_dt = _margrabe_price(S1, S2, vol1, vol2, rho, max(T - dt, 1e-6), r, q1, q2)

@@ -36,11 +36,11 @@ class ETFResult:
     Attributes:
         nav: Net asset value per share in currency units.
         market_price: Observed market price per share.
-        premium_discount: Absolute premium (positive) or discount (negative)
-            in currency units.
-        premium_discount_pct: Premium/discount expressed as a percentage of NAV.
-        tracking_error: Annualised tracking error in percent (std of daily
-            excess returns × sqrt(252) × 100).  ``nan`` if not yet computed.
+        premium_discount: Premium (positive) or discount (negative) as
+            percentage of NAV — same units as ``premium_discount()`` function.
+        premium_discount_pct: Alias for premium_discount (percentage).
+        tracking_error: Annualised tracking error as a decimal fraction
+            (std of daily excess returns × sqrt(252)).  ``nan`` if not computed.
     """
 
     nav: float

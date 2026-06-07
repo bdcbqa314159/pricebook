@@ -77,9 +77,9 @@ def _build_scenarios(price_scan_range: float, vol_scan_range: float) -> list[tup
     for pf in price_fracs:
         for vs in vol_signs:
             scenarios.append((pf * price_scan_range, vs * vol_scan_range))
-    # Two extreme scenarios (cover only 35% of loss — SPAN convention)
-    scenarios.append((3.0 * price_scan_range, 0.0))
-    scenarios.append((-3.0 * price_scan_range, 0.0))
+    # Two extreme scenarios at 2× PSR, capped at 35% of loss (SPAN convention)
+    scenarios.append((2.0 * price_scan_range, 0.0))
+    scenarios.append((-2.0 * price_scan_range, 0.0))
     return scenarios
 
 
@@ -116,7 +116,7 @@ def span_margin(
     Args:
         positions: List of Position objects.
         scenarios: Optional pre-built list of (price_move, vol_move) tuples.
-            If None, a standard 14-scenario SPAN grid is generated from
+            If None, a standard 16-scenario SPAN grid is generated from
             price_scan_range and vol_scan_range.
         price_scan_range: Maximum price move as a fraction of notional (e.g.
             0.15 for 15%).  Used only when scenarios is None.
@@ -133,9 +133,13 @@ def span_margin(
     worst_scen: dict[str, float] = {}
     all_losses: list[float] = []
 
-    for price_move, vol_move in scenarios:
+    n_scenarios = len(scenarios)
+    for idx, (price_move, vol_move) in enumerate(scenarios):
         portfolio_pnl = sum(_scenario_pnl(p, price_move, vol_move) for p in positions)
         loss = -portfolio_pnl  # margin is a positive number
+        # SPAN: extreme scenarios (last 2) contribute only 35% of their loss
+        if idx >= n_scenarios - 2 and scenarios is not None:
+            loss *= 0.35
         all_losses.append(loss)
         if loss > worst_loss:
             worst_loss = loss
@@ -281,7 +285,7 @@ def strategy_margin(
             _REG_T_RATE * notional,
             _REG_T_RATE * put_notional,
         )
-        max_loss = net_prem if net_prem < 0 else -net_prem  # premium paid
+        max_loss = abs(net_prem)  # premium paid
 
     # ---- Iron condor: 4 legs, 2 calls + 2 puts with opposing signs ----------
     elif n_legs == 4 and len(calls) == 2 and len(puts) == 2:

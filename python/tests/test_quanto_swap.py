@@ -172,8 +172,8 @@ class TestDifferentialSwap:
         assert res.pv > 0
         assert res.rate_differential > 0
 
-    def test_quanto_adj_on_foreign_only(self):
-        """Rate 1 (payment ccy) gets no adjustment; rate 2 does."""
+    def test_both_rates_adjusted(self):
+        """Both rates get quanto adjustment when correlated with FX."""
         curve = make_flat_curve(REF, 0.04)
         res = differential_swap_price(
             REF, 5.0, curve, curve, curve,
@@ -181,8 +181,10 @@ class TestDifferentialSwap:
             vol_1=0.15, vol_2=0.15, fx_vol=0.10,
             corr_1_fx=0.5, corr_2_fx=0.5,
         )
-        assert res.quanto_adj_1 == 0.0  # rate_1 in payment ccy
-        assert res.quanto_adj_2 != 0.0  # rate_2 foreign → adjusted
+        assert res.quanto_adj_1 != 0.0  # rate_1 adjusted via corr_1_fx
+        assert res.quanto_adj_2 != 0.0  # rate_2 adjusted via corr_2_fx
+        # Same curves, same params → adjustments should be equal
+        assert res.quanto_adj_1 == pytest.approx(res.quanto_adj_2, rel=1e-10)
 
     def test_to_dict(self):
         curve = make_flat_curve(REF, 0.04)

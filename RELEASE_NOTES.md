@@ -2,6 +2,22 @@
 
 ---
 
+## v0.841.0 — 2026-06-07
+
+**Code review fixes across 12 modules.**
+
+- `quanto_swap.py`: fix adjustment to use `t_start` (fixing time) not `t_end`; apply `corr_1_fx` in differential swap (was silently ignored); add MONTHLY frequency.
+- `exotic_payoffs.py`: fix installment option `pv_remaining` off-by-one; remove dead imports.
+- `portfolio_margin.py`: SPAN extreme scenarios 2×PSR (was 3×), add 35% cap; fix straddle `max_loss` sign.
+- `insurance_annuity.py`: fee PV now discounts each step at its own time (was using terminal discount for all).
+- `real_estate_derivative.py`: fix `reit_nav_model` to use NOI/discount_rate (Gordon model); remove dead variable.
+- `equity_spread_option.py`: central differences for vega/rho; remove unused imports and dead closure.
+- `tranche_option.py`: guard for non-positive spreads in Black model.
+- `etf.py`: fix docstring inconsistency (premium_discount units).
+- `carbon_credit.py`, `money_market.py`, `xccy_swaption.py`: remove unused imports.
+
+---
+
 ## v0.840.0 — 2026-06-07
 
 **Insurance annuity guarantees and real estate derivatives.**

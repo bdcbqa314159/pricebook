@@ -28,7 +28,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -509,7 +509,7 @@ def installment_option(
     continuation_count = np.zeros(n_paths, dtype=int)
 
     for i, (S_t, t_i) in enumerate(zip(path_at_dates[:-1], installment_dates)):
-        remaining_dates = installment_dates[i:]  # dates of remaining payments (including current)
+        remaining_dates = installment_dates[i + 1:]  # dates of future payments (current already paid)
         pv_remaining = sum(installment_amt * math.exp(-r * (tj - t_i)) for tj in remaining_dates)
         tau = T - t_i
         # Vectorised BS for array of spot values

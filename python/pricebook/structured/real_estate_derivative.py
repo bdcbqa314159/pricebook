@@ -99,8 +99,6 @@ def property_total_return_swap(
     pv = floating_leg_pv - fixed_leg_pv  # positive = fixed-rate receiver wins
 
     # Break-even: appreciation at which PV = 0
-    # sum of df_t is the annuity factor
-    annuity = sum(_df(risk_free_rate, t) for t in range(1, n_years + 1))
     break_even_appreciation = fixed_rate - rental_yield - illiquidity_premium
 
     return PropertySwapResult(
@@ -231,15 +229,15 @@ def reit_nav_model(
 ) -> float:
     """REIT Net Asset Value (NAV) per share.
 
-    Adjusts the raw property portfolio value by a multiple reflecting the
-    spread between the cap rate and the investor's required discount rate,
-    adds cash, subtracts debt, and divides by shares outstanding:
+    Standard NAV: mark portfolio to market using the investor's discount
+    rate vs the portfolio cap rate, then add cash and subtract debt:
 
     .. math::
 
-        \\text{NAV/share} = \\frac{V_p \\cdot (1 + c/r) + \\text{cash} - \\text{debt}}{N}
+        \\text{NAV/share} = \\frac{\\text{NOI} / r + \\text{cash} - \\text{debt}}{N}
 
-    where :math:`c` is the cap rate and :math:`r` is the discount rate.
+    where NOI = properties_value × cap_rate, and r is the discount rate.
+    When cap_rate == discount_rate, adjusted value == properties_value.
 
     Args:
         properties_value: Gross appraised value of the property portfolio.
@@ -254,7 +252,11 @@ def reit_nav_model(
     """
     if shares <= 0:
         raise ValueError("shares must be positive")
-    adjusted_value = properties_value * (1.0 + cap_rate / discount_rate)
+    if discount_rate <= 0:
+        raise ValueError("discount_rate must be positive")
+    # Mark-to-market: NOI / discount_rate (Gordon growth with g=0)
+    noi = properties_value * cap_rate
+    adjusted_value = noi / discount_rate
     nav = adjusted_value + cash - debt
     return nav / shares
 
