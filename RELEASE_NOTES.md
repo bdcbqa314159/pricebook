@@ -2,6 +2,19 @@
 
 ---
 
+## v0.828.0 — 2026-06-07
+
+**Cross-currency swaptions.**
+
+- New `fixed_income/xccy_swaption.py`:
+  - `xccy_swaption_black()` — Black-76 on forward xccy basis spread.
+  - `xccy_swaption_bachelier()` — normal model for negative spreads.
+  - `xccy_forward_spread()` — CIP-based forward basis spread.
+  - `xccy_swaption_greeks()` — numerical delta, gamma, vega, fx_delta.
+- 9 tests.
+
+---
+
 ## v0.827.0 — 2026-06-07
 
 **Equity spread options.**
