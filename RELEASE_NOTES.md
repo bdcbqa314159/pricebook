@@ -2,6 +2,18 @@
 
 ---
 
+## v0.844.0 — 2026-06-07
+
+**American FX options.**
+
+- New `fx/fx_american.py`:
+  - `american_fx_option()` — Garman-Kohlhagen American via BAW/PDE/tree.
+  - `fx_exercise_boundary()` — early exercise boundary curve.
+  - `american_fx_greeks()` — numerical Greeks (delta_dom, delta_for, rho_dom, rho_for).
+- 8 tests.
+
+---
+
 ## v0.843.0 — 2026-06-07
 
 **Analytical American approximations.**
