@@ -396,3 +396,115 @@ def bermudan_collar(
         "cap_result": cap_result,
         "floor_result": floor_result,
     }
+
+
+# ---------------------------------------------------------------------------
+# HullWhite-object convenience wrappers
+# ---------------------------------------------------------------------------
+
+
+def bermudan_cap_hw(
+    hw,
+    reference_date: date,
+    maturity_years: float,
+    strike: float,
+    exercise_dates_years: list[float],
+    frequency: int = 4,
+    notional: float = 1_000_000.0,
+    n_steps: int = 200,
+) -> BermudanCapFloorResult:
+    """Convenience: Bermudan cap from a HullWhite object.
+
+    Extracts ``hw.a``, ``hw.sigma``, and the instantaneous forward rate at
+    t=0 from the curve, then delegates to :func:`bermudan_cap`.
+
+    Args:
+        hw: a ``pricebook.models.hull_white.HullWhite`` instance.
+        reference_date: pricing date.
+        maturity_years: total tenor of the cap (years).
+        strike: cap strike rate (e.g. 0.05 = 5%).
+        exercise_dates_years: list of Bermudan exercise dates (as year fractions).
+        frequency: number of caplet periods per year (default 4 = quarterly).
+        notional: notional principal.
+        n_steps: number of tree time steps.
+
+    Returns:
+        BermudanCapFloorResult with price, European benchmark, and diagnostics.
+    """
+    return bermudan_cap(
+        reference_date, maturity_years, strike,
+        hw.a, hw.sigma, hw.curve.instantaneous_forward(0.0),
+        exercise_dates_years, frequency, notional, n_steps,
+    )
+
+
+def bermudan_floor_hw(
+    hw,
+    reference_date: date,
+    maturity_years: float,
+    strike: float,
+    exercise_dates_years: list[float],
+    frequency: int = 4,
+    notional: float = 1_000_000.0,
+    n_steps: int = 200,
+) -> BermudanCapFloorResult:
+    """Convenience: Bermudan floor from a HullWhite object.
+
+    Extracts ``hw.a``, ``hw.sigma``, and the instantaneous forward rate at
+    t=0 from the curve, then delegates to :func:`bermudan_floor`.
+
+    Args:
+        hw: a ``pricebook.models.hull_white.HullWhite`` instance.
+        reference_date: pricing date.
+        maturity_years: total tenor of the floor (years).
+        strike: floor strike rate.
+        exercise_dates_years: list of Bermudan exercise dates (as year fractions).
+        frequency: number of floorlet periods per year (default 4 = quarterly).
+        notional: notional principal.
+        n_steps: number of tree time steps.
+
+    Returns:
+        BermudanCapFloorResult with price, European benchmark, and diagnostics.
+    """
+    return bermudan_floor(
+        reference_date, maturity_years, strike,
+        hw.a, hw.sigma, hw.curve.instantaneous_forward(0.0),
+        exercise_dates_years, frequency, notional, n_steps,
+    )
+
+
+def bermudan_collar_hw(
+    hw,
+    reference_date: date,
+    maturity_years: float,
+    cap_strike: float,
+    floor_strike: float,
+    exercise_dates_years: list[float],
+    frequency: int = 4,
+    notional: float = 1_000_000.0,
+    n_steps: int = 200,
+) -> dict:
+    """Convenience: Bermudan collar from a HullWhite object.
+
+    Extracts ``hw.a``, ``hw.sigma``, and the instantaneous forward rate at
+    t=0 from the curve, then delegates to :func:`bermudan_collar`.
+
+    Args:
+        hw: a ``pricebook.models.hull_white.HullWhite`` instance.
+        reference_date: pricing date.
+        maturity_years: total tenor (years).
+        cap_strike: cap strike rate (upper bound on rate paid).
+        floor_strike: floor strike rate (lower bound on rate paid).
+        exercise_dates_years: exercise dates shared by cap and floor.
+        frequency: periods per year.
+        notional: notional principal.
+        n_steps: tree time steps.
+
+    Returns:
+        dict with keys: collar_price, cap_result, floor_result.
+    """
+    return bermudan_collar(
+        reference_date, maturity_years, cap_strike, floor_strike,
+        hw.a, hw.sigma, hw.curve.instantaneous_forward(0.0),
+        exercise_dates_years, frequency, notional, n_steps,
+    )

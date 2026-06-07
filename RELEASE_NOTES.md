@@ -2,6 +2,16 @@
 
 ---
 
+## v0.856.0 — 2026-06-07
+
+**Unify Hull-White interface and fix mc_extensions.**
+
+- `fixed_income/callable_floater.py`: added `callable_frn_hw()`, `puttable_frn_hw()` — accept `HullWhite` object.
+- `options/bermudan_capfloor.py`: added `bermudan_cap_hw()`, `bermudan_floor_hw()`, `bermudan_collar_hw()`.
+- `models/mc_extensions.py`: `"hull_white"` dispatch now supports `theta_func` for time-dependent drift via `HullWhiteProcess`.
+
+---
+
 ## v0.855.0 — 2026-06-07
 
 **G2++ callable bond, CMS spread, callable floater.**

@@ -391,19 +391,29 @@ def ShortRateProcess(
     theta: float,
     sigma: float,
     model: str = "vasicek",
+    **kwargs,
 ) -> ProcessSpec:
     """Short-rate model for interest rate simulation.
 
     Supports:
     - "vasicek": dR = κ(θ-R) dt + σ dW (Gaussian, can go negative)
     - "cir": dR = κ(θ-R) dt + σ√R dW (non-negative)
-    - "hull_white": same as Vasicek with time-dependent θ(t)
+    - "hull_white": dR = (θ(t)-κR) dt + σ dW, with time-dependent θ(t).
+      Pass ``theta_func=callable(t)`` to supply θ(t); if omitted, falls back
+      to constant θ (equivalent to Vasicek — not curve-fitted).
 
     For bond pricing: P(t,T) = E[exp(-∫r ds)].
     """
     from pricebook.models.mc_processes import OUProcess, CIRProcess
 
-    if model in ("vasicek", "hull_white"):
+    if model == "vasicek":
+        return OUProcess(r0, kappa, theta, sigma)
+    elif model == "hull_white":
+        theta_func = kwargs.get("theta_func", None)
+        if theta_func is not None:
+            from pricebook.models.mc_processes import HullWhiteProcess
+            return HullWhiteProcess(r0, a=kappa, sigma=sigma, theta_func=theta_func)
+        # Fallback: constant theta — calibration to term structure not applied.
         return OUProcess(r0, kappa, theta, sigma)
     elif model == "cir":
         return CIRProcess(r0, kappa, theta, sigma)

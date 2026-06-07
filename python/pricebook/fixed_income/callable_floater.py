@@ -478,3 +478,82 @@ def callable_frn_oas(
         call_probability=call_prob,
         expected_call_date=expected_call_date,
     )
+
+
+# ---------------------------------------------------------------------------
+# HullWhite-object convenience wrappers
+# ---------------------------------------------------------------------------
+
+
+def callable_frn_hw(
+    hw,
+    reference_date: date,
+    maturity_years: float,
+    spread: float,
+    call_dates_years: list[float],
+    call_price: float = 100.0,
+    frequency: int = 4,
+    notional: float = 100.0,
+    n_steps: int = 200,
+) -> CallableFloaterResult:
+    """Convenience: callable FRN from a HullWhite object.
+
+    Extracts ``hw.a``, ``hw.sigma``, and the instantaneous forward rate at
+    t=0 from the curve, then delegates to :func:`callable_frn`.
+
+    Args:
+        hw: a ``pricebook.models.hull_white.HullWhite`` instance.
+        reference_date: pricing date.
+        maturity_years: bond tenor in years.
+        spread: fixed spread over the floating index.
+        call_dates_years: list of call dates as year fractions.
+        call_price: redemption price at call (per notional units).
+        frequency: coupon frequency (periods per year).
+        notional: face value.
+        n_steps: number of tree time steps.
+
+    Returns:
+        CallableFloaterResult with price, straight FRN benchmark, and diagnostics.
+    """
+    return callable_frn(
+        reference_date, maturity_years, spread,
+        hw.a, hw.sigma, hw.curve.instantaneous_forward(0.0),
+        call_dates_years, call_price, frequency, notional, n_steps,
+    )
+
+
+def puttable_frn_hw(
+    hw,
+    reference_date: date,
+    maturity_years: float,
+    spread: float,
+    put_dates_years: list[float],
+    put_price: float = 100.0,
+    frequency: int = 4,
+    notional: float = 100.0,
+    n_steps: int = 200,
+) -> CallableFloaterResult:
+    """Convenience: puttable FRN from a HullWhite object.
+
+    Extracts ``hw.a``, ``hw.sigma``, and the instantaneous forward rate at
+    t=0 from the curve, then delegates to :func:`puttable_frn`.
+
+    Args:
+        hw: a ``pricebook.models.hull_white.HullWhite`` instance.
+        reference_date: pricing date.
+        maturity_years: bond tenor in years.
+        spread: fixed spread over the floating index.
+        put_dates_years: list of put dates as year fractions.
+        put_price: redemption price at put (per notional units).
+        frequency: coupon frequency (periods per year).
+        notional: face value.
+        n_steps: number of tree time steps.
+
+    Returns:
+        CallableFloaterResult with price, straight FRN benchmark, and diagnostics.
+    """
+    return puttable_frn(
+        reference_date, maturity_years, spread,
+        hw.a, hw.sigma, hw.curve.instantaneous_forward(0.0),
+        put_dates_years, put_price, frequency, notional, n_steps,
+    )
