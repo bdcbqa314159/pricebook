@@ -2,6 +2,20 @@
 
 ---
 
+## v0.832.0 — 2026-06-07
+
+**Carbon/emission credit pricing.**
+
+- New `commodity/carbon_credit.py`:
+  - `carbon_futures_price()` — cost-of-carry for EUA/carbon allowances.
+  - `carbon_option_price()` — Black-76 on carbon futures.
+  - `marginal_abatement_cost()` — equilibrium from abatement technology curve.
+  - `compliance_value()` — surplus/deficit position valuation.
+  - `voluntary_credit_discount()` — haircut model for voluntary credits.
+- 7 tests (carbon).
+
+---
+
 ## v0.831.0 — 2026-06-07
 
 **Capped/floored/collar floaters.**
