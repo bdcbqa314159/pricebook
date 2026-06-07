@@ -2,6 +2,19 @@
 
 ---
 
+## v0.825.0 — 2026-06-07
+
+**Equity index futures pricing.**
+
+- New `equity/equity_index_futures.py`:
+  - `index_futures_fair_value()` — cost-of-carry F = S × exp((r - q + b) × T).
+  - `index_futures_roll()` — calendar spread, roll cost, implied repo between contracts.
+  - `implied_dividend_yield()`, `implied_repo_rate()` — back-solve from observed prices.
+  - `fair_value_table()` — term structure across multiple expiries.
+- 12 tests.
+
+---
+
 ## v0.824.0 — 2026-06-01
 
 **Quanto (differential) interest rate swaps.**
