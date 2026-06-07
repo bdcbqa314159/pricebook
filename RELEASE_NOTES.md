@@ -2,6 +2,18 @@
 
 ---
 
+## v0.830.0 — 2026-06-07
+
+**CPDO simulation.**
+
+- New `structured/cpdo.py`:
+  - `cpdo_simulate()` — single-path CPDO with leverage, gap risk, cash-out.
+  - `cpdo_monte_carlo()` — MC: success/default probabilities, expected NAV.
+  - `cpdo_rating()` — map default prob to S&P rating bucket.
+- 14 tests.
+
+---
+
 ## v0.829.0 — 2026-06-07
 
 **Money market instruments.**
