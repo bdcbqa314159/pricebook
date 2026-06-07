@@ -2,6 +2,20 @@
 
 ---
 
+## v0.837.0 — 2026-06-07
+
+**Portfolio margin / SPAN.**
+
+- New `risk/portfolio_margin.py`:
+  - `span_margin()` — 14-scenario SPAN-style margining.
+  - `cross_margin_offset()` — diversification benefit from cross-margining.
+  - `strategy_margin()` — Reg-T margin for option strategies.
+  - `var_based_margin()` — VaR/ES-based initial margin.
+  - `margin_call()` — margin call computation.
+- 17 tests.
+
+---
+
 ## v0.836.0 — 2026-06-07
 
 **Tranche options.**
