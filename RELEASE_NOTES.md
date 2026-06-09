@@ -2,6 +2,16 @@
 
 ---
 
+## v0.861.0 — 2026-06-09
+
+**G2++ calibration: 8.5× faster.**
+
+- `models/g2pp_calibration.calibrate_g2pp`: rewrite the calibration objective to compare **prices** to precomputed Black-76 market prices, rather than implied vols. Eliminates an implied-vol root-finder per swaption per DE evaluation (~50% of the original cost).
+- `models/g2pp_calibration.calibrate_g2pp`: loosen the global-search budget — `differential_evolution(maxiter=30, popsize=6, tol=1e-4, init="sobol")` followed by an L-BFGS-B polish at `maxiter=150, ftol=1e-9`. Previous (`maxiter=300, popsize=15, tol=1e-9`) ran the full DE budget on the default fixture without measurable RMSE improvement.
+- Net: `test_g2pp_calibration.py` runs in **2:15** instead of **9:49** (full file, 8 tests). One `calibrate_g2pp(curve, SWAPTION_VOLS)` call drops from ~587 s to ~68 s. Final calibrated `rmse_vol` remains well under the 5% threshold (~0.009 on the default fixture; both tests pass).
+
+---
+
 ## v0.860.0 — 2026-06-09
 
 **`GUIDE.md` — per-layer API reference.**

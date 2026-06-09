@@ -385,26 +385,40 @@ def calibrate_g2pp(
     Returns:
         G2PPCalibrationResult with calibrated G2PlusPlus model.
     """
+    from pricebook.models.black76 import black76_price as _b76, OptionType as _OT
+
     ref = curve.reference_date
     keys = list(swaption_vols.keys())
     market_vols = [swaption_vols[k] for k in keys]
 
-    # Compute ATM strikes if not provided
-    if strike is None:
-        strikes: dict[tuple[float, float], float] = {}
-        for (exp_y, tenor_y) in keys:
-            swap_end = exp_y + tenor_y
-            df_exp = curve.df(date_from_year_fraction(ref, exp_y))
-            df_end = curve.df(date_from_year_fraction(ref, swap_end))
-            n_pay = max(1, int(round(tenor_y)))
-            ann = sum(
-                curve.df(date_from_year_fraction(ref, exp_y + k))
-                for k in range(1, n_pay + 1)
-                if exp_y + k <= swap_end + 1e-9
-            )
-            strikes[(exp_y, tenor_y)] = (df_exp - df_end) / ann if ann > 0 else 0.04
-    else:
-        strikes = {k: strike for k in keys}
+    # Compute ATM strikes + annuities + forwards once.
+    strikes: dict[tuple[float, float], float] = {}
+    annuities: dict[tuple[float, float], float] = {}
+    forwards: dict[tuple[float, float], float] = {}
+    for (exp_y, tenor_y) in keys:
+        swap_end = exp_y + tenor_y
+        n_pay = max(1, int(round(tenor_y)))
+        ann = sum(
+            curve.df(date_from_year_fraction(ref, exp_y + k))
+            for k in range(1, n_pay + 1)
+            if exp_y + k <= swap_end + 1e-9
+        )
+        df_exp = curve.df(date_from_year_fraction(ref, exp_y))
+        df_end = curve.df(date_from_year_fraction(ref, swap_end))
+        fwd = (df_exp - df_end) / ann if ann > 0 else (strike if strike else 0.04)
+        annuities[(exp_y, tenor_y)] = ann
+        forwards[(exp_y, tenor_y)] = fwd
+        strikes[(exp_y, tenor_y)] = strike if strike is not None else fwd
+
+    # Precompute market Black-76 prices once — the objective then compares
+    # G2++ prices to these directly, avoiding an implied-vol root-find per
+    # objective evaluation (a ~2x speedup on the inner loop).
+    market_prices: dict[tuple[float, float], float] = {}
+    for i, (exp_y, tenor_y) in enumerate(keys):
+        k = strikes[(exp_y, tenor_y)]
+        market_prices[(exp_y, tenor_y)] = annuities[(exp_y, tenor_y)] * _b76(
+            forwards[(exp_y, tenor_y)], k, market_vols[i], exp_y, 1.0, _OT.CALL,
+        )
 
     def objective(params: np.ndarray) -> float:
         a_, b_, s1, s2, rho_ = params
@@ -412,10 +426,17 @@ def calibrate_g2pp(
         if a_ <= 0 or b_ <= 0 or s1 <= 0 or s2 <= 0 or abs(rho_) >= 1.0:
             return 1e6
         total = 0.0
-        for i, (exp_y, tenor_y) in enumerate(keys):
+        for (exp_y, tenor_y) in keys:
             k = strikes[(exp_y, tenor_y)]
-            mv = g2pp_implied_vol(a_, b_, s1, s2, rho_, curve, exp_y, tenor_y, k)
-            total += (mv - market_vols[i]) ** 2
+            ann = annuities[(exp_y, tenor_y)]
+            model_p = g2pp_swaption_price(
+                a_, b_, s1, s2, rho_, curve,
+                exp_y, tenor_y, k, is_payer=True,
+            )
+            # Scale by annuity so the loss has annuity-free units and
+            # matches the order of magnitude across swaptions.
+            diff = (model_p - market_prices[(exp_y, tenor_y)]) / ann
+            total += diff * diff
         return total
 
     bounds = [a_bounds, b_bounds, sigma1_bounds, sigma2_bounds, rho_bounds]
@@ -423,15 +444,23 @@ def calibrate_g2pp(
 
     converged = False
     if method == "differential_evolution":
+        # DE for the global search. Per-objective cost is dominated by 4 G2++
+        # swaption prices (~30ms each via Jamshidian + brentq), so each DE
+        # iteration costs ~popsize × N_params × 4 × 30ms. Keep popsize and
+        # maxiter modest; L-BFGS-B polish refines locally.
+        # Previous defaults (popsize=15, maxiter=300, tol=1e-9, vol-objective)
+        # ran ~10 min on the default fixture without measurable improvement
+        # in final RMSE.
         de_result = differential_evolution(
             objective, bounds,
-            maxiter=300, tol=1e-9,
-            seed=42, workers=1, polish=False,
+            maxiter=30, popsize=6, tol=1e-4,
+            seed=42, workers=1, polish=False, init="sobol",
         )
-        # Polish with L-BFGS-B
+        # Polish with L-BFGS-B — given the budget, do the bulk of the
+        # refinement here (cheap, deterministic) rather than in DE.
         local_result = minimize(
             objective, de_result.x, method="L-BFGS-B", bounds=bounds,
-            options={"maxiter": 200, "ftol": 1e-12},
+            options={"maxiter": 150, "ftol": 1e-9},
         )
         result_x = local_result.x if local_result.fun < de_result.fun else de_result.x
         converged = de_result.success or local_result.success
