@@ -2,6 +2,15 @@
 
 ---
 
+## v0.859.0 — 2026-06-09
+
+**Quickstart notebook.**
+
+- `notebooks/examples/quickstart.ipynb`: 20-minute "first result" walkthrough — curve bootstrap, bond pricing, IRS pricing, equity option pricing + Greeks, `to_dict`/`from_dict` round-trip, curve plot + Greeks profile via `pricebook.viz`. All 8 code cells executed and embedded.
+- `notebooks/examples/_build_quickstart.py`: deterministic builder script for the notebook (nbformat-based) so future edits land via Python, not JSON.
+
+---
+
 ## v0.858.0 — 2026-06-09
 
 **Serialisation completeness — money market + funded products.**
