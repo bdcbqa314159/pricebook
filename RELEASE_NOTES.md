@@ -2,6 +2,17 @@
 
 ---
 
+## v0.858.0 — 2026-06-09
+
+**Serialisation completeness — money market + funded products.**
+
+- `fixed_income/money_market.py`: register `CertificateOfDeposit`, `CommercialPaper`, `BankersAcceptance` as `_serialisable`. `RepoRate` is a static-method namespace, no instance state — left unregistered.
+- `fixed_income/funded.py`: register `TotalReturnSwap` (as `funded_trs`) and `FundedParticipation`. The other 3 classes (`Repo`, `ReverseRepo`, `RepoFinancedPosition`) were already registered.
+- `funded.TotalReturnSwap`: rename internal attrs `ref_start`/`ref_current` → `reference_pv_start`/`reference_pv_current` so they match constructor params (required for `_serialisable`). Only used inside `funded.py`; tests already pass via init kwargs.
+- Round-trip tests added in `test_funded.py` and `test_money_market.py` (5 new tests: TRS, FundedParticipation, CD, CP, BA).
+
+---
+
 ## v0.857.0 — 2026-06-07
 
 **G2++ code review fixes.**

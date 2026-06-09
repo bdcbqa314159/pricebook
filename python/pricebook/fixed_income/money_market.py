@@ -357,3 +357,9 @@ class RepoRate:
         if haircut >= 1.0:
             raise ValueError(f"haircut must be < 1, got {haircut}")
         return repo_rate / (1.0 - haircut)
+
+
+from pricebook.core.serialisable import serialisable as _serialisable
+_serialisable("certificate_of_deposit", ["settlement", "maturity", "face_value", "coupon_rate", "day_count"])(CertificateOfDeposit)
+_serialisable("commercial_paper", ["settlement", "maturity", "face_value", "day_count"])(CommercialPaper)
+_serialisable("bankers_acceptance", ["settlement", "maturity", "face_value", "day_count"])(BankersAcceptance)

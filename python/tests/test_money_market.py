@@ -137,3 +137,44 @@ def test_repo_haircut_adjusted_rate_formula():
     repo = 0.04
     haircut = 0.05
     assert RepoRate.haircut_adjusted_rate(repo, haircut) == pytest.approx(repo / (1.0 - haircut), rel=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# Serialisation round-trip
+# ---------------------------------------------------------------------------
+
+class TestSerialisationRoundTrip:
+    def test_cd_round_trip(self):
+        cd = CertificateOfDeposit(SETTLE, MAT_90, face_value=1_000_000, coupon_rate=0.045)
+        d = cd.to_dict()
+        assert d["type"] == "certificate_of_deposit"
+        rebuilt = CertificateOfDeposit.from_dict(d)
+        assert rebuilt.settlement == cd.settlement
+        assert rebuilt.maturity == cd.maturity
+        assert rebuilt.face_value == cd.face_value
+        assert rebuilt.coupon_rate == cd.coupon_rate
+        assert rebuilt.day_count == cd.day_count
+        assert rebuilt.maturity_cashflow == pytest.approx(cd.maturity_cashflow)
+
+    def test_cp_round_trip(self):
+        cp = CommercialPaper(SETTLE, MAT_90, face_value=500_000)
+        d = cp.to_dict()
+        assert d["type"] == "commercial_paper"
+        rebuilt = CommercialPaper.from_dict(d)
+        assert rebuilt.settlement == cp.settlement
+        assert rebuilt.maturity == cp.maturity
+        assert rebuilt.face_value == cp.face_value
+        assert rebuilt.day_count == cp.day_count
+        assert rebuilt.days == cp.days
+        assert rebuilt.price_from_discount(0.04) == pytest.approx(cp.price_from_discount(0.04))
+
+    def test_ba_round_trip(self):
+        ba = BankersAcceptance(SETTLE, MAT_180, face_value=250_000)
+        d = ba.to_dict()
+        assert d["type"] == "bankers_acceptance"
+        rebuilt = BankersAcceptance.from_dict(d)
+        assert rebuilt.settlement == ba.settlement
+        assert rebuilt.maturity == ba.maturity
+        assert rebuilt.face_value == ba.face_value
+        assert rebuilt.day_count == ba.day_count
+        assert rebuilt.price_from_yield(0.05) == pytest.approx(ba.price_from_yield(0.05))

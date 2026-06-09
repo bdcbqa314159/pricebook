@@ -149,8 +149,8 @@ class TotalReturnSwap:
         T: float = 1.0,
         notional: float = 1_000_000.0,
     ):
-        self.ref_start = reference_pv_start
-        self.ref_current = reference_pv_current
+        self.reference_pv_start = reference_pv_start
+        self.reference_pv_current = reference_pv_current
         self.funding_rate = funding_rate
         self.spread = spread
         self.T = T
@@ -159,7 +159,7 @@ class TotalReturnSwap:
     @property
     def total_return(self) -> float:
         """Total return: price change + income (simplified as PV change)."""
-        return (self.ref_current - self.ref_start) / self.ref_start
+        return (self.reference_pv_current - self.reference_pv_start) / self.reference_pv_start
 
     @property
     def funding_cost(self) -> float:
@@ -413,6 +413,8 @@ from pricebook.core.serialisable import serialisable as _ser_funded
 _ser_funded("repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(Repo)
 _ser_funded("reverse_repo", ["bond_dirty_price", "repo_rate", "T", "haircut", "notional"])(ReverseRepo)
 _ser_funded("repo_financed_position", ["bond_dirty_price", "repo_rate", "trs_spread", "asset_yield", "T", "haircut", "funding_rate", "notional", "specialness"])(RepoFinancedPosition)
+_ser_funded("funded_trs", ["reference_pv_start", "reference_pv_current", "funding_rate", "spread", "T", "notional"])(TotalReturnSwap)
+_ser_funded("funded_participation", ["total_notional", "participation_rate", "asset_yield", "funding_cost", "T", "expected_loss"])(FundedParticipation)
 
 @classmethod
 def _repo_from_convention(cls, conv, bond_dirty_price, repo_rate, T, notional=1_000_000.0):

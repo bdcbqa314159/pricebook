@@ -146,3 +146,37 @@ class TestFundedParticipation:
     def test_negative_basis(self):
         basis = FundedParticipation.cash_cds_basis(0.010, 0.015)
         assert basis < 0
+
+
+class TestSerialisationRoundTrip:
+    def test_trs_round_trip(self):
+        trs = TotalReturnSwap(
+            reference_pv_start=100.0, reference_pv_current=110.0,
+            funding_rate=0.05, spread=0.01, T=1.0, notional=2_500_000,
+        )
+        d = trs.to_dict()
+        assert d["type"] == "funded_trs"
+        rebuilt = TotalReturnSwap.from_dict(d)
+        assert rebuilt.reference_pv_start == trs.reference_pv_start
+        assert rebuilt.reference_pv_current == trs.reference_pv_current
+        assert rebuilt.funding_rate == trs.funding_rate
+        assert rebuilt.spread == trs.spread
+        assert rebuilt.T == trs.T
+        assert rebuilt.notional == trs.notional
+        assert rebuilt.pv() == pytest.approx(trs.pv())
+
+    def test_funded_participation_round_trip(self):
+        fp = FundedParticipation(
+            total_notional=5_000_000, participation_rate=0.6,
+            asset_yield=0.065, funding_cost=0.04, T=2.0, expected_loss=0.003,
+        )
+        d = fp.to_dict()
+        assert d["type"] == "funded_participation"
+        rebuilt = FundedParticipation.from_dict(d)
+        assert rebuilt.total_notional == fp.total_notional
+        assert rebuilt.participation_rate == fp.participation_rate
+        assert rebuilt.asset_yield == fp.asset_yield
+        assert rebuilt.funding_cost == fp.funding_cost
+        assert rebuilt.T == fp.T
+        assert rebuilt.expected_loss == fp.expected_loss
+        assert rebuilt.pv() == pytest.approx(fp.pv())
