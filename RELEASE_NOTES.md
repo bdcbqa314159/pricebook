@@ -2,6 +2,15 @@
 
 ---
 
+## v0.860.0 — 2026-06-09
+
+**`GUIDE.md` — per-layer API reference.**
+
+- `GUIDE.md` (new, 17 sections, ~480 lines): curves, models, numerical methods, fixed income, FX, equity, credit, commodity, options, structured, crypto, desks, risk, viz, serialisation, conventions, db/ts. 180 module references verified to exist. Includes runnable code snippets at each layer.
+- `README.md`: link to `GUIDE.md`, `ARCHITECTURE.md`, `RELEASE_NOTES.md`, and the quickstart notebook. Now an actual landing page rather than a stub.
+
+---
+
 ## v0.859.0 — 2026-06-09
 
 **Quickstart notebook.**
