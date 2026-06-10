@@ -2,6 +2,19 @@
 
 ---
 
+## v0.867.0 — 2026-06-10
+
+**Hazard-from-bonds notebook — Round 1 (sections 1-3).**
+
+- New `notebooks/credit/hazard_from_bonds_when_maturities_are_close.ipynb` (15 cells, 206 KB). Sections 1-3 of a planned 10-section walkthrough.
+- Section 1: the problem setup, math derivation of the risky-bond price as a function of $h(t)$, why "close maturities" is the trouble case (Jacobian goes ill-conditioned).
+- Section 2: the easy case — 4 bonds at 1/3/5/10y, sequential bootstrap reproduces input prices to machine precision (RMSE 1e-10 bp), implied hazards recover the truth's piecewise-constant shape correctly across the bond pillars (with a clean explanation of why a bond pillar that straddles two truth pillars gets the time-weighted blend, not either endpoint).
+- Section 3: the dramatic failure — same 4 bonds + a 5th bond two months from the 5y. Noise-free input still works; **add 5 bp of price noise on the 5y bond and the [5y, 5y+2mo] hazard jumps by 67 bp (13× amplification)**. Sweep over $\Delta T$ from 12 months down to 2 weeks shows the amplification climb monotonically: 27× at 1-month spacing, 54× at 2-week spacing. Plotted log-log.
+- Companion builder script `_build_hazard_notebook.py` — same `nbformat` + `nbconvert` pattern as `quickstart`.
+- Rounds 2-5 to come: solver-limit detail (Newton + brentq failure modes), Tikhonov derivation, L-curve picking, bid-ask Monte Carlo, adaptive switch, realistic demo, stochastic-intensity cross-check.
+
+---
+
 ## v0.866.0 — 2026-06-10
 
 **Foundation audit: dual-critic pass on 35 modules.**
