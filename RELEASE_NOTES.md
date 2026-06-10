@@ -2,6 +2,17 @@
 
 ---
 
+## v0.865.0 — 2026-06-10
+
+**Refresh `ARCHITECTURE.md` to match empirical state.**
+
+- `ARCHITECTURE.md`: rewrite from scratch using a freshly-computed import graph. Previous numbers (20 sub-packages, 486 modules, 9 layers) were ~60% stale. New numbers — **23 packages, 793 modules, 7 layers** — match what `mypy`/`pytest`/`grep` see today.
+- New content: per-package fan-in table, tallest path through the DAG (7 hops: `core → curves → models → fixed_income → options → fx → desks`), `crypto` and `data` packages (added since the previous revision), reorganised numerics / models / risk module catalogues to cover modules built across the last 200+ commits.
+- Embedded regen snippet at the end of the document — `cd python && python <<PY ... PY` — so the file's stats can be verified on any commit instead of drifting silently.
+- Companion to slices v0.863 (untangle fi → credit) and v0.864 (drop binomial_jr_lr) — without those two the layer count would be 8 instead of 7.
+
+---
+
 ## v0.864.0 — 2026-06-10
 
 **Remove loose top-level `binomial_jr_lr.py`.**
