@@ -25,7 +25,7 @@ def code(s): CELLS.append(("code", s))
 # Title + intro
 # ─────────────────────────────────────────────────────────────────
 
-md("""# Hazard rates from bond prices — when maturities are close
+md(r"""# Hazard rates from bond prices — when maturities are close
 
 A walk through the classical problem of extracting a hazard-rate term structure
 from a set of risky bond prices, with a focus on what happens — and why — when
@@ -33,25 +33,51 @@ two bonds have nearly the same maturity. Sequential bootstrap (a Newton root-fin
 one bond at a time) is the natural first attempt; we show it works cleanly when
 bonds are well spaced and breaks dramatically when they bunch.
 
-What you'll see, in order:
+---
 
-1. **The problem.** What's a hazard rate, what's a bond, what's "fitting"?
-2. **The easy case.** Four bonds at well-spaced maturities. Sequential bootstrap recovers the hazard rates perfectly.
-3. **Where sequential breaks.** Add a fifth bond two months from the fifth-year. The Jacobian of "price with respect to hazard" goes near-singular. Tiny price noise → enormous hazard noise.
-4. **Solver limits.** Newton divergence and brentq bracket failure when bonds are close.
-5. **The Tikhonov fix.** Regularised least-squares: penalise misfit AND non-smooth hazard. Full math derivation.
-6. **The L-curve.** How to pick the regularisation strength without cross-validation.
-7. **Bid-ask sensitivity.** Monte-Carlo perturbation within realistic spreads.
-8. **The adaptive switch.** Pricebook's `bootstrap_hazard_adaptive` heuristic.
-9. **A realistic demo.** Eight bonds at typical issuer maturities, with adjacent benchmarks.
-10. **Cross-check.** Reconcile piecewise-constant fit with a CIR++ stochastic-intensity fit on the same prices.
+## Executive summary
 
-References woven through:
+| Result | Headline number |
+|---|---|
+| Noise amplification at 2 weeks of maturity spacing | **54×** (5 bp price noise → 270 bp hazard noise) |
+| Noise amplification at 1 month of spacing | **27×** |
+| Tikhonov variance reduction at the close-maturity pillar | **22×** (109 bp std → 5 bp std under MC, 10 bp price spread) |
+| L-curve and LOO-CV agreement on optimal λ | within **2×** (3.2 × 10⁶ vs 6.6 × 10⁶) |
+| MC mean of integrated survival Q(5y) vs deterministic | matches to **0.001**, std **0.009** — bond data constrains *integrals*, not pointwise hazard |
+
+**The three things to remember:**
+
+1. **Sequential bootstrap is exact but brittle.** It reproduces every input price to machine precision, but a ±5 bp bid-ask on two close-maturity bonds produces hundreds of bp of swing in the implied hazard between them. This is not a solver bug — it's an inverse-problem pathology that no amount of better root-finding fixes.
+2. **Tikhonov regularisation cures it cleanly.** Add λ‖Lh‖² to the misfit, pick λ at the L-curve corner (or by LOO-CV), and the apparent uncertainty at the close-maturity pillar drops by an order of magnitude. The cost is a small smoothness *bias* — relevant only if reality actually has step changes in hazard at fine timescales (rarely true outside distressed names).
+3. **Bond prices are *integral* probes.** Two hazard functions that integrate to the same survival at every coupon date are indistinguishable by bond prices. Choosing between piecewise-constant / spline / CIR++ representations is a choice of *prior*, not of *data*. CIR++ (Section 10) makes this concrete by showing how much instantaneous-hazard freedom is consistent with the same fitted curve.
+
+---
+
+## Table of contents
+
+1. [The problem](#section-1) — hazard, survival, risky bond price formula, why close maturities are the trouble case
+2. [The easy case](#section-2) — four well-spaced bonds, sequential bootstrap recovers the truth
+3. [Where sequential breaks](#section-3) — close-maturity ill-conditioning, the 27× and 54× amplification numbers
+4. [Solver limits](#section-4) — brentq bracket failure and Newton sensitivity, with worked examples
+5. [The Tikhonov fix](#section-5) — full derivation, MAP interpretation, ad-hoc regularised solver in the notebook
+6. [Picking λ](#section-6) — L-curve corner detection + leave-one-out cross-validation as a GCV analogue
+7. [Bid-ask sensitivity](#section-7) — Monte Carlo through bid-ask spreads, before-and-after variance bands per pillar
+8. [The adaptive switch](#section-8) — pricebook's `bootstrap_hazard_adaptive`, what it catches and what it misses
+9. [A realistic demo](#section-9) — eight bonds at sovereign-like maturities with two adjacent benchmark pairs, three methods side by side
+10. [CIR++ cross-check](#section-10) — bond data constrains integrated, not instantaneous, hazard
+11. [When to use what](#section-cheat) — closing cheat sheet
+
+---
+
+## References
+
 - O'Kane (2008), *Modelling Single-name and Multi-name Credit Derivatives*, Ch. 6.
 - Duffie & Singleton (1999), *Modeling Term Structures of Defaultable Bonds*, RFS 12(4).
 - Hull, Predescu & White (2004), *Bond Prices, Default Probabilities and Risk Premiums*.
 - Tikhonov & Arsenin (1977), *Solutions of Ill-Posed Problems*.
 - Hansen (1992), *Analysis of Discrete Ill-Posed Problems by Means of the L-Curve*, SIAM Review 34(4).
+- Golub, Heath & Wahba (1979), *Generalized Cross-Validation as a Method for Choosing a Good Ridge Parameter*, Technometrics 21(2).
+- Brigo & Mercurio (2006), *Interest Rate Models — Theory and Practice*, §22 (CIR++).
 """)
 
 
@@ -91,7 +117,8 @@ print("Hazard-bootstrap notebook loaded.")''')
 # Section 1 — The problem
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 1. The problem
+md(r"""<a id="section-1"></a>
+## 1. The problem
 
 A *hazard rate* $h(t)$ is the instantaneous arrival rate of default. Given $h$,
 the survival probability to time $t$ is
@@ -189,7 +216,8 @@ print(f"Truth S(15y) = {TRUTH.survival(REF + timedelta(days=365*15)):.4f}  (expe
 # Section 2 — Easy case
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 2. The easy case — four bonds at 1, 3, 5, 10 years
+md(r"""<a id="section-2"></a>
+## 2. The easy case — four bonds at 1, 3, 5, 10 years
 
 Spacing is generous; every consecutive pair is at least two years apart. The
 sequential bootstrap finds a unique hazard rate per pillar and reproduces every
@@ -257,7 +285,8 @@ prices* exactly — it cannot do better than that without finer-grained input.""
 # Section 3 — Where sequential breaks
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 3. Where sequential bootstrap breaks
+md(r"""<a id="section-3"></a>
+## 3. Where sequential bootstrap breaks
 
 Now add a fifth bond two months from the 5-year. Sequential bootstrap still
 runs and still reproduces the input prices exactly **when the input is
@@ -358,7 +387,8 @@ in Section 5.""")
 # Section 4 — Solver limits (Newton + brentq failure modes)
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 4. Solver limits — Newton divergence and brentq bracket failure
+md(r"""<a id="section-4"></a>
+## 4. Solver limits — Newton divergence and brentq bracket failure
 
 Section 3 showed that even when the solver *succeeds*, the result is unstable.
 This section shows the regimes where the solver outright *fails* to converge.
@@ -479,7 +509,8 @@ non-zero residual the user can read off.""")
 # Section 5 — Tikhonov regularisation: theory + implementation
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 5. The Tikhonov fix — penalised least-squares
+md(r"""<a id="section-5"></a>
+## 5. The Tikhonov fix — penalised least-squares
 
 The pathology in Sections 3 and 4 is a manifestation of a classical problem in
 inverse theory: the *forward map* (hazards → prices) is well-defined and stable,
@@ -702,7 +733,8 @@ sweet spot — the *L-curve corner*.""")
 # Section 6 — L-curve and GCV for picking λ
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 6. Picking $\lambda$ — the L-curve and GCV
+md(r"""<a id="section-6"></a>
+## 6. Picking $\lambda$ — the L-curve and GCV
 
 Section 5 ended with the hyperparameter $\lambda$ as a free knob. Two
 principled methods to set it without external information:
@@ -864,7 +896,8 @@ usually more stable on small problems.""")
 # Section 7 — Bid-ask sensitivity (Monte Carlo)
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 7. Bid-ask sensitivity — what is the *actual* uncertainty on the hazard?
+md(r"""<a id="section-7"></a>
+## 7. Bid-ask sensitivity — what is the *actual* uncertainty on the hazard?
 
 So far we've used synthetic prices to the exact penny. In reality bond prices
 are observed within a *bid-ask spread*. Typical numbers:
@@ -985,7 +1018,8 @@ all priors, the user must understand what the prior assumes.""")
 # Section 8 — pricebook's adaptive switch
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 8. The adaptive switch — `bootstrap_hazard_adaptive`
+md(r"""<a id="section-8"></a>
+## 8. The adaptive switch — `bootstrap_hazard_adaptive`
 
 Pricebook exposes a higher-level entry point that decides between sequential
 and global based on a liquidity assessment of the bond pool:
@@ -1085,7 +1119,8 @@ common case; the unusual cases need explicit method selection.""")
 # Section 9 — Realistic demo: 8-bond issuer with adjacent benchmarks
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 9. A realistic demo — 8-bond issuer with two adjacent benchmarks
+md(r"""<a id="section-9"></a>
+## 9. A realistic demo — 8-bond issuer with two adjacent benchmarks
 
 Putting it together. Eight bonds, sovereign-like maturities, **two adjacent
 benchmark pairs**: a 5y / 5y+3m and a 10y / 10y+6m. Coupons rise with maturity
@@ -1210,7 +1245,8 @@ the global method directly or add a regularisation hook to it.""")
 # Section 10 — CIR++ cross-check: integrated vs instantaneous hazard
 # ─────────────────────────────────────────────────────────────────
 
-md(r"""## 10. Cross-check — bond data constrains integrated, not instantaneous, hazard
+md(r"""<a id="section-10"></a>
+## 10. Cross-check — bond data constrains integrated, not instantaneous, hazard
 
 This is the deepest takeaway of the notebook. The whole point of regularisation
 (Section 5) and uncertainty quantification (Section 7) is that bond data are
@@ -1387,6 +1423,54 @@ This notebook's `regularised_bootstrap` is the missing teaching example for
 the Tikhonov variant; whether to promote it into the library is a separate
 decision (the existing global LS is already the right shape — adding a
 `lambda` parameter would do it).""")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Closing — When to use what
+# ─────────────────────────────────────────────────────────────────
+
+md(r"""<a id="section-cheat"></a>
+## When to use what — closing cheat sheet
+
+A field manual distilled from the ten sections. Pick the row that matches your
+bond universe and follow the recommendation in the right column.
+
+| Bond universe shape | Recommended method | Why |
+|---|---|---|
+| ≥ 3 well-spaced bonds, tight bid-ask (< 50 bp), no maturities within 6 months of each other | `bootstrap_hazard_from_bonds(..., method="sequential")` | Exact reproduction of input prices, well-conditioned. Sequential is the cleanest, fastest option in this regime. |
+| Any two bond maturities within ~3 months of each other (typical for sovereign issuers with adjacent benchmarks, corporates that re-tapped) | `bootstrap_hazard_from_bonds(..., method="global", n_pillars=...)` **plus** Tikhonov regularisation | Sequential will amplify any price noise by an order of magnitude at the close pair. Use a global fit with fewer pillars than bonds, regularised. Pick λ via L-curve corner or LOO-CV. |
+| 5-15 bonds, moderate bid-ask (50-200 bp), some maturity gaps | `bootstrap_hazard_adaptive(...)` | The adaptive heuristic will pick `global` with sensible pillar count and per-bond weights. Verify the chosen `n_pillars` is appropriate for the maturity coverage. |
+| ≤ 2 bonds, or bid-ask > 200 bp (distressed) | Flat or 2-pillar hazard via `bootstrap_hazard_adaptive(...)`; report low confidence | Single-bond cases can only give a flat Z-spread. Distressed names with wide spreads have hazard signal that's barely distinguishable from noise — don't over-parameterise. |
+| You want to quantify uncertainty in the calibrated curve (e.g., for VaR or capital) | MC perturbation within bid-ask widths + your chosen bootstrap | The MC bands from Section 7 are the operational uncertainty. Production tip: always cache them alongside the calibrated curve. |
+| You want stochastic-intensity dynamics for credit derivatives (CDS swaptions, CDOs, callable risky bonds) | `CIRPlusPlus.from_survival_curve(...)` on top of your deterministic calibration | CIR++ doesn't replace the deterministic curve; it overlays stochastic dynamics on it. The φ-shift makes the model reprice your bonds exactly. |
+
+### Three rules of thumb
+
+1. **If two bonds mature within a year of each other, don't trust the implied instantaneous hazard between them without regularisation.** The relative price ratio of two close-maturity bonds is overwhelmingly dominated by the *same* survival shape; what little they reveal about the *difference* in survival between them is at signal-to-noise ratios that the bid-ask routinely swamps.
+
+2. **Always cross-check against the *integrated* survival.** Compute $\int_0^T h(u)\,du = -\log Q(T)$ at the bond maturities and verify it matches the issuer's CDS-implied integrated hazard (if a CDS exists) or a peer-group benchmark. The integral is the well-conditioned quantity; the differential is not.
+
+3. **The L-curve corner is robust; LOO-CV is sharper but needs ≥ 10 bonds to be reliable.** For typical sovereign or IG corporate issuers with 10-30 outstanding bonds, run both, accept any λ in the consensus band, and report the answer.
+
+### What the pricebook library gives you
+
+```python
+from pricebook.credit.bond_hazard_bootstrap import (
+    BondInput, bootstrap_hazard_from_bonds, bootstrap_hazard_adaptive,
+    assess_liquidity, HazardBootstrapResult, LiquidityAssessment,
+)
+from pricebook.credit.hazard_rate_models import CIRPlusPlus
+```
+
+- `bootstrap_hazard_from_bonds(method="sequential" | "global" | "auto", n_pillars=...)` — the main entry. `"auto"` picks sequential if N ≤ 8 with distinct maturities, else global LS.
+- `bootstrap_hazard_adaptive(...)` — adds `assess_liquidity` as a preprocessing step before calling `bootstrap_hazard_from_bonds`. Use this when you don't want to make the method decision yourself.
+- `CIRPlusPlus.from_survival_curve(...)` — Brigo-Mercurio shift extension over your calibrated curve, for stochastic-intensity work.
+
+Tikhonov regularisation is not currently in the library (only the unregularised LS is exposed). This notebook's `regularised_bootstrap` is the canonical implementation if you want to add a `lambda` parameter to `_bootstrap_global` later.
+
+---
+
+*End of notebook. Source builder: `_build_hazard_notebook.py` in the same directory.*""")
 
 
 # Build

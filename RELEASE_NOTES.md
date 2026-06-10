@@ -2,6 +2,21 @@
 
 ---
 
+## v0.871.0 — 2026-06-11
+
+**Hazard-from-bonds notebook — Round 5 (final polish). Notebook now complete.**
+
+- Added an **executive-summary table** at the top: noise amplification (27× at 1mo, 54× at 2wk), Tikhonov variance reduction (22× at the close pillar), L-curve and LOO-CV agreement (~2×), Q(5y) integrated-vs-instantaneous (matches to 0.001).
+- Added the **three things to remember** rules (bootstrap brittle, Tikhonov fixes it, bond prices are integral probes).
+- Added a **table of contents** with anchor links to all 10 sections + the closing cheat sheet.
+- Added a closing **"When to use what" cheat sheet** — universe-shape → recommended method, three rules of thumb, plus the relevant pricebook imports.
+- Added explicit `<a id="section-N"></a>` anchors before each `## N.` heading so the ToC links resolve reliably in Jupyter/nbconvert.
+- Final re-execution: **47 cells (22 md + 25 code), 0 errors, 14 embedded plots, 11/11 anchored headings**.
+
+The notebook is now content-complete and ready to publish.
+
+---
+
 ## v0.870.0 — 2026-06-10
 
 **Hazard-from-bonds notebook — Round 4 (sections 8-10). Notebook now complete content-wise (46 cells, ~2 MB).**
