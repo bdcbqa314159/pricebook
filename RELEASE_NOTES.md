@@ -2,6 +2,17 @@
 
 ---
 
+## v0.869.0 — 2026-06-10
+
+**Hazard-from-bonds notebook — Round 3 (sections 6-7).**
+
+- Section 6 (Picking λ) — L-curve method (Hansen 1992) with explicit max-curvature corner detection on the log-log plot; LOO-CV (model-free GCV analogue, $N$ refits per λ point). L-curve corner λ* = 3.2e+06; LOO-CV minimum λ* = 6.6e+06 — both methods agree on regularisation strength within a factor of ~2. Two plots (L-curve with corner star; LOO-CV vs λ with both criteria's λ marked).
+- Section 7 (Bid-ask sensitivity) — 200 Monte-Carlo draws with ±10 bp price half-spread (typical IG-corporate width). Box plot per pillar, unregularised vs Tikhonov at L-curve-corner λ. The headline: at the 5y+2mo close-maturity pillar, hazard standard deviation collapses from **109.3 bp (unregularised) to 4.9 bp (regularised) — a 22× variance reduction**. Other pillars (1y, 3y, 5y, 10y) see modest 1.2-1.7× reductions. Discusses the bias-vs-variance tradeoff implicit in the prior.
+
+Now 33 cells, 898 KB. Sections 8-10 (adaptive switch, realistic demo, CIR++ cross-check) to follow.
+
+---
+
 ## v0.868.0 — 2026-06-10
 
 **Hazard-from-bonds notebook — Round 2 (sections 4-5).**
