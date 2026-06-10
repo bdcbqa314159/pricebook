@@ -73,6 +73,8 @@ class HazardBootstrapResult:
     n_bonds: int
     method: str
     converged: bool
+    lam: float = 0.0              # Tikhonov regularisation strength used (0 = unregularised)
+    roughness: float = 0.0        # ||L h||² of the fitted hazard (second-difference penalty)
 
     def to_dict(self) -> dict:
         return {
@@ -86,6 +88,8 @@ class HazardBootstrapResult:
             "n_bonds": self.n_bonds,
             "method": self.method,
             "converged": self.converged,
+            "lam": self.lam,
+            "roughness": self.roughness,
         }
 
 
@@ -341,14 +345,27 @@ def _bootstrap_global(
     discount_curve: DiscountCurve,
     n_pillars: int | None = None,
     recovery_mode: str = RECOVERY_PAR,
+    lam: float = 0.0,
 ) -> HazardBootstrapResult:
     """Global least-squares fit: fit M hazard pillars to N bond prices.
 
     More robust than sequential when bonds are noisy or have gaps.
-    Minimises weighted sum of squared pricing errors.
+    Minimises weighted sum of squared pricing errors, optionally with a
+    Tikhonov second-difference (curvature) penalty:
+
+        objective(h) = Σ_j w_j (f_j(h) − P_j)² · 10⁴   +   lam · ‖L h‖²
+
+    where L is the second-difference operator (discrete Laplacian).
+    `lam=0` gives the pure unregularised least-squares fit (default,
+    backward-compatible with the original behaviour). `lam>0` adds the
+    smoothness penalty; pick `lam` either by hand or via
+    `find_lcurve_lambda`.
 
     Args:
         n_pillars: number of hazard rate segments. Default = min(N, 5).
+        lam: Tikhonov regularisation strength (>= 0). See the
+             `notebooks/credit/hazard_from_bonds_when_maturities_are_close.ipynb`
+             for theory + L-curve picker.
     """
     sorted_bonds = sorted(bonds, key=lambda b: b.maturity)
     n = len(sorted_bonds)
@@ -370,8 +387,22 @@ def _bootstrap_global(
         for t in pillar_times
     ]
 
+    # Second-difference (Tikhonov) operator. Shape (n_pillars-2, n_pillars).
+    # ‖L h‖² = Σ_i (h_{i-1} − 2 h_i + h_{i+1})²  — discrete curvature.
+    # Build it whenever n_pillars >= 3 (independent of lam) so that the
+    # `roughness` diagnostic in the result is always populated. The lam>0
+    # gate is applied only in the objective sum below.
+    if n_pillars >= 3:
+        L_mat = np.zeros((n_pillars - 2, n_pillars))
+        for i in range(n_pillars - 2):
+            L_mat[i, i]   = -1.0
+            L_mat[i, i+1] =  2.0
+            L_mat[i, i+2] = -1.0
+    else:
+        L_mat = None  # fewer than 3 pillars — no curvature is defined
+
     def objective(hazard_rates: np.ndarray) -> float:
-        """Weighted sum of squared pricing errors."""
+        """Weighted sum of squared pricing errors, optionally with Tikhonov."""
         # Build survival curve from hazard rates
         survivals = []
         cum_surv = 1.0
@@ -395,6 +426,10 @@ def _bootstrap_global(
             )
             err_bp = (model - bond.market_price) * 100  # in bp of par
             total_err += bond.weight * err_bp ** 2
+
+        if L_mat is not None and lam > 0:
+            Lh = L_mat @ hazard_rates
+            total_err += lam * float(Lh @ Lh)
         return total_err
 
     # Initial guess: flat hazard from average Z-spread
@@ -439,6 +474,12 @@ def _bootstrap_global(
     residuals = [(f - m) * 100 for f, m in zip(fitted_prices, market_prices)]
     rmse = math.sqrt(sum(r**2 for r in residuals) / n) if n > 0 else 0.0
 
+    if L_mat is not None:
+        Lh_final = L_mat @ hazard_rates
+        roughness_val = float(Lh_final @ Lh_final)
+    else:
+        roughness_val = 0.0
+
     return HazardBootstrapResult(
         survival_curve=final_curve,
         pillar_dates=pillar_dates,
@@ -449,8 +490,10 @@ def _bootstrap_global(
         rmse_bp=rmse,
         max_error_bp=max(abs(r) for r in residuals) if residuals else 0.0,
         n_bonds=n,
-        method="global_ls",
+        method="global_ls_tikhonov" if lam > 0 else "global_ls",
         converged=result.success,
+        lam=float(lam),
+        roughness=roughness_val,
     )
 
 
@@ -465,6 +508,7 @@ def bootstrap_hazard_from_bonds(
     method: str = "auto",
     n_pillars: int | None = None,
     recovery_mode: str = RECOVERY_PAR,
+    lam: float | str = 0.0,
 ) -> HazardBootstrapResult:
     """Bootstrap a survival/hazard curve from risky bond prices.
 
@@ -478,6 +522,11 @@ def bootstrap_hazard_from_bonds(
         n_pillars: for global method, number of hazard segments.
         recovery_mode: "par" (ISDA standard, R × Face on default) or
                        "market_value" (Duffie-Singleton 1999, R × V(t⁻)).
+        lam: Tikhonov regularisation strength for `method="global"`.
+             - `0.0` (default): unregularised least-squares (original behaviour).
+             - positive float: penalised LS with that fixed λ.
+             - `"auto"`: pick λ via L-curve corner detection
+               (see `find_lcurve_lambda`). Ignored when method="sequential".
 
     Returns:
         HazardBootstrapResult with survival curve and diagnostics.
@@ -501,6 +550,16 @@ def bootstrap_hazard_from_bonds(
         - Bonds with same maturity: global method required (over-determined)
         - Very high spreads (distressed): solver may struggle, use global
         - Negative hazard: clamped to 0 (bond trades above risk-free par)
+
+    Tikhonov regularisation:
+        For universes with close maturities (any pair within ~3 months) the
+        sequential bootstrap is ill-conditioned and small price noise produces
+        huge swings in the implied hazard. The global LS with `lam > 0` adds
+        a second-difference (curvature) penalty on the hazard vector that
+        absorbs the noise into smoothness rather than oscillation. See the
+        notebook `notebooks/credit/hazard_from_bonds_when_maturities_are_close.ipynb`
+        for the full derivation, L-curve picking, and a side-by-side
+        comparison vs the unregularised fit.
     """
     if not bonds:
         raise ValueError("At least one bond required")
@@ -527,10 +586,104 @@ def bootstrap_hazard_from_bonds(
                 f"got {n} bonds with {unique_mats} unique maturities. Use method='global'."
             )
         return _bootstrap_sequential(reference_date, sorted_bonds, discount_curve, recovery_mode)
+
+    # Global method — resolve lam
+    if isinstance(lam, str):
+        if lam == "auto":
+            lam_value = find_lcurve_lambda(
+                reference_date, sorted_bonds, discount_curve,
+                n_pillars=n_pillars, recovery_mode=recovery_mode,
+            )
+        else:
+            raise ValueError(f"lam string must be 'auto', got '{lam}'")
     else:
-        return _bootstrap_global(
-            reference_date, sorted_bonds, discount_curve, n_pillars, recovery_mode,
+        lam_value = float(lam)
+        if lam_value < 0:
+            raise ValueError(f"lam must be >= 0, got {lam_value}")
+
+    return _bootstrap_global(
+        reference_date, sorted_bonds, discount_curve, n_pillars,
+        recovery_mode, lam=lam_value,
+    )
+
+
+def find_lcurve_lambda(
+    reference_date: date,
+    bonds: list[BondInput],
+    discount_curve: DiscountCurve,
+    n_pillars: int | None = None,
+    recovery_mode: str = RECOVERY_PAR,
+    lam_min: float = 1e2,
+    lam_max: float = 1e10,
+    n_lam: int = 21,
+) -> float:
+    """Pick the Tikhonov λ at the corner of the L-curve.
+
+    Sweeps λ on a logarithmic grid, runs the regularised global LS at each,
+    and locates the point of maximum curvature on the (log misfit, log
+    roughness) trade-off curve. This is Hansen's L-curve criterion
+    (Hansen 1992, *Analysis of Discrete Ill-Posed Problems by Means of the
+    L-Curve*, SIAM Review 34(4)).
+
+    Args:
+        reference_date, bonds, discount_curve, n_pillars, recovery_mode:
+            same as `bootstrap_hazard_from_bonds`.
+        lam_min, lam_max: log-spaced sweep bounds. Defaults span 8 decades,
+            which covers the realistic range for typical bond universes.
+        n_lam: number of grid points.
+
+    Returns:
+        Optimal λ (float). If the L-curve is too noisy to identify a clean
+        corner (rare on real data), returns the geometric mean of `lam_min`
+        and `lam_max`.
+
+    See the notebook
+    `notebooks/credit/hazard_from_bonds_when_maturities_are_close.ipynb`
+    §6 for the geometry and a worked example.
+    """
+    if not bonds:
+        raise ValueError("At least one bond required")
+
+    sorted_bonds = sorted(bonds, key=lambda b: b.maturity)
+
+    lam_grid = np.logspace(np.log10(lam_min), np.log10(lam_max), n_lam)
+    misfit = np.zeros(n_lam)
+    rough = np.zeros(n_lam)
+
+    for i, lam in enumerate(lam_grid):
+        result = _bootstrap_global(
+            reference_date, sorted_bonds, discount_curve,
+            n_pillars=n_pillars, recovery_mode=recovery_mode, lam=float(lam),
         )
+        # misfit = Σ w_j (residual_bp_j)² across all bonds
+        misfit[i] = float(np.sum(np.array(result.residuals_bp) ** 2))
+        rough[i] = result.roughness
+
+    # Signed curvature of (log misfit, log roughness) parameterised by log λ.
+    # The L-curve elbow is a concave-from-above corner in (log m, log r)-space
+    # (misfit grows, roughness shrinks); its signed curvature is the *most
+    # negative* value, not the largest absolute value. Taking max|κ| would
+    # confuse boundary finite-difference artifacts (where the curve is
+    # essentially flat in one direction) with the real corner.
+    log_l = np.log10(lam_grid)
+    log_m = np.log10(np.maximum(misfit, 1e-30))
+    log_r = np.log10(np.maximum(rough, 1e-30))
+
+    dx = np.gradient(log_m, log_l)
+    dy = np.gradient(log_r, log_l)
+    ddx = np.gradient(dx, log_l)
+    ddy = np.gradient(dy, log_l)
+    denom = np.power(dx ** 2 + dy ** 2, 1.5)
+    denom = np.where(denom < 1e-20, 1e-20, denom)
+    signed_kappa = (dx * ddy - ddx * dy) / denom
+
+    # Drop endpoints — finite-difference derivatives are unreliable there.
+    if n_lam >= 5:
+        idx = int(np.argmin(signed_kappa[2:-2]) + 2)
+    else:
+        idx = int(np.argmin(signed_kappa))
+
+    return float(lam_grid[idx])
 
 
 def implied_hazard_from_spread(

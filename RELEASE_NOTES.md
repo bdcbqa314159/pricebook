@@ -2,6 +2,30 @@
 
 ---
 
+## v0.872.0 — 2026-06-11
+
+**Tikhonov regularisation in `bond_hazard_bootstrap`.**
+
+- `_bootstrap_global(...)` and `bootstrap_hazard_from_bonds(...)` gain a `lam` parameter:
+  - `lam=0.0` (default): unregularised LS — bit-for-bit identical to the existing behaviour (regression-tested).
+  - `lam > 0`: penalised LS with a second-difference (curvature) penalty $\lambda\|Lh\|^2$.
+  - `lam="auto"`: pick λ via the L-curve corner (Hansen 1992).
+- New helper `find_lcurve_lambda(...)` does the L-curve sweep + corner detection. Uses signed curvature (most-negative κ in log-log space) rather than max-|κ| to avoid boundary finite-difference artifacts.
+- `HazardBootstrapResult` gains two new diagnostic fields with defaults: `lam` (the λ used) and `roughness` (the final $\|Lh\|^2$). Backward-compatible — existing constructors omitting these still work.
+- Method label becomes `"global_ls_tikhonov"` when `lam > 0`, stays `"global_ls"` when `lam=0`.
+- 11 new tests in `tests/test_bond_hazard_tikhonov.py`: regression at `lam=0`, monotonic roughness decrease with `lam`, `lam→∞` driving the curve to linear (zero curvature), L-curve picker correctness, edge cases (n_pillars < 3 ignores `lam`, negative `lam` raises, sequential method unaffected by `lam`).
+- Doc updates: `bootstrap_hazard_from_bonds` docstring now points to the hazard-from-bonds notebook for the full derivation and L-curve picking.
+
+The recommended call for non-trivial bond universes (any pair within ~3 months of maturity, or > 8 bonds) is now:
+```python
+result = bootstrap_hazard_from_bonds(
+    REF, bonds, rf_curve, method="global", n_pillars=..., lam="auto"
+)
+```
+For well-spaced 3-8 bond universes, `method="sequential"` (default via `"auto"`) remains the right answer.
+
+---
+
 ## v0.871.0 — 2026-06-11
 
 **Hazard-from-bonds notebook — Round 5 (final polish). Notebook now complete.**
