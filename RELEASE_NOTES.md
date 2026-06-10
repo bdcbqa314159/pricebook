@@ -2,6 +2,15 @@
 
 ---
 
+## v0.864.0 — 2026-06-10
+
+**Remove loose top-level `binomial_jr_lr.py`.**
+
+- Deleted `python/pricebook/binomial_jr_lr.py` — a 190-line file sitting outside any subpackage. It was unreferenced anywhere in the repo, broken at import time (`from pricebook.black76 import OptionType` — that module path doesn't exist; Black-76 lives at `pricebook.models.black76`), and the JR / LR tree implementations are already provided by `numerical/_trees.py` and registered in `registry.py` (`TreeMethod.JR`, `TreeMethod.LR`). The file was a relic of an earlier shim cleanup (see v0.4xx release notes).
+- Net: 25 → 24 top-level packages/modules in `pricebook/`. The top of the tree now contains only the registered subpackages plus `__init__.py` and `registry.py`.
+
+---
+
 ## v0.863.0 — 2026-06-10
 
 **Untangle `fixed_income → credit` runtime edge.**
