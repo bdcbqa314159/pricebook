@@ -103,6 +103,7 @@ from pricebook.credit.bond_hazard_bootstrap import (
     bootstrap_hazard_from_bonds,
     bootstrap_hazard_adaptive,
     assess_liquidity,
+    find_lcurve_lambda,
     _price_risky_bond,
 )
 from pricebook.viz import configure_theme
@@ -605,90 +606,16 @@ allowed to be.
 
 ### 5.4 What if we don't know $\lambda$?
 
-That's Section 6 — the L-curve. For now, let's implement the regularised
-solver and see it work at a hand-picked $\lambda$.""")
+That's Section 6 — the L-curve. For now, let's use the library's regularised
+solver and see it work at a hand-picked $\lambda$.
 
-code(r'''def regularised_bootstrap(bonds: list[BondInput], pillar_times_y: list[float],
-                          discount_curve, recovery_mode: str, lam: float,
-                          weights: list[float] = None) -> dict:
-    """Tikhonov-regularised hazard fit.
-
-    Minimises:  Σ w_j (f_j(h) - P_j)² + λ ||L h||²
-
-    where L is the second-difference operator (discrete curvature). Hazards are
-    constrained non-negative via bounds. Uses scipy L-BFGS-B for the inner
-    optimisation. Built ad-hoc inside the notebook — not added to the library,
-    because the production system already exposes the unregularised global fit
-    and this is here for teaching.
-    """
-    from scipy.optimize import minimize as _min
-
-    n_bonds = len(bonds)
-    n_p = len(pillar_times_y)
-    if weights is None:
-        weights = [b.weight for b in bonds]
-
-    pillar_dates = [REF + timedelta(days=int(round(365 * t))) for t in pillar_times_y]
-
-    # Second-difference operator L: (n_p - 2) × n_p
-    if n_p >= 3:
-        L = np.zeros((n_p - 2, n_p))
-        for i in range(n_p - 2):
-            L[i, i]   = -1.0
-            L[i, i+1] =  2.0
-            L[i, i+2] = -1.0
-    else:
-        L = np.zeros((0, n_p))  # not enough pillars to penalise curvature
-
-    def build_survival(h):
-        surv, cum, prev_t = [], 1.0, 0.0
-        for t_y, h_seg in zip(pillar_times_y, h):
-            cum *= math.exp(-max(h_seg, 0.0) * (t_y - prev_t))
-            surv.append(cum); prev_t = t_y
-        return SurvivalCurve(REF, pillar_dates, surv)
-
-    def objective(h):
-        try:
-            sc = build_survival(h)
-        except Exception:
-            return 1e12
-        misfit = 0.0
-        for j, b in enumerate(bonds):
-            model = _price_risky_bond(REF, b.maturity, b.coupon, b.frequency,
-                                      b.recovery, discount_curve, sc)
-            err_bp = (model - b.market_price) * 100.0  # bp of par
-            misfit += weights[j] * err_bp ** 2
-        roughness = float((L @ h) @ (L @ h)) if L.size else 0.0
-        return misfit + lam * roughness
-
-    x0 = np.full(n_p, 0.02)  # 2% flat hazard guess
-    bounds = [(0.0, 2.0)] * n_p
-    res = _min(objective, x0, method="L-BFGS-B", bounds=bounds,
-               options={"maxiter": 500, "ftol": 1e-12})
-
-    h_fit = res.x
-    sc = build_survival(h_fit)
-    fitted = [_price_risky_bond(REF, b.maturity, b.coupon, b.frequency,
-                                b.recovery, discount_curve, sc) for b in bonds]
-    market = [b.market_price for b in bonds]
-    residuals_bp = [(f - m) * 100.0 for f, m in zip(fitted, market)]
-    rmse_bp = float(np.sqrt(np.mean(np.array(residuals_bp) ** 2)))
-    roughness = float((L @ h_fit) @ (L @ h_fit)) if L.size else 0.0
-    return {
-        "hazards": h_fit.tolist(),
-        "pillar_times_y": list(pillar_times_y),
-        "pillar_dates": pillar_dates,
-        "survival_curve": sc,
-        "fitted_prices": fitted,
-        "market_prices": market,
-        "residuals_bp": residuals_bp,
-        "rmse_bp": rmse_bp,
-        "roughness": roughness,
-        "converged": res.success,
-        "lam": lam,
-    }
-
-print("regularised_bootstrap defined.")''')
+The pricebook library exposes Tikhonov directly via the `lam` parameter on
+`bootstrap_hazard_from_bonds(method="global", ...)`. When `lam=0` (the
+default) it's the original unregularised LS fit; when `lam>0` it adds the
+second-difference penalty; when `lam="auto"` it calls `find_lcurve_lambda`
+internally and picks the corner. The notebook used to define an ad-hoc
+`regularised_bootstrap` function here for teaching, but the production API
+is now identical, so we use it directly.""")
 
 code(r'''# Smoke test the regularised fit on the close-maturity noisy case from Section 3.
 # Same 5 bonds (1y, 3y, 5y, 5y+2mo, 10y), with +5 bp noise on the 5y.
@@ -711,9 +638,12 @@ lam_grid = [0.0, 1e3, 1e5, 1e6, 1e7, 1e8, 1e10]
 print(f"  λ           rmse(bp)    roughness(×1e6)   hazards (%)")
 print(f"  {'-'*70}")
 for lam in lam_grid:
-    res = regularised_bootstrap(close_bonds_5_noisy, pillar_ts, rf, "par", lam=lam)
-    hh = [round(h*100, 3) for h in res['hazards']]
-    print(f"  {lam:9.0e}   {res['rmse_bp']:8.3f}    {res['roughness']*1e6:10.3f}     {hh}")''')
+    res = bootstrap_hazard_from_bonds(
+        REF, close_bonds_5_noisy, rf,
+        method="global", pillar_times=pillar_ts, lam=lam,
+    )
+    hh = [round(h*100, 3) for h in res.pillar_hazards]
+    print(f"  {lam:9.0e}   {res.rmse_bp:8.3f}    {res.roughness*1e6:10.3f}     {hh}")''')
 
 md(r"""**What you just saw.** With $\lambda = 0$ (no regularisation) the
 regularised fit is essentially the close-maturity sequential bootstrap: the
@@ -787,12 +717,15 @@ code(r'''# Dense λ grid for the L-curve
 lam_grid_dense = np.logspace(2, 11, 25)
 results_lam = []
 for lam in lam_grid_dense:
-    r = regularised_bootstrap(close_bonds_5_noisy, pillar_ts, rf, "par", lam=lam)
+    r = bootstrap_hazard_from_bonds(
+        REF, close_bonds_5_noisy, rf,
+        method="global", pillar_times=pillar_ts, lam=lam,
+    )
     results_lam.append(r)
 
 # Misfit and roughness arrays (in their natural units)
-misfit_arr = np.array([r["rmse_bp"]**2 * len(close_bonds_5_noisy) for r in results_lam])
-rough_arr = np.array([r["roughness"] for r in results_lam])
+misfit_arr = np.array([r.rmse_bp**2 * len(close_bonds_5_noisy) for r in results_lam])
+rough_arr = np.array([r.roughness for r in results_lam])
 
 # Compute curvature of log(misfit) vs log(roughness) as a function of log(λ)
 log_lam = np.log10(lam_grid_dense)
@@ -811,9 +744,9 @@ corner_idx = int(np.argmax(curvature[2:-2]) + 2)
 lam_star_lcurve = lam_grid_dense[corner_idx]
 
 print(f"L-curve λ* (max-curvature corner) = {lam_star_lcurve:.2e}")
-print(f"  → RMSE = {results_lam[corner_idx]['rmse_bp']:.3f} bp,",
-      f"roughness = {results_lam[corner_idx]['roughness']*1e6:.2f} (×1e-6)")
-print(f"  → hazards (%): {[round(h*100, 3) for h in results_lam[corner_idx]['hazards']]}")''')
+print(f"  → RMSE = {results_lam[corner_idx].rmse_bp:.3f} bp,",
+      f"roughness = {results_lam[corner_idx].roughness*1e6:.2f} (×1e-6)")
+print(f"  → hazards (%): {[round(h*100, 3) for h in results_lam[corner_idx].pillar_hazards]}")''')
 
 code(r'''# Plot the L-curve and mark the corner
 fig, axes = create_figure(n_panels=2, figsize=(13, 5))
@@ -850,11 +783,14 @@ for lam in lam_grid_cv:
     for j_out in range(len(close_bonds_5_noisy)):
         train_bonds = [b for k, b in enumerate(close_bonds_5_noisy) if k != j_out]
         train_pillars = [(b.maturity - REF).days / 365.0 for b in train_bonds]
-        r = regularised_bootstrap(train_bonds, train_pillars, rf, "par", lam=lam)
+        r = bootstrap_hazard_from_bonds(
+            REF, train_bonds, rf,
+            method="global", pillar_times=train_pillars, lam=lam,
+        )
         # Predict the held-out bond using the fitted survival curve
         b_out = close_bonds_5_noisy[j_out]
         pred = _price_risky_bond(REF, b_out.maturity, b_out.coupon, b_out.frequency,
-                                 b_out.recovery, rf, r["survival_curve"])
+                                 b_out.recovery, rf, r.survival_curve)
         sq_err += (pred - b_out.market_price) ** 2 * 1e4   # in bp²
     cv_scores.append(sq_err / len(close_bonds_5_noisy))
     print(f"  λ = {lam:.1e}   LOO-CV (bp²) = {sq_err/len(close_bonds_5_noisy):.3f}")
@@ -940,8 +876,11 @@ for k in range(N_MC):
     except Exception:
         mc_hazards_unreg.append([np.nan]*5)
     # Regularised
-    r_reg = regularised_bootstrap(perturbed, pillar_ts, rf, "par", lam=lam_for_mc)
-    mc_hazards_reg.append(r_reg["hazards"])
+    r_reg = bootstrap_hazard_from_bonds(
+        REF, perturbed, rf,
+        method="global", pillar_times=pillar_ts, lam=lam_for_mc,
+    )
+    mc_hazards_reg.append(r_reg.pillar_hazards)
 
 mc_hazards_unreg = np.array(mc_hazards_unreg)
 mc_hazards_reg = np.array(mc_hazards_reg)
@@ -1157,11 +1096,14 @@ realistic_pillars = [(b.maturity - REF).days / 365.0 for b in realistic_noisy]
 
 res_seq = bootstrap_hazard_from_bonds(REF, realistic_noisy, rf, method="sequential")
 res_glob = bootstrap_hazard_from_bonds(REF, realistic_noisy, rf, method="global", n_pillars=5)
-res_tik = regularised_bootstrap(realistic_noisy, realistic_pillars, rf, "par", lam=lam_star_lcurve)
+res_tik = bootstrap_hazard_from_bonds(
+    REF, realistic_noisy, rf,
+    method="global", pillar_times=realistic_pillars, lam=lam_star_lcurve,
+)
 
 print(f"Sequential:       rmse = {res_seq.rmse_bp:.3f} bp")
 print(f"Global LS (5 p.): rmse = {res_glob.rmse_bp:.3f} bp")
-print(f"Tikhonov (λ*):    rmse = {res_tik['rmse_bp']:.3f} bp")
+print(f"Tikhonov (λ*):    rmse = {res_tik.rmse_bp:.3f} bp")
 print()
 print("Implied hazards (%):")
 print(f"  Sequential pillars (yrs):     {[round((d-REF).days/365.0, 3) for d in res_seq.pillar_dates]}")
@@ -1170,8 +1112,8 @@ print()
 print(f"  Global LS pillars (yrs):      {[round((d-REF).days/365.0, 3) for d in res_glob.pillar_dates]}")
 print(f"  Global LS hazards:            {[round(h*100, 3) for h in res_glob.pillar_hazards]}")
 print()
-print(f"  Tikhonov pillars (yrs):       {[round(t, 3) for t in res_tik['pillar_times_y']]}")
-print(f"  Tikhonov hazards:             {[round(h*100, 3) for h in res_tik['hazards']]}")''')
+print(f"  Tikhonov pillars (yrs):       {[round((d-REF).days/365.0, 3) for d in res_tik.pillar_dates]}")
+print(f"  Tikhonov hazards:             {[round(h*100, 3) for h in res_tik.pillar_hazards]}")''')
 
 code(r'''# Side-by-side plots: hazard curves + residuals
 fig, axes = create_figure(n_panels=2, figsize=(13, 5))
@@ -1193,7 +1135,8 @@ step_plot(ax1, [(d-REF).days/365.0 for d in res_seq.pillar_dates],
           res_seq.pillar_hazards, "C0", "Sequential")
 step_plot(ax1, [(d-REF).days/365.0 for d in res_glob.pillar_dates],
           res_glob.pillar_hazards, "C2", "Global LS (5 pillars)")
-step_plot(ax1, res_tik["pillar_times_y"], res_tik["hazards"], "C3",
+step_plot(ax1, [(d - REF).days / 365.0 for d in res_tik.pillar_dates],
+          res_tik.pillar_hazards, "C3",
           f"Tikhonov λ = {lam_star_lcurve:.0e}")
 
 ax1.set_xlabel("Time (years)")
@@ -1207,7 +1150,7 @@ ax1.set_ylim(1.0, 5.0)
 bond_ys = [(b.maturity - REF).days/365.0 for b in realistic_noisy]
 ax2.scatter(bond_ys, res_seq.residuals_bp, c="C0", s=60, label="Sequential", marker="o")
 ax2.scatter(bond_ys, res_glob.residuals_bp, c="C2", s=60, label="Global LS", marker="s")
-ax2.scatter(bond_ys, res_tik["residuals_bp"], c="C3", s=60, label="Tikhonov", marker="^")
+ax2.scatter(bond_ys, res_tik.residuals_bp, c="C3", s=60, label="Tikhonov", marker="^")
 ax2.axhline(0, color="k", lw=0.5)
 ax2.axhline(5, color="grey", ls=":", alpha=0.5, label="±5 bp noise band")
 ax2.axhline(-5, color="grey", ls=":", alpha=0.5)
@@ -1282,11 +1225,11 @@ the same survival function at the bond maturities.""")
 code(r'''from pricebook.credit.hazard_rate_models import CIRPlusPlus
 
 # Build CIR++ from the regularised survival curve
-sc = res_tik["survival_curve"]
+sc = res_tik.survival_curve
 
 # Pull pillar hazards from the regularised curve (piecewise constant)
-pillar_t_years = res_tik["pillar_times_y"]
-hazards = res_tik["hazards"]
+pillar_t_years = [(d - REF).days / 365.0 for d in res_tik.pillar_dates]
+hazards = res_tik.pillar_hazards
 
 # CIR++ parameters: pick a moderate vol to make the spread visible
 cir = CIRPlusPlus(
@@ -1330,7 +1273,7 @@ Q_paths = np.exp(-integrated)
 Q_paths = np.concatenate([np.ones((N_PATHS, 1)), Q_paths], axis=1)
 
 # Deterministic survival from the calibrated curve
-Q_deterministic = np.array([res_tik["survival_curve"].survival(REF + timedelta(days=int(t*365)))
+Q_deterministic = np.array([res_tik.survival_curve.survival(REF + timedelta(days=int(t*365)))
                             for t in ts])
 
 print(f"Sanity check at T = 5y:")
@@ -1419,10 +1362,12 @@ another. Choosing among them is a choice of *prior*, not of *data*.
 The pricebook library exposes `bootstrap_hazard_from_bonds(..., method=...)`
 and `bootstrap_hazard_adaptive(...)` for the bootstrap variants, and
 `CIRPlusPlus.from_survival_curve(...)` for the stochastic-intensity overlay.
-This notebook's `regularised_bootstrap` is the missing teaching example for
-the Tikhonov variant; whether to promote it into the library is a separate
-decision (the existing global LS is already the right shape — adding a
-`lambda` parameter would do it).""")
+Pricebook now exposes Tikhonov regularisation directly on the global LS
+path via the `lam` parameter on `bootstrap_hazard_from_bonds(method="global", ...)`
+— see the closing cheat sheet for the recommended call. The L-curve corner
+picker is exposed as `find_lcurve_lambda(...)` if you want to inspect or
+visualise the trade-off curve yourself, and `lam="auto"` plugs the picker
+into the bootstrap entry point.""")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -1466,7 +1411,7 @@ from pricebook.credit.hazard_rate_models import CIRPlusPlus
 - `bootstrap_hazard_adaptive(...)` — adds `assess_liquidity` as a preprocessing step before calling `bootstrap_hazard_from_bonds`. Use this when you don't want to make the method decision yourself.
 - `CIRPlusPlus.from_survival_curve(...)` — Brigo-Mercurio shift extension over your calibrated curve, for stochastic-intensity work.
 
-Tikhonov regularisation is not currently in the library (only the unregularised LS is exposed). This notebook's `regularised_bootstrap` is the canonical implementation if you want to add a `lambda` parameter to `_bootstrap_global` later.
+Tikhonov regularisation is exposed via the `lam` parameter on `bootstrap_hazard_from_bonds(method="global", lam=...)` — pass a positive float for a fixed strength, or `lam="auto"` to have the L-curve corner picked for you. The standalone picker is `find_lcurve_lambda(...)`. `pillar_times=[...]` lets you place pillars at specific tenors (e.g., at the bond maturities, or at calendar benchmarks like 1/2/5/10/30y).
 
 ---
 

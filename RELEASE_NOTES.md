@@ -2,6 +2,19 @@
 
 ---
 
+## v0.874.0 — 2026-06-11
+
+**Hazard-from-bonds notebook — adapted to use the library Tikhonov.**
+
+- Removed the ad-hoc `regularised_bootstrap(...)` function from the notebook builder (Section 5). Replaced its 5 call sites (λ-sweep, L-curve dense grid, LOO-CV inner loop, MC sensitivity, realistic demo) with `bootstrap_hazard_from_bonds(method="global", pillar_times=..., lam=...)`. Section 9's `res_tik` is now a `HazardBootstrapResult`, with downstream code reading attributes (`res_tik.pillar_hazards`, `res_tik.survival_curve`) instead of dict keys.
+- Updated Section 5 prose to point users at the library API; replaced the closing cheat sheet's "not currently in library" caveat with the recommended call (`lam="auto"`, `pillar_times=[...]`).
+- Notebook re-executes cleanly: 46 cells (down from 47 — one builder-cell removed), 0 errors, 14 embedded plots. Every headline number unchanged (L-curve λ* = 3.16e+06, LOO-CV λ* = 6.58e+06, Section-10 Q(5y) MC mean 0.8867 vs deterministic 0.8877) — the library-backed and ad-hoc fits agree to numerics.
+- The notebook is now self-consistent with the library: a reader who sees the API in §5 can apply it directly in their own code with no further translation.
+
+Closes the Tikhonov work started in v0.872. Two-slice pattern (library first, notebook after) preserved.
+
+---
+
 ## v0.873.0 — 2026-06-11
 
 **`pillar_times` override in `bond_hazard_bootstrap`.**
