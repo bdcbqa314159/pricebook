@@ -352,6 +352,350 @@ close maturities" instead of pretending we do. That's the regularisation story
 in Section 5.""")
 
 
+# ─────────────────────────────────────────────────────────────────
+# Section 4 — Solver limits (Newton + brentq failure modes)
+# ─────────────────────────────────────────────────────────────────
+
+md(r"""## 4. Solver limits — Newton divergence and brentq bracket failure
+
+Section 3 showed that even when the solver *succeeds*, the result is unstable.
+This section shows the regimes where the solver outright *fails* to converge.
+There are two characteristic failure modes for the per-bond root-find that
+sequential bootstrap performs:
+
+- **Newton divergence**: if the residual $r(h) = P_\text{model}(h) - P_\text{market}$
+  has a near-zero derivative at the current guess (the Jacobian is near-singular,
+  exactly the close-maturity case), Newton's update $h \leftarrow h - r/r'$
+  produces a wild step that overshoots far outside the physically sensible
+  region. Subsequent iterations diverge.
+- **brentq bracket failure**: brentq requires a sign change of $r(h)$ over a
+  user-supplied interval $[h_\text{lo}, h_\text{hi}]$. Two things can break
+  that:
+  1. The bond trades *above* the matching risk-free price (negative implied
+     hazard) — there is no non-negative $h$ that reprices it. The residual is
+     positive over the entire $[0, h_\text{max}]$ bracket and brentq fails.
+  2. The market price is below the recovery floor (price < R × 100 × df(T)) —
+     no finite hazard reproduces it.
+
+The pricebook bootstrap uses **brentq** under the hood with a wide
+$[10^{-6}, 5.0]$ bracket. Both failure modes manifest as a `ValueError` or as
+the solver returning the boundary (a hazard of 5 = 500% annual default rate,
+clearly nonsense). Let's see them in action.""")
+
+code(r'''from scipy.optimize import brentq, newton
+
+# Demo A — brentq bracket failure (bond above risk-free price)
+# We use the same close-maturity 5-bond setup, but make bond 2 trade ABOVE
+# its risk-free benchmark — no positive hazard can fit it.
+def price_bond_at_hazard(maturity, coupon, h_flat, recovery):
+    """Helper: price a bond under a flat hazard rate `h_flat`."""
+    surv = synthetic_survival(REF, [(maturity - REF).days / 365.0], [h_flat])
+    return _price_risky_bond(REF, maturity, coupon, 2, recovery, rf, surv)
+
+mat5 = REF + timedelta(days=int(round(365 * 5.0)))
+# Risk-free price (h=0) of a 5y 5% bond, R=40%
+rf_price = price_bond_at_hazard(mat5, 0.050, 0.0, 0.40)
+print(f"Risk-free price of 5y 5% bond: {rf_price:.4f}")
+print(f"  → any market price > {rf_price:.4f} has no non-negative hazard solution")
+print()
+
+# Try to bootstrap with an above-risk-free price
+above_rf_bond = BondInput(maturity=mat5, coupon=0.050, market_price=rf_price + 0.10,
+                          frequency=2, recovery=0.40)
+
+def residual(h):
+    return price_bond_at_hazard(mat5, 0.050, h, 0.40) - above_rf_bond.market_price
+
+print("Residuals over the brentq bracket [1e-6, 5.0]:")
+for h in [1e-6, 0.001, 0.01, 0.05, 0.5, 1.0, 5.0]:
+    r = residual(h)
+    print(f"  h = {h:8.4f}   r(h) = {r:+.6f}   {'(no sign change)' if r > 0 else ''}")
+
+print()
+try:
+    h_sol = brentq(residual, 1e-6, 5.0)
+    print(f"brentq found h = {h_sol}")
+except ValueError as e:
+    print(f"brentq failed: {e}")
+    print("  → there is no non-negative hazard that reprices a bond above its risk-free benchmark.")''')
+
+code(r'''# Demo B — Newton sensitivity on close maturities
+# Apply Newton's method directly to the 5y+2mo close-bond case from various starts
+mat_close = REF + timedelta(days=int(round(365 * (5.0 + 2/12))))
+true_price = _price_risky_bond(REF, mat_close, 0.050, 2, 0.40, rf, TRUTH)
+print(f"True 5y+2mo price under truth: {true_price:.6f}")
+print()
+
+def price_safe(h):
+    """Price the 5y+2mo bond at flat hazard h. Returns +inf if h < 0 (unphysical)."""
+    if h < 0:
+        return float("inf")
+    return price_bond_at_hazard(mat_close, 0.050, h, 0.40)
+
+def residual_close(h):
+    return price_safe(h) - true_price
+
+# Try Newton from a sequence of initial guesses
+for h0 in [0.005, 0.05, 0.50, 2.0, 5.0]:
+    try:
+        h_sol = newton(residual_close, x0=h0, tol=1e-10, maxiter=20)
+        # Sanity check the answer
+        if not (0 <= h_sol <= 1.0):
+            print(f"  h0={h0:5.3f} → Newton 'converged' to h={h_sol:.4f} (out of plausible range — false success)")
+        else:
+            print(f"  h0={h0:5.3f} → Newton converged to h = {h_sol*100:.4f}%")
+    except (RuntimeError, ValueError) as e:
+        print(f"  h0={h0:5.3f} → Newton failed: {type(e).__name__}: {str(e)[:60]}")
+
+print()
+print("  → Newton is highly sensitive to the initial guess on a single-bond residual.")
+print("  → For h0 too far from the truth, the Jacobian estimate at h0 sends iterates")
+print("    into nonsensical territory (negative or > 100% per annum).")
+print("  → brentq sidesteps this by bracketing — but only when a root exists in the bracket (Demo A above).")''')
+
+md(r"""**What Section 4 demonstrates.** The pricebook bootstrap is using brentq
+with a wide bracket, so it sidesteps Demo A (Newton divergence) by construction.
+But it still fails on Demo B — there is no non-negative hazard that can fit a
+bond above the risk-free benchmark, full stop. In production this typically
+appears when:
+
+- Bid-ask noise pushes a price slightly above its match (1 bp can be enough on
+  near-par benchmark bonds).
+- The discount curve used at bootstrap is mis-calibrated (wrong currency,
+  wrong day-count) producing an inflated risk-free benchmark.
+- The bond has an embedded callable feature priced as if vanilla.
+
+The Tikhonov fix in Section 5 dissolves both failure modes simultaneously:
+instead of demanding *exact* reproduction of each price, we *minimise* a
+weighted sum of squared pricing errors over the whole set of bonds. A single
+above-RF bond no longer destroys the calibration — it just biases the smooth
+hazard curve slightly low at its maturity, and the misfit shows up as a
+non-zero residual the user can read off.""")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Section 5 — Tikhonov regularisation: theory + implementation
+# ─────────────────────────────────────────────────────────────────
+
+md(r"""## 5. The Tikhonov fix — penalised least-squares
+
+The pathology in Sections 3 and 4 is a manifestation of a classical problem in
+inverse theory: the *forward map* (hazards → prices) is well-defined and stable,
+but its *inverse* (prices → hazards) is ill-conditioned when the data don't
+contain enough information at the resolution we're asking for. Tikhonov's idea
+(Tikhonov & Arsenin 1977) is to stop asking for exact inversion and instead
+solve a *regularised* problem.
+
+### 5.1 The statement
+
+Let $h \in \mathbb{R}^M$ be the vector of piecewise-constant hazard rates on
+$M$ pillars, $P_j$ the market prices of $N$ bonds, and $f_j(h)$ the model
+price of bond $j$ under hazard vector $h$. The classical least-squares
+problem is
+
+$$
+\hat h_\text{LS} \;=\; \arg\min_{h \geq 0} \;\sum_{j=1}^N w_j \,\bigl[f_j(h) - P_j\bigr]^2,
+$$
+
+where $w_j$ is a per-bond weight (often $1/\sigma_j^2$ with $\sigma_j$ the
+bid-ask half-spread). The *Tikhonov-regularised* version adds a penalty for
+non-smooth hazard curves:
+
+$$
+\boxed{\;\hat h_\text{TIK}(\lambda) \;=\; \arg\min_{h \geq 0} \;\underbrace{\sum_{j=1}^N w_j \bigl[f_j(h) - P_j\bigr]^2}_{\text{misfit}}
+\;+\; \lambda \, \underbrace{\|L h\|_2^2}_{\text{roughness penalty}}\;}
+$$
+
+where $L$ is a *regularisation operator* — most commonly the second-difference
+matrix that approximates the discrete Laplacian:
+
+$$
+L \;=\;
+\begin{pmatrix}
+-1 & 2 & -1 & 0 & \cdots & 0 \\
+0 & -1 & 2 & -1 & \cdots & 0 \\
+\vdots & & \ddots & \ddots & \ddots & \vdots \\
+0 & \cdots & 0 & -1 & 2 & -1
+\end{pmatrix}
+\in \mathbb{R}^{(M-2) \times M}.
+$$
+
+$Lh$ measures the discrete curvature of $h$ (how much the hazard "bends"
+between neighbouring pillars). $\|Lh\|_2^2 = \sum_{i=2}^{M-1}(h_{i-1} - 2 h_i + h_{i+1})^2$.
+
+A first-difference matrix is also common when you want to penalise *changes*
+in the hazard but allow non-smooth jumps (Tikhonov with $L_1$ on first
+differences is "total variation" regularisation — keep that in mind for
+distressed credits where the hazard curve genuinely has step changes).
+
+### 5.2 Why this works — the geometry
+
+The misfit term alone has a *trough* shape in parameter space: the set of
+hazard vectors that reproduce the prices to any given tolerance can be a
+high-dimensional flat valley along ill-constrained directions (the ones
+involving close-maturity hazard differences). Adding the roughness penalty
+tilts the valley — among all hazard vectors with the same misfit, the
+*smoothest* one wins. The minimum moves from "anywhere in the flat valley" to
+a unique well-defined point.
+
+Geometrically: the misfit hypersurface is nearly flat along the close-maturity
+direction (small change in misfit per huge change in hazard). The roughness
+penalty is *not* flat along that direction (huge change in roughness per huge
+change in hazard). Their sum has a unique minimum.
+
+### 5.3 The MAP interpretation
+
+Tikhonov has a Bayesian reading that makes the regularisation strength $\lambda$
+meaningful. Suppose:
+
+- The bond prices are observed with Gaussian noise: $P_j^\text{obs} \sim \mathcal{N}(f_j(h), \sigma_j^2)$.
+- We have a prior belief that hazards are smooth: $L h \sim \mathcal{N}(0, \tau^2 I)$.
+
+Then the **maximum a posteriori (MAP) estimate** maximises the posterior
+$p(h | P^\text{obs}) \propto p(P^\text{obs} | h) \cdot p(h)$. Taking $-2 \log$:
+
+$$
+-2 \log p(h | P^\text{obs}) \;=\; \sum_j \frac{[f_j(h) - P_j^\text{obs}]^2}{\sigma_j^2} \;+\; \frac{1}{\tau^2}\|L h\|_2^2 \;+\; \text{const}.
+$$
+
+Comparing to the Tikhonov objective with $w_j = 1/\sigma_j^2$:
+
+$$
+\lambda \;=\; \frac{1}{\tau^2}.
+$$
+
+So **large $\lambda$ = strong prior on smoothness** (small $\tau^2$, little
+allowed curvature). **Small $\lambda$ = weak prior** (large $\tau^2$, hazard
+can wiggle freely). The hyperparameter $\lambda$ has a concrete meaning: it's
+the inverse variance of our prior belief about how curved the hazard curve is
+allowed to be.
+
+### 5.4 What if we don't know $\lambda$?
+
+That's Section 6 — the L-curve. For now, let's implement the regularised
+solver and see it work at a hand-picked $\lambda$.""")
+
+code(r'''def regularised_bootstrap(bonds: list[BondInput], pillar_times_y: list[float],
+                          discount_curve, recovery_mode: str, lam: float,
+                          weights: list[float] = None) -> dict:
+    """Tikhonov-regularised hazard fit.
+
+    Minimises:  Σ w_j (f_j(h) - P_j)² + λ ||L h||²
+
+    where L is the second-difference operator (discrete curvature). Hazards are
+    constrained non-negative via bounds. Uses scipy L-BFGS-B for the inner
+    optimisation. Built ad-hoc inside the notebook — not added to the library,
+    because the production system already exposes the unregularised global fit
+    and this is here for teaching.
+    """
+    from scipy.optimize import minimize as _min
+
+    n_bonds = len(bonds)
+    n_p = len(pillar_times_y)
+    if weights is None:
+        weights = [b.weight for b in bonds]
+
+    pillar_dates = [REF + timedelta(days=int(round(365 * t))) for t in pillar_times_y]
+
+    # Second-difference operator L: (n_p - 2) × n_p
+    if n_p >= 3:
+        L = np.zeros((n_p - 2, n_p))
+        for i in range(n_p - 2):
+            L[i, i]   = -1.0
+            L[i, i+1] =  2.0
+            L[i, i+2] = -1.0
+    else:
+        L = np.zeros((0, n_p))  # not enough pillars to penalise curvature
+
+    def build_survival(h):
+        surv, cum, prev_t = [], 1.0, 0.0
+        for t_y, h_seg in zip(pillar_times_y, h):
+            cum *= math.exp(-max(h_seg, 0.0) * (t_y - prev_t))
+            surv.append(cum); prev_t = t_y
+        return SurvivalCurve(REF, pillar_dates, surv)
+
+    def objective(h):
+        try:
+            sc = build_survival(h)
+        except Exception:
+            return 1e12
+        misfit = 0.0
+        for j, b in enumerate(bonds):
+            model = _price_risky_bond(REF, b.maturity, b.coupon, b.frequency,
+                                      b.recovery, discount_curve, sc)
+            err_bp = (model - b.market_price) * 100.0  # bp of par
+            misfit += weights[j] * err_bp ** 2
+        roughness = float((L @ h) @ (L @ h)) if L.size else 0.0
+        return misfit + lam * roughness
+
+    x0 = np.full(n_p, 0.02)  # 2% flat hazard guess
+    bounds = [(0.0, 2.0)] * n_p
+    res = _min(objective, x0, method="L-BFGS-B", bounds=bounds,
+               options={"maxiter": 500, "ftol": 1e-12})
+
+    h_fit = res.x
+    sc = build_survival(h_fit)
+    fitted = [_price_risky_bond(REF, b.maturity, b.coupon, b.frequency,
+                                b.recovery, discount_curve, sc) for b in bonds]
+    market = [b.market_price for b in bonds]
+    residuals_bp = [(f - m) * 100.0 for f, m in zip(fitted, market)]
+    rmse_bp = float(np.sqrt(np.mean(np.array(residuals_bp) ** 2)))
+    roughness = float((L @ h_fit) @ (L @ h_fit)) if L.size else 0.0
+    return {
+        "hazards": h_fit.tolist(),
+        "pillar_times_y": list(pillar_times_y),
+        "pillar_dates": pillar_dates,
+        "survival_curve": sc,
+        "fitted_prices": fitted,
+        "market_prices": market,
+        "residuals_bp": residuals_bp,
+        "rmse_bp": rmse_bp,
+        "roughness": roughness,
+        "converged": res.success,
+        "lam": lam,
+    }
+
+print("regularised_bootstrap defined.")''')
+
+code(r'''# Smoke test the regularised fit on the close-maturity noisy case from Section 3.
+# Same 5 bonds (1y, 3y, 5y, 5y+2mo, 10y), with +5 bp noise on the 5y.
+close_specs_5 = [(1.0, 0.040), (3.0, 0.045), (5.0, 0.050), (5.0 + 2/12, 0.050), (10.0, 0.055)]
+close_bonds_5 = [synthetic_bond(REF, y, c, rf, TRUTH) for y, c in close_specs_5]
+# Perturb the 5y price by +5 bp of par
+close_bonds_5_noisy = [BondInput(maturity=b.maturity, coupon=b.coupon, market_price=b.market_price,
+                                 frequency=b.frequency, recovery=b.recovery)
+                      for b in close_bonds_5]
+close_bonds_5_noisy[2].market_price += 0.05
+
+# Pillar times = bond maturities (so we can compare apples-to-apples with the sequential bootstrap)
+pillar_ts = [(b.maturity - REF).days / 365.0 for b in close_bonds_5_noisy]
+
+# Pick a wide λ range. The natural scale: misfit is in bp²-of-par per bond
+# (order 1-100), roughness is in (hazard rate)²-per-pillar (order 1e-5).
+# So sensible λ values are around 1e4 to 1e8 — the unitless ratio matters.
+lam_grid = [0.0, 1e3, 1e5, 1e6, 1e7, 1e8, 1e10]
+
+print(f"  λ           rmse(bp)    roughness(×1e6)   hazards (%)")
+print(f"  {'-'*70}")
+for lam in lam_grid:
+    res = regularised_bootstrap(close_bonds_5_noisy, pillar_ts, rf, "par", lam=lam)
+    hh = [round(h*100, 3) for h in res['hazards']]
+    print(f"  {lam:9.0e}   {res['rmse_bp']:8.3f}    {res['roughness']*1e6:10.3f}     {hh}")''')
+
+md(r"""**What you just saw.** With $\lambda = 0$ (no regularisation) the
+regularised fit is essentially the close-maturity sequential bootstrap: the
+[3y → 5y] and [5y → 5y+2mo] hazards diverge to compensate for the 5 bp noise
+on bond 2. As $\lambda$ grows:
+
+- The hazard curve smooths out — the two close-pillar hazards converge.
+- The RMSE on the bond prices grows (we're no longer fitting every price exactly).
+- The roughness penalty $\|Lh\|^2$ shrinks.
+
+The trade-off: $\lambda \to 0$ overfits noise; $\lambda \to \infty$ collapses
+the hazard curve to its mean. Section 6 shows how to pick $\lambda$ at the
+sweet spot — the *L-curve corner*.""")
+
+
 # Build
 def cell(t, src):
     if t == "md":

@@ -2,6 +2,18 @@
 
 ---
 
+## v0.868.0 — 2026-06-10
+
+**Hazard-from-bonds notebook — Round 2 (sections 4-5).**
+
+- Section 4 (Solver limits) — brentq bracket failure (bond above risk-free benchmark → no non-negative hazard solves it; residual stays one-signed across the whole [1e-6, 5.0] bracket) and Newton sensitivity (from h0=0.5/2/5 Newton "converges" to fake roots at the initial guess because the function is near-flat).
+- Section 5 (Tikhonov theory + implementation) — full derivation of penalised least-squares: misfit + λ‖Lh‖², L = second-difference matrix. MAP interpretation: λ = 1/τ² under Gaussian prior on hazard curvature. Ad-hoc `regularised_bootstrap(...)` function defined inside the notebook (per the user's "no new code unless needed" preference — this is a teaching demonstration).
+- Smoke test sweeps λ from 0 → 1e10. With +5 bp noise on the 5y bond: λ=0 reproduces the noise-amplified sequential result (rmse=0, roughness=160e-6); λ=1e6 trades 2 bp rmse for half the roughness; λ=1e8 collapses to nearly flat. Sets up Section 6 (L-curve corner picking).
+
+Now 23 cells, 229 KB.
+
+---
+
 ## v0.867.0 — 2026-06-10
 
 **Hazard-from-bonds notebook — Round 1 (sections 1-3).**
