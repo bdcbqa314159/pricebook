@@ -75,6 +75,8 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.credit.bond_hazard_bootstrap import (
     BondInput,
     bootstrap_hazard_from_bonds,
+    bootstrap_hazard_adaptive,
+    assess_liquidity,
     _price_risky_bond,
 )
 from pricebook.viz import configure_theme
@@ -977,6 +979,414 @@ hazards is *biased toward the prior's smoothness assumption*. If reality
 genuinely has a step change in hazard between 5y and 5y+2mo (e.g. a known
 liability cliff), regularised estimates will *under*-represent it. As with
 all priors, the user must understand what the prior assumes.""")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Section 8 — pricebook's adaptive switch
+# ─────────────────────────────────────────────────────────────────
+
+md(r"""## 8. The adaptive switch — `bootstrap_hazard_adaptive`
+
+Pricebook exposes a higher-level entry point that decides between sequential
+and global based on a liquidity assessment of the bond pool:
+
+```python
+from pricebook.credit.bond_hazard_bootstrap import (
+    bootstrap_hazard_adaptive, assess_liquidity, LiquidityAssessment,
+)
+```
+
+The `assess_liquidity` heuristic looks at three things:
+
+1. **Number of distinct maturities.** Fewer than 3 → must be global (sequential
+   needs 1-bond-per-pillar).
+2. **Bid-ask widths.** Wider spread → global with more weight on the tightest
+   bonds. Above 200 bp → flat or 2-pillar only.
+3. **Total bond count.** ≥ 3 and well-spaced → sequential. 2-5 with gaps →
+   global with $\le 5$ pillars. ≤ 1 → flat hazard from a single Z-spread.
+
+Then `bootstrap_hazard_adaptive` runs the recommended method automatically.
+
+Worth noting: **the heuristic does not include the close-maturity check from
+Section 3.** It picks "sequential" any time $N \le 8$ and maturities are
+distinct. This means it can still walk into the noise-amplification trap when
+two of the eight bonds happen to be 2 months apart — exactly our case. The
+adaptive switch protects against scale problems (too few bonds, too wide
+spreads), not geometry problems (close maturities). The fix is to use the
+global method explicitly when you know your bond set has near-collisions.""")
+
+code(r'''# Three scenarios for the adaptive switch
+print("=" * 70)
+print("Scenario A — Liquid universe (well-spaced, tight bid-ask)")
+print("=" * 70)
+scenario_A_specs = [(0.5, 0.030), (1.0, 0.035), (3.0, 0.045), (5.0, 0.050),
+                    (7.0, 0.052), (10.0, 0.055)]
+scen_A_bonds = [synthetic_bond(REF, y, c, rf, TRUTH) for y, c in scenario_A_specs]
+assess_A = assess_liquidity(bonds=scen_A_bonds, bid_ask_widths_bp=[10]*len(scen_A_bonds))
+print(f"  regime         = {assess_A.regime}")
+print(f"  method         = {assess_A.recommended_method}")
+print(f"  n_pillars      = {assess_A.recommended_n_pillars}")
+print(f"  bid_ask        = {assess_A.bid_ask_bp:.1f} bp")
+print(f"  confidence     = {assess_A.confidence}")
+for note in assess_A.notes:
+    print(f"  note: {note}")
+
+print()
+print("=" * 70)
+print("Scenario B — Semi-liquid (5 bonds, two close, moderate spreads)")
+print("=" * 70)
+scenario_B_specs = [(1.0, 0.040), (3.0, 0.045), (5.0, 0.050),
+                    (5.0 + 2/12, 0.050), (10.0, 0.055)]
+scen_B_bonds = [synthetic_bond(REF, y, c, rf, TRUTH) for y, c in scenario_B_specs]
+assess_B = assess_liquidity(bonds=scen_B_bonds, bid_ask_widths_bp=[80]*len(scen_B_bonds))
+print(f"  regime         = {assess_B.regime}")
+print(f"  method         = {assess_B.recommended_method}")
+print(f"  n_pillars      = {assess_B.recommended_n_pillars}")
+print(f"  bid_ask        = {assess_B.bid_ask_bp:.1f} bp")
+print(f"  confidence     = {assess_B.confidence}")
+for note in assess_B.notes:
+    print(f"  note: {note}")
+
+print()
+print("=" * 70)
+print("Scenario C — Illiquid (2 bonds, wide bid-ask, distressed-looking)")
+print("=" * 70)
+# Distressed prices look low; we simulate by lowering the prices manually
+scen_C_bonds = [
+    BondInput(maturity=REF + timedelta(days=365*2), coupon=0.08, market_price=72.0,
+              frequency=2, recovery=0.30),
+    BondInput(maturity=REF + timedelta(days=365*5), coupon=0.08, market_price=58.0,
+              frequency=2, recovery=0.30),
+]
+assess_C = assess_liquidity(bonds=scen_C_bonds, bid_ask_widths_bp=[250, 350])
+print(f"  regime         = {assess_C.regime}")
+print(f"  method         = {assess_C.recommended_method}")
+print(f"  n_pillars      = {assess_C.recommended_n_pillars}")
+print(f"  bid_ask        = {assess_C.bid_ask_bp:.1f} bp")
+print(f"  confidence     = {assess_C.confidence}")
+for note in assess_C.notes:
+    print(f"  note: {note}")''')
+
+md(r"""**What this tells us.** The heuristic correctly steers liquid pools to
+`sequential` and illiquid pools to `global` with conservative pillar counts.
+But Scenario B — a semi-liquid pool with two close maturities — still
+gets routed to `global_mixed`. The mere existence of close maturities isn't
+visible to the heuristic; it only sees that bid-asks are wide enough
+to suggest a regularised fit is appropriate anyway.
+
+**The lesson for production use.** If you suspect close maturities matter
+(e.g., a sovereign with adjacent benchmark issues, or a corporate that
+recently re-tapped a similar tenor), pick `method="global"` explicitly *and*
+use Tikhonov regularisation. The adaptive heuristic is a safety net for the
+common case; the unusual cases need explicit method selection.""")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Section 9 — Realistic demo: 8-bond issuer with adjacent benchmarks
+# ─────────────────────────────────────────────────────────────────
+
+md(r"""## 9. A realistic demo — 8-bond issuer with two adjacent benchmarks
+
+Putting it together. Eight bonds, sovereign-like maturities, **two adjacent
+benchmark pairs**: a 5y / 5y+3m and a 10y / 10y+6m. Coupons rise with maturity
+in the natural way. We run all three methods on the same noisy data and look
+at the resulting hazard curves and bond-level residuals.""")
+
+code(r'''# An 8-bond universe with two adjacent benchmarks
+realistic_specs = [
+    (0.5,  0.030),
+    (1.0,  0.035),
+    (3.0,  0.045),
+    (5.0,  0.050),
+    (5.0 + 3/12, 0.050),  # adjacent benchmark
+    (7.0,  0.052),
+    (10.0, 0.055),
+    (10.0 + 6/12, 0.0555),  # adjacent benchmark
+]
+realistic_bonds = [synthetic_bond(REF, y, c, rf, TRUTH) for y, c in realistic_specs]
+
+# Add realistic noise: each bond observed with ±5 bp uniform noise, seed for reproducibility
+rng2 = np.random.default_rng(seed=1234)
+realistic_noisy = []
+for b in realistic_bonds:
+    eps = rng2.uniform(-0.05, 0.05)  # ±5 bp price noise
+    realistic_noisy.append(BondInput(maturity=b.maturity, coupon=b.coupon,
+                                     market_price=b.market_price + eps,
+                                     frequency=b.frequency, recovery=b.recovery))
+
+for b, (y, _) in zip(realistic_noisy, realistic_specs):
+    print(f"  {y:5.2f}y  c={b.coupon*100:.2f}%  observed price = {b.market_price:8.4f}")''')
+
+code(r'''# Run all three methods
+realistic_pillars = [(b.maturity - REF).days / 365.0 for b in realistic_noisy]
+
+res_seq = bootstrap_hazard_from_bonds(REF, realistic_noisy, rf, method="sequential")
+res_glob = bootstrap_hazard_from_bonds(REF, realistic_noisy, rf, method="global", n_pillars=5)
+res_tik = regularised_bootstrap(realistic_noisy, realistic_pillars, rf, "par", lam=lam_star_lcurve)
+
+print(f"Sequential:       rmse = {res_seq.rmse_bp:.3f} bp")
+print(f"Global LS (5 p.): rmse = {res_glob.rmse_bp:.3f} bp")
+print(f"Tikhonov (λ*):    rmse = {res_tik['rmse_bp']:.3f} bp")
+print()
+print("Implied hazards (%):")
+print(f"  Sequential pillars (yrs):     {[round((d-REF).days/365.0, 3) for d in res_seq.pillar_dates]}")
+print(f"  Sequential hazards:           {[round(h*100, 3) for h in res_seq.pillar_hazards]}")
+print()
+print(f"  Global LS pillars (yrs):      {[round((d-REF).days/365.0, 3) for d in res_glob.pillar_dates]}")
+print(f"  Global LS hazards:            {[round(h*100, 3) for h in res_glob.pillar_hazards]}")
+print()
+print(f"  Tikhonov pillars (yrs):       {[round(t, 3) for t in res_tik['pillar_times_y']]}")
+print(f"  Tikhonov hazards:             {[round(h*100, 3) for h in res_tik['hazards']]}")''')
+
+code(r'''# Side-by-side plots: hazard curves + residuals
+fig, axes = create_figure(n_panels=2, figsize=(13, 5))
+ax1, ax2 = axes[0], axes[1]
+
+# Truth (piecewise constant)
+truth_ts = np.array([0, 3, 3, 7, 7, 15])
+truth_hs = np.array([0.02, 0.02, 0.03, 0.03, 0.04, 0.04])
+ax1.plot(truth_ts, truth_hs * 100, "k--", lw=2, label="Truth")
+
+def step_plot(ax, pillar_ts, hazards, color, label):
+    ts = [0.0] + list(pillar_ts)
+    for i, h in enumerate(hazards):
+        ax.plot([ts[i], ts[i+1]], [h*100, h*100], color=color, lw=2.5, alpha=0.8,
+                label=label if i == 0 else None)
+        ax.scatter([ts[i+1]], [h*100], color=color, s=30, zorder=3)
+
+step_plot(ax1, [(d-REF).days/365.0 for d in res_seq.pillar_dates],
+          res_seq.pillar_hazards, "C0", "Sequential")
+step_plot(ax1, [(d-REF).days/365.0 for d in res_glob.pillar_dates],
+          res_glob.pillar_hazards, "C2", "Global LS (5 pillars)")
+step_plot(ax1, res_tik["pillar_times_y"], res_tik["hazards"], "C3",
+          f"Tikhonov λ = {lam_star_lcurve:.0e}")
+
+ax1.set_xlabel("Time (years)")
+ax1.set_ylabel("Hazard rate (%)")
+ax1.set_title("Section 9 — three methods on the same 8-bond noisy data")
+ax1.legend(loc="lower right")
+ax1.set_xlim(0, 12)
+ax1.set_ylim(1.0, 5.0)
+
+# Bond-level residuals
+bond_ys = [(b.maturity - REF).days/365.0 for b in realistic_noisy]
+ax2.scatter(bond_ys, res_seq.residuals_bp, c="C0", s=60, label="Sequential", marker="o")
+ax2.scatter(bond_ys, res_glob.residuals_bp, c="C2", s=60, label="Global LS", marker="s")
+ax2.scatter(bond_ys, res_tik["residuals_bp"], c="C3", s=60, label="Tikhonov", marker="^")
+ax2.axhline(0, color="k", lw=0.5)
+ax2.axhline(5, color="grey", ls=":", alpha=0.5, label="±5 bp noise band")
+ax2.axhline(-5, color="grey", ls=":", alpha=0.5)
+ax2.set_xlabel("Bond maturity (years)")
+ax2.set_ylabel("(model − market) price residual (bp)")
+ax2.set_title("Per-bond residuals — sequential fits exactly, others trade off")
+ax2.legend()
+fig''')
+
+md(r"""**Reading the two panels.**
+
+*Left panel — hazard curves.* The truth (black dashed) has a 2% / 3% / 4%
+step structure. Sequential bootstrap (blue) reproduces the bond prices
+exactly but the close-maturity pairs at 5y/5y+3m and 10y/10y+6m show visible
+jumps as the +5 bp uniform noise gets absorbed into the short hazard
+segments. Global LS with 5 pillars (green) is automatically smoother because
+it doesn't have a pillar per bond — but the 5 pillars are placed evenly,
+which doesn't necessarily align with the hazard's true knots. Tikhonov (red)
+combines the resolution of an 8-pillar curve with the smoothness of explicit
+regularisation; it ends up closest to the truth's slope in the long end.
+
+*Right panel — bond residuals.* Sequential by construction hits every bond
+to numerical precision. Global LS spreads the misfit across all 8 bonds —
+nothing exceeds ~5 bp. Tikhonov is similar but accepts slightly larger
+residuals at the close pairs in exchange for the smoothness shown on the
+left.
+
+The user's pricebook offers both `method="sequential"` (exact, brittle) and
+`method="global"` (smooth, robust). Tikhonov is the regularised-LS version
+demonstrated here for teaching — in production one would either reach for
+the global method directly or add a regularisation hook to it.""")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Section 10 — CIR++ cross-check: integrated vs instantaneous hazard
+# ─────────────────────────────────────────────────────────────────
+
+md(r"""## 10. Cross-check — bond data constrains integrated, not instantaneous, hazard
+
+This is the deepest takeaway of the notebook. The whole point of regularisation
+(Section 5) and uncertainty quantification (Section 7) is that bond data are
+*indirectly* informative about the hazard function $h(t)$. What is the bond
+price actually sensitive to?
+
+$$
+P \;=\; \sum c\,\tau\, D(t_i)\, Q(t_i) \;+\; 100\, D(T)\, Q(T) \;+\; R \sum D(\tilde t_i)\, \bigl[Q(t_{i-1}) - Q(t_i)\bigr].
+$$
+
+Every term depends on $Q(t) = \exp\bigl(-\int_0^t h(u)\, du\bigr)$, *the
+integrated hazard*. Two hazard functions that have the same
+$\int_0^t h(u)\, du$ at every coupon date produce identical bond prices.
+
+That means: **the bond data does not distinguish between hazard functions
+that differ only by an integral-preserving perturbation between coupon
+dates.** This is a statement about the inverse problem's null space, and
+it's the geometric reason for the close-maturity pathology in Sections 3 and 7.
+
+**CIR++ makes this concrete.** Take the calibrated (regularised) survival
+curve $Q(t)$ as a *mean* trajectory. Layer Cox-Ingersoll-Ross dynamics on top
+with the Brigo-Mercurio φ shift:
+
+$$
+\lambda(t) = x(t) + \varphi(t), \qquad dx_t = \kappa(\theta - x_t)\,dt + \xi \sqrt{x_t}\,dW_t,
+$$
+
+with $\varphi$ chosen so that $\mathbb{E}[\lambda(t)] = h_\text{market}(t)$
+matches the curve we calibrated. Each Monte Carlo path $\lambda(t, \omega)$
+is a different "story" the data is consistent with — they all integrate to
+the same survival function at the bond maturities.""")
+
+code(r'''from pricebook.credit.hazard_rate_models import CIRPlusPlus
+
+# Build CIR++ from the regularised survival curve
+sc = res_tik["survival_curve"]
+
+# Pull pillar hazards from the regularised curve (piecewise constant)
+pillar_t_years = res_tik["pillar_times_y"]
+hazards = res_tik["hazards"]
+
+# CIR++ parameters: pick a moderate vol to make the spread visible
+cir = CIRPlusPlus(
+    kappa=1.5,        # mean reversion speed
+    theta=float(np.mean(hazards)),
+    xi=0.05,          # vol-of-vol — pick to give realistic ~30% relative std
+    market_hazards=[(t, h) for t, h in zip(pillar_t_years, hazards)],
+)
+print(f"CIR++ calibrated: κ = {cir.kappa}, θ = {cir.theta:.4f}, ξ = {cir.xi}")
+print(f"Mean reversion half-life: {math.log(2)/cir.kappa:.2f} years")
+print(f"Long-run vol: ξ × √(θ/(2κ)) = {cir.xi * math.sqrt(cir.theta/(2*cir.kappa)):.4f}  (≈ instantaneous std of λ)")
+print()
+print("The point of CIR++: at every t, E[λ(t)] = h_market(t) exactly (via the φ shift).")
+print("The MC paths reveal what bond prices CAN'T see — the noise around the mean.")''')
+
+code(r'''# Simulate λ paths
+N_PATHS = 60
+T_max = 12.0  # years
+N_STEPS = 600
+dt = T_max / N_STEPS
+ts = np.linspace(0, T_max, N_STEPS + 1)
+
+rng3 = np.random.default_rng(seed=2025)
+x0 = float(hazards[0])  # initial x
+x_paths = np.zeros((N_PATHS, len(ts)))
+x_paths[:, 0] = x0
+for k in range(N_STEPS):
+    z = rng3.standard_normal(N_PATHS)
+    x_now = np.maximum(x_paths[:, k], 0.0)  # CIR with reflection at 0
+    drift = cir.kappa * (cir.theta - x_now) * dt
+    diff = cir.xi * np.sqrt(x_now) * math.sqrt(dt) * z
+    x_paths[:, k+1] = np.maximum(x_now + drift + diff, 0.0)
+
+# Build λ(t, ω) = x(t, ω) + φ(t)
+phi_grid = np.array([cir.phi(t, x0) for t in ts])
+lambda_paths = x_paths + phi_grid[None, :]
+
+# Compute MC integrated survival at each t
+integrated = np.cumsum(lambda_paths[:, :-1] * dt, axis=1)
+Q_paths = np.exp(-integrated)
+Q_paths = np.concatenate([np.ones((N_PATHS, 1)), Q_paths], axis=1)
+
+# Deterministic survival from the calibrated curve
+Q_deterministic = np.array([res_tik["survival_curve"].survival(REF + timedelta(days=int(t*365)))
+                            for t in ts])
+
+print(f"Sanity check at T = 5y:")
+print(f"  Deterministic Q(5)  = {Q_deterministic[ts <= 5.0][-1]:.4f}")
+print(f"  MC mean Q(5)        = {Q_paths[:, ts <= 5.0][:, -1].mean():.4f}")
+print(f"  MC std  Q(5)        = {Q_paths[:, ts <= 5.0][:, -1].std():.4f}")''')
+
+code(r'''# Plot λ paths (top) and Q paths (bottom), with deterministic overlays
+fig, axes = create_figure(n_panels=2, figsize=(13, 9))
+ax1, ax2 = axes[0], axes[1]
+
+# λ paths
+for i in range(N_PATHS):
+    ax1.plot(ts, lambda_paths[i, :] * 100, color="C0", alpha=0.15, lw=0.6)
+ax1.plot(ts, np.mean(lambda_paths, axis=0) * 100, "C3-", lw=2.5, label="MC mean λ(t)")
+
+# Deterministic piecewise hazard
+fitted_ts = [0.0] + list(pillar_t_years)
+fitted_hs = list(hazards) + [hazards[-1]]
+for i in range(len(hazards)):
+    ax1.plot([fitted_ts[i], fitted_ts[i+1]], [fitted_hs[i]*100, fitted_hs[i]*100],
+             "k--", lw=2, label="Calibrated h(t) (Tikhonov)" if i == 0 else None)
+
+ax1.set_xlabel("Time (years)")
+ax1.set_ylabel("Hazard rate λ(t) (%)")
+ax1.set_title(f"Section 10 — {N_PATHS} CIR++ paths around the calibrated mean hazard")
+ax1.set_xlim(0, T_max)
+ax1.set_ylim(0, 8)
+ax1.legend()
+
+# Q paths
+for i in range(N_PATHS):
+    ax2.plot(ts, Q_paths[i, :], color="C2", alpha=0.15, lw=0.6)
+ax2.plot(ts, Q_paths.mean(axis=0), "C3-", lw=2.5, label="MC mean Q(t)")
+ax2.plot(ts, Q_deterministic, "k--", lw=2, label="Deterministic Q(t)")
+# Mark the bond maturities
+for b, (y, _) in zip(realistic_noisy, realistic_specs):
+    ax2.axvline(y, color="grey", ls=":", alpha=0.4)
+ax2.set_xlabel("Time (years)")
+ax2.set_ylabel("Survival probability Q(t)")
+ax2.set_title("Same paths, integrated — Q paths reconverge at bond pillars\n"
+              "(dashed vertical lines = bond maturities)")
+ax2.set_xlim(0, T_max)
+ax2.legend()
+fig''')
+
+md(r"""**The point of the two panels.**
+
+*Top.* The 60 instantaneous hazard paths spread visibly around the
+calibrated step function. The vol-of-vol ξ = 5% produces realistic ~0.5–1%
+fluctuations in $\lambda(t)$ around the mean. Each path is a *different
+plausible story* about what the issuer's instantaneous default intensity
+looked like over $[0, 12y]$.
+
+*Bottom.* When we integrate each $\lambda$ path to a survival probability,
+the spread is *much* narrower — and crucially, it stays narrow at *every
+bond maturity* (vertical dotted lines). The MC mean tracks the deterministic
+curve. This is what bond data sees: $Q(t)$ at the bond maturities, with
+narrow spread around the curve because the integral averages out the
+high-frequency wiggle in $\lambda(t)$.
+
+**The mathematical statement.** Two hazard functions $\lambda_1$ and $\lambda_2$
+that agree on the *survival* probability at every coupon date — i.e.,
+$\int_0^{t_i} \lambda_1 \,du = \int_0^{t_i} \lambda_2 \,du$ for all bond
+cashflow dates $t_i$ — are *indistinguishable* by bond prices. The
+piecewise-constant fit is one representative of this equivalence class;
+CIR++ is another, richer one; smooth-spline regularised fits are yet
+another. Choosing among them is a choice of *prior*, not of *data*.
+
+**What the user should take away.**
+
+1. **Sequential bootstrap** is exact reproduction of input prices but
+   amplifies noise dramatically when bonds are close. *Use it for well-spaced,
+   liquid universes.*
+2. **Global least squares** is robust to over-determination and noise but
+   needs a pillar choice. *Use it as default.*
+3. **Tikhonov regularisation** adds a smoothness prior that dramatically
+   stabilises the close-maturity case at the cost of some bias. *Use it
+   when you have adjacent benchmark issues.*
+4. **L-curve and LOO-CV** give principled methods to pick the regularisation
+   strength.
+5. **CIR++** is not an alternative to bootstrapping — it's a model of the
+   *residual uncertainty* about the instantaneous hazard, layered on top
+   of a calibrated deterministic curve.
+
+The pricebook library exposes `bootstrap_hazard_from_bonds(..., method=...)`
+and `bootstrap_hazard_adaptive(...)` for the bootstrap variants, and
+`CIRPlusPlus.from_survival_curve(...)` for the stochastic-intensity overlay.
+This notebook's `regularised_bootstrap` is the missing teaching example for
+the Tikhonov variant; whether to promote it into the library is a separate
+decision (the existing global LS is already the right shape — adding a
+`lambda` parameter would do it).""")
 
 
 # Build

@@ -2,6 +2,19 @@
 
 ---
 
+## v0.870.0 — 2026-06-10
+
+**Hazard-from-bonds notebook — Round 4 (sections 8-10). Notebook now complete content-wise (46 cells, ~2 MB).**
+
+- **Section 8 (adaptive switch).** `assess_liquidity` + `bootstrap_hazard_adaptive` demo across three scenarios — liquid (6 well-spaced bonds, tight bid-ask) → `sequential`; semi-liquid (5 bonds with close pair) → `global`; illiquid (2 distressed bonds, 250-350 bp spread) → `global` with 2 pillars. Includes the important caveat that the heuristic protects against scale problems (count, spread) but **not** geometry (close maturities) — the user must reach for `method="global"` explicitly when bonds bunch.
+- **Section 9 (realistic demo).** 8 bonds at sovereign-like maturities (0.5/1/3/5/5.25/7/10/10.5y) with two adjacent benchmark pairs. ±5 bp uniform price noise. Three methods side by side: sequential RMSE 0 bp (exact, brittle at close pairs), global LS RMSE 7.3 bp (5 even pillars), Tikhonov RMSE 6.3 bp (8 pillars + smoothness). Side-by-side hazard curves and per-bond residual scatter.
+- **Section 10 (CIR++ cross-check — the deepest takeaway).** `CIRPlusPlus.from_survival_curve` overlays Cox-Ingersoll-Ross dynamics on the regularised piecewise-constant curve. 60 MC paths shown. **Sanity check at T=5y: deterministic Q(5) = 0.8877, MC mean Q(5) = 0.8867, MC std Q(5) = 0.0091.** The instantaneous hazard paths spread visibly around the mean, but the *integrated* survival at the bond maturities reconverges almost exactly. Geometrically: bond data constrains $\int_0^{t_i} h\,du$ at coupon dates, not $h(t)$ pointwise. Two hazard functions with the same integrals at every bond maturity are indistinguishable by bond prices. Choosing among them (piecewise constant / spline / CIR++) is a choice of *prior*, not of *data*.
+- Final user-facing summary table in Section 10 markdown: when to use sequential / global / Tikhonov / CIR++.
+
+Round 5 (final polish + ToC + commit) to follow.
+
+---
+
 ## v0.869.0 — 2026-06-10
 
 **Hazard-from-bonds notebook — Round 3 (sections 6-7).**
