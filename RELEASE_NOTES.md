@@ -2,6 +2,20 @@
 
 ---
 
+## v0.873.0 — 2026-06-11
+
+**`pillar_times` override in `bond_hazard_bootstrap`.**
+
+- `_bootstrap_global`, `bootstrap_hazard_from_bonds`, and `find_lcurve_lambda` all gain an optional `pillar_times: list[float] | None = None` parameter. When provided, it overrides the default even-spacing of pillars and `n_pillars` is ignored.
+- Two common patterns this enables:
+  - **Pillars at bond maturities** (exactly-determined fit at `lam=0`, regularised as `lam` grows) — useful when the bond universe has natural calibration anchors at the cashflow dates.
+  - **Pillars at calendar benchmarks** (e.g. 1, 2, 5, 10, 30y for sovereign) — for curves that need to align with peer-group benchmarks.
+- Validation: empty list, non-positive values, and non-strictly-increasing sequences all raise `ValueError`.
+- 4 new tests in `test_bond_hazard_tikhonov.py::TestPillarTimes` covering override behaviour, exact-fit-at-bond-maturities semantics, validation errors, and combination with `lam="auto"`. Brings the new test count to **15**.
+- Required for the hazard-from-bonds notebook to be adaptable to the library API (Slice B); the existing notebook's `regularised_bootstrap` placed pillars at bond maturities to make the close-pair pedagogy clean.
+
+---
+
 ## v0.872.0 — 2026-06-11
 
 **Tikhonov regularisation in `bond_hazard_bootstrap`.**

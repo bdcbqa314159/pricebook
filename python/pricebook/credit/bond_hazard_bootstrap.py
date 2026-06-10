@@ -346,6 +346,7 @@ def _bootstrap_global(
     n_pillars: int | None = None,
     recovery_mode: str = RECOVERY_PAR,
     lam: float = 0.0,
+    pillar_times: list[float] | None = None,
 ) -> HazardBootstrapResult:
     """Global least-squares fit: fit M hazard pillars to N bond prices.
 
@@ -363,14 +364,18 @@ def _bootstrap_global(
 
     Args:
         n_pillars: number of hazard rate segments. Default = min(N, 5).
+            Ignored if `pillar_times` is provided.
         lam: Tikhonov regularisation strength (>= 0). See the
              `notebooks/credit/hazard_from_bonds_when_maturities_are_close.ipynb`
              for theory + L-curve picker.
+        pillar_times: optional explicit pillar locations in years from
+            `reference_date`. Must be sorted and strictly positive. When
+            provided, `n_pillars` is ignored and len(pillar_times) is the
+            pillar count. Useful for placing pillars at bond maturities
+            (exactly-determined fit) or at calendar benchmarks.
     """
     sorted_bonds = sorted(bonds, key=lambda b: b.maturity)
     n = len(sorted_bonds)
-    if n_pillars is None:
-        n_pillars = min(n, 5)
 
     # Pre-compute per-bond adjusted discount curves for liquidity
     dc_per_bond = [
@@ -378,10 +383,24 @@ def _bootstrap_global(
         for b in sorted_bonds
     ]
 
-    # Create pillar dates evenly spaced across bond maturities
     dc = DayCountConvention.ACT_365_FIXED
     t_max = year_fraction(reference_date, sorted_bonds[-1].maturity, dc)
-    pillar_times = [t_max * (i + 1) / n_pillars for i in range(n_pillars)]
+
+    if pillar_times is not None:
+        if not pillar_times:
+            raise ValueError("pillar_times, if provided, must be non-empty")
+        if any(t <= 0 for t in pillar_times):
+            raise ValueError(f"pillar_times must all be > 0, got {pillar_times}")
+        if any(pillar_times[i + 1] <= pillar_times[i] for i in range(len(pillar_times) - 1)):
+            raise ValueError(f"pillar_times must be strictly increasing, got {pillar_times}")
+        pillar_times = [float(t) for t in pillar_times]
+        n_pillars = len(pillar_times)
+    else:
+        if n_pillars is None:
+            n_pillars = min(n, 5)
+        # Even spacing across bond maturities
+        pillar_times = [t_max * (i + 1) / n_pillars for i in range(n_pillars)]
+
     pillar_dates = [
         date.fromordinal(reference_date.toordinal() + int(t * 365))
         for t in pillar_times
@@ -509,6 +528,7 @@ def bootstrap_hazard_from_bonds(
     n_pillars: int | None = None,
     recovery_mode: str = RECOVERY_PAR,
     lam: float | str = 0.0,
+    pillar_times: list[float] | None = None,
 ) -> HazardBootstrapResult:
     """Bootstrap a survival/hazard curve from risky bond prices.
 
@@ -527,6 +547,10 @@ def bootstrap_hazard_from_bonds(
              - positive float: penalised LS with that fixed λ.
              - `"auto"`: pick λ via L-curve corner detection
                (see `find_lcurve_lambda`). Ignored when method="sequential".
+        pillar_times: optional explicit pillar locations (years from
+             reference_date). When provided, `n_pillars` is ignored.
+             Common patterns: pillars at bond maturities (exactly-determined),
+             or at calendar benchmarks (e.g. 1, 2, 5, 10, 30y for sovereign).
 
     Returns:
         HazardBootstrapResult with survival curve and diagnostics.
@@ -593,6 +617,7 @@ def bootstrap_hazard_from_bonds(
             lam_value = find_lcurve_lambda(
                 reference_date, sorted_bonds, discount_curve,
                 n_pillars=n_pillars, recovery_mode=recovery_mode,
+                pillar_times=pillar_times,
             )
         else:
             raise ValueError(f"lam string must be 'auto', got '{lam}'")
@@ -603,7 +628,7 @@ def bootstrap_hazard_from_bonds(
 
     return _bootstrap_global(
         reference_date, sorted_bonds, discount_curve, n_pillars,
-        recovery_mode, lam=lam_value,
+        recovery_mode, lam=lam_value, pillar_times=pillar_times,
     )
 
 
@@ -616,6 +641,7 @@ def find_lcurve_lambda(
     lam_min: float = 1e2,
     lam_max: float = 1e10,
     n_lam: int = 21,
+    pillar_times: list[float] | None = None,
 ) -> float:
     """Pick the Tikhonov λ at the corner of the L-curve.
 
@@ -654,6 +680,7 @@ def find_lcurve_lambda(
         result = _bootstrap_global(
             reference_date, sorted_bonds, discount_curve,
             n_pillars=n_pillars, recovery_mode=recovery_mode, lam=float(lam),
+            pillar_times=pillar_times,
         )
         # misfit = Σ w_j (residual_bp_j)² across all bonds
         misfit[i] = float(np.sum(np.array(result.residuals_bp) ** 2))

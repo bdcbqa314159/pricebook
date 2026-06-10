@@ -209,3 +209,62 @@ class TestEdgeCases:
         r2 = bootstrap_hazard_from_bonds(REF, bonds, rf, method="sequential", lam=1e6)
         assert r1.pillar_hazards == r2.pillar_hazards
         assert r1.rmse_bp == r2.rmse_bp
+
+
+class TestPillarTimes:
+    """`pillar_times` lets the caller place pillars explicitly."""
+
+    def test_pillar_times_overrides_n_pillars(self):
+        bonds = _close_maturity_bonds()
+        rf = _flat_rf()
+        custom_pillars = [1.0, 3.0, 5.0, 5.0 + 2 / 12, 10.0]  # at bond maturities
+        r = bootstrap_hazard_from_bonds(
+            REF, bonds, rf, method="global", n_pillars=99,  # should be ignored
+            lam=0.0, pillar_times=custom_pillars,
+        )
+        # Result must have exactly 5 pillars at the custom locations
+        assert len(r.pillar_hazards) == 5
+        for got, want in zip(
+            [(d - REF).days / 365.0 for d in r.pillar_dates], custom_pillars
+        ):
+            # within 1 day of the requested time
+            assert abs(got - want) < 2 / 365.0
+
+    def test_pillar_times_at_bond_maturities_gives_exact_fit_at_lam_zero(self):
+        """With one pillar per bond at the bond's maturity, the LS fit is
+        exactly-determined — rmse should be ~0 at lam=0."""
+        bonds = _close_maturity_bonds()
+        rf = _flat_rf()
+        pillars = [(b.maturity - REF).days / 365.0 for b in bonds]
+        r = bootstrap_hazard_from_bonds(
+            REF, bonds, rf, method="global", lam=0.0, pillar_times=pillars,
+        )
+        assert r.rmse_bp < 0.01  # essentially exact
+
+    def test_pillar_times_validation(self):
+        bonds = _close_maturity_bonds()
+        rf = _flat_rf()
+        # Empty
+        with pytest.raises(ValueError, match="non-empty"):
+            bootstrap_hazard_from_bonds(REF, bonds, rf, method="global", pillar_times=[])
+        # Non-positive
+        with pytest.raises(ValueError, match="> 0"):
+            bootstrap_hazard_from_bonds(
+                REF, bonds, rf, method="global", pillar_times=[0.0, 1.0, 2.0]
+            )
+        # Not strictly increasing
+        with pytest.raises(ValueError, match="strictly increasing"):
+            bootstrap_hazard_from_bonds(
+                REF, bonds, rf, method="global", pillar_times=[1.0, 2.0, 2.0, 5.0]
+            )
+
+    def test_pillar_times_with_auto_lam(self):
+        """`lam='auto'` must work alongside `pillar_times`."""
+        bonds = _close_maturity_bonds(noise_5y_bp=5.0)
+        rf = _flat_rf()
+        pillars = [(b.maturity - REF).days / 365.0 for b in bonds]
+        r = bootstrap_hazard_from_bonds(
+            REF, bonds, rf, method="global", lam="auto", pillar_times=pillars,
+        )
+        assert r.lam > 0
+        assert len(r.pillar_hazards) == len(pillars)
