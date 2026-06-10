@@ -2,6 +2,18 @@
 
 ---
 
+## v0.866.0 — 2026-06-10
+
+**Foundation audit: dual-critic pass on 35 modules.**
+
+- New `MODULE_HEALTH.md` (110 KB) — adversarial audit of 35 foundation + Top-6-instrument modules. Each module reviewed by `numerical-critic` (math correctness, edge cases, calibration robustness) and `code-correctness-critic` (off-by-one, lifetime, None handling, exception safety) in parallel via the multi-agent workflow harness.
+- 70 critic verdicts, 697 raw findings: **56 critical**, **150 high**, 257 medium, 217 low, 17 nit.
+- **Tier 1 (both critics → critical, fuzzy-matched on title/location): 13.** Highest-confidence likely real bugs. Tier 2 (critical + high pairing): 18. Single-critic critical: 19.
+- Report includes: how-to-read disclaimer, per-tier breakdowns, per-module narrative verdicts (verbatim from critics), risk-scored module ranking, recommended triage workflow. **Critic output is NOT verified bugs — each finding needs a failing-test verification slice before fixing.**
+- Raw JSON output (697 findings, ~720 KB) at `/private/tmp/claude-501/.../tasks/www7hfs2m.output`.
+
+---
+
 ## v0.865.0 — 2026-06-10
 
 **Refresh `ARCHITECTURE.md` to match empirical state.**
