@@ -16,12 +16,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from pricebook.credit.cds import CDS
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.fixed_income.risky_bond import RiskyBond, z_spread, asset_swap_spread
 from pricebook.core.survival_curve import SurvivalCurve
+
+if TYPE_CHECKING:
+    from pricebook.credit.cds import CDS
 
 
 # ---- CDS-bond basis ----

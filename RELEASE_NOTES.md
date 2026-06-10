@@ -2,6 +2,15 @@
 
 ---
 
+## v0.863.0 — 2026-06-10
+
+**Untangle `fixed_income → credit` runtime edge.**
+
+- `fixed_income/basis_trade.py`: move `from pricebook.credit.cds import CDS` into `TYPE_CHECKING`. CDS was only used as a parameter annotation (`cds: CDS`) — never instantiated or isinstance-checked. `from __future__ import annotations` was already present, so all hints are strings at runtime.
+- Result: `fixed_income` now depends only on `core, curves, models, statistics` at runtime — empirical Layer 4 → Layer 3 cleanup (one whole layer down). Empirical dependency graph regenerates without the `fi → credit` edge.
+
+---
+
 ## v0.862.0 — 2026-06-10
 
 **Mypy: clean baseline, 0 errors.**
