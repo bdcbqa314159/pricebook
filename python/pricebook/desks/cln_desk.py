@@ -21,11 +21,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from pricebook.credit.cln import CreditLinkedNote, CLNResult, BasketCLN, BasketCLNResult
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction
+
+if TYPE_CHECKING:
+    from pricebook.core.pricing_context import PricingContext
 
 
 # ---------------------------------------------------------------------------

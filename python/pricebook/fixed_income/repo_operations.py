@@ -8,6 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pricebook.desks.repo_desk import RepoBook
 
 # Lazy import to avoid circular: repo_desk imports from here
 def _get_repo_trade_factory():

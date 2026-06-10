@@ -17,7 +17,10 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pricebook.core.calendar import Calendar
 
 
 class FixingsStore:

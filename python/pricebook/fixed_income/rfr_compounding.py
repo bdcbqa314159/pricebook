@@ -29,6 +29,7 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 
 if TYPE_CHECKING:
     from pricebook.core.calendar import Calendar
+    from pricebook.core.discount_curve import DiscountCurve
 
 
 @dataclass(frozen=True)

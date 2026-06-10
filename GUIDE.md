@@ -36,7 +36,8 @@ cd python
 14. [Visualisation](#14-visualisation) — `pricebook.viz` (never raw matplotlib)
 15. [Serialisation](#15-serialisation) — `to_dict` / `from_dict` and the registry
 16. [Conventions](#16-conventions) — calendars, day counts, schedules, frequencies
-17. [Database & time series](#17-database-and-time-series)
+17. [Type checking (mypy)](#17-type-checking-mypy)
+18. [Database & time series](#18-database-and-time-series)
 
 ---
 
@@ -447,7 +448,22 @@ Layer 0 (`pricebook.core.*`).
 
 ---
 
-## 17. Database and time series
+## 17. Type checking (mypy)
+
+Mypy is configured in `python/pyproject.toml` under `[tool.mypy]`. Pragmatic baseline — pedantic categories (`misc`, `annotation-unchecked`, numpy-return-Any) are silenced; the rest matter. 184 legacy modules are listed under a `[[tool.mypy.overrides]]` block with `ignore_errors = true` — to be cleaned up incrementally.
+
+```bash
+cd python
+../.venv/bin/pip install -e ".[dev]"      # one-time
+../.venv/bin/mypy pricebook --no-incremental
+# → Success: no issues found in 795 source files
+```
+
+**To clean a module:** remove its entry from the `module = [...]` list in `pyproject.toml`, then `mypy pricebook` and fix the surfaced errors. Goal: shrink the override list to zero, one slice at a time.
+
+---
+
+## 18. Database and time series
 
 Layer 0.
 

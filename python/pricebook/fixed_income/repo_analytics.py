@@ -9,8 +9,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from pricebook.statistics.zscore import zscore as _zscore, ZScoreSignal
+
+if TYPE_CHECKING:
+    from pricebook.desks.repo_desk import RepoBook
 
 
 def repo_rate_monitor(

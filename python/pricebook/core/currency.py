@@ -8,7 +8,14 @@ References:
     ISDA FX definitions, 2024.
 """
 
+from __future__ import annotations
+
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import date
+    from pricebook.core.discount_curve import DiscountCurve
 
 
 class Currency(Enum):

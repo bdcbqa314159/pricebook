@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -26,6 +27,9 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import date_from_year_fraction
 from pricebook.fixed_income.rfr import StochasticBasis
 from pricebook.core.survival_curve import SurvivalCurve
+
+if TYPE_CHECKING:
+    from pricebook.risk.xva import TotalXVAResult
 
 
 @dataclass

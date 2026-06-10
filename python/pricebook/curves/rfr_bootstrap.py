@@ -33,12 +33,16 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
 from pricebook.core.calendar import get_calendar
 from pricebook.curves.bootstrap import bootstrap
+
+if TYPE_CHECKING:
+    from pricebook.fixed_income.rfr_futures import RFRFutureSpec
 
 
 @dataclass

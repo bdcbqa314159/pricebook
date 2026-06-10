@@ -13,8 +13,13 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from pricebook.core.serialisable import serialisable_convention
+
+if TYPE_CHECKING:
+    from datetime import date
+    from pricebook.core.discount_curve import DiscountCurve
 
 
 @serialisable_convention("supranational_issuer")

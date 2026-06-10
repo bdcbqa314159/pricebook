@@ -2,6 +2,17 @@
 
 ---
 
+## v0.862.0 — 2026-06-10
+
+**Mypy: clean baseline, 0 errors.**
+
+- `python/pyproject.toml`: complete `[tool.mypy]` config with pragmatic defaults (silence `misc`, `annotation-unchecked`, `warn_return_any` — numpy/scipy noise) plus `[[tool.mypy.overrides]]` listing 184 legacy modules with `ignore_errors = true`. `mypy>=2.0` added to `[project.optional-dependencies] dev`.
+- Fixed 31 real `name-defined` errors across 12 files — missing imports for forward-referenced types (`date`, `DiscountCurve`, `Calendar`, `RepoBook`, `RFRFutureSpec`, `PricingContext`, `TotalXVAResult`, `timedelta`, `CommodityForwardCurve`). Added proper `if TYPE_CHECKING:` blocks.
+- `GUIDE.md` §17: new section documenting mypy usage and the cleanup ladder (remove a module from the override list → fix surfaced errors → repeat).
+- Result: `cd python && mypy pricebook` exits 0 across 795 source files. Future slices can shrink the 184-module override list toward zero.
+
+---
+
 ## v0.861.0 — 2026-06-09
 
 **G2++ calibration: 8.5× faster.**
