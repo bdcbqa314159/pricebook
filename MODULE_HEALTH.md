@@ -642,3 +642,119 @@ Full structured output (697 findings, ~720 KB):
 `/private/tmp/claude-501/.../tasks/www7hfs2m.output`
 
 Each finding has `severity`, `title`, `detail`, `location`, `fix`. Filter by package/severity/lens as needed.
+---
+
+# Wave 2 (partial) — risk + top instruments + remaining models
+
+**Strategy retired after this wave.** Going forward: methodical, conversational, single-module audits (no big workflow fan-outs). Wave 2 ran on 96 modules but the strict JSON output schema caused 71 of 192 agent calls to fail. Salvageable data below.
+
+## Coverage
+
+| Tier | Count |
+|---|---:|
+| Modules requested | 96 |
+| Fully audited (both critics) | 58 |
+| Partial (one critic only) | 3 |
+| Not audited (both critics failed) | 35 |
+| Findings collected | 1048 |
+| → `critical` | 46 |
+| → `high` | 231 |
+| → `medium` | 354 |
+| → `low` | 367 |
+| → `nit` | 50 |
+| Double-confirmed criticals (both critics → critical, fuzzy-matched) | 0 |
+
+## Wave 2 double-confirmed criticals
+
+## All Wave 2 critical findings (46)
+
+| # | Module | Lens | Title | Location |
+|---|---|---|---|---|
+| 1 | `risk/xva.py` | numerical | CFA/DFA double-counted in total_xva_decomposition | `python/pricebook/risk/xva.py:518-555` |
+| 2 | `risk/scenario.py` | numerical | Every scenario constructor drops half of PricingContext fields | `python/pricebook/risk/scenario.py:55-62, 72-79, 94-101, 113-` |
+| 3 | `risk/scenario.py` | numerical | `parallel_shift` does not bump the multi-currency `discount_curves` dict | `python/pricebook/risk/scenario.py:49-62` |
+| 4 | `risk/simm.py` | numerical | Vega and curvature inputs silently ignored | `python/pricebook/risk/simm.py:192-204` |
+| 5 | `risk/simm.py` | numerical | Bucket margin loses sign needed for across-bucket aggregation | `python/pricebook/risk/simm.py:181-218` |
+| 6 | `risk/simm.py` | numerical | Across-risk-class aggregation drops the SIMM correlation matrix | `python/pricebook/risk/simm.py:149-150` |
+| 7 | `risk/backtest.py` | numerical | walk_forward leaks test data into signal generation (lookahead bias) | `python/pricebook/risk/backtest.py:289-296` |
+| 8 | `risk/factor_model.py` | numerical | Shrinkage intensity is not Ledoit-Wolf and is scale-dependent | `python/pricebook/risk/factor_model.py:255-261` |
+| 9 | `risk/factor_model.py` | numerical | factor_timing signal direction is opposite of the docstring | `python/pricebook/risk/factor_model.py:300-317` |
+| 10 | `risk/cvar_optimisation.py` | numerical | LP-failure fallback returns VaR mislabelled as CVaR | `python/pricebook/risk/cvar_optimisation.py:130-134` |
+| 11 | `risk/vol_stress.py` | numerical | correlations argument silently ignored in cross_asset_vol_stress | `python/pricebook/risk/vol_stress.py:99-116` |
+| 12 | `risk/dynamic_allocation.py` | numerical | multi_period_mv passes unsupported kwarg to mean_variance — raises TypeError on first call | `python/pricebook/risk/dynamic_allocation.py:201` |
+| 13 | `risk/portfolio_margin.py` | numerical | SPAN PnL: gamma term has wrong units — explodes by O(notional) | `python/pricebook/risk/portfolio_margin.py:86-98` |
+| 14 | `risk/portfolio_margin.py` | numerical | 'Covered call' branch is actually a naked short call | `python/pricebook/risk/portfolio_margin.py:255-259` |
+| 15 | `risk/ipv.py` | numerical | concentration_ava called with mid-price where base_spread_bp is expected | `python/pricebook/risk/ipv.py:210` |
+| 16 | `risk/ipv.py` | numerical | future_admin_cost_ava called with complexity_score and maturity_years swapped | `python/pricebook/risk/ipv.py:223` |
+| 17 | `fixed_income/callable_bond.py` | numerical | Tree never applies alpha(t) drift — does not reprice the initial curve | `python/pricebook/fixed_income/callable_bond.py:84, 94` |
+| 18 | `fixed_income/callable_bond.py` | numerical | Transition probabilities divide by 6 instead of 2 — drift is 1/3 of correct value | `python/pricebook/fixed_income/callable_bond.py:98-100` |
+| 19 | `fixed_income/callable_bond.py` | code-correctness | Last coupon double-counted at maturity | `python/pricebook/fixed_income/callable_bond.py:87, 121-122` |
+| 20 | `fixed_income/frn.py` | numerical | discount_margin shifts the coupon spread, not the discount curve — wrong sign and magnitude vs canon | `python/pricebook/fixed_income/frn.py:124-152` |
+| 21 | `fixed_income/risky_bond.py` | code-correctness | dirty_price raises ValueError when coupon period straddles the curve reference date | `python/pricebook/fixed_income/risky_bond.py:80-82` |
+| 22 | `fixed_income/inflation.py` | numerical | IE01 destroys curve term structure instead of parallel-shifting it | `python/pricebook/fixed_income/inflation.py:443-450` |
+| 23 | `fixed_income/inflation.py` | numerical | dirty_price ignores settlement when discounting | `python/pricebook/fixed_income/inflation.py:380-400` |
+| 24 | `fixed_income/treasury_benchmark.py` | numerical | ctd_switch_analysis implied-repo formula is non-standard and missing accrued interest | `treasury_benchmark.py:325-336` |
+| 25 | `fixed_income/ir_futures.py` | numerical | HW convexity discontinuous at a→0 (2x jump) and disagrees with sibling formula in curves/bootstrap.p | `python/pricebook/fixed_income/ir_futures.py:162-170 and pyth` |
+| 26 | `fixed_income/callable_floater.py` | numerical | Transition probabilities do not match Hull-White (1994); mean-reversion is 1/3 of canonical | `python/pricebook/fixed_income/callable_floater.py:121-123, 2` |
+| 27 | `fixed_income/callable_floater.py` | numerical | Tree never solves for alpha(t); does not reproduce initial discount curve | `python/pricebook/fixed_income/callable_floater.py:117-119, 1` |
+| 28 | `fixed_income/callable_floater.py` | code-correctness | brentq called with unsupported kwarg `xtol` — OAS is always NaN | `python/pricebook/fixed_income/callable_floater.py:451` |
+| 29 | `options/bermudan_swaption.py` | numerical | Trinomial transition probabilities use wrong denominator (/6 instead of /2) | `python/pricebook/options/bermudan_swaption.py:73-75` |
+| 30 | `options/bermudan_swaption.py` | numerical | Tree is not calibrated to the input curve (no alpha(t) drift) | `python/pricebook/options/bermudan_swaption.py:58,68,102` |
+| 31 | `options/bermudan_swaption.py` | numerical | Off-by-one in exercise step / time-mismatched max against exercise value | `python/pricebook/options/bermudan_swaption.py:98-117` |
+| 32 | `options/capfloor.py` | numerical | strip_caplet_vols_from_quotes does not strip anything — returns flat vol | `python/pricebook/options/capfloor.py:296-397 (esp. 360-392)` |
+| 33 | `options/capfloor.py` | numerical | calibrate_capfloor_sabr fits SABR to a hand-fabricated synthetic smile, not to market data | `python/pricebook/options/capfloor.py:440-441 and 400-459` |
+| 34 | `options/autocallable.py` | numerical | coupon_barrier parameter is completely ignored — coupons paid unconditionally | `python/pricebook/options/autocallable.py:142-167` |
+| 35 | `options/bermudan_barrier.py` | numerical | Double-discounting in LSM continuation regression | `python/pricebook/options/bermudan_barrier.py:247-251` |
+| 36 | `options/bermudan_lmm.py` | numerical | Discounting inconsistent with simulated measure — uses F_0 as a continuously-compounded short rate | `python/pricebook/options/bermudan_lmm.py:237-238, 266-267, 3` |
+| 37 | `options/bermudan_lmm.py` | numerical | Andersen-Broadie upper bound: sub-simulation does not implement the AB recursion | `python/pricebook/options/bermudan_lmm.py:491-572` |
+| 38 | `options/bermudan_lmm.py` | numerical | Identity correlation in `*_via_engine` variant produces a different model (independent forwards) | `python/pricebook/options/bermudan_lmm.py:82, 608` |
+| 39 | `options/slv.py` | numerical | slv_mc and slv_mc_via_engine use different leverage/mixing formulas — not drop-in replacements | `python/pricebook/options/slv.py:56-73 (SLVModel.leverage) vs` |
+| 40 | `options/asian_option.py` | numerical | Turnbull-Wakeman partial-fixings: index mismatch when known fixings are not a prefix | `python/pricebook/options/asian_option.py:428-440 and :188-21` |
+| 41 | `options/asian_option.py` | numerical | MC methods ignore the averaging schedule — fixings forced uniform on [0, T] | `python/pricebook/options/asian_option.py:458-526 and :544-57` |
+| 42 | `options/convertible_bond.py` | numerical | Terminal coupon dropped in CB.price() — inconsistent with bond_floor and deep-OTM limit | `python/pricebook/options/convertible_bond.py:110-115, 136-13` |
+| 43 | `options/convertible_bond.py` | code-correctness | ZeroDivisionError for maturities below ~1 month | `convertible_bond.py:89-93, 294-304, 387-391, 605-616` |
+| 44 | `options/convertible_bond.py` | code-correctness | Integer spot silently truncates paths in soft_call and CoCo | `convertible_bond.py:314, 399` |
+| 45 | `credit/cds_swaption.py` | numerical | cds_swaption_black double-counts survival_to_expiry against the risky annuity | `python/pricebook/credit/cds_swaption.py:155, 165, 347, 526, ` |
+| 46 | `credit/cln_xva.py` | numerical | SIMM IM under-counts by ~10_000x: CS01/DV01 are per-bp but SIMM weights expect per-unit deltas | `python/pricebook/credit/cln_xva.py:44-53` |
+
+## Modules NOT audited in Wave 2 (35) — deferred to methodical pass
+
+- `credit/exotic_loan.py`
+- `credit/loan.py`
+- `credit/distressed.py`
+- `credit/tranche_pricing.py`
+- `credit/recovery_locked_cds.py`
+- `credit/cds_index.py`
+- `credit/cds_strategies.py`
+- `fx/fx_forward.py`
+- `fx/fx_option.py`
+- `fx/fx_barrier.py`
+- `fx/fx_swap.py`
+- `fx/ndf.py`
+- `fx/fx_smile_cube.py`
+- `fx/prdc.py`
+- `fx/fx_basis.py`
+- `equity/equity_forward.py`
+- `equity/dividend_model.py`
+- `equity/variance_swap.py`
+- `equity/equity_index_futures.py`
+- `equity/trs.py`
+- `models/mc_processes.py`
+- `models/mc_advanced.py`
+- `models/hjm.py`
+- `models/lmm_calibration.py`
+- `models/fft_pricing.py`
+- `models/fft_2d.py`
+- `models/fokker_planck.py`
+- `models/density_evolution.py`
+- `models/sde_adaptive.py`
+- `models/hundsdorfer_verwer.py`
+- `models/fourier_greeks.py`
+- `models/cos_bermudan.py`
+- `models/levy_processes.py`
+- `models/jump_process.py`
+- `models/exact_simulation.py`
+
+These will be picked up one at a time in the methodical bottom-up audit (post-notebook).
+
+Raw Wave 2 JSON (1MB+) at `/private/tmp/claude-501/.../tasks/wly66lns5.output`. Will not be re-run in this strategy.
