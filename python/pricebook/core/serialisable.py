@@ -29,11 +29,24 @@ For frozen dataclasses (convention objects), use @serialisable_convention:
 How it works:
     to_dict():  reads self.X for each field in _SERIAL_FIELDS
                 auto-converts: date→isoformat, Enum→.value, Serialisable→.to_dict()
+                emits `schema_version` (top-level) or `_schema_version`
+                (in flat convention dicts) carrying `_SERIAL_SCHEMA_VERSION`.
 
     from_dict(): reads __init__ type hints to know how to deserialise each field
                  auto-converts: str→date, str→Enum, dict→from_dict()
+                 validates schema_version — absent → v1; future version → raise.
 
 For classes with polymorphic fields (e.g. TRS.underlying), override from_dict.
+
+Schema versioning
+-----------------
+
+Every serialised dict carries the writer's `_SERIAL_SCHEMA_VERSION`. The
+reader checks the version is recognised; existing data without the field
+is treated as v1 silently. Classes bump `_SERIAL_SCHEMA_VERSION` when
+they make a *breaking* wire-format change (renamed field, changed unit,
+restructured payload) and either implement migration from older versions
+or refuse to deserialise them with a clear error.
 """
 
 from __future__ import annotations
@@ -47,6 +60,40 @@ from typing import Any, get_type_hints, Union, get_origin, get_args
 # ---------------------------------------------------------------------------
 
 _REGISTRY: dict[str, type] = {}
+
+
+# ---------------------------------------------------------------------------
+# Schema-version helpers
+# ---------------------------------------------------------------------------
+
+# Top-level key in non-convention payloads ("type"/"params" envelope).
+_SCHEMA_VERSION_KEY = "schema_version"
+
+# Key used in flat convention payloads. Underscore prefix avoids any clash
+# with real convention fields (which are conventional Python identifiers).
+_SCHEMA_VERSION_KEY_FLAT = "_schema_version"
+
+
+def _check_schema_version(cls: type, found: int | None) -> None:
+    """Raise if `found` exceeds the class's declared `_SERIAL_SCHEMA_VERSION`.
+
+    Absent (`None`) is treated as v1 — that's what existing on-disk and
+    in-test payloads serialised before this slice carry, and we never want
+    to break them.
+
+    Classes that introduce a *breaking* wire change bump
+    `_SERIAL_SCHEMA_VERSION` and are responsible for handling older versions
+    (migrate or raise with their own message).
+    """
+    expected = getattr(cls, "_SERIAL_SCHEMA_VERSION", 1)
+    v = 1 if found is None else int(found)
+    if v > expected:
+        raise ValueError(
+            f"Cannot deserialise {cls.__name__}: payload says "
+            f"{_SCHEMA_VERSION_KEY}={v}, but this build only supports up to "
+            f"{expected}. The payload was written by a newer pricebook — "
+            f"upgrade this environment."
+        )
 
 
 def _register(cls: type) -> None:
@@ -180,16 +227,19 @@ class Serialisable:
     Subclass declares:
         _SERIAL_TYPE: str          — wire type key
         _SERIAL_FIELDS: list[str]  — constructor param names to serialise
+        _SERIAL_SCHEMA_VERSION: int  — bump on breaking wire-format change
 
     Gets for free:
-        to_dict() → {"type": _SERIAL_TYPE, "params": {...}}
-        from_dict(d) → cls(**resolved_params)
+        to_dict() → {"type": _SERIAL_TYPE, "params": {...},
+                     "schema_version": _SERIAL_SCHEMA_VERSION}
+        from_dict(d) → cls(**resolved_params)  (validates schema_version)
 
     Override from_dict() for special cases (polymorphic fields).
     """
 
     _SERIAL_TYPE: str = ""
     _SERIAL_FIELDS: list[str] = []
+    _SERIAL_SCHEMA_VERSION: int = 1
 
     def __init_subclass__(cls, **kwargs):
         """Auto-register subclasses that have _SERIAL_TYPE."""
@@ -202,10 +252,15 @@ class Serialisable:
         for field in self._SERIAL_FIELDS:
             v = getattr(self, field)
             params[field] = _serialise_atom(v)
-        return {"type": self._SERIAL_TYPE, "params": params}
+        return {
+            "type": self._SERIAL_TYPE,
+            "params": params,
+            _SCHEMA_VERSION_KEY: self._SERIAL_SCHEMA_VERSION,
+        }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Any:
+        _check_schema_version(cls, d.get(_SCHEMA_VERSION_KEY))
         p = d["params"]
         hints = _get_init_hints(cls)
         kwargs = {}
@@ -238,26 +293,37 @@ def _get_init_hints(cls: type) -> dict[str, type]:
 # Decorator alternative (for classes that can't inherit)
 # ---------------------------------------------------------------------------
 
-def serialisable(serial_type: str, fields: list[str]):
+def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
     """Decorator: add Serialisable behaviour without inheritance.
 
     @serialisable("irs", ["start", "end", "fixed_rate", ...])
     class InterestRateSwap:
         ...
+
+    Pass `schema_version=N` (N >= 2) when a class introduces a *breaking*
+    wire-format change. Older payloads (absent version, or version < N) are
+    handled by the class's own from_dict — bump the version AND implement
+    the migration logic, never one without the other.
     """
     def decorator(cls):
         cls._SERIAL_TYPE = serial_type
         cls._SERIAL_FIELDS = fields
+        cls._SERIAL_SCHEMA_VERSION = schema_version
 
         def to_dict(self) -> dict[str, Any]:
             params = {}
             for field in self._SERIAL_FIELDS:
                 v = getattr(self, field)
                 params[field] = _serialise_atom(v)
-            return {"type": self._SERIAL_TYPE, "params": params}
+            return {
+                "type": self._SERIAL_TYPE,
+                "params": params,
+                _SCHEMA_VERSION_KEY: self._SERIAL_SCHEMA_VERSION,
+            }
 
         @classmethod
         def cls_from_dict(klass, d: dict[str, Any]) -> Any:
+            _check_schema_version(klass, d.get(_SCHEMA_VERSION_KEY))
             p = d["params"]
             hints = _get_init_hints(klass)
             kwargs = {}
@@ -283,7 +349,7 @@ def serialisable(serial_type: str, fields: list[str]):
 # Convention decorator (for frozen dataclasses — pure data)
 # ---------------------------------------------------------------------------
 
-def serialisable_convention(serial_type: str):
+def serialisable_convention(serial_type: str, schema_version: int = 1):
     """Decorator: add serialisation to frozen dataclasses (convention objects).
 
     Unlike @serialisable, this auto-derives _SERIAL_FIELDS from
@@ -302,10 +368,14 @@ def serialisable_convention(serial_type: str):
 
     conv.to_dict()
     # → {"market_code": "UST", "country": "US", "currency": "USD",
-    #    "frequency": 6, ...}
+    #    "frequency": 6, ..., "_schema_version": 1}
 
     SovereignConventions.from_dict(d)
     # → SovereignConventions(market_code="UST", ...)
+
+    Bump `schema_version` on a breaking wire-format change. The version
+    travels in the flat dict under the reserved key `_schema_version` —
+    underscore-prefixed to avoid colliding with real convention fields.
     """
     import dataclasses
 
@@ -316,6 +386,7 @@ def serialisable_convention(serial_type: str):
         field_names = [f.name for f in dataclasses.fields(cls)]
         cls._SERIAL_TYPE = serial_type
         cls._SERIAL_FIELDS = field_names
+        cls._SERIAL_SCHEMA_VERSION = schema_version
 
         # Flat to_dict (no type/params nesting — pure data)
         def to_dict(self) -> dict[str, Any]:
@@ -323,6 +394,7 @@ def serialisable_convention(serial_type: str):
             for field in field_names:
                 v = getattr(self, field)
                 d[field] = _serialise_atom(v)
+            d[_SCHEMA_VERSION_KEY_FLAT] = self._SERIAL_SCHEMA_VERSION
             return d
 
         @classmethod
@@ -330,8 +402,11 @@ def serialisable_convention(serial_type: str):
             # Accept both flat dict and {"type": ..., "params": {...}} format
             if "params" in d and "type" in d:
                 p = d["params"]
+                version = d.get(_SCHEMA_VERSION_KEY)
             else:
                 p = d
+                version = d.get(_SCHEMA_VERSION_KEY_FLAT)
+            _check_schema_version(klass, version)
             hints = _get_init_hints(klass)
             kwargs = {}
             for field in field_names:

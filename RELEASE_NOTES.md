@@ -2,6 +2,32 @@
 
 ---
 
+## v0.889.0 — 2026-06-11
+
+**G1 P3 Slice 2 — schema versioning on `@serialisable`. G1 P3 complete. Gate 1 closed.**
+
+Every serialised dict now carries an explicit schema version, giving us a hard hook for future wire-format migrations without breaking anything that exists today. Combined with G1 P1 (`CalibrationResult`), G1 P2 (`MarketSnapshot` on every calibrator), and G1 P3 Slice 1 (`NumericalConfig`), pricebook is now **audit-ready**: a price is reconstructible from a stable, dated, versioned artefact graph.
+
+- New class attribute `_SERIAL_SCHEMA_VERSION: int = 1` on `Serialisable`, `@serialisable`, and `@serialisable_convention`. Bump in your class when you make a *breaking* wire change.
+- Envelope format (`Serialisable`, `@serialisable`) gains a top-level `"schema_version"` key alongside `"type"` and `"params"`.
+- Flat-convention format (`@serialisable_convention`) gains a reserved `"_schema_version"` key — underscore-prefixed so it cannot collide with any real convention field.
+- `from_dict` reads the version, treats *absent* as v1 silently (existing payloads on disk continue to deserialise), and raises a clear `ValueError("...schema_version=N, but this build only supports up to M. Upgrade this environment.")` when a payload was written by a newer build.
+- Decorators take an optional `schema_version=N` keyword for classes that introduce migrations: `@serialisable("irs", [...], schema_version=2)` and `@serialisable_convention("foo", schema_version=3)`.
+- 24 new tests in `test_serialisable_schema_version.py`: default version, to_dict emits version (envelope + flat), round-trip across all three paths, backward compat with absent-version payloads, future-version rejection with a clear message, wire-format key invariants, and version-key strip-before-construct.
+- Full parallel suite: **11835 passed in 5:34** — every existing serialisation round-trip in the library still works.
+
+### Gate 1 closed
+
+Phase 1: every calibrator produces a uniform `CalibrationResult` (UUID, timestamp, code version, residuals, optimiser story).
+Phase 2: every calibrator accepts a `MarketSnapshot`; id links to the result.
+Phase 3: numerical hyperparameters become first-class on `PricingContext`; wire format becomes version-aware.
+
+**Result:** a price computed today can be reconstructed tomorrow from a single, structured, versioned artefact chain: trade → pricer → `PricingContext{numerical_config, curves}` → `CalibrationResult.market_snapshot_id` → `MarketSnapshot`. Each link is dated, identified, and serialisable.
+
+Next: Gate 2 — *production-grade*. Begin auditing each module with the audit chain available.
+
+---
+
 ## v0.888.0 — 2026-06-11
 
 **G1 P3 Slice 1 — `NumericalConfig` + `PricingContext.numerical_config`.**
