@@ -25,6 +25,7 @@ def curve_jacobian(
     query_tenors: list[float],
     pillar_tenors: list[float] | None = None,
     bump_size: float = 0.0001,
+    pillar_tol: float = 1e-2,
 ) -> np.ndarray:
     """Compute d(zero_rate at query) / d(zero_rate at pillar) via finite difference.
 
@@ -33,16 +34,51 @@ def curve_jacobian(
         query_tenors: year fractions where we want zero rate sensitivities.
         pillar_tenors: year fractions of pillar points to bump.
             If None, uses the curve's own pillar times (excluding t=0).
+            **Each entry must match (within `pillar_tol`) one of the curve's
+            actual pillars** — bumping happens by curve-pillar-index, so the
+            tenors are resolved to indices first. Mismatched tenors raise.
         bump_size: parallel bump in zero rate units.
+        pillar_tol: matching tolerance (year fractions) when resolving
+            `pillar_tenors` to curve indices. Default `1e-2` (~3.6 days)
+            accommodates 365.25-vs-day-count rounding drift between
+            `date_from_year_fraction` (which constructs the curve dates)
+            and the curve's `day_count` (typically ACT/365F).
 
     Returns:
         Jacobian matrix of shape (n_query, n_pillar).
         J[i, j] = d(zero_rate(query_i)) / d(zero_rate(pillar_j)).
+
+    Notes:
+        Fix C.2 B1 (L1 audit): pre-fix the loop enumerated `pillar_tenors`
+        and called `bumped_at(j, ...)` with the enumeration index `j`. When
+        the user supplied a custom `pillar_tenors` shorter than the curve's
+        pillar grid, the column labels were silently mismatched — Jacobian
+        columns described the WRONG pillars. Now `pillar_tenors` is
+        resolved to actual curve indices first.
     """
     ref = curve.reference_date
+    curve_pillar_times = [float(t) for t in curve.pillar_times if t > 0]
+    curve_pillar_idx = list(range(len(curve_pillar_times)))   # index into bumped_at
 
     if pillar_tenors is None:
-        pillar_tenors = [float(t) for t in curve.pillar_times if t > 0]
+        pillar_tenors = list(curve_pillar_times)
+        resolved_idx = curve_pillar_idx
+    else:
+        # Resolve each requested tenor to an actual pillar index.
+        resolved_idx = []
+        for pt in pillar_tenors:
+            # Find the curve pillar nearest to `pt` within `pillar_tol`.
+            diffs = [(abs(pt - ct), i) for i, ct in enumerate(curve_pillar_times)]
+            best = min(diffs)
+            if best[0] > pillar_tol:
+                raise ValueError(
+                    f"pillar_tenors[{len(resolved_idx)}]={pt} does not match any "
+                    f"curve pillar (within tol={pillar_tol}). Curve pillars: "
+                    f"{curve_pillar_times}. Either pass pillar_tenors that "
+                    f"correspond to actual curve pillars, or omit the argument "
+                    f"to use the curve's own pillar grid."
+                )
+            resolved_idx.append(best[1])
 
     n_query = len(query_tenors)
     n_pillar = len(pillar_tenors)
@@ -55,9 +91,9 @@ def curve_jacobian(
 
     J = np.zeros((n_query, n_pillar))
 
-    for j, pt in enumerate(pillar_tenors):
-        # Bump one pillar's zero rate
-        bumped = curve.bumped_at(j, bump_size)
+    for j, pillar_idx in enumerate(resolved_idx):
+        # Bump the resolved pillar's zero rate.
+        bumped = curve.bumped_at(pillar_idx, bump_size)
         bumped_zeros = np.array([
             bumped.zero_rate(date_from_year_fraction(ref, t))
             for t in query_tenors

@@ -2,6 +2,51 @@
 
 ---
 
+## v0.906.0 — 2026-06-11
+
+**Fix L1 C.2 B1 — `curve_jacobian` resolves `pillar_tenors` to actual curve indices.**
+
+Third HIGH-severity bug closed from L1 audit. Pre-fix, when a caller passed a custom `pillar_tenors` list (different from the curve's actual pillar grid), `curve_jacobian` silently bumped the WRONG pillars — the Jacobian's column labels were mismatched with the user's requested tenors.
+
+### What was broken
+
+```python
+for j, pt in enumerate(pillar_tenors):
+    bumped = curve.bumped_at(j, bump_size)   # ← j is an enumeration index
+    ...                                        #   NOT a resolved curve pillar
+```
+
+`bumped_at(j, ...)` takes a **curve pillar index**. The function looped over the user's `pillar_tenors` and used the enumeration index `j` directly. For a curve with pillars `[0.25, 0.5, 1, 2, 5, 10]` and user request `pillar_tenors=[1, 2, 5]`:
+- `j=0` → bumped index 0 → the 0.25y pillar (user thought: 1y)
+- `j=1` → bumped index 1 → the 0.5y pillar (user thought: 2y)
+- `j=2` → bumped index 2 → the 1y pillar (user thought: 5y)
+
+The Jacobian's column labels lied. A caller multiplying `J` by a market-quote-bump vector got systematically wrong sensitivities.
+
+### Change
+
+- `curves/curve_risk.py:curve_jacobian` — when `pillar_tenors` is supplied, resolve each tenor to its actual curve pillar index (nearest match within `pillar_tol`); raise `ValueError` if any tenor doesn't match a curve pillar. New `pillar_tol=1e-2` default accommodates the 365.25-vs-day-count drift on `DiscountCurve.flat` pillars (~0.003y).
+- 5 new regression tests in `test_curve_jacobian_pillar_resolution.py`:
+  - default `pillar_tenors=None` uses the curve's own grid.
+  - custom `pillar_tenors=[1, 2, 5]` correctly bumps those pillars (J[0,0] dominant for 1y query).
+  - unrecognised tenor raises clearly.
+  - tolerance allows close matches (1y vs 1.00274y).
+  - out-of-order tenors produce columns in the user-supplied order.
+- Full parallel suite: **11951 passed in 3:40** — zero regressions.
+
+### L1 audit status — active HIGH bugs all closed
+
+| Bug | Status |
+|---|---|
+| A.2 B1 — global_solver dup-maturity | ✅ v0.905 |
+| A.3 B1 — multicurve PV_float first period | ✅ v0.905 |
+| **C.2 B1** — curve_jacobian wrong pillar | ✅ **this slice** |
+| A.1 B1 — bootstrap HW convexity (latent) | queued |
+
+L1 Pass A + B + C audited (15 of 33 modules). Remaining: D (builders, 8 modules), E (numerics, 4), F (AAD, 5).
+
+---
+
 ## v0.905.0 — 2026-06-11
 
 **Fix L1 curves audit A.2 B1 + A.3 B1 — `global_solver` rejects duplicate maturities; `multicurve_newton` PV_float now includes the first accrual period.**
