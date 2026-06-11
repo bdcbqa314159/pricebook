@@ -2,6 +2,40 @@
 
 ---
 
+## v0.882.0 — 2026-06-11
+
+**G1 P1 Slice 6 — `jump_calibration` produces `CalibrationResult`. G1 P1 complete.**
+
+The last of seven calibration families lands. With this slice, **every calibration in the codebase produces a uniform `CalibrationResult` artefact**, closing out Phase 1 of Gate 1 in the `DESIGN.md` roadmap.
+
+- `JumpCalibrationResult` (covers all six jump/Lévy models: Merton, VG, Kou, NIG, CGMY, Bates) gains `calibration_result: CalibrationResult | None` + `to_calibration_result()` method. `to_dict` gets `calibration_id` key.
+- `calibrate_jump_model` populates with `model_class=f"jump_{model_type}"` (e.g. `jump_merton`, `jump_vg`, `jump_kou`, `jump_nig`, `jump_cgmy`, `jump_bates`), parameters as the per-model param dict (4 for Merton, 3 for VG, 4 for Kou, 4 for NIG, 4 for CGMY, 7 for Bates), residuals = `model_vol − market_vol` per strike, algorithm `"differential_evolution+L-BFGS-B"`, deterministic seed recorded, spot / rate / T / div_yield / bounds in `optimiser.extra`, `rmse_vol` in diagnostics, quotes named `smile_K=<strike>`.
+- 12 new tests in `test_calibration_result_jump.py`: 9 end-to-end (1 fast Merton calibration with 3 strikes / `maxiter=30`) + 3 back-compat.
+- 32 tests pass across the jump family (test_jump_calibration + test_jump_cross_validation + new file) — no regression.
+
+### G1 P1 — complete (Slices 1-6)
+
+103 dedicated calibration-layer tests in total. **Every calibrator in pricebook now produces a `CalibrationResult`:**
+
+| # | Family | Model class string | Algorithm |
+|---|---|---|---|
+| 1 | foundation | (none — types only) | n/a |
+| 2 | bond hazard | `bond_hazard_pwc` | brentq-per-bond / L-BFGS-B[+tikhonov] |
+| 3 | Hull-White | `hull_white` | Nelder-Mead / DE / L-BFGS-B |
+| 3 | G2++ | `g2pp` | differential_evolution+L-BFGS-B |
+| 4 | LMM | `lmm` | iterative_scaling |
+| 4 | SABR | `sabr` | nelder_mead |
+| 5 | curve bootstrap | `discount_curve_bootstrap` | brentq-sequential |
+| 5 | global curve | `discount_curve_global` | newton-global |
+| 5 | multicurve | `multicurve` | newton-multicurve |
+| 6 | jump (6 models) | `jump_{merton,vg,kou,nig,cgmy,bates}` | differential_evolution+L-BFGS-B |
+
+The audit trail `(price) -> (calibration_id) -> (market_snapshot, code_version, optimiser)` is now reconstructable end-to-end for every calibrated number in pricebook.
+
+Next phase: **G1 P2** — `MarketSnapshot` at L1, the canonical raw-market-data type. Curves will be built from snapshots; the `market_snapshot_id` field on `CalibrationResult` (currently always `None`) will be populated.
+
+---
+
 ## v0.881.0 — 2026-06-11
 
 **G1 P1 Slice 5 — curve bootstrap produces `CalibrationResult`.**
