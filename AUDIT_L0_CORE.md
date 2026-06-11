@@ -798,6 +798,104 @@ Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed 
 
 ---
 
+## Pass B — simple composites
+
+| # | Module | Status | Confirmed bugs | Doc/test gaps |
+|---|---|---|---|---|
+| B.1 | `discount_curve.py` | ⚠️ | 3 (B1 roll_down anchoring, B2 serialisation loses interpolation, B3 bumped_at no bounds check, schema_version absent) | small |
+| B.2 | `survival_curve.py` | ❓ | | |
+| B.3 | `market_data.py` (old) | ❓ | | |
+| B.4 | `market_conventions.py` | ❓ | | |
+| B.5 | `rate_index.py` | ❓ | | |
+| B.6 | `notional.py` | ❓ | | |
+| B.7 | `forward_interpolation.py` | ❓ | | |
+
+---
+
+## B.1 — `core/discount_curve.py`
+
+**Purpose:** Maps dates → discount factors. Interpolates in year-fraction space (LOG_LINEAR default → piecewise-constant forwards). `df`, `zero_rate`, `forward_rate`, `instantaneous_forward`, `flat`, `bumped`, `bumped_at`, `roll_down`, plus custom `to_dict`/`from_dict`.
+
+**Internal deps:** `core.day_count`, `core.interpolation`, `core.serialisable` (registration only). True L1 (one layer above Pass A primitives).
+
+**Size:** 252 lines.
+
+### Status: ⚠️ Multiple real bugs
+
+### Confirmed bugs
+
+#### B1 — `roll_down` produces wrong rolled curve  *[HIGH]*
+
+**Location:** `discount_curve.py:126-146`.
+
+When `roll_down(days)` shifts the reference date forward by `days`, the new curve should map pillar dates → `P(new_ref, pillar_date)`. By no-arbitrage: `P(new_ref, d) = P(0, d) / P(0, new_ref)`. The code does NOT divide by `P(0, new_ref)`:
+
+```python
+future_dfs = [float(self.df(d)) for d in future_dates]   # ← P(0, d), wrong
+return DiscountCurve(new_ref, future_dates, future_dfs, ...)
+```
+
+**Live repro** — flat 5% curve, ref `2024-01-01`, 1-day rolldown:
+```
+Expected: zero_rate to 2025-01-01 = 5.0000%
+Actual:                              5.0137%   ← +1.4 bp/day error
+Expected: df(2025-01-01) = exp(-0.05 × 364/365) = 0.951360
+Actual:                                          0.951099
+```
+
+The error scales linearly with `days`. Misstates rolldown P&L at exactly +1.4 bp per day for a typical 5% curve.
+
+**Fix shape:** divide by `self.df(new_ref)`:
+```python
+disc_ref = self.df(new_ref)
+future_dfs = [float(self.df(d) / disc_ref) for d in future_dates]
+```
+
+Plus the "all pillars in the past" branch (line 136-139) drops the original `day_count` and `interpolation` via `DiscountCurve.flat(...)`. That's a separate footgun on top of the main bug.
+
+#### B2 — Custom `to_dict` drops `interpolation` and `schema_version`  *[MEDIUM]*
+
+**Location:** `discount_curve.py:234-248`.
+
+The custom `_dc_to_dict` emits only `{reference_date, dates, dfs, day_count}` — missing `interpolation` AND `schema_version`. **Live repro:** a curve built with `MONOTONE_CUBIC` interpolation, serialised and rebuilt, silently becomes `LOG_LINEAR` (the constructor default).
+
+`schema_version` absence is a wider concern: G1 P3 Slice 2 added the schema-version slot to `Serialisable.to_dict` and the two decorators, but **custom `to_dict` overrides like this one bypass it**. Every model in the library that hand-writes its `to_dict` (and there are several) has the same gap.
+
+**Fix shape:**
+1. Include `interpolation` in the params dict; default to `LOG_LINEAR` on `from_dict` if absent (back-compat for pre-fix payloads).
+2. Include `schema_version` at the envelope level.
+3. Add a generic helper `_make_payload(type, params, version)` so all custom `to_dict`s stop forgetting it.
+
+#### B3 — `bumped_at(pillar_idx)` has no bounds check + accepts negative indices  *[LOW]*
+
+**Location:** `discount_curve.py:148-156`.
+
+```python
+def bumped_at(self, pillar_idx: int, shift: float) -> "DiscountCurve":
+    pillar_t = [t for t in self._times if t > 0]
+    pillar_df = [float(df) for t, df in zip(self._times, self._dfs) if t > 0]
+    pillar_df[pillar_idx] = pillar_df[pillar_idx] * math.exp(-shift * pillar_t[pillar_idx])
+```
+
+`pillar_idx = -1` silently bumps the last pillar (Pythonic but probably surprising for a "bump pillar k" API). `pillar_idx = 1000` raises `IndexError` with no context. Add explicit validation: `if not 0 <= pillar_idx < len(pillar_t): raise IndexError(...)` with a clear message.
+
+### Other concerns (not bugs)
+
+- **`zero_rate(d <= ref)`** returns the t→0 instantaneous forward (lines 178-184) using only the first non-zero pillar. For a non-LOG_LINEAR curve this approximation drifts slightly from the true short-rate. Documented inline; acceptable approximation.
+- **`forward_rate` docstring** at line 217 says "numerically stable form" but the formula `(df1-df2)/(tau*df2)` is the standard mathematical definition, not a special stabilised form. Cosmetic.
+- **`instantaneous_forward(t)`** with very large `t` constructs a date that can overflow near `date.max` (`OverflowError`). Niche — no caller exercises this region today.
+- **Silent zero-fallback** in `df`, `zero_rate`, `forward_rate` (when `df_val <= 0` or `tau <= 0`) masks pathological interpolator output. Should at minimum log a warning.
+
+### Test coverage
+
+`test_discount_curve.py` covers `df`, `zero_rate`, `forward_rate`, `flat`, `bumped`. Missing:
+- `roll_down` — no test (would catch B1 immediately).
+- `bumped_at` — no test (B3 untested).
+- Round-trip through `to_dict`/`from_dict` for non-default `interpolation` (would catch B2).
+- `instantaneous_forward` edge cases.
+
+---
+
 ## Pass A — summary
 
 13 modules audited. Total: **20 confirmed bugs** (mostly Low/Medium) + significant test gaps in calendar / interpolation / FX-forward / Serialisable-edge-shapes.
