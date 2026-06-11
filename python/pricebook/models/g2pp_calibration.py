@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.optimize import minimize, differential_evolution
@@ -35,6 +36,9 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import date_from_year_fraction
 from pricebook.models.vasicek import G2PlusPlus
 from pricebook.models.black76 import OptionType, black76_price
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +409,8 @@ def calibrate_g2pp(
     sigma1_bounds: tuple[float, float] = (0.001, 0.05),
     sigma2_bounds: tuple[float, float] = (0.001, 0.05),
     rho_bounds: tuple[float, float] = (-0.99, 0.99),
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> G2PPCalibrationResult:
     """Calibrate G2++ (a, b, sigma1, sigma2, rho) to swaption vols.
 
@@ -585,6 +591,7 @@ def calibrate_g2pp(
         diagnostics=CalibrationDiagnostics(
             extra={"rmse_vol": float(rmse_vol)},
         ),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return G2PPCalibrationResult(

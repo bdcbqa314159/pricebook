@@ -19,8 +19,12 @@ where z = (alpha/nu) * (F*K)^((1-beta)/2) * ln(F/K)
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 from pricebook.models.black76 import OptionType, black76_price
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 def sabr_implied_vol(
@@ -116,6 +120,8 @@ def sabr_calibrate(
     T: float,
     beta: float = 0.5,
     initial_guess: tuple[float, float, float] | None = None,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> dict:
     """Calibrate SABR parameters (alpha, rho, nu) to market smile.
 
@@ -190,6 +196,7 @@ def sabr_calibrate(
         converged=bool(getattr(result, "success", True)),
         quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return {

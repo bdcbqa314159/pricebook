@@ -2,6 +2,23 @@
 
 ---
 
+## v0.886.0 — 2026-06-11
+
+**G1 P2 Slice 4 — HW, G2++, SABR, LMM calibrators accept a `MarketSnapshot`.**
+
+Four model calibrators wired in one slice. Audit chain now reaches every IR/vol model-calibration entry point in the library.
+
+- `pricebook.models.hw_calibration.calibrate_hull_white(...)` — keyword-only `market_snapshot: MarketSnapshot | None = None`.
+- `pricebook.models.g2pp_calibration.calibrate_g2pp(...)` — same.
+- `pricebook.models.lmm_calibration.calibrate_lmm_vols(...)` — same.
+- `pricebook.options.sabr.sabr_calibrate(...)` — same; returned dict's `"calibration_result"` carries the linked id.
+- All four use `TYPE_CHECKING` import on `pricebook.market_data.MarketSnapshot` — no runtime dep added.
+- 12 new tests in `test_models_snapshot.py`: keyword-only enforcement and id linkage on each calibrator (G2++ uses `method="minimize"` to stay under a second per test).
+
+Single slice left in G1 P2: jump-model calibrators (`calibrate_jump_model` family: Merton, VG, Kou, NIG, CGMY, Bates) — same additive pattern. After that, G1 P2 closes and G1 P3 (`NumericalConfig` on `PricingContext`) begins.
+
+---
+
 ## v0.885.0 — 2026-06-11
 
 **G1 P2 Slice 3 — `multicurve_newton` + the bond-hazard bootstrap family accept a `MarketSnapshot`.**

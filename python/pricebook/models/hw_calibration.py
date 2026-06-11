@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.optimize import minimize
@@ -31,6 +32,9 @@ from pricebook.calibration import (
 )
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.models.hull_white import HullWhite
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 @dataclass
@@ -165,6 +169,8 @@ def calibrate_hull_white(
     a_bounds: tuple[float, float] = (0.001, 0.50),
     sigma_bounds: tuple[float, float] = (0.001, 0.10),
     n_steps: int = 50,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> HWCalibrationResult:
     """Calibrate Hull-White (a, sigma) from ATM swaption vols.
 
@@ -271,6 +277,7 @@ def calibrate_hull_white(
         diagnostics=CalibrationDiagnostics(
             extra={"rmse_vol": rmse / 10_000.0, "n_steps": n_steps},
         ),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return HWCalibrationResult(

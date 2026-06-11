@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -23,6 +24,9 @@ from pricebook.calibration import (
     ObjectiveKind,
     OptimiserSpec,
 )
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 # Lazy import to avoid models→options circular dependency
 # sabr_implied_vol and sabr_calibrate imported inside functions that use them
@@ -166,6 +170,8 @@ def calibrate_lmm_vols(
     tau: float = 0.25,
     correlation_beta: float = 0.1,
     max_iter: int = 100,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> LMMCalibrationResult:
     """Calibrate LMM instantaneous vols to a swaption grid.
 
@@ -237,6 +243,7 @@ def calibrate_lmm_vols(
         converged=True,                      # no convergence test in this scheme
         quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return LMMCalibrationResult(
