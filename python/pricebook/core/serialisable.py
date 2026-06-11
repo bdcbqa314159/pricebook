@@ -205,15 +205,23 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
     if v is None:
         return None
 
-    # Unwrap Optional (X | None) — handles both typing.Union and types.UnionType (3.10+)
+    # Unwrap Optional / Union — handles both typing.Union and types.UnionType (3.10+).
+    # Strategy:
+    #   - `Optional[T]` (single non-None arg) → unwrap to T.
+    #   - `Union[A, B, None]` with multiple non-None args:
+    #       * if v is a dict with a "type" key → registry-dispatch via from_dict.
+    #         (Fix A.11 B2 — polymorphic discriminated-union fields.)
+    #       * otherwise return v as-is (primitives etc.).
     import types as _types
     origin = get_origin(hint)
     if origin is Union or isinstance(hint, _types.UnionType):
         args = [a for a in get_args(hint) if a is not type(None)]
         if len(args) == 1:
             hint = args[0]
+        elif isinstance(v, dict) and "type" in v:
+            return from_dict(v)
         else:
-            # Union of multiple types — can't auto-resolve, return as-is
+            # Polymorphic but no discriminator → can't auto-resolve.
             return v
 
     # date
@@ -246,11 +254,29 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
             return CurrencyPair(Currency(base_str), Currency(quote_str))
         return v
 
-    # list[date] — check if hint is list[X]
+    # list[X] — check if hint is parameterised list
     if get_origin(hint) is list:
         args = get_args(hint)
-        if args and args[0] is date:
-            return [date.fromisoformat(x) if isinstance(x, str) else x for x in v]
+        if args:
+            inner = args[0]
+            # list[date]
+            if inner is date:
+                return [date.fromisoformat(x) if isinstance(x, str) else x for x in v]
+            # list[SomeSerialisable] (fix A.11 B1) — recursively dispatch each element.
+            if isinstance(inner, type) and hasattr(inner, "_SERIAL_TYPE"):
+                out = []
+                for elem in v:
+                    if isinstance(elem, dict):
+                        if "type" in elem:
+                            out.append(from_dict(elem))
+                        else:
+                            out.append(inner.from_dict(elem))
+                    else:
+                        out.append(elem)
+                return out
+            # list[Enum]
+            if isinstance(inner, type) and issubclass(inner, Enum):
+                return [inner(x) if not isinstance(x, inner) else x for x in v]
 
     # Primitives
     return v

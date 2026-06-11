@@ -2,6 +2,46 @@
 
 ---
 
+## v0.900.0 — 2026-06-11
+
+**Fix A.11 B1 + B2 — `_deserialise_atom` now dispatches `list[SomeSerialisable]`, `list[Enum]`, and polymorphic `Union[A, B, None]`.**
+
+Two medium-severity audit findings, one root cause: `_deserialise_atom` had a narrow list of supported parameterised types. Anything outside the narrow path silently returned the raw value, breaking round-trips for polymorphic fields.
+
+### Before / after
+
+| Type hint | Pre-fix behaviour | Post-fix behaviour |
+|---|---|---|
+| `list[date]` | reconstructed ✓ | reconstructed ✓ |
+| `list[SomeSerialisable]` | **raw list of dicts** ❌ | recursively dispatched via registry ✓ |
+| `list[SomeConvention]` | raw list ❌ | dispatched via `inner.from_dict` ✓ |
+| `list[Colour]` (Enum) | raw list of strings ❌ | mapped to Enum members ✓ |
+| `Optional[T]` (`T \| None`) | unwrapped ✓ | unwrapped ✓ |
+| `Union[A, B, None]` | **raw value** ❌ | if dict with `"type"` key → registry-dispatch; else raw ✓ |
+
+### Live test of the fix
+
+A `_Container` class with a `list[_Leaf]` field and a `Union[_Leaf, _Branch, None] underlying` field now round-trips cleanly: every leaf is reconstructed, the polymorphic underlying lands on the correct concrete type based on its `type` tag. Pre-fix, both would have returned raw dicts.
+
+### Change
+
+`pricebook.core.serialisable._deserialise_atom`:
+- **Union dispatch** (A.11 B2): when stripping `NoneType` leaves ≥2 non-None args, check if `v` is a dict with `"type"` → registry-dispatch via `from_dict`. Otherwise return raw (same as before — primitives don't need dispatch).
+- **list[T] dispatch** (A.11 B1):
+  - `list[date]` — unchanged.
+  - `list[Serialisable]` — recursively dispatches each element; supports both envelope-format (`"type"` key → `from_dict`) and flat-convention format (no `"type"` → `inner.from_dict`).
+  - `list[Enum]` — maps each element through the Enum constructor.
+- 10 new tests in `test_serialisable_polymorphic.py`: container round-trip with each list shape + polymorphic Union with type-tag, both branches, and the None case + 3 direct atom-dispatch tests.
+- Full parallel suite: **11903 passed in 4:04**. Zero regressions.
+
+### What's still uncovered (queued)
+
+- `list[tuple[...]]`, `list[list[...]]`, nested generic types — still raw. Genuinely niche; no current call-site needs them.
+- `Union[A, B]` (no None) with non-tagged values — still raw. Can't auto-resolve without a discriminator.
+- A.11 B3 (`_register` silent no-op on re-import), A.11 B4 (numpy `.item()` duck-test ordering), A.11 B5 (CurrencyPair parse), A.11 B6 (bare `KeyError`), A.11 B7 (Enum int-from-string) — all LOW severity, queued.
+
+---
+
 ## v0.899.0 — 2026-06-11
 
 **Fix B.1 B2 — `make_payload`/`read_payload` helpers extend G1 P3 Slice 2's schema-version coverage to custom `to_dict` overrides; `DiscountCurve` no longer drops `interpolation` on round-trip.**
