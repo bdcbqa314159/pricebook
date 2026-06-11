@@ -2,6 +2,35 @@
 
 ---
 
+## v0.902.0 — 2026-06-11
+
+**Fix D.1 B1+B2+B3 — `PricingContext` round-trip preserves every field; `replace()` no longer aliases mutable dicts.**
+
+Three pre-existing bugs in `PricingContext` (all carried over from the prior `MODULE_HEALTH.md` audit and verified at L0 audit Pass D.1) fixed in one focused slice.
+
+### What was broken
+
+1. **B1 — empty containers collapsed to `None` on round-trip.** `_ctx_from_dict` had `proj = {...} or None` patterns. An empty `projection_curves`/`vol_surfaces`/`credit_curves`/`fx_spots` dict became `None`, so `ctx.projection_curves["foo"]` raised `TypeError: 'NoneType' object is not subscriptable` instead of the documented `KeyError`.
+2. **B2 — fields silently dropped.** `_ctx_to_dict` emitted only 5 fields out of 13. **Silently dropped**: `discount_curves` (multi-currency), `inflation_curves`, `repo_curves`, `reporting_currency`, `stochastic_credit_models`, `credit_vol_surfaces`, `credit_correlations`, AND `numerical_config` (just added in G1 P3 Slice 1!). Multi-currency contexts lost data on every save/load round-trip.
+3. **B3 — `replace()` aliased mutable containers.** `ctx2 = ctx.replace(reporting_currency="EUR")` then `ctx2.discount_curves["BRL"] = curve` mutated `ctx.discount_curves` too. Broke the "Immutable snapshot" docstring contract.
+
+### Change
+
+- `pricing_context.py:replace()` — now goes through a `_pick_dict` helper that `dict(...)`-copies every mutable container before passing to the new context.
+- `_ctx_to_dict` — emits **every** dataclass-declared field, including `discount_curves`, `inflation_curves`, `repo_curves`, `reporting_currency`, `stochastic_credit_models`, `credit_vol_surfaces`, `credit_correlations`, `numerical_config` (serialised via `dataclasses.asdict`).
+- `_ctx_from_dict` — `_fd_dict` helper reconstructs each value via the global registry (handles both envelope-format and opaque values); empty dicts stay empty (no `or None` collapse); `NumericalConfig` reconstructed from its `asdict` form.
+- 13 new tests in `test_pricing_context_round_trip.py`:
+  - **D.1 B1**: default-context round-trip preserves dict-not-None for all 10 container fields; access raises `KeyError` not `TypeError`.
+  - **D.1 B2**: `discount_curves`, `reporting_currency`, `repo_curves`, `fx_spots`, `credit_correlations`, `numerical_config` (both populated AND `None`) all round-trip exactly.
+  - **D.1 B3**: `replace()` doesn't alias `discount_curves` / `fx_spots` / `credit_correlations`; values copy through but underlying dict is a different object.
+- Full parallel suite: **11921 passed in 3:55** — zero regressions.
+
+### Affected upstream
+
+Multi-currency users (anyone with `discount_curves={"USD": ..., "EUR": ...}`), users persisting `PricingContext` to disk for replay, scenario engines that build derived contexts via `replace()` and concurrently mutate them. The pre-fix behaviour silently corrupted data; the fix lands without behaviour change on any single-currency in-memory workflow.
+
+---
+
 ## v0.901.0 — 2026-06-11
 
 **Fix A.2 B2 — `TokyoCalendar` *furikae kyūjitsu* (振替休日) substitute-day rule.**

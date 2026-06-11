@@ -181,21 +181,30 @@ class PricingContext:
     # ---- Copy with replacements ----
 
     def replace(self, **kwargs) -> "PricingContext":
-        """Return a new PricingContext with specified fields replaced."""
+        """Return a new PricingContext with specified fields replaced.
+
+        Mutable containers (dicts) are defensively copied so the returned
+        context cannot share state with `self`. This honours the
+        "Immutable snapshot" contract from the class docstring.
+        (Fix D.1 B3.)
+        """
+        def _pick_dict(name: str) -> dict:
+            v = kwargs.get(name, getattr(self, name))
+            return dict(v) if v else {}
         return PricingContext(
             valuation_date=kwargs.get("valuation_date", self.valuation_date),
             discount_curve=kwargs.get("discount_curve", self.discount_curve),
-            discount_curves=kwargs.get("discount_curves", self.discount_curves),
-            projection_curves=kwargs.get("projection_curves", self.projection_curves),
-            vol_surfaces=kwargs.get("vol_surfaces", self.vol_surfaces),
-            credit_curves=kwargs.get("credit_curves", self.credit_curves),
-            fx_spots=kwargs.get("fx_spots", self.fx_spots),
-            inflation_curves=kwargs.get("inflation_curves", self.inflation_curves),
-            repo_curves=kwargs.get("repo_curves", self.repo_curves),
+            discount_curves=_pick_dict("discount_curves"),
+            projection_curves=_pick_dict("projection_curves"),
+            vol_surfaces=_pick_dict("vol_surfaces"),
+            credit_curves=_pick_dict("credit_curves"),
+            fx_spots=_pick_dict("fx_spots"),
+            inflation_curves=_pick_dict("inflation_curves"),
+            repo_curves=_pick_dict("repo_curves"),
             reporting_currency=kwargs.get("reporting_currency", self.reporting_currency),
-            stochastic_credit_models=kwargs.get("stochastic_credit_models", self.stochastic_credit_models),
-            credit_vol_surfaces=kwargs.get("credit_vol_surfaces", self.credit_vol_surfaces),
-            credit_correlations=kwargs.get("credit_correlations", self.credit_correlations),
+            stochastic_credit_models=_pick_dict("stochastic_credit_models"),
+            credit_vol_surfaces=_pick_dict("credit_vol_surfaces"),
+            credit_correlations=_pick_dict("credit_correlations"),
             numerical_config=kwargs.get("numerical_config", self.numerical_config),
         )
 
@@ -239,43 +248,127 @@ from pricebook.core.serialisable import _register, make_payload, read_payload
 PricingContext._SERIAL_TYPE = "pricing_context"
 
 def _ctx_to_dict(self):
+    """Emit every dataclass-declared field in the payload (Fix D.1 B2).
+
+    Empty containers are emitted as empty dicts (not omitted), so the
+    round-trip exactly reconstructs the original (Fix D.1 B1).
+    """
     params = {"valuation_date": self.valuation_date.isoformat()}
+
+    # Single-curve shortcut (legacy single-currency field).
     if self.discount_curve is not None:
         params["discount_curve"] = self.discount_curve.to_dict()
-    if self.projection_curves:
-        params["projection_curves"] = {n: c.to_dict() if hasattr(c, "to_dict") else {} for n, c in self.projection_curves.items()}
-    if self.vol_surfaces:
-        vs = {}
-        for n, v in self.vol_surfaces.items():
-            if hasattr(v, "to_dict"):
-                vs[n] = v.to_dict()
-        if vs:
-            params["vol_surfaces"] = vs
-    if self.credit_curves:
-        params["credit_curves"] = {n: c.to_dict() for n, c in self.credit_curves.items()}
-    if self.fx_spots:
-        params["fx_spots"] = {f"{b}/{q}": r for (b, q), r in self.fx_spots.items()}
+
+    # Per-currency curves — multi-currency support.
+    params["discount_curves"] = {
+        ccy: c.to_dict() for ccy, c in self.discount_curves.items()
+    }
+    params["projection_curves"] = {
+        n: c.to_dict() for n, c in self.projection_curves.items()
+    }
+    params["credit_curves"] = {
+        n: c.to_dict() for n, c in self.credit_curves.items()
+    }
+    params["inflation_curves"] = {
+        ccy: (c.to_dict() if hasattr(c, "to_dict") else None)
+        for ccy, c in self.inflation_curves.items()
+    }
+    params["repo_curves"] = {
+        ccy: c.to_dict() for ccy, c in self.repo_curves.items()
+    }
+
+    # Vol surfaces — skip entries that aren't to_dict-capable (e.g. opaque
+    # closures used in some sandbox paths). Recorded as None.
+    params["vol_surfaces"] = {
+        n: (v.to_dict() if hasattr(v, "to_dict") else None)
+        for n, v in self.vol_surfaces.items()
+    }
+    params["credit_vol_surfaces"] = {
+        n: (v.to_dict() if hasattr(v, "to_dict") else None)
+        for n, v in self.credit_vol_surfaces.items()
+    }
+    params["stochastic_credit_models"] = {
+        n: (m.to_dict() if hasattr(m, "to_dict") else None)
+        for n, m in self.stochastic_credit_models.items()
+    }
+
+    # FX spots — stored as (base, quote) tuples in memory, serialised as "B/Q" strings.
+    params["fx_spots"] = {
+        f"{b}/{q}": r for (b, q), r in self.fx_spots.items()
+    }
+
+    # Plain scalar / numeric fields.
+    params["credit_correlations"] = dict(self.credit_correlations)
+    params["reporting_currency"] = self.reporting_currency
+
+    # NumericalConfig (G1 P3 Slice 1). Dataclass not serialisable via the
+    # registry; emit as a plain dict of its dataclass fields.
+    if self.numerical_config is not None:
+        from dataclasses import asdict
+        params["numerical_config"] = asdict(self.numerical_config)
+    else:
+        params["numerical_config"] = None
+
     return make_payload(self, params)
+
 
 @classmethod
 def _ctx_from_dict(cls, d):
+    """Round-trip every dataclass-declared field. Empty containers stay empty
+    (no `or None` collapse — Fix D.1 B1)."""
     from datetime import date as _d
     from pricebook.core.serialisable import from_dict as _fd
+    from pricebook.core.numerical_config import NumericalConfig
     p = read_payload(d, cls)
+
+    def _fd_dict(payload: dict | None) -> dict:
+        """Reconstruct each value via the serialisation registry; pass
+        through `None` and non-dict values unchanged."""
+        if not payload:
+            return {}
+        out = {}
+        for k, v in payload.items():
+            if isinstance(v, dict) and "type" in v:
+                out[k] = _fd(v)
+            else:
+                out[k] = v   # preserve opaque values (e.g. None for non-serialisable vol surfaces)
+        return out
+
     disc = _fd(p["discount_curve"]) if "discount_curve" in p else None
-    proj = {n: _fd(c) for n, c in p.get("projection_curves", {}).items()} or None
-    vols = {}
-    for n, v in p.get("vol_surfaces", {}).items():
-        if isinstance(v, dict) and "type" in v:
-            vols[n] = _fd(v)
-    credit = {n: _fd(c) for n, c in p.get("credit_curves", {}).items()} or None
-    fx = {}
+    discount_curves = _fd_dict(p.get("discount_curves"))
+    projection_curves = _fd_dict(p.get("projection_curves"))
+    credit_curves = _fd_dict(p.get("credit_curves"))
+    inflation_curves = _fd_dict(p.get("inflation_curves"))
+    repo_curves = _fd_dict(p.get("repo_curves"))
+    vol_surfaces = _fd_dict(p.get("vol_surfaces"))
+    credit_vol_surfaces = _fd_dict(p.get("credit_vol_surfaces"))
+    stochastic_credit_models = _fd_dict(p.get("stochastic_credit_models"))
+
+    fx_spots = {}
     for ps, r in p.get("fx_spots", {}).items():
-        b, q = ps.split("/")
-        fx[(b, q)] = r
-    return cls(valuation_date=_d.fromisoformat(p["valuation_date"]),
-               discount_curve=disc, projection_curves=proj,
-               vol_surfaces=vols or None, credit_curves=credit, fx_spots=fx or None)
+        base_quote = ps.split("/")
+        if len(base_quote) == 2:
+            fx_spots[(base_quote[0], base_quote[1])] = r
+
+    nc_payload = p.get("numerical_config")
+    numerical_config = NumericalConfig(**nc_payload) if isinstance(nc_payload, dict) else None
+
+    return cls(
+        valuation_date=_d.fromisoformat(p["valuation_date"]),
+        discount_curve=disc,
+        discount_curves=discount_curves,
+        projection_curves=projection_curves,
+        vol_surfaces=vol_surfaces,
+        credit_curves=credit_curves,
+        fx_spots=fx_spots,
+        inflation_curves=inflation_curves,
+        repo_curves=repo_curves,
+        reporting_currency=p.get("reporting_currency", "USD"),
+        stochastic_credit_models=stochastic_credit_models,
+        credit_vol_surfaces=credit_vol_surfaces,
+        credit_correlations=dict(p.get("credit_correlations", {})),
+        numerical_config=numerical_config,
+    )
 
 PricingContext.to_dict = _ctx_to_dict
 PricingContext.from_dict = _ctx_from_dict
