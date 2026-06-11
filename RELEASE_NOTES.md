@@ -2,6 +2,48 @@
 
 ---
 
+## v0.901.0 — 2026-06-11
+
+**Fix A.2 B2 — `TokyoCalendar` *furikae kyūjitsu* (振替休日) substitute-day rule.**
+
+Closes the last MEDIUM-severity calendar finding from L0 Pass A. Tokyo's fixed-date holidays falling on Sunday now correctly cascade to a substitute holiday on the next non-holiday day per Japan's Public Holiday Act §3.2.
+
+### Before vs after
+
+| Date | Holiday | Status BEFORE | Status AFTER |
+|---|---|---|---|
+| 2018-04-30 Mon | Showa Day Sun → substitute | not holiday ❌ | holiday ✓ |
+| 2025-11-24 Mon | Labour Thanksgiving Sun → substitute | not holiday ❌ | holiday ✓ |
+| 2026-05-06 Wed | Constitution Sun + Greenery + Children's cluster → substitute | not holiday ❌ | holiday ✓ |
+| 2024-04-30 Tue | (no sub needed, Apr 29 was Mon) | business day ✓ | business day ✓ |
+
+The Golden-Week cascade case is the interesting one: May 3 2026 (Constitution) is Sunday; May 4 (Greenery) and May 5 (Children's) are already holidays; the substitute walks all the way to **May 6 Wed**. The implementation handles this generically via a while-loop that walks forward until it finds a non-holiday day.
+
+### Change
+
+- `core/calendar.py:TokyoCalendar._compute_holidays` — refactored to:
+  1. Build a `fixed` set of fixed-date holidays.
+  2. Build a `monday_holidays` set of variable Monday holidays (Coming of Age, Marine Day, Respect for Aged, Sports Day — by construction never on Sunday).
+  3. Second pass over `fixed`: any Sunday entry gets a substitute computed by walking forward until a non-holiday day is found.
+- 5 new tests in `test_calendar.py::TestTokyoCalendarSubstitution`: Showa Day 2018, Labour Thanksgiving 2025, Golden-Week cluster 2026, no-substitute-when-weekday case, Monday-holiday smoke check.
+- Full parallel suite: **11908 passed in 4:06**.
+
+### A.2 — closed
+
+All four substitution-rule findings from L0 audit A.2 are now fixed:
+
+| Sub-finding | Locale | Status |
+|---|---|---|
+| A.2 B1a | London (UK 1971 Act) | ✅ |
+| A.2 B1b | Sydney (AU Public Holidays Acts) | ✅ |
+| A.2 B1c | Wellington (NZ Holidays Act 2003) | ✅ |
+| A.2 B1d | Toronto (Canadian federal/provincial) | ✅ |
+| **A.2 B2** | **Tokyo (Japanese Public Holiday Act §3.2)** | ✅ **this slice** |
+
+JPY-rate calculations crossing 2018-04-30 (Showa Day substitute), 2019-05-06 (Reiwa transition), 2025-11-24, and 2026-05-06 are now correct.
+
+---
+
 ## v0.900.0 — 2026-06-11
 
 **Fix A.11 B1 + B2 — `_deserialise_atom` now dispatches `list[SomeSerialisable]`, `list[Enum]`, and polymorphic `Union[A, B, None]`.**

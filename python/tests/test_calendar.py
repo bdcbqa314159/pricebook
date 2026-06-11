@@ -9,6 +9,7 @@ from pricebook.core.calendar import (
     CADCalendar,
     LondonCalendar,
     NZDCalendar,
+    TokyoCalendar,
     USSettlementCalendar,
 )
 
@@ -292,3 +293,49 @@ class TestCADCalendarSubstitution:
         assert not cad.is_holiday(date(2028, 11, 10))
         assert cad.is_business_day(date(2028, 11, 10))
         assert cad.is_holiday(date(2028, 11, 13))
+
+
+# ============================================================
+# TokyoCalendar — furikae kyūjitsu (振替休日)
+# (fix A.2 B2: Sun holiday → next non-holiday day)
+# ============================================================
+
+class TestTokyoCalendarSubstitution:
+    """Japan's Public Holiday Act §3.2: when a fixed-date holiday falls on
+    Sunday, the next non-holiday day becomes a substitute holiday."""
+
+    @pytest.fixture
+    def tokyo(self):
+        return TokyoCalendar()
+
+    def test_showa_day_2018_sunday_observed_monday(self, tokyo):
+        # Apr 29 2018 is Sunday → observe Mon Apr 30.
+        assert tokyo.is_holiday(date(2018, 4, 29))
+        assert tokyo.is_holiday(date(2018, 4, 30))
+        assert tokyo.is_business_day(date(2018, 5, 1))
+
+    def test_labour_thanksgiving_2025_sunday_observed_monday(self, tokyo):
+        # Nov 23 2025 is Sunday → observe Mon Nov 24.
+        assert tokyo.is_holiday(date(2025, 11, 23))
+        assert tokyo.is_holiday(date(2025, 11, 24))
+        assert tokyo.is_business_day(date(2025, 11, 25))
+
+    def test_golden_week_sun_constitution_walks_past_cluster(self, tokyo):
+        # May 3 2026 is Sun (Constitution); May 4 (Greenery) and May 5
+        # (Children's) are also holidays. Substitute walks to May 6 (Wed).
+        assert tokyo.is_holiday(date(2026, 5, 3))
+        assert tokyo.is_holiday(date(2026, 5, 4))
+        assert tokyo.is_holiday(date(2026, 5, 5))
+        assert tokyo.is_holiday(date(2026, 5, 6))     # substitute
+        assert tokyo.is_business_day(date(2026, 5, 7))
+
+    def test_no_substitute_when_holiday_on_weekday(self, tokyo):
+        # Apr 29 2024 is Monday — no substitute needed, Apr 30 is a workday.
+        assert tokyo.is_holiday(date(2024, 4, 29))
+        assert tokyo.is_business_day(date(2024, 4, 30))
+
+    def test_no_substitute_for_monday_holidays(self, tokyo):
+        # The Monday holidays (Coming of Age, Marine Day, etc.) are by
+        # construction always on Monday — no substitute rule applies.
+        # Just smoke-check that Coming of Age 2024 (Jan 8) is a holiday.
+        assert tokyo.is_holiday(date(2024, 1, 8))

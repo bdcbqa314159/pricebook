@@ -259,30 +259,52 @@ class TokyoCalendar(Calendar):
     Vernal Equinox, Showa Day, Constitution Day, Greenery Day, Children's Day,
     Marine Day, Mountain Day, Respect for Aged, Autumnal Equinox,
     Sports Day, Culture Day, Labour Thanksgiving, Emperor's Birthday.
+
+    Substitution rule (*furikae kyūjitsu* / 振替休日): per Japan's Public
+    Holiday Act §3.2, when a fixed-date public holiday falls on Sunday, the
+    next day that is not itself a public holiday becomes a substitute
+    holiday. For the May Golden-Week cluster (May 3-5) this walks past
+    multiple consecutive holidays.
     """
 
     def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))   # New Year's
-        holidays.add(date(year, 1, 2))
-        holidays.add(date(year, 1, 3))
-        holidays.add(self._nth_weekday(year, 1, 0, 2))   # Coming of Age (2nd Mon Jan)
-        holidays.add(date(year, 2, 11))                    # National Foundation
-        holidays.add(date(year, 2, 23))                    # Emperor's Birthday
-        holidays.add(date(year, 3, 21))                    # Vernal Equinox (approx)
-        holidays.add(date(year, 4, 29))                    # Showa Day
-        holidays.add(date(year, 5, 3))                     # Constitution
-        holidays.add(date(year, 5, 4))                     # Greenery
-        holidays.add(date(year, 5, 5))                     # Children's
-        holidays.add(self._nth_weekday(year, 7, 0, 3))    # Marine Day (3rd Mon Jul)
-        holidays.add(date(year, 8, 11))                    # Mountain Day
-        holidays.add(self._nth_weekday(year, 9, 0, 3))    # Respect for Aged (3rd Mon Sep)
-        holidays.add(date(year, 9, 23))                    # Autumnal Equinox (approx)
-        holidays.add(self._nth_weekday(year, 10, 0, 2))   # Sports Day (2nd Mon Oct)
-        holidays.add(date(year, 11, 3))                    # Culture Day
-        holidays.add(date(year, 11, 23))                   # Labour Thanksgiving
+        # Fixed-date holidays.
+        fixed = {
+            date(year, 1, 1),     # New Year's
+            date(year, 1, 2),     # bridging
+            date(year, 1, 3),     # bridging
+            date(year, 2, 11),    # National Foundation
+            date(year, 2, 23),    # Emperor's Birthday (from 2020)
+            date(year, 3, 21),    # Vernal Equinox (approx)
+            date(year, 4, 29),    # Showa Day
+            date(year, 5, 3),     # Constitution
+            date(year, 5, 4),     # Greenery
+            date(year, 5, 5),     # Children's
+            date(year, 8, 11),    # Mountain Day
+            date(year, 9, 23),    # Autumnal Equinox (approx)
+            date(year, 11, 3),    # Culture Day
+            date(year, 11, 23),   # Labour Thanksgiving
+        }
+        # Variable-Monday holidays (cannot fall on Sunday by construction).
+        monday_holidays = {
+            self._nth_weekday(year, 1, 0, 2),    # Coming of Age (2nd Mon Jan)
+            self._nth_weekday(year, 7, 0, 3),    # Marine Day (3rd Mon Jul)
+            self._nth_weekday(year, 9, 0, 3),    # Respect for Aged (3rd Mon Sep)
+            self._nth_weekday(year, 10, 0, 2),   # Sports Day (2nd Mon Oct)
+        }
+        holidays = fixed | monday_holidays
 
-        return holidays
+        # Furikae kyūjitsu: for every fixed holiday on Sunday, walk forward
+        # to the first non-holiday day.
+        substitutes: set[date] = set()
+        for d in fixed:
+            if d.weekday() == 6:  # Sunday
+                candidate = d + timedelta(days=1)
+                while candidate in holidays or candidate in substitutes:
+                    candidate = candidate + timedelta(days=1)
+                substitutes.add(candidate)
+
+        return holidays | substitutes
 
 
 class CHFCalendar(Calendar):
