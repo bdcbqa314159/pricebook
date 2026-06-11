@@ -159,18 +159,23 @@ def multicurve_newton(
         for i, inst in enumerate(projection_instruments):
             if i >= n_proj:
                 break
-            # Projection swap: forwards from proj curve, discounted on OIS
-            # Correct dual-curve: PV_float = sum(fwd_j * tau_j * ois_df_j)
+            # Projection swap: forwards from proj curve, discounted on OIS.
+            # Dual-curve PV: PV_float = Σ fwd_j × τ_j × ois_df(d_j)
+            # Fix A.3 B1 (L1 audit): the first segment (reference_date →
+            # first pillar) was being silently skipped while _compute_annuity
+            # included it — model rates were systematically biased.
+            # Walk the same period grid both sides start at reference_date.
             dates_up_to = [d for d in projection_pillar_dates if d <= inst['maturity']]
             pv_float = 0.0
-            for j in range(1, len(dates_up_to)):
-                d_start = dates_up_to[j - 1]
-                d_end = dates_up_to[j]
+            prev = reference_date
+            for d_end in dates_up_to:
+                d_start = prev
                 tau_j = year_fraction(d_start, d_end, day_count)
                 if tau_j > 0:
                     fwd_j = (proj.df(d_start) / proj.df(d_end) - 1.0) / tau_j
                     pv_float += fwd_j * tau_j * ois.df(d_end)
-            # Annuity on OIS curve
+                prev = d_end
+            # Annuity on OIS curve — covers the SAME period set as pv_float now.
             annuity = _compute_annuity(ois, dates_up_to, day_count)
             model_rate = pv_float / max(annuity, 1e-10) if annuity > 0 else 0
             errors[n_ois + i] = model_rate - inst['rate']

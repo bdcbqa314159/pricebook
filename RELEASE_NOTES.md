@@ -2,6 +2,45 @@
 
 ---
 
+## v0.905.0 — 2026-06-11
+
+**Fix L1 curves audit A.2 B1 + A.3 B1 — `global_solver` rejects duplicate maturities; `multicurve_newton` PV_float now includes the first accrual period.**
+
+Two HIGH-severity active bugs from L1 Pass A, fixed in one slice.
+
+### What was broken
+
+**A.3 B1 — `multicurve_newton` PV_float skipped the first period.** The projection-swap PV_float loop started at `j=1`, walking from the first pillar onward. But `_compute_annuity` walked from `reference_date`. So PV_float had `N−1` segments while annuity had `N`. For 2-pillar projection swaps the bias was ~50%; the solver oscillated and emitted `RuntimeWarning: multicurve_newton: did not converge after 50 iterations. Residual: 2.86e-03`. That warning has been polluting the test suite for the entire session. **It was the bug talking.**
+
+**A.2 B1 — `global_solver` silently dropped constraints on duplicate maturities.** The residual vector was indexed by `pillar_idx[mat]`. Two instruments at the same maturity (e.g. a 1Y deposit + 1Y OIS swap — both standard market quotes!) would overwrite each other's residual. Newton converged to a curve that didn't reprice all inputs. Live repro: 1Y depo @5% + 1Y swap @4% → zero rate 3.96% (only the swap survived).
+
+### Change
+
+- `curves/multicurve_solver.py:159-176` — projection PV_float loop now walks `[reference_date, *dates_up_to]` to match `_compute_annuity`. The `multicurve_newton: did not converge` warning is gone from the test suite.
+- `curves/global_solver.py:46-77` — `global_bootstrap` builds a `seen_maturities` set; raises `ValueError("Duplicate maturity ... already provided by ..., also requested as ...")` on collision. Each pillar can be constrained by at most one instrument.
+- 2 new regression tests in `test_multicurve_first_period.py`: convergence within tolerance under `RuntimeWarning`-as-error; round-trip identity (each projection swap rate recoverable from the calibrated curves).
+- 5 new regression tests in `test_global_solver_collision.py`: deposit-swap collision raises; duplicate-deposit raises; duplicate-swap raises; error message identifies the conflicting type; distinct maturities still work.
+
+### Verification
+
+- Full parallel suite: **11946 passed in 4:06** — zero regressions.
+- Warnings count dropped from 63 to 55 (the 8 dropped were the recurring `multicurve_newton: did not converge`).
+
+### L1 Pass A — status update
+
+| Bug | Status |
+|---|---|
+| A.1 B1 — `bootstrap` HW convexity wrong | LATENT (no current caller exercises it; deferred until either a caller appears or we coordinate a single fix) |
+| A.1 B2 — float-leg conventions no-op | docstring fix queued |
+| **A.2 B1** — `global_solver` residual collision | ✅ this slice |
+| **A.3 B1** — `multicurve` PV_float first-period | ✅ this slice |
+| A.4 B1 — `ncurve_solver` BasisSwap annuity | queued |
+| A.4 B2 — `ncurve_solver` OIS schedule | queued |
+
+Both active HIGH bugs closed. The dormant HW-convexity bug remains queued — it requires a refactor (re-route `bootstrap()` to call `ir_futures.hw_convexity_adjustment`) but since no caller is hitting it today, it sits behind A.4 in priority.
+
+---
+
 ## v0.904.0 — 2026-06-11
 
 **Generic `to_dict` mutation-safety sweep — `vars(self)` → `dict(vars(self))` across L0.**

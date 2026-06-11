@@ -47,19 +47,39 @@ def global_bootstrap(
 
     Solves F(df_vector) = 0 simultaneously for all pillar DFs,
     where F_i is the pricing error of instrument i.
+
+    Each maturity must be unique across deposits + swaps: the residual
+    vector is indexed by pillar date, so two instruments at the same
+    maturity would silently overwrite each other (fix L1 A.2 B1).
     """
-    # Collect all pillar dates (sorted)
+    # Collect all instruments and detect duplicate maturities.
+    # Pre-fix: a 1Y deposit @ 5% + 1Y swap @ 4% silently dropped the deposit
+    # constraint; the resulting curve only honoured the swap.
     all_instruments = []
-    pillar_dates = []
+    pillar_dates: list[date] = []
+    seen_maturities: dict[date, str] = {}  # mat -> instrument-type label for diagnostic
 
     for mat, rate in sorted(deposits, key=lambda x: x[0]):
+        if mat in seen_maturities:
+            raise ValueError(
+                f"Duplicate maturity {mat}: already provided by "
+                f"{seen_maturities[mat]!r}, also requested as 'deposit'. "
+                f"Each maturity must appear at most once across deposits + swaps."
+            )
+        seen_maturities[mat] = "deposit"
         all_instruments.append(("deposit", mat, rate))
         pillar_dates.append(mat)
 
     for mat, rate in sorted(swaps, key=lambda x: x[0]):
+        if mat in seen_maturities:
+            raise ValueError(
+                f"Duplicate maturity {mat}: already provided by "
+                f"{seen_maturities[mat]!r}, also requested as 'swap'. "
+                f"Each maturity must appear at most once across deposits + swaps."
+            )
+        seen_maturities[mat] = "swap"
         all_instruments.append(("swap", mat, rate))
-        if mat not in pillar_dates:
-            pillar_dates.append(mat)
+        pillar_dates.append(mat)
 
     pillar_dates = sorted(set(pillar_dates))
     n = len(pillar_dates)
