@@ -804,7 +804,7 @@ Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed 
 |---|---|---|---|---|
 | B.1 | `discount_curve.py` | ⚠️ | 3 (B1 roll_down anchoring, B2 serialisation loses interpolation, B3 bumped_at no bounds check, schema_version absent) | small |
 | B.2 | `survival_curve.py` | 📝 | 0 real bugs; asymmetry vs DiscountCurve (no `calibration_result`), missing `schema_version`, no roll_down (good thing!) | half the methods untested |
-| B.3 | `market_data.py` (old) | ❓ | | |
+| B.3 | `market_data.py` (old) | ⚠️ | 0 hidden bugs; 4 documented approximations + architectural duplication with the new `pricebook.market_data` package from G1 P2 | tenor parsing untested for unusual strings |
 | B.4 | `market_conventions.py` | ❓ | | |
 | B.5 | `rate_index.py` | ❓ | | |
 | B.6 | `notional.py` | ❓ | | |
@@ -933,6 +933,72 @@ def bumped_at(self, pillar_idx: int, shift: float) -> "DiscountCurve":
 - to_dict/from_dict round-trip (this one happens to be correct for interpolation, but no test asserts that).
 
 Half the API surface is untested. Coverage slice would be a single targeted test file addition.
+
+---
+
+## B.3 — `core/market_data.py` (legacy)
+
+**Purpose:** Older market-data layer with `Quote(quote_type, tenor, value, ...)`, `MarketDataSnapshot(snapshot_date, quotes)`, tenor parsing, and a `build_context` pipeline that assembles a `PricingContext` from a snapshot. Predates the G1 P2 work that introduced the **new** `pricebook.market_data` package.
+
+**Internal deps:** `core.discount_curve`, `core.survival_curve`, `core.pricing_context`. **Outward:** lazily references `options.vol_surface.FlatVol`.
+
+**Size:** 302 lines.
+
+### Status: ⚠️ Architectural debt, no hidden bugs
+
+The math here is intentionally approximate — it's a quick demo / sandbox pipeline, not the production calibration path. The real issues are structural.
+
+### Confirmed concerns
+
+#### C1 — Architectural duplication with the new `pricebook.market_data` (G1 P2 Slice 1)  *[ARCH]*
+
+Two parallel snapshot types now exist:
+
+| Aspect | `core.market_data.MarketDataSnapshot` (this file) | `pricebook.market_data.MarketSnapshot` (G1 P2) |
+|---|---|---|
+| Identity | None — just `snapshot_date` | UUID `id` + `as_of: datetime` |
+| Mutability | mutable; `add()` method | frozen `dataclass(frozen=True)` |
+| Quote shape | `(quote_type: QuoteType, tenor, value, currency, name)` | `(id: QuoteId, value, bid_ask_bp)` with a separate `QuoteId(kind, tenor, currency, label)` |
+| Wire format | `to_dict` / `from_dict` (plain dict, no envelope, no version) | not yet serialised (the type is the audit primitive; downstream calibrators carry the id) |
+| Audit-chain integration | none | every G1 P2 calibrator accepts `market_snapshot=` and stamps `MarketSnapshot.id` onto `CalibrationResult.market_snapshot_id` |
+
+The legacy types are still imported by `build_context` and a handful of older notebooks / tests. Net effect: two coexisting "market data" abstractions, with calibrators routed through the new one and the demo `build_context` pipeline routed through the old one. Bridging or sunsetting is an open architectural decision (Gate 2 territory).
+
+**Decision needed:** retire `core.market_data` (and migrate `build_context` to the new types), OR keep both and explicitly cast one to the other at the boundary. Either is fine but the current state — silent coexistence — is the worst option.
+
+#### C2 — `_build_discount_curve` treats every rate as continuously-compounded zero  *[APPROXIMATION, documented]*
+
+**Location:** `market_data.py:187`.
+
+```python
+dfs = [math.exp(-q.value * tenor_to_years(q.tenor)) for q in sorted_quotes]
+```
+
+Code comment acknowledges: *"Simple approach: treat all as continuously compounded zero rates"*. DEPOSIT_RATE quotes are *simply compounded* in market convention; SWAP_RATE quotes need bootstrap. Anyone calling `build_context` gets curves that disagree with the proper `curves.bootstrap` path by ~ rate²·T/2 ≈ 1.3 bp at 5y, 5% rate. Acceptable for a sandbox pipeline; not for production.
+
+#### C3 — `_build_survival_curve` uses the "credit triangle" approximation  *[APPROXIMATION, documented]*
+
+`hazard ≈ spread / (1 - R)`. Standard quick approximation. Bypasses the proper protection/premium-leg bootstrap. Documented in the docstring.
+
+#### C4 — `tenor_to_years` uses calendar days for sub-month tenors  *[APPROXIMATION]*
+
+`1D=1/365`, `1W=7/365`. Currency-agnostic; for BRL (BUS/252) or any business-day convention this is wrong by ~30%. The function is used only by `build_context` so the blast radius is contained to the demo pipeline.
+
+#### C5 — No `schema_version` on any `to_dict`  *[CONSISTENT WITH B.1 B2]*
+
+Same gap as `DiscountCurve.to_dict` — custom `to_dict` overrides skip the schema-version slot from G1 P3 Slice 2. Fix together with all other custom `to_dict`s in a single generic-helper slice.
+
+### Test coverage
+
+- `test_market_data.py` covers the basic API.
+- `tenor_to_years` not tested for unusual strings (`"1.5Y"`, malformed input, etc.).
+- `_build_discount_curve` not tested against the proper bootstrap to characterise the approximation gap.
+
+### Slicing items (defer)
+
+- **Retire decision:** Gate 2 — is this module kept (and the new G1 P2 types coexist), or migrated/removed? Either way, document the boundary so callers know which to use.
+- **Bridge:** `MarketSnapshot.from_legacy(MarketDataSnapshot)` helper if both coexist long-term.
+- **Test gap:** parametrised tenor parsing tests.
 
 ---
 
