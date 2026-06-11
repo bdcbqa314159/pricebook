@@ -730,6 +730,55 @@ Same bug as A.11 B5, duplicated in this facade. Fix together with B5.
 
 ---
 
+## Legacy-debt ledger
+
+Every fix that keeps a backwards-compat fallback writes a row here so we don't lose track of the eventual tightening. Each entry: what the fallback does, why it exists, what will tighten it, what condition triggers the tightening.
+
+### LD.1 — `year_fraction(strict_icma=False)` default
+
+**Location:** `core/day_count.py:year_fraction`, `_act_act_icma`.
+**Added:** v0.894 (A.1 B1 Slice 1).
+**Behaviour:** Default `strict_icma=False`. ACT/ACT ICMA silently falls back to ACT/365F when `ref_start`, `ref_end`, or `frequency` is missing or invalid (`frequency<=0`, `period_days<=0`).
+**Why kept:** flipping default to True would break every legacy caller that hadn't been migrated to pass refs. Multi-slice migration plan in the audit doc.
+**Tightens when:** every ICMA call-site in `pricebook/*` passes refs (and tests assert exact ICMA values per ICMA 251.1). Then flip default to `True` and ideally remove the flag entirely.
+**Trigger condition:** zero strict-mode failures in CI when default is set to True for one suite run. The final-slice commit will rip the flag out.
+
+### LD.2 — `FixedLeg.coupons_per_year is None` for `Frequency.WEEKLY`
+
+**Location:** `fixed_income/fixed_leg.py:69-93`.
+**Added:** v0.896 (A.1 B1 Slice 3).
+**Behaviour:** `Frequency.WEEKLY` has `.value == 0`, so we set `coupons_per_year = None` and pass that to `year_fraction(..., frequency=None)`. For ACT/ACT ICMA this triggers the legacy ACT/365F fallback (LD.1). For other day-counts no effect.
+**Why kept:** WEEKLY + ICMA is a nonsensical combination — no real bond uses it. Raising in this case would be a defensive measure; the actual customer impact is zero.
+**Tightens when:** LD.1 flips strict by default. At that point WEEKLY + ICMA will raise `ValueError` automatically (from `_act_act_icma`). Add a unit test asserting that error message.
+
+### LD.3 — `FixedRateBond._ytm_time_to` fallback paths
+
+**Location:** `fixed_income/bond.py:_ytm_time_to`.
+**Added:** v0.897 (A.1 B1 Slice 4).
+**Behaviour:** For ACT/ACT ICMA, computes period-counts directly. Falls back to `year_fraction(settle, target, ACT_ACT_ICMA)` (which hits LD.1) when any of:
+- `coupons_per_year is None` (WEEKLY)
+- `target` not in `coupon_dates` (custom payment dates not on the coupon schedule)
+- `settle` is before the first coupon date or after the last
+**Why kept:** these branches are defensive — none of the standard pricer call paths hit them today.
+**Tightens when:** every fallback case audited. Either reachable cases get explicit handling, or unreachable cases get a `raise ValueError` to flag a future caller that strays.
+
+### LD.4 — `_ensure_loaded` silently records import failures
+
+**Location:** `core/serialization.py:_ensure_loaded`, `_failed_imports`.
+**Added:** v0.891 (A.12 B1 fix).
+**Behaviour:** `pkgutil.walk_packages` + `importlib.import_module` catches all exceptions, records `(module_name, exception_class_name)` in `_failed_imports`. Currently empty. Subsequent calls to `from_dict` for those types raise "Unknown type ..." — same failure mode as before the fix but with better diagnostic information available.
+**Why kept:** an import failure in some peripheral module shouldn't crash the entire serialisation layer for unrelated types. Recording the failure is enough; the CI test (`test_auto_discovery_succeeds_with_no_import_failures`) catches any non-empty list.
+**Tightens when:** the per-test assertion is enough — production-runtime callers shouldn't need different behaviour. Could elevate to a `warnings.warn` if a real failure ever surfaces. Reconsider when a peripheral-module import failure actually happens.
+
+### LD.5 — `_act_act_icma` multi-period spans (NOT yet handled)
+
+**Location:** `core/day_count.py:_act_act_icma`.
+**Status:** unchanged; `_act_act_icma` correctly handles only single-period spans (one full coupon period or a stub within one). Multi-period spans silently fall back to ACT/365F even with refs supplied.
+**Why kept:** the single-period path is what `FixedLeg` needs (each cashflow is one accrual period). Multi-period spans appear in `FixedRateBond._ytm_time_to` — which I solved by bypassing `year_fraction` entirely and computing periods directly.
+**Tightens when:** if a future caller actually needs `year_fraction(settle, payment, ACT_ACT_ICMA)` over a multi-period span with refs, extend `_act_act_icma` to implement ICMA 251.2's stub-plus-full-period decomposition. No caller needs this today.
+
+---
+
 ### Side discovery from auto-discovery fix (2026-06-11)
 
 When A.12 B1 was fixed, auto-discovery surfaced a NEW finding outside L0:
