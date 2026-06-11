@@ -1125,6 +1125,62 @@ Option B is the right long-term call; Option A is a 2-line doc-only fix for now.
 
 ---
 
+## Pass C — portfolio constructs
+
+| # | Module | Status | Confirmed bugs | Doc/test gaps |
+|---|---|---|---|---|
+| C.1 | `trade.py` | 📝 | 1 trivial (dead-code orphan `to_dict`) | direction/notional_scale not validated |
+| C.2 | `book.py` | ❓ | | |
+| C.3 | `instrument_result.py` | ❓ | | |
+| C.4 | `results.py` | ❓ | | |
+| C.5 | `mandate.py` | ❓ | | |
+| C.6 | `daily_pnl.py` | ❓ | | |
+| C.7 | `settlement.py` | ❓ | | |
+| C.8 | `greeks.py` | ❓ | | |
+
+---
+
+## C.1 — `core/trade.py`
+
+**Purpose:** `Trade(instrument, direction, notional_scale, trade_date, counterparty, trade_id)` + `Portfolio(trades, name)` aggregator.
+
+**Internal deps:** `core.pricing_context`, `core.serialisable`.
+
+**Size:** 137 lines.
+
+### Status: 📝 1 dead code line + 2 robustness concerns
+
+### Findings
+
+#### B1 — Orphan `to_dict` returns mutable `vars(self)`  *[LOW, dead code]*
+
+**Location:** `trade.py:56-57`.
+
+```python
+def to_dict(self) -> dict:
+    return vars(self)
+```
+
+This sits inside the `Trade` dataclass body but is overwritten at line 116 by `Trade.to_dict = _trade_to_dict`. **Dead code** in normal operation. If anyone ever imports the module without triggering the bottom-of-file rebinding (impossible today; defensive against future refactors that split the file), they'd hit the same shared-`__dict__` mutation bug pattern as A.5 / A.7. Easy fix: delete the orphan or make it `return dict(vars(self))`.
+
+### Robustness concerns (not bugs)
+
+- **`Trade.pv` doesn't validate `direction in (+1, -1)`.** `direction=2.0` silently doubles the PV; `direction=0` zeros it. No-op or even useful in some contexts (e.g. fractional positions) but undocumented.
+- **`Trade.pv` doesn't validate `notional_scale > 0`.** Negative scale silently flips direction; zero zeros PV. Again, no actual breakage but undocumented.
+- **`notional_scale` docstring says "multiplier on the instrument's notional"** — but the code multiplies the *PV* directly. Equivalent for PV-linear-in-notional instruments (the common case) but differs for nonlinear payoffs. Cosmetic.
+- **`Portfolio.add` mutates** the trade list — fine for an aggregator, but pricing the same `Portfolio` twice while another caller is `add`-ing is non-thread-safe.
+
+### Test coverage
+
+`test_trade.py` covers the happy paths (long/short PV, cancel, notional_scale, metadata, missing pv_ctx, portfolio aggregate). The `direction` / `notional_scale` value-validation isn't tested because it isn't validated; that's the gap.
+
+### Slicing items (defer)
+
+- Delete the orphan `to_dict` at trade.py:56-57.
+- Validate `direction in (-1, +1)` and `notional_scale > 0` in `Trade.__post_init__` (with `raise ValueError`). Test both branches.
+
+---
+
 ## Pass B — summary
 
 7 modules audited. Total: **4 confirmed bugs** + 1 architectural duplication + 2 minor data quirks.
