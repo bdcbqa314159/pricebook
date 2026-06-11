@@ -2,6 +2,50 @@
 
 ---
 
+## v0.892.0 — 2026-06-11
+
+**Fix A.2 B1a — `LondonCalendar` Saturday substitution now follows UK Banking and Financial Dealings Act 1971.**
+
+First of four per-calendar fixes for audit finding A.2 B1. London was producing wrong observed-holiday dates whenever a fixed-date bank holiday fell on a Saturday — recurring every ~6 years (2021, 2027, 2032, ...).
+
+### What was broken
+
+`Calendar._observe` is the US rule (5 U.S.C. § 6103): Saturday → previous Friday, Sunday → next Monday. London inherited that rule unchanged.
+
+UK Banking and Financial Dealings Act 1971 specifies: any bank holiday on Saturday or Sunday is observed the **next working day** (typically Monday).
+
+Live repro before the fix — Christmas 2021 (Dec 25 Saturday):
+```
+2021-12-24 Fri: was holiday=True  (wrong — should be a business day)
+2021-12-27 Mon: was holiday=True  (right, by accident, because Boxing-Day-Sun lands here)
+2021-12-28 Tue: was business=True (wrong — should be Boxing observed)
+```
+
+After the fix:
+```
+2021-12-24 Fri: business day ✓
+2021-12-27 Mon: Christmas observed ✓
+2021-12-28 Tue: Boxing Day observed ✓
+```
+
+### Change
+
+- `calendar.py:93-101` — `Calendar._observe` docstring clarified as "US-style" with a cross-reference to the new helper.
+- `calendar.py:103-128` (new) — `Calendar._observe_next_working_day` static helper implements the UK / AU / NZ / CA rule (Sat → +2 days, Sun → +1 day). Per-locale subclasses opt in via `_observe = staticmethod(Calendar._observe_next_working_day)`.
+- `calendar.py:LondonCalendar` overrides `_observe` to the next-working-day rule. Existing Boxing/Christmas collision handling (when both land on the same observed Monday) is unaffected — that code already pushes Boxing to Tuesday when the collision happens.
+- 6 new tests in `test_calendar.py::TestLondonCalendarSubstitution`: Christmas 2021/2024/2027, Boxing 2021, New Year's 2028 Sat case, New Year's 2023 Sun case.
+- Full parallel suite: **11848 passed in 4:42** — no regressions.
+
+### Affected upstream
+
+Any GBP-rate calculation that crosses a Saturday-Christmas, Saturday-Boxing, or Saturday-New-Year window. Days affected per affected year: 4 (one Friday wrongly closed; one Tuesday wrongly open; mirror at New Year). Years materially affected in the GBP curve's lookback window: 2021, 2027 (already past for 2021; 2027 lookback materially affects long-dated forwards observed today).
+
+### Remaining (queued)
+
+Same fix shape applies to `AUDCalendar`, `NZDCalendar`, `CADCalendar` — each as its own slice (separate failure surfaces, easier rollback).
+
+---
+
 ## v0.891.0 — 2026-06-11
 
 **Fix A.12 B1 — serialisation auto-discovery via `pkgutil.walk_packages`.**

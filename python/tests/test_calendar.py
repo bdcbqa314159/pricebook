@@ -5,6 +5,7 @@ from datetime import date
 
 from pricebook.core.calendar import (
     BusinessDayConvention,
+    LondonCalendar,
     USSettlementCalendar,
 )
 
@@ -131,3 +132,55 @@ class TestAdjust:
     def test_holiday_adjusted_following(self, nyc):
         # Christmas 2024 is Wednesday -> following is Thursday Dec 26
         assert nyc.adjust(date(2024, 12, 25), BusinessDayConvention.FOLLOWING) == date(2024, 12, 26)
+
+
+# ============================================================
+# London calendar — UK Banking and Financial Dealings Act 1971
+# (fix A.2 B1a: Sat → next Monday, not previous Friday)
+# ============================================================
+
+class TestLondonCalendarSubstitution:
+    """UK 1971 Act: bank holidays falling on Sat/Sun are observed the
+    next working day. Differs from US-style _observe (Sat → Fri).
+    """
+
+    @pytest.fixture
+    def london(self):
+        return LondonCalendar()
+
+    def test_christmas_2021_saturday_observed_monday(self, london):
+        # Dec 25 2021 is Saturday → observed Mon Dec 27 (NOT Fri Dec 24).
+        assert not london.is_holiday(date(2021, 12, 24))  # Fri: should be a business day
+        assert london.is_business_day(date(2021, 12, 24))
+        assert london.is_holiday(date(2021, 12, 27))      # Mon: Christmas observed
+
+    def test_boxing_2021_sunday_observed_tuesday(self, london):
+        # Dec 26 2021 is Sunday → would observe Mon, but Mon is already
+        # Christmas observed, so Boxing pushes to Tue Dec 28.
+        assert london.is_holiday(date(2021, 12, 28))
+        # And Tue Dec 28 is NOT a business day.
+        assert not london.is_business_day(date(2021, 12, 28))
+
+    def test_christmas_2027_saturday_observed_monday(self, london):
+        # Dec 25 2027 is Saturday — same pattern as 2021 (recurs ~every 6 years).
+        assert not london.is_holiday(date(2027, 12, 24))
+        assert london.is_business_day(date(2027, 12, 24))
+        assert london.is_holiday(date(2027, 12, 27))
+        assert london.is_holiday(date(2027, 12, 28))
+
+    def test_christmas_2024_wednesday_no_substitution(self, london):
+        # Dec 25 2024 is Wed; no substitution needed.
+        assert london.is_holiday(date(2024, 12, 25))
+        assert london.is_holiday(date(2024, 12, 26))
+        # Dec 24 Tue is a business day.
+        assert london.is_business_day(date(2024, 12, 24))
+
+    def test_new_years_saturday_observed_monday(self, london):
+        # Jan 1 2028 is Saturday → observed Mon Jan 3 (NOT Fri Dec 31 2027).
+        assert not london.is_holiday(date(2027, 12, 31))  # was wrong pre-fix
+        assert london.is_business_day(date(2027, 12, 31))
+        assert london.is_holiday(date(2028, 1, 3))
+
+    def test_new_years_sunday_observed_monday(self, london):
+        # Jan 1 2023 is Sunday → observed Mon Jan 2. (Both rules agree.)
+        assert london.is_holiday(date(2023, 1, 2))

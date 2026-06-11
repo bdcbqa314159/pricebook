@@ -92,9 +92,40 @@ class Calendar(ABC):
 
     @staticmethod
     def _observe(d: date) -> date:
-        """Weekend observation: Saturday -> Friday, Sunday -> Monday."""
+        """US-style observation: Saturday → previous Friday, Sunday → next Monday.
+
+        Matches 5 U.S.C. § 6103 for US federal holidays. Subclasses that
+        follow a different national rule should override this — see
+        `_observe_next_working_day` for the UK / AU / NZ / CA convention.
+        """
         if d.weekday() == 5:
             return d - timedelta(days=1)
+        if d.weekday() == 6:
+            return d + timedelta(days=1)
+        return d
+
+    @staticmethod
+    def _observe_next_working_day(d: date) -> date:
+        """UK / AU / NZ / CA convention: Saturday OR Sunday → next Monday.
+
+        Codified in:
+        - UK Banking and Financial Dealings Act 1971
+        - Australian Public Holidays Acts (state-by-state, but uniform Sat→Mon)
+        - New Zealand Holidays Act 2003
+        - Canadian federal/provincial bank holiday acts
+
+        Differs from the US-style `_observe` for Saturday holidays only —
+        US substitutes a Saturday holiday to the *previous* Friday, while
+        the Commonwealth rule substitutes to the *next* Monday. Sunday
+        substitution is the same (next Monday) in both.
+
+        Skipping consecutive holidays (e.g. when Christmas Sat → Mon and
+        Boxing Sun → also Mon, they collide on Monday and Boxing must
+        bump to Tuesday) is handled at the per-holiday level by callers,
+        not here.
+        """
+        if d.weekday() == 5:
+            return d + timedelta(days=2)
         if d.weekday() == 6:
             return d + timedelta(days=1)
         return d
@@ -188,7 +219,15 @@ class LondonCalendar(Calendar):
 
     Holidays: New Year's, Good Friday, Easter Monday, Early May,
     Spring Bank Holiday, Summer Bank Holiday, Christmas, Boxing Day.
+
+    Substitution rule: per the Banking and Financial Dealings Act 1971,
+    any holiday falling on Saturday or Sunday is observed on the *next*
+    working day (typically Monday). This differs from the US rule where
+    Saturday holidays are observed the previous Friday.
     """
+
+    # Override the base US-style _observe with the UK 1971 Act rule.
+    _observe = staticmethod(Calendar._observe_next_working_day)
 
     def _compute_holidays(self, year: int) -> set[date]:
         holidays = set()
