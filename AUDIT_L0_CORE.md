@@ -1130,13 +1130,13 @@ Option B is the right long-term call; Option A is a 2-line doc-only fix for now.
 | # | Module | Status | Confirmed bugs | Doc/test gaps |
 |---|---|---|---|---|
 | C.1 | `trade.py` | 📝 | 1 trivial (dead-code orphan `to_dict`) | direction/notional_scale not validated |
-| C.2 | `book.py` | ❓ | | |
-| C.3 | `instrument_result.py` | ❓ | | |
-| C.4 | `results.py` | ❓ | | |
-| C.5 | `mandate.py` | ❓ | | |
-| C.6 | `daily_pnl.py` | ❓ | | |
-| C.7 | `settlement.py` | ❓ | | |
-| C.8 | `greeks.py` | ❓ | | |
+| C.2 | `book.py` | 📝 | 0 (3 `vars(self)` to_dicts; silent 0-notional for instruments lacking `notional` attr) | DV01 timing-by-pillar untested |
+| C.3 | `instrument_result.py` | ✅ | 0 (Protocol only) | n/a |
+| C.4 | `results.py` | ✅ | 0 (re-exports + 2 dataclasses) | n/a |
+| C.5 | `mandate.py` | 📝 | 0 (3 `vars(self)` to_dicts) | rating ladder untested at boundaries |
+| C.6 | `daily_pnl.py` | 📝 | 0; sequential bump attribution is order-dependent (standard) | 3 `vars(self)` to_dicts |
+| C.7 | `settlement.py` | ⚠️ | **1 — settlement lag uses calendar days not business days** | per-product settlement timing untested |
+| C.8 | `greeks.py` | ⚠️ | **1 — `dollar_gamma` formula wrong vs docstring (factor of S² × 1e-4 missing)** | `dollar_delta` formula questionable too |
 
 ---
 
@@ -1178,6 +1178,142 @@ This sits inside the `Trade` dataclass body but is overwritten at line 116 by `T
 
 - Delete the orphan `to_dict` at trade.py:56-57.
 - Validate `direction in (-1, +1)` and `notional_scale > 0` in `Trade.__post_init__` (with `raise ValueError`). Test both branches.
+
+---
+
+## C.2 — `core/book.py`
+
+**Purpose:** `Book` (named trade container), `Desk` (collection of books), `Position` / `LimitBreach` / `BookLimits` dataclasses + `tenor_bucket(ref, end)` + `check_limits`. Tenor-bucket DV01 risk decomposition.
+
+**Internal deps:** `core.pricing_context`, `core.trade`. 337 lines.
+
+### Status: 📝 Clean math + 1 silent-zero pattern
+
+- `tenor_bucket` correctly bucketed; boundary semantics match the docstring.
+- `Book.pv` / `Book.dv01` / `Book.tenor_dv01` — all standard parallel-bump.
+- **Silent zero:** `_instrument_notional` returns 0.0 if the instrument lacks a `notional` attribute. `positions()` then aggregates zero notional silently — that exposure drops out of risk. Should log a warning or raise.
+- 3 `to_dict` methods (`Position`, `LimitBreach`, `BookLimits`) return `vars(self)` — same mutation footgun as A.5 / A.7. Fix with the generic `to_dict` cleanup slice.
+
+---
+
+## C.3 — `core/instrument_result.py`
+
+31 lines. `InstrumentResult` Protocol only (price + to_dict contract). No implementation. ✅ Clean.
+
+---
+
+## C.4 — `core/results.py`
+
+60 lines. Re-exports `SolverResult` (eager), `QuadratureResult`/`MCResult`/`OptimizerResult`/`ODEResult` (TYPE_CHECKING). Defines `TreeResult` and `PDEResult` dataclasses. ✅ Clean — no `to_dict` issues here.
+
+---
+
+## C.5 — `core/mandate.py`
+
+**Purpose:** Mandate compliance engine — `PortfolioHolding`, `MandateCheckResult`, `MandateReport`, `Mandate` dataclasses + `check_mandate` driver. Rating ladder via `RATING_ORDER` dict mapping `AAA..D, NR` to integer ranks; `rating_at_least` for comparisons. Pre-built factories: `investment_grade_mandate`, `sovereign_only_mandate`, `balanced_mandate`, `high_yield_mandate`.
+
+279 lines.
+
+### Status: 📝 No bugs
+
+- `RATING_ORDER` ladder is the standard S&P long-term scale (AAA → D), with `NR` mapped to a high (worse) value so unrated entities always fail "at least BBB-" checks. ✓
+- `rating_at_least` uses `<=` on the rank — correct (lower rank = better). ✓
+- `MandateReport.to_dict` writes a flat representation manually rather than `vars(self)` — clean.
+- Other to_dicts use `vars(self)` — same generic pattern.
+
+---
+
+## C.6 — `core/daily_pnl.py`
+
+**Purpose:** Daily official P&L (`compute_daily_pnl`) + bump-and-reprice attribution (`attribute_pnl`).
+
+231 lines. The P&L decomposition (market-move + new-trades + amendments) is correct. Attribution uses **sequential** bumps (rates → vol → theta → unexplained), which is the standard *but* order-dependent approach. Reordering the bumps gives different per-factor splits — by-design but worth documenting prominently.
+
+- 3 `to_dict` methods (`DailyPnL`, `TradeAttribution`, `BookAttribution`) return `vars(self)`. Same pattern.
+- No actual bugs.
+
+---
+
+## C.7 — `core/settlement.py`
+
+**Purpose:** `SettlementType` enum, per-product `SETTLEMENT_CONVENTIONS` dict, per-asset settlement-result dataclasses (`CashSettlementResult`, `CDSSettlementResult`, `OptionSettlementResult`, `FuturesSettlementResult`, `SettlementRiskResult`), plus `add_business_days` and `fx_spot_date`.
+
+364 lines.
+
+### Status: ⚠️ Calendar-vs-business-day inconsistency
+
+#### B1 — Settlement lag uses calendar days  *[MEDIUM]*
+
+**Location:** `settlement.py:cash_settlement` (line 75) and similar paths.
+
+```python
+settle = date.fromordinal(exercise_date.toordinal() + lag_days)
+```
+
+The standard `lag_days = 2` (FX spot) or `lag_days = 1` (US equity option) refers to **business days**, not calendar days. The module HAS `add_business_days` defined right there (lines 230+), but `cash_settlement`/`cds_settlement_physical`/etc. don't use it.
+
+**Impact:** when a Friday trade settles T+2 calendar, the code returns Sunday — silently shifted to a non-business day. Bond settlement, FX spot date, option physical-settlement timing all wrong when the lag spans a weekend or holiday.
+
+**Fix shape:** route every `+ lag_days` through `add_business_days(d, lag_days, calendar)` and require a calendar at the entry point.
+
+- Multiple `to_dict` methods return `vars(self)`. Same pattern.
+
+---
+
+## C.8 — `core/greeks.py`
+
+**Purpose:** `Greeks` dataclass with standard sensitivities + 2 convenience formulas.
+
+37 lines.
+
+### Status: ⚠️ One real formula bug
+
+#### B1 — `dollar_gamma` formula doesn't match docstring  *[LOW-MED]*
+
+**Location:** `greeks.py:32-34`.
+
+```python
+@property
+def dollar_gamma(self) -> float:
+    """Gamma P&L for a 1% spot move: 0.5 × gamma × S² × 0.01²."""
+    return 0.5 * self.gamma
+```
+
+The docstring claims the formula is `0.5 × gamma × S² × 0.01²`. The code does `0.5 × gamma`. Off by a factor of `S² × 10⁻⁴` — e.g. for S=200, that's 4×. For S=100 the factor happens to be 1 (since 100² × 0.0001 = 1), making the bug invisible at S=100 specifically.
+
+**Why it persists:** for ATM options where S≈100 (test fixtures, demos), the formula is accidentally correct. Any real-spot scenario with S != 100 (FX, S&P at 5000, oil at 80) gives wrong gamma-P&L.
+
+**Compounding issue:** `Greeks` doesn't carry a `spot` field. So even if we wanted to fix the formula, we'd need to thread spot in or change the contract. Cleanest fix: rename to `gamma_pnl_pct_factor` and document explicitly that it must be multiplied by `S² × 1e-4` externally.
+
+#### B2 — `dollar_delta` formula questionable  *[DOC]*
+
+`delta * self.price` is at best an approximation of dollar delta. Real dollar-delta requires either `delta * spot` (per-unit-spot-move PnL) or `delta * notional` (book-level position PnL). The product `delta * price` has the right *order of magnitude* for ATM vanilla options but doesn't have a clean financial meaning.
+
+- `to_dict` returns `vars(self)` — same pattern.
+
+---
+
+## Pass C — summary
+
+8 modules audited. Total **3 confirmed bugs** + a recurring `vars(self)` to_dict mutation pattern.
+
+| Severity | Count | Headline |
+|---|---:|---|
+| MED | 1 | C.7 B1 — settlement lag uses calendar days, not business days |
+| LOW | 2 | C.1 B1 — dead-code orphan to_dict; C.8 B1 — `dollar_gamma` formula doesn't match docstring (off by S²×1e-4) |
+
+**Cross-cutting:** ~15 `to_dict` methods across `book.py`, `daily_pnl.py`, `settlement.py`, `greeks.py`, `mandate.py`, `trade.py` (orphan), `solvers.py`, `approximation.py` return `vars(self)` directly — the same mutation footgun. A single "generic to_dict-cleanup" slice would fix all of them at once.
+
+| Module | LoC | Status |
+|---|---:|---|
+| C.1 trade | 137 | 📝 |
+| C.2 book | 337 | 📝 |
+| C.3 instrument_result | 31 | ✅ |
+| C.4 results | 60 | ✅ |
+| C.5 mandate | 279 | 📝 |
+| C.6 daily_pnl | 231 | 📝 |
+| C.7 settlement | 364 | ⚠️ |
+| C.8 greeks | 37 | ⚠️ |
 
 ---
 
