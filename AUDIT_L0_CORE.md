@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | A.1 | `day_count.py` | ⚠️ | 2 (B1 silent-fallback, B2 ZeroDivisionError) | 5 |
 | A.2 | `calendar.py` | ⚠️ | 5 (B1 Sat-substitute, B2 Tokyo no-substitute, B3 nth_weekday spill, B4 spill-window, B5 joint mutation) | huge |
-| A.3 | `currency.py` | ❓ | | |
+| A.3 | `currency.py` | 📝 | 0 | 4 (settlement_lag, is_ndf, forward_rate, all_g10_pairs untested) |
 | A.4 | `schedule.py` | ❓ | | |
 | A.5 | `solvers.py` | ❓ | | |
 | A.6 | `interpolation.py` | ❓ | | |
@@ -243,6 +243,44 @@ These are openly disclaimed and acceptable for the library's current scope (G10 
 
 ---
 
+## A.3 — `core/currency.py`
+
+**Purpose:** G10 currency enum + `CurrencyPair` with ACI market-convention base/quote priority + settlement lag + CIP forward formulas + `all_g10_pairs()`.
+
+**Internal deps:** None (`DiscountCurve` is TYPE_CHECKING only). True L0.
+
+**Size:** 138 lines.
+
+**Test file:** `python/tests/test_currency.py` (80 lines, 4 test classes).
+
+### Status: 📝 No bugs found; test gaps
+
+### Correctness review
+
+- `Currency` enum: 10 G10 ISO codes (EUR, GBP, AUD, NZD, USD, CAD, CHF, NOK, SEK, JPY). ✓
+- `_BASE_PRIORITY`: matches ACI standard (EUR > GBP > AUD > NZD > USD > CAD > CHF > NOK > SEK > JPY). ✓
+- `from_currencies` correctly picks the higher-priority base. ✓
+- `settlement_lag` correctly handles inverse-key lookup so `CAD/USD` and `USD/CAD` both return T+1. ✓
+- `forward_rate(spot, r_base, r_quote, T) = spot × exp((r_quote − r_base) × T)`: correct continuous-rate CIP for a quote-per-base convention. ✓
+- `forward_rate_from_curves`: `S × df_base / df_quote`. ✓
+- `CurrencyPair` hash/equality look standard. ✓
+
+### Minor concerns (not bugs)
+
+- **`is_ndf` is dead code** given the strict `Currency` enum. The property asks "is base or quote *not* in G10?" but the type system prevents non-G10 construction. Two ways to fix: (a) add an `EMCurrency` enum & accept it in `CurrencyPair` so the check has teeth, or (b) remove `is_ndf` until EM-FX lands. Pick when EM-FX work starts.
+- Docstring of `forward_rate` doesn't state that `r_base`/`r_quote` are *continuously* compounded — caller could plausibly plug in simple rates and get a small but systematic error.
+
+### Test gaps
+
+- **`settlement_lag`**: not tested. Especially the USD/CAD T+1 exception.
+- **`forward_rate` / `forward_rate_from_curves` / `forward_points`**: untested. These are the core FX formulas.
+- **`is_ndf`**: untested (will always be `False` given the current enum, but the test would document the contract).
+- **`all_g10_pairs`**: untested. Should assert count = 45 and all pairs in market convention.
+
+Single test-coverage slice to land all four. No source changes needed.
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -259,5 +297,8 @@ From A.2 (`calendar`):
 9. B4 fix: widen `is_holiday` window to `(Y-1, Y, Y+1)`.
 10. B1 fix (multi-slice, one per calendar): override `_observe` for London → AUD → NZD → CAD with UK 1971-style "next available working day" rule. One slice per calendar so failing-test surface is clean.
 11. B2 fix: implement *furikae kyūjitsu* on `TokyoCalendar`.
+
+From A.3 (`currency`):
+12. Tests for `settlement_lag` (USD/CAD T+1; others T+2), `forward_rate`/`forward_rate_from_curves`/`forward_points`, `is_ndf`, `all_g10_pairs` (count = 45, all market convention). Single slice.
 
 (More entries will arrive as the audit walks through Pass A.)
