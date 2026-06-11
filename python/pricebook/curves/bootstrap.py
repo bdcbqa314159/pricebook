@@ -1,6 +1,7 @@
 """Curve bootstrapping from deposits and swap par rates."""
 
 from datetime import date
+from typing import TYPE_CHECKING
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
@@ -14,6 +15,9 @@ from pricebook.core.interpolation import InterpolationMethod
 from pricebook.core.schedule import Frequency, StubType, generate_schedule
 from pricebook.core.solvers import brentq
 from pricebook.core.calendar import Calendar, BusinessDayConvention
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 def bootstrap(
@@ -33,6 +37,8 @@ def bootstrap(
     hw_convexity_a: float = 0.0,
     hw_convexity_sigma: float = 0.0,
     turn_of_year_spread: float = 0.0,
+    *,
+    market_snapshot: "MarketSnapshot | None" = None,
 ) -> DiscountCurve:
     """
     Bootstrap a discount curve from deposits, FRAs, futures, and swap par rates.
@@ -200,13 +206,14 @@ def bootstrap(
                        fixed_frequency, float_frequency, calendar, convention,
                        hw_convexity_a, hw_convexity_sigma, turn_of_year_spread)
 
-    # --- Attach the canonical CalibrationResult (G1 P1 Slice 5) ---
+    # --- Attach the canonical CalibrationResult (G1 P1 Slice 5; G1 P2 Slice 2) ---
     curve.calibration_result = _build_bootstrap_calibration_result(
         curve, reference_date, deposits, swaps, fras, futures,
         deposit_day_count, fixed_day_count, float_day_count,
         fixed_frequency, float_frequency, calendar, convention,
         hw_convexity_a, hw_convexity_sigma, turn_of_year_spread,
         interpolation,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return curve
@@ -218,6 +225,7 @@ def _build_bootstrap_calibration_result(
     fixed_frequency, float_frequency, calendar, convention,
     hw_convexity_a, hw_convexity_sigma, turn_of_year_spread,
     interpolation,
+    market_snapshot_id=None,
 ) -> CalibrationResult:
     """Build the CalibrationResult artefact for a bootstrapped discount curve.
 
@@ -326,6 +334,7 @@ def _build_bootstrap_calibration_result(
                 "n_futures": len(futures) if futures else 0,
             },
         ),
+        market_snapshot_id=market_snapshot_id,
     )
 
 

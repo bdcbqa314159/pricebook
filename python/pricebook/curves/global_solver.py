@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -19,6 +20,9 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
 from pricebook.core.schedule import Frequency, generate_schedule
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 # ---------------------------------------------------------------------------
@@ -36,6 +40,8 @@ def global_bootstrap(
     interpolation: InterpolationMethod = InterpolationMethod.LOG_LINEAR,
     tol: float = 1e-12,
     max_iter: int = 50,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> DiscountCurve:
     """Bootstrap a discount curve via global Newton iteration.
 
@@ -215,6 +221,7 @@ def global_bootstrap(
                 "max_residual_abs": float(np.max(np.abs(final_res))),
             },
         ),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
     return curve
 

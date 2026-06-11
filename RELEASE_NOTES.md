@@ -2,6 +2,21 @@
 
 ---
 
+## v0.884.0 — 2026-06-11
+
+**G1 P2 Slice 2 — `bootstrap` and `global_bootstrap` accept a `MarketSnapshot`; snapshot id propagates onto the `CalibrationResult`.**
+
+Audit chain extends: **price → calibration → market snapshot** is now wired end-to-end for the two L2 entry points used by every downstream pricer.
+
+- `pricebook.curves.bootstrap.bootstrap(...)` gains a keyword-only `market_snapshot: MarketSnapshot | None = None` parameter.
+- `pricebook.curves.global_solver.global_bootstrap(...)` gains the same keyword-only parameter.
+- When provided, `MarketSnapshot.id` is stamped onto `CalibrationResult.market_snapshot_id` on the curve's `calibration_result`. When absent, the field stays `None` (back-compat).
+- Snapshot is a **provenance pointer** in this slice — deposits/swaps args remain authoritative for the actual rates. A future slice will let bootstrap *derive* the deposit/swap lists from the snapshot's quotes.
+- 9 new tests in `test_curve_bootstrap_snapshot.py`: snapshot↔calibration linkage, keyword-only enforcement, snapshot-presence is numerically inert, distinct snapshots produce distinct results.
+- `TYPE_CHECKING` import on both files — no runtime dep added to `pricebook.curves`.
+
+---
+
 ## v0.883.0 — 2026-06-11
 
 **G1 P2 Slice 1 — `pricebook.market_data` package + canonical L1 raw-data types.**
