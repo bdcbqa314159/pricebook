@@ -329,4 +329,84 @@ The five LOW-priority items (silent skips in ndf_implied, vars(self) in seasonal
 
 ---
 
-*(audit continues — Pass C risk / bumping / scenarios)*
+## Pass C — risk / bumping / scenarios
+
+| # | Module | LoC | Status | Confirmed bugs |
+|---|---|---:|---|---|
+| C.1 | `curve_bumper.py` | 172 | ⚠️ | 1 (key_rate_dv01s uses absolute 1y window; not a proper Ho 1992 kernel) + day-count drift |
+| C.2 | `curve_risk.py` | 186 | ⚠️ | **1 HIGH (`curve_jacobian` bumps the wrong pillars when `pillar_tenors` is passed)** |
+| C.3 | `curve_scenarios.py` | 260 | ⚠️ | 1 (`steepener`/`flattener` ignore their `pivot_years` parameter) |
+| C.4 | `key_rate_risk.py` | 256 | ✅ | 0; Ho 1992 triangular kernel correct |
+
+### C.1 — `curve_bumper.py`
+
+**Purpose:** real-time risk via Jacobian caching (one base-PV + N pillar bumps → fast linear repricing).
+
+#### Findings
+
+- **`_pillar_times` uses `(d - ref).days / 365.0`** at line 78 — calendar 365, not the curve's actual `day_count`. For ACT/360 / BUS/252 curves the pillar-time grid here mismatches the curve's interpretation. Sub-bp drift in DV01 computations.
+- **`key_rate_dv01s` uses an absolute 1-year window** at lines 124-126:
+  ```python
+  if abs(t - tenor) < 1.0:
+      w = max(0, 1.0 - abs(t - tenor))
+      shifts[i] = 0.0001 * w
+  ```
+  For standard pillar spacings (3y, 5y, 7y, 10y, ...) the window is wider than the inter-pillar distance only between 0-1y and 1-2y; further out it collapses to a single-pillar Dirac. NOT the Ho 1992 triangular kernel that `key_rate_risk.py` (C.4) implements correctly. **Two different "key-rate" implementations live in the library**, only one is canonical.
+- **`InstrumentRiskReport.to_dict` returns `vars(self)`** — same footgun as L0 (outside the swept scope).
+
+#### C.2 — `curve_risk.py`
+
+#### C.2 B1 — `curve_jacobian` bumps the wrong pillars when `pillar_tenors` is supplied  *[HIGH]*
+
+**Location:** `curve_risk.py:58-65`.
+
+```python
+for j, pt in enumerate(pillar_tenors):
+    bumped = curve.bumped_at(j, bump_size)   # bumps curve's pillar INDEX j
+    ...
+    J[:, j] = (bumped_zeros - base_zeros) / bump_size
+```
+
+`bumped_at(j, ...)` takes a PILLAR INDEX. The function received `pillar_tenors` (a list of year-fractions). When the caller passes a custom `pillar_tenors` (different from the curve's actual pillar set), the enumeration index `j` no longer corresponds to the user's requested tenor — it indexes into the curve's own pillar grid.
+
+**Live repro:** curve with pillars at `[0.25y, 0.5y, 1y, 2y, ..., 30y]`, user asks for `pillar_tenors=[1, 2, 5]`:
+
+```
+J = curve_jacobian(curve, query_tenors=[1.0], pillar_tenors=[1.0, 2.0, 5.0])
+→ J = [[0., 0., 1.]]
+```
+
+That `1.0` lives in column 2. The caller will interpret it as *"1y zero rate is sensitive to bumping the 5y pillar"* — but actually we bumped the curve's 3rd pillar, which happens to be the 1y pillar.
+
+**Fix shape:** resolve `pillar_tenors` to actual indices in the curve's `pillar_times`; OR rebuild a new curve whose pillars are exactly `pillar_tenors` first; OR validate `pillar_tenors == curve.pillar_times[1:]` and raise otherwise.
+
+#### C.3 — `curve_scenarios.py`
+
+#### C.3 B1 — `steepener`/`flattener` `pivot_years` parameter is silently ignored  *[MED, API contract]*
+
+**Location:** `curve_scenarios.py:46-67` (`steepener` / `flattener`) and `_apply_tilt` line 244.
+
+The `steepener(short_shift_bp, long_shift_bp, pivot_years=5.0)` signature suggests a tilt pivoting around 5y. But `_apply_tilt(curve, short_bp, long_bp, pivot_years)` doesn't use `pivot_years` — it linearly interpolates between `short_bp` (at `t=0`) and `long_bp` (at `t=max`). Two calls with different `pivot_years` produce identical curves.
+
+**Fix shape:** use `pivot_years` properly — tilt pivots around that point (short shift below the pivot, long shift above). Or document/remove the parameter.
+
+Same docstring-vs-behaviour gap as A.1 B2 in `bootstrap.py`. Pattern.
+
+#### C.4 — `key_rate_risk.py`
+
+✅ Correct. `_bump_weight` implements the canonical Ho 1992 triangular kernel (zero at adjacent key tenors, linear ramp to peak at the key). `BumpProfile.GAUSSIAN` and `BumpProfile.PILLAR_ONLY` are alternative kernels. `bucket_risk` provides bucket-flat shifts as a separate construct (good — bucket and key-rate are different). Standard tenor sets per currency look right.
+
+### Pass C — summary
+
+4 modules audited; **2 confirmed bugs** (1 HIGH active in `curve_risk.curve_jacobian`, 1 MED silent-parameter in `curve_scenarios.steepener`) + 1 architectural concern (two parallel "key-rate" implementations of varying quality, only `key_rate_risk.py` is correct).
+
+| Bug | Severity | Fix shape |
+|---|---|---|
+| C.2 B1 — `curve_jacobian` wrong pillar | **HIGH (active)** | Resolve `pillar_tenors` → actual curve indices before `bumped_at` |
+| C.1 B1 — `curve_bumper.key_rate_dv01s` wrong kernel | MED | Reroute callers to `key_rate_risk.key_rate_dv01` |
+| C.3 B1 — `steepener` ignores `pivot_years` | MED | Use the parameter properly |
+| (recurring) | LOW | `(d-ref).days/365` ignores `day_count` in 3 sites — coordinated cleanup |
+
+---
+
+*(audit continues — Pass D builders / engines)*
