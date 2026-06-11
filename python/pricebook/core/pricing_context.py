@@ -29,6 +29,10 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from pricebook.core.discount_curve import DiscountCurve
+from pricebook.core.numerical_config import (
+    DEFAULT_NUMERICAL_CONFIG,
+    NumericalConfig,
+)
 from pricebook.core.survival_curve import SurvivalCurve
 
 
@@ -66,6 +70,11 @@ class PricingContext:
     credit_vol_surfaces: dict[str, object] = field(default_factory=dict)
     # Credit correlations (for basket CLN)
     credit_correlations: dict[str, float] = field(default_factory=dict)
+    # Numerical hyperparameters (MC paths, PDE grid, COS N, integration tol, ...).
+    # `None` means the library default (`DEFAULT_NUMERICAL_CONFIG`) — pricers
+    # should call `get_numerical_config()` rather than reading this field
+    # directly so they get the default automatically.
+    numerical_config: NumericalConfig | None = None
 
     # ---- Curve accessors ----
 
@@ -121,6 +130,21 @@ class PricingContext:
             raise KeyError(f"Repo curve '{ccy}' not in context")
         return self.repo_curves[ccy]
 
+    # ---- Numerical config ----
+
+    def get_numerical_config(self) -> NumericalConfig:
+        """Return the attached `NumericalConfig`, or the library default.
+
+        Pricers should read numerical hyperparameters through this accessor.
+        Hard-coded defaults in pricer entry points should fall back to the
+        accessor's value when the caller has not overridden them.
+        """
+        return (
+            self.numerical_config
+            if self.numerical_config is not None
+            else DEFAULT_NUMERICAL_CONFIG
+        )
+
     # ---- FX translation ----
 
     def fx_rate(self, from_ccy: str, to_ccy: str) -> float:
@@ -172,6 +196,7 @@ class PricingContext:
             stochastic_credit_models=kwargs.get("stochastic_credit_models", self.stochastic_credit_models),
             credit_vol_surfaces=kwargs.get("credit_vol_surfaces", self.credit_vol_surfaces),
             credit_correlations=kwargs.get("credit_correlations", self.credit_correlations),
+            numerical_config=kwargs.get("numerical_config", self.numerical_config),
         )
 
     @classmethod

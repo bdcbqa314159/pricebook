@@ -2,6 +2,23 @@
 
 ---
 
+## v0.888.0 — 2026-06-11
+
+**G1 P3 Slice 1 — `NumericalConfig` + `PricingContext.numerical_config`.**
+
+Numerical hyperparameters become first-class. Two valuations on the same book with different MC path counts are *different valuations* — until now that choice was buried in hard-coded defaults inside each pricer and invisible to any audit. After this slice the choice lives on the context and can be serialised, diffed, and overridden as a single object.
+
+- New module `pricebook.core.numerical_config`:
+  - `NumericalConfig` — frozen dataclass with 14 fields covering Monte Carlo (paths, seed, antithetic, Sobol, Brownian bridge), PDE/FD (time/space steps, truncation width), tree steps, integration (tol, max-iter), COS method (N, L), root-finding (tol, max-iter), plus an `extra: Mapping[str, Any]` escape hatch. `.replace(**kwargs)` for ergonomic edits.
+  - `DEFAULT_NUMERICAL_CONFIG` — frozen, shared singleton matching the historical library defaults so no existing behaviour changes.
+- `PricingContext` gains `numerical_config: NumericalConfig | None = None`. `get_numerical_config()` returns the attached config or the default singleton — pricers should read through the accessor. `.replace(numerical_config=...)` works including clearing to `None`.
+- 14 new tests in `test_numerical_config.py`: frozen-ness, `.replace`, default fallback, accessor returns attached / falls back, `simple()` factory unchanged, end-to-end with curve + config.
+- Purely additive — `PricingContext.simple()` and all existing call-sites are untouched.
+
+Next slice (G1 P3 Slice 2) adds **schema versioning** on `@serialisable` — closes Gate 1.
+
+---
+
 ## v0.887.0 — 2026-06-11
 
 **G1 P2 Slice 5 — jump-model calibrators accept a `MarketSnapshot`. G1 P2 complete.**
