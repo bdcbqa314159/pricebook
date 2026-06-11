@@ -807,8 +807,8 @@ Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed 
 | B.3 | `market_data.py` (old) | ⚠️ | 0 hidden bugs; 4 documented approximations + architectural duplication with the new `pricebook.market_data` package from G1 P2 | tenor parsing untested for unusual strings |
 | B.4 | `market_conventions.py` | ✅ | 0 | no dedicated test file |
 | B.5 | `rate_index.py` | ✅ | 0 | BADLAR `is_overnight=False, tenor_months=None` is a minor data inconsistency |
-| B.6 | `notional.py` | ❓ | | |
-| B.7 | `forward_interpolation.py` | ❓ | | |
+| B.6 | `notional.py` | ✅ | 0 | 0 |
+| B.7 | `forward_interpolation.py` | 📝 | 1 docstring misnomer (`_monotone_convex_forwards` is piecewise linear, not Hagan-West quadratic) | 0 |
 
 ---
 
@@ -1054,6 +1054,92 @@ No dedicated test file. The `@serialisable_convention` round-trip is tested gene
 
 - BADLAR data fix: `tenor_months=1`. One-line + smoke test.
 - Add a basic `test_rate_index.py` with: every G10 currency has at least one indexed rate, every overnight index has `compounding=COMPOUNDED`, every IBOR has `compounding=FLAT`. Smoke-shaped tests.
+
+---
+
+## B.6 — `core/notional.py`
+
+**Purpose:** Single helper `normalize_notional(notional, n_periods)`: scalar → replicated list; list → extended/truncated to exactly `n_periods`. Validates positivity.
+
+**Internal deps:** None.
+
+**Size:** 43 lines.
+
+### Status: ✅ Clean
+
+Standalone helper. Validates `notional > 0` (scalar AND elements of a list). When a list is shorter than `n_periods`, extends by repeating the last element — sensible for amortisation tail. Test coverage in `test_notional_schedule.py` is comprehensive (identity for uniform list, factory equivalence for amortising/accreting/rollercoaster patterns, variable-notional consistency).
+
+### Slicing items: none.
+
+---
+
+## B.7 — `core/forward_interpolation.py`
+
+**Purpose:** Build `DiscountCurve` instances by interpolating instantaneous forward rates rather than DFs / zero rates. Three methods: piecewise constant, piecewise linear, *monotone convex* (Hagan-West 2006 inspired).
+
+**Internal deps:** `core.discount_curve`, `core.day_count`.
+
+**Size:** 263 lines.
+
+### Status: 📝 One docstring misnomer, code works
+
+### Findings
+
+#### B1 — `_monotone_convex_forwards` is named for Hagan-West but interpolates linearly  *[DOC]*
+
+**Location:** `forward_interpolation.py:190-252`.
+
+The function implements Step 1 (discrete forwards between pillars) and Step 2 (pillar-value smoothing with monotonicity constraints) of Hagan-West (2006) Algorithm 1. Step 3 — the *quadratic* monotone-convex interpolation between adjusted pillars — is REPLACED by plain linear interpolation:
+
+```python
+# Step 3: interpolate using monotone Hermite spline
+def f(t):
+    ...
+    return f0 * (1 - x) + f1 * x  # linear for now — preserves positivity
+```
+
+The code comment confesses it (`"linear for now"`). The result still preserves positivity (because adjusted pillar values are clamped above zero) and is C⁰, but it does NOT preserve the C¹ smoothness or the convex shape from the full Hagan-West algorithm.
+
+Practical impact: forward curves built with `MONOTONE_CONVEX` are *better* than plain linear-on-forwards (because Step 2 prevents oscillation) but worse than the published Hagan-West method (forward curve has kinks at pillars instead of being smooth). Not a bug — just shorter of the claim than the name implies.
+
+**Fix shape:**
+- Option A: rename the method to `PIECEWISE_LINEAR_WITH_HW_PILLARS` and document explicitly that it's NOT the full HW spline.
+- Option B: implement Step 3 properly (quadratic spline per segment with the monotonicity constraint).
+
+Option B is the right long-term call; Option A is a 2-line doc-only fix for now.
+
+### Correctness review (other paths)
+
+- `_piecewise_constant_forwards`: standard. ✓
+- `_piecewise_linear_forwards`: places the forward at the period END, then linear-interpolates. Convention; standard. ✓
+- `build_forward_curve`: builds a dense weekly grid (52 pts/year, min 50). Integrates forward via trapezoidal rule (n_steps=100). Reasonable for smooth forwards.
+- `_integrate_forward`: trapezoidal rule. Adequate.
+
+### Test coverage
+
+`test_forward_interpolation.py` covers all three methods + `monotone_convex_forwards` standalone + `extract_forwards`. Decent.
+
+### Slicing items (defer)
+
+- B1 fix: rename or implement Step 3 properly. Defer to a future curves-quality slice.
+
+---
+
+## Pass B — summary
+
+7 modules audited. Total: **4 confirmed bugs** + 1 architectural duplication + 2 minor data quirks.
+
+| Severity | Count | Headline examples |
+|---|---:|---|
+| HIGH | 1 | B.1 B1 — `DiscountCurve.roll_down` forgets to divide by `P(0, new_ref)`; +1.4 bp/day error on a 5% curve. |
+| MEDIUM | 1 | B.1 B2 — custom `to_dict` overrides drop `interpolation` and `schema_version`; wider pattern across the library. |
+| LOW | 2 | B.1 B3 — `bumped_at` no bounds check; B.7 B1 — Hagan-West "monotone convex" actually piecewise linear. |
+| ARCH | 1 | B.3 C1 — legacy `core.market_data` vs new `pricebook.market_data` (G1 P2). Decision deferred to Gate 2. |
+| DATA | 2 | B.5 BADLAR `is_overnight=False, tenor_months=None`; layer inversion in `SurvivalCurve.bumped` → credit. |
+
+**Cross-cutting finding:** the `schema_version` work from G1 P3 Slice 2 doesn't reach **any** custom `to_dict` override. Every model with a hand-written `to_dict` (`DiscountCurve`, `SurvivalCurve`, legacy `MarketDataSnapshot`, `PricingContext`, several option types) is invisible to the schema-version contract. A single "wrapper helper" slice would close this gap once for the whole library.
+
+Layers complete: L0 Pass A (foundations) and L0 Pass B (simple composites). 13 + 7 = 20 modules audited; **24 confirmed bugs** + 1 architectural duplication catalogued.
 
 ---
 
