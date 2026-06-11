@@ -2,6 +2,26 @@
 
 ---
 
+## v0.883.0 — 2026-06-11
+
+**G1 P2 Slice 1 — `pricebook.market_data` package + canonical L1 raw-data types.**
+
+Phase 2 of Gate 1 begins. Where Phase 1 made every calibration produce a `CalibrationResult`, Phase 2 makes the *raw market data* a first-class, identifiable artefact — so the audit chain extends one step further: price → calibration → market snapshot.
+
+This first slice introduces the **types only**, purely additive — nothing existing is touched.
+
+- New package `pricebook.market_data` (L1 in the layer graph; zero dependencies on other pricebook subpackages).
+- `QuoteKind` — `str`-Enum of 17 recognised quote types (deposits, FRAs, futures, swaps, basis, xccy, CDS, bond px/yield, vol points, swaption/capfloor vols, FX spot/forward, inflation YoY/ZC, other).
+- `QuoteId` — frozen dataclass `(kind, tenor, currency, label)`; stable, hashable, the "same instrument across time" key.
+- `Quote` — frozen `(id, value, bid_ask_bp)`; a single observation.
+- `MarketSnapshot` — frozen `(id: UUID, as_of: datetime, quotes: tuple[Quote,...], label)`. `MarketSnapshot.new()` auto-generates id + timestamp. `get(qid)`, `filter(kind=, currency=, label=)`, `with_quote(q)` (returns a new snapshot with a fresh id — replaces same-id quotes). `__len__`, `__iter__`, `__contains__` for ergonomic use.
+- `FixingHistory` — frozen wrapper around `{(rate_name, date) -> value}`; `get`, `for_rate`, `rate_names`, `with_fixing`. Distinct from `MarketSnapshot` (fixings are backward-looking, no bid-ask).
+- 31 new tests in `test_market_data_types.py` covering frozen-ness, equality, hashing, factory behaviour, auditing invariants (fresh id on `with_quote`, original snapshot unchanged).
+
+The existing `pricebook.core.market_data.MarketDataSnapshot` is untouched — backward compatibility is total. Subsequent slices in G1 P2 will let bootstrap/global-bootstrap accept a `MarketSnapshot` and record `MarketSnapshot.id` on the resulting `CalibrationResult.market_snapshot_id`.
+
+---
+
 ## v0.882.0 — 2026-06-11
 
 **G1 P1 Slice 6 — `jump_calibration` produces `CalibrationResult`. G1 P1 complete.**
