@@ -805,7 +805,7 @@ Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed 
 | B.1 | `discount_curve.py` | ⚠️ | 3 (B1 roll_down anchoring, B2 serialisation loses interpolation, B3 bumped_at no bounds check, schema_version absent) | small |
 | B.2 | `survival_curve.py` | 📝 | 0 real bugs; asymmetry vs DiscountCurve (no `calibration_result`), missing `schema_version`, no roll_down (good thing!) | half the methods untested |
 | B.3 | `market_data.py` (old) | ⚠️ | 0 hidden bugs; 4 documented approximations + architectural duplication with the new `pricebook.market_data` package from G1 P2 | tenor parsing untested for unusual strings |
-| B.4 | `market_conventions.py` | ❓ | | |
+| B.4 | `market_conventions.py` | ✅ | 0 | no dedicated test file |
 | B.5 | `rate_index.py` | ❓ | | |
 | B.6 | `notional.py` | ❓ | | |
 | B.7 | `forward_interpolation.py` | ❓ | | |
@@ -999,6 +999,31 @@ Same gap as `DiscountCurve.to_dict` — custom `to_dict` overrides skip the sche
 - **Retire decision:** Gate 2 — is this module kept (and the new G1 P2 types coexist), or migrated/removed? Either way, document the boundary so callers know which to use.
 - **Bridge:** `MarketSnapshot.from_legacy(MarketDataSnapshot)` helper if both coexist long-term.
 - **Test gap:** parametrised tenor parsing tests.
+
+---
+
+## B.4 — `core/market_conventions.py`
+
+**Purpose:** Pure-data registry: `EquityIndexSpec`, `CommodityContractSpec`, `LinkerConvention` frozen dataclasses + in-code dicts of canonical instances (SPX, NDX, SX5E, ...; CL, BRN, NG, ...; US TIPS, UK ILG, ...) + lookup functions + one math helper (`index_ratio` for daily-linear CPI interpolation).
+
+**Internal deps:** `core.serialisable`, `core.data_registry` (for the JSON-merge-then-load pattern).
+
+**Size:** 211 lines.
+
+### Status: ✅ Clean
+
+- All three frozen dataclasses decorated with `@serialisable_convention`. Registration verified by the post-fix A.12 auto-discovery (B.1 of this audit prompted me to add a regression test that `EquityIndexSpec` is reachable).
+- Hand-curated registries match market reality: TIPS lag = 3 months ✓, UK RPI lag = 8 (old style) ✓, FR/IT/DE HICP lag = 3 ✓; CL/BRN/NG/GC/SI tick values are consistent with the contract sizes (`contract_size × tick_size = tick_value` ✓).
+- `index_ratio` daily-linear formula `CPI_ref(d) = CPI(m-1) + (d-1)/D × (CPI(m) − CPI(m-1))` matches the TIPS / UK ILG market convention.
+- `_load_reg` overlay pattern (in-code defaults, JSON-file extension) is clean.
+
+### Test coverage
+
+No dedicated test file. The serialisation round-trip is covered by `test_serialization_autodiscovery.py::test_registry_picks_up_module_not_in_old_whitelist` (added in v0.891 — that's how `EquityIndexSpec` is now exercised). Math (`index_ratio`) untested.
+
+### Slicing items (defer)
+
+- Add `test_market_conventions.py` covering `get_equity_index`, `get_commodity_contract`, `get_linker_convention`, and `index_ratio` (especially the day-1 → day-D boundary behaviour). Low priority.
 
 ---
 
