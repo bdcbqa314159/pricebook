@@ -28,7 +28,7 @@
 | A.8 | `caching.py` | ✅ | 0 | type hint mismatch (cosmetic) |
 | A.9 | `protocols.py` | ✅ | 0 | none |
 | A.10 | `fixings.py` | ✅ | 0 | get_with_lag fallback semantics + persistence error handling |
-| A.11 | `serialisable.py` | ❓ | | |
+| A.11 | `serialisable.py` | ⚠️ | 7 documented-design-limitations (list[T] dispatch, Union[A,B,None], registry no-op, .item() ordering, CurrencyPair parse, bare params lookup, Enum int-vs-str) | 4 |
 | A.12 | `serialization.py` | ❓ | | |
 | A.13 | `numerical_config.py` | ✅ | 0 | 0 (just landed; 14 tests; clean) |
 
@@ -559,6 +559,125 @@ Same shape as A.5 B1. `ChebyshevInterpolant.to_dict`, `PadeApproximant.to_dict`,
 
 ---
 
+## A.11 — `core/serialisable.py`
+
+**Purpose:** Mixin / decorators (`Serialisable`, `@serialisable`, `@serialisable_convention`) that auto-derive `to_dict` / `from_dict` from constructor type hints. Registry-based dispatch via `from_dict(d)`. Schema versioning via `_SERIAL_SCHEMA_VERSION` (added in G1 P3 Slice 2).
+
+**Internal deps:** None (no upward imports). True L0.
+
+**Size:** 428 lines.
+
+### Status: ⚠️ Several documented-design-limitation bugs
+
+The module is solid for the common case (instrument with primitive / single-Serialisable fields) but has known limits at the edges. None are catastrophic; all matter for specific shapes of serialised data.
+
+### Confirmed bugs / limitations
+
+#### B1 — `_deserialise_atom` only reconstructs `list[date]`; `list[SomeSerialisable]` silently returns raw  *[MEDIUM]*
+
+**Location:** `serialisable.py:210-214`.
+
+```python
+if get_origin(hint) is list:
+    args = get_args(hint)
+    if args and args[0] is date:
+        return [date.fromisoformat(x) if isinstance(x, str) else x for x in v]
+```
+
+That's the whole list handler. Any other parameterised list — `list[Quote]`, `list[CashFlow]`, `list[Schedule]` — falls through to `return v` (raw list of dicts) at line 217. Classes whose constructor takes a polymorphic list field get a wrong-typed value back unless they override `from_dict`.
+
+**Fix shape:** detect `_SERIAL_TYPE` on `args[0]` and recursively `from_dict` each element. Single small slice + round-trip test using a class with a `list[SerialisableThing]` field.
+
+#### B2 — `Union[A, B, None]` (3+ types) returns raw value, skipping reconstruction  *[MEDIUM]*
+
+**Location:** `serialisable.py:172-178`.
+
+```python
+if origin is Union or isinstance(hint, _types.UnionType):
+    args = [a for a in get_args(hint) if a is not type(None)]
+    if len(args) == 1:
+        hint = args[0]
+    else:
+        return v
+```
+
+Optional[T] (i.e. `T | None`, len=1 after stripping `NoneType`) unwraps correctly. But `A | B | None` returns `v` raw — silently bypasses reconstruction. Classes with polymorphic discriminated-union fields (e.g. `underlying: Stock | Index | None`) need a manual `from_dict` override.
+
+**Fix shape:** if the value is a dict with `"type"`, dispatch via the global registry. Otherwise return v as today. Slice covers this + a round-trip test.
+
+#### B3 — Registry re-registration is silently a no-op  *[LOW]*
+
+**Location:** `serialisable.py:102`.
+
+```python
+if key and key not in _REGISTRY:
+    ...
+    _REGISTRY[key] = cls
+```
+
+A second `_register(cls2)` with the same `_SERIAL_TYPE` does nothing. Module reloads (e.g. during `importlib.reload` in tests / notebooks) leave the stale class in the registry — `from_dict` rebuilds via the OLD class. This is "fine until it bites you in dev workflow."
+
+**Fix shape:** overwrite + emit a `DeprecationWarning` so the reload path is at least visible.
+
+#### B4 — `_serialise_atom` checks `.item()` before `to_dict` — collapses any object with a callable `.item()`  *[LOW]*
+
+**Location:** `serialisable.py:150-153`.
+
+```python
+if hasattr(v, "item") and callable(v.item):
+    return v.item()
+if hasattr(v, "to_dict"):
+    return v.to_dict()
+```
+
+NumPy scalars and a user class that happens to define `.item()` (e.g. an `EnumMember.item()` helper) get duck-typed as numpy first. The check should be `isinstance(v, (np.generic, ...))` or moved AFTER the `to_dict` check.
+
+**Fix shape:** narrow `.item()` to `isinstance(v, np.generic)`. Trivial.
+
+#### B5 — `CurrencyPair` round-trip assumes exactly one `/`  *[LOW]*
+
+**Location:** `serialisable.py:206`.
+
+```python
+base_str, quote_str = v.split("/")  # raises ValueError on != 1 slash
+```
+
+Inputs like `"EUR/USD/JPY"` or `"EURUSD"` produce confusing unpack errors. Use `v.split("/", 1)` + explicit length check + a clear error message.
+
+#### B6 — `Serialisable.from_dict` does a bare `d["params"]` lookup  *[LOW]*
+
+**Location:** `serialisable.py:261`.
+
+```python
+p = d["params"]   # KeyError if absent
+```
+
+A malformed payload (truncation, half-written file, schema-version mismatch with a v2 that dropped `params`) gets a generic `KeyError: 'params'` instead of a structured `ValueError("Bad payload for ClassName: missing 'params'")`.
+
+#### B7 — Enum deserialisation may fail for int-valued enums delivered as string  *[LOW]*
+
+**Location:** `serialisable.py:187-190`.
+
+```python
+if isinstance(hint, type) and issubclass(hint, Enum):
+    if isinstance(v, hint):
+        return v
+    return hint(v)
+```
+
+If `EnumValue.value` is `int` (e.g. `Frequency.SEMI_ANNUAL = 6`) but a non-JSON layer delivers it as `"6"`, `hint("6")` raises. JSON itself preserves int-as-int so this is dormant inside the library's JSON path. Worth a `try int(v)` fallback for robustness against YAML/CSV / arbitrary string payloads.
+
+### New concern from G1 P3 Slice 2 (just landed)
+
+`_check_schema_version` raises on `v > expected` but silently accepts `v < expected`. For now there's only v1 in the wild, so this is correct. **When v2 lands**, we need a migration hook (or an explicit "no migration available → raise" policy) so old payloads aren't silently misinterpreted by newer code. Doc the contract.
+
+### Test coverage
+
+- Existing tests (in `test_serialisable.py`) cover the happy path and the new schema-version semantics. ✓
+- Gaps: no round-trip for `list[SomeSerialisable]` (would catch B1), no `Union[A, B, None]` test (would catch B2), no malformed-payload test (would catch B6), no Enum-from-string test (B7).
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -593,5 +712,18 @@ From A.6 (`interpolation`):
 
 From A.7 (`approximation`):
 19. Generic `to_dict` mutation fix — patches A.5 `SolverResult` + A.7 `ChebyshevInterpolant`/`PadeApproximant`/`RichardsonTable` in one slice (`return dict(vars(self))`). Add a regression test that mutates the dict.
+
+From A.10 (`fixings`):
+20. Clarify `get_with_lag` semantics — either require `calendar` (raise on None) or rename / split. Single slice.
+
+From A.11 (`serialisable`):
+21. B1: dispatch `list[SomeSerialisable]` via recursive `from_dict`. Round-trip test.
+22. B2: handle `Union[A, B, None]` (3+ args) by dispatching the dict's `"type"` via registry.
+23. B4: narrow numpy `.item()` duck-test to `isinstance(v, np.generic)`.
+24. B5: graceful `CurrencyPair` parse with split-limit + length-check + clear error.
+25. B6: structured `ValueError` (not bare `KeyError`) when `params` is missing from payload.
+26. B7: int-valued Enum from string fallback.
+27. B3: registry re-register emits `DeprecationWarning` and overwrites. (Dev-workflow ergonomics only — defer to lowest priority.)
+28. Doc the v<expected migration contract before bumping any class to v2.
 
 (More entries will arrive as the audit walks through Pass A.)
