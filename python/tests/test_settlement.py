@@ -72,10 +72,17 @@ class TestCDSSettlement:
         assert result.protection_payout == pytest.approx(10_000_000)
 
     def test_settlement_lag(self):
+        """Per C.7 B1 fix, lag is in business days (weekend-aware).
+        REF = 2024-01-15 Mon. 30 BD → 2024-02-26 Mon. 5 BD → 2024-01-22 Mon."""
         phys = cds_settlement_physical(10_000_000, 0.4, REF, lag_days=30)
         cash = cds_settlement_cash(10_000_000, 0.4, REF, lag_days=5)
-        assert (phys.settlement_date - REF).days == 30
-        assert (cash.settlement_date - REF).days == 5
+        # Settlement dates must be business days (no weekends).
+        assert phys.settlement_date.weekday() < 5
+        assert cash.settlement_date.weekday() < 5
+        # Exact values: 30 BD from Mon 2024-01-15 → Mon 2024-02-26;
+        # 5 BD → Mon 2024-01-22.
+        assert phys.settlement_date == date(2024, 2, 26)
+        assert cash.settlement_date == date(2024, 1, 22)
 
 
 # ---- Option settlement ----

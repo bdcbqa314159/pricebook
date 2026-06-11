@@ -2,6 +2,48 @@
 
 ---
 
+## v0.903.0 — 2026-06-11
+
+**Fix C.7 B1 — settlement lag now interpreted as business days; calendar honoured.**
+
+Closes the last MEDIUM-severity bug from L0 Pass C. `cash_settlement`, `cds_settlement_physical/_cash`, `option_settlement_cash/_physical`, and `futures_settlement_physical` all silently used **calendar** days for the T+N lag — a Friday trade settling T+2 landed on Sunday.
+
+### Before / after
+
+```
+Friday 2025-08-01, cash_settlement T+2:
+  BEFORE: 2025-08-03 Sun (calendar, non-business)
+  AFTER:  2025-08-05 Tue (skip Sat+Sun)
+
+Friday 2025-08-01, option_cash T+1:
+  BEFORE: 2025-08-02 Sat
+  AFTER:  2025-08-04 Mon
+
+Thursday 2025-07-03, option_cash T+1 with US calendar:
+  BEFORE: 2025-07-04 Fri (Independence Day — holiday)
+  AFTER:  2025-07-07 Mon (skip July 4)
+```
+
+### Change
+
+- Six settlement entry points (`cash_settlement`, `cds_settlement_physical`, `cds_settlement_cash`, `option_settlement_cash`, `option_settlement_physical`, `futures_settlement_physical`) now route through `add_business_days(d, lag, calendar)` instead of `date.fromordinal(d.toordinal() + lag)`.
+- All six gain an optional `calendar` parameter. When `None`, only weekends are skipped (same as `Calendar.add_business_days(None)`). When provided, holidays are skipped too.
+- Existing `test_settlement.py::test_settlement_lag` updated — the prior assertion `(settle - REF).days == 30` codified the calendar-day bug; replaced with exact business-day calculation (REF = Mon 2024-01-15; +30 BD → Mon 2024-02-26).
+- 9 new tests in `test_settlement_business_days.py`: Friday + T+1/T+2/T+3/T+5 weekend skip across all four product types; July-4 Independence Day with US calendar; T+0 and mid-week sanity cases.
+- Full parallel suite: **11930 passed in 3:25** — zero regressions.
+
+### Affected upstream
+
+Anything that imports settlement helpers from `pricebook.core.settlement` and reads `settlement_date`. Notable: FX spot dates (T+2), US equity option physical settlement (T+2), CDS cash settlement (T+5), bond futures physical delivery (T+3). The pre-fix dates would frequently land on weekends — useful as a "placeholder" date for sandbox demos but wrong for settlement-risk computations.
+
+### Pass C — MEDs closed
+
+| C.7 B1 | settlement lag business days | ✅ this slice |
+| C.8 B1 | dollar_gamma formula | queued (LOW) |
+| C.1 B1 | dead-code orphan to_dict | queued (LOW, generic to_dict sweep) |
+
+---
+
 ## v0.902.0 — 2026-06-11
 
 **Fix D.1 B1+B2+B3 — `PricingContext` round-trip preserves every field; `replace()` no longer aliases mutable dicts.**

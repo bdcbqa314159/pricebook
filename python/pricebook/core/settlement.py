@@ -70,9 +70,14 @@ def cash_settlement(
     exercise_date: date,
     lag_days: int = 0,
     currency: str = "USD",
+    calendar: object | None = None,
 ) -> CashSettlementResult:
-    """Generic cash settlement: pay/receive PV on settlement date."""
-    settle = date.fromordinal(exercise_date.toordinal() + lag_days)
+    """Generic cash settlement: pay/receive PV on settlement date.
+
+    The `lag_days` is interpreted as **business days** per market convention
+    (T+1, T+2). When `calendar` is `None`, only weekends are skipped.
+    """
+    settle = add_business_days(exercise_date, lag_days, calendar)
     return CashSettlementResult(SettlementType.CASH, pv, settle, currency)
 
 
@@ -96,13 +101,14 @@ def cds_settlement_physical(
     recovery: float,
     event_date: date,
     lag_days: int = 30,
+    calendar: object | None = None,
 ) -> CDSSettlementResult:
     """Physical CDS settlement: deliver bond, receive par.
 
     Protection buyer delivers defaulted bond (worth recovery × notional)
-    and receives full notional.
+    and receives full notional. `lag_days` is **business days**.
     """
-    settle = date.fromordinal(event_date.toordinal() + lag_days)
+    settle = add_business_days(event_date, lag_days, calendar)
     payout = notional  # buyer receives par
     recovery_val = recovery * notional  # bond delivered is worth this
     return CDSSettlementResult(
@@ -115,12 +121,14 @@ def cds_settlement_cash(
     recovery: float,
     event_date: date,
     lag_days: int = 5,
+    calendar: object | None = None,
 ) -> CDSSettlementResult:
     """Cash (auction) CDS settlement: pay par minus recovery.
 
     Protection buyer receives (1 - recovery) × notional.
+    `lag_days` is **business days**.
     """
-    settle = date.fromordinal(event_date.toordinal() + lag_days)
+    settle = add_business_days(event_date, lag_days, calendar)
     payout = (1 - recovery) * notional
     recovery_val = recovery * notional
     return CDSSettlementResult(
@@ -150,11 +158,12 @@ def option_settlement_cash(
     contracts: float,
     exercise_date: date,
     lag_days: int = 1,
+    calendar: object | None = None,
 ) -> OptionSettlementResult:
-    """Cash-settled option exercise."""
+    """Cash-settled option exercise. `lag_days` is **business days** (T+1)."""
     intrinsic = max(spot - strike, 0.0) if is_call else max(strike - spot, 0.0)
     cash = intrinsic * contracts
-    settle = date.fromordinal(exercise_date.toordinal() + lag_days)
+    settle = add_business_days(exercise_date, lag_days, calendar)
     return OptionSettlementResult(
         SettlementType.CASH, intrinsic, cash, 0.0, settle,
     )
@@ -167,14 +176,15 @@ def option_settlement_physical(
     contracts: float,
     exercise_date: date,
     lag_days: int = 2,
+    calendar: object | None = None,
 ) -> OptionSettlementResult:
-    """Physical-settled option exercise.
+    """Physical-settled option exercise. `lag_days` is **business days** (T+2 default).
 
     Call: buyer pays strike × contracts, receives shares.
     Put: buyer delivers shares, receives strike × contracts.
     """
     intrinsic = max(spot - strike, 0.0) if is_call else max(strike - spot, 0.0)
-    settle = date.fromordinal(exercise_date.toordinal() + lag_days)
+    settle = add_business_days(exercise_date, lag_days, calendar)
 
     if is_call:
         cash = -strike * contracts  # buyer pays strike
@@ -224,13 +234,15 @@ def futures_settlement_physical(
     multiplier: float,
     expiry: date,
     delivery_lag: int = 3,
+    calendar: object | None = None,
 ) -> FuturesSettlementResult:
     """Physical-delivery futures settlement (e.g. bond futures).
 
     Buyer pays invoice price, receives the physical commodity/bond.
+    `delivery_lag` is **business days** (typical T+3 for US Treasuries).
     """
     cash = (invoice_price - entry_price) * contracts * multiplier
-    settle = date.fromordinal(expiry.toordinal() + delivery_lag)
+    settle = add_business_days(expiry, delivery_lag, calendar)
     return FuturesSettlementResult(
         SettlementType.PHYSICAL, invoice_price, cash, True, settle,
     )
