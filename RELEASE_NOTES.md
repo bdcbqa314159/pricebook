@@ -2,6 +2,47 @@
 
 ---
 
+## v0.895.0 — 2026-06-11
+
+**Fix A.1 B1 Slice 2 — UST ICMA mispricing characterised via xfail tests.**
+
+Second slice of the staged ICMA fix. No source changes; the bug is now pinned to a reproducible test fixture with `xfail(strict=True)` markers so Slice 3 must turn them green (and CI catches partial fixes).
+
+### Diagnostic — actual mispricing measured
+
+A par-5y UST at 4% (face=100, semi-annual, issued 2024-02-15, matures 2029-02-15):
+
+| Coupon | Period | days | year_frac (current) | year_frac (correct ICMA) | amount (current) | amount (correct) |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | Feb 15 → Aug 15 | 182 | 0.498630 | 0.500000 | 1.994521 | 2.000000 |
+| 2 | Aug 15 → Feb 15 | 184 | 0.504110 | 0.500000 | 2.016438 | 2.000000 |
+| 3 | Feb 15 → Aug 15 | 181 | 0.495890 | 0.500000 | 1.983562 | 2.000000 |
+| 4–10 | (alternating) | — | 0.4959 / 0.5041 | 0.500000 | 1.9836 / 2.0164 | 2.000000 |
+
+Par-yield round-trip: **99.999807** (should be exactly 100). These are the numbers from `MODULE_HEALTH.md` §`fixed_income/bond.py`, now nailed down in `test_treasury_icma_characterisation.py`.
+
+### What the slice adds
+
+- New test file `python/tests/test_treasury_icma_characterisation.py` (6 tests):
+  - Smoke: bond's `day_count` is `ACT_ACT_ICMA`. PASSES today.
+  - **xfail(strict=True)**: every regular coupon has `year_frac == 0.5` exactly.
+  - **xfail(strict=True)**: every coupon amount is exactly `2.0`.
+  - **xfail(strict=True)**: par-yield round-trip lands at exactly `100.0` (5y).
+  - **xfail(strict=True)**: same for 30y (error accumulates across 60 coupons).
+  - Diagnostic test that always passes — prints the actual current values for visibility in test logs (to be removed in Slice 3 once the fix lands).
+
+Full parallel suite: **11871 passed + 4 xfailed in 4:55**.
+
+### Why xfail and not skip
+
+`xfail(strict=True)` enforces a contract: the test MUST fail today, MUST pass after the fix. If Slice 3 accidentally doesn't fix one of the cases, CI flips that case to "unexpected pass" and the slice fails. Skip would let a partial fix through silently.
+
+### Next slice
+
+**A.1 B1 Slice 3** — fix `FixedLeg` to pass `ref_start=accrual_start, ref_end=accrual_end, frequency=12/months_per_period` to `year_fraction`. Turn the four xfails green. Remove the diagnostic test.
+
+---
+
 ## v0.894.0 — 2026-06-11
 
 **Fix A.1 B1 Slice 1 — `strict_icma` flag on `year_fraction` (no behaviour change).**
