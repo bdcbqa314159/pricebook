@@ -21,7 +21,7 @@
 | A.1 | `day_count.py` | ⚠️ | 2 (B1 silent-fallback, B2 ZeroDivisionError) | 5 |
 | A.2 | `calendar.py` | ⚠️ | 5 (B1 Sat-substitute, B2 Tokyo no-substitute, B3 nth_weekday spill, B4 spill-window, B5 joint mutation) | huge |
 | A.3 | `currency.py` | 📝 | 0 | 4 (settlement_lag, is_ndf, forward_rate, all_g10_pairs untested) |
-| A.4 | `schedule.py` | ❓ | | |
+| A.4 | `schedule.py` | ⚠️ | 1 (B1 EOM anchored to end not start in front-stub) | 3 (post-adjust dedupe untested, WEEKLY untested, stub-30-day heuristic) |
 | A.5 | `solvers.py` | ❓ | | |
 | A.6 | `interpolation.py` | ❓ | | |
 | A.7 | `approximation.py` | ❓ | | |
@@ -281,6 +281,69 @@ Single test-coverage slice to land all four. No source changes needed.
 
 ---
 
+## A.4 — `core/schedule.py`
+
+**Purpose:** Generate cashflow schedules between `start` and `end` at a given `Frequency`, with stub type (SHORT/LONG × FRONT/BACK), EOM rule, and optional calendar adjustment.
+
+**Internal deps:** `pricebook.core.calendar` (for adjustment). External: `dateutil.relativedelta`.
+
+**Size:** 127 lines.
+
+**Test file:** `python/tests/test_schedule.py` (164 lines).
+
+### Status: ⚠️ One real bug found
+
+### Confirmed bugs
+
+#### B1 — EOM anchored to `end` (not `start`) in front-stub backward generation  *[HIGH for amortising / off-EOM-end trades]*
+
+**Location:** `schedule.py:85-92` + `_add_months:25-30`.
+
+The backward generator initialises `current = end` and steps backward via `_add_months(current, -months, eom)`. Inside `_add_months`, the EOM check is:
+```python
+if eom and d == _end_of_month(d):
+    result = _end_of_month(result)
+```
+which is anchored to `d` — i.e. the *current rolling date*. For the front-stub path that's effectively `end`. So when `start` is EOM but `end` is **not** EOM, the EOM rule never fires and interior rolls land mid-month.
+
+**ISDA 2006 §4.10 (End of Month Convention):** *"if the [period start date] is the last day of February, the [period end date] is the last day of February. If the [period end date] is the last day of February, the [next period end date] is the last day of February."* — i.e. EOM anchors to *start*, propagates forward.
+
+**Live repro:**
+```
+start=2024-01-31 (EOM), end=2024-08-15 (not EOM), semi-annual, SF, eom=True:
+  current behaviour: [2024-01-31, 2024-02-15, 2024-08-15]
+                                  ^^^^^^^^^^ should be 2024-02-29 (EOM)
+
+start=2024-01-31 (EOM), end=2025-04-15 (not EOM), semi-annual, SF, eom=True:
+  current behaviour: [2024-01-31, 2024-04-15, 2024-10-15, 2025-04-15]
+                                  ^^^^^^^^^^ should be 2024-04-30 (EOM)
+                                              ^^^^^^^^^^ should be 2024-10-31 (EOM)
+```
+
+Affected trades: any with EOM start and non-EOM end. Common cases:
+- Amortising swaps where end is a calendar quarter-end day-15 instead of EOM.
+- Bond schedules where start is the issue date (often EOM) and end is the maturity (often *not* EOM, set by deal economics).
+- Cross-currency basis swaps where EOM convention is asymmetric between legs.
+
+**Fix shape:** Pass an explicit `eom_anchor` date into `_add_months` (i.e. always `start`), independent of the rolling `current`. Or, recompute backward rolls forward after the loop. Either way, a focused 1-slice fix with a regression test covering the exact ISDA §4.10 cases above. The forward path is already correct (it anchors on `start` by accident because `current` is initialised to `start`).
+
+### Robustness concerns (not bugs, but worth noting)
+
+- **`months * 30` stub heuristic** at lines 98 and 116: classifies a stub as "tiny" if its day-count < 50% of `months * 30`. For quarterly (months=3) the threshold is 45 days, so a 44-day quarterly stub is silently merged on LONG_FRONT. The 30-day approximation also doesn't account for actual month lengths; could swing  ±10% per case.
+- **Post-adjustment dedup**: after `calendar.adjust(d, convention)` two consecutive raw rolls could both shift to the same business day (dense stubs, holiday clusters) or even invert (if `MODIFIED_FOLLOWING` pushes one forward and the next backward). The code returns the adjusted list as-is. Audit critic flagged this.
+- **`WEEKLY` ignores `eom`** — silently. Probably fine (EOM ⊥ weekly) but documenting would help.
+- **`stub` default is `SHORT_FRONT`** — sensible default for fixed-income; sometimes surprising for FX/EQ. Mention in docstring.
+
+### Test gaps
+
+- **EOM anchoring bug coverage** — currently `test_eom_preserved` only checks start=EOM **and** end=EOM, so the bug is invisible. A test with `start=2024-01-31`, `end=2025-04-15`, semi-annual would catch it immediately.
+- **Post-adjustment ordering/dedup**: no test. Build a scenario where two raw rolls collide post-adjust.
+- **WEEKLY**: no test (frequency=0 branch).
+- **LONG_BACK**: not tested (only LONG_FRONT).
+- **stub heuristic boundary**: no test for the "44-day quarterly stub merges, 46-day doesn't" case.
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -300,5 +363,9 @@ From A.2 (`calendar`):
 
 From A.3 (`currency`):
 12. Tests for `settlement_lag` (USD/CAD T+1; others T+2), `forward_rate`/`forward_rate_from_curves`/`forward_points`, `is_ndf`, `all_g10_pairs` (count = 45, all market convention). Single slice.
+
+From A.4 (`schedule`):
+13. B1 fix: anchor EOM on `start` regardless of generation direction. Add regression test with `start=2024-01-31, end=2025-04-15, semi-annual` to catch the front-stub case.
+14. Test gap fill: WEEKLY, LONG_BACK, post-adjust dedup/ordering. Single slice.
 
 (More entries will arrive as the audit walks through Pass A.)
