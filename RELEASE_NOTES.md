@@ -2,6 +2,47 @@
 
 ---
 
+## v0.899.0 — 2026-06-11
+
+**Fix B.1 B2 — `make_payload`/`read_payload` helpers extend G1 P3 Slice 2's schema-version coverage to custom `to_dict` overrides; `DiscountCurve` no longer drops `interpolation` on round-trip.**
+
+A medium-severity audit finding that turned out to have wide reach. G1 P3 Slice 2 added `schema_version` to `Serialisable.to_dict` and the two decorators, but **classes with hand-written `to_dict` overrides** (the curves, `Trade`, `Portfolio`, `PricingContext`, several option types) bypassed all of it. They wrote `{"type": ..., "params": ...}` directly. Schema versioning was silently absent from their on-disk payloads.
+
+### What was broken
+
+Two distinct gaps in one root cause:
+
+1. **`DiscountCurve.to_dict` dropped `interpolation`.** A curve built with `MONOTONE_CUBIC` or `AKIMA` interpolation serialised, then deserialised, silently came back as `LOG_LINEAR` (the constructor default). Live repro from the audit confirmed this. Any persisted curve with a non-default interpolation method was silently misinterpreted on reload.
+2. **Schema versioning didn't reach custom-to_dict classes.** Payloads from `DiscountCurve`, `SurvivalCurve`, `Trade`, `Portfolio`, `PricingContext` carried no version field. When a future v2 lands, there'd be no way to distinguish.
+
+### Change
+
+- New helpers in `pricebook.core.serialisable`:
+  - `make_payload(instance, params)` — builds `{"type": ..., "params": ..., "schema_version": ...}` from a Serialisable instance + a params dict. Drop-in replacement for hand-rolled envelopes.
+  - `read_payload(d, cls)` — inverse: validates schema_version against `cls._SERIAL_SCHEMA_VERSION` and returns the params dict. Replaces `p = d["params"]` in custom `from_dict` overrides.
+- Migrated:
+  - `core/discount_curve.py` — uses `make_payload`/`read_payload`. **Includes `interpolation` in the params dict; deserialiser defaults to `LOG_LINEAR` when absent (back-compat for pre-fix payloads).**
+  - `core/survival_curve.py` — uses helpers (interpolation was already preserved; this slice adds schema_version coverage).
+  - `core/trade.py` — `Trade` and `Portfolio` both migrated.
+  - `core/pricing_context.py` — migrated, plus the `vars(self)` → `dict(vars(self))` fix (same mutation pattern as solvers/approximation, now closed).
+- 13 new tests in `test_custom_to_dict_schema_version.py`:
+  - **Parametrised round-trip across all 5 `InterpolationMethod` values** — catches the B.1 B2 interpolation-loss bug for every method.
+  - Pre-fix payload (no `interpolation` key) defaults to LOG_LINEAR — back-compat.
+  - schema_version present on every migrated class.
+  - Future version rejected with the standard ValueError.
+  - Pre-fix payload (no schema_version key) still deserialises as v1.
+- Full parallel suite: **11893 passed in 4:01** — no regressions.
+
+### What's still uncovered
+
+The 43 file-count from the audit includes many option/credit classes (`options/asian_option.py`, `options/barrier_option.py`, `credit/cds.py`, etc.) that still hand-roll `{"type": ..., "params": ...}`. They are NOT migrated in this slice — that work belongs in their respective audit passes (Pass C / D etc.). Behaviour is unchanged for them; they currently emit no schema_version which by contract reads back as v1 — back-compat all the way down.
+
+### Wider implication
+
+`make_payload`/`read_payload` is now the canonical pattern for any class with a custom `to_dict`. New code should always go through it; existing code migrates as each module gets audited.
+
+---
+
 ## v0.898.0 — 2026-06-11
 
 **Fix B.1 B1 — `DiscountCurve.roll_down` anchors rolled DFs to the new reference date.**

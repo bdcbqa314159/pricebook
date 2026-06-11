@@ -233,36 +233,35 @@ class PricingContext:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
-from pricebook.core.serialisable import _register
+        return dict(vars(self))   # copy so external mutation doesn't leak
+from pricebook.core.serialisable import _register, make_payload, read_payload
 
 PricingContext._SERIAL_TYPE = "pricing_context"
 
 def _ctx_to_dict(self):
-    d = {"type": "pricing_context", "params": {"valuation_date": self.valuation_date.isoformat()}}
-    p = d["params"]
+    params = {"valuation_date": self.valuation_date.isoformat()}
     if self.discount_curve is not None:
-        p["discount_curve"] = self.discount_curve.to_dict()
+        params["discount_curve"] = self.discount_curve.to_dict()
     if self.projection_curves:
-        p["projection_curves"] = {n: c.to_dict() if hasattr(c, "to_dict") else {} for n, c in self.projection_curves.items()}
+        params["projection_curves"] = {n: c.to_dict() if hasattr(c, "to_dict") else {} for n, c in self.projection_curves.items()}
     if self.vol_surfaces:
         vs = {}
         for n, v in self.vol_surfaces.items():
             if hasattr(v, "to_dict"):
                 vs[n] = v.to_dict()
         if vs:
-            p["vol_surfaces"] = vs
+            params["vol_surfaces"] = vs
     if self.credit_curves:
-        p["credit_curves"] = {n: c.to_dict() for n, c in self.credit_curves.items()}
+        params["credit_curves"] = {n: c.to_dict() for n, c in self.credit_curves.items()}
     if self.fx_spots:
-        p["fx_spots"] = {f"{b}/{q}": r for (b, q), r in self.fx_spots.items()}
-    return d
+        params["fx_spots"] = {f"{b}/{q}": r for (b, q), r in self.fx_spots.items()}
+    return make_payload(self, params)
 
 @classmethod
 def _ctx_from_dict(cls, d):
     from datetime import date as _d
     from pricebook.core.serialisable import from_dict as _fd
-    p = d["params"]
+    p = read_payload(d, cls)
     disc = _fd(p["discount_curve"]) if "discount_curve" in p else None
     proj = {n: _fd(c) for n, c in p.get("projection_curves", {}).items()} or None
     vols = {}

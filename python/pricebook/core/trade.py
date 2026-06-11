@@ -82,30 +82,36 @@ class Portfolio:
     def __len__(self) -> int:
         return len(self.trades)
 
-from pricebook.core.serialisable import _register
+from pricebook.core.serialisable import _register, make_payload, read_payload
 
 Trade._SERIAL_TYPE = "trade"
 
 def _trade_to_dict(self):
-    d = {"type": "trade", "params": {
-        "direction": self.direction, "notional_scale": self.notional_scale,
-        "trade_id": self.trade_id, "counterparty": self.counterparty,
+    params = {
+        "direction": self.direction,
+        "notional_scale": self.notional_scale,
+        "trade_id": self.trade_id,
+        "counterparty": self.counterparty,
         "instrument": self.instrument.to_dict(),
-    }}
+    }
     if self.trade_date:
-        d["params"]["trade_date"] = self.trade_date.isoformat()
-    return d
+        params["trade_date"] = self.trade_date.isoformat()
+    return make_payload(self, params)
 
 @classmethod
 def _trade_from_dict(cls, d):
     from pricebook.core.serialisable import from_dict as _fd
     from datetime import date as _d
-    p = d["params"]
+    p = read_payload(d, cls)
     inst = _fd(p["instrument"])
-    return cls(instrument=inst, direction=p.get("direction", 1),
-               notional_scale=p.get("notional_scale", 1.0),
-               trade_date=_d.fromisoformat(p["trade_date"]) if p.get("trade_date") else None,
-               counterparty=p.get("counterparty", ""), trade_id=p.get("trade_id", ""))
+    return cls(
+        instrument=inst,
+        direction=p.get("direction", 1),
+        notional_scale=p.get("notional_scale", 1.0),
+        trade_date=_d.fromisoformat(p["trade_date"]) if p.get("trade_date") else None,
+        counterparty=p.get("counterparty", ""),
+        trade_id=p.get("trade_id", ""),
+    )
 
 Trade.to_dict = _trade_to_dict
 Trade.from_dict = _trade_from_dict
@@ -114,14 +120,15 @@ _register(Trade)
 Portfolio._SERIAL_TYPE = "portfolio"
 
 def _port_to_dict(self):
-    return {"type": "portfolio", "params": {
-        "name": self.name, "trades": [t.to_dict() for t in self.trades],
-    }}
+    return make_payload(self, {
+        "name": self.name,
+        "trades": [t.to_dict() for t in self.trades],
+    })
 
 @classmethod
 def _port_from_dict(cls, d):
     from pricebook.core.serialisable import from_dict as _fd
-    p = d["params"]
+    p = read_payload(d, cls)
     trades = [_fd(td) for td in p["trades"]]
     return cls(trades=trades, name=p.get("name", ""))
 

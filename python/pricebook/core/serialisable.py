@@ -96,6 +96,45 @@ def _check_schema_version(cls: type, found: int | None) -> None:
         )
 
 
+def make_payload(instance: Any, params: dict[str, Any]) -> dict[str, Any]:
+    """Build the standard `{type, params, schema_version}` envelope for a
+    `Serialisable` instance whose `to_dict` is hand-written.
+
+    Classes that override `to_dict` (rather than inheriting the auto-generated
+    one) MUST go through this helper instead of hand-rolling the dict —
+    otherwise `schema_version` is forgotten (audit B.1 B2). Wider context: G1
+    P3 Slice 2 added the schema-version slot but only to `Serialisable.to_dict`
+    and the two decorators; custom overrides were quietly outside that
+    coverage. `make_payload` closes the gap.
+
+        def _my_to_dict(self):
+            return make_payload(self, {
+                "foo": self.foo,
+                "bar": _serialise_atom(self.bar),
+            })
+    """
+    return {
+        "type": instance._SERIAL_TYPE,
+        "params": params,
+        _SCHEMA_VERSION_KEY: getattr(instance, "_SERIAL_SCHEMA_VERSION", 1),
+    }
+
+
+def read_payload(d: dict[str, Any], cls: type) -> dict[str, Any]:
+    """Inverse of `make_payload`: validate `schema_version` against `cls`'s
+    declared `_SERIAL_SCHEMA_VERSION` and return the `params` dict.
+
+    Replaces hand-rolled `p = d["params"]` in custom `from_dict` overrides.
+
+        @classmethod
+        def _my_from_dict(cls, d):
+            p = read_payload(d, cls)
+            return cls(foo=p["foo"], ...)
+    """
+    _check_schema_version(cls, d.get(_SCHEMA_VERSION_KEY))
+    return d["params"]
+
+
 def _register(cls: type) -> None:
     """Register a class. Validates _SERIAL_FIELDS exist on the class or its __init__."""
     key = getattr(cls, "_SERIAL_TYPE", None)

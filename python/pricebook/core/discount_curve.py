@@ -257,26 +257,38 @@ class DiscountCurve:
             return 0.0
         return (df1 - df2) / (tau * df2)
 
-from pricebook.core.serialisable import _register, _serialise_atom
+from pricebook.core.serialisable import _register, make_payload, read_payload
 
 DiscountCurve._SERIAL_TYPE = "discount_curve"
 DiscountCurve._SERIAL_FIELDS = []  # custom
 
 def _dc_to_dict(self):
     pillar_dfs = [float(df) for t, df in zip(self._times, self._dfs) if t > 0]
-    return {"type": "discount_curve", "params": {
+    return make_payload(self, {
         "reference_date": self.reference_date.isoformat(),
         "dates": [d.isoformat() for d in self.pillar_dates],
-        "dfs": pillar_dfs, "day_count": self.day_count.value,
-    }}
+        "dfs": pillar_dfs,
+        "day_count": self.day_count.value,
+        # Fix B.1 B2: interpolation method was previously dropped on round-trip.
+        "interpolation": self._interpolation.value,
+    })
 
 @classmethod
 def _dc_from_dict(cls, d):
     from datetime import date as _d
-    p = d["params"]
-    return cls(reference_date=_d.fromisoformat(p["reference_date"]),
-               dates=[_d.fromisoformat(s) for s in p["dates"]], dfs=p["dfs"],
-               day_count=DayCountConvention(p["day_count"]))
+    p = read_payload(d, cls)
+    interp = (
+        InterpolationMethod(p["interpolation"])
+        if "interpolation" in p
+        else InterpolationMethod.LOG_LINEAR   # back-compat for pre-fix payloads
+    )
+    return cls(
+        reference_date=_d.fromisoformat(p["reference_date"]),
+        dates=[_d.fromisoformat(s) for s in p["dates"]],
+        dfs=p["dfs"],
+        day_count=DayCountConvention(p["day_count"]),
+        interpolation=interp,
+    )
 
 DiscountCurve.to_dict = _dc_to_dict
 DiscountCurve.from_dict = _dc_from_dict
