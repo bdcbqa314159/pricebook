@@ -2,6 +2,24 @@
 
 ---
 
+## v0.876.0 — 2026-06-11
+
+**`DESIGN.md` — §6 roadmap rewritten as Gate × Phase hybrid.**
+
+- Old roadmap had 4 phases with significant overlap (CalibrationResult in P1, calibration layer in P2 — same effort, separate commits) and blurry themes ("foundational types" + "structural relocation"). Phase 2 was 20-27 slices bundling six different efforts.
+- New structure: **5 gates** (each a user-visible promise) × **10 phases** (each one architectural focus):
+  - **G1 Audit-ready** — P1 Calibration unified + P2 Market data L1 + P3 NumericalConfig & versioning (14-16 slices, 1-3 weeks). Prerequisite for the bottom-up audit.
+  - **G2 Production-grade** — P4 Scenarios & failures + P5 Repositories & per-layer tests (7-9 slices).
+  - **G3 Architecturally clean** — P6 small cleanups + P7 Risk relocation L3→L7 isolated (9-13 slices). P7 is the biggest single refactor; isolated so it doesn't poison its gate.
+  - **G4 Capability-complete** — P8 AAD as protocol + P9 Payoff algebra (10-13 slices).
+  - **G5 Performant at scale** — P10 C++ port (19-28 slices, open-ended).
+  - Total: **59-79 slices, 7-19 weeks** at the historical pricebook slice rate.
+- Each gate is shippable independently. G2 doesn't require G3; you can stop after G2 and have a meaningfully better library.
+- Section now includes a per-gate exit criteria, a dependency graph between phases, and "the first three slices of G1 P1" so the immediate next step after acceptance is unambiguous.
+- Executive summary + TOC updated to reflect the new structure.
+
+---
+
 ## v0.875.0 — 2026-06-11
 
 **`DESIGN.md` — theoretical design document (~30 pages).**

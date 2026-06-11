@@ -43,7 +43,7 @@ everything downstream is downstream of those.
    - 5.2 [Wrong-shape refactors](#section-5-2)
    - 5.3 [Nice-to-haves](#section-5-3)
    - 5.4 [Won't-fix](#section-5-4)
-6. [Roadmap](#section-6)
+6. [Roadmap](#section-6) — five gates (G1-G5), ten phases (P1-P10), 59-79 slices total
 
 ---
 
@@ -59,7 +59,7 @@ everything downstream is downstream of those.
 
 **The delta list** (section 5) sorts the changes by leverage. The top three are: introduce a `CalibrationResult` type and a calibration layer; move risk out of L3 into a meta-layer that depends only on `Pricable`; split market data from curves into its own L1. Each is one or two slices of work, with broad downstream impact.
 
-**The roadmap** (section 6) sequences these into four phases: foundational types (Phase 1), structural relocation (Phase 2), capability additions like AAD-as-protocol and failure-tolerant risk batches (Phase 3), and the C++ port of hot paths (Phase 4). Phase 1 should land before the bottom-up module audit so the audit measures the right things.
+**The roadmap** (section 6) is structured as **five gates** (each a user-visible promise) decomposed into **10 phases** (each one architectural focus). G1 Audit-ready (right types in place) → G2 Production-grade (failure handling, scenarios, persistence) → G3 Architecturally clean (risk relocated, structural cleanups) → G4 Capability-complete (AAD protocol, payoff algebra) → G5 Performant at scale (C++ port). Total: 59-79 slices, **7-19 weeks** at the pricebook slice rate. G1 (~14-16 slices, 1-3 weeks) is the prerequisite for the bottom-up module audit, which is the next major task after the design is accepted.
 
 ---
 
@@ -709,103 +709,148 @@ Conscious scope-outs. Listed so they do not haunt later.
 <a id="section-6"></a>
 ## 6. Roadmap
 
-Sequencing the delta list. Each phase is a coherent unit of work — completing it leaves the codebase in a good state to ship, even if subsequent phases are deferred.
+The roadmap has two axes. **Gates** are the narrative — each gate is a single user-visible promise (a thing the library does, or does better, after the gate). **Phases** inside each gate are the execution — each phase has one architectural focus and one bounded scope.
 
-### Phase 1 — Foundational types (before the bottom-up audit)
+A gate is shippable: completing all phases inside it leaves the codebase in a usefully better state, even if no subsequent gate is started. Gates can be paused between, not within.
 
-The audit (the next major task) is much more valuable if conducted against the right type contracts. So Phase 1 is the prerequisite.
+### Roadmap at a glance
 
-**P1.1 `CalibrationResult` type + provenance** (A1). 3-4 slices.
+| Gate | What the user gets | Phases inside | Slice count |
+|---|---|---|---:|
+| **G1 — Audit-ready** | The bottom-up module audit can measure against the right type contracts, not the current ad-hoc shapes | P1 Calibration unified + P2 Market data L1 + P3 NumericalConfig & versioning | 14-16 |
+| **G2 — Production-grade** | Failure-tolerant risk batches; composable scenario library; auditable persistence | P4 Scenarios & failures + P5 Repositories & per-layer tests | 7-9 |
+| **G3 — Architecturally clean** | Risk depends on `Pricable` not on concrete instruments; small structural cleanups land | P6 Cleanups + P7 Risk relocation (isolated) | 9-13 |
+| **G4 — Capability-complete** | AAD as a protocol available to every model; bounded payoff algebra for exotics | P8 AAD protocol + P9 Payoff algebra | 10-13 |
+| **G5 — Performant at scale** | C++ hot paths (MC, PDE, AAD tape, curve eval) | P10 C++ port | 19-28 |
+| **Total** | | 10 phases | **59-79** |
 
-**P1.2 `MarketSnapshot` at L1** (A2). 3 slices.
+At the historical pricebook slice rate of 5-15 per week (1-3/day), this is **6-15 weeks of focused work plus the open-ended C++ port**.
 
-**P1.3 `NumericalConfig` on `PricingContext`** (A5). 2 slices.
+### Gate 1 — Audit-ready
 
-**P1.4 Schema versioning on `@serialisable`** (A6). 2 slices.
+The most important gate to land before anything else. The bottom-up module audit (the next major task after this document is accepted) is the largest piece of remaining work in the project; doing it against the current ad-hoc types will lock in those types as the de facto contract. Spending two weeks first on the right contracts saves months of audit rework.
 
-**P1.5 `pe/` relocation** (R4). 1 slice — small but should land in Phase 1 because it's so cheap and the cleanup is visible.
+**P1 — Calibration unified.** *(A1 CalibrationResult + R2 calibration as a layer; 6-7 slices)*
+Define `pricebook.calibration.CalibrationResult` with full provenance: `(id, model_class, parameters, quotes_fitted, residuals, optimiser, converged, diagnostics, timestamp, code_version, market_snapshot_id)`. Define the `Calibrator` protocol at L6. Migrate the existing calibration entry points (`bond_hazard_bootstrap`, `g2pp_calibration`, `hw_calibration`, `jump_calibration`, `lmm_calibration`, `sabr` calibration, curve bootstrapping) to produce uniform results. Per-family parameter payloads stay in their current modules.
 
-**Total: ~11-12 slices, ~1-2 weeks.**
+**P2 — Market data L1 + `MarketSnapshot`.** *(A2 MarketSnapshot + R3 market data L1 split; 4-5 slices)*
+Create `pricebook.market_data` at L1. Define `MarketSnapshot`, `Quote`, `QuoteId`, `FixingHistory` as the canonical raw-data types. Move existing `core.market_data` content into the new package. Curve constructors take snapshots; the link is recorded. After this, the dependency graph distinguishes "this number came from a quote" from "this number came from a fit."
 
-After Phase 1, the bottom-up module audit can proceed against the new types: each module is evaluated for whether its calibrations produce proper `CalibrationResult`s, whether its market access flows through `MarketSnapshot`, whether its numerical config is in the right place.
+**P3 — `NumericalConfig` & schema versioning.** *(A5 NumericalConfig + A6 schema versioning; 4 slices)*
+Define `NumericalConfig` (mc_paths, pde_grid, solver_tol, seed, ...) and carry it on `PricingContext`. Defaults live in one place; bumping is one line. Extend `@serialisable` with `version: int` and provide a migration registration mechanism — all existing types default to version 1.
 
-### Phase 2 — Structural relocation
+**Gate exit criteria:** every calibration in the codebase returns a `CalibrationResult`; every curve carries a `MarketSnapshot` reference; `PricingContext` carries a `NumericalConfig`; every serialised type has a version field. The audit can begin.
 
-The big refactors. Each is large but bounded.
+### Gate 2 — Production-grade
 
-**P2.1 Calibration as a layer** (R2). 4-5 slices. Defines the `Calibrator` protocol and consolidates the entry points.
+Once the right types are in place, the things a desk would *actually notice* tomorrow: failure-tolerant risk batches, a real scenario library, persistence that survives schema migrations.
 
-**P2.2 `Scenario` protocol + library** (A3). 2 slices.
+**P4 — Scenarios & failure handling.** *(A3 Scenario protocol + A4 PricingFailure & RiskRun; 4-5 slices)*
+Define `Scenario` Protocol with `name: str` and `apply(ctx) -> ctx`. Wrap existing parallel/key-rate/vol-shock functions as concrete scenarios. Add `CompositeScenario` for chaining. Build a `ScenarioLibrary` of historical scenarios (2008, 2015, 2020, ...). In parallel: define `PricingFailure` typed family (`MissingMarketData`, `CalibrationFailed`, `NumericalDivergence`, `Timeout`). Risk batch entry points return `RiskRun` with `results` *and* `failures` — single-trade calls still raise, batches accumulate.
 
-**P2.3 `PricingFailure` + failure-tolerant `RiskRun`** (A4). 2-3 slices.
+**P5 — Repositories & per-layer tests.** *(N3 repository pattern + N4 test architecture; 3-4 slices)*
+Implement `TradeRepository`, `CalibrationResultRepository`, `MarketSnapshotRepository` as thin wrappers over `db.PricebookDB` + serialisation. Reorganise `tests/` into per-layer directories mirroring the production layering; test code imports respect the same layer rule as production code. This is partly mechanical; the discipline part is ongoing.
 
-**P2.4 Risk relocation L3 → L7** (R1). 6-10 slices. The single biggest item in the roadmap.
+**Gate exit criteria:** a desk can run an overnight risk batch with named scenarios, see typed failures in the morning report, and reload yesterday's calibration result by id.
 
-**P2.5 Market data L1 split** (R3). 4-5 slices.
+### Gate 3 — Architecturally clean
 
-**P2.6 `registry.py` into `pricing.registry`** (R5). 2 slices.
+The structural refactors. After G3 the dependency graph matches the reference design at the layer level.
 
-**Total: ~20-27 slices, ~3-5 weeks.**
+**P6 — Small structural cleanups.** *(R4 pe/ relocation + R5 registry consolidation; 3 slices)*
+Move `pe/` from L0 (where it sits as an artefact of "imports nothing from below") to L7 portfolio/reporting. Consolidate `pricebook.registry` into `pricebook.pricing.registry` (with the `pricing` package created if it doesn't exist as a real package today). Mechanical, low-risk, but the cleanup is visible in `ARCHITECTURE.md` and improves discoverability.
 
-After Phase 2, the architecture matches the reference design at the layer-and-protocol level. The library is significantly easier to extend and to reason about.
+**P7 — Risk relocation L3 → L7.** *(R1; 6-10 slices)*
+The biggest single refactor in the roadmap. Define a `Pricable` protocol in `core/`. Each instrument layer declares its concrete classes as `Pricable` via the existing registry. Risk modules are migrated to depend only on the protocol — replacing `isinstance(trade, FixedRateBond) / isinstance(trade, Swap) / ...` ladders with a single uniform code path. Some Greek formulas may move into the instrument (if they are structurally specific to that instrument); the rest become generic bump-and-reprice. Done in sub-slices, with the risk module test suite serving as the regression net.
 
-### Phase 3 — Capability additions
+**Gate exit criteria:** `pricebook.risk` imports only from `core` (via the `Pricable` protocol) and `pricing`. The dependency graph regenerates with risk at L7 instead of L3.
 
-**P3.1 AAD as a protocol from L0.** Promote the existing `numerical/auto_diff.py` to be the AD layer that models can opt into via a generic-scalar discipline. ~5 slices.
+### Gate 4 — Capability-complete
 
-**P3.2 Payoff algebra (bounded)** (N1). 5-8 slices.
+New things the library couldn't do before. Independent of G3 in principle (you could do G4 before G7 if you wanted), but the work is easier on a clean architecture.
 
-**P3.3 Repository pattern** (N3). 2-3 slices.
+**P8 — AAD as a protocol from L0.** *(P3.1; 5 slices)*
+Promote `numerical/auto_diff.py` to the AD layer that models opt into via generic-scalar discipline. The model writer codes against `Numeric` (a Protocol over `float` and `Dual`), and AAD just works when an AD scalar is passed in. Risk runs that use AD compute Greeks in time comparable to a single price.
 
-**P3.4 Test architecture per layer** (N4). 1 slice + ongoing.
+**P9 — Payoff algebra (bounded).** *(N1; 5-8 slices)*
+A small algebra of payoff primitives — `Sum`, `Product`, `Max`, `Min`, `Indicator`, `Conditional`, `Discount`, `Forward`, `Spot`. Exotic structured products are assembled by composition rather than by writing a new pricer. Not a Turing-complete scripting language; explicitly bounded to keep maintenance honest.
 
-**Total: ~13-17 slices, ~3-4 weeks.**
+**Gate exit criteria:** the SABR model in pricebook supports AAD Greeks via a one-line model attribute. An autocallable can be assembled from `Indicator`, `Discount`, `Max` primitives without writing a new pricer.
 
-### Phase 4 — C++ port of hot paths
+### Gate 5 — Performant at scale
 
-Per the reference design's empirical cut: profile first, port the bottleneck, keep the Python version as the reference.
+The C++ port of hot paths. Open-ended and ongoing — the gate is "in progress" rather than "completed" for a long time, but it has a meaningful first-version milestone.
 
-**P4.1 MC inner loop.** Path generators and payoff accumulators. The Python version becomes the test oracle. ~6-10 slices including pybind11 wrappers and ABI design.
+**P10 — C++ port.** *(P4 hot paths; 19-28 slices for the initial port)*
+- *MC inner loop* — path generators and payoff accumulators (6-10 slices including pybind11 wrappers and ABI design)
+- *PDE stencils* — Crank-Nicolson, ADI, Hundsdorfer-Verwer kernels (4-6 slices)
+- *AAD tape and playback* — forward pass and reverse pass kernels (6-8 slices)
+- *Curve evaluation hot path* — `df(t)` for C++ MC inner loops (3-4 slices)
 
-**P4.2 PDE stencils.** Crank-Nicolson, ADI, Hundsdorfer-Verwer kernels. ~4-6 slices.
+The Python implementations stay as test oracles. Profile first, port the bottleneck, keep the Python version available.
 
-**P4.3 AAD tape and playback.** ~6-8 slices.
+**Gate exit criteria:** an MC pricing of a 10-year basket option with 100k paths is at least 5× faster than the pure-Python implementation at the same numerical tolerance, with the Python version still producing the same answer to numerical precision.
 
-**P4.4 Curve evaluation hot path.** `df(t)` called from C++ MC paths needs C++ access. ~3-4 slices.
-
-**Total: ~19-28 slices, ~4-8 weeks for the initial port. Ongoing work indefinitely.**
-
-### What must land before what
+### Dependency graph between gates and phases
 
 ```
-P1 (foundational types) →  audit (next major task)
-                            │
-                            ▼
-                          P2 (structural)
-                            │
-                            ▼
-                          P3 (capabilities)
-                            │
-                            ▼
-                          P4 (C++ port)
+G1 — Audit-ready
+  P1  Calibration unified ─────┐
+  P2  Market data L1 ──────────┤── BOTTOM-UP AUDIT (the next major task)
+  P3  NumericalConfig & ver. ──┘
+  │
+  ▼
+G2 — Production-grade
+  P4  Scenarios & failures
+  P5  Repositories & tests
+  │
+  ▼
+G3 — Architecturally clean
+  P6  Cleanups (pe/, registry)
+  P7  Risk relocation L3→L7  ◄─── biggest single refactor; do isolated
+  │
+  ▼
+G4 — Capability-complete
+  P8  AAD as protocol
+  P9  Payoff algebra
+  │
+  ▼
+G5 — Performant at scale
+  P10 C++ port  ◄─── ongoing; ships in chunks
 ```
 
-P3 and P4 are independent of each other (you can port hot paths to C++ without waiting for the payoff algebra), but both depend on the foundational types from P1 and the structural relocation from P2.
+G2 and G4 are partly parallelisable with the gate before them — e.g., you could start P9 (payoff algebra) before all of G3 lands — but the simpler narrative is one gate at a time. The big precedence rules are:
 
-### Estimates with uncertainty
+- **G1 before the audit.** Hard constraint.
+- **G3 P7 (risk relocation) after G1.** The risk modules need `CalibrationResult` and `MarketSnapshot` types to migrate cleanly.
+- **G4 P8 (AAD protocol) after G3 P7.** AAD over a risk system that's tightly coupled to instruments is the wrong shape to attempt the port from.
+- **G5 (C++) can start any time after G1**, in principle. In practice it's safer after G3 because the C++ interface should be cut against the clean Python protocols, not the messy current ones.
 
-Slice counts are rough. The historical slice rate in pricebook averages ~1-3 slices per day across both work types. A working week is 5-15 slices.
+### Wall-clock estimates
 
-| Phase | Slice count | Weeks (low-med-high) |
+At the pricebook slice rate (5-15 slices per week, 1-3 per day):
+
+| Gate | Slices | Wall-clock (low-med-high) |
 |---|---:|---|
-| P1 | 11-12 | 1 – 2 – 3 |
-| P2 | 20-27 | 3 – 5 – 7 |
-| P3 | 13-17 | 2 – 3 – 4 |
-| P4 | 19-28 | 4 – 6 – 8 |
-| **Total** | **63-84** | **10 – 16 – 22** |
+| G1 Audit-ready | 14-16 | 1 wk – 2 wk – 3 wk |
+| G2 Production-grade | 7-9 | 1 wk – 1.5 wk – 2 wk |
+| G3 Architecturally clean | 9-13 | 1 wk – 2 wk – 3 wk |
+| G4 Capability-complete | 10-13 | 1.5 wk – 2 wk – 3 wk |
+| G5 Performant at scale | 19-28 (initial port) | 3 wk – 5 wk – 8 wk |
+| **Total** | **59-79** | **7 wk – 12.5 wk – 19 wk** |
 
-The numbers above are commitment-quality estimates only if the design (sections 1-3) is accepted as written. If sections 1-3 change after pushback — particularly the layer cut or the calibration placement — the roadmap re-scopes from P1 down.
+Estimates are commitment-quality only if sections 1-3 are accepted as written. The two load-bearing decisions remain the **9-layer cut** and the **calibration-as-its-own-layer placement** — change either and the roadmap re-scopes from G1 down.
+
+### How to start: the first three slices of G1 P1
+
+Concretely, the first three commits after this document is accepted:
+
+1. **Slice 1.** New `pricebook.calibration` package skeleton + `CalibrationResult` dataclass + `Calibrator` Protocol. No migrations yet. Tests for the dataclass and the protocol shape.
+2. **Slice 2.** Migrate `bond_hazard_bootstrap` (the most recently-touched calibration, fresh in everyone's memory) to return the new `CalibrationResult`. The `HazardBootstrapResult` becomes a thin compatibility wrapper. Tests for the migrated entry point.
+3. **Slice 3.** Migrate `g2pp_calibration` and `hw_calibration` to the new result type. Tests.
+
+After these three slices, the pattern is established; the remaining four-five calibrators (LMM, SABR, jump, curve bootstrap, multicurve) follow the same template. G1 P1 is done at slice 6-7.
 
 ---
 
-*End of design document. Next step: pushback on sections 1-3 and the delta list, then Phase 1 begins.*
+*End of design document. Next step: pushback on sections 1-3 and the delta list, then G1 P1 slice 1 begins.*
