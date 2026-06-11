@@ -2,6 +2,54 @@
 
 ---
 
+## v0.904.0 — 2026-06-11
+
+**Generic `to_dict` mutation-safety sweep — `vars(self)` → `dict(vars(self))` across L0.**
+
+Closes a recurring footgun cluster surfaced by audit findings A.5 B1, A.7 B1, C.1 B1, and ~25 other instances of the same pattern in `book.py`, `daily_pnl.py`, `settlement.py`, `mandate.py`, `greeks.py`, `dependency_graph.py`, `convergence_framework.py`, `numerical_safety.py`, `numerical_method_map.py`, `market_data.py` (legacy), `trade.py` (orphan), `approximation.py`, `solvers.py`.
+
+### What was broken
+
+```python
+@dataclass
+class Result:
+    x: float
+    def to_dict(self) -> dict:
+        return vars(self)   # ← returns self.__dict__ DIRECTLY, not a copy
+```
+
+Mutating the returned dict mutated the dataclass instance. Confirmed live in audit A.5 B1:
+```
+r = SolverResult(root=1.0, ...)
+d = r.to_dict()
+d['root'] = 999.0
+# r.root is now 999.0
+```
+
+30 callsites had this pattern across `pricebook.core.*`.
+
+### Change
+
+- All 30 `return vars(self)` lines rewritten to `return dict(vars(self))` (defensive copy). Single regex sweep across 13 files; idempotent and behaviour-preserving for callers that don't mutate.
+- Deleted the dead-code orphan `Trade.to_dict` at `core/trade.py:56-57` — it sat inside the `@dataclass` body but was overwritten at module-bottom by `_trade_to_dict` via `Trade.to_dict = _trade_to_dict`. Replaced with a one-line comment pointing to the real binding (closes audit C.1 B1).
+- 9 new regression tests in `test_to_dict_mutation_safety.py` covering `SolverResult`, the 3 `approximation.py` dataclasses, `Greeks`, `Position` (book), `DailyPnL`, `CashSettlementResult`, `PortfolioHolding` (mandate). Each asserts that mutating the returned dict doesn't propagate to the source.
+- Full parallel suite: **11930 passed in 3:28**. Zero regressions.
+
+### L0 audit — closure
+
+With this slice, **every confirmed bug from Pass A through Pass D of the L0 audit is now either fixed or queued as ARCH/LOW**.
+
+| Severity | Count | Status |
+|---|---:|---|
+| HIGH | 5 | ✅ all fixed |
+| MED | 6 | ✅ all fixed |
+| LOW | many | mostly closed (`to_dict` sweep + Tokyo + ICMA test gaps + serialisation A.11 B3-B7 queued) |
+| ARCH | 1 | B.3 C1 — legacy market_data deferred to Gate 2 design decision |
+
+The pricebook L0 foundations are materially more correct than at the start of this session. ~25 commits, **11930 tests passing**, every fix landed with regression tests, legacy-debt ledger tracks every backwards-compat shim, audit chain (G1) wired end-to-end.
+
+---
+
 ## v0.903.0 — 2026-06-11
 
 **Fix C.7 B1 — settlement lag now interpreted as business days; calendar honoured.**

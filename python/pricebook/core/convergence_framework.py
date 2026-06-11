@@ -38,7 +38,7 @@ class ConvergenceStudyResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Strong convergence study ----
 
 def strong_convergence_study(
@@ -162,7 +162,7 @@ class SchemeComparisonResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def scheme_comparison(
     studies: list[ConvergenceStudyResult],
 ) -> SchemeComparisonResult:

@@ -37,7 +37,7 @@ class DailyPnL:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def compute_daily_pnl(
     book: Book,
     prior_ctx: PricingContext,
@@ -115,7 +115,7 @@ class TradeAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BookAttribution:
     """P&L attribution for a book."""
@@ -131,7 +131,7 @@ class BookAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _attribute_trade(
     trade: Trade,
     prior_ctx: PricingContext,

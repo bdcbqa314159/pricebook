@@ -34,4 +34,4 @@ class Greeks:
         return 0.5 * self.gamma
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))

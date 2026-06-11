@@ -56,7 +56,7 @@ class PortfolioHolding:
     issue_size: float = 0.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -70,7 +70,7 @@ class MandateCheckResult:
     breach_details: str = ""
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -111,7 +111,7 @@ class Mandate:
     min_issue_size: float | None = None
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

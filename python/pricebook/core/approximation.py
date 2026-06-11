@@ -46,7 +46,7 @@ class ChebyshevInterpolant:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def chebyshev_interpolate(
     f: Callable[[float | np.ndarray], float | np.ndarray],
     a: float,
@@ -131,7 +131,7 @@ class PadeApproximant:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def pade_approximant(
     taylor_coeffs: list[float] | np.ndarray,
     L: int,
@@ -200,7 +200,7 @@ class RichardsonTable:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def richardson_table(
     values: list[float],
     order: int = 2,

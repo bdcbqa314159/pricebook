@@ -47,7 +47,7 @@ class MethodRecommendation:
     features: list[str]         # detected features
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

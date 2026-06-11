@@ -156,7 +156,7 @@ class CurveConfig:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class PipelineConfig:
     """Configuration for building a full PricingContext from a snapshot."""
@@ -169,7 +169,7 @@ class PipelineConfig:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class MissingQuoteError(Exception):
     """Raised when required quotes are not found in snapshot."""
 

@@ -82,7 +82,7 @@ class Position:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Limit framework ----
 
 @dataclass
@@ -97,7 +97,7 @@ class LimitBreach:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BookLimits:
     """Position limits for a book.
@@ -114,7 +114,7 @@ class BookLimits:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Book ----
 
 class Book:

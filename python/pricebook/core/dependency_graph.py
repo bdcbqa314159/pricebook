@@ -58,7 +58,7 @@ class GraphNode:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class DependencyGraph:
     """DAG of computation dependencies.
 

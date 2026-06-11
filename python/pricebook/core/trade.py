@@ -52,9 +52,9 @@ class Trade:
         return self.direction * self.notional_scale * raw_pv
 
 
+# `Trade.to_dict` / `Trade.from_dict` are bound at the bottom of this file
+# (see `_trade_to_dict`). The previous orphan placeholder here was dead code.
 
-    def to_dict(self) -> dict:
-        return vars(self)
 class Portfolio:
     """A collection of trades.
 
