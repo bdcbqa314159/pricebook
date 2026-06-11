@@ -1,7 +1,10 @@
 """Discount curve built from a set of discount factors at known dates."""
 
+from __future__ import annotations
+
 import math
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -11,6 +14,9 @@ from pricebook.core.interpolation import (
     create_interpolator,
     Interpolator,
 )
+
+if TYPE_CHECKING:
+    from pricebook.calibration import CalibrationResult
 
 
 class DiscountCurve:
@@ -67,6 +73,12 @@ class DiscountCurve:
         self._interpolator: Interpolator = create_interpolator(
             interpolation, self._times, self._dfs
         )
+
+        # Calibration provenance — set by bootstrap entry points (G1 P1 Slice 5).
+        # `None` when the curve was constructed directly (e.g., from flat rates
+        # or hand-built pillars). When populated, carries the audit chain back
+        # to the calibration inputs.
+        self.calibration_result: "CalibrationResult | None" = None
 
     @property
     def pillar_times(self) -> np.ndarray:

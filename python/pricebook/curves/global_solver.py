@@ -176,7 +176,47 @@ def global_bootstrap(
             RuntimeWarning,
         )
 
-    return _make_curve(dfs)
+    curve = _make_curve(dfs)
+
+    # Attach canonical CalibrationResult (G1 P1 Slice 5).
+    final_res = _residuals(dfs)
+    from pricebook.calibration import (
+        CalibrationDiagnostics,
+        CalibrationResult,
+        ObjectiveKind,
+        OptimiserSpec,
+    )
+    quotes = []
+    for inst_type, mat, _rate in all_instruments:
+        quotes.append(f"{inst_type}_{mat.isoformat()}")
+    parameters = {f"df({d.isoformat()})": float(df) for d, df in zip(pillar_dates, dfs)}
+    curve.calibration_result = CalibrationResult.new(
+        model_class="discount_curve_global",
+        parameters=parameters,
+        residuals=[float(r) for r in final_res],
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(
+            algorithm="newton-global",
+            tolerance=tol,
+            max_iterations=max_iter,
+            extra={
+                "interpolation": str(interpolation.value),
+                "deposit_dc": str(deposit_dc.value),
+                "swap_dc": str(swap_dc.value),
+            },
+        ),
+        iterations=int(iteration + 1) if 'iteration' in dir() else 0,
+        converged=bool(converged),
+        quotes_fitted=quotes,
+        diagnostics=CalibrationDiagnostics(
+            extra={
+                "n_deposits": len(deposits),
+                "n_swaps": len(swaps),
+                "max_residual_abs": float(np.max(np.abs(final_res))),
+            },
+        ),
+    )
+    return curve
 
 
 # ---------------------------------------------------------------------------

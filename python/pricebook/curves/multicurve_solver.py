@@ -25,17 +25,52 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 
 @dataclass
 class MultiCurveResult:
-    """Result of simultaneous multi-curve calibration."""
+    """Result of simultaneous multi-curve calibration.
+
+    `calibration_result` is the canonical artefact (G1 P1 Slice 5).
+    `to_calibration_result()` returns the stored instance or builds one
+    on-demand from the existing fields.
+    """
     ois_curve: DiscountCurve
     projection_curve: DiscountCurve
     residual: float
     n_iterations: int
     jacobian: np.ndarray | None
-
-
+    calibration_result: "CalibrationResult | None" = None
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return {
+            "residual": self.residual,
+            "n_iterations": self.n_iterations,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
+        }
+
+    def to_calibration_result(self):
+        """Return the canonical CalibrationResult, building on-demand if needed."""
+        if self.calibration_result is not None:
+            return self.calibration_result
+        from pricebook.calibration import (
+            CalibrationResult,
+            ObjectiveKind,
+            OptimiserSpec,
+        )
+        return CalibrationResult.new(
+            model_class="multicurve",
+            parameters={},
+            residuals=[self.residual],
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(
+                algorithm="newton-multicurve",
+                tolerance=0.0,
+                max_iterations=self.n_iterations,
+            ),
+            iterations=self.n_iterations,
+            converged=self.residual < 1e-6,
+        )
+
+
 def multicurve_newton(
     reference_date,
     ois_instruments: list[dict],
@@ -152,7 +187,15 @@ def multicurve_newton(
         residual = float(np.max(np.abs(F)))
         if residual < tol:
             ois, proj = _build_curves(x)
-            return MultiCurveResult(ois, proj, residual, iteration + 1, jacobian)
+            cr = _build_multicurve_cr(
+                ois_pillar_dates, projection_pillar_dates, x,
+                F, iteration + 1, True, tol, max_iter, day_count,
+                ois_instruments, projection_instruments,
+            )
+            ois.calibration_result = cr
+            proj.calibration_result = cr
+            return MultiCurveResult(ois, proj, residual, iteration + 1, jacobian,
+                                    calibration_result=cr)
 
         jacobian = _numerical_jacobian(x)
         try:
@@ -181,7 +224,63 @@ def multicurve_newton(
         RuntimeWarning,
         stacklevel=2,
     )
-    return MultiCurveResult(ois, proj, float(residual), max_iter, jacobian)
+    cr = _build_multicurve_cr(
+        ois_pillar_dates, projection_pillar_dates, x,
+        _reprice_errors(x), max_iter, False, tol, max_iter, day_count,
+        ois_instruments, projection_instruments,
+    )
+    ois.calibration_result = cr
+    proj.calibration_result = cr
+    return MultiCurveResult(ois, proj, float(residual), max_iter, jacobian,
+                            calibration_result=cr)
+
+
+def _build_multicurve_cr(
+    ois_pillar_dates, projection_pillar_dates, x, residuals_array,
+    iterations, converged, tol, max_iter, day_count,
+    ois_instruments, projection_instruments,
+):
+    """Build the CalibrationResult for a multicurve calibration."""
+    from pricebook.calibration import (
+        CalibrationDiagnostics,
+        CalibrationResult,
+        ObjectiveKind,
+        OptimiserSpec,
+    )
+    n_ois = len(ois_pillar_dates)
+    parameters = {}
+    for i, d in enumerate(ois_pillar_dates):
+        parameters[f"ois_df({d.isoformat()})"] = float(x[i])
+    for j, d in enumerate(projection_pillar_dates):
+        parameters[f"proj_df({d.isoformat()})"] = float(x[n_ois + j])
+
+    quotes = (
+        [f"ois_{inst.get('type','?')}_{inst.get('maturity')}" for inst in ois_instruments]
+        + [f"proj_{inst.get('type','?')}_{inst.get('maturity')}" for inst in projection_instruments]
+    )
+
+    return CalibrationResult.new(
+        model_class="multicurve",
+        parameters=parameters,
+        residuals=[float(r) for r in residuals_array],
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(
+            algorithm="newton-multicurve",
+            tolerance=tol,
+            max_iterations=max_iter,
+            extra={"day_count": str(day_count.value)},
+        ),
+        iterations=int(iterations),
+        converged=bool(converged),
+        quotes_fitted=quotes,
+        diagnostics=CalibrationDiagnostics(
+            extra={
+                "n_ois_pillars": n_ois,
+                "n_proj_pillars": len(projection_pillar_dates),
+                "max_residual_abs": float(np.max(np.abs(residuals_array))),
+            },
+        ),
+    )
 
 
 # ---- Curve validation ----

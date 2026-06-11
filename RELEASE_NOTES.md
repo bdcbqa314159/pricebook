@@ -2,6 +2,24 @@
 
 ---
 
+## v0.881.0 — 2026-06-11
+
+**G1 P1 Slice 5 — curve bootstrap produces `CalibrationResult`.**
+
+The highest-fan-out calibration in the codebase: nearly every pricing call traces back to a bootstrapped discount curve. Six of seven calibration families now carry the canonical artefact (bond hazard, Hull-White, G2++, LMM, SABR, **curve bootstrap**); jump calibration is the last one (Slice 6).
+
+- **`DiscountCurve.calibration_result: CalibrationResult | None`** — new instance attribute on the L0 curve class itself. Defaults to `None` for curves built directly (`flat(...)`, manual pillar construction); set to the canonical artefact by bootstrap entry points. Type hinted under `TYPE_CHECKING` to avoid a runtime import cycle between `core` and `calibration`.
+- **`curves.bootstrap.bootstrap()`** — sequential brentq-per-pillar bootstrap now constructs a `CalibrationResult` after the round-trip verification step and attaches it to the returned curve. `model_class="discount_curve_bootstrap"`, algorithm `"brentq-sequential"`, residuals = (model_rate − market_rate) per instrument (deposits, FRAs, futures) or (PV_fixed − PV_float) per swap, parameters keyed by pillar date as `df(YYYY-MM-DD)`. RMS residual ~1e-14 (machine precision, exact fit by construction).
+- **`curves.global_solver.global_bootstrap()`** — Newton-global simultaneous solve. Residuals are the final per-instrument repricing errors; algorithm `"newton-global"`, `tol` and `max_iter` passed through to `OptimiserSpec`. Converged flag captures whether the Newton loop hit `tol` before `max_iter`.
+- **`curves.multicurve_solver.multicurve_newton()`** — joint OIS + projection calibration. Both `MultiCurveResult.calibration_result` AND `ois_curve.calibration_result` AND `projection_curve.calibration_result` get the SAME `CalibrationResult` instance (they share the calibration). Parameters carry an `ois_df(...)` / `proj_df(...)` prefix to distinguish the two pillar sets. `MultiCurveResult` gains a `to_calibration_result()` method that returns the stored instance or builds on-demand.
+- 17 new tests in `test_calibration_result_curve_bootstrap.py`: default-None on `DiscountCurve.flat`, populated by `bootstrap()` / `global_bootstrap()` / `multicurve_newton()`, residual sanity (machine precision for sequential, sub-tol for Newton), parameter naming, quote naming, unique-id-per-call, multicurve cross-attachment, back-compat for hand-constructed `MultiCurveResult`.
+- 40 tests pass across the full curve family (bootstrap + global_solver + multicurve_solver + new Slice 5 tests) — no regression.
+- `coupled_bootstrap` and `bootstrap_forward_curve` not migrated in this slice — deferred to Slice 5b if needed.
+
+Next: Slice 6 covers `jump_calibration` — the last calibration family.
+
+---
+
 ## v0.880.0 — 2026-06-11
 
 **G1 P1 Slice 4 — LMM + SABR calibration produce `CalibrationResult`.**

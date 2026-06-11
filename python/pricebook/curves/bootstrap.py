@@ -2,6 +2,12 @@
 
 from datetime import date
 
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
@@ -194,7 +200,133 @@ def bootstrap(
                        fixed_frequency, float_frequency, calendar, convention,
                        hw_convexity_a, hw_convexity_sigma, turn_of_year_spread)
 
+    # --- Attach the canonical CalibrationResult (G1 P1 Slice 5) ---
+    curve.calibration_result = _build_bootstrap_calibration_result(
+        curve, reference_date, deposits, swaps, fras, futures,
+        deposit_day_count, fixed_day_count, float_day_count,
+        fixed_frequency, float_frequency, calendar, convention,
+        hw_convexity_a, hw_convexity_sigma, turn_of_year_spread,
+        interpolation,
+    )
+
     return curve
+
+
+def _build_bootstrap_calibration_result(
+    curve, reference_date, deposits, swaps, fras, futures,
+    deposit_day_count, fixed_day_count, float_day_count,
+    fixed_frequency, float_frequency, calendar, convention,
+    hw_convexity_a, hw_convexity_sigma, turn_of_year_spread,
+    interpolation,
+) -> CalibrationResult:
+    """Build the CalibrationResult artefact for a bootstrapped discount curve.
+
+    Residuals are model-minus-market in rate units (deposits/FRAs/futures) or
+    in PV units of par (swaps — model PV_fixed - PV_float, which should be ~0
+    by construction). Parameters are the pillar discount factors keyed by
+    pillar date.
+    """
+    import math as _math
+
+    quotes: list[str] = []
+    residuals: list[float] = []
+
+    for mat, rate in deposits:
+        tau = year_fraction(reference_date, mat, deposit_day_count)
+        if tau > 0:
+            model_rate = (1.0 / curve.df(mat) - 1.0) / tau
+            quotes.append(f"deposit_{mat.isoformat()}")
+            residuals.append(model_rate - rate)
+
+    for mat, par_rate in swaps:
+        fixed_sched = generate_schedule(
+            reference_date, mat, fixed_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        float_sched = generate_schedule(
+            reference_date, mat, float_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        pv_fixed = 0.0
+        for i in range(1, len(fixed_sched)):
+            yf = year_fraction(fixed_sched[i-1], fixed_sched[i], fixed_day_count)
+            pv_fixed += par_rate * yf * curve.df(fixed_sched[i])
+        pv_float = 0.0
+        for i in range(1, len(float_sched)):
+            d1, d2 = float_sched[i - 1], float_sched[i]
+            df1 = curve.df(d1)
+            df2 = curve.df(d2)
+            yf = year_fraction(d1, d2, float_day_count)
+            fwd = (df1 - df2) / (yf * df2)
+            pv_float += fwd * yf * df2
+        quotes.append(f"swap_{mat.isoformat()}")
+        residuals.append(pv_fixed - pv_float)  # ~0 by construction
+
+    if fras:
+        for start, end, fra_rate in fras:
+            tau = year_fraction(start, end, deposit_day_count)
+            if tau > 0:
+                df_s, df_e = curve.df(start), curve.df(end)
+                model_fwd = (df_s - df_e) / (tau * df_e)
+                quotes.append(f"fra_{start.isoformat()}_{end.isoformat()}")
+                residuals.append(model_fwd - fra_rate)
+
+    if futures:
+        for start_date, end_date, fut_rate in futures:
+            tau = year_fraction(start_date, end_date, deposit_day_count)
+            if tau > 0:
+                conv_adj = 0.0
+                if hw_convexity_a > 0 and hw_convexity_sigma > 0:
+                    t_start = year_fraction(reference_date, start_date, deposit_day_count)
+                    t_end = year_fraction(reference_date, end_date, deposit_day_count)
+                    def _B(s, t):
+                        return (1 - _math.exp(-hw_convexity_a * (t - s))) / hw_convexity_a
+                    conv_adj = 0.5 * hw_convexity_sigma**2 * _B(t_start, t_end) * (
+                        _B(0, t_end) - _B(0, t_start)
+                    )
+                expected_fwd = fut_rate - conv_adj
+                if turn_of_year_spread > 0 and start_date.year != end_date.year:
+                    expected_fwd += turn_of_year_spread
+                df_s, df_e = curve.df(start_date), curve.df(end_date)
+                model_fwd = (df_s - df_e) / (tau * df_e)
+                quotes.append(f"future_{start_date.isoformat()}_{end_date.isoformat()}")
+                residuals.append(model_fwd - expected_fwd)
+
+    # Parameters: pillar discount factors keyed by pillar date.
+    parameters = {
+        f"df({d.isoformat()})": float(df)
+        for d, df in zip(curve.pillar_dates, [curve.df(d) for d in curve.pillar_dates])
+    }
+
+    return CalibrationResult.new(
+        model_class="discount_curve_bootstrap",
+        parameters=parameters,
+        residuals=residuals,
+        objective=ObjectiveKind.SSE,           # per-pillar exact fit; residuals ~0
+        optimiser=OptimiserSpec(
+            algorithm="brentq-sequential",
+            tolerance=1e-12,                   # brentq xtol default
+            max_iterations=len(parameters),
+            extra={
+                "interpolation": str(interpolation.value),
+                "deposit_day_count": str(deposit_day_count.value),
+                "hw_convexity_a": float(hw_convexity_a),
+                "hw_convexity_sigma": float(hw_convexity_sigma),
+                "turn_of_year_spread": float(turn_of_year_spread),
+            },
+        ),
+        iterations=len(parameters),
+        converged=True,                         # bootstrap is exact-fit by construction
+        quotes_fitted=quotes,
+        diagnostics=CalibrationDiagnostics(
+            extra={
+                "n_deposits": len(deposits),
+                "n_swaps": len(swaps),
+                "n_fras": len(fras) if fras else 0,
+                "n_futures": len(futures) if futures else 0,
+            },
+        ),
+    )
 
 
 def _verify_round_trip(
