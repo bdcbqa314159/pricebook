@@ -74,6 +74,15 @@ class FixedLeg:
         self.notional_schedule = _normalize_notional(notional, n_periods)
         self.notional = self.notional_schedule[0]
 
+        # Coupons per year — needed for ACT/ACT ICMA so each regular period
+        # yields exactly `1 / coupons_per_year` per ICMA 251.1. For other
+        # conventions, `frequency` is ignored by `year_fraction`. `WEEKLY`
+        # has `frequency.value == 0` and is not a real ICMA case, so we
+        # leave it as `None` to preserve legacy behaviour. (A.1 B1 Slice 3.)
+        coupons_per_year = (
+            12 // frequency.value if frequency.value > 0 else None
+        )
+
         self.cashflows = []
         for i in range(1, len(schedule)):
             accrual_start = schedule[i - 1]
@@ -82,7 +91,12 @@ class FixedLeg:
                 payment_date = calendar.add_business_days(accrual_end, payment_delay_days)
             else:
                 payment_date = accrual_end + timedelta(days=payment_delay_days)
-            yf = year_fraction(accrual_start, accrual_end, day_count)
+            yf = year_fraction(
+                accrual_start, accrual_end, day_count,
+                ref_start=accrual_start,
+                ref_end=accrual_end,
+                frequency=coupons_per_year,
+            )
             self.cashflows.append(Cashflow(
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,

@@ -58,25 +58,22 @@ class TestParUSTCharacterisation:
         """Smoke check — confirm we're testing the right convention."""
         assert par_5y_ust.day_count == DayCountConvention.ACT_ACT_ICMA
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A.1 B1 — ICMA silent fallback to ACT/365F (will be fixed in Slice 3)",
-    )
     def test_every_regular_coupon_is_exactly_half_year(self, par_5y_ust):
-        """Every regular coupon period should have year_frac == 0.5 exactly."""
+        """Every regular coupon period should have year_frac == 0.5 exactly.
+
+        Fixed in A.1 B1 Slice 3 by passing `ref_start=accrual_start,
+        ref_end=accrual_end, frequency=12/months_per_period` to
+        `year_fraction` inside `FixedLeg`.
+        """
         for cf in par_5y_ust.coupon_leg.cashflows:
             assert cf.year_frac == pytest.approx(0.5, abs=1e-12), (
                 f"Coupon {cf.accrual_start} → {cf.accrual_end}: year_frac="
                 f"{cf.year_frac} (expected exactly 0.5 per ICMA 251.1)"
             )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A.1 B1 — coupon amounts wrong because year_frac is wrong",
-    )
     def test_every_coupon_amount_is_exactly_two(self, par_5y_ust):
         """At 4% coupon, face=100, semi-annual: each coupon should pay
-        exactly 100 × 0.04 × 0.5 = 2.0000."""
+        exactly 100 × 0.04 × 0.5 = 2.0000. Fixed in A.1 B1 Slice 3."""
         for cf in par_5y_ust.coupon_leg.cashflows:
             assert cf.amount == pytest.approx(2.0, abs=1e-10), (
                 f"Coupon at {cf.accrual_end}: amount={cf.amount} "
@@ -85,14 +82,16 @@ class TestParUSTCharacterisation:
 
     @pytest.mark.xfail(
         strict=True,
-        reason="A.1 B1 — par-yield round-trip drifts due to year_frac error",
+        reason=(
+            "A.1 B1 — `_price_from_ytm` uses a different `year_fraction` "
+            "code path (multi-period span from settle → payment_date) that "
+            "STILL falls back to ACT/365F. Coupon amounts are now correct, "
+            "but the YTM-side discount times aren't. Will be fixed in Slice 4."
+        ),
     )
     def test_par_yield_round_trip_is_exact_100(self, par_5y_ust):
         """At ytm == coupon_rate, price (off internal YTM machinery) should
-        be exactly 100. Today it lands at 99.99xx because of accumulated
-        per-coupon year_frac error."""
-        # Price the bond at its own coupon rate as YTM (the par case)
-        # using the internal YTM-based pricer.
+        be exactly 100. Tracks the secondary mismatch in `_price_from_ytm`."""
         settle = par_5y_ust.issue_date
         price = par_5y_ust._price_from_ytm(par_5y_ust.coupon_rate, settle)
         assert price == pytest.approx(100.0, abs=1e-8)
@@ -117,7 +116,7 @@ class TestLongMaturityCharacterisation:
 
     @pytest.mark.xfail(
         strict=True,
-        reason="A.1 B1 — par-yield drift compounds across 60 coupons",
+        reason="A.1 B1 — same as 5y case; `_price_from_ytm` mismatch will be fixed in Slice 4",
     )
     def test_30y_par_yield_round_trip_is_exact_100(self, par_30y_ust):
         settle = par_30y_ust.issue_date

@@ -2,6 +2,39 @@
 
 ---
 
+## v0.896.0 — 2026-06-11
+
+**Fix A.1 B1 Slice 3 — `FixedLeg` cashflows now compute correct ACT/ACT ICMA year-fractions; UST coupons land exactly at face × coupon ÷ frequency.**
+
+The third slice of the staged ICMA fix delivers the *coupon-side* correctness. `FixedLeg`'s cashflow builder now passes `ref_start`, `ref_end`, and `frequency` to `year_fraction`, so every regular coupon period on a Treasury / Gilt / Bund / JGB schedule gets `year_frac = 1 / coupons_per_year` *exactly* — per ICMA Rule 251.1.
+
+### Before vs after (par 5y UST at 4% coupon, face=100, semi-annual)
+
+| Coupon | Period | days | year_frac BEFORE | year_frac AFTER | amount BEFORE | amount AFTER |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | 02/15 → 08/15 | 182 | 0.498630 | **0.500000** | 1.994521 | **2.000000** |
+| 2 | 08/15 → 02/15 | 184 | 0.504110 | **0.500000** | 2.016438 | **2.000000** |
+| 3 | 02/15 → 08/15 | 181 | 0.495890 | **0.500000** | 1.983562 | **2.000000** |
+| 4–10 | (alternating) | — | 0.4959 / 0.5041 | **0.500000** | 1.9836 / 2.0164 | **2.000000** |
+
+### Change
+
+- `fixed_leg.py:69-93` — compute `coupons_per_year = 12 // frequency.value` once; pass `ref_start=accrual_start, ref_end=accrual_end, frequency=coupons_per_year` to `year_fraction` for every coupon. The extra params are ignored by non-ICMA conventions, so the change is harmless for THIRTY_360 / ACT_360 / ACT_365F / etc.
+- Two of the four characterisation xfails turn green (`test_every_regular_coupon_is_exactly_half_year`, `test_every_coupon_amount_is_exactly_two`) — their `xfail` markers are removed; they now assert the correct behaviour permanently.
+- Full parallel suite: **11873 passed, 2 xfailed in 4:55** — zero regressions in any other ICMA-using test.
+
+### What's NOT fixed yet (queued for Slice 4)
+
+`FixedRateBond._price_from_ytm` (and the YTM-derived analytics: `macaulay_duration`, `modified_duration`, `convexity`, `dv01_yield`) use `year_fraction(settle, payment_date, ACT_ACT_ICMA)` for *multi-period* spans without passing refs — still hitting the legacy ACT/365F fallback. The current `_act_act_icma` implementation is correct for single-period accruals only; multi-period ICMA needs explicit period-counting per Rule 251.2.
+
+The 2 remaining xfails (`test_par_yield_round_trip_is_exact_100`, 5y and 30y) are pinned for Slice 4. **Diagnostic note:** these tests xfail *worse* post-Slice-3 than they did pre-fix — the previous "99.999807" was the result of two errors partially cancelling. Now coupon amounts are correct but discount times still aren't, so the round-trip lands at 99.981367 (5y). Slice 4 will fix the discount-time path and turn these green.
+
+### Affected upstream
+
+Sovereign / corporate bonds using `DayCountConvention.ACT_ACT_ICMA` — all 11 markets currently wired (US, AU, MY, TH, SG, ID, HK, SE, CH, CZ, NO + linkers). Coupon amounts in those bonds now match market quotes within machine precision.
+
+---
+
 ## v0.895.0 — 2026-06-11
 
 **Fix A.1 B1 Slice 2 — UST ICMA mispricing characterised via xfail tests.**
