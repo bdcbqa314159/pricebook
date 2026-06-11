@@ -2,6 +2,41 @@
 
 ---
 
+## v0.893.0 — 2026-06-11
+
+**Fix A.2 B1b/c/d — `AUDCalendar`, `NZDCalendar`, `CADCalendar` Saturday substitution.**
+
+Completes audit finding A.2 B1. London was already fixed in v0.892. AUD / NZD / CAD followed the identical pattern — base-class US-style `_observe` applied to non-US locales. Now all four use `Calendar._observe_next_working_day` (Sat → +2 days Mon; Sun → +1 day Mon).
+
+### Citations
+
+- **AU** — Australian Public Holidays Acts (state-by-state but uniform Sat→Mon rule).
+- **NZ** — Holidays Act 2003, *"Mondayisation"* provision.
+- **CA** — Holidays Act (federal) + Employment Standards Acts (provincial).
+
+### Test coverage added
+
+Each calendar gets a `TestXXXCalendarSubstitution` class with regression tests for the Sat-Christmas year (2021 and/or 2027) plus a locale-specific check that exercises a non-Christmas date falling on Saturday:
+
+- AUD: Australia Day 2030 Sat → Mon Jan 28; Australia Day 2025 Sun → Mon Jan 27.
+- NZD: Waitangi Day 2027 Sat → Mon Feb 8.
+- CAD: Canada Day 2028 Sat → Mon Jul 3; Remembrance Day 2028 Sat → Mon Nov 13.
+
+Full parallel suite: **11860 passed in 3:22**.
+
+### A.2 B1 — closed
+
+| Locale | Status | Slice |
+|---|---|---|
+| GBP / London | ✅ fixed | v0.892 |
+| AUD / Sydney | ✅ fixed | v0.893 |
+| NZD / Wellington | ✅ fixed | v0.893 |
+| CAD / Toronto | ✅ fixed | v0.893 |
+
+Next L0-audit-driven fix: **A.1 B1 — ACT/ACT ICMA silent fallback** (UST mispricing). Multi-slice plan in the audit doc.
+
+---
+
 ## v0.892.0 — 2026-06-11
 
 **Fix A.2 B1a — `LondonCalendar` Saturday substitution now follows UK Banking and Financial Dealings Act 1971.**

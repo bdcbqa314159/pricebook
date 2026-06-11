@@ -317,7 +317,14 @@ class AUDCalendar(Calendar):
     Holidays: New Year's, Australia Day (26 Jan), Good Friday, Easter Saturday,
     Easter Monday, Anzac Day (25 Apr), Queen's Birthday (2nd Mon Jun),
     Bank Holiday (1st Mon Aug), Christmas, Boxing Day.
+
+    Substitution rule: per the Australian Public Holidays Acts (state-by-
+    state but uniform on the Sat→Mon rule), a holiday on Saturday or Sunday
+    is observed the next working day.
     """
+
+    # Override the base US-style _observe with the next-working-day rule.
+    _observe = staticmethod(Calendar._observe_next_working_day)
 
     def _compute_holidays(self, year: int) -> set[date]:
         holidays = set()
@@ -351,7 +358,14 @@ class CADCalendar(Calendar):
     Civic Holiday (1st Mon Aug), Labour Day (1st Mon Sep),
     Thanksgiving (2nd Mon Oct), Remembrance Day (11 Nov),
     Christmas, Boxing Day.
+
+    Substitution rule: per the Canadian federal Holidays Act and
+    provincial Employment Standards Acts, a holiday on Saturday or
+    Sunday is observed the next working day.
     """
+
+    # Override the base US-style _observe with the next-working-day rule.
+    _observe = staticmethod(Calendar._observe_next_working_day)
 
     def _compute_holidays(self, year: int) -> set[date]:
         holidays = set()
@@ -455,7 +469,13 @@ class NZDCalendar(Calendar):
     Good Friday, Easter Monday, Anzac Day (25 Apr),
     Queen's Birthday (1st Mon Jun), Matariki (variable from 2022),
     Labour Day (4th Mon Oct), Christmas, Boxing Day.
+
+    Substitution rule: per the New Zealand Holidays Act 2003, a holiday
+    on Saturday or Sunday is observed the next working day (Mondayisation).
     """
+
+    # Override the base US-style _observe with the next-working-day rule.
+    _observe = staticmethod(Calendar._observe_next_working_day)
 
     def _compute_holidays(self, year: int) -> set[date]:
         holidays = set()
