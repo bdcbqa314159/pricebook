@@ -803,7 +803,7 @@ Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed 
 | # | Module | Status | Confirmed bugs | Doc/test gaps |
 |---|---|---|---|---|
 | B.1 | `discount_curve.py` | ⚠️ | 3 (B1 roll_down anchoring, B2 serialisation loses interpolation, B3 bumped_at no bounds check, schema_version absent) | small |
-| B.2 | `survival_curve.py` | ❓ | | |
+| B.2 | `survival_curve.py` | 📝 | 0 real bugs; asymmetry vs DiscountCurve (no `calibration_result`), missing `schema_version`, no roll_down (good thing!) | half the methods untested |
 | B.3 | `market_data.py` (old) | ❓ | | |
 | B.4 | `market_conventions.py` | ❓ | | |
 | B.5 | `rate_index.py` | ❓ | | |
@@ -893,6 +893,46 @@ def bumped_at(self, pillar_idx: int, shift: float) -> "DiscountCurve":
 - `bumped_at` — no test (B3 untested).
 - Round-trip through `to_dict`/`from_dict` for non-default `interpolation` (would catch B2).
 - `instantaneous_forward` edge cases.
+
+---
+
+## B.2 — `core/survival_curve.py`
+
+**Purpose:** Maps dates → survival probabilities `Q(t)`. Provides `survival`, `hazard_rate`, `default_prob`, `forward_hazard`, `forward_survival`, `marginal_default_density`, `pillar_hazards`, `term_structure`, `bumped` / `bumped_at`, `flat`. Custom `to_dict`/`from_dict`.
+
+**Internal deps:** `core.day_count`, `core.interpolation`, `core.serialisable`. **Concerning:** `bumped` / `bumped_at` lazily import `credit.credit_risk._bump_survival_curve*` — `core → credit` is a layer inversion (deferred so no import-time cycle, but it shouldn't exist).
+
+**Size:** 237 lines.
+
+### Status: 📝 No real bugs; asymmetry + the same schema-version gap as B.1
+
+### Correctness review
+
+- `__init__` validates `0 < sp <= 1`. ✓
+- `survival(d) = 1.0` for `d <= ref`. ✓
+- `hazard_rate(d)` = `-ln(q2/q1)/(t2-t1)` for the bracket segment. ✓
+- `default_prob(d1, d2) = Q(d1) - Q(d2)`. ✓
+- `forward_hazard(d1, d2) = -ln(Q(d2)/Q(d1)) / τ`. ✓
+- `forward_survival(d1, d2) = Q(d2)/Q(d1)`. ✓
+- `marginal_default_density(d) = h(d) × Q(d)`. ✓
+- `pillar_hazards()` returns piecewise-constant per-segment hazards. ✓
+- **No `roll_down`** — and that's good. If one were added it would inherit the discount_curve B1 anchoring bug; this module avoiding the API entirely is the right call.
+- Custom `to_dict` correctly includes `interpolation` (unlike `DiscountCurve` B2). Still missing `schema_version` (the wider G1 P3 Slice 2 gap).
+
+### Concerns (not bugs)
+
+- **Asymmetric with `DiscountCurve`:** no `self.calibration_result` field. G1 P2 wired the `MarketSnapshot` id into `DiscountCurve.calibration_result` but `SurvivalCurve` has no analogous storage. The hazard-bootstrap `HazardBootstrapResult.calibration_result` holds it, but a downstream consumer working from the curve alone has no provenance handle. Minor — the audit chain still reaches the snapshot via the `HazardBootstrapResult`.
+- **Silent zero-fallbacks** in `hazard_rate` / `forward_hazard` when `q1<=0` or `q2<=0`. Mirrors discount_curve's pattern; same recommendation (at minimum log a `RuntimeWarning`).
+- **Layer inversion:** `bumped` / `bumped_at` lazily import from `pricebook.credit.credit_risk`. The underlying functions should live in `core.survival_curve` (or a `core.survival_curve_bump` helper) since they don't depend on credit-specific logic — they just rebuild survival probs.
+- **`term_structure().default_prob_1y` clamp** at line 177 caps to 0 if `d+1y > last_pillar+1y`. Ad-hoc; should either drop the clamp or document its intent.
+
+### Test coverage
+
+`test_survival_curve.py` has 16 tests covering `survival`, `hazard_rate`, `default_prob`, validation. Untested:
+- `forward_hazard`, `forward_survival`, `marginal_default_density`, `pillar_hazards`, `bumped`, `bumped_at`, `flat`, `term_structure`.
+- to_dict/from_dict round-trip (this one happens to be correct for interpolation, but no test asserts that).
+
+Half the API surface is untested. Coverage slice would be a single targeted test file addition.
 
 ---
 
