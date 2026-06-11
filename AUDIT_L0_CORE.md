@@ -25,9 +25,9 @@
 | A.5 | `solvers.py` | ⚠️ | 2 minor (B1 to_dict mutation, B2 itp maxiter contract) | NaN/Inf paths untested |
 | A.6 | `interpolation.py` | 📝 | 0 | Akima untested; right-extrap not slope-continued for cubic methods |
 | A.7 | `approximation.py` | 📝 | 3 trivial (same vars(self) to_dict pattern) | small |
-| A.8 | `caching.py` | ❓ | | |
-| A.9 | `protocols.py` | ❓ | | |
-| A.10 | `fixings.py` | ❓ | | |
+| A.8 | `caching.py` | ✅ | 0 | type hint mismatch (cosmetic) |
+| A.9 | `protocols.py` | ✅ | 0 | none |
+| A.10 | `fixings.py` | ✅ | 0 | get_with_lag fallback semantics + persistence error handling |
 | A.11 | `serialisable.py` | ❓ | | |
 | A.12 | `serialization.py` | ❓ | | |
 | A.13 | `numerical_config.py` | ✅ | 0 | 0 (just landed; 14 tests; clean) |
@@ -498,6 +498,64 @@ Same shape as A.5 B1. `ChebyshevInterpolant.to_dict`, `PadeApproximant.to_dict`,
 
 - Chebyshev DCT in pure-Python loops — replaceable by `scipy.fft.dct(fx, type=1)` for clean code + significant speedup at high `n`. Defer.
 - `bspline_basis` is recursive in pure Python — fine for moderate degrees; could memoise if used hotly (no caller does today).
+
+---
+
+## A.8 — `core/caching.py`
+
+**Purpose:** `CurveCache` (LRU with per-curve-name invalidation), `CalibrationCache` (model-params cache keyed by inputs-hash), `LazyValue` (deferred compute, computed-at-most-once).
+
+**Internal deps:** None. True L0.
+
+**Size:** 169 lines.
+
+### Status: ✅ Clean
+
+- `CurveCache` uses `OrderedDict` with `move_to_end` on hit and `popitem(last=False)` on overflow — textbook LRU. Stats track hits/misses; `hit_rate` short-circuits on zero queries. ✓
+- `CalibrationCache` uses tuple `(model_name, inputs_hash)` as the dict key, but the **type annotation** says `dict[str, dict]`. Cosmetic mismatch — the runtime works fine. Worth a one-line type-hint fix.
+- `LazyValue` is idempotent + `reset()`. ✓
+- 16 tests cover hit/miss/invalidate/LRU/clear/stats + persistence + lazy semantics.
+
+### Slicing items: none required. (Optional type-hint cleanup folded into a "small cleanups" slice later.)
+
+---
+
+## A.9 — `core/protocols.py`
+
+**Purpose:** Structural Protocols for the numerical layer — `RootFinder`, `Integrator`, `OptionPricer`, `MCEngine`, `VolModel`, `VolSurface`, `CharFunc`. All `@runtime_checkable`.
+
+**Internal deps:** Eagerly imports `SolverResult` from `core.solvers` for re-export; uses `TYPE_CHECKING` for `QuadratureResult` (curves.quadrature) and `MCResult` (models.mc_pricer).
+
+**Size:** 129 lines.
+
+### Status: ✅ Clean
+
+- All Protocol definitions follow the same pattern: minimal interface, `...` body, `@runtime_checkable`. Zero implementation logic to audit. ✓
+- **Asymmetry note (not a bug):** `SolverResult` is imported eagerly at runtime while the other two result types are TYPE_CHECKING-only. That's because `core.solvers` is at the same dependency layer (no cycle), whereas the others would introduce upward dependencies. Reasonable choice; could be made symmetric (all three TYPE_CHECKING) for consistency, but no behaviour change.
+
+### Slicing items: none.
+
+---
+
+## A.10 — `core/fixings.py`
+
+**Purpose:** `FixingsStore` for daily rate fixings (SOFR, EURIBOR, CPI, ...) with file-based JSON persistence + CSV import + sample-fixings generator.
+
+**Internal deps:** `core.calendar` (TYPE_CHECKING + lazy at call-time for `add_business_days`). True L0.
+
+**Size:** 195 lines.
+
+### Status: ✅ Clean — two robustness concerns, no bugs
+
+- `set/get/has/get_or_raise` straightforward. ✓
+- `get_with_lag(rate_name, d, lag, calendar=None)`: with calendar → `add_business_days(d, -lag)` ✓. Without calendar → uses `timedelta(days=lag)` (calendar days, not business days). The docstring says "business-day lag" but silently falls back to calendar lag when calendar is None. Misleading — should either raise (forcing the caller to provide a calendar) or rename the parameter / docstring to "lag in days (business if calendar given, else calendar)". Low impact but a foot-gun.
+- `_load_all` doesn't try/except per file — one corrupt JSON crashes the entire store load. Niche; acceptable for a tooling layer but worth noting.
+- `load_csv` has per-row error handling with a `skip_invalid` toggle. ✓
+- 18 tests cover most APIs. Gaps: `get_with_lag`, `load_csv`, edge cases on persistence (empty store, missing dir).
+
+### Slicing items (defer; non-blocking)
+
+- Clarify `get_with_lag` semantics: either require `calendar` (raise on None) or rename to `get_with_calendar_day_lag` fallback. Single test + docstring + signature tweak.
 
 ---
 
