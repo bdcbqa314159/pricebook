@@ -22,12 +22,12 @@
 
 | # | Module | Status | Confirmed bugs |
 |---|---|---|---|
-| A.1 | `bootstrap.py` | ⚠️ | **2 (HW convexity wrong by 10–22×; float-leg conventions are no-ops)** |
-| A.2 | `global_solver.py` | ❓ | |
-| A.3 | `multicurve_solver.py` | ❓ | |
-| A.4 | `ncurve_solver.py` | ❓ | |
-| A.5 | `rfr_bootstrap.py` | ❓ | |
-| A.6 | `bond_curve.py` | ❓ | |
+| A.1 | `bootstrap.py` | ⚠️ | **2 (HW convexity wrong by 10–22× — but LATENT no current caller; float-leg conventions are no-ops in single-curve mode)** |
+| A.2 | `global_solver.py` | ⚠️ | **1 HIGH (residual collision when two instruments share a maturity)** |
+| A.3 | `multicurve_solver.py` | ⚠️ | **1 HIGH (PV_float skips the first accrual period; annuity includes it → systematic bias)** |
+| A.4 | `ncurve_solver.py` | ⚠️ | 2 simplifications labelled as such (BasisSwap annuity ≈ τ·df(T); OISSwap schedule is a crude calendar-year stepper) |
+| A.5 | `rfr_bootstrap.py` | ✅ | 0 (correctly pre-applies canonical `rfr_futures_convexity`; doesn't trigger A.1 B1) |
+| A.6 | `bond_curve.py` | ✅ | 0 (correctly passes ICMA refs in `_price_bond`) |
 
 ---
 
@@ -128,4 +128,154 @@ Existing tests cover deposits + swaps + the snapshot linkage (from G1 P2 Slice 2
 
 ---
 
-*(audit continues — next module: A.2 `global_solver.py`)*
+**A.1 follow-up correction:** the inlined HW convexity *bug exists* but is currently **latent** — `rfr_bootstrap.py` pre-applies the canonical `rfr_futures_convexity` and then passes the resulting forward rates as FRAs (not futures) to `bootstrap()`. A grep for direct `bootstrap(futures=...)` callers in the library returns zero. So the bug only fires for **future code paths** that call `bootstrap()` directly with `futures=[...]` and non-zero HW params. Still HIGH-severity-in-shape but **MED in present impact**.
+
+---
+
+## A.2 — `curves/global_solver.py`
+
+**Purpose:** `global_bootstrap` (single curve via global Newton) and `coupled_bootstrap` (OIS + projection jointly).
+
+### Status: ⚠️ One HIGH bug
+
+#### A.2 B1 — Residual collision silently drops constraints when instruments share a maturity  *[HIGH]*
+
+**Location:** `global_solver.py:80-98` (single-curve `_residuals`), and the analogue inside `coupled_bootstrap`.
+
+The residual vector is indexed by `pillar_idx[mat]`. When two instruments share a maturity — e.g. a 1Y deposit AND a 1Y swap, two swaps at the same node, or duplicate deposits — they write to the **same residual row**. Loop iterates deposits first, then swaps; the swap residual silently overwrites the deposit. The Newton solve now has `n` equations but only `n − k` independent constraints (`k` = collisions). The Jacobian's affected row drops the deposit's direct `df_i` term, so Newton converges to a curve that does **not reprice all input instruments**.
+
+**Live repro** — deliberately inconsistent inputs to expose the silent overwrite:
+
+```
+deposits = [(2025-01-01, 0.05)]   # 1Y depo at 5%
+swaps    = [(2025-01-01, 0.04)]   # 1Y swap at 4% — SAME maturity, DIFFERENT rate
+global_bootstrap(2024-01-01, deposits, swaps)
+  → zero_rate(2025-01-01) = 3.9607%
+```
+
+Only the swap survived. The deposit is silently dropped. A real-world scenario where this matters: USD curve with a 1Y depo *and* a 1Y OIS swap (both standard market quotes at the 1Y pillar). One of them is silently ignored.
+
+**Fix shape:**
+- Option A: detect duplicates up-front and `raise ValueError("Duplicate maturity at ...")`.
+- Option B: build a residual vector indexed by *instrument number* (not pillar); add a pillar→row mapping; require the system to be square only after explicit dedup.
+
+Option A is the conservative one-slice fix. Option B is the right design but more invasive.
+
+---
+
+## A.3 — `curves/multicurve_solver.py`
+
+**Purpose:** `multicurve_newton` — solve OIS + projection jointly via damped Newton.
+
+### Status: ⚠️ One HIGH bug
+
+#### A.3 B1 — Projection swap PV_float skips the first accrual period; annuity does not  *[HIGH]*
+
+**Location:** `multicurve_solver.py:159-176`.
+
+```python
+dates_up_to = [d for d in projection_pillar_dates if d <= inst['maturity']]
+pv_float = 0.0
+for j in range(1, len(dates_up_to)):
+    d_start = dates_up_to[j - 1]
+    d_end   = dates_up_to[j]
+    ...
+    pv_float += fwd_j * tau_j * ois.df(d_end)
+annuity = _compute_annuity(ois, dates_up_to, day_count)
+model_rate = pv_float / max(annuity, 1e-10) if annuity > 0 else 0
+```
+
+The loop starts at `j=1`, so the FIRST segment — from `reference_date` to `dates_up_to[0]` (the first pillar) — is silently skipped. But `_compute_annuity` initialises `prev = reference_date` and **does** include that first period. Result: `pv_float` has `N-1` segments while `annuity` has `N` segments. For any projection swap with `len(dates_up_to) ≥ 2`, the model rate is systematically biased: model_rate ≈ `(N-1)/N` × true_rate.
+
+For a 2-pillar projection swap (single intermediate plus maturity), `pv_float` has 1 segment and `annuity` has 2 segments — error is ≈50% of the rate. For a 5-pillar projection (e.g. 1y+2y+3y+5y → 5y swap), error is ≈20%.
+
+**Even worse for single-pillar cases:** `len(dates_up_to) == 1`, the forward loop does nothing (`range(1, 1)`), `pv_float == 0`, `model_rate == 0`. The error becomes `0 − inst['rate']` = `−inst['rate']`, which the solver tries to drive to zero by collapsing the DFs to nonsense values.
+
+This is the bug that drove the existing test `test_paper_01_multicurve::TestMulticurveNewton::test_multicurve_solver_runs` to emit `RuntimeWarning: did not converge` (residual 2.86e-03) — the warning has been there the whole time, but it's the bug talking.
+
+**Fix shape:** start the loop at `j=0` using `reference_date` as the initial `d_start`, OR prepend `reference_date` to `dates_up_to`. Either way, ensure `pv_float` and `annuity` cover the same period set.
+
+---
+
+## A.4 — `curves/ncurve_solver.py`
+
+**Purpose:** Generalises dual-curve bootstrap to N curves solved simultaneously. Protocol-based pricers (`DepositPricer`, `OISSwapPricer`, `BasisSwapPricer`).
+
+### Status: ⚠️ Two real approximations marked as "simplified" but used in production
+
+#### A.4 B1 — `BasisSwapPricer` annuity is single-period approximation  *[MED, documented as "simplified"]*
+
+**Location:** `ncurve_solver.py:141-152`.
+
+```python
+# At par: float_pay + spread×annuity = float_recv
+# Error: (1-df_pay(T)) + spread×annuity - (1-df_recv(T))
+df_pay  = pay.df(self.maturity)
+df_recv = recv.df(self.maturity)
+t = year_fraction(self.reference_date, self.maturity, self.dc)
+annuity = t * disc.df(self.maturity)  # simplified
+return (1 - df_pay) + self.basis_spread * annuity - (1 - df_recv)
+```
+
+For a 5y quarterly basis swap, the correct annuity is `Σ τ_i × df(t_i)` for ~20 cashflows. The simplified version `t × df(T) ≈ 5 × 0.82 = 4.1`. Correct ≈ `0.25 × 4.6 = 1.15`. **The simplified version overstates annuity by ~3-4×** → spread contribution → curve fit by the same factor.
+
+The "simplified" comment is honest, but the function is exported and used. Any caller solving for basis spreads against this pricer gets systematically biased results.
+
+#### A.4 B2 — `OISSwapPricer` schedule uses crude calendar-year stepper  *[MED]*
+
+**Location:** `ncurve_solver.py:106-120`.
+
+```python
+for i in range(1, n + 1):
+    t = i / self.frequency
+    y = self.reference_date.year + int(t)
+    m = self.reference_date.month
+    d_i = date(y, m, min(self.reference_date.day, 28))
+    if d_i > self.maturity:
+        d_i = self.maturity
+```
+
+This builds coupon dates as `(ref.year + int(t), ref.month, min(ref.day, 28))` — a calendar-year stride. Misses business-day adjustment, EOM convention, day-count drift, and the actual market schedule generation (`generate_schedule` exists for this). The clamp to day-28 prevents Feb-31-style invalid dates but adds ad-hoc drift. Adequate for 1y rough OIS, wrong for non-trivial maturities and any locale that doesn't follow "same day-of-month" payment.
+
+**Fix shape:** route through `pricebook.core.schedule.generate_schedule(ref, maturity, frequency, ...)` like every other swap in the library.
+
+---
+
+## A.5 — `curves/rfr_bootstrap.py`
+
+### Status: ✅ Clean
+
+`bootstrap_rfr` correctly pre-applies the canonical `rfr_futures_convexity` via `rfr_futures_to_forwards`, then passes FRAs (not futures) to the underlying `bootstrap` / `global_bootstrap`. This **prevents** A.1 B1 from firing in the production RFR-curve path. If A.1 B1 is fixed later, no change needed here.
+
+---
+
+## A.6 — `curves/bond_curve.py`
+
+### Status: ✅ Clean — ICMA refs passed correctly
+
+`_price_bond` at line 173-176 correctly passes `ref_start=t_start, ref_end=t_end, frequency=quote.frequency` to `year_fraction(...)` for ACT/ACT ICMA, so bond curves built from sovereign quotes get exact ICMA semantics. (This is the right pattern; matches the fix landed in `FixedLeg` for A.1 B1 Slice 3.)
+
+A handful of internal methods (`_bootstrap_sequential`, `_bootstrap_global`, `_bootstrap_parametric`) — well-structured; couldn't find correctness issues on quick reads.
+
+---
+
+## Pass A — summary
+
+6 modules audited; **3 confirmed bugs** (1 HIGH active, 1 HIGH active, 1 HIGH latent) + **2 production-quality approximations**.
+
+| # | Module | Bug | Severity (impact) | Fix shape |
+|---|---|---|---|---|
+| A.1 B1 | `bootstrap` | HW convexity wrong | HIGH-shape, MED-impact (no current caller) | Replace inlined formula with `ir_futures.hw_convexity_adjustment` |
+| A.1 B2 | `bootstrap` | Float-leg conventions no-ops | MED | Document / deprecate single-curve `float_*` params |
+| A.2 B1 | `global_solver` | Residual collision silently drops constraint | **HIGH (active)** | Detect duplicates and raise |
+| A.3 B1 | `multicurve_solver` | PV_float skips first period | **HIGH (active)** | Start loop at j=0 (anchor on reference_date) |
+| A.4 B1 | `ncurve_solver` | BasisSwap annuity ≈ τ·df(T) | MED | Sum proper annuity |
+| A.4 B2 | `ncurve_solver` | Crude OIS schedule stepper | MED | Route through `generate_schedule` |
+| A.5 | `rfr_bootstrap` | — | — | clean |
+| A.6 | `bond_curve` | — | — | clean |
+
+Two HIGH-impact bugs are active today (`A.2 B1` and `A.3 B1`); the `multicurve_newton::did not converge` warning that the existing test suite emits is *the bug talking*. Fixes for those are next.
+
+---
+
+*(audit continues — Pass B parametric curve forms)*
