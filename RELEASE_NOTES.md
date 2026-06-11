@@ -2,6 +2,50 @@
 
 ---
 
+## v0.894.0 — 2026-06-11
+
+**Fix A.1 B1 Slice 1 — `strict_icma` flag on `year_fraction` (no behaviour change).**
+
+First slice of the staged ICMA fix. Adds the machinery to detect and refuse silent fallbacks; default remains the legacy permissive behaviour so this slice changes nothing in production code paths. Subsequent slices will migrate one ICMA caller at a time, each verified by a hand-calc test (e.g. "par UST gives exactly 2.0000 per semi-annual coupon"), and only at the very end will the default flip to strict.
+
+### What this slice adds
+
+- `year_fraction(..., strict_icma: bool = False)` — keyword-only flag.
+- `_act_act_icma(..., strict: bool = False)` — internal helper now raises `ValueError` (instead of silently degrading to ACT/365F) when `strict=True` AND any of:
+  - `ref_start`, `ref_end`, or `frequency` is missing (closes A.1 B1 root cause when callers opt in).
+  - `frequency <= 0` (closes A.1 B2 — pre-fix would `ZeroDivisionError`).
+  - `period_days <= 0` (inverted ref dates).
+
+Each `strict=True` failure produces a precise, actionable error message:
+```
+ACT/ACT ICMA requires coupon-period anchors. Missing: ref_start, ref_end, frequency.
+Pass `ref_start`, `ref_end`, and `frequency` to `year_fraction(...)`.
+```
+
+### Test coverage
+
+12 new tests in `test_day_count.py::TestACTACTICMA`:
+- Par UST semi-annual exact half-year (regular 182-day period).
+- Long-period invariance (184 days still gives 0.5 — that's the whole point of ACT/ACT ICMA).
+- Mid-period accrual.
+- Legacy fallback when refs are missing (back-compat invariant).
+- Strict mode raises with clear messages on missing-refs / frequency=0 / inverted-period.
+- Strict mode default-off preservation invariant.
+
+Full parallel suite: **11869 passed in 4:50** — zero downstream behaviour change.
+
+### Next slices (A.1 B1 roadmap)
+
+| Slice | Scope |
+|---|---|
+| 1 (this one) | Add the flag. Default off. ✓ |
+| 2 | Audit `FixedRateBond.treasury_note` — confirm UST mispricing per MODULE_HEALTH; add failing test. |
+| 3 | Fix `treasury_note` to pass refs + switch its call-site to `strict_icma=True`. UST coupons land at exactly 2.0000. |
+| 4..N | One slice per remaining ICMA caller in `pricebook/fixed_income/*.py` (~10 sovereign-bond modules). |
+| Final | Flip the default to `strict_icma=True`, remove the flag. |
+
+---
+
 ## v0.893.0 — 2026-06-11
 
 **Fix A.2 B1b/c/d — `AUDCalendar`, `NZDCalendar`, `CADCalendar` Saturday substitution.**

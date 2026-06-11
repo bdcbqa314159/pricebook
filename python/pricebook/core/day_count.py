@@ -28,6 +28,8 @@ def year_fraction(
     ref_end: date | None = None,
     frequency: int | None = None,
     calendar: Calendar | None = None,
+    *,
+    strict_icma: bool = False,
 ) -> float:
     """Compute the year fraction between two dates under a given convention.
 
@@ -39,6 +41,12 @@ def year_fraction(
         ref_end: coupon period end (needed for ACT/ACT ICMA).
         frequency: coupons per year (needed for ACT/ACT ICMA).
         calendar: business day calendar (required for BUS/252).
+        strict_icma: when True, ACT/ACT ICMA raises `ValueError` if any of
+            `ref_start`, `ref_end`, `frequency` is missing or invalid
+            (e.g. `period_days <= 0`, `frequency <= 0`). When False
+            (default, for back-compat), ACT/ACT ICMA silently falls back to
+            ACT/365F — this is the historical behaviour and the cause of
+            audit finding A.1 B1. New code should pass `strict_icma=True`.
     """
     if start == end:
         return 0.0
@@ -56,7 +64,8 @@ def year_fraction(
     elif convention == DayCountConvention.ACT_ACT_ISDA:
         return _act_act_isda(start, end)
     elif convention == DayCountConvention.ACT_ACT_ICMA:
-        return _act_act_icma(start, end, ref_start, ref_end, frequency)
+        return _act_act_icma(start, end, ref_start, ref_end, frequency,
+                             strict=strict_icma)
     elif convention == DayCountConvention.BUS_252:
         return _bus_252(start, end, calendar)
     else:
@@ -154,6 +163,8 @@ def _act_act_icma(
     ref_start: date | None = None,
     ref_end: date | None = None,
     frequency: int | None = None,
+    *,
+    strict: bool = False,
 ) -> float:
     """ACT/ACT ICMA (Rule 251.1): actual days / (frequency × period length).
 
@@ -162,14 +173,52 @@ def _act_act_icma(
 
     year_frac = (end - start) / ((ref_end - ref_start) × frequency)
 
-    If ref_start/ref_end not provided, falls back to ACT/365 Fixed.
-    """
-    if ref_start is None or ref_end is None or frequency is None:
-        return (end - start).days / 365.0  # fallback
+    When `strict=False` (back-compat default), silently falls back to
+    ACT/365 Fixed if `ref_start`, `ref_end`, or `frequency` are missing or
+    invalid. This was the historical behaviour and the cause of audit
+    finding A.1 B1 (UST coupons silently priced at 1.9836 / 2.0164 instead
+    of exactly 2.0000).
 
-    period_days = (ref_end - ref_start).days
+    When `strict=True`, raises `ValueError` with a clear message instead.
+    Callers migrated to strict mode are responsible for supplying the
+    coupon-period anchors. New code should always pass `strict=True`.
+    """
+    def _missing_args() -> list[str]:
+        missing = []
+        if ref_start is None:
+            missing.append("ref_start")
+        if ref_end is None:
+            missing.append("ref_end")
+        if frequency is None:
+            missing.append("frequency")
+        return missing
+
+    missing = _missing_args()
+    if missing:
+        if strict:
+            raise ValueError(
+                "ACT/ACT ICMA requires coupon-period anchors. Missing: "
+                f"{', '.join(missing)}. Pass `ref_start`, `ref_end`, and "
+                f"`frequency` to `year_fraction(...)`."
+            )
+        return (end - start).days / 365.0  # silent ACT/365F fallback (legacy)
+
+    if frequency is not None and frequency <= 0:
+        if strict:
+            raise ValueError(
+                f"ACT/ACT ICMA `frequency` must be > 0; got {frequency}."
+            )
+        return (end - start).days / 365.0  # legacy
+
+    period_days = (ref_end - ref_start).days  # type: ignore[operator]
     if period_days <= 0:
-        return (end - start).days / 365.0  # fallback
+        if strict:
+            raise ValueError(
+                f"ACT/ACT ICMA requires `ref_end > ref_start`; got "
+                f"ref_start={ref_start}, ref_end={ref_end} "
+                f"(period_days={period_days})."
+            )
+        return (end - start).days / 365.0  # legacy
 
     return (end - start).days / (period_days * frequency)
 

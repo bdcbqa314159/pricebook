@@ -142,3 +142,125 @@ class TestEdgeCases:
     def test_start_after_end_raises(self):
         with pytest.raises(ValueError):
             year_fraction(date(2024, 7, 1), date(2024, 1, 1), DayCountConvention.ACT_360)
+
+
+# ============================================================
+# ACT/ACT ICMA — strict_icma flag (A.1 B1 Slice 1)
+# ============================================================
+
+class TestACTACTICMA:
+    """ACT/ACT ICMA: actual days / (frequency × period length).
+
+    Default `strict_icma=False` keeps the legacy silent fallback to ACT/365F
+    for back-compat. New callers should pass `strict_icma=True` and supply
+    `ref_start`, `ref_end`, `frequency`.
+    """
+
+    # --- Happy path (refs supplied) ---
+
+    def test_par_ust_semi_annual_exact_half_year(self):
+        """ISDA / ICMA 251.1: a regular UST semi-annual period gives
+        exactly 0.5 (year-fraction halves regardless of period length)."""
+        ref_start = date(2024, 2, 15)
+        ref_end = date(2024, 8, 15)   # 182 days (regular period)
+        yf = year_fraction(
+            ref_start, ref_end, DayCountConvention.ACT_ACT_ICMA,
+            ref_start=ref_start, ref_end=ref_end, frequency=2,
+            strict_icma=True,
+        )
+        assert yf == pytest.approx(0.5)
+
+    def test_par_ust_long_period_still_half(self):
+        """When the reference period happens to be 184 days, the YF for
+        the full period is still 184 / (184*2) = 0.5 — *that is the point*
+        of ACT/ACT ICMA: the denominator is the period itself, so YF is
+        invariant to period length."""
+        ref_start = date(2024, 8, 15)
+        ref_end = date(2025, 2, 15)   # 184 days
+        yf = year_fraction(
+            ref_start, ref_end, DayCountConvention.ACT_ACT_ICMA,
+            ref_start=ref_start, ref_end=ref_end, frequency=2,
+            strict_icma=True,
+        )
+        assert yf == pytest.approx(0.5)
+
+    def test_mid_period_accrual(self):
+        """Half-way through the period gives 0.25 of a year (semi-annual)."""
+        ref_start = date(2024, 2, 15)
+        ref_end = date(2024, 8, 15)   # 182 days
+        mid = date(2024, 5, 15)        # 89 days from ref_start
+        days_to_mid = (mid - ref_start).days  # 90
+        period_days = (ref_end - ref_start).days
+        expected = days_to_mid / (period_days * 2)
+        yf = year_fraction(
+            ref_start, mid, DayCountConvention.ACT_ACT_ICMA,
+            ref_start=ref_start, ref_end=ref_end, frequency=2,
+            strict_icma=True,
+        )
+        assert yf == pytest.approx(expected)
+
+    # --- Legacy fallback (back-compat — strict_icma=False default) ---
+
+    def test_legacy_fallback_missing_refs(self):
+        """Without strict_icma, missing refs silently falls back to ACT/365F."""
+        yf = year_fraction(
+            date(2024, 1, 15), date(2024, 7, 15),
+            DayCountConvention.ACT_ACT_ICMA,
+            # no ref_start, ref_end, frequency
+        )
+        # 182 days / 365.0 (the silent ACT/365F fallback)
+        assert yf == pytest.approx(182 / 365.0)
+
+    # --- Strict mode (A.1 B1 fix) ---
+
+    def test_strict_missing_refs_raises(self):
+        with pytest.raises(ValueError, match="ref_start, ref_end, frequency"):
+            year_fraction(
+                date(2024, 1, 15), date(2024, 7, 15),
+                DayCountConvention.ACT_ACT_ICMA,
+                strict_icma=True,
+            )
+
+    def test_strict_missing_ref_end_only(self):
+        with pytest.raises(ValueError, match="ref_end"):
+            year_fraction(
+                date(2024, 1, 15), date(2024, 7, 15),
+                DayCountConvention.ACT_ACT_ICMA,
+                ref_start=date(2024, 1, 15),
+                frequency=2,
+                strict_icma=True,
+            )
+
+    def test_strict_frequency_zero_raises(self):
+        """Pre-fix: `frequency=0` triggered ZeroDivisionError (A.1 B2)."""
+        with pytest.raises(ValueError, match="frequency"):
+            year_fraction(
+                date(2024, 1, 15), date(2024, 7, 15),
+                DayCountConvention.ACT_ACT_ICMA,
+                ref_start=date(2024, 1, 15),
+                ref_end=date(2024, 7, 15),
+                frequency=0,
+                strict_icma=True,
+            )
+
+    def test_strict_negative_period_raises(self):
+        with pytest.raises(ValueError, match="ref_end > ref_start"):
+            year_fraction(
+                date(2024, 1, 15), date(2024, 7, 15),
+                DayCountConvention.ACT_ACT_ICMA,
+                ref_start=date(2024, 7, 15),
+                ref_end=date(2024, 1, 15),   # inverted
+                frequency=2,
+                strict_icma=True,
+            )
+
+    def test_strict_legacy_callers_unaffected_by_default(self):
+        """Default (strict_icma=False) preserves legacy silent fallback —
+        guards every existing call-site against this slice."""
+        yf = year_fraction(
+            date(2024, 1, 15), date(2024, 7, 15),
+            DayCountConvention.ACT_ACT_ICMA,
+            # no refs; default behaviour
+        )
+        # No exception; degrades to ACT/365F.
+        assert yf == pytest.approx(182 / 365.0)
