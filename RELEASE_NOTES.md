@@ -2,6 +2,23 @@
 
 ---
 
+## v0.880.0 — 2026-06-11
+
+**G1 P1 Slice 4 — LMM + SABR calibration produce `CalibrationResult`.**
+
+Five of seven calibration families now produce the canonical artefact (bond hazard, Hull-White, G2++, LMM, SABR). Two remaining: curve bootstrap (Slice 5) and jump calibration (Slice 6).
+
+- `LMMCalibrationResult` (dataclass) gains `calibration_result: CalibrationResult | None` field + `to_calibration_result()` method. `to_dict` gets `calibration_id` key.
+- `calibrate_lmm_vols` populates with `model_class="lmm"`, parameters as `{"sigma_0", ..., "sigma_{n-1}"}` (one per forward rate), residuals in vol units (`fitted - target` per swaption), algorithm `"iterative_scaling"`, `correlation_beta` and `tau` recorded in `optimiser.extra`, `rmse_vol` in diagnostics.
+- `sabr.sabr_calibrate` (dict-returning, by convention) gains a `"calibration_result"` key in its returned dict — additive, no existing key removed or renamed.
+- SABR `CalibrationResult` has `model_class="sabr"`, parameters `{"alpha", "beta", "rho", "nu"}` (4 params), residuals as `model_vol − market_vol` per strike (vol units, not bp), algorithm `"nelder_mead"`, `forward` / `T` / `beta_fixed` in `optimiser.extra`, quotes named `smile_K=<strike>`. `calibrate_sabr_smile` inherits the dict unchanged.
+- 21 new tests in `test_calibration_result_lmm_sabr.py`: 9 LMM end-to-end + 3 LMM back-compat + 9 SABR end-to-end (existing keys preserved, parameters / residuals / quotes / unique ids).
+- 64 tests pass across LMM + SABR family (test_sabr.py + test_lmm.py + test_lmm_calibration.py + new file) — no regression.
+
+Next: Slice 5 migrates curve bootstrap (`curves.bootstrap`, `curves.multicurve_solver`, `curves.global_solver`) to produce `CalibrationResult`. The curve bootstrap is the highest-fan-out calibration in the codebase — many tests will see the new field downstream.
+
+---
+
 ## v0.879.0 — 2026-06-11
 
 **G1 P1 Slice 3 — `g2pp_calibration` and `hw_calibration` produce `CalibrationResult`.**

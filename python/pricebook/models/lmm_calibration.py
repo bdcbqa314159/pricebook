@@ -17,6 +17,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
+
 # Lazy import to avoid models→options circular dependency
 # sabr_implied_vol and sabr_calibrate imported inside functions that use them
 
@@ -98,16 +105,61 @@ def exponential_correlation(n: int, beta: float = 0.1) -> np.ndarray:
 
 @dataclass
 class LMMCalibrationResult:
-    """Result of LMM calibration."""
+    """Result of LMM calibration to an ATM swaption grid.
+
+    `calibration_result` carries the canonical provenance artefact.
+    `to_calibration_result()` returns the stored instance when populated,
+    or builds one on-demand from the existing fields.
+    """
     calibrated_vols: list[float]
     target_swaption_vols: dict[tuple[int, int], float]
     fitted_swaption_vols: dict[tuple[int, int], float]
     rmse: float
-
-
+    # New in G1 P1 Slice 4 — canonical calibration artefact.
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
-        return vars(self)
+        d = {
+            "calibrated_vols": self.calibrated_vols,
+            "target_swaption_vols": dict(self.target_swaption_vols),
+            "fitted_swaption_vols": dict(self.fitted_swaption_vols),
+            "rmse": self.rmse,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
+        }
+        return d
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical `CalibrationResult`.
+
+        Returns the stored instance when populated by `calibrate_lmm_vols`.
+        Builds one on-demand from the existing fields otherwise.
+        """
+        if self.calibration_result is not None:
+            return self.calibration_result
+        # Residuals = (fitted - target) per swaption key, in target's units (Black vol)
+        keys = sorted(self.target_swaption_vols.keys())
+        residuals = [
+            self.fitted_swaption_vols.get(k, 0.0) - self.target_swaption_vols[k]
+            for k in keys
+        ]
+        return CalibrationResult.new(
+            model_class="lmm",
+            parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.calibrated_vols)},
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(
+                algorithm="iterative_scaling",
+                tolerance=0.0,
+                max_iterations=0,
+            ),
+            iterations=0,
+            converged=True,
+            quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+        )
+
+
 def calibrate_lmm_vols(
     forward_rates: list[float],
     target_swaption_vols: dict[tuple[int, int], float],
@@ -153,20 +205,46 @@ def calibrate_lmm_vols(
     # Compute fitted vols
     fitted = {}
     errors = []
-    for (exp_idx, swap_len), target in target_swaption_vols.items():
+    residuals_list = []
+    keys = list(target_swaption_vols.keys())
+    for (exp_idx, swap_len) in keys:
+        target = target_swaption_vols[(exp_idx, swap_len)]
         model = rebonato_swaption_vol(
             forward_rates, vols.tolist(), tau, exp_idx, swap_len, rho,
         )
         fitted[(exp_idx, swap_len)] = model
         errors.append((model - target) ** 2)
+        residuals_list.append(model - target)
 
     rmse = math.sqrt(sum(errors) / len(errors)) if errors else 0.0
+
+    cr = CalibrationResult.new(
+        model_class="lmm",
+        parameters={f"sigma_{i}": float(v) for i, v in enumerate(vols.tolist())},
+        residuals=residuals_list,            # in Black-vol units
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(
+            algorithm="iterative_scaling",
+            tolerance=0.0,                   # no explicit tolerance — fixed iterations
+            max_iterations=max_iter,
+            extra={
+                "correlation_beta": correlation_beta,
+                "tau": tau,
+                "n_forward_rates": n,
+            },
+        ),
+        iterations=max_iter,                 # iterative scaler runs full budget
+        converged=True,                      # no convergence test in this scheme
+        quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+        diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
+    )
 
     return LMMCalibrationResult(
         calibrated_vols=vols.tolist(),
         target_swaption_vols=target_swaption_vols,
         fitted_swaption_vols=fitted,
         rmse=rmse,
+        calibration_result=cr,
     )
 
 

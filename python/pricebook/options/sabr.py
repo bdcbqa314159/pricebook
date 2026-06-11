@@ -116,7 +116,7 @@ def sabr_calibrate(
     T: float,
     beta: float = 0.5,
     initial_guess: tuple[float, float, float] | None = None,
-) -> dict[str, float]:
+) -> dict:
     """Calibrate SABR parameters (alpha, rho, nu) to market smile.
 
     Beta is typically fixed. Minimises sum of squared vol errors.
@@ -130,8 +130,17 @@ def sabr_calibrate(
         initial_guess: (alpha, rho, nu) starting point.
 
     Returns:
-        dict with keys: alpha, beta, rho, nu, rmse.
+        dict with keys: alpha, beta, rho, nu, rmse, calibration_result.
+        `calibration_result` is the canonical `pricebook.calibration.CalibrationResult`
+        (G1 P1 Slice 4 onwards); the other keys are unchanged for backward
+        compatibility.
     """
+    from pricebook.calibration import (
+        CalibrationDiagnostics,
+        CalibrationResult,
+        ObjectiveKind,
+        OptimiserSpec,
+    )
     from pricebook.statistics.optimization import minimize as pb_minimize
 
     if initial_guess is None:
@@ -155,12 +164,41 @@ def sabr_calibrate(
     alpha, rho, nu = result.x
     rmse = math.sqrt(result.fun / len(strikes))
 
+    # Per-strike residuals in vol units (model - market)
+    residuals = [
+        sabr_implied_vol(forward, k, T, alpha, beta, rho, nu) - mv
+        for k, mv in zip(strikes, market_vols)
+    ]
+
+    cr = CalibrationResult.new(
+        model_class="sabr",
+        parameters={
+            "alpha": float(alpha),
+            "beta": float(beta),
+            "rho": float(rho),
+            "nu": float(nu),
+        },
+        residuals=residuals,
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(
+            algorithm="nelder_mead",
+            tolerance=1e-12,
+            max_iterations=2000,
+            extra={"beta_fixed": float(beta), "forward": float(forward), "T": float(T)},
+        ),
+        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+        converged=bool(getattr(result, "success", True)),
+        quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
+    )
+
     return {
         "alpha": alpha,
         "beta": beta,
         "rho": rho,
         "nu": nu,
         "rmse": rmse,
+        "calibration_result": cr,
     }
 
 
