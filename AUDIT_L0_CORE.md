@@ -802,6 +802,94 @@ Every fix that keeps a backwards-compat fallback writes a row here so we don't l
 **Why kept:** the single-period path is what `FixedLeg` needs (each cashflow is one accrual period). Multi-period spans appear in `FixedRateBond._ytm_time_to` — which I solved by bypassing `year_fraction` entirely and computing periods directly.
 **Tightens when:** if a future caller actually needs `year_fraction(settle, payment, ACT_ACT_ICMA)` over a multi-period span with refs, extend `_act_act_icma` to implement ICMA 251.2's stub-plus-full-period decomposition. No caller needs this today.
 
+### LD.6 — `DiscountCurve.from_dict` defaults to `LOG_LINEAR` when `interpolation` key absent
+
+**Location:** `core/discount_curve.py:_dc_from_dict`.
+**Added:** v0.899 (B.1 B2 fix).
+**Behaviour:** pre-fix payloads on disk lack the `interpolation` key (it was silently dropped on serialise). When the key is absent, `from_dict` falls back to `LOG_LINEAR` — the constructor default.
+**Why kept:** absent the back-compat default, every persisted DiscountCurve from before v0.899 would fail to load. The fix shipped together with the back-compat shim so existing data keeps working.
+**Tightens when:** schema_version bumps to v2 with an explicit "interpolation is mandatory" semantic. Then absent-key payloads on disk get migrated explicitly (re-load → re-serialise) before v2 is deployed.
+
+### LD.7 — `PricingContext.from_dict` back-compat defaults
+
+**Location:** `core/pricing_context.py:_ctx_from_dict`.
+**Added:** v0.902 (D.1 B2 fix).
+**Behaviour:** every previously-dropped field (`discount_curves`, `inflation_curves`, `repo_curves`, `reporting_currency`, `stochastic_credit_models`, `credit_vol_surfaces`, `credit_correlations`, `numerical_config`) is read via `p.get(name, default)`. Older payloads have NONE of these keys and load as empty dicts / `"USD"` / `None`.
+**Why kept:** any persisted pre-v0.902 context loads cleanly; downstream code sees the documented "default to empty" semantic.
+**Tightens when:** all on-disk pre-v0.902 payloads are re-serialised under v2 schema. After that, missing-key in v2 payload becomes a hard error.
+
+### LD.8 — `_check_schema_version`: absent → v1
+
+**Location:** `core/serialisable.py:_check_schema_version`.
+**Added:** v0.889 (G1 P3 Slice 2).
+**Behaviour:** a payload with no `schema_version` key is treated as v1 silently. Future-version payloads raise; older-version payloads are accepted (caller's responsibility to migrate).
+**Why kept:** the universe of pre-G1-P3 payloads has no version key. Treating absent as v1 is the only way to read them.
+**Tightens when:** a class bumps to v2 AND wants to refuse v1 payloads (no migration). Then `_check_schema_version` could be extended with a minimum-version check. Not needed for any class today.
+
+### LD.9 — `@serialisable_convention.from_dict` accepts both flat and envelope formats
+
+**Location:** `core/serialisable.py:serialisable_convention` (`cls_from_dict`).
+**Added:** pre-existing; not added by a fix but flagged here for completeness.
+**Behaviour:** convention objects serialise to a flat dict (no `{"type": ..., "params": ...}` envelope). The `from_dict` accepts EITHER format — if the input has `"type"` and `"params"` keys, it unwraps; otherwise it treats the dict as flat.
+**Why kept:** allows nested convention objects inside envelope-format parent dicts. Useful in practice but means the same logical payload has two equally-valid wire formats.
+**Tightens when:** Gate 2 design decides on a single canonical wire format. Right now both formats coexist and `to_dict` always emits the flat form; the envelope-accept path is purely back-compat.
+
+### LD.10 — ~42 custom `to_dict` overrides emit no `schema_version`
+
+**Location:** option/credit modules — `options/asian_option.py`, `options/barrier_option.py`, `options/autocallable.py`, `options/swaption.py`, `options/capfloor.py`, `options/cliquet.py`, `options/tarf.py`, `options/basket_option.py`, `options/american_option.py`, `options/vol_surface.py`, `credit/cds.py`, `credit/cds_index_product.py`, `credit/cds_strategies.py`, `credit/loan_cashflow.py`, `credit/loan_participation.py`, `credit/loan_portfolio.py`, `credit/tranche_pricing.py`, `desks/repo_desk.py`, ...
+**Status:** ~42 callsites still hand-roll `{"type": ..., "params": ...}` instead of going through the `make_payload`/`read_payload` helpers from B.1 B2 fix.
+**Why kept:** B.1 B2 only migrated `core.discount_curve`, `core.survival_curve`, `core.trade`, `core.pricing_context`. The option/credit modules were left alone to keep that slice scoped to L0; they'll migrate as each upstream module gets audited.
+**Tightens when:** each module's audit pass (L1/L2). Each class gets one slice: swap `to_dict` over to `make_payload`, swap `from_dict` over to `read_payload`. Behaviour-preserving for any payload that doesn't try to write a new version.
+
+### LD.11 — Two coexisting `MarketSnapshot` types (ARCHITECTURAL)
+
+**Location:** `core/market_data.py` (legacy, dataclass `MarketDataSnapshot(snapshot_date, quotes: list)`) vs `pricebook.market_data._types.MarketSnapshot` (G1 P2, frozen `(id: UUID, as_of, quotes: tuple)`).
+**Status:** both types exist, both are used. G1 P2 calibrators stamp `MarketSnapshot.id` onto `CalibrationResult.market_snapshot_id`. The demo `build_context(MarketDataSnapshot, PipelineConfig)` pipeline still uses the legacy types.
+**Why kept:** B.3 audit deferred the decision to Gate 2. Removing legacy MarketDataSnapshot would break `build_context` and any notebooks that use it; keeping both is the path-of-least-resistance.
+**Tightens when:** Gate 2 decides — either (a) migrate `build_context` to G1 P2 types and delete the legacy types, or (b) explicitly cast at the boundary with a `MarketSnapshot.from_legacy(MarketDataSnapshot)` helper. The current ambiguity is the worst option.
+
+---
+
+## When is the breaking full migration worthwhile?
+
+A "breaking migration" would coordinate the following changes into a single bump (call it pricebook v1.0 or Gate 1.5):
+
+1. Flip `strict_icma` default to `True`; remove the flag entirely (LD.1).
+2. Schema-version bump to v2 across all serialisable types; remove `LD.6/LD.7/LD.8` back-compat reads.
+3. Migrate the remaining ~42 custom `to_dict` overrides to `make_payload`/`read_payload` (LD.10).
+4. Delete legacy `core.market_data`; route everything through `pricebook.market_data` (LD.11).
+5. Pick one wire format for conventions (LD.9).
+6. Remove the `_failed_imports` silent-record (LD.4) — promote to a warning.
+
+### Trigger conditions
+
+The migration becomes worthwhile when **any one** of these holds:
+
+- **A. The back-compat shims are concentrated enough that the cost-to-maintain exceeds the cost-to-migrate.** Today's count: 11 entries; manageable. Re-evaluate when the count crosses ~25 — past that, the shims start interacting (a fix in one path needs to consider the back-compat behaviour of three others).
+- **B. The audit chain catches a divergence that the shims hide.** E.g. a calibration result links a `MarketSnapshot.id` from G1 P2 types, but the payload's curves were built via the legacy `build_context` path — same conceptual snapshot, two unrelated objects, audit trail broken. If this *actually happens to a user*, ship the migration.
+- **C. A new feature requires the post-migration shape.** E.g. a real schema-v2 design (new fields, renames, required-not-optional defaults) needs every payload to be v2. The migration becomes the prerequisite.
+- **D. The library is preparing a major release/rebase** (v1.0 mark, C++ port, external publishing) where the "we still carry back-compat to v0.x payloads" cost is no longer justifiable.
+
+### NOT triggers
+
+- The list of shims feels long. (It's not — every entry has a clear purpose.)
+- A new audit finding lands. (Audit findings get fixed in-place; they don't usually require breaking the wire format.)
+- One of these shims comes up in a code review and someone wants to clean it up. (Tempting, but coordinated migration is much cheaper than per-shim removal — wait for the bundle.)
+
+### Recommended path
+
+1. **Now → end-of-L1-audit:** keep adding to this ledger as further shims appear during L1+ audits. Don't migrate yet.
+2. **At end of full audit (L0+L1+L2):** stocktake. Decide whether to ship a "Gate 1.5 migration" before Gate 2, or fold the migration into Gate 3 (capability-complete) when the library is otherwise stable.
+3. **Migration shape (when scheduled):**
+   - One commit per legacy debt to characterise the contract loss (xfail-style, like A.1 B1 Slice 2 did for UST).
+   - One commit per migration step (each LD removed).
+   - Final commit bumps `_SERIAL_SCHEMA_VERSION = 2` on every affected class.
+   - A migration helper: `migrate_payload_v1_to_v2(d: dict) -> dict` reads any pre-migration payload and rewrites it to the new shape. Keep this helper indefinitely so the old payloads don't actually become unreadable — they become *one explicit migration call* away from readable.
+
+The key insight: a "breaking migration" doesn't have to break readability of existing data. It breaks the *implicit* back-compat (silently accept old format) and replaces it with an *explicit* migration step (`migrate_payload_v1_to_v2`). Old data still loads — but you have to ask.
+
+---
+
 ---
 
 ### Side discovery from auto-discovery fix (2026-06-11)
