@@ -26,6 +26,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.optimize import minimize, brentq
@@ -34,6 +35,12 @@ from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.schedule import Frequency, generate_schedule
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -61,7 +68,17 @@ RECOVERY_MARKET_VALUE = "market_value"
 
 @dataclass
 class HazardBootstrapResult:
-    """Result of hazard rate calibration from bond prices."""
+    """Result of hazard rate calibration from bond prices.
+
+    Carries both the bond-hazard-specific outputs (survival curve, per-bond
+    fitted prices, residuals) AND the canonical `CalibrationResult` artefact
+    (provenance, optimiser story, structured diagnostics). The two views
+    overlap on `pillar_hazards` (as `calibration_result.parameters`) and
+    on `rmse_bp` / `max_error_bp` (derivable from
+    `calibration_result.residuals`). Callers that need the canonical form
+    for audit / persistence read `calibration_result`; callers that need
+    the bond-specific shape stay on the existing fields.
+    """
     survival_curve: SurvivalCurve
     pillar_dates: list[date]
     pillar_hazards: list[float]   # piecewise constant h between pillars
@@ -75,6 +92,10 @@ class HazardBootstrapResult:
     converged: bool
     lam: float = 0.0              # Tikhonov regularisation strength used (0 = unregularised)
     roughness: float = 0.0        # ||L h||² of the fitted hazard (second-difference penalty)
+    # New in G1 P1 Slice 2 — canonical calibration artefact. `None` only
+    # for back-compat with hand-constructed instances; entry points
+    # `_bootstrap_sequential` / `_bootstrap_global` always populate it.
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -90,7 +111,50 @@ class HazardBootstrapResult:
             "converged": self.converged,
             "lam": self.lam,
             "roughness": self.roughness,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
         }
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical CalibrationResult.
+
+        If populated by the entry point (the normal path), returns that
+        instance — preserving its `id`, `timestamp`, and full provenance.
+        Otherwise constructs one on the fly from the available fields with
+        minimal optimiser metadata (used only when the result was hand-built
+        rather than produced by `bootstrap_hazard_from_bonds`).
+        """
+        if self.calibration_result is not None:
+            return self.calibration_result
+        return CalibrationResult.new(
+            model_class="bond_hazard_pwc",
+            parameters=_pillar_hazards_as_parameters(self.pillar_dates, self.pillar_hazards),
+            residuals=self.residuals_bp,
+            objective=ObjectiveKind.WEIGHTED_SSE,
+            optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=self.converged,
+            quotes_fitted=[f"bond_{i}" for i in range(self.n_bonds)],
+        )
+
+
+def _pillar_hazards_as_parameters(
+    pillar_dates: list[date], pillar_hazards: list[float],
+) -> dict[str, float]:
+    """Encode piecewise-constant hazard rates as a named parameter dict.
+
+    Key shape `h(<tenor>y)` where `<tenor>` is the pillar tenor in years
+    (formatted to 3 decimals) — readable in audit logs and stable across
+    refits at the same pillar set.
+    """
+    # We can't compute tenors without a reference date; the pillar_dates
+    # are the absolute dates. Caller should pass dates relative to ref.
+    # Here we just use a stable index-based key plus the date as a hint.
+    return {
+        f"h_pillar_{i}({d.isoformat()})": float(h)
+        for i, (d, h) in enumerate(zip(pillar_dates, pillar_hazards))
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -320,6 +384,23 @@ def _bootstrap_sequential(
     residuals = [(f - m) * 100 for f, m in zip(fitted_prices, market_prices)]
     rmse = math.sqrt(sum(r**2 for r in residuals) / n) if n > 0 else 0.0
 
+    cr = CalibrationResult.new(
+        model_class="bond_hazard_pwc",
+        parameters=_pillar_hazards_as_parameters(pillar_dates[1:], hazards),
+        residuals=residuals,
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(
+            algorithm="brentq-per-bond",
+            tolerance=0.0,  # brentq XTOL defaults — not user-specified here
+            max_iterations=0,
+            extra={"recovery_mode": recovery_mode},
+        ),
+        iterations=n,  # one root-find per bond
+        converged=True,
+        quotes_fitted=[f"bond_{i}" for i in range(n)],
+        weights=[b.weight for b in sorted_bonds],
+    )
+
     return HazardBootstrapResult(
         survival_curve=final_curve,
         pillar_dates=pillar_dates[1:],
@@ -332,6 +413,7 @@ def _bootstrap_sequential(
         n_bonds=n,
         method="sequential",
         converged=True,
+        calibration_result=cr,
     )
 
 
@@ -499,6 +581,34 @@ def _bootstrap_global(
     else:
         roughness_val = 0.0
 
+    cr = CalibrationResult.new(
+        model_class="bond_hazard_pwc",
+        parameters=_pillar_hazards_as_parameters(
+            pillar_dates, [float(h) for h in hazard_rates],
+        ),
+        residuals=residuals,
+        objective=ObjectiveKind.WEIGHTED_SSE,
+        optimiser=OptimiserSpec(
+            algorithm="L-BFGS-B" + (
+                f"+tikhonov(lam={float(lam):.3e})" if lam > 0 else ""
+            ),
+            tolerance=1e-12,  # see options ftol in minimize call
+            max_iterations=500,
+            extra={
+                "recovery_mode": recovery_mode,
+                "lam": float(lam),
+                "n_pillars": n_pillars,
+            },
+        ),
+        iterations=int(getattr(result, "nit", 0)),
+        converged=bool(result.success),
+        quotes_fitted=[f"bond_{i}" for i in range(n)],
+        weights=[b.weight for b in sorted_bonds],
+        diagnostics=CalibrationDiagnostics(
+            extra={"roughness": roughness_val},
+        ),
+    )
+
     return HazardBootstrapResult(
         survival_curve=final_curve,
         pillar_dates=pillar_dates,
@@ -513,6 +623,7 @@ def _bootstrap_global(
         converged=result.success,
         lam=float(lam),
         roughness=roughness_val,
+        calibration_result=cr,
     )
 
 
@@ -1000,6 +1111,34 @@ def bootstrap_hazard_mixed(
         prev_t = t
         prev_q = q
 
+    n_total = len(fixed_bonds) + len(floaters)
+    cr = CalibrationResult.new(
+        model_class="bond_hazard_pwc",
+        parameters=_pillar_hazards_as_parameters(pillar_dates, hazards),
+        residuals=residuals,
+        objective=ObjectiveKind.WEIGHTED_SSE,
+        optimiser=OptimiserSpec(
+            algorithm="L-BFGS-B",
+            tolerance=1e-12,
+            max_iterations=500,
+            extra={
+                "method": "global_mixed",
+                "n_fixed": len(fixed_bonds),
+                "n_floaters": len(floaters),
+            },
+        ),
+        iterations=int(getattr(result, "nit", 0)),
+        converged=bool(result.success),
+        quotes_fitted=(
+            [f"bond_{i}" for i in range(len(fixed_bonds))]
+            + [f"frn_{i}" for i in range(len(floaters))]
+        ),
+        weights=(
+            [b.weight for b in fixed_bonds]
+            + [getattr(f, "weight", 1.0) for f in floaters]
+        ),
+    )
+
     return HazardBootstrapResult(
         survival_curve=sc,
         pillar_dates=pillar_dates,
@@ -1009,9 +1148,10 @@ def bootstrap_hazard_mixed(
         residuals_bp=residuals,
         rmse_bp=rmse,
         max_error_bp=max(abs(r) for r in residuals) if residuals else 0.0,
-        n_bonds=len(fixed_bonds) + len(floaters),
+        n_bonds=n_total,
         method="global_mixed",
         converged=result.success,
+        calibration_result=cr,
     )
 
 

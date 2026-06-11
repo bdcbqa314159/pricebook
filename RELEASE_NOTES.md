@@ -2,6 +2,26 @@
 
 ---
 
+## v0.878.0 — 2026-06-11
+
+**G1 P1 Slice 2 — `bond_hazard_bootstrap` now produces a `CalibrationResult`.**
+
+First migration of an existing calibration to the new canonical artefact (DESIGN.md §6 G1 P1). The bond-hazard bootstrap was chosen because it is the most recently touched calibration (Tikhonov + L-curve work landed yesterday) and its results carry the richest provenance (`lam`, `roughness`, per-bond residuals).
+
+- `HazardBootstrapResult` gains a `calibration_result: CalibrationResult | None` field. Defaults to `None` for backward compatibility with hand-constructed instances; entry points always populate it.
+- `_bootstrap_sequential` populates a `CalibrationResult` with `model_class="bond_hazard_pwc"`, `objective=SSE`, `optimiser=OptimiserSpec(algorithm="brentq-per-bond", ...)`, one iteration per bond, per-bond weights.
+- `_bootstrap_global` populates with `objective=WEIGHTED_SSE`, `optimiser=OptimiserSpec(algorithm="L-BFGS-B[+tikhonov(lam=...)]", ...)`. When `lam > 0`: `lam` recorded in `optimiser.extra`, `roughness` in `diagnostics.extra`. Algorithm name gets the `+tikhonov(lam=...)` suffix for quick filtering in audit logs.
+- `bootstrap_hazard_mixed` (FRN + bond joint fit) also migrated; `quotes_fitted` carries `["bond_0", ..., "frn_0", ...]`.
+- New `to_calibration_result()` method returns the stored instance when populated, or builds one on-demand from the existing fields when not. Latter path covers any legacy hand-construction.
+- `to_dict()` gets a `calibration_id` key (the UUID stringified, or `None`). Lets persistence layers later use this as a foreign key.
+- 15 new tests in `test_bond_hazard_calibration_result.py` — population, parameter/residual/weight matching, Tikhonov-extras, unique id per invocation, on-demand build, hand-construction back-compat, `calibration_id` in dict.
+
+Zero existing test changes: the `rmse_bp`, `pillar_hazards`, and other historical API surface is preserved. The new `calibration_result` is purely additive.
+
+Next: Slice 3 migrates `g2pp_calibration` and `hw_calibration` to produce `CalibrationResult` (same template).
+
+---
+
 ## v0.877.0 — 2026-06-11
 
 **G1 P1 Slice 1 — `pricebook.calibration` skeleton + `CalibrationResult` + `Calibrator` Protocol.**
