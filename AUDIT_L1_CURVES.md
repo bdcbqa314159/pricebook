@@ -278,4 +278,55 @@ Two HIGH-impact bugs are active today (`A.2 B1` and `A.3 B1`); the `multicurve_n
 
 ---
 
-*(audit continues — Pass B parametric curve forms)*
+## Pass B — parametric curve forms
+
+| # | Module | LoC | Status | Confirmed bugs |
+|---|---|---:|---|---|
+| B.1 | `nelson_siegel.py` | 150 | 📝 | 0 bugs; day-count drift ~0.3 bp at 10y when materialising as `DiscountCurve`; non-convex objective with discontinuous barrier (Nelder-Mead unfriendly) |
+| B.2 | `smith_wilson.py` | 135 | ✅ | 0; clean EIOPA implementation. Same `date_from_year_fraction`/ACT-365F drift as B.1 when materialised. |
+| B.3 | `seasonal_curve.py` | 188 | 📝 | 0; deterministic overlay; `vars(self)` to_dict footgun on `SeasonalPattern` (not yet swept — outside L0) |
+| B.4 | `inflation_curve.py` | 90 | 📝 | 0; `relativedelta(years=int(t), months=...)` introduces a sub-day drift between input `(t, r)` and curve-stored `(d, df)` (acceptable approximation) |
+| B.5 | `ndf_implied.py` | 267 | 📝 | 0; CIP formula correct; **silent skip on `df_em > 2.0`** at line 154 (data-quality concern — should log) |
+
+### Pass B detail
+
+#### B.1 — `nelson_siegel.py`
+
+- **`nelson_siegel_yield` / `svensson_yield`** match the cited 1987/1994 references. Limit at `t=0` (returns `β₀ + β₁`) and sign conventions are correct.
+- **`_ns_factor2(t, tau)`** at line 31-36 — short-circuits at `x < 1e-10` but for `1e-10 < x < ~1e-6` there's a potential catastrophic-cancellation band (the formula computes `(1-exp(-x))/x - exp(-x)` which is `O(x)` for small `x`). Not a bug today (no caller probes that region) but worth noting.
+- **Calibration objective** uses `if tau <= 0.01: return 1e10` — a step discontinuity that Nelder-Mead can't gracefully navigate (the simplex straddles the barrier and oscillates). Robustness concern, not a correctness bug.
+- **Underdetermination guard absent**: calibrating 4-param NS against ≤ 3 pillars or 6-param Svensson against ≤ 5 pillars silently succeeds with whatever the optimiser converges to. Should at minimum warn.
+- **Day-count drift**: `ns_discount_curve(...)` builds dates via `date_from_year_fraction(ref, t)` (365.25 days/yr) but the resulting `DiscountCurve` uses ACT/365F by default. Querying `curve.zero_rate(d)` at the constructed date returns a value drifting by ~0.26 bp at t=10y for a typical NS curve (live measured). Smaller than the 4 bp claimed in MODULE_HEALTH for that specific case but still real.
+
+#### B.2 — `smith_wilson.py`
+
+- **`_wilson_function(t, u, alpha, ufr)`** matches the standard EIOPA technical specification (Solvency II QIS5 onwards).
+- **`smith_wilson_calibrate`** solves the linear `W @ ζ = market_df - exp(-ufr·t)` — well-posed when maturities are distinct.
+- **`smith_wilson_forward`** uses a 1-day finite difference for instantaneous forward — adequate; could be analytical from `dW/dt` if needed.
+- Same `date_from_year_fraction` drift as NS when materialised; same docstring fix applies.
+
+#### B.3 — `seasonal_curve.py`
+
+- Deterministic seasonal overlay (year-end / quarter-end / month-end premia). Reasonable approach. Currency-specific pre-built patterns (`USD_SEASONAL`, `EUR_SEASONAL`, `GBP_SEASONAL`) have the right ordering (USD year-end > GBP > EUR).
+- `SeasonalPattern.to_dict` returns `vars(self)` — footgun pattern from L0 audit, not yet swept in `curves/*` (outside L0 scope).
+
+#### B.4 — `inflation_curve.py`
+
+- Joint real+nominal builder. Uses `relativedelta(years=int(t), months=int((t%1)*12))` to construct dates from year-fraction tenors — fine for whole/half years; can introduce sub-day drift between the input `t` and the curve-stored interpretation. The DF is computed from `exp(-r * t)` using the input `t` (not the constructed date's recomputed year fraction), so there's the same flavour of drift as B.1/B.2 but smaller.
+- BEI calculation `nominal_rate - real_rate` at line 84 is standard.
+
+#### B.5 — `ndf_implied.py`
+
+- **CIP relationship correct**: `df_em = df_base × Spot / NDF` with Spot quoted base/em (USD/CNY style). Matches Della Corte-Sarno-Tsiakas.
+- **Silent skip on `df_em > 2.0`** at line 154: implies negative EM rate ≤ −69% — clearly bad data. Currently `continue` silently drops the pillar. Should at least emit a `RuntimeWarning` so the caller knows data was filtered.
+- **`df_em` clamp at 1e-10**: silently. Same concern.
+
+### Pass B — summary
+
+5 modules audited. **0 confirmed bugs.** Recurring theme: `date_from_year_fraction` (365.25) ↔ DiscountCurve's ACT/365F day-count mismatch introduces ~0.2-0.3 bp drift at 10y when materialising parametric curves. Below the 1-bp resolution that practical curve work usually demands, but worth a coordinated fix when the breaking schema bump (LD bundle) lands — the parametric builders should accept a `day_count` parameter and use it consistently.
+
+The five LOW-priority items (silent skips in ndf_implied, vars(self) in seasonal, day-count drift across all 4 parametric builders) are all stylistically related. A single "parametric-curve hygiene" slice could close them all.
+
+---
+
+*(audit continues — Pass C risk / bumping / scenarios)*
