@@ -124,21 +124,52 @@ class DiscountCurve:
         )
 
     def roll_down(self, days: int = 1) -> "DiscountCurve":
-        """New curve with reference_date shifted forward, same pillar dates/DFs.
+        """New curve with reference_date shifted forward, same yield curve.
 
-        Models the passage of time with an unchanged yield curve —
-        all tenors become shorter by `days`. Used for rolldown P&L.
+        Models the passage of time with an *unchanged* zero-rate / forward
+        structure — all tenors become shorter by `days`. Used for rolldown
+        P&L attribution.
+
+        Fix B.1 B1 (v0.898): by no-arbitrage the rolled-curve discount factor
+        at pillar date `d` is
+
+            P(new_ref, d) = P(0, d) / P(0, new_ref)
+
+        i.e. you must divide the original DF by the DF to the new reference
+        date. Pre-fix this division was missing, producing a +1.4 bp/day
+        rolldown error on a 5% curve (the magnitude of the new-ref discount).
         """
         new_ref = self.reference_date + timedelta(days=days)
         # Keep only pillars that are still in the future
         future_dates = [d for d in self._pillar_dates_original if d > new_ref]
         if not future_dates:
-            # All pillars in the past — extrapolate from last known rate
+            # All pillars in the past — extrapolate from last known rate.
+            # Preserve day_count and interpolation rather than fall back to
+            # `DiscountCurve.flat` defaults (separate footgun called out in
+            # B.1 B1 fix notes).
             last_t = max(t for t in self._times if t > 0)
-            last_rate = -math.log(float(self.df(self._pillar_dates_original[-1]))) / last_t
-            return DiscountCurve.flat(new_ref, last_rate)
+            last_date = self._pillar_dates_original[-1]
+            last_rate = -math.log(float(self.df(last_date))) / last_t
+            new_dates = [date_from_year_fraction(new_ref, t)
+                          for t in (0.25, 0.5, 1, 2, 5, 10)]
+            new_times = [year_fraction(new_ref, d, self.day_count) for d in new_dates]
+            new_dfs = [math.exp(-last_rate * t) for t in new_times]
+            return DiscountCurve(
+                new_ref, new_dates, new_dfs,
+                self.day_count, self._interpolation,
+            )
+
+        # Anchor: divide each original DF by P(0, new_ref) so the result is
+        # P(new_ref, d) per no-arbitrage.
+        disc_to_new_ref = float(self.df(new_ref))
+        if disc_to_new_ref <= 0:
+            raise ValueError(
+                f"roll_down: discount factor to new reference date "
+                f"{new_ref} is non-positive ({disc_to_new_ref}); "
+                f"cannot rebase curve."
+            )
         future_dfs = [
-            float(self.df(d)) for d in future_dates
+            float(self.df(d)) / disc_to_new_ref for d in future_dates
         ]
         return DiscountCurve(
             new_ref, future_dates, future_dfs,

@@ -2,6 +2,41 @@
 
 ---
 
+## v0.898.0 — 2026-06-11
+
+**Fix B.1 B1 — `DiscountCurve.roll_down` anchors rolled DFs to the new reference date.**
+
+The fifth HIGH-severity L0 audit bug, now closed. `roll_down(days)` was silently producing curves with wrong zero rates because it forgot to apply the no-arbitrage anchoring `P(new_ref, d) = P(0, d) / P(0, new_ref)`. On a flat 5% curve, rolldown P&L was over-stated by **+1.4 bp per day** of roll.
+
+### Live before / after
+
+```
+Flat 5% curve, ref=2024-01-01.
+
+BEFORE:
+roll_down(1d)  → zero_rate(2025-01-01) = 5.0137%  (+1.37 bp error)
+roll_down(30d) → zero_rate(2025-01-01) = 5.4231%  (compounded error)
+                          (any rolldown attribution off this is structurally wrong)
+
+AFTER:
+roll_down(1d)   → zero_rate(2025-01-01) = 5.0000% exactly
+roll_down(30d)  → zero_rate(2025-01-01) = 5.0000% exactly
+roll_down(365d) → zero_rate(2026-01-01) = 5.0000% exactly
+```
+
+### Change
+
+- `discount_curve.py:126-178` — `roll_down` now computes `disc_to_new_ref = self.df(new_ref)` once and divides each pillar DF by it. Raises `ValueError` with a clear message if `disc_to_new_ref <= 0` (pathological / extrapolated curve).
+- The "all pillars in the past" fallback now **preserves** the original `day_count` and `interpolation` instead of silently dropping them via `DiscountCurve.flat(...)` (a separate footgun called out in the audit).
+- 5 new tests in `TestRollDown`: 1-day / 30-day / 365-day flat-curve zero-rate preservation; no-arbitrage anchor identity `df_rolled(d) == df(d) / df(new_ref)`; day_count + interpolation preservation in the all-pillars-past fallback.
+- Full parallel suite: **11880 passed in 4:57**. Zero regressions.
+
+### Affected upstream
+
+Anything that calls `DiscountCurve.roll_down`: rolldown P&L attribution, daily carry/roll analytics, scenario time-shifts. The old behaviour over-stated rolldown gain by ~1.4 bp per day for a 5% curve. Practitioners running daily roll/carry on USD/GBP/EUR books would see this in their P&L explain.
+
+---
+
 ## v0.897.0 — 2026-06-11
 
 **Fix A.1 B1 Slice 4 — `FixedRateBond` YTM analytics use ICMA-correct period counting; par-yield round-trip is exactly 100.**

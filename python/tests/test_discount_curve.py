@@ -135,3 +135,68 @@ class TestRoundTrip:
         for dep in deposits:
             df = curve.df(dep.end)
             assert dep.pv(df) == pytest.approx(0.0, abs=1e-12)
+
+
+# ============================================================
+# roll_down — fix B.1 B1 (no-arbitrage anchoring)
+# ============================================================
+
+class TestRollDown:
+    """`roll_down(days)` must produce a curve where `P(new_ref, d) = P(0, d) / P(0, new_ref)`
+    so that an unchanged yield curve gives unchanged zero rates after rolldown.
+
+    Pre-fix B.1 B1: the divide-by-P(0, new_ref) step was missing, producing a
+    +1.4 bp/day error on a flat 5% curve.
+    """
+
+    def test_flat_curve_zero_rate_preserved_after_1d(self):
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve.flat(ref, 0.05)
+        rolled = curve.roll_down(days=1)
+        zr = rolled.zero_rate(date(2025, 1, 1))
+        assert zr == pytest.approx(0.05, abs=1e-12)
+
+    def test_flat_curve_zero_rate_preserved_after_30d(self):
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve.flat(ref, 0.05)
+        rolled = curve.roll_down(days=30)
+        zr = rolled.zero_rate(date(2025, 1, 1))
+        assert zr == pytest.approx(0.05, abs=1e-12)
+
+    def test_flat_curve_zero_rate_preserved_after_365d(self):
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve.flat(ref, 0.05)
+        rolled = curve.roll_down(days=365)
+        # The original 1Y pillar coincides with the new ref date after a
+        # 365-day roll; the curve has been re-anchored to it.
+        zr = rolled.zero_rate(date(2026, 1, 1))
+        assert zr == pytest.approx(0.05, abs=1e-12)
+
+    def test_no_arbitrage_anchor(self):
+        """The rolled curve's df(d) must equal P(0,d)/P(0,new_ref) exactly."""
+        ref = date(2024, 1, 1)
+        curve = DiscountCurve.flat(ref, 0.05)
+        days = 30
+        new_ref = date(2024, 1, 31)
+        rolled = curve.roll_down(days=days)
+        # Pick a future pillar and verify
+        target = date(2025, 6, 15)
+        expected = curve.df(target) / curve.df(new_ref)
+        assert rolled.df(target) == pytest.approx(expected, abs=1e-12)
+
+    def test_rolldown_preserves_day_count_and_interpolation(self):
+        """The all-pillars-past fallback must not silently drop day_count
+        or interpolation method (separate footgun from the main bug)."""
+        ref = date(2024, 1, 1)
+        # Build a curve with non-default settings
+        dates = [date(2024, 4, 1), date(2024, 7, 1)]
+        dfs = [0.987, 0.974]
+        curve = DiscountCurve(
+            ref, dates, dfs,
+            day_count=DayCountConvention.ACT_360,
+            interpolation=InterpolationMethod.LINEAR,
+        )
+        # Roll past all pillars
+        rolled = curve.roll_down(days=400)
+        assert rolled.day_count == DayCountConvention.ACT_360
+        assert rolled._interpolation == InterpolationMethod.LINEAR
