@@ -22,10 +22,20 @@ class StubType(Enum):
     LONG_BACK = "long_back"
 
 
-def _add_months(d: date, months: int, eom: bool) -> date:
-    """Add months to a date, respecting end-of-month rule."""
+def _add_months(d: date, months: int, snap_to_eom: bool) -> date:
+    """Add `months` to `d`. When `snap_to_eom` is True, force the result
+    to the last day of its month.
+
+    Note: the EOM decision is **schedule-level**, not per-step. The caller
+    is responsible for deciding "this schedule rolls EOM" once (based on
+    whether `start` is EOM and `eom` is requested) and then passing the
+    same boolean to every `_add_months` call within that schedule. This
+    matters for the backward-generation (front-stub) path, where the
+    rolling `d` is initially `end` — if `d` itself were used as the EOM
+    check, EOM would be wrongly anchored to `end`. (See A.4 B1 fix.)
+    """
     result = d + relativedelta(months=months)
-    if eom and d == _end_of_month(d):
+    if snap_to_eom:
         result = _end_of_month(result)
     return result
 
@@ -80,12 +90,18 @@ def generate_schedule(
 
     months = frequency.value
 
+    # EOM convention is anchored on `start`, not on the rolling date, per
+    # ISDA 2006 §4.10 ("if the period start date is the last day of February,
+    # the period end date is the last day of February"). Decide once here
+    # and pass the same flag to every _add_months call below.
+    snap_to_eom = eom and start == _end_of_month(start)
+
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
         # Generate backward from end → front stub
         unadjusted = [end]
         current = end
         while True:
-            current = _add_months(current, -months, eom)
+            current = _add_months(current, -months, snap_to_eom)
             if current <= start:
                 break
             unadjusted.append(current)
@@ -104,7 +120,7 @@ def generate_schedule(
         unadjusted = [start]
         current = start
         while True:
-            current = _add_months(current, months, eom)
+            current = _add_months(current, months, snap_to_eom)
             if current >= end:
                 break
             unadjusted.append(current)

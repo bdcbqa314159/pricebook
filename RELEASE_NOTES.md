@@ -2,6 +2,43 @@
 
 ---
 
+## v0.890.0 — 2026-06-11
+
+**Fix A.4 B1 — `schedule.generate_schedule` EOM convention now anchors on `start` per ISDA 2006 §4.10.**
+
+The first fix landing from the L0 audit. Schedule generation now correctly interprets the EOM rule for *all* generation paths (front-stub backward AND back-stub forward), not just the forward path that happened to work by accident.
+
+### What was broken
+
+In the front-stub (backward) generation path, the EOM decision was made inside `_add_months(d, months, eom)` by checking whether the rolling date `d` was itself EOM. For backward generation, `d` starts as `end`, so EOM was effectively anchored to `end`. When `start` was EOM but `end` was not, interior coupon rolls landed mid-month — violating ISDA 2006 §4.10 ("if the period start date is the last day of February, the period end date is the last day of February").
+
+Live repro before the fix:
+```
+generate_schedule(start=2024-01-31, end=2024-08-15, semi-annual, SHORT_FRONT, eom=True)
+  → [2024-01-31, 2024-02-15, 2024-08-15]      ← Feb 15 wrong; should be Feb 29
+generate_schedule(start=2024-01-31, end=2025-04-15, semi-annual, SHORT_FRONT, eom=True)
+  → [2024-01-31, 2024-04-15, 2024-10-15, 2025-04-15]   ← interior rolls all mid-month
+```
+
+After the fix:
+```
+[2024-01-31, 2024-02-29, 2024-08-15]
+[2024-01-31, 2024-04-30, 2024-10-31, 2025-04-15]
+```
+
+### Change
+
+- `schedule.py:25-30` — `_add_months(d, months, eom)` renamed to `_add_months(d, months, snap_to_eom)`. The boolean now means "globally snap to EOM" (a schedule-level decision), not "snap iff this particular d is EOM". The intent is documented inline.
+- `schedule.py:80` — `generate_schedule` computes `snap_to_eom = eom and start == _end_of_month(start)` exactly once before both generation paths, and passes the same flag through.
+- 3 new regression tests in `test_schedule.py`: ISDA §4.10 front-stub case + multi-year cross-leap-year case + start-not-EOM no-op case.
+- Full parallel suite: **11838 passed in 3:20** — zero regressions in any downstream caller.
+
+### Affected upstream
+
+Any bond, swap, or amortising trade whose schedule had `start = EOM` and `end != EOM`. UST issued at end-of-month with a coupon-date maturity is the prototypical case. Schedules with EOM at *both* ends (the existing `test_eom_preserved` case) were already correct; nothing breaks.
+
+---
+
 ## v0.889.0 — 2026-06-11
 
 **G1 P3 Slice 2 — schema versioning on `@serialisable`. G1 P3 complete. Gate 1 closed.**

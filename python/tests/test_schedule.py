@@ -123,6 +123,48 @@ class TestEndOfMonth:
         # But without EOM rule, it's just regular month addition
         assert sched[0] == date(2024, 1, 31)
 
+    def test_eom_anchored_on_start_not_end_short_front(self):
+        """ISDA 2006 §4.10 — EOM anchors on `start`, NOT on the rolling date.
+
+        Bug A.4 B1 (pre-fix): backward generation in front-stub paths used
+        `current` (initialised to `end`) as the EOM check, so EOM rolls were
+        anchored to `end`. When `start` was EOM but `end` was not, interior
+        rolls landed mid-month.
+        """
+        # start=Jan 31 EOM, end=Aug 15 NOT EOM, semi-annual, SHORT_FRONT.
+        # Pre-fix: [Jan 31, Feb 15, Aug 15]  ← Feb 15 is wrong, not EOM.
+        # Per ISDA §4.10: interior roll must land on Feb 29 (EOM for Feb 2024).
+        sched = generate_schedule(
+            date(2024, 1, 31), date(2024, 8, 15),
+            Frequency.SEMI_ANNUAL, stub=StubType.SHORT_FRONT, eom=True,
+        )
+        assert sched == [date(2024, 1, 31), date(2024, 2, 29), date(2024, 8, 15)]
+
+    def test_eom_anchored_on_start_multi_year(self):
+        """Multi-year case across leap-and-non-leap February."""
+        # start=Jan 31 EOM, end=Apr 15 next yr NOT EOM, semi-annual.
+        # Pre-fix: [Jan 31, Apr 15, Oct 15, Apr 15]  ← interior rolls mid-month.
+        # Per ISDA §4.10: [Jan 31, Apr 30, Oct 31, Apr 15].
+        sched = generate_schedule(
+            date(2024, 1, 31), date(2025, 4, 15),
+            Frequency.SEMI_ANNUAL, stub=StubType.SHORT_FRONT, eom=True,
+        )
+        assert sched == [
+            date(2024, 1, 31),
+            date(2024, 4, 30),   # April EOM
+            date(2024, 10, 31),  # October EOM
+            date(2025, 4, 15),   # end (stub)
+        ]
+
+    def test_eom_off_when_start_not_eom(self):
+        """If start is not EOM, eom=True should be a no-op (per ISDA §4.10)."""
+        sched = generate_schedule(
+            date(2024, 1, 15), date(2024, 8, 15),
+            Frequency.SEMI_ANNUAL, stub=StubType.SHORT_FRONT, eom=True,
+        )
+        # No EOM snapping anywhere — interior rolls follow start's day-15.
+        assert sched == [date(2024, 1, 15), date(2024, 2, 15), date(2024, 8, 15)]
+
 
 class TestCalendarAdjustment:
     """Schedule with business day adjustment."""
