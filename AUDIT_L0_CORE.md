@@ -22,7 +22,7 @@
 | A.2 | `calendar.py` | ⚠️ | 5 (B1 Sat-substitute, B2 Tokyo no-substitute, B3 nth_weekday spill, B4 spill-window, B5 joint mutation) | huge |
 | A.3 | `currency.py` | 📝 | 0 | 4 (settlement_lag, is_ndf, forward_rate, all_g10_pairs untested) |
 | A.4 | `schedule.py` | ⚠️ | 1 (B1 EOM anchored to end not start in front-stub) | 3 (post-adjust dedupe untested, WEEKLY untested, stub-30-day heuristic) |
-| A.5 | `solvers.py` | ❓ | | |
+| A.5 | `solvers.py` | ⚠️ | 2 minor (B1 to_dict mutation, B2 itp maxiter contract) | NaN/Inf paths untested |
 | A.6 | `interpolation.py` | ❓ | | |
 | A.7 | `approximation.py` | ❓ | | |
 | A.8 | `caching.py` | ❓ | | |
@@ -344,6 +344,79 @@ Affected trades: any with EOM start and non-EOM end. Common cases:
 
 ---
 
+## A.5 — `core/solvers.py`
+
+**Purpose:** 1D root finders — `newton` (Newton-Raphson), `secant`, `halley` (cubic convergence using f, f', f''), `itp` (Interpolate-Truncate-Project bracketing), `brentq` (Brent's method). All return `SolverResult` except `brentq` (returns `float` for backward compat).
+
+**Internal deps:** None.
+
+**Size:** 247 lines. Test file: 152 lines.
+
+### Status: ⚠️ 2 minor bugs
+
+### Confirmed bugs
+
+#### B1 — `SolverResult.to_dict()` returns mutable shared `__dict__`  *[LOW]*
+
+**Location:** `solvers.py:27-28`.
+
+```python
+def to_dict(self) -> dict:
+    return vars(self)
+```
+
+`vars(self)` returns `self.__dict__` directly. Mutating the returned dict mutates the dataclass.
+
+**Live repro:**
+```
+r = SolverResult(root=1.0, ...)
+d = r.to_dict()
+d['root'] = 999.0
+# r.root is now 999.0
+```
+
+**Fix:** `return dict(vars(self))` (one-character fix).
+
+#### B2 — `itp` silently overrides user `maxiter` cap and misreports iteration count  *[LOW]*
+
+**Location:** `solvers.py:137, 174`.
+
+```python
+for i in range(max(maxiter, n_max)):     # line 137
+    ...
+return SolverResult(..., iterations=maxiter, ...)  # line 174
+```
+
+Two issues:
+1. The loop uses `max(maxiter, n_max)` where `n_max = ceil(log2((b-a)/(2*tol))) + 1`. For tight `tol` and wide bracket, `n_max` can exceed `maxiter`. User's request for "no more than 5 iterations" is silently increased.
+2. When the loop budget is exhausted, the result reports `iterations=maxiter` instead of the actual loop counter `i`. Reported count disagrees with the actual evaluations.
+
+**Live repro:**
+```
+itp(f, 0.0, 1.5, tol=1e-14, maxiter=5)
+# Actually runs 7 iterations (n_max=7 > maxiter=5)
+# Reports iterations=5
+```
+
+**Fix:** Either (a) honour `maxiter` strictly and emit a "did-not-converge" warning, or (b) document that ITP's worst-case bound supersedes `maxiter` and at least set `iterations=i+1` in the timeout-return path.
+
+### Robustness concerns (not bugs)
+
+- **`newton`, `secant`, `halley`**: silently `break` on near-zero denominator (|f'| < 1e-15) without warning. The `converged` field captures it, but a caller iterating multiple seeds gets no signal which one failed and why. Add `RuntimeWarning`.
+- **`brentq` warning threshold** at line 239 is hard-coded `tol * 1000`. Inconsistent: ITP/Newton don't have a similar "loose-OK" tolerance. Pick one policy.
+- **`brentq` returns `float`** — breaks the `SolverResult` contract of every other solver in the module. Docstring acknowledges this is for back-compat. Worth tracking for a future migration.
+- **NaN/Inf handling**: none of the solvers explicitly check for NaN/Inf. If `f(x)` returns NaN, the abs-comparison silently returns False, and the iteration continues until maxiter exhaustion. Result: `root=NaN, converged=False`. Mostly survives but provides no diagnostic.
+
+### Test gaps
+
+- No tests for `to_dict` (would catch B1).
+- No tests for `itp` with tight tolerance / small maxiter (would catch B2).
+- No tests for the maxiter-exhausted return path on any solver.
+- No tests for NaN/Inf propagation.
+- No tests for near-zero-derivative cases in `newton`/`halley`/`secant`.
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -367,5 +440,10 @@ From A.3 (`currency`):
 From A.4 (`schedule`):
 13. B1 fix: anchor EOM on `start` regardless of generation direction. Add regression test with `start=2024-01-31, end=2025-04-15, semi-annual` to catch the front-stub case.
 14. Test gap fill: WEEKLY, LONG_BACK, post-adjust dedup/ordering. Single slice.
+
+From A.5 (`solvers`):
+15. B1 fix: `SolverResult.to_dict` returns a copy (one-line fix + test).
+16. B2 fix: honour `maxiter` in ITP and report actual iteration count.
+17. Test gap fill: NaN/Inf, near-zero-derivative, maxiter-exhausted return paths. Single slice.
 
 (More entries will arrive as the audit walks through Pass A.)
