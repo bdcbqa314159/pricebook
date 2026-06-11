@@ -42,6 +42,9 @@ from pricebook.calibration import (
     OptimiserSpec,
 )
 
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
+
 
 # ═══════════════════════════════════════════════════════════════
 # Dataclasses
@@ -314,6 +317,7 @@ def _bootstrap_sequential(
     bonds: list[BondInput],
     discount_curve: DiscountCurve,
     recovery_mode: str = RECOVERY_PAR,
+    market_snapshot_id=None,
 ) -> HazardBootstrapResult:
     """Sequential bootstrap: one bond per maturity, exact fit.
 
@@ -399,6 +403,7 @@ def _bootstrap_sequential(
         converged=True,
         quotes_fitted=[f"bond_{i}" for i in range(n)],
         weights=[b.weight for b in sorted_bonds],
+        market_snapshot_id=market_snapshot_id,
     )
 
     return HazardBootstrapResult(
@@ -429,6 +434,7 @@ def _bootstrap_global(
     recovery_mode: str = RECOVERY_PAR,
     lam: float = 0.0,
     pillar_times: list[float] | None = None,
+    market_snapshot_id=None,
 ) -> HazardBootstrapResult:
     """Global least-squares fit: fit M hazard pillars to N bond prices.
 
@@ -607,6 +613,7 @@ def _bootstrap_global(
         diagnostics=CalibrationDiagnostics(
             extra={"roughness": roughness_val},
         ),
+        market_snapshot_id=market_snapshot_id,
     )
 
     return HazardBootstrapResult(
@@ -640,6 +647,8 @@ def bootstrap_hazard_from_bonds(
     recovery_mode: str = RECOVERY_PAR,
     lam: float | str = 0.0,
     pillar_times: list[float] | None = None,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> HazardBootstrapResult:
     """Bootstrap a survival/hazard curve from risky bond prices.
 
@@ -714,13 +723,18 @@ def bootstrap_hazard_from_bonds(
         else:
             method = "global"
 
+    snapshot_id = market_snapshot.id if market_snapshot is not None else None
+
     if method == "sequential":
         if unique_mats < n:
             raise ValueError(
                 f"Sequential method requires distinct maturities, "
                 f"got {n} bonds with {unique_mats} unique maturities. Use method='global'."
             )
-        return _bootstrap_sequential(reference_date, sorted_bonds, discount_curve, recovery_mode)
+        return _bootstrap_sequential(
+            reference_date, sorted_bonds, discount_curve, recovery_mode,
+            market_snapshot_id=snapshot_id,
+        )
 
     # Global method — resolve lam
     if isinstance(lam, str):
@@ -740,6 +754,7 @@ def bootstrap_hazard_from_bonds(
     return _bootstrap_global(
         reference_date, sorted_bonds, discount_curve, n_pillars,
         recovery_mode, lam=lam_value, pillar_times=pillar_times,
+        market_snapshot_id=snapshot_id,
     )
 
 
@@ -989,6 +1004,8 @@ def bootstrap_hazard_mixed(
     method: str = "global",
     n_pillars: int | None = None,
     recovery_mode: str = RECOVERY_PAR,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> HazardBootstrapResult:
     """Bootstrap hazard rates from a mix of fixed-rate bonds and FRNs.
 
@@ -1137,6 +1154,7 @@ def bootstrap_hazard_mixed(
             [b.weight for b in fixed_bonds]
             + [getattr(f, "weight", 1.0) for f in floaters]
         ),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return HazardBootstrapResult(
@@ -1268,6 +1286,8 @@ def bootstrap_hazard_adaptive(
     discount_curve: DiscountCurve = None,
     bid_ask_widths_bp: list[float] | None = None,
     recovery_mode: str = RECOVERY_PAR,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> HazardBootstrapResult:
     """Adaptive hazard bootstrapping based on liquidity assessment.
 
@@ -1294,6 +1314,7 @@ def bootstrap_hazard_adaptive(
         return bootstrap_hazard_from_bonds(
             reference_date, bonds, discount_curve,
             method="auto", recovery_mode=recovery_mode,
+            market_snapshot=market_snapshot,
         )
     else:
         # Mixed or illiquid — use global mixed bootstrap
@@ -1312,4 +1333,5 @@ def bootstrap_hazard_adaptive(
             reference_date, bonds, floaters, discount_curve,
             method="global", n_pillars=assessment.recommended_n_pillars,
             recovery_mode=recovery_mode,
+            market_snapshot=market_snapshot,
         )

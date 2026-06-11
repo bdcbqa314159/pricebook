@@ -14,11 +14,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 # ---- Multi-curve Newton solver ----
@@ -80,6 +84,8 @@ def multicurve_newton(
     day_count: DayCountConvention = DayCountConvention.ACT_360,
     tol: float = 1e-10,
     max_iter: int = 50,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> MultiCurveResult:
     """Simultaneously bootstrap OIS + projection curves via Newton-Raphson.
 
@@ -191,6 +197,7 @@ def multicurve_newton(
                 ois_pillar_dates, projection_pillar_dates, x,
                 F, iteration + 1, True, tol, max_iter, day_count,
                 ois_instruments, projection_instruments,
+                market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
             )
             ois.calibration_result = cr
             proj.calibration_result = cr
@@ -228,6 +235,7 @@ def multicurve_newton(
         ois_pillar_dates, projection_pillar_dates, x,
         _reprice_errors(x), max_iter, False, tol, max_iter, day_count,
         ois_instruments, projection_instruments,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
     ois.calibration_result = cr
     proj.calibration_result = cr
@@ -239,6 +247,7 @@ def _build_multicurve_cr(
     ois_pillar_dates, projection_pillar_dates, x, residuals_array,
     iterations, converged, tol, max_iter, day_count,
     ois_instruments, projection_instruments,
+    market_snapshot_id=None,
 ):
     """Build the CalibrationResult for a multicurve calibration."""
     from pricebook.calibration import (
@@ -280,6 +289,7 @@ def _build_multicurve_cr(
                 "max_residual_abs": float(np.max(np.abs(residuals_array))),
             },
         ),
+        market_snapshot_id=market_snapshot_id,
     )
 
 

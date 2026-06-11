@@ -2,6 +2,24 @@
 
 ---
 
+## v0.885.0 — 2026-06-11
+
+**G1 P2 Slice 3 — `multicurve_newton` + the bond-hazard bootstrap family accept a `MarketSnapshot`.**
+
+Phase 2 of Gate 1 now reaches every major curve-and-hazard calibration entry point. The audit chain **price → calibration → market snapshot** is wired through the `curves` *and* `credit` subpackages — together with G1 P2 Slice 2, this covers all single- and multi-curve bootstrapping plus credit hazard calibration.
+
+- `pricebook.curves.multicurve_solver.multicurve_newton(...)` gains keyword-only `market_snapshot: MarketSnapshot | None = None`. Id propagates through both converged and non-converged paths (the latter still emits the existing `RuntimeWarning`). Both `ois_curve.calibration_result` and `projection_curve.calibration_result` share the same `CalibrationResult` instance, so the link is canonical, not duplicated.
+- `pricebook.credit.bond_hazard_bootstrap`:
+  - `bootstrap_hazard_from_bonds(...)` — keyword-only `market_snapshot`. Id threads through `_bootstrap_sequential` and `_bootstrap_global` (both reach `CalibrationResult.market_snapshot_id`).
+  - `bootstrap_hazard_mixed(...)` — same.
+  - `bootstrap_hazard_adaptive(...)` — same; passes the snapshot through to the chosen downstream entry point.
+- `TYPE_CHECKING` import on both new touch sites — no runtime dep on `pricebook.market_data`.
+- 9 new tests in `test_multicurve_snapshot.py`: keyword-only enforcement, id linkage on converged + non-converged multicurve, id linkage on sequential + global bond-hazard, snapshot-presence is numerically inert.
+
+G1 P2 ready for Slice 4 (other model calibrators: HW, G2++, SABR, LMM, jump models — same additive pattern).
+
+---
+
 ## v0.884.0 — 2026-06-11
 
 **G1 P2 Slice 2 — `bootstrap` and `global_bootstrap` accept a `MarketSnapshot`; snapshot id propagates onto the `CalibrationResult`.**
