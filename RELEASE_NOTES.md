@@ -2,6 +2,29 @@
 
 ---
 
+## v0.891.0 — 2026-06-11
+
+**Fix A.12 B1 — serialisation auto-discovery via `pkgutil.walk_packages`.**
+
+The hand-maintained import whitelist in `core.serialization._ensure_loaded` is gone. The registry is now populated by walking every submodule of `pricebook` on first use.
+
+### What was broken
+
+`_ensure_loaded` was a curated list of 24 imports. The audit found 53 files in the codebase using `@serialisable` / `@serialisable_convention` / `_register` — so **29 modules' types were silently absent from the registry**. The failure mode was: `from_dict({"type": "esg_bond_spec", ...})` → `ValueError("Unknown type 'esg_bond_spec'")` — but only when the specific missing type was deserialised, after deployment. Every new module with a serialisable type carried this maintenance trap.
+
+### Change
+
+- `serialization.py:30-65` — `_ensure_loaded` now uses `pkgutil.walk_packages(pricebook.__path__, prefix="pricebook.")` + `importlib.import_module`. Idempotent; one-shot tree walk on first call. Any import failure is recorded in `_failed_imports` (module name + exception class) rather than silenced — visible to the test suite for CI catch.
+- Auto-discovery now registers **120 types** (vs ~50 with the old whitelist). The codebase has not changed; the registry just sees what was always there.
+- 4 new tests in `test_serialization_autodiscovery.py`: zero-import-failures invariant, ≥100 types registered, every major subpackage represented, regression test that `EquityIndexSpec` (from `core.market_conventions`, not in the old whitelist) is now reachable.
+- Full parallel suite: **11842 passed in 4:41**.
+
+### Side discovery — new audit finding
+
+Auto-discovery surfaces a pre-existing `_SERIAL_FIELDS` mismatch on `AmortisingBond` — the registered fields (`face_value`, `coupon_rate`, `n_periods`, `frequency`) don't match `__init__` parameters (`amortisation_type`, `coupon_rate`, `maturity_years`, `n_payments`, `notional`). The `_register` validator emits a `UserWarning` at startup. This bug was hidden before because `amortising_bond` wasn't in the old whitelist. **Logged as a new audit finding** — to be fixed in the upcoming `amortising_bond` audit pass.
+
+---
+
 ## v0.890.0 — 2026-06-11
 
 **Fix A.4 B1 — `schedule.generate_schedule` EOM convention now anchors on `start` per ISDA 2006 §4.10.**

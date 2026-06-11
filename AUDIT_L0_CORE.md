@@ -730,6 +730,25 @@ Same bug as A.11 B5, duplicated in this facade. Fix together with B5.
 
 ---
 
+### Side discovery from auto-discovery fix (2026-06-11)
+
+When A.12 B1 was fixed, auto-discovery surfaced a NEW finding outside L0:
+
+#### EXTRA — `fixed_income.amortising_bond` has bogus `_SERIAL_FIELDS`  *[MEDIUM]*
+
+**Location:** `fixed_income/amortising_bond.py:337`.
+
+```python
+_serialisable("amortising_bond",
+              ['face_value', 'coupon_rate', 'n_periods', 'frequency'])(AmortisingBond)
+```
+
+But `AmortisingBond.__init__` actually takes `['amortisation_type', 'coupon_rate', 'maturity_years', 'n_payments', 'notional']`. The `_register` validator emits a `UserWarning` per mismatched field at import time. Round-trip via `from_dict` would fail because `face_value`, `n_periods`, `frequency` don't exist as constructor params.
+
+Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed in a future slice when the audit reaches fixed_income.
+
+---
+
 ## Pass A — summary
 
 13 modules audited. Total: **20 confirmed bugs** (mostly Low/Medium) + significant test gaps in calendar / interpolation / FX-forward / Serialisable-edge-shapes.

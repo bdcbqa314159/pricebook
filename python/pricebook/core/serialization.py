@@ -26,40 +26,56 @@ from pricebook.core.serialisable import (
 
 
 # ---------------------------------------------------------------------------
-# Lazy registration — ensure all modules are imported
+# Lazy registration — auto-discover every @serialisable* module under pricebook
 # ---------------------------------------------------------------------------
+#
+# Why auto-discovery (and not a curated import list)?
+# A curated whitelist is a silent-broken footgun: every new module with
+# `@serialisable` / `@serialisable_convention` would have to be remembered
+# and added here. Audit A.12 B1 found ~29 modules with @serialisable types
+# already missing from the curated list. `from_dict` would raise "Unknown
+# type" only when that *specific* type happened to be deserialised — by
+# which time the failure mode is mysterious.
+#
+# pkgutil.walk_packages + importlib.import_module walks the entire pricebook
+# tree once on first use, populates the registry transparently, and skips
+# any module that fails to import (which would be a separate bug —
+# import-time errors are not silenced here, they're just not allowed to
+# block deserialisation of other types).
 
 _loaded = False
+_failed_imports: list[tuple[str, str]] = []
 
-def _ensure_loaded():
+
+def _ensure_loaded() -> None:
+    """Auto-discover and import every submodule of `pricebook` so that all
+    classes decorated with `@serialisable` / `@serialisable_convention` (and
+    direct calls to `_register`) populate the global registry.
+
+    Idempotent — guarded by a module-level flag. First call walks the tree;
+    subsequent calls are O(1).
+
+    Failures: any module that fails to import is recorded in
+    `_failed_imports` (name, exception-class-name). The audit test
+    `test_serialization_autodiscovery` asserts this list is empty so we
+    catch regressions at CI time rather than at deserialise time.
+    """
     global _loaded
     if _loaded:
         return
     _loaded = True
-    import pricebook.fixed_income.swap           # noqa: F401
-    import pricebook.fixed_income.bond           # noqa: F401
-    import pricebook.credit.cds                  # noqa: F401
-    import pricebook.fixed_income.fra            # noqa: F401
-    import pricebook.fixed_income.deposit        # noqa: F401
-    import pricebook.fixed_income.ois            # noqa: F401
-    import pricebook.fixed_income.basis_swap     # noqa: F401
-    import pricebook.options.swaption            # noqa: F401
-    import pricebook.options.capfloor            # noqa: F401
-    import pricebook.credit.loan                 # noqa: F401
-    import pricebook.credit.cln                  # noqa: F401
-    import pricebook.fx.fx_forward               # noqa: F401
-    import pricebook.equity.trs                  # noqa: F401
-    import pricebook.core.discount_curve         # noqa: F401
-    import pricebook.core.survival_curve         # noqa: F401
-    import pricebook.fixed_income.rfr            # noqa: F401
-    import pricebook.fixed_income.ibor_curve     # noqa: F401
-    import pricebook.fixed_income.funding_curve  # noqa: F401
-    import pricebook.options.vol_surface         # noqa: F401
-    import pricebook.fixed_income.csa            # noqa: F401
-    import pricebook.core.trade                  # noqa: F401
-    import pricebook.core.pricing_context        # noqa: F401
-    import pricebook.fx.multi_currency_curves    # noqa: F401
-    import pricebook.risk.xva                    # noqa: F401
+
+    import importlib
+    import pkgutil
+    import pricebook
+
+    for module_info in pkgutil.walk_packages(
+        pricebook.__path__, prefix="pricebook."
+    ):
+        try:
+            importlib.import_module(module_info.name)
+        except Exception as exc:  # noqa: BLE001 — any import failure is recorded
+            _failed_imports.append((module_info.name, type(exc).__name__))
 
 
 # ---------------------------------------------------------------------------
