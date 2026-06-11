@@ -2,6 +2,47 @@
 
 ---
 
+## v0.897.0 — 2026-06-11
+
+**Fix A.1 B1 Slice 4 — `FixedRateBond` YTM analytics use ICMA-correct period counting; par-yield round-trip is exactly 100.**
+
+The fourth and decisive slice of the ICMA fix. Coupons were fixed in Slice 3; this slice fixes the *discount-time* side. UST and other ICMA-convention bonds now satisfy the par-yield identity exactly.
+
+### What was broken (after Slice 3)
+
+`FixedLeg` was producing correct coupon amounts (2.0000 exact for par 5y UST) but `_price_from_ytm` was computing time-to-cashflow via `year_fraction(settle, payment_date, ACT_ACT_ICMA)` for *multi-period spans*. That call silently falls back to ACT/365F because the current `_act_act_icma` implementation only handles single-period accruals (per ICMA 251.1) and not multi-period spans (ICMA 251.2). The result: coupon amounts at 2.0000 each, but discount times at 0.4986, 1.0027, 1.4986, ... instead of 0.5, 1.0, 1.5, .... Par-yield round-trip landed at 99.981367 instead of 100.
+
+### Change
+
+- New method `FixedRateBond._ytm_time_to(settle, target)` computes the ICMA-correct time-to-cashflow:
+  - If `settle` coincides with a coupon date → `(target_index − settle_index) / coupons_per_year` exactly.
+  - If `settle` is mid-period → stub fraction (days_to_next_coupon / period_days) + full periods.
+  - For non-ICMA conventions → falls back to `year_fraction(settle, target, day_count)` (unchanged).
+- Routed `_price_from_ytm`, `macaulay_duration`, `convexity`, and `accrual_schedule` through `_ytm_time_to`. `modified_duration` and `dv01_yield` derive from these — no further change needed.
+- The two characterisation xfails turn green; their markers are removed. **Tolerance tightened from 1e-8 to 1e-10** to lock in the new exactness.
+- Full parallel suite: **11875 passed in 4:57** — zero regressions.
+
+### Verified end-to-end
+
+```
+Pre-fix:  par 5y UST round-trip = 99.999807, par 30y = 99.999489
+Post-fix: par 5y UST round-trip = 100.000000, par 30y = 100.000000
+```
+
+### A.1 B1 status
+
+| Slice | Scope | Status |
+|---|---|---|
+| 1 | Add `strict_icma` flag on `year_fraction` | ✅ |
+| 2 | Characterise UST mispricing with xfail tests | ✅ |
+| 3 | `FixedLeg` passes ICMA refs (correct coupon amounts) | ✅ |
+| 4 | `_ytm_time_to` helper (correct discount times) | ✅ (this slice) |
+| N | Final: flip default to `strict_icma=True` after auditing remaining callers | queued |
+
+UST and all other ICMA-convention bonds (Bunds, Gilts, JGBs, sovereigns) now compute coupon amounts AND par-yield round-trips correctly at machine precision. The audit chain's highest-blast-radius bug is closed for the bond-pricing path.
+
+---
+
 ## v0.896.0 — 2026-06-11
 
 **Fix A.1 B1 Slice 3 — `FixedLeg` cashflows now compute correct ACT/ACT ICMA year-fractions; UST coupons land exactly at face × coupon ÷ frequency.**

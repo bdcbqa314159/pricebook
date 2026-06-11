@@ -80,21 +80,15 @@ class TestParUSTCharacterisation:
                 f"(expected exactly 2.0)"
             )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "A.1 B1 — `_price_from_ytm` uses a different `year_fraction` "
-            "code path (multi-period span from settle → payment_date) that "
-            "STILL falls back to ACT/365F. Coupon amounts are now correct, "
-            "but the YTM-side discount times aren't. Will be fixed in Slice 4."
-        ),
-    )
     def test_par_yield_round_trip_is_exact_100(self, par_5y_ust):
         """At ytm == coupon_rate, price (off internal YTM machinery) should
-        be exactly 100. Tracks the secondary mismatch in `_price_from_ytm`."""
+        be exactly 100. Fixed in A.1 B1 Slice 4 — `_ytm_time_to` computes
+        period-counts directly for ACT/ACT ICMA rather than calling
+        `year_fraction` over multi-period spans.
+        """
         settle = par_5y_ust.issue_date
         price = par_5y_ust._price_from_ytm(par_5y_ust.coupon_rate, settle)
-        assert price == pytest.approx(100.0, abs=1e-8)
+        assert price == pytest.approx(100.0, abs=1e-10)
 
 
 # ============================================================
@@ -114,14 +108,11 @@ class TestLongMaturityCharacterisation:
             face_value=100.0,
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A.1 B1 — same as 5y case; `_price_from_ytm` mismatch will be fixed in Slice 4",
-    )
     def test_30y_par_yield_round_trip_is_exact_100(self, par_30y_ust):
+        """Fixed in A.1 B1 Slice 4 — same as 5y case."""
         settle = par_30y_ust.issue_date
         price = par_30y_ust._price_from_ytm(par_30y_ust.coupon_rate, settle)
-        assert price == pytest.approx(100.0, abs=1e-8)
+        assert price == pytest.approx(100.0, abs=1e-10)
 
 
 # ============================================================

@@ -176,14 +176,14 @@ class FixedRateBond:
         weighted_t = 0.0
         total_pv = 0.0
         for cf in self._future_cashflows(settle):
-            t = year_fraction(settle, cf.payment_date, self.day_count)
+            t = self._ytm_time_to(settle, cf.payment_date)
             n = t * periods_per_year
             pv = cf.amount / (1.0 + ytm / periods_per_year) ** n
             weighted_t += t * pv
             total_pv += pv
 
         # Principal
-        t_mat = year_fraction(settle, self.maturity, self.day_count)
+        t_mat = self._ytm_time_to(settle, self.maturity)
         n_mat = t_mat * periods_per_year
         pv_prin = self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         weighted_t += t_mat * pv_prin
@@ -212,13 +212,13 @@ class FixedRateBond:
         weighted = 0.0
         total_pv = 0.0
         for cf in self._future_cashflows(settle):
-            t = year_fraction(settle, cf.payment_date, self.day_count)
+            t = self._ytm_time_to(settle, cf.payment_date)
             n = t * periods_per_year
             pv = cf.amount / discount ** n
             weighted += n * (n + 1) * pv
             total_pv += pv
 
-        t_mat = year_fraction(settle, self.maturity, self.day_count)
+        t_mat = self._ytm_time_to(settle, self.maturity)
         n_mat = t_mat * periods_per_year
         pv_prin = self.face_value / discount ** n_mat
         weighted += n_mat * (n_mat + 1) * pv_prin
@@ -245,10 +245,9 @@ class FixedRateBond:
         future_cfs = self._future_cashflows(settle)
         accrual_factors = [cf.year_frac for cf in future_cfs]
         times_to_coupon = [
-            year_fraction(settle, cf.payment_date, self.day_count)
-            for cf in future_cfs
+            self._ytm_time_to(settle, cf.payment_date) for cf in future_cfs
         ]
-        time_to_maturity = year_fraction(settle, self.maturity, self.day_count)
+        time_to_maturity = self._ytm_time_to(settle, self.maturity)
         return accrual_factors, times_to_coupon, time_to_maturity
 
     def price_from_yield_sc(self, y: float, settlement: date | None = None) -> float:
@@ -267,6 +266,60 @@ class FixedRateBond:
         alphas, _, _ = self.accrual_schedule(settlement)
         return bond_risk_factor(self.coupon_rate, alphas, y)
 
+    def _ytm_time_to(self, settle: date, target: date) -> float:
+        """Time from `settle` to `target` for YTM discounting under this
+        bond's day_count convention.
+
+        For ACT/ACT ICMA the time is *not* the simple (target − settle) day
+        count divided by 365 — that would treat the coupon-period structure
+        as irrelevant. The correct value (per ICMA 251.1 / 251.2) is the
+        number of coupon periods between `settle` and `target` divided by
+        `coupons_per_year`, with a mid-period stub fraction at the start
+        when `settle` doesn't coincide with a coupon date.
+
+        For other day counts, falls back to `year_fraction(settle, target,
+        day_count)` — the legacy multi-period path is exact for ACT/365F,
+        ACT/360, 30/360, etc.
+
+        Fix A.1 B1 Slice 4.
+        """
+        if self.day_count != DayCountConvention.ACT_ACT_ICMA:
+            return year_fraction(settle, target, self.day_count)
+
+        coupons_per_year = 12 // self.frequency.value if self.frequency.value > 0 else None
+        if coupons_per_year is None:
+            return year_fraction(settle, target, self.day_count)
+
+        # Schedule dates: issue_date, then each accrual_end.
+        # accrual_end of the last coupon == maturity, so this also covers
+        # principal-at-maturity correctly.
+        coupon_dates = [self.issue_date] + [
+            cf.accrual_end for cf in self.coupon_leg.cashflows
+        ]
+
+        try:
+            target_idx = coupon_dates.index(target)
+        except ValueError:
+            return year_fraction(settle, target, self.day_count)
+
+        # Settle on a coupon boundary — count periods exactly.
+        if settle in coupon_dates:
+            settle_idx = coupon_dates.index(settle)
+            n_periods = target_idx - settle_idx
+            return n_periods / coupons_per_year
+
+        # Mid-period: find the containing period and use the ICMA stub.
+        for i in range(len(coupon_dates) - 1):
+            if coupon_dates[i] < settle < coupon_dates[i + 1]:
+                period_days = (coupon_dates[i + 1] - coupon_dates[i]).days
+                days_to_next = (coupon_dates[i + 1] - settle).days
+                stub_fraction = days_to_next / period_days
+                n_full_periods = target_idx - (i + 1)
+                return (stub_fraction + n_full_periods) / coupons_per_year
+
+        # Settle before the first coupon date or after the last — fall back.
+        return year_fraction(settle, target, self.day_count)
+
     def _price_from_ytm(self, ytm: float, settlement: date | None = None) -> float:
         """Dirty price per 100 face from a yield, discounting from settlement."""
         settle = settlement if settlement is not None else self.issue_date
@@ -274,10 +327,10 @@ class FixedRateBond:
         periods_per_year = 12 / freq
         pv = 0.0
         for cf in self._future_cashflows(settle):
-            t = year_fraction(settle, cf.payment_date, self.day_count)
+            t = self._ytm_time_to(settle, cf.payment_date)
             n = t * periods_per_year
             pv += cf.amount / (1.0 + ytm / periods_per_year) ** n
-        t_mat = year_fraction(settle, self.maturity, self.day_count)
+        t_mat = self._ytm_time_to(settle, self.maturity)
         n_mat = t_mat * periods_per_year
         pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
         return pv / self.face_value * 100.0
