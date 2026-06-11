@@ -2,6 +2,25 @@
 
 ---
 
+## v0.879.0 — 2026-06-11
+
+**G1 P1 Slice 3 — `g2pp_calibration` and `hw_calibration` produce `CalibrationResult`.**
+
+Same template as Slice 2, applied to the two single-curve rate-model calibrations. Three of the seven calibration families in `pricebook` now produce the canonical artefact (bond hazard, Hull-White, G2++); LMM, SABR, jump, and curve bootstrap follow in Slices 4-6.
+
+- `HWCalibrationResult` gains `calibration_result: CalibrationResult | None` field and a `to_calibration_result()` method that returns the stored instance when populated or builds on-demand otherwise. `to_dict` gets the `calibration_id` key.
+- `calibrate_hull_white` populates `calibration_result` with `model_class="hull_white"`, parameters `{"a": ..., "sigma": ...}`, residuals in vol-bp, `OptimiserSpec(algorithm=...)` capturing the chosen optimiser (`Nelder-Mead`, `differential_evolution`, or `L-BFGS-B`), `rmse_vol` in diagnostics, and `n_steps` in optimiser.extra.
+- `G2PPCalibrationResult` gains the same field and method. `to_dict` gets the `calibration_id` key.
+- `calibrate_g2pp` populates with `model_class="g2pp"`, parameters `{"a", "b", "sigma1", "sigma2", "rho"}` (5 params), residuals in vol-bp, algorithm `"differential_evolution+L-BFGS-B"` (or `"L-BFGS-B"` for minimise method), and the parameter bounds in `optimiser.extra`. Seed=42 recorded when DE is used.
+- 16 new tests in `test_calibration_result_g2pp_hw.py`:
+  - 9 HW tests run the full `calibrate_hull_white` on a small 3-swaption grid (~3 sec each): population of all fields, optimiser name and extras, residuals match `per_swaption_errors`, rmse_vol in diagnostics, named quote IDs, `to_calibration_result()` returns stored instance, unique id per run, `calibration_id` in `to_dict`.
+  - 7 G2++ tests via hand-constructed `G2PPCalibrationResult` (the slow full `calibrate_g2pp` is covered by existing tests in `test_g2pp_calibration.py` which are deselected in CI): on-demand `to_calibration_result()` path, parameters count (5), `calibration_id` in `to_dict` both populated and unpopulated paths.
+- Zero behavior change to existing tests (24 HW + Slice 3 tests pass; existing G2++ tests untouched).
+
+Next: Slice 4 migrates `lmm_calibration` and `sabr` calibration to the same pattern.
+
+---
+
 ## v0.878.0 — 2026-06-11
 
 **G1 P1 Slice 2 — `bond_hazard_bootstrap` now produces a `CalibrationResult`.**

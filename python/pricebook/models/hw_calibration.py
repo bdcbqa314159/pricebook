@@ -17,19 +17,32 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 import numpy as np
 from scipy.optimize import minimize
 
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.models.hull_white import HullWhite
 
 
 @dataclass
 class HWCalibrationResult:
-    """Result of Hull-White calibration."""
+    """Result of Hull-White calibration.
+
+    `calibration_result` carries the canonical provenance artefact; the
+    other fields are HW-specific outputs (the model itself, per-swaption
+    diagnostics). The `to_calibration_result()` method returns the stored
+    instance when populated, or builds one on-demand from the existing
+    fields (back-compat path for hand-constructed instances).
+    """
     model: HullWhite
     a: float
     sigma: float
@@ -37,6 +50,8 @@ class HWCalibrationResult:
     per_swaption_errors: list[dict]          # per-instrument fit diagnostics
     n_swaptions: int
     converged: bool
+    # New in G1 P1 Slice 3 — canonical calibration artefact.
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -44,7 +59,33 @@ class HWCalibrationResult:
             "rmse_vol": self.rmse_vol,
             "n_swaptions": self.n_swaptions,
             "converged": self.converged,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
         }
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical `CalibrationResult`.
+
+        Returns the stored instance when populated by `calibrate_hull_white`.
+        Builds one on-demand from the existing fields otherwise.
+        """
+        if self.calibration_result is not None:
+            return self.calibration_result
+        residuals = [e["error_bp"] for e in self.per_swaption_errors]
+        quotes = [
+            f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors
+        ]
+        return CalibrationResult.new(
+            model_class="hull_white",
+            parameters={"a": self.a, "sigma": self.sigma},
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=self.converged,
+            quotes_fitted=quotes,
+        )
 
 
 def _hw_swaption_price(
@@ -178,13 +219,22 @@ def calibrate_hull_white(
     if method == "nelder_mead":
         result = minimize(objective, [0.03, 0.01], method="Nelder-Mead",
                            options={"maxiter": 500, "xatol": 1e-6, "fatol": 1e-10})
+        algo_name = "Nelder-Mead"
+        algo_tol = 1e-10
+        algo_maxiter = 500
     elif method == "differential_evolution":
         from scipy.optimize import differential_evolution
         bounds = [a_bounds, sigma_bounds]
         result = differential_evolution(objective, bounds, maxiter=200, tol=1e-8)
+        algo_name = "differential_evolution"
+        algo_tol = 1e-8
+        algo_maxiter = 200
     else:
         result = minimize(objective, [0.03, 0.01], method="L-BFGS-B",
                            bounds=[a_bounds, sigma_bounds])
+        algo_name = "L-BFGS-B"
+        algo_tol = 1e-9
+        algo_maxiter = 100
 
     a_opt, sigma_opt = max(result.x[0], 1e-4), max(result.x[1], 1e-6)
     hw = HullWhite(a=a_opt, sigma=sigma_opt, curve=curve)
@@ -202,10 +252,32 @@ def calibrate_hull_white(
 
     rmse = math.sqrt(sum(e["error_bp"]**2 for e in errors) / len(errors)) if errors else 0
 
+    converged_flag = result.success if hasattr(result, 'success') else True
+
+    cr = CalibrationResult.new(
+        model_class="hull_white",
+        parameters={"a": float(a_opt), "sigma": float(sigma_opt)},
+        residuals=[e["error_bp"] for e in errors],  # in bp of Black vol
+        objective=ObjectiveKind.SSE,                 # sum (model_vol - market_vol)^2
+        optimiser=OptimiserSpec(
+            algorithm=algo_name,
+            tolerance=algo_tol,
+            max_iterations=algo_maxiter,
+            extra={"n_steps": n_steps},
+        ),
+        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+        converged=bool(converged_flag),
+        quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        diagnostics=CalibrationDiagnostics(
+            extra={"rmse_vol": rmse / 10_000.0, "n_steps": n_steps},
+        ),
+    )
+
     return HWCalibrationResult(
         model=hw, a=a_opt, sigma=sigma_opt,
         rmse_vol=rmse / 10_000,
         per_swaption_errors=errors,
         n_swaptions=len(keys),
-        converged=result.success if hasattr(result, 'success') else True,
+        converged=converged_flag,
+        calibration_result=cr,
     )

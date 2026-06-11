@@ -19,12 +19,18 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from scipy.optimize import minimize, differential_evolution
 from scipy.stats import norm as _norm
 
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import date_from_year_fraction
 from pricebook.models.vasicek import G2PlusPlus
@@ -37,7 +43,12 @@ from pricebook.models.black76 import OptionType, black76_price
 
 @dataclass
 class G2PPCalibrationResult:
-    """Result of G2++ calibration to swaption volatilities."""
+    """Result of G2++ calibration to swaption volatilities.
+
+    `calibration_result` carries the canonical provenance artefact.
+    `to_calibration_result()` returns the stored instance when populated,
+    or builds one on-demand from the existing fields.
+    """
 
     model: G2PlusPlus
     a: float
@@ -49,6 +60,8 @@ class G2PPCalibrationResult:
     per_swaption_errors: list[dict]   # per-instrument diagnostics
     n_swaptions: int
     converged: bool
+    # New in G1 P1 Slice 3 — canonical calibration artefact.
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -60,7 +73,36 @@ class G2PPCalibrationResult:
             "rmse_vol": self.rmse_vol,
             "n_swaptions": self.n_swaptions,
             "converged": self.converged,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
         }
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical `CalibrationResult`.
+
+        Returns the stored instance when populated by `calibrate_g2pp`.
+        Builds one on-demand from the existing fields otherwise.
+        """
+        if self.calibration_result is not None:
+            return self.calibration_result
+        residuals = [e["error_bp"] for e in self.per_swaption_errors]
+        quotes = [
+            f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors
+        ]
+        return CalibrationResult.new(
+            model_class="g2pp",
+            parameters={
+                "a": self.a, "b": self.b,
+                "sigma1": self.sigma1, "sigma2": self.sigma2, "rho": self.rho,
+            },
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=self.converged,
+            quotes_fitted=quotes,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -499,6 +541,52 @@ def calibrate_g2pp(
         sum((e["model_vol"] - e["market_vol"]) ** 2 for e in errors) / len(errors)
     ) if errors else 0.0
 
+    # Build the canonical CalibrationResult. The objective the optimiser
+    # actually minimised is in *price* space (annuity-normalised diffs);
+    # we record residuals in *vol* space (bp of Black vol) because that's
+    # the unit users read in audit logs and that matches the existing
+    # per_swaption_errors[i]["error_bp"]. The mapping between the two
+    # spaces is the per-swaption annuity, which is implicit in g2.
+    if method == "differential_evolution":
+        algo_name = "differential_evolution+L-BFGS-B"
+        algo_tol = 1e-9   # the polish step's ftol
+        algo_maxiter = 150  # the polish step's maxiter
+        algo_seed = 42
+    else:
+        algo_name = "L-BFGS-B"
+        algo_tol = 1e-12
+        algo_maxiter = 500
+        algo_seed = None
+
+    cr = CalibrationResult.new(
+        model_class="g2pp",
+        parameters={
+            "a": float(a_opt), "b": float(b_opt),
+            "sigma1": float(s1_opt), "sigma2": float(s2_opt), "rho": float(rho_opt),
+        },
+        residuals=[e["error_bp"] for e in errors],  # bp of Black vol
+        objective=ObjectiveKind.SSE,                  # price-space SSE; bp-residuals for readability
+        optimiser=OptimiserSpec(
+            algorithm=algo_name,
+            tolerance=algo_tol,
+            max_iterations=algo_maxiter,
+            seed=algo_seed,
+            extra={
+                "a_bounds": a_bounds,
+                "b_bounds": b_bounds,
+                "sigma1_bounds": sigma1_bounds,
+                "sigma2_bounds": sigma2_bounds,
+                "rho_bounds": rho_bounds,
+            },
+        ),
+        iterations=0,  # scipy's compound optimisers don't surface a single iteration count
+        converged=bool(converged),
+        quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        diagnostics=CalibrationDiagnostics(
+            extra={"rmse_vol": float(rmse_vol)},
+        ),
+    )
+
     return G2PPCalibrationResult(
         model=g2,
         a=a_opt, b=b_opt, sigma1=s1_opt, sigma2=s2_opt, rho=rho_opt,
@@ -506,6 +594,7 @@ def calibrate_g2pp(
         per_swaption_errors=errors,
         n_swaptions=len(keys),
         converged=converged,
+        calibration_result=cr,
     )
 
 
