@@ -4,6 +4,31 @@
 **Scope:** `pricebook.core.*` — 36 modules organised into four passes by dependency depth.
 **Method:** Fresh read per module; cross-reference existing `MODULE_HEALTH.md` findings; document status, real bugs, doc gaps, test gaps, slicing proposals.
 
+## L0 audit — completion summary
+
+| Pass | Modules | Confirmed bugs | HIGH fixed | MED fixed |
+|---|---:|---:|---:|---:|
+| **A** atomic primitives | 13 | 20 | 4 / 4 ✅ | 2 / 2 ✅ |
+| **B** simple composites | 7 | 4 | 1 / 1 ✅ | 1 / 1 ✅ |
+| **C** portfolio constructs | 8 | 3 | 0 / 0 | 0 / 1 *(C.7 B1 settlement lag queued)* |
+| **D** engine plumbing | 7 | 3 | 0 / 0 | 0 / 2 *(D.1 B1, B2 queued)* |
+| **Total** | **35** | **30** | **5/5** ✅ | **3/6** |
+
+(36-module count in the scope minus `__init__.py` = 35 substantive modules audited.)
+
+**Remaining open fixes from L0 audit:**
+- C.7 B1 — settlement lag (calendar days, should be business days). MED.
+- C.8 B1 — `dollar_gamma` docstring/formula mismatch. LOW.
+- D.1 B1 — empty-dict → None on round-trip. MED.
+- D.1 B2 — fields silently dropped on round-trip. MED.
+- D.1 B3 — `replace()` aliases mutable dicts. LOW-MED.
+- A.1 B1 final-slice — flip `strict_icma=True` default after auditing remaining callers. (Many slices.)
+- A.11 B3-B7 — minor serialisation robustness. LOW.
+- B.3 C1 — legacy `core.market_data` vs new `pricebook.market_data` (G1 P2). ARCH — Gate 2 decision.
+- Generic `vars(self)` to_dict cleanup (~15 callsites). Single sweep slice.
+
+All confirmed HIGH-severity bugs are fixed. All confirmed MEDIUM-severity bugs from Pass A and B are fixed. Pass C and D MEDs are still queued.
+
 | Status legend | Meaning |
 |---|---|
 | ✅ Clean | No real bugs found; tests adequate; docs accurate. |
@@ -1290,6 +1315,78 @@ The docstring claims the formula is `0.5 × gamma × S² × 0.01²`. The code do
 `delta * self.price` is at best an approximation of dollar delta. Real dollar-delta requires either `delta * spot` (per-unit-spot-move PnL) or `delta * notional` (book-level position PnL). The product `delta * price` has the right *order of magnitude* for ATM vanilla options but doesn't have a clean financial meaning.
 
 - `to_dict` returns `vars(self)` — same pattern.
+
+---
+
+## Pass D — engine plumbing
+
+| # | Module | LoC | Status | Confirmed bugs |
+|---|---|---:|---|---|
+| D.1 | `pricing_context.py` | 282 | ⚠️ | **3 confirmed from prior audit, now verified** |
+| D.2 | `data_registry.py` | 150 | ✅ | 0 |
+| D.3 | `dependency_graph.py` | 191 | ✅ | 0 (analysis tooling) |
+| D.4 | `desk_protocol.py` | 51 | ✅ | 0 (docstring-only contract) |
+| D.5 | `numerical_method_map.py` | 230 | ✅ | 0 (recommendation table + helpers) |
+| D.6 | `numerical_safety.py` | 289 | ✅ | 0 (CFL / Feller / martingale checks) |
+| D.7 | `convergence_framework.py` | 181 | ✅ | 0 (convergence-study runners) |
+
+### D.1 — `core/pricing_context.py`  *(re-audited after G1 P3 + B.1 B2 changes)*
+
+**Purpose:** central pricing-data bundle. Already touched in G1 P3 Slice 1 (`numerical_config`) and B.1 B2 fix (custom `to_dict` migration). Three pre-existing bugs from `MODULE_HEALTH.md` are still active.
+
+#### B1 — Empty-dict fields become `None` on round-trip  *[MEDIUM]*
+
+**Location:** `pricing_context.py:266, 271, 278`.
+
+```python
+proj = {n: _fd(c) for n, c in p.get("projection_curves", {}).items()} or None
+credit = {n: _fd(c) for n, c in p.get("credit_curves", {}).items()} or None
+... vol_surfaces=vols or None, ... fx_spots=fx or None
+```
+
+When the dict is empty (no entries or absent from payload), the `or None` collapses to `None`. The dataclass declares `projection_curves: dict[str, DiscountCurve] = field(default_factory=dict)`. Constructing with `None` accepts it (Python doesn't enforce dataclass field types at runtime), so subsequent `ctx.projection_curves["foo"]` raises `TypeError: 'NoneType' object is not subscriptable` instead of the documented `KeyError`.
+
+**Fix:** drop the `or None` — pass empty dicts through.
+
+#### B2 — Several fields silently dropped on round-trip  *[MEDIUM, multi-currency users]*
+
+`_ctx_to_dict` emits `discount_curve, projection_curves, vol_surfaces, credit_curves, fx_spots`. It **silently drops**:
+
+- `discount_curves` (the per-currency dict introduced for multi-currency support)
+- `inflation_curves`
+- `repo_curves`
+- `reporting_currency`
+- `stochastic_credit_models`
+- `credit_vol_surfaces`
+- `credit_correlations`
+- `numerical_config` (just added in G1 P3 Slice 1!)
+
+Multi-currency contexts and contexts with stochastic-credit or numerical-config attached lose those fields on every serialisation round-trip.
+
+**Fix:** extend `_ctx_to_dict` / `_ctx_from_dict` to emit and read all dataclass-declared fields. This is non-trivial because each field needs the right serialiser (per-currency dicts need to recurse into curve `to_dict`, `numerical_config` needs its own `to_dict` added, etc.).
+
+#### B3 — `replace()` shares mutable dicts with the parent  *[LOW-MED]*
+
+**Location:** `pricing_context.py:159-176`.
+
+`replace()` passes the original `discount_curves`, `vol_surfaces`, etc. dicts by reference to the new context. The docstring says *"Immutable snapshot of market data"* but `ctx2 = ctx.replace(reporting_currency="EUR")` then `ctx2.discount_curves["USD"] = new_curve` mutates `ctx` too.
+
+**Fix:** `dict(...)` each container in `replace()` to defensively copy. Tiny cost for an actual immutable-snapshot contract.
+
+### D.2-D.7
+
+All clean. Short notes:
+
+- **`data_registry.py`** — defensive path validation (`_validate_filename` rejects `..` and absolute paths), per-row try/except in `load_conventions` with `RuntimeWarning` on failures (not silent), JSON-array-only enforcement. Good shape.
+- **`dependency_graph.py`** — analysis tool for the layer graph. Pure traversal logic, no pricing maths.
+- **`desk_protocol.py`** — pure documentation file (no executable code beyond the docstring).
+- **`numerical_method_map.py`** — recommendation table mapping product features → numerical method. Lookup + comparison helpers; no maths.
+- **`numerical_safety.py`** — CFL stability check, Feller condition test, martingale test, convergence-rate estimation from log-error regression. Standard implementations; correctness depends on the inputs the caller passes.
+- **`convergence_framework.py`** — runs strong/weak convergence studies with step-halving, fits log-error slopes. Standard.
+
+### Pass D summary
+
+3 confirmed bugs in `pricing_context.py` (all carried over from prior MODULE_HEALTH audit; verified still present). The remaining 6 modules are clean — they're either analysis tooling or framework code with thin layers above standard numerical primitives.
 
 ---
 
