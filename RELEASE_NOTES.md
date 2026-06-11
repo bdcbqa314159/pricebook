@@ -2,6 +2,23 @@
 
 ---
 
+## v0.877.0 — 2026-06-11
+
+**G1 P1 Slice 1 — `pricebook.calibration` skeleton + `CalibrationResult` + `Calibrator` Protocol.**
+
+First slice of Gate 1 from `DESIGN.md` §6. The calibration layer gets its own package; the canonical result type is defined here so that subsequent slices can migrate each existing calibrator family (bond hazard, G2++, Hull-White, LMM, SABR, curve bootstrap, multicurve) to produce a uniform `CalibrationResult`.
+
+- New package `python/pricebook/calibration/`:
+  - `__init__.py` — public exports.
+  - `_types.py` — `CalibrationResult` (frozen dataclass with `id`, `timestamp`, `code_version`, `model_class`, `parameters`, `residuals`, `rms_residual`, `max_residual`, `optimiser`, `iterations`, `converged`, `diagnostics`, `market_snapshot_id`), `OptimiserSpec`, `CalibrationDiagnostics`, `ObjectiveKind` (SSE / weighted-SSE / RMSE / max-error / L1 / Huber), `Calibrator` Protocol.
+  - `CalibrationResult.new(...)` factory — keyword-only, auto-generates `id` and `timestamp`, derives `rms_residual` and `max_residual` from `residuals`, reads `pricebook.__version__` for `code_version` by default.
+- 22 tests in `tests/test_calibration_types.py` covering enum values, OptimiserSpec construction & frozen-ness, diagnostics defaults & population, factory derivation of RMSE/max-error, default weights, explicit weights, code_version detection & override, market_snapshot_id placeholder, frozen-ness at all levels, Protocol satisfaction.
+- Zero internal pricebook imports (other than `pricebook.__version__` read defensively) — package sits cleanly in the dependency graph; no behavior change to any existing code.
+
+This slice is purely additive: no existing module is touched. Slice 2 migrates `bond_hazard_bootstrap` to return the new result type with a thin compatibility wrapper preserving the existing `HazardBootstrapResult` interface.
+
+---
+
 ## v0.876.0 — 2026-06-11
 
 **`DESIGN.md` — §6 roadmap rewritten as Gate × Phase hybrid.**
