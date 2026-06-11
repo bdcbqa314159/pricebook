@@ -29,7 +29,7 @@
 | A.9 | `protocols.py` | ✅ | 0 | none |
 | A.10 | `fixings.py` | ✅ | 0 | get_with_lag fallback semantics + persistence error handling |
 | A.11 | `serialisable.py` | ⚠️ | 7 documented-design-limitations (list[T] dispatch, Union[A,B,None], registry no-op, .item() ordering, CurrencyPair parse, bare params lookup, Enum int-vs-str) | 4 |
-| A.12 | `serialization.py` | ❓ | | |
+| A.12 | `serialization.py` | ⚠️ | 2 (B1 curated import list footgun, B2 CurrencyPair parse dup) | facade — coverage via downstream |
 | A.13 | `numerical_config.py` | ✅ | 0 | 0 (just landed; 14 tests; clean) |
 
 ---
@@ -678,6 +678,72 @@ If `EnumValue.value` is `int` (e.g. `Frequency.SEMI_ANNUAL = 6`) but a non-JSON 
 
 ---
 
+## A.12 — `core/serialization.py`
+
+**Purpose:** Public-facing facade over `core.serialisable`. Eagerly imports all `@serialisable` modules to populate the registry. Provides `to_dict`/`from_dict`/`to_json`/`from_json`, registry helpers (`registered_types`, `get_instrument_class`), plus legacy aliases (`instrument_to_dict`, `trade_to_dict`, ...) and legacy loaders (`load_trade`, `load_portfolio`) that handle pre-G1 dict formats.
+
+**Internal deps:** `core.serialisable` + a curated import list of 24 modules.
+
+**Size:** 181 lines.
+
+### Status: ⚠️ Curated-import-list footgun + duplicated CurrencyPair parse
+
+### Confirmed bugs
+
+#### B1 — `_ensure_loaded` is a hand-maintained whitelist of 24 modules  *[MEDIUM]*
+
+**Location:** `serialization.py:34-62`.
+
+```python
+def _ensure_loaded():
+    global _loaded
+    if _loaded:
+        return
+    _loaded = True
+    import pricebook.fixed_income.swap
+    import pricebook.fixed_income.bond
+    ...                                  # 24 imports
+```
+
+Every new module that uses `@serialisable` MUST be added here, or its types won't be in `_REGISTRY` and `from_dict` raises `Unknown type ...`. This is a *silent maintenance trap* — the failure mode is "round-trips work for some types but not others depending on which modules happened to be imported".
+
+I count many `@serialisable` / `@serialisable_convention` usages across the codebase (sovereign_cds, cds_conventions, market_conventions, rate_index, composite_convention, repo_specialness, esg_bonds, sukuk, sovereign_bonds, inflation_indices, supranational, currency_conventions, em_curve_builder, ...). Of those, ONLY the ones imported by some path in `_ensure_loaded` get registered automatically. Quietly broken for the rest.
+
+**Fix shape:** use `pkgutil.walk_packages` + `importlib.import_module` to walk `pricebook.*` and import every submodule once. Slight startup cost (~tens of ms) for total coverage. Or: keep the curated list but add a CI check that every `@serialisable*` callsite has a corresponding `import` somewhere in `_ensure_loaded`'s transitive closure.
+
+#### B2 — Duplicated `CurrencyPair.split("/")` foot-gun  *[LOW]*
+
+**Location:** `serialization.py:113-116`.
+
+```python
+def deserialise_currency_pair(s: str):
+    base_s, quote_s = s.split("/")  # explodes on != 1 slash
+    return CurrencyPair(Currency(base_s), Currency(quote_s))
+```
+
+Same bug as A.11 B5, duplicated in this facade. Fix together with B5.
+
+### Style / non-blocking
+
+- Many legacy aliases (`instrument_to_dict`, `trade_to_dict`, …) all just alias `to_dict`. Considered dead deprecation surface but cheap to keep. Removal would be a Gate 3 cleanup.
+- `load_trade` / `load_portfolio` accept multiple legacy formats — well-commented; behaviour is reasonable but the multiple-format logic should be considered as part of the schema-versioning story.
+
+---
+
+## Pass A — summary
+
+13 modules audited. Total: **20 confirmed bugs** (mostly Low/Medium) + significant test gaps in calendar / interpolation / FX-forward / Serialisable-edge-shapes.
+
+| Severity | Count | Headline examples |
+|---|---:|---|
+| HIGH | 4 | A.1 B1 ICMA silent fallback (UST mispricing); A.2 B1 wrong Sat-substitute for UK/AU/NZ/CA; A.4 B1 EOM anchored to end in front-stub; A.12 B1 curated import whitelist |
+| MEDIUM | 4 | A.2 B2 Tokyo no substitute; A.11 B1 list[T] dispatch; A.11 B2 Union[A,B,None] dispatch; (others) |
+| LOW | 12 | to_dict mutation × 4, schedule heuristics, calendar n=5/n=0, etc. |
+
+Now move to **Pass B** — simple composites that depend on Pass A's primitives: `discount_curve`, `survival_curve`, `market_data` (old), `market_conventions`, `rate_index`, `notional`, `forward_interpolation`.
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -720,10 +786,13 @@ From A.11 (`serialisable`):
 21. B1: dispatch `list[SomeSerialisable]` via recursive `from_dict`. Round-trip test.
 22. B2: handle `Union[A, B, None]` (3+ args) by dispatching the dict's `"type"` via registry.
 23. B4: narrow numpy `.item()` duck-test to `isinstance(v, np.generic)`.
-24. B5: graceful `CurrencyPair` parse with split-limit + length-check + clear error.
+24. B5: graceful `CurrencyPair` parse with split-limit + length-check + clear error. (Bundle with A.12 B2.)
 25. B6: structured `ValueError` (not bare `KeyError`) when `params` is missing from payload.
 26. B7: int-valued Enum from string fallback.
 27. B3: registry re-register emits `DeprecationWarning` and overwrites. (Dev-workflow ergonomics only — defer to lowest priority.)
 28. Doc the v<expected migration contract before bumping any class to v2.
+
+From A.12 (`serialization`):
+29. B1: replace curated `_ensure_loaded` list with `pkgutil.walk_packages` auto-discovery. Add a test that imports the package, calls `registered_types`, asserts every `@serialisable*` site has a registered key. (Bigger slice — gates Pass B audits where some Pass-B classes use @serialisable and might be missing from the curated list.)
 
 (More entries will arrive as the audit walks through Pass A.)
