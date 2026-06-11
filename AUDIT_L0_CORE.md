@@ -24,7 +24,7 @@
 | A.4 | `schedule.py` | ⚠️ | 1 (B1 EOM anchored to end not start in front-stub) | 3 (post-adjust dedupe untested, WEEKLY untested, stub-30-day heuristic) |
 | A.5 | `solvers.py` | ⚠️ | 2 minor (B1 to_dict mutation, B2 itp maxiter contract) | NaN/Inf paths untested |
 | A.6 | `interpolation.py` | 📝 | 0 | Akima untested; right-extrap not slope-continued for cubic methods |
-| A.7 | `approximation.py` | ❓ | | |
+| A.7 | `approximation.py` | 📝 | 3 trivial (same vars(self) to_dict pattern) | small |
 | A.8 | `caching.py` | ❓ | | |
 | A.9 | `protocols.py` | ❓ | | |
 | A.10 | `fixings.py` | ❓ | | |
@@ -458,6 +458,49 @@ itp(f, 0.0, 1.5, tol=1e-14, maxiter=5)
 
 ---
 
+## A.7 — `core/approximation.py`
+
+**Purpose:** Approximation-theory primitives:
+- `chebyshev_interpolate` / `_clenshaw` / `ChebyshevInterpolant` — Chebyshev-Lobatto polynomial interpolation + Clenshaw eval.
+- `pade_approximant` / `PadeApproximant` — Padé [L/M] rational approximation from Taylor coefficients.
+- `richardson_table` / `RichardsonTable` — full Romberg/Richardson extrapolation table.
+- `bspline_basis` — Cox-de Boor recursion.
+
+**Internal deps:** None. True L0.
+
+**Size:** 274 lines.
+
+### Status: 📝 No real bugs; same `to_dict` mutation pattern as A.5
+
+### Correctness review
+
+- **Chebyshev** path: standard Chebyshev-Lobatto nodes `x_k = cos(kπ/n)` and DCT-I formula for coefficients. Endpoint weights `1.0` (vs `2.0` for interior) ✓. Divide-by-2 on first/last coefficients ✓ — standard Chebyshev convention. The DCT is implemented as a double Python loop (O(n²)) — correct but slow; could use `scipy.fft.dct` for a 10-100× speedup at n=50+. Not a bug.
+- **Clenshaw** recurrence is the textbook formulation. ✓
+- **Padé** linear system — checked the indexing carefully against the matching equations `Σ_{j=1}^{M} c_{L+i-j} q_j = -c_{L+i+1}` for i=1..M, then for the numerator `p_k = Σ_{j=0}^{min(k,M)} c_{k-j} q_j`. Both correct (`A[i,j] = c[L+i-j]`; `b[i] = -c[L+i+1]`; `numer[k] = Σ denom[j] c[k-j]`). ✓
+- **Richardson table**: `T[i,j] = (r·T[i,j-1] − T[i-1,j-1]) / (r−1)` with `r = 2^{p·j}`. Standard Romberg formula. ✓
+- **Cox-de Boor**: standard recursion with the half-open-on-the-right convention. The right-boundary `x == knots[-1]` evaluating to 0 for the last basis support is the textbook quirk — accepted approximation.
+
+### Confirmed (trivial) bugs
+
+#### B1 — Three `to_dict` methods return mutable shared `__dict__`  *[LOW]*
+
+**Location:** `approximation.py:48-49, 133-134, 202-203`.
+
+Same shape as A.5 B1. `ChebyshevInterpolant.to_dict`, `PadeApproximant.to_dict`, `RichardsonTable.to_dict` all do `return vars(self)`. Caller mutation propagates to the dataclass instance.
+
+**Fix:** One audit slice will fix all four occurrences (3 here + 1 in `solvers.py`). Trivial.
+
+### Test coverage
+
+`test_approximation.py` covers happy paths for all four primitives — polynomial exactness for Chebyshev, exp accuracy, Padé [2/2] for exp, Richardson exact extrapolation, B-spline partition of unity. Adequate; no major gaps.
+
+### Style / non-blocking
+
+- Chebyshev DCT in pure-Python loops — replaceable by `scipy.fft.dct(fx, type=1)` for clean code + significant speedup at high `n`. Defer.
+- `bspline_basis` is recursive in pure Python — fine for moderate degrees; could memoise if used hotly (no caller does today).
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -489,5 +532,8 @@ From A.5 (`solvers`):
 
 From A.6 (`interpolation`):
 18. Test gap fill: `TestAkima` class (knot recovery, smoothness, ghost-boundary 2-point), `LogLinear` right-extrap slope continuation, Hyman α²+β²>9 clipping path. Single slice.
+
+From A.7 (`approximation`):
+19. Generic `to_dict` mutation fix — patches A.5 `SolverResult` + A.7 `ChebyshevInterpolant`/`PadeApproximant`/`RichardsonTable` in one slice (`return dict(vars(self))`). Add a regression test that mutates the dict.
 
 (More entries will arrive as the audit walks through Pass A.)
