@@ -2,6 +2,33 @@
 
 ---
 
+## v0.887.0 — 2026-06-11
+
+**G1 P2 Slice 5 — jump-model calibrators accept a `MarketSnapshot`. G1 P2 complete.**
+
+The last family of calibrators wires through. **Every calibrator in pricebook now accepts an optional `market_snapshot`**, and `CalibrationResult.market_snapshot_id` is populated whenever provided — closing Phase 2 of Gate 1.
+
+- `pricebook.models.jump_calibration.calibrate_jump_model(...)` — keyword-only `market_snapshot: MarketSnapshot | None = None`. Covers all six Lévy / jump models (Merton, VG, Kou, NIG, CGMY, Bates).
+- `calibrate_jump_surface(...)` — same; a single snapshot stamps onto every per-expiry result (the typical case: one observation set underlies the whole surface).
+- `TYPE_CHECKING` import — no runtime dep.
+- 6 new tests in `test_jump_snapshot.py`: keyword-only enforcement, id linkage on the single-expiry path, surface-level propagation across multiple expiries (each per-expiry `CalibrationResult.id` is distinct while the `market_snapshot_id` is shared).
+
+### G1 P2 — complete (Slices 1-5)
+
+12 calibration entry points across 9 modules now accept a `MarketSnapshot`:
+
+| Slice | Module | Entry points |
+|---|---|---|
+| 1 | `pricebook.market_data` | (types only) |
+| 2 | `pricebook.curves.bootstrap` / `global_solver` | `bootstrap`, `global_bootstrap` |
+| 3 | `pricebook.curves.multicurve_solver` / `credit.bond_hazard_bootstrap` | `multicurve_newton`, `bootstrap_hazard_from_bonds`, `bootstrap_hazard_mixed`, `bootstrap_hazard_adaptive` |
+| 4 | `pricebook.models.{hw,g2pp,lmm}_calibration` / `pricebook.options.sabr` | `calibrate_hull_white`, `calibrate_g2pp`, `calibrate_lmm_vols`, `sabr_calibrate` |
+| 5 | `pricebook.models.jump_calibration` | `calibrate_jump_model`, `calibrate_jump_surface` |
+
+Audit chain end-to-end: **price → calibration → market snapshot**. Next: **G1 P3** — `NumericalConfig` on `PricingContext` + schema versioning on `@serialisable` — closes Gate 1.
+
+---
+
 ## v0.886.0 — 2026-06-11
 
 **G1 P2 Slice 4 — HW, G2++, SABR, LMM calibrators accept a `MarketSnapshot`.**

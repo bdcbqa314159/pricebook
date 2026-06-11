@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 from scipy.optimize import differential_evolution, minimize as scipy_minimize
@@ -35,6 +35,9 @@ from pricebook.models.char_func_protocol import (
     merton_char_func, vg_char_func, kou_char_func, bates_char_func,
 )
 from pricebook.models.levy_processes import nig_char_func, cgmy_char_func
+
+if TYPE_CHECKING:
+    from pricebook.market_data import MarketSnapshot
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -183,6 +186,8 @@ def calibrate_jump_model(
     div_yield: float = 0.0,
     maxiter: int = 200,
     seed: int = 42,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> JumpCalibrationResult:
     """Calibrate a jump model to market implied vols at a single expiry.
 
@@ -264,6 +269,7 @@ def calibrate_jump_model(
         diagnostics=CalibrationDiagnostics(
             extra={"rmse_vol": float(rmse)},
         ),
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return JumpCalibrationResult(
@@ -290,11 +296,16 @@ def calibrate_jump_surface(
     div_yield: float = 0.0,
     maxiter: int = 300,
     seed: int = 42,
+    *,
+    market_snapshot: MarketSnapshot | None = None,
 ) -> list[JumpCalibrationResult]:
     """Calibrate a jump model across multiple expiries independently.
 
     Args:
         market_data: list of {"T": float, "strikes": [...], "vols": [...]}.
+        market_snapshot: optional provenance snapshot — stamped onto every
+            per-expiry `CalibrationResult.market_snapshot_id`. A single
+            snapshot can underlie an entire surface fit.
 
     Returns:
         List of JumpCalibrationResult, one per expiry.
@@ -304,6 +315,7 @@ def calibrate_jump_surface(
         r = calibrate_jump_model(
             model_type, md["strikes"], md["vols"], spot, rate,
             md["T"], div_yield, maxiter, seed,
+            market_snapshot=market_snapshot,
         )
         results.append(r)
     return results
