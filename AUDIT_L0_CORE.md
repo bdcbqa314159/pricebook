@@ -806,7 +806,7 @@ Was hidden by the old curated whitelist (`amortising_bond` wasn't in it). Fixed 
 | B.2 | `survival_curve.py` | 📝 | 0 real bugs; asymmetry vs DiscountCurve (no `calibration_result`), missing `schema_version`, no roll_down (good thing!) | half the methods untested |
 | B.3 | `market_data.py` (old) | ⚠️ | 0 hidden bugs; 4 documented approximations + architectural duplication with the new `pricebook.market_data` package from G1 P2 | tenor parsing untested for unusual strings |
 | B.4 | `market_conventions.py` | ✅ | 0 | no dedicated test file |
-| B.5 | `rate_index.py` | ❓ | | |
+| B.5 | `rate_index.py` | ✅ | 0 | BADLAR `is_overnight=False, tenor_months=None` is a minor data inconsistency |
 | B.6 | `notional.py` | ❓ | | |
 | B.7 | `forward_interpolation.py` | ❓ | | |
 
@@ -1024,6 +1024,36 @@ No dedicated test file. The serialisation round-trip is covered by `test_seriali
 ### Slicing items (defer)
 
 - Add `test_market_conventions.py` covering `get_equity_index`, `get_commodity_contract`, `get_linker_convention`, and `index_ratio` (especially the day-1 → day-D boundary behaviour). Low priority.
+
+---
+
+## B.5 — `core/rate_index.py`
+
+**Purpose:** Pure-data registry of 26 rate indices: G10 RFRs (SOFR, ESTR, SONIA, TONA, SARON, CORRA, AONIA, NZOCR) + IBORs (EURIBOR 3M/6M, TIBOR 3M) + EM (CDI, KOFR, SORA, HONIA, THOR, TIIE, SHIBOR, DR007, WIBOR, PRIBOR, BUBOR, JIBAR, IBR, TPM, TIPM, BADLAR). Each `RateIndex` carries day count, fixing lag, compounding method, observation shift, payment delay, tenor, and administrator.
+
+**Internal deps:** `core.day_count`, `core.serialisable`, `core.data_registry`.
+
+**Size:** 329 lines.
+
+### Status: ✅ Clean
+
+- All G10 RFR conventions match official sources (FRBNY for SOFR, ECB for ESTR, BOE for SONIA, BOJ for TONA, etc.).
+- Day-count conventions correct per market: SOFR/ESTR/SARON = ACT/360; SONIA/TONA/CORRA = ACT/365F; CDI = BUS/252 (per B3 Anbima).
+- Compounding methods correct: RFRs = COMPOUNDED, IBORs = FLAT, DR007 = AVERAGED.
+- JSON-overlay pattern allows per-environment additions without code changes.
+
+### One data quirk (not a bug)
+
+- **BADLAR** has `is_overnight=False` AND `tenor_months=None`. BADLAR is a 30-35-day rate (large-deposit rate for ARS) so it's not truly overnight, but `tenor_months=None` together with `is_overnight=False` makes it neither category. Should probably be `tenor_months=1` (it's quoted on the ~1-month bucket). Single-line data fix when convenient.
+
+### Test coverage
+
+No dedicated test file. The `@serialisable_convention` round-trip is tested generically. The registry-lookup functions are not directly tested. Low priority.
+
+### Slicing items (defer)
+
+- BADLAR data fix: `tenor_months=1`. One-line + smoke test.
+- Add a basic `test_rate_index.py` with: every G10 currency has at least one indexed rate, every overnight index has `compounding=COMPOUNDED`, every IBOR has `compounding=FLAT`. Smoke-shaped tests.
 
 ---
 
