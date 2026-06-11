@@ -23,7 +23,7 @@
 | A.3 | `currency.py` | 📝 | 0 | 4 (settlement_lag, is_ndf, forward_rate, all_g10_pairs untested) |
 | A.4 | `schedule.py` | ⚠️ | 1 (B1 EOM anchored to end not start in front-stub) | 3 (post-adjust dedupe untested, WEEKLY untested, stub-30-day heuristic) |
 | A.5 | `solvers.py` | ⚠️ | 2 minor (B1 to_dict mutation, B2 itp maxiter contract) | NaN/Inf paths untested |
-| A.6 | `interpolation.py` | ❓ | | |
+| A.6 | `interpolation.py` | 📝 | 0 | Akima untested; right-extrap not slope-continued for cubic methods |
 | A.7 | `approximation.py` | ❓ | | |
 | A.8 | `caching.py` | ❓ | | |
 | A.9 | `protocols.py` | ❓ | | |
@@ -417,6 +417,47 @@ itp(f, 0.0, 1.5, tol=1e-14, maxiter=5)
 
 ---
 
+## A.6 — `core/interpolation.py`
+
+**Purpose:** 5 1-D interpolators: `Linear`, `LogLinear` (linear-in-log-y, the discount-curve standard), `CubicSpline` (scipy natural), `MonotoneCubic` (Fritsch-Carlson + Hyman filter), `Akima`. Each subclasses an `Interpolator` ABC and the module provides a `create_interpolator(method, x, y)` factory.
+
+**Internal deps:** None (NumPy + scipy.interpolate). True L0.
+
+**Size:** 271 lines.
+
+### Status: 📝 No bugs found
+
+### Correctness review
+
+- **Base `Interpolator`**: validates length, ≥2 points, strictly-increasing x. Left extrapolation is hardcoded flat. Right extrapolation is overridable; only `LogLinearInterpolator` actually overrides (with the standard "extend last segment's slope in log space" → piecewise-constant forward in the last segment). ✓
+- **`LinearInterpolator`**: standard t-blend on `[x_i, x_{i+1}]`. ✓
+- **`LogLinearInterpolator`**: linear in `log(y)`, equivalent to piecewise-constant forward rates between knots. Slope-continued right extrapolation is correct. ✓
+- **`CubicSplineInterpolator`**: defers to `scipy.interpolate.CubicSpline(..., bc_type="natural")`. ✓
+- **`MonotoneCubicInterpolator`**:
+  - Fritsch-Carlson interior slopes via harmonic mean (set to 0 when adjacent secants disagree in sign or one is flat). ✓
+  - One-sided endpoint slopes. ✓
+  - Hyman filter `α² + β² ≤ 9` (de Boor / Hyman scaling). ✓
+  - **Subtle**: filter is applied per segment in a single forward pass, mutating `slopes[i+1]` in place; the next iteration reads the already-modified slope. This is the standard "naive Hyman" approach; can produce slightly different slopes from a two-pass "compute-then-clip-all" implementation in pathological cases. Not a bug — matches the textbook formula — but worth knowing if comparing against another library.
+- **`AkimaInterpolator`**: Akima slopes with ghost-secant boundary treatment, fallback to mid-secant when both weights are zero. ✓
+- **`_find_segment`**: `np.searchsorted` with clamping to `[0, n-2]`. ✓
+- **`create_interpolator` factory**: covers all 5 methods. ✓
+
+### Design observations (not bugs)
+
+- **Right extrapolation default is flat for cubic methods** — `CubicSpline`, `MonotoneCubic`, `Akima` all inherit the base `_extrapolate_right` that returns `self._y[-1]`. This introduces a derivative kink at the right boundary, which can be surprising for callers who interpolated with a cubic method expecting smooth extrapolation. The behaviour is acceptable for curves (rates are typically extrapolated flat) but should be explicit in the docstrings.
+- **Left extrapolation is not overridable** — there's no `_extrapolate_left` hook symmetric to `_extrapolate_right`. Niche but reduces customisability.
+- **No `to_dict`** on interpolators — fine, curves serialise via the method enum and rebuild.
+
+### Test gaps
+
+- **`AkimaInterpolator` has zero tests** (entire `TestAkima` class is missing from `test_interpolation.py`). The `TestFactory::test_all_methods` exercises it weakly via knot-recovery only.
+- **`LogLinearInterpolator` right-extrap slope continuation** — the override is non-trivial and untested. Easy to add.
+- **Monotone Hyman clipping path** — no test specifically covers a case where `α² + β² > 9` triggers `tau` scaling. Build a configuration with a sharp slope change.
+- **2-point edge cases** — Akima and MonotoneCubic have n=2 guards (line 224/226 for Akima; loop range for MonotoneCubic) but no direct tests.
+- **`Interpolator._find_segment` boundary behaviour** at exact knot values is untested at the deepest internal level (though indirectly covered by `test_at_knots`).
+
+---
+
 ## Aggregate slicing queue (will work after audit pass)
 
 From A.1 (`day_count`):
@@ -445,5 +486,8 @@ From A.5 (`solvers`):
 15. B1 fix: `SolverResult.to_dict` returns a copy (one-line fix + test).
 16. B2 fix: honour `maxiter` in ITP and report actual iteration count.
 17. Test gap fill: NaN/Inf, near-zero-derivative, maxiter-exhausted return paths. Single slice.
+
+From A.6 (`interpolation`):
+18. Test gap fill: `TestAkima` class (knot recovery, smoothness, ghost-boundary 2-point), `LogLinear` right-extrap slope continuation, Hyman α²+β²>9 clipping path. Single slice.
 
 (More entries will arrive as the audit walks through Pass A.)
