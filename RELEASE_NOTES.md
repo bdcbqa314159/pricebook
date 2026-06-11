@@ -2,6 +2,21 @@
 
 ---
 
+## v0.875.0 — 2026-06-11
+
+**`DESIGN.md` — theoretical design document (~30 pages).**
+
+- New `DESIGN.md` at the repo root: a first-principles design of a financial analytics engine, then pricebook overlaid as the lens.
+- Sections 1-3 (principles, reference architecture, patterns/anti-patterns) drafted by `app-designer` for an independent second perspective on architecture; sections 4-6 written here.
+- The reference design: 9-layer architecture with **calibration as its own layer (L6)**, parallel to risk, both depending on pricing (L5). **Models as `Protocol`, not inheritance.** **Trades as frozen dataclasses, market state passed in via `PricingContext`**. AAD via generic-scalar discipline at L0. Industry references woven through (QuantLib, ORE, OpenGamma Strata, Numerix). Concrete proposed shapes for `PricingContext`, `CalibrationResult`, `RiskRun`, `Scenario`.
+- Pricebook gap analysis (§4): the architecture matches the reference at the foundations (acyclic layering, `PricingContext` exists, serialisation contract, mostly-Protocol models, mostly-frozen dataclasses), but diverges in three structural places: **risk at L3 instead of L6 above pricing** (the biggest mismatch — forces risk modules to know about concrete instruments); **calibration distributed rather than its own layer** (no unified `CalibrationResult`); **market data conflated with curves** (cannot distinguish quotes from fits in the dependency graph).
+- Delta list (§5): 6 high-value adds (CalibrationResult, MarketSnapshot, Scenario protocol, PricingFailure, NumericalConfig, schema versioning), 5 wrong-shape refactors (risk relocation, calibration consolidation, market data split, pe/ relocation, registry consolidation), 4 nice-to-haves, 5 explicit won't-fixes.
+- Roadmap (§6): 4 phases, **~63-84 slices total, ~10-22 weeks at the historical slice rate**. Phase 1 (foundational types) is the prerequisite for the bottom-up audit (the next major task after this document is accepted).
+
+Status: ready for pushback before the bottom-up audit begins. Sections 1-3 are load-bearing — everything in 4-6 depends on the layer cut and the calibration placement.
+
+---
+
 ## v0.874.0 — 2026-06-11
 
 **Hazard-from-bonds notebook — adapted to use the library Tikhonov.**
