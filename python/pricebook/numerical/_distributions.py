@@ -105,11 +105,43 @@ class StudentT:
             rng = np.random.default_rng()
         return self.mu + self.sigma * rng.standard_t(self.df, size)
 
-    def tail_dependence(self) -> float:
-        """Lower tail dependence coefficient (for copula context)."""
+    def tail_dependence(self, rho: float) -> float:
+        """Lower tail dependence coefficient for the bivariate t copula.
+
+        Fix T4-ST1: pre-fix the method took no `rho` and computed the
+        nonsensical formula ``2·T_{ν+1}(-√((ν+1)/(ν-1+ε)))``, which has no
+        copula interpretation — tail dependence is fundamentally a
+        BIVARIATE concept and depends on the linear correlation ``ρ``
+        between the two marginals.
+
+        Correct formula (Embrechts-McNeil-Straumann 2002,
+        McNeil-Frey-Embrechts 2005 §5.3.1, eq. 5.34):
+
+            λ_L = 2·T_{ν+1}( -√((ν+1)·(1-ρ)/(1+ρ)) )
+
+        where T_{ν+1} is the standard univariate t-CDF with ν+1 degrees
+        of freedom.  ρ=1 → λ=1 (comonotone); ρ=-1 → λ=0;
+        ρ=0 → λ=2·T_{ν+1}(-√(ν+1)) > 0 (Student-t copula has positive
+        tail dependence even at zero linear correlation — a key property
+        distinguishing it from the Gaussian copula).
+
+        Note: this is a property of the location/scale family member
+        relative to a companion marginal under a specified copula —
+        ``self.mu`` and ``self.sigma`` are irrelevant (tail-dependence
+        is location/scale invariant).  Only ``self.df`` (= ν) matters.
+
+        Mirrors `pricebook.statistics.copulas.TCopula.tail_dependence`
+        which provides the same calculation in copula form.
+        """
         from scipy.stats import t
-        return 2 * t.cdf(-math.sqrt((self.df + 1) / (self.df - 1 + 1e-10)),
-                         self.df + 1)
+        if not -1.0 <= rho <= 1.0:
+            raise ValueError(f"rho must be in [-1, 1], got {rho}")
+        if rho >= 1.0:
+            return 1.0
+        if rho <= -1.0 or self.df <= 0:
+            return 0.0
+        arg = -math.sqrt((self.df + 1.0) * (1.0 - rho) / (1.0 + rho))
+        return float(2.0 * t.cdf(arg, self.df + 1.0))
 
     def to_dict(self) -> dict:
         return {"type": "StudentT", "df": self.df, "mu": self.mu, "sigma": self.sigma}
