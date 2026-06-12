@@ -2,6 +2,48 @@
 
 ---
 
+## v0.920.0 — 2026-06-12
+
+**Fix L2 T2.11 / T2.12 — `g2pp_swaption_price` no longer silently masks errors as zero or falls back to bogus `y* = 0`.**
+
+Two silent-failure modes in `models/g2pp_calibration.py::g2pp_swaption_price`:
+
+### T2.11 — Bare `except Exception: return 0.0` around the entire body
+
+The whole function was wrapped in `try: ... except Exception: return 0.0`, masking every error mode (bracketing failure, brentq divergence, numerical-overflow in the ZCB formula, calibration bugs) as a silent zero price. Callers had no way to distinguish "swaption worth ≈ 0" from "pricer crashed".
+
+### T2.12 — Silent `y_star = 0.0` fallback on bracket failure
+
+The Jamshidian y* bracketing routine had:
+
+```python
+if bp_lo * bp_hi >= 0:
+    y_star = 0.0       # ← bogus fallback
+else:
+    y_star = brentq(...)
+```
+
+When bracketing failed (no sign change after 10 expansions), `y_star = 0.0` is just **wrong** — the K_k strikes derived from it are unrelated to the actual swaption. Combined with T2.11, this produced wildly wrong intermediate prices that the outer except then collapsed to zero.
+
+### Fixes
+
+- T2.11: removed the outer `try/except Exception: return 0.0`. Only the legitimate degenerate cases (no payment dates) still return 0.0 explicitly. Real exceptions propagate.
+- T2.12: bracket failure now raises `RuntimeError` with a diagnostic message including the failing `x_val`, the bracket endpoints' bond-portfolio values, and a hint about parameter regime.
+
+### Verification — `test_l2_t2_11_12_g2pp_silent_failures.py`
+
+4 new regression tests, all pass:
+- `test_normal_params_produce_positive_price` — sanity: reasonable G2++ params produce a positive finite price.
+- `test_zero_payment_dates_returns_zero_cleanly` — degenerate tenor=0 still returns 0.0 explicitly (the only path that should).
+- `test_negative_a_propagates_error` — extreme parameters don't silently give 0.0 (either succeed or raise).
+- `test_extreme_params_either_raise_or_succeed` — across strike sweep, never silently produce 0; either valid price or RuntimeError with diagnostic.
+
+Full parallel suite (with previously-deselected slow `test_g2pp_calibration` tests included): **12041 passed in 3:24 + 70s for G2++ calibration suite** — zero regressions. The removed silent except did not surface any hidden failures in the full G2++ calibration loop, which validates the fix.
+
+Tier-2 status: **14 of 18 closed** (T2.11, T2.12 added).
+
+---
+
 ## v0.919.0 — 2026-06-12
 
 **Fix L2 T2.10 — `MCEngine.greek()` actually honours `param_name`.**
