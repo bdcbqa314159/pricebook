@@ -2,6 +2,79 @@
 
 ---
 
+## v0.912.0 — 2026-06-12
+
+**Fix L2 T1.4 — `interior_point` now honours equality constraints via SLSQP inner solve.**
+
+Twelfth of 13 Tier-1 (dual-critic-confirmed) bugs closed. Only T1.1 (MLMC) remaining.
+
+### The bug
+
+`numerical/_optimize.py::interior_point` accepts `equality_constraints` as a parameter and even **constructs** the SciPy-style constraint dicts:
+
+```python
+constraints = []
+if equality_constraints:
+    for h in equality_constraints:
+        constraints.append({"type": "eq", "fun": h})
+
+r = _minimize(barrier_obj, x, method="BFGS",     # <— never passes `constraints`
+              options={"maxiter": 50, "gtol": tol / t})
+```
+
+…but never passes the list to `_minimize`, and uses **BFGS** (an unconstrained method) for the inner solve. So any caller passing `equality_constraints` got them silently dropped — the optimiser just minimised the (barrier-modified) objective over the unconstrained space.
+
+This is a critical bug: every caller using `interior_point` for an equality-constrained problem (e.g. minimum-norm projection, equality-constrained least-squares with logarithmic barriers) was getting the **unconstrained** minimum back.
+
+### The fix
+
+When equality constraints are present, switch to **SLSQP** (the SciPy method that supports equality constraints) and pass the constraint dicts. Pure-inequality problems keep the BFGS path (faster for unconstrained barrier subproblems):
+
+```python
+if constraints:
+    r = _minimize(barrier_obj, x, method="SLSQP",
+                  constraints=constraints,
+                  options={"maxiter": 100, "ftol": tol / t})
+else:
+    r = _minimize(barrier_obj, x, method="BFGS",
+                  options={"maxiter": 50, "gtol": tol / t})
+```
+
+Additional convergence-check fix: pure equality-constrained problems (no inequalities) used to never terminate the outer loop (the existing check `n_ineq / t < tol` required `n_ineq > 0`). Added a fast-path that breaks on `r.success` after the first SLSQP pass — no need to grow `t` when there are no barrier terms.
+
+### Verification — `test_l2_t1_4_interior_point_equalities.py`
+
+4 new regression tests, all pass:
+
+- `test_simple_equality_constrained_quadratic` — minimise ‖x‖² in ℝ³ subject to `sum(x) = 3`. Optimum = (1, 1, 1). Pre-fix → (0, 0, 0) (unconstrained minimum, sum = 0 not 3).
+- `test_two_equalities` — minimise ‖x‖² subject to `x₀+x₁=1` and `x₁+x₂=1`. Both equalities now hold to 1e-4.
+- `test_equality_plus_inequality` — minimise `x²+y²` subject to `x+y=2` (eq) and `x≥0.5` (ineq). Optimum = (1, 1), value 2. Both equality AND inequality honoured simultaneously.
+- `test_pure_inequality_path_unchanged` — regression check on the BFGS path when no equalities are supplied: unchanged behaviour, converges to the unconstrained optimum (1, 2) on a strict-interior problem.
+
+Full parallel suite: **11984 passed in 3:24** — zero regressions.
+
+### Tier-1 status — 12 of 13 closed
+
+| # | Module | Status |
+|---|---|---|
+| T1.1 | `numerical/_mc.py` multilevel_mc broken | queued (last one) |
+| T1.2 | `numerical/_fourier.py` density crash | ✅ v0.907 |
+| T1.3 | `numerical/_integrate.py` integrate_2d swap | ✅ v0.907 |
+| **T1.4** | `numerical/_optimize.py` interior_point drops equalities | ✅ this slice |
+| T1.5 | `numerical/_trees.py` Tian V formula | ✅ v0.907 |
+| T1.6 | `numerical/_trees.py` discrete dividends terminal-grid + trinomial | ✅ v0.908 |
+| T1.7 | `models/mc_engine.py` Milstein silently runs Euler | ✅ v0.907 |
+| T1.8 | `models/cos_method.py` V_k integration bounds deep ITM | ✅ v0.910 |
+| T1.9 | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | ✅ v0.909 |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| T1.13 | `curves/aad_curves.py` swap bootstrap flat-extrapolation | ✅ v0.911 |
+
+**Only T1.1 remains** — `multilevel_mc` redesign requires Giles coupling: the coarse path must be re-simulated from the fine path's normals (paired increments summed) instead of independently sub-sampling. This is the biggest scope change among the Tier-1 set.
+
+---
+
 ## v0.911.0 — 2026-06-12
 
 **Fix L2 T1.13 — AAD swap bootstrap properly interpolates intermediate-coupon DFs through the unknown last-pillar DF instead of silently flat-extrapolating.**
