@@ -2,6 +2,35 @@
 
 ---
 
+## v0.921.0 — 2026-06-12
+
+**Fix L2 T2.14 — bond YTM-based pricing now uses the last-period notional for redemption (consistent with curve-based pricing).**
+
+`fixed_income/bond.py::FixedRateBond` set `self.face_value = self.coupon_leg.notional` (the first-period notional from a possibly-variable notional schedule). The curve-based `dirty_price` already used `notional_schedule[-1]` for the redemption to support sinking-fund bonds. But three YTM-based methods used the first-period `self.face_value` for the principal term, causing a silent disagreement between YTM-pricing and curve-pricing for amortising bonds:
+
+- `_price_from_ytm`
+- `macaulay_duration`
+- `convexity`
+
+For a 5y semi-annual bond amortising 100 → 55, the pre-fix YTM price had a redemption term of 100 / (1 + y/2)^10 while the curve price had 55 × DF(5y). The two paths could disagree by tens of cents at par-equivalent levels.
+
+**Fix**: all YTM-based paths use `self.coupon_leg.notional_schedule[-1]` consistently. Constant-notional bonds are unaffected (first = last). Lock-in test verifies curve-vs-YTM agreement on both constant-notional and amortising bonds.
+
+Also covers T2.13 — `aad_curves` no-deposit first-swap case (subsumed by v0.911 T1.13 fix), with explicit regression test (`test_l2_t2_13_aad_first_swap_no_deposits.py`) committed earlier.
+
+### Verification — `test_l2_t2_14_bond_sinking_redemption.py`
+
+4 new regression tests, all pass:
+- `test_constant_notional_ytm_matches_curve` — sanity: plain bond, YTM and curve agree.
+- `test_amortising_redemption_matches_curve` — sinking-fund bond (notional 100→55): YTM and curve now agree (pre-fix had large discrepancy).
+- `test_duration_uses_last_notional` / `test_convexity_uses_last_notional` — duration and convexity produce sane values for sinking-fund bond.
+
+Full parallel suite: **12048 passed in 3:29** — zero regressions.
+
+Tier-2 status: **16 of 18 closed** (T2.13, T2.14 added). Remaining: T2.15 (SABR-HW blender at T=0).
+
+---
+
 ## v0.920.0 — 2026-06-12
 
 **Fix L2 T2.11 / T2.12 — `g2pp_swaption_price` no longer silently masks errors as zero or falls back to bogus `y* = 0`.**
