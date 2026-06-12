@@ -29,24 +29,51 @@ def _bump_survival_curve(
     curve: SurvivalCurve,
     shift: float,
 ) -> SurvivalCurve:
-    """Parallel bump: shift all hazard rates by `shift`, rebuild survival probs."""
+    """Parallel bump: shift all per-segment hazard rates by `shift`, rebuild survival.
+
+    Fix T4-CR2: pre-fix this routine extracted segment-i hazard as
+    ``h_i = -log(q_old_i / prev_q_NEW) / dt`` where ``prev_q_NEW`` had
+    already been bumped by the previous iteration's shift.  This made the
+    extracted `h_i` partially absorb the upstream shift, so the bump applied
+    to it was effectively smaller for later pillars.  Empirically on a flat
+    2% hazard curve with shift=1bp, the 5y survival shifted by only ~half
+    of the expected `-shift·t`.
+
+    Correct: extract all hazards from the ORIGINAL curve first (using OLD
+    `prev_q` at each step), bump them all by `shift`, then reconstruct
+    survivals forward.  This makes the per-pillar `_bump_survival_curve_at`
+    and the parallel `_bump_survival_curve` mathematically consistent
+    (sum of per-pillar key-rate CS01s = parallel CS01).
+    """
     ref = curve.reference_date
     pillar_dates = curve._pillar_dates
     times = [float(t) for t in curve._times if t > 0]
     survs = [float(s) for t, s in zip(curve._times, curve._survs) if t > 0]
 
-    # Convert to hazard rates, bump, convert back
-    new_survs = []
+    # Extract original per-segment hazards using OLD prev_q at each step.
+    hazards = []
     prev_t = 0.0
     prev_q = 1.0
     for t, q in zip(times, survs):
         dt = t - prev_t
         if dt > 0 and q > 0 and prev_q > 0:
             h = -math.log(q / prev_q) / dt
-            h_bumped = max(h + shift, 1e-10)
-            new_q = prev_q * math.exp(-h_bumped * dt)
         else:
-            new_q = q
+            h = 0.0
+        hazards.append(h)
+        prev_t = t
+        prev_q = q   # OLD q, not new — the key fix.
+
+    # Bump every segment hazard.
+    hazards = [max(h + shift, 1e-10) for h in hazards]
+
+    # Reconstruct survivals forward.
+    new_survs = []
+    prev_t = 0.0
+    prev_q = 1.0
+    for h_i, t in zip(hazards, times):
+        dt = t - prev_t
+        new_q = prev_q * math.exp(-h_i * dt)
         new_survs.append(new_q)
         prev_t = t
         prev_q = new_q
@@ -59,23 +86,53 @@ def _bump_survival_curve_at(
     pillar_idx: int,
     shift: float,
 ) -> SurvivalCurve:
-    """Bump hazard rate at a single pillar."""
+    """Bump hazard rate in segment `pillar_idx` only; propagate to downstream survivals.
+
+    Fix T4-CR1: pre-fix only updated `survs[pillar_idx]` and left every
+    later survival `survs[pillar_idx+1:]` at its ORIGINAL value.  Since the
+    segment-(i+1) hazard is `-log(Q_{i+1} / Q_i) / dt`, holding Q_{i+1}
+    fixed while shifting Q_i meant segment i+1's hazard ALSO shifted by
+    `−shift` — contaminating the next segment with the OPPOSITE-sign
+    perturbation.  Key-rate CS01 reports were therefore wrong on every
+    pillar except the last.
+
+    Correct semantics: bump the per-segment hazard at index `pillar_idx`,
+    keep every other segment hazard at its original value, then propagate
+    forward by chaining `Q_i = Q_{i-1} · exp(-h_i · dt_i)`.
+    """
     ref = curve.reference_date
     pillar_dates = curve._pillar_dates
     times = [float(t) for t in curve._times if t > 0]
     survs = [float(s) for t, s in zip(curve._times, curve._survs) if t > 0]
 
-    new_survs = list(survs)
-    if pillar_idx < len(times):
-        t = times[pillar_idx]
-        prev_t = times[pillar_idx - 1] if pillar_idx > 0 else 0.0
-        prev_q = survs[pillar_idx - 1] if pillar_idx > 0 else 1.0
-        q = survs[pillar_idx]
+    # Extract per-segment hazards from survival probs.
+    hazards = []
+    prev_t = 0.0
+    prev_q = 1.0
+    for t, q in zip(times, survs):
         dt = t - prev_t
         if dt > 0 and q > 0 and prev_q > 0:
             h = -math.log(q / prev_q) / dt
-            h_bumped = max(h + shift, 1e-10)
-            new_survs[pillar_idx] = prev_q * math.exp(-h_bumped * dt)
+        else:
+            h = 0.0
+        hazards.append(h)
+        prev_t = t
+        prev_q = q
+
+    # Bump only segment `pillar_idx`.
+    if 0 <= pillar_idx < len(hazards):
+        hazards[pillar_idx] = max(hazards[pillar_idx] + shift, 1e-10)
+
+    # Propagate forward to recover ALL downstream survivals.
+    new_survs = []
+    prev_t = 0.0
+    prev_q = 1.0
+    for h_i, t in zip(hazards, times):
+        dt = t - prev_t
+        new_q = prev_q * math.exp(-h_i * dt)
+        new_survs.append(new_q)
+        prev_t = t
+        prev_q = new_q
 
     return SurvivalCurve(ref, pillar_dates, new_survs)
 
