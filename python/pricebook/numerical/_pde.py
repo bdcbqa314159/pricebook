@@ -105,10 +105,25 @@ def build_grid(
         return np.exp(np.linspace(np.log(max(s_min, 1e-10)), np.log(s_max), n_points))
 
     elif grid_type == GridType.SINH:
-        # Tavella-Randall sinh grid: concentrated near concentration_point
-        c = concentration_point or (s_min + s_max) / 2
-        alpha = 0.5 * (s_max - s_min) / np.sinh(3)  # scale factor
-        xi = np.linspace(-3, 3, n_points)
+        # Tavella-Randall sinh grid: concentrated near concentration_point.
+        # Fix T3.4: pre-fix used a symmetric `xi = linspace(-3, 3)` with
+        # `alpha = 0.5 * (s_max - s_min) / sinh(3)`.  If `concentration_point`
+        # was NOT the midpoint, the symmetric xi range pushed the grid
+        # endpoints past `s_min` / `s_max` — for c < midpoint the grid extends
+        # below s_min (and goes NEGATIVE when s_min is close to 0, breaking
+        # the BS PDE which requires S ≥ 0).
+        #
+        # Post-fix: choose `alpha` based on the larger half-distance from c,
+        # then solve xi_min = asinh((s_min−c)/α) and xi_max = asinh((s_max−c)/α)
+        # so the grid lands EXACTLY on [s_min, s_max] regardless of where c is.
+        c = concentration_point if concentration_point is not None else (s_min + s_max) / 2
+        half = max(c - s_min, s_max - c)
+        if half <= 0:
+            return np.linspace(s_min, s_max, n_points)
+        alpha = half / np.sinh(3.0)
+        xi_lo = np.arcsinh((s_min - c) / alpha)
+        xi_hi = np.arcsinh((s_max - c) / alpha)
+        xi = np.linspace(xi_lo, xi_hi, n_points)
         return c + alpha * np.sinh(xi)
 
     elif grid_type == GridType.CHEBYSHEV:

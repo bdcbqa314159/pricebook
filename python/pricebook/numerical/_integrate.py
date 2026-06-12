@@ -244,6 +244,16 @@ def _tanh_sinh(f, a, b, n):
 
 
 def _clenshaw_curtis(f, a, b, n):
+    """Clenshaw-Curtis quadrature on n+1 nodes at cos(jπ/n).
+
+    Fix T3.7: pre-fix used the n-EVEN weight formula for ALL n.  Two
+    differences for n odd:
+      (a) the upper sum limit is (n−1)/2 with NO halved-boundary term
+          (the n/2 term doesn't exist when n is odd), and
+      (b) the endpoint weights are 1/n² (not 1/(n²−1)).
+    Pre-fix, integrating constants for odd n gave the wrong answer (e.g.
+    ∫₀¹ 1 dx ≈ 0.9 instead of 1 for n=3).
+    """
     theta = np.pi * np.arange(n + 1) / n
     nodes = np.cos(theta)
     mid = 0.5 * (a + b)
@@ -251,14 +261,28 @@ def _clenshaw_curtis(f, a, b, n):
     mapped = mid + half * nodes
     fvals = np.array([f(x) for x in mapped])
     weights = np.zeros(n + 1)
-    weights[0] = 1.0 / (n * n - 1) if n > 1 else 1.0
-    weights[n] = weights[0]
-    for j in range(1, n):
-        s = 0.0
-        for k in range(1, n // 2 + 1):
-            b_k = 1.0 if k == n // 2 else 2.0
-            s += b_k * math.cos(2 * k * j * math.pi / n) / (4 * k * k - 1)
-        weights[j] = 2.0 / n * (1 - s)
+    if n <= 1:
+        weights[0] = 1.0
+        if n == 1:
+            weights[1] = 1.0
+    elif n % 2 == 0:
+        weights[0] = 1.0 / (n * n - 1)
+        weights[n] = weights[0]
+        for j in range(1, n):
+            s = 0.0
+            for k in range(1, n // 2 + 1):
+                b_k = 1.0 if k == n // 2 else 2.0
+                s += b_k * math.cos(2 * k * j * math.pi / n) / (4 * k * k - 1)
+            weights[j] = 2.0 / n * (1 - s)
+    else:
+        # n odd
+        weights[0] = 1.0 / (n * n)
+        weights[n] = weights[0]
+        for j in range(1, n):
+            s = 0.0
+            for k in range(1, (n - 1) // 2 + 1):
+                s += 2.0 * math.cos(2 * k * j * math.pi / n) / (4 * k * k - 1)
+            weights[j] = 2.0 / n * (1 - s)
     value = float(np.dot(weights, fvals) * half)
     return IntegrationResult(value, 0.0, n + 1, "clenshaw_curtis", True)
 
