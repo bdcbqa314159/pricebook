@@ -2,6 +2,59 @@
 
 ---
 
+## v0.934.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `TrancheCDS.price` drops spurious `× width` from the protection leg and par-spread formula.  Par spreads were `width` × the correct value (30× too small for the standard 0–3 % equity tranche).**
+
+`credit/tranche_pricing.py::TrancheCDS.price` had:
+
+```python
+# Protection leg:
+protection_pv += (els[i] - els[i-1]) * self.width * df
+# Par spread numerator:
+prot_ratio = sum((els[i] - els[i-1]) * self.width * disc.df(...) for i in ...)
+par_spread = prot_ratio / risky_annuity
+```
+
+But `expected_tranche_loss` already normalises the EL by width:
+
+```python
+tranche_loss = np.clip(portfolio_loss - attachment, 0.0, width) / width
+```
+
+so `el ∈ [0, 1]` (fraction of tranche notional lost).  Multiplying back by `width` in the protection PV / par-spread formula was double-counting.
+
+### Magnitude
+
+Pre-fix par spreads were `width` × correct.  For standard index tranches:
+
+| Tranche | Width | Pre-fix par_spread vs market |
+|---|---|---|
+| Equity 0–3 % | 0.03 | **30 × too small** (≈ 50 bp vs typical 1500–2500 bp) |
+| Mezz 3–6 % | 0.03 | 30 × too small |
+| Mezz 9–12 % | 0.03 | 30 × too small |
+| Senior 12–22 % | 0.10 | 10 × too small |
+| Super-senior 22–100 % | 0.78 | 1.3 × too small |
+
+Live verification on a 50-name flat portfolio (hazard 2 %, recovery 40 %, ρ = 0.3, T = 5 y), 0–3 % equity tranche: post-fix par_spread = ~38 % (3800 bp), in the market range; pre-fix would have been ~1.1 % (≈ 110 bp).
+
+### The fix
+
+Drop `* self.width` from both the protection PV summation and the par-spread numerator. EL is already normalised.
+
+### Verification — `test_l2_t4_tranche_width.py`
+
+3 new tests, all pass:
+- `test_equity_tranche_par_spread_in_market_range` — equity par spread now > 500 bp (pre-fix would have been ~50 bp).
+- `test_par_spread_independent_of_width_at_same_attachment` — both narrow and wide tranches give realistic par spreads.
+- `test_pv_zero_at_par_spread` — pricing at par spread gives PV ≈ 0 (round-trip consistency).
+
+Full parallel suite: **12120 passed in 2:55** — zero regressions.
+
+Second fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.933.0 — 2026-06-12
 
 **Fix L2 Wave-2 deferred audit — `models/cos_bermudan.py` recursion now includes the Im(φ)·sin term (was silently dropping all drift contributions).**
