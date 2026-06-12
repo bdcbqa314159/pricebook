@@ -76,7 +76,14 @@ def cos_price(
     ln_p = cmath.log(phi_p)
     ln_m = cmath.log(phi_m)
     c1 = float((ln_p - ln_m).imag / (2 * eps))
-    c2 = max(float(-(ln_p + ln_m - 2 * ln0).real / eps**2), 0.001)
+    # Fix T3.12: pre-fix clamped c2 to a hard floor of 0.001 (absolute), which
+    # is huge for low-variance pricing (e.g. σ=10 %, T=0.01y → true c2 ≈ 1e-4).
+    # The clamp inflated the truncation half-width L·√c2 by ≈ 3× the truth,
+    # spreading the COS support far past the actual density and degrading
+    # convergence for low-vol or short-T options.  Use a tiny absolute floor
+    # purely as a numerical-noise guard (negative c2 from round-off), not as
+    # a model-implied minimum.
+    c2 = max(float(-(ln_p + ln_m - 2 * ln0).real / eps**2), 1e-12)
     a = x + c1 - L * math.sqrt(c2)
     b = x + c1 + L * math.sqrt(c2)
 
