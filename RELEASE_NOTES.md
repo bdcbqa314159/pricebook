@@ -2,6 +2,39 @@
 
 ---
 
+## v0.928.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.16 — `LMM.rebonato_swaption_vol` uses ρ=1 (standard Rebonato), not ρ=δ_ij.**
+
+`models/lmm.py::rebonato_swaption_vol` docstring described the standard Rebonato approximation:
+
+> With unit correlation (ρ=1): σ² × T = (Σ w_i × σ_i)² × T
+> Simplified diagonal (ρ=δ_{ij}): σ² × T = Σ w_i² × σ_i² × T
+
+But the implementation used the **diagonal (uncorrelated) sum**:
+
+```python
+var = np.sum(weights**2 * vols**2) * T_expiry
+```
+
+By Cauchy-Schwarz, `Σ w_i² σ_i² ≤ (Σ w_i σ_i)²` with equality only at N=1. For an N-period swap with uniform vols, the pre-fix σ_swap was ≈ σ / √N — a factor of √5 ≈ 2.24 too small for a 5-period swap.
+
+**Fix**: default to the ρ=1 result `(Σ w_i σ_i)² · T_expiry`. Added optional `corr: np.ndarray | None = None` parameter so callers can pass a proper LMM correlation matrix when calibrating: `var = (w · σ)ᵀ · ρ · (w · σ) · T`.
+
+### Verification — `test_l2_t3_16_lmm_rebonato.py`
+
+4 new regression tests, all pass:
+- `test_single_period_unchanged` — N=1: ρ=1 and ρ=δ give the same answer.
+- `test_multi_period_uses_rho_one` — N=5 equal vols: σ_swap ≈ σ (not σ/√5 ≈ 0.09).
+- `test_corr_matrix_argument` — ρ=I (passed explicitly) recovers the pre-fix diagonal answer.
+- `test_corr_matrix_intermediate` — ρ_off=0.5 sits between ρ=0 and ρ=1 (monotonicity).
+
+Full parallel suite: **12093 passed in 3:27** — zero regressions.
+
+Tier-3 status: **10 of 19 closed**.
+
+---
+
 ## v0.927.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.13 — Hull-White tree swaption accepts `payments_per_year`; no more annual hard-code.**
