@@ -2,6 +2,34 @@
 
 ---
 
+## v0.926.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.12 — COS method `c2` floor doesn't destroy low-variance pricing.**
+
+`models/cos_method.py::cos_price` clamped the variance cumulant to a hard absolute floor:
+
+```python
+c2 = max(float(-(ln_p + ln_m - 2 * ln0).real / eps**2), 0.001)
+```
+
+For low-variance regimes (short maturity or low vol — e.g. σ = 10%, T = 0.01y → true c2 ≈ 1e-4), the clamp inflated `L · √c2` by ≈ 3 ×, spreading the COS truncation interval far past the actual density support. COS convergence with N grid points degraded by orders of magnitude.
+
+**Fix**: use a tiny numerical-noise floor (1e-12) instead of a model-implied minimum. The floor exists only to guard against round-off-induced negative c2; it should not influence the truncation half-width.
+
+Live demonstration (σ=10%, T=0.01y ATM call):
+- BS: 0.424333
+- COS post-fix: 0.424333 (rel error 8e-14, machine precision)
+
+### Verification — `test_l2_t3_12_cos_c2_floor.py`
+
+4 new tests, all pass. Parametrised over (σ=10%, T=0.01), (σ=5%, T=0.001), (σ=20%, T=0.05) — all post-fix match BS to <1e-6. Sanity: typical (σ=20%, T=1) still works.
+
+Full parallel suite: **12086 passed in 4:49** — zero regressions.
+
+Tier-3 status: **8 of 19 closed**.
+
+---
+
 ## v0.925.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.5 / T3.6 — `CharacteristicFunction.cumulants` skewness sign + kurtosis stencil h.**
