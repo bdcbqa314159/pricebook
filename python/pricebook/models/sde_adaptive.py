@@ -84,9 +84,21 @@ def adaptive_euler(
             # Full step
             x_full = x + mu_fn(x, t) * dt + sigma_fn(x, t) * dW
 
-            # Two half steps (same Brownian motion split)
+            # Two half-steps on the SAME Brownian path via Brownian bridge.
+            #
+            # Fix T4-SDE1: pre-fix used `dW1 = dW * sqrt(0.5)` and
+            # `dW2 = dW - dW1`.  This algebraically sums to dW but gives
+            # Var(dW1) = 0.5·dt (correct) and Var(dW2) = (1 - √0.5)²·dt ≈
+            # 0.086·dt (should be 0.5·dt).  The second half-step's diffusion
+            # was grossly under-stated, making the half-step look artificially
+            # close to the full-step and under-estimating the local error —
+            # so the adaptive controller accepted steps that should have been
+            # rejected.
+            # Correct construction: given dW (the FULL Brownian increment),
+            # the bridge midpoint dW1 = W_{t+dt/2} − W_t ~ N(dW/2, dt/4).
             dt_half = dt / 2
-            dW1 = dW * math.sqrt(0.5)  # approximate split
+            Z = rng.standard_normal()
+            dW1 = 0.5 * dW + math.sqrt(dt_half * 0.5) * Z   # = dW/2 + √(dt/4)·Z
             dW2 = dW - dW1
 
             x_half = x + mu_fn(x, t) * dt_half + sigma_fn(x, t) * dW1
