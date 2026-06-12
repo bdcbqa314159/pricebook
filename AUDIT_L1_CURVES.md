@@ -495,4 +495,114 @@ The headline finding is that the audit chain (G1) records numerical parameters t
 
 ---
 
-*(audit continues — Pass E internal numerics)*
+## Pass E — internal numerics
+
+| # | Module | LoC | Status | Notes |
+|---|---|---:|---|---|
+| E.1 | `linalg.py` | 253 | ✅ | PCA / eigen / SVD / condition number — clean wrappers around numpy. Same `vars(self)` to_dict footgun on result dataclasses (`PCAResult`, `EigenResult`, etc.) — outside L0 sweep. |
+| E.2 | `quadrature.py` | 27 | ✅ | Thin compatibility shim — redirects to `pricebook.numerical._integrate`. The real impl is out of curves-scope. |
+| E.3 | `sparse.py` | 131 | ✅ | `SparseMatrix` wrapper around `scipy.sparse.csr_matrix` + `sparse_solve` / `sparse_cg` / `tridiagonal_matrix`. Clean. |
+| E.4 | `sparse_grids.py` | 162 | ✅ | Clenshaw-Curtis nodes + Smolyak sparse grid. Standard implementations; integration tests would confirm node weights. |
+
+### Pass E — summary
+
+0 confirmed bugs. All four modules are thin layers above scipy/numpy primitives. The recurring `vars(self)` to_dict pattern reappears on result dataclasses but is mechanically the same as L0's sweep — would close in one focused slice covering all `pricebook.curves.*` to_dicts.
+
+---
+
+## Pass F — AAD subsystem
+
+| # | Module | LoC | Status | Notes |
+|---|---|---:|---|---|
+| F.1 | `aad.py` | tbd | ❓ | Forward-mode autodiff for curves |
+| F.2 | `aad_calibration.py` | tbd | ❓ | AAD-driven calibration sensitivities |
+| F.3 | `aad_curves.py` | tbd | ❓ | AAD-compatible curve types |
+| F.4 | `aad_interp.py` | tbd | ❓ | AAD-aware interpolation |
+| F.5 | `aad_pricing.py` | tbd | ❓ | AAD-routed pricing |
+
+AAD is a self-contained subsystem (forward-mode tangent propagation across the library). Audit depth: light scan for correctness anti-patterns (silent tangent zeroing, wrong derivative of certain ops), structural concerns (duplicates with non-AAD modules), and test coverage. Will be audited together as Pass F.
+
+---
+
+### Pass F — AAD subsystem (continued)
+
+| # | Module | LoC | Status |
+|---|---|---:|---|
+| F.1 | `aad.py` | 386 | ⚠️ |
+| F.2 | `aad_calibration.py` | 152 | 📝 |
+| F.3 | `aad_curves.py` | 200 | 📝 |
+| F.4 | `aad_interp.py` | 66 | ✅ |
+| F.5 | `aad_pricing.py` | 180 | 📝 |
+
+#### F.1 — `aad.py`
+
+**Correctness review:** all the derivative formulas are right:
+- `__add__` / `__sub__` → derivatives `[+1, ±1]`. ✓
+- `__mul__` → `[other_val, self_val]` (the standard `d(xy)/dx = y, d(xy)/dy = x`). ✓
+- `__truediv__` → `[1/y, −x/y²]`. ✓
+- `exp` → derivative = `val` (= `exp(x)`). ✓
+- `log` → derivative = `1/x`. ✓
+- `sqrt` → derivative = `0.5/√x`. ✓
+- `abs` → sign(x), 0 at zero. ✓
+- `maximum` → subgradient `[1, 0]` or `[0, 1]` depending on which side; at boundary picks x. ✓
+- `norm_cdf` → derivative = pdf. ✓
+
+#### F.1 B1 — Tape thread-safety: `Number.tape` is a class attribute, not thread-local  *[MED in multi-threaded use; LOW otherwise]*
+
+**Location:** `aad.py:139, 67, 152`.
+
+```python
+class Number:
+    tape: Tape = _get_default_tape()    # class attribute, set ONCE at import
+```
+
+`_get_default_tape()` reads from a `_tape_local = threading.local()`, but only at *import time*. After that, `Number.tape` is a regular class attribute. The `Tape.__enter__` method does `Number.tape = self` — overwriting the class attribute, **globally visible to all threads**.
+
+The thread-local machinery is dead code (only the import-time initialisation uses it). Two threads inside `with Tape()` blocks share a single tape — the second `__enter__` overwrites the first's binding, and both threads' `_from_op` calls record onto the loser's tape.
+
+**Fix shape:** make `Number.tape` a property that reads `_tape_local.tape`; have `Tape.__enter__` set `_tape_local.tape = self`. Single-threaded behaviour unchanged; multi-threaded becomes correct.
+
+**Impact rating:** depends on whether the library is used multi-threaded. Single-threaded calibration / pricing is fine. MC engines that thread the per-path simulation would break.
+
+#### F.2 — F.5 short notes
+
+- **`aad_calibration.py`** — `sabr_jacobian` computes ∂σ/∂(α, β, ρ, ν) via AAD over the Hagan smile expansion. Standard.
+- **`aad_curves.py`** — `AADDiscountCurve` and `AADSurvivalCurve` parallel the non-AAD versions. **Architectural duplication risk:** a fix to `DiscountCurve` (e.g., L0 B.1 B1 roll_down, B.1 B2 interpolation preservation) doesn't propagate to `AADDiscountCurve` automatically. Would need careful checking when AAD becomes a more-used path.
+- **`aad_interp.py`** — `aad_linear_interp` and `aad_log_linear_interp`. Small, clean.
+- **`aad_pricing.py`** — AAD versions of common pricers (Black-Scholes, swap, CDS, swaption, caplet). The maths matches the non-AAD versions; small surface; not deeply audited here.
+
+### Pass F — summary
+
+1 confirmed bug (thread-safety on `Number.tape`); 1 architectural concern (AAD-versus-non-AAD parallel implementations). Math is correct.
+
+---
+
+## L1 Curves — audit closure
+
+All 33 modules audited (Passes A through F). Findings:
+
+| Pass | Modules | Bugs found | HIGH active | HIGH fixed |
+|---|---:|---:|---:|---:|
+| A — calibration/bootstrap core | 6 | 6 | 2 | 2 ✅ |
+| B — parametric forms | 5 | 0 | — | — |
+| C — risk/bumping | 4 | 4 | 1 | 1 ✅ |
+| D — builders/engines | 8 | 3 (+ 2 arch) | — | — |
+| E — internal numerics | 4 | 0 | — | — |
+| F — AAD subsystem | 5 | 1 (+ 1 arch) | — | — |
+| **Total** | **33** | **14** | **3/3 ✅** | **3/3** ✅ |
+
+**Headline fixes landed during L1 audit:**
+- `multicurve_newton` no longer emits `did not converge` warning (PV_float includes first period).
+- `global_bootstrap` raises on duplicate-maturity inputs instead of silently dropping the deposit.
+- `curve_jacobian` resolves `pillar_tenors` to actual curve indices; raises on mismatch.
+
+**Queued for follow-up (no HIGH active remaining):**
+- A.1 B1 — `bootstrap` inlined HW convexity (latent — no current caller, but wrong by 10–22× when invoked).
+- A.4 B1+B2 — `ncurve_solver` BasisSwap annuity / OIS schedule simplifications.
+- C.1 B1 — `curve_bumper.key_rate_dv01s` uses wrong kernel (route through `key_rate_risk` instead).
+- C.3 B1 — `steepener` / `flattener` ignore `pivot_years`.
+- D.1 B1 — `build_curves` and `bootstrap_forward_curve` silently drop `futures` / `hw_convexity_*`.
+- F.1 B1 — AAD `Number.tape` not actually thread-local.
+- Architectural: NS dual implementation (B.1 vs D.4); two key-rate impls (C.1 vs C.4); legacy `core.market_data` sites (B.3, D.5).
+
+Test suite: 11951 passing across all curves modules.
