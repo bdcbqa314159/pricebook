@@ -2,6 +2,38 @@
 
 ---
 
+## v0.942.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — Nelson-Siegel / Svensson `DiscountCurve` builder day-count mismatch (365.25 vs ACT/365 Fixed).**
+
+`ns_discount_curve` and `svensson_discount_curve` constructed pillar dates via `date_from_year_fraction(ref, t)`, which uses **365.25 days/yr** (the Julian year). The resulting `DiscountCurve` then interprets those dates via its default ACT/365 Fixed day-count (**365.0 days/yr**).
+
+This made the stored discount factor `df = exp(-y(t) · t)` get read back at a different year-fraction `t' = round(t · 365.25) / 365.0 = t · 1.000685`, giving an implied zero rate `y' = y · t / t' ≠ y`.
+
+Concrete pre-fix mismatches at flat 5%:
+- 10y: implied 4.9973% (−0.27 bp)
+- 30y: implied 4.9963% (−0.37 bp)
+- 0.25y: implied 5.0137% (+1.37 bp)
+
+Small in isolation but a structural inconsistency between the parametric NS yield and the constructed discount curve: any calibration that compares "yields from NS" against "yields from a DiscountCurve" will see this drift.
+
+**Fix**: introduce `_date_from_act365_fixed(ref, t)` that uses **365.0 days/yr** to match `DiscountCurve`'s default day-count. Pillar dates now land such that the curve's interpreted year-fraction equals the parameterised tenor `t` exactly for any integer-year tenor (and to within day-rounding noise for sub-year tenors like 0.25y, where 91/365 ≠ 0.25).
+
+### Verification — `test_l2_t4_nelson_siegel_daycount.py`
+
+13 new tests, all pass:
+- `TestNSDiscountCurveRoundTrip` × 8 (1, 2, 5, 7, 10, 15, 20, 30 yr) — implied curve yield equals NS yield to 1e-9.
+- `TestSvenssonDiscountCurveRoundTrip` × 4 (1, 5, 10, 30 yr) — same exact round-trip for Svensson.
+- `TestLongTenorErrorBelowOneBp` — explicit headline: 30y at 5% drifts <0.1 bp (was 0.37 bp pre-fix).
+
+Pre-existing 13 `test_nelson_siegel.py` tests still pass.
+
+Full parallel suite: **12157 passed in 2:35** — zero regressions.
+
+Tenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.941.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `credit_risk` survival-curve bumps extracted segment hazards from already-bumped state (parallel and per-pillar both off; cancelling errors masked the bug).**
