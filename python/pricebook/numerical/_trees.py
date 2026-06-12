@@ -584,9 +584,18 @@ def solve_tree(
     barrier_level: float | None = None,
     dividends: list[tuple[int, float]] | None = None,
     store_tree: bool = False,
+    exercise_dates: list[int] | None = None,
 ) -> TreeResult:
-    """One-liner tree pricing."""
+    """One-liner tree pricing.
+
+    Fix T3.10: pre-fix this convenience wrapper did not accept
+    ``exercise_dates``.  A caller passing ``exercise=BERMUDAN`` with the
+    intended exercise schedule got a TreeSolver built with empty
+    ``exercise_dates``, and ``_should_exercise`` returned False at every
+    step for BERMUDAN — silently degrading Bermudan options to European.
+    """
     solver = TreeSolver(method, n_steps, exercise,
+                         exercise_dates=exercise_dates,
                          barrier_type=barrier_type, barrier_level=barrier_level,
                          dividends=dividends, store_tree=store_tree)
     return solver.solve(spot, strike, rate, vol, T, payoff, is_call, div_yield)
@@ -640,6 +649,23 @@ def solve_tree_2d(
             elif payoff_type == "worst_of_call":
                 values[i, j] = max(min(s1, s2) - strike, 0)
 
+    # Fix T3.9: pre-fix the American projection only handled "spread_call".
+    # spread_put, best_of_call, worst_of_call, and custom payoff callables
+    # were silently treated as European inside the backward iteration.
+    def _intrinsic_2d(s1: float, s2: float) -> float:
+        if payoff is not None:
+            return payoff(s1, s2)
+        if payoff_type == "spread_call":
+            return max(s1 - s2 - strike, 0.0)
+        if payoff_type == "spread_put":
+            return max(strike - (s1 - s2), 0.0)
+        if payoff_type == "best_of_call":
+            return max(max(s1, s2) - strike, 0.0)
+        if payoff_type == "worst_of_call":
+            return max(min(s1, s2) - strike, 0.0)
+        return 0.0
+
+    values_step1 = None  # for T3.8 Greeks readout
     for step in range(n - 1, -1, -1):
         new_v = np.zeros((step + 1, step + 1))
         for i in range(step + 1):
@@ -649,13 +675,40 @@ def solve_tree_2d(
                 if is_american:
                     s1 = S1 * u1**(step-i) * d1**i
                     s2 = S2 * u2**(step-j) * d2**j
-                    if payoff is not None:
-                        new_v[i,j] = max(new_v[i,j], payoff(s1, s2))
-                    elif payoff_type == "spread_call":
-                        new_v[i,j] = max(new_v[i,j], max(s1-s2-strike, 0))
+                    new_v[i, j] = max(new_v[i, j], _intrinsic_2d(s1, s2))
+        # Capture the step-1 grid AFTER it has been built (i.e. when we are
+        # about to step from 1 down to 0, `new_v` is the step-0 grid and
+        # `values` is still the step-1 grid).  Save before overwriting.
+        if step == 0:
+            values_step1 = values
         values = new_v
 
-    return TreeResult(price=float(values[0, 0]), delta=0.0, gamma=0.0, theta=0.0,
-                       method="binomial_2d", n_steps=n_steps, exercise="european" if not is_american else "american")
+    # Fix T3.8: pre-fix this returned delta=gamma=theta=0 always.  Extract
+    # delta1 and delta2 from the step-1 grid (4 nodes), averaging out the
+    # spot direction we are NOT differentiating with respect to.
+    # Gamma and theta on a 2-asset recombining tree are noisy without
+    # additional refinement (the step-1 grid has no centred node at (S1, S2)
+    # — only 4 shifted nodes — so straight ∂V/∂t mixes spot-diffusion
+    # convexity with time decay). Left at 0 here; computed via bump+reprice
+    # if needed.
+    delta1, delta2 = 0.0, 0.0
+    if values_step1 is not None and values_step1.shape == (2, 2):
+        s1_u, s1_d = S1 * u1, S1 * d1
+        s2_u, s2_d = S2 * u2, S2 * d2
+        # delta1 = ∂V/∂S1 from averaging over the S2 direction at step 1.
+        v_at_S1u = 0.5 * (values_step1[0, 0] + values_step1[0, 1])
+        v_at_S1d = 0.5 * (values_step1[1, 0] + values_step1[1, 1])
+        delta1 = (v_at_S1u - v_at_S1d) / (s1_u - s1_d)
+        v_at_S2u = 0.5 * (values_step1[0, 0] + values_step1[1, 0])
+        v_at_S2d = 0.5 * (values_step1[0, 1] + values_step1[1, 1])
+        delta2 = (v_at_S2u - v_at_S2d) / (s2_u - s2_d)
+
+    return TreeResult(
+        price=float(values[0, 0]),
+        delta=float(delta1), gamma=0.0, theta=0.0, vega=None,
+        method="binomial_2d", n_steps=n_steps,
+        exercise="american" if is_american else "european",
+        node_prices=np.array([float(delta1), float(delta2)]),
+    )
 
 
