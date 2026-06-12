@@ -2,6 +2,30 @@
 
 ---
 
+## v0.916.0 — 2026-06-12
+
+**Fix L2 T2.5 — `wavelet_transform` pads non-power-of-2 input.**
+
+`numerical/_fourier.py::wavelet_transform` halves the signal at each level via `x[0::2]` and `x[1::2]`. For odd `len(x)`, these slices have different lengths and the addition raised:
+
+```
+ValueError: operands could not be broadcast together with shapes (4,) (3,)
+```
+
+The DWT (Haar / DB2) is well-defined only on power-of-2 inputs. Fix: pad to `max(next_power_of_2(n), 2**levels)` with zeros before decomposition; also raise on `n < 2`. Power-of-2 inputs are unaffected.
+
+### Verification — `test_l2_t2_5_wavelet_padding.py`
+
+17 tests (parametrised over n = 3, 5, 7, 9, 11, 17, 100, 1000 for Haar and 3, 5, 11, 17, 31 for DB2), all pass. Includes:
+- Arbitrary-length Haar/DB2 no longer crash.
+- Power-of-2 still produces a length-n coefficient vector (unchanged).
+- Length-2 exact-value sanity check.
+- Length-1 raises with clear message.
+
+Tier-2 status: **8 of 18 closed** (T2.5 added; T2.1, T2.2, T2.3, T2.4, T2.7, T2.16, T2.17, T2.18 already closed).
+
+---
+
 ## v0.915.0 — 2026-06-12
 
 **Fix L2 Tier-2: CDS variable-notional propagates through aged-CDS methods + convexity formula uses notional.**
