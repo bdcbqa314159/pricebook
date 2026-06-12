@@ -212,7 +212,19 @@ from pricebook.core.serialisable import _register, make_payload, read_payload
 SurvivalCurve._SERIAL_TYPE = "survival_curve"
 
 def _sc_to_dict(self):
-    pillar_survs = [float(s) for t, s in zip(self._times, self._survs) if t > 0]
+    # Fix T3.1: pre-fix this filtered `if t > 0` to drop the synthetic
+    # t=0 prepend.  But if the user supplied a pillar AT the reference
+    # date (legitimate input — Q(ref) = 1 is the most natural anchor),
+    # its `_times[i]` is also 0 and the filter silently dropped it.
+    # Round-trip then produced a curve missing that pillar, with a
+    # length mismatch between the round-tripped `dates` and
+    # `survival_probs`.
+    # Post-fix: iterate `_pillar_dates` (user-supplied; never includes
+    # the synthetic prepend) and look up the survival at each pillar
+    # from `_survs`, preserving the user's input exactly.
+    pillar_survs = [
+        float(self.survival(d)) for d in self._pillar_dates
+    ]
     return make_payload(self, {
         "reference_date": self.reference_date.isoformat(),
         "dates": [d.isoformat() for d in self._pillar_dates],
