@@ -2,6 +2,43 @@
 
 ---
 
+## v0.935.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `HJMModel.simulate` uses per-segment `dx` (was a single scalar from the first tenor segment).**
+
+`models/hjm.py::HJMModel.simulate` computed the Musiela `∂f/∂x` finite-difference with:
+
+```python
+dx = self.tenors[1] - self.tenors[0]
+dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx
+```
+
+A **single scalar** dx for ALL segments.  The default tenor grid is non-uniform: `[0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20]`.  Pre-fix `∂f/∂x` was correct only for the (0.25, 0.5) segment; every later segment was biased by `dx_first / dx_actual`:
+
+| Segment | `dx_actual` | Bias factor (using `dx_first = 0.25`) |
+|---|---|---|
+| (0.5, 1.0) | 0.5 | 2× |
+| (1, 2) | 1.0 | 4× |
+| (5, 7) | 2.0 | 8× |
+| (10, 15) | 5.0 | **20× over-stated** |
+
+Pre-fix the Musiela drift at long tenors had a wildly wrong slope term, causing distorted forward-curve dynamics — long forwards mean-reverted ~20× too fast.
+
+**Fix**: per-segment dx via `np.diff(self.tenors)`.
+
+### Verification — `test_l2_t4_hjm_musiela.py`
+
+3 new tests, all pass:
+- `test_simulate_with_default_nonuniform_tenors_finite` — paths finite under default non-uniform grid.
+- `test_uniform_tenor_unchanged` — uniform grid: behaviour unchanged.
+- `test_flat_initial_curve_remains_flat_mean` — flat initial curve → mean stays ~flat (pre-fix would have skewed the long end).
+
+Full parallel suite: **12120 passed in 2:57** — zero regressions.
+
+Third fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.934.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `TrancheCDS.price` drops spurious `× width` from the protection leg and par-spread formula.  Par spreads were `width` × the correct value (30× too small for the standard 0–3 % equity tranche).**
