@@ -314,39 +314,85 @@ class MCEngine:
     def greek(
         self,
         payoff: Callable,
-        param_name: str,
+        param_name: str | int,
         bump: float,
         base_price: float | None = None,
         discount_factor: float = 1.0,
     ) -> float:
-        """Bump-and-reprice Greek.
-
-        Bumps a parameter on the process, regenerates paths, reprices.
-        Centred difference: (price_up - price_dn) / (2 × bump).
+        """Bump-and-reprice Greek via centred difference.
 
         Args:
             payoff: payoff function.
-            param_name: attribute on process.x0 or process itself to bump.
+            param_name: which parameter to bump.  Accepted forms:
+                * int — index into `process.x0` (e.g. 0 = spot, 1 = variance
+                  for Heston).
+                * ``"x0"`` or ``"x0[i]"`` — same as int (i defaults to 0).
+                * any other string — interpreted as an attribute of the
+                  underlying ProcessSpec (e.g. ``"sigma"``).  Requires the
+                  process to expose that attribute as a scalar that the
+                  drift/diffusion callables read at evaluation time.
             bump: shift size.
-            base_price: pre-computed base price (avoids recomputation).
+            base_price: unused (kept for backwards compatibility).
             discount_factor: discount factor.
+
+        Fix T2.10: pre-fix this method ignored `param_name` entirely and
+        bumped the WHOLE `process.x0` vector jointly (`original_x0 + bump`
+        broadcasts the scalar to every component).  For a multi-factor
+        process (Heston: x = [S, V], G2++: x = [x, y], etc.), pre-fix
+        "delta" simultaneously bumped every state variable, producing a
+        meaningless mixed sensitivity.  Post-fix bumps only the named
+        parameter and restores cleanly on the way out.
         """
-        # Save original
-        original_x0 = self.process.x0.copy()
+        # Decode param_name into ("x0", index) or ("attr", name).
+        target_kind = None
+        target_idx = 0
+        target_attr = None
+        if isinstance(param_name, int):
+            target_kind, target_idx = "x0", param_name
+        elif param_name == "x0":
+            target_kind = "x0"
+        elif (isinstance(param_name, str) and param_name.startswith("x0[")
+              and param_name.endswith("]")):
+            target_kind = "x0"
+            target_idx = int(param_name[3:-1])
+        else:
+            if not hasattr(self.process, param_name):
+                raise ValueError(
+                    f"greek: param_name {param_name!r} is neither an x0 "
+                    f"index nor an attribute on the process."
+                )
+            target_kind, target_attr = "attr", param_name
 
-        # Bump up
-        self.process.x0 = original_x0 + bump
-        self._paths = None
-        price_up = self.price(payoff, discount_factor).price
+        if target_kind == "x0":
+            if not (0 <= target_idx < len(self.process.x0)):
+                raise IndexError(
+                    f"greek: x0 index {target_idx} out of range "
+                    f"(x0 has {len(self.process.x0)} components)"
+                )
+            original_x0 = self.process.x0.copy()
 
-        # Bump down
-        self.process.x0 = original_x0 - bump
-        self._paths = None
-        price_dn = self.price(payoff, discount_factor).price
+            self.process.x0 = original_x0.copy()
+            self.process.x0[target_idx] = original_x0[target_idx] + bump
+            self._paths = None
+            price_up = self.price(payoff, discount_factor).price
 
-        # Restore
-        self.process.x0 = original_x0
-        self._paths = None
+            self.process.x0 = original_x0.copy()
+            self.process.x0[target_idx] = original_x0[target_idx] - bump
+            self._paths = None
+            price_dn = self.price(payoff, discount_factor).price
+
+            self.process.x0 = original_x0
+            self._paths = None
+        else:
+            original_val = getattr(self.process, target_attr)
+            setattr(self.process, target_attr, original_val + bump)
+            self._paths = None
+            price_up = self.price(payoff, discount_factor).price
+            setattr(self.process, target_attr, original_val - bump)
+            self._paths = None
+            price_dn = self.price(payoff, discount_factor).price
+            setattr(self.process, target_attr, original_val)
+            self._paths = None
 
         return (price_up - price_dn) / (2 * bump)
 
