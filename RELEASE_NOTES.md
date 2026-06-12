@@ -2,6 +2,41 @@
 
 ---
 
+## v0.927.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.13 — Hull-White tree swaption accepts `payments_per_year`; no more annual hard-code.**
+
+`models/hull_white.py::tree_european_swaption` hard-coded annual payments:
+
+```python
+n_payments = max(1, int(swap_end_T - expiry_T))   # int truncation
+annuity = 0.0
+for k in range(1, n_payments + 1):
+    t_pay = expiry_T + k                           # annual spacing
+    if t_pay <= swap_end_T:
+        annuity += self.zcb_price(expiry_T, t_pay, r_j)
+swap_pv = (1.0 - p_end) - strike * annuity
+```
+
+Two issues: (a) integer truncation lost the partial-year tail of non-integer tenors (e.g. 2.5y → 2y); (b) the payment date generator assumed annual spacing.
+
+**Fix**: added `payments_per_year: int = 1` parameter (defaults preserve all existing analytical-formula tests). Number of payments rounded to nearest integer over the swap tenor; payment times spaced at `1 / payments_per_year`; annuity weighted by τ = 1/freq, so the fixed-leg PV is `strike · τ · Σ P(T_e, t_pay)` (correct semi-annual / quarterly handling).
+
+### Verification — `test_l2_t3_13_hw_swaption_freq.py`
+
+3 new regression tests, all pass:
+- `test_2_5y_tenor_uses_all_periods` — semi-annual 2y2.5y swaption: 5 periods, different from annual's 2.
+- `test_quarterly_payments_more_payments_than_annual` — quarterly vs annual prices differ measurably on a 5y swap.
+- `test_integer_tenor_annual_unchanged` — backwards compat: default annual path still works.
+
+T1.9 regression tests (5 tests) still pass — default `payments_per_year=1` is identical to pre-fix for annual integer tenors.
+
+Full parallel suite: **12089 passed in 3:35** — zero regressions.
+
+Tier-3 status: **9 of 19 closed**.
+
+---
+
 ## v0.926.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.12 — COS method `c2` floor doesn't destroy low-variance pricing.**
