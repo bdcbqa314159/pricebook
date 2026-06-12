@@ -89,14 +89,32 @@ def cos_price(
 
         re_part = (phi_k * cmath.exp(1j * u_k * x_minus_a)).real
 
+        # Fix T1.8: V_k integration domain must be intersected with the
+        # truncation interval [a, b].
+        # Call payoff (e^y - 1) is positive on y ≥ 0, so V_k^call integrates
+        # over [max(0,a), b].  Pre-fix: hardcoded [0, b], which over-counts
+        # when a > 0 (deep-ITM call, low vol — the segment [0, a] is outside
+        # truncation and shouldn't be part of the V_k integral).
+        # Symmetric story for puts (payoff positive on y ≤ 0): pre-fix used
+        # [a, 0] which over-counts when b < 0 (deep-ITM put).
         if option_type == OptionType.CALL:
-            V_k = 2.0 / (b - a) * (
-                _chi(k, a, b, 0, b) - _psi(k, a, b, 0, b)
-            )
+            c = max(0.0, a)
+            d = b
+            if c < d:
+                V_k = 2.0 / (b - a) * (
+                    _chi(k, a, b, c, d) - _psi(k, a, b, c, d)
+                )
+            else:
+                V_k = 0.0
         else:
-            V_k = 2.0 / (b - a) * (
-                -_chi(k, a, b, a, 0) + _psi(k, a, b, a, 0)
-            )
+            c = a
+            d = min(0.0, b)
+            if c < d:
+                V_k = 2.0 / (b - a) * (
+                    -_chi(k, a, b, c, d) + _psi(k, a, b, c, d)
+                )
+            else:
+                V_k = 0.0
 
         weight = 0.5 if k == 0 else 1.0
         price += weight * re_part * V_k
