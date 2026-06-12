@@ -2,6 +2,89 @@
 
 ---
 
+## v0.913.0 — 2026-06-12
+
+**Fix L2 T1.1 — `multilevel_mc` Giles coupling: coarse path now uses paired-sum fine increments. CLOSES ALL 13 TIER-1 BUGS.**
+
+The last of MODULE_HEALTH's Tier-1 (dual-critic-confirmed) bugs is closed.
+
+### The bug
+
+`numerical/_mc.py::multilevel_mc` claimed to implement Giles (2008) MLMC. The algorithm requires that at each level l ≥ 1, the FINE path (n_fine = base_steps · 2^l timesteps) and the COARSE path (n_fine / 2 timesteps) share the SAME underlying Brownian motion — the coarse path is obtained by **pairing** fine Brownian increments:
+
+> dW_coarse[m] = dW_fine[2m] + dW_fine[2m+1]
+
+This coupling is what makes Var(P_fine − P_coarse) → 0 as the discretization refines (the property MLMC's O(ε⁻²) cost depends on).
+
+The pre-fix code instead generated the fine path then **downsampled** it:
+
+```python
+paths_fine = process_fn(n_paths, n_fine, seed_l)
+paths_coarse = paths_fine[:, ::2]    # <-- the bug
+```
+
+Since the downsampled "coarse" path is just a sub-sampling of the fine path's *output*, for any European payoff depending only on the terminal value `paths[:, -1]`:
+
+> P_fine = payoff(paths_fine[:, -1])
+> P_coarse = payoff(paths_fine[:, ::2][:, -1]) = payoff(paths_fine[:, -1])
+> P_fine − P_coarse ≡ 0
+
+The MLMC correction at every level ≥ 1 was identically zero. `multilevel_mc` collapsed to E[P_0] — a 4-step Euler estimate — at any number of levels. The function returned a heavily biased estimate while quietly pretending to do MLMC.
+
+### The fix — proper Giles coupling
+
+Redesigned the `process_fn` interface to consume **pre-generated Brownian increments** instead of an opaque seed:
+
+```python
+process_fn: callable(dW, dt) → paths array (n_paths, n_steps+1)
+```
+
+The MLMC routine now does the coupling work:
+
+```python
+Z = rng.standard_normal((n_paths, n_fine))
+dW_fine = Z * sqrt(dt_fine)
+dW_coarse = dW_fine[:, 0::2] + dW_fine[:, 1::2]     # <-- pair the increments
+
+paths_fine = process_fn(dW_fine, dt_fine)
+paths_coarse = process_fn(dW_coarse, dt_coarse)     # SAME Brownian path, coarser stepping
+```
+
+This is a breaking API change to `process_fn`, but there were no production callers (only the smoke `assert callable(multilevel_mc)` test), and the previous routine was broken anyway.
+
+### Verification — `test_l2_t1_1_mlmc_giles.py`
+
+4 new regression tests, all pass:
+
+- **`test_mlmc_converges_to_black_scholes`** — the headline test. ATM European call on GBM (S₀=100, K=100, r=5%, σ=20%, T=1y). 6-level MLMC with 20 000 base paths must agree with Black-Scholes to <5% relative. Pre-fix this returned the heavily biased 4-step Euler P₀ estimate.
+- **`test_level_corrections_are_nonzero`** — proves Giles coupling actually decouples fine and coarse. With the SAME seed, a 1-level run and a 4-level run produce measurably DIFFERENT estimates. Pre-fix they were identical (corrections were all 0).
+- **`test_paired_increments_have_same_terminal_brownian_value`** — sanity: `sum(dW_fine) == sum(dW_coarse)` (the terminal Brownian motion is preserved by pairing). Algebraic identity, kept as a regression anchor.
+- **`test_variance_dominated_by_low_levels`** — Giles signature: per-level variance increments decay. The level-1 correction adds nonzero variance (proof of working coupling).
+
+Full parallel suite: **11988 passed in 3:20** — zero regressions.
+
+### Tier-1 status — **13 of 13 closed**
+
+| # | Module | Status |
+|---|---|---|
+| **T1.1** | `numerical/_mc.py` multilevel_mc Giles coupling | ✅ this slice |
+| T1.2 | `numerical/_fourier.py` density crash | ✅ v0.907 |
+| T1.3 | `numerical/_integrate.py` integrate_2d swap | ✅ v0.907 |
+| T1.4 | `numerical/_optimize.py` interior_point drops equalities | ✅ v0.912 |
+| T1.5 | `numerical/_trees.py` Tian V formula | ✅ v0.907 |
+| T1.6 | `numerical/_trees.py` discrete dividends terminal-grid + trinomial | ✅ v0.908 |
+| T1.7 | `models/mc_engine.py` Milstein silently runs Euler | ✅ v0.907 |
+| T1.8 | `models/cos_method.py` V_k integration bounds deep ITM | ✅ v0.910 |
+| T1.9 | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | ✅ v0.909 |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| T1.13 | `curves/aad_curves.py` swap bootstrap flat-extrapolation | ✅ v0.911 |
+
+**All 13 Tier-1 bugs closed in 7 slices.** Next: MODULE_HEALTH Tier-2 — 18 critical+high pairings to sweep.
+
+---
+
 ## v0.912.0 — 2026-06-12
 
 **Fix L2 T1.4 — `interior_point` now honours equality constraints via SLSQP inner solve.**
