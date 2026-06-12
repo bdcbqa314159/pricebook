@@ -2,6 +2,32 @@
 
 ---
 
+## v0.944.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `FixedRateBond.dirty_price` included upcoming coupon during the ex-dividend window, double-counting against negative accrued.**
+
+Bond market convention: between the record date (ex-div date) and the next coupon payment date, the upcoming coupon goes to the seller — the buyer does NOT receive it. `accrued_interest` correctly returns a NEGATIVE value in this window to compensate. But `dirty_price` summed every cashflow with `payment_date > settlement`, INCLUDING the unreceivable coupon. Combined:
+
+> clean_price = dirty - accrued = (dirty with extra coupon) - (negative) = dirty + |accrued|
+
+made clean price jump by ~ONE FULL COUPON at the ex-div boundary. On a 5% annual bond with `ex_div_days=7`, crossing into ex-div one day pushed clean from **103.36 → 108.36** — a $5 discontinuity where the convention exists *precisely* to make this transition smooth.
+
+**Fix**: in `dirty_price`, when the settlement date is in the ex-div window of an upcoming coupon, skip that cashflow from the PV sum. With the fix, the same boundary now shows clean = 103.345 → 103.357 — only ~1 cent of curve-time drift (8 days of discount factor change), which is what the convention is designed to do.
+
+### Verification — `test_l2_t4_bond_ex_div.py`
+
+4 new tests, all pass:
+- `test_clean_price_continuous_across_ex_div_boundary` — boundary jump <$0.10 (was ~$5 pre-fix).
+- `test_dirty_price_excludes_unreceivable_coupon` — explicit drop of ~coupon in dirty across boundary.
+- `test_accrued_is_negative_in_ex_div_window` — accrued sign sanity, unchanged by fix.
+- `test_ex_div_days_zero_disables_logic` — default (`ex_div_days=0`) behaviour unchanged.
+
+Full parallel suite: **12168 passed in 4:52** — zero regressions.
+
+Twelfth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.943.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `numerical._distributions.StudentT.tail_dependence` had no `rho` argument and used a nonsensical formula.**
