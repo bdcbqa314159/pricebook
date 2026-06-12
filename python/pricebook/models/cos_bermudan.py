@@ -138,34 +138,41 @@ def cos_bermudan(
     # Value at maturity = payoff
     value_grid = payoff_grid.copy()
 
+    # Pre-compute φ(u_k) (constant across backward steps), and the cos / sin
+    # basis matrices over x_grid. Fix T4-CB1: pre-fix the continuation
+    # recursion was `c_new[k] = df · Re(φ(u_k) · c[k])` (with c[k] real),
+    # which reduces to `df · Re(φ) · c[k]` and then evaluates
+    # `cont = Σ c_new[k] · cos(u_k(x_i − a))` — DROPPING the Im(φ)·sin term
+    # entirely.  The Fang-Oosterlee (2009) Bermudan recursion (their eq 2.10)
+    # actually evaluates `Σ Re[φ(u_k) · exp(i·u_k·(x_i − a))] · V_k`, which
+    # equals `Σ [Re(φ_k) · cos(u_k(x − a)) − Im(φ_k) · sin(u_k(x − a))] · V_k`.
+    # Pre-fix the sin terms were missing, so any drifted process (e.g. BS
+    # with r ≠ 0, or any jump model with non-zero mean jump) was mispriced.
+    # On a vanilla BS American put (S=K=100, r=5%, σ=20%, T=1y) the pre-fix
+    # COS price was ~15 % HIGHER than the PDE benchmark.
+    u_vec = np.array([k * math.pi / (b - a) for k in range(N)])
+    phi_vec = np.array([char_func_dt(uk) for uk in u_vec], dtype=complex)
+    cos_basis = np.cos(np.outer(u_vec, x_grid - a))  # shape (N, n_grid)
+    sin_basis = np.sin(np.outer(u_vec, x_grid - a))
+
     # Backward iteration through exercise dates
     for step in range(n_exercise - 1, -1, -1):
-        # Compute continuation value at each grid point via COS:
-        # C(x_i) = df × Σ_{k=0}^{N-1} Re[φ(u_k) c_k] cos(u_k(x_i - a))
-        # where c_k are the COS coefficients of the current value function.
-
-        # Step 1: compute COS coefficients of current value via DCT-like sum
-        c = np.zeros(N)
-        dx_grid = (b - a) / (n_grid - 1)
+        # Step 1: compute COS coefficients V_k of current value via
+        # trapezoidal quadrature on x_grid.
+        V = np.zeros(N)
         for k in range(N):
-            u_k = k * math.pi / (b - a)
-            # Trapezoidal integration: c_k = (2/(b-a)) ∫ v(x) cos(u_k(x-a)) dx
-            integrand = value_grid * np.cos(u_k * (x_grid - a))
-            c[k] = 2.0 / (b - a) * np.trapezoid(integrand, x_grid)
-        c[0] *= 0.5
+            integrand = value_grid * cos_basis[k]
+            V[k] = 2.0 / (b - a) * np.trapezoid(integrand, x_grid)
+        V[0] *= 0.5
 
-        # Step 2: multiply by CF and discount
-        for k in range(N):
-            u_k = k * math.pi / (b - a)
-            phi_k = char_func_dt(u_k)
-            c[k] = df_step * (phi_k * c[k]).real
-
-        # Step 3: evaluate continuation at grid points
-        cont_grid = np.zeros(n_grid)
-        for i in range(n_grid):
-            for k in range(N):
-                u_k = k * math.pi / (b - a)
-                cont_grid[i] += c[k] * math.cos(u_k * (x_grid[i] - a))
+        # Step 2 + 3: combined evaluation —
+        # cont_grid[i] = df · Σ_k V[k] · Re[φ(u_k) · exp(i u_k (x_i − a))]
+        #             = df · Σ_k V[k] · [Re(φ_k) · cos_basis[k,i] − Im(φ_k) · sin_basis[k,i]]
+        weighted_re = V * phi_vec.real
+        weighted_im = V * phi_vec.imag
+        cont_grid = df_step * (
+            weighted_re @ cos_basis - weighted_im @ sin_basis
+        )
 
         # Step 4: early exercise: value = max(continuation, payoff)
         value_grid = np.maximum(cont_grid, payoff_grid)
