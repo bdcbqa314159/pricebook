@@ -249,14 +249,25 @@ class TreeSolver:
         else:
             u, d, p, disc = _crr_params(rate, div_yield, vol, dt)
 
-        # Build spot tree at maturity (index 0 = all down, index n = all up)
-        S = np.array([spot * d**(n - j) * u**j for j in range(n + 1)])
+        # Cumulative-dividend helper. At step `s`, the underlying has paid all
+        # dividends scheduled at-or-before `s` (escrowed-dividend convention).
+        # Fix T1.6 (pre-fix the dividends were applied only to the TERMINAL
+        # grid, leaving intermediate-step `S_step` unchanged — so early-
+        # exercise / barrier checks at step `s` saw the pre-dividend spot
+        # even when dividends had been paid by then).
+        def _cum_div_through(s: int) -> float:
+            return sum(amt for step, amt in self.dividends.items() if step <= s)
 
-        # Apply discrete dividends (shift spots)
-        for step, amount in self.dividends.items():
-            if step <= n:
-                # Approximate: reduce all spots proportionally
-                S = np.maximum(S - amount, 0.01)
+        def _spot_at_step(s: int) -> np.ndarray:
+            grid = np.array([spot * d ** (s - j) * u ** j for j in range(s + 1)])
+            cum = _cum_div_through(s)
+            if cum > 0:
+                grid = np.maximum(grid - cum, 0.01)
+            return grid
+
+        # Build spot tree at maturity (index 0 = all down, index n = all up),
+        # with all dividends through maturity subtracted.
+        S = _spot_at_step(n)
 
         # Terminal payoff
         if payoff_fn is not None:
@@ -276,8 +287,9 @@ class TreeSolver:
         for step in range(n - 1, -1, -1):
             V = disc * (p * V[1:] + (1 - p) * V[:-1])
 
-            # Spot prices at this step (same convention: 0 = all down)
-            S_step = np.array([spot * d**(step - j) * u**j for j in range(step + 1)])
+            # Spot prices at this step (same convention: 0 = all down),
+            # WITH dividends paid at-or-before `step` subtracted.
+            S_step = _spot_at_step(step)
 
             # Exercise
             if self._should_exercise(step):
@@ -322,10 +334,22 @@ class TreeSolver:
         dt = T / n
         u, d, p_u, p_m, p_d, disc = _trinomial_params(rate, div_yield, vol, dt)
 
-        # Terminal: 2n+1 nodes
-        S = np.array([spot * u**(n - i) for i in range(2 * n + 1)])
-        # Adjust: node j corresponds to S × u^(n-j)
-        S = np.array([spot * u**j for j in range(n, -n - 1, -1)])
+        # Fix T1.6: pre-fix the trinomial branch ignored `self.dividends`
+        # entirely — `_solve_binomial` at least applied them at the terminal,
+        # but the trinomial branch had no dividend handling whatsoever.
+        # Apply the same escrowed-dividend convention here.
+        def _cum_div_through(s: int) -> float:
+            return sum(amt for step, amt in self.dividends.items() if step <= s)
+
+        def _spot_at_step(s: int) -> np.ndarray:
+            grid = np.array([spot * u ** j for j in range(s, -s - 1, -1)])
+            cum = _cum_div_through(s)
+            if cum > 0:
+                grid = np.maximum(grid - cum, 0.01)
+            return grid
+
+        # Terminal: 2n+1 nodes, escrowed for all dividends through maturity.
+        S = _spot_at_step(n)
 
         if payoff_fn is not None:
             V = np.array([payoff_fn(s) for s in S])
@@ -342,7 +366,8 @@ class TreeSolver:
             for j in range(n_nodes):
                 V_new[j] = disc * (p_u * V[j] + p_m * V[j + 1] + p_d * V[j + 2])
 
-            S_step = np.array([spot * u**j for j in range(step, -step - 1, -1)])
+            # Escrowed spot at this step (dividends at-or-before `step` subtracted).
+            S_step = _spot_at_step(step)
 
             if self._should_exercise(step):
                 if payoff_fn is not None:
