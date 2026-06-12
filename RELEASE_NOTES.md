@@ -2,6 +2,48 @@
 
 ---
 
+## v0.925.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.5 / T3.6 — `CharacteristicFunction.cumulants` skewness sign + kurtosis stencil h.**
+
+Two bugs in `numerical/_fourier.py::CharacteristicFunction.cumulants`.
+
+### T3.5 — skewness had the wrong sign
+
+The cumulant relation is `κ_n = (−i)^n · log_phi^{(n)}(0)`. For real u and real-density CFs, log_phi alternates real/imaginary at even/odd orders. The cumulant signs are:
+
+- κ_1 = Im(log_phi'(0))            (odd)
+- κ_2 = −Re(log_phi''(0))           (even, sign from i² = −1)
+- κ_3 = **−Im(log_phi'''(0))**       (odd, sign from (−i)³ = i then Im)
+- κ_4 = Re(log_phi''''(0))           (even)
+
+Pre-fix: `c3 = +Im(stencil) / 2h³` — missing the leading minus, so skewness reported with **the wrong sign** for non-symmetric distributions. Verified on χ²(k=2): post-fix skewness ≈ +2.0 (correct, positive); pre-fix was −2.0.
+
+### T3.6 — kurtosis stencil catastrophically unstable at h=1e-4
+
+The pre-fix routine used `h = 1e-4` for both the 2nd-derivative and 4th-derivative stencils. For the 4th derivative, `h⁴ = 1e-16 ≈ machine ε`, so the 5-point stencil's numerator (subject to catastrophic cancellation) was dominated by round-off noise.
+
+**Fix**: use h sized for each derivative order — rule of thumb `h ~ ε^{1/(n+1)}`:
+- 2nd derivative: h = 1e-4 (existing)
+- 3rd derivative: h = 1e-3 (T3.6 widening)
+- 4th derivative: h = 1e-2 (T3.6 widening)
+
+Verified on χ²(k=2): post-fix excess kurtosis ≈ 5.99 vs expected 6.0; pre-fix was round-off noise.
+
+### Verification — `test_l2_t3_5_6_fourier_cumulants.py`
+
+4 new regression tests, all pass:
+- `test_gaussian_zero_skew_kurtosis` — sanity: N(μ, σ) gives skew=0, ek=0.
+- `test_skew_positive_and_correct` — χ²(k=2) skewness = +2 (T3.5 sign fix).
+- `test_excess_kurtosis_stable` — χ²(k=2) ek = 6 (T3.6 wider h fix).
+- `test_gamma_skew_sign` — Γ(k=3) skew = 2/√3 ≈ 1.155, ek = 2 (general check).
+
+Full parallel suite: **12082 passed in 4:47** — zero regressions.
+
+Tier-3 status: **7 of 19 closed** (T3.4/T3.5/T3.6/T3.7/T3.8/T3.9/T3.10 + T3.11 subsumed).
+
+---
+
 ## v0.924.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.4 / T3.7 — SINH grid endpoints + Clenshaw-Curtis weights for odd n.**
