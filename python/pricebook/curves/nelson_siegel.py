@@ -11,13 +11,32 @@ Svensson (1994): adds a second hump (6 parameters).
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction, date_from_year_fraction
 from pricebook.statistics.optimization import minimize
+
+
+def _date_from_act365_fixed(reference_date: date, t: float) -> date:
+    """Build a date such that ACT/365 Fixed year-fraction matches `t` exactly.
+
+    Fix T4-NS1: `nelson_siegel_yield` and `svensson_yield` are evaluated at
+    a parameterised t (years), but the resulting DFs are stored in a
+    `DiscountCurve` whose default day-count is ACT/365 Fixed.  If we build
+    pillar dates via `date_from_year_fraction` (365.25 days/yr, the Julian
+    year), then the date at parameterised t=10 lands at ref+3653 days, and
+    `DiscountCurve` reads it back as 3653/365 = 10.0055 years.  Storing
+    df = exp(-y · 10) at that date implies a recovered zero rate of
+    y · 10/10.0055 ≈ y - 0.3 bp at 10y (and 1.4 bp at 0.25y).
+
+    Using 365.0 days/yr here matches the `DiscountCurve` default day-count
+    so the parameterised tenor is the same as the year-fraction the curve
+    will read back at that pillar.
+    """
+    return reference_date + timedelta(days=int(round(t * 365.0)))
 
 
 def _ns_factor1(t: float, tau: float) -> float:
@@ -65,7 +84,7 @@ def ns_discount_curve(
     """Build a DiscountCurve from Nelson-Siegel parameters."""
     if tenors is None:
         tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
-    dates = [date_from_year_fraction(reference_date, t) for t in tenors]
+    dates = [_date_from_act365_fixed(reference_date, t) for t in tenors]
     dfs = [math.exp(-nelson_siegel_yield(t, beta0, beta1, beta2, tau) * t) for t in tenors]
     return DiscountCurve(reference_date, dates, dfs)
 
@@ -83,7 +102,7 @@ def svensson_discount_curve(
     """Build a DiscountCurve from Svensson parameters."""
     if tenors is None:
         tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
-    dates = [date_from_year_fraction(reference_date, t) for t in tenors]
+    dates = [_date_from_act365_fixed(reference_date, t) for t in tenors]
     dfs = [math.exp(-svensson_yield(t, beta0, beta1, beta2, tau1, beta3, tau2) * t) for t in tenors]
     return DiscountCurve(reference_date, dates, dfs)
 
