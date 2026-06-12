@@ -121,7 +121,18 @@ def wavelet_transform(
 
     wavelet_name = wavelet.value
     x = np.asarray(x, dtype=float).copy()
+
+    # Fix T2.5: pad to the next power of 2.  Pre-fix, non-power-of-2 inputs
+    # crashed at `x[0::2] + x[1::2]` because the slices had different lengths
+    # for odd `len(x)`.  After `levels` halvings the size must also stay even,
+    # so we pad up to `max(2**ceil(log2(n)), 2**levels)`.
     n = len(x)
+    if n < 2:
+        raise ValueError(f"wavelet_transform: input length must be ≥ 2, got {n}")
+    target = max(1 << (n - 1).bit_length(), 1 << levels)
+    if target != n:
+        x = np.concatenate([x, np.zeros(target - n)])
+    n = target
     all_coeffs = []
 
     for level in range(levels):
