@@ -2,6 +2,51 @@
 
 ---
 
+## v0.923.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.8 / T3.9 / T3.10 — three small bugs in `numerical/_trees.py` convenience functions.**
+
+Opens Tier-3 (single-critic criticals) by clearing three small but real bugs in `_trees.py`:
+
+### T3.10 — `solve_tree` wrapper dropped `exercise_dates`
+
+`solve_tree(...)` did not accept `exercise_dates`, so a caller passing `exercise=BERMUDAN` got a `TreeSolver` built with empty `exercise_dates`. `_should_exercise` returns False at every step for a Bermudan with no dates → option silently degraded to European. Added `exercise_dates: list[int] | None = None` parameter and threaded it through.
+
+### T3.9 — `solve_tree_2d` American projection only handled `spread_call`
+
+Pre-fix the American-exercise projection inside the backward loop had:
+
+```python
+if is_american:
+    s1 = ...; s2 = ...
+    if payoff is not None:
+        new_v[i,j] = max(new_v[i,j], payoff(s1, s2))
+    elif payoff_type == "spread_call":
+        new_v[i,j] = max(new_v[i,j], max(s1-s2-strike, 0))
+```
+
+No branches for `spread_put`, `best_of_call`, `worst_of_call`. They silently priced as European even with `is_american=True`. Refactored intrinsic into a `_intrinsic_2d(s1, s2)` helper covering all payoff types. American spread-put now shows the expected early-exercise premium (e.g. 26.95 vs European 26.90 on a deep ITM spread).
+
+### T3.8 — `solve_tree_2d` always returned zero Greeks
+
+`return TreeResult(price=..., delta=0.0, gamma=0.0, theta=0.0, ...)` regardless of inputs. Now extracts `delta1` and `delta2` from the step-1 grid (4 nodes, averaging out the spot direction being differentiated). `delta1` lands in the conventional `delta` field; `delta2` goes in `node_prices` as a 2-element array `[delta1, delta2]` (no API extension needed). Gamma and theta remain at 0 — the 2-asset recombining tree has no centred node at (S1, S2) at step 1, so straight ∂V/∂t mixes spot-diffusion convexity with time decay. Bump-and-reprice is the correct way to get gamma/theta on a 2D tree.
+
+### Verification — `test_l2_t3_trees_misc.py`
+
+6 new regression tests, all pass:
+- `test_bermudan_with_exercise_dates_dominates_european` — Bermudan put > European put (pre-fix they were equal).
+- `test_bermudan_with_no_exercise_dates_equals_european` — sanity: empty exercise set ⇒ European.
+- `test_spread_call_delta_nonzero` — delta1 > 0, delta2 < 0 for ATM spread call.
+- `test_delta_sum_at_high_spread_approaches_one` — deep-ITM spread: delta1 ≈ +1, delta2 ≈ −1.
+- `test_american_spread_put_premium` — American > European for ITM spread put.
+- `test_american_worst_of_call_with_custom_payoff` — custom payoff: American ≥ European.
+
+Full parallel suite: **12058 passed in 3:25** — zero regressions.
+
+Tier-3 status: **3 of 19 closed** (T3.8, T3.9, T3.10; T3.11 already subsumed by T2.10).
+
+---
+
 ## v0.922.0 — 2026-06-12
 
 **Fix L2 T2.15 — SABR-HW swaption blender returns intrinsic at T=0 instead of unconditional zero.  CLOSES ALL 18 TIER-2 BUGS.**
