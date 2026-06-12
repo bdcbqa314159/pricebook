@@ -2,6 +2,37 @@
 
 ---
 
+## v0.924.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.4 / T3.7 — SINH grid endpoints + Clenshaw-Curtis weights for odd n.**
+
+Two small numerical fixes in `numerical/_pde.py` and `numerical/_integrate.py`.
+
+### T3.4 — SINH grid endpoints off when `concentration_point ≠ midpoint`
+
+Pre-fix the Tavella-Randall SINH grid used a symmetric `xi = linspace(-3, 3)` and `alpha = 0.5 · (s_max − s_min) / sinh(3)`. The grid is `c + α · sinh(xi)`. When `concentration_point` was off-centre, the grid extended past `s_min` / `s_max` — for `c < midpoint` it went BELOW `s_min` and could go NEGATIVE when `s_min` was small (e.g. BS PDE with `s_min = 0.01 · spot`).
+
+**Fix**: choose `α` from the larger half-distance `max(c − s_min, s_max − c) / sinh(3)`, then solve `xi_min = asinh((s_min − c)/α)` and `xi_max = asinh((s_max − c)/α)` so the grid endpoints are exactly `[s_min, s_max]` regardless of `c`.
+
+### T3.7 — Clenshaw-Curtis weights wrong for odd n
+
+The weight formula was hard-coded for even n. Two differences for odd n:
+- Endpoint weight is `1/n²`, not `1/(n²−1)`.
+- The loop's "halved k=n/2 boundary" term doesn't exist for odd n.
+
+Pre-fix `∫₀¹ 1 dx` with n=3 returned ≈ 0.9 instead of 1; polynomial integration was correspondingly biased. Post-fix the routine branches on `n % 2`.
+
+### Verification
+
+- `test_l2_t3_4_sinh_grid.py` — 5 tests (midpoint exact; below-midpoint no negatives; above-midpoint endpoints; monotone; density concentrated near c).
+- `test_l2_t3_7_clenshaw_curtis_odd_n.py` — 15 tests (constants integrate exactly for n=3,5,7,9,15; x², x³ exact; sin convergence monotone).
+
+Full parallel suite: **12078 passed in 4:49** — zero regressions.
+
+Tier-3 status: **5 of 19 closed** (T3.4 and T3.7 added; T3.8/T3.9/T3.10 closed in v0.923; T3.11 subsumed by T2.10).
+
+---
+
 ## v0.923.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.8 / T3.9 / T3.10 — three small bugs in `numerical/_trees.py` convenience functions.**
