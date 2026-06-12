@@ -2,6 +2,42 @@
 
 ---
 
+## v0.943.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `numerical._distributions.StudentT.tail_dependence` had no `rho` argument and used a nonsensical formula.**
+
+Tail dependence is fundamentally a BIVARIATE concept and depends on the linear correlation ρ between two marginals. Pre-fix the method took no arguments and computed
+
+> 2·T_{ν+1}(-√((ν+1) / (ν-1+ε)))
+
+which is not the Student-t tail-dependence formula from any standard reference. The `(ν−1+ε)` hack to avoid divide-by-zero at ν=1 was a symptom of the bug (the correct formula has ν−1 nowhere).
+
+**Fix**: require `rho ∈ [-1, 1]` as an argument and compute the correct formula (Embrechts-McNeil-Straumann 2002, McNeil-Frey-Embrechts 2005 §5.3.1, eq. 5.34):
+
+> λ_L = 2·T_{ν+1}( -√((ν+1)·(1-ρ)/(1+ρ)) )
+
+This matches the `StudentTCopula.tail_dependence` implementation in `pricebook.statistics.copulas` (which was already correct). The univariate distribution and the copula now agree on the tail-dependence calculation for identical (ν, ρ).
+
+Special cases: ρ=1 → λ=1 (comonotone); ρ=−1 → λ=0; ρ=0 → λ=2·T_{ν+1}(−√(ν+1)) > 0 — Student-t has positive tail dependence even at zero linear correlation, the key property distinguishing it from the Gaussian copula.
+
+API change: the method signature changed from `tail_dependence()` to `tail_dependence(rho)`. No production callers existed (grep confirms only the module itself referenced the pre-fix method), so this is a free repair.
+
+### Verification — `test_l2_t4_studentt_tail_dependence.py`
+
+7 new tests, all pass:
+- `test_signature_requires_rho` — pre-fix no-arg signature is gone.
+- `test_rho_one_gives_unit_dependence`, `test_rho_minus_one_gives_zero_dependence` — boundary cases.
+- `test_rho_zero_is_positive` — distinguishes Student-t from Gaussian copula.
+- `test_matches_copula_implementation` — agreement with `StudentTCopula.tail_dependence` over (ν, ρ) grid to 1e-12.
+- `test_decreases_with_df` — heavier tails → stronger dependence.
+- `test_invalid_rho_raises` — domain check.
+
+Full parallel suite: **12164 passed in 2:36** — zero regressions.
+
+Eleventh fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.942.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — Nelson-Siegel / Svensson `DiscountCurve` builder day-count mismatch (365.25 vs ACT/365 Fixed).**
