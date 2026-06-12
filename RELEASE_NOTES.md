@@ -2,6 +2,45 @@
 
 ---
 
+## v0.929.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.17 / T3.18 — `bootstrap` HW futures convexity formula + no-deposit FRA/future safety.**
+
+Two fixes in `curves/bootstrap.py`.
+
+### T3.17 — HW futures convexity missing T_1 factor
+
+Pre-fix:
+```python
+conv_adj = 0.5 * σ² * B(t_start, t_end) * (B(0, t_end) - B(0, t_start))
+```
+
+For small `a · T`, `B(t1, t2) ≈ T_2 − T_1` and `B(0, t_end) − B(0, t_start) ≈ T_2 − T_1`, so the pre-fix collapsed to `0.5 · σ² · (T_2 − T_1)²` — no T_1 dependence. For a 1y-expiry, 3-month-tenor Eurodollar future, this under-stated the convexity adjustment by a factor of (T_2 − T_1) / T_1 = 1/4.
+
+**Fix**: use the textbook formula `0.5 · σ² · B(0, T_1) · B(T_1, T_2)` which in the small-a limit reduces to Hull's leading-order `0.5 · σ² · T_1 · (T_2 − T_1)` (Brigo-Mercurio §3.4).
+
+### T3.18 — FRA/future with no preceding deposits silently used df_start = 1.0
+
+When `pillar_dates` was empty (no deposits) and a FRA/future had `start_date != reference_date`, the bootstrap fell through to `df_start = 1.0` — which is correct ONLY when `start_date == reference_date`. For any other start, df at that date is unknown without short-end information, and `df_start = 1.0` produces a wildly wrong df(end).
+
+**Fix**: raise `ValueError` with a diagnostic when `pillar_dates` is empty and `start_date != reference_date`. Still accept `start_date == reference_date` cleanly (df(0) = 1 is correct there).
+
+### Verification — `test_l2_t3_17_18_bootstrap_convexity.py`
+
+6 new regression tests, all pass:
+- `test_convexity_zero_when_params_zero` — sanity.
+- `test_convexity_scales_with_t1` — CA at 2y > CA at 0.5y for same tenor (pre-fix they were ≈ equal).
+- `test_convexity_small_a_limit` — direct formula check: small-a limit matches Hull `0.5 · σ² · T_1 · τ` to <5%.
+- `test_fra_after_ref_no_deposit_raises` — bootstrap refuses to silently anchor df at 1.
+- `test_future_after_ref_no_deposit_raises` — same for futures.
+- `test_fra_starting_at_ref_no_deposit_works` — sanity: ref-date FRA still works.
+
+Full parallel suite: **12099 passed in 3:23** — zero regressions.
+
+Tier-3 status: **12 of 19 closed**.
+
+---
+
 ## v0.928.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.16 — `LMM.rebonato_swaption_vol` uses ρ=1 (standard Rebonato), not ρ=δ_ij.**
