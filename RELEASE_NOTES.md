@@ -2,6 +2,68 @@
 
 ---
 
+## v0.918.0 — 2026-06-12
+
+**Fix L2 Tier-2: tree knock-in barriers (T2.8) + trinomial probability renormalisation (T2.9).**
+
+Two coupled bugs in `numerical/_trees.py`.
+
+### T2.8 — knock-in barriers silently priced as vanilla
+
+`_apply_barrier` had:
+
+```python
+elif self.barrier_type == BarrierType.DOWN_IN:
+    pass  # complex — for now, only knock-out supported
+elif self.barrier_type == BarrierType.UP_IN:
+    pass
+```
+
+So the barrier condition was checked but never enforced for in-types. `TreeSolver(barrier_type=BarrierType.DOWN_IN, ...).solve(...)` produced the **vanilla** price, with no warning. The TreeSolver API accepted the type and returned a wrong number.
+
+**Fix**: at the top of `solve()`, intercept knock-in types and apply in-out parity:
+
+> V_knock_in = V_vanilla − V_knock_out
+
+Spawn two side-pricers (one with the corresponding knock-out type, one without barriers) and combine prices + Greeks by linearity. Live verification:
+
+```
+Vanilla   = 10.4406
+DOWN_OUT  = 10.3523
+DOWN_IN   = 0.0883     # post-fix; pre-fix was 10.4406 (= vanilla)
+OUT + IN  = 10.4406    # exactly equals vanilla
+```
+
+### T2.9 — Trinomial probability triple not renormalised after clamp
+
+`_trinomial_params` had:
+
+```python
+p_u = max(0, min(1, p_u))
+p_d = max(0, min(1, p_d))
+p_m = max(0, 1 - p_u - p_d)
+```
+
+When the raw `p_u` or `p_d` was negative (large drift relative to volatility), clamping shifted mass into `p_m` without renormalising the triple. The probs still summed to 1 but the *moments* (drift, variance) were broken — the risk-neutral measure silently violated.
+
+**Fix**: clamp each leg ≥ 0, then renormalise the triple. Mirrors the renormalisation already used in `_2d_trinomial_params` (the 2D tree) immediately below in the same file.
+
+### Verification — `test_l2_t2_8_9_trees_barriers_probs.py`
+
+6 new regression tests:
+
+- `test_in_out_parity_down` / `test_in_out_parity_up` — V(KI) + V(KO) = V(vanilla) exactly; pre-fix V(KI) = V(vanilla) trivially.
+- `test_knock_in_greeks_linearity` — KI delta = vanilla delta − KO delta exactly.
+- `test_probs_sum_to_one_high_drift` — extreme-drift case (r=20%, σ=10%, dt=0.01) → renormalised probs sum to 1.0 exactly.
+- `test_probs_unchanged_normal_regime` — sanity: normal-drift case (the clamp doesn't trigger).
+- `test_trinomial_pricing_stable_under_high_drift` — extreme-drift call still produces a finite positive price.
+
+Full parallel suite: **12031 passed in 3:23** — zero regressions.
+
+Tier-2 status: **11 of 18 closed** (T2.8, T2.9 added).
+
+---
+
 ## v0.917.0 — 2026-06-12
 
 **Fix L2 T2.6 — `_romberg` now uses a native Richardson extrapolation; scipy.integrate.romberg was removed in SciPy 1.15.**
