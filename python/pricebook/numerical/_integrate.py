@@ -123,7 +123,16 @@ def integrate_2d(
         y_lo = lambda x: y_range[0]
         y_hi = lambda x: y_range[1]
 
-    value, error = dblquad(f, x_range[0], x_range[1], y_lo, y_hi,
+    # Fix T1.3: scipy.integrate.dblquad expects func(y, x) — y is the INNER
+    # variable, x is the OUTER. Our docstring contract is f(x, y), so wrap
+    # to swap argument order before passing to scipy. Pre-fix, scipy was
+    # calling the user's f as f(y, x), inverting any non-symmetric integrand
+    # (e.g. integrate_2d(lambda x, y: x, (0,3), (0,1)) returned 1.5 instead
+    # of the correct 4.5).
+    def _f_xy(y, x):
+        return f(x, y)
+
+    value, error = dblquad(_f_xy, x_range[0], x_range[1], y_lo, y_hi,
                             epsabs=tol, epsrel=tol)
 
     return IntegrationResult(float(value), float(error), 0, "dblquad", True)

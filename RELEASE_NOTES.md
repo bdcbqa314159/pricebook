@@ -2,6 +2,77 @@
 
 ---
 
+## v0.907.0 — 2026-06-12
+
+**Fix L2 Tier-1: four quick-win bugs (T1.2 trapz, T1.3 integrate_2d, T1.5 Tian, T1.7 Milstein).**
+
+Opening the L2 audit by closing the four cheapest of MODULE_HEALTH's 13 Tier-1 (dual-critic-confirmed) bugs. Each was a small, surgical change with a regression test that locks in the fix.
+
+### T1.2 — `numerical/_fourier.py` `CharacteristicFunction.density()` was a hard crash
+
+`np.trapz` was removed in NumPy 2.x; the project's installed `numpy==2.4.3` lacks it. Every call to `density()` raised `AttributeError: module 'numpy' has no attribute 'trapz'`. Fix: rename to `np.trapezoid`. Function had no callers in production code so the bug was dormant; it now works for any future caller (verified: `density(N(0,1))` at `x=0` ≈ 0.3989).
+
+### T1.3 — `numerical/_integrate.py` `integrate_2d` argument order was inverted
+
+`scipy.integrate.dblquad` expects `func(y, x)` (y is the inner variable). The function was passing `f` directly. For symmetric integrands the bug was invisible; for non-symmetric ones the result was wrong: `integrate_2d(lambda x, y: x, (0,3), (0,1))` returned **1.5** instead of **4.5**. Fix: wrap with an explicit `_f_xy(y, x): return f(x, y)` before passing to scipy.
+
+### T1.5 — `numerical/_trees.py` Tian binomial method had been silently running CRR
+
+Two compounding errors in `_tian_params`:
+1. `V = M² × (exp(σ²·dt) − 1)` (the *variance*) instead of `V = exp(σ²·dt)` (the *second-moment factor* — the actual Tian 1993 quantity).
+2. The `u`/`d` formula was missing the `V` multiplier.
+
+Combined effect: the discriminant `V² + 2V − 3` was nearly always **negative**, triggering the "very small dt × vol → fall back to CRR" guard. So calling `TreeMethod.TIAN` actually ran CRR for every call. Live demonstration (r=5%, σ=20%, dt=0.01):
+- Standard Tian: disc = +0.0016, u/d are real.
+- Pre-fix code: V = 0.0004, disc = −2.999, branch falls back to CRR.
+
+Fix: match the published Tian (1993) JFQA derivation. The Tian method now produces u/d distinct from CRR, as it should.
+
+### T1.7 — `models/mc_engine.py` Milstein scheme silently ran Euler (two sub-bugs)
+
+```python
+step_fn = euler_step if self.scheme == "euler" else euler_step   # COPY-PASTE
+```
+
+Even fixing the typo wasn't enough: `milstein_step_1d` requires `diffusion_deriv` (σ' for the correction term), but `ProcessSpec` had no field for it — the parameter at the call site stayed `None`, so Milstein reduced to Euler internally. Fix:
+1. Replace the second `euler_step` with `milstein_step_1d`.
+2. Add `diffusion_deriv: Callable | None = None` to `ProcessSpec.__init__`.
+3. Plumb it through to the Milstein call.
+4. When `scheme='milstein'` but `diffusion_deriv` is None, emit a `RuntimeWarning` and fall back to Euler (no longer silent).
+
+Live: with GBM and σ=0.5, n_steps=10 over T=1y, Euler and Milstein now produce paths that differ visibly at the terminal — pre-fix they were identical.
+
+### Verification
+
+- 9 new regression tests in `test_l2_tier1_quick_wins.py`:
+  - T1.2: density() runs; N(0,1) density at 0 ≈ 1/√(2π).
+  - T1.3: non-symmetric integrand (4.5 not 1.5); symmetric unaffected; callable y_range uses x correctly.
+  - T1.5: Tian parameters match Tian 1993 formulas; no longer equal to CRR for typical inputs.
+  - T1.7: Milstein produces different paths from Euler when `diffusion_deriv` provided; warns when not provided.
+- Full parallel suite: **11960 passed in 3:21** — zero regressions.
+
+### Tier-1 status
+
+| # | Module | Status |
+|---|---|---|
+| T1.1 | `numerical/_mc.py` multilevel_mc broken | queued |
+| **T1.2** | `numerical/_fourier.py` density crash | ✅ this slice |
+| **T1.3** | `numerical/_integrate.py` integrate_2d swap | ✅ this slice |
+| T1.4 | `numerical/_optimize.py` interior_point drops equality constraints | queued |
+| **T1.5** | `numerical/_trees.py` Tian V formula | ✅ this slice |
+| T1.6 | `numerical/_trees.py` discrete dividends terminal-grid | queued |
+| **T1.7** | `models/mc_engine.py` Milstein silently runs Euler | ✅ this slice |
+| T1.8 | `models/cos_method.py` V_k integration bounds deep ITM | queued |
+| T1.9 | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | queued |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| T1.13 | `curves/aad_curves.py` swap bootstrap flat-extrapolation | queued |
+
+**7 of 13 Tier-1 closed.** Remaining 6 are harder (deeper math review needed for T1.1 MLMC, T1.8 cos_method bounds, T1.9 Hull-White swaption analytic).
+
+---
+
 ## v0.906.0 — 2026-06-11
 
 **Fix L1 C.2 B1 — `curve_jacobian` resolves `pillar_tenors` to actual curve indices.**

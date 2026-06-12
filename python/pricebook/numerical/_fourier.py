@@ -230,7 +230,8 @@ class CharacteristicFunction:
         density = np.zeros(len(x))
         for k, xk in enumerate(x):
             integrand = np.real(self.cf(u) * np.exp(-1j * u * xk))
-            density[k] = np.trapz(integrand, dx=du) / math.pi
+            # Fix T1.2: np.trapz was removed in NumPy 2.x; use np.trapezoid.
+            density[k] = np.trapezoid(integrand, dx=du) / math.pi
 
         return np.maximum(density, 0)
 

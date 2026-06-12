@@ -108,14 +108,29 @@ def _jr_params(r, q, vol, dt):
 
 
 def _tian_params(r, q, vol, dt):
+    """Tian (1993) moment-matching binomial parameters.
+
+    Fix T1.5: pre-fix `V` was computed as `M² × (exp(σ²·dt) − 1)` — the
+    *variance* of the lognormal — and the u/d formula was missing the V
+    multiplier. The discriminant `V² + 2V − 3` was nearly always negative
+    for typical parameters, so the function silently fell through to CRR
+    via the "very small dt × vol" branch — meaning the Tian method had
+    been running CRR for every call. Now matches the Tian (1993) JFQA
+    derivation:
+
+        M = exp((r − q)·dt)
+        V = exp(σ²·dt)
+        u = M·V/2 · (V + 1 + √(V² + 2V − 3))
+        d = M·V/2 · (V + 1 − √(V² + 2V − 3))
+    """
     M = math.exp((r - q) * dt)
-    V = M**2 * (math.exp(vol**2 * dt) - 1)
-    disc_arg = V**2 + 2*V - 3
+    V = math.exp(vol ** 2 * dt)
+    disc_arg = V ** 2 + 2 * V - 3
     if disc_arg < 0:
-        # Fall back to CRR for very small dt × vol
+        # Degenerate (V < 1, ie dt × σ² very near zero): fall back to CRR.
         return _crr_params(r, q, vol, dt)
-    u = 0.5 * M * (V + 1 + math.sqrt(disc_arg))
-    d = 0.5 * M * (V + 1 - math.sqrt(disc_arg))
+    u = 0.5 * M * V * (V + 1 + math.sqrt(disc_arg))
+    d = 0.5 * M * V * (V + 1 - math.sqrt(disc_arg))
     disc = math.exp(-r * dt)
     p = (M - d) / (u - d) if abs(u - d) > 1e-15 else 0.5
     return u, d, max(0, min(1, p)), disc

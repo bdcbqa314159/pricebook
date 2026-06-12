@@ -92,12 +92,19 @@ class ProcessSpec:
         n_factors: int = 1,
         correlation: np.ndarray | None = None,
         exact_step: Callable | None = None,
+        diffusion_deriv: Callable | None = None,
     ):
+        """`diffusion_deriv(x, t) → ∂σ/∂x` is required when `scheme='milstein'`
+        — it carries the Milstein correction term. When None, Milstein
+        degrades to Euler (the pre-fix T1.7 behaviour). Issue a warning at
+        engine-construction time if the user requests Milstein without it.
+        """
         self.x0 = np.atleast_1d(np.asarray(x0, dtype=np.float64))
         self.drift = drift
         self.diffusion = diffusion
         self.n_factors = n_factors
         self.exact_step = exact_step
+        self.diffusion_deriv = diffusion_deriv
 
         if correlation is not None:
             self.correlation = np.asarray(correlation, dtype=np.float64)
@@ -209,15 +216,33 @@ class MCEngine:
             paths = np.zeros((dw.shape[0], grid.n_steps + 1))
             paths[:, 0] = proc.x0[0]
 
-            step_fn = euler_step if self.scheme == "euler" else euler_step
+            # Fix T1.7: pre-fix both branches were `euler_step` (copy-paste);
+            # the "milstein" scheme silently ran Euler.
+            use_milstein = self.scheme == "milstein"
+            if use_milstein and proc.diffusion_deriv is None:
+                import warnings
+                warnings.warn(
+                    "MCEngine: scheme='milstein' requested but ProcessSpec "
+                    "has no `diffusion_deriv`. Falling back to Euler; pass "
+                    "`diffusion_deriv=lambda x, t: ...` to ProcessSpec to "
+                    "engage the Milstein correction.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                use_milstein = False
 
             for i in range(grid.n_steps):
                 if proc.exact_step is not None:
                     paths[:, i + 1] = proc.exact_step(
                         paths[:, i], grid.times[i], grid.dt[i], dw[:, i],
                     )
+                elif use_milstein:
+                    paths[:, i + 1] = milstein_step_1d(
+                        paths[:, i], grid.times[i], grid.dt[i], dw[:, i], proc,
+                        diffusion_deriv=proc.diffusion_deriv,
+                    )
                 else:
-                    paths[:, i + 1] = step_fn(
+                    paths[:, i + 1] = euler_step(
                         paths[:, i], grid.times[i], grid.dt[i], dw[:, i], proc,
                     )
         else:
