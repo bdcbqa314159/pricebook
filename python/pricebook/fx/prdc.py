@@ -31,13 +31,21 @@ def _prdc_reprice(
     corr, notional, fixed_coupon, fx_participation, fx_strike,
     T, n_coupons, n_paths, n_steps, rng,
 ) -> float:
-    """Internal reprice for bump-and-reprice delta (same RNG for variance reduction)."""
+    """Internal reprice for bump-and-reprice delta (same RNG for variance reduction).
+
+    Fix T4-PRDC1: pre-fix used `df = exp(-r_d · t)` — the CURRENT short
+    rate at time t multiplied by t.  Under stochastic rates the correct
+    discount factor is `exp(-∫_0^t r_d(s) ds)` — the path-integrated
+    short rate, NOT the spot short rate × t.  Pre-fix biased every
+    coupon's discount.  Same fix in `prdc_price` below.
+    """
     dt = T / n_steps; sqrt_dt = math.sqrt(dt)
     L = np.linalg.cholesky(corr)
 
     FX = np.full(n_paths, float(spot_fx))
     r_d = np.full(n_paths, rate_dom)
     r_f = np.full(n_paths, rate_for)
+    int_r_d = np.zeros(n_paths)  # integrated domestic short rate
     coupon_steps = set(int((i + 1) * n_steps / n_coupons) for i in range(n_coupons))
     pv = np.zeros(n_paths)
 
@@ -46,14 +54,14 @@ def _prdc_reprice(
         r_d += 0.1 * (rate_dom - r_d) * dt + vol_dom * Z[:, 1] * sqrt_dt
         r_f += 0.1 * (rate_for - r_f) * dt + vol_for * Z[:, 2] * sqrt_dt
         FX = FX * np.exp((r_d - r_f - 0.5 * vol_fx**2) * dt + vol_fx * Z[:, 0] * sqrt_dt)
+        int_r_d += r_d * dt  # accumulate integrated rate
 
         if (step + 1) in coupon_steps:
-            t = (step + 1) * dt
-            df = np.exp(-r_d * t)
+            df = np.exp(-int_r_d)  # path-integrated discount factor
             cpn = np.maximum(fixed_coupon + fx_participation * (FX / fx_strike - 1), 0.0)
             pv += notional * cpn * df / n_coupons
 
-    pv += notional * np.exp(-r_d * T)
+    pv += notional * np.exp(-int_r_d)  # principal at T
     return float(pv.mean())
 
 
@@ -86,6 +94,7 @@ def prdc_price(
     FX = np.full(n_paths, float(spot_fx))
     r_d = np.full(n_paths, rate_dom)
     r_f = np.full(n_paths, rate_for)
+    int_r_d = np.zeros(n_paths)  # integrated domestic short rate
 
     coupon_steps = [int((i + 1) * n_steps / n_coupons) for i in range(n_coupons)]
     pv = np.zeros(n_paths)
@@ -101,16 +110,17 @@ def prdc_price(
         # FX
         drift_fx = (r_d - r_f - 0.5 * vol_fx**2) * dt
         FX = FX * np.exp(drift_fx + vol_fx * Z[:, 0] * sqrt_dt)
+        int_r_d += r_d * dt  # accumulate path-integrated rate
 
         if (step + 1) in coupon_steps:
-            t = (step + 1) * dt
-            df = np.exp(-r_d * t)
+            # Fix T4-PRDC1: discount with path-integrated rate, not spot rate × t.
+            df = np.exp(-int_r_d)
             coupon = np.maximum(fixed_coupon + fx_participation * (FX / fx_strike - 1), 0.0)
             pv += notional * coupon * df / n_coupons
             total_coupon += coupon
 
     # Principal at T
-    pv += notional * np.exp(-r_d * T)
+    pv += notional * np.exp(-int_r_d)
 
     price = float(pv.mean())
     mean_cpn = float(total_coupon.mean() / n_coupons)
