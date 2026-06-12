@@ -300,12 +300,23 @@ def price_swaption_sabr_hw(
 
     ref = curve.reference_date
     T = year_fraction(ref, swaption.expiry, DayCountConvention.ACT_365_FIXED)
-    if T <= 0:
-        return 0.0
 
-    # Forward swap rate and annuity
+    # Forward swap rate and annuity (also used by the T≤0 intrinsic branch).
     fwd = swaption.forward_swap_rate(curve)
     ann = swaption.annuity(curve)
+
+    if T <= 0:
+        # Fix T2.15: pre-fix this returned 0.0 unconditionally at T=0, even
+        # if the swaption had positive intrinsic value (e.g. a payer with
+        # strike below the current forward swap rate).  Correct behaviour
+        # at expiry is the intrinsic value:
+        #   payer:    annuity · max(fwd − K, 0)
+        #   receiver: annuity · max(K − fwd, 0)
+        if swaption.swaption_type == SwaptionType.PAYER:
+            intrinsic = max(fwd - swaption.strike, 0.0)
+        else:
+            intrinsic = max(swaption.strike - fwd, 0.0)
+        return ann * intrinsic * swaption.notional
 
     # SABR vol (from cube)
     tenor = year_fraction(swaption.expiry, swaption.swap_end,
