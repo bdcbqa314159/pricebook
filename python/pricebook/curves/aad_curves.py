@@ -168,33 +168,95 @@ def aad_bootstrap(
         pillar_dfs.append(df)
 
     # Phase 2: swaps — solve for df(mat) from par condition
-    # PV = 0: par × Σ(tau_i × df_i) = 1 - df(mat)
-    # df(mat) = (1 - par × Σ_{i<n}(tau_i × df_i)) / (1 + par × tau_n)
+    # Fix T1.13: pre-fix the intermediate-coupon DFs were drawn from a
+    # `temp_curve` that lacked the new `mat` pillar.  When the new swap's
+    # tenor extends beyond all existing pillars (the common case — e.g.
+    # bootstrap a 5y swap against a 1y deposit), the intermediate coupons
+    # at 1.5y, 2y, ..., 4.5y fell in the extrapolation region, where
+    # `aad_log_linear_interp` flat-extrapolates at `df_last`.  This
+    # silently flat-extrapolates the bootstrap and biases sensitivities.
+    #
+    # Fix: solve the par condition via a fixed-point iteration where the
+    # trial curve at each step INCLUDES the current df_mat estimate as a
+    # pillar.  Pre-solve numerically with `brentq` on floats for a sharp
+    # initial guess, then iterate the AAD construction starting from it
+    # until convergence — the AAD graph at the fixed point captures the
+    # implicit-function dependency dx*/dp = −(∂A + ∂B) / (1 + ∂B/∂x).
+    from pricebook.core.solvers import brentq
+
     sorted_swaps = sorted(swap_quotes, key=lambda x: x[0])
     for mat, par_rate in sorted_swaps:
         schedule = generate_schedule(reference_date, mat, Frequency.SEMI_ANNUAL)
+        par_rate_val = par_rate.value
 
-        # Temporary AAD curve from known pillars
-        if pillar_dates:
-            temp_curve = AADDiscountCurve(reference_date, pillar_dates,
-                                          pillar_dfs, swap_dc)
-        else:
-            temp_curve = None
+        # ---- Float pre-solve via brentq (sharp initial guess) ----
+        pillar_dates_float = list(pillar_dates) + [mat]
+        pillar_dfs_float = [d.value for d in pillar_dfs]
 
-        # Annuity for coupon dates before the last
-        annuity_before_last = Number(0.0)
-        for k in range(1, len(schedule) - 1):
-            tau_k = year_fraction(schedule[k - 1], schedule[k], swap_dc)
-            df_k = temp_curve.df(schedule[k]) if temp_curve else Number(1.0)
-            annuity_before_last = annuity_before_last + par_rate * tau_k * df_k
+        def _par_residual_float(df_mat_guess: float) -> float:
+            dfs_now = pillar_dfs_float + [df_mat_guess]
+            curve_f = _FloatLogLinearCurve(
+                reference_date, pillar_dates_float, dfs_now, swap_dc,
+            )
+            pv = 0.0
+            for k in range(1, len(schedule)):
+                tau_k = year_fraction(schedule[k - 1], schedule[k], swap_dc)
+                pv += par_rate_val * tau_k * curve_f.df(schedule[k])
+            return pv + df_mat_guess - 1.0
 
-        # Last period
-        tau_last = year_fraction(schedule[-2], schedule[-1], swap_dc)
+        df_mat_init = brentq(_par_residual_float, 1e-6, 3.0)
 
-        # Solve: df(mat) = (1 - annuity_before) / (1 + par × tau_last)
-        df_mat = (Number(1.0) - annuity_before_last) / (Number(1.0) + par_rate * tau_last)
+        # ---- AAD fixed-point starting from converged float value ----
+        df_mat = Number(df_mat_init)
+        for _ in range(50):
+            trial_dfs = list(pillar_dfs) + [df_mat]
+            trial_curve = AADDiscountCurve(
+                reference_date, pillar_dates_float, trial_dfs, swap_dc,
+            )
+            annuity_before_last = Number(0.0)
+            for k in range(1, len(schedule) - 1):
+                tau_k = year_fraction(schedule[k - 1], schedule[k], swap_dc)
+                df_k = trial_curve.df(schedule[k])
+                annuity_before_last = annuity_before_last + par_rate * tau_k * df_k
+            tau_last = year_fraction(schedule[-2], schedule[-1], swap_dc)
+            df_mat_new = (Number(1.0) - annuity_before_last) / (Number(1.0) + par_rate * tau_last)
+            if abs(df_mat_new.value - df_mat.value) < 1e-14:
+                df_mat = df_mat_new
+                break
+            df_mat = df_mat_new
 
         pillar_dates.append(mat)
         pillar_dfs.append(df_mat)
 
     return AADDiscountCurve(reference_date, pillar_dates, pillar_dfs, swap_dc)
+
+
+class _FloatLogLinearCurve:
+    """Plain-float log-linear DF curve — used inside `aad_bootstrap` for the
+    brentq pre-solve.  Mirrors `AADDiscountCurve` interp logic but avoids
+    the Number tape (we only need values for the numerical bracket-search)."""
+
+    def __init__(self, reference_date: date, dates: list[date],
+                 dfs: list[float], day_count: DayCountConvention):
+        times = [year_fraction(reference_date, d, day_count) for d in dates]
+        if times[0] > 0:
+            times = [0.0] + times
+            dfs = [1.0] + list(dfs)
+        self._times = times
+        self._dfs = dfs
+        self._ref = reference_date
+        self._dc = day_count
+
+    def df(self, d: date) -> float:
+        if d <= self._ref:
+            return 1.0
+        t = year_fraction(self._ref, d, self._dc)
+        ts, ds = self._times, self._dfs
+        if t <= ts[0]:
+            return ds[0]
+        if t >= ts[-1]:
+            return ds[-1]
+        import bisect
+        i = max(0, min(bisect.bisect_right(ts, t) - 1, len(ts) - 2))
+        w = (t - ts[i]) / (ts[i + 1] - ts[i])
+        return math.exp((1 - w) * math.log(ds[i]) + w * math.log(ds[i + 1]))
