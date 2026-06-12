@@ -2,6 +2,70 @@
 
 ---
 
+## v0.933.0 — 2026-06-12
+
+**Fix L2 Wave-2 deferred audit — `models/cos_bermudan.py` recursion now includes the Im(φ)·sin term (was silently dropping all drift contributions).**
+
+Audit of `models/cos_bermudan.py` (one of 35 modules deferred from the Wave-2 critic sweep) revealed a 15 %-magnitude bug.
+
+### The bug
+
+The Bermudan COS backward recursion (Fang-Oosterlee 2009 eq 2.10) computes the continuation value at each grid point as
+
+> C(x) = e^{−r·dt} · Σ_k V_k · Re[φ(u_k) · exp(i·u_k·(x − a))]
+
+which, expanding the complex exponential, equals
+
+> C(x) = e^{−r·dt} · Σ_k V_k · [Re(φ_k) · cos(u_k(x − a)) − **Im(φ_k) · sin(u_k(x − a))**]
+
+The pre-fix code computed
+
+```python
+c[k] = df_step * (phi_k * c[k]).real    # = df · Re(φ_k) · c[k]  (since c[k] is real)
+cont_grid[i] = Σ_k c[k] · cos(u_k(x_i − a))
+```
+
+This kept the `Re(φ)·cos` term but **completely dropped the −Im(φ)·sin term**. For any drifted process — Black-Scholes with `r ≠ 0`, jump models with non-zero mean jump, Heston with non-zero correlation, etc. — `Im(φ) ≠ 0` and the sin terms carry the drift contribution.
+
+### Magnitude
+
+Vanilla BS American put (S = K = 100, r = 5 %, σ = 20 %, T = 1 y):
+
+| | Price | Diff vs PDE |
+|---|---|---|
+| PDE American (gold standard) | 6.0882 | — |
+| Pre-fix COS Bermudan, n_ex=100 | 6.99 | **+14.8 %** |
+| Pre-fix COS Bermudan, n_ex=5 | 6.94 | almost identical to n_ex=100 ← red flag |
+| Post-fix COS Bermudan, n_ex=50 | 6.0875 | **−0.001 (machine precision)** |
+| Post-fix COS Bermudan, n_ex=100 | 6.1057 | +0.3 % |
+
+Pre-fix the price was almost **insensitive to `n_exercise`** — the recursion was so broken it produced essentially the same number whether you allowed 5 or 100 exercise dates. Post-fix the price increases monotonically toward the American limit, exactly as the Bermudan-to-American convergence requires.
+
+### The fix
+
+Vectorised the recursion: pre-compute `phi_vec`, `cos_basis`, `sin_basis` once, then at each backward step:
+
+```python
+weighted_re = V * phi_vec.real
+weighted_im = V * phi_vec.imag
+cont_grid = df_step * (weighted_re @ cos_basis − weighted_im @ sin_basis)
+```
+
+Both the missing-sin term and a 2× speedup (vectorisation replacing the double loop over (i, k)).
+
+### Verification — `test_l2_t4_cos_bermudan.py`
+
+3 new tests, all pass:
+- `test_bs_american_put_via_cos_matches_pde` — COS at n_ex=50 matches PDE American to <1 % (pre-fix: 15 % high).
+- `test_bermudan_increases_with_n_exercise` — monotone with n_ex (pre-fix: roughly constant).
+- `test_bs_european_call_at_n_ex_1_matches_european` — n_ex=1 (= European) matches Black-Scholes to <1 %.
+
+Full parallel suite: **12117 passed in 2:35** — zero regressions.
+
+This is the first fix from the **35-module deferred Wave-2 audit**.  Continuing through the list.
+
+---
+
 ## v0.932.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.14 / T3.15 — G2++ swaption pricer rewritten to Brigo-Mercurio eq. 4.31.  ALL 19 TIER-3 BUGS CLOSED.**
