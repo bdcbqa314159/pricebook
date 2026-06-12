@@ -2,6 +2,35 @@
 
 ---
 
+## v0.919.0 — 2026-06-12
+
+**Fix L2 T2.10 — `MCEngine.greek()` actually honours `param_name`.**
+
+Pre-fix `models/mc_engine.py::MCEngine.greek()` accepted `param_name: str` as a *required* parameter but **never used it**. The implementation always did `self.process.x0 = original_x0 + bump`, which broadcasts the scalar bump across the whole `x0` vector. For a multi-factor process (Heston: x = [S, V]; G2++: x = [x, y]; basket models), "delta" simultaneously bumped every state variable, producing a meaningless mixed sensitivity.
+
+**Fix**: `param_name` is now parsed into one of three forms:
+- `int` — index into `process.x0` (e.g. `0` = spot, `1` = variance).
+- `"x0"` or `"x0[i]"` — same as the int form.
+- any other string — interpreted as an attribute of the `ProcessSpec` (e.g. `"sigma"`, `"mu"`). Requires the drift/diffusion callables to read the attribute at evaluation time. Lets the user compute vega-like sensitivities to model parameters.
+
+Bounds-checked (`IndexError` for bad index, `ValueError` for unknown attribute). Restores the original `x0` / attribute cleanly on the way out.
+
+### Verification — `test_l2_t2_10_mc_greek_param_name.py`
+
+6 new regression tests, all pass:
+- `test_x0_index_zero_only_bumps_spot` — 1D GBM `"x0[0]"` gives BS-plausible delta (0.4 < Δ < 0.85).
+- `test_int_param_name_works` — bare integer index works.
+- `test_x0_restored_after_greek` — restoration check.
+- `test_attribute_bump_vega_via_sigma` — `param_name="sigma"` bumps the process's `sigma` attribute and recovers a BS-plausible vega (20 < vega < 60).
+- `test_unknown_param_name_raises` — bad string raises `ValueError`.
+- `test_index_out_of_range_raises` — bad index raises `IndexError`.
+
+Full parallel suite: **12037 passed in 4:44** — zero regressions.
+
+Tier-2 status: **12 of 18 closed** (T2.10 added).
+
+---
+
 ## v0.918.0 — 2026-06-12
 
 **Fix L2 Tier-2: tree knock-in barriers (T2.8) + trinomial probability renormalisation (T2.9).**
