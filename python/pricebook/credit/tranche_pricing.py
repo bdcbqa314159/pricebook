@@ -208,7 +208,9 @@ class TrancheCDS:
         def _date_at(t_years):
             return ref + timedelta(days=round(t_years * 365))
 
-        # Premium leg: Σ spread × (1-EL_i) × dt × df_i
+        # Premium leg: Σ spread × (1-EL_i) × dt × df_i × tranche_notional.
+        # EL_i is normalised to [0, 1] (fraction of tranche notional lost),
+        # so the surviving tranche notional in period i is (1-EL_i)·notional.
         premium_pv = 0.0
         for i in range(1, n_periods + 1):
             t = min(i * dt, T)
@@ -216,24 +218,34 @@ class TrancheCDS:
             premium_pv += self.spread * (1 - els[i]) * dt * df
         premium_pv *= self.notional
 
-        # Protection leg: Σ (EL_i - EL_{i-1}) × width × df_i
+        # Protection leg: Σ (EL_i − EL_{i-1}) × df_i × tranche_notional.
+        #
+        # Fix T4-TR1: pre-fix the protection PV had a spurious extra `× width`
+        # factor (and the par-spread numerator likewise).  Since EL is
+        # already normalised by `width` inside `expected_tranche_loss`
+        # (`tranche_loss = clip(L − a, 0, width) / width`), multiplying by
+        # `width` again gives the WRONG dimensional result.  Pre-fix par
+        # spreads were `width` × the correct value — i.e. 30× too small
+        # for the equity tranche (width=0.03), 10× too small for senior
+        # (width=0.10), etc.  Standard equity-tranche par spreads of
+        # 1500-2500 bp came out as 50-80 bp pre-fix.
         protection_pv = 0.0
         for i in range(1, n_periods + 1):
             t = min(i * dt, T)
             df = discount_curve.df(_date_at(t))
-            protection_pv += (els[i] - els[i - 1]) * self.width * df
+            protection_pv += (els[i] - els[i - 1]) * df
         protection_pv *= self.notional
 
         pv = protection_pv - premium_pv
 
-        # Par spread: solve spread such that pv = 0
+        # Par spread: spread such that pv = 0.
         risky_annuity = sum(
             (1 - els[i]) * dt * discount_curve.df(_date_at(min(i * dt, T)))
             for i in range(1, n_periods + 1)
         )
         if risky_annuity > 1e-10:
             prot_ratio = sum(
-                (els[i] - els[i - 1]) * self.width * discount_curve.df(_date_at(min(i * dt, T)))
+                (els[i] - els[i - 1]) * discount_curve.df(_date_at(min(i * dt, T)))
                 for i in range(1, n_periods + 1)
             )
             par_spread = prot_ratio / risky_annuity
