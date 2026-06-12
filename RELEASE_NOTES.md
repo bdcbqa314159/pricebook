@@ -2,6 +2,44 @@
 
 ---
 
+## v0.937.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `adaptive_euler` Brownian-bridge split for the two-half-step error estimate.**
+
+`models/sde_adaptive.py::adaptive_euler` used a deterministic dW split for the half-step error estimate:
+
+```python
+dW1 = dW * math.sqrt(0.5)  # ≈ 0.707·dW
+dW2 = dW - dW1              # ≈ 0.293·dW
+```
+
+This sums to dW (so the algebra of summing two halves to the full is preserved), but the variance is wildly asymmetric:
+
+| | Var | Expected |
+|---|---|---|
+| Var(dW1) | 0.5·dt | 0.5·dt ✓ |
+| Var(dW2) | **(1−√0.5)²·dt ≈ 0.086·dt** | 0.5·dt ✗ |
+
+The second half-step's diffusion was grossly under-stated, so the half-step path artificially tracked the full-step path closely, and the local error `|x_full − x_two|` was systematically under-estimated. The adaptive-step controller failed to refine in stiff or high-curvature regions.
+
+**Fix**: proper Brownian-bridge construction. Given the full increment dW, the bridge midpoint is
+
+> dW₁ = dW/2 + √(dt/4) · Z,   Z ~ N(0, 1) independent
+
+with Var(dW₁) = Var(dW₂) = dt/2 ✓ and dW₁ + dW₂ = dW ✓.
+
+### Verification — `test_l2_t4_sde_adaptive_bridge.py`
+
+2 new tests, both pass:
+- `test_gbm_terminal_mean_unbiased` — adaptive Euler on GBM converges to the exact `S₀·exp(μT)` to <3%.
+- `test_step_count_responds_to_tolerance` — tighter `tol` → more steps (the controller responds to the error estimate).
+
+Full parallel suite: **12127 passed in 2:55** — zero regressions.
+
+Fifth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.936.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `fokker_planck_1d` Crank-Nicolson implicit matrix coefficients (diagonal 2× over-stated, off-diagonals use wrong `diff` index).**
