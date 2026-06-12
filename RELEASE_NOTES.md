@@ -2,6 +2,33 @@
 
 ---
 
+## v0.940.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — PRDC pricer discount factor uses path-integrated short rate (was spot rate × t).**
+
+`fx/prdc.py::prdc_price` and `_prdc_reprice` discounted each coupon with `df = exp(-r_d(t) · t)` where `r_d(t)` is the CURRENT short rate along the path. Under stochastic rates this is wrong — the correct path-wise discount factor is
+
+> df(t) = exp(-∫_0^t r_d(s) ds)
+
+The spot-rate-times-t formula assumes the rate is constant at its terminal value from 0 to t, which contradicts the explicit OU short-rate simulation.
+
+**Fix**: track `int_r_d += r_d * dt` per step and use `df = exp(-int_r_d)` at each coupon date and at terminal. Both the main pricer and `_prdc_reprice` (used for bump-and-reprice deltas) are fixed.
+
+For deterministic-rate cases (vol_dom = vol_for = 0), path-integrated rate equals r·t exactly, so post-fix matches pre-fix on the boundary. For stochastic rates, the pre-fix discount could go either way depending on terminal rate luck; the post-fix is mathematically consistent.
+
+### Verification — `test_l2_t4_prdc_discount.py`
+
+3 new tests, all pass:
+- `test_zero_rate_vol_recovers_constant_rate_discount` — sanity boundary.
+- `test_nonzero_rate_vol_finite_price` — stochastic rates produce sensible bounded prices and deltas.
+- `test_high_rate_vol_lower_pv` — convexity check.
+
+Full parallel suite: **12138 passed in 3:49** — zero regressions.
+
+Eighth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.939.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `fair_variance` trapezoid boundary weights (was 2× too large at the endpoints of the replication strip).**
