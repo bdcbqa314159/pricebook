@@ -2,6 +2,38 @@
 
 ---
 
+## v0.931.0 — 2026-06-12
+
+**Fix L2 T3.1 + lock T3.2/T3.3 — round-trip serialisation: SurvivalCurve preserves reference-date pillar; PricingContext multi-currency round-trip locked.**
+
+### T3.1 — SurvivalCurve dropped user-supplied reference-date pillar
+
+`SurvivalCurve._sc_to_dict` filtered `[s for t, s in zip(self._times, self._survs) if t > 0]` to remove the synthetic t=0 prepend. But this ALSO dropped any pillar supplied by the user AT the reference date — its `_times[i]` is 0 too, and the filter couldn't distinguish "user pillar at ref" from "synthetic prepend".
+
+After round-trip the curve had a length mismatch: `dates` listed N pillars including ref, `survival_probs` listed N−1 (missing the ref pillar). `from_dict` then either crashed or silently dropped the user's anchor.
+
+**Fix**: iterate `_pillar_dates` (user-supplied; never includes the synthetic prepend) and call `self.survival(d)` for each — preserving the user's input exactly.
+
+### T3.2 / T3.3 — PricingContext multi-currency round-trip
+
+These were addressed in v0.903 (D.1 B1+B2+B3 — PricingContext round-trip + `replace()` immutability). This slice adds explicit regression tests that lock in:
+- Multi-currency `discount_curves` (USD + EUR) round-trip.
+- `fx_spots` with (base, quote) tuple keys round-trip.
+- Empty containers (e.g. `vol_surfaces={}`) stay as `{}`, not `None` (pre-fix broke accessors).
+- `SurvivalCurve` inside `credit_curves` round-trips with the T3.1 fix.
+
+### Verification — `test_l2_t3_1_2_3_serialisation.py`
+
+6 new tests, all pass:
+- T3.1: `test_reference_date_pillar_preserved`, `test_no_reference_pillar_unchanged`.
+- T3.2/T3.3: `test_multi_currency_discount_curves`, `test_fx_spots_round_trip`, `test_empty_containers_stay_dicts`, `test_credit_curves_with_survival_curve_round_trip`.
+
+Full parallel suite: **12107 passed in 5:21** — zero regressions.
+
+Tier-3 status: **16 of 19 closed** (T3.1, T3.2, T3.3 added; T3.11 already subsumed). Remaining: T3.14, T3.15 (both G2++ wrong-measure issues, last and most complex).
+
+---
+
 ## v0.930.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.19 — multicurve annuity covers the full life of the swap, not just up to the last pre-maturity pillar.**
