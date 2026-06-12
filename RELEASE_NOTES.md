@@ -2,6 +2,85 @@
 
 ---
 
+## v0.909.0 — 2026-06-12
+
+**Fix L2 T1.9 — Hull-White tree swaption now centres expiry-node rates on α(T_expiry), not on today's short rate r(0).**
+
+Ninth of 13 Tier-1 (dual-critic-confirmed) bugs from `MODULE_HEALTH.md` closed.
+
+### The bug
+
+`HullWhite.tree_european_swaption` (in `models/hull_white.py`) built the trinomial tree to evolve state prices Q correctly to time `expiry_T`, then iterated over the expiry-time nodes with:
+
+```python
+r_j = r0 + j * dr
+```
+
+where `r0 = self._forward_rate(0.0)` — today's instantaneous short rate. That is wrong: under Hull-White, the rate at the expiry nodes is `r(T_expiry) = α(T_expiry) + j·dr`, where α is the closed-form drift adjustment
+
+> α(t) = f^M(0,t) + (σ²/(2a²))·(1 − e^{−at})²
+
+(Brigo-Mercurio 2006, eq. 3.34).
+
+### Magnitude of the error
+
+On a representative steeply rising curve (1% at t=0 rising 80bp/year, so 9% at 10y), with `a=0.05, σ=0.5%`:
+
+| Quantity | Value |
+|---|---|
+| α(0)   | 1.20 % |
+| α(3y)  | 7.41 % |
+| Pre-fix centring | 1.20 % (used α(0)) |
+| Post-fix centring | 7.41 % (uses α(T_expiry)) |
+| **Centring error** | **621 bps in the short rate at expiry nodes** |
+
+A 600bp error in the centring of the rate grid at expiry translates to a multi-tens-of-percent error in the swaption PV — far beyond any plausible model calibration tolerance.
+
+### The fix
+
+Two-line change in `hull_white.py`:
+
+1. New method `HullWhite._alpha(t)` implementing the closed-form formula `α(t) = f(0,t) + (σ²/(2a²))·(1 − e^{−at})²`.
+2. `tree_european_swaption` calls `alpha_expiry = self._alpha(expiry_T)` once before the node loop and uses `r_j = alpha_expiry + j * dr`.
+
+The tree calibration in `_evolve_state_prices` is unchanged — only the readout step at expiry is corrected. (The closed-form α(t) is the continuous-time limit of the tree's per-step numerical calibration; for typical step sizes the two agree to within a few bp.)
+
+### Verification — `test_l2_t1_9_hw_swaption_alpha.py`
+
+5 new regression tests, all pass:
+
+- `test_alpha_formula_at_zero_equals_short_rate` — sanity: α(0) = f(0,0) since `1−e^0 = 0`.
+- `test_alpha_grows_with_forward_curve` — on a 100bp/year-slope curve, α(5y) − α(0) > 400bp (vs near-zero pre-fix when using α(0) everywhere).
+- `test_tree_swaption_atm_matches_jamshidian_flat_curve` — on a flat 1% curve (where the pre-fix bug is small because α(T) ≈ α(0)), the tree price agrees with the analytical HW Jamshidian decomposition to within 5%.
+- `test_tree_swaption_matches_jamshidian_steep_curve` — **the discriminating test**: 80bp/year-slope, 3y into 4y ATM payer. Post-fix the tree agrees with Jamshidian to within 10%; pre-fix the disagreement was >>10%.
+- `test_tree_swaption_deep_itm_recovers_intrinsic` — deep-ITM with low vol → tree price within 15% of annuity·(fwd − K). Pre-fix the wrong centring biased this by the centring error × annuity, dwarfing intrinsic.
+
+The test file embeds a self-contained Jamshidian-decomposition payer-swaption pricer (bracketing for r*, Brigo-Mercurio bond-option vol formula, ZBP via Black-style normal) as the ground-truth reference. ~120 lines including helpers.
+
+Full parallel suite: **11969 passed in 4:50** — zero regressions.
+
+### Tier-1 status — 9 of 13 closed
+
+| # | Module | Status |
+|---|---|---|
+| T1.1 | `numerical/_mc.py` multilevel_mc broken | queued |
+| T1.2 | `numerical/_fourier.py` density crash | ✅ v0.907 |
+| T1.3 | `numerical/_integrate.py` integrate_2d swap | ✅ v0.907 |
+| T1.4 | `numerical/_optimize.py` interior_point drops equality constraints | queued |
+| T1.5 | `numerical/_trees.py` Tian V formula | ✅ v0.907 |
+| T1.6 | `numerical/_trees.py` discrete dividends terminal-grid + trinomial | ✅ v0.908 |
+| T1.7 | `models/mc_engine.py` Milstein silently runs Euler | ✅ v0.907 |
+| T1.8 | `models/cos_method.py` V_k integration bounds deep ITM | queued |
+| **T1.9** | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | ✅ this slice |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| T1.13 | `curves/aad_curves.py` swap bootstrap flat-extrapolation | queued |
+
+Remaining 4 are the deepest ones: T1.1 MLMC redesign (need Giles coupling), T1.4 IPM rewrite, T1.8 cos_method V_k re-derivation, T1.13 AAD bootstrap.
+
+---
+
 ## v0.908.0 — 2026-06-12
 
 **Fix L2 T1.6 — discrete dividends now escrowed at the correct step in both binomial and trinomial trees.**
