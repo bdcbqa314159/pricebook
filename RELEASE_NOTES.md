@@ -2,6 +2,37 @@
 
 ---
 
+## v0.930.0 — 2026-06-12
+
+**Fix L2 Tier-3 T3.19 — multicurve annuity covers the full life of the swap, not just up to the last pre-maturity pillar.**
+
+`curves/multicurve_solver.py::multicurve_newton` computed the OIS swap par rate as:
+
+```python
+df_T = ois.df(inst['maturity'])
+dates_up_to = [d for d in ois_pillar_dates if d <= inst['maturity']]
+annuity = _compute_annuity(ois, dates_up_to, day_count)
+model_rate = (1 - df_T) / annuity
+```
+
+If `inst['maturity']` did not exactly match a pillar, `dates_up_to` truncated at the last pillar BELOW maturity, but `df_T` was interpolated to maturity. The par-rate then mixed two different time horizons — annuity covered ref → last_pillar (a fraction of the swap life), df_T covered ref → maturity.
+
+**Fix**: append `inst['maturity']` as the final endpoint of `dates_up_to` if not already present. Annuity and df_T then span the same horizon. Mirror fix in the projection-curve branch.
+
+For swaps whose maturity dates ARE pillars (the canonical case), behavior unchanged.
+
+### Verification — `test_l2_t3_19_multicurve_annuity.py`
+
+2 new tests, both pass:
+- `test_swap_matures_between_pillars_re_prices` — a swap with maturity at 4y (between 3y and 5y pillars) re-prices at the input rate after the solve.
+- `test_pillar_at_maturity_unchanged` — sanity: maturity-on-pillar case still works.
+
+Full parallel suite: **12099 passed in 4:51** — zero regressions.
+
+Tier-3 status: **13 of 19 closed**.
+
+---
+
 ## v0.929.0 — 2026-06-12
 
 **Fix L2 Tier-3 T3.17 / T3.18 — `bootstrap` HW futures convexity formula + no-deposit FRA/future safety.**
