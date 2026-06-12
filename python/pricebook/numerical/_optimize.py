@@ -235,6 +235,16 @@ def interior_point(
     mu = 10.0  # barrier growth rate
     converged = False
 
+    # Fix T1.4: pre-fix this routine built a list of equality-constraint dicts
+    # in `constraints` but NEVER passed it to `_minimize`, and used BFGS for
+    # the inner solve — BFGS is unconstrained, so any caller passing
+    # `equality_constraints` got them silently dropped.  Symptom: linear-
+    # equality-constrained problems converged to the unconstrained minimum.
+    #
+    # Post-fix: when equality constraints are present, use SLSQP (the scipy
+    # method that supports equality constraints natively) and pass the
+    # constraint dicts.  Otherwise stay with BFGS for speed on pure-
+    # inequality problems.
     for outer in range(maxiter):
         # Barrier subproblem
         def barrier_obj(x_inner):
@@ -252,14 +262,25 @@ def interior_point(
             for h in equality_constraints:
                 constraints.append({"type": "eq", "fun": h})
 
-        r = _minimize(barrier_obj, x, method="BFGS",
-                      options={"maxiter": 50, "gtol": tol / t})
+        if constraints:
+            r = _minimize(barrier_obj, x, method="SLSQP",
+                          constraints=constraints,
+                          options={"maxiter": 100, "ftol": tol / t})
+        else:
+            r = _minimize(barrier_obj, x, method="BFGS",
+                          options={"maxiter": 50, "gtol": tol / t})
         x = r.x
 
         # Check convergence
         n_ineq = len(inequality_constraints) if inequality_constraints else 0
         if n_ineq > 0 and n_ineq / t < tol:
             converged = True
+            break
+        if n_ineq == 0 and equality_constraints:
+            # Pure equality-constrained problem: convergence is r.success
+            # and r.fun stable across outer iterations.  One SLSQP pass at
+            # t=1 already solves it; no need to grow t.
+            converged = bool(r.success)
             break
 
         t *= mu
