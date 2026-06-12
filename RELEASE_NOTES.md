@@ -2,6 +2,60 @@
 
 ---
 
+## v0.922.0 — 2026-06-12
+
+**Fix L2 T2.15 — SABR-HW swaption blender returns intrinsic at T=0 instead of unconditional zero.  CLOSES ALL 18 TIER-2 BUGS.**
+
+`options/swaption.py::price_swaption_sabr_hw` had:
+
+```python
+if T <= 0:
+    return 0.0
+```
+
+This returned 0.0 even when the swaption had positive **intrinsic** value (e.g. a payer with strike below the current forward swap rate, evaluated at expiry).
+
+**Fix**: at T ≤ 0 compute and return the intrinsic value:
+- Payer: `annuity × max(fwd − K, 0) × notional`
+- Receiver: `annuity × max(K − fwd, 0) × notional`
+
+### Verification — `test_l2_t2_15_sabr_hw_blender_intrinsic.py`
+
+4 new regression tests, all pass:
+- `test_payer_at_expiry_returns_intrinsic` — deep-ITM payer at T=0 returns positive intrinsic, matches annuity × (fwd − K).
+- `test_receiver_at_expiry_returns_intrinsic` — symmetric for receiver.
+- `test_out_of_money_at_expiry_returns_zero` — OTM at T=0 still returns 0 (no negative intrinsic).
+- `test_atm_post_expiry_positive_T_unchanged` — sanity: positive-T Black-76 path still works.
+
+Full parallel suite: **12052 passed in 3:27** — zero regressions.
+
+### Tier-2 status — **18 of 18 closed** ✓
+
+| # | Status | Note |
+|---|---|---|
+| T2.1 | ✅ pre-existing | roll_down DF renormalisation (v0.901) |
+| T2.2 | ✅ v0.914 | PDE LOG-grid stencil |
+| T2.3 | ✅ v0.914 | PDE implicit Dirichlet BC |
+| T2.4 | ✅ v0.914 | PDE American boundary |
+| T2.5 | ✅ v0.916 | wavelet_transform power-of-2 |
+| T2.6 | ✅ v0.917 | native Romberg (scipy.romberg removed) |
+| T2.7 | ✅ subsumed | interior_point equality (via T1.4) |
+| T2.8 | ✅ v0.918 | tree knock-in via in-out parity |
+| T2.9 | ✅ v0.918 | trinomial prob renormalisation |
+| T2.10 | ✅ v0.919 | MCEngine.greek() honours param_name |
+| T2.11 | ✅ v0.920 | g2pp_swaption no silent zero |
+| T2.12 | ✅ v0.920 | g2pp y*=0 fallback raises |
+| T2.13 | ✅ subsumed | AAD no-deposit (via T1.13) |
+| T2.14 | ✅ v0.921 | bond YTM redemption = last-period notional |
+| **T2.15** | ✅ this slice | SABR-HW blender T=0 intrinsic |
+| T2.16 | ✅ v0.915 | CDS convexity uses notional |
+| T2.17 | ✅ v0.915 | CDS variable notional propagation |
+| T2.18 | ✅ v0.915 | protection_leg_pv list+no-schedule |
+
+**All 13 Tier-1 AND 18 Tier-2 bugs closed in 16 slices** since v0.905. Next phase: Tier-3 (single-critic criticals — 19 items) and Tier-4 (highs that didn't reach critical).
+
+---
+
 ## v0.921.0 — 2026-06-12
 
 **Fix L2 T2.14 — bond YTM-based pricing now uses the last-period notional for redemption (consistent with curve-based pricing).**
