@@ -135,18 +135,37 @@ def multilevel_mc(
 ) -> MLMCResult:
     """Multilevel Monte Carlo (Giles 2008).
 
-    Achieves O(epsilon^{-2}) cost instead of O(epsilon^{-3}) for standard MC.
+    Achieves O(ε⁻²) cost instead of O(ε⁻³) for standard MC.
 
-    The idea: estimate E[P_L] = E[P_0] + sum_{l=1}^{L} E[P_l - P_{l-1}]
-    where P_l is the payoff at refinement level l.
+    Estimates E[P_L] = E[P_0] + Σ_{l=1}^{L} E[P_l − P_{l−1}] where P_l is the
+    payoff at refinement level l (2^l × base_steps timesteps).
+
+    **Giles coupling.**  At each level l ≥ 1 we simulate the FINE path with
+    n_fine = base_steps · 2^l Brownian increments dW^f, then construct the
+    COARSE path on the SAME Brownian path by pairing increments:
+    dW^c[m] = dW^f[2m] + dW^f[2m+1].  This makes Var(P_fine − P_coarse) →
+    O(h^β) where β > 0 (the strong convergence rate of the scheme), the
+    property that makes MLMC's variance-budget allocation possible.
+
+    Pre-fix T1.1, this routine generated the fine path then *downsampled* it
+    (`paths_coarse = paths_fine[:, ::2]`) to obtain the "coarse" path.  For
+    European payoffs depending only on the terminal value, this gave
+    P_coarse ≡ P_fine, so P_fine − P_coarse ≡ 0 at every level ≥ 1.  The
+    MLMC estimator collapsed to E[P_0] alone (a 4-step Euler estimate),
+    completely defeating the purpose of MLMC.
 
     Args:
-        payoff: callable(paths) -> array of payoff values.
-        process_fn: callable(n_paths, n_steps, seed) -> paths array (n_paths, n_steps+1).
+        payoff: callable(paths) → array of payoff values.
+        process_fn: callable(dW, dt) → paths array (n_paths, n_steps+1).
+            **NEW** interface — the routine pre-generates Brownian increments
+            dW (shape (n_paths, n_steps), scaled by sqrt(dt)) and passes them
+            to the stepper.  This lets MLMC supply paired-sum increments to
+            the coarse stepper for proper Giles coupling.
         T: time horizon.
-        levels: number of refinement levels.
-        base_steps: number of time steps at coarsest level.
-        base_paths: paths at coarsest level (scaled down at finer levels).
+        levels: number of refinement levels (L+1 in Giles' notation).
+        base_steps: timesteps at the coarsest level (l = 0).
+        base_paths: paths at the coarsest level (scaled down at finer levels).
+        seed: PRNG seed.
     """
     rng = np.random.default_rng(seed)
 
@@ -161,20 +180,28 @@ def multilevel_mc(
         samples.append(n_paths)
 
         if l == 0:
-            # Coarsest level: estimate E[P_0]
-            paths = process_fn(n_paths, n_steps, rng.integers(0, 2 ** 31))
+            # Coarsest level: estimate E[P_0] with n_steps = base_steps.
+            dt = T / n_steps
+            dW = rng.standard_normal((n_paths, n_steps)) * math.sqrt(dt)
+            paths = process_fn(dW, dt)
             P = payoff(paths)
             total_estimate += float(P.mean())
             total_variance += float(P.var() / n_paths)
         else:
-            # Fine level l and coarse level l-1
+            # Level l: compute E[P_l − P_{l−1}] with Giles coupling.
             n_fine = n_steps
             n_coarse = n_steps // 2
-            seed_l = rng.integers(0, 2 ** 31)
+            dt_fine = T / n_fine
+            dt_coarse = T / n_coarse  # = 2 · dt_fine
 
-            paths_fine = process_fn(n_paths, n_fine, seed_l)
-            # Coarse paths: take every 2nd step from fine
-            paths_coarse = paths_fine[:, ::2]
+            # Fine Brownian increments (the master Brownian path).
+            Z = rng.standard_normal((n_paths, n_fine))
+            dW_fine = Z * math.sqrt(dt_fine)
+            # Coarse increments by PAIRING the fine ones.
+            dW_coarse = dW_fine[:, 0::2] + dW_fine[:, 1::2]
+
+            paths_fine = process_fn(dW_fine, dt_fine)
+            paths_coarse = process_fn(dW_coarse, dt_coarse)
 
             P_fine = payoff(paths_fine)
             P_coarse = payoff(paths_coarse)
