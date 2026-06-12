@@ -227,105 +227,117 @@ def g2pp_swaption_price(
     Returns:
         Swaption price as a fraction of notional.
     """
-    try:
-        t = expiry_years
-        ref = curve.reference_date
+    # Fix T2.11: pre-fix this routine wrapped the ENTIRE body in
+    # `try: ... except Exception: return 0.0`, masking every error mode
+    # (bracketing failure, brentq divergence, numerical-overflow in the
+    # ZCB formula, calibration bugs) as a silent zero price.  Callers had
+    # no way to distinguish "swaption worth ≈ 0" from "pricer crashed".
+    # Post-fix: let real exceptions propagate.  Specific recoverable cases
+    # (no payment dates, identically-zero variance) still return 0.0
+    # explicitly.
+    t = expiry_years
+    ref = curve.reference_date
 
-        # Payment dates: annual, could be extended for semi-annual
-        n_pay = max(1, int(round(tenor_years)))
-        pay_times = [t + k for k in range(1, n_pay + 1)]
-        pay_times = [s for s in pay_times if s <= t + tenor_years + 1e-9]
-        if not pay_times:
-            return 0.0
-
-        # Coupon weights c_k for each payment date
-        c = [strike] * len(pay_times)
-        c[-1] += 1.0  # principal repayment on final leg
-
-        # omega: receiver = call on ZCBs, payer = put on ZCBs
-        # Payer swaption = P(fixed) - pay float = short bond portfolio
-        # => equivalent to a put on bond portfolio for payer
-        # Brigo-Mercurio: payer swaption = sum of put ZCB options
-        is_zcb_call = not is_payer  # payer swaption => put ZCBs
-
-        # First factor conditional distribution: x | curve
-        # x ~ N(mu_x, var_x) at time t (starting from x0=0)
-        var_x = sigma1 ** 2 * (1.0 - math.exp(-2 * a * t)) / (2 * a) if a > 0 else sigma1 ** 2 * t
-        std_x = math.sqrt(max(var_x, 0.0))
-
-        # Gauss-Hermite nodes and weights for integration over x
-        gh_nodes, gh_weights = np.polynomial.hermite.hermgauss(n_quad)
-
-        total_price = 0.0
-
-        for xi_raw, w_gh in zip(gh_nodes, gh_weights):
-            # Map GH node to x value: integral over N(0, var_x)
-            x_val = math.sqrt(2.0) * std_x * xi_raw
-
-            # Given x_val, y* such that sum(c_k * P(x,y*,s_k)) = 1
-            # Solve for y* numerically (1-D root finding)
-            def bond_portfolio(y_val: float) -> float:
-                total = 0.0
-                for ck, sk in zip(c, pay_times):
-                    total += ck * _g2pp_zcb(a, b, sigma1, sigma2, rho,
-                                            curve, x_val, y_val, sk)
-                return total - 1.0
-
-            # Bracket root
-            y_lo, y_hi = -0.5, 0.5
-            try:
-                bp_lo = bond_portfolio(y_lo)
-                bp_hi = bond_portfolio(y_hi)
-                # Expand bracket if needed
-                for _ in range(10):
-                    if bp_lo * bp_hi < 0:
-                        break
-                    y_lo -= 0.5
-                    y_hi += 0.5
-                    bp_lo = bond_portfolio(y_lo)
-                    bp_hi = bond_portfolio(y_hi)
-
-                if bp_lo * bp_hi >= 0:
-                    # No root found — fallback to y*=0
-                    y_star = 0.0
-                else:
-                    from scipy.optimize import brentq
-                    y_star = brentq(bond_portfolio, y_lo, y_hi, xtol=1e-10,
-                                    maxiter=50)
-            except Exception:
-                y_star = 0.0
-
-            # Strike prices for individual ZCB options
-            # K_k = P(x_val, y_star; s_k) (the ZCB value at y*)
-            k_strikes = [
-                _g2pp_zcb(a, b, sigma1, sigma2, rho, curve, x_val, y_star, sk)
-                for sk in pay_times
-            ]
-
-            # Price each ZCB option (analytically in y given x)
-            # Conditional vol of y: N(rho*sigma2/sigma1 * (1-e^{-bt})/b * x, var_y|x)
-            # For the G2++ bond option formula, we use the unconditional
-            # formula (which already integrates over both factors).
-            # Here we weight by the x density and price analytically.
-            swaption_contrib = 0.0
-            for ck, sk, kk in zip(c, pay_times, k_strikes):
-                opt_price = _g2pp_zcb_option(
-                    a, b, sigma1, sigma2, rho, curve,
-                    t, sk, sk, kk, is_zcb_call,
-                )
-                swaption_contrib += ck * opt_price
-
-            # GH weight includes 1/sqrt(pi) normalisation
-            total_price += w_gh * swaption_contrib
-
-        # Normalise: GH integral of f(x)*exp(-x^2) dx, we want E[...] over N(0,1)
-        # gh_weights already normalised for exp(-x^2); divide by sqrt(pi)
-        total_price /= math.sqrt(math.pi)
-
-        return max(total_price, 0.0)
-
-    except Exception:
+    # Payment dates: annual, could be extended for semi-annual
+    n_pay = max(1, int(round(tenor_years)))
+    pay_times = [t + k for k in range(1, n_pay + 1)]
+    pay_times = [s for s in pay_times if s <= t + tenor_years + 1e-9]
+    if not pay_times:
         return 0.0
+
+    # Coupon weights c_k for each payment date
+    c = [strike] * len(pay_times)
+    c[-1] += 1.0  # principal repayment on final leg
+
+    # omega: receiver = call on ZCBs, payer = put on ZCBs
+    # Payer swaption = P(fixed) - pay float = short bond portfolio
+    # => equivalent to a put on bond portfolio for payer
+    # Brigo-Mercurio: payer swaption = sum of put ZCB options
+    is_zcb_call = not is_payer  # payer swaption => put ZCBs
+
+    # First factor conditional distribution: x | curve
+    # x ~ N(mu_x, var_x) at time t (starting from x0=0)
+    var_x = sigma1 ** 2 * (1.0 - math.exp(-2 * a * t)) / (2 * a) if a > 0 else sigma1 ** 2 * t
+    std_x = math.sqrt(max(var_x, 0.0))
+
+    # Gauss-Hermite nodes and weights for integration over x
+    gh_nodes, gh_weights = np.polynomial.hermite.hermgauss(n_quad)
+
+    total_price = 0.0
+
+    for xi_raw, w_gh in zip(gh_nodes, gh_weights):
+        # Map GH node to x value: integral over N(0, var_x)
+        x_val = math.sqrt(2.0) * std_x * xi_raw
+
+        # Given x_val, y* such that sum(c_k * P(x,y*,s_k)) = 1
+        # Solve for y* numerically (1-D root finding)
+        def bond_portfolio(y_val: float) -> float:
+            total = 0.0
+            for ck, sk in zip(c, pay_times):
+                total += ck * _g2pp_zcb(a, b, sigma1, sigma2, rho,
+                                        curve, x_val, y_val, sk)
+            return total - 1.0
+
+        # Bracket root for Jamshidian's y*.
+        # Fix T2.12: pre-fix this fell back to `y_star = 0.0` if either
+        # the bracket expansion failed (no sign change after 10 rounds) or
+        # any internal exception raised.  `y_star = 0` is just wrong —
+        # the K_k strikes derived from it are unrelated to the actual
+        # swaption, producing wildly wrong prices that the outer
+        # `except Exception: return 0.0` then masked further.
+        # Post-fix: raise instead of silent fallback.
+        y_lo, y_hi = -0.5, 0.5
+        bp_lo = bond_portfolio(y_lo)
+        bp_hi = bond_portfolio(y_hi)
+        # Expand bracket up to 10 doublings.
+        for _ in range(10):
+            if bp_lo * bp_hi < 0:
+                break
+            y_lo -= 0.5
+            y_hi += 0.5
+            bp_lo = bond_portfolio(y_lo)
+            bp_hi = bond_portfolio(y_hi)
+
+        if bp_lo * bp_hi >= 0:
+            raise RuntimeError(
+                f"g2pp_swaption_price: failed to bracket Jamshidian y* "
+                f"for x={x_val:.4f}; bond_portfolio({y_lo:.2f})={bp_lo:.4e}, "
+                f"bond_portfolio({y_hi:.2f})={bp_hi:.4e} have the same "
+                f"sign after 10 expansions.  Likely model parameters "
+                f"are out of regime (a, b, sigma1, sigma2, rho)."
+            )
+        from scipy.optimize import brentq
+        y_star = brentq(bond_portfolio, y_lo, y_hi, xtol=1e-10, maxiter=50)
+
+        # Strike prices for individual ZCB options
+        # K_k = P(x_val, y_star; s_k) (the ZCB value at y*)
+        k_strikes = [
+            _g2pp_zcb(a, b, sigma1, sigma2, rho, curve, x_val, y_star, sk)
+            for sk in pay_times
+        ]
+
+        # Price each ZCB option (analytically in y given x)
+        # Conditional vol of y: N(rho*sigma2/sigma1 * (1-e^{-bt})/b * x, var_y|x)
+        # For the G2++ bond option formula, we use the unconditional
+        # formula (which already integrates over both factors).
+        # Here we weight by the x density and price analytically.
+        swaption_contrib = 0.0
+        for ck, sk, kk in zip(c, pay_times, k_strikes):
+            opt_price = _g2pp_zcb_option(
+                a, b, sigma1, sigma2, rho, curve,
+                t, sk, sk, kk, is_zcb_call,
+            )
+            swaption_contrib += ck * opt_price
+
+        # GH weight includes 1/sqrt(pi) normalisation
+        total_price += w_gh * swaption_contrib
+
+    # Normalise: GH integral of f(x)*exp(-x^2) dx, we want E[...] over N(0,1)
+    # gh_weights already normalised for exp(-x^2); divide by sqrt(pi)
+    total_price /= math.sqrt(math.pi)
+
+    return max(total_price, 0.0)
+
 
 
 # ---------------------------------------------------------------------------
