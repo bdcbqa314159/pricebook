@@ -2,6 +2,34 @@
 
 ---
 
+## v0.917.0 — 2026-06-12
+
+**Fix L2 T2.6 — `_romberg` now uses a native Richardson extrapolation; scipy.integrate.romberg was removed in SciPy 1.15.**
+
+`numerical/_integrate.py::_romberg` wrapped `scipy.integrate.romberg`, which was removed in SciPy 1.15. Every call to `integrate(..., method=IntegrationMethod.ROMBERG)` raised:
+
+```
+ImportError: cannot import name 'romberg' from 'scipy.integrate'
+```
+
+Replaced with a native Romberg-on-trapezoid implementation (incremental trapezoidal refinement + Richardson extrapolation of the table). Returns proper `IntegrationResult` with the error estimate and convergence flag. No more SciPy version pin needed.
+
+### Verification — `test_l2_t2_6_romberg_native.py`
+
+6 tests, all pass:
+- Constant function: ∫₀¹ 5 dx = 5 (exact).
+- ∫₀¹ x³ dx = 1/4 to 1e-10.
+- ∫₀^π sin(x) dx = 2 to 1e-10.
+- 5σ-truncated standard normal CDF ≈ 1 to 1e-6.
+- ∫₀^{2π} cos(x) dx = 0 to 1e-8.
+- Smoke test: no ImportError, `result.method == "romberg"`, `result.converged`.
+
+Tier-2 status: **9 of 18 closed** (added T2.6).
+
+Full parallel suite: **12025 passed in 4:05** — zero regressions.
+
+---
+
 ## v0.916.0 — 2026-06-12
 
 **Fix L2 T2.5 — `wavelet_transform` pads non-power-of-2 input.**
