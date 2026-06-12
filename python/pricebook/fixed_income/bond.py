@@ -96,12 +96,32 @@ class FixedRateBond:
         return [cf for cf in self.coupon_leg.cashflows if cf.payment_date > settlement]
 
     def dirty_price(self, curve: DiscountCurve) -> float:
-        """Full price: PV of remaining coupons + PV of principal, per 100 face."""
+        """Full price: PV of remaining coupons + PV of principal, per 100 face.
+
+        Fix T4-BOND1: when settlement falls in the ex-dividend window of an
+        upcoming coupon, the buyer does NOT receive that coupon (it goes to
+        the record-date holder).  Pre-fix `dirty_price` included every
+        coupon with ``payment_date > settlement`` while `accrued_interest`
+        correctly returned a NEGATIVE value in the ex-div window.  Result:
+        ``clean_price = dirty - (-accrued) = dirty + |accrued|`` was about
+        one full coupon TOO HIGH right after the ex-div boundary — a
+        discontinuity of size ≈ coupon at the ex-div date, which by market
+        convention should be barely perceptible (clean price moves only by
+        a few days of accrued).
+
+        Correct: in ex-div, exclude the upcoming coupon's cashflow from
+        the dirty-price PV.  Then ``clean = dirty - accrued`` makes
+        clean continuous across the ex-div boundary.
+        """
         settlement = curve.reference_date
-        pv = sum(
-            cf.amount * curve.df(cf.payment_date)
-            for cf in self._future_cashflows(settlement)
-        )
+        pv = 0.0
+        for cf in self._future_cashflows(settlement):
+            if self.ex_div_days > 0:
+                # Skip the upcoming coupon if settlement is on/after its ex-div date.
+                ex_date = cf.accrual_end - timedelta(days=self.ex_div_days)
+                if cf.accrual_start <= settlement < cf.accrual_end and settlement >= ex_date:
+                    continue
+            pv += cf.amount * curve.df(cf.payment_date)
         if self.maturity > settlement:
             # Principal at maturity uses last-period face value (sinking fund support)
             final_face = self.coupon_leg.notional_schedule[-1]
