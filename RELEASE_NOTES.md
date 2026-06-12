@@ -2,6 +2,63 @@
 
 ---
 
+## v0.936.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `fokker_planck_1d` Crank-Nicolson implicit matrix coefficients (diagonal 2× over-stated, off-diagonals use wrong `diff` index).**
+
+`models/fokker_planck.py::fokker_planck_1d` built the CN implicit matrix as:
+
+```python
+a = 0.5 * diff[i] / dx**2
+lower[i-1] = -0.5 * dt * a
+diag[i-1]  = 1 + dt * diff[i] / dx**2
+upper[i-1] = -0.5 * dt * a
+```
+
+Two errors:
+
+1. **Diagonal coefficient is 2× too large**.  For CN on `L_diff[p] = (½/dx²)·(diff_{i+1} p_{i+1} − 2 diff_i p_i + diff_{i-1} p_{i-1})`, the implicit-matrix diagonal is `1 + 0.5·dt·diff[i]/dx²`, not `1 + dt·diff[i]/dx²`.  The extra factor acts as an artificial damper.
+
+2. **Off-diagonals use `diff[i]` instead of `diff[i±1]`**.  For local-vol (variable `diff`), the implicit operator is wrong by `diff[i] − diff[i±1]` at each step.
+
+### Magnitude
+
+Vanilla BS lognormal (S₀=100, r=5 %, σ=20 %, T=1 y) on 400×400 grid:
+
+| | Pre-fix | Post-fix | Exact lognormal |
+|---|---|---|---|
+| Mean | 103.24 (-1.80%) | 103.58 (-1.47%) | 105.13 |
+| Variance | 365.77 (**-19.0%**) | 442.20 (-2.0%) | 451.03 |
+| Var ratio (FP/exact) | 0.81 | **0.98** | 1.00 |
+
+The 19 % variance under-statement is exactly the artificial damping signature of the over-stated implicit diagonal.
+
+### The fix
+
+```python
+inv_dx2 = 1.0 / (dx * dx)
+for i in range(1, n_space - 1):
+    lower[i-1] = -0.25 * dt * diff[i-1] * inv_dx2
+    diag[i-1]  = 1.0 + 0.5 * dt * diff[i] * inv_dx2
+    upper[i-1] = -0.25 * dt * diff[i+1] * inv_dx2
+```
+
+Residual ~1.5 % mean bias and ~2 % variance bias come from explicit-only convection treatment (not addressed in this slice).
+
+### Verification — `test_l2_t4_fokker_planck.py`
+
+4 new tests, all pass:
+- `test_variance_matches_analytical_lognormal` — FP variance ≥ 95 % of analytical (was 81 % pre-fix).
+- `test_mean_close_to_exact` — mean within 3 % of `S₀·exp(rT)`.
+- `test_density_normalised` — total mass ≈ 1.
+- `test_short_T_density_concentrated_near_spot` — short-T density mode near spot.
+
+Full parallel suite: **12127 passed in 2:58** — zero regressions.
+
+Fourth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.935.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `HJMModel.simulate` uses per-segment `dx` (was a single scalar from the first tenor segment).**
