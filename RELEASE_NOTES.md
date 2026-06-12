@@ -2,6 +2,53 @@
 
 ---
 
+## v0.938.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `cos_greeks` vega missing 2σΔσ linear term + drift correction (was ≈ 30× too small).**
+
+`models/fourier_greeks.py::_cos_vega` perturbed the CF by adding `Δσ²·T` to the log-return variance:
+
+```python
+def cf_bumped(u):
+    return char_func(u) * np.exp(-0.5 * d_vol**2 * T * u**2)
+```
+
+But bumping `σ → σ + Δσ` changes the variance by `(σ+Δσ)²·T − σ²·T = (2σΔσ + Δσ²)·T`. Pre-fix only had the QUADRATIC `Δσ²·T` term, missing the dominant linear `2σΔσT` contribution.
+
+For σ=20 %, Δσ=1 %:
+- Pre-fix ΔVar = (0.01)² · T = 1e-4 · T
+- Correct ΔVar = (2 × 0.20 × 0.01 + 1e-4) · T ≈ 4.1e-3 · T
+
+So the CF perturbation was **41× too small**, and the reported vega was **~30× too small** (ATM call: 0.012 reported vs analytical BS 0.376).
+
+Additionally, the BS martingale-preserving drift `μ = (r−q)T − 0.5σ²T` also shifts under σ bump: `μ → μ − (σΔσ + 0.5Δσ²)·T`. Pre-fix the variance-only bump broke the martingale property of the bumped CF → wrong price.
+
+**Fix**: infer `σ_implied` from the CF via second-cumulant extraction (`c₂ = σ²·T`), then apply BOTH the linear+quadratic variance shift AND the matching drift shift:
+
+```python
+d_mu = -(sigma_implied * d_vol + 0.5 * d_vol**2) * T
+var_extra = (2 * sigma_implied * d_vol + d_vol**2) * T
+
+def cf_bumped(u):
+    return char_func(u) * np.exp(1j * u * d_mu - 0.5 * var_extra * u**2)
+```
+
+### Verification — `test_l2_t4_cos_greeks_vega.py`
+
+6 new tests, all pass (parametrised over K = 80 / 100 / 120 and σ = 0.10 / 0.20 / 0.40). Each case matches analytical BS vega to <10 %:
+
+| Case | cos_greeks vega | BS analytical | Ratio |
+|---|---|---|---|
+| ATM σ=20% | 0.3757 | 0.3752 | 1.001 |
+| ITM K=80 | 0.1425 | 0.1363 | 1.046 |
+| OTM K=120 | 0.3442 | 0.3407 | 1.010 |
+
+Full parallel suite: **12135 passed in 2:39** — zero regressions.
+
+Sixth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.937.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `adaptive_euler` Brownian-bridge split for the two-half-step error estimate.**
