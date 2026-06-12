@@ -66,13 +66,20 @@ def fair_variance(
     if is_call is None:
         is_call = K > forward
 
+    # Trapezoidal quadrature weights for ∫ P(K)/K² dK on a possibly-non-uniform
+    # strike grid.  Fix T4-VS1: pre-fix used `K[1]-K[0]` (full segment width)
+    # for the boundary points but `0.5·(K[i+1]-K[i-1])` (half-segment sum) for
+    # interior points.  Boundary weights were 2× too large — over-counting
+    # the endpoints of the replication strip.  For a sparse strike grid this
+    # introduces a ~5 % bias in the fair variance.
     integral = 0.0
     for i in range(n):
-        # Width of strike interval
-        if i == 0:
-            dk = K[1] - K[0] if n > 1 else 1.0
+        if n == 1:
+            dk = 1.0
+        elif i == 0:
+            dk = 0.5 * (K[1] - K[0])
         elif i == n - 1:
-            dk = K[-1] - K[-2] if n > 1 else 1.0
+            dk = 0.5 * (K[-1] - K[-2])
         else:
             dk = 0.5 * (K[i + 1] - K[i - 1])
 
