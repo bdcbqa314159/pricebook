@@ -169,24 +169,50 @@ def fourier_greeks(
 # ---- Vega helpers ----
 
 def _cos_vega(char_func, spot, strike, rate, T, option_type, div_yield, N, L, base_price):
-    """Vega via COS with CF perturbation.
+    """Vega via COS with CF perturbation (BS-like log-return variance bump).
 
-    For BS-like models, vega = ∂V/∂σ. For general CFs, we approximate
-    by perturbing the variance of the log-return distribution.
+    For BS-like models, bumping σ by Δσ changes the log-return variance
+    by ΔVar = (σ + Δσ)²·T − σ²·T = (2σ·Δσ + Δσ²)·T.
 
-    Strategy: scale the CF by a small variance bump:
-    φ_bumped(u) = φ(u) × exp(-½ × δσ² × u² × T)
-    which adds δσ² to the variance of the log-return.
+    Fix T4-FG1: pre-fix added `δσ²·T` (the QUADRATIC term only) to the
+    variance, missing the dominant linear 2σΔσT term.  For σ=20 %, Δσ=1 %:
+        pre-fix ΔVar = (0.01)² · T = 1e-4 · T
+        correct ΔVar = (2 × 0.20 × 0.01 + 1e-4) · T ≈ 4.1e-3 · T
+    so the CF perturbation was ≈ 41× too small and the reported vega was
+    ≈ 30× too small (≈ 0.012 for an ATM call where BS vega is ≈ 0.376).
+
+    Post-fix extracts the implied σ from the CF via cumulant matching
+    (c2 ≈ σ²·T) and applies the correct ΔVar perturbation.
     """
+    import cmath
     from pricebook.models.cos_method import cos_price
 
     d_vol = 0.01  # 1% vol bump
 
-    # Perturbed CF: add variance
+    # Extract σ_implied from the CF via the 2nd cumulant c2 = σ²·T.
+    eps = 1e-4
+    try:
+        ln_0 = cmath.log(char_func(0.0))
+        ln_p = cmath.log(char_func(eps))
+        ln_m = cmath.log(char_func(-eps))
+        c2 = float(-(ln_p + ln_m - 2 * ln_0).real / (eps ** 2))
+    except (ValueError, ZeroDivisionError):
+        c2 = 0.0
+    sigma_implied = math.sqrt(max(c2, 0.0) / T) if T > 1e-12 else 0.0
+
+    # For a BS-like CF phi(u) = exp(iu·μ − 0.5·σ²T·u²) with
+    # μ = (r-q)T − 0.5·σ²T (martingale-preserving drift), bumping σ → σ+Δσ
+    # changes BOTH the drift and the variance:
+    #   Δμ = -0.5·(σ+Δσ)²T + 0.5·σ²T = -(σΔσ + 0.5·Δσ²)·T
+    #   ΔVar = (2σΔσ + Δσ²)·T
+    # So the bumped CF is phi(u) · exp(i·u·Δμ − 0.5·ΔVar·u²).
+    # Pre-fix only adjusted variance; the missing drift correction broke
+    # the martingale property and gave a different (wrong) vega magnitude.
+    d_mu = -(sigma_implied * d_vol + 0.5 * d_vol ** 2) * T
+    var_extra = (2 * sigma_implied * d_vol + d_vol ** 2) * T
+
     def cf_bumped(u):
-        base = char_func(u)
-        # Adding variance δσ²T to log-return: multiply CF by exp(-½ δσ² T u²)
-        return base * np.exp(-0.5 * d_vol**2 * T * u**2)
+        return char_func(u) * np.exp(1j * u * d_mu - 0.5 * var_extra * u ** 2)
 
     p_bumped = cos_price(cf_bumped, spot, strike, rate, T, option_type, div_yield, N, L)
     return p_bumped - base_price  # per 1% vol
