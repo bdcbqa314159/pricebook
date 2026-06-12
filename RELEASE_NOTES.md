@@ -2,6 +2,74 @@
 
 ---
 
+## v0.908.0 — 2026-06-12
+
+**Fix L2 T1.6 — discrete dividends now escrowed at the correct step in both binomial and trinomial trees.**
+
+Eighth of 13 Tier-1 (dual-critic-confirmed) bugs from `MODULE_HEALTH.md` closed. This one had two sub-bugs in `numerical/_trees.py`:
+
+### Sub-bug 1 — Binomial: dividends applied only to the terminal grid
+
+Pre-fix, `_solve_binomial` constructed the spot tree by subtracting cumulative dividends *once at the terminal step*. The intermediate-step `S_step` array (used by every backward-induction iteration for early-exercise and barrier checks) was rebuilt as the **raw pre-dividend forward** at each step.
+
+Consequence: an American option with a known dividend mid-life saw the wrong (too-high) intermediate spot, biasing the early-exercise decision; barrier knock-out checks used the wrong intermediate spot too. The terminal price was correct in aggregate, but the path-dependent / early-exercise behaviour was wrong.
+
+### Sub-bug 2 — Trinomial: dividends silently ignored entirely
+
+`_solve_trinomial` had **no dividend handling whatsoever** — `self.dividends` was accepted in the constructor but never read by the trinomial path. A user passing `dividends=[(25, 10.0)]` to `TreeMethod.TRINOMIAL` got identically the same answer as `dividends=None`.
+
+### Fix — escrowed-dividend convention applied to both
+
+Both `_solve_binomial` and `_solve_trinomial` now share the same per-step helper structure:
+
+```python
+def _cum_div_through(s: int) -> float:
+    return sum(amt for step, amt in self.dividends.items() if step <= s)
+
+def _spot_at_step(s: int) -> np.ndarray:
+    grid = ...   # raw forward spot grid at step s
+    cum = _cum_div_through(s)
+    if cum > 0:
+        grid = np.maximum(grid - cum, 0.01)
+    return grid
+```
+
+At each step `s`, the spot grid has cumulative dividends paid through step `s` subtracted. This is the standard "escrowed dividend" convention (Hull §21.12): the underlying drops by the dividend amount on the ex-date, and that drop is reflected in *every* node from that step forward.
+
+`S` (terminal) and `S_step` (intermediate) now both go through `_spot_at_step`, so they agree on the dividend-adjusted spot. Floor at `0.01` guards against degenerate cases where down-moves push the dividend-adjusted spot to zero.
+
+### Verification — `test_l2_t1_6_discrete_dividends.py`
+
+4 new regression tests, all pass:
+- `test_dividend_at_step_zero_equals_terminal_dividend` — boundary: dividend at step 0 reduces call PV.
+- `test_dividend_at_intermediate_step_affects_price` — dividend at step 25/50 reduces European call price.
+- `test_american_call_with_dividend_exercises_correctly` — with a large mid-life dividend, American call ≥ European call (proper American premium for dividends — the classic textbook case).
+- `test_trinomial_dividend_actually_affects_price` — trinomial now responds to `dividends=[(25, 10.0)]` (pre-fix delta was ~0; post-fix delta > 1).
+
+Full parallel suite: **11964 passed in 3:21** — zero regressions.
+
+### Tier-1 status — 8 of 13 closed
+
+| # | Module | Status |
+|---|---|---|
+| T1.1 | `numerical/_mc.py` multilevel_mc broken | queued |
+| T1.2 | `numerical/_fourier.py` density crash | ✅ v0.907 |
+| T1.3 | `numerical/_integrate.py` integrate_2d swap | ✅ v0.907 |
+| T1.4 | `numerical/_optimize.py` interior_point drops equality constraints | queued |
+| T1.5 | `numerical/_trees.py` Tian V formula | ✅ v0.907 |
+| **T1.6** | `numerical/_trees.py` discrete dividends terminal-grid + trinomial ignored | ✅ this slice |
+| T1.7 | `models/mc_engine.py` Milstein silently runs Euler | ✅ v0.907 |
+| T1.8 | `models/cos_method.py` V_k integration bounds deep ITM | queued |
+| T1.9 | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | queued |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| T1.13 | `curves/aad_curves.py` swap bootstrap flat-extrapolation | queued |
+
+Remaining 5 are the harder ones (math review needed): T1.1 MLMC redesign, T1.4 IPM rewrite, T1.8 cos_method V_k re-derivation, T1.9 Hull-White swaption analytic, T1.13 AAD bootstrap.
+
+---
+
 ## v0.907.0 — 2026-06-12
 
 **Fix L2 Tier-1: four quick-win bugs (T1.2 trapz, T1.3 integrate_2d, T1.5 Tian, T1.7 Milstein).**
