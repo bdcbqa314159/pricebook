@@ -182,10 +182,10 @@ class FixedRateBond:
             weighted_t += t * pv
             total_pv += pv
 
-        # Principal
+        # Principal — Fix T2.14: use last-period notional (sinking-fund correct).
         t_mat = self._ytm_time_to(settle, self.maturity)
         n_mat = t_mat * periods_per_year
-        pv_prin = self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
+        pv_prin = self.coupon_leg.notional_schedule[-1] / (1.0 + ytm / periods_per_year) ** n_mat
         weighted_t += t_mat * pv_prin
         total_pv += pv_prin
 
@@ -218,9 +218,10 @@ class FixedRateBond:
             weighted += n * (n + 1) * pv
             total_pv += pv
 
+        # Fix T2.14: use last-period notional for redemption.
         t_mat = self._ytm_time_to(settle, self.maturity)
         n_mat = t_mat * periods_per_year
-        pv_prin = self.face_value / discount ** n_mat
+        pv_prin = self.coupon_leg.notional_schedule[-1] / discount ** n_mat
         weighted += n_mat * (n_mat + 1) * pv_prin
         total_pv += pv_prin
 
@@ -321,7 +322,16 @@ class FixedRateBond:
         return year_fraction(settle, target, self.day_count)
 
     def _price_from_ytm(self, ytm: float, settlement: date | None = None) -> float:
-        """Dirty price per 100 face from a yield, discounting from settlement."""
+        """Dirty price per 100 face from a yield, discounting from settlement.
+
+        Fix T2.14: pre-fix the redemption term used ``self.face_value`` which
+        is the FIRST period's notional from the (possibly variable) notional
+        schedule.  For a sinking-fund bond the actual redemption is the LAST
+        period's notional — ``dirty_price`` (curve-based) already used this
+        correctly (``notional_schedule[-1]``), so the YTM-based price and the
+        curve-based price silently disagreed for amortising bonds.  Use the
+        last-period notional consistently.
+        """
         settle = settlement if settlement is not None else self.issue_date
         freq = self.frequency.value
         periods_per_year = 12 / freq
@@ -332,7 +342,8 @@ class FixedRateBond:
             pv += cf.amount / (1.0 + ytm / periods_per_year) ** n
         t_mat = self._ytm_time_to(settle, self.maturity)
         n_mat = t_mat * periods_per_year
-        pv += self.face_value / (1.0 + ytm / periods_per_year) ** n_mat
+        redemption = self.coupon_leg.notional_schedule[-1]
+        pv += redemption / (1.0 + ytm / periods_per_year) ** n_mat
         return pv / self.face_value * 100.0
 
     @classmethod
