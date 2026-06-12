@@ -2,6 +2,67 @@
 
 ---
 
+## v0.914.0 — 2026-06-12
+
+**Fix L2 Tier-2: PDE non-uniform stencil + Dirichlet BC + American boundary + time-index — 4 bugs in `PDESolver1D` closed in one slice.**
+
+Opens the Tier-2 phase by clearing four entangled bugs in `numerical/_pde.py::PDESolver1D` that all touched the same `_theta_step` and outer time loop.
+
+### T2.2 — Uniform-grid stencil applied to non-uniform grids
+
+`_theta_step` discretised the second derivative with `d2 = σ²S² / (ds_m · ds_p)` and split it evenly into sub/super diagonals (`a[i] = d2/2 − d1`, `c[i] = d2/2 + d1`). For uniform grids this is correct; for non-uniform grids (LOG, SINH) the proper 3-point central stencil is
+
+> V_{i-1} coef = σ²S² / (ds_m · (ds_m+ds_p))
+> V_{i+1} coef = σ²S² / (ds_p · (ds_m+ds_p))
+> V_{i}   coef = −σ²S² / (ds_m · ds_p)
+
+Live measurement on the canonical ATM call (S=100, K=100, r=5%, σ=20%, T=1y):
+
+| Grid | Pre-fix PDE | Black-Scholes | Pre-fix error |
+|---|---|---|---|
+| UNIFORM | 10.4645 | 10.4506 | +0.13 % |
+| LOG | **11.7966** | 10.4506 | **+12.9 %** |
+
+Post-fix:
+
+| Grid | Post-fix PDE | rel. err |
+|---|---|---|
+| UNIFORM | 10.4645 | +0.13 % |
+| LOG | 10.4734 | **+0.22 %** |
+
+### T2.3 — Implicit Dirichlet BC not enforced in tridiagonal solve
+
+The tridiagonal system was built with `diag[0]=1, lower[0]=upper[0]=0` and `rhs[0]=0` (zero-init), so `V_new[0] = 0` after the solve. The code then overwrote `V_new[0] = V[0]` (the value BEFORE the step). The interior equation at `i=1` therefore used `V_new[0]=0` inside the implicit solve — wrong for **puts** (whose lower BC is `K·e^{−rτ} − S[0]`, non-zero) and for the upper BC of calls.
+
+Fix: pass the proper BCs into `_theta_step` as `bc_lo`, `bc_hi`; set `rhs[0]=bc_lo`, `rhs[-1]=bc_hi`. The boundary rows with `diag=1` then yield `V_new[boundary] = BC` naturally, and the interior solve at `i=1` / `i=N−2` uses the proper boundary value.
+
+### T2.B — Time-to-maturity index inverted at the boundary
+
+The outer loop applied the upper-boundary value as `S_max − K·exp(−r·(n_time − step)·dt)`. After step `k`, the time-to-maturity is `(k+1)·dt`, NOT `(n_time − k)·dt`. The expression is only correct at the middle step; everywhere else the boundary uses the wrong discount factor. Replaced with `τ = (step + 1)·dt`.
+
+### T2.4 — American boundaries used European discounted strike
+
+For American puts at `S→0`, the optimal exercise dominates: `V = K − S[0]` (intrinsic). Pre-fix the boundary used `K·e^{−rτ} − S[0]` (European). Fix: for `is_american=True`, set boundaries to intrinsic payoff, and re-impose intrinsic floor after the early-exercise projection.
+
+### Verification — `test_l2_t2_pde_stencil_bc.py`
+
+6 new regression tests, all pass:
+
+- `TestNonUniformStencil::test_log_grid_atm_call_matches_bs` — the headline: LOG grid no longer overshoots BS by 13 %.
+- `TestNonUniformStencil::test_uniform_grid_atm_call_matches_bs` — uniform grid unchanged (was already fine).
+- `TestDirichletBC::test_uniform_grid_atm_put_matches_bs` — uniform put now matches BS (pre-fix the implicit BC bug biased puts).
+- `TestDirichletBC::test_log_grid_atm_put_matches_bs` — combined fix: non-uniform grid + correct BC for put.
+- `TestAmericanBoundary::test_american_put_dominates_european` — deep-ITM American put ≥ intrinsic ≥ European.
+- `TestTimeIndex::test_long_dated_call_no_explosive_bias` — 5y ATM call agrees with BS to <2 %.
+
+Full parallel suite: **11994 passed in 4:45** — zero regressions.
+
+### Tier-2 status — 4 of 18 closed (T2.2, T2.3, T2.4 this slice; T2.1 already closed in v0.901 as B.1)
+
+Remaining Tier-2 (14): T2.5 wavelet_transform power-of-2; T2.6 _romberg dead; T2.7 interior_point equality-only (already closed via T1.4); T2.8 tree knock-in barriers; T2.9 trinomial prob clamp; T2.10 mc_engine.greek() bumps everything; T2.11/T2.12 g2pp_calibration silent failures; T2.13 aad_curves first-swap-no-deposit; T2.14 bond _price_from_ytm redemption; T2.15 SABR-HW blender at T=0; T2.16 cds convexity uses |PV|; T2.17 cds variable-notional drop; T2.18 cds protection_leg_pv notional[0].
+
+---
+
 ## v0.913.0 — 2026-06-12
 
 **Fix L2 T1.1 — `multilevel_mc` Giles coupling: coarse path now uses paired-sum fine increments. CLOSES ALL 13 TIER-1 BUGS.**
