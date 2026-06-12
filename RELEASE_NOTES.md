@@ -2,6 +2,94 @@
 
 ---
 
+## v0.911.0 — 2026-06-12
+
+**Fix L2 T1.13 — AAD swap bootstrap properly interpolates intermediate-coupon DFs through the unknown last-pillar DF instead of silently flat-extrapolating.**
+
+Eleventh of 13 Tier-1 (dual-critic-confirmed) bugs closed.
+
+### The bug
+
+`aad_bootstrap` (in `curves/aad_curves.py`) iterates over the input swaps and, at each step, builds a `temp_curve` from the EXISTING pillars only (i.e. the pillars determined so far — typically just the deposits before the first swap is processed). Intermediate-coupon DFs needed for the par-condition annuity were drawn via `temp_curve.df(coupon_date)`.
+
+When the new swap's tenor extended beyond all existing pillars (the common case — bootstrap a 5y swap against a 1y deposit, the only thing existing at that point is the 1y deposit pillar), the intermediate coupons at 1.5y, 2y, 2.5y, ..., 4.5y fell **in the extrapolation region** of `aad_log_linear_interp`, which flat-extrapolates at `dfs[-1]` (the last known pillar's DF). So the bootstrap silently equated every gap-coupon DF to the deposit DF, biasing both:
+
+1. **The numerical bootstrap itself** — the resulting 5y DF did not satisfy the par-zero PV condition when the curve was re-priced with proper interpolation.
+2. **The AAD sensitivities** — d(df_mat)/d(swap_rate) propagated through wrong intermediate DFs.
+
+### The fix
+
+A fixed-point iteration where the trial curve at each step **includes** the current `df_mat` estimate as a pillar, so gap-coupon DFs interpolate between the last existing pillar and `df_mat`:
+
+```python
+df_mat = Number(brentq(_par_residual_float, 1e-6, 3.0))  # sharp float init
+for _ in range(50):
+    trial_dfs = pillar_dfs + [df_mat]
+    trial_curve = AADDiscountCurve(reference_date, pillar_dates + [mat],
+                                    trial_dfs, swap_dc)
+    annuity_before_last = Number(0.0)
+    for k in range(1, len(schedule) - 1):
+        tau_k = year_fraction(schedule[k-1], schedule[k], swap_dc)
+        annuity_before_last += par_rate * tau_k * trial_curve.df(schedule[k])
+    tau_last = year_fraction(schedule[-2], schedule[-1], swap_dc)
+    df_mat_new = (Number(1.0) - annuity_before_last) / (Number(1.0) + par_rate * tau_last)
+    if abs(df_mat_new.value - df_mat.value) < 1e-14:
+        df_mat = df_mat_new
+        break
+    df_mat = df_mat_new
+```
+
+Two-stage solver:
+
+1. **Float pre-solve via `brentq`** — finds `df_mat` to machine precision using a plain-float `_FloatLogLinearCurve` that mirrors the AAD curve's log-linear interpolation. Sharp initial guess for stage 2.
+2. **AAD fixed-point** — starting from the brentq solution, iterates the construction `x → (1 − annuity_before(x)) / (1 + K·τ_last)` with full Number arithmetic. At the converged fixed point, the AAD graph captures the implicit-function dependency `dx*/dp = −(∂A + ∂B) / (1 + ∂B/∂x)` of the par-condition root. Convergence is fast — `|B'(x*)|` is typically ≤ 0.06, so residual reaches 1e-14 in well under 50 iterations.
+
+### Verification — `test_l2_t1_13_aad_bootstrap_interp.py`
+
+4 new regression tests:
+
+- **`test_bootstrap_repriceses_5y_swap_after_1y_deposit`** — the canonical T1.13 case. Bootstrap a 1y deposit + 5y swap, then re-price the 5y swap against the curve. Post-fix PV ≈ 5e-17 (machine precision). Pre-fix this re-pricing PV was far from zero because gap-coupon DFs were anchored at the deposit DF.
+- **`test_bootstrap_repriceses_three_swaps`** — stress: 1y deposit + 2y, 5y, 10y swaps. All three must re-price at par. Post-fix: ≤ 1e-8 for each. Pre-fix: errors compound through the bootstrap chain.
+- **`test_dpv_dswaprate_nonzero`** — AAD sensitivity check: `d df(3y) / d swap_5y_rate` and `d df(3y) / d dep_1y_rate` are both nonzero. Pre-fix the swap-rate adjoint was wrong because intermediate DFs didn't flow through `swap_rate`.
+- **`test_bumped_swaprate_changes_intermediate_df`** — finite-difference check: a 1bp bump in the swap rate must move df(3y) by a measurable amount (>1e-5). Pre-fix the bumped curve's df(3y) was nearly identical to base because it was flat-extrapolated from the unchanged deposit DF.
+
+Live demonstration of the fix:
+```
+Bootstrapped pillar DFs (post-fix):
+  t=0.000 df=1.000000
+  t=1.000 df=0.975279
+  t=4.997 df=0.819202
+Schedule DFs at 0.5y intervals:  smooth log-linear monotone interpolation
+  t=1.496 df=0.954350  (between 1y and 5y pillars)
+  ...
+  t=4.499 df=0.837268
+Re-priced par swap PV = -5.55e-17
+```
+
+Full parallel suite: **11980 passed in 3:24** — zero regressions.
+
+### Tier-1 status — 11 of 13 closed
+
+| # | Module | Status |
+|---|---|---|
+| T1.1 | `numerical/_mc.py` multilevel_mc broken | queued |
+| T1.2 | `numerical/_fourier.py` density crash | ✅ v0.907 |
+| T1.3 | `numerical/_integrate.py` integrate_2d swap | ✅ v0.907 |
+| T1.4 | `numerical/_optimize.py` interior_point drops equality constraints | queued |
+| T1.5 | `numerical/_trees.py` Tian V formula | ✅ v0.907 |
+| T1.6 | `numerical/_trees.py` discrete dividends terminal-grid + trinomial | ✅ v0.908 |
+| T1.7 | `models/mc_engine.py` Milstein silently runs Euler | ✅ v0.907 |
+| T1.8 | `models/cos_method.py` V_k integration bounds deep ITM | ✅ v0.910 |
+| T1.9 | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | ✅ v0.909 |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| **T1.13** | `curves/aad_curves.py` swap bootstrap flat-extrapolation | ✅ this slice |
+
+**2 remaining — the deepest two:** T1.1 (MLMC redesign — needs Giles coupling), T1.4 (interior_point IPM rewrite).
+
+---
+
 ## v0.910.0 — 2026-06-12
 
 **Fix L2 T1.8 — COS method V_k payoff integral now intersects the payoff support with the truncation interval [a, b].**
