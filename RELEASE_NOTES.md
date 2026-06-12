@@ -2,6 +2,84 @@
 
 ---
 
+## v0.915.0 — 2026-06-12
+
+**Fix L2 Tier-2: CDS variable-notional propagates through aged-CDS methods + convexity formula uses notional.**
+
+Three coupled bugs in `credit/cds.py` closed in one slice.
+
+### T2.18 — `protection_leg_pv` silently used `notional[0]` for list inputs without `schedule_dates`
+
+If a caller passed `notional=[1M, 2M, 3M]` but omitted `schedule_dates`, the function fell through to `n = notional[0]` and scaled the entire protection leg by 1M — variable-notional CDS got priced as constant-1M. Now raises `ValueError` so the caller cannot accidentally lose the schedule.
+
+### T2.17 — Variable notional silently dropped in aged-CDS methods
+
+`CDS.__init__` set `self.notional = self.notional_schedule[0]` (scalar first-period) for convenient single-value access. But five methods then passed `notional=self.notional` (the scalar) when constructing a new aged/parallel `CDS`:
+
+- `isda_upfront` — built the std-coupon CDS with scalar
+- `roll_down` — built shorter CDS with scalar
+- `theta` — built aged CDS with scalar
+- `rec01` — built recovery-bumped CDS with scalar
+- `cds_pnl_attribution` — built aged CDS with scalar
+
+Result: variable-notional CDS got their tail-period notionals silently dropped in roll-down, theta, isda upfront, rec01, and full P&L attribution.
+
+**Fix**:
+- `rec01` and `isda_upfront`: forward `self.notional_schedule` (full list).
+- `roll_down`, `theta`, `cds_pnl_attribution`: introduce new `_aged_notional(new_start)` helper that slices the schedule at the period containing `new_start`. The aged CDS then has a notional list of length = remaining-periods.
+
+### T2.16 — Convexity P&L multiplied by `|PV|` instead of notional
+
+`spread_convexity` returns `d²PV/ds² / notional`. The second-order P&L correction is therefore
+
+> convexity_pnl = ½ × (conv × notional) × Δs²
+
+Pre-fix the code used `pv_for_conv = abs(pv_t0)` with a fallback to `cds.notional` only when `|PV| < 1e-10`. This was dimensionally wrong: |PV| is small near par (where the CDS spread equals the par spread, e.g. typical IG trading conventions) and grows with mark-to-market away from par — neither is the right normalisation. The formula effectively collapsed to ~0 near par and gave a |PV|-scaled value elsewhere.
+
+Fixed to `0.5 * conv * cds.notional * delta_spread**2`.
+
+### Verification — `test_l2_t2_cds_variable_notional.py`
+
+8 new regression tests, all pass:
+
+- `TestProtectionLegRequiresScheduleForList`:
+  - `test_raises_on_list_without_schedule` — variable notional without schedule_dates now raises.
+  - `test_scalar_path_unchanged` — scalar path still works.
+- `TestVariableNotionalPropagation` (amortising 5y CDS with 20 periods, notional from 10M → 2.4M):
+  - `test_average_notional_not_scalar` — sanity: the schedule is genuinely variable.
+  - `test_isda_upfront_uses_average_notional` — variable vs constant-10M produce different upfronts.
+  - `test_roll_down_sees_variable_notional` — roll_down for variable ≠ for first-period-only.
+  - `test_theta_sees_variable_notional` — same for theta.
+- `TestConvexityFormula`:
+  - `test_convexity_pnl_nonzero_at_par` — at-par CDS (|PV|≈0): post-fix convexity is non-zero (pre-fix collapsed to ~0).
+  - `test_convexity_scales_with_notional` — 10× notional → 10× convexity P&L (linearity check).
+
+Full parallel suite: **12002 passed in 4:50** — zero regressions.
+
+### Tier-2 status — 7 of 18 closed
+
+| # | Status | Note |
+|---|---|---|
+| T2.1 | ✅ pre-existing | roll_down DF renormalisation (v0.901 as B.1) |
+| T2.2 | ✅ v0.914 | PDE LOG-grid stencil |
+| T2.3 | ✅ v0.914 | PDE implicit Dirichlet BC |
+| T2.4 | ✅ v0.914 | PDE American boundary |
+| T2.5 | queued | wavelet_transform power-of-2 |
+| T2.6 | queued | _romberg dead in SciPy 1.15 |
+| T2.7 | ✅ subsumed by T1.4 | interior_point equality |
+| T2.8 | queued | tree knock-in barriers |
+| T2.9 | queued | trinomial prob clamp |
+| T2.10 | queued | mc_engine.greek() bumps all |
+| T2.11/12 | queued | g2pp_calibration silent failures |
+| T2.13 | queued | aad_curves first-swap-no-deposit |
+| T2.14 | queued | bond _price_from_ytm redemption |
+| T2.15 | queued | SABR-HW blender at T=0 |
+| **T2.16** | ✅ this slice | CDS convexity uses notional |
+| **T2.17** | ✅ this slice | Variable notional propagation |
+| **T2.18** | ✅ this slice | protection_leg_pv list+no-schedule |
+
+---
+
 ## v0.914.0 — 2026-06-12
 
 **Fix L2 Tier-2: PDE non-uniform stencil + Dirichlet BC + American boundary + time-index — 4 bugs in `PDESolver1D` closed in one slice.**
