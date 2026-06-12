@@ -2,6 +2,35 @@
 
 ---
 
+## v0.941.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `credit_risk` survival-curve bumps extracted segment hazards from already-bumped state (parallel and per-pillar both off; cancelling errors masked the bug).**
+
+Two coupled bugs in `credit/credit_risk.py` survival-curve bump routines:
+
+1. **`_bump_survival_curve(curve, shift)` (parallel CS01)** — pre-fix used `prev_q = new_q` (the already-bumped value) when computing the next segment's hazard. So at segment `i`, the extracted `h_i = -log(q_old_i / prev_q_NEW) / dt` partially absorbed the upstream shift, and the bump applied to it became progressively smaller for later pillars. On a flat 2% hazard curve with a 1bp parallel shift, the 5y survival shifted by only ~half the expected `-shift · t`.
+
+2. **`_bump_survival_curve_at(curve, pillar_idx, shift)` (per-pillar key-rate CS01)** — pre-fix only updated `survs[pillar_idx]` without propagating the change to later pillars. Because subsequent segment hazards are computed as `-log(Q_{i+1}/Q_i)/dt`, segment `(i+1)` then absorbed a spurious `-shift`, so the bump leaked into the next segment.
+
+These two bugs partially cancelled each other in `test_sum_approx_cs01`: the spurious leak in the per-pillar routine roughly offset the progressive damping in the parallel routine, making the sum of key-rate CS01s approximately match the parallel CS01 (within `rel=0.3`). Fixing only one routine caused the test to fail (ratio went to 2.5×).
+
+**Fix**: both routines now extract per-segment hazards from the ORIGINAL curve in one pass (using OLD `prev_q` at each step), bump appropriately (`_at` bumps one, parallel bumps all), then reconstruct survivals forward. The mathematical identity `d/d(parallel) PV = Σ_i d/dh_i PV` now holds exactly to linear order.
+
+### Verification — `test_l2_t4_credit_risk_bump.py`
+
+3 new tests, all pass:
+- `test_parallel_bump_shifts_log_survival_proportionally` — flat-hazard curve under parallel bump shifts log(Q_t) by exactly `-shift · t` at every pillar (was ~half at long pillars pre-fix).
+- `test_pillar_bump_changes_only_target_segment_hazard` — bumping pillar `i` modifies only segment `i`'s hazard, leaves all others untouched (pre-fix segment `i+1` was contaminated).
+- `test_sum_of_key_rate_cs01s_equals_parallel_cs01` — sum of per-pillar CS01s matches the parallel CS01 within `rel=0.01` (pre-fix only `rel=0.3` and unstable).
+
+Pre-existing `test_sum_approx_cs01` (with `rel=0.3`) still passes.
+
+Full parallel suite: **12144 passed in 2:36** — zero regressions.
+
+Ninth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.940.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — PRDC pricer discount factor uses path-integrated short rate (was spot rate × t).**
