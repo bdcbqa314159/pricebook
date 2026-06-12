@@ -149,9 +149,21 @@ def multicurve_newton(
                 t = year_fraction(reference_date, inst['maturity'], day_count)
                 model_rate = (1.0 / ois.df(inst['maturity']) - 1.0) / t
             else:
-                # OIS swap: par = (1 - df(T)) / annuity with correct annuity
+                # OIS swap: par = (1 - df(T)) / annuity with correct annuity.
+                # Fix T3.19: pre-fix the annuity was computed over pillars
+                # `<= maturity`.  If the instrument's maturity didn't EXACTLY
+                # match a pillar, the annuity truncated at the last pillar
+                # below maturity while `df_T` was interpolated to maturity —
+                # so the annuity covered ref → last_pillar (less than the
+                # full life of the swap) while df_T covered ref → maturity.
+                # The par-rate `(1 − df_T) / annuity` was then biased.
+                # Fix: include `maturity` as the last endpoint of the annuity
+                # walk (preserving the existing pillars but ensuring the
+                # final partial-period DF lands at the maturity date).
                 df_T = ois.df(inst['maturity'])
                 dates_up_to = [d for d in ois_pillar_dates if d <= inst['maturity']]
+                if not dates_up_to or dates_up_to[-1] != inst['maturity']:
+                    dates_up_to = dates_up_to + [inst['maturity']]
                 annuity = _compute_annuity(ois, dates_up_to, day_count)
                 model_rate = (1 - df_T) / max(annuity, 1e-10) if annuity > 0 else 0
             errors[i] = model_rate - inst['rate']
@@ -165,7 +177,12 @@ def multicurve_newton(
             # first pillar) was being silently skipped while _compute_annuity
             # included it — model rates were systematically biased.
             # Walk the same period grid both sides start at reference_date.
+            # Fix T3.19 (mirror of OIS branch above): include maturity as
+            # the final endpoint so PV_float and annuity span the full life
+            # of the swap, not just up to the last pillar below maturity.
             dates_up_to = [d for d in projection_pillar_dates if d <= inst['maturity']]
+            if not dates_up_to or dates_up_to[-1] != inst['maturity']:
+                dates_up_to = dates_up_to + [inst['maturity']]
             pv_float = 0.0
             prev = reference_date
             for d_end in dates_up_to:
