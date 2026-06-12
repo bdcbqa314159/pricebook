@@ -59,6 +59,22 @@ class HullWhite:
         """Instantaneous forward rate from the curve at time t."""
         return self.curve.instantaneous_forward(t)
 
+    def _alpha(self, t: float) -> float:
+        """Hull-White α(t) = f^M(0,t) + (σ²/(2a²))·(1 − e^{−at})².
+
+        Closed-form drift adjustment that makes r(t) match today's
+        forward curve. Brigo-Mercurio (2006) eq. 3.34.
+
+        Pre-fix T1.9, `tree_european_swaption` centred the rate at
+        expiry nodes on `r0 = f(0,0)` rather than `α(T_expiry)`,
+        biasing every swaption with non-zero curvature in the forward
+        curve. For a 5y expiry on a curve rising from 1%→5%, the
+        centring error was ≈400bps in the short rate.
+        """
+        a, sigma = self.a, self.sigma
+        f0t = self._forward_rate(t)
+        return f0t + (sigma**2 / (2.0 * a**2)) * (1.0 - math.exp(-a * t))**2
+
     def _log_A(self, t: float, T: float) -> float:
         """log A(t, T) for the analytical bond price."""
         ref = self.curve.reference_date
@@ -164,13 +180,20 @@ class HullWhite:
         Q, dr, j_max, r0 = self._evolve_state_prices(expiry_T, n_steps)
         mid = j_max
 
+        # Fix T1.9: rates at the expiry nodes are α(T_expiry) + j·dr, NOT
+        # r0 + j·dr. Pre-fix the entire grid was centred on today's short
+        # rate — a 5y expiry on a 1%→5% curve produced a ~400bp bias in
+        # every node, mispricing the swaption by far more than the typical
+        # vol calibration tolerance.
+        alpha_expiry = self._alpha(expiry_T)
+
         total = 0.0
         for j in range(-j_max, j_max + 1):
             idx = j + mid
             if Q[idx] <= 1e-20:
                 continue
 
-            r_j = r0 + j * dr
+            r_j = alpha_expiry + j * dr
 
             p_end = self.zcb_price(expiry_T, swap_end_T, r_j)
             n_payments = max(1, int(swap_end_T - expiry_T))
