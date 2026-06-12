@@ -87,8 +87,19 @@ def protection_leg_pv(
 
     if use_schedule:
         return pv
-    n = notional[0] if isinstance(notional, list) else float(notional)
-    return (1.0 - recovery) * n * pv
+    # Fix T2.18: if the caller passes a list notional WITHOUT `schedule_dates`,
+    # pre-fix the code silently fell through and applied only `notional[0]`
+    # to the whole protection leg — so variable-notional CDS got priced as
+    # constant-notional (the first element).  Raise instead; the caller should
+    # supply `schedule_dates` to map periods to the fine integration grid.
+    if isinstance(notional, list):
+        raise ValueError(
+            "protection_leg_pv: when `notional` is a per-period list, "
+            "`schedule_dates` must also be supplied so each integration "
+            "step can map to the correct period's notional. Pre-fix the "
+            "code silently used only notional[0]."
+        )
+    return (1.0 - recovery) * float(notional) * pv
 
 
 def premium_leg_pv(
@@ -257,6 +268,23 @@ class CDS:
         """Arithmetic mean of the notional schedule."""
         return sum(self.notional_schedule) / len(self.notional_schedule)
 
+    def _aged_notional(self, new_start: date) -> list[float]:
+        """Notional schedule restricted to periods at-or-after `new_start`.
+
+        Fix T2.17: pre-fix `isda_upfront`, `roll_down`, `theta`, and
+        `cds_pnl_attribution` all built a new `CDS` with `notional=self.notional`,
+        but `self.notional` is the SCALAR first element of the schedule (set in
+        __init__ at `self.notional = self.notional_schedule[0]`).  So any
+        variable-notional CDS got its tail-period notional silently dropped
+        when these methods built an aged copy.  This helper slices the
+        original schedule starting at the period containing `new_start`.
+        """
+        for i in range(len(self._schedule) - 1):
+            if self._schedule[i] <= new_start < self._schedule[i + 1]:
+                return self.notional_schedule[i:]
+        # new_start is past the last period — fallback to last entry.
+        return [self.notional_schedule[-1]]
+
     def pv_protection(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
     ) -> float:
@@ -351,15 +379,20 @@ class CDS:
         Args:
             standard_coupon: 0.01 for IG (100bp), 0.05 for HY (500bp).
         """
+        # Fix T2.17: pass `self.notional_schedule` (full list) — pre-fix only
+        # `self.notional` (the first-period scalar) was forwarded, silently
+        # dropping the variable-notional structure.
         std = CDS(
             self.start, self.end, standard_coupon,
-            notional=self.notional, recovery=self.recovery,
+            notional=self.notional_schedule, recovery=self.recovery,
             frequency=self.frequency, day_count=self.day_count,
             protection_day_count=self.protection_day_count,
             steps_per_year=self.steps_per_year,
             calendar=self.calendar, convention=self.convention,
         )
-        return std.pv(discount_curve, survival_curve) / self.notional
+        # Normalise by AVERAGE notional for variable-notional CDS; for
+        # constant notional this equals `self.notional`.
+        return std.pv(discount_curve, survival_curve) / self.average_notional
 
     def rpv01(
         self, discount_curve: DiscountCurve, survival_curve: SurvivalCurve,
@@ -441,9 +474,11 @@ class CDS:
         horizon = self.start + timedelta(days=horizon_days)
         if horizon >= self.end:
             return -pv_now
+        # Fix T2.17: slice the notional schedule to the periods still active
+        # at `horizon` instead of forwarding only the first-period scalar.
         shorter = CDS(
             start=horizon, end=self.end, spread=self.spread,
-            notional=self.notional, recovery=self.recovery,
+            notional=self._aged_notional(horizon), recovery=self.recovery,
             frequency=self.frequency, day_count=self.day_count,
         )
         pv_later = shorter.pv(discount_curve, survival_curve)
@@ -481,9 +516,10 @@ class CDS:
         for a protection buyer.
         """
         pv_base = self.pv(discount_curve, survival_curve)
+        # Fix T2.17: forward the full notional schedule.
         bumped = CDS(
             self.start, self.end, self.spread,
-            notional=self.notional,
+            notional=self.notional_schedule,
             recovery=min(self.recovery + shift, 1.0),
             frequency=self.frequency, day_count=self.day_count,
             protection_day_count=self.protection_day_count,
@@ -505,9 +541,10 @@ class CDS:
         new_start = self.start + timedelta(days=days)
         if new_start >= self.end:
             return -self.pv(discount_curve, survival_curve)
+        # Fix T2.17: slice notional schedule at new_start.
         aged = CDS(
             new_start, self.end, self.spread,
-            notional=self.notional, recovery=self.recovery,
+            notional=self._aged_notional(new_start), recovery=self.recovery,
             frequency=self.frequency, day_count=self.day_count,
             protection_day_count=self.protection_day_count,
             steps_per_year=self.steps_per_year,
@@ -597,9 +634,10 @@ def cds_pnl_attribution(
             roll_down=-pv_t0, convexity=0, residual=0,
         )
 
+    # Fix T2.17: slice the notional schedule to periods active at new_start.
     aged = CDS(
         new_start, cds.end, cds.spread,
-        notional=cds.notional, recovery=cds.recovery,
+        notional=cds._aged_notional(new_start), recovery=cds.recovery,
         frequency=cds.frequency, day_count=cds.day_count,
         protection_day_count=cds.protection_day_count,
         steps_per_year=cds.steps_per_year,
@@ -620,10 +658,14 @@ def cds_pnl_attribution(
     cs01 = cds.cs01(disc_t0, surv_t0)
     spread_pnl = cs01 * delta_spread / 0.0001  # cs01 is per 1bp shift
 
-    # Convexity
+    # Convexity — Fix T2.16: `spread_convexity` returns d²PV/ds² / notional,
+    # so the second-order P&L correction is ½ × (conv × notional) × Δs².
+    # Pre-fix this multiplied by `|PV|` instead of notional, which is
+    # dimensionally wrong (CDS PV is near zero at par; |PV| is not a stable
+    # scaling — the formula collapsed to ~0 near par and to ~PV away from par,
+    # neither of which is the right normalisation).
     conv = cds.spread_convexity(disc_t0, surv_t0)
-    pv_for_conv = abs(pv_t0) if abs(pv_t0) > 1e-10 else cds.notional
-    convexity_pnl = 0.5 * conv * pv_for_conv * delta_spread ** 2
+    convexity_pnl = 0.5 * conv * cds.notional * delta_spread ** 2
 
     residual = total - spread_pnl - carry_pnl - roll - convexity_pnl
 
