@@ -102,8 +102,21 @@ def bootstrap(
                     day_count=DayCountConvention.ACT_365_FIXED, interpolation=interpolation,
                 )
                 df_start = temp_curve.df(start_date)
-            else:
+            elif start_date == reference_date:
+                # FRA starts today — df(start) = 1.0 is the only sensible value.
                 df_start = 1.0
+            else:
+                # Fix T3.18: pre-fix this branch silently used df_start = 1.0
+                # for ANY FRA with no preceding deposits, producing a wildly
+                # wrong df(end) when start_date is not today.  Refuse to
+                # bootstrap without short-end information so the caller is
+                # forced to supply a deposit (or use start_date = ref).
+                raise ValueError(
+                    f"FRA start_date {start_date} is after reference_date "
+                    f"{reference_date} but no deposits provided to anchor "
+                    f"df(start_date).  Add a deposit covering start_date or "
+                    f"use start_date = reference_date."
+                )
             # FRA relationship: df(end) = df(start) / (1 + rate × τ)
             df_end = df_start / (1 + fra_rate * tau)
             pillar_dates.append(end_date)
@@ -114,18 +127,27 @@ def bootstrap(
         import math as _math
         for start_date, end_date, fut_rate in futures:
             tau = year_fraction(start_date, end_date, deposit_day_count)
-            # Hull-White convexity adjustment: futures_rate > forward_rate
+            # Hull-White convexity adjustment: futures_rate > forward_rate.
+            #
+            # Fix T3.17: pre-fix formula
+            #   ca = 0.5 · σ² · B(t1, t2) · [B(0, t2) − B(0, t1)]
+            # is missing the T_1 factor.  For small a · T this expanded to
+            # 0.5 · σ² · (t_end − t_start)², which underestimates the convexity
+            # by a factor of (t_end − t_start) / t_start (i.e. ≈ 4 ×
+            # under-stated for a 1y-expiry, 3m-tenor Eurodollar future).
+            #
+            # Post-fix uses the textbook formula
+            #   ca = 0.5 · σ² · B(0, T_1) · B(T_1, T_2)
+            # which in the small-a limit reduces to the standard
+            # 0.5 · σ² · T_1 · (T_2 − T_1) leading-order HW convexity
+            # (Hull, Brigo-Mercurio §3.4).
             conv_adj = 0.0
             if hw_convexity_a > 0 and hw_convexity_sigma > 0:
                 t_start = year_fraction(reference_date, start_date, deposit_day_count)
                 t_end = year_fraction(reference_date, end_date, deposit_day_count)
-                # HW convexity: ca = 0.5 × σ² × B(t1,t2) × [B(0,t2) − B(0,t1)]
-                # where B(s,t) = (1 − e^{−a(t−s)}) / a
                 def _B(s, t):
                     return (1 - _math.exp(-hw_convexity_a * (t - s))) / hw_convexity_a
-                conv_adj = 0.5 * hw_convexity_sigma**2 * _B(t_start, t_end) * (
-                    _B(0, t_end) - _B(0, t_start)
-                )
+                conv_adj = 0.5 * hw_convexity_sigma**2 * _B(0, t_start) * _B(t_start, t_end)
             fwd_rate = fut_rate - conv_adj
 
             # Turn-of-year: if period crosses Dec 31, add spread
@@ -140,8 +162,16 @@ def bootstrap(
                     day_count=DayCountConvention.ACT_365_FIXED, interpolation=interpolation,
                 )
                 df_start = temp_curve.df(start_date)
-            else:
+            elif start_date == reference_date:
                 df_start = 1.0
+            else:
+                # Fix T3.18 (symmetric to FRA path): refuse to anchor
+                # df(start) = 1 silently when start ≠ ref.
+                raise ValueError(
+                    f"Future start_date {start_date} is after reference_date "
+                    f"{reference_date} but no deposits provided to anchor "
+                    f"df(start_date).  Add a deposit covering start_date."
+                )
             df_end = df_start / (1 + fwd_rate * tau)
             pillar_dates.append(end_date)
             pillar_dfs.append(df_end)
