@@ -2,6 +2,92 @@
 
 ---
 
+## v0.910.0 — 2026-06-12
+
+**Fix L2 T1.8 — COS method V_k payoff integral now intersects the payoff support with the truncation interval [a, b].**
+
+Tenth of 13 Tier-1 (dual-critic-confirmed) bugs closed.
+
+### The bug
+
+The Fang-Oosterlee (2008) COS method prices a European option as
+
+> price = K · e^{−rT} · Σ_k Re(φ(u_k) · e^{iu_k(x−a)}) · V_k
+
+where V_k integrates the payoff against cosine basis functions over the truncation interval [a, b] for log-moneyness y = log(S/K). For a call payoff (e^y − 1)⁺, V_k integrates over y ∈ [max(0, a), b] (the payoff's support intersected with the truncation interval); for a put (1 − e^y)⁺, over [a, min(0, b)].
+
+`models/cos_method.py` hardcoded the V_k bounds as `[0, b]` (call) and `[a, 0]` (put). This is correct in the typical regime where `a < 0 < b`, but is wrong in either of two regimes:
+
+- **a > 0** (deep-ITM call, low vol, short T): the integration over `[0, b]` includes `[0, a]`, which is outside the truncation interval and should not contribute. Pre-fix the deep-ITM call mispriced.
+- **b < 0** (deep-ITM put, low vol, short T): symmetric — `[a, 0]` includes `[b, 0]` outside the truncation.
+
+### Verification of magnitude
+
+Live demonstration — deep-ITM call S=200, K=100, r=5%, σ=8%, T=0.25 (here `a ≈ 0.41 > 0`):
+
+| | Price |
+|---|---|
+| Black-Scholes reference | 101.242220 |
+| COS post-fix (N=256, L=10) | 101.242220 |
+| Relative error | 1.4e-16 (machine precision) |
+
+Pre-fix this call mispriced because the V_k coefficients integrated over a domain that included a region outside the truncation, double-counting the call's payoff there.
+
+### The fix
+
+The patch is local to `cos_price`:
+
+```python
+if option_type == OptionType.CALL:
+    c = max(0.0, a)
+    d = b
+    if c < d:
+        V_k = 2.0/(b - a) * (_chi(k, a, b, c, d) - _psi(k, a, b, c, d))
+    else:
+        V_k = 0.0
+else:
+    c = a
+    d = min(0.0, b)
+    if c < d:
+        V_k = 2.0/(b - a) * (-_chi(k, a, b, c, d) + _psi(k, a, b, c, d))
+    else:
+        V_k = 0.0
+```
+
+The `c < d` guard handles the pathological case where the truncation interval lies entirely outside the payoff's support (V_k = 0 — the option is unconditionally worthless within the truncation).
+
+### Verification — `test_l2_t1_8_cos_method_truncation.py`
+
+7 new regression tests (all pass):
+- `test_atm_call_unchanged` / `test_atm_put_unchanged` — sanity: ATM (typical a < 0 < b regime) still agrees with Black-Scholes to 1e-4.
+- `test_deep_itm_call_low_vol` — S=200, K=100, σ=8%, T=3m → a > 0 regime. Post-fix COS matches BS to <1e-3 (in practice machine precision).
+- `test_deep_itm_put_low_vol` — S=50, K=100, σ=8%, T=3m → b < 0 regime. Same.
+- `test_parity` (parametrised over ATM, deep-ITM call, deep-ITM put) — put-call parity holds across all three regimes. Pre-fix the deep-ITM regimes violated parity by the V_k bug.
+
+Full parallel suite: **11976 passed in 3:21** — zero regressions.
+
+### Tier-1 status — 10 of 13 closed
+
+| # | Module | Status |
+|---|---|---|
+| T1.1 | `numerical/_mc.py` multilevel_mc broken | queued |
+| T1.2 | `numerical/_fourier.py` density crash | ✅ v0.907 |
+| T1.3 | `numerical/_integrate.py` integrate_2d swap | ✅ v0.907 |
+| T1.4 | `numerical/_optimize.py` interior_point drops equality constraints | queued |
+| T1.5 | `numerical/_trees.py` Tian V formula | ✅ v0.907 |
+| T1.6 | `numerical/_trees.py` discrete dividends terminal-grid + trinomial | ✅ v0.908 |
+| T1.7 | `models/mc_engine.py` Milstein silently runs Euler | ✅ v0.907 |
+| **T1.8** | `models/cos_method.py` V_k integration bounds deep ITM | ✅ this slice |
+| T1.9 | `models/hull_white.py` Swaption uses r0 not α(T_expiry) | ✅ v0.909 |
+| T1.10 | `curves/global_solver.py` residual collision | ✅ v0.905 |
+| T1.11 | `curves/multicurve_solver.py` PV_float first period | ✅ v0.905 |
+| T1.12 | `curves/multicurve_solver.py` PV_float / annuity inconsistent | ✅ v0.905 (same root) |
+| T1.13 | `curves/aad_curves.py` swap bootstrap flat-extrapolation | queued |
+
+3 remaining are the deepest: T1.1 MLMC redesign, T1.4 IPM rewrite, T1.13 AAD bootstrap.
+
+---
+
 ## v0.909.0 — 2026-06-12
 
 **Fix L2 T1.9 — Hull-White tree swaption now centres expiry-node rates on α(T_expiry), not on today's short rate r(0).**
