@@ -281,9 +281,48 @@ def _trapezoid(f, a, b, n):
     return IntegrationResult(float(value), 0.0, n + 1, "trapezoid", True)
 
 
-def _romberg(f, a, b, tol=1e-10):
-    from scipy.integrate import romberg as _romberg_scipy
-    value = _romberg_scipy(f, a, b, tol=tol, show=False)
-    return IntegrationResult(float(value), 0.0, 0, "romberg", True)
+def _romberg(f, a, b, tol=1e-10, max_levels: int = 20):
+    """Romberg integration via Richardson extrapolation of trapezoidal estimates.
+
+    Fix T2.6: pre-fix this wrapped ``scipy.integrate.romberg``, which was
+    removed in SciPy 1.15.  Reimplemented natively so the function still
+    works without a SciPy version pin.
+
+    The Romberg table is built as:
+        R[k, 0] = trapezoidal rule with 2^k intervals
+        R[k, j] = (4^j · R[k, j-1] − R[k-1, j-1]) / (4^j − 1)
+    Converges when |R[k, k] − R[k-1, k-1]| < tol.
+    """
+    f0 = f(a)
+    fN = f(b)
+    R_prev = [(b - a) * 0.5 * (f0 + fN)]
+    n_evals = 2
+
+    for k in range(1, max_levels + 1):
+        # Trapezoid refinement: add the new midpoint values.
+        n = 1 << k
+        h = (b - a) / n
+        s = 0.0
+        for i in range(1, n, 2):
+            s += f(a + i * h)
+            n_evals += 1
+        R_k0 = 0.5 * R_prev[0] + h * s
+
+        R_cur = [R_k0]
+        for j in range(1, k + 1):
+            R_cur.append(
+                (4**j * R_cur[j - 1] - R_prev[j - 1]) / (4**j - 1)
+            )
+
+        if abs(R_cur[k] - R_prev[k - 1]) < tol:
+            return IntegrationResult(
+                float(R_cur[k]), float(abs(R_cur[k] - R_prev[k - 1])),
+                n_evals, "romberg", True,
+            )
+        R_prev = R_cur
+
+    return IntegrationResult(
+        float(R_prev[-1]), float(tol), n_evals, "romberg", False,
+    )
 
 
