@@ -208,22 +208,51 @@ class CharacteristicFunction:
     def cumulants(self, max_order: int = 4) -> dict[str, float]:
         """Extract cumulants from CF via finite differences on log(phi).
 
-        kappa_n = (-i)^n (d^n/du^n log phi)(0)
+        kappa_n = (-i)^n (d^n/du^n log phi)(0).  Since log phi(u) for real u
+        of a real-valued density is `iuμ + (iu)² σ²/2 + ...` with imaginary
+        coefficient at odd orders and real at even orders, the cumulant
+        contractions become:
+
+            kappa_1 = Im(log_phi'(0))           (odd)
+            kappa_2 = −Re(log_phi''(0))          (even, sign from i² = −1)
+            kappa_3 = −Im(log_phi'''(0))         (odd, sign from (-i)³ = i then Im)
+            kappa_4 = Re(log_phi''''(0))         (even)
+
+        Fix T3.5: pre-fix `c3 = +Im(stencil) / 2h³`.  The correct sign is
+        NEGATIVE (since (-i)³ · d³/du³ giving Im → kappa_3 = −Im(...)).
+        Pre-fix skewness had the wrong sign for non-symmetric distributions.
+
+        Fix T3.6: pre-fix used `h = 1e-4` for the 4th-derivative stencil.
+        h⁴ = 1e-16 is at machine epsilon, so the numerator (5-point stencil
+        subject to cancellation) was dominated by round-off noise.  Use a
+        larger h for high-order derivatives: rule of thumb h ~ ε^(1/(n+1))
+        for n-th derivative.  Here ε ≈ 1e-16, so:
+          n=2: h ~ 3e-6 → use 1e-4 (the existing 2nd-deriv choice)
+          n=3: h ~ 1e-4
+          n=4: h ~ 6e-4 → use 1e-3
         """
-        h = 1e-4
+        h2 = 1e-4   # 2nd-derivative stencil
+        h3 = 1e-3   # 3rd-derivative stencil (T3.6 wider h)
+        h4 = 1e-2   # 4th-derivative stencil (T3.6 wider h)
         log_cf = lambda u: np.log(self.cf(u + 0j))
 
-        c1 = float(np.imag(log_cf(h) - log_cf(-h)) / (2 * h))
-        c2 = float(np.real(-log_cf(h) - log_cf(-h) + 2 * log_cf(0)) / (h ** 2))
+        c1 = float(np.imag(log_cf(h2) - log_cf(-h2)) / (2 * h2))
+        c2 = float(np.real(-log_cf(h2) - log_cf(-h2) + 2 * log_cf(0)) / (h2 ** 2))
 
         result = {"mean": c1, "variance": max(c2, 0)}
 
         if max_order >= 3:
-            c3 = float(np.imag(log_cf(2*h) - 2*log_cf(h) + 2*log_cf(-h) - log_cf(-2*h)) / (2 * h**3))
+            # 5-point central stencil for f'''(0).
+            d3 = np.imag(log_cf(2*h3) - 2*log_cf(h3)
+                          + 2*log_cf(-h3) - log_cf(-2*h3)) / (2 * h3**3)
+            # Fix T3.5: sign correction — kappa_3 = −Im(log_phi'''(0)).
+            c3 = float(-d3)
             result["skewness"] = c3 / max(c2, 1e-20) ** 1.5 if c2 > 0 else 0.0
 
         if max_order >= 4:
-            c4 = float(np.real(log_cf(2*h) - 4*log_cf(h) + 6*log_cf(0) - 4*log_cf(-h) + log_cf(-2*h)) / h**4)
+            d4 = np.real(log_cf(2*h4) - 4*log_cf(h4) + 6*log_cf(0)
+                          - 4*log_cf(-h4) + log_cf(-2*h4)) / h4**4
+            c4 = float(d4)
             result["excess_kurtosis"] = c4 / max(c2, 1e-20) ** 2 if c2 > 0 else 0.0
 
         return result
