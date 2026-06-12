@@ -207,16 +207,29 @@ class LMM:
         L0: np.ndarray,
         tau: float,
         T_expiry: float,
+        corr: np.ndarray | None = None,
     ) -> float:
         """Rebonato approximation for ATM swaption vol.
 
-        σ_swap² × T ≈ Σ_{i,j} w_i × w_j × σ_i × σ_j × ρ_{ij} × T
+        σ_swap² × T_expiry ≈ Σ_{i,j} w_i · w_j · σ_i · σ_j · ρ_{ij} · T_expiry
 
-        Uses annuity weights w_i = τ × P(0,T_{i+1}) × L_i(0) / (A × S)
-        where A = annuity, S = swap rate, P = discount factors.
+        Annuity weights w_i = τ · P(0, T_{i+1}) · L_i(0) / (A · S) where
+        A is the annuity and S the par swap rate.
 
-        With unit correlation (ρ=1): σ² × T = (Σ w_i × σ_i)² × T
-        Simplified diagonal (ρ=δ_{ij}): σ² × T = Σ w_i² × σ_i² × T
+        Fix T3.16: pre-fix the implementation used the DIAGONAL approximation
+        (ρ_{ij} = δ_{ij}, i.e. uncorrelated):
+
+            var = Σ w_i² σ_i² · T_expiry
+
+        which is the WRONG simplification.  The standard Rebonato simplification
+        assumes unit correlation (ρ_{ij} = 1, all forwards perfectly co-move):
+
+            var = (Σ w_i σ_i)² · T_expiry
+
+        The pre-fix diagonal-sum underestimates the swaption vol by a factor
+        of ≈ √N for an N-period swap (since (Σx)² ≥ Σx² with equality only at
+        N=1).  Post-fix uses the ρ=1 formula by default; a user-supplied
+        correlation matrix is supported for proper LMM calibration.
         """
         D = 1.0 / np.cumprod(1.0 + tau * L0)
         annuity = tau * D.sum()
@@ -225,7 +238,15 @@ class LMM:
             return 0.0
         # Annuity weights (Rebonato 2002, eq 6.23)
         weights = tau * D * L0 / (annuity * swap_rate)
-        var = np.sum(weights**2 * vols**2) * T_expiry
+
+        if corr is None:
+            # ρ_{ij} = 1 — the standard Rebonato simplification.
+            var = (np.sum(weights * vols)) ** 2 * T_expiry
+        else:
+            corr = np.asarray(corr)
+            ws = weights * vols
+            var = float(ws @ corr @ ws) * T_expiry
+
         return math.sqrt(var / T_expiry) if T_expiry > 0 else 0.0
 
 
