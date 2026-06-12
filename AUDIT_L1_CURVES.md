@@ -409,4 +409,90 @@ Same docstring-vs-behaviour gap as A.1 B2 in `bootstrap.py`. Pattern.
 
 ---
 
-*(audit continues — Pass D builders / engines)*
+## Pass D — builders / engines
+
+| # | Module | LoC | Status | Confirmed bugs |
+|---|---|---:|---|---|
+| D.1 | `curve_builder.py` | 297 | ⚠️ | 1 (`build_curves` accepts `hw_convexity_*`/`futures` but the OIS-only path drops them; the projection path forwards to `bootstrap_forward_curve` which **also** drops `futures`/`hw_convexity_*`) |
+| D.2 | `em_curve_builder.py` | 306 | ❓ skim | architectural mirror of D.1 |
+| D.3 | `curve_blending.py` | 134 | ✅ | clean log-DF splice; `date.fromordinal(ref + int(t*365))` calendar-day stride |
+| D.4 | `curve_advanced.py` | 336 | ⚠️ | architectural duplication: re-implements `_ns_yield`, `nelson_siegel_fit`, `svensson_fit` parallel to `nelson_siegel.py` (B.1) |
+| D.5 | `curve_engine.py` | 286 | ⚠️ | uses legacy `core.market_data` types (LD.11 site) |
+| D.6 | `synthetic_market_data.py` | 108 | ✅ | test/demo helper; no production logic |
+| D.7 | `curve_storage.py` | 148 | 📝 | compress/decompress + `CurveStore`; not yet inspected for to_dict patterns |
+| D.8 | `curve_diffusion.py` | 176 | 📝 | curve-evolution engine; out-of-scope for L0/L1 correctness — used by scenario layers |
+
+### D.1 — `curve_builder.build_curves`
+
+**Purpose:** unified dispatcher over 5 curve-construction methods (`sequential`, `global_newton`, `nelson_siegel`, `svensson`, `smith_wilson`).
+
+#### Findings
+
+#### D.1 B1 — `hw_convexity_*` and `futures` silently ignored in OIS-only paths  *[MED, silent param]*
+
+**Location:** `curve_builder.py:147-292`.
+
+The function signature exposes:
+```python
+def build_curves(currency, reference_date, ois_deposits, ois_swaps,
+                 projection_swaps=None, fras=None, futures=None,
+                 hw_convexity_a=0.0, hw_convexity_sigma=0.0,
+                 turn_of_year_spread=0.0, method="sequential"):
+```
+
+But:
+1. The OIS-curve `bootstrap(...)` call at lines 186-198 receives `turn_of_year_spread` but **not** `hw_convexity_a`, `hw_convexity_sigma`, `futures`, or `fras`. Setting any of those at the API level is a no-op if no `projection_swaps` are provided.
+2. The projection path forwards `futures` and `hw_convexity_*` to `bootstrap_forward_curve` — which **declares those parameters but never references them in the function body** (only at the signature on lines 438, 447-448).
+
+End-to-end: `build_curves(..., futures=[...], hw_convexity_a=0.03, hw_convexity_sigma=0.01, projection_swaps=[...])` silently drops the futures and the convexity params. The CalibrationResult diagnostics record `"hw_convexity_a": 0.03` etc. (line 321) — making the audit log claim a convexity adjustment was applied when none was.
+
+**Fix shape:** either implement `futures`-handling in `bootstrap_forward_curve` (replicating the canonical `rfr_futures_convexity` pipeline — not the buggy inlined formula from A.1 B1), OR deprecate the params with a `DeprecationWarning` at the `build_curves` entry. The latter is the conservative short-term fix.
+
+#### D.4 — `curve_advanced.py`
+
+**Purpose:** re-implements Nelson-Siegel, Svensson, monotone-convex forward, turn-of-year adjustment.
+
+**Architectural duplication.** `curve_advanced.py` defines:
+- `_ns_yield(t, β₀, β₁, β₂, τ)` — same formula as `nelson_siegel._ns_factor1/_ns_factor2` / `nelson_siegel_yield`.
+- `nelson_siegel_fit` — same procedure as `nelson_siegel.calibrate_nelson_siegel`.
+- `_svensson_yield` / `svensson_fit` — same as `nelson_siegel.svensson_yield` / `calibrate_svensson`.
+
+Two parallel implementations of identical mathematics. Different return types (`NSFitResult` here vs a dict in `nelson_siegel.py`). The risk: a fix to one (e.g. the Nelder-Mead barrier discontinuity called out in B.1) doesn't propagate to the other.
+
+**Recommendation:** consolidate. Pick `nelson_siegel.py` as the canonical home; have `curve_advanced.py` re-export with thin wrappers if `NSFitResult` is wire-format-relevant.
+
+#### D.5 — `curve_engine.py`
+
+Uses the legacy `core.market_data` types (`MarketDataSnapshot`, `QuoteType`, `Quote`, `tenor_to_date`) imported at line 18-21. Same architectural-debt site as B.3 / LD.11 (legacy vs G1 P2 `pricebook.market_data`). The internal logic of `CurveDefinition` / `build_curve` is clean; the dependency on legacy types is the concern.
+
+#### D.2 — `em_curve_builder.py`
+
+Quick skim: architectural mirror of D.1 (`build_em_curves(...)`) covering EM currencies with their own conventions. Likely has the same silent-parameter pattern; deferred for a focused slice.
+
+#### D.6 — `synthetic_market_data.py`
+
+Test / demo helper that generates fake market quotes for sandbox runs. No production logic; correctness is "produces plausible-looking inputs" not "matches market". ✅
+
+#### D.7 — `curve_storage.py`
+
+`CurveSnapshot` + `CurveDelta` + `CurveStore` (compression / history storage). Not yet inspected for `to_dict` patterns — likely has the same `vars(self)` footgun. Deferred to a future sweep.
+
+#### D.8 — `curve_diffusion.py`
+
+Curve-evolution engine used by scenario / Monte Carlo layers. Out of L1-pure-curves scope; the math (HJM-style evolution etc.) deserves its own audit pass alongside the risk-engine modules.
+
+### Pass D — summary
+
+8 modules audited at varying depth. **1 confirmed silent-param bug** (D.1 B1: `hw_convexity_*` / `futures` accepted then dropped) + **2 architectural duplications** (D.4 NS re-implementation; D.5 / Pass D legacy market_data sites).
+
+The headline finding is that the audit chain (G1) records numerical parameters that the code paths didn't actually use — `"hw_convexity_a": 0.03` lands on `CalibrationResult.optimiser.extra` even when zero convexity was applied. Same calibration-audit-vs-actual-behaviour gap pattern as A.1 B2.
+
+| # | Bug | Severity | Fix shape |
+|---|---|---|---|
+| D.1 B1 | `build_curves` silent param | MED | `DeprecationWarning` + roadmap to wire HW properly |
+| D.4 / B.1 | NS dual implementation | ARCH | Consolidate to `nelson_siegel.py` |
+| D.5 | `curve_engine` uses legacy `core.market_data` | ARCH | Resolves with LD.11 Gate 2 decision |
+
+---
+
+*(audit continues — Pass E internal numerics)*
