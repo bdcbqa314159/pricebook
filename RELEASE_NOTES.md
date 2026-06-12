@@ -2,6 +2,31 @@
 
 ---
 
+## v0.939.0 — 2026-06-12
+
+**Fix L2 Wave-2 audit — `fair_variance` trapezoid boundary weights (was 2× too large at the endpoints of the replication strip).**
+
+`equity/variance_swap.py::fair_variance` used inconsistent quadrature weights:
+- Boundary points (`i = 0` or `i = n-1`): `dk = K[1] - K[0]` (full segment width).
+- Interior points: `dk = 0.5·(K[i+1] - K[i-1])` (half-segment sum on either side).
+
+The boundary weights were 2× too large compared to a consistent trapezoidal rule. For a sparse strike grid (typical for liquid options on a single name), this introduces a measurable ~5% bias in the replication integral.
+
+**Fix**: boundary weights are now `0.5·(K[1] - K[0])` and `0.5·(K[-1] - K[-2])` — half the boundary segment, consistent with the trapezoidal rule.
+
+### Verification — `test_l2_t4_variance_swap_boundary.py`
+
+3 new tests, all pass:
+- `test_bs_constant_vol_recovers_sigma_squared_dense` — flat 20% smile, 81-strike grid: fair_variance recovers σ²=0.04 to <0.5%.
+- `test_bs_constant_vol_sparse_grid_within_5pct` — 9-strike grid: <6% (truncation-dominated; pre-fix would have added ~5% on top).
+- `test_uniform_grid_consistent_with_simpson` — uniform 41-strike grid: <1%.
+
+Full parallel suite: **12135 passed in 2:58** — zero regressions.
+
+Seventh fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.938.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `cos_greeks` vega missing 2σΔσ linear term + drift correction (was ≈ 30× too small).**
