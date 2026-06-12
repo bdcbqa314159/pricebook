@@ -107,13 +107,19 @@ class HJMModel:
             # Drift from no-arbitrage condition
             drift = self._drift(t, sigma_vals)
 
-            # Musiela drift: d/dx f contribution (finite difference)
+            # Musiela drift: ∂f/∂x contribution (finite difference).
+            # Fix T4-HJM1: pre-fix used a single scalar `dx = tenors[1] − tenors[0]`
+            # for ALL segments, but the default tenor grid is non-uniform
+            # ([0.25, 0.5, 1, 2, ..., 20]).  ∂f/∂x was correct only for
+            # tenor[0] and biased by factors of (tenors[1]-tenors[0])/dx_actual
+            # for the rest — e.g. between 10y and 15y the bias was 0.25/5 = 5×
+            # underestimate of the slope.  Post-fix uses per-segment dx.
             f_curr = paths[:, i, :]
             dfdx = np.zeros_like(f_curr)
             if self.n_tenors > 1:
-                dx = self.tenors[1] - self.tenors[0]
-                dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx
-                dfdx[:, -1] = dfdx[:, -2]  # flat extrapolation
+                dx_vec = np.diff(self.tenors)  # length n_tenors - 1
+                dfdx[:, :-1] = (f_curr[:, 1:] - f_curr[:, :-1]) / dx_vec[None, :]
+                dfdx[:, -1] = dfdx[:, -2]  # flat extrapolation at far end
 
             paths[:, i + 1, :] = (
                 f_curr + (drift + dfdx) * dt + sigma_vals * dW
