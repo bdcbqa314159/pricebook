@@ -162,18 +162,39 @@ def _lr_params(spot, strike, r, q, vol, T, n_steps):
 
 
 def _trinomial_params(r, q, vol, dt, lam=None):
+    """Trinomial-tree parameters.
+
+    Fix T2.9: pre-fix the probability clamp was `p_u = max(0, min(1, p_u))`,
+    `p_d = max(0, min(1, p_d))`, `p_m = max(0, 1 − p_u − p_d)`.  When the raw
+    formula produced negative `p_u` or `p_d` (large drift relative to
+    volatility), clamping shifted mass into `p_m` without renormalising —
+    the resulting triple still summed to 1 but the *moments* (drift, variance)
+    were broken, breaking the risk-neutral measure silently.
+
+    Post-fix: clamp each leg to ≥ 0, then renormalise the triple so that the
+    sum is 1 and the moments stay as close to risk-neutral as possible given
+    the clamp.
+    """
     if lam is None:
         lam = math.sqrt(1.5)
     u = math.exp(lam * vol * math.sqrt(dt))
     d = 1.0 / u
     nu = (r - q - 0.5*vol**2) * math.sqrt(dt) / (lam * vol) if vol > 0 else 0
-    p_u = 1.0 / (2 * lam**2) + nu / 2
-    p_d = 1.0 / (2 * lam**2) - nu / 2
-    p_m = 1.0 - p_u - p_d
+    p_u_raw = 1.0 / (2 * lam**2) + nu / 2
+    p_d_raw = 1.0 / (2 * lam**2) - nu / 2
+    p_m_raw = 1.0 - p_u_raw - p_d_raw
     disc = math.exp(-r * dt)
-    p_u = max(0, min(1, p_u))
-    p_d = max(0, min(1, p_d))
-    p_m = max(0, 1 - p_u - p_d)
+
+    # Clamp each leg ≥ 0, then renormalise.  Mirrors the renormalisation
+    # already used in `_2d_trinomial_params` for the 2D tree below.
+    p_u = max(0.0, p_u_raw)
+    p_d = max(0.0, p_d_raw)
+    p_m = max(0.0, p_m_raw)
+    total = p_u + p_d + p_m
+    if total > 0:
+        p_u /= total
+        p_d /= total
+        p_m /= total
     return u, d, p_u, p_m, p_d, disc
 
 
@@ -229,6 +250,46 @@ class TreeSolver:
         div_yield: float = 0.0,
     ) -> TreeResult:
         """Price an option via tree."""
+        # Fix T2.8: knock-in barriers via in-out parity.  Pre-fix
+        # `_apply_barrier` had `pass` for DOWN_IN / UP_IN, so the barrier
+        # condition was checked but never enforced — knock-ins were silently
+        # priced as the corresponding vanilla.  The parity
+        #     V_knock_in + V_knock_out = V_vanilla
+        # gives V_knock_in = V_vanilla − V_knock_out (under the same expiry
+        # and exercise convention).  Run the knock-out and vanilla pricers
+        # and return the difference, with Greeks combined by linearity.
+        if self.barrier_type in (BarrierType.DOWN_IN, BarrierType.UP_IN):
+            ko_type = (BarrierType.DOWN_OUT
+                       if self.barrier_type == BarrierType.DOWN_IN
+                       else BarrierType.UP_OUT)
+            divs = [(s, a) for s, a in self.dividends.items()]
+            exer_dates = list(self.exercise_dates)
+            ko_solver = TreeSolver(
+                method=self.method, n_steps=self.n_steps,
+                exercise=self.exercise, exercise_dates=exer_dates,
+                barrier_type=ko_type, barrier_level=self.barrier_level,
+                dividends=divs, store_tree=False,
+            )
+            vanilla_solver = TreeSolver(
+                method=self.method, n_steps=self.n_steps,
+                exercise=self.exercise, exercise_dates=exer_dates,
+                dividends=divs, store_tree=False,
+            )
+            ko = ko_solver.solve(spot, strike, rate, vol, T, payoff, is_call, div_yield)
+            van = vanilla_solver.solve(spot, strike, rate, vol, T, payoff, is_call, div_yield)
+            vega = None
+            if van.vega is not None and ko.vega is not None:
+                vega = van.vega - ko.vega
+            return TreeResult(
+                price=van.price - ko.price,
+                delta=van.delta - ko.delta,
+                gamma=van.gamma - ko.gamma,
+                theta=van.theta - ko.theta,
+                vega=vega,
+                method=self.method.value, n_steps=self.n_steps,
+                exercise=self.exercise.value,
+            )
+
         if self.method == TreeMethod.TRINOMIAL:
             return self._solve_trinomial(spot, strike, rate, vol, T, payoff, is_call, div_yield)
         else:
