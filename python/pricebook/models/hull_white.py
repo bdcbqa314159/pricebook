@@ -171,11 +171,22 @@ class HullWhite:
         strike: float,
         n_steps: int = 100,
         is_payer: bool = True,
+        payments_per_year: int = 1,
     ) -> float:
         """Price a European swaption on the Hull-White tree.
 
         At expiry, compute swap value using analytical bond prices,
         then take max(swap_value, 0) weighted by state prices.
+
+        Fix T3.13: pre-fix payment frequency was hard-coded to 1/year and
+        the number of payments was `int(swap_end_T − expiry_T)`, truncating
+        non-integer tenors (e.g. a 2.5y tenor became 2y, losing the final
+        partial year).  The payment-date generator `expiry_T + k` (for
+        k=1..n_payments) also assumed annual spacing.  Post-fix accepts a
+        `payments_per_year` argument (defaults to 1 for backwards compat
+        with the existing analytical-formula tests) and computes payment
+        times as `expiry_T + k / payments_per_year`, with the count rounded
+        to the nearest integer over the swap tenor.
         """
         Q, dr, j_max, r0 = self._evolve_state_prices(expiry_T, n_steps)
         mid = j_max
@@ -187,6 +198,13 @@ class HullWhite:
         # vol calibration tolerance.
         alpha_expiry = self._alpha(expiry_T)
 
+        # Payment grid (fixed leg): n_payments at intervals 1 / freq.
+        tau = 1.0 / payments_per_year
+        n_payments = max(1, int(round((swap_end_T - expiry_T) * payments_per_year)))
+        pay_times = [expiry_T + k * tau for k in range(1, n_payments + 1)]
+        # Truncate if the last payment overshoots (rounding tolerance).
+        pay_times = [t for t in pay_times if t <= swap_end_T + 1e-9]
+
         total = 0.0
         for j in range(-j_max, j_max + 1):
             idx = j + mid
@@ -196,13 +214,12 @@ class HullWhite:
             r_j = alpha_expiry + j * dr
 
             p_end = self.zcb_price(expiry_T, swap_end_T, r_j)
-            n_payments = max(1, int(swap_end_T - expiry_T))
             annuity = 0.0
-            for k in range(1, n_payments + 1):
-                t_pay = expiry_T + k
-                if t_pay <= swap_end_T:
-                    annuity += self.zcb_price(expiry_T, t_pay, r_j)
+            for t_pay in pay_times:
+                annuity += tau * self.zcb_price(expiry_T, t_pay, r_j)
 
+            # Fixed leg pays `strike · τ` per period; floating leg pays
+            # 1 − P(T_e, T_n).  Payer swap PV = 1 − P_end − strike · τ · Σ P_pay.
             swap_pv = (1.0 - p_end) - strike * annuity
             if not is_payer:
                 swap_pv = -swap_pv
