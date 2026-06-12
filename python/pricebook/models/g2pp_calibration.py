@@ -193,6 +193,27 @@ def _g2pp_zcb_option(
 # G2++ swaption price via Jamshidian decomposition
 # ---------------------------------------------------------------------------
 
+def _g2pp_M_x(a: float, b: float, s1: float, s2: float, rho: float, T: float) -> float:
+    """T-forward mean of x at time T, Brigo-Mercurio 4.30."""
+    if a <= 1e-12 or b <= 1e-12:
+        # Degenerate — fall back to risk-neutral (mean zero)
+        return 0.0
+    term1 = -((s1**2 / a**2) + (rho * s1 * s2 / (a * b))) * (1 - math.exp(-a * T))
+    term2 = (s1**2 / (2 * a**2)) * (1 - math.exp(-2 * a * T))
+    term3 = (rho * s1 * s2 / (b * (a + b))) * (1 - math.exp(-(a + b) * T))
+    return term1 + term2 + term3
+
+
+def _g2pp_M_y(a: float, b: float, s1: float, s2: float, rho: float, T: float) -> float:
+    """T-forward mean of y at time T, Brigo-Mercurio 4.30."""
+    if a <= 1e-12 or b <= 1e-12:
+        return 0.0
+    term1 = -((s2**2 / b**2) + (rho * s1 * s2 / (a * b))) * (1 - math.exp(-b * T))
+    term2 = (s2**2 / (2 * b**2)) * (1 - math.exp(-2 * b * T))
+    term3 = (rho * s1 * s2 / (a * (a + b))) * (1 - math.exp(-(a + b) * T))
+    return term1 + term2 + term3
+
+
 def g2pp_swaption_price(
     a: float,
     b: float,
@@ -206,12 +227,7 @@ def g2pp_swaption_price(
     is_payer: bool = True,
     n_quad: int = 32,
 ) -> float:
-    """Price a European swaption under G2++ analytically.
-
-    Implements Brigo-Mercurio Ch. 4.2 swaption formula via a 1-D numerical
-    integration: for each value of the first factor x (Gauss-Hermite nodes),
-    apply Jamshidian's trick on the second factor y to find the bond strike
-    and price a sum of ZCB options analytically, then integrate over x.
+    """Price a European swaption under G2++ analytically (Brigo-Mercurio eq. 4.31).
 
     Args:
         a, b: mean reversion speeds for the two factors.
@@ -226,6 +242,21 @@ def g2pp_swaption_price(
 
     Returns:
         Swaption price as a fraction of notional.
+
+    Fix T3.14/T3.15: the pre-fix implementation had two compounding measure
+    errors:
+      * T3.15 — integrated x under the RISK-NEUTRAL marginal N(0, σ_x²)
+        instead of the T-forward marginal N(M_x(T), σ_x²).  Under the
+        T-forward measure, both factor means are shifted by the deterministic
+        drift adjustment (B-M eq. 4.30).
+      * T3.14 — the inner ZCB option pricer used the UNCONDITIONAL G2++
+        formula (which already integrates over both factors).  Combined
+        with the outer x-integration, the x dimension was effectively
+        summed twice, producing 90 %+ mispricing.
+    Post-fix: implement Brigo-Mercurio eq. 4.31 directly — for each x node
+    (T-forward distribution), find y*(x) via Jamshidian, then evaluate the
+    analytic 1D univariate-in-y bond-option closed form using the
+    CONDITIONAL distribution of y | x.
     """
     # Fix T2.11: pre-fix this routine wrapped the ENTIRE body in
     # `try: ... except Exception: return 0.0`, masking every error mode
@@ -246,95 +277,148 @@ def g2pp_swaption_price(
         return 0.0
 
     # Coupon weights c_k for each payment date
-    c = [strike] * len(pay_times)
-    c[-1] += 1.0  # principal repayment on final leg
+    # Coupons: c_i = K for i < n, c_n = 1 + K (notional repaid at end).
+    c = [strike] * (len(pay_times) - 1) + [strike + 1.0]
 
-    # omega: receiver = call on ZCBs, payer = put on ZCBs
-    # Payer swaption = P(fixed) - pay float = short bond portfolio
-    # => equivalent to a put on bond portfolio for payer
-    # Brigo-Mercurio: payer swaption = sum of put ZCB options
-    is_zcb_call = not is_payer  # payer swaption => put ZCBs
+    # Brigo-Mercurio 4.31 — preliminaries.
+    ref = curve.reference_date
 
-    # First factor conditional distribution: x | curve
-    # x ~ N(mu_x, var_x) at time t (starting from x0=0)
-    var_x = sigma1 ** 2 * (1.0 - math.exp(-2 * a * t)) / (2 * a) if a > 0 else sigma1 ** 2 * t
-    std_x = math.sqrt(max(var_x, 0.0))
+    # Variances and correlation of (x, y) at T_α under T_α-forward measure
+    # (variance is measure-independent).
+    var_x = sigma1**2 * (1 - math.exp(-2 * a * t)) / (2 * a) if a > 1e-12 else sigma1**2 * t
+    var_y = sigma2**2 * (1 - math.exp(-2 * b * t)) / (2 * b) if b > 1e-12 else sigma2**2 * t
+    cov_xy = (rho * sigma1 * sigma2 / (a + b)) * (1 - math.exp(-(a + b) * t)) if (a + b) > 1e-12 else rho * sigma1 * sigma2 * t
+    sigma_x = math.sqrt(max(var_x, 0.0))
+    sigma_y = math.sqrt(max(var_y, 0.0))
+    if sigma_x > 1e-14 and sigma_y > 1e-14:
+        rho_xy = cov_xy / (sigma_x * sigma_y)
+        rho_xy = max(-1.0 + 1e-12, min(1.0 - 1e-12, rho_xy))
+    else:
+        rho_xy = 0.0
 
-    # Gauss-Hermite nodes and weights for integration over x
+    # T-forward means (Brigo-Mercurio 4.30).
+    mu_x = _g2pp_M_x(a, b, sigma1, sigma2, rho, t)
+    mu_y = _g2pp_M_y(a, b, sigma1, sigma2, rho, t)
+
+    # Conditional y | x parameters.
+    sigma_y_cond = sigma_y * math.sqrt(max(1 - rho_xy**2, 0.0))
+
+    # Per-payment B_a, B_b factors and A_i constants under T_α-forward.
+    def _Bf(k, tau):
+        return (1 - math.exp(-k * tau)) / k if k > 1e-12 else tau
+
+    P_T_alpha = curve.df(date_from_year_fraction(ref, t))
+
+    Ba_i = [_Bf(a, ti - t) for ti in pay_times]
+    Bb_i = [_Bf(b, ti - t) for ti in pay_times]
+
+    # A_i = (P^M(0, T_i) / P^M(0, T_α)) · exp(0.5 · (V(T_α, T_i) − V(0, T_i) + V(0, T_α)))
+    A_i = []
+    V_0_alpha = _g2pp_V(a, b, sigma1, sigma2, rho, t)
+    for ti in pay_times:
+        P_T_i = curve.df(date_from_year_fraction(ref, ti))
+        V_alpha_i = _g2pp_V(a, b, sigma1, sigma2, rho, ti - t)
+        V_0_i = _g2pp_V(a, b, sigma1, sigma2, rho, ti)
+        A_i.append((P_T_i / P_T_alpha) * math.exp(0.5 * (V_alpha_i - V_0_i + V_0_alpha)))
+
+    # Pre-compute Gauss-Hermite for the x marginal under T-forward.
+    # Marginal of x under T-forward: N(mu_x, sigma_x²).
     gh_nodes, gh_weights = np.polynomial.hermite.hermgauss(n_quad)
 
-    total_price = 0.0
+    # Brigo-Mercurio "P(T_α, T_i)" under T-forward in terms of (x, y):
+    #   P(T_α, T_i; x, y) = A_i · exp(-Ba_i · x - Bb_i · y)
+    # (note: this is the T-forward-conformant form; the unconditional
+    #  Q-measure formula has an extra V/2 term in the exponent, which is
+    #  absorbed by the A_i factor under T-forward).
 
+    from pricebook.core.solvers import brentq
+
+    sqrt2 = math.sqrt(2.0)
+    sqrt_pi = math.sqrt(math.pi)
+
+    total_integral = 0.0
     for xi_raw, w_gh in zip(gh_nodes, gh_weights):
-        # Map GH node to x value: integral over N(0, var_x)
-        x_val = math.sqrt(2.0) * std_x * xi_raw
+        # Map GH node to x value drawn from N(mu_x, sigma_x²).
+        x_val = mu_x + sqrt2 * sigma_x * xi_raw
 
-        # Given x_val, y* such that sum(c_k * P(x,y*,s_k)) = 1
-        # Solve for y* numerically (1-D root finding)
-        def bond_portfolio(y_val: float) -> float:
-            total = 0.0
-            for ck, sk in zip(c, pay_times):
-                total += ck * _g2pp_zcb(a, b, sigma1, sigma2, rho,
-                                        curve, x_val, y_val, sk)
-            return total - 1.0
+        # Given x, find ȳ such that Σ c_i · A_i · exp(-Ba_i · x - Bb_i · ȳ) = 1.
+        def _portfolio(y_val: float) -> float:
+            s = 0.0
+            for ci, ai, bai, bbi in zip(c, A_i, Ba_i, Bb_i):
+                s += ci * ai * math.exp(-bai * x_val - bbi * y_val)
+            return s - 1.0
 
-        # Bracket root for Jamshidian's y*.
-        # Fix T2.12: pre-fix this fell back to `y_star = 0.0` if either
-        # the bracket expansion failed (no sign change after 10 rounds) or
-        # any internal exception raised.  `y_star = 0` is just wrong —
-        # the K_k strikes derived from it are unrelated to the actual
-        # swaption, producing wildly wrong prices that the outer
-        # `except Exception: return 0.0` then masked further.
-        # Post-fix: raise instead of silent fallback.
+        # Bracket and solve for ȳ.
         y_lo, y_hi = -0.5, 0.5
-        bp_lo = bond_portfolio(y_lo)
-        bp_hi = bond_portfolio(y_hi)
-        # Expand bracket up to 10 doublings.
-        for _ in range(10):
+        bp_lo = _portfolio(y_lo)
+        bp_hi = _portfolio(y_hi)
+        for _ in range(15):
             if bp_lo * bp_hi < 0:
                 break
             y_lo -= 0.5
             y_hi += 0.5
-            bp_lo = bond_portfolio(y_lo)
-            bp_hi = bond_portfolio(y_hi)
-
+            bp_lo = _portfolio(y_lo)
+            bp_hi = _portfolio(y_hi)
         if bp_lo * bp_hi >= 0:
             raise RuntimeError(
-                f"g2pp_swaption_price: failed to bracket Jamshidian y* "
-                f"for x={x_val:.4f}; bond_portfolio({y_lo:.2f})={bp_lo:.4e}, "
-                f"bond_portfolio({y_hi:.2f})={bp_hi:.4e} have the same "
-                f"sign after 10 expansions.  Likely model parameters "
-                f"are out of regime (a, b, sigma1, sigma2, rho)."
+                f"g2pp_swaption_price: failed to bracket Jamshidian ȳ "
+                f"for x={x_val:.4f}; values ({bp_lo:.4e}, {bp_hi:.4e})"
             )
-        from scipy.optimize import brentq
-        y_star = brentq(bond_portfolio, y_lo, y_hi, xtol=1e-10, maxiter=50)
+        y_bar = brentq(_portfolio, y_lo, y_hi, tol=1e-12)
 
-        # Strike prices for individual ZCB options
-        # K_k = P(x_val, y_star; s_k) (the ZCB value at y*)
-        k_strikes = [
-            _g2pp_zcb(a, b, sigma1, sigma2, rho, curve, x_val, y_star, sk)
-            for sk in pay_times
-        ]
+        # Conditional y | x mean under T-forward.
+        if sigma_x > 1e-14:
+            mu_y_cond = mu_y + rho_xy * (sigma_y / sigma_x) * (x_val - mu_x)
+        else:
+            mu_y_cond = mu_y
 
-        # Price each ZCB option (analytically in y given x)
-        # Conditional vol of y: N(rho*sigma2/sigma1 * (1-e^{-bt})/b * x, var_y|x)
-        # For the G2++ bond option formula, we use the unconditional
-        # formula (which already integrates over both factors).
-        # Here we weight by the x density and price analytically.
-        swaption_contrib = 0.0
-        for ck, sk, kk in zip(c, pay_times, k_strikes):
-            opt_price = _g2pp_zcb_option(
-                a, b, sigma1, sigma2, rho, curve,
-                t, sk, sk, kk, is_zcb_call,
-            )
-            swaption_contrib += ck * opt_price
+        # Brigo-Mercurio 4.31 inner expression:
+        #   ∫_R φ(y|x) · max(ω · (1 − Σ c_i P(T_α, T_i)), 0) dy
+        # = max(ω · 1, 0) · Φ(-ω h_1) − Σ c_i ω · λ_i · exp(κ_i) · Φ(-ω h_2,i)
+        #
+        # In Brigo-Mercurio notation:
+        #   h_1 = (ȳ − μ_y_cond) / σ_y_cond
+        #   h_2,i = h_1 + Bb_i · σ_y_cond
+        #   λ_i(x) = c_i · A_i · exp(-Ba_i · x)
+        #   κ_i = -Bb_i · μ_y_cond + 0.5 · Bb_i² · σ_y_cond²
+        if sigma_y_cond < 1e-12:
+            # Degenerate: y is essentially deterministic given x.
+            swap_pv = 1.0 - _portfolio(mu_y_cond) - 1.0  # = -(_portfolio(mu_y_cond))
+            # Wait: _portfolio = Σ c_i A_i exp(...) - 1. So 1 - Σ c_i ... = -_portfolio(y).
+            payer_pv = -_portfolio(mu_y_cond)
+            payoff = max(payer_pv, 0.0) if is_payer else max(-payer_pv, 0.0)
+            total_integral += w_gh * payoff
+            continue
 
-        # GH weight includes 1/sqrt(pi) normalisation
-        total_price += w_gh * swaption_contrib
+        h1 = (y_bar - mu_y_cond) / sigma_y_cond
 
-    # Normalise: GH integral of f(x)*exp(-x^2) dx, we want E[...] over N(0,1)
-    # gh_weights already normalised for exp(-x^2); divide by sqrt(pi)
-    total_price /= math.sqrt(math.pi)
+        # Compute the bracket value: Φ(−h1) − Σ c_i · A_i · exp(-Ba_i·x + κ_i) · Φ(−h2,i)
+        # for a PAYER swaption. For receiver, all signs flip (ω = -1).
+        # Payer: payoff = max(1 - Σ c_i P(T_α, T_i), 0). Bond decreases in y, so swap PV
+        # is increasing in y → payer exercises when y > ȳ. Probability under y|x: Φ(−h1).
+        # The Σ c_i term contributes a put-on-bond-portfolio.
+        omega = 1.0 if is_payer else -1.0
+        if is_payer:
+            phi_h1 = _norm.cdf(-h1)
+            inner = phi_h1
+            for ci, ai, bai, bbi in zip(c, A_i, Ba_i, Bb_i):
+                lambda_i = ci * ai * math.exp(-bai * x_val)
+                kappa_i = -bbi * mu_y_cond + 0.5 * bbi**2 * sigma_y_cond**2
+                h2_i = h1 + bbi * sigma_y_cond
+                inner -= lambda_i * math.exp(kappa_i) * _norm.cdf(-h2_i)
+        else:
+            phi_h1 = _norm.cdf(h1)
+            inner = -phi_h1
+            for ci, ai, bai, bbi in zip(c, A_i, Ba_i, Bb_i):
+                lambda_i = ci * ai * math.exp(-bai * x_val)
+                kappa_i = -bbi * mu_y_cond + 0.5 * bbi**2 * sigma_y_cond**2
+                h2_i = h1 + bbi * sigma_y_cond
+                inner += lambda_i * math.exp(kappa_i) * _norm.cdf(h2_i)
+
+        total_integral += w_gh * inner
+
+    # Multiply by P(0, T_α) / sqrt(π) (GH normalisation) to get the price.
+    total_price = P_T_alpha * total_integral / sqrt_pi
 
     return max(total_price, 0.0)
 
