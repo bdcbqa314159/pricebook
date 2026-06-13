@@ -2,6 +2,38 @@
 
 ---
 
+## v1.015.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.scenario` constructors had the same lossy PricingContext reconstruction as v0.993 `var.stress_test`.**
+
+All five scenario constructors (`parallel_shift`, `pillar_bump`, `vol_bump`, `fx_spot_shock`, `credit_spread_shift`) built the bumped context via `PricingContext(field=value, ...)` with only 6 named fields, silently dropping:
+- `discount_curves` (the plural, multi-currency dict)
+- `inflation_curves`
+- `repo_curves`
+- `reporting_currency`
+- `stochastic_credit_models`
+- `credit_vol_surfaces`
+- `credit_correlations`
+- `numerical_config`
+
+Same shape as the v0.993 fix. Pricers consulting any of these silently saw a degraded context inside scenario evaluation.
+
+**Fix**: switch all five constructors to `dataclasses.replace`, preserving every untouched field by default.
+
+**Bonus**: `parallel_shift` now also bumps the plural `discount_curves` dict (was previously bumping only the singular). Multi-currency portfolios needed each currency's curve bumped, not just the home currency.
+
+### Verification — `test_l2_t4_scenario.py`
+
+6 new tests:
+- `TestPreservesUntouchedFields` × 5: each constructor preserves `numerical_config` / `reporting_currency`.
+- `TestParallelShiftBumpsPluralCurves` × 1: both USD and EUR discount_curves are bumped.
+
+Full parallel suite: **12,602 passed in 2:43** — zero regressions.
+
+Twenty-third fix from phase-2. **152 distinct bugs** in v0.905→v1.015.
+
+---
+
 ## v1.014.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.portfolio_construction.mean_variance` `target_return` parameter was dead code.**
