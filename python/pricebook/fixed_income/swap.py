@@ -234,7 +234,24 @@ class InterestRateSwap:
         """Produce a full cashflow schedule for both legs.
 
         Returns a list of dicts with: leg, accrual_start, accrual_end,
-        payment_date, rate, year_frac, amount, df, pv.
+        payment_date, rate, spread, year_frac, notional, amount, df, pv.
+
+        Fix T4-SWAP2: pre-fix the floating row reported ``rate`` as the
+        pure forward (no spread) but ``amount`` already INCLUDED the
+        spread, so the natural verification
+        ``rate · year_frac · notional ≈ amount`` was wrong by exactly
+        ``spread · year_frac · notional``.  On a 1mm notional swap with
+        50 bp spread and a 3-month period that's ~$1,236 of "missing"
+        amount per coupon — easy for a downstream consumer (P&L attribution,
+        cashflow reconciliation, regulatory reporting) to misread.
+
+        The fix adds two new fields per row:
+          - ``spread``: the spread component (0 for the fixed leg).
+          - ``notional``: the period notional (for amortising / accreting).
+
+        With these, ``(rate + spread) · year_frac · notional == amount``
+        holds exactly for both legs, and the row is fully self-describing.
+        Existing ``rate`` / ``amount`` semantics are unchanged.
         """
         proj = projection_curve if projection_curve is not None else curve
         rows = []
@@ -246,7 +263,9 @@ class InterestRateSwap:
                 "accrual_end": cf.accrual_end,
                 "payment_date": cf.payment_date,
                 "rate": cf.rate,
+                "spread": 0.0,
                 "year_frac": cf.year_frac,
+                "notional": cf.notional,
                 "amount": cf.amount,
                 "df": df,
                 "pv": cf.amount * df,
@@ -261,7 +280,9 @@ class InterestRateSwap:
                 "accrual_end": cf.accrual_end,
                 "payment_date": cf.payment_date,
                 "rate": fwd,
+                "spread": cf.spread,
                 "year_frac": cf.year_frac,
+                "notional": cf.notional,
                 "amount": amount,
                 "df": df,
                 "pv": amount * df,
