@@ -2,6 +2,38 @@
 
 ---
 
+## v1.012.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.prudent_valuation` had two API consistency bugs.**
+
+### (a) `market_price_uncertainty_ava` non-monotonic in n_quotes
+
+Pre-fix: `reliability_factor = min(n_quotes/5, 1.0)`. At `n_quotes=0` the special-case fallback returned `half_spread`; at `n_quotes=1` reliability=0.2 → AVA = `4.5·half_spread`. So adding the first quote *increased* AVA — contradicting the "more quotes → more reliable → smaller AVA" intent.
+
+**Fix**: floor reliability at 0.1, drop the special-case. Now n_quotes=0 gives the maximum AVA (`9·half_spread`) and AVA monotonically decreases as quotes accumulate.
+
+### (b) `close_out_cost_ava` silently ignores `position_days` parameter
+
+Pre-fix: when `daily_volume > 0`, the caller's `position_days` was overwritten by `notional/daily_volume`; when `daily_volume == 0`, it was ignored entirely (defaulting to a flat 50% premium). The parameter was effectively dead.
+
+**Fix**: honour caller's `position_days` when supplied:
+- daily_volume > 0: use `max(derived, supplied, 1)`.
+- daily_volume = 0 with `position_days > 1`: use the log-based scaling from the supplied estimate.
+- daily_volume = 0 with default `position_days = 1`: keep the 50% default-premium fallback.
+
+### Verification — `test_l2_t4_prudent_valuation.py`
+
+6 new tests:
+- `TestMPUMonotonicInQuotes` × 3: monotone decrease 1→5 quotes; n_quotes=0 is max; 5+ quotes gives `confidence·half_spread`.
+- `TestCloseOutCostHonorsPositionDays` × 2: caller's position_days drives size adjustment when no volume; large position_days overrides default 50%.
+- `TestRegressionsExistingTests` × 1: daily_volume branch unchanged when position_days at default.
+
+Full parallel suite: **12,587 passed in 2:36** — zero regressions.
+
+Twentieth fix from phase-2. **148 distinct bugs** (2 in this slice) in v0.905→v1.012.
+
+---
+
 ## v1.011.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.collateral_optimisation.CollateralOptimiser` silently under-collateralised every non-cash allocation.**
