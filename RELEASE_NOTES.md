@@ -2,6 +2,41 @@
 
 ---
 
+## v0.945.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `InterestRateSwap.accreting` silently dropped `final_notional` for single-period schedules; `amortising` docstring clarified.**
+
+`accreting` constructed per-period notionals via
+
+> initial + (final − initial) · i / max(n − 1, 1)
+
+For **n = 1** the divisor was `max(0, 1) = 1` and the loop ran only `i = 0`, yielding `initial + 0 · … = initial` — `final_notional` was completely ignored. A user calling
+
+> `accreting(initial=500_000, final=1_000_000)`
+
+on a single-period schedule (e.g. 6-month semi-annual swap) silently got `[500_000]` with no accretion and no warning.
+
+**Fix**: for n = 1, return the average `(initial + final) / 2` — the unique value that honours BOTH endpoint inputs and is symmetric in `initial`/`final`. Multi-period behaviour is unchanged. Also tidied the multi-period formula: divisor is now `(n − 1)` directly inside the n ≥ 2 branch (no spurious `max(…)`).
+
+Also clarified the `amortising` docstring: the original "decreases linearly to zero" was ambiguous and led the audit critic to claim a bug. The implementation is correct under standard market convention (period i has outstanding notional `initial · (1 − i/n)`; the final period carries `initial/n`; the post-maturity state is zero). The docstring now states this explicitly.
+
+### Verification — `test_l2_t4_swap_accreting_single_period.py`
+
+5 new tests, all pass:
+- `test_single_period_uses_average_of_endpoints` — n=1 returns `[750_000]` for inputs `(500K, 1M)`.
+- `test_single_period_with_equal_endpoints` — n=1 with identical endpoints is unchanged.
+- `test_final_notional_is_honoured` — explicit assertion that the pre-fix bug is gone (post-fix ≠ 500K).
+- `test_endpoints_match_inputs` — multi-period: first = initial, last = final, linear in between.
+- `test_monotonic_increase` — multi-period strict monotonicity.
+
+Pre-existing 8 `test_amortising_swap.py` tests still pass.
+
+Full parallel suite: **12173 passed in 2:33** — zero regressions.
+
+Thirteenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.944.0 — 2026-06-12
 
 **Fix L2 Wave-2 audit — `FixedRateBond.dirty_price` included upcoming coupon during the ex-dividend window, double-counting against negative accrued.**
