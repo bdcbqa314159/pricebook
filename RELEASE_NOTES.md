@@ -2,6 +2,40 @@
 
 ---
 
+## v1.010.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.market_risk_enhanced.incremental_var` had two related issues.**
+
+### (a) ddof inconsistency in parametric branch
+
+`np.cov(...)` (default ddof=1) for portfolio vol but `np.std(...)` (default ddof=0) for individual position vols. Same shape as the v0.995 backtest fix. Now ddof=1 throughout.
+
+### (b) LOO conflated with Euler decomposition for historical method
+
+Pre-fix set both `incremental_vars` AND `component_vars` to the leave-one-out (LOO) values for the historical method. But the docstring promised `sum(IVaR_i) = portfolio VaR` — LOO doesn't have this property.
+
+Two metrics matter and are now reported separately:
+- `incremental_vars[i]`: `VaR(portfolio) − VaR(portfolio without i)` (LOO; Jorion convention).
+- `component_vars[i]`: `−E[P&L_i | portfolio in tail]` (tail-conditional expectation = **ES decomposition**).
+
+Note: for historical method, `sum(component_vars)` equals portfolio **Expected Shortfall**, not VaR. The VaR Euler decomposition requires kernel smoothing at the quantile boundary, which is noisy for finite samples; ES is what practitioners actually report. Docstring updated to make this explicit.
+
+For parametric method, `incremental` = `component` = Euler decomposition, both sum to VaR (unchanged behaviour).
+
+### Verification — `test_l2_t4_market_risk_enhanced.py`
+
+5 new tests:
+- `TestParametricDdofConsistency` × 1: individual VaR uses sample std (ddof=1).
+- `TestHistoricalEulerDecomposition` × 2: component_vars sum to ES; LOO ≠ component.
+- `TestParametricEulerInvariant` × 1: parametric component sums to VaR.
+- `TestDiversificationNonNegative` × 1: diversification ≥ 0.
+
+Full parallel suite: **12,577 passed in 2:36** — zero regressions.
+
+Eighteenth fix from phase-2. **144 distinct bugs** (2 in this slice) in v0.905→v1.010.
+
+---
+
 ## v1.009.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.network_xva` had a spurious `max(multiplier, 1.0)` floor that contradicted both its docstring and its own comment.**
