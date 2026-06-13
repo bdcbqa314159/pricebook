@@ -210,6 +210,16 @@ class Uniform:
     """Uniform distribution on [a, b]."""
 
     def __init__(self, a: float = 0.0, b: float = 1.0):
+        # Fix T4-DIST2: pre-fix the ``a >= b`` guard silently passed NaN
+        # inputs because ``NaN >= NaN`` is False in IEEE 754.  Uniform(a=nan,
+        # b=nan) constructed successfully, then cdf/pdf returned NaN silently.
+        # Catch NaN explicitly.
+        if math.isnan(a) or math.isnan(b):
+            raise ValueError(
+                f"Uniform: a and b must be finite numbers (got a={a}, b={b}); "
+                "NaN slipped through the pre-fix `a >= b` guard because "
+                "NaN >= NaN is False in IEEE 754."
+            )
         if a >= b:
             raise ValueError(f"a ({a}) must be < b ({b})")
         self.a = a
@@ -238,6 +248,14 @@ class Exponential:
     """Exponential distribution with rate lambda."""
 
     def __init__(self, rate: float = 1.0):
+        # Fix T4-DIST2: NaN slips past the `rate <= 0` guard because
+        # NaN comparisons are False in IEEE 754.  Catch NaN explicitly.
+        if math.isnan(rate):
+            raise ValueError(
+                f"Exponential: rate must be a finite positive number "
+                f"(got {rate}); NaN slipped through the pre-fix "
+                "`rate <= 0` guard."
+            )
         if rate <= 0:
             raise ValueError(f"rate must be positive, got {rate}")
         self.rate = rate
