@@ -42,7 +42,29 @@ class TimeGrid:
     """
 
     def __init__(self, times: np.ndarray):
-        self.times = np.asarray(times, dtype=np.float64)
+        # Fix T4-MC3: pre-fix the constructor accepted any array, even an
+        # empty one — ``self.times[-1]`` then raised ``IndexError`` deep
+        # inside the constructor itself.  Non-monotonic times (`dt < 0`)
+        # were also silently accepted, producing negative time steps that
+        # propagated as wrong-sign SDE drifts through every engine call.
+        # Validate at construction so failures have context.
+        times = np.asarray(times, dtype=np.float64)
+        if times.size == 0:
+            raise ValueError(
+                "TimeGrid: times array is empty; need at least 2 points "
+                "(t0 and tN)."
+            )
+        if times.size < 2:
+            raise ValueError(
+                f"TimeGrid: need at least 2 time points (got {times.size}); "
+                "a single time point has no SDE step to discretise."
+            )
+        if not np.all(np.diff(times) > 0):
+            raise ValueError(
+                "TimeGrid: times must be strictly increasing; got "
+                f"diffs={np.diff(times).tolist()}."
+            )
+        self.times = times
         self.dt = np.diff(self.times)
         self.n_steps = len(self.dt)
         self.T = float(self.times[-1])
