@@ -523,13 +523,26 @@ class TreeSolver:
         return float(delta), float(gamma), float(theta)
 
     def _compute_vega(self, spot, strike, rate, vol, T, payoff_fn, is_call, div_yield, base_price):
+        """Vega via 1-vol-point bump.
+
+        Fix T4-TR2: pre-fix this routine set ``self._computing_vega = True``
+        and ``self.store_tree = False`` and only restored them on the happy
+        path.  If the inner ``self.solve(...)`` raised, the solver was left
+        in a "computing vega" state with no snapshots, silently breaking
+        every subsequent ``solve()`` call until reconstruction.  Same
+        shape as the MCEngine.greek exception-safety bug fixed in v0.946.
+        Now wrapped in try/finally.
+        """
         bump = 0.01
-        self._computing_vega = True
+        saved_computing = self._computing_vega
         saved_store = self.store_tree
+        self._computing_vega = True
         self.store_tree = False
-        r_up = self.solve(spot, strike, rate, vol + bump, T, payoff_fn, is_call, div_yield)
-        self.store_tree = saved_store
-        self._computing_vega = False
+        try:
+            r_up = self.solve(spot, strike, rate, vol + bump, T, payoff_fn, is_call, div_yield)
+        finally:
+            self.store_tree = saved_store
+            self._computing_vega = saved_computing
         return (r_up.price - base_price) / bump
 
     def convergence_analysis(
