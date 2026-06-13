@@ -182,9 +182,17 @@ class NetworkXVAEngine:
         cond_defaults = cascade["n_defaults"] - 1  # exclude self
         multiplier = cascade["multiplier"]
 
-        # Network adjustment: higher centrality + more contagion = higher CVA
-        # Floor multiplier at 1.0: no contagion means no adjustment (multiplicative identity)
-        adjustment = alpha * centrality * max(multiplier, 1.0)
+        # Network adjustment: higher centrality + more contagion = higher CVA.
+        # Fix T4-RISK25: pre-fix had ``max(multiplier, 1.0)`` with a comment
+        # claiming "no contagion → no adjustment (multiplicative identity)",
+        # but flooring at 1.0 actually FORCES a spurious adjustment of
+        # ``alpha · centrality`` for every counterparty regardless of
+        # whether their default triggers contagion.  This contradicts
+        # both the docstring formula
+        # ``CVA × (1 + α × centrality × multiplier)`` AND the comment.
+        # An isolated counterparty (no exposures out) genuinely has
+        # multiplier = 0 → adjustment = 0 → network_cva = standalone_cva.
+        adjustment = alpha * centrality * multiplier
         network_cva = standalone_cva * (1.0 + adjustment)
 
         return NetworkCVAResult(
@@ -272,8 +280,13 @@ def systemic_cva_adjustment(
     """Quick systemic CVA adjustment without full network engine.
 
     CVA_adj = CVA × (1 + α × centrality × contagion_multiplier)
+
+    Fix T4-RISK25b: same fix as ``compute_network_cva`` — pre-fix had
+    a spurious ``max(contagion_multiplier, 1.0)`` floor that contradicted
+    the docstring formula.  Now uses the raw multiplier; multiplier=0
+    correctly returns ``standalone_cva`` unchanged.
     """
-    return standalone_cva * (1.0 + alpha * centrality * max(contagion_multiplier, 1.0))
+    return standalone_cva * (1.0 + alpha * centrality * contagion_multiplier)
 
 
 def contagion_cva_stress(
