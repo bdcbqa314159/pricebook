@@ -67,9 +67,29 @@ def _bs_call(spot: float, rate: float, div_yield: float, vol: float, T: float, s
 
 
 def _digital_call_bs(spot: float, rate: float, div_yield: float, vol: float, T: float, strike: float) -> float:
-    """Cash-or-nothing digital call: pays $1 if S_T > K."""
-    if T <= 0 or vol <= 0:
+    """Cash-or-nothing digital call: pays $1 if S_T > K.
+
+    Fix T4-ELN1: two coupled bugs in the degenerate branch.
+    Pre-fix ``T <= 0 or vol <= 0`` returned ``1.0 if spot > strike
+    else 0.0``.  Bugs:
+        (a) Indicator on ``spot`` not ``forward`` — at vol=0/T>0 the
+            terminal is ``S_T = forward = spot·exp((r-q)T)``, so an
+            OTM-spot but ITM-forward digital silently paid 0.
+        (b) Missing discount factor — even when ITM, the digital pays
+            $1 at maturity, present-valued by ``df = exp(-rT)``.
+    Now: T=0 → undiscounted spot indicator (immediate); T>0/vol=0 →
+    ``df · I(forward > strike)`` with ATM half-step convention.
+    """
+    if T <= 0:
         return 1.0 if spot > strike else 0.0
+    if vol <= 0:
+        forward = _forward(spot, rate, div_yield, T)
+        df = _df(rate, T)
+        if forward > strike:
+            return df
+        if forward < strike:
+            return 0.0
+        return 0.5 * df  # ATM: one-sided limit
     F = _forward(spot, rate, div_yield, T)
     df = _df(rate, T)
     sqrt_t = math.sqrt(T)
