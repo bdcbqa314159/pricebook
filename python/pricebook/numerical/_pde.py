@@ -209,6 +209,20 @@ class PDESolver1D:
         n_time: int = 200,
         grid_type: GridType = GridType.UNIFORM,
     ):
+        # Fix T4-PDE1: pre-fix `n_time=0` raised `ZeroDivisionError` deep
+        # inside `solve()` at `dt = T / self.n_time`, and `n_space=0` (or 1)
+        # raised an opaque IndexError inside grid construction.  Validate
+        # at construction so the failure has context.
+        if n_space < 2:
+            raise ValueError(
+                f"n_space must be >= 2 (got {n_space}); need at least 2 grid "
+                f"points to form a discretisation."
+            )
+        if n_time < 1:
+            raise ValueError(
+                f"n_time must be >= 1 (got {n_time}); at least one time step "
+                f"is required."
+            )
         self.method = method
         self.n_space = n_space
         self.n_time = n_time
@@ -226,6 +240,37 @@ class PDESolver1D:
         is_american: bool = False,
     ) -> PDEResult:
         """Solve the Black-Scholes PDE."""
+        # Fix T4-PDE1 (cont.): pre-fix `T=0` produced a finite but wrong
+        # price (~2 for an ATM call where intrinsic is 0) because the
+        # operator was iterated `n_time` times with `dt=0`, which doesn't
+        # commute cleanly with the boundary projection.  `T<0` produced a
+        # runaway numerical blow-up (~1e107) with no exception.  Handle
+        # both at the entry: return intrinsic value for `T<=0` (the
+        # unique no-arbitrage payoff with no time to evolve).
+        if T < 0:
+            raise ValueError(f"T must be >= 0 (got {T}); time to expiry cannot be negative.")
+        if T == 0:
+            # Intrinsic at expiry — no time to evolve.  Build a tiny
+            # 2-point grid carrying the terminal payoff so the result
+            # object has well-defined `values`/`grid` arrays.
+            if is_call:
+                price = max(spot - strike, 0.0)
+            else:
+                price = max(strike - spot, 0.0)
+            grid_at_expiry = np.array([spot * 0.5, spot * 1.5])
+            if is_call:
+                values_at_expiry = np.maximum(grid_at_expiry - strike, 0.0)
+            else:
+                values_at_expiry = np.maximum(strike - grid_at_expiry, 0.0)
+            return PDEResult(
+                values=values_at_expiry,
+                grid=grid_at_expiry,
+                price=price, delta=0.0, gamma=0.0, theta=0.0, vega=None,
+                method=self.method.value,
+                n_space=self.n_space, n_time=self.n_time,
+                grid_type=self.grid_type.value,
+            )
+
         # Build grid
         s_min = spot * 0.01
         s_max = spot * 5.0
