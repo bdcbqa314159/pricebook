@@ -112,6 +112,33 @@ def svensson_discount_curve(
 # ---------------------------------------------------------------------------
 
 
+def _validate_calibration_inputs(tenors, market_yields, name: str):
+    """Shared validation for NS/Svensson calibration inputs.
+
+    Fix T4-NS2: pre-fix:
+    - Empty `market_yields` raised ``IndexError`` at ``market_yields[-1]``
+      while constructing the default initial guess, with no diagnostic.
+    - Mismatched `len(tenors) != len(market_yields)` was silently masked
+      by ``zip()`` which truncates to the shorter — extra rows were
+      dropped without warning.
+    Both now raise ``ValueError`` upfront.
+    """
+    if not tenors:
+        raise ValueError(
+            f"{name}: tenors must be non-empty; got {tenors!r}."
+        )
+    if not market_yields:
+        raise ValueError(
+            f"{name}: market_yields must be non-empty; got {market_yields!r}."
+        )
+    if len(tenors) != len(market_yields):
+        raise ValueError(
+            f"{name}: len(tenors) ({len(tenors)}) != len(market_yields) "
+            f"({len(market_yields)}); pre-fix zip() silently truncated to "
+            "the shorter — extra rows were dropped."
+        )
+
+
 def calibrate_nelson_siegel(
     tenors: list[float],
     market_yields: list[float],
@@ -119,8 +146,9 @@ def calibrate_nelson_siegel(
 ) -> dict[str, float]:
     """Calibrate NS parameters to market zero rates.
 
-    Returns dict with beta0, beta1, beta2, tau, rmse.
+    Returns dict with beta0, beta1, beta2, tau, rmse, converged.
     """
+    _validate_calibration_inputs(tenors, market_yields, "calibrate_nelson_siegel")
     if initial_guess is None:
         initial_guess = (market_yields[-1], market_yields[0] - market_yields[-1], 0.0, 2.0)
 
@@ -138,7 +166,10 @@ def calibrate_nelson_siegel(
 
     b0, b1, b2, tau = result.x
     rmse = math.sqrt(result.fun / len(tenors))
-    return {"beta0": b0, "beta1": b1, "beta2": b2, "tau": tau, "rmse": rmse}
+    # Fix T4-NS2: also report convergence so the caller can detect a
+    # bad calibration (pre-fix `result` was discarded after extracting x).
+    return {"beta0": b0, "beta1": b1, "beta2": b2, "tau": tau,
+            "rmse": rmse, "converged": bool(result.converged)}
 
 
 def calibrate_svensson(
@@ -147,6 +178,7 @@ def calibrate_svensson(
     initial_guess: tuple | None = None,
 ) -> dict[str, float]:
     """Calibrate Svensson parameters to market zero rates."""
+    _validate_calibration_inputs(tenors, market_yields, "calibrate_svensson")
     if initial_guess is None:
         initial_guess = (market_yields[-1], market_yields[0] - market_yields[-1],
                          0.0, 2.0, 0.0, 5.0)
@@ -166,4 +198,5 @@ def calibrate_svensson(
     b0, b1, b2, tau1, b3, tau2 = result.x
     rmse = math.sqrt(result.fun / len(tenors))
     return {"beta0": b0, "beta1": b1, "beta2": b2, "tau1": tau1,
-            "beta3": b3, "tau2": tau2, "rmse": rmse}
+            "beta3": b3, "tau2": tau2, "rmse": rmse,
+            "converged": bool(result.converged)}
