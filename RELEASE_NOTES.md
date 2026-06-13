@@ -2,6 +2,32 @@
 
 ---
 
+## v0.954.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `Dual` defined `__eq__` without `__hash__`, breaking hashability and violating the Python hash/eq contract.**
+
+Defining `__eq__` automatically sets `__hash__ = None`, making the class unhashable. Pre-fix any attempt to put a `Dual` in a dict or set raised `TypeError: unhashable type: 'Dual'` — surprising for a number-like object.
+
+Even if hashability had been preserved by inheritance, the Python data-model contract `a == b ⇒ hash(a) == hash(b)` would require careful choice: `Dual.__eq__` compares ONLY `val` (`Dual(1, 2) == 1.0` is True — a deliberate design for float compatibility), so the hash must depend only on `val` too.
+
+**Fix**: define `__hash__(self) = hash(self.val)`. Dual is now usable as a dict key or set member. Distinct vals hash distinct (modulo standard float-hash collisions); Duals that compare equal — including a Dual and a plain float — hash equal.
+
+### Verification — `test_l2_t4_dual_hash_eq_contract.py`
+
+6 new tests, all pass:
+- `test_hash_returns_int`, `test_can_be_dict_key`, `test_can_be_in_set` — hashability restored.
+- `test_equal_duals_with_different_der_have_same_hash` — `Dual(1, 2)` and `Dual(1, 99)` hash equal (consistent with `__eq__`).
+- `test_dual_and_equal_float_have_same_hash` — `hash(Dual(1.0, x)) == hash(1.0)`.
+- `test_distinct_vals_distinct_hashes` — sanity.
+
+Pre-existing tests still pass.
+
+Full parallel suite: **12228 passed in 2:33** — zero regressions.
+
+Twenty-second fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.953.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `numerical.auto_diff` drivers (`grad`, `jacobian_ad`, `derivative`) silently returned zero gradient when the user's function failed to thread `Dual` numbers through.**
