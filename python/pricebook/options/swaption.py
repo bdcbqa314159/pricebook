@@ -248,7 +248,16 @@ class Swaption:
 
 
 from pricebook.core.serialisable import serialisable as _serialisable
-_serialisable("swaption", ["expiry", "swap_end", "strike", "swaption_type", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count"])(Swaption)
+_serialisable("swaption", ["expiry", "swap_end", "strike", "swaption_type", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "convention", "stub", "eom"])(Swaption)
+# Fix T4-SW3: pre-fix the field list dropped convention, stub, eom — all
+# of which affect the underlying swap's schedule generation.  A
+# ``to_dict → from_dict`` round-trip on a Swaption with non-default
+# convention / stub / eom produced a DIFFERENT swaption that priced
+# differently.  Adding them here recovers exact round-trip identity
+# for these three.  ``calendar`` is NOT included because Calendar
+# instances are not currently part of the serialisable type system
+# (they hold runtime-only holiday data); the caller is expected to
+# re-attach a calendar via ``from_convention`` on the load side.
 
 @classmethod
 def _swaption_from_convention(cls, conv, expiry, swap_end, strike,
