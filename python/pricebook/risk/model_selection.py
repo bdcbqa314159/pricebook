@@ -75,9 +75,19 @@ def model_committee_price(
     # Weighted average
     avg = sum(prices[name] * weights[name] for name in prices)
 
-    # Dispersion
+    # Dispersion — Fix T4-RISK18: pre-fix used ``np.std(vals)`` (unweighted)
+    # alongside a *weighted* mean.  Inconsistent: a heavily-down-weighted
+    # outlier model still contributed full mass to the std.  For BMA
+    # committees with one model dominating (e.g. weight 0.9 + 0.05 + 0.05)
+    # the pre-fix std overstated uncertainty by an order of magnitude.
+    # Now uses the weighted standard deviation
+    # ``sqrt(Σ w_i · (p_i − avg)²)`` consistent with the weighted mean.
+    if len(prices) > 1:
+        weighted_var = sum(weights[name] * (prices[name] - avg) ** 2 for name in prices)
+        std = float(math.sqrt(max(weighted_var, 0.0)))
+    else:
+        std = 0.0
     vals = list(prices.values())
-    std = float(np.std(vals)) if len(vals) > 1 else 0.0
     price_min, price_max = min(vals), max(vals)
     reserve = (price_max - price_min) / 2
 
