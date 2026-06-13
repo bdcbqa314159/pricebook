@@ -2,6 +2,40 @@
 
 ---
 
+## v0.995.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.backtest` had four defects (one major semantic, three numerical/accounting).**
+
+### (a) Sample vs population std — `compute_metrics`
+`np.std()` defaults to `ddof=0` (population). Sharpe / Sortino are conventionally reported with `ddof=1` (sample std). Pre-fix vol understated by `sqrt(n/(n-1))` — inflating Sharpe by ~1.7% at n=30, ~0.2% at n=252. Now uses `ddof=1`.
+
+### (b) Initial position has no transaction cost — `run_backtest`
+Pre-fix loop started at `i=1`, only charging slippage/commission for `positions[i] − positions[i-1]`. The initial entry (implicit 0 → `positions[0]`) was free. Real consequence: any constant-direction strategy started with negative immediate P&L from entry costs being un-modelled. Now charges `abs(positions[0])·slippage_bps/10000·capital + commission` at `pnl[0]`.
+
+### (c) Walk-forward isn't walk-forward — `walk_forward` (major)
+Pre-fix called `signal_func(train)` and `signal_func(test)` *separately*. For any `signal_func` with a warm-up window (e.g. 20-day momentum), the first warm-up bars of test had undefined/biased signals because there's no train-side history. The "walk" never actually carried history forward. Now passes `concat(train, test)` to `signal_func` and slices out the test portion — signals on test bars are computed with full access to all preceding train history, no forward-leakage.
+
+### (d) Deflated Sharpe missing Euler-Mascheroni correction — `deflated_sharpe`
+Pre-fix used `E[max] ≈ Φ⁻¹(1 − 1/n)` (first-order). Bailey-De Prado (2014) specifies:
+
+    E[max] ≈ (1 − γ) · Φ⁻¹(1 − 1/n) + γ · Φ⁻¹(1 − 1/(n·e))
+
+where γ ≈ 0.5772 (Euler-Mascheroni), e ≈ 2.718. For n=100, pre-fix gives 2.326 vs BdP 2.530 — pre-fix *over*-states the deflated probability (admits more false positives), the opposite of what data-snooping correction should do.
+
+### Verification — `test_l2_t4_risk_backtest.py`
+
+10 new tests across 4 test classes:
+- `TestComputeMetricsSampleStd` × 2: vol matches `np.std(ddof=1)`, Sharpe consistent.
+- `TestRunBacktestInitialSlippage` × 3: initial entry charged; zero entry not charged; commission charged on non-zero entry.
+- `TestWalkForwardHistoryContext` × 2: `signal_func` called on combined series; warm-up signal yields finite Sharpes.
+- `TestDeflatedSharpeBaileyDePrado` × 3: n=100 BdP value ≈ 2.530; pre-fix-threshold SR has lower significance; high SR retains high DSR.
+
+Full parallel suite: **12,495 passed in 3:02** — zero regressions.
+
+Third fix from phase-2. Bug count: 119, 120, 121, 122 (four defects in one module). **122 distinct bugs** in the v0.905→v0.995 arc.
+
+---
+
 ## v0.994.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.greeks.bump_greeks` had three issues.**
