@@ -2,6 +2,38 @@
 
 ---
 
+## v0.953.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `numerical.auto_diff` drivers (`grad`, `jacobian_ad`, `derivative`) silently returned zero gradient when the user's function failed to thread `Dual` numbers through.**
+
+This is the **most common bug** in forward-mode AD code, and the pre-fix drivers actively hid it:
+
+```python
+# pre-fix grad
+g[i] = result.der if isinstance(result, Dual) else 0.0
+```
+
+If `f` accidentally strips the `Dual` wrapper anywhere — e.g. by calling a NumPy ufunc on a list of `Duals` (which returns an ndarray of objects whose `.der` propagation doesn't work) or by routing through `math.` functions that don't recognise the wrapper — every call returns `0.0` and `grad` returns the zero vector with no warning. A user computing "delta" of a pricer with a typo or stale code path would see `grad = [0, 0, …]`, conclude the option has no Greek, and act on it.
+
+Same shape in `jacobian_ad` (component-wise) and `derivative`.
+
+**Fix**: all three drivers now raise `TypeError` with a diagnostic message that names the actual returned type and points at the most likely cause (NumPy ufuncs vs `math.` calls). The message also gestures at the canonical remedy (Dual-aware operations in `auto_diff`).
+
+### Verification — `test_l2_t4_auto_diff_threading_raises.py`
+
+7 new tests, all pass:
+- `TestGradRaisesOnThreadingFailure` × 2: raises on plain-float return; correct gradient when threading works (sanity).
+- `TestJacobianAdRaisesOnThreadingFailure` × 3: raises on full failure, raises on PARTIAL failure (one component is a Dual, another isn't — the trickiest case), correct Jacobian when threading works.
+- `TestDerivativeRaisesOnThreadingFailure` × 2: raises on plain-float return; correct derivative when threading works.
+
+Pre-existing tests still pass.
+
+Full parallel suite: **12222 passed in 2:34** — zero regressions.
+
+Twenty-first fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.952.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `PDESolver1D` had four robustness gaps on degenerate inputs.**
