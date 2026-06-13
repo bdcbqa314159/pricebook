@@ -2,6 +2,34 @@
 
 ---
 
+## v0.947.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `price_swaption_sabr_hw` had two silent-failure paths: `blend_half_life=0` divided by zero deep in the pricer, and a hard-coded 1% volatility fallback when both SABR and HW vols failed.**
+
+Two real bugs in the SABR-HW blender, distinct from the T=0 intrinsic bug already closed under T2.15:
+
+1. **`blend_half_life` was not validated.** Passing `0` (or negative) caused `math.exp(-T / 0.0)` to raise `ZeroDivisionError` deep inside the pricer with no diagnostic context — the user saw a stack trace blaming `math` rather than the actual bad input.
+
+2. **Silent 1% vol fallback.** When BOTH SABR and HW vols returned non-positive values (e.g. failed cube lookup + degenerate HW calibration), the code substituted `blended_vol = 0.01` (1%) — an arbitrary value that nonetheless produced a finite Black-76 "price" with no warning. Downstream calibration or risk could read this as a real number.
+
+**Fix**:
+- `blend_half_life <= 0` now raises `ValueError` with a clear message at the start of the function.
+- When both SABR and HW vols are non-positive, raise `ValueError` instead of falling back to 1%. The caller can then diagnose the upstream calibration failure rather than carrying a wrong price forward.
+
+### Verification — `test_l2_t4_sabr_hw_blender_guards.py`
+
+4 new tests, all pass:
+- `test_zero_blend_half_life_raises_value_error` — guard fires.
+- `test_negative_blend_half_life_raises_value_error` — guard fires.
+- `test_both_vols_non_positive_raises_value_error` — deeply-OTM strike forces both vols to 0 → raises.
+- `test_positive_sabr_only` — SABR-only fallback path (HW fails but SABR is good) still works.
+
+Full parallel suite: **12181 passed in 2:31** — zero regressions.
+
+Fifteenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.946.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `MCEngine.greek` left `process.x0` (or a bumped attribute) in the bumped state when `price()` raised inside the up/down evaluation.**
