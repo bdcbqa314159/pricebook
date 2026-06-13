@@ -55,12 +55,38 @@ def equity_delta(
     """Spot delta: dPrice/dSpot.
 
     Spot delta = exp(-q*T) * forward_delta.
+
+    Fix T4-EQ1: pre-fix the degenerate branch (``T <= 0 or vol <= 0``)
+    had three coupled bugs:
+
+    1. It compared ``spot`` to ``strike`` instead of ``forward`` to
+       ``strike``.  For a non-zero dividend yield, ``forward = spot · exp((r-q)T)``
+       can differ materially from spot — e.g. q > r yields forward < spot,
+       so a call that is "ITM on spot" can still be OTM on forward.
+       The payoff at expiry depends on ``forward`` (under zero vol the
+       terminal spot equals the forward to no-arbitrage).
+    2. The ITM magnitude was a literal ``1.0`` (or ``-1.0``) instead of
+       ``exp(-q·T)``.  Spot delta of an ITM call = ``∂(S - K·exp(-rT))/∂S
+       = exp(-qT)`` for the FX-/dividend-adjusted forward replication.
+    3. The exactly-ATM case (forward == strike) returned 0 (call) /
+       0 (put) instead of the standard ``±0.5·exp(-qT)`` limit —
+       asymmetric vs ``black76_delta`` which gets this right.
     """
     forward, df = _forward_and_df(spot, rate, div_yield, T)
     if T <= 0 or vol <= 0:
+        eq = math.exp(-div_yield * T)
         if option_type == OptionType.CALL:
-            return 1.0 if spot > strike else 0.0
-        return -1.0 if spot < strike else 0.0
+            if forward > strike:
+                return eq
+            if forward < strike:
+                return 0.0
+            return 0.5 * eq
+        # PUT
+        if forward < strike:
+            return -eq
+        if forward > strike:
+            return 0.0
+        return -0.5 * eq
 
     sqrt_t = math.sqrt(T)
     d1 = (math.log(forward / strike) + 0.5 * vol * vol * T) / (vol * sqrt_t)
