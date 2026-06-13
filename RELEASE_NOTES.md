@@ -2,6 +2,35 @@
 
 ---
 
+## v0.952.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `PDESolver1D` had four robustness gaps on degenerate inputs.**
+
+Pre-fix:
+1. **`n_time = 0`**: raised `ZeroDivisionError` deep inside `solve()` at `dt = T / self.n_time`, with no diagnostic context.
+2. **`n_space = 0` (or 1)**: raised an opaque `IndexError` inside grid construction.
+3. **`T = 0`**: produced a finite-but-WRONG price (~2.05 for an ATM call where the correct intrinsic is 0). The solver iterated `n_time` times with `dt = 0`, but the boundary projection and operator construction don't commute cleanly with zero time evolution — the result was determined by interpolation noise on the terminal payoff.
+4. **`T < 0`**: produced a numerical runaway (~1e107) with no exception. Unphysical input that should fail loudly.
+
+**Fix**:
+- Constructor: `n_space < 2` or `n_time < 1` → `ValueError` with clear message.
+- `solve()`: `T < 0` → `ValueError`. `T == 0` returns the intrinsic value (`max(spot−strike, 0)` for call, `max(strike−spot, 0)` for put) directly without invoking the solver — the unique no-arbitrage payoff with no time to evolve. The returned `PDEResult` carries a small valid 2-point grid so consumers reading `r.values` / `r.grid` see well-formed arrays.
+- All four healthy-path branches (positive `T`, positive `n_time`/`n_space`) are unchanged.
+
+### Verification — `test_l2_t4_pde_input_validation.py`
+
+11 new tests, all pass:
+- `TestConstructorValidation` × 4: `n_time=0`, `n_time=-1`, `n_space=0`, `n_space=1` all raise `ValueError`.
+- `TestSolveValidation::test_negative_T_raises`.
+- `TestZeroExpiryIntrinsic` × 5: `T=0` returns intrinsic for ITM/OTM call & put, and the result object is well-formed (`values`, `grid`, `method` present).
+- `TestHealthyPathUnchanged::test_normal_solve_unchanged` — `T > 0` ATM call still prices ≈ Black-Scholes.
+
+Full parallel suite: **12215 passed in 2:53** — zero regressions.
+
+Twentieth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.951.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `TreeSolver._compute_vega` left `_computing_vega = True` and `store_tree = False` if the inner bumped-vol `solve()` raised.**
