@@ -2,6 +2,36 @@
 
 ---
 
+## v0.965.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `bachelier_delta` at exactly ATM (`F == K`) with `T<=0 or vol<=0` returned 0 instead of the standard `±0.5·df` one-sided limit.**
+
+Pre-fix:
+
+```python
+if time_to_expiry <= 0 or vol_normal <= 0:
+    if option_type == OptionType.CALL:
+        return df if forward > strike else 0.0
+    return -df if forward < strike else 0.0
+```
+
+The `else 0.0` branch caught both `F < K` (correct for a call OTM) AND `F == K` (incorrect — ATM-at-expiry should be `0.5·df`). Symmetric bug for puts.
+
+**Fix**: explicit ATM branch returns `±0.5·df` matching the same convention used (correctly) by `black76_delta`.
+
+### Verification — `test_l2_t4_bachelier_delta_atm.py`
+
+8 new tests, all pass:
+- `TestBachelierDeltaATMAtExpiry` × 3: ATM call/put at T=0 give `±0.5·df`; ATM with vol=0 (T>0) also gives `±0.5·df`.
+- `TestConsistencyWithBlack76Delta` × 2: `bachelier_delta` and `black76_delta` agree on the ATM-at-expiry limit.
+- `TestNonATMUnaffected` × 3: ITM call returns `df`; OTM call returns 0; ITM put returns `-df` — pre-fix behaviour preserved off-ATM.
+
+Full parallel suite: **12300 passed in 2:35** — zero regressions.
+
+Thirty-third fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.964.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `integrate_semi_infinite` silently downgraded any non-Laguerre method to ADAPTIVE.**
