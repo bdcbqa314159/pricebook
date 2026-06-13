@@ -2,6 +2,41 @@
 
 ---
 
+## v1.011.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.collateral_optimisation.CollateralOptimiser` silently under-collateralised every non-cash allocation.**
+
+Pre-fix coverage constraint:
+```python
+Σ_j x[i,j] >= required[i]
+```
+
+No haircut applied. For an asset with 5% haircut, allocating $100 gross gives only $95 of post-haircut collateral value — but the LP treated $100 = $100 of coverage. A CSA needing $100 covered exclusively by a 5%-haircut asset was silently $5 short of its requirement.
+
+**Fix**: coverage constraint now uses post-haircut value:
+```python
+Σ_j (1 - haircut_j) × x[i,j] >= required[i]
+```
+
+The LP correctly grosses up the allocation (posting `required / (1 − h)` for single-asset coverage). The unmet-requirement check uses the same post-haircut convention.
+
+**Side fix**: `_naive_cost` baseline now respects asset availability — pre-fix it computed the cheapest-asset-per-CSA cost ignoring supply caps, so when the cheapest asset ran out the LP correctly spilled over to the next-cheapest but appeared "worse than naive" because naive's idealised cheapest was infeasible.
+
+### Verification — `test_l2_t4_collateral_opt.py`
+
+4 new tests:
+- `TestCoverageNetsHaircut` × 2: 5% haircut requires $100/0.95 gross; zero haircut unchanged.
+- `TestUnmetWithHaircut` × 1: $95 of 5%-haircut asset (= $90.25 net) can't cover $100.
+- `TestMultiCSAHaircutAware` × 1: lower-haircut asset preferred when costs comparable.
+
+Full parallel suite: **12,581 passed in 3:04** — zero regressions; existing collateral tests still pass.
+
+Nineteenth fix from phase-2. **146 distinct bugs** (2 in this slice — coverage and naive baseline) in v0.905→v1.011.
+
+This one is **production-critical**: real banks running this optimiser would have been silently under-margined on every haircut'd allocation.
+
+---
+
 ## v1.010.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.market_risk_enhanced.incremental_var` had two related issues.**
