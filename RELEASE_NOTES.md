@@ -2,6 +2,34 @@
 
 ---
 
+## v1.016.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.portfolio_margin.span_margin` applied SPAN's "extreme scenario 35% cap" to user-supplied scenarios.**
+
+The SPAN methodology caps the last two scenarios (the 2× price_scan_range extremes) at 35% of their loss, reflecting that those moves are deep-tail and historically rare. Pre-fix code applied this cap to the last two entries *regardless* of whether the scenarios came from the auto-built grid or from the user:
+
+```python
+if idx >= n_scenarios - 2 and scenarios is not None:  # always True
+    loss *= 0.35
+```
+
+For user-supplied custom scenarios (e.g., stress scenarios from a regulator), the last two entries were arbitrarily mis-scaled by 0.35, silently understating margin.
+
+**Fix**: track `auto_built` flag and only apply the cap when the grid was generated internally.
+
+### Verification — `test_l2_t4_span_margin.py`
+
+3 new tests:
+- User-supplied scenarios: every loss counted at full magnitude.
+- Auto-built grid: extreme cap still active (worst of {-PSR, capped -2·PSR}).
+- Vega-only user scenarios: not 35%-capped.
+
+Full parallel suite: **12,605 passed in 2:40** — zero regressions.
+
+Twenty-fourth fix from phase-2. **153 distinct bugs** in v0.905→v1.016.
+
+---
+
 ## v1.015.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.scenario` constructors had the same lossy PricingContext reconstruction as v0.993 `var.stress_test`.**
