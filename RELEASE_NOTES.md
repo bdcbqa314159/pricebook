@@ -2,6 +2,37 @@
 
 ---
 
+## v0.998.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.kelly` had two correctness issues.**
+
+### (a) `kelly_fraction` silently returned 0 for vol=0
+
+Pre-fix: `f_star = excess / var if var > 0 else 0`. This masked two genuinely different cases — positive excess with σ=0 is a deterministic *arbitrage* (Kelly = +∞, short all wealth into it); negative excess with σ=0 is a deterministic loss (Kelly = −∞). Returning 0 in both cases makes the asset appear unattractive when in fact it's an unbounded opportunity. Now raises `ValueError` with diagnostic.
+
+### (b) `multi_asset_kelly` had no validation and lossy singular-cov fallback
+
+Two issues:
+- No shape/symmetry check — caller could pass `(3,4)` matrix or non-symmetric Σ and get garbage out.
+- Fallback on singular Σ used diagonal-only inverse `f = excess / diag(Σ)` — this drops correlation structure entirely. For two highly-correlated assets the true Kelly concentrates weight on the better risk-adjusted one; the diagonal fallback spreads incorrectly.
+
+Now validates shape (square, mu-compatible) and symmetry (within `1e-10`), and uses `np.linalg.pinv` (Moore-Penrose pseudoinverse) as the singular fallback — preserves correlation structure and gives the minimum-norm solution.
+
+### Verification — `test_l2_t4_kelly.py`
+
+10 new tests across 5 classes:
+- `TestKellyFractionRequiresVol` × 3: zero/negative vol raise; positive unchanged.
+- `TestMultiAssetKellyValidation` × 3: non-square/shape-mismatch/non-symmetric raise.
+- `TestMultiAssetKellyAnalytical` × 2: diagonal Σ matches per-asset Kelly; correlated Σ matches `solve(Σ, μ)`.
+- `TestMultiAssetKellySingularPseudoInverse` × 1: near-singular Σ finite via pinv.
+- `TestMultiAssetKellyGrowthFormula` × 1: g = rf + f·μ̄ − 0.5·f'Σf.
+
+Full parallel suite: **12,516 passed in 3:08** — zero regressions. Warnings 19→17.
+
+Sixth fix from phase-2. **128 distinct bugs** (2 more in this slice) in v0.905→v0.998.
+
+---
+
 ## v0.997.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.correlation_greeks` had two issues.**
