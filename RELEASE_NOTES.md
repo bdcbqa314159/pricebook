@@ -2,6 +2,29 @@
 
 ---
 
+## v1.001.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.hierarchical_risk_parity` had two issues.**
+
+(a) **N=1 crashed** — `np.corrcoef` of `(T, 1)` returns scalar; `_correlation_distance` produces `(1,1)` zero matrix; `squareform` of that → empty vector; `linkage` on empty → ValueError. Now returns trivial weights=`[1.0]` directly for the single-asset case.
+
+(b) **`n_clusters` reporting was a meaningless heuristic.** Pre-fix: `min(N, max(2, N//3))` — unrelated to actual dendrogram structure. Now uses `fcluster` at the median linkage height, so the reported count reflects the real cluster topology found by hierarchical clustering.
+
+The core HRP algorithm (López de Prado 2016: correlation distance → linkage → quasi-diagonalisation → recursive bisection with inverse-variance allocation) was correctly implemented; only edge case and reporting affected.
+
+### Verification — `test_l2_t4_hrp.py`
+
+5 new tests:
+- `TestHRPSingleAsset` × 1: N=1 returns [1.0] without crash.
+- `TestHRPClusterCount` × 2: clustered returns yield ≥2 clusters; highly-correlated near-uniform returns yield few clusters.
+- `TestHRPWeightInvariants` × 2: weights sum to 1, all non-negative.
+
+Full parallel suite: **12,533 passed in 2:45** — zero regressions.
+
+Ninth fix from phase-2. **132 distinct bugs** in v0.905→v1.001.
+
+---
+
 ## v1.000.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.efficient_frontier.minimum_variance_portfolio` returned wrong expected_return and sharpe_ratio fields.**
