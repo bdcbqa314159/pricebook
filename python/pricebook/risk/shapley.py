@@ -24,12 +24,21 @@ import numpy as np
 
 @dataclass
 class ShapleyResult:
-    """Result of Shapley value computation."""
+    """Result of Shapley value computation.
+
+    Fix T4-RISK20: added optional ``diversification`` field carrying
+    the per-player {shapley_allocation, standalone_risk,
+    diversification_benefit} dict computed by
+    ``shapley_capital_allocation``.  Pre-fix that function built the
+    dict but discarded it, contradicting its docstring promise of
+    "diversification benefit" reporting.
+    """
     players: list[str]
     values: dict[str, float]     # {player: Shapley value}
     total_value: float           # v(grand coalition)
     method: str                  # "exact" or "sampling"
     n_coalitions_evaluated: int
+    diversification: dict[str, dict] | None = None  # per-player enrichment
 
     @property
     def is_efficient(self) -> bool:
@@ -43,6 +52,7 @@ class ShapleyResult:
             "total_value": self.total_value,
             "method": self.method,
             "is_efficient": self.is_efficient,
+            "diversification": self.diversification,
         }
 
 
@@ -164,13 +174,17 @@ def shapley_capital_allocation(
     """
     result = shapley_value(portfolio_risk_fn, desk_names)
 
-    # Enrich with standalone comparison
-    enriched_values = {}
+    # Enrich with standalone comparison — Fix T4-RISK20: pre-fix built
+    # this dict then immediately threw it away by returning ``result``.
+    # The function docstring promised diversification info that the
+    # caller never received.  Now attached as ``result.diversification``.
+    enriched_values: dict[str, dict] = {}
     for desk in desk_names:
         enriched_values[desk] = {
             "shapley_allocation": result.values[desk],
             "standalone_risk": standalone_risks.get(desk, 0.0),
             "diversification_benefit": standalone_risks.get(desk, 0.0) - result.values[desk],
         }
+    result.diversification = enriched_values
 
     return result
