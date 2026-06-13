@@ -2,6 +2,35 @@
 
 ---
 
+## v0.964.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `integrate_semi_infinite` silently downgraded any non-Laguerre method to ADAPTIVE.**
+
+Pre-fix:
+
+```python
+if method == IntegrationMethod.GAUSS_LAGUERRE:
+    ... Gauss-Laguerre code ...
+else:
+    return _adaptive(f, a, np.inf)      # discards user's `method`
+```
+
+A user passing `method=IntegrationMethod.GAUSS_HERMITE` or `method=IntegrationMethod.SIMPSON` got the SciPy adaptive result with no warning that their METHOD argument was discarded. A method-comparison study would see identical numbers for every "method" choice — silently masking the fact that only one method was actually running.
+
+**Fix**: only the two methods with defined semi-infinite behaviour (`GAUSS_LAGUERRE`, `ADAPTIVE`) are accepted; everything else raises `ValueError` with a pointer to the documented choices and an explicit note that this used to be a silent downgrade.
+
+### Verification — `test_l2_t4_integrate_semi_infinite_method.py`
+
+9 new tests, all pass:
+- `TestSupportedMethodsWork` × 2: GAUSS_LAGUERRE and ADAPTIVE both correctly compute `∫_0^∞ e^{-x} dx = 1`.
+- `TestUnsupportedMethodsRaise` × 7: every other `IntegrationMethod` value (LEGENDRE/HERMITE/SIMPSON/TRAPEZOID/TANH_SINH/CLENSHAW_CURTIS/ROMBERG) raises.
+
+Full parallel suite: **12292 passed in 3:04** — zero regressions.
+
+Thirty-second fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.963.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `_simpson` and `_trapezoid` crashed with `ZeroDivisionError` on `n=0`.**
