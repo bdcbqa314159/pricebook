@@ -411,4 +411,9 @@ def create_swap(currency: str, start, end, fixed_rate,
 
 
 from pricebook.core.serialisable import serialisable as _serialisable
-_serialisable("irs", ["start", "end", "fixed_rate", "direction", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "spread"])(InterestRateSwap)
+_serialisable("irs", ["start", "end", "fixed_rate", "direction", "notional", "fixed_frequency", "float_frequency", "fixed_day_count", "float_day_count", "spread", "convention", "stub", "eom"])(InterestRateSwap)
+# Fix T4-SW4: pre-fix the IRS field list dropped convention, stub, eom
+# (the same gap as Swaption fixed in v0.976).  All three affect the
+# leg schedules; a to_dict → from_dict on a non-default IRS produced
+# a swap that priced differently.  ``calendar`` remains excluded
+# (runtime-only holiday data).
