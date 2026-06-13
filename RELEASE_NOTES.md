@@ -2,6 +2,29 @@
 
 ---
 
+## v1.018.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.portfolio_analytics.tracking_metrics` mixed ddof conventions for beta.**
+
+Pre-fix:
+```python
+beta = np.cov(p, b)[0, 1] / np.var(b)
+```
+
+`np.cov` defaults to ddof=1 (sample); `np.var` defaults to ddof=0 (population). The ratio gives beta off by factor `(n-1)/n` — material for small samples (~3% bias at n=30, ~0.4% at n=252).
+
+**Fix**: both use ddof=1 (sample-statistics convention).
+
+### Verification — `test_l2_t4_portfolio_analytics.py`
+
+3 new tests: perfect correlation → β=1; matches `cov_ddof1/var_ddof1` exactly; differs from pre-fix mixed convention.
+
+Full parallel suite: **12,612 passed in 4:41** — zero regressions.
+
+Twenty-sixth fix from phase-2. **155 distinct bugs** in v0.905→v1.018.
+
+---
+
 ## v1.017.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.vol_stress.twist_vol_bump` butterfly weights were wrong.**
