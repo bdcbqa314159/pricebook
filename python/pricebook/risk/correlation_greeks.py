@@ -198,19 +198,40 @@ def correlation_pnl_attribution(
     Args:
         price_fn: callable(rho) → price.
         rho_old, rho_new: correlation before and after.
+
+    Fix T4-RISK9: pre-fix called ``correlation_delta`` (3 pricer calls)
+    AND ``correlation_gamma`` (3 more) AND ``price_fn(rho_old)`` /
+    ``price_fn(rho_new)`` (2 more) = 8 calls.  Calls overlapped: the
+    sub-functions both compute ``price_fn(rho_old)``,
+    ``price_fn(rho_old+bump)``, ``price_fn(rho_old-bump)``.  Only 4
+    unique evaluations are needed (rho_old, rho_old±bump, rho_new).
+    Now computes inline with 4 calls — halves the cost.
     """
     drho = rho_new - rho_old
 
-    # Greeks at old ρ
-    delta_res = correlation_delta(price_fn, rho_old, bump)
-    gamma_res = correlation_gamma(price_fn, rho_old, bump)
+    # Greeks at old ρ — compute inline, share the rho_old eval with the
+    # P&L denominator.
+    rho_up = min(rho_old + bump, 0.999)
+    rho_dn = max(rho_old - bump, -0.999)
+    h = (rho_up - rho_dn) / 2  # symmetric half-bump (may be smaller near ±1).
 
-    delta_pnl = delta_res.rho_delta * drho
-    gamma_pnl = 0.5 * gamma_res.rho_gamma * drho**2
+    p_base = price_fn(rho_old)
+    p_up = price_fn(rho_up)
+    p_dn = price_fn(rho_dn)
+    p_new = price_fn(rho_new)
+
+    if h > 1e-10:
+        rho_delta = (p_up - p_dn) / (2 * h)
+        rho_gamma = (p_up - 2 * p_base + p_dn) / (h ** 2)
+    else:
+        rho_delta = 0.0
+        rho_gamma = 0.0
+
+    delta_pnl = rho_delta * drho
+    gamma_pnl = 0.5 * rho_gamma * drho**2
     explained = delta_pnl + gamma_pnl
 
-    # Actual P&L
-    total = price_fn(rho_new) - price_fn(rho_old)
+    total = p_new - p_base
     unexplained = total - explained
 
     return CorrelationPnLAttribution(
@@ -239,10 +260,21 @@ class CorrelationLadderEntry:
         return vars(self)
 @dataclass
 class CorrelationLadder:
-    """Full correlation sensitivity ladder."""
+    """Full correlation sensitivity ladder.
+
+    Fix T4-RISK10: pre-fix exposed only ``total_rho_delta`` /
+    ``total_rho_gamma`` which both sum ``abs(...)`` over pairs (a gross
+    magnitude — useful for sizing hedges but not for portfolio P&L).
+    The signed sums are what move portfolio value when correlations
+    drift together.  Added ``net_rho_delta`` / ``net_rho_gamma`` as
+    the signed totals; the original gross fields are preserved for
+    backwards compatibility but renamed in docs as "gross" totals.
+    """
     entries: list[CorrelationLadderEntry]
-    total_rho_delta: float
-    total_rho_gamma: float
+    total_rho_delta: float       # gross — sum of |delta_i|
+    total_rho_gamma: float       # gross — sum of |gamma_i|
+    net_rho_delta: float         # signed — sum of delta_i (portfolio rho sensitivity)
+    net_rho_gamma: float         # signed — sum of gamma_i
     n_pairs: int
 
 
@@ -267,6 +299,8 @@ def correlation_sensitivity_ladder(
     entries = []
     total_delta = 0.0
     total_gamma = 0.0
+    net_delta = 0.0
+    net_gamma = 0.0
 
     base_price = price_fn_matrix(correlations)
 
@@ -300,10 +334,14 @@ def correlation_sensitivity_ladder(
 
             total_delta += abs(delta)
             total_gamma += abs(gamma)
+            net_delta += delta
+            net_gamma += gamma
 
     return CorrelationLadder(
         entries=entries,
         total_rho_delta=float(total_delta),
         total_rho_gamma=float(total_gamma),
+        net_rho_delta=float(net_delta),
+        net_rho_gamma=float(net_gamma),
         n_pairs=len(entries),
     )
