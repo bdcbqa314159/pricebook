@@ -47,14 +47,28 @@ def kelly_fraction(
         volatility: return standard deviation.
         risk_free_rate: risk-free rate.
     """
+    # Fix T4-RISK11: pre-fix silently returned f=0 when volatility=0,
+    # masking two genuinely different degenerate cases: (i) excess > 0
+    # with σ=0 is a deterministic free-money arbitrage (Kelly is +∞);
+    # (ii) excess < 0 with σ=0 is a deterministic loss (Kelly = −∞,
+    # short to infinity).  Returning 0 in either case is misleading
+    # — it pretends the asset is unattractive when it's actually an
+    # arbitrage.  Now raises ValueError so the caller is forced to
+    # handle the degenerate input explicitly.
+    if volatility <= 0:
+        raise ValueError(
+            f"kelly_fraction requires volatility > 0 (got {volatility}); "
+            "a zero-volatility asset with non-zero excess return is a "
+            "deterministic arbitrage where Kelly is undefined / infinite."
+        )
     excess = expected_return - risk_free_rate
     var = volatility ** 2
-    f_star = excess / var if var > 0 else 0
+    f_star = excess / var
 
     # Expected log growth at Kelly
     growth = risk_free_rate + f_star * excess - 0.5 * f_star**2 * var
 
-    sharpe = excess / volatility if volatility > 0 else 0
+    sharpe = excess / volatility
 
     return KellyResult(
         kelly_fraction=f_star,
@@ -112,13 +126,39 @@ def multi_asset_kelly(
         fraction: Kelly fraction (1.0 = full).
         max_leverage: cap total position.
     """
-    excess = mu - risk_free_rate
+    # Fix T4-RISK12: pre-fix validated nothing and fell back to a
+    # diagonal-only inverse on singular Σ.  Two problems:
+    #   - No square/symmetry check: caller could pass a (3, 4) matrix
+    #     or a non-symmetric one and get garbage out.
+    #   - Diagonal-only fallback drops correlation entirely.  For a
+    #     near-singular Σ from highly-correlated assets, the true Kelly
+    #     concentrates weight on the best risk-adjusted asset; the
+    #     diagonal fallback spreads incorrectly across all assets.
+    # Now validates input shape and uses np.linalg.pinv (Moore-Penrose
+    # pseudoinverse) which handles singular Σ gracefully and preserves
+    # the correlation-aware structure.
+    cov = np.asarray(cov, dtype=float)
+    mu_arr = np.asarray(mu, dtype=float)
+    if cov.ndim != 2 or cov.shape[0] != cov.shape[1]:
+        raise ValueError(f"cov must be square 2D matrix; got shape {cov.shape}")
+    if cov.shape[0] != mu_arr.shape[0]:
+        raise ValueError(
+            f"cov shape {cov.shape} incompatible with mu length {mu_arr.shape[0]}"
+        )
+    if not np.allclose(cov, cov.T, atol=1e-10):
+        raise ValueError("cov must be symmetric (within 1e-10 tolerance)")
+
+    excess = mu_arr - risk_free_rate
 
     try:
         inv_cov = np.linalg.inv(cov)
         f_star = inv_cov @ excess
     except np.linalg.LinAlgError:
-        f_star = excess / np.diag(cov)
+        # Pseudoinverse preserves correlation structure better than
+        # diagonal-only — for rank-deficient Σ it returns the minimum-
+        # norm solution to the underdetermined system.
+        inv_cov = np.linalg.pinv(cov)
+        f_star = inv_cov @ excess
 
     # Apply fraction
     f = fraction * f_star
