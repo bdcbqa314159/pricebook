@@ -43,7 +43,7 @@ def optimise_leverage(
     trade_rwa_weights: list[float],
     capital: float,
     max_leverage: float = 10.0,
-    max_single_trade_pct: float = 0.30,
+    max_single_trade_pct: float = 1.0,
     capital_ratio_floor: float = 0.08,
 ) -> LeverageOptResult:
     """Maximize carry subject to constraints via LP.
@@ -93,13 +93,21 @@ def optimise_leverage(
     b_ub.append(capital)
     constraint_names.append("capital")
 
-    # 4. Concentration: w_i ≤ max_single × max_total_notional
-    max_total = capital * max_leverage
+    # 4. Concentration: w_i ≤ max_single_trade_pct × Σw (relative).
+    # Fix T4-RISK24: pre-fix used the ABSOLUTE form
+    # ``w_i ≤ max_single × capital × max_leverage`` — looser than
+    # the docstring-promised relative form whenever actual leverage
+    # is less than max_leverage.  Example: at capital=$100M,
+    # max_lev=10, max_single=0.30, actual_lev=5x ($500M notional),
+    # pre-fix allowed one trade up to $300M (60% of portfolio);
+    # the relative form caps it at $150M (30% of portfolio).
+    # The relative constraint is linear: w_i - max_pct·Σw ≤ 0
+    # ⇒ (1 - max_pct)·w_i - max_pct·Σ_{j≠i} w_j ≤ 0.
     for i in range(n):
-        row = [0.0] * n
-        row[i] = 1.0
+        row = [-max_single_trade_pct] * n
+        row[i] = 1.0 - max_single_trade_pct
         A_ub.append(row)
-        b_ub.append(max_single_trade_pct * max_total)
+        b_ub.append(0.0)
     constraint_names.extend([f"concentration_{i}" for i in range(n)])
 
     bounds = [(0, None) for _ in range(n)]
