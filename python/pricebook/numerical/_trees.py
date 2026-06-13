@@ -466,15 +466,26 @@ class TreeSolver:
         return False
 
     def _apply_barrier(self, V, S_step):
+        # Fix T4-TR3: pre-fix the DOWN_IN/UP_IN branches were silent
+        # ``pass`` statements.  At the outer ``solve()`` level, knock-in
+        # barriers are now computed via in-out parity (vanilla − knock-out)
+        # — so ``_apply_barrier`` is in practice only called with
+        # DOWN_OUT or UP_OUT.  If a caller invokes it directly with a
+        # knock-in barrier type (e.g. bypassing solve(), or via a
+        # subclass extension), the pre-fix code silently returned the
+        # un-barriered V — i.e. priced a vanilla and called it a
+        # knock-in.  Now raise loudly so the misuse is visible.
         if self.barrier_type == BarrierType.DOWN_OUT:
             V[S_step <= self.barrier_level] = 0.0
         elif self.barrier_type == BarrierType.UP_OUT:
             V[S_step >= self.barrier_level] = 0.0
-        elif self.barrier_type == BarrierType.DOWN_IN:
-            # Knock-in: price = vanilla - knock-out (via in-out parity later)
-            pass  # complex — for now, only knock-out supported
-        elif self.barrier_type == BarrierType.UP_IN:
-            pass
+        elif self.barrier_type in (BarrierType.DOWN_IN, BarrierType.UP_IN):
+            raise NotImplementedError(
+                f"_apply_barrier called with knock-in barrier "
+                f"{self.barrier_type!r}; this internal method only handles "
+                "knock-OUT barriers.  Knock-in is computed at the outer "
+                "solve() level via in-out parity (vanilla − knock-out)."
+            )
         return V
 
     def _extract_greeks_binomial(self, snaps, spot, u, d, dt, n):
