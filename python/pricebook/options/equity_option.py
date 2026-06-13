@@ -176,9 +176,35 @@ def equity_rho(
     option_type: OptionType = OptionType.CALL,
     div_yield: float = 0.0,
 ) -> float:
-    """Rho: dPrice/dRate (per 1 unit rate change)."""
-    if T <= 0 or vol <= 0:
+    """Rho: dPrice/dRate (per 1 unit rate change).
+
+    Fix T4-EQ2: pre-fix the ``T <= 0 or vol <= 0`` branch returned 0
+    unconditionally.  At T=0 (expiry) rho is genuinely 0 (no time for
+    rate to act).  But at vol=0 with T>0 the deterministic-payoff limit
+    is non-trivial: an ITM call has price ``S·exp(-qT) - K·exp(-rT)``
+    so ``rho = T·K·exp(-rT)`` (positive).  ITM put: ``rho = -T·K·exp(-rT)``.
+    OTM (either side): 0.  At-the-money (forward == strike): the
+    standard ATM-at-expiry-style one-sided limit is ``±0.5·T·K·exp(-rT)``.
+    Pre-fix the zero return silently dropped this deterministic rho.
+    """
+    if T <= 0:
         return 0.0
+    if vol <= 0:
+        # Deterministic-payoff limit at vol=0, T>0.
+        forward, df = _forward_and_df(spot, rate, div_yield, T)
+        rho_itm = strike * T * df  # = K·T·exp(-rT)
+        if option_type == OptionType.CALL:
+            if forward > strike:
+                return rho_itm
+            if forward < strike:
+                return 0.0
+            return 0.5 * rho_itm
+        # PUT
+        if forward < strike:
+            return -rho_itm
+        if forward > strike:
+            return 0.0
+        return -0.5 * rho_itm
 
     forward, df = _forward_and_df(spot, rate, div_yield, T)
     sqrt_t = math.sqrt(T)
