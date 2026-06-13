@@ -2,6 +2,33 @@
 
 ---
 
+## v0.967.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `MCEngine(n_paths=1)` silently produced NaN stderr instead of failing fast.**
+
+Pre-fix:
+- `MCEngine(..., n_paths=1, antithetic=True)`: `n_half = 1 // 2 = 0` → ZERO paths generated. `np.std(..., ddof=1)` of zero samples is NaN — silent.
+- `MCEngine(..., n_paths=1, antithetic=False)`: single-path "MC" with `np.std(..., ddof=1)` of one sample is also NaN.
+
+Both modes are useless for Monte Carlo (you need at least 2 samples to estimate variance), but pre-fix the engine ran them silently and reported NaN downstream into `MCResult.stderr` and `confidence_95`.
+
+**Fix**:
+- `n_paths < 2` → `ValueError` upfront.
+- `antithetic=True` AND `n_paths < 4` → `ValueError` (the engine uses `n_half = n_paths // 2` antithetic pairs; 2 paths give only 1 pair, which is also degenerate for ddof=1 stderr).
+
+### Verification — `test_l2_t4_mcengine_n_paths_validation.py`
+
+7 new tests, all pass:
+- `TestNPathsValidation` × 3: `n_paths` of 1, 0, or negative raises.
+- `TestAntitheticMinimum` × 3: antithetic with 2 or 3 paths raises; 4 paths works.
+- `TestHealthyPathUnchanged`: large `n_paths` (1000) works.
+
+Full parallel suite: **12313 passed in 3:02** — zero regressions.
+
+Thirty-fifth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.966.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `mc_engine.TimeGrid` accepted any array, even empty or non-monotonic, silently producing nonsense state.**
