@@ -166,16 +166,28 @@ def community_detection(
 
 
 def _quasi_diag(dist: np.ndarray) -> list[int]:
-    """Quasi-diagonalise via greedy nearest-neighbour ordering."""
+    """Quasi-diagonalise via single-linkage hierarchical clustering leaves.
+
+    Fix T4-RISK23: pre-fix used a greedy nearest-neighbour tour
+    starting at index 0 — NOT López de Prado's quasi-diagonalisation.
+    Greedy NN produces a path-like ordering that doesn't preserve
+    cluster structure; subsequent recursive bisection then splits
+    cluster-mates apart, defeating the whole point of HRP.
+
+    Real LdP quasi-diagonalisation: run hierarchical clustering on
+    the distance matrix and use the dendrogram-leaves order, so
+    adjacent assets in the ordering are cluster-mates.
+    """
+    from scipy.cluster.hierarchy import leaves_list, linkage
+    from scipy.spatial.distance import squareform
+
     n = dist.shape[0]
-    order = [0]
-    remaining = set(range(1, n))
-    while remaining:
-        last = order[-1]
-        nearest = min(remaining, key=lambda j: dist[last, j])
-        order.append(nearest)
-        remaining.remove(nearest)
-    return order
+    if n <= 1:
+        return list(range(n))
+    # condensed-form distance vector for scipy
+    condensed = squareform(dist, checks=False)
+    link = linkage(condensed, method="single")
+    return list(leaves_list(link))
 
 
 def _recursive_bisection(cov, weights, order):
