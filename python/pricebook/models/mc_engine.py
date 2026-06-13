@@ -363,6 +363,12 @@ class MCEngine:
                 )
             target_kind, target_attr = "attr", param_name
 
+        # Fix T4-MC1: pre-fix the restoration of `process.x0` (or the bumped
+        # attribute) only ran on the happy path.  If `self.price(...)` raised
+        # in either the up- or down-bump call, the caller's process spec was
+        # left in the bumped state — a silent caller-visible state corruption.
+        # Wrap the bump sequence in try/finally so the original state is
+        # always restored, even when the up/down price call fails.
         if target_kind == "x0":
             if not (0 <= target_idx < len(self.process.x0)):
                 raise IndexError(
@@ -370,29 +376,31 @@ class MCEngine:
                     f"(x0 has {len(self.process.x0)} components)"
                 )
             original_x0 = self.process.x0.copy()
+            try:
+                self.process.x0 = original_x0.copy()
+                self.process.x0[target_idx] = original_x0[target_idx] + bump
+                self._paths = None
+                price_up = self.price(payoff, discount_factor).price
 
-            self.process.x0 = original_x0.copy()
-            self.process.x0[target_idx] = original_x0[target_idx] + bump
-            self._paths = None
-            price_up = self.price(payoff, discount_factor).price
-
-            self.process.x0 = original_x0.copy()
-            self.process.x0[target_idx] = original_x0[target_idx] - bump
-            self._paths = None
-            price_dn = self.price(payoff, discount_factor).price
-
-            self.process.x0 = original_x0
-            self._paths = None
+                self.process.x0 = original_x0.copy()
+                self.process.x0[target_idx] = original_x0[target_idx] - bump
+                self._paths = None
+                price_dn = self.price(payoff, discount_factor).price
+            finally:
+                self.process.x0 = original_x0
+                self._paths = None
         else:
             original_val = getattr(self.process, target_attr)
-            setattr(self.process, target_attr, original_val + bump)
-            self._paths = None
-            price_up = self.price(payoff, discount_factor).price
-            setattr(self.process, target_attr, original_val - bump)
-            self._paths = None
-            price_dn = self.price(payoff, discount_factor).price
-            setattr(self.process, target_attr, original_val)
-            self._paths = None
+            try:
+                setattr(self.process, target_attr, original_val + bump)
+                self._paths = None
+                price_up = self.price(payoff, discount_factor).price
+                setattr(self.process, target_attr, original_val - bump)
+                self._paths = None
+                price_dn = self.price(payoff, discount_factor).price
+            finally:
+                setattr(self.process, target_attr, original_val)
+                self._paths = None
 
         return (price_up - price_dn) / (2 * bump)
 
