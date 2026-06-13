@@ -2,6 +2,34 @@
 
 ---
 
+## v0.984.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `risk.network.FinancialNetwork.betweenness_centrality` emitted spurious `RuntimeWarning: divide by zero` on sparse adjacency matrices (classic `np.where` eager-evaluation trap).**
+
+Pre-fix:
+
+```python
+dist_matrix = np.where(self.adj > 0, 1.0 / self.adj, 0.0)
+```
+
+NumPy evaluates BOTH branches of `np.where` before selecting — so `1.0 / self.adj` is computed for EVERY element, including zero entries. The result for zeros (`inf` / `nan`) is then discarded by the where-mask, but the divide-by-zero RuntimeWarning is real, and the NaN/inf could propagate via other operations (multiplication, max-reduction etc) in subtle ways.
+
+**Fix**: use `np.divide` with the `where=` argument so the division only fires where the predicate is true. The output array is pre-zeroed and only the true-predicate entries are written.
+
+**Side-effect**: test-suite warnings drop from 29 → 19.
+
+### Verification — `test_l2_t4_warning_cleanup.py`
+
+2 new tests, all pass:
+- `test_no_divide_by_zero_warning` — sparse 3x3 adjacency under `warnings.simplefilter("error")` no longer raises.
+- `test_returns_finite_centralities` — 4x4 sparse adjacency produces finite centralities (no NaN/inf leakage).
+
+Full parallel suite: **12405 passed in 2:37** — zero regressions.
+
+Fifty-second fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.983.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `TreeSolver._apply_barrier` silently no-oped for `DOWN_IN` / `UP_IN` barriers.**
