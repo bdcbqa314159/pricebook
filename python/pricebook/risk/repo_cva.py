@@ -48,6 +48,7 @@ def repo_cva(
     counterparty_recovery: float = 0.40,
     collateral_vol: float = 0.02,
     n_steps: int = 20,
+    discount_rate: float | None = None,
 ) -> RepoCVAResult:
     """Compute repo CVA on unsecured exposure after haircut.
 
@@ -58,7 +59,14 @@ def repo_cva(
     where ΔV is the collateral price change.
 
     In a properly margined repo, exposure is small (only the haircut gap).
-    CVA = ∫ EPE(t) × h(t) × (1-R) × df(t) dt
+    CVA = (1-R) × Σ_i D(0,t_i) × EPE(t_i) × ΔPD(i)
+
+    Fix T4-RISK37: pre-fix omitted the discount factor D(0,t_i),
+    same shape as v1.006 hybrid_xva fix.  For short-dated repos
+    the effect is small (< 1% for overnight) but accumulates to
+    several percent for term repo.  Now applies a flat discount
+    factor at ``discount_rate`` (defaults to ``repo_rate`` if not
+    supplied — sensible secured-funding curve approximation).
 
     Args:
         repo_notional: cash amount lent.
@@ -69,9 +77,11 @@ def repo_cva(
         counterparty_recovery: counterparty recovery on default.
         collateral_vol: daily collateral price volatility.
         n_steps: time grid steps.
+        discount_rate: rate for D(0,t) = exp(-r·t).  Defaults to repo_rate.
     """
     dt = repo_days / 365.0 / n_steps
     lgd = 1.0 - counterparty_recovery
+    discount_rate = discount_rate if discount_rate is not None else repo_rate
 
     # Overcollateralisation: collateral = notional × (1 + haircut)
     collateral_value = repo_notional * (1 + haircut)
@@ -110,8 +120,9 @@ def repo_cva(
         epe_sum += epe
         peak_exposure = max(peak_exposure, epe)
 
-        # CVA contribution
-        cva += epe * pd_step * lgd
+        # CVA contribution (PV-discounted).
+        df_t = math.exp(-discount_rate * t_years)
+        cva += df_t * epe * pd_step * lgd
 
     avg_epe = epe_sum / n_steps if n_steps > 0 else 0.0
     total_pd = 1.0 - math.exp(-counterparty_hazard * repo_days / 365.0)
