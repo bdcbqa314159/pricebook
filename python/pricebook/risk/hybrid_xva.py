@@ -32,12 +32,25 @@ def hybrid_cva(
     default_probs: np.ndarray,      # (n_steps+1,) cumulative PD
     recovery: float = 0.4,
     wrong_way_factor: float = 0.0,
+    discount_factors: np.ndarray | None = None,  # (n_steps+1,) P(0,t_i)
 ) -> HybridCVAResult:
     """CVA on multi-asset exotic from exposure profiles.
 
-    CVA = (1 − R) × Σ E[max(V(t), 0)] × ΔPD(t).
+    Textbook form:
 
-    wrong_way_factor: scales exposure up when default is more likely
+        CVA = (1 − R) × Σ_i D(0, t_i) × EPE(t_i) × ΔPD(i)
+
+    Fix T4-RISK21: pre-fix omitted the discount-factor term D(0, t)
+    entirely, computing the *future-valued* CVA sum instead of the
+    present-valued one.  For a 10y trade with EPE in current notional
+    and rates ~5%, the pre-fix overstated CVA by ~30%-40%.
+    ``discount_factors`` is now an explicit optional input;
+    backwards compatibility: when omitted, the function assumes
+    the caller has pre-discounted the exposure paths (i.e. each
+    ``exposure_paths[p, i]`` is already PV at t=0).  Either pass
+    discount_factors explicitly OR pre-discount the paths upstream.
+
+    wrong_way_factor: scales CVA up when default is more likely
     (positive factor → exposure increases near default events).
     """
     n_paths, n_steps_p1 = exposure_paths.shape
@@ -50,9 +63,20 @@ def hybrid_cva(
     ene = np.minimum(exposure_paths, 0).mean(axis=0)
     peak = float(epe.max())
 
+    # Discount the EPE if discount factors supplied.
+    if discount_factors is not None:
+        df = np.asarray(discount_factors, dtype=float)
+        if df.shape != (n_steps_p1,):
+            raise ValueError(
+                f"discount_factors must have shape ({n_steps_p1},); got {df.shape}"
+            )
+        epe_discounted = epe * df
+    else:
+        epe_discounted = epe
+
     # CVA
     lgd = 1 - recovery
-    cva = lgd * float(np.sum(epe * marginal_pd))
+    cva = lgd * float(np.sum(epe_discounted * marginal_pd))
 
     # Wrong-way adjustment: scale CVA by (1 + factor)
     wwr = cva * wrong_way_factor
@@ -119,15 +143,32 @@ def hybrid_fva(
     exposure_paths: np.ndarray,
     funding_spread_bps: float,
     dt: float,
+    discount_factors: np.ndarray | None = None,
 ) -> HybridFVAResult:
     """FVA for long-dated hybrid: funding cost of uncollateralised exposure.
 
-    FVA = funding_spread × Σ E[V(t)] × dt.
+    Textbook form:
+
+        FVA = funding_spread × Σ_i D(0, t_i) × E[V(t_i)] × dt
+
+    Fix T4-RISK22: pre-fix omitted the discount factor, computing
+    *future-valued* FVA.  Same shape as the CVA fix above.  Pass
+    ``discount_factors`` explicitly or pre-discount the exposure paths.
     """
     n_paths, n_steps = exposure_paths.shape
     spread = funding_spread_bps / 10000
     expected_exposure = exposure_paths.mean(axis=0)
-    fva = spread * float(np.sum(expected_exposure * dt))
-    expected_funding = float(np.sum(np.abs(expected_exposure) * dt)) * spread
+    if discount_factors is not None:
+        df = np.asarray(discount_factors, dtype=float)
+        if df.shape != expected_exposure.shape:
+            raise ValueError(
+                f"discount_factors shape {df.shape} != exposure time-step "
+                f"shape {expected_exposure.shape}"
+            )
+        expected_exposure_pv = expected_exposure * df
+    else:
+        expected_exposure_pv = expected_exposure
+    fva = spread * float(np.sum(expected_exposure_pv * dt))
+    expected_funding = float(np.sum(np.abs(expected_exposure_pv) * dt)) * spread
 
     return HybridFVAResult(float(fva), funding_spread_bps, float(expected_funding))
