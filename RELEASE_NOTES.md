@@ -2,6 +2,30 @@
 
 ---
 
+## v0.997.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.correlation_greeks` had two issues.**
+
+### (a) `correlation_pnl_attribution` did 8 pricer calls when 4 suffice
+
+Pre-fix: `correlation_delta(rho_old)` (3 calls) + `correlation_gamma(rho_old)` (3 calls — overlapping `rho_old`, `rho_old+bump`, `rho_old-bump` with the delta call) + direct `price_fn(rho_new)` + `price_fn(rho_old)` = **8 calls**. Only 4 unique points needed: `rho_old`, `rho_old±bump`, `rho_new`. Now computed inline — halves the cost for expensive multi-asset pricers (basket MC, ND PDE). Same shape as v0.994 `bump_greeks` duplicate-call fix.
+
+### (b) `CorrelationLadder` exposed only gross magnitudes
+
+`total_rho_delta` and `total_rho_gamma` summed `abs(delta_i)`. For sizing hedges (gross exposure) this is useful, but for portfolio P&L the signed sum is what matters when correlations drift together. Added `net_rho_delta` / `net_rho_gamma` as signed totals; preserved the original gross fields for backwards compatibility.
+
+### Verification — `test_l2_t4_correlation_greeks.py`
+
+4 new tests:
+- `TestCorrelationPnlAttributionCallCount` × 2: exactly 4 unique calls; quadratic price_fn → Taylor explains everything (unexplained = 0).
+- `TestCorrelationLadderNet` × 2: net vs gross sums with sign-mixed pairs (net=+1, gross=3); linear-in-rho pricer has zero net/gross gamma.
+
+Full parallel suite: **12,506 passed in 2:58** — zero regressions.
+
+Fifth fix from phase-2. **126 distinct bugs** (2 more in this slice) in v0.905→v0.997.
+
+---
+
 ## v0.996.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.factor_model` had two real bugs.**
