@@ -12,7 +12,7 @@ Standard scenarios: parallel shift, point bump (DV01 ladder), vol bump.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from pricebook.core.discount_curve import DiscountCurve
@@ -40,6 +40,17 @@ class ScenarioResult:
 # Scenario constructors
 # ---------------------------------------------------------------------------
 
+# Fix T4-RISK33: every scenario constructor in this module used
+# ``PricingContext(field=value, ...)`` with only 6 named fields,
+# silently dropping ``discount_curves`` (plural), ``inflation_curves``,
+# ``repo_curves``, ``reporting_currency``, ``stochastic_credit_models``,
+# ``credit_vol_surfaces``, ``credit_correlations``, and
+# ``numerical_config``.  Same shape as the v0.993 var.stress_test bug.
+# Now all five constructors use ``dataclasses.replace`` to preserve
+# every untouched field.  Also: ``parallel_shift`` now bumps the
+# plural ``discount_curves`` dict alongside the singular.
+
+
 def parallel_shift(shift: float, name: str | None = None):
     """Create a parallel rate shift scenario.
 
@@ -47,19 +58,18 @@ def parallel_shift(shift: float, name: str | None = None):
         shift: shift in rate terms (e.g. 0.0001 = +1bp).
     """
     def apply(ctx: PricingContext) -> PricingContext:
-        new_disc = ctx.discount_curve.bumped(shift) if ctx.discount_curve else None
-        new_proj = {
-            k: v.bumped(shift)
-            for k, v in ctx.projection_curves.items()
-        }
-        return PricingContext(
-            valuation_date=ctx.valuation_date,
-            discount_curve=new_disc,
-            projection_curves=new_proj,
-            vol_surfaces=ctx.vol_surfaces,
-            credit_curves=ctx.credit_curves,
-            fx_spots=ctx.fx_spots,
-        )
+        updates: dict = {}
+        if ctx.discount_curve is not None:
+            updates["discount_curve"] = ctx.discount_curve.bumped(shift)
+        if ctx.discount_curves:
+            updates["discount_curves"] = {
+                k: v.bumped(shift) for k, v in ctx.discount_curves.items()
+            }
+        if ctx.projection_curves:
+            updates["projection_curves"] = {
+                k: v.bumped(shift) for k, v in ctx.projection_curves.items()
+            }
+        return replace(ctx, **updates) if updates else ctx
 
     return _Scenario(name or f"parallel_{shift*10000:.0f}bp", apply)
 
@@ -67,16 +77,9 @@ def parallel_shift(shift: float, name: str | None = None):
 def pillar_bump(pillar_idx: int, shift: float = 0.0001, name: str | None = None):
     """Bump a single curve pillar (for DV01 ladder)."""
     def apply(ctx: PricingContext) -> PricingContext:
-        new_disc = ctx.discount_curve.bumped_at(pillar_idx, shift) \
-            if ctx.discount_curve else None
-        return PricingContext(
-            valuation_date=ctx.valuation_date,
-            discount_curve=new_disc,
-            projection_curves=ctx.projection_curves,
-            vol_surfaces=ctx.vol_surfaces,
-            credit_curves=ctx.credit_curves,
-            fx_spots=ctx.fx_spots,
-        )
+        if ctx.discount_curve is None:
+            return ctx
+        return replace(ctx, discount_curve=ctx.discount_curve.bumped_at(pillar_idx, shift))
 
     return _Scenario(name or f"pillar_{pillar_idx}_{shift*10000:.0f}bp", apply)
 
@@ -91,14 +94,7 @@ def vol_bump(shift: float, surface_name: str = "ir", name: str | None = None):
             old = new_vols[surface_name]
             if hasattr(old, '_vol'):
                 new_vols[surface_name] = FlatVol(old._vol + shift)
-        return PricingContext(
-            valuation_date=ctx.valuation_date,
-            discount_curve=ctx.discount_curve,
-            projection_curves=ctx.projection_curves,
-            vol_surfaces=new_vols,
-            credit_curves=ctx.credit_curves,
-            fx_spots=ctx.fx_spots,
-        )
+        return replace(ctx, vol_surfaces=new_vols)
 
     return _Scenario(name or f"vol_{shift*100:.0f}pct", apply)
 
@@ -110,14 +106,7 @@ def fx_spot_shock(base: str, quote: str, shift_pct: float, name: str | None = No
         key = (base, quote)
         if key in new_spots:
             new_spots[key] = new_spots[key] * (1 + shift_pct)
-        return PricingContext(
-            valuation_date=ctx.valuation_date,
-            discount_curve=ctx.discount_curve,
-            projection_curves=ctx.projection_curves,
-            vol_surfaces=ctx.vol_surfaces,
-            credit_curves=ctx.credit_curves,
-            fx_spots=new_spots,
-        )
+        return replace(ctx, fx_spots=new_spots)
 
     return _Scenario(name or f"fx_{base}{quote}_{shift_pct*100:.0f}pct", apply)
 
@@ -140,14 +129,7 @@ def credit_spread_shift(
                 new_credit[k] = v.bumped(shift) if v else v
             else:
                 new_credit[k] = v
-        return PricingContext(
-            valuation_date=ctx.valuation_date,
-            discount_curve=ctx.discount_curve,
-            projection_curves=ctx.projection_curves,
-            vol_surfaces=ctx.vol_surfaces,
-            credit_curves=new_credit,
-            fx_spots=ctx.fx_spots,
-        )
+        return replace(ctx, credit_curves=new_credit)
 
     return _Scenario(name or f"credit_{shift*10000:.0f}bp", apply)
 
