@@ -152,12 +152,32 @@ def ipv_single_trade(
     complexity_score: int = 2,
     variance_threshold_bp: float = 50.0,
     stressed: bool = False,
+    direction: int = 1,
 ) -> IPVResult:
     """Run IPV for a single trade.
 
     Price hierarchy: Level 1 (market) > Level 2 (matrix) > Level 3 (model).
     Computes all applicable AVAs using existing prudent_valuation functions.
+
+    Args:
+        direction: +1 for long position, −1 for short.  Drives the
+            sign of AVA application to mid (long → prudent below mid;
+            short → prudent above mid, since the prudent liability
+            value is conservatively *larger* than the mid quote).
+            Default +1 preserves pre-fix long-only behaviour.
+
+    Fix T4-RISK13: pre-fix had no concept of position direction.
+    ``prudent_value = mid - ava`` was hardcoded long.  Short positions
+    were silently mispriced — the prudent value of a liability is
+    *above* mid, not below.  Also, any negative-notional input
+    propagated through to the AVA functions as negative-magnitude
+    AVAs (since e.g. close_out_cost_ava multiplies by notional).
+    Now: take ``abs(notional)`` for AVA size, apply ``direction`` for
+    AVA-vs-mid sign.
     """
+    if direction not in (-1, +1):
+        raise ValueError(f"direction must be +1 (long) or -1 (short); got {direction}")
+    abs_notional = abs(notional)
     has_market = market_price is not None
     has_matrix = matrix_price is not None
     level = classify_fair_value_level(has_market, has_matrix, n_quotes)
@@ -195,7 +215,7 @@ def ipv_single_trade(
     ava["market_price_uncertainty"] = mpu.ava
 
     # 2. Close-out cost
-    coc = close_out_cost_ava(notional, asset_class, daily_volume, position_days)
+    coc = close_out_cost_ava(abs_notional, asset_class, daily_volume, position_days)
     ava["close_out_cost"] = coc.ava
 
     # 3. Model risk (if multiple model prices available)
@@ -206,32 +226,34 @@ def ipv_single_trade(
         ava["model_risk"] = 0.0
 
     # 4. Concentration
-    if daily_volume > 0 and notional > 0:
-        conc = concentration_ava(notional, daily_volume * 252, mid)
+    if daily_volume > 0 and abs_notional > 0:
+        conc = concentration_ava(abs_notional, daily_volume * 252, mid)
         ava["concentration"] = conc.ava
     else:
         ava["concentration"] = 0.0
 
     # 5. Investing & funding (illiquidity)
     if illiquidity_premium_bp > 0:
-        ifava = investing_funding_ava(notional, illiquidity_premium_bp, maturity_years)
+        ifava = investing_funding_ava(abs_notional, illiquidity_premium_bp, maturity_years)
         ava["investing_funding"] = ifava.ava
     else:
         ava["investing_funding"] = 0.0
 
     # 6. Future admin cost
-    fac = future_admin_cost_ava(notional, complexity_score, maturity_years)
+    fac = future_admin_cost_ava(abs_notional, complexity_score, maturity_years)
     ava["future_admin_cost"] = fac.ava
 
     total_ava = sum(ava.values())
 
     # Diversification benefit (EBA simplified: 50%)
     diversified_ava = total_ava * 0.50
-    prudent_value = mid - diversified_ava
+    # Long → prudent below mid; short → prudent above mid (liability).
+    prudent_value = mid - direction * diversified_ava
 
-    # Variance check
-    if notional > 0:
-        variance_bp = abs(ipv_price - model_price) / notional * 10_000
+    # Variance check — uses absolute notional so short positions don't
+    # silently produce negative variance_bp (which would never breach).
+    if abs_notional > 0:
+        variance_bp = abs(ipv_price - model_price) / abs_notional * 10_000
     else:
         variance_bp = 0.0
 
