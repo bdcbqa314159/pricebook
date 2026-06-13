@@ -252,8 +252,30 @@ def fx_lookback_floating(
         is_call: call pays S_T − min; put pays max − S_T.
         running_extreme: observed running min (call) or max (put); defaults to spot.
     """
-    if vol <= 0 or T <= 0:
+    # Fix T4-FXLBK1: pre-fix the degenerate branch returned 0
+    # unconditionally — but at vol=0, T>0 the spot path is the
+    # deterministic exponential S_t = spot·exp((rd-rf)·t) and the
+    # lookback payoff has a well-defined non-zero value.
+    if T <= 0:
         return LookbackResult(0.0, True, is_call)
+    if vol <= 0:
+        a = rate_dom - rate_for
+        spot_T = spot * math.exp(a * T)
+        df_d = math.exp(-rate_dom * T)
+        # Deterministic path extremes over [0, T]:
+        #   a >= 0  → monotone non-decreasing → min = spot, max = spot_T.
+        #   a <  0  → monotone decreasing     → min = spot_T, max = spot.
+        path_min = spot if a >= 0 else spot_T
+        path_max = spot_T if a >= 0 else spot
+        # Combine with the observed running extreme (default = spot).
+        observed = running_extreme if running_extreme is not None else spot
+        if is_call:
+            effective_min = min(observed, path_min)
+            payoff = max(spot_T - effective_min, 0.0)
+        else:
+            effective_max = max(observed, path_max)
+            payoff = max(effective_max - spot_T, 0.0)
+        return LookbackResult(df_d * payoff, True, is_call)
 
     m = running_extreme if running_extreme is not None else spot
     a = rate_dom - rate_for
