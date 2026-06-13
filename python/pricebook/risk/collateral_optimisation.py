@@ -160,15 +160,23 @@ class CollateralOptimiser:
                 else:
                     c[idx] = 1e10  # effectively infinite cost for ineligible
 
-        # Coverage constraints: Σ_j x[i,j] >= required[i]
-        # In linprog form: -Σ_j x[i,j] <= -required[i]
+        # Coverage constraints: Σ_j (1 - haircut_j) × x[i,j] >= required[i]
+        # In linprog form: -Σ_j (1 - haircut_j) × x[i,j] <= -required[i]
+        #
+        # Fix T4-RISK27: pre-fix used `Σ_j x[i,j] >= required[i]` without
+        # applying the haircut.  For an asset with 5% haircut, posting
+        # $100 covers only $95 of the requirement, but pre-fix LP
+        # treated $100 = $100 of coverage.  Result: every non-cash CSA
+        # allocation was silently under-collateralised by the haircut
+        # amount.  Now we multiply each x[i,j] by (1 - h_j) before
+        # summing into the coverage constraint.
         A_ub_rows = []
         b_ub_rows = []
 
         for i, req in enumerate(self.requirements):
             row = np.zeros(n_vars)
-            for j in range(n_assets):
-                row[i * n_assets + j] = -1.0
+            for j, asset in enumerate(self.assets):
+                row[i * n_assets + j] = -(1.0 - asset.haircut_pct)
             A_ub_rows.append(row)
             b_ub_rows.append(-req.required_amount)
 
@@ -215,10 +223,13 @@ class CollateralOptimiser:
         total_cost = sum(cost_by_csa.values())
         naive = self._naive_cost()
 
-        # Check unmet requirements
+        # Check unmet requirements — use post-haircut value (must match coverage constraint).
         unmet = []
         for i, req in enumerate(self.requirements):
-            allocated = sum(result.x[i * n_assets + j] for j in range(n_assets))
+            allocated = sum(
+                (1.0 - self.assets[j].haircut_pct) * result.x[i * n_assets + j]
+                for j in range(n_assets)
+            )
             if allocated < req.required_amount - 1e-6:
                 unmet.append(req.csa_id)
 
@@ -234,13 +245,38 @@ class CollateralOptimiser:
         )
 
     def _naive_cost(self) -> float:
-        """Baseline: allocate cheapest eligible asset per CSA (no cross-optimisation)."""
+        """Baseline: per-CSA greedy allocation respecting availability.
+
+        Walk CSAs sequentially; for each, fill from cheapest-effective
+        eligible asset until either the CSA is covered or supply runs
+        out, then spill over to the next-cheapest.  This is what a
+        non-LP human would do greedy-by-CSA, and is a feasible baseline
+        for the LP to beat.
+
+        Must use haircut-grossed cost (matches the LP's coverage
+        constraint convention) so the comparison is apples-to-apples.
+        """
+        def effective_cost(a: CollateralAsset) -> float:
+            return a.cost_per_unit / max(1.0 - a.haircut_pct, 1e-12)
+
+        remaining = {a.asset_id: a.available_amount for a in self.assets}
         total = 0.0
         for req in self.requirements:
-            eligible = [a for a in self.assets if a.asset_id in req.eligible_asset_ids]
-            if eligible:
-                cheapest = min(eligible, key=lambda a: a.cost_per_unit)
-                total += req.required_amount * cheapest.cost_per_unit
+            eligible = sorted(
+                (a for a in self.assets if a.asset_id in req.eligible_asset_ids),
+                key=effective_cost,
+            )
+            net_to_cover = req.required_amount
+            for asset in eligible:
+                if net_to_cover <= 1e-12:
+                    break
+                # Max net coverage from this asset given remaining supply.
+                max_net_from_asset = remaining[asset.asset_id] * (1.0 - asset.haircut_pct)
+                net_take = min(net_to_cover, max_net_from_asset)
+                gross_take = net_take / max(1.0 - asset.haircut_pct, 1e-12)
+                total += gross_take * asset.cost_per_unit
+                remaining[asset.asset_id] -= gross_take
+                net_to_cover -= net_take
         return total
 
     def what_if_substitution(
