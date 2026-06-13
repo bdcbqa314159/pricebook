@@ -2,6 +2,37 @@
 
 ---
 
+## v1.008.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.leverage_optimisation` concentration constraint was looser than its own docstring.**
+
+Pre-fix: `w_i ≤ max_single_pct × (capital × max_leverage)` — bound is fraction of *theoretical max notional*, not realised portfolio. When actual leverage is below max_leverage, this is much looser than the docstring-promised relative form `w_i ≤ max_single_pct × Σw`.
+
+Example: capital=$100M, max_lev=10, max_single=30%, actual_lev=5x → portfolio = $500M.
+- Pre-fix: single trade allowed up to $300M (= 60% of portfolio).
+- Docstring (relative): single trade capped at $150M (= 30% of portfolio).
+
+**Fix**: implement the relative constraint linearly:
+
+    (1 − max_pct)·w_i − max_pct·Σ_{j≠i} w_j ≤ 0
+
+Default `max_single_trade_pct` raised from `0.30` to `1.0` (no concentration cap by default). The relative form requires `max_pct ≥ 1/N` to be feasible with all-active portfolio; with the old default of 0.30 and N=3 trades the LP would be infeasible. Callers that want strict concentration set `max_single_trade_pct` explicitly.
+
+### Verification — `test_l2_t4_leverage_opt.py`
+
+4 new tests:
+- `TestRelativeConcentration` × 2: every w_i/Σw ≤ max_pct (feasible N=4, max_pct=0.30).
+- `TestSingleTradeRecovery` × 1: uniform weights under tight cap.
+- `TestOptimiserHappyPath` × 1: solver returns positive carry/leverage.
+
+Plus existing `test_repo_phase3.TestLeverageOptimisation` (13 tests) still pass with the new default.
+
+Full parallel suite: **12,567 passed in 3:01** — zero regressions.
+
+Sixteenth fix from phase-2. **140 distinct bugs** in v0.905→v1.008.
+
+---
+
 ## v1.007.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.correlation_network._quasi_diag` was a greedy nearest-neighbour tour, not López de Prado's quasi-diagonalisation.**
