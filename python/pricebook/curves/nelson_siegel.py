@@ -187,6 +187,15 @@ def calibrate_svensson(
         b0, b1, b2, tau1, b3, tau2 = params
         if tau1 <= 0.01 or tau2 <= 0.01:
             return 1e10
+        # Fix T4-NS3: pre-fix had no degeneracy guard for tau1 ≈ tau2.
+        # When the two decay constants collapse, the second Svensson
+        # factor becomes a linear combination of the first plus the
+        # NS factor, so the objective surface develops a flat valley
+        # along the (beta2, beta3) ridge and Nelder-Mead can drift
+        # arbitrarily far in that direction.  Penalise small |tau1-tau2|
+        # to keep the parameterisation identifiable.
+        if abs(tau1 - tau2) < 0.05:
+            return 1e10
         return sum(
             (svensson_yield(t, b0, b1, b2, tau1, b3, tau2) - y) ** 2
             for t, y in zip(tenors, market_yields)
