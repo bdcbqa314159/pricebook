@@ -298,6 +298,15 @@ def price_swaption_sabr_hw(
     from pricebook.core.day_count import DayCountConvention, year_fraction
     from pricebook.models.black76 import black76_price, OptionType
 
+    # Fix T4-SW1: pre-fix `blend_half_life` was not validated.  Passing 0
+    # caused `math.exp(-T / 0.0)` to raise `ZeroDivisionError` deep inside
+    # the pricer with no diagnostic context.  Validate upfront.
+    if blend_half_life <= 0:
+        raise ValueError(
+            f"blend_half_life must be > 0 (got {blend_half_life}); "
+            f"use a positive years value (default 5.0)."
+        )
+
     ref = curve.reference_date
     T = year_fraction(ref, swaption.expiry, DayCountConvention.ACT_365_FIXED)
 
@@ -331,13 +340,24 @@ def price_swaption_sabr_hw(
     # Blending weight
     w_sabr = math.exp(-T / blend_half_life)
 
-    # Blended vol
+    # Blended vol — Fix T4-SW2: pre-fix when BOTH SABR and HW vols failed
+    # (returned ≤ 0), the fallback silently substituted a hard-coded 1%
+    # volatility and produced an essentially arbitrary price with no
+    # warning.  Fail loudly instead so the caller can diagnose the
+    # upstream SABR/HW failure.
     if sabr_vol > 0 and hw_vol > 0:
         blended_vol = w_sabr * sabr_vol + (1 - w_sabr) * hw_vol
     elif sabr_vol > 0:
         blended_vol = sabr_vol
+    elif hw_vol > 0:
+        blended_vol = hw_vol
     else:
-        blended_vol = hw_vol if hw_vol > 0 else 0.01
+        raise ValueError(
+            "price_swaption_sabr_hw: both SABR and HW vols returned "
+            f"non-positive values (sabr_vol={sabr_vol}, hw_vol={hw_vol}); "
+            "the cube/HW calibration upstream is degenerate — investigate "
+            "the inputs rather than relying on a silent fallback."
+        )
 
     # Price via Black-76
     opt_type = OptionType.CALL if swaption.swaption_type == SwaptionType.PAYER else OptionType.PUT
