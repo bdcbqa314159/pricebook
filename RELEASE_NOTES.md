@@ -2,6 +2,34 @@
 
 ---
 
+## v0.974.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `Uniform` and `Exponential` constructors let NaN slip through their guards.**
+
+In IEEE 754, all comparisons against NaN return False. So a naive guard like
+
+```python
+if a >= b:
+    raise ...
+```
+
+silently accepts `a=NaN, b=NaN` (NaN >= NaN is False). The constructor succeeded, then downstream `cdf` / `pdf` propagated NaN through the user's computation with no diagnostic.
+
+**Fix**: both constructors now explicitly check `math.isnan(...)` before the inequality guard and raise `ValueError` with a diagnostic message that names the IEEE 754 root cause.
+
+### Verification — `test_l2_t4_distribution_nan_guards.py`
+
+8 new tests, all pass:
+- `TestUniformNaNGuards` × 4: NaN-a, NaN-b, both-NaN raise; valid (a, b) works.
+- `TestExponentialNaNGuards` × 3: NaN rate raises; valid rate works; ±inf rate documented.
+- `TestPreFixSlipThroughGuard`: pins down the IEEE 754 NaN-compares-False semantics.
+
+Full parallel suite: **12350 passed in 3:12** — zero regressions.
+
+Forty-second fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.973.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `calibrate_svensson` had no degeneracy guard for `τ1 ≈ τ2`.**
