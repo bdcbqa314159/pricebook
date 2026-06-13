@@ -2,6 +2,37 @@
 
 ---
 
+## v0.959.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `proximal_gradient` lied about its result in two ways.**
+
+Pre-fix:
+
+1. **`OptimizeResult.fun` was unconditionally `0.0`.** A calibration consumer reading `result.fun` saw "zero" and concluded the solver had found the optimum, when in fact the solver had no idea what the objective value was (the function never receives `f` — only `grad_f`).
+
+2. **`OptimizeResult.converged` was unconditionally `True`.** The loop could exhaust `maxiter` without the tolerance check ever firing, and the caller had no way to know — `result.converged` was a rubber stamp.
+
+**Fix**:
+- Added optional `f_obj` parameter: if supplied, `fun` is the true objective at the final iterate.
+- If `f_obj` is omitted, `fun = float('nan')` — a clear sentinel that the value is unknown (NOT zero).
+- `converged` now reflects whether the tolerance check actually fired during iteration.
+- Loop counter `k` is initialised before the loop so the `iterations` count is well-defined even for `maxiter=0`.
+
+### Verification — `test_l2_t4_proximal_gradient_reporting.py`
+
+5 new tests, all pass:
+- `test_converged_true_when_tolerance_fires` — generous params → converged=True.
+- `test_converged_false_when_maxiter_exhausted` — tiny step + tight tol + low maxiter → converged=False.
+- `test_fun_is_nan_when_no_objective_supplied` — clear sentinel for unknown.
+- `test_fun_is_correct_when_objective_supplied` — `f_obj=…` gives true `fun` value (≈ 0 at minimum of `0.5||x − x*||²`).
+- `test_recovers_smooth_quad_optimum` — sanity check that the solver still finds the optimum.
+
+Full parallel suite: **12264 passed in 2:32** — zero regressions.
+
+Twenty-seventh fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.958.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `antithetic_paths` had a bimodal interface that was misleading in one branch and mathematically WRONG in the other.**
