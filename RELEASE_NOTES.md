@@ -2,6 +2,36 @@
 
 ---
 
+## v0.988.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `_digital_call_bs` in `structured.equity_linked_note` had two coupled bugs in the degenerate `T<=0 or vol<=0` branch.**
+
+Same shape as the v0.948 `equity_delta` fix.  Pre-fix:
+
+```python
+if T <= 0 or vol <= 0:
+    return 1.0 if spot > strike else 0.0
+```
+
+Two bugs:
+- **(a) Spot vs forward indicator.** At `vol=0, T>0`, the terminal value is `S_T = forward = spot·exp((r-q)T)` (deterministic), not `spot`. An OTM-spot but ITM-forward digital silently returned 0. Example: `spot=95, rate=10%, T=1 → forward≈105 > strike=100` is ITM but pre-fix returned 0.
+- **(b) No discount factor.** Even when ITM, the digital pays $1 at maturity and must be present-valued. Pre-fix returned `1.0` instead of `exp(-rT)`.
+
+**Fix**: split `T = 0` (no drift, no discount — keep spot indicator) from `T > 0, vol = 0` (use forward indicator and apply `df = exp(-rT)`; ATM forward is the one-sided half-limit).
+
+### Verification — `test_l2_t4_digital_eln_degenerate.py`
+
+8 new tests:
+- `TestDigitalCallVolZeroTPositive` × 4: ITM-forward/OTM-spot returns `df` (was 0 pre-fix); ITM-call returns `df` (was 1.0 pre-fix); OTM returns 0; ATM-forward returns `0.5·df`.
+- `TestDigitalCallTZero` × 2: T=0 path preserved.
+- `TestDigitalCallInteriorUnchanged` × 2: interior `df·N(d2)` formula and dividend-yield-on-forward both unchanged.
+
+Full parallel suite: **12,430 passed in 3:11** — zero regressions, +8 net tests.
+
+Fifty-sixth fix from the 35-module Wave-2 audit; 106th distinct bug in the v0.905→v0.988 arc.
+
+---
+
 ## v0.987.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `equity_theta` `T<=0 or vol<=0` branch returned the Black-76 theta alone, dropping the `theta_r` and `theta_q` corrections.**
