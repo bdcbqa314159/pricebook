@@ -59,10 +59,23 @@ def _gk_european(
     spot: float, strike: float, r_d: float, r_f: float,
     vol: float, T: float, is_call: bool,
 ) -> float:
-    """Garman-Kohlhagen European price (closed form)."""
-    if T <= 0 or vol <= 0:
+    """Garman-Kohlhagen European price (closed form).
+
+    Fix T4-FX3: pre-fix the ``T <= 0 or vol <= 0`` branch returned
+    spot-based intrinsic ``max(spot − strike, 0)`` for both T=0 and
+    T>0/vol=0 cases — but at vol=0 with T>0 the deterministic terminal
+    is the forward ``F = spot·exp((r_d - r_f)T)`` and the present value
+    is ``df_d · max(F − K, 0)``.  Pre-fix dropped both the
+    spot-to-forward drift and the domestic discount.
+    """
+    if T <= 0:
         intrinsic = (spot - strike) if is_call else (strike - spot)
         return max(intrinsic, 0.0)
+    if vol <= 0:
+        fwd = spot * math.exp((r_d - r_f) * T)
+        df_d = math.exp(-r_d * T)
+        intrinsic = (fwd - strike) if is_call else (strike - fwd)
+        return df_d * max(intrinsic, 0.0)
     fwd = spot * math.exp((r_d - r_f) * T)
     sqrt_t = math.sqrt(T)
     d1 = (math.log(fwd / strike) + 0.5 * vol * vol * T) / (vol * sqrt_t)

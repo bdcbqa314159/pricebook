@@ -221,7 +221,15 @@ def deflation_floor_value(
     from scipy.stats import norm
 
     if inflation_vol <= 0 or T <= 0:
-        deflation = max(-breakeven * T, 0)
+        # Fix T4-INF1: pre-fix used the linearised approximation
+        # ``-breakeven·T`` (first-order Taylor of ``1 - exp(breakeven·T)``).
+        # For breakeven=-5%, T=30y this gave 1.5 — exceeding the maximum
+        # possible deflation (1.0 = 100% loss).  Now uses the exact
+        # deterministic-limit ``max(1 - exp(breakeven·T), 0) = max(K - F, 0)``
+        # at K=1 and F=exp(breakeven·T), matching the interior Black put limit.
+        F = math.exp(breakeven * T)
+        K = 1.0
+        deflation = max(K - F, 0.0)
         prob = 1.0 if breakeven < 0 else 0.0
         return DeflationFloorResult(
             floor_value=float(discount_factor * deflation),

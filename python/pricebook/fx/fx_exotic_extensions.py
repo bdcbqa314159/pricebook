@@ -80,11 +80,33 @@ def fx_digital_option(
         payout_currency: "domestic" or "foreign".
         overhedge_shift: shift strike for overhedge (in spot units).
     """
-    if T <= 0 or vol <= 0:
+    # Fix T4-FXDIG1: pre-fix used the right indicator (forward) but
+    # dropped the discount factor entirely.  Cash-or-nothing digitals
+    # pay at maturity, so PV needs ``df_d`` (domestic payout) or
+    # ``df_f`` (foreign payout).  Pre-fix returned undiscounted
+    # ``payout`` — an overstatement by ``1/df`` ≈ ``1 + rT`` for short T.
+    if T <= 0:
         fwd = spot * math.exp((r_d - r_f) * T)
         if option_type == "call":
             return FXDigitalResult(payout if fwd > strike else 0, 0, 0, payout, 0)
         return FXDigitalResult(payout if fwd < strike else 0, 0, 0, payout, 0)
+    if vol <= 0:
+        fwd = spot * math.exp((r_d - r_f) * T)
+        if payout_currency == "foreign":
+            df_pv = math.exp(-r_f * T)
+        else:
+            df_pv = math.exp(-r_d * T)
+        if option_type == "call":
+            if fwd > strike:
+                return FXDigitalResult(payout * df_pv, 0, 0, payout, 0)
+            if fwd < strike:
+                return FXDigitalResult(0.0, 0, 0, payout, 0)
+            return FXDigitalResult(0.5 * payout * df_pv, 0, 0, payout, 0)
+        if fwd < strike:
+            return FXDigitalResult(payout * df_pv, 0, 0, payout, 0)
+        if fwd > strike:
+            return FXDigitalResult(0.0, 0, 0, payout, 0)
+        return FXDigitalResult(0.5 * payout * df_pv, 0, 0, payout, 0)
 
     K = strike + overhedge_shift if option_type == "call" else strike - overhedge_shift
     fwd = spot * math.exp((r_d - r_f) * T)

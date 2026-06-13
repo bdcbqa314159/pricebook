@@ -56,11 +56,41 @@ def fx_spot_delta(
     T: float,
     option_type: OptionType = OptionType.CALL,
 ) -> float:
-    """Spot delta: dPrice/dSpot = exp(-r_f*T) * N(d1) for call."""
-    if T <= 0 or vol <= 0:
+    """Spot delta: dPrice/dSpot = exp(-r_f*T) * N(d1) for call.
+
+    Fix T4-FX1: pre-fix the ``T <= 0 or vol <= 0`` branch compared
+    ``spot`` to ``strike``.  At ``vol=0, T>0`` the deterministic
+    terminal is ``S_T = forward = spot·exp((r_d - r_f)T)``, not spot,
+    and the ATM-forward case (forward == strike) had no half-limit
+    branch — it silently returned 0 instead of ±0.5·exp(-r_f·T).
+    """
+    if T <= 0:
+        # Immediate: indicator on spot, factor = 1 (no time to discount).
         if option_type == OptionType.CALL:
-            return math.exp(-r_f * T) if spot > strike else 0.0
-        return -math.exp(-r_f * T) if spot < strike else 0.0
+            if spot > strike:
+                return 1.0
+            if spot < strike:
+                return 0.0
+            return 0.5
+        if spot < strike:
+            return -1.0
+        if spot > strike:
+            return 0.0
+        return -0.5
+    if vol <= 0:
+        fwd = fx_forward(spot, r_d, r_f, T)
+        eq = math.exp(-r_f * T)
+        if option_type == OptionType.CALL:
+            if fwd > strike:
+                return eq
+            if fwd < strike:
+                return 0.0
+            return 0.5 * eq
+        if fwd < strike:
+            return -eq
+        if fwd > strike:
+            return 0.0
+        return -0.5 * eq
 
     fwd = fx_forward(spot, r_d, r_f, T)
     sqrt_t = math.sqrt(T)
@@ -80,11 +110,37 @@ def fx_forward_delta(
     T: float,
     option_type: OptionType = OptionType.CALL,
 ) -> float:
-    """Forward delta: dPrice/dForward * exp(r_d*T) = N(d1) for call."""
-    if T <= 0 or vol <= 0:
+    """Forward delta: dPrice/dForward * exp(r_d*T) = N(d1) for call.
+
+    Fix T4-FX2: same shape as ``fx_spot_delta`` — pre-fix compared
+    ``spot`` to ``strike`` in the degenerate branch (should be
+    ``forward`` to ``strike``) and dropped the ATM half-limit.
+    """
+    if T <= 0:
         if option_type == OptionType.CALL:
-            return 1.0 if spot > strike else 0.0
-        return -1.0 if spot < strike else 0.0
+            if spot > strike:
+                return 1.0
+            if spot < strike:
+                return 0.0
+            return 0.5
+        if spot < strike:
+            return -1.0
+        if spot > strike:
+            return 0.0
+        return -0.5
+    if vol <= 0:
+        fwd = fx_forward(spot, r_d, r_f, T)
+        if option_type == OptionType.CALL:
+            if fwd > strike:
+                return 1.0
+            if fwd < strike:
+                return 0.0
+            return 0.5
+        if fwd < strike:
+            return -1.0
+        if fwd > strike:
+            return 0.0
+        return -0.5
 
     fwd = fx_forward(spot, r_d, r_f, T)
     sqrt_t = math.sqrt(T)

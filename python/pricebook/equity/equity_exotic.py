@@ -133,10 +133,22 @@ def equity_digital_cash(
     Args:
         smile_vols: optional (atm, 25d_call, 25d_put) for VV smile.
     """
-    if vol <= 0 or T <= 0:
+    # Fix T4-EQDIG1: pre-fix degenerate branch compared spot to strike
+    # (should compare forward at vol=0/T>0) AND dropped the discount
+    # factor (digital pays $1 at maturity, must be PV'd).
+    if T <= 0:
         itm = (is_call and spot > strike) or (not is_call and spot < strike)
         return DigitalResult(payout if itm else 0.0, 1.0 if itm else 0.0,
                              "cash", is_call)
+    if vol <= 0:
+        F = spot * math.exp((rate - dividend_yield) * T)
+        df = math.exp(-rate * T)
+        itm = (is_call and F > strike) or (not is_call and F < strike)
+        atm = (F == strike)
+        if atm:
+            return DigitalResult(0.5 * payout * df, 0.5, "cash", is_call)
+        return DigitalResult(payout * df if itm else 0.0,
+                             1.0 if itm else 0.0, "cash", is_call)
 
     F = spot * math.exp((rate - dividend_yield) * T)
     df = math.exp(-rate * T)
@@ -179,10 +191,23 @@ def equity_digital_asset(
 
     Flat-vol price: spot × e^{-qT} × N(d1) for call.
     """
-    if vol <= 0 or T <= 0:
+    # Fix T4-EQDIG2: pre-fix degenerate branch compared spot to strike
+    # (should compare forward at vol=0/T>0) AND returned spot
+    # undiscounted (asset-or-nothing pays S_T·indicator, PV is
+    # spot·exp(-qT)·indicator under risk-neutral measure).
+    if T <= 0:
         itm = (is_call and spot > strike) or (not is_call and spot < strike)
         return DigitalResult(spot if itm else 0.0, 1.0 if itm else 0.0,
                              "asset", is_call)
+    if vol <= 0:
+        F = spot * math.exp((rate - dividend_yield) * T)
+        asset_pv = spot * math.exp(-dividend_yield * T)
+        itm = (is_call and F > strike) or (not is_call and F < strike)
+        atm = (F == strike)
+        if atm:
+            return DigitalResult(0.5 * asset_pv, 0.5, "asset", is_call)
+        return DigitalResult(asset_pv if itm else 0.0,
+                             1.0 if itm else 0.0, "asset", is_call)
 
     F = spot * math.exp((rate - dividend_yield) * T)
     d1 = (math.log(F / strike) + 0.5 * vol**2 * T) / (vol * math.sqrt(T))
