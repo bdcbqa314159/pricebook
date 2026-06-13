@@ -54,9 +54,21 @@ def twist_vol_bump(
     tenors: list[float], base_vols: list[float], vega_ladder: list[float],
     twist_bps: float = 30,
 ) -> VolBumpResult:
-    """Twist/butterfly: wings up, belly down."""
+    """Twist/butterfly: wings up, belly down (sum-zero across endpoints).
+
+    Fix T4-RISK35: pre-fix formula
+        weights = ((T - T_mid) / W)² - 0.25     where W = T_max - T_min
+    evaluates to ``0.25 - 0.25 = 0`` at the wings (x=±0.5) and ``-0.25``
+    at the belly (x=0).  That's "belly down, wings unchanged" — NOT
+    the butterfly shape promised by the docstring.
+
+    Correct: ``(2·((T - T_mid)/W))² - 0.5 = 4·x² - 0.5`` gives
+    wings = ``+0.5`` and belly = ``-0.5`` — true butterfly with
+    twist_bps controlling the wing-belly spread.
+    """
     T = np.array(tenors); T_mid = (T[0] + T[-1]) / 2
-    weights = ((T - T_mid) / max(T[-1] - T[0], 1e-10))**2 - 0.25
+    x = (T - T_mid) / max(T[-1] - T[0], 1e-10)
+    weights = 4.0 * x ** 2 - 0.5
     shift = twist_bps / 10000 * weights
     bumped = np.array(base_vols) + shift
     pnl = sum(v * s for v, s in zip(vega_ladder, shift))
