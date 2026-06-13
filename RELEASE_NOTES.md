@@ -2,6 +2,32 @@
 
 ---
 
+## v1.014.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.portfolio_construction.mean_variance` `target_return` parameter was dead code.**
+
+Pre-fix: the function signature declared `target_return: float | None = None` but the body never referenced it. Every call computed the max-Sharpe tangency portfolio regardless of whether a target was passed.
+
+**Fix**: when `target_return` is supplied, solve the QP
+
+    min w'Σw  s.t.  μ'w = target_return, Σw = 1, w ∈ [lb, max_weight]
+
+via SLSQP. The `target_return=None` path (tangency portfolio) is unchanged.
+
+### Verification — `test_l2_t4_mv_target.py`
+
+4 new tests:
+- target_return constraint honoured to 1e-6 precision.
+- min-variance solution feasible (weights sum to 1, long-only ≥ 0).
+- target_return=None preserves max-Sharpe behaviour.
+- Infeasible target falls back deterministically without crash.
+
+Full parallel suite: **12,596 passed in 3:05** — zero regressions.
+
+Twenty-second fix from phase-2. **151 distinct bugs** in v0.905→v1.014.
+
+---
+
 ## v1.013.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.simm` had two material gaps from ISDA SIMM v2.6.**
