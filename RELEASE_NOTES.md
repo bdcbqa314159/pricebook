@@ -2,6 +2,29 @@
 
 ---
 
+## v1.003.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.model_selection.model_committee_price` was statistically inconsistent.**
+
+Pre-fix combined a *weighted* mean with an *unweighted* `np.std`. For BMA committees where one model dominates (typical: BIC-based weights of 0.9 + 0.05 + 0.05), the unweighted std treated all models equally, overstating uncertainty.
+
+Concrete example: weights `(0.9, 0.05, 0.05)`, prices `(100, 200, 200)`. Weighted mean = `110`. Unweighted pop-std (pre-fix) ≈ `47`. Correct weighted std = `30` (because the dominant model's price is close to the mean).
+
+**Fix**: weighted standard deviation `sqrt(Σ w_i · (p_i − weighted_mean)²)`, consistent with the weighted mean. The `price_range` and `model_uncertainty_reserve` fields (min/max-based) are unchanged — they're informative regardless of weights.
+
+### Verification — `test_l2_t4_model_selection.py`
+
+5 new tests:
+- `TestWeightedStd` × 2: dominant-model committee gives weighted std (30 not 47); equal weights match population std.
+- `TestCommitteeStdEdgeCases` × 2: single model → 0 std; identical prices → 0 std.
+- `TestCommitteeRangeUnchanged` × 1: range/reserve still use unweighted extremes.
+
+Full parallel suite: **12,542 passed in 2:44** — zero regressions, existing model_selection tests unchanged.
+
+Eleventh fix from phase-2. **134 distinct bugs** in v0.905→v1.003.
+
+---
+
 ## v1.002.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.contagion.DefaultCascade.simulate` silently dropped second-order contagion.**
