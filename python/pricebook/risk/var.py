@@ -77,6 +77,9 @@ def parametric_var(
     return z * portfolio_std
 
 
+_SUPPORTED_SHOCKS = frozenset({"rate_shift", "credit_shift"})
+
+
 def stress_test(
     pricer,
     base_ctx,
@@ -89,12 +92,33 @@ def stress_test(
         pricer: callable(ctx) → float, returns portfolio PV.
         base_ctx: base PricingContext.
         scenarios: list of dicts, each mapping risk factor to shock value.
-            E.g. [{"rate_shift": 0.01}, {"rate_shift": -0.01, "vol_shift": 0.05}]
+            Supported shock keys:
+              - ``rate_shift``    parallel shift of every discount curve
+                                  (singular ``discount_curve`` and every
+                                  entry of the plural ``discount_curves``
+                                  and ``projection_curves`` dicts).
+              - ``credit_shift``  parallel shift of every entry of
+                                  ``credit_curves`` (hazard rates).
+            Unknown shock keys raise ``ValueError`` — pre-fix used to
+            silently no-op on ``vol_shift``, ``fx_shift``, etc., giving
+            unchanged P&L that looked successful.
         scenario_names: optional names for each scenario.
 
     Returns:
         List of dicts with: name, base_pv, scenario_pv, pnl.
+
+    Fix T4-RISK1: pre-fix only inspected ``rate_shift`` and silently
+    dropped every other shock key (including ``vol_shift`` shown in
+    the original docstring example).  Also, the bumped context was
+    constructed from scratch with a 6-field subset, silently dropping
+    the plural ``discount_curves``, ``inflation_curves``, ``repo_curves``,
+    ``reporting_currency``, ``stochastic_credit_models``,
+    ``credit_vol_surfaces``, ``credit_correlations``, and
+    ``numerical_config``.  Now uses ``dataclasses.replace`` to preserve
+    every untouched field and raises on unknown shock keys.
     """
+    from dataclasses import replace
+
     base_pv = pricer(base_ctx)
 
     if scenario_names is None:
@@ -102,20 +126,38 @@ def stress_test(
 
     results = []
     for name, shocks in zip(scenario_names, scenarios):
-        # Apply shocks to context
+        unknown = set(shocks) - _SUPPORTED_SHOCKS
+        if unknown:
+            raise ValueError(
+                f"stress_test scenario {name!r} contains unsupported shock "
+                f"keys {sorted(unknown)}.  Supported: {sorted(_SUPPORTED_SHOCKS)}."
+            )
+
         ctx = base_ctx
-        if "rate_shift" in shocks:
+        rate_shift = shocks.get("rate_shift")
+        if rate_shift is not None:
+            updates: dict = {}
             if ctx.discount_curve is not None:
-                from pricebook.core.pricing_context import PricingContext
-                new_disc = ctx.discount_curve.bumped(shocks["rate_shift"])
-                ctx = PricingContext(
-                    valuation_date=ctx.valuation_date,
-                    discount_curve=new_disc,
-                    projection_curves=ctx.projection_curves,
-                    vol_surfaces=ctx.vol_surfaces,
-                    credit_curves=ctx.credit_curves,
-                    fx_spots=ctx.fx_spots,
-                )
+                updates["discount_curve"] = ctx.discount_curve.bumped(rate_shift)
+            if ctx.discount_curves:
+                updates["discount_curves"] = {
+                    k: v.bumped(rate_shift) for k, v in ctx.discount_curves.items()
+                }
+            if ctx.projection_curves:
+                updates["projection_curves"] = {
+                    k: v.bumped(rate_shift) for k, v in ctx.projection_curves.items()
+                }
+            if updates:
+                ctx = replace(ctx, **updates)
+
+        credit_shift = shocks.get("credit_shift")
+        if credit_shift is not None and ctx.credit_curves:
+            ctx = replace(
+                ctx,
+                credit_curves={
+                    k: v.bumped(credit_shift) for k, v in ctx.credit_curves.items()
+                },
+            )
 
         scenario_pv = pricer(ctx)
         results.append({
