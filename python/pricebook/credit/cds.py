@@ -782,13 +782,21 @@ class StandardCDS(CDS):
         day_count: DayCountConvention = DayCountConvention.ACT_360,
         protection_day_count: DayCountConvention = DayCountConvention.ACT_365_FIXED,
         steps_per_year: int = 4,
+        convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
     ):
+        # Fix T4-CDS2: StandardCDS inherits CDS._SERIAL_FIELDS which now
+        # includes ``convention`` (added in v0.978).  Pre-fix
+        # StandardCDS.__init__ did NOT accept `convention`, so
+        # ``from_dict()`` on a StandardCDS payload raised
+        # ``TypeError: __init__() got an unexpected keyword argument
+        # 'convention'``.  Accept it and forward to super().__init__().
         super().__init__(
             start=start, end=end, spread=spread,
             notional=notional, recovery=recovery,
             frequency=frequency, day_count=day_count,
             protection_day_count=protection_day_count,
             steps_per_year=steps_per_year,
+            convention=convention,
         )
         self.standard_coupon = standard_coupon
         self.grade = grade
@@ -832,6 +840,11 @@ class StandardCDS(CDS):
     # ---- Serialisation ----
 
     def to_dict(self) -> dict:
+        # Fix T4-CDS3: pre-fix this hand-written to_dict did not include
+        # `convention` even though StandardCDS inherits CDS._SERIAL_FIELDS
+        # which (since v0.978) lists it.  The from_dict mirror also
+        # didn't pass `convention=` to the constructor.  So a StandardCDS
+        # round-trip silently lost any non-default convention.
         from pricebook.core.serialisable import _serialise_atom
         return {"type": self._SERIAL_TYPE, "params": {
             "start": self.start.isoformat(), "end": self.end.isoformat(),
@@ -842,12 +855,18 @@ class StandardCDS(CDS):
             "day_count": _serialise_atom(self.day_count),
             "protection_day_count": _serialise_atom(self.protection_day_count),
             "steps_per_year": self.steps_per_year,
+            "convention": _serialise_atom(self.convention),
         }}
 
     @classmethod
     def from_dict(cls, d: dict) -> StandardCDS:
         from pricebook.core.serialisable import _deserialise_atom
         p = d["params"]
+        # Default convention if missing for backwards-compatibility with
+        # pre-fix dicts (which never wrote `convention`).
+        conv_val = p.get("convention", BusinessDayConvention.MODIFIED_FOLLOWING.value)
+        conv = (BusinessDayConvention(conv_val) if isinstance(conv_val, str)
+                else conv_val)
         return cls(
             start=date.fromisoformat(p["start"]), end=date.fromisoformat(p["end"]),
             spread=p["spread"], standard_coupon=p.get("standard_coupon", 0.01),
@@ -857,6 +876,7 @@ class StandardCDS(CDS):
             day_count=DayCountConvention(p.get("day_count", "ACT/360")),
             protection_day_count=DayCountConvention(p.get("protection_day_count", "ACT_365_FIXED")),
             steps_per_year=p.get("steps_per_year", 4),
+            convention=conv,
         )
 
 
