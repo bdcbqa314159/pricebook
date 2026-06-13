@@ -25,6 +25,16 @@ class Normal:
     """
 
     def __init__(self, mu: float = 0.0, sigma: float = 1.0):
+        # Fix T4-DIST1: pre-fix no validation on `sigma`.  ``sigma=0``
+        # silently divided by zero in cdf/pdf (RuntimeWarning + 1.0 or
+        # NaN), ``sigma<0`` produced a flipped distribution (mathematically
+        # σ < 0 is meaningless — only σ ≥ 0 parameterises a normal).
+        # Validate at construction.
+        if sigma <= 0:
+            raise ValueError(
+                f"Normal: sigma must be > 0 (got {sigma}); standard deviation "
+                "must be positive."
+            )
         self.mu = mu
         self.sigma = sigma
 
@@ -154,6 +164,12 @@ class LogNormal:
     """
 
     def __init__(self, mu: float = 0.0, sigma: float = 1.0):
+        # Fix T4-DIST1: same as Normal — validate sigma > 0.
+        if sigma <= 0:
+            raise ValueError(
+                f"LogNormal: sigma must be > 0 (got {sigma}); standard "
+                "deviation of log(X) must be positive."
+            )
         self.mu = mu
         self.sigma = sigma
 
