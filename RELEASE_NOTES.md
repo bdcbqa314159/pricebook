@@ -2,6 +2,24 @@
 
 ---
 
+## v0.979.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `CapFloor` serialisation dropped `convention`** (same shape as Swaption v0.976 / IRS v0.977 / CDS v0.978).
+
+Pre-fix the field list missed `convention`, which controls the business-day rolling rule for caplet/floorlet accrual dates. A `to_dict → from_dict` on a non-default CapFloor changed the schedule and the price.
+
+**Fix**: add `convention` to the field list.
+
+### Verification — `test_l2_t4_capfloor_serialisation_fields.py`
+
+3 new tests, all pass — parametrised round-trip across MODIFIED_FOLLOWING / PRECEDING / FOLLOWING.
+
+Full parallel suite: **12384 passed in 2:41** — zero regressions.
+
+Forty-seventh fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.978.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `CDS` serialisation dropped `convention` (same shape as v0.976 Swaption / v0.977 IRS).**
