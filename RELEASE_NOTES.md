@@ -2,6 +2,38 @@
 
 ---
 
+## v0.981.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `AmortisingBond._serialisable` field list was completely STALE, referencing names that no longer existed on the class.**
+
+Pre-fix declaration:
+
+```python
+_serialisable("amortising_bond", ['face_value', 'coupon_rate',
+                                   'n_periods', 'frequency'])(AmortisingBond)
+```
+
+But the actual dataclass fields are `notional, coupon_rate, maturity_years, n_payments, amortisation_type` — none of the four declared field names existed. The serialisable framework emitted `UserWarning` on import for each mismatch, and any `to_dict()` / `from_dict()` round-trip was broken: `from_dict` would have raised `TypeError` on the unknown args. The class was effectively unserialisable.
+
+The `from_convention` factory was also broken (tried to pass `frequency=` to a constructor that doesn't accept it).
+
+**Fix**: align the serialisable field list with the actual dataclass fields, and rewrite `_amort_from_convention` to match the constructor signature.
+
+**Side-effect**: import-time UserWarnings drop from 59 → 29 across the test suite (3 spurious warnings × ~10 test-collection imports each).
+
+### Verification — `test_l2_t4_amortising_bond_serialisation.py`
+
+4 new tests, all pass:
+- `test_to_dict_runs` — pre-fix this raised on the `face_value` attribute lookup.
+- `test_round_trip_preserves_all_fields` — every field round-trips.
+- `test_amortisation_type_round_trips` × 2 — both `"mortgage"` and `"linear"`.
+
+Full parallel suite: **12393 passed in 3:37** — zero regressions; warnings 59 → 29.
+
+This is the **forty-ninth fix from the 35-module deferred Wave-2 audit** and the **99th distinct correctness/contract bug** resolved in the multi-session arc (v0.905 → v0.981).
+
+---
+
 ## v0.980.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `VanillaCLN` was registered as `_serialisable` but its constructor never stored `frequency` as a class attribute.**
