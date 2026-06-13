@@ -2,6 +2,45 @@
 
 ---
 
+## v1.013.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.simm` had two material gaps from ISDA SIMM v2.6.**
+
+### (a) Cross-risk-class correlation = 0
+
+Pre-fix: `total = sqrt(Σ M_i²)` despite the code comment admitting "SIMM uses sqrt of sum of squares" — but real ISDA SIMM applies the cross-class correlation matrix (Table 21 in v2.6):
+
+| | GIRR | FX   | CSR  | EQ   | COM  |
+|------|------|------|------|------|------|
+| GIRR | 1.00 | 0.20 | 0.05 | 0.05 | 0.05 |
+| FX   |      | 1.00 | 0.10 | 0.15 | 0.15 |
+| CSR  |      |      | 1.00 | 0.15 | 0.15 |
+| EQ   |      |      |      | 1.00 | 0.20 |
+| COM  |      |      |      |      | 1.00 |
+
+For a diversified GIRR+FX book the corrected total = `sqrt(M_GIRR² + M_FX² + 0.40·M_GIRR·M_FX)`, which is meaningfully larger than the zero-correlation case. Pre-fix systematically under-margined diversified books.
+
+### (b) Vega and curvature silently dropped
+
+The `SIMMSensitivity` dataclass exposes `delta`, `vega`, `curvature` — but `_compute_bucket` only read `s.delta`. For options books (which is precisely what SIMM is designed to margin) this is a material gap. Now: each component aggregates separately within the bucket and combines via sum-of-squares, matching SIMM's "delta-vega-curvature decomposition" structure.
+
+For a single sensitivity with delta=d, vega=v in a single bucket: margin = `rw · sqrt(d² + v²)`. Pre-fix: margin = `rw · |d|`.
+
+### Verification — `test_l2_t4_simm.py`
+
+5 new tests:
+- `TestCrossRiskClassCorrelation` × 1: GIRR+FX book matches ρ=0.20 closed form; > zero-corr total.
+- `TestVegaCurvatureIncluded` × 3: vega/curvature each raise margin; single sensitivity matches `rw·sqrt(d²+v²)`.
+- `TestDeltaOnlyUnchanged` × 1: delta-only single-class case unchanged from pre-fix.
+
+Full parallel suite: **12,592 passed in 2:39** — zero regressions.
+
+Twenty-first fix from phase-2. **150 distinct bugs** (2 in this slice — cross-class corr and vega/curvature) in v0.905→v1.013.
+
+**Reached 150-bug milestone.** Production SIMM relies on this module; pre-fix margins were materially under-stated for the typical mixed-asset, options-bearing book.
+
+---
+
 ## v1.012.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.prudent_valuation` had two API consistency bugs.**
