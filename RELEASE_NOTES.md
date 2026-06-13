@@ -2,6 +2,38 @@
 
 ---
 
+## v1.007.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.correlation_network._quasi_diag` was a greedy nearest-neighbour tour, not López de Prado's quasi-diagonalisation.**
+
+Pre-fix:
+```python
+order = [0]
+while remaining:
+    last = order[-1]
+    nearest = min(remaining, key=lambda j: dist[last, j])
+    order.append(nearest)
+```
+
+This produces a path-like ordering starting at asset 0, traversing always to the nearest unvisited asset. **NOT** a cluster-aware ordering: subsequent recursive bisection in `hierarchical_risk_parity` then mixes cluster-mates apart at the midpoint cut, defeating HRP's whole premise.
+
+True LdP quasi-diagonalisation: build hierarchical clustering (single-linkage on the distance matrix), then traverse the dendrogram leaves in order so that siblings are adjacent. The other HRP module (`risk.hierarchical_risk_parity`) already does this correctly — `correlation_network` had its own broken implementation.
+
+**Fix**: use `scipy.cluster.hierarchy.linkage` + `leaves_list` (matching the other HRP module).
+
+### Verification — `test_l2_t4_correlation_network.py`
+
+6 new tests:
+- `TestQuasiDiagBlockStructure` × 1: 2-cluster distance matrix → cluster-mates adjacent in output.
+- `TestHRPCorrelationNetwork` × 3: weights sum to 1; non-negative; block structure preserved in cluster_order.
+- `TestQuasiDiagDegenerate` × 2: N=1 and N=2 handled.
+
+Full parallel suite: **12,563 passed in 2:41** — zero regressions.
+
+Fifteenth fix from phase-2. **139 distinct bugs** in v0.905→v1.007.
+
+---
+
 ## v1.006.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.hybrid_xva.hybrid_cva` and `hybrid_fva` computed future-valued XVA instead of present-valued.**
