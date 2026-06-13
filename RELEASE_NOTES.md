@@ -2,6 +2,36 @@
 
 ---
 
+## v0.949.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `InterestRateSwap.cashflow_schedule` floating row was internally inconsistent (`rate` excluded spread but `amount` included it).**
+
+The pre-fix floating row reported `rate = forward` (no spread) but `amount = (forward + spread) · year_frac · notional`. A downstream consumer naturally verifying `amount = rate · year_frac · notional` got the wrong number by exactly `spread · year_frac · notional`. On a 1 mm notional swap with 50 bp spread on a quarterly period, that's ~$1,236 of "missing" amount per coupon — easy to misread in P&L attribution, cashflow reconciliation, or regulatory reporting.
+
+**Fix**: add two new fields per row, `spread` (0 for fixed) and `notional` (period notional, correct for amortising / accreting), so the schema is fully self-describing and the invariant
+
+> (rate + spread) · year_frac · notional == amount
+
+holds exactly for both legs. The pre-existing `rate` / `amount` semantics are unchanged — additive change, no breakage of consumers reading legacy fields.
+
+### Verification — `test_l2_t4_swap_cashflow_schedule_consistency.py`
+
+6 new tests, all pass:
+- `test_row_is_self_consistent_with_spread` — invariant holds to 1e-9 for every row.
+- `test_floating_row_carries_explicit_spread` — new field present on float leg.
+- `test_fixed_row_has_zero_spread` — uniform schema.
+- `test_notional_field_present_on_both_legs` — bullet swap.
+- `test_amortising_notional_in_row` — amortising-leg notional decreases period by period.
+- `test_all_legacy_fields_still_present` — backwards-compatibility.
+
+Existing FI-hardening cashflow tests (3) and XI1 curve+swap tests (21) still pass.
+
+Full parallel suite: **12194 passed in 2:33** — zero regressions.
+
+Seventeenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.948.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `equity_delta` degenerate-input branch had three coupled bugs.**
