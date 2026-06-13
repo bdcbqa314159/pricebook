@@ -44,35 +44,68 @@ def mean_variance(
     long_only: bool = True,
     target_return: float | None = None,
     max_weight: float = 1.0,
+    risk_aversion: float = 1.0,
 ) -> PortfolioOptResult:
-    """Mean-variance optimisation (max Sharpe or target return).
+    """Mean-variance optimisation.
+
+    Modes:
+        - target_return is None → tangency (max Sharpe) portfolio.
+        - target_return is set  → min variance s.t. μ'w = target_return.
 
         result = mean_variance(mu, cov, names=["SPX", "UST", "GOLD"])
+        target_result = mean_variance(mu, cov, target_return=0.08)
+
+    Fix T4-RISK32: pre-fix accepted ``target_return`` in the signature
+    but the body never referenced it — every call silently computed the
+    max-Sharpe portfolio regardless of the target.  Now: when
+    target_return is supplied we solve the QP
+        min w'Σw  s.t.  μ'w = target_return, Σw = 1, w ≥ 0 (if long_only).
     """
     mu = np.asarray(expected_returns, dtype=float)
     n = len(mu)
     names = names or [f"asset_{i}" for i in range(n)]
 
-    # Analytical max-Sharpe: w* = Σ^{-1} (μ - rf) / 1'Σ^{-1}(μ - rf)
-    try:
-        inv_cov = np.linalg.inv(covariance)
-    except np.linalg.LinAlgError:
-        inv_cov = np.linalg.pinv(covariance)
+    if target_return is not None:
+        # QP: min w'Σw s.t. μ'w = target, Σw = 1, bounds.
+        from scipy.optimize import minimize
 
-    excess = mu - risk_free
-    raw = inv_cov @ excess
-    w = raw / raw.sum() if abs(raw.sum()) > 1e-10 else np.ones(n) / n
+        def obj(w):
+            return float(w @ covariance @ w)
 
-    if long_only:
-        w = np.maximum(w, 0.0)
+        constraints = [
+            {"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)},
+            {"type": "eq", "fun": lambda w: float(mu @ w - target_return)},
+        ]
+        if long_only:
+            bounds = [(0.0, max_weight)] * n
+        else:
+            bounds = [(-max_weight, max_weight)] * n
+
+        w0 = np.ones(n) / n
+        result = minimize(obj, w0, method="SLSQP", bounds=bounds,
+                          constraints=constraints)
+        w = result.x if result.success else w0
+    else:
+        # Analytical max-Sharpe: w* = Σ^{-1} (μ - rf) / 1'Σ^{-1}(μ - rf)
+        try:
+            inv_cov = np.linalg.inv(covariance)
+        except np.linalg.LinAlgError:
+            inv_cov = np.linalg.pinv(covariance)
+
+        excess = mu - risk_free
+        raw = inv_cov @ excess
+        w = raw / raw.sum() if abs(raw.sum()) > 1e-10 else np.ones(n) / n
+
+        if long_only:
+            w = np.maximum(w, 0.0)
+            w_sum = w.sum()
+            if w_sum > 1e-10:
+                w = w / w_sum
+
+        w = np.clip(w, -max_weight, max_weight)
         w_sum = w.sum()
-        if w_sum > 1e-10:
+        if abs(w_sum) > 1e-10:
             w = w / w_sum
-
-    w = np.clip(w, -max_weight, max_weight)
-    w_sum = w.sum()
-    if abs(w_sum) > 1e-10:
-        w = w / w_sum
 
     ret = float(w @ mu)
     vol = float(math.sqrt(w @ covariance @ w))
