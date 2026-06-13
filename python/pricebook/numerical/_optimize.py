@@ -101,7 +101,15 @@ def minimize(
     if method == OptimMethod.BASIN_HOPPING:
         r = _bh(objective, x0, niter=maxiter, T=kwargs.get("T", 1.0),
                 seed=kwargs.get("seed", 42))
-        return OptimizeResult(r.x, float(r.fun), r.nit, True, "basin_hopping")
+        # Fix T4-OPT2: pre-fix hardcoded ``converged=True`` regardless of
+        # basin-hopping outcome.  scipy's `basinhopping` doesn't expose
+        # a top-level success flag, but its `lowest_optimization_result`
+        # (the best local optimization result) does.  Use that as the
+        # honest convergence signal — if even the best local solve
+        # didn't succeed, the global search ended unconvinced too.
+        lor = getattr(r, "lowest_optimization_result", None)
+        converged = bool(getattr(lor, "success", False)) if lor is not None else False
+        return OptimizeResult(r.x, float(r.fun), r.nit, converged, "basin_hopping")
 
     scipy_method = _SCIPY_METHOD_MAP.get(method, method.value)
     r = _minimize(objective, x0, method=scipy_method, jac=gradient,
