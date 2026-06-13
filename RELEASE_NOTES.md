@@ -2,6 +2,35 @@
 
 ---
 
+## v0.970.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `calibrate_nelson_siegel` and `calibrate_svensson` had three contract gaps.**
+
+Pre-fix:
+1. **Empty `market_yields`** raised `IndexError` at `market_yields[-1]` inside default initial-guess construction, no diagnostic.
+2. **Mismatched `len(tenors) != len(market_yields)`** was silently masked by `zip()` which truncates to the shorter — a user passing 10 tenors and 8 yields silently got a calibration on the first 8 points only.
+3. **The optimizer's convergence flag was discarded** — the returned dict gave no way for the caller to detect a non-converged calibration (it could go straight into a production curve, with no signal that the fit was bad).
+
+**Fix**:
+- New helper `_validate_calibration_inputs` checks non-empty AND matching lengths upfront — raises `ValueError` with clear messages.
+- Returned dict now includes `converged: bool` from the underlying optimizer result.
+
+### Verification — `test_l2_t4_nelson_siegel_calibration_validation.py`
+
+8 new tests, all pass:
+- `TestEmptyInputsRaise` × 3: empty tenors, empty yields, Svensson empty all raise.
+- `TestMismatchedLengthsRaise` × 2: NS and Svensson both raise on mismatched lengths.
+- `TestConvergedFieldReported` × 2: `converged: bool` present in both NS and Svensson result dicts.
+- `TestHealthyCalibrationPreserved`: smooth synthetic curve still calibrates to RMSE < 1%.
+
+Pre-existing 13 NS/Svensson tests still pass.
+
+Full parallel suite: **12326 passed in 3:01** — zero regressions.
+
+Thirty-eighth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.969.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `FRA.pv_ctx` silently picked the "first" projection curve when the day-count-keyed lookup missed.**
