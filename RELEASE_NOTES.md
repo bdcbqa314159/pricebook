@@ -2,6 +2,34 @@
 
 ---
 
+## v1.006.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.hybrid_xva.hybrid_cva` and `hybrid_fva` computed future-valued XVA instead of present-valued.**
+
+The textbook formulas:
+
+    CVA = (1 − R) × Σ_i D(0, t_i) × EPE(t_i) × ΔPD(i)
+    FVA = funding_spread × Σ_i D(0, t_i) × E[V(t_i)] × dt
+
+Pre-fix omitted `D(0, t_i)` entirely. For a 10y trade with rates ~5%, this overstated CVA/FVA by ~30%-40% (since avg DF over 10y at 5% ≈ 0.78).
+
+**Fix**: added optional `discount_factors: np.ndarray | None = None` parameter to both functions. When supplied, multiplies EPE/EE by `D(0, t_i)` element-wise before summing. Backwards compatible — omitting it preserves the old behaviour, now documented as requiring pre-discounted exposure inputs.
+
+This is the second XVA-family discount-factor fix in this audit (compare v0.984 risk/network.py and the earlier curve fixes). Production XVA engines should pass discount factors explicitly to avoid the FV/PV trap.
+
+### Verification — `test_l2_t4_hybrid_xva.py`
+
+6 new tests:
+- `TestCVADiscounting` × 3: DF reduces CVA; shape validation; DF=1 unchanged.
+- `TestFVADiscounting` × 2: DF reduces FVA; shape validation.
+- `TestNoChangeWhenAlreadyDiscounted` × 1: backwards-compat preserved.
+
+Full parallel suite: **12,557 passed in 2:41** — zero regressions.
+
+Fourteenth fix from phase-2. **138 distinct bugs** (2 in this slice) in v0.905→v1.006.
+
+---
+
 ## v1.005.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.shapley.shapley_capital_allocation` computed diversification info then threw it away.**
