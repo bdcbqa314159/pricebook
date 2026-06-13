@@ -334,11 +334,25 @@ def sinker_vs_bullet(
         bullet_duration=float(bullet_duration),
     )
 
-_serialisable("amortising_bond", ['face_value', 'coupon_rate', 'n_periods', 'frequency'])(AmortisingBond)
+_serialisable(
+    "amortising_bond",
+    ['notional', 'coupon_rate', 'maturity_years', 'n_payments', 'amortisation_type'],
+)(AmortisingBond)
+# Fix T4-AB1: pre-fix the field list named ``['face_value', 'coupon_rate',
+# 'n_periods', 'frequency']`` — completely stale.  The dataclass had been
+# refactored to ``[notional, coupon_rate, maturity_years, n_payments,
+# amortisation_type]`` but the serialisable declaration was never
+# updated.  The framework emitted UserWarnings on import for each
+# mismatched field and the round-trip silently dropped every dataclass
+# field with no replacement — `from_dict` would have raised TypeError
+# on the unknown args.  The class was effectively unserialisable.
 
 @classmethod
-def _amort_from_convention(cls, conv, face_value, coupon_rate, n_periods):
-    """Create AmortisingBond from convention (uses frequency)."""
-    return cls(face_value, coupon_rate, n_periods, frequency=conv.frequency)
+def _amort_from_convention(cls, conv, notional, coupon_rate, maturity_years, n_payments):
+    """Create AmortisingBond from convention.
+
+    Fix T4-AB1: also updated to match the actual constructor signature.
+    """
+    return cls(notional, coupon_rate, maturity_years, n_payments)
 
 AmortisingBond.from_convention = _amort_from_convention
