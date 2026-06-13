@@ -160,12 +160,32 @@ def minimum_variance_portfolio(
     cov: np.ndarray,
     long_only: bool = True,
     max_weight: float = 1.0,
+    mu: np.ndarray | None = None,
+    risk_free_rate: float = 0.0,
 ) -> FrontierPoint:
     """Global minimum variance portfolio.
 
     min w'Σw  s.t. Σw = 1
+
+    Args:
+        cov: covariance matrix (N, N).
+        long_only / max_weight: standard constraints.
+        mu: optional expected-return vector — if supplied, the
+            returned ``FrontierPoint`` carries the correct
+            ``expected_return`` and ``sharpe_ratio``.  If omitted,
+            both fields default to ``0`` (legacy behaviour).
+        risk_free_rate: only used when ``mu`` is supplied.
+
+    Fix T4-RISK14: pre-fix always returned ``FrontierPoint(0, vol, 0, w)``
+    regardless of caller — ``expected_return`` and ``sharpe_ratio``
+    were hardcoded to 0 because the function had no access to ``mu``.
+    Inside ``efficient_frontier`` this was patched up by mutating
+    the returned dataclass (``mv.expected_return = mu @ mv.weights``)
+    but users calling the function *directly* got nonsense fields.
+    Now accepts an optional ``mu`` to fill in the fields correctly.
     """
     N = cov.shape[0]
+    w = None
 
     if not long_only:
         # Analytical: w* = Σ⁻¹ 1 / (1' Σ⁻¹ 1)
@@ -173,25 +193,35 @@ def minimum_variance_portfolio(
             inv_cov = np.linalg.inv(cov)
             ones = np.ones(N)
             w = inv_cov @ ones / (ones @ inv_cov @ ones)
-            vol = float(np.sqrt(w @ cov @ w))
-            return FrontierPoint(0, vol, 0, w)
         except np.linalg.LinAlgError:
-            pass
+            w = None
 
-    # Numerical
-    def portfolio_var(w):
-        return float(w @ cov @ w)
+    if w is None:
+        # Numerical
+        def portfolio_var(w):
+            return float(w @ cov @ w)
 
-    w0 = np.ones(N) / N
-    constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
-    bounds = [(0, max_weight)] * N if long_only else [(-max_weight, max_weight)] * N
+        w0 = np.ones(N) / N
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
+        bounds = [(0, max_weight)] * N if long_only else [(-max_weight, max_weight)] * N
 
-    result = minimize(portfolio_var, w0, method="SLSQP",
-                      bounds=bounds, constraints=constraints)
+        result = minimize(portfolio_var, w0, method="SLSQP",
+                          bounds=bounds, constraints=constraints)
+        w = result.x if result.success else w0
 
-    w = result.x if result.success else w0
     vol = float(np.sqrt(w @ cov @ w))
-    return FrontierPoint(0, vol, 0, w)
+    if mu is not None:
+        mu_arr = np.asarray(mu, dtype=float)
+        if mu_arr.shape[0] != N:
+            raise ValueError(
+                f"mu length {mu_arr.shape[0]} != cov dimension {N}"
+            )
+        expected_return = float(mu_arr @ w)
+        sharpe = (expected_return - risk_free_rate) / vol if vol > 0 else 0.0
+    else:
+        expected_return = 0.0
+        sharpe = 0.0
+    return FrontierPoint(expected_return, vol, sharpe, w)
 
 
 def capital_market_line(
