@@ -2,6 +2,45 @@
 
 ---
 
+## v1.004.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.brinson_attribution.brinson_multi_period` claimed "geometric linking" but used ad-hoc scaling that broke the active-return identity.**
+
+Pre-fix:
+```python
+cum_alloc += r.total_allocation * cum_bench   # cum_bench BEFORE updating
+```
+
+This is neither Frongello, Carino, nor Menchero. The geometric multi-period identity:
+
+    Σ_t F_t · (alloc_t + sel_t + inter_t) = Π(1+r_p_t) − Π(1+r_b_t)
+
+requires the Frongello linking coefficient
+
+    F_t = (Π_{s<t}(1+r_p_s)) · (Π_{s>t}(1+r_b_s))
+
+which can be computed iteratively as
+
+    cum_t = cum_{t-1} · (1+r_b_t) + effect_t · cum_port_{t-1}
+
+The pre-fix version diverged from the geometric active by a factor that grows quadratically in T:
+- 2 periods, port=1%/bench=0% each: pre-fix 2.00% vs geometric 2.01%.
+- 10 periods, port=1%/bench=0% each: pre-fix 10.00% vs geometric 10.462%.
+
+**Fix**: implement the Frongello recursive linking. Prior cumulative effects scale by `(1+r_b_t)`; new period's effect scales by `cum_port_before_t`.
+
+### Verification — `test_l2_t4_brinson.py`
+
+5 new tests:
+- `TestFrongelloIdentity` × 3: 2-period, 3-period mixed, 10-period — the identity `Σ effects = cumulative_active_return` holds to machine precision.
+- `TestBrinsonSinglePeriodIdentity` × 2: per-period Brinson identity (unchanged) holds for 2- and 3-sector portfolios.
+
+Full parallel suite: **12,547 passed in 2:37** — zero regressions.
+
+Twelfth fix from phase-2. **135 distinct bugs** in v0.905→v1.004.
+
+---
+
 ## v1.003.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.model_selection.model_committee_price` was statistically inconsistent.**
