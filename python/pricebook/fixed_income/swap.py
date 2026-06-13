@@ -280,7 +280,15 @@ class InterestRateSwap:
         direction: SwapDirection = SwapDirection.PAYER,
         **kwargs,
     ) -> "InterestRateSwap":
-        """Amortising swap: notional decreases linearly to zero.
+        """Amortising swap: notional decreases linearly to zero by maturity.
+
+        Period i (0-indexed, i=0..n-1) outstanding notional is
+        ``initial · (1 - i/n)``.  Standard market convention: period 0
+        carries the full initial notional, each subsequent period is
+        smaller by ``initial/n``, and after the final period (i.e. at
+        maturity) the principal is fully repaid (notional = 0).  Note the
+        FINAL period's outstanding notional is ``initial/n``, NOT zero —
+        the zero is the post-maturity state, not a period value.
 
             swap = InterestRateSwap.amortising(start, end, 0.04, 1_000_000)
         """
@@ -302,7 +310,21 @@ class InterestRateSwap:
         direction: SwapDirection = SwapDirection.PAYER,
         **kwargs,
     ) -> "InterestRateSwap":
-        """Accreting swap: notional increases linearly.
+        """Accreting swap: notional increases linearly from initial to final.
+
+        Period i (0-indexed, i=0..n-1) has notional
+        ``initial + (final - initial) · i / (n - 1)`` for ``n >= 2``.
+
+        Fix T4-SWAP1: pre-fix the n=1 branch divided by ``max(n-1, 1) = 1``
+        and looped ``i in range(1)``, so the single-period notional was
+        ``initial + 0·… = initial`` — ``final_notional`` was silently
+        dropped.  Calling ``accreting(...500_000, 1_000_000)`` with a
+        single-period schedule returned ``[500_000]`` with no warning.
+
+        Correct: for n=1, "accreting" is degenerate (no two endpoints to
+        interpolate between).  We use the **average** of the requested
+        endpoints — it is the only choice that honours BOTH inputs and is
+        symmetric in ``initial`` / ``final``.
 
             swap = InterestRateSwap.accreting(start, end, 0.04, 500_000, 1_000_000)
         """
@@ -310,10 +332,13 @@ class InterestRateSwap:
         freq = kwargs.get("fixed_frequency", Frequency.SEMI_ANNUAL)
         schedule = generate_schedule(start, end, freq)
         n = len(schedule) - 1
-        notionals = [
-            initial_notional + (final_notional - initial_notional) * i / max(n - 1, 1)
-            for i in range(n)
-        ]
+        if n <= 1:
+            notionals = [0.5 * (initial_notional + final_notional)]
+        else:
+            notionals = [
+                initial_notional + (final_notional - initial_notional) * i / (n - 1)
+                for i in range(n)
+            ]
         return cls(start, end, fixed_rate, direction, notional=notionals, **kwargs)
 
     @classmethod
