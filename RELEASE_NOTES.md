@@ -2,6 +2,24 @@
 
 ---
 
+## v1.019.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.repo_cva` omitted discount factor (same shape as v1.006 hybrid_xva).**
+
+Pre-fix CVA accumulator: `cva += epe × pd_step × lgd` — no `D(0, t_i)` term. Future-valued not present-valued. For overnight repo the effect is < 1%; for term repo (months to a year) it accumulates to several percent.
+
+**Fix**: optional `discount_rate` parameter (defaults to `repo_rate` — sensible secured-funding-curve approximation). Each EPE × ΔPD contribution is now multiplied by `exp(-discount_rate · t)`.
+
+### Verification — `test_l2_t4_repo_cva.py`
+
+5 new tests: zero discount preserves pre-fix; high discount reduces CVA; default uses repo_rate; zero hazard / zero LGD give zero CVA.
+
+Full parallel suite: **12,617 passed in 5:00** — zero regressions.
+
+Twenty-seventh fix from phase-2. **156 distinct bugs** in v0.905→v1.019.
+
+---
+
 ## v1.018.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.portfolio_analytics.tracking_metrics` mixed ddof conventions for beta.**
