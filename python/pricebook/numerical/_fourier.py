@@ -261,8 +261,21 @@ class CharacteristicFunction:
         """Recover density via Fourier inversion.
 
         f(x) = (1/2pi) integral exp(-iux) phi(u) du
+
+        Fix T4-CF1: pre-fix this method had two robustness gaps.
+        (a) ``n_quad=1`` raised ``IndexError`` at ``du = u[1] - u[0]``
+            because the linspace had only one point.
+        (b) ``density(scalar_x)`` raised ``TypeError`` at ``len(x)`` because
+            ``np.asarray(scalar)`` produces a 0-d array (which has no len()).
+        Both now raise clearer errors / handle the scalar case explicitly.
         """
-        x = np.asarray(x_grid)
+        if n_quad < 2:
+            raise ValueError(
+                f"density: n_quad must be >= 2 (got {n_quad}); need at "
+                "least two quadrature points for the trapezoidal rule."
+            )
+
+        x = np.atleast_1d(np.asarray(x_grid))   # accept scalars
         u_max = 50.0
         u = np.linspace(0, u_max, n_quad)
         du = u[1] - u[0]
