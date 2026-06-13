@@ -301,6 +301,7 @@ def proximal_gradient(
     maxiter: int = 1000,
     tol: float = 1e-6,
     accelerated: bool = True,
+    f_obj=None,
 ) -> OptimizeResult:
     """Proximal gradient descent (ISTA / FISTA).
 
@@ -311,10 +312,27 @@ def proximal_gradient(
         grad_f: gradient of the smooth part.
         prox_g: proximal operator of the non-smooth part: prox_{t*g}(x).
         accelerated: True for FISTA (Nesterov acceleration).
+        f_obj: optional callable returning f(x) + g(x).  If supplied, the
+            returned ``OptimizeResult.fun`` is the true objective at the
+            final iterate.  If omitted, ``fun`` is ``nan`` (pre-fix this
+            was unconditionally ``0.0``, which read as a real value).
+
+    Fix T4-OPT1: pre-fix this routine had two reporting bugs.
+    (a) ``fun=0.0`` regardless of actual objective value — a calibration
+        consumer reading ``result.fun`` saw "zero" and concluded the
+        solver found the optimum, when actually it had just timed out
+        at maxiter on a degenerate problem.
+    (b) ``converged=True`` regardless of actual convergence — the loop
+        could exhaust ``maxiter`` without the tolerance check ever
+        succeeding, and the caller had no way to know.
+    Now ``converged`` reflects whether the tolerance check fired, and
+    ``fun`` is either the user-supplied objective or NaN.
     """
     x = np.asarray(x0, dtype=float).copy()
     y = x.copy()
     t_k = 1.0
+    converged = False
+    k = 0
 
     for k in range(maxiter):
         x_old = x.copy()
@@ -322,6 +340,7 @@ def proximal_gradient(
         x = np.asarray(prox_g(y - step_size * g, step_size))
 
         if np.max(np.abs(x - x_old)) < tol:
+            converged = True
             break
 
         if accelerated:
@@ -331,7 +350,8 @@ def proximal_gradient(
         else:
             y = x
 
-    return OptimizeResult(x, 0.0, k + 1, True,
+    fun = float(f_obj(x)) if f_obj is not None else float("nan")
+    return OptimizeResult(x, fun, k + 1, converged,
                           "fista" if accelerated else "ista")
 
 
