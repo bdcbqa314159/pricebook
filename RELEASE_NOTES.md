@@ -2,6 +2,35 @@
 
 ---
 
+## v1.002.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.contagion.DefaultCascade.simulate` silently dropped second-order contagion.**
+
+The bug was a textbook conflation of two distinct flags via one variable. Pre-fix used `remaining_buffer[d] = -1` as both:
+- "this node has defaulted" (set on initial defaulters at start of round), AND
+- "this node's outward losses have been propagated to its creditors" (the "skip if already processed" check).
+
+But a creditor that defaults mid-cascade *also* has `remaining_buffer < 0` (from incoming losses absorbed beyond its buffer). In the next round, the `if remaining_buffer[d] < 0: continue` check at the top of the outer loop saw it as "already processed" and **skipped propagating its losses to its own creditors**.
+
+Net effect: only first-order contagion (initial-default's direct creditors) ever cascaded. A→B→C chains lost everything past B. The "contagion multiplier" metric understated systemic risk by an unbounded factor.
+
+**Fix**: separate `processed: set[int]` tracks which defaulters have had their losses propagated. Each defaulter now propagates outward exactly once, regardless of whether their buffer went negative from incoming losses.
+
+### Verification — `test_l2_t4_contagion.py`
+
+4 new tests:
+- `TestSecondOrderContagion` × 2: A→B→C with C surviving (but absorbing B's losses); A→B→C with all three defaulting.
+- `TestNoContagion` × 1: well-capitalised neighbours absorb A's loss without propagating.
+- `TestProcessedOnceInvariant` × 1: 4-node ring topology, all default.
+
+Full parallel suite: **12,537 passed in 2:40** — zero regressions (existing `test_graph_theory.py::DefaultCascade` tests were too lenient to catch the bug).
+
+Tenth fix from phase-2. **133 distinct bugs** in v0.905→v1.002.
+
+This is one of the more serious bugs found in phase 2 — it silently understated systemic risk in a financial-stability tool.
+
+---
+
 ## v1.001.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.hierarchical_risk_parity` had two issues.**
