@@ -2,6 +2,32 @@
 
 ---
 
+## v0.962.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `minimize(method=…)` rejected the natural hyphenated method-string form.**
+
+Pre-fix the string-to-enum dispatch was `OptimMethod(method.lower())` — so passing the form scipy itself uses (`"Nelder-Mead"`, `"L-BFGS-B"`) raised:
+
+> `ValueError: 'nelder-mead' is not a valid OptimMethod`
+
+The enum values use underscores (`"nelder_mead"`). This is an ergonomic trap: users copy-paste a method name from scipy docs and get a hard error with no hint that the fix is to swap `-` for `_`.
+
+**Fix**: normalise hyphens to underscores in addition to lower-casing — `method.lower().replace("-", "_")`. Hyphenated, underscored, and `OptimMethod` enum forms all work now.
+
+### Verification — `test_l2_t4_minimize_method_string_normalisation.py`
+
+6 new tests, all pass:
+- `test_Nelder_Mead_with_hyphen`, `test_L_BFGS_B_with_hyphens` — scipy-style forms.
+- `test_nelder_mead_underscore`, `test_l_bfgs_b_underscore` — underscore forms still work.
+- `test_enum_method` — direct enum still works.
+- `test_unknown_method_string_raises` — sanity: unknown strings still raise.
+
+Full parallel suite: **12277 passed in 2:34** — zero regressions.
+
+Thirtieth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.961.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `projection_l1_ball` returned the INPUT alias when `x` was already inside the L1 ball.**
