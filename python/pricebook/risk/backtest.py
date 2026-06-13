@@ -111,13 +111,17 @@ def compute_metrics(
     total_ret = float(cum_ret[-1])
 
     ann_ret = total_ret * periods_per_year / n if n > 0 else 0.0
-    vol = float(returns.std()) * math.sqrt(periods_per_year) if n > 1 else 0.0
+    # Fix T4-RISK3: pre-fix used np.std default ddof=0 (population) for
+    # vol and downside_vol — Sharpe/Sortino are conventionally reported
+    # with ddof=1 (sample std).  Pre-fix vol was understated by
+    # sqrt(n/(n-1)), inflating Sharpe by ~1.7% for n=30, ~0.2% for n=252.
+    vol = float(returns.std(ddof=1)) * math.sqrt(periods_per_year) if n > 1 else 0.0
 
     sharpe = ann_ret / vol if vol > 1e-10 else 0.0
 
     # Sortino (downside deviation)
     downside = returns[returns < 0]
-    downside_vol = float(downside.std()) * math.sqrt(periods_per_year) if len(downside) > 1 else 1e-10
+    downside_vol = float(downside.std(ddof=1)) * math.sqrt(periods_per_year) if len(downside) > 1 else 1e-10
     sortino = ann_ret / downside_vol if downside_vol > 1e-10 else 0.0
 
     # Drawdown
@@ -200,8 +204,17 @@ def run_backtest(
             if i % cfg.rebalance_frequency != 0:
                 positions[i] = positions[i - 1] if i > 0 else 0.0
 
-    # P&L: position[t-1] * return[t] (signal leads return by 1 period)
+    # P&L: position[t-1] * return[t] (signal leads return by 1 period).
+    # Fix T4-RISK4: pre-fix only charged slippage and commission for
+    # changes from positions[i-1] to positions[i], starting at i=1.
+    # The initial position entry (going from implicit 0 to positions[0])
+    # was free — non-zero initial signal incurred no transaction cost.
+    # Now charge the i=0 entry too.
     pnl = np.zeros(n)
+    if n > 0:
+        initial_slippage = abs(positions[0]) * cfg.slippage_bps / 10000 * cfg.initial_capital
+        initial_commission = cfg.commission_per_trade if abs(positions[0]) > 1e-10 else 0.0
+        pnl[0] = -initial_slippage - initial_commission
     for i in range(1, n):
         gross = positions[i - 1] * returns[i] * cfg.initial_capital
         slippage_cost = abs(positions[i] - positions[i - 1]) * cfg.slippage_bps / 10000 * cfg.initial_capital
@@ -285,11 +298,24 @@ def walk_forward(
         if len(train) < 10 or len(test) < 5:
             continue
 
-        # Generate signals from training data
-        train_signals = signal_func(train)
-
-        # Apply to test period
-        test_signals = signal_func(test)
+        # Fix T4-RISK5: pre-fix called ``signal_func(train)`` and
+        # ``signal_func(test)`` separately.  This is wrong in two ways:
+        #   (a) The test signals are generated FROM the test series
+        #       itself.  For any signal_func with a warm-up window
+        #       (e.g. 20-day momentum), the first 20 days of test
+        #       have undefined/biased signals because there's no
+        #       train-side history.
+        #   (b) The signal function "starts fresh" on each fold,
+        #       seeing none of the training history.
+        # The proper walk-forward semantics call ``signal_func`` on
+        # the concatenated series (train + test) and slice out the
+        # test portion — so the signal function has access to all
+        # past data (train) when computing test signals, without any
+        # forward-leakage of future data.
+        combined = np.concatenate([train, test])
+        all_signals = signal_func(combined)
+        train_signals = all_signals[: len(train)]
+        test_signals = all_signals[len(train) :]
 
         # Compute metrics
         is_result = run_backtest(train, train_signals, cfg, periods_per_year)
@@ -379,8 +405,21 @@ def deflated_sharpe(
     if n_trials <= 1:
         return 1.0
 
-    # Expected maximum Sharpe from n random trials
-    e_max_sr = norm.ppf(1 - 1 / n_trials)
+    # Expected maximum Sharpe from n random trials.
+    # Fix T4-RISK6: pre-fix used the crude first-order approximation
+    # ``E[max(N_1, ..., N_n)] ≈ Φ⁻¹(1 - 1/n)``, missing the
+    # Euler-Mascheroni correction term documented in Bailey & De Prado
+    # (2014).  For n=100 the pre-fix value 2.326 understates the true
+    # expected max (~2.508) by ~7%, *over*-stating the deflated
+    # probability — i.e., a less-stringent significance threshold that
+    # admits more false positives.  Bailey-De Prado formula:
+    #   E[max] ≈ (1 - γ) Φ⁻¹(1 - 1/n) + γ Φ⁻¹(1 - 1/(n·e))
+    # where γ ≈ 0.5772 (Euler-Mascheroni) and e ≈ 2.718.
+    EULER_GAMMA = 0.5772156649015329
+    e_max_sr = (
+        (1.0 - EULER_GAMMA) * norm.ppf(1.0 - 1.0 / n_trials)
+        + EULER_GAMMA * norm.ppf(1.0 - 1.0 / (n_trials * math.e))
+    )
 
     # Standard error of SR estimate
     se_sr = math.sqrt((1 + 0.5 * sharpe**2 - skew * sharpe +
