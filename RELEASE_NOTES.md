@@ -2,6 +2,36 @@
 
 ---
 
+## v0.969.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `FRA.pv_ctx` silently picked the "first" projection curve when the day-count-keyed lookup missed.**
+
+Pre-fix:
+
+```python
+if dc_key and dc_key in ctx.projection_curves:
+    proj = ctx.projection_curves[dc_key]
+else:
+    proj = next(iter(ctx.projection_curves.values()))
+```
+
+In a multi-curve setup (e.g. ACT/360 USD-LIBOR FRA priced against a context with only ACT/365 GBP projection curves), the FRA silently got a wrong-curve forward rate. The day-count mismatch could be several basis points and was completely invisible to the user.
+
+**Fix**: keyed-lookup miss now raises `KeyError` listing the offending day-count and the available keys. The legacy fallback to the discount curve when the context has NO projection curves at all is preserved (the unambiguous single-curve case).
+
+### Verification — `test_l2_t4_fra_pv_ctx_keyed_lookup.py`
+
+3 new tests, all pass:
+- `test_act_360_fra_no_act_360_curve_raises` — ACT/360 FRA against ACT/365-only context raises.
+- `test_act_360_fra_with_matching_curve_prices` — matching day-count gives a finite PV.
+- `test_empty_projection_falls_back` — empty projection-curves dict still falls back to the discount curve (single-curve compat).
+
+Full parallel suite: **12318 passed in 2:35** — zero regressions.
+
+Thirty-seventh fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.968.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `smith_wilson_forward` silently returned `ufr` when its finite-difference DFs went non-positive.**
