@@ -2,6 +2,33 @@
 
 ---
 
+## v0.968.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `smith_wilson_forward` silently returned `ufr` when its finite-difference DFs went non-positive.**
+
+```python
+if p1 <= 0 or p2 <= 0:
+    return ufr
+```
+
+Non-positive Smith-Wilson DFs are NOT a normal regime — they indicate arbitrageable input DFs, extrapolation gone off the rails, or extreme `alpha`. Pre-fix the user got "the answer is UFR" silently, masking a calibration failure that should fail loudly.
+
+**Fix**: raise `ValueError` with diagnostic context (the offending DF values, the `t` parameter, and likely upstream causes).
+
+### Verification — `test_l2_t4_smith_wilson_silent_ufr.py`
+
+2 new tests, all pass:
+- `TestSilentUFRReplacedByRaise::test_non_positive_dfs_raise` — synthesise a wild-zeta state, scan for a `t` where DFs go negative, confirm the function raises.
+- `TestHealthyForwardWorks::test_normal_calibration_forward_finite` — normal calibrated state still returns a finite forward in the expected market-rate range.
+
+Pre-existing 10 Smith-Wilson tests still pass.
+
+Full parallel suite: **12315 passed in 3:01** — zero regressions.
+
+Thirty-sixth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.967.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `MCEngine(n_paths=1)` silently produced NaN stderr instead of failing fast.**
