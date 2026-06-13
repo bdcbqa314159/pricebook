@@ -19,7 +19,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.cluster.hierarchy import linkage, leaves_list
+from scipy.cluster.hierarchy import fcluster, linkage, leaves_list
 from scipy.spatial.distance import squareform
 
 
@@ -54,7 +54,23 @@ def hrp_portfolio(
         returns: (T, N) return matrix.
         method: linkage method ("single", "complete", "average", "ward").
     """
+    # Fix T4-RISK15: pre-fix crashed deep on N <= 1 — squareform of an
+    # empty distance vector then linkage on it raised ValueError.
+    # Now N <= 1 returns the trivial single-weight portfolio directly.
     cov = np.cov(returns, rowvar=False)
+    if cov.ndim == 0:
+        # np.cov of (T, 1) returns 0-d array — single asset.
+        return HRPResult(
+            weights=np.array([1.0]), cluster_order=[0],
+            n_assets=1, n_clusters=1,
+        )
+    N = cov.shape[0]
+    if N <= 1:
+        return HRPResult(
+            weights=np.array([1.0]), cluster_order=[0],
+            n_assets=1, n_clusters=1,
+        )
+
     corr = np.corrcoef(returns, rowvar=False)
 
     # Step 1: Hierarchical clustering
@@ -73,8 +89,17 @@ def hrp_portfolio(
     for i, orig_idx in enumerate(order):
         weights[orig_idx] = weights_ordered[i]
 
-    # Count clusters (using a cut at median distance)
-    n_clusters = min(len(order), max(2, len(order) // 3))
+    # Fix T4-RISK16: pre-fix used the heuristic ``min(N, max(2, N//3))``
+    # which doesn't reflect the actual cluster structure from the
+    # dendrogram.  Now uses ``fcluster`` at the median linkage height
+    # to count the actual number of clusters present in the tree.
+    if link.shape[0] > 0:
+        heights = link[:, 2]
+        cut = float(np.median(heights))
+        cluster_ids = fcluster(link, t=cut, criterion="distance")
+        n_clusters = int(np.unique(cluster_ids).size)
+    else:
+        n_clusters = N
 
     return HRPResult(
         weights=weights,
