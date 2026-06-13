@@ -2,6 +2,29 @@
 
 ---
 
+## v0.972.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `Normal` and `LogNormal` accepted `sigma=0` or `sigma<0` without validation.**
+
+Pre-fix:
+- `Normal(sigma=0)`: `cdf/pdf` divided by zero, emitting `RuntimeWarning` and returning 1.0 (or NaN) silently.
+- `Normal(sigma=-1)`: produced a flipped distribution (math runs, but σ < 0 is meaningless — only σ ≥ 0 parameterises a normal).
+- `LogNormal(sigma=0)`: same divide-by-zero pattern as Normal.
+
+**Fix**: both constructors now raise `ValueError("sigma must be > 0")` at construction with a clear diagnostic.
+
+### Verification — `test_l2_t4_distribution_sigma_validation.py`
+
+6 new tests, all pass:
+- `TestNormalSigmaValidation` × 3: zero, negative, positive.
+- `TestLogNormalSigmaValidation` × 3: same coverage.
+
+Full parallel suite: **12339 passed in 3:12** — zero regressions.
+
+Fortieth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.971.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `cos_price` crashed with opaque exceptions deep in the formula on three degenerate inputs.**
