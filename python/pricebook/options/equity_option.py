@@ -142,6 +142,15 @@ def equity_theta(
     Full Hull formula:
         call: -S×n(d1)×σ×e^{-qT}/(2√T) - r×K×e^{-rT}×N(d2) + q×S×e^{-qT}×N(d1)
         put:  -S×n(d1)×σ×e^{-qT}/(2√T) + r×K×e^{-rT}×N(-d2) - q×S×e^{-qT}×N(-d1)
+
+    Fix T4-EQ3: pre-fix the ``T <= 0 or vol <= 0`` branch returned
+    ``theta_b76`` (the first σ·n(d1) Black-76 term, which is 0 at σ=0)
+    and silently dropped both the ``theta_r`` (rate-discount) and
+    ``theta_q`` (dividend) corrections.  But at ``vol=0, T>0`` the
+    price is ``S·exp(-qT) − K·exp(-rT)`` (ITM call, deterministic) and
+    its theta is ``q·S·exp(-qT) − r·K·exp(-rT)`` — non-zero, and
+    sometimes the dominant component of total theta when rate/div are
+    far from zero.  Now compute the deterministic limit explicitly.
     """
     import math
     from scipy.stats import norm
@@ -150,8 +159,26 @@ def equity_theta(
     # Black-76 theta gives the first term only
     theta_b76 = black76_theta(forward, strike, vol, T, df, option_type)
 
-    if T <= 0 or vol <= 0:
+    if T <= 0:
+        # At expiry, no time decay (convention).
         return theta_b76
+    if vol <= 0:
+        # Deterministic limit: price = max(F·exp(-qT)·indicator - K·exp(-rT)·indicator, 0)
+        # collapses by forward vs strike.  Take ∂/∂T of price and negate (theta convention).
+        sgn = 1.0 if option_type == OptionType.CALL else -1.0
+        if sgn * (forward - strike) > 0:
+            # ITM (under deterministic forward).
+            theta_q = div_yield * spot * math.exp(-div_yield * T)
+            theta_r = -rate * strike * math.exp(-rate * T)
+            # For put, both signs flip.
+            return sgn * (theta_q + theta_r)
+        if sgn * (forward - strike) < 0:
+            # OTM: price = 0 → theta = 0.
+            return 0.0
+        # ATM: one-sided limit = half of the ITM value.
+        theta_q = div_yield * spot * math.exp(-div_yield * T)
+        theta_r = -rate * strike * math.exp(-rate * T)
+        return 0.5 * sgn * (theta_q + theta_r)
 
     sqrt_t = math.sqrt(T)
     d1 = (math.log(forward / strike) + 0.5 * vol * vol * T) / (vol * sqrt_t)
