@@ -2,6 +2,36 @@
 
 ---
 
+## v0.992.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `fx_double_barrier_option` returned `vanilla` unconditionally at vol=0/T>0, assuming no barrier breach.**
+
+At vol=0, the spot path is the deterministic monotonic exponential `S_t = spot·exp((rd-rf)·t)`. With `spot` known to be inside the corridor (checked just above), the path breaches a barrier iff the forward `spot_T = spot·exp((rd-rf)·T)` exits the corridor:
+
+- Forward stays in `[L, U]` → no breach → KO = vanilla, KI = 0.
+- Forward `>= U` → upper breach → KO = 0, KI = vanilla.
+- Forward `<= L` → lower breach → KO = 0, KI = vanilla.
+
+Pre-fix returned `vanilla` unconditionally — systematically over-pricing knock-outs and under-pricing knock-ins whenever the deterministic forward drifted out of the corridor.
+
+T=0 boundary preserved (no path traversal possible).
+
+KO + KI = vanilla parity holds exactly in all four cases.
+
+### Verification — `test_l2_t4_fx_double_barrier_degenerate.py`
+
+8 new tests:
+- `TestFxDoubleBarrierVolZeroKnockOut` × 3: forward-inside pays vanilla; forward-above-upper KO = 0; forward-below-lower KO = 0.
+- `TestFxDoubleBarrierVolZeroKnockIn` × 2: inside KI = 0; upper-breach KI = vanilla.
+- `TestFxDoubleBarrierTZero` × 1: T=0 returns vanilla.
+- `TestParity` × 2: KO + KI = vanilla for both inside-corridor and breach cases.
+
+Full parallel suite: **12,472 passed in 2:51** — zero regressions.
+
+Third of four residual convention-dependent fixes deferred from the v0.989 sweep. 116th distinct bug.
+
+---
+
 ## v0.991.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `fx_lookback_floating` returned 0 unconditionally at `vol <= 0 or T <= 0`, dropping the deterministic non-zero value from drift-driven path extrema.**
