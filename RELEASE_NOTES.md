@@ -2,6 +2,32 @@
 
 ---
 
+## v0.993.0 — 2026-06-13
+
+**Fix L2 phase-2 audit (first new-module find) — `risk.var.stress_test` had two coupled bugs.**
+
+Opening up `risk/` for systematic audit. First find:
+
+**(a) Silent no-op on unsupported shocks.** Pre-fix inspected only `rate_shift` and silently dropped every other key — including `vol_shift` which appeared explicitly in the function's own docstring example. Users following the docs got identical-to-base P&Ls that looked like successful stress runs.
+
+**(b) Lossy context reconstruction.** The bumped context was built from a 6-field constructor subset, silently dropping the plural `discount_curves`, `inflation_curves`, `repo_curves`, `reporting_currency`, `stochastic_credit_models`, `credit_vol_surfaces`, `credit_correlations`, and (added later in G1 P3) `numerical_config`. Pricers relying on any of these silently saw a degraded context.
+
+**Fix**: use `dataclasses.replace` for non-lossy reconstruction; raise `ValueError` on unknown shock keys. Now supports `rate_shift` (bumps singular `discount_curve` + plural `discount_curves` + `projection_curves`) and `credit_shift` (bumps `credit_curves`).
+
+### Verification — `test_l2_t4_risk_var_stress_test.py`
+
+7 new tests:
+- `TestStressTestRaisesOnUnsupportedShocks` × 2: `vol_shift` raises; typo `rate_shifft` raises.
+- `TestStressTestRateShift` × 2: singular + plural discount curves both bumped.
+- `TestStressTestPreservesUntouchedFields` × 2: `numerical_config` and `reporting_currency` survive reconstruction.
+- `TestStressTestEmpty` × 1: empty shock dict is a no-op (no error).
+
+Full parallel suite: **12,479 passed in 3:07** — zero regressions.
+
+First fix from phase-2 (modules not yet audited). 117th distinct bug.
+
+---
+
 ## v0.992.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `fx_double_barrier_option` returned `vanilla` unconditionally at vol=0/T>0, assuming no barrier breach.**
