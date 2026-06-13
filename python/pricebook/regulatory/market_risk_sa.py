@@ -142,19 +142,77 @@ def calculate_vega_capital(positions: list[dict], risk_class: str = "EQ") -> dic
 # ---- Curvature capital ----
 
 def calculate_curvature_capital(positions: list[dict], risk_class: str = "EQ") -> dict:
-    """Curvature capital charge."""
+    """Curvature capital charge (FRTB MAR21.13-14).
+
+    Per FRTB:
+        K_b^x = max(0, sum over k of max(CVR_k^x, 0))       (within-bucket, simplified)
+        K_b = max(K_b^up, K_b^down)
+        K_curvature = sqrt[max(0, Σ K_b² + Σ_{b≠c} γ_bc · S_b · S_c · ψ(S_b, S_c))]
+
+    where:
+        γ_bc is the cross-bucket correlation,
+        S_b = max(K_b^up, K_b^down) (i.e. K_b but signed by the worst-side direction),
+        ψ(S_b, S_c) = 0 if BOTH S_b and S_c are negative, 1 otherwise
+                     (caps reward from large opposite-direction positions).
+
+    Fix T4-REG1: pre-fix used plain ``sum(bucket_caps.values())`` instead
+    of the FRTB sum-of-squares-with-correlations aggregation.  The plain
+    sum was equivalent to using γ=1 for all cross-bucket pairs (full
+    positive correlation), which is more conservative than the
+    γ=0.10-0.20 the standard specifies — overstating capital.
+
+    Within-bucket aggregation is still simplified (no per-position ρ_kl);
+    that's a deeper rewrite tracked as a follow-up.
+    """
+    # Set inter-bucket correlation by risk class (FRTB Annexes).
+    if risk_class == "GIRR":
+        gamma = 0.50
+    elif risk_class == "CSR":
+        gamma = 0.25
+    elif risk_class == "EQ":
+        gamma = 0.15
+    elif risk_class == "FX":
+        gamma = 0.60
+    else:  # COM
+        gamma = 0.20
+
+    # Per-bucket CVR sums (simplified within-bucket aggregation).
     buckets: dict[str, dict[str, float]] = {}
     for pos in positions:
         b = pos.get("bucket", "default")
         if b not in buckets:
-            buckets[b] = {"cvr_up": 0, "cvr_down": 0}
+            buckets[b] = {"cvr_up": 0.0, "cvr_down": 0.0}
         buckets[b]["cvr_up"] += pos.get("cvr_up", 0)
         buckets[b]["cvr_down"] += pos.get("cvr_down", 0)
 
-    bucket_caps = {b: max(c["cvr_up"], c["cvr_down"], 0) for b, c in buckets.items()}
-    k = sum(bucket_caps.values())
+    # K_b = max(K_b^up, K_b^down).  Track which direction "won" for ψ.
+    bucket_caps: dict[str, float] = {}
+    bucket_S: dict[str, float] = {}  # signed by winning direction (positive if cvr_up wins, else negative)
+    for b, c in buckets.items():
+        up = max(c["cvr_up"], 0.0)
+        down = max(c["cvr_down"], 0.0)
+        if up >= down:
+            bucket_caps[b] = up
+            bucket_S[b] = c["cvr_up"]
+        else:
+            bucket_caps[b] = down
+            bucket_S[b] = c["cvr_down"]
 
-    return {"risk_class": risk_class, "component": "curvature", "capital": k, "bucket_capitals": bucket_caps}
+    # Cross-bucket aggregation with ψ.
+    bucket_names = list(bucket_caps.keys())
+    sum_sq = sum(k_b ** 2 for k_b in bucket_caps.values())
+    cross = 0.0
+    for i, b1 in enumerate(bucket_names):
+        for b2 in bucket_names[i + 1:]:
+            s1, s2 = bucket_S[b1], bucket_S[b2]
+            # ψ(S_b, S_c) = 0 if both negative, else 1.
+            psi = 0.0 if (s1 < 0 and s2 < 0) else 1.0
+            cross += gamma * s1 * s2 * psi
+
+    k = math.sqrt(max(sum_sq + 2 * cross, 0.0))
+
+    return {"risk_class": risk_class, "component": "curvature", "capital": k,
+            "bucket_capitals": bucket_caps}
 
 
 # ---- SbM total ----
