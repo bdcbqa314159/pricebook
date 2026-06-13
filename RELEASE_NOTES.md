@@ -2,6 +2,39 @@
 
 ---
 
+## v1.009.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.network_xva` had a spurious `max(multiplier, 1.0)` floor that contradicted both its docstring and its own comment.**
+
+Pre-fix:
+```python
+# Floor multiplier at 1.0: no contagion means no adjustment (multiplicative identity)
+adjustment = alpha * centrality * max(multiplier, 1.0)
+network_cva = standalone_cva * (1.0 + adjustment)
+```
+
+The comment claims "no contagion → no adjustment", but `max(0, 1.0) = 1.0` ≠ 0, so the formula still adds `α · centrality` to the multiplier even when there's no contagion. The docstring's formula is `CVA × (1 + α × centrality × multiplier)` — when multiplier = 0, no adjustment.
+
+For an isolated counterparty (no outgoing exposures → no contagion → multiplier = 0):
+- Pre-fix: CVA was bumped by `α · centrality · CVA` regardless.
+- Post-fix: CVA = standalone_cva (multiplier = 0 → adjustment = 0).
+
+**Fix**: removed the floor in both `compute_network_cva` and `systemic_cva_adjustment`. Multiplier passes through raw.
+
+### Verification — `test_l2_t4_network_xva.py`
+
+5 new tests:
+- `TestNoContagionNoAdjustment` × 2: isolated CP unchanged; multiplier=0 in convenience fn unchanged.
+- `TestContagionRaisesCVA` × 1: cascading CP still uplifted.
+- `TestAlphaZeroNoChange` × 1: alpha=0 always recovers standalone (existing invariant).
+- `TestSystemicCvaAdjustmentClosedForm` × 1: exact formula match.
+
+Full parallel suite: **12,572 passed in 3:02** — zero regressions; existing `test_phase5_integration` tests still pass.
+
+Seventeenth fix from phase-2. **142 distinct bugs** (2 in this slice) in v0.905→v1.009.
+
+---
+
 ## v1.008.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.leverage_optimisation` concentration constraint was looser than its own docstring.**
