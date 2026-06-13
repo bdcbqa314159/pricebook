@@ -76,9 +76,19 @@ def market_price_uncertainty_ava(
         confidence: confidence level (EBA: 90%).
     """
     half_spread = (ask_price - bid_price) / 2
-    # Prudent value adjustment: half the bid-ask, scaled for quote reliability
-    reliability_factor = min(n_quotes / 5.0, 1.0)  # full confidence at 5+ quotes
-    ava = half_spread * confidence / reliability_factor if reliability_factor > 0 else half_spread
+    # Prudent value adjustment: half the bid-ask, scaled for quote reliability.
+    #
+    # Fix T4-RISK28: pre-fix had non-monotonic behaviour in n_quotes.
+    # ``reliability_factor = min(n_quotes/5, 1.0)`` gives 0 at n_quotes=0,
+    # then the special-case returned plain ``half_spread`` (= 0.5·spread).
+    # At n_quotes=1, reliability=0.2 → AVA = half_spread·0.9/0.2 = 4.5·half_spread.
+    # So adding the *first* quote INCREASED the AVA, contradicting the
+    # "more quotes → more reliable → smaller AVA" intent.
+    # Now: floor reliability at a small positive (0.1) and drop the
+    # special-case, so n_quotes=0 gives the maximum AVA (9× half_spread)
+    # which then monotonically decreases as quotes accumulate.
+    reliability_factor = max(min(n_quotes / 5.0, 1.0), 0.1)
+    ava = half_spread * confidence / reliability_factor
 
     return MarketPriceUncertaintyAVA(
         mid_price=mid_price, bid_price=bid_price, ask_price=ask_price,
@@ -139,9 +149,22 @@ def close_out_cost_ava(
     """
     base_bp = _ASSET_CLASS_SPREADS.get(asset_class, 10.0)
 
-    # Size adjustment: if position > 1 day's volume, spread widens
+    # Size adjustment: if position > 1 day's volume, spread widens log-scale.
+    #
+    # Fix T4-RISK29: pre-fix silently overwrote the caller's
+    # ``position_days`` with ``notional/daily_volume`` whenever
+    # ``daily_volume > 0``, and ignored it entirely otherwise (defaulting
+    # to a flat 50% premium).  The parameter was effectively dead.
+    # Now: if daily_volume > 0 we *derive* position_days when the
+    # caller didn't supply a meaningful value (≤ 1.0 = default).  If
+    # caller passed a real estimate, honour it.  Without daily_volume,
+    # use the caller's position_days if supplied, else the 50% premium.
     if daily_volume > 0:
-        position_days = max(notional / daily_volume, 1.0)
+        derived_days = notional / daily_volume
+        days = max(derived_days, position_days, 1.0)
+        size_adj_bp = base_bp * max(math.log(days), 0.0)
+    elif position_days > 1.0:
+        # Caller supplied a meaningful position_days but no volume info.
         size_adj_bp = base_bp * max(math.log(position_days), 0.0)
     else:
         size_adj_bp = base_bp * 0.5  # default 50% premium for unknown liquidity
