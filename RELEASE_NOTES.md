@@ -2,6 +2,25 @@
 
 ---
 
+## v0.963.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `_simpson` and `_trapezoid` crashed with `ZeroDivisionError` on `n=0`.**
+
+Both routines compute `h = (b - a) / n` directly with no validation. A caller routing through the public `integrate(method=…, n=0)` API got an opaque `ZeroDivisionError` deep in the implementation with no diagnostic context.
+
+**Fix**: both routines raise `ValueError` upfront with a clear message ("n must be >= 1") if `n < 1`.
+
+### Verification — `test_l2_t4_integrate_simpson_trap_zero_n.py`
+
+6 new tests, all pass:
+- Each of `_simpson` and `_trapezoid`: `n=0` raises, `n<0` raises, `n>=1` produces correct integral (ATM `∫x² dx` ≈ 1/3 for Simpson; ATM `∫x dx` = 0.5 for trapezoid).
+
+Full parallel suite: **12283 passed in 3:03** — zero regressions.
+
+Thirty-first fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.962.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `minimize(method=…)` rejected the natural hyphenated method-string form.**
