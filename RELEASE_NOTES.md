@@ -2,6 +2,31 @@
 
 ---
 
+## v0.956.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `models/feynman_kac.py` had three silent contract violations.**
+
+1. **`sde_to_pde(rate_fn=None)`** silently defaulted to a 4% constant rate. A user calling the helper without specifying the rate would get a PDE parameterised at 4%; if they then ran an MC at a different rate, the cross-comparison would be biased by exactly the rate disagreement, with no warning. Now raises `ValueError`.
+
+2. **`pde_to_sde`** used `math.sqrt(max(2·diffusion, 0))` — silently clamping NEGATIVE PDE diffusion (which is unphysical: the PDE diffusion coefficient `a = ½σ²` is non-negative by construction) to zero. Bugs in upstream coefficient functions producing negative `a` would be masked. Now raises `ValueError` on negative diffusion at the evaluation point.
+
+3. **`verify_feynman_kac(n_time=...)`** ignored the user-supplied `n_time` for the MC time grid (hardcoded to 100), so a user thinking they were refining BOTH MC and PDE in lockstep to study convergence was actually only refining the PDE. The docstring promises "Both use the same model" — broken in the wiring. Now the MC grid uses `n_time` steps.
+
+### Verification — `test_l2_t4_feynman_kac_contracts.py`
+
+7 new tests, all pass:
+- `TestSdeToPdeRequiresRate` × 3: `rate_fn=None` raises; scalar still works; callable still works.
+- `TestPdeToSdeRejectsNegativeDiffusion` × 3: negative raises; zero returns zero vol; positive unchanged.
+- `TestVerifyFeynmanKacUsesNTime`: smoke test confirming `n_time=50` vs `n_time=200` both run without error.
+
+Pre-existing 3 Feynman-Kac tests still pass.
+
+Full parallel suite: **12249 passed in 2:33** — zero regressions.
+
+Twenty-fourth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.955.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `Dual` math operations silently produced wrong derivatives at known singularities.**
