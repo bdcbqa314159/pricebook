@@ -123,6 +123,17 @@ class Dual:
     def __eq__(self, other):
         return self.val == (other.val if isinstance(other, Dual) else float(other))
 
+    def __hash__(self):
+        # Fix T4-AD2: pre-fix Python automatically set __hash__ = None
+        # because __eq__ was defined.  That made Dual unhashable, breaking
+        # any natural use as a dict key or set member.  But __eq__
+        # compares ONLY `val` (intentional, for float compatibility:
+        # `Dual(1, 2) == 1.0` is True), so to satisfy the hash/eq contract
+        # (a == b ⇒ hash(a) == hash(b)) we must hash on `val` alone.
+        # This makes Dual(1, 2) and Dual(1, 99) collide in a hash table,
+        # which is consistent with them being == .
+        return hash(self.val)
+
     def __float__(self):
         return self.val
 
