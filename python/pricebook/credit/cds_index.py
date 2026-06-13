@@ -151,11 +151,18 @@ class VanillaCLN:
         frequency: Frequency = Frequency.SEMI_ANNUAL,
         day_count: DayCountConvention = DayCountConvention.THIRTY_360,
     ):
+        # Fix T4-CLN1: pre-fix the constructor consumed `frequency` for
+        # ``generate_schedule`` but NEVER stored it as ``self.frequency``.
+        # The class was registered as ``_serialisable`` with `frequency` in
+        # the field list, so ``to_dict()`` raised ``AttributeError`` —
+        # the class was effectively unserialisable despite being declared
+        # so.  Store it now.
         self.start = start
         self.end = end
         self.coupon_rate = coupon_rate
         self.notional = notional
         self.recovery = recovery
+        self.frequency = frequency
         self.day_count = day_count
         self.schedule = generate_schedule(start, end, frequency)
 
