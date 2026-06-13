@@ -64,6 +64,29 @@ def cos_price(
         N: number of cosine terms (higher = more accurate).
         L: truncation parameter (number of stdevs).
     """
+    # Fix T4-COS1: pre-fix three degenerate inputs crashed with opaque
+    # exceptions deep inside the formula:
+    #   - L=0  → b-a = 0  → ZeroDivisionError inside the V_k recursion.
+    #   - spot=0 → math.log(0) → math domain error.
+    #   - strike=0 → division by zero in spot/strike.
+    # Validate upfront with clear diagnostic messages.
+    if spot <= 0:
+        raise ValueError(
+            f"cos_price: spot must be > 0 (got {spot}); log(spot/strike) "
+            "requires positive spot."
+        )
+    if strike <= 0:
+        raise ValueError(
+            f"cos_price: strike must be > 0 (got {strike}); log(spot/strike) "
+            "requires positive strike."
+        )
+    if L <= 0:
+        raise ValueError(
+            f"cos_price: L must be > 0 (got {L}); the truncation half-width "
+            "L·sqrt(c2) must be strictly positive for the COS series to "
+            "be defined."
+        )
+
     x = math.log(spot / strike)
     df = math.exp(-rate * T)
 
