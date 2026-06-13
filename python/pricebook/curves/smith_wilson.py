@@ -93,11 +93,28 @@ def smith_wilson_forward(
     alpha: float,
     dt: float = 1.0 / 365,
 ) -> float:
-    """Instantaneous forward rate from Smith-Wilson curve."""
+    """Instantaneous forward rate from Smith-Wilson curve.
+
+    Fix T4-SW1: pre-fix this routine silently returned ``ufr`` if either
+    of the two discount factors used for the finite-difference forward
+    came out non-positive.  Non-positive DFs from Smith-Wilson are NOT
+    a normal regime — they indicate either an arbitrageable input set or
+    extrapolation that has gone off the rails.  Pre-fix the user got
+    "the answer is UFR" with no warning, masking a calibration failure.
+
+    Post-fix raises ``ValueError`` with the offending DF values and a
+    pointer at the most likely upstream cause.
+    """
     p1 = smith_wilson_df(t, maturities, zeta, ufr, alpha)
     p2 = smith_wilson_df(t + dt, maturities, zeta, ufr, alpha)
     if p1 <= 0 or p2 <= 0:
-        return ufr
+        raise ValueError(
+            f"smith_wilson_forward at t={t}: discount factors went "
+            f"non-positive (P(t)={p1}, P(t+dt)={p2}).  This is not a "
+            "normal SW regime — check for arbitrageable inputs, "
+            "extrapolation outside the calibrated range, or "
+            "extreme alpha."
+        )
     return -math.log(p2 / p1) / dt
 
 
