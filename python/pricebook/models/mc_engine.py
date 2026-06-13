@@ -198,6 +198,30 @@ class MCEngine:
         antithetic: bool = False,
         scheme: str = "euler",
     ):
+        # Fix T4-MC4: pre-fix `n_paths=1` produced bizarre downstream
+        # behaviour:
+        #   - With antithetic=True, `n_half = 1 // 2 = 0` and the engine
+        #     generated ZERO paths; subsequent `np.std(..., ddof=1)`
+        #     divided by zero (NaN stderr) silently.
+        #   - Without antithetic, the single-path "MC" estimator had a
+        #     well-defined mean but `np.std(..., ddof=1)` of one sample
+        #     also produces NaN.
+        # Both modes are useless for Monte Carlo and the silent NaN
+        # propagates into ``MCResult.stderr`` and ``confidence_95``.
+        # Require at least 2 paths (and at least 4 if antithetic, to
+        # guarantee 2 paths per side after the n_half = n // 2 floor).
+        if n_paths < 2:
+            raise ValueError(
+                f"MCEngine: n_paths must be >= 2 for a valid Monte Carlo "
+                f"estimator (got {n_paths}); std-error requires at least "
+                "two samples."
+            )
+        if antithetic and n_paths < 4:
+            raise ValueError(
+                f"MCEngine: antithetic=True requires n_paths >= 4 (got "
+                f"{n_paths}); the engine uses n_half=n_paths//2 antithetic "
+                "pairs, and at least 2 pairs are needed for a non-NaN stderr."
+            )
         self.process = process
         self.time_grid = time_grid
         self.n_paths = n_paths
