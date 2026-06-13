@@ -175,6 +175,18 @@ def max_dual(a, b):
 
 # ---- Gradient and Jacobian ----
 
+_THREADING_ERR = (
+    "Forward-mode AD driver requires f to thread Dual numbers through. "
+    "f returned {got!r}; expected a Dual (or for jacobian_ad, an iterable of "
+    "Duals).  The most common cause is f calling NumPy functions on a "
+    "list of Duals (NumPy returns a generic ndarray of objects whose "
+    ".der attribute does not propagate), or f using `math.` functions "
+    "that strip the Dual wrapper.  Use the Dual-aware operations defined "
+    "in pricebook.numerical.auto_diff instead, or wrap external functions "
+    "with `lift_to_dual` (which raises if any branch silently drops Duals)."
+)
+
+
 def grad(f, x: np.ndarray) -> np.ndarray:
     """Gradient of f: ℝⁿ → ℝ via forward-mode AD.
 
@@ -186,13 +198,22 @@ def grad(f, x: np.ndarray) -> np.ndarray:
 
     Returns:
         Gradient array (n,).
+
+    Fix T4-AD1: pre-fix this routine silently returned 0 when ``f`` did not
+    thread Duals through (the most common forward-AD bug — easy to introduce
+    by using NumPy on a list of Duals).  A user computing "delta" of a
+    pricer with a typo or stale code path would see ``grad = [0, 0, …]``
+    with no warning and conclude the option had no Greek.  Now we raise
+    ``TypeError`` with a diagnostic message so the failure mode is loud.
     """
     n = len(x)
     g = np.zeros(n)
     for i in range(n):
         x_dual = [Dual(x[j], 1.0 if j == i else 0.0) for j in range(n)]
         result = f(x_dual)
-        g[i] = result.der if isinstance(result, Dual) else 0.0
+        if not isinstance(result, Dual):
+            raise TypeError(_THREADING_ERR.format(got=type(result).__name__))
+        g[i] = result.der
     return g
 
 
@@ -205,6 +226,10 @@ def jacobian_ad(f, x: np.ndarray) -> np.ndarray:
 
     Returns:
         Jacobian matrix (m, n).
+
+    Fix T4-AD1: pre-fix this routine silently dropped derivative entries
+    to 0 when individual output components were not Duals.  Now raises
+    ``TypeError`` with a diagnostic when any component fails to be a Dual.
     """
     n = len(x)
     # First call to get output dimension
@@ -218,9 +243,13 @@ def jacobian_ad(f, x: np.ndarray) -> np.ndarray:
         result = f(x_dual)
         if hasattr(result, '__len__'):
             for k in range(m):
-                J[k, i] = result[k].der if isinstance(result[k], Dual) else 0.0
+                if not isinstance(result[k], Dual):
+                    raise TypeError(_THREADING_ERR.format(got=type(result[k]).__name__))
+                J[k, i] = result[k].der
         else:
-            J[0, i] = result.der if isinstance(result, Dual) else 0.0
+            if not isinstance(result, Dual):
+                raise TypeError(_THREADING_ERR.format(got=type(result).__name__))
+            J[0, i] = result.der
 
     return J
 
@@ -234,8 +263,12 @@ def derivative(f, x: float) -> tuple[float, float]:
 
     Returns:
         (f(x), f'(x)).
+
+    Fix T4-AD1: pre-fix this returned ``(float(result), 0.0)`` when f did
+    not return a Dual, silently producing a zero derivative.  Now raises
+    ``TypeError`` so the threading failure is loud.
     """
     result = f(Dual(x, 1.0))
-    if isinstance(result, Dual):
-        return result.val, result.der
-    return float(result), 0.0
+    if not isinstance(result, Dual):
+        raise TypeError(_THREADING_ERR.format(got=type(result).__name__))
+    return result.val, result.der
