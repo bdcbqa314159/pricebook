@@ -2,6 +2,33 @@
 
 ---
 
+## v0.971.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `cos_price` crashed with opaque exceptions deep in the formula on three degenerate inputs.**
+
+Pre-fix:
+- **`L=0`**: ``b - a = 0`` (truncation half-width `L·sqrt(c2) = 0`) → `ZeroDivisionError` inside the V_k recursion's `2.0 / (b - a)` factor.
+- **`spot <= 0`**: `math.log(spot / strike)` raised `math domain error` with no diagnostic about which input was bad.
+- **`strike <= 0`**: `spot / strike` raised `ZeroDivisionError` (zero strike) or produced a nonsensical negative log argument.
+
+**Fix**: validate all three upfront with `ValueError` and an explicit message identifying the offending parameter.
+
+### Verification — `test_l2_t4_cos_price_input_validation.py`
+
+7 new tests, all pass:
+- `TestSpotValidation` × 2: zero and negative spot raise.
+- `TestStrikeValidation` × 2: zero and negative strike raise.
+- `TestLValidation` × 2: zero and negative L raise.
+- `TestHealthyPathUnchanged`: ATM call on BS still prices correctly (~10.45).
+
+Pre-existing 12 cos_method tests still pass.
+
+Full parallel suite: **12333 passed in 3:02** — zero regressions.
+
+Thirty-ninth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.970.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `calibrate_nelson_siegel` and `calibrate_svensson` had three contract gaps.**
