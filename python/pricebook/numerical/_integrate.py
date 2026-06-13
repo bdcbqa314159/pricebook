@@ -148,14 +148,33 @@ def integrate_semi_infinite(
 
     For integrands that decay exponentially, Gauss-Laguerre is optimal.
     For general integrands, use adaptive with np.inf.
+
+    Fix T4-INT2: pre-fix any non-Laguerre method silently downgraded to
+    ``_adaptive(f, a, np.inf)``.  A user passing ``method=GAUSS_HERMITE``
+    or ``method=SIMPSON`` got "the answer" without any indication that
+    their METHOD argument was discarded — the result was always from
+    SciPy's adaptive quad regardless of the API contract.  This was a
+    silent-wrong-method bug rather than wrong-result, but downstream
+    convergence study or method-comparison code would see the same
+    numbers for every "method" choice.
+
+    Post-fix only the two methods that have a defined semi-infinite
+    behaviour are accepted; everything else raises ``ValueError`` with
+    a clear pointer to the documented choices.
     """
     if method == IntegrationMethod.GAUSS_LAGUERRE:
         # Shift: ∫_a^∞ f(x)dx = ∫_0^∞ f(x+a) dx ≈ ∫_0^∞ f(x+a) e^x × e^{-x} dx
         # Gauss-Laguerre integrates g(x)e^{-x} directly
         shifted = lambda x: f(x + a) * math.exp(x)
         return _gauss_laguerre(shifted, n)
-    else:
+    if method == IntegrationMethod.ADAPTIVE:
         return _adaptive(f, a, np.inf)
+    raise ValueError(
+        f"integrate_semi_infinite: method={method!r} is not supported for "
+        "[a, inf) integration.  Use IntegrationMethod.GAUSS_LAGUERRE "
+        "(exponential decay) or IntegrationMethod.ADAPTIVE (general) — "
+        "pre-fix any other choice silently downgraded to ADAPTIVE."
+    )
 
 
 def integrate_complex_contour(
