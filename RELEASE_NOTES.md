@@ -2,6 +2,35 @@
 
 ---
 
+## v0.976.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `Swaption` serialisation dropped `convention`, `stub`, `eom` from the round-trip.**
+
+Pre-fix the `_serialisable` field list was:
+
+```python
+["expiry", "swap_end", "strike", "swaption_type", "notional",
+ "fixed_frequency", "float_frequency",
+ "fixed_day_count", "float_day_count"]
+```
+
+Missing: `calendar`, `convention`, `stub`, `eom`. All four are constructor arguments that affect the underlying swap's schedule generation. A user serializing a Swaption with non-default `convention=PRECEDING` (or non-default `stub` / `eom`), then deserializing it, got a Swaption that **priced differently** than the original — the silent identity break the audit critic flagged.
+
+**Fix**: add `convention`, `stub`, `eom` to the field list (all three are Enums/bools that the framework already handles via the existing `Frequency` serialisation). `calendar` remains excluded because Calendar instances hold runtime holiday data that isn't currently part of the serialisable type system — the caller re-attaches a calendar via `from_convention` on load. The new docstring documents this contract.
+
+### Verification — `test_l2_t4_swaption_serialisation_fields.py`
+
+9 new tests, all pass:
+- `TestRoundTripPreservesConvention` × 3: MODIFIED_FOLLOWING, PRECEDING, FOLLOWING.
+- `TestRoundTripPreservesStub` × 4 (parametrised): all four `StubType` values.
+- `TestRoundTripPreservesEOM` × 2: True and False.
+
+Full parallel suite: **12368 passed in 2:43** — zero regressions.
+
+Forty-fourth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.975.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `GaussianCopula` and `StudentTCopula` constructors had no validation on `rho`.**
