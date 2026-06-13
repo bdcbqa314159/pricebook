@@ -77,20 +77,35 @@ class FRA:
     def pv_ctx(self, ctx) -> float:
         """PV using PricingContext.
 
-        Uses ctx.projection_curves keyed by day_count name (e.g. "ACT/360")
-        or first available projection curve. Falls back to discount curve.
+        Looks up ``ctx.projection_curves`` keyed by this FRA's day-count
+        name (e.g. ``"ACT/360"``).  Falls back to the discount curve if
+        the context has no projection curves at all.
+
+        Fix T4-FRA1: pre-fix this routine silently fell back to
+        ``next(iter(ctx.projection_curves.values()))`` when the keyed
+        lookup missed.  In a multi-curve setup (e.g. ACT/360 USD-LIBOR
+        vs ACT/365 GBP), an ACT/360 FRA could silently get priced
+        against an ACT/365 projection curve — wrong-curve forward rates
+        with no diagnostic.  Now raises ``KeyError`` with the offending
+        day-count and the available keys.
         """
         curve = ctx.discount_curve
         if curve is None:
             raise ValueError("No discount curve in context")
         proj = None
         if hasattr(ctx, 'projection_curves') and ctx.projection_curves:
-            # Try keyed lookup by day count convention name
+            # Try keyed lookup by day-count convention name.
             dc_key = self.day_count.value if hasattr(self, 'day_count') else None
             if dc_key and dc_key in ctx.projection_curves:
                 proj = ctx.projection_curves[dc_key]
             else:
-                proj = next(iter(ctx.projection_curves.values()))
+                raise KeyError(
+                    f"FRA.pv_ctx: no projection curve for day_count "
+                    f"{dc_key!r}; ctx has keys "
+                    f"{list(ctx.projection_curves.keys())!r}.  Pre-fix this "
+                    "silently picked the first available curve, producing a "
+                    "wrong-curve forward rate."
+                )
         return self.pv(curve, proj)
 
 @classmethod
