@@ -985,4 +985,10 @@ def _cds_from_convention(cls, conv, start, end, spread, notional=1_000_000.0):
 CDS.from_convention = _cds_from_convention
 
 from pricebook.core.serialisable import serialisable as _serialisable
-_serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count", "protection_day_count", "steps_per_year"])(CDS)
+_serialisable("cds", ["start", "end", "spread", "notional", "recovery", "frequency", "day_count", "protection_day_count", "steps_per_year", "convention"])(CDS)
+# Fix T4-CDS1: pre-fix the CDS field list dropped `convention`, which
+# affects schedule generation (the business-day rolling rule applied
+# to coupon/payment dates).  A CDS with non-default convention
+# silently round-tripped to one with MODIFIED_FOLLOWING, changing
+# the schedule and thus the price.  ``calendar`` remains excluded
+# (runtime-only data).
