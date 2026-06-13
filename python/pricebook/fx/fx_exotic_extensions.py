@@ -501,8 +501,27 @@ def fx_double_barrier_option(
             return FXDoubleBarrierResult(0, vanilla, vanilla, lower_barrier, upper_barrier, knock_type)
         return FXDoubleBarrierResult(vanilla, vanilla, 0, lower_barrier, upper_barrier, knock_type)
 
+    # Fix T4-FXBAR1: pre-fix returned ``vanilla`` unconditionally at
+    # vol=0/T>0, assuming no barrier breach.  But at vol=0 the path is
+    # deterministic ``S_t = spot·exp((r_d - r_f) t)`` — monotonic from
+    # ``spot`` to ``spot_T``.  If ``spot_T <= L`` (drift down through
+    # lower barrier) or ``spot_T >= U`` (drift up through upper barrier)
+    # then knock-out is worthless and knock-in receives the full vanilla.
+    # Pre-fix systematically over-priced knock-out / under-priced knock-in
+    # when the deterministic forward exited the corridor.
     if T <= 0 or vol <= 0:
-        return FXDoubleBarrierResult(vanilla, vanilla, 0, lower_barrier, upper_barrier, knock_type)
+        if vol <= 0 and T > 0:
+            spot_T = spot * math.exp((r_d - r_f) * T)
+            breach = (spot_T <= lower_barrier) or (spot_T >= upper_barrier)
+        else:
+            breach = False  # T=0: no path traversal possible.
+        ko_price = 0.0 if breach else vanilla
+        ki_price = vanilla - ko_price
+        price = ko_price if knock_type == "out" else ki_price
+        return FXDoubleBarrierResult(
+            price, vanilla, vanilla - price,
+            lower_barrier, upper_barrier, knock_type,
+        )
 
     rng = np.random.default_rng(seed)
     dt = T / n_steps
