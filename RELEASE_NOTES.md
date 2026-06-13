@@ -2,6 +2,36 @@
 
 ---
 
+## v0.980.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `VanillaCLN` was registered as `_serialisable` but its constructor never stored `frequency` as a class attribute.**
+
+```python
+def __init__(self, ..., frequency=Frequency.SEMI_ANNUAL, ...):
+    self.start = start
+    self.end = end
+    # ... no `self.frequency = frequency` ...
+    self.schedule = generate_schedule(start, end, frequency)
+
+_serialisable("vanilla_cln", [..., "frequency", ...])(VanillaCLN)
+```
+
+Calling `vcln.to_dict()` raised `AttributeError: 'VanillaCLN' object has no attribute 'frequency'`. The class was effectively **unserialisable** despite being declared so — a contract bug that would surface the first time any caller tried to persist a CLN.
+
+**Fix**: store `self.frequency = frequency` in the constructor.
+
+### Verification — `test_l2_t4_vanilla_cln_serialisation.py`
+
+5 new tests, all pass:
+- `test_to_dict_does_not_raise` — pre-fix this raised `AttributeError`.
+- `test_frequency_round_trips` × 4 (parametrised over `MONTHLY`/`QUARTERLY`/`SEMI_ANNUAL`/`ANNUAL`) — full round-trip preserves frequency and all other fields.
+
+Full parallel suite: **12389 passed in 3:33** — zero regressions.
+
+Forty-eighth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.979.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `CapFloor` serialisation dropped `convention`** (same shape as Swaption v0.976 / IRS v0.977 / CDS v0.978).
