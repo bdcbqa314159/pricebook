@@ -2,6 +2,34 @@
 
 ---
 
+## v1.000.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.efficient_frontier.minimum_variance_portfolio` returned wrong expected_return and sharpe_ratio fields.**
+
+Pre-fix: the function had no access to the expected-returns vector `mu`, but its return type (`FrontierPoint`) requires `expected_return` and `sharpe_ratio`. Both were hardcoded to `0` regardless of the portfolio. Inside `efficient_frontier` this was patched up by mutating the returned dataclass; but every other caller — including the public `test_portfolio_game_theory.py` usage — got nonsense fields.
+
+**Fix**: added optional `mu` (and `risk_free_rate`) parameters. When supplied, `expected_return = mu @ w` and `sharpe = (μw − rf) / vol`. When omitted, fields default to 0 (legacy behaviour preserved).
+
+### Verification — `test_l2_t4_efficient_frontier.py`
+
+5 new tests:
+- `TestMinVarianceWithMu` × 4: mu supplied populates return/Sharpe; mu omitted gives legacy zeros; long-only matches `mu @ w` exactly; shape mismatch raises.
+- `TestMinVarianceVolUnchanged` × 1: unconstrained weights match analytical Σ⁻¹·1 / (1'·Σ⁻¹·1).
+
+Full parallel suite: **12,528 passed in 3:10** — zero regressions.
+
+### Audited-clean modules in this phase (no slice required)
+
+- `risk/correlation_repair.py` — Higham (2002) alternating projections correctly implemented; minor cosmetic issues only.
+- `risk/cvar_optimisation.py` — Rockafellar-Uryasev LP correctly formulated; component CVaR uses correct Euler decomposition.
+- `risk/model_reserve.py` — sensitivity-based aggregation (worst-case sum vs quadrature) correct; minor docs gap (confidence param stored but unused, no math impact).
+
+Eighth fix from phase-2. **130 distinct bugs** in v0.905→v1.000.
+
+This is the **v1.0 milestone** for pricebook. The audit arc that started at v0.905 has now resolved 130 correctness bugs across 8 sessions, with 12,528 tests passing and zero regressions across 95+ stamped versions.
+
+---
+
 ## v0.999.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.ipv.ipv_single_trade` had no concept of position direction.**
