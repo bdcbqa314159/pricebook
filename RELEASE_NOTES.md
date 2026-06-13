@@ -2,6 +2,40 @@
 
 ---
 
+## v0.951.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `TreeSolver._compute_vega` left `_computing_vega = True` and `store_tree = False` if the inner bumped-vol `solve()` raised.**
+
+Same exception-safety shape as the MCEngine.greek bug fixed in v0.946.
+
+Pre-fix:
+
+```python
+self._computing_vega = True
+saved_store = self.store_tree
+self.store_tree = False
+r_up = self.solve(...)             # if this raises, both stay set
+self.store_tree = saved_store
+self._computing_vega = False
+```
+
+If the bumped-vol `solve()` call raised (e.g. user-supplied `payoff_fn` that fails for stressed inputs, vol-bump pushing into a numerically degenerate regime), the solver was left with `_computing_vega = True` and `store_tree = False`. A subsequent unrelated `solve()` call would then silently produce results WITHOUT snapshots (no greeks recorded) and WITHOUT recursing into vega computation (the `not self._computing_vega` guard at line 384 / 453 would block it). The price still returned, but greeks were missing.
+
+**Fix**: wrap the bump sequence in `try ... finally:` so both attributes are restored regardless of whether the inner solve fails. Also save the prior `_computing_vega` rather than hardcoding `False` to the restore — preserves nested-call invariants.
+
+### Verification — `test_l2_t4_tree_vega_exception_safety.py`
+
+3 new tests, all pass:
+- `test_state_restored_when_solve_raises` — `_computing_vega` and `store_tree` restored after raise.
+- `test_vega_finite_and_state_restored` — happy-path sanity.
+- `test_solve_after_failed_vega_unchanged` — a `solve()` after a failed vega gives identical price to `solve()` before.
+
+Full parallel suite: **12204 passed in 2:55** — zero regressions.
+
+Nineteenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.950.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `TreeSolver.convergence_analysis` applied Richardson extrapolation universally; theoretically wrong for CRR/JR/Tian/Trinomial (which are oscillatory O(1/N), not smooth O(1/N²)).**
