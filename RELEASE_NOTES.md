@@ -2,6 +2,34 @@
 
 ---
 
+## v0.961.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `projection_l1_ball` returned the INPUT alias when `x` was already inside the L1 ball.**
+
+```python
+if np.sum(np.abs(x)) <= radius:
+    return x         # ← aliasing bug
+```
+
+Mutating the result then mutated the caller's input array. The other branch (`np.sign(x) * proj`) always returned a fresh array via broadcast multiplication, so the inconsistency was: fast path aliased, slow path did not. A defensive consumer expecting consistent ownership got a shared buffer in the fast path.
+
+**Fix**: both branches now return a fresh array (`x.copy()` in the fast path, broadcast multiplication in the slow path).
+
+### Verification — `test_l2_t4_projection_l1_ball_aliasing.py`
+
+5 new tests, all pass:
+- `test_result_is_fresh_copy_when_inside_ball` — fast-path returns a fresh object.
+- `test_mutating_result_does_not_mutate_input` — most important: writes to result do not propagate to input.
+- `test_result_is_not_input_when_outside_ball` — slow path still copies.
+- `test_projected_value_norm_equals_radius` — projection math correct.
+- `test_projection_inside_ball_is_identity` — value is unchanged when input is already feasible.
+
+Full parallel suite: **12271 passed in 2:33** — zero regressions.
+
+Twenty-ninth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.960.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `minimize(method=BASIN_HOPPING)` hardcoded `converged=True`.**
