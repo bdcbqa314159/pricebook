@@ -2,6 +2,42 @@
 
 ---
 
+## v0.946.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `MCEngine.greek` left `process.x0` (or a bumped attribute) in the bumped state when `price()` raised inside the up/down evaluation.**
+
+Pre-fix structure:
+
+```python
+self.process.x0[i] = original + bump
+price_up = self.price(...)          # if this raises, x0 stays bumped
+self.process.x0[i] = original - bump
+price_dn = self.price(...)
+self.process.x0 = original_x0       # only runs on happy path
+```
+
+If `self.price(...)` raised an exception during the up-bump or down-bump (e.g. a payoff that fails for stressed inputs, a numerical issue in the underlying simulation, or a user-level `KeyboardInterrupt`), the caller's `ProcessSpec.x0` was left in the bumped state. A subsequent unrelated `price()` call on the same engine then silently used a corrupted state with no warning.
+
+Same shape for the attribute branch.
+
+**Fix**: wrap each bump sequence in `try ... finally:` so the original state is restored even when up/down prices fail.
+
+### Verification — `test_l2_t4_mc_engine_greek_exception_safety.py`
+
+4 new tests, all pass:
+- `test_x0_restored_when_price_raises` — `process.x0` restored after payoff raises.
+- `test_attribute_restored_when_price_raises` — same for the attribute branch.
+- `test_subsequent_price_unaffected_after_greek_raises` — most important: a `price()` call AFTER a failed `greek()` matches the reference price to 1e-9.
+- `test_greek_returns_finite_and_restores` — happy-path sanity check.
+
+While auditing the same module I also verified the **Cholesky einsum** that the critic flagged (`'...j,kj->...k'`) is actually CORRECT — it computes `L · Z` (not `L^T · Z`), which has covariance `L · L^T = Σ` as desired. Empirically verified against a 3×3 correlation matrix to 0.15%.
+
+Full parallel suite: **12177 passed in 2:32** — zero regressions.
+
+Fourteenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.945.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `InterestRateSwap.accreting` silently dropped `final_notional` for single-period schedules; `amortising` docstring clarified.**
