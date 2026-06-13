@@ -51,13 +51,22 @@ def sde_to_pde(
     Args:
         mu_fn: drift callable(S, t) → float.
         sigma_fn: diffusion callable(S, t) → float.
-        rate_fn: discount rate callable(t) → float, or constant.
+        rate_fn: discount rate callable(t) → float, or constant.  Required.
 
     Returns:
         Dict with PDE coefficient callables: diffusion, convection, reaction.
+
+    Fix T4-FK1: pre-fix ``rate_fn=None`` silently defaulted to a 4%
+    constant — a magic number that would have produced systematically
+    biased PDE prices vs an MC engine using the caller's actual rate.
+    Now require it explicitly.
     """
     if rate_fn is None:
-        rate_fn = lambda t: 0.04
+        raise ValueError(
+            "sde_to_pde: rate_fn is required (pre-fix silently defaulted "
+            "to 4%, which produced biased prices vs callers using a "
+            "different rate).  Pass a callable r(t) or a scalar."
+        )
 
     if not callable(rate_fn):
         r_const = float(rate_fn)
@@ -85,10 +94,27 @@ def pde_to_sde(
 
     Returns:
         Dict with SDE coefficient callables: drift, volatility.
+
+    Fix T4-FK2: pre-fix ``volatility = sqrt(max(2·diffusion, 0))`` silently
+    clamped negative diffusion (which is unphysical for a Fokker-Planck-
+    style PDE — the diffusion coefficient ``a = ½σ²`` is non-negative by
+    construction) to zero, masking bugs in upstream coefficient functions.
+    The clamp now raises ``ValueError`` when called with a point where
+    ``diffusion < 0``.
     """
+    def _vol(S, t):
+        a = diffusion_fn(S, t)
+        if a < 0:
+            raise ValueError(
+                f"pde_to_sde: diffusion_fn(S={S}, t={t}) = {a} < 0, "
+                "but the PDE diffusion coefficient must be non-negative "
+                "(it represents ½σ² for the corresponding SDE)."
+            )
+        return math.sqrt(2 * a)
+
     return {
         "drift": convection_fn,
-        "volatility": lambda S, t: math.sqrt(max(2 * diffusion_fn(S, t), 0)),
+        "volatility": _vol,
     }
 
 
@@ -115,13 +141,19 @@ def verify_feynman_kac(
         n_space: PDE spatial grid points.
         n_time: PDE time steps.
     """
-    # MC price
+    # MC price — Fix T4-FK3: pre-fix the MC time grid was hardcoded at
+    # 100 steps regardless of the user-supplied `n_time`.  The docstring
+    # promises "Both use the same model", but the time-discretisation
+    # disagreement could mask convergence diagnostics (the user thinks
+    # they're refining both MC and PDE in lockstep when they're not).
+    # Use the same `n_time` for the MC grid so the discretisation is
+    # genuinely matched.
     from pricebook.models.mc_engine import MCEngine, TimeGrid
     from pricebook.models.mc_processes import GBMProcess
     from pricebook.models.mc_payoffs import european_call, european_put
 
     proc = GBMProcess(s0=spot, mu=rate - div_yield, sigma=vol)
-    grid = TimeGrid.uniform(T, 100)
+    grid = TimeGrid.uniform(T, n_time)
     engine = MCEngine(proc, grid, n_paths, seed, antithetic=True)
     payoff = european_call(strike) if is_call else european_put(strike)
     mc_result = engine.price(payoff, math.exp(-rate * T))
