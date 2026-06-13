@@ -2,6 +2,32 @@
 
 ---
 
+## v0.987.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `equity_theta` `T<=0 or vol<=0` branch returned the Black-76 theta alone, dropping the `theta_r` and `theta_q` corrections.**
+
+The Hull theta has three terms:
+- `theta_b76 = -S·n(d1)·σ·exp(-qT)/(2√T)` — the σ·n(d1)/√T term (returned by `black76_theta`).
+- `theta_r = -r·K·exp(-rT)·N(d2)` (call) / `+r·K·exp(-rT)·N(-d2)` (put) — rate-discount.
+- `theta_q = q·S·exp(-qT)·N(d1)` (call) / `-q·S·exp(-qT)·N(-d1)` (put) — dividend.
+
+At `vol=0, T>0`, `theta_b76 → 0` and `N(d1), N(d2) → {0, 1}` by ITM/OTM. The pre-fix code returned `theta_b76` (= 0) and **silently dropped** `theta_r + theta_q`, which collapses to the deterministic `±(q·S·exp(-qT) − r·K·exp(-rT))` — a non-zero, sometimes dominant component of total theta when rates/divs are non-trivial.
+
+**Fix**: separate `T <= 0` (still `theta_b76`, no time decay convention) from `vol <= 0` with `T > 0` (deterministic-limit branch on `forward` vs `strike`; ATM is one-sided half-limit).
+
+### Verification — `test_l2_t4_equity_theta_degenerate.py`
+
+8 new tests:
+- `TestEquityThetaVolZeroTPositive` × 5: ITM call matches `qS·exp(-qT) − rK·exp(-rT)`; ITM put is negation; OTM zero; ATM half.
+- `TestEquityThetaInteriorUnchanged` × 2: interior call/put still negative (decay), within Hull range.
+- `TestEquityThetaTZero` × 1: T=0 path preserved.
+
+Full parallel suite: **12,422 passed in 3:52** — zero regressions, +8 net tests.
+
+Fifty-fifth fix from the 35-module Wave-2 audit; 105th distinct bug in the v0.905→v0.987 arc.
+
+---
+
 ## v0.986.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `equity_rho` returned 0 in the `T<=0 or vol<=0` branch, silently dropping the deterministic `vol=0, T>0` limit.**
