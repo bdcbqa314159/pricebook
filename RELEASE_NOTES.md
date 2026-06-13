@@ -2,6 +2,27 @@
 
 ---
 
+## v0.977.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `InterestRateSwap` serialisation dropped `convention`/`stub`/`eom` (same gap as Swaption v0.976).**
+
+Pre-fix the `_serialisable` field list missed `convention`, `stub`, `eom` — all three affect the leg schedules, so a `to_dict → from_dict` on a non-default IRS produced a swap that priced differently. This is the parallel gap to the Swaption fix landed in v0.976.
+
+**Fix**: add all three fields. `calendar` remains excluded (runtime-only holiday data; the caller re-attaches via `from_convention`).
+
+### Verification — `test_l2_t4_irs_serialisation_fields.py`
+
+9 new tests, all pass:
+- `TestRoundTripPreservesConvention` × 3 (parametrised over MODIFIED_FOLLOWING / PRECEDING / FOLLOWING).
+- `TestRoundTripPreservesStub` × 4 (all `StubType` values).
+- `TestRoundTripPreservesEOM` × 2.
+
+Full parallel suite: **12377 passed in 2:44** — zero regressions.
+
+Forty-fifth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.976.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `Swaption` serialisation dropped `convention`, `stub`, `eom` from the round-trip.**
