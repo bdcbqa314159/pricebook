@@ -288,6 +288,13 @@ def _clenshaw_curtis(f, a, b, n):
 
 
 def _simpson(f, a, b, n):
+    # Fix T4-INT1: pre-fix `n=0` caused ``h = (b - a) / 0`` →
+    # ZeroDivisionError. Validate that we have at least one interval.
+    if n < 1:
+        raise ValueError(
+            f"_simpson: n must be >= 1 (got {n}); need at least one "
+            f"subinterval."
+        )
     if n % 2 == 1:
         n += 1
     x = np.linspace(a, b, n + 1)
@@ -298,6 +305,13 @@ def _simpson(f, a, b, n):
 
 
 def _trapezoid(f, a, b, n):
+    # Fix T4-INT1: pre-fix `n=0` caused ``h = (b - a) / 0`` →
+    # ZeroDivisionError.
+    if n < 1:
+        raise ValueError(
+            f"_trapezoid: n must be >= 1 (got {n}); need at least one "
+            f"subinterval."
+        )
     x = np.linspace(a, b, n + 1)
     h = (b - a) / n
     fvals = np.array([f(xi) for xi in x])
