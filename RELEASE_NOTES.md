@@ -2,6 +2,38 @@
 
 ---
 
+## v0.958.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `antithetic_paths` had a bimodal interface that was misleading in one branch and mathematically WRONG in the other.**
+
+Pre-fix two-branch behaviour:
+
+1. **Called with `rng_normals=Z`**: returned `-Z` (just negated the argument). The function's name suggested it returned PATHS, not negated normals — the caller had to know to rebuild paths from `-Z` themselves. Misleading.
+
+2. **Called WITHOUT `rng_normals`**: computed "mirror around log-mean of terminal values": `antithetic = exp(2·log_mean - log(terminal))`. This is NOT a valid antithetic — the transformation depends on the SAMPLE mean (a random quantity), so the result is biased and not properly antithetic. It also ran `np.log` on terminal spots, silently producing `NaN` for Bachelier/OU/etc. paths where terminal spots can be ≤ 0.
+
+**Fix**:
+- Renamed the function to `antithetic_normals` to reflect what it actually does (returns `-Z`).
+- Requires the normal draws explicitly (positional, no default).
+- Only performs the valid `-Z` operation; the broken "mirror" branch is gone.
+- Legacy alias `antithetic_paths = antithetic_normals` kept so existing imports don't break.
+- Both names exported from `pricebook.numerical.__init__`.
+
+### Verification — `test_l2_t4_antithetic_normals_api.py`
+
+5 new tests, all pass:
+- `test_returns_negated_array` — 1-D and 2-D arrays correctly negated.
+- `test_array_2d_works` — large 2-D draws negated element-wise.
+- `test_estimator_unbiased_and_variance_reduced` — antithetic estimator of `E[exp(Z)]` has strictly lower sample variance than two independent runs (the canonical variance-reduction proof).
+- `test_antithetic_paths_alias` — legacy alias points to the same function.
+- `test_alias_returns_negated_normals` — alias also works.
+
+Full parallel suite: **12259 passed in 2:32** — zero regressions.
+
+Twenty-sixth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.957.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `CharacteristicFunction.density` two robustness gaps.**
