@@ -59,9 +59,16 @@ def incremental_var(
 
     For parametric (delta-normal):
         IVaR_i = (Σ × w_i) × z_α / (w' × Σ × w)^0.5
+        component_i = IVaR_i  (Euler decomposition; sums to VaR)
 
     For historical:
-        IVaR_i = VaR(portfolio) - VaR(portfolio without i)
+        incremental_i = VaR(portfolio) - VaR(portfolio without i)   (LOO)
+        component_i   = -E[P&L_i | portfolio in tail]              (ES decomposition)
+
+    Note: for the historical case, sum(component_i) equals
+    *Expected Shortfall* of the portfolio, NOT VaR.  This is the
+    standard ES-based attribution used in practice (the VaR Euler
+    decomposition requires kernel smoothing at the quantile boundary).
 
     Args:
         position_pnls: dict of {position_id: [daily_pnl_series]}.
@@ -81,23 +88,41 @@ def incremental_var(
     # Portfolio P&L
     portfolio_pnl = pnl_matrix.sum(axis=1)
 
+    alpha = 1 - confidence
+
     if method == "historical":
         # Historical VaR: percentile
-        alpha = 1 - confidence
         portfolio_var = -float(np.percentile(portfolio_pnl, alpha * 100))
 
-        # Leave-one-out: VaR without each position
+        # Fix T4-RISK26 (a): "incremental" (leave-one-out) and "component"
+        # (decomposition) are *different* metrics.  Pre-fix set both to
+        # the LOO values, which do NOT sum to portfolio_var despite
+        # the docstring promising that property.
+        # - incremental[i] = portfolio_var − VaR(portfolio without i)
+        #   (interpretive: how much VaR drops if i removed).
+        # - component[i] = −E[P&L_i | portfolio in tail]   (≡ component-ES)
+        #   This is the standard *Expected-Shortfall* decomposition;
+        #   sum(component) = ES_portfolio (NOT VaR_portfolio).
+        #   The VaR Euler decomposition requires a kernel-smoothed
+        #   conditional expectation at the quantile boundary, which is
+        #   noisy for finite samples; the ES decomposition is what
+        #   practitioners actually report.  Docstring updated.
         incremental = []
         for i in range(n):
             pnl_without = portfolio_pnl - pnl_matrix[:, i]
             var_without = -float(np.percentile(pnl_without, alpha * 100))
             incremental.append(portfolio_var - var_without)
 
-        # Component VaR (Euler approx for historical)
-        component = incremental  # simplified
+        # Component decomposition via tail-conditional expectation (ES decomposition).
+        tail_threshold = np.percentile(portfolio_pnl, alpha * 100)
+        tail_mask = portfolio_pnl <= tail_threshold
+        if tail_mask.any():
+            component = [-float(pnl_matrix[tail_mask, i].mean()) for i in range(n)]
+        else:
+            component = [0.0] * n
 
     else:  # parametric
-        # Covariance matrix
+        # Covariance matrix (ddof=1, sample)
         cov = np.cov(pnl_matrix, rowvar=False)
         if cov.ndim == 0:
             cov = np.array([[float(cov)]])
@@ -114,13 +139,15 @@ def incremental_var(
         component = incremental
 
     # Individual VaRs (undiversified)
+    # Fix T4-RISK26 (b): pre-fix parametric branch used np.std (ddof=0)
+    # while the portfolio vol used np.cov (ddof=1) — inconsistent.
+    # Same shape as v0.995 backtest fix.  Now ddof=1 throughout.
     individual_vars = []
     for i in range(n):
         if method == "historical":
-            alpha = 1 - confidence
             iv = -float(np.percentile(pnl_matrix[:, i], alpha * 100))
         else:
-            iv = float(np.std(pnl_matrix[:, i]) * norm.ppf(confidence))
+            iv = float(np.std(pnl_matrix[:, i], ddof=1) * norm.ppf(confidence))
         individual_vars.append(iv)
 
     diversification = sum(individual_vars) - portfolio_var
