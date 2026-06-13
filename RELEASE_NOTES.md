@@ -2,6 +2,35 @@
 
 ---
 
+## v0.948.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `equity_delta` degenerate-input branch had three coupled bugs.**
+
+In the `T <= 0 or vol <= 0` branch of `options/equity_option.py::equity_delta`:
+
+1. **Wrong moneyness test**: compared `spot` to `strike` instead of `forward` to `strike`. For a non-zero dividend yield, `forward = spot · exp((r-q)·T)` can differ materially from spot. Concrete failure: `spot=100, strike=99, q=0.10, T=1` → forward ≈ 90.48 < 99. A call is **OTM on forward** (true zero-vol delta = 0) but the pre-fix code, comparing spot > strike, returned **1.0**. Conversely, the matching put is ITM on forward but pre-fix returned 0.
+
+2. **Unit magnitude instead of `exp(-q·T)`**: ITM ITM branch returned literal `1.0` (call) / `-1.0` (put) instead of `±exp(-q·T)`. Spot delta of an ITM call replicates as `∂(S - K·exp(-rT))/∂S = exp(-q·T)`, NOT `1`. Inconsistent with `black76_delta` which correctly returns `±df`.
+
+3. **ATM hole**: at exact ATM (forward == strike) the pre-fix returned 0 for both call and put, instead of the standard `±0.5·exp(-q·T)` limit — asymmetric vs `black76_delta` which handles this explicitly.
+
+**Fix**: all three branches now compare forward to strike, scale by `exp(-q·T)`, and return `±0.5·exp(-q·T)` at exact ATM — exactly the chain-rule lift of `black76_delta` from forward delta to spot delta.
+
+### Verification — `test_l2_t4_equity_delta_degenerate.py`
+
+7 new tests, all pass:
+- `test_call_itm_on_spot_but_otm_on_forward_returns_zero` — q=10% case: delta is 0, not 1.
+- `test_put_otm_on_spot_but_itm_on_forward_returns_negative_exp_minus_qT` — companion case.
+- `test_itm_call_magnitude_is_exp_minus_qT`, `test_itm_put_magnitude_is_minus_exp_minus_qT` — magnitude check.
+- `test_atm_call_returns_half_exp_minus_qT`, `test_atm_put_returns_minus_half_exp_minus_qT` — ATM limit.
+- `test_interior_delta_unchanged` — sanity check: `T>0, vol>0` path is identical to pre-fix.
+
+Full parallel suite: **12188 passed in 3:03** — zero regressions.
+
+Sixteenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.947.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `price_swaption_sabr_hw` had two silent-failure paths: `blend_half_life=0` divided by zero deep in the pricer, and a hard-coded 1% volatility fallback when both SABR and HW vols failed.**
