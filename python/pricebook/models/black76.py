@@ -167,11 +167,21 @@ def bachelier_delta(
     df: float,
     option_type: OptionType = OptionType.CALL,
 ) -> float:
-    """Bachelier delta: ∂Price/∂Forward."""
+    """Bachelier delta: ∂Price/∂Forward.
+
+    Fix T4-B76-1: pre-fix the ``T <= 0 or vol <= 0`` branch returned 0
+    when ``forward == strike`` (the exactly-ATM-at-expiry case) for BOTH
+    call and put.  The correct one-sided limit is ``±0.5·df`` — the same
+    convention as `black76_delta`, which handles this case explicitly.
+    Now the ATM branch is added explicitly for symmetry.
+    """
     if time_to_expiry <= 0 or vol_normal <= 0:
-        if option_type == OptionType.CALL:
-            return df if forward > strike else 0.0
-        return -df if forward < strike else 0.0
+        if forward > strike:
+            return df if option_type == OptionType.CALL else 0.0
+        if forward < strike:
+            return 0.0 if option_type == OptionType.CALL else -df
+        # ATM at expiry: one-sided limit is ±0.5·df.
+        return 0.5 * df if option_type == OptionType.CALL else -0.5 * df
     d = (forward - strike) / (vol_normal * math.sqrt(time_to_expiry))
     if option_type == OptionType.CALL:
         return df * _norm_cdf(d)
