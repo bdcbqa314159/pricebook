@@ -92,14 +92,27 @@ class DefaultCascade:
         remaining_buffer = self.buffers.copy()
         losses = np.zeros(self.n)
         total_cascade_rounds = 0
+        # Fix T4-RISK17: pre-fix used ``remaining_buffer[d] = -1`` as both
+        # "node has defaulted" and "node's outward losses already
+        # propagated".  But a creditor who defaults mid-cascade ALSO has
+        # ``remaining_buffer < 0`` (from absorbed losses), so the
+        # ``if remaining_buffer[d] < 0: continue`` check at the next
+        # round skipped propagating their losses to *their* creditors.
+        # Second-order contagion was silently dropped — the cascade
+        # effectively terminated after the initial defaults' direct
+        # creditors.  Now uses a separate ``processed`` set as the
+        # "outward losses propagated" marker.
+        processed: set[int] = set()
 
         for round_num in range(max_rounds):
-            new_defaults = set()
+            new_defaults: set[int] = set()
 
-            for d in defaulted:
-                if remaining_buffer[d] < 0:
-                    continue  # already processed
-                remaining_buffer[d] = -1  # mark as defaulted
+            to_process = defaulted - processed
+            if not to_process:
+                break
+
+            for d in to_process:
+                processed.add(d)
 
                 # Losses to creditors of d
                 for creditor in range(self.n):
@@ -110,7 +123,7 @@ class DefaultCascade:
                     losses[creditor] += loss
                     remaining_buffer[creditor] -= loss
 
-                    if remaining_buffer[creditor] < 0 and creditor not in defaulted:
+                    if remaining_buffer[creditor] < 0:
                         new_defaults.add(creditor)
 
             if not new_defaults:
