@@ -2,6 +2,40 @@
 
 ---
 
+## v0.966.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `mc_engine.TimeGrid` accepted any array, even empty or non-monotonic, silently producing nonsense state.**
+
+Pre-fix the constructor was:
+
+```python
+def __init__(self, times):
+    self.times = np.asarray(times, dtype=np.float64)
+    self.dt = np.diff(self.times)
+    self.n_steps = len(self.dt)
+    self.T = float(self.times[-1])       # IndexError on empty
+```
+
+Three silent failure modes:
+1. **Empty input** → `self.times[-1]` raises `IndexError` deep inside the constructor with no diagnostic message.
+2. **Length-1 input** → `dt = []`, `n_steps = 0`, T set to the one time point. The engine loops zero times — silent no-op.
+3. **Non-monotonic input** → `dt` has negative entries. The engine integrates the SDE BACKWARDS in time for those steps, with wrong-sign drift. Pre-fix this was silent; the user got a finite "price" computed against time-reversed dynamics.
+
+**Fix**: validate at construction — empty/singleton/non-monotonic input all raise `ValueError` with a clear diagnostic.
+
+### Verification — `test_l2_t4_timegrid_validation.py`
+
+6 new tests, all pass:
+- `test_empty_array_raises`, `test_singleton_raises` — size-validation.
+- `test_decreasing_raises`, `test_duplicate_raises` — monotonicity-validation.
+- `test_uniform_works`, `test_explicit_increasing_works` — happy paths preserved.
+
+Full parallel suite: **12306 passed in 3:03** — zero regressions.
+
+Thirty-fourth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.965.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `bachelier_delta` at exactly ATM (`F == K`) with `T<=0 or vol<=0` returned 0 instead of the standard `±0.5·df` one-sided limit.**
