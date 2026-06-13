@@ -2,6 +2,29 @@
 
 ---
 
+## v0.973.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `calibrate_svensson` had no degeneracy guard for `τ1 ≈ τ2`.**
+
+The Svensson parameterisation has two decay constants `tau1` and `tau2`. When they collapse to (approximately) the same value, the second Svensson factor becomes a linear combination of the first plus the NS factor — so the objective surface develops a flat valley along the (beta2, beta3) ridge. Nelder-Mead can then drift arbitrarily far in that direction without the loss changing, producing wildly different parameter sets that all "calibrate" equally well to the same input.
+
+**Fix**: penalise small `|τ1 − τ2|` in the objective (threshold 0.05) to keep the optimizer in the identifiable region of parameter space. The `τ <= 0.01` lower-bound guard is unchanged.
+
+### Verification — `test_l2_t4_svensson_tau_degeneracy.py`
+
+3 new tests, all pass:
+- `test_calibrated_taus_well_separated` — post-calibration `|τ1−τ2| ≥ 0.05`.
+- `test_svensson_fits_smooth_curve` — guard doesn't break healthy calibration; RMSE < 1%.
+- `test_svensson_calibration_returns_finite_values` — all 6 parameters finite.
+
+Pre-existing 13 NS tests still pass.
+
+Full parallel suite: **12342 passed in 3:07** — zero regressions.
+
+Forty-first fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.972.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `Normal` and `LogNormal` accepted `sigma=0` or `sigma<0` without validation.**
