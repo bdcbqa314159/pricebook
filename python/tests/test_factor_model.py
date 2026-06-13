@@ -113,8 +113,21 @@ class TestFactorCovariance:
 # ---- Factor timing ----
 
 class TestFactorTiming:
-    def test_overweight(self):
+    def test_underweight_on_high_z(self):
+        """Contrarian: high z (factor expensive vs history) → UNDERWEIGHT.
+
+        Pre-v0.996 this test asserted "overweight" because the old code
+        had the direction reversed vs its own docstring.  After the
+        v0.996 fix the contrarian semantics are correct.
+        """
         values = np.concatenate([np.zeros(100), np.ones(10) * 3])  # spike at end
+        returns = np.random.default_rng(42).standard_normal(110) * 0.01
+        result = factor_timing(values, returns)
+        assert result.signal == "underweight"
+
+    def test_overweight_on_low_z(self):
+        """Contrarian: low z (factor cheap vs history) → OVERWEIGHT."""
+        values = np.concatenate([np.zeros(100), np.ones(10) * (-3)])  # spike down
         returns = np.random.default_rng(42).standard_normal(110) * 0.01
         result = factor_timing(values, returns)
         assert result.signal == "overweight"

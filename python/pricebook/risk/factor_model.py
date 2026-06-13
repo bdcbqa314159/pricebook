@@ -243,7 +243,19 @@ def factor_covariance(
     if method == "sample":
         cov = np.cov(data, rowvar=False)
     elif method == "shrinkage":
-        # Ledoit-Wolf shrinkage
+        # Fix T4-RISK7: pre-fix used the ad-hoc intensity
+        # ``alpha_lw = 1 / (n · delta)`` where ``delta = ||S − F||²``
+        # — this has NO basis in Ledoit-Wolf (2004) and is dimensionally
+        # inconsistent (units of (cov-squared)^-1).  The result was not
+        # actually a Ledoit-Wolf shrunk estimator.  Now uses the
+        # *correct* LW formula for the μ·I target (Ledoit & Wolf 2004,
+        # §3.2):
+        #   π̂ = (1/T) Σ_t Σ_{i,j} (x̃_ti x̃_tj − s_ij)²   (sum form)
+        #   γ̂² = ||F − S||²_F
+        #   ρ̂ = trace of the π̂ matrix   (identity-target case)
+        #   κ = (π̂ − ρ̂) / γ̂²
+        #   δ* = max(0, min(κ / T, 1))
+        # Returns sample_cov when γ̂² is ~0 (sample equals target).
         sample_cov = np.cov(data, rowvar=False)
         if shrinkage_target == "identity":
             target = np.eye(n_factors) * np.trace(sample_cov) / n_factors
@@ -252,13 +264,26 @@ def factor_covariance(
         else:
             target = np.eye(n_factors) * np.trace(sample_cov) / n_factors
 
-        # Optimal shrinkage intensity (simplified Ledoit-Wolf)
-        delta = np.sum((sample_cov - target) ** 2)
-        if delta > 1e-10:
-            alpha_lw = min(1.0, max(0.0, 1.0 / (n * delta)))
+        T_obs = n
+        X_centered = data - data.mean(axis=0)
+        # MLE sample cov (T divisor, not T-1) — what the LW derivation uses.
+        S_mle = (X_centered.T @ X_centered) / T_obs
+        # π̂ matrix vectorised:
+        #   π̂[i,j] = (1/T) Σ_t (x̃_ti x̃_tj − S_mle[i,j])²
+        #          = (1/T) Σ_t (x̃_ti x̃_tj)² − S_mle[i,j]²   (cross-term cancels)
+        X_sq = X_centered ** 2
+        pi_mat = (X_sq.T @ X_sq) / T_obs - S_mle ** 2
+        pi_hat = pi_mat.sum()
+        rho_hat = np.trace(pi_mat)  # identity-target simplification
+        gamma_sq = float(np.sum((target - S_mle) ** 2))
+
+        if gamma_sq < 1e-15:
+            delta_star = 0.0
         else:
-            alpha_lw = 0.0
-        cov = (1 - alpha_lw) * sample_cov + alpha_lw * target
+            kappa = (pi_hat - rho_hat) / gamma_sq
+            delta_star = max(0.0, min(kappa / T_obs, 1.0))
+
+        cov = delta_star * target + (1.0 - delta_star) * sample_cov
     else:
         raise ValueError(f"Unknown method: {method}")
 
@@ -299,9 +324,19 @@ def factor_timing(
 ) -> FactorTimingResult:
     """Factor timing: over/underweight based on z-score of factor value.
 
-    When the factor is cheap (low z-score), overweight it.
+    Contrarian convention (Asness, Ilmanen):
+      - Low z-score ⇒ factor value is depressed vs history ⇒ "cheap"
+        ⇒ OVERWEIGHT (expect mean reversion higher).
+      - High z-score ⇒ "expensive" ⇒ UNDERWEIGHT.
 
         timing = factor_timing(mom_values, mom_returns)
+
+    Fix T4-RISK8: pre-fix used the opposite (momentum-style) signal
+    direction: ``if current_z > z_threshold: signal = "overweight"``.
+    That contradicted the function's own docstring ("low z-score,
+    overweight").  The hit-rate calculation was also reversed
+    accordingly.  Both have been swapped to match the contrarian
+    convention.
     """
     z = zscore(factor_values)
     current_z = float(z[-1]) if current_value is None else float(
@@ -309,23 +344,27 @@ def factor_timing(
         if factor_values.std() > 1e-10 else 0.0
     )
 
-    if current_z > z_threshold:
+    if current_z < -z_threshold:
         signal = "overweight"
-    elif current_z < -z_threshold:
+    elif current_z > z_threshold:
         signal = "underweight"
     else:
         signal = "neutral"
 
-    # Historical hit rate for this signal
+    # Historical hit rate for this signal — contrarian view:
+    #   z < -threshold (overweight) is "correct" if next return is positive.
+    #   z > +threshold (underweight) is "correct" if next return is negative.
     n = len(factor_returns)
     correct = 0
     total = 0
     for i in range(1, n):
-        if abs(z[i - 1]) > z_threshold:
+        if z[i - 1] < -z_threshold:  # overweight signal
             total += 1
-            if z[i - 1] > 0 and factor_returns[i] > 0:
+            if factor_returns[i] > 0:
                 correct += 1
-            elif z[i - 1] < 0 and factor_returns[i] < 0:
+        elif z[i - 1] > z_threshold:  # underweight signal
+            total += 1
+            if factor_returns[i] < 0:
                 correct += 1
     hit = correct / total if total > 0 else 0.5
 
