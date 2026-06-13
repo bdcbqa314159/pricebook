@@ -49,9 +49,15 @@ class TestStudentTTailDependence:
         assert 0.0 < lam < 1.0
 
     def test_matches_copula_implementation(self):
-        """Must reproduce `StudentTCopula.tail_dependence` for matching (ν, ρ)."""
+        """Must reproduce `StudentTCopula.tail_dependence` for matching (ν, ρ).
+
+        Note: `StudentTCopula` requires ``rho ∈ [0, 1]`` (one-factor
+        param requires non-negative ρ for both √ρ and √(1−ρ) to be real)
+        so the test only spans the non-negative half — the distribution
+        method is well-defined for ``ρ ∈ [-1, 1]`` separately.
+        """
         for nu in [2.5, 3.0, 5.0, 10.0]:
-            for rho in [-0.5, -0.1, 0.0, 0.2, 0.7, 0.95]:
+            for rho in [0.0, 0.2, 0.7, 0.95]:
                 d = StudentT(df=nu)
                 c = StudentTCopula(rho=rho, nu=nu)
                 assert d.tail_dependence(rho) == pytest.approx(

@@ -70,6 +70,23 @@ class GaussianCopula(Copula):
     """
 
     def __init__(self, rho: float):
+        # Fix T4-COP1: pre-fix no validation on rho.  rho > 1 caused
+        # ``math.sqrt(1 - rho)`` to raise opaque ``math domain error``;
+        # rho < 0 caused ``math.sqrt(rho)`` to raise; NaN slipped past
+        # both via IEEE 754 (NaN comparisons are False) and silently
+        # produced an all-NaN sample array.  Validate at construction.
+        if math.isnan(rho):
+            raise ValueError(
+                f"GaussianCopula: rho must be a number in [0, 1] "
+                f"(got {rho}); NaN slipped through pre-fix's lack of guard."
+            )
+        if not 0.0 <= rho <= 1.0:
+            raise ValueError(
+                f"GaussianCopula: rho must be in [0, 1] (got {rho}); "
+                "the one-factor parameterisation U_i = Φ(√ρ M + √(1−ρ) ε_i) "
+                "requires non-negative ρ and ρ ≤ 1 for both square roots "
+                "to be real."
+            )
         self.rho = rho
 
     def sample(self, n: int, d: int, rng: np.random.Generator) -> np.ndarray:
@@ -100,6 +117,22 @@ class StudentTCopula(Copula):
     """
 
     def __init__(self, rho: float, nu: float = 5.0):
+        # Fix T4-COP1: same NaN/range guard as GaussianCopula.
+        if math.isnan(rho) or math.isnan(nu):
+            raise ValueError(
+                f"StudentTCopula: rho and nu must be numbers (got rho={rho}, "
+                f"nu={nu}); NaN slipped past pre-fix's lack of guard."
+            )
+        if not 0.0 <= rho <= 1.0:
+            raise ValueError(
+                f"StudentTCopula: rho must be in [0, 1] (got {rho}); the "
+                "one-factor parameterisation requires non-negative ρ ≤ 1."
+            )
+        if nu <= 0:
+            raise ValueError(
+                f"StudentTCopula: nu must be > 0 (got {nu}); the Student-t "
+                "distribution requires positive degrees of freedom."
+            )
         self.rho = rho
         self.nu = nu
 
