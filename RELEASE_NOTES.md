@@ -2,6 +2,34 @@
 
 ---
 
+## v0.975.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `GaussianCopula` and `StudentTCopula` constructors had no validation on `rho`.**
+
+Pre-fix:
+- `rho > 1`: `math.sqrt(1 - rho)` raised opaque `ValueError: math domain error` deep inside `sample()`.
+- `rho < 0`: `math.sqrt(rho)` raised the same domain error.
+- `rho = NaN`: slipped past everything via IEEE 754 and silently produced an all-NaN sample array (`norm.cdf(NaN) = NaN`).
+- `StudentTCopula(nu<=0)`: produced a degenerate Student-t with no warning.
+
+**Fix**: both constructors validate `rho ∈ [0, 1]` (with explicit NaN check) and `StudentTCopula` additionally validates `nu > 0`, raising `ValueError` upfront with diagnostic messages.
+
+Also: the `test_l2_t4_studentt_tail_dependence::test_matches_copula_implementation` test (added in v0.943) was passing `rho=-0.5` to `StudentTCopula` to check distribution-vs-copula agreement; updated to only exercise `rho ∈ [0, 1]` (the copula's actual domain). The distribution method remains well-defined for the full `[-1, 1]` range and is tested independently.
+
+### Verification — `test_l2_t4_copula_rho_validation.py`
+
+9 new tests, all pass:
+- `TestGaussianCopulaRho` × 4: above 1, below 0, NaN, valid.
+- `TestStudentTCopulaRhoNu` × 5: rho out-of-range, nu=0, nu<0, NaN in either, valid.
+
+Pre-existing 18 copula tests still pass.
+
+Full parallel suite: **12359 passed in 3:12** — zero regressions.
+
+Forty-third fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.974.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `Uniform` and `Exponential` constructors let NaN slip through their guards.**
