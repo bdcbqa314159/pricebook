@@ -2,6 +2,41 @@
 
 ---
 
+## v0.955.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `Dual` math operations silently produced wrong derivatives at known singularities.**
+
+Five degenerate paths in `numerical.auto_diff`:
+
+1. **`sqrt(Dual(0, x))`** returned `Dual(0, 0)`. Mathematically the derivative `1/(2·√x) → +∞` at `x = 0`. Silent zero hides failures in MC paths that touch zero (e.g. Heston QE-discretisation variance at the zero-boundary).
+
+2. **`Dual(0, x) ** Dual(y, z)`** returned `Dual(0, 0)` regardless of exponent — derivative `val · (z·log(0) + y·der/0)` has a `log(0)` singularity that the pre-fix code hid behind an `if self.val != 0 else 0` shortcut.
+
+3. **`Dual(negative, x) ** Dual(y, z)`** computed `math.log(abs(self.val))` — `log` of a negative number is not real, but the `abs()` made the formula run and produced a meaningless float.
+
+4. **`Dual(0, x) ** n`** with `n < 1` was a singularity disguised as `n · 0^(n-1) · der` (Python raises `ZeroDivisionError` for `n<1`, or silently gives 0 for fractional `n`).
+
+5. **`b ** Dual(x, y)`** with `b ≤ 0` returned `der = 0` silently — `log(b)` is undefined there.
+
+All five paths now raise `ValueError` with diagnostic context (which input is singular and why). The integer-exponent case for negative base is preserved (e.g. `(-2)^3` has real value and well-defined real derivative). The healthy positive-base path is unchanged.
+
+### Verification — `test_l2_t4_auto_diff_singularities.py`
+
+14 new tests, all pass:
+- `TestSqrtAtZeroRaises` × 3: zero-base raises; positive-base correct derivative; plain float unaffected.
+- `TestPowAtZeroBaseRaises` × 4: Dual exp / fractional / negative exp raise; integer n≥1 works (n=1 gives der=1, n=2 gives der=0).
+- `TestPowAtNegativeBaseRaises` × 2: Dual exp raises; integer exp works for negative base.
+- `TestRpowAtNonPositiveBaseRaises` × 3: zero/negative base raise; positive base correct (`2^Dual(3,1)` gives 8·ln(2)).
+- `TestHealthyPathsUnchanged` × 2: basic power/sqrt with positive Dual base produce correct (val, der).
+
+Pre-existing tests still pass.
+
+Full parallel suite: **12242 passed in 2:33** — zero regressions.
+
+Twenty-third fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.954.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `Dual` defined `__eq__` without `__hash__`, breaking hashability and violating the Python hash/eq contract.**
