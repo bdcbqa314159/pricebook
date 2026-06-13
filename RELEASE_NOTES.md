@@ -2,6 +2,32 @@
 
 ---
 
+## v0.982.0 — 2026-06-13 🎯 100-bug milestone
+
+**Fix L2 Wave-2 audit — `StandardCDS` had a hand-written `to_dict` / `from_dict` that wasn't updated when `convention` was added to the parent `CDS._SERIAL_FIELDS` in v0.978.**
+
+Pre-fix:
+- The hand-written `to_dict` omitted `convention` from the params dict.
+- The hand-written `from_dict` did not pass `convention=` to the constructor.
+- The introspection sweep added in this audit (v0.981) flagged the gap: `StandardCDS._SERIAL_FIELDS` declared `convention` (inherited from CDS) but the actual hand-written serialisation didn't emit it.
+
+A `StandardCDS` round-trip silently lost any non-default convention — same shape as the auto-generated cases fixed in v0.976–v0.978 / v0.979, but harder to spot because the hand-written serialisation was bespoke rather than declarative.
+
+**Fix**: both methods now handle `convention`. The `from_dict` accepts a missing-`convention` legacy dict by defaulting to MODIFIED_FOLLOWING (backwards-compatibility for pre-fix-saved JSON).
+
+### Verification — `test_l2_t4_standard_cds_serialisation.py`
+
+5 new tests, all pass:
+- `TestStandardCDSRoundTrip::test_convention_preserved` × 3 (parametrised over MODIFIED_FOLLOWING / PRECEDING / FOLLOWING).
+- `test_legacy_dict_without_convention_defaults` — a dict missing `convention` (legacy pre-fix JSON) defaults gracefully.
+- `test_other_fields_still_round_trip` — sanity: spread/grade/notional/standard_coupon all preserved.
+
+Full parallel suite: **12398 passed in 3:07** — zero regressions.
+
+This is the **fiftieth fix from the 35-module deferred Wave-2 audit** and the **100th distinct correctness/contract bug** resolved in the multi-session arc (v0.905 → v0.982). 🎯
+
+---
+
 ## v0.981.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `AmortisingBond._serialisable` field list was completely STALE, referencing names that no longer existed on the class.**
