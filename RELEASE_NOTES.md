@@ -2,6 +2,38 @@
 
 ---
 
+## v0.991.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `fx_lookback_floating` returned 0 unconditionally at `vol <= 0 or T <= 0`, dropping the deterministic non-zero value from drift-driven path extrema.**
+
+At vol=0, T>0 the spot path is the deterministic exponential `S_t = spot·exp((rd-rf)·t)`. Over [0, T]:
+- If `rd >= rf`: monotone non-decreasing → `min = spot`, `max = spot_T = forward`.
+- If `rd <  rf`: monotone decreasing → `min = spot_T`, `max = spot`.
+
+The floating-strike call payoff is `S_T − running_min`; put is `running_max − S_T`. The running extreme combines the *observed* `running_extreme` parameter (defaults to spot) with the path extremes.
+
+Pre-fix returned 0 for all four (call/put × positive/negative drift) cases. This is wrong even with default `running_extreme = spot`:
+- Positive drift call: forward > spot → payoff = `forward − spot > 0`.
+- Negative drift put: spot > forward → payoff = `spot − forward > 0`.
+- The other two (negative-drift call, positive-drift put) correctly return 0 when `running_extreme` is `None`, since the path extremum doesn't beat the spot reference.
+- With `running_extreme` set: drift-opposite case still pays when the *observed* extreme is inside the path range.
+
+T=0 boundary preserved (returns 0).
+
+### Verification — `test_l2_t4_fx_lookback_degenerate.py`
+
+7 new tests:
+- `TestFxLookbackVolZeroTPositiveCall` × 3: positive-drift pays `df_d·(forward−spot)`; negative-drift pays 0 without low running_extreme; negative-drift pays when running_extreme < forward.
+- `TestFxLookbackVolZeroTPositivePut` × 2: negative-drift pays `df_d·(spot−forward)`; positive-drift returns 0 by default.
+- `TestFxLookbackTZero` × 1: T=0 returns 0.
+- `TestFxLookbackInteriorUnchanged` × 1: interior path finite.
+
+Full parallel suite: **12,464 passed in 2:58** — zero regressions.
+
+Second of four residual convention-dependent fixes deferred from the v0.989 sweep. 115th distinct bug.
+
+---
+
 ## v0.990.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `fx_charm` (∂Δ/∂t) returned 0 at `vol=0, T>0`, silently dropping the deterministic `±r_f·exp(-r_f T)` discount-decay contribution.**
