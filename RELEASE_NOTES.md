@@ -2,6 +2,27 @@
 
 ---
 
+## v0.957.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `CharacteristicFunction.density` two robustness gaps.**
+
+1. **`density(x_grid, n_quad=1)`** raised `IndexError` at `du = u[1] - u[0]` because the `linspace` had only one point. Now raises `ValueError` upfront with a clear message ("n_quad must be >= 2").
+
+2. **`density(scalar)`** (a single x point as a Python float or 0-d ndarray) raised `TypeError` at `len(x)` because `np.asarray(scalar)` produces a 0-d array which has no `len()`. Now scalar inputs are promoted to a 1-element array via `np.atleast_1d`.
+
+### Verification — `test_l2_t4_characteristic_function_density.py`
+
+5 new tests, all pass:
+- `TestDensityValidation` × 2: `n_quad=1` and `n_quad=0` raise.
+- `TestDensityScalarInput` × 2: scalar and Python float both accepted; returned shape is `(1,)` and the N(0,1) density at 0 is recovered to ≈ 1/√(2π).
+- `TestDensityHealthyPath`: closed-form N(0,1) recovery test for `[-1, 0, 1]`.
+
+Full parallel suite: **12254 passed in 2:56** — zero regressions.
+
+Twenty-fifth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.956.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `models/feynman_kac.py` had three silent contract violations.**
