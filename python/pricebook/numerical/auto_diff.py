@@ -83,19 +83,60 @@ class Dual:
         )
 
     def __pow__(self, other):
+        # Fix T4-AD3: pre-fix this routine produced silent-wrong results
+        # at degenerate inputs.  For a base of 0:
+        #   - With a Dual exponent: returned `der=0` regardless of what
+        #     the exponent was (the singularity was hidden by an
+        #     `if self.val != 0 else 0` shortcut).
+        #   - With a non-Dual exponent `n`: returned ``n * 0^(n-1) * der``.
+        #     For n < 1 this is ``n * 1/0^(1-n) * der`` — actually a
+        #     singularity disguised as 0.  For n = 1 the correct
+        #     derivative is `der` (well-defined), but the formula returns
+        #     `1 * 0^0 * der` which Python evaluates as `der`, so n=1
+        #     happens to work by accident.
+        # With a NEGATIVE base and a Dual exponent: `math.log(abs(self.val))`
+        # was a sleight-of-hand — log of a negative number isn't real, but
+        # the abs() made the formula run.  Result was a meaningless float.
+        #
+        # Post-fix: raise loudly for these singularities.
         if isinstance(other, Dual):
+            if self.val == 0:
+                raise ValueError(
+                    "Dual base 0 with Dual exponent: derivative is singular "
+                    "(log(0) is -infinity).  Either ensure self.val != 0 or "
+                    "use a separate formula for the zero-base branch."
+                )
+            if self.val < 0:
+                raise ValueError(
+                    f"Dual base {self.val} (negative) with Dual exponent: "
+                    "log of a negative number is not real; the derivative "
+                    "has no meaningful real-valued forward-mode result."
+                )
             # (a+bε)^(c+dε) = a^c + a^c (d ln(a) + bc/a) ε
             val = self.val ** other.val
-            der = val * (other.der * math.log(abs(self.val)) + other.val * self.der / self.val) if self.val != 0 else 0
+            der = val * (other.der * math.log(self.val)
+                         + other.val * self.der / self.val)
             return Dual(val, der)
         n = float(other)
+        if self.val == 0 and n < 1:
+            raise ValueError(
+                f"Dual base 0 with exponent {n} < 1: derivative is singular."
+            )
         return Dual(self.val ** n, n * self.val ** (n - 1) * self.der)
 
     def __rpow__(self, other):
         # other^self where other is a float
+        # Fix T4-AD3: pre-fix this returned ``der = 0`` silently when
+        # `b <= 0` — log(b) is undefined there, and ``der = b^x · ln(b)``
+        # has no real value.  Raise loudly instead.
         b = float(other)
+        if b <= 0:
+            raise ValueError(
+                f"Non-positive base {b} with Dual exponent: derivative is "
+                "b^x · ln(b), but ln(b) is undefined for b <= 0."
+            )
         val = b ** self.val
-        der = val * math.log(b) * self.der if b > 0 else 0
+        der = val * math.log(b) * self.der
         return Dual(val, der)
 
     def __neg__(self):
@@ -157,9 +198,25 @@ def log(x):
 
 
 def sqrt(x):
+    """Square root with forward-mode AD propagation.
+
+    Fix T4-AD3: pre-fix this returned ``Dual(0, 0)`` when ``x.val == 0``,
+    silently dropping the genuinely infinite derivative ``1/(2·√x) → ∞``.
+    Downstream code computing Greeks of MC paths that touched 0 (e.g.
+    Heston variance hitting the zero-boundary in QE-discretisation) would
+    silently lose sensitivity to vol-vol there.  Now raises so the
+    upstream code can either avoid the zero point or handle the
+    singularity explicitly.
+    """
     if isinstance(x, Dual):
+        if x.val == 0:
+            raise ValueError(
+                "sqrt(Dual(0, ·)): derivative is singular at x = 0 "
+                "(1/(2·√x) → ∞).  Avoid the zero point or use a closed-form "
+                "branch that handles it."
+            )
         s = math.sqrt(x.val)
-        return Dual(s, x.der / (2 * s)) if s > 0 else Dual(0, 0)
+        return Dual(s, x.der / (2 * s))
     return math.sqrt(x)
 
 
