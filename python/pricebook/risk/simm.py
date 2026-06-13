@@ -70,6 +70,22 @@ COM_INTRA_CORR = 0.35
 COM_INTER_CORR = 0.15
 
 
+# Cross-risk-class correlation matrix (ISDA SIMM v2.6, Table 21 — approximate).
+# Keyed by frozenset of pairs (order-independent).
+_CROSS_RISK_CLASS_CORR = {
+    frozenset(("GIRR", "FX")):  0.20,
+    frozenset(("GIRR", "CSR")): 0.05,
+    frozenset(("GIRR", "EQ")):  0.05,
+    frozenset(("GIRR", "COM")): 0.05,
+    frozenset(("FX",   "CSR")): 0.10,
+    frozenset(("FX",   "EQ")):  0.15,
+    frozenset(("FX",   "COM")): 0.15,
+    frozenset(("CSR",  "EQ")):  0.15,
+    frozenset(("CSR",  "COM")): 0.15,
+    frozenset(("EQ",   "COM")): 0.20,
+}
+
+
 # ---- Data structures ----
 
 @dataclass
@@ -134,7 +150,16 @@ class SIMMCalculator:
     """
 
     def compute(self, sensitivities: list[SIMMSensitivity]) -> SIMMResult:
-        """Compute total SIMM margin from a list of sensitivities."""
+        """Compute total SIMM margin from a list of sensitivities.
+
+        Fix T4-RISK30: pre-fix used the zero-correlation aggregation
+        ``sqrt(Σ M_i²)`` across risk classes (despite the comment that
+        admits SIMM uses correlated aggregation).  Real ISDA SIMM v2.6
+        applies the matrix
+            Margin² = Σ M_i² + 2·Σ_{i<j} ρ_ij · M_i · M_j
+        with explicit cross-class ρ (Table 21).  Pre-fix systematically
+        understated total margin for diversified books.
+        """
         # Group by risk class
         by_class: dict[str, list[SIMMSensitivity]] = defaultdict(list)
         for s in sensitivities:
@@ -146,8 +171,21 @@ class SIMMCalculator:
                 rc_result = self._compute_risk_class(rc, by_class[rc])
                 rc_results.append(rc_result)
 
-        # Across risk class aggregation (simple sum — SIMM uses sqrt of sum of squares)
-        total = math.sqrt(sum(r.total ** 2 for r in rc_results))
+        # Cross-risk-class aggregation with ISDA SIMM v2.6 correlations.
+        n = len(rc_results)
+        if n == 0:
+            total = 0.0
+        else:
+            var = 0.0
+            for i in range(n):
+                var += rc_results[i].total ** 2
+                for j in range(i + 1, n):
+                    rho = _CROSS_RISK_CLASS_CORR.get(
+                        frozenset((rc_results[i].risk_class, rc_results[j].risk_class)),
+                        0.0,
+                    )
+                    var += 2 * rho * rc_results[i].total * rc_results[j].total
+            total = math.sqrt(max(var, 0.0))
 
         return SIMMResult(
             risk_classes=rc_results,
@@ -197,25 +235,42 @@ class SIMMCalculator:
     def _compute_bucket(
         self, risk_class: str, bucket: str, sensitivities: list[SIMMSensitivity],
     ) -> SIMMBucketResult:
-        """Within-bucket aggregation."""
-        weighted = [
-            s.delta * self._risk_weight(risk_class, bucket, s.tenor)
-            for s in sensitivities
-        ]
+        """Within-bucket aggregation across delta, vega, and curvature.
 
+        Fix T4-RISK31: pre-fix used only ``s.delta`` and silently
+        dropped ``s.vega`` and ``s.curvature``.  For an options book
+        this materially under-margined.  Now: aggregate each
+        component separately (delta-only, vega-only, curvature-only)
+        using the same intra-bucket correlation, then combine via
+        sum-of-squares — matches the "separate components, root-sum-
+        square combine" SIMM structure (simplified: real SIMM uses
+        different correlation coefficients per component).
+        """
+        rw = lambda s: self._risk_weight(risk_class, bucket, s.tenor)
+        delta_w = [s.delta * rw(s) for s in sensitivities]
+        vega_w = [s.vega * rw(s) for s in sensitivities]
+        curv_w = [s.curvature * rw(s) for s in sensitivities]
         intra_corr = self._intra_bucket_corr(risk_class)
-        n = len(weighted)
-        if n == 1:
-            margin = abs(weighted[0])
-        else:
+
+        def aggregate(weighted: list[float]) -> float:
+            n = len(weighted)
+            if n == 0:
+                return 0.0
+            if n == 1:
+                return abs(weighted[0])
             var = 0.0
             for i in range(n):
                 var += weighted[i] ** 2
                 for j in range(i + 1, n):
                     var += 2 * intra_corr * weighted[i] * weighted[j]
-            margin = math.sqrt(max(var, 0.0))
+            return math.sqrt(max(var, 0.0))
 
-        return SIMMBucketResult(bucket, weighted, margin)
+        delta_margin = aggregate(delta_w)
+        vega_margin = aggregate(vega_w)
+        curv_margin = aggregate(curv_w)
+        margin = math.sqrt(delta_margin ** 2 + vega_margin ** 2 + curv_margin ** 2)
+
+        return SIMMBucketResult(bucket, delta_w, margin)
 
     def _risk_weight(self, risk_class: str, bucket: str, tenor: str = "") -> float:
         if risk_class == "GIRR":
