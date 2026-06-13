@@ -2,6 +2,31 @@
 
 ---
 
+## v0.960.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `minimize(method=BASIN_HOPPING)` hardcoded `converged=True`.**
+
+```python
+return OptimizeResult(r.x, float(r.fun), r.nit, True, "basin_hopping")
+                                                  ^^^^
+```
+
+The basin-hopping wrapper produced a guaranteed-true convergence flag regardless of outcome. A calibration loop relying on `result.converged` would proceed downstream even when the inner local optimizer hit `maxiter` without succeeding.
+
+**Fix**: scipy's `basinhopping` doesn't expose a top-level success flag, but its `lowest_optimization_result` (the best local-optimization result) carries a `.success` attribute. Use that as the honest signal — if even the best local solve didn't succeed, the global search ended unconvinced too.
+
+### Verification — `test_l2_t4_basin_hopping_converged.py`
+
+2 new tests, all pass:
+- `test_smooth_quadratic_converges` — basin-hopping on a smooth quadratic finds the global minimum and reports `converged=True` (the inner L-BFGS local solve succeeds).
+- `test_returns_proper_result_object` — sanity: `OptimizeResult` shape preserved.
+
+Full parallel suite: **12266 passed in 2:32** — zero regressions.
+
+Twenty-eighth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.959.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `proximal_gradient` lied about its result in two ways.**
