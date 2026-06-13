@@ -2,6 +2,34 @@
 
 ---
 
+## v0.999.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.ipv.ipv_single_trade` had no concept of position direction.**
+
+Pre-fix: `prudent_value = mid - diversified_ava` was hardcoded for *long* positions. For a short bond position the prudent (conservative) liability value sits *above* mid, not below — the IPV would silently understate the size of a short liability by `2 · ava`.
+
+Compounding: AVA helpers (`close_out_cost_ava`, `concentration_ava`, etc.) take `notional` as a positive size and multiply by it. Passing a *signed* notional (negative for short) propagated a negative magnitude through every AVA, producing nonsense.
+
+**Fix**:
+- Added explicit `direction: int = 1` parameter (only `±1` accepted; default `+1` preserves long-only behaviour).
+- All AVA helpers now receive `abs(notional)`.
+- `prudent_value = mid − direction · diversified_ava` (above mid for shorts).
+- `variance_to_model_bp` denominator uses `abs(notional)` — pre-fix a negative-notional input produced negative `variance_bp` that could never breach the threshold.
+
+### Verification — `test_l2_t4_ipv.py`
+
+7 new tests:
+- `TestIpvLongUnchanged` × 1: default direction preserves pre-fix long behaviour.
+- `TestIpvShort` × 3: prudent above mid; AVA magnitudes mirror long for direction=−1; abs(notional) is what counts (sign doesn't flip AVA).
+- `TestIpvDirectionValidation` × 2: invalid direction (0 or +2) raises.
+- `TestIpvVarianceWithNegativeNotional` × 1: variance_bp ≥ 0 and breach still fires.
+
+Full parallel suite: **12,523 passed in 2:42** — zero regressions, 11 existing IPV tests still pass.
+
+Seventh fix from phase-2. **129 distinct bugs** in v0.905→v0.999.
+
+---
+
 ## v0.998.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.kelly` had two correctness issues.**
