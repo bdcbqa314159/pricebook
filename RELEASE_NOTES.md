@@ -2,6 +2,35 @@
 
 ---
 
+## v1.017.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.vol_stress.twist_vol_bump` butterfly weights were wrong.**
+
+Pre-fix:
+```python
+weights = ((T - T_mid) / W)**2 - 0.25
+```
+
+Evaluating on x = (T-T_mid)/W ∈ [-0.5, +0.5]:
+- Wings (x=±0.5): `0.25 - 0.25 = 0`.
+- Belly (x=0): `0 - 0.25 = -0.25`.
+
+That's "belly down, wings unchanged" — **not** the butterfly the docstring promises ("wings up, belly down"). For a long-belly vega position the pre-fix scenario gave a misleading P&L (only the belly hit).
+
+**Fix**: corrected formula `4·x² - 0.5` gives wings = +0.5, belly = -0.5 — a true butterfly with the twist_bps controlling the wing-belly spread.
+
+### Verification — `test_l2_t4_vol_stress.py`
+
+4 new tests:
+- `TestTwistButterfly` × 2: wings above base, belly below base; magnitudes match +/-50bp for twist_bps=100.
+- `TestParallelTilt` × 2: parallel uniform shift and tilt steepening unchanged.
+
+Full parallel suite: **12,609 passed in 2:59** — zero regressions.
+
+Twenty-fifth fix from phase-2. **154 distinct bugs** in v0.905→v1.017.
+
+---
+
 ## v1.016.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.portfolio_margin.span_margin` applied SPAN's "extreme scenario 35% cap" to user-supplied scenarios.**
