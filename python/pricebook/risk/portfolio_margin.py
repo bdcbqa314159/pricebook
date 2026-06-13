@@ -126,7 +126,14 @@ def span_margin(
     Returns:
         MarginResult with initial and maintenance margin.
     """
-    if scenarios is None:
+    # Fix T4-RISK34: the 35% extreme-scenario cap is a SPAN convention
+    # for the auto-built grid's last two scenarios (2× price_scan_range
+    # moves).  Pre-fix the cap was applied to "the last two scenarios"
+    # regardless of source — so user-supplied custom scenarios silently
+    # had their last two entries mis-scaled by 0.35.  Now track
+    # whether the grid was auto-built and only cap in that case.
+    auto_built = scenarios is None
+    if auto_built:
         scenarios = _build_scenarios(price_scan_range, vol_scan_range)
 
     worst_loss = 0.0
@@ -137,8 +144,9 @@ def span_margin(
     for idx, (price_move, vol_move) in enumerate(scenarios):
         portfolio_pnl = sum(_scenario_pnl(p, price_move, vol_move) for p in positions)
         loss = -portfolio_pnl  # margin is a positive number
-        # SPAN: extreme scenarios (last 2) contribute only 35% of their loss
-        if idx >= n_scenarios - 2 and scenarios is not None:
+        # SPAN: extreme scenarios (last 2 of auto-built grid) contribute
+        # only 35% of their loss.  Skip for user-supplied scenarios.
+        if auto_built and idx >= n_scenarios - 2:
             loss *= 0.35
         all_losses.append(loss)
         if loss > worst_loss:
