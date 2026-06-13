@@ -2,6 +2,26 @@
 
 ---
 
+## v0.978.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `CDS` serialisation dropped `convention` (same shape as v0.976 Swaption / v0.977 IRS).**
+
+Pre-fix the `_serialisable` field list missed `convention`, which controls the business-day rolling rule applied to coupon dates. A CDS with non-default `convention=PRECEDING` round-tripped to one with the default MODIFIED_FOLLOWING, changing the payment schedule and therefore the price.
+
+**Fix**: add `convention` to the field list. `calendar` remains excluded (runtime-only holiday data).
+
+### Verification — `test_l2_t4_cds_serialisation_fields.py`
+
+4 new tests, all pass:
+- `TestRoundTripPreservesConvention` × 3 (parametrised over MODIFIED_FOLLOWING / PRECEDING / FOLLOWING).
+- `test_default_round_trip_still_works` — sanity.
+
+Full parallel suite: **12381 passed in 3:16** — zero regressions.
+
+Forty-sixth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.977.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `InterestRateSwap` serialisation dropped `convention`/`stub`/`eom` (same gap as Swaption v0.976).**
