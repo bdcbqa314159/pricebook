@@ -2,6 +2,30 @@
 
 ---
 
+## v0.994.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.greeks.bump_greeks` had three issues.**
+
+(a) **Duplicate pricer call.** Pre-fix computed `price_func(spot, vol - vol_bump, ...)` twice — once as `vega_down_v` (used in vega), once as `vega_down` (used in volga). Identical computations, wasted call. For MC/PDE pricers this is real perf cost (could be seconds per Greeks call).
+
+(b) **Asymmetric rho difference.** Pre-fix used a forward difference `(rho_up - base) / rate_bump` while delta/gamma/vega all used central differences. Forward diff is O(h); central is O(h²). Inconsistent with neighbouring Greeks. Switched to central diff.
+
+(c) **No bump-size validation.** Non-positive bumps or `vol_bump >= vol` would silently push negative vol into the pricer, often crashing deep or returning NaN. Now raises `ValueError` upfront with diagnostic.
+
+### Verification — `test_l2_t4_risk_greeks_bump.py`
+
+6 new tests:
+- `TestNoDuplicateCalls`: pricer call count bounded.
+- `TestRhoCentralDifference`: rho matches BS analytical `K·T·exp(-rT)·N(d2)·0.01` to rel 1e-4.
+- `TestValidationRaises` × 3: zero/negative bumps + vol_bump≥vol raise.
+- `TestSanityRanges`: ATM call Greeks in expected sign/range bands.
+
+Full parallel suite: **12,485 passed in 3:03** — zero regressions, +6 net tests. Warnings 18→17.
+
+Second fix from phase-2. 118th distinct bug.
+
+---
+
 ## v0.993.0 — 2026-06-13
 
 **Fix L2 phase-2 audit (first new-module find) — `risk.var.stress_test` had two coupled bugs.**
