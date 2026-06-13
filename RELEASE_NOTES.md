@@ -2,6 +2,30 @@
 
 ---
 
+## v1.020.0 — 2026-06-13
+
+**Fix L2 phase-2 (regulatory/) — `market_risk_sa.calculate_curvature_capital` cross-bucket aggregation didn't match FRTB.**
+
+Pre-fix used plain `sum(bucket_caps)` — equivalent to γ=1 (full positive correlation) for every bucket pair. FRTB MAR21.14 specifies:
+
+    K_curvature = sqrt[max(0, Σ K_b² + Σ_{b≠c} γ_bc · S_b · S_c · ψ(S_b, S_c))]
+
+with γ_bc per risk class (0.15 EQ, 0.20 COM, 0.25 CSR, 0.50 GIRR, 0.60 FX) and ψ=0 if both S_b, S_c negative. Pre-fix plain sum was strictly more conservative — overstating capital for diversified curvature positions. For 2 buckets in EQ, pre-fix gave ~32% higher K than the correct γ=0.15 formula.
+
+**Fix**: implement FRTB cross-bucket aggregation with γ_bc per risk class and ψ sign indicator.
+
+**Known remaining simplification**: within-bucket aggregation still uses plain sum vs FRTB's sqrt(Σ CVR_k² + Σ ρ_kl · CVR_k · CVR_l · ψ). Deeper rewrite tracked as a follow-up.
+
+### Verification — `test_l2_t4_frtb_curvature.py`
+
+5 new tests; existing 23 FRTB tests still pass.
+
+Full parallel suite: **12,622 passed in 2:38** — zero regressions.
+
+First fix from `regulatory/` package. **157 distinct bugs** in v0.905→v1.020.
+
+---
+
 ## v1.019.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.repo_cva` omitted discount factor (same shape as v1.006 hybrid_xva).**
