@@ -137,8 +137,14 @@ def tracking_metrics(
     te = float(np.std(active, ddof=1) * math.sqrt(periods_per_year))
     ir = float(np.mean(active)) / float(np.std(active, ddof=1)) * math.sqrt(periods_per_year) if np.std(active) > 0 else 0
 
-    # Active share (weight-based, approximate from returns)
-    beta = float(np.cov(portfolio_returns, benchmark_returns)[0, 1] / np.var(benchmark_returns)) if np.var(benchmark_returns) > 0 else 1
+    # Beta and alpha — Fix T4-RISK36: pre-fix mixed ddof conventions
+    # (np.cov default ddof=1 over np.var default ddof=0), producing
+    # a beta biased by factor (n-1)/n.  Now both use ddof=1 (sample).
+    if np.var(benchmark_returns, ddof=1) > 0:
+        beta = float(np.cov(portfolio_returns, benchmark_returns, ddof=1)[0, 1]
+                     / np.var(benchmark_returns, ddof=1))
+    else:
+        beta = 1.0
     alpha = float(np.mean(portfolio_returns) - beta * np.mean(benchmark_returns)) * periods_per_year
 
     return {
