@@ -384,9 +384,18 @@ def projection_simplex(x: np.ndarray) -> np.ndarray:
 
 
 def projection_l1_ball(x: np.ndarray, radius: float = 1.0) -> np.ndarray:
-    """Project onto the L1 ball: {x : ||x||_1 <= radius}."""
+    """Project onto the L1 ball: {x : ||x||_1 <= radius}.
+
+    Fix T4-OPT3: pre-fix the "already inside the ball" fast path returned
+    ``x`` directly — an alias of the caller's input.  Mutating the result
+    then silently mutated the caller's data.  All other return paths
+    construct new arrays via ``np.sign(x) * proj`` (broadcast multiplication
+    returns a fresh array), so the inconsistency was: fast path aliased,
+    slow path did not.  Now both paths return a fresh copy.
+    """
+    x = np.asarray(x)
     if np.sum(np.abs(x)) <= radius:
-        return x
+        return x.copy()
     u = np.abs(x)
     proj = projection_simplex(u / radius) * radius
     return np.sign(x) * proj
