@@ -2,6 +2,28 @@
 
 ---
 
+## v1.005.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.shapley.shapley_capital_allocation` computed diversification info then threw it away.**
+
+Pre-fix built an `enriched_values` dict containing per-desk `{shapley_allocation, standalone_risk, diversification_benefit}`, then **immediately discarded it** by returning the raw `ShapleyResult`. The function docstring promised diversification reporting; the caller never received it.
+
+**Fix**: added optional `diversification: dict | None` field to `ShapleyResult` (defaults to `None` for non-capital-allocation callers, preserving backwards compat). `shapley_capital_allocation` now populates it. Also surfaced in `to_dict()`.
+
+Audit-clean modules from the cooperative-game family:
+- `risk/cooperative_games.py` — Shapley delegate + core-check correct.
+- `risk/shapley.py` exact/sampling algorithms — formulas correct (Shapley weights sum to 1; sampling estimator unbiased).
+
+### Verification — `test_l2_t4_shapley.py`
+
+4 new tests: diversification field populated; benefit equals `standalone − shapley`; surfaced in to_dict; default `None` for non-capital-allocation callers.
+
+Full parallel suite: **12,551 passed in 2:43** — zero regressions.
+
+Thirteenth fix from phase-2. **136 distinct bugs** in v0.905→v1.005.
+
+---
+
 ## v1.004.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.brinson_attribution.brinson_multi_period` claimed "geometric linking" but used ad-hoc scaling that broke the active-return identity.**
