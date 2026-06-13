@@ -90,9 +90,41 @@ def fx_charm(spot, strike, rd, rf, vol, T, is_call=True):
         charm = -exp(-rf T) × N'(d1) × [2(r_d-r_f)T - d2 σ√T] / (2T σ√T)
               + rf × exp(-rf T) × N(d1)      (for calls)
               - rf × exp(-rf T) × N(-d1)      (for puts)
+
+    Fix T4-FXG1: pre-fix ``vol <= 0 or T <= 0`` returned 0, but at
+    ``vol=0, T>0`` the spot delta has the deterministic value
+    ``±exp(-r_f T)·I(forward vs strike)`` whose derivative w.r.t.
+    calendar time is *not* zero — it carries the discount-decay
+    contribution ``±r_f·exp(-r_f T)``.
+
+    Closed-form deterministic limits at vol=0:
+      - ITM call  (forward > strike): charm = +r_f·exp(-r_f T)
+      - ITM put   (forward < strike): charm = -r_f·exp(-r_f T)
+      - OTM (both): charm = 0
+      - ATM (forward == strike): undefined when r_d ≠ r_f (term1 → ±∞).
+        We use the indicator's one-sided half-limit and return
+        ±0.5·r_f·exp(-r_f T), which is correct for the indicator
+        contribution alone (the boundary-shift term is undefined).
+
+    T=0 path preserved (returns 0 — boundary case).
     """
-    if vol <= 0 or T <= 0:
+    if T <= 0:
         return 0.0
+    if vol <= 0:
+        # Indicator on forward vs strike; carry the exp(-r_f T) decay.
+        fwd = spot * math.exp((rd - rf) * T)
+        eq_decay = rf * math.exp(-rf * T)
+        if is_call:
+            if fwd > strike:
+                return eq_decay
+            if fwd < strike:
+                return 0.0
+            return 0.5 * eq_decay
+        if fwd < strike:
+            return -eq_decay
+        if fwd > strike:
+            return 0.0
+        return -0.5 * eq_decay
     d1 = _d1(spot, strike, rd, rf, vol, T)
     d2 = d1 - vol * math.sqrt(T)
     sqrt_T = math.sqrt(T)
