@@ -2,6 +2,35 @@
 
 ---
 
+## v0.985.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `coupled_bootstrap` silently set `fwd = 0.0` for any period where the Newton iterate's projection-curve DF went non-positive (or where the schedule tau was non-positive).**
+
+Pre-fix:
+
+```python
+if df2 > 0 and tau > 0:
+    fwd = (df1 - df2) / (tau * df2)
+else:
+    fwd = 0.0
+```
+
+When the projection curve produced `df2 ≤ 0` (an arbitrageable iterate) or `tau ≤ 0` (a degenerate schedule with duplicate/inverted dates), the silent `fwd = 0` zeroed the float-leg contribution from that period. The residual `fixed_pv − too-small-float_pv` became artificially low, which Newton could drive to zero by following an **unphysical trajectory** in DF space — silently converging on a bad solution.
+
+**Fix**: both degenerate paths now raise `ValueError` with a clear message identifying the offending input (schedule date or DF).
+
+### Verification — `test_l2_t4_coupled_bootstrap_degenerate_raises.py`
+
+2 new tests, all pass:
+- `test_normal_inputs_succeed` — sanity: healthy bootstrap still works.
+- `test_error_path_is_present` — static guard that the diagnostic raises are present in the source and the pre-fix silent fallback is gone (prevents reversion).
+
+Full parallel suite: **12407 passed in 3:03** — zero regressions.
+
+Fifty-third fix from the **35-module deferred Wave-2 audit**; **103rd distinct bug** in the multi-session arc.
+
+---
+
 ## v0.984.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `risk.network.FinancialNetwork.betweenness_centrality` emitted spurious `RuntimeWarning: divide by zero` on sparse adjacency matrices (classic `np.where` eager-evaluation trap).**
