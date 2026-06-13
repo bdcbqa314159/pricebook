@@ -2,6 +2,44 @@
 
 ---
 
+## v0.950.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `TreeSolver.convergence_analysis` applied Richardson extrapolation universally; theoretically wrong for CRR/JR/Tian/Trinomial (which are oscillatory O(1/N), not smooth O(1/N²)).**
+
+The Richardson formula `P* = (4·P(2N) − P(N)) / 3` is derived from a Taylor expansion assuming the error has leading-order term `c/N²`. The "4 − 1" weighting then cancels that term, leaving O(1/N⁴). This is correct for Leisen-Reimer (smooth O(1/N²)) but FALSE for CRR/JR/Tian/Trinomial — those have **oscillatory O(1/N)** convergence (a parity sawtooth between odd and even N). Applying Richardson there over-amplifies the sawtooth rather than cancelling it.
+
+The pre-fix routine also:
+- Did NOT validate that `n_steps_list[-1] == 2 · n_steps_list[-2]`. Without doubling, the "4·P(2N) − P(N)" weighting has no theoretical basis at all.
+- Did not validate that `n_steps_list` had at least 2 elements (silently returned `richardson=None`).
+
+**Fix**:
+- Validate `n_steps_list` is non-empty (≥ 2) and strictly increasing.
+- Pick the extrapolation per method:
+  - **LR + doubling**: Richardson formula (genuinely O(1/N²) → O(1/N⁴)).
+  - **LR + non-doubling**: fall back to last price (formula invalid).
+  - **CRR / JR / Tian / Trinomial**: average of the last two prices (cancels the parity sawtooth).
+- Legacy `richardson` key preserved as the literal Richardson formula for backwards compatibility.
+- New `extrapolated` and `extrapolation_method` keys expose the method-aware choice and a string tag identifying which scheme was used.
+- Run the inner sweep in a `try ... finally:` so `n_steps` is always restored.
+
+### Verification — `test_l2_t4_tree_convergence_method_aware.py`
+
+7 new tests, all pass:
+- `test_empty_n_steps_list_raises`, `test_non_monotonic_raises` — input validation.
+- `test_lr_uses_richardson_when_doubling` — LR + doubling → Richardson.
+- `test_lr_falls_back_when_non_doubling` — LR + non-doubling → last price.
+- `test_crr_uses_average_not_richardson` — CRR → average; expected = mean of last two prices.
+- `test_jr_uses_average` — JR same.
+- `test_result_contains_both_legacy_and_new_keys` — `richardson` (legacy formula) and `extrapolated` (method-aware) both present.
+
+Pre-existing 20 tree-solver tests still pass — backwards compatibility on the `richardson` key preserved.
+
+Full parallel suite: **12201 passed in 2:34** — zero regressions.
+
+Eighteenth fix from the **35-module deferred Wave-2 audit**.
+
+---
+
 ## v0.949.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `InterestRateSwap.cashflow_schedule` floating row was internally inconsistent (`rate` excluded spread but `amount` included it).**
