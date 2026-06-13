@@ -260,7 +260,11 @@ def _capfloor_pv_ctx(self, ctx) -> float:
 CapFloor.pv_ctx = _capfloor_pv_ctx
 
 from pricebook.core.serialisable import serialisable as _serialisable
-_serialisable("capfloor", ["start", "end", "strike", "option_type", "notional", "frequency", "day_count"])(CapFloor)
+_serialisable("capfloor", ["start", "end", "strike", "option_type", "notional", "frequency", "day_count", "convention"])(CapFloor)
+# Fix T4-CAP1: pre-fix dropped `convention` from the serialisable list,
+# silently changing the cap/floor schedule on round-trip.  Same pattern
+# as Swaption (v0.976) / IRS (v0.977) / CDS (v0.978).  `calendar`
+# remains excluded (runtime-only holiday data).
 
 @classmethod
 def _cf_from_convention(cls, conv, start, end, strike, option_type=None, notional=1_000_000.0):
