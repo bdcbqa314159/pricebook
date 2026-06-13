@@ -2,6 +2,34 @@
 
 ---
 
+## v0.983.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `TreeSolver._apply_barrier` silently no-oped for `DOWN_IN` / `UP_IN` barriers.**
+
+```python
+elif self.barrier_type == BarrierType.DOWN_IN:
+    pass  # complex — for now, only knock-out supported
+elif self.barrier_type == BarrierType.UP_IN:
+    pass
+```
+
+At the outer `solve()` level, knock-in barriers are computed via in-out parity (`vanilla − knock_out`), so `_apply_barrier` is never called with a knock-in type via the normal path. BUT a caller invoking `_apply_barrier` directly (e.g. via a subclass extension, or bypassing `solve()` for debugging) silently got a vanilla price labelled as a knock-in — the most subtle kind of wrong-result bug.
+
+**Fix**: the knock-in branches raise `NotImplementedError` with a diagnostic explaining that knock-in is computed at the outer level via in-out parity.
+
+### Verification — `test_l2_t4_apply_barrier_knock_in_raises.py`
+
+5 new tests, all pass:
+- `test_down_in_raises_when_called_directly`, `test_up_in_raises_when_called_directly` — the unsafe direct call now raises.
+- `test_down_out_zeroes_below_barrier`, `test_up_out_zeroes_above_barrier` — knock-out branches still work.
+- `test_down_in_call_solves_via_parity` — outer-level `solve()` with knock-in barrier still produces a finite price via the in-out parity wrapper.
+
+Full parallel suite: **12403 passed in 3:48** — zero regressions.
+
+Fifty-first fix from the **35-module deferred Wave-2 audit**; 101st distinct correctness/contract bug in the multi-session arc.
+
+---
+
 ## v0.982.0 — 2026-06-13 🎯 100-bug milestone
 
 **Fix L2 Wave-2 audit — `StandardCDS` had a hand-written `to_dict` / `from_dict` that wasn't updated when `convention` was added to the parent `CDS._SERIAL_FIELDS` in v0.978.**
