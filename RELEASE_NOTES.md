@@ -2,6 +2,34 @@
 
 ---
 
+## v0.986.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `equity_rho` returned 0 in the `T<=0 or vol<=0` branch, silently dropping the deterministic `vol=0, T>0` limit.**
+
+At `vol=0` with `T>0` the option price is the discounted intrinsic of the forward:
+
+- ITM call (forward > strike): `price = S·exp(-qT) − K·exp(-rT)` → `rho = T·K·exp(-rT)` (positive)
+- ITM put (forward < strike): `price = K·exp(-rT) − S·exp(-qT)` → `rho = -T·K·exp(-rT)` (negative)
+- OTM (either side): price = 0 → rho = 0
+- ATM (forward == strike): one-sided limit `±0.5·T·K·exp(-rT)`
+
+Pre-fix all four cases returned 0 — the deterministic rho was silently dropped.
+
+**Fix**: separate `T <= 0` (still 0 — no time for rate to act) from `vol <= 0` with `T > 0` (deterministic limit by ITM/OTM/ATM branch on the forward).
+
+### Verification — `test_l2_t4_equity_rho_degenerate.py`
+
+7 new tests, all pass:
+- `TestEquityRhoVolZeroTPositive` × 5: ITM call positive, ITM put negative, OTM call/put zero, ATM half.
+- `TestEquityRhoTZero`: T=0 returns 0 for both call and put across spot/strike/moneyness.
+- `TestEquityRhoInteriorUnchanged`: T>0, vol>0 path identical to pre-fix.
+
+Full parallel suite: **12414 passed in 3:51** — zero regressions.
+
+Fifty-fourth fix from the **35-module deferred Wave-2 audit**; 104th distinct bug in the multi-session arc.
+
+---
+
 ## v0.985.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `coupled_bootstrap` silently set `fwd = 0.0` for any period where the Newton iterate's projection-curve DF went non-positive (or where the schedule tau was non-positive).**
