@@ -2,6 +2,40 @@
 
 ---
 
+## v0.996.0 — 2026-06-13
+
+**Fix L2 phase-2 audit — `risk.factor_model` had two real bugs.**
+
+### (a) Ledoit-Wolf shrinkage intensity was ad-hoc
+
+Pre-fix used `alpha_lw = 1 / (n · delta)` with no basis in Ledoit-Wolf (2004) and dimensionally inconsistent (units of cov-squared⁻¹). The "shrunk" output was NOT a Ledoit-Wolf estimator. Now uses the correct LW formula for the μ·I target (LW 2004, §3.2):
+
+    π̂  = sum over i,j of (1/T) Σ_t (x̃_ti x̃_tj − s_ij)²
+    γ̂² = ||F − S||²_F
+    ρ̂  = trace(π̂ matrix)       (identity-target case)
+    κ  = (π̂ − ρ̂) / γ̂²
+    δ* = max(0, min(κ / T, 1))
+
+Vectorised via `pi_mat = (X²ᵀ @ X²)/T − S²`, O(T·n²) per pass.
+
+### (b) `factor_timing` direction contradicted its own docstring
+
+Pre-fix code: `if z > threshold: signal = "overweight"` (momentum on factor value). Pre-fix docstring: "When the factor is cheap (low z-score), overweight it" (contrarian — Asness, Ilmanen). The two contradicted each other. Picked the contrarian convention (matches academic literature on factor timing). Hit-rate calculation reversed accordingly.
+
+The existing `test_overweight` assertion in `test_factor_model.py` had pinned the buggy momentum direction — updated to the corrected contrarian semantics.
+
+### Verification — `test_l2_t4_factor_model.py`
+
+6 new tests:
+- `TestLedoitWolfShrinkage` × 3: intensity in [0,1]; high-dim case shows meaningful shrinkage; off-diagonals shrink under iid data toward identity.
+- `TestFactorTimingContrarian` × 3: high z → underweight; low z → overweight; perfect mean-reversion regime → hit rate > 99%.
+
+Full parallel suite: **12,502 passed in 3:29** — zero regressions.
+
+Fourth fix from phase-2. **124 distinct bugs** (2 more in this slice) in the v0.905→v0.996 arc.
+
+---
+
 ## v0.995.0 — 2026-06-13
 
 **Fix L2 phase-2 audit — `risk.backtest` had four defects (one major semantic, three numerical/accounting).**
