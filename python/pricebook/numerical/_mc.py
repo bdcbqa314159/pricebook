@@ -88,27 +88,48 @@ def qe_heston_step(
     return np.maximum(v_next, 0.0)
 
 
-def antithetic_paths(
-    base_paths: np.ndarray,
-    rng_normals: np.ndarray | None = None,
-) -> np.ndarray:
-    """Generate antithetic paths from existing paths.
+def antithetic_normals(rng_normals: np.ndarray) -> np.ndarray:
+    """Return the antithetic counterparts of a normal-draw array: -Z.
 
-    If paths were generated with Z, antithetic uses -Z.
-    Returns the average of base and antithetic terminal values.
+    Antithetic variates exploit the symmetry of the standard normal
+    distribution: if Z ~ N(0, I) drives a Monte Carlo path, then -Z also
+    has the right distribution and is perfectly negatively correlated
+    with Z.  Averaging payoffs from both runs gives an unbiased
+    estimator with strictly lower variance than two independent runs.
 
-    For simple use: pass the normal draws used to build base_paths.
+    Usage:
+        Z = rng.standard_normal(...)
+        paths_pos = simulate(Z)
+        paths_neg = simulate(antithetic_normals(Z))
+        estimator = 0.5 * (payoff(paths_pos) + payoff(paths_neg))
+
+    Fix T4-MC2: pre-fix this function was named `antithetic_paths` and
+    had a confusingly bi-modal interface that produced WRONG results in
+    one branch:
+
+      (i) when called with `rng_normals` (not None), it just returned
+          ``-rng_normals`` — a misleading no-op given the function's
+          name suggested it returned paths.
+
+      (ii) when called WITHOUT `rng_normals`, it did a "mirror around
+          log-mean of terminal values" — NOT a valid antithetic.  That
+          transformation depends on the sample mean (a random quantity),
+          making the result biased and not actually antithetic.  It also
+          ran ``np.log`` on terminal spots, silently producing NaNs for
+          paths with non-positive terminals (Bachelier, OU, etc.).
+
+    Post-fix the function is renamed to `antithetic_normals` to reflect
+    what it actually does, requires the normal draws explicitly, and
+    only performs the valid -Z operation.
     """
-    # If we have the normals, rebuild with negated
-    if rng_normals is not None:
-        # The caller should rebuild paths with -rng_normals
-        return -rng_normals  # return negated normals for caller to use
+    return -np.asarray(rng_normals)
 
-    # If we only have paths (log-space), mirror around the mean
-    log_paths = np.log(base_paths[:, -1])
-    mean_log = log_paths.mean()
-    antithetic_log = 2 * mean_log - log_paths
-    return np.exp(antithetic_log)
+
+# Backwards-compatibility alias (deprecated): the old `antithetic_paths`
+# name now points to `antithetic_normals`.  Any caller passing the second
+# (no-longer-supported) path-mirroring branch will hit a TypeError because
+# `rng_normals` is now positional and required.
+antithetic_paths = antithetic_normals
 
 
 @dataclass

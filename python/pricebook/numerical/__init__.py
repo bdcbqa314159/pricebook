@@ -65,7 +65,7 @@ from pricebook.numerical._rootfinding import (
 # MC improvements
 from pricebook.numerical._mc import (
     MCVarianceReduction, MCDiscrMethod, MLMCResult,
-    qe_heston_step, antithetic_paths, multilevel_mc,
+    qe_heston_step, antithetic_paths, antithetic_normals, multilevel_mc,
 )
 
 # Trees
@@ -130,7 +130,7 @@ __all__ = [
     "bisection", "find_root",
     # MC
     "MCVarianceReduction", "MCDiscrMethod", "MLMCResult",
-    "qe_heston_step", "antithetic_paths", "multilevel_mc",
+    "qe_heston_step", "antithetic_paths", "antithetic_normals", "multilevel_mc",
     # Trees
     "TreeSolver", "TreeMethod", "ExerciseType", "BarrierType", "TreeResult",
     "solve_tree", "solve_tree_2d",
