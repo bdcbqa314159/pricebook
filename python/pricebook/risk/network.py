@@ -76,8 +76,17 @@ class FinancialNetwork:
         """Approximate betweenness centrality via shortest paths."""
         from pricebook.numerical._graph import dijkstra
 
-        # Convert to distance (inverse weight)
-        dist_matrix = np.where(self.adj > 0, 1.0 / self.adj, 0.0)
+        # Convert to distance (inverse weight).
+        # Fix T4-NET1: pre-fix used ``np.where(self.adj > 0, 1.0 / self.adj,
+        # 0.0)`` which evaluates ``1.0 / self.adj`` EAGERLY for every
+        # element — including zero entries — emitting RuntimeWarning
+        # ("divide by zero").  The where-mask then correctly discards
+        # those values, but the warning is real (and the masked NaN /
+        # inf could propagate via other operations).  Use ``np.divide``
+        # with the ``where`` argument so the division is only performed
+        # where the predicate is true.
+        dist_matrix = np.zeros_like(self.adj, dtype=float)
+        np.divide(1.0, self.adj, out=dist_matrix, where=(self.adj > 0))
         bc = np.zeros(self.n)
 
         for s in range(self.n):
