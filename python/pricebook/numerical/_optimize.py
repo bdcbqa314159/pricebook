@@ -80,7 +80,14 @@ def minimize(
     from scipy.optimize import minimize as _minimize, differential_evolution as _de, basinhopping as _bh
 
     if isinstance(method, str):
-        method = OptimMethod(method.lower())
+        # Fix T4-OPT4: pre-fix only ``method.lower()`` was applied, so
+        # ``"Nelder-Mead"`` (the natural human-readable form, and also
+        # scipy's own documented method name) raised
+        # ``ValueError: 'nelder-mead' is not a valid OptimMethod``.  The
+        # enum values use underscores (``"nelder_mead"``).  Accept either
+        # form by normalising hyphens to underscores in addition to
+        # lower-casing.
+        method = OptimMethod(method.lower().replace("-", "_"))
 
     x0 = np.asarray(x0, dtype=float)
 
