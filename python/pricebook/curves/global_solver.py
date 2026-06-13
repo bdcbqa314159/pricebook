@@ -330,16 +330,33 @@ def coupled_bootstrap(
                 rate * year_fraction(schedule[i-1], schedule[i], swap_dc) * ois.df(schedule[i])
                 for i in range(1, len(schedule))
             )
-            # Floating: sum of fwd * tau * df_ois
+            # Floating: sum of fwd * tau * df_ois.
+            # Fix T4-GS1: pre-fix a degenerate ``df2 <= 0`` or ``tau <= 0``
+            # silently set ``fwd = 0.0`` for that period, contributing 0
+            # to ``float_pv``.  This made the residual artificially LOW
+            # (fixed_pv − too-small-float_pv), which Newton can drive
+            # toward zero by adjusting DFs along an unphysical trajectory
+            # — silently converging on a bad solution.  Raise instead so
+            # the coupled bootstrap surfaces the upstream degeneracy.
             float_pv = 0.0
             for i in range(1, len(schedule)):
                 tau = year_fraction(schedule[i-1], schedule[i], deposit_dc)
                 df1 = proj.df(schedule[i-1])
                 df2 = proj.df(schedule[i])
-                if df2 > 0 and tau > 0:
-                    fwd = (df1 - df2) / (tau * df2)
-                else:
-                    fwd = 0.0
+                if tau <= 0:
+                    raise ValueError(
+                        f"coupled_bootstrap: non-positive tau ({tau}) "
+                        f"between {schedule[i-1]} and {schedule[i]}.  "
+                        "Check schedule for duplicate/inverted dates."
+                    )
+                if df2 <= 0:
+                    raise ValueError(
+                        f"coupled_bootstrap: projection-curve DF went "
+                        f"non-positive at {schedule[i]} (df={df2}).  "
+                        "The Newton iterate has produced an arbitrageable "
+                        "curve — check input deposit/swap rates."
+                    )
+                fwd = (df1 - df2) / (tau * df2)
                 float_pv += fwd * tau * ois.df(schedule[i])
             res[idx] = fixed_pv - float_pv
 
