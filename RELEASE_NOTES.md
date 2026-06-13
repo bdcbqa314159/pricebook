@@ -2,6 +2,46 @@
 
 ---
 
+## v0.989.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — single-pass sweep of `T<=0 or vol<=0` degenerate-branch defects across FX, equity, and inflation modules.**
+
+After three single-site fixes in this pattern (v0.986 equity_rho, v0.987 equity_theta, v0.988 _digital_call_bs), swept the remaining call sites in one pass. Each defect falls into one of three buckets:
+
+- **(a) Spot vs forward indicator.** At `vol=0, T>0` the deterministic terminal is `forward = spot·exp((r-q)T)`, not spot. OTM-spot but ITM-forward positions silently returned 0.
+- **(b) Missing discount factor.** Even with the right indicator, payoffs at maturity must be PV'd.
+- **(c) Missing ATM half-limit.** At `forward == strike` the one-sided limit is half the ITM value.
+
+### Sites fixed (7)
+
+| # | File / function | Bucket(s) | Pre-fix behaviour |
+|---|---|---|---|
+| 1 | `fx/fx_option.py::fx_spot_delta` | (a)+(c) | `spot > strike` indicator; ATM returned 0 |
+| 2 | `fx/fx_option.py::fx_forward_delta` | (a)+(c) | same shape |
+| 3 | `fx/fx_american.py::_gk_european` | (a)+(b) | `max(spot − strike, 0)` undiscounted |
+| 4 | `equity/equity_exotic.py::equity_digital_cash` | (a)+(b)+(c) | undiscounted payout on spot indicator |
+| 5 | `equity/equity_exotic.py::equity_digital_asset` | (a)+(b)+(c) | undiscounted spot on spot indicator |
+| 6 | `fx/fx_exotic_extensions.py::fx_digital_option` | (b)+(c) | forward indicator was right but no df |
+| 7 | `fixed_income/inflation_bond_advanced.py::deflation_floor_value` | (b) | linearised `-breakeven·T` instead of exact `1 − exp(breakeven·T)` |
+
+Site 7 is independent: pre-fix used a first-order Taylor approximation for the deflation intrinsic. For `breakeven=-5%, T=30y` the pre-fix returned `1.5` (exceeding the maximum possible deflation = 100% loss); the exact intrinsic is `1 − exp(-1.5) ≈ 0.777`.
+
+### Sites audited and left unchanged
+
+Already correct: `options/exotic_payoffs._bs_call` (uses discounted intrinsic of forward), `commodity/commodity_american._black76_european` (takes forward directly), `structured/cms` range probability (uses forward), `numerical/black76` (already fixed in v0.965).
+
+Convention-dependent / out of scope for one-pass sweep: `crypto/crypto_vol` ATM theta heuristic, `fx/fx_correlation` quanto ρ inversion, `fx/fx_exotic.fx_lookback_floating` (depends on running_extreme + drift sign), `fx/fx_exotic_extensions` double-barrier MC (needs path-monotonicity check), `fx/fx_greeks` higher-order Greeks at vol=0 are 0 by convention.
+
+### Verification — `test_l2_t4_degenerate_branch_sweep.py`
+
+19 new tests across 7 test classes (one per fixed site). Each test verifies the exact closed-form deterministic limit and contains a comment indicating what the pre-fix value would have been.
+
+Full parallel suite: **12,449 passed in 2:51** — zero regressions, +19 net tests.
+
+Bundled fix counts as one logical slice (single defect class swept). Bug count: 56 → 63 from the 35-module Wave-2 audit; total **113 distinct bugs** in the v0.905→v0.989 arc.
+
+---
+
 ## v0.988.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — `_digital_call_bs` in `structured.equity_linked_note` had two coupled bugs in the degenerate `T<=0 or vol<=0` branch.**
