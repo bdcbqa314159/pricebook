@@ -538,27 +538,85 @@ class TreeSolver:
         n_steps_list: list[int] | None = None,
         **kwargs,
     ) -> dict:
-        """Run at multiple N and Richardson-extrapolate."""
+        """Run at multiple N and extrapolate.
+
+        The extrapolated value depends on the method's convergence order:
+
+        - **LR** (Leisen-Reimer): smooth O(1/N²) convergence — Richardson
+          ``P* = (4·P(2N) - P(N)) / 3`` cancels the leading-order error.
+        - **CRR / JR**: oscillatory O(1/N) convergence (sawtooth between
+          odd and even N).  Richardson assumes O(1/N²) and OVER-amplifies
+          the oscillation; instead, the standard remedy is to AVERAGE
+          adjacent N values to suppress the parity oscillation.  Here we
+          report a simple average of the last two grid points along with
+          a note explaining the choice.
+        - **Tian, Trinomial**: behave similarly to CRR/JR for vanilla
+          payoffs (O(1/N) with oscillation) — same average-based smoothing.
+
+        Fix T4-TR1: pre-fix this routine unconditionally applied the
+        Richardson formula regardless of the method's convergence order,
+        producing meaningless "extrapolated" values for CRR/JR/TIAN/
+        TRINOMIAL.  It also did not validate that ``n_steps_list[-1]``
+        was twice ``n_steps_list[-2]`` — without that, the "4·P(2N) − P(N)"
+        weighting has no theoretical basis at all.  Now we validate and
+        select the appropriate extrapolation per method.
+        """
         if n_steps_list is None:
             n_steps_list = [50, 100, 200, 400]
 
+        if len(n_steps_list) < 2:
+            raise ValueError(
+                "convergence_analysis requires at least 2 grid sizes "
+                f"(got n_steps_list={n_steps_list})."
+            )
+        for a, b in zip(n_steps_list, n_steps_list[1:]):
+            if b <= a:
+                raise ValueError(
+                    "n_steps_list must be strictly increasing "
+                    f"(got {n_steps_list})."
+                )
+
         prices = []
         original_n = self.n_steps
-        for n in n_steps_list:
-            self.n_steps = n
-            r = self.solve(spot, strike, rate, vol, T, **kwargs)
-            prices.append(r.price)
-        self.n_steps = original_n
+        try:
+            for n in n_steps_list:
+                self.n_steps = n
+                r = self.solve(spot, strike, rate, vol, T, **kwargs)
+                prices.append(r.price)
+        finally:
+            self.n_steps = original_n
 
-        # Richardson: P* = (4P(2N) - P(N)) / 3
-        richardson = None
-        if len(prices) >= 2:
-            richardson = (4 * prices[-1] - prices[-2]) / 3
+        N_prev, N_last = n_steps_list[-2], n_steps_list[-1]
+        doubling = (N_last == 2 * N_prev)
+
+        # Legacy `richardson` key: literal Richardson formula on the last
+        # two prices.  Theoretically valid only for smooth O(1/N²) methods
+        # (LR) with doubling grids; reported regardless so existing callers
+        # see no break.
+        richardson_legacy = (4.0 * prices[-1] - prices[-2]) / 3.0
+
+        # `extrapolated`: the choice this routine endorses for the given
+        # method.  This is the value a calibration / model-validation
+        # consumer should trust.
+        if self.method == TreeMethod.LR and doubling:
+            extrapolated = richardson_legacy
+            extrapolation_method = "richardson_O(1/N^2)"
+        elif self.method == TreeMethod.LR:
+            extrapolated = prices[-1]
+            extrapolation_method = "no_extrapolation_non_doubling"
+        else:
+            # CRR / JR / Tian / Trinomial: oscillatory O(1/N).  Average
+            # cancels the parity sawtooth; Richardson formula is not
+            # theoretically justified here.
+            extrapolated = 0.5 * (prices[-1] + prices[-2])
+            extrapolation_method = "average_O(1/N)_oscillation_suppression"
 
         return {
             "n_steps": n_steps_list,
             "prices": prices,
-            "richardson": richardson,
+            "richardson": richardson_legacy,
+            "extrapolated": extrapolated,
+            "extrapolation_method": extrapolation_method,
             "estimated_error": abs(prices[-1] - prices[-2]) if len(prices) >= 2 else None,
         }
 
