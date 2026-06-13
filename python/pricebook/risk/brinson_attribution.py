@@ -140,9 +140,24 @@ def brinson_attribution(
 def brinson_multi_period(
     period_results: list[BrinsonResult],
 ) -> dict:
-    """Multi-period Brinson linking.
+    """Multi-period Brinson linking via Frongello (2002).
 
-    Compounds single-period attributions using geometric linking.
+    Compounds single-period attributions while preserving the
+    geometric active-return identity:
+        Σ_t F_t·(alloc_t + sel_t + inter_t) = Π(1+r_p_t) − Π(1+r_b_t)
+
+    where the Frongello linking coefficient F_t is the recursive
+    update:
+        cum_t = cum_{t-1} · (1+r_b_t) + effect_t · cum_port_{t-1}
+
+    Equivalent closed-form: F_t = (Π_{s<t}(1+r_p_s)) · (Π_{s>t}(1+r_b_s)).
+
+    Fix T4-RISK19: pre-fix used the ad-hoc scaling
+    ``cum_alloc += effect_t × cum_bench_before_t`` which is neither
+    Frongello nor Carino, and does NOT preserve the identity.  For
+    two periods of equal P&L (port = bench = 1%/period), pre-fix
+    gives Σ effects = 2.00% while geometric active is 2.01% — small
+    in this case but quadratic-in-T as horizon grows.
 
     Args:
         period_results: list of single-period Brinson results.
@@ -154,9 +169,12 @@ def brinson_multi_period(
     cum_bench = 1.0
 
     for r in period_results:
-        cum_alloc += r.total_allocation * cum_bench
-        cum_sel += r.total_selection * cum_bench
-        cum_inter += r.total_interaction * cum_bench
+        # Frongello: prior cumulative effects compound by this period's
+        # benchmark return; the new period's effects scale by the prior
+        # cumulative portfolio growth.
+        cum_alloc = cum_alloc * (1 + r.benchmark_return) + r.total_allocation * cum_port
+        cum_sel = cum_sel * (1 + r.benchmark_return) + r.total_selection * cum_port
+        cum_inter = cum_inter * (1 + r.benchmark_return) + r.total_interaction * cum_port
         cum_port *= (1 + r.portfolio_return)
         cum_bench *= (1 + r.benchmark_return)
 
