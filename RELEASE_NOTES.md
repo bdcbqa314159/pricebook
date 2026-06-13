@@ -2,6 +2,30 @@
 
 ---
 
+## v0.990.0 — 2026-06-13
+
+**Fix L2 Wave-2 audit — `fx_charm` (∂Δ/∂t) returned 0 at `vol=0, T>0`, silently dropping the deterministic `±r_f·exp(-r_f T)` discount-decay contribution.**
+
+The FX spot delta at vol=0 has the deterministic value `±exp(-r_f T)·I(forward vs strike)`. Its derivative w.r.t. calendar time is the discount-decay `±r_f·exp(-r_f T)·indicator` — not 0.
+
+Closed-form deterministic limits at vol=0:
+- ITM call (forward > strike): `charm = +r_f·exp(-r_f T)`
+- ITM put (forward < strike): `charm = -r_f·exp(-r_f T)`
+- OTM (both): `charm = 0`
+- ATM (forward == strike): `±0.5·r_f·exp(-r_f T)` — indicator one-sided half-limit (the boundary-shift term1 = -exp(-rf T)·N'(d1)·[2(rd-rf)T]/(2T σ√T) diverges to ±∞ when rd ≠ rf, but the dominant indicator contribution is well-defined at half-limit).
+
+T=0 boundary preserved (returns 0).
+
+### Verification — `test_l2_t4_fx_charm_degenerate.py`
+
+8 new tests: ITM call positive, ITM put negative, OTM call/put zero, ATM half, zero-rf returns zero, T=0 returns zero, interior finite.
+
+Full parallel suite: **12,457 passed in 2:51** — zero regressions.
+
+First of four residual convention-dependent fixes deferred from the v0.989 sweep. 114th distinct bug.
+
+---
+
 ## v0.989.0 — 2026-06-13
 
 **Fix L2 Wave-2 audit — single-pass sweep of `T<=0 or vol<=0` degenerate-branch defects across FX, equity, and inflation modules.**
