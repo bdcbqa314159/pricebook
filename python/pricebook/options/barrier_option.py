@@ -110,6 +110,17 @@ class BarrierOption:
             vol: flat volatility.
             method: "pde" (finite difference) or "mc" (Monte Carlo).
         """
+        if self.rebate != 0.0:
+            # Silent-no-op API param (recurring bug pattern): constructor
+            # accepts and round-trips ``rebate``, but neither the PDE nor MC
+            # paths honour it.  Raise loudly until rebate is properly
+            # implemented (rebate-at-hit Dirichlet BC for PDE; rebate-at-hit
+            # or rebate-at-maturity payoff for MC).
+            raise NotImplementedError(
+                f"BarrierOption rebate handling not implemented "
+                f"(got rebate={self.rebate}).  Use rebate=0.0 until the "
+                f"PDE/MC pricers are extended."
+            )
         ref = curve.reference_date
         if spot <= 0:
             raise ValueError(f"spot must be positive, got {spot}")
@@ -233,9 +244,16 @@ class BarrierOption:
         return {"delta": delta, "gamma": gamma, "vega": vega, "price": base.price}
 
     def pv_ctx(self, ctx) -> float:
-        vol_surface = ctx.vol_surfaces.get("equity") if ctx.vol_surfaces else None
-        vol = vol_surface.vol(self.maturity, self.strike) if vol_surface else 0.20
-        return self.price(spot=100.0, curve=ctx.discount_curve, vol=vol).price
+        # Silent-no-op API: prior implementation hardcoded ``spot=100.0``
+        # regardless of the actual underlying, silently producing a wrong
+        # PV for any spot ≠ 100.  ``PricingContext`` does not yet carry
+        # equity spots (no ``equity_spots`` field), so we cannot fulfil
+        # this call generically — raise loudly instead of guessing.
+        raise NotImplementedError(
+            "BarrierOption.pv_ctx is not implemented: PricingContext "
+            "does not currently expose equity spots.  Price directly via "
+            "``.price(spot, curve, vol)`` with an explicit spot."
+        )
 
     # ---- Serialisation ----
 
