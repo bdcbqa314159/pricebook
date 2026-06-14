@@ -2,6 +2,35 @@
 
 ---
 
+## v1.034.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `api.key_rate_dv01` fake decomposition + `api.carry_rolldown` triple defect.**
+
+### `api.key_rate_dv01`
+
+Pre-fix bumped the curve in **parallel for every tenor** and returned the same DV01 value under each tenor key — the "key rate" decomposition was a silent wrong answer. A user calling `pb.key_rate_dv01(...)` got identical values across the entire ladder.
+
+**Fix**: map each requested tenor → year fraction → nearest non-zero curve pillar via `curve.bumped_at(pillar_idx, shift)`. The ladder now reflects genuine per-pillar sensitivities, which sum approximately to the parallel DV01.
+
+### `api.carry_rolldown`
+
+Three coupled defects:
+1. `curve.bumped(0.0)` is a no-op — the "rolled" curve was identical to the original, so no rolldown was actually computed.
+2. `int(shorter_T)` truncated the remaining maturity to integer years (5y minus 1 day → 4y), so the "rolldown" was just the difference between a 5y and a 4y swap on the unchanged curve.
+3. The returned `"carry"` field held `pv_today` — the swap's PV, not the carry P&L.
+
+**Fix**: use `curve.roll_down(days)` for a genuine reference-date shift; reprice the same swap on the rolled curve; compute carry as `(fixed_rate - par_rate) × dt` (the standard receiver-swap carry approximation); surface `"pv"` separately.
+
+### Verification — `test_l2_t4_api_key_rate_carry.py`
+
+4 new tests pin: ladder has ≥2 distinct values (pre-fix gave all identical); 7Y pillar drives more 7Y-swap sensitivity than 1Y; carry ≈ 0 when `fixed = par` (was always = PV pre-fix); rolldown matches independent `curve.roll_down` + reprice exactly.
+
+Full parallel suite: **12,671 passed in 2:43** — zero regressions.
+
+**171 distinct bugs** in v0.905→v1.034.
+
+---
+
 ## v1.033.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `api.asian_option` silent no-op n_observations + missing geometric Jensen correction + missing rate drift via df.**
