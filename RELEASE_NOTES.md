@@ -2,6 +2,33 @@
 
 ---
 
+## v1.047.0 — 2026-06-14 — **Fix L2 T4 (options/tarf) — flat-curve discount extrapolation in multi-period MC**
+
+**``TARF.price_mc`` discounted each per-fixing cashflow with a flat-curve extrapolation rather than the actual curve's per-tenor DF.**
+
+Pre-fix:
+
+    rate = -log(curve.df(T)) / T
+    df_t = exp(-rate × t_fix)         # ≡ curve.df(T)^(t/T)
+
+This equals ``curve.df(t_fix)`` ONLY when the discount curve is flat.  For non-flat curves (the common case in production: short-end below long-end), each fixing's cashflow was discounted at a synthetic rate equal to the spot-to-maturity zero rate, not the actual short-rate at ``t_fix``.  Upward-sloping curve ⇒ early fixings over-discounted; downward-sloping ⇒ under-discounted.
+
+Same defect biased the per-segment GBM drift: ``rate`` was used as a constant in ``S = S × exp((rate − q − σ²/2)·dt + σ·√dt·Z)`` so the path drift didn't track the curve's forward-rate term structure between fixings.
+
+Fix:
+- Per-fixing discount uses ``curve.df(fixing_date)`` directly.
+- Per-segment drift uses the segment forward zero rate ``-log(df_i / df_{i-1}) / dt_i`` so each step matches the curve's local term structure.
+
+For a flat curve the two formulations coincide exactly — no behaviour change.
+
+(Note: full FX TARF would also subtract the FCY rate in the drift; that's a multi-curve extension out of scope for this single-curve interface.)
+
+**Files changed**:
+- `python/pricebook/options/tarf.py` — precomputes ``dfs_fix`` and ``seg_drift_rate`` from the curve; loop uses both.
+- `python/tests/test_l2_t4_tarf_curve_term_structure.py` (new) — flat curve still produces finite price; sloped curve produces finite, bounded price (proves we use ``curve.df`` per fixing).
+
+---
+
 ## v1.046.0 — 2026-06-14 — **Fix L2 T4 (options/autocallable) — coupon_barrier silent no-op**
 
 **``Autocallable.price_mc`` ignored ``coupon_barrier`` entirely.**
