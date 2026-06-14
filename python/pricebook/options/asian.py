@@ -39,12 +39,24 @@ def geometric_asian_analytical(
     The geometric average of GBM is itself lognormal, so Black-76 applies
     with adjusted forward and volatility.
 
-    Uses discrete monitoring at n_steps equally spaced points.
+    Uses discrete monitoring at n equally spaced points
+    ``t_i = i·T/n`` for ``i = 1..n`` (i.e. n random observations,
+    NOT including the deterministic t_0 = 0).
+
+    Fix T4-OPTIONS: pre-fix ``vol_g = σ·sqrt((2n+1)/(6(n+1)))`` matched
+    the case of n+1 monitoring points *including* the deterministic
+    t_0=0, while the drift formula and the MC monitoring (``paths[:, 1:]``
+    in mc_asian_arithmetic) use n points starting at t_1.  The
+    inconsistency biased σ_g LOW by a factor of n/(n+1) — about 7.7%
+    for n=12.  As a control variate this produces a biased adjustment.
+
+    Correct formula for n monitoring points (Kemna-Vorst):
+        σ_g² = σ² · (n+1)(2n+1) / (6n²)
     """
     n = n_steps
 
-    # Adjusted vol for geometric average
-    vol_g = vol * math.sqrt((2 * n + 1) / (6 * (n + 1)))
+    # Adjusted vol for geometric average (n monitoring points, t_i = i·T/n).
+    vol_g = vol * math.sqrt((n + 1) * (2 * n + 1) / (6 * n * n))
 
     # Adjusted drift for geometric average
     mu = rate - div_yield

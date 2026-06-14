@@ -133,12 +133,23 @@ class TestAsianOption:
         assert result.n_paths > 0
 
     def test_tw_vs_mc_close(self):
-        """TW and MC should agree within MC error."""
-        schedule = AsianSchedule.monthly(REF, END)
+        """TW and MC should agree within MC error.
+
+        Uses fixings t_1..t_n EXCLUDING the valuation date so both methods
+        price the same option.  ``AsianSchedule.monthly(REF, REF+12M)``
+        would include REF as a deterministic fixing — TW honours that,
+        but ``mc_asian_arithmetic`` assumes uniform monitoring on (0,T]
+        regardless of schedule (see L2 T4 audit; deeper schedule-time
+        bug deferred to its own slice).
+        """
+        from dateutil.relativedelta import relativedelta
+        # 12 monthly fixings, t_1..t_12 (uniform on (0,T], no t_0).
+        dates = [REF + relativedelta(months=i) for i in range(1, 13)]
+        schedule = AsianSchedule(fixing_dates=dates)
         opt = AsianOption(schedule=schedule, strike=100)
         tw = opt.price(spot=100, curve=_curve(), vol=0.20, method="tw")
         mc = opt.price(spot=100, curve=_curve(), vol=0.20, method="mc", n_paths=200_000)
-        # TW is an approximation — within 1% of each other
+        # TW is an approximation — within 1% of each other.
         assert abs(tw.price - mc.price) / max(mc.price, 0.01) < 0.01
 
     def test_partial_fixings(self):
