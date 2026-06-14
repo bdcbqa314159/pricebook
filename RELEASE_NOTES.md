@@ -2,6 +2,41 @@
 
 ---
 
+## v1.033.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `api.asian_option` silent no-op n_observations + missing geometric Jensen correction + missing rate drift via df.**
+
+Three coupled defects in the geometric-Asian approximation:
+
+1. **`n_observations` silently ignored**. The signature accepted it but the body always used `σ/√3` (the continuous-monitoring limit), regardless of the value passed. Same shape as v0.996 / v1.014 / v1.022 / v1.033 silent-no-op family.
+
+2. **No geometric-Jensen correction**. The Kemna-Vorst forward `F_G = F · exp(-½·(σ²-σ²_g)·t_avg)` was missing — the code used spot directly. For σ=0.20, T=1, n→∞ this is a ~0.33% bias.
+
+3. **No rate drift via df**. Pre-fix passed `spot` (not the forward `F = spot/df`) so any df < 1 silently skipped the rate-induced forward shift — same shape as the v1.032 digital_option bug.
+
+**Fix**: implement the Kemna-Vorst discrete formula
+
+    σ²_geom = σ² · (n+1)(2n+1) / (6·n²)        → σ²/3 as n → ∞
+    F_geom  = (spot/df) · exp(-½·(σ²-σ²_g)·t_avg)
+    t_avg   = (n+1)/(2n) · T
+
+then price via Black-76 on `(F_geom, K, σ_geom, T, df)`.
+
+### Verification — `test_l2_t4_asian_n_observations.py`
+
+3 new tests pin:
+- `n=12` price > `n=10000` price (discrete vol higher than continuous), ratio 1.02-1.10.
+- Large-`n` limit matches the closed-form `σ/√3` + Jensen correction.
+- Positive rates produce a price-vs-no-rates ratio greater than just `df` (i.e., the forward shift is captured, not just discount).
+
+Existing `test_apix.py::test_asian` (loose `> 0` assertion) unaffected.
+
+Full parallel suite: **12,667 passed in 2:41** — zero regressions.
+
+**170 distinct bugs** in v0.905→v1.033.
+
+---
+
 ## v1.032.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `api.digital_option` d2 omitted risk-neutral drift.**
