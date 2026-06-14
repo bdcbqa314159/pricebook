@@ -2,6 +2,35 @@
 
 ---
 
+## v1.043.0 — 2026-06-14 — **Fix L2 T4 (options/) — silent spot=100 sweep across 5 equity options**
+
+**Five equity-option ``pv_ctx`` implementations silently hardcoded ``spot=100.0`` (or returned ``0.0``).**
+
+Same recurring "silent no-op API param" pattern as the BarrierOption fix in v1.042 — every engine call to ``pv_ctx`` got a PV computed for a 100-spot underlying regardless of the actual market spot, because ``PricingContext`` carries no ``equity_spots`` field.
+
+Affected instruments (each used ``spot=100.0`` or returned ``0.0``):
+- ``options.american_option.AmericanOption`` — ``spot=100``
+- ``options.autocallable.Autocallable`` — ``spot=100``
+- ``options.asian_option.AsianOption`` — ``spot=100``
+- ``options.cliquet.Cliquet`` — ``spot=100``
+- ``options.basket_option.BasketOption`` — returned ``0.0``
+
+Fix: each ``pv_ctx`` now raises ``NotImplementedError`` with a diagnostic message pointing to the direct ``.price()`` / ``.price_mc()`` entry points.  Loud failure over silent wrong-price until ``PricingContext.equity_spots`` (and per-asset spots/correlations for baskets) is added in a dedicated architectural slice.
+
+Not in scope (deferred):
+- ``options.tarf.TARF.pv_ctx`` uses ``spot=self.strike`` (ATM default) — different default, partial functionality, will be addressed when ``PricingContext.fx_spots`` is properly threaded through.
+- Adding the actual ``equity_spots`` channel to ``PricingContext`` — architectural change, separate slice.
+
+**Files changed**:
+- `python/pricebook/options/american_option.py`
+- `python/pricebook/options/autocallable.py`
+- `python/pricebook/options/asian_option.py`
+- `python/pricebook/options/cliquet.py`
+- `python/pricebook/options/basket_option.py`
+- `python/tests/test_l2_t4_equity_options_pv_ctx_sweep.py` (new) — 5 regression tests, one per instrument.
+
+---
+
 ## v1.042.0 — 2026-06-14 — **Fix L2 T4 (options/barrier_option) — two silent-no-op API params**
 
 **`options.barrier_option.BarrierOption` had two distinct silent-no-op footguns producing wrong PV.**
