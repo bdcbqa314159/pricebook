@@ -126,19 +126,25 @@ def euler_allocation(
 
     if correlation_matrix is not None:
         corr = np.asarray(correlation_matrix)
-        # Covariance: Sigma_ij = s_i × s_j × rho_ij (treat standalone as std dev proxy)
-        cov = np.outer(standalones, standalones) * corr
-        w = standalones / total_standalone
+        # Fix T4-REG: Tasche Euler std-dev decomposition (treating each
+        # standalone capital as desk i's risk fully invested at unit
+        # weight).  Pre-fix mixed w = s/total with cov = outer(s,s)*corr,
+        # producing s_i^4 fractions instead of the standard s_i^2
+        # (variance-proportional) Euler split.  Worked example: for
+        # uncorrelated s=[10,20,10] pre-fix gave [5.5%, 88.9%, 5.5%];
+        # standard Euler gives [16.7%, 66.7%, 16.7%].
+        #
+        # Euler std-dev:  σ_p = √(s' corr s);  RC_i = s_i (corr s)_i / σ_p
+        #   ⇒ Σ_i RC_i = σ_p (sums to total diversified capital).
+        sigma_p_sq = float(standalones @ corr @ standalones)
+        sigma_p = float(np.sqrt(max(sigma_p_sq, 0.0)))
 
         if portfolio_capital is None:
-            # Diversified capital = sqrt(sum_ij s_i * s_j * rho_ij)
-            portfolio_capital = float(np.sqrt(max(float(standalones @ corr @ standalones), 0.0)))
-        marginal = cov @ w
-        risk_contributions = marginal * w
-        rc_total = float(np.sum(risk_contributions))
+            portfolio_capital = sigma_p
 
-        if rc_total > 0:
-            allocated = [float(rc / rc_total * portfolio_capital) for rc in risk_contributions]
+        if sigma_p > 0:
+            rc = standalones * (corr @ standalones) / sigma_p
+            allocated = [float(rc_i / sigma_p * portfolio_capital) for rc_i in rc]
         else:
             allocated = [float(s / total_standalone * portfolio_capital) for s in standalones]
     else:
