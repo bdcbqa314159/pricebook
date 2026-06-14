@@ -311,14 +311,26 @@ def calculate_duration_gap(assets: list[dict], liabilities: list[dict]) -> dict:
 def calculate_eve_impact(gap_analysis: dict, rate_shock_bps: int = 200) -> dict:
     """ΔEVE from interest rate shock.
 
-    ΔEVE ≈ -DurationGap × Equity × Δr
+    Standard duration-gap formula (Mishkin/Eakins):
+        ΔE = ΔA − ΔL = −D_A·A·Δr + D_L·L·Δr
+           = −A·(D_A − (L/A)·D_L)·Δr
+           = −A · DurationGap · Δr
+
+    Fix T4-REG: pre-fix used ``-DurationGap × Equity × Δr`` which is off
+    by a factor of A/E (≈10× for typical banks).  The companion
+    ``eve_change_pv01 = -net_pv01 × bps`` was already correct (since
+    ``net_pv01 = A·D_A − L·D_L = A·DurationGap``), so the two outputs
+    silently disagreed by exactly A/E.  Downstream
+    ``calculate_irrbb_capital`` uses ``worst_eve_change`` (the broken
+    one), so banks under-stated SOT outlier capital by ~10×.
     """
     equity = gap_analysis["equity"]
     duration_gap = gap_analysis["duration_gap"]
     net_pv01 = gap_analysis["net_pv01"]
+    total_assets = gap_analysis["total_assets"]
 
     rate_shock = rate_shock_bps / 10000
-    eve_change = -duration_gap * equity * rate_shock
+    eve_change = -duration_gap * total_assets * rate_shock
     eve_change_pv01 = -net_pv01 * rate_shock_bps  # negative because PV decreases when rates rise
     eve_change_pct = (eve_change / equity * 100) if equity > 0 else 0
 
