@@ -77,25 +77,32 @@ def inflation_risk_metrics(
     """
     base_pv = _price_inflation(instrument, discount_curve, cpi_curve)
 
+    # Fix T4-DESKS: pre-fix ``(pv_up - pv_dn) / 2`` returned the PV
+    # change for whatever ``bump`` the caller supplied — only meant
+    # "per 1bp" when ``bump == 0.0001``.  Normalise by ``0.0001 / bump``
+    # so ie01/real_dv01/nominal_dv01 are always "PV per 1bp".  Gamma is
+    # already correctly normalised by ``bump ** 2``.
+    _per_bp = 0.0001 / bump
+
     # IE01: bump breakeven (CPI curve) by 1bp
     cpi_up = cpi_curve.bumped(bump)
     cpi_dn = cpi_curve.bumped(-bump)
     pv_cpi_up = _price_inflation(instrument, discount_curve, cpi_up)
     pv_cpi_dn = _price_inflation(instrument, discount_curve, cpi_dn)
-    ie01 = (pv_cpi_up - pv_cpi_dn) / 2
+    ie01 = (pv_cpi_up - pv_cpi_dn) / 2 * _per_bp
 
-    # Gamma: second-order breakeven sensitivity
+    # Gamma: second-order breakeven sensitivity (already in 1/rate² units)
     gamma = (pv_cpi_up - 2 * base_pv + pv_cpi_dn) / (bump ** 2)
 
     # Real DV01: bump discount curve only (centred)
     pv_disc_up = _price_inflation(instrument, discount_curve.bumped(bump), cpi_curve)
     pv_disc_dn = _price_inflation(instrument, discount_curve.bumped(-bump), cpi_curve)
-    real_dv01 = (pv_disc_up - pv_disc_dn) / 2
+    real_dv01 = (pv_disc_up - pv_disc_dn) / 2 * _per_bp
 
     # Nominal DV01: bump both curves simultaneously (centred)
     pv_both_up = _price_inflation(instrument, discount_curve.bumped(bump), cpi_up)
     pv_both_dn = _price_inflation(instrument, discount_curve.bumped(-bump), cpi_dn)
-    nominal_dv01 = (pv_both_up - pv_both_dn) / 2
+    nominal_dv01 = (pv_both_up - pv_both_dn) / 2 * _per_bp
 
     notional = getattr(instrument, 'notional', 0.0)
 

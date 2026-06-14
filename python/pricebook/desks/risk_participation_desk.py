@@ -59,15 +59,19 @@ def rp_risk_metrics(
     result = rp.price(discount_curve, survival_curve)
     base_pv = result.pv
 
+    # Fix T4-DESKS: normalise centred differences by bump so cs01/dv01
+    # are always "PV per 1bp" regardless of caller-supplied bump tuning.
+    _per_bp = 0.0001 / bump
+
     # CS01: centred difference on survival curve
     pv_up = rp.price(discount_curve, survival_curve.bumped(bump)).pv
     pv_dn = rp.price(discount_curve, survival_curve.bumped(-bump)).pv
-    cs01 = (pv_up - pv_dn) / 2
+    cs01 = (pv_up - pv_dn) / 2 * _per_bp
 
     # DV01: centred difference on discount curve
     pv_disc_up = rp.price(discount_curve.bumped(bump), survival_curve).pv
     pv_disc_dn = rp.price(discount_curve.bumped(-bump), survival_curve).pv
-    dv01 = (pv_disc_up - pv_disc_dn) / 2
+    dv01 = (pv_disc_up - pv_disc_dn) / 2 * _per_bp
 
     jtd = rp.jtd(discount_curve, survival_curve)
 

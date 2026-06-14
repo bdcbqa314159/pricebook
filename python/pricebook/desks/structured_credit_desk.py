@@ -90,10 +90,11 @@ def sc_risk_metrics(
     inst = entry.instrument
     base_pv = _price_sc(entry, curve)
 
-    # DV01: bump discount curve
+    # DV01: bump discount curve.  Fix T4-DESKS: normalise by bump so
+    # the output is always "PV per 1bp" regardless of bump tuning.
     pv_up = _price_sc(entry, curve.bumped(bump))
     pv_dn = _price_sc(entry, curve.bumped(-bump))
-    dv01 = (pv_up - pv_dn) / 2
+    dv01 = (pv_up - pv_dn) / 2 * (0.0001 / bump)
 
     # CS01: instrument-specific
     cs01 = 0.0
