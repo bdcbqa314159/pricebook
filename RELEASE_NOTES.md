@@ -2,6 +2,32 @@
 
 ---
 
+## v1.026.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `swap_desk` theta computation used stale floating projection.**
+
+The theta rolldown lambda in both `swap_risk_metrics` and `swap_daily_pnl` had a no-op ternary:
+
+    lambda c: swap.pv(c, proj if proj is curve else proj)
+
+Both branches return `proj` — the conditional has no effect. Under single-curve setup this meant the lambda discounted with the rolled `c` but projected forwards from the original-t=0 `curve`, so the floating leg's forward rates were stale (1 day behind discount) while the discount side had rolled.
+
+**Fix**:
+- Single-curve: pass `None` to `swap.pv` so the floating leg defaults to using rolled `c` for projection too.
+- Dual-curve: pre-roll the projection by 1 day alongside the discount.
+
+Numerical impact is small (1-day projection drift on a few coupons) but the discount/projection asymmetry was a clear correctness defect — and the dead ternary signalled an incomplete refactor.
+
+### Verification — `test_l2_t4_swap_desk_theta.py`
+
+2 new tests pin `theta == swap.pv(rolled, None) - swap.pv(curve, None)` exactly under single-curve, for both `swap_risk_metrics` and `swap_daily_pnl`.
+
+Full parallel suite: **12,650 passed in 2:34** — zero regressions.
+
+**163 distinct bugs** in v0.905→v1.026.
+
+---
+
 ## v1.025.0 — 2026-06-14
 
 **Fix L2 phase-2 (regulatory/) — `liquidity._asf_factor` mis-ordered: 200-day retail deposit returned 50% ASF instead of 90% per Basel LIQ40.5.**
