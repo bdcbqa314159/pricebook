@@ -870,11 +870,33 @@ def asian_option(
     """Asian option price (geometric approximation via adjusted Black-76).
 
         pb.asian_option(100, 100, 0.20, 1.0)
+
+    Fix T4-DESKS: pre-fix accepted ``n_observations`` in the signature
+    but the body used the continuous-monitoring approximation
+    ``σ/√3`` regardless — the parameter was a silent no-op.  Now the
+    Kemna-Vorst discrete-monitoring formula is used:
+
+        σ²_geom = σ² · (n+1)(2n+1) / (6·n²)
+
+    which → σ²/3 as n → ∞, matching the prior continuous case.  Also
+    builds the geometric-average forward ``F_G = (spot/df) ·
+    exp(-σ²·T·(n-1)/(4n))`` so the formula handles ``df < 1`` (positive
+    rates) correctly — pre-fix passed spot as forward, missing both
+    the rate drift and the variance-driven Jensen correction.
     """
-    adj_vol = vol / math.sqrt(3)
+    n = max(n_observations, 1)
+    adj_vol_sq = vol * vol * (n + 1) * (2 * n + 1) / (6 * n * n)
+    adj_vol = math.sqrt(adj_vol_sq)
+    # Geometric-average forward (Kemna-Vorst): F_G = F · exp(-½·(σ²-σ²_g)·t_avg)
+    # where t_avg = (n+1)/(2n)·T.  For continuous monitoring this gives
+    # F · exp(-σ²·T/12).  Combined with the rate drift via the df-implied
+    # forward F = spot/df.
+    forward = spot / df if df > 0 else spot
+    t_avg = (n + 1) / (2.0 * n) * T
+    forward_geom = forward * math.exp(-0.5 * (vol * vol - adj_vol_sq) * t_avg)
     ot = OptionType.CALL if option_type.lower() == "call" else OptionType.PUT
     from pricebook.models.black76 import black76_price
-    return black76_price(spot, strike, adj_vol, T, df, ot)
+    return black76_price(forward_geom, strike, adj_vol, T, df, ot)
 
 
 def digital_option(
