@@ -2,6 +2,24 @@
 
 ---
 
+## v1.038.0 — 2026-06-14
+
+**Fix L2 phase-2 (structured/) — `mortality_bond_price` truncates non-integer T (same shape as v1.035 cat_bond).**
+
+The annual-coupon PV loop used `range(1, int(T) + 1)` which silently dropped any non-integer remainder of `T`. For `T = 0.5` (6-month bond) the loop was empty → zero coupon PV; for `T = 3.5` the final 0.5y accrual was missed.
+
+**Fix**: add a fractional final accrual `coupon × notional × remainder × df(T)` when `T - int(T) > 0`. Same pattern as the v1.035 fix in cat_bond_price.
+
+### Verification — `test_l2_t4_mortality_bond_fractional_T.py`
+
+3 new tests pin: 6-month bond has non-zero coupon PV; integer T case unchanged; fractional T adds the expected ~0.5y accrual.
+
+Full parallel suite: **12,681 passed in 2:36** — zero regressions.
+
+**175 distinct bugs** in v0.905→v1.038.
+
+---
+
 ## v1.037.0 — 2026-06-14
 
 **Fix L2 phase-2 (structured/) — `outperformance_certificate` had two coupled defects.**
