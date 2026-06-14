@@ -2,6 +2,29 @@
 
 ---
 
+## v1.022.0 — 2026-06-14
+
+**Fix L2 phase-2 (regulatory/) — `balance_sheet_allocation.optimise_allocation` dead `max_single_trade_pct` parameter (silent no-op).**
+
+Same shape as v0.996 `risk.factor_model.factor_timing` and v1.014 `portfolio_construction.mean_variance` — the API parameter `max_single_trade_pct: float = 0.25` was in the signature and docstring but the body never referenced it. A single trade could absorb the entire capital budget despite the documented concentration limit, and existing tests never exercised the parameter.
+
+**Fix**: collapse the concentration limit into the per-trade upper bound
+
+    rwa_i · w_i · 0.08 ≤ max_single_trade_pct · total_capital
+    ⇒ w_i ≤ max(0, max_single_trade_pct · total_capital / (rwa_i · 0.08))
+
+Also removed the dead `rocs` list (computed and discarded).
+
+### Verification — `test_l2_t4_bs_allocation_concentration.py`
+
+4 new tests pin: no trade exceeds the per-trade cap; tighter pct → at least as many trades selected; default `pct=0.25` still well-formed.
+
+Full parallel suite: **12,631 passed in 2:32** — zero regressions.
+
+**159 distinct bugs** in v0.905→v1.022.
+
+---
+
 ## v1.021.0 — 2026-06-14
 
 **Fix L2 phase-2 (regulatory/) — `securitization.calculate_sec_sa_rw` SSFA formula had spurious K_a multiplier (both branches) and missing /(D−A) in straddle branch.**
