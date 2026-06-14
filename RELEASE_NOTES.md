@@ -2,6 +2,39 @@
 
 ---
 
+## v1.049.0 — 2026-06-14 — **Fix L2 T4 (options/bermudan_swaption) — three coupled defects in HW tree + LSM α(t)**
+
+**``bermudan_swaption_tree`` rolled three coupled errors into one badly-broken HW trinomial pricer.**  All three fixed in this slice (T4-BERM1); LSM α(t) bug also fixed in parallel (T4-BERM2).
+
+**Bug 1 — Wrong trinomial probabilities.** The drift terms used ``/6`` instead of the textbook Hull §32.4 eq. 32.10 form ``/2``:
+
+    p_u = 1/6 + (j²a²Δt² − j·a·Δt) / 6     # WRONG
+    p_d = 1/6 + (j²a²Δt² + j·a·Δt) / 6     # WRONG
+
+Both sum to 1, so the bug doesn't show as an invalid-probability error.  But ``p_u − p_d = −j·a·Δt/3`` instead of ``−j·a·Δt`` — the drift term is **3× too small**, so the tree's mean-reversion is heavily understated and the tree's vol-of-rates is correspondingly inflated.
+
+**Bug 2 — Missing time-varying α(t) shift.**  Short rate at node (step, j) used ``r0 + j·dr`` for every step.  Proper HW trinomial fits ``α(t_i)`` at each step boundary so the tree exactly reprices the initial discount curve at every node row (Hull §32.4).  Without this, the tree silently mis-matches any non-flat input curve.  Same defect already fixed in ``tree_european_swaption`` as T1.9.
+
+**Bug 3 — Exercise compared to discounted continuation.**  The backward loop computed:
+
+    new_values = exp(−r·dt) × Σ p · V_{step+1}        # discounted to step
+    if (step + 1) in exercise_steps:
+        new_values = max(new_values, exercise_at_step+1)  # NOT discounted!
+
+So the exercise side was compared to the DISCOUNTED continuation without itself being discounted from step+1 back to step — exercise systematically over-valued by ``exp(+r·dt)``.  For the single-exercise (European) limit, the bug eliminated the **entire** terminal discount factor, inflating European prices by ``exp(r·T)`` (≈28% bias for r=5%, T=5y).
+
+**Fix structure**:
+- New ``HullWhite.build_tree_alphas(T, n_steps)`` exposes the per-step calibrated ``α[i]`` values (forward-fit so the tree reprices the discount curve).
+- ``bermudan_swaption_tree`` is rewritten to: call ``build_tree_alphas``, backward-induce with ``r_j = α[step] + j·dr`` and the textbook ``/2`` probabilities, apply exercise AT its own step (modifying V[step] before the next backward discount).
+- ``bermudan_swaption_lsm``: conditional OU mean now centres on ``α(t)`` (Brigo-Mercurio closed-form) instead of ``forward_rate(t)`` — convexity correction ``(σ²/2a²)(1−e^{−at})²`` was missing.
+
+**Files changed**:
+- `python/pricebook/models/hull_white.py` — adds ``build_tree_alphas`` helper.
+- `python/pricebook/options/bermudan_swaption.py` — tree rewritten end-to-end; LSM OU drift corrected.
+- `python/tests/test_l2_t4_bermudan_swaption_hw_tree.py` (new) — 6 regression tests: European limit matches reference, tree ZCB matches input curve on a sloped curve, sensitivity to mean-reversion has correct sign, LSM ≤ tree as expected lower bound under sloped curve.
+
+---
+
 ## v1.048.0 — 2026-06-14 — **Fix L2 T4 (options/capfloor) — pv_ctx collapsed term-structure surface to a single vol**
 
 **``CapFloor.pv_ctx`` called ``vol_surface.vol()`` with no arguments and used the resulting scalar for every caplet.**
