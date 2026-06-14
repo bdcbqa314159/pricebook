@@ -2,6 +2,32 @@
 
 ---
 
+## v1.041.0 — 2026-06-14 — **Fix L2 T4 (options/asian) — geometric σ_g formula off by factor n/(n+1)**
+
+**`options.asian.geometric_asian_analytical` σ_g formula was inconsistent with its own drift formula and the MC monitoring convention.**
+
+Pre-fix vol formula:
+
+    σ_g² = σ² · (2n+1) / (6(n+1))
+
+This corresponds to **n+1** monitoring points including a deterministic t_0=0.  But the drift formula `(μ-σ²/2)(n+1)/(2n)` and the MC counterpart (`mc_asian_arithmetic` uses `paths[:, 1:]` → t_1..t_n) treat the average as **n random points** at t_i = T·i/n.  These two conventions are inconsistent.
+
+Correct Kemna-Vorst σ_g for n random monitoring points:
+
+    σ_g² = σ² · (n+1)(2n+1) / (6n²)
+
+Impact: at n=12 the σ_g was ~7.7% too low, biasing the geometric Asian price downward and — critically — biasing the **control variate adjustment** in `mc_asian_arithmetic(... control_variate=True)`.  Pre-fix the MC_cv arithmetic Asian came out ~5-7% too low.
+
+Continuous limit (n→∞) is unchanged (both forms → σ²/3).
+
+**Files changed**:
+- `python/pricebook/options/asian.py` — σ_g formula corrected + provenance comment.
+- `python/tests/test_l2_t4_geometric_asian_vol_formula.py` (new) — 3 regression tests:
+  closed-form match, n→∞ continuous limit (σ/√3), MC@200k paths within 3σ of analytical.
+- `python/tests/test_asian_option.py` — `test_tw_vs_mc_close` now uses 12 fixings on t_1..t_12 (excluding t_0 = REF) so TW and MC price the same option.  The `AsianSchedule.monthly(REF, REF+12M)` convention (which includes REF as a deterministic fixing) exposes a **separate** schedule-time-mismatch bug in `mc_asian_arithmetic`: it assumes uniform monitoring on (0,T] regardless of the actual schedule.  Pre-fix this bug was masked by the σ_g error compensating in the CV adjustment; deferred to its own slice.
+
+---
+
 ## v1.040.0 — 2026-06-14 — **🎯 1.040 milestone**
 
 **Fix L2 phase-2 (pricing/) — `pricing_engine._pv_fallback` had two coupled silent-default defects.**
