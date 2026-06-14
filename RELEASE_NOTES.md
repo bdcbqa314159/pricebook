@@ -2,6 +2,24 @@
 
 ---
 
+## v1.042.0 — 2026-06-14 — **Fix L2 T4 (options/barrier_option) — two silent-no-op API params**
+
+**`options.barrier_option.BarrierOption` had two distinct silent-no-op footguns producing wrong PV.**
+
+1. **`rebate` ignored end-to-end**: constructor accepts and round-trips ``rebate``, but neither ``_price_pde`` (calls ``fd_barrier_knockout/knockin`` which take no rebate) nor ``_price_mc`` (multiplies payoff by ``survived``/``activated`` masks with no rebate term) honoured it.  Any non-zero rebate was silently dropped — PV indistinguishable from the no-rebate case.
+
+2. **`pv_ctx` hardcoded `spot=100.0`**: when the pricing engine calls ``instrument.pv_ctx(ctx)``, the prior implementation silently substituted ``spot=100.0`` regardless of the actual underlying.  ``PricingContext`` has no ``equity_spots`` field (only ``fx_spots``), so the call couldn't fetch the real spot — but instead of failing, it silently used 100 and returned a wrong PV.  Engine consumers of barrier-on-equity got the price of a 100-spot underlying for every barrier trade.
+
+Fix: raise ``NotImplementedError`` in both cases — loud failure over silent wrong-price.  Real rebate handling (PDE Dirichlet BC + MC payoff term) and a proper ``equity_spots`` channel through ``PricingContext`` are deferred to dedicated slices.
+
+Same silent-spot=100 pattern observed in 5 other equity options (``american_option``, ``autocallable``, ``asian_option``, ``cliquet``, ``basket_option``); each will get its own slice as we audit options/.
+
+**Files changed**:
+- `python/pricebook/options/barrier_option.py` — both ``price()`` and ``pv_ctx()`` raise with diagnostic message.
+- `python/tests/test_l2_t4_barrier_silent_no_ops.py` (new) — 4 regressions pinning the raises plus the rebate=0 happy path.
+
+---
+
 ## v1.041.0 — 2026-06-14 — **Fix L2 T4 (options/asian) — geometric σ_g formula off by factor n/(n+1)**
 
 **`options.asian.geometric_asian_analytical` σ_g formula was inconsistent with its own drift formula and the MC monitoring convention.**
