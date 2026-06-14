@@ -2,6 +2,22 @@
 
 ---
 
+## v1.054.0 — 2026-06-14 — **Fix L2 T4 (options/cliquet) — per-period drift used flat-curve extrapolation**
+
+**``Cliquet.price_mc`` propagated each period's drift with a single flat ``rate = -log(curve.df(T))/T``.**
+
+Same flat-curve extrapolation pattern as ``tarf`` (T4-TARF1, v1.047) rolled forward to cliquet (T4-CLQ1).  For non-flat curves the path's per-period drift was systematically biased: under an upward-sloping curve, early periods saw a drift too high, late periods too low, both averaging to the right terminal forward by construction but with the wrong per-period distribution.
+
+Cliquet's payoff depends explicitly on per-period local returns ``S_i / S_{i-1} - 1`` (clipped to ``[local_floor, local_cap]``), so the per-period distribution matters — not just the marginal terminal distribution.  This wasn't a free pass like for a vanilla European that only sees ``S_T``.
+
+Fix: per-segment drift uses the forward zero rate ``-log(df_i / df_{i-1}) / dt_i``.  Terminal discount unchanged (matches ``curve.df(T)`` exactly).
+
+**Files changed**:
+- `python/pricebook/options/cliquet.py` — precomputes ``seg_dfs`` and ``seg_rate`` from the curve; loop uses per-segment forward rate.
+- `python/tests/test_l2_t4_cliquet_curve_term_structure.py` (new) — 2 regressions: flat curve still produces finite/positive price; sloped curve produces a different price than a flat curve with the same terminal discount (proves per-period drift now depends on slope).
+
+---
+
 ## v1.053.0 — 2026-06-14 — **Fix L2 T4 (options/local_vol) — Gatheral Dupire used spot y and at-fixed-K time derivative**
 
 **``_dupire_local_vol`` carried two coupled errors in the Gatheral total-variance form of the Dupire formula.**
