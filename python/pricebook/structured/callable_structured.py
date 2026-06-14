@@ -134,12 +134,18 @@ def _simulate_two_rates(
     rates_long[:, 0] = r_long0
     rates_short[:, 0] = r_short0
 
+    # Fix T4-STRUCT: pre-fix the ``rate`` parameter was documented in the
+    # comment above as providing drift (``drift = rate * dt to keep rates
+    # positive``) but the update step never used it — pure driftless ABM
+    # with no upward bias.  Now the documented drift is applied each step
+    # so paths stay in a sensible range and respect the stated convention.
     sqdt = math.sqrt(dt)
+    drift = rate * dt
     for i in range(n_steps):
         Z = rng.standard_normal((2, n_paths))
         dW = L @ Z  # shape (2, n_paths)
-        rates_long[:, i + 1] = rates_long[:, i] + vol_long * sqdt * dW[0]
-        rates_short[:, i + 1] = rates_short[:, i] + vol_short * sqdt * dW[1]
+        rates_long[:, i + 1] = rates_long[:, i] + drift + vol_long * sqdt * dW[0]
+        rates_short[:, i + 1] = rates_short[:, i] + drift + vol_short * sqdt * dW[1]
         # Discount: use average rate over the step
         r_avg = 0.5 * (rates_long[:, i] + rates_long[:, i + 1])
         r_avg = np.maximum(r_avg, 0.0)
@@ -171,10 +177,14 @@ def _simulate_one_rate(
     rates = np.zeros((n_paths, n_steps + 1))
     cum_disc = np.ones((n_paths, n_steps + 1))
     rates[:, 0] = r0
+    # Fix T4-STRUCT: ``rate`` was silently unused in the rate update; now
+    # applies the documented ``rate * dt`` drift (same fix as in
+    # _simulate_two_rates above).
+    drift = rate * dt
 
     for i in range(n_steps):
         Z = rng.standard_normal(n_paths)
-        rates[:, i + 1] = rates[:, i] + vol * sqdt * Z
+        rates[:, i + 1] = rates[:, i] + drift + vol * sqdt * Z
         r_avg = 0.5 * (rates[:, i] + rates[:, i + 1])
         r_avg = np.maximum(r_avg, 0.0)
         cum_disc[:, i + 1] = cum_disc[:, i] * np.exp(-r_avg * dt)
