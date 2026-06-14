@@ -159,17 +159,34 @@ def _dupire_local_vol(
         d2sdk2 = 2 * (iv[ti, ki + 1] * dk1 + iv[ti, ki - 1] * dk2 - iv[ti, ki] * (dk1 + dk2)) / (dk1 * dk2 * (dk1 + dk2))
 
     # Gatheral's formula for local vol from total variance w = σ²T:
-    # σ_loc² = (∂w/∂T) / [1 - (y/w)∂w/∂y + 0.25(-1/4 - 1/w + y²/w²)(∂w/∂y)² + 0.5 ∂²w/∂y²]
-    # where y = log(K/S)
+    # σ_loc² = (∂w/∂T) / [1 − (y/w)∂w/∂y + (1/4)(−1/4 − 1/w + y²/w²)(∂w/∂y)²
+    #                      + (1/2) ∂²w/∂y²]
+    # where y = log(K / F_T) is log-moneyness against the FORWARD and
+    # ∂w/∂T is taken at fixed y.
+    #
+    # Fix T4-LV1: pre-fix the code used ``y = log(K / spot)`` (against
+    # spot, not forward) and treated ``dw_dt`` as ``∂w/∂T |_K`` directly.
+    # Both are wrong for non-zero (r − q):
+    #   (a) Gatheral's y is log(K / F_T), not log(K / S).
+    #   (b) Converting from at-fixed-K to at-fixed-y picks up the
+    #       chain term  (r − q) · K · ∂w/∂K  in the numerator.
+    # Both errors silently vanish when r = q = 0 (then F_T = S) but
+    # bias the local vol surface for any standard equity / FX case.
     w = sigma ** 2 * t
-    dw_dt = 2 * sigma * t * dsdt + sigma ** 2
+    # ∂w/∂T at fixed K, and ∂w/∂K, ∂²w/∂K² at fixed T.
+    dw_dt_at_K = 2 * sigma * t * dsdt + sigma ** 2
     dw_dk = 2 * sigma * t * dsdk
     d2w_dk2 = 2 * t * (dsdk ** 2 + sigma * d2sdk2)
+
+    # Convert ∂w/∂T to "at fixed y" via the chain rule.  K = F_T · e^y
+    # with F_T = S · exp((r − q) T), so ∂K/∂T|_y = (r − q) · K.
+    dw_dt = dw_dt_at_K + (rate - div_yield) * k * dw_dk
 
     local_var = max(dw_dt, 1e-10)
 
     if abs(w) > 1e-15:
-        y = math.log(k / spot)
+        forward_T = spot * math.exp((rate - div_yield) * t)
+        y = math.log(k / forward_T)
         dw_dy = k * dw_dk
         d2w_dy2 = k ** 2 * d2w_dk2 + k * dw_dk
         denom_corr = (1
