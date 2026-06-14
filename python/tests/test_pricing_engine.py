@@ -21,6 +21,12 @@ def _flat_curve_dict(rate=0.03):
     return discount_curve_to_dict(curve)
 
 
+def _flat_surv_dict(hazard=0.02):
+    """Helper for CDS-type trades that need a survival curve."""
+    from pricebook.core.survival_curve import SurvivalCurve
+    return survival_curve_to_dict(SurvivalCurve.flat(REF, hazard))
+
+
 # ---- Basic pricing ----
 
 class TestBasicPricing:
@@ -70,9 +76,15 @@ class TestBasicPricing:
         assert result["results"][0]["pv"] > 0
 
     def test_cds(self):
+        # Fix T4-PRICING (v1.040): engine now raises on missing
+        # survival curve for credit instruments instead of silently
+        # defaulting to 2% flat hazard.  Supply an explicit curve.
         request = {
             "valuation_date": "2026-04-28",
-            "market_data": {"discount_curve": _flat_curve_dict()},
+            "market_data": {
+                "discount_curve": _flat_curve_dict(),
+                "survival_curves": {"issuer": _flat_surv_dict(0.02)},
+            },
             "trades": [{"type": "cds", "params": {
                 "start": "2026-04-28", "end": "2031-04-28",
                 "spread": 0.01, "notional": 10_000_000,
@@ -126,7 +138,11 @@ class TestMultipleTrades:
         """Price IRS + bond + CDS in one request."""
         request = {
             "valuation_date": "2026-04-28",
-            "market_data": {"discount_curve": _flat_curve_dict()},
+            "market_data": {
+                "discount_curve": _flat_curve_dict(),
+                # T4-PRICING v1.040: CDS requires explicit survival_curves.
+                "survival_curves": {"issuer": _flat_surv_dict(0.02)},
+            },
             "trades": [
                 {"type": "irs", "params": {"start": "2026-04-28", "end": "2031-04-28", "fixed_rate": 0.035}},
                 {"type": "bond", "params": {"issue_date": "2026-04-28", "maturity": "2036-04-28", "coupon_rate": 0.05}},

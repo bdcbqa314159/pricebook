@@ -210,17 +210,11 @@ def _price_one(
         try:
             pv = instrument.pv(ctx.discount_curve)
         except TypeError:
-            # Some instruments need extra curves (e.g. CDS needs survival_curve)
-            from pricebook.core.survival_curve import SurvivalCurve
-            sc = None
-            if ctx.credit_curves:
-                sc = next(iter(ctx.credit_curves.values()))
-            if sc is None:
-                sc = SurvivalCurve.flat(val_date, 0.02)
-            try:
-                pv = instrument.pv(ctx.discount_curve, sc)
-            except TypeError:
-                pv = instrument.pv(ctx.discount_curve)
+            # Some instruments need extra curves (e.g. CDS needs survival_curve).
+            # Delegate to the centralised fallback which raises on
+            # ambiguous/missing survival_curve rather than silently
+            # picking the first or defaulting to flat 2% (T4-PRICING fix).
+            pv = _pv_fallback(instrument, ctx, val_date)
     else:
         raise ValueError(f"Instrument {inst_type} has no pricing method")
 
@@ -241,13 +235,48 @@ def _price_one(
 
 
 def _pv_fallback(instrument, ctx, val_date):
-    """Try pv() with various argument combinations."""
-    from pricebook.core.survival_curve import SurvivalCurve
+    """Try pv() with various argument combinations.
+
+    Fix T4-PRICING: pre-fix two coupled defects in the credit-curve
+    selection —
+      (a) If multiple credit_curves were provided, ``next(iter(...))``
+          silently picked the FIRST one regardless of which obligor
+          the trade actually referenced (same shape as v0.969 FRA bug).
+      (b) If no credit_curve was provided at all, the engine silently
+          defaulted to a flat 2% hazard, producing a credible-looking
+          but wrong PV with ``status: ok``.
+
+    Now: if the instrument requires a survival curve and the context
+    has none, raise ``ValueError`` with diagnostic context so callers
+    SEE the missing input rather than silently consuming a default.
+    If exactly one survival curve is available, use it.  If multiple
+    are available without disambiguation, raise so the caller can
+    specify which to use.
+    """
     sc = None
     if ctx.credit_curves:
-        sc = next(iter(ctx.credit_curves.values()))
+        if len(ctx.credit_curves) == 1:
+            sc = next(iter(ctx.credit_curves.values()))
+        else:
+            # Multiple curves but no obligor key to pick the right one.
+            raise ValueError(
+                f"Instrument {type(instrument).__name__} requires a survival "
+                f"curve and {len(ctx.credit_curves)} are provided "
+                f"({list(ctx.credit_curves.keys())}).  Specify which by name "
+                f"in the trade params (e.g. ``credit_curve_name``) — silently "
+                f"picking the first one would produce wrong prices for the "
+                f"other obligors."
+            )
     if sc is None:
-        sc = SurvivalCurve.flat(val_date, 0.02)
+        try:
+            return instrument.pv(ctx.discount_curve)
+        except TypeError:
+            raise ValueError(
+                f"Instrument {type(instrument).__name__} requires a survival "
+                f"curve but none was provided in market_data.survival_curves.  "
+                f"Pre-fix the engine defaulted to flat 2% hazard, producing a "
+                f"plausible but incorrect PV with status='ok'."
+            ) from None
     try:
         return instrument.pv(ctx.discount_curve, sc)
     except TypeError:
