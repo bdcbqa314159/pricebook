@@ -92,14 +92,6 @@ def optimise_allocation(
     if max_rwa is None:
         max_rwa = total_capital / 0.08
 
-    # ROC per unit notional
-    rocs = []
-    for t in trades:
-        rwa = t["rwa"]
-        net = t["carry"] - t.get("xva_cost", 0)
-        roc_per_unit = net / max(rwa * 0.08, 1e-10)
-        rocs.append(roc_per_unit)
-
     # Objective: maximize Σ net_i × w_i → minimize -net_i × w_i
     c = [-(t["carry"] - t.get("xva_cost", 0)) for t in trades]
 
@@ -114,8 +106,23 @@ def optimise_allocation(
     A_ub.append([t["rwa"] for t in trades])
     b_ub.append(max_rwa)
 
-    # Bounds: 0 ≤ w_i ≤ max_notional_i
-    bounds = [(0, t.get("max_notional", total_capital * 10)) for t in trades]
+    # Fix T4-REG: ``max_single_trade_pct`` was declared in the signature
+    # but never referenced — allocations could concentrate up to the
+    # ``max_notional`` per-trade ceiling, so a single trade could absorb
+    # the entire capital budget despite the documented concentration
+    # limit.  Now enforced as a per-trade capital cap:
+    #     rwa_i × w_i × 0.08 ≤ max_single_trade_pct × total_capital
+    # collapsed into the upper bound on w_i.
+    bounds = []
+    for t in trades:
+        ub_notional = t.get("max_notional", total_capital * 10)
+        cap_per_trade = max_single_trade_pct * total_capital
+        rwa_i = t["rwa"]
+        if rwa_i > 0:
+            ub_concentration = cap_per_trade / (rwa_i * 0.08)
+            bounds.append((0, min(ub_notional, ub_concentration)))
+        else:
+            bounds.append((0, ub_notional))
 
     result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
 
