@@ -111,8 +111,27 @@ class Cliquet:
         reset_times = [year_fraction(ref, d, DayCountConvention.ACT_365_FIXED)
                        for d in self.reset_dates]
         T = reset_times[-1]
-        rate = -math.log(curve.df(self.maturity)) / max(T, 1e-10)
-        df = math.exp(-rate * T)
+        df = curve.df(self.maturity)
+
+        # Per-segment forward rates so each period's drift matches the
+        # curve's local term structure.  Fix T4-CLQ1 (analogue of
+        # T4-TARF1 in v1.047): pre-fix used a single flat ``rate =
+        # -log(curve.df(T))/T`` for every period's drift.  For non-flat
+        # curves this biased the path distribution (and therefore the
+        # local-return distribution that the cliquet pay-off depends on)
+        # by injecting an average rate that didn't match the forward
+        # rate at each reset date.  Terminal discount is unchanged
+        # (still exp(-r_avg · T) = curve.df(T) exactly).
+        seg_dfs = [curve.df(self.reset_dates[0])] + [
+            curve.df(self.reset_dates[i]) / curve.df(self.reset_dates[i - 1])
+            for i in range(1, len(self.reset_dates))
+        ]
+        seg_rate = []
+        t_prev_calc = 0.0
+        for i, t in enumerate(reset_times):
+            dt_i = t - t_prev_calc
+            seg_rate.append(-math.log(max(seg_dfs[i], 1e-300)) / max(dt_i, 1e-10))
+            t_prev_calc = t
 
         rng = np.random.default_rng(seed)
 
@@ -126,7 +145,8 @@ class Cliquet:
             dt = t - t_prev
             sqrt_dt = math.sqrt(max(dt, 1e-10))
             Z = rng.standard_normal(n_paths)
-            S = S_prev * np.exp((rate - div_yield - 0.5 * vol**2) * dt + vol * sqrt_dt * Z)
+            r_seg = seg_rate[i]
+            S = S_prev * np.exp((r_seg - div_yield - 0.5 * vol**2) * dt + vol * sqrt_dt * Z)
 
             # Local return
             local_ret = S / S_prev - 1.0
