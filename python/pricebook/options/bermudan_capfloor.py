@@ -180,15 +180,33 @@ def _bermudan_capfloor_tree(
     n_nodes = 2 * j_max + 1
     mid = j_max
 
+    # Map exercise dates to step indices — keyed by the step at which
+    # the exercise opportunity arises (NOT step+1 as the pre-fix code
+    # assumed).  See Fix T4-BCF1 below.
     exercise_steps = {int(round(t / dt)): t for t in exercise_sorted}
 
-    # Terminal: all caplets/floorlets have expired — value = 0
+    # Terminal value: if maturity itself is an exercise step, the holder
+    # has the right to take remaining (zero) caplets — value 0 either
+    # way.  Otherwise: zero.
     values = np.zeros(n_nodes)
 
-    # Track exercise probabilities (approximated by node weights at ex dates)
-    # We accumulate the fraction of the value improvement at each exercise step.
     ex_prob_gains: list[float] = []
 
+    # Fix T4-BCF1 — same defect set as bermudan_swaption.py (T4-BERM1)
+    # rolls forward to this Bermudan cap/floor tree:
+    #   (1) Wrong trinomial probabilities — the drift terms used ``/6``
+    #       instead of textbook Hull §32.4 eq. 32.10 ``/2``, so the drift
+    #       was 3× too small.  Fix: switch to ``/2``.
+    #   (2) Exercise compared to discounted continuation — the loop
+    #       computed ``new_values = exp(-r·dt) × continuation`` then took
+    #       ``max(new_values, exercise_at_step+1)``, comparing DISCOUNTED
+    #       continuation to UNDISCOUNTED exercise → exercise systematically
+    #       over-valued by ``exp(+r·dt)``.  Fix: apply exercise AT its
+    #       own step BEFORE the next backward discount.
+    # α(t) is implicit ``r0`` here (flat-curve interface — this module
+    # takes ``r0`` directly with no DiscountCurve), which is correct for
+    # the flat-curve use case.  A non-flat-curve API requires
+    # bermudan_swaption.py-style refactor.
     for step in range(n_steps - 1, -1, -1):
         new_values = np.zeros(n_nodes)
 
@@ -197,18 +215,12 @@ def _bermudan_capfloor_tree(
             r_j = r0 + j * dr
             one_step_df = math.exp(-r_j * dt)
 
-            p_up = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt - j * hw_a * dt) / 6.0
-            p_mid = 2.0 / 3.0 - j * j * hw_a * hw_a * dt * dt / 3.0
-            p_dn = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt + j * hw_a * dt) / 6.0
-
+            # Textbook HW trinomial probabilities — drift term / 2.
+            p_up = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt - j * hw_a * dt) / 2.0
+            p_dn = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt + j * hw_a * dt) / 2.0
             p_up = max(0.0, min(1.0, p_up))
-            p_mid = max(0.0, min(1.0, p_mid))
             p_dn = max(0.0, min(1.0, p_dn))
-            p_total = p_up + p_mid + p_dn
-            if p_total > 0:
-                p_up /= p_total
-                p_mid /= p_total
-                p_dn /= p_total
+            p_mid = max(0.0, 1.0 - p_up - p_dn)
 
             j_up = min(j + 1, j_max)
             j_dn = max(j - 1, -j_max)
@@ -218,8 +230,12 @@ def _bermudan_capfloor_tree(
                     + p_dn * values[j_dn + mid])
             new_values[idx] = cont * one_step_df
 
-        if (step + 1) in exercise_steps:
-            t_ex = exercise_steps[step + 1]
+        # Apply exercise AT this step (modifies V[step] before the next
+        # backward discount).  Step 0 is excluded — there's no
+        # exercise-vs-continuation choice at t=0 (the option value IS
+        # the continuation today).
+        if step in exercise_steps and step > 0:
+            t_ex = exercise_steps[step]
             before_sum = float(new_values[mid])
             for j in range(-j_max, j_max + 1):
                 idx = j + mid
@@ -228,9 +244,9 @@ def _bermudan_capfloor_tree(
                     r_j, t_ex, maturity_years, strike, frequency,
                     hw_a, hw_sigma, r0, is_cap, notional,
                 )
-                new_values[idx] = max(new_values[idx], exercise_val)
+                if exercise_val > new_values[idx]:
+                    new_values[idx] = exercise_val
             after_sum = float(new_values[mid])
-            # Approximate exercise probability as relative value improvement
             if after_sum > 0:
                 ex_prob_gains.append(max(0.0, (after_sum - before_sum) / max(after_sum, 1e-12)))
             else:
