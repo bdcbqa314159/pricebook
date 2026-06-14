@@ -236,7 +236,17 @@ def strip_caplet_vols(
 
 
 def _capfloor_pv_ctx(self, ctx) -> float:
-    """PV using PricingContext."""
+    """PV using PricingContext.
+
+    Per-caplet vol lookup from the IR vol surface.  Fix T4-CAP2:
+    pre-fix this method called ``vol_surface.vol()`` with NO arguments
+    (which only works for ``FlatVol``) and then built a single
+    ``Black76Model(vol)`` used for every caplet in the cap.  For any
+    real surface — term-structure, smile cube — this collapses the
+    caplet vols to a single number (whichever ``vol()`` happens to
+    return) and silently mis-prices every long-dated cap.  Loop
+    per-caplet and look up vol at each caplet's accrual_start.
+    """
     curve = ctx.discount_curve
     if curve is None:
         raise ValueError("No discount curve in context")
@@ -254,8 +264,30 @@ def _capfloor_pv_ctx(self, ctx) -> float:
         vol_surface = ctx.vol_surfaces.get("ir") or next(iter(ctx.vol_surfaces.values()), None)
     if vol_surface is None or not hasattr(vol_surface, 'vol'):
         raise ValueError("CapFloor.pv_ctx requires an IR vol surface in ctx.vol_surfaces")
-    model = Black76Model(vol_surface.vol())
-    return self.price(model, curve, proj)
+
+    proj_used = proj if proj is not None else curve
+    total = 0.0
+    for accrual_start, accrual_end in self.periods:
+        yf = year_fraction(accrual_start, accrual_end, self.day_count)
+        df1 = proj_used.df(accrual_start)
+        df2 = proj_used.df(accrual_end)
+        fwd = (df1 - df2) / (yf * df2)
+        t_fix = year_fraction(curve.reference_date, accrual_start,
+                              DayCountConvention.ACT_365_FIXED)
+        caplet_annuity = yf * curve.df(accrual_end)
+        if t_fix <= 0:
+            if self.option_type == OptionType.CALL:
+                intrinsic = max(fwd - self.strike, 0.0)
+            else:
+                intrinsic = max(self.strike - fwd, 0.0)
+            total += self.notional * caplet_annuity * intrinsic
+            continue
+        # Per-caplet vol from the surface at this caplet's expiry/strike.
+        vol = vol_surface.vol(accrual_start, self.strike)
+        model = Black76Model(vol)
+        total += self.notional * model.price_ir_option(
+            fwd, self.strike, caplet_annuity, t_fix, self.option_type)
+    return total
 
 CapFloor.pv_ctx = _capfloor_pv_ctx
 
