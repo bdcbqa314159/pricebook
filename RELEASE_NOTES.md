@@ -2,6 +2,22 @@
 
 ---
 
+## v1.046.0 — 2026-06-14 — **Fix L2 T4 (options/autocallable) — coupon_barrier silent no-op**
+
+**``Autocallable.price_mc`` ignored ``coupon_barrier`` entirely.**
+
+The constructor accepts and stores ``coupon_barrier`` (and round-trips it through serialisation), and the docstring promises "If S(t) >= coupon_barrier × S₀ ... coupon accrues."  But the MC pricer never checked ``S >= coupon_barrier * spot`` at observation dates — coupons were unconditionally accrued at ``rate * elapsed_t`` (or ``rate * sum(period_lengths[:i+1])`` at autocall), regardless of where the underlying actually traded.
+
+Consequence: setting ``coupon_barrier`` to any value had no effect on price.  An autocallable structured to pay coupons only when the underlying is above (say) 80% of spot priced the same as one paying unconditionally — silent wrong-price for the issuer/buyer.
+
+Fix: track per-path ``coupons_accrued`` that only grows at observation dates where ``S >= coupon_barrier * spot`` (memory-style accumulation, standard for autocallables with memory).  At autocall and at maturity (above put barrier), the payoff uses the actual per-path accrued total instead of a uniform ``rate * elapsed_t``.
+
+**Files changed**:
+- `python/pricebook/options/autocallable.py` — ``price_mc`` now tracks ``coupons_accrued`` per path, gated by ``coupon_barrier``.
+- `python/tests/test_l2_t4_autocallable_coupon_barrier.py` (new) — 3 regression tests: high barrier kills coupons (price drops materially), zero barrier matches the always-accrue limit, below-put-barrier branch unchanged.
+
+---
+
 ## v1.045.0 — 2026-06-14 — **Fix L2 T4 (options/convertible_bond) — final coupon missing from MC terminal payoff**
 
 **``ConvertibleBond.price`` MC backward-induction silently dropped the maturity coupon.**
