@@ -33,9 +33,9 @@ def bermudan_swaption_tree(
 ) -> float:
     """Bermudan swaption via Hull-White trinomial tree.
 
-    Uses standard trinomial branching with transition probabilities
-    from the Hull-White model. At each exercise date, applies
-    max(continuation, exercise_value).
+    Forward-fits per-step α(t) so the tree reprices the initial discount
+    curve, then backward-induces with the textbook trinomial branching.
+    At each exercise step the holder takes ``max(continuation, exercise)``.
 
     Args:
         exercise_years: list of times when exercise is allowed.
@@ -43,78 +43,108 @@ def bermudan_swaption_tree(
         strike: fixed rate of the underlying swap.
         is_payer: True = right to pay fixed (call on rate).
         swap_freq: payment frequency of the underlying swap (e.g. 0.5 for semi-annual).
+
+    Fix T4-BERM1 (this slice) rolls up three coupled defects:
+
+    1. **Wrong trinomial probabilities**: the drift terms used ``/6``
+       (``p_u = 1/6 + (j²a²dt² − j·a·dt)/6``) instead of the textbook
+       ``/2`` (Hull §32.4, eq. 32.10).  Net effect: the drift was 3×
+       too small — mean-reversion underestimated, vol over-stated.
+
+    2. **Missing time-varying α(t)**: short rate at node (step, j) used
+       ``r0 + j·dr`` for every step, with ``r0`` the initial forward
+       rate.  The correct HW tree shifts each step's grid by ``α(t)``
+       so it reprices the initial ZCB curve (same defect fixed in
+       ``tree_european_swaption`` as T1.9).  Pre-fix the tree silently
+       mis-matched the input curve for any non-flat term structure.
+
+    3. **Exercise compared to discounted continuation**: the old loop
+       computed ``new_values = exp(-r·dt) × Σ P · V_{step+1}`` and then,
+       if ``step+1`` was an exercise date, set ``new_values =
+       max(new_values, exercise_at_step+1)`` — but the exercise side was
+       NOT discounted from step+1 back to step.  Result: exercise
+       systematically over-valued by ``exp(+r·dt)``, biasing the option
+       UPWARD.  Now exercise is applied AT its own step (modifying
+       ``V[step]`` before the next backward discount), eliminating the
+       discount mismatch.
     """
     T = max(exercise_years)
     dt = T / n_steps
-    a, sigma = hw.a, hw.sigma
-    dr = sigma * math.sqrt(3.0 * dt)
-    j_max = max(1, int(math.ceil(0.1835 / (a * dt))))
+
+    # Forward sweep: per-step α(t) and tree geometry from the calibrated
+    # HW infrastructure (same code path as ``tree_european_swaption``).
+    alphas, dr, j_max = hw.build_tree_alphas(T, n_steps)
     n_nodes = 2 * j_max + 1
     mid = j_max
+    a = hw.a
 
-    exercise_steps = set(int(round(t / dt)) for t in exercise_years)
+    exercise_steps = {int(round(t / dt)) for t in exercise_years}
 
-    # Get initial short rate
-    r0 = hw._forward_rate(0.0)
+    def _exercise_value_at(step: int, j: int) -> float:
+        """Swap PV at node (step, j), taking max with 0."""
+        t_ex = step * dt
+        # Short rate at this node uses α calibrated at the entry side
+        # (i.e. the shift applied for the transition INTO this step).
+        # For step == n_steps we use alphas[n_steps - 1] as the final
+        # shift; for step == 0 we'd use alphas[0] but exercising at
+        # t=0 is trivially zero for ATM swaptions.
+        alpha_step = alphas[min(step, n_steps - 1)]
+        r_j = alpha_step + j * dr
+        p_end = hw.zcb_price(t_ex, swap_end_years, r_j)
+        annuity = 0.0
+        t_pay = t_ex + swap_freq
+        while t_pay <= swap_end_years + 1e-10:
+            annuity += swap_freq * hw.zcb_price(t_ex, t_pay, r_j)
+            t_pay += swap_freq
+        swap_pv = (1.0 - p_end) - strike * annuity
+        if not is_payer:
+            swap_pv = -swap_pv
+        return max(swap_pv, 0.0)
 
-    # Terminal value: 0 (option expires worthless if not exercised)
+    # Backward induction.  V[step, j] = option value at node (step, j).
+    # Initialise terminal value to either the exercise payoff (if
+    # maturity is an exercise date) or zero.
     values = np.zeros(n_nodes)
+    if n_steps in exercise_steps:
+        for j in range(-j_max, j_max + 1):
+            values[j + mid] = _exercise_value_at(n_steps, j)
 
     for step in range(n_steps - 1, -1, -1):
+        alpha_step = alphas[step]
         new_values = np.zeros(n_nodes)
-
         for j in range(-j_max, j_max + 1):
             idx = j + mid
-            r_j = r0 + j * dr
-            one_step_df = math.exp(-r_j * dt)
+            r_j = alpha_step + j * dr
+            disc = math.exp(-r_j * dt)
 
-            # Trinomial transition probabilities
-            eta = a * j * dr * dt
-            p_up = (1.0 / 6.0) + (j * j * a * a * dt * dt - j * a * dt) / 6.0
-            p_mid = 2.0 / 3.0 - j * j * a * a * dt * dt / 3.0
-            p_down = (1.0 / 6.0) + (j * j * a * a * dt * dt + j * a * dt) / 6.0
+            # Textbook HW trinomial probabilities (Hull eq. 32.10) — the
+            # drift term is divided by 2, not 6.
+            p_u = 1.0/6 + (j**2 * a**2 * dt**2 - j * a * dt) / 2
+            p_d = 1.0/6 + (j**2 * a**2 * dt**2 + j * a * dt) / 2
+            p_u = max(0.0, min(1.0, p_u))
+            p_d = max(0.0, min(1.0, p_d))
+            p_m = max(0.0, 1.0 - p_u - p_d)
 
-            # Clamp probabilities
-            p_up = max(0.0, min(1.0, p_up))
-            p_mid = max(0.0, min(1.0, p_mid))
-            p_down = max(0.0, min(1.0, p_down))
-            p_total = p_up + p_mid + p_down
-            if p_total > 0:
-                p_up /= p_total
-                p_mid /= p_total
-                p_down /= p_total
-
-            # Successor node indices (clamped)
             j_up = min(j + 1, j_max)
-            j_mid = j
-            j_down = max(j - 1, -j_max)
+            j_dn = max(j - 1, -j_max)
 
-            cont = (p_up * values[j_up + mid]
-                     + p_mid * values[j_mid + mid]
-                     + p_down * values[j_down + mid])
-            new_values[idx] = cont * one_step_df
+            cont = (p_u * values[j_up + mid]
+                    + p_m * values[j + mid]
+                    + p_d * values[j_dn + mid])
+            new_values[idx] = cont * disc
 
-        # Check for exercise at this step
-        if (step + 1) in exercise_steps:
-            t_exercise = (step + 1) * dt
+        # Apply exercise opportunity AT this step (modifies new_values
+        # before it becomes V[step] in the next iteration).  Skips
+        # step 0 because the option price at t=0 is the single root
+        # node value, with no holder-vs-continuation choice (you're not
+        # exercising "today" against today's continuation — that's the
+        # option value).
+        if step in exercise_steps and step > 0:
             for j in range(-j_max, j_max + 1):
                 idx = j + mid
-                r_j = r0 + j * dr
-
-                # Swap value at exercise using analytical HW bond prices
-                p_end = hw.zcb_price(t_exercise, swap_end_years, r_j)
-                annuity = 0.0
-                t_pay = t_exercise + swap_freq
-                while t_pay <= swap_end_years + 1e-10:
-                    annuity += swap_freq * hw.zcb_price(t_exercise, t_pay, r_j)
-                    t_pay += swap_freq
-
-                swap_pv = (1.0 - p_end) - strike * annuity
-                if not is_payer:
-                    swap_pv = -swap_pv
-
-                exercise_value = max(swap_pv, 0.0)
-                new_values[idx] = max(new_values[idx], exercise_value)
+                ex = _exercise_value_at(step, j)
+                if ex > new_values[idx]:
+                    new_values[idx] = ex
 
         values = new_values
 
@@ -145,20 +175,28 @@ def bermudan_swaption_lsm(
     rng = np.random.default_rng(seed)
     r0 = hw._forward_rate(0.0)
 
-    # Generate rate at each exercise date via exact OU
+    # Generate rate at each exercise date via exact OU under HW.
+    # Fix T4-BERM2: pre-fix the conditional mean used the forward rate
+    # ``f(0, t)`` as the OU mean.  But under HW the short rate decomposes
+    # as r(t) = α(t) + y(t) where y follows zero-mean OU and α(t) is the
+    # Brigo-Mercurio shift (``HullWhite._alpha``).  Conditional mean is
+    # ``α(t) + (r_prev − α(t_prev)) · exp(−a·dt)``, not the forward.
+    # The difference is the convexity term ``(σ²/2a²)(1 − e^{−at})²`` —
+    # small for short tenors / low vol, but biases long-dated paths.
     rate_paths = np.zeros((n_paths, n_steps))
     r_prev = np.full(n_paths, r0)
+    alpha_prev = hw._alpha(0.0)
 
     for i, t in enumerate(exercise_years_sorted):
         t_prev = exercise_years_sorted[i - 1] if i > 0 else 0.0
         dt = t - t_prev
-        # HW mean-reversion target: use theta(t)/a approximation via forward rate
-        r_mean = hw._forward_rate(t)
+        alpha_t = hw._alpha(t)
         e_adt = math.exp(-hw.a * dt)
         std = hw.sigma * math.sqrt((1 - e_adt**2) / (2 * hw.a)) if hw.a > 0 else hw.sigma * math.sqrt(dt)
         Z = rng.standard_normal(n_paths)
-        rate_paths[:, i] = r_mean + (r_prev - r_mean) * e_adt + std * Z
+        rate_paths[:, i] = alpha_t + (r_prev - alpha_prev) * e_adt + std * Z
         r_prev = rate_paths[:, i]
+        alpha_prev = alpha_t
 
     # Compute exercise value at each exercise date
     exercise_values = np.zeros((n_paths, n_steps))

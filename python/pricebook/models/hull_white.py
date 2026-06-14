@@ -164,6 +164,76 @@ class HullWhite:
         Q, _, _, _ = self._evolve_state_prices(T, n_steps)
         return float(Q.sum())
 
+    def build_tree_alphas(
+        self, T: float, n_steps: int,
+    ) -> tuple[np.ndarray, float, int]:
+        """Calibrate per-step α(t) on the trinomial rate tree.
+
+        Returns ``(alphas, dr, j_max)`` where ``alphas[i]`` is the
+        time-dependent shift used at step ``i`` (i.e. for the transition
+        from t = i·dt to t = (i+1)·dt).  The short rate at tree node
+        (i, j) is ``alphas[i] + j·dr``.
+
+        This is the forward-induction tree-fitting step from Hull §32.4:
+        α at each step is solved so the tree exactly reprices today's
+        zero-coupon bond maturing at the step boundary.  Callers needing
+        backward induction (Bermudan swaptions, callable bonds) can take
+        these alphas directly and avoid duplicating the forward sweep.
+        """
+        dt = T / n_steps
+        a, sigma = self.a, self.sigma
+        dr = sigma * math.sqrt(3.0 * dt)
+        j_max = int(math.ceil(0.1835 / (a * dt)))
+        n_nodes = 2 * j_max + 1
+        mid = j_max
+
+        Q = np.zeros(n_nodes)
+        Q[mid] = 1.0
+        ref = self.curve.reference_date
+        r0 = self._forward_rate(0.0)
+        alphas = np.zeros(n_steps)
+
+        for step in range(n_steps):
+            t_next = (step + 1) * dt
+            d_next = date_from_year_fraction(ref, t_next)
+            target_df = self.curve.df(d_next)
+
+            sum_q = 0.0
+            for j in range(-j_max, j_max + 1):
+                idx = j + mid
+                if Q[idx] > 0:
+                    sum_q += Q[idx] * math.exp(-j * dr * dt)
+
+            if sum_q > 0 and target_df > 0:
+                alpha = -math.log(target_df / sum_q) / dt
+            else:
+                alpha = r0
+            alphas[step] = alpha
+
+            Q_new = np.zeros(n_nodes)
+            for j in range(-j_max, j_max + 1):
+                idx = j + mid
+                if Q[idx] <= 1e-20:
+                    continue
+                r_j = alpha + j * dr
+                discount = math.exp(-r_j * dt)
+                k = max(-j_max + 1, min(j_max - 1, j))
+
+                # Textbook Hull-White trinomial probabilities (Hull §32.4,
+                # eq. 32.10 in 11th ed): the drift term is divided by 2.
+                p_u = max(0.0, min(1.0, 1.0/6 + (j**2*a**2*dt**2 - j*a*dt)/2))
+                p_d = max(0.0, min(1.0, 1.0/6 + (j**2*a**2*dt**2 + j*a*dt)/2))
+                p_m = max(0.0, 1.0 - p_u - p_d)
+
+                contrib = Q[idx] * discount
+                Q_new[min(k+1, j_max) + mid] += contrib * p_u
+                Q_new[k + mid] += contrib * p_m
+                Q_new[max(k-1, -j_max) + mid] += contrib * p_d
+
+            Q = Q_new
+
+        return alphas, dr, j_max
+
     def tree_european_swaption(
         self,
         expiry_T: float,
