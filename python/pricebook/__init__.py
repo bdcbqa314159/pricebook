@@ -1,4 +1,4 @@
-__version__ = "1.024.0"
+__version__ = "1.025.0"
 
 
 def __getattr__(name: str):
