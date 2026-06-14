@@ -2,6 +2,26 @@
 
 ---
 
+## v1.028.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `cb_risk_metrics` cs01/dv01 didn't normalise by bump size.**
+
+In `desks.convertible_bond_desk.cb_risk_metrics`, the `delta`/`gamma`/`vega` outputs were correctly normalised by their bump sizes (so the values are always "per unit move" regardless of tuning), but `cs01` and `dv01` returned the raw PV change for whatever `bump_spread`/`bump_rate` the caller supplied. The "per 1bp" interpretation in the field name only held when callers used the default `0.0001` bump.
+
+A user tuning `bump_spread=0.0005` (5bp, for noise reduction in MC) would silently get a `credit_cs01` that's ~5× too large vs the documented "per 1bp" units.
+
+**Fix**: scale `cs01` and `dv01` by `0.0001 / bump` so the outputs are consistently "PV per 1bp" regardless of bump tuning, matching the delta/gamma/vega convention used in the same function.
+
+### Verification — `test_l2_t4_cb_bump_normalisation.py`
+
+2 new tests pin: cs01 from 1bp and 5bp bumps agree within MC noise; same property for dv01.
+
+Full parallel suite: **12,654 passed in 3:03** — zero regressions.
+
+**165 distinct bugs** in v0.905→v1.028.
+
+---
+
 ## v1.027.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — theta projection consistency sweep across remaining desk modules.**
