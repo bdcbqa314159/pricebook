@@ -2,6 +2,34 @@
 
 ---
 
+## v1.023.0 — 2026-06-14
+
+**Fix L2 phase-2 (regulatory/) — `capital_allocation.euler_allocation` correlation branch produced `s_i⁴` allocation instead of `s_i²` (variance-proportional) Euler split.**
+
+Pre-fix mixed `w = standalones / total_standalone` with `cov = outer(s, s) * corr` and formed `RC_i = w_i × (cov @ w)_i`. Substituting w gives
+
+    RC_i = (s_i² / total²) · Σ_j s_j² · ρ_ij
+
+so for uncorrelated desks the allocation fractions scale as `s_i⁴ / Σ s_j⁴` — a strong over-concentration on the largest desk. Worked example for `s = [10, 20, 10]` under identity correlation: pre-fix gave `[5.5%, 88.9%, 5.5%]`; correct Euler gives `[16.7%, 66.7%, 16.7%]` (standard `s_i²` variance allocation).
+
+**Fix**: Tasche (2008) Euler std-dev decomposition with each desk fully invested at unit weight:
+
+    σ_p = √(s' corr s)
+    RC_i = s_i · (corr · s)_i / σ_p     (Σ RC_i = σ_p)
+    allocated_i = (RC_i / σ_p) · portfolio_capital
+
+Existing tests asserted only `sum(alloc) > 0` and `all(a > 0)`, so the bug wasn't caught.
+
+### Verification — `test_l2_t4_euler_capital.py`
+
+5 new tests pin: uncorrelated → `s_i²` fractions; ρ=1 → `RC_i = s_i`; ρ<0 reduces diversified σ_p; explicit `portfolio_capital` overrides σ_p with ratios preserved; sum equals σ_p when capital not provided.
+
+Full parallel suite: **12,636 passed in 2:55** — zero regressions.
+
+**160 distinct bugs** in v0.905→v1.023.
+
+---
+
 ## v1.022.0 — 2026-06-14
 
 **Fix L2 phase-2 (regulatory/) — `balance_sheet_allocation.optimise_allocation` dead `max_single_trade_pct` parameter (silent no-op).**
