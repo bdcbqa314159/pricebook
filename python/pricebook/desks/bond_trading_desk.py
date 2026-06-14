@@ -176,9 +176,15 @@ def bond_carry_roll(
 
     net_carry = coupon - funding
 
-    # Roll-down: price change from aging on unchanged curve
+    # Roll-down: clean-price change from aging on unchanged curve.
+    # Fix T4-DESKS: pre-fix used ``dirty_price`` here, which includes
+    # accrued interest.  Over the rolldown horizon, dirty price grows
+    # by ~coupon × horizon/365 from accrual alone, so
+    # ``total = net_carry + roll_down_dirty = (coupon - funding) + (coupon + clean_roll)``
+    # double-counted the coupon income.  Clean-price rolldown excludes
+    # accrued so ``total = (coupon - funding) + clean_roll`` is correct.
     roll_down = compute_rolldown(
-        lambda c: bond.dirty_price(c), curve, days=horizon_days,
+        lambda c: bond.clean_price(c), curve, days=horizon_days,
     ) / 100.0 * bond.face_value
 
     # Pull-to-par: convergence toward 100
