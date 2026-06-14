@@ -119,8 +119,16 @@ class BasketOption:
                                  n_paths=n_paths, n_assets=len(spots))
 
     def pv_ctx(self, ctx) -> float:
-        # Simplified: needs spots and vols from context
-        return 0.0
+        # Silent-no-op API: prior impl unconditionally returned 0.0,
+        # silently producing a wrong PV for any non-zero basket option.
+        # ``PricingContext`` carries no per-asset spots/vols channel for
+        # multi-asset baskets — raise loudly instead of returning zero.
+        raise NotImplementedError(
+            "BasketOption.pv_ctx is not implemented: PricingContext "
+            "does not currently expose per-asset equity spots and a "
+            "correlation matrix.  Price directly via "
+            "``.price_mc(spots, vols, corr, curve)``."
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {"type": self._SERIAL_TYPE, "params": {

@@ -687,11 +687,15 @@ class AsianOption:
         return profile
 
     def pv_ctx(self, ctx) -> float:
-        """Price from PricingContext."""
-        curve = ctx.discount_curve
-        vol_surface = ctx.vol_surfaces.get("equity") if ctx.vol_surfaces else None
-        vol = vol_surface.vol(self.schedule.fixing_dates[-1], self.strike) if vol_surface else 0.20
-        return self.price(spot=100.0, curve=curve, vol=vol).price
+        # Silent-no-op API: prior impl hardcoded ``spot=100.0`` regardless
+        # of the actual underlying.  ``PricingContext`` carries no
+        # ``equity_spots`` field, so we cannot fulfil this call
+        # generically — raise loudly instead of guessing.
+        raise NotImplementedError(
+            "AsianOption.pv_ctx is not implemented: PricingContext "
+            "does not currently expose equity spots.  Price directly via "
+            "``.price(spot, curve, vol)`` with an explicit spot."
+        )
 
     # ---- Serialisation ----
 
