@@ -117,13 +117,22 @@ class Autocallable:
         period_lengths = [obs_times[0]] + [obs_times[i] - obs_times[i-1]
                                             for i in range(1, n_obs)]
 
-        # Simulate spot at each observation date
+        # Simulate spot at each observation date.
+        # Fix T4-AC1: pre-fix ``coupon_barrier`` was a silent-no-op API
+        # param — constructor accepted and stored it, but ``price_mc``
+        # never checked ``S >= coupon_barrier * spot`` at observation
+        # dates.  Coupons were accrued uniformly as ``rate * T`` (or
+        # ``rate * elapsed_t`` at autocall) regardless of whether the
+        # underlying was ever above the coupon barrier.  Now track
+        # per-path accrued coupons that only grow when the path is above
+        # ``coupon_barrier * spot`` at observation time (memory-style).
         S = np.full(n_paths, spot, dtype=float)
         pv = np.zeros(n_paths)
         terminated = np.zeros(n_paths, dtype=bool)
         life = np.full(n_paths, T)
         autocalled = np.zeros(n_paths, dtype=bool)
         put_knocked = np.zeros(n_paths, dtype=bool)
+        coupons_accrued = np.zeros(n_paths)
 
         t_prev = 0.0
         for i, t_obs in enumerate(obs_times):
@@ -135,34 +144,35 @@ class Autocallable:
             active = ~terminated
             df_obs = math.exp(-rate * t_obs)
 
+            # Coupon eligibility: accrue this period's coupon iff S is at
+            # or above the coupon barrier at this observation (memory-style
+            # — coupons compound only when above the barrier).
+            above_coupon = active & (S >= self.coupon_barrier * spot)
+            coupons_accrued[above_coupon] += self.coupon_rate * period_lengths[i]
+
             # Autocall check
             autocall_hit = active & (S >= self.autocall_level * spot)
             if autocall_hit.any():
-                # Pay notional + accrued coupons (only for periods above coupon barrier)
-                coupon_periods = i + 1
-                total_coupon = self.coupon_rate * sum(period_lengths[:coupon_periods])
-                pv[autocall_hit] = (self.notional * (1 + total_coupon)) * df_obs
+                pv[autocall_hit] = (
+                    self.notional * (1 + coupons_accrued[autocall_hit])
+                ) * df_obs
                 terminated[autocall_hit] = True
                 autocalled[autocall_hit] = True
                 life[autocall_hit] = t_obs
-
-            # Track coupon eligibility (above coupon_barrier)
-            # Note: in this simplified model, coupons accrue for all periods
-            # above coupon_barrier. For a full implementation, track per-path
-            # coupon accumulation separately.
 
             t_prev = t_obs
 
         # At maturity: handle non-autocalled paths
         still_alive = ~terminated
         df_T = math.exp(-rate * T)
-        total_coupon = self.coupon_rate * T
 
-        # Above put barrier and coupon barrier: get notional + coupons
+        # Above put barrier: get notional + accrued coupons.
         above_put = still_alive & (S >= self.put_barrier * spot)
-        pv[above_put] = (self.notional * (1 + total_coupon)) * df_T
+        pv[above_put] = (
+            self.notional * (1 + coupons_accrued[above_put])
+        ) * df_T
 
-        # Below put barrier: get S/S0 * notional (capital loss)
+        # Below put barrier: get S/S0 * notional (capital loss, no coupons)
         below_put = still_alive & (S < self.put_barrier * spot)
         pv[below_put] = (self.notional * S[below_put] / spot) * df_T
         put_knocked[below_put] = True
