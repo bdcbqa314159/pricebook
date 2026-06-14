@@ -2,6 +2,41 @@
 
 ---
 
+## v1.024.0 — 2026-06-14
+
+**Fix L2 phase-2 (regulatory/) — `stress_irrbb.calculate_eve_impact` duration-gap EVE formula used equity instead of total assets — production-critical.**
+
+The textbook duration-gap derivation (Mishkin/Eakins) gives
+
+    ΔA = −D_A · A · Δr
+    ΔL = −D_L · L · Δr
+    ΔE = ΔA − ΔL = −(D_A · A − D_L · L) · Δr = −A · (D_A − (L/A)·D_L) · Δr
+       = **−A · DurationGap · Δr**
+
+Pre-fix code used `eve_change = -duration_gap × equity × rate_shock` — off by a factor of A/E (≈10× for typical banks with 10:1 leverage). The same function also computed `eve_change_pv01 = -net_pv01 × rate_shock_bps` which **was** correct (since `net_pv01 = A·D_A − L·D_L = A·DurationGap`), so the two outputs in the same return dict silently disagreed by exactly the A/E ratio.
+
+**Downstream impact**: `calculate_irrbb_capital` consumes the broken `worst_eve_change`, so banks **under-stated SOT outlier capital by ~10×**. A bank that should be flagged as an IRRBB outlier (and required to hold capital for excess EVE loss) would silently pass the 15%-of-Tier-1 threshold.
+
+Worked example: assets $10B/dur 5y, liabilities $9B/dur 3y, Tier1 $1B:
+
+    DurationGap = 5 − 0.9·3 = 2.3
+    ΔEVE @ +200bp:  pre-fix = −1B·2.3·0.02 = −$46M    (passes 15% SOT)
+                    correct = −10B·2.3·0.02 = −$460M  (outlier; $310M charge)
+
+**Fix**: `eve_change = -duration_gap × total_assets × rate_shock`. Now matches `eve_change_pv01` exactly.
+
+Existing tests only asserted `eve_change < 0` (sign), so the bug wasn't caught.
+
+### Verification — `test_l2_t4_eve_duration_gap.py`
+
+4 new tests pin: `eve_change == eve_change_pv01` for all shocks; closed-form textbook check; realistic-bank SOT outlier example with verified $310M capital charge; positive/negative shock symmetry.
+
+Full parallel suite: **12,640 passed in 2:55** — zero regressions.
+
+**161 distinct bugs** in v0.905→v1.024.
+
+---
+
 ## v1.023.0 — 2026-06-14
 
 **Fix L2 phase-2 (regulatory/) — `capital_allocation.euler_allocation` correlation branch produced `s_i⁴` allocation instead of `s_i²` (variance-proportional) Euler split.**
