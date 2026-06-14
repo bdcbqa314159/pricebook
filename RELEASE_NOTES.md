@@ -2,6 +2,35 @@
 
 ---
 
+## v1.030.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `bond_trading_desk.bond_carry_roll` double-counted coupon income via dirty-price rolldown.**
+
+The rolldown lambda priced the bond with `dirty_price` on the rolled curve:
+
+    roll_down_dirty = dirty_price(rolled_curve) - dirty_price(curve)
+
+`dirty_price` uses `curve.reference_date` as the settlement, which rolled-curve increments by `horizon_days`. So `roll_down_dirty` picks up *both* the genuine clean-price aging *and* the change in accrued interest. The latter is roughly `coupon × horizon / 365` — exactly what `coupon_carry` already measures.
+
+When the module then computed
+
+    total_carry_and_roll = net_carry + roll_down_dirty
+                         = (coupon - funding) + (coupon_accrual + clean_roll)
+
+the coupon income appeared **twice**. Worked example: at-par 5y 5% bond on flat 5% curve over 30 days — pre-fix gave `total ≈ 0 + 0.41 = +0.41` per 100 face when the true carry+roll is ~0 (positive carry exactly offset by 0% clean roll on a flat curve at par); post-fix gives `total ≈ 0`.
+
+**Fix**: switch the rolldown lambda from `dirty_price` to `clean_price`. Clean price excludes accrual, so the two are no longer overlapping.
+
+### Verification — `test_l2_t4_bond_carry_roll.py`
+
+2 new tests pin: at-par bond on flat curve has clean roll-down ≈ 0 and total ≈ 0 over 30 days; positive-carry case (5% coupon, 2% repo) yields `total ≈ net_carry` rather than the pre-fix `~2 × net_carry`.
+
+Full parallel suite: **12,658 passed in 3:07** — zero regressions.
+
+**167 distinct bugs** in v0.905→v1.030.
+
+---
+
 ## v1.029.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — bump-normalisation sweep across remaining desk risk-metrics.**
