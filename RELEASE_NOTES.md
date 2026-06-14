@@ -2,6 +2,29 @@
 
 ---
 
+## v1.027.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — theta projection consistency sweep across remaining desk modules.**
+
+Same bug pattern as v1.026: theta lambdas discounted with the rolled curve but projected forwards from the original-t=0 curve. Found in:
+
+- `desks/swaption_trading_desk.swaption_risk_metrics` — swaption theta used stale `proj` for the forward swap rate.
+- `desks/trs_desk` (daily P&L) — TRS theta used stale `projection_curve` for funding-leg forwards.
+
+**Fix**: under single-curve, pass `None` (or rolled `c`) for projection so the floating/funding leg uses the rolled discount; under dual-curve, pre-roll the projection by 1 day.
+
+**Known limitation**: `desks/cln_desk` has the same defect on the survival curve (rolled discount paired with stale `surv_t0`), but `SurvivalCurve` has no `roll_down()` method yet — documented as a known approximation rather than fixed in this slice (would require a separate L0-touching change).
+
+### Verification — `test_l2_t4_desk_theta_sweep.py`
+
+2 new tests pin: swaption theta equals consistent-roll PV diff; TRS daily-PnL theta equals consistent-roll PV diff under single-curve.
+
+Full parallel suite: **12,652 passed in 2:34** — zero regressions.
+
+**164 distinct bugs** in v0.905→v1.027.
+
+---
+
 ## v1.026.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `swap_desk` theta computation used stale floating projection.**
