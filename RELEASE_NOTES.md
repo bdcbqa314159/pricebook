@@ -2,6 +2,21 @@
 
 ---
 
+## v1.044.0 — 2026-06-14 — **Fix L2 T4 (options/futures_options) — Bachelier price + Black-76 Greeks mismatch**
+
+**`options.futures_options.FuturesOption.price` returned Black-76 analytical Greeks even when `model="bachelier"`.**
+
+The Greeks block unconditionally called ``black76_delta/gamma/vega/theta`` regardless of the pricing model.  For options that *must* be priced under a normal model — short-rate futures (e.g. SR3 / SOFR) where rates can go negative — this returned lognormal-model Greeks for a normal-model price.  d1/d2 conventions diverge between the two families: the analytical forms aren't even off by a constant scale.
+
+Fix: dispatch on ``self.model`` for the Greeks block, calling ``bachelier_*`` analytics when ``model=="bachelier"`` and ``black76_*`` otherwise.  BAW-American path is unchanged (BAW uses Black-76 dynamics, so Black-76 European Greeks are the right first-order approximation).
+
+**Files changed**:
+- `python/pricebook/options/futures_options.py` — Greeks block now dispatches on model.
+- `python/tests/test_l2_t4_futures_option_bachelier_greeks.py` (new) — 4 regressions:
+  Bachelier delta matches analytic formula; Bachelier ≠ Black-76 deltas (proves dispatch); all 4 Bachelier Greeks consistent; Black-76 path unchanged.
+
+---
+
 ## v1.043.0 — 2026-06-14 — **Fix L2 T4 (options/) — silent spot=100 sweep across 5 equity options**
 
 **Five equity-option ``pv_ctx`` implementations silently hardcoded ``spot=100.0`` (or returned ``0.0``).**
