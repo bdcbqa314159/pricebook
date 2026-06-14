@@ -2,6 +2,34 @@
 
 ---
 
+## v1.053.0 — 2026-06-14 — **Fix L2 T4 (options/local_vol) — Gatheral Dupire used spot y and at-fixed-K time derivative**
+
+**``_dupire_local_vol`` carried two coupled errors in the Gatheral total-variance form of the Dupire formula.**
+
+Gatheral's formula in terms of total variance ``w = σ²·T``:
+
+    σ_loc² = (∂w/∂T)|_y / [1 − (y/w)∂w/∂y + (1/4)(−1/4 − 1/w + y²/w²)(∂w/∂y)² + (1/2) ∂²w/∂y²]
+
+requires:
+- ``y = log(K / F_T)`` — log-moneyness against the **forward** (Gatheral 2006, §1.3).
+- The time derivative taken at fixed ``y``, not fixed ``K``.
+
+Pre-fix (T4-LV1):
+- ``y = math.log(k / spot)`` — used spot, not forward.
+- ``dw_dt`` used ``∂w/∂T |_K`` directly with no chain-rule correction.
+
+Both errors silently vanish when r = q = 0 (then ``F_T = S`` and the time derivatives at fixed K and fixed y coincide).  For any non-trivial equity (r > q > 0) or FX scenario the Dupire surface picks up a systematic bias whose magnitude depends on (r−q)·T and the skew/term-structure of the input implied vol surface.
+
+Fix:
+- ``forward_T = spot · exp((r − q) · t)`` and ``y = log(K / forward_T)``.
+- ``dw_dt = dw_dt|_K + (r − q) · K · ∂w/∂K`` (the chain-rule conversion to ``dw_dt|_y``).
+
+**Files changed**:
+- `python/pricebook/options/local_vol.py` — Gatheral block in ``_dupire_local_vol`` now uses forward-relative ``y`` and the converted ``dw_dt``.
+- `python/tests/test_l2_t4_local_vol_dupire_forward.py` (new) — 2 regressions: flat implied vol surface still gives flat local vol (cancellation preserved post-fix), local vol surface DEPENDS on ``r`` for a skewed input (was silently r-independent through ``y`` pre-fix).
+
+---
+
 ## v1.052.0 — 2026-06-14 — **Fix L2 T4 (options/bermudan_lmm) — drift / diffusion correlation mismatch**
 
 **``_simulate_lmm_paths`` was internally inconsistent in its factor structure.**
