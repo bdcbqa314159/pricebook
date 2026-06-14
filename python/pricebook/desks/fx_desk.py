@@ -150,7 +150,12 @@ def fx_dashboard(
     by_pair = {p.pair: p.trade_count for p in positions}
     by_ccy = {e.currency: e.net_exposure for e in ccy_exposures}
 
-    total_delta = sum(abs(p.net_notional) for p in positions)
+    # Fix T4-DESKS: ``total_delta`` was ``sum(abs(net_notional))`` which
+    # reports gross-notional, not net delta — a long EUR/USD + short
+    # EUR/USD of equal size would show large total_delta (sum of
+    # |notional|) instead of 0 (correctly netted).  Use the signed
+    # net_notional so it reflects actual market exposure.
+    total_delta = sum(p.net_notional for p in positions)
     total_dv01 = 0.0  # would need curves for per-position DV01
 
     breaches = []
@@ -196,12 +201,19 @@ def fx_stress_suite(
     total_exposure = sum(abs(n) * s for _, n, s in positions)
     net_exposure = sum(n * s for _, n, s in positions)
 
+    # Fix T4-DESKS: pre-fix "combined" scenario was described as
+    # "Spot -5%, rates +100bp" but only applied the spot shift — rates
+    # were silently ignored.  The function signature (pair, notional,
+    # spot) has no rates data, so a true rates+spot stress requires
+    # curves.  Rename the scenario to reflect what it actually does
+    # (spot-only) and drop the misleading rates label.  A full
+    # rate+spot reprice is provided by ``fx_scenario_stress`` below
+    # which takes a PricingContext.
     scenarios = [
         ("spot_dn_5", "Spot -5%", -0.05 * net_exposure),
         ("spot_up_5", "Spot +5%", 0.05 * net_exposure),
         ("spot_dn_10", "Spot -10%", -0.10 * net_exposure),
         ("spot_up_10", "Spot +10%", 0.10 * net_exposure),
-        ("combined", "Spot -5%, rates +100bp", -0.05 * net_exposure),
     ]
 
     return [FXStressResult(n, d, p) for n, d, p in scenarios]

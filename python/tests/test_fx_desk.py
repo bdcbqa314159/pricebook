@@ -88,9 +88,12 @@ class TestFXDashboard:
 class TestFXStress:
 
     def test_five_scenarios(self):
+        """Spot stress suite: 4 pure-spot scenarios (the previously-included
+        'combined' scenario was a silent no-op on rates and was removed in
+        v1.031). Use fx_scenario_stress() for full rate+spot reprice."""
         positions = [("EUR/USD", 10_000_000, 1.08)]
         results = fx_stress_suite(positions)
-        assert len(results) == 5
+        assert len(results) == 4
 
     def test_spot_down_negative(self):
         """Long EUR: spot down → loss."""
