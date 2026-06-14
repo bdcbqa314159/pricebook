@@ -2,6 +2,30 @@
 
 ---
 
+## v1.052.0 — 2026-06-14 — **Fix L2 T4 (options/bermudan_lmm) — drift / diffusion correlation mismatch**
+
+**``_simulate_lmm_paths`` was internally inconsistent in its factor structure.**
+
+Pre-fix:
+- **Drift** used the single-factor (perfectly-correlated) terminal-measure formula ``μ_j = -σ_j · Σ_{k>j} σ_k · τ · F_k / (1 + τ F_k)`` (Brigo §6.7).  This formula implicitly embeds ρ_{j,k} = 1.
+- **Diffusion** drew an independent Brownian increment ``dW_j`` per forward via ``rng.standard_normal((n_paths, n_fwd))`` — algebraically multi-factor with ρ_{j,k} = δ_{j,k}.
+
+These two assumptions are mutually inconsistent:
+- Under truly independent factors, the terminal-measure drift collapses to **zero** for every forward (all cross-correlation terms vanish), so the non-zero drift was unjustifiable.
+- Under truly single-factor LMM, all forwards must share the same ``dW``.
+
+The visible consequence: forwards on a path moved with near-zero empirical correlation (independent shocks dominated), undermining the swap-rate dynamics that the LSM regression in ``bermudan_swaption_lmm`` depends on.
+
+Fix: pick the single-factor convention (matching the drift) — use one shared ``dW`` per step.  The drift formula is unchanged.
+
+Remaining open item (T4-LMM2, deferred): ``bermudan_swaption_lmm`` discounts using ``F[p, step_k, 0]`` — the **first** forward at step_k as a stand-in for the average short rate.  Correct discounting requires integrating the short rate along each path.  Bigger refactor.
+
+**Files changed**:
+- `python/pricebook/options/bermudan_lmm.py` — single shared ``dW`` per step in the simulator.
+- `python/tests/test_l2_t4_bermudan_lmm_single_factor.py` (new) — 2 regressions: adjacent forwards now have correlation > 0.90 across paths (single-factor coupling proven), per-forward terminal log-variance matches ``σ²·T`` (marginal preserved).
+
+---
+
 ## v1.051.0 — 2026-06-14 — **Fix L2 T4 (options/bermudan_barrier) — LSM regression target over-discounted**
 
 **``_lsm_bermudan_barrier_core`` converted PV-at-t=0 to "value at step" using the wrong formula.**
