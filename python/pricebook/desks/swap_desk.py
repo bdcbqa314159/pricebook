@@ -101,11 +101,21 @@ def swap_risk_metrics(
         label = _time_to_tenor(pillar_times[i])
         key_rate[label] = kr
 
-    # Theta: rolldown via curve roll_down
+    # Theta: rolldown via curve roll_down.
+    # Fix T4-DESKS: pre-fix ternary ``proj if proj is curve else proj`` was
+    # a no-op (both branches return ``proj``).  Under single-curve the
+    # lambda discounted with the rolled ``c`` but projected forwards from
+    # the original ``curve``, so the floating leg's forward rates were
+    # stale (1 day behind discount).  Now: single-curve passes ``None``
+    # so the floating leg defaults to using rolled ``c`` for projection
+    # too; dual-curve pre-rolls projection alongside.
     from pricebook.risk.pnl_explain import compute_rolldown
-    theta = compute_rolldown(
-        lambda c: swap.pv(c, proj if proj is curve else proj), curve, days=1,
-    )
+    if proj is curve:
+        pricer = lambda c: swap.pv(c, None)
+    else:
+        proj_rolled = proj.roll_down(1) if hasattr(proj, "roll_down") else proj
+        pricer = lambda c: swap.pv(c, proj_rolled)
+    theta = compute_rolldown(pricer, curve, days=1)
 
     return SwapRiskMetrics(
         pv=base_pv, par_rate=par, annuity=ann,
@@ -302,11 +312,13 @@ def swap_daily_pnl(
     carry_d = swap_carry_decomposition(swap, curve_t0, proj_t0, horizon_days=1)
     carry = carry_d.net_carry
 
-    # Theta: rolldown on unchanged curve
-    theta = compute_rolldown(
-        lambda c: swap.pv(c, proj_t0 if proj_t0 is curve_t0 else proj_t0),
-        curve_t0, days=1,
-    )
+    # Theta: rolldown on unchanged curve (same fix as in swap_risk_metrics).
+    if proj_t0 is curve_t0:
+        pricer = lambda c: swap.pv(c, None)
+    else:
+        proj_t0_rolled = proj_t0.roll_down(1) if hasattr(proj_t0, "roll_down") else proj_t0
+        pricer = lambda c: swap.pv(c, proj_t0_rolled)
+    theta = compute_rolldown(pricer, curve_t0, days=1)
 
     # Curve P&L: total - carry - theta
     curve_pnl = total - carry - theta
