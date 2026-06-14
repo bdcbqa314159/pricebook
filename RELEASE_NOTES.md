@@ -2,6 +2,32 @@
 
 ---
 
+## v1.037.0 — 2026-06-14
+
+**Fix L2 phase-2 (structured/) — `outperformance_certificate` had two coupled defects.**
+
+**Bug 1: cap_strike wrong when participation ≠ 1.**
+
+The cap was set via a short call struck at `cap_strike = spot × (1 + cap)`. This only caps payoff at `1 + cap` when `participation == 1`. For `participation > 1` (the typical case), each unit of `S_T/S_0` growth is amplified by participation, so the cap-binding strike is **lower** than `spot × (1 + cap)`.
+
+Solving `1 + participation × (S_T/S_0 − 1) = 1 + cap` gives `S_T = S_0 × (1 + cap/participation)`. For `participation = 1.5, cap = 0.30`, the correct cap_strike is `1.20 × S_0`, not `1.30 × S_0`.
+
+**Bug 2: `stock_pv` double-discounted.**
+
+`stock_pv = spot × exp(-qT) × df × notional/spot` had an extra `df` factor. Under risk-neutral pricing, the PV today of receiving `S_T` at maturity is `E^Q[S_T] × df = F × df = spot × exp(-qT)` — NOT that value × df again. The double-discount understated the stock-leg PV by `df ≈ 0.95` (a few percent off for typical rates/horizons).
+
+Under deep-ITM tests both bugs interact: pre-fix gave half the analytic ceiling (`0.395` vs `0.788` for the worked example). Existing tests checked only `price > 0` and `cap_reduces_price` so the bug wasn't caught.
+
+### Verification — `test_l2_t4_outperformance_cap.py`
+
+3 new tests: capped certificate price ≤ analytic ceiling `(1 + cap) × df` under deep-ITM; no-cap case unchanged; same cap with different participation produces different prices (pre-fix would use the same cap_strike).
+
+Full parallel suite: **12,678 passed in 2:41** — zero regressions.
+
+**174 distinct bugs** in v0.905→v1.037.
+
+---
+
 ## v1.036.0 — 2026-06-14
 
 **Fix L2 phase-2 (structured/) — `callable_structured._simulate_two_rates` and `_simulate_one_rate` ignored their `rate` parameter.**
