@@ -2,6 +2,43 @@
 
 ---
 
+## v1.040.0 — 2026-06-14 — **🎯 1.040 milestone**
+
+**Fix L2 phase-2 (pricing/) — `pricing_engine._pv_fallback` had two coupled silent-default defects.**
+
+Two production-grade footguns in the credit-curve selection logic, both producing **wrong PV with `status: ok`**:
+
+**Bug 1 — silent 2% hazard default**. When no survival curve was provided in `market_data.survival_curves`, the engine substituted
+
+    SurvivalCurve.flat(val_date, 0.02)
+
+…and proceeded to price CDS / credit-dependent trades. The caller had no indication that their input was incomplete: the response returned `status: "ok"` with a plausible but **wrong** PV based on the fake 2% hazard. For a 5y, 100bp CDS this gives the wrong sign of P&L in many market regimes.
+
+**Bug 2 — first-curve silent pick** (same shape as v0.969 FRA bug). When the caller supplied multiple survival curves (e.g. `{"issuer_A": ..., "issuer_B": ...}`), the engine's
+
+    sc = next(iter(ctx.credit_curves.values()))
+
+selected the first one regardless of which obligor the trade actually referenced. A 2-obligor portfolio priced ALL CDS against the first obligor's hazard. The pre-fix code did not check that the obligor matched the trade.
+
+**Fix**: in `_pv_fallback`,
+- raise `ValueError` with diagnostic context when no survival curve is provided and the instrument needs one;
+- raise `ValueError` when multiple curves are provided without obligor-key disambiguation, listing the available keys;
+- use the single curve when exactly one is provided (the most common, unambiguous case).
+
+The fallback is invoked from `_price_one`'s `pv` branch when the instrument needs `(curve, survival)` but pv_ctx is unavailable — exactly the path that previously silently produced wrong CDS prices.
+
+**Existing test updates**: two tests in `test_pricing_engine.py` (`test_cds`, `test_mixed_portfolio`) relied on the silent 2% default; now updated to supply explicit `survival_curves: {"issuer": ...}` matching the new strict semantics.
+
+### Verification — `test_l2_t4_pricing_engine_credit.py`
+
+3 new tests pin: CDS without survival curve → per-trade `status: "error"` (not silent ok); `_pv_fallback` with multiple curves → `ValueError` listing the keys; single-curve case still works unchanged.
+
+Full parallel suite: **12,686 passed in 4:14** — zero regressions after the two test updates.
+
+**177 distinct bugs** in v0.905→v1.040.
+
+---
+
 ## v1.039.0 — 2026-06-14
 
 **Fix L2 phase-2 (structured/) — `callable_step_up_bond` off-by-one in issuer call-decision discount horizons.**
