@@ -884,10 +884,19 @@ def digital_option(
     """Digital (binary) option price.
 
         pb.digital_option(100, 105, 0.20, 1.0, payout=1000)
+
+    Fix T4-DESKS: pre-fix used ``ln(spot/strike)`` directly in d2,
+    omitting the drift term ``r·T = -ln(df)``.  For df=1 (no rates)
+    the formula was correct; for df<1 (positive rates) ITM call
+    probability was under-stated (and put over-stated) by the
+    omitted drift.  Now: build the forward ``F = spot/df`` and use
+    ``ln(F/strike)`` so the formula matches Black-76 risk-neutral
+    pricing exactly.
     """
     from pricebook.models.black76 import _norm_cdf
     sqrt_t = math.sqrt(T) if T > 0 else 1e-10
-    d2 = (math.log(spot / strike) + (- 0.5 * vol**2) * T) / (vol * sqrt_t)
+    forward = spot / df if df > 0 else spot
+    d2 = (math.log(forward / strike) - 0.5 * vol**2 * T) / (vol * sqrt_t)
     if option_type.lower() == "call":
         return payout * df * _norm_cdf(d2)
     return payout * df * _norm_cdf(-d2)
