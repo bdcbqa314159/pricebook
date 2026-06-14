@@ -2,6 +2,28 @@
 
 ---
 
+## v1.021.0 — 2026-06-14
+
+**Fix L2 phase-2 (regulatory/) — `securitization.calculate_sec_sa_rw` SSFA formula had spurious K_a multiplier (both branches) and missing /(D−A) in straddle branch.**
+
+Per Basel III CRE40.53 / 12 CFR 217.43(b)(5):
+- **Entirely above** (A ≥ K_a): `K_SSFA = (e^(au) − e^(al)) / (a·(u − l))` — pre-fix carried a spurious `K_a ×` multiplier.
+- **Straddle** (A < K_a < D): `K_SSFA = (K_a − A)/(D − A) + (e^(au) − 1) / (a·(D − A))` — pre-fix used `(K_a − A) + K_a × (e^(au) − 1)/(a·(D − A))`, both terms wrong.
+
+For mezzanine tranches near K_a this materially under-reported risk-weight. Worked example: K_a=0.08, A=0.05, D=0.10 (straddle) — pre-fix ~65% RW vs CRE40 ~1089% RW, a ~17× under-statement. For super-senior tranches the 15% RW floor masked the bug; existing tests asserted only `rw > 0` and `rw ≤ 1250` and so passed under either formula.
+
+**Production impact**: SEC-SA capital under-stated for mezzanine securitisation exposures (and SEC-IRBA, which calls the same `_rw` helper with K_IRB).
+
+### Verification — `test_l2_t4_sec_sa_ssfa.py`
+
+5 new tests pin the formula via the direct integral form `K = (1/(D−A)) · ∫_A^D K_loc(x) dx`. Covers: just-above-K_a mezzanine (no floor binds), super-senior (floor binds), straddle with and without delinquency `w`, and continuity across A = K_a.
+
+Full parallel suite: **12,627 passed in 2:35** — zero regressions.
+
+**158 distinct bugs** in v0.905→v1.021.
+
+---
+
 ## v1.020.0 — 2026-06-13
 
 **Fix L2 phase-2 (regulatory/) — `market_risk_sa.calculate_curvature_capital` cross-bucket aggregation didn't match FRTB.**
