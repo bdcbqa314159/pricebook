@@ -2,6 +2,29 @@
 
 ---
 
+## v1.048.0 — 2026-06-14 — **Fix L2 T4 (options/capfloor) — pv_ctx collapsed term-structure surface to a single vol**
+
+**``CapFloor.pv_ctx`` called ``vol_surface.vol()`` with no arguments and used the resulting scalar for every caplet.**
+
+The legacy implementation:
+```python
+model = Black76Model(vol_surface.vol())   # no args!
+return self.price(model, curve, proj)
+```
+
+This works only for ``FlatVol`` (whose ``vol()`` accepts no args and returns a constant).  For any real IR vol surface — ``VolTermStructure``, smile cubes — ``vol(expiry, strike)`` has no default ``expiry`` and either raises a ``TypeError`` or silently returns whichever vol corresponds to the absent-arg default.  Even if a surface tolerates no-args, the resulting single number was then used as the Black-76 vol for every caplet across the cap, collapsing the term structure.
+
+Consequence: any cap routed through the pricing engine on a non-flat IR vol surface silently lost its term-structure dependence.  A 10y cap priced as if all caplets had the same vol — usually the front-end vol — materially mispricing long-end exposure.
+
+Fix: ``pv_ctx`` now mirrors the manual ``price()`` loop but looks up the per-caplet vol from the surface via ``vol(accrual_start, strike)`` at each caplet's expiry, building one ``Black76Model`` per caplet.  No change for ``FlatVol`` users; correct vol propagation for term-structure / smile surfaces.
+
+**Files changed**:
+- `python/pricebook/options/capfloor.py` — ``_capfloor_pv_ctx`` rewritten to loop per-caplet with surface lookup.
+- `python/tests/test_l2_t4_capfloor_pv_ctx_surface_vol.py` (new) — 3 regressions:
+  term-structure surface drives different PVs when long-end vol differs (proves per-caplet routing), FlatVol still works, missing surface raises with diagnostic.
+
+---
+
 ## v1.047.0 — 2026-06-14 — **Fix L2 T4 (options/tarf) — flat-curve discount extrapolation in multi-period MC**
 
 **``TARF.price_mc`` discounted each per-fixing cashflow with a flat-curve extrapolation rather than the actual curve's per-tenor DF.**
