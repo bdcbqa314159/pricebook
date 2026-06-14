@@ -171,12 +171,20 @@ def callable_step_up_bond(
 
         # Call decision at call dates
         if i in call_dates_idx:
-            # Issuer calls if remaining bond value > call_price
+            # Issuer calls if remaining bond value > call_price.
+            # Fix T4-STRUCT: pre-fix discounted remaining coupon j by
+            # ``(j+1-i)*dt`` and principal by ``(n_periods-i)*dt`` —
+            # each one period too long.  At call time
+            # t = (i+1)*dt, coupon j (paid at (j+1)*dt) is
+            # (j-i)*dt away, and the maturity (n*dt) is
+            # (n-i-1)*dt away.  Over-discounting biased
+            # bond_value LOW, so the issuer called LESS often
+            # than warranted.
             remaining_coupons = sum(
-                coupon_schedule[j] * face / 100 * np.exp(-r_t * ((j + 1 - i) * dt))
+                coupon_schedule[j] * face / 100 * np.exp(-r_t * ((j - i) * dt))
                 for j in range(i + 1, n_periods)
             )
-            remaining_principal = face * np.exp(-r_t * ((n_periods - i) * dt))
+            remaining_principal = face * np.exp(-r_t * ((n_periods - i - 1) * dt))
             bond_value = remaining_coupons + remaining_principal
 
             should_call = alive & (bond_value > call_price * face / 100)
