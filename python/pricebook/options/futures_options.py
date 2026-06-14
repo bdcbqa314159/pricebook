@@ -28,6 +28,7 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.models.black76 import (
     OptionType, black76_price, black76_delta, black76_gamma,
     black76_vega, black76_theta, bachelier_price,
+    bachelier_delta, bachelier_gamma, bachelier_vega, bachelier_theta,
     _norm_cdf,
 )
 
@@ -227,11 +228,21 @@ class FuturesOption:
         else:
             premium = black76_price(F, K, sigma, T, df, self.option_type)
 
-        # Greeks (always Black-76 analytical)
-        delta = black76_delta(F, K, sigma, T, df, self.option_type)
-        gamma = black76_gamma(F, K, sigma, T, df)
-        vega = black76_vega(F, K, sigma, T, df) * 0.01  # per 1% vol
-        theta = black76_theta(F, K, sigma, T, df, self.option_type) / 365.0  # per day
+        # Greeks: pick analytical family matching the pricing model.  Pre-fix
+        # the Bachelier branch silently fell through to Black-76 Greeks, which
+        # disagree numerically (lognormal vs normal d1/d2) — wrong delta/gamma
+        # for products that *must* be priced under a normal model (e.g.
+        # short-rate futures where rates can go negative).
+        if self.model == "bachelier":
+            delta = bachelier_delta(F, K, sigma, T, df, self.option_type)
+            gamma = bachelier_gamma(F, K, sigma, T, df)
+            vega = bachelier_vega(F, K, sigma, T, df) * 0.01
+            theta = bachelier_theta(F, K, sigma, T, df, self.option_type) / 365.0
+        else:
+            delta = black76_delta(F, K, sigma, T, df, self.option_type)
+            gamma = black76_gamma(F, K, sigma, T, df)
+            vega = black76_vega(F, K, sigma, T, df) * 0.01
+            theta = black76_theta(F, K, sigma, T, df, self.option_type) / 365.0
 
         return FuturesOptionResult(
             price=premium,
