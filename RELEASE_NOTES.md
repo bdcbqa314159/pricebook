@@ -2,6 +2,24 @@
 
 ---
 
+## v1.050.0 — 2026-06-14 — **🎯 1.050 milestone · Fix L2 T4 (options/bermudan_capfloor) — same defect class as bermudan_swaption**
+
+**``bermudan_capfloor._bermudan_capfloor_tree`` carried the same defect class as the HW Bermudan swaption tree (v1.049).**
+
+Two structural bugs (T4-BCF1):
+
+1. **Wrong trinomial probabilities** — drift terms used ``/6`` instead of textbook Hull §32.4 eq. 32.10 ``/2``, so the drift was 3× too small.  Same root-cause as T4-BERM1.
+
+2. **Exercise compared to discounted continuation** — the backward loop indexed exercise by ``step + 1`` and applied ``max(discounted_continuation, undiscounted_exercise_at_step+1)``, over-valuing exercise by ``exp(+r·dt)`` per step.
+
+α(t) is implicit ``r0`` in this module because the API takes a raw ``r0`` (no DiscountCurve) — for the flat-curve interface this is correct.  A non-flat-curve API would require bermudan_swaption-style refactoring with ``HullWhite.build_tree_alphas`` (which v1.049 introduced).
+
+**Files changed**:
+- `python/pricebook/options/bermudan_capfloor.py` — ``/2`` probabilities; exercise applied at its own step before the next backward discount; skips step 0 (no exercise-vs-continuation choice at t=0).
+- `python/tests/test_l2_t4_bermudan_capfloor_hw_tree.py` (new) — 5 regressions: near-immediate-exercise Bermudan stays close to European, mean-reversion sensitivity has correct sign, Bermudan bounded above by full-strip European (knock-in semantics), finite/positive sanity.
+
+---
+
 ## v1.049.0 — 2026-06-14 — **Fix L2 T4 (options/bermudan_swaption) — three coupled defects in HW tree + LSM α(t)**
 
 **``bermudan_swaption_tree`` rolled three coupled errors into one badly-broken HW trinomial pricer.**  All three fixed in this slice (T4-BERM1); LSM α(t) bug also fixed in parallel (T4-BERM2).
