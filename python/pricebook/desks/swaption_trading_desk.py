@@ -89,9 +89,15 @@ def swaption_risk_metrics(
     T_swap = year_fraction(swaption.expiry, swaption.swap_end, DayCountConvention.ACT_365_FIXED)
     tenor = f"{int(round(T_swap))}Y"
 
-    # Theta via rolldown
+    # Theta via rolldown.  Same fix as swap_desk v1.026: rolled discount
+    # must use rolled projection too, else forward swap rate is stale.
     from pricebook.risk.pnl_explain import compute_rolldown
-    theta = compute_rolldown(lambda c: swaption.price(model, c, proj), curve, days=1)
+    if proj is curve:
+        theta_pricer = lambda c: swaption.price(model, c, c)
+    else:
+        proj_rolled = proj.roll_down(1) if hasattr(proj, "roll_down") else proj
+        theta_pricer = lambda c: swaption.price(model, c, proj_rolled)
+    theta = compute_rolldown(theta_pricer, curve, days=1)
 
     return SwaptionRiskMetrics(
         pv=pv, delta=g.delta, gamma=g.gamma, vega=g.vega,

@@ -225,7 +225,11 @@ def cln_daily_pnl(
     # Recovery P&L
     recovery_pnl = rm.recovery_sensitivity * recovery_change / 0.01 if recovery_change != 0 else 0.0
 
-    # Theta via curve roll-down
+    # Theta via curve roll-down.
+    # Note: SurvivalCurve has no roll_down() — the survival curve is
+    # held static here.  Strictly the rolled discount should pair with
+    # a rolled survival curve too; this is a known approximation
+    # tracked for a future SurvivalCurve.roll_down() implementation.
     theta_pnl = compute_rolldown(
         lambda c: cln.dirty_price(c, surv_t0), curve_t0, days=1,
     )

@@ -266,12 +266,16 @@ def trs_daily_pnl(
             pass
         delta_pnl = greek_pnl(rm.dv01, rate_change * 10_000)  # DV01 is per 1bp
 
-    # Theta/rolldown: PV change from time passing with unchanged curve
+    # Theta/rolldown: PV change from time passing with unchanged curve.
+    # Same fix as swap_desk v1.026: when discount rolls, projection
+    # rolls alongside (or defaults to rolled discount under single-curve).
     from pricebook.risk.pnl_explain import compute_rolldown
-    theta_pnl = compute_rolldown(
-        lambda c: trs.price(c, projection_curve).value,
-        curve_t0, days=1,
-    )
+    if projection_curve is None or projection_curve is curve_t0:
+        theta_pricer = lambda c: trs.price(c, None).value
+    else:
+        proj_rolled = projection_curve.roll_down(1) if hasattr(projection_curve, "roll_down") else projection_curve
+        theta_pricer = lambda c: trs.price(c, proj_rolled).value
+    theta_pnl = compute_rolldown(theta_pricer, curve_t0, days=1)
 
     # Funding P&L
     funding_t0 = trs.price(curve_t0, projection_curve).funding_leg
