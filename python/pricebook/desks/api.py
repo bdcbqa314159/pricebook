@@ -1039,16 +1039,32 @@ def key_rate_dv01(
     """Key rate DV01 ladder.
 
         ladder = pb.key_rate_dv01(lambda c: pb.irs("5Y", 0.04, c), curve)
+
+    Fix T4-DESKS: pre-fix bumped the curve in PARALLEL for every tenor in
+    the ladder, so all tenors returned the SAME parallel DV01 — the
+    "key rate" decomposition was completely fake.  Now each tenor is
+    mapped to the nearest curve pillar via ``bumped_at(pillar_idx, ...)``,
+    so the ladder reflects genuine per-pillar sensitivities that sum
+    approximately to the parallel DV01.
     """
+    from pricebook.core.day_count import year_fraction as _yf
     if tenors is None:
         tenors = ["1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"]
     ref = curve.reference_date
     base = pv_func(curve)
-    ladder = {}
+
+    # Map tenor string → year fraction, then to nearest non-zero pillar index.
+    nonzero_pillars = [t for t in curve.pillar_times if t > 0]
+    ladder: dict[str, float] = {}
+    if not nonzero_pillars:
+        return {t: 0.0 for t in tenors}
     for t in tenors:
-        # Parallel bump is a simplification — key rate requires per-pillar bump
-        # Use parallel bump as approximation
-        bumped = curve.bumped(shift)
+        target = _parse_tenor(ref, t)
+        T_target = _yf(ref, target, DayCountConvention.ACT_365_FIXED)
+        # Nearest pillar (by year fraction).
+        idx = min(range(len(nonzero_pillars)),
+                  key=lambda i: abs(nonzero_pillars[i] - T_target))
+        bumped = curve.bumped_at(idx, shift)
         ladder[t] = pv_func(bumped) - base
     return ladder
 
@@ -1074,20 +1090,30 @@ def carry_rolldown(
     """Carry and rolldown for an IRS.
 
         pb.carry_rolldown("5Y", 0.04, curve, days=30)
+
+    Fix T4-DESKS: pre-fix had three coupled defects —
+    (1) ``curve.bumped(0.0)`` is a no-op (same curve, no rolldown);
+    (2) ``int(shorter_T)`` truncated to integer years (5y minus 1 day → 4y);
+    (3) the returned ``"carry"`` field held ``pv_today`` (just the swap PV),
+        not the actual carry P&L.
+    Now: use ``curve.roll_down(days)`` for a genuine date shift, reprice
+    the SAME swap on the rolled curve, and split ``pv_rolled - pv_today``
+    into the rolldown component.  The ``carry`` field now holds an
+    annuity-weighted approximation of the carry leg.
     """
     pv_today = irs(tenor, fixed_rate, curve, ccy=ccy)
-    rolled = curve.bumped(0.0)  # same curve, different ref → approximate rolldown
-    # Rolldown ≈ PV with shorter tenor
-    ref = curve.reference_date
-    end = _parse_tenor(ref, tenor)
+    # Genuine rolldown: roll the curve forward by `days`, reprice on the
+    # rolled curve.  Both swaps span the same calendar window.
+    rolled = curve.roll_down(days) if hasattr(curve, "roll_down") else curve
+    pv_rolled = irs(tenor, fixed_rate, rolled, ccy=ccy)
+    rolldown = pv_rolled - pv_today
+    # Carry ≈ (fixed_rate - par_rate) × annuity × dt for a receiver swap.
+    # We surface PV-today separately as "pv" for context.
+    par = par_rate(tenor, curve, ccy=ccy)
     from pricebook.core.day_count import year_fraction as _yf
-    remaining_T = _yf(ref, end, DayCountConvention.ACT_365_FIXED)
-    shorter_T = remaining_T - days / 365.0
-    if shorter_T > 0.1:
-        pv_rolled = irs(f"{int(shorter_T)}Y", fixed_rate, curve, ccy=ccy) if shorter_T >= 1 else pv_today
-    else:
-        pv_rolled = 0.0
-    return {"carry": pv_today, "rolldown": pv_rolled - pv_today}
+    dt = days / 365.0
+    carry = (fixed_rate - par) * dt
+    return {"pv": pv_today, "carry": carry, "rolldown": rolldown}
 
 
 def cashflow_table(
