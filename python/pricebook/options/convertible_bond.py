@@ -105,9 +105,18 @@ class ConvertibleBond:
             z = rng.standard_normal(n_paths)
             S[:, step + 1] = S[:, step] * np.exp(drift + equity_vol * sqrt_dt * z)
 
-        # Backward induction with LSM regression for continuation value
-        # Terminal: max(notional, conversion_value)
-        V = np.maximum(float(self.notional), self.conversion_ratio * S[:, -1]).astype(float)
+        # Backward induction with LSM regression for continuation value.
+        # Terminal payoff: holder receives (notional + final coupon) OR
+        # converts to shares (forfeiting the bond cashflows including the
+        # maturity coupon).  Pre-fix the terminal used ``max(notional,
+        # conv_value)`` and the backward loop never visited step==n_steps,
+        # so the final coupon was silently dropped — making MC PV
+        # systematically below ``bond_floor`` (which DID include it) by
+        # ``coupon_amount × DF(T)``.
+        V = np.maximum(
+            self.notional + coupon_amount,
+            self.conversion_ratio * S[:, -1],
+        ).astype(float)
 
         for step in range(n_steps - 1, -1, -1):
             V *= math.exp(-disc_rate * dt)
@@ -151,7 +160,10 @@ class ConvertibleBond:
             z = rng_up.standard_normal(n_paths)
             S_up[:, step + 1] = S_up[:, step] * np.exp(drift + equity_vol * sqrt_dt * z)
 
-        V_up = np.maximum(float(self.notional), self.conversion_ratio * S_up[:, -1]).astype(float)
+        V_up = np.maximum(
+            self.notional + coupon_amount,
+            self.conversion_ratio * S_up[:, -1],
+        ).astype(float)
         for step in range(n_steps - 1, -1, -1):
             V_up *= math.exp(-disc_rate * dt)
             if step > 0 and step % coupon_step_interval == 0:
@@ -198,7 +210,10 @@ class ConvertibleBond:
             z = rng.standard_normal(n_paths)
             S[:, step + 1] = S[:, step] * np.exp(drift + vol * sqrt_dt * z)
 
-        V = np.maximum(float(self.notional), self.conversion_ratio * S[:, -1]).astype(float)
+        V = np.maximum(
+            self.notional + coupon_amount,
+            self.conversion_ratio * S[:, -1],
+        ).astype(float)
         for step in range(n_steps - 1, -1, -1):
             V *= math.exp(-disc_rate * dt)
             if step > 0 and step % coupon_step_interval == 0:
@@ -317,7 +332,10 @@ def convertible_soft_call(
         z = rng.standard_normal(n_paths)
         S[:, step + 1] = S[:, step] * np.exp(drift + equity_vol * sqrt_dt * z)
 
-    V = np.maximum(float(cb.notional), cb.conversion_ratio * S[:, -1]).astype(float)
+    V = np.maximum(
+        cb.notional + coupon_amount,
+        cb.conversion_ratio * S[:, -1],
+    ).astype(float)
     for step in range(n_steps - 1, -1, -1):
         V *= math.exp(-disc_rate * dt)
         if step > 0 and step % coupon_step_interval == 0:
