@@ -131,13 +131,23 @@ def cat_bond_price(
     prob_loss = 1.0 - math.exp(-expected_loss * T)       # Poisson arrival
     exhaustion_prob = prob_loss * (1.0 - recovery_if_triggered)
 
-    # PV of coupon stream assuming coupons paid annually, loss occurs mid-period
+    # PV of coupon stream assuming coupons paid annually, loss occurs mid-period.
+    # Fix T4-STRUCT: pre-fix ``range(1, int(T) + 1)`` silently dropped any
+    # non-integer remainder of ``T``.  For T=0.5 (6mo bond) the loop was
+    # empty → zero coupon PV.  For T=3.5 the final 0.5y accrual was
+    # missed.  Add a fractional final accrual when T has non-integer part.
     pv_coupons = 0.0
-    for t in range(1, int(T) + 1):
+    n_full = int(T)
+    for t in range(1, n_full + 1):
         df_t = _discount_factor(risk_free_rate, t)
         # weight: probability bond is still alive at t (geometric approximation)
         survival = math.exp(-expected_loss * t)
         pv_coupons += coupon * notional * df_t * survival
+    remainder = T - n_full
+    if remainder > 1e-9:
+        df_rem = _discount_factor(risk_free_rate, T)
+        survival_rem = math.exp(-expected_loss * T)
+        pv_coupons += coupon * notional * remainder * df_rem * survival_rem
 
     df_T = _discount_factor(risk_free_rate, T)
     pv_principal_no_loss = notional * df_T * (1.0 - prob_loss)
