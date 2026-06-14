@@ -386,10 +386,18 @@ def mortality_bond_price(
     c_exhaust = _bs_call_price(expected_mortality, exhaustion, mortality_vol, T)
     expected_loss_frac = (c_attach - c_exhaust) / layer
 
-    # PV of coupons (paid annually, bond survives unless triggered)
+    # PV of coupons (paid annually, bond survives unless triggered).
+    # Fix T4-STRUCT: same shape as v1.035 cat_bond_price.  Pre-fix
+    # ``range(1, int(T) + 1)`` silently dropped any non-integer
+    # remainder.  T=0.5 (6-month bond) gave zero coupon PV.  Add a
+    # fractional final accrual when T has a non-integer part.
+    n_full = int(T)
     coupon_pv = sum(
-        coupon * notional * _df(risk_free_rate, t) for t in range(1, int(T) + 1)
+        coupon * notional * _df(risk_free_rate, t) for t in range(1, n_full + 1)
     )
+    remainder = T - n_full
+    if remainder > 1e-9:
+        coupon_pv += coupon * notional * remainder * _df(risk_free_rate, T)
 
     # PV of principal (reduced by expected loss)
     principal_pv = notional * df_T * (1.0 - expected_loss_frac)
