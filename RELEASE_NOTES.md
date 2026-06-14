@@ -2,6 +2,36 @@
 
 ---
 
+## v1.025.0 — 2026-06-14
+
+**Fix L2 phase-2 (regulatory/) — `liquidity._asf_factor` mis-ordered: 200-day retail deposit returned 50% ASF instead of 90% per Basel LIQ40.5.**
+
+Pre-fix logic flow:
+```
+if equity:                    return 1.0
+if maturity > 365:            return 1.0          ← matched first
+if maturity > 180:            return 0.50         ← retail 200d hit this
+if deposit and retail:        return 0.90         ← never reached
+if deposit:                   return 0.50
+return 0.0
+```
+
+A retail deposit at 200-day residual maturity matched the generic `maturity > 180` branch and got 0.50 instead of 0.90. Per Basel LIQ40.5-7, retail/SME deposits get the retail factor (90/95% for less-stable/stable) at **all maturities** — maturity is irrelevant for the retail bucket.
+
+**Production impact**: Banks with material retail deposit books in the 6–12 month range under-stated ASF, under-reporting NSFR. The error is ~0.40 × notional per affected position.
+
+**Fix**: place the retail-deposit branch *before* the maturity branches; retail at all maturities → 0.90.
+
+### Verification — `test_l2_t4_asf_retail_maturity.py`
+
+8 new tests pin: retail at 30/100/200/364 days → 0.90; retail at 730 days → 0.90 (not 1.0); wholesale 200/100 days → 0.50; portfolio-level ASF correctly counts a 200-day retail deposit at full 0.90.
+
+Full parallel suite: **12,648 passed in 2:33** — zero regressions.
+
+**162 distinct bugs** in v0.905→v1.025. All 8 regulatory/ active modules touched; only `ccar.py`, `reverse_stress.py`, `specialty.py`, `trs_capital.py` left as audited-with-notes (no clear bug).
+
+---
+
 ## v1.024.0 — 2026-06-14
 
 **Fix L2 phase-2 (regulatory/) — `stress_irrbb.calculate_eve_impact` duration-gap EVE formula used equity instead of total assets — production-critical.**
