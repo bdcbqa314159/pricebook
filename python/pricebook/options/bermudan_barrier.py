@@ -243,9 +243,23 @@ def _lsm_bermudan_barrier_core(
         s_norm = s_itm / spot
         basis = np.column_stack([s_norm ** k for k in range(n_basis)])
 
-        # Regression in "value at current step" units:
-        # continuation(step) = cashflow[i] * exp(-r*(cash_step[i]-step)*dt)
-        cont_at_step = cashflow[itm] * np.exp(-r * (cash_step[itm] - step) * dt)
+        # Convert ``cashflow[i]`` (stored as PV-at-t=0) to value at the
+        # CURRENT step ``step``, so the regression target is in the same
+        # units as ``intrinsic[itm]`` for the exercise comparison below.
+        #
+        # PV_at_0 = future_cf · exp(-r · cash_step · dt)
+        # value_at_step = future_cf · exp(-r · (cash_step - step) · dt)
+        #               = PV_at_0 · exp(+r · step · dt)
+        #
+        # Fix T4-BBARR1: pre-fix the conversion was written as
+        # ``cashflow[itm] * exp(-r * (cash_step - step) * dt)``, which
+        # algebraically equals ``correct × exp(-r · cash_step · dt)`` —
+        # over-discounted by an extra factor.  The regression target was
+        # systematically biased downward (heavily for paths whose
+        # cashflow sits at the terminal step), so the LSM
+        # over-exercised early.  Correct expression: just un-discount
+        # PV-at-0 back to the current step.
+        cont_at_step = cashflow[itm] * np.exp(r * step * dt)
 
         coeff = np.linalg.lstsq(basis, cont_at_step, rcond=None)[0]
         cont_hat = basis @ coeff
