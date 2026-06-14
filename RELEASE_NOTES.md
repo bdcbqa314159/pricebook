@@ -2,6 +2,38 @@
 
 ---
 
+## v1.032.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `api.digital_option` d2 omitted risk-neutral drift.**
+
+The d2 formula used `ln(spot/strike)` directly:
+
+    d2 = (ln(spot/strike) − 0.5·σ²·T) / (σ·√T)
+
+Per Black-Scholes risk-neutral pricing, d2 should use `ln(F/K)` where `F = spot/df` is the forward (or equivalently `F = spot·e^(rT)`):
+
+    d2 = (ln(F/strike) − 0.5·σ²·T) / (σ·√T)
+       = (ln(spot/strike) − ln(df) − 0.5·σ²·T) / (σ·√T)
+
+The omitted `−ln(df) = r·T` drift term causes:
+- **df = 1** (no rates): formula correct.
+- **df < 1** (positive rates): ITM call probability **under-stated** by the drift; OTM put **over-stated** by the same factor.
+- Binary parity `call + put = df × payout` was violated when `df ≠ 1`.
+
+**Fix**: build `forward = spot / df` and substitute into d2. Now ATM-spot with positive rates correctly reflects that the forward is above spot, and put-call parity holds exactly.
+
+### Verification — `test_l2_t4_digital_option_drift.py`
+
+4 new tests pin: ATM-forward digital call ≈ `df × N(−σ√T/2)`; put-call parity holds with df < 1; ATM/no-rates case unchanged; positive rates increase ITM-forward call probability.
+
+Existing `test_apix.py` digital tests use df=1.0 (unaffected by the fix).
+
+Full parallel suite: **12,664 passed in 2:36** — zero regressions.
+
+**169 distinct bugs** in v0.905→v1.032.
+
+---
+
 ## v1.031.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `fx_desk` silent no-op + gross-vs-net delta.**
