@@ -2,6 +2,31 @@
 
 ---
 
+## v1.036.0 — 2026-06-14
+
+**Fix L2 phase-2 (structured/) — `callable_structured._simulate_two_rates` and `_simulate_one_rate` ignored their `rate` parameter.**
+
+Both helpers accept a `rate` argument documented as providing drift:
+
+    """driftless in the risk-neutral measure is approximated by
+       drift = rate * dt to keep rates positive"""
+
+…but the rate-update step only had the Brownian diffusion term — pure driftless ABM. The `rate` parameter was a silent no-op. Same shape as the v0.996/v1.022/v1.033 dead-parameter family.
+
+This affects all callable structured products that route through these simulators (`callable_steepener`, `callable_cms_spread`, `callable_inverse_floater`). Pre-fix, changing the input `rate` would only shift the discounting term in cashflow valuation; the simulated rate paths themselves were invariant to `rate`.
+
+**Fix**: add the documented `drift = rate * dt` to each step's rate update. Now path averages drift up at the input `rate`, which is what the comment specified.
+
+### Verification — `test_l2_t4_callable_structured_drift.py`
+
+1 new test pins: `callable_steepener` prices at `rate=0.02` vs `rate=0.06` differ by more than the discount-only adjustment can produce. Existing callable_structured tests unchanged.
+
+Full parallel suite: **12,675 passed in 2:41** — zero regressions.
+
+**173 distinct bugs** in v0.905→v1.036.
+
+---
+
 ## v1.035.0 — 2026-06-14
 
 **Fix L2 phase-2 (structured/) — `cat_bond_price` silently dropped non-integer T coupons.**
