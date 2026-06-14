@@ -112,7 +112,33 @@ class TARF:
         fix_times = [year_fraction(ref, d, DayCountConvention.ACT_365_FIXED)
                      for d in self.fixing_dates]
         T = fix_times[-1]
-        rate = -math.log(curve.df(self.maturity)) / max(T, 1e-10)
+        # Per-period discount factors come from the actual curve (not a
+        # flat-curve extrapolation).  Fix T4-TARF1: pre-fix the loop used
+        # ``df_t = exp(-rate × t_fix)`` with a flat ``rate`` derived from
+        # ``-log(df(T))/T`` — i.e. ``df(T)^(t/T)``, which equals the true
+        # ``df(t)`` only for a flat curve.  For TARFs paying at multiple
+        # fixings under non-flat curves the per-period discount was
+        # systematically biased (typically over-discounting early gains
+        # under an upward-sloping curve).
+        dfs_fix = [curve.df(d) for d in self.fixing_dates]
+        # Forward-segment drift uses per-segment forward rates so the
+        # local drift matches the curve's term structure on each segment.
+        # (For FX the drift should really subtract the FCY rate; this
+        # single-curve path is the legacy interface — multi-curve via
+        # ``pv_ctx`` is a separate slice.)
+        seg_dfs = [curve.df(self.fixing_dates[0])] + [
+            curve.df(self.fixing_dates[i]) / curve.df(self.fixing_dates[i - 1])
+            for i in range(1, len(self.fixing_dates))
+        ]
+        # seg_drift_rate[i] is the forward zero rate over (t_{i-1}, t_i].
+        seg_drift_rate = []
+        t_prev = 0.0
+        for i, t in enumerate(fix_times):
+            dt_i = t - t_prev
+            seg_drift_rate.append(
+                -math.log(seg_dfs[i]) / max(dt_i, 1e-10)
+            )
+            t_prev = t
 
         rng = np.random.default_rng(seed)
         target_notional = self.target * self.notional
@@ -129,10 +155,11 @@ class TARF:
             dt = t_fix - t_prev
             sqrt_dt = math.sqrt(max(dt, 1e-10))
             Z = rng.standard_normal(n_paths)
-            S = S * np.exp((rate - div_yield - 0.5 * vol**2) * dt + vol * sqrt_dt * Z)
+            r_seg = seg_drift_rate[i]
+            S = S * np.exp((r_seg - div_yield - 0.5 * vol**2) * dt + vol * sqrt_dt * Z)
 
             active = ~terminated
-            df_t = math.exp(-rate * t_fix)
+            df_t = dfs_fix[i]
 
             # Above pivot: buyer gains
             above = active & (S >= self.pivot)
