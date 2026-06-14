@@ -2,6 +2,27 @@
 
 ---
 
+## v1.035.0 — 2026-06-14
+
+**Fix L2 phase-2 (structured/) — `cat_bond_price` silently dropped non-integer T coupons.**
+
+The annual-coupon PV loop used `range(1, int(T) + 1)`, which truncates any non-integer maturity:
+
+- `T = 0.5` (6-month bond): loop is empty → **zero coupon PV** → price = PV(principal) alone, missing the half-year accrual entirely.
+- `T = 3.5`: 3 full annual coupons but the final 0.5-year accrual was missed.
+
+**Fix**: add a fractional final accrual `coupon × notional × remainder × df(T) × survival(T)` when `T - int(T) > 0`. For integer T this branch is a no-op, so the integer-T behaviour is unchanged.
+
+### Verification — `test_l2_t4_cat_bond_fractional_T.py`
+
+3 new tests pin: 6-month bond has non-zero coupon PV; price is continuous in T at integer boundaries (small jump if any); integer T case matches the closed-form sum exactly.
+
+Full parallel suite: **12,674 passed in 3:05** — zero regressions.
+
+**172 distinct bugs** in v0.905→v1.035.
+
+---
+
 ## v1.034.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `api.key_rate_dv01` fake decomposition + `api.carry_rolldown` triple defect.**
