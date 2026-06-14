@@ -2,6 +2,28 @@
 
 ---
 
+## v1.045.0 — 2026-06-14 — **Fix L2 T4 (options/convertible_bond) — final coupon missing from MC terminal payoff**
+
+**``ConvertibleBond.price`` MC backward-induction silently dropped the maturity coupon.**
+
+The terminal payoff was ``max(notional, conv_ratio·S_T)`` and the backward loop ran ``range(n_steps-1, -1, -1)``, never visiting ``step == n_steps``.  But the analytical ``bond_floor`` computation (also returned) DID include the maturity coupon: ``Σ c·DF(t_i) + N·DF(T)`` with ``t_i = 1/freq … T``.
+
+Consequence: MC PV biased downward by ~``coupon_amount · DF(T)``; deep-OTM CB (conversion never optimal) priced below its own ``bond_floor``.  For a 5y/5% semi-annual CB at typical discount rates, the bias is ~2% of notional.
+
+Fix: terminal payoff is ``max(notional + coupon_amount, conv_ratio·S_T)`` across all four backward-induction sites in this module:
+- ``ConvertibleBond.price`` (main MC loop)
+- ``ConvertibleBond.price`` (bumped ``V_up`` for delta)
+- ``ConvertibleBond._compute_delta`` (legacy helper)
+- ``convertible_soft_call`` (issuer call variant)
+
+Note: ``contingent_convertible``, ``exchangeable_bond``, ``mandatory_convertible`` use different payoff structures and are deferred to dedicated audit.
+
+**Files changed**:
+- `python/pricebook/options/convertible_bond.py`
+- `python/tests/test_l2_t4_convertible_bond_terminal_coupon.py` (new) — 3 regression tests: deep-OTM matches bond_floor to 0.5%, gap-vs-bond-floor bounded well below pre-fix bias, zero-coupon unchanged.
+
+---
+
 ## v1.044.0 — 2026-06-14 — **Fix L2 T4 (options/futures_options) — Bachelier price + Black-76 Greeks mismatch**
 
 **`options.futures_options.FuturesOption.price` returned Black-76 analytical Greeks even when `model="bachelier"`.**
