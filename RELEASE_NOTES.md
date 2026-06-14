@@ -2,6 +2,30 @@
 
 ---
 
+## v1.029.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — bump-normalisation sweep across remaining desk risk-metrics.**
+
+Same conceptual bug as v1.028 (`cb_risk_metrics` cs01/dv01) found in three more desk functions exposing a `bump` parameter and using `(pv_up - pv_dn) / 2` without dividing by the bump size:
+
+- `desks.inflation_desk.inflation_risk_metrics` — ie01, real_dv01, nominal_dv01 (gamma was already correct).
+- `desks.risk_participation_desk.rp_risk_metrics` — cs01, dv01.
+- `desks.structured_credit_desk.sc_risk_metrics` — dv01.
+
+Pre-fix returned "PV change for whatever bump the caller supplied", only "per 1bp" when the caller used the default 0.0001. Now normalised by `0.0001 / bump` so outputs are always "PV per 1bp" regardless of bump tuning — matching the convention used in delta/gamma/vega (which were already correct).
+
+Bond/cln/trs/swap desks were unaffected: they hardcode `h = 0.0001` internally rather than expose a tunable `bump`.
+
+### Verification — `test_l2_t4_desk_bump_normalisation.py`
+
+2 new tests pin: inflation ie01/real_dv01/nominal_dv01 invariant under bump scaling; risk-participation cs01/dv01 invariant. Structured-credit dv01 inherits the same one-line fix; verified by the existing 24 tests passing unchanged.
+
+Full parallel suite: **12,656 passed in 2:39** — zero regressions.
+
+**166 distinct bugs** in v0.905→v1.029.
+
+---
+
 ## v1.028.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `cb_risk_metrics` cs01/dv01 didn't normalise by bump size.**
