@@ -2,6 +2,27 @@
 
 ---
 
+## v1.031.0 — 2026-06-14
+
+**Fix L2 phase-2 (desks/) — `fx_desk` silent no-op + gross-vs-net delta.**
+
+Two small but real defects:
+
+1. **`fx_stress_suite` "combined" scenario lied about rates**. Pre-fix the suite included a 5th scenario named `combined` and described as "Spot -5%, rates +100bp", but the PnL formula was identical to `spot_dn_5` — the rates +100bp shock was silently dropped. The function signature `(pair, notional, spot)` has no rates data, so the only honest fix is to remove the misleading scenario. A full rate+spot reprice is provided by `fx_scenario_stress` (PricingContext-based) for callers that need both.
+
+2. **`fx_dashboard.total_delta` was gross, not net**. Pre-fix `total_delta = sum(abs(net_notional))` summed absolute values across pairs, so a long EUR/USD + short EUR/USD of equal size would report a large total_delta instead of 0. Use the signed `net_notional` so the dashboard reflects actual market exposure.
+
+### Verification
+
+- `test_l2_t4_fx_desk_stress.py` (2 new) — pin the 4-scenario list and confirm no description mentions "rates" or "+100bp"; linearity of ±5% / ±10%.
+- `test_fx_desk.py` — update existing `test_five_scenarios` to expect 4 scenarios (the silent-no-op 5th was the bug; existing test pinned the wrong count).
+
+Full parallel suite: **12,660 passed in 2:43** — zero regressions.
+
+**168 distinct bugs** in v0.905→v1.031.
+
+---
+
 ## v1.030.0 — 2026-06-14
 
 **Fix L2 phase-2 (desks/) — `bond_trading_desk.bond_carry_roll` double-counted coupon income via dirty-price rolldown.**
