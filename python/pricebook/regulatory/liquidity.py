@@ -158,17 +158,33 @@ def _rsf_factor(pos: LiquidityPosition) -> float:
 
 
 def _asf_factor(pos: LiquidityPosition) -> float:
-    """Available Stable Funding factor for a liability position."""
+    """Available Stable Funding factor for a liability position.
+
+    Per Basel LIQ40.5-15:
+        - Regulatory capital (equity) ≥1Y → 100%.
+        - Funding ≥1Y → 100%.
+        - Stable retail/SME deposits (all maturities, incl. demand) → 95%
+          (the library uses 90% as the less-stable retail proxy).
+        - Funding from non-financial corps / wholesale 6mo-1Y → 50%.
+        - Funding from financials <6mo or unsecured wholesale <6mo → 0%.
+
+    Fix T4-REG: pre-fix evaluated ``maturity_days > 180`` *before* the
+    retail-deposit check, so a 200-day retail/SME deposit returned 50%
+    instead of the correct 90%.  Retail deposits at all maturities get
+    the retail factor under Basel LIQ40 — maturity is irrelevant for
+    that category.
+    """
     if pos.product_type == "equity":
         return 1.0  # regulatory capital
+    # Retail deposits — all maturities get the retail factor first.
+    if pos.product_type == "deposit" and pos.counterparty_type == "retail":
+        return 0.90
     if pos.maturity_days > 365:
         return 1.0  # > 1Y funding
     if pos.maturity_days > 180:
-        return 0.50
-    if pos.product_type == "deposit" and pos.counterparty_type == "retail":
-        return 0.90  # stable retail deposits
+        return 0.50  # 6mo-1Y wholesale
     if pos.product_type == "deposit":
-        return 0.50  # wholesale deposits < 6M
+        return 0.50  # wholesale deposits < 6M (operational proxy)
     return 0.0  # short-term wholesale
 
 
