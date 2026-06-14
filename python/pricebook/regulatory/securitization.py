@@ -71,11 +71,20 @@ def calculate_sec_sa_rw(
         # Tranche entirely within first-loss → 1250% risk weight (full deduction)
         k_ssfa = 1.0
     elif attachment >= ksa_adj:
-        # Tranche entirely above K_SA
-        k_ssfa = ksa_adj * (math.exp(a * u) - math.exp(a * l)) / (a * (detachment - attachment))
+        # Fix T4-REG: SSFA per CRE40.53 / 12 CFR 217.43(b)(5):
+        #   K_SSFA = (e^(au) - e^(al)) / (a·(u - l))
+        # Pre-fix had a spurious ksa_adj × multiplier, under-reporting RW
+        # by ~K_a × on every above-K_a tranche.  u - l = D - A here.
+        k_ssfa = (math.exp(a * u) - math.exp(a * l)) / (a * (detachment - attachment))
     else:
-        # Tranche spans K_SA
-        k_ssfa = ksa_adj - attachment + ksa_adj * (math.exp(a * u) - 1) / (a * (detachment - attachment))
+        # Fix T4-REG: SSFA straddle case per CRE40.53 / 12 CFR 217.43(b)(5)(iii):
+        #   K_SSFA = (K_a - A)/(D - A) + (e^(au) - 1) / (a·(D - A))
+        # Pre-fix omitted the (D-A) divisor on the (K_a - A) term and had a
+        # spurious K_a × on the SSFA term.  For mezzanine near K_a this
+        # under-reported RW by ~10–20× (e.g. straddle with K_a=0.08,
+        # A=0.05, D=0.10 → code 64.6% RW vs correct ~1089%).
+        k_ssfa = (ksa_adj - attachment) / (detachment - attachment) + \
+                 (math.exp(a * u) - 1) / (a * (detachment - attachment))
 
     risk_weight = k_ssfa * 12.5 * 100
     floor = 10 if is_sts else 15
