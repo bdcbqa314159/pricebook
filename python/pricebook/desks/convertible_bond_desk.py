@@ -98,15 +98,19 @@ def cb_risk_metrics(
                         dividend_yield, n_paths, n_steps, seed)
     vega = (r_vol_up.price - base.price) / (bump_vol * 100)
 
-    # Credit CS01 (per 1bp spread)
+    # Credit CS01 (per 1bp spread).  Fix T4-DESKS: pre-fix returned the
+    # raw PV change for whatever bump_spread the caller supplied — only
+    # correct when bump_spread = 0.0001.  Now normalised by bump size so
+    # the output is always "PV per 1bp" regardless of tuning.  (Same
+    # convention used by delta/gamma/vega above.)
     r_cs_up = cb.price(spot, rate, equity_vol, credit_spread + bump_spread,
                        dividend_yield, n_paths, n_steps, seed)
-    cs01 = r_cs_up.price - base.price
+    cs01 = (r_cs_up.price - base.price) * 0.0001 / bump_spread
 
-    # Rate DV01 (per 1bp rate shift)
+    # Rate DV01 (per 1bp rate shift) — same normalisation as CS01.
     r_rate_up = cb.price(spot, rate + bump_rate, equity_vol, credit_spread,
                          dividend_yield, n_paths, n_steps, seed)
-    dv01 = r_rate_up.price - base.price
+    dv01 = (r_rate_up.price - base.price) * 0.0001 / bump_rate
 
     return CBRiskMetrics(
         pv=base.price,
