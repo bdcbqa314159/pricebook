@@ -65,9 +65,24 @@ def _simulate_lmm_paths(
     dt_tenor: float,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    """Simulate LMM forward rate paths under terminal measure.
+    """Simulate single-factor LMM forward rate paths under terminal measure.
 
-    Drift for forward j: μ_j = -Σ_{k>j} σ_j σ_k τ F_k / (1 + τ F_k)
+    Drift for forward j: μ_j = -σ_j · Σ_{k>j} σ_k · τ · F_k / (1 + τ F_k)
+
+    This is the **single-factor** LMM (all forwards driven by a common
+    Brownian motion W, with implicit correlation ρ_{j,k} = 1).  Brigo &
+    Mercurio, *Interest Rate Models — Theory and Practice*, 2nd ed.,
+    Ch. 6 eq. 6.7 (terminal measure form).
+
+    Fix T4-LMM1: pre-fix the drift used the single-factor formula above
+    (which embeds ρ_jk = 1), but the diffusion drew an INDEPENDENT
+    Brownian increment per forward — algebraically a multi-factor model
+    with ρ_jk = δ_jk.  These two assumptions are mutually inconsistent:
+    under independent factors the terminal-measure drift collapses to 0
+    for all forwards; under single-factor the diffusion must use a
+    common ``dW`` shared by every forward.  This slice picks the
+    single-factor convention (matching the drift) and uses one shared
+    ``dW`` per step.
 
     Returns (n_paths, n_steps+1, n_fwd) array.
     """
@@ -79,7 +94,8 @@ def _simulate_lmm_paths(
     F[:, 0, :] = forward_rates
 
     for step in range(n_steps):
-        dW = rng.standard_normal((n_paths, n_fwd)) * sqrt_dt
+        # Single common Brownian increment for all forwards (single-factor).
+        dW = rng.standard_normal(n_paths) * sqrt_dt
         L = np.maximum(F[:, step, :], 1e-10)
 
         for j in range(n_fwd):
@@ -90,7 +106,7 @@ def _simulate_lmm_paths(
 
             F[:, step + 1, j] = L[:, j] * np.exp(
                 (drift - 0.5 * inst_vols[j]**2) * dt
-                + inst_vols[j] * dW[:, j]
+                + inst_vols[j] * dW
             )
 
     return F
