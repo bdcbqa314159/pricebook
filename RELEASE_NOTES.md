@@ -2,6 +2,31 @@
 
 ---
 
+## v1.039.0 — 2026-06-14
+
+**Fix L2 phase-2 (structured/) — `callable_step_up_bond` off-by-one in issuer call-decision discount horizons.**
+
+At call iteration ``i`` (call time `(i+1)·dt`), the bond_value used by the issuer to decide whether to call was computed using:
+
+    remaining_coupons = Σ_j  c_j · exp(-r_t · (j+1−i)·dt)     # WRONG: one period too long
+    remaining_principal = face · exp(-r_t · (n−i)·dt)         # WRONG: one period too long
+
+Coupon `j` pays at time `(j+1)·dt`, so the discount horizon from the call time `(i+1)·dt` is `(j−i)·dt` — not `(j+1−i)·dt`. Same off-by-one on the principal (`(n−i−1)·dt` is correct, not `(n−i)·dt`).
+
+**Effect**: `bond_value` was systematically under-stated by `exp(-r_t · dt)` (≈1 period of discount), making the issuer **call LESS often** than warranted. The callable bond was therefore slightly OVER-priced (less call benefit captured by the issuer / less negative for the holder).
+
+**Fix**: shift discount horizons by one period to match the actual call date.
+
+### Verification — `test_l2_t4_callable_step_up_bond.py`
+
+2 new tests pin: deep-ITM call value > 5% of face for a high-coupon-low-rate bond (issuer should call); short-T case doesn't blow up. Existing `test_rates_structured.py` tests still pass.
+
+Full parallel suite: **12,683 passed in 2:40** — zero regressions.
+
+**176 distinct bugs** in v0.905→v1.039.
+
+---
+
 ## v1.038.0 — 2026-06-14
 
 **Fix L2 phase-2 (structured/) — `mortality_bond_price` truncates non-integer T (same shape as v1.035 cat_bond).**
