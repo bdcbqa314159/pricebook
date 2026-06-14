@@ -181,16 +181,28 @@ def outperformance_certificate(
     F = spot * math.exp((rate - dividend_yield) * T)
     df = math.exp(-rate * T)
 
-    # Stock component
-    stock_pv = spot * math.exp(-dividend_yield * T) * df * notional / spot
+    # Stock component.  Fix T4-STRUCT: pre-fix had
+    # ``spot × exp(-qT) × df × notional/spot`` which double-discounted —
+    # PV today of receiving N_shares × S_T at maturity equals
+    # ``spot × exp(-qT)``  (the dividend-yield-adjusted spot), NOT that
+    # value × df again.  Under risk-neutral pricing:
+    #   PV(S_T) = E^Q[S_T] × df = F × df = spot × exp(-qT).
+    stock_pv = spot * math.exp(-dividend_yield * T) * notional / spot
 
     # Extra calls for participation
     extra_calls = (participation - 1) * black76_price(F, spot, vol, T, df, OptionType.CALL) * notional / spot
 
-    # Cap via short call
+    # Cap via short call.
+    # Fix T4-STRUCT: pre-fix used ``cap_strike = spot * (1 + cap)`` which
+    # only caps payoff at 1+cap when participation == 1.  For
+    # participation > 1, the underlying must reach a LOWER strike for
+    # the payoff to hit the cap, since each unit of S_T/S_0 growth is
+    # amplified by ``participation``.  Correct cap-binding S_T satisfies
+    # ``1 + participation × (S_T/S_0 - 1) = 1 + cap``  ⇒
+    # ``S_T = S_0 × (1 + cap / participation)``.
     cap_cost = 0.0
     if cap is not None:
-        cap_strike = spot * (1 + cap)
+        cap_strike = spot * (1 + cap / participation) if participation > 0 else spot * (1 + cap)
         cap_cost = participation * black76_price(F, cap_strike, vol, T, df, OptionType.CALL) * notional / spot
 
     price = stock_pv + extra_calls - cap_cost
