@@ -2,6 +2,36 @@
 
 ---
 
+## v1.051.0 — 2026-06-14 — **Fix L2 T4 (options/bermudan_barrier) — LSM regression target over-discounted**
+
+**``_lsm_bermudan_barrier_core`` converted PV-at-t=0 to "value at step" using the wrong formula.**
+
+Pre-fix the regression target line was:
+```python
+cont_at_step = cashflow[itm] * np.exp(-r * (cash_step - step) * dt)
+```
+
+But ``cashflow`` stores PV-at-t=0 (the discounting was applied once at storage time, both for the terminal payoff and any LSM-driven early-exercise update).  To convert PV-at-0 to "value at step k", one simply un-discounts: ``cashflow · exp(+r · step · dt)``.
+
+The pre-fix expression algebraically equals:
+```
+cashflow · exp(-r·(cash_step - step)·dt)
+  = cashflow · exp(-r·cash_step·dt) · exp(+r·step·dt)
+  = correct  ·  exp(-r·cash_step·dt)     # extra over-discount factor
+```
+
+So the regression target was discounted TWICE — once at storage, once again here.  Most severe for paths still carrying the terminal cashflow (``cash_step = n_steps``), where the bias factor was ``exp(-r·T)``.  At r=5%, T=1y the regression saw ~5% lower values than truth; at r=10%, T=2y the bias was ~18%.
+
+Consequence: the LSM continuation estimate was systematically biased low → early exercise was over-triggered → the price was biased toward the immediate-exercise lower bound.
+
+Fix: ``cont_at_step = cashflow[itm] · exp(+r · step · dt)``.
+
+**Files changed**:
+- `python/pricebook/options/bermudan_barrier.py` — single-line correction in the LSM regression conversion, with provenance comment.
+- `python/tests/test_l2_t4_bermudan_barrier_lsm_regression.py` (new) — 3 regressions: Bermudan ≤ American, Bermudan ≥ European, high-r case stays well-behaved.
+
+---
+
 ## v1.050.0 — 2026-06-14 — **🎯 1.050 milestone · Fix L2 T4 (options/bermudan_capfloor) — same defect class as bermudan_swaption**
 
 **``bermudan_capfloor._bermudan_capfloor_tree`` carried the same defect class as the HW Bermudan swaption tree (v1.049).**
