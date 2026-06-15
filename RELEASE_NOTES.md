@@ -2,6 +2,26 @@
 
 ---
 
+## v1.071.0 — 2026-06-16 — **Fix L2 T4 (G2++ ZCB formula) — Brigo-Mercurio eq. 4.10 missing V(t,T) term**
+
+**Three internal G2++ ZCB implementations used ``0.5·[V(0, T) − V(0, t)]`` in the exponent where Brigo-Mercurio (2nd ed., eq. 4.10) requires ``0.5·[V(t, T) − V(0, T) + V(0, t)]``.**
+
+T4-G2T2: for stationary OU integrated variance the missing combination is V(t, T) = V(0, T−t).  At t=0 with x=y=0 the buggy formula returns ``P^M(T) · exp(0.5·V(0, T))`` instead of P^M(T) — for σ₁=0.01, T=5y this is a +0.25% bias on the discount factor.  The bias propagates to the swap PV at exercise dates in:
+
+* ``G2PlusPlus.zcb_price`` (``vasicek.py``) — public model API; signature extended to optionally take ``t`` (default 0).
+* ``G2PPTree.zcb_price`` (``g2pp_tree.py``) — used at the terminal slice of the swaption tree and at every exercise-date node in ``bermudan_swaption_g2pp_tree``.  Drove the ~13% gap vs the analytical Jamshidian price on a vanilla 1y/2y European payer (post-T4-G2T1).
+* ``_zcb_path`` (``bermudan_swaption_g2pp.py``) — used by the LSM pricer to compute swap PV along simulated paths.
+
+The analytical swaption pricer ``g2pp_swaption_price`` in ``g2pp_calibration.py`` already used the correct A_i factor under the T-forward measure (the V_α/V_i/V_0 combination matches Brigo eq. 4.31), so calibration is unaffected — the fix just brings the tree and LSM into agreement with the analytical formula.
+
+**Files changed**:
+- `python/pricebook/models/vasicek.py` — ``G2PlusPlus.zcb_price`` now takes optional ``t`` and uses ``0.5·[V(t, T) − V(0, T) + V(0, t)]``.
+- `python/pricebook/models/g2pp_tree.py` — ``G2PPTree.zcb_price`` exponent corrected; computes V(t, T) = V(0, T−t).
+- `python/pricebook/options/bermudan_swaption_g2pp.py` — ``_zcb_path`` (the LSM-helper analytical ZCB) corrected.
+- `python/tests/test_l2_t4_g2pp_zcb_formula.py` (new) — 4 regressions: model ZCB at origin equals curve P(0,T) exactly (was off by exp(0.5·V)), tree ZCB at root equals curve, tree backward-induction with terminal=1 matches the analytical ZCB to lattice tolerance, and the tree-priced European swaption tracks the Jamshidian closed-form to 10% rel-err (was 13% pre-fix).
+
+---
+
 ## v1.070.0 — 2026-06-15 — **Fix L2 T4 (options/bermudan_swaption_g2pp) — duplicate phi(t) defect in LSM path discounting**
 
 **``bermudan_swaption_g2pp_lsm`` carries a private ``_phi`` helper duplicating ``G2PPTree._phi``, including the same ``eps = 1e-5`` finite-difference defect (T4-G2T1) that ``date_from_year_fraction``'s day rounding turns into either 0 or ≈ 137·r per call.**
