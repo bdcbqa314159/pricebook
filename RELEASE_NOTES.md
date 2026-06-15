@@ -2,6 +2,42 @@
 
 ---
 
+## v1.066.0 — 2026-06-15 — **Fix L2 T4 (options/autocall_advanced.discrete_autocall) — autocall branch overwrote prior coupons + ignored memory feature**
+
+**``discrete_autocall`` autocall branch had two coupled defects.**
+
+Pre-fix:
+```python
+if perf >= autocall_barrier:
+    if memory_coupon:
+        total_periods_paid = i + 1
+    else:
+        total_periods_paid = i + 1     # ← identical to memory branch
+    path_pv = (notional + total_periods_paid * coupon_rate * notional) * df
+    path_coupon = total_periods_paid * coupon_rate
+    called = True; break
+```
+
+Two coupled bugs:
+
+1. **Overwrite, not add**.  ``path_pv = ...`` (assignment) wiped out coupons already paid conditionally in earlier observation periods.
+
+2. **Memory flag has no effect at autocall**.  The if/else is structurally redundant (both branches set ``total_periods_paid = i + 1``).  At autocall, memory and non-memory get the same payout — coupons for ALL periods regardless of whether the coupon barrier was met.  Standard convention:
+   - Non-memory: notional + 1 current "autocall coupon".
+   - Memory: notional + (unpaid_coupons + 1) × coupon.
+
+For non-memory: bug over-paid by ``i × coupon`` at every autocall.
+
+Fix (T4-AUTO2):
+- ``path_pv += autocall_payment`` (add, not overwrite).
+- Non-memory pays 1 current coupon; memory pays unpaid + 1.
+
+**Files changed**:
+- `python/pricebook/options/autocall_advanced.py` — autocall payout uses ``+=`` and respects memory flag distinctly.
+- `python/tests/test_l2_t4_autocall_advanced_overwrite.py` (new) — 2 regressions.
+
+---
+
 ## v1.065.0 — 2026-06-15 — **Fix L2 T4 (options/american_dividend) — cum-dividend exercise at ex-step lost**
 
 **``american_with_dividends`` used post-drop spot at the ex-date step, silently dropping the cum-dividend early-exercise opportunity.**
