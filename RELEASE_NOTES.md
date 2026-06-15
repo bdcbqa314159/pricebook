@@ -2,6 +2,21 @@
 
 ---
 
+## v1.074.0 — 2026-06-16 — **Fix L2 T4 (fixed_income/risky_floating) — z_spread sign inverted + accrued-on-default mid-date**
+
+T4-RFRN1:
+
+* **``CreditRiskyFRN.z_spread`` sign inverted** — used ``discount_curve.bumped(-z)``, but ``DiscountCurve.bumped(s)`` adds ``s`` to the zero rates (multiplies DF by ``exp(-s·t)``).  So positive z shifted rates DOWN (DF up, PV up), the opposite of the z-spread convention.  brentq bracketed [-0.05, 0.10] and both endpoints had PV above any sensible target, so the solver raised ``ValueError("must have opposite signs")`` on every realistic input.  The function had no tests and no callers, so the bug went unnoticed.
+* **``risky_floating_pv`` accrued-on-default mid-date** — the half-period accrued payment was discounted using ``df(accrual_start)`` rather than the mid-period DF.  For semi-annual @ 4% the resulting accrued-on-default component was ~1% high (a ~4 bp bias on a typical risky-FRN total PV).
+
+Fix: ``bumped(z)`` (not ``bumped(-z)``) in z_spread; midpoint ordinal between accrual_start and accrual_end in risky_floating_pv.
+
+**Files changed**:
+- `python/pricebook/fixed_income/risky_floating.py` — ``z_spread`` sign and ``risky_floating_pv`` accrued mid-date.
+- `python/tests/test_l2_t4_risky_floating.py` (new) — 2 regressions: z_spread no longer raises on a credit-risky self-consistency target; accrued component reconciles into the total PV decomposition and sits in a sensible range.
+
+---
+
 ## v1.073.0 — 2026-06-16 — **Fix L2 T4 (fixed_income/jarrow_yildirim) — HW ZCB formula + inflation-forward ratio inverted**
 
 **Two coupled bugs in ``jy_zc_inflation_swap``: the Hull-White ZCB closed form was wrong on three counts, and the JY inflation-forward ratio was inverted.**
