@@ -242,13 +242,56 @@ def build_swaption_vol_cube(
 
 
 def _lookup_atm(expiries, tenors, grid, exp_y, tenor_y):
-    """Simple lookup/interpolation for ATM vol."""
-    exp_arr = np.array(expiries)
-    ten_arr = np.array(tenors)
-    grid_arr = np.array(grid)
+    """Bilinear interpolation for ATM vol on the (expiry, tenor) grid.
 
-    i = np.searchsorted(exp_arr, exp_y)
-    j = np.searchsorted(ten_arr, tenor_y)
-    i = max(0, min(i, len(exp_arr) - 1))
-    j = max(0, min(j, len(ten_arr) - 1))
-    return float(grid_arr[i, j])
+    Fix T4-SVC1: pre-fix this function used ``np.searchsorted`` to pick
+    an index and returned ``grid[i, j]`` — i.e. lookup-with-round-up
+    rather than interpolation.  For any query strictly between two
+    pillars on either axis, the function returned the upper-right
+    cell's value instead of the interpolated one.  Used to populate
+    each SABR node's ``atm_vol``, so off-pillar nodes carried the
+    wrong ATM (showing up at the exactly-strike-equals-forward
+    fast-path in ``SABRNode.vol``).
+    """
+    exp_arr = np.array(expiries, dtype=float)
+    ten_arr = np.array(tenors, dtype=float)
+    grid_arr = np.array(grid, dtype=float)
+
+    if len(exp_arr) == 0 or len(ten_arr) == 0:
+        return 0.0
+    if len(exp_arr) == 1:
+        # Degenerate expiry axis — fall through to tenor-only.
+        if len(ten_arr) == 1:
+            return float(grid_arr[0, 0])
+        j = int(np.searchsorted(ten_arr, tenor_y)) - 1
+        j = max(0, min(j, len(ten_arr) - 2))
+        wt = (tenor_y - ten_arr[j]) / (ten_arr[j + 1] - ten_arr[j])
+        wt = max(0.0, min(1.0, wt))
+        return float((1 - wt) * grid_arr[0, j] + wt * grid_arr[0, j + 1])
+    if len(ten_arr) == 1:
+        i = int(np.searchsorted(exp_arr, exp_y)) - 1
+        i = max(0, min(i, len(exp_arr) - 2))
+        we = (exp_y - exp_arr[i]) / (exp_arr[i + 1] - exp_arr[i])
+        we = max(0.0, min(1.0, we))
+        return float((1 - we) * grid_arr[i, 0] + we * grid_arr[i + 1, 0])
+
+    i = int(np.searchsorted(exp_arr, exp_y)) - 1
+    j = int(np.searchsorted(ten_arr, tenor_y)) - 1
+    i = max(0, min(i, len(exp_arr) - 2))
+    j = max(0, min(j, len(ten_arr) - 2))
+
+    we = (exp_y - exp_arr[i]) / (exp_arr[i + 1] - exp_arr[i])
+    wt = (tenor_y - ten_arr[j]) / (ten_arr[j + 1] - ten_arr[j])
+    we = max(0.0, min(1.0, we))
+    wt = max(0.0, min(1.0, wt))
+
+    v00 = grid_arr[i, j]
+    v01 = grid_arr[i, j + 1]
+    v10 = grid_arr[i + 1, j]
+    v11 = grid_arr[i + 1, j + 1]
+    return float(
+        (1 - we) * (1 - wt) * v00
+        + (1 - we) * wt * v01
+        + we * (1 - wt) * v10
+        + we * wt * v11
+    )
