@@ -2,6 +2,28 @@
 
 ---
 
+## v1.058.0 — 2026-06-15 — **Fix L2 T4 (options/exotic_payoffs.installment_option) — cost-to-continue missed the current installment**
+
+**``installment_option`` rational-exercise check used only the PV of FUTURE installments, ignoring the installment the holder must pay now to continue.**
+
+At each installment date ``t_i`` the holder chooses between paying the current installment and continuing, or abandoning the option for zero.  The correct rational comparison is:
+
+    continue iff live_val(t_i) >= installment_amt + PV(future installments)
+
+i.e. live_val ≥ PV of **all** remaining installments including the current one.
+
+Pre-fix the code computed only ``pv_remaining = installment_amt · Σ_{j>i} DF`` and continued iff ``live_val >= pv_remaining`` — omitting the current ``installment_amt × 1``.  The holder over-continued (the cost threshold was too lenient by exactly one current installment), inflating the continuation probability and biasing the priced payoff upward.
+
+Fix (T4-EX1): ``cost_to_continue = installment_amt + pv_future`` and ``should_continue = live_val >= cost_to_continue``.
+
+**Files changed**:
+- `python/pricebook/options/exotic_payoffs.py` — ``installment_option`` rational-exercise check now includes the current installment.
+- `python/tests/test_l2_t4_installment_option_continue_cost.py` (new) — 2 regressions: deep-OTM call abandons (continuation_prob < 10%); ATM remains finite/non-negative with bounded continuation probability.
+
+Note: ``shout_option`` in the same module has an unrelated subtle issue (the backward-greedy strategy with ``n_shouts = 1`` essentially shouts at the last possible step instead of the path's intrinsic max).  A proper fix needs LSM and is deferred.
+
+---
+
 ## v1.057.0 — 2026-06-15 — **Fix L2 T4 (options/multi_asset_local_vol) — silent correlation + vol-paths reporting**
 
 Two distinct findings in this slice.
