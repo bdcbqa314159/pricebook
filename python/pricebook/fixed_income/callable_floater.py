@@ -100,9 +100,7 @@ def _straight_frn_tree(
         coupon_steps.add(int(round(t_pay / dt)))
         t_pay += period
 
-    # Terminal: principal + last floating coupon
-    # Last coupon = (r_j + spread) * period * notional, but we add spread
-    # separately; the floating part is embedded in the node rate.
+    # Terminal: principal + last floating coupon (cum-coupon at maturity).
     values = np.zeros(n_nodes)
     last_step = int(round(maturity_years / dt))
     for j in range(-j_max, j_max + 1):
@@ -110,26 +108,31 @@ def _straight_frn_tree(
         coupon = notional * max(r_j + spread, 0.0) * period
         values[j + mid] = notional + coupon
 
+    # Fix T4-CF1: pre-fix used ``/6`` in the trinomial drift terms (Hull
+    # §32.4 has ``/2``) and added the coupon AFTER the backward
+    # discount.  Both are corrected below — coupon is added to ``values``
+    # at step+1 BEFORE the one-step discount so it gets the right DF.
     for step in range(n_steps - 1, -1, -1):
-        new_values = np.zeros(n_nodes)
+        sp1 = step + 1
+        # Apply coupon at step+1 (before discount).  Terminal coupon is
+        # already in the init — skip it.
+        if sp1 in coupon_steps and sp1 != last_step:
+            for j in range(-j_max, j_max + 1):
+                r_j = r0 + j * dr
+                values[j + mid] += notional * max(r_j + spread, 0.0) * period
 
+        new_values = np.zeros(n_nodes)
         for j in range(-j_max, j_max + 1):
             idx = j + mid
             r_j = r0 + j * dr
             one_step_df = math.exp(-r_j * dt)
 
-            p_up = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt - j * hw_a * dt) / 6.0
-            p_mid = 2.0 / 3.0 - j * j * hw_a * hw_a * dt * dt / 3.0
-            p_dn = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt + j * hw_a * dt) / 6.0
-
+            # Textbook HW trinomial probabilities — drift term / 2.
+            p_up = 1.0/6 + (j*j * hw_a*hw_a * dt*dt - j * hw_a * dt) / 2
+            p_dn = 1.0/6 + (j*j * hw_a*hw_a * dt*dt + j * hw_a * dt) / 2
             p_up = max(0.0, min(1.0, p_up))
-            p_mid = max(0.0, min(1.0, p_mid))
             p_dn = max(0.0, min(1.0, p_dn))
-            p_total = p_up + p_mid + p_dn
-            if p_total > 0:
-                p_up /= p_total
-                p_mid /= p_total
-                p_dn /= p_total
+            p_mid = max(0.0, 1.0 - p_up - p_dn)
 
             j_up = min(j + 1, j_max)
             j_dn = max(j - 1, -j_max)
@@ -138,14 +141,6 @@ def _straight_frn_tree(
                     + p_mid * values[j + mid]
                     + p_dn * values[j_dn + mid])
             new_values[idx] = cont * one_step_df
-
-        # Add coupon at coupon dates (spread component only for mid-tree dates;
-        # the floating rate resets and is carried in the node value inherently)
-        if (step + 1) in coupon_steps and (step + 1) != last_step:
-            for j in range(-j_max, j_max + 1):
-                r_j = r0 + j * dr
-                coupon = notional * max(r_j + spread, 0.0) * period
-                new_values[j + mid] += coupon
 
         values = new_values
 
@@ -190,7 +185,7 @@ def _frn_tree_with_option(
 
     last_step = int(round(maturity_years / dt))
 
-    # Terminal: principal + last coupon
+    # Terminal: principal + last coupon (cum-coupon)
     values = np.zeros(n_nodes)
     for j in range(-j_max, j_max + 1):
         r_j = r0 + j * dr + oas_shift
@@ -199,26 +194,45 @@ def _frn_tree_with_option(
 
     exercise_gains: list[tuple[int, float]] = []
 
+    # Same T4-CF1 fixes as ``_straight_frn_tree`` plus option-applied-
+    # before-discount: pre-fix the call/put compared discounted
+    # continuation (in step units) against the undiscounted par strike
+    # (in step+1 units), biasing the exercise decision by ~exp(r·dt)
+    # per step.
     for step in range(n_steps - 1, -1, -1):
-        new_values = np.zeros(n_nodes)
+        sp1 = step + 1
 
+        # Apply coupon at step+1 (before discount).  Terminal already
+        # in init.
+        if sp1 in coupon_steps and sp1 != last_step:
+            for j in range(-j_max, j_max + 1):
+                r_j = r0 + j * dr + oas_shift
+                values[j + mid] += notional * max(r_j + spread, 0.0) * period
+
+        # Apply option at step+1 (before discount) so the comparison is
+        # in consistent step+1 units.
+        if sp1 in option_steps:
+            ex_price = option_steps[sp1]
+            before = float(values[mid])
+            if is_callable:
+                values = np.minimum(values, ex_price)
+            else:
+                values = np.maximum(values, ex_price)
+            after = float(values[mid])
+            exercise_gains.append((sp1, abs(after - before)))
+
+        new_values = np.zeros(n_nodes)
         for j in range(-j_max, j_max + 1):
             idx = j + mid
             r_j = r0 + j * dr + oas_shift
             one_step_df = math.exp(-r_j * dt)
 
-            p_up = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt - j * hw_a * dt) / 6.0
-            p_mid = 2.0 / 3.0 - j * j * hw_a * hw_a * dt * dt / 3.0
-            p_dn = 1.0 / 6.0 + (j * j * hw_a * hw_a * dt * dt + j * hw_a * dt) / 6.0
-
+            # Textbook HW trinomial probabilities — drift term / 2.
+            p_up = 1.0/6 + (j*j * hw_a*hw_a * dt*dt - j * hw_a * dt) / 2
+            p_dn = 1.0/6 + (j*j * hw_a*hw_a * dt*dt + j * hw_a * dt) / 2
             p_up = max(0.0, min(1.0, p_up))
-            p_mid = max(0.0, min(1.0, p_mid))
             p_dn = max(0.0, min(1.0, p_dn))
-            p_total = p_up + p_mid + p_dn
-            if p_total > 0:
-                p_up /= p_total
-                p_mid /= p_total
-                p_dn /= p_total
+            p_mid = max(0.0, 1.0 - p_up - p_dn)
 
             j_up = min(j + 1, j_max)
             j_dn = max(j - 1, -j_max)
@@ -227,22 +241,6 @@ def _frn_tree_with_option(
                     + p_mid * values[j + mid]
                     + p_dn * values[j_dn + mid])
             new_values[idx] = cont * one_step_df
-
-        if (step + 1) in coupon_steps and (step + 1) != last_step:
-            for j in range(-j_max, j_max + 1):
-                r_j = r0 + j * dr + oas_shift
-                coupon = notional * max(r_j + spread, 0.0) * period
-                new_values[j + mid] += coupon
-
-        if (step + 1) in option_steps:
-            ex_price = option_steps[step + 1]
-            before = float(new_values[mid])
-            if is_callable:
-                new_values = np.minimum(new_values, ex_price)
-            else:
-                new_values = np.maximum(new_values, ex_price)
-            after = float(new_values[mid])
-            exercise_gains.append((step + 1, abs(after - before)))
 
         values = new_values
 
