@@ -2,6 +2,36 @@
 
 ---
 
+## v1.064.0 — 2026-06-15 — **Fix L2 T4 (options/vol_derivatives_advanced.variance_swap_greeks) — vega had spurious T factor**
+
+**``variance_swap_greeks`` returned vega scaled by ``T``, breaking the standard ``notional_var = vega_notional / (2·√strike_var)`` convention.**
+
+Pre-fix vega:
+```python
+vega = 2 * vol * T * notional_var * remaining
+```
+
+The canonical convention defines ``notional_var`` precisely so that ``vega ≈ vega_notional`` at ATM inception, regardless of T.  Working through the algebra (notional_var = vega_notional / (2·√strike_var); ATM ⇒ vol = √strike_var; r = 0):
+
+    vega_correct = 2·σ·notional_var·DF·remaining = vega_notional   ✓
+
+    vega_buggy = 2·σ·T·notional_var·remaining = T · vega_notional   ✗
+
+So a 2y var swap was reported with 2× the vega of a 1y var swap at the same vega_notional; a 5y var swap with 5×.  The existing tests use ``T = 1.0`` exclusively, so the bug never surfaced.
+
+Also added the missing remaining-time discount factor ``exp(-r·T·remaining)``, which under-weighted long-dated, high-rate vegas pre-fix.
+
+Fix (T4-VDA1):
+```python
+vega = 2.0 * vol * notional_var * df_remaining * remaining
+```
+
+**Files changed**:
+- `python/pricebook/options/vol_derivatives_advanced.py` — corrected vega and reused ``df_remaining`` for both PV and vega.
+- `python/tests/test_l2_t4_variance_swap_vega.py` (new) — 3 regressions: ATM vega = vega_notional for T ∈ {0.25, 1, 2, 5}; long-dated vega includes ``exp(-rT)``; vega scales linearly with remaining time as the trade ages.
+
+---
+
 ## v1.063.0 — 2026-06-15 — **Fix L2 T4 (options/vol_term_structure.Bergomi2Factor) — missing cross-term in martingale correction**
 
 **``Bergomi2Factor.simulate`` and ``bergomi_2f_simulate_via_engine`` used the wrong quadratic-variation formula for the lognormal forward variance.**
