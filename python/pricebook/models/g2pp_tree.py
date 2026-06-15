@@ -226,18 +226,19 @@ class G2PPTree:
     # ------------------------------------------------------------------
 
     def _fwd_rate(self, t: float) -> float:
-        """Instantaneous forward rate from the market curve at time t."""
-        g = self.g2pp
-        ref = g.curve.reference_date
-        eps = 1e-5
-        if t < eps:
-            d1 = date_from_year_fraction(ref, eps)
-            return -math.log(g.curve.df(d1)) / eps
-        d1 = date_from_year_fraction(ref, max(t - eps, 1e-8))
-        d2 = date_from_year_fraction(ref, t + eps)
-        p1 = g.curve.df(d1)
-        p2 = g.curve.df(d2)
-        return -math.log(p2 / p1) / (2.0 * eps)
+        """Instantaneous forward rate from the market curve at time t.
+
+        Fix T4-G2T1: a finite-difference with ``eps = 1e-5`` years (≈ 8 s)
+        is destroyed by ``date_from_year_fraction``'s day rounding — both
+        ``t±eps`` round to the same date (so fwd = 0) or to one-day-apart
+        dates (so fwd is over-stated by (1/365) / (2·eps) ≈ 137×).  For
+        a flat 4% curve at 30-step T=5y this gave phi(t) ≈ 0 at 27 of
+        31 grid times and phi(t) ≈ 5.48 at the other 4 — catastrophically
+        over-discounting bond prices (P(0,5) tree ≈ 0.026 vs market 0.82).
+        Delegate to :meth:`DiscountCurve.instantaneous_forward` which uses
+        a stable one-day step.
+        """
+        return self.g2pp.curve.instantaneous_forward(t)
 
     # ------------------------------------------------------------------
     # phi(t): G2++ deterministic shift
