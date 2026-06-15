@@ -523,10 +523,15 @@ def installment_option(
     continuation_count = np.zeros(n_paths, dtype=int)
 
     for i, (S_t, t_i) in enumerate(zip(path_at_dates[:-1], installment_dates)):
-        remaining_dates = installment_dates[i + 1:]  # dates of future payments (current already paid)
-        pv_remaining = sum(installment_amt * math.exp(-r * (tj - t_i)) for tj in remaining_dates)
+        remaining_dates = installment_dates[i + 1:]  # installments paid AFTER t_i
+        pv_future = sum(installment_amt * math.exp(-r * (tj - t_i)) for tj in remaining_dates)
+        # Fix T4-EX1: total cost to continue from t_i is the CURRENT
+        # installment (paid now) plus the PV of all future installments.
+        # Pre-fix the decision only compared ``live_val`` to ``pv_future``
+        # — omitting the current ``installment_amt`` — so the holder
+        # systematically over-continued and the option was over-priced.
+        cost_to_continue = installment_amt + pv_future
         tau = T - t_i
-        # Vectorised BS for array of spot values
         if tau <= 0 or vol <= 0:
             live_val = np.maximum(sign * (S_t - strike), 0.0)
         else:
@@ -535,8 +540,8 @@ def installment_option(
             _d2 = _d1 - vol * math.sqrt(tau)
             _c = S_t * np.exp(-q * tau) * _norm.cdf(_d1) - strike * np.exp(-r * tau) * _norm.cdf(_d2)
             live_val = _c if option_type == "call" else _c - S_t * np.exp(-q * tau) + strike * np.exp(-r * tau)
-        # Rational: continue iff live_val >= PV(remaining installments)
-        should_continue = active & (live_val >= pv_remaining)
+        # Rational: continue iff live_val >= total cost of remaining payments.
+        should_continue = active & (live_val >= cost_to_continue)
         active = should_continue
         continuation_count += should_continue.astype(int)
 
