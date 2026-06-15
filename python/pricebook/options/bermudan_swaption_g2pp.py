@@ -330,20 +330,13 @@ def bermudan_swaption_g2pp_lsm(
     # We discount from each exercise date to t=0 using the path short rates.
     # phi(t) is deterministic and cancels in the swap PV (analytically).
 
-    # Helper: G2++ short rate at a node (x, y, t) = x + y + phi(t)
+    # Helper: G2++ short rate at a node (x, y, t) = x + y + phi(t).
+    # Fix T4-BSWG1: same finite-difference defect as G2PPTree._fwd_rate
+    # (T4-G2T1) — eps=1e-5 was destroyed by date_from_year_fraction's day
+    # rounding, alternating fwd ≈ 0 / fwd ≈ 137·r across the time grid.
+    # Use the curve's day-step instantaneous_forward for stability.
     def _phi(t: float) -> float:
-        from pricebook.core.day_count import date_from_year_fraction as _dyf
-        ref = g2pp.curve.reference_date
-        eps = 1e-5
-        if t < eps:
-            d1 = _dyf(ref, eps)
-            fwd = -math.log(g2pp.curve.df(d1)) / eps
-        else:
-            d1 = _dyf(ref, max(t - eps, 1e-8))
-            d2 = _dyf(ref, t + eps)
-            p1 = g2pp.curve.df(d1)
-            p2 = g2pp.curve.df(d2)
-            fwd = -math.log(p2 / p1) / (2.0 * eps)
+        fwd = g2pp.curve.instantaneous_forward(t)
         ea = (1.0 - math.exp(-a * t)) if a > 1e-12 else t
         eb = (1.0 - math.exp(-b_ * t)) if b_ > 1e-12 else t
         ca = ea**2 / (2.0 * a**2) if a > 1e-12 else t**2 / 2.0
