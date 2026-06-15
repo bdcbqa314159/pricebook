@@ -375,7 +375,9 @@ def bermudan_swaption_g2pp_lsm(
         ref = g2pp.curve.reference_date
         P_T = g2pp.curve.df(_dyf(ref, T_mat))
         P_t = g2pp.curve.df(_dyf(ref, t)) if t > 1e-10 else 1.0
-        half_dV = 0.5 * (_V(T_mat) - _V(t))
+        # Fix T4-G2T2: Brigo-Mercurio eq. 4.10 — exponent is
+        # 0.5·[V(t, T) − V(0, T) + V(0, t)], not 0.5·[V(0, T) − V(0, t)].
+        half_dV = 0.5 * (_V(tau) - _V(T_mat) + _V(t))
         return (P_T / P_t) * np.exp(-Bx * x - By * y + half_dV)
 
     def _swap_pv_paths(

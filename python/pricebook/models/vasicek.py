@@ -163,17 +163,40 @@ class G2PlusPlus:
 
         return v
 
-    def zcb_price(self, x: float, y: float, T: float) -> float:
-        """Analytical ZCB: P(x, y, T) = P_market(T) * exp(-Bx*x - By*y + 0.5*V(T))."""
+    def zcb_price(self, x: float, y: float, T: float, t: float = 0.0) -> float:
+        """Analytical G2++ ZCB price conditional on factor state (x, y) at time t.
+
+        Brigo-Mercurio eq. 4.10:
+
+            P(t, T) = (P^M(T) / P^M(t)) · exp(-B_a(T-t)·x - B_b(T-t)·y
+                                              + 0.5·[V(t, T) - V(0, T) + V(0, t)])
+
+        For stationary OU integrated variance, ``V(t, T) = V(0, T - t)``.
+
+        At t=0 with x=y=0 this reduces to ``P^M(T)`` exactly.
+
+        Fix T4-G2T2: pre-fix this function returned ``P^M(T) · exp(0.5·V(0, T))``
+        (the ``+ V(0, t) - V(t, T)`` correction was missing), giving an
+        ~exp(0.5·V(T)) bias at the origin (0.25% for T=5, σ₁=0.01).
+        """
         ref = self.curve.reference_date
-        d_T = date_from_year_fraction(ref, T)
-        P_mkt = self.curve.df(d_T)
+        tau = T - t
+        if tau <= 0.0:
+            return 1.0
 
-        Bx = (1 - math.exp(-self.a * T)) / self.a if self.a > 0 else T
-        By = (1 - math.exp(-self.b * T)) / self.b if self.b > 0 else T
-        V = self._V(T)
+        P_T = self.curve.df(date_from_year_fraction(ref, T))
+        P_t = self.curve.df(date_from_year_fraction(ref, t)) if t > 1e-10 else 1.0
 
-        return P_mkt * math.exp(-Bx * x - By * y + 0.5 * V)
+        Bx = (1 - math.exp(-self.a * tau)) / self.a if self.a > 0 else tau
+        By = (1 - math.exp(-self.b * tau)) / self.b if self.b > 0 else tau
+
+        V_tT = self._V(tau)
+        V_0T = self._V(T)
+        V_0t = self._V(t) if t > 1e-10 else 0.0
+
+        return (P_T / P_t) * math.exp(
+            -Bx * x - By * y + 0.5 * (V_tT - V_0T + V_0t)
+        )
 
     def simulate(
         self, T: float, n_steps: int, n_paths: int, seed: int = 42,

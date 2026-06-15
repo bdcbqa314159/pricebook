@@ -316,9 +316,18 @@ class G2PPTree:
                     tt - Bk(a, tt) - Bk(b_, tt) + Bk(a + b_, tt))
             )
 
-        V_T = _V(T_maturity)
-        V_t = _V(t)
-        half_delta_V = 0.5 * (V_T - V_t)
+        # Fix T4-G2T2: Brigo-Mercurio eq. 4.10 — the exponent in A(t, T) is
+        # ``0.5 × [V(t, T) − V(0, T) + V(0, t)]`` (not ``0.5 × [V(0, T) −
+        # V(0, t)]``).  For an OU integrated variance V(t, T) = V(0, T−t).
+        # Pre-fix the formula was off by ``0.5·(2·V(0,T) − V(0,t) − V(0,T−t))``
+        # — at the root (t=0, x=y=0) the tree returned ``P_M(T) · exp(0.5 V(0,T))``
+        # instead of ``P_M(T)``, biasing the tree-priced European swaption
+        # by ~13% vs the analytical Jamshidian formula (which uses the
+        # correct A_i factor in ``g2pp_swaption_price``).
+        V_tT = _V(tau)
+        V_0T = _V(T_maturity)
+        V_0t = _V(t)
+        half_delta_V = 0.5 * (V_tT - V_0T + V_0t)
 
         ref = g.curve.reference_date
         P_T = g.curve.df(date_from_year_fraction(ref, T_maturity))
