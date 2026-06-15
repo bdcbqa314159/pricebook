@@ -225,14 +225,11 @@ def _simulate_factors(
     # phi(t): forward rate + G2++ correction
     ref = g2pp.curve.reference_date
 
+    # Fix T4-G2T3: eps=1e-5 finite-difference was killed by
+    # date_from_year_fraction's day rounding (T4-G2T1).  Delegate to
+    # the curve's stable instantaneous_forward.
     def _fwd(t_: float) -> float:
-        eps = 1e-5
-        if t_ < eps:
-            d1 = date_from_year_fraction(ref, eps)
-            return -math.log(g2pp.curve.df(d1)) / eps
-        d1 = date_from_year_fraction(ref, t_ - eps)
-        d2 = date_from_year_fraction(ref, t_ + eps)
-        return -math.log(g2pp.curve.df(d2) / g2pp.curve.df(d1)) / (2 * eps)
+        return g2pp.curve.instantaneous_forward(t_)
 
     def _phi(t_: float) -> float:
         ea = (1 - math.exp(-a * t_)) if a > 0 else t_

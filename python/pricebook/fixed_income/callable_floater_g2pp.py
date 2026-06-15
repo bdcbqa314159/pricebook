@@ -80,19 +80,16 @@ class CallableFloaterG2PPResult:
 
 
 def _phi_at(g2pp: G2PlusPlus, t: float) -> float:
-    """G2++ deterministic shift phi(t) = f_mkt(0,t) + variance correction."""
-    ref = g2pp.curve.reference_date
+    """G2++ deterministic shift phi(t) = f_mkt(0,t) + variance correction.
+
+    Fix T4-G2T3: same finite-difference defect as G2PPTree._fwd_rate
+    (T4-G2T1) — eps=1e-5 was destroyed by date_from_year_fraction's
+    day rounding, alternating fwd ≈ 0 / fwd ≈ 137·r across the time
+    grid.  Use the curve's stable one-day-step instantaneous_forward.
+    """
     a, b_ = g2pp.a, g2pp.b
     s1, s2, rho = g2pp.sigma1, g2pp.sigma2, g2pp.rho
-    eps = 1e-5
-
-    if t < eps:
-        d1 = date_from_year_fraction(ref, eps)
-        f_mkt = -math.log(g2pp.curve.df(d1)) / eps
-    else:
-        d1 = date_from_year_fraction(ref, max(t - eps, 1e-8))
-        d2 = date_from_year_fraction(ref, t + eps)
-        f_mkt = -math.log(g2pp.curve.df(d2) / g2pp.curve.df(d1)) / (2 * eps)
+    f_mkt = g2pp.curve.instantaneous_forward(t)
 
     ea = (1 - math.exp(-a * t)) if a > 0 else t
     eb = (1 - math.exp(-b_ * t)) if b_ > 0 else t
@@ -270,10 +267,10 @@ def _hw1f_frn(
 
     ref = g2pp.curve.reference_date
 
-    # Approximate r0 from the initial forward rate
-    eps = 1e-5
-    d1 = date_from_year_fraction(ref, eps)
-    r0 = -math.log(g2pp.curve.df(d1)) / eps
+    # Approximate r0 from the initial forward rate.  Fix T4-G2T3: use
+    # the curve's stable instantaneous_forward (day-step) rather than
+    # an eps=1e-5 finite difference that the date-rounding kills.
+    r0 = g2pp.curve.instantaneous_forward(0.0)
 
     if is_callable:
         result = callable_frn(
