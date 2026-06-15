@@ -110,11 +110,20 @@ def american_with_dividends(
     total_div_pv = sum(amt * math.exp(-rate * t) for t, amt in dividends if 0 < t <= T)
     s_adj = max(spot - total_div_pv, 0.01)
 
-    # Helper: PV of dividends remaining after step i
+    # Helper: PV at step i of dividends remaining FROM step i onwards.
+    # Fix T4-AMDIV1: the comparison uses ``t >= t_step`` (was ``t > t_step``)
+    # so that at the ex-dividend step itself the dividend is still
+    # "future" and the true spot at that step is the CUM-DIVIDEND
+    # (pre-drop) value.  This captures the optimal early-exercise
+    # decision for American calls — exercise JUST BEFORE the ex-date to
+    # take the cum-dividend spot — by letting the intrinsic at step
+    # ``k_div`` use pre-drop spot.  Pre-fix the dividend was excluded at
+    # step ``k_div``, so the intrinsic used the post-drop spot and the
+    # cum-dividend exercise opportunity was silently lost.
     def _pv_future_divs(step_idx: int) -> float:
         t_step = step_idx * dt
         return sum(amt * math.exp(-rate * (t - t_step))
-                   for t, amt in dividends if t > t_step and t <= T)
+                   for t, amt in dividends if t >= t_step - 1e-12 and t <= T)
 
     # Terminal spots (adjusted tree + add back future divs = 0 at terminal)
     term_spots = np.zeros(n_steps + 1)
