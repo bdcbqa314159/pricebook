@@ -2,6 +2,27 @@
 
 ---
 
+## v1.072.0 — 2026-06-16 — **Fix L2 T4 (remaining G2++ phi(t) duplicates) — callable_floater_g2pp + cms_spread_g2pp**
+
+**Two more modules carried the same ``_phi`` finite-difference defect fixed in v1.069 / v1.070:**
+
+T4-G2T3:
+* ``fixed_income.callable_floater_g2pp._phi_at`` and the in-line ``r0`` derivation at the bottom of the module — used in the G2++ FRN tree path and in the HW1F fallback branch.
+* ``structured.cms_spread_g2pp._fwd`` — used in MC path simulation for CMS-spread structured products.
+
+Both used ``eps = 1e-5`` years for the forward-rate finite difference; ``date_from_year_fraction``'s day rounding turned the result into ~0 or ~137·r per call across the time grid.
+
+Fix: delegate to ``DiscountCurve.instantaneous_forward(t)`` (the same one-line collapse applied in T4-G2T1 / T4-BSWG1).
+
+**Files changed**:
+- `python/pricebook/fixed_income/callable_floater_g2pp.py` — ``_phi_at`` and the bottom-of-module ``r0`` derivation.
+- `python/pricebook/structured/cms_spread_g2pp.py` — inner ``_fwd`` helper.
+- `python/tests/test_l2_t4_g2pp_phi_duplicates.py` (new) — asserts ``_phi_at`` is smooth across the 30-step T=5y grid on a flat 4% curve (pre-fix it alternated between ~0.04 and ~5.48), and the CMS-spread MC option price is finite + bounded by notional.
+
+A grep across `python/pricebook/` for the ``eps = 1e-5`` + ``log(curve.df(d2)/curve.df(d1))`` pattern finds no other instances after this fix.
+
+---
+
 ## v1.071.0 — 2026-06-16 — **Fix L2 T4 (G2++ ZCB formula) — Brigo-Mercurio eq. 4.10 missing V(t,T) term**
 
 **Three internal G2++ ZCB implementations used ``0.5·[V(0, T) − V(0, t)]`` in the exponent where Brigo-Mercurio (2nd ed., eq. 4.10) requires ``0.5·[V(t, T) − V(0, T) + V(0, t)]``.**
