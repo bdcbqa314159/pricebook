@@ -101,10 +101,16 @@ def risky_floating_pv(
         # Coupon: received if alive at payment date
         coupon_pv += notional * rate * yf * df_end * surv_end
 
-        # Accrued on default: half-period approximation
-        # If default occurs mid-period, accrued ≈ ½ × coupon
-        mid_date = cf.accrual_start
-        df_mid = discount_curve.df(cf.accrual_start)  # approximate
+        # Accrued on default: half-period approximation (ISDA convention).
+        # If default occurs at the midpoint of [accrual_start, accrual_end],
+        # accrued ≈ ½ × coupon, discounted at the mid-period DF.
+        # Fix T4-RFRN1: pre-fix ``mid_date = cf.accrual_start`` and used
+        # ``df(accrual_start)``, which overstates df_mid by ~exp(r·τ/2) —
+        # 1% for semi-annual @ 4%, 0.25% for quarterly.  Use the actual
+        # midpoint between accrual_start and accrual_end.
+        mid_ordinal = (cf.accrual_start.toordinal() + cf.accrual_end.toordinal()) // 2
+        mid_date = date.fromordinal(mid_ordinal)
+        df_mid = discount_curve.df(mid_date)
         accrued_pv += 0.5 * notional * rate * yf * df_mid * dpd
 
         # Recovery: on default, get R × notional
@@ -237,9 +243,18 @@ class CreditRiskyFRN:
 
         For a credit-risky FRN, z-spread > 0 reflects both credit risk
         and any additional spread.
+
+        Fix T4-RFRN1: pre-fix used ``bumped(-z)`` which inverts the
+        spread direction — positive z shifted zero rates *down* (DF up,
+        PV up) instead of up.  brentq then bracketed (-0.05, 0.10) but
+        both endpoints had PV above the typical market price (credit
+        risk pushes market below risk-free PV), so the solver raised
+        "opposite signs" on every realistic input.  ``bumped(s)`` adds
+        ``s`` to the zero rates (multiplies DF by exp(-s·t)), so the
+        correct call is ``bumped(z)``.
         """
         def objective(z: float) -> float:
-            shifted = discount_curve.bumped(-z)  # shift discount down = higher rate
+            shifted = discount_curve.bumped(z)
             return self.dirty_price(shifted, projection_curve, survival_curve) - market_price
 
         return brentq(objective, -0.05, 0.10)
