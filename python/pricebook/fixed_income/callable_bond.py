@@ -67,63 +67,80 @@ def _trinomial_backward(
     Args:
         option_steps: set of step indices where the option is exercisable.
         option_func: callable(values_array, exercise_price) -> modified values.
+
+    Fix T4-CB1 (same defect set as bermudan_swaption / bermudan_capfloor):
+
+    1. **Wrong trinomial probabilities** — pre-fix used ``/6`` in the
+       drift term where Hull §32.4 eq. 32.10 has ``/2``.  Drift was 3×
+       too small.
+
+    2. **Missing α(t) shift** — pre-fix used ``r_j = r0 + j·dr`` for
+       every step, ignoring the time-dependent ``α(t)`` that calibrates
+       the tree to the initial curve.  Now uses
+       ``HullWhite.build_tree_alphas``.
+
+    3. **Coupon & option applied AFTER discount** — pre-fix
+       ``new_values += coupon`` was applied to the already-discounted
+       continuation, so the coupon paid at step+1 was NOT discounted
+       from step+1 to step.  And ``option_func(new_values)`` compared
+       the call/put price (in step+1 units) against the discounted
+       continuation (in step units).  Both fixed by applying coupon
+       and option BEFORE the backward discount step.
+
+    4. **Terminal coupon double-counted** — the initial ``values`` at
+       step n_steps already contained the terminal coupon (notional ×
+       (1 + c·τ)), and the loop's "+coupon at step+1" added it AGAIN
+       at the first iteration.  Fixed by skipping the +coupon when
+       step+1 == n_steps (the terminal-coupon case is in the init).
     """
     dt = maturity_years / n_steps
-    a, sigma = hw.a, hw.sigma
-    dr = sigma * math.sqrt(3.0 * dt)
-    j_max = max(1, int(math.ceil(0.1835 / (a * dt))))
+    a = hw.a
+    alphas, dr, j_max = hw.build_tree_alphas(maturity_years, n_steps)
     n_nodes = 2 * j_max + 1
     mid = j_max
 
+    coupon_amount = notional * coupon_rate * coupon_frequency
     coupon_steps = set()
     t_pay = coupon_frequency
     while t_pay <= maturity_years + 1e-10:
         coupon_steps.add(int(round(t_pay / dt)))
         t_pay += coupon_frequency
 
-    r0 = hw._forward_rate(0.0)
-
-    # Terminal value: principal + last coupon
+    # Terminal value: principal + last coupon (cum-coupon at maturity).
     values = np.full(n_nodes, notional * (1 + coupon_rate * coupon_frequency))
 
     for step in range(n_steps - 1, -1, -1):
-        new_values = np.zeros(n_nodes)
+        # Apply step+1 events (coupon + option) BEFORE the discount,
+        # so values represent the cum-coupon, post-option value AT
+        # step+1.  Terminal coupon is already in the init — skip it.
+        sp1 = step + 1
+        if sp1 in coupon_steps and sp1 != n_steps:
+            values = values + coupon_amount
+        if sp1 in option_steps:
+            values = option_func(values)
 
+        alpha = alphas[step]
+        new_values = np.zeros(n_nodes)
         for j in range(-j_max, j_max + 1):
             idx = j + mid
-            r_j = r0 + j * dr
+            r_j = alpha + j * dr
             one_step_df = math.exp(-r_j * dt)
 
-            # Trinomial transition probabilities
-            p_up = (1.0 / 6.0) + (j * j * a * a * dt * dt - j * a * dt) / 6.0
-            p_mid = 2.0 / 3.0 - j * j * a * a * dt * dt / 3.0
-            p_down = (1.0 / 6.0) + (j * j * a * a * dt * dt + j * a * dt) / 6.0
-
-            # Clamp and normalise
+            # Textbook HW trinomial probabilities (Hull eq. 32.10) —
+            # drift term divided by 2, not 6.
+            p_up = 1.0/6 + (j*j*a*a*dt*dt - j*a*dt) / 2
+            p_dn = 1.0/6 + (j*j*a*a*dt*dt + j*a*dt) / 2
             p_up = max(0.0, min(1.0, p_up))
-            p_mid = max(0.0, min(1.0, p_mid))
-            p_down = max(0.0, min(1.0, p_down))
-            p_total = p_up + p_mid + p_down
-            if p_total > 0:
-                p_up /= p_total
-                p_mid /= p_total
-                p_down /= p_total
+            p_dn = max(0.0, min(1.0, p_dn))
+            p_mid = max(0.0, 1.0 - p_up - p_dn)
 
             j_up = min(j + 1, j_max)
             j_down = max(j - 1, -j_max)
 
             cont = (p_up * values[j_up + mid]
                      + p_mid * values[j + mid]
-                     + p_down * values[j_down + mid])
+                     + p_dn * values[j_down + mid])
             new_values[idx] = cont * one_step_df
-
-        # Add coupon if coupon date
-        if (step + 1) in coupon_steps:
-            new_values += notional * coupon_rate * coupon_frequency
-
-        # Apply option constraint
-        if (step + 1) in option_steps:
-            new_values = option_func(new_values)
 
         values = new_values
 
