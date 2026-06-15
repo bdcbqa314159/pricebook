@@ -2,6 +2,22 @@
 
 ---
 
+## v1.065.0 — 2026-06-15 — **Fix L2 T4 (options/american_dividend) — cum-dividend exercise at ex-step lost**
+
+**``american_with_dividends`` used post-drop spot at the ex-date step, silently dropping the cum-dividend early-exercise opportunity.**
+
+The escrow method represents the dividend-paying spot as ``S(t) = S_adj(t) + PV_t(future dividends)``.  At each backward-induction step the helper ``_pv_future_divs(step_idx)`` collected dividends still ahead of the step.  Pre-fix the filter was ``if t > t_step``, which at the ex-step ``k_div`` (where ``t_div == t_step``) excluded the dividend itself — the reported true spot at step ``k_div`` was the POST-drop value.
+
+But the dominant early-exercise scenario for American calls on dividend-paying stocks (Roll-Geske-Whaley) is to exercise JUST BEFORE the ex-date and capture the cum-dividend spot.  Using post-drop spot at the ex-step in the ``max(intrinsic, continuation)`` check silently dropped that opportunity, so the American premium over European was systematically understated.
+
+Fix (T4-AMDIV1): change the dividend filter to ``t >= t_step`` so the dividend stays "future" AT the ex-step.  True spot at that step is cum-dividend; intrinsic captures pre-drop exercise.  At step ``k_div + 1`` the dividend is past as before.
+
+**Files changed**:
+- `python/pricebook/options/american_dividend.py` — one-character filter fix with provenance comment.
+- `python/tests/test_l2_t4_american_dividend_cum_div.py` (new) — 3 regressions: deep-ITM call with near-term large dividend now shows ≥ immediate-exercise value and material early-exercise premium; no-div case unchanged; dividend after expiry has no effect.
+
+---
+
 ## v1.064.0 — 2026-06-15 — **Fix L2 T4 (options/vol_derivatives_advanced.variance_swap_greeks) — vega had spurious T factor**
 
 **``variance_swap_greeks`` returned vega scaled by ``T``, breaking the standard ``notional_var = vega_notional / (2·√strike_var)`` convention.**
