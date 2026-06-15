@@ -2,6 +2,25 @@
 
 ---
 
+## v1.059.0 — 2026-06-15 — **Fix L2 T4 (options/inflation_vol.yoy_inflation_cap) — Black-76 vol-time was time-to-previous-fixing**
+
+**``yoy_inflation_cap`` passed the wrong ``T`` argument to ``black76_price`` for each YoY caplet.**
+
+The YoY ratio ``CPI(d_curr) / CPI(d_prev)`` accumulates volatility only during the window ``(max(ref, d_prev), d_curr]`` — this is the "vol-time" interpretation of the Black-76 ``T`` parameter for a forward-start ratio option.
+
+Pre-fix code: ``t_fix = max(year_fraction(ref, d_prev), 1e-6)`` — time from valuation date to the PREVIOUS CPI fixing.  Two broken regimes:
+
+- **Fully forward** (``ref < d_prev``): pre-fix used ``d_prev − ref``, ignoring the actual ``d_curr − d_prev`` exposure window.  For a 5y YoY caplet on year 4-5 the code used ~4y of vol-time instead of 1y — ~√4 = 2× vol amplitude, so ATM caplet price inflated by ~2×.
+- **Partially fixed** (``d_prev ≤ ref < d_curr``): pre-fix clamped to 1e-6, effectively zero vol.  The caplet was priced at essentially intrinsic value despite still having vol exposure from ``ref → d_curr``.
+
+Fix (T4-INFL1): ``t_vol = year_fraction(max(ref, d_prev), d_curr)``.
+
+**Files changed**:
+- `python/pricebook/options/inflation_vol.py` — vol-time uses the correct YoY exposure window.
+- `python/tests/test_l2_t4_yoy_inflation_cap_vol_time.py` (new) — 3 regressions: 5y cap finite/positive; vol monotonicity preserved; 5y/1y price ratio bounded sensibly (pre-fix it would have been inflated by the late-caplet vol-time error).
+
+---
+
 ## v1.058.0 — 2026-06-15 — **Fix L2 T4 (options/exotic_payoffs.installment_option) — cost-to-continue missed the current installment**
 
 **``installment_option`` rational-exercise check used only the PV of FUTURE installments, ignoring the installment the holder must pay now to continue.**
