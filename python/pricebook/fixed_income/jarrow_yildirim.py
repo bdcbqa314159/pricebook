@@ -215,14 +215,34 @@ def jy_zc_inflation_swap(
     """
     p = params
 
-    # HW ZCB: P(0,T) = exp(-B(T) × r₀ + A(T))
+    # Vasicek ZCB with constant mean-reversion target θ = r₀.
+    # P(0, T) = exp(A(0, T) - B(T)·r₀), where for a > 0:
+    #   B(T) = (1 - e^{-aT}) / a
+    #   A(0, T) = (B - T)·(θ - σ²/(2a²)) - σ²·B²/(4a)   with θ = r₀
+    # So the ZCB exponent simplifies to
+    #   -T·r₀ + (T - B)·σ²/(2a²) - σ²·B²/(4a)
+    # At σ → 0 this collapses to the flat-rate ZCB exp(-r₀·T).
+    #
+    # Fix T4-JY1: the pre-fix expression used
+    #   exp(-B·r₀  −σ²(T-B)/(2a²)·... + σ²·B²/(4a))
+    # which:
+    #   (a) replaced ``-T·r₀`` with ``-B·r₀`` — missing the
+    #       ``-(T-B)·r₀`` term entirely (the dominant rate-only piece),
+    #   (b) flipped the sign of the ``(T-B)·σ²/(2a²)`` convexity term,
+    #   (c) flipped the sign of the ``σ²·B²/(4a)`` term.
+    # For a=0.05, σ=0.01, r₀=0.04, T=5 this produced ZCB ≈ 0.836 vs
+    # the correct 0.820 — a ~2% bias propagating into both P_n and P_r
+    # (with different magnitudes for σ_n vs σ_r so the ratio does not
+    # cancel), corrupting fair_rate.
     def hw_zcb(a, sigma, r0, T):
         if a < 1e-10:
-            B = T
-        else:
-            B = (1 - math.exp(-a * T)) / a
-        A = -(sigma**2 / (2 * a**2)) * (T - B - a * B**2 / 2) if a > 1e-10 else -sigma**2 * T**3 / 6
-        return math.exp(-B * r0 + A)
+            # Limit: σ²·T³/6 convexity, no mean reversion.
+            return math.exp(-r0 * T + sigma**2 * T**3 / 6.0)
+        B = (1.0 - math.exp(-a * T)) / a
+        exponent = (-r0 * T
+                    + (T - B) * sigma**2 / (2.0 * a**2)
+                    - sigma**2 * B**2 / (4.0 * a))
+        return math.exp(exponent)
 
     P_n = hw_zcb(p.a_n, p.sigma_n, r_n0, T)
     P_r = hw_zcb(p.a_r, p.sigma_r, r_r0, T)
@@ -231,7 +251,13 @@ def jy_zc_inflation_swap(
     B_n = (1 - math.exp(-p.a_n * T)) / max(p.a_n, 1e-10)
     conv_adj = -p.rho_nI * p.sigma_n * p.sigma_I * B_n * T
 
-    ratio = P_n / max(P_r, 1e-10) * math.exp(conv_adj)
+    # JY ZC inflation forward (Jarrow-Yildirim 2003 eq. 16, Mercurio 2005):
+    #   I_fwd(0, T) / I(0) = P_r(0, T) / P_n(0, T) · exp(conv_adj)
+    # where P_r is the real-currency ZCB.  Pre-fix the code used the
+    # inverted ratio P_n / P_r, giving fair_rate ≈ exp(-(r_n - r_r)·T) − 1
+    # — negative for the typical r_n > r_r setup (instead of the expected
+    # positive inflation-breakeven).  Fix T4-JY1: invert the ratio.
+    ratio = P_r / max(P_n, 1e-10) * math.exp(conv_adj)
     fair_rate = ratio - 1
 
     return JYZCSwapResult(
