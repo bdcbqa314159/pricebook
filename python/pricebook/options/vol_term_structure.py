@@ -118,8 +118,17 @@ class Bergomi2Factor:
             W2[:, s+1] = W2[:, s] + z2[:, s] * sqrt_dt
 
         times = np.linspace(0, T, n_steps+1)
-        log_xi = (self.eta1 * W1 + self.eta2 * W2
-                   - 0.5 * (self.eta1**2 + self.eta2**2) * times)
+        # Martingale correction for ξ(t,T) = ξ₀(T) exp(η₁W₁ + η₂W₂ − ½·Var(η₁W₁+η₂W₂))
+        # with correlated Brownians (Cov(W₁,W₂) = ρ·t) is:
+        #     Var = (η₁² + η₂² + 2·ρ·η₁·η₂) · t
+        # Fix T4-VTS1: pre-fix omitted the cross-term ``2·ρ·η₁·η₂·t``,
+        # so ξ(t,T) was NOT a martingale whenever ρ12 ≠ 0 — the
+        # simulated forward variance drifted away from ξ₀ in expectation,
+        # mis-calibrating the model.  ρ12 = 0 (the default) coincidentally
+        # gave the right answer.
+        var_coef = (self.eta1**2 + self.eta2**2
+                    + 2.0 * self.rho12 * self.eta1 * self.eta2)
+        log_xi = (self.eta1 * W1 + self.eta2 * W2 - 0.5 * var_coef * times)
         vol_paths = math.sqrt(self.xi0) * np.exp(0.5 * log_xi)
 
         return Bergomi2FactorResult(vol_paths, float(vol_paths[:,-1].mean()),
@@ -146,8 +155,11 @@ def bergomi_2f_simulate_via_engine(
     W2 = model.rho12 * W1 + math.sqrt(1 - model.rho12**2) * W2_indep
 
     times = np.linspace(0, T, n_steps + 1)
-    log_xi = (model.eta1 * W1 + model.eta2 * W2
-              - 0.5 * (model.eta1**2 + model.eta2**2) * times)
+    # Same martingale-correction cross-term fix (T4-VTS1) as the
+    # standalone simulate() path.
+    var_coef = (model.eta1**2 + model.eta2**2
+                + 2.0 * model.rho12 * model.eta1 * model.eta2)
+    log_xi = (model.eta1 * W1 + model.eta2 * W2 - 0.5 * var_coef * times)
     vol_paths = math.sqrt(model.xi0) * np.exp(0.5 * log_xi)
 
     return Bergomi2FactorResult(vol_paths, float(vol_paths[:, -1].mean()),
