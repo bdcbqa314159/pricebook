@@ -35,13 +35,22 @@ class CalibratedSABRNode:
     nu: float
     atm_vol: float
     calibration_error: float = 0.0
+    # Time-to-expiry at calibration, in years.  Required for SABR vol
+    # evaluation: the Hagan correction terms scale with ``T``
+    # (correction ~ 1 + (B1 + B2 + B3)·T), so using ``T = 1.0`` for a
+    # 10y tenor adds 10× the correction.  Set during calibration.
+    T_to_expiry: float = 1.0
 
-    def vol(self, strike: float, T: float = 1.0) -> float:
+    def vol(self, strike: float, T: float | None = None) -> float:
         """Implied vol at any strike via SABR.
 
-        T defaults to 1.0 (SABR approximation is weakly T-dependent).
-        For more accuracy, pass actual time-to-expiry.
+        ``T`` defaults to the calibration ``T_to_expiry`` of this node.
+        Pre-fix the default was a static ``1.0`` regardless of actual
+        tenor — the SABR Hagan correction terms scale with T, so the
+        smile was systematically distorted for any tenor ≠ 1y.
         """
+        if T is None:
+            T = self.T_to_expiry
         return sabr_implied_vol(self.forward, strike, T,
                                self.alpha, self.beta, self.rho, self.nu)
 
@@ -164,11 +173,21 @@ def calibrate_fx_surface(
         try:
             result = sabr_calibrate(forward, strikes, vols, T, beta=beta)
             nodes.append(CalibratedSABRNode(
-                expiry, forward, result["alpha"], beta,
-                result["rho"], result["nu"], atm, result.get("rmse", 0.0),
+                expiry=expiry, forward=forward,
+                alpha=result["alpha"], beta=beta,
+                rho=result["rho"], nu=result["nu"],
+                atm_vol=atm, calibration_error=result.get("rmse", 0.0),
+                T_to_expiry=T,
             ))
         except (ValueError, RuntimeError):
-            nodes.append(CalibratedSABRNode(expiry, forward, atm, beta, 0.0, 0.0, atm))
+            # Fallback: alpha ≈ atm · F^(1-β) so SABR(K=F) ≈ atm.
+            fallback_alpha = atm * forward ** (1.0 - beta)
+            nodes.append(CalibratedSABRNode(
+                expiry=expiry, forward=forward,
+                alpha=fallback_alpha, beta=beta,
+                rho=0.0, nu=0.0,
+                atm_vol=atm, T_to_expiry=T,
+            ))
 
     return CalibratedVolSurface(nodes, "fx")
 
@@ -201,11 +220,20 @@ def calibrate_equity_surface(
         try:
             result = sabr_calibrate(forward, strikes, vols, T, beta=beta)
             nodes.append(CalibratedSABRNode(
-                expiry, forward, result["alpha"], beta,
-                result["rho"], result["nu"], atm, result.get("rmse", 0.0),
+                expiry=expiry, forward=forward,
+                alpha=result["alpha"], beta=beta,
+                rho=result["rho"], nu=result["nu"],
+                atm_vol=atm, calibration_error=result.get("rmse", 0.0),
+                T_to_expiry=T,
             ))
         except (ValueError, RuntimeError):
-            nodes.append(CalibratedSABRNode(expiry, forward, atm, beta, -0.3, 0.3, atm))
+            fallback_alpha = atm * forward ** (1.0 - beta)
+            nodes.append(CalibratedSABRNode(
+                expiry=expiry, forward=forward,
+                alpha=fallback_alpha, beta=beta,
+                rho=-0.3, nu=0.3,
+                atm_vol=atm, T_to_expiry=T,
+            ))
 
     return CalibratedVolSurface(nodes, "equity")
 
@@ -237,15 +265,24 @@ def calibrate_ir_surface(
             try:
                 result = sabr_calibrate(forward, strikes, vols, T, beta=beta)
                 nodes.append(CalibratedSABRNode(
-                    expiry, forward, result["alpha"], beta,
-                    result["rho"], result["nu"], atm, result.get("rmse", 0.0),
+                    expiry=expiry, forward=forward,
+                    alpha=result["alpha"], beta=beta,
+                    rho=result["rho"], nu=result["nu"],
+                    atm_vol=atm, calibration_error=result.get("rmse", 0.0),
+                    T_to_expiry=T,
                 ))
                 continue
             except (ValueError, RuntimeError):
                 pass
 
-        # ATM-only: flat smile
-        nodes.append(CalibratedSABRNode(expiry, forward, atm, beta, 0.0, 0.0, atm))
+        # ATM-only: flat smile.  Alpha must convert atm_vol back via F^(1-β).
+        fallback_alpha = atm * forward ** (1.0 - beta) if forward > 0 else atm
+        nodes.append(CalibratedSABRNode(
+            expiry=expiry, forward=forward,
+            alpha=fallback_alpha, beta=beta,
+            rho=0.0, nu=0.0,
+            atm_vol=atm, T_to_expiry=T,
+        ))
 
     return CalibratedVolSurface(nodes, "ir")
 
