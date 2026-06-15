@@ -2,6 +2,30 @@
 
 ---
 
+## v1.063.0 — 2026-06-15 — **Fix L2 T4 (options/vol_term_structure.Bergomi2Factor) — missing cross-term in martingale correction**
+
+**``Bergomi2Factor.simulate`` and ``bergomi_2f_simulate_via_engine`` used the wrong quadratic-variation formula for the lognormal forward variance.**
+
+The Bergomi two-factor lognormal model is:
+
+    ξ(t, T) = ξ₀(T) · exp(η₁·W₁(t) + η₂·W₂(t) − ½·Var(η₁W₁+η₂W₂))
+
+With correlated Brownians (``Cov(W₁, W₂) = ρ·t``), the quadratic variation of ``η₁W₁ + η₂W₂`` is
+
+    (η₁² + η₂² + 2·ρ·η₁·η₂) · t
+
+Pre-fix the martingale correction used only ``(η₁² + η₂²)·t``, omitting the cross-term ``2·ρ·η₁·η₂·t``.
+
+Consequence: ξ(t, T) was NOT a martingale whenever ``ρ ≠ 0`` — the simulated forward variance drifted in expectation away from its calibrating ξ₀(T).  For ``η₁ = η₂ = 0.5`` and ``ρ = +0.6``, ``E[ξ(1, T)] ≈ ξ₀ · exp(0.15)`` ≈ 16% too high.  ``ρ = 0`` (the default) coincidentally produced the right answer.
+
+Fix (T4-VTS1): add the cross-term to the martingale correction in both the standalone ``simulate()`` and the engine-backed ``bergomi_2f_simulate_via_engine``.
+
+**Files changed**:
+- `python/pricebook/options/vol_term_structure.py` — ``var_coef = η₁² + η₂² + 2·ρ·η₁·η₂`` in both code paths.
+- `python/tests/test_l2_t4_bergomi_2f_martingale.py` (new) — 3 regressions: ``ρ = 0`` unchanged; ``ρ = +0.6`` and ``ρ = -0.6`` both maintain ``E[ξ_T] ≈ ξ₀`` to within ~5% MC noise.
+
+---
+
 ## v1.062.0 — 2026-06-15 — **Fix L2 T4 (options/swaption_vol_cube._lookup_atm) — lookup-with-round-up instead of interpolation**
 
 **``_lookup_atm`` pretended to interpolate but actually rounded up.**
