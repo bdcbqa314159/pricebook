@@ -2,6 +2,32 @@
 
 ---
 
+## v1.073.0 — 2026-06-16 — **Fix L2 T4 (fixed_income/jarrow_yildirim) — HW ZCB formula + inflation-forward ratio inverted**
+
+**Two coupled bugs in ``jy_zc_inflation_swap``: the Hull-White ZCB closed form was wrong on three counts, and the JY inflation-forward ratio was inverted.**
+
+T4-JY1.a — **HW ZCB formula bug**.  Pre-fix ``hw_zcb`` computed
+``A = -(σ²/(2a²))·(T − B − aB²/2)`` and returned ``exp(A − B·r₀)``, which:
+1. replaced ``-T·r₀`` with ``-B·r₀`` — missing the dominant ``-(T-B)·r₀`` rate-only term;
+2. flipped the sign of ``(T-B)·σ²/(2a²)``;
+3. flipped the sign of ``σ²·B²/(4a)``.
+
+For a=0.05, σ=0.01, r₀=0.04, T=5 it returned ZCB ≈ 0.836 vs the correct Vasicek (θ=r₀) value 0.820 — a ~2% bias.  Critically the bias differed between the nominal (σ_n) and real (σ_r) factors, so the bias did **not** cancel in the P_n/P_r ratio that drives the inflation forward.
+
+T4-JY1.b — **Inflation-forward ratio inverted**.  The JY ZC inflation forward (Jarrow-Yildirim 2003 eq. 16, Mercurio 2005) is
+    I_fwd(0, T) / I(0) = P_r(0, T) / P_n(0, T) · exp(conv_adj)
+but the code computed ``P_n / P_r``.  Result: ``fair_rate ≈ exp(-(r_n − r_r)·T) − 1`` — negative for the typical ``r_n > r_r`` setup.  At σ=0, ``fair_rate`` returned ``-0.0952`` instead of ``+0.1052`` (the deterministic-rate breakeven for r_n=0.04, r_r=0.02, T=5).
+
+The existing ``TestJYZCSwap`` tests were too loose to catch either defect: ``test_breakeven_sign`` only checked ``math.isfinite``; ``test_convexity_nonzero`` only checked ``!= 0``.
+
+Downstream impact: ``jy_yoy_caplet`` builds its ``forward_yoy`` from ``zc_end.fair_rate`` and ``zc_start.fair_rate`` and then floors at ``1e-6`` — so pre-fix every realistic YoY caplet collapsed to a near-zero floored Black price.
+
+**Files changed**:
+- `python/pricebook/fixed_income/jarrow_yildirim.py` — ``hw_zcb`` rewritten using the standard Vasicek-θ=r₀ exponent ``-T·r₀ + (T-B)σ²/(2a²) - σ²B²/(4a)``; inflation-forward ratio flipped to ``P_r / P_n``.
+- `python/tests/test_l2_t4_jy_zc_inflation.py` (new) — 5 regressions: nominal/real ZCB collapse to flat-rate exp(-r₀·T) at σ→0; fair_rate matches exp((r_n−r_r)·T)−1 at σ→0; fair_rate sign follows rate differential; small-vol fair_rate within 5% of the deterministic breakeven.
+
+---
+
 ## v1.072.0 — 2026-06-16 — **Fix L2 T4 (remaining G2++ phi(t) duplicates) — callable_floater_g2pp + cms_spread_g2pp**
 
 **Two more modules carried the same ``_phi`` finite-difference defect fixed in v1.069 / v1.070:**
