@@ -149,6 +149,11 @@ def snowball_price(
         spread: added to previous coupon each period.
         floor: minimum coupon rate (default 0).
     """
+    # Fix T4-IREX2 (sweep with T4-IREX1): pre-fix discounting was
+    # ``exp(-flat_rate · t)`` regardless of the simulated path, while
+    # the coupon DID depend on ``r``.  This decouples discount from
+    # the rate the holder actually realises along the path — a stochastic
+    # IR pricer must discount with ``exp(-∫_0^t r_s ds)``.
     rng = np.random.default_rng(seed)
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -157,21 +162,21 @@ def snowball_price(
     coupon = np.full(n_paths, initial_coupon)
     pv = np.zeros(n_paths)
     total_coupon = np.zeros(n_paths)
+    log_df = np.zeros(n_paths)
 
     for i in range(1, n_periods + 1):
-        t = i * dt
+        log_df -= r * dt
         dW = rng.standard_normal(n_paths) * math.sqrt(dt)
         r = r + 0.5 * (flat_rate - r) * dt + rate_vol * dW
 
-        # Snowball coupon
+        # Snowball coupon — uses the NEW r (current period rate).
         coupon = np.maximum(coupon + spread * dt - r * dt, floor)
         payment = coupon * notional * dt
-        df = math.exp(-flat_rate * t)
+        df = np.exp(log_df)
         pv += df * payment
         total_coupon += coupon * dt
 
-    # Principal at maturity
-    df_T = math.exp(-flat_rate * maturity_years)
+    df_T = np.exp(log_df)
     pv += df_T * notional
 
     price = float(pv.mean()) / notional * 100
@@ -219,16 +224,24 @@ def callable_range_accrual(
         call_price: per 100 face.
         call_start_year: first callable year.
     """
+    # Fix T4-IREX2 (sweep): pre-fix every discount was ``exp(-flat_rate·t)``
+    # — the simulated path was used for accrual range checks but NOT
+    # for discounting.  This biased prices for any non-trivial rate_vol.
+    # Now the path-integrated short rate drives both discount factors
+    # (per period for coupons + call_price) and the LSM regression.
     rng = np.random.default_rng(seed)
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
 
-    # Simulate rate paths
+    # Simulate rate paths AND cumulative log-discount factors.
     r_all = np.zeros((n_paths, n_periods + 1))
     r_all[:, 0] = flat_rate
+    log_df_all = np.zeros((n_paths, n_periods + 1))
     for i in range(1, n_periods + 1):
+        log_df_all[:, i] = log_df_all[:, i - 1] - r_all[:, i - 1] * dt
         dW = rng.standard_normal(n_paths) * math.sqrt(dt)
         r_all[:, i] = r_all[:, i - 1] + 0.5 * (flat_rate - r_all[:, i - 1]) * dt + rate_vol * dW
+    df_all = np.exp(log_df_all)
 
     # Compute non-callable price and per-period coupons
     pv_nc = np.zeros(n_paths)
@@ -236,32 +249,27 @@ def callable_range_accrual(
     total_in_range = 0
 
     for i in range(1, n_periods + 1):
-        t = i * dt
         in_range = (r_all[:, i] >= lower) & (r_all[:, i] <= upper)
         total_in_range += in_range.sum()
         coupons[:, i - 1] = np.where(in_range, coupon_rate * notional * dt, 0.0)
-        df = math.exp(-flat_rate * t)
-        pv_nc += df * coupons[:, i - 1]
+        pv_nc += df_all[:, i] * coupons[:, i - 1]
 
-    df_T = math.exp(-flat_rate * maturity_years)
+    df_T = df_all[:, n_periods]
     pv_nc += df_T * notional
 
-    # LSM backward pass for issuer call decision
-    # V[p] = value-to-go for the issuer (what they owe the investor)
-    V = np.full(n_paths, df_T * notional)  # terminal principal
+    # LSM backward pass for issuer call decision.
+    # V[p] = PV-at-t=0 of remaining cashflows owed by the issuer.
+    V = df_T * notional
 
     call_decision = np.zeros((n_paths, n_periods), dtype=bool)
     call_start_period = call_start_year * frequency
 
     for i in range(n_periods, 0, -1):
-        t = i * dt
-        df = math.exp(-flat_rate * t)
-        V += df * coupons[:, i - 1]
+        V += df_all[:, i] * coupons[:, i - 1]
 
         if i >= call_start_period:
-            par_val = call_price * notional / 100 * df
+            par_val = call_price * notional / 100 * df_all[:, i]
 
-            # LSM: regress V on rate
             r_i = r_all[:, i]
             r_norm = (r_i - r_i.mean()) / max(r_i.std(), 1e-10)
             basis = np.column_stack([np.ones(n_paths), r_norm, r_norm**2])
@@ -271,7 +279,9 @@ def callable_range_accrual(
             except np.linalg.LinAlgError:
                 est_cont = V
 
-            # Issuer calls when continuation > par (saves money)
+            # Issuer calls when continuation > par (saves money).  Both
+            # sides now compared in PV-at-0 units with the SAME path
+            # discount factor df_all[:, i] applied.
             call_decision[:, i - 1] = est_cont > par_val
 
     # Forward pass: apply call decisions
@@ -279,13 +289,12 @@ def callable_range_accrual(
     pv_c = np.zeros(n_paths)
 
     for i in range(1, n_periods + 1):
-        t = i * dt
-        df = math.exp(-flat_rate * t)
-        pv_c += np.where(alive, df * coupons[:, i - 1], 0.0)
+        pv_c += np.where(alive, df_all[:, i] * coupons[:, i - 1], 0.0)
 
         if i >= call_start_period:
             issuer_calls = alive & call_decision[:, i - 1]
-            pv_c += np.where(issuer_calls, call_price * notional / 100 * df, 0.0)
+            pv_c += np.where(issuer_calls,
+                             call_price * notional / 100 * df_all[:, i], 0.0)
             alive &= ~issuer_calls
 
     pv_c += np.where(alive, df_T * notional, 0.0)
@@ -332,6 +341,8 @@ def ratchet_cap(
 
     Convention here: strike resets to previous fixing if lower.
     """
+    # Fix T4-IREX2 (sweep): pre-fix discounting used ``exp(-flat_rate·t)``
+    # regardless of the simulated path; now uses path-integrated rate.
     rng = np.random.default_rng(seed)
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -340,19 +351,17 @@ def ratchet_cap(
     strike = np.full(n_paths, initial_strike)
     pv_ratchet = np.zeros(n_paths)
     pv_standard = np.zeros(n_paths)
+    log_df = np.zeros(n_paths)
 
     for i in range(1, n_periods + 1):
-        t = i * dt
+        log_df -= r * dt
         dW = rng.standard_normal(n_paths) * math.sqrt(dt)
         r = r + 0.5 * (flat_rate - r) * dt + rate_vol * dW
+        df = np.exp(log_df)
 
-        df = math.exp(-flat_rate * t)
-
-        # Ratchet caplet payoff
         ratchet_payoff = np.maximum(r - strike, 0.0) * notional * dt
         pv_ratchet += df * ratchet_payoff
 
-        # Standard caplet
         standard_payoff = np.maximum(r - initial_strike, 0.0) * notional * dt
         pv_standard += df * standard_payoff
 
@@ -399,6 +408,7 @@ def flexi_swap(
     Args:
         max_exercises: maximum number of periods the holder can exercise.
     """
+    # Fix T4-IREX2 (sweep): path-integrated discount factor.
     rng = np.random.default_rng(seed)
     dt = 1.0 / frequency
     n_periods = maturity_years * frequency
@@ -407,13 +417,13 @@ def flexi_swap(
     pv_flexi = np.zeros(n_paths)
     pv_vanilla = np.zeros(n_paths)
     exercises_used = np.zeros(n_paths, dtype=int)
+    log_df = np.zeros(n_paths)
 
     for i in range(1, n_periods + 1):
-        t = i * dt
+        log_df -= r * dt
         dW = rng.standard_normal(n_paths) * math.sqrt(dt)
         r = r + 0.5 * (flat_rate - r) * dt + rate_vol * dW
-
-        df = math.exp(-flat_rate * t)
+        df = np.exp(log_df)
         swap_cf = (r - fixed_rate) * notional * dt
 
         # Vanilla: always exercise
@@ -422,7 +432,8 @@ def flexi_swap(
         # Flexi: exercise if profitable and exercises remaining
         can_exercise = exercises_used < max_exercises
         should_exercise = can_exercise & (swap_cf > 0)
-        pv_flexi[should_exercise] += df * swap_cf[should_exercise]
+        pv_flexi[should_exercise] += (df[should_exercise]
+                                       * swap_cf[should_exercise])
         exercises_used[should_exercise] += 1
 
     price = float(pv_flexi.mean())
