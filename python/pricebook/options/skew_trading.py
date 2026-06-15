@@ -93,5 +93,22 @@ class CrossAssetSkewResult:
 def cross_asset_skew_comparison(
     skews: dict[str, float],
 ) -> CrossAssetSkewResult:
-    entries = sorted(skews.items(), key=lambda x: x[1])
+    """Compare skews across asset classes.
+
+    "Steepest" = largest absolute skew (most extreme away from zero).
+    "Flattest" = smallest absolute skew (closest to zero).
+
+    Fix T4-SK1: pre-fix sorted by SIGNED skew (``key=lambda x: x[1]``)
+    and labelled ``steepest = entries[0]`` (lowest signed) and
+    ``flattest = entries[-1]`` (highest signed).  This works only when
+    all skews share a sign (e.g. all equity put-skews are negative).
+    For the canonical cross-asset use case — equity put-skew (RR < 0)
+    alongside commodity call-skew (RR > 0) — the labels were
+    inverted: the steepest call-skew got labelled "flattest", and a
+    moderate put-skew with smaller magnitude got labelled "steepest".
+
+    Sort by |skew| descending so the labels are correct regardless of
+    sign mix.
+    """
+    entries = sorted(skews.items(), key=lambda x: abs(x[1]), reverse=True)
     return CrossAssetSkewResult(entries, entries[0][0], entries[-1][0])
