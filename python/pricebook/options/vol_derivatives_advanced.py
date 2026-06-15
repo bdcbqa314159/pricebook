@@ -79,10 +79,11 @@ def variance_swap_greeks(
     else:
         notional_var = 0.0
 
-    # PV: (expected_var - strike_var) × notional × remaining
+    # PV: (expected_var - strike_var) × notional × DF(remaining-to-maturity)
     remaining = 1.0 - elapsed_fraction
     expected_var = elapsed_fraction * realised_var_so_far + remaining * vol ** 2
-    pv = (expected_var - strike_var) * notional_var * math.exp(-r * T * remaining)
+    df_remaining = math.exp(-r * T * remaining)
+    pv = (expected_var - strike_var) * notional_var * df_remaining
 
     # Dollar gamma: constant = 2/T × notional_var (Carr & Lee 2009)
     dollar_gamma = 2.0 / max(T, 1e-10) * notional_var * remaining
@@ -94,8 +95,16 @@ def variance_swap_greeks(
     # At inception with K_ref = spot: delta ≈ 0
     delta = 0.0  # zero at inception, builds with spot moves
 
-    # Vega: dPV/d(implied_vol) = 2 × vol × T × notional_var × remaining
-    vega = 2 * vol * T * notional_var * remaining
+    # Vega: dPV/dσ = 2·σ·notional_var · DF · remaining_fraction.
+    # Fix T4-VDA1: pre-fix the formula was
+    #     vega = 2 * vol * T * notional_var * remaining
+    # which carried a spurious ``T`` factor — a 2y var swap was
+    # reported with 2× the vega of a 1y swap at the same vega_notional,
+    # but the canonical convention (notional_var = vega_notional /
+    # (2·√strike_var)) is designed so vega ≈ vega_notional at ATM
+    # inception regardless of T.  The missing discount factor also
+    # underweighted long-dated, high-rate vegas.  Both corrected.
+    vega = 2.0 * vol * notional_var * df_remaining * remaining
 
     # Theta: daily variance accrual = -vol² / (365 × T) × notional
     theta = -vol ** 2 / 365 * notional_var * remaining
