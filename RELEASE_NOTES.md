@@ -2,6 +2,25 @@
 
 ---
 
+## v1.068.0 — 2026-06-15 — **Fix L2 T4 (fixed_income/callable_floater) — same HW-tree defect family**
+
+**``callable_floater`` (callable / puttable FRN) HW tree carried two of the same defects fixed in ``callable_bond`` (v1.067) and the bermudan family (v1.049 / v1.050).**
+
+T4-CF1 affects both ``_straight_frn_tree`` and ``_frn_tree_with_option``:
+
+1. **Wrong trinomial probabilities** — pre-fix used ``/6`` instead of textbook ``/2``.
+2. **Coupon applied AFTER backward discount** — coupon at step+1 added to ``new_values`` (already discounted to step), so the coupon's one-step discount factor was missing.  For ``_frn_tree_with_option`` the option ``min(v, call_price)`` / ``max(v, put_price)`` had the same defect — comparing discounted continuation against undiscounted exercise price.
+
+Note: α(t) is implicit ``r0`` here because this module takes raw ``r0`` rather than a ``DiscountCurve`` — flat-curve interface by design.  The missing-α(t) issue from ``callable_bond`` doesn't apply (analogous to the ``bermudan_capfloor`` situation).
+
+Fix: textbook ``/2`` probabilities; apply coupon (and option) BEFORE the backward discount step.
+
+**Files changed**:
+- `python/pricebook/fixed_income/callable_floater.py` — both ``_straight_frn_tree`` and ``_frn_tree_with_option`` updated.
+- `python/tests/test_l2_t4_callable_floater_hw_tree.py` (new) — 3 regressions: straight FRN near par (catches the missing coupon discount), callable ≤ straight, puttable ≥ straight.
+
+---
+
 ## v1.067.0 — 2026-06-15 — **Fix L2 T4 (fixed_income/callable_bond) — same HW-tree defect class as bermudan_swaption, plus terminal-coupon double-count**
 
 **``callable_bond._trinomial_backward`` (powering both callable and puttable bond pricers) carried the full bermudan-style HW tree defect set.**
