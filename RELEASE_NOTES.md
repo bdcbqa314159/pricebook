@@ -2,6 +2,22 @@
 
 ---
 
+## v1.069.0 — 2026-06-15 — **Fix L2 T4 (models/g2pp_tree) — catastrophic phi(t) finite-difference defect**
+
+**``G2PPTree._fwd_rate`` (and therefore ``_phi``, the G2++ deterministic shift used at every node in backward induction) was computing the instantaneous forward rate via a finite difference with ``eps = 1e-5`` years (≈ 8 seconds).**
+
+T4-G2T1: because the curve's ``df`` API takes a ``datetime.date`` and ``date_from_year_fraction`` rounds the input year-fraction to a day, the two evaluation points ``t ± eps`` round either to the same date (so the helper returns 0) or to dates one day apart (so the helper returns the true forward × (1/365) / (2·eps) ≈ 137× over-stated).  For a 30-step T=5y tree on a flat 4% curve this gave φ(t) ≈ 0 at 27 of 31 grid times and φ(t) ≈ 5.48 at the 4 other times — every node discounted by exp(-5.48·dt) ≈ 0.40 on those four steps, yielding tree-computed ``P(0, 5) ≈ 0.026`` vs the curve value 0.819.  All G2++ tree-based products (``callable_bond_g2pp``, ``puttable_bond_g2pp``, ``callable_floater_g2pp``, ``g2pp_european_swaption_tree``, ``bermudan_swaption_g2pp_tree``) were catastrophically mis-priced as a result.
+
+The existing G2PP test suite hid the defect: ``test_european_swaption_tree_close_to_analytical`` uses a 50% relative-error tolerance, and the callable / puttable G2PP tests check only directional sanity (price > 0).  A puttable bond with put_price=100 against straight=99.8 returned 43.7 — masked by the absence of a "puttable ≥ straight" assertion.
+
+Fix: delegate to :meth:`DiscountCurve.instantaneous_forward`, which uses a stable one-day step consistent with the day-rounded ``df`` lookup.
+
+**Files changed**:
+- `python/pricebook/models/g2pp_tree.py` — ``_fwd_rate`` rewritten as one-line delegate to ``curve.instantaneous_forward(t)``.
+- `python/tests/test_l2_t4_g2pp_tree_fwd_rate.py` (new) — 4 regressions: φ(t) smooth on flat curve (catches the 0/5.48 alternation), tree-computed ``P(0, T)`` matches curve at 5y and 1y horizons (1% rel-err, was 97% off pre-fix), and European-swaption tree ≈ analytical Jamshidian within 15% (tightens the existing 50%-tolerance test by ~3× to catch this defect class).
+
+---
+
 ## v1.068.0 — 2026-06-15 — **Fix L2 T4 (fixed_income/callable_floater) — same HW-tree defect family**
 
 **``callable_floater`` (callable / puttable FRN) HW tree carried two of the same defects fixed in ``callable_bond`` (v1.067) and the bermudan family (v1.049 / v1.050).**
