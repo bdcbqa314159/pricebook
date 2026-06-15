@@ -2,6 +2,32 @@
 
 ---
 
+## v1.060.0 — 2026-06-15 — **🎯 1.060 milestone · Fix L2 T4 (options/vol_calibration) — SABR T defaulted to 1.0 + fallback α ignored β**
+
+Two coupled defects in ``CalibratedVolSurface`` and ``CalibratedSABRNode``.
+
+**T4-VC1 — SABR ``T`` defaulted to 1.0 regardless of node tenor.**
+
+``CalibratedSABRNode.vol(strike, T=1.0)`` and the surface caller ``self.vol(expiry, strike) → node.vol(strike)`` never plumbed the actual time-to-expiry into the SABR Hagan formula.  The Hagan correction terms scale with ``T``:
+
+    σ(K, F) = (prefactor) × (z / x(z)) × [1 + (B1 + B2 + B3) · T]
+
+so a 10y node used 1/10 of the right correction; a 0.25y node used 4× the right correction.  The smile was systematically distorted on every node away from T = 1y.
+
+Fix: add ``T_to_expiry`` field to ``CalibratedSABRNode`` (set during calibration), and ``vol()`` defaults ``T`` to ``self.T_to_expiry`` when not given.
+
+**T4-VC2 — Fallback ``alpha`` = ``atm_vol`` ignored β.**
+
+When SABR calibration raised (e.g. degenerate input), the fallback nodes were built with ``CalibratedSABRNode(... atm_vol ...)`` passing ``atm`` as the **alpha** argument.  But Hagan's ATM limit is ``σ_ATM ≈ alpha / F^(1-β)``, so ``alpha = atm`` only gives ``σ_ATM = atm`` when ``β = 1``.  For the FX default ``β = 0.5`` and ``F = 1.10``, the fallback's effective ATM vol was off by ``F^0.5 ≈ 1.049`` — a ~5% bias whenever a calibration failed and the path-through happened.
+
+Fix: fallback uses ``alpha = atm × F^(1-β)`` so the SABR formula evaluated at ``K = F`` reproduces ``atm_vol``.
+
+**Files changed**:
+- `python/pricebook/options/vol_calibration.py` — ``T_to_expiry`` field on the node; all three asset-class calibrators set it; fallback alpha conversion uses ``F^(1-β)``.
+- `python/tests/test_l2_t4_vol_calibration_sabr_T.py` (new) — 3 regressions: surface vol uses node's stored T (not 1.0); fallback alpha gives correct ATM vol with non-unity β; ``calibrate_fx_surface`` propagates the actual tenor onto each node.
+
+---
+
 ## v1.059.0 — 2026-06-15 — **Fix L2 T4 (options/inflation_vol.yoy_inflation_cap) — Black-76 vol-time was time-to-previous-fixing**
 
 **``yoy_inflation_cap`` passed the wrong ``T`` argument to ``black76_price`` for each YoY caplet.**
