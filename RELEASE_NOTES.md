@@ -2,6 +2,34 @@
 
 ---
 
+## v1.061.0 — 2026-06-15 — **Fix L2 T4 (options/skew_trading.cross_asset_skew_comparison) — labels wrong for mixed-sign skews**
+
+**``cross_asset_skew_comparison`` sorted by signed skew, breaking the steepest/flattest labels under the canonical cross-asset use case.**
+
+Pre-fix:
+```python
+entries = sorted(skews.items(), key=lambda x: x[1])
+return CrossAssetSkewResult(entries, entries[0][0], entries[-1][0])
+```
+
+This labels the **most negative** signed skew as "steepest" and the **most positive** as "flattest".  Works only when all skews share a sign.
+
+For the canonical cross-asset use case (equity put-skew, RR < 0; commodity call-skew, RR > 0), the labels were INVERTED.  Example:
+
+    skews = {"equity": -0.05, "fx": 0.0, "commodity": +0.10}
+
+Pre-fix labelled ``steepest = "equity"`` (|skew| = 0.05) and ``flattest = "commodity"`` (|skew| = 0.10 — actually the steepest).  ``fx`` (skew = 0) — the true flattest — went unrecognised.
+
+The existing test ``test_ranking`` covers only same-sign skews, so the bug never surfaced.
+
+Fix (T4-SK1): sort by ``|skew|`` descending.  Existing same-sign callers unaffected; mixed-sign callers now get correct labels.
+
+**Files changed**:
+- `python/pricebook/options/skew_trading.py` — sort by ``abs(x[1])`` descending.
+- `python/tests/test_l2_t4_cross_asset_skew_signs.py` (new) — 4 regressions: mixed-sign labels correct, zero-skew is flattest, same-sign cases unchanged.
+
+---
+
 ## v1.060.0 — 2026-06-15 — **🎯 1.060 milestone · Fix L2 T4 (options/vol_calibration) — SABR T defaulted to 1.0 + fallback α ignored β**
 
 Two coupled defects in ``CalibratedVolSurface`` and ``CalibratedSABRNode``.
