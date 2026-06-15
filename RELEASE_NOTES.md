@@ -2,6 +2,33 @@
 
 ---
 
+## v1.062.0 — 2026-06-15 — **Fix L2 T4 (options/swaption_vol_cube._lookup_atm) — lookup-with-round-up instead of interpolation**
+
+**``_lookup_atm`` pretended to interpolate but actually rounded up.**
+
+Pre-fix:
+```python
+def _lookup_atm(expiries, tenors, grid, exp_y, tenor_y):
+    """Simple lookup/interpolation for ATM vol."""
+    i = np.searchsorted(exp_arr, exp_y)
+    j = np.searchsorted(ten_arr, tenor_y)
+    i = max(0, min(i, len(exp_arr) - 1))
+    j = max(0, min(j, len(ten_arr) - 1))
+    return float(grid_arr[i, j])
+```
+
+``np.searchsorted`` returns the LEFT insertion index, so ``grid[i, j]`` is the value at the upper-right pillar of the bracketing rectangle.  For any off-pillar query the function returns the wrong cell, not an interpolated value.
+
+Used by ``build_swaption_vol_cube`` to populate each calibrated SABR node's ``atm_vol`` field.  When the node's ``(exp_y, tenor_y)`` doesn't sit exactly on the ATM grid, the node carried an ATM value that came from the next-higher pillar.  This leaks out via ``SABRNode.vol`` 's exactly-strike-equals-forward fast-path which short-circuits and returns the stored ``atm_vol``.
+
+Fix (T4-SVC1): replace with proper bilinear interpolation matching the in-class ``_interp_atm``, with degenerate 1×N / N×1 cases handled separately.
+
+**Files changed**:
+- `python/pricebook/options/swaption_vol_cube.py` — ``_lookup_atm`` now bilinearly interpolates.
+- `python/tests/test_l2_t4_swaption_vol_cube_lookup.py` (new) — 4 regressions: at-pillar exact match; midway-between-pillars equals bilinear average; below/above-pillar clamps; linear interpolation along one axis when the other is a single pillar.
+
+---
+
 ## v1.061.0 — 2026-06-15 — **Fix L2 T4 (options/skew_trading.cross_asset_skew_comparison) — labels wrong for mixed-sign skews**
 
 **``cross_asset_skew_comparison`` sorted by signed skew, breaking the steepest/flattest labels under the canonical cross-asset use case.**
