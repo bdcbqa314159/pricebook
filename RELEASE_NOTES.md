@@ -2,6 +2,25 @@
 
 ---
 
+## v1.067.0 — 2026-06-15 — **Fix L2 T4 (fixed_income/callable_bond) — same HW-tree defect class as bermudan_swaption, plus terminal-coupon double-count**
+
+**``callable_bond._trinomial_backward`` (powering both callable and puttable bond pricers) carried the full bermudan-style HW tree defect set.**
+
+T4-CB1 rolls up four coupled bugs:
+
+1. **Wrong trinomial probabilities** (`/6` instead of textbook `/2`; same as T4-BERM1).
+2. **Missing α(t) shift** (`r_j = r0 + j·dr` for every step; tree didn't reprice the input curve).
+3. **Coupon and option applied AFTER backward discount** — the coupon at step+1 was added to ``new_values`` (already discounted to step), so the coupon's own discount factor was missing.  Likewise the option ``min(v, call_price)`` / ``max(v, put_price)`` compared the discounted continuation against the undiscounted par strike.
+4. **Terminal coupon double-counted** — ``values`` was initialised to ``notional × (1 + c·τ)`` (cum-terminal-coupon), but the first iteration (``step = n_steps − 1``) sees ``step + 1 = n_steps`` in ``coupon_steps`` and adds the terminal coupon a second time.
+
+Fix: use ``HullWhite.build_tree_alphas`` for per-step α; textbook `/2` probabilities; apply coupon and option BEFORE the backward discount; skip the +coupon at ``step + 1 == n_steps`` (already in the init).
+
+**Files changed**:
+- `python/pricebook/fixed_income/callable_bond.py` — ``_trinomial_backward`` rewritten end-to-end with the standard HW-tree pattern (mirrors the v1.049 / v1.050 fixes).
+- `python/tests/test_l2_t4_callable_bond_hw_tree.py` (new) — 4 regressions: callable ≤ straight on flat curve, puttable ≥ straight on flat curve, sloped-curve callable is finite/sane (was sensitive to the missing α(t) shift), no-option tree matches curve-PV straight bond (catches the double-coupon and missing-discount bugs simultaneously).
+
+---
+
 ## v1.066.0 — 2026-06-15 — **Fix L2 T4 (options/autocall_advanced.discrete_autocall) — autocall branch overwrote prior coupons + ignored memory feature**
 
 **``discrete_autocall`` autocall branch had two coupled defects.**
