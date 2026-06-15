@@ -2,6 +2,32 @@
 
 ---
 
+## v1.055.0 — 2026-06-15 — **Fix L2 T4 (options/ir_exotic.tarn_price) — simulated rate was completely dead code**
+
+**``tarn_price`` simulated an OU short-rate path that was never referenced in any payoff or discount.**
+
+Pre-fix the function:
+1. Initialised ``r = full(n_paths, flat_rate)``.
+2. Updated ``r`` each period via ``r += 0.5·(flat_rate − r)·dt + rate_vol·dW``.
+3. Then discounted EVERY cashflow with ``df = exp(-flat_rate · t)`` — a deterministic, path-independent factor.
+4. Coupons were fixed at ``coupon_rate · notional · dt`` regardless of ``r``.
+
+So the simulated ``r`` had zero effect on output.  ``rate_vol`` was thus a silent-no-op API param — changing it gave bit-identical prices.  The MC was pretending to be stochastic while running the same deterministic computation on every path.
+
+Fix (T4-IREX1):
+- Track ``log_df`` per path as ``log_df += −r · dt`` (left-Riemann sum of the simulated short rate).
+- Use ``df = exp(log_df)`` for both coupons and the principal redemption.
+
+Result: ``rate_vol`` now drives the convexity correction expected of a stochastic IR pricer.  The OU dynamics around ``flat_rate`` finally connect to the price.
+
+Note: the wider ``ir_exotic`` module (``snowball_price``, ``callable_range_accrual``, ``ratchet_cap``, ``flexi_swap``) has a related but milder issue — those functions DO reference ``r`` in payoffs (snowball coupon, range-accrual gate, ratchet strike reset) but still use flat-rate discounting.  Deferred to a wider follow-up audit.
+
+**Files changed**:
+- `python/pricebook/options/ir_exotic.py` — ``tarn_price`` uses path-dependent discount.
+- `python/tests/test_l2_t4_tarn_path_dependent_discount.py` (new) — 3 regressions: ``rate_vol`` materially affects price (pre-fix: bit-identical), zero-vol matches deterministic baseline, finite/positive sanity.
+
+---
+
 ## v1.054.0 — 2026-06-14 — **Fix L2 T4 (options/cliquet) — per-period drift used flat-curve extrapolation**
 
 **``Cliquet.price_mc`` propagated each period's drift with a single flat ``rate = -log(curve.df(T))/T``.**
