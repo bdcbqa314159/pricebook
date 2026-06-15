@@ -103,10 +103,26 @@ def yoy_inflation_cap(
 
         strike_yoy = 1 + strike_rate  # ratio
 
-        t_fix = max(year_fraction(ref, d_prev, DayCountConvention.ACT_365_FIXED), 1e-6)
+        # Fix T4-INFL1: pre-fix the vol-time passed to Black-76 was
+        # ``year_fraction(ref, d_prev)`` — time from valuation to the
+        # PREVIOUS CPI fixing.  For a YoY caplet the ratio
+        # ``CPI(d_curr)/CPI(d_prev)`` accumulates volatility ONLY during
+        # the period ``(max(ref, d_prev), d_curr]`` (vol-time
+        # interpretation of the Black formula).  Pre-fix:
+        #   – Fully forward caplet (ref < d_prev): used ``d_prev - ref``,
+        #     ignoring the actual exposure window ``d_curr - d_prev``.
+        #     For a 5y YoY caplet on year 4-5 the code used ~4y of vol
+        #     time instead of 1y — gross over-pricing.
+        #   – Partially fixed (d_prev ≤ ref < d_curr): clamped to 1e-6,
+        #     effectively zero vol — gross under-pricing (essentially
+        #     intrinsic value only).
+        # Correct vol-time: max(ref, d_prev) → d_curr.
+        t_vol = year_fraction(max(ref, d_prev), d_curr,
+                              DayCountConvention.ACT_365_FIXED)
+        t_vol = max(t_vol, 1e-9)
         df = discount_curve.df(d_curr)
 
-        caplet = black76_price(fwd_yoy, strike_yoy, vol, t_fix, df, option_type)
+        caplet = black76_price(fwd_yoy, strike_yoy, vol, t_vol, df, option_type)
         total += notional * caplet
 
     return total
