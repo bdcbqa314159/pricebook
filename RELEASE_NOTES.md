@@ -2,6 +2,20 @@
 
 ---
 
+## v1.070.0 — 2026-06-15 — **Fix L2 T4 (options/bermudan_swaption_g2pp) — duplicate phi(t) defect in LSM path discounting**
+
+**``bermudan_swaption_g2pp_lsm`` carries a private ``_phi`` helper duplicating ``G2PPTree._phi``, including the same ``eps = 1e-5`` finite-difference defect (T4-G2T1) that ``date_from_year_fraction``'s day rounding turns into either 0 or ≈ 137·r per call.**
+
+T4-BSWG1: ``_phi`` is invoked at every simulation step to build ``log_df_paths`` (the accumulated short-rate integral along each path).  Because the defect depends only on ``t`` and the date-rounding pattern, it hits a deterministic ~1/8 of the time grid — on those steps every path's discount is inflated by exp(-5.48·dt) ≈ 0.40, biasing the LSM price arbitrarily.  The bug went undetected because the existing LSM tests are loose (price > 0) and the tree/LSM cross-check tolerance was correspondingly slack.
+
+Fix: delegate to ``DiscountCurve.instantaneous_forward(t)`` (the same one-line collapse applied to ``G2PPTree._fwd_rate`` in v1.069).
+
+**Files changed**:
+- `python/pricebook/options/bermudan_swaption_g2pp.py` — ``_phi`` inside ``bermudan_swaption_g2pp_lsm`` now delegates to the curve.
+- `python/tests/test_l2_t4_bermudan_swaption_g2pp_phi.py` (new) — asserts the LSM price agrees with the tree price to within 10% on a vanilla 1y/1.5y/2y × 5y Bermudan payer (the curse of the buggy ``_phi`` was a ~30-90% bias that this test now catches).
+
+---
+
 ## v1.069.0 — 2026-06-15 — **Fix L2 T4 (models/g2pp_tree) — catastrophic phi(t) finite-difference defect**
 
 **``G2PPTree._fwd_rate`` (and therefore ``_phi``, the G2++ deterministic shift used at every node in backward induction) was computing the instantaneous forward rate via a finite difference with ``eps = 1e-5`` years (≈ 8 seconds).**
