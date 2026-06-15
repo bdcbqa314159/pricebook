@@ -48,14 +48,23 @@ def tarn_price(
 ) -> TARNResult:
     """Price a Target Redemption Note via MC.
 
-    Pays coupon each period. When cumulative coupon reaches the target,
-    the note redeems at par. If target is never hit, redeems at maturity.
+    Pays coupon each period.  When cumulative coupon reaches the target,
+    the note redeems at par.  If target is never hit, redeems at maturity.
 
-    Path-dependent: early redemption depends on the rate path.
+    The simulated short rate follows a simple OU mean-reverting to
+    ``flat_rate`` with volatility ``rate_vol``.  Path discounting uses
+    the integrated path short rate.
 
     Args:
         coupon_rate: fixed coupon rate per period.
         target: cumulative coupon target (e.g. 0.20 = 20% of notional).
+
+    Fix T4-IREX1: pre-fix the simulated short rate ``r`` was updated each
+    step but never referenced in either the coupon or the discount —
+    every discount was ``exp(-flat_rate · t)``.  ``rate_vol`` was thus a
+    silent-no-op API param (changing it gave bit-identical prices).  Now
+    the path-dependent stochastic discount ``exp(-∫_0^t r_s ds)`` is
+    used, making ``rate_vol`` actually drive convexity.
     """
     rng = np.random.default_rng(seed)
     dt = 1.0 / frequency
@@ -67,35 +76,38 @@ def tarn_price(
     redemption_time = np.full(n_paths, float(maturity_years))
 
     r = np.full(n_paths, flat_rate)
+    log_df = np.zeros(n_paths)  # cumulative -∫r ds along each path
 
     for i in range(1, n_periods + 1):
         t = i * dt
-        # Rate dynamics (simple OU)
+        # Rate dynamics (simple OU) — integrated rate uses the previous
+        # ``r`` (left-endpoint Riemann sum) so the discount factor at
+        # step i represents the path value of exp(-∫_0^t r_s ds).
+        log_df -= r * dt
         dW = rng.standard_normal(n_paths) * math.sqrt(dt)
         r = r + 0.5 * (flat_rate - r) * dt + rate_vol * dW
 
-        # Coupon this period
+        # Coupon this period — fixed amount, discounted along each path.
         coupon = coupon_rate * notional * dt
-        df = np.exp(-flat_rate * t)
+        df = np.exp(log_df)
 
-        # Pay coupon to alive paths
-        pv[alive] += df * coupon
+        pv[alive] += df[alive] * coupon
         cum_coupon[alive] += coupon_rate * dt
 
         # Check target hit
         target_hit = alive & (cum_coupon >= target)
         if np.any(target_hit):
-            pv[target_hit] += df * notional  # redeem at par
+            pv[target_hit] += df[target_hit] * notional
             redemption_time[target_hit] = t
             alive[target_hit] = False
 
     # Maturity redemption for paths that didn't hit target
-    df_T = math.exp(-flat_rate * maturity_years)
-    pv[alive] += df_T * notional
+    df_T_path = np.exp(log_df)
+    pv[alive] += df_T_path[alive] * notional
 
     price = float(pv.mean()) / notional * 100
     expected_life = float(redemption_time.mean())
-    hit_prob = float((~alive).mean())  # fraction that hit target before maturity
+    hit_prob = float((~alive).mean())
 
     return TARNResult(price, expected_life, hit_prob, float(cum_coupon.mean()))
 
