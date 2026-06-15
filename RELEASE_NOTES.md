@@ -2,6 +2,26 @@
 
 ---
 
+## v1.056.0 — 2026-06-15 — **Fix L2 T4 (options/ir_exotic) — path-dependent discount sweep**
+
+**Four remaining ``ir_exotic`` pricers used flat-rate discounting on simulated rate paths.**
+
+Companion to v1.055 (T4-IREX1, ``tarn_price``).  T4-IREX2 sweeps the same fix across the other four pricers in this module:
+- ``snowball_price``
+- ``callable_range_accrual``
+- ``ratchet_cap``
+- ``flexi_swap``
+
+All four updated the OU short rate each period but discounted every cashflow with ``exp(-flat_rate · t)`` regardless of the path.  Unlike ``tarn_price`` (whose simulated rate was entirely dead code), these four DO reference ``r`` in their payoffs (snowball coupon dynamics, range-accrual gate, ratchet strike reset, flexi exercise decision) — but the discount-payoff covariance was zero by construction.  For any non-trivial ``rate_vol`` this biases prices by the convexity correction the stochastic discount would have introduced.
+
+Fix: per-path cumulative ``log_df = -∫_0^t r ds`` (left-Riemann sum) drives ``df = exp(log_df)`` for every cashflow in all four pricers.  The LSM regression in ``callable_range_accrual`` also now uses the path discount (both for the par-value side and the regression target).
+
+**Files changed**:
+- `python/pricebook/options/ir_exotic.py` — sweep across the four functions, all using ``log_df`` per path.
+- `python/tests/test_l2_t4_ir_exotic_path_discount_sweep.py` (new) — 4 regressions, one per function: ``rate_vol`` materially affects price (was zero-effect through the discount channel pre-fix), callable ≤ non-callable holds structurally now that both sides share the same path discount.
+
+---
+
 ## v1.055.0 — 2026-06-15 — **Fix L2 T4 (options/ir_exotic.tarn_price) — simulated rate was completely dead code**
 
 **``tarn_price`` simulated an OU short-rate path that was never referenced in any payoff or discount.**
