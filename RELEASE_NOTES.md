@@ -2,6 +2,32 @@
 
 ---
 
+## v1.057.0 — 2026-06-15 — **Fix L2 T4 (options/multi_asset_local_vol) — silent correlation + vol-paths reporting**
+
+Two distinct findings in this slice.
+
+**T4-MALV1 — ``smile_consistency_check`` had ``correlation`` as a silent-no-op API param.**
+
+The function locally computed the correlation-aware linearised basket variance
+``Var(B) = Σ w² σ² + ρ · [(Σ w σ)² − Σ w² σ²]`` and ``model_vol = √Var(B)`` — then DISCARDED both.  The returned ``is_consistent`` and ``consistency_ratio`` referenced only the trivial ρ=1 upper bound ``weighted = Σ w_i σ_i``, which doesn't depend on ``correlation``.  Calling with ρ = -1 vs ρ = +1 gave bit-identical output.
+
+Fix:
+- New ``model_basket_vol`` field on ``SmileConsistencyResult`` exposes the correlation-aware vol.
+- ``consistency_ratio`` is now ``basket_vol / model_basket_vol``.
+- ``is_consistent`` checks ``basket_vol ≤ model_basket_vol × 1.05``.
+
+**T4-MALV2 — ``multi_asset_slv_simulate`` returned the same array for both ``vol1_paths`` and ``vol2_paths``.**
+
+Both fields were set to ``sqrt(v)`` (the bare shared stochastic vol), regardless of the asset-specific local-vol leverages ``lv1`` and ``lv2``.  The asset-specific blended effective vol ``eff_i = mixing · lv_i + (1 - mixing) · √v`` (which actually drives each spot's evolution in the GBM step) was lost.
+
+Fix: track per-asset effective-vol traces ``eff1_paths`` / ``eff2_paths`` during the loop and return them on the result.
+
+**Files changed**:
+- `python/pricebook/options/multi_asset_local_vol.py` — both fixes; new ``model_basket_vol`` field; per-asset eff vol traces.
+- `python/tests/test_l2_t4_multi_asset_lv_silent_corr.py` (new) — 2 regressions: ρ = +1 vs ρ = -1 produce different ``model_basket_vol`` / ``is_consistent`` / ``consistency_ratio``; ``vol1_paths`` and ``vol2_paths`` differ by mixing·(lv2 − lv1) at any mid step.
+
+---
+
 ## v1.056.0 — 2026-06-15 — **Fix L2 T4 (options/ir_exotic) — path-dependent discount sweep**
 
 **Four remaining ``ir_exotic`` pricers used flat-rate discounting on simulated rate paths.**
