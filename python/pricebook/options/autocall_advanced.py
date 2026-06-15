@@ -108,14 +108,32 @@ def discrete_autocall(
 
             # Autocall check
             if perf >= autocall_barrier:
-                # Pay all coupons: if memory, include accumulated unpaid
+                # Standard autocall payout:
+                # - notional (capital redemption)
+                # - current period's coupon (the "autocall coupon")
+                # - if memory: PLUS any unpaid coupons accumulated so far.
+                # Earlier conditional coupons (paid in past iterations
+                # when coupon_barrier was met) are ALREADY in path_pv —
+                # we ADD here rather than overwrite.
+                #
+                # Fix T4-AUTO2: pre-fix this branch OVERWROTE path_pv
+                # with ``(notional + (i+1)·coupon) × df`` — wiping out
+                # earlier coupon accruals AND paying coupons for every
+                # period regardless of whether the coupon barrier was
+                # met (for the non-memory case).  The redundant
+                # ``if memory_coupon: ... else: ...`` block (both
+                # branches set ``total_periods_paid = i + 1``) was a
+                # symptom: memory and no-memory got the same payout.
                 if memory_coupon:
-                    # All periods paid: previously paid + unpaid accumulated + current
-                    total_periods_paid = i + 1
+                    extra_coupons = unpaid_coupons + 1
                 else:
-                    total_periods_paid = i + 1
-                path_pv = (notional + total_periods_paid * coupon_rate * notional) * df
-                path_coupon = total_periods_paid * coupon_rate
+                    extra_coupons = 1
+                autocall_payment = (notional
+                                    + extra_coupons * coupon_rate * notional) * df
+                path_pv += autocall_payment
+                path_coupon += extra_coupons * coupon_rate
+                if memory_coupon and unpaid_coupons > 0:
+                    memory_value_total += unpaid_coupons * coupon_rate * notional * df
                 called = True
                 total_life += t
                 n_autocalled += 1
