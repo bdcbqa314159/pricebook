@@ -69,6 +69,16 @@ def multi_asset_slv_simulate(
     S1 = np.full((n_paths, n_steps + 1), float(spot1))
     S2 = np.full((n_paths, n_steps + 1), float(spot2))
     v = np.full((n_paths, n_steps + 1), heston_v0)
+    # Per-asset effective vol traces — pre-fix the result returned
+    # ``sqrt(v)`` (the bare stochastic vol) for BOTH ``vol1_paths`` and
+    # ``vol2_paths``, losing the asset-specific blended SLV effective
+    # vol that actually drives each spot.  Track them explicitly here
+    # (Fix T4-MALV2).
+    eff1_paths = np.zeros((n_paths, n_steps + 1))
+    eff2_paths = np.zeros((n_paths, n_steps + 1))
+    sv0 = math.sqrt(max(heston_v0, 0.0))
+    eff1_paths[:, 0] = mixing * lv1 + (1 - mixing) * sv0
+    eff2_paths[:, 0] = mixing * lv2 + (1 - mixing) * sv0
 
     for step in range(n_steps):
         z1 = rng.standard_normal(n_paths)
@@ -83,18 +93,32 @@ def multi_asset_slv_simulate(
         S1[:, step+1] = S1[:, step] * np.exp((rate - div1 - 0.5*eff1**2)*dt + eff1*z1*sqrt_dt)
         S2[:, step+1] = S2[:, step] * np.exp((rate - div2 - 0.5*eff2**2)*dt + eff2*z2*sqrt_dt)
         v[:, step+1] = np.maximum(v_pos + heston_kappa*(heston_theta - v_pos)*dt + heston_xi*sv*zv*sqrt_dt, 0)
+        # Record the effective vol applied at this step.
+        eff1_paths[:, step + 1] = eff1
+        eff2_paths[:, step + 1] = eff2
 
-    return MultiAssetSLVResult(S1, S2, np.sqrt(np.maximum(v, 0)), np.sqrt(np.maximum(v, 0)),
-                                 float(S1[:,-1].mean()), float(S2[:,-1].mean()))
+    return MultiAssetSLVResult(
+        spot1_paths=S1, spot2_paths=S2,
+        vol1_paths=eff1_paths, vol2_paths=eff2_paths,
+        mean_terminal_1=float(S1[:, -1].mean()),
+        mean_terminal_2=float(S2[:, -1].mean()),
+    )
 
 
 @dataclass
 class SmileConsistencyResult:
-    """Basket smile consistency check."""
+    """Basket smile consistency check.
+
+    ``weighted_component_vol`` is the trivial upper bound ``Σ w_i σ_i``
+    (achieved at ρ = 1).  ``model_basket_vol`` is the linearised model
+    vol that respects the supplied correlation.  ``consistency_ratio``
+    and ``is_consistent`` use ``model_basket_vol`` (correlation-aware).
+    """
     basket_vol: float
     weighted_component_vol: float
-    consistency_ratio: float   # basket_vol / weighted (should be < 1)
+    consistency_ratio: float
     is_consistent: bool
+    model_basket_vol: float = 0.0
 
 
     def to_dict(self) -> dict:
@@ -104,16 +128,38 @@ def smile_consistency_check(
     weights: list[float], correlation: float,
 ) -> SmileConsistencyResult:
     """Check if basket vol is consistent with constituent smiles.
-    Basket vol² ≤ (Σ w_i σ_i)² — the weighted average is an upper bound.
-    Basket vol² ≈ Σ w_i² σ_i² + ρ Σ_{i≠j} w_i w_j σ_i σ_j.
+
+    Linearised basket variance with uniform pair correlation ``ρ``:
+
+        Var(B) = Σ w_i² σ_i² + 2 ρ Σ_{i<j} w_i w_j σ_i σ_j
+               = Σ w_i² σ_i² + ρ · [(Σ w_i σ_i)² − Σ w_i² σ_i²]
+
+    ``model_basket_vol = √Var(B)`` is the correlation-aware reference;
+    ``weighted_component_vol = Σ w_i σ_i`` is the trivial ρ=1 upper bound.
+
+    Fix T4-MALV1: pre-fix ``correlation`` was a silent-no-op API param —
+    the model_vol was computed locally but discarded, and the result
+    fields (``is_consistent``, ``consistency_ratio``) referenced only
+    ``weighted_component_vol``, so changing ``correlation`` left the
+    output bit-identical.  Now ``correlation`` drives ``model_basket_vol``
+    which in turn drives both the consistency check and the ratio.
     """
     w = np.array(weights); s = np.array(component_vols)
     weighted = float(np.sum(w * s))
-    model_var = float(np.sum(w**2 * s**2) + correlation * ((np.sum(w * s))**2 - np.sum(w**2 * s**2)))
-    model_vol = math.sqrt(max(model_var, 0))
-    ratio = basket_vol / max(weighted, 1e-10)
-    consistent = basket_vol <= weighted * 1.01 and basket_vol >= 0
-    return SmileConsistencyResult(basket_vol, weighted, float(ratio), consistent)
+    model_var = float(
+        np.sum(w**2 * s**2)
+        + correlation * (weighted**2 - np.sum(w**2 * s**2))
+    )
+    model_vol = math.sqrt(max(model_var, 0.0))
+    ratio = basket_vol / max(model_vol, 1e-10)
+    consistent = (basket_vol >= 0) and (basket_vol <= model_vol * 1.05)
+    return SmileConsistencyResult(
+        basket_vol=basket_vol,
+        weighted_component_vol=weighted,
+        consistency_ratio=float(ratio),
+        is_consistent=consistent,
+        model_basket_vol=float(model_vol),
+    )
 
 
 # ---------------------------------------------------------------------------
