@@ -2,6 +2,25 @@
 
 ---
 
+## v1.080.0 — 2026-06-16 — **L0 core sweep (deep-read pass, slice 2): delete 3 dead aliases in `core/serialization.py`**
+
+T-CORE-PT8 — second slice from the deep-read pass.
+
+* **`deserialise_date`, `deserialise_enum`, `deserialise_currency_pair` deleted** from `python/pricebook/core/serialization.py:120-132`. All three had **zero callers** in the entire codebase (`grep -rn`). They predate the centralised `from_dict` dispatch and were superseded by the `instrument_to_dict = to_dict` style aliases above them (those have real consumers and stayed).
+
+* **`_str_to_date = date.fromisoformat` kept**, contrary to the initial finding. A second-pass grep before deletion caught one real caller — `pricebook/pricing/pricing_engine.py:36,69` imports and uses it. Annotated with an inline comment so the next sweep doesn't trip on it. The full inline-and-delete is an L1 cleanup (pricing_engine.py is L1); L0 audit leaves it alone per AUDIT_PLAN §2.3.
+
+* **No regression test added** — same rationale as prior delete slices.
+
+**Files changed**:
+- `python/pricebook/core/serialization.py` — -15 / +1 (3 functions deleted; `_str_to_date` kept with inline comment).
+
+**Process note:** the initial grep (which the addendum was based on) checked only the named aliases and missed `_str_to_date`'s 2 uses. The triple-check immediately before code change caught it. Reinforces the "before recommending from memory, verify" rule — always re-grep right before the delete, never trust a finding from earlier in the same session.
+
+L0-scoped pytest: 2437 passed, identical to v1.079.0 baseline. 47s, `pytest -n auto`.
+
+---
+
 ## v1.079.0 — 2026-06-16 — **L0 core sweep (deep-read pass, slice 1): delete dead `core/results.py`**
 
 T-CORE-PT6 — surfaced by the post-T-CORE-PT2 deep-read pass walking all 23 previously sample-only `core/` modules (the user flag was "we can't afford leave blanks"). Found 5 new ponytail findings in those 23; this is the highest-impact ready slice.
