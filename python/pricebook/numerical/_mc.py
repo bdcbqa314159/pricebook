@@ -142,7 +142,7 @@ class MLMCResult:
     samples_per_level: list[int]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def multilevel_mc(

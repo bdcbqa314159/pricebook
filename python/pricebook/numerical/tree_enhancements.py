@@ -28,7 +28,7 @@ class AdaptiveTreeResult:
     barrier_accuracy: float # how close tree nodes are to barrier
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def adaptive_barrier_tree(

@@ -29,7 +29,7 @@ class StabilityResult:
     nu: float                   # ν = σ²dt/dx²
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def amplification_factor(

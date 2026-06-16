@@ -85,7 +85,7 @@ class KKTCheckResult:
     all_satisfied: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def verify_kkt(

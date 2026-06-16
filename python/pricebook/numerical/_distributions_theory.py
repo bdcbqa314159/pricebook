@@ -40,11 +40,11 @@ class SchwartzTestFunction:
         xi = np.asarray(xi)
         if xi.ndim == 0:
             integrand = self(x) * np.exp(-1j * xi * x)
-            return complex(np.trapz(integrand, dx=dx))
+            return complex(np.trapezoid(integrand, dx=dx))
         result = np.zeros(len(xi), dtype=complex)
         for k, xik in enumerate(xi):
             integrand = self(x) * np.exp(-1j * xik * x)
-            result[k] = np.trapz(integrand, dx=dx)
+            result[k] = np.trapezoid(integrand, dx=dx)
         return result
 
 
@@ -96,7 +96,7 @@ class TemperedDistribution:
                 dxi = xi[1] - xi[0]
                 vals = np.array([phi(xik) for xik in xi])
                 integrand = vals * np.exp(-1j * x * xi)
-                return float(np.real(np.trapz(integrand, dx=dxi)))
+                return float(np.real(np.trapezoid(integrand, dx=dxi)))
 
             return parent._action(fourier_phi)
 
@@ -159,7 +159,7 @@ class SobolevNorm:
     s: float     # Sobolev index
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def sobolev_norm(
