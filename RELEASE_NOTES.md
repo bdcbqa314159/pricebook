@@ -2,6 +2,26 @@
 
 ---
 
+## v1.079.0 — 2026-06-16 — **L0 core sweep (deep-read pass, slice 1): delete dead `core/results.py`**
+
+T-CORE-PT6 — surfaced by the post-T-CORE-PT2 deep-read pass walking all 23 previously sample-only `core/` modules (the user flag was "we can't afford leave blanks"). Found 5 new ponytail findings in those 23; this is the highest-impact ready slice.
+
+* **`python/pricebook/core/results.py` deleted** — 60 lines, a module aggregator exporting `SolverResult` (re-export), `TreeResult` + `PDEResult` (defined here), and four `TYPE_CHECKING`-only names. Zero importers in the entire repo (`grep -rn "core\\.results\\b"` returned only the file's own docstring example). Worse: the `TreeResult` and `PDEResult` shells defined here are *not* the ones used in production — `pricebook/numerical/_trees.py:67` and `pricebook/numerical/_pde.py:59` define independent concrete classes with the same name. The shells in `core/results.py` were unused parallel definitions. The `__all__` advertised `MCResult`, `OptimizerResult`, `ODEResult` — all `TYPE_CHECKING`-only and would raise `ImportError` at runtime if anyone tried to use them.
+
+* **No regression test added** — same rationale as T-CORE-PT1 / T-CORE-PT2 (file deletion; L0 suite passing IS the regression evidence; 2437 → 2437).
+
+**Files changed**:
+- `python/pricebook/core/results.py` — deleted (60 lines).
+
+**L0 sub-package status:**
+* `calibration` ✅ swept.
+* `core` deep-read pass complete (35 modules now confirmed individually, not just by structural smell-grep). 10 ponytail findings total (5 from structural sweep, 5 from deep read). Ready slices done: T-CORE-PT1, T-CORE-PT2, T-CORE-PT6. Ready slice queued: T-CORE-PT8 (delete 3 dead `serialization.py` aliases). Low-priority slices queued: T-CORE-PT4, T-CORE-PT7, T-CORE-PT9, T-CORE-PT10. Held: T-CORE-PT3 (cross-layer with L2), T-CORE-PT5 (Protocol-cleanup decision).
+* Next L0 sub-package per agreed order: `db` (2 modules).
+
+L0-scoped pytest: 2437 passed, identical to v1.078.0 baseline. 47s, `pytest -n auto`.
+
+---
+
 ## v1.078.0 — 2026-06-16 — **L0 core sweep (ponytail addendum, slice 2/2): delete `core/desk_protocol.py` docstring-only file; move contract to `desks/README.md`**
 
 T-CORE-PT2 — second and last ready ponytail slice on `core/`.
