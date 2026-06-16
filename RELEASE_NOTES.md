@@ -2,6 +2,34 @@
 
 ---
 
+## v1.081.0 — 2026-06-16 — **L0 core sweep (deep-read pass, slice 3): bundled ponytail micro-cleanups**
+
+T-CORE-PT-MICRO — the 4 low-priority shrinks from the deep-read pass batched into one slice (each individually <5 LOC; 12 separate commits for trivia would have been worse than the bundling).
+
+* **`core/data_registry.py`** (PT4): removed dead `key_fn=None` parameter from `load_conventions` (the function body never read it; the one forwarding caller in `load_or_default` was also removed). Hoisted two function-local `import warnings` statements to the module top. **Bonus:** discovered `load_or_default` itself has zero callers — deleted (17 lines).
+* **`core/currency.py`** (PT7): `all_g10_pairs()` rewritten from 6-line nested-loop reinvention to one-line `itertools.combinations(Currency, 2)` comprehension.
+* **`core/forward_interpolation.py`** (PT9): `extract_forwards()` had a dead `d = date.fromordinal(...)` variable computed every iteration but never read; replaced the 7-line loop body with a one-line list comprehension.
+* **`core/pricing_context.py`** (PT10): removed 2-line dead `to_dict` stub at lines 244-245 (overwritten by `_ctx_to_dict` at line 373 before any caller could reach it).
+
+Net: -40 lines, +4 lines across 4 files. Zero behaviour change in any code path that the L0 suite exercises (2437 → 2437 unchanged).
+
+**Bundling rationale:** AUDIT_PLAN §2.3 mandates one combined commit + stamp + release-notes per slice; it doesn't mandate one finding per slice. Four <5-line shrinks in 4 different files are coherent as "core ponytail micro-cleanups", and the alternative — 12 commits for ~40 lines — adds review friction without auditability benefit.
+
+**Files changed**:
+- `python/pricebook/core/data_registry.py` — -25 / +2 (PT4 + dead `load_or_default` delete).
+- `python/pricebook/core/currency.py` — -7 / +2 (PT7).
+- `python/pricebook/core/forward_interpolation.py` — -8 / +1 (PT9).
+- `python/pricebook/core/pricing_context.py` — -2 / +0 (PT10).
+
+**L0 sub-package status:**
+* `calibration` ✅ swept.
+* `core` ✅ ready+low-priority slices done. Remaining open: `T-CORE-PT3` (cross-layer, blocks on L2 `models/` audit), `T-CORE-PT5` (`instrument_result.py`, blocks on Protocol-cleanup decision). Original-audit MEDs C.7 B1 / D.1 B1 / D.1 B2 still queued (separate sweep).
+* Next L0 sub-package per agreed order: `db` (2 modules; preliminary `StorageBackend` ABC YAGNI finding already in hand).
+
+L0-scoped pytest: 2437 passed, identical to v1.080.0 baseline. 46s, `pytest -n auto`.
+
+---
+
 ## v1.080.0 — 2026-06-16 — **L0 core sweep (deep-read pass, slice 2): delete 3 dead aliases in `core/serialization.py`**
 
 T-CORE-PT8 — second slice from the deep-read pass.
