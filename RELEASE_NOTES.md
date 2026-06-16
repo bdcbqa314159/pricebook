@@ -2,6 +2,54 @@
 
 ---
 
+## v1.091.0 — 2026-06-16 — **L1 regulatory sweep + L1 COMPLETE: 29 `vars(self)` mutation hazards**
+
+T-REG-PT1 — final L1 ponytail slice (`regulatory/`, 23 modules, ~7850 LOC; ledger `AUDIT_L1_REGULATORY.md`).
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, np.trapz. Cleanest L1 sub-package surveyed.
+
+**M-REG-1 · `return vars(self)` mutation hazard** — 29 sites across 15 files: balance_sheet_allocation (2), basel2 (2), capital_allocation (2), ima_bridge (1), ccar (1), credit_rwa (1), market_risk_ima (4), irc (2), liquidity (2), operational_risk (1), stress_irrbb (2), specialty (3), reverse_stress (1), total_capital (1), trs_capital (4). All same one-line fix; `replace_all` per file.
+
+**Held: `reverse_stress.py:198, 262`** — two `except Exception` blocks wrap `scipy.optimize.minimize` calls and return `ReverseStressResult(found=False, ...)` on failure. The failure IS surfaced via the documented `found` flag in the result API; not silent-swallow. Defensible. Hold.
+
+**Cumulative session vars(self) count:** 73 (through pricing) + 29 = **102 instances** corrected across L0+L1.
+
+**Files changed**: 15 in `python/pricebook/regulatory/` (+29 / -29).
+
+---
+
+# **L1 SWEEP COMPLETE 🎯**
+
+All 3 L1 sub-packages now ✅ swept under the combined methodology (AUDIT_PLAN + ponytail):
+
+| Sub-pkg | Modules | Ponytail slice | Net |
+|---------|---------|----------------|-----|
+| `curves` | 33 | T-CRV-PT1 | -27 lines (dead module) + 15× vars(self) + 2 downstream migrations |
+| `pricing` | 9 | T-PRC-PT1 | 4× vars(self) + test-flakiness fix; T-PRC-PT2 held (RPC silent-except decision) |
+| `regulatory` | 23 | T-REG-PT1 | 29× vars(self) |
+
+**Cumulative session (v1.075.0 → v1.091.0):**
+* **17 slices landed** (16 code commits + 17 stamp + 17 release notes = 50 commits total)
+* **~377 lines net dead code removed**
+* **102 `vars(self)` mutation hazards swept** across L0 + L1
+* **4 dead modules deleted** (`core/protocols.py`, `core/desk_protocol.py`, `core/results.py`, `curves/quadrature.py`)
+* **4 over-engineered scaffolds cut** (StorageBackend ABC, query_table alias, _detect_code_version wrapper, deprecated deserialise_* aliases)
+* **3 cross-layer migrations** (heston quadrature, cdo dead import, test_schema_adapter de-flake)
+* **3 stale "Lx" docstring claims fixed** (calibration L6→L0, market_data L1→L0+target, curves layer notes via T-CRV-PT1 ledger entries)
+
+**Held items requiring decision:**
+* `T-CORE-PT3` — twin-delete `core/numerical_method_map.py` + `models/engine_registry.py` (waits for L2 `models/` audit)
+* `T-CORE-PT5` — `core/instrument_result.py` Protocol (test-only binders)
+* `T-PRC-PT2` — RPC-boundary silent-except Greeks (4 sites) — needs swallow/propagate/narrow decision
+
+**Inherited correctness items still queued:** C.7 B1 (settlement lag), D.1 B1 (empty-dict round-trip), D.1 B2 (dropped fields) — pre-date this session.
+
+**Per AUDIT_PLAN §3, next layer is L2** — `data` (5 modules) + `models` (91 modules). The held cross-layer T-CORE-PT3 slice can finally land when `models/` is audited.
+
+L1-scoped pytest: 3520 passed (consistent across reruns). 55s, `pytest -n auto`.
+
+---
+
 ## v1.090.0 — 2026-06-16 — **L1 pricing sweep (ponytail): 4 `vars(self)` hazards + de-flake `test_schema_adapter`**
 
 T-PRC-PT1 — L1 `pricing/` sub-package sweep (9 modules + 1 legacy shim, ledger `AUDIT_L1_PRICING.md`).
