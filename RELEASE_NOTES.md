@@ -2,6 +2,24 @@
 
 ---
 
+## v1.085.0 — 2026-06-16 — **L0 pe sweep: 15 `vars(self)` mutation hazards**
+
+T-PE-PT1 — L0 `pe/` sub-package sweep (4 modules, ~1950 LOC; ledger `AUDIT_L0_PE.md`).
+
+**Architectural finding:** same shape as `numerical/` — flat domain-logic layer over numpy with no ABCs, Protocols, registries, factories, or blanket excepts. The only ponytail-adjacent finding is the recurring `vars(self)` mutation pattern.
+
+**M-PE-1 · `return vars(self)` mutation hazard** — 15 sites across 3 files (3× `lbo.py`, 8× `pe_desk.py`, 4× `pe_performance.py`). Same one-line fix per site: `return vars(self)` → `return dict(vars(self))`. Cumulative across this audit (counting `core/solvers.py` A.5 B1, `core/approximation.py` A.7, T-NUM-PT1's 9 sites, and now 15 more): **30 instances of this exact bug** have surfaced — `recurring-bug-patterns.md` memory's "vars(self) to_dict shared __dict__" is the highest-frequency pattern in the codebase.
+
+**Files changed**: 3 in `python/pricebook/pe/` (+15 / -15).
+
+**L0 sub-package status:**
+* `calibration` ✅, `core` ✅, `db` ✅, `market_data` ✅, `numerical` ✅, **`pe` ✅**.
+* Next per agreed order: `statistics` (17 modules).
+
+L0-scoped pytest: 2437 passed. 47s.
+
+---
+
 ## v1.084.0 — 2026-06-16 — **L0 numerical sweep: `vars(self)` mutation hazards + `np.trapz` → `np.trapezoid` (12-fix combined slice)**
 
 T-NUM-PT1 — single combined slice from the L0 `numerical/` deep-read pass (30 modules, ~8500 LOC; ledger `AUDIT_L0_NUMERICAL.md`).
