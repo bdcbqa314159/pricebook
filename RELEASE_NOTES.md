@@ -2,6 +2,28 @@
 
 ---
 
+## v1.076.0 — 2026-06-16 — **L0 calibration sweep: drop `_detect_code_version` silent-except blanket; fix stale L6 docstring claim**
+
+T-CAL1 — first slice of the AUDIT_PLAN.md bottom-up sweep (combined methodology: layer audit + ponytail over-engineering hunt).  L0 sub-package `calibration/` walked end-to-end (2 modules, 260 LOC).
+
+* **Silent except removed.** `pricebook/calibration/_types.py::_detect_code_version` wrapped `import pricebook; return pricebook.__version__` in `try: ... except Exception: return "unknown"`.  Same recurring pattern just removed from `hw_calibration.py` in v1.075 (T4-HW1).  Neither exception path can realistically fire here — `pricebook.__version__` is set eagerly in `pricebook/__init__.py`; if it ever isn't, the user wants the error, not a silent `"unknown"` polluting the calibration provenance chain.  Helper deleted entirely (no test mocks it; tests use the explicit `code_version=` parameter override), call inlined into `CalibrationResult.new(...)`.  Net -10 lines.
+
+* **Stale docstring fixed.** `_types.py` module docstring claimed the calibration layer "sits cleanly in the dependency graph at L6 (per the reference design)".  Per the empirical layer classifier (`tools/test_layer.py`) calibration is L0 — no top-level pricebook deps.  The L6 claim referred to an older DESIGN.md placement that the actual code no longer matches.  Updated to call out L0 explicitly and to note the lone in-function `import pricebook` as the (lazy, cycle-free) reason it stays L0.
+
+* **Ponytail finding held, not cut.** `Calibrator` Protocol (216-line file, lines 200-216) has no production binders — real calibrators (`sabr.py`, `bond_hazard_bootstrap.py`) consume `CalibrationResult` directly without declaring conformance.  Held per DESIGN.md G1 P1 commitment to migrate calibrators onto it; revisit at end of G1 P1.
+
+* **Ponytail finding rejected.** Initial plan was to swap `import pricebook; return pricebook.__version__` for `importlib.metadata.version("pricebook")` (stdlib idiom).  Empirical check killed it: the venv's egg-info reports `"0.790.0"` while `__version__` is `"1.075.0"`; egg-info is gitignored and drifts.  `pricebook.__version__` is the canonical source (pyproject `dynamic = ["version"]`, `attr = "pricebook.__version__"`).  Recorded in `AUDIT_L0_CALIBRATION.md` as a worked example of "two stdlib options, same size? take the one correct on edge cases".
+
+**Files changed**:
+- `python/pricebook/calibration/_types.py` — helper deleted, version lookup inlined into `.new()`, docstring fixed.
+- `python/tests/test_calibration_types.py` (new test) — `test_missing_pricebook_version_propagates` asserts `AttributeError` propagates when `pricebook.__version__` is missing, instead of silent `"unknown"`.
+
+**L0 sub-package status:** calibration ✅ swept (1 MED bug, 1 LOW doc closed; 1 YAGNI held).  Next: `core/` re-sweep with ponytail lens layered on existing `AUDIT_L0_CORE.md`.
+
+L0-scoped pytest: 2437 passed (was 2436, +1 regression).  46s, `pytest -n auto`.
+
+---
+
 ## v1.075.0 — 2026-06-16 — **Fix L2 T4 (models/hw_calibration) — blanket `except Exception` masked pricer crashes as zero swaption price**
 
 T4-HW1 (mirror of T2.11 for ``g2pp_swaption_price``): ``_hw_swaption_price`` wrapped its entire body, and ``_hw_implied_vol`` wrapped its final ``implied_vol_black76`` call, in ``try: ... except Exception: return 0.0``.  Any error — HullWhite construction failure, tree-pricer assertion, brentq divergence, overflow — was silently turned into a zero price, then fed to the calibration optimiser as a fixed residual (zero against a positive market vol).  Calibrations could "converge" on parameter regions where the pricer was secretly crashing.
