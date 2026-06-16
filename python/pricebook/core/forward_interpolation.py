@@ -117,14 +117,7 @@ def extract_forwards(
     tenors: list[float],
 ) -> list[float]:
     """Extract instantaneous forward rates from a discount curve at given tenors."""
-    from datetime import date
-    ref = curve.reference_date
-    forwards = []
-    for t in tenors:
-        d = date.fromordinal(ref.toordinal() + int(t * 365))
-        f = curve.instantaneous_forward(t)
-        forwards.append(f)
-    return forwards
+    return [curve.instantaneous_forward(t) for t in tenors]
 
 
 # ═══════════════════════════════════════════════════════════════

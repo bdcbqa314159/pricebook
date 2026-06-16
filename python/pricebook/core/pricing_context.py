@@ -241,8 +241,6 @@ class PricingContext:
         )
 
 
-    def to_dict(self) -> dict:
-        return dict(vars(self))   # copy so external mutation doesn't leak
 from pricebook.core.serialisable import _register, make_payload, read_payload
 
 PricingContext._SERIAL_TYPE = "pricing_context"

@@ -18,6 +18,7 @@ reading/writing convention registries to JSON files in ``pricebook/data/``.
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import TypeVar
 
@@ -36,14 +37,12 @@ def _validate_filename(filename: str) -> None:
 def load_conventions(
     filename: str,
     item_type: type[T],
-    key_fn=None,
 ) -> list[T]:
     """Load convention objects from a JSON file.
 
     Args:
         filename: JSON file name (relative to DATA_DIR). Must not contain '..'.
         item_type: dataclass type with from_dict() classmethod.
-        key_fn: optional function to extract key (for dedup).
 
     Returns:
         List of convention objects. Empty list if file not found.
@@ -57,7 +56,6 @@ def load_conventions(
         data = json.load(f)
 
     if not isinstance(data, list):
-        import warnings
         warnings.warn(f"{filename}: expected JSON array, got {type(data).__name__}", RuntimeWarning, stacklevel=2)
         return []
 
@@ -67,7 +65,6 @@ def load_conventions(
             obj = item_type.from_dict(entry)
             items.append(obj)
         except Exception as e:
-            import warnings
             warnings.warn(
                 f"Skipping invalid entry in {filename}: {e}",
                 RuntimeWarning,
@@ -99,26 +96,6 @@ def save_conventions(
         f.write("\n")  # trailing newline
 
     return path
-
-
-def load_or_default(
-    filename: str,
-    item_type: type[T],
-    defaults: list[T],
-    key_fn=None,
-) -> list[T]:
-    """Load from JSON if present, otherwise return defaults.
-
-    Args:
-        filename: JSON file name.
-        item_type: dataclass type with from_dict().
-        defaults: hardcoded default conventions.
-        key_fn: optional key function for dedup.
-    """
-    loaded = load_conventions(filename, item_type, key_fn)
-    if loaded:
-        return loaded
-    return defaults
 
 
 def load_registry(

@@ -11,6 +11,7 @@ References:
 from __future__ import annotations
 
 from enum import Enum
+from itertools import combinations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -130,9 +131,4 @@ class CurrencyPair:
 
 def all_g10_pairs() -> list["CurrencyPair"]:
     """Generate all 45 unique G10 cross pairs in market convention."""
-    currencies = list(Currency)
-    pairs = []
-    for i in range(len(currencies)):
-        for j in range(i + 1, len(currencies)):
-            pairs.append(CurrencyPair.from_currencies(currencies[i], currencies[j]))
-    return pairs
+    return [CurrencyPair.from_currencies(a, b) for a, b in combinations(Currency, 2)]
