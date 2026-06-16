@@ -2,6 +2,29 @@
 
 ---
 
+## v1.083.0 — 2026-06-16 — **L0 market_data sweep: fix stale L1 docstring claim in `_types.py`**
+
+T-MD-PT1 — `market_data/` sub-package sweep (1 substantive module, 201 LOC; ledger `AUDIT_L0_MARKET_DATA.md`).
+
+* **`python/pricebook/market_data/_types.py:9-10`** previously claimed "Zero dependencies on other pricebook subpackages — sits cleanly at L1 in the dependency graph." Per the empirical classifier (`tools/test_layer.py --show-layers`), `market_data` is **L0**, not L1, because no pricebook imports are wired in yet. The L1 framing comes from DESIGN.md §5.1 A2 where `market_data` is the *target* layer once curves integrate with it (G1 P2). Same shape as L-CAL-1 fixed in v1.076.0 (`calibration/_types.py` had claimed "L6", actually L0).
+
+* **Fix:** rewrite the docstring to acknowledge both states — currently L0 empirically; design target L1 once integration lands. Single-paragraph clarification; no code change.
+
+* **No regression test** — pure docstring; no behavioural surface.
+
+* **Other findings:** none. Deep-read confirmed `MarketSnapshot` / `QuoteId` / `Quote` / `FixingHistory` are all clean frozen dataclasses with appropriate defensive patterns (`with_quote` immutable derivation, `__contains__` type guard, `with_fixing` dict-copy).
+
+**Files changed**:
+- `python/pricebook/market_data/_types.py` — docstring lines 9-10 expanded to clarify empirical L0 vs design L1.
+
+**L0 sub-package status:**
+* `calibration` ✅, `core` ✅ (ready + low-pri done), `db` ✅, `market_data` ✅.
+* Next per agreed order: `numerical` (30 modules — biggest L0 sub-package).
+
+L0-scoped pytest: 2437 passed. 47s.
+
+---
+
 ## v1.082.0 — 2026-06-16 — **L0 db sweep: drop `StorageBackend` ABC (single-impl YAGNI) + dead `query_table` alias**
 
 T-DB-PT1 — first slice of the L0 `db/` sub-package sweep (combined methodology: AUDIT_PLAN + ponytail; ledger `AUDIT_L0_DB.md`). The original ponytail preliminary scan already flagged `StorageBackend` as YAGNI; deep-read confirmed and added a second finding.
