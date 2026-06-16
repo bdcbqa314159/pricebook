@@ -224,6 +224,21 @@ class TestCalibrationResultNewFactory:
         )
         assert r.code_version == "custom-1.2.3"
 
+    def test_missing_pricebook_version_propagates(self, monkeypatch):
+        # T-CAL1 regression: pre-fix `_detect_code_version` swallowed every
+        # exception and returned the string "unknown", hiding real packaging
+        # / import bugs. Removing __version__ must now surface AttributeError.
+        monkeypatch.delattr(pricebook, "__version__")
+        with pytest.raises(AttributeError):
+            CalibrationResult.new(
+                model_class="x",
+                parameters={"a": 1.0},
+                residuals=[0.0],
+                optimiser=self._spec(),
+                iterations=1,
+                converged=True,
+            )
+
     def test_market_snapshot_id_optional(self):
         r = CalibrationResult.new(
             model_class="x",

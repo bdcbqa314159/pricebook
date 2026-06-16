@@ -5,9 +5,10 @@ The short version: every consumer (pricing, audit, debug, regret analysis)
 needs a different slice of the calibration story; expose all the slices,
 not an opaque blob.
 
-This module has zero dependencies on other pricebook subpackages so the
-calibration layer sits cleanly in the dependency graph at L6 (per the
-reference design) even before subsequent slices wire in concrete callers.
+This module has zero top-level dependencies on other pricebook subpackages
+so it sits at L0 in the empirical dependency graph (see AUDIT_PLAN.md §1).
+The lone in-function `import pricebook` in the factory below is lazy and
+does not create a runtime cycle.
 """
 
 from __future__ import annotations
@@ -161,7 +162,8 @@ class CalibrationResult:
             weights_list = [1.0] * len(residuals_list)
 
         if code_version is None:
-            code_version = _detect_code_version()
+            import pricebook  # lazy: avoids a circular import at module load
+            code_version = pricebook.__version__
 
         return cls(
             id=uuid4(),
@@ -181,20 +183,6 @@ class CalibrationResult:
             diagnostics=diagnostics or CalibrationDiagnostics(),
             market_snapshot_id=market_snapshot_id,
         )
-
-
-def _detect_code_version() -> str:
-    """Read `pricebook.__version__` defensively.
-
-    Importing pricebook is safe because `pricebook/__init__.py` uses
-    lazy `__getattr__` for re-exports and only sets `__version__` eagerly.
-    """
-    try:
-        import pricebook  # local import to avoid surprising eager loads
-
-        return pricebook.__version__
-    except Exception:
-        return "unknown"
 
 
 class Calibrator(Protocol):
