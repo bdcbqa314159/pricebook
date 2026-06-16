@@ -34,7 +34,7 @@ class PIDEResult:
     jump_contribution: float    # fraction of price from jumps
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def merton_pide(

@@ -75,7 +75,7 @@ class DiscreteOTResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def wasserstein_discrete(
     a: np.ndarray | list[float],
     b: np.ndarray | list[float],
@@ -133,7 +133,7 @@ class SinkhornResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sinkhorn(
     a: np.ndarray | list[float],
     b: np.ndarray | list[float],
@@ -203,7 +203,7 @@ class MOTBounds:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def martingale_ot_bounds(
     strikes: np.ndarray | list[float],
     call_prices: np.ndarray | list[float],

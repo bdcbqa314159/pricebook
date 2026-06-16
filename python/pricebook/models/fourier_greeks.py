@@ -35,7 +35,7 @@ class FourierGreeksResult:
     method: str             # "cos" or "lewis"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cos_greeks(

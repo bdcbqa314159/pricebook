@@ -35,7 +35,7 @@ class rBergomiResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class rBergomiEquity:
     """rBergomi model for equity.
 
@@ -164,7 +164,7 @@ class RoughHestonParams:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def rough_heston_cf(
     u: complex,
     T: float,
@@ -272,7 +272,7 @@ class ForwardVarianceCurve:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def forward_variance_curve(
     tenors: list[float],
     atm_variance: list[float],

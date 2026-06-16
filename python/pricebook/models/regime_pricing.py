@@ -64,7 +64,7 @@ class RegimeGreeksResult:
     regime_weights: list[float]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class RegimePricingEngine:

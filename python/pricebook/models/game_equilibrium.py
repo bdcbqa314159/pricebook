@@ -163,7 +163,7 @@ class MarketMakerResult:
     inventory_risk: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def market_maker_equilibrium(
@@ -225,7 +225,7 @@ class ExecutionResult:
     urgency: float               # fraction executed in first period
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def optimal_execution_game(

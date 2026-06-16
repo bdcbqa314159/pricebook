@@ -39,7 +39,7 @@ class CEVResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cev_paths(
     spot: float,
     rate: float,
@@ -85,7 +85,7 @@ class ThreeHalvesResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def three_halves_paths(
     v0: float,
     kappa: float,
@@ -128,7 +128,7 @@ class KouResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def kou_paths(
     spot: float,
     rate: float,
@@ -203,7 +203,7 @@ class BatesResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def bates_paths(
     spot: float,
     v0: float,
@@ -282,7 +282,7 @@ class HawkesResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def hawkes_paths(
     mu: float,
     alpha: float,
@@ -364,7 +364,7 @@ class VGPathResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vg_full_paths(
     spot: float,
     rate: float,

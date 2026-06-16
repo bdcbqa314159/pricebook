@@ -30,7 +30,7 @@ class KyleResult:
     noise_vol: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def kyle_lambda(
@@ -96,7 +96,7 @@ class GlostenMilgromResult:
     adverse_selection_cost: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def glosten_milgrom(

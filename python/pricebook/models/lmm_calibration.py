@@ -269,7 +269,7 @@ class SABRSlice:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class MultiFactorSABR:
     """SABR with term structure of parameters.
 

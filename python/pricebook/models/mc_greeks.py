@@ -37,7 +37,7 @@ class MCGreekResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def pathwise_delta(
     spot: float,
     strike: float,
@@ -174,7 +174,7 @@ class OptimalMLMCResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def optimal_mlmc(
     payoff: callable,
     simulate_level: callable,

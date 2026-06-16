@@ -36,7 +36,7 @@ class CIRCorrelationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CIRCorrelation:
     """Mean-reverting correlation via transformed CIR process.
 
@@ -121,7 +121,7 @@ class StochCorrPricingResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def simulate_two_asset_stoch_corr(
     spot1: float,
     spot2: float,
@@ -190,7 +190,7 @@ class WishartResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class WishartCovariance:
     """Wishart covariance matrix process.
 
@@ -296,7 +296,7 @@ class DispersionCalibrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calibrate_stoch_corr_to_dispersion(
     component_vols: list[float],
     weights: list[float],

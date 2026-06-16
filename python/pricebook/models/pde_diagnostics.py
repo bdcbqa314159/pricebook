@@ -110,7 +110,7 @@ class SchemeRecommendation:
     reason: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def recommend_scheme(

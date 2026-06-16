@@ -38,7 +38,7 @@ class LMMCalibrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _rebonato_swaption_vol(
     inst_vols: np.ndarray,
     forward_rates: np.ndarray,
@@ -197,7 +197,7 @@ class SABRLMMResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SABRLMM:
     """SABR-LMM: stochastic vol on each forward rate.
 
@@ -285,7 +285,7 @@ class PredictorCorrectorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def lmm_predictor_corrector(
     forward_rates: list[float],
     inst_vols: list[float],
@@ -358,7 +358,7 @@ class LMMGreeksResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def lmm_pathwise_greeks(
     forward_rates: list[float],
     inst_vols: list[float],

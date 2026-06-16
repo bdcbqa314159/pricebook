@@ -38,7 +38,7 @@ class BKRateResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class BKRateModel:
     """Black-Karasinski short rate model.
 
@@ -101,7 +101,7 @@ class CIRPPRateResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CIRPPRateModel:
     """CIR++ short rate: r(t) = x(t) + φ(t).
 
@@ -191,7 +191,7 @@ class CheyetteResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CheyetteModel:
     """Cheyette (Markovian HJM) with state variables (x, y).
 
@@ -266,7 +266,7 @@ class AffineResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class AffineModel:
     """Unified affine term structure model A_m(n).
 

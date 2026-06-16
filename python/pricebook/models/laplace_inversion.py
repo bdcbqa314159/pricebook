@@ -206,7 +206,7 @@ class LaplaceInversionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def invert(
     F: Callable,
     t: float,

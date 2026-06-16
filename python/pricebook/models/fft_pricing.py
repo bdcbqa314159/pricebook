@@ -38,7 +38,7 @@ class FFTResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def carr_madan_fft(
     char_func: Callable[[float], complex],
     spot: float,
@@ -220,7 +220,7 @@ class DensityResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def density_from_calls(
     strikes: np.ndarray | list[float],
     call_prices: np.ndarray | list[float],

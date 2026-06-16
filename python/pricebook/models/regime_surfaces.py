@@ -25,7 +25,7 @@ class RegimeBlendResult:
     n_regimes: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class RegimeVolSurface:

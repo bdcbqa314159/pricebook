@@ -35,7 +35,7 @@ class NDSolverResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Finite-difference Jacobian ----
 
 def finite_difference_jacobian(

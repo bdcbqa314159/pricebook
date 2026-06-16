@@ -29,7 +29,7 @@ class BatchMeansResult:
     batch_size: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def batch_means(
@@ -119,7 +119,7 @@ class ConvergenceEntry:
     relative_error_pct: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def convergence_table(

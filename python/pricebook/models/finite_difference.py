@@ -74,7 +74,7 @@ class _FDGrid:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _build_grid(
     spot: float, strike: float, rate: float, vol: float, T: float,
     option_type: OptionType, div_yield: float,

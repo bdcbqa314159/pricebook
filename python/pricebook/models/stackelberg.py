@@ -30,7 +30,7 @@ class StackelbergResult:
     leader_advantage: float     # leader payoff − Cournot/Nash payoff
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def stackelberg_cournot(

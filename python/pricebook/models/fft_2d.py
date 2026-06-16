@@ -28,7 +28,7 @@ class FFT2DResult:
     alpha: tuple[float, float]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def joint_bs_char_func(

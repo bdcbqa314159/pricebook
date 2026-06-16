@@ -80,7 +80,7 @@ class SABRParams:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # HestonParams defined here (canonical location) — also available in options/slv.py
 @dataclass(frozen=True)
 class HestonParams:
@@ -92,7 +92,7 @@ class HestonParams:
     rho: float     # correlation
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

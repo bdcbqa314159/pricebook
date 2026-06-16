@@ -32,7 +32,7 @@ class RoughHestonParams:
     H: float        # Hurst parameter (0 < H < 0.5 for rough)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def rough_heston_char_func(

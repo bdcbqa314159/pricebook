@@ -154,7 +154,7 @@ class StochVolTreeResult:
     n_vol_nodes: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def stochastic_vol_tree(

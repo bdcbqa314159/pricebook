@@ -35,7 +35,7 @@ class ExactCIRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def exact_cir(
     v0: float,
     kappa: float,

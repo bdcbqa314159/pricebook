@@ -31,7 +31,7 @@ class FeynmanKacResult:
     consistent: bool            # within 3 standard errors
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def sde_to_pde(
