@@ -2,6 +2,59 @@
 
 ---
 
+## v1.088.0 — 2026-06-16 — **L0 viz sweep + L0 COMPLETE: 2 `vars(self)` mutation hazards**
+
+T-VIZ-PT1 — `viz/` sub-package sweep (13 modules, ledger `AUDIT_L0_VIZ.md`).
+
+**Architectural findings (clean):**
+* `_dispatch.py` defines an `_INSTRUMENT_REGISTRY` + `_RESULT_REGISTRY` plugin system with 6+ register sites across `_cmasw.py`, `_cmt.py`, `_hybrid.py`, `_treasury_lock.py`, `_tlock.py`, `_trs.py`. Legitimate multi-impl registry. Keep.
+* `_builder.py::PlotBuilder` is a documented fluent dashboard composer. Real use case. Keep.
+
+**M-VIZ-1 · 2 `vars(self)` mutation hazards** in `_builder.py:16` (`PanelSpec`) and `_theme.py:33` (`PricebookTheme`). Fixed.
+
+**Held (defensible):**
+* `_builder.py:120` `try: plt.show() ... except Exception: pass` — UX safety net for non-interactive matplotlib backends.
+* `_generic.py:58` sensitivity-sweep `except Exception: nan` — exploratory plot tolerates pricer crashes at individual parameter values.
+Both are exploratory/UI excepts, not silent-bug hiders. Held with rationale.
+
+**Files changed**: 2 in `python/pricebook/viz/` (+2 / -2).
+
+---
+
+# **L0 SWEEP COMPLETE 🎯**
+
+All 9 L0 sub-packages now ✅ swept under the combined methodology (AUDIT_PLAN.md §2 + ponytail layer):
+
+| Sub-pkg | Modules | Slices | Net code change |
+|---------|---------|--------|-----------------|
+| `calibration` | 2 | T-CAL1 | -10 lines + 1 regression test (silent except removed, L6 docstring fixed) |
+| `core` | 35 | T-CORE-PT1, PT2, PT6, PT8, PT-MICRO | ~295 lines net dead code removed; 10 ponytail findings (3 held: PT3 cross-layer, PT5 Protocol-decision, low-pri done) |
+| `db` | 2 | T-DB-PT1 | -50 lines (StorageBackend ABC + query_table alias removed) |
+| `market_data` | 1 | T-MD-PT1 | docstring fix (empirical L0 vs design-target L1) |
+| `numerical` | 30 | T-NUM-PT1 | 9× vars(self) + 3× np.trapz → np.trapezoid |
+| `pe` | 4 | T-PE-PT1 | 15× vars(self) |
+| `statistics` | 17 | T-STATS-PT1 | 22× vars(self) |
+| `ts` | 7 | T-TS-PT1 | 2× vars(self) |
+| `viz` | 13 | T-VIZ-PT1 | 2× vars(self) |
+
+**Cumulative this session:**
+* **13 slices landed** (v1.076.0 → v1.088.0)
+* **~350 lines of net dead/over-engineered code removed**
+* **54 instances of the recurring `return vars(self)` mutation hazard fixed** across L0
+* **3 dead module files deleted** (`core/protocols.py`, `core/desk_protocol.py`, `core/results.py`)
+* **3 over-engineered ABC/wrapper systems cut** (`StorageBackend` ABC, `query_table` alias, `_detect_code_version` silent-except wrapper)
+* **Other small cleanups**: dead `key_fn` parameter, dead `load_or_default` function, 3 dead `deserialise_*` aliases, `all_g10_pairs` → `itertools.combinations`, `extract_forwards` dead variable, `pricing_context.to_dict` dead stub, 2 stale "Lx" docstring claims, `desk_protocol.py` docstring re-homed to `desks/README.md`.
+* **3 ponytail findings held with rationale**: `Calibrator` Protocol (DESIGN.md G1 P1 commitment), `core/instrument_result.py` Protocol (test-only binders), `core/numerical_method_map.py` + `models/engine_registry.py` (cross-layer twin-delete, waits for L2).
+* **Other open items inherited from original L0 audit**: C.7 B1 (settlement lag), D.1 B1 (empty-dict round-trip), D.1 B2 (dropped fields) — correctness MEDs queued for a separate sweep.
+
+L0-scoped pytest throughout: **2437 passed, ~47s** per run (`pytest -n auto`, `--deselect g2pp_calibration`). Suite count grew by 1 over the session (T-CAL1's regression test).
+
+Per AUDIT_PLAN §3, the next layer to audit is **L1** (`curves` ✅ already done in prior work; `pricing` + `regulatory` pending).
+
+L0-scoped pytest: 2437 passed. 47s.
+
+---
+
 ## v1.087.0 — 2026-06-16 — **L0 ts sweep: 2 `vars(self)` mutation hazards**
 
 T-TS-PT1 — `ts/` sub-package sweep (7 modules, ledger `AUDIT_L0_TS.md`). Structural smell-grep clean (no ABCs, registries, factories, blanket excepts, np.trapz). Only 2 vars(self) sites in `_replay.py` (DrawdownPeriod, ReplayResult). Both fixed.
