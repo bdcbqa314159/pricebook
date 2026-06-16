@@ -35,7 +35,11 @@ coverage.xml
 # OS
 .DS_Store
 
-# Project notes
-NOTES.md
-PLAN*.md
-IDEAS.md
+# Project notes — only README, REFERENCES, RELEASE_NOTES are tracked at the
+# repo root.  Audit ledgers, design docs, plans, ideas, and module-health
+# trackers stay local.  Sub-directory .md files (e.g. python/README.md,
+# documents/README.md) are unaffected by the /*.md anchor.
+/*.md
+!/README.md
+!/REFERENCES.md
+!/RELEASE_NOTES.md
