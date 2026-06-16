@@ -2,6 +2,37 @@
 
 ---
 
+## v1.093.0 — 2026-06-17 — **T-CORE-PT3: cross-layer twin-delete of dead advisory framework**
+
+T-CORE-PT3 — held since T-CORE-PT1 (queued in `AUDIT_L0_CORE.md` ponytail addendum), now eligible to land because the `models/` audit reached this code.
+
+**Two dead modules deleted together:**
+* **`python/pricebook/core/numerical_method_map.py`** (L0, 230 lines) — `recommend(features)` + `compare_methods()` advisory infrastructure. Only `test_numerical_plan.py::TestMethodMap` consumed it; zero production callers.
+* **`python/pricebook/models/engine_registry.py`** (L2, 145 lines) — `price(engine="auto", instrument_type=...)` wrapper + `register_engine` + 14-entry `InstrumentType` enum. Only `test_engine_infrastructure.py::TestEngineRegistry` consumed it; zero production callers (real pricers go through concrete engines directly, never through this advisory layer).
+
+Both modules promised generic recommendation/dispatch capabilities the rest of the codebase never adopted. Same architectural anti-pattern: speculative meta-framework with single test consumer.
+
+**Dead test classes removed:**
+* `tests/test_engine_infrastructure.py::TestEngineRegistry` (6 tests)
+* `tests/test_numerical_plan.py::TestMethodMap` (6 tests)
+* Net: 12 fewer tests in the L2 suite (4333 → 4321).
+
+**Files changed**:
+- `python/pricebook/core/numerical_method_map.py` — deleted (230 lines).
+- `python/pricebook/models/engine_registry.py` — deleted (145 lines).
+- `python/tests/test_engine_infrastructure.py` — TestEngineRegistry class removed (39 lines).
+- `python/tests/test_numerical_plan.py` — TestMethodMap class removed (38 lines).
+
+**Total: -453 lines** across 4 files (net of 12 deleted test functions whose deletion is the right action because they tested dead infrastructure, not real behaviour).
+
+**Cumulative session dead code removed:** ~377 (through L1) + 453 (this slice) ≈ **830 lines**, plus 102→172 vars(self) corrections through L2.
+
+**L2 status:** `data` ✅ already-clean; `models` ✅ swept (T-MOD-PT1 + T-CORE-PT3 done). L2 complete.
+
+L2-scoped pytest: 4321 passed (= 4333 prior - 12 dead test deletions). 284s.
+
+---
+
 ## v1.092.0 — 2026-06-17 — **L2 models sweep: 70 `vars(self)` mutation hazards across 39 files**
 
 T-MOD-PT1 — `models/` sub-package sweep (92 modules, ~30k LOC — biggest sub-package in the whole library; ledger drafted alongside this slice).
