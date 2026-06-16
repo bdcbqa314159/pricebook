@@ -2,6 +2,36 @@
 
 ---
 
+## v1.082.0 — 2026-06-16 — **L0 db sweep: drop `StorageBackend` ABC (single-impl YAGNI) + dead `query_table` alias**
+
+T-DB-PT1 — first slice of the L0 `db/` sub-package sweep (combined methodology: AUDIT_PLAN + ponytail; ledger `AUDIT_L0_DB.md`). The original ponytail preliminary scan already flagged `StorageBackend` as YAGNI; deep-read confirmed and added a second finding.
+
+* **`StorageBackend` ABC deleted** — 33 lines of `@abstractmethod` scaffolding in `python/pricebook/db/db_backend.py` declaring a contract for `execute`, `execute_many`, `table_exists`, `create_table`, `drop_table`, `list_tables`, `commit`, `close`. Single impl in the codebase (`SQLiteBackend`). The module's own docstring promised "Future: DuckDBBackend, PostgresBackend — same interface, swap one line" — speculative, no second impl exists or is planned. `grep -rn "backend=" python/` for non-default backend instantiation: zero hits across all tests and production code. `SQLiteBackend` now stands alone (no parent class). When/if a second backend genuinely arrives, extract the ABC at that point.
+
+* **`PricebookDB.__init__` type hint updated** — `backend: StorageBackend | None = None` → `backend: SQLiteBackend | None = None`. Same runtime behaviour; tighter type for the only concrete option.
+
+* **`db/__init__.py` re-export dropped** — `StorageBackend` no longer exported as a public symbol.
+
+* **`query_table` deleted** — 3-line one-line alias for `load_table` (`return self.load_table(name, **filters)`). One caller in `tests/test_db.py:240` updated to call `load_table` directly. Adds zero value over the existing public API.
+
+* **No regression test added** — file-deletion / alias-removal; L0 suite passing IS the regression evidence (2437 → 2437).
+
+**Files changed**:
+- `python/pricebook/db/db_backend.py` — -33 (ABC class) -3 (abc import) -1 (inheritance line) = -37 / +1 (no parent).
+- `python/pricebook/db/db.py` — -3 (query_table) -1 (StorageBackend import) +1 (SQLiteBackend type hint).
+- `python/pricebook/db/__init__.py` — -1 (StorageBackend re-export).
+- `python/tests/test_db.py` — query_table → load_table (1 line).
+
+**L0 sub-package status:**
+* `calibration` ✅ swept.
+* `core` ✅ swept (ready + low-priority all done; 2 held items waiting on cross-layer / Protocol decision).
+* `db` ✅ swept (both modules audited, ABC deleted, alias removed).
+* Next L0 sub-package per agreed order: `market_data` (1 module).
+
+L0-scoped pytest: 2437 passed, identical to v1.081.0 baseline. 47s, `pytest -n auto`.
+
+---
+
 ## v1.081.0 — 2026-06-16 — **L0 core sweep (deep-read pass, slice 3): bundled ponytail micro-cleanups**
 
 T-CORE-PT-MICRO — the 4 low-priority shrinks from the deep-read pass batched into one slice (each individually <5 LOC; 12 separate commits for trivia would have been worse than the bundling).
