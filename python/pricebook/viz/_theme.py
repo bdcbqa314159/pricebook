@@ -30,7 +30,7 @@ class PricebookTheme:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 LIGHT = PricebookTheme(
     background="#ffffff",
     foreground="#1a1a2e",

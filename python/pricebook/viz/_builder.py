@@ -13,7 +13,7 @@ class PanelSpec:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class PlotBuilder:
     """Fluent builder for composing visualization dashboards.
 
