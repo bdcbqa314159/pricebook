@@ -2,6 +2,18 @@
 
 ---
 
+## v1.075.0 — 2026-06-16 — **Fix L2 T4 (models/hw_calibration) — blanket `except Exception` masked pricer crashes as zero swaption price**
+
+T4-HW1 (mirror of T2.11 for ``g2pp_swaption_price``): ``_hw_swaption_price`` wrapped its entire body, and ``_hw_implied_vol`` wrapped its final ``implied_vol_black76`` call, in ``try: ... except Exception: return 0.0``.  Any error — HullWhite construction failure, tree-pricer assertion, brentq divergence, overflow — was silently turned into a zero price, then fed to the calibration optimiser as a fixed residual (zero against a positive market vol).  Calibrations could "converge" on parameter regions where the pricer was secretly crashing.
+
+Fix: let real exceptions propagate from ``_hw_swaption_price``.  In ``_hw_implied_vol`` keep a narrow ``except ValueError`` for the legitimate arbitrage-violating case (intrinsic-floor breach in Black-76 inversion), so true calibration bugs surface but unfittable boundary strikes don't crash the whole sweep.
+
+**Files changed**:
+- `python/pricebook/models/hw_calibration.py` — removed blanket excepts in two helpers.
+- `python/tests/test_l2_t4_hw_calibration_silent_except.py` (new) — pins a vanilla ATM swaption returns a positive price (sanity) AND that a mocked ``HullWhite`` failure now propagates rather than silently returning 0 (regression).
+
+---
+
 ## v1.074.0 — 2026-06-16 — **Fix L2 T4 (fixed_income/risky_floating) — z_spread sign inverted + accrued-on-default mid-date**
 
 T4-RFRN1:
