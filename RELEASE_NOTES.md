@@ -2,6 +2,28 @@
 
 ---
 
+## v1.086.0 — 2026-06-16 — **L0 statistics sweep: 22 `vars(self)` mutation hazards**
+
+T-STATS-PT1 — `statistics/` sub-package sweep (17 modules, ledger `AUDIT_L0_STATISTICS.md`).
+
+**Architectural findings (clean):**
+* `copulas.py::Copula(ABC)` and `hmm.py::EmissionModel(ABC)` both have multiple concrete impls (5 and 4 respectively). Legitimate multi-impl ABCs — keep.
+* Zero registries, factories, blanket excepts, `np.trapz` calls.
+
+**M-STATS-1 · `return vars(self)` mutation hazard** — 22 sites across 9 files (`calibration_quality.py`, `bayesian.py`, `copulas.py`, `optimisation_advanced.py`, `distribution_fit.py`, `distribution_theory.py`, `optimization.py`, `zscore.py`, `statistics.py`). All same one-line fix.
+
+**Cumulative pattern count:** 30 (prior sweeps) + 22 = **52 instances of `return vars(self)`** across L0 sub-packages corrected this session.
+
+**Files changed**: 9 in `python/pricebook/statistics/` (+22 / -22).
+
+**L0 sub-package status:**
+* `calibration` ✅, `core` ✅, `db` ✅, `market_data` ✅, `numerical` ✅, `pe` ✅, **`statistics` ✅**.
+* Remaining: `ts` (7 modules, 2 sites), `viz` (13 modules, 2 sites + 2 narrow-except candidates).
+
+L0-scoped pytest: 2437 passed. 46s.
+
+---
+
 ## v1.085.0 — 2026-06-16 — **L0 pe sweep: 15 `vars(self)` mutation hazards**
 
 T-PE-PT1 — L0 `pe/` sub-package sweep (4 modules, ~1950 LOC; ledger `AUDIT_L0_PE.md`).
