@@ -35,7 +35,7 @@ class MarketQuote:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def parse_csv_quotes(filepath: str, date_col: str = "date",
                      instrument_col: str = "instrument",
                      value_col: str = "value") -> list[MarketQuote]:
@@ -83,7 +83,7 @@ class SyntheticMarket:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def synthetic_market(
     reference_date: date | None = None,
     base_rate: float = 0.04,
@@ -123,7 +123,7 @@ class MarketSnapshot:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def save_snapshot(snapshot: MarketSnapshot, filepath: str) -> None:
     """Save snapshot to JSON."""
     with open(filepath, "w") as f:

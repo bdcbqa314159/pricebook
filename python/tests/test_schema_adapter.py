@@ -9,6 +9,16 @@ import pytest
 
 from pricebook.pricing.schema_adapter import analyse_json, SchemaAdapter, SchemaHint
 from pricebook.core.serialisable import from_dict
+from pricebook.core.serialization import _ensure_loaded as _populate_registry
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _populate_serial_registry():
+    # `analyse_json` and `from_dict` lookup against the global _REGISTRY.
+    # The registry is populated lazily by `core.serialization._ensure_loaded()`.
+    # Without this fixture, the tests pass-or-fail depending on whether
+    # another test happened to trigger the load on the same xdist worker.
+    _populate_registry()
 
 
 # ---- Analysis ----
