@@ -2,6 +2,41 @@
 
 ---
 
+## v1.089.0 — 2026-06-16 — **L1 curves sweep (ponytail addendum): delete legacy `curves/quadrature.py` + 15 `vars(self)` hazards + 2 downstream migrations**
+
+T-CRV-PT1 — first L1 ponytail slice. `curves/` had the correctness audit (per `AUDIT_L1_CURVES.md`, 33 modules, 14 bugs catalogued, 3/3 HIGH fixed in prior work) but no ponytail layer. Same combined methodology now applied — addendum appended to the existing ledger.
+
+**Architectural findings (clean):**
+* `ncurve_solver.py::InstrumentPricer(Protocol)` is a duck-typed contract for reprice callbacks, type-hint usage at line 163. Keep.
+* `aad.py` + 4 sibling AAD modules form a layered subsystem (tape → interp → curves → calibration / pricing). Justified.
+* `curves/linalg.py` is curve-specific factor-model algebra (PCA / level-slope-curvature), distinct from `numerical/_linalg.py`. Both kept.
+* Zero ABCs, factories, builders, blanket excepts, `np.trapz`.
+
+**P-CRV-1 · `curves/quadrature.py` deleted** — 27-line module whose docstring literally said "Legacy module. Use pricebook.numerical._integrate directly." Four convenience wrappers (`gauss_legendre`, `gauss_laguerre`, `gauss_hermite`, `adaptive_simpson`) plus `QuadratureResult = IntegrationResult` alias, all forwarding to `numerical._integrate`. Discovered 2 real downstream consumers the initial grep missed (the L1-scoped run surfaced them via the autodiscovery test rather than the L0 cycle):
+* `credit/cdo.py:20` imported `gauss_hermite` but never used it — pure **dead import**, dropped.
+* `options/heston.py` imported `gauss_legendre` and called it twice in the Heston characteristic-function quadrature. Migrated to `integrate(f, a, b, IntegrationMethod.GAUSS_LEGENDRE, n=n)` directly. Same numerical behaviour.
+* `tests/test_quadrature.py` retargeted: per-test wrappers inlined at file top (since they're test-private now), imports redirected to `pricebook.numerical._integrate`.
+
+Cross-layer note: this slice intentionally touches L3 (`credit/cdo.py`) and L4 (`options/heston.py`). Per AUDIT_PLAN §2.3 it would normally be an L1-only slice, but the edits are mechanical-only (dead-import drop + 1-to-1 API substitution). Verified by running `tests/test_cdo.py` + `tests/test_heston.py` directly (25 passed) on top of the L1-scoped suite (3520 passed).
+
+**M-CRV-1 · `return vars(self)` mutation hazard** — 15 sites across 7 files (`curve_advanced.py` 4, `curve_engine.py` 2, `multicurve_solver.py` 2, `linalg.py` 4, `curve_diffusion.py` 1, `curve_bumper.py` 1, `seasonal_curve.py` 1). All same one-line fix. Cumulative session count: 54 (L0) + 15 = **69 instances** of this recurring pattern corrected.
+
+**Process note — silent grep miss:** the initial `grep -rn` for `quadrature` callers returned only the test file. Two real production callers (`cdo.py`, `heston.py`) were missed. Discovered post-deletion by the autodiscovery test at L1. Reinforces the "always re-grep right before delete" rule from T-CORE-PT8's release notes — but also: the autodiscovery test SAVED this slice from shipping a real regression. Worth its weight in gold, do not delete or weaken.
+
+**Files changed**:
+- `python/pricebook/curves/quadrature.py` — deleted (27 lines).
+- 7 `python/pricebook/curves/*.py` files — 15× vars(self) sweep.
+- `python/pricebook/credit/cdo.py` — dead import dropped.
+- `python/pricebook/options/heston.py` — 1 import + 2 call sites migrated.
+- `python/tests/test_quadrature.py` — wrappers inlined.
+
+**L1 status:** `curves` ✅ ready ponytail slice done. Remaining L1: `pricing` (9 modules), `regulatory` (23 modules) — both still ❓ deferred from original AUDIT_PLAN.
+
+L1-scoped pytest: 3520 passed (was 3519 + 1 failing). 58s.
+Direct cdo+heston tests: 25 passed. 89s.
+
+---
+
 ## v1.088.0 — 2026-06-16 — **L0 viz sweep + L0 COMPLETE: 2 `vars(self)` mutation hazards**
 
 T-VIZ-PT1 — `viz/` sub-package sweep (13 modules, ledger `AUDIT_L0_VIZ.md`).
