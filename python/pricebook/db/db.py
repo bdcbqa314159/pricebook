@@ -21,7 +21,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pricebook.db.db_backend import SQLiteBackend, StorageBackend, _safe_name
+from pricebook.db.db_backend import SQLiteBackend, _safe_name
 
 
 def _now() -> str:
@@ -55,7 +55,7 @@ class PricebookDB:
         "pricing_results", "pnl_history", "kv_store",
     }
 
-    def __init__(self, path: str = ":memory:", backend: StorageBackend | None = None):
+    def __init__(self, path: str = ":memory:", backend: SQLiteBackend | None = None):
         self._backend = backend or SQLiteBackend(path)
         self._init_schema()
 
@@ -562,10 +562,6 @@ class PricebookDB:
         import pandas as pd
         rows = self.load_table(name, **filters)
         return pd.DataFrame(rows)
-
-    def query_table(self, name: str, **filters) -> list[dict]:
-        """Alias for load_table with filters."""
-        return self.load_table(name, **filters)
 
     def delete_rows(self, name: str, **filters) -> None:
         """Delete rows matching filters."""

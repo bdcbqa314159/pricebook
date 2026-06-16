@@ -237,7 +237,7 @@ class TestCustomTables:
             {"name": "B", "sector": "fin", "weight": 0.5},
             {"name": "C", "sector": "tech", "weight": 0.2},
         ])
-        tech = db.query_table("portfolio", sector="tech")
+        tech = db.load_table("portfolio", sector="tech")
         assert len(tech) == 2
 
     def test_load_table_df(self, db):

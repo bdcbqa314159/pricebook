@@ -1,7 +1,4 @@
-"""Storage backend abstraction for PricebookDB.
-
-Default: SQLiteBackend (zero dependencies).
-Future: DuckDBBackend, PostgresBackend — same interface, swap one line.
+"""SQLite storage backend for PricebookDB.
 
     from pricebook.db.db_backend import SQLiteBackend
     backend = SQLiteBackend("my_book.db")
@@ -11,43 +8,6 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from abc import ABC, abstractmethod
-
-
-class StorageBackend(ABC):
-    """Abstract storage backend. All backends implement this interface."""
-
-    @abstractmethod
-    def execute(self, sql: str, params: tuple = ()) -> list[dict]:
-        """Execute SQL, return rows as list of dicts."""
-
-    @abstractmethod
-    def execute_many(self, sql: str, rows: list[tuple]) -> None:
-        """Execute SQL for multiple parameter sets."""
-
-    @abstractmethod
-    def table_exists(self, name: str) -> bool:
-        """Check if a table exists."""
-
-    @abstractmethod
-    def create_table(self, name: str, columns: dict[str, str]) -> None:
-        """Create a table with {column_name: sql_type} mapping."""
-
-    @abstractmethod
-    def drop_table(self, name: str) -> None:
-        """Drop a table if it exists."""
-
-    @abstractmethod
-    def list_tables(self) -> list[str]:
-        """List all user tables."""
-
-    @abstractmethod
-    def commit(self) -> None:
-        """Commit current transaction."""
-
-    @abstractmethod
-    def close(self) -> None:
-        """Close the connection."""
 
 
 _VALID_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
@@ -60,7 +20,7 @@ def _safe_name(name: str) -> str:
     return name
 
 
-class SQLiteBackend(StorageBackend):
+class SQLiteBackend:
     """SQLite backend — zero dependencies, file-based or in-memory."""
 
     def __init__(self, path: str = ":memory:"):
