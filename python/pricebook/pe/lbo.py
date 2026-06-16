@@ -85,7 +85,7 @@ class FCFProjection:
     fcf: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -109,7 +109,7 @@ class DebtYear:
     net_leverage: float  # total_debt / ebitda
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -126,7 +126,7 @@ class ExitAnalysis:
     moic: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

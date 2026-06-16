@@ -40,7 +40,7 @@ class PMEResult:
     long_nickels_pme: float # since-inception wealth ratio
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -55,7 +55,7 @@ class VintageCohort:
     lower_quartile_irr: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -69,7 +69,7 @@ class PacingResult:
     net_cashflow: float  # distributions - calls
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -85,7 +85,7 @@ class GPEconomics:
     clawback_exposure: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -40,7 +40,7 @@ class PERiskMetrics:
     notional: float = 0.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_risk_metrics(entry: PEBookEntry) -> PERiskMetrics:
@@ -111,7 +111,7 @@ class PEBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class PEBook:
     """PE portfolio book."""
 
@@ -180,7 +180,7 @@ class PECarryDecomposition:
     net_carry: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_carry_decomposition(entry: PEBookEntry) -> PECarryDecomposition:
@@ -221,7 +221,7 @@ class PEDailyPnL:
     unexplained: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_daily_pnl(
@@ -268,7 +268,7 @@ class PEDashboard:
     by_sector: dict[str, int]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_dashboard(
@@ -322,7 +322,7 @@ class PEStressResult:
     pnl: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_stress_suite(book: PEBook) -> list[PEStressResult]:
@@ -362,7 +362,7 @@ class PECapitalResult:
     capital: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_capital(entry: PEBookEntry) -> PECapitalResult:
@@ -402,7 +402,7 @@ class PEHedgeRecommendation:
     action: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def pe_hedge_recommendations(
