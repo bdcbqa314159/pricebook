@@ -37,7 +37,7 @@ class ReverseStressTarget:
     direction: str = "below"  # "below" = breach when metric < threshold
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

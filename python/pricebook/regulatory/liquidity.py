@@ -38,7 +38,7 @@ class LiquidityPosition:
     is_secured: bool = False
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -60,7 +60,7 @@ class PortfolioLiquidityResult:
     product_breakdown: dict[str, dict]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -203,7 +203,7 @@ class IRCPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def get_lgd(pos: IRCPosition) -> float:
     """LGD with override priority."""
     if pos.lgd is not None:
@@ -230,7 +230,7 @@ class IRCConfig:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Duration helpers ----
 
 def calculate_modified_duration(

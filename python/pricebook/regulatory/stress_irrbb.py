@@ -90,7 +90,7 @@ class StressScenario:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class PortfolioData:
     """Portfolio inputs for stress testing."""
@@ -107,7 +107,7 @@ class PortfolioData:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Credit stress ----
 
 def calculate_pd_stress_multiplier(

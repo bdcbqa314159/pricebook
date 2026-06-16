@@ -205,7 +205,7 @@ class UnconsolidatedEntity:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class StepInAssessment:
     entity: UnconsolidatedEntity
@@ -216,7 +216,7 @@ class StepInAssessment:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def assess_step_in_indicators(
     entity: UnconsolidatedEntity,
     has_implicit_support_expectation: bool = False,
@@ -350,7 +350,7 @@ class FXRates:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def get_default_fx_rates() -> FXRates:
     """Approximate FX rates for testing/demos."""
     fx = FXRates()

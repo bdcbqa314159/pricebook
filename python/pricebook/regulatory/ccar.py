@@ -76,7 +76,7 @@ class QuarterResult:
     is_breach: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

@@ -221,7 +221,7 @@ class BusinessLineIncome:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def b2_calculate_tsa_capital(business_line_incomes: list[BusinessLineIncome]) -> dict:
     """Standardised Approach: K = avg over 3y of max(Σ β_j × GI_j, 0)."""
     yearly = []
@@ -252,7 +252,7 @@ class AMAParameters:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def b2_calculate_ama_capital(
     params: AMAParameters,
     business_environment_factor: float = 1.0,

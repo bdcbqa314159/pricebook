@@ -266,7 +266,7 @@ class RegulatoryPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class RegulatoryPortfolio:
     """Unified portfolio for VaR + IRC + RWA calculations.
 

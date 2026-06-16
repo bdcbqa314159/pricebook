@@ -34,7 +34,7 @@ class DeskCapitalInput:
     costs: float = 0.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -51,7 +51,7 @@ class DeskAllocation:
     economic_profit: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

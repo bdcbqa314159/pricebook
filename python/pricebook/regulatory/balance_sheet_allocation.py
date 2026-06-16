@@ -25,7 +25,7 @@ class TradeROC:
     roc: float                   # net_income / capital (annualised)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def rank_by_roc(trades: list[dict]) -> list[TradeROC]:
@@ -63,7 +63,7 @@ class AllocationResult:
     n_trades_selected: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def optimise_allocation(

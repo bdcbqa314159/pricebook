@@ -42,7 +42,7 @@ class ESRiskFactor:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class DRCPosition:
     """A single position for the internal DRC model."""
@@ -60,7 +60,7 @@ class DRCPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class DeskPLA:
     """P&L Attribution Test results for a single desk."""
@@ -71,7 +71,7 @@ class DeskPLA:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FRTBIMAConfig:
     """Configuration for FRTB-IMA."""
@@ -86,7 +86,7 @@ class FRTBIMAConfig:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Liquidity Horizons (MAR31.13) ----
 
 LIQUIDITY_HORIZONS: dict[tuple[str, str], int] = {

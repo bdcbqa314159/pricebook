@@ -65,7 +65,7 @@ class DeskRiskExtract:
     is_long: bool = True
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

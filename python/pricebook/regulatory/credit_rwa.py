@@ -175,7 +175,7 @@ class SAExposure:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calculate_sa_rwa(exposure: SAExposure) -> dict:
     """Compute SA-CR RWA for a single exposure."""
     cls = exposure.asset_class

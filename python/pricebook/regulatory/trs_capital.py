@@ -70,7 +70,7 @@ class TRSSACCRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def trs_sa_ccr_add_on(
     trs,
     curve: DiscountCurve,
@@ -176,7 +176,7 @@ class TRSSIMMSensitivities:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def trs_simm_sensitivities(
     trs,
     curve: DiscountCurve,
@@ -297,7 +297,7 @@ class TRSKVAResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def trs_kva(
     trs,
     curve: DiscountCurve,
@@ -370,7 +370,7 @@ class TRSLeverageResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def trs_leverage_exposure(
     trs,
     curve: DiscountCurve,
