@@ -2,6 +2,40 @@
 
 ---
 
+## v1.090.0 — 2026-06-16 — **L1 pricing sweep (ponytail): 4 `vars(self)` hazards + de-flake `test_schema_adapter`**
+
+T-PRC-PT1 — L1 `pricing/` sub-package sweep (9 modules + 1 legacy shim, ledger `AUDIT_L1_PRICING.md`).
+
+**Architectural findings (clean):**
+* Zero ABCs, Protocols, factories, builders, np.trapz.
+* `schema_adapter.py` uses `core.serialisable._REGISTRY` as a consumer (lookup-only) — not a registry definition. Fine.
+* `pricing_engine.py` and `pricing_server.py` per-trade `except Exception` blocks are legitimate **fault-isolation** patterns at the RPC boundary (record-error-and-continue). Keep.
+
+**M-PRC-2 · `return vars(self)` mutation hazard** — 4 sites fixed:
+* `market_data_provider.py:65` (1× site)
+* `market_data_tools.py:38, 86, 126` (3× sites)
+
+All same one-line fix. Cumulative session count: **73 instances** of this recurring pattern corrected across L0+L1.
+
+**M-PRC-1 · Silent-except Greeks at RPC boundary (4 sites, MED, DEFERRED — needs decision)** — `pricing_engine.py:294, 308, 316` + `pricing_server.py:173`. Same recurring pattern as T-CAL1 / T4-HW1, but at the RPC boundary: callers currently receive a partial Greek dict with no signal that a Greek computation failed. Behaviour change affects external callers. **Not fixed in this slice**; queued as `T-PRC-PT2` pending user decision on swallow / propagate / narrow (recommendation: narrow to `NotImplementedError + AttributeError`, propagate everything else with per-trade error entry).
+
+**Test-infra de-flake (bundled):** `tests/test_schema_adapter.py` had a latent dependency on the `core.serialisable._REGISTRY` being pre-populated. The test calls `from_dict({"type": "irs", ...})` which fails unless something earlier triggered `core.serialization._ensure_loaded()`. Whether that happened depended on per-xdist-worker test ordering — pre-existing flakiness that the T-PRC-PT1 vars(self) edits surfaced (the edited modules' `__pycache__` invalidation shifted the worker distribution; before my edits the load happened to fire on the right worker, after my edits it didn't). Fixed with an `@pytest.fixture(autouse=True, scope="module")` that explicitly calls `_ensure_loaded()`. L1 suite is now deterministic at 3520 passed regardless of edit ordering. **Bundled into T-PRC-PT1** rather than spawning a separate test-infra slice because (a) the bug surfaced via this slice and (b) is a one-fixture addition (8 LOC including docstring).
+
+**Held (defensible):**
+* `pricing_engine.py:79-91`, `pricing_server.py:58-72, 261` — fault-isolation patterns.
+* `pricing/market_data.py` (2-line `import *` shim) — B.3 C1 architecture decision (Gate 2).
+
+**Files changed**:
+- `python/pricebook/pricing/market_data_provider.py` — 1× vars(self) sweep.
+- `python/pricebook/pricing/market_data_tools.py` — 3× vars(self) sweep.
+- `python/tests/test_schema_adapter.py` — autouse fixture for explicit registry pre-population (+9 / -1).
+
+**L1 status:** `curves` ✅, `pricing` ✅. Remaining L1: `regulatory` (23 modules) — last sub-package before L1 is complete.
+
+L1-scoped pytest: 3520 passed (consistent across reruns). 54s, `pytest -n auto`.
+
+---
+
 ## v1.089.0 — 2026-06-16 — **L1 curves sweep (ponytail addendum): delete legacy `curves/quadrature.py` + 15 `vars(self)` hazards + 2 downstream migrations**
 
 T-CRV-PT1 — first L1 ponytail slice. `curves/` had the correctness audit (per `AUDIT_L1_CURVES.md`, 33 modules, 14 bugs catalogued, 3/3 HIGH fixed in prior work) but no ponytail layer. Same combined methodology now applied — addendum appended to the existing ledger.
