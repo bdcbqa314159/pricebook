@@ -2,6 +2,29 @@
 
 ---
 
+## v1.078.0 — 2026-06-16 — **L0 core sweep (ponytail addendum, slice 2/2): delete `core/desk_protocol.py` docstring-only file; move contract to `desks/README.md`**
+
+T-CORE-PT2 — second and last ready ponytail slice on `core/`.
+
+* **`python/pricebook/core/desk_protocol.py` deleted** — 51 lines of pure module docstring describing the uniform API contract for all 12 desk modules. Zero `class`, zero `def`, zero importers anywhere in the repo. The contract content is documentation, not code, and belongs in markdown — Python isn't the right format for a multi-section prose contract that no executable references.
+
+* **`python/pricebook/desks/README.md` created** — the contract docstring re-homed as markdown with proper tables and code blocks. Same content, more readable, discoverable to new contributors via standard "look at the README" reflex. Tracked in git (the `/*.md` gitignore anchor only affects repo-root `.md` files; sub-directory READMEs are unaffected per the `.gitignore` comment).
+
+* **No regression test added** — same rationale as T-CORE-PT1 (deletion + doc-move; L0 suite passing IS the regression evidence; 2437 → 2437).
+
+**Files changed**:
+- `python/pricebook/core/desk_protocol.py` — deleted (51 lines).
+- `python/pricebook/desks/README.md` — new (50 lines markdown).
+
+**L0 sub-package status:**
+* `calibration` ✅ swept (correctness + ponytail done at v1.076).
+* `core` ✅ ponytail-half complete on ready slices. 3 ponytail slices held: `T-CORE-PT3` (twin-delete with L2 `engine_registry`, blocks on L2 audit reaching `models/`), `T-CORE-PT4` (`data_registry.py` minor cleanup, low priority), `T-CORE-PT5` (`instrument_result.py`, pending broader Protocol-cleanup decision).  The 3 open correctness MEDs from the original Pass C/D (C.7 B1 settlement lag, D.1 B1 empty-dict round-trip, D.1 B2 dropped fields) remain queued — those are correctness slices for a separate sweep.
+* Next L0 sub-package per the agreed order: `db` (2 modules — preliminary scan already flagged `StorageBackend` ABC as YAGNI).
+
+L0-scoped pytest: 2437 passed, identical to v1.077.0 baseline. 46s, `pytest -n auto`.
+
+---
+
 ## v1.077.0 — 2026-06-16 — **L0 core sweep (ponytail addendum, slice 1/2): delete dead `core/protocols.py`**
 
 T-CORE-PT1 — first ponytail slice on `core/` (the correctness audit landed previously; ponytail lens layered on top per the addendum in `AUDIT_L0_CORE.md`).
