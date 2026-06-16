@@ -18,7 +18,7 @@ import cmath
 import numpy as np
 
 from pricebook.models.black76 import OptionType
-from pricebook.curves.quadrature import gauss_legendre
+from pricebook.numerical._integrate import integrate, IntegrationMethod
 
 
 def _heston_f(
@@ -109,8 +109,8 @@ def heston_price(
         f2 = _heston_f(u, T, rate, div_yield, v0, kappa, theta, xi, rho, x, 2)
         return (cmath.exp(-1j * u * log_K) * f2 / (1j * u)).real
 
-    r1 = gauss_legendre(_integrand_p1, 1e-6, 100.0, n=n_quad)
-    r2 = gauss_legendre(_integrand_p2, 1e-6, 100.0, n=n_quad)
+    r1 = integrate(_integrand_p1, 1e-6, 100.0, IntegrationMethod.GAUSS_LEGENDRE, n=n_quad)
+    r2 = integrate(_integrand_p2, 1e-6, 100.0, IntegrationMethod.GAUSS_LEGENDRE, n=n_quad)
 
     P1 = 0.5 + r1.value / math.pi
     P2 = 0.5 + r2.value / math.pi

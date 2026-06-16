@@ -69,7 +69,7 @@ class PCAResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def pca(
     data: np.ndarray | list[list[float]],
     n_components: int | None = None,
@@ -132,7 +132,7 @@ class EigenResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def eigendecomposition(
     matrix: np.ndarray | list[list[float]],
 ) -> EigenResult:
@@ -165,7 +165,7 @@ class SVDResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def svd_decomposition(
     matrix: np.ndarray | list[list[float]],
     tol: float = 1e-10,
@@ -197,7 +197,7 @@ class ConditionReport:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def condition_number(
     matrix: np.ndarray | list[list[float]],
 ) -> ConditionReport:

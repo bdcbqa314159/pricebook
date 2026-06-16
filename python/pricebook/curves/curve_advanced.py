@@ -37,7 +37,7 @@ class NSFitResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _ns_yield(t: float, beta0: float, beta1: float, beta2: float, tau: float) -> float:
     """Nelson-Siegel yield at maturity t."""
     if t < 1e-10:
@@ -117,7 +117,7 @@ class SvenssonFitResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _svensson_yield(t: float, beta0: float, beta1: float, beta2: float,
                     beta3: float, tau1: float, tau2: float) -> float:
     """Svensson yield at maturity t."""
@@ -195,7 +195,7 @@ class SmoothForwardResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def smooth_forward_curve(
     pillar_times: list[float],
     zero_rates: list[float],
@@ -288,7 +288,7 @@ class TOYResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def turn_of_year_adjustment(
     pillar_times: list[float],
     zero_rates: list[float],

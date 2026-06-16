@@ -32,7 +32,7 @@ class SeasonalPattern:
     spread_decay_days: int = 5           # how many days the premium persists
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # Pre-built patterns per currency

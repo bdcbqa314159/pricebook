@@ -17,7 +17,6 @@ import math
 import numpy as np
 from scipy.stats import norm
 
-from pricebook.curves.quadrature import gauss_hermite
 from pricebook.core.solvers import brentq
 
 

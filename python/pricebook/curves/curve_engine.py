@@ -50,7 +50,7 @@ class InstrumentSpec:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CurveDefinition:
     """Declarative specification for building one curve.
@@ -284,4 +284,4 @@ class CurveSet:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))

@@ -331,7 +331,7 @@ class CurveValidationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def validate_curve(
     curve: DiscountCurve,
     max_forward_rate: float = 0.20,
@@ -425,7 +425,7 @@ class AnalyticalJacobianResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def curve_analytical_jacobian(
     curve: DiscountCurve,
     output_times: list[float] | None = None,
