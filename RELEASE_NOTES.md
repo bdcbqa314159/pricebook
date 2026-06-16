@@ -2,6 +2,25 @@
 
 ---
 
+## v1.077.0 — 2026-06-16 — **L0 core sweep (ponytail addendum, slice 1/2): delete dead `core/protocols.py`**
+
+T-CORE-PT1 — first ponytail slice on `core/` (the correctness audit landed previously; ponytail lens layered on top per the addendum in `AUDIT_L0_CORE.md`).
+
+* **`python/pricebook/core/protocols.py` deleted** — 129 lines of `@runtime_checkable Protocol` classes (`RootFinder`, `Integrator`, `OptionPricer`, `MCEngine`, `VolModel`, `VolSurface`, `CharFunc`) plus a `SolverResult` re-export. The whole module had zero importers anywhere in the repo. Six of the seven Protocols had zero binders even by name; the seventh (`MCEngine`) shared a name with the concrete `pricebook.models.mc_engine.MCEngine` class — every "binder" was importing the concrete class from `models`, not the Protocol from `core`. The `SolverResult` re-export was redundant (all real consumers import from `pricebook.core.solvers` directly).
+
+* **No regression test added** — per ponytail "YAGNI applies to tests too": deletion of dead code doesn't need a runtime test, the L0 suite passing IS the regression evidence (and it does: 2437 → 2437, zero failures).
+
+* **Cross-check:** `grep -rln "from pricebook.core.protocols\|import pricebook.core.protocols\|pricebook\\.core\\.protocols"` across `python/` confirmed zero references prior to deletion. The `core/__init__.py` also did not re-export protocols.
+
+**Files changed**:
+- `python/pricebook/core/protocols.py` — deleted (129 lines).
+
+**L0 sub-package status:** core ponytail-half in progress (`T-CORE-PT2` next: delete `core/desk_protocol.py` and move the contract docstring to `desks/README.md`).
+
+L0-scoped pytest: 2437 passed, identical to v1.076.0 baseline.  46s, `pytest -n auto`.
+
+---
+
 ## v1.076.0 — 2026-06-16 — **L0 calibration sweep: drop `_detect_code_version` silent-except blanket; fix stale L6 docstring claim**
 
 T-CAL1 — first slice of the AUDIT_PLAN.md bottom-up sweep (combined methodology: layer audit + ponytail over-engineering hunt).  L0 sub-package `calibration/` walked end-to-end (2 modules, 260 LOC).
