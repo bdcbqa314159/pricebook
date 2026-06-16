@@ -115,21 +115,7 @@ def registered_types() -> list[str]:
 # Backward-compat aliases (used by pricing_engine.py, pricing_server.py, etc.)
 # ---------------------------------------------------------------------------
 
-_str_to_date = date.fromisoformat
-
-def deserialise_date(s: str) -> date:
-    return date.fromisoformat(s)
-
-def deserialise_enum(enum_cls, v):
-    from enum import Enum
-    if isinstance(v, enum_cls):
-        return v
-    return enum_cls(v)
-
-def deserialise_currency_pair(s: str):
-    from pricebook.core.currency import CurrencyPair, Currency
-    base_s, quote_s = s.split("/")
-    return CurrencyPair(Currency(base_s), Currency(quote_s))
+_str_to_date = date.fromisoformat  # used by pricing/pricing_engine.py
 
 # Old names → new dispatch
 instrument_to_dict = to_dict
