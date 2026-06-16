@@ -2,6 +2,46 @@
 
 ---
 
+## v1.084.0 — 2026-06-16 — **L0 numerical sweep: `vars(self)` mutation hazards + `np.trapz` → `np.trapezoid` (12-fix combined slice)**
+
+T-NUM-PT1 — single combined slice from the L0 `numerical/` deep-read pass (30 modules, ~8500 LOC; ledger `AUDIT_L0_NUMERICAL.md`).
+
+**Architectural finding:** `numerical/` is the cleanest L0 sub-package surveyed so far. Structural smell-grep across all 30 modules returned **zero** ABCs, zero Protocols, zero registries, zero factory/builder/manager classes, zero blanket excepts. The wrapper-layer-by-design discipline (curated public API in `__init__.py`, single Result dataclass per module, Enum-based method selection, scipy/numpy as the backend) removes the usual ponytail surfaces. No `delete`/`yagni`/`stdlib`/`native`/`shrink` findings.
+
+The two recurring micro-patterns that DID surface (one MED correctness, one MED forward-compat) are batched here:
+
+**M-NUM-1 · `return vars(self)` mutation hazard** — same pattern catalogued in `recurring-bug-patterns.md` and previously fixed in `core/solvers.py` A.5 B1 and `core/approximation.py` A.7. `vars(self)` returns the actual `__dict__`; callers can mutate instance state through it. 9 sites fixed:
+
+```
+_rootfinding.py:36       RootResult
+_integrate.py:57         IntegrationResult
+_mc.py:145               MLMCResult
+_stochastic.py:33        ItoFormulaResult
+oscillatory_quad.py:34   OscillatoryResult
+von_neumann.py:32        StabilityResult
+tree_enhancements.py:31  AdaptiveTreeResult
+_distributions_theory.py:162  SobolevNorm
+convexity_tools.py:88    ConvexityCheckResult
+```
+
+All same one-line fix: `return vars(self)` → `return dict(vars(self))`.
+
+**M-NUM-2 · `np.trapz` → `np.trapezoid` (numpy 2.x forward-compat)** — `np.trapz` was removed in numpy 2.x. `_fourier.py:286` already has a fix-comment "Fix T1.2: np.trapz was removed in NumPy 2.x" but the same audit missed `_distributions_theory.py`, which has 3 lingering calls (in `SchwartzTestFunction.fourier` and `TemperedDistribution.fourier_transform`). `numpy>=1.21.0` per pyproject; nothing pins to < 2.0. The current venv is on numpy 1.x so the calls work; a future env upgrade to numpy 2.x would break import-load. All 3 calls migrated to `np.trapezoid`.
+
+**Bundling rationale:** all 12 edits are the same shape (one-line recurring-pattern fixes across 10 files). Splitting into 12 slices would be churn; the unified slice has a coherent purpose ("close out recurring micro-patterns surfaced by the numerical deep-read"). Same precedent as T-CORE-PT-MICRO.
+
+**No regression test added** — all 12 fixes are existing-pattern repairs; the L0 suite passing (2437 → 2437) confirms no behaviour change in tested code paths. The mutation-hazard surface is a latent risk (callers don't currently mutate the returned dicts) and the numpy 2.x surface depends on a non-current environment.
+
+**Files changed**: 9 in `python/pricebook/numerical/` (+12 lines, -12 lines net; 11 `dict(vars(self))` swaps + 3 `np.trapezoid` swaps).
+
+**L0 sub-package status:**
+* `calibration` ✅, `core` ✅, `db` ✅, `market_data` ✅, **`numerical` ✅**.
+* Next per agreed order: `pe` (4 modules — small leaf).
+
+L0-scoped pytest: 2437 passed. 47s.
+
+---
+
 ## v1.083.0 — 2026-06-16 — **L0 market_data sweep: fix stale L1 docstring claim in `_types.py`**
 
 T-MD-PT1 — `market_data/` sub-package sweep (1 substantive module, 201 LOC; ledger `AUDIT_L0_MARKET_DATA.md`).
