@@ -2,6 +2,20 @@
 
 ---
 
+## v1.087.0 — 2026-06-16 — **L0 ts sweep: 2 `vars(self)` mutation hazards**
+
+T-TS-PT1 — `ts/` sub-package sweep (7 modules, ledger `AUDIT_L0_TS.md`). Structural smell-grep clean (no ABCs, registries, factories, blanket excepts, np.trapz). Only 2 vars(self) sites in `_replay.py` (DrawdownPeriod, ReplayResult). Both fixed.
+
+**Cumulative:** 54 instances of the vars(self) mutation pattern corrected across L0 this session.
+
+**Files changed**: 1 in `python/pricebook/ts/` (+2 / -2).
+
+**L0 sub-package status:** 8/9 done. Final remaining: `viz` (13 modules, 2 vars(self) sites + 2 narrow-except candidates).
+
+L0-scoped pytest: 2437 passed. 47s.
+
+---
+
 ## v1.086.0 — 2026-06-16 — **L0 statistics sweep: 22 `vars(self)` mutation hazards**
 
 T-STATS-PT1 — `statistics/` sub-package sweep (17 modules, ledger `AUDIT_L0_STATISTICS.md`).
