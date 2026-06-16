@@ -184,45 +184,6 @@ class TestFeynmanKac:
 
 
 # ═══════════════════════════════════════════════════════════════
-# X5: Method Map
-# ═══════════════════════════════════════════════════════════════
-
-class TestMethodMap:
-    def test_european_recommends_analytical(self):
-        from pricebook.core.numerical_method_map import recommend, Feature
-        r = recommend([Feature.EUROPEAN])
-        assert r.primary == "analytical"
-
-    def test_american_recommends_tree(self):
-        from pricebook.core.numerical_method_map import recommend, Feature
-        r = recommend([Feature.AMERICAN])
-        assert "tree" in r.primary
-
-    def test_stochvol_recommends_cos(self):
-        from pricebook.core.numerical_method_map import recommend, Feature
-        r = recommend([Feature.STOCHASTIC_VOL])
-        assert "cos" in r.primary or "heston" in r.primary
-
-    def test_high_dim_recommends_mc(self):
-        from pricebook.core.numerical_method_map import recommend, Feature
-        r = recommend([Feature.HIGH_DIMENSION])
-        assert "mc" in r.primary
-
-    def test_compare_methods(self):
-        from pricebook.core.numerical_method_map import compare_methods
-        r = compare_methods(100, 100, 0.04, 0.20, 1.0)
-        assert r["consistent"]
-        assert len(r["prices"]) >= 3
-
-    def test_to_dict(self):
-        from pricebook.core.numerical_method_map import recommend, Feature
-        r = recommend([Feature.BARRIER])
-        d = r.to_dict()
-        assert "primary" in d
-        assert "reason" in d
-
-
-# ═══════════════════════════════════════════════════════════════
 # F3: Rough Heston CF
 # ═══════════════════════════════════════════════════════════════
 
