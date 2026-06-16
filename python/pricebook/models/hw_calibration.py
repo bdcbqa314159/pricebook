@@ -102,14 +102,21 @@ def _hw_swaption_price(
     is_payer: bool = True,
     n_steps: int = 50,
 ) -> float:
-    """Price a European swaption under HW with given params."""
-    try:
-        hw = HullWhite(a=max(a, 1e-4), sigma=max(sigma, 1e-6), curve=curve)
-        swap_end = expiry_years + tenor_years
-        return hw.tree_european_swaption(expiry_years, swap_end, strike,
-                                          n_steps=n_steps, is_payer=is_payer)
-    except Exception:
-        return 0.0
+    """Price a European swaption under HW with given params.
+
+    Fix T4-HW1 (mirror of T2.11 for ``g2pp_swaption_price``): pre-fix this
+    routine wrapped the entire body in ``try: ... except Exception:
+    return 0.0``, masking every error mode (bracketing failure, brentq
+    divergence, overflow in the tree formulas, calibration bugs) as a
+    silent zero price.  Callers had no way to distinguish "swaption
+    worth ≈ 0" from "pricer crashed".  Let real exceptions propagate;
+    specific recoverable cases (degenerate params) are clamped at the
+    call boundary via the ``max()`` guards on ``a`` and ``sigma``.
+    """
+    hw = HullWhite(a=max(a, 1e-4), sigma=max(sigma, 1e-6), curve=curve)
+    swap_end = expiry_years + tenor_years
+    return hw.tree_european_swaption(expiry_years, swap_end, strike,
+                                      n_steps=n_steps, is_payer=is_payer)
 
 
 def _hw_implied_vol(
@@ -151,13 +158,17 @@ def _hw_implied_vol(
     if fwd_swap <= 0:
         fwd_swap = strike
 
+    # Fix T4-HW1: vol inversion can legitimately fail at arbitrage-violating
+    # prices (intrinsic-floor breach, calibration of degenerate params).
+    # Catch only the specific ``ValueError`` that ``implied_vol_black76``
+    # raises in those cases — let other exceptions surface instead of
+    # silently masking calibration bugs as a "zero implied vol".
     try:
-        iv = implied_vol_black76(
+        return implied_vol_black76(
             price / annuity,  # normalise to Black price per unit annuity
             fwd_swap, strike, expiry_years, 1.0, OptionType.CALL,
         )
-        return iv
-    except Exception:
+    except ValueError:
         return 0.0
 
 
