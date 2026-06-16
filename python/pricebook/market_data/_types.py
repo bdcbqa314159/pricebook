@@ -6,8 +6,10 @@
 `MarketSnapshot` — a frozen bundle of quotes with a UUID and an `as_of` timestamp.
 `FixingHistory` — frozen wrapper around historical fixings.
 
-Zero dependencies on other pricebook subpackages — sits cleanly at L1 in
-the dependency graph.
+Zero dependencies on other pricebook subpackages — empirically L0 per
+`tools/test_layer.py` (no pricebook imports landed yet). The design
+target is L1 per DESIGN.md §5.1 A2; promotion happens when G1 P2
+integration wires curves to read snapshots through this layer.
 """
 
 from __future__ import annotations
