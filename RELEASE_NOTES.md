@@ -2,6 +2,31 @@
 
 ---
 
+## v1.092.0 — 2026-06-17 — **L2 models sweep: 70 `vars(self)` mutation hazards across 39 files**
+
+T-MOD-PT1 — `models/` sub-package sweep (92 modules, ~30k LOC — biggest sub-package in the whole library; ledger drafted alongside this slice).
+
+**Architectural findings (clean structurally):**
+* 4 files with Protocol patterns:
+  - `models.py` — `IROptionModel` + `EquityOptionModel` Protocols; 0 production type-hint binders (1 docstring mention in `swaption.py:157`). Documentary contract for the multi-impl model catalogue (Black76Model, BachelierModel, SABRModel, BSModel, HestonModel...). **Hold** — same rationale as `Calibrator` Protocol per DESIGN.md.
+  - `char_func_protocol.py` — `CharFuncModel` Protocol; 0 binders. Documents the contract that all `*_char_func` factories satisfy. **Hold.**
+  - `engine_protocol.py` — `PricingEngine` Protocol with 3 real impls (MC, Tree, Analytical), real type-hint use. **Keep.**
+  - `engine_registry.py` — already flagged in `T-CORE-PT3` (queued cross-layer twin-delete with `core/numerical_method_map.py`). Test-only consumer; ready to land next.
+* Zero blanket excepts in the recurring "silent fallback" shape (the 10 except files all have documented fault-tolerance patterns; the silent-except triage at calibration sites was done by prior `T4-G2T1` and `T4-HW1` work).
+* Zero `np.trapz` calls.
+
+**M-MOD-1 · `return vars(self)` mutation hazard** — **70 sites across 39 files**, all same one-line fix. File-by-file `replace_all`. Largest single sweep this session by a wide margin.
+
+**Cumulative session vars(self) count:** 102 (through L1) + 70 = **172 instances** corrected across L0+L1+L2.
+
+**Files changed**: 39 in `python/pricebook/models/` (+70 / -70).
+
+**L2 status:** `data` ✅ (clean, no slice needed); `models` ✅ (T-MOD-PT1 landed). The held cross-layer slice `T-CORE-PT3` is now eligible to execute — twin-delete `core/numerical_method_map.py` + `models/engine_registry.py` + the dead `TestEngineRegistry` / `TestMethodMap` test classes.
+
+L2-scoped pytest: 4333 passed. 278s (~4.6 min — L2 is much heavier than L0/L1).
+
+---
+
 ## v1.091.0 — 2026-06-16 — **L1 regulatory sweep + L1 COMPLETE: 29 `vars(self)` mutation hazards**
 
 T-REG-PT1 — final L1 ponytail slice (`regulatory/`, 23 modules, ~7850 LOC; ledger `AUDIT_L1_REGULATORY.md`).
