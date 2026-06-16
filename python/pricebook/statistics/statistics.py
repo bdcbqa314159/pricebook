@@ -35,7 +35,7 @@ class CointegrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cointegration_test(
     y: np.ndarray,
     x: np.ndarray,
@@ -106,7 +106,7 @@ class RegimeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def regime_detect(
     returns: np.ndarray,
     n_regimes: int = 2,
@@ -169,7 +169,7 @@ class BootstrapCI:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def bootstrap_ci(
     data: np.ndarray,
     statistic: str = "mean",
@@ -228,7 +228,7 @@ class RollingStatsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def rolling_stats(
     returns: np.ndarray,
     window: int = 60,
@@ -327,7 +327,7 @@ class LjungBoxResult:
     reject: bool           # True = significant serial correlation
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def ljung_box(x: np.ndarray, lags: int = 20, significance: float = 0.05) -> LjungBoxResult:
@@ -367,7 +367,7 @@ class ADFResult:
     critical_values: dict  # 1%, 5%, 10%
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def adf_test(x: np.ndarray, max_lag: int | None = None,

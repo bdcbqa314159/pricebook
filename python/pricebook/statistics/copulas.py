@@ -294,7 +294,7 @@ class CopulaDefaultResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def copula_default_simulation(
     copula: Copula,
     marginal_pds: list[float],
@@ -366,7 +366,7 @@ class TranchePricingResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def tranche_pricing_copula(
     copula: Copula,
     marginal_pds: list[float],

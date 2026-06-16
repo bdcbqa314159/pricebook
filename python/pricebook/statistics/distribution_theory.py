@@ -101,7 +101,7 @@ class SobolevNormResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sobolev_norm(
     f_values: np.ndarray | list[float],
     dx: float,
@@ -196,7 +196,7 @@ class FeynmanKacPDE:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def feynman_kac_pde(
     drift: Callable[[float], float],
     diffusion: Callable[[float], float],
@@ -230,7 +230,7 @@ class FeynmanKacVerification:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def feynman_kac_verify(
     pde_value: float,
     mc_value: float,

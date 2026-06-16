@@ -33,7 +33,7 @@ class QPResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def quadratic_program(
     H: np.ndarray | list[list[float]],
     c: np.ndarray | list[float],
@@ -136,7 +136,7 @@ class ConstrainedResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def constrained_minimize(
     f: callable,
     x0: np.ndarray | list[float],
@@ -222,7 +222,7 @@ class ADMMResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def admm_lasso(
     A: np.ndarray | list[list[float]],
     b: np.ndarray | list[float],
@@ -299,7 +299,7 @@ class CMAESResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cma_es(
     f: callable,
     x0: np.ndarray | list[float],

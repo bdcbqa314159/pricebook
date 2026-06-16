@@ -34,7 +34,7 @@ class OptimizerResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def minimize(
     objective,
     x0: list[float] | np.ndarray,

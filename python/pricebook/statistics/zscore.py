@@ -28,7 +28,7 @@ class ZScoreSignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def zscore(
     current: float,
     history: list[float],

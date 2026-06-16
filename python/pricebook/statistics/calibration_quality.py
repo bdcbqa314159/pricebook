@@ -46,7 +46,7 @@ class CalibrationQualityResult:
     degrees_of_freedom: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
     @property
     def is_overfit(self) -> bool:
@@ -69,7 +69,7 @@ class ModelComparisonResult:
     bic_b: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

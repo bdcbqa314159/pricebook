@@ -32,7 +32,7 @@ class FitResult:
     n_obs: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -105,7 +105,7 @@ class KSResult:
     n_obs: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def ks_test(
