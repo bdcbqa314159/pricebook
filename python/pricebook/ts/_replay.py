@@ -24,7 +24,7 @@ class DrawdownPeriod:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class ReplayResult:
     """Complete replay analysis of historical P&L."""
@@ -38,7 +38,7 @@ class ReplayResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _build_replay(pnl: TimeSeries, greeks: dict[str, TimeSeries] | None = None) -> ReplayResult:
     """Build a ReplayResult from a P&L TimeSeries."""
     cum = pnl.cumsum()
