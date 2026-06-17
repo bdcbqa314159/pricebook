@@ -2,6 +2,24 @@
 
 ---
 
+## v1.094.0 — 2026-06-17 — **L3 crypto sweep: 48 `vars(self)` mutation hazards**
+
+T-CRYPTO-PT1 — first L3 ponytail slice. `crypto/` sub-package (15 modules, ~4400 LOC; ledger `AUDIT_L3_CRYPTO.md`).
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, blanket excepts, np.trapz. Cleanest L3 sub-package so far.
+
+**M-CRYPTO-1 · `return vars(self)` mutation hazard** — 48 sites across all 15 files. Same one-line fix; file-by-file `replace_all`.
+
+**Cumulative session vars(self) count:** 172 (through L2) + 48 = **220 instances** corrected.
+
+**Files changed**: 15 in `python/pricebook/crypto/` (+48 / -48).
+
+**L3 status:** `crypto` ✅. Remaining L3: `risk` (54), `credit` (93), `fixed_income` (130).
+
+L3-scoped pytest: 8275 passed. 308s (~5.1 min).
+
+---
+
 ## v1.093.0 — 2026-06-17 — **T-CORE-PT3: cross-layer twin-delete of dead advisory framework**
 
 T-CORE-PT3 — held since T-CORE-PT1 (queued in `AUDIT_L0_CORE.md` ponytail addendum), now eligible to land because the `models/` audit reached this code.
