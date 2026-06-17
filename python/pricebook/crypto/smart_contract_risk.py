@@ -140,7 +140,7 @@ class ComposabilityRiskResult:
     protocols: list[str]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def composability_risk(
@@ -189,7 +189,7 @@ class OracleRiskResult:
     risk_level: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def oracle_risk(

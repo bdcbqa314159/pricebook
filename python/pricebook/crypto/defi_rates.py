@@ -25,7 +25,7 @@ class DeFiRateResult:
     protocol: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def aave_rate(
@@ -123,7 +123,7 @@ class LiquidationThresholdResult:
     current_ltv: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def liquidation_threshold(
@@ -174,7 +174,7 @@ class FlashLoanResult:
     gas_cost: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def flash_loan_arb(
@@ -209,7 +209,7 @@ class YieldRouteResult:
     capital_efficiency: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def yield_route(
@@ -263,7 +263,7 @@ class CollateralRiskParams:
     e_mode_category: int        # efficiency mode (0 = none)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # Standard risk params for major assets (Aave v3 Ethereum)

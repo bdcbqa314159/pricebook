@@ -32,7 +32,7 @@ class AMMQuote:
     pool_type: str              # "v2", "v3", "curve"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -256,7 +256,7 @@ class LPReturnResult:
     lp_value: float             # value as LP
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def lp_return_v2(

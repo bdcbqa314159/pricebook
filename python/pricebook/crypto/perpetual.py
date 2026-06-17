@@ -85,7 +85,7 @@ class PerpPricingResult:
     fair_funding_rate: float    # implied 8h funding rate
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fair_basis(
@@ -203,7 +203,7 @@ class FundingPaymentResult:
     side: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def funding_payment(
@@ -259,7 +259,7 @@ class LiquidationResult:
     distance_pct: float         # how far current price is from liquidation
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def liquidation_price(
@@ -330,7 +330,7 @@ class MarginAccountResult:
     liquidation_risk: str       # "safe", "warning", "danger"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def margin_account(
@@ -388,7 +388,7 @@ class PartialLiquidationResult:
     liquidation_fee: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def partial_liquidation(
@@ -452,7 +452,7 @@ class ADLResult:
     adl_score: float            # pnl_pct × leverage
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def adl_ranking(
@@ -499,7 +499,7 @@ class InsuranceFundResult:
     depletion_risk: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def insurance_fund_analysis(

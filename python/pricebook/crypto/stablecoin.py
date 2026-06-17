@@ -36,7 +36,7 @@ class PegHealthResult:
     severity: str               # "normal", "stress", "depeg"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def peg_health(
@@ -84,7 +84,7 @@ class ReserveBackingResult:
     shortfall: float            # supply − reserves (negative = excess)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def reserve_backing(
@@ -128,7 +128,7 @@ class DepegRiskScore:
     risk_level: str             # "low", "medium", "high", "critical"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def depeg_risk_score(

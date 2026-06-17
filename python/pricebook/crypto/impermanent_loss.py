@@ -25,7 +25,7 @@ class ILResult:
     breakeven_fee_pct: float    # annual fee needed to offset
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def impermanent_loss(price_ratio: float) -> ILResult:
@@ -192,7 +192,7 @@ class ILHedgeResult:
     hedge_effectiveness: float  # % of IL hedged
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def il_hedge_with_perp(

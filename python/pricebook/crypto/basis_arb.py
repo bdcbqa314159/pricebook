@@ -25,7 +25,7 @@ class BasisTradeResult:
     perp_price: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def spot_perp_basis(
@@ -69,7 +69,7 @@ class TriangularArbResult:
     profitable: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def triangular_arb(

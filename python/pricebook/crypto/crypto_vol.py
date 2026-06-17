@@ -33,7 +33,7 @@ class RealizedVolResult:
     lookback_days: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def realised_vol_24_7(
@@ -379,7 +379,7 @@ class JumpDecomposition:
     jump_threshold: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def jump_decomposition(

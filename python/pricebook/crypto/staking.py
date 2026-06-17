@@ -27,7 +27,7 @@ class StakingYieldResult:
     participation_rate: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def eth_staking_yield(
@@ -89,7 +89,7 @@ class LiquidStakingResult:
     implied_yield_pickup: float # extra yield from buying at discount
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def liquid_staking_premium(
@@ -139,7 +139,7 @@ class SlashingRiskResult:
     correlation_penalty: float  # additional penalty if many slash simultaneously
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def slashing_risk(

@@ -28,7 +28,7 @@ class CryptoVaRResult:
     annualised_vol: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_var(
@@ -97,7 +97,7 @@ class TailRiskResult:
     is_heavy_tailed: bool       # α < 4 suggests heavy tails
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def tail_risk(
@@ -188,7 +188,7 @@ class LiquidityDepthResult:
     liquidity_score: float      # 0–100
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def liquidity_depth(
@@ -249,7 +249,7 @@ class StressCorrelationResult:
     n_assets: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def correlation_stress_test(
@@ -310,7 +310,7 @@ class GasCostResult:
     profitable_above_usd: float  # min trade size to be profitable
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def gas_cost_analysis(

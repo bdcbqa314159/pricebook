@@ -38,7 +38,7 @@ class CascadeResult:
     max_single_round_usd: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def simulate_cascade(
@@ -132,7 +132,7 @@ class CascadeRiskScore:
     risk_level: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cascade_risk_score(

@@ -102,7 +102,7 @@ class FundingCarryResult:
     funding_rate: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def funding_carry(
@@ -189,7 +189,7 @@ class FundingStatsResult:
     n_periods: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def historical_funding_stats(

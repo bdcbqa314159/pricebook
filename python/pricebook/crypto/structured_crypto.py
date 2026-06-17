@@ -33,7 +33,7 @@ class DualInvestmentResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dual_investment(
@@ -110,7 +110,7 @@ class CryptoSharkFinResult:
     protection_pct: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_shark_fin(
@@ -174,7 +174,7 @@ class CryptoAccumulatorResult:
     n_observations: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_accumulator(
@@ -261,7 +261,7 @@ class CryptoSnowballResult:
     expected_life_days: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_snowball(

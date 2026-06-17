@@ -34,7 +34,7 @@ class CryptoOptionResult:
     contract_type: str          # "linear" or "inverse"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_option_price(
@@ -157,7 +157,7 @@ class MoveContractResult:
     breakeven_move_pct: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def move_contract(
@@ -203,7 +203,7 @@ class CryptoVarianceSwapResult:
     pv: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_variance_swap(
@@ -247,7 +247,7 @@ class GreeksPnLExplain:
     total_pnl: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def greeks_pnl_explain(
@@ -301,7 +301,7 @@ class PortfolioGreeks:
     gamma_usd_1pct: float   # gamma P&L for 1% spot move
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def aggregate_greeks(
