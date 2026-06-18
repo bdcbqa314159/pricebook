@@ -38,7 +38,7 @@ class FactorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def zscore(x: np.ndarray, window: int | None = None) -> np.ndarray:
     """Rolling z-score. If window=None, use full-sample."""
     if window is None:
@@ -160,7 +160,7 @@ class FactorAttributionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def factor_attribution(
     portfolio_returns: np.ndarray,
     factor_returns: dict[str, np.ndarray],
@@ -221,7 +221,7 @@ class FactorCovarianceResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def factor_covariance(
     factor_returns: dict[str, np.ndarray],
     method: str = "sample",
@@ -315,7 +315,7 @@ class FactorTimingResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def factor_timing(
     factor_values: np.ndarray,
     factor_returns: np.ndarray,

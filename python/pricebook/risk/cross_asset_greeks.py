@@ -40,7 +40,7 @@ class GreekAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BookGreekAttribution:
     """Full book attribution across all asset classes."""
@@ -63,7 +63,7 @@ class BookGreekAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def greek_attribution(
     book: OptionsBook,
     spot_changes: dict[str, float],
@@ -128,7 +128,7 @@ class StressScenario:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class StressResult:
     """P&L under a stress scenario."""
@@ -143,7 +143,7 @@ class StressResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def multi_factor_stress(
     book: OptionsBook,
     scenario: StressScenario,

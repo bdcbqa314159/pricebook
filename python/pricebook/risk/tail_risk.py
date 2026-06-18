@@ -28,7 +28,7 @@ class RogerLeeBoundsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def roger_lee_bounds(
     log_moneyness: list[float], total_variance: list[float],
 ) -> RogerLeeBoundsResult:
@@ -60,7 +60,7 @@ class SVIWingsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def svi_wings_fit(
     log_moneyness: list[float], implied_vols: list[float], T: float,
 ) -> SVIWingsResult:
@@ -84,7 +84,7 @@ class TailRiskResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def tail_risk_pricing(
     spot: float, strike: float, rate: float, T: float,
     tail_index: float = 3.0,
@@ -123,7 +123,7 @@ class EVTVaRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def extreme_value_var(
     losses: list[float], confidence: float = 0.99,
     threshold_quantile: float = 0.90,

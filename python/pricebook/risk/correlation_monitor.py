@@ -26,7 +26,7 @@ class ImpliedRealisedCorrResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def implied_vs_realised_correlation(
     implied: float, realised: float,
     historical_spreads: list[float] | None = None,
@@ -51,7 +51,7 @@ class CorrTermStructureResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_term_structure(
     tenors: list[float], implied_correlations: list[float],
 ) -> CorrTermStructureResult:
@@ -70,7 +70,7 @@ class CorrStressResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_stress_matrix(
     base_corr: np.ndarray, scenario: str = "uniform_up",
     shift: float = 0.2,
@@ -115,7 +115,7 @@ class SmileArbCheckResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def multi_asset_smile_arb_check(
     basket_vol: float, component_vols: list[float],
     weights: list[float], implied_correlation: float,

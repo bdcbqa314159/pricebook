@@ -35,7 +35,7 @@ class VaRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def historical_var(
     returns: np.ndarray | list[float],
     confidence: float = 0.95,
@@ -124,7 +124,7 @@ class ComponentVaRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def component_var(
     positions: dict[str, float],
     covariance: np.ndarray,
@@ -175,7 +175,7 @@ class StressScenario:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class StressResult:
     """Result of a stress test."""
@@ -188,7 +188,7 @@ class StressResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # Pre-defined scenarios
 GFC_2008 = StressScenario(
     "GFC 2008",
@@ -267,7 +267,7 @@ class DrawdownResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def analyse_drawdown(equity_curve: np.ndarray | list[float]) -> DrawdownResult:
     """Analyse drawdown from an equity curve.
 
@@ -323,7 +323,7 @@ class ConcentrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def concentration_check(
     positions: dict[str, float],
     hhi_threshold: float = 0.15,

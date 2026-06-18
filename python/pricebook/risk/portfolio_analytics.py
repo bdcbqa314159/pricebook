@@ -37,7 +37,7 @@ class PortfolioMetrics:
     worst_period: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def portfolio_metrics(

@@ -36,7 +36,7 @@ class RepoXVACorrelatedResult:
     n_paths: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def repo_xva_correlated(

@@ -101,7 +101,7 @@ class SIMMSensitivity:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class SIMMBucketResult:
     """Margin for a single bucket."""
@@ -112,7 +112,7 @@ class SIMMBucketResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class SIMMRiskClassResult:
     """Margin for a single risk class."""
@@ -126,7 +126,7 @@ class SIMMRiskClassResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class SIMMResult:
     """Total SIMM margin."""
@@ -137,7 +137,7 @@ class SIMMResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Calculator ----
 
 class SIMMCalculator:

@@ -44,7 +44,7 @@ class NetworkCVAResult:
     n_connected_defaults: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

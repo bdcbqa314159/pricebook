@@ -26,7 +26,7 @@ class VolBumpResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def parallel_vol_bump(
     base_vols: list[float], vega_ladder: list[float], bump_bps: float = 100,
 ) -> VolBumpResult:
@@ -84,7 +84,7 @@ class VolReplayResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vol_scenario_replay(
     scenario_name: str,
     historical_vol_changes: list[float],
@@ -107,7 +107,7 @@ class CrossAssetVolStressResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_asset_vol_stress(
     asset_vegas: dict[str, list[float]],
     bumps_bps: dict[str, float],

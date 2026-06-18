@@ -30,7 +30,7 @@ class HedgeTarget:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class HedgeInstrument:
     """An instrument available for hedging."""
@@ -41,7 +41,7 @@ class HedgeInstrument:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class HedgeAllocation:
     """Quantity of each instrument in the hedge."""
@@ -55,7 +55,7 @@ class HedgeAllocation:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class HedgeResult:
     """Full hedge result: allocations + residuals."""
@@ -67,7 +67,7 @@ class HedgeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Optimal hedge ----
 
 def optimal_hedge(
@@ -163,7 +163,7 @@ class WhatIfResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def what_if_analysis(
     targets: list[HedgeTarget],
     current_allocations: list[HedgeAllocation],
@@ -199,7 +199,7 @@ class HedgeRecommendation:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def hedge_recommendation(
     targets: list[HedgeTarget],
     instruments: list[HedgeInstrument],

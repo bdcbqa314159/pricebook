@@ -41,7 +41,7 @@ class Trade:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BacktestConfig:
     """Backtest execution parameters."""
@@ -54,7 +54,7 @@ class BacktestConfig:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class PerformanceMetrics:
     """Strategy performance statistics."""
@@ -76,7 +76,7 @@ class PerformanceMetrics:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BacktestResult:
     """Complete backtest output."""
@@ -90,7 +90,7 @@ class BacktestResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ============================================================================
 # Performance computation
 # ============================================================================
@@ -257,7 +257,7 @@ class WalkForwardResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def walk_forward(
     returns: np.ndarray,
     signal_func: Callable[[np.ndarray], np.ndarray],

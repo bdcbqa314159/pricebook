@@ -35,7 +35,7 @@ class ScenarioResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---------------------------------------------------------------------------
 # Scenario constructors
 # ---------------------------------------------------------------------------

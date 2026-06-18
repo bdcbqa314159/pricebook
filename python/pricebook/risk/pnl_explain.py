@@ -48,7 +48,7 @@ class PnLResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def compute_carry(
     coupon_income: float,
     funding_cost: float,
@@ -160,7 +160,7 @@ class NonLinearPnLResult:
     unexplained: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def surface_pnl(

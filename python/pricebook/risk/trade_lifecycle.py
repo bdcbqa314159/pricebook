@@ -35,7 +35,7 @@ class LifecycleEvent:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---------------------------------------------------------------------------
 # Managed trade with versioned history
 # ---------------------------------------------------------------------------

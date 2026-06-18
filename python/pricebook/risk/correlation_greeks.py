@@ -34,7 +34,7 @@ class CorrelationDeltaResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_delta(
     price_fn,
     rho: float,
@@ -78,7 +78,7 @@ class CorrelationGammaResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_gamma(
     price_fn,
     rho: float,
@@ -124,7 +124,7 @@ class CrossGammaResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_gamma(
     price_fn,
     spot1: float,
@@ -184,7 +184,7 @@ class CorrelationPnLAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_pnl_attribution(
     price_fn,
     rho_old: float,
@@ -257,7 +257,7 @@ class CorrelationLadderEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CorrelationLadder:
     """Full correlation sensitivity ladder.
@@ -280,7 +280,7 @@ class CorrelationLadder:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_sensitivity_ladder(
     asset_names: list[str],
     correlations: np.ndarray,

@@ -28,7 +28,7 @@ class TransformationTrade:
     capital_charge_bp: float = 0.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

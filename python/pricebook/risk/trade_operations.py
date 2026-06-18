@@ -150,7 +150,7 @@ class ConfirmationRecord:
     status: str = "unmatched"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def match_confirmation(

@@ -35,7 +35,7 @@ class CollateralAsset:
         return self.funding_rate - self.yield_rate + self.haircut_pct * self.funding_rate
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -47,7 +47,7 @@ class CSARequirement:
     eligible_asset_ids: list[str]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -59,7 +59,7 @@ class CollateralAllocation:
     cost: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -99,7 +99,7 @@ class SubstitutionImpact:
     feasible: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -113,7 +113,7 @@ class StressResult:
     shortfall_csas: list[str]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -34,7 +34,7 @@ class ParameterBand:
         return self.high - self.low
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -47,7 +47,7 @@ class SensitivityEntry:
     impact: float       # max(|low_pv - base|, |high_pv - base|)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def calibration_uncertainty(

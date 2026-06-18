@@ -91,7 +91,7 @@ class NearestCorrResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def nearest_correlation_matrix(
     matrix: np.ndarray | list[list[float]],
     max_iter: int = 100,
