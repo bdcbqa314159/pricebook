@@ -2,6 +2,26 @@
 
 ---
 
+## v1.098.0 — 2026-06-18 — **L4 options sweep + L4 COMPLETE: 81 `vars(self)` mutation hazards across 27 files**
+
+T-OPT-PT1 — L4 `options/` sub-package (61 modules; ledger `AUDIT_L4_OPTIONS.md`). L4 is single-sub-package so this slice completes the layer.
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, np.trapz.
+
+**M-OPT-1 · `return vars(self)` mutation hazard** — 81 sites across 27 files. All standard 8-space pattern. Single-slice sweep.
+
+**5 `except Exception` sites held** (capfloor 2, swaption_vol_cube 1, vol_arbitrage_scanner 2) — consistent with the defensible sweep-skip-failures pattern seen in risk/regulatory/credit/fixed_income.
+
+**Cumulative session vars(self) count:** 613 (through L3) + 81 = **694 instances** corrected.
+
+**Files changed**: 27 in `python/pricebook/options/` (+81 / -81).
+
+**L4 status:** ✅ COMPLETE. Next is L5 (4 sub-packages: commodity 23, equity 33, fx 22, structured 23 — 101 modules total) then L6 desks (49 modules).
+
+L4-scoped pytest: 9848 passed. 355s (~5.9 min).
+
+---
+
 ## v1.097.0 — 2026-06-18 — **L3 fixed_income sweep + L3 COMPLETE: 204 `vars(self)` mutation hazards across 88 files**
 
 T-FI-PT1 — final L3 ponytail slice. `fixed_income/` sub-package (130 modules — biggest sub-package in the library by file count; ledger `AUDIT_L3_FIXED_INCOME.md`). Largest single sweep this session by a wide margin (204 sites previously vs 111 in credit).
