@@ -2,6 +2,56 @@
 
 ---
 
+## v1.102.0 — 2026-06-18 — **L5 equity sweep + L5 COMPLETE: 70 `vars(self)` mutation hazards across 24 files**
+
+T-EQ-PT1 — final L5 ponytail slice. `equity/` sub-package (33 modules; ledger `AUDIT_L5_EQUITY.md`). Completes L5.
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, np.trapz.
+
+**M-EQ-1 · `return vars(self)` mutation hazard** — 70 sites across 24 files. All standard 8-space pattern. Single-slice sweep.
+
+**6 `except Exception` sites held** (joint_calibration 4, equity_jumps 2) — calibration/jump-fit fault-tolerance, defensible.
+
+**Cumulative session vars(self) count:** 861 (through structured) + 70 = **931 instances** corrected across L0+L1+L2+L3+L4+L5.
+
+**Files changed**: 24 in `python/pricebook/equity/` (+70 / -70).
+
+---
+
+# **L5 SWEEP COMPLETE 🎯**
+
+All 4 L5 sub-packages now ✅ swept:
+
+| Sub-pkg | Modules | Slice | Hazards |
+|---------|---------|-------|---------|
+| `fx` | 22 | T-FX-PT1 | 53 |
+| `commodity` | 23 | T-COMM-PT1 | 61 |
+| `structured` | 23 | T-STRUCT-PT1 | 53 |
+| `equity` | 33 | T-EQ-PT1 | 70 |
+
+**L5 grand total: 101 modules, 237 vars(self) hazards corrected.**
+
+**Cumulative session (v1.075.0 → v1.102.0):** 28 slices landed, ~84 commits.
+
+| Layer | Modules swept | Status |
+|-------|--------------:|--------|
+| L0 | 111 | ✅ |
+| L1 | 65 | ✅ |
+| L2 | 97 | ✅ |
+| L3 | 292 | ✅ |
+| L4 | 61 | ✅ |
+| L5 | 101 | ✅ |
+| **Subtotal** | **727 / 793** | **92%** |
+| L6 desks | 49 | ❓ remaining |
+
+**Held items pending decision:** T-PRC-PT2 (RPC silent-except Greeks), T-CORE-PT5 (instrument_result.py Protocol).
+
+**Last layer remaining: L6 desks (49 modules)** — top-of-DAG aggregation layer.
+
+L5-scoped pytest: 11442 passed. 363s.
+
+---
+
 ## v1.101.0 — 2026-06-18 — **L5 structured sweep: 53 `vars(self)` mutation hazards across 20 files**
 
 T-STRUCT-PT1 — third L5 ponytail slice. `structured/` sub-package (23 modules; ledger `AUDIT_L5_STRUCTURED.md`).
