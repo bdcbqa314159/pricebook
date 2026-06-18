@@ -265,7 +265,7 @@ class CLNBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CLNBook:
     """Collection of CLN positions with aggregation."""
 
@@ -492,7 +492,7 @@ class CLNCapitalEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CLNCapitalSummary:
     """Regulatory capital summary for the CLN book."""
@@ -926,7 +926,7 @@ class BasketCLNBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class BasketCLNBook:
     """Collection of basket CLN positions with tranche-level aggregation."""
 

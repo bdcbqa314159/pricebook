@@ -97,7 +97,7 @@ class CVAHedgeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cva_hedge(
     epe: np.ndarray,
     time_grid: list[float],

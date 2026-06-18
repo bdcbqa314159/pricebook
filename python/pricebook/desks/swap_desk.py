@@ -148,7 +148,7 @@ class SwapBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SwapBook:
     """Collection of swap positions with aggregation."""
 

@@ -149,7 +149,7 @@ class CBBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CBBook:
     """Convertible bond position book."""
 

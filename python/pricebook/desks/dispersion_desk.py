@@ -199,7 +199,7 @@ class DispersionTrade:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Correlation term structure ----
 
 @dataclass
@@ -241,6 +241,6 @@ class CorrelationTermStructure:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 _serialisable("dispersion_trade", ["tickers", "weights", "single_strikes", "single_notionals", "index_strike", "index_notional", "direction"])(DispersionTrade)

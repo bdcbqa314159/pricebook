@@ -209,7 +209,7 @@ class FuturesBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class FuturesBook:
     """Multi-asset futures book."""
 
@@ -712,7 +712,7 @@ class CrossMarketRV:
     signal: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def futures_cash_basis_rv(

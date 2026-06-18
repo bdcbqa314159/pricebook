@@ -99,7 +99,7 @@ class RPBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class RPBook:
     """Risk participation position book."""
 

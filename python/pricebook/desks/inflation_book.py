@@ -31,7 +31,7 @@ class InflationTradeEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class InflationPosition:
     """Aggregated inflation position per issuer."""
@@ -47,7 +47,7 @@ class InflationPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class InflationLimitBreach:
     limit_type: str
@@ -59,7 +59,7 @@ class InflationLimitBreach:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class InflationLimits:
     max_notional_per_issuer: dict[str, float] = field(default_factory=dict)
@@ -69,7 +69,7 @@ class InflationLimits:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class InflationBook:
     """Inflation position book with per-issuer/type aggregation and limits."""
 

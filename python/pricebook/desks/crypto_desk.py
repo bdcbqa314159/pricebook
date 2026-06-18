@@ -130,7 +130,7 @@ class CryptoPnLResult:
     pnl_usd: float              # total P&L in USD terms
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def crypto_pnl(
@@ -194,7 +194,7 @@ class CryptoGreeksAgg:
     n_options: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def aggregate_options_greeks(
@@ -241,7 +241,7 @@ class MarginMonitorResult:
     alerts: list[str]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def margin_monitor(
@@ -298,7 +298,7 @@ class ScenarioResult:
     new_margin_ratio: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def scenario_analysis(

@@ -53,7 +53,7 @@ class BondRiskInputs:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Bucket mapping ----
 
 def _girr_rw(tenor_years: float) -> float:
@@ -149,7 +149,7 @@ class BondCapitalReport:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def bond_frtb_capital(
     inputs: list[BondRiskInputs],
 ) -> BondCapitalReport:

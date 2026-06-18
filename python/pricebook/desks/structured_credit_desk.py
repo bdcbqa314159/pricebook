@@ -154,7 +154,7 @@ class SCBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class StructuredCreditBook:
     """Unified book for all structured credit products."""
 

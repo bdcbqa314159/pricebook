@@ -49,7 +49,7 @@ class CommodityDailyPnL:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _signed_qty(entry: CommodityTradeEntry) -> float:
     return entry.trade.direction * entry.trade.notional_scale * entry.quantity
 
@@ -177,7 +177,7 @@ class CommodityAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def attribute_commodity_pnl(
     book: CommodityBook,
     prior_curves: dict[str, dict[date, float]],

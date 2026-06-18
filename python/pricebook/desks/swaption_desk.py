@@ -40,7 +40,7 @@ class SABRCell:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class VolCube:
     """ATM vol grid with optional SABR smile at each cell.
 
@@ -135,7 +135,7 @@ class SwaptionCombo:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _swaption_greeks(
     swn: Swaption,
     curve: DiscountCurve,

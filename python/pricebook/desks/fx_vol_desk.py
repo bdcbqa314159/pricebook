@@ -46,7 +46,7 @@ class FXStraddle:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FXStrangle:
     """OTM strangle: long OTM call + long OTM put."""
@@ -63,7 +63,7 @@ class FXStrangle:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FXRiskReversal:
     """Long OTM call, short OTM put (or reverse)."""
@@ -81,7 +81,7 @@ class FXRiskReversal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FXButterfly:
     """Long strangle + short straddle (or reverse)."""
@@ -105,7 +105,7 @@ class FXButterfly:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Vol RV ----
 
 @dataclass
@@ -118,7 +118,7 @@ class FXVolRV:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fx_vol_rv(
     pair: str,
     implied_vol: float,
@@ -142,7 +142,7 @@ class FXSkewSignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fx_skew_monitor(
     pair: str,
     rr_level: float,
@@ -165,7 +165,7 @@ class FXVegaBucket:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fx_vega_ladder(
     positions: list[tuple[str, str, float]],
 ) -> list[FXVegaBucket]:

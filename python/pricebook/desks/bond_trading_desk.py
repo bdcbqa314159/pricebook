@@ -217,7 +217,7 @@ class BondDashboardEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BondDashboard:
     """Morning-meeting summary for the bond desk."""

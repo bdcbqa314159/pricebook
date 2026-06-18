@@ -29,7 +29,7 @@ class MTMResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def eod_mtm(
     trade_pvs: dict[str, float],
     currency: str = "USD",
@@ -57,7 +57,7 @@ class PnLResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def eod_pnl(
     mtm_today: dict[str, float],
     mtm_yesterday: dict[str, float],
@@ -107,7 +107,7 @@ class PnLAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def attribute_pnl(
     total_pnl: float,
     delta: float, spot_move: float,
@@ -149,7 +149,7 @@ class RiskReport:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def eod_risk_report(
     trade_pvs: dict[str, float],
     sensitivities: dict[str, dict[str, float]] | None = None,
@@ -206,7 +206,7 @@ class LimitBreach:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def check_limits(
     total_dv01: float = 0.0,
     total_vega: float = 0.0,

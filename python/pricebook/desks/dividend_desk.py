@@ -133,7 +133,7 @@ class DividendSwap:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Dividend forward ----
 
 def dividend_forward(
@@ -167,7 +167,7 @@ class DividendRisk:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def dividend_risk(
     spot: float,
     dividends: list[Dividend],

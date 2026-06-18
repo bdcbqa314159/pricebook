@@ -34,7 +34,7 @@ class FittedBond:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fit_curve_from_bonds(
     reference_date: date,
     bonds: list[tuple[FixedRateBond, float]],
@@ -120,7 +120,7 @@ class BondRichCheap:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def bond_rich_cheap(
     bonds: list[tuple[FixedRateBond, float]],
     curve: DiscountCurve,
@@ -170,7 +170,7 @@ class RepoPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def repo_carry(
     bond_price: float,
     coupon_rate: float,

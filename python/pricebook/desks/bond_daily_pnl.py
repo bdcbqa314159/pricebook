@@ -46,7 +46,7 @@ class BondDailyPnL:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _signed(entry: BondTradeEntry) -> float:
     return entry.trade.direction * entry.trade.notional_scale
 
@@ -144,7 +144,7 @@ class BondTradeAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BondBookAttribution:
     """Aggregate attribution for a bond book."""
@@ -162,7 +162,7 @@ class BondBookAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def attribute_bond_pnl(
     book: BondBook,
     prior_prices: dict[str, float],

@@ -42,7 +42,7 @@ class DealComponent:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class Deal:
     """A structured deal: collection of linked instruments.
 

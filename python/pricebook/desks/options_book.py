@@ -33,7 +33,7 @@ class OptionEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Aggregation dataclasses ----
 
 @dataclass
@@ -49,7 +49,7 @@ class AssetClassExposure:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class ExpiryBucket:
     """Aggregated vega by expiry bucket."""
@@ -60,7 +60,7 @@ class ExpiryBucket:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class VolPnLAttribution:
     """Daily vol P&L by asset class."""
@@ -73,7 +73,7 @@ class VolPnLAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Options book ----
 
 class OptionsBook:

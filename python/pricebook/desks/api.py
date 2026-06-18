@@ -95,7 +95,7 @@ class CcyConventions:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 _CCY_CONVENTIONS = {
     "USD": CcyConventions("US", DayCountConvention.THIRTY_360, DayCountConvention.ACT_360,
                            Frequency.SEMI_ANNUAL, Frequency.QUARTERLY, 2),
@@ -598,7 +598,7 @@ class MarketEnv:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def market_env(
     reference_date: date | None = None,
     curves: dict[str, DiscountCurve] | None = None,
@@ -775,7 +775,7 @@ class PortfolioResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def portfolio_pv(
     trades: dict[str, float],
 ) -> PortfolioResult:

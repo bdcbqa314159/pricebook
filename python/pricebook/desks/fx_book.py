@@ -36,7 +36,7 @@ class FXPairPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CurrencyExposure:
     """Net exposure to a single currency (across all pairs)."""
@@ -46,7 +46,7 @@ class CurrencyExposure:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FXLimitBreach:
     """Limit violation for an FX book."""
@@ -59,7 +59,7 @@ class FXLimitBreach:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FXLimits:
     """Position limits for an FX book.
@@ -76,7 +76,7 @@ class FXLimits:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Trade entry ----
 
 @dataclass
@@ -108,7 +108,7 @@ class FXTradeEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- FX Book ----
 
 class FXBook:

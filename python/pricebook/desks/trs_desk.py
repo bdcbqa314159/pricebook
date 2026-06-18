@@ -317,7 +317,7 @@ class TRSBookEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class TRSBook:
     """Collection of TRS positions with aggregation."""
 
@@ -641,7 +641,7 @@ class TRSCapitalEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class TRSCapitalSummary:
     """Regulatory capital summary for the TRS book."""

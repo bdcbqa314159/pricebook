@@ -37,7 +37,7 @@ class EquityPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class SectorExposure:
     """Aggregate exposure by sector."""
@@ -50,7 +50,7 @@ class SectorExposure:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class EquityLimitBreach:
     """Limit violation for equity book."""
@@ -63,7 +63,7 @@ class EquityLimitBreach:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class EquityLimits:
     """Position limits for an equity book.
@@ -84,7 +84,7 @@ class EquityLimits:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Equity trade entry ----
 
 @dataclass
@@ -105,7 +105,7 @@ class EquityTradeEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Equity Book ----
 
 class EquityBook:

@@ -42,7 +42,7 @@ class EquityDailyPnL:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def compute_equity_daily_pnl(
     book: EquityBook,
     prior_ctx: PricingContext,
@@ -115,7 +115,7 @@ class TradeGreeks:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class GreekAttribution:
     """Greek-based P&L attribution for a single trade."""
@@ -139,7 +139,7 @@ class GreekAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class EquityBookAttribution:
     """Aggregate Greek attribution for an equity book."""
@@ -164,7 +164,7 @@ class EquityBookAttribution:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _trade_total_pnl(
     trade: Trade,
     prior_ctx: PricingContext,
