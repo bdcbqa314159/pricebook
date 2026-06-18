@@ -2,6 +2,42 @@
 
 ---
 
+## v1.106.0 — 2026-06-18 — **Bookkeeping: verify + close 3 inherited L0 core correctness MEDs (no code change)**
+
+User requested execution on the 3 inherited Pass C/D MEDs from the pre-session L0 core audit:
+* **C.7 B1** — settlement lag uses calendar days instead of business days.
+* **D.1 B1** — empty-dict fields become `None` on round-trip.
+* **D.1 B2** — `pricing_context` fields silently dropped on round-trip.
+
+**Verification result: all 3 already fixed in prior work — bookkeeping was stale.**
+
+The audit ledger header (`AUDIT_L0_CORE.md`) claimed these were still queued, but inspection showed:
+
+* `core/settlement.py` — every `cash_settlement` / `cds_settlement_*` / `option_settlement_*` / `futures_settlement_*` / `fx_spot_date` / `bond_settlement_date` callsite routes through `add_business_days(...)` with calendar parameter. Docstrings explicitly say "**business days** per market convention". The only `timedelta(days=...)` left in the module is inside `add_business_days` itself (walking day-by-day to skip non-business days). Regression coverage: `tests/test_settlement_business_days.py` + `tests/test_settlement_calendars.py` — 66 tests, all passing.
+* `core/pricing_context.py::_ctx_from_dict` — uses `_fd_dict()` helper that returns `{}` for empty payloads; no `or None` collapse anywhere. Inline comment literally says `# (no `or None` collapse — Fix D.1 B1)`.
+* `core/pricing_context.py::_ctx_to_dict` — emits all 14 dataclass-declared fields including the per-currency dicts (`discount_curves`, `inflation_curves`, `repo_curves`), `numerical_config`, `stochastic_credit_models`, `credit_vol_surfaces`, `credit_correlations`, `reporting_currency`. Inline comment says `# (Fix D.1 B2)`. Regression coverage: `tests/test_pricing_context_round_trip.py` — exercises empty-dict preservation AND all-field round-trip.
+
+**No code change.** This is a pure bookkeeping closure — the work was done in prior sessions but the ledger summary was never refreshed.
+
+**Ledger update** (`AUDIT_L0_CORE.md`, local-only / gitignored):
+* Pass C MED count: 0/1 → **1/1 ✅**
+* Pass D MED count: 0/2 → **2/2 ✅**
+* Total MED count: 3/6 → **6/6 ✅**
+* Crossed out the 3 fixed lines, added the regression-test pointers and verification date.
+
+**Remaining open items in `AUDIT_L0_CORE.md`** (all LOW severity or known-architectural decisions, none in the MED tier):
+* C.8 B1 — `dollar_gamma` docstring/formula mismatch (LOW; needs API decision since `Greeks` doesn't carry `spot`).
+* D.1 B3 — `replace()` aliases mutable dicts (LOW-MED; easy fix when touched next).
+* A.1 B1 final-slice — flip `strict_icma=True` default after auditing remaining callers (many-slice migration).
+* A.11 B3-B7 — minor serialisation robustness (LOW).
+* B.3 C1 — legacy `core.market_data` vs new `pricebook.market_data` (ARCH, Gate 2 decision).
+
+**Session held queue:** ✅ **empty** — all ponytail items closed (T-PRC-PT2 @ v1.104.0, T-CORE-PT5 @ v1.105.0) AND all inherited MED items verified closed (this slice).
+
+L0-scoped pytest: 2443 passed. The 66 dedicated regression tests for the 3 MEDs run in 0.16s.
+
+---
+
 ## v1.105.0 — 2026-06-18 — **T-CORE-PT5: delete dead `core/instrument_result.py` Protocol**
 
 T-CORE-PT5 — final held ponytail slice. Originally held since L0 core ponytail addendum (T-CORE-PT2 era) pending a broader "should we keep documentary Protocols with test-only binders?" decision. Now closed.
