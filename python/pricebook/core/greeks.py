@@ -13,7 +13,15 @@ from dataclasses import dataclass
 
 @dataclass
 class Greeks:
-    """Standard option sensitivities."""
+    """Standard option sensitivities.
+
+    Dollar-Greeks (`delta × spot`, `0.5 × gamma × spot² × dS²`) are NOT
+    properties on this class because `Greeks` does not carry the spot.
+    Compute them externally where spot is known. The previous
+    `dollar_delta` and `dollar_gamma` properties were misleading
+    (formula did not match docstring) and had zero production callers;
+    removed in T-LOW-CLEANUP.
+    """
     price: float
     delta: float = 0.0       # ∂V/∂S
     gamma: float = 0.0       # ∂²V/∂S²
@@ -22,16 +30,6 @@ class Greeks:
     rho: float = 0.0         # ∂V/∂r (per 1% rate shift, i.e. × 0.01)
     vanna: float = 0.0       # ∂²V/(∂S∂σ)
     volga: float = 0.0       # ∂²V/∂σ²
-
-    @property
-    def dollar_delta(self) -> float:
-        """Approximate dollar delta: delta × option_price."""
-        return self.delta * self.price
-
-    @property
-    def dollar_gamma(self) -> float:
-        """Gamma P&L for a 1% spot move: 0.5 × gamma × S² × 0.01²."""
-        return 0.5 * self.gamma
 
     def to_dict(self) -> dict:
         return dict(vars(self))

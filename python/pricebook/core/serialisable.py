@@ -52,8 +52,14 @@ or refuse to deserialise them with a clear error.
 from __future__ import annotations
 
 from datetime import date
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Any, get_type_hints, Union, get_origin, get_args
+
+try:
+    import numpy as _np  # noqa: F401 — used for isinstance narrow in _serialise_atom
+    _HAS_NUMPY = True
+except ImportError:
+    _HAS_NUMPY = False
 
 # ---------------------------------------------------------------------------
 # Registry: type_key → class
@@ -132,6 +138,13 @@ def read_payload(d: dict[str, Any], cls: type) -> dict[str, Any]:
             return cls(foo=p["foo"], ...)
     """
     _check_schema_version(cls, d.get(_SCHEMA_VERSION_KEY))
+    # Fix A.11 B6: structured error when "params" missing (rather than
+    # bare KeyError) so the caller knows which class/payload is malformed.
+    if "params" not in d:
+        raise ValueError(
+            f"Malformed serialised payload for {cls.__name__}: "
+            f"missing required 'params' key. Got keys: {sorted(d.keys())}"
+        )
     return d["params"]
 
 
@@ -186,7 +199,10 @@ def _serialise_atom(v: Any) -> Any:
     if isinstance(v, (int, float, str)):
         return v
     # numpy scalars → native Python (np.float64 → float, np.int64 → int)
-    if hasattr(v, "item") and callable(v.item):
+    # Fix A.11 B4: narrow from broad "has .item callable" duck-test to
+    # explicit numpy isinstance check; the duck-test mis-fires on any object
+    # that happens to expose a callable .item method (e.g., dict_items views).
+    if _HAS_NUMPY and isinstance(v, _np.generic):
         return v.item()
     # Nested serialisable
     if hasattr(v, "to_dict"):
@@ -234,6 +250,13 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
     if isinstance(hint, type) and issubclass(hint, Enum):
         if isinstance(v, hint):
             return v
+        # Fix A.11 B7: int-valued IntEnum can come back as a string after a
+        # JSON round-trip; coerce to int first before the lookup.
+        if issubclass(hint, IntEnum) and isinstance(v, str):
+            try:
+                return hint(int(v))
+            except (ValueError, KeyError):
+                pass  # fall through to the default hint(v) — may raise, that's correct
         return hint(v)
 
     # Nested serialisable (has _SERIAL_TYPE)
@@ -247,11 +270,18 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
         return v
 
     # CurrencyPair — deserialise from "EUR/USD" string
+    # Fix A.11 B5: limit the split + check length so malformed payloads
+    # ("EUR" or "EUR/USD/extra") raise a clear ValueError rather than an
+    # unpacking error or silently dropping the third token.
     if isinstance(hint, type) and hint.__name__ == "CurrencyPair":
-        if isinstance(v, str) and "/" in v:
+        if isinstance(v, str):
+            parts = v.split("/", maxsplit=2)
+            if len(parts) != 2:
+                raise ValueError(
+                    f"CurrencyPair payload must be 'BASE/QUOTE'; got {v!r}"
+                )
             from pricebook.core.currency import CurrencyPair, Currency
-            base_str, quote_str = v.split("/")
-            return CurrencyPair(Currency(base_str), Currency(quote_str))
+            return CurrencyPair(Currency(parts[0]), Currency(parts[1]))
         return v
 
     # list[X] — check if hint is parameterised list
@@ -326,6 +356,12 @@ class Serialisable:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Any:
         _check_schema_version(cls, d.get(_SCHEMA_VERSION_KEY))
+        # Fix A.11 B6: structured error on missing "params" (see read_payload).
+        if "params" not in d:
+            raise ValueError(
+                f"Malformed serialised payload for {cls.__name__}: "
+                f"missing required 'params' key. Got keys: {sorted(d.keys())}"
+            )
         p = d["params"]
         hints = _get_init_hints(cls)
         kwargs = {}
@@ -389,6 +425,12 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
         @classmethod
         def cls_from_dict(klass, d: dict[str, Any]) -> Any:
             _check_schema_version(klass, d.get(_SCHEMA_VERSION_KEY))
+            # Fix A.11 B6: structured error on missing "params" (see read_payload).
+            if "params" not in d:
+                raise ValueError(
+                    f"Malformed serialised payload for {klass.__name__}: "
+                    f"missing required 'params' key. Got keys: {sorted(d.keys())}"
+                )
             p = d["params"]
             hints = _get_init_hints(klass)
             kwargs = {}
