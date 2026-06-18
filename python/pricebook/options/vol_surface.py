@@ -102,7 +102,7 @@ class VolSurfaceArbitrageResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def check_calendar_arbitrage(
     expiry_times: list[float],
     atm_vols: list[float],

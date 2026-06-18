@@ -31,7 +31,7 @@ class ModelPriceEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class ModelComparisonResult:
     """Comparison across models."""
@@ -45,7 +45,7 @@ class ModelComparisonResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def compare_models(
     forward: float,
     strike: float,
@@ -147,7 +147,7 @@ class ModelRiskResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def model_risk_quantification(
     forward: float,
     T: float,
@@ -209,7 +209,7 @@ class ModelGuideResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def model_selection_guide(product_type: str) -> ModelGuideResult:
     """Recommend best vol model per product type.
 

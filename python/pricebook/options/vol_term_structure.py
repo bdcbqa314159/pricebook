@@ -26,7 +26,7 @@ class ForwardVolResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def forward_vol_from_term(
     tenors: list[float], atm_vols: list[float],
     T1: float, T2: float,
@@ -49,7 +49,7 @@ class CalendarSpreadResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calendar_spread_strategy(
     tenors: list[float], vols: list[float],
     long_tenor: float, short_tenor: float,
@@ -72,7 +72,7 @@ class VolCurveShapeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vol_curve_shape(tenors: list[float], vols: list[float]) -> VolCurveShapeResult:
     if len(tenors) < 2:
         return VolCurveShapeResult("flat", 0.0, 0.0)
@@ -96,7 +96,7 @@ class Bergomi2FactorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class Bergomi2Factor:
     """Bergomi two-factor forward variance model.
     ξ(t, T) = ξ₀(T) × exp(η₁ W₁(t) + η₂ W₂(t) − ½(η₁²+η₂²)t)

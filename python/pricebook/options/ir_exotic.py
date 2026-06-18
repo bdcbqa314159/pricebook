@@ -34,7 +34,7 @@ class TARNResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def tarn_price(
     notional: float,
     coupon_rate: float,
@@ -124,7 +124,7 @@ class SnowballResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def snowball_price(
     notional: float,
     initial_coupon: float,
@@ -197,7 +197,7 @@ class CallableRangeAccrualResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def callable_range_accrual(
     notional: float,
     coupon_rate: float,
@@ -318,7 +318,7 @@ class RatchetCapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def ratchet_cap(
     notional: float,
     initial_strike: float,
@@ -387,7 +387,7 @@ class FlexiSwapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def flexi_swap(
     notional: float,
     fixed_rate: float,

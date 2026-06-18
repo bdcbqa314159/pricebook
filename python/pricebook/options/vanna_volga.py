@@ -76,7 +76,7 @@ class VVWeights:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vv_weights(
     spot: float,
     strike: float,
@@ -160,7 +160,7 @@ class VVResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vv_adjust_vanilla(
     spot: float,
     strike: float,

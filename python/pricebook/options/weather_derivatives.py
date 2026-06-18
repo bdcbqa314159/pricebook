@@ -37,7 +37,7 @@ class DegreeDayIndex:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def hdd_index(
     daily_temps: list[float],
     reference: float = REFERENCE_TEMP_F,
@@ -80,7 +80,7 @@ class WeatherFutureResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def hdd_future_price(
     expected_hdd: float,
     tick_value: float = 20.0,
@@ -117,7 +117,7 @@ class WeatherOptionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def hdd_option_price(
     simulated_hdd: np.ndarray,      # (n_paths,) simulated HDD values
     strike: float,
@@ -169,7 +169,7 @@ class TemperaturePaths:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SeasonalOUTemperature:
     """Alaton-Djehiche-Stillberger seasonal OU temperature model.
 
@@ -253,7 +253,7 @@ class RainfallResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def rainfall_derivative_price(
     n_days: int,
     mean_rainy_days: float,
@@ -320,7 +320,7 @@ class WindOptionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def wind_index_option(
     simulated_wind_index: np.ndarray,
     strike: float,

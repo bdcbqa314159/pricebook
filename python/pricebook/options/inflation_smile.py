@@ -31,7 +31,7 @@ class InflationSmileNode:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calibrate_inflation_sabr(
     forward_yoy: float, expiry: float,
     strikes: list[float], market_vols: list[float],
@@ -77,7 +77,7 @@ class InflationVolCube:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class ZCCapSmileResult:
     strikes: np.ndarray
@@ -87,7 +87,7 @@ class ZCCapSmileResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def zc_inflation_cap_smile(
     forward_zc_rate: float, rate: float, T: float, vol: float,
     strike_offsets: list[float] | None = None,

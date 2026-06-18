@@ -49,7 +49,7 @@ class SABRNode:
             return self.atm_vol
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -61,7 +61,7 @@ class SwaptionVolCubeResult:
     tenor_range: tuple[float, float]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class SwaptionVolCube:

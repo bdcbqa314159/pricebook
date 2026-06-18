@@ -326,7 +326,7 @@ class StrippedCapletVol:
     tenor_years: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def strip_caplet_vols_from_quotes(

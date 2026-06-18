@@ -33,7 +33,7 @@ class BermudanLMMResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class ExerciseBoundary:
     """Exercise boundary: swap rate threshold at each exercise date."""
@@ -44,7 +44,7 @@ class ExerciseBoundary:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class BermudanBoundsResult:
     """Lower and upper bounds for Bermudan swaption."""
@@ -55,7 +55,7 @@ class BermudanBoundsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _simulate_lmm_paths(
     forward_rates: np.ndarray,
     inst_vols: np.ndarray,

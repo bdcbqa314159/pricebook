@@ -27,7 +27,7 @@ class VRPResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vrp_single_asset(asset_class: str, implied_vol: float, realised_vol: float) -> VRPResult:
     vrp_v = implied_vol - realised_vol
     vrp_var = implied_vol**2 - realised_vol**2
@@ -44,7 +44,7 @@ class VRPTermStructureResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vrp_term_structure(tenors: list[float], implied_vols: list[float],
                         realised_vol: float) -> VRPTermStructureResult:
     vrps = [iv - realised_vol for iv in implied_vols]
@@ -61,7 +61,7 @@ class CrossAssetVRPResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_asset_vrp_comparison(
     vrps: dict[str, tuple[float, float]],   # {asset_class: (implied, realised)}
 ) -> CrossAssetVRPResult:
@@ -81,7 +81,7 @@ class VRPSignalResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def vrp_strategy_signal(
     current_vrp: float, historical_vrps: list[float],
 ) -> VRPSignalResult:

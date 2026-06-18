@@ -39,7 +39,7 @@ class VIXFuturesResult:
     roll_yield_annual: float    # annualised roll yield
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def vix_futures_fair_value(
@@ -99,7 +99,7 @@ class VarianceSwapResult:
     realised_variance: float    # if provided
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def variance_swap_price(
@@ -179,7 +179,7 @@ class VIXTermStructurePoint:
     contango: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def vix_term_structure(

@@ -34,7 +34,7 @@ class AdvancedAutocallResult:
     n_observations: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def discrete_autocall(

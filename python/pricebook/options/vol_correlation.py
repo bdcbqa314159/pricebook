@@ -81,7 +81,7 @@ class CorrelationSignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_monitor(
     pair: tuple[str, str],
     current_corr: float,
@@ -134,7 +134,7 @@ class CorrelationTrade:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def build_correlation_trade(
     long_asset: str,
     short_asset: str,

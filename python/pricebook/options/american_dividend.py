@@ -58,7 +58,7 @@ class RGWResult:
     critical_spot: float    # S* at which exercise is optimal
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def american_with_dividends(

@@ -36,7 +36,7 @@ class PassportOptionResult:
     prob_positive_account: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def passport_option(

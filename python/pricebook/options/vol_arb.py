@@ -28,7 +28,7 @@ class CalendarArbViolation:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def detect_calendar_arb(
     expiries: list[date],
     vols: list[float],
@@ -69,7 +69,7 @@ class ButterflyArbViolation:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def detect_butterfly_arb(
     strikes: list[float],
     call_prices: list[float],
@@ -109,7 +109,7 @@ class SurfaceArbReport:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def check_surface_arbitrage(
     expiries: list[date],
     vols: list[float],

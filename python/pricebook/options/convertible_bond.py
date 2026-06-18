@@ -38,7 +38,7 @@ class ConvertibleResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class ConvertibleBond:
     """Convertible bond specification.
@@ -226,7 +226,7 @@ class ConvertibleBond:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Convertible delta hedge ----
 
 @dataclass
@@ -240,7 +240,7 @@ class DeltaHedgeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def convertible_delta_hedge(
     cb_result: ConvertibleResult,
     spot: float,
@@ -280,7 +280,7 @@ class SoftCallResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def convertible_soft_call(
     cb: ConvertibleBond,
     spot: float,
@@ -372,7 +372,7 @@ class CoCoResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def contingent_convertible(
     notional: float,
     coupon_rate: float,
@@ -473,7 +473,7 @@ class ExchangeableResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def exchangeable_bond(
     notional: float,
     coupon_rate: float,
@@ -529,7 +529,7 @@ class MandatoryConvertibleResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def mandatory_convertible(
     notional: float,
     coupon_rate: float,

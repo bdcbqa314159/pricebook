@@ -248,7 +248,7 @@ class ShoutOptionResult:
     optimal_shout_level: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def _shout_price_mc(spot: float, vol: float, T: float, r: float, q: float,
@@ -440,7 +440,7 @@ class InstallmentOptionResult:
     continuation_prob: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def installment_option(

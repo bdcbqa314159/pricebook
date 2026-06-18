@@ -36,7 +36,7 @@ class CMSConvexityResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cms_convexity_adjustment(
     forward_swap_rate: float,
     swap_annuity: float,
@@ -151,7 +151,7 @@ class ArrearsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def arrears_adjustment(
     forward_rate: float,
     vol: float,
@@ -191,7 +191,7 @@ class TimingResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def timing_adjustment(
     forward_rate: float,
     vol: float,
@@ -236,7 +236,7 @@ class QuantoIRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def quanto_ir_adjustment(
     foreign_forward_rate: float,
     rate_vol: float,
