@@ -2,6 +2,28 @@
 
 ---
 
+## v1.105.0 — 2026-06-18 — **T-CORE-PT5: delete dead `core/instrument_result.py` Protocol**
+
+T-CORE-PT5 — final held ponytail slice. Originally held since L0 core ponytail addendum (T-CORE-PT2 era) pending a broader "should we keep documentary Protocols with test-only binders?" decision. Now closed.
+
+**Rationale for delete:**
+* Zero production binders — no class declared `(InstrumentResult)`, no parameter annotated `InstrumentResult`, no `from pricebook.core.instrument_result import …` anywhere in `pricebook/`.
+* One real usage: `tests/test_portfolio_structured.py:130` did `isinstance(r1, InstrumentResult)` — substituted with `hasattr(r1, "price") and hasattr(r1, "to_dict")` (mechanically identical at runtime).
+* Two docstring mentions (`test_trs_tree.py:172` comment, `viz/_generic.py:1` module-doc phrase) are non-binding prose and left in place.
+
+**Changes:**
+- `python/pricebook/core/instrument_result.py` — deleted (31 lines).
+- `python/tests/test_portfolio_structured.py` — removed import, swapped `isinstance(...) → hasattr(...) and hasattr(...)`, updated test docstring to reflect duck-typed contract.
+
+**Cumulative dead-code count for the session:** 6 → **7 modules deleted**:
+`core/protocols.py`, `core/desk_protocol.py`, `core/results.py`, `curves/quadrature.py`, `core/numerical_method_map.py`, `models/engine_registry.py`, **`core/instrument_result.py`**.
+
+**Held queue:** ✅ **all ponytail items closed.** Inherited pre-session correctness MEDs (C.7 B1, D.1 B1, D.1 B2) remain queued — those are correctness fixes not ponytail items.
+
+L0-scoped pytest: 2443 passed. 47s.
+
+---
+
 ## v1.104.0 — 2026-06-18 — **T-PRC-PT2: narrow RPC Greek silent-except + library-wide Greek-coverage scanner**
 
 T-PRC-PT2 — held since L1 pricing sweep (T-PRC-PT1 v1.090.0). User decision landed: **Option A — narrow + log**.
