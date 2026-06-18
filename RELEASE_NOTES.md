@@ -2,6 +2,63 @@
 
 ---
 
+## v1.097.0 — 2026-06-18 — **L3 fixed_income sweep + L3 COMPLETE: 204 `vars(self)` mutation hazards across 88 files**
+
+T-FI-PT1 — final L3 ponytail slice. `fixed_income/` sub-package (130 modules — biggest sub-package in the library by file count; ledger `AUDIT_L3_FIXED_INCOME.md`). Largest single sweep this session by a wide margin (204 sites previously vs 111 in credit).
+
+**Architectural findings (clean):**
+* 4 files with `_REGISTRY` patterns (ibor_curve, inflation_indices, rfr_compounding, supranational) — all convention-loader patterns, same shape as core/market_conventions, core/rate_index, credit/sovereign_cds. Legitimate pure-data registries. Keep.
+* Zero ABCs, Protocols, factories, builders, np.trapz.
+
+**M-FI-1 · `return vars(self)` mutation hazard** — 204 sites across 88 files. **Two patterns surfaced this slice:**
+* Standard 8-space-indent multi-line `def to_dict(self) -> dict:` body → `return vars(self)` (most files)
+* Inline single-line `def to_dict(self) -> dict: return vars(self)` (25 country-specific files: australian, british, canadian, chinese, czech, danish, colombian, hungarian, indian, hong_kong, indonesian, japanese, korean, israeli, malaysian, norwegian, peruvian, philippine, polish, singaporean, south_african, swedish, swiss, thai, turkish)
+
+Both patterns fixed per-file via `replace_all`.
+
+**5 `except Exception` sites across 4 files** (callable_floater, cancellable_swap, extendible, supranational) — held; consistent with sweep-skip-failures defensible patterns observed in risk/regulatory/credit.
+
+**Cumulative session vars(self) count:** 409 (through credit) + 204 = **613 instances** corrected across L0+L1+L2+L3.
+
+**Files changed**: 88 in `python/pricebook/fixed_income/` (+204 / -204).
+
+---
+
+# **L3 SWEEP COMPLETE 🎯**
+
+All 4 L3 sub-packages now ✅ swept:
+
+| Sub-pkg | Modules | Slice | Hazards |
+|---------|---------|-------|---------|
+| `crypto` | 15 | T-CRYPTO-PT1 | 48 |
+| `risk` | 54 | T-RISK-PT1 | 78 |
+| `credit` | 93 | T-CREDIT-PT1 | 111 |
+| `fixed_income` | 130 | T-FI-PT1 | 204 |
+
+**L3 grand total: 292 modules, 441 vars(self) hazards corrected.**
+
+**Cumulative session (v1.075.0 → v1.097.0): 23 slices landed, 69 commits.**
+* **~830 lines net dead code removed**
+* **613 `vars(self)` mutation hazards swept** across L0+L1+L2+L3
+* **6 dead modules deleted**, **12 dead test methods removed**, **4 over-engineered scaffolds cut**
+* **3 cross-layer migrations** + **3 stale layer-claim docstrings** + **1 new regression test**
+
+**Test baselines:**
+* L0: 2437 passed (~47s)
+* L1: 3520 passed (~55s)
+* L2: 4321 passed (~4.5 min)
+* L3: 8275 passed (~5 min)
+
+**Held items pending decision:**
+* T-PRC-PT2 — RPC silent-except Greeks (4 sites)
+* T-CORE-PT5 — instrument_result.py Protocol
+
+**Per AUDIT_PLAN, next layer is L4 — `options` (61 modules)** — single sub-package; opens path to L5 (commodity, equity, fx, structured) and L6 (desks).
+
+L3-scoped pytest: 8275 passed. 304s.
+
+---
+
 ## v1.096.0 — 2026-06-18 — **L3 credit sweep: 111 `vars(self)` mutation hazards across 51 files (largest single sweep)**
 
 T-CREDIT-PT1 — third L3 ponytail slice. `credit/` sub-package (93 modules, ~30k LOC; ledger `AUDIT_L3_CREDIT.md`). Largest sub-package by both module count and vars(self) sites of any L3 sweep.
