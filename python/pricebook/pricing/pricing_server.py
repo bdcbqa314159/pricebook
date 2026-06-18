@@ -170,8 +170,8 @@ def _price_trade(te: TradeEnvelope, ctx, config: PricingConfig) -> TradeResult:
     if config.compute_greeks and hasattr(instrument, "dv01"):
         try:
             greeks["dv01"] = instrument.dv01(ctx.discount_curve)
-        except Exception:
-            pass
+        except (NotImplementedError, AttributeError) as e:
+            logger.warning("dv01 not supported by %s: %s", type(instrument).__name__, e)
 
     return TradeResult(
         trade_id=te.trade_id,

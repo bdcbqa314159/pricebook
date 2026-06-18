@@ -21,9 +21,12 @@ computes PV and Greeks, returns structured results.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import date
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from pricebook.core.serialization import (
     instrument_from_dict,
@@ -288,11 +291,13 @@ def _compute_greeks(instrument, ctx, measures: set[str]) -> dict[str, float]:
     greeks: dict[str, float] = {}
     curve = ctx.discount_curve
 
+    inst_name = type(instrument).__name__
+
     if "dv01" in measures and hasattr(instrument, "dv01"):
         try:
             greeks["dv01"] = instrument.dv01(curve)
-        except Exception:
-            pass
+        except (NotImplementedError, AttributeError) as e:
+            logger.warning("dv01 not supported by %s: %s", inst_name, e)
     elif "dv01" in measures:
         # Generic bump-and-reprice DV01
         try:
@@ -305,16 +310,16 @@ def _compute_greeks(instrument, ctx, measures: set[str]) -> dict[str, float]:
                 base = instrument.pv(curve)
                 up = instrument.pv(bumped)
             greeks["dv01"] = up - base
-        except Exception:
-            pass
+        except (NotImplementedError, AttributeError) as e:
+            logger.warning("bump-and-reprice dv01 not supported by %s: %s", inst_name, e)
 
     if "delta" in measures and hasattr(instrument, "greeks"):
         try:
             g = instrument.greeks(curve)
             if "delta" in g:
                 greeks["delta"] = g["delta"]
-        except Exception:
-            pass
+        except (NotImplementedError, AttributeError) as e:
+            logger.warning("greeks() not supported by %s: %s", inst_name, e)
 
     return greeks
 
