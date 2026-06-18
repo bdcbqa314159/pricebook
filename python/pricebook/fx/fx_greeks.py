@@ -167,7 +167,7 @@ class VegaBucket:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class VegaLadder:
     """FX vega ladder per (expiry, delta) bucket."""
@@ -179,7 +179,7 @@ class VegaLadder:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _strike_from_delta_spot(spot, rd, rf, vol, T, delta, is_call):
     sign = 1 if is_call else -1
     a = min(abs(delta) * math.exp(rf * T), 0.9999)
@@ -250,7 +250,7 @@ class SmileGreeksResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fx_smile_consistent_greeks(
     spot: float,
     strike: float,

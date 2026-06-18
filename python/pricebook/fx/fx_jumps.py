@@ -40,7 +40,7 @@ class MertonFXResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def merton_fx_price(
     spot: float,
     strike: float,
@@ -123,7 +123,7 @@ class BatesFXResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class BatesFXModel:
     """Bates model for FX: Heston + Merton jumps.
 
@@ -259,7 +259,7 @@ class RegimeSwitchingResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class RegimeSwitchingVol:
     """Markov regime-switching FX vol model.
 
@@ -362,7 +362,7 @@ class InterventionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fx_intervention_adjustment(
     spot: float,
     strike: float,

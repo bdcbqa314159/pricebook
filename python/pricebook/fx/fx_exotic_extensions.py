@@ -44,7 +44,7 @@ class FXDigitalResult:
     barrier_shift: float    # overhedge shift applied
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fx_digital_option(
@@ -165,7 +165,7 @@ class FXQuantoResult:
     correlation: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fx_quanto_option(
@@ -268,7 +268,7 @@ class FXVarianceSwapResult:
     realised_vol: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fx_variance_swap(
@@ -461,7 +461,7 @@ class FXDoubleBarrierResult:
     knock_type: str             # "out" or "in"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fx_double_barrier_option(
@@ -580,7 +580,7 @@ class FXCompoundResult:
     outer_strike: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fx_compound_option(
@@ -669,7 +669,7 @@ class FXChooserResult:
     prob_choose_call: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fx_chooser_option(

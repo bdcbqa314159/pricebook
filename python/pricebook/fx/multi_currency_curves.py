@@ -39,7 +39,7 @@ class IBORCurveSpec:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CurrencyCurveSetSpec:
     """Specification for all curves in one currency."""
@@ -51,7 +51,7 @@ class CurrencyCurveSetSpec:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class MultiCurrencyCurveSet:
     """Complete curve environment: OIS + IBOR per tenor + basis + xccy.
 

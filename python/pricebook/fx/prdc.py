@@ -25,7 +25,7 @@ class PRDCResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _prdc_reprice(
     spot_fx, rate_dom, rate_for, vol_fx, vol_dom, vol_for,
     corr, notional, fixed_coupon, fx_participation, fx_strike,
@@ -151,7 +151,7 @@ class CallablePRDCResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def callable_prdc(
     spot_fx: float,
     rate_dom: float, rate_for: float,

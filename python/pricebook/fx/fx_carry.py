@@ -28,7 +28,7 @@ class CarrySignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def carry_signal(
     pair: str,
     spot: float,
@@ -71,7 +71,7 @@ class CarryRanking:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def g10_carry_ranking(
     pairs: list[tuple[str, float, float, int]],
 ) -> list[CarryRanking]:
@@ -106,7 +106,7 @@ class NDFCarry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def ndf_carry(
     pair: str,
     spot: float,

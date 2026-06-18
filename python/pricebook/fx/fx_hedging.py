@@ -30,7 +30,7 @@ class WindowBarrierResult:
     window_end: float
     barrier: float
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def window_barrier_option(
@@ -63,7 +63,7 @@ class FaderResult:
     average_fading_factor: float
     n_observations: int
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fader_option(
@@ -92,7 +92,7 @@ class ParticipatingForwardResult:
     forward_rate: float
     zero_cost: bool
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def participating_forward(
@@ -134,7 +134,7 @@ class SeagullResult:
     max_gain: float
     forward_rate: float
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def seagull(
@@ -166,7 +166,7 @@ class RatioForwardResult:
     max_loss_unlimited: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def ratio_forward(
@@ -233,7 +233,7 @@ class KnockInReverseResult:
     expected_loss: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def knock_in_reverse(

@@ -47,7 +47,7 @@ class FXVolQuote:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class FXVolSurface:
     """FX vol surface built from ATM / RR / BF quotes.
 
