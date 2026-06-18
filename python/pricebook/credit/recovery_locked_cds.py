@@ -41,7 +41,7 @@ class RecoveryLockedCDSResult:
     rpv01: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def recovery_lock_premium(
@@ -150,7 +150,7 @@ class LCDSResult:
     rpv01: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_lcds(

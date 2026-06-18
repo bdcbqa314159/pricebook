@@ -38,7 +38,7 @@ class XVAResult:
     haircut_stress_loss: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cln_xva_spread_driven(
@@ -171,7 +171,7 @@ class HaircutStressResult:
     collateral_shortfall: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def collateral_haircut_stress(

@@ -41,7 +41,7 @@ class JointCalibrationResult:
     fit_quality: float           # objective function value (lower = better)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def joint_calibrate(

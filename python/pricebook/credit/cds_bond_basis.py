@@ -36,7 +36,7 @@ class BasisResult:
     signal: str                  # "NEGATIVE_BASIS" (arb), "POSITIVE_BASIS", "NEUTRAL"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def compute_basis(

@@ -33,7 +33,7 @@ class CapitalStructureLayer:
     coupon: float = 0.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -48,7 +48,7 @@ class DIPResult:
     dip_all_in_cost: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -61,7 +61,7 @@ class FulcrumResult:
     implied_equity_value: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -73,7 +73,7 @@ class RecoveryDistribution:
     total_claims: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -86,7 +86,7 @@ class ExchangeResult:
     participation_breakeven: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -97,7 +97,7 @@ class Chapter11Milestone:
     cumulative_months: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -502,7 +502,7 @@ class DistressedCDSResult:
     maturity_years: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def distressed_cds_upfront(

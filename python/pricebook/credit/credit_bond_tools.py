@@ -37,7 +37,7 @@ class SectorWeight:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sector_allocation(
     positions: list[tuple[str, float]],
 ) -> list[SectorWeight]:
@@ -78,7 +78,7 @@ class TrackingErrorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def index_tracking_error(
     portfolio_weights: dict[str, float],
     index_weights: dict[str, float],
@@ -122,7 +122,7 @@ class ConcentrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def concentration_risk(
     name_weights: dict[str, float],
     sector_weights: dict[str, float],
@@ -163,7 +163,7 @@ class SectorSpreadSignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sector_spread_monitor(
     sector: str,
     current_spread_bps: float,
@@ -188,7 +188,7 @@ class CrossSectorRV:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_sector_rv(
     sectors: list[tuple[str, float, list[float]]],
     threshold: float = 2.0,
@@ -232,7 +232,7 @@ class MigrationImpact:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # Standard one-notch spread widening (bps) by current rating.
 # Approximate: IG upgrade/downgrade is smaller; HY is larger.
 DEFAULT_MIGRATION_SPREADS: dict[str, float] = {

@@ -39,7 +39,7 @@ class IndexConstituent:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class IndexDefinition:
     """A credit index with named, weighted constituents.
 
@@ -137,7 +137,7 @@ class IndexSeries:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Index skew ----
 
 @dataclass
@@ -153,7 +153,7 @@ class SkewResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def index_skew(
     index_def: IndexDefinition,
     market_spread: float,
@@ -193,7 +193,7 @@ class RollResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def index_roll_pnl(
     old_def: IndexDefinition,
     new_def: IndexDefinition,

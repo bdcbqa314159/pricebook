@@ -38,7 +38,7 @@ class LeveragedCDSResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def leveraged_cds(
     notional: float,
     leverage: float,
@@ -107,7 +107,7 @@ class DigitalCLNResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def digital_cln_leveraged(
     notional: float,
     coupon_rate: float,
@@ -165,7 +165,7 @@ class CMCDSResult:
     participation_rate: float = 0.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def constant_maturity_cds(
     reference_maturity: int,
     flat_hazard: float,
@@ -236,7 +236,7 @@ class CDSStraddleResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cds_straddle(
     flat_hazard: float,
     strike_spread: float | None = None,
@@ -290,7 +290,7 @@ class CreditTRSResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def credit_trs(
     index_notional: float,
     index_spread_start: float,

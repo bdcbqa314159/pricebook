@@ -106,7 +106,7 @@ class UpfrontResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def upfront_from_par_spread(
     par_spread_bps: float,
     standard_coupon_bps: float = 100,

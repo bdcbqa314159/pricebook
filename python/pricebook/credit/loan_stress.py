@@ -37,7 +37,7 @@ class MacroScenario:
     prepay_shift: float       # CPR adjustment
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 PREDEFINED_SCENARIOS: dict[str, MacroScenario] = {
@@ -61,7 +61,7 @@ class PortfolioStressResult:
     scenario_name: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -75,7 +75,7 @@ class ConcentrationMetrics:
     effective_n: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -88,7 +88,7 @@ class MigrationResult:
     downgrade_pct: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

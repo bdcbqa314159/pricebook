@@ -61,7 +61,7 @@ class SOFRCSAAdjustment:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---------------------------------------------------------------------------
 # P1.4: Pricing grid
 # ---------------------------------------------------------------------------

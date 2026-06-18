@@ -113,7 +113,7 @@ class SkewPoint:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CorrelationSkew:
     """Base correlation curve with skew measures."""
@@ -123,7 +123,7 @@ class CorrelationSkew:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_skew(
     market_spreads: dict[float, float],
     pd: float,

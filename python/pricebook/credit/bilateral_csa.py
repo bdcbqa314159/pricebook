@@ -44,7 +44,7 @@ class CSATerms:
     haircut_pct: float = 0.0            # Haircut on posted collateral
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -63,7 +63,7 @@ class BilateralCSAResult:
     total_xva: float                 # CVA + DVA + FVA
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class BilateralCSAPricer:

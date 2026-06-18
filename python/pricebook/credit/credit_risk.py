@@ -211,7 +211,7 @@ class CreditPosition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CreditBook:
     """A book of credit trades with credit-specific risk aggregation.
 

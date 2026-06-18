@@ -38,7 +38,7 @@ class CLOEquityCashflow:
     par_remaining: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -77,7 +77,7 @@ class WarehouseRiskResult:
     ramp_shortfall_prob: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════

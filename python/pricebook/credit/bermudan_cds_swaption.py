@@ -35,7 +35,7 @@ class BermudanCDSSwaptionResult:
     maturity_years: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def bermudan_cds_swaption_price(

@@ -35,7 +35,7 @@ class CallableCreditResult:
     oas_bp: float | None         # option-adjusted spread if market price given
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def callable_credit_bond_price(

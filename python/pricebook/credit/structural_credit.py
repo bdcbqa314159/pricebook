@@ -30,7 +30,7 @@ class MertonResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def merton_equity_credit(
     asset_value: float, debt_face: float, asset_vol: float,
     rate: float, T: float,
@@ -73,7 +73,7 @@ class KMVResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def kmv_distance_to_default(
     equity_value: float, equity_vol: float,
     short_term_debt: float, long_term_debt: float,
@@ -105,7 +105,7 @@ class BlackCoxResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def black_cox_first_passage(
     asset_value: float, barrier: float, asset_vol: float,
     rate: float, T: float,
@@ -150,7 +150,7 @@ class ImpliedCreditResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def implied_credit_from_equity(
     equity_value: float, equity_vol: float,
     total_debt: float, rate: float, T: float = 5.0,

@@ -35,7 +35,7 @@ class NameRV:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_name_rv(
     names: dict[str, tuple[CDS, SurvivalCurve]],
     discount_curve: DiscountCurve,
@@ -92,7 +92,7 @@ class TermStructureRV:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def term_structure_rv(
     name: str,
     short_cds: CDS,
@@ -159,7 +159,7 @@ class SectorStats:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sector_screen(
     names: dict[str, tuple[CDS, SurvivalCurve, str]],
     discount_curve: DiscountCurve,

@@ -97,7 +97,7 @@ class CoCoPricingResult:
     trigger_prob_5y: float           # cumulative trigger probability to 5Y
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_coco(

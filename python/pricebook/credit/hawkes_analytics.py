@@ -111,7 +111,7 @@ class ClusteringMetrics:
     n_events: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def clustering_metrics(event_times: list[float]) -> ClusteringMetrics:

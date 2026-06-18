@@ -48,7 +48,7 @@ class ForwardCDSResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def forward_cds_spread(
     start_years: float,
     end_years: float,
@@ -113,7 +113,7 @@ class CDSSwaption:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cds_swaption_black(
     forward_spread: float,
     strike_spread: float,
@@ -184,7 +184,7 @@ class PedersenResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class PedersenCDSSwaption:
     """Pedersen (2003) model for CDS swaptions.
 
@@ -318,7 +318,7 @@ class PutCallParityResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cds_swaption_put_call_parity(
     forward_spread: float,
     strike_spread: float,

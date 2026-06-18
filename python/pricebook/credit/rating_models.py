@@ -40,7 +40,7 @@ class CalibrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calibrate_generator(
     ratings: list[str],
     observed_P: np.ndarray | list[list[float]],
@@ -147,7 +147,7 @@ class TTCPITResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def ttc_to_pit(
     ttc_pd: float,
     cycle_factor: float,

@@ -189,7 +189,7 @@ class DefaultRecoveryResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlated_default_recovery(
     pd: float,
     recovery_spec: RecoverySpec,
@@ -465,7 +465,7 @@ class RecoveryBidAsk:
     mid: float      # mid-market recovery
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def implied_recovery(

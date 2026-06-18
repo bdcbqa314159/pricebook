@@ -198,7 +198,7 @@ class LadderRung:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def pricing_ladder(
     cds: CDS,
     discount_curve: DiscountCurve,

@@ -44,7 +44,7 @@ class HawkesCDSResult:
     n_paths: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def hawkes_cds_spread(

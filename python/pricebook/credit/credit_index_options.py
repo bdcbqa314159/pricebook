@@ -26,7 +26,7 @@ class CreditIndexOptionResult:
     spread_vol: float
     is_payer: bool
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def credit_index_option(
@@ -72,7 +72,7 @@ class CreditIndexOptionGreeks:
     vega: float       # dPV/dVol per 1%
     theta: float      # dPV/dT per day
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def index_option_greeks(

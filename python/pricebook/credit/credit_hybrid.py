@@ -34,7 +34,7 @@ class CallableRiskyBondResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def callable_risky_bond(
     notional: float,
     coupon_rate: float,
@@ -132,7 +132,7 @@ class FloatingCLNResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def floating_cln(
     notional: float,
     spread: float,
@@ -248,7 +248,7 @@ class ConvertibleBondResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def convertible_bond(
     notional: float,
     coupon_rate: float,

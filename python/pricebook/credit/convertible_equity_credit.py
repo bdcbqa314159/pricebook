@@ -50,7 +50,7 @@ class EquityCreditConvertibleResult:
     n_paths: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def convertible_equity_credit_price(

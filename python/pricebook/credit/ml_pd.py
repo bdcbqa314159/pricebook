@@ -37,7 +37,7 @@ class FinancialRatios:
     equity_vol: float = 0.30    # Annualised equity volatility
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
     def to_array(self) -> np.ndarray:
         return np.array([
@@ -58,7 +58,7 @@ class PDModelResult:
     hazard_rate: float           # Implied flat hazard
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class LogisticPD:

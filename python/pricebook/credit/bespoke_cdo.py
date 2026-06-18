@@ -38,7 +38,7 @@ class BespokeCDOResult:
     correlation_delta: float = 0.0  # ∂spread / ∂correlation
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def _vasicek_loss_dist(
@@ -196,7 +196,7 @@ class LSSResult:
     gap_risk_pct: float         # risk of loss exceeding collateral
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def leveraged_super_senior(

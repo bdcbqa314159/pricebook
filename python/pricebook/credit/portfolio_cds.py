@@ -46,7 +46,7 @@ class PortfolioCDSResult:
     net_cs01: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def portfolio_cds_pv(

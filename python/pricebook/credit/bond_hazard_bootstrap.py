@@ -1188,7 +1188,7 @@ class LiquidityAssessment:
     notes: list[str]
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def assess_liquidity(

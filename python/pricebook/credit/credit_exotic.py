@@ -55,7 +55,7 @@ class CappedCouponBondResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def capped_coupon_bond(
     notional: float,
     floating_rate: float,
@@ -131,7 +131,7 @@ class DigitalCDSResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def digital_cds(
     notional: float,
     digital_payout: float,
@@ -199,7 +199,7 @@ class CreditRangeAccrualResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def credit_range_accrual(
     notional: float,
     coupon_rate: float,
@@ -274,7 +274,7 @@ class CreditLinkedLoanResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def credit_linked_loan(
     principal: float,
     base_rate: float,

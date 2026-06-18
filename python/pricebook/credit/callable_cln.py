@@ -40,7 +40,7 @@ class CallableCLNResult:
     par_spread_callable: float      # spread that makes callable CLN = notional
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def callable_cln_price(

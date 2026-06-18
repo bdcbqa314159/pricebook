@@ -34,7 +34,7 @@ class Tranche:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class Trigger:
     """A coverage test that can divert cashflows.
@@ -54,7 +54,7 @@ class Trigger:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class WaterfallEngine:
     """Allocates cashflows through a priority waterfall.
 
@@ -177,7 +177,7 @@ class AutocallObservation:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def autocall_payoff(
     reference_path: list[float],
     observations: list[AutocallObservation],

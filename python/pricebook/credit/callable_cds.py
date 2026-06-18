@@ -36,7 +36,7 @@ class CallableCDSResult:
     callable_spread: float      # par spread of callable CDS
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def callable_cds_price(

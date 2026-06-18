@@ -76,7 +76,7 @@ class RecoverySurfacePoint:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class RecoverySurface:
     """2D recovery surface: R(seniority, tenor).
 
@@ -296,7 +296,7 @@ class RecoveryTermPoint:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def recovery_term_structure(
     cds_spreads: dict[int, float],
     discount_curve: DiscountCurve,

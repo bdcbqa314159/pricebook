@@ -80,7 +80,7 @@ class HWHazardResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class HWHazardRate:
     """Hull-White model for default intensity.
 
@@ -214,7 +214,7 @@ class BKHazardResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class BKHazardRate:
     """Black-Karasinski model for default intensity.
 
@@ -361,7 +361,7 @@ class CIRPPResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CIRPlusPlus:
     """CIR++ model: λ(t) = x(t) + φ(t).
 
@@ -477,7 +477,7 @@ class TwoFactorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class TwoFactorIntensity:
     """Two-factor intensity: λ(t) = x₁(t) + x₂(t) + φ(t).
 

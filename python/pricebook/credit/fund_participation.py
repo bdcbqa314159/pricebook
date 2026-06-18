@@ -35,7 +35,7 @@ class FundCashflow:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FundMetrics:
     """Fund performance metrics."""
@@ -289,7 +289,7 @@ class WaterfallResult:
     total_distribution: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -301,7 +301,7 @@ class ClawbackResult:
     triggered: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class PEFundParticipation(FundParticipation):

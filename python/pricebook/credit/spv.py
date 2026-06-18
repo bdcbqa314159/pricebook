@@ -64,7 +64,7 @@ class SPVTranche:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---------------------------------------------------------------------------
 # SPV Cashflow Projection
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ class SPVPeriodResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class SPVProjection:
     """Full cashflow projection for an SPV."""

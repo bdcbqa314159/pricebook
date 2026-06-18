@@ -69,7 +69,7 @@ class FOLORecoveryResult:
     last_out_loss: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -123,7 +123,7 @@ class DirectLendingYield:
     all_in_yield: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════
