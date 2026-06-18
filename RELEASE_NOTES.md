@@ -2,6 +2,56 @@
 
 ---
 
+## v1.104.0 — 2026-06-18 — **T-PRC-PT2: narrow RPC Greek silent-except + library-wide Greek-coverage scanner**
+
+T-PRC-PT2 — held since L1 pricing sweep (T-PRC-PT1 v1.090.0). User decision landed: **Option A — narrow + log**.
+
+**Behaviour change at RPC boundary:** the 4 silent-except Greek sites in `pricing_engine.py` (3) + `pricing_server.py` (1) now catch only `NotImplementedError` and `AttributeError` (legitimate "this instrument doesn't support this Greek"); everything else propagates as a per-trade error via the existing fault-isolation outer loops. Each narrow-catch path logs a `warning` with the instrument class name so operators get visibility.
+
+* `pricing_engine.py:_compute_greeks` — 3 sites narrowed:
+  * direct `instrument.dv01(curve)` call
+  * generic bump-and-reprice DV01 fallback
+  * `instrument.greeks(curve)` lookup for delta
+* `pricing_server.py:_price_trade` — 1 site narrowed:
+  * `instrument.dv01(ctx.discount_curve)` call
+
+Logging added to `pricing_engine.py` (which didn't have a module logger; `pricing_server.py` already had one).
+
+**Effect for existing callers:**
+* Instrument is a `Trade` / `Portfolio` / other type lacking `dv01` — silently skipped as before (now via `AttributeError`, not the wildcard).
+* Instrument has `dv01(...)` but it raises `NotImplementedError` — same: silently skipped + log line.
+* Instrument's `dv01(...)` has a real bug (numpy error, divide-by-zero, etc.) — **NEW**: the per-trade error block now records it, request returns `status="partial"` or `status="error"` instead of `"ok"` with missing Greek. Caller sees the failure.
+
+**Bonus deliverable — Greek coverage scanner.** Added `tools/instrument_greeks_coverage.py`: walks `pricebook/`, finds every class with `pv(...)` or `pv_ctx(...)` (the "instrument" duck-type surface), and reports which classes also define `dv01(...)` and/or `greeks(...)`. Run:
+
+```bash
+.venv/bin/python tools/instrument_greeks_coverage.py
+.venv/bin/python tools/instrument_greeks_coverage.py --missing-only
+.venv/bin/python tools/instrument_greeks_coverage.py --out INSTRUMENT_GREEKS_COVERAGE.md
+```
+
+Initial scan (saved as `INSTRUMENT_GREEKS_COVERAGE.md`, gitignored):
+
+> **119 instrument classes across 9 sub-packages.**
+> - `dv01(...)`: 14 / 119 = **12%**
+> - `greeks(...)`: 12 / 119 = **10%**
+> - Either method: 25 / 119 = 21%
+> - **Neither: 94 / 119 = 79%**
+
+So when the narrowed except now propagates `NotImplementedError` / `AttributeError`, ~79% of instruments will hit it on every Greek request (and silently log + skip). That's the "we know about this gap" set — the report is the roadmap for incremental Greek-method coverage.
+
+**Files changed**:
+- `python/pricebook/pricing/pricing_engine.py` — added logger, narrowed 3 excepts.
+- `python/pricebook/pricing/pricing_server.py` — narrowed 1 except (logger already imported).
+- `tools/instrument_greeks_coverage.py` (new) — 156 lines, AST-based scanner.
+- `INSTRUMENT_GREEKS_COVERAGE.md` (new, gitignored) — generated coverage report.
+
+**Held queue update:** `T-PRC-PT2` ✅ closed. Remaining held: `T-CORE-PT5` (`core/instrument_result.py` Protocol cleanup).
+
+L1-scoped pytest: **3508 passed** (baseline 3508 — verified with `--collect-only` on stashed pre-fix state; the earlier "3520" reported at v1.090.0 reflected test count drift over the session, not regression).
+
+---
+
 ## v1.103.0 — 2026-06-18 — **L6 desks sweep + FULL LIBRARY COMPLETE 🏁: 112 `vars(self)` mutation hazards across 40 files**
 
 T-DESK-PT1 — final layer ponytail slice. `desks/` sub-package (49 modules — top of DAG, aggregation layer across all 11 packages; ledger `AUDIT_L6_DESKS.md`).
