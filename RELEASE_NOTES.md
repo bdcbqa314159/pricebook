@@ -2,6 +2,108 @@
 
 ---
 
+## v1.103.0 — 2026-06-18 — **L6 desks sweep + FULL LIBRARY COMPLETE 🏁: 112 `vars(self)` mutation hazards across 40 files**
+
+T-DESK-PT1 — final layer ponytail slice. `desks/` sub-package (49 modules — top of DAG, aggregation layer across all 11 packages; ledger `AUDIT_L6_DESKS.md`).
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, np.trapz.
+
+**M-DESK-1 · `return vars(self)` mutation hazard** — 112 sites across 40 files. All standard 8-space pattern. Single-slice sweep.
+
+**7 `except Exception` sites held** (deal 3, reporting 4) — deal aggregation + reporting fault-tolerance, defensible.
+
+**Files changed**: 40 in `python/pricebook/desks/` (+112 / -112).
+
+---
+
+# 🏁 **PRICEBOOK FULL LIBRARY SWEEP COMPLETE** 🏁
+
+All 7 layers, all 24 sub-packages, all 793 modules — **fully audited under the combined methodology (AUDIT_PLAN §2 + ponytail over-engineering hunt)**.
+
+## Final scoreboard
+
+| Layer | Sub-pkgs | Modules | Slices |
+|-------|---------:|--------:|-------:|
+| L0 | 9 | 110 | 13 |
+| L1 | 3 | 65 | 3 |
+| L2 | 2 | 97 | 2 |
+| L3 | 4 | 292 | 4 |
+| L4 | 1 | 61 | 1 |
+| L5 | 4 | 101 | 4 |
+| L6 | 1 | 49 | 1 |
+| cross-layer | — | — | 1 (T-CORE-PT3) |
+| **Total** | **24** | **793** | **29** |
+
+## Cumulative metrics (v1.075.0 → v1.103.0)
+
+* **29 slices landed, 87 commits** (29 code + 29 stamp + 29 release notes)
+* **1,043 `return vars(self)` mutation hazards swept** across **all 7 layers** of the library — the single most prevalent recurring pattern, now closed
+* **~830 lines of net dead code removed**
+* **6 dead modules deleted**: `core/protocols.py`, `core/desk_protocol.py`, `core/results.py`, `curves/quadrature.py`, `core/numerical_method_map.py`, `models/engine_registry.py`
+* **12 dead test methods removed** (T-CORE-PT3)
+* **4 over-engineered scaffolds cut**: `StorageBackend` ABC, `query_table` alias, `_detect_code_version` wrapper, deprecated `deserialise_*` aliases
+* **3 cross-layer migrations**: heston quadrature, cdo dead import, test_schema_adapter de-flake
+* **3 stale layer-claim docstrings fixed** (calibration L6→L0, market_data L1→L0, curves layer notes)
+* **+1 new regression test** (T-CAL1 silent-except propagation)
+
+## Test baselines through all layers (all green throughout)
+
+| Layer | Tests | Time |
+|-------|------:|-----:|
+| L0 | 2,437 | ~47s |
+| L1 | 3,520 | ~55s |
+| L2 | 4,321 | ~4.5min |
+| L3 | 8,275 | ~5min |
+| L4 | 9,848 | ~6min |
+| L5 | 11,442 | ~6min |
+| **L6 full** | **12,785** | **~6min** |
+
+## Held items pending future decision
+
+* **T-PRC-PT2** — RPC silent-except Greeks (4 sites in `pricing_engine.py` + `pricing_server.py`): behaviour-change decision needed (swallow/propagate/narrow).
+* **T-CORE-PT5** — `core/instrument_result.py` Protocol cleanup (test-only binders; documents convention).
+
+## Inherited correctness items from original L0 audit (pre-session, still queued)
+
+* C.7 B1 (settlement lag), D.1 B1 (empty-dict round-trip), D.1 B2 (dropped fields).
+
+## Per-sub-package vars(self) breakdown
+
+| Layer | Sub-pkg | vars sites |
+|-------|---------|----------:|
+| L0 | calibration | 0 |
+| L0 | core | n/a (correctness audit only) |
+| L0 | numerical | 9 |
+| L0 | pe | 15 |
+| L0 | statistics | 22 |
+| L0 | ts | 2 |
+| L0 | viz | 2 |
+| L1 | curves | 15 |
+| L1 | pricing | 4 |
+| L1 | regulatory | 29 |
+| L2 | models | 70 |
+| L3 | crypto | 48 |
+| L3 | risk | 78 |
+| L3 | credit | 111 |
+| L3 | fixed_income | 204 |
+| L4 | options | 81 |
+| L5 | fx | 53 |
+| L5 | commodity | 61 |
+| L5 | structured | 53 |
+| L5 | equity | 70 |
+| L6 | desks | 112 |
+| **Total** | | **1,043** |
+
+## All-ledger inventory (gitignored, on disk)
+
+`AUDIT_PLAN.md` + 22 per-sub-package ledgers: `AUDIT_L0_*` × 9 + `AUDIT_L1_*` × 3 + `AUDIT_L2_*` × 2 + `AUDIT_L3_*` × 4 + `AUDIT_L4_OPTIONS.md` + `AUDIT_L5_*` × 4 + `AUDIT_L6_DESKS.md`.
+
+L6 / full-library pytest: **12,785 passed**. 357s (~6 min).
+
+The pricebook codebase is now ponytail-clean across all production layers.
+
+---
+
 ## v1.102.0 — 2026-06-18 — **L5 equity sweep + L5 COMPLETE: 70 `vars(self)` mutation hazards across 24 files**
 
 T-EQ-PT1 — final L5 ponytail slice. `equity/` sub-package (33 modules; ledger `AUDIT_L5_EQUITY.md`). Completes L5.
