@@ -2,6 +2,24 @@
 
 ---
 
+## v1.099.0 — 2026-06-18 — **L5 fx sweep: 53 `vars(self)` mutation hazards across 15 files**
+
+T-FX-PT1 — first L5 ponytail slice. `fx/` sub-package (22 modules; ledger `AUDIT_L5_FX.md`).
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, **zero `except Exception`**, np.trapz. Cleanest L5 sub-package surveyed.
+
+**M-FX-1 · `return vars(self)` mutation hazard** — 53 sites across 15 files. All standard 8-space pattern. Single-slice sweep.
+
+**Cumulative session vars(self) count:** 694 (through L4) + 53 = **747 instances** corrected.
+
+**Files changed**: 15 in `python/pricebook/fx/` (+53 / -53).
+
+**L5 status:** `fx` ✅. Remaining L5: commodity (23), equity (33), structured (23).
+
+L5-scoped pytest: 11442 passed. 349s.
+
+---
+
 ## v1.098.0 — 2026-06-18 — **L4 options sweep + L4 COMPLETE: 81 `vars(self)` mutation hazards across 27 files**
 
 T-OPT-PT1 — L4 `options/` sub-package (61 modules; ledger `AUDIT_L4_OPTIONS.md`). L4 is single-sub-package so this slice completes the layer.
