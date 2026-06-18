@@ -35,7 +35,7 @@ class DividendFutureResult:
     dividend_yield: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dividend_future_price(
@@ -79,7 +79,7 @@ class DividendSwapResult:
     realised_dividends: float   # if provided
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dividend_swap_fair_value(
@@ -135,7 +135,7 @@ class DividendOptionResult:
     vol: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dividend_option_price(
@@ -180,7 +180,7 @@ class TotalReturnFutureResult:
     financing_spread: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def total_return_future(

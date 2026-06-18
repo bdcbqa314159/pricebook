@@ -31,7 +31,7 @@ class IndexFuturesResult:
     days_to_expiry: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def index_futures_fair_value(
@@ -117,7 +117,7 @@ class IndexFuturesRollResult:
     calendar_spread: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def index_futures_roll(

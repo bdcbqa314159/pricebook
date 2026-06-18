@@ -46,7 +46,7 @@ class QuantoFuturesResult:
     fx_correlation_impact: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -69,7 +69,7 @@ class CompoQuantoResult:
     break_even_correlation: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

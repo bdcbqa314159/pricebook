@@ -35,7 +35,7 @@ class DividendGreeks:
     spot_delta: float           # standard delta for reference
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def compute_dividend_greeks(

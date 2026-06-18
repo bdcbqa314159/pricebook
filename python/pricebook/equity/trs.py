@@ -71,7 +71,7 @@ class FundingLegSpec:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class LSTATerms:
     """LSTA settlement conventions for loan TRS."""
@@ -82,7 +82,7 @@ class LSTATerms:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CommodityUnderlying:
     """Commodity underlying for TRS.
@@ -100,7 +100,7 @@ class CommodityUnderlying:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FXUnderlying:
     """FX underlying for TRS.
@@ -118,7 +118,7 @@ class FXUnderlying:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class XccySpec:
     """Cross-currency specification for bond/loan TRS.
@@ -133,7 +133,7 @@ class XccySpec:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class TRSResult:
     """Unified TRS pricing result."""

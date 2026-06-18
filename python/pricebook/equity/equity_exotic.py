@@ -40,7 +40,7 @@ class EquityBarrierResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def equity_barrier_smile(
     spot: float,
     strike: float,
@@ -110,7 +110,7 @@ class DigitalResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def equity_digital_cash(
     spot: float,
     strike: float,
@@ -235,7 +235,7 @@ class EquityLookbackResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def equity_lookback_floating(
     spot: float,
     rate: float,
@@ -288,7 +288,7 @@ class CompoundResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def equity_compound_option(
     spot: float,
     strike_outer: float,

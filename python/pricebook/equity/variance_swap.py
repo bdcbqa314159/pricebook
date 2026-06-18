@@ -35,7 +35,7 @@ class VarianceSwapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fair_variance(
     forward: float,
     df: float,
@@ -131,7 +131,7 @@ class VarianceSwapPV:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def variance_swap_pv(
     fair_var: float,
     strike_var: float,

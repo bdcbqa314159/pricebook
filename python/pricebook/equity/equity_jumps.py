@@ -38,7 +38,7 @@ class KouResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def kou_equity_price(
     spot: float,
     strike: float,
@@ -142,7 +142,7 @@ class SVJResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SVJEquityModel:
     """SVJ model: Heston + Merton jumps for equity.
 
@@ -278,7 +278,7 @@ class RegimeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class RegimeSwitchingEquity:
     """Bull/bear/crisis regime-switching equity model.
 
@@ -371,7 +371,7 @@ class MertonHybridResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def merton_equity_hybrid(
     spot: float,
     strike: float,

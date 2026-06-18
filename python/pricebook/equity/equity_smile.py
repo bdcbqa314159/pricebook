@@ -43,7 +43,7 @@ class SSVIParams:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _phi(theta: float, eta: float, gamma: float) -> float:
     """SSVI φ function: η / θ^γ (power-law)."""
     if theta <= 1e-10:
@@ -155,7 +155,7 @@ class EquityCubeNode:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class EquityVolCube:
     """Equity vol cube with SABR smile per expiry."""
@@ -206,7 +206,7 @@ class EquityVolCube:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calibrate_equity_sabr_tenor(
     spot: float,
     rate: float,
@@ -298,7 +298,7 @@ class ForwardVolResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def forward_vol(cube: EquityVolCube, T1: float, T2: float,
                 strike: float | None = None) -> ForwardVolResult:
     """Forward vol from cube: vol over [T1, T2].
@@ -337,7 +337,7 @@ class SmileRegimeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sticky_strike_dynamics(
     cube: EquityVolCube,
     T: float,

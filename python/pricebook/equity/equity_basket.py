@@ -35,7 +35,7 @@ class MargrabeEquityResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def margrabe_equity(
     spot1: float,
     spot2: float,
@@ -86,7 +86,7 @@ class MaxMinResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def johnson_max_call(
     spot1: float,
     spot2: float,
@@ -174,7 +174,7 @@ class EquityBasketResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def equity_basket_mc(
     spots: list[float],
     weights: list[float],
@@ -245,7 +245,7 @@ class CorrelationSwapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def correlation_swap_price(
     realised_correlation: float,
     implied_correlation: float,
@@ -316,7 +316,7 @@ class DispersionTradeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def dispersion_trade_value(
     index_variance: float,
     component_variances: list[float],

@@ -50,7 +50,7 @@ class ETFResult:
     tracking_error: float = float("nan")
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -72,7 +72,7 @@ class ArbResult:
     is_profitable: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

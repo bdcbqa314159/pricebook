@@ -31,7 +31,7 @@ class DividendStrip:
     weight: float           # fraction of annual total
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

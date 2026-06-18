@@ -36,7 +36,7 @@ class TRSResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class TotalReturnSwap:
     """Total return swap on a fixed-rate bond.
 

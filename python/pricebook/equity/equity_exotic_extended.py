@@ -486,7 +486,7 @@ class DividendFutureResult:
     present_value: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dividend_future(
@@ -534,7 +534,7 @@ class DividendSwapResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dividend_swap(
@@ -590,7 +590,7 @@ class DividendOptionResult:
     is_call: bool
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dividend_option(
