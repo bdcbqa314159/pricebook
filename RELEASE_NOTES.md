@@ -2,6 +2,59 @@
 
 ---
 
+## v1.107.0 — 2026-06-19 — **T-LOW-CLEANUP: close 5 LOW correctness items (C.8 B1 + A.11 B4-B7) + 9 regression tests**
+
+User asked to close the remaining LOW items from `AUDIT_L0_CORE.md`. Verified state first — 2 items (D.1 B3, A.11 B1/B2) were already fixed in prior sessions. The remaining 5 are bundled into this single closing slice. Two ledger items are intentionally **not** closed: `A.1 B1 final-slice` (many-slice migration) and `B.3 C1` (architecture decision requiring Gate 2 sign-off).
+
+**C.8 B1 — `Greeks.dollar_delta` + `Greeks.dollar_gamma` properties deleted.**
+
+The `Greeks` dataclass (in `core/greeks.py`) carries no `spot` field. The pre-fix docstrings claimed:
+* `dollar_delta`: `delta × option_price` — questionable approximation (real dollar delta is `delta × spot` or `delta × notional`)
+* `dollar_gamma`: `0.5 × gamma × S² × 0.01²` — but the code did `0.5 × gamma` (off by S²×1e-4, accidentally correct at S=100 only)
+
+Verification showed **zero production callers** for either property (the `dollar_gamma` field hit in `vol_derivatives_advanced.py` belongs to a different `VarianceSwapGreeks` dataclass, not `core.greeks.Greeks`). Deleted both properties. Updated class docstring to point external callers to compute their own dollar-Greeks where spot is known.
+
+**A.11 B4 — narrow numpy `.item()` duck-test.**
+
+`_serialise_atom` previously used `hasattr(v, "item") and callable(v.item)` to detect numpy scalars. That duck-test mis-fires on any non-numpy object that happens to expose a callable `.item` method (`dict_items` views, etc.) — they'd be silently flattened. Narrowed to `isinstance(v, np.generic)` (guarded by an optional `_HAS_NUMPY` import so the module stays importable without numpy).
+
+**A.11 B5 — `CurrencyPair` parse with split-limit + length-check.**
+
+Pre-fix: `base_str, quote_str = v.split("/")` — raised an unpacking error on `"EUR"` and silently dropped tokens on `"EUR/USD/extra"`. Now: explicit length check raising a clear `ValueError("CurrencyPair payload must be 'BASE/QUOTE'; got ...")` for both cases.
+
+**A.11 B6 — structured `ValueError` on missing `"params"` key.**
+
+Three sites in `serialisable.py` did `p = d["params"]` which raised a bare `KeyError: 'params'` — opaque error, didn't name the class. Now they raise `ValueError("Malformed serialised payload for {ClassName}: missing required 'params' key. Got keys: [...]")`. Fixed in `read_payload`, `Serialisable.from_dict`, and the `@serialisable` decorator's `cls_from_dict`. The `@serialisable_convention` decorator's `cls_from_dict` already had a guard.
+
+**A.11 B7 — `IntEnum` round-trip from JSON-string.**
+
+After a JSON serialisation round-trip, an integer-valued `IntEnum` member would come back as a string (`"3"`). `_deserialise_atom` then did `hint("3")` which raises `ValueError` because string isn't a valid IntEnum value. Added an int-coercion attempt for the `issubclass(hint, IntEnum)` + `isinstance(v, str)` case before the lookup. Pure addition, no behaviour change for ints / already-Enum values.
+
+**Regression tests (9 new) in `tests/test_serialisable_low_fixes.py`:**
+* B4: `_ItemMethodNotNumpy` fixture verifies non-numpy `.item`-bearing objects pass through unchanged; `np.float64` still flattens to `1.5`.
+* B5: ValueError on `"EUR"` (too few), `"EUR/USD/extra"` (too many), happy-path round-trip.
+* B6: missing `"params"` raises ValueError naming the class.
+* B7: IntEnum round-trip from `"3"` → member; ints + member-passthrough still work.
+
+**Skipped items, documented in ledger:**
+* **A.11 B3** (registry re-register `DeprecationWarning`): current code silently ignores duplicate registration (`if key and key not in _REGISTRY`), which is safer than the audit's suggested "overwrite with warning". Keeping current behaviour.
+* **A.1 B1 final-slice**: flip `strict_icma=True` default. Multi-slice migration touching ~72 ICMA callers across `fixed_income/`. Genuinely out of scope for a LOW closure.
+* **B.3 C1**: legacy `core.market_data` vs new `pricebook.market_data`. Gate 2 architecture decision — needs explicit user direction on the migration path before any code move.
+
+**Files changed**:
+- `python/pricebook/core/greeks.py` — deleted `dollar_delta` + `dollar_gamma` properties; updated class docstring (-8 / +6).
+- `python/pricebook/core/serialisable.py` — 4 inline fixes (B4 narrow, B5 parse, B6 ×2 missing-params, B7 IntEnum coercion); added optional numpy import + `IntEnum` import (+24 / -8).
+- `python/tests/test_serialisable_low_fixes.py` (new) — 9 regression tests for B4-B7.
+
+**Held queue:** ✅ all items closed (or explicitly documented as out-of-scope).
+
+**Test runs:**
+* New regressions: 9 passed (0.06s).
+* L0 suite: 2452 passed (was 2443 + 9 new tests, 47s).
+* **Full library suite: 12,794 passed** (was 12,785 + 9 new tests, 380s). No cross-impact from the serialisable.py changes.
+
+---
+
 ## v1.106.0 — 2026-06-18 — **Bookkeeping: verify + close 3 inherited L0 core correctness MEDs (no code change)**
 
 User requested execution on the 3 inherited Pass C/D MEDs from the pre-session L0 core audit:
