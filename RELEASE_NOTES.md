@@ -2,6 +2,30 @@
 
 ---
 
+## v1.095.0 — 2026-06-18 — **L3 risk sweep: 78 `vars(self)` mutation hazards across 29 files**
+
+T-RISK-PT1 — second L3 ponytail slice. `risk/` sub-package (54 modules, ~12.5k LOC; ledger `AUDIT_L3_RISK.md`).
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, np.trapz.
+
+**M-RISK-1 · `return vars(self)` mutation hazard** — 78 sites across 29 files. Single-slice file-by-file `replace_all`. Largest risk-touching files (`xva.py` 783 LOC, `prudent_valuation.py` 539, `backtest.py` 464) all included.
+
+**3 `except Exception` sites held with rationale:**
+* `cvar_optimisation.py:225` — frontier-sweep skip-failure pattern.
+* `model_selection.py:160` — model-vs-scenario price grid; pricer crash → NaN.
+* `parameter_uncertainty.py:92` — bootstrap resample skip.
+All three are "sweep over set, skip failures, return what survived" exploratory patterns. Defensible.
+
+**Cumulative session vars(self) count:** 220 (through crypto) + 78 = **298 instances** corrected.
+
+**Files changed**: 29 in `python/pricebook/risk/` (+78 / -78).
+
+**L3 status:** `crypto` ✅, `risk` ✅. Remaining L3: `credit` (93), `fixed_income` (130).
+
+L3-scoped pytest: 8275 passed. 313s.
+
+---
+
 ## v1.094.0 — 2026-06-17 — **L3 crypto sweep: 48 `vars(self)` mutation hazards**
 
 T-CRYPTO-PT1 — first L3 ponytail slice. `crypto/` sub-package (15 modules, ~4400 LOC; ledger `AUDIT_L3_CRYPTO.md`).
