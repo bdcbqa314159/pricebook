@@ -2,6 +2,28 @@
 
 ---
 
+## v1.096.0 — 2026-06-18 — **L3 credit sweep: 111 `vars(self)` mutation hazards across 51 files (largest single sweep)**
+
+T-CREDIT-PT1 — third L3 ponytail slice. `credit/` sub-package (93 modules, ~30k LOC; ledger `AUDIT_L3_CREDIT.md`). Largest sub-package by both module count and vars(self) sites of any L3 sweep.
+
+**Architectural findings (clean):**
+* `sovereign_cds.py::_REGISTRY` — country-CDS convention-loader pattern; same shape as `core/market_conventions.py` (legitimate pure-data registry). Keep.
+* Zero ABCs, Protocols, factories, builders, np.trapz.
+
+**M-CREDIT-1 · `return vars(self)` mutation hazard** — 111 sites across 51 files. Largest single sweep this session. File-by-file `replace_all`.
+
+**10 `except Exception` sites across 8 files** — not triaged in detail this slice (held; pattern matches risk/regulatory excepts which were defensible sweep-skip-failures). Surfaced for a separate triage slice if priorities shift.
+
+**Cumulative session vars(self) count:** 298 (through risk) + 111 = **409 instances** corrected across L0+L1+L2+L3 (crypto+risk+credit).
+
+**Files changed**: 51 in `python/pricebook/credit/` (+111 / -111).
+
+**L3 status:** `crypto` ✅, `risk` ✅, `credit` ✅. Final L3 remaining: `fixed_income` (130 modules — biggest sub-package outside L2 models).
+
+L3-scoped pytest: 8275 passed. 314s.
+
+---
+
 ## v1.095.0 — 2026-06-18 — **L3 risk sweep: 78 `vars(self)` mutation hazards across 29 files**
 
 T-RISK-PT1 — second L3 ponytail slice. `risk/` sub-package (54 modules, ~12.5k LOC; ledger `AUDIT_L3_RISK.md`).
