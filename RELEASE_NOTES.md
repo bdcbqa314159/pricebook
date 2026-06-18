@@ -2,6 +2,24 @@
 
 ---
 
+## v1.100.0 — 2026-06-18 — **L5 commodity sweep: 61 `vars(self)` mutation hazards across 21 files** 🎯
+
+T-COMM-PT1 — second L5 ponytail slice. `commodity/` sub-package (23 modules; ledger `AUDIT_L5_COMMODITY.md`). v1.100 milestone.
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, **zero `except Exception`**, np.trapz.
+
+**M-COMM-1 · `return vars(self)` mutation hazard** — 61 sites across 21 files. All standard 8-space pattern. Single-slice sweep.
+
+**Cumulative session vars(self) count:** 747 (through fx) + 61 = **808 instances** corrected across L0-L5 partial.
+
+**Files changed**: 21 in `python/pricebook/commodity/` (+61 / -61).
+
+**L5 status:** `fx` ✅, `commodity` ✅. Remaining L5: equity (33), structured (23).
+
+L5-scoped pytest: 11442 passed. 357s.
+
+---
+
 ## v1.099.0 — 2026-06-18 — **L5 fx sweep: 53 `vars(self)` mutation hazards across 15 files**
 
 T-FX-PT1 — first L5 ponytail slice. `fx/` sub-package (22 modules; ledger `AUDIT_L5_FX.md`).
