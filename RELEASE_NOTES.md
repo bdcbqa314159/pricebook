@@ -2,6 +2,26 @@
 
 ---
 
+## v1.101.0 — 2026-06-18 — **L5 structured sweep: 53 `vars(self)` mutation hazards across 20 files**
+
+T-STRUCT-PT1 — third L5 ponytail slice. `structured/` sub-package (23 modules; ledger `AUDIT_L5_STRUCTURED.md`).
+
+**Architectural findings (clean):** zero ABCs, Protocols, registries, factories, builders, np.trapz.
+
+**M-STRUCT-1 · `return vars(self)` mutation hazard** — 53 sites across 20 files. All standard 8-space pattern. Single-slice sweep.
+
+**7 `except Exception` sites across 3 files** (abs 3, cmbs 1, mbs 3) — held; structured-product loop fault-tolerance, defensible sweep-skip-failures.
+
+**Cumulative session vars(self) count:** 808 (through commodity) + 53 = **861 instances** corrected.
+
+**Files changed**: 20 in `python/pricebook/structured/` (+53 / -53).
+
+**L5 status:** `fx` ✅, `commodity` ✅, `structured` ✅. Final L5 remaining: equity (33).
+
+L5-scoped pytest: 11442 passed. 350s.
+
+---
+
 ## v1.100.0 — 2026-06-18 — **L5 commodity sweep: 61 `vars(self)` mutation hazards across 21 files** 🎯
 
 T-COMM-PT1 — second L5 ponytail slice. `commodity/` sub-package (23 modules; ledger `AUDIT_L5_COMMODITY.md`). v1.100 milestone.
