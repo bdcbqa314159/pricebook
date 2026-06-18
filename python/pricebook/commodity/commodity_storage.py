@@ -37,7 +37,7 @@ class CashAndCarryResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cash_and_carry(
     spot: float,
     forward: float,
@@ -158,7 +158,7 @@ class StorageScheduleEntry:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class StorageFacility:
     """A physical commodity storage facility (e.g. salt cavern, tank farm).
@@ -287,4 +287,4 @@ class StorageFacility:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))

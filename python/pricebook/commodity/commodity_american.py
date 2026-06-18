@@ -202,7 +202,7 @@ class AmericanCommodityResult:
     european_price: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

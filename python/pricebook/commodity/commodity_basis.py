@@ -49,7 +49,7 @@ class BasisCurve:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def basis_curve_from_futures(
     tenors: list[float],
     benchmark_forwards: list[float],
@@ -78,7 +78,7 @@ class WTIBrentResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def wti_brent_basis(
     tenors: list[float],
     wti_forwards: list[float],
@@ -114,7 +114,7 @@ class PowerLocationalBasis:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def power_locational_basis(
     tenors: list[float],
     hub_forwards: list[float],
@@ -151,7 +151,7 @@ class GasBasisResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def gas_basis_curve(
     tenors: list[float],
     hh_forwards: list[float],
@@ -197,7 +197,7 @@ class QualityBasisResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def quality_basis(
     reference_price: float,
     api_gravity_delta: float = 0.0,

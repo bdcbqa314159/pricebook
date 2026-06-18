@@ -49,7 +49,7 @@ class FFAResult:
     route: str              # Baltic route identifier (e.g. "C5", "TD3C")
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -62,7 +62,7 @@ class FreightOptionResult:
     theta: float    # dPrice/dTime (per calendar day)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class ContangoBackwardation(Enum):

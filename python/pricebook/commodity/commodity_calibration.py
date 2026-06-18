@@ -35,7 +35,7 @@ class SchwartzCalibResult:
     n_contracts: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def calibrate_schwartz(
@@ -102,7 +102,7 @@ class GibsonSchwartzCalibResult:
     rmse: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def calibrate_gibson_schwartz(

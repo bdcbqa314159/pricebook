@@ -25,7 +25,7 @@ class CrossAssetPCAResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def inflation_commodity_factor_model(
     series_data: dict[str, list[float]],
     n_factors: int = 3,
@@ -61,7 +61,7 @@ class CommodityInflationSwapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def commodity_inflation_swap(
     commodity_paths: np.ndarray,
     cpi_paths: np.ndarray,

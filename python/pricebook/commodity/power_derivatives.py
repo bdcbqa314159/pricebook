@@ -32,7 +32,7 @@ class SwingOptionResult:
     avg_exercise_price: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def swing_option_price(
@@ -118,7 +118,7 @@ class TollingResult:
     capacity_mw: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def tolling_agreement(
@@ -181,7 +181,7 @@ class CapacityOptionResult:
     strike: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def capacity_option(
@@ -245,7 +245,7 @@ class BlockForwardResult:
     peak_premium: float         # peak vs off-peak
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def block_forward(

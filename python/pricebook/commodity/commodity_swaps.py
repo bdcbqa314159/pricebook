@@ -33,7 +33,7 @@ class CommoditySwapResult:
     total_notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def commodity_swap_price(
@@ -92,7 +92,7 @@ class CommoditySwaptionResult:
     option_type: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def commodity_swaption_price(

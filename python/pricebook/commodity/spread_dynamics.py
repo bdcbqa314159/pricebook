@@ -45,7 +45,7 @@ class SpreadDynamicsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fva_with_spread_dynamics(
     epe: np.ndarray,
     time_grid: list[float],

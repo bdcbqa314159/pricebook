@@ -47,7 +47,7 @@ class CarbonFuturesResult:
     spot_equivalent: float    # PV of futures (discounted fair value)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -60,7 +60,7 @@ class CarbonOptionResult:
     theta: float    # dPrice/dTime (per calendar day)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

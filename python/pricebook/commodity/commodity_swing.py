@@ -36,7 +36,7 @@ class SwingOptionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def swing_option_lsm(
     spot_paths: np.ndarray,
     exercise_dates: list[int],        # indices in spot_paths time axis
@@ -172,7 +172,7 @@ class VirtualStorageResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class VirtualGasStorage:
     """Virtual gas storage facility valuation.
 
@@ -359,7 +359,7 @@ class NominationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def nomination_rights_value(
     spot_paths: np.ndarray,
     strike: float,

@@ -32,7 +32,7 @@ class SpreadLeg:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class GenericSpread:
     """Weighted multi-leg inter-commodity spread.
@@ -80,7 +80,7 @@ class GenericSpread:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Crack spreads (refining) ----
 
 def crack_spread_321(quantity: float = 1.0, direction: int = 1) -> GenericSpread:
@@ -159,7 +159,7 @@ class SparkSpread:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class DarkSpread:
     """Power − heat_rate × coal price.
@@ -185,7 +185,7 @@ class DarkSpread:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Crush spread (agriculture) ----
 
 def crush_spread(

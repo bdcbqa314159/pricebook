@@ -36,7 +36,7 @@ class SchwartzOneFactorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SchwartzOneFactor:
     """Schwartz (1997) Model 1: mean-reverting log-spot.
 
@@ -114,7 +114,7 @@ class GibsonSchwartzResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class GibsonSchwartz:
     """Gibson-Schwartz (1990) two-factor commodity model.
 
@@ -233,7 +233,7 @@ class SchwartzSmithResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SchwartzSmith:
     """Schwartz-Smith (2000) long-short two-factor decomposition.
 
@@ -347,7 +347,7 @@ class CommodityJumpResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CommodityJumpDiffusion:
     """Merton-style jump-diffusion for commodities.
 

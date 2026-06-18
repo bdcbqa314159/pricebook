@@ -57,7 +57,7 @@ class CommodityCalendarSpread:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Steepener / flattener ----
 
 @dataclass
@@ -90,7 +90,7 @@ class CommoditySteepener:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Butterfly ----
 
 @dataclass
@@ -142,7 +142,7 @@ class CommodityButterfly:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- DV01-neutral helper ----
 
 def dv01_neutral_quantity(
@@ -181,7 +181,7 @@ class CurveStructureSnapshot:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def curve_structure_monitor(
     commodity: str,
     valuation_date: date,
@@ -240,7 +240,7 @@ class RollDownResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def commodity_roll_down(
     delivery: date,
     forward_curve: "CommodityForwardCurve",
