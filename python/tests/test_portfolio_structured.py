@@ -13,7 +13,6 @@ from pricebook.structured.cmasw import CMASWInstrument
 from pricebook.structured.cmt import CMTInstrument
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.structured.index_linked_hybrid import IndexLinkedHybridInstrument
-from pricebook.core.instrument_result import InstrumentResult
 from pricebook.core.pricing_context import PricingContext
 from pricebook.core.schedule import Frequency
 from pricebook.core.trade import Trade, Portfolio
@@ -120,13 +119,13 @@ class TestStructuredPortfolio:
         assert total_pv == pytest.approx(sum_pv, rel=1e-10)
 
     def test_result_protocol_compliance(self):
-        """All instrument results implement InstrumentResult protocol."""
+        """All instrument results expose .price + .to_dict() (duck-typed contract)."""
         ctx = _ctx(REF)
 
         bond = FixedRateBond(REF, REF + timedelta(days=3650), coupon_rate=0.03)
         tlock = TreasuryLock(bond, locked_yield=0.03,
                              expiry=REF + timedelta(days=182))
         r1 = tlock.price(ctx.discount_curve)
-        assert isinstance(r1, InstrumentResult)
+        assert hasattr(r1, "price") and hasattr(r1, "to_dict")
         assert math.isfinite(r1.price)
         assert isinstance(r1.to_dict(), dict)
