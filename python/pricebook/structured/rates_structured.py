@@ -34,7 +34,7 @@ class CMSSpreadRangeAccrualResult:
     n_observations: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cms_spread_range_accrual(
@@ -216,7 +216,7 @@ class InflationRangeAccrualResult:
     inflation_range_high: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def inflation_range_accrual(
@@ -276,7 +276,7 @@ class ZCSwaptionResult:
     delta: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def zc_swaption(
@@ -333,7 +333,7 @@ class InverseFloaterResult:
     floor: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def inverse_floater(
@@ -400,7 +400,7 @@ class CappedFloaterResult:
     cap_cost: float         # price difference vs uncapped FRN
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def capped_floater(

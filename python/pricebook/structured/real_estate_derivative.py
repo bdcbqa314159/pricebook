@@ -47,7 +47,7 @@ class PropertySwapResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def property_total_return_swap(
@@ -161,7 +161,7 @@ class PropertyOptionResult:
     vega: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def property_option(
@@ -273,7 +273,7 @@ class AffordabilityResult:
     price_to_income: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def housing_affordability(

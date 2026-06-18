@@ -45,7 +45,7 @@ class QForwardResult:
     pv: float                   # present value of net payment
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -58,7 +58,7 @@ class LongevitySwapResult:
     basis_risk: float               # std-dev of residual (model vs realised)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

@@ -35,7 +35,7 @@ class CMOTranche:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class TrancheCashflow:
     """Monthly cashflow for a tranche."""
@@ -47,7 +47,7 @@ class TrancheCashflow:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class CMOResult:
     """CMO structuring result."""
@@ -60,7 +60,7 @@ class CMOResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _pool_cashflows(
     pool_balance: float,
     wac: float,

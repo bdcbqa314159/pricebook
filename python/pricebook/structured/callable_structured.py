@@ -58,7 +58,7 @@ class CallableSteepenerResult:
     call_probability: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -71,7 +71,7 @@ class CallableCMSSpreadResult:
     call_probability: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -84,7 +84,7 @@ class CallableInverseFloaterResult:
     call_probability: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

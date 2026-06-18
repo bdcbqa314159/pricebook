@@ -64,7 +64,7 @@ class GMABResult:
     prob_in_the_money: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def gmab(
@@ -144,7 +144,7 @@ class GMDBResult:
     mortality_weighted_cost: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def gmdb(
@@ -226,7 +226,7 @@ class GMWBResult:
     optimal_withdrawal: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def gmwb(

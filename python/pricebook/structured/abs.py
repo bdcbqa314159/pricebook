@@ -37,7 +37,7 @@ class ABSPool:
     recovery_lag_months: int = 6    # months until recovery received
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -49,7 +49,7 @@ class ABSTranche:
     seniority: int          # 0 = most senior
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -63,7 +63,7 @@ class ABSResult:
     break_even_loss_rate: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -217,7 +217,7 @@ class CreditCardABSResult:
     charge_off_rate: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_credit_card_abs(
@@ -325,7 +325,7 @@ class StudentLoanABSResult:
     idr_pct: float          # % in income-driven repayment
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_student_loan_abs(

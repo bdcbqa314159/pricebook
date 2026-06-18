@@ -95,7 +95,7 @@ class CMSCashflow:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class CMSLeg:
     """Floating leg that pays a CMS rate (e.g. 10Y swap rate) each period.
 

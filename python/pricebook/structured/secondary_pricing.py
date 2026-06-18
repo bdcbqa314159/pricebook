@@ -33,7 +33,7 @@ class SpreadAgingResult:
     pull_to_par_effect: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def spread_aging(
@@ -95,7 +95,7 @@ class MarkToBidResult:
     liquidity_score: float      # 0 (illiquid) to 1 (liquid)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def mark_to_bid(
@@ -140,7 +140,7 @@ class StalePriceResult:
     recommendation: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def stale_price_detector(
@@ -203,7 +203,7 @@ class LiquidityPremiumResult:
     credit_component: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def liquidity_premium(

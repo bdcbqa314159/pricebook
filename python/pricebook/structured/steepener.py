@@ -32,7 +32,7 @@ class SteepenerResult:
     slope_mean: float           # expected CMS10 − CMS2
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def steepener_note(

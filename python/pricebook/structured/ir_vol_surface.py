@@ -43,7 +43,7 @@ class SABRSmileNode:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class SmileDynamicsResult:
     """Backbone / smile dynamics analysis."""
@@ -54,7 +54,7 @@ class SmileDynamicsResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calibrate_sabr_smile(
     forward: float,
     expiry: float,
@@ -122,7 +122,7 @@ class VolCubeNode:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class SwaptionVolCube:
     """Swaption vol cube: vol(expiry, tenor, strike) via SABR smiles.
 

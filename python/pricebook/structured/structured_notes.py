@@ -29,7 +29,7 @@ class CapitalProtectedResult:
     participation: float
     protection_level: float
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def capital_protected_note(
@@ -66,7 +66,7 @@ class DualDigitalResult:
     prob_both: float
     payout: float
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def dual_digital(
@@ -109,7 +109,7 @@ class BonusCertificateResult:
     barrier: float
     barrier_hit_probability: float
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def bonus_certificate(
@@ -152,7 +152,7 @@ class OutperformanceCertResult:
     cap: float | None
     expected_return: float
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def outperformance_certificate(
@@ -225,7 +225,7 @@ class ParticipationNoteResult:
     protection_level: float     # fraction of principal protected (0 to 1)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def participation_note(

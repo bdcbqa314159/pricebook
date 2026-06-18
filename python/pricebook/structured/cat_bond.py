@@ -47,7 +47,7 @@ class CatBondResult:
     exhaustion_prob: float      # probability of full principal loss
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

@@ -133,7 +133,7 @@ class MBSPool:
     servicing_fee: float = 0.0025  # annual servicing strip
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -148,7 +148,7 @@ class MBSResult:
     cashflows: int          # number of cashflow periods
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -162,7 +162,7 @@ class OASResult:
     prepay_convexity: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_mbs(
@@ -333,7 +333,7 @@ class IOPOResult:
     po_wal: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def io_po_strips(
