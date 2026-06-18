@@ -172,7 +172,7 @@ class SupranationalBondResult:
     rating: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_supranational(
@@ -236,7 +236,7 @@ class SupraRVResult:
     peer_rank: int              # rank within peer group (1 = tightest)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def supranational_rv(

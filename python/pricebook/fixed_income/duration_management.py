@@ -27,7 +27,7 @@ class KeyRateDV01:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class DV01Ladder:
     """Per-tenor DV01 exposure for a book."""
@@ -52,7 +52,7 @@ class DV01Ladder:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def build_dv01_ladder(
     book_name: str,
     tenor_dv01s: dict[str, float],
@@ -77,7 +77,7 @@ class CurveDV01:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def curve_dv01(
     dv01_2y: float,
     dv01_5y: float,
@@ -110,7 +110,7 @@ class DurationTarget:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def duration_target_tracking(
     book_duration: float,
     target_duration: float,
@@ -143,7 +143,7 @@ class HedgeInstrumentKRD:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class KRDHedgeAllocation:
     """Quantity of each hedge instrument."""
@@ -153,7 +153,7 @@ class KRDHedgeAllocation:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def optimal_krd_hedge(
     book_ladder: dict[str, float],
     instruments: list[HedgeInstrumentKRD],
@@ -225,7 +225,7 @@ class BarbellVsBullet:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def barbell_vs_bullet(
     short_duration: float,
     short_convexity: float,

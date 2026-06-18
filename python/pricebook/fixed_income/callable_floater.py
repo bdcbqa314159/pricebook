@@ -64,7 +64,7 @@ class CallableFloaterResult:
     expected_call_date: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

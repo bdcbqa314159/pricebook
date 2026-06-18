@@ -109,7 +109,7 @@ class MortgageBondResult:
     callable_value: float       # value of prepayment option to borrower
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class DanishMortgageBond:

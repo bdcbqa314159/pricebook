@@ -75,7 +75,7 @@ class DeliverableBond:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---- Cheapest-to-deliver ----
 
 @dataclass
@@ -260,7 +260,7 @@ class ForwardBondPrice:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def forward_bond_price(
     dirty_price: float,
     repo_rate: float,
@@ -311,7 +311,7 @@ class BasketBondAnalytics:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class DeliveryBasketResult:
     """Full delivery basket analysis."""
@@ -321,7 +321,7 @@ class DeliveryBasketResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def delivery_basket(
     deliverables: list[DeliverableBond],
     futures_price: float,
@@ -414,7 +414,7 @@ class CalendarSpreadResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def calendar_spread(
     front_price: float,
     back_price: float,

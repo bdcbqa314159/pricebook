@@ -92,7 +92,7 @@ class GreeniumResult:
     confidence: str             # "high" if matched pair, "medium" if interpolated
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -106,7 +106,7 @@ class ESGAdjustedSpreadResult:
     issuer: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def greenium(

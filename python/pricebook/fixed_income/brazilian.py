@@ -173,7 +173,7 @@ class DIFutureResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class DIFuture:
@@ -248,7 +248,7 @@ class DISwapResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class DISwap:
@@ -345,7 +345,7 @@ class LFTResult:
     spread_dv01: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class LFTBond:

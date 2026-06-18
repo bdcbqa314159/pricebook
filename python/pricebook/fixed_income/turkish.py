@@ -79,7 +79,7 @@ def build_try_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class TLREFSwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class TLREFSwap:
@@ -146,7 +146,7 @@ class TURKGBBond:
 @dataclass
 class TurkishCPILinkerResult:
     real_price: float; nominal_price: float; cpi_ratio: float; real_yield: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class TurkishCPILinker:

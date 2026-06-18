@@ -24,7 +24,7 @@ class SeasonalFactors:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def estimate_seasonal_factors(
     monthly_cpi_changes_pct: list[float],
 ) -> SeasonalFactors:
@@ -61,7 +61,7 @@ class DeseasonalisedBreakevenResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def deseasonalise_breakeven(
     raw_breakeven: float, seasonal_factors: SeasonalFactors,
     current_month: int, months_to_maturity: int,
@@ -88,7 +88,7 @@ class SeasonalCarrySignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def seasonal_carry_signal(
     seasonal_factors: SeasonalFactors, current_month: int,
 ) -> SeasonalCarrySignal:

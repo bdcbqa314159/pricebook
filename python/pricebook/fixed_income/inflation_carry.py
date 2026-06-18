@@ -23,7 +23,7 @@ class RealYieldRolldownResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def real_yield_rolldown(
     tenors: list[float], real_yields: list[float],
     position_tenor: float, horizon: float = 1.0,
@@ -45,7 +45,7 @@ class LinkerCarryResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def linker_carry_decomposition(
     real_yield: float, breakeven: float, repo_rate: float,
     duration: float, horizon: float = 1.0,
@@ -71,7 +71,7 @@ class InflationCarryVolResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def inflation_carry_vs_vol(
     carry_bps: float, breakeven_vol_bps: float,
 ) -> InflationCarryVolResult:

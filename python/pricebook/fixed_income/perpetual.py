@@ -35,7 +35,7 @@ class PerpetualBond:
     currency: str = "EUR"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -48,7 +48,7 @@ class PerpetualPricingResult:
     call_value: float                # value of the call option to the issuer
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_perpetual(

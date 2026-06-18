@@ -131,7 +131,7 @@ class BondForwardResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class BondForward:
     """Forward contract on a fixed-rate bond.
 

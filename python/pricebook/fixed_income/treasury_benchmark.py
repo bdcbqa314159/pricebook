@@ -290,7 +290,7 @@ class CTDTransition:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def ctd_switch_analysis(
     deliverables: list[dict],
     yield_range: tuple[float, float] = (-0.01, 0.01),

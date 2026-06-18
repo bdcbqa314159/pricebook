@@ -31,7 +31,7 @@ class ExtendibleSwapResult:
     extended_maturity_years: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -42,7 +42,7 @@ class ExtendibleBondResult:
     extension_option_value: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def extendible_swap_price(

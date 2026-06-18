@@ -32,7 +32,7 @@ class RepoRate:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class RepoCurve:
     """Term structure of repo rates.
 
@@ -196,7 +196,7 @@ class SpecialRepoSpread:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def identify_specials(
     gc_rate: float,
     collateral_rates: dict[str, float],

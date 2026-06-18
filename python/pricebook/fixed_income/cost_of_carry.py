@@ -31,7 +31,7 @@ class CostOfCarryResult:
     contango: bool              # F > S
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cost_of_carry(
@@ -83,7 +83,7 @@ class ArbitrageResult:
     feasible: bool              # profit > transaction_cost
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cash_and_carry_arb(

@@ -58,7 +58,7 @@ def build_zar_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class JIBARSwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class JIBARSwap:
@@ -131,7 +131,7 @@ class SAILBResult:
     cpi_ratio: float
     real_yield: float
 
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class SAILBBond:

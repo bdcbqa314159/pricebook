@@ -23,7 +23,7 @@ class FailCascadeResult:
     n_affected: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def propagate_fails(
@@ -77,7 +77,7 @@ class BuyInResult:
     penalty_cost: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def buy_in_process(

@@ -29,7 +29,7 @@ class Cashflow:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 from pricebook.core.notional import normalize_notional as _normalize_notional
 
 

@@ -47,7 +47,7 @@ class RepoCurve:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def build_repo_curve(
     tenors_days: list[int],
     rates_pct: list[float],
@@ -75,7 +75,7 @@ class RepoOISSpread:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def repo_spread_to_ois(
     repo_curve: RepoCurve,
     ois_rate_pct: float,
@@ -120,7 +120,7 @@ class SpecialBond:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def identify_specials(
     gc_rate_pct: float,
     bond_repo_rates: dict[str, float],
@@ -163,7 +163,7 @@ class RepoCounterparty:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class FinancingPlan:
     """Result of multi-counterparty financing optimisation."""
@@ -176,7 +176,7 @@ class FinancingPlan:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def optimise_financing(
     notional_needed: float,
     counterparties: list[RepoCounterparty],
@@ -233,7 +233,7 @@ class HaircutCurve:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def repo_haircut_curve(
     asset_type: str = "treasury",
 ) -> HaircutCurve:

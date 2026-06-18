@@ -79,7 +79,7 @@ def build_czk_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class PRIBORSwapResult:
     pv: float; fixed_rate: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class PRIBORSwap:
@@ -140,7 +140,7 @@ class PRIBORSwap:
 @dataclass
 class CZEONIASwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class CZEONIASwap:
@@ -205,7 +205,7 @@ class CZGBBond:
 @dataclass
 class CZGBLinkerResult:
     real_price: float; nominal_price: float; cpi_ratio: float; real_yield: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class CZGBLinker:

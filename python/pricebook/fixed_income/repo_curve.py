@@ -153,7 +153,7 @@ class SpecialGCSpread:
     tenor_days: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def special_gc_spread(
@@ -192,7 +192,7 @@ class RepoCarryResult:
     repo_rate_used: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def repo_carry_from_curve(

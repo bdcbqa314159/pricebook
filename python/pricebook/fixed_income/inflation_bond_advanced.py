@@ -33,7 +33,7 @@ class RealYieldCurveResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def real_yield_curve_bootstrap(
     linker_prices: list[float],
     notionals: list[float],
@@ -95,7 +95,7 @@ class BreakevenTradeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def breakeven_trade(
     nominal_yield_pct: float,
     real_yield_pct: float,
@@ -135,7 +135,7 @@ class SeasonalBreakevenResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def seasonality_adjusted_breakeven(
     raw_breakeven_pct: float,
     seasonal_factor: float,
@@ -169,7 +169,7 @@ class LinkerASWResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def linker_asw(
     linker_real_yield_pct: float,
     real_swap_rate_pct: float,
@@ -199,7 +199,7 @@ class DeflationFloorResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def deflation_floor_value(
     breakeven: float,
     inflation_vol: float,

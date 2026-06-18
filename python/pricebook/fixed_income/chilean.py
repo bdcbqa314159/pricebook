@@ -128,7 +128,7 @@ class CamaraSwapResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class CamaraSwap:
@@ -223,7 +223,7 @@ class BCUResult:
     real_yield: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class BCUBond:

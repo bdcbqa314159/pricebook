@@ -60,7 +60,7 @@ class CreditCollateralSpec:
     market_value: float = 100.0
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -73,7 +73,7 @@ class CreditAdjustedHaircutResult:
     collateral_asset_class: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def credit_adjusted_haircut(

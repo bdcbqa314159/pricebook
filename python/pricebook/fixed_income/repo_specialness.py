@@ -77,7 +77,7 @@ class SpecialnessForecast:
     z_score: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def forecast_specialness(

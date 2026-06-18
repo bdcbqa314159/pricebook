@@ -30,7 +30,7 @@ class ConvexityResult:
     model: str                  # "sabr", "hw", or "empirical"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def sabr_convexity_adjustment(

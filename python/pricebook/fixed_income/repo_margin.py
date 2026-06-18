@@ -23,7 +23,7 @@ class MarginCallResult:
     direction: str               # "receive" or "deliver"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def calculate_vm(

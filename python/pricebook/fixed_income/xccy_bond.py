@@ -33,7 +33,7 @@ class XccyBondResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def fx_hedged_yield(
     foreign_ytm: float,
     domestic_rate: float,

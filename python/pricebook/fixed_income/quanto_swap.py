@@ -40,7 +40,7 @@ class QuantoSwapResult:
     adjusted_rate_avg: float    # average quanto-adjusted rate
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def quanto_swap_price(
@@ -155,7 +155,7 @@ class DifferentialSwapResult:
     n_periods: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def differential_swap_price(
@@ -295,7 +295,7 @@ class QuantoFRAResult:
     adjustment_bps: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def quanto_fra(

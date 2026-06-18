@@ -30,7 +30,7 @@ class ImmunisationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def key_rate_immunise(
     portfolio_krd: list[float],
     hedge_instruments_krd: list[list[float]],
@@ -72,7 +72,7 @@ class BarbellBulletResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def barbell_bullet_analysis(
     short_dv01: float,
     long_dv01: float,
@@ -133,7 +133,7 @@ class LDIMatchResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def ldi_cashflow_match(
     liability_cashflows: list[tuple[float, float]],   # (time, amount)
     asset_cashflows: list[tuple[float, float]],       # (time, amount)
@@ -188,7 +188,7 @@ class CrossCurrencyHedgeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_currency_duration_hedge(
     domestic_dv01: float,
     foreign_dv01: float,

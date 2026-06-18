@@ -53,7 +53,7 @@ def build_nok_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class NOWASwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class NOWASwap:

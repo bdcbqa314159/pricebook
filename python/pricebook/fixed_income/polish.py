@@ -79,7 +79,7 @@ def build_pln_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class WIBORSwapResult:
     pv: float; fixed_rate: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class WIBORSwap:
@@ -140,7 +140,7 @@ class WIBORSwap:
 @dataclass
 class WIRONSwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class WIRONSwap:
@@ -205,7 +205,7 @@ class POLGBBond:
 @dataclass
 class POLGBLinkerResult:
     real_price: float; nominal_price: float; cpi_ratio: float; real_yield: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class POLGBLinker:

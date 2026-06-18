@@ -115,7 +115,7 @@ class SettlementFail:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class FailsTracker:
     """Track and cost settlement fails."""
 

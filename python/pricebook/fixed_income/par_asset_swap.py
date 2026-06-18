@@ -44,7 +44,7 @@ class AssetSwapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def forward_asw_spread(
     bond_rf_price: float,
     bond_risky_price: float,

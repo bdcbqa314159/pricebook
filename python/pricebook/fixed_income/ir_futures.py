@@ -217,7 +217,7 @@ class PackResult:
     n_contracts: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def futures_pack(
@@ -261,7 +261,7 @@ class BundleResult:
     years: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def futures_bundle(
@@ -306,7 +306,7 @@ class FuturesButterfly:
     back_price: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def futures_butterfly(

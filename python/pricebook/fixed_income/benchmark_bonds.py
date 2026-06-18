@@ -58,7 +58,7 @@ class BondConvention:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 UST = BondConvention("US", DayCountConvention.ACT_ACT_ICMA, Frequency.SEMI_ANNUAL, 1, "32nds", [2, 3, 5, 7, 10, 20, 30])
 BUND = BondConvention("DE", DayCountConvention.ACT_ACT_ICMA, Frequency.ANNUAL, 2, "decimal", [2, 5, 10, 30])
 GILT = BondConvention("GB", DayCountConvention.ACT_ACT_ICMA, Frequency.SEMI_ANNUAL, 1, "decimal", [5, 10, 30])
@@ -218,7 +218,7 @@ class NSSParams:
         return self.beta0 + self.beta1 * e1 + self.beta2 * e2 + self.beta3 * e3
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def fitted_curve_nss(
@@ -278,7 +278,7 @@ class SpreadTradeResult:
     carry_30d: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def duration_neutral_spread(
@@ -394,7 +394,7 @@ class BarbellBulletResult:
     breakeven_shift_bps: float    # parallel shift where barbell = bullet
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def barbell_vs_bullet(

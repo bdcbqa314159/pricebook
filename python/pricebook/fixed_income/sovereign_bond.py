@@ -52,7 +52,7 @@ class SovereignSpreadCurve:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def build_spread_curve(
     country: str,
     benchmark: str,
@@ -81,7 +81,7 @@ class SovereignBasisResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def sovereign_basis(
     bond_yield_pct: float,
     swap_rate_pct: float,
@@ -135,7 +135,7 @@ class CrossCountryRV:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cross_country_rv(
     country1: str,
     country2: str,
@@ -179,7 +179,7 @@ class AuctionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def auction_analytics(
     instrument: str,
     amount_offered: float,
@@ -243,7 +243,7 @@ class OTROFRResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def otr_ofr_analysis(
     tenor: float,
     otr_yield_pct: float,

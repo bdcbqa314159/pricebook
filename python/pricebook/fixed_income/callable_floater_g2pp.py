@@ -71,7 +71,7 @@ class CallableFloaterG2PPResult:
     two_factor_premium: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 # ---------------------------------------------------------------------------

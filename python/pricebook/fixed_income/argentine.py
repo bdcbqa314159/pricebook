@@ -69,7 +69,7 @@ class LecapResult:
     days: int
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class LecapBond:
@@ -105,7 +105,7 @@ class LecerResult:
     real_yield: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class LecerBond:

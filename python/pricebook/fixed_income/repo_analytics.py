@@ -47,7 +47,7 @@ class CTDRepoCandidate:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cheapest_to_deliver_repo(
     candidates: list[CTDRepoCandidate],
 ) -> CTDRepoCandidate | None:
@@ -75,7 +75,7 @@ class TermVsOvernightResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def term_vs_overnight(
     face_amount: float,
     bond_price: float,

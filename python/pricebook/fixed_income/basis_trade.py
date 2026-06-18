@@ -40,7 +40,7 @@ class BasisResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cds_bond_basis(
     cds: CDS,
     bond: RiskyBond,
@@ -89,7 +89,7 @@ class BasisTradeResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def negative_basis_trade(
     cds: CDS,
     bond: RiskyBond,
@@ -168,7 +168,7 @@ class BasisSignal:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def basis_monitor(
     name: str,
     current_basis: float,

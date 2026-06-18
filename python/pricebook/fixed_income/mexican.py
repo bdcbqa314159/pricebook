@@ -162,7 +162,7 @@ class TIIESwapResult:
     notional: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class TIIESwap:
@@ -250,7 +250,7 @@ class CETESResult:
     face: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class CETESBill:
@@ -297,7 +297,7 @@ class UDIBondResult:
     real_yield: float      # real yield (UDI-denominated)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 class UDIBond:

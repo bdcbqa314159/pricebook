@@ -27,7 +27,7 @@ class Bid:
     is_competitive: bool = True  # non-competitive bids filled at clearing
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass

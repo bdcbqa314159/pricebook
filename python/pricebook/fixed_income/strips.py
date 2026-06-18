@@ -35,7 +35,7 @@ class StripSecurity:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class StripResult:
     """Result of stripping a bond."""
@@ -46,7 +46,7 @@ class StripResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def strip_bond(bond: FixedRateBond) -> StripResult:
     """Strip a coupon bond into C-STRIPS and P-STRIP.
 

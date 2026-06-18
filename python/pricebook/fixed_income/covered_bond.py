@@ -30,7 +30,7 @@ class CoverPool:
     country: str = ""
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -43,7 +43,7 @@ class CoveredBondResult:
     oc_cushion_pct: float        # overcollateralisation buffer
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def price_covered_bond(

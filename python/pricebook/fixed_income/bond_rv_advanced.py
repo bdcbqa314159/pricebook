@@ -33,7 +33,7 @@ class IssuerCurveFitResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def _ns_yield(t, b0, b1, b2, tau):
     if t < 1e-10:
         return b0 + b1
@@ -84,7 +84,7 @@ class InvoiceSpreadResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def invoice_spread(
     bond_asw_bps: float,
     futures_implied_asw_bps: float,
@@ -110,7 +110,7 @@ class OISASWResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def ois_asw_decomposition(
     bond_yield_pct: float,
     swap_rate_pct: float,
@@ -140,7 +140,7 @@ class PCAResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def bond_yield_pca(
     yield_changes: np.ndarray,      # (n_obs, n_tenors)
     n_components: int = 3,

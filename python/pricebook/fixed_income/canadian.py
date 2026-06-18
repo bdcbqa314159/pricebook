@@ -58,7 +58,7 @@ def build_corra_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class CORRASwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class CORRASwap:
@@ -87,7 +87,7 @@ class CORRASwap:
 @dataclass
 class RRBResult:
     real_price: float; nominal_price: float; cpi_ratio: float; real_yield: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class RRBBond:
@@ -189,7 +189,7 @@ def synthetic_cgb_strip(reference_date: date) -> list[dict]:
 @dataclass
 class CanadianIRSResult:
     pv: float; fixed_rate: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class CanadianIRS:

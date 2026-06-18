@@ -84,7 +84,7 @@ class CSA:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def required_collateral(exposure: float, csa: CSA) -> float:
     """Compute collateral required given current exposure and CSA terms.
 
@@ -140,7 +140,7 @@ class FundingModel:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 # ---------------------------------------------------------------------------
 # Generic PV adjustments — works with any trade
 # ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ class CSADiscountResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def csa_discount_curve(
     csa: CSA,
     trade_currency: str,
@@ -352,7 +352,7 @@ class CTDCollateralResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cheapest_collateral(
     eligible_currencies: list[str],
     collateral_rates: dict[str, float],
@@ -414,7 +414,7 @@ class ClearedBilateralComparison:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def cleared_vs_bilateral(
     cleared_im: float,
     bilateral_im: float,
@@ -485,7 +485,7 @@ class NonCashCollateralAsset:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class NonCashDiscountResult:
     """Result of non-cash collateral discount curve computation."""
@@ -497,7 +497,7 @@ class NonCashDiscountResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def non_cash_collateral_discount_rate(
     collateral_pool: list[NonCashCollateralAsset],
     funding_rate: float,

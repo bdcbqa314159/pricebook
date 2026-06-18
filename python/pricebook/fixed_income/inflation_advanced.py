@@ -36,7 +36,7 @@ class YoYConvexityResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def yoy_convexity_adjustment(
     zc_inflation_rate: float,
     nominal_vol: float,
@@ -90,7 +90,7 @@ class LPIResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def lpi_swap_price(
     notional: float,
     zc_inflation_rate: float,
@@ -175,7 +175,7 @@ class InflationSwaptionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def inflation_swaption_price(
     notional: float,
     forward_breakeven: float,
@@ -229,7 +229,7 @@ class RealRateSwaptionResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def real_rate_swaption_price(
     notional: float,
     forward_real_rate: float,

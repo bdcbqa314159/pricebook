@@ -46,7 +46,7 @@ class FloatingCashflow:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class FloatingLeg:
     """
     A sequence of floating-rate coupons.

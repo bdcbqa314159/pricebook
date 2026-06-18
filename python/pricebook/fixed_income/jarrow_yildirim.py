@@ -38,7 +38,7 @@ class JYParams:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 @dataclass
 class JYSimulationResult:
     """JY simulation result."""
@@ -53,7 +53,7 @@ class JYSimulationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 class JarrowYildirim:
     """Jarrow-Yildirim three-factor inflation model.
 
@@ -198,7 +198,7 @@ class JYZCSwapResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def jy_zc_inflation_swap(
     params: JYParams,
     r_n0: float,
@@ -281,7 +281,7 @@ class JYCapletResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def jy_yoy_caplet(
     params: JYParams,
     r_n0: float,
@@ -340,7 +340,7 @@ class JYCalibrationResult:
 
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 def jy_calibrate(
     zc_swap_rates: dict[float, float],      # {T: fair_ZC_rate}
     r_n0: float,

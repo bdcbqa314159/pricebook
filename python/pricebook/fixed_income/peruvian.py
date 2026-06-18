@@ -71,7 +71,7 @@ class BTPPeru:
 @dataclass
 class VACResult:
     real_price: float; nominal_price: float; ipc_value: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class VACBond:

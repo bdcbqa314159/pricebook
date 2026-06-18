@@ -22,7 +22,7 @@ class RepoGreeksResult:
     duration_mismatch: float     # bond duration - repo tenor (gap risk)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def repo_dv01(
@@ -76,7 +76,7 @@ class CarrySensitivityBucket:
     pct_of_total: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def carry_sensitivity_ladder(
@@ -129,7 +129,7 @@ class RepoPortfolioGreeks:
     weighted_avg_tenor_days: float
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def repo_portfolio_greeks(trades: list[dict]) -> RepoPortfolioGreeks:

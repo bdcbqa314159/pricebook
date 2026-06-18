@@ -32,7 +32,7 @@ class CancellableSwapResult:
     par_rate_cancellable: float     # adjusted par rate for cancellable
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def cancellable_swap_price(

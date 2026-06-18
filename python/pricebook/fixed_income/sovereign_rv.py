@@ -39,7 +39,7 @@ class SovereignRVInput:
     turnover_ratio: float = 1.0 # Trading volume / outstanding (liquidity)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -53,7 +53,7 @@ class SpreadDecomposition:
     technical_bp: float         # Positioning / flow effects (residual)
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 @dataclass
@@ -70,7 +70,7 @@ class RVScore:
     signal: str                 # "CHEAP", "FAIR", "RICH"
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def sovereign_spread_decomposition(

@@ -30,7 +30,7 @@ class CarryBreakevenResult:
     term_vs_on_pickup_bp: float  # carry advantage of term vs O/N
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def carry_breakeven(
@@ -101,7 +101,7 @@ class XCCYCarryResult:
     foreign_currency: str
 
     def to_dict(self) -> dict:
-        return vars(self)
+        return dict(vars(self))
 
 
 def xccy_repo_carry(

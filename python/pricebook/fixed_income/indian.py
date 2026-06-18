@@ -59,7 +59,7 @@ def build_inr_curve(reference_date: date, strip: list[dict]) -> DiscountCurve:
 @dataclass
 class MIBORSwapResult:
     pv: float; par_rate: float; dv01: float; notional: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class MIBORSwap:
@@ -127,7 +127,7 @@ class GSECBond:
 @dataclass
 class IIBResult:
     real_price: float; nominal_price: float; cpi_ratio: float; real_yield: float
-    def to_dict(self) -> dict: return vars(self)
+    def to_dict(self) -> dict: return dict(vars(self))
 
 
 class IIBBond:
