@@ -2,6 +2,48 @@
 
 ---
 
+## v1.109.0 — 2026-06-19 — **T-ICMA-SLICE2: 4 remaining unsafe sites fixed; library now ready for the strict-icma flip**
+
+A.1 B1 migration, slice 2 of 3. Empirical method: temporarily flipped `strict_icma=True` and ran the full 12,796-test library suite to discover which callsites would fail under strict mode. Result: **6 failures total. 3 are legacy-contract tests** (they explicitly pin the silent-fallback behaviour — Slice 3 will update them). **3 are real production regressions, all fixed in this slice.**
+
+**Fix 1 — `fixed_income/benchmark_bonds.py:177`** (`par_yield_curve`)
+
+Pre-fix: `T = year_fraction(settle, bond.maturity, bond.day_count)` where `bond.day_count` could be ACT/ACT ICMA. `T` was only used as `int(T × periods_per_year)` to estimate coupon count — exact ICMA precision wasn't needed. Switched to explicit `DayCountConvention.ACT_365_FIXED`. The spans-multiple-periods nature means ICMA refs aren't meaningful here.
+
+**Fix 2 — `fixed_income/floating_leg.py:119`** (`FloatingLeg.__init__`)
+
+Pre-fix: `yf = year_fraction(accrual_start, accrual_end, day_count)`. Now passes ICMA refs proactively (`ref_start=accrual_start, ref_end=accrual_end, frequency=12//frequency.value`). The `accrual_start/end` ARE the coupon-period anchors — data was already there. Harmless for non-ICMA day counts since `year_fraction` ignores them.
+
+Note: `FloatingLeg`'s default `day_count=ACT_360`, but `_frn_from_convention` (called by `create_sovereign_frn` for BTPFRN) passes `ACT_ACT_ICMA` for the Italian sovereign FRN convention — exactly the path that the `test_create_btpfrn` regression exercises.
+
+**Fix 3 — `credit/cln.py:156, 205`** (`CLN.dirty_price` premium + recovery legs)
+
+Two sites in CLN pricing — both compute coupon-period year fractions. CLN.day_count can be ICMA when the CLN is built from a UST/Bund/Gilt convention. Same fix as floating_leg: pass `ref_start=t_start, ref_end=t_end, frequency=12//self.frequency.value`.
+
+**Fix 4 — `desks/repo_desk.py:196`** (`RepoTrade.carry`)
+
+Pre-fix: `yf = _year_fraction(sd, mat, self.bond.day_count)` where `sd → mat` spans multiple coupon periods (repo carry on a multi-year UST). Switched to explicit `ACT/365F` — same rationale as benchmark_bonds: ICMA refs aren't meaningful across multiple periods, and the repo carry formula is approximate enough that the difference is negligible.
+
+**Verification method (worth noting):**
+
+Slice 2 used "flip the default and run the whole suite" as an audit primitive. Cheaper and more reliable than trying to grep+reason through every dynamic-dispatch `year_fraction(..., self.day_count)` callsite (40+ candidates across the library, most of which use `ACT/360` / `ACT/365F` for vol/swap/credit conventions and would never trip strict-mode). The 6 failures from one experimental flip were a complete inventory.
+
+**Slice 3 (next) needs:**
+1. Update the 3 legacy-contract tests in `test_day_count.py` and `test_fi_hardening.py` — they should explicitly pass `strict_icma=False` to assert the legacy behaviour, instead of relying on the default.
+2. Flip the `strict_icma=False → True` default in `year_fraction()` and `_act_act_icma()`.
+3. Confirm 12,796 / 12,796 passing under strict default.
+
+**Files changed**:
+- `python/pricebook/fixed_income/benchmark_bonds.py` — par_yield_curve T calculation → ACT/365F.
+- `python/pricebook/fixed_income/floating_leg.py` — proactive ICMA refs at line 119.
+- `python/pricebook/credit/cln.py` — proactive ICMA refs at lines 156 + 205.
+- `python/pricebook/desks/repo_desk.py` — carry yf → ACT/365F + import `DayCountConvention`.
+
+L3-scoped pytest at strict=False (current default): 8286 passed.
+Strict=True dry-run: 12790 passed, 6 failed (all 6 expected — 3 production sites now fixed, 3 legacy-contract tests pending Slice 3).
+
+---
+
 ## v1.108.0 — 2026-06-19 — **T-ICMA-SLICE1: bond.py is strict-icma-safe (A.1 B1 migration, slice 1 of 3)**
 
 User asked to work on the A.1 B1 final-slice migration — the multi-slice campaign to flip the `strict_icma=True` default in `core/day_count.year_fraction()`. Plan:
