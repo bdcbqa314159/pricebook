@@ -2,6 +2,42 @@
 
 ---
 
+## v1.108.0 — 2026-06-19 — **T-ICMA-SLICE1: bond.py is strict-icma-safe (A.1 B1 migration, slice 1 of 3)**
+
+User asked to work on the A.1 B1 final-slice migration — the multi-slice campaign to flip the `strict_icma=True` default in `core/day_count.year_fraction()`. Plan:
+
+* **Slice 1 (this)**: fix the canonical site `fixed_income/bond.py`. It contains the original A.1 B1 motivating bug (UST coupons silently priced at 1.9836 or 2.0164 per 100 instead of exactly 2.0000 because `year_fraction(..., ACT_ACT_ICMA, ...)` was called without coupon-period anchors and silently fell back to ACT/365F).
+* **Slice 2 (future)**: audit non-fixed_income callsites + any country files still relying on silent fallback.
+* **Slice 3 (future)**: flip `strict_icma=False → True` default in `year_fraction()`. Full library suite must stay green.
+
+**Scope of slice 1:**
+
+Audit found 22 files use `ACT_ACT_ICMA`. Most country files (czech, danish, norwegian, polish, british, korean's `_DC_ICMA` alias, etc.) already pass `ref_start`/`ref_end`/`frequency` explicitly. The pure convention tables (`benchmark_bonds.py`, `sovereign_bonds.py`, `inflation_indices.py`) reference the enum without calling `year_fraction` directly. **The single unsafe production site is `bond.py`'s `accrued_interest` + `_ytm_time_to`.**
+
+**Changes in `bond.py`:**
+
+* `accrued_interest` (lines 131-149): both `year_fraction(...)` calls now pass `ref_start=cf.accrual_start, ref_end=cf.accrual_end, frequency=12 // months_per_coupon`. The containing accrual period IS the ICMA reference period — the data was already there, it just wasn't being passed.
+* `_ytm_time_to` (lines 290-342): the function's happy path already counted coupon periods exactly (the "Fix A.1 B1 Slice 4" comment hints this was earlier partial work). The 3 intentional fallback branches (`coupons_per_year is None`, `target not in coupon_dates`, `settle outside coupon range`) were relying on the silent ICMA→ACT/365F fallback inside `year_fraction`. Made the intent explicit: each now calls `year_fraction(..., DayCountConvention.ACT_365_FIXED)`. Same numerical behaviour; flipping the strict default won't break them.
+
+**Regression tests (2 new in `tests/test_bond_strict_icma.py`):**
+
+* `test_bond_strict_icma_smoke` — monkeypatches `year_fraction`'s default to `strict_icma=True` and exercises `accrued_interest`, `_ytm_time_to`, and `yield_to_maturity` on a UST-like bond. Pre-fix this would have raised `ValueError("ACT/ACT ICMA requires coupon-period anchors")`. Post-fix it passes.
+* `test_bond_accrued_uses_proper_icma_not_act365f` — pins accrued = `coupon × (days_into / period_days) / coupons_per_year × 100` (the proper ICMA formula). Asserts this value differs from the silent-ACT/365F fallback `coupon × days_into / 365 × 100`. The two values are observably different — pre-fix the bond returned the wrong one.
+
+**Files changed**:
+- `python/pricebook/fixed_income/bond.py` — +12 / -4 (`accrued_interest` passes ICMA refs; 3 `_ytm_time_to` fallbacks now explicit ACT/365F).
+- `python/tests/test_bond_strict_icma.py` (new) — 2 regression tests + helpers.
+
+**Pre-flip status (after this slice):**
+* `bond.py` ✅ strict-icma-safe.
+* `bond_curve.py` ✅ already strict-safe (explicit `if dc == ACT_ACT_ICMA:` dispatch with refs).
+* Country files (czech, danish, norwegian, polish, british, korean) ✅ already strict-safe.
+* **Pending verification before Slice 3:** the remaining 16+ files (australian, chinese, hong_kong, indonesian, malaysian, singaporean, swedish, swiss, thai, danish_mortgage, sovereign_bonds, etc.) — most are convention-table-only, but each will be audited in Slice 2.
+
+L3-scoped pytest: 8286 passed (was 8284 + 2 new). 305s.
+
+---
+
 ## v1.107.0 — 2026-06-19 — **T-LOW-CLEANUP: close 5 LOW correctness items (C.8 B1 + A.11 B4-B7) + 9 regression tests**
 
 User asked to close the remaining LOW items from `AUDIT_L0_CORE.md`. Verified state first — 2 items (D.1 B3, A.11 B1/B2) were already fixed in prior sessions. The remaining 5 are bundled into this single closing slice. Two ledger items are intentionally **not** closed: `A.1 B1 final-slice` (many-slice migration) and `B.3 C1` (architecture decision requiring Gate 2 sign-off).
