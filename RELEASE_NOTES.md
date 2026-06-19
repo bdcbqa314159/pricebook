@@ -2,6 +2,54 @@
 
 ---
 
+## v1.110.0 — 2026-06-19 — **T-ICMA-SLICE3 + A.1 B1 COMPLETE 🏁: flip `strict_icma=True` default**
+
+A.1 B1 migration, slice 3 of 3 — the actual default-flip. Three changes:
+
+**1. Default flipped: `strict_icma: bool = False` → `True`**
+
+In `core/day_count.year_fraction()`. From v1.110.0 onwards, any caller invoking `year_fraction(..., DayCountConvention.ACT_ACT_ICMA, ...)` without `ref_start`, `ref_end`, and `frequency` raises `ValueError("ACT/ACT ICMA requires coupon-period anchors. Missing: ...")` rather than silently degrading to ACT/365F. This closes the original A.1 B1 *HIGH*-severity finding that motivated the entire audit chain — UST coupons silently priced at 1.9836 / 2.0164 instead of exactly 2.0000.
+
+The flag is still accepted (default-only change), so callers that genuinely want the legacy degradation can opt in with `strict_icma=False`. No production caller does post-T-ICMA-SLICE2.
+
+**2. Docstring updated**
+
+Explicit note that the default flipped on 2026-06-19 in T-ICMA-SLICE3, with a pointer to why the opt-out exists (legacy test fixtures).
+
+**3. Three legacy-contract tests updated to opt-in explicitly**
+
+* `test_day_count.py::test_legacy_fallback_missing_refs` — added `strict_icma=False`, renamed docstring to reflect the post-flip world.
+* `test_day_count.py::test_strict_legacy_callers_unaffected_by_default` — split into two tests:
+  * `test_legacy_opt_in_still_degrades_to_act365f` — verifies the explicit-`False` opt-out still works.
+  * `test_default_is_strict_post_slice3` — NEW: pins the new default by asserting the bare call now raises.
+* `test_fi_hardening.py::test_fallback_without_ref_dates` — added `strict_icma=False`, updated docstring.
+
+**Pre-flip audit chain recap:**
+
+* **Slice 1 (v1.108.0)**: fixed the canonical site `bond.py` — `accrued_interest` passes ICMA refs; `_ytm_time_to` fallbacks use explicit ACT/365F. +2 regression tests.
+* **Slice 2 (v1.109.0)**: empirical full-suite flip discovered 3 remaining production sites (`benchmark_bonds.py par_yield_curve`, `floating_leg.py FRN accrual`, `cln.py CLN protection legs`, `repo_desk.py carry`). All fixed.
+* **Slice 3 (this)**: legacy tests opt-in, default flipped, full suite 12,797 / 12,797 passing.
+
+**Verification:**
+
+Full library pytest at strict=True default: **12,797 passed**. 0 failed. ~6 min.
+
+**Slice count:** 3 slices for the migration (1 canonical fix + 1 sweep + 1 flip), as the ledger anticipated ("Many slices").
+
+---
+
+# A.1 B1 — closed.
+
+The single open item from the original L0 audit summary ("A.1 B1 final-slice — flip `strict_icma=True` default after auditing remaining callers. Many slices.") is now done. The pricebook codebase rejects mis-used ACT/ACT ICMA at the source rather than silently mispricing bonds.
+
+**Remaining open in `AUDIT_L0_CORE.md`** (single item, intentionally deferred):
+
+* **B.3 C1** — legacy `core.market_data` vs new `pricebook.market_data` (G1 P2). Architecture decision pending Gate 2 sign-off; not a correctness bug.
+
+Every other catalogued item — HIGH, MEDIUM, and LOW — is now closed or held-as-is with explicit rationale.
+
+---
+
 ## v1.109.0 — 2026-06-19 — **T-ICMA-SLICE2: 4 remaining unsafe sites fixed; library now ready for the strict-icma flip**
 
 A.1 B1 migration, slice 2 of 3. Empirical method: temporarily flipped `strict_icma=True` and ran the full 12,796-test library suite to discover which callsites would fail under strict mode. Result: **6 failures total. 3 are legacy-contract tests** (they explicitly pin the silent-fallback behaviour — Slice 3 will update them). **3 are real production regressions, all fixed in this slice.**
