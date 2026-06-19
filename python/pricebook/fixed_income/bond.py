@@ -136,6 +136,10 @@ class FixedRateBond:
         If ex_div_days > 0 and settlement is within ex_div_days of the
         next coupon, accrued is negative (buyer doesn't receive coupon).
         """
+        # ICMA needs coupon-period anchors; for accrued the containing
+        # period IS (accrual_start, accrual_end), and frequency is
+        # 12 // months-per-coupon. Strict-icma-safe (A.1 B1 Slice 1).
+        cpy = 12 // self.frequency.value if self.frequency.value > 0 else None
         for cf in self.coupon_leg.cashflows:
             if cf.accrual_start <= settlement < cf.accrual_end:
                 # Check ex-dividend period
@@ -143,9 +147,17 @@ class FixedRateBond:
                     ex_date = cf.accrual_end - timedelta(days=self.ex_div_days)
                     if settlement >= ex_date:
                         # In ex-div period: accrued is negative
-                        yf_remaining = year_fraction(settlement, cf.accrual_end, self.day_count)
+                        yf_remaining = year_fraction(
+                            settlement, cf.accrual_end, self.day_count,
+                            ref_start=cf.accrual_start, ref_end=cf.accrual_end,
+                            frequency=cpy,
+                        )
                         return -self.coupon_rate * yf_remaining * 100.0
-                yf = year_fraction(cf.accrual_start, settlement, self.day_count)
+                yf = year_fraction(
+                    cf.accrual_start, settlement, self.day_count,
+                    ref_start=cf.accrual_start, ref_end=cf.accrual_end,
+                    frequency=cpy,
+                )
                 return self.coupon_rate * yf * 100.0
 
         # Settlement on or after last coupon: no accrued
@@ -308,8 +320,13 @@ class FixedRateBond:
             return year_fraction(settle, target, self.day_count)
 
         coupons_per_year = 12 // self.frequency.value if self.frequency.value > 0 else None
+        # Fallbacks for edge cases where ICMA can't be computed properly
+        # (no frequency, target off-coupon, settle outside coupon range).
+        # Use ACT/365F explicitly — that IS the pre-fix silent-fallback
+        # behaviour, now made intent-explicit so strict-icma can flip on.
+        # A.1 B1 Slice 1.
         if coupons_per_year is None:
-            return year_fraction(settle, target, self.day_count)
+            return year_fraction(settle, target, DayCountConvention.ACT_365_FIXED)
 
         # Schedule dates: issue_date, then each accrual_end.
         # accrual_end of the last coupon == maturity, so this also covers
@@ -321,7 +338,7 @@ class FixedRateBond:
         try:
             target_idx = coupon_dates.index(target)
         except ValueError:
-            return year_fraction(settle, target, self.day_count)
+            return year_fraction(settle, target, DayCountConvention.ACT_365_FIXED)
 
         # Settle on a coupon boundary — count periods exactly.
         if settle in coupon_dates:
@@ -339,7 +356,7 @@ class FixedRateBond:
                 return (stub_fraction + n_full_periods) / coupons_per_year
 
         # Settle before the first coupon date or after the last — fall back.
-        return year_fraction(settle, target, self.day_count)
+        return year_fraction(settle, target, DayCountConvention.ACT_365_FIXED)
 
     def _price_from_ytm(self, ytm: float, settlement: date | None = None) -> float:
         """Dirty price per 100 face from a yield, discounting from settlement.
