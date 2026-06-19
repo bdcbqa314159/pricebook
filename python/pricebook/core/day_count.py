@@ -29,7 +29,7 @@ def year_fraction(
     frequency: int | None = None,
     calendar: Calendar | None = None,
     *,
-    strict_icma: bool = False,
+    strict_icma: bool = True,
 ) -> float:
     """Compute the year fraction between two dates under a given convention.
 
@@ -41,12 +41,15 @@ def year_fraction(
         ref_end: coupon period end (needed for ACT/ACT ICMA).
         frequency: coupons per year (needed for ACT/ACT ICMA).
         calendar: business day calendar (required for BUS/252).
-        strict_icma: when True, ACT/ACT ICMA raises `ValueError` if any of
-            `ref_start`, `ref_end`, `frequency` is missing or invalid
-            (e.g. `period_days <= 0`, `frequency <= 0`). When False
-            (default, for back-compat), ACT/ACT ICMA silently falls back to
-            ACT/365F — this is the historical behaviour and the cause of
-            audit finding A.1 B1. New code should pass `strict_icma=True`.
+        strict_icma: when True (default since T-ICMA-SLICE3, 2026-06-19),
+            ACT/ACT ICMA raises `ValueError` if any of `ref_start`,
+            `ref_end`, `frequency` is missing or invalid (e.g.
+            `period_days <= 0`, `frequency <= 0`). When False, ACT/ACT
+            ICMA silently falls back to ACT/365F — the pre-A.1-B1
+            historical behaviour, retained as an opt-in for callers that
+            genuinely want the degradation (no production caller does
+            post-T-ICMA-SLICE2). New code should always pass coupon
+            anchors; the opt-out exists only for legacy test fixtures.
     """
     if start == end:
         return 0.0

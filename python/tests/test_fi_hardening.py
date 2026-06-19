@@ -72,10 +72,13 @@ class TestActActICMA:
         assert isda != pytest.approx(0.5)
 
     def test_fallback_without_ref_dates(self):
-        """Without ref dates, falls back to ACT/365F."""
+        """With strict_icma=False, missing ref dates degrade to ACT/365F.
+        Post-T-ICMA-SLICE3 the default is strict; the flag must be passed
+        explicitly to exercise the legacy fallback."""
         yf = year_fraction(
             date(2026, 1, 15), date(2026, 7, 15),
             DayCountConvention.ACT_ACT_ICMA,
+            strict_icma=False,  # opt-in legacy silent-fallback
         )
         expected = 181 / 365.0
         assert yf == pytest.approx(expected, rel=1e-10)

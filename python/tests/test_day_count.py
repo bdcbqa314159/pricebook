@@ -199,14 +199,17 @@ class TestACTACTICMA:
         )
         assert yf == pytest.approx(expected)
 
-    # --- Legacy fallback (back-compat — strict_icma=False default) ---
+    # --- Legacy fallback (opt-in via strict_icma=False) ---
+    # Pre-T-ICMA-SLICE3 this was the default. After SLICE3 the default
+    # is strict_icma=True and this test must pass the flag explicitly to
+    # exercise the legacy degradation behaviour.
 
     def test_legacy_fallback_missing_refs(self):
-        """Without strict_icma, missing refs silently falls back to ACT/365F."""
+        """With strict_icma=False, missing refs silently falls back to ACT/365F."""
         yf = year_fraction(
             date(2024, 1, 15), date(2024, 7, 15),
             DayCountConvention.ACT_ACT_ICMA,
-            # no ref_start, ref_end, frequency
+            strict_icma=False,  # opt in to legacy silent-fallback
         )
         # 182 days / 365.0 (the silent ACT/365F fallback)
         assert yf == pytest.approx(182 / 365.0)
@@ -254,13 +257,25 @@ class TestACTACTICMA:
                 strict_icma=True,
             )
 
-    def test_strict_legacy_callers_unaffected_by_default(self):
-        """Default (strict_icma=False) preserves legacy silent fallback —
-        guards every existing call-site against this slice."""
+    def test_legacy_opt_in_still_degrades_to_act365f(self):
+        """When `strict_icma=False` is passed explicitly, the silent
+        fallback to ACT/365F is preserved — the audit-era contract is
+        still available for callers that genuinely want it (no production
+        site does post-T-ICMA-SLICE2)."""
         yf = year_fraction(
             date(2024, 1, 15), date(2024, 7, 15),
             DayCountConvention.ACT_ACT_ICMA,
-            # no refs; default behaviour
+            strict_icma=False,  # opt-in legacy
         )
         # No exception; degrades to ACT/365F.
         assert yf == pytest.approx(182 / 365.0)
+
+    def test_default_is_strict_post_slice3(self):
+        """T-ICMA-SLICE3 flipped the default to strict_icma=True. A bare
+        call with no refs now raises rather than silently degrading."""
+        with pytest.raises(ValueError, match="ref_start, ref_end, frequency"):
+            year_fraction(
+                date(2024, 1, 15), date(2024, 7, 15),
+                DayCountConvention.ACT_ACT_ICMA,
+                # no refs, no strict_icma override → uses new strict default
+            )
