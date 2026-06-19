@@ -116,7 +116,14 @@ class FloatingLeg:
                 observation_start = accrual_start - timedelta(days=observation_shift_days)
                 observation_end = accrual_end - timedelta(days=observation_shift_days)
             fixing_date = observation_start
-            yf = year_fraction(accrual_start, accrual_end, day_count)
+            # Pass ICMA refs proactively (A.1 B1 Slice 2). accrual_start +
+            # accrual_end ARE the coupon-period anchors; harmless for
+            # non-ICMA day counts (year_fraction ignores them).
+            _cpy = 12 // frequency.value if frequency.value > 0 else None
+            yf = year_fraction(
+                accrual_start, accrual_end, day_count,
+                ref_start=accrual_start, ref_end=accrual_end, frequency=_cpy,
+            )
             self.cashflows.append(FloatingCashflow(
                 accrual_start=accrual_start,
                 accrual_end=accrual_end,

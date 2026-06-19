@@ -26,7 +26,10 @@ import math
 
 from enum import Enum
 
-from pricebook.core.day_count import year_fraction as _year_fraction
+from pricebook.core.day_count import (
+    DayCountConvention as _DayCountConvention,
+    year_fraction as _year_fraction,
+)
 from pricebook.statistics.zscore import zscore as _zscore, ZScoreSignal
 
 
@@ -193,7 +196,12 @@ class RepoTrade:
             sd = self.settlement_date or self.start_date
             mat = self.maturity_date
             if sd and mat:
-                yf = _year_fraction(sd, mat, self.bond.day_count)
+                # sd → mat spans multiple coupon periods so ICMA isn't
+                # meaningful here; use ACT/365F explicitly to stay strict-
+                # icma-safe (A.1 B1 Slice 2). For non-ICMA day counts the
+                # difference vs bond.day_count is negligible for a repo-
+                # carry approximation.
+                yf = _year_fraction(sd, mat, _DayCountConvention.ACT_365_FIXED)
             else:
                 yf = self.term_days / 365.0
             coupon = self.face_amount * self.coupon_rate * yf

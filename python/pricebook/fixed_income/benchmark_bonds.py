@@ -174,7 +174,11 @@ def par_yield_curve(
         settle = bond.settlement_date(universe.reference_date)
         # Par yield: solve for coupon such that dirty price = 100
         # Approximation: par_yield ≈ (1 - df(T)) / annuity
-        T = year_fraction(settle, bond.maturity, bond.day_count)
+        # T is only used as `int(T × periods_per_year)` — exact ICMA refs
+        # aren't meaningful here (T spans multiple coupon periods). Use
+        # ACT/365F explicitly so strict-icma flip doesn't break this.
+        # A.1 B1 Slice 2.
+        T = year_fraction(settle, bond.maturity, DayCountConvention.ACT_365_FIXED)
         df_T = discount_curve.df(bond.maturity)
         freq = bond.frequency.value
         periods_per_year = 12 / freq

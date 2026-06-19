@@ -153,7 +153,12 @@ class CreditLinkedNote:
         for i in range(1, len(self.schedule)):
             t_start = self.schedule[i - 1]
             t_end = self.schedule[i]
-            yf = year_fraction(t_start, t_end, self.day_count)
+            yf = year_fraction(
+                t_start, t_end, self.day_count,
+                ref_start=t_start, ref_end=t_end,
+                frequency=(12 // self.frequency.value
+                           if self.frequency.value > 0 else None),
+            )
             df = discount_curve.df(t_end)
             surv = survival_curve.survival(t_end)
             surv_prev = survival_curve.survival(t_start)
@@ -202,7 +207,12 @@ class CreditLinkedNote:
         for i in range(1, len(self.schedule)):
             t_start = self.schedule[i - 1]
             t_end = self.schedule[i]
-            yf = year_fraction(t_start, t_end, self.day_count)
+            yf = year_fraction(
+                t_start, t_end, self.day_count,
+                ref_start=t_start, ref_end=t_end,
+                frequency=(12 // self.frequency.value
+                           if self.frequency.value > 0 else None),
+            )
             df = discount_curve.df(t_end)
             surv = survival_curve.survival(t_end)
             surv_prev = survival_curve.survival(t_start)
