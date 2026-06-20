@@ -2,6 +2,30 @@
 
 ---
 
+## v1.118.0 — 2026-06-19 — **W7: `anderson_darling` adopts scipy 1.17 `method='interpolate'` (forward-compat to 1.19)**
+
+Slice 7/8 of the warnings-sweep campaign.
+
+**Bug**: `statistics/distribution_fit.anderson_darling` called `scipy.stats.anderson(x, dist=dist)` without the `method` keyword. scipy 1.17 emits a `FutureWarning` warning that:
+
+* `method` will become required.
+* When `method` is set, the returned `AndersonResult` will have a `pvalue` attribute and will NO longer have `critical_values`, `significance_level`, `fit_result`.
+* From scipy 1.19, the legacy attributes go away entirely.
+
+Our code used `result.critical_values` and `result.significance_level` to build a `{percentile: critical_value}` dict — the exact attributes scheduled for removal.
+
+**Fix**: pass `method="interpolate"` and migrate to `result.pvalue`. The `ADResult` dataclass now carries `pvalue` instead of `critical_values`; `reject_at_5pct` derives from `pvalue < 0.05` (was `statistic > critical_values[2]`). Public `to_dict()` shape gains `pvalue` (was: stat / reject / n).
+
+**Caller-impact**: `ADResult.critical_values` is gone. The library is the only producer of `ADResult`, and the only consumer was one test that just checked `hasattr(result, "statistic")`. No external break.
+
+**Regression**: two new tests in `TestAndersonDarling` — one pins no FutureWarning under `simplefilter("error", FutureWarning)`; one sanity-checks that an exponential sample is rejected at 5% with `pvalue < 0.05`.
+
+**Verification**: `test_distribution_fit.py` 10/10 passing under `-W error::FutureWarning`.
+
+**Warnings count**: 5 → 4 in the L≤3 suite. Only W8 (3 bootstrap round-trip warnings) remains.
+
+---
+
 ## v1.117.0 — 2026-06-19 — **W6: silence expected Rosenbrock overflow in CMA-ES test**
 
 Slice 6/8 of the warnings-sweep campaign.
