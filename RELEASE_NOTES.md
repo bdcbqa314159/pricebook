@@ -2,6 +2,35 @@
 
 ---
 
+## v1.116.0 — 2026-06-19 — **W5: CMA-ES rejects non-finite samples + fitness (stops NaN poisoning)**
+
+Slice 5/8 of the warnings-sweep campaign.
+
+**Bug**: `statistics/optimisation_advanced.cma_es` evaluated the objective at every sampled `x = mean + sigma · (L @ z)` and stored `(x, z, fx)` in the population without checking for finiteness. Three downstream sites in the recombination + path arithmetic then operated on bad values:
+
+* line 394 `mean += weights[i] * population[i][0]` → if any prior population member's `x` had `inf`, `mean` inherits `inf`. `RuntimeWarning: invalid value encountered in add`.
+* line 400 `p_c = (1 - c_c) * p_c + h_sigma · √(...) · (mean - old_mean) / sigma` → `inf - finite = inf`, divide by tiny `sigma` → propagation. `RuntimeWarning: invalid value encountered in multiply`.
+* line 405 `y_i = (population[i][0] - old_mean) / sigma` → same shape. `RuntimeWarning: invalid value encountered in divide`.
+
+Two root paths into the bad state:
+
+1. **Unbounded objective overflow** — `test_rosenbrock` uses `f(x) = 100·(x[1] − x[0]²)² + (1 − x[0])²`. Early CMA-ES generations explore widely; `x[0]²` for large `x[0]` overflows float64. `fx = inf`, then `x` survives in the population and pollutes recombination on subsequent iterations.
+2. **`x` itself non-finite** — when `sigma` is large, `mean + sigma · (L @ z)` can overflow before `f(x)` is even called.
+
+**Fix**: at sample time, check both `x` and `fx` for finiteness. If `x` is not all-finite, substitute the current mean (a known-finite point) and rank as `+inf` (so the sample sinks to the bottom of the sort and is excluded from the top-`mu` recombination). If `fx` is non-finite, just rank as `+inf` (keep the finite `x` — the next generation's mean stays sensible).
+
+This is the standard CMA-ES robustness pattern per Hansen's "The CMA Evolution Strategy: A Tutorial" §B.3 (resampling on constraint violation); we don't resample but we do rank-to-last, which preserves the population-size invariant and lets the next generation re-sample from a finite mean.
+
+**Caller-impact**: zero for objectives that already return finite values everywhere. For unbounded objectives, CMA-ES now converges where before it could silently NaN out (test_rosenbrock now solves cleanly with no library warnings).
+
+**Regression**: new test `TestCMAES::test_w5_rejects_non_finite_fitness` runs CMA-ES on an objective that returns `math.inf` outside the unit interval under `simplefilter("error", RuntimeWarning)`. Pins the fix.
+
+**Verification**: `test_optimisation_advanced.py` 13/13 passing. Library warnings 3 → 0; only the test-side `RuntimeWarning: overflow encountered in scalar power` (from Rosenbrock's `x[0]**2` directly) remains — that's W6.
+
+**Warnings count**: 9 → 6 in the L≤3 suite.
+
+---
+
 ## v1.115.0 — 2026-06-19 — **W4: PricingServer test fixture cleans up server thread / coroutines**
 
 Slice 4/8 of the warnings-sweep campaign.
