@@ -2,7 +2,7 @@
 
 import math
 import pytest
-from datetime import date
+from datetime import date, datetime
 
 from pricebook.curves.curve_engine import (
     CurveDefinition,
@@ -12,23 +12,27 @@ from pricebook.curves.curve_engine import (
     ExtrapolationPolicy,
     build_curve,
 )
-from pricebook.pricing.market_data import MarketDataSnapshot, Quote, QuoteType, MissingQuoteError
+from pricebook.market_data import (
+    MarketSnapshot, MissingQuoteError, Quote, QuoteId, QuoteKind as QuoteType,
+)
 
 
 REF = date(2024, 1, 15)
 
 
+def _quote(kind: QuoteType, tenor: str, value: float, currency: str = "USD") -> Quote:
+    return Quote(id=QuoteId(kind=kind, tenor=tenor, currency=currency), value=value)
+
+
 def _usd_snapshot():
-    snap = MarketDataSnapshot(REF)
-    # Deposits
+    quotes = []
     for tenor, rate in [("1M", 0.053), ("3M", 0.052), ("6M", 0.051)]:
-        snap.add(Quote(QuoteType.DEPOSIT_RATE, tenor, rate, "USD"))
-    # Swaps
+        quotes.append(_quote(QuoteType.DEPOSIT_RATE, tenor, rate))
     for tenor, rate in [("1Y", 0.050), ("2Y", 0.048), ("3Y", 0.047),
                         ("5Y", 0.046), ("7Y", 0.045), ("10Y", 0.044),
                         ("15Y", 0.043), ("20Y", 0.042), ("30Y", 0.041)]:
-        snap.add(Quote(QuoteType.SWAP_RATE, tenor, rate, "USD"))
-    return snap
+        quotes.append(_quote(QuoteType.SWAP_RATE, tenor, rate))
+    return MarketSnapshot.new(quotes=quotes, as_of=datetime.combine(REF, datetime.min.time()))
 
 
 # ---------------------------------------------------------------------------

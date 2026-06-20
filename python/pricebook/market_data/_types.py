@@ -201,3 +201,46 @@ class FixingHistory:
         new = dict(self.fixings)
         new[(rate_name, on)] = value
         return FixingHistory(fixings=new)
+
+
+# ---------------------------------------------------------------------------
+# Tenor parsing helpers
+# ---------------------------------------------------------------------------
+# Migrated from the retired `core/market_data.py` (B.3 C1) — these are the
+# helpers `curves/curve_engine.py` needs to look up a `Quote` by tenor and
+# convert "5Y" / "3M" tags to year fractions or absolute dates.
+
+_TENOR_MAP = {
+    "1D": 1 / 365, "1W": 7 / 365, "2W": 14 / 365, "1M": 1 / 12,
+    "2M": 2 / 12, "3M": 3 / 12, "6M": 6 / 12, "9M": 9 / 12,
+    "1Y": 1.0, "2Y": 2.0, "3Y": 3.0, "4Y": 4.0, "5Y": 5.0,
+    "7Y": 7.0, "10Y": 10.0, "15Y": 15.0, "20Y": 20.0, "30Y": 30.0,
+}
+
+
+def tenor_to_years(tenor: str) -> float:
+    """Convert a tenor string like '5Y' or '3M' to a year fraction."""
+    if tenor in _TENOR_MAP:
+        return _TENOR_MAP[tenor]
+    if tenor.endswith("Y"):
+        return float(tenor[:-1])
+    if tenor.endswith("M"):
+        return float(tenor[:-1]) / 12.0
+    if tenor.endswith("W"):
+        return float(tenor[:-1]) * 7 / 365
+    if tenor.endswith("D"):
+        return float(tenor[:-1]) / 365
+    raise ValueError(f"Cannot parse tenor: {tenor}")
+
+
+def tenor_to_date(ref: date, tenor: str) -> date:
+    """Convert a tenor offset to an absolute date from `ref`."""
+    # Local import to avoid `core` ↔ `market_data` cycle at module load
+    # (market_data sits at L0; core/day_count is also L0 but the import is
+    # function-scope so the layer classifier still places market_data at L0).
+    from pricebook.core.day_count import date_from_year_fraction
+    return date_from_year_fraction(ref, tenor_to_years(tenor))
+
+
+class MissingQuoteError(Exception):
+    """Raised when a snapshot lookup expects a quote that isn't present."""

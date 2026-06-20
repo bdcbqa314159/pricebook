@@ -27,15 +27,21 @@ bootstrap entry points lands in subsequent slices of G1 P2.
 from pricebook.market_data._types import (
     FixingHistory,
     MarketSnapshot,
+    MissingQuoteError,
     Quote,
     QuoteId,
     QuoteKind,
+    tenor_to_date,
+    tenor_to_years,
 )
 
 __all__ = [
     "FixingHistory",
     "MarketSnapshot",
+    "MissingQuoteError",
     "Quote",
     "QuoteId",
     "QuoteKind",
+    "tenor_to_date",
+    "tenor_to_years",
 ]

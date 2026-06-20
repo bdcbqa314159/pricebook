@@ -15,11 +15,16 @@ from typing import Any
 from pricebook.core.day_count import DayCountConvention
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
-from pricebook.core.market_data import (
-    MarketDataSnapshot, QuoteType, Quote, tenor_to_date, tenor_to_years,
-    MissingQuoteError,
-)
 from pricebook.core.pricing_context import PricingContext
+from pricebook.market_data import (
+    MarketSnapshot, MissingQuoteError, QuoteKind,
+    tenor_to_date, tenor_to_years,
+)
+
+# Legacy alias — `QuoteType` was the pre-B.3-C1 name for the same enum.
+# Kept so downstream callers that imported `QuoteType` from this module
+# keep working without an edit. New code should use `QuoteKind` directly.
+QuoteType = QuoteKind
 
 
 # ---------------------------------------------------------------------------
@@ -156,20 +161,20 @@ import math  # noqa: E402
 
 def build_curve(
     definition: CurveDefinition,
-    snapshot: MarketDataSnapshot,
+    snapshot: MarketSnapshot,
 ) -> DiscountCurve:
     """Build a DiscountCurve from a definition and market data snapshot.
 
     Selects quotes matching the definition's instruments from the snapshot,
     then bootstraps via simple zero-rate approach.
     """
-    ref = snapshot.snapshot_date
+    ref = snapshot.as_of.date()
     deposits: list[tuple[date, float]] = []
     swaps: list[tuple[date, float]] = []
 
     for spec in definition.instruments:
-        quotes = snapshot.get_quotes(spec.quote_type, definition.currency)
-        match = [q for q in quotes if q.tenor == spec.tenor]
+        quotes = snapshot.filter(kind=spec.quote_type, currency=definition.currency)
+        match = [q for q in quotes if q.id.tenor == spec.tenor]
         if not match:
             raise MissingQuoteError(
                 f"No {spec.quote_type.value} quote for tenor {spec.tenor} "
@@ -178,9 +183,9 @@ def build_curve(
         q = match[0]
         mat = tenor_to_date(ref, spec.tenor)
 
-        if spec.quote_type == QuoteType.DEPOSIT_RATE:
+        if spec.quote_type == QuoteKind.DEPOSIT_RATE:
             deposits.append((mat, q.value))
-        elif spec.quote_type == QuoteType.SWAP_RATE:
+        elif spec.quote_type == QuoteKind.SWAP_RATE:
             swaps.append((mat, q.value))
 
     if not deposits and not swaps:
@@ -273,7 +278,7 @@ class CurveSet:
         name: str,
         currency: str,
         definitions: list[CurveDefinition],
-        snapshot: MarketDataSnapshot,
+        snapshot: MarketSnapshot,
     ) -> CurveSet:
         """Build a CurveSet from multiple definitions and one snapshot."""
         cs = cls(name=name, currency=currency)
