@@ -2,6 +2,54 @@
 
 ---
 
+## v1.119.0 — 2026-06-19 — **W8: swap pillar pinned at schedule-end (not unadjusted mat); warnings campaign COMPLETE 🏁**
+
+Slice 8/8 — the final slice of the warnings-sweep campaign.
+
+**Bug**: when a swap's maturity falls on a non-business-day, `generate_schedule` rolls the schedule's last date forward under the business-day convention (e.g. unadjusted `2029-01-15` → adjusted `2029-01-16` if Jan 15 is a weekend). The bootstrap, however, was placing its discount-factor pillar at the **unadjusted** swap `mat`. Sequence of events:
+
+1. At swap-solve time: trial_curve has pillars `[..., 2027-01-15, 2029-01-15_candidate]`. `df(2029-01-16)` is **extrapolated** past the last pillar.
+2. `brentq` finds `df(2029-01-15) = df_solved` such that `pv_fixed(using extrapolated df(2029-01-16)) == 1 − df(2029-01-16)_extrapolated`.
+3. After all swaps solved: final curve has pillars `[..., 2027-01-15, 2029-01-15, 2031-01-15, 2034-01-15]`. Now `df(2029-01-16)` is **interpolated** between 2029-01-15 and 2031-01-15.
+
+Log-linear extrapolation past a pillar and log-linear interpolation between two pillars give different values. The round-trip check (which used the final curve) reported `pv_fixed − pv_float ≈ 2.44e-6` for every USD OIS curve that hit this — 6 orders of magnitude above the 1e-12 brentq tolerance, triggering the W8 warnings in `test_rfr_bootstrap` and `test_synthetic_curves`. The EM curve test (`Swap 2029-11-04: 4.16e-5`, `Swap 2034-11-04: 1.27e-4`) was the same shape — bigger gap because more swap pillars trailed.
+
+**Fix**: set the pillar date to `max(fixed_sched[-1], float_sched[-1])` — i.e. the actual last date the schedule pays on, post-roll. `df(schedule_end)` is now exactly pillared rather than extrapolated; later swaps don't change it; round-trip is exact (`< 1e-12`).
+
+This also tightens calibration semantics: `CalibrationResult.parameters` now reports the discount factor at the date the leg actually pays, not the platonic unadjusted date.
+
+**Caller-impact**: pillar dates for swaps that hit a non-business-day under MODIFIED_FOLLOWING (or similar) shift by ≤ a few days. The discount-factor values at those pillars match the legs' payment dates exactly, which is more correct than before. Any consumer that introspected `curve.pillar_dates` and expected them at unadjusted schedule maturities will now see the rolled dates. No production caller does this introspection.
+
+**Regression**: new test `TestBootstrapUSD::test_w8_no_round_trip_warning` runs the standard 6-swap USD OIS bootstrap (which trips the bug on 2029-01-15) under `simplefilter("error", RuntimeWarning)`. Pins the fix.
+
+**Verification**:
+* `test_rfr_bootstrap.py` 19/19 + `test_synthetic_curves.py` 9/9 — zero warnings.
+* Broader bootstrap/swap/curve set — 1824/1824 passing, zero warnings.
+* Full L≤3 suite — **8268/8268 passing, ZERO warnings**.
+
+---
+
+# Warnings sweep — COMPLETE.
+
+The campaign that began at v1.112.0 closes here. From 18 RuntimeWarnings to **zero** in the L≤3 suite, in 8 disciplined slices:
+
+| Slice | Warnings dropped | What it fixed |
+|---|---|---|
+| W1 (v1.112) | 1 | `realized_vol` silent NaN on non-positive prices |
+| W2 (v1.113) | 1 | rough-Heston CF dropping `Im(integral_h)` — real numerical bug |
+| W3 (v1.114) | 3 | HW convexity: stale verifier formula + structural local-bootstrap gap (pillar pinning for futures/FRAs) |
+| W4 (v1.115) | 4 | PricingServer test thread + coroutine leaks |
+| W5 (v1.116) | 3 | CMA-ES non-finite x/fx poisoning recombination |
+| W6 (v1.117) | 1 | Rosenbrock test overflow (acknowledged via `np.errstate`) |
+| W7 (v1.118) | 1 | scipy 1.17 anderson API migration (forward-compat to 1.19) |
+| W8 (v1.119) | 3 | swap pillar pinned at schedule-end (not unadjusted mat) |
+
+Two non-trivial *real* numerical bugs surfaced along the way (W2 rough-Heston, W3 HW convexity verifier, W5 CMA-ES robustness). The rest cleaned up legitimate diagnostic noise.
+
+The L≤3 suite now runs with zero `pytest -W error::RuntimeWarning` failures across 8268 tests. Audit-chain plus warnings-sweep cumulatively: **all open items closed**.
+
+---
+
 ## v1.118.0 — 2026-06-19 — **W7: `anderson_darling` adopts scipy 1.17 `method='interpolate'` (forward-compat to 1.19)**
 
 Slice 7/8 of the warnings-sweep campaign.
