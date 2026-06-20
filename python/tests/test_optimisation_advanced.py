@@ -127,7 +127,12 @@ class TestCMAES:
     def test_rosenbrock(self):
         """CMA-ES on Rosenbrock (harder)."""
         def rosenbrock(x):
-            return 100 * (x[1] - x[0]**2)**2 + (1 - x[0])**2
+            # CMA-ES exploration samples extreme x; x[0]**2 then x[0]**4
+            # can overflow float64. Post-W5, CMA-ES treats inf fitness as
+            # rank-last and recovers — so silence the expected overflow
+            # rather than letting it surface as a spurious test warning.
+            with np.errstate(over="ignore", invalid="ignore"):
+                return float(100 * (x[1] - x[0]**2)**2 + (1 - x[0])**2)
         result = cma_es(rosenbrock, [0.0, 0.0], sigma0=1.0,
                         max_iter=2000, seed=42)
         np.testing.assert_allclose(result.x, [1, 1], atol=0.5)
