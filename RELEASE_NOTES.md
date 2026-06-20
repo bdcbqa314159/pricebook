@@ -2,6 +2,48 @@
 
 ---
 
+## v1.114.0 — 2026-06-19 — **W3: bootstrap pins df(start) for futures/FRAs + verifier formula matches T3.17 fix**
+
+Slice 3/8 of the warnings-sweep campaign. Targets the three `test_l2_t3_17_18_bootstrap_convexity` `RuntimeWarning: Bootstrap round-trip failures` warnings.
+
+**Two bugs, one slice:**
+
+**Bug A — stale convexity formula in the verifier (post-T3.17 leftover)**
+
+When T3.17 fixed the HW futures convexity formula in `bootstrap()` (line 150) to use the textbook `ca = 0.5·σ²·B(0,T₁)·B(T₁,T₂)`, two sibling sites kept the pre-T3.17 form:
+
+* `_compute_calibration_result` (line 322) — residuals reported to `CalibrationResult.residuals` used the OLD formula. Any downstream consumer reading those residuals received wrong values whenever `hw_convexity_sigma > 0`.
+* `_verify_round_trip` (line 445) — round-trip diagnostic warning used the OLD formula. Emitted false-positive `RuntimeWarning` for every futures bootstrap with non-zero convexity.
+
+Both now mirror the bootstrap's own formula. The pre-T3.17 form is gone from the file.
+
+**Bug B — structural local-bootstrap interpolation gap (W3 root cause)**
+
+When the bootstrap processed a future or FRA whose `start_date` was strictly between existing pillars, it would:
+1. Take `df_start = temp_curve.df(start_date)` — interpolated from the prior pillars.
+2. Compute `df_end = df_start / (1 + rate × τ)`.
+3. Add ONLY `end_date` as a pillar.
+
+Result: the bootstrap committed to a specific `df(start)` value via step 1, but the final curve had no pillar there. Adding later swaps reshaped the log-linear interpolation in the gap region, changing `df(start)` on the final curve. The round-trip check then failed by ~0.3% on the future rate (W3 reported ~2.75e-3 — 4.76e-3 in the convexity scaling test) even when `σ=0`.
+
+This is a structural property of local bootstrap, not a fit bug: the bootstrap's per-instrument df_start was correct *at the time*; later pillars just moved the interpolation around it.
+
+**Fix B**: pin `df(start)` as a pillar at step 1 too (for futures and FRAs both), whenever `start_date != reference_date` and isn't already in `pillar_dates`. The bootstrap now expresses what it actually committed to. Final curve faithfully passes through both df(start) and df(end), round-trip works exactly.
+
+**Caller-impact** (Bug B): the final curve now has more pillars whenever futures/FRAs were used with non-deposit start dates. Curve *values* are unchanged at the pillar points the bootstrap already chose — only the curve's *interpolation behaviour between* prior-pillar and end_date is now pinned rather than recomputed. Concretely: any consumer that introspected `pillar_dates` and assumed only end-of-instrument dates appeared will now also see start-of-instrument dates. No production caller does this introspection.
+
+**Caller-impact** (Bug A): `CalibrationResult.residuals` values for futures are now correct. Previously over- or under-reported by `(B(0,T₁)·B(T₁,T₂) − B(T₁,T₂)·[B(0,T₂)−B(0,T₁)])·0.5σ²` per future.
+
+**Regression**: new test `TestHWConvexity::test_no_round_trip_warning_w3` runs both the σ=0 and σ>0 bootstrap calls under `simplefilter("error", RuntimeWarning)` — locks both fixes.
+
+**Verification**:
+* `test_l2_t3_17_18_bootstrap_convexity.py` — 7/7 passing under `-W error::RuntimeWarning`.
+* Full L≤3 suite — 8264/8264 passing.
+
+**Warnings count**: 16 → 13 in the L≤3 suite (3 W3 ones eliminated; the W8 `rfr_bootstrap` + `em_curve_builder` swap warnings remain — a similar shape, slice 8 will sweep them).
+
+---
+
 ## v1.113.0 — 2026-06-19 — **W2: rough Heston CF keeps `integral_h` complex (drop float cast)**
 
 Slice 2/8 of the warnings-sweep campaign.
