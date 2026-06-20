@@ -119,6 +119,14 @@ def bootstrap(
                 )
             # FRA relationship: df(end) = df(start) / (1 + rate × τ)
             df_end = df_start / (1 + fra_rate * tau)
+            # Pin df(start) too — otherwise later pillars (swaps) reshape
+            # the interpolation between the prior pillar and end_date,
+            # changing df(start) on the final curve and breaking the
+            # round-trip on the FRA forward (W3, structural local-bootstrap
+            # gap). Skip if start_date already equals an existing pillar.
+            if start_date != reference_date and start_date not in pillar_dates:
+                pillar_dates.append(start_date)
+                pillar_dfs.append(df_start)
             pillar_dates.append(end_date)
             pillar_dfs.append(df_end)
 
@@ -173,6 +181,10 @@ def bootstrap(
                     f"df(start_date).  Add a deposit covering start_date."
                 )
             df_end = df_start / (1 + fwd_rate * tau)
+            # Pin df(start) too — same rationale as the FRA path (W3).
+            if start_date != reference_date and start_date not in pillar_dates:
+                pillar_dates.append(start_date)
+                pillar_dfs.append(df_start)
             pillar_dates.append(end_date)
             pillar_dfs.append(df_end)
 
@@ -319,9 +331,11 @@ def _build_bootstrap_calibration_result(
                     t_end = year_fraction(reference_date, end_date, deposit_day_count)
                     def _B(s, t):
                         return (1 - _math.exp(-hw_convexity_a * (t - s))) / hw_convexity_a
-                    conv_adj = 0.5 * hw_convexity_sigma**2 * _B(t_start, t_end) * (
-                        _B(0, t_end) - _B(0, t_start)
-                    )
+                    # Must match the bootstrap's own convexity formula (Fix
+                    # T3.17, line 150) — earlier this site held the
+                    # pre-T3.17 formula, so residuals reported wrong values
+                    # whenever σ>0 (W3).
+                    conv_adj = 0.5 * hw_convexity_sigma**2 * _B(0, t_start) * _B(t_start, t_end)
                 expected_fwd = fut_rate - conv_adj
                 if turn_of_year_spread > 0 and start_date.year != end_date.year:
                     expected_fwd += turn_of_year_spread
@@ -442,9 +456,10 @@ def _verify_round_trip(
                     t_end = year_fraction(reference_date, end_date, deposit_day_count)
                     def _B(s, t):
                         return (1 - _math.exp(-hw_convexity_a * (t - s))) / hw_convexity_a
-                    conv_adj = 0.5 * hw_convexity_sigma**2 * _B(t_start, t_end) * (
-                        _B(0, t_end) - _B(0, t_start)
-                    )
+                    # Mirror the bootstrap's own convexity formula (line 150,
+                    # Fix T3.17); the pre-W3 verifier held the pre-T3.17
+                    # formula so it reported wrong errors whenever σ>0.
+                    conv_adj = 0.5 * hw_convexity_sigma**2 * _B(0, t_start) * _B(t_start, t_end)
                 expected_fwd = fut_rate - conv_adj
                 if turn_of_year_spread > 0 and start_date.year != end_date.year:
                     expected_fwd += turn_of_year_spread

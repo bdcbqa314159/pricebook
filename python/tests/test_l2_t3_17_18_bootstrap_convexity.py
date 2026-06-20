@@ -105,6 +105,34 @@ class TestHWConvexity:
             f"T_1 factor missing"
         )
 
+    def test_no_round_trip_warning_w3(self):
+        """W3 regression: prior to pinning df(start) as a pillar for
+        futures/FRAs, these bootstraps emitted spurious round-trip
+        RuntimeWarnings even with σ=0. The structural local-bootstrap
+        gap was: temp_curve.df(start) was used to anchor the future, but
+        no pillar was placed at start_date, so adding later swaps reshaped
+        the interpolation and changed df(start) on the final curve.
+        Verifier formula bug (line 322/445 used pre-T3.17 formula) also
+        contributed when σ>0.
+        """
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            bootstrap(
+                REF,
+                deposits=[(_d(90), 0.04)],
+                futures=[(_d(180), _d(270), 0.0455)],
+                swaps=[(_d(365 * 5), 0.045)],
+                hw_convexity_a=0.0, hw_convexity_sigma=0.0,
+            )
+            bootstrap(
+                REF,
+                deposits=[(_d(30), 0.04)],
+                futures=[(_d(180), _d(270), 0.0455)],
+                swaps=[(_d(365 * 10), 0.045)],
+                hw_convexity_a=0.05, hw_convexity_sigma=0.01,
+            )
+
     def test_convexity_small_a_limit(self):
         """For small a, CA → 0.5 · σ² · T_1 · (T_2 − T_1) (Hull's leading-order).
         Direct formula check: build CA using a tiny a and σ=1%, verify it
