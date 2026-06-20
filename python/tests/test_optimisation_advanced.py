@@ -136,3 +136,25 @@ class TestCMAES:
         result = cma_es(lambda x: np.sum((x - 1)**2), [5, 5, 5],
                         sigma0=2.0, max_iter=500, seed=42)
         np.testing.assert_allclose(result.x, [1, 1, 1], atol=0.2)
+
+    def test_w5_rejects_non_finite_fitness(self):
+        """W5 regression: an objective that returns inf/nan for some x
+        must not pollute the CMA-ES recombination / p_sigma / p_c
+        arithmetic with RuntimeWarning('invalid value in add/multiply/divide').
+        """
+        import warnings as _warnings
+
+        def f_unstable(x):
+            # Returns inf when x[0] outside [-1, 1] — exercises the
+            # non-finite-fitness branch on every early-generation sample
+            # that wanders outside.
+            if abs(x[0]) > 1.0:
+                return math.inf
+            return float(x[0]**2 + x[1]**2)
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            result = cma_es(f_unstable, [0.5, 0.5],
+                            sigma0=1.0, max_iter=100, seed=7)
+        assert math.isfinite(result.objective)
+        assert all(math.isfinite(v) for v in result.x)

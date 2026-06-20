@@ -374,12 +374,27 @@ def cma_es(
         for _ in range(pop_size):
             z = rng.standard_normal(n)
             x = mean + sigma * (L @ z)
-            fx = f(x)
-            n_eval += 1
+            # Reject non-finite x or fitness — early-generation
+            # exploration can hit overflow on unbounded objectives
+            # (e.g. Rosenbrock x[0]**4 at extreme x) AND on the x
+            # vector itself if sigma is large. Substituting +inf
+            # fitness ranks the sample last; substituting a finite
+            # x (the prior mean) keeps recombination / p_sigma / p_c
+            # arithmetic finite (W5).
+            if not np.all(np.isfinite(x)):
+                x = mean.copy()
+                fx = math.inf
+            else:
+                fx = f(x)
+                n_eval += 1
+                if not math.isfinite(fx):
+                    fx = math.inf
             population.append((x, z, fx))
             fitnesses.append(fx)
 
-        # Sort by fitness
+        # Sort by fitness — inf samples rank last and are excluded from
+        # the top-`mu` recombination, so the next generation re-samples
+        # from a finite mean rather than drifting on NaN.
         population.sort(key=lambda t: t[2])
 
         # Update best
