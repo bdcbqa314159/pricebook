@@ -43,3 +43,9 @@ coverage.xml
 !/README.md
 !/REFERENCES.md
 !/RELEASE_NOTES.md
+
+# Local-only archive of closed audit ledgers + pre-audit historical plans.
+# Moved out of repo root for visual cleanliness on 2026-06-19 after the
+# v1.119 audit-chain closure. Restore from here if a future session needs
+# them; nothing in archive is referenced by active code or tests.
+.archive/
