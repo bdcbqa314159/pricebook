@@ -5,8 +5,10 @@ The short version: every consumer (pricing, audit, debug, regret analysis)
 needs a different slice of the calibration story; expose all the slices,
 not an opaque blob.
 
-This module has zero top-level dependencies on other pricebook subpackages
-so it sits at L0 in the empirical dependency graph (see AUDIT_PLAN.md §1).
+This module sits at L0 in the empirical dependency graph (see AUDIT_PLAN.md
+§1). Its only load-time pricebook dependency is `core.serialisable` (also
+L0), pulled in to make the result types first-class serialisable artefacts;
+that edge is acyclic — `core.serialisable` imports nothing from calibration.
 The lone in-function `import pricebook` in the factory below is lazy and
 does not create a runtime cycle.
 """
@@ -15,10 +17,12 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping, Protocol, Sequence
 from uuid import UUID, uuid4
+
+from pricebook.core.serialisable import serialisable_convention
 
 
 class ObjectiveKind(str, Enum):
@@ -38,6 +42,7 @@ class ObjectiveKind(str, Enum):
     HUBER = "huber"
 
 
+@serialisable_convention("optimiser_spec")
 @dataclass(frozen=True)
 class OptimiserSpec:
     """Description of the optimiser used in the calibration.
@@ -54,6 +59,7 @@ class OptimiserSpec:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
 
+@serialisable_convention("calibration_diagnostics")
 @dataclass(frozen=True)
 class CalibrationDiagnostics:
     """Auxiliary structured diagnostics for a calibration run.
@@ -69,7 +75,16 @@ class CalibrationDiagnostics:
     warnings: Sequence[str] = ()
     extra: Mapping[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        # Canonicalise the sequence fields to tuples: a frozen record should
+        # hold immutable sequences, and it makes a serialise→deserialise
+        # round-trip exact (JSON arrays come back as lists, not tuples).
+        object.__setattr__(self, "objective_history", tuple(self.objective_history))
+        object.__setattr__(self, "parameter_history", tuple(self.parameter_history))
+        object.__setattr__(self, "warnings", tuple(self.warnings))
 
+
+@serialisable_convention("calibration_result")
 @dataclass(frozen=True)
 class CalibrationResult:
     """Result of a calibration run.
@@ -141,11 +156,18 @@ class CalibrationResult:
         diagnostics: CalibrationDiagnostics | None = None,
         market_snapshot_id: UUID | None = None,
         code_version: str | None = None,
+        id: UUID | None = None,
+        timestamp: datetime | None = None,
     ) -> "CalibrationResult":
         """Factory: generate `id` and `timestamp`, derive RMSE / max-error.
 
         Keyword-only on purpose — calibrators historically have many
         positional parameters and this constructor mustn't continue that.
+
+        `id` and `timestamp` are auto-generated when omitted (the normal
+        case). Pass them explicitly to reproduce a stored result or to make
+        a test deterministic. The auto-stamped `timestamp` is timezone-aware
+        UTC so the provenance record is unambiguous across machines.
         """
         residuals_list = list(residuals)
         if residuals_list:
@@ -166,8 +188,8 @@ class CalibrationResult:
             code_version = pricebook.__version__
 
         return cls(
-            id=uuid4(),
-            timestamp=datetime.now(),
+            id=id if id is not None else uuid4(),
+            timestamp=timestamp if timestamp is not None else datetime.now(timezone.utc),
             code_version=code_version,
             model_class=model_class,
             parameters=dict(parameters),

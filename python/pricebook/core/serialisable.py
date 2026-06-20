@@ -51,9 +51,10 @@ or refuse to deserialise them with a clear error.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum, IntEnum
 from typing import Any, get_type_hints, Union, get_origin, get_args
+from uuid import UUID
 
 try:
     import numpy as _np  # noqa: F401 — used for isinstance narrow in _serialise_atom
@@ -185,13 +186,16 @@ def from_dict(d: dict[str, Any]) -> Any:
 def _serialise_atom(v: Any) -> Any:
     """Convert a single value to a JSON-native type.
 
-    Handles: None, date, Enum, bool, int, float, str, numpy scalars,
-    nested serialisable objects, lists, CurrencyPair.
+    Handles: None, date/datetime, UUID, Enum, bool, int, float, str, numpy
+    scalars, nested serialisable objects, lists/tuples, dicts, CurrencyPair.
     """
     if v is None:
         return None
+    # datetime is a subclass of date — isoformat() carries the time + tz offset.
     if isinstance(v, date):
         return v.isoformat()
+    if isinstance(v, UUID):
+        return str(v)
     if isinstance(v, Enum):
         return v.value
     if isinstance(v, bool):
@@ -207,9 +211,12 @@ def _serialise_atom(v: Any) -> Any:
     # Nested serialisable
     if hasattr(v, "to_dict"):
         return v.to_dict()
-    # List of dates or serialisables
-    if isinstance(v, list):
+    # List/tuple of dates or serialisables
+    if isinstance(v, (list, tuple)):
         return [_serialise_atom(x) for x in v]
+    # Mapping → recurse on values (keys assumed JSON-native str/int).
+    if isinstance(v, dict):
+        return {k: _serialise_atom(val) for k, val in v.items()}
     # CurrencyPair (has .base.value, .quote.value)
     if hasattr(v, "base") and hasattr(v, "quote") and hasattr(v.base, "value"):
         return f"{v.base.value}/{v.quote.value}"
@@ -240,11 +247,23 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
             # Polymorphic but no discriminator → can't auto-resolve.
             return v
 
+    # datetime (check before date — datetime is a date subclass).
+    if hint is datetime:
+        if isinstance(v, datetime):
+            return v
+        return datetime.fromisoformat(v)
+
     # date
     if hint is date:
         if isinstance(v, date):
             return v
         return date.fromisoformat(v)
+
+    # UUID
+    if hint is UUID:
+        if isinstance(v, UUID):
+            return v
+        return UUID(v)
 
     # Enum subclass
     if isinstance(hint, type) and issubclass(hint, Enum):
@@ -527,6 +546,8 @@ def serialisable_convention(serial_type: str, schema_version: int = 1):
             return klass(**kwargs)
 
         cls.to_dict = to_dict
+
+
         cls.from_dict = cls_from_dict
         # Register so from_dict dispatch works for nested conventions
         _register(cls)
