@@ -121,8 +121,12 @@ def rough_heston_char_func(
             h[n] = h1 if abs(h1) < abs(h2) else h2
 
         # Compute integrals for the CF
-        # ∫₀ᵀ h(T-s) ds via trapezoidal
-        integral_h = float(np.sum(0.5 * (h[:-1] + h[1:]) * np.diff(t_grid)))
+        # ∫₀ᵀ h(T-s) ds via trapezoidal. `h` is complex (driven by
+        # complex coefficients from c_coeff = 0.5*(-u² + iu)); the
+        # integral is fundamentally complex too — casting to float
+        # dropped the imaginary part (ComplexWarning) AND mis-shaped
+        # the resulting CF on the imaginary axis. Keep complex.
+        integral_h = np.sum(0.5 * (h[:-1] + h[1:]) * np.diff(t_grid))
 
         # I^α h(0⁺): fractional integral at origin
         # Approximation: h[1] * dt^α / Γ(α+1)

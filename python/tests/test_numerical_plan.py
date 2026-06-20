@@ -203,6 +203,20 @@ class TestRoughHeston:
         p_smooth = rough_heston_price(100, 100, 0.04, 1.0, smooth)
         assert abs(p_rough - p_smooth) > 0.01  # should differ
 
+    def test_cf_keeps_imaginary_part(self):
+        """W2 regression: integral_h is complex by construction; an earlier
+        `float(integral_h)` cast emitted ComplexWarning and dropped the
+        imaginary contribution to log_cf. Pin the fix: pricing under a
+        rough param set must complete without ComplexWarning."""
+        import warnings
+        from numpy.exceptions import ComplexWarning
+        from pricebook.models.rough_heston_cf import rough_heston_price, RoughHestonParams
+        params = RoughHestonParams(v0=0.04, kappa=0.5, theta=0.04, xi=0.3, rho=-0.7, H=0.1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ComplexWarning)
+            price = rough_heston_price(100, 100, 0.04, 1.0, params)
+        assert price > 0
+
 
 # ═══════════════════════════════════════════════════════════════
 # F4: 2D FFT
