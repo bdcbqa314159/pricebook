@@ -2,6 +2,62 @@
 
 ---
 
+## v1.111.0 — 2026-06-19 — **B.3 C1: retire legacy `core/market_data`; audit chain COMPLETE 🏁**
+
+Last open item from the entire L0 audit catalogue. `core/market_data.py` was the pre-G1-P2 market-data module — superseded by the canonical `pricebook.market_data` package (`MarketSnapshot` / `QuoteKind` / `QuoteId` / `Quote`). Two implementations of the same concept is the architectural smell that motivated G1 P2 in the first place.
+
+**1. Helpers migrated to `pricebook.market_data._types`**
+
+Three names the only production consumer (`curves/curve_engine.py`) still needed are now defined in the canonical package and re-exported from `pricebook.market_data`:
+
+* `tenor_to_years(s) -> float`
+* `tenor_to_date(ref, s) -> date`
+* `class MissingQuoteError(Exception)`
+
+`tenor_to_date` does a function-scope import of `core.day_count.date_from_year_fraction` to avoid a load-time cycle while keeping the implementation co-located with the rest of the tenor-parsing logic.
+
+**2. `curves/curve_engine.py` migrated to the new API**
+
+* `MarketDataSnapshot` → `MarketSnapshot` (frozen dataclass with UUID + `as_of` datetime; reference date now comes from `snapshot.as_of.date()`).
+* `QuoteType` → `QuoteKind` (str-Enum; same values for the 5 kinds curve_engine uses — DEPOSIT_RATE, SWAP_RATE, CDS_SPREAD, VOL_POINT, FX_SPOT — plus 12 new ones the new layer supports).
+* `Quote(quote_type, tenor, value, currency, name)` → `Quote(id=QuoteId(kind, tenor, currency, label), value)`.
+* `snapshot.get_quotes(qt, currency)` → `snapshot.filter(kind=qt, currency=currency)`.
+
+Kept `QuoteType = QuoteKind` as a module-level alias in `curve_engine` so any downstream caller still importing `from pricebook.curves.curve_engine import QuoteType` keeps working without a same-slice edit.
+
+**3. `test_curve_engine.py` migrated to the new API**
+
+`_usd_snapshot()` now builds quotes via `QuoteId(...)` + `Quote(id=..., value=...)` and constructs the snapshot via `MarketSnapshot.new(quotes=..., as_of=datetime.combine(REF, datetime.min.time()))`. Aliased `QuoteKind as QuoteType` in the import so the body of the tests (which referenced `QuoteType.DEPOSIT_RATE` etc.) didn't churn.
+
+**4. Three files deleted**
+
+* `python/pricebook/core/market_data.py` — 302 lines. The legacy module: `QuoteType`, `Quote`, `MarketDataSnapshot`, `CurveConfig`, `PipelineConfig`, `MissingQuoteError`, `_build_discount_curve`, `_build_survival_curve`, `build_context`, `HistoricalData`. The `_build_*` and `build_context` helpers had zero production callers; `HistoricalData` had zero callers. Only the 5 names listed in §2 had live use.
+* `python/pricebook/pricing/market_data.py` — 2-line `from pricebook.core.market_data import *` shim. Now meaningless.
+* `python/tests/test_market_data.py` — tested the legacy module exclusively; new types have their own tests in `python/tests/market_data/`.
+
+Net: **−587 lines deleted, +77 lines added (helpers + cycle-avoiding import note)**, one architectural duplication closed.
+
+**Caller-impact verification**: grepped for residual `pricebook.core.market_data` and `pricebook.pricing.market_data` imports — zero hits outside `market_data_provider.py` and `market_data_tools.py` (different files, kept).
+
+**Verification:**
+
+L3 suite (max-layer 3, with the two slow G2++ calibration tests deselected): **8261 passed, 0 failed** in 5m19s. No regressions.
+
+---
+
+# Whole-library audit chain — closed.
+
+With B.3 C1 closed, every catalogued audit item across the entire library is either resolved or explicitly held-as-is with rationale:
+
+* All HIGH items: closed.
+* All MED items: closed.
+* All LOW items: closed.
+* The two ARCH-tagged items (A.11 B3 registry warning, B.3 C1 market_data dual implementation): A.11 B3 held-as-is per audit rationale (current silent-ignore is safer than the audit's overwrite-with-warning suggestion); B.3 C1 closed here.
+
+The bottom-up L0→L6 sweep (`AUDIT_PLAN.md` + ponytail layered findings) is done. ~793 modules across 24 sub-packages and 7 layers were audited; 1,043 `vars(self)` mutation hazards swept; the strict-ICMA migration landed in 3 disciplined slices; and the legacy/G1-P2 architectural duplication is finally retired.
+
+---
+
 ## v1.110.0 — 2026-06-19 — **T-ICMA-SLICE3 + A.1 B1 COMPLETE 🏁: flip `strict_icma=True` default**
 
 A.1 B1 migration, slice 3 of 3 — the actual default-flip. Three changes:
