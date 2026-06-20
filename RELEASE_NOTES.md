@@ -2,6 +2,38 @@
 
 ---
 
+## v1.113.0 — 2026-06-19 — **W2: rough Heston CF keeps `integral_h` complex (drop float cast)**
+
+Slice 2/8 of the warnings-sweep campaign.
+
+**Bug**: `models/rough_heston_cf._solve_fractional_riccati` line 125 was
+
+```python
+integral_h = float(np.sum(0.5 * (h[:-1] + h[1:]) * np.diff(t_grid)))
+```
+
+`h` is `np.zeros(n_steps + 1, dtype=complex)` driven by complex coefficients (`c_coeff = 0.5*(-(u**2) + 1j*u)`, `b_coeff = 1j*u*rho*xi - kappa`). For any non-zero `u`, `integral_h` is fundamentally complex. The `float(...)` cast (a) emitted `numpy.exceptions.ComplexWarning: Casting complex values to real discards the imaginary part` on every CF evaluation, and (b) — the actual bug — dropped `Im(integral_h)` from `log_cf`. The next line
+
+```python
+log_cf = 1j * u * (rate - div_yield) * T + theta * integral_h + v0 * I_alpha_h0
+```
+
+mis-shaped the CF on the imaginary axis: the contribution `1j * theta * Im(integral_h)` was being silently zeroed, which (via the COS-method inversion in `rough_heston_price`) shifts every European option price computed with this CF.
+
+**Fix**: drop the cast. `integral_h` stays complex; `log_cf` stays complex; the CF is now what the math actually demands.
+
+**Caller-impact**: every prior caller of `rough_heston_price` was getting a slightly mis-priced option. Test tolerances were loose enough (`price > 0`, `|p_rough - p_smooth| > 0.01`) that this wasn't caught. There are no golden-value tests to update — but downstream consumers should re-baseline if they pinned numerical outputs.
+
+Note: there is a separate `rough_paths.rough_heston_cf` (different module, simpler algebra) that does NOT have this bug.
+
+**Regression**: new test `TestRoughHeston::test_cf_keeps_imaginary_part` prices a rough param set with `warnings.simplefilter("error", ComplexWarning)` — locks the fix.
+
+**Verification**: full `TestRoughHeston` (3 tests) passing.
+
+**Warnings count**: 17 → 16 in the L≤3 suite.
+
+---
+
 ## v1.112.0 — 2026-06-19 — **W1: `realized_vol` rejects non-positive prices**
 
 Slice 1 of the 8-slice warnings-sweep campaign (`W1` … `W8`) that follows the audit-chain closure. Goal: drive the 18 RuntimeWarnings emitted by the L≤3 test suite to zero, one root cause per slice.
