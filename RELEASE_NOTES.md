@@ -2,6 +2,28 @@
 
 ---
 
+## v1.112.0 — 2026-06-19 — **W1: `realized_vol` rejects non-positive prices**
+
+Slice 1 of the 8-slice warnings-sweep campaign (`W1` … `W8`) that follows the audit-chain closure. Goal: drive the 18 RuntimeWarnings emitted by the L≤3 test suite to zero, one root cause per slice.
+
+**Bug**: `statistics/garch.realized_vol(prices, ...)` did `np.log(prices)` with no input validation. The associated test `test_realized_vol` mistakenly passed a `returns` fixture (normal(0, 0.01) — half negative) to a function that expects strictly-positive prices. Result: silent `RuntimeWarning: invalid value encountered in log` on every L≤3 run, and the rolling-window stats were polluted by NaN-from-log noise.
+
+This is the recurring **silent-no-op API hazard** pattern catalogued in `[[recurring-bug-patterns]]`.
+
+**Fix**:
+
+1. `realized_vol` now raises `ValueError("realized_vol requires strictly-positive prices; got entries ≤ 0. If you passed returns by mistake, convert with `prices = base * np.cumprod(1 + returns)` first.")` if any price is ≤ 0. The error message points at the most common mistake — the same one the test was making.
+2. `test_realized_vol` now correctly converts the `returns` fixture to a price series via `100.0 * np.cumprod(1 + returns)` before calling.
+3. Two new regression tests: `test_realized_vol_rejects_non_positive` (returns-as-prices) and `test_realized_vol_rejects_zero_price` (mid-series zero).
+
+**Caller-impact**: zero. Grep confirmed no production code calls `realized_vol` — only the one test, now fixed.
+
+**Verification**: `test_garch.py` 8/8 passing.
+
+**Warnings count**: 18 → 17 in the L≤3 suite.
+
+---
+
 ## v1.111.0 — 2026-06-19 — **B.3 C1: retire legacy `core/market_data`; audit chain COMPLETE 🏁**
 
 Last open item from the entire L0 audit catalogue. `core/market_data.py` was the pre-G1-P2 market-data module — superseded by the canonical `pricebook.market_data` package (`MarketSnapshot` / `QuoteKind` / `QuoteId` / `Quote`). Two implementations of the same concept is the architectural smell that motivated G1 P2 in the first place.
