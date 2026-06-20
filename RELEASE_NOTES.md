@@ -2,6 +2,39 @@
 
 ---
 
+## v1.115.0 — 2026-06-19 — **W4: PricingServer test fixture cleans up server thread / coroutines**
+
+Slice 4/8 of the warnings-sweep campaign.
+
+**Bug**: the `server_port` fixture in `test_pricing_server.py::TestServerClient` started an asyncio `PricingServer` in a background thread, then on teardown called `loop.call_soon_threadsafe(loop.stop)` and joined the thread. Two leaks:
+
+1. `loop.stop()` interrupts `serve_forever()` but doesn't close the server — pending `_handle_connection` coroutines remained as un-awaited tasks, garbage-collected later in unrelated tests as `PytestUnraisableExceptionWarning: Exception ignored in: <coroutine object PricingServer._handle_connection at ...>`.
+2. The interrupt itself raised a `RuntimeError` out of `serve_forever()` in the thread → `PytestUnhandledThreadExceptionWarning: Exception in thread Thread-N (_start_server_thread)`.
+
+Both warnings showed up *attributed to* whichever test happened to run after the leak (`test_pde_solver::TestCrankNicolson::test_put` was a common scapegoat) — misleading attribution that made the root cause hard to spot.
+
+**Fix**: the thread now wraps the serve loop in try/except/finally:
+
+```python
+try:
+    loop.run_until_complete(server.start())
+    loop.run_until_complete(server._server.serve_forever())
+except (asyncio.CancelledError, RuntimeError):
+    pass
+finally:
+    loop.run_until_complete(server.stop())   # closes socket + drains pool
+```
+
+And the fixture closes the loop after the thread joins (`if not loop.is_closed(): loop.close()`). `PricingServer.stop()` was already correct — the test just wasn't calling it.
+
+**Caller-impact**: zero — test-only change. Library code unchanged.
+
+**Verification**: `test_pricing_server.py` 12/12 passing, zero warnings under direct invocation. Full L≤3 suite warnings 12 → 9 (4 PricingServer ones gone — the test count went up by 1 from W3's new regression).
+
+**Warnings count**: 13 → 9 in the L≤3 suite.
+
+---
+
 ## v1.114.0 — 2026-06-19 — **W3: bootstrap pins df(start) for futures/FRAs + verifier formula matches T3.17 fix**
 
 Slice 3/8 of the warnings-sweep campaign. Targets the three `test_l2_t3_17_18_bootstrap_convexity` `RuntimeWarning: Bootstrap round-trip failures` warnings.
