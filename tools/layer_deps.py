@@ -219,23 +219,51 @@ def collect_cross_pkg_lazy(layer_pkgs: set[str]):
     return sorted(edges)
 
 
-def topo_order(modules: set[str], deps: dict[str, set[str]]) -> list[str]:
-    visited: set[str] = set()
-    out: list[str] = []
-    def _visit(m: str, stack: list[str]):
-        if m in visited:
-            return
+def compute_depth(modules: set[str], deps: dict[str, set[str]]) -> dict[str, int]:
+    """For each module: depth = longest path from it to a leaf.
+
+    Leaves have depth 0. A module that imports a depth-d module has
+    depth ≥ d+1. Cycles get treated as depth 0 at the cycle entry — the
+    function is robust to (but does not warn on) cycles.
+    """
+    depth: dict[str, int] = {}
+
+    def _depth(m: str, stack: set[str]) -> int:
+        if m in depth:
+            return depth[m]
         if m in stack:
-            return
-        stack.append(m)
-        for d in sorted(deps.get(m, ())):
-            _visit(d, stack)
-        stack.pop()
-        visited.add(m)
-        out.append(m)
-    for m in sorted(modules):
-        _visit(m, [])
-    return out
+            return 0  # cycle — treat as leaf for ordering purposes
+        intra_deps = [d for d in deps.get(m, ()) if d in modules]
+        if not intra_deps:
+            depth[m] = 0
+            return 0
+        stack.add(m)
+        d = 1 + max(_depth(dd, stack) for dd in intra_deps)
+        stack.discard(m)
+        depth[m] = d
+        return d
+
+    for m in modules:
+        _depth(m, set())
+    return depth
+
+
+def depth_order(modules: set[str], deps: dict[str, set[str]]) -> list[str]:
+    """Return modules sorted by (depth ascending, name).
+
+    Depth 0 (leaves) come first; deeper-in-the-tree modules (those that
+    sit on top of more layers) come last. This is the "most deep to most
+    superficial" ordering — within a depth level, ties are broken
+    alphabetically.
+    """
+    d = compute_depth(modules, deps)
+    return sorted(modules, key=lambda m: (d[m], m))
+
+
+# Kept for back-compat with callers that asked for "topo order". Same
+# semantics as depth_order now (which is itself a valid topological
+# order — every module appears after all of its deps).
+topo_order = depth_order
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -248,7 +276,8 @@ def short(m: str) -> str:
 
 def render_tree(layer: int, layer_pkgs: set[str], pkg_filter: str | None = None) -> str:
     modules, deps, dependents, _ = build_graph(layer_pkgs)
-    order = topo_order(modules, deps)
+    order = depth_order(modules, deps)
+    depths = compute_depth(modules, deps)
 
     by_pkg: dict[str, list[str]] = defaultdict(list)
     for m in order:
@@ -262,35 +291,48 @@ def render_tree(layer: int, layer_pkgs: set[str], pkg_filter: str | None = None)
         mods = by_pkg[pkg]
         lines.append("")
         lines.append("=" * 72)
-        lines.append(f"  pricebook.{pkg}    ({len(mods)} modules, dependency order)")
+        lines.append(f"  pricebook.{pkg}    ({len(mods)} modules, deep → superficial)")
         lines.append("=" * 72)
-        lines.append("")
+        prev_depth = -1
         for m in mods:
             d = sorted(deps.get(m, ()))
             r = sorted(dependents.get(m, ()))
-            tag = " [LEAF]" if not d else ""
-            lines.append(f"  {short(m)}{tag}")
+            depth_m = depths[m]
+            # Visual band marker each time depth bumps up.
+            if depth_m != prev_depth:
+                lines.append("")
+                lines.append(f"  -- depth {depth_m} "
+                             f"({'leaves' if depth_m == 0 else f'sits on top of {depth_m} layer(s)'}) --")
+                prev_depth = depth_m
+            tag = "" if d else " [LEAF]"
+            lines.append(f"  d{depth_m}  {short(m)}{tag}")
             if d:
                 for dd in d:
-                    lines.append(f"      → {short(dd)}")
+                    lines.append(f"          → {short(dd)}  (d{depths[dd]})")
             if r:
                 in_pkg = sum(1 for rr in r if rr.split(".")[1] == pkg)
                 cross_pkg = len(r) - in_pkg
-                lines.append(f"      ← {len(r)} dependents ({in_pkg} intra, "
+                lines.append(f"          ← {len(r)} dependents ({in_pkg} intra, "
                              f"{cross_pkg} cross-pkg)")
     return "\n".join(lines)
 
 
 def render_reading_order(layer: int, layer_pkgs: set[str], pkg_filter: str | None = None) -> str:
     modules, deps, _, _ = build_graph(layer_pkgs)
-    order = topo_order(modules, deps)
+    order = depth_order(modules, deps)
+    depths = compute_depth(modules, deps)
     if pkg_filter:
         order = [m for m in order if m.split(".")[1] == pkg_filter]
-    out = [f"# L{layer} reading order — leaves to roots ({len(order)} modules)\n"]
+    out = [f"# L{layer} reading order — deep → superficial ({len(order)} modules)\n"]
+    prev_depth = -1
     for i, m in enumerate(order, 1):
+        depth_m = depths[m]
+        if depth_m != prev_depth:
+            out.append(f"\n--- depth {depth_m} ---")
+            prev_depth = depth_m
         d = sorted(deps.get(m, ()))
         leaf = " [LEAF]" if not d else ""
-        out.append(f"{i:3}.  {short(m)}{leaf}")
+        out.append(f"{i:3}.  d{depth_m}  {short(m)}{leaf}")
     return "\n".join(out)
 
 
@@ -332,7 +374,8 @@ def render_summary(layer: int, layer_pkgs: set[str]) -> str:
 def render_markdown(layer: int, layer_pkgs: set[str]) -> str:
     """Self-contained markdown report — the canonical artefact for ``L<N>_DEPS.md``."""
     modules, deps, dependents, _ = build_graph(layer_pkgs)
-    order = topo_order(modules, deps)
+    order = depth_order(modules, deps)
+    depths = compute_depth(modules, deps)
     lazy = collect_cross_pkg_lazy(layer_pkgs)
 
     out: list[str] = []
@@ -385,9 +428,9 @@ def render_markdown(layer: int, layer_pkgs: set[str]) -> str:
     out.append("")
 
     # Per-sub-package tree
-    out.append("## Per-sub-package trees")
+    out.append("## Per-sub-package trees (deep → superficial)")
     out.append("")
-    out.append(f"For each module: `→` lines are this module's load-time intra-L{layer} deps; `← N dependents (M intra, K cross-pkg)` shows fan-in.")
+    out.append(f"For each module: `d<N>` is its **depth** (longest path to a leaf within this layer; depth 0 = pure leaf, depth N = sits on top of N layers). `→` lines are load-time intra-L{layer} deps with their depths shown. `← N dependents (M intra, K cross-pkg)` shows fan-in. Within a sub-package, modules are sorted by (depth ascending, name) — so every leaf comes before every depth-1 module, which comes before every depth-2 module, etc.")
     out.append("")
     by_pkg_order: dict[str, list[str]] = defaultdict(list)
     for m in order:
@@ -397,29 +440,44 @@ def render_markdown(layer: int, layer_pkgs: set[str]) -> str:
         out.append(f"### {pkg} ({len(mods)} modules)")
         out.append("")
         out.append("```")
+        prev_depth = -1
         for m in mods:
             d = sorted(deps.get(m, ()))
             r = sorted(dependents.get(m, ()))
-            tag = " [LEAF]" if not d else ""
-            out.append(f"  {short(m)}{tag}")
+            depth_m = depths[m]
+            if depth_m != prev_depth:
+                if prev_depth >= 0:
+                    out.append("")
+                out.append(f"  -- depth {depth_m} "
+                           f"({'leaves' if depth_m == 0 else f'on top of {depth_m} layer(s)'}) --")
+                prev_depth = depth_m
+            tag = "" if d else " [LEAF]"
+            out.append(f"  d{depth_m}  {short(m)}{tag}")
             if d:
                 for dd in d:
-                    out.append(f"      → {short(dd)}")
+                    out.append(f"          → {short(dd)}  (d{depths[dd]})")
             if r:
                 in_pkg = sum(1 for rr in r if rr.split(".")[1] == pkg)
                 cross_pkg = len(r) - in_pkg
-                out.append(f"      ← {len(r)} dependents ({in_pkg} intra, {cross_pkg} cross-pkg)")
+                out.append(f"          ← {len(r)} dependents ({in_pkg} intra, {cross_pkg} cross-pkg)")
         out.append("```")
         out.append("")
 
     # Flat reading order
-    out.append(f"## Flat reading order (all {len(modules)} modules, leaves to roots)")
+    out.append(f"## Flat reading order (all {len(modules)} modules, deep → superficial)")
     out.append("")
     out.append("```")
+    prev_depth = -1
     for i, m in enumerate(order, 1):
+        depth_m = depths[m]
+        if depth_m != prev_depth:
+            if prev_depth >= 0:
+                out.append("")
+            out.append(f"  --- depth {depth_m} ---")
+            prev_depth = depth_m
         d = sorted(deps.get(m, ()))
         leaf = " [LEAF]" if not d else ""
-        out.append(f"{i:3}.  {short(m)}{leaf}")
+        out.append(f"{i:3}.  d{depth_m}  {short(m)}{leaf}")
     out.append("```")
     out.append("")
 
