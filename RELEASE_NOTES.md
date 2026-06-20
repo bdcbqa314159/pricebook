@@ -2,6 +2,31 @@
 
 ---
 
+## v1.120.0 — 2026-06-20 — **Calibration unification G1 Phase 0 Slice 1: CalibrationResult serialisable + tz-aware clock**
+
+First slice of the calibration-result unification (consumer axis first). Audit + grep established that the canonical `CalibrationResult` is currently *build-and-drop*: ~10 calibrators construct one, but production reads only `.id` off it, nothing serialises/persists it, and `to_calibration_result()` has zero production callers. Before widening producers, the record needs to be load-bearing — and step one is making it round-trip.
+
+**Files**: `python/pricebook/core/serialisable.py`, `python/pricebook/calibration/_types.py`, `python/tests/test_calibration_result_serialisation.py` (new).
+
+**Core serialisation infra** (`serialisable.py`): the atom serialiser handled neither `UUID` nor `datetime` — a `UUID` field passed through as a non-JSON object (would crash `json.dumps`), and a `datetime` had no deserialise path. Added, all additive (no existing serialisable type has a UUID/datetime field):
+* `_serialise_atom`: `UUID → str`; recurse into `dict` values; treat `tuple` like `list`. (`datetime` already serialised via the `date` branch — it is a `date` subclass and `isoformat()` carries the time + offset.)
+* `_deserialise_atom`: `datetime` (via `datetime.fromisoformat`, checked before `date`) and `UUID` branches.
+
+**Calibration types** (`_types.py`):
+* `OptimiserSpec`, `CalibrationDiagnostics`, `CalibrationResult` are now `@serialisable_convention` (flat, pure-data dicts carrying `_schema_version`). Fields auto-derived from the dataclass — no hand-maintained field list.
+* `CalibrationResult.new()` now stamps **timezone-aware UTC** (`datetime.now(timezone.utc)`) instead of a naive local `datetime.now()` — a provenance timestamp without an offset is ambiguous across machines/DST. `id` and `timestamp` are now injectable (default-generated when omitted) for reproducing a stored result or making a test deterministic — mirroring the existing `code_version` override.
+* `CalibrationDiagnostics` canonicalises its sequence fields to tuples in `__post_init__`: correct for a frozen record, and it makes serialise→deserialise exact (JSON arrays come back as lists, so a default `()` would otherwise `!= []` after a round-trip).
+
+**Why this is safe**: the `_types.py → core.serialisable` edge is acyclic (core.serialisable imports nothing from calibration; the back-reference in `core/discount_curve` is `TYPE_CHECKING`-only). Module stays at L0.
+
+**Tests**: 12 new — round-trip for all three types, JSON-native payload, tz-aware UTC clock, injectable id/timestamp, distinct auto-ids, and atom-level UUID/datetime/dict/tuple round-trips.
+
+**Verification**: full suite **12791 passed** (two slow G2++ calibration tests deselected per convention); targeted serialisation + all 10 calibration-consumer modules 1216/1216.
+
+**Next** (Phase 0 Slice 2): db persistence + a reader that consumes the now-serialisable record — turning the 13 currently-unread fields live.
+
+---
+
 ## v1.119.0 — 2026-06-19 — **W8: swap pillar pinned at schedule-end (not unadjusted mat); warnings campaign COMPLETE 🏁**
 
 Slice 8/8 — the final slice of the warnings-sweep campaign.
