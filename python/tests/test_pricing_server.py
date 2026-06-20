@@ -115,10 +115,22 @@ class TestHandleRequest:
 # ---- Integration: server + client ----
 
 def _start_server_thread(server, loop):
-    """Run server in a background thread."""
+    """Run server in a background thread until cancelled.
+
+    Uses serve_forever() wrapped in try/except so that loop.stop() — fired
+    by the fixture teardown — propagates cleanly instead of leaving the
+    coroutine to be garbage-collected (which raised PytestUnraisable +
+    PytestUnhandledThreadException warnings pre-W4).
+    """
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(server.start())
-    loop.run_until_complete(server._server.serve_forever())
+    try:
+        loop.run_until_complete(server.start())
+        loop.run_until_complete(server._server.serve_forever())
+    except (asyncio.CancelledError, RuntimeError):
+        # RuntimeError fires when loop.stop() interrupts serve_forever.
+        pass
+    finally:
+        loop.run_until_complete(server.stop())
 
 
 class TestServerClient:
@@ -141,8 +153,14 @@ class TestServerClient:
 
         yield port
 
+        # Orderly shutdown: stop the loop (which interrupts
+        # serve_forever); the thread's finally clause then runs
+        # server.stop() to close the listening socket and drain pending
+        # connections, avoiding leaked coroutines (W4).
         loop.call_soon_threadsafe(loop.stop)
         t.join(timeout=2)
+        if not loop.is_closed():
+            loop.close()
 
     def test_end_to_end(self, server_port):
         """Client → Server → Response for a 5Y IRS."""
