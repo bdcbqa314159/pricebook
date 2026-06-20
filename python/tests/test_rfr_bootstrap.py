@@ -58,6 +58,27 @@ class TestBootstrapUSD:
         assert result.curve.df(date(2024, 7, 15)) < 1.0
         assert result.curve.df(date(2024, 7, 15)) > 0.95
 
+    def test_w8_no_round_trip_warning(self):
+        """W8 regression: prior to pinning the swap pillar at the
+        schedule's actual end date (rather than the unadjusted swap
+        maturity), business-day-roll could push the schedule end date
+        a day past the pillar — at solve time df(schedule_end) was
+        extrapolated, after later swaps were added it was interpolated
+        — giving ~2e-6 PV round-trip residual on every USD OIS curve.
+        """
+        import warnings as _warnings
+        inputs = RFRCurveInputs(
+            overnight_rate=0.053,
+            deposits=[(date(2024, 4, 15), 0.052)],
+            ois_swaps=_make_ois_swaps(REF, [
+                (1, 0.050), (2, 0.048), (3, 0.046),
+                (5, 0.043), (7, 0.042), (10, 0.041),
+            ]),
+        )
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            bootstrap_rfr("USD", REF, inputs)
+
     def test_deposits_and_swaps(self):
         """Full curve: deposits + OIS swaps."""
         inputs = RFRCurveInputs(

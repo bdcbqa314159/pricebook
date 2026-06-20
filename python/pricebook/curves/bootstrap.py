@@ -199,7 +199,17 @@ def bootstrap(
             calendar, convention, StubType.SHORT_FRONT, True,
         )
 
-        def objective(df_guess: float, _mat=mat, _par=par_rate,
+        # Pin the pillar at the schedule's actual last date, not the
+        # unadjusted swap maturity. With business-day-roll conventions
+        # the two can differ by a day or two; the pillar must coincide
+        # with the date that the fixed/float legs actually pay, otherwise
+        # df(end-of-schedule) is extrapolated at solve time but
+        # interpolated against later swap pillars on the final curve —
+        # the values disagree and the round-trip residual grows to
+        # ~1e-6 (W8 root cause).
+        pillar_mat = max(fixed_sched[-1], float_sched[-1])
+
+        def objective(df_guess: float, _mat=pillar_mat, _par=par_rate,
                       _fsched=fixed_sched, _flsched=float_sched) -> float:
             """Build trial curve and price the swap — PV should be 0 at par."""
             trial_dates = pillar_dates + [_mat]
@@ -233,7 +243,7 @@ def bootstrap(
         # Bracket: df must be between 0 and 1 (or slightly above 1 for negative rates)
         df_solved = brentq(objective, 1e-6, 3.0)  # wider bracket: handles negative rates to -3%
 
-        pillar_dates.append(mat)
+        pillar_dates.append(pillar_mat)
         pillar_dfs.append(df_solved)
 
     curve = DiscountCurve(
