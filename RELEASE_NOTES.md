@@ -2,6 +2,24 @@
 
 ---
 
+## v1.117.0 — 2026-06-19 — **W6: silence expected Rosenbrock overflow in CMA-ES test**
+
+Slice 6/8 of the warnings-sweep campaign.
+
+**Bug**: `test_optimisation_advanced.py::test_rosenbrock` evaluates `100·(x[1] − x[0]²)² + (1 − x[0])²` directly. CMA-ES (the unit under test) deliberately samples a wide region in early generations; `x[0]²` then `x[0]⁴` overflows float64 → `RuntimeWarning: overflow encountered in scalar power` emitted by the *test* file itself (not the library).
+
+Pre-W5 this also caused a `RuntimeWarning: invalid value encountered in scalar subtract` cascade — the inf fitness then poisoned CMA-ES's recombination math (3 library-side warnings). W5 fixed the library to rank-last on non-finite fitness; this slice handles the residual test-side overflow.
+
+**Fix**: wrap the body of the test's `rosenbrock` in `np.errstate(over="ignore", invalid="ignore")` so the expected exploration-side overflow is silenced at the smallest possible scope. CMA-ES post-W5 sees `inf` and recovers; the test now runs silent.
+
+**Caller-impact**: zero — pure test scope.
+
+**Verification**: `test_optimisation_advanced.py` 13/13 passing, zero warnings.
+
+**Warnings count**: 6 → 5 in the L≤3 suite.
+
+---
+
 ## v1.116.0 — 2026-06-19 — **W5: CMA-ES rejects non-finite samples + fitness (stops NaN poisoning)**
 
 Slice 5/8 of the warnings-sweep campaign.
