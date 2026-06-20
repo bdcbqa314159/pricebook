@@ -49,6 +49,27 @@ class TestAndersonDarling:
         result = anderson_darling(data)
         assert hasattr(result, "statistic")
 
+    def test_w7_pvalue_and_no_future_warning(self):
+        """W7 regression: anderson_darling must call scipy with
+        method='interpolate' to avoid the scipy-1.17 FutureWarning and
+        return a real pvalue (the new contract, forward-compatible to
+        scipy 1.19 when the legacy critical_values attributes go away).
+        """
+        import warnings as _warnings
+        data = np.random.default_rng(0).normal(0, 1, 200)
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", FutureWarning)
+            result = anderson_darling(data)
+        assert 0.0 <= result.pvalue <= 1.0
+        assert isinstance(result.reject_at_5pct, bool)
+
+    def test_w7_rejects_non_normal(self):
+        """Sanity: clearly non-normal data is rejected (pvalue < 0.05)."""
+        data = np.random.default_rng(0).exponential(1.0, 500)
+        result = anderson_darling(data, distribution="normal")
+        assert result.reject_at_5pct
+        assert result.pvalue < 0.05
+
 
 class TestQQData:
     def test_qq_length(self):

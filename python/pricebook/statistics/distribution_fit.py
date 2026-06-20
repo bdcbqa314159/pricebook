@@ -152,13 +152,13 @@ def ks_test(
 class ADResult:
     """Anderson-Darling test result."""
     statistic: float
-    critical_values: dict[str, float]
+    pvalue: float
     reject_at_5pct: bool
     n_obs: int
 
     def to_dict(self) -> dict:
-        return {"statistic": self.statistic, "reject_at_5pct": self.reject_at_5pct,
-                "n_obs": self.n_obs}
+        return {"statistic": self.statistic, "pvalue": self.pvalue,
+                "reject_at_5pct": self.reject_at_5pct, "n_obs": self.n_obs}
 
 
 def anderson_darling(data: np.ndarray, distribution: str = "normal") -> ADResult:
@@ -172,11 +172,15 @@ def anderson_darling(data: np.ndarray, distribution: str = "normal") -> ADResult
     dist_map = {"normal": "norm", "exponential": "expon", "logistic": "logistic"}
     dist = dist_map.get(distribution, distribution)
 
-    result = anderson(x, dist=dist)
-    criticals = {f"{sl}%": float(cv) for sl, cv in zip(result.significance_level, result.critical_values)}
-    reject = result.statistic > result.critical_values[2]  # 5% level
+    # method="interpolate" pins the scipy-1.17 contract — without it
+    # scipy emits a FutureWarning and from 1.19 will silently switch
+    # API shape (no more critical_values / significance_level on the
+    # result object; only a pvalue). Migrating now keeps us
+    # forward-compatible.
+    result = anderson(x, dist=dist, method="interpolate")
 
-    return ADResult(float(result.statistic), criticals, reject, len(x))
+    return ADResult(float(result.statistic), float(result.pvalue),
+                    bool(result.pvalue < 0.05), len(x))
 
 
 # ═══════════════════════════════════════════════════════════════
