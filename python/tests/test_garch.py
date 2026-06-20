@@ -44,9 +44,24 @@ class TestEWMA:
 
 class TestRealizedVol:
     def test_realized_vol(self, returns):
-        rv = realized_vol(returns, window=22)
+        # realized_vol takes PRICES, not returns — convert the fixture first.
+        prices = 100.0 * np.cumprod(1.0 + returns)
+        rv = realized_vol(prices, window=22)
         assert len(rv) > 0
         assert all(v >= 0 for v in rv if not np.isnan(v))
+
+    def test_realized_vol_rejects_non_positive(self):
+        # Passing returns (mix of signs) instead of prices used to silently
+        # emit RuntimeWarning from log(≤0); now raises ValueError up front.
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0, 0.01, 50)
+        with pytest.raises(ValueError, match="strictly-positive prices"):
+            realized_vol(returns, window=10)
+
+    def test_realized_vol_rejects_zero_price(self):
+        prices = np.array([100.0, 99.0, 0.0, 98.0])
+        with pytest.raises(ValueError, match="strictly-positive prices"):
+            realized_vol(prices, window=2)
 
 
 class TestGARCHVaR:

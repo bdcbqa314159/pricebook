@@ -68,11 +68,24 @@ def realized_vol(
 
     RV_t = std(r_{t-window+1}, ..., r_t) × sqrt(annualise)
 
+    Args:
+        prices: array of strictly-positive prices. Passing returns instead of
+            prices is a common confusion; non-positive entries raise
+            ``ValueError`` rather than silently producing NaN via ``log(≤0)``.
+        window: rolling window length.
+        annualise: annualisation factor.
+
     Returns array same length as prices (NaN for initial window).
     """
     p = np.asarray(prices, dtype=float)
     if len(p) < 2:
         return np.full(len(p), np.nan)
+    if not np.all(p > 0):
+        raise ValueError(
+            "realized_vol requires strictly-positive prices; got entries ≤ 0. "
+            "If you passed returns by mistake, convert with "
+            "`prices = base * np.cumprod(1 + returns)` first."
+        )
 
     r = np.diff(np.log(p))
     rv = np.full(len(p), np.nan)
