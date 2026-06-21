@@ -2,6 +2,23 @@
 
 ---
 
+## v1.127.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (3/6): dividend_calibration producer**
+
+`equity/dividend_calibration.DividendCalibrationResult` now produces the canonical record.
+
+**Files**: `python/pricebook/equity/dividend_calibration.py`, `python/tests/test_dividend_calibration.py`.
+
+* Added `calibration_result: CalibrationResult | None = None`, `calibration_id` to `to_dict()`, and `to_calibration_result()`.
+* **Pattern variation (deliberate)**: this class already retains `fitted_futures` and `market_futures`, so `to_calibration_result()` builds **faithful per-tenor residuals** (`fitted − market`) directly from the instance and **caches lazily** on first call — rather than populating at each of the four build sites (`linear`/`optimize`/`spline`/`options`). Stable id once accessed; no four-site duplication. `model_class="dividend_curve"`, `parameters={D_<tenor>: fitted}`, `optimiser.algorithm=method`. (Noted for the upcoming pattern re-assessment: lazy-cache vs builder-populate.)
+
+**Tests**: 2 new — faithful residuals + caching (same instance on 2nd call); end-to-end persistence via `db.save_calibration` → `list_calibrations(model_class="dividend_curve")`.
+
+**Verification**: full suite **12816 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2, 4/6): `credit/joint_equity_credit.JointCalibrationResult`.
+
+---
+
 ## v1.126.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (2/6): jarrow_yildirim producer**
 
 `fixed_income/jarrow_yildirim.JYCalibrationResult` now produces the canonical record.
