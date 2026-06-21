@@ -2,6 +2,30 @@
 
 ---
 
+## v1.121.0 — 2026-06-21 — **Calibration unification G1 Phase 0 Slice 2: persist + load CalibrationResult**
+
+Second slice of the calibration-result unification (consumer axis). Slice 1 made `CalibrationResult` serialisable; this slice makes it *load-bearing* — the record can now be persisted and read back, turning the previously build-and-drop fields live.
+
+**Files**: `python/pricebook/db/db.py`, `python/tests/test_calibration_persistence.py` (new).
+
+**New `calibration_results` table** (system table; created via `CREATE TABLE IF NOT EXISTS`, so existing dbs gain it on next open — no migration). UUID-keyed (`calibration_id` PK). The full record is stored as JSON (`result_json`); the identity/quality fields — `model_class`, `timestamp`, `code_version`, `objective`, `converged`, `iterations`, `rms_residual`, `max_residual`, `market_snapshot_id` — are **denormalised into columns** so the audit chain is queryable without reconstructing every blob. Indexed on `model_class` and `market_snapshot_id`.
+
+**New `PricebookDB` methods** (matching the existing trade/snapshot pattern):
+* `save_calibration(result) -> str` — idempotent on the calibration id (`ON CONFLICT … DO UPDATE`); returns the id. This is where the dead fields get consumed — it reads `.model_class`, `.timestamp`, `.objective`, `.converged`, `.iterations`, `.rms_residual`, `.max_residual`, `.market_snapshot_id` to populate the columns.
+* `load_calibration(id) -> CalibrationResult | None` — reconstructs via `CalibrationResult.from_dict` (called directly, not the generic registry `from_dict`, because the convention payload is flat with no `type` discriminator — the table tells us the type).
+* `load_calibration_raw(id) -> dict | None` — row + parsed JSON, no reconstruction.
+* `list_calibrations(**filters)` — metadata listing; filter by any column (e.g. `model_class="HullWhite"`, `market_snapshot_id=…` for the audit chain).
+
+`db.py` takes a `TYPE_CHECKING`-only import of `CalibrationResult`/`UUID` (annotations are lazy under `from __future__ import annotations`); the runtime calibration import is lazy inside `load_calibration`, matching the existing `load_trade`/`load_snapshot` style. No new load-time edge.
+
+**Tests**: 12 new — round-trip reconstruction (`load == original`), str/UUID id acceptance, missing→None, denormalised columns track the fields (incl. bool→INTEGER, null snapshot), `list`/filter by `model_class` and by `market_snapshot_id` (audit chain), idempotent re-save, system-table protection, and file-backed durability across reopen.
+
+**Verification**: full suite **12803 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 1): kill the dead `Calibrator` Protocol (zero implementers) and resolve the two `CalibrationResult` name-shadows (`credit/rating_models.py`, `models/calibration_utils.py`); then Phase 2 widens producers; Phase 3 wires `to_calibration_result()` into this persistence path so build → store → read is a closed loop.
+
+---
+
 ## v1.120.0 — 2026-06-20 — **Calibration unification G1 Phase 0 Slice 1: CalibrationResult serialisable + tz-aware clock**
 
 First slice of the calibration-result unification (consumer axis first). Audit + grep established that the canonical `CalibrationResult` is currently *build-and-drop*: ~10 calibrators construct one, but production reads only `.id` off it, nothing serialises/persists it, and `to_calibration_result()` has zero production callers. Before widening producers, the record needs to be load-bearing — and step one is making it round-trip.
