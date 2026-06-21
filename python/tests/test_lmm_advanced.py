@@ -225,7 +225,7 @@ class TestCanonicalCalibrationResult:
         result = lmm_cascade_calibration(market_vols, fwd)
         cr = result.to_calibration_result()
         assert cr is result.calibration_result   # stored, not rebuilt
-        assert cr.model_class == "lmm"
+        assert cr.model_class == "lmm_rebonato"
         assert cr.optimiser.algorithm == "cascade"
         assert len(cr.residuals) == 3            # per-swaption residuals
         assert set(cr.parameters) == {f"sigma_{i}" for i in range(4)}
@@ -242,7 +242,7 @@ class TestCanonicalCalibrationResult:
             vols=np.array([0.2, 0.21]), residual=0.003, n_swaptions=2, method="cascade",
         )
         cr = r.to_calibration_result()
-        assert cr.model_class == "lmm"
+        assert cr.model_class == "lmm_rebonato"
         assert cr.residuals == [0.003]
 
     def test_persists_via_db(self):
@@ -254,4 +254,4 @@ class TestCanonicalCalibrationResult:
             cid = db.save_calibration(result)        # family result → canonical
             loaded = db.load_calibration(cid)
             assert loaded == result.to_calibration_result()
-            assert db.list_calibrations(model_class="lmm")[0]["calibration_id"] == cid
+            assert db.list_calibrations(model_class="lmm_rebonato")[0]["calibration_id"] == cid

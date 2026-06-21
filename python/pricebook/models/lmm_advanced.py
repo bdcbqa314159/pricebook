@@ -64,7 +64,7 @@ class RebonatoLMMCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         return CalibrationResult.new(
-            model_class="lmm",
+            model_class="lmm_rebonato",
             parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},
             residuals=[self.residual],   # on-demand path only has the aggregate
             objective=ObjectiveKind.SSE,
@@ -93,7 +93,7 @@ def _lmm_calibration_record(
         for (e, t) in keys
     ]
     return CalibrationResult.new(
-        model_class="lmm",
+        model_class="lmm_rebonato",
         parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
         residuals=residuals,
         objective=ObjectiveKind.SSE,
