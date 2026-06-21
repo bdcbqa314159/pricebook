@@ -2,6 +2,25 @@
 
 ---
 
+## v1.126.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (2/6): jarrow_yildirim producer**
+
+`fixed_income/jarrow_yildirim.JYCalibrationResult` now produces the canonical record.
+
+**Files**: `python/pricebook/fixed_income/jarrow_yildirim.py`, `python/tests/test_jarrow_yildirim.py`.
+
+* Added `calibration_result: CalibrationResult | None = None`, a proper `to_dict()` (was `dict(vars(self))` — would emit a raw `JYParams` object and, post-widen, a `CalibrationResult`; now emits the param fields + `calibration_id`), and `to_calibration_result()`.
+* `jy_calibrate` populates the stored `cr` with **per-tenor residuals** (model fair-rate − target) over the ZC inflation-swap quotes; `model_class="jarrow_yildirim"`, `parameters={sigma_n, sigma_r, sigma_I}` (the three fitted vols), `optimiser.algorithm="Nelder-Mead"`.
+* On-demand rebuild (hand-constructed instances) uses `residuals=[self.residual]` (aggregate only).
+* Tidied formatting (stray blank lines, glued `def`).
+
+**Tests**: 3 new — builder populates the canonical record (per-tenor residuals, three sigma params); on-demand rebuild; end-to-end persistence via `db.save_calibration`.
+
+**Verification**: full suite **12814 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2, 3/6): `equity/dividend_calibration.DividendCalibrationResult`.
+
+---
+
 ## v1.125.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (1/6): lmm_advanced producer + LMM name-shadow fix**
 
 First of six Phase-2 slices (widen producers onto the now-proven `to_calibration_result()` pattern). Surfaced a *second* name collision while here: `models/lmm_advanced` and `models/lmm_calibration` both defined a class named `LMMCalibrationResult` (different shapes — Rebonato cascade/global vs iterative-scaling ATM-grid). Resolved by renaming, bundled into this slice since the file is touched anyway.
