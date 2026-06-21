@@ -210,6 +210,16 @@ class TestParticleCanonicalResult:
             n_particles=500, seed=42,
         )
 
+    def test_residual_is_real_reproduction_error(self):
+        # Pre-fix the residual was a dead placeholder (always 0.0). It now
+        # measures local-vol reproduction error: finite, non-negative, small
+        # for this benign flat-vol case.
+        import math
+        result = self._calibrate()
+        assert math.isfinite(result.residual)
+        assert result.residual >= 0.0
+        assert result.residual < 0.05
+
     def test_builder_populates_canonical_record(self):
         result = self._calibrate()
         cr = result.to_calibration_result()

@@ -277,7 +277,14 @@ def particle_slv_calibration(
             else:
                 L[i, j] = 1.0
 
-            total_sq_err += (L[i, j] - 1.0) ** 2 * 0.0  # placeholder
+            # Reproduction error: the leverage is meant to make the effective
+            # local vol  L·√E[v|S]  match the target local vol. This is exact
+            # (≈0) wherever L was not clipped and E[v|S] was non-degenerate;
+            # it is non-zero only where L hit the [0.1, 10] clip or E[v|S] was
+            # too small to invert. So the residual measures calibration error
+            # introduced by those numerical safeguards.
+            reproduced = L[i, j] * math.sqrt(max(cond_v, 0.0))
+            total_sq_err += (reproduced - local_vols[i, j]) ** 2
 
     leverage = LeverageFunction(times, spots, L, "particle_method")
     residual = math.sqrt(total_sq_err / max(n_t * n_s, 1))
