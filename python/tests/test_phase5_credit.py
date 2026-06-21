@@ -165,3 +165,33 @@ class TestJointEquityCredit:
         d = joint_calibrate(0.30, 150).to_dict()
         assert "asset_vol" in d
         assert "fit_quality" in d
+        assert "calibration_id" in d
+
+    def test_canonical_record(self):
+        result = joint_calibrate(equity_vol=0.30, cds_spread_bp=150)
+        cr = result.to_calibration_result()
+        assert cr is result.calibration_result
+        assert cr.model_class == "joint_equity_credit"
+        assert set(cr.parameters) == {"asset_vol", "leverage"}
+        assert cr.objective.value == "weighted_sse"
+        assert len(cr.residuals) == 2
+
+    def test_canonical_on_demand_rebuild(self):
+        from pricebook.credit.joint_equity_credit import JointCalibrationResult
+        r = JointCalibrationResult(
+            asset_vol=0.2, leverage=0.4, recovery_mean=0.4, recovery_vol=0.25,
+            equity_vol_model=0.33, equity_vol_market=0.30,
+            cds_spread_model_bp=152.0, cds_spread_market_bp=150.0,
+            equity_vol_error_pct=10.0, cds_spread_error_bp=2.0, fit_quality=0.01,
+        )
+        cr = r.to_calibration_result()
+        assert cr.model_class == "joint_equity_credit"
+        assert len(cr.residuals) == 2
+
+    def test_persists_via_db(self):
+        from pricebook.db.db import PricebookDB
+        result = joint_calibrate(equity_vol=0.30, cds_spread_bp=150)
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(result)
+            assert db.load_calibration(cid) == result.to_calibration_result()
+            assert db.list_calibrations(model_class="joint_equity_credit")[0]["calibration_id"] == cid
