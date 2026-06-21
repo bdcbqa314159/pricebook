@@ -8,7 +8,6 @@ from scipy.linalg import expm
 
 from pricebook.credit.rating_transition import RatingTransitionMatrix, standard_generator
 from pricebook.credit.rating_models import (
-    CalibrationResult,
     MomentumTransitionMatrix,
     TTCPITResult,
     calibrate_generator,

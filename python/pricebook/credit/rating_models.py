@@ -31,21 +31,22 @@ from pricebook.credit.rating_transition import RatingTransitionMatrix
 # ---- Generator calibration ----
 
 @dataclass
-class CalibrationResult:
+class GeneratorCalibrationResult:
     """Result of generator matrix calibration."""
+
     generator: RatingTransitionMatrix
     residual: float
     converged: bool
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def calibrate_generator(
     ratings: list[str],
     observed_P: np.ndarray | list[list[float]],
     horizon: float = 1.0,
-) -> CalibrationResult:
+) -> GeneratorCalibrationResult:
     """Calibrate generator Q from an observed transition matrix P.
 
     Solves the inverse problem: find Q such that exp(Q × horizon) ≈ P.
@@ -88,7 +89,7 @@ def calibrate_generator(
     Q_final = _unflatten_generator(result.x, n)
     residual = float(np.linalg.norm(expm(Q_final * horizon) - P, 'fro'))
 
-    return CalibrationResult(
+    return GeneratorCalibrationResult(
         RatingTransitionMatrix(ratings, Q_final),
         residual,
         residual < 0.05,

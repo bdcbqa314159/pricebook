@@ -16,7 +16,7 @@ from pricebook.statistics.optimization import minimize
 
 
 @dataclass
-class CalibrationResult:
+class RobustCalibrationResult:
     """Result of a robust calibration."""
 
     params: list[float]
@@ -28,10 +28,10 @@ class CalibrationResult:
     residuals: list[float] = field(default_factory=list)
     method: str = ""
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def tikhonov_regularise(
     objective: Callable,
     prior: list[float],
@@ -98,7 +98,7 @@ def multi_start_calibrate(
     method: str = "nelder_mead",
     seed: int = 42,
     **kwargs,
-) -> CalibrationResult:
+) -> RobustCalibrationResult:
     """Multi-start optimisation: run from multiple random starting points.
 
     Picks the best result across all starts to avoid local minima.
@@ -121,7 +121,7 @@ def multi_start_calibrate(
             continue
 
     if best_result is None:
-        return CalibrationResult(
+        return RobustCalibrationResult(
             params=[0.5 * (lo + hi) for lo, hi in bounds],
             objective=float("inf"), rmse=float("inf"),
             n_evaluations=total_evals, converged=False, method=method,
@@ -130,7 +130,7 @@ def multi_start_calibrate(
     params = enforce_bounds(list(best_result.x), bounds)
     rmse = math.sqrt(best_obj / max(1, len(bounds)))
 
-    return CalibrationResult(
+    return RobustCalibrationResult(
         params=params,
         objective=best_obj,
         rmse=rmse,
