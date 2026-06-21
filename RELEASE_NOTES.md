@@ -2,6 +2,27 @@
 
 ---
 
+## v1.131.0 — 2026-06-21 — **Calibration unification G1 Phase 4 (1/?): CanonicalCalibrationResult mixin**
+
+Consolidation. Phase 2 left **12 families** each duplicating the same scaffolding (a `calibration_result` field, a `to_calibration_result()` with an identical stored-or-rebuild guard, and an inline `calibration_id` in `to_dict`). This slice extracts that into a mixin and adopts it everywhere.
+
+**Files**: `calibration/_types.py` (+ `__init__` export), `python/tests/test_calibration_mixin.py` (new), and all 12 family modules: `credit/bond_hazard_bootstrap`, `credit/joint_equity_credit`, `curves/multicurve_solver`, `equity/dividend_calibration`, `fixed_income/jarrow_yildirim`, `fx/fx_slv_calibration`, `models/{g2pp,hw,jump,lmm_advanced,lmm}_calibration` & `models/stochastic_correlation`.
+
+**`CanonicalCalibrationResult` mixin** (exported from `pricebook.calibration`):
+* `to_calibration_result()` — returns the stored record (eager builder population) or lazily builds + caches via `_build_calibration_record()`. **This unifies the two variants** Phase 2 introduced (builder-populate vs lazy-cache) into one mechanism.
+* `_build_calibration_record()` — abstract (raises `NotImplementedError`); each family supplies its model-specific mapping.
+* `calibration_id` — property for `to_dict` payloads (no build side-effect).
+
+Each family now: inherits the mixin, keeps its `calibration_result` field, renames its old `to_calibration_result` body to `_build_calibration_record` (the guard moves to the mixin), and uses `self.calibration_id` in `to_dict`. **Net −11 lines across 14 files** despite adding the mixin — the duplication is gone.
+
+This is the abstraction the deleted `Calibrator` Protocol (v1.122) failed to be: removed then for **0** implementers; added now, justified by **12**. (Addresses re-assessment C.1 + C.3.)
+
+**Tests**: 4 new (mixin contract — lazy build+cache, eager-stored-wins, `NotImplementedError` for a bare subclass, polymorphic db persistence). Behaviour-preserving: full suite **12824 passed** (unchanged count; two slow G2++ tests deselected per convention).
+
+**Next** (Phase 4 cont.): C.2 (`model_class="lmm"` overlap), C.4 (`fx_slv` placeholder-residual bug), C.5 (`_types.py` `rms`/`max` → `@property`).
+
+---
+
 ## v1.130.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (6/6): stochastic_correlation producer — Phase 2 COMPLETE**
 
 Final Phase-2 slice. `models/stochastic_correlation.DispersionCalibrationResult` now produces the canonical record — **all 12 calibration families now emit `CalibrationResult`**.
