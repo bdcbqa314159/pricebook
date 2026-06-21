@@ -19,9 +19,14 @@ import csv
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pricebook.db.db_backend import SQLiteBackend, _safe_name
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from pricebook.calibration import CalibrationResult
 
 
 def _now() -> str:
@@ -52,7 +57,7 @@ class PricebookDB:
     # Fixed table names — protected from drop_table
     _SYSTEM_TABLES = {
         "entities", "ratings", "trades", "market_snapshots",
-        "pricing_results", "pnl_history", "kv_store",
+        "pricing_results", "pnl_history", "kv_store", "calibration_results",
     }
 
     def __init__(self, path: str = ":memory:", backend: SQLiteBackend | None = None):
@@ -131,12 +136,32 @@ class PricebookDB:
             updated_at TEXT NOT NULL,
             PRIMARY KEY (namespace, key)
         )""")
+        # Calibration results — the canonical CalibrationResult artefact.
+        # Identity columns (model_class, timestamp, objective, converged,
+        # rms/max residual, market_snapshot_id) are denormalised out of the
+        # JSON blob so the audit chain is queryable without reconstructing.
+        b.execute("""CREATE TABLE IF NOT EXISTS calibration_results (
+            calibration_id TEXT PRIMARY KEY,
+            model_class TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            code_version TEXT,
+            objective TEXT,
+            converged INTEGER,
+            iterations INTEGER,
+            rms_residual REAL,
+            max_residual REAL,
+            market_snapshot_id TEXT,
+            result_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""")
         # Indices for common queries
         b.execute("CREATE INDEX IF NOT EXISTS idx_trades_book ON trades(book, status)")
         b.execute("CREATE INDEX IF NOT EXISTS idx_trades_cpty ON trades(counterparty_id)")
         b.execute("CREATE INDEX IF NOT EXISTS idx_trades_issuer ON trades(issuer_id)")
         b.execute("CREATE INDEX IF NOT EXISTS idx_result_trade ON pricing_results(trade_id, snapshot_date)")
         b.execute("CREATE INDEX IF NOT EXISTS idx_snap_date ON market_snapshots(snapshot_date)")
+        b.execute("CREATE INDEX IF NOT EXISTS idx_calib_model ON calibration_results(model_class)")
+        b.execute("CREATE INDEX IF NOT EXISTS idx_calib_snapshot ON calibration_results(market_snapshot_id)")
         b.commit()
 
     # ------------------------------------------------------------------
@@ -392,6 +417,75 @@ class PricebookDB:
             return self._backend.execute(
                 f"{base} WHERE snapshot_date <= ? ORDER BY snapshot_date", (date_to,))
         return self._backend.execute(f"{base} ORDER BY snapshot_date")
+
+    # ------------------------------------------------------------------
+    # Calibration results
+    # ------------------------------------------------------------------
+
+    def save_calibration(self, result: "CalibrationResult") -> str:
+        """Persist a `CalibrationResult` artefact; return its id as a string.
+
+        Idempotent on the calibration id — re-saving the same result updates
+        the row. The full record is stored as JSON (`result_json`) and the
+        identity/quality fields are denormalised into columns so the audit
+        chain can be queried (e.g. `list_calibrations(model_class="HullWhite")`
+        or by `market_snapshot_id`) without reconstructing every blob.
+        """
+        cid = str(result.id)
+        msid = str(result.market_snapshot_id) if result.market_snapshot_id else None
+        self._backend.execute(
+            """INSERT INTO calibration_results
+               (calibration_id, model_class, timestamp, code_version, objective,
+                converged, iterations, rms_residual, max_residual,
+                market_snapshot_id, result_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(calibration_id) DO UPDATE SET
+               model_class=excluded.model_class, timestamp=excluded.timestamp,
+               code_version=excluded.code_version, objective=excluded.objective,
+               converged=excluded.converged, iterations=excluded.iterations,
+               rms_residual=excluded.rms_residual, max_residual=excluded.max_residual,
+               market_snapshot_id=excluded.market_snapshot_id,
+               result_json=excluded.result_json""",
+            (cid, result.model_class, result.timestamp.isoformat(),
+             result.code_version, result.objective.value,
+             int(result.converged), result.iterations,
+             result.rms_residual, result.max_residual,
+             msid, json.dumps(result.to_dict()), _now()),
+        )
+        self._backend.commit()
+        return cid
+
+    def load_calibration(self, calibration_id: str | UUID) -> "CalibrationResult | None":
+        """Load and reconstruct a `CalibrationResult` by id."""
+        rows = self._backend.execute(
+            "SELECT result_json FROM calibration_results WHERE calibration_id = ?",
+            (str(calibration_id),))
+        if not rows:
+            return None
+        # Direct from_dict: the convention payload is flat (no "type" key), so
+        # the generic registry dispatch can't be used — but we know the type.
+        from pricebook.calibration import CalibrationResult
+        return CalibrationResult.from_dict(json.loads(rows[0]["result_json"]))
+
+    def load_calibration_raw(self, calibration_id: str | UUID) -> dict | None:
+        """Load calibration row + parsed JSON without reconstruction."""
+        rows = self._backend.execute(
+            "SELECT * FROM calibration_results WHERE calibration_id = ?",
+            (str(calibration_id),))
+        if not rows:
+            return None
+        row = rows[0]
+        row["result"] = json.loads(row["result_json"])
+        return row
+
+    def list_calibrations(self, **filters) -> list[dict]:
+        """List calibration metadata (no reconstruction). Filter by any column,
+        e.g. `model_class`, `converged`, `market_snapshot_id`."""
+        where, params = self._build_where(filters)
+        return self._backend.execute(
+            f"SELECT calibration_id, model_class, timestamp, code_version, objective, "
+            f"converged, iterations, rms_residual, max_residual, market_snapshot_id "
+            f"FROM calibration_results{where} ORDER BY timestamp", params)
 
     # ------------------------------------------------------------------
     # Pricing results
