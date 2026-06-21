@@ -2,6 +2,22 @@
 
 ---
 
+## v1.133.0 — 2026-06-22 — **Calibration unification G1 Phase 4 (C.4): fx_slv residual bug fix**
+
+`particle_slv_calibration` accumulated its fit error as `(L − 1)² * 0.0` — a dead placeholder, so the reported `residual` was **always 0.0** (surfaced by the unification, which put that 0 into the audit chain).
+
+**Fix** (`python/pricebook/fx/fx_slv_calibration.py`): the residual now measures **local-vol reproduction error** — `L·√E[v|S] − σ_LV` per grid cell. By construction this is ≈0 wherever the leverage was not clipped and the regressed conditional variance `E[v|S]` was invertible; it is non-zero only where `L` hit the `[0.1, 10]` clip or `E[v|S]` was degenerate. So the residual now genuinely measures the calibration error introduced by those numerical safeguards.
+
+**Behaviour change**: `ParticleCalibrationResult.residual` (and the canonical record's `residuals`) is now a real, generally-small, non-negative number instead of a constant 0. The pre-existing `test_residual_reasonable` (`< 0.05`) — previously trivially true — is now a meaningful assertion. Worth a `numerical-critic` pass if this calibrator becomes load-bearing.
+
+**Tests**: 1 new (`test_residual_is_real_reproduction_error` — finite, non-negative, small for the benign flat-vol case).
+
+**Verification**: full suite **12829 passed** (two slow G2++ tests deselected per convention).
+
+**Next** (Phase 4, C.5 — last finding): `_types.py` coherence — `rms_residual`/`max_residual` → `@property`.
+
+---
+
 ## v1.132.0 — 2026-06-21 — **Calibration unification G1 Phase 4 (C.2): disambiguate lmm model_class**
 
 `models/lmm_advanced` and `models/lmm_calibration` both stamped `model_class="lmm"` on their canonical records — an audit-chain ambiguity (two distinct calibrators, same model tag). `lmm_advanced` (the Rebonato cascade/global approximation) now stamps **`"lmm_rebonato"`**; `lmm_calibration` (iterative-scaling ATM grid) keeps `"lmm"`. The calibration *method* still also lives in `optimiser.algorithm`; this makes the model tag itself unambiguous.
