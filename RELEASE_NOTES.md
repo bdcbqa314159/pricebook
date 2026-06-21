@@ -2,6 +2,24 @@
 
 ---
 
+## v1.129.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (5/6): fx_slv_calibration producer**
+
+`fx/fx_slv_calibration.ParticleCalibrationResult` now produces the canonical record.
+
+**Files**: `python/pricebook/fx/fx_slv_calibration.py`, `python/tests/test_fx_slv_calibration.py`.
+
+* Added `calibration_result: CalibrationResult | None = None`, a proper `to_dict()` (was `dict(vars(self))` — which emitted a raw `LeverageFunction` object; now scalar summary + `calibration_id`), and `to_calibration_result()`.
+* **Builder-populate** (`particle_slv_calibration`): the fitted output is a leverage *surface*, so `parameters` carry the SV config the instance doesn't retain — `{kappa, theta, xi, v0, rho, bandwidth}` — with `diagnostics.extra={n_particles, n_grid}`. `model_class="fx_slv"`, `optimiser.algorithm="particle_method"`. On-demand rebuild has only `bandwidth` + `n_particles`.
+* **Flagged, not fixed** (out of scope — pre-existing): `particle_slv_calibration`'s `residual` is a placeholder — line `total_sq_err += (...) * 0.0` makes it always `0.0`. The canonical record reflects this faithfully (`residuals=[0.0]`). Noted for the Phase-2 re-assessment / a future numerical fix.
+
+**Tests**: 3 new — builder canonical record (SV params, `n_particles` in diagnostics); on-demand rebuild; end-to-end persistence via `db.save_calibration`.
+
+**Verification**: full suite **12822 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2, 6/6 — last): `models/stochastic_correlation.DispersionCalibrationResult`.
+
+---
+
 ## v1.128.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (4/6): joint_equity_credit producer**
 
 `credit/joint_equity_credit.JointCalibrationResult` now produces the canonical record.
