@@ -2,6 +2,25 @@
 
 ---
 
+## v1.130.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (6/6): stochastic_correlation producer — Phase 2 COMPLETE**
+
+Final Phase-2 slice. `models/stochastic_correlation.DispersionCalibrationResult` now produces the canonical record — **all 12 calibration families now emit `CalibrationResult`**.
+
+**Files**: `python/pricebook/models/stochastic_correlation.py`, `python/tests/test_stochastic_correlation.py`.
+
+* Added `calibration_result: CalibrationResult | None = None`, `calibration_id` in `to_dict()`, and `to_calibration_result()` (lazy-cache — the instance retains `index_variance_model`/`target`, so the signed residual is faithful). `model_class="stochastic_correlation"`, `parameters={kappa, theta, sigma}`, `optimiser.algorithm="closed_form"`.
+
+**Tests**: 2 new — faithful residual + caching; end-to-end persistence via `db.save_calibration`.
+
+**Verification**: full suite **12824 passed** (two slow G2++ calibration tests deselected per convention).
+
+### Phase 2 complete — unification status
+All families (`hull_white`, `g2pp`, `lmm`, `lmm`(rebonato), `jump`, `bond_hazard`, `multicurve`, `discount_curve`, `sabr`, `jarrow_yildirim`, `dividend_curve`, `joint_equity_credit`, `fx_slv`, `stochastic_correlation`) produce and can persist the canonical `CalibrationResult`. Excluded with reason: `GeneratorCalibrationResult` (transition matrix), `RobustCalibrationResult` (internal optimiser helper).
+
+**Re-assessment findings → follow-ups** (see `OPEN.md`): (4) `fx_slv` `residual` is a placeholder (always 0.0) — numerical fix needed; (5) `_types.py` deferred coherence items — `rms_residual` ignores `weights`/`objective`, and `rms`/`max` are stored (could be `@property`); (6) the 12 near-identical `to_calibration_result` implementations now justify a **Phase 4 mixin** (the abstraction the deleted `Calibrator` Protocol failed to be — now justified by 12 real implementers); also two pattern variants (builder-populate vs lazy-cache) to unify, and the `model_class="lmm"` overlap to decide.
+
+---
+
 ## v1.129.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (5/6): fx_slv_calibration producer**
 
 `fx/fx_slv_calibration.ParticleCalibrationResult` now produces the canonical record.
