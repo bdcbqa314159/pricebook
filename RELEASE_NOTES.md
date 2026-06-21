@@ -2,6 +2,16 @@
 
 ---
 
+## v1.132.0 — 2026-06-21 — **Calibration unification G1 Phase 4 (C.2): disambiguate lmm model_class**
+
+`models/lmm_advanced` and `models/lmm_calibration` both stamped `model_class="lmm"` on their canonical records — an audit-chain ambiguity (two distinct calibrators, same model tag). `lmm_advanced` (the Rebonato cascade/global approximation) now stamps **`"lmm_rebonato"`**; `lmm_calibration` (iterative-scaling ATM grid) keeps `"lmm"`. The calibration *method* still also lives in `optimiser.algorithm`; this makes the model tag itself unambiguous.
+
+**Files**: `python/pricebook/models/lmm_advanced.py` (both record-builders), `python/tests/test_lmm_advanced.py`.
+
+**Verification**: full suite **12828 passed** (two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.131.0 — 2026-06-21 — **Calibration unification G1 Phase 4 (1/?): CanonicalCalibrationResult mixin**
 
 Consolidation. Phase 2 left **12 families** each duplicating the same scaffolding (a `calibration_result` field, a `to_calibration_result()` with an identical stored-or-rebuild guard, and an inline `calibration_id` in `to_dict`). This slice extracts that into a mixin and adopts it everywhere.
