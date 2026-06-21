@@ -141,3 +141,31 @@ class TestJYCalibration:
         assert result.params.sigma_n > 0
         assert result.params.sigma_r > 0
         assert result.params.sigma_I > 0
+
+
+# ---- Canonical CalibrationResult (G1 P2 widen producers) ----
+
+class TestJYCanonicalResult:
+    def test_builder_populates_canonical_record(self):
+        zc_rates = {1.0: 0.02, 2.0: 0.022, 5.0: 0.025, 10.0: 0.028}
+        result = jy_calibrate(zc_rates, r_n0=0.04, r_r0=0.02)
+        cr = result.to_calibration_result()
+        assert cr is result.calibration_result
+        assert cr.model_class == "jarrow_yildirim"
+        assert set(cr.parameters) == {"sigma_n", "sigma_r", "sigma_I"}
+        assert len(cr.residuals) == 4
+
+    def test_on_demand_rebuild(self):
+        r = JYCalibrationResult(_default_params(), residual=0.002, n_instruments=3)
+        cr = r.to_calibration_result()
+        assert cr.model_class == "jarrow_yildirim"
+        assert cr.residuals == [0.002]
+
+    def test_persists_via_db(self):
+        from pricebook.db.db import PricebookDB
+        zc_rates = {1.0: 0.02, 2.0: 0.022, 5.0: 0.025}
+        result = jy_calibrate(zc_rates, 0.04, 0.02)
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(result)
+            assert db.load_calibration(cid) == result.to_calibration_result()
+            assert db.list_calibrations(model_class="jarrow_yildirim")[0]["calibration_id"] == cid

@@ -22,6 +22,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
+from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
+
 
 @dataclass
 class JYParams:
@@ -332,15 +334,50 @@ def jy_yoy_caplet(
 
 @dataclass
 class JYCalibrationResult:
-    """JY calibration result."""
+    """JY calibration result.
+
+    `calibration_result` carries the canonical provenance artefact;
+    `to_calibration_result()` returns it when populated by `jy_calibrate`,
+    or builds one on-demand from the existing fields (back-compat path —
+    which only has the aggregate `residual`).
+    """
+
     params: JYParams
     residual: float
     n_instruments: int
-
-
+    # Canonical calibration artefact (G1 P2 — widen producers).
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return {
+            "params": dict(vars(self.params)),
+            "residual": self.residual,
+            "n_instruments": self.n_instruments,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
+        }
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical `CalibrationResult` (stored, or rebuilt)."""
+        if self.calibration_result is not None:
+            return self.calibration_result
+        p = self.params
+        return CalibrationResult.new(
+            model_class="jarrow_yildirim",
+            parameters={
+                "sigma_n": float(p.sigma_n),
+                "sigma_r": float(p.sigma_r),
+                "sigma_I": float(p.sigma_I),
+            },
+            residuals=[self.residual],   # on-demand path only has the aggregate
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm="Nelder-Mead", tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+        )
+
+
 def jy_calibrate(
     zc_swap_rates: dict[float, float],      # {T: fair_ZC_rate}
     r_n0: float,
@@ -379,7 +416,26 @@ def jy_calibrate(
                        max(sigma_I, 1e-6), rho_nr, rho_nI, rho_rI)
     residual = math.sqrt(result.fun / len(tenors))
 
-    return JYCalibrationResult(params, float(residual), len(tenors))
+    residuals_per = [
+        jy_zc_inflation_swap(params, r_n0, r_r0, t).fair_rate - zc_swap_rates[t]
+        for t in tenors
+    ]
+    cr = CalibrationResult.new(
+        model_class="jarrow_yildirim",
+        parameters={
+            "sigma_n": float(params.sigma_n),
+            "sigma_r": float(params.sigma_r),
+            "sigma_I": float(params.sigma_I),
+        },
+        residuals=residuals_per,
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(algorithm="Nelder-Mead", tolerance=1e-10, max_iterations=3000),
+        iterations=int(getattr(result, "nit", 0)),
+        converged=bool(getattr(result, "success", True)),
+        quotes_fitted=[f"zc_inflation_swap_{t}" for t in tenors],
+    )
+
+    return JYCalibrationResult(params, float(residual), len(tenors), calibration_result=cr)
 
 
 # ---------------------------------------------------------------------------
