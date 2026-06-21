@@ -7,7 +7,7 @@ import pytest
 
 from pricebook.models.lmm_advanced import (
     SABRLMM,
-    LMMCalibrationResult,
+    RebonatoLMMCalibrationResult,
     LMMGreeksResult,
     PredictorCorrectorResult,
     SABRLMMResult,
@@ -25,7 +25,7 @@ class TestCascadeCalibration:
         fwd = [0.05, 0.05, 0.05, 0.05]
         market_vols = {(0, 1): 0.20, (1, 1): 0.22, (2, 1): 0.18, (3, 1): 0.21}
         result = lmm_cascade_calibration(market_vols, fwd)
-        assert isinstance(result, LMMCalibrationResult)
+        assert isinstance(result, RebonatoLMMCalibrationResult)
         assert result.method == "cascade"
         assert result.n_swaptions == 4
         assert len(result.vols) == 4
@@ -56,7 +56,7 @@ class TestGlobalCalibration:
         fwd = [0.05, 0.05, 0.05, 0.05]
         market_vols = {(0, 1): 0.20, (1, 1): 0.22, (2, 1): 0.18, (3, 1): 0.21}
         result = lmm_global_calibration(market_vols, fwd)
-        assert isinstance(result, LMMCalibrationResult)
+        assert isinstance(result, RebonatoLMMCalibrationResult)
         assert result.method == "global"
         assert result.n_swaptions == 4
 
@@ -214,3 +214,44 @@ class TestPathwiseGreeks:
         result = lmm_pathwise_greeks(fwd, vols, strike=0.05, expiry_idx=0,
                                      n_paths=5_000, n_steps=30, seed=42)
         assert result.total_delta == pytest.approx(sum(result.deltas), rel=1e-10)
+
+
+# ---- Canonical CalibrationResult (G1 P2 widen producers) ----
+
+class TestCanonicalCalibrationResult:
+    def test_builder_populates_canonical_record(self):
+        fwd = [0.05, 0.05, 0.05, 0.05]
+        market_vols = {(0, 1): 0.20, (1, 1): 0.22, (2, 1): 0.18}
+        result = lmm_cascade_calibration(market_vols, fwd)
+        cr = result.to_calibration_result()
+        assert cr is result.calibration_result   # stored, not rebuilt
+        assert cr.model_class == "lmm"
+        assert cr.optimiser.algorithm == "cascade"
+        assert len(cr.residuals) == 3            # per-swaption residuals
+        assert set(cr.parameters) == {f"sigma_{i}" for i in range(4)}
+
+    def test_global_record_method(self):
+        fwd = [0.05, 0.05, 0.05]
+        market_vols = {(0, 1): 0.20, (1, 1): 0.22}
+        cr = lmm_global_calibration(market_vols, fwd).to_calibration_result()
+        assert cr.optimiser.algorithm == "global"
+
+    def test_on_demand_rebuild_without_stored_cr(self):
+        # hand-constructed instance → rebuild path (aggregate residual only)
+        r = RebonatoLMMCalibrationResult(
+            vols=np.array([0.2, 0.21]), residual=0.003, n_swaptions=2, method="cascade",
+        )
+        cr = r.to_calibration_result()
+        assert cr.model_class == "lmm"
+        assert cr.residuals == [0.003]
+
+    def test_persists_via_db(self):
+        from pricebook.db.db import PricebookDB
+        fwd = [0.05, 0.05, 0.05, 0.05]
+        market_vols = {(0, 1): 0.20, (1, 1): 0.22, (2, 1): 0.18}
+        result = lmm_global_calibration(market_vols, fwd)
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(result)        # family result → canonical
+            loaded = db.load_calibration(cid)
+            assert loaded == result.to_calibration_result()
+            assert db.list_calibrations(model_class="lmm")[0]["calibration_id"] == cid

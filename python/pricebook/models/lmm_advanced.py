@@ -22,23 +22,88 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
+from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
 from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- LMM swaption calibration ----
 
 @dataclass
-class LMMCalibrationResult:
-    """Result of LMM calibration to swaption matrix."""
+class RebonatoLMMCalibrationResult:
+    """Result of LMM calibration to a swaption matrix (Rebonato cascade/global).
+
+    Named to distinguish it from `lmm_calibration.LMMCalibrationResult`
+    (iterative-scaling fit to an ATM grid) — different shape, different method.
+
+    `calibration_result` carries the canonical provenance artefact;
+    `to_calibration_result()` returns it when populated by a builder, or
+    builds one on-demand from the existing fields (back-compat path — which
+    only has the aggregate `residual`, not per-swaption residuals).
+    """
+
     vols: np.ndarray          # calibrated instantaneous vols per forward
     residual: float
     n_swaptions: int
     method: str
-
-
+    # Canonical calibration artefact (G1 P2 — widen producers).
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return {
+            "vols": self.vols.tolist() if hasattr(self.vols, "tolist") else list(self.vols),
+            "residual": self.residual,
+            "n_swaptions": self.n_swaptions,
+            "method": self.method,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
+        }
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical `CalibrationResult` (stored, or rebuilt)."""
+        if self.calibration_result is not None:
+            return self.calibration_result
+        return CalibrationResult.new(
+            model_class="lmm",
+            parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},
+            residuals=[self.residual],   # on-demand path only has the aggregate
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+        )
+
+
+def _lmm_calibration_record(
+    inst_vols: np.ndarray,
+    forward_rates: np.ndarray,
+    market_vols: dict[tuple[int, int], float],
+    dt: float,
+    method: str,
+) -> CalibrationResult:
+    """Build the canonical CalibrationResult for an LMM swaption calibration.
+
+    Computes per-swaption residuals (model − market vol) over the swaptions
+    actually fitted (expiry index within the forward grid).
+    """
+    n = len(forward_rates)
+    keys = [k for k in sorted(market_vols.keys()) if k[0] < n]
+    residuals = [
+        _rebonato_swaption_vol(inst_vols, forward_rates, e, t, dt) - market_vols[(e, t)]
+        for (e, t) in keys
+    ]
+    return CalibrationResult.new(
+        model_class="lmm",
+        parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
+        residuals=residuals,
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(algorithm=method, tolerance=0.0, max_iterations=0),
+        iterations=0,
+        converged=True,
+        quotes_fitted=[f"swaption_{e}x{t}" for (e, t) in keys],
+    )
+
+
 def _rebonato_swaption_vol(
     inst_vols: np.ndarray,
     forward_rates: np.ndarray,
@@ -108,7 +173,7 @@ def lmm_cascade_calibration(
     market_vols: dict[tuple[int, int], float],
     forward_rates: np.ndarray | list[float],
     dt: float = 0.5,
-) -> LMMCalibrationResult:
+) -> RebonatoLMMCalibrationResult:
     """Cascade (column-by-column) calibration of LMM to swaption matrix.
 
     Calibrates one column at a time (fixed tenor, varying expiry),
@@ -150,9 +215,10 @@ def lmm_cascade_calibration(
             model = _rebonato_swaption_vol(inst_vols, fwd, e, t, dt)
             total_err += (model - target) ** 2
 
-    return LMMCalibrationResult(
+    cr = _lmm_calibration_record(inst_vols, fwd, market_vols, dt, "cascade")
+    return RebonatoLMMCalibrationResult(
         inst_vols, math.sqrt(total_err / max(len(market_vols), 1)),
-        len(market_vols), "cascade",
+        len(market_vols), "cascade", calibration_result=cr,
     )
 
 
@@ -160,7 +226,7 @@ def lmm_global_calibration(
     market_vols: dict[tuple[int, int], float],
     forward_rates: np.ndarray | list[float],
     dt: float = 0.5,
-) -> LMMCalibrationResult:
+) -> RebonatoLMMCalibrationResult:
     """Global calibration: fit all instantaneous vols simultaneously.
 
     Minimises Σ (model_vol − market_vol)² over all swaptions.
@@ -182,7 +248,10 @@ def lmm_global_calibration(
 
     residual = math.sqrt(result.fun / max(len(market_vols), 1))
 
-    return LMMCalibrationResult(result.x, residual, len(market_vols), "global")
+    cr = _lmm_calibration_record(result.x, fwd, market_vols, dt, "global")
+    return RebonatoLMMCalibrationResult(
+        result.x, residual, len(market_vols), "global", calibration_result=cr,
+    )
 
 
 # ---- SABR-LMM ----
