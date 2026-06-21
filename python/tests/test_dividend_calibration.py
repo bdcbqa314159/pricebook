@@ -148,3 +148,27 @@ class TestSeasonality:
         s = dividend_curve_seasonality(curve)
         d = s.to_dict()
         assert "quarterly_weights" in d
+
+
+# ---- Canonical CalibrationResult (G1 P2 widen producers) ----
+
+class TestDividendCanonicalResult:
+    def test_builds_faithful_residuals_and_caches(self):
+        spot, rate = 100.0, 0.05
+        tenors = [1.0, 2.0, 3.0]
+        futures = [2.0, 4.1, 6.0]
+        result = calibrate_dividend_curve(spot, rate, tenors, futures, method="optimize")
+        cr = result.to_calibration_result()
+        assert cr.model_class == "dividend_curve"
+        assert cr.optimiser.algorithm == "optimize"
+        assert len(cr.residuals) == 3
+        # cached: second call returns the same instance (stable id)
+        assert result.to_calibration_result() is cr
+
+    def test_persists_via_db(self):
+        from pricebook.db.db import PricebookDB
+        result = calibrate_dividend_curve(100.0, 0.05, [1.0, 2.0], [2.0, 4.0], method="spline")
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(result)
+            assert db.load_calibration(cid) == result.to_calibration_result()
+            assert db.list_calibrations(model_class="dividend_curve")[0]["calibration_id"] == cid
