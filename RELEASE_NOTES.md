@@ -2,6 +2,29 @@
 
 ---
 
+## v1.124.0 — 2026-06-21 — **Calibration unification G1 Phase 3a: close the build → store → read loop**
+
+Phase 3 (done before Phase 2, by design — don't widen a build-and-drop pattern before the consumer that justifies it exists). The diagnosis throughout: even the 5 families that "adopted" the canonical record only build-and-drop it — `to_calibration_result()` had **zero production callers** and nothing persisted the record. This slice gives the record a real consumer and closes the loop.
+
+**Files**: `python/pricebook/db/db.py`, `python/tests/test_calibration_loop.py` (new).
+
+**`PricebookDB.save_calibration` is now polymorphic**: it accepts either a canonical `CalibrationResult` or **any family result exposing `to_calibration_result()`** (`HWCalibrationResult`, `JumpCalibrationResult`, `G2PPCalibrationResult`, `LMMCalibrationResult`, the multicurve result, …) — duck-typed like `save_trade`/`save_snapshot` accept anything with `to_dict()`. A family result is converted via that accessor, then persisted as before.
+
+This **settles the design question** Phase 3-first was meant to answer:
+* The optional `calibration_result: CalibrationResult | None` field stays — it's the calibrator-populated storage.
+* `to_calibration_result()` is now the single canonical *accessor*, with `save_calibration` as its first real production *consumer*. No longer dead.
+* The loop **build → store → read** is closed and uniform across every adopter.
+
+**Semantic note** (pinned by a test): the on-demand rebuild branch of `to_calibration_result()` (taken when no `cr` is stored — back-compat for hand-constructed instances) calls `CalibrationResult.new()` and therefore mints a fresh `id`/`timestamp` each call. It is a fallback, not a stable identity; calibrators populate the stored `cr` so the id is stable. Persisting a stored-`cr` family result is idempotent; persisting a no-`cr` one mints a new id per call.
+
+**Tests**: 5 new (cheap real adopter `JumpCalibrationResult`) — canonical passthrough still works; family result with stored `cr` round-trips (`load == to_calibration_result()`); no-`cr` family rebuilds on demand (content + returned-id checks); denormalised columns populated through the family path; audit query by `market_snapshot_id` through the family path.
+
+**Verification**: full suite **12807 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2): widen producers — migrate the 6 holdout bespoke `*CalibrationResult` family types onto this now-proven `to_calibration_result()` pattern, so every calibrator's record is uniformly persistable.
+
+---
+
 ## v1.123.0 — 2026-06-21 — **Calibration unification G1 Phase 1b: resolve the two CalibrationResult name-shadows**
 
 Completes Phase 1 (kill the contradictions). Two modules defined their own class also called `CalibrationResult`, unrelated to the canonical L0 record — a genuine name collision that made the codebase ambiguous about which `CalibrationResult` was meant. Both renamed (not migrated: their shapes don't fit the canonical `parameters: Mapping[str,float]` + provenance record, and forcing it would be wrong).
