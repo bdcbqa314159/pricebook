@@ -153,3 +153,26 @@ class TestCalibrateStochCorrToDispersion:
             [0.20, 0.25, 0.30], [1/3, 1/3, 1/3], 0.05,
         )
         assert -1 < result.theta < 1
+
+
+# ---- Canonical CalibrationResult (G1 P2 widen producers) ----
+
+class TestDispersionCanonicalResult:
+    def test_builds_faithful_residual_and_caches(self):
+        result = calibrate_stoch_corr_to_dispersion([0.20, 0.25], [0.5, 0.5], 0.04)
+        cr = result.to_calibration_result()
+        assert cr.model_class == "stochastic_correlation"
+        assert set(cr.parameters) == {"kappa", "theta", "sigma"}
+        assert len(cr.residuals) == 1
+        assert cr.residuals[0] == pytest.approx(
+            result.index_variance_model - result.index_variance_target
+        )
+        assert result.to_calibration_result() is cr   # cached
+
+    def test_persists_via_db(self):
+        from pricebook.db.db import PricebookDB
+        result = calibrate_stoch_corr_to_dispersion([0.20, 0.25, 0.30], [1/3, 1/3, 1/3], 0.05)
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(result)
+            assert db.load_calibration(cid) == result.to_calibration_result()
+            assert db.list_calibrations(model_class="stochastic_correlation")[0]["calibration_id"] == cid
