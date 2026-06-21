@@ -2,6 +2,26 @@
 
 ---
 
+## v1.125.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (1/6): lmm_advanced producer + LMM name-shadow fix**
+
+First of six Phase-2 slices (widen producers onto the now-proven `to_calibration_result()` pattern). Surfaced a *second* name collision while here: `models/lmm_advanced` and `models/lmm_calibration` both defined a class named `LMMCalibrationResult` (different shapes — Rebonato cascade/global vs iterative-scaling ATM-grid). Resolved by renaming, bundled into this slice since the file is touched anyway.
+
+**Files**: `python/pricebook/models/lmm_advanced.py`, `python/tests/test_lmm_advanced.py`.
+
+* **Rename** `lmm_advanced.LMMCalibrationResult` → **`RebonatoLMMCalibrationResult`** (it calibrates via the Rebonato swaption-vol approximation). The other `LMMCalibrationResult` (in `lmm_calibration`) keeps its name. No file imported both; only `test_lmm_advanced.py` referenced the renamed one.
+* **Widen**: added `calibration_result: CalibrationResult | None = None`, a proper `to_dict()` (was `dict(vars(self))` — which would have emitted a raw `np.ndarray` and, post-widen, a `CalibrationResult` object; now emits `vols.tolist()` + `calibration_id`), and `to_calibration_result()`.
+* Both builders (`lmm_cascade_calibration`, `lmm_global_calibration`) now populate the stored `cr` via a shared `_lmm_calibration_record()` helper that computes **per-swaption residuals** (model − market vol) over the fitted swaptions and `quotes_fitted` keys. `model_class="lmm"`; the cascade/global method goes in `optimiser.algorithm`.
+* On-demand rebuild path (hand-constructed instances, no stored `cr`) is the documented fallback — it only has the aggregate `residual`, so `residuals=[self.residual]`.
+* Tidied the sloppy formatting (stray blank lines, the `def` glued onto the dataclass).
+
+**Tests**: 4 new — builder populates the stored canonical record (per-swaption residuals, `sigma_i` params, method in algorithm); global method tag; on-demand rebuild for hand-constructed; and end-to-end persistence via `db.save_calibration` → `load_calibration` → `list_calibrations(model_class="lmm")`.
+
+**Verification**: full suite **12811 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2, 2/6): `fixed_income/jarrow_yildirim.JYCalibrationResult`.
+
+---
+
 ## v1.124.0 — 2026-06-21 — **Calibration unification G1 Phase 3a: close the build → store → read loop**
 
 Phase 3 (done before Phase 2, by design — don't widen a build-and-drop pattern before the consumer that justifies it exists). The diagnosis throughout: even the 5 families that "adopted" the canonical record only build-and-drop it — `to_calibration_result()` had **zero production callers** and nothing persisted the record. This slice gives the record a real consumer and closes the loop.
