@@ -2,6 +2,24 @@
 
 ---
 
+## v1.128.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (4/6): joint_equity_credit producer**
+
+`credit/joint_equity_credit.JointCalibrationResult` now produces the canonical record.
+
+**Files**: `python/pricebook/credit/joint_equity_credit.py`, `python/tests/test_phase5_credit.py`.
+
+* Added `calibration_result: CalibrationResult | None = None`, `calibration_id` in `to_dict()` (preserved via a dict-comprehension over `vars` minus the artefact — keeps every existing key), and `to_calibration_result()`.
+* **Builder-populate** (`joint_calibrate`): captures provenance the instance doesn't store — `iterations`/`converged` from the optimiser result and `weights=[vol_weight, spread_weight]` with `objective=WEIGHTED_SSE` (matching the actual weighted-relative objective). `parameters={asset_vol, leverage}` (the two fitted), residuals are the **dimensionless relative errors** of the two fitted quotes (`equity_vol`, `cds_spread_<tenor>Y`) — consistent units, so `rms_residual` is meaningful.
+* On-demand rebuild (hand-constructed) computes the same relative residuals from the stored model/market fields, with `objective=SSE` (no weights available).
+
+**Tests**: 4 new — `calibration_id` in `to_dict`; builder canonical record (weighted_sse, two params, two residuals); on-demand rebuild; end-to-end persistence via `db.save_calibration`.
+
+**Verification**: full suite **12819 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2, 5/6): `fx/fx_slv_calibration.ParticleCalibrationResult`.
+
+---
+
 ## v1.127.0 — 2026-06-21 — **Calibration unification G1 Phase 2 (3/6): dividend_calibration producer**
 
 `equity/dividend_calibration.DividendCalibrationResult` now produces the canonical record.
