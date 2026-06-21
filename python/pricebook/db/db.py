@@ -422,8 +422,15 @@ class PricebookDB:
     # Calibration results
     # ------------------------------------------------------------------
 
-    def save_calibration(self, result: "CalibrationResult") -> str:
-        """Persist a `CalibrationResult` artefact; return its id as a string.
+    def save_calibration(self, result) -> str:
+        """Persist a calibration artefact; return its id as a string.
+
+        Accepts either a canonical `CalibrationResult` or any family result
+        that exposes `to_calibration_result()` (`HWCalibrationResult`,
+        `JumpCalibrationResult`, `G2PPCalibrationResult`, …) — the latter is
+        converted via that accessor. This makes the persistence path the
+        canonical *consumer* of every calibrator's record, closing the
+        build → store → read loop.
 
         Idempotent on the calibration id — re-saving the same result updates
         the row. The full record is stored as JSON (`result_json`) and the
@@ -431,6 +438,8 @@ class PricebookDB:
         chain can be queried (e.g. `list_calibrations(model_class="HullWhite")`
         or by `market_snapshot_id`) without reconstructing every blob.
         """
+        if hasattr(result, "to_calibration_result"):
+            result = result.to_calibration_result()
         cid = str(result.id)
         msid = str(result.market_snapshot_id) if result.market_snapshot_id else None
         self._backend.execute(
