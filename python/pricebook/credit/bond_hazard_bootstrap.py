@@ -38,6 +38,7 @@ from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
+    CanonicalCalibrationResult,
     ObjectiveKind,
     OptimiserSpec,
 )
@@ -70,7 +71,7 @@ RECOVERY_MARKET_VALUE = "market_value"
 
 
 @dataclass
-class HazardBootstrapResult:
+class HazardBootstrapResult(CanonicalCalibrationResult):
     """Result of hazard rate calibration from bond prices.
 
     Carries both the bond-hazard-specific outputs (survival curve, per-bond
@@ -114,22 +115,10 @@ class HazardBootstrapResult:
             "converged": self.converged,
             "lam": self.lam,
             "roughness": self.roughness,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical CalibrationResult.
-
-        If populated by the entry point (the normal path), returns that
-        instance — preserving its `id`, `timestamp`, and full provenance.
-        Otherwise constructs one on the fly from the available fields with
-        minimal optimiser metadata (used only when the result was hand-built
-        rather than produced by `bootstrap_hazard_from_bonds`).
-        """
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         return CalibrationResult.new(
             model_class="bond_hazard_pwc",
             parameters=_pillar_hazards_as_parameters(self.pillar_dates, self.pillar_hazards),

@@ -21,7 +21,12 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
-from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
+from pricebook.calibration import (
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 
 
 # ---- CIR-driven correlation ----
@@ -286,12 +291,12 @@ class WishartCovariance:
 # ---- Calibration to dispersion ----
 
 @dataclass
-class DispersionCalibrationResult:
+class DispersionCalibrationResult(CanonicalCalibrationResult):
     """Stochastic correlation calibration to dispersion result.
 
-    `to_calibration_result()` builds the canonical provenance artefact from
-    the retained index-variance model/target (faithful residual) and caches
-    it lazily — the instance carries everything needed.
+    `_build_calibration_record()` derives the canonical artefact from the
+    retained index-variance model/target (faithful residual); the mixin's
+    `to_calibration_result()` caches it lazily.
     """
 
     kappa: float
@@ -305,29 +310,24 @@ class DispersionCalibrationResult:
 
     def to_dict(self) -> dict:
         d = {k: v for k, v in vars(self).items() if k != "calibration_result"}
-        d["calibration_id"] = (
-            str(self.calibration_result.id) if self.calibration_result else None
-        )
+        d["calibration_id"] = self.calibration_id
         return d
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult`, building + caching on first call."""
-        if self.calibration_result is None:
-            self.calibration_result = CalibrationResult.new(
-                model_class="stochastic_correlation",
-                parameters={
-                    "kappa": float(self.kappa),
-                    "theta": float(self.theta),
-                    "sigma": float(self.sigma),
-                },
-                residuals=[self.index_variance_model - self.index_variance_target],
-                objective=ObjectiveKind.SSE,
-                optimiser=OptimiserSpec(algorithm="closed_form", tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=True,
-                quotes_fitted=["index_variance"],
-            )
-        return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
+        return CalibrationResult.new(
+            model_class="stochastic_correlation",
+            parameters={
+                "kappa": float(self.kappa),
+                "theta": float(self.theta),
+                "sigma": float(self.sigma),
+            },
+            residuals=[self.index_variance_model - self.index_variance_target],
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm="closed_form", tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+            quotes_fitted=["index_variance"],
+        )
 
 
 def calibrate_stoch_corr_to_dispersion(

@@ -22,14 +22,19 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
-from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
+from pricebook.calibration import (
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 from pricebook.models.black76 import black76_price, OptionType
 
 
 # ---- LMM swaption calibration ----
 
 @dataclass
-class RebonatoLMMCalibrationResult:
+class RebonatoLMMCalibrationResult(CanonicalCalibrationResult):
     """Result of LMM calibration to a swaption matrix (Rebonato cascade/global).
 
     Named to distinguish it from `lmm_calibration.LMMCalibrationResult`
@@ -54,15 +59,10 @@ class RebonatoLMMCalibrationResult:
             "residual": self.residual,
             "n_swaptions": self.n_swaptions,
             "method": self.method,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult` (stored, or rebuilt)."""
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         return CalibrationResult.new(
             model_class="lmm",
             parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},

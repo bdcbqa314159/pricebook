@@ -205,3 +205,41 @@ class CalibrationResult:
             diagnostics=diagnostics or CalibrationDiagnostics(),
             market_snapshot_id=market_snapshot_id,
         )
+
+
+class CanonicalCalibrationResult:
+    """Mixin for per-family calibration results that expose a canonical
+    `CalibrationResult` provenance artefact.
+
+    A subclass (a non-frozen ``@dataclass``) must:
+        * declare the field ``calibration_result: CalibrationResult | None = None``;
+        * implement ``_build_calibration_record() -> CalibrationResult``, mapping
+          its model-specific fields onto the canonical record.
+
+    A calibrator may populate ``calibration_result`` eagerly (richest
+    provenance — iterations, convergence, weights captured at fit time);
+    otherwise ``to_calibration_result()`` builds it lazily from the instance and
+    caches it. Either way a caller gets one stable record per instance.
+
+    This is the abstraction the (deleted) ``Calibrator`` Protocol failed to be:
+    it has real implementers and factors out the field/accessor scaffolding
+    every family was duplicating, without dictating the model-specific mapping.
+    """
+
+    calibration_result: "CalibrationResult | None"
+
+    def to_calibration_result(self) -> "CalibrationResult":
+        """Return the canonical record — the stored one, or a lazily-built+cached one."""
+        if self.calibration_result is None:
+            self.calibration_result = self._build_calibration_record()
+        return self.calibration_result
+
+    def _build_calibration_record(self) -> "CalibrationResult":
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement _build_calibration_record()"
+        )
+
+    @property
+    def calibration_id(self) -> str | None:
+        """The canonical record's id once built/stored, else None (no build side-effect)."""
+        return str(self.calibration_result.id) if self.calibration_result else None

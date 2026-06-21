@@ -25,6 +25,7 @@ import numpy as np
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
+    CanonicalCalibrationResult,
     ObjectiveKind,
     OptimiserSpec,
 )
@@ -158,7 +159,7 @@ def calibrate_leverage_function(
 # ---- Particle method ----
 
 @dataclass
-class ParticleCalibrationResult:
+class ParticleCalibrationResult(CanonicalCalibrationResult):
     """Particle method calibration result.
 
     The fitted output is a leverage *surface* (`LeverageFunction`), so the
@@ -181,15 +182,10 @@ class ParticleCalibrationResult:
             "n_particles": self.n_particles,
             "bandwidth": self.bandwidth,
             "residual": self.residual,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult` (stored, or a basic rebuild)."""
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         return CalibrationResult.new(
             model_class="fx_slv",
             parameters={"bandwidth": float(self.bandwidth)},

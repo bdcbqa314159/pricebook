@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pricebook.calibration import CanonicalCalibrationResult
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction
 
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 # ---- Multi-curve Newton solver ----
 
 @dataclass
-class MultiCurveResult:
+class MultiCurveResult(CanonicalCalibrationResult):
     """Result of simultaneous multi-curve calibration.
 
     `calibration_result` is the canonical artefact (G1 P1 Slice 5).
@@ -46,15 +47,10 @@ class MultiCurveResult:
         return {
             "residual": self.residual,
             "n_iterations": self.n_iterations,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
 
-    def to_calibration_result(self):
-        """Return the canonical CalibrationResult, building on-demand if needed."""
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self):
         from pricebook.calibration import (
             CalibrationResult,
             ObjectiveKind,

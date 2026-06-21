@@ -21,6 +21,7 @@ import numpy as np
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
+    CanonicalCalibrationResult,
     ObjectiveKind,
     OptimiserSpec,
 )
@@ -108,7 +109,7 @@ def exponential_correlation(n: int, beta: float = 0.1) -> np.ndarray:
 
 
 @dataclass
-class LMMCalibrationResult:
+class LMMCalibrationResult(CanonicalCalibrationResult):
     """Result of LMM calibration to an ATM swaption grid.
 
     `calibration_result` carries the canonical provenance artefact.
@@ -128,20 +129,11 @@ class LMMCalibrationResult:
             "target_swaption_vols": dict(self.target_swaption_vols),
             "fitted_swaption_vols": dict(self.fitted_swaption_vols),
             "rmse": self.rmse,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
         return d
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult`.
-
-        Returns the stored instance when populated by `calibrate_lmm_vols`.
-        Builds one on-demand from the existing fields otherwise.
-        """
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         # Residuals = (fitted - target) per swaption key, in target's units (Black vol)
         keys = sorted(self.target_swaption_vols.keys())
         residuals = [

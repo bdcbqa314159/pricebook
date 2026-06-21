@@ -22,7 +22,12 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
-from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
+from pricebook.calibration import (
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 
 
 @dataclass
@@ -333,7 +338,7 @@ def jy_yoy_caplet(
 # ---- Calibration ----
 
 @dataclass
-class JYCalibrationResult:
+class JYCalibrationResult(CanonicalCalibrationResult):
     """JY calibration result.
 
     `calibration_result` carries the canonical provenance artefact;
@@ -353,15 +358,10 @@ class JYCalibrationResult:
             "params": dict(vars(self.params)),
             "residual": self.residual,
             "n_instruments": self.n_instruments,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult` (stored, or rebuilt)."""
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         p = self.params
         return CalibrationResult.new(
             model_class="jarrow_yildirim",

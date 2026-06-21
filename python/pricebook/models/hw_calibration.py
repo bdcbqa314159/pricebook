@@ -27,6 +27,7 @@ from scipy.optimize import minimize
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
+    CanonicalCalibrationResult,
     ObjectiveKind,
     OptimiserSpec,
 )
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class HWCalibrationResult:
+class HWCalibrationResult(CanonicalCalibrationResult):
     """Result of Hull-White calibration.
 
     `calibration_result` carries the canonical provenance artefact; the
@@ -63,19 +64,10 @@ class HWCalibrationResult:
             "rmse_vol": self.rmse_vol,
             "n_swaptions": self.n_swaptions,
             "converged": self.converged,
-            "calibration_id": (
-                str(self.calibration_result.id) if self.calibration_result else None
-            ),
+            "calibration_id": self.calibration_id,
         }
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult`.
-
-        Returns the stored instance when populated by `calibrate_hull_white`.
-        Builds one on-demand from the existing fields otherwise.
-        """
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         residuals = [e["error_bp"] for e in self.per_swaption_errors]
         quotes = [
             f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors

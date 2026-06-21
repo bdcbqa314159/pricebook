@@ -26,7 +26,12 @@ import numpy as np
 from scipy.optimize import minimize as scipy_minimize
 from scipy.interpolate import CubicSpline
 
-from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
+from pricebook.calibration import (
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 from pricebook.equity.dividend_advanced import DividendCurve
 
 
@@ -35,13 +40,13 @@ from pricebook.equity.dividend_advanced import DividendCurve
 # ═══════════════════════════════════════════════════════════════
 
 @dataclass
-class DividendCalibrationResult:
+class DividendCalibrationResult(CanonicalCalibrationResult):
     """Result of dividend curve calibration.
 
-    `to_calibration_result()` builds the canonical provenance artefact from
-    the retained fitted/market futures (faithful residuals) and caches it on
-    first access — the instance carries everything needed, so there is no need
-    to populate it at each of the four build sites.
+    `_build_calibration_record()` derives the canonical artefact from the
+    retained fitted/market futures (faithful residuals); the mixin's
+    `to_calibration_result()` caches it on first access — the instance carries
+    everything needed, so no per-build-site population.
     """
 
     curve: DividendCurve
@@ -55,28 +60,23 @@ class DividendCalibrationResult:
     def to_dict(self) -> dict:
         return {"rmse": self.rmse, "method": self.method,
                 "n_tenors": len(self.market_futures),
-                "calibration_id": (
-                    str(self.calibration_result.id) if self.calibration_result else None
-                )}
+                "calibration_id": self.calibration_id}
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult`, building + caching on first call."""
-        if self.calibration_result is None:
-            residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
-            self.calibration_result = CalibrationResult.new(
-                model_class="dividend_curve",
-                parameters={
-                    f"D_{t:g}": float(d)
-                    for t, d in zip(self.curve.tenors, self.fitted_futures)
-                },
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=True,
-                quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
-            )
-        return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
+        residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
+        return CalibrationResult.new(
+            model_class="dividend_curve",
+            parameters={
+                f"D_{t:g}": float(d)
+                for t, d in zip(self.curve.tenors, self.fitted_futures)
+            },
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+            quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
+        )
 
 
 @dataclass

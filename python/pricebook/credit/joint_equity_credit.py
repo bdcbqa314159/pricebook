@@ -22,12 +22,17 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
-from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
+from pricebook.calibration import (
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
 from pricebook.credit.credit_grades import CreditGrades
 
 
 @dataclass
-class JointCalibrationResult:
+class JointCalibrationResult(CanonicalCalibrationResult):
     """Result of joint equity-credit calibration."""
     asset_vol: float             # calibrated asset volatility
     leverage: float              # calibrated leverage (D/V)
@@ -45,9 +50,7 @@ class JointCalibrationResult:
 
     def to_dict(self) -> dict:
         d = {k: v for k, v in vars(self).items() if k != "calibration_result"}
-        d["calibration_id"] = (
-            str(self.calibration_result.id) if self.calibration_result else None
-        )
+        d["calibration_id"] = self.calibration_id
         return d
 
     def _relative_residuals(self) -> list[float]:
@@ -58,10 +61,7 @@ class JointCalibrationResult:
                    if self.cds_spread_market_bp else 0.0)
         return [vol_res, cds_res]
 
-    def to_calibration_result(self) -> CalibrationResult:
-        """Return the canonical `CalibrationResult` (stored, or a basic rebuild)."""
-        if self.calibration_result is not None:
-            return self.calibration_result
+    def _build_calibration_record(self) -> CalibrationResult:
         return CalibrationResult.new(
             model_class="joint_equity_credit",
             parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},
