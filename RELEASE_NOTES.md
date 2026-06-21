@@ -2,6 +2,22 @@
 
 ---
 
+## v1.122.0 — 2026-06-21 — **Calibration unification G1 Phase 1a: delete dead Calibrator Protocol**
+
+First slice of Phase 1 (kill the contradictions). The `Calibrator` Protocol in `calibration/_types.py` had **zero implementers** anywhere in the codebase — every calibration family uses free functions (`calibrate_hull_white`, `joint_calibrate`, `calibrate_g2pp`, …) returning bespoke types, none implementing `.calibrate()`. The Protocol's only consumer was its own self-test. Textbook Speculative Generality; removed.
+
+(It was also self-contradictory: the docstring claimed "or are themselves callable — either is acceptable", but the Protocol declared only `calibrate()`, so a callable-only object would fail the type. Deleting the whole thing resolves that too.)
+
+**Files**: `python/pricebook/calibration/_types.py` (drop the `Calibrator` class + now-unused `Protocol` import), `python/pricebook/calibration/__init__.py` (drop the export from the docstring, import, and `__all__`), `python/tests/test_calibration_types.py` (drop `TestCalibratorProtocol`, the only reference).
+
+**Public API change**: `pricebook.calibration.Calibrator` no longer exists. No production caller imported it (verified by whole-word grep); the only reference was the deleted test. `calibration.__all__` is now `[CalibrationDiagnostics, CalibrationResult, ObjectiveKind, OptimiserSpec]`.
+
+**Verification**: full suite **12802 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 1b): resolve the two `CalibrationResult` name-shadows — `credit/rating_models.py:34` and `models/calibration_utils.py:19` each define a *different* class also called `CalibrationResult`.
+
+---
+
 ## v1.121.0 — 2026-06-21 — **Calibration unification G1 Phase 0 Slice 2: persist + load CalibrationResult**
 
 Second slice of the calibration-result unification (consumer axis). Slice 1 made `CalibrationResult` serialisable; this slice makes it *load-bearing* — the record can now be persisted and read back, turning the previously build-and-drop fields live.
