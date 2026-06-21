@@ -22,6 +22,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserSpec,
+)
+
 
 # ---- Leverage function calibration ----
 
@@ -152,16 +159,49 @@ def calibrate_leverage_function(
 
 @dataclass
 class ParticleCalibrationResult:
-    """Particle method calibration result."""
+    """Particle method calibration result.
+
+    The fitted output is a leverage *surface* (`LeverageFunction`), so the
+    canonical record's scalar `parameters` carry the calibration config rather
+    than fitted scalars. `to_calibration_result()` returns the stored artefact
+    when populated by `particle_slv_calibration`, or builds a basic one
+    on-demand. (NB: `residual` is currently a placeholder — always 0.0 — see
+    `particle_slv_calibration`; the canonical record reflects that faithfully.)
+    """
+
     leverage: LeverageFunction
     n_particles: int
     bandwidth: float
     residual: float
-
-
+    # Canonical calibration artefact (G1 P2 — widen producers).
+    calibration_result: CalibrationResult | None = None
 
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return {
+            "n_particles": self.n_particles,
+            "bandwidth": self.bandwidth,
+            "residual": self.residual,
+            "calibration_id": (
+                str(self.calibration_result.id) if self.calibration_result else None
+            ),
+        }
+
+    def to_calibration_result(self) -> CalibrationResult:
+        """Return the canonical `CalibrationResult` (stored, or a basic rebuild)."""
+        if self.calibration_result is not None:
+            return self.calibration_result
+        return CalibrationResult.new(
+            model_class="fx_slv",
+            parameters={"bandwidth": float(self.bandwidth)},
+            residuals=[self.residual],
+            objective=ObjectiveKind.SSE,
+            optimiser=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+            diagnostics=CalibrationDiagnostics(extra={"n_particles": self.n_particles}),
+        )
+
+
 def particle_slv_calibration(
     spot: float,
     local_vols: np.ndarray,
@@ -246,7 +286,23 @@ def particle_slv_calibration(
     leverage = LeverageFunction(times, spots, L, "particle_method")
     residual = math.sqrt(total_sq_err / max(n_t * n_s, 1))
 
-    return ParticleCalibrationResult(leverage, n_particles, bandwidth, residual)
+    cr = CalibrationResult.new(
+        model_class="fx_slv",
+        parameters={
+            "kappa": float(kappa), "theta": float(theta), "xi": float(xi),
+            "v0": float(v0), "rho": float(rho), "bandwidth": float(bandwidth),
+        },
+        residuals=[residual],
+        objective=ObjectiveKind.SSE,
+        optimiser=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
+        iterations=0,
+        converged=True,
+        diagnostics=CalibrationDiagnostics(
+            extra={"n_particles": n_particles, "n_grid": int(n_t * n_s)},
+        ),
+    )
+
+    return ParticleCalibrationResult(leverage, n_particles, bandwidth, residual, calibration_result=cr)
 
 
 # ---- Mixing fraction ----

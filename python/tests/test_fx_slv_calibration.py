@@ -195,3 +195,41 @@ class TestSLVBarrierPrice:
                                  0.02, 1.0, 0.02, 0.3, -0.3, 1.0,
                                  is_call=False, n_paths=500, n_steps=50, seed=42)
         assert call.price > 0 or put.price > 0
+
+
+# ---- Canonical CalibrationResult (G1 P2 widen producers) ----
+
+class TestParticleCanonicalResult:
+    def _calibrate(self):
+        times = np.linspace(0.0, 1.0, 3)
+        spots = np.linspace(0.9, 1.1, 5)
+        local_vols = np.full((3, 5), 0.15)
+        return particle_slv_calibration(
+            1.0, local_vols, times, spots,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
+            n_particles=500, seed=42,
+        )
+
+    def test_builder_populates_canonical_record(self):
+        result = self._calibrate()
+        cr = result.to_calibration_result()
+        assert cr is result.calibration_result
+        assert cr.model_class == "fx_slv"
+        assert set(cr.parameters) == {"kappa", "theta", "xi", "v0", "rho", "bandwidth"}
+        assert cr.diagnostics.extra["n_particles"] == 500
+
+    def test_on_demand_rebuild(self):
+        from pricebook.fx.fx_slv_calibration import ParticleCalibrationResult
+        lev = self._calibrate().leverage
+        r = ParticleCalibrationResult(lev, n_particles=100, bandwidth=0.05, residual=0.0)
+        cr = r.to_calibration_result()
+        assert cr.model_class == "fx_slv"
+        assert cr.parameters == {"bandwidth": 0.05}
+
+    def test_persists_via_db(self):
+        from pricebook.db.db import PricebookDB
+        result = self._calibrate()
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(result)
+            assert db.load_calibration(cid) == result.to_calibration_result()
+            assert db.list_calibrations(model_class="fx_slv")[0]["calibration_id"] == cid
