@@ -2,6 +2,27 @@
 
 ---
 
+## v1.123.0 — 2026-06-21 — **Calibration unification G1 Phase 1b: resolve the two CalibrationResult name-shadows**
+
+Completes Phase 1 (kill the contradictions). Two modules defined their own class also called `CalibrationResult`, unrelated to the canonical L0 record — a genuine name collision that made the codebase ambiguous about which `CalibrationResult` was meant. Both renamed (not migrated: their shapes don't fit the canonical `parameters: Mapping[str,float]` + provenance record, and forcing it would be wrong).
+
+**Files**: `python/pricebook/credit/rating_models.py`, `python/pricebook/models/calibration_utils.py`, `python/tests/test_rating_models.py`.
+
+* `credit/rating_models.CalibrationResult` → **`GeneratorCalibrationResult`**. Holds a `RatingTransitionMatrix` + residual + converged — the result of generator-matrix calibration (`calibrate_generator`). A matrix is not a `Mapping[str,float]`; definitively a distinct artefact.
+* `models/calibration_utils.CalibrationResult` → **`RobustCalibrationResult`**. A lightweight multi-start/robust optimiser result (`params: list`, `rmse`, `condition_number`, `method`); matches its own "robust calibration" docstring. Internal numeric helper, not a provenance artefact.
+
+Also tidied the sloppy formatting in both (stray blank lines, the `def` glued directly onto the dataclass) and dropped a dead `CalibrationResult` import in `test_rating_models.py` (imported, never used).
+
+**Consumers**: neither class was re-exported through a package `__init__`; the only references were each module's own function + test. `test_calibration_utils.py` never imported the class name (uses the functions). No external caller affected.
+
+**Result**: `grep "class CalibrationResult"` now returns **exactly one** definition — the canonical `calibration/_types.py`. The name is unambiguous across the whole library.
+
+**Verification**: full suite **12802 passed** (two slow G2++ calibration tests deselected per convention).
+
+**Next** (Phase 2): widen producers — migrate the 8 holdout bespoke `*CalibrationResult` family types onto the canonical `to_calibration_result()` pattern.
+
+---
+
 ## v1.122.0 — 2026-06-21 — **Calibration unification G1 Phase 1a: delete dead Calibrator Protocol**
 
 First slice of Phase 1 (kill the contradictions). The `Calibrator` Protocol in `calibration/_types.py` had **zero implementers** anywhere in the codebase — every calibration family uses free functions (`calibrate_hull_white`, `joint_calibrate`, `calibrate_g2pp`, …) returning bespoke types, none implementing `.calibrate()`. The Protocol's only consumer was its own self-test. Textbook Speculative Generality; removed.
