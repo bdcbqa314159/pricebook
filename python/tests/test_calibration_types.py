@@ -13,7 +13,6 @@ import pricebook
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
-    Calibrator,
     ObjectiveKind,
     OptimiserSpec,
 )
@@ -272,24 +271,3 @@ class TestCalibrationResultIsFrozen:
         r = self._make()
         with pytest.raises(FrozenInstanceError):
             r.optimiser.tolerance = 99.0  # type: ignore[misc]
-
-
-class TestCalibratorProtocol:
-    """Anything with a `calibrate(...) -> CalibrationResult` is a Calibrator."""
-
-    def test_class_with_calibrate_method_satisfies_protocol(self):
-        class Fake:
-            def calibrate(self, *args, **kwargs) -> CalibrationResult:
-                return CalibrationResult.new(
-                    model_class="fake",
-                    parameters={"a": 1.0},
-                    residuals=[0.0],
-                    optimiser=OptimiserSpec(algorithm="x", tolerance=1.0, max_iterations=1),
-                    iterations=1,
-                    converged=True,
-                )
-
-        f: Calibrator = Fake()
-        # Static check via assignment + runtime check via call
-        result = f.calibrate()
-        assert isinstance(result, CalibrationResult)

@@ -23,14 +23,12 @@ Public API:
         OptimiserSpec,
         CalibrationDiagnostics,
         ObjectiveKind,
-        Calibrator,
     )
 """
 
 from pricebook.calibration._types import (
     CalibrationDiagnostics,
     CalibrationResult,
-    Calibrator,
     ObjectiveKind,
     OptimiserSpec,
 )
@@ -38,7 +36,6 @@ from pricebook.calibration._types import (
 __all__ = [
     "CalibrationDiagnostics",
     "CalibrationResult",
-    "Calibrator",
     "ObjectiveKind",
     "OptimiserSpec",
 ]

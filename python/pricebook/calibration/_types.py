@@ -19,7 +19,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Mapping, Sequence
 from uuid import UUID, uuid4
 
 from pricebook.core.serialisable import serialisable_convention
@@ -205,22 +205,3 @@ class CalibrationResult:
             diagnostics=diagnostics or CalibrationDiagnostics(),
             market_snapshot_id=market_snapshot_id,
         )
-
-
-class Calibrator(Protocol):
-    """Anything that produces a `CalibrationResult` is a calibrator.
-
-    The protocol is intentionally loose — the input shapes of calibration
-    families differ (bond hazard takes a list of `BondInput`; G2++ takes
-    a swaption-vol grid; curve bootstrap takes deposits + swaps + ...).
-    What unifies them is the return type, not the inputs.
-
-    Implementing classes typically expose a `calibrate(...)` method or
-    are themselves callable. Either is acceptable; the binding contract
-    is the return type.
-
-        class MyCalibrator:
-            def calibrate(self, *args, **kwargs) -> CalibrationResult: ...
-    """
-
-    def calibrate(self, *args: Any, **kwargs: Any) -> CalibrationResult: ...
