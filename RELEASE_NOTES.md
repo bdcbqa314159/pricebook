@@ -2,6 +2,21 @@
 
 ---
 
+## v1.138.0 — 2026-06-22 — **SABR: typed result through the canonical mixin**
+
+`sabr_calibrate` returned a stringly-typed `dict`; it now returns a typed `SABRCalibrationResult` that goes through `CanonicalCalibrationResult` like every other family — so SABR persists via `db.save_calibration(result)` directly and is covered by the ABC/field enforcement. **14 of 15 calibrators** are now on the mixin (the two curve bootstrappers stay curve-carries-provenance by design).
+
+**Files**: `options/sabr.py`, `options/{swaption_vol_cube,capfloor,vol_calibration}.py`, `models/lmm_calibration.py`, `desks/api.py`, + 5 test files.
+
+* **New `SABRCalibrationResult`** — `alpha`/`beta`/`rho`/`nu`/`rmse`, the reprice diagnostics (`reprice_errors_bp`, `max_error_bp`) as proper fields (was dynamic dict keys added by `calibrate_sabr_smile`), the eager `calibration_result`, a `to_dict()`, and `_build_calibration_record()`.
+* **Callers updated** from `result["alpha"]`-style access to attributes; `capfloor`'s `**params` dict-spread rebuilt explicitly (preserving its `calibration_result` key).
+* **Latent bug fixed**: `desks/api.py` did `alpha, rho, nu = sabr_calibrate(...)` — unpacking the (then dict) return as 3 values, a guaranteed crash that was never exercised. Now reads the typed fields. (Same "the unification surfaces a real bug" pattern as `fx_slv`'s zero-residual.)
+* **Non-issue ruled out**: a same-named `calibrate_sabr_smile` in `structured/ir_vol_surface` is a *separate* function (returns a node) — not affected; the earlier "arg-order bug" suspicion was that name collision.
+
+**Verification**: full suite **12838 passed** (two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.137.0 — 2026-06-22 — **Calibration contract: enforced, not just documented**
 
 Closes the enforcement gaps in the calibration design — the contract every family must honour is now checked at class-definition / construction / persistence boundaries, so a non-conforming or inconsistent calibrator fails fast with a clear message rather than relying on review discipline.
