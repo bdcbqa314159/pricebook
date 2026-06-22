@@ -2,6 +2,19 @@
 
 ---
 
+## v1.136.0 — 2026-06-22 — **Calibration types: final-read cleanups (CalibrationFit immutability + docstring)**
+
+Two nits from a fresh-eyes read of `calibration/_types.py` after the decomposition.
+
+**Files**: `python/pricebook/calibration/_types.py` + 6 test files.
+
+* **`CalibrationFit` now canonicalises its sequence fields to tuples** (was lists), matching `CalibrationDiagnostics` and honouring the stated principle that a frozen record holds immutable sequences — previously `cr.fit.residuals.append(...)` could silently mutate a "frozen" record. The list choice had only been to keep test comparisons terse; those assertions are now type-agnostic (`list(cr.fit.residuals) == [...]`). Round-trip stays exact.
+* **Module docstring refreshed**: it referenced the removed flat `.new()` factory and a now-stale `DESIGN.md §3.3` shape note. It now describes the four-component composite and points the lazy `import pricebook` note at `CalibrationProvenance.stamp`.
+
+**Verification**: full suite **12831 passed** (two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.135.0 — 2026-06-22 — **CalibrationResult decomposed into three component value objects**
 
 The owner's standing objection — that `CalibrationResult` was a monolithic 14-field bag, not graspable as a concept at a glance — resolved by structure. The record is now **three component value objects + diagnostics**, and producers construct/inject the components directly (the components are a real interface, used as one — not hidden behind a flat factory).
