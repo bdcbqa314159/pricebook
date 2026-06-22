@@ -2,6 +2,32 @@
 
 ---
 
+## v1.135.0 — 2026-06-22 — **CalibrationResult decomposed into three component value objects**
+
+The owner's standing objection — that `CalibrationResult` was a monolithic 14-field bag, not graspable as a concept at a glance — resolved by structure. The record is now **three component value objects + diagnostics**, and producers construct/inject the components directly (the components are a real interface, used as one — not hidden behind a flat factory).
+
+**New value objects** (`calibration/_types.py`, all `@serialisable_convention`, exported from `pricebook.calibration`):
+* `CalibrationProvenance` — `{id, timestamp, code_version, market_snapshot_id}` (where it came from). `CalibrationProvenance.stamp()` auto-fills id/timestamp/code_version.
+* `CalibrationFit` — `{model_class, parameters, residuals, objective, quotes_fitted, weights}` (what was fitted + how well); carries the derived `rms_residual`/`max_residual` properties.
+* `OptimiserRun` — `{spec: OptimiserSpec, iterations, converged}` (how the solver behaved — config + outcome, no longer split across the parent).
+
+**`CalibrationResult` is now four fields**: `provenance`, `fit`, `optimiser_run`, `diagnostics`. The flat `.new()` factory is **removed** — construction is direct component injection:
+```python
+CalibrationResult(
+    provenance=CalibrationProvenance.stamp(market_snapshot_id=...),
+    fit=CalibrationFit(model_class=..., parameters=..., residuals=...),
+    optimiser_run=OptimiserRun(spec=OptimiserSpec(...), iterations=..., converged=...),
+)
+```
+
+**Scope** (39 files): all ~27 producer call-sites across 15 modules rewritten to inject components (via an AST codemod, value-source preserved); `db.save_calibration` reads `result.provenance.*` / `fit.*` / `optimiser_run.*`; the `CanonicalCalibrationResult` mixin's `calibration_id` reads `provenance.id`; serialisation schema bumped to **v3** (nested payload). Tests updated to component access (`cr.fit.model_class`, `cr.optimiser_run.converged`, `cr.provenance.id`); a `build_calibration_result()` fixture in `conftest.py` keeps test construction concise.
+
+**Field-shape notes**: `CalibrationFit` canonicalises its sequences to lists (exact round-trip). The former unity-weights default is dropped — empty `weights` now means "unweighted" (consistent with the unweighted `rms_residual`).
+
+**Verification**: full suite **12831 passed** (two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.134.0 — 2026-06-22 — **Calibration unification G1 Phase 4 (C.5): CalibrationResult coherence — derived rms/max**
 
 Final re-assessment finding. Closes the two `_types.py` items the original clean-code review deferred.
