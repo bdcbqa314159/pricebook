@@ -152,6 +152,11 @@ class IBORCurve:
         self._discount = discount_curve
 
     @property
+    def calibration_result(self):
+        """The projection curve's calibration provenance (it owns the fit)."""
+        return self._projection.calibration_result
+
+    @property
     def reference_date(self) -> date:
         return self._projection.reference_date
 

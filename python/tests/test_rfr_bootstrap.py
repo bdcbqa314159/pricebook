@@ -201,3 +201,38 @@ class TestEdgeCases:
         inputs = RFRCurveInputs(overnight_rate=0.05)
         d = inputs.to_dict()
         assert d["overnight_rate"] == 0.05
+
+
+class TestRFRProvenance:
+    """Bootstrapper campaign Tier 1 — bootstrap_rfr inherits the curve's record."""
+
+    def _result(self, method="sequential"):
+        inputs = RFRCurveInputs(
+            overnight_rate=0.053,
+            deposits=[(date(2024, 4, 15), 0.052)],
+            ois_swaps=_make_ois_swaps(REF, [
+                (1, 0.050), (2, 0.048), (3, 0.046), (5, 0.043), (10, 0.041),
+            ]),
+        )
+        return bootstrap_rfr("USD", REF, inputs, method=method)
+
+    def test_sequential_surfaces_record(self):
+        cr = self._result("sequential").calibration_result
+        assert cr is not None and cr.fit.model_class == "discount_curve_bootstrap"
+
+    @pytest.mark.xfail(
+        reason="pre-existing bug surfaced by the provenance campaign: "
+               "bootstrap_rfr(method='global') passes deposit_day_count to "
+               "global_bootstrap, which rejects it. Fix tracked separately.",
+        strict=True, raises=TypeError,
+    )
+    def test_global_surfaces_record(self):
+        cr = self._result("global").calibration_result
+        assert cr is not None and cr.fit.model_class == "discount_curve_global"
+
+    def test_record_persists(self):
+        from pricebook.db.db import PricebookDB
+        cr = self._result().calibration_result
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(cr)
+            assert db.load_calibration(cid) == cr

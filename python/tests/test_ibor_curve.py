@@ -281,3 +281,24 @@ class TestBootstrapIBOR:
         tau = year_fraction(REF, dep_mat, EURIBOR_3M_CONVENTIONS.float_day_count)
         model_rate = (1.0 / ibor.df(dep_mat) - 1.0) / tau
         assert model_rate == pytest.approx(dep_rate, abs=1e-6)
+
+
+# ---- Provenance (bootstrapper campaign Tier 1) ----
+
+class TestIBORBootstrapProvenance:
+    def test_ibor_surfaces_projection_calibration_record(self):
+        ois = _ois_curve()
+        ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois, swaps=_euribor_3m_swaps())
+        cr = ibor.calibration_result
+        assert cr is not None
+        assert cr.fit.model_class == "projection_curve_bootstrap"
+        assert len(cr.fit.residuals) == len(_euribor_3m_swaps())
+
+    def test_record_persists(self):
+        from pricebook.db.db import PricebookDB
+        ois = _ois_curve()
+        ibor = bootstrap_ibor(REF, EURIBOR_3M_CONVENTIONS, ois, swaps=_euribor_3m_swaps())
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(ibor.calibration_result)
+            assert db.load_calibration(cid) == ibor.calibration_result
+            assert db.list_calibrations(model_class="projection_curve_bootstrap")[0]["calibration_id"] == cid

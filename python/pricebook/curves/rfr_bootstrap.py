@@ -87,6 +87,11 @@ class RFRCurveResult:
     round_trip_max_error_bp: float
     convexity_adjustments: dict[str, float]  # {contract_label: ca_bp}
 
+    @property
+    def calibration_result(self):
+        """The underlying discount curve's calibration provenance (it owns the fit)."""
+        return self.curve.calibration_result
+
     def to_dict(self) -> dict:
         return {
             "currency": self.currency,

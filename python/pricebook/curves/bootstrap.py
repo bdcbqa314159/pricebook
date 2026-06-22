@@ -595,7 +595,70 @@ def bootstrap_forward_curve(
         fixed_frequency, float_frequency, calendar, convention,
     )
 
+    # Provenance: attach the canonical calibration record to the curve.
+    quotes, residuals = _forward_curve_residuals(
+        fwd_curve, discount_curve, reference_date, swaps, deposits,
+        fixed_day_count, float_day_count, deposit_day_count,
+        fixed_frequency, float_frequency, calendar, convention,
+    )
+    fwd_curve.calibration_result = curve_calibration_record(
+        model_class="projection_curve_bootstrap",
+        parameters=pillar_parameters(pillar_dates, pillar_dfs, label="df"),
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="brentq-sequential",
+        tolerance=1e-6,
+        iterations=len(pillar_dates),
+        converged=True,
+        optimiser_extra={"interpolation": str(interpolation.value)},
+        diagnostics_extra={"n_deposits": len(deposits or []), "n_swaps": len(swaps)},
+    )
+
     return fwd_curve
+
+
+def _forward_curve_residuals(
+    fwd_curve, discount_curve, reference_date, swaps, deposits,
+    fixed_day_count, float_day_count, deposit_day_count,
+    fixed_frequency, float_frequency, calendar, convention,
+) -> tuple[list[str], list[float]]:
+    """Per-instrument (quote, model-minus-market residual) for a forward curve.
+
+    Deposits: ``model_rate - rate``. Swaps: ``pv_fixed - pv_float`` (≈0 by
+    construction; discounted off the external `discount_curve`).
+    """
+    quotes: list[str] = []
+    residuals: list[float] = []
+    if deposits:
+        for mat, rate in deposits:
+            tau = year_fraction(reference_date, mat, deposit_day_count)
+            if tau > 0:
+                model_rate = (1.0 / fwd_curve.df(mat) - 1.0) / tau
+                quotes.append(f"deposit_{mat.isoformat()}")
+                residuals.append(model_rate - rate)
+    for mat, par_rate in swaps:
+        fixed_sched = generate_schedule(
+            reference_date, mat, fixed_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        float_sched = generate_schedule(
+            reference_date, mat, float_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        pv_fixed = 0.0
+        for i in range(1, len(fixed_sched)):
+            yf = year_fraction(fixed_sched[i - 1], fixed_sched[i], fixed_day_count)
+            pv_fixed += par_rate * yf * discount_curve.df(fixed_sched[i])
+        pv_float = 0.0
+        for i in range(1, len(float_sched)):
+            d1, d2 = float_sched[i - 1], float_sched[i]
+            fdf1, fdf2 = fwd_curve.df(d1), fwd_curve.df(d2)
+            yf = year_fraction(d1, d2, float_day_count)
+            fwd = (fdf1 - fdf2) / (yf * fdf2)
+            pv_float += fwd * yf * discount_curve.df(d2)
+        quotes.append(f"swap_{mat.isoformat()}")
+        residuals.append(pv_fixed - pv_float)
+    return quotes, residuals
 
 
 def _verify_forward_curve_round_trip(
