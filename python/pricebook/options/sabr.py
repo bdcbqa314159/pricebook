@@ -19,12 +19,70 @@ where z = (alpha/nu) * (F*K)^((1-beta)/2) * ln(F/K)
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from pricebook.calibration import CanonicalCalibrationResult
 from pricebook.models.black76 import OptionType, black76_price
 
 if TYPE_CHECKING:
+    from pricebook.calibration import CalibrationResult
     from pricebook.market_data import MarketSnapshot
+
+
+@dataclass
+class SABRCalibrationResult(CanonicalCalibrationResult):
+    """Typed result of a SABR smile calibration.
+
+    Carries the fitted SABR parameters (`alpha`, `beta`, `rho`, `nu`) and fit
+    quality. `calibration_result` is the canonical provenance artefact, populated
+    eagerly by `sabr_calibrate`; `calibrate_sabr_smile` additionally fills the
+    reprice diagnostics (`reprice_errors_bp`, `max_error_bp`).
+    """
+
+    alpha: float
+    beta: float
+    rho: float
+    nu: float
+    rmse: float
+    reprice_errors_bp: list[float] = field(default_factory=list)
+    max_error_bp: float = 0.0
+    calibration_result: CalibrationResult | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "alpha": self.alpha, "beta": self.beta, "rho": self.rho, "nu": self.nu,
+            "rmse": self.rmse,
+            "reprice_errors_bp": list(self.reprice_errors_bp),
+            "max_error_bp": self.max_error_bp,
+            "calibration_id": self.calibration_id,
+        }
+
+    def _build_calibration_record(self) -> "CalibrationResult":
+        # On-demand fallback (hand-constructed instances); sabr_calibrate
+        # populates calibration_result eagerly, so this rarely runs.
+        from pricebook.calibration import (
+            CalibrationFit,
+            CalibrationProvenance,
+            CalibrationResult,
+            ObjectiveKind,
+            OptimiserRun,
+            OptimiserSpec,
+        )
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="sabr",
+                parameters={"alpha": self.alpha, "beta": self.beta,
+                            "rho": self.rho, "nu": self.nu},
+                residuals=[],
+                objective=ObjectiveKind.SSE,
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="nelder_mead", tolerance=0.0, max_iterations=0),
+                iterations=0, converged=True,
+            ),
+        )
 
 
 def sabr_implied_vol(
@@ -122,7 +180,7 @@ def sabr_calibrate(
     initial_guess: tuple[float, float, float] | None = None,
     *,
     market_snapshot: MarketSnapshot | None = None,
-) -> dict:
+) -> SABRCalibrationResult:
     """Calibrate SABR parameters (alpha, rho, nu) to market smile.
 
     Beta is typically fixed. Minimises sum of squared vol errors.
@@ -136,10 +194,9 @@ def sabr_calibrate(
         initial_guess: (alpha, rho, nu) starting point.
 
     Returns:
-        dict with keys: alpha, beta, rho, nu, rmse, calibration_result.
-        `calibration_result` is the canonical `pricebook.calibration.CalibrationResult`
-        (G1 P1 Slice 4 onwards); the other keys are unchanged for backward
-        compatibility.
+        `SABRCalibrationResult` — the fitted `alpha`/`beta`/`rho`/`nu`, `rmse`,
+        and the canonical `calibration_result` provenance artefact (a
+        `CanonicalCalibrationResult`, so it persists via `db.save_calibration`).
     """
     from pricebook.calibration import (
         CalibrationDiagnostics,
@@ -208,14 +265,10 @@ def sabr_calibrate(
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
     )
 
-    return {
-        "alpha": alpha,
-        "beta": beta,
-        "rho": rho,
-        "nu": nu,
-        "rmse": rmse,
-        "calibration_result": cr,
-    }
+    return SABRCalibrationResult(
+        alpha=float(alpha), beta=float(beta), rho=float(rho), nu=float(nu),
+        rmse=float(rmse), calibration_result=cr,
+    )
 
 
 def calibrate_sabr_smile(
@@ -225,7 +278,7 @@ def calibrate_sabr_smile(
     T: float,
     beta: float = 0.5,
     max_rmse_bp: float = 1.0,
-) -> dict[str, float]:
+) -> SABRCalibrationResult:
     """Hardened SABR calibration with validation.
 
     Calls sabr_calibrate() then validates:
@@ -237,7 +290,7 @@ def calibrate_sabr_smile(
         max_rmse_bp: maximum acceptable RMSE in vol basis points.
 
     Returns:
-        dict with alpha, beta, rho, nu, rmse, reprice_errors.
+        `SABRCalibrationResult`, with `reprice_errors_bp` / `max_error_bp` filled.
 
     Raises:
         ValueError if calibration fails validation.
@@ -250,27 +303,27 @@ def calibrate_sabr_smile(
     result = sabr_calibrate(forward, strikes, market_vols, T, beta)
 
     # Validate ranges
-    if result["alpha"] <= 0:
-        warnings.warn(f"SABR alpha = {result['alpha']:.6f} ≤ 0", stacklevel=2)
-    if not -1 < result["rho"] < 1:
-        warnings.warn(f"SABR rho = {result['rho']:.4f} outside (-1,1)", stacklevel=2)
-    if result["nu"] <= 0:
-        warnings.warn(f"SABR nu = {result['nu']:.6f} ≤ 0", stacklevel=2)
+    if result.alpha <= 0:
+        warnings.warn(f"SABR alpha = {result.alpha:.6f} ≤ 0", stacklevel=2)
+    if not -1 < result.rho < 1:
+        warnings.warn(f"SABR rho = {result.rho:.4f} outside (-1,1)", stacklevel=2)
+    if result.nu <= 0:
+        warnings.warn(f"SABR nu = {result.nu:.6f} ≤ 0", stacklevel=2)
 
     # Reprice check
     reprice_errors = []
     for k, mv in zip(strikes, market_vols):
-        model = sabr_implied_vol(forward, k, T, result["alpha"], result["beta"],
-                                  result["rho"], result["nu"])
+        model = sabr_implied_vol(forward, k, T, result.alpha, result.beta,
+                                  result.rho, result.nu)
         err_bp = abs(model - mv) * 10_000
         reprice_errors.append(err_bp)
 
-    result["reprice_errors_bp"] = reprice_errors
-    result["max_error_bp"] = max(reprice_errors) if reprice_errors else 0.0
+    result.reprice_errors_bp = reprice_errors
+    result.max_error_bp = max(reprice_errors) if reprice_errors else 0.0
 
-    if result["rmse"] * 10_000 > max_rmse_bp:
+    if result.rmse * 10_000 > max_rmse_bp:
         warnings.warn(
-            f"SABR RMSE = {result['rmse']*10_000:.2f}bp > {max_rmse_bp}bp threshold",
+            f"SABR RMSE = {result.rmse*10_000:.2f}bp > {max_rmse_bp}bp threshold",
             stacklevel=2,
         )
 

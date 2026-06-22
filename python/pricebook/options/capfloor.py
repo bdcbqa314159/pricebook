@@ -482,7 +482,12 @@ def calibrate_capfloor_sabr(
                 "tenor_years": tenor_y,
                 "forward": avg_fwd,
                 "atm_vol": avg_vol,
-                **params,
+                "alpha": params.alpha,
+                "beta": params.beta,
+                "rho": params.rho,
+                "nu": params.nu,
+                "rmse": params.rmse,
+                "calibration_result": params.calibration_result,
             })
         except Exception:
             results.append({

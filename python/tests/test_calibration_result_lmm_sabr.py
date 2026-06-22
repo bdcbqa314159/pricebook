@@ -122,7 +122,7 @@ class TestLMMBackCompat:
 # ============================================================
 
 class TestSABRCalibrationResult:
-    """SABR returns a dict; `calibration_result` is added under that key."""
+    """SABR returns a typed SABRCalibrationResult carrying the canonical record."""
 
     def _calibrate(self):
         return sabr_calibrate(
@@ -135,25 +135,25 @@ class TestSABRCalibrationResult:
 
     def test_calibration_result_in_dict(self):
         res = self._calibrate()
-        assert "calibration_result" in res
-        assert isinstance(res["calibration_result"], CalibrationResult)
+        assert res.calibration_result is not None
+        assert isinstance(res.calibration_result, CalibrationResult)
 
     def test_existing_keys_preserved(self):
         """Backward compat: alpha, beta, rho, nu, rmse keys still present."""
         res = self._calibrate()
         for key in ("alpha", "beta", "rho", "nu", "rmse"):
-            assert key in res
+            assert hasattr(res, key)
 
     def test_parameters_match_dict_values(self):
         res = self._calibrate()
-        cr = res["calibration_result"]
-        assert cr.fit.parameters["alpha"] == pytest.approx(res["alpha"])
-        assert cr.fit.parameters["beta"] == pytest.approx(res["beta"])
-        assert cr.fit.parameters["rho"] == pytest.approx(res["rho"])
-        assert cr.fit.parameters["nu"] == pytest.approx(res["nu"])
+        cr = res.calibration_result
+        assert cr.fit.parameters["alpha"] == pytest.approx(res.alpha)
+        assert cr.fit.parameters["beta"] == pytest.approx(res.beta)
+        assert cr.fit.parameters["rho"] == pytest.approx(res.rho)
+        assert cr.fit.parameters["nu"] == pytest.approx(res.nu)
 
     def test_optimiser_recorded(self):
-        cr = self._calibrate()["calibration_result"]
+        cr = self._calibrate().calibration_result
         assert cr.optimiser_run.spec.algorithm == "nelder_mead"
         assert cr.optimiser_run.spec.tolerance == 1e-12
         assert cr.optimiser_run.spec.max_iterations == 2000
@@ -162,7 +162,7 @@ class TestSABRCalibrationResult:
         assert cr.optimiser_run.spec.extra["T"] == 5.0
 
     def test_quotes_fitted_named_by_strike(self):
-        cr = self._calibrate()["calibration_result"]
+        cr = self._calibrate().calibration_result
         assert list(cr.fit.quotes_fitted) == [
             "smile_K=0.0300",
             "smile_K=0.0400",
@@ -173,24 +173,24 @@ class TestSABRCalibrationResult:
 
     def test_residuals_match_model_minus_market(self):
         res = self._calibrate()
-        cr = res["calibration_result"]
+        cr = res.calibration_result
         strikes = [0.03, 0.04, 0.05, 0.06, 0.07]
         market_vols = [0.30, 0.25, 0.22, 0.21, 0.22]
         for i, (k, mv) in enumerate(zip(strikes, market_vols)):
-            model = sabr_implied_vol(0.05, k, 5.0, res["alpha"], res["beta"],
-                                     res["rho"], res["nu"])
+            model = sabr_implied_vol(0.05, k, 5.0, res.alpha, res.beta,
+                                     res.rho, res.nu)
             assert cr.fit.residuals[i] == pytest.approx(model - mv, abs=1e-9)
 
     def test_unique_id_per_run(self):
         r1 = self._calibrate()
         r2 = self._calibrate()
-        assert r1["calibration_result"].provenance.id != r2["calibration_result"].provenance.id
+        assert r1.calibration_result.provenance.id != r2.calibration_result.provenance.id
 
     def test_diagnostics_rmse_vol(self):
         res = self._calibrate()
-        cr = res["calibration_result"]
-        assert cr.diagnostics.extra["rmse_vol"] == pytest.approx(res["rmse"])
+        cr = res.calibration_result
+        assert cr.diagnostics.extra["rmse_vol"] == pytest.approx(res.rmse)
 
     def test_model_class(self):
-        cr = self._calibrate()["calibration_result"]
+        cr = self._calibrate().calibration_result
         assert cr.fit.model_class == "sabr"

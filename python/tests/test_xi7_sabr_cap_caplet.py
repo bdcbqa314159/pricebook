@@ -82,8 +82,8 @@ class TestXI7R1SABR:
         result = sabr_calibrate(fwd, strikes, market_vols, T=5.0, beta=0.5)
         # Recovered vols should match within a few bps
         for K, mv in zip(strikes, market_vols):
-            rv = sabr_implied_vol(fwd, K, T=5.0, alpha=result["alpha"],
-                                   beta=0.5, rho=result["rho"], nu=result["nu"])
+            rv = sabr_implied_vol(fwd, K, T=5.0, alpha=result.alpha,
+                                   beta=0.5, rho=result.rho, nu=result.nu)
             assert rv == pytest.approx(mv, abs=0.002)
 
 

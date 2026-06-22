@@ -348,10 +348,10 @@ def calibrate_multi_factor_sabr(
         result = sabr_calibrate(fwd, strikes, mkt_vols, T, beta=beta)
         slices.append(SABRSlice(
             expiry=T,
-            alpha=result["alpha"],
+            alpha=result.alpha,
             beta=beta,
-            rho=result["rho"],
-            nu=result["nu"],
+            rho=result.rho,
+            nu=result.nu,
         ))
 
     return MultiFactorSABR(slices)

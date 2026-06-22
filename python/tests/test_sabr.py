@@ -92,10 +92,10 @@ class TestSABRCalibration:
 
         result = sabr_calibrate(F, strikes, market_vols, T, beta=BETA)
 
-        assert result["alpha"] == pytest.approx(ALPHA, rel=0.05)
-        assert result["rho"] == pytest.approx(RHO, abs=0.05)
-        assert result["nu"] == pytest.approx(NU, rel=0.1)
-        assert result["rmse"] < 0.001
+        assert result.alpha == pytest.approx(ALPHA, rel=0.05)
+        assert result.rho == pytest.approx(RHO, abs=0.05)
+        assert result.nu == pytest.approx(NU, rel=0.1)
+        assert result.rmse < 0.001
 
     def test_reprices_market_vols(self):
         """Calibrated model reprices input vols."""
@@ -106,7 +106,7 @@ class TestSABRCalibration:
 
         for k, mv in zip(strikes, market_vols):
             model_vol = sabr_implied_vol(
-                F, k, T, result["alpha"], BETA, result["rho"], result["nu"],
+                F, k, T, result.alpha, BETA, result.rho, result.nu,
             )
             assert model_vol == pytest.approx(mv, abs=0.001)
 
@@ -114,8 +114,8 @@ class TestSABRCalibration:
         strikes = [F * 0.9, F, F * 1.1]
         vols = [0.30, 0.25, 0.28]
         result = sabr_calibrate(F, strikes, vols, T, beta=BETA)
-        assert "alpha" in result
-        assert "beta" in result
-        assert "rho" in result
-        assert "nu" in result
-        assert "rmse" in result
+        assert hasattr(result, "alpha")
+        assert hasattr(result, "beta")
+        assert hasattr(result, "rho")
+        assert hasattr(result, "nu")
+        assert hasattr(result, "rmse")

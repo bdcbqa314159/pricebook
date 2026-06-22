@@ -121,7 +121,7 @@ class TestSabrSnapshot:
             forward=100.0, strikes=[80.0, 100.0, 120.0],
             market_vols=[0.25, 0.22, 0.24], T=1.0, beta=0.5,
         )
-        cr = d["calibration_result"]
+        cr = d.calibration_result
         assert cr.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, smile_snapshot):
@@ -130,7 +130,7 @@ class TestSabrSnapshot:
             market_vols=[0.25, 0.22, 0.24], T=1.0, beta=0.5,
             market_snapshot=smile_snapshot,
         )
-        assert d["calibration_result"].provenance.market_snapshot_id == smile_snapshot.id
+        assert d.calibration_result.provenance.market_snapshot_id == smile_snapshot.id
 
 
 # ============================================================

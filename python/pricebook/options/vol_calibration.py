@@ -174,9 +174,9 @@ def calibrate_fx_surface(
             result = sabr_calibrate(forward, strikes, vols, T, beta=beta)
             nodes.append(CalibratedSABRNode(
                 expiry=expiry, forward=forward,
-                alpha=result["alpha"], beta=beta,
-                rho=result["rho"], nu=result["nu"],
-                atm_vol=atm, calibration_error=result.get("rmse", 0.0),
+                alpha=result.alpha, beta=beta,
+                rho=result.rho, nu=result.nu,
+                atm_vol=atm, calibration_error=result.rmse,
                 T_to_expiry=T,
             ))
         except (ValueError, RuntimeError):
@@ -221,9 +221,9 @@ def calibrate_equity_surface(
             result = sabr_calibrate(forward, strikes, vols, T, beta=beta)
             nodes.append(CalibratedSABRNode(
                 expiry=expiry, forward=forward,
-                alpha=result["alpha"], beta=beta,
-                rho=result["rho"], nu=result["nu"],
-                atm_vol=atm, calibration_error=result.get("rmse", 0.0),
+                alpha=result.alpha, beta=beta,
+                rho=result.rho, nu=result.nu,
+                atm_vol=atm, calibration_error=result.rmse,
                 T_to_expiry=T,
             ))
         except (ValueError, RuntimeError):
@@ -266,9 +266,9 @@ def calibrate_ir_surface(
                 result = sabr_calibrate(forward, strikes, vols, T, beta=beta)
                 nodes.append(CalibratedSABRNode(
                     expiry=expiry, forward=forward,
-                    alpha=result["alpha"], beta=beta,
-                    rho=result["rho"], nu=result["nu"],
-                    atm_vol=atm, calibration_error=result.get("rmse", 0.0),
+                    alpha=result.alpha, beta=beta,
+                    rho=result.rho, nu=result.nu,
+                    atm_vol=atm, calibration_error=result.rmse,
                     T_to_expiry=T,
                 ))
                 continue

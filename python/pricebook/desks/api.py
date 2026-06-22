@@ -982,8 +982,10 @@ def calibrate_sabr(
         params = pb.calibrate_sabr(0.04, strikes, vols, 1.0)
     """
     from pricebook.options.sabr import sabr_calibrate
-    alpha, rho, nu = sabr_calibrate(forward, strikes, market_vols, T, beta)
-    return {"alpha": alpha, "beta": beta, "rho": rho, "nu": nu}
+    # Pre-fix this unpacked the (then dict) return as 3 values — a latent crash
+    # never exercised. sabr_calibrate now returns a typed SABRCalibrationResult.
+    res = sabr_calibrate(forward, strikes, market_vols, T, beta)
+    return {"alpha": res.alpha, "beta": res.beta, "rho": res.rho, "nu": res.nu}
 
 
 def implied_vol(

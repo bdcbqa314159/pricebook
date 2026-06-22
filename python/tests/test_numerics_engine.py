@@ -69,10 +69,10 @@ class TestSABRCalibration:
                        for k in strikes]
 
         result = calibrate_sabr_smile(forward, strikes, market_vols, T, beta=true_beta)
-        assert result["rmse"] * 10_000 < 0.5  # sub-0.5bp RMSE
-        assert result["alpha"] == pytest.approx(true_alpha, abs=0.01)
-        assert result["rho"] == pytest.approx(true_rho, abs=0.05)
-        assert result["nu"] == pytest.approx(true_nu, abs=0.05)
+        assert result.rmse * 10_000 < 0.5  # sub-0.5bp RMSE
+        assert result.alpha == pytest.approx(true_alpha, abs=0.01)
+        assert result.rho == pytest.approx(true_rho, abs=0.05)
+        assert result.nu == pytest.approx(true_nu, abs=0.05)
 
     def test_reprice_errors(self):
         forward = 100.0
@@ -81,17 +81,17 @@ class TestSABRCalibration:
         market_vols = [sabr_implied_vol(forward, k, T, 0.20, 0.5, -0.2, 0.3)
                        for k in strikes]
         result = calibrate_sabr_smile(forward, strikes, market_vols, T)
-        assert result["max_error_bp"] < 1.0  # sub-1bp
+        assert result.max_error_bp < 1.0  # sub-1bp
 
     def test_returns_all_fields(self):
         forward = 100.0
         strikes = [95, 100, 105]
         market_vols = [0.22, 0.20, 0.21]
         result = calibrate_sabr_smile(forward, strikes, market_vols, T=1.0)
-        assert "alpha" in result
-        assert "rho" in result
-        assert "nu" in result
-        assert "reprice_errors_bp" in result
+        assert hasattr(result, "alpha")
+        assert hasattr(result, "rho")
+        assert hasattr(result, "nu")
+        assert hasattr(result, "reprice_errors_bp")
 
 
 # ---- D3: CorrelatedGBM ----

@@ -231,7 +231,7 @@ def build_swaption_vol_cube(
                 atm = _lookup_atm(atm_expiry_years, atm_tenor_years, atm_vols, exp_y, tenor_y)
                 sabr_nodes.append(SABRNode(
                     exp_y, tenor_y, fwd,
-                    params["alpha"], params["beta"], params["rho"], params["nu"],
+                    params.alpha, params.beta, params.rho, params.nu,
                     atm,
                 ))
             except Exception:
