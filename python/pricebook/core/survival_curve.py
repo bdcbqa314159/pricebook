@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -13,6 +14,9 @@ from pricebook.core.interpolation import (
     create_interpolator,
     Interpolator,
 )
+
+if TYPE_CHECKING:
+    from pricebook.calibration import CalibrationResult
 
 
 class SurvivalCurve:
@@ -64,6 +68,10 @@ class SurvivalCurve:
         self._interpolator: Interpolator = create_interpolator(
             interpolation, self._times, self._survs
         )
+
+        # Canonical calibration provenance, attached by a bootstrapper (None
+        # until set). Mirrors DiscountCurve — the curve carries its own record.
+        self.calibration_result: "CalibrationResult | None" = None
 
     @classmethod
     def flat(cls, reference_date: date, hazard_rate: float, tenors: list[int] | None = None) -> "SurvivalCurve":

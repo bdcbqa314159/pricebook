@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from typing import TYPE_CHECKING
 
 from pricebook.curves.aad import Number
 from pricebook.curves.aad_interp import aad_log_linear_interp
 from pricebook.core.day_count import DayCountConvention, year_fraction
+
+if TYPE_CHECKING:
+    from pricebook.calibration import CalibrationResult
 
 
 class AADDiscountCurve:
@@ -44,6 +48,10 @@ class AADDiscountCurve:
 
         self._times = times
         self._dfs = dfs
+
+        # Canonical calibration provenance, attached by aad_bootstrap (None
+        # until set). Mirrors DiscountCurve — the curve carries its own record.
+        self.calibration_result: "CalibrationResult | None" = None
 
     def _time(self, d: date) -> float:
         if d <= self.reference_date:
