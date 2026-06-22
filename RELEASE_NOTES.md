@@ -4,7 +4,7 @@
 
 ## v1.138.0 — 2026-06-22 — **SABR: typed result through the canonical mixin**
 
-`sabr_calibrate` returned a stringly-typed `dict`; it now returns a typed `SABRCalibrationResult` that goes through `CanonicalCalibrationResult` like every other family — so SABR persists via `db.save_calibration(result)` directly and is covered by the ABC/field enforcement. **14 of 15 calibrators** are now on the mixin (the two curve bootstrappers stay curve-carries-provenance by design).
+`sabr_calibrate` returned a stringly-typed `dict`; it now returns a typed `SABRCalibrationResult` that goes through `CanonicalCalibrationResult` like every other family — so SABR persists via `db.save_calibration(result)` directly and is covered by the ABC/field enforcement. **13 of 15 calibrators** are now on the mixin (the two curve bootstrappers — `discount_curve_bootstrap`, `discount_curve_global` — stay curve-carries-provenance by design).
 
 **Files**: `options/sabr.py`, `options/{swaption_vol_cube,capfloor,vol_calibration}.py`, `models/lmm_calibration.py`, `desks/api.py`, + 5 test files.
 
