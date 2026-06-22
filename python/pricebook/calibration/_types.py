@@ -84,7 +84,7 @@ class CalibrationDiagnostics:
         object.__setattr__(self, "warnings", tuple(self.warnings))
 
 
-@serialisable_convention("calibration_result")
+@serialisable_convention("calibration_result", schema_version=2)
 @dataclass(frozen=True)
 class CalibrationResult:
     """Result of a calibration run.
@@ -97,7 +97,9 @@ class CalibrationResult:
         identity      — `id`, `timestamp`, `code_version`
         what was fit  — `model_class`, `parameters`, `quotes_fitted`,
                         `weights`, `objective`
-        fit quality   — `residuals`, `rms_residual`, `max_residual`
+        fit quality   — `residuals` (stored); `rms_residual` / `max_residual`
+                        are derived `@property`s over `residuals` — single
+                        source of truth, so they can never drift.
         optimiser     — `optimiser`, `iterations`, `converged`
         extras        — `diagnostics`, `market_snapshot_id`
 
@@ -105,9 +107,9 @@ class CalibrationResult:
     type at L1 (DESIGN.md §5.1 A2). Existing calibrators may set it later
     when that piece exists.
 
-    Construct manually only if you need to override an auto-derived
-    invariant (e.g. you compute residuals from a non-standard space).
-    Use the `CalibrationResult.new(...)` factory in the normal case.
+    Use the `CalibrationResult.new(...)` factory in the normal case (it stamps
+    `id`/`timestamp`/`code_version`); direct construction is fine for a stored
+    record being reconstructed.
     """
 
     # Identity (every run has a unique id)
@@ -124,10 +126,8 @@ class CalibrationResult:
     weights: Sequence[float]
     objective: ObjectiveKind
 
-    # Fit quality
+    # Fit quality (rms_residual / max_residual are derived — see properties)
     residuals: Sequence[float]
-    rms_residual: float
-    max_residual: float
 
     # Optimiser story
     iterations: int
@@ -139,6 +139,25 @@ class CalibrationResult:
 
     # Links to other artefacts (filled in as the layer grows)
     market_snapshot_id: UUID | None = None
+
+    @property
+    def rms_residual(self) -> float:
+        """Unweighted RMS of `residuals` (0.0 if empty).
+
+        Deliberately *unweighted* regardless of `objective`/`weights`: those
+        record how the optimiser combined residuals; this is a plain magnitude
+        summary derived from `residuals` alone (single source of truth — it
+        can never drift). A consumer wanting a weighted RMS computes it from
+        `residuals` + `weights`.
+        """
+        if not self.residuals:
+            return 0.0
+        return math.sqrt(sum(r * r for r in self.residuals) / len(self.residuals))
+
+    @property
+    def max_residual(self) -> float:
+        """Max absolute residual (0.0 if empty); derived from `residuals`."""
+        return max((abs(r) for r in self.residuals), default=0.0)
 
     @classmethod
     def new(
@@ -159,7 +178,10 @@ class CalibrationResult:
         id: UUID | None = None,
         timestamp: datetime | None = None,
     ) -> "CalibrationResult":
-        """Factory: generate `id` and `timestamp`, derive RMSE / max-error.
+        """Factory: stamp `id`/`timestamp`/`code_version`; store the residuals.
+
+        `rms_residual` / `max_residual` are not stored — they are derived
+        `@property`s over `residuals` (see the class body).
 
         Keyword-only on purpose — calibrators historically have many
         positional parameters and this constructor mustn't continue that.
@@ -170,13 +192,6 @@ class CalibrationResult:
         UTC so the provenance record is unambiguous across machines.
         """
         residuals_list = list(residuals)
-        if residuals_list:
-            squared = [r * r for r in residuals_list]
-            rms = math.sqrt(sum(squared) / len(squared))
-            mx = max(abs(r) for r in residuals_list)
-        else:
-            rms = 0.0
-            mx = 0.0
 
         if weights:
             weights_list = list(weights)
@@ -197,8 +212,6 @@ class CalibrationResult:
             weights=weights_list,
             objective=objective,
             residuals=residuals_list,
-            rms_residual=rms,
-            max_residual=mx,
             iterations=iterations,
             optimiser=optimiser,
             converged=converged,

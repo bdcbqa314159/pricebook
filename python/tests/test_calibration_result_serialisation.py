@@ -13,6 +13,8 @@ import json
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
+import pytest
+
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
@@ -110,7 +112,35 @@ def test_payload_is_json_native():
 
 def test_payload_carries_schema_version():
     d = _sample_result().to_dict()
-    assert d["_schema_version"] == 1
+    assert d["_schema_version"] == 2  # bumped: rms/max no longer serialised (derived)
+    # the derived metrics are NOT in the payload anymore
+    assert "rms_residual" not in d and "max_residual" not in d
+
+
+def test_rms_max_are_derived_properties():
+    cr = CalibrationResult.new(
+        model_class="m", parameters={}, residuals=[3.0, -4.0],
+        optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
+    )
+    assert cr.rms_residual == pytest.approx((25 / 2) ** 0.5)
+    assert cr.max_residual == 4.0
+    # not constructor params anymore — can't be passed (so can't drift from residuals)
+    with pytest.raises(TypeError):
+        CalibrationResult(  # type: ignore[call-arg]
+            id=uuid4(), timestamp=datetime.now(timezone.utc), code_version="x",
+            model_class="m", parameters={}, quotes_fitted=[], weights=[],
+            objective=ObjectiveKind.SSE, residuals=[1.0], rms_residual=99.0,
+            max_residual=99.0, iterations=0, optimiser=OptimiserSpec("x", 0.0, 0),
+            converged=True,
+        )
+
+
+def test_rms_max_empty_residuals():
+    cr = CalibrationResult.new(
+        model_class="m", parameters={}, residuals=[],
+        optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
+    )
+    assert cr.rms_residual == 0.0 and cr.max_residual == 0.0
 
 
 # --------------------------------------------------------------------------- #

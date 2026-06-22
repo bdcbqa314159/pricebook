@@ -86,7 +86,7 @@ class TestDenormalisedColumns:
         assert raw["market_snapshot_id"] == str(snap)
         # convention payload is flat (no "type"/"params" envelope)
         assert raw["result"]["model_class"] == "HullWhite"
-        assert raw["result"]["_schema_version"] == 1
+        assert raw["result"]["_schema_version"] == 2
 
     def test_null_snapshot(self, db):
         cr = _result(snapshot_id=None)
