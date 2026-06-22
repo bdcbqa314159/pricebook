@@ -13,6 +13,7 @@ from pricebook.core.schedule import Frequency, StubType, generate_schedule
 from pricebook.core.calendar import Calendar, BusinessDayConvention, get_calendar
 from pricebook.core.solvers import brentq
 from pricebook.core.interpolation import InterpolationMethod
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 
 
 @serialisable_convention("ois_convention")
@@ -222,11 +223,42 @@ def bootstrap_ois(
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
 
-    return DiscountCurve(
+    curve = DiscountCurve(
         reference_date, pillar_dates, pillar_dfs,
         day_count=DayCountConvention.ACT_365_FIXED,
         interpolation=interpolation,
     )
+
+    # Provenance: per-OIS-swap round-trip residuals (pv_fixed - pv_float ≈ 0 by
+    # construction), discounted on the curve itself (single-curve OIS).
+    quotes: list[str] = []
+    residuals: list[float] = []
+    for mat, par_rate in ois_rates:
+        fixed_sched = generate_schedule(
+            reference_date, mat, fixed_frequency,
+            calendar, convention, StubType.SHORT_FRONT, True,
+        )
+        pv_float = curve.df(reference_date) - curve.df(mat)  # telescoping
+        pv_fixed = sum(
+            par_rate * year_fraction(fixed_sched[i - 1], fixed_sched[i], day_count)
+            * curve.df(fixed_sched[i])
+            for i in range(1, len(fixed_sched))
+        )
+        quotes.append(f"ois_{mat.isoformat()}")
+        residuals.append(pv_fixed - pv_float)
+    curve.calibration_result = curve_calibration_record(
+        model_class="ois_curve_bootstrap",
+        parameters=pillar_parameters(pillar_dates, pillar_dfs, label="df"),
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="brentq-sequential",
+        tolerance=1e-6,
+        iterations=len(pillar_dates),
+        converged=True,
+        optimiser_extra={"interpolation": str(interpolation.value)},
+        diagnostics_extra={"n_ois_swaps": len(ois_rates)},
+    )
+    return curve
 
 from pricebook.core.serialisable import serialisable as _serialisable
 _serialisable("ois", ["start", "end", "fixed_rate", "notional", "fixed_frequency", "day_count"])(OISSwap)

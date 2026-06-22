@@ -98,3 +98,23 @@ class TestOISBootstrap:
         bad = [(REF + relativedelta(years=2), 0.05), (REF + relativedelta(years=1), 0.04)]
         with pytest.raises(ValueError):
             bootstrap_ois(REF, bad)
+
+
+class TestOISProvenance:
+    """Bootstrapper campaign Tier 2 — bootstrap_ois attaches a calibration record."""
+
+    def test_record_attached(self):
+        curve = bootstrap_ois(REF, OIS_RATES)
+        cr = curve.calibration_result
+        assert cr is not None
+        assert cr.fit.model_class == "ois_curve_bootstrap"
+        assert len(cr.fit.residuals) == len(OIS_RATES)
+        assert max(abs(r) for r in cr.fit.residuals) < 1e-9  # par by construction
+
+    def test_record_persists(self):
+        from pricebook.db.db import PricebookDB
+        curve = bootstrap_ois(REF, OIS_RATES)
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(curve.calibration_result)
+            assert db.load_calibration(cid) == curve.calibration_result
+            assert db.list_calibrations(model_class="ois_curve_bootstrap")[0]["calibration_id"] == cid
