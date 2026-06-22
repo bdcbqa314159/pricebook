@@ -2,6 +2,22 @@
 
 ---
 
+## v1.140.0 — 2026-06-22 — **Bootstrapper provenance campaign F1: shared curve-record helpers**
+
+Foundation for bringing the ~13 scattered curve/survival bootstrappers into the audit chain (curve-carries-provenance). Adds the shared assembly helper so no bootstrapper hand-rolls the record.
+
+**Files**: `python/pricebook/calibration/_curve_record.py` (new), `calibration/__init__.py`, `curves/bootstrap.py`, `python/tests/test_curve_calibration_record.py` (new).
+
+* **`curve_calibration_record(*, model_class, parameters, residuals, quotes_fitted, algorithm, iterations, …)`** — assembles the four canonical components (provenance stamp, fit, optimiser run, diagnostics) uniformly. Lives in the calibration layer (L0) so every producer — curves, fixed_income, credit, equity — imports it without dragging in a concrete curve type. Inherits `CalibrationFit`'s snake_case + length-agreement enforcement for free.
+* **`pillar_parameters(pillar_dates, pillar_values, label="df")`** — `{label(date): value}` for the calibrated per-pillar quantity (`df`/`survival`/`hazard`/…).
+* **Proven + DRY'd**: refactored `curves/bootstrap._build_bootstrap_calibration_result` to use both (the file got shorter; behaviour identical — existing bootstrap/snapshot tests unchanged).
+
+**Tests**: 5 new. **Verification**: full suite **12843 passed** (two slow G2++ tests deselected per convention).
+
+**Next**: F2 — give `SurvivalCurve` / `AADDiscountCurve` the `calibration_result` field (DiscountCurve already has it); then Tier 1 (`bootstrap_forward_curve`).
+
+---
+
 ## v1.139.0 — 2026-06-22 — **sabr: hoist now-redundant lazy imports to top-level**
 
 Follow-up tidy after the SABR typing conversion (v1.138.0). Adding the top-level `from pricebook.calibration import CanonicalCalibrationResult` (needed as a base class) already loads the `pricebook.calibration` module at import time, so the in-function lazy `import pricebook.calibration` / `import pb_minimize` blocks in `sabr_calibrate` and `_build_calibration_record` no longer deferred anything — they were just noise. Consolidated all of them into one top-level import block.
