@@ -2,6 +2,25 @@
 
 ---
 
+## v1.134.0 — 2026-06-22 — **Calibration unification G1 Phase 4 (C.5): CalibrationResult coherence — derived rms/max**
+
+Final re-assessment finding. Closes the two `_types.py` items the original clean-code review deferred.
+
+**Files**: `python/pricebook/calibration/_types.py`, `python/tests/test_calibration_result_serialisation.py`, `python/tests/test_calibration_persistence.py`.
+
+* **`rms_residual` / `max_residual` are now derived `@property`s over `residuals`** — not stored fields. Single source of truth, so they can **never drift** from `residuals` (the clean-code-expert's original concern: a directly-constructed record could previously carry an `rms_residual` inconsistent with its `residuals`). `.new()` no longer computes or passes them; they cannot be passed to the constructor at all.
+* **Unweighted semantics documented**: `rms_residual` is deliberately the unweighted RMS of `residuals` regardless of `objective`/`weights` (those describe how the optimiser *combined* residuals; this is a plain magnitude summary). A consumer wanting a weighted RMS computes it from `residuals` + `weights`. (Resolves the "weights ignored by rms" incoherence by stating the contract rather than silently overloading it.)
+* **Serialisation**: since the two are no longer `dataclasses.fields()`, they drop out of the flat payload. `_SERIAL_SCHEMA_VERSION` bumped to **2**. Backward-compatible *reads*: old v1 payloads carrying `rms_residual`/`max_residual` keys still deserialise (the convention ignores unknown keys; the properties recompute). Old code reading a new v2 payload gets a clear "upgrade" error rather than a confusing missing-arg failure. The denormalised db columns still populate from the properties.
+
+**Tests**: 3 new (derived values correct incl. empty-residuals; not constructor params → `TypeError`; payload omits the keys + `_schema_version == 2`); 2 existing `_schema_version` assertions updated 1 → 2.
+
+**Verification**: full suite **12831 passed** (two slow G2++ tests deselected per convention).
+
+### Phase 4 complete — calibration unification fully closed
+All re-assessment findings resolved: C.1 mixin (v1.131), C.2 lmm model_class (v1.132), C.3 (folded into the mixin), C.4 fx_slv residual bug (v1.133), C.5 rms/max coherence (v1.134). The calibration layer now has: one canonical `CalibrationResult` (unique name), 12 uniform producers via `CanonicalCalibrationResult`, a closed build→store→read loop, derived (drift-proof) fit metrics, and an unambiguous audit chain.
+
+---
+
 ## v1.133.0 — 2026-06-22 — **Calibration unification G1 Phase 4 (C.4): fx_slv residual bug fix**
 
 `particle_slv_calibration` accumulated its fit error as `(L − 1)² * 0.0` — a dead placeholder, so the reported `residual` was **always 0.0** (surfaced by the unification, which put that 0 into the audit chain).
