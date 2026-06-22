@@ -2,6 +2,16 @@
 
 ---
 
+## v1.143.0 — 2026-06-23 — **Fix B-rfr-global: bootstrap_rfr(method="global") kwarg mismatch**
+
+The bug the Tier-1 provenance work surfaced. `curves/rfr_bootstrap.bootstrap_rfr(method="global")` called `global_bootstrap(..., deposit_day_count=, fixed_day_count=, fixed_frequency=)`, but `global_bootstrap`'s parameters are `deposit_dc` / `swap_dc` / `swap_frequency` — so any global-method RFR bootstrap raised `TypeError`. Never tested, so never noticed.
+
+**Files**: `curves/rfr_bootstrap.py` (corrected the three kwarg names), `test_rfr_bootstrap.py` (the Tier-1 `xfail(strict)` removed — `test_global_surfaces_record` now passes normally and exercises the previously-dead global path end-to-end, surfacing its `discount_curve_global` record through `RFRCurveResult`).
+
+**Verification**: full suite **12852 passed** (no more xfail; two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.142.0 — 2026-06-23 — **Bootstrapper campaign Tier 1: forward/projection curve provenance**
 
 `bootstrap_forward_curve` (the dual-curve projection-curve builder) now attaches a canonical record to the curve it returns, and its two delegating wrappers surface it.
