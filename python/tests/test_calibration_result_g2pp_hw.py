@@ -57,17 +57,17 @@ class TestHWCalibrationResult:
         rf = _flat_rf()
         result = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         cr = result.calibration_result
-        assert cr.model_class == "hull_white"
-        assert set(cr.parameters.keys()) == {"a", "sigma"}
-        assert cr.parameters["a"] == pytest.approx(result.a)
-        assert cr.parameters["sigma"] == pytest.approx(result.sigma)
+        assert cr.fit.model_class == "hull_white"
+        assert set(cr.fit.parameters.keys()) == {"a", "sigma"}
+        assert cr.fit.parameters["a"] == pytest.approx(result.a)
+        assert cr.fit.parameters["sigma"] == pytest.approx(result.sigma)
 
     def test_optimiser_recorded(self):
         rf = _flat_rf()
         result = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         cr = result.calibration_result
-        assert cr.optimiser.algorithm == "Nelder-Mead"
-        assert cr.optimiser.extra.get("n_steps") == 50
+        assert cr.optimiser_run.spec.algorithm == "Nelder-Mead"
+        assert cr.optimiser_run.spec.extra.get("n_steps") == 50
 
     def test_residuals_in_vol_bp(self):
         rf = _flat_rf()
@@ -75,7 +75,7 @@ class TestHWCalibrationResult:
         cr = result.calibration_result
         # Residuals match the per_swaption_errors error_bp field
         expected = [e["error_bp"] for e in result.per_swaption_errors]
-        assert list(cr.residuals) == expected
+        assert list(cr.fit.residuals) == expected
 
     def test_diagnostics_includes_rmse_vol(self):
         rf = _flat_rf()
@@ -88,7 +88,7 @@ class TestHWCalibrationResult:
         rf = _flat_rf()
         result = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         cr = result.calibration_result
-        assert cr.quotes_fitted == [
+        assert cr.fit.quotes_fitted == [
             "swaption_1x5",
             "swaption_5x5",
             "swaption_10x10",
@@ -103,13 +103,13 @@ class TestHWCalibrationResult:
         rf = _flat_rf()
         r1 = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         r2 = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
-        assert r1.calibration_result.id != r2.calibration_result.id
+        assert r1.calibration_result.provenance.id != r2.calibration_result.provenance.id
 
     def test_to_dict_has_calibration_id(self):
         rf = _flat_rf()
         result = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         d = result.to_dict()
-        assert d["calibration_id"] == str(result.calibration_result.id)
+        assert d["calibration_id"] == str(result.calibration_result.provenance.id)
 
 
 class TestHWBackCompat:
@@ -144,11 +144,11 @@ class TestHWBackCompat:
         )
         cr = r.to_calibration_result()
         assert isinstance(cr, CalibrationResult)
-        assert cr.model_class == "hull_white"
-        assert cr.parameters == {"a": 0.05, "sigma": 0.01}
-        assert list(cr.residuals) == [1.0, -2.0]
-        assert cr.quotes_fitted == ["swaption_1x5", "swaption_5x5"]
-        assert cr.converged is True
+        assert cr.fit.model_class == "hull_white"
+        assert cr.fit.parameters == {"a": 0.05, "sigma": 0.01}
+        assert list(cr.fit.residuals) == [1.0, -2.0]
+        assert cr.fit.quotes_fitted == ["swaption_1x5", "swaption_5x5"]
+        assert cr.optimiser_run.converged is True
 
 
 # ============================================================
@@ -181,14 +181,14 @@ class TestG2PPBackCompat:
         r = self._make_hand_result()
         cr = r.to_calibration_result()
         assert isinstance(cr, CalibrationResult)
-        assert cr.model_class == "g2pp"
-        assert cr.parameters == {
+        assert cr.fit.model_class == "g2pp"
+        assert cr.fit.parameters == {
             "a": 0.05, "b": 0.10,
             "sigma1": 0.01, "sigma2": 0.008, "rho": -0.5,
         }
-        assert list(cr.residuals) == [-1.0, 3.0]
-        assert cr.quotes_fitted == ["swaption_1x5", "swaption_5x10"]
-        assert cr.converged is True
+        assert list(cr.fit.residuals) == [-1.0, 3.0]
+        assert cr.fit.quotes_fitted == ["swaption_1x5", "swaption_5x10"]
+        assert cr.optimiser_run.converged is True
 
     def test_to_dict_has_calibration_id_none_when_unpopulated(self):
         r = self._make_hand_result()
@@ -206,10 +206,10 @@ class TestG2PPBackCompat:
             calibration_result=cr,
         )
         d = r2.to_dict()
-        assert d["calibration_id"] == str(cr.id)
+        assert d["calibration_id"] == str(cr.provenance.id)
 
     def test_g2pp_parameters_are_five(self):
         """Sanity guard — G2++ has exactly 5 calibrated parameters."""
         r = self._make_hand_result()
         cr = r.to_calibration_result()
-        assert len(cr.parameters) == 5
+        assert len(cr.fit.parameters) == 5

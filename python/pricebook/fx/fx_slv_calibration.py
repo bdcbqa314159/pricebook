@@ -24,9 +24,12 @@ import numpy as np
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 
@@ -186,14 +189,19 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult.new(
-            model_class="fx_slv",
-            parameters={"bandwidth": float(self.bandwidth)},
-            residuals=[self.residual],
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="fx_slv",
+                parameters={"bandwidth": float(self.bandwidth)},
+                residuals=[self.residual],
+                objective=ObjectiveKind.SSE,
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=True,
+            ),
             diagnostics=CalibrationDiagnostics(extra={"n_particles": self.n_particles}),
         )
 
@@ -289,17 +297,22 @@ def particle_slv_calibration(
     leverage = LeverageFunction(times, spots, L, "particle_method")
     residual = math.sqrt(total_sq_err / max(n_t * n_s, 1))
 
-    cr = CalibrationResult.new(
-        model_class="fx_slv",
-        parameters={
-            "kappa": float(kappa), "theta": float(theta), "xi": float(xi),
-            "v0": float(v0), "rho": float(rho), "bandwidth": float(bandwidth),
-        },
-        residuals=[residual],
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
-        iterations=0,
-        converged=True,
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(),
+        fit=CalibrationFit(
+            model_class="fx_slv",
+            parameters={
+                "kappa": float(kappa), "theta": float(theta), "xi": float(xi),
+                "v0": float(v0), "rho": float(rho), "bandwidth": float(bandwidth),
+            },
+            residuals=[residual],
+            objective=ObjectiveKind.SSE,
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={"n_particles": n_particles, "n_grid": int(n_t * n_s)},
         ),

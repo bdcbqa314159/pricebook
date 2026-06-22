@@ -25,9 +25,12 @@ from scipy.optimize import differential_evolution, minimize as scipy_minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.models.black76 import OptionType, black76_price
@@ -74,19 +77,24 @@ class JumpCalibrationResult(CanonicalCalibrationResult):
         residuals = [
             mv - mkv for mv, mkv in zip(self.model_vols, self.market_vols)
         ]
-        return CalibrationResult.new(
-            model_class=f"jump_{self.model_type}",
-            parameters={k: float(v) for k, v in self.params.items()},
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(
-                algorithm="unknown",
-                tolerance=0.0,
-                max_iterations=0,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class=f"jump_{self.model_type}",
+                parameters={k: float(v) for k, v in self.params.items()},
+                residuals=residuals,
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=[f"smile_K={k:.4f}" for k in self.strikes],
             ),
-            iterations=0,
-            converged=True,
-            quotes_fitted=[f"smile_K={k:.4f}" for k in self.strikes],
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(
+               algorithm="unknown",
+               tolerance=0.0,
+               max_iterations=0,
+           ),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 
@@ -235,33 +243,39 @@ def calibrate_jump_model(
 
     params_dict = dict(zip(param_names, best_params.tolist()))
 
-    cr = CalibrationResult.new(
-        model_class=f"jump_{model_type}",
-        parameters={k: float(v) for k, v in params_dict.items()},
-        residuals=[mv - mkv for mv, mkv in zip(model_vols, market_vols)],
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(
-            algorithm="differential_evolution+L-BFGS-B",
-            tolerance=1e-8,
-            max_iterations=maxiter,
-            seed=seed,
-            extra={
-                "atol": 1e-10,
-                "polish": True,
-                "bounds": list(bounds),
-                "spot": float(spot),
-                "rate": float(rate),
-                "T": float(T),
-                "div_yield": float(div_yield),
-            },
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=int(getattr(result, "nit", 0)),
-        converged=bool(getattr(result, "success", True)),
-        quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        fit=CalibrationFit(
+            model_class=f"jump_{model_type}",
+            parameters={k: float(v) for k, v in params_dict.items()},
+            residuals=[mv - mkv for mv, mkv in zip(model_vols, market_vols)],
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="differential_evolution+L-BFGS-B",
+           tolerance=1e-8,
+           max_iterations=maxiter,
+           seed=seed,
+           extra={
+               "atol": 1e-10,
+               "polish": True,
+               "bounds": list(bounds),
+               "spot": float(spot),
+               "rate": float(rate),
+               "T": float(T),
+               "div_yield": float(div_yield),
+           },
+       ),
+            iterations=int(getattr(result, "nit", 0)),
+            converged=bool(getattr(result, "success", True)),
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={"rmse_vol": float(rmse)},
         ),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return JumpCalibrationResult(

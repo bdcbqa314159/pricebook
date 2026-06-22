@@ -17,6 +17,7 @@ from pricebook.calibration import (
     ObjectiveKind,
     OptimiserSpec,
 )
+from tests.conftest import build_calibration_result
 
 
 @dataclass
@@ -25,7 +26,7 @@ class _Fam(CanonicalCalibrationResult):
     calibration_result: CalibrationResult | None = None
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult.new(
+        return build_calibration_result(
             model_class="toy",
             parameters={"x": self.x},
             residuals=[self.x],
@@ -41,20 +42,20 @@ def test_lazy_build_and_cache():
     assert f.calibration_result is None
     assert f.calibration_id is None          # no build side-effect
     cr = f.to_calibration_result()
-    assert cr.model_class == "toy"
+    assert cr.fit.model_class == "toy"
     assert f.calibration_result is cr        # cached
     assert f.to_calibration_result() is cr   # stable across calls
-    assert f.calibration_id == str(cr.id)
+    assert f.calibration_id == str(cr.provenance.id)
 
 
 def test_stored_record_is_returned_verbatim():
-    pre = CalibrationResult.new(
+    pre = build_calibration_result(
         model_class="pre", parameters={}, residuals=[],
         optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
     )
     f = _Fam(x=2.0, calibration_result=pre)
     assert f.to_calibration_result() is pre   # eager population wins, no rebuild
-    assert f.calibration_id == str(pre.id)
+    assert f.calibration_id == str(pre.provenance.id)
 
 
 def test_abstract_method_raises():

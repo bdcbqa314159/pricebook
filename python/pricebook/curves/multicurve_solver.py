@@ -52,22 +52,30 @@ class MultiCurveResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self):
         from pricebook.calibration import (
-            CalibrationResult,
-            ObjectiveKind,
-            OptimiserSpec,
-        )
-        return CalibrationResult.new(
-            model_class="multicurve",
-            parameters={},
-            residuals=[self.residual],
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(
-                algorithm="newton-multicurve",
-                tolerance=0.0,
-                max_iterations=self.n_iterations,
+    CalibrationFit,
+    CalibrationProvenance,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserRun,
+    OptimiserSpec,
+)
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="multicurve",
+                parameters={},
+                residuals=[self.residual],
+                objective=ObjectiveKind.SSE,
             ),
-            iterations=self.n_iterations,
-            converged=self.residual < 1e-6,
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(
+               algorithm="newton-multicurve",
+               tolerance=0.0,
+               max_iterations=self.n_iterations,
+           ),
+                iterations=self.n_iterations,
+                converged=self.residual < 1e-6,
+            ),
         )
 
 
@@ -269,11 +277,14 @@ def _build_multicurve_cr(
 ):
     """Build the CalibrationResult for a multicurve calibration."""
     from pricebook.calibration import (
-        CalibrationDiagnostics,
-        CalibrationResult,
-        ObjectiveKind,
-        OptimiserSpec,
-    )
+    CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserRun,
+    OptimiserSpec,
+)
     n_ois = len(ois_pillar_dates)
     parameters = {}
     for i, d in enumerate(ois_pillar_dates):
@@ -286,20 +297,27 @@ def _build_multicurve_cr(
         + [f"proj_{inst.get('type','?')}_{inst.get('maturity')}" for inst in projection_instruments]
     )
 
-    return CalibrationResult.new(
-        model_class="multicurve",
-        parameters=parameters,
-        residuals=[float(r) for r in residuals_array],
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(
-            algorithm="newton-multicurve",
-            tolerance=tol,
-            max_iterations=max_iter,
-            extra={"day_count": str(day_count.value)},
+    return CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot_id,
         ),
-        iterations=int(iterations),
-        converged=bool(converged),
-        quotes_fitted=quotes,
+        fit=CalibrationFit(
+            model_class="multicurve",
+            parameters=parameters,
+            residuals=[float(r) for r in residuals_array],
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=quotes,
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="newton-multicurve",
+           tolerance=tol,
+           max_iterations=max_iter,
+           extra={"day_count": str(day_count.value)},
+       ),
+            iterations=int(iterations),
+            converged=bool(converged),
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={
                 "n_ois_pillars": n_ois,
@@ -307,7 +325,6 @@ def _build_multicurve_cr(
                 "max_residual_abs": float(np.max(np.abs(residuals_array))),
             },
         ),
-        market_snapshot_id=market_snapshot_id,
     )
 
 

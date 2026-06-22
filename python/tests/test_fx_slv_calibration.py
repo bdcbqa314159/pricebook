@@ -224,8 +224,8 @@ class TestParticleCanonicalResult:
         result = self._calibrate()
         cr = result.to_calibration_result()
         assert cr is result.calibration_result
-        assert cr.model_class == "fx_slv"
-        assert set(cr.parameters) == {"kappa", "theta", "xi", "v0", "rho", "bandwidth"}
+        assert cr.fit.model_class == "fx_slv"
+        assert set(cr.fit.parameters) == {"kappa", "theta", "xi", "v0", "rho", "bandwidth"}
         assert cr.diagnostics.extra["n_particles"] == 500
 
     def test_on_demand_rebuild(self):
@@ -233,8 +233,8 @@ class TestParticleCanonicalResult:
         lev = self._calibrate().leverage
         r = ParticleCalibrationResult(lev, n_particles=100, bandwidth=0.05, residual=0.0)
         cr = r.to_calibration_result()
-        assert cr.model_class == "fx_slv"
-        assert cr.parameters == {"bandwidth": 0.05}
+        assert cr.fit.model_class == "fx_slv"
+        assert cr.fit.parameters == {"bandwidth": 0.05}
 
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB

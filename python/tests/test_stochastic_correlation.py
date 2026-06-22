@@ -161,10 +161,10 @@ class TestDispersionCanonicalResult:
     def test_builds_faithful_residual_and_caches(self):
         result = calibrate_stoch_corr_to_dispersion([0.20, 0.25], [0.5, 0.5], 0.04)
         cr = result.to_calibration_result()
-        assert cr.model_class == "stochastic_correlation"
-        assert set(cr.parameters) == {"kappa", "theta", "sigma"}
-        assert len(cr.residuals) == 1
-        assert cr.residuals[0] == pytest.approx(
+        assert cr.fit.model_class == "stochastic_correlation"
+        assert set(cr.fit.parameters) == {"kappa", "theta", "sigma"}
+        assert len(cr.fit.residuals) == 1
+        assert cr.fit.residuals[0] == pytest.approx(
             result.index_variance_model - result.index_variance_target
         )
         assert result.to_calibration_result() is cr   # cached

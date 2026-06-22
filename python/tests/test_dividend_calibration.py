@@ -159,9 +159,9 @@ class TestDividendCanonicalResult:
         futures = [2.0, 4.1, 6.0]
         result = calibrate_dividend_curve(spot, rate, tenors, futures, method="optimize")
         cr = result.to_calibration_result()
-        assert cr.model_class == "dividend_curve"
-        assert cr.optimiser.algorithm == "optimize"
-        assert len(cr.residuals) == 3
+        assert cr.fit.model_class == "dividend_curve"
+        assert cr.optimiser_run.spec.algorithm == "optimize"
+        assert len(cr.fit.residuals) == 3
         # cached: second call returns the same instance (stable id)
         assert result.to_calibration_result() is cr
 

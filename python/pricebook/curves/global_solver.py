@@ -207,33 +207,43 @@ def global_bootstrap(
     # Attach canonical CalibrationResult (G1 P1 Slice 5).
     final_res = _residuals(dfs)
     from pricebook.calibration import (
-        CalibrationDiagnostics,
-        CalibrationResult,
-        ObjectiveKind,
-        OptimiserSpec,
-    )
+    CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
+    CalibrationResult,
+    ObjectiveKind,
+    OptimiserRun,
+    OptimiserSpec,
+)
     quotes = []
     for inst_type, mat, _rate in all_instruments:
         quotes.append(f"{inst_type}_{mat.isoformat()}")
     parameters = {f"df({d.isoformat()})": float(df) for d, df in zip(pillar_dates, dfs)}
-    curve.calibration_result = CalibrationResult.new(
-        model_class="discount_curve_global",
-        parameters=parameters,
-        residuals=[float(r) for r in final_res],
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(
-            algorithm="newton-global",
-            tolerance=tol,
-            max_iterations=max_iter,
-            extra={
-                "interpolation": str(interpolation.value),
-                "deposit_dc": str(deposit_dc.value),
-                "swap_dc": str(swap_dc.value),
-            },
+    curve.calibration_result = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=int(iteration + 1) if 'iteration' in dir() else 0,
-        converged=bool(converged),
-        quotes_fitted=quotes,
+        fit=CalibrationFit(
+            model_class="discount_curve_global",
+            parameters=parameters,
+            residuals=[float(r) for r in final_res],
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=quotes,
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="newton-global",
+           tolerance=tol,
+           max_iterations=max_iter,
+           extra={
+               "interpolation": str(interpolation.value),
+               "deposit_dc": str(deposit_dc.value),
+               "swap_dc": str(swap_dc.value),
+           },
+       ),
+            iterations=int(iteration + 1) if 'iteration' in dir() else 0,
+            converged=bool(converged),
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={
                 "n_deposits": len(deposits),
@@ -241,7 +251,6 @@ def global_bootstrap(
                 "max_residual_abs": float(np.max(np.abs(final_res))),
             },
         ),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
     return curve
 

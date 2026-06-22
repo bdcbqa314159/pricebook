@@ -16,6 +16,7 @@ import pytest
 from pricebook.calibration import CalibrationResult, ObjectiveKind, OptimiserSpec
 from pricebook.db.db import PricebookDB
 from pricebook.models.jump_calibration import JumpCalibrationResult
+from tests.conftest import build_calibration_result
 
 
 @pytest.fixture
@@ -26,7 +27,7 @@ def db():
 
 
 def _family_with_stored_cr(snapshot_id=None) -> JumpCalibrationResult:
-    cr = CalibrationResult.new(
+    cr = build_calibration_result(
         model_class="jump_merton",
         parameters={"lambda": 0.3, "muJ": -0.1, "sigmaJ": 0.15},
         residuals=[0.001, -0.0005],
@@ -65,17 +66,17 @@ def _family_without_cr() -> JumpCalibrationResult:
 class TestPolymorphicSave:
 
     def test_canonical_result_still_passes_through(self, db):
-        cr = CalibrationResult.new(
+        cr = build_calibration_result(
             model_class="m", parameters={}, residuals=[],
             optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
         )
-        assert db.save_calibration(cr) == str(cr.id)
-        assert db.load_calibration(cr.id) == cr
+        assert db.save_calibration(cr) == str(cr.provenance.id)
+        assert db.load_calibration(cr.provenance.id) == cr
 
     def test_family_result_with_stored_cr(self, db):
         fam = _family_with_stored_cr()
         cid = db.save_calibration(fam)
-        assert cid == str(fam.calibration_result.id)
+        assert cid == str(fam.calibration_result.provenance.id)
         # the loop: what we load back equals the family's canonical record
         assert db.load_calibration(cid) == fam.to_calibration_result()
 
@@ -86,10 +87,10 @@ class TestPolymorphicSave:
         fam = _family_without_cr()
         cid = db.save_calibration(fam)
         loaded = db.load_calibration(cid)
-        assert str(loaded.id) == cid
-        assert loaded.model_class == "jump_kou"
-        assert loaded.parameters == {"lambda": 0.5, "p": 0.4}
-        assert loaded.converged is True
+        assert str(loaded.provenance.id) == cid
+        assert loaded.fit.model_class == "jump_kou"
+        assert loaded.fit.parameters == {"lambda": 0.5, "p": 0.4}
+        assert loaded.optimiser_run.converged is True
 
 
 class TestLoopAndAuditChain:
@@ -97,7 +98,7 @@ class TestLoopAndAuditChain:
     def test_denormalised_columns_from_family(self, db):
         fam = _family_with_stored_cr()
         db.save_calibration(fam)
-        raw = db.load_calibration_raw(fam.calibration_result.id)
+        raw = db.load_calibration_raw(fam.calibration_result.provenance.id)
         assert raw["model_class"] == "jump_merton"
         assert raw["converged"] == 1
 

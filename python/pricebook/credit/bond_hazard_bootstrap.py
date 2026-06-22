@@ -37,9 +37,12 @@ from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.schedule import Frequency, generate_schedule
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 
@@ -119,15 +122,20 @@ class HazardBootstrapResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult.new(
-            model_class="bond_hazard_pwc",
-            parameters=_pillar_hazards_as_parameters(self.pillar_dates, self.pillar_hazards),
-            residuals=self.residuals_bp,
-            objective=ObjectiveKind.WEIGHTED_SSE,
-            optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=self.converged,
-            quotes_fitted=[f"bond_{i}" for i in range(self.n_bonds)],
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="bond_hazard_pwc",
+                parameters=_pillar_hazards_as_parameters(self.pillar_dates, self.pillar_hazards),
+                residuals=self.residuals_bp,
+                objective=ObjectiveKind.WEIGHTED_SSE,
+                quotes_fitted=[f"bond_{i}" for i in range(self.n_bonds)],
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=self.converged,
+            ),
         )
 
 
@@ -377,22 +385,28 @@ def _bootstrap_sequential(
     residuals = [(f - m) * 100 for f, m in zip(fitted_prices, market_prices)]
     rmse = math.sqrt(sum(r**2 for r in residuals) / n) if n > 0 else 0.0
 
-    cr = CalibrationResult.new(
-        model_class="bond_hazard_pwc",
-        parameters=_pillar_hazards_as_parameters(pillar_dates[1:], hazards),
-        residuals=residuals,
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(
-            algorithm="brentq-per-bond",
-            tolerance=0.0,  # brentq XTOL defaults — not user-specified here
-            max_iterations=0,
-            extra={"recovery_mode": recovery_mode},
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot_id,
         ),
-        iterations=n,  # one root-find per bond
-        converged=True,
-        quotes_fitted=[f"bond_{i}" for i in range(n)],
-        weights=[b.weight for b in sorted_bonds],
-        market_snapshot_id=market_snapshot_id,
+        fit=CalibrationFit(
+            model_class="bond_hazard_pwc",
+            parameters=_pillar_hazards_as_parameters(pillar_dates[1:], hazards),
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"bond_{i}" for i in range(n)],
+            weights=[b.weight for b in sorted_bonds],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="brentq-per-bond",
+           tolerance=0.0,  # brentq XTOL defaults — not user-specified here
+           max_iterations=0,
+           extra={"recovery_mode": recovery_mode},
+       ),
+            iterations=n,
+            converged=True,
+        ),
     )
 
     return HazardBootstrapResult(
@@ -576,33 +590,39 @@ def _bootstrap_global(
     else:
         roughness_val = 0.0
 
-    cr = CalibrationResult.new(
-        model_class="bond_hazard_pwc",
-        parameters=_pillar_hazards_as_parameters(
-            pillar_dates, [float(h) for h in hazard_rates],
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot_id,
         ),
-        residuals=residuals,
-        objective=ObjectiveKind.WEIGHTED_SSE,
-        optimiser=OptimiserSpec(
-            algorithm="L-BFGS-B" + (
-                f"+tikhonov(lam={float(lam):.3e})" if lam > 0 else ""
+        fit=CalibrationFit(
+            model_class="bond_hazard_pwc",
+            parameters=_pillar_hazards_as_parameters(
+                pillar_dates, [float(h) for h in hazard_rates],
             ),
-            tolerance=1e-12,  # see options ftol in minimize call
-            max_iterations=500,
-            extra={
-                "recovery_mode": recovery_mode,
-                "lam": float(lam),
-                "n_pillars": n_pillars,
-            },
+            residuals=residuals,
+            objective=ObjectiveKind.WEIGHTED_SSE,
+            quotes_fitted=[f"bond_{i}" for i in range(n)],
+            weights=[b.weight for b in sorted_bonds],
         ),
-        iterations=int(getattr(result, "nit", 0)),
-        converged=bool(result.success),
-        quotes_fitted=[f"bond_{i}" for i in range(n)],
-        weights=[b.weight for b in sorted_bonds],
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="L-BFGS-B" + (
+               f"+tikhonov(lam={float(lam):.3e})" if lam > 0 else ""
+           ),
+           tolerance=1e-12,  # see options ftol in minimize call
+           max_iterations=500,
+           extra={
+               "recovery_mode": recovery_mode,
+               "lam": float(lam),
+               "n_pillars": n_pillars,
+           },
+       ),
+            iterations=int(getattr(result, "nit", 0)),
+            converged=bool(result.success),
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={"roughness": roughness_val},
         ),
-        market_snapshot_id=market_snapshot_id,
     )
 
     return HazardBootstrapResult(
@@ -1118,32 +1138,34 @@ def bootstrap_hazard_mixed(
         prev_q = q
 
     n_total = len(fixed_bonds) + len(floaters)
-    cr = CalibrationResult.new(
-        model_class="bond_hazard_pwc",
-        parameters=_pillar_hazards_as_parameters(pillar_dates, hazards),
-        residuals=residuals,
-        objective=ObjectiveKind.WEIGHTED_SSE,
-        optimiser=OptimiserSpec(
-            algorithm="L-BFGS-B",
-            tolerance=1e-12,
-            max_iterations=500,
-            extra={
-                "method": "global_mixed",
-                "n_fixed": len(fixed_bonds),
-                "n_floaters": len(floaters),
-            },
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=int(getattr(result, "nit", 0)),
-        converged=bool(result.success),
-        quotes_fitted=(
-            [f"bond_{i}" for i in range(len(fixed_bonds))]
-            + [f"frn_{i}" for i in range(len(floaters))]
+        fit=CalibrationFit(
+            model_class="bond_hazard_pwc",
+            parameters=_pillar_hazards_as_parameters(pillar_dates, hazards),
+            residuals=residuals,
+            objective=ObjectiveKind.WEIGHTED_SSE,
+            quotes_fitted=[f"bond_{i}" for i in range(len(fixed_bonds))]
+                          + [f"frn_{i}" for i in range(len(floaters))],
+            weights=[b.weight for b in fixed_bonds]
+                    + [getattr(f, "weight", 1.0) for f in floaters],
         ),
-        weights=(
-            [b.weight for b in fixed_bonds]
-            + [getattr(f, "weight", 1.0) for f in floaters]
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="L-BFGS-B",
+           tolerance=1e-12,
+           max_iterations=500,
+           extra={
+               "method": "global_mixed",
+               "n_fixed": len(fixed_bonds),
+               "n_floaters": len(floaters),
+           },
+       ),
+            iterations=int(getattr(result, "nit", 0)),
+            converged=bool(result.success),
         ),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return HazardBootstrapResult(

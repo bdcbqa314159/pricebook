@@ -27,9 +27,12 @@ from scipy.optimize import minimize as scipy_minimize
 from scipy.interpolate import CubicSpline
 
 from pricebook.calibration import (
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.equity.dividend_advanced import DividendCurve
@@ -64,18 +67,23 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
-        return CalibrationResult.new(
-            model_class="dividend_curve",
-            parameters={
-                f"D_{t:g}": float(d)
-                for t, d in zip(self.curve.tenors, self.fitted_futures)
-            },
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
-            quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="dividend_curve",
+                parameters={
+                    f"D_{t:g}": float(d)
+                    for t, d in zip(self.curve.tenors, self.fitted_futures)
+                },
+                residuals=residuals,
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 

@@ -225,16 +225,16 @@ class TestCanonicalCalibrationResult:
         result = lmm_cascade_calibration(market_vols, fwd)
         cr = result.to_calibration_result()
         assert cr is result.calibration_result   # stored, not rebuilt
-        assert cr.model_class == "lmm_rebonato"
-        assert cr.optimiser.algorithm == "cascade"
-        assert len(cr.residuals) == 3            # per-swaption residuals
-        assert set(cr.parameters) == {f"sigma_{i}" for i in range(4)}
+        assert cr.fit.model_class == "lmm_rebonato"
+        assert cr.optimiser_run.spec.algorithm == "cascade"
+        assert len(cr.fit.residuals) == 3            # per-swaption residuals
+        assert set(cr.fit.parameters) == {f"sigma_{i}" for i in range(4)}
 
     def test_global_record_method(self):
         fwd = [0.05, 0.05, 0.05]
         market_vols = {(0, 1): 0.20, (1, 1): 0.22}
         cr = lmm_global_calibration(market_vols, fwd).to_calibration_result()
-        assert cr.optimiser.algorithm == "global"
+        assert cr.optimiser_run.spec.algorithm == "global"
 
     def test_on_demand_rebuild_without_stored_cr(self):
         # hand-constructed instance → rebuild path (aggregate residual only)
@@ -242,8 +242,8 @@ class TestCanonicalCalibrationResult:
             vols=np.array([0.2, 0.21]), residual=0.003, n_swaptions=2, method="cascade",
         )
         cr = r.to_calibration_result()
-        assert cr.model_class == "lmm_rebonato"
-        assert cr.residuals == [0.003]
+        assert cr.fit.model_class == "lmm_rebonato"
+        assert cr.fit.residuals == [0.003]
 
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB

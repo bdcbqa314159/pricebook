@@ -59,6 +59,22 @@ class OptimiserSpec:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
 
+@serialisable_convention("optimiser_run")
+@dataclass(frozen=True)
+class OptimiserRun:
+    """The optimiser's configuration (`spec`) and its outcome — the
+    "how the solver behaved" component of a calibration.
+
+    Bundles the plan (`spec`) with what actually happened (`iterations` taken,
+    whether it `converged`) so the optimiser story lives in one place rather
+    than split across the parent record.
+    """
+
+    spec: OptimiserSpec
+    iterations: int
+    converged: bool
+
+
 @serialisable_convention("calibration_diagnostics")
 @dataclass(frozen=True)
 class CalibrationDiagnostics:
@@ -84,140 +100,117 @@ class CalibrationDiagnostics:
         object.__setattr__(self, "warnings", tuple(self.warnings))
 
 
-@serialisable_convention("calibration_result", schema_version=2)
+@serialisable_convention("calibration_provenance")
 @dataclass(frozen=True)
-class CalibrationResult:
-    """Result of a calibration run.
+class CalibrationProvenance:
+    """Where a calibration record came from — the audit stamp.
 
-    A first-class artefact — versioned, serialisable in subsequent slices,
-    intended to be stored. Every consumer of calibrated parameters
-    references this result by `id` to make the provenance chain auditable.
-
-    Field categories:
-        identity      — `id`, `timestamp`, `code_version`
-        what was fit  — `model_class`, `parameters`, `quotes_fitted`,
-                        `weights`, `objective`
-        fit quality   — `residuals` (stored); `rms_residual` / `max_residual`
-                        are derived `@property`s over `residuals` — single
-                        source of truth, so they can never drift.
-        optimiser     — `optimiser`, `iterations`, `converged`
-        extras        — `diagnostics`, `market_snapshot_id`
-
-    `market_snapshot_id` is `None` until G1 P2 lands a `MarketSnapshot`
-    type at L1 (DESIGN.md §5.1 A2). Existing calibrators may set it later
-    when that piece exists.
-
-    Use the `CalibrationResult.new(...)` factory in the normal case (it stamps
-    `id`/`timestamp`/`code_version`); direct construction is fine for a stored
-    record being reconstructed.
+    Assigned once at creation and frozen. `id` is the key every consumer
+    references; `timestamp` is timezone-aware UTC (unambiguous across
+    machines); `market_snapshot_id` links to the `MarketSnapshot` the quotes
+    came from (`None` until set).
     """
 
-    # Identity (every run has a unique id)
     id: UUID
     timestamp: datetime
     code_version: str
+    market_snapshot_id: UUID | None = None
 
-    # What was calibrated
+    @classmethod
+    def stamp(
+        cls,
+        *,
+        market_snapshot_id: UUID | None = None,
+        id: UUID | None = None,
+        timestamp: datetime | None = None,
+        code_version: str | None = None,
+    ) -> "CalibrationProvenance":
+        """Build an audit stamp, auto-filling `id` / `timestamp` / `code_version`.
+
+        The normal way a calibrator stamps provenance: `id` is a fresh UUID,
+        `timestamp` is tz-aware UTC now, `code_version` is the running pricebook
+        version. Pass any of them explicitly to reproduce a stored record or
+        make a test deterministic.
+        """
+        if code_version is None:
+            import pricebook  # lazy: avoids a circular import at module load
+            code_version = pricebook.__version__
+        return cls(
+            id=id if id is not None else uuid4(),
+            timestamp=timestamp if timestamp is not None else datetime.now(timezone.utc),
+            code_version=code_version,
+            market_snapshot_id=market_snapshot_id,
+        )
+
+
+@serialisable_convention("calibration_fit")
+@dataclass(frozen=True)
+class CalibrationFit:
+    """What was fitted, and how well — the numerical result of a calibration.
+
+    `rms_residual` / `max_residual` are derived `@property`s over `residuals`
+    (single source of truth — they can never drift). `rms_residual` is
+    deliberately *unweighted* regardless of `objective`/`weights`: those record
+    how the optimiser combined residuals; this is a plain magnitude summary. A
+    consumer wanting a weighted RMS computes it from `residuals` + `weights`.
+    """
+
     model_class: str
     parameters: Mapping[str, float]
-
-    # What was fit
-    quotes_fitted: Sequence[str]
-    weights: Sequence[float]
-    objective: ObjectiveKind
-
-    # Fit quality (rms_residual / max_residual are derived — see properties)
     residuals: Sequence[float]
+    objective: ObjectiveKind = ObjectiveKind.SSE
+    quotes_fitted: Sequence[str] = ()
+    weights: Sequence[float] = ()
 
-    # Optimiser story
-    iterations: int
-    optimiser: OptimiserSpec
-    converged: bool
-
-    # Optional structured diagnostics
-    diagnostics: CalibrationDiagnostics = field(default_factory=CalibrationDiagnostics)
-
-    # Links to other artefacts (filled in as the layer grows)
-    market_snapshot_id: UUID | None = None
+    def __post_init__(self) -> None:
+        # Canonicalise the sequence fields to lists so a serialise→deserialise
+        # round trip is exact (JSON arrays come back as lists). `parameters`
+        # stays a dict.
+        object.__setattr__(self, "residuals", list(self.residuals))
+        object.__setattr__(self, "quotes_fitted", list(self.quotes_fitted))
+        object.__setattr__(self, "weights", list(self.weights))
 
     @property
     def rms_residual(self) -> float:
-        """Unweighted RMS of `residuals` (0.0 if empty).
-
-        Deliberately *unweighted* regardless of `objective`/`weights`: those
-        record how the optimiser combined residuals; this is a plain magnitude
-        summary derived from `residuals` alone (single source of truth — it
-        can never drift). A consumer wanting a weighted RMS computes it from
-        `residuals` + `weights`.
-        """
         if not self.residuals:
             return 0.0
         return math.sqrt(sum(r * r for r in self.residuals) / len(self.residuals))
 
     @property
     def max_residual(self) -> float:
-        """Max absolute residual (0.0 if empty); derived from `residuals`."""
         return max((abs(r) for r in self.residuals), default=0.0)
 
-    @classmethod
-    def new(
-        cls,
-        *,
-        model_class: str,
-        parameters: Mapping[str, float],
-        residuals: Sequence[float],
-        optimiser: OptimiserSpec,
-        iterations: int,
-        converged: bool,
-        objective: ObjectiveKind = ObjectiveKind.SSE,
-        quotes_fitted: Sequence[str] = (),
-        weights: Sequence[float] = (),
-        diagnostics: CalibrationDiagnostics | None = None,
-        market_snapshot_id: UUID | None = None,
-        code_version: str | None = None,
-        id: UUID | None = None,
-        timestamp: datetime | None = None,
-    ) -> "CalibrationResult":
-        """Factory: stamp `id`/`timestamp`/`code_version`; store the residuals.
 
-        `rms_residual` / `max_residual` are not stored — they are derived
-        `@property`s over `residuals` (see the class body).
+@serialisable_convention("calibration_result", schema_version=3)
+@dataclass(frozen=True)
+class CalibrationResult:
+    """A calibration record — three components plus diagnostics:
 
-        Keyword-only on purpose — calibrators historically have many
-        positional parameters and this constructor mustn't continue that.
+        provenance     — where it came from (`CalibrationProvenance`)
+        fit            — what was fitted and how well (`CalibrationFit`)
+        optimiser_run  — how the solver behaved (`OptimiserRun`)
+        diagnostics    — optional structured extras (`CalibrationDiagnostics`)
 
-        `id` and `timestamp` are auto-generated when omitted (the normal
-        case). Pass them explicitly to reproduce a stored result or to make
-        a test deterministic. The auto-stamped `timestamp` is timezone-aware
-        UTC so the provenance record is unambiguous across machines.
-        """
-        residuals_list = list(residuals)
+    Each component is a small self-describing value object, so the record is
+    graspable at a glance and each concern reads on its own. All four are set
+    in one act (a calibration runs) and frozen together.
 
-        if weights:
-            weights_list = list(weights)
-        else:
-            weights_list = [1.0] * len(residuals_list)
+    Construct directly from the components — that *is* the interface:
 
-        if code_version is None:
-            import pricebook  # lazy: avoids a circular import at module load
-            code_version = pricebook.__version__
-
-        return cls(
-            id=id if id is not None else uuid4(),
-            timestamp=timestamp if timestamp is not None else datetime.now(timezone.utc),
-            code_version=code_version,
-            model_class=model_class,
-            parameters=dict(parameters),
-            quotes_fitted=list(quotes_fitted),
-            weights=weights_list,
-            objective=objective,
-            residuals=residuals_list,
-            iterations=iterations,
-            optimiser=optimiser,
-            converged=converged,
-            diagnostics=diagnostics or CalibrationDiagnostics(),
-            market_snapshot_id=market_snapshot_id,
+        CalibrationResult(
+            provenance=CalibrationProvenance.stamp(market_snapshot_id=...),
+            fit=CalibrationFit(model_class=..., parameters=..., residuals=...),
+            optimiser_run=OptimiserRun(spec=OptimiserSpec(...), iterations=..., converged=...),
         )
+
+    `CalibrationProvenance.stamp()` auto-fills the id/timestamp/code_version
+    boilerplate; `diagnostics` defaults to empty.
+    """
+
+    provenance: CalibrationProvenance
+    fit: CalibrationFit
+    optimiser_run: OptimiserRun
+    diagnostics: CalibrationDiagnostics = field(default_factory=CalibrationDiagnostics)
 
 
 class CanonicalCalibrationResult:
@@ -255,4 +248,4 @@ class CanonicalCalibrationResult:
     @property
     def calibration_id(self) -> str | None:
         """The canonical record's id once built/stored, else None (no build side-effect)."""
-        return str(self.calibration_result.id) if self.calibration_result else None
+        return str(self.calibration_result.provenance.id) if self.calibration_result else None

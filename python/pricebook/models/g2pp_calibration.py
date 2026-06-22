@@ -28,9 +28,12 @@ from scipy.stats import norm as _norm
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.core.discount_curve import DiscountCurve
@@ -86,18 +89,23 @@ class G2PPCalibrationResult(CanonicalCalibrationResult):
         quotes = [
             f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors
         ]
-        return CalibrationResult.new(
-            model_class="g2pp",
-            parameters={
-                "a": self.a, "b": self.b,
-                "sigma1": self.sigma1, "sigma2": self.sigma2, "rho": self.rho,
-            },
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=self.converged,
-            quotes_fitted=quotes,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="g2pp",
+                parameters={
+                    "a": self.a, "b": self.b,
+                    "sigma1": self.sigma1, "sigma2": self.sigma2, "rho": self.rho,
+                },
+                residuals=residuals,
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=quotes,
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=self.converged,
+            ),
         )
 
 
@@ -652,34 +660,40 @@ def calibrate_g2pp(
         algo_maxiter = 500
         algo_seed = None
 
-    cr = CalibrationResult.new(
-        model_class="g2pp",
-        parameters={
-            "a": float(a_opt), "b": float(b_opt),
-            "sigma1": float(s1_opt), "sigma2": float(s2_opt), "rho": float(rho_opt),
-        },
-        residuals=[e["error_bp"] for e in errors],  # bp of Black vol
-        objective=ObjectiveKind.SSE,                  # price-space SSE; bp-residuals for readability
-        optimiser=OptimiserSpec(
-            algorithm=algo_name,
-            tolerance=algo_tol,
-            max_iterations=algo_maxiter,
-            seed=algo_seed,
-            extra={
-                "a_bounds": a_bounds,
-                "b_bounds": b_bounds,
-                "sigma1_bounds": sigma1_bounds,
-                "sigma2_bounds": sigma2_bounds,
-                "rho_bounds": rho_bounds,
-            },
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=0,  # scipy's compound optimisers don't surface a single iteration count
-        converged=bool(converged),
-        quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        fit=CalibrationFit(
+            model_class="g2pp",
+            parameters={
+                "a": float(a_opt), "b": float(b_opt),
+                "sigma1": float(s1_opt), "sigma2": float(s2_opt), "rho": float(rho_opt),
+            },
+            residuals=[e["error_bp"] for e in errors],
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm=algo_name,
+           tolerance=algo_tol,
+           max_iterations=algo_maxiter,
+           seed=algo_seed,
+           extra={
+               "a_bounds": a_bounds,
+               "b_bounds": b_bounds,
+               "sigma1_bounds": sigma1_bounds,
+               "sigma2_bounds": sigma2_bounds,
+               "rho_bounds": rho_bounds,
+           },
+       ),
+            iterations=0,
+            converged=bool(converged),
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={"rmse_vol": float(rmse_vol)},
         ),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return G2PPCalibrationResult(

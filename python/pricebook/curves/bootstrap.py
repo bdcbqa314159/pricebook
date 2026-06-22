@@ -5,8 +5,11 @@ from typing import TYPE_CHECKING
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.core.day_count import DayCountConvention, year_fraction
@@ -360,26 +363,33 @@ def _build_bootstrap_calibration_result(
         for d, df in zip(curve.pillar_dates, [curve.df(d) for d in curve.pillar_dates])
     }
 
-    return CalibrationResult.new(
-        model_class="discount_curve_bootstrap",
-        parameters=parameters,
-        residuals=residuals,
-        objective=ObjectiveKind.SSE,           # per-pillar exact fit; residuals ~0
-        optimiser=OptimiserSpec(
-            algorithm="brentq-sequential",
-            tolerance=1e-12,                   # brentq xtol default
-            max_iterations=len(parameters),
-            extra={
-                "interpolation": str(interpolation.value),
-                "deposit_day_count": str(deposit_day_count.value),
-                "hw_convexity_a": float(hw_convexity_a),
-                "hw_convexity_sigma": float(hw_convexity_sigma),
-                "turn_of_year_spread": float(turn_of_year_spread),
-            },
+    return CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot_id,
         ),
-        iterations=len(parameters),
-        converged=True,                         # bootstrap is exact-fit by construction
-        quotes_fitted=quotes,
+        fit=CalibrationFit(
+            model_class="discount_curve_bootstrap",
+            parameters=parameters,
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=quotes,
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="brentq-sequential",
+           tolerance=1e-12,                   # brentq xtol default
+           max_iterations=len(parameters),
+           extra={
+               "interpolation": str(interpolation.value),
+               "deposit_day_count": str(deposit_day_count.value),
+               "hw_convexity_a": float(hw_convexity_a),
+               "hw_convexity_sigma": float(hw_convexity_sigma),
+               "turn_of_year_spread": float(turn_of_year_spread),
+           },
+       ),
+            iterations=len(parameters),
+            converged=True,
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={
                 "n_deposits": len(deposits),
@@ -388,7 +398,6 @@ def _build_bootstrap_calibration_result(
                 "n_futures": len(futures) if futures else 0,
             },
         ),
-        market_snapshot_id=market_snapshot_id,
     )
 
 

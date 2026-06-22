@@ -143,8 +143,11 @@ def sabr_calibrate(
     """
     from pricebook.calibration import (
         CalibrationDiagnostics,
+        CalibrationFit,
+        CalibrationProvenance,
         CalibrationResult,
         ObjectiveKind,
+        OptimiserRun,
         OptimiserSpec,
     )
     from pricebook.statistics.optimization import minimize as pb_minimize
@@ -176,27 +179,33 @@ def sabr_calibrate(
         for k, mv in zip(strikes, market_vols)
     ]
 
-    cr = CalibrationResult.new(
-        model_class="sabr",
-        parameters={
-            "alpha": float(alpha),
-            "beta": float(beta),
-            "rho": float(rho),
-            "nu": float(nu),
-        },
-        residuals=residuals,
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(
-            algorithm="nelder_mead",
-            tolerance=1e-12,
-            max_iterations=2000,
-            extra={"beta_fixed": float(beta), "forward": float(forward), "T": float(T)},
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
-        converged=bool(getattr(result, "success", True)),
-        quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        fit=CalibrationFit(
+            model_class="sabr",
+            parameters={
+                "alpha": float(alpha),
+                "beta": float(beta),
+                "rho": float(rho),
+                "nu": float(nu),
+            },
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+                algorithm="nelder_mead",
+                tolerance=1e-12,
+                max_iterations=2000,
+                extra={"beta_fixed": float(beta), "forward": float(forward), "T": float(T)},
+            ),
+            iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+            converged=bool(getattr(result, "success", True)),
+        ),
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return {

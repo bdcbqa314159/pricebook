@@ -64,13 +64,13 @@ class TestHullWhiteSnapshot:
     def test_without_snapshot(self, flat_curve, swaption_vols):
         r = calibrate_hull_white(flat_curve, swaption_vols, n_steps=20)
         assert isinstance(r.calibration_result, CalibrationResult)
-        assert r.calibration_result.market_snapshot_id is None
+        assert r.calibration_result.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, flat_curve, swaption_vols, vol_snapshot):
         r = calibrate_hull_white(
             flat_curve, swaption_vols, n_steps=20, market_snapshot=vol_snapshot,
         )
-        assert r.calibration_result.market_snapshot_id == vol_snapshot.id
+        assert r.calibration_result.provenance.market_snapshot_id == vol_snapshot.id
 
 
 # ============================================================
@@ -88,11 +88,11 @@ class TestG2ppSnapshot:
         r = calibrate_g2pp(
             flat_curve, swaption_vols, method="minimize", market_snapshot=vol_snapshot,
         )
-        assert r.calibration_result.market_snapshot_id == vol_snapshot.id
+        assert r.calibration_result.provenance.market_snapshot_id == vol_snapshot.id
 
     def test_without_snapshot(self, flat_curve, swaption_vols):
         r = calibrate_g2pp(flat_curve, swaption_vols, method="minimize")
-        assert r.calibration_result.market_snapshot_id is None
+        assert r.calibration_result.provenance.market_snapshot_id is None
 
 
 # ============================================================
@@ -122,7 +122,7 @@ class TestSabrSnapshot:
             market_vols=[0.25, 0.22, 0.24], T=1.0, beta=0.5,
         )
         cr = d["calibration_result"]
-        assert cr.market_snapshot_id is None
+        assert cr.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, smile_snapshot):
         d = sabr_calibrate(
@@ -130,7 +130,7 @@ class TestSabrSnapshot:
             market_vols=[0.25, 0.22, 0.24], T=1.0, beta=0.5,
             market_snapshot=smile_snapshot,
         )
-        assert d["calibration_result"].market_snapshot_id == smile_snapshot.id
+        assert d["calibration_result"].provenance.market_snapshot_id == smile_snapshot.id
 
 
 # ============================================================
@@ -147,7 +147,7 @@ class TestLmmSnapshot:
         forwards = [0.04, 0.045, 0.05, 0.055]
         targets = {(0, 2): 0.20, (1, 2): 0.18}
         r = calibrate_lmm_vols(forwards, targets, max_iter=20)
-        assert r.calibration_result.market_snapshot_id is None
+        assert r.calibration_result.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, vol_snapshot):
         forwards = [0.04, 0.045, 0.05, 0.055]
@@ -155,4 +155,4 @@ class TestLmmSnapshot:
         r = calibrate_lmm_vols(
             forwards, targets, max_iter=20, market_snapshot=vol_snapshot,
         )
-        assert r.calibration_result.market_snapshot_id == vol_snapshot.id
+        assert r.calibration_result.provenance.market_snapshot_id == vol_snapshot.id

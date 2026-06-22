@@ -23,9 +23,12 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 
@@ -363,18 +366,23 @@ class JYCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         p = self.params
-        return CalibrationResult.new(
-            model_class="jarrow_yildirim",
-            parameters={
-                "sigma_n": float(p.sigma_n),
-                "sigma_r": float(p.sigma_r),
-                "sigma_I": float(p.sigma_I),
-            },
-            residuals=[self.residual],   # on-demand path only has the aggregate
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm="Nelder-Mead", tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="jarrow_yildirim",
+                parameters={
+                    "sigma_n": float(p.sigma_n),
+                    "sigma_r": float(p.sigma_r),
+                    "sigma_I": float(p.sigma_I),
+                },
+                residuals=[self.residual],
+                objective=ObjectiveKind.SSE,
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="Nelder-Mead", tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 
@@ -420,19 +428,24 @@ def jy_calibrate(
         jy_zc_inflation_swap(params, r_n0, r_r0, t).fair_rate - zc_swap_rates[t]
         for t in tenors
     ]
-    cr = CalibrationResult.new(
-        model_class="jarrow_yildirim",
-        parameters={
-            "sigma_n": float(params.sigma_n),
-            "sigma_r": float(params.sigma_r),
-            "sigma_I": float(params.sigma_I),
-        },
-        residuals=residuals_per,
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(algorithm="Nelder-Mead", tolerance=1e-10, max_iterations=3000),
-        iterations=int(getattr(result, "nit", 0)),
-        converged=bool(getattr(result, "success", True)),
-        quotes_fitted=[f"zc_inflation_swap_{t}" for t in tenors],
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(),
+        fit=CalibrationFit(
+            model_class="jarrow_yildirim",
+            parameters={
+                "sigma_n": float(params.sigma_n),
+                "sigma_r": float(params.sigma_r),
+                "sigma_I": float(params.sigma_I),
+            },
+            residuals=residuals_per,
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"zc_inflation_swap_{t}" for t in tenors],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(algorithm="Nelder-Mead", tolerance=1e-10, max_iterations=3000),
+            iterations=int(getattr(result, "nit", 0)),
+            converged=bool(getattr(result, "success", True)),
+        ),
     )
 
     return JYCalibrationResult(params, float(residual), len(tenors), calibration_result=cr)

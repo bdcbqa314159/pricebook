@@ -16,6 +16,7 @@ from pricebook.calibration import (
     ObjectiveKind,
     OptimiserSpec,
 )
+from tests.conftest import build_calibration_result
 
 
 class TestObjectiveKind:
@@ -89,13 +90,13 @@ class TestCalibrationDiagnostics:
 
 
 class TestCalibrationResultNewFactory:
-    """`CalibrationResult.new(...)` is the normal construction path."""
+    """`build_calibration_result(...)` is the normal construction path."""
 
     def _spec(self) -> OptimiserSpec:
         return OptimiserSpec(algorithm="L-BFGS-B", tolerance=1e-9, max_iterations=500)
 
     def test_basic_construction(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="hazard_pwc",
             parameters={"h_1y": 0.02, "h_5y": 0.03},
             residuals=[0.5, -0.3, 0.1],
@@ -103,17 +104,17 @@ class TestCalibrationResultNewFactory:
             iterations=42,
             converged=True,
         )
-        assert isinstance(r.id, UUID)
-        assert isinstance(r.timestamp, datetime)
-        assert r.model_class == "hazard_pwc"
-        assert r.parameters == {"h_1y": 0.02, "h_5y": 0.03}
-        assert r.iterations == 42
-        assert r.converged is True
-        assert r.objective is ObjectiveKind.SSE  # default
+        assert isinstance(r.provenance.id, UUID)
+        assert isinstance(r.provenance.timestamp, datetime)
+        assert r.fit.model_class == "hazard_pwc"
+        assert r.fit.parameters == {"h_1y": 0.02, "h_5y": 0.03}
+        assert r.optimiser_run.iterations == 42
+        assert r.optimiser_run.converged is True
+        assert r.fit.objective is ObjectiveKind.SSE  # default
 
     def test_rms_and_max_residual_computed(self):
         residuals = [3.0, -4.0, 0.0]   # RMSE = sqrt((9 + 16 + 0) / 3) = sqrt(25/3)
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=residuals,
@@ -121,11 +122,11 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        assert r.rms_residual == pytest.approx(math.sqrt(25.0 / 3.0))
-        assert r.max_residual == 4.0
+        assert r.fit.rms_residual == pytest.approx(math.sqrt(25.0 / 3.0))
+        assert r.fit.max_residual == 4.0
 
     def test_empty_residuals_means_zero_rms_and_max(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[],
@@ -133,8 +134,8 @@ class TestCalibrationResultNewFactory:
             iterations=0,
             converged=False,
         )
-        assert r.rms_residual == 0.0
-        assert r.max_residual == 0.0
+        assert r.fit.rms_residual == 0.0
+        assert r.fit.max_residual == 0.0
 
     def test_unique_id_per_call(self):
         kwargs = dict(
@@ -145,12 +146,12 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        r1 = CalibrationResult.new(**kwargs)
-        r2 = CalibrationResult.new(**kwargs)
-        assert r1.id != r2.id
+        r1 = build_calibration_result(**kwargs)
+        r2 = build_calibration_result(**kwargs)
+        assert r1.provenance.id != r2.provenance.id
 
     def test_default_weights_are_unity_per_residual(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[1.0, 2.0, 3.0],
@@ -158,10 +159,10 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        assert r.weights == [1.0, 1.0, 1.0]
+        assert r.fit.weights == []  # empty = unweighted
 
     def test_explicit_weights_preserved(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[1.0, 2.0, 3.0],
@@ -170,10 +171,10 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        assert r.weights == [0.5, 1.0, 2.0]
+        assert r.fit.weights == [0.5, 1.0, 2.0]
 
     def test_default_diagnostics_is_empty(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[0.0],
@@ -189,7 +190,7 @@ class TestCalibrationResultNewFactory:
             objective_history=(1.0, 0.5, 0.25),
             timing_ms=12.5,
         )
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[0.0],
@@ -201,7 +202,7 @@ class TestCalibrationResultNewFactory:
         assert r.diagnostics is diag
 
     def test_code_version_picks_up_pricebook_version_by_default(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[0.0],
@@ -209,10 +210,10 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        assert r.code_version == pricebook.__version__
+        assert r.provenance.code_version == pricebook.__version__
 
     def test_code_version_explicit_override(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[0.0],
@@ -221,7 +222,7 @@ class TestCalibrationResultNewFactory:
             converged=True,
             code_version="custom-1.2.3",
         )
-        assert r.code_version == "custom-1.2.3"
+        assert r.provenance.code_version == "custom-1.2.3"
 
     def test_missing_pricebook_version_propagates(self, monkeypatch):
         # T-CAL1 regression: pre-fix `_detect_code_version` swallowed every
@@ -229,7 +230,7 @@ class TestCalibrationResultNewFactory:
         # / import bugs. Removing __version__ must now surface AttributeError.
         monkeypatch.delattr(pricebook, "__version__")
         with pytest.raises(AttributeError):
-            CalibrationResult.new(
+            build_calibration_result(
                 model_class="x",
                 parameters={"a": 1.0},
                 residuals=[0.0],
@@ -239,7 +240,7 @@ class TestCalibrationResultNewFactory:
             )
 
     def test_market_snapshot_id_optional(self):
-        r = CalibrationResult.new(
+        r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[0.0],
@@ -248,12 +249,12 @@ class TestCalibrationResultNewFactory:
             converged=True,
         )
         # Until G1 P2 lands MarketSnapshot, this is None.
-        assert r.market_snapshot_id is None
+        assert r.provenance.market_snapshot_id is None
 
 
 class TestCalibrationResultIsFrozen:
     def _make(self) -> CalibrationResult:
-        return CalibrationResult.new(
+        return build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
             residuals=[0.0],
@@ -265,9 +266,9 @@ class TestCalibrationResultIsFrozen:
     def test_cannot_mutate_top_level(self):
         r = self._make()
         with pytest.raises(FrozenInstanceError):
-            r.rms_residual = 99.0  # type: ignore[misc]
+            r.fit.rms_residual = 99.0  # type: ignore[misc]
 
     def test_cannot_mutate_optimiser(self):
         r = self._make()
         with pytest.raises(FrozenInstanceError):
-            r.optimiser.tolerance = 99.0  # type: ignore[misc]
+            r.optimiser_run.spec.tolerance = 99.0  # type: ignore[misc]

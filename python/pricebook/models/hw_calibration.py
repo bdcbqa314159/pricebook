@@ -26,9 +26,12 @@ from scipy.optimize import minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.core.discount_curve import DiscountCurve
@@ -72,15 +75,20 @@ class HWCalibrationResult(CanonicalCalibrationResult):
         quotes = [
             f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors
         ]
-        return CalibrationResult.new(
-            model_class="hull_white",
-            parameters={"a": self.a, "sigma": self.sigma},
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=self.converged,
-            quotes_fitted=quotes,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="hull_white",
+                parameters={"a": self.a, "sigma": self.sigma},
+                residuals=residuals,
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=quotes,
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=self.converged,
+            ),
         )
 
 
@@ -263,24 +271,30 @@ def calibrate_hull_white(
 
     converged_flag = result.success if hasattr(result, 'success') else True
 
-    cr = CalibrationResult.new(
-        model_class="hull_white",
-        parameters={"a": float(a_opt), "sigma": float(sigma_opt)},
-        residuals=[e["error_bp"] for e in errors],  # in bp of Black vol
-        objective=ObjectiveKind.SSE,                 # sum (model_vol - market_vol)^2
-        optimiser=OptimiserSpec(
-            algorithm=algo_name,
-            tolerance=algo_tol,
-            max_iterations=algo_maxiter,
-            extra={"n_steps": n_steps},
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
-        converged=bool(converged_flag),
-        quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        fit=CalibrationFit(
+            model_class="hull_white",
+            parameters={"a": float(a_opt), "sigma": float(sigma_opt)},
+            residuals=[e["error_bp"] for e in errors],
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm=algo_name,
+           tolerance=algo_tol,
+           max_iterations=algo_maxiter,
+           extra={"n_steps": n_steps},
+       ),
+            iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+            converged=bool(converged_flag),
+        ),
         diagnostics=CalibrationDiagnostics(
             extra={"rmse_vol": rmse / 10_000.0, "n_steps": n_steps},
         ),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return HWCalibrationResult(

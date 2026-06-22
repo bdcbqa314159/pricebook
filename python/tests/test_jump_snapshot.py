@@ -53,11 +53,11 @@ class TestJumpModelSnapshot:
     def test_without_snapshot(self):
         r = self._calibrate()
         assert isinstance(r.calibration_result, CalibrationResult)
-        assert r.calibration_result.market_snapshot_id is None
+        assert r.calibration_result.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, smile_snapshot):
         r = self._calibrate(market_snapshot=smile_snapshot)
-        assert r.calibration_result.market_snapshot_id == smile_snapshot.id
+        assert r.calibration_result.provenance.market_snapshot_id == smile_snapshot.id
 
 
 # ============================================================
@@ -87,10 +87,10 @@ class TestJumpSurfaceSnapshot:
         )
         assert len(results) == 2
         for r in results:
-            assert r.calibration_result.market_snapshot_id == smile_snapshot.id
+            assert r.calibration_result.provenance.market_snapshot_id == smile_snapshot.id
         # Distinct calibration_result ids per expiry (one snapshot can underlie
         # many independent fits — the snapshot is shared, the calibrations aren't).
-        assert results[0].calibration_result.id != results[1].calibration_result.id
+        assert results[0].calibration_result.provenance.id != results[1].calibration_result.provenance.id
 
     def test_without_snapshot_all_none(self):
         results = calibrate_jump_surface(
@@ -99,4 +99,4 @@ class TestJumpSurfaceSnapshot:
             spot=100.0, rate=0.04, maxiter=30,
         )
         for r in results:
-            assert r.calibration_result.market_snapshot_id is None
+            assert r.calibration_result.provenance.market_snapshot_id is None

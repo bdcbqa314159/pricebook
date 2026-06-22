@@ -41,37 +41,37 @@ class TestJumpCalibrationResult:
     def test_model_class_includes_jump_prefix(self):
         r = self._calibrate()
         cr = r.calibration_result
-        assert cr.model_class == "jump_merton"
+        assert cr.fit.model_class == "jump_merton"
 
     def test_parameters_match_params_dict(self):
         r = self._calibrate()
         cr = r.calibration_result
         # Merton has 4 parameters: sigma, lam, mu_j, sigma_j
-        assert set(cr.parameters.keys()) == {"sigma", "lam", "mu_j", "sigma_j"}
+        assert set(cr.fit.parameters.keys()) == {"sigma", "lam", "mu_j", "sigma_j"}
         for k, v in r.params.items():
-            assert cr.parameters[k] == pytest.approx(v)
+            assert cr.fit.parameters[k] == pytest.approx(v)
 
     def test_residuals_match_model_minus_market(self):
         r = self._calibrate()
         cr = r.calibration_result
         for i, (mv, mkv) in enumerate(zip(r.model_vols, r.market_vols)):
-            assert cr.residuals[i] == pytest.approx(mv - mkv)
+            assert cr.fit.residuals[i] == pytest.approx(mv - mkv)
 
     def test_optimiser_recorded(self):
         r = self._calibrate()
         cr = r.calibration_result
-        assert "differential_evolution" in cr.optimiser.algorithm
-        assert cr.optimiser.seed == 42
-        assert cr.optimiser.max_iterations == 30
+        assert "differential_evolution" in cr.optimiser_run.spec.algorithm
+        assert cr.optimiser_run.spec.seed == 42
+        assert cr.optimiser_run.spec.max_iterations == 30
         # Setup recorded
-        assert cr.optimiser.extra["spot"] == 100.0
-        assert cr.optimiser.extra["T"] == 1.0
-        assert cr.optimiser.extra["polish"] is True
+        assert cr.optimiser_run.spec.extra["spot"] == 100.0
+        assert cr.optimiser_run.spec.extra["T"] == 1.0
+        assert cr.optimiser_run.spec.extra["polish"] is True
 
     def test_quotes_fitted_named_by_strike(self):
         r = self._calibrate()
         cr = r.calibration_result
-        assert cr.quotes_fitted == [
+        assert cr.fit.quotes_fitted == [
             "smile_K=80.0000",
             "smile_K=100.0000",
             "smile_K=120.0000",
@@ -89,7 +89,7 @@ class TestJumpCalibrationResult:
     def test_to_dict_has_calibration_id(self):
         r = self._calibrate()
         d = r.to_dict()
-        assert d["calibration_id"] == str(r.calibration_result.id)
+        assert d["calibration_id"] == str(r.calibration_result.provenance.id)
 
 
 # ============================================================
@@ -116,14 +116,14 @@ class TestJumpBackCompat:
         r = self._hand_build()
         cr = r.to_calibration_result()
         assert isinstance(cr, CalibrationResult)
-        assert cr.model_class == "jump_vg"
-        assert cr.parameters == {"sigma": 0.20, "nu": 0.5, "theta": -0.1}
+        assert cr.fit.model_class == "jump_vg"
+        assert cr.fit.parameters == {"sigma": 0.20, "nu": 0.5, "theta": -0.1}
         # Residuals are model - market in order
-        assert cr.residuals == [
+        assert cr.fit.residuals == [
             pytest.approx(0.251 - 0.25),
             pytest.approx(0.219 - 0.22),
         ]
-        assert cr.quotes_fitted == ["smile_K=80.0000", "smile_K=100.0000"]
+        assert cr.fit.quotes_fitted == ["smile_K=80.0000", "smile_K=100.0000"]
 
     def test_to_dict_has_none_when_unpopulated(self):
         r = self._hand_build()

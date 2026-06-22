@@ -440,8 +440,9 @@ class PricebookDB:
         """
         if hasattr(result, "to_calibration_result"):
             result = result.to_calibration_result()
-        cid = str(result.id)
-        msid = str(result.market_snapshot_id) if result.market_snapshot_id else None
+        prov, fit, run = result.provenance, result.fit, result.optimiser_run
+        cid = str(prov.id)
+        msid = str(prov.market_snapshot_id) if prov.market_snapshot_id else None
         self._backend.execute(
             """INSERT INTO calibration_results
                (calibration_id, model_class, timestamp, code_version, objective,
@@ -455,10 +456,10 @@ class PricebookDB:
                rms_residual=excluded.rms_residual, max_residual=excluded.max_residual,
                market_snapshot_id=excluded.market_snapshot_id,
                result_json=excluded.result_json""",
-            (cid, result.model_class, result.timestamp.isoformat(),
-             result.code_version, result.objective.value,
-             int(result.converged), result.iterations,
-             result.rms_residual, result.max_residual,
+            (cid, fit.model_class, prov.timestamp.isoformat(),
+             prov.code_version, fit.objective.value,
+             int(run.converged), run.iterations,
+             fit.rms_residual, fit.max_residual,
              msid, json.dumps(result.to_dict()), _now()),
         )
         self._backend.commit()

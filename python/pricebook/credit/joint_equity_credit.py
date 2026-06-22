@@ -23,9 +23,12 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.credit.credit_grades import CreditGrades
@@ -62,15 +65,20 @@ class JointCalibrationResult(CanonicalCalibrationResult):
         return [vol_res, cds_res]
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult.new(
-            model_class="joint_equity_credit",
-            parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},
-            residuals=self._relative_residuals(),
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm="L-BFGS-B", tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
-            quotes_fitted=["equity_vol", "cds_spread"],
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="joint_equity_credit",
+                parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},
+                residuals=self._relative_residuals(),
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=["equity_vol", "cds_spread"],
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="L-BFGS-B", tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 
@@ -145,19 +153,24 @@ def joint_calibrate(
     model = CreditGrades(sigma_a, lev, recovery_mean, recovery_vol)
     cds_model = model.cds_spread(cds_tenor, recovery_mean)
 
-    cr = CalibrationResult.new(
-        model_class="joint_equity_credit",
-        parameters={"asset_vol": float(sigma_a), "leverage": float(lev)},
-        residuals=[
-            sigma_e_model / equity_vol - 1.0 if equity_vol > 0 else 0.0,
-            cds_model / cds_target - 1.0 if cds_target > 0 else 0.0,
-        ],
-        objective=ObjectiveKind.WEIGHTED_SSE,
-        weights=[vol_weight, spread_weight],
-        optimiser=OptimiserSpec(algorithm="L-BFGS-B", tolerance=1e-12, max_iterations=200),
-        iterations=int(getattr(result, "nit", 0)),
-        converged=bool(getattr(result, "success", True)),
-        quotes_fitted=["equity_vol", f"cds_spread_{cds_tenor:g}Y"],
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(),
+        fit=CalibrationFit(
+            model_class="joint_equity_credit",
+            parameters={"asset_vol": float(sigma_a), "leverage": float(lev)},
+            residuals=[
+                sigma_e_model / equity_vol - 1.0 if equity_vol > 0 else 0.0,
+                cds_model / cds_target - 1.0 if cds_target > 0 else 0.0,
+            ],
+            objective=ObjectiveKind.WEIGHTED_SSE,
+            quotes_fitted=["equity_vol", f"cds_spread_{cds_tenor:g}Y"],
+            weights=[vol_weight, spread_weight],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(algorithm="L-BFGS-B", tolerance=1e-12, max_iterations=200),
+            iterations=int(getattr(result, "nit", 0)),
+            converged=bool(getattr(result, "success", True)),
+        ),
     )
 
     return JointCalibrationResult(

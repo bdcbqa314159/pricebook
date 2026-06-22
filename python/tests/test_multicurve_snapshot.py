@@ -70,7 +70,7 @@ class TestMulticurveSnapshot:
         )
         cr = result.calibration_result
         assert isinstance(cr, CalibrationResult)
-        assert cr.market_snapshot_id is None
+        assert cr.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, ref_date, snapshot):
         ois_insts, proj_insts, ois_dates, proj_dates = self._instruments(ref_date)
@@ -80,7 +80,7 @@ class TestMulticurveSnapshot:
         )
         cr = result.calibration_result
         assert cr is not None
-        assert cr.market_snapshot_id == snapshot.id
+        assert cr.provenance.market_snapshot_id == snapshot.id
         # Both curves carry the linked CR (same instance).
         assert result.ois_curve.calibration_result is cr
         assert result.projection_curve.calibration_result is cr
@@ -94,7 +94,7 @@ class TestMulticurveSnapshot:
                 tol=1e-20, max_iter=1, market_snapshot=snapshot,
             )
         # Even on non-convergence, the snapshot id is recorded.
-        assert result.calibration_result.market_snapshot_id == snapshot.id
+        assert result.calibration_result.provenance.market_snapshot_id == snapshot.id
 
 
 # ============================================================
@@ -148,7 +148,7 @@ class TestBondHazardSnapshot:
         )
         cr = result.calibration_result
         assert cr is not None
-        assert cr.market_snapshot_id is None
+        assert cr.provenance.market_snapshot_id is None
 
     def test_sequential_with_snapshot(self, ref_date, bonds, cds_snapshot):
         flat = DiscountCurve.flat(ref_date, 0.04)
@@ -156,7 +156,7 @@ class TestBondHazardSnapshot:
             ref_date, bonds, flat, method="sequential",
             market_snapshot=cds_snapshot,
         )
-        assert result.calibration_result.market_snapshot_id == cds_snapshot.id
+        assert result.calibration_result.provenance.market_snapshot_id == cds_snapshot.id
 
     def test_global_with_snapshot(self, ref_date, bonds, cds_snapshot):
         flat = DiscountCurve.flat(ref_date, 0.04)
@@ -164,7 +164,7 @@ class TestBondHazardSnapshot:
             ref_date, bonds, flat, method="global", n_pillars=2,
             market_snapshot=cds_snapshot,
         )
-        assert result.calibration_result.market_snapshot_id == cds_snapshot.id
+        assert result.calibration_result.provenance.market_snapshot_id == cds_snapshot.id
 
     def test_snapshot_does_not_alter_numerics(self, ref_date, bonds, cds_snapshot):
         flat = DiscountCurve.flat(ref_date, 0.04)

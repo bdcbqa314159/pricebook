@@ -23,9 +23,12 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 from pricebook.models.black76 import black76_price, OptionType
@@ -63,14 +66,19 @@ class RebonatoLMMCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult.new(
-            model_class="lmm_rebonato",
-            parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},
-            residuals=[self.residual],   # on-demand path only has the aggregate
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="lmm_rebonato",
+                parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},
+                residuals=[self.residual],
+                objective=ObjectiveKind.SSE,
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 
@@ -92,15 +100,20 @@ def _lmm_calibration_record(
         _rebonato_swaption_vol(inst_vols, forward_rates, e, t, dt) - market_vols[(e, t)]
         for (e, t) in keys
     ]
-    return CalibrationResult.new(
-        model_class="lmm_rebonato",
-        parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
-        residuals=residuals,
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(algorithm=method, tolerance=0.0, max_iterations=0),
-        iterations=0,
-        converged=True,
-        quotes_fitted=[f"swaption_{e}x{t}" for (e, t) in keys],
+    return CalibrationResult(
+        provenance=CalibrationProvenance.stamp(),
+        fit=CalibrationFit(
+            model_class="lmm_rebonato",
+            parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
+            residuals=residuals,
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"swaption_{e}x{t}" for (e, t) in keys],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(algorithm=method, tolerance=0.0, max_iterations=0),
+            iterations=0,
+            converged=True,
+        ),
     )
 
 

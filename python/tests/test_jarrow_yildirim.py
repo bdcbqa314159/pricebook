@@ -151,15 +151,15 @@ class TestJYCanonicalResult:
         result = jy_calibrate(zc_rates, r_n0=0.04, r_r0=0.02)
         cr = result.to_calibration_result()
         assert cr is result.calibration_result
-        assert cr.model_class == "jarrow_yildirim"
-        assert set(cr.parameters) == {"sigma_n", "sigma_r", "sigma_I"}
-        assert len(cr.residuals) == 4
+        assert cr.fit.model_class == "jarrow_yildirim"
+        assert set(cr.fit.parameters) == {"sigma_n", "sigma_r", "sigma_I"}
+        assert len(cr.fit.residuals) == 4
 
     def test_on_demand_rebuild(self):
         r = JYCalibrationResult(_default_params(), residual=0.002, n_instruments=3)
         cr = r.to_calibration_result()
-        assert cr.model_class == "jarrow_yildirim"
-        assert cr.residuals == [0.002]
+        assert cr.fit.model_class == "jarrow_yildirim"
+        assert cr.fit.residuals == [0.002]
 
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB

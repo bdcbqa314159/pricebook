@@ -4,7 +4,7 @@ Covers:
 - round-trip to_dict/from_dict for OptimiserSpec, CalibrationDiagnostics,
   CalibrationResult (incl. nested optimiser/diagnostics and UUID/datetime fields);
 - the serialised payload is JSON-native (json.dumps round-trips);
-- `CalibrationResult.new()` stamps a timezone-aware UTC timestamp;
+- `build_calibration_result()` stamps a timezone-aware UTC timestamp;
 - `id`/`timestamp` are injectable (for reproducibility / determinism);
 - the new core atom support (UUID, datetime, dict, tuple) round-trips.
 """
@@ -22,10 +22,11 @@ from pricebook.calibration import (
     OptimiserSpec,
 )
 from pricebook.core.serialisable import _deserialise_atom, _serialise_atom
+from tests.conftest import build_calibration_result
 
 
 def _sample_result() -> CalibrationResult:
-    return CalibrationResult.new(
+    return build_calibration_result(
         model_class="HullWhite",
         parameters={"a": 0.03, "sigma": 0.012},
         residuals=[0.001, -0.002, 0.0005],
@@ -78,16 +79,16 @@ def test_calibration_result_round_trip():
     back = CalibrationResult.from_dict(cr.to_dict())
     assert back == cr
     # spot-check the load-bearing identity fields survive byte-for-byte
-    assert back.id == cr.id
-    assert back.timestamp == cr.timestamp
-    assert back.market_snapshot_id == cr.market_snapshot_id
-    assert back.objective is ObjectiveKind.WEIGHTED_SSE
-    assert back.optimiser == cr.optimiser
+    assert back.provenance.id == cr.provenance.id
+    assert back.provenance.timestamp == cr.provenance.timestamp
+    assert back.provenance.market_snapshot_id == cr.provenance.market_snapshot_id
+    assert back.fit.objective is ObjectiveKind.WEIGHTED_SSE
+    assert back.optimiser_run.spec == cr.optimiser_run.spec
     assert back.diagnostics == cr.diagnostics
 
 
 def test_calibration_result_round_trip_no_snapshot():
-    cr = CalibrationResult.new(
+    cr = build_calibration_result(
         model_class="SABR",
         parameters={"alpha": 0.2},
         residuals=[0.0],
@@ -95,10 +96,10 @@ def test_calibration_result_round_trip_no_snapshot():
         iterations=1,
         converged=False,
     )
-    assert cr.market_snapshot_id is None
+    assert cr.provenance.market_snapshot_id is None
     back = CalibrationResult.from_dict(cr.to_dict())
     assert back == cr
-    assert back.market_snapshot_id is None
+    assert back.provenance.market_snapshot_id is None
 
 
 def test_payload_is_json_native():
@@ -112,18 +113,18 @@ def test_payload_is_json_native():
 
 def test_payload_carries_schema_version():
     d = _sample_result().to_dict()
-    assert d["_schema_version"] == 2  # bumped: rms/max no longer serialised (derived)
+    assert d["_schema_version"] == 3  # bumped: rms/max no longer serialised (derived)
     # the derived metrics are NOT in the payload anymore
     assert "rms_residual" not in d and "max_residual" not in d
 
 
 def test_rms_max_are_derived_properties():
-    cr = CalibrationResult.new(
+    cr = build_calibration_result(
         model_class="m", parameters={}, residuals=[3.0, -4.0],
         optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
     )
-    assert cr.rms_residual == pytest.approx((25 / 2) ** 0.5)
-    assert cr.max_residual == 4.0
+    assert cr.fit.rms_residual == pytest.approx((25 / 2) ** 0.5)
+    assert cr.fit.max_residual == 4.0
     # not constructor params anymore — can't be passed (so can't drift from residuals)
     with pytest.raises(TypeError):
         CalibrationResult(  # type: ignore[call-arg]
@@ -136,11 +137,11 @@ def test_rms_max_are_derived_properties():
 
 
 def test_rms_max_empty_residuals():
-    cr = CalibrationResult.new(
+    cr = build_calibration_result(
         model_class="m", parameters={}, residuals=[],
         optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
     )
-    assert cr.rms_residual == 0.0 and cr.max_residual == 0.0
+    assert cr.fit.rms_residual == 0.0 and cr.fit.max_residual == 0.0
 
 
 # --------------------------------------------------------------------------- #
@@ -148,7 +149,7 @@ def test_rms_max_empty_residuals():
 # --------------------------------------------------------------------------- #
 
 def test_auto_timestamp_is_tz_aware_utc():
-    cr = CalibrationResult.new(
+    cr = build_calibration_result(
         model_class="m",
         parameters={},
         residuals=[],
@@ -156,14 +157,14 @@ def test_auto_timestamp_is_tz_aware_utc():
         iterations=0,
         converged=True,
     )
-    assert cr.timestamp.tzinfo is not None
-    assert cr.timestamp.utcoffset().total_seconds() == 0.0
+    assert cr.provenance.timestamp.tzinfo is not None
+    assert cr.provenance.timestamp.utcoffset().total_seconds() == 0.0
 
 
 def test_id_and_timestamp_injectable():
     fixed_id = UUID("12345678-1234-5678-1234-567812345678")
     fixed_ts = datetime(2020, 1, 1, tzinfo=timezone.utc)
-    cr = CalibrationResult.new(
+    cr = build_calibration_result(
         model_class="m",
         parameters={},
         residuals=[],
@@ -173,8 +174,8 @@ def test_id_and_timestamp_injectable():
         id=fixed_id,
         timestamp=fixed_ts,
     )
-    assert cr.id == fixed_id
-    assert cr.timestamp == fixed_ts
+    assert cr.provenance.id == fixed_id
+    assert cr.provenance.timestamp == fixed_ts
 
 
 def test_auto_ids_are_distinct():
@@ -186,7 +187,7 @@ def test_auto_ids_are_distinct():
         iterations=0,
         converged=True,
     )
-    assert CalibrationResult.new(**kw).id != CalibrationResult.new(**kw).id
+    assert build_calibration_result(**kw).provenance.id != build_calibration_result(**kw).provenance.id
 
 
 # --------------------------------------------------------------------------- #

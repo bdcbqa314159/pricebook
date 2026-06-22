@@ -22,9 +22,12 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 
@@ -314,19 +317,24 @@ class DispersionCalibrationResult(CanonicalCalibrationResult):
         return d
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult.new(
-            model_class="stochastic_correlation",
-            parameters={
-                "kappa": float(self.kappa),
-                "theta": float(self.theta),
-                "sigma": float(self.sigma),
-            },
-            residuals=[self.index_variance_model - self.index_variance_target],
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(algorithm="closed_form", tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
-            quotes_fitted=["index_variance"],
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="stochastic_correlation",
+                parameters={
+                    "kappa": float(self.kappa),
+                    "theta": float(self.theta),
+                    "sigma": float(self.sigma),
+                },
+                residuals=[self.index_variance_model - self.index_variance_target],
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=["index_variance"],
+            ),
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(algorithm="closed_form", tolerance=0.0, max_iterations=0),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 

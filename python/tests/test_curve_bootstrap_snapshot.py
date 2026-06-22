@@ -75,13 +75,13 @@ class TestBootstrapWithSnapshot:
         curve = bootstrap(ref_date, deposits, swaps)
         cr = curve.calibration_result
         assert isinstance(cr, CalibrationResult)
-        assert cr.market_snapshot_id is None
+        assert cr.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, ref_date, deposits, swaps, snapshot):
         curve = bootstrap(ref_date, deposits, swaps, market_snapshot=snapshot)
         cr = curve.calibration_result
         assert cr is not None
-        assert cr.market_snapshot_id == snapshot.id
+        assert cr.provenance.market_snapshot_id == snapshot.id
 
     def test_snapshot_is_keyword_only(self):
         sig = inspect.signature(bootstrap)
@@ -107,8 +107,8 @@ class TestBootstrapWithSnapshot:
         assert snap2.id != snapshot.id
         curve1 = bootstrap(ref_date, deposits, swaps, market_snapshot=snapshot)
         curve2 = bootstrap(ref_date, deposits, swaps, market_snapshot=snap2)
-        assert curve1.calibration_result.market_snapshot_id == snapshot.id
-        assert curve2.calibration_result.market_snapshot_id == snap2.id
+        assert curve1.calibration_result.provenance.market_snapshot_id == snapshot.id
+        assert curve2.calibration_result.provenance.market_snapshot_id == snap2.id
 
 
 # ============================================================
@@ -120,13 +120,13 @@ class TestGlobalBootstrapWithSnapshot:
         curve = global_bootstrap(ref_date, deposits, swaps)
         cr = curve.calibration_result
         assert isinstance(cr, CalibrationResult)
-        assert cr.market_snapshot_id is None
+        assert cr.provenance.market_snapshot_id is None
 
     def test_with_snapshot_links_id(self, ref_date, deposits, swaps, snapshot):
         curve = global_bootstrap(ref_date, deposits, swaps, market_snapshot=snapshot)
         cr = curve.calibration_result
         assert cr is not None
-        assert cr.market_snapshot_id == snapshot.id
+        assert cr.provenance.market_snapshot_id == snapshot.id
 
     def test_snapshot_is_keyword_only(self):
         sig = inspect.signature(global_bootstrap)

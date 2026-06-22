@@ -20,9 +20,12 @@ import numpy as np
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
+    OptimiserRun,
     OptimiserSpec,
 )
 
@@ -140,19 +143,24 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
             self.fitted_swaption_vols.get(k, 0.0) - self.target_swaption_vols[k]
             for k in keys
         ]
-        return CalibrationResult.new(
-            model_class="lmm",
-            parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.calibrated_vols)},
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            optimiser=OptimiserSpec(
-                algorithm="iterative_scaling",
-                tolerance=0.0,
-                max_iterations=0,
+        return CalibrationResult(
+            provenance=CalibrationProvenance.stamp(),
+            fit=CalibrationFit(
+                model_class="lmm",
+                parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.calibrated_vols)},
+                residuals=residuals,
+                objective=ObjectiveKind.SSE,
+                quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
             ),
-            iterations=0,
-            converged=True,
-            quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+            optimiser_run=OptimiserRun(
+                spec=OptimiserSpec(
+               algorithm="iterative_scaling",
+               tolerance=0.0,
+               max_iterations=0,
+           ),
+                iterations=0,
+                converged=True,
+            ),
         )
 
 
@@ -216,26 +224,32 @@ def calibrate_lmm_vols(
 
     rmse = math.sqrt(sum(errors) / len(errors)) if errors else 0.0
 
-    cr = CalibrationResult.new(
-        model_class="lmm",
-        parameters={f"sigma_{i}": float(v) for i, v in enumerate(vols.tolist())},
-        residuals=residuals_list,            # in Black-vol units
-        objective=ObjectiveKind.SSE,
-        optimiser=OptimiserSpec(
-            algorithm="iterative_scaling",
-            tolerance=0.0,                   # no explicit tolerance — fixed iterations
-            max_iterations=max_iter,
-            extra={
-                "correlation_beta": correlation_beta,
-                "tau": tau,
-                "n_forward_rates": n,
-            },
+    cr = CalibrationResult(
+        provenance=CalibrationProvenance.stamp(
+            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
         ),
-        iterations=max_iter,                 # iterative scaler runs full budget
-        converged=True,                      # no convergence test in this scheme
-        quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+        fit=CalibrationFit(
+            model_class="lmm",
+            parameters={f"sigma_{i}": float(v) for i, v in enumerate(vols.tolist())},
+            residuals=residuals_list,
+            objective=ObjectiveKind.SSE,
+            quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+        ),
+        optimiser_run=OptimiserRun(
+            spec=OptimiserSpec(
+           algorithm="iterative_scaling",
+           tolerance=0.0,                   # no explicit tolerance — fixed iterations
+           max_iterations=max_iter,
+           extra={
+               "correlation_beta": correlation_beta,
+               "tau": tau,
+               "n_forward_rates": n,
+           },
+       ),
+            iterations=max_iter,
+            converged=True,
+        ),
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
-        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
     )
 
     return LMMCalibrationResult(

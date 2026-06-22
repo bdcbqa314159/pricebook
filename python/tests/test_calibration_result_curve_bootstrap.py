@@ -71,9 +71,9 @@ class TestBootstrapCalibrationResult:
         deposits, swaps = _deposits_and_swaps()
         c = bootstrap(REF, deposits, swaps)
         cr = c.calibration_result
-        assert cr.model_class == "discount_curve_bootstrap"
-        assert cr.optimiser.algorithm == "brentq-sequential"
-        assert cr.converged is True
+        assert cr.fit.model_class == "discount_curve_bootstrap"
+        assert cr.optimiser_run.spec.algorithm == "brentq-sequential"
+        assert cr.optimiser_run.converged is True
 
     def test_residuals_essentially_zero(self):
         """Sequential bootstrap is exact-fit by construction — residuals must be ~0."""
@@ -81,7 +81,7 @@ class TestBootstrapCalibrationResult:
         c = bootstrap(REF, deposits, swaps)
         cr = c.calibration_result
         # Each residual at machine precision
-        for r in cr.residuals:
+        for r in cr.fit.residuals:
             assert abs(r) < 1e-10
 
     def test_parameters_are_pillar_dfs(self):
@@ -89,9 +89,9 @@ class TestBootstrapCalibrationResult:
         c = bootstrap(REF, deposits, swaps)
         cr = c.calibration_result
         # Number of parameters = number of pillar dates
-        assert len(cr.parameters) == len(c.pillar_dates)
+        assert len(cr.fit.parameters) == len(c.pillar_dates)
         # Values match the curve's df at each pillar
-        for key, val in cr.parameters.items():
+        for key, val in cr.fit.parameters.items():
             # Key is f"df(YYYY-MM-DD)"
             iso = key[len("df("):-1]
             d = date.fromisoformat(iso)
@@ -102,9 +102,9 @@ class TestBootstrapCalibrationResult:
         c = bootstrap(REF, deposits, swaps)
         cr = c.calibration_result
         # 1 deposit + 3 swaps
-        assert len(cr.quotes_fitted) == 4
-        assert any(q.startswith("deposit_") for q in cr.quotes_fitted)
-        assert sum(1 for q in cr.quotes_fitted if q.startswith("swap_")) == 3
+        assert len(cr.fit.quotes_fitted) == 4
+        assert any(q.startswith("deposit_") for q in cr.fit.quotes_fitted)
+        assert sum(1 for q in cr.fit.quotes_fitted if q.startswith("swap_")) == 3
 
     def test_diagnostics_record_input_counts(self):
         deposits, swaps = _deposits_and_swaps()
@@ -117,7 +117,7 @@ class TestBootstrapCalibrationResult:
         deposits, swaps = _deposits_and_swaps()
         c1 = bootstrap(REF, deposits, swaps)
         c2 = bootstrap(REF, deposits, swaps)
-        assert c1.calibration_result.id != c2.calibration_result.id
+        assert c1.calibration_result.provenance.id != c2.calibration_result.provenance.id
 
 
 # ============================================================
@@ -130,16 +130,16 @@ class TestGlobalBootstrapCalibrationResult:
         c = global_bootstrap(REF, deposits, swaps)
         assert c.calibration_result is not None
         cr = c.calibration_result
-        assert cr.model_class == "discount_curve_global"
-        assert cr.optimiser.algorithm == "newton-global"
-        assert cr.converged is True
+        assert cr.fit.model_class == "discount_curve_global"
+        assert cr.optimiser_run.spec.algorithm == "newton-global"
+        assert cr.optimiser_run.converged is True
 
     def test_residuals_below_solver_tol(self):
         deposits, swaps = _deposits_and_swaps()
         c = global_bootstrap(REF, deposits, swaps, tol=1e-10)
         cr = c.calibration_result
         # Newton should converge well below tol
-        assert max(abs(r) for r in cr.residuals) < 1e-9
+        assert max(abs(r) for r in cr.fit.residuals) < 1e-9
 
 
 # ============================================================
@@ -173,9 +173,9 @@ class TestMulticurveNewtonCalibrationResult:
                               day_count=DayCountConvention.ACT_360,
                               tol=1e-10, max_iter=50)
         cr = r.calibration_result
-        assert cr.model_class == "multicurve"
-        ois_keys = [k for k in cr.parameters if k.startswith("ois_df(")]
-        proj_keys = [k for k in cr.parameters if k.startswith("proj_df(")]
+        assert cr.fit.model_class == "multicurve"
+        ois_keys = [k for k in cr.fit.parameters if k.startswith("ois_df(")]
+        proj_keys = [k for k in cr.fit.parameters if k.startswith("proj_df(")]
         assert len(ois_keys) == len(op)
         assert len(proj_keys) == len(pp)
 
@@ -185,7 +185,7 @@ class TestMulticurveNewtonCalibrationResult:
                               day_count=DayCountConvention.ACT_360,
                               tol=1e-10, max_iter=50)
         d = r.to_dict()
-        assert d["calibration_id"] == str(r.calibration_result.id)
+        assert d["calibration_id"] == str(r.calibration_result.provenance.id)
 
 
 # ============================================================
@@ -209,9 +209,9 @@ class TestMultiCurveResultBackCompat:
         )
         cr = r.to_calibration_result()
         assert isinstance(cr, CalibrationResult)
-        assert cr.model_class == "multicurve"
-        assert cr.iterations == 3
-        assert cr.converged is True
+        assert cr.fit.model_class == "multicurve"
+        assert cr.optimiser_run.iterations == 3
+        assert cr.optimiser_run.converged is True
 
     def test_to_dict_has_none_when_unpopulated(self):
         c = DiscountCurve.flat(REF, 0.04)

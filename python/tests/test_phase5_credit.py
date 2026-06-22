@@ -171,10 +171,10 @@ class TestJointEquityCredit:
         result = joint_calibrate(equity_vol=0.30, cds_spread_bp=150)
         cr = result.to_calibration_result()
         assert cr is result.calibration_result
-        assert cr.model_class == "joint_equity_credit"
-        assert set(cr.parameters) == {"asset_vol", "leverage"}
-        assert cr.objective.value == "weighted_sse"
-        assert len(cr.residuals) == 2
+        assert cr.fit.model_class == "joint_equity_credit"
+        assert set(cr.fit.parameters) == {"asset_vol", "leverage"}
+        assert cr.fit.objective.value == "weighted_sse"
+        assert len(cr.fit.residuals) == 2
 
     def test_canonical_on_demand_rebuild(self):
         from pricebook.credit.joint_equity_credit import JointCalibrationResult
@@ -185,8 +185,8 @@ class TestJointEquityCredit:
             equity_vol_error_pct=10.0, cds_spread_error_bp=2.0, fit_quality=0.01,
         )
         cr = r.to_calibration_result()
-        assert cr.model_class == "joint_equity_credit"
-        assert len(cr.residuals) == 2
+        assert cr.fit.model_class == "joint_equity_credit"
+        assert len(cr.fit.residuals) == 2
 
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB

@@ -77,11 +77,11 @@ class TestSequentialPopulatesCalibrationResult:
         rf = _flat_rf()
         result = bootstrap_hazard_from_bonds(REF, _well_spaced_bonds(), rf, method="sequential")
         cr = result.calibration_result
-        assert cr.model_class == "bond_hazard_pwc"
-        assert cr.objective is ObjectiveKind.SSE
-        assert cr.optimiser.algorithm == "brentq-per-bond"
-        assert cr.iterations == len(_well_spaced_bonds())  # one root-find per bond
-        assert cr.converged is True
+        assert cr.fit.model_class == "bond_hazard_pwc"
+        assert cr.fit.objective is ObjectiveKind.SSE
+        assert cr.optimiser_run.spec.algorithm == "brentq-per-bond"
+        assert cr.optimiser_run.iterations == len(_well_spaced_bonds())  # one root-find per bond
+        assert cr.optimiser_run.converged is True
 
     def test_parameters_match_pillar_hazards(self):
         rf = _flat_rf()
@@ -89,9 +89,9 @@ class TestSequentialPopulatesCalibrationResult:
         result = bootstrap_hazard_from_bonds(REF, bonds, rf, method="sequential")
         cr = result.calibration_result
         # Same number of parameters as pillar hazards
-        assert len(cr.parameters) == len(result.pillar_hazards)
+        assert len(cr.fit.parameters) == len(result.pillar_hazards)
         # Values match (parameters dict iterates in pillar order)
-        assert list(cr.parameters.values()) == [float(h) for h in result.pillar_hazards]
+        assert list(cr.fit.parameters.values()) == [float(h) for h in result.pillar_hazards]
 
     def test_weights_match_bond_weights(self):
         rf = _flat_rf()
@@ -101,13 +101,13 @@ class TestSequentialPopulatesCalibrationResult:
         bonds[3].weight = 0.5
         result = bootstrap_hazard_from_bonds(REF, bonds, rf, method="sequential")
         cr = result.calibration_result
-        assert list(cr.weights) == [b.weight for b in sorted(bonds, key=lambda b: b.maturity)]
+        assert list(cr.fit.weights) == [b.weight for b in sorted(bonds, key=lambda b: b.maturity)]
 
     def test_residuals_match_residuals_bp(self):
         rf = _flat_rf()
         result = bootstrap_hazard_from_bonds(REF, _well_spaced_bonds(), rf, method="sequential")
         cr = result.calibration_result
-        assert list(cr.residuals) == result.residuals_bp
+        assert list(cr.fit.residuals) == result.residuals_bp
 
 
 class TestGlobalPopulatesCalibrationResult:
@@ -116,10 +116,10 @@ class TestGlobalPopulatesCalibrationResult:
         result = bootstrap_hazard_from_bonds(REF, _well_spaced_bonds(), rf, method="global", n_pillars=4)
         cr = result.calibration_result
         assert cr is not None
-        assert cr.model_class == "bond_hazard_pwc"
-        assert cr.objective is ObjectiveKind.WEIGHTED_SSE
-        assert cr.optimiser.algorithm == "L-BFGS-B"
-        assert cr.optimiser.extra["lam"] == 0.0
+        assert cr.fit.model_class == "bond_hazard_pwc"
+        assert cr.fit.objective is ObjectiveKind.WEIGHTED_SSE
+        assert cr.optimiser_run.spec.algorithm == "L-BFGS-B"
+        assert cr.optimiser_run.spec.extra["lam"] == 0.0
         # roughness in diagnostics
         assert "roughness" in cr.diagnostics.extra
 
@@ -130,15 +130,15 @@ class TestGlobalPopulatesCalibrationResult:
         )
         cr = result.calibration_result
         assert cr is not None
-        assert "tikhonov" in cr.optimiser.algorithm
-        assert cr.optimiser.extra["lam"] == 1e6
+        assert "tikhonov" in cr.optimiser_run.spec.algorithm
+        assert cr.optimiser_run.spec.extra["lam"] == 1e6
         assert cr.diagnostics.extra["roughness"] == pytest.approx(result.roughness)
 
     def test_each_invocation_has_unique_id(self):
         rf = _flat_rf()
         r1 = bootstrap_hazard_from_bonds(REF, _well_spaced_bonds(), rf, method="global", n_pillars=4)
         r2 = bootstrap_hazard_from_bonds(REF, _well_spaced_bonds(), rf, method="global", n_pillars=4)
-        assert r1.calibration_result.id != r2.calibration_result.id
+        assert r1.calibration_result.provenance.id != r2.calibration_result.provenance.id
 
 
 class TestToCalibrationResult:
@@ -171,9 +171,9 @@ class TestToCalibrationResult:
         assert hand.calibration_result is None
         cr = hand.to_calibration_result()
         assert isinstance(cr, CalibrationResult)
-        assert cr.model_class == "bond_hazard_pwc"
-        assert list(cr.residuals) == [-50.0]
-        assert list(cr.parameters.values()) == [0.05]
+        assert cr.fit.model_class == "bond_hazard_pwc"
+        assert list(cr.fit.residuals) == [-50.0]
+        assert list(cr.fit.parameters.values()) == [0.05]
 
 
 class TestToDictIncludesCalibrationId:
@@ -182,7 +182,7 @@ class TestToDictIncludesCalibrationId:
         result = bootstrap_hazard_from_bonds(REF, _well_spaced_bonds(), rf, method="sequential")
         d = result.to_dict()
         assert "calibration_id" in d
-        assert d["calibration_id"] == str(result.calibration_result.id)
+        assert d["calibration_id"] == str(result.calibration_result.provenance.id)
 
     def test_calibration_id_none_when_unpopulated(self):
         sc = SurvivalCurve(REF, [REF + timedelta(days=365)], [0.95])

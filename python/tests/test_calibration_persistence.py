@@ -21,6 +21,7 @@ from pricebook.calibration import (
     OptimiserSpec,
 )
 from pricebook.db.db import PricebookDB
+from tests.conftest import build_calibration_result
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ def db():
 
 
 def _result(model_class="HullWhite", snapshot_id=None, **kw):
-    return CalibrationResult.new(
+    return build_calibration_result(
         model_class=model_class,
         parameters={"a": 0.03, "sigma": 0.012},
         residuals=[0.001, -0.002, 0.0005],
@@ -51,19 +52,19 @@ class TestRoundTrip:
 
     def test_save_returns_id(self, db):
         cr = _result()
-        assert db.save_calibration(cr) == str(cr.id)
+        assert db.save_calibration(cr) == str(cr.provenance.id)
 
     def test_load_reconstructs_equal(self, db):
         cr = _result()
         db.save_calibration(cr)
-        back = db.load_calibration(cr.id)
+        back = db.load_calibration(cr.provenance.id)
         assert back == cr
 
     def test_load_accepts_str_or_uuid(self, db):
         cr = _result()
         db.save_calibration(cr)
-        assert db.load_calibration(str(cr.id)) == cr
-        assert db.load_calibration(cr.id) == cr
+        assert db.load_calibration(str(cr.provenance.id)) == cr
+        assert db.load_calibration(cr.provenance.id) == cr
 
     def test_load_missing_returns_none(self, db):
         assert db.load_calibration(uuid4()) is None
@@ -76,22 +77,22 @@ class TestDenormalisedColumns:
         snap = uuid4()
         cr = _result(snapshot_id=snap)
         db.save_calibration(cr)
-        raw = db.load_calibration_raw(cr.id)
+        raw = db.load_calibration_raw(cr.provenance.id)
         assert raw["model_class"] == "HullWhite"
         assert raw["objective"] == ObjectiveKind.WEIGHTED_SSE.value
         assert raw["converged"] == 1            # bool → INTEGER
         assert raw["iterations"] == 37
-        assert raw["rms_residual"] == pytest.approx(cr.rms_residual)
-        assert raw["max_residual"] == pytest.approx(cr.max_residual)
+        assert raw["rms_residual"] == pytest.approx(cr.fit.rms_residual)
+        assert raw["max_residual"] == pytest.approx(cr.fit.max_residual)
         assert raw["market_snapshot_id"] == str(snap)
         # convention payload is flat (no "type"/"params" envelope)
-        assert raw["result"]["model_class"] == "HullWhite"
-        assert raw["result"]["_schema_version"] == 2
+        assert raw["result"]["fit"]["model_class"] == "HullWhite"
+        assert raw["result"]["_schema_version"] == 3
 
     def test_null_snapshot(self, db):
         cr = _result(snapshot_id=None)
         db.save_calibration(cr)
-        assert db.load_calibration_raw(cr.id)["market_snapshot_id"] is None
+        assert db.load_calibration_raw(cr.provenance.id)["market_snapshot_id"] is None
 
 
 class TestListAndFilter:
@@ -139,7 +140,7 @@ class TestIdempotencyAndDurability:
             db1.close()
 
             db2 = PricebookDB(path)
-            assert db2.load_calibration(cr.id) == cr
+            assert db2.load_calibration(cr.provenance.id) == cr
             db2.close()
         finally:
             os.remove(path)
