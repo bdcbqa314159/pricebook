@@ -2,6 +2,18 @@
 
 ---
 
+## v1.141.0 — 2026-06-22 — **Bootstrapper campaign F2: SurvivalCurve / AADDiscountCurve carry provenance**
+
+`SurvivalCurve` (credit) and `AADDiscountCurve` now hold `calibration_result: CalibrationResult | None = None`, mirroring `DiscountCurve` — so credit and AAD bootstrappers can attach a record the same way the rates curves do.
+
+**Files**: `core/survival_curve.py`, `curves/aad_curves.py`, `python/tests/test_curve_carries_provenance.py` (new). Field defaults `None`; `TYPE_CHECKING`-only `CalibrationResult` import (no new runtime edge).
+
+**Tests**: 4 new (all three curve types carry the field; a record-bearing `SurvivalCurve` persists via the F1 helper). **Verification**: full suite **12847 passed**.
+
+**Next**: Tier 1 — wire `bootstrap_forward_curve` (covers `ibor_curve` by delegation).
+
+---
+
 ## v1.140.0 — 2026-06-22 — **Bootstrapper provenance campaign F1: shared curve-record helpers**
 
 Foundation for bringing the ~13 scattered curve/survival bootstrappers into the audit chain (curve-carries-provenance). Adds the shared assembly helper so no bootstrapper hand-rolls the record.
