@@ -71,7 +71,7 @@ class TestJumpCalibrationResult:
     def test_quotes_fitted_named_by_strike(self):
         r = self._calibrate()
         cr = r.calibration_result
-        assert cr.fit.quotes_fitted == [
+        assert list(cr.fit.quotes_fitted) == [
             "smile_K=80.0000",
             "smile_K=100.0000",
             "smile_K=120.0000",
@@ -119,11 +119,11 @@ class TestJumpBackCompat:
         assert cr.fit.model_class == "jump_vg"
         assert cr.fit.parameters == {"sigma": 0.20, "nu": 0.5, "theta": -0.1}
         # Residuals are model - market in order
-        assert cr.fit.residuals == [
+        assert list(cr.fit.residuals) == [
             pytest.approx(0.251 - 0.25),
             pytest.approx(0.219 - 0.22),
         ]
-        assert cr.fit.quotes_fitted == ["smile_K=80.0000", "smile_K=100.0000"]
+        assert list(cr.fit.quotes_fitted) == ["smile_K=80.0000", "smile_K=100.0000"]
 
     def test_to_dict_has_none_when_unpopulated(self):
         r = self._hand_build()

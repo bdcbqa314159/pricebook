@@ -88,7 +88,7 @@ class TestHWCalibrationResult:
         rf = _flat_rf()
         result = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         cr = result.calibration_result
-        assert cr.fit.quotes_fitted == [
+        assert list(cr.fit.quotes_fitted) == [
             "swaption_1x5",
             "swaption_5x5",
             "swaption_10x10",
@@ -147,7 +147,7 @@ class TestHWBackCompat:
         assert cr.fit.model_class == "hull_white"
         assert cr.fit.parameters == {"a": 0.05, "sigma": 0.01}
         assert list(cr.fit.residuals) == [1.0, -2.0]
-        assert cr.fit.quotes_fitted == ["swaption_1x5", "swaption_5x5"]
+        assert list(cr.fit.quotes_fitted) == ["swaption_1x5", "swaption_5x5"]
         assert cr.optimiser_run.converged is True
 
 
@@ -187,7 +187,7 @@ class TestG2PPBackCompat:
             "sigma1": 0.01, "sigma2": 0.008, "rho": -0.5,
         }
         assert list(cr.fit.residuals) == [-1.0, 3.0]
-        assert cr.fit.quotes_fitted == ["swaption_1x5", "swaption_5x10"]
+        assert list(cr.fit.quotes_fitted) == ["swaption_1x5", "swaption_5x10"]
         assert cr.optimiser_run.converged is True
 
     def test_to_dict_has_calibration_id_none_when_unpopulated(self):

@@ -243,7 +243,7 @@ class TestCanonicalCalibrationResult:
         )
         cr = r.to_calibration_result()
         assert cr.fit.model_class == "lmm_rebonato"
-        assert cr.fit.residuals == [0.003]
+        assert list(cr.fit.residuals) == [0.003]
 
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB

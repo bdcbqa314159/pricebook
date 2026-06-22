@@ -66,7 +66,7 @@ class TestLMMCalibrationResult:
     def test_quotes_fitted(self):
         r = self._calibrate()
         cr = r.calibration_result
-        assert cr.fit.quotes_fitted == [
+        assert list(cr.fit.quotes_fitted) == [
             "swaption_0x5",
             "swaption_4x5",
             "swaption_8x5",
@@ -163,7 +163,7 @@ class TestSABRCalibrationResult:
 
     def test_quotes_fitted_named_by_strike(self):
         cr = self._calibrate()["calibration_result"]
-        assert cr.fit.quotes_fitted == [
+        assert list(cr.fit.quotes_fitted) == [
             "smile_K=0.0300",
             "smile_K=0.0400",
             "smile_K=0.0500",

@@ -159,7 +159,7 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        assert r.fit.weights == []  # empty = unweighted
+        assert list(r.fit.weights) == []  # empty = unweighted
 
     def test_explicit_weights_preserved(self):
         r = build_calibration_result(
@@ -171,7 +171,7 @@ class TestCalibrationResultNewFactory:
             iterations=1,
             converged=True,
         )
-        assert r.fit.weights == [0.5, 1.0, 2.0]
+        assert list(r.fit.weights) == [0.5, 1.0, 2.0]
 
     def test_default_diagnostics_is_empty(self):
         r = build_calibration_result(

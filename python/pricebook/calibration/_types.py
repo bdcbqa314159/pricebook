@@ -1,16 +1,23 @@
-"""Calibration layer types — `CalibrationResult`, `OptimiserSpec`, ...
+"""Calibration layer types.
 
-See `DESIGN.md` §3.3 for the rationale on the shape of `CalibrationResult`.
-The short version: every consumer (pricing, audit, debug, regret analysis)
-needs a different slice of the calibration story; expose all the slices,
-not an opaque blob.
+A `CalibrationResult` is a composite of small value objects — each consumer
+(pricing, audit, debug) reads the slice it needs; the record is not an opaque
+blob:
+
+    `CalibrationProvenance`   — where it came from (id, timestamp, snapshot)
+    `CalibrationFit`          — what was fitted and how well
+    `OptimiserRun`            — how the solver behaved (wraps `OptimiserSpec`)
+    `CalibrationDiagnostics`  — optional structured extras
+
+`CanonicalCalibrationResult` is the mixin a per-family result type uses to
+expose one of these records.
 
 This module sits at L0 in the empirical dependency graph (see AUDIT_PLAN.md
 §1). Its only load-time pricebook dependency is `core.serialisable` (also
 L0), pulled in to make the result types first-class serialisable artefacts;
 that edge is acyclic — `core.serialisable` imports nothing from calibration.
-The lone in-function `import pricebook` in the factory below is lazy and
-does not create a runtime cycle.
+The lone in-function `import pricebook` (in `CalibrationProvenance.stamp`,
+to read `__version__`) is lazy and does not create a runtime cycle.
 """
 
 from __future__ import annotations
@@ -163,12 +170,13 @@ class CalibrationFit:
     weights: Sequence[float] = ()
 
     def __post_init__(self) -> None:
-        # Canonicalise the sequence fields to lists so a serialise→deserialise
-        # round trip is exact (JSON arrays come back as lists). `parameters`
-        # stays a dict.
-        object.__setattr__(self, "residuals", list(self.residuals))
-        object.__setattr__(self, "quotes_fitted", list(self.quotes_fitted))
-        object.__setattr__(self, "weights", list(self.weights))
+        # Canonicalise the sequence fields to tuples: a frozen record should
+        # hold immutable sequences (same convention as CalibrationDiagnostics),
+        # and it makes a serialise→deserialise round trip exact (JSON arrays
+        # come back as lists, not tuples). `parameters` stays a dict.
+        object.__setattr__(self, "residuals", tuple(self.residuals))
+        object.__setattr__(self, "quotes_fitted", tuple(self.quotes_fitted))
+        object.__setattr__(self, "weights", tuple(self.weights))
 
     @property
     def rms_residual(self) -> float:

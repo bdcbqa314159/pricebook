@@ -159,7 +159,7 @@ class TestJYCanonicalResult:
         r = JYCalibrationResult(_default_params(), residual=0.002, n_instruments=3)
         cr = r.to_calibration_result()
         assert cr.fit.model_class == "jarrow_yildirim"
-        assert cr.fit.residuals == [0.002]
+        assert list(cr.fit.residuals) == [0.002]
 
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB
