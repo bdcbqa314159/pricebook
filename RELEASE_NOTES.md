@@ -2,6 +2,22 @@
 
 ---
 
+## v1.142.0 — 2026-06-23 — **Bootstrapper campaign Tier 1: forward/projection curve provenance**
+
+`bootstrap_forward_curve` (the dual-curve projection-curve builder) now attaches a canonical record to the curve it returns, and its two delegating wrappers surface it.
+
+**Files**: `curves/bootstrap.py`, `curves/rfr_bootstrap.py`, `fixed_income/ibor_curve.py`, `test_ibor_curve.py`, `test_rfr_bootstrap.py`.
+
+* `bootstrap_forward_curve` → `curve.calibration_result` (`model_class="projection_curve_bootstrap"`), built via the F1 helper. Residuals = per-instrument round-trip (deposit `model_rate − rate`, swap `pv_fixed − pv_float`) via a new `_forward_curve_residuals()` shared with — and not disturbing — the W-series-tested verifier.
+* **Waterfall**: `IBORCurve` and `RFRCurveResult` (both wrap a calibrated curve) gain a read-only `calibration_result` property forwarding to their inner curve — so `bootstrap_ibor` and `bootstrap_rfr` (sequential + global) inherit provenance for free.
+* **Bug surfaced + pinned**: `bootstrap_rfr(method="global")` passes `deposit_day_count=` to `global_bootstrap`, which rejects it → `TypeError` on any global-method call (never tested). Pinned by an `xfail(strict, raises=TypeError)` test that flips green when fixed; tracked in `OPEN.md §0b`. Same "campaign flushes latent bugs" pattern as `fx_slv` / `desks/api`.
+
+**Tests**: 6 new (+1 xfail). **Verification**: full suite **12851 passed, 1 xfailed** (two slow G2++ tests deselected per convention).
+
+**Next**: Tier 2 — `bootstrap_ois`, `bootstrap_spread_curve` (independent builders).
+
+---
+
 ## v1.141.0 — 2026-06-22 — **Bootstrapper campaign F2: SurvivalCurve / AADDiscountCurve carry provenance**
 
 `SurvivalCurve` (credit) and `AADDiscountCurve` now hold `calibration_result: CalibrationResult | None = None`, mirroring `DiscountCurve` — so credit and AAD bootstrappers can attach a record the same way the rates curves do.
