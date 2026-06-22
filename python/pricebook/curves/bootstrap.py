@@ -4,13 +4,9 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from pricebook.calibration import (
-    CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    curve_calibration_record,
+    pillar_parameters,
 )
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
@@ -357,47 +353,32 @@ def _build_bootstrap_calibration_result(
                 quotes.append(f"future_{start_date.isoformat()}_{end_date.isoformat()}")
                 residuals.append(model_fwd - expected_fwd)
 
-    # Parameters: pillar discount factors keyed by pillar date.
-    parameters = {
-        f"df({d.isoformat()})": float(df)
-        for d, df in zip(curve.pillar_dates, [curve.df(d) for d in curve.pillar_dates])
-    }
-
-    return CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot_id,
-        ),
-        fit=CalibrationFit(
-            model_class="discount_curve_bootstrap",
-            parameters=parameters,
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=quotes,
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-           algorithm="brentq-sequential",
-           tolerance=1e-12,                   # brentq xtol default
-           max_iterations=len(parameters),
-           extra={
-               "interpolation": str(interpolation.value),
-               "deposit_day_count": str(deposit_day_count.value),
-               "hw_convexity_a": float(hw_convexity_a),
-               "hw_convexity_sigma": float(hw_convexity_sigma),
-               "turn_of_year_spread": float(turn_of_year_spread),
-           },
-       ),
-            iterations=len(parameters),
-            converged=True,
-        ),
-        diagnostics=CalibrationDiagnostics(
-            extra={
-                "n_deposits": len(deposits),
-                "n_swaps": len(swaps),
-                "n_fras": len(fras) if fras else 0,
-                "n_futures": len(futures) if futures else 0,
-            },
-        ),
+    parameters = pillar_parameters(
+        curve.pillar_dates, [curve.df(d) for d in curve.pillar_dates], label="df",
+    )
+    return curve_calibration_record(
+        model_class="discount_curve_bootstrap",
+        parameters=parameters,
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="brentq-sequential",
+        tolerance=1e-12,                   # brentq xtol default
+        iterations=len(parameters),
+        converged=True,
+        market_snapshot_id=market_snapshot_id,
+        optimiser_extra={
+            "interpolation": str(interpolation.value),
+            "deposit_day_count": str(deposit_day_count.value),
+            "hw_convexity_a": float(hw_convexity_a),
+            "hw_convexity_sigma": float(hw_convexity_sigma),
+            "turn_of_year_spread": float(turn_of_year_spread),
+        },
+        diagnostics_extra={
+            "n_deposits": len(deposits),
+            "n_swaps": len(swaps),
+            "n_fras": len(fras) if fras else 0,
+            "n_futures": len(futures) if futures else 0,
+        },
     )
 
 
