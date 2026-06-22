@@ -22,11 +22,20 @@ import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from pricebook.calibration import CanonicalCalibrationResult
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationFit,
+    CalibrationProvenance,
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ObjectiveKind,
+    OptimiserRun,
+    OptimiserSpec,
+)
 from pricebook.models.black76 import OptionType, black76_price
+from pricebook.statistics.optimization import minimize as pb_minimize
 
 if TYPE_CHECKING:
-    from pricebook.calibration import CalibrationResult
     from pricebook.market_data import MarketSnapshot
 
 
@@ -58,17 +67,9 @@ class SABRCalibrationResult(CanonicalCalibrationResult):
             "calibration_id": self.calibration_id,
         }
 
-    def _build_calibration_record(self) -> "CalibrationResult":
+    def _build_calibration_record(self) -> CalibrationResult:
         # On-demand fallback (hand-constructed instances); sabr_calibrate
         # populates calibration_result eagerly, so this rarely runs.
-        from pricebook.calibration import (
-            CalibrationFit,
-            CalibrationProvenance,
-            CalibrationResult,
-            ObjectiveKind,
-            OptimiserRun,
-            OptimiserSpec,
-        )
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
@@ -198,17 +199,6 @@ def sabr_calibrate(
         and the canonical `calibration_result` provenance artefact (a
         `CanonicalCalibrationResult`, so it persists via `db.save_calibration`).
     """
-    from pricebook.calibration import (
-        CalibrationDiagnostics,
-        CalibrationFit,
-        CalibrationProvenance,
-        CalibrationResult,
-        ObjectiveKind,
-        OptimiserRun,
-        OptimiserSpec,
-    )
-    from pricebook.statistics.optimization import minimize as pb_minimize
-
     if initial_guess is None:
         atm_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - forward))
         alpha0 = market_vols[atm_idx] * forward ** (1 - beta)
