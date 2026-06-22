@@ -2,6 +2,29 @@
 
 ---
 
+## v1.137.0 — 2026-06-22 — **Calibration contract: enforced, not just documented**
+
+Closes the enforcement gaps in the calibration design — the contract every family must honour is now checked at class-definition / construction / persistence boundaries, so a non-conforming or inconsistent calibrator fails fast with a clear message rather than relying on review discipline.
+
+**Files**: `python/pricebook/calibration/_types.py`, `python/pricebook/db/db.py`, + tests.
+
+**Conformance (was gap #1 — "nothing forces a family to follow the pattern"):**
+* `CanonicalCalibrationResult` is now an `abc.ABC`; `_build_calibration_record` is an `@abstractmethod`. A family that forgets to implement it fails at **instantiation** (`TypeError: Can't instantiate abstract class`), not on first use.
+* `__init_subclass__` enforces the *field* half of the contract at **class-definition** time: a subclass that inherits the mixin but omits `calibration_result: CalibrationResult | None = None` raises a clear `TypeError` when defined.
+* `PricebookDB.save_calibration` now rejects anything that isn't a `CalibrationResult` and can't produce one (`TypeError`) — a non-conforming result physically cannot enter the audit chain (silent fall-through to a stray `AttributeError` is gone).
+
+**Convention (was gap #3 — "semantics inside the fit are unconstrained"):** `CalibrationFit.__post_init__` now validates, at construction:
+* `model_class` is non-empty `snake_case` (the audit key — no more `"HullWhite"` vs `"hull_white"` drift; caught two sloppy test fixtures).
+* `weights` and `quotes_fitted`, when non-empty, must match `len(residuals)` (they are parallel per-quote arrays). The full producer suite confirms all ~15 calibrators already satisfy this.
+
+**Honest scope**: this does **not** enforce cross-family `model_class` *uniqueness* (a design-time ownership concern) or *residual units* (would need a units enum nobody currently consumes) — those remain doc/review matters by deliberate choice, noted as the boundary of what's worth enforcing at this scale.
+
+**Tests**: 7 new (abstract-method-at-instantiation, missing-field-at-definition, save-rejects-non-conforming, model_class snake_case, weights/quotes length agreement, empty-optionals allowed).
+
+**Verification**: full suite **12838 passed** (two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.136.0 — 2026-06-22 — **Calibration types: final-read cleanups (CalibrationFit immutability + docstring)**
 
 Two nits from a fresh-eyes read of `calibration/_types.py` after the decomposition.
