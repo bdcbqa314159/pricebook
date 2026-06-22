@@ -58,13 +58,27 @@ def test_stored_record_is_returned_verbatim():
     assert f.calibration_id == str(pre.provenance.id)
 
 
-def test_abstract_method_raises():
+def test_abstract_method_enforced_at_instantiation():
+    # ABC: a subclass that doesn't implement _build_calibration_record can't be
+    # instantiated at all — the contract is enforced up-front, not on first use.
     @dataclass
     class _Bare(CanonicalCalibrationResult):
         calibration_result: CalibrationResult | None = None
 
-    with pytest.raises(NotImplementedError):
-        _Bare().to_calibration_result()
+    with pytest.raises(TypeError, match="abstract"):
+        _Bare()
+
+
+def test_missing_field_enforced_at_class_definition():
+    # __init_subclass__: a family that inherits the mixin but forgets the
+    # `calibration_result` field fails when the class is DEFINED, not later.
+    with pytest.raises(TypeError, match="calibration_result"):
+        @dataclass
+        class _NoField(CanonicalCalibrationResult):
+            y: float = 0.0
+
+            def _build_calibration_record(self):  # implemented, but no field
+                raise AssertionError("unreachable")
 
 
 def test_persists_via_db():
@@ -73,3 +87,12 @@ def test_persists_via_db():
     with PricebookDB(":memory:") as db:
         cid = db.save_calibration(f)          # polymorphic save → to_calibration_result()
         assert db.load_calibration(cid) == f.to_calibration_result()
+
+
+def test_save_calibration_rejects_non_conforming():
+    # The persistence boundary refuses anything that isn't a CalibrationResult
+    # and can't produce one — a non-conforming result can't enter the audit chain.
+    from pricebook.db.db import PricebookDB
+    with PricebookDB(":memory:") as db:
+        with pytest.raises(TypeError, match="CalibrationResult"):
+            db.save_calibration(object())

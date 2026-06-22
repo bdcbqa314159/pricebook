@@ -31,7 +31,7 @@ def db():
     d.close()
 
 
-def _result(model_class="HullWhite", snapshot_id=None, **kw):
+def _result(model_class="hull_white", snapshot_id=None, **kw):
     return build_calibration_result(
         model_class=model_class,
         parameters={"a": 0.03, "sigma": 0.012},
@@ -78,7 +78,7 @@ class TestDenormalisedColumns:
         cr = _result(snapshot_id=snap)
         db.save_calibration(cr)
         raw = db.load_calibration_raw(cr.provenance.id)
-        assert raw["model_class"] == "HullWhite"
+        assert raw["model_class"] == "hull_white"
         assert raw["objective"] == ObjectiveKind.WEIGHTED_SSE.value
         assert raw["converged"] == 1            # bool → INTEGER
         assert raw["iterations"] == 37
@@ -86,7 +86,7 @@ class TestDenormalisedColumns:
         assert raw["max_residual"] == pytest.approx(cr.fit.max_residual)
         assert raw["market_snapshot_id"] == str(snap)
         # convention payload is flat (no "type"/"params" envelope)
-        assert raw["result"]["fit"]["model_class"] == "HullWhite"
+        assert raw["result"]["fit"]["model_class"] == "hull_white"
         assert raw["result"]["_schema_version"] == 3
 
     def test_null_snapshot(self, db):
@@ -98,17 +98,17 @@ class TestDenormalisedColumns:
 class TestListAndFilter:
 
     def test_list_all(self, db):
-        db.save_calibration(_result("HullWhite"))
-        db.save_calibration(_result("SABR"))
+        db.save_calibration(_result("hull_white"))
+        db.save_calibration(_result("sabr"))
         assert len(db.list_calibrations()) == 2
 
     def test_filter_by_model_class(self, db):
-        db.save_calibration(_result("HullWhite"))
-        db.save_calibration(_result("HullWhite"))
-        db.save_calibration(_result("SABR"))
-        hw = db.list_calibrations(model_class="HullWhite")
+        db.save_calibration(_result("hull_white"))
+        db.save_calibration(_result("hull_white"))
+        db.save_calibration(_result("sabr"))
+        hw = db.list_calibrations(model_class="hull_white")
         assert len(hw) == 2
-        assert {r["model_class"] for r in hw} == {"HullWhite"}
+        assert {r["model_class"] for r in hw} == {"hull_white"}
 
     def test_filter_by_snapshot_audit_chain(self, db):
         snap = uuid4()

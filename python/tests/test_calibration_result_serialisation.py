@@ -27,7 +27,7 @@ from tests.conftest import build_calibration_result
 
 def _sample_result() -> CalibrationResult:
     return build_calibration_result(
-        model_class="HullWhite",
+        model_class="hull_white",
         parameters={"a": 0.03, "sigma": 0.012},
         residuals=[0.001, -0.002, 0.0005],
         optimiser=OptimiserSpec(
@@ -89,7 +89,7 @@ def test_calibration_result_round_trip():
 
 def test_calibration_result_round_trip_no_snapshot():
     cr = build_calibration_result(
-        model_class="SABR",
+        model_class="sabr",
         parameters={"alpha": 0.2},
         residuals=[0.0],
         optimiser=OptimiserSpec("differential_evolution", 1e-6, 1000),

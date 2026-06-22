@@ -23,6 +23,8 @@ to read `__version__`) is lazy and does not create a runtime cycle.
 from __future__ import annotations
 
 import math
+import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -169,6 +171,10 @@ class CalibrationFit:
     quotes_fitted: Sequence[str] = ()
     weights: Sequence[float] = ()
 
+    # model_class is an audit key — a controlled snake_case vocabulary so that
+    # records from one calibrator group under one stable tag.
+    _MODEL_CLASS_RE = re.compile(r"[a-z][a-z0-9_]*")
+
     def __post_init__(self) -> None:
         # Canonicalise the sequence fields to tuples: a frozen record should
         # hold immutable sequences (same convention as CalibrationDiagnostics),
@@ -177,6 +183,26 @@ class CalibrationFit:
         object.__setattr__(self, "residuals", tuple(self.residuals))
         object.__setattr__(self, "quotes_fitted", tuple(self.quotes_fitted))
         object.__setattr__(self, "weights", tuple(self.weights))
+
+        # Contract checks — turn the per-quote conventions from "documented" to
+        # "enforced at construction", so a calibrator can't ship a structurally
+        # valid but inconsistent record.
+        if not self._MODEL_CLASS_RE.fullmatch(self.model_class):
+            raise ValueError(
+                f"model_class must be non-empty snake_case (audit key); "
+                f"got {self.model_class!r}"
+            )
+        n = len(self.residuals)
+        if self.weights and len(self.weights) != n:
+            raise ValueError(
+                f"weights length {len(self.weights)} must match residuals length {n} "
+                f"(parallel per-quote arrays)"
+            )
+        if self.quotes_fitted and len(self.quotes_fitted) != n:
+            raise ValueError(
+                f"quotes_fitted length {len(self.quotes_fitted)} must match residuals "
+                f"length {n} (parallel per-quote arrays)"
+            )
 
     @property
     def rms_residual(self) -> float:
@@ -221,14 +247,18 @@ class CalibrationResult:
     diagnostics: CalibrationDiagnostics = field(default_factory=CalibrationDiagnostics)
 
 
-class CanonicalCalibrationResult:
-    """Mixin for per-family calibration results that expose a canonical
+class CanonicalCalibrationResult(ABC):
+    """Abstract mixin for per-family calibration results that expose a canonical
     `CalibrationResult` provenance artefact.
 
     A subclass (a non-frozen ``@dataclass``) must:
         * declare the field ``calibration_result: CalibrationResult | None = None``;
         * implement ``_build_calibration_record() -> CalibrationResult``, mapping
           its model-specific fields onto the canonical record.
+
+    The second requirement is enforced: ``_build_calibration_record`` is an
+    ``@abstractmethod``, so a family that forgets it fails at *instantiation*
+    (``TypeError: Can't instantiate abstract class``) rather than on first use.
 
     A calibrator may populate ``calibration_result`` eagerly (richest
     provenance — iterations, convergence, weights captured at fit time);
@@ -242,16 +272,33 @@ class CanonicalCalibrationResult:
 
     calibration_result: "CalibrationResult | None"
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        # Enforce the field half of the contract at class-definition time
+        # (the ABC enforces the method half at instantiation). A family that
+        # inherits the mixin but forgets the `calibration_result` field fails
+        # here — fast, with a clear message — rather than with a stray
+        # AttributeError the first time `to_calibration_result()` runs.
+        super().__init_subclass__(**kwargs)
+        if "calibration_result" not in cls.__dict__.get("__annotations__", {}):
+            raise TypeError(
+                f"{cls.__name__} is a CanonicalCalibrationResult but does not "
+                f"declare the required field "
+                f"'calibration_result: CalibrationResult | None = None'."
+            )
+
     def to_calibration_result(self) -> "CalibrationResult":
         """Return the canonical record — the stored one, or a lazily-built+cached one."""
         if self.calibration_result is None:
             self.calibration_result = self._build_calibration_record()
         return self.calibration_result
 
+    @abstractmethod
     def _build_calibration_record(self) -> "CalibrationResult":
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement _build_calibration_record()"
-        )
+        """Map this family's fields onto a canonical `CalibrationResult`.
+
+        Abstract — every subclass implements it; the ABC enforces this at
+        instantiation, so a family that forgets it fails fast.
+        """
 
     @property
     def calibration_id(self) -> str | None:

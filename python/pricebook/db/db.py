@@ -435,11 +435,19 @@ class PricebookDB:
         Idempotent on the calibration id — re-saving the same result updates
         the row. The full record is stored as JSON (`result_json`) and the
         identity/quality fields are denormalised into columns so the audit
-        chain can be queried (e.g. `list_calibrations(model_class="HullWhite")`
+        chain can be queried (e.g. `list_calibrations(model_class="hull_white")`
         or by `market_snapshot_id`) without reconstructing every blob.
         """
         if hasattr(result, "to_calibration_result"):
             result = result.to_calibration_result()
+        from pricebook.calibration import CalibrationResult
+        if not isinstance(result, CalibrationResult):
+            raise TypeError(
+                f"save_calibration expects a CalibrationResult or an object exposing "
+                f"to_calibration_result() (a CanonicalCalibrationResult); got "
+                f"{type(result).__name__}. A calibration result must produce the "
+                f"canonical record to enter the audit chain."
+            )
         prov, fit, run = result.provenance, result.fit, result.optimiser_run
         cid = str(prov.id)
         msid = str(prov.market_snapshot_id) if prov.market_snapshot_id else None

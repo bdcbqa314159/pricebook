@@ -12,11 +12,40 @@ import pytest
 import pricebook
 from pricebook.calibration import (
     CalibrationDiagnostics,
+    CalibrationFit,
     CalibrationResult,
     ObjectiveKind,
     OptimiserSpec,
 )
 from tests.conftest import build_calibration_result
+
+
+class TestCalibrationFitContract:
+    """The fit record enforces its per-quote conventions at construction."""
+
+    def test_model_class_must_be_snake_case(self):
+        for bad in ("HullWhite", "SABR", "", "Hull White", "hull-white"):
+            with pytest.raises(ValueError, match="snake_case"):
+                CalibrationFit(model_class=bad, parameters={}, residuals=[0.0])
+
+    def test_model_class_snake_case_accepted(self):
+        fit = CalibrationFit(model_class="hull_white", parameters={}, residuals=[0.0])
+        assert fit.model_class == "hull_white"
+
+    def test_weights_must_match_residuals_length(self):
+        with pytest.raises(ValueError, match="weights length"):
+            CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0],
+                           weights=[1.0])
+
+    def test_quotes_must_match_residuals_length(self):
+        with pytest.raises(ValueError, match="quotes_fitted length"):
+            CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0],
+                           quotes_fitted=["only_one"])
+
+    def test_empty_optional_sequences_skip_length_check(self):
+        # weights/quotes default empty → "no per-quote weighting/labels", allowed
+        fit = CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0])
+        assert fit.weights == () and fit.quotes_fitted == ()
 
 
 class TestObjectiveKind:
