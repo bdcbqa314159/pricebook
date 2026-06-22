@@ -2,6 +2,16 @@
 
 ---
 
+## v1.139.0 — 2026-06-22 — **sabr: hoist now-redundant lazy imports to top-level**
+
+Follow-up tidy after the SABR typing conversion (v1.138.0). Adding the top-level `from pricebook.calibration import CanonicalCalibrationResult` (needed as a base class) already loads the `pricebook.calibration` module at import time, so the in-function lazy `import pricebook.calibration` / `import pb_minimize` blocks in `sabr_calibrate` and `_build_calibration_record` no longer deferred anything — they were just noise. Consolidated all of them into one top-level import block.
+
+**Files**: `python/pricebook/options/sabr.py` (net −10 lines). No behaviour change; verified no import cycle (the `sabr → calibration` and `sabr → statistics.optimization` edges are acyclic).
+
+**Verification**: full suite **12838 passed** (two slow G2++ tests deselected per convention).
+
+---
+
 ## v1.138.0 — 2026-06-22 — **SABR: typed result through the canonical mixin**
 
 `sabr_calibrate` returned a stringly-typed `dict`; it now returns a typed `SABRCalibrationResult` that goes through `CanonicalCalibrationResult` like every other family — so SABR persists via `db.save_calibration(result)` directly and is covered by the ABC/field enforcement. **13 of 15 calibrators** are now on the mixin (the two curve bootstrappers — `discount_curve_bootstrap`, `discount_curve_global` — stay curve-carries-provenance by design).
