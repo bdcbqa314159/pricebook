@@ -220,13 +220,9 @@ class TestRFRProvenance:
         cr = self._result("sequential").calibration_result
         assert cr is not None and cr.fit.model_class == "discount_curve_bootstrap"
 
-    @pytest.mark.xfail(
-        reason="pre-existing bug surfaced by the provenance campaign: "
-               "bootstrap_rfr(method='global') passes deposit_day_count to "
-               "global_bootstrap, which rejects it. Fix tracked separately.",
-        strict=True, raises=TypeError,
-    )
     def test_global_surfaces_record(self):
+        # B-rfr-global fixed (v1.143.0): the global method path now works and
+        # surfaces the discount_curve_global record through RFRCurveResult.
         cr = self._result("global").calibration_result
         assert cr is not None and cr.fit.model_class == "discount_curve_global"
 

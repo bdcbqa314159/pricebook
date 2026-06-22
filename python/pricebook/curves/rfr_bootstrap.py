@@ -253,9 +253,9 @@ def bootstrap_rfr(
         from pricebook.curves.global_solver import global_bootstrap
         curve = global_bootstrap(
             reference_date, deposits, swaps,
-            deposit_day_count=conv.deposit_dc,
-            fixed_day_count=conv.fixed_dc,
-            fixed_frequency=fixed_freq,
+            deposit_dc=conv.deposit_dc,
+            swap_dc=conv.fixed_dc,
+            swap_frequency=fixed_freq,
             interpolation=interpolation,
         )
     else:
