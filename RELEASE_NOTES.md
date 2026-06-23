@@ -2,6 +2,22 @@
 
 ---
 
+## v1.151.0 — 2026-06-23 — **Bootstrapper provenance: global_solver closed out**
+
+Post-campaign sweep of the two `global_solver.py` producers that the conformance gate had allowlisted as "solver primitives". One was a genuine gap; the other was inconsistent.
+
+**Files**: `curves/global_solver.py`, `test_bootstrapper_provenance_conformance.py`.
+
+* **`coupled_bootstrap` (genuine gap)** — the dual-curve simultaneous Newton solve returned `(ois_curve, proj_curve)` with **no record on either**. Now each carries its own: `coupled_ois_bootstrap` (OIS pillar residuals) and `coupled_projection_bootstrap` (projection-swap residuals), sharing the `newton-coupled` run metadata. Distinct records (distinct ids), both persist.
+* **`global_bootstrap` (consistency)** — it already attached a `discount_curve_global` record, but **hand-rolled** the `CalibrationResult` with the raw constructor (predating the helper). Migrated to `curve_calibration_record()` so its shape is uniform with the other 18 producers; `max_iterations` cap preserved in `optimiser.extra` (the helper ties `max_iterations` to actual `iterations`).
+* **Gate** — both promoted from ALLOWLIST → COVERED and added to the behavioural registry; ALLOWLIST now contains only `bootstrap_ci` (statistical, not a curve). New dedicated test asserts `coupled_bootstrap` attaches to **both** curves.
+
+**Result**: every public curve bootstrapper in the package now attaches provenance — the allowlist holds only the one genuinely-not-a-curve function. **Tests**: +3 (22 in the conformance file). **Verification**: full suite **12893 passed**.
+
+**Next (full-sweep plan)**: calibrator-side conformance gate for the ~13 `CanonicalCalibrationResult` mixin subclasses.
+
+---
+
 ## v1.150.0 — 2026-06-23 — **Bootstrapper campaign: closing conformance gate (campaign complete)**
 
 Locks the invariant the campaign built: *every public curve bootstrapper attaches an auditable calibration record.* Mirrors the `CanonicalCalibrationResult` ABC/field guard on the mixin side — convention becomes enforced invariant.
