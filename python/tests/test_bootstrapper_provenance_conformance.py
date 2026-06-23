@@ -49,6 +49,8 @@ COVERED = {
     "bootstrap_cpi_curve",          # fixed_income/inflation
     "real_yield_curve_bootstrap",   # fixed_income/inflation_bond_advanced
     "dividend_curve_bootstrap",     # equity/dividend_advanced
+    "global_bootstrap",             # curves/global_solver — single-curve newton solve
+    "coupled_bootstrap",            # curves/global_solver — dual-curve simultaneous solve
     # Pre-existing — behaviourally tested in test_bond_hazard_calibration_result.py
     "bootstrap_hazard_from_bonds",
     "bootstrap_hazard_mixed",
@@ -57,8 +59,6 @@ COVERED = {
 
 # Deliberately excluded, each with a reason.
 ALLOWLIST = {
-    "global_bootstrap": "low-level solver primitive; the calling bootstrapper owns provenance",
-    "coupled_bootstrap": "low-level dual-curve solver primitive; callers own provenance",
     "bootstrap_ci": "statistical resampling (confidence interval), not a curve calibration",
 }
 
@@ -231,6 +231,29 @@ def _r_dividend():
     return dividend_curve_bootstrap(100.0, 0.03, [1.0, 5.0], [2.0, 9.0]).calibration_result
 
 
+def _coupled_inputs():
+    from dateutil.relativedelta import relativedelta
+    deps = [(REF + relativedelta(months=6), 0.05)]
+    ois_swaps = [(REF + relativedelta(years=2), 0.045), (REF + relativedelta(years=5), 0.04)]
+    proj_swaps = [(REF + relativedelta(years=2), 0.046), (REF + relativedelta(years=5), 0.041)]
+    return deps, ois_swaps, proj_swaps
+
+
+def _r_global():
+    from dateutil.relativedelta import relativedelta
+    from pricebook.curves.global_solver import global_bootstrap
+    deps = [(REF + relativedelta(months=6), 0.05)]
+    swaps = [(REF + relativedelta(years=2), 0.045), (REF + relativedelta(years=5), 0.04)]
+    return global_bootstrap(REF, deps, swaps).calibration_result
+
+
+def _r_coupled():
+    from pricebook.curves.global_solver import coupled_bootstrap
+    deps, ois_swaps, proj_swaps = _coupled_inputs()
+    ois, _proj = coupled_bootstrap(REF, deps, ois_swaps, proj_swaps)
+    return ois.calibration_result
+
+
 # Registry: name in COVERED -> thunk returning its calibration_result.
 REGISTRY = {
     "bootstrap": _r_bootstrap,
@@ -249,6 +272,8 @@ REGISTRY = {
     "bootstrap_cpi_curve": _r_cpi,
     "real_yield_curve_bootstrap": _r_real_yield,
     "dividend_curve_bootstrap": _r_dividend,
+    "global_bootstrap": _r_global,
+    "coupled_bootstrap": _r_coupled,
 }
 
 # Covered names exercised behaviourally elsewhere (their own test file).
@@ -273,3 +298,20 @@ def test_covered_bootstrapper_attaches_record(name):
     with PricebookDB(":memory:") as db:
         cid = db.save_calibration(cr)
         assert db.load_calibration(cid) == cr
+
+
+def test_coupled_bootstrap_attaches_to_both_curves():
+    """The dual-curve solve must carry provenance on BOTH returned curves."""
+    from pricebook.curves.global_solver import coupled_bootstrap
+    deps, ois_swaps, proj_swaps = _coupled_inputs()
+    ois, proj = coupled_bootstrap(REF, deps, ois_swaps, proj_swaps)
+    assert ois.calibration_result is not None
+    assert proj.calibration_result is not None
+    assert ois.calibration_result.fit.model_class == "coupled_ois_bootstrap"
+    assert proj.calibration_result.fit.model_class == "coupled_projection_bootstrap"
+    # Distinct records (different ids), each persists.
+    assert ois.calibration_result.provenance.id != proj.calibration_result.provenance.id
+    with PricebookDB(":memory:") as db:
+        for cr in (ois.calibration_result, proj.calibration_result):
+            cid = db.save_calibration(cr)
+            assert db.load_calibration(cid) == cr

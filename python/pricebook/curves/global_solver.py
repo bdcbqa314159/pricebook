@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
@@ -204,53 +205,31 @@ def global_bootstrap(
 
     curve = _make_curve(dfs)
 
-    # Attach canonical CalibrationResult (G1 P1 Slice 5).
+    # Attach canonical CalibrationResult via the shared helper (uniform shape).
     final_res = _residuals(dfs)
-    from pricebook.calibration import (
-    CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
-    CalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
-)
-    quotes = []
-    for inst_type, mat, _rate in all_instruments:
-        quotes.append(f"{inst_type}_{mat.isoformat()}")
-    parameters = {f"df({d.isoformat()})": float(df) for d, df in zip(pillar_dates, dfs)}
-    curve.calibration_result = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
-        ),
-        fit=CalibrationFit(
-            model_class="discount_curve_global",
-            parameters=parameters,
-            residuals=[float(r) for r in final_res],
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=quotes,
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-           algorithm="newton-global",
-           tolerance=tol,
-           max_iterations=max_iter,
-           extra={
-               "interpolation": str(interpolation.value),
-               "deposit_dc": str(deposit_dc.value),
-               "swap_dc": str(swap_dc.value),
-           },
-       ),
-            iterations=int(iteration + 1) if 'iteration' in dir() else 0,
-            converged=bool(converged),
-        ),
-        diagnostics=CalibrationDiagnostics(
-            extra={
-                "n_deposits": len(deposits),
-                "n_swaps": len(swaps),
-                "max_residual_abs": float(np.max(np.abs(final_res))),
-            },
-        ),
+    quotes = [f"{inst_type}_{mat.isoformat()}" for inst_type, mat, _rate in all_instruments]
+    iters = int(iteration + 1) if 'iteration' in dir() else 0
+    curve.calibration_result = curve_calibration_record(
+        model_class="discount_curve_global",
+        parameters=pillar_parameters(pillar_dates, dfs, label="df"),
+        residuals=[float(r) for r in final_res],
+        quotes_fitted=quotes,
+        algorithm="newton-global",
+        iterations=iters,
+        converged=bool(converged),
+        tolerance=tol,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
+        optimiser_extra={
+            "interpolation": str(interpolation.value),
+            "deposit_dc": str(deposit_dc.value),
+            "swap_dc": str(swap_dc.value),
+            "max_iterations": max_iter,
+        },
+        diagnostics_extra={
+            "n_deposits": len(deposits),
+            "n_swaps": len(swaps),
+            "max_residual_abs": float(np.max(np.abs(final_res))),
+        },
     )
     return curve
 
@@ -404,4 +383,34 @@ def coupled_bootstrap(
         )
 
     ois, proj = _make_curves(x)
+
+    # Curve-carries-provenance: the coupled solve fits both curves jointly; each
+    # carries the record for the instruments it is responsible for (OIS pillars
+    # vs projection swaps), sharing the newton-coupled run metadata.
+    final_res = _residuals(x)
+    iters = int(iteration + 1)
+    ois.calibration_result = curve_calibration_record(
+        model_class="coupled_ois_bootstrap",
+        parameters=pillar_parameters(ois_dates, list(x[:n_ois]), label="df"),
+        residuals=[float(r) for r in final_res[:n_ois]],
+        quotes_fitted=[f"ois_pillar_{d.isoformat()}" for d in ois_dates],
+        algorithm="newton-coupled",
+        iterations=iters,
+        converged=bool(converged),
+        tolerance=tol,
+        optimiser_extra={"interpolation": str(interpolation.value)},
+        diagnostics_extra={"role": "ois_discount", "n_total_pillars": n_total},
+    )
+    proj.calibration_result = curve_calibration_record(
+        model_class="coupled_projection_bootstrap",
+        parameters=pillar_parameters(proj_dates, list(x[n_ois:]), label="df"),
+        residuals=[float(r) for r in final_res[n_ois:]],
+        quotes_fitted=[f"proj_swap_{d.isoformat()}" for d in proj_dates],
+        algorithm="newton-coupled",
+        iterations=iters,
+        converged=bool(converged),
+        tolerance=tol,
+        optimiser_extra={"interpolation": str(interpolation.value)},
+        diagnostics_extra={"role": "projection", "n_total_pillars": n_total},
+    )
     return ois, proj
