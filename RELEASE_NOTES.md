@@ -2,6 +2,21 @@
 
 ---
 
+## v1.150.0 — 2026-06-23 — **Bootstrapper campaign: closing conformance gate (campaign complete)**
+
+Locks the invariant the campaign built: *every public curve bootstrapper attaches an auditable calibration record.* Mirrors the `CanonicalCalibrationResult` ABC/field guard on the mixin side — convention becomes enforced invariant.
+
+**Files**: `test_bootstrapper_provenance_conformance.py` (new, test-only slice).
+
+* **Discovery guard** — AST-scans the whole `pricebook` package for public module-level `bootstrap*` / `*_bootstrap` functions and asserts each is classified: **COVERED** (must attach provenance — 16 in the runtime registry + the 3 pre-existing `bond_hazard_*` tested in their own file) or **ALLOWLIST** (with a reason: `global_bootstrap`/`coupled_bootstrap` low-level solver primitives; `bootstrap_ci` statistical resampling). A new bootstrapper nobody classified fails this test → cannot silently skip provenance. A drift guard also fails if a classified name disappears.
+* **Behavioural gate** — runs each of the 16 COVERED producers on a small fixture and asserts the returned curve / wrapper carries a non-None `calibration_result` that round-trips through the DB.
+
+**Tests**: 19 new (3 meta-guards + 16 parametrised producers). **Verification**: full suite **12890 passed**.
+
+**Campaign summary (v1.140 → v1.150)**: F1 helpers → F2 curve fields → Tier 1 core primitives → Tier 2 foundational rates → Tier 3 basis/specialised → Tier 4 credit → Tier 5 inflation/equity → conformance gate. All public curve/survival bootstrappers are now auditable and persistable, enforced in CI.
+
+---
+
 ## v1.149.0 — 2026-06-23 — **Bootstrapper campaign Tier 5: inflation + equity curve provenance**
 
 The last tier of producers. These return types had no provenance slot, so this slice adds the field (the F2-equivalent for the tier) and attaches the record.
