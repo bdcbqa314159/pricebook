@@ -2,6 +2,23 @@
 
 ---
 
+## v1.149.0 — 2026-06-23 — **Bootstrapper campaign Tier 5: inflation + equity curve provenance**
+
+The last tier of producers. These return types had no provenance slot, so this slice adds the field (the F2-equivalent for the tier) and attaches the record.
+
+**Files**: `fixed_income/inflation.py`, `fixed_income/inflation_bond_advanced.py`, `equity/dividend_advanced.py`, `test_tier5_inflation_equity_provenance.py` (new).
+
+* **`bootstrap_cpi_curve`** → `CPICurve` gains a `calibration_result` attribute; record `cpi_curve_bootstrap`, `algorithm="closed_form"`. Residual = implied ZC inflation rate from each pillar CPI minus the quote (~0; `cpi(T)=base·(1+rate)^T`).
+* **`real_yield_curve_bootstrap`** → `RealYieldCurveResult` gains the field; record `real_yield_curve_bootstrap`, per-linker brentq. Residual = linker price equation at the solved real yield.
+* **`dividend_curve_bootstrap`** → `DividendCurve` gains the field; record `dividend_curve_bootstrap`, `algorithm="closed_form"`. Residual = `S·q̄·T − D(T)` (0 where `T>0`).
+* Both dataclass `to_dict()` methods now **exclude** `calibration_result` so the record object doesn't leak into serialised dicts.
+
+**Tests**: 3 new. **Verification**: full suite **12871 passed**.
+
+**Next**: the closing **conformance gate** — assert every public bootstrapper attaches a non-None `calibration_result`, turning "all curves auditable" from convention into an enforced invariant.
+
+---
+
 ## v1.148.0 — 2026-06-23 — **Bootstrapper campaign Tier 4: credit curve provenance**
 
 All three credit bootstrappers build a `SurvivalCurve`; each now attaches its canonical record (curve-carries-provenance).
