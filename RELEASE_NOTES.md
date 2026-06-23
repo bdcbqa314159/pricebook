@@ -2,6 +2,20 @@
 
 ---
 
+## v1.144.0 — 2026-06-23 — **Bootstrapper campaign Tier 2a: OIS curve provenance**
+
+`bootstrap_ois` now attaches a canonical record to the discount curve it returns.
+
+**Files**: `fixed_income/ois.py`, `test_ois.py`.
+
+* `curve.calibration_result` (`model_class="ois_curve_bootstrap"`), via the F1 helper. Residuals = per-OIS-swap round-trip `pv_fixed − pv_float` (telescoping float leg; ~1e-13 by construction). `parameters` = pillar discount factors.
+
+**Tests**: 2 new. **Verification**: full suite **12854 passed**.
+
+**Next**: Tier 2b — `bootstrap_spread_curve` (needs the `SpreadCurve` type to carry the field first).
+
+---
+
 ## v1.143.0 — 2026-06-23 — **Fix B-rfr-global: bootstrap_rfr(method="global") kwarg mismatch**
 
 The bug the Tier-1 provenance work surfaced. `curves/rfr_bootstrap.bootstrap_rfr(method="global")` called `global_bootstrap(..., deposit_day_count=, fixed_day_count=, fixed_frequency=)`, but `global_bootstrap`'s parameters are `deposit_dc` / `swap_dc` / `swap_frequency` — so any global-method RFR bootstrap raised `TypeError`. Never tested, so never noticed.
