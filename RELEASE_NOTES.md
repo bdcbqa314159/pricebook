@@ -2,6 +2,21 @@
 
 ---
 
+## v1.147.0 — 2026-06-23 — **Bootstrapper campaign Tier 3b: bond curve + tenor basis provenance**
+
+The two Tier-3 bootstrappers that return a *non-bare-curve* artifact now carry a record.
+
+**Files**: `curves/bond_curve.py`, `fixed_income/tenor_basis.py`, `test_tier3b_curve_provenance.py` (new).
+
+* **`bootstrap_curve_from_bonds`** → `BondCurveResult.__post_init__` injects a `bond_curve_bootstrap` record directly onto the extracted `discount_curve`, built from the fit data the result already holds (per-bond `residuals_bp`, pillar zeros, method, converged). Covers all three solve methods (sequential / global / parametric NS+Svensson) with no per-return-site wiring; parametric β/τ captured in `diagnostics.extra["shape"]`. `BondCurveResult.calibration_result` forwards to the curve.
+* **`bootstrap_tenor_basis`** → attaches a `tenor_basis_bootstrap` record to the long-tenor projection curve (`IBORCurve` forwards `.calibration_result` from Tier 1). Per-quote residual = basis-swap PV (short−long) at the solved df (~1e-14, brentq); extracted spreads stored as `diagnostics.extra["spreads_bp"]`.
+
+**Tests**: 5 new (4 bond methods parametrised + tenor basis). **Verification**: full suite **12864 passed**.
+
+**Next**: Tier 4 — credit (`cds`, `cds_market`, `sovereign_cds`, all `SurvivalCurve`), then Tier 5 (inflation/equity) and the closing conformance gate.
+
+---
+
 ## v1.146.0 — 2026-06-23 — **Bootstrapper campaign Tier 3a: xccy basis + AAD curve provenance**
 
 The two Tier-3 bootstrappers that return a bare curve now attach a record.
