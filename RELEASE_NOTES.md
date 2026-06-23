@@ -2,6 +2,21 @@
 
 ---
 
+## v1.146.0 — 2026-06-23 — **Bootstrapper campaign Tier 3a: xccy basis + AAD curve provenance**
+
+The two Tier-3 bootstrappers that return a bare curve now attach a record.
+
+**Files**: `fixed_income/xccy_basis.py`, `curves/aad_curves.py`, `test_tier3a_basis_provenance.py` (new).
+
+* `bootstrap_basis_curve` (xccy) → `model_class="xccy_basis_bootstrap"`, `algorithm="closed_form"` (direct CIP solve). Residuals = per-forward `F_model − F_market` (0, exact).
+* `aad_bootstrap` → `model_class="aad_discount_curve_bootstrap"`, `algorithm="aad-fixed-point"`. Residuals computed on the `Number`-valued curve's float values (deposit `model_rate − rate`; swap par condition `par·annuity + df(mat) − 1`; ~1e-17).
+
+**Tests**: 2 new. **Verification**: full suite **12859 passed**.
+
+**Next**: Tier 3b — `bond_curve` (`BondCurveResult` wrapper) and `tenor_basis` (tuple return), both needing forwarders.
+
+---
+
 ## v1.145.0 — 2026-06-23 — **Bootstrapper campaign Tier 2b: spread curve provenance**
 
 `bootstrap_spread_curve` (IBOR-RFR basis) now attaches a record — completing Tier 2.
