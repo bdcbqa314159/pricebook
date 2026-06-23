@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.calibration import curve_calibration_record
 from pricebook.core.solvers import brentq
 
 
@@ -29,11 +30,12 @@ class RealYieldCurveResult:
     real_yields: np.ndarray
     nominal_yields: np.ndarray | None
     breakevens: np.ndarray | None
+    calibration_result: object = None  # canonical record, set by the bootstrap
 
 
 
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return {k: v for k, v in vars(self).items() if k != "calibration_result"}
 def real_yield_curve_bootstrap(
     linker_prices: list[float],
     notionals: list[float],
@@ -58,6 +60,7 @@ def real_yield_curve_bootstrap(
     index_ratio = cpi_current / cpi_base
     mats = np.array(maturities)
     real_yields = np.zeros(len(mats))
+    residuals: list[float] = []
 
     for i, (price, notional, coupon, T) in enumerate(
             zip(linker_prices, notionals, coupon_rates, maturities)):
@@ -75,13 +78,27 @@ def real_yield_curve_bootstrap(
             return pv - price
 
         real_yields[i] = brentq(_pv_obj, -0.05, 0.30)
+        # Residual = linker repricing error at the solved real yield (~0, brentq).
+        residuals.append(_pv_obj(real_yields[i]))
 
-    return RealYieldCurveResult(
+    result = RealYieldCurveResult(
         maturities=mats,
         real_yields=real_yields,
         nominal_yields=None,
         breakevens=None,
     )
+    result.calibration_result = curve_calibration_record(
+        model_class="real_yield_curve_bootstrap",
+        parameters={f"real_yield_{float(T):g}y": float(y)
+                    for T, y in zip(maturities, real_yields)},
+        residuals=residuals,
+        quotes_fitted=[f"linker_{float(T):g}y" for T in maturities],
+        algorithm="bootstrap",  # per-linker brentq on the price equation
+        iterations=len(mats),
+        converged=True,
+        diagnostics_extra={"index_ratio": float(index_ratio), "n_linkers": len(mats)},
+    )
+    return result
 
 
 @dataclass

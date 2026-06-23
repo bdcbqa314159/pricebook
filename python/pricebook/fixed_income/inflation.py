@@ -22,6 +22,7 @@ from dateutil.relativedelta import relativedelta
 
 import numpy as np
 
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod, create_interpolator
@@ -59,6 +60,10 @@ class CPICurve:
         self.day_count = day_count
         self._pillar_dates = list(dates)
         self._pillar_cpi = list(cpi_levels)
+
+        # Curve-carries-provenance: attached by bootstrap_cpi_curve (None until
+        # set). Mirrors DiscountCurve — the curve owns its calibration record.
+        self.calibration_result = None
 
         times = [year_fraction(reference_date, d, day_count) for d in dates]
         log_ratios = [math.log(c / base_cpi) for c in cpi_levels]
@@ -482,6 +487,8 @@ def bootstrap_cpi_curve(
     """
     dates = []
     cpi_levels = []
+    quotes: list[str] = []
+    residuals: list[float] = []
     for mat, rate in sorted(zc_swap_quotes, key=lambda x: x[0]):
         T = year_fraction(reference_date, mat, day_count)
         if T <= 0:
@@ -489,8 +496,24 @@ def bootstrap_cpi_curve(
         cpi_T = base_cpi * (1 + rate) ** T
         dates.append(mat)
         cpi_levels.append(cpi_T)
+        # Round-trip residual: implied ZC rate from the pillar CPI vs the quote
+        # (exact by construction for this closed-form curve).
+        implied_rate = (cpi_T / base_cpi) ** (1.0 / T) - 1.0
+        quotes.append(f"zc_inflation_swap_{mat.isoformat()}")
+        residuals.append(implied_rate - rate)
 
-    return CPICurve(reference_date, base_cpi, dates, cpi_levels, day_count)
+    curve = CPICurve(reference_date, base_cpi, dates, cpi_levels, day_count)
+    curve.calibration_result = curve_calibration_record(
+        model_class="cpi_curve_bootstrap",
+        parameters=pillar_parameters(dates, cpi_levels, label="cpi"),
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="closed_form",  # cpi(T) = base × (1+rate)^T, no iteration
+        iterations=len(dates),
+        converged=True,
+        diagnostics_extra={"base_cpi": float(base_cpi), "n_quotes": len(quotes)},
+    )
+    return curve
 
 _serialisable("zc_inflation_swap", ['start', 'end', 'fixed_rate', 'notional'])(ZCInflationSwap)
 

@@ -19,6 +19,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.calibration import curve_calibration_record
+
 
 # ---- Stochastic dividend ----
 
@@ -145,11 +147,12 @@ class DividendCurve:
     cumulative_dividends: np.ndarray    # ∫₀^T D(s) ds
     implied_yields: np.ndarray           # average yield to T
     method: str
+    calibration_result: object = None    # canonical record, set by the bootstrap
 
 
 
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return {k: v for k, v in vars(self).items() if k != "calibration_result"}
 def dividend_curve_bootstrap(
     spot: float,
     rate: float,
@@ -175,12 +178,26 @@ def dividend_curve_bootstrap(
     # Average yield: q̄ such that S×q̄×T ≈ D(T) (simplification)
     yields = np.where(T > 0, D / (spot * T), 0.0)
 
-    return DividendCurve(
+    curve = DividendCurve(
         tenors=T,
         cumulative_dividends=D,
         implied_yields=yields,
         method="linear_bootstrap",
     )
+    # Round-trip residual: S × q̄ × T − D(T) (exact 0 where T > 0, since
+    # q̄ was set from this relation; equals −D(T) for any degenerate T ≤ 0).
+    residuals = [float(spot * y * t - d) for t, y, d in zip(T, yields, D)]
+    curve.calibration_result = curve_calibration_record(
+        model_class="dividend_curve_bootstrap",
+        parameters={f"div_yield_{float(t):g}y": float(y) for t, y in zip(T, yields)},
+        residuals=residuals,
+        quotes_fitted=[f"div_future_{float(t):g}y" for t in T],
+        algorithm="closed_form",  # q̄ = D / (S·T), no iteration
+        iterations=len(T),
+        converged=True,
+        diagnostics_extra={"spot": float(spot), "rate": float(rate)},
+    )
+    return curve
 
 
 # ---- Implied dividend yield ----
