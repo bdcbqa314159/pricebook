@@ -2,6 +2,22 @@
 
 ---
 
+## v1.152.0 — 2026-06-23 — **Calibrator-side conformance gate (provenance full sweep complete)**
+
+The mixin counterpart to the bootstrapper gate. Curves carry their own `calibration_result`; *model* calibrators expose theirs via the `CanonicalCalibrationResult` ABC. This locks that side with the same enforced invariant.
+
+**Files**: `test_calibrator_provenance_conformance.py` (new, test-only slice).
+
+* **Discovery guard** — AST-scans the package for classes subclassing `CanonicalCalibrationResult` and asserts each of the **13** is classified (none allowlisted). A new family-result nobody classified fails CI. Drift guard catches a classified name that disappears.
+* **Structural contract** — per subclass: a `calibration_result` dataclass field + an own (non-abstract) override of `_build_calibration_record`. Makes the mixin's import-time / instantiation-time guards legible as explicit assertions.
+* **Behavioural gate** — builds the 8 cheaply-constructible family results (SABR, Joint, Jump, LMM, Dispersion, RebonatoLMM, Dividend, MultiCurve) and asserts `to_calibration_result()` yields a valid, DB-round-tripping record that caches idempotently. The 5 that carry a live model/curve/leverage object (Hazard, HW, G2PP, JY, Particle) are exercised in their existing dedicated tests, named in `_BEHAVIOURAL_ELSEWHERE`.
+
+**Tests**: 24 new. **Verification**: full suite **12917 passed**.
+
+**Status**: both sides of the calibration-provenance system — curves (19 bootstrappers) and models (13 calibrators) — are now conformance-gated. Full sweep complete.
+
+---
+
 ## v1.151.0 — 2026-06-23 — **Bootstrapper provenance: global_solver closed out**
 
 Post-campaign sweep of the two `global_solver.py` producers that the conformance gate had allowlisted as "solver primitives". One was a genuine gap; the other was inconsistent.
