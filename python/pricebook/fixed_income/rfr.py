@@ -16,14 +16,19 @@ from __future__ import annotations
 import math
 from datetime import date
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod, create_interpolator
 from pricebook.core.schedule import Frequency
 from pricebook.models.special_process import OUProcess
+
+if TYPE_CHECKING:
+    from pricebook.calibration import CalibrationResult
 
 
 def compound_rfr(
@@ -97,6 +102,8 @@ class SpreadCurve:
                 InterpolationMethod.LINEAR,
                 np.array(times), np.array(self.spreads),
             )
+        # Canonical calibration provenance, attached by bootstrap_spread_curve.
+        self.calibration_result: "CalibrationResult | None" = None
 
     def spread(self, d: date) -> float:
         """Spread at date d."""
@@ -162,6 +169,8 @@ def bootstrap_spread_curve(
 
     dates = []
     spreads = []
+    quotes: list[str] = []
+    residuals: list[float] = []
 
     for mat, ibor_rate in sorted(ibor_swap_rates, key=lambda x: x[0]):
         fixed_sched = generate_schedule(reference_date, mat, fixed_frequency)
@@ -186,8 +195,22 @@ def bootstrap_spread_curve(
         spread = _brentq(objective, -0.05, 0.05)
         dates.append(mat)
         spreads.append(spread)
+        quotes.append(f"ibor_swap_{mat.isoformat()}")
+        residuals.append(objective(spread))  # pv_fixed - pv_float at solved spread ≈ 0
 
-    return SpreadCurve(reference_date, dates, spreads, day_count)
+    curve = SpreadCurve(reference_date, dates, spreads, day_count)
+    curve.calibration_result = curve_calibration_record(
+        model_class="spread_curve_bootstrap",
+        parameters=pillar_parameters(dates, spreads, label="spread"),
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="brentq-sequential",
+        tolerance=1e-6,
+        iterations=len(dates),
+        converged=True,
+        diagnostics_extra={"n_ibor_swaps": len(ibor_swap_rates)},
+    )
+    return curve
 
 
 class StochasticBasis:

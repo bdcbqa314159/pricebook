@@ -150,3 +150,26 @@ class TestOISIBORBasis:
         fwd = proj.forward_rate(d1, d2)
         ois_fwd = ois.forward_rate(d1, d2)
         assert fwd > ois_fwd  # projection includes spread
+
+
+class TestSpreadCurveProvenance:
+    """Bootstrapper campaign Tier 2b — bootstrap_spread_curve attaches a record."""
+
+    def test_record_attached(self):
+        sc = bootstrap_spread_curve(REF, _ibor_swap_rates(), _ois())
+        cr = sc.calibration_result
+        assert cr is not None
+        assert cr.fit.model_class == "spread_curve_bootstrap"
+        assert len(cr.fit.residuals) == len(_ibor_swap_rates())
+        assert max(abs(r) for r in cr.fit.residuals) < 1e-9  # repriced by construction
+        assert all(k.startswith("spread(") for k in cr.fit.parameters)
+
+    def test_record_persists(self):
+        from pricebook.db.db import PricebookDB
+        sc = bootstrap_spread_curve(REF, _ibor_swap_rates(), _ois())
+        with PricebookDB(":memory:") as db:
+            cid = db.save_calibration(sc.calibration_result)
+            assert db.load_calibration(cid) == sc.calibration_result
+
+    def test_bare_spreadcurve_has_field(self):
+        assert SpreadCurve(REF, [REF], [0.001]).calibration_result is None
