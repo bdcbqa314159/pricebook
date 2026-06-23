@@ -2,6 +2,22 @@
 
 ---
 
+## v1.148.0 — 2026-06-23 — **Bootstrapper campaign Tier 4: credit curve provenance**
+
+All three credit bootstrappers build a `SurvivalCurve`; each now attaches its canonical record (curve-carries-provenance).
+
+**Files**: `credit/cds.py`, `credit/cds_market.py`, `credit/sovereign_cds.py`, `test_tier4_credit_provenance.py` (new).
+
+* **`bootstrap_credit_curve`** → `credit_curve_bootstrap`. `_verify_credit_round_trip` now *returns* the signed per-quote par-spread residuals (model − input) it already computes, reused directly as the record's residuals (no double pricing). `build_cds_curve` (cds_market) inherits the record by delegation.
+* **`bootstrap_from_upfronts`** → `cds_upfront_bootstrap`. Residual = CDS PV at the solved survival minus the quoted upfront (~0; or the `q=0.5` fallback's mispricing when no sign change was bracketed).
+* **`bootstrap_sovereign_hazard`** → `sovereign_hazard_bootstrap` on the survival curve; `SovereignHazardResult.calibration_result` forwards. Parameters = per-tenor hazards; residual = (fitted − input) par spread in decimal. Added a `fitted_tenors` list so parameters/residuals/quotes stay aligned even when the `dt <= 0` guard skips a degenerate tenor.
+
+**Tests**: 4 new. **Verification**: full suite **12868 passed**.
+
+**Next**: Tier 5 — inflation/equity (`bootstrap_cpi_curve`, `real_yield_curve_bootstrap`, `dividend_curve_bootstrap`), then the closing conformance gate.
+
+---
+
 ## v1.147.0 — 2026-06-23 — **Bootstrapper campaign Tier 3b: bond curve + tenor basis provenance**
 
 The two Tier-3 bootstrappers that return a *non-bare-curve* artifact now carry a record.
