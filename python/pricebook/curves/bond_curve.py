@@ -122,6 +122,33 @@ class BondCurveResult:
     converged: bool
     parameters: dict = field(default_factory=dict)  # for parametric methods
 
+    def __post_init__(self):
+        # Curve-carries-provenance: the producer injects the canonical record
+        # directly onto the extracted discount curve, built from the fit data
+        # this result already holds.  Covers every construction site (all three
+        # bootstrap methods) without per-site wiring.
+        from pricebook.calibration import curve_calibration_record, pillar_parameters
+
+        self.discount_curve.calibration_result = curve_calibration_record(
+            model_class="bond_curve_bootstrap",
+            parameters=pillar_parameters(self.pillar_dates, self.pillar_zeros, label="zero"),
+            residuals=list(self.residuals_bp),
+            quotes_fitted=[f"bond_{i}" for i in range(self.n_bonds)],
+            algorithm=self.method,
+            iterations=self.n_bonds,
+            converged=self.converged,
+            diagnostics_extra={
+                "rmse_bp": self.rmse_bp,
+                "max_error_bp": self.max_error_bp,
+                **({"shape": self.parameters} if self.parameters else {}),
+            },
+        )
+
+    @property
+    def calibration_result(self):
+        """Canonical record, carried by the extracted discount curve."""
+        return self.discount_curve.calibration_result
+
     def to_dict(self) -> dict:
         return {
             "pillar_dates": [d.isoformat() for d in self.pillar_dates],

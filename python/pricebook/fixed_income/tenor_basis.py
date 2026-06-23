@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 from pricebook.fixed_income.basis_swap import BasisSwap
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
@@ -131,6 +132,7 @@ def bootstrap_tenor_basis(
     pillar_dfs: list[float] = []
     basis_dates: list[date] = []
     basis_spreads: list[float] = []
+    residuals: list[float] = []
 
     for mat, quoted_spread in basis_swap_quotes:
         # Build basis swap: short leg (flat) vs long leg (+ spread)
@@ -180,6 +182,9 @@ def bootstrap_tenor_basis(
             return pv_short - pv_long
 
         df_solved = brentq(objective, 1e-6, 3.0)
+        # Per-quote residual: the basis-swap PV (short − long) at the solved df,
+        # evaluated against the pillar state at this step (before `mat` is added).
+        residuals.append(objective(df_solved))
         pillar_dates.append(mat)
         pillar_dfs.append(df_solved)
 
@@ -210,6 +215,22 @@ def bootstrap_tenor_basis(
         reference_date, pillar_dates, pillar_dfs,
         day_count=DayCountConvention.ACT_365_FIXED,
         interpolation=interpolation,
+    )
+    # Curve-carries-provenance: attach the canonical record to the long-tenor
+    # projection curve; IBORCurve forwards `.calibration_result` to it.
+    long_curve.calibration_result = curve_calibration_record(
+        model_class="tenor_basis_bootstrap",
+        parameters=pillar_parameters(pillar_dates, pillar_dfs, label="df"),
+        residuals=residuals,
+        quotes_fitted=[f"basis_swap_{m.isoformat()}" for m, _ in basis_swap_quotes],
+        algorithm="bootstrap",  # sequential per-pillar brentq
+        iterations=len(pillar_dates),
+        converged=True,
+        diagnostics_extra={
+            "spreads_bp": [s * 1e4 for s in basis_spreads],
+            "short_tenor": short_conv.float_frequency.name,
+            "long_tenor": long_conv.float_frequency.name,
+        },
     )
     long_ibor = IBORCurve(long_curve, long_conv, discount_curve)
 
