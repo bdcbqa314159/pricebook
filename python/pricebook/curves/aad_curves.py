@@ -10,6 +10,7 @@ import math
 from datetime import date
 from typing import TYPE_CHECKING
 
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 from pricebook.curves.aad import Number
 from pricebook.curves.aad_interp import aad_log_linear_interp
 from pricebook.core.day_count import DayCountConvention, year_fraction
@@ -236,7 +237,40 @@ def aad_bootstrap(
         pillar_dates.append(mat)
         pillar_dfs.append(df_mat)
 
-    return AADDiscountCurve(reference_date, pillar_dates, pillar_dfs, swap_dc)
+    curve = AADDiscountCurve(reference_date, pillar_dates, pillar_dfs, swap_dc)
+
+    # Provenance: per-instrument round-trip residuals on float values (the AAD
+    # curve solves each par condition, so these are ~0 by construction).
+    def _f(x):
+        return x.value if hasattr(x, "value") else float(x)
+
+    quotes: list[str] = []
+    residuals: list[float] = []
+    for mat, rate in sorted_deps:
+        tau = year_fraction(reference_date, mat, deposit_dc)
+        model_rate = (1.0 / curve.df(mat).value - 1.0) / tau if tau > 0 else 0.0
+        quotes.append(f"deposit_{mat.isoformat()}")
+        residuals.append(model_rate - _f(rate))
+    for mat, par_rate in sorted_swaps:
+        schedule = generate_schedule(reference_date, mat, Frequency.SEMI_ANNUAL)
+        annuity = sum(
+            year_fraction(schedule[k - 1], schedule[k], swap_dc) * curve.df(schedule[k]).value
+            for k in range(1, len(schedule))
+        )
+        # par swap: par_rate * annuity + df(mat) - 1 ≈ 0
+        quotes.append(f"swap_{mat.isoformat()}")
+        residuals.append(_f(par_rate) * annuity + curve.df(mat).value - 1.0)
+    curve.calibration_result = curve_calibration_record(
+        model_class="aad_discount_curve_bootstrap",
+        parameters=pillar_parameters(pillar_dates, [d.value for d in pillar_dfs], label="df"),
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="aad-fixed-point",
+        iterations=len(pillar_dates),
+        converged=True,
+        diagnostics_extra={"n_deposits": len(sorted_deps), "n_swaps": len(sorted_swaps)},
+    )
+    return curve
 
 
 class _FloatLogLinearCurve:

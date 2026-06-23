@@ -3,6 +3,7 @@
 import math
 from datetime import date
 
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.interpolation import InterpolationMethod
@@ -91,7 +92,27 @@ def bootstrap_basis_curve(
         pillar_dates.append(mat)
         pillar_dfs.append(df_quote)
 
-    return DiscountCurve(
+    curve = DiscountCurve(
         reference_date, pillar_dates, pillar_dfs,
         day_count=day_count, interpolation=interpolation,
     )
+
+    # Provenance: per-forward CIP repricing residual (F_model - F_market ≈ 0,
+    # exact by construction since df_quote was set from CIP).
+    quotes: list[str] = []
+    residuals: list[float] = []
+    for mat, fwd_market in market_forwards:
+        f_model = spot * base_curve.df(mat) / curve.df(mat)
+        quotes.append(f"fx_forward_{mat.isoformat()}")
+        residuals.append(f_model - fwd_market)
+    curve.calibration_result = curve_calibration_record(
+        model_class="xccy_basis_bootstrap",
+        parameters=pillar_parameters(pillar_dates, pillar_dfs, label="df"),
+        residuals=residuals,
+        quotes_fitted=quotes,
+        algorithm="closed_form",  # direct CIP solve, no iteration
+        iterations=len(pillar_dates),
+        converged=True,
+        diagnostics_extra={"spot": float(spot), "n_forwards": len(market_forwards)},
+    )
+    return curve
