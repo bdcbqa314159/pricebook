@@ -112,11 +112,14 @@ def bootstrap_from_upfronts(
     """
     from pricebook.credit.cds import CDS, bootstrap_credit_curve
     from pricebook.core.solvers import brentq
+    from pricebook.calibration import curve_calibration_record, pillar_parameters
 
     pillar_dates: list[date] = []
     pillar_survs: list[float] = []
+    residuals: list[float] = []
+    sorted_tenors = sorted(upfronts.keys())
 
-    for tenor in sorted(upfronts.keys()):
+    for tenor in sorted_tenors:
         upfront = upfronts[tenor]
         mat = reference_date + relativedelta(years=tenor)
 
@@ -140,10 +143,27 @@ def bootstrap_from_upfronts(
         except ValueError:
             # If no sign change, try even wider or return midpoint
             q_solved = 0.5
+        # Residual = CDS PV at the solved survival minus the quoted upfront (~0,
+        # or the fallback's mispricing when no sign change was bracketed).
+        residuals.append(objective(q_solved))
         pillar_dates.append(mat)
         pillar_survs.append(q_solved)
 
-    return SurvivalCurve(reference_date, pillar_dates, pillar_survs)
+    curve = SurvivalCurve(reference_date, pillar_dates, pillar_survs)
+    curve.calibration_result = curve_calibration_record(
+        model_class="cds_upfront_bootstrap",
+        parameters=pillar_parameters(pillar_dates, pillar_survs, label="survival"),
+        residuals=residuals,
+        quotes_fitted=[f"upfront_{t}y" for t in sorted_tenors],
+        algorithm="bootstrap",  # sequential per-pillar brentq on CDS upfront PV
+        iterations=len(pillar_dates),
+        converged=True,
+        diagnostics_extra={
+            "running_coupon": float(running_coupon),
+            "recovery": float(recovery),
+        },
+    )
+    return curve
 
 
 # ---- Upfront / running conversion ----

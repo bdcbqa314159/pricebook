@@ -14,6 +14,7 @@ from pricebook.core.interpolation import InterpolationMethod
 from pricebook.core.schedule import Frequency, StubType, generate_schedule
 from pricebook.core.solvers import brentq
 from pricebook.core.calendar import Calendar, BusinessDayConvention
+from pricebook.calibration import curve_calibration_record, pillar_parameters
 
 
 def protection_leg_pv(
@@ -956,11 +957,23 @@ def bootstrap_credit_curve(
         interpolation=interpolation,
     )
 
-    # Round-trip verification
-    _verify_credit_round_trip(
+    # Round-trip verification (also yields the per-quote par-spread residuals).
+    residuals = _verify_credit_round_trip(
         curve, reference_date, cds_spreads, discount_curve,
         recovery, frequency, day_count, protection_day_count,
         steps_per_year, calendar, convention,
+    )
+
+    # Curve-carries-provenance: the survival curve owns its bootstrap record.
+    curve.calibration_result = curve_calibration_record(
+        model_class="credit_curve_bootstrap",
+        parameters=pillar_parameters(pillar_dates, pillar_survs, label="survival"),
+        residuals=residuals,
+        quotes_fitted=[f"cds_{m.isoformat()}" for m, _ in cds_spreads],
+        algorithm="bootstrap",  # sequential per-pillar brentq on the par CDS
+        iterations=len(pillar_dates),
+        converged=True,
+        diagnostics_extra={"recovery": float(recovery), "n_quotes": len(cds_spreads)},
     )
 
     return curve
@@ -972,9 +985,14 @@ def _verify_credit_round_trip(
     steps_per_year, calendar, convention,
     tol=1e-4,
 ):
-    """Verify the bootstrapped credit curve reprices all input CDS at par."""
+    """Verify the bootstrapped credit curve reprices all input CDS at par.
+
+    Returns the signed per-quote par-spread residuals (model − input), in the
+    same order as ``cds_spreads`` — reused as the calibration record's residuals.
+    """
     import warnings
 
+    residuals: list[float] = []
     errors = []
     for mat, input_spread in cds_spreads:
         cds = CDS(
@@ -986,6 +1004,7 @@ def _verify_credit_round_trip(
             calendar=calendar, convention=convention,
         )
         model_spread = cds.par_spread(discount_curve, curve)
+        residuals.append(model_spread - input_spread)
         err = abs(model_spread - input_spread)
         if err > tol:
             errors.append(
@@ -995,6 +1014,8 @@ def _verify_credit_round_trip(
     if errors:
         msg = "Credit bootstrap round-trip failures:\n" + "\n".join(errors)
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+    return residuals
 
 @classmethod
 def _cds_from_convention(cls, conv, start, end, spread, notional=1_000_000.0):

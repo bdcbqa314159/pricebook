@@ -28,6 +28,7 @@ from enum import Enum
 from pricebook.core.day_count import DayCountConvention, year_fraction
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.survival_curve import SurvivalCurve
+from pricebook.calibration import curve_calibration_record
 
 
 class RestructuringClause(Enum):
@@ -157,6 +158,11 @@ class SovereignHazardResult:
     restructuring: str
     n_pillars: int
 
+    @property
+    def calibration_result(self):
+        """Canonical record, carried by the bootstrapped survival curve."""
+        return self.survival_curve.calibration_result
+
     def to_dict(self) -> dict:
         return {
             "pillar_years": self.pillar_years,
@@ -202,6 +208,7 @@ def bootstrap_sovereign_hazard(
     pillar_survivals = [1.0]
     pillar_hazards = []
     fitted_spreads = []
+    fitted_tenors = []  # tenors that actually produced a hazard pillar (dt > 0)
 
     for tenor in sorted_tenors:
         if not isinstance(tenor, int) or tenor <= 0:
@@ -236,12 +243,30 @@ def bootstrap_sovereign_hazard(
         # Fitted spread for this tenor
         fitted_s = h * (1.0 - recovery) * 10_000
         fitted_spreads.append(fitted_s)
+        fitted_tenors.append(tenor)
 
     # Build survival curve
     if len(pillar_dates) <= 1:
         raise ValueError("No valid CDS tenors produced hazard rates")
 
     survival_curve = SurvivalCurve(reference_date, pillar_dates[1:], pillar_survivals[1:])
+
+    # Curve-carries-provenance: residual = fitted − input par spread per tenor
+    # (decimal). Hazards are the fitted parameters; survivals seed the curve.
+    survival_curve.calibration_result = curve_calibration_record(
+        model_class="sovereign_hazard_bootstrap",
+        parameters={f"hazard_{t}y": float(h) for t, h in zip(fitted_tenors, pillar_hazards)},
+        residuals=[(fitted_spreads[i] - spreads_bp[t]) / 1e4 for i, t in enumerate(fitted_tenors)],
+        quotes_fitted=[f"sovereign_cds_{t}y" for t in fitted_tenors],
+        algorithm="sequential-hazard",  # piecewise-constant hazard per segment
+        iterations=len(pillar_hazards),
+        converged=True,
+        diagnostics_extra={
+            "country_code": country_code,
+            "recovery": float(recovery),
+            "restructuring": conv.restructuring.value,
+        },
+    )
 
     return SovereignHazardResult(
         survival_curve=survival_curve,
