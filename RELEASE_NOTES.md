@@ -2,6 +2,21 @@
 
 ---
 
+## v1.145.0 — 2026-06-23 — **Bootstrapper campaign Tier 2b: spread curve provenance**
+
+`bootstrap_spread_curve` (IBOR-RFR basis) now attaches a record — completing Tier 2.
+
+**Files**: `fixed_income/rfr.py`, `test_ois_ibor_basis.py`.
+
+* `SpreadCurve` (a `@dataclass`) gains `calibration_result` via `__post_init__` (mirrors the other curve types; `TYPE_CHECKING` import).
+* `bootstrap_spread_curve` → `curve.calibration_result` (`model_class="spread_curve_bootstrap"`); residuals = per-IBOR-swap repricing error at the solved spread (~3e-17); `parameters` = per-pillar `spread(date)`.
+
+**Tests**: 3 new. **Verification**: full suite **12857 passed**.
+
+**Next**: Tier 3 (basis/specialised) — `xccy_basis`, `aad_curves` (clean curve returns); `bond_curve`, `tenor_basis` (wrapper/tuple returns, need forwarders).
+
+---
+
 ## v1.144.0 — 2026-06-23 — **Bootstrapper campaign Tier 2a: OIS curve provenance**
 
 `bootstrap_ois` now attaches a canonical record to the discount curve it returns.
