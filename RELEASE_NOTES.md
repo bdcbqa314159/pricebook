@@ -2,6 +2,29 @@
 
 ---
 
+## v1.153.0 — 2026-06-24 — **`ProvenanceCarrier`: one read-interface unifying curves and calibrators**
+
+Names the concept the two provenance patterns were both realisations of. Curves store their `CalibrationResult` in a field; model calibrators lazily build one via the `CanonicalCalibrationResult` mixin — but until now the two carriers exposed **different accessors** (bare field vs `to_calibration_result()`), so they weren't substitutable: `db.save_calibration(curve)` failed; you had to reach in for `curve.calibration_result`.
+
+This is a **clarity** refactor (no behaviour change to any calibration), unifying the *interface* without touching the *mechanism* (field vs lazy-build correctly still differ).
+
+**New** — `ProvenanceCarrier` (`@runtime_checkable` Protocol, `calibration/_types.py`): `to_calibration_result() -> CalibrationResult | None`. Three structural realisations, no shared base:
+* `CalibrationResult` itself → returns `self`;
+* a provenance-carrying **curve** / forwarding wrapper → returns the stored field (or `None` if never calibrated — a flat/loaded curve);
+* a `CanonicalCalibrationResult` family result → lazy build + cache (unchanged).
+
+**Wired** — the one-line `to_calibration_result()` added to all 11 curve/wrapper carriers (`DiscountCurve`, `SurvivalCurve`, `AADDiscountCurve`, `CPICurve`, `SpreadCurve`, `RealYieldCurveResult`, `DividendCurve`, `BondCurveResult`, `IBORCurve`, `RFRCurveResult`, `SovereignHazardResult`). Core curves stay import-free — the method just returns the attribute; the Protocol is structural, so no curve imports the calibration layer.
+
+**`save_calibration`** now types its parameter `ProvenanceCarrier` and accepts a curve directly — substitutable with a calibration result. Distinct, legible errors for the not-a-carrier and uncalibrated-curve (`None`) cases.
+
+**Why no top-level `Bootstrapper`/`Calibrator` class** (the question that drove this): neither is an *object* — both are functions; only their *results* are objects, and there's no polymorphic dispatch site that a base class would serve (the old `Calibrator` Protocol was deleted for exactly that reason). The genuine shared concept was the **read interface on the result**, which is what `ProvenanceCarrier` now names. A `Bootstrapper` class earns its place only if a multi-currency curve-building *service* ever needs to select/run bootstrappers polymorphically.
+
+**Enforcement** — new `test_provenance_carrier.py`: behavioural (all three realisations satisfy the Protocol, persist, substitutable; error paths) **plus an AST structural sweep** that fails if any class carrying `calibration_result` forgets `to_calibration_result()`. Both conformance gates assert their results are `ProvenanceCarrier`s.
+
+**Tests**: +6 (5 in the carrier file + calibrator-gate substitutability). **Verification**: full suite **12922 passed**.
+
+---
+
 ## v1.152.0 — 2026-06-23 — **Calibrator-side conformance gate (provenance full sweep complete)**
 
 The mixin counterpart to the bootstrapper gate. Curves carry their own `calibration_result`; *model* calibrators expose theirs via the `CanonicalCalibrationResult` ABC. This locks that side with the same enforced invariant.
