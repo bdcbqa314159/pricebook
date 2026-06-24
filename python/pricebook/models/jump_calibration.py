@@ -77,6 +77,9 @@ class JumpCalibrationResult(CanonicalCalibrationResult):
         residuals = [
             mv - mkv for mv, mkv in zip(self.model_vols, self.market_vols)
         ]
+        # Convergence asserted from the carried vol RMSE (the optimiser's own
+        # flag is not stored on this result).
+        converged = self.rmse_vol < 0.01
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
@@ -88,12 +91,16 @@ class JumpCalibrationResult(CanonicalCalibrationResult):
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(
-               algorithm="unknown",
-               tolerance=0.0,
-               max_iterations=0,
-           ),
+                    algorithm="unspecified",
+                    tolerance=0.0,
+                    max_iterations=0,
+                ),
                 iterations=0,
-                converged=True,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"rmse_vol": float(self.rmse_vol), "record_source": "reconstructed"},
+                warnings=() if converged else (f"rmse_vol {self.rmse_vol:.4f} above 0.01",),
             ),
         )
 

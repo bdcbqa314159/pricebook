@@ -69,19 +69,31 @@ class SABRCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         # On-demand fallback (hand-constructed instances); sabr_calibrate
-        # populates calibration_result eagerly, so this rarely runs.
+        # populates calibration_result eagerly with the full optimiser run, so
+        # this rarely runs and is a deliberately degraded (reconstructed) record.
+        residuals = [float(e) for e in self.reprice_errors_bp]
+        quotes = [f"smile_point_{i}" for i in range(len(residuals))]
+        # Convergence is asserted from the carried fit quality — this result
+        # does not store the optimiser's own success flag (the eager one does).
+        converged = self.rmse < 0.01
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
                 model_class="sabr",
                 parameters={"alpha": self.alpha, "beta": self.beta,
                             "rho": self.rho, "nu": self.nu},
-                residuals=[],
+                residuals=residuals,
                 objective=ObjectiveKind.SSE,
+                quotes_fitted=quotes,
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(algorithm="nelder_mead", tolerance=0.0, max_iterations=0),
-                iterations=0, converged=True,
+                iterations=0, converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"rmse": float(self.rmse), "max_error_bp": float(self.max_error_bp),
+                       "record_source": "reconstructed"},
+                warnings=() if converged else (f"rmse {self.rmse:.4f} above 0.01 tolerance",),
             ),
         )
 

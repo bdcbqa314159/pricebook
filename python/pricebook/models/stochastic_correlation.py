@@ -22,6 +22,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationDiagnostics,
     CalibrationFit,
     CalibrationProvenance,
     CalibrationResult,
@@ -317,6 +318,8 @@ class DispersionCalibrationResult(CanonicalCalibrationResult):
         return d
 
     def _build_calibration_record(self) -> CalibrationResult:
+        residual = self.index_variance_model - self.index_variance_target
+        converged = abs(residual) < 1e-4
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
@@ -326,14 +329,18 @@ class DispersionCalibrationResult(CanonicalCalibrationResult):
                     "theta": float(self.theta),
                     "sigma": float(self.sigma),
                 },
-                residuals=[self.index_variance_model - self.index_variance_target],
+                residuals=[residual],
                 objective=ObjectiveKind.SSE,
                 quotes_fitted=["index_variance"],
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(algorithm="closed_form", tolerance=0.0, max_iterations=0),
                 iterations=0,
-                converged=True,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"record_source": "reconstructed"},
+                warnings=() if converged else (f"index-variance residual {residual:.2e} above 1e-4",),
             ),
         )
 

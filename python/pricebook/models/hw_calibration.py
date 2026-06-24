@@ -85,9 +85,13 @@ class HWCalibrationResult(CanonicalCalibrationResult):
                 quotes_fitted=quotes,
             ),
             optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="unknown", tolerance=0.0, max_iterations=0),
+                spec=OptimiserSpec(algorithm="unspecified", tolerance=0.0, max_iterations=0),
                 iterations=0,
                 converged=self.converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"rmse_vol": float(self.rmse_vol), "record_source": "reconstructed"},
+                warnings=() if self.converged else ("calibration did not converge",),
             ),
         )
 

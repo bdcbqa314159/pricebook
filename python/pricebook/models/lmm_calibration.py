@@ -143,6 +143,8 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
             self.fitted_swaption_vols.get(k, 0.0) - self.target_swaption_vols[k]
             for k in keys
         ]
+        # Convergence asserted from the carried RMSE (no stored optimiser flag).
+        converged = self.rmse < 0.01
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
@@ -154,12 +156,16 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(
-               algorithm="iterative_scaling",
-               tolerance=0.0,
-               max_iterations=0,
-           ),
+                    algorithm="iterative_scaling",
+                    tolerance=0.0,
+                    max_iterations=0,
+                ),
                 iterations=0,
-                converged=True,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"rmse": float(self.rmse), "record_source": "reconstructed"},
+                warnings=() if converged else (f"rmse {self.rmse:.4f} above 0.01",),
             ),
         )
 
