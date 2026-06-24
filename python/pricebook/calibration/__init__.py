@@ -41,6 +41,14 @@ from pricebook.calibration._curve_record import (
     curve_calibration_record,
     pillar_parameters,
 )
+from pricebook.calibration._solve import (
+    SolveReport,
+    brentq_solve,
+    global_local_solve,
+    least_squares_solve,
+    minimize_solve,
+    particle_solve,
+)
 
 __all__ = [
     "CalibrationDiagnostics",
@@ -52,6 +60,12 @@ __all__ = [
     "OptimiserRun",
     "OptimiserSpec",
     "ProvenanceCarrier",
+    "SolveReport",
+    "brentq_solve",
     "curve_calibration_record",
+    "global_local_solve",
+    "least_squares_solve",
+    "minimize_solve",
+    "particle_solve",
     "pillar_parameters",
 ]
