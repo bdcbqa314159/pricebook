@@ -2,6 +2,21 @@
 
 ---
 
+## v1.158.0 — 2026-06-24 — **Calibration migration Phase 1: the single model-calibrator builder**
+
+Second additive slice (OPEN.md §0c). The Family-B mirror of `curve_calibration_record`.
+
+**Files**: `calibration/_model_record.py` (new), `calibration/__init__.py`, `test_model_calibration_record.py` (new).
+
+* **`model_calibration_record(*, model_class, parameters, residuals, quotes_fitted, solve: SolveReport, …)`** — assembles a model calibrator's `CalibrationResult` from one place. The optimiser metadata (algorithm, iterations, converged, tolerance, seed) is read **straight off the required `SolveReport`** — a calibrator can no longer omit or invent it. This closes the eager/lazy duality at the source: one truthful build path, captured at fit time.
+* **Cross-cutting behaviour centralised** — a non-convergence `warning` is appended automatically (not copy-pasted into 15 `_build` methods), and `solve.algorithm` is canonicalised by `OptimiserSpec`. Caller diagnostics are preserved and merged.
+
+**This flips the switch:** a new (16th) calibrator is now clean by construction — `primitive → SolveReport → model_calibration_record → record`, ~6 lines, no fork, no hand-rolled skeleton, no fabricated convergence. The end-to-end test demonstrates the full flow (fit → build → persist → round-trip).
+
+**Tests**: 5 new. **Verification**: full suite **13014 passed**. Next: Phase 2 migrates the existing 15 calibrators onto this path, one slice each, deleting each lazy `_build` fallback.
+
+---
+
 ## v1.157.0 — 2026-06-24 — **Calibration migration Phase 0: solver-primitive layer**
 
 First slice of the "capture-not-reconstruct" migration (OPEN.md §0c) — the structural fix for the eager/lazy duality and fabricated-convergence debts. Purely **additive**: a new layer, nothing else changes.
