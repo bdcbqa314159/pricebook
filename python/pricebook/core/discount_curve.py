@@ -80,6 +80,11 @@ class DiscountCurve:
         # to the calibration inputs.
         self.calibration_result: "CalibrationResult | None" = None
 
+    def to_calibration_result(self) -> "CalibrationResult | None":
+        """`ProvenanceCarrier`: the calibration record this curve carries, or
+        ``None`` if it was not produced by a calibration (flat/hand-built)."""
+        return self.calibration_result
+
     @property
     def pillar_times(self) -> np.ndarray:
         """Year fractions of all pillars (including t=0)."""

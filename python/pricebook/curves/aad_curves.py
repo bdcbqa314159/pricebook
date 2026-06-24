@@ -54,6 +54,10 @@ class AADDiscountCurve:
         # until set). Mirrors DiscountCurve — the curve carries its own record.
         self.calibration_result: "CalibrationResult | None" = None
 
+    def to_calibration_result(self) -> "CalibrationResult | None":
+        """`ProvenanceCarrier`: the calibration record this curve carries, or None."""
+        return self.calibration_result
+
     def _time(self, d: date) -> float:
         if d <= self.reference_date:
             return 0.0

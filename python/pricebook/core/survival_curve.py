@@ -73,6 +73,11 @@ class SurvivalCurve:
         # until set). Mirrors DiscountCurve — the curve carries its own record.
         self.calibration_result: "CalibrationResult | None" = None
 
+    def to_calibration_result(self) -> "CalibrationResult | None":
+        """`ProvenanceCarrier`: the calibration record this curve carries, or
+        ``None`` if it was not produced by a calibration."""
+        return self.calibration_result
+
     @classmethod
     def flat(cls, reference_date: date, hazard_rate: float, tenors: list[int] | None = None) -> "SurvivalCurve":
         """Build a flat survival curve at a constant hazard rate."""

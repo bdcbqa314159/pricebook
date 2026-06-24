@@ -163,6 +163,10 @@ class SovereignHazardResult:
         """Canonical record, carried by the bootstrapped survival curve."""
         return self.survival_curve.calibration_result
 
+    def to_calibration_result(self):
+        """`ProvenanceCarrier`: the canonical record this result carries."""
+        return self.calibration_result
+
     def to_dict(self) -> dict:
         return {
             "pillar_years": self.pillar_years,

@@ -36,6 +36,12 @@ class RealYieldCurveResult:
 
     def to_dict(self) -> dict:
         return {k: v for k, v in vars(self).items() if k != "calibration_result"}
+
+    def to_calibration_result(self):
+        """`ProvenanceCarrier`: the calibration record this result carries, or None."""
+        return self.calibration_result
+
+
 def real_yield_curve_bootstrap(
     linker_prices: list[float],
     notionals: list[float],

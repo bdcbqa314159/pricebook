@@ -35,6 +35,7 @@ from pricebook.calibration._types import (
     ObjectiveKind,
     OptimiserRun,
     OptimiserSpec,
+    ProvenanceCarrier,
 )
 from pricebook.calibration._curve_record import (
     curve_calibration_record,
@@ -50,6 +51,7 @@ __all__ = [
     "ObjectiveKind",
     "OptimiserRun",
     "OptimiserSpec",
+    "ProvenanceCarrier",
     "curve_calibration_record",
     "pillar_parameters",
 ]

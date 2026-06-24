@@ -156,6 +156,10 @@ class IBORCurve:
         """The projection curve's calibration provenance (it owns the fit)."""
         return self._projection.calibration_result
 
+    def to_calibration_result(self):
+        """`ProvenanceCarrier`: the canonical record this curve carries."""
+        return self.calibration_result
+
     @property
     def reference_date(self) -> date:
         return self._projection.reference_date

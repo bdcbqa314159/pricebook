@@ -105,6 +105,10 @@ class SpreadCurve:
         # Canonical calibration provenance, attached by bootstrap_spread_curve.
         self.calibration_result: "CalibrationResult | None" = None
 
+    def to_calibration_result(self) -> "CalibrationResult | None":
+        """`ProvenanceCarrier`: the calibration record this curve carries, or None."""
+        return self.calibration_result
+
     def spread(self, d: date) -> float:
         """Spread at date d."""
         if self._single is not None:

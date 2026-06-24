@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
 from uuid import UUID, uuid4
 
 from pricebook.core.serialisable import serialisable_convention
@@ -245,6 +245,33 @@ class CalibrationResult:
     fit: CalibrationFit
     optimiser_run: OptimiserRun
     diagnostics: CalibrationDiagnostics = field(default_factory=CalibrationDiagnostics)
+
+    def to_calibration_result(self) -> "CalibrationResult":
+        """A record *is* its own canonical record — satisfies `ProvenanceCarrier`."""
+        return self
+
+
+@runtime_checkable
+class ProvenanceCarrier(Protocol):
+    """The read-interface for anything that can yield a `CalibrationResult`.
+
+    One concept — "I carry calibration provenance" — with three structural
+    realisations (no shared base required, this is a `Protocol`):
+
+        * `CalibrationResult` itself                       → returns ``self``;
+        * a *curve* (or a wrapper forwarding to one) that stores its record in a
+          ``calibration_result`` field                     → returns the field, or
+          ``None`` if the curve was not produced by a calibration (a flat or
+          loaded curve legitimately has no provenance);
+        * a `CanonicalCalibrationResult` family result      → lazily builds + caches.
+
+    The point of naming it: `PricebookDB.save_calibration` accepts any
+    `ProvenanceCarrier`, so a bootstrapped curve and a model-calibration result
+    are *substitutable* at the persistence call — the storage mechanism differs
+    (field vs lazy build) but the way you read the record does not.
+    """
+
+    def to_calibration_result(self) -> "CalibrationResult | None": ...
 
 
 class CanonicalCalibrationResult(ABC):

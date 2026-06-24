@@ -30,7 +30,11 @@ import pathlib
 
 import pytest
 
-from pricebook.calibration import CalibrationResult, CanonicalCalibrationResult
+from pricebook.calibration import (
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    ProvenanceCarrier,
+)
 from pricebook.db.db import PricebookDB
 
 PKG_ROOT = pathlib.Path(__file__).resolve().parents[1] / "pricebook"
@@ -208,6 +212,7 @@ def test_every_covered_result_is_behaviourally_checked():
 @pytest.mark.parametrize("name", sorted(BUILDERS))
 def test_calibrator_builds_valid_record(name):
     obj = BUILDERS[name]()
+    assert isinstance(obj, ProvenanceCarrier)  # satisfies the read interface
     cr = obj.to_calibration_result()
     assert isinstance(cr, CalibrationResult)
     assert cr.fit.model_class  # non-empty snake_case key (CalibrationFit validates)
@@ -216,3 +221,5 @@ def test_calibrator_builds_valid_record(name):
     with PricebookDB(":memory:") as db:
         cid = db.save_calibration(cr)
         assert db.load_calibration(cid) == cr
+        # Substitutable: the carrier itself can be saved (same id, idempotent).
+        assert db.save_calibration(obj) == cid

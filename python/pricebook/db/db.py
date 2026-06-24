@@ -26,7 +26,7 @@ from pricebook.db.db_backend import SQLiteBackend, _safe_name
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from pricebook.calibration import CalibrationResult
+    from pricebook.calibration import CalibrationResult, ProvenanceCarrier
 
 
 def _now() -> str:
@@ -422,15 +422,17 @@ class PricebookDB:
     # Calibration results
     # ------------------------------------------------------------------
 
-    def save_calibration(self, result) -> str:
+    def save_calibration(self, result: ProvenanceCarrier) -> str:
         """Persist a calibration artefact; return its id as a string.
 
-        Accepts either a canonical `CalibrationResult` or any family result
-        that exposes `to_calibration_result()` (`HWCalibrationResult`,
-        `JumpCalibrationResult`, `G2PPCalibrationResult`, …) — the latter is
-        converted via that accessor. This makes the persistence path the
-        canonical *consumer* of every calibrator's record, closing the
-        build → store → read loop.
+        Accepts any `ProvenanceCarrier` — anything exposing
+        `to_calibration_result()`: a canonical `CalibrationResult` (returns
+        itself), a provenance-carrying *curve* (`DiscountCurve`, `SurvivalCurve`,
+        …, or a wrapper forwarding to one), or a `CanonicalCalibrationResult`
+        family result (`HWCalibrationResult`, `G2PPCalibrationResult`, …). A
+        bootstrapped curve and a model-calibration result are therefore
+        substitutable here — this single consumer closes the build → store →
+        read loop for both sides of the calibration system.
 
         Idempotent on the calibration id — re-saving the same result updates
         the row. The full record is stored as JSON (`result_json`) and the
@@ -438,15 +440,25 @@ class PricebookDB:
         chain can be queried (e.g. `list_calibrations(model_class="hull_white")`
         or by `market_snapshot_id`) without reconstructing every blob.
         """
-        if hasattr(result, "to_calibration_result"):
-            result = result.to_calibration_result()
         from pricebook.calibration import CalibrationResult
+        original_type = type(result).__name__
+        if not hasattr(result, "to_calibration_result"):
+            raise TypeError(
+                f"save_calibration expects a ProvenanceCarrier (a CalibrationResult, a "
+                f"provenance-carrying curve, or a CanonicalCalibrationResult family "
+                f"result); got {original_type}, which has no to_calibration_result()."
+            )
+        result = result.to_calibration_result()
+        if result is None:
+            raise TypeError(
+                f"save_calibration: {original_type}.to_calibration_result() returned None "
+                f"— it carries no calibration record (e.g. a flat or hand-built curve, "
+                f"never bootstrapped). Nothing to persist."
+            )
         if not isinstance(result, CalibrationResult):
             raise TypeError(
-                f"save_calibration expects a CalibrationResult or an object exposing "
-                f"to_calibration_result() (a CanonicalCalibrationResult); got "
-                f"{type(result).__name__}. A calibration result must produce the "
-                f"canonical record to enter the audit chain."
+                f"save_calibration: {original_type}.to_calibration_result() returned "
+                f"{type(result).__name__}, not a CalibrationResult."
             )
         prov, fit, run = result.provenance, result.fit, result.optimiser_run
         cid = str(prov.id)

@@ -92,6 +92,10 @@ class RFRCurveResult:
         """The underlying discount curve's calibration provenance (it owns the fit)."""
         return self.curve.calibration_result
 
+    def to_calibration_result(self):
+        """`ProvenanceCarrier`: the canonical record this result carries."""
+        return self.calibration_result
+
     def to_dict(self) -> dict:
         return {
             "currency": self.currency,

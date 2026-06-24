@@ -80,6 +80,10 @@ class CPICurve:
                 np.array(times), np.array(log_ratios),
             )
 
+    def to_calibration_result(self):
+        """`ProvenanceCarrier`: the calibration record this curve carries, or None."""
+        return self.calibration_result
+
     def cpi(self, d: date) -> float:
         """Expected CPI index at date d."""
         t = year_fraction(self.reference_date, d, self.day_count)

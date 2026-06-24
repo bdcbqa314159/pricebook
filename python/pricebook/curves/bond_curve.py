@@ -149,6 +149,10 @@ class BondCurveResult:
         """Canonical record, carried by the extracted discount curve."""
         return self.discount_curve.calibration_result
 
+    def to_calibration_result(self):
+        """`ProvenanceCarrier`: the canonical record this result carries."""
+        return self.calibration_result
+
     def to_dict(self) -> dict:
         return {
             "pillar_dates": [d.isoformat() for d in self.pillar_dates],
