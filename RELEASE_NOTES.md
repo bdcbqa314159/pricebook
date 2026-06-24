@@ -2,6 +2,23 @@
 
 ---
 
+## v1.154.0 — 2026-06-24 — **Calibration fidelity sweep (1/3): model calibrators tell the truth**
+
+First slice of the G1–G9 provenance-fidelity remediation. The model-calibrator lazy `_build_calibration_record` fallbacks were producing misleading records (a 137 bp SABR fit reporting `rms_residual=0, converged=True`). Fixed across the 7 `models/`+`options/sabr` calibrators:
+
+**Files**: `options/sabr.py`, `models/{hw,g2pp,jump,lmm,lmm_advanced,stochastic_correlation}_*.py`.
+
+* **G1** — SABR lazy build mapped `residuals=[]` despite holding `reprice_errors_bp`; now emits the real per-point residuals with `smile_point_i` quotes. Empty-data no longer masquerades as a perfect fit.
+* **G2** — `converged=True` was hardcoded in SABR/jump/lmm/lmm_rebonato/stochastic_correlation; now **derived** from the fit quality the result carries (rmse / |residual| vs a documented threshold). HW/G2PP keep their stored flag.
+* **G5** — lazy records now carry `diagnostics.extra["record_source"]="reconstructed"`, distinguishing a degraded reconstruction from the eager full-fidelity record (same `model_class`).
+* **G6** — `algorithm="unknown"` (HW/G2PP/jump) → honest `"unspecified"`.
+* **G8** — non-convergence now emits a `diagnostics.warnings` entry.
+* **G9** — scalar-residual builds (`lmm_rebonato`) now carry an `aggregate_objective` quote so the residual is attributable.
+
+**Verification**: 716 SABR/HW/G2PP/jump/LMM/stochastic/calibrator tests pass. Slices 2 (credit/fx/equity/curve calibrators + `seed`) and 3 (`_types.py` enforcement + fidelity gate) follow.
+
+---
+
 ## v1.153.0 — 2026-06-24 — **`ProvenanceCarrier`: one read-interface unifying curves and calibrators**
 
 Names the concept the two provenance patterns were both realisations of. Curves store their `CalibrationResult` in a field; model calibrators lazily build one via the `CanonicalCalibrationResult` mixin — but until now the two carriers exposed **different accessors** (bare field vs `to_calibration_result()`), so they weren't substitutable: `db.save_calibration(curve)` failed; you had to reach in for `curve.calibration_result`.
