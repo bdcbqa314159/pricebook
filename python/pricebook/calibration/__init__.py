@@ -49,6 +49,7 @@ from pricebook.calibration._solve import (
     minimize_solve,
     particle_solve,
 )
+from pricebook.calibration._model_record import model_calibration_record
 
 __all__ = [
     "CalibrationDiagnostics",
@@ -66,6 +67,7 @@ __all__ = [
     "global_local_solve",
     "least_squares_solve",
     "minimize_solve",
+    "model_calibration_record",
     "particle_solve",
     "pillar_parameters",
 ]
