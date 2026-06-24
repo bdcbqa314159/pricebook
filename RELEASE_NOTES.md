@@ -2,6 +2,21 @@
 
 ---
 
+## v1.155.0 — 2026-06-24 — **Calibration fidelity sweep (2/3): credit/fx/equity/curve calibrators + seed**
+
+Second slice of the G1–G9 remediation, completing the producer-side fixes across the remaining 6 calibrators.
+
+**Files**: `credit/joint_equity_credit.py`, `fixed_income/jarrow_yildirim.py`, `fx/fx_slv_calibration.py`, `equity/dividend_calibration.py`, `curves/multicurve_solver.py`, `credit/bond_hazard_bootstrap.py`.
+
+* **G2** — derived `converged` for joint_equity_credit (≤5% rel on both targets), jarrow_yildirim / multicurve (|residual| threshold), dividend (rmse). bond_hazard keeps its stored flag.
+* **G4** — `ParticleCalibrationResult` gains a `seed` field; `particle_slv_calibration` records its RNG seed in `OptimiserSpec.seed`, so the stochastic FX-SLV calibration is now reproducible from its record.
+* **G9** — scalar-residual builds (jarrow_yildirim, fx_slv, multicurve) now carry an `aggregate_objective` quote.
+* **G5/G8** — `record_source="reconstructed"` marker + `warnings` on non-convergence across all six; fx_slv records that its `residual` is a placeholder.
+
+**Verification**: full suite **12922 passed**. Slice 3 (`_types.py` enforcement + fidelity gate) next.
+
+---
+
 ## v1.154.0 — 2026-06-24 — **Calibration fidelity sweep (1/3): model calibrators tell the truth**
 
 First slice of the G1–G9 provenance-fidelity remediation. The model-calibrator lazy `_build_calibration_record` fallbacks were producing misleading records (a 137 bp SABR fit reporting `rms_residual=0, converged=True`). Fixed across the 7 `models/`+`options/sabr` calibrators:
