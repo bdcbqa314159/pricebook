@@ -37,8 +37,9 @@ CalibrationResult  (frozen)
 │                                               objective (ObjectiveKind);
 │                                               rms_residual / max_residual properties
 ├── optimiser_run  : OptimiserRun             — wraps OptimiserSpec(algorithm, tolerance,
-│                                               max_iterations, extra{}); iterations, converged
-└── diagnostics    : CalibrationDiagnostics   — optional structured extra{}
+│                                               max_iterations, seed, extra{}); iterations, converged
+└── diagnostics    : CalibrationDiagnostics   — all optional: objective_history,
+                                                parameter_history, timing_ms, warnings, extra{}
 ```
 
 Two invariants are enforced **in the constructor**, not by convention:
@@ -303,8 +304,8 @@ structurally, not by inheritance, precisely to keep that edge absent.
 4. Add the function to the COVERED registry in the bootstrapper gate.
 
 **… calibrator** (returns parameters):
-1. Make the family-result a `@dataclass(CanonicalCalibrationResult)` with the
-   `calibration_result: CalibrationResult | None = None` field.
+1. Make the family-result a `@dataclass` subclassing `CanonicalCalibrationResult`,
+   declaring the `calibration_result: CalibrationResult | None = None` field.
 2. Implement `_build_calibration_record()` mapping your fields onto a
    `CalibrationResult` (snake_case `model_class`; residuals ↔ quotes lengths
    agree). Optionally populate `calibration_result` eagerly at fit time for
