@@ -2,6 +2,21 @@
 
 ---
 
+## v1.157.0 — 2026-06-24 — **Calibration migration Phase 0: solver-primitive layer**
+
+First slice of the "capture-not-reconstruct" migration (OPEN.md §0c) — the structural fix for the eager/lazy duality and fabricated-convergence debts. Purely **additive**: a new layer, nothing else changes.
+
+**Files**: `calibration/_solve.py` (new), `calibration/__init__.py`, `test_solve_primitives.py` (new).
+
+* **`SolveReport`** (frozen) — `algorithm / converged / iterations / tolerance / seed`, the optimiser facts. Plus two honest constructors: `analytic()` (closed-form, no faked iterative verdict) and `external()` (escape hatch for a black-box optimiser like the pricebook `minimize` wrapper).
+* **Primitives that *capture* the report from the real optimiser** — `minimize_solve` (scipy minimize: SABR/HW/joint/dividend/dispersion), `least_squares_solve`, `global_local_solve` (differential_evolution + local polish, capturing the seed: G2++/jump), `brentq_solve` (scalar root: JY), `particle_solve` (seeded MC loop, reproducible: FX-SLV). Each returns `(solution, SolveReport)`.
+
+This is the layer the Phase-1 builder will *require*, so convergence/iterations/seed can no longer be invented at record-build time. **After Phase 1, every new calibration uses the clean pattern** (primitive → SolveReport → builder); the existing 15 then migrate opportunistically.
+
+**Tests**: 7 (each pins "captured, not invented"). **Verification**: full suite **13009 passed**.
+
+---
+
 ## v1.156.0 — 2026-06-24 — **Calibration fidelity sweep (3/3): contract enforcement + fidelity gate**
 
 Final structural slice of G1–G9: turns the producer-side truthfulness into enforced invariants, so a future calibrator can't regress.
