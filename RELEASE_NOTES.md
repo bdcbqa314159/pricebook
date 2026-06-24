@@ -2,6 +2,20 @@
 
 ---
 
+## v1.156.0 — 2026-06-24 — **Calibration fidelity sweep (3/3): contract enforcement + fidelity gate**
+
+Final structural slice of G1–G9: turns the producer-side truthfulness into enforced invariants, so a future calibrator can't regress.
+
+**Files**: `calibration/_types.py`, `tests/conftest.py`, `test_calibration_fidelity.py` (new), + test-assertion updates.
+
+* **G6 (enforced)** — `OptimiserSpec.__post_init__` now canonicalises `algorithm` to one snake_case audit vocabulary: any run of non-alphanumerics → `_`, lowercased. `"Nelder-Mead"`, `"L-BFGS-B"`, `"differential_evolution+L-BFGS-B"`, `"brentq-per-bond"` → `nelder_mead`, `l_bfgs_b`, `differential_evolution_l_bfgs_b`, `brentq_per_bond`. You can finally group by optimiser.
+* **G9 (enforced)** — `CalibrationFit` now *requires* `quotes_fitted` whenever residuals are present — a residual with no quote is an unattributable magnitude. The shared test helper auto-labels for fixture concision; production supplies real quotes.
+* **G1/G7 (gated)** — new `test_calibration_fidelity.py` draws every record from both conformance registries (curve + model producers, 79 cases) and asserts: non-empty 1:1 residuals↔quotes (no false-perfect rms 0); converged+rms-0 implies max-residual 0 (consistent story); `algorithm` canonical and never `"unknown"`; and **`model_class` globally unique** across families (delegation aliases — `bootstrap_rfr`→`bootstrap`, `bootstrap_ibor`→`bootstrap_forward_curve` — explicitly recognised).
+
+**Verification**: full suite **13002 passed**. Remaining: **G3** (market-snapshot linkage) — the record *supports* it and 2 producers thread it, but full caller wiring is a separate market-data-flow effort tracked as follow-up.
+
+---
+
 ## v1.155.0 — 2026-06-24 — **Calibration fidelity sweep (2/3): credit/fx/equity/curve calibrators + seed**
 
 Second slice of the G1–G9 remediation, completing the producer-side fixes across the remaining 6 calibrators.
