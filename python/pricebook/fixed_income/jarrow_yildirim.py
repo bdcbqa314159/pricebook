@@ -23,6 +23,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationDiagnostics,
     CalibrationFit,
     CalibrationProvenance,
     CalibrationResult,
@@ -366,6 +367,7 @@ class JYCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         p = self.params
+        converged = abs(self.residual) < 1e-4
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
@@ -375,13 +377,18 @@ class JYCalibrationResult(CanonicalCalibrationResult):
                     "sigma_r": float(p.sigma_r),
                     "sigma_I": float(p.sigma_I),
                 },
-                residuals=[self.residual],
+                residuals=[float(self.residual)],
                 objective=ObjectiveKind.SSE,
+                quotes_fitted=["aggregate_objective"],
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(algorithm="Nelder-Mead", tolerance=0.0, max_iterations=0),
                 iterations=0,
-                converged=True,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"n_instruments": int(self.n_instruments), "record_source": "reconstructed"},
+                warnings=() if converged else (f"residual {self.residual:.2e} above 1e-4",),
             ),
         )
 

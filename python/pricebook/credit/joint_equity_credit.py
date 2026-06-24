@@ -23,6 +23,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pricebook.calibration import (
+    CalibrationDiagnostics,
     CalibrationFit,
     CalibrationProvenance,
     CalibrationResult,
@@ -65,19 +66,26 @@ class JointCalibrationResult(CanonicalCalibrationResult):
         return [vol_res, cds_res]
 
     def _build_calibration_record(self) -> CalibrationResult:
+        residuals = self._relative_residuals()
+        # Converged if both targets are fit to within 5% relative error.
+        converged = max((abs(r) for r in residuals), default=0.0) < 0.05
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
                 model_class="joint_equity_credit",
                 parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},
-                residuals=self._relative_residuals(),
+                residuals=residuals,
                 objective=ObjectiveKind.SSE,
                 quotes_fitted=["equity_vol", "cds_spread"],
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(algorithm="L-BFGS-B", tolerance=0.0, max_iterations=0),
                 iterations=0,
-                converged=True,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"fit_quality": float(self.fit_quality), "record_source": "reconstructed"},
+                warnings=() if converged else ("a target exceeds 5% relative error",),
             ),
         )
 

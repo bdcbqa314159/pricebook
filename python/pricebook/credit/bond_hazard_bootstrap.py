@@ -136,6 +136,11 @@ class HazardBootstrapResult(CanonicalCalibrationResult):
                 iterations=0,
                 converged=self.converged,
             ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"rmse_bp": float(self.rmse_bp), "lam": float(self.lam),
+                       "record_source": "reconstructed"},
+                warnings=() if self.converged else ("calibration did not converge",),
+            ),
         )
 
 

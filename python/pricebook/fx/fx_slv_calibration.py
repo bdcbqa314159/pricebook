@@ -177,6 +177,9 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
     n_particles: int
     bandwidth: float
     residual: float
+    # RNG seed of the particle method — recorded so a stochastic calibration is
+    # reproducible (None if the producer did not supply one).
+    seed: int | None = None
     # Canonical calibration artefact (G1 P2 — widen producers).
     calibration_result: CalibrationResult | None = None
 
@@ -194,15 +197,21 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
             fit=CalibrationFit(
                 model_class="fx_slv",
                 parameters={"bandwidth": float(self.bandwidth)},
-                residuals=[self.residual],
+                residuals=[float(self.residual)],
                 objective=ObjectiveKind.SSE,
+                quotes_fitted=["aggregate_objective"],
             ),
             optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
+                spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0,
+                                   max_iterations=0, seed=self.seed),
                 iterations=0,
                 converged=True,
             ),
-            diagnostics=CalibrationDiagnostics(extra={"n_particles": self.n_particles}),
+            diagnostics=CalibrationDiagnostics(
+                extra={"n_particles": self.n_particles, "record_source": "reconstructed",
+                       "residual_is_placeholder": True},
+                warnings=("residual is a placeholder (0.0); fit quality not measured",),
+            ),
         )
 
 
@@ -307,9 +316,11 @@ def particle_slv_calibration(
             },
             residuals=[residual],
             objective=ObjectiveKind.SSE,
+            quotes_fitted=["aggregate_objective"],
         ),
         optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0, max_iterations=0),
+            spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0,
+                               max_iterations=0, seed=seed),
             iterations=0,
             converged=True,
         ),
@@ -318,7 +329,8 @@ def particle_slv_calibration(
         ),
     )
 
-    return ParticleCalibrationResult(leverage, n_particles, bandwidth, residual, calibration_result=cr)
+    return ParticleCalibrationResult(leverage, n_particles, bandwidth, residual,
+                                     seed=seed, calibration_result=cr)
 
 
 # ---- Mixing fraction ----

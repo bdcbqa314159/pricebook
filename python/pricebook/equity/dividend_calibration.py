@@ -27,6 +27,7 @@ from scipy.optimize import minimize as scipy_minimize
 from scipy.interpolate import CubicSpline
 
 from pricebook.calibration import (
+    CalibrationDiagnostics,
     CalibrationFit,
     CalibrationProvenance,
     CalibrationResult,
@@ -67,6 +68,8 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
+        # Converged if the futures-price RMSE is below 0.5 price points.
+        converged = self.rmse < 0.5
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
@@ -82,7 +85,11 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
                 iterations=0,
-                converged=True,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"rmse": float(self.rmse), "record_source": "reconstructed"},
+                warnings=() if converged else (f"rmse {self.rmse:.4f} above 0.5",),
             ),
         )
 

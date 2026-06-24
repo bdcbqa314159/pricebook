@@ -52,6 +52,7 @@ class MultiCurveResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self):
         from pricebook.calibration import (
+    CalibrationDiagnostics,
     CalibrationFit,
     CalibrationProvenance,
     CalibrationResult,
@@ -59,22 +60,28 @@ class MultiCurveResult(CanonicalCalibrationResult):
     OptimiserRun,
     OptimiserSpec,
 )
+        converged = self.residual < 1e-6
         return CalibrationResult(
             provenance=CalibrationProvenance.stamp(),
             fit=CalibrationFit(
                 model_class="multicurve",
                 parameters={},
-                residuals=[self.residual],
+                residuals=[float(self.residual)],
                 objective=ObjectiveKind.SSE,
+                quotes_fitted=["aggregate_objective"],
             ),
             optimiser_run=OptimiserRun(
                 spec=OptimiserSpec(
-               algorithm="newton-multicurve",
-               tolerance=0.0,
-               max_iterations=self.n_iterations,
-           ),
+                    algorithm="newton-multicurve",
+                    tolerance=0.0,
+                    max_iterations=self.n_iterations,
+                ),
                 iterations=self.n_iterations,
-                converged=self.residual < 1e-6,
+                converged=converged,
+            ),
+            diagnostics=CalibrationDiagnostics(
+                extra={"record_source": "reconstructed"},
+                warnings=() if converged else (f"residual {self.residual:.2e} above 1e-6",),
             ),
         )
 
