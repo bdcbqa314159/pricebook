@@ -61,11 +61,29 @@ class OptimiserSpec:
     the algorithm is stochastic).
     """
 
-    algorithm: str  # "L-BFGS-B", "differential_evolution", "least_squares", ...
+    algorithm: str  # canonicalised to snake_case: "l_bfgs_b", "differential_evolution", …
     tolerance: float
     max_iterations: int
-    seed: int | None = None  # required for stochastic optimisers
+    seed: int | None = None  # required for stochastic optimisers (reproducibility)
     extra: Mapping[str, Any] = field(default_factory=dict)
+
+    # `algorithm` is an audit dimension (you group/filter by optimiser), so it is
+    # canonicalised to one queryable vocabulary the same way `model_class` is —
+    # lowercase with runs of spaces/hyphens collapsed to underscores. This makes
+    # "Nelder-Mead", "nelder_mead" and "L-BFGS-B" → "nelder_mead" / "l_bfgs_b".
+    _ALGORITHM_RE = re.compile(r"[a-z][a-z0-9_]*")
+
+    def __post_init__(self) -> None:
+        # Any run of non-alphanumeric characters (spaces, hyphens, '+', '/', '.')
+        # collapses to a single underscore, so compound / vendor names like
+        # "differential_evolution+L-BFGS-B" or "brentq-per-bond" become one key.
+        canon = re.sub(r"[^a-z0-9]+", "_", str(self.algorithm).lower()).strip("_")
+        if not self._ALGORITHM_RE.fullmatch(canon):
+            raise ValueError(
+                f"algorithm must canonicalise to non-empty snake_case (audit key); "
+                f"got {self.algorithm!r}"
+            )
+        object.__setattr__(self, "algorithm", canon)
 
 
 @serialisable_convention("optimiser_run")
@@ -197,6 +215,15 @@ class CalibrationFit:
             raise ValueError(
                 f"weights length {len(self.weights)} must match residuals length {n} "
                 f"(parallel per-quote arrays)"
+            )
+        # Every residual must be attributable to a quote: a record carrying
+        # residuals with no `quotes_fitted` is an unlabelled magnitude no auditor
+        # can trace back to an instrument. Scalar/aggregate fits pass a single
+        # label (e.g. "aggregate_objective").
+        if n and not self.quotes_fitted:
+            raise ValueError(
+                f"quotes_fitted is required when residuals are present "
+                f"({n} residuals, no quotes) — label even an aggregate objective"
             )
         if self.quotes_fitted and len(self.quotes_fitted) != n:
             raise ValueError(

@@ -41,7 +41,7 @@ def test_builds_a_valid_record():
     cr = _record()
     assert isinstance(cr, CalibrationResult)
     assert cr.fit.model_class == "discount_curve_bootstrap"
-    assert cr.optimiser_run.spec.algorithm == "brentq-sequential"
+    assert cr.optimiser_run.spec.algorithm == "brentq_sequential"
     assert cr.optimiser_run.converged is True
     assert cr.fit.objective is ObjectiveKind.SSE
 

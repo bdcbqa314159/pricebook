@@ -66,7 +66,7 @@ class TestHWCalibrationResult:
         rf = _flat_rf()
         result = calibrate_hull_white(rf, _small_vol_grid(), method="nelder_mead")
         cr = result.calibration_result
-        assert cr.optimiser_run.spec.algorithm == "Nelder-Mead"
+        assert cr.optimiser_run.spec.algorithm == "nelder_mead"
         assert cr.optimiser_run.spec.extra.get("n_steps") == 50
 
     def test_residuals_in_vol_bp(self):

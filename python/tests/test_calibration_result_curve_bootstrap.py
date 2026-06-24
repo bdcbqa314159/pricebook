@@ -72,7 +72,7 @@ class TestBootstrapCalibrationResult:
         c = bootstrap(REF, deposits, swaps)
         cr = c.calibration_result
         assert cr.fit.model_class == "discount_curve_bootstrap"
-        assert cr.optimiser_run.spec.algorithm == "brentq-sequential"
+        assert cr.optimiser_run.spec.algorithm == "brentq_sequential"
         assert cr.optimiser_run.converged is True
 
     def test_residuals_essentially_zero(self):
@@ -131,7 +131,7 @@ class TestGlobalBootstrapCalibrationResult:
         assert c.calibration_result is not None
         cr = c.calibration_result
         assert cr.fit.model_class == "discount_curve_global"
-        assert cr.optimiser_run.spec.algorithm == "newton-global"
+        assert cr.optimiser_run.spec.algorithm == "newton_global"
         assert cr.optimiser_run.converged is True
 
     def test_residuals_below_solver_tol(self):

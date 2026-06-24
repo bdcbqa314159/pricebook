@@ -36,7 +36,14 @@ def build_calibration_result(
 
     Production code constructs the three components directly; tests use this to
     keep fixtures concise. Mirrors the component-injection the producers do.
+
+    Since `CalibrationFit` now requires `quotes_fitted` whenever residuals are
+    present, this helper auto-labels them (`quote_i`) when a fixture supplies
+    residuals but no quotes — keeping concise test fixtures valid without
+    weakening the production contract.
     """
+    if residuals and not quotes_fitted:
+        quotes_fitted = [f"quote_{i}" for i in range(len(residuals))]
     return CalibrationResult(
         provenance=CalibrationProvenance.stamp(
             market_snapshot_id=market_snapshot_id, code_version=code_version,

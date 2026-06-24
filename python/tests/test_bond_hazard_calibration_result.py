@@ -79,7 +79,7 @@ class TestSequentialPopulatesCalibrationResult:
         cr = result.calibration_result
         assert cr.fit.model_class == "bond_hazard_pwc"
         assert cr.fit.objective is ObjectiveKind.SSE
-        assert cr.optimiser_run.spec.algorithm == "brentq-per-bond"
+        assert cr.optimiser_run.spec.algorithm == "brentq_per_bond"
         assert cr.optimiser_run.iterations == len(_well_spaced_bonds())  # one root-find per bond
         assert cr.optimiser_run.converged is True
 
@@ -118,7 +118,7 @@ class TestGlobalPopulatesCalibrationResult:
         assert cr is not None
         assert cr.fit.model_class == "bond_hazard_pwc"
         assert cr.fit.objective is ObjectiveKind.WEIGHTED_SSE
-        assert cr.optimiser_run.spec.algorithm == "L-BFGS-B"
+        assert cr.optimiser_run.spec.algorithm == "l_bfgs_b"
         assert cr.optimiser_run.spec.extra["lam"] == 0.0
         # roughness in diagnostics
         assert "roughness" in cr.diagnostics.extra

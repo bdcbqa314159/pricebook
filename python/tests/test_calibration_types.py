@@ -29,7 +29,8 @@ class TestCalibrationFitContract:
                 CalibrationFit(model_class=bad, parameters={}, residuals=[0.0])
 
     def test_model_class_snake_case_accepted(self):
-        fit = CalibrationFit(model_class="hull_white", parameters={}, residuals=[0.0])
+        fit = CalibrationFit(model_class="hull_white", parameters={}, residuals=[0.0],
+                             quotes_fitted=["q0"])
         assert fit.model_class == "hull_white"
 
     def test_weights_must_match_residuals_length(self):
@@ -42,10 +43,17 @@ class TestCalibrationFitContract:
             CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0],
                            quotes_fitted=["only_one"])
 
-    def test_empty_optional_sequences_skip_length_check(self):
-        # weights/quotes default empty → "no per-quote weighting/labels", allowed
-        fit = CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0])
-        assert fit.weights == () and fit.quotes_fitted == ()
+    def test_empty_weights_allowed_when_quotes_present(self):
+        # weights stay optional (empty → "no per-quote weighting"); quotes are
+        # supplied so the residuals remain attributable.
+        fit = CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0],
+                             quotes_fitted=["a", "b"])
+        assert fit.weights == ()
+
+    def test_residuals_require_quotes(self):
+        # G9: a residual vector with no quotes is an unattributable magnitude.
+        with pytest.raises(ValueError, match="quotes_fitted is required"):
+            CalibrationFit(model_class="m", parameters={}, residuals=[1.0, 2.0])
 
 
 class TestObjectiveKind:
@@ -71,7 +79,7 @@ class TestOptimiserSpec:
             tolerance=1e-9,
             max_iterations=500,
         )
-        assert spec.algorithm == "L-BFGS-B"
+        assert spec.algorithm == "l_bfgs_b"
         assert spec.tolerance == 1e-9
         assert spec.max_iterations == 500
         assert spec.seed is None
