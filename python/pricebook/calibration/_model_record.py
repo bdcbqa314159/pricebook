@@ -21,7 +21,7 @@ Cross-cutting behaviour lives here, not in each calibrator: a non-convergence
 from __future__ import annotations
 
 import dataclasses
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 from uuid import UUID
 
 from pricebook.calibration._solve import SolveReport
@@ -45,6 +45,7 @@ def model_calibration_record(
     solve: SolveReport,
     objective: ObjectiveKind = ObjectiveKind.SSE,
     market_snapshot_id: UUID | None = None,
+    optimiser_extra: Mapping[str, Any] | None = None,
     diagnostics: CalibrationDiagnostics | None = None,
 ) -> CalibrationResult:
     """Assemble a model calibrator's canonical `CalibrationResult`.
@@ -78,8 +79,9 @@ def model_calibration_record(
             spec=OptimiserSpec(
                 algorithm=solve.algorithm,
                 tolerance=solve.tolerance or 0.0,
-                max_iterations=solve.iterations,
+                max_iterations=solve.max_iterations or solve.iterations,
                 seed=solve.seed,
+                extra=dict(optimiser_extra or {}),
             ),
             iterations=solve.iterations,
             converged=solve.converged,

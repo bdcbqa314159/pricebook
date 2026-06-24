@@ -24,13 +24,11 @@ from typing import TYPE_CHECKING
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 from pricebook.models.black76 import OptionType, black76_price
 from pricebook.statistics.optimization import minimize as pb_minimize
@@ -68,32 +66,24 @@ class SABRCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        # On-demand fallback (hand-constructed instances); sabr_calibrate
-        # populates calibration_result eagerly with the full optimiser run, so
-        # this rarely runs and is a deliberately degraded (reconstructed) record.
+        # On-demand fallback for hand-built instances — `sabr_calibrate`
+        # populates the record eagerly with the real optimiser run, so this
+        # reconstructs from stored fields and is marked as such. No captured
+        # optimiser metadata is available here (algorithm "unspecified").
         residuals = [float(e) for e in self.reprice_errors_bp]
         quotes = [f"smile_point_{i}" for i in range(len(residuals))]
-        # Convergence is asserted from the carried fit quality — this result
-        # does not store the optimiser's own success flag (the eager one does).
         converged = self.rmse < 0.01
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="sabr",
-                parameters={"alpha": self.alpha, "beta": self.beta,
-                            "rho": self.rho, "nu": self.nu},
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=quotes,
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="nelder_mead", tolerance=0.0, max_iterations=0),
-                iterations=0, converged=converged,
-            ),
+        solve = SolveReport.external(algorithm="unspecified", converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class="sabr",
+            parameters={"alpha": self.alpha, "beta": self.beta,
+                        "rho": self.rho, "nu": self.nu},
+            residuals=residuals,
+            quotes_fitted=quotes,
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
                 extra={"rmse": float(self.rmse), "max_error_bp": float(self.max_error_bp),
                        "record_source": "reconstructed"},
-                warnings=() if converged else (f"rmse {self.rmse:.4f} above 0.01 tolerance",),
             ),
         )
 
@@ -238,32 +228,25 @@ def sabr_calibrate(
         for k, mv in zip(strikes, market_vols)
     ]
 
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
-        ),
-        fit=CalibrationFit(
-            model_class="sabr",
-            parameters={
-                "alpha": float(alpha),
-                "beta": float(beta),
-                "rho": float(rho),
-                "nu": float(nu),
-            },
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-                algorithm="nelder_mead",
-                tolerance=1e-12,
-                max_iterations=2000,
-                extra={"beta_fixed": float(beta), "forward": float(forward), "T": float(T)},
-            ),
-            iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
-            converged=bool(getattr(result, "success", True)),
-        ),
+    # Capture the optimiser's own verdict (pb_minimize returns a scipy-like
+    # result); the builder reads it straight off the report — no re-derivation.
+    solve = SolveReport.external(
+        algorithm="nelder_mead",
+        converged=bool(getattr(result, "success", True)),
+        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+        tolerance=1e-12,
+        max_iterations=2000,
+    )
+    cr = model_calibration_record(
+        model_class="sabr",
+        parameters={"alpha": float(alpha), "beta": float(beta),
+                    "rho": float(rho), "nu": float(nu)},
+        residuals=residuals,
+        quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        solve=solve,
+        objective=ObjectiveKind.SSE,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
+        optimiser_extra={"beta_fixed": float(beta), "forward": float(forward), "T": float(T)},
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
     )
 

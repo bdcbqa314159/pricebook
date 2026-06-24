@@ -39,9 +39,10 @@ class SolveReport:
 
     algorithm: str
     converged: bool
-    iterations: int
+    iterations: int                 # iterations/evals the optimiser actually took
     tolerance: float | None = None
     seed: int | None = None
+    max_iterations: int = 0         # the configured cap (0 = unknown → builder uses `iterations`)
 
     @classmethod
     def analytic(cls) -> "SolveReport":
@@ -61,6 +62,7 @@ class SolveReport:
         iterations: int = 0,
         tolerance: float | None = None,
         seed: int | None = None,
+        max_iterations: int = 0,
     ) -> "SolveReport":
         """Escape hatch for a black-box optimiser this layer does not wrap
         (e.g. the pricebook ``statistics.optimization.minimize`` wrapper). The
@@ -70,6 +72,7 @@ class SolveReport:
             algorithm=str(algorithm), converged=bool(converged),
             iterations=int(iterations), tolerance=tolerance,
             seed=None if seed is None else int(seed),
+            max_iterations=int(max_iterations),
         )
 
 
