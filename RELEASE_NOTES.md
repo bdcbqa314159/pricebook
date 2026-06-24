@@ -2,6 +2,21 @@
 
 ---
 
+## v1.159.0 — 2026-06-24 — **Calibration migration Phase 2 (slice 1): SABR onto the single builder**
+
+The reference migration — the template for the other 14 calibrators (OPEN.md §0c).
+
+**Files**: `options/sabr.py`, `calibration/_solve.py`, `calibration/_model_record.py`.
+
+* **`sabr_calibrate` eager record** now routes through `model_calibration_record`, capturing the optimiser verdict in a `SolveReport.external(...)` read off `pb_minimize`'s result (`converged`/`iterations`) — no hand-rolled `CalibrationResult` skeleton, no re-derivation.
+* **The lazy `_build` fallback** (hand-built instances) also routes through the builder now — the ~20-line hand-rolled skeleton is gone from *both* paths; the fallback is honestly marked `record_source="reconstructed"`, `algorithm="unspecified"`.
+* **`SolveReport` gains `max_iterations`** (the configured cap, a reproducibility input) distinct from actual `iterations`; the builder maps cap→`spec.max_iterations`, actual→`run.iterations`. The builder also gained an `optimiser_extra` passthrough (mirrors `curve_calibration_record`) so SABR keeps `beta_fixed/forward/T` in `spec.extra`.
+* `sabr.py` no longer imports `CalibrationFit`/`OptimiserRun`/`OptimiserSpec`/`CalibrationProvenance` — it constructs nothing by hand.
+
+**Verification**: full suite **13014 passed**. Pattern proven on a real producer; the remaining 14 calibrators follow this diff.
+
+---
+
 ## v1.158.0 — 2026-06-24 — **Calibration migration Phase 1: the single model-calibrator builder**
 
 Second additive slice (OPEN.md §0c). The Family-B mirror of `curve_calibration_record`.
