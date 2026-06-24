@@ -12,7 +12,9 @@ Final structural slice of G1–G9: turns the producer-side truthfulness into enf
 * **G9 (enforced)** — `CalibrationFit` now *requires* `quotes_fitted` whenever residuals are present — a residual with no quote is an unattributable magnitude. The shared test helper auto-labels for fixture concision; production supplies real quotes.
 * **G1/G7 (gated)** — new `test_calibration_fidelity.py` draws every record from both conformance registries (curve + model producers, 79 cases) and asserts: non-empty 1:1 residuals↔quotes (no false-perfect rms 0); converged+rms-0 implies max-residual 0 (consistent story); `algorithm` canonical and never `"unknown"`; and **`model_class` globally unique** across families (delegation aliases — `bootstrap_rfr`→`bootstrap`, `bootstrap_ibor`→`bootstrap_forward_curve` — explicitly recognised).
 
-**Verification**: full suite **13002 passed**. Remaining: **G3** (market-snapshot linkage) — the record *supports* it and 2 producers thread it, but full caller wiring is a separate market-data-flow effort tracked as follow-up.
+**Verification**: full suite **13002 passed**.
+
+**G3 (market-snapshot linkage) — re-assessed, no code change needed.** The original audit overstated this. On inspection, **every producer that receives a `MarketSnapshot` already threads its id** to `stamp(market_snapshot_id=…)` — `sabr`, `hw`, `g2pp`, `lmm`, `jump`, `bond_hazard`, `multicurve`, the flagship `bootstrap`, and `global_solver` (9 producers). The remaining simpler calibrators/bootstrappers don't accept a snapshot because their callers pass raw market quotes, not a snapshot object; wiring those would be a market-data-flow change, not a record-fidelity fix. The capability is complete and fed wherever a snapshot exists — G3 is **not** an open fidelity defect.
 
 ---
 
