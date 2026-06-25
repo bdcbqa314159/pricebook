@@ -2,6 +2,21 @@
 
 ---
 
+## v1.161.0 — 2026-06-25 — **Calibration migration Phase 2 Group B: the last 7 calibrators — Phase 2 complete**
+
+The lazy-only batch — LMM, Rebonato-LMM, dispersion, joint-equity-credit, Jarrow-Yildirim, dividend, multicurve. **All 15 model calibrators now route through `model_calibration_record` + `SolveReport`.**
+
+**Files**: `models/{lmm_calibration,lmm_advanced,stochastic_correlation}.py`, `credit/joint_equity_credit.py`, `fixed_income/jarrow_yildirim.py`, `equity/dividend_calibration.py`, `curves/multicurve_solver.py`.
+
+* Several of these weren't purely lazy — they had eager construction sites too (LMM/Rebonato/Joint/JY); both eager and `_build` paths now go through the builder, capturing the real optimiser verdict where one exists (`result.success`/`nit`).
+* **Two get the genuinely honest treatment**: `stochastic_correlation` (closed-form moment match) now uses `SolveReport.analytic()` — no faked iterative convergence, the index-variance residual carries the quality; `multicurve` uses its real stored `n_iterations` + residual-based convergence (a faithful, not reconstructed, record).
+* The remaining lazy-only fallbacks (`_build` for hand-built instances) reconstruct convergence from the carried residual/RMSE and are marked `record_source="reconstructed"`; the per-`_build` warning copy-paste is gone (the builder adds it centrally).
+* 6 modules dropped their `CalibrationFit`/`OptimiserRun`/`OptimiserSpec`/`CalibrationProvenance` imports.
+
+**Phase 2 done**: every calibrator (15) + bootstrapper builds through one factory. **Verification**: 623 targeted + full suite (result below). Remaining: Phase 3 (fused `Residuals` + typed `Diagnostics`), Phase 4 (retire dead code + grep-gate).
+
+---
+
 ## v1.160.0 — 2026-06-25 — **Calibration migration Phase 2 Group A: 5 already-eager calibrators onto the builder**
 
 The de-duplication batch — HW, G2++, jump, FX-SLV, bond-hazard. Each already captured real optimiser data via a hand-rolled `CalibrationResult` skeleton; now they route through `model_calibration_record` + `SolveReport.external(...)`.
