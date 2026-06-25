@@ -44,6 +44,7 @@ def model_calibration_record(
     quotes_fitted: Sequence[str],
     solve: SolveReport,
     objective: ObjectiveKind = ObjectiveKind.SSE,
+    weights: Sequence[float] = (),
     market_snapshot_id: UUID | None = None,
     optimiser_extra: Mapping[str, Any] | None = None,
     diagnostics: CalibrationDiagnostics | None = None,
@@ -74,6 +75,7 @@ def model_calibration_record(
             residuals=list(residuals),
             objective=objective,
             quotes_fitted=list(quotes_fitted),
+            weights=list(weights),
         ),
         optimiser_run=OptimiserRun(
             spec=OptimiserSpec(

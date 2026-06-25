@@ -26,13 +26,10 @@ from scipy.optimize import minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.models.hull_white import HullWhite
@@ -71,27 +68,19 @@ class HWCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
+        # Reconstructed fallback for hand-built instances (calibrate_hull_white
+        # populates the record eagerly with the real optimiser run).
         residuals = [e["error_bp"] for e in self.per_swaption_errors]
-        quotes = [
-            f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors
-        ]
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="hull_white",
-                parameters={"a": self.a, "sigma": self.sigma},
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=quotes,
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="unspecified", tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=self.converged,
-            ),
+        quotes = [f"swaption_{e['expiry']}x{e['tenor']}" for e in self.per_swaption_errors]
+        solve = SolveReport.external(algorithm="unspecified", converged=self.converged, iterations=0)
+        return model_calibration_record(
+            model_class="hull_white",
+            parameters={"a": self.a, "sigma": self.sigma},
+            residuals=residuals,
+            quotes_fitted=quotes,
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
                 extra={"rmse_vol": float(self.rmse_vol), "record_source": "reconstructed"},
-                warnings=() if self.converged else ("calibration did not converge",),
             ),
         )
 
@@ -275,30 +264,22 @@ def calibrate_hull_white(
 
     converged_flag = result.success if hasattr(result, 'success') else True
 
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
-        ),
-        fit=CalibrationFit(
-            model_class="hull_white",
-            parameters={"a": float(a_opt), "sigma": float(sigma_opt)},
-            residuals=[e["error_bp"] for e in errors],
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-           algorithm=algo_name,
-           tolerance=algo_tol,
-           max_iterations=algo_maxiter,
-           extra={"n_steps": n_steps},
-       ),
-            iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
-            converged=bool(converged_flag),
-        ),
-        diagnostics=CalibrationDiagnostics(
-            extra={"rmse_vol": rmse / 10_000.0, "n_steps": n_steps},
-        ),
+    solve = SolveReport.external(
+        algorithm=algo_name,
+        converged=bool(converged_flag),
+        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+        tolerance=algo_tol,
+        max_iterations=algo_maxiter,
+    )
+    cr = model_calibration_record(
+        model_class="hull_white",
+        parameters={"a": float(a_opt), "sigma": float(sigma_opt)},
+        residuals=[e["error_bp"] for e in errors],
+        quotes_fitted=[f"swaption_{exp_y}x{tenor_y}" for (exp_y, tenor_y) in keys],
+        solve=solve,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
+        optimiser_extra={"n_steps": n_steps},
+        diagnostics=CalibrationDiagnostics(extra={"rmse_vol": rmse / 10_000.0, "n_steps": n_steps}),
     )
 
     return HWCalibrationResult(

@@ -25,13 +25,10 @@ from scipy.optimize import differential_evolution, minimize as scipy_minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 from pricebook.models.black76 import OptionType, black76_price
 from pricebook.models.cos_method import cos_price
@@ -74,33 +71,20 @@ class JumpCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        residuals = [
-            mv - mkv for mv, mkv in zip(self.model_vols, self.market_vols)
-        ]
-        # Convergence asserted from the carried vol RMSE (the optimiser's own
-        # flag is not stored on this result).
+        # Reconstructed fallback for hand-built instances; calibrate_jump_model
+        # populates the record eagerly with the real optimiser run. Convergence
+        # here is reconstructed from the carried vol RMSE (no captured flag).
+        residuals = [mv - mkv for mv, mkv in zip(self.model_vols, self.market_vols)]
         converged = self.rmse_vol < 0.01
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class=f"jump_{self.model_type}",
-                parameters={k: float(v) for k, v in self.params.items()},
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=[f"smile_K={k:.4f}" for k in self.strikes],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(
-                    algorithm="unspecified",
-                    tolerance=0.0,
-                    max_iterations=0,
-                ),
-                iterations=0,
-                converged=converged,
-            ),
+        solve = SolveReport.external(algorithm="unspecified", converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class=f"jump_{self.model_type}",
+            parameters={k: float(v) for k, v in self.params.items()},
+            residuals=residuals,
+            quotes_fitted=[f"smile_K={k:.4f}" for k in self.strikes],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
                 extra={"rmse_vol": float(self.rmse_vol), "record_source": "reconstructed"},
-                warnings=() if converged else (f"rmse_vol {self.rmse_vol:.4f} above 0.01",),
             ),
         )
 
@@ -250,39 +234,25 @@ def calibrate_jump_model(
 
     params_dict = dict(zip(param_names, best_params.tolist()))
 
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
-        ),
-        fit=CalibrationFit(
-            model_class=f"jump_{model_type}",
-            parameters={k: float(v) for k, v in params_dict.items()},
-            residuals=[mv - mkv for mv, mkv in zip(model_vols, market_vols)],
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-           algorithm="differential_evolution+L-BFGS-B",
-           tolerance=1e-8,
-           max_iterations=maxiter,
-           seed=seed,
-           extra={
-               "atol": 1e-10,
-               "polish": True,
-               "bounds": list(bounds),
-               "spot": float(spot),
-               "rate": float(rate),
-               "T": float(T),
-               "div_yield": float(div_yield),
-           },
-       ),
-            iterations=int(getattr(result, "nit", 0)),
-            converged=bool(getattr(result, "success", True)),
-        ),
-        diagnostics=CalibrationDiagnostics(
-            extra={"rmse_vol": float(rmse)},
-        ),
+    solve = SolveReport.external(
+        algorithm="differential_evolution+L-BFGS-B",
+        converged=bool(getattr(result, "success", True)),
+        iterations=int(getattr(result, "nit", 0)),
+        tolerance=1e-8, max_iterations=maxiter, seed=seed,
+    )
+    cr = model_calibration_record(
+        model_class=f"jump_{model_type}",
+        parameters={k: float(v) for k, v in params_dict.items()},
+        residuals=[mv - mkv for mv, mkv in zip(model_vols, market_vols)],
+        quotes_fitted=[f"smile_K={k:.4f}" for k in strikes],
+        solve=solve,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
+        optimiser_extra={
+            "atol": 1e-10, "polish": True, "bounds": list(bounds),
+            "spot": float(spot), "rate": float(rate), "T": float(T),
+            "div_yield": float(div_yield),
+        },
+        diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
     )
 
     return JumpCalibrationResult(

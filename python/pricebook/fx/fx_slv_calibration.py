@@ -24,13 +24,10 @@ import numpy as np
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 
 
@@ -192,21 +189,16 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="fx_slv",
-                parameters={"bandwidth": float(self.bandwidth)},
-                residuals=[float(self.residual)],
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=["aggregate_objective"],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0,
-                                   max_iterations=0, seed=self.seed),
-                iterations=0,
-                converged=True,
-            ),
+        # Reconstructed fallback for hand-built instances; particle_slv_calibration
+        # populates the record eagerly (with a measured residual).
+        solve = SolveReport.external(algorithm="particle_method", converged=True,
+                                     iterations=0, seed=self.seed)
+        return model_calibration_record(
+            model_class="fx_slv",
+            parameters={"bandwidth": float(self.bandwidth)},
+            residuals=[float(self.residual)],
+            quotes_fitted=["aggregate_objective"],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
                 extra={"n_particles": self.n_particles, "record_source": "reconstructed",
                        "residual_is_placeholder": True},
@@ -306,24 +298,17 @@ def particle_slv_calibration(
     leverage = LeverageFunction(times, spots, L, "particle_method")
     residual = math.sqrt(total_sq_err / max(n_t * n_s, 1))
 
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(),
-        fit=CalibrationFit(
-            model_class="fx_slv",
-            parameters={
-                "kappa": float(kappa), "theta": float(theta), "xi": float(xi),
-                "v0": float(v0), "rho": float(rho), "bandwidth": float(bandwidth),
-            },
-            residuals=[residual],
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=["aggregate_objective"],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(algorithm="particle_method", tolerance=0.0,
-                               max_iterations=0, seed=seed),
-            iterations=0,
-            converged=True,
-        ),
+    solve = SolveReport.external(algorithm="particle_method", converged=True,
+                                 iterations=int(n_t), seed=seed)
+    cr = model_calibration_record(
+        model_class="fx_slv",
+        parameters={
+            "kappa": float(kappa), "theta": float(theta), "xi": float(xi),
+            "v0": float(v0), "rho": float(rho), "bandwidth": float(bandwidth),
+        },
+        residuals=[residual],
+        quotes_fitted=["aggregate_objective"],
+        solve=solve,
         diagnostics=CalibrationDiagnostics(
             extra={"n_particles": n_particles, "n_grid": int(n_t * n_s)},
         ),
