@@ -20,13 +20,10 @@ import numpy as np
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 
 if TYPE_CHECKING:
@@ -137,36 +134,23 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
         return d
 
     def _build_calibration_record(self) -> CalibrationResult:
-        # Residuals = (fitted - target) per swaption key, in target's units (Black vol)
+        # Residuals = (fitted - target) per swaption key, in target's units (Black vol).
         keys = sorted(self.target_swaption_vols.keys())
         residuals = [
             self.fitted_swaption_vols.get(k, 0.0) - self.target_swaption_vols[k]
             for k in keys
         ]
-        # Convergence asserted from the carried RMSE (no stored optimiser flag).
+        # Lazy-only result: convergence reconstructed from the carried RMSE.
         converged = self.rmse < 0.01
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="lmm",
-                parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.calibrated_vols)},
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(
-                    algorithm="iterative_scaling",
-                    tolerance=0.0,
-                    max_iterations=0,
-                ),
-                iterations=0,
-                converged=converged,
-            ),
+        solve = SolveReport.external(algorithm="iterative_scaling", converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class="lmm",
+            parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.calibrated_vols)},
+            residuals=residuals,
+            quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse": float(self.rmse), "record_source": "reconstructed"},
-                warnings=() if converged else (f"rmse {self.rmse:.4f} above 0.01",),
-            ),
+                extra={"rmse": float(self.rmse), "record_source": "reconstructed"}),
         )
 
 
@@ -230,31 +214,18 @@ def calibrate_lmm_vols(
 
     rmse = math.sqrt(sum(errors) / len(errors)) if errors else 0.0
 
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
-        ),
-        fit=CalibrationFit(
-            model_class="lmm",
-            parameters={f"sigma_{i}": float(v) for i, v in enumerate(vols.tolist())},
-            residuals=residuals_list,
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-           algorithm="iterative_scaling",
-           tolerance=0.0,                   # no explicit tolerance — fixed iterations
-           max_iterations=max_iter,
-           extra={
-               "correlation_beta": correlation_beta,
-               "tau": tau,
-               "n_forward_rates": n,
-           },
-       ),
-            iterations=max_iter,
-            converged=True,
-        ),
+    solve = SolveReport.external(
+        algorithm="iterative_scaling", converged=True,
+        iterations=max_iter, max_iterations=max_iter,
+    )
+    cr = model_calibration_record(
+        model_class="lmm",
+        parameters={f"sigma_{i}": float(v) for i, v in enumerate(vols.tolist())},
+        residuals=residuals_list,
+        quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
+        solve=solve,
+        market_snapshot_id=market_snapshot.id if market_snapshot is not None else None,
+        optimiser_extra={"correlation_beta": correlation_beta, "tau": tau, "n_forward_rates": n},
         diagnostics=CalibrationDiagnostics(extra={"rmse_vol": float(rmse)}),
     )
 

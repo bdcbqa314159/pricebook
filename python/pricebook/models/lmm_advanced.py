@@ -24,13 +24,10 @@ from scipy.optimize import minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 from pricebook.models.black76 import black76_price, OptionType
 
@@ -67,26 +64,18 @@ class RebonatoLMMCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        # Single aggregate fit residual → one labelled quote (the objective).
+        # Single aggregate fit residual → one labelled quote. Lazy-only result:
+        # convergence reconstructed from the carried residual.
         converged = abs(self.residual) < 1e-6
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="lmm_rebonato",
-                parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},
-                residuals=[float(self.residual)],
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=["aggregate_objective"],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=converged,
-            ),
+        solve = SolveReport.external(algorithm=self.method, converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class="lmm_rebonato",
+            parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},
+            residuals=[float(self.residual)],
+            quotes_fitted=["aggregate_objective"],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"n_swaptions": int(self.n_swaptions), "record_source": "reconstructed"},
-                warnings=() if converged else (f"residual {self.residual:.2e} above 1e-6",),
-            ),
+                extra={"n_swaptions": int(self.n_swaptions), "record_source": "reconstructed"}),
         )
 
 
@@ -108,20 +97,12 @@ def _lmm_calibration_record(
         _rebonato_swaption_vol(inst_vols, forward_rates, e, t, dt) - market_vols[(e, t)]
         for (e, t) in keys
     ]
-    return CalibrationResult(
-        provenance=CalibrationProvenance.stamp(),
-        fit=CalibrationFit(
-            model_class="lmm_rebonato",
-            parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
-            residuals=residuals,
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=[f"swaption_{e}x{t}" for (e, t) in keys],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(algorithm=method, tolerance=0.0, max_iterations=0),
-            iterations=0,
-            converged=True,
-        ),
+    return model_calibration_record(
+        model_class="lmm_rebonato",
+        parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
+        residuals=residuals,
+        quotes_fitted=[f"swaption_{e}x{t}" for (e, t) in keys],
+        solve=SolveReport.external(algorithm=method, converged=True, iterations=0),
     )
 
 

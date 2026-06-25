@@ -28,13 +28,10 @@ from scipy.interpolate import CubicSpline
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 from pricebook.equity.dividend_advanced import DividendCurve
 
@@ -68,29 +65,20 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
-        # Converged if the futures-price RMSE is below 0.5 price points.
+        # Lazy-only result: converged if the futures-price RMSE is below 0.5.
         converged = self.rmse < 0.5
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="dividend_curve",
-                parameters={
-                    f"D_{t:g}": float(d)
-                    for t, d in zip(self.curve.tenors, self.fitted_futures)
-                },
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm=self.method, tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=converged,
-            ),
+        solve = SolveReport.external(algorithm=self.method, converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class="dividend_curve",
+            parameters={
+                f"D_{t:g}": float(d)
+                for t, d in zip(self.curve.tenors, self.fitted_futures)
+            },
+            residuals=residuals,
+            quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse": float(self.rmse), "record_source": "reconstructed"},
-                warnings=() if converged else (f"rmse {self.rmse:.4f} above 0.5",),
-            ),
+                extra={"rmse": float(self.rmse), "record_source": "reconstructed"}),
         )
 
 

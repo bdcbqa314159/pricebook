@@ -24,13 +24,10 @@ from scipy.optimize import minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 
 
@@ -367,29 +364,21 @@ class JYCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         p = self.params
+        # Lazy-only result: convergence reconstructed from the carried residual.
         converged = abs(self.residual) < 1e-4
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="jarrow_yildirim",
-                parameters={
-                    "sigma_n": float(p.sigma_n),
-                    "sigma_r": float(p.sigma_r),
-                    "sigma_I": float(p.sigma_I),
-                },
-                residuals=[float(self.residual)],
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=["aggregate_objective"],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="Nelder-Mead", tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=converged,
-            ),
+        solve = SolveReport.external(algorithm="Nelder-Mead", converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class="jarrow_yildirim",
+            parameters={
+                "sigma_n": float(p.sigma_n),
+                "sigma_r": float(p.sigma_r),
+                "sigma_I": float(p.sigma_I),
+            },
+            residuals=[float(self.residual)],
+            quotes_fitted=["aggregate_objective"],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"n_instruments": int(self.n_instruments), "record_source": "reconstructed"},
-                warnings=() if converged else (f"residual {self.residual:.2e} above 1e-4",),
-            ),
+                extra={"n_instruments": int(self.n_instruments), "record_source": "reconstructed"}),
         )
 
 
@@ -435,24 +424,20 @@ def jy_calibrate(
         jy_zc_inflation_swap(params, r_n0, r_r0, t).fair_rate - zc_swap_rates[t]
         for t in tenors
     ]
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(),
-        fit=CalibrationFit(
-            model_class="jarrow_yildirim",
-            parameters={
-                "sigma_n": float(params.sigma_n),
-                "sigma_r": float(params.sigma_r),
-                "sigma_I": float(params.sigma_I),
-            },
-            residuals=residuals_per,
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=[f"zc_inflation_swap_{t}" for t in tenors],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(algorithm="Nelder-Mead", tolerance=1e-10, max_iterations=3000),
-            iterations=int(getattr(result, "nit", 0)),
-            converged=bool(getattr(result, "success", True)),
-        ),
+    solve = SolveReport.external(
+        algorithm="Nelder-Mead", converged=bool(getattr(result, "success", True)),
+        iterations=int(getattr(result, "nit", 0)), tolerance=1e-10, max_iterations=3000,
+    )
+    cr = model_calibration_record(
+        model_class="jarrow_yildirim",
+        parameters={
+            "sigma_n": float(params.sigma_n),
+            "sigma_r": float(params.sigma_r),
+            "sigma_I": float(params.sigma_I),
+        },
+        residuals=residuals_per,
+        quotes_fitted=[f"zc_inflation_swap_{t}" for t in tenors],
+        solve=solve,
     )
 
     return JYCalibrationResult(params, float(residual), len(tenors), calibration_result=cr)

@@ -23,13 +23,10 @@ from scipy.optimize import minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 
 
@@ -318,30 +315,19 @@ class DispersionCalibrationResult(CanonicalCalibrationResult):
         return d
 
     def _build_calibration_record(self) -> CalibrationResult:
+        # Closed-form moment match: `analytic()` is honest — there is no optimiser
+        # to "converge"; the fit quality is the index-variance residual itself.
         residual = self.index_variance_model - self.index_variance_target
-        converged = abs(residual) < 1e-4
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="stochastic_correlation",
-                parameters={
-                    "kappa": float(self.kappa),
-                    "theta": float(self.theta),
-                    "sigma": float(self.sigma),
-                },
-                residuals=[residual],
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=["index_variance"],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="closed_form", tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=converged,
-            ),
-            diagnostics=CalibrationDiagnostics(
-                extra={"record_source": "reconstructed"},
-                warnings=() if converged else (f"index-variance residual {residual:.2e} above 1e-4",),
-            ),
+        return model_calibration_record(
+            model_class="stochastic_correlation",
+            parameters={
+                "kappa": float(self.kappa),
+                "theta": float(self.theta),
+                "sigma": float(self.sigma),
+            },
+            residuals=[residual],
+            quotes_fitted=["index_variance"],
+            solve=SolveReport.analytic(),
         )
 
 

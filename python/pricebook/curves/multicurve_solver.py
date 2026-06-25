@@ -52,37 +52,22 @@ class MultiCurveResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self):
         from pricebook.calibration import (
-    CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
-    CalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
-)
-        converged = self.residual < 1e-6
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="multicurve",
-                parameters={},
-                residuals=[float(self.residual)],
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=["aggregate_objective"],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(
-                    algorithm="newton-multicurve",
-                    tolerance=0.0,
-                    max_iterations=self.n_iterations,
-                ),
-                iterations=self.n_iterations,
-                converged=converged,
-            ),
-            diagnostics=CalibrationDiagnostics(
-                extra={"record_source": "reconstructed"},
-                warnings=() if converged else (f"residual {self.residual:.2e} above 1e-6",),
-            ),
+            CalibrationDiagnostics, SolveReport, model_calibration_record,
+        )
+        # The coupled Newton solve stores its real iteration count + residual,
+        # so this is a faithful (not reconstructed) record.
+        solve = SolveReport.external(
+            algorithm="newton-multicurve",
+            converged=self.residual < 1e-6,
+            iterations=self.n_iterations,
+        )
+        return model_calibration_record(
+            model_class="multicurve",
+            parameters={},
+            residuals=[float(self.residual)],
+            quotes_fitted=["aggregate_objective"],
+            solve=solve,
+            diagnostics=CalibrationDiagnostics(extra={"n_iterations": int(self.n_iterations)}),
         )
 
 

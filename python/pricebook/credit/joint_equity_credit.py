@@ -24,13 +24,11 @@ from scipy.optimize import minimize
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     CanonicalCalibrationResult,
     ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
+    SolveReport,
+    model_calibration_record,
 )
 from pricebook.credit.credit_grades import CreditGrades
 
@@ -67,26 +65,17 @@ class JointCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = self._relative_residuals()
-        # Converged if both targets are fit to within 5% relative error.
+        # Lazy-only result: converged if both targets fit to within 5% relative.
         converged = max((abs(r) for r in residuals), default=0.0) < 0.05
-        return CalibrationResult(
-            provenance=CalibrationProvenance.stamp(),
-            fit=CalibrationFit(
-                model_class="joint_equity_credit",
-                parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},
-                residuals=residuals,
-                objective=ObjectiveKind.SSE,
-                quotes_fitted=["equity_vol", "cds_spread"],
-            ),
-            optimiser_run=OptimiserRun(
-                spec=OptimiserSpec(algorithm="L-BFGS-B", tolerance=0.0, max_iterations=0),
-                iterations=0,
-                converged=converged,
-            ),
+        solve = SolveReport.external(algorithm="L-BFGS-B", converged=converged, iterations=0)
+        return model_calibration_record(
+            model_class="joint_equity_credit",
+            parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},
+            residuals=residuals,
+            quotes_fitted=["equity_vol", "cds_spread"],
+            solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"fit_quality": float(self.fit_quality), "record_source": "reconstructed"},
-                warnings=() if converged else ("a target exceeds 5% relative error",),
-            ),
+                extra={"fit_quality": float(self.fit_quality), "record_source": "reconstructed"}),
         )
 
 
@@ -161,24 +150,21 @@ def joint_calibrate(
     model = CreditGrades(sigma_a, lev, recovery_mean, recovery_vol)
     cds_model = model.cds_spread(cds_tenor, recovery_mean)
 
-    cr = CalibrationResult(
-        provenance=CalibrationProvenance.stamp(),
-        fit=CalibrationFit(
-            model_class="joint_equity_credit",
-            parameters={"asset_vol": float(sigma_a), "leverage": float(lev)},
-            residuals=[
-                sigma_e_model / equity_vol - 1.0 if equity_vol > 0 else 0.0,
-                cds_model / cds_target - 1.0 if cds_target > 0 else 0.0,
-            ],
-            objective=ObjectiveKind.WEIGHTED_SSE,
-            quotes_fitted=["equity_vol", f"cds_spread_{cds_tenor:g}Y"],
-            weights=[vol_weight, spread_weight],
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(algorithm="L-BFGS-B", tolerance=1e-12, max_iterations=200),
-            iterations=int(getattr(result, "nit", 0)),
-            converged=bool(getattr(result, "success", True)),
-        ),
+    solve = SolveReport.external(
+        algorithm="L-BFGS-B", converged=bool(getattr(result, "success", True)),
+        iterations=int(getattr(result, "nit", 0)), tolerance=1e-12, max_iterations=200,
+    )
+    cr = model_calibration_record(
+        model_class="joint_equity_credit",
+        parameters={"asset_vol": float(sigma_a), "leverage": float(lev)},
+        residuals=[
+            sigma_e_model / equity_vol - 1.0 if equity_vol > 0 else 0.0,
+            cds_model / cds_target - 1.0 if cds_target > 0 else 0.0,
+        ],
+        quotes_fitted=["equity_vol", f"cds_spread_{cds_tenor:g}Y"],
+        solve=solve,
+        objective=ObjectiveKind.WEIGHTED_SSE,
+        weights=[vol_weight, spread_weight],
     )
 
     return JointCalibrationResult(
