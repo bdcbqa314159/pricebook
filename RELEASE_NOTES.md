@@ -2,6 +2,22 @@
 
 ---
 
+## v1.162.0 — 2026-06-25 — **Calibration migration Phase 3: type-level empty-fit rejection + typed `reconstructed`**
+
+The core-restructure slice — invariants moved from "gate-caught" to "unconstructible at the type level".
+
+**Files**: `calibration/_types.py`, `calibration/_model_record.py`, the 11 calibrator modules, + test fixtures.
+
+* **Empty residuals are now unconstructible** — `CalibrationFit.__post_init__` rejects an empty residual vector. A fit with no targets isn't a fit; an empty vector would make `rms_residual` read as a false-perfect `0.0`. This is the real G1 fix: the guarantee is in the *type*, not just the fidelity gate.
+* **The `record_source="reconstructed"` magic string is gone** — replaced by a first-class typed `CalibrationDiagnostics.reconstructed: bool`, plumbed through `model_calibration_record(reconstructed=…)`. All 11 lazy `_build` fallbacks set it via the flag, not a dict key.
+* Test fixtures that built degenerate empty-residual records updated to minimal valid ones; the old `test_rms_max_empty_residuals` flipped to `test_empty_residuals_rejected`.
+
+**Deliberately *not* done** (adversarial call): the full `Residuals` nested-value-object field-rename and per-family `Diagnostics` subclasses — they'd churn hundreds of read sites and force a class per family for marginal gain over invariants now enforced (length-agreement, quotes-required, non-empty). `extra` stays the open numeric-context bag; `reconstructed` is the one flag that earned typing.
+
+**Verification**: full suite (result below). Next: Phase 4 (grep-gate "converged only from primitives" + retire dead code).
+
+---
+
 ## v1.161.0 — 2026-06-25 — **Calibration migration Phase 2 Group B: the last 7 calibrators — Phase 2 complete**
 
 The lazy-only batch — LMM, Rebonato-LMM, dispersion, joint-equity-credit, Jarrow-Yildirim, dividend, multicurve. **All 15 model calibrators now route through `model_calibration_record` + `SolveReport`.**
