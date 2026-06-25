@@ -269,14 +269,8 @@ def _build_multicurve_cr(
 ):
     """Build the CalibrationResult for a multicurve calibration."""
     from pricebook.calibration import (
-    CalibrationDiagnostics,
-    CalibrationFit,
-    CalibrationProvenance,
-    CalibrationResult,
-    ObjectiveKind,
-    OptimiserRun,
-    OptimiserSpec,
-)
+        CalibrationDiagnostics, SolveReport, model_calibration_record,
+    )
     n_ois = len(ois_pillar_dates)
     parameters = {}
     for i, d in enumerate(ois_pillar_dates):
@@ -289,27 +283,18 @@ def _build_multicurve_cr(
         + [f"proj_{inst.get('type','?')}_{inst.get('maturity')}" for inst in projection_instruments]
     )
 
-    return CalibrationResult(
-        provenance=CalibrationProvenance.stamp(
-            market_snapshot_id=market_snapshot_id,
-        ),
-        fit=CalibrationFit(
-            model_class="multicurve",
-            parameters=parameters,
-            residuals=[float(r) for r in residuals_array],
-            objective=ObjectiveKind.SSE,
-            quotes_fitted=quotes,
-        ),
-        optimiser_run=OptimiserRun(
-            spec=OptimiserSpec(
-           algorithm="newton-multicurve",
-           tolerance=tol,
-           max_iterations=max_iter,
-           extra={"day_count": str(day_count.value)},
-       ),
-            iterations=int(iterations),
-            converged=bool(converged),
-        ),
+    solve = SolveReport.external(
+        algorithm="newton-multicurve", converged=bool(converged),
+        iterations=int(iterations), tolerance=tol, max_iterations=max_iter,
+    )
+    return model_calibration_record(
+        model_class="multicurve",
+        parameters=parameters,
+        residuals=[float(r) for r in residuals_array],
+        quotes_fitted=quotes,
+        solve=solve,
+        market_snapshot_id=market_snapshot_id,
+        optimiser_extra={"day_count": str(day_count.value)},
         diagnostics=CalibrationDiagnostics(
             extra={
                 "n_ois_pillars": n_ois,
