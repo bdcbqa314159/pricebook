@@ -2,6 +2,21 @@
 
 ---
 
+## v1.163.0 — 2026-06-25 — **Calibration migration Phase 4: builder-enforcement gate — migration complete**
+
+The locking slice. Closes OPEN.md §0c.
+
+**Files**: `curves/multicurve_solver.py`, `test_calibration_builder_enforcement.py` (new).
+
+* **Caught a missed eager site**: `multicurve_solver`'s main calibrate function still hand-rolled a `CalibrationResult` (the `_build` fallback was already migrated). Routed it through `model_calibration_record` + `SolveReport` — so now *zero* producers construct records by hand.
+* **New gate** `test_calibration_builder_enforcement.py` — AST-asserts that `CalibrationResult` / `CalibrationFit` / `OptimiserRun` / `OptimiserSpec` are constructed **only** in the type-definitions module and the two builders (`curve_calibration_record`, `model_calibration_record`). A future calibrator that hand-rolls a record — reintroducing the eager/lazy duality or fabricated convergence — fails CI.
+
+**Migration complete (v1.157 → v1.163).** Every calibration in the library — 15 model calibrators + the curve bootstrappers — captures a `SolveReport` from the optimiser and assembles its record through one factory. The structure now survives new calibration types by construction: the 16th calibrator gets the single builder, captured convergence, type-level non-empty residuals, and the builder gate for free.
+
+**Verification**: full suite **13015 passed**.
+
+---
+
 ## v1.162.0 — 2026-06-25 — **Calibration migration Phase 3: type-level empty-fit rejection + typed `reconstructed`**
 
 The core-restructure slice — invariants moved from "gate-caught" to "unconstructible at the type level".
@@ -14,7 +29,7 @@ The core-restructure slice — invariants moved from "gate-caught" to "unconstru
 
 **Deliberately *not* done** (adversarial call): the full `Residuals` nested-value-object field-rename and per-family `Diagnostics` subclasses — they'd churn hundreds of read sites and force a class per family for marginal gain over invariants now enforced (length-agreement, quotes-required, non-empty). `extra` stays the open numeric-context bag; `reconstructed` is the one flag that earned typing.
 
-**Verification**: full suite (result below). Next: Phase 4 (grep-gate "converged only from primitives" + retire dead code).
+**Verification**: full suite **13015 passed**. Next: Phase 4 (grep-gate "converged only from primitives" + retire dead code).
 
 ---
 
