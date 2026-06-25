@@ -136,12 +136,14 @@ def test_rms_max_are_derived_properties():
         )
 
 
-def test_rms_max_empty_residuals():
-    cr = build_calibration_result(
-        model_class="m", parameters={}, residuals=[],
-        optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
-    )
-    assert cr.fit.rms_residual == 0.0 and cr.fit.max_residual == 0.0
+def test_empty_residuals_rejected():
+    # A fit with no targets is not a fit — empty residuals are unconstructible
+    # (an empty vector would make rms_residual read as a false-perfect 0.0).
+    with pytest.raises(ValueError, match="residuals must be non-empty"):
+        build_calibration_result(
+            model_class="m", parameters={}, residuals=[],
+            optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -152,7 +154,7 @@ def test_auto_timestamp_is_tz_aware_utc():
     cr = build_calibration_result(
         model_class="m",
         parameters={},
-        residuals=[],
+        residuals=[0.0],
         optimiser=OptimiserSpec("x", 0.0, 0),
         iterations=0,
         converged=True,
@@ -167,7 +169,7 @@ def test_id_and_timestamp_injectable():
     cr = build_calibration_result(
         model_class="m",
         parameters={},
-        residuals=[],
+        residuals=[0.0],
         optimiser=OptimiserSpec("x", 0.0, 0),
         iterations=0,
         converged=True,
@@ -182,7 +184,7 @@ def test_auto_ids_are_distinct():
     kw = dict(
         model_class="m",
         parameters={},
-        residuals=[],
+        residuals=[0.0],
         optimiser=OptimiserSpec("x", 0.0, 0),
         iterations=0,
         converged=True,

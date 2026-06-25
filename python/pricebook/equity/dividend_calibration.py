@@ -78,7 +78,7 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse": float(self.rmse), "record_source": "reconstructed"}),
+                extra={"rmse": float(self.rmse)}, reconstructed=True),
         )
 
 

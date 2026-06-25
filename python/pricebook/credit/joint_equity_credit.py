@@ -75,7 +75,7 @@ class JointCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=["equity_vol", "cds_spread"],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"fit_quality": float(self.fit_quality), "record_source": "reconstructed"}),
+                extra={"fit_quality": float(self.fit_quality)}, reconstructed=True),
         )
 
 

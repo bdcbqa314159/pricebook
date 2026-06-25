@@ -162,11 +162,11 @@ class TestCalibrationResultNewFactory:
         assert r.fit.rms_residual == pytest.approx(math.sqrt(25.0 / 3.0))
         assert r.fit.max_residual == 4.0
 
-    def test_empty_residuals_means_zero_rms_and_max(self):
+    def test_zero_residual_means_zero_rms_and_max(self):
         r = build_calibration_result(
             model_class="x",
             parameters={"a": 1.0},
-            residuals=[],
+            residuals=[0.0],
             optimiser=self._spec(),
             iterations=0,
             converged=False,

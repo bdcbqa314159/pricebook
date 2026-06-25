@@ -131,8 +131,7 @@ class HazardBootstrapResult(CanonicalCalibrationResult):
             solve=solve,
             objective=ObjectiveKind.WEIGHTED_SSE,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse_bp": float(self.rmse_bp), "lam": float(self.lam),
-                       "record_source": "reconstructed"},
+                extra={"rmse_bp": float(self.rmse_bp), "lam": float(self.lam)}, reconstructed=True,
             ),
         )
 

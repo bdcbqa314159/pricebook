@@ -75,7 +75,7 @@ class RebonatoLMMCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=["aggregate_objective"],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"n_swaptions": int(self.n_swaptions), "record_source": "reconstructed"}),
+                extra={"n_swaptions": int(self.n_swaptions)}, reconstructed=True),
         )
 
 

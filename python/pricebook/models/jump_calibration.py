@@ -84,7 +84,7 @@ class JumpCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=[f"smile_K={k:.4f}" for k in self.strikes],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse_vol": float(self.rmse_vol), "record_source": "reconstructed"},
+                extra={"rmse_vol": float(self.rmse_vol)}, reconstructed=True,
             ),
         )
 

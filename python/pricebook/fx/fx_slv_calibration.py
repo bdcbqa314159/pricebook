@@ -200,8 +200,8 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=["aggregate_objective"],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"n_particles": self.n_particles, "record_source": "reconstructed",
-                       "residual_is_placeholder": True},
+                extra={"n_particles": self.n_particles,
+                       "residual_is_placeholder": True}, reconstructed=True,
                 warnings=("residual is a placeholder (0.0); fit quality not measured",),
             ),
         )

@@ -150,7 +150,7 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=[f"swaption_{e}x{n}" for (e, n) in keys],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse": float(self.rmse), "record_source": "reconstructed"}),
+                extra={"rmse": float(self.rmse)}, reconstructed=True),
         )
 
 

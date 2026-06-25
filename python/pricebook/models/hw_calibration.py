@@ -80,7 +80,7 @@ class HWCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=quotes,
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse_vol": float(self.rmse_vol), "record_source": "reconstructed"},
+                extra={"rmse_vol": float(self.rmse_vol)}, reconstructed=True,
             ),
         )
 

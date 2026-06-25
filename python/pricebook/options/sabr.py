@@ -82,8 +82,7 @@ class SABRCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=quotes,
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"rmse": float(self.rmse), "max_error_bp": float(self.max_error_bp),
-                       "record_source": "reconstructed"},
+                extra={"rmse": float(self.rmse), "max_error_bp": float(self.max_error_bp)}, reconstructed=True,
             ),
         )
 

@@ -50,7 +50,7 @@ def test_lazy_build_and_cache():
 
 def test_stored_record_is_returned_verbatim():
     pre = build_calibration_result(
-        model_class="pre", parameters={}, residuals=[],
+        model_class="pre", parameters={}, residuals=[0.0],
         optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
     )
     f = _Fam(x=2.0, calibration_result=pre)

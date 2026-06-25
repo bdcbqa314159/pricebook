@@ -116,6 +116,10 @@ class CalibrationDiagnostics:
     parameter_history: Sequence[Mapping[str, float]] = ()
     timing_ms: float | None = None
     warnings: Sequence[str] = ()
+    # True when the record was reconstructed by a result's `_build` fallback
+    # (hand-built instance) rather than captured at fit time — a first-class
+    # flag rather than a magic `extra["record_source"]` string.
+    reconstructed: bool = False
     extra: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -210,7 +214,15 @@ class CalibrationFit:
                 f"model_class must be non-empty snake_case (audit key); "
                 f"got {self.model_class!r}"
             )
+        # A fit with no targets is not a fit. An empty residual vector makes the
+        # derived `rms_residual` read as 0.0 — "no data" masquerading as a
+        # perfect fit. Reject it at construction (the type-level G1 guarantee).
         n = len(self.residuals)
+        if n == 0:
+            raise ValueError(
+                "residuals must be non-empty — a CalibrationFit with no targets "
+                "is not a fit (an empty residual vector reads as a false perfect)"
+            )
         if self.weights and len(self.weights) != n:
             raise ValueError(
                 f"weights length {len(self.weights)} must match residuals length {n} "

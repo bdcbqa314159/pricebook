@@ -378,7 +378,7 @@ class JYCalibrationResult(CanonicalCalibrationResult):
             quotes_fitted=["aggregate_objective"],
             solve=solve,
             diagnostics=CalibrationDiagnostics(
-                extra={"n_instruments": int(self.n_instruments), "record_source": "reconstructed"}),
+                extra={"n_instruments": int(self.n_instruments)}, reconstructed=True),
         )
 
 

@@ -48,6 +48,7 @@ def model_calibration_record(
     market_snapshot_id: UUID | None = None,
     optimiser_extra: Mapping[str, Any] | None = None,
     diagnostics: CalibrationDiagnostics | None = None,
+    reconstructed: bool = False,
 ) -> CalibrationResult:
     """Assemble a model calibrator's canonical `CalibrationResult`.
 
@@ -67,6 +68,8 @@ def model_calibration_record(
         diag = dataclasses.replace(
             diag, warnings=tuple(diag.warnings) + (f"{model_class} calibration did not converge",)
         )
+    if reconstructed and not diag.reconstructed:
+        diag = dataclasses.replace(diag, reconstructed=True)
     return CalibrationResult(
         provenance=CalibrationProvenance.stamp(market_snapshot_id=market_snapshot_id),
         fit=CalibrationFit(

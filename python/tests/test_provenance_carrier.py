@@ -50,7 +50,8 @@ def test_all_three_realisations_are_carriers():
         REF, [BondQuote(date(2027, 6, 1), 0.0, 97.5, frequency=2),
               BondQuote(date(2031, 6, 1), 0.045, 97.0, frequency=2)],
         method="sequential")
-    result = SABRCalibrationResult(alpha=0.2, beta=0.5, rho=-0.3, nu=0.4, rmse=0.001)  # mixin
+    result = SABRCalibrationResult(alpha=0.2, beta=0.5, rho=-0.3, nu=0.4, rmse=0.001,
+                                   reprice_errors_bp=[1.0, -0.5], max_error_bp=1.0)  # mixin
     record = curve.to_calibration_result()                         # raw record
 
     for carrier in (curve, wrapper, result, record):

@@ -67,7 +67,7 @@ class TestPolymorphicSave:
 
     def test_canonical_result_still_passes_through(self, db):
         cr = build_calibration_result(
-            model_class="m", parameters={}, residuals=[],
+            model_class="m", parameters={}, residuals=[0.0],
             optimiser=OptimiserSpec("x", 0.0, 0), iterations=0, converged=True,
         )
         assert db.save_calibration(cr) == str(cr.provenance.id)
