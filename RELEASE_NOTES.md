@@ -2,6 +2,21 @@
 
 ---
 
+## v1.160.0 — 2026-06-25 — **Calibration migration Phase 2 Group A: 5 already-eager calibrators onto the builder**
+
+The de-duplication batch — HW, G2++, jump, FX-SLV, bond-hazard. Each already captured real optimiser data via a hand-rolled `CalibrationResult` skeleton; now they route through `model_calibration_record` + `SolveReport.external(...)`.
+
+**Files**: `models/{hw,g2pp,jump}_calibration.py`, `fx/fx_slv_calibration.py`, `credit/bond_hazard_bootstrap.py`, `calibration/_model_record.py`.
+
+* Both the eager path and the lazy `_build` fallback now go through the single builder; the hand-rolled skeletons (and the per-`_build` warning copy-paste) are gone. bond_hazard had **three** eager construction sites + its fallback — all four collapsed onto the builder.
+* The 5 modules no longer import `CalibrationFit`/`OptimiserRun`/`OptimiserSpec`/`CalibrationProvenance`.
+* Builder gained a `weights` passthrough (bond_hazard's per-bond weights).
+* FX-SLV eager now records real `iterations` (`n_t` MC steps).
+
+**Verification**: 614 targeted + full suite **13014 passed**. Next: Group B (the 7 lazy-only calibrators).
+
+---
+
 ## v1.159.0 — 2026-06-24 — **Calibration migration Phase 2 (slice 1): SABR onto the single builder**
 
 The reference migration — the template for the other 14 calibrators (OPEN.md §0c).
