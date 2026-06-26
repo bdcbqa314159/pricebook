@@ -2,6 +2,22 @@
 
 ---
 
+## v1.164.0 — 2026-06-26 — **Tri-state `converged` — the magic-threshold convergence fiction removed**
+
+Closes the one genuine residual the migration left (and corrects the Phase-4 claim that the thresholds were already gone — they weren't, until now).
+
+**Files**: `calibration/_types.py`, `calibration/_solve.py`, `calibration/_model_record.py`, `db/db.py`, the 7 calibrator `_build` fallbacks, + test fixtures.
+
+* **`OptimiserRun.converged` / `SolveReport.converged` are now `bool | None`.** `None` means **"not captured"** — the honest state of a *reconstructed* record (a hand-built result has no optimiser run). The rule is constant everywhere: *pass the optimiser's real flag if you captured it; `None` if you didn't; never guess.*
+* **The 7 magic-threshold guesses are deleted** — SABR/jump/LMM/Rebonato/joint/JY/dividend lazy `_build` fallbacks used to derive `converged = self.rmse < 0.01` (and `< 0.05`, `< 1e-4`, …) with thresholds invented at record-build time. They now pass `converged=None`. (HW/G2++/bond-hazard keep their *stored real* flag; multicurve/dispersion keep their genuine residual-based criterion — those were never guesses.)
+* The builder warns only on a definite `converged is False`, never on `None`. The DB `converged` column stores `NULL` for `None`.
+
+**Net:** a calibration record's convergence verdict is now *always* either the optimiser's own answer or an explicit "not captured" — there is no third, fabricated value anywhere in the system.
+
+**Verification**: 1126 calibration tests + full suite **13015 passed**.
+
+---
+
 ## v1.163.0 — 2026-06-25 — **Calibration migration Phase 4: builder-enforcement gate — migration complete**
 
 The locking slice. Closes OPEN.md §0c.
