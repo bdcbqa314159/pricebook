@@ -45,14 +45,25 @@ CalibrationResult  (frozen)
 
 Two invariants are enforced **in the constructor**, not by convention:
 
-- **`CalibrationFit`** rejects a `model_class` that is not snake_case (regex
-  `[a-z][a-z0-9_]*`) and rejects parallel arrays that disagree in length
-  (`residuals` vs `quotes_fitted` / weights). A malformed record cannot be built.
+- **`CalibrationFit`** rejects an empty residual vector, a `model_class` that is
+  not snake_case (regex `[a-z][a-z0-9_]*`), residuals with no `quotes_fitted`,
+  and parallel arrays that disagree in length. A malformed or no-target record
+  cannot be built.
 - **`CalibrationProvenance.stamp()`** auto-fills id / timestamp (tz-aware UTC) /
   code_version, so producers never hand-roll that boilerplate.
 
 All four components are set in one act and frozen together — "a calibration ran"
 is a single immutable event.
+
+**`parameters` holds fitted *scalars*; surfaces are fingerprinted.** When a
+calibration fits something too large for the scalar `parameters` dict — FX-SLV
+fits a whole **leverage surface** — the surface is not stuffed into the record.
+Instead `_surface_digest(values)` puts a **shape + sha256 fingerprint** into
+`diagnostics.extra` (`leverage_surface_sha256` / `..._shape`). This is the
+designer's `ParamDigest` idea, realised in the open `extra` bag rather than by
+widening `parameters` to a per-family `float | ParamDigest` union. The record
+stays small and queryable; a re-run can be *verified* to have produced the same
+surface; and the digest keys the surface in a side store if the blob is kept.
 
 ---
 
