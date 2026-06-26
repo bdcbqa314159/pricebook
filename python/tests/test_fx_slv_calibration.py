@@ -126,6 +126,29 @@ class TestParticleCalibration:
         assert np.all(result.leverage.values >= 0.1)
         assert np.all(result.leverage.values <= 10.0)
 
+    def test_record_carries_leverage_surface_digest(self):
+        """The fitted leverage *surface* (too large for scalar `parameters`) is
+        fingerprinted into the record — shape + sha256 — so the calibration is
+        identifiable/verifiable from its provenance, not just by bandwidth."""
+        times = np.linspace(0.0, 1.0, 3)
+        spots = np.linspace(0.9, 1.1, 5)
+        local_vols = np.full((3, 5), 0.15)
+        result = particle_slv_calibration(
+            1.0, local_vols, times, spots,
+            kappa=1.0, theta=0.02, xi=0.3, v0=0.02, rho=-0.3,
+            n_particles=500, seed=42,
+        )
+        extra = result.to_calibration_result().diagnostics.extra
+        assert extra["leverage_surface_shape"] == list(result.leverage.values.shape)
+        sha = extra["leverage_surface_sha256"]
+        assert isinstance(sha, str) and len(sha) == 64
+        # the digest is of THIS surface — recomputing it matches
+        import hashlib
+        expect = hashlib.sha256(
+            np.ascontiguousarray(result.leverage.values, dtype=np.float64).tobytes()
+        ).hexdigest()
+        assert sha == expect
+
 
 # ---- Mixing fraction ----
 

@@ -17,10 +17,27 @@ References:
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 
 import numpy as np
+
+
+def _surface_digest(values: np.ndarray) -> dict:
+    """Shape + sha256 fingerprint of a fitted surface (the designer's `ParamDigest`).
+
+    FX-SLV fits a *leverage surface* — too large to put in the record's scalar
+    `parameters`, but its identity matters for reproducibility/audit. The digest
+    lets a record verify a re-run produced the same surface (and key it in a side
+    store) without carrying the blob. Lives in `diagnostics.extra` (the open bag)
+    rather than widening `parameters` to a per-family union.
+    """
+    arr = np.ascontiguousarray(values, dtype=np.float64)
+    return {
+        "leverage_surface_sha256": hashlib.sha256(arr.tobytes()).hexdigest(),
+        "leverage_surface_shape": list(arr.shape),
+    }
 
 from pricebook.calibration import (
     CalibrationDiagnostics,
@@ -201,7 +218,8 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
             solve=solve,
             diagnostics=CalibrationDiagnostics(
                 extra={"n_particles": self.n_particles,
-                       "residual_is_placeholder": True}, reconstructed=True,
+                       "residual_is_placeholder": True,
+                       **_surface_digest(self.leverage.values)}, reconstructed=True,
                 warnings=("residual is a placeholder (0.0); fit quality not measured",),
             ),
         )
@@ -310,7 +328,8 @@ def particle_slv_calibration(
         quotes_fitted=["aggregate_objective"],
         solve=solve,
         diagnostics=CalibrationDiagnostics(
-            extra={"n_particles": n_particles, "n_grid": int(n_t * n_s)},
+            extra={"n_particles": n_particles, "n_grid": int(n_t * n_s),
+                   **_surface_digest(leverage.values)},
         ),
     )
 
