@@ -5,8 +5,8 @@ a vol surface, solving a coupled OIS/projection system — produces an *auditabl
 reproducible, persistable* record, uniformly.
 
 This document is the map. The authoritative detail lives in the docstrings of
-`_types.py` and `_curve_record.py`; this explains how the pieces fit and *why*
-they are shaped the way they are.
+`_types.py`, `_solve.py`, `_curve_record.py` and `_model_record.py`; this explains
+how the pieces fit and *why* they are shaped the way they are.
 
 ---
 
@@ -37,9 +37,10 @@ CalibrationResult  (frozen)
 │                                               objective (ObjectiveKind);
 │                                               rms_residual / max_residual properties
 ├── optimiser_run  : OptimiserRun             — wraps OptimiserSpec(algorithm, tolerance,
-│                                               max_iterations, seed, extra{}); iterations, converged
+│                                               max_iterations, seed, extra{}); iterations, converged (bool|None)
 └── diagnostics    : CalibrationDiagnostics   — all optional: objective_history,
-                                                parameter_history, timing_ms, warnings, extra{}
+                                                parameter_history, timing_ms, warnings,
+                                                reconstructed (bool), extra{}
 ```
 
 Two invariants are enforced **in the constructor**, not by convention:
@@ -147,11 +148,13 @@ The contract is enforced **structurally at two moments**: `__init_subclass__`
 rejects (at import) a subclass that forgets the field; `@abstractmethod` rejects
 (at instantiation) one that forgets the mapping.
 
-**Eager vs lazy.** A calibrator that wants the richest provenance (iterations,
-weights, convergence captured at fit time) populates `calibration_result`
-eagerly inside the calibrate function; otherwise `to_calibration_result()` builds
-it lazily from the instance's stored fields and caches it. Either way the caller
-gets one stable record per instance.
+**Eager populate + reconstruct fallback.** The calibrate function populates
+`calibration_result` **eagerly** at fit time with the real `SolveReport` captured
+from the optimiser (§6). `to_calibration_result()` returns that stored record; it
+only falls back to `_build_calibration_record()` for a *hand-built* instance,
+which reconstructs from stored fields, marks `reconstructed=True`, and reports
+`converged=None` (no optimiser ran — not a guess). Both paths go through the same
+builder, so there is no eager/lazy *drift* — just captured vs not-captured.
 
 > This mixin is explicitly the abstraction the deleted `Calibrator` Protocol
 > failed to be: it has real implementers and removes duplicated field/accessor
@@ -202,24 +205,54 @@ for itself. Not before.
 
 ---
 
-## 6. The shared assembly helper
+## 6. Capture-not-reconstruct — the solver layer + two builders
 
-So no bootstrapper hand-rolls the four-component construction, Pattern A funnels
-through one factory in `_curve_record.py`:
+Records are **assembled only through two factories**, never hand-rolled. This is
+the load-bearing rule (enforced — see §8): hand-rolling is how the eager/lazy
+duality and the fabricated-convergence debt crept in historically.
+
+**The solver-primitive layer (`_solve.py`).** A calibration's optimiser facts —
+`converged / iterations / tolerance / seed` — are *captured from the optimiser
+that actually ran*, never re-derived afterward. A handful of primitives wrap the
+solve idioms and return a `SolveReport` alongside the solution:
 
 ```python
-curve_calibration_record(*, model_class, parameters, residuals, quotes_fitted,
-                         algorithm, iterations, converged=True, tolerance=0.0,
-                         objective=SSE, market_snapshot_id=None,
-                         optimiser_extra=None, diagnostics_extra=None) -> CalibrationResult
+minimize_solve / least_squares_solve / global_local_solve / brentq_solve /
+particle_solve(...)  -> (solution, SolveReport)
+SolveReport.analytic()                 # closed-form: no iteration, honest
+SolveReport.external(converged=…, …)   # black-box wrapper (e.g. pricebook minimize)
+```
 
+`SolveReport.converged` is **tri-state `bool | None`**: the optimiser's real
+verdict, or `None` = "not captured" (a reconstructed, hand-built result). It is
+*never* guessed from a threshold.
+
+**Two builders, one per family.** Each takes the captured data and assembles the
+four components uniformly:
+
+```python
+# Pattern A — curves (_curve_record.py)
+curve_calibration_record(*, model_class, parameters, residuals, quotes_fitted,
+                         algorithm, iterations, converged=True, …) -> CalibrationResult
+# Pattern B — model calibrators (_model_record.py)
+model_calibration_record(*, model_class, parameters, residuals, quotes_fitted,
+                         solve: SolveReport, objective=SSE, weights=(),
+                         reconstructed=False, …) -> CalibrationResult
 pillar_parameters(dates, values, *, label="df") -> {"df(2027-01-01)": 0.97, …}
 ```
 
-It lives at **L0** so every producer (`curves`, `fixed_income`, `credit`,
-`equity`) imports it without pulling in any concrete curve type. (Pattern B's
-`_build_calibration_record` implementations construct `CalibrationResult`
-directly, since they map bespoke fields rather than pillar arrays.)
+`model_calibration_record` *requires* a `SolveReport`, so a calibrator can
+neither omit nor invent convergence; cross-cutting behaviour (the
+non-convergence warning, the `reconstructed` flag) lives here, not copy-pasted
+into each calibrator. Both builders live at **L0** so every producer imports
+them without pulling in a concrete curve type.
+
+The pipeline every producer follows:
+
+```
+inputs → solver primitive → SolveReport → {curve,model}_calibration_record → CalibrationResult
+                              (captured)         (the one assembler)
+```
 
 ---
 
@@ -252,25 +285,40 @@ persist).
 
 ---
 
-## 8. Enforcement — the conformance gates
+## 8. Enforcement — the gates
 
-Convention rots; three test gates turn it into CI-enforced invariants.
+Convention rots; five test gates turn it into CI-enforced invariants.
 
 - **`test_bootstrapper_provenance_conformance.py`** — AST-discovers every public
   `bootstrap*` / `*_bootstrap` function and asserts each is classified COVERED
   (and behaviourally produces a non-None, DB-round-tripping record) or
   ALLOWLISTED with a reason (only `bootstrap_ci`, a statistical resampler, is).
-  A new bootstrapper wired for no provenance fails here.
 
 - **`test_calibrator_provenance_conformance.py`** — AST-discovers every
   `CanonicalCalibrationResult` subclass; asserts each is classified, satisfies
   the mixin contract (field + own `_build_calibration_record`), and (where
   cheaply constructible) builds a valid, persistable record.
 
-- **`test_provenance_carrier.py`** — the abstraction itself: all three
-  realisations satisfy the Protocol and are substitutable at `save_calibration`;
-  the error paths raise; **plus an AST structural sweep** that fails if any class
-  carrying a `calibration_result` forgets `to_calibration_result()`.
+- **`test_provenance_carrier.py`** — the read abstraction: all three realisations
+  satisfy the Protocol and are substitutable at `save_calibration`; the error
+  paths raise; **plus an AST sweep** that fails if any class carrying a
+  `calibration_result` forgets `to_calibration_result()`.
+
+- **`test_calibration_fidelity.py`** — the record must be *honest*: across every
+  produced record, residuals are non-empty and 1:1 with quotes, `algorithm` is a
+  canonical snake_case key (never `"unknown"`), and `model_class` is globally
+  unique across families (delegation aliases excepted).
+
+- **`test_calibration_builder_enforcement.py`** — the single-builder lock:
+  AST-asserts `CalibrationResult` / `CalibrationFit` / `OptimiserRun` /
+  `OptimiserSpec` are constructed **only** in the type-definitions module and the
+  two builders. A producer that hand-rolls a record — reintroducing the
+  eager/lazy duality or fabricated convergence — fails CI.
+
+Plus type-level invariants in the constructors themselves (`CalibrationFit`
+rejects empty residuals, unlabelled residuals, and non-snake_case keys;
+`OptimiserSpec` canonicalises `algorithm`) — caught at construction, not just by
+a gate.
 
 ---
 
@@ -303,22 +351,25 @@ structurally, not by inheritance, precisely to keep that edge absent.
 3. If you return a wrapper, forward `calibration_result` to the inner curve.
 4. Add the function to the COVERED registry in the bootstrapper gate.
 
-**… calibrator** (returns parameters):
+**… calibrator** (returns parameters) — the whole job is ~6 lines:
 1. Make the family-result a `@dataclass` subclassing `CanonicalCalibrationResult`,
-   declaring the `calibration_result: CalibrationResult | None = None` field.
-2. Implement `_build_calibration_record()` mapping your fields onto a
-   `CalibrationResult` (snake_case `model_class`; residuals ↔ quotes lengths
-   agree). Optionally populate `calibration_result` eagerly at fit time for
-   richer provenance.
-3. Add the class to `CLASSES` / `COVERED` in the calibrator gate (and a builder,
-   or note it under `_BEHAVIOURAL_ELSEWHERE` if it carries a heavy live object).
+   declaring `calibration_result: CalibrationResult | None = None`.
+2. In the calibrate function: fit via a **solver primitive** → get a
+   `SolveReport`, then `model_calibration_record(model_class=…, parameters=…,
+   residuals=…, quotes_fitted=…, solve=report)`. Store it eagerly on the result.
+   (Capture convergence from the report — never write `converged=` by hand.)
+3. Implement `_build_calibration_record()` as the hand-built fallback: same
+   builder, with `SolveReport.external(converged=None, …)` (no optimiser ran) and
+   `reconstructed=True`.
+4. Add the class to `CLASSES` / `COVERED` in the calibrator gate.
 
 ---
 
 ## One-sentence shape
 
-One immutable four-part record (`CalibrationResult`), read through one Protocol
-(`ProvenanceCarrier`) realised two ways — a **field on the curve** when the curve
-is the artefact, a **lazy ABC method** when parameters are the artefact —
-assembled through a shared L0 helper, persisted through one polymorphic DB sink,
-and held to the contract by three AST-driven conformance gates.
+One immutable four-part record (`CalibrationResult`), **captured** from the
+optimiser via a `SolveReport` and **assembled** through one of two L0 builders,
+read through one Protocol (`ProvenanceCarrier`) realised two ways — a **field on
+the curve** when the curve is the artefact, a **mixin method** when parameters
+are — persisted through one polymorphic DB sink, and held to the contract by
+five gates plus the constructors' own type-level invariants.
