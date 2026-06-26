@@ -34,6 +34,21 @@ from uuid import UUID, uuid4
 from pricebook.core.serialisable import serialisable_convention
 
 
+def _json_normalise(value: Any) -> Any:
+    """Coerce a value to the JSON-native shape it has *after* a serialise →
+    deserialise round-trip — tuples become lists (recursively). Applied to the
+    freeform ``extra`` maps, which (unlike the typed sequence fields) are not
+    otherwise canonicalised, so an in-memory record compares ``==`` to its
+    reloaded form. Without this, a producer that puts a tuple in ``extra`` (e.g.
+    G2++ optimiser bounds) round-trips to a list and breaks record equality.
+    """
+    if isinstance(value, (list, tuple)):
+        return [_json_normalise(v) for v in value]
+    if isinstance(value, Mapping):
+        return {k: _json_normalise(v) for k, v in value.items()}
+    return value
+
+
 class ObjectiveKind(str, Enum):
     """How the calibration objective combines per-quote residuals.
 
@@ -84,6 +99,9 @@ class OptimiserSpec:
                 f"got {self.algorithm!r}"
             )
         object.__setattr__(self, "algorithm", canon)
+        # JSON-normalise `extra` so a tuple value (e.g. optimiser bounds) survives
+        # a save→load round-trip as the same shape it has in memory.
+        object.__setattr__(self, "extra", _json_normalise(dict(self.extra)))
 
 
 @serialisable_convention("optimiser_run")
@@ -132,6 +150,8 @@ class CalibrationDiagnostics:
         object.__setattr__(self, "objective_history", tuple(self.objective_history))
         object.__setattr__(self, "parameter_history", tuple(self.parameter_history))
         object.__setattr__(self, "warnings", tuple(self.warnings))
+        # JSON-normalise `extra` so tuple values survive a save→load round-trip.
+        object.__setattr__(self, "extra", _json_normalise(dict(self.extra)))
 
 
 @serialisable_convention("calibration_provenance")

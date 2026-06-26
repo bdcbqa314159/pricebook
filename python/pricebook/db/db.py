@@ -764,8 +764,13 @@ class PricebookDB:
         clauses = []
         params = []
         for k, v in filters.items():
-            clauses.append(f"{_safe_name(k)} = ?")
-            params.append(v)
+            # `col = NULL` is never true in SQL — use `IS NULL` so a None filter
+            # (e.g. converged=None, "not captured") actually matches NULL rows.
+            if v is None:
+                clauses.append(f"{_safe_name(k)} IS NULL")
+            else:
+                clauses.append(f"{_safe_name(k)} = ?")
+                params.append(v)
         return " WHERE " + " AND ".join(clauses), tuple(params)
 
     def close(self) -> None:

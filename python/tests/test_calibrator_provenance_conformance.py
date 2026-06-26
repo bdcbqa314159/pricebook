@@ -129,6 +129,14 @@ def test_subclass_satisfies_mixin_contract(name):
         if base is not CanonicalCalibrationResult
     ), f"{name} does not override _build_calibration_record"
     assert getattr(cls._build_calibration_record, "__isabstractmethod__", False) is False
+    # Must be non-frozen: the mixin's `to_calibration_result()` lazy-caches by
+    # mutating `self.calibration_result`. A frozen subclass passes class creation
+    # (`__init_subclass__` runs before `@dataclass`) then raises FrozenInstanceError
+    # on first use — so the guard lives here, where every subclass is checked.
+    params = getattr(cls, "__dataclass_params__", None)
+    assert params is not None and not params.frozen, (
+        f"{name} must be a non-frozen @dataclass — the mixin lazy-caches the record"
+    )
 
 
 # ── Layer 3: behavioural ────────────────────────────────────────────────────

@@ -111,3 +111,23 @@ class TestLoopAndAuditChain:
         hits = db.list_calibrations(market_snapshot_id=str(snap))
         assert len(hits) == 1
         assert hits[0]["model_class"] == "jump_merton"
+
+
+def test_list_calibrations_filters_converged_none():
+    """Regression: a not-captured record (converged=None, the tri-state) must be
+    findable via list_calibrations(converged=None). Before the fix, `_build_where`
+    emitted `converged = NULL` (never true in SQL) and returned zero rows."""
+    captured = build_calibration_result(
+        model_class="m_captured", parameters={}, residuals=[0.0], quotes_fitted=["q"],
+        optimiser=OptimiserSpec("x", 0.0, 0), iterations=5, converged=True,
+    )
+    not_captured = build_calibration_result(
+        model_class="m_reconstructed", parameters={}, residuals=[0.0], quotes_fitted=["q"],
+        optimiser=OptimiserSpec("unspecified", 0.0, 0), iterations=0, converged=None,
+    )
+    with PricebookDB(":memory:") as db:
+        db.save_calibration(captured)
+        db.save_calibration(not_captured)
+        none_rows = db.list_calibrations(converged=None)
+        assert [r["model_class"] for r in none_rows] == ["m_reconstructed"]
+        assert [r["model_class"] for r in db.list_calibrations(converged=True)] == ["m_captured"]

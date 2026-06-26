@@ -212,3 +212,21 @@ def test_atom_dict_and_tuple_recurse():
     u = uuid4()
     assert _serialise_atom((1, u)) == [1, str(u)]
     assert _serialise_atom({"k": u}) == {"k": str(u)}
+
+
+def test_tuple_values_in_extra_round_trip_equal():
+    """Regression: a tuple in `extra` (e.g. G2++ optimiser bounds) must survive
+    save→load as the same value. Before the fix it deserialised to a list and
+    broke record equality — and the conformance gates missed it because they
+    round-trip the *reconstructed* (scalar-extra) record, not the eager one."""
+    cr = build_calibration_result(
+        model_class="g2pp", parameters={"a": 0.1}, residuals=[0.0], quotes_fitted=["q"],
+        optimiser=OptimiserSpec("trf", 1e-8, 100, extra={"a_bounds": (0.001, 0.5)}),
+        iterations=1, converged=True,
+        diagnostics=CalibrationDiagnostics(extra={"shape": (4, 5), "nested": {"b": (1, 2)}}),
+    )
+    back = CalibrationResult.from_dict(cr.to_dict())
+    assert back == cr
+    # normalised to JSON-native lists in memory (so in-memory == on-disk)
+    assert cr.optimiser_run.spec.extra["a_bounds"] == [0.001, 0.5]
+    assert cr.diagnostics.extra["nested"] == {"b": [1, 2]}

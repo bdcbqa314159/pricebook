@@ -16,6 +16,9 @@ bootstrappers + model calibrators), so it covers the whole producer surface.
 
 from __future__ import annotations
 
+import ast
+import collections
+import pathlib
 import re
 
 import pytest
@@ -24,6 +27,7 @@ from tests.test_bootstrapper_provenance_conformance import REGISTRY as _BOOT
 from tests.test_calibrator_provenance_conformance import BUILDERS as _CALIB
 
 _ALGO_RE = re.compile(r"[a-z][a-z0-9_]*")
+_PKG_ROOT = pathlib.Path(__file__).resolve().parents[1] / "pricebook"
 
 
 def _all_records() -> dict[str, object]:
@@ -93,3 +97,29 @@ def test_model_class_is_globally_unique():
         if len(labels) > 1 and labels != _DELEGATION_GROUPS.get(mc)
     ]
     assert not collisions, "model_class collisions across families:\n" + "\n".join(collisions)
+
+
+def test_model_class_literals_unique_per_module():
+    """G7, *complete* coverage. The runtime check above only sees producers in the
+    two registries (the 5 heavy calibrators + 3 bond-hazard bootstrappers are
+    deferred elsewhere). This scans every `model_class="..."` string literal across
+    the package and asserts each maps to a single producer module — a family lives
+    in one file — so a new producer colliding on an excluded key (`hull_white`,
+    `g2pp`, `fx_slv`, `jarrow_yildirim`, `bond_hazard_pwc`, …) is still caught.
+    """
+    by_key: dict[str, set[str]] = collections.defaultdict(set)
+    for path in _PKG_ROOT.rglob("*.py"):
+        rel = path.relative_to(_PKG_ROOT).as_posix()
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            for kw in node.keywords:
+                if (kw.arg == "model_class" and isinstance(kw.value, ast.Constant)
+                        and isinstance(kw.value.value, str)):
+                    by_key[kw.value.value].add(rel)
+    collisions = {k: sorted(v) for k, v in by_key.items() if len(v) > 1}
+    assert not collisions, (
+        "model_class shared across modules (G7 collision — a key must name one "
+        f"family): {collisions}"
+    )
