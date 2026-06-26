@@ -2,6 +2,28 @@
 
 ---
 
+## v1.168.0 — 2026-06-26 — **Calibration subsystem: adversarial review fixes (2 bugs + 3 gate blind spots)**
+
+A fresh adversarial pass (code-correctness-critic) over the whole subsystem found two real bugs the 13k-test suite missed — both in paths the gates round-tripped the *reconstructed* record for, never the eager one — plus three latent gate holes.
+
+**Files**: `calibration/_types.py`, `db/db.py`, 3 gate tests, 2 new regression tests.
+
+**Confirmed bugs (fixed):**
+* **Tuples in `extra` broke record equality on save→load.** `__post_init__` canonicalised the typed sequence fields to tuples but not the freeform `extra` maps; a producer that puts a tuple there (G2++ optimiser `bounds`, jump-diffusion) round-tripped to a *list*, so `db.load_calibration(cid) == cr` was `False`. Fixed with a recursive `_json_normalise` applied to `OptimiserSpec.extra` and `CalibrationDiagnostics.extra` (tuples → lists in memory, matching the on-disk shape). Regression test added.
+* **`list_calibrations(converged=None)` always returned zero rows.** `_build_where` emitted `converged = NULL`, never true in SQL — so the tri-state "not captured" records the whole campaign preserved were unqueryable. Fixed to `IS NULL` for `None` filters (all columns). Regression test added.
+
+**Gate blind spots (hardened):**
+* **builder-enforcement** only matched bare-`Name` constructor calls — `import _types as t; t.OptimiserSpec(...)` or an aliased import would evade. Now tracks `from … import X as Y` aliases and `ast.Attribute` access.
+* **fidelity G7** (model_class uniqueness) only saw producers in the two registries — the 5 heavy calibrators + 3 bond-hazard bootstrappers (`_BEHAVIOURAL_ELSEWHERE`) were uncovered. Added an AST-literal scan asserting each `model_class="..."` maps to one module — complete coverage.
+* **mixin frozen guard**: a `@dataclass(frozen=True)` subclass would pass `__init_subclass__` (which runs before `@dataclass`) then fail at first `to_calibration_result()`. The conformance gate now asserts every subclass is non-frozen.
+
+No current producer triggered the three latent holes (verified) — they're closed so a future one can't.
+
+**Verification**: full suite **13012 passed**.
+
+---
+
+
 ## v1.167.0 — 2026-06-26 — **Calibrator code review — two fixes**
 
 Adversarial re-read of the calibrator subsystem at v1.166. Found one real consistency bug + one stale docstring; the rest of the structure verified clean.
