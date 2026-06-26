@@ -2,6 +2,19 @@
 
 ---
 
+## v1.165.0 — 2026-06-26 — **FX-SLV leverage-surface digest (the designer's `ParamDigest`)**
+
+Closes the one genuine gap the clean-slate confrontation surfaced: FX-SLV fits a *leverage surface* but its record stored only `bandwidth`, so the fitted output wasn't identifiable/verifiable from its provenance.
+
+**Files**: `fx/fx_slv_calibration.py`, `test_fx_slv_calibration.py`.
+
+* **`_surface_digest(values)`** — shape + sha256 fingerprint of the (n_t × n_s) leverage surface. Both the eager (`particle_slv_calibration`) and the lazy `_build` records now carry `leverage_surface_sha256` + `leverage_surface_shape`. A re-run with the same inputs/seed can now be *verified* to have produced the same surface, and the digest keys the surface in a side store without bloating the record.
+* **Where it lives, and why**: in `diagnostics.extra` (the open bag), not in `parameters`. The designer put `ParamDigest` in `parameters` via a `float | ParamDigest` union — but widening the scalar-parameters contract for one family would be the per-family special-casing we rejected elsewhere. A surface *fingerprint* is diagnostic context; `extra` is the uniform home for it. Same `ParamDigest` concept (shape + hash), realised consistently with the rest of the design.
+
+**Verification**: full suite **13016 passed**. This was the last substantive item from the clean-slate comparison — everything else skipped was deliberate packaging.
+
+---
+
 ## v1.164.0 — 2026-06-26 — **Tri-state `converged` — the magic-threshold convergence fiction removed**
 
 Closes the one genuine residual the migration left (and corrects the Phase-4 claim that the thresholds were already gone — they weren't, until now).
