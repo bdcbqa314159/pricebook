@@ -222,24 +222,19 @@ Records are **assembled only through two factories**, never hand-rolled. This is
 the load-bearing rule (enforced — see §8): hand-rolling is how the eager/lazy
 duality and the fabricated-convergence debt crept in historically.
 
-**The capture layer (`_solve.py`) — `SolveReport`.** A calibration's optimiser
+**The capture record (`_solve.py`) — `SolveReport`.** A calibration's optimiser
 facts (`converged / iterations / tolerance / seed`) are *captured from the
-optimiser that actually ran*, never re-derived. The capture vehicle is
-`SolveReport`. In practice each calibrator wraps the result of its existing
-optimiser call:
+optimiser that actually ran*, never re-derived. This layer's job is to **record**
+a solve, not to run it — optimiser setups are irreducibly bespoke (scipy, the
+pricebook `minimize` wrapper, two-stage differential-evolution, particle loops),
+so the calibrator owns its solve and hands the result here. Exactly two honest
+constructors:
 
 ```python
 SolveReport.external(algorithm=…, converged=result.success, iterations=result.nit, …)
-                                       # wraps scipy / pb_minimize / differential_evolution
+                                       # wrap an already-run optimiser's result
 SolveReport.analytic()                 # closed-form: no iteration, converged=True honestly
 ```
-
-`_solve.py` also ships five ready-made primitives — `minimize_solve`,
-`least_squares_solve`, `global_local_solve`, `brentq_solve`, `particle_solve` —
-that run the solve *and* return the `SolveReport` for you (`-> (solution,
-SolveReport)`). They're a convenience for **new** calibrators; the existing 13
-capture via `.external()` around their own optimiser calls, so the primitives are
-currently exercised only by their tests.
 
 `SolveReport.converged` is **tri-state `bool | None`**: the optimiser's real
 verdict, or `None` = "not captured" (a reconstructed, hand-built result). It is
@@ -450,8 +445,7 @@ structurally, not by inheritance, precisely to keep that edge absent.
    declaring `calibration_result: CalibrationResult | None = None`.
 2. In the calibrate function: run your optimiser, then **capture** its verdict —
    `SolveReport.external(algorithm=…, converged=result.success, iterations=…)`
-   (or use a `_solve.py` primitive, which returns the report for you; or
-   `SolveReport.analytic()` for closed-form). Then
+   (or `SolveReport.analytic()` for closed-form). Then
    `model_calibration_record(model_class=…, parameters=…, residuals=…,
    quotes_fitted=…, solve=report)`, stored eagerly on the result. Never write
    `converged=` from a threshold — capture it or pass `None`.

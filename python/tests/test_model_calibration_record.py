@@ -13,7 +13,6 @@ from pricebook.calibration import (
     CalibrationResult,
     ObjectiveKind,
     SolveReport,
-    minimize_solve,
     model_calibration_record,
 )
 from pricebook.db.db import PricebookDB
@@ -71,17 +70,21 @@ def test_unlabelled_residuals_rejected():
 
 
 def test_end_to_end_clean_pattern_persists():
-    """The shape every new calibrator follows — no eager/lazy fork, no hand-rolled
-    skeleton, no invented convergence."""
-    # 1. fit via a primitive (toy 2-target least-squares-ish objective)
+    """The shape every new calibrator follows — run an optimiser, CAPTURE its
+    verdict in SolveReport.external, build the record, persist. No eager/lazy
+    fork, no hand-rolled skeleton, no invented convergence."""
+    import scipy.optimize as opt
+    # 1. run the optimiser (toy 2-target least-squares-ish objective)
     target = np.array([1.5, -0.5])
-    x, solve = minimize_solve(lambda v: float(np.sum((v - target) ** 2)),
-                              [0.0, 0.0], method="Nelder-Mead", tol=1e-10)
-    # 2. build the record straight from the captured report
-    residuals = (x - target).tolist()
+    result = opt.minimize(lambda v: float(np.sum((v - target) ** 2)),
+                          [0.0, 0.0], method="Nelder-Mead", tol=1e-10)
+    # 2. CAPTURE its verdict, then build the record straight from the report
+    solve = SolveReport.external(algorithm="nelder_mead", converged=bool(result.success),
+                                 iterations=int(result.nit), tolerance=1e-10)
+    residuals = (result.x - target).tolist()
     rec = model_calibration_record(
         model_class="toy_smile",
-        parameters={"p0": float(x[0]), "p1": float(x[1])},
+        parameters={"p0": float(result.x[0]), "p1": float(result.x[1])},
         residuals=residuals,
         quotes_fitted=["t0", "t1"],
         solve=solve,
