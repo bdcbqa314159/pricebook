@@ -65,9 +65,9 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
-        # Lazy-only result: converged if the futures-price RMSE is below 0.5.
-        converged = self.rmse < 0.5
-        solve = SolveReport.external(algorithm=self.method, converged=converged, iterations=0)
+        # Lazy reconstruction (hand-built instance): no optimiser ran, so
+        # convergence is not captured (None) — never guessed from a threshold.
+        solve = SolveReport.external(algorithm=self.method, converged=None, iterations=0)
         return model_calibration_record(
             model_class="dividend_curve",
             parameters={

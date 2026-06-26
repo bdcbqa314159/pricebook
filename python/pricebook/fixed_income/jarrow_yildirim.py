@@ -364,9 +364,9 @@ class JYCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         p = self.params
-        # Lazy-only result: convergence reconstructed from the carried residual.
-        converged = abs(self.residual) < 1e-4
-        solve = SolveReport.external(algorithm="Nelder-Mead", converged=converged, iterations=0)
+        # Lazy reconstruction (hand-built instance): no optimiser ran, so
+        # convergence is not captured (None) — never guessed from a threshold.
+        solve = SolveReport.external(algorithm="Nelder-Mead", converged=None, iterations=0)
         return model_calibration_record(
             model_class="jarrow_yildirim",
             parameters={

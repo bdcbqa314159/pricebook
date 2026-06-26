@@ -72,8 +72,7 @@ class SABRCalibrationResult(CanonicalCalibrationResult):
         # optimiser metadata is available here (algorithm "unspecified").
         residuals = [float(e) for e in self.reprice_errors_bp]
         quotes = [f"smile_point_{i}" for i in range(len(residuals))]
-        converged = self.rmse < 0.01
-        solve = SolveReport.external(algorithm="unspecified", converged=converged, iterations=0)
+        solve = SolveReport.external(algorithm="unspecified", converged=None, iterations=0)
         return model_calibration_record(
             model_class="sabr",
             parameters={"alpha": self.alpha, "beta": self.beta,

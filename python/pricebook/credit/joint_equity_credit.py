@@ -65,9 +65,9 @@ class JointCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = self._relative_residuals()
-        # Lazy-only result: converged if both targets fit to within 5% relative.
-        converged = max((abs(r) for r in residuals), default=0.0) < 0.05
-        solve = SolveReport.external(algorithm="L-BFGS-B", converged=converged, iterations=0)
+        # Lazy reconstruction (hand-built instance): no optimiser ran, so
+        # convergence is not captured (None) — never guessed from a threshold.
+        solve = SolveReport.external(algorithm="L-BFGS-B", converged=None, iterations=0)
         return model_calibration_record(
             model_class="joint_equity_credit",
             parameters={"asset_vol": float(self.asset_vol), "leverage": float(self.leverage)},

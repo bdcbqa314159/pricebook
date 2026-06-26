@@ -140,9 +140,9 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
             self.fitted_swaption_vols.get(k, 0.0) - self.target_swaption_vols[k]
             for k in keys
         ]
-        # Lazy-only result: convergence reconstructed from the carried RMSE.
-        converged = self.rmse < 0.01
-        solve = SolveReport.external(algorithm="iterative_scaling", converged=converged, iterations=0)
+        # Lazy reconstruction (hand-built instance): no optimiser ran, so
+        # convergence is not captured (None) — never guessed from a threshold.
+        solve = SolveReport.external(algorithm="iterative_scaling", converged=None, iterations=0)
         return model_calibration_record(
             model_class="lmm",
             parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.calibrated_vols)},

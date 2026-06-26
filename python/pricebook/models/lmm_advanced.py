@@ -64,10 +64,9 @@ class RebonatoLMMCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        # Single aggregate fit residual → one labelled quote. Lazy-only result:
-        # convergence reconstructed from the carried residual.
-        converged = abs(self.residual) < 1e-6
-        solve = SolveReport.external(algorithm=self.method, converged=converged, iterations=0)
+        # Lazy reconstruction (hand-built instance): no optimiser ran, so
+        # convergence is not captured (None) — never guessed from a threshold.
+        solve = SolveReport.external(algorithm=self.method, converged=None, iterations=0)
         return model_calibration_record(
             model_class="lmm_rebonato",
             parameters={f"sigma_{i}": float(v) for i, v in enumerate(self.vols)},

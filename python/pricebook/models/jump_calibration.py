@@ -71,12 +71,11 @@ class JumpCalibrationResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self) -> CalibrationResult:
-        # Reconstructed fallback for hand-built instances; calibrate_jump_model
-        # populates the record eagerly with the real optimiser run. Convergence
-        # here is reconstructed from the carried vol RMSE (no captured flag).
+        # Lazy reconstruction (hand-built instance): calibrate_jump_model
+        # populates the record eagerly with the real optimiser run. No optimiser
+        # ran here, so convergence is not captured (None) — never guessed.
         residuals = [mv - mkv for mv, mkv in zip(self.model_vols, self.market_vols)]
-        converged = self.rmse_vol < 0.01
-        solve = SolveReport.external(algorithm="unspecified", converged=converged, iterations=0)
+        solve = SolveReport.external(algorithm="unspecified", converged=None, iterations=0)
         return model_calibration_record(
             model_class=f"jump_{self.model_type}",
             parameters={k: float(v) for k, v in self.params.items()},

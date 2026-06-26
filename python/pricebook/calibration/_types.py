@@ -99,7 +99,10 @@ class OptimiserRun:
 
     spec: OptimiserSpec
     iterations: int
-    converged: bool
+    # Tri-state: True/False is the optimiser's own verdict; None means "not
+    # captured" — used by reconstructed records (a hand-built result has no
+    # optimiser run), so convergence is never *guessed* from a magic threshold.
+    converged: bool | None
 
 
 @serialisable_convention("calibration_diagnostics")

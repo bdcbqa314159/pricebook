@@ -478,7 +478,7 @@ class PricebookDB:
                result_json=excluded.result_json""",
             (cid, fit.model_class, prov.timestamp.isoformat(),
              prov.code_version, fit.objective.value,
-             int(run.converged), run.iterations,
+             None if run.converged is None else int(run.converged), run.iterations,
              fit.rms_residual, fit.max_residual,
              msid, json.dumps(result.to_dict()), _now()),
         )

@@ -90,7 +90,9 @@ class TestPolymorphicSave:
         assert str(loaded.provenance.id) == cid
         assert loaded.fit.model_class == "jump_kou"
         assert loaded.fit.parameters == {"lambda": 0.5, "p": 0.4}
-        assert loaded.optimiser_run.converged is True
+        # Reconstructed from a hand-built result — no optimiser ran, so
+        # convergence is not captured (None), not guessed.
+        assert loaded.optimiser_run.converged is None
 
 
 class TestLoopAndAuditChain:

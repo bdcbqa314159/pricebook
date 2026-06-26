@@ -64,7 +64,9 @@ def model_calibration_record(
     automatically.
     """
     diag = diagnostics or CalibrationDiagnostics()
-    if not solve.converged and not any("converge" in w.lower() for w in diag.warnings):
+    # Warn only on a definite non-convergence (False) — not on None ("not
+    # captured"), which is the honest state of a reconstructed record.
+    if solve.converged is False and not any("converge" in w.lower() for w in diag.warnings):
         diag = dataclasses.replace(
             diag, warnings=tuple(diag.warnings) + (f"{model_class} calibration did not converge",)
         )

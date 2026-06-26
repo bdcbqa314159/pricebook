@@ -38,7 +38,7 @@ class SolveReport:
     """
 
     algorithm: str
-    converged: bool
+    converged: bool | None          # None = not captured (reconstructed records)
     iterations: int                 # iterations/evals the optimiser actually took
     tolerance: float | None = None
     seed: int | None = None
@@ -58,7 +58,7 @@ class SolveReport:
         cls,
         *,
         algorithm: str,
-        converged: bool,
+        converged: bool | None,
         iterations: int = 0,
         tolerance: float | None = None,
         seed: int | None = None,
@@ -66,10 +66,12 @@ class SolveReport:
     ) -> "SolveReport":
         """Escape hatch for a black-box optimiser this layer does not wrap
         (e.g. the pricebook ``statistics.optimization.minimize`` wrapper). The
-        caller passes through whatever metadata the optimiser exposed — still a
-        single, explicit capture point, not a reconstruction."""
+        caller passes through whatever metadata the optimiser exposed — including
+        ``converged=None`` when no optimiser ran (a reconstructed record), so
+        convergence is never guessed from a threshold."""
         return cls(
-            algorithm=str(algorithm), converged=bool(converged),
+            algorithm=str(algorithm),
+            converged=None if converged is None else bool(converged),
             iterations=int(iterations), tolerance=tolerance,
             seed=None if seed is None else int(seed),
             max_iterations=int(max_iterations),
