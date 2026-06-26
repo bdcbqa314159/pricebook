@@ -207,8 +207,10 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         # Reconstructed fallback for hand-built instances; particle_slv_calibration
-        # populates the record eagerly (with a measured residual).
-        solve = SolveReport.external(algorithm="particle_method", converged=True,
+        # populates the record eagerly (with a measured residual). No MC ran here,
+        # so convergence is not captured (None) — consistent with every other
+        # reconstructed path; the eager record carries the real verdict.
+        solve = SolveReport.external(algorithm="particle_method", converged=None,
                                      iterations=0, seed=self.seed)
         return model_calibration_record(
             model_class="fx_slv",

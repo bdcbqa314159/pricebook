@@ -1,18 +1,16 @@
 """Single builder for model-calibrator provenance records.
 
-Phase 1 of the calibration "capture-not-reconstruct" migration (OPEN.md §0c).
-
 The Family-B mirror of `curve_calibration_record`. Where curve bootstrappers
 attach their record to the curve, model calibrators (SABR, Hull-White, G2++, …)
 expose a per-family result; this factory assembles their canonical
 `CalibrationResult` from one place, so no calibrator hand-rolls the four-component
-skeleton (the duplication that made the G1–G9 fixes a 15-file change).
+skeleton.
 
-The optimiser facts come in as a `SolveReport` — a **required** argument produced
-only by the solver primitives (`_solve.py`). A calibrator therefore cannot omit
-or fabricate `converged` / `iterations` / `seed`: it passes through what the
-optimiser actually reported. This closes the eager/lazy duality at the source —
-there is one truthful build path, captured at fit time.
+The optimiser facts come in as a `SolveReport` — a **required** argument the
+calibrator captures from its optimiser (`SolveReport.external` / `.analytic`). A
+calibrator therefore cannot omit or fabricate `converged` / `iterations` / `seed`:
+it passes through what the optimiser actually reported (or `converged=None` when
+no optimiser ran). One truthful build path, captured at fit time.
 
 Cross-cutting behaviour lives here, not in each calibrator: a non-convergence
 `warning` is appended automatically, so "it didn't converge" is always visible.
