@@ -2,6 +2,22 @@
 
 ---
 
+## v1.166.0 — 2026-06-26 — **Calibration capture layer: delete the unused solver primitives (one capture path)**
+
+Removes a real smell surfaced by the architecture-doc accuracy check: `_solve.py` shipped five run-and-capture primitives (`minimize_solve`, `least_squares_solve`, `global_local_solve`, `brentq_solve`, `particle_solve`) that **no production calibrator used** — all 13 capture via `SolveReport.external()`/`.analytic()` wrapping their own (bespoke) optimiser. The primitives were exercised only by their own tests: speculative generality / dead flexibility.
+
+**Files**: `calibration/_solve.py`, `calibration/__init__.py`, `test_solve_primitives.py` (deleted), `test_model_calibration_record.py`, `ARCHITECTURE.md`.
+
+* **`_solve.py` is now just `SolveReport`** + its two honest constructors (`.external()` wraps an already-run optimiser; `.analytic()` for closed-form). Dropped the 5 primitives, the `_iters` helper, and the `numpy`/`scipy` imports — the module is pure (`dataclass` only).
+* **The design is now single-path and correct in its separation of concerns**: the layer's job is to *record* a solve, not *run* it — optimiser setups are irreducibly bespoke, so the calibrator owns its solve and hands the result to `SolveReport.external`. One capture mechanism, used identically by all 13.
+* The end-to-end test now demonstrates the real pattern (run scipy → `SolveReport.external` → builder → persist). Doc §6/§10 updated to match.
+
+**Why delete, not keep**: dead code retained "in case a new calibrator wants it" is YAGNI — and it created two ways to do one thing (the exact ambiguity that caused the doc to drift). If a future calibrator wants a run-and-capture helper, it's one commit *with a consumer*. The capture-not-reconstruct principle is fully intact; only the mechanism that blurred "run" with "record" is gone.
+
+**Verification**: full suite **13009 passed**.
+
+---
+
 ## v1.165.0 — 2026-06-26 — **FX-SLV leverage-surface digest (the designer's `ParamDigest`)**
 
 Closes the one genuine gap the clean-slate confrontation surfaced: FX-SLV fits a *leverage surface* but its record stored only `bandwidth`, so the fitted output wasn't identifiable/verifiable from its provenance.
