@@ -2,6 +2,22 @@
 
 ---
 
+## v1.167.0 — 2026-06-26 — **Calibrator code review — two fixes**
+
+Adversarial re-read of the calibrator subsystem at v1.166. Found one real consistency bug + one stale docstring; the rest of the structure verified clean.
+
+**Files**: `fx/fx_slv_calibration.py`, `calibration/_model_record.py`.
+
+* **fx_slv lazy `_build` was fabricating `converged=True`** — a hand-built `ParticleCalibrationResult` is marked `reconstructed=True` (no Monte-Carlo ran) yet claimed convergence, the exact fiction the tri-state fix removed everywhere else. Missed earlier because it used a literal `True`, not a magic threshold, so the grep didn't catch it. Now `converged=None`, consistent with the other 12 reconstructed paths.
+* **`model_calibration_record` docstring was stale** — still said `SolveReport` is "produced only by the solver primitives" (deleted in v1.166) and tagged itself "Phase 1 of the migration". Rewritten to describe what the builder *is*: facts captured via `SolveReport.external`/`.analytic`.
+
+**Verified clean** (no change needed): serialisation round-trips `converged=None` / `reconstructed` / the nested surface-digest dict; the DB `converged` column + `list_calibrations` handle NULL; all 13 result dataclasses are non-frozen (mixin lazy-cache safe); no unused record-type imports; every other calibrator captures `converged` from a real flag (`bool(result.success)` / residual criterion) or `None`.
+
+**Verification**: full suite **13009 passed**.
+
+---
+
+
 ## v1.166.0 — 2026-06-26 — **Calibration capture layer: delete the unused solver primitives (one capture path)**
 
 Removes a real smell surfaced by the architecture-doc accuracy check: `_solve.py` shipped five run-and-capture primitives (`minimize_solve`, `least_squares_solve`, `global_local_solve`, `brentq_solve`, `particle_solve`) that **no production calibrator used** — all 13 capture via `SolveReport.external()`/`.analytic()` wrapping their own (bespoke) optimiser. The primitives were exercised only by their own tests: speculative generality / dead flexibility.
