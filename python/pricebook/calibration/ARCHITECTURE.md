@@ -267,6 +267,80 @@ inputs → solver primitive → SolveReport → {curve,model}_calibration_record
 
 ---
 
+## 6b. The two producer structures, side by side
+
+Both families end at the same `CalibrationResult`, read through the same
+Protocol, persisted through the same sink, held by the same gates. They differ in
+**what they return** and **how they get the optimiser facts** — everything
+downstream is shared.
+
+```
+        FAMILY A — bootstrappers                 FAMILY B — model calibrators
+        (curve is the artefact)                  (parameters are the artefact)
+  ───────────────────────────────────────  ───────────────────────────────────────
+  returns   a shared curve                  a bespoke result type
+  carrier   field on the curve              CanonicalCalibrationResult mixin
+            (+ wrapper forwarders)           (calibration_result field + _build)
+  builder   curve_calibration_record        model_calibration_record
+  facts     direct args                     captured via SolveReport
+            (algorithm/iterations/converged) (solver primitive → report)
+  why       convergence honest by           a real optimiser ran — capture its
+            construction (closed-form        verdict so it's never guessed
+            exact / brentq raises / Newton)
+  params    per-pillar values               fitted scalars (+ surface digest)
+            (pillar_parameters)
+```
+
+**Anatomy — one of each:**
+
+```python
+# FAMILY A — bootstrap_credit_curve(...) -> SurvivalCurve
+curve = SurvivalCurve(ref, pillar_dates, pillar_survivals)          # ① solve (per-pillar brentq)
+residuals = _verify_round_trip(curve, cds_spreads)                 # ② model − market reprice
+curve.calibration_result = curve_calibration_record(               # ③ assemble + attach to curve
+    model_class="credit_curve_bootstrap",
+    parameters=pillar_parameters(pillar_dates, pillar_survivals, label="survival"),
+    residuals=residuals, quotes_fitted=[...],
+    algorithm="bootstrap", iterations=len(pillar_dates), converged=True)  # facts direct
+return curve                                                       # the curve IS the carrier
+
+# FAMILY B — sabr_calibrate(...) -> SABRCalibrationResult
+x, solve = minimize_solve(objective, x0, method="nelder_mead")     # ① fit + CAPTURE SolveReport
+cr = model_calibration_record(model_class="sabr", parameters={α,β,ρ,ν},  # ② assemble (report required)
+                              residuals=[...], quotes_fitted=[...], solve=solve)
+return SABRCalibrationResult(..., calibration_result=cr)           # ③ store eagerly on the result
+```
+
+**Pipelines** (they converge after the builder):
+
+```
+A:  quotes → solve (brentq/Newton/closed-form) → reprice residuals ─┐
+B:  quotes → solver primitive → SolveReport → ──────────────────────┤
+                                                                     ▼
+                              {curve,model}_calibration_record → CalibrationResult
+                                       │
+              ProvenanceCarrier.to_calibration_result()  →  db.save_calibration  →  table ⇄ load
+```
+
+| | **Family A — bootstrappers** | **Family B — calibrators** |
+|---|---|---|
+| Producers | ~19 (`*_bootstrap`, `global`/`coupled`) | 15 (`*CalibrationResult`) |
+| Returns | shared curve (`DiscountCurve`, `SurvivalCurve`, …) | bespoke result (`SABRCalibrationResult`, …) |
+| Carrier | field on curve + forwarding wrappers | `CanonicalCalibrationResult` mixin |
+| Builder | `curve_calibration_record` | `model_calibration_record` |
+| Optimiser facts | **direct args** (honest by construction) | **captured** via `SolveReport` |
+| `converged` | a known `bool` | `bool` (captured) or `None` (not captured) |
+| `parameters` | per-pillar values | fitted scalars (+ surface digest) |
+| Conformance gate | `test_bootstrapper_provenance_conformance` | `test_calibrator_provenance_conformance` |
+| Read · persist · 3 shared gates | **shared** (provenance-carrier · fidelity · builder-enforcement) | **shared** |
+
+The split is **only** in the producer surface (left two rows); from the builder
+onward — the record, the read Protocol, the sink, and three of the five gates
+(provenance-carrier, fidelity, builder-enforcement) — the two families are one
+system. Only the two conformance gates are family-specific.
+
+---
+
 ## 7. Persistence — one polymorphic sink
 
 `PricebookDB.save_calibration(carrier: ProvenanceCarrier)` is the single consumer
