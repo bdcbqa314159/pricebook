@@ -216,7 +216,7 @@ for itself. Not before.
 
 ---
 
-## 6. Capture-not-reconstruct — the solver layer + two builders
+## 6. Capture-not-reconstruct — the `SolveReport` + two builders
 
 Records are **assembled only through two factories**, never hand-rolled. This is
 the load-bearing rule (enforced — see §8): hand-rolling is how the eager/lazy
@@ -260,11 +260,13 @@ non-convergence warning, the `reconstructed` flag) lives here, not copy-pasted
 into each calibrator. Both builders live at **L0** so every producer imports
 them without pulling in a concrete curve type.
 
-The pipeline every producer follows:
+The pipeline (the capture step differs by family; both meet at the builder):
 
 ```
-inputs → solver primitive → SolveReport → {curve,model}_calibration_record → CalibrationResult
-                              (captured)         (the one assembler)
+calibrators:    optimiser → SolveReport.external ─┐
+bootstrappers:  solve → (algorithm/iters/converged direct) ─┤
+                                                            ▼
+                              {curve,model}_calibration_record → CalibrationResult
 ```
 
 ---
