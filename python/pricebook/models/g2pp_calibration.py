@@ -103,7 +103,7 @@ class G2PPCalibrationResult(CanonicalCalibrationResult):
 
 
 # ---------------------------------------------------------------------------
-# G2++ ZCB helper — mirrors G2PlusPlus.zcb_price but pure-function
+# G2++ variance term V(t, T) — pure-function, shared by the swaption pricer
 # ---------------------------------------------------------------------------
 
 def _g2pp_V(a: float, b: float, s1: float, s2: float, rho: float,
@@ -118,68 +118,6 @@ def _g2pp_V(a: float, b: float, s1: float, s2: float, rho: float,
     cb = (T - 2 * Bb + Bf(2 * b, T)) / b**2 if b > 1e-12 else T**3 / 3
     cab = (T - Ba - Bb + Bf(a + b, T)) / (a * b) if a > 1e-12 and b > 1e-12 else T**3 / 3
     return s1**2 * ca + s2**2 * cb + 2 * rho * s1 * s2 * cab
-
-
-def _g2pp_zcb(
-    a: float, b: float, s1: float, s2: float, rho: float,
-    curve: DiscountCurve, x: float, y: float, T: float,
-) -> float:
-    """P(x, y; T) under G2++ (Brigo-Mercurio eq. 4.14)."""
-    ref = curve.reference_date
-    P_mkt = curve.df(date_from_year_fraction(ref, T))
-    Bx = (1.0 - math.exp(-a * T)) / a if a > 0 else T
-    By = (1.0 - math.exp(-b * T)) / b if b > 0 else T
-    V = _g2pp_V(a, b, s1, s2, rho, T)
-    return P_mkt * math.exp(-Bx * x - By * y + 0.5 * V)
-
-
-# ---------------------------------------------------------------------------
-# G2++ bond option: closed-form (Brigo-Mercurio 4.2.1)
-# ---------------------------------------------------------------------------
-
-def _g2pp_zcb_option(
-    a: float, b: float, s1: float, s2: float, rho: float,
-    curve: DiscountCurve, t: float, S: float, T: float,
-    K: float, is_call: bool = True,
-) -> float:
-    """
-    Price a ZCB option under G2++.
-
-    Option expiry t, bond maturity T > t, bond maturity for the swap leg S
-    (here S == T), strike K (on the ZCB).
-
-    Uses Brigo-Mercurio Ch. 4.2 eq. 4.20:
-        Price = omega * [P(0,T)*N(omega*h1) - K*P(0,t)*N(omega*h2)]
-    where omega = +1 (call) or -1 (put).
-    """
-    ref = curve.reference_date
-    P_t = curve.df(date_from_year_fraction(ref, t))
-    P_T = curve.df(date_from_year_fraction(ref, T))
-
-    def Bf(k: float, tau: float) -> float:
-        return (1.0 - math.exp(-k * tau)) / k if k > 0 else tau
-
-    tau = T - t
-    Ba_tT = Bf(a, tau)
-    Bb_tT = Bf(b, tau)
-
-    # sigma_p^2: variance of ln(P(t,T)) as seen from time 0
-    sigma_p2 = (
-        (s1 * Ba_tT) ** 2 * (1.0 - math.exp(-2 * a * t)) / (2 * a)
-        + (s2 * Bb_tT) ** 2 * (1.0 - math.exp(-2 * b * t)) / (2 * b)
-        + 2 * rho * s1 * s2 * Ba_tT * Bb_tT
-          * (1.0 - math.exp(-(a + b) * t)) / (a + b)
-    )
-    sigma_p = math.sqrt(max(sigma_p2, 0.0))
-
-    if sigma_p < 1e-12 or P_t <= 0 or P_T <= 0 or K <= 0:
-        intrinsic = P_T - K * P_t
-        return max(intrinsic, 0.0) if is_call else max(-intrinsic, 0.0)
-
-    h1 = math.log(P_T / (P_t * K)) / sigma_p + 0.5 * sigma_p
-    h2 = h1 - sigma_p
-    w = 1.0 if is_call else -1.0
-    return w * (P_T * _norm.cdf(w * h1) - K * P_t * _norm.cdf(w * h2))
 
 
 # ---------------------------------------------------------------------------
@@ -375,9 +313,8 @@ def g2pp_swaption_price(
         #   λ_i(x) = c_i · A_i · exp(-Ba_i · x)
         #   κ_i = -Bb_i · μ_y_cond + 0.5 · Bb_i² · σ_y_cond²
         if sigma_y_cond < 1e-12:
-            # Degenerate: y is essentially deterministic given x.
-            swap_pv = 1.0 - _portfolio(mu_y_cond) - 1.0  # = -(_portfolio(mu_y_cond))
-            # Wait: _portfolio = Σ c_i A_i exp(...) - 1. So 1 - Σ c_i ... = -_portfolio(y).
+            # Degenerate: y is deterministic given x. _portfolio(y) = Σ c_i P_i − 1,
+            # so the payer swap PV is 1 − Σ c_i P_i = −_portfolio(y).
             payer_pv = -_portfolio(mu_y_cond)
             payoff = max(payer_pv, 0.0) if is_payer else max(-payer_pv, 0.0)
             total_integral += w_gh * payoff
@@ -474,13 +411,16 @@ def g2pp_implied_vol(
     if fwd_swap <= 0:
         fwd_swap = strike
 
+    # Vol inversion can legitimately fail (ValueError) at arbitrage-violating
+    # prices; catch only that and return 0.0, letting any other exception surface
+    # rather than masking a bug as a "zero implied vol" — mirrors the T4-HW1
+    # narrowing in `_hw_implied_vol`.
     try:
-        iv = implied_vol_black76(
+        return implied_vol_black76(
             price / annuity,
             fwd_swap, strike, expiry_years, 1.0, OptionType.CALL,
         )
-        return iv
-    except Exception:
+    except ValueError:
         return 0.0
 
 
