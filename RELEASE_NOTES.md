@@ -2,6 +2,20 @@
 
 ---
 
+## v1.176.0 — 2026-06-27 — **G2++ audit fixes (Phase 3 of the 13-calibrator audit)**
+
+Three findings from the deep audit of `models/g2pp_calibration.py`. The G2++ analytics were verified correct (`_g2pp_V` against Brigo-Mercurio 4.10, the swaption pricer against B-M 4.31).
+
+**Files**: `models/g2pp_calibration.py`.
+
+* **`g2pp_implied_vol` no longer masks errors.** It used a broad `except Exception: return 0.0` around the Black-vol inversion — swallowing genuine bugs as a silent "zero implied vol", inconsistent with its hardened `_hw_implied_vol` sibling (and ironically the file documents removing exactly this pattern, T2.11, from the swaption pricer). Narrowed to `except ValueError` (the arbitrage-violation case), letting other exceptions surface.
+* **Removed ~50 lines of dead code** — `_g2pp_zcb` and `_g2pp_zcb_option` had zero callers in source or tests (the swaption pricer builds its `A_i` and does Jamshidian inline).
+* **Dropped a dead `swap_pv` variable + a stream-of-consciousness `# Wait:` comment** in the degenerate branch of `g2pp_swaption_price` (the `payer_pv` logic was already correct).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.175.0 — 2026-06-27 — **Hull-White audit fixes (Phase 2 of the 13-calibrator audit)**
 
 Two findings from the deep audit of `models/hw_calibration.py`.
