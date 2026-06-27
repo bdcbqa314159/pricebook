@@ -41,10 +41,10 @@ class CIRCorrelationResult:
     min_rho: float
     max_rho: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 class CIRCorrelation:
     """Mean-reverting correlation via transformed CIR process.
 
@@ -126,10 +126,10 @@ class StochCorrPricingResult:
     spot2_paths: np.ndarray
     rho_paths: np.ndarray
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def simulate_two_asset_stoch_corr(
     spot1: float,
     spot2: float,
@@ -148,7 +148,6 @@ def simulate_two_asset_stoch_corr(
 
     At each step, the instantaneous correlation is drawn from the CIR process.
     """
-    rng = np.random.default_rng(seed)
     dt = T / n_steps
     sqrt_dt = math.sqrt(dt)
 
@@ -159,8 +158,8 @@ def simulate_two_asset_stoch_corr(
     S1 = np.full((n_paths, n_steps + 1), float(spot1))
     S2 = np.full((n_paths, n_steps + 1), float(spot2))
 
-    # Use a different seed for asset Brownians
-    rng2 = np.random.default_rng(seed + 1 if seed else 1)
+    # A distinct stream for the asset Brownians (the ρ stream is corr_model's).
+    rng2 = np.random.default_rng((seed + 1) if seed is not None else 1)
 
     for step in range(n_steps):
         z1 = rng2.standard_normal(n_paths)
@@ -195,10 +194,10 @@ class WishartResult:
     mean_terminal_corr: float
     is_pd: bool                     # all paths remain positive-definite
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 class WishartCovariance:
     """Wishart covariance matrix process.
 
@@ -317,6 +316,10 @@ class DispersionCalibrationResult(CanonicalCalibrationResult):
     def _build_calibration_record(self) -> CalibrationResult:
         # Closed-form moment match: `analytic()` is honest — there is no optimiser
         # to "converge"; the fit quality is the index-variance residual itself.
+        # Only `theta` is identifiable from the ATM dispersion level; `kappa` and
+        # `sigma` are fixed defaults (see calibrate_stoch_corr_to_dispersion), so
+        # the record flags which params were fitted vs assumed rather than
+        # implying all three were calibrated.
         residual = self.index_variance_model - self.index_variance_target
         return model_calibration_record(
             model_class="stochastic_correlation",
@@ -328,6 +331,8 @@ class DispersionCalibrationResult(CanonicalCalibrationResult):
             residuals=[residual],
             quotes_fitted=["index_variance"],
             solve=SolveReport.analytic(),
+            diagnostics=CalibrationDiagnostics(
+                extra={"fitted_params": ["theta"], "fixed_params": ["kappa", "sigma"]}),
         )
 
 
