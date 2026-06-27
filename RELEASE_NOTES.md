@@ -2,6 +2,19 @@
 
 ---
 
+## v1.179.0 — 2026-06-28 — **Advanced-LMM audit fixes (Phase 6 of the 13-calibrator audit)**
+
+**Files**: `models/lmm_advanced.py`.
+
+* **`_lmm_calibration_record` now captures the optimiser's real `converged` verdict** instead of hardcoding `True`. `lmm_global_calibration` passes its L-BFGS-B `result.success`; `lmm_cascade_calibration` passes the AND of its per-column Nelder-Mead successes (None if nothing was fitted). A non-converged fit no longer reports `converged=True`.
+* **Fixed the botched `to_dict` spacing** in `SABRLMMResult` / `PredictorCorrectorResult` / `LMMGreeksResult` (×3).
+
+Noted (not changed): the formatting defect is codebase-wide (~512 sites) — to be handled as a separate mechanical sweep.
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.178.0 — 2026-06-28 — **LMM (iterative-scaling) audit fixes (Phase 5 of the 13-calibrator audit)**
 
 **Files**: `models/lmm_calibration.py`.
