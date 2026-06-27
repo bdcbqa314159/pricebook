@@ -2,6 +2,26 @@
 
 ---
 
+## v1.172.0 — 2026-06-27 — **`SolveReport.from_scipy`: one canonical scipy-result adapter (clean interface across all model calibrators)**
+
+The calibration layer records a solve but never runs one — the algorithm (scipy, the pricebook `minimize` wrapper, DE, brentq, particle/Newton loops) lives in each family module. That separation was clean, with one seam: the *adapter* translating a `scipy.optimize.OptimizeResult` into a `SolveReport` was hand-rolled in ~6 families with three divergent idioms. This closes the seam.
+
+**Files**: `calibration/_solve.py` (+ `options/sabr.py`, `models/hw_calibration.py`, `models/jump_calibration.py`, `fixed_income/jarrow_yildirim.py`, `credit/joint_equity_credit.py`, `credit/bond_hazard_bootstrap.py`, + tests).
+
+**The seam (before):** `converged` was spelled three ways — `bool(getattr(result, "success", True))` (sabr/jump/jy/joint), `result.success if hasattr(result, 'success') else True` (hw), `bool(result.success)` (bond_hazard) — and `iterations` two ways (`nit or nfev` vs bare `nit`). Each calibrator depended directly on SciPy's concrete result shape and re-implemented the extraction (a DIP/DRY leak).
+
+**Fix:** added a third honest constructor `SolveReport.from_scipy(result, *, algorithm, tolerance=None, max_iterations=0, seed=None)` alongside `external` / `analytic`. It reads the two facts every SciPy result exposes, **one canonical way**:
+* `converged` ← `result.success` (assumed `True` only if a non-standard result omits the field);
+* `iterations` ← `result.nit`, falling back to `result.nfev` when no iteration count is reported — so the record is never a misleading `0`.
+
+The bespoke part (which optimiser ran + its config) stays with the caller; only the uniform extraction is centralised. Migrated all 7 scipy sites across the 6 families (sabr, hw, jump, jarrow_yildirim, joint_equity_credit, bond_hazard ×2) onto it; `hw`'s stored `converged` field now reads `solve.converged` (single source). **g2pp stays bespoke** by design (two-stage `de.success or local.success`), as does the brentq-per-bond path (`converged=True`, structural).
+
+Each call collapsed from 3–4 lines of `getattr` to one readable verb, e.g. `SolveReport.from_scipy(result, algorithm="L-BFGS-B", tolerance=1e-12, max_iterations=200)` — legible from any language background. 4 unit tests pin the adapter (success/nit read, nfev fallback, success-default, failure captured).
+
+**Verification**: full suite **13,018 passed**, zero failures.
+
+---
+
 ## v1.171.0 — 2026-06-27 — **Calibration reconstruction fidelity: 3 honest-residual fixes from the focused read**
 
 The two low-severity follow-ups noted alongside the multicurve fix (v1.170.0), plus a parameters enrichment — all in the `_build_calibration_record` reconstruction paths, all behaviour-preserving in normal flow (they only change degenerate / hand-built inputs that previously masked a bad fit).
