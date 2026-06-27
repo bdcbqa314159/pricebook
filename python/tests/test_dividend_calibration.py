@@ -172,3 +172,30 @@ class TestDividendCanonicalResult:
             cid = db.save_calibration(result)
             assert db.load_calibration(cid) == result.to_calibration_result()
             assert db.list_calibrations(model_class="dividend_curve")[0]["calibration_id"] == cid
+
+    def test_optimize_captures_real_verdict_eagerly(self):
+        # The optimiser's verdict is captured at fit time, not lazily
+        # reconstructed — so the record is NOT marked reconstructed and carries
+        # a real (non-None) convergence flag.
+        result = calibrate_dividend_curve(100.0, 0.05, [1.0, 2.0, 3.0],
+                                          [2.0, 4.1, 6.0], method="optimize")
+        cr = result.to_calibration_result()
+        assert cr.diagnostics.reconstructed is False
+        assert cr.optimiser_run.converged in (True, False)  # captured, not None
+
+    def test_deterministic_paths_are_not_reconstructed(self):
+        for method in ("linear", "spline"):
+            cr = calibrate_dividend_curve(100.0, 0.05, [1.0, 2.0],
+                                          [2.0, 4.0], method=method).to_calibration_result()
+            assert cr.diagnostics.reconstructed is False
+            assert cr.optimiser_run.converged is True  # deterministic construction
+
+    def test_options_zero_residual_is_flagged_not_a_false_perfect(self):
+        from pricebook.equity.dividend_calibration import calibrate_from_options
+        options = [{"T": 1.0, "strike": 100.0, "call": 5.0, "put": 4.0},
+                   {"T": 2.0, "strike": 100.0, "call": 7.0, "put": 5.0}]
+        cr = calibrate_from_options(100.0, options, 0.03).to_calibration_result()
+        # residual is 0 by construction (parity extraction) — must be flagged,
+        # not silently read as a perfect fit.
+        assert cr.diagnostics.extra.get("residual_is_placeholder") is True
+        assert any("parity" in w.lower() for w in cr.diagnostics.warnings)

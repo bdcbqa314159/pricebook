@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any, Sequence
 
 import numpy as np
 from scipy.optimize import minimize as scipy_minimize
@@ -44,10 +45,11 @@ from pricebook.equity.dividend_advanced import DividendCurve
 class DividendCalibrationResult(CanonicalCalibrationResult):
     """Result of dividend curve calibration.
 
-    `_build_calibration_record()` derives the canonical artefact from the
-    retained fitted/market futures (faithful residuals); the mixin's
-    `to_calibration_result()` caches it on first access — the instance carries
-    everything needed, so no per-build-site population.
+    The `calibrate_*` paths populate `calibration_result` eagerly via
+    `_dividend_calibration_record`, capturing the real solve (the optimiser's
+    verdict for `optimize`; a deterministic one for `spline`/`linear`/`options`).
+    `_build_calibration_record` is the lazy fallback for a hand-built instance,
+    reconstructed from the retained fitted/market futures.
     """
 
     curve: DividendCurve
@@ -64,22 +66,51 @@ class DividendCalibrationResult(CanonicalCalibrationResult):
                 "calibration_id": self.calibration_id}
 
     def _build_calibration_record(self) -> CalibrationResult:
-        residuals = [f - m for f, m in zip(self.fitted_futures, self.market_futures)]
-        # Lazy reconstruction (hand-built instance): no optimiser ran, so
-        # convergence is not captured (None) — never guessed from a threshold.
-        solve = SolveReport.external(algorithm=self.method, converged=None, iterations=0)
-        return model_calibration_record(
-            model_class="dividend_curve",
-            parameters={
-                f"D_{t:g}": float(d)
-                for t, d in zip(self.curve.tenors, self.fitted_futures)
-            },
-            residuals=residuals,
-            quotes_fitted=[f"div_future_{t:g}" for t in self.curve.tenors],
-            solve=solve,
-            diagnostics=CalibrationDiagnostics(
-                extra={"rmse": float(self.rmse)}, reconstructed=True),
+        # Lazy fallback for a hand-built instance: no optimiser verdict was
+        # captured, so convergence is None — never guessed. Fresh calibrations
+        # populate the record eagerly via the calibrate_* paths below.
+        return _dividend_calibration_record(
+            self.curve, self.fitted_futures, self.market_futures, self.rmse,
+            SolveReport.external(algorithm=self.method, converged=None, iterations=0),
+            reconstructed=True,
         )
+
+
+def _dividend_calibration_record(
+    curve: DividendCurve,
+    fitted_futures: Sequence[float],
+    market_futures: Sequence[float],
+    rmse: float,
+    solve: SolveReport,
+    *,
+    reconstructed: bool = False,
+    residual_placeholder: bool = False,
+) -> CalibrationResult:
+    """The single assembly point for every dividend calibration record.
+
+    The eager calibrators pass the `solve` they captured (the optimiser's verdict
+    for `optimize`, a deterministic one for `spline`/`linear`/`options`); the lazy
+    `_build_calibration_record` passes a reconstructed report. Either way the
+    record is uniform — built once, here.
+    """
+    residuals = [float(f - m) for f, m in zip(fitted_futures, market_futures)]
+    extra: dict[str, Any] = {"rmse": float(rmse)}
+    warnings: tuple[str, ...] = ()
+    if residual_placeholder:
+        # `options` sets fitted := market (parity extraction, not a fit), so the
+        # residual is a structural 0 — flag it rather than let it read as a
+        # perfect fit (same honesty convention as the FX-SLV placeholder).
+        extra["residual_is_placeholder"] = True
+        warnings = ("residuals are 0 by construction (parity extraction, not a fit)",)
+    return model_calibration_record(
+        model_class="dividend_curve",
+        parameters={f"D_{t:g}": float(d) for t, d in zip(curve.tenors, fitted_futures)},
+        residuals=residuals,
+        quotes_fitted=[f"div_future_{t:g}" for t in curve.tenors],
+        solve=solve,
+        diagnostics=CalibrationDiagnostics(
+            extra=extra, warnings=warnings, reconstructed=reconstructed),
+    )
 
 
 @dataclass
@@ -129,7 +160,12 @@ def calibrate_dividend_curve(
         curve = dividend_curve_bootstrap(spot, rate, list(tenors), list(div_futures_prices))
         fitted = list(curve.cumulative_dividends)
         rmse = math.sqrt(np.mean((D_mkt - np.array(fitted))**2))
-        return DividendCalibrationResult(curve, rmse, fitted, list(D_mkt), "linear")
+        cr = _dividend_calibration_record(
+            curve, fitted, list(D_mkt), rmse,
+            SolveReport.external(algorithm="linear", converged=True, iterations=0),
+        )
+        return DividendCalibrationResult(curve, rmse, fitted, list(D_mkt), "linear",
+                                         calibration_result=cr)
 
     elif method == "optimize":
         return _calibrate_piecewise(spot, rate, T, D_mkt)
@@ -188,7 +224,14 @@ def _calibrate_piecewise(
     curve = DividendCurve(T, cum_divs, avg_yields, "piecewise_optimize")
 
     rmse = math.sqrt(np.mean((D_mkt - cum_divs) ** 2))
-    return DividendCalibrationResult(curve, rmse, list(cum_divs), list(D_mkt), "optimize")
+    cr = _dividend_calibration_record(
+        curve, list(cum_divs), list(D_mkt), rmse,
+        # algorithm label kept as the method ("optimize"); the captured verdict
+        # is the real L-BFGS-B success/iteration count, no longer discarded.
+        SolveReport.from_scipy(result, algorithm="optimize"),
+    )
+    return DividendCalibrationResult(curve, rmse, list(cum_divs), list(D_mkt), "optimize",
+                                     calibration_result=cr)
 
 
 def _calibrate_spline(
@@ -215,7 +258,13 @@ def _calibrate_spline(
     curve = DividendCurve(T, fitted, avg_yields, "cubic_spline")
 
     rmse = math.sqrt(np.mean((D_mkt - fitted) ** 2))
-    return DividendCalibrationResult(curve, rmse, list(fitted), list(D_mkt), "spline")
+    cr = _dividend_calibration_record(
+        curve, list(fitted), list(D_mkt), rmse,
+        # Cubic-spline interpolation is deterministic — no iterative optimiser.
+        SolveReport.external(algorithm="spline", converged=True, iterations=0),
+    )
+    return DividendCalibrationResult(curve, rmse, list(fitted), list(D_mkt), "spline",
+                                     calibration_result=cr)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -257,7 +306,15 @@ def calibrate_from_options(
     avg_yields = np.where(T_arr > 0, D_arr / (spot * T_arr), 0.0)
     curve = DividendCurve(T_arr, D_arr, avg_yields, "options_implied")
 
-    return DividendCalibrationResult(curve, 0.0, list(D_arr), list(D_arr), "options")
+    cr = _dividend_calibration_record(
+        curve, list(D_arr), list(D_arr), 0.0,
+        # Put-call parity extraction is deterministic; fitted := market, so the
+        # residual is a structural 0 — flagged as a placeholder, not a fit.
+        SolveReport.external(algorithm="options", converged=True, iterations=0),
+        residual_placeholder=True,
+    )
+    return DividendCalibrationResult(curve, 0.0, list(D_arr), list(D_arr), "options",
+                                     calibration_result=cr)
 
 
 # ═══════════════════════════════════════════════════════════════
