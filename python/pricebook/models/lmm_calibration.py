@@ -186,7 +186,17 @@ def calibrate_lmm_vols(
     rho = exponential_correlation(n, correlation_beta)
     vols = np.full(n, 0.20)  # initial guess
 
+    # Iterative scaling with a real stopping test: a full sweep that no longer
+    # moves the vols (max change < tol) means we have converged. Capturing this —
+    # rather than asserting converged=True after a fixed iteration count — keeps
+    # the record honest when the targets are unreachable and the loop never
+    # stabilises (or oscillates).
+    tol = 1e-8
+    converged = False
+    iterations_taken = 0
     for iteration in range(max_iter):
+        iterations_taken = iteration + 1
+        prev_vols = vols.copy()
         # For each target, compute model vol and adjust
         for (exp_idx, swap_len), target in target_swaption_vols.items():
             model = rebonato_swaption_vol(
@@ -201,6 +211,9 @@ def calibrate_lmm_vols(
                     vols[k] *= ratio ** (1.0 / (end - start))
 
         vols = np.clip(vols, 0.01, 2.0)
+        if np.max(np.abs(vols - prev_vols)) < tol:
+            converged = True
+            break
 
     # Compute fitted vols
     fitted = {}
@@ -219,8 +232,8 @@ def calibrate_lmm_vols(
     rmse = math.sqrt(sum(errors) / len(errors)) if errors else 0.0
 
     solve = SolveReport.external(
-        algorithm="iterative_scaling", converged=True,
-        iterations=max_iter, max_iterations=max_iter,
+        algorithm="iterative_scaling", converged=converged,
+        iterations=iterations_taken, max_iterations=max_iter,
     )
     cr = model_calibration_record(
         model_class="lmm",
@@ -253,10 +266,10 @@ class SABRSlice:
     rho: float
     nu: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 class MultiFactorSABR:
     """SABR with term structure of parameters.
 
