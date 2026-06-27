@@ -2,6 +2,26 @@
 
 ---
 
+## v1.170.0 — 2026-06-27 — **Multicurve: capture the solver's `converged` verdict (kill the last threshold-derived convergence)**
+
+Found by a focused structural read of all 13 `_build_calibration_record` methods across the `CanonicalCalibrationResult` families (the inherited types of the calibration structure). Twelve were honest; one — `MultiCurveResult` — was the lone survivor of the fabricated-converged anti-pattern §0c set out to abolish.
+
+**Files**: `curves/multicurve_solver.py`, `test_calibration_result_curve_bootstrap.py`, `test_calibrator_provenance_conformance.py`.
+
+**The bug (latent):** `MultiCurveResult._build_calibration_record` derived `converged = self.residual < 1e-6` — an invented threshold, inconsistent with the solver's real tolerance (`multicurve_newton` defaults `tol=1e-10`) — while a comment misclassified the record as *"faithful (not reconstructed)"*. The dataclass stored `residual` and `n_iterations` but **not** the solver's actual convergence verdict, so the lazy fallback could only guess. Latent in normal flow (the eager `_build_multicurve_cr` always populates the record with the real verdict), but reachable for a hand-constructed/deserialized instance — and the migration's bar is "records impossible to lie."
+
+**Fix:**
+* Added a **required** `converged: bool` field to `MultiCurveResult` — a hand-built instance must state the verdict rather than have it guessed. Set faithfully at both solver exit points (`True` on `residual < tol`, `False` on the max-iter fallthrough).
+* `_build_calibration_record` now replays the stored verdict (`converged=self.converged`, never a threshold) and marks the record `reconstructed=True`, consistent with the other 12 families' fallbacks. Comment corrected.
+* `to_dict` now surfaces `converged`.
+* Tests: existing back-compat constructions pass `converged=`; new regression `test_converged_verdict_is_stored_not_threshold_derived` pins it — a tiny residual (`1e-12`) with `converged=False` now yields `optimiser_run.converged is False` + a non-convergence warning, proving the verdict is stored, not derived.
+
+The other 12 `_build` methods were verified honest: `converged=None`+`reconstructed=True` where no optimiser ran, `self.converged` where the family stores the verdict (hw/g2pp/bond_hazard), or `SolveReport.analytic()` for the closed-form moment match (stochastic_correlation).
+
+**Verification**: full suite **13,010 passed** (1 unrelated pre-existing AAD thread-local flake under parallel load — green in isolation; 2 slow G2++ deselected).
+
+---
+
 ## v1.169.0 — 2026-06-27 — **Calibration L1 reading-pass tidy (6 clean-code fixes, no behaviour change)**
 
 Human-eye reading pass over the calibration layer (OPEN.md §0c A1), modules read in `L1_DEPS.md` order (`_solve` → `_types` → `_curve_record` → `_model_record` → `__init__`). Six clean-code findings, all behaviour-preserving — the audit chain already closed correctness; this was SOLID/Fowler/readability only.
