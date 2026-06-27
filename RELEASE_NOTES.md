@@ -2,6 +2,21 @@
 
 ---
 
+## v1.171.0 — 2026-06-27 — **Calibration reconstruction fidelity: 3 honest-residual fixes from the focused read**
+
+The two low-severity follow-ups noted alongside the multicurve fix (v1.170.0), plus a parameters enrichment — all in the `_build_calibration_record` reconstruction paths, all behaviour-preserving in normal flow (they only change degenerate / hand-built inputs that previously masked a bad fit).
+
+**Files**: `credit/joint_equity_credit.py`, `models/lmm_calibration.py`, `curves/multicurve_solver.py` (+ 3 regression tests).
+
+**Fixes:**
+* **`joint_equity_credit` — zero market target no longer reads as a false-perfect.** Both the lazy `_relative_residuals` and the eager `joint_calibrate` computed `model/market - 1 if market > 0 else 0.0` — a zero/degenerate market vol or spread produced a `0.0` (perfect) residual, hiding the miss. Factored to a shared `_relative_residual(model, market)` that falls back to the **absolute** residual `model - market` when the target is non-positive (a relative error is undefined at `market == 0`), so a degenerate target surfaces as a real non-zero miss. Regression test added.
+* **`lmm_calibration` — no fabricated model vol for an unfitted target.** The fallback did `fitted_swaption_vols.get(k, 0.0) - target[k]`, inventing a model vol of `0.0` for any target lacking a fitted value (a large spurious miss). Now restricted to keys present in both — an unfitted target is *excluded* (it wasn't fitted) rather than fabricated. The calibrator always fits every target, so normal flow is unchanged; this only corrects a mismatched hand-built instance (and an empty intersection now correctly trips the non-empty-residuals guard). Regression test added.
+* **`multicurve` — reconstruction carries the calibrated DF surface.** The fallback shipped `parameters={}`; it now recovers `ois_df(...)` / `proj_df(...)` off the stored curves (`pillar_dates` + `df()`), matching the eager record's key shape. Per-instrument residuals remain unrecoverable (instruments aren't stored), so the aggregate residual stays — but the fitted parameters are no longer lost. Regression test added.
+
+**Verification**: full suite **13,014 passed**, zero failures.
+
+---
+
 ## v1.170.0 — 2026-06-27 — **Multicurve: capture the solver's `converged` verdict (kill the last threshold-derived convergence)**
 
 Found by a focused structural read of all 13 `_build_calibration_record` methods across the `CanonicalCalibrationResult` families (the inherited types of the calibration structure). Twelve were honest; one — `MultiCurveResult` — was the lone survivor of the fabricated-converged anti-pattern §0c set out to abolish.
