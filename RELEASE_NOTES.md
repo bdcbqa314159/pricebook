@@ -2,6 +2,17 @@
 
 ---
 
+## v1.178.0 — 2026-06-28 — **LMM (iterative-scaling) audit fixes (Phase 5 of the 13-calibrator audit)**
+
+**Files**: `models/lmm_calibration.py`.
+
+* **`calibrate_lmm_vols` now reports an honest `converged`.** The iterative-scaling loop ran `max_iter` iterations unconditionally with no stopping criterion, yet hardcoded `converged=True`. Added a stabilisation test (a full sweep that moves the vols by less than `tol` → converged; break early), and the record now captures the real `converged` and the true iteration count — `converged=False` when the targets are unreachable / the loop oscillates.
+* **Fixed botched `SABRSlice` / `MultiFactorSABR` spacing** (3 blank lines mid-class + 0 between the two classes).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.177.0 — 2026-06-27 — **Jump-model audit fix (Phase 4 of the 13-calibrator audit)**
 
 **Files**: `models/jump_calibration.py`.
