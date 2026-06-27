@@ -187,8 +187,9 @@ def calibrate_hull_white(
             Example: {(1, 5): 0.0065, (5, 5): 0.0055, (10, 10): 0.0045}
         strike: ATM strike. If None, computed from forward swap rates.
         method: "nelder_mead" or "differential_evolution".
-        a_bounds: bounds for mean reversion parameter.
-        sigma_bounds: bounds for volatility parameter.
+        a_bounds: (lower, upper) for mean reversion; enforced on the returned
+            `a` for every method (Nelder-Mead is otherwise unconstrained).
+        sigma_bounds: (lower, upper) for volatility; enforced likewise.
         n_steps: tree steps for swaption pricing.
 
     Returns:
@@ -246,7 +247,15 @@ def calibrate_hull_white(
         algo_tol = 1e-9
         algo_maxiter = 100
 
-    a_opt, sigma_opt = max(result.x[0], 1e-4), max(result.x[1], 1e-6)
+    # Enforce the documented bounds on the returned params for *every* method:
+    # Nelder-Mead (the default) is unconstrained, so without this clamp it could
+    # leave a_bounds/sigma_bounds entirely (only DE / L-BFGS-B honour them during
+    # the solve). The model-validity floors (1e-4 / 1e-6) are kept as the ultimate
+    # lower limit in case a caller passes a looser bound.
+    a_lo, a_hi = a_bounds
+    s_lo, s_hi = sigma_bounds
+    a_opt = float(min(max(result.x[0], a_lo, 1e-4), a_hi))
+    sigma_opt = float(min(max(result.x[1], s_lo, 1e-6), s_hi))
     hw = HullWhite(a=a_opt, sigma=sigma_opt, curve=curve)
 
     # Compute per-swaption diagnostics
@@ -260,7 +269,7 @@ def calibrate_hull_white(
             "error_bp": (model_vol - market_vols[i]) * 10_000,
         })
 
-    rmse = math.sqrt(sum(e["error_bp"]**2 for e in errors) / len(errors)) if errors else 0
+    rmse = math.sqrt(sum(e["error_bp"]**2 for e in errors) / len(errors)) if errors else 0.0
 
     solve = SolveReport.from_scipy(
         result, algorithm=algo_name, tolerance=algo_tol, max_iterations=algo_maxiter,
