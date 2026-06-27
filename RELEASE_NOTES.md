@@ -2,6 +2,18 @@
 
 ---
 
+## v1.177.0 — 2026-06-27 — **Jump-model audit fix (Phase 4 of the 13-calibrator audit)**
+
+**Files**: `models/jump_calibration.py`.
+
+* **`_cos_implied_vol` no longer masks errors.** Narrowed its broad `except Exception: return 0.0` (around the Black-vol inversion) to `except ValueError`, and lifted the `implied_vol_black76` import out of the `try` — same masked-error hardening applied to hw/g2pp. A real bug (or `ImportError`) now surfaces instead of silently becoming a "zero implied vol".
+
+**Confirmed-but-deferred (Phase-4 finding, NOT fixed here):** a real latent correctness gap — `merton`/`vg`/`nig`/`cgmy` char funcs omit `div_yield` from their drift (only `kou`/`bates` include it), and `cos_price`'s `div_yield` parameter is silently ignored, so for `div_yield ≠ 0` those four models price at the wrong forward while `_cos_implied_vol` inverts against a dividend-adjusted Black forward. Latent (default `div_yield=0`). Needs a dedicated validated slice (thread `div_yield` into the four drifts + remove the dead `cos_price` param + a `q≠0` put-call-parity test).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.176.0 — 2026-06-27 — **G2++ audit fixes (Phase 3 of the 13-calibrator audit)**
 
 Three findings from the deep audit of `models/g2pp_calibration.py`. The G2++ analytics were verified correct (`_g2pp_V` against Brigo-Mercurio 4.10, the swaption pricer against B-M 4.31).
