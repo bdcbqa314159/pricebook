@@ -159,10 +159,13 @@ def _cos_implied_vol(
     intrinsic = max(df * (fwd - strike), 0)
     if price <= intrinsic + 1e-10:
         return 0.0
+    from pricebook.options.implied_vol import implied_vol_black76
+    # Vol inversion can legitimately fail (ValueError) at arbitrage-violating
+    # prices; catch only that and return 0.0, letting other exceptions surface
+    # rather than masking a bug as a "zero implied vol" (cf. hw/g2pp).
     try:
-        from pricebook.options.implied_vol import implied_vol_black76
         return implied_vol_black76(price, fwd, strike, T, df, OptionType.CALL)
-    except Exception:
+    except ValueError:
         return 0.0
 
 
