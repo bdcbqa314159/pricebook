@@ -2,6 +2,23 @@
 
 ---
 
+## v1.169.0 — 2026-06-27 — **Calibration L1 reading-pass tidy (6 clean-code fixes, no behaviour change)**
+
+Human-eye reading pass over the calibration layer (OPEN.md §0c A1), modules read in `L1_DEPS.md` order (`_solve` → `_types` → `_curve_record` → `_model_record` → `__init__`). Six clean-code findings, all behaviour-preserving — the audit chain already closed correctness; this was SOLID/Fowler/readability only.
+
+**Files**: `calibration/_types.py`, `_curve_record.py`, `_model_record.py`, `_solve.py`, `__init__.py`.
+
+**Fixes:**
+* **Shared snake_case audit-key mechanism (DRY).** `OptimiserSpec.algorithm` and `CalibrationFit.model_class` had two identical regexes and two raise-blocks for the same "audit key" vocabulary. Factored to one `_AUDIT_KEY_RE` + `_canonical_audit_key` / `_require_audit_key`. The deliberate, **test-pinned** asymmetry is preserved and now documented as intentional: `algorithm` is canonicalised from human-readable input ("L-BFGS-B"); `model_class` is an internal literal held to discipline (validated-only, rejected if non-canonical).
+* **Single record-assembly site (DRY).** Both family builders hand-rolled the same `CalibrationResult(provenance=stamp(...), fit=…, optimiser_run=…, diagnostics=…)` skeleton. New `assemble_calibration_record(...)` is the one place the four-part shape + provenance stamp live; `curve_calibration_record` and `model_calibration_record` both route through it. A change to the record skeleton now touches one site, not two.
+* **Dropped dead empty-residuals guards.** `CalibrationFit.rms_residual` / `max_residual` carried `if not residuals: 0.0` / `default=0.0` fallbacks unreachable since `__post_init__` rejects an empty residual vector (the G1 guarantee). Removed — they only suggested "no targets" was a supported state. It is not.
+* **Documented `curve_calibration_record(converged=True)` default.** Added a rationale: a bootstrap solves each pillar exactly, so convergence is structural — *not* the "assume converged" anti-pattern the model side (with its real `SolveReport` verdict) guards against.
+* **Refreshed stale docstrings.** `__init__.py` claimed calibrators "migrate … in subsequent slices" (migration is complete) and listed 4 of 13 exports; now describes the two-builder surface accurately. `_solve.py`'s "exactly two honest constructors" softened to acknowledge the bare (non-coercing) constructor while pointing at the two classmethods as the intended entry points.
+
+**Verification**: full suite green — **13,010 passed** (2 slow G2++ calibration tests deselected).
+
+---
+
 ## v1.168.0 — 2026-06-26 — **Calibration subsystem: adversarial review fixes (2 bugs + 3 gate blind spots)**
 
 A fresh adversarial pass (code-correctness-critic) over the whole subsystem found two real bugs the 13k-test suite missed — both in paths the gates round-tripped the *reconstructed* record for, never the eager one — plus three latent gate holes.
