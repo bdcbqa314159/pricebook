@@ -2,6 +2,21 @@
 
 ---
 
+## v1.175.0 — 2026-06-27 — **Hull-White audit fixes (Phase 2 of the 13-calibrator audit)**
+
+Two findings from the deep audit of `models/hw_calibration.py`.
+
+**Files**: `models/hw_calibration.py`.
+
+* **`a_bounds` / `sigma_bounds` are now enforced for every method.** The default `method="nelder_mead"` ran unconstrained (no bounds passed; the final clamp only *floored* at `1e-4`/`1e-6`), so the documented bounds applied only to `differential_evolution` / `L-BFGS-B`. The returned `a` / `sigma` are now clamped into `[max(bound_lo, model_floor), bound_hi]` for all methods, with the model-validity floors kept as the ultimate lower limit. Docstring updated to state the bounds are enforced on the result.
+* **`rmse` returns `0.0` (not `int 0`)** in the empty-swaption case.
+
+Residual units were verified consistent between the eager and lazy record paths; the T4-HW1 defensive-coding (narrow `except ValueError` on vol inversion) was confirmed correct.
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.174.0 — 2026-06-27 — **SABR audit fixes (Phase 1 of the 13-calibrator file-by-file audit)**
 
 Two findings from the deep audit of `options/sabr.py`, both behaviour-preserving.
