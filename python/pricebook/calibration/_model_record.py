@@ -26,11 +26,11 @@ from pricebook.calibration._solve import SolveReport
 from pricebook.calibration._types import (
     CalibrationDiagnostics,
     CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     ObjectiveKind,
     OptimiserRun,
     OptimiserSpec,
+    assemble_calibration_record,
 )
 
 
@@ -70,8 +70,7 @@ def model_calibration_record(
         )
     if reconstructed and not diag.reconstructed:
         diag = dataclasses.replace(diag, reconstructed=True)
-    return CalibrationResult(
-        provenance=CalibrationProvenance.stamp(market_snapshot_id=market_snapshot_id),
+    return assemble_calibration_record(
         fit=CalibrationFit(
             model_class=model_class,
             parameters=dict(parameters),
@@ -92,4 +91,5 @@ def model_calibration_record(
             converged=solve.converged,
         ),
         diagnostics=diag,
+        market_snapshot_id=market_snapshot_id,
     )

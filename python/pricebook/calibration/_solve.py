@@ -9,7 +9,9 @@ it did not).
 This layer's job is to **record** a solve, not to run it — optimiser setups are
 irreducibly bespoke (scipy, the pricebook `minimize` wrapper, two-stage
 differential-evolution, hand-written particle loops), so the calibrator owns its
-solve and hands the result here. There are exactly two honest constructors:
+solve and hands the result here. Two classmethods are the intended entry points
+(the bare constructor stays available for tests / deserialisation, but coerces
+nothing — prefer these, which validate and normalise their inputs):
 
 * ``SolveReport.external(...)`` — wrap an already-run optimiser's result; pass
   ``converged=None`` when no optimiser ran (a reconstructed, hand-built record).

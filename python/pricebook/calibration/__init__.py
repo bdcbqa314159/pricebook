@@ -11,19 +11,22 @@ that uses calibrated parameters carries the `CalibrationResult.id` so the
 audit chain `(price) -> (calibration) -> (market snapshot, code version)`
 is reconstructable.
 
-This module defines the *types* for the calibration layer. Per-family
-calibrators (hazard bootstrap, G2++, Hull-White, SABR, LMM, curve
-bootstrap, etc.) migrate to producing `CalibrationResult` in subsequent
-slices of G1 P1.
+Every per-family calibrator and curve bootstrapper now produces a
+`CalibrationResult` (the G1 P1 migration is complete). Two builders assemble
+it from one place each — `curve_calibration_record` for curve/term-structure
+bootstrappers (Family A), and `model_calibration_record` for model calibrators
+(SABR, Hull-White, G2++, …, Family B), the latter capturing the optimiser facts
+in a `SolveReport` so convergence is recorded, never re-derived.
 
-Public API:
+Public API (see `__all__`):
 
-    from pricebook.calibration import (
-        CalibrationResult,
-        OptimiserSpec,
-        CalibrationDiagnostics,
-        ObjectiveKind,
-    )
+    the record types     — `CalibrationResult` and its components
+                           (`CalibrationProvenance`, `CalibrationFit`,
+                           `OptimiserRun`, `OptimiserSpec`,
+                           `CalibrationDiagnostics`, `ObjectiveKind`)
+    the family mixin     — `CanonicalCalibrationResult`, `ProvenanceCarrier`
+    the builders         — `curve_calibration_record`, `pillar_parameters`,
+                           `model_calibration_record`, `SolveReport`
 """
 
 from pricebook.calibration._types import (

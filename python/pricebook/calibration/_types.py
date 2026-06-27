@@ -49,6 +49,35 @@ def _json_normalise(value: Any) -> Any:
     return value
 
 
+# Shared snake_case "audit key" vocabulary, used by both `OptimiserSpec.algorithm`
+# and `CalibrationFit.model_class`: lowercase, every run of non-alphanumerics
+# collapsed to a single underscore. One regex + one validator for both, so the
+# vocabulary can never drift between the two dimensions you group/filter records by.
+#
+# The two call sites differ *deliberately* in one respect (and that difference is
+# test-pinned): `algorithm` arrives human-readable ("L-BFGS-B", "Nelder-Mead") and
+# is canonicalised on the way in; `model_class` is an internal literal we hold to
+# discipline, so it is validated-only and a non-canonical value is rejected rather
+# than silently rewritten.
+_AUDIT_KEY_RE = re.compile(r"[a-z][a-z0-9_]*")
+
+
+def _canonical_audit_key(value: object) -> str:
+    """Collapse a human-readable name to the snake_case audit vocabulary:
+    lowercase, every run of non-alphanumerics → one underscore. So "Nelder-Mead",
+    "nelder_mead" and "L-BFGS-B" → "nelder_mead" / "l_bfgs_b"."""
+    return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+
+def _require_audit_key(key: str, *, field: str, original: object) -> str:
+    """Return `key` unchanged if it is a non-empty snake_case audit key; else raise."""
+    if not _AUDIT_KEY_RE.fullmatch(key):
+        raise ValueError(
+            f"{field} must be non-empty snake_case (audit key); got {original!r}"
+        )
+    return key
+
+
 class ObjectiveKind(str, Enum):
     """How the calibration objective combines per-quote residuals.
 
@@ -82,22 +111,14 @@ class OptimiserSpec:
     seed: int | None = None  # required for stochastic optimisers (reproducibility)
     extra: Mapping[str, Any] = field(default_factory=dict)
 
-    # `algorithm` is an audit dimension (you group/filter by optimiser), so it is
-    # canonicalised to one queryable vocabulary the same way `model_class` is —
-    # lowercase with runs of spaces/hyphens collapsed to underscores. This makes
-    # "Nelder-Mead", "nelder_mead" and "L-BFGS-B" → "nelder_mead" / "l_bfgs_b".
-    _ALGORITHM_RE = re.compile(r"[a-z][a-z0-9_]*")
-
     def __post_init__(self) -> None:
-        # Any run of non-alphanumeric characters (spaces, hyphens, '+', '/', '.')
-        # collapses to a single underscore, so compound / vendor names like
-        # "differential_evolution+L-BFGS-B" or "brentq-per-bond" become one key.
-        canon = re.sub(r"[^a-z0-9]+", "_", str(self.algorithm).lower()).strip("_")
-        if not self._ALGORITHM_RE.fullmatch(canon):
-            raise ValueError(
-                f"algorithm must canonicalise to non-empty snake_case (audit key); "
-                f"got {self.algorithm!r}"
-            )
+        # `algorithm` is an audit dimension (you group/filter by optimiser), so it
+        # is canonicalised to the shared snake_case vocabulary — compound / vendor
+        # names like "differential_evolution+L-BFGS-B" or "brentq-per-bond" collapse
+        # to one key. (model_class shares the vocabulary but is validated-only.)
+        canon = _require_audit_key(
+            _canonical_audit_key(self.algorithm), field="algorithm", original=self.algorithm
+        )
         object.__setattr__(self, "algorithm", canon)
         # JSON-normalise `extra` so a tuple value (e.g. optimiser bounds) survives
         # a save→load round-trip as the same shape it has in memory.
@@ -216,10 +237,6 @@ class CalibrationFit:
     quotes_fitted: Sequence[str] = ()
     weights: Sequence[float] = ()
 
-    # model_class is an audit key — a controlled snake_case vocabulary so that
-    # records from one calibrator group under one stable tag.
-    _MODEL_CLASS_RE = re.compile(r"[a-z][a-z0-9_]*")
-
     def __post_init__(self) -> None:
         # Canonicalise the sequence fields to tuples: a frozen record should
         # hold immutable sequences (same convention as CalibrationDiagnostics),
@@ -231,12 +248,10 @@ class CalibrationFit:
 
         # Contract checks — turn the per-quote conventions from "documented" to
         # "enforced at construction", so a calibrator can't ship a structurally
-        # valid but inconsistent record.
-        if not self._MODEL_CLASS_RE.fullmatch(self.model_class):
-            raise ValueError(
-                f"model_class must be non-empty snake_case (audit key); "
-                f"got {self.model_class!r}"
-            )
+        # valid but inconsistent record. model_class shares the snake_case audit
+        # vocabulary with `OptimiserSpec.algorithm` but is validated-only: an
+        # internal literal is held to discipline, never silently rewritten.
+        _require_audit_key(self.model_class, field="model_class", original=self.model_class)
         # A fit with no targets is not a fit. An empty residual vector makes the
         # derived `rms_residual` read as 0.0 — "no data" masquerading as a
         # perfect fit. Reject it at construction (the type-level G1 guarantee).
@@ -266,15 +281,16 @@ class CalibrationFit:
                 f"length {n} (parallel per-quote arrays)"
             )
 
+    # `residuals` is guaranteed non-empty by `__post_init__` (the G1 type-level
+    # guarantee), so these summaries are straight formulas — no empty-vector guard,
+    # which would only suggest "no targets" is a supported state. It is not.
     @property
     def rms_residual(self) -> float:
-        if not self.residuals:
-            return 0.0
         return math.sqrt(sum(r * r for r in self.residuals) / len(self.residuals))
 
     @property
     def max_residual(self) -> float:
-        return max((abs(r) for r in self.residuals), default=0.0)
+        return max(abs(r) for r in self.residuals)
 
 
 @serialisable_convention("calibration_result", schema_version=3)
@@ -311,6 +327,30 @@ class CalibrationResult:
     def to_calibration_result(self) -> "CalibrationResult":
         """A record *is* its own canonical record — satisfies `ProvenanceCarrier`."""
         return self
+
+
+def assemble_calibration_record(
+    *,
+    fit: CalibrationFit,
+    optimiser_run: OptimiserRun,
+    diagnostics: CalibrationDiagnostics,
+    market_snapshot_id: UUID | None = None,
+) -> CalibrationResult:
+    """Stamp provenance and bind the three components into the frozen record.
+
+    The single place the record's four-part shape is expressed. Both family
+    builders (`curve_calibration_record`, `model_calibration_record`) assemble
+    through here, so a change to the record skeleton — or to how provenance is
+    stamped — touches exactly one site rather than two near-identical bodies.
+    The builders differ in how they *construct* `fit` / `optimiser_run` /
+    `diagnostics`; the binding itself is shared.
+    """
+    return CalibrationResult(
+        provenance=CalibrationProvenance.stamp(market_snapshot_id=market_snapshot_id),
+        fit=fit,
+        optimiser_run=optimiser_run,
+        diagnostics=diagnostics,
+    )
 
 
 @runtime_checkable

@@ -21,11 +21,11 @@ from uuid import UUID
 from pricebook.calibration._types import (
     CalibrationDiagnostics,
     CalibrationFit,
-    CalibrationProvenance,
     CalibrationResult,
     ObjectiveKind,
     OptimiserRun,
     OptimiserSpec,
+    assemble_calibration_record,
 )
 
 
@@ -54,6 +54,11 @@ def curve_calibration_record(
     quotes_fitted: Sequence[str],
     algorithm: str,
     iterations: int,
+    # Defaults True because a bootstrap solves each pillar exactly (one unknown per
+    # quote, root-found to tolerance) — convergence is structural, not a fitted
+    # claim. This is *not* the "assume converged" anti-pattern the model side
+    # guards against: there the solver may genuinely fail, so its `SolveReport`
+    # carries the real verdict. A bootstrapper that can fail passes converged=False.
     converged: bool = True,
     tolerance: float = 0.0,
     objective: ObjectiveKind = ObjectiveKind.SSE,
@@ -69,8 +74,7 @@ def curve_calibration_record(
     This builds the four components uniformly. `CalibrationFit` enforces the
     snake_case / length-agreement conventions at construction.
     """
-    return CalibrationResult(
-        provenance=CalibrationProvenance.stamp(market_snapshot_id=market_snapshot_id),
+    return assemble_calibration_record(
         fit=CalibrationFit(
             model_class=model_class,
             parameters=dict(parameters),
@@ -89,4 +93,5 @@ def curve_calibration_record(
             converged=converged,
         ),
         diagnostics=CalibrationDiagnostics(extra=dict(diagnostics_extra or {})),
+        market_snapshot_id=market_snapshot_id,
     )
