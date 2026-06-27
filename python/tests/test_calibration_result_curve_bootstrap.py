@@ -197,7 +197,7 @@ class TestMultiCurveResultBackCompat:
         c = DiscountCurve.flat(REF, 0.04)
         r = MultiCurveResult(
             ois_curve=c, projection_curve=c,
-            residual=0.0, n_iterations=1, jacobian=None,
+            residual=0.0, n_iterations=1, jacobian=None, converged=True,
         )
         assert r.calibration_result is None
 
@@ -205,19 +205,36 @@ class TestMultiCurveResultBackCompat:
         c = DiscountCurve.flat(REF, 0.04)
         r = MultiCurveResult(
             ois_curve=c, projection_curve=c,
-            residual=1e-12, n_iterations=3, jacobian=None,
+            residual=1e-12, n_iterations=3, jacobian=None, converged=True,
         )
         cr = r.to_calibration_result()
         assert isinstance(cr, CalibrationResult)
         assert cr.fit.model_class == "multicurve"
         assert cr.optimiser_run.iterations == 3
         assert cr.optimiser_run.converged is True
+        # The lazy fallback is a reconstruction (no per-instrument residuals/DFs).
+        assert cr.diagnostics.reconstructed is True
+
+    def test_converged_verdict_is_stored_not_threshold_derived(self):
+        # Regression: a tiny residual no longer fabricates `converged=True`.
+        # The stored verdict (here False) is replayed faithfully — this is the
+        # fabricated-converged anti-pattern §0c abolished.
+        c = DiscountCurve.flat(REF, 0.04)
+        r = MultiCurveResult(
+            ois_curve=c, projection_curve=c,
+            residual=1e-12, n_iterations=50, jacobian=None, converged=False,
+        )
+        cr = r.to_calibration_result()
+        assert cr.optimiser_run.converged is False
+        # A definite non-convergence is surfaced as a warning by the builder.
+        assert any("converge" in w.lower() for w in cr.diagnostics.warnings)
 
     def test_to_dict_has_none_when_unpopulated(self):
         c = DiscountCurve.flat(REF, 0.04)
         r = MultiCurveResult(
             ois_curve=c, projection_curve=c,
-            residual=0.0, n_iterations=1, jacobian=None,
+            residual=0.0, n_iterations=1, jacobian=None, converged=True,
         )
         d = r.to_dict()
         assert d["calibration_id"] is None
+        assert d["converged"] is True

@@ -41,12 +41,18 @@ class MultiCurveResult(CanonicalCalibrationResult):
     residual: float
     n_iterations: int
     jacobian: np.ndarray | None
+    # The solver's own convergence verdict, captured at solve time — required so a
+    # hand-built instance must state it rather than have it guessed. The lazy
+    # `_build_calibration_record` replays this; it is never re-derived from a
+    # residual threshold (the fabricated-converged anti-pattern §0c abolished).
+    converged: bool
     calibration_result: "CalibrationResult | None" = None
 
     def to_dict(self) -> dict:
         return {
             "residual": self.residual,
             "n_iterations": self.n_iterations,
+            "converged": self.converged,
             "calibration_id": self.calibration_id,
         }
 
@@ -54,11 +60,15 @@ class MultiCurveResult(CanonicalCalibrationResult):
         from pricebook.calibration import (
             CalibrationDiagnostics, SolveReport, model_calibration_record,
         )
-        # The coupled Newton solve stores its real iteration count + residual,
-        # so this is a faithful (not reconstructed) record.
+        # Reconstructed fallback for a hand-built instance: the eager
+        # `_build_multicurve_cr` (called during the solve) carries the
+        # per-instrument residuals + pillar DFs. Here we replay the verdict the
+        # instance stores — `converged` captured from the solver, never derived
+        # from a residual threshold — over the aggregate residual, and mark the
+        # record reconstructed like every other family's `_build`.
         solve = SolveReport.external(
             algorithm="newton-multicurve",
-            converged=self.residual < 1e-6,
+            converged=self.converged,
             iterations=self.n_iterations,
         )
         return model_calibration_record(
@@ -67,7 +77,8 @@ class MultiCurveResult(CanonicalCalibrationResult):
             residuals=[float(self.residual)],
             quotes_fitted=["aggregate_objective"],
             solve=solve,
-            diagnostics=CalibrationDiagnostics(extra={"n_iterations": int(self.n_iterations)}),
+            diagnostics=CalibrationDiagnostics(
+                extra={"n_iterations": int(self.n_iterations)}, reconstructed=True),
         )
 
 
@@ -220,7 +231,7 @@ def multicurve_newton(
             ois.calibration_result = cr
             proj.calibration_result = cr
             return MultiCurveResult(ois, proj, residual, iteration + 1, jacobian,
-                                    calibration_result=cr)
+                                    converged=True, calibration_result=cr)
 
         jacobian = _numerical_jacobian(x)
         try:
@@ -258,7 +269,7 @@ def multicurve_newton(
     ois.calibration_result = cr
     proj.calibration_result = cr
     return MultiCurveResult(ois, proj, float(residual), max_iter, jacobian,
-                            calibration_result=cr)
+                            converged=False, calibration_result=cr)
 
 
 def _build_multicurve_cr(

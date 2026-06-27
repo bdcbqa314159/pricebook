@@ -196,7 +196,7 @@ def _b_multicurve():
     ref = date(2026, 1, 1)
     return cls(ois_curve=DiscountCurve.flat(ref, 0.03),
                projection_curve=DiscountCurve.flat(ref, 0.032),
-               residual=1e-10, n_iterations=4, jacobian=None)
+               residual=1e-10, n_iterations=4, jacobian=None, converged=True)
 
 
 BUILDERS = {
