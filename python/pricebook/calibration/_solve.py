@@ -26,6 +26,7 @@ human-readable here; `OptimiserSpec` canonicalises it to the snake_case audit ke
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,4 +73,41 @@ class SolveReport:
             iterations=int(iterations), tolerance=tolerance,
             seed=None if seed is None else int(seed),
             max_iterations=int(max_iterations),
+        )
+
+    @classmethod
+    def from_scipy(
+        cls,
+        result: Any,
+        *,
+        algorithm: str,
+        tolerance: float | None = None,
+        max_iterations: int = 0,
+        seed: int | None = None,
+    ) -> "SolveReport":
+        """Capture a SciPy optimiser result — a ``scipy.optimize.OptimizeResult``
+        (returned by ``minimize`` / ``least_squares`` / ``differential_evolution``,
+        or the pricebook ``minimize`` wrapper, which mimics the same shape).
+
+        Reads the two facts every SciPy result exposes, in ONE canonical way, so
+        every calibrator records them identically instead of re-spelling the
+        extraction:
+
+        * ``converged`` ← ``result.success`` — the optimiser's own verdict
+          (assumed ``True`` only if a non-standard result omits the field);
+        * ``iterations`` ← ``result.nit`` (iteration count), falling back to
+          ``result.nfev`` (function-evaluation count) when no iteration count is
+          reported, so the record is never a misleading zero.
+
+        Only the *uniform* result-extraction lives here. The bespoke part — which
+        optimiser ran and how it was configured (``algorithm``, ``tolerance``,
+        ``max_iterations``, ``seed``) — stays with the caller, who alone knows it.
+        """
+        return cls.external(
+            algorithm=algorithm,
+            converged=bool(getattr(result, "success", True)),
+            iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
+            tolerance=tolerance,
+            max_iterations=max_iterations,
+            seed=seed,
         )

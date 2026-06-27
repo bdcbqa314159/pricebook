@@ -262,14 +262,8 @@ def calibrate_hull_white(
 
     rmse = math.sqrt(sum(e["error_bp"]**2 for e in errors) / len(errors)) if errors else 0
 
-    converged_flag = result.success if hasattr(result, 'success') else True
-
-    solve = SolveReport.external(
-        algorithm=algo_name,
-        converged=bool(converged_flag),
-        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
-        tolerance=algo_tol,
-        max_iterations=algo_maxiter,
+    solve = SolveReport.from_scipy(
+        result, algorithm=algo_name, tolerance=algo_tol, max_iterations=algo_maxiter,
     )
     cr = model_calibration_record(
         model_class="hull_white",
@@ -287,6 +281,6 @@ def calibrate_hull_white(
         rmse_vol=rmse / 10_000,
         per_swaption_errors=errors,
         n_swaptions=len(keys),
-        converged=converged_flag,
+        converged=bool(solve.converged),
         calibration_result=cr,
     )

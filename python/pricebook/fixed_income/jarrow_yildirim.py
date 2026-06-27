@@ -424,9 +424,8 @@ def jy_calibrate(
         jy_zc_inflation_swap(params, r_n0, r_r0, t).fair_rate - zc_swap_rates[t]
         for t in tenors
     ]
-    solve = SolveReport.external(
-        algorithm="Nelder-Mead", converged=bool(getattr(result, "success", True)),
-        iterations=int(getattr(result, "nit", 0)), tolerance=1e-10, max_iterations=3000,
+    solve = SolveReport.from_scipy(
+        result, algorithm="Nelder-Mead", tolerance=1e-10, max_iterations=3000,
     )
     cr = model_calibration_record(
         model_class="jarrow_yildirim",

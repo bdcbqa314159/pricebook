@@ -233,10 +233,8 @@ def calibrate_jump_model(
 
     params_dict = dict(zip(param_names, best_params.tolist()))
 
-    solve = SolveReport.external(
-        algorithm="differential_evolution+L-BFGS-B",
-        converged=bool(getattr(result, "success", True)),
-        iterations=int(getattr(result, "nit", 0)),
+    solve = SolveReport.from_scipy(
+        result, algorithm="differential_evolution+L-BFGS-B",
         tolerance=1e-8, max_iterations=maxiter, seed=seed,
     )
     cr = model_calibration_record(

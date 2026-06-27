@@ -160,9 +160,8 @@ def joint_calibrate(
     model = CreditGrades(sigma_a, lev, recovery_mean, recovery_vol)
     cds_model = model.cds_spread(cds_tenor, recovery_mean)
 
-    solve = SolveReport.external(
-        algorithm="L-BFGS-B", converged=bool(getattr(result, "success", True)),
-        iterations=int(getattr(result, "nit", 0)), tolerance=1e-12, max_iterations=200,
+    solve = SolveReport.from_scipy(
+        result, algorithm="L-BFGS-B", tolerance=1e-12, max_iterations=200,
     )
     cr = model_calibration_record(
         model_class="joint_equity_credit",

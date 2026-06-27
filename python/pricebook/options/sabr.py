@@ -226,14 +226,10 @@ def sabr_calibrate(
         for k, mv in zip(strikes, market_vols)
     ]
 
-    # Capture the optimiser's own verdict (pb_minimize returns a scipy-like
-    # result); the builder reads it straight off the report — no re-derivation.
-    solve = SolveReport.external(
-        algorithm="nelder_mead",
-        converged=bool(getattr(result, "success", True)),
-        iterations=int(getattr(result, "nit", 0)) or int(getattr(result, "nfev", 0)),
-        tolerance=1e-12,
-        max_iterations=2000,
+    # Capture the optimiser's own verdict; the builder reads it straight off the
+    # report — no re-derivation. (pb_minimize returns a scipy-shaped result.)
+    solve = SolveReport.from_scipy(
+        result, algorithm="nelder_mead", tolerance=1e-12, max_iterations=2000,
     )
     cr = model_calibration_record(
         model_class="sabr",

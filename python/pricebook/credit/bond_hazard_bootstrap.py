@@ -575,10 +575,9 @@ def _bootstrap_global(
     else:
         roughness_val = 0.0
 
-    solve = SolveReport.external(
+    solve = SolveReport.from_scipy(
+        result,
         algorithm="L-BFGS-B" + (f"+tikhonov(lam={float(lam):.3e})" if lam > 0 else ""),
-        converged=bool(result.success),
-        iterations=int(getattr(result, "nit", 0)),
         tolerance=1e-12, max_iterations=500,
     )
     cr = model_calibration_record(
@@ -1107,9 +1106,8 @@ def bootstrap_hazard_mixed(
         prev_q = q
 
     n_total = len(fixed_bonds) + len(floaters)
-    solve = SolveReport.external(
-        algorithm="L-BFGS-B", converged=bool(result.success),
-        iterations=int(getattr(result, "nit", 0)), tolerance=1e-12, max_iterations=500,
+    solve = SolveReport.from_scipy(
+        result, algorithm="L-BFGS-B", tolerance=1e-12, max_iterations=500,
     )
     cr = model_calibration_record(
         model_class="bond_hazard_pwc",

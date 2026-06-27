@@ -97,3 +97,44 @@ def test_end_to_end_clean_pattern_persists():
     with PricebookDB(":memory:") as db:
         cid = db.save_calibration(rec)
         assert db.load_calibration(cid) == rec
+
+
+class TestFromScipy:
+    """`SolveReport.from_scipy` is the ONE canonical adapter the scipy-based
+    calibrators share — it extracts success / nit(/nfev) identically everywhere,
+    instead of each family re-spelling the `getattr(result, ...)` dance."""
+
+    def test_reads_success_and_iteration_count(self):
+        import scipy.optimize as opt
+        result = opt.minimize(lambda v: float(np.sum(v * v)), [1.0, 1.0],
+                              method="L-BFGS-B", tol=1e-12)
+        solve = SolveReport.from_scipy(result, algorithm="L-BFGS-B",
+                                       tolerance=1e-12, max_iterations=200)
+        assert solve.converged is True
+        assert solve.iterations == result.nit
+        # left human-readable here; OptimiserSpec canonicalises to the audit key.
+        assert solve.algorithm == "L-BFGS-B"
+        assert solve.max_iterations == 200
+
+    def test_iterations_fall_back_to_nfev_when_no_iteration_count(self):
+        # An optimiser that reports function evaluations but no iterations must
+        # not record a misleading 0.
+        class _Res:
+            success = True
+            nfev = 37
+        solve = SolveReport.from_scipy(_Res(), algorithm="custom")
+        assert solve.iterations == 37
+
+    def test_success_defaults_true_only_when_field_absent(self):
+        class _Res:
+            nit = 5
+        solve = SolveReport.from_scipy(_Res(), algorithm="custom")
+        assert solve.converged is True
+        assert solve.iterations == 5
+
+    def test_failure_verdict_is_captured_not_hidden(self):
+        class _Res:
+            success = False
+            nit = 500
+        solve = SolveReport.from_scipy(_Res(), algorithm="L-BFGS-B")
+        assert solve.converged is False  # the optimiser's real verdict, faithfully
