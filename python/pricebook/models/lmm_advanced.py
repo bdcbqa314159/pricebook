@@ -84,11 +84,13 @@ def _lmm_calibration_record(
     market_vols: dict[tuple[int, int], float],
     dt: float,
     method: str,
+    converged: bool | None,
 ) -> CalibrationResult:
     """Build the canonical CalibrationResult for an LMM swaption calibration.
 
     Computes per-swaption residuals (model − market vol) over the swaptions
-    actually fitted (expiry index within the forward grid).
+    actually fitted (expiry index within the forward grid). `converged` is the
+    optimiser's own verdict, captured by the caller — never assumed.
     """
     n = len(forward_rates)
     keys = [k for k in sorted(market_vols.keys()) if k[0] < n]
@@ -101,7 +103,7 @@ def _lmm_calibration_record(
         parameters={f"sigma_{i}": float(v) for i, v in enumerate(inst_vols)},
         residuals=residuals,
         quotes_fitted=[f"swaption_{e}x{t}" for (e, t) in keys],
-        solve=SolveReport.external(algorithm=method, converged=True, iterations=0),
+        solve=SolveReport.external(algorithm=method, converged=converged, iterations=0),
     )
 
 
@@ -195,6 +197,9 @@ def lmm_cascade_calibration(
     # Sort by expiry
     sorted_keys = sorted(market_vols.keys())
 
+    # Capture convergence across the per-column solves: the cascade converged
+    # iff every column's Nelder-Mead solve did (None if nothing was fitted).
+    cascade_converged: bool | None = None
     for exp_idx, ten_idx in sorted_keys:
         if exp_idx >= n:
             continue
@@ -208,6 +213,8 @@ def lmm_cascade_calibration(
 
         result = minimize(objective, [inst_vols[exp_idx]], method='Nelder-Mead')
         inst_vols[exp_idx] = result.x[0]
+        col_ok = bool(getattr(result, "success", True))
+        cascade_converged = col_ok if cascade_converged is None else (cascade_converged and col_ok)
 
     # Compute residual
     total_err = 0.0
@@ -216,7 +223,7 @@ def lmm_cascade_calibration(
             model = _rebonato_swaption_vol(inst_vols, fwd, e, t, dt)
             total_err += (model - target) ** 2
 
-    cr = _lmm_calibration_record(inst_vols, fwd, market_vols, dt, "cascade")
+    cr = _lmm_calibration_record(inst_vols, fwd, market_vols, dt, "cascade", cascade_converged)
     return RebonatoLMMCalibrationResult(
         inst_vols, math.sqrt(total_err / max(len(market_vols), 1)),
         len(market_vols), "cascade", calibration_result=cr,
@@ -249,7 +256,8 @@ def lmm_global_calibration(
 
     residual = math.sqrt(result.fun / max(len(market_vols), 1))
 
-    cr = _lmm_calibration_record(result.x, fwd, market_vols, dt, "global")
+    cr = _lmm_calibration_record(result.x, fwd, market_vols, dt, "global",
+                                 bool(getattr(result, "success", True)))
     return RebonatoLMMCalibrationResult(
         result.x, residual, len(market_vols), "global", calibration_result=cr,
     )
@@ -264,10 +272,10 @@ class SABRLMMResult:
     vol_paths: np.ndarray       # (n_paths, n_steps+1, n_forwards)
     swaption_price: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 class SABRLMM:
     """SABR-LMM: stochastic vol on each forward rate.
 
@@ -352,10 +360,10 @@ class PredictorCorrectorResult:
     forward_paths: np.ndarray
     caplet_price: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def lmm_predictor_corrector(
     forward_rates: list[float],
     inst_vols: list[float],
@@ -425,10 +433,10 @@ class LMMGreeksResult:
     deltas: np.ndarray   # ∂V/∂F_i for each forward rate
     total_delta: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def lmm_pathwise_greeks(
     forward_rates: list[float],
     inst_vols: list[float],
