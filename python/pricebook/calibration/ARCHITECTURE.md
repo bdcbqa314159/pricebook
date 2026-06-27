@@ -257,8 +257,9 @@ pillar_parameters(dates, values, *, label="df") -> {"df(2027-01-01)": 0.97, …}
 `model_calibration_record` *requires* a `SolveReport`, so a calibrator can
 neither omit nor invent convergence; cross-cutting behaviour (the
 non-convergence warning, the `reconstructed` flag) lives here, not copy-pasted
-into each calibrator. Both builders live at **L0** so every producer imports
-them without pulling in a concrete curve type.
+into each calibrator. Both builders live in the **calibration layer (L1, on
+`core` only)** so every producer imports them without pulling in a concrete curve
+type.
 
 The pipeline (the capture step differs by family; both meet at the builder):
 
@@ -415,12 +416,16 @@ a gate.
 
 ## 9. Layer & dependency notes
 
-This package sits at **L0** in the empirical dependency graph. Its only load-time
-pricebook dependency is `core.serialisable` (also L0), pulled in to make the
-record types first-class serialisable artefacts; that edge is acyclic
-(`core.serialisable` imports nothing from `calibration`). The lone in-function
-`import pricebook` in `CalibrationProvenance.stamp` (to read `__version__`) is
-lazy and creates no runtime cycle.
+This package sits at **L1** in the empirical dependency graph — directly on top of
+**L0/`core`** and nothing else. Its only load-time pricebook dependency is
+`core.serialisable` (L0), a top-level import (it can't be lazy — `@serialisable_convention`
+is a class decorator) that makes the record types first-class serialisable
+artefacts. By the layer tool's rule (`layer = 1 + max(dep layers)`), depending on
+an L0 package puts calibration at L1; `tools/layer_deps.py --layer 1` lists its
+reading order. That edge is acyclic (`core.serialisable` imports nothing from
+`calibration`). The lone in-function `import pricebook` in
+`CalibrationProvenance.stamp` (to read `__version__`) is lazy and creates no
+runtime cycle.
 
 Core curve types (`core/discount_curve.py`, `core/survival_curve.py`) stay
 **free of any runtime calibration import**: the `calibration_result` field is a
@@ -461,7 +466,7 @@ structurally, not by inheritance, precisely to keep that edge absent.
 ## One-sentence shape
 
 One immutable four-part record (`CalibrationResult`), **captured** from the
-optimiser via a `SolveReport` and **assembled** through one of two L0 builders,
+optimiser via a `SolveReport` and **assembled** through one of two builders,
 read through one Protocol (`ProvenanceCarrier`) realised two ways — a **field on
 the curve** when the curve is the artefact, a **mixin method** when parameters
 are — persisted through one polymorphic DB sink, and held to the contract by
