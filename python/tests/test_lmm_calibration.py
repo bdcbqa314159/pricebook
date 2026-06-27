@@ -6,10 +6,26 @@ import numpy as np
 
 from pricebook.models.lmm_calibration import (
     rebonato_swaption_vol, exponential_correlation,
-    calibrate_lmm_vols,
+    calibrate_lmm_vols, LMMCalibrationResult,
     MultiFactorSABR, SABRSlice, calibrate_multi_factor_sabr,
 )
 from pricebook.options.sabr import sabr_implied_vol
+
+
+class TestLMMRecordReconstruction:
+    def test_unfitted_target_is_excluded_not_fabricated(self):
+        # A target with no fitted vol is dropped (it was not fitted), rather than
+        # fabricating a model vol of 0.0 — so residuals stay faithful.
+        r = LMMCalibrationResult(
+            calibrated_vols=[0.2, 0.2],
+            target_swaption_vols={(0, 1): 0.30, (1, 1): 0.28},
+            fitted_swaption_vols={(0, 1): 0.31},  # (1, 1) was not fitted
+            rmse=0.01,
+        )
+        cr = r.to_calibration_result()
+        assert len(cr.fit.residuals) == 1
+        assert cr.fit.residuals[0] == pytest.approx(0.31 - 0.30)
+        assert cr.fit.quotes_fitted == ("swaption_0x1",)
 
 
 # ---- Rebonato approximation ----

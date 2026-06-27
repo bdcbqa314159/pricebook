@@ -135,9 +135,13 @@ class LMMCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         # Residuals = (fitted - target) per swaption key, in target's units (Black vol).
-        keys = sorted(self.target_swaption_vols.keys())
+        # Only keys with a fitted vol — a target with no model output was not
+        # fitted, so it is excluded rather than fabricating a model vol of 0.0
+        # (which would read as a large spurious miss). The calibrator always
+        # fits every target, so in normal flow this is every key.
+        keys = [k for k in sorted(self.target_swaption_vols) if k in self.fitted_swaption_vols]
         residuals = [
-            self.fitted_swaption_vols.get(k, 0.0) - self.target_swaption_vols[k]
+            self.fitted_swaption_vols[k] - self.target_swaption_vols[k]
             for k in keys
         ]
         # Lazy reconstruction (hand-built instance): no optimiser ran, so

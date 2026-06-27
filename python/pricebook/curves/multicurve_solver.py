@@ -62,10 +62,17 @@ class MultiCurveResult(CanonicalCalibrationResult):
         )
         # Reconstructed fallback for a hand-built instance: the eager
         # `_build_multicurve_cr` (called during the solve) carries the
-        # per-instrument residuals + pillar DFs. Here we replay the verdict the
-        # instance stores — `converged` captured from the solver, never derived
-        # from a residual threshold — over the aggregate residual, and mark the
-        # record reconstructed like every other family's `_build`.
+        # per-instrument residuals. Here we replay the verdict the instance
+        # stores — `converged` captured from the solver, never derived from a
+        # residual threshold — over the aggregate residual, and recover the
+        # calibrated DF surface off the stored curves so the record still
+        # carries its fitted parameters. Marked reconstructed like every other
+        # family's `_build`.
+        parameters = {}
+        for d in self.ois_curve.pillar_dates:
+            parameters[f"ois_df({d.isoformat()})"] = float(self.ois_curve.df(d))
+        for d in self.projection_curve.pillar_dates:
+            parameters[f"proj_df({d.isoformat()})"] = float(self.projection_curve.df(d))
         solve = SolveReport.external(
             algorithm="newton-multicurve",
             converged=self.converged,
@@ -73,7 +80,7 @@ class MultiCurveResult(CanonicalCalibrationResult):
         )
         return model_calibration_record(
             model_class="multicurve",
-            parameters={},
+            parameters=parameters,
             residuals=[float(self.residual)],
             quotes_fitted=["aggregate_objective"],
             solve=solve,

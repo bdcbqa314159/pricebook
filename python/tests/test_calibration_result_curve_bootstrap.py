@@ -229,6 +229,20 @@ class TestMultiCurveResultBackCompat:
         # A definite non-convergence is surfaced as a warning by the builder.
         assert any("converge" in w.lower() for w in cr.diagnostics.warnings)
 
+    def test_fallback_carries_calibrated_df_surface(self):
+        # The reconstruction recovers the DF surface off the stored curves
+        # instead of shipping empty parameters.
+        ois = DiscountCurve.flat(REF, 0.03)
+        proj = DiscountCurve.flat(REF, 0.032)
+        r = MultiCurveResult(
+            ois_curve=ois, projection_curve=proj,
+            residual=1e-10, n_iterations=4, jacobian=None, converged=True,
+        )
+        params = r.to_calibration_result().fit.parameters
+        assert params, "reconstructed record must carry the calibrated DFs, not {}"
+        assert any(k.startswith("ois_df(") for k in params)
+        assert any(k.startswith("proj_df(") for k in params)
+
     def test_to_dict_has_none_when_unpopulated(self):
         c = DiscountCurve.flat(REF, 0.04)
         r = MultiCurveResult(

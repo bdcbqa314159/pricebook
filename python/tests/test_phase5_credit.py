@@ -188,6 +188,19 @@ class TestJointEquityCredit:
         assert cr.fit.model_class == "joint_equity_credit"
         assert len(cr.fit.residuals) == 2
 
+    def test_zero_market_target_is_not_a_false_perfect(self):
+        # A degenerate (zero) market target must not produce a 0.0 (perfect)
+        # residual; it falls back to the absolute miss (model - 0 = model).
+        from pricebook.credit.joint_equity_credit import JointCalibrationResult
+        r = JointCalibrationResult(
+            asset_vol=0.2, leverage=0.4, recovery_mean=0.4, recovery_vol=0.25,
+            equity_vol_model=0.33, equity_vol_market=0.0,
+            cds_spread_model_bp=152.0, cds_spread_market_bp=150.0,
+            equity_vol_error_pct=0.0, cds_spread_error_bp=2.0, fit_quality=0.01,
+        )
+        cr = r.to_calibration_result()
+        assert cr.fit.residuals[0] == pytest.approx(0.33)  # not 0.0
+
     def test_persists_via_db(self):
         from pricebook.db.db import PricebookDB
         result = joint_calibrate(equity_vol=0.30, cds_spread_bp=150)

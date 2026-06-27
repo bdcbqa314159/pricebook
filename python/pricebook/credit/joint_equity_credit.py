@@ -33,6 +33,17 @@ from pricebook.calibration import (
 from pricebook.credit.credit_grades import CreditGrades
 
 
+def _relative_residual(model: float, market: float) -> float:
+    """Dimensionless relative residual ``model/market - 1``.
+
+    Falls back to the **absolute** residual ``model - market`` when the market
+    target is non-positive — a zero/degenerate target then surfaces as a real,
+    non-zero miss instead of a false-perfect ``0.0`` (a relative error is
+    undefined at ``market == 0``, and pretending it is zero hides a bad fit).
+    """
+    return model / market - 1.0 if market > 0 else model - market
+
+
 @dataclass
 class JointCalibrationResult(CanonicalCalibrationResult):
     """Result of joint equity-credit calibration."""
@@ -57,11 +68,10 @@ class JointCalibrationResult(CanonicalCalibrationResult):
 
     def _relative_residuals(self) -> list[float]:
         """Dimensionless relative residuals for the two fitted quotes."""
-        vol_res = (self.equity_vol_model / self.equity_vol_market - 1.0
-                   if self.equity_vol_market else 0.0)
-        cds_res = (self.cds_spread_model_bp / self.cds_spread_market_bp - 1.0
-                   if self.cds_spread_market_bp else 0.0)
-        return [vol_res, cds_res]
+        return [
+            _relative_residual(self.equity_vol_model, self.equity_vol_market),
+            _relative_residual(self.cds_spread_model_bp, self.cds_spread_market_bp),
+        ]
 
     def _build_calibration_record(self) -> CalibrationResult:
         residuals = self._relative_residuals()
@@ -158,8 +168,8 @@ def joint_calibrate(
         model_class="joint_equity_credit",
         parameters={"asset_vol": float(sigma_a), "leverage": float(lev)},
         residuals=[
-            sigma_e_model / equity_vol - 1.0 if equity_vol > 0 else 0.0,
-            cds_model / cds_target - 1.0 if cds_target > 0 else 0.0,
+            _relative_residual(sigma_e_model, equity_vol),
+            _relative_residual(cds_model, cds_target),
         ],
         quotes_fitted=["equity_vol", f"cds_spread_{cds_tenor:g}Y"],
         solve=solve,
