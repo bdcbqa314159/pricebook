@@ -2,6 +2,19 @@
 
 ---
 
+## v1.174.0 — 2026-06-27 — **SABR audit fixes (Phase 1 of the 13-calibrator file-by-file audit)**
+
+Two findings from the deep audit of `options/sabr.py`, both behaviour-preserving.
+
+**Files**: `options/sabr.py`.
+
+* **`calibrate_sabr_smile` docstring corrected.** It claimed *"Raises: ValueError if calibration fails validation"* and called itself "hardened", but the body only ever `warnings.warn`s (range issues + RMSE-over-threshold) and always returns. Making it raise was rejected — `structured/ir_vol_surface.py` calls it per node to build a surface with a tight 1bp default, so raising would break surface construction on any imperfect smile. Docstring now states it warns (never raises) and always returns with reprice diagnostics filled.
+* **Renamed `x_z` → `z_over_x` in `sabr_implied_vol`.** The variable holds Hagan's `z/x(z)` multiplicative factor, not `x(z)` — the old name invited a misread. Comment clarified. (The Hagan ATM + general branches were verified numerically correct during the audit; no formula change.)
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.173.0 — 2026-06-27 — **Dividend calibrator: capture an honest SolveReport eagerly on all four paths**
 
 Closed the last eager-capture gap among the 13 model calibrators (found in the design-health review). `dividend` ran an optimiser (`_calibrate_piecewise` → L-BFGS-B) but discarded its verdict — every dividend record was lazily reconstructed with `converged=None` + `reconstructed=True`, even when freshly fit. Now each of the four construction paths captures and attaches an honest `SolveReport` at fit time, like the other 12 families.
