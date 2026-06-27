@@ -2,6 +2,23 @@
 
 ---
 
+## v1.173.0 — 2026-06-27 — **Dividend calibrator: capture an honest SolveReport eagerly on all four paths**
+
+Closed the last eager-capture gap among the 13 model calibrators (found in the design-health review). `dividend` ran an optimiser (`_calibrate_piecewise` → L-BFGS-B) but discarded its verdict — every dividend record was lazily reconstructed with `converged=None` + `reconstructed=True`, even when freshly fit. Now each of the four construction paths captures and attaches an honest `SolveReport` at fit time, like the other 12 families.
+
+**Files**: `equity/dividend_calibration.py` (+ tests).
+
+* **optimize** → `SolveReport.from_scipy(result, algorithm="optimize")` — the real L-BFGS-B success/iteration count, no longer thrown away (`reconstructed=False`).
+* **spline / linear** → `SolveReport.external(converged=True)` — deterministic constructions (cubic-spline interpolation / closed-form bootstrap), no iterative optimiser.
+* **options** → `SolveReport.external(converged=True)` + a `residual_is_placeholder` flag and warning: put-call parity extraction sets `fitted := market`, so its residual is a structural `0.0` — flagged rather than read as a perfect fit (same convention as FX-SLV).
+* One private `_dividend_calibration_record(...)` is now the single assembly point for all four eager paths **and** the lazy `_build` fallback. Class docstring corrected (it claimed "no per-build-site population").
+
+4 regression tests: optimize captures a real verdict (not reconstructed); deterministic paths are not reconstructed; options' zero residual is flagged, not a false-perfect.
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.172.0 — 2026-06-27 — **`SolveReport.from_scipy`: one canonical scipy-result adapter (clean interface across all model calibrators)**
 
 The calibration layer records a solve but never runs one — the algorithm (scipy, the pricebook `minimize` wrapper, DE, brentq, particle/Newton loops) lives in each family module. That separation was clean, with one seam: the *adapter* translating a `scipy.optimize.OptimizeResult` into a `SolveReport` was hand-rolled in ~6 families with three divergent idioms. This closes the seam.
