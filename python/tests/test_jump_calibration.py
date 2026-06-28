@@ -135,3 +135,41 @@ class TestModelComparison:
         # Both should have finite AIC
         assert math.isfinite(result.aic_values["merton"])
         assert math.isfinite(result.aic_values["vg"])
+
+
+class TestDividendForwardConsistency:
+    """Every jump/Lévy char func must carry the dividend yield in its drift, so
+    the forward/martingale condition φ(-i) = E[S_T/S_0] = exp((r - q)·T) holds.
+
+    Regression for the audit (Phase 4): pre-fix merton/vg/nig/cgmy ignored q and
+    gave exp(r·T), so under dividends the COS price used the wrong forward while
+    the implied-vol inversion used a dividend-adjusted one — a calibration bug.
+    """
+
+    def test_all_char_funcs_reproduce_dividend_forward(self):
+        from pricebook.models.char_func_protocol import (
+            merton_char_func, vg_char_func, kou_char_func, bates_char_func)
+        from pricebook.models.levy_processes import nig_char_func, cgmy_char_func
+
+        r, q, T = 0.05, 0.03, 1.0
+        target = math.exp((r - q) * T)
+        funcs = {
+            "merton": merton_char_func(r, 0.2, 1.0, -0.1, 0.15, T, q),
+            "vg":     vg_char_func(r, 0.2, 0.3, -0.1, T, q),
+            "nig":    nig_char_func(r, 15.0, -3.0, 0.5, T, q),
+            "cgmy":   cgmy_char_func(r, 1.0, 5.0, 5.0, 0.5, T, q),
+            "kou":    kou_char_func(r, 0.2, T, 1.0, 0.4, 10.0, 5.0, q),
+            "bates":  bates_char_func(r, 0.04, 1.0, 0.04, 0.3, -0.5, 1.0, -0.1, 0.15, T, q),
+        }
+        for name, phi in funcs.items():
+            v = phi(-1j)
+            assert abs(v.imag) < 1e-9, f"{name}: φ(-i) not real ({v})"
+            assert abs(v.real - target) < 1e-9, (
+                f"{name}: φ(-i)={v.real:.8f} != exp((r-q)T)={target:.8f}")
+
+    def test_q_zero_is_unchanged(self):
+        # The default q=0 path must be untouched (φ(-i) = exp(r·T)).
+        from pricebook.models.char_func_protocol import merton_char_func
+        r, T = 0.05, 1.0
+        phi = merton_char_func(r, 0.2, 1.0, -0.1, 0.15, T)
+        assert abs(phi(-1j).real - math.exp(r * T)) < 1e-9

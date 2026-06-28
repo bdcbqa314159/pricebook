@@ -159,6 +159,7 @@ def merton_char_func(
     mu_j: float,
     sigma_j: float,
     T: float,
+    div_yield: float = 0.0,
 ) -> Callable[[complex], complex]:
     """Merton jump-diffusion characteristic function.
 
@@ -171,11 +172,12 @@ def merton_char_func(
         mu_j: mean of log-jump size.
         sigma_j: std of log-jump size.
         T: time to maturity.
+        div_yield: continuous dividend yield (carry = rate − div_yield).
     """
     k = math.exp(mu_j + 0.5 * sigma_j**2) - 1  # compensator
 
     def phi(u: complex) -> complex:
-        diff = 1j * u * (rate - lam * k - 0.5 * sigma**2) * T \
+        diff = 1j * u * (rate - div_yield - lam * k - 0.5 * sigma**2) * T \
                - 0.5 * u**2 * sigma**2 * T
         jump_cf = cmath.exp(1j * u * mu_j - 0.5 * u**2 * sigma_j**2) - 1
         return cmath.exp(diff + lam * T * jump_cf)
@@ -189,6 +191,7 @@ def vg_char_func(
     nu: float,
     theta: float,
     T: float,
+    div_yield: float = 0.0,
 ) -> Callable[[complex], complex]:
     """Variance Gamma characteristic function.
 
@@ -200,6 +203,7 @@ def vg_char_func(
         nu: variance rate of Gamma subordinator.
         theta: drift of BM component.
         T: time to maturity.
+        div_yield: continuous dividend yield (carry = rate − div_yield).
     """
     inner = 1 - theta * nu - 0.5 * sigma**2 * nu
     if inner <= 0:
@@ -208,7 +212,7 @@ def vg_char_func(
     omega = (1.0 / nu) * math.log(inner)
 
     def phi(u: complex) -> complex:
-        drift = 1j * u * (rate + omega) * T
+        drift = 1j * u * (rate - div_yield + omega) * T
         inner = 1 - 1j * u * theta * nu + 0.5 * u**2 * sigma**2 * nu
         return cmath.exp(drift) * inner ** (-T / nu)
 

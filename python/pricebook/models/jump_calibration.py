@@ -107,12 +107,12 @@ _MODEL_SPECS = {
     "merton": {
         "names": ["sigma", "lam", "mu_j", "sigma_j"],
         "bounds": [(0.05, 0.80), (0.1, 10.0), (-0.5, 0.1), (0.01, 0.5)],
-        "build_cf": lambda p, rate, T, **kw: merton_char_func(rate, p[0], p[1], p[2], p[3], T),
+        "build_cf": lambda p, rate, T, **kw: merton_char_func(rate, p[0], p[1], p[2], p[3], T, kw.get("div_yield", 0.0)),
     },
     "vg": {
         "names": ["sigma", "nu", "theta"],
         "bounds": [(0.05, 0.80), (0.01, 2.0), (-0.5, 0.1)],
-        "build_cf": lambda p, rate, T, **kw: vg_char_func(rate, p[0], p[1], p[2], T),
+        "build_cf": lambda p, rate, T, **kw: vg_char_func(rate, p[0], p[1], p[2], T, kw.get("div_yield", 0.0)),
     },
     "kou": {
         "names": ["sigma", "lam", "p", "eta1", "eta2"],
@@ -122,12 +122,12 @@ _MODEL_SPECS = {
     "nig": {
         "names": ["alpha", "beta", "delta"],
         "bounds": [(1.0, 50.0), (-25.0, 5.0), (0.01, 2.0)],
-        "build_cf": lambda p, rate, T, **kw: nig_char_func(rate, p[0], p[1], p[2], T),
+        "build_cf": lambda p, rate, T, **kw: nig_char_func(rate, p[0], p[1], p[2], T, kw.get("div_yield", 0.0)),
     },
     "cgmy": {
         "names": ["C", "G", "M", "Y"],
         "bounds": [(0.1, 20.0), (1.0, 50.0), (1.0, 50.0), (-0.5, 1.9)],
-        "build_cf": lambda p, rate, T, **kw: cgmy_char_func(rate, p[0], p[1], p[2], p[3], T),
+        "build_cf": lambda p, rate, T, **kw: cgmy_char_func(rate, p[0], p[1], p[2], p[3], T, kw.get("div_yield", 0.0)),
     },
     "bates": {
         "names": ["v0", "kappa", "theta", "xi", "rho", "lam", "mu_j", "sigma_j"],

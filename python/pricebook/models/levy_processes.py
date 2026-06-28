@@ -246,6 +246,7 @@ def nig_char_func(
     beta: float,
     delta: float,
     T: float,
+    div_yield: float = 0.0,
 ) -> Callable[[complex], complex]:
     """Risk-neutral NIG characteristic function for log(S_T/S_0).
 
@@ -257,12 +258,13 @@ def nig_char_func(
         beta: asymmetry.
         delta: scale.
         T: time to maturity.
+        div_yield: continuous dividend yield (carry = rate − div_yield).
     """
     gamma = math.sqrt(alpha**2 - beta**2)
     omega = -delta * (gamma - math.sqrt(alpha**2 - (beta + 1)**2))
 
     def phi(u: complex) -> complex:
-        drift = 1j * u * (rate + omega) * T
+        drift = 1j * u * (rate - div_yield + omega) * T
         inner = cmath.sqrt(alpha**2 - (beta + 1j * u) ** 2)
         nig_part = delta * T * (gamma - inner)
         return cmath.exp(drift + nig_part)
@@ -277,6 +279,7 @@ def cgmy_char_func(
     M: float,
     Y: float,
     T: float,
+    div_yield: float = 0.0,
 ) -> Callable[[complex], complex]:
     """Risk-neutral CGMY characteristic function for log(S_T/S_0).
 
@@ -289,12 +292,13 @@ def cgmy_char_func(
         M: up-jump decay rate.
         Y: fine structure index (Y < 2, Y ≠ 1).
         T: time to maturity.
+        div_yield: continuous dividend yield (carry = rate − div_yield).
     """
     if abs(Y) < 1e-10:
         omega = -C * (math.log(M - 1) - math.log(M)
                        + math.log(G + 1) - math.log(G))
         def phi(u: complex) -> complex:
-            drift = 1j * u * (rate + omega) * T
+            drift = 1j * u * (rate - div_yield + omega) * T
             cgmy_part = -C * T * (cmath.log(M - 1j * u) - cmath.log(complex(M))
                                    + cmath.log(G + 1j * u) - cmath.log(complex(G)))
             return cmath.exp(drift + cgmy_part)
@@ -306,7 +310,7 @@ def cgmy_char_func(
     )
 
     def phi(u: complex) -> complex:
-        drift = 1j * u * (rate + omega) * T
+        drift = 1j * u * (rate - div_yield + omega) * T
         term1 = (M - 1j * u) ** Y - M**Y
         term2 = (G + 1j * u) ** Y - G**Y
         cgmy_part = C * T * gamma_neg_Y * (term1 + term2)
