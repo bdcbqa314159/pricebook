@@ -18,7 +18,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pricebook.calibration import CanonicalCalibrationResult
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CanonicalCalibrationResult,
+    SolveReport,
+    model_calibration_record,
+)
 from pricebook.core.discount_curve import DiscountCurve
 from pricebook.core.day_count import DayCountConvention, year_fraction
 
@@ -57,9 +62,6 @@ class MultiCurveResult(CanonicalCalibrationResult):
         }
 
     def _build_calibration_record(self):
-        from pricebook.calibration import (
-            CalibrationDiagnostics, SolveReport, model_calibration_record,
-        )
         # Reconstructed fallback for a hand-built instance: the eager
         # `_build_multicurve_cr` (called during the solve) carries the
         # per-instrument residuals. Here we replay the verdict the instance
@@ -286,9 +288,6 @@ def _build_multicurve_cr(
     market_snapshot_id=None,
 ):
     """Build the CalibrationResult for a multicurve calibration."""
-    from pricebook.calibration import (
-        CalibrationDiagnostics, SolveReport, model_calibration_record,
-    )
     n_ois = len(ois_pillar_dates)
     parameters = {}
     for i, d in enumerate(ois_pillar_dates):
@@ -336,10 +335,10 @@ class CurveValidationResult:
     max_forward_rate: float
     min_forward_rate: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def validate_curve(
     curve: DiscountCurve,
     max_forward_rate: float = 0.20,
@@ -430,20 +429,20 @@ class AnalyticalJacobianResult:
     output_times: np.ndarray
     method: str
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def curve_analytical_jacobian(
     curve: DiscountCurve,
     output_times: list[float] | None = None,
 ) -> AnalyticalJacobianResult:
-    """Analytical Jacobian: ∂zero_rate(t_i) / ∂zero_rate(t_j).
+    """Jacobian ∂zero_rate(t_i) / ∂zero_rate(t_j) for curve risk.
 
-    For log-linear interpolation on DFs, the Jacobian has a known
-    structure: piecewise linear in the pillar zero rates.
-
-    For general interpolation, falls back to finite difference.
+    Computed by finite difference (bump each pillar zero rate, re-evaluate) —
+    works for any interpolation; the result's `method` field reports
+    ``"finite_difference"``. The name is retained for API stability; a
+    closed-form analytical variant for log-linear DFs is not implemented.
 
     Args:
         output_times: times at which to evaluate zero rates.
