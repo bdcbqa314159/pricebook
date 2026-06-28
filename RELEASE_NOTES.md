@@ -2,6 +2,20 @@
 
 ---
 
+## v1.180.0 — 2026-06-28 — **Stochastic-correlation audit fixes (Phase 7 of the 13-calibrator audit)**
+
+**Files**: `models/stochastic_correlation.py`.
+
+* **The dispersion record now flags fitted vs fixed params.** `calibrate_stoch_corr_to_dispersion` only fits `theta`; `kappa=2.0`/`sigma=0.3` are fixed heuristics ("not identifiable from ATM alone"), but the record stored all three as `parameters`. Added `diagnostics.extra={"fitted_params": ["theta"], "fixed_params": ["kappa","sigma"]}` so a consumer can tell which were calibrated.
+* **Dropped a dead `rng` variable** in `simulate_two_asset_stoch_corr` (the asset stream is `rng2`, the ρ stream is `corr_model`'s); fixed the `seed + 1 if seed else 1` falsy-`0` nit.
+* **Fixed `to_dict` spacing** in `CIRCorrelationResult` / `StochCorrPricingResult` / `WishartResult` (×3).
+
+The calibrator (analytic θ-fit) was verified correct. The `to_dict` spacing defect is codebase-wide (~512 sites) — being fixed per-file as each phase touches it.
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.179.0 — 2026-06-28 — **Advanced-LMM audit fixes (Phase 6 of the 13-calibrator audit)**
 
 **Files**: `models/lmm_advanced.py`.
