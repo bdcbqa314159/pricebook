@@ -1,0 +1,22 @@
+# EditorConfig — shared baseline read by most editors on save.
+# https://editorconfig.org   (not a formatter; just consistent whitespace rules)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+# Trailing spaces are significant in Markdown (two = hard line break) — keep them.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{toml,yaml,yml,json,cfg,ini}]
+indent_style = space
+indent_size = 2

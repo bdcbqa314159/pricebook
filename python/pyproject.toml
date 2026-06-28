@@ -48,6 +48,8 @@ dev = [
     "zstandard", "lz4", "msgpack",
     "sphinx", "myst-parser", "sphinx-book-theme",
     "mypy>=2.0",
+    "ruff",
+    "pre-commit",
 ]
 
 [tool.setuptools.dynamic]
@@ -65,6 +67,13 @@ pricebook = ["py.typed"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = ["-v", "--tb=short"]
+
+# ruff settings for editor / manual use (`ruff check`, `ruff format`). The
+# pre-commit hook is lint-only (E3 blank-lines, see .pre-commit-config.yaml) and
+# doesn't depend on these; `line-length` applies only if you run `ruff format`.
+[tool.ruff]
+target-version = "py312"
+line-length = 100
 
 [tool.mypy]
 python_version = "3.12"

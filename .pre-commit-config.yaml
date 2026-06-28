@@ -1,0 +1,22 @@
+# Lint-only auto-fix on commit — runs ruff's blank-line rules (E3) on the Python
+# files you're committing and fixes ONLY the blank-line spacing (e.g. the botched
+# `to_dict` spacing: collapses stray blank lines, restores the 1-before-method /
+# 2-between-top-level-defs convention). It does NOT touch quotes, line-wrapping, or
+# anything else — surgical, small diffs. When a file is fixed, the commit aborts so
+# you can review and re-stage.
+#
+# (E3 is preview-gated in this ruff version, hence --preview; the pinned `rev`
+#  keeps the behaviour stable. Newer ruff-pre-commit names the lint hook
+#  `ruff-check` — rename below if `pre-commit autoupdate` warns about `ruff`.)
+#
+# Activate once:   pipx install pre-commit && pre-commit install
+# Bump ruff pin:   pre-commit autoupdate
+# One-off sweep:   pre-commit run --all-files
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff
+        name: ruff blank-line fixer (E3 only)
+        args: [--select, E3, --fix, --preview]
+        files: ^python/.*\.py$
