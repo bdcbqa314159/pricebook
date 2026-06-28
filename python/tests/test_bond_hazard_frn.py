@@ -194,8 +194,12 @@ class TestAdaptiveBootstrap:
         ]
         result = bootstrap_hazard_adaptive(REF, bonds, discount_curve=dc,
                                             bid_ask_widths_bp=[20, 300])
-        # Wider bid-ask bond gets lower weight
-        assert bonds[1].weight < bonds[0].weight
+        # Wider bid-ask bond gets lower weight IN THE FIT — verified on the
+        # calibration record, not by mutating the caller's inputs.
+        w = result.calibration_result.fit.weights
+        assert w[1] < w[0]
+        # The caller's input objects are left untouched.
+        assert bonds[0].weight == 1.0 and bonds[1].weight == 1.0
 
     def test_distressed_bonds(self):
         """Bonds at 50-60 cents — should still produce reasonable curve."""

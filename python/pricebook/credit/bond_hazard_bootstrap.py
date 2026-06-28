@@ -24,7 +24,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -327,6 +327,7 @@ def _bootstrap_sequential(
     pillar_dates = [reference_date]
     pillar_survivals = [1.0]
     fitted_prices = []
+    all_bracketed = True  # every bond's root-find succeeded → converged
 
     for i, bond in enumerate(sorted_bonds):
         # Adjust discount curve for this bond's liquidity premium
@@ -349,7 +350,9 @@ def _bootstrap_sequential(
         try:
             q_solved = brentq(objective, 1e-10, 1.0 - 1e-10)
         except ValueError:
-            # Bracket failure — bond price inconsistent with model
+            # Bracket failure — bond price inconsistent with model. Fall back to
+            # a heuristic Q and record that the bootstrap did NOT fully converge.
+            all_bracketed = False
             q_solved = max(pillar_survivals[-1] * 0.95, 1e-6)
 
         pillar_dates.append(bond.maturity)
@@ -382,7 +385,7 @@ def _bootstrap_sequential(
     residuals = [(f - m) * 100 for f, m in zip(fitted_prices, market_prices)]
     rmse = math.sqrt(sum(r**2 for r in residuals) / n) if n > 0 else 0.0
 
-    solve = SolveReport.external(algorithm="brentq-per-bond", converged=True, iterations=n)
+    solve = SolveReport.external(algorithm="brentq-per-bond", converged=all_bracketed, iterations=n)
     cr = model_calibration_record(
         model_class="bond_hazard_pwc",
         parameters=_pillar_hazards_as_parameters(pillar_dates[1:], hazards),
@@ -405,7 +408,7 @@ def _bootstrap_sequential(
         max_error_bp=max(abs(r) for r in residuals) if residuals else 0.0,
         n_bonds=n,
         method="sequential",
-        converged=True,
+        converged=all_bracketed,
         calibration_result=cr,
     )
 
@@ -510,7 +513,9 @@ def _bootstrap_global(
 
         try:
             curve = SurvivalCurve(reference_date, pillar_dates, survivals)
-        except Exception:
+        except ValueError:
+            # Invalid survival vector for these params — reject via a large
+            # penalty (a valid optimiser technique); let any other error surface.
             return 1e10
 
         total_err = 0.0
@@ -1025,6 +1030,13 @@ def bootstrap_hazard_mixed(
 
     n_p = len(pillar_dates)
 
+    # Per-fixed-bond liquidity-adjusted discount curves (mirrors _bootstrap_global)
+    # — strip each bond's liquidity premium before extracting the credit component.
+    dc_per_fixed = [
+        _adjust_curve_for_liquidity(discount_curve, b.liquidity_spread_bp, reference_date)
+        for b in fixed_bonds
+    ]
+
     def _objective(log_survivals):
         """Objective: weighted sum of squared pricing errors."""
         survivals = np.exp(-np.abs(log_survivals))  # ensure Q in (0, 1)
@@ -1034,13 +1046,11 @@ def bootstrap_hazard_mixed(
 
         total_err = 0.0
 
-        # Fixed bonds — use existing _price_risky_bond with correct signature
-        for b in fixed_bonds:
-            liq_bump = b.liquidity_spread_bp / 10_000
-            dc_adj = discount_curve  # TODO: bump for liquidity
+        # Fixed bonds — price on the liquidity-adjusted curve for each bond.
+        for bi, b in enumerate(fixed_bonds):
             model_px = _price_risky_bond(
                 reference_date, b.maturity, b.coupon, b.frequency,
-                b.recovery, dc_adj, sc,
+                b.recovery, dc_per_fixed[bi], sc,
             )  # returns per 100 face
             err = (model_px - b.market_price) / 100
             total_err += b.weight * err**2
@@ -1075,9 +1085,9 @@ def bootstrap_hazard_mixed(
     market_prices = []
     residuals = []
 
-    for b in fixed_bonds:
+    for bi, b in enumerate(fixed_bonds):
         mp = _price_risky_bond(reference_date, b.maturity, b.coupon, b.frequency,
-                                b.recovery, discount_curve, sc)
+                                b.recovery, dc_per_fixed[bi], sc)
         fitted_prices.append(mp)
         market_prices.append(b.market_price)
         residuals.append((mp - b.market_price) * 100)  # bp of par
@@ -1284,20 +1294,22 @@ def bootstrap_hazard_adaptive(
             market_snapshot=market_snapshot,
         )
     else:
-        # Mixed or illiquid — use global mixed bootstrap
-        # Adjust weights for illiquid bonds
-        if bid_ask_widths_bp and bonds:
-            for i, ba in enumerate(bid_ask_widths_bp[:len(bonds)]):
-                # Wider bid-ask → lower weight: w = 1 / (1 + ba/100)
-                bonds[i].weight = 1.0 / (1 + ba / 100)
+        # Mixed or illiquid — use global mixed bootstrap. Adjust weights for
+        # illiquid instruments on COPIES (wider bid-ask → lower weight:
+        # w = 1 / (1 + ba/100)), never mutating the caller's inputs.
+        bonds_adj = list(bonds or [])
+        floaters_adj = list(floaters or [])
+        if bid_ask_widths_bp and bonds_adj:
+            for i, ba in enumerate(bid_ask_widths_bp[:len(bonds_adj)]):
+                bonds_adj[i] = replace(bonds_adj[i], weight=1.0 / (1 + ba / 100))
 
-        if bid_ask_widths_bp and floaters:
-            offset = len(bonds or [])
-            for i, ba in enumerate(bid_ask_widths_bp[offset:offset + len(floaters)]):
-                floaters[i].weight = 1.0 / (1 + ba / 100)
+        if bid_ask_widths_bp and floaters_adj:
+            offset = len(bonds_adj)
+            for i, ba in enumerate(bid_ask_widths_bp[offset:offset + len(floaters_adj)]):
+                floaters_adj[i] = replace(floaters_adj[i], weight=1.0 / (1 + ba / 100))
 
         return bootstrap_hazard_mixed(
-            reference_date, bonds, floaters, discount_curve,
+            reference_date, bonds_adj, floaters_adj, discount_curve,
             method="global", n_pillars=assessment.recommended_n_pillars,
             recovery_mode=recovery_mode,
             market_snapshot=market_snapshot,
