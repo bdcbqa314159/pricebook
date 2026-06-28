@@ -2,6 +2,26 @@
 
 ---
 
+## v1.188.0 — 2026-06-28 — **approximation.py input guards (numerical audit follow-up)**
+
+Hardens the five primitives in `core/approximation.py` against degenerate inputs surfaced by an adversarial 11-lens audit. The math was verified correct (DCT normalization, Padé index arithmetic, Romberg recurrence all checked numerically); every fix here is an input guard turning a *silent-wrong* or *crash* path into a loud failure. Blast radius is nil — Padé / Richardson / B-spline have no production callers, only tests.
+
+**Files**: `core/approximation.py` (+ `tests/test_approximation.py`, 7 new assertions).
+
+**Fixes:**
+- **Padé silent singular fallback (HIGH).** `pade_approximant` caught `LinAlgError` and returned `q = zeros`, silently yielding a degree-L Taylor truncation that violates the order-(L+M) contract. Worse, `np.linalg.solve` only raises on *exact* singularity, so near-singular (classically ill-conditioned for high M) systems sailed through with amplified roundoff. Replaced with a `cond(A) > 1e12` / non-finite check that raises `ValueError`.
+- **n=0 Chebyshev crash (HIGH).** `chebyshev_interpolate(..., n=0)` raised `ZeroDivisionError` (`k·π/n`) despite n=0 being a valid degree the rest of the code (`_clenshaw`) handles. Special-cased to a constant interpolant at the interval midpoint.
+- **Degenerate interval (MED).** `a == b` produced finite coefficients but NaN on `evaluate` (division by `b−a`). Now raises `ValueError` up front.
+- **B-spline index wrap (MED).** A negative `i` silently wrapped via numpy negative indexing → plausible wrong value; a too-large `i` raised a bare `IndexError`. Now bounds-checked (`0 ≤ i ≤ len(knots)−degree−2`) with a descriptive `IndexError`; the guard is loose enough not to fire during valid Cox–de Boor recursion.
+- **Empty Richardson (LOW).** `richardson_table([])` raised `IndexError`; now raises `ValueError`. `n=1` still works (there's a test).
+- **Richardson docstring (MED).** Documented the implicit assumption that the error expansion is *geometric* in the base order (`h^p, h^{2p}, ...`); the `2^{p·j}` factor is sub-optimal for consecutive-order series.
+
+**Not changed** (per audit, deliberately): scalar `evaluate` returning a 0-d ndarray (in-contract per the `float | np.ndarray` annotation), and the standard `inf`-at-pole / final-knot-evaluates-to-0 behaviors.
+
+**Verification**: full suite **13,030 passed** (13,023 + 7 new guard tests).
+
+---
+
 ## v1.187.0 — 2026-06-28 — **Jump-model dividend-drift fix (the deferred Phase-4 numerical bug)**
 
 Closes the one confirmed-but-deferred correctness finding from the 13-phase calibrator audit (logged in v1.177).
