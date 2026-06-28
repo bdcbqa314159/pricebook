@@ -2,6 +2,21 @@
 
 ---
 
+## v1.182.0 — 2026-06-28 — **Bond-hazard bootstrap audit fixes (Phase 9 of the 13-calibrator audit)**
+
+Four findings from the deep audit of `credit/bond_hazard_bootstrap.py` (the largest calibrator file). Pricing (risky bond + Duffie-Singleton RMV) and the Tikhonov/L-curve machinery were verified correct.
+
+**Files**: `credit/bond_hazard_bootstrap.py` (+ test).
+
+* **`bootstrap_hazard_mixed` now strips fixed-bond liquidity (the TODO).** It applied `_adjust_curve_for_liquidity` for FRNs but used the raw discount curve for fixed bonds (`dc_adj = discount_curve  # TODO`), so a fixed bond's `liquidity_spread_bp` was silently ignored — contaminating its hazard with the liquidity premium. Now adjusts per fixed bond in both the objective and the post-fit repricing (mirrors `_bootstrap_global`).
+* **`_bootstrap_sequential` `converged` reflects reality.** A brentq bracket failure falls back to a heuristic Q and continues; the record hardcoded `converged=True`. Now tracks whether every bond's root-find succeeded and reports `converged` accordingly.
+* **`bootstrap_hazard_adaptive` no longer mutates caller inputs.** It set `bonds[i].weight` / `floaters[i].weight` in place; now applies the bid-ask weight adjustment on copies (`dataclasses.replace`). Test re-pointed to verify the adjustment on the record (and that inputs are untouched).
+* **Narrowed `_bootstrap_global`'s objective `except Exception` to `ValueError`** (the SurvivalCurve failure mode) — keeps the large-penalty-on-invalid-params technique while letting real bugs surface.
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.181.0 — 2026-06-28 — **Jarrow-Yildirim audit fixes (Phase 8 of the 13-calibrator audit)**
 
 **Files**: `fixed_income/jarrow_yildirim.py`.
