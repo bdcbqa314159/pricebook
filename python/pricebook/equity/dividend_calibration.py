@@ -168,26 +168,24 @@ def calibrate_dividend_curve(
                                          calibration_result=cr)
 
     elif method == "optimize":
-        return _calibrate_piecewise(spot, rate, T, D_mkt)
+        return _calibrate_piecewise(spot, T, D_mkt)
 
     elif method == "spline":
-        return _calibrate_spline(spot, rate, T, D_mkt)
+        return _calibrate_spline(spot, T, D_mkt)
 
     else:
         raise ValueError(f"Unknown method '{method}'. Use 'linear', 'optimize', or 'spline'.")
 
 
 def _calibrate_piecewise(
-    spot: float, rate: float, T: np.ndarray, D_mkt: np.ndarray,
+    spot: float, T: np.ndarray, D_mkt: np.ndarray,
 ) -> DividendCalibrationResult:
     """Piecewise-constant yield optimisation.
 
-    Fit q_1, q_2, ..., q_n such that the cumulative dividend from each
-    piecewise segment matches market futures.
-
-    Cumulative div for tenor T_i:
-        D(T_i) = Σ_{j=1}^{i} S · q_j · (T_j - T_{j-1}) · exp(-r·T_j)
-    (simplified: D ≈ S·q̄·T for short tenors)
+    Fit q_1, q_2, ..., q_n such that the cumulative dividend from each piecewise
+    segment matches the market dividend futures (forward / undiscounted values,
+    so no discount factor enters):
+        D(T_i) = Σ_{j=1}^{i} S · q_j · (T_j - T_{j-1})
     """
     n = len(T)
 
@@ -235,11 +233,12 @@ def _calibrate_piecewise(
 
 
 def _calibrate_spline(
-    spot: float, rate: float, T: np.ndarray, D_mkt: np.ndarray,
+    spot: float, T: np.ndarray, D_mkt: np.ndarray,
 ) -> DividendCalibrationResult:
-    """Cubic spline on cumulative dividends with positivity.
+    """Cubic spline on cumulative dividends with a non-negativity floor.
 
-    Fits a smooth, non-decreasing cumulative dividend curve.
+    Fits a smooth natural cubic spline through the cumulative-dividend futures,
+    clamped at zero (the spline itself is not guaranteed monotone).
     """
     # Prepend origin: D(0) = 0
     T_ext = np.concatenate([[0.0], T])
