@@ -2,6 +2,24 @@
 
 ---
 
+## v1.187.0 — 2026-06-28 — **Jump-model dividend-drift fix (the deferred Phase-4 numerical bug)**
+
+Closes the one confirmed-but-deferred correctness finding from the 13-phase calibrator audit (logged in v1.177).
+
+**Files**: `models/char_func_protocol.py`, `models/levy_processes.py`, `models/jump_calibration.py` (+ test).
+
+**The bug:** the `merton` / `vg` / `nig` / `cgmy` characteristic functions drifted at `rate` (martingale `E[S_T] = S₀·e^{rT}`), **ignoring `div_yield`** — only `kou`/`bates` carried it, and `cos_price`'s `div_yield` argument is itself ignored (the char func is expected to carry the dividend). So for a dividend-paying underlying (`q ≠ 0`), the COS price used forward `S₀·e^{rT}` while `_cos_implied_vol` inverted against the dividend-adjusted `S₀·e^{(r−q)T}` — mismatched forwards → mis-calibration. Latent because `div_yield` defaults to 0.
+
+**Fix:** added a `div_yield` parameter to all four char funcs and applied it in the drift (`rate → rate − div_yield`), matching the `kou`/`bates` convention; threaded `div_yield` through the four `_MODEL_SPECS` build-cf lambdas. Other callers pass `q=0` (default) and are unaffected — only the buggy `q≠0` path changes.
+
+**Validation:** a new regression asserts the martingale/forward condition `φ(−i) = E[S_T/S₀] = e^{(r−q)T}` for **all six** models (the four now reproduce `e^{(r−q)T}` exactly; pre-fix they gave `e^{rT}`), plus a `q=0`-unchanged guard.
+
+Not changed: `cos_price`'s own (still-vestigial) `div_yield` parameter — removing it touches every caller and is a separate cosmetic cleanup, not part of this correctness fix.
+
+**Verification**: full suite **13,023 passed**, zero failures.
+
+---
+
 ## v1.186.0 — 2026-06-28 — **Multicurve audit fixes (Phase 13 — final phase of the 13-calibrator audit)**
 
 **Files**: `curves/multicurve_solver.py`. The dual-curve Newton solver was verified correct (T3.19 + A.3 B1 fixes hold); `MultiCurveResult` was already hardened in v1.170–v1.171.
