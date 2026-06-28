@@ -49,6 +49,16 @@ class TestChebyshevInterpolation:
         interp = chebyshev_interpolate(np.sin, 0, math.pi, n=15)
         assert interp.evaluate(math.pi / 2) == pytest.approx(1.0, abs=1e-8)
 
+    def test_degree_zero_constant(self):
+        """n=0 yields a constant interpolant (no ZeroDivisionError)."""
+        interp = chebyshev_interpolate(lambda x: 7.0, 0, 2, n=0)
+        assert interp.evaluate(0.0) == pytest.approx(7.0)
+        assert interp.evaluate(2.0) == pytest.approx(7.0)
+
+    def test_degenerate_interval_raises(self):
+        with pytest.raises(ValueError, match="degenerate"):
+            chebyshev_interpolate(np.exp, 1.0, 1.0, n=10)
+
 
 # ---- Padé approximant ----
 
@@ -76,6 +86,12 @@ class TestPadeApproximant:
         # Should be exactly 1/(1+x)
         assert pade.evaluate(0.5) == pytest.approx(1 / 1.5, rel=1e-8)
         assert pade.evaluate(2.0) == pytest.approx(1 / 3.0, rel=1e-8)
+
+    def test_singular_denominator_raises(self):
+        """A singular denominator system must error, not silently truncate."""
+        # c = [1, 0, 0, 0, 0] makes the [2/2] denominator system singular.
+        with pytest.raises(ValueError, match="singular or"):
+            pade_approximant([1, 0, 0, 0, 0], L=2, M=2)
 
 
 # ---- Richardson table ----
@@ -106,6 +122,10 @@ class TestRichardsonTable:
     def test_single_value(self):
         result = richardson_table([1.5])
         assert result.best_estimate == pytest.approx(1.5)
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="at least one"):
+            richardson_table([])
 
 
 # ---- B-spline basis ----
@@ -141,3 +161,11 @@ class TestBSplineBasis:
         assert bspline_basis(2.0, knots, 1, 1) == pytest.approx(1.0)
         assert bspline_basis(1.0, knots, 1, 1) == pytest.approx(0.0)
         assert bspline_basis(1.5, knots, 1, 1) == pytest.approx(0.5)
+
+    def test_index_out_of_range_raises(self):
+        """Negative or too-large i must error, not wrap to a wrong value."""
+        knots = [0, 1, 2, 3, 4]
+        with pytest.raises(IndexError):
+            bspline_basis(1.5, knots, 0, -1)
+        with pytest.raises(IndexError):
+            bspline_basis(1.5, knots, 0, 99)

@@ -21,12 +21,13 @@ from typing import Callable
 
 import numpy as np
 
-
 # ---- Chebyshev interpolation ----
+
 
 @dataclass
 class ChebyshevInterpolant:
     """Chebyshev polynomial interpolant on [a, b]."""
+
     coefficients: np.ndarray  # Chebyshev coefficients c_k
     a: float
     b: float
@@ -43,10 +44,10 @@ class ChebyshevInterpolant:
         """Magnitude of the last few coefficients (convergence diagnostic)."""
         return float(np.max(np.abs(self.coefficients[-3:])))
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def chebyshev_interpolate(
     f: Callable[[float | np.ndarray], float | np.ndarray],
     a: float,
@@ -69,6 +70,13 @@ def chebyshev_interpolate(
     Reference:
         Trefethen, ATAP, Ch. 4-5.
     """
+    if b == a:
+        raise ValueError(f"degenerate interval: a == b == {a}")
+    if n == 0:
+        # Degree-0: constant interpolant at the interval midpoint.
+        mid = 0.5 * (a + b)
+        return ChebyshevInterpolant(np.array([float(f(mid))]), a, b, 0)
+
     # Chebyshev-Lobatto points on [-1, 1]
     k = np.arange(n + 1)
     xi = np.cos(k * math.pi / n)
@@ -113,11 +121,13 @@ def _clenshaw(coeffs: np.ndarray, xi: np.ndarray) -> np.ndarray:
 
 # ---- Padé approximant ----
 
+
 @dataclass
 class PadeApproximant:
     """Padé [L/M] rational approximation: P_L(x) / Q_M(x)."""
-    numerator: np.ndarray   # coefficients of P (degree L)
-    denominator: np.ndarray # coefficients of Q (degree M), Q[0] = 1
+
+    numerator: np.ndarray  # coefficients of P (degree L)
+    denominator: np.ndarray  # coefficients of Q (degree M), Q[0] = 1
     L: int
     M: int
 
@@ -128,10 +138,10 @@ class PadeApproximant:
         den = np.polyval(self.denominator[::-1], x)
         return num / den
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def pade_approximant(
     taylor_coeffs: list[float] | np.ndarray,
     L: int,
@@ -168,10 +178,16 @@ def pade_approximant(
                 A[i, j] = c[idx] if 0 <= idx <= n else 0.0
             b_vec[i] = -c[L + 1 + i] if L + 1 + i <= n else 0.0
 
-        try:
-            q = np.linalg.solve(A, b_vec)
-        except np.linalg.LinAlgError:
-            q = np.zeros(M)
+        # The denominator system is classically ill-conditioned for high M.
+        # A singular (or near-singular) system means no Padé [L/M] exists for
+        # these coefficients — fail loud rather than silently returning a
+        # degree-L Taylor truncation that violates the order-(L+M) contract.
+        if not np.isfinite(np.linalg.cond(A)) or np.linalg.cond(A) > 1e12:
+            raise ValueError(
+                f"Padé [{L}/{M}] denominator system is singular or "
+                f"ill-conditioned; reduce M or check the Taylor coefficients."
+            )
+        q = np.linalg.solve(A, b_vec)
 
         denom = np.zeros(M + 1)
         denom[0] = 1.0
@@ -190,17 +206,19 @@ def pade_approximant(
 
 # ---- Richardson extrapolation table ----
 
+
 @dataclass
 class RichardsonTable:
     """Full Richardson extrapolation table."""
+
     table: np.ndarray  # (n, n) triangular table
     best_estimate: float
     estimates: list[float]  # diagonal entries
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def richardson_table(
     values: list[float],
     order: int = 2,
@@ -211,13 +229,21 @@ def richardson_table(
     triangular table where each column cancels one more order
     of the leading error term.
 
+    Assumes the error expansion is *geometric* in the base order, i.e.
+    f(h) = A + c_1 h^p + c_2 h^{2p} + ... (column j eliminates the h^{jp}
+    term via the factor 2^{p·j}). For a series with consecutive-order terms
+    (e.g. h^p, h^{p+1}, ...) this cancels only the h^{jp} terms and is
+    sub-optimal — supply estimates whose error is geometric in `order`.
+
     Args:
-        values: estimates at h, h/2, h/4, ... (must have at least 2).
+        values: estimates at h, h/2, h/4, ... (at least one; ≥2 to extrapolate).
         order: base convergence order p.
 
     Returns:
         :class:`RichardsonTable` with the full table and best estimate.
     """
+    if not values:
+        raise ValueError("richardson_table requires at least one estimate")
     n = len(values)
     T = np.zeros((n, n))
     T[:, 0] = values
@@ -233,6 +259,7 @@ def richardson_table(
 
 
 # ---- B-spline basis ----
+
 
 def bspline_basis(
     x: float,
@@ -255,6 +282,14 @@ def bspline_basis(
         i: basis function index.
     """
     t = np.asarray(knots, dtype=float)
+
+    # Guard the index: a negative i would silently wrap via numpy indexing
+    # and return a plausible-but-wrong value; an out-of-range i must error.
+    if not 0 <= i <= len(t) - degree - 2:
+        raise IndexError(
+            f"basis index i={i} out of range for {len(t)} knots, degree {degree} "
+            f"(valid: 0..{len(t) - degree - 2})"
+        )
 
     if degree == 0:
         if t[i] <= x < t[i + 1]:
