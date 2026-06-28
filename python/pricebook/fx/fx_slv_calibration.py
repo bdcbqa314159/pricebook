@@ -23,6 +23,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pricebook.calibration import (
+    CalibrationDiagnostics,
+    CalibrationResult,
+    CanonicalCalibrationResult,
+    SolveReport,
+    model_calibration_record,
+)
+
 
 def _surface_digest(values: np.ndarray) -> dict:
     """Shape + sha256 fingerprint of a fitted surface (the designer's `ParamDigest`).
@@ -38,14 +46,6 @@ def _surface_digest(values: np.ndarray) -> dict:
         "leverage_surface_sha256": hashlib.sha256(arr.tobytes()).hexdigest(),
         "leverage_surface_shape": list(arr.shape),
     }
-
-from pricebook.calibration import (
-    CalibrationDiagnostics,
-    CalibrationResult,
-    CanonicalCalibrationResult,
-    SolveReport,
-    model_calibration_record,
-)
 
 
 # ---- Leverage function calibration ----
@@ -82,10 +82,10 @@ class LeverageFunction:
         return float(v00 * (1-ft)*(1-fs) + v01 * (1-ft)*fs
                      + v10 * ft*(1-fs) + v11 * ft*fs)
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def calibrate_leverage_function(
     spot: float,
     local_vols: np.ndarray,
@@ -183,8 +183,9 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
     canonical record's scalar `parameters` carry the calibration config rather
     than fitted scalars. `to_calibration_result()` returns the stored artefact
     when populated by `particle_slv_calibration`, or builds a basic one
-    on-demand. (NB: `residual` is currently a placeholder — always 0.0 — see
-    `particle_slv_calibration`; the canonical record reflects that faithfully.)
+    on-demand. `residual` is the measured leverage-reproduction error (0 where
+    the leverage was not clipped; non-zero where the [0.1, 10] safeguard bit) —
+    not a placeholder.
     """
 
     leverage: LeverageFunction
@@ -207,9 +208,10 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
 
     def _build_calibration_record(self) -> CalibrationResult:
         # Reconstructed fallback for hand-built instances; particle_slv_calibration
-        # populates the record eagerly (with a measured residual). No MC ran here,
-        # so convergence is not captured (None) — consistent with every other
-        # reconstructed path; the eager record carries the real verdict.
+        # populates the record eagerly. No MC ran here, so convergence is not
+        # captured (None) — consistent with every other reconstructed path; the
+        # eager record carries the real verdict. `residual` is the instance's
+        # measured leverage-reproduction error (not a placeholder).
         solve = SolveReport.external(algorithm="particle_method", converged=None,
                                      iterations=0, seed=self.seed)
         return model_calibration_record(
@@ -220,10 +222,7 @@ class ParticleCalibrationResult(CanonicalCalibrationResult):
             solve=solve,
             diagnostics=CalibrationDiagnostics(
                 extra={"n_particles": self.n_particles,
-                       "residual_is_placeholder": True,
-                       **_surface_digest(self.leverage.values)}, reconstructed=True,
-                warnings=("residual is a placeholder (0.0); fit quality not measured",),
-            ),
+                       **_surface_digest(self.leverage.values)}, reconstructed=True),
         )
 
 
@@ -349,10 +348,10 @@ class MixingResult:
     model_price: float
     residual: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def slv_mixing_calibration(
     spot: float,
     target_exotic_price: float,
@@ -413,10 +412,10 @@ class SLVBarrierResult:
     knock_out_prob: float
     n_paths: int
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def slv_barrier_price(
     spot: float,
     strike: float,
