@@ -84,6 +84,9 @@ class JointCalibrationResult(CanonicalCalibrationResult):
             residuals=residuals,
             quotes_fitted=["equity_vol", "cds_spread"],
             solve=solve,
+            # Match the calibrator's objective (the per-quote weights aren't
+            # retained on the instance, so they can't be reconstructed here).
+            objective=ObjectiveKind.WEIGHTED_SSE,
             diagnostics=CalibrationDiagnostics(
                 extra={"fit_quality": float(self.fit_quality)}, reconstructed=True),
         )
@@ -138,7 +141,11 @@ def joint_calibrate(
         except (ValueError, ZeroDivisionError):
             return 1e10
 
-        # Relative errors
+        # Relative errors. A non-positive target drops that quote from the
+        # objective (contributes 0) — you cannot fit toward a zero target. (The
+        # record's residual, by contrast, uses an *absolute* fallback via
+        # `_relative_residual` so a degenerate target surfaces as a real miss, not
+        # a false-perfect — deliberately different choices for fitting vs audit.)
         vol_err = (sigma_e_model / equity_vol - 1.0) ** 2 if equity_vol > 0 else 0
         spread_err = (cds_model / cds_target - 1.0) ** 2 if cds_target > 0 else 0
 
