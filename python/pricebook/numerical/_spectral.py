@@ -15,10 +15,19 @@ References:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
+
+# Chebyshev fundamentals live in core.approximation (the lower layer); import
+# them here rather than duplicating the nodes / DCT / Clenshaw math. Re-exported
+# via these names so existing `from ..._spectral import chebyshev_nodes` callers
+# keep working.
+from pricebook.core.approximation import (
+    chebyshev_coefficients,
+    chebyshev_evaluate,
+    chebyshev_nodes,
+)
 
 
 @dataclass
@@ -43,18 +52,6 @@ class SpectralResult:
 # ═══════════════════════════════════════════════════════════════
 
 
-def chebyshev_nodes(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
-    """Chebyshev-Gauss-Lobatto nodes on [a, b].
-
-    x_j = (a+b)/2 + (b-a)/2 × cos(πj/N), j = 0, ..., N.
-
-    Clustered near endpoints → excellent for Runge phenomenon avoidance.
-    """
-    j = np.arange(n + 1)
-    nodes = np.cos(np.pi * j / n)
-    return 0.5 * (a + b) + 0.5 * (b - a) * nodes
-
-
 def chebyshev_diff_matrix(n: int) -> np.ndarray:
     """Chebyshev differentiation matrix D on [-1, 1].
 
@@ -73,58 +70,6 @@ def chebyshev_diff_matrix(n: int) -> np.ndarray:
     D = np.outer(c, 1.0 / c) / (dX + np.eye(N + 1))
     D -= np.diag(D.sum(axis=1))
     return D
-
-
-def chebyshev_coefficients(values: np.ndarray) -> np.ndarray:
-    """Compute Chebyshev coefficients from values at Chebyshev nodes.
-
-    Uses the discrete cosine transform (DCT).
-    """
-    n = len(values) - 1
-    if n == 0:
-        return values.copy()
-
-    # Compute via DCT-I
-    V = values.copy()
-    coeffs = np.zeros(n + 1)
-    for k in range(n + 1):
-        s = 0.0
-        for j in range(n + 1):
-            w = 1.0
-            if j == 0 or j == n:
-                w = 0.5
-            s += w * V[j] * math.cos(math.pi * k * j / n)
-        coeffs[k] = 2.0 * s / n
-
-    coeffs[0] /= 2.0
-    coeffs[n] /= 2.0
-    return coeffs
-
-
-def chebyshev_evaluate(coeffs: np.ndarray, x: float | np.ndarray,
-                        a: float = -1.0, b: float = 1.0) -> np.ndarray:
-    """Evaluate Chebyshev expansion at arbitrary points.
-
-    Uses Clenshaw recurrence (numerically stable).
-    """
-    x = np.atleast_1d(np.asarray(x, dtype=float))
-    # Map x from [a, b] to [-1, 1]
-    t = 2.0 * (x - a) / (b - a) - 1.0
-    t = np.clip(t, -1, 1)
-
-    n = len(coeffs) - 1
-    if n == 0:
-        return np.full_like(x, coeffs[0])
-
-    # Clenshaw recurrence
-    b_k2 = np.zeros_like(x)
-    b_k1 = np.zeros_like(x)
-    for k in range(n, 0, -1):
-        b_k = coeffs[k] + 2.0 * t * b_k1 - b_k2
-        b_k2 = b_k1
-        b_k1 = b_k
-
-    return coeffs[0] + t * b_k1 - b_k2
 
 
 def chebyshev_interpolate(
