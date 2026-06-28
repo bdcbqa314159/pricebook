@@ -43,10 +43,10 @@ class JYParams:
     rho_nI: float   # correlation: nominal × CPI
     rho_rI: float   # correlation: real × CPI
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 @dataclass
 class JYSimulationResult:
     """JY simulation result."""
@@ -58,10 +58,10 @@ class JYSimulationResult:
     mean_terminal_nominal: float
     mean_terminal_real: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 class JarrowYildirim:
     """Jarrow-Yildirim three-factor inflation model.
 
@@ -203,10 +203,10 @@ class JYZCSwapResult:
     real_zcb: float
     convexity_adjustment: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def jy_zc_inflation_swap(
     params: JYParams,
     r_n0: float,
@@ -286,10 +286,10 @@ class JYCapletResult:
     effective_vol: float
     strike: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def jy_yoy_caplet(
     params: JYParams,
     r_n0: float,
@@ -437,6 +437,13 @@ def jy_calibrate(
         residuals=residuals_per,
         quotes_fitted=[f"zc_inflation_swap_{t}" for t in tenors],
         solve=solve,
+        # Fixed (not fitted) inputs — captured so the calibration is
+        # reproducible from the record alone.
+        optimiser_extra={
+            "a_n": float(a_n), "a_r": float(a_r),
+            "rho_nr": float(rho_nr), "rho_nI": float(rho_nI), "rho_rI": float(rho_rI),
+            "r_n0": float(r_n0), "r_r0": float(r_r0),
+        },
     )
 
     return JYCalibrationResult(params, float(residual), len(tenors), calibration_result=cr)
