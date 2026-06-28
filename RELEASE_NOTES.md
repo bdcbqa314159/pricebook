@@ -2,6 +2,18 @@
 
 ---
 
+## v1.185.0 — 2026-06-28 — **Dividend-calibrator audit fixes (Phase 12 of the 13-calibrator audit)**
+
+**Files**: `equity/dividend_calibration.py`. (Its eager-capture gap was already fixed in v1.173.)
+
+* **Dropped the dead `rate` parameter** from `_calibrate_piecewise` / `_calibrate_spline` — neither used it (dividend futures are forward/undiscounted, so no discounting enters; the `linear` path and `calibrate_from_options` still take/use `rate` on the public API).
+* **Corrected `_calibrate_piecewise`'s docstring** — it gave `D(T_i) = Σ S·q_j·dt·exp(−r·T_j)`, but the code (correctly) omits the discount factor; removed the spurious `exp(−r·T)`.
+* **Softened `_calibrate_spline`'s "non-decreasing" claim** — a natural cubic spline isn't guaranteed monotone; only the non-negativity floor is enforced.
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.184.0 — 2026-06-28 — **FX-SLV audit fixes (Phase 11 of the 13-calibrator audit)**
 
 **Files**: `fx/fx_slv_calibration.py`. The GHL particle method + `_surface_digest` (ParamDigest) were verified correct.
