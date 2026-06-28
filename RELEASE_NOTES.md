@@ -2,6 +2,18 @@
 
 ---
 
+## v1.184.0 — 2026-06-28 — **FX-SLV audit fixes (Phase 11 of the 13-calibrator audit)**
+
+**Files**: `fx/fx_slv_calibration.py`. The GHL particle method + `_surface_digest` (ParamDigest) were verified correct.
+
+* **The "residual is a placeholder 0.0" framing was stale — removed.** `particle_slv_calibration` now measures a real leverage-reproduction error (0 where leverage wasn't clipped, non-zero where the `[0.1, 10]` safeguard bit), and the eager record treats it as real. But the class docstring still called it a placeholder and the lazy `_build` stamped `residual_is_placeholder=True` + a "fit quality not measured" warning — contradicting the eager record. Updated the docstring; dropped the false flag/warning from the lazy path. (Updates the OPEN.md §0c "Assumption 1" framing — FX-SLV's residual is no longer fake.)
+* **Moved `from pricebook.calibration import …` to the module top** (it sat after `_surface_digest`).
+* **Fixed `to_dict` spacing** in `LeverageFunction` / `MixingResult` / `SLVBarrierResult` (×3).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.183.0 — 2026-06-28 — **Joint equity-credit audit fixes (Phase 10 of the 13-calibrator audit)**
 
 **Files**: `credit/joint_equity_credit.py`. The cleanest calibrator so far — its one real bug (false-perfect on a zero target) was already fixed in v1.171.
