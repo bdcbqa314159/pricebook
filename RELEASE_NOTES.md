@@ -2,6 +2,17 @@
 
 ---
 
+## v1.183.0 — 2026-06-28 — **Joint equity-credit audit fixes (Phase 10 of the 13-calibrator audit)**
+
+**Files**: `credit/joint_equity_credit.py`. The cleanest calibrator so far — its one real bug (false-perfect on a zero target) was already fixed in v1.171.
+
+* **Lazy `_build` now declares `objective=WEIGHTED_SSE`** to match the calibrator (the eager record already did). A debugger reading the record sees a consistent objective regardless of which path built it. (The per-quote weights aren't retained on the instance, so they remain unreconstructable in the lazy path — accepted.)
+* **Documented the deliberate objective-vs-record zero-target asymmetry** (the objective drops a non-positive-target quote; the record's residual uses an absolute fallback).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.182.0 — 2026-06-28 — **Bond-hazard bootstrap audit fixes (Phase 9 of the 13-calibrator audit)**
 
 Four findings from the deep audit of `credit/bond_hazard_bootstrap.py` (the largest calibrator file). Pricing (risky bond + Duffie-Singleton RMV) and the Tikhonov/L-curve machinery were verified correct.
