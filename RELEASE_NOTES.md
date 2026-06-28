@@ -2,6 +2,26 @@
 
 ---
 
+## v1.189.0 — 2026-06-28 — **Chebyshev de-duplication (core ↔ numerical)**
+
+Removes the duplicated Chebyshev implementation that lived in both `core/approximation.py` and `numerical/_spectral.py` — two `chebyshev_interpolate` functions with **different signatures** (`(f, a, b, n)` vs `(f, n, a, b)`) and different return types, a standing bug magnet flagged in the approximation-module design review.
+
+**Files**: `core/approximation.py`, `numerical/_spectral.py`. Net −18 lines (95 ins / 113 del); `_spectral.py` shed ~60 lines of duplicated math.
+
+**Direction (forced by layering):** `numerical/_rootfinding.py` already imports `core.solvers`, so `numerical` depends on `core` — `core` is the lower layer. The canonical Chebyshev kernel therefore lives in `core.approximation`; `numerical._spectral` imports it downward. (A `core → numerical` dependency would have been an upward layer violation.)
+
+**What moved:** `chebyshev_nodes`, `chebyshev_coefficients` (DCT), and `chebyshev_evaluate` (Clenshaw) are now defined once in `core.approximation` and re-exported from `numerical._spectral` (so existing `from ..._spectral import chebyshev_nodes` callers — e.g. `numerical/_pde.py` — keep working unchanged). `_spectral.py` keeps only the spectral-specific machinery: `chebyshev_diff_matrix`, `spectral_solve_bvp`, `spectral_integrate`, `legendre_nodes_weights`, and `SpectralResult`. Both `chebyshev_interpolate` wrappers remain (core returns `ChebyshevInterpolant`, numerical returns `SpectralResult` carrying nodes/values for PDE work) but now share one underlying kernel.
+
+**Safety:** the two DCT formulations were verified algebraically identical (core's interior weight-2/÷n equals numerical's weight-1·2/n; same endpoint halving) and both use the same Chebyshev-Lobatto nodes `cos(πj/n)` — so consolidation is numerically a no-op, not a method change.
+
+**Minor behaviour change:** `core`'s `ChebyshevInterpolant.evaluate` now **clamps out-of-[a,b] queries to the boundary** (it adopts the kernel's `np.clip`), matching the spectral module's long-standing behaviour. Previously core extrapolated the polynomial. No production callers of core's Chebyshev existed (only tests), and all in-domain results are bit-identical.
+
+**Not changed** (flagged, separate slice): `models/pde_advanced.py` carries its *own* `_chebyshev_diff_matrix` and a same-named-but-different `SpectralResult` (3 fields vs 5) — a third Chebyshev island, deferred.
+
+**Verification**: full suite **13,030 passed**.
+
+---
+
 ## v1.188.0 — 2026-06-28 — **approximation.py input guards (numerical audit follow-up)**
 
 Hardens the five primitives in `core/approximation.py` against degenerate inputs surfaced by an adversarial 11-lens audit. The math was verified correct (DCT normalization, Padé index arithmetic, Romberg recurrence all checked numerically); every fix here is an input guard turning a *silent-wrong* or *crash* path into a loud failure. Blast radius is nil — Padé / Richardson / B-spline have no production callers, only tests.
