@@ -2,6 +2,19 @@
 
 ---
 
+## v1.181.0 — 2026-06-28 — **Jarrow-Yildirim audit fixes (Phase 8 of the 13-calibrator audit)**
+
+**Files**: `fixed_income/jarrow_yildirim.py`.
+
+* **`jy_calibrate`'s record now captures the fixed inputs.** It records the 3 fitted sigmas but the fixed `a_n`/`a_r`/`rho_nr`/`rho_nI`/`rho_rI`/`r_n0`/`r_r0` were nowhere in the record, so the fit wasn't reproducible from it. Added them to `optimiser_extra`.
+* **Fixed `to_dict` spacing** in `JYParams` / `JYSimulationResult` / `JYZCSwapResult` / `JYCapletResult` (×4).
+
+The JY analytics were verified correct (HW ZCB exponent matches Vasicek; breakeven `P_r/P_n` ratio; T4-JY1 fixes hold). `jy_calibrate` already had good discipline (records only the fitted params).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+---
+
 ## v1.180.0 — 2026-06-28 — **Stochastic-correlation audit fixes (Phase 7 of the 13-calibrator audit)**
 
 **Files**: `models/stochastic_correlation.py`.
