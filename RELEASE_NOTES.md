@@ -2,6 +2,20 @@
 
 ---
 
+## v1.186.0 — 2026-06-28 — **Multicurve audit fixes (Phase 13 — final phase of the 13-calibrator audit)**
+
+**Files**: `curves/multicurve_solver.py`. The dual-curve Newton solver was verified correct (T3.19 + A.3 B1 fixes hold); `MultiCurveResult` was already hardened in v1.170–v1.171.
+
+* **Honest docstring for `curve_analytical_jacobian`** — it only ever computes a finite-difference Jacobian (the result already self-reports `method="finite_difference"`), but its name/docstring promised an unimplemented "analytical" variant. Docstring corrected; name retained for API stability.
+* **Hoisted vestigial in-function calibration imports to the module top** in `_build_calibration_record` / `_build_multicurve_cr` — no import cycle exists (calibration is L1; curves doesn't feed it).
+* **Fixed `to_dict` spacing** in `CurveValidationResult` / `AnalyticalJacobianResult` (×2).
+
+**Verification**: full suite **13,021 passed**, zero failures.
+
+This closes the 13-phase file-by-file audit of every calibrator behind the `CanonicalCalibrationResult` families (v1.174–v1.186). No structural defects or wrong pricing formulas were found; the findings were fidelity/consistency/documentation issues, a few functional gaps (notably the mixed bond-hazard liquidity stripping, v1.182), and one confirmed-but-deferred numerical bug (jump-model `div_yield` mis-drift under dividends, logged in v1.177).
+
+---
+
 ## v1.185.0 — 2026-06-28 — **Dividend-calibrator audit fixes (Phase 12 of the 13-calibrator audit)**
 
 **Files**: `equity/dividend_calibration.py`. (Its eager-capture gap was already fixed in v1.173.)
