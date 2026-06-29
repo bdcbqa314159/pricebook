@@ -4,7 +4,7 @@ High-accuracy PDE solving and function approximation using polynomial
 spectral methods. Exponential convergence for smooth problems.
 
     from pricebook.numerical._spectral import (
-        chebyshev_nodes, chebyshev_diff_matrix, chebyshev_interpolate,
+        chebyshev_nodes, chebyshev_diff_matrix, chebyshev_expand,
         spectral_solve_bvp, SpectralResult,
     )
 
@@ -79,15 +79,18 @@ def chebyshev_diff_matrix(n: int) -> np.ndarray:
     return D
 
 
-def chebyshev_interpolate(
+def chebyshev_expand(
     f: callable,
     n: int,
     a: float = -1.0,
     b: float = 1.0,
 ) -> SpectralResult:
-    """Interpolate a function using Chebyshev polynomials.
+    """Chebyshev expansion of f, returned as a :class:`SpectralResult`.
 
     Evaluates f at N+1 Chebyshev nodes and computes spectral coefficients.
+    Distinct from ``core.approximation.chebyshev_interpolate`` (signature
+    ``(f, a, b, n)`` → ``ChebyshevInterpolant``); this one carries the
+    nodes/values for spectral / PDE work and takes ``(f, n, a, b)``.
 
     Args:
         f: function to interpolate, f(x) → float.
@@ -98,8 +101,11 @@ def chebyshev_interpolate(
     values = np.array([f(x) for x in nodes])
     coeffs = chebyshev_coefficients(values)
 
-    # Residual: how well the last coefficients are decaying
-    residual = float(np.abs(coeffs[-3:]).max()) if n > 3 else 0.0
+    # Trailing-coefficient magnitude as a spectral-convergence diagnostic
+    # (small ⇒ resolved). Exclude c0 (the mean); for small n report whatever
+    # tail exists rather than a misleading 0.0.
+    tail_start = max(1, len(coeffs) - 3)
+    residual = float(np.abs(coeffs[tail_start:]).max())
 
     return SpectralResult(nodes, values, coeffs, n + 1, residual)
 

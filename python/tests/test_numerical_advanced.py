@@ -6,7 +6,7 @@ import numpy as np
 
 from pricebook.numerical._spectral import (
     chebyshev_nodes, chebyshev_diff_matrix, chebyshev_coefficients,
-    chebyshev_evaluate, chebyshev_interpolate, spectral_solve_bvp,
+    chebyshev_evaluate, chebyshev_expand, spectral_solve_bvp,
     spectral_integrate, SpectralResult,
 )
 from pricebook.numerical._qmc import (
@@ -60,19 +60,19 @@ class TestChebyshev:
         np.testing.assert_allclose(D, [[0.5, -0.5], [0.5, -0.5]], atol=1e-12)
 
     def test_interpolate_sin(self):
-        result = chebyshev_interpolate(np.sin, 20, 0, np.pi)
+        result = chebyshev_expand(np.sin, 20, 0, np.pi)
         val = result.evaluate(np.pi / 4)
         assert abs(float(np.atleast_1d(val)[0]) - math.sin(np.pi / 4)) < 0.01
 
     def test_interpolate_exponential(self):
-        result = chebyshev_interpolate(np.exp, 15, 0, 1)
+        result = chebyshev_expand(np.exp, 15, 0, 1)
         val = result.evaluate(0.5)
         assert abs(float(np.atleast_1d(val)[0]) - math.exp(0.5)) < 0.01
 
     def test_evaluate_off_center_asymmetric(self):
         """Non-symmetric f at an off-center point: catches the reversed-interval
         mirror bug (f(0.25) must be 0.25, not 0.75)."""
-        result = chebyshev_interpolate(lambda x: x, 12, 0.0, 1.0)
+        result = chebyshev_expand(lambda x: x, 12, 0.0, 1.0)
         for q in (0.1, 0.25, 0.9):
             val = float(np.atleast_1d(result.evaluate(q))[0])
             assert abs(val - q) < 1e-10
@@ -80,7 +80,7 @@ class TestChebyshev:
     def test_interpolate_degree_zero_raises(self):
         """n=0 must fail loud, not return NaN with residual 0.0."""
         with pytest.raises(ValueError, match="n >= 1"):
-            chebyshev_interpolate(np.exp, 0, 0, 1)
+            chebyshev_expand(np.exp, 0, 0, 1)
 
     def test_spectral_integrate(self):
         """∫₀¹ x² dx = 1/3."""
@@ -123,7 +123,7 @@ class TestChebyshev:
             assert abs(val - q**2) < 1e-8
 
     def test_to_dict(self):
-        result = chebyshev_interpolate(np.sin, 10, 0, 1)
+        result = chebyshev_expand(np.sin, 10, 0, 1)
         d = result.to_dict()
         assert "n_points" in d
 
