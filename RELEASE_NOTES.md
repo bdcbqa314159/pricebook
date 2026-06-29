@@ -2,6 +2,20 @@
 
 ---
 
+## v1.196.0 — 2026-06-29 — **approximation hardening P2: Padé contract tests**
+
+Phase 2 of the hardening plan (`OPEN.md` §0d). Tests-only; closes the silent-Padé-truncation class at the *contract* level.
+
+**Files**: `tests/test_approximation_properties.py`, `tests/test_approximation.py`.
+
+- **Order-(L+M) matching property** (Hypothesis) — the defining Padé contract, previously untested. For random well-conditioned Taylor inputs, re-expands `P/Q` back into a Maclaurin series (reciprocal-series helper) and asserts it reproduces the input to order L+M. A value check (the old `test_exp_pade_22`) can't catch a wrong-but-finite truncation; coefficient-level matching does. Tolerance scales with the conditioning proxy `|q|` (matching error ∝ conditioning·eps); stays ≤1e-5, ~5 orders below the O(1) error a truncation produces. Verified non-vacuous against the old `q=zeros` fallback.
+- **`exp` golden coefficients** — pins recovered `[1/1] = (1+x/2)/(1−x/2)` and `[2/2] = (1+x/2+x²/12)/(1−x/2+x²/12)` to 1e-12.
+- **Near-singular threshold** — singular input raises; a small well-conditioned perturbation succeeds (pins the guard direction, not over-eager).
+
+**Verification**: full suite **13,040 passed** (+3).
+
+---
+
 ## v1.195.0 — 2026-06-29 — **approximation hardening P1: Hypothesis property net**
 
 First phase of the 12-phase "perfect" hardening plan (tracked in `OPEN.md` §0d). Builds the verification net before any risky change. Tests-only; no source behaviour change.
