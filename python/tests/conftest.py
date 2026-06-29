@@ -2,6 +2,18 @@
 
 from datetime import date
 
+# Reproducible Hypothesis profile: derandomize so a failing property always
+# replays with the same inputs (no flaky CI), and drop the per-example deadline
+# (numerical properties can be slow without being broken). Guarded so the suite
+# still collects if Hypothesis isn't installed.
+try:
+    from hypothesis import settings as _hyp_settings
+
+    _hyp_settings.register_profile("pricebook", derandomize=True, deadline=None)
+    _hyp_settings.load_profile("pricebook")
+except ImportError:
+    pass
+
 from pricebook.calibration import (
     CalibrationDiagnostics,
     CalibrationFit,
