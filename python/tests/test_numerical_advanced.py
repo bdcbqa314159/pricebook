@@ -122,6 +122,39 @@ class TestChebyshev:
             val = float(np.atleast_1d(result.evaluate(q))[0])
             assert abs(val - q**2) < 1e-8
 
+    def test_bvp_variable_coefficient_mms(self):
+        """Manufactured solution with a *variable-coefficient* operator
+        L[u] = u'' + p(x)u' + q(x)u, asymmetric interval and solution.
+
+        This is the bulletproof generalization: constant-coefficient operators
+        (the old tests) can't distinguish a D2-only boundary lifting from a
+        correct one, and a symmetric solution hides orientation bugs. p(x), q(x)
+        non-constant exercise the D and I boundary columns; the asymmetric cubic
+        on [0.3, 2.1] exercises orientation. Recovery is exact (poly degree ≤ n).
+        """
+        a, b = 0.3, 2.1
+        u = lambda x: x**3 - 2 * x**2 + 0.5 * x + 1.0          # noqa: E731
+        up = lambda x: 3 * x**2 - 4 * x + 0.5                  # noqa: E731
+        upp = lambda x: 6 * x - 4                              # noqa: E731
+        p = lambda x: 1.0 + x                                  # noqa: E731  variable advection
+        q = lambda x: -2.0 + 0.5 * x                           # noqa: E731  variable reaction
+
+        def rhs(x):
+            return upp(x) + p(x) * up(x) + q(x) * u(x)
+
+        def L(D, D2, x):
+            return D2 + np.diag(p(x)) @ D + np.diag(q(x))
+
+        result = spectral_solve_bvp(L, rhs, bc_left=u(a), bc_right=u(b), n=16, a=a, b=b)
+        # Node-level recovery (isolates the solve from the evaluate map).
+        nodes = chebyshev_nodes(16, a, b)
+        assert np.max(np.abs(result.values - u(nodes))) < 1e-8
+        # Off-centre recovery (solve + evaluate orientation together).
+        for frac in (0.25, 0.7):
+            x = a + frac * (b - a)
+            val = float(np.atleast_1d(result.evaluate(x))[0])
+            assert abs(val - u(x)) < 1e-8
+
     def test_to_dict(self):
         result = chebyshev_expand(np.sin, 10, 0, 1)
         d = result.to_dict()
