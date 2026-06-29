@@ -2,6 +2,26 @@
 
 ---
 
+## v1.190.0 — 2026-06-29 — **Spectral Chebyshev correctness fixes (audit of the consolidated code)**
+
+A follow-up adversarial audit of the v1.189.0-consolidated Chebyshev code surfaced **two latent HIGH bugs** (plus two MEDIUMs) in `numerical/_spectral.py`. All pre-date the consolidation (≈v0.606) — v1.189 preserved them faithfully — and all were masked by tests using symmetric functions, midpoint-only evaluation, sign-invariant checks, and a `tol=1.0`. **Blast radius is zero today**: nothing outside `_spectral.py` + tests calls `chebyshev_diff_matrix`, `spectral_solve_bvp`, or `SpectralResult.evaluate` (`_pde.py` only uses the — correct — `chebyshev_nodes`; `pde_advanced.py` has its own correct diff matrix). Latent, but real the moment the spectral solver is used.
+
+**Files**: `numerical/_spectral.py`, `core/approximation.py` (+ `tests/test_numerical_advanced.py`: 5 new regression tests, each pinning one bug; tightened the BVP tolerance `1.0 → 1e-6`).
+
+**Fixes:**
+- **`chebyshev_diff_matrix` returned −D (HIGH).** `dX = X - X.T` on `X = np.tile(x, (N+1,1))` (where `X[i,j]=x[j]`) is the transpose of Trefethen's node tiling, so every off-diagonal — and via the negative-sum diagonal trick, the diagonal — was sign-flipped. `D @ sin(2x)` gave error **4.0** vs spectral. Fixed to `dX = X.T - X` (error → 3e-13; `D(1)` now `[[0.5,-0.5],[0.5,-0.5]]` per Trefethen). Pure-`D2` use was unaffected (`D2 = (−D)(−D) = D²`), which is why `test_bvp_simple` passed.
+- **`SpectralResult.evaluate` reversed the interval (HIGH).** Lobatto nodes run high→low, so `nodes[0]` is the max and `nodes[-1]` the min; passing `(nodes[0], nodes[-1])` as `(a, b)` negated the domain map and returned `f((a+b)−x)` — every off-center query mirrored about the midpoint (`evaluate(0.25)` → 0.75 for `f(x)=x`). Fixed to `(nodes[-1], nodes[0])`. The existing tests missed it via symmetric `sin` and midpoint evaluation.
+- **BVP boundary lifting hard-coded to `D2` (MEDIUM).** `spectral_solve_bvp` subtracted `D2`'s boundary columns regardless of the actual operator, so only `L = D2` (pure Laplacian) solved correctly; any advection/reaction term was silently ~1e-2 wrong. Redesigned to build the **full** operator on all n+1 nodes via `L_operator(D, D2, nodes)`, then partition into the interior block and the operator's **own** boundary columns. The `L_operator` contract changes from interior-restricted → full matrices (the existing `lambda D, D2, x: D2` works unchanged). Verified on `u''+u' = 2+2x → u = x²` (asymmetric) to 1e-8.
+- **`n=0` produced NaN flagged as converged (MEDIUM).** `chebyshev_nodes(0)` did `cos(π·0/0)` → NaN, so `numerical.chebyshev_interpolate(f, 0)` returned all-NaN with `residual = 0.0` ("perfect"). Added a `n >= 1` guard in `core.chebyshev_nodes` (fail loud); `core.chebyshev_interpolate`'s own n=0 → constant path is unaffected (it guards before calling `chebyshev_nodes`).
+
+**Also:** fixed the inverted left/right BC comments in `spectral_solve_bvp`.
+
+**Not changed** (flagged, lower priority): the `residual = … if n>3 else 0.0` heuristic still reports `0.0` for any `n ≤ 3` (a coefficient-tail diagnostic, not used for correctness); scalar `evaluate` still returns a 0-d ndarray; the O(n²) pure-Python DCT.
+
+**Verification**: full suite **13,035 passed** (13,030 + 5 new regression tests).
+
+---
+
 ## v1.189.0 — 2026-06-28 — **Chebyshev de-duplication (core ↔ numerical)**
 
 Removes the duplicated Chebyshev implementation that lived in both `core/approximation.py` and `numerical/_spectral.py` — two `chebyshev_interpolate` functions with **different signatures** (`(f, a, b, n)` vs `(f, n, a, b)`) and different return types, a standing bug magnet flagged in the approximation-module design review.
