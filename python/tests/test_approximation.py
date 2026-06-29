@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from pricebook.core.approximation import (
+    Approximant,
     ChebyshevInterpolant,
     PadeApproximant,
     RichardsonTable,
@@ -297,3 +298,43 @@ class TestChebyshevCoreSpectralAgree:
         np.testing.assert_allclose(ci.coefficients, se.coefficients, atol=1e-12)
         for q in (0.5, 1.1, 1.9):
             assert ci.evaluate(q) == pytest.approx(se.evaluate(q), abs=1e-12)
+
+
+# ---- Approximant protocol conformance (P6) ----
+
+class TestApproximantConformance:
+    """One conformance test over every result type: the evaluable ones satisfy
+    the Approximant protocol with a uniform return contract, Richardson does
+    not, and every result serialises its full field set (no lossy to_dict)."""
+
+    @staticmethod
+    def _evaluables():
+        return [
+            chebyshev_interpolate(np.exp, 0.0, 1.0, 12),
+            pade_approximant([1, 1, 0.5, 1 / 6, 1 / 24], L=2, M=2),
+            chebyshev_expand(np.exp, 12, 0.0, 1.0),
+        ]
+
+    def test_evaluable_types_satisfy_protocol(self):
+        for obj in self._evaluables():
+            assert isinstance(obj, Approximant)
+
+    def test_richardson_is_not_an_approximant(self):
+        assert not isinstance(richardson_table([1.1, 1.025, 1.006], order=2), Approximant)
+
+    def test_evaluate_return_contract_uniform(self):
+        for obj in self._evaluables():
+            assert isinstance(obj.evaluate(0.5), float)
+            arr = obj.evaluate(np.array([0.3, 0.6]))
+            assert isinstance(arr, np.ndarray) and arr.shape == (2,)
+
+    def test_to_dict_is_full_state(self):
+        results = self._evaluables() + [richardson_table([1.1, 1.025], order=2)]
+        for obj in results:
+            d = obj.to_dict()
+            assert isinstance(d, dict)
+            assert set(d) == set(vars(obj))  # full field set, not a lossy subset
+        # Specifically: SpectralResult.to_dict is no longer lossy (had dropped
+        # nodes/values/coefficients before P6).
+        spec = chebyshev_expand(np.exp, 12, 0.0, 1.0).to_dict()
+        assert {"nodes", "values", "coefficients"} <= set(spec)

@@ -24,6 +24,7 @@ import numpy as np
 # via these names so existing `from ..._spectral import chebyshev_nodes` callers
 # keep working.
 from pricebook.core.approximation import (
+    _ResultToDict,
     chebyshev_coefficients,
     chebyshev_evaluate,
     chebyshev_nodes,
@@ -31,7 +32,7 @@ from pricebook.core.approximation import (
 
 
 @dataclass
-class SpectralResult:
+class SpectralResult(_ResultToDict):
     """Result of spectral method computation."""
     nodes: np.ndarray            # collocation points
     values: np.ndarray           # solution values at nodes
@@ -45,9 +46,6 @@ class SpectralResult:
         # the max (b). Passing them in (a, b) order is essential — reversing
         # them negates the domain map and mirrors every query about the midpoint.
         return chebyshev_evaluate(self.coefficients, x, self.nodes[-1], self.nodes[0])
-
-    def to_dict(self) -> dict:
-        return {"n_points": self.n_points, "residual": self.residual}
 
 
 # ═══════════════════════════════════════════════════════════════

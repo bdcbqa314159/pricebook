@@ -23,9 +23,33 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Protocol, runtime_checkable
 
 import numpy as np
+
+
+@runtime_checkable
+class Approximant(Protocol):
+    """Structural contract for a fitted approximation that can be evaluated.
+
+    ``ChebyshevInterpolant``, ``PadeApproximant`` and
+    ``numerical._spectral.SpectralResult`` all satisfy it. (``RichardsonTable``
+    does not — it is a one-shot extrapolation, not an evaluable curve.)
+    """
+
+    def evaluate(self, x: float | np.ndarray) -> float | np.ndarray: ...
+
+
+class _ResultToDict:
+    """Mixin: serialise a result dataclass to a plain dict of its fields.
+
+    Replaces the per-class ``dict(vars(self))`` one-liners so every result type
+    serialises the same way (full state) and can't drift to a lossy variant.
+    """
+
+    def to_dict(self) -> dict:
+        return dict(vars(self))
+
 
 # ---- Chebyshev interpolation ----
 
@@ -108,7 +132,7 @@ def _clenshaw(coeffs: np.ndarray, xi: np.ndarray) -> np.ndarray:
 
 
 @dataclass
-class ChebyshevInterpolant:
+class ChebyshevInterpolant(_ResultToDict):
     """Chebyshev polynomial interpolant on [a, b]."""
 
     coefficients: np.ndarray  # Chebyshev coefficients c_k
@@ -123,9 +147,6 @@ class ChebyshevInterpolant:
     def max_coeff_magnitude(self) -> float:
         """Magnitude of the last few coefficients (convergence diagnostic)."""
         return float(np.max(np.abs(self.coefficients[-3:])))
-
-    def to_dict(self) -> dict:
-        return dict(vars(self))
 
 
 def chebyshev_interpolate(
@@ -167,7 +188,7 @@ def chebyshev_interpolate(
 
 
 @dataclass
-class PadeApproximant:
+class PadeApproximant(_ResultToDict):
     """Padé [L/M] rational approximation: P_L(x) / Q_M(x)."""
 
     numerator: np.ndarray  # coefficients of P (degree L)
@@ -185,9 +206,6 @@ class PadeApproximant:
         den = np.polyval(self.denominator[::-1], x_arr)
         out = num / den
         return float(out) if x_arr.ndim == 0 else out
-
-    def to_dict(self) -> dict:
-        return dict(vars(self))
 
 
 def pade_approximant(
@@ -257,15 +275,16 @@ def pade_approximant(
 
 
 @dataclass
-class RichardsonTable:
-    """Full Richardson extrapolation table."""
+class RichardsonTable(_ResultToDict):
+    """Full Richardson extrapolation table.
+
+    Note: not an :class:`Approximant` — it carries the extrapolated estimate,
+    not an evaluable curve (no ``evaluate``).
+    """
 
     table: np.ndarray  # (n, n) triangular table
     best_estimate: float
     estimates: list[float]  # diagonal entries
-
-    def to_dict(self) -> dict:
-        return dict(vars(self))
 
 
 def richardson_table(
