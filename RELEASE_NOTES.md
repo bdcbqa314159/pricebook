@@ -2,6 +2,20 @@
 
 ---
 
+## v1.200.0 — 2026-06-29 — **approximation hardening P5: scalar-return contract (Stage 2 begins)**
+
+Phase 5 (`OPEN.md` §0d) — first *source* change since the verification net went up, and the net's first real test.
+
+**Files**: `core/approximation.py` (+ `tests/test_approximation.py`).
+
+- **Pinned the evaluate return contract**: scalar `x` → Python `float`, array `x` → `np.ndarray`, across `chebyshev_evaluate` (so `ChebyshevInterpolant.evaluate` and `SpectralResult.evaluate` inherit it) and `PadeApproximant.evaluate`. Previously a scalar produced a 0-d `np.ndarray` despite the `float | np.ndarray` annotation — the reason every spectral test carried `float(np.atleast_1d(val)[0])` workarounds. Now honest.
+- **No production fallout**: the only scalar consumer (`pde_advanced.chebyshev_bs`) already wrapped in `float(...)`; full suite confirms nothing relied on the 0-d return.
+- **Tests**: per-type scalar→float / array→ndarray contract (Chebyshev, Padé, SpectralResult) + a cross-check that the transposed-signature entry points `chebyshev_interpolate(f,a,b,n)` and `chebyshev_expand(f,n,a,b)` produce identical coefficients and values — pins them against an argument-order regression.
+
+**Verification**: full suite **13,054 passed** (+4). The net guarded a source change cleanly.
+
+---
+
 ## v1.199.0 — 2026-06-29 — **approximation hardening P4b: Gauss/D2/clamp/legendre — Stage 1 net complete**
 
 Phase 4b (`OPEN.md` §0d), last of the Stage-1 verification net. Tests-only.
