@@ -2,6 +2,23 @@
 
 ---
 
+## v1.199.0 — 2026-06-29 — **approximation hardening P4b: Gauss/D2/clamp/legendre — Stage 1 net complete**
+
+Phase 4b (`OPEN.md` §0d), last of the Stage-1 verification net. Tests-only.
+
+**Files**: `tests/test_numerical_advanced.py`, `tests/test_approximation.py`.
+
+- **Gauss exactness boundary** — n-point quadrature exact for degree ≤ 2n−1 (asymmetric interval, odd-degree integrand) and **not** for degree 2n; pins the precise contract in both directions.
+- **`D2` second derivative** — `D2 @ x² = 2` and `D2 @ exp = exp` at interior nodes on a non-`[-1,1]` interval, catching any wrong domain-scale factor.
+- **Clamp idempotency** — `evaluate(b+k) == evaluate(b)` exactly (out-of-domain clamps, never extrapolates).
+- **Legendre invariants** — weights sum to 2, nodes strictly inside `(-1,1)`.
+
+**Stage 1 of the hardening plan is complete (P1–P4b):** the verification net now makes the four historical bug-classes — symmetric/midpoint, silent Padé truncation, operator-specific BVP, sign-invariant — impossible to reintroduce silently.
+
+**Verification**: full suite **13,050 passed** (+4).
+
+---
+
 ## v1.198.0 — 2026-06-29 — **approximation hardening P4a: Richardson + B-spline coverage**
 
 Phase 4a (`OPEN.md` §0d). Tests-only.
