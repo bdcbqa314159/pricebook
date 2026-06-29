@@ -2,6 +2,18 @@
 
 ---
 
+## v1.193.0 — 2026-06-29 — **Chebyshev cluster cleanup, Phase 3: docstring drift**
+
+Final phase. Doc-only.
+
+**Files**: `core/approximation.py`.
+
+`core/approximation.py`'s module docstring still billed it purely as "Phase M8 approximation theory"; since the v1.189 consolidation it is also the canonical Chebyshev kernel that `numerical._spectral` depends on. Added a sentence stating that and the downward layering rationale. No logic change.
+
+This closes the three-phase cleanup of the structural debt found in the Chebyshev/approximation design review (v1.191 island, v1.192 naming collision, v1.193 docs) — on top of the v1.188 input guards, v1.189 de-duplication, and v1.190 correctness fixes.
+
+---
+
 ## v1.192.0 — 2026-06-29 — **Chebyshev cluster cleanup, Phase 2: rename `chebyshev_interpolate` → `chebyshev_expand`**
 
 Phase 2 of the cluster cleanup. Removes the standing footgun: two same-named public functions with **swapped argument order** and different return types.
