@@ -149,6 +149,22 @@ class TestRichardsonTable:
         with pytest.raises(ValueError, match="at least one"):
             richardson_table([])
 
+    def test_order_drives_cancellation_both_directions(self):
+        """The `order` must actually drive the cancellation — checked in BOTH
+        directions. A pure h^3 error series is exact with order=3 but the
+        order=2 ladder {2,4,6} can never hit h^3, so it must NOT be exact.
+        A no-op or wrong-exponent bug fails the negative direction."""
+        h = 0.2
+        values = [1 + (h / 2**i) ** 3 for i in range(4)]  # pure h^3 error
+        assert abs(richardson_table(values, order=3).best_estimate - 1) < 1e-12
+        assert abs(richardson_table(values, order=2).best_estimate - 1) > 1e-7
+
+    def test_best_estimate_is_table_corner(self):
+        values = [1.1, 1.025, 1.006, 1.0015]
+        r = richardson_table(values, order=2)
+        assert r.best_estimate == float(r.table[-1, -1])
+        assert r.best_estimate == r.estimates[-1]
+
 
 # ---- B-spline basis ----
 
@@ -191,3 +207,40 @@ class TestBSplineBasis:
             bspline_basis(1.5, knots, 0, -1)
         with pytest.raises(IndexError):
             bspline_basis(1.5, knots, 0, 99)
+
+    def test_partition_of_unity_swept(self):
+        """Partition of unity must hold across the WHOLE interior span, not at
+        one cherry-picked point (the single-point test could pass by luck)."""
+        knots = [0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4]
+        degree = 3
+        nbasis = len(knots) - degree - 1
+        for x in np.linspace(0.0, 4.0, 101)[:-1]:  # exclude the right endpoint
+            total = sum(bspline_basis(x, knots, degree, i) for i in range(nbasis))
+            assert total == pytest.approx(1.0, abs=1e-12)
+
+    def test_right_endpoint_gap_is_documented(self):
+        """KNOWN convention: B_{i,0} uses the half-open [t[i], t[i+1]), so at
+        x == t[-1] every basis is 0 and partition-of-unity drops to 0. Pinned
+        so a future change to the convention is visible, not silent."""
+        knots = [0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4]
+        degree = 3
+        nbasis = len(knots) - degree - 1
+        total = sum(bspline_basis(4.0, knots, degree, i) for i in range(nbasis))
+        assert total == 0.0  # not 1.0 — the right-endpoint half-open gap
+
+    def test_cubic_matches_scipy_oracle(self):
+        """Cubic Cox-de Boor pinned against scipy.interpolate as an independent
+        oracle (no elegant closed form for cubic basis at off-knot points)."""
+        from scipy.interpolate import BSpline
+
+        knots = [0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4]
+        degree = 3
+        for i in (2, 3, 4):
+            local = np.asarray(knots[i : i + degree + 2], dtype=float)
+            ref = BSpline.basis_element(local, extrapolate=False)
+            for x in (1.3, 2.6, 3.4):
+                expected = float(ref(x))
+                expected = 0.0 if np.isnan(expected) else expected
+                assert bspline_basis(x, knots, degree, i) == pytest.approx(
+                    expected, abs=1e-12
+                )
