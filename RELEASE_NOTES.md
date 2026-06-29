@@ -2,6 +2,24 @@
 
 ---
 
+## v1.191.0 — 2026-06-29 — **Chebyshev cluster cleanup, Phase 1: the `pde_advanced` island**
+
+First of a phased cleanup of the structural debt the Chebyshev/approximation design review surfaced. This phase eliminates the third Chebyshev island in `models/pde_advanced.py` — fully isolated, no public-API churn elsewhere.
+
+**Files**: `models/pde_advanced.py` (+ `tests/test_pde_advanced.py` import).
+
+**Fixes:**
+- **`SpectralResult` name collision (HIGH structural).** `pde_advanced` defined its own `SpectralResult` `{price, n_points, max_residual}` — same name as `numerical._spectral.SpectralResult` `{nodes, values, coefficients, n_points, residual}`, same domain, different shape: import the wrong one and field access silently breaks. Renamed to **`ChebyshevBSResult`** (it's a pricing result, not a spectral expansion).
+- **Third diff-matrix copy (MEDIUM).** Deleted the hand-rolled `_chebyshev_diff_matrix` (O(N²) loop) and the inlined node construction; `chebyshev_bs` now uses the shared `chebyshev_nodes` + `chebyshev_diff_matrix` from `numerical._spectral`. Verified the two diff matrices were numerically identical (≤6e-12) before removing, so prices are unchanged. (Note: this loop copy happened to carry the *correct* sign while `_spectral`'s was flipped for years — exactly how that v1.190 divergence hid. One implementation now.)
+- **Mislabeled "barycentric" lookup (quality).** The price was taken by `argmin(|x − x0|)` nearest-node — exact only because `x0` is the centre node for even `N` (the default 32), silently wrong for odd `N`. Replaced with a real evaluation of the Chebyshev interpolant via the shared kernel (`chebyshev_coefficients` + `chebyshev_evaluate`): identical at even-N nodes, correct for any `N`.
+- **Meaningless residual (quality).** `max_residual` computed `max|A·V − V|` (= `−dt·L·V`, not a solve residual). Now reports the trailing-coefficient magnitude — a genuine spectral-convergence diagnostic, consistent with `numerical._spectral.SpectralResult`.
+
+**Verification**: full suite **13,035 passed**; `chebyshev_bs` call/put prices unchanged at N=16/32 (within 1e-13 of the old node value), odd N now correct instead of garbage.
+
+**Remaining phases:** Phase 2 — align the two divergent `chebyshev_interpolate` signatures + honest `residual` heuristic in `_spectral`; Phase 3 — `core/approximation.py` docstring drift.
+
+---
+
 ## v1.190.0 — 2026-06-29 — **Spectral Chebyshev correctness fixes (audit of the consolidated code)**
 
 A follow-up adversarial audit of the v1.189.0-consolidated Chebyshev code surfaced **two latent HIGH bugs** (plus two MEDIUMs) in `numerical/_spectral.py`. All pre-date the consolidation (≈v0.606) — v1.189 preserved them faithfully — and all were masked by tests using symmetric functions, midpoint-only evaluation, sign-invariant checks, and a `tol=1.0`. **Blast radius is zero today**: nothing outside `_spectral.py` + tests calls `chebyshev_diff_matrix`, `spectral_solve_bvp`, or `SpectralResult.evaluate` (`_pde.py` only uses the — correct — `chebyshev_nodes`; `pde_advanced.py` has its own correct diff matrix). Latent, but real the moment the spectral solver is used.
