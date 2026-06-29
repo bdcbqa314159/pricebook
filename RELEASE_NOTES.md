@@ -2,6 +2,19 @@
 
 ---
 
+## v1.194.0 — 2026-06-29 — **approximation.py tidy (two micro-nits from a re-read)**
+
+Cosmetic cleanup, no behaviour change.
+
+**Files**: `core/approximation.py`.
+
+- Dropped the inline Chebyshev "single source of truth / layering" comment that duplicated the module docstring after the v1.193 docstring edit.
+- `pade_approximant` computed `np.linalg.cond(A)` twice in one condition (an SVD each time); hoisted to a single `cond` variable.
+
+**Verification**: targeted tests (`test_approximation`, `test_numerical_advanced`, `test_pde_advanced`) pass; the changed Padé conditioning path is covered by `test_singular_denominator_raises`. Full suite not re-run — comment delete + a logic-equivalent variable hoist.
+
+---
+
 ## v1.193.0 — 2026-06-29 — **Chebyshev cluster cleanup, Phase 3: docstring drift**
 
 Final phase. Doc-only.
