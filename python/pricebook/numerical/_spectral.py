@@ -41,7 +41,10 @@ class SpectralResult:
 
     def evaluate(self, x: float | np.ndarray) -> float | np.ndarray:
         """Evaluate the spectral approximation at arbitrary points."""
-        return chebyshev_evaluate(self.coefficients, x, self.nodes[0], self.nodes[-1])
+        # Lobatto nodes run high→low, so nodes[-1] is the min (a) and nodes[0]
+        # the max (b). Passing them in (a, b) order is essential — reversing
+        # them negates the domain map and mirrors every query about the midpoint.
+        return chebyshev_evaluate(self.coefficients, x, self.nodes[-1], self.nodes[0])
 
     def to_dict(self) -> dict:
         return {"n_points": self.n_points, "residual": self.residual}
@@ -65,8 +68,12 @@ def chebyshev_diff_matrix(n: int) -> np.ndarray:
     c[N] = 2.0
     c *= (-1.0) ** np.arange(N + 1)
 
+    # X[i, j] = x[j]; Trefethen's "Program 6" uses X[i, j] = x[i], so the
+    # node difference must be X.T - X (= x[i] - x[j]). The original X - X.T
+    # negated every off-diagonal (and, via the negative-sum diagonal, the
+    # diagonal too), returning -D.
     X = np.tile(x, (N + 1, 1))
-    dX = X - X.T
+    dX = X.T - X
     D = np.outer(c, 1.0 / c) / (dX + np.eye(N + 1))
     D -= np.diag(D.sum(axis=1))
     return D
@@ -117,35 +124,36 @@ def spectral_solve_bvp(
     differentiation matrix.
 
     Args:
-        L_operator: callable(D, D2, x_interior) → (N-1, N-1) operator matrix.
-            D = first derivative matrix (interior), D2 = second derivative.
-            Return the discretised operator on interior nodes.
+        L_operator: callable(D, D2, x) → (N+1, N+1) operator matrix on the FULL
+            node set. D = first derivative matrix, D2 = second derivative, x =
+            all collocation nodes. Return the discretised operator over every
+            node; this function partitions it into the interior block and the
+            two boundary columns, so any linear operator lifts correctly (not
+            just pure D2).
         rhs: callable(x) → f(x), right-hand side function.
-        bc_left, bc_right: Dirichlet boundary conditions.
+        bc_left, bc_right: Dirichlet boundary conditions u(a), u(b).
         n: number of collocation points.
         a, b: domain [a, b].
     """
     # Chebyshev on [a, b]
     nodes = chebyshev_nodes(n, a, b)
-    D_ref = chebyshev_diff_matrix(n)
-    # Scale derivative for [a, b] domain
-    scale = 2.0 / (b - a)
-    D = scale * D_ref
+    # Scale the [-1, 1] derivative matrix to [a, b].
+    D = (2.0 / (b - a)) * chebyshev_diff_matrix(n)
     D2 = D @ D
 
-    # Interior nodes (exclude boundaries: first and last)
+    # Build the FULL operator on all n+1 nodes, then partition. Node 0 = right
+    # endpoint (b), node n = left endpoint (a) — Lobatto runs high→low.
+    L_full = L_operator(D, D2, nodes)
     interior = slice(1, n)
     x_int = nodes[interior]
 
-    # Build operator matrix
-    L = L_operator(D[interior, :][:, interior], D2[interior, :][:, interior], x_int)
+    L = L_full[interior, :][:, interior]
 
-    # RHS: f(x) minus boundary contributions
-    f = np.array([rhs(x) for x in x_int])
-
-    # Boundary corrections
-    f -= bc_right * D2[interior, 0]  # left BC (Chebyshev node 0 = right endpoint)
-    f -= bc_left * D2[interior, -1]  # right BC
+    # RHS minus the contribution of the (known) boundary values, taken from the
+    # ACTUAL operator's boundary columns — not D2's.
+    f = np.array([rhs(x) for x in x_int], dtype=float)
+    f -= bc_right * L_full[interior, 0]   # node 0 = right endpoint, u(b) = bc_right
+    f -= bc_left * L_full[interior, -1]   # node n = left endpoint,  u(a) = bc_left
 
     # Solve
     try:
@@ -155,8 +163,8 @@ def spectral_solve_bvp(
 
     # Assemble full solution
     u = np.zeros(n + 1)
-    u[0] = bc_right   # Chebyshev: node 0 = cos(0) = 1 → right endpoint
-    u[-1] = bc_left    # node N = cos(π) = -1 → left endpoint
+    u[0] = bc_right   # node 0 = cos(0) = 1 → right endpoint, u(b)
+    u[-1] = bc_left   # node N = cos(π) = -1 → left endpoint, u(a)
     u[interior] = u_int
 
     coeffs = chebyshev_coefficients(u)

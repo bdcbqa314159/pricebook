@@ -36,7 +36,12 @@ def chebyshev_nodes(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
 
     x_j = (a+b)/2 + (b-a)/2 · cos(πj/n), j = 0, ..., n. Clustered near the
     endpoints, which avoids the Runge phenomenon.
+
+    Requires n >= 1 (a Lobatto set needs at least two endpoints); n=0 is a
+    degree-0 constant, handled by the interpolators directly, not here.
     """
+    if n < 1:
+        raise ValueError(f"chebyshev_nodes requires n >= 1, got {n}")
     j = np.arange(n + 1)
     return 0.5 * (a + b) + 0.5 * (b - a) * np.cos(np.pi * j / n)
 

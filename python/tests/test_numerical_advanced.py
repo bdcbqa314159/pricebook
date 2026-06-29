@@ -43,6 +43,22 @@ class TestChebyshev:
         # Row sums should be ~0 (differentiating constant gives 0)
         assert np.max(np.abs(D.sum(axis=1))) < 1e-8
 
+    def test_diff_matrix_differentiates(self):
+        """D must give the actual derivative (sign included), not -derivative.
+
+        Row-sum/shape checks are sign-invariant and missed the -D bug.
+        """
+        n = 16
+        x = chebyshev_nodes(n)            # on [-1, 1]
+        D = chebyshev_diff_matrix(n)
+        err = np.max(np.abs(D @ np.sin(2 * x) - 2 * np.cos(2 * x)))
+        assert err < 1e-8
+
+    def test_diff_matrix_sign_explicit(self):
+        """D(1) must match Trefethen: [[0.5, -0.5], [0.5, -0.5]]."""
+        D = chebyshev_diff_matrix(1)
+        np.testing.assert_allclose(D, [[0.5, -0.5], [0.5, -0.5]], atol=1e-12)
+
     def test_interpolate_sin(self):
         result = chebyshev_interpolate(np.sin, 20, 0, np.pi)
         val = result.evaluate(np.pi / 4)
@@ -52,6 +68,19 @@ class TestChebyshev:
         result = chebyshev_interpolate(np.exp, 15, 0, 1)
         val = result.evaluate(0.5)
         assert abs(float(np.atleast_1d(val)[0]) - math.exp(0.5)) < 0.01
+
+    def test_evaluate_off_center_asymmetric(self):
+        """Non-symmetric f at an off-center point: catches the reversed-interval
+        mirror bug (f(0.25) must be 0.25, not 0.75)."""
+        result = chebyshev_interpolate(lambda x: x, 12, 0.0, 1.0)
+        for q in (0.1, 0.25, 0.9):
+            val = float(np.atleast_1d(result.evaluate(q))[0])
+            assert abs(val - q) < 1e-10
+
+    def test_interpolate_degree_zero_raises(self):
+        """n=0 must fail loud, not return NaN with residual 0.0."""
+        with pytest.raises(ValueError, match="n >= 1"):
+            chebyshev_interpolate(np.exp, 0, 0, 1)
 
     def test_spectral_integrate(self):
         """∫₀¹ x² dx = 1/3."""
@@ -67,13 +96,31 @@ class TestChebyshev:
         """u'' = -π²sin(πx), u(0)=u(1)=0 → u = sin(πx)."""
         def L(D, D2, x):
             return D2
+
         def rhs(x):
             return -np.pi**2 * np.sin(np.pi * x)
         result = spectral_solve_bvp(L, rhs, 0, 0, n=20, a=0, b=1)
-        # Check interior point
+        # Check interior point — spectral accuracy, so a real tolerance.
         x_test = 0.5
         u_test = result.evaluate(x_test)
-        assert abs(float(np.atleast_1d(u_test)[0]) - np.sin(np.pi * x_test)) < 1.0  # BVP is approximate
+        assert abs(float(np.atleast_1d(u_test)[0]) - np.sin(np.pi * x_test)) < 1e-6
+
+    def test_bvp_general_operator(self):
+        """u'' + u' = 2 + 2x, u(0)=0, u(1)=1 → u = x² (asymmetric, advection term).
+
+        Catches both the -D sign bug (the D term) and the D2-only boundary
+        lifting (the D term's boundary column must be subtracted). Evaluated
+        off-center to also exercise the interval orientation.
+        """
+        def L(D, D2, x):
+            return D2 + D
+
+        def rhs(x):
+            return 2.0 + 2.0 * x
+        result = spectral_solve_bvp(L, rhs, bc_left=0.0, bc_right=1.0, n=16, a=0, b=1)
+        for q in (0.25, 0.7):
+            val = float(np.atleast_1d(result.evaluate(q))[0])
+            assert abs(val - q**2) < 1e-8
 
     def test_to_dict(self):
         result = chebyshev_interpolate(np.sin, 10, 0, 1)
