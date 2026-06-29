@@ -14,6 +14,7 @@ from pricebook.core.approximation import (
     pade_approximant,
     richardson_table,
 )
+from pricebook.numerical._spectral import chebyshev_expand
 
 
 # ---- Chebyshev interpolation ----
@@ -255,3 +256,44 @@ class TestBSplineBasis:
                 assert bspline_basis(x, knots, degree, i) == pytest.approx(
                     expected, abs=1e-12
                 )
+
+
+# ---- Evaluate return-type contract (P5) ----
+
+class TestEvaluateReturnContract:
+    """Scalar in → Python float out; array in → np.ndarray out. Pins the
+    contract so the np.atleast_1d(...) workarounds are unnecessary and a future
+    return-shape change is loud."""
+
+    def test_chebyshev_scalar_returns_float(self):
+        interp = chebyshev_interpolate(np.exp, 0.0, 1.0, n=12)
+        assert isinstance(interp.evaluate(0.5), float)
+        arr = interp.evaluate(np.array([0.2, 0.4, 0.6]))
+        assert isinstance(arr, np.ndarray) and arr.shape == (3,)
+
+    def test_pade_scalar_returns_float(self):
+        pade = pade_approximant([1, 1, 0.5, 1 / 6, 1 / 24], L=2, M=2)
+        assert isinstance(pade.evaluate(0.3), float)
+        arr = pade.evaluate(np.array([0.1, 0.2]))
+        assert isinstance(arr, np.ndarray) and arr.shape == (2,)
+
+    def test_spectral_result_scalar_returns_float(self):
+        res = chebyshev_expand(np.exp, 12, 0.0, 1.0)
+        assert isinstance(res.evaluate(0.5), float)
+        arr = res.evaluate(np.array([0.2, 0.4]))
+        assert isinstance(arr, np.ndarray) and arr.shape == (2,)
+
+
+class TestChebyshevCoreSpectralAgree:
+    """The two entry points — core chebyshev_interpolate(f, a, b, n) and spectral
+    chebyshev_expand(f, n, a, b) — share one kernel and MUST agree. Pins the
+    transposed signatures against each other so an argument-order regression in
+    either is loud."""
+
+    def test_coefficients_and_values_match(self):
+        a, b, n = 0.3, 2.1, 18
+        ci = chebyshev_interpolate(np.exp, a, b, n)
+        se = chebyshev_expand(np.exp, n, a, b)
+        np.testing.assert_allclose(ci.coefficients, se.coefficients, atol=1e-12)
+        for q in (0.5, 1.1, 1.9):
+            assert ci.evaluate(q) == pytest.approx(se.evaluate(q), abs=1e-12)

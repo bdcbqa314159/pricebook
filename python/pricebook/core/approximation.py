@@ -74,16 +74,19 @@ def chebyshev_evaluate(
     x: float | np.ndarray,
     a: float = -1.0,
     b: float = 1.0,
-) -> np.ndarray:
+) -> float | np.ndarray:
     """Evaluate a Chebyshev series Σ c_k T_k on [a, b] via Clenshaw recurrence.
 
     Numerically stable. Queries outside [a, b] are clamped to the boundary
     rather than extrapolated (polynomial extrapolation blows up fast).
+
+    Return contract: scalar ``x`` → Python ``float``; array ``x`` → ``np.ndarray``.
     """
-    x = np.asarray(x, dtype=float)
+    x_arr = np.asarray(x, dtype=float)
     # Map [a, b] → [-1, 1], clamped to guard against overshoot / extrapolation.
-    xi = np.clip((2 * x - a - b) / (b - a), -1.0, 1.0)
-    return _clenshaw(np.asarray(coeffs, dtype=float), xi)
+    xi = np.clip((2 * x_arr - a - b) / (b - a), -1.0, 1.0)
+    out = _clenshaw(np.asarray(coeffs, dtype=float), xi)
+    return float(out) if x_arr.ndim == 0 else out
 
 
 def _clenshaw(coeffs: np.ndarray, xi: np.ndarray) -> np.ndarray:
@@ -173,11 +176,15 @@ class PadeApproximant:
     M: int
 
     def evaluate(self, x: float | np.ndarray) -> float | np.ndarray:
-        """Evaluate the Padé approximant at x."""
-        x = np.asarray(x, dtype=float)
-        num = np.polyval(self.numerator[::-1], x)
-        den = np.polyval(self.denominator[::-1], x)
-        return num / den
+        """Evaluate the Padé approximant at x.
+
+        Scalar ``x`` → Python ``float``; array ``x`` → ``np.ndarray``.
+        """
+        x_arr = np.asarray(x, dtype=float)
+        num = np.polyval(self.numerator[::-1], x_arr)
+        den = np.polyval(self.denominator[::-1], x_arr)
+        out = num / den
+        return float(out) if x_arr.ndim == 0 else out
 
     def to_dict(self) -> dict:
         return dict(vars(self))
