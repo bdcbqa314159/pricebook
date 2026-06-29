@@ -1,6 +1,10 @@
 """Approximation theory: Chebyshev interpolation, Padé, error bounds.
 
-Phase M8 slices 197-198 consolidated.
+Phase M8 slices 197-198 consolidated. Also the single source of truth for the
+Chebyshev fundamentals (nodes, DCT coefficients, Clenshaw evaluation): the
+spectral-methods layer (``numerical._spectral``) imports them from here rather
+than re-implementing — ``core`` is the lower layer, so the dependency points
+downward.
 
 * :func:`chebyshev_nodes` — Chebyshev-Gauss-Lobatto collocation points.
 * :func:`chebyshev_coefficients` — DCT coefficients from node values.
