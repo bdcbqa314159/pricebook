@@ -2,6 +2,18 @@
 
 ---
 
+## v1.197.0 — 2026-06-29 — **approximation hardening P3: variable-coefficient BVP (MMS)**
+
+Phase 3 of the hardening plan (`OPEN.md` §0d). Tests-only; closes the operator-specific BVP class.
+
+**Files**: `tests/test_numerical_advanced.py`.
+
+- **Manufactured-solution BVP test** with a *variable-coefficient* operator `L[u] = u'' + p(x)u' + q(x)u` (`p,q` non-constant), asymmetric cubic solution on the asymmetric interval `[0.3, 2.1]`. Derives `rhs = L[u]` analytically, solves, asserts recovery both at the nodes (isolates the solve) and off-centre (solve + evaluate orientation) to <1e-8 (recovers to ~3e-15 in practice). Constant-coefficient operators — all the old BVP tests used — cannot distinguish a `D2`-only boundary lifting from a correct one; the variable `p,q` exercise the `D` and `I` boundary columns, and the asymmetric solution exercises orientation. This generalizes the v1.190 `D2+D` point-fix into the whole operator class.
+
+**Verification**: full suite **13,041 passed** (+1).
+
+---
+
 ## v1.196.0 — 2026-06-29 — **approximation hardening P2: Padé contract tests**
 
 Phase 2 of the hardening plan (`OPEN.md` §0d). Tests-only; closes the silent-Padé-truncation class at the *contract* level.
