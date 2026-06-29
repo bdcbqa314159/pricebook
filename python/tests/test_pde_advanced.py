@@ -8,9 +8,9 @@ import pytest
 from pricebook.models.black76 import OptionType
 from pricebook.options.equity_option import equity_option_price
 from pricebook.models.pde_advanced import (
+    ChebyshevBSResult,
     MOLResult,
     PSORResult,
-    SpectralResult,
     chebyshev_bs,
     method_of_lines,
     psor_american,

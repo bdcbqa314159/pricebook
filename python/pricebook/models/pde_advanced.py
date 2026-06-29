@@ -21,6 +21,12 @@ from dataclasses import dataclass
 import numpy as np
 
 from pricebook.models.black76 import OptionType
+from pricebook.numerical._spectral import (
+    chebyshev_coefficients,
+    chebyshev_diff_matrix,
+    chebyshev_evaluate,
+    chebyshev_nodes,
+)
 
 
 # ---- PSOR for American options ----
@@ -33,10 +39,10 @@ class PSORResult:
     n_sor_iterations: int
     grid_size: int
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def psor_american(
     spot: float,
     strike: float,
@@ -159,16 +165,21 @@ def psor_american(
 # ---- Chebyshev collocation ----
 
 @dataclass
-class SpectralResult:
-    """Result of spectral method pricing."""
+class ChebyshevBSResult:
+    """Result of Chebyshev-collocation Black-Scholes pricing.
+
+    Distinct from ``numerical._spectral.SpectralResult`` (a spectral expansion
+    with nodes/coefficients) — this carries a single price plus diagnostics.
+    """
+
     price: float
     n_points: int
     max_residual: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def chebyshev_bs(
     spot: float,
     strike: float,
@@ -178,7 +189,7 @@ def chebyshev_bs(
     option_type: OptionType = OptionType.CALL,
     N: int = 32,
     n_time: int = 100,
-) -> SpectralResult:
+) -> ChebyshevBSResult:
     """European option via Chebyshev collocation on the BS PDE.
 
     Semi-discretises in space using Chebyshev points, then marches
@@ -188,21 +199,15 @@ def chebyshev_bs(
     Reference:
         Trefethen, Spectral Methods in MATLAB, Ch. 7.
     """
-    # Chebyshev points on [-1, 1]
-    j = np.arange(N + 1)
-    xi = np.cos(j * math.pi / N)  # Chebyshev-Lobatto points
-
-    # Map to [x_min, x_max] in log-spot
+    # Chebyshev-Lobatto grid in log-spot, centred on log(spot).
     x0 = math.log(spot)
     width = 4 * vol * math.sqrt(T)
     x_min, x_max = x0 - width, x0 + width
-    x = 0.5 * (x_max + x_min) + 0.5 * (x_max - x_min) * xi
+    x = chebyshev_nodes(N, x_min, x_max)
     S = np.exp(x)
 
-    # Chebyshev differentiation matrix
-    D = _chebyshev_diff_matrix(N, xi)
-    # Scale to physical domain
-    D = D * 2.0 / (x_max - x_min)
+    # Chebyshev differentiation matrix, scaled to the physical domain.
+    D = chebyshev_diff_matrix(N) * (2.0 / (x_max - x_min))
     D2 = D @ D
 
     # BS operator in log-spot: L = 0.5σ² D² + (r - 0.5σ²) D - r I
@@ -238,38 +243,17 @@ def chebyshev_bs(
         rhs[-1] = V[-1]
         V = np.linalg.solve(A_bc, rhs)
 
-    # Interpolate at spot via barycentric formula
-    idx = np.argmin(np.abs(x - x0))
-    price = float(V[idx])
+    # Price at the spot: evaluate the Chebyshev interpolant of the final grid
+    # values at x0 (exact at the centre node for even N, correct for any N).
+    coeffs = chebyshev_coefficients(V)
+    price = float(chebyshev_evaluate(coeffs, x0, x_min, x_max))
 
-    # Residual check
-    residual = float(np.max(np.abs(A @ V - V)))
+    # Spectral convergence diagnostic: magnitude of the trailing coefficients
+    # (small ⇒ the spatial representation has resolved). Mirrors
+    # numerical._spectral.SpectralResult.residual.
+    max_residual = float(np.abs(coeffs[-3:]).max())
 
-    return SpectralResult(price, N, residual)
-
-
-def _chebyshev_diff_matrix(N: int, xi: np.ndarray) -> np.ndarray:
-    """Chebyshev differentiation matrix on N+1 Lobatto points.
-
-    Reference: Trefethen, Spectral Methods in MATLAB, Program 3.
-    """
-    c = np.ones(N + 1)
-    c[0] = 2.0
-    c[N] = 2.0
-    c *= (-1.0) ** np.arange(N + 1)
-
-    D = np.zeros((N + 1, N + 1))
-    for i in range(N + 1):
-        for j in range(N + 1):
-            if i != j:
-                D[i, j] = c[i] / (c[j] * (xi[i] - xi[j]))
-            elif i == 0:
-                D[i, j] = (2 * N * N + 1) / 6.0
-            elif i == N:
-                D[i, j] = -(2 * N * N + 1) / 6.0
-            else:
-                D[i, j] = -xi[i] / (2 * (1 - xi[i]**2))
-    return D
+    return ChebyshevBSResult(price=price, n_points=N, max_residual=max_residual)
 
 
 # ---- Method of lines ----
@@ -281,10 +265,10 @@ class MOLResult:
     n_spatial: int
     n_time_steps: int
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def method_of_lines(
     spot: float,
     strike: float,
