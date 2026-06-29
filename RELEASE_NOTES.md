@@ -2,6 +2,21 @@
 
 ---
 
+## v1.198.0 — 2026-06-29 — **approximation hardening P4a: Richardson + B-spline coverage**
+
+Phase 4a (`OPEN.md` §0d). Tests-only.
+
+**Files**: `tests/test_approximation.py`.
+
+- **Richardson `order`-drives-cancellation, both directions.** A pure `h^3` error series is exact with `order=3` (<1e-12) but the `order=2` ladder `{2,4,6}` can never hit `h^3`, so it must NOT be exact (>1e-7). (Note: a pure `h^4` series is the *wrong* probe — with 3 values, order=2's column-2 factor `2^(2·2)=16` cancels `h^4` anyway; `h^3` is what isolates the exponent.) Plus `best_estimate == table[-1,-1] == estimates[-1]`.
+- **B-spline partition-of-unity SWEPT** across the whole interior span (101 points), not the single cherry-picked point the old test used.
+- **B-spline right-endpoint gap documented** — the half-open `[t[i], t[i+1])` convention makes the basis sum to `0` at `x == t[-1]`; pinned so a future convention change is visible, not silent.
+- **Cubic basis vs scipy oracle** — `bspline_basis` degree-3 pinned against `scipy.interpolate.BSpline.basis_element` at off-knot points (no clean closed form for cubic; matches to 1e-16 in practice).
+
+**Verification**: full suite **13,046 passed** (+5).
+
+---
+
 ## v1.197.0 — 2026-06-29 — **approximation hardening P3: variable-coefficient BVP (MMS)**
 
 Phase 3 of the hardening plan (`OPEN.md` §0d). Tests-only; closes the operator-specific BVP class.
