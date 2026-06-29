@@ -2,6 +2,23 @@
 
 ---
 
+## v1.201.0 — 2026-06-29 — **approximation hardening P6: Approximant protocol + conformance (Stage 2 complete)**
+
+Phase 6 (`OPEN.md` §0d).
+
+**Files**: `core/approximation.py`, `numerical/_spectral.py` (+ `tests/test_approximation.py`).
+
+- **`Approximant` protocol** (`@runtime_checkable`) — the structural contract `evaluate(x) -> float | np.ndarray`. `ChebyshevInterpolant`, `PadeApproximant`, and `SpectralResult` satisfy it; `RichardsonTable` deliberately does not (it's a one-shot extrapolation, not an evaluable curve).
+- **`_ResultToDict` mixin** — replaces the per-class `dict(vars(self))` one-liners (3 in core + SpectralResult) so every result serialises full state and can't drift to a lossy variant.
+- **Fixed the lossy `SpectralResult.to_dict`** — it previously returned only `{n_points, residual}`, silently dropping `nodes`/`values`/`coefficients`; now full state like the others (no production caller relied on the lossy form).
+- **One conformance test** over all result types: the evaluable three satisfy the protocol with the uniform scalar→float / array→ndarray contract, Richardson does not, and every `to_dict` returns its full field set. Return-type or serialisation drift across the family is now a one-line failure.
+
+**Stage 2 (contracts) complete.**
+
+**Verification**: full suite **13,058 passed** (+4).
+
+---
+
 ## v1.200.0 — 2026-06-29 — **approximation hardening P5: scalar-return contract (Stage 2 begins)**
 
 Phase 5 (`OPEN.md` §0d) — first *source* change since the verification net went up, and the net's first real test.
