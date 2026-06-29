@@ -2,6 +2,22 @@
 
 ---
 
+## v1.192.0 — 2026-06-29 — **Chebyshev cluster cleanup, Phase 2: rename `chebyshev_interpolate` → `chebyshev_expand`**
+
+Phase 2 of the cluster cleanup. Removes the standing footgun: two same-named public functions with **swapped argument order** and different return types.
+
+**Files**: `numerical/_spectral.py` (+ `tests/test_numerical_advanced.py`).
+
+**Fixes:**
+- **Same-name / different-signature collision (MEDIUM).** `numerical._spectral.chebyshev_interpolate(f, n, a, b)` → `SpectralResult` collided in name with `core.approximation.chebyshev_interpolate(f, a, b, n)` → `ChebyshevInterpolant`. Same name, different arg order — a caller importing the wrong one got silently wrong results. Renamed the numerical one to **`chebyshev_expand`** (it computes the Chebyshev expansion carrying nodes/values for spectral/PDE work). The distinct names now signal the two distinct return types. No production callers — only `test_numerical_advanced.py` used it.
+- **Misleading `residual` for small n (LOW).** Was `… if n > 3 else 0.0`, reporting a perfect `0.0` residual for any `n ≤ 3`. Now reports the trailing-coefficient magnitude excluding `c0` (`coeffs[max(1, len-3):]`) — honest for all n; unchanged for n > 3.
+
+**Verification**: full suite **13,035 passed**.
+
+**Remaining:** Phase 3 — `core/approximation.py` module-docstring drift (it's now also the Chebyshev kernel, not just "Phase M8 approximation theory").
+
+---
+
 ## v1.191.0 — 2026-06-29 — **Chebyshev cluster cleanup, Phase 1: the `pde_advanced` island**
 
 First of a phased cleanup of the structural debt the Chebyshev/approximation design review surfaced. This phase eliminates the third Chebyshev island in `models/pde_advanced.py` — fully isolated, no public-API churn elsewhere.
