@@ -2,6 +2,22 @@
 
 ---
 
+## v1.195.0 — 2026-06-29 — **approximation hardening P1: Hypothesis property net**
+
+First phase of the 12-phase "perfect" hardening plan (tracked in `OPEN.md` §0d). Builds the verification net before any risky change. Tests-only; no source behaviour change.
+
+**Files**: `tests/test_approximation_properties.py` (new), `tests/conftest.py`, `pyproject.toml`.
+
+- Added **`hypothesis`** to dev extras + a **derandomized** profile (`deadline=None`) registered in `conftest.py`, so any failing property replays deterministically (no flaky CI). Guarded import — suite still collects without it.
+- **Chebyshev reproduce-at-nodes property** — random *asymmetric* interval `[a,b]` (a≠−b) + random degree-≤n polynomial, asserts the interpolant reproduces it at every node **and at off-node, off-centre** points. Catches any domain-map / coefficient error that symmetric-interval tests miss.
+- **Spectral mirror property** — random asymmetric interval + random off-centre query + a non-even/non-odd `f`, asserts `chebyshev_expand(...).evaluate(q) == f(q)`, never `f(a+b−q)`. Verified non-vacuous: on the old reversed-interval bug it returns the mirrored value and the property fails.
+
+These kill the "symmetric-f / midpoint-only / sign-invariant" test-shaped-wrong class that hid the historical Chebyshev bugs.
+
+**Verification**: full suite **13,037 passed** (+2 properties).
+
+---
+
 ## v1.194.0 — 2026-06-29 — **approximation.py tidy (two micro-nits from a re-read)**
 
 Cosmetic cleanup, no behaviour change.
