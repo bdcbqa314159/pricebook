@@ -28,11 +28,6 @@ from typing import Callable
 import numpy as np
 
 # ---- Chebyshev interpolation ----
-#
-# Single source of truth for Chebyshev fundamentals (nodes, DCT coefficients,
-# Clenshaw evaluation). The spectral-methods layer (`numerical._spectral`)
-# imports these primitives rather than re-implementing them — `core` is the
-# lower layer, so the dependency points downward.
 
 
 def chebyshev_nodes(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
@@ -228,7 +223,8 @@ def pade_approximant(
         # A singular (or near-singular) system means no Padé [L/M] exists for
         # these coefficients — fail loud rather than silently returning a
         # degree-L Taylor truncation that violates the order-(L+M) contract.
-        if not np.isfinite(np.linalg.cond(A)) or np.linalg.cond(A) > 1e12:
+        cond = np.linalg.cond(A)
+        if not np.isfinite(cond) or cond > 1e12:
             raise ValueError(
                 f"Padé [{L}/{M}] denominator system is singular or "
                 f"ill-conditioned; reduce M or check the Taylor coefficients."
