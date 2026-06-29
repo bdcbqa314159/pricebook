@@ -7,7 +7,7 @@ import numpy as np
 from pricebook.numerical._spectral import (
     chebyshev_nodes, chebyshev_diff_matrix, chebyshev_coefficients,
     chebyshev_evaluate, chebyshev_expand, spectral_solve_bvp,
-    spectral_integrate, SpectralResult,
+    spectral_integrate, legendre_nodes_weights, SpectralResult,
 )
 from pricebook.numerical._qmc import (
     sobol_sequence, halton_sequence, latin_hypercube,
@@ -91,6 +91,34 @@ class TestChebyshev:
         """∫₀^π sin(x) dx = 2."""
         result = spectral_integrate(np.sin, 0, np.pi, n=20)
         assert abs(result - 2.0) < 1e-10
+
+    def test_gauss_exactness_boundary(self):
+        """n-point Gauss-Legendre is exact for degree ≤ 2n-1 and NOT for 2n.
+        Both directions, asymmetric interval, odd-degree integrand."""
+        a, b, n = 0.3, 2.1, 6  # exact through degree 11
+
+        def exact(p):
+            return (b ** (p + 1) - a ** (p + 1)) / (p + 1)
+
+        # degree 2n-1 = 11: exact
+        assert abs(spectral_integrate(lambda x: x**11, a, b, n=n) - exact(11)) < 1e-9 * exact(11)
+        # degree 2n = 12: must NOT be exact (pins the precise contract)
+        assert abs(spectral_integrate(lambda x: x**12, a, b, n=n) - exact(12)) > 1e-9 * exact(12)
+
+    def test_diff_matrix_second_derivative(self):
+        """D2 = D@D must give the true second derivative, with the [a,b] scaling
+        correct (a non-[-1,1] interval catches a wrong scale factor)."""
+        a, b, n = 0.5, 3.0, 20
+        x = chebyshev_nodes(n, a, b)
+        D = chebyshev_diff_matrix(n) * (2.0 / (b - a))
+        D2 = D @ D
+        assert np.max(np.abs((D2 @ x**2)[1:-1] - 2.0)) < 1e-8       # u''=2 for x²
+        assert np.max(np.abs((D2 @ np.exp(x))[1:-1] - np.exp(x)[1:-1])) < 1e-7
+
+    def test_legendre_invariants(self):
+        nodes, weights = legendre_nodes_weights(8)
+        assert weights.sum() == pytest.approx(2.0, abs=1e-14)  # ∫_{-1}^{1} 1 dx
+        assert np.all((nodes > -1) & (nodes < 1))
 
     def test_bvp_simple(self):
         """u'' = -π²sin(πx), u(0)=u(1)=0 → u = sin(πx)."""

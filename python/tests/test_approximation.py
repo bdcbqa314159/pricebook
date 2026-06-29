@@ -59,6 +59,17 @@ class TestChebyshevInterpolation:
         with pytest.raises(ValueError, match="degenerate"):
             chebyshev_interpolate(np.exp, 1.0, 1.0, n=10)
 
+    def test_evaluate_clamps_out_of_domain(self):
+        """Out-of-[a,b] queries clamp to the boundary value (no extrapolation),
+        and the clamp is idempotent: eval(b + k) == eval(b) exactly."""
+        interp = chebyshev_interpolate(np.exp, 0.0, 1.0, n=16)
+        assert float(np.atleast_1d(interp.evaluate(5.0))[0]) == float(
+            np.atleast_1d(interp.evaluate(1.0))[0]
+        )
+        assert float(np.atleast_1d(interp.evaluate(-5.0))[0]) == float(
+            np.atleast_1d(interp.evaluate(0.0))[0]
+        )
+
 
 # ---- Padé approximant ----
 
