@@ -93,6 +93,28 @@ class TestPadeApproximant:
         with pytest.raises(ValueError, match="singular or"):
             pade_approximant([1, 0, 0, 0, 0], L=2, M=2)
 
+    def test_near_singular_threshold(self):
+        """Singular raises; a small perturbation that is well-conditioned must
+        succeed — pins the guard direction (not over-eager)."""
+        with pytest.raises(ValueError, match="singular or"):
+            pade_approximant([1, 0, 0, 0, 0], L=2, M=2)
+        pade = pade_approximant([1, 0.0, 0.5, 0.1, 0.2], L=2, M=2)  # well-conditioned
+        assert pade.denominator[0] == 1.0
+        assert np.all(np.isfinite(pade.numerator))
+
+    def test_exp_golden_coefficients(self):
+        """Pin the recovered coefficients of exp's diagonal Padés against the
+        textbook closed forms — a value check (test_exp_pade_22) can't catch a
+        wrong-but-close coefficient set."""
+        # [1/1] of exp = (1 + x/2) / (1 - x/2)
+        p11 = pade_approximant([1, 1, 0.5], L=1, M=1)
+        np.testing.assert_allclose(p11.numerator, [1.0, 0.5], atol=1e-12)
+        np.testing.assert_allclose(p11.denominator, [1.0, -0.5], atol=1e-12)
+        # [2/2] of exp = (1 + x/2 + x²/12) / (1 - x/2 + x²/12)
+        p22 = pade_approximant([1, 1, 0.5, 1 / 6, 1 / 24], L=2, M=2)
+        np.testing.assert_allclose(p22.numerator, [1.0, 0.5, 1 / 12], atol=1e-12)
+        np.testing.assert_allclose(p22.denominator, [1.0, -0.5, 1 / 12], atol=1e-12)
+
 
 # ---- Richardson table ----
 

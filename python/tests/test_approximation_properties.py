@@ -11,11 +11,36 @@ Hypothesis removes the human from input selection, so that whole class of
 """
 
 import numpy as np
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from pricebook.core.approximation import chebyshev_interpolate, chebyshev_nodes
+from pricebook.core.approximation import (
+    chebyshev_interpolate,
+    chebyshev_nodes,
+    pade_approximant,
+)
 from pricebook.numerical._spectral import chebyshev_expand
+
+
+def _maclaurin_of_ratio(num, den, order):
+    """Maclaurin series s_0..s_order of the rational num(x)/den(x).
+
+    Both coefficient arrays are low→high. Computes the reciprocal series of
+    `den` (q_0 ≠ 0) then convolves with `num`. Used to verify that a Padé
+    [L/M] approximant actually matches its Taylor input to order L+M.
+    """
+    num = np.asarray(num, dtype=float)
+    den = np.asarray(den, dtype=float)
+    recip = np.zeros(order + 1)
+    recip[0] = 1.0 / den[0]
+    for k in range(1, order + 1):
+        acc = sum(den[j] * recip[k - j] for j in range(1, min(k, len(den) - 1) + 1))
+        recip[k] = -acc / den[0]
+    s = np.zeros(order + 1)
+    for k in range(order + 1):
+        s[k] = sum(num[i] * recip[k - i] for i in range(min(k, len(num) - 1) + 1))
+    return s
+
 
 # Asymmetric interval: a in [-3, 1], width in [1, 4] -> b = a + width.
 # Generically a != -b, so any reversed/negated domain map is exposed.
@@ -73,3 +98,45 @@ class TestSpectralEvaluateNotMirrored:
         q = a + t * (b - a)  # off-centre whenever t != 0.5
         val = float(np.atleast_1d(res.evaluate(q))[0])
         assert abs(val - f(q)) <= 1e-7 * max(1.0, abs(f(q)))
+
+
+class TestPadeOrderMatching:
+    """The *defining* Padé contract: P/Q must match the Taylor input to order
+    L+M. Verifying only a value (as the old tests did) lets a silent truncation
+    pass; re-expanding P/Q as a power series and comparing every coefficient
+    does not."""
+
+    @given(data=st.data())
+    def test_pade_matches_taylor_to_order_L_plus_M(self, data):
+        L = data.draw(st.integers(min_value=1, max_value=3))
+        M = data.draw(st.integers(min_value=1, max_value=3))
+        n = L + M
+        c = [data.draw(st.floats(min_value=0.5, max_value=2.0))]  # c0 != 0
+        c += data.draw(
+            st.lists(
+                st.floats(min_value=-1.0, max_value=1.0),
+                min_size=n,
+                max_size=n,
+            )
+        )
+
+        try:
+            pade = pade_approximant(c, L, M)
+        except ValueError:
+            assume(False)  # singular / ill-conditioned draw — not a valid [L/M]
+
+        # Restrict to genuinely well-conditioned approximants: the cond<1e12
+        # guard is generous, and near it the recovered q blows up and the
+        # re-expansion amplifies roundoff. Large |q| is a cheap conditioning
+        # proxy; the matching contract is what we test, on the regime where it
+        # is numerically meaningful.
+        qmax = float(np.max(np.abs(pade.denominator)))
+        assume(qmax < 1e3)
+
+        s = _maclaurin_of_ratio(pade.numerator, pade.denominator, n)
+        scale = max(1.0, float(np.max(np.abs(c))))
+        # Matching error scales with conditioning (∝ |q|·eps); a flat 1e-7 is too
+        # tight for moderately-conditioned [3/3]. This stays ≤ 1e-5 (qmax<1e3) —
+        # still ~5 orders below the O(1) error a silent truncation would produce.
+        tol = 1e-8 * scale * max(1.0, qmax)
+        assert np.max(np.abs(s - np.asarray(c))) <= tol
