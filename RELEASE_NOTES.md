@@ -2,6 +2,19 @@
 
 ---
 
+## v1.203.0 — 2026-06-30 — **approximation hardening P8: Richardson explicit-orders API**
+
+Phase 8 (`OPEN.md` §0d).
+
+**Files**: `core/approximation.py` (+ `tests/test_approximation.py`).
+
+- **`richardson_table` gains an optional `orders` parameter** — explicit per-column error exponents `[q_1, q_2, ...]` to eliminate, for error expansions that are NOT geometric in a single base (mixed odd/even, or skipped orders like `h^1, h^2, h^4`). Column j then uses factor `2^{orders[j-1]}`. Backward-compatible: `orders=None` keeps the geometric `2^{p·j}` ladder. Validates `len(orders) ≥ len(values)-1`.
+- The geometric-series assumption (documented since the P-stage) is now an opt-out rather than a silent limitation. Test demonstrates `orders=[1,2,4]` recovers a series that *no* single geometric base can (a non-arithmetic exponent set).
+
+**Verification**: full suite **13,060 passed** (+2).
+
+---
+
 ## v1.202.0 — 2026-06-30 — **approximation hardening P7: iterative de Boor (Stage 3 begins)**
 
 Phase 7 (`OPEN.md` §0d) — first Stage-3 (engineering) change.
