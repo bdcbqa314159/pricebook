@@ -2,6 +2,18 @@
 
 ---
 
+## v1.204.0 — 2026-06-30 — **approximation hardening P9: complexity + failure-mode docstrings**
+
+Phase 9 (`OPEN.md` §0d). Doc-only, zero logic change.
+
+**Files**: `core/approximation.py`, `numerical/_spectral.py`.
+
+- Added **Complexity** (big-O) and **edge-case / failure-mode** notes to every function in the cluster: `chebyshev_nodes` (O(n), raises n<1), `chebyshev_coefficients` (O(n²), n=0 passthrough), `chebyshev_evaluate` (O(n)/point, clamp, a==b), `chebyshev_interpolate` (O(n²), a==b raise, n=0 constant), `pade_approximant` (O(M³)+O(L·M), singular raise, zero-padding), `PadeApproximant.evaluate` (pole → inf/nan), `richardson_table` (O(n²), empty/short-orders raises), `bspline_basis` (O(degree²), index raise, right-endpoint convention); plus `chebyshev_diff_matrix` (O(N²)), `chebyshev_expand` (O(n²)), `spectral_solve_bvp` (O(n³), lstsq fallback).
+
+**Verification**: imports + all 93 cluster tests pass (doc-only; full suite not re-run).
+
+---
+
 ## v1.203.0 — 2026-06-30 — **approximation hardening P8: Richardson explicit-orders API**
 
 Phase 8 (`OPEN.md` §0d).
