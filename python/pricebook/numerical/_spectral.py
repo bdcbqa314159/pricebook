@@ -205,8 +205,12 @@ def spectral_integrate(
     """Integrate f(x) from a to b using Gauss-Legendre quadrature.
 
     Exact for polynomials of degree ≤ 2n-1.
+
+    Thin alias over the canonical quadrature engine
+    ``numerical._integrate.integrate`` — Gauss-Legendre is implemented there
+    (the integration subsystem), not re-derived here. Kept for the
+    spectral-methods API surface; the map+weighted-sum is single-sourced.
     """
-    nodes, weights = legendre_nodes_weights(n)
-    # Map from [-1, 1] to [a, b]
-    x = 0.5 * (b - a) * nodes + 0.5 * (a + b)
-    return float(0.5 * (b - a) * np.dot(weights, [f(xi) for xi in x]))
+    from pricebook.numerical._integrate import IntegrationMethod, integrate
+
+    return integrate(f, a, b, method=IntegrationMethod.GAUSS_LEGENDRE, n=n).value
