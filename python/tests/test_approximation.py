@@ -35,21 +35,22 @@ class TestChebyshevInterpolation:
         err = np.max(np.abs(interp.evaluate(x_test) - np.exp(x_test)))
         assert err < 1e-10
 
-    def test_arbitrary_interval(self):
-        """Interpolation on [50, 150] for BS pricing."""
-        f = lambda x: np.maximum(x - 100, 0.0)  # call payoff
-        interp = chebyshev_interpolate(f, 50, 150, n=50)
-        # At S=120: payoff = 20
-        assert interp.evaluate(120.0) == pytest.approx(20.0, abs=0.5)
+    # Removed test_arbitrary_interval (P12): it interpolated a non-smooth kink
+    # payoff with abs=0.5 — Chebyshev has Gibbs oscillation there, so it
+    # "passed" for the wrong reason and the half-unit tolerance hid everything.
+    # Legitimate interpolation accuracy is now covered by the polynomial-
+    # exactness property (reproduce at nodes + off-node) in
+    # test_approximation_properties.py.
 
     def test_convergence_diagnostic(self):
         interp = chebyshev_interpolate(np.exp, -1, 1, n=20)
         # Last coefficients should be tiny for smooth functions
         assert interp.max_coeff_magnitude() < 1e-8
 
-    def test_scalar_evaluation(self):
-        interp = chebyshev_interpolate(np.sin, 0, math.pi, n=15)
-        assert interp.evaluate(math.pi / 2) == pytest.approx(1.0, abs=1e-8)
+    # Removed test_scalar_evaluation (P12): symmetric sin evaluated at the
+    # midpoint π/2 — the exact mirror-bug anti-pattern. Scalar evaluation and
+    # off-centre correctness are now covered by TestEvaluateReturnContract and
+    # the asymmetric off-centre property (test_approximation_properties.py).
 
     def test_degree_zero_constant(self):
         """n=0 yields a constant interpolant (no ZeroDivisionError)."""
