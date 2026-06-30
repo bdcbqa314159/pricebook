@@ -7,11 +7,14 @@ import pytest
 
 from pricebook.core.approximation import (
     Approximant,
+    BarycentricInterpolant,
     ChebyshevInterpolant,
     PadeApproximant,
     RichardsonTable,
+    barycentric_interpolate,
     bspline_basis,
     chebyshev_interpolate,
+    chebyshev_nodes,
     pade_approximant,
     richardson_table,
 )
@@ -72,6 +75,53 @@ class TestChebyshevInterpolation:
         assert float(np.atleast_1d(interp.evaluate(-5.0))[0]) == float(
             np.atleast_1d(interp.evaluate(0.0))[0]
         )
+
+
+# ---- Barycentric Lagrange interpolation ----
+
+class TestBarycentricInterpolation:
+    def test_reproduces_at_arbitrary_nodes(self):
+        """Interpolant passes through every (node, value) pair exactly."""
+        nodes = [0.0, 0.4, 0.9, 1.5, 2.3, 3.0]  # arbitrary, non-Chebyshev
+        f = lambda x: x**5 - 2 * x**3 + x - 1  # noqa: E731
+        interp = barycentric_interpolate(nodes, [f(x) for x in nodes])
+        for x in nodes:
+            assert interp.evaluate(x) == pytest.approx(f(x), abs=1e-10)
+
+    def test_polynomial_exactness_off_node(self):
+        """Degree-≤n polynomial reproduced everywhere, not just at nodes."""
+        nodes = np.array([0.0, 0.4, 0.9, 1.5, 2.3, 3.0])
+        f = lambda x: x**5 - 2 * x**3 + x - 1  # noqa: E731
+        interp = barycentric_interpolate(nodes, f(nodes))
+        xt = np.linspace(0, 3, 50)
+        assert np.max(np.abs(interp.evaluate(xt) - f(xt))) < 1e-10
+
+    def test_agrees_with_chebyshev_on_chebyshev_nodes(self):
+        """On Lobatto nodes, barycentric == chebyshev_interpolate (composition)."""
+        a, b, n = 0.3, 2.1, 16
+        cn = chebyshev_nodes(n, a, b)
+        bary = barycentric_interpolate(cn, np.exp(cn))
+        cheb = chebyshev_interpolate(np.exp, a, b, n)
+        xt = np.linspace(a, b, 40)
+        np.testing.assert_allclose(bary.evaluate(xt), cheb.evaluate(xt), atol=1e-12)
+
+    def test_scalar_returns_float(self):
+        interp = barycentric_interpolate([0.0, 1.0, 2.0], [1.0, 2.0, 5.0])
+        assert isinstance(interp.evaluate(1.5), float)
+        arr = interp.evaluate(np.array([0.5, 1.5]))
+        assert isinstance(arr, np.ndarray) and arr.shape == (2,)
+
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="equal length"):
+            barycentric_interpolate([0.0, 1.0, 2.0], [1.0, 2.0])
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="at least one node"):
+            barycentric_interpolate([], [])
+
+    def test_duplicate_nodes_raise(self):
+        with pytest.raises(ValueError, match="distinct"):
+            barycentric_interpolate([0.0, 1.0, 1.0, 2.0], [1.0, 2.0, 3.0, 4.0])
 
 
 # ---- Padé approximant ----
@@ -327,6 +377,7 @@ class TestApproximantConformance:
     def _evaluables():
         return [
             chebyshev_interpolate(np.exp, 0.0, 1.0, 12),
+            barycentric_interpolate([0.0, 0.5, 1.0, 1.7], [1.0, 1.6, 2.7, 5.5]),
             pade_approximant([1, 1, 0.5, 1 / 6, 1 / 24], L=2, M=2),
             chebyshev_expand(np.exp, 12, 0.0, 1.0),
         ]

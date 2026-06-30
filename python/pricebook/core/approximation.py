@@ -10,6 +10,7 @@ downward.
 * :func:`chebyshev_coefficients` — DCT coefficients from node values.
 * :func:`chebyshev_evaluate` — Clenshaw evaluation at arbitrary points.
 * :func:`chebyshev_interpolate` — near-optimal polynomial interpolation.
+* :func:`barycentric_interpolate` — stable polynomial interpolation at arbitrary nodes.
 * :func:`pade_approximant` — rational approximation from Taylor coefficients.
 * :func:`richardson_table` — full Richardson extrapolation table.
 * :func:`bspline_basis` — B-spline basis functions for curve construction.
@@ -193,6 +194,85 @@ def chebyshev_interpolate(
     nodes = chebyshev_nodes(n, a, b)
     coeffs = chebyshev_coefficients(np.asarray(f(nodes), dtype=float))
     return ChebyshevInterpolant(coeffs, a, b, n)
+
+
+# ---- Barycentric Lagrange interpolation ----
+
+
+def _barycentric_weights(nodes: np.ndarray) -> np.ndarray:
+    """Barycentric weights w_j = 1 / Π_{k≠j} (x_j − x_k). Complexity O(n²)."""
+    n = len(nodes)
+    w = np.ones(n)
+    for j in range(n):
+        diff = nodes[j] - nodes
+        diff[j] = 1.0  # skip the k=j term
+        w[j] = 1.0 / np.prod(diff)
+    return w
+
+
+@dataclass
+class BarycentricInterpolant(_ResultToDict):
+    """Polynomial interpolant through arbitrary nodes, barycentric form.
+
+    Unlike :class:`ChebyshevInterpolant` (fixed to its own Lobatto nodes), this
+    interpolates **arbitrary** (node, value) data — e.g. market-quoted points —
+    via the numerically stable barycentric formula (Trefethen, ATAP, Ch. 5).
+    """
+
+    nodes: np.ndarray
+    values: np.ndarray
+    weights: np.ndarray
+
+    def evaluate(self, x: float | np.ndarray) -> float | np.ndarray:
+        """Evaluate the interpolant. Scalar x → float; array x → np.ndarray.
+
+        Exact at a node (the 0/0 limit is taken as that node's value).
+        Complexity: O(n) per query point.
+        """
+        x_arr = np.asarray(x, dtype=float)
+        scalar = x_arr.ndim == 0
+        out = np.empty(np.atleast_1d(x_arr).shape)
+        for i, xv in enumerate(np.atleast_1d(x_arr)):
+            diff = xv - self.nodes
+            hit = np.where(diff == 0.0)[0]
+            if hit.size:  # query coincides with a node — return its value
+                out[i] = self.values[hit[0]]
+            else:
+                terms = self.weights / diff
+                out[i] = np.dot(terms, self.values) / terms.sum()
+        return float(out[0]) if scalar else out
+
+
+def barycentric_interpolate(
+    nodes: np.ndarray | list[float],
+    values: np.ndarray | list[float],
+) -> BarycentricInterpolant:
+    """Build a barycentric Lagrange interpolant through (nodes, values).
+
+    The numerically stable way to interpolate a polynomial through arbitrary
+    (not necessarily Chebyshev) nodes. On Chebyshev-Lobatto nodes it reproduces
+    :func:`chebyshev_interpolate` exactly.
+
+    Args:
+        nodes: distinct, 1-D interpolation abscissae.
+        values: function values at `nodes` (same length).
+
+    Complexity: O(n²) to build the weights, O(n) per evaluation. Raises
+    ValueError if the arrays differ in length / are not 1-D, are empty, or the
+    nodes are not distinct (duplicate nodes make the weights singular).
+
+    Reference:
+        Berrut & Trefethen, *Barycentric Lagrange Interpolation*, SIAM Rev. 2004.
+    """
+    nodes = np.asarray(nodes, dtype=float)
+    values = np.asarray(values, dtype=float)
+    if nodes.ndim != 1 or nodes.shape != values.shape:
+        raise ValueError("nodes and values must be 1-D arrays of equal length")
+    if len(nodes) == 0:
+        raise ValueError("barycentric_interpolate requires at least one node")
+    if len(np.unique(nodes)) != len(nodes):
+        raise ValueError("nodes must be distinct (duplicate nodes are singular)")
+    return BarycentricInterpolant(nodes, values, _barycentric_weights(nodes))
 
 
 # ---- Padé approximant ----

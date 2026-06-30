@@ -15,6 +15,7 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from pricebook.core.approximation import (
+    barycentric_interpolate,
     chebyshev_interpolate,
     chebyshev_nodes,
     pade_approximant,
@@ -140,3 +141,30 @@ class TestPadeOrderMatching:
         # still ~5 orders below the O(1) error a silent truncation would produce.
         tol = 1e-8 * scale * max(1.0, qmax)
         assert np.max(np.abs(s - np.asarray(c))) <= tol
+
+
+class TestBarycentricReproducesPolynomials:
+    """Barycentric interpolation through arbitrary nodes must reproduce a
+    degree-≤n polynomial everywhere — at the nodes and off them. Hypothesis
+    supplies asymmetric, irregular node sets the hand-written tests wouldn't."""
+
+    @given(
+        anchors=st.lists(
+            st.floats(min_value=-4.0, max_value=4.0), min_size=4, max_size=8, unique=True
+        ),
+        coeffs=st.lists(st.floats(min_value=-2.0, max_value=2.0), min_size=3, max_size=4),
+    )
+    def test_reproduces_polynomial(self, anchors, coeffs):
+        nodes = np.sort(np.asarray(anchors))
+        # Well-separated nodes only: float-`unique` can still place nodes ~1e-7
+        # apart, which makes the barycentric weights blow up (ill-conditioned).
+        # The interpolation contract is what we test, on the meaningful regime.
+        assume(np.min(np.diff(nodes)) > 0.1)
+        f = np.polynomial.Polynomial(coeffs)  # degree ≤ len(nodes)-1
+        interp = barycentric_interpolate(nodes, f(nodes))
+        scale = max(1.0, float(np.max(np.abs(f(nodes)))))
+        # at the nodes
+        assert np.max(np.abs(interp.evaluate(nodes) - f(nodes))) <= 1e-9 * scale
+        # off-node interior points
+        q = np.linspace(nodes[0], nodes[-1], 11)[1:-1]
+        assert np.max(np.abs(interp.evaluate(q) - f(q))) <= 1e-7 * scale
