@@ -2,6 +2,25 @@
 
 ---
 
+## v1.206.0 — 2026-06-30 — **approximation hardening P12: cleanup — plan COMPLETE**
+
+Final phase of the 12-phase hardening plan (`OPEN.md` §0d). Tests-only.
+
+**Files**: `tests/test_approximation.py`.
+
+- Removed two **misleading** legacy tests, now that their replacements have landed:
+  - `test_scalar_evaluation` — symmetric `sin` at the midpoint `π/2`, the exact mirror-bug anti-pattern. Covered by `TestEvaluateReturnContract` + the asymmetric off-centre property.
+  - `test_arbitrary_interval` — interpolated a non-smooth kink payoff with `abs=0.5`; Chebyshev has Gibbs oscillation there, so it passed for the wrong reason and the half-unit tolerance hid everything. Legitimate accuracy is covered by the polynomial-exactness property.
+
+**P11 (FFT DCT) was evaluated and deliberately skipped** — `scipy.fft.dct(type=1)` is the analytic equivalent but not bit-identical (max abs 5.9e-15, max rel 2.8e-10 across 1,400 cases); not worth a ~6e-15 perturbation across ~20 downstream modules for an irrelevant perf win at n≤50. The O(n²) loop stays. (Details in `OPEN.md` §0d.)
+
+### Plan complete (v1.195–v1.206)
+The approximation/Chebyshev cluster is now hardened end-to-end: **Stage 1** verification net (P1–P4b) makes the four historical bug-classes impossible to reintroduce silently; **Stage 2** pins the evaluate/serialise contracts (P5–P6); **Stage 3** improves the engineering (P7 de Boor, P8 Richardson orders, P9 docstrings, P10 re-divergence guard); **Stage 5** cleanup (P12). Full suite **13,062 passed**.
+
+**Verification**: full suite **13,062 passed** (−2 deleted misleading tests).
+
+---
+
 ## v1.205.0 — 2026-06-30 — **approximation hardening P10: re-divergence structural guard (Stage 3 complete)**
 
 Phase 10 (`OPEN.md` §0d). Tests-only.
