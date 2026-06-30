@@ -2,6 +2,20 @@
 
 ---
 
+## v1.208.0 — 2026-06-30 — **new technique: barycentric Lagrange interpolation**
+
+Proof-of-concept that the hardened approximation module extends cleanly — a genuinely *absent* primitive (verified: no `barycentric`/`remez`/`thiele`/`bernstein`/`pchip` anywhere), added end-to-end through the full hardening machinery.
+
+**Files**: `core/approximation.py` (+ `tests/test_approximation.py`, `test_approximation_properties.py`, `test_approximation_structure.py`).
+
+- **`barycentric_interpolate(nodes, values) → BarycentricInterpolant`** — numerically stable polynomial interpolation through **arbitrary** nodes (Berrut & Trefethen, SIAM Rev. 2004). Fills a real gap: `chebyshev_interpolate` is locked to its own Lobatto nodes; barycentric handles market-quoted abscissae. On Chebyshev nodes it reproduces `chebyshev_interpolate` exactly (4e-15) — the composition check.
+- **Hardened on arrival** (the point of the POC): guards (length mismatch, empty, duplicate/singular nodes); scalar→float / array→ndarray contract; exact-at-node 0/0 handling; `O(n²)` build / `O(n)` eval documented.
+- **Conforms to every existing discipline**: satisfies the `Approximant` protocol and the conformance test; a Hypothesis property reproduces degree-≤n polynomials through asymmetric, well-separated random node sets at nodes *and* off-node; the P10 structural guard now also requires `barycentric_interpolate` to be defined exactly once in `core`.
+
+**Verification**: full suite **13,070 passed** (+8).
+
+---
+
 ## v1.207.0 — 2026-06-30 — **quadrature de-duplication: spectral_integrate delegates to the canonical engine**
 
 Follow-up from the question "what's the point of `core.approximation` vs `numerical`?" — answer: altitude + layering (`core` = approximation-theory primitives, lowest layer; `numerical` = applied engines built on them). Quadrature is a numerical *method*, so its home is `numerical/_integrate.py` (the dispatcher), NOT `core.approximation` — which is why the right move was to consolidate, not add a 4th copy.
