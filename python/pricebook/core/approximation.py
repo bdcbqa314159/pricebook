@@ -337,10 +337,11 @@ def bspline_basis(
 ) -> float:
     """Evaluate the i-th B-spline basis function of given degree at x.
 
-    Uses the Cox-de Boor recursion:
-        B_{i,0}(x) = 1 if knots[i] ≤ x < knots[i+1], else 0
+    Cox-de Boor recurrence, evaluated *iteratively* via the triangular table —
+    O(degree²), versus the naive recursion's O(2^degree) (which re-evaluated
+    shared sub-terms). Same convention:
+        B_{i,0}(x) = 1 if knots[i] ≤ x < knots[i+1], else 0   (half-open)
         B_{i,k}(x) = w_{i,k} B_{i,k-1}(x) + (1−w_{i+1,k}) B_{i+1,k-1}(x)
-
     where w_{i,k} = (x − knots[i]) / (knots[i+k] − knots[i]).
 
     Args:
@@ -359,19 +360,17 @@ def bspline_basis(
             f"(valid: 0..{len(t) - degree - 2})"
         )
 
-    if degree == 0:
-        if t[i] <= x < t[i + 1]:
-            return 1.0
-        return 0.0
+    # Degree-0 table for the degree+1 basis functions starting at i (half-open).
+    n = [1.0 if t[i + j] <= x < t[i + j + 1] else 0.0 for j in range(degree + 1)]
 
-    left = 0.0
-    d1 = t[i + degree] - t[i]
-    if d1 > 0:
-        left = (x - t[i]) / d1 * bspline_basis(x, t, degree - 1, i)
+    # Raise the degree one level at a time, collapsing the table to n[0].
+    for d in range(1, degree + 1):
+        for j in range(degree + 1 - d):
+            k = i + j
+            d1 = t[k + d] - t[k]
+            left = (x - t[k]) / d1 * n[j] if d1 > 0 else 0.0
+            d2 = t[k + d + 1] - t[k + 1]
+            right = (t[k + d + 1] - x) / d2 * n[j + 1] if d2 > 0 else 0.0
+            n[j] = left + right
 
-    right = 0.0
-    d2 = t[i + degree + 1] - t[i + 1]
-    if d2 > 0:
-        right = (t[i + degree + 1] - x) / d2 * bspline_basis(x, t, degree - 1, i + 1)
-
-    return left + right
+    return n[0]
