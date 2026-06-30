@@ -2,6 +2,19 @@
 
 ---
 
+## v1.207.0 — 2026-06-30 — **quadrature de-duplication: spectral_integrate delegates to the canonical engine**
+
+Follow-up from the question "what's the point of `core.approximation` vs `numerical`?" — answer: altitude + layering (`core` = approximation-theory primitives, lowest layer; `numerical` = applied engines built on them). Quadrature is a numerical *method*, so its home is `numerical/_integrate.py` (the dispatcher), NOT `core.approximation` — which is why the right move was to consolidate, not add a 4th copy.
+
+**Files**: `numerical/_spectral.py`.
+
+- **`spectral_integrate` now delegates to `numerical._integrate.integrate(..., GAUSS_LEGENDRE)`** instead of re-deriving the Gauss-Legendre map + weighted sum. Verified bit-identical (0.0 diff across cases). `_integrate.py` (the 9-method quadrature subsystem with `IntegrationResult`) is the single source for the integration logic.
+- **Scope (deliberate):** the remaining `leggauss` *calls* — `_spectral.legendre_nodes_weights` (a thin numpy accessor), `_qmc` (raw nodes/weights for sparse-grid construction, not integration), and `_integrate.integrate_complex_contour` (complex contour, a genuinely different integral) — are legitimate uses of numpy's single `leggauss`, not duplicated integration logic, and are left as-is.
+
+**Verification**: full suite **13,062 passed** (behaviour unchanged).
+
+---
+
 ## v1.206.0 — 2026-06-30 — **approximation hardening P12: cleanup — plan COMPLETE**
 
 Final phase of the 12-phase hardening plan (`OPEN.md` §0d). Tests-only.
