@@ -62,6 +62,8 @@ def chebyshev_nodes(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
 
     Requires n >= 1 (a Lobatto set needs at least two endpoints); n=0 is a
     degree-0 constant, handled by the interpolators directly, not here.
+
+    Complexity: O(n). Raises ValueError if n < 1.
     """
     if n < 1:
         raise ValueError(f"chebyshev_nodes requires n >= 1, got {n}")
@@ -75,6 +77,9 @@ def chebyshev_coefficients(values: np.ndarray) -> np.ndarray:
     `values` must be f sampled at ``chebyshev_nodes(len(values) - 1)``, in node
     order. The endpoint weighting and the c_0 / c_n halving give the standard
     interpolation coefficients.
+
+    Complexity: O(n²) (direct cosine sum; fine for n ≲ 50, an FFT would give
+    O(n log n)). Edge case: a single value (n=0) is returned unchanged.
     """
     values = np.asarray(values, dtype=float)
     n = len(values) - 1
@@ -105,6 +110,9 @@ def chebyshev_evaluate(
     rather than extrapolated (polynomial extrapolation blows up fast).
 
     Return contract: scalar ``x`` → Python ``float``; array ``x`` → ``np.ndarray``.
+
+    Complexity: O(n) per query point (Clenshaw). Out-of-[a,b] queries clamp;
+    a degenerate interval (a == b) divides by zero — guard upstream.
     """
     x_arr = np.asarray(x, dtype=float)
     # Map [a, b] → [-1, 1], clamped to guard against overshoot / extrapolation.
@@ -169,6 +177,9 @@ def chebyshev_interpolate(
     Returns:
         :class:`ChebyshevInterpolant`.
 
+    Complexity: O(n²), dominated by the DCT. Raises ValueError on a degenerate
+    interval (a == b); n=0 returns a constant interpolant at the midpoint.
+
     Reference:
         Trefethen, ATAP, Ch. 4-5.
     """
@@ -199,7 +210,8 @@ class PadeApproximant(_ResultToDict):
     def evaluate(self, x: float | np.ndarray) -> float | np.ndarray:
         """Evaluate the Padé approximant at x.
 
-        Scalar ``x`` → Python ``float``; array ``x`` → ``np.ndarray``.
+        Scalar ``x`` → Python ``float``; array ``x`` → ``np.ndarray``. Returns
+        ±inf / nan at a denominator root (a pole); finite away from poles.
         """
         x_arr = np.asarray(x, dtype=float)
         num = np.polyval(self.numerator[::-1], x_arr)
@@ -222,6 +234,11 @@ def pade_approximant(
         taylor_coeffs: Taylor coefficients c_0, c_1, ..., c_{L+M}.
         L: numerator degree.
         M: denominator degree.
+
+    Complexity: O(M³) (denominator solve) + O(L·M) (numerator). Raises
+    ValueError if the [L/M] denominator system is singular or ill-conditioned
+    (cond > 1e12) — i.e. no Padé [L/M] exists for these coefficients. A short
+    `taylor_coeffs` is zero-padded to length L+M+1.
 
     Reference:
         Baker & Graves-Morris, Padé Approximants, Ch. 1.
@@ -314,6 +331,10 @@ def richardson_table(
 
     Returns:
         :class:`RichardsonTable` with the full table and best estimate.
+
+    Complexity: O(n²) in the number of estimates. Raises ValueError if `values`
+    is empty, or if `orders` has fewer than len(values)-1 entries. A single
+    estimate is returned as-is (nothing to extrapolate).
     """
     if not values:
         raise ValueError("richardson_table requires at least one estimate")
@@ -359,6 +380,11 @@ def bspline_basis(
         knots: knot vector (sorted, with multiplicity).
         degree: spline degree (0 = piecewise constant, 3 = cubic).
         i: basis function index.
+
+    Complexity: O(degree²). Raises IndexError if i is out of range
+    (0 ≤ i ≤ len(knots)−degree−2). At x == knots[-1] the half-open convention
+    gives 0 (partition of unity holds on the half-open interior, not the right
+    endpoint).
     """
     t = np.asarray(knots, dtype=float)
 

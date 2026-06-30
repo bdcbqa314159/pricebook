@@ -57,7 +57,7 @@ def chebyshev_diff_matrix(n: int) -> np.ndarray:
     """Chebyshev differentiation matrix D on [-1, 1].
 
     D[i, j] = derivative of j-th Lagrange interpolant at node i.
-    Size: (N+1) × (N+1).
+    Size: (N+1) × (N+1). Complexity: O(N²).
     """
     x = chebyshev_nodes(n)
     N = n
@@ -94,6 +94,8 @@ def chebyshev_expand(
         f: function to interpolate, f(x) → float.
         n: polynomial degree (N+1 points).
         a, b: interval [a, b].
+
+    Complexity: O(n²). Raises ValueError (via chebyshev_nodes) if n < 1.
     """
     nodes = chebyshev_nodes(n, a, b)
     values = np.array([f(x) for x in nodes])
@@ -138,6 +140,9 @@ def spectral_solve_bvp(
         bc_left, bc_right: Dirichlet boundary conditions u(a), u(b).
         n: number of collocation points.
         a, b: domain [a, b].
+
+    Complexity: O(n³) (dense interior solve). Falls back to least-squares if the
+    interior operator is singular.
     """
     # Chebyshev on [a, b]
     nodes = chebyshev_nodes(n, a, b)
