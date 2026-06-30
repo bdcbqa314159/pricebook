@@ -2,6 +2,23 @@
 
 ---
 
+## v1.205.0 — 2026-06-30 — **approximation hardening P10: re-divergence structural guard (Stage 3 complete)**
+
+Phase 10 (`OPEN.md` §0d). Tests-only.
+
+**Files**: `tests/test_approximation_structure.py` (new).
+
+- **AST-based structural guard** that fails CI if the consolidation or layering is silently undone:
+  - each Chebyshev kernel function (`chebyshev_nodes`, `chebyshev_coefficients`, `chebyshev_evaluate`, `chebyshev_interpolate`) is defined **exactly once**, in `core/approximation.py`; `chebyshev_diff_matrix` exactly once in `numerical/_spectral.py`; the deleted `_chebyshev_diff_matrix` copy must never reappear.
+  - `core/approximation.py` imports **nothing upward** (only stdlib/numpy/`pricebook.core`) — it's the lowest layer.
+- Verified non-vacuous: both checks fire on a simulated duplicate def / upward import. This is the insurance that the three-island divergence (which let a sign-flipped diff matrix hide for years) cannot recur.
+
+**Stage 3 (engineering) complete.** Remaining: P11 (FFT DCT, gated on bit-equivalence) and P12 (cleanup).
+
+**Verification**: full suite **13,064 passed** (+4).
+
+---
+
 ## v1.204.0 — 2026-06-30 — **approximation hardening P9: complexity + failure-mode docstrings**
 
 Phase 9 (`OPEN.md` §0d). Doc-only, zero logic change.
