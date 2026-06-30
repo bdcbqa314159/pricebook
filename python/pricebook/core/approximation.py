@@ -290,6 +290,7 @@ class RichardsonTable(_ResultToDict):
 def richardson_table(
     values: list[float],
     order: int = 2,
+    orders: list[int] | None = None,
 ) -> RichardsonTable:
     """Build a full Richardson extrapolation table.
 
@@ -297,15 +298,19 @@ def richardson_table(
     triangular table where each column cancels one more order
     of the leading error term.
 
-    Assumes the error expansion is *geometric* in the base order, i.e.
-    f(h) = A + c_1 h^p + c_2 h^{2p} + ... (column j eliminates the h^{jp}
-    term via the factor 2^{p·j}). For a series with consecutive-order terms
-    (e.g. h^p, h^{p+1}, ...) this cancels only the h^{jp} terms and is
-    sub-optimal — supply estimates whose error is geometric in `order`.
+    By default assumes the error expansion is *geometric* in the base order,
+    f(h) = A + c_1 h^p + c_2 h^{2p} + ... (column j eliminates the h^{jp} term
+    via the factor 2^{p·j}). For an expansion that is NOT geometric in a single
+    base — mixed odd/even, or skipped orders such as h^1, h^2, h^4 — pass the
+    actual error exponents via `orders`; column j then uses the factor
+    2^{orders[j-1]}. A single base p cannot reproduce a non-arithmetic exponent
+    set, so this is the opt-in for those cases.
 
     Args:
         values: estimates at h, h/2, h/4, ... (at least one; ≥2 to extrapolate).
-        order: base convergence order p.
+        order: base convergence order p (used only when `orders` is None).
+        orders: explicit error exponents [q_1, q_2, ...] to eliminate per column,
+            in increasing order. Needs ≥ len(values)-1 entries. Overrides `order`.
 
     Returns:
         :class:`RichardsonTable` with the full table and best estimate.
@@ -313,11 +318,16 @@ def richardson_table(
     if not values:
         raise ValueError("richardson_table requires at least one estimate")
     n = len(values)
+    if orders is not None and len(orders) < n - 1:
+        raise ValueError(
+            f"orders needs ≥ {n - 1} exponents for {n} values, got {len(orders)}"
+        )
     T = np.zeros((n, n))
     T[:, 0] = values
 
     for j in range(1, n):
-        r = 2 ** (order * j)
+        exponent = orders[j - 1] if orders is not None else order * j
+        r = 2**exponent
         for i in range(j, n):
             T[i, j] = (r * T[i, j - 1] - T[i - 1, j - 1]) / (r - 1)
 

@@ -172,6 +172,21 @@ class TestRichardsonTable:
         assert abs(richardson_table(values, order=3).best_estimate - 1) < 1e-12
         assert abs(richardson_table(values, order=2).best_estimate - 1) > 1e-7
 
+    def test_explicit_orders_for_non_geometric_series(self):
+        """Explicit `orders` eliminates a non-arithmetic exponent set (h^1, h^2,
+        h^4) that NO single geometric base can — the opt-in's whole purpose."""
+        A = 2.0
+        c = [0.7, -0.4, 0.9]
+        hs = [0.2 / 2**i for i in range(4)]
+        values = [A + c[0] * h + c[1] * h**2 + c[2] * h**4 for h in hs]
+        assert abs(richardson_table(values, orders=[1, 2, 4]).best_estimate - A) < 1e-12
+        # The best geometric base can't do it (exponents 1,2,4 aren't p,2p,3p).
+        assert abs(richardson_table(values, order=1).best_estimate - A) > 1e-7
+
+    def test_orders_too_short_raises(self):
+        with pytest.raises(ValueError, match="orders needs"):
+            richardson_table([1.0, 1.1, 1.2, 1.3], orders=[2])  # need 3
+
     def test_best_estimate_is_table_corner(self):
         values = [1.1, 1.025, 1.006, 1.0015]
         r = richardson_table(values, order=2)
