@@ -2,6 +2,18 @@
 
 ---
 
+## v1.202.0 — 2026-06-30 — **approximation hardening P7: iterative de Boor (Stage 3 begins)**
+
+Phase 7 (`OPEN.md` §0d) — first Stage-3 (engineering) change.
+
+**Files**: `core/approximation.py`.
+
+- **`bspline_basis` now evaluates the Cox-de Boor recurrence iteratively** via the triangular table — **O(degree²)** instead of the naive recursion's **O(2^degree)** (it had re-evaluated shared sub-terms exponentially). Same half-open convention, same index guard. Verified **bit-identical** to the old recursion across a full sweep of knot vectors / degrees / x (max diff 0.0) and against the scipy oracle (5e-17), so all callers (curve construction, sparse grids) are unaffected.
+
+**Verification**: full suite **13,058 passed** (unchanged count; pure refactor).
+
+---
+
 ## v1.201.0 — 2026-06-29 — **approximation hardening P6: Approximant protocol + conformance (Stage 2 complete)**
 
 Phase 6 (`OPEN.md` §0d).
