@@ -11,11 +11,13 @@ from pricebook.core.approximation import (
     ChebyshevInterpolant,
     PadeApproximant,
     RichardsonTable,
+    HermiteInterpolant,
     RemezApproximant,
     barycentric_interpolate,
     bspline_basis,
     chebyshev_interpolate,
     chebyshev_nodes,
+    hermite_interpolate,
     pade_approximant,
     remez,
     richardson_table,
@@ -177,6 +179,55 @@ class TestRemez:
         """Fail loud, never return a silent partial result."""
         with pytest.raises(ValueError, match="did not converge"):
             remez(np.exp, 0, 1, 4, max_iter=0)
+
+
+# ---- Hermite interpolation ----
+
+class TestHermiteInterpolation:
+    def test_matches_values_and_derivatives(self):
+        """p(x_i) == value_i exactly; p'(x_i) == derivative_i (via central diff)."""
+        nodes = np.array([0.0, 0.7, 1.6, 2.5])
+        interp = hermite_interpolate(nodes, np.exp(nodes), np.exp(nodes))
+        for x in nodes:
+            assert interp.evaluate(x) == pytest.approx(np.exp(x), abs=1e-12)
+        h = 1e-6
+        for x in nodes:
+            deriv = (interp.evaluate(x + h) - interp.evaluate(x - h)) / (2 * h)
+            assert deriv == pytest.approx(np.exp(x), abs=1e-5)
+
+    def test_derivative_conditions_independent_of_values(self):
+        """Zero values but ±1 slopes ⇒ p'(0)=1, p'(1)=-1 (a cubic)."""
+        interp = hermite_interpolate([0.0, 1.0], [0.0, 0.0], [1.0, -1.0])
+        h = 1e-6
+        assert (interp.evaluate(h) - interp.evaluate(-h)) / (2 * h) == pytest.approx(1.0, abs=1e-5)
+        assert (interp.evaluate(1 + h) - interp.evaluate(1 - h)) / (2 * h) == pytest.approx(-1.0, abs=1e-5)
+
+    def test_polynomial_exact_degree_2n_minus_1(self):
+        """Degree-≤(2n-1) polynomial reproduced exactly (n=3 ⇒ degree 5)."""
+        f = lambda x: 3 * x**5 - 2 * x**3 + x - 4  # noqa: E731
+        fp = lambda x: 15 * x**4 - 6 * x**2 + 1  # noqa: E731
+        nodes = np.array([-1.0, 0.3, 1.2])
+        interp = hermite_interpolate(nodes, f(nodes), fp(nodes))
+        g = np.linspace(-1, 1.2, 100)
+        assert np.max(np.abs(interp.evaluate(g) - f(g))) < 1e-10
+
+    def test_scalar_returns_float(self):
+        interp = hermite_interpolate([0.0, 1.0], [1.0, 2.0], [0.5, 0.5])
+        assert isinstance(interp.evaluate(0.5), float)
+        arr = interp.evaluate(np.array([0.2, 0.8]))
+        assert isinstance(arr, np.ndarray) and arr.shape == (2,)
+
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="equal length"):
+            hermite_interpolate([0.0, 1.0], [1.0, 2.0], [0.5])
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="at least one node"):
+            hermite_interpolate([], [], [])
+
+    def test_duplicate_nodes_raise(self):
+        with pytest.raises(ValueError, match="distinct"):
+            hermite_interpolate([0.0, 1.0, 1.0], [1.0, 2.0, 3.0], [0.0, 0.0, 0.0])
 
 
 # ---- Padé approximant ----
@@ -434,6 +485,7 @@ class TestApproximantConformance:
             chebyshev_interpolate(np.exp, 0.0, 1.0, 12),
             barycentric_interpolate([0.0, 0.5, 1.0, 1.7], [1.0, 1.6, 2.7, 5.5]),
             remez(np.exp, 0.0, 1.0, 6),
+            hermite_interpolate([0.0, 1.0, 2.0], [1.0, 2.7, 7.4], [1.0, 2.7, 7.4]),
             pade_approximant([1, 1, 0.5, 1 / 6, 1 / 24], L=2, M=2),
             chebyshev_expand(np.exp, 12, 0.0, 1.0),
         ]

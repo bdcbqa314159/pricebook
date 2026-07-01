@@ -12,6 +12,7 @@ downward.
 * :func:`chebyshev_interpolate` — near-optimal polynomial interpolation.
 * :func:`barycentric_interpolate` — stable polynomial interpolation at arbitrary nodes.
 * :func:`remez` — best (minimax) polynomial approximation via the exchange algorithm.
+* :func:`hermite_interpolate` — osculatory interpolation (matches values + derivatives).
 * :func:`pade_approximant` — rational approximation from Taylor coefficients.
 * :func:`richardson_table` — full Richardson extrapolation table.
 * :func:`bspline_basis` — B-spline basis functions for curve construction.
@@ -391,6 +392,81 @@ def remez(
         x = np.sort(grid[refs])
 
     raise ValueError(f"Remez did not converge in {max_iter} iterations")
+
+
+# ---- Hermite (osculatory) interpolation ----
+
+
+@dataclass
+class HermiteInterpolant(_ResultToDict):
+    """Osculatory polynomial matching values AND first derivatives at the nodes.
+
+    Degree 2n−1 through n nodes; reproduces both f and f' at every node. Stored
+    in Newton form over the confluent (doubled) node array and evaluated by
+    Horner nesting.
+    """
+
+    nodes: np.ndarray  # confluent node array (each input node doubled)
+    coefficients: np.ndarray  # Newton divided-difference diagonal
+    degree: int
+
+    def evaluate(self, x: float | np.ndarray) -> float | np.ndarray:
+        """Evaluate the interpolant. Scalar x → float; array x → ndarray."""
+        x_arr = np.asarray(x, dtype=float)
+        p = np.full(x_arr.shape, self.coefficients[-1], dtype=float)
+        for k in range(len(self.coefficients) - 2, -1, -1):
+            p = p * (x_arr - self.nodes[k]) + self.coefficients[k]
+        return float(p) if x_arr.ndim == 0 else p
+
+
+def hermite_interpolate(
+    nodes: np.ndarray | list[float],
+    values: np.ndarray | list[float],
+    derivatives: np.ndarray | list[float],
+) -> HermiteInterpolant:
+    """Hermite interpolant matching `values` and `derivatives` at `nodes`.
+
+    The unique degree-(2n−1) polynomial with p(x_i) = values[i] and
+    p'(x_i) = derivatives[i]. Built from Newton divided differences over the
+    confluent node list (each node doubled), where the first divided difference
+    of a repeated node is its derivative.
+
+    Args:
+        nodes: distinct, 1-D abscissae.
+        values, derivatives: f(x_i) and f'(x_i) at `nodes` (same length).
+
+    Complexity: O(n²) to build, O(n) per evaluation. Raises ValueError if the
+    arrays differ in length / are not 1-D, are empty, or nodes are not distinct.
+
+    Reference:
+        Burden & Faires, *Numerical Analysis*, §3.4 (Hermite interpolation).
+    """
+    nodes = np.asarray(nodes, dtype=float)
+    values = np.asarray(values, dtype=float)
+    derivatives = np.asarray(derivatives, dtype=float)
+    if nodes.ndim != 1 or not (nodes.shape == values.shape == derivatives.shape):
+        raise ValueError("nodes, values, derivatives must be 1-D arrays of equal length")
+    if len(nodes) == 0:
+        raise ValueError("hermite_interpolate requires at least one node")
+    if len(np.unique(nodes)) != len(nodes):
+        raise ValueError("nodes must be distinct")
+
+    n = len(nodes)
+    m = 2 * n
+    z = np.empty(m)
+    q = np.zeros((m, m))
+    for i in range(n):
+        z[2 * i] = z[2 * i + 1] = nodes[i]
+        q[2 * i][0] = q[2 * i + 1][0] = values[i]
+        q[2 * i + 1][1] = derivatives[i]  # confluent: f[x_i, x_i] = f'(x_i)
+        if i != 0:
+            q[2 * i][1] = (q[2 * i][0] - q[2 * i - 1][0]) / (z[2 * i] - z[2 * i - 1])
+    for j in range(2, m):
+        for i in range(j, m):
+            q[i][j] = (q[i][j - 1] - q[i - 1][j - 1]) / (z[i] - z[i - j])
+
+    coeffs = np.array([q[i][i] for i in range(m)])
+    return HermiteInterpolant(z, coeffs, m - 1)
 
 
 # ---- Padé approximant ----
