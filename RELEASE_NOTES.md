@@ -2,6 +2,20 @@
 
 ---
 
+## v1.215.0 — 2026-07-01 — **calendar: golden fingerprint net (pre-refactor safety net)**
+
+Before the calendar boilerplate refactor (~37 near-duplicate `Calendar` subclasses → a declarative spec), a byte-exact characterization net that pins current behaviour so the refactor is provably holiday-for-holiday identical.
+
+**Files**: `tests/test_calendar_golden.py` (new).
+
+- For every registered currency calendar, fingerprints (sha256) the full holiday set across **2000-2050** and asserts it against a captured constant — **per-calendar**, so a failure names the exact code that diverged.
+- Plus a registry-unchanged check (no calendar silently added/dropped).
+- Green on the current implementation; this net must stay green through the upcoming `SpecCalendar` migration.
+
+**Verification**: 38 golden tests pass.
+
+---
+
 ## v1.214.0 — 2026-07-01 — **caching: reframe as a catalogue of utilities (strip the unused Protocol)**
 
 The v1.212 `Cache` protocol had **zero consumers** — nothing type-hinted `Cache`; its only reference was the conformance test's `isinstance`. An abstraction ahead of its consumer. Per the design call: caching is a **catalogue of utility functions**, not an abstraction — add a shared class/type only *when clones actually appear*.
