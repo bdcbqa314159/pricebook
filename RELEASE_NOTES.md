@@ -2,6 +2,22 @@
 
 ---
 
+## v1.210.0 — 2026-07-01 — **new technique: Hermite osculatory interpolation**
+
+Third added technique. Interpolates through *derivative* data — a real gap for curve building with known forwards/slopes.
+
+**Files**: `core/approximation.py` (+ `tests/test_approximation.py`, `test_approximation_structure.py`).
+
+- **`hermite_interpolate(nodes, values, derivatives) → HermiteInterpolant`** — the unique degree-(2n−1) polynomial with `p(x_i) = values[i]` **and** `p'(x_i) = derivatives[i]`. Built from Newton divided differences over the confluent (doubled) node list (`f[x_i, x_i] = f'(x_i)`), evaluated by Horner nesting.
+- **Verified:** reproduces values exactly and derivatives to finite-difference precision at every node; a degree-≤(2n−1) polynomial is reproduced exactly (4e-15); the derivative conditions are honoured independently of the values (0-values / ±1-slopes ⇒ the expected cubic).
+- **Inherits the full discipline:** guards (length mismatch, empty, duplicate nodes), scalar→float contract, `Approximant` protocol + conformance, and the P10 structural guard now requires `hermite_interpolate` to be defined exactly once in `core`.
+
+**Module now exposes 8 techniques** (Chebyshev, Barycentric, Remez, Hermite, Padé, Richardson, B-spline + the evaluation kernel), all under one hardened contract.
+
+**Verification**: full suite **13,085 passed** (+7).
+
+---
+
 ## v1.209.0 — 2026-07-01 — **new technique: Remez minimax polynomial**
 
 Second added technique (after barycentric). Completes the module's own story — `chebyshev_interpolate` is documented as *near*-minimax (within O(log n) of best); `remez` gives the **actual** best.
