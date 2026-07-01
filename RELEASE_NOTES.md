@@ -2,6 +2,21 @@
 
 ---
 
+## v1.213.0 — 2026-07-01 — **remove dead PathCache (caching Phase 1 finding)**
+
+The caching-client migration (§0e Phase 1, target 1a) turned up that its premise was false: `mc_greeks_auto.PathCache` is **dead** — never wired into `auto_greeks` (which prices directly), `get_global_cache()`/`_GLOBAL_CACHE` have zero callers, and only one test touched it, while the module/function docstrings claimed "uses path caching for efficiency." A second orphaned cache, like `core/caching` was.
+
+**Files**: `models/mc_greeks_auto.py`, `tests/test_engine_infrastructure.py`.
+
+- Removed `PathCache`, `_GLOBAL_CACHE`, `get_global_cache()`, the now-unused `hashlib` / `OrderedDict` imports, and the dead `test_path_cache`.
+- Corrected the misleading docstrings (module + `auto_greeks`) that advertised path caching that never happened.
+
+**Why not migrate it onto `Cache`:** you can't inject `NullCache` into a cache nothing uses — migrating dead code adds no value. The genuinely-live cache (`calendar._holiday_cache`) is a correct minimal dict over *immutable* per-year keys, where a stale/aliasing bug is impossible by construction, so the `NullCache` confrontation is moot there too. Net: the v1.212 `Cache`/`NullCache` abstraction stands as infrastructure for *future* caching sites where staleness is a real risk; no existing cache needed retro-migration.
+
+**Verification**: full suite **13,094 passed**.
+
+---
+
 ## v1.212.0 — 2026-07-01 — **caching: a real abstraction with a no-cache baseline (Phase 0)**
 
 `core/caching.py` was three unused concrete classes (`CurveCache`, `CalibrationCache`, `LazyValue`) — zero production callers, not public API, while production cached via stdlib `functools.lru_cache` / a bespoke `OrderedDict` LRU. Rather than delete or force-consolidate (a survey showed caching is heterogeneous *by design* — each site using the minimal correct tool), this reshapes the module into a **contract + isolation seam**, following the calibrator playbook.
