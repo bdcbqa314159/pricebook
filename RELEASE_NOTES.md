@@ -2,6 +2,22 @@
 
 ---
 
+## v1.211.0 — 2026-07-01 — **quadrature re-divergence guard**
+
+The quadrature analogue of the Chebyshev P10 structural guard — makes the v1.207 Gauss-Legendre consolidation permanent.
+
+**Files**: `tests/test_quadrature_structure.py` (new).
+
+- **AST/text structural guard** that fails if the Gauss-Legendre integration logic re-duplicates:
+  - `_gauss_legendre` (canonical backend) and `integrate` (dispatcher) each defined **exactly once**, in `numerical/_integrate.py`.
+  - `leggauss` call sites pinned to the 3 legitimate homes (`_integrate` integrator, `_spectral` accessor, `_qmc` grid construction) — a **new** call site (a likely re-implemented integrator) trips the guard.
+  - `spectral_integrate` must **delegate** (`integrate(` in its body) and must **not** re-inline `leggauss` — pins the v1.207 fix so it can't quietly regress.
+- Verified non-vacuous: both a new leggauss home and a re-inlined `spectral_integrate` fire the guard.
+
+**Verification**: full suite **13,089 passed** (+4).
+
+---
+
 ## v1.210.0 — 2026-07-01 — **new technique: Hermite osculatory interpolation**
 
 Third added technique. Interpolates through *derivative* data — a real gap for curve building with known forwards/slopes.
