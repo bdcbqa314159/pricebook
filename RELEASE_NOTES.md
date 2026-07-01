@@ -2,6 +2,21 @@
 
 ---
 
+## v1.209.0 — 2026-07-01 — **new technique: Remez minimax polynomial**
+
+Second added technique (after barycentric). Completes the module's own story — `chebyshev_interpolate` is documented as *near*-minimax (within O(log n) of best); `remez` gives the **actual** best.
+
+**Files**: `core/approximation.py` (+ `tests/test_approximation.py`, `test_approximation_structure.py`).
+
+- **`remez(f, a, b, degree) → RemezApproximant`** — best degree-n uniform (minimax) polynomial via the **Remez exchange algorithm** (Trefethen ATAP Ch. 10). Result stored as **Chebyshev coefficients** and evaluated through the hardened `chebyshev_evaluate` — Remez composes on the kernel rather than re-deriving evaluation. Converges in 1–4 iterations on smooth functions.
+- **The iterative-technique discipline (as flagged):** non-convergence within `max_iter` **raises** — never a silent partial result. Guards on degenerate interval and negative degree.
+- **Verified optimal:** minimax error is ≤ the Chebyshev interpolation error across exp / sin / Runge at degrees 4, 8 (≈half in practice); reported `error` equioscillates (matches the true max to dense-grid resolution); a degree-≤n polynomial is reproduced to ~0; the degree-0 case returns the mid-range `(min+max)/2`.
+- **Inherits every discipline:** satisfies the `Approximant` protocol + conformance test, scalar→float contract, and the P10 structural guard now requires `remez` to be defined exactly once in `core`.
+
+**Verification**: full suite **13,078 passed** (+8).
+
+---
+
 ## v1.208.0 — 2026-06-30 — **new technique: barycentric Lagrange interpolation**
 
 Proof-of-concept that the hardened approximation module extends cleanly — a genuinely *absent* primitive (verified: no `barycentric`/`remez`/`thiele`/`bernstein`/`pchip` anywhere), added end-to-end through the full hardening machinery.
