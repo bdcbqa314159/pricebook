@@ -1,78 +1,134 @@
-"""
-Caching, memoisation, and lazy evaluation for the pricing stack.
+"""Caching contract, a null baseline, and reference implementations.
 
-CurveCache: LRU cache for discount factor lookups with invalidation.
-CalibrationCache: stores calibrated model params, invalidates on input change.
-LazyValue: defers computation until first access.
+The module defines the *action* — ``Cache.get_or_compute(key, compute)`` — as a
+minimal Protocol, plus a :class:`NullCache` that computes every time and stores
+nothing. Any component that caches takes a ``Cache``; injecting ``NullCache``
+runs the identical code path with caching disabled, so a cache-induced
+discrepancy (staleness, wrong key, aliasing) can always be **isolated** by
+comparing against the no-cache baseline — the computation is confronted
+independently of the cache.
 
-    from pricebook.core.caching import CurveCache, CalibrationCache, LazyValue
+    from pricebook.core.caching import Cache, NullCache, LRUCache, DictCache
 
-    cache = CurveCache(maxsize=1024)
-    df = cache.get_or_compute("ois", date(2029,1,15), lambda: curve.df(d))
+    def price(..., cache: Cache = NullCache()):
+        return cache.get_or_compute(("df", d), lambda: curve.df(d))
+    # inject LRUCache() in production; NullCache() to prove the cache is honest.
 
-    lazy_curve = LazyValue(lambda: bootstrap(ref, deposits, swaps))
-    # curve not built yet
-    pv = instrument.pv(lazy_curve.value)  # now it's built
+Implementations:
+* :class:`NullCache` — pass-through; the "no caching" baseline.
+* :class:`DictCache` — unbounded memo, for immutable-keyed data.
+* :class:`LRUCache`  — bounded LRU with hit/miss stats and predicate invalidation.
+* :class:`LazyValue` — compute-once lazy thunk (a single value, not keyed).
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import TypeVar, Generic
+from typing import Callable, Generic, Hashable, Protocol, TypeVar, runtime_checkable
 
+V = TypeVar("V")
 T = TypeVar("T")
 
+Predicate = Callable[[Hashable], bool]
 
-class CurveCache:
-    """LRU cache for curve query results (e.g. df, forward_rate).
 
-    Keys are (curve_name, query_key) tuples. Invalidation clears
-    all entries for a given curve_name.
+@runtime_checkable
+class Cache(Protocol):
+    """The caching action: return the cached value for ``key``, or compute+store it.
 
-    Args:
-        maxsize: maximum number of cached entries.
+    The single seam every cache exposes. Swap :class:`NullCache` in anywhere to
+    run the same path without caching — if the result changes, the *cache* is at
+    fault, not the computation.
     """
 
-    def __init__(self, maxsize: int = 4096):
+    def get_or_compute(self, key: Hashable, compute: Callable[[], V]) -> V: ...
+
+
+class NullCache:
+    """Pass-through cache: always computes, never stores.
+
+    The baseline for confronting any caching solution — inject this to disable
+    caching without touching the call site, then compare results against a real
+    cache. Any difference is a cache bug (staleness, wrong key, aliasing), never
+    a computation bug. ``invalidate``/``clear`` are no-ops so it drops in cleanly.
+    """
+
+    def get_or_compute(self, key: Hashable, compute: Callable[[], V]) -> V:
+        return compute()
+
+    def invalidate(self, predicate: Predicate) -> int:
+        return 0
+
+    def clear(self) -> None:
+        pass
+
+
+class DictCache:
+    """Unbounded memo — for immutable-keyed data (e.g. holidays per year).
+
+    No eviction: use only where the key space is naturally bounded and the value
+    for a key never changes. For anything unbounded/mutable, use :class:`LRUCache`.
+    """
+
+    def __init__(self) -> None:
+        self._cache: dict[Hashable, object] = {}
+
+    def get_or_compute(self, key: Hashable, compute: Callable[[], V]) -> V:
+        if key not in self._cache:
+            self._cache[key] = compute()
+        return self._cache[key]  # type: ignore[return-value]
+
+    def invalidate(self, predicate: Predicate) -> int:
+        """Remove every key for which predicate(key) is true. Returns count."""
+        keys = [k for k in self._cache if predicate(k)]
+        for k in keys:
+            del self._cache[k]
+        return len(keys)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+    @property
+    def size(self) -> int:
+        return len(self._cache)
+
+
+class LRUCache:
+    """Bounded LRU cache with hit/miss stats and predicate invalidation.
+
+    Least-recently-used eviction once ``maxsize`` is exceeded. Structured keys
+    give namespaced invalidation, e.g. ``invalidate(lambda k: k[0] == "ois")``.
+
+    Not thread-safe — guard externally if shared across threads.
+    """
+
+    def __init__(self, maxsize: int = 4096) -> None:
         self._maxsize = maxsize
-        self._cache: OrderedDict[tuple, float] = OrderedDict()
+        self._cache: OrderedDict[Hashable, object] = OrderedDict()
         self._hits = 0
         self._misses = 0
 
-    def get_or_compute(
-        self, curve_name: str, query_key, compute_fn,
-    ) -> float:
-        """Return cached value or compute and cache it.
-
-        Args:
-            curve_name: identifier for the curve (e.g. "ois").
-            query_key: hashable key (e.g. a date or (date1, date2)).
-            compute_fn: callable that returns the value if not cached.
-        """
-        key = (curve_name, query_key)
+    def get_or_compute(self, key: Hashable, compute: Callable[[], V]) -> V:
         if key in self._cache:
             self._hits += 1
             self._cache.move_to_end(key)
-            return self._cache[key]
+            return self._cache[key]  # type: ignore[return-value]
 
         self._misses += 1
-        value = compute_fn()
+        value = compute()
         self._cache[key] = value
-
         if len(self._cache) > self._maxsize:
             self._cache.popitem(last=False)
-
         return value
 
-    def invalidate(self, curve_name: str) -> int:
-        """Remove all cached entries for a curve. Returns count removed."""
-        keys_to_remove = [k for k in self._cache if k[0] == curve_name]
-        for k in keys_to_remove:
+    def invalidate(self, predicate: Predicate) -> int:
+        """Remove every key for which predicate(key) is true. Returns count."""
+        keys = [k for k in self._cache if predicate(k)]
+        for k in keys:
             del self._cache[k]
-        return len(keys_to_remove)
+        return len(keys)
 
     def clear(self) -> None:
-        """Clear entire cache."""
         self._cache.clear()
         self._hits = 0
         self._misses = 0
@@ -96,58 +152,18 @@ class CurveCache:
         }
 
 
-class CalibrationCache:
-    """Cache for calibrated model parameters.
-
-    Stores (inputs_hash → calibrated_params). Invalidates when inputs change.
-    """
-
-    def __init__(self):
-        self._cache: dict[str, dict] = {}
-
-    def get_or_calibrate(
-        self, model_name: str, inputs_hash: str, calibrate_fn,
-    ) -> dict:
-        """Return cached params or calibrate.
-
-        Args:
-            model_name: e.g. "sabr_5y".
-            inputs_hash: hash of the calibration inputs.
-            calibrate_fn: callable that returns the calibrated params dict.
-        """
-        key = (model_name, inputs_hash)
-        if key in self._cache:
-            return self._cache[key]
-
-        params = calibrate_fn()
-        self._cache[key] = params
-        return params
-
-    def invalidate(self, model_name: str) -> None:
-        """Remove all cached params for a model."""
-        keys_to_remove = [k for k in self._cache if k[0] == model_name]
-        for k in keys_to_remove:
-            del self._cache[k]
-
-    def clear(self) -> None:
-        self._cache.clear()
-
-    @property
-    def size(self) -> int:
-        return len(self._cache)
-
-
 class LazyValue(Generic[T]):
-    """Lazy evaluation: defers computation until .value is accessed.
+    """Lazy evaluation: defers computation until ``.value`` is accessed.
 
-    The compute function is called at most once. Subsequent accesses
-    return the cached result.
+    The compute function is called at most once; subsequent accesses return the
+    cached result. Not thread-safe (a race can compute twice). Distinct from the
+    keyed caches above — this memoises a single value.
 
     Args:
         compute_fn: callable that produces the value.
     """
 
-    def __init__(self, compute_fn):
+    def __init__(self, compute_fn: Callable[[], T]) -> None:
         self._compute = compute_fn
         self._value: T | None = None
         self._computed = False
@@ -157,7 +173,7 @@ class LazyValue(Generic[T]):
         if not self._computed:
             self._value = self._compute()
             self._computed = True
-        return self._value
+        return self._value  # type: ignore[return-value]
 
     @property
     def is_computed(self) -> bool:
