@@ -2,6 +2,20 @@
 
 ---
 
+## v1.214.0 — 2026-07-01 — **caching: reframe as a catalogue of utilities (strip the unused Protocol)**
+
+The v1.212 `Cache` protocol had **zero consumers** — nothing type-hinted `Cache`; its only reference was the conformance test's `isinstance`. An abstraction ahead of its consumer. Per the design call: caching is a **catalogue of utility functions**, not an abstraction — add a shared class/type only *when clones actually appear*.
+
+**Files**: `core/caching.py`, `tests/test_caching.py`.
+
+- **Removed the `Cache` Protocol** (and `runtime_checkable`/`Protocol` imports). The utilities stay; they share the informal, duck-typed convention `get_or_compute(key, compute)` — no formal type. Nothing load-bearing lost.
+- **Reframed the module as a catalogue** with `__all__` and a docstring that states the philosophy: functional-first (use `functools.lru_cache`/`cache` for pure-fn memo), the module provides only what stdlib lacks (`LazyValue`, `NullCache` baseline, `DictCache`, `LRUCache`), and *no* shared abstraction until clones justify one.
+- **Added the "clones appeared" trigger, automated** — a structural guard (`TestNoCacheClones`) that fails if any `*Cache` class is defined outside `core/caching.py`. That's exactly the `CurveCache`→`PathCache` reinvention pattern; the next one trips the test and gets pointed to the catalogue. The confrontation test (cache result == `NullCache` result) stays.
+
+**Verification**: full suite **13,092 passed**.
+
+---
+
 ## v1.213.0 — 2026-07-01 — **remove dead PathCache (caching Phase 1 finding)**
 
 The caching-client migration (§0e Phase 1, target 1a) turned up that its premise was false: `mc_greeks_auto.PathCache` is **dead** — never wired into `auto_greeks` (which prices directly), `get_global_cache()`/`_GLOBAL_CACHE` have zero callers, and only one test touched it, while the module/function docstrings claimed "uses path caching for efficiency." A second orphaned cache, like `core/caching` was.
