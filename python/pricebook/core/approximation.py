@@ -11,6 +11,7 @@ downward.
 * :func:`chebyshev_evaluate` — Clenshaw evaluation at arbitrary points.
 * :func:`chebyshev_interpolate` — near-optimal polynomial interpolation.
 * :func:`barycentric_interpolate` — stable polynomial interpolation at arbitrary nodes.
+* :func:`remez` — best (minimax) polynomial approximation via the exchange algorithm.
 * :func:`pade_approximant` — rational approximation from Taylor coefficients.
 * :func:`richardson_table` — full Richardson extrapolation table.
 * :func:`bspline_basis` — B-spline basis functions for curve construction.
@@ -273,6 +274,123 @@ def barycentric_interpolate(
     if len(np.unique(nodes)) != len(nodes):
         raise ValueError("nodes must be distinct (duplicate nodes are singular)")
     return BarycentricInterpolant(nodes, values, _barycentric_weights(nodes))
+
+
+# ---- Remez minimax polynomial ----
+
+
+def _chebyshev_vandermonde(t: np.ndarray, degree: int) -> np.ndarray:
+    """Matrix [T_j(t_i)] for j = 0..degree, t_i ∈ [-1, 1]."""
+    theta = np.arccos(np.clip(t, -1.0, 1.0))
+    return np.cos(np.outer(theta, np.arange(degree + 1)))
+
+
+def _remez_references(grid: np.ndarray, err: np.ndarray, need: int) -> np.ndarray:
+    """Pick `need` alternating-sign near-extremal reference points from a dense
+    error sample (endpoints + interior local extrema, merged by sign, trimmed)."""
+    m = len(err)
+    ext = [0]
+    for i in range(1, m - 1):
+        rising_peak = err[i] >= err[i - 1] and err[i] >= err[i + 1]
+        falling_dip = err[i] <= err[i - 1] and err[i] <= err[i + 1]
+        if rising_peak or falling_dip:
+            ext.append(i)
+    ext.append(m - 1)
+    # Merge consecutive same-sign extrema, keeping the larger-magnitude one.
+    merged: list[int] = []
+    for i in ext:
+        if merged and np.sign(err[i]) == np.sign(err[merged[-1]]):
+            if abs(err[i]) > abs(err[merged[-1]]):
+                merged[-1] = i
+        else:
+            merged.append(i)
+    # Trim the weaker end until exactly `need` references remain (keeps alternation).
+    while len(merged) > need:
+        merged.pop(0 if abs(err[merged[0]]) < abs(err[merged[-1]]) else -1)
+    return np.array(merged)
+
+
+@dataclass
+class RemezApproximant(_ResultToDict):
+    """Best degree-n minimax (uniform) polynomial approximation of f on [a, b].
+
+    Stored as Chebyshev coefficients and evaluated via :func:`chebyshev_evaluate`
+    (the stable kernel). The error of the best polynomial *equioscillates* at
+    degree+2 points (Chebyshev equioscillation theorem); ``error`` is that
+    minimax level — strictly ≤ the Chebyshev *interpolation* error.
+    """
+
+    coefficients: np.ndarray  # Chebyshev coefficients on [a, b]
+    a: float
+    b: float
+    degree: int
+    error: float  # achieved equioscillation (minimax) error level
+
+    def evaluate(self, x: float | np.ndarray) -> float | np.ndarray:
+        """Evaluate the minimax polynomial. Scalar x → float; array x → ndarray."""
+        return chebyshev_evaluate(self.coefficients, x, self.a, self.b)
+
+
+def remez(
+    f: Callable[[float], float],
+    a: float,
+    b: float,
+    degree: int,
+    max_iter: int = 60,
+    tol: float = 1e-12,
+) -> RemezApproximant:
+    """Best degree-`degree` minimax polynomial of f on [a, b] (Remez exchange).
+
+    Iterates the exchange algorithm: solve for the polynomial + leveled error on
+    a reference set, move the references to the error extrema, repeat until the
+    error equioscillates (max |f−p| ≈ the leveled error). f is evaluated
+    pointwise, so it need not be vectorised.
+
+    Args:
+        f: target function, f(x) → float.
+        a, b: interval.
+        degree: polynomial degree (≥ 0).
+        max_iter: iteration cap; non-convergence raises (no silent partial result).
+        tol: relative equioscillation tolerance.
+
+    Complexity: O(max_iter · (degree³ + grid)). Raises ValueError on a degenerate
+    interval, negative degree, or failure to converge within `max_iter`.
+
+    Reference:
+        Trefethen, ATAP, Ch. 10 (best approximation & the Remez algorithm).
+    """
+    if b == a:
+        raise ValueError(f"degenerate interval: a == b == {a}")
+    if degree < 0:
+        raise ValueError(f"degree must be >= 0, got {degree}")
+
+    n = degree
+    k = np.arange(n + 2)
+    # Initial references: the n+2 Chebyshev extrema points, mapped to [a, b].
+    x = np.sort(0.5 * (a + b) + 0.5 * (b - a) * np.cos(np.pi * k / (n + 1)))
+
+    grid = np.linspace(a, b, max(400, 60 * (n + 2)))
+    fg = np.array([f(g) for g in grid])
+
+    for _ in range(max_iter):
+        t = (2 * x - a - b) / (b - a)
+        mat = np.empty((n + 2, n + 2))
+        mat[:, : n + 1] = _chebyshev_vandermonde(t, n)
+        mat[:, n + 1] = (-1.0) ** np.arange(n + 2)
+        sol = np.linalg.solve(mat, np.array([f(xi) for xi in x]))
+        coeffs, leveled = sol[: n + 1], sol[n + 1]
+
+        err = fg - chebyshev_evaluate(coeffs, grid, a, b)
+        max_err = float(np.abs(err).max())
+        if abs(max_err - abs(leveled)) <= tol * max(1.0, max_err):
+            return RemezApproximant(coeffs, a, b, n, abs(float(leveled)))
+
+        refs = _remez_references(grid, err, n + 2)
+        if len(refs) != n + 2:
+            raise ValueError("Remez: could not isolate degree+2 alternating extrema")
+        x = np.sort(grid[refs])
+
+    raise ValueError(f"Remez did not converge in {max_iter} iterations")
 
 
 # ---- Padé approximant ----

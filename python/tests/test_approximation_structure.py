@@ -35,6 +35,7 @@ class TestNoChebyshevKernelDivergence:
             "chebyshev_evaluate",
             "chebyshev_interpolate",
             "barycentric_interpolate",
+            "remez",
         ):
             assert _module_level_defs(name) == ["core/approximation.py"], (
                 f"{name} must be defined once in core/approximation.py"

@@ -11,11 +11,13 @@ from pricebook.core.approximation import (
     ChebyshevInterpolant,
     PadeApproximant,
     RichardsonTable,
+    RemezApproximant,
     barycentric_interpolate,
     bspline_basis,
     chebyshev_interpolate,
     chebyshev_nodes,
     pade_approximant,
+    remez,
     richardson_table,
 )
 from pricebook.numerical._spectral import chebyshev_expand
@@ -122,6 +124,59 @@ class TestBarycentricInterpolation:
     def test_duplicate_nodes_raise(self):
         with pytest.raises(ValueError, match="distinct"):
             barycentric_interpolate([0.0, 1.0, 1.0, 2.0], [1.0, 2.0, 3.0, 4.0])
+
+
+# ---- Remez minimax polynomial ----
+
+class TestRemez:
+    def test_beats_chebyshev_interpolation(self):
+        """Minimax error must be ≤ Chebyshev interpolation error (it's optimal)."""
+        for fn, a, b in [(np.exp, -1, 1), (np.sin, 0, 3), (lambda x: 1 / (1 + x * x), -1, 1)]:
+            for deg in (4, 8):
+                r = remez(fn, a, b, deg)
+                ci = chebyshev_interpolate(fn, a, b, deg)
+                g = np.linspace(a, b, 2000)
+                fg = fn(g)
+                rem_err = np.max(np.abs(r.evaluate(g) - fg))
+                cheb_err = np.max(np.abs(ci.evaluate(g) - fg))
+                assert rem_err <= cheb_err * (1 + 1e-9)
+
+    def test_error_field_matches_actual_max_error(self):
+        """The reported equioscillation level matches the true max error to
+        dense-grid resolution (error is a grid estimate, not exact-continuous)."""
+        r = remez(np.exp, -1, 1, 6)
+        g = np.linspace(-1, 1, 5000)
+        actual = np.max(np.abs(r.evaluate(g) - np.exp(g)))
+        assert r.error == pytest.approx(actual, rel=1e-3)
+
+    def test_polynomial_exact(self):
+        """A degree-≤n polynomial is reproduced with ~zero minimax error."""
+        f = lambda x: 2 * x**3 - x + 0.5  # noqa: E731
+        r = remez(f, -1, 2, 3)
+        assert r.error < 1e-9
+        g = np.linspace(-1, 2, 100)
+        assert np.max(np.abs(r.evaluate(g) - f(g))) < 1e-8
+
+    def test_degree_zero_is_midrange(self):
+        """Best constant for monotonic exp on [0,1] is (min+max)/2 = (1+e)/2."""
+        r = remez(np.exp, 0, 1, 0)
+        assert r.evaluate(0.5) == pytest.approx((1 + np.e) / 2, rel=1e-6)
+
+    def test_scalar_returns_float(self):
+        assert isinstance(remez(np.exp, 0, 1, 5).evaluate(0.5), float)
+
+    def test_degenerate_interval_raises(self):
+        with pytest.raises(ValueError, match="degenerate"):
+            remez(np.exp, 1.0, 1.0, 4)
+
+    def test_negative_degree_raises(self):
+        with pytest.raises(ValueError, match="degree must be"):
+            remez(np.exp, 0, 1, -1)
+
+    def test_non_convergence_raises(self):
+        """Fail loud, never return a silent partial result."""
+        with pytest.raises(ValueError, match="did not converge"):
+            remez(np.exp, 0, 1, 4, max_iter=0)
 
 
 # ---- Padé approximant ----
@@ -378,6 +433,7 @@ class TestApproximantConformance:
         return [
             chebyshev_interpolate(np.exp, 0.0, 1.0, 12),
             barycentric_interpolate([0.0, 0.5, 1.0, 1.7], [1.0, 1.6, 2.7, 5.5]),
+            remez(np.exp, 0.0, 1.0, 6),
             pade_approximant([1, 1, 0.5, 1 / 6, 1 / 24], L=2, M=2),
             chebyshev_expand(np.exp, 12, 0.0, 1.0),
         ]
