@@ -133,15 +133,6 @@ class TestAutoGreeks:
         assert g.delta > 0
         assert g.vega > 0
 
-    def test_path_cache(self):
-        from pricebook.models.mc_greeks_auto import PathCache
-        cache = PathCache(max_size=3)
-        paths = np.random.randn(100, 10)
-        cache.put("test", 10, 100, 42, paths)
-        assert cache.get("test", 10, 100, 42) is not None
-        assert cache.get("test", 10, 100, 99) is None
-        assert cache.hit_rate == 0.5
-
 
 # ═══════════════════════════════════════════════════════════════
 # P4: Diagnostics

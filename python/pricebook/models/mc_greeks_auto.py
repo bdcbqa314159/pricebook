@@ -1,13 +1,11 @@
-"""Automatic Greek method selection with path caching.
+"""Automatic Greek method selection.
 
 Inspects payoff characteristics and routes to the optimal Greek
-computation method. Caches paths so all Greeks share the same
-random draws, reducing noise in Greek ratios.
+computation method per Greek.
 
 * :class:`PayoffType` — payoff smoothness classification.
 * :func:`classify_payoff` — detect payoff type from name/signature.
 * :func:`auto_greeks` — compute all Greeks with best method per Greek.
-* :class:`PathCache` — LRU path cache keyed by (process, grid, seed).
 
 References:
     Glasserman, *Monte Carlo Methods in Financial Engineering*, Ch. 7.
@@ -16,8 +14,6 @@ References:
 from __future__ import annotations
 
 import math
-import hashlib
-from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
@@ -99,70 +95,6 @@ def select_greek_method(payoff_type: PayoffType) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Path Cache
-# ═══════════════════════════════════════════════════════════════
-
-class PathCache:
-    """LRU cache for MC paths, keyed by (process_hash, grid_hash, seed).
-
-    Enables multi-Greek computation with shared random draws.
-    """
-
-    def __init__(self, max_size: int = 16):
-        self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
-        self.max_size = max_size
-        self.hits = 0
-        self.misses = 0
-
-    def _key(self, process_id: str, n_steps: int, n_paths: int, seed: int) -> str:
-        raw = f"{process_id}|{n_steps}|{n_paths}|{seed}"
-        return hashlib.md5(raw.encode()).hexdigest()
-
-    def get(self, process_id: str, n_steps: int, n_paths: int, seed: int) -> np.ndarray | None:
-        key = self._key(process_id, n_steps, n_paths, seed)
-        if key in self._cache:
-            self.hits += 1
-            self._cache.move_to_end(key)
-            return self._cache[key]
-        self.misses += 1
-        return None
-
-    def put(self, process_id: str, n_steps: int, n_paths: int, seed: int, paths: np.ndarray):
-        key = self._key(process_id, n_steps, n_paths, seed)
-        self._cache[key] = paths
-        self._cache.move_to_end(key)
-        if len(self._cache) > self.max_size:
-            self._cache.popitem(last=False)
-
-    def clear(self):
-        self._cache.clear()
-        self.hits = 0
-        self.misses = 0
-
-    @property
-    def hit_rate(self) -> float:
-        total = self.hits + self.misses
-        return self.hits / total if total > 0 else 0.0
-
-    def stats(self) -> dict:
-        return {
-            "size": len(self._cache),
-            "max_size": self.max_size,
-            "hits": self.hits,
-            "misses": self.misses,
-            "hit_rate": self.hit_rate,
-        }
-
-
-# Global path cache
-_GLOBAL_CACHE = PathCache(max_size=32)
-
-
-def get_global_cache() -> PathCache:
-    return _GLOBAL_CACHE
-
-
-# ═══════════════════════════════════════════════════════════════
 # Auto Greeks
 # ═══════════════════════════════════════════════════════════════
 
@@ -182,8 +114,7 @@ def auto_greeks(
 ) -> GreeksBundle:
     """Compute all Greeks with automatic method selection.
 
-    Inspects payoff type, picks best method per Greek, and uses
-    path caching for efficiency.
+    Inspects payoff type and picks the best method per Greek.
 
     Args:
         payoff: callable(paths, times) → values.
