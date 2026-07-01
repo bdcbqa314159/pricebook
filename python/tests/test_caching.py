@@ -2,13 +2,12 @@
 
 import pytest
 
-from pricebook.core.caching import Cache, DictCache, LazyValue, LRUCache, NullCache
+from pricebook.core.caching import DictCache, LazyValue, LRUCache, NullCache
 
 
-class TestCacheProtocol:
-    @pytest.mark.parametrize("cache", [NullCache(), DictCache(), LRUCache()])
-    def test_every_impl_satisfies_the_protocol(self, cache):
-        assert isinstance(cache, Cache)
+class TestCatalogue:
+    """Every utility shares the informal get_or_compute(key, compute) convention
+    (duck-typed — there is no formal Cache protocol)."""
 
     @pytest.mark.parametrize("cache", [NullCache(), DictCache(), LRUCache()])
     def test_returns_the_computed_value(self, cache):
@@ -16,9 +15,9 @@ class TestCacheProtocol:
 
 
 class TestNoCacheConfrontation:
-    """The reason the abstraction exists: caching must not change the answer.
-    The same computations through a real cache and through NullCache must give
-    identical results — any divergence is a cache bug, not a computation bug."""
+    """The reason NullCache exists: caching must not change the answer. The same
+    computations through a real cache and through NullCache must give identical
+    results — any divergence is a cache bug, not a computation bug."""
 
     def test_lru_matches_null_baseline(self):
         keys = [("df", d) for d in range(20)] * 3  # repeats ⇒ cache hits
@@ -190,3 +189,26 @@ class TestLazyValue:
         df = lazy.value.df(date(2025, 1, 15))
         assert len(built) == 1
         assert df > 0
+
+
+class TestNoCacheClones:
+    """The 'clones appeared → reconsider abstraction' trigger: every `*Cache`
+    class must live in the caching catalogue. A bespoke cache elsewhere (the
+    CurveCache→PathCache reinvention pattern) trips this and points here."""
+
+    def test_cache_classes_are_single_homed(self):
+        import ast
+        from pathlib import Path
+
+        import pricebook
+
+        pkg = Path(pricebook.__file__).parent
+        homes = set()
+        for path in pkg.rglob("*.py"):
+            for node in ast.parse(path.read_text(encoding="utf-8")).body:
+                if isinstance(node, ast.ClassDef) and node.name.endswith("Cache"):
+                    homes.add(path.relative_to(pkg).as_posix())
+        assert homes <= {"core/caching.py"}, (
+            f"bespoke cache class(es) outside the catalogue: {homes} — add it to "
+            f"core/caching.py, or use an existing utility there"
+        )

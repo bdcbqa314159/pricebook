@@ -1,47 +1,43 @@
-"""Caching contract, a null baseline, and reference implementations.
+"""A catalogue of caching utilities — pick the one you need.
 
-The module defines the *action* — ``Cache.get_or_compute(key, compute)`` — as a
-minimal Protocol, plus a :class:`NullCache` that computes every time and stores
-nothing. Any component that caches takes a ``Cache``; injecting ``NullCache``
-runs the identical code path with caching disabled, so a cache-induced
-discrepancy (staleness, wrong key, aliasing) can always be **isolated** by
-comparing against the no-cache baseline — the computation is confronted
-independently of the cache.
+There is deliberately **no shared base class or Protocol**: the caching needs in
+this codebase are genuinely different (pure-function memo, immutable per-key memo,
+bounded LRU, lazy value), so each site uses the minimal correct tool and forcing
+one abstraction would be over-engineering. If the functional pattern starts
+producing clones, revisit a shared abstraction then — not before. (A structural
+test flags any new ``*Cache`` class defined outside this module — the "clones
+appeared" trigger.)
 
-    from pricebook.core.caching import Cache, NullCache, LRUCache, DictCache
+Functional-first: for pure-function memoisation use ``functools.lru_cache`` /
+``functools.cache`` from the stdlib. This module provides only the pieces the
+stdlib lacks, each a self-contained utility sharing the informal (duck-typed,
+no formal type) convention ``get_or_compute(key, compute)``:
 
-    def price(..., cache: Cache = NullCache()):
-        return cache.get_or_compute(("df", d), lambda: curve.df(d))
-    # inject LRUCache() in production; NullCache() to prove the cache is honest.
-
-Implementations:
-* :class:`NullCache` — pass-through; the "no caching" baseline.
-* :class:`DictCache` — unbounded memo, for immutable-keyed data.
-* :class:`LRUCache`  — bounded LRU with hit/miss stats and predicate invalidation.
 * :class:`LazyValue` — compute-once lazy thunk (a single value, not keyed).
+* :class:`NullCache` — pass-through baseline; inject where a component takes a
+  cache to run the identical path with caching OFF. If the result changes, the
+  cache is the bug (staleness / wrong key / aliasing), never the computation.
+* :class:`DictCache` — unbounded memo for immutable-keyed data.
+* :class:`LRUCache`  — bounded LRU with hit/miss stats + predicate invalidation
+  (what ``functools.lru_cache`` cannot do: invalidate and inspect).
+
+    from pricebook.core.caching import LRUCache, NullCache, LazyValue
+
+    def price(..., cache=NullCache()):         # duck-typed: any object with
+        return cache.get_or_compute(k, fn)     # get_or_compute(key, compute)
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Callable, Generic, Hashable, Protocol, TypeVar, runtime_checkable
+from typing import Callable, Generic, Hashable, TypeVar
+
+__all__ = ["NullCache", "DictCache", "LRUCache", "LazyValue"]
 
 V = TypeVar("V")
 T = TypeVar("T")
 
 Predicate = Callable[[Hashable], bool]
-
-
-@runtime_checkable
-class Cache(Protocol):
-    """The caching action: return the cached value for ``key``, or compute+store it.
-
-    The single seam every cache exposes. Swap :class:`NullCache` in anywhere to
-    run the same path without caching — if the result changes, the *cache* is at
-    fault, not the computation.
-    """
-
-    def get_or_compute(self, key: Hashable, compute: Callable[[], V]) -> V: ...
 
 
 class NullCache:
