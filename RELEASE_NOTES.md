@@ -2,6 +2,24 @@
 
 ---
 
+## v1.212.0 — 2026-07-01 — **caching: a real abstraction with a no-cache baseline (Phase 0)**
+
+`core/caching.py` was three unused concrete classes (`CurveCache`, `CalibrationCache`, `LazyValue`) — zero production callers, not public API, while production cached via stdlib `functools.lru_cache` / a bespoke `OrderedDict` LRU. Rather than delete or force-consolidate (a survey showed caching is heterogeneous *by design* — each site using the minimal correct tool), this reshapes the module into a **contract + isolation seam**, following the calibrator playbook.
+
+**Files**: `core/caching.py` (rewritten), `tests/test_caching.py` (rewritten).
+
+- **`Cache` protocol** (`@runtime_checkable`) — the single action `get_or_compute(key, compute) → value`. The seam every cache exposes.
+- **`NullCache`** — always computes, never stores. The **"without caching" baseline**: inject it anywhere to run the identical code path with caching disabled; if results differ, the *cache* is at fault (staleness, wrong key, aliasing), never the computation. This is the point — caching becomes isolatable and every solution can be confronted against a no-cache run.
+- **Reference impls, all `Cache`-conformant**: `LRUCache` (the former CurveCache, generalised — any hashable key, `invalidate(predicate)` for namespaced eviction, hit/miss stats) and `DictCache` (unbounded memo for immutable-keyed data). `LazyValue` kept (single-value thunk).
+- **The confrontation test** ships with it: the same computations through `LRUCache` and through `NullCache` must return identical results — a reusable honesty check for any cache.
+- Removed the type-lie and unbounded-growth nits by construction; documented thread-safety (none).
+
+Additive/low-risk: no production imported the old names (verified). Migrating clients (`mc_greeks_auto.PathCache`, `market_data_provider`) onto `Cache` so `NullCache` is injectable is the opportunistic Phase 1.
+
+**Verification**: full suite **13,095 passed**.
+
+---
+
 ## v1.211.0 — 2026-07-01 — **quadrature re-divergence guard**
 
 The quadrature analogue of the Chebyshev P10 structural guard — makes the v1.207 Gauss-Legendre consolidation permanent.
