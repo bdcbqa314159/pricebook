@@ -2,6 +2,17 @@
 
 ---
 
+## v1.219.0 — 2026-07-02 — **day_count: fix ACT/ACT ICMA None-guard (real mypy operator error)**
+
+**Files**: `core/day_count.py`.
+
+- `_act_act_icma` performed its `ref_start`/`ref_end`/`frequency` None-checks inside a nested `_missing_args()` closure, so mypy couldn't narrow the anchors in the outer scope — which forced a `# type: ignore[operator]` on the period-days line and left a **real, unignored** error on the final `period_days * frequency` (`Unsupported operand types for * ("int" and "None")`).
+- Replaced the closure with a single combined guard (`if ref_start is None or ... : ...`) that mypy narrows through, so the three anchors are non-None below — clears the error, removes the `type: ignore`. **Behaviour identical**: same missing-args list, same strict/legacy messages and ACT/365F fallbacks. `day_count.py` is now mypy-clean.
+
+**Verification**: 53 day-count/ICMA tests pass; full suite **13,138 passed**.
+
+---
+
 ## v1.218.0 — 2026-07-02 — **core hardening: data_registry `from_dict` typing + fail-loud; currency dead-code + drift guard**
 
 Hardened `core/data_registry.py` and `core/currency.py` from a deeper design pass.
