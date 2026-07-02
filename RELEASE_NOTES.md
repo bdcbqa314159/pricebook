@@ -2,6 +2,19 @@
 
 ---
 
+## v1.217.0 — 2026-07-02 — **calendar: `__all__` + DSL docstring (design-review follow-up)**
+
+Two gaps from verifying the v1.216 refactor's design. Doc/declaration only — no logic (`__all__` affects only `import *`, which nothing uses; confirmed).
+
+**Files**: `core/calendar.py`.
+
+- **Added `__all__`** — the rule-DSL builders (`fixed`, `easter`, `nth`, `monday`, `orthodox`, `christmas_boxing`, …) are module-level with generic, collision-prone names; they're an *internal* DSL, so `__all__` now declares the real public surface (the 37 calendar classes + `Calendar`/`SpecCalendar`/`JointCalendar`/`BusinessDayConvention`/`get_calendar`/`list_calendars`) and keeps the DSL out of `import *`.
+- **Expanded the module docstring** to explain the `SpecCalendar` DSL and how to add a calendar (subclass, set `HOLIDAYS`, override `_observe` for non-US substitution, keep genuinely-special logic bespoke) — the module is DSL-driven now, so it signposts that.
+
+**Verification**: 187 calendar tests pass; explicit (incl. underscore) imports unaffected; no `import *` consumers.
+
+---
+
 ## v1.216.0 — 2026-07-02 — **calendar: declarative SpecCalendar refactor (−522 LOC, byte-identical)**
 
 Replaces ~35 near-identical `_compute_holidays` methods (each a hand-rolled list of `holidays.add(...)` calls) with a small **rule DSL** consumed by one `SpecCalendar` base. `core/calendar.py`: **1397 → 875 lines**. Guarded byte-for-byte by the v1.215 golden net — **not one holiday changed** across all 37 calendars, 2000-2050.
