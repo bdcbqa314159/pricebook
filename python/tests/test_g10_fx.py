@@ -77,10 +77,19 @@ class TestSettlement:
         pair = CurrencyPair.from_currencies(Currency.USD, Currency.JPY)
         assert pair.settlement_lag == 2
 
-    def test_all_g10_deliverable(self):
-        """All G10 pairs are deliverable (not NDF)."""
-        for pair in all_g10_pairs():
-            assert not pair.is_ndf, f"{pair} wrongly flagged as NDF"
+    def test_all_g10_pairs_canonical(self):
+        """all_g10_pairs yields the 45 unique crosses, each a canonical G10 pair."""
+        pairs = all_g10_pairs()
+        assert len(pairs) == 45
+        for pair in pairs:
+            assert pair.base != pair.quote
+            assert pair.base in Currency and pair.quote in Currency
+
+    def test_base_priority_covers_every_currency(self):
+        """The enum ↔ _BASE_PRIORITY drift guard: every Currency must be ranked,
+        else from_currencies would return non-canonical ordering."""
+        from pricebook.core.currency import _BASE_PRIORITY
+        assert set(_BASE_PRIORITY) == set(Currency)
 
 
 class TestForwardPricing:

@@ -42,6 +42,13 @@ _BASE_PRIORITY = [
     Currency.NOK, Currency.SEK, Currency.JPY,
 ]
 
+# _BASE_PRIORITY and the Currency enum are two sources of truth; if a currency
+# is added to the enum but not here, from_currencies would fall through and
+# return a non-canonical (base, quote) ordering silently. Fail loud at import.
+if set(_BASE_PRIORITY) != set(Currency):
+    _missing = set(Currency) - set(_BASE_PRIORITY)
+    raise RuntimeError(f"_BASE_PRIORITY is missing currencies: {_missing}")
+
 # Settlement lags per pair type
 # Most G10 pairs: T+2. Exception: USD/CAD is T+1.
 _SETTLEMENT_LAGS: dict[tuple[str, str], int] = {
@@ -75,7 +82,8 @@ class CurrencyPair:
                 return cls(ccy1, ccy2)
             if ccy == ccy2:
                 return cls(ccy2, ccy1)
-        return cls(ccy1, ccy2)
+        # Unreachable: _BASE_PRIORITY covers every Currency (guarded at import).
+        raise AssertionError(f"{ccy1}/{ccy2} not covered by _BASE_PRIORITY")
 
     def __repr__(self) -> str:
         return f"{self.base.value}/{self.quote.value}"
@@ -98,13 +106,6 @@ class CurrencyPair:
         key = (self.base.value, self.quote.value)
         key_inv = (self.quote.value, self.base.value)
         return _SETTLEMENT_LAGS.get(key, _SETTLEMENT_LAGS.get(key_inv, _DEFAULT_SETTLEMENT_LAG))
-
-    @property
-    def is_ndf(self) -> bool:
-        """True if this is a non-deliverable forward pair (EM currencies).
-        All G10 pairs are deliverable."""
-        g10 = {c.value for c in Currency}
-        return self.base.value not in g10 or self.quote.value not in g10
 
     def forward_rate(self, spot: float, rate_base: float, rate_quote: float,
                      T: float) -> float:
