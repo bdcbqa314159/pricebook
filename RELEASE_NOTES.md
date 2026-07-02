@@ -2,6 +2,20 @@
 
 ---
 
+## v1.216.0 — 2026-07-02 — **calendar: declarative SpecCalendar refactor (−522 LOC, byte-identical)**
+
+Replaces ~35 near-identical `_compute_holidays` methods (each a hand-rolled list of `holidays.add(...)` calls) with a small **rule DSL** consumed by one `SpecCalendar` base. `core/calendar.py`: **1397 → 875 lines**. Guarded byte-for-byte by the v1.215 golden net — **not one holiday changed** across all 37 calendars, 2000-2050.
+
+**Files**: `core/calendar.py` (+ `tests/test_em_calendars.py` for the moved easter helper).
+
+- **Rule DSL** — a rule is a `(cal, year) -> Iterable[date]` callable; builders: `fixed(m, d, observe=, since=, until=)`, `easter(offset, since=, until=)`, `orthodox(offset)`, `nth(month, weekday, n)` (n=-1 ⇒ last), the `monday(...)` modifier (Colombia emiliani), and the shared `christmas_boxing` / `victoria_day` / `midsummer_eve` / `mexico_inauguration` rules. Each calendar is now a declarative `HOLIDAYS = [...]` list.
+- **Killed the duplication**: the Christmas/Boxing collision block (previously copy-pasted in London/AUD/CAD/NZD) is now the single `christmas_boxing` rule; the easter algorithms moved to module-level `_gregorian_easter` / `_orthodox_easter`.
+- **Kept bespoke** (genuinely special, don't fit the DSL): `TokyoCalendar` (furikae substitution walk) and `JointCalendar` (composite). Observe modes stay as per-class `_observe` overrides (US-style default, Commonwealth next-working-day, ZAR Sunday-only).
+
+**Verification**: golden net byte-identical (38/38), full calendar suite 237 pass, full suite **13,130 passed**.
+
+---
+
 ## v1.215.0 — 2026-07-01 — **calendar: golden fingerprint net (pre-refactor safety net)**
 
 Before the calendar boilerplate refactor (~37 near-duplicate `Calendar` subclasses → a declarative spec), a byte-exact characterization net that pins current behaviour so the refactor is provably holiday-for-holiday identical.
