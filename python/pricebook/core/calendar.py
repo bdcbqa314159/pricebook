@@ -1,8 +1,76 @@
-"""Business day calendars and date adjustment conventions."""
+"""Business day calendars and date adjustment conventions.
+
+Most calendars are declarative: subclass :class:`SpecCalendar` and set a
+``HOLIDAYS`` list of rules from the small internal DSL — ``fixed(month, day,
+observe=, since=, until=)``, ``easter(offset)`` / ``orthodox(offset)``,
+``nth(month, weekday, n)`` (n=-1 ⇒ last), the ``monday(...)`` modifier, and
+shared one-offs (``christmas_boxing`` etc.). Override ``_observe`` for a
+non-US substitution rule (see ``_observe_next_working_day``). Logic that
+genuinely doesn't fit the DSL stays bespoke — e.g. :class:`TokyoCalendar`
+(furikae substitution) and :class:`JointCalendar` (composite).
+
+    class SingaporeCalendar(SpecCalendar):
+        HOLIDAYS = [fixed(1, 1), fixed(5, 1), fixed(8, 9), fixed(12, 25), easter(-2)]
+
+Public API: the calendar classes, :class:`BusinessDayConvention`,
+:func:`get_calendar`, :func:`list_calendars`. The DSL rule builders are internal.
+"""
 
 from datetime import date, timedelta
 from enum import Enum
 from abc import ABC, abstractmethod
+
+__all__ = [
+    "BusinessDayConvention",
+    "Calendar",
+    "SpecCalendar",
+    "JointCalendar",
+    "get_calendar",
+    "list_calendars",
+    # Concrete calendars (G10)
+    "USSettlementCalendar",
+    "TARGETCalendar",
+    "LondonCalendar",
+    "TokyoCalendar",
+    "CHFCalendar",
+    "AUDCalendar",
+    "CADCalendar",
+    "SEKCalendar",
+    "NOKCalendar",
+    "NZDCalendar",
+    "DenmarkCalendar",
+    # CEE
+    "WarsawCalendar",
+    "PragueCalendar",
+    "BudapestCalendar",
+    "BucharestCalendar",
+    # Turkey & MENA
+    "IstanbulCalendar",
+    "RiyadhCalendar",
+    "TelAvivCalendar",
+    "CairoCalendar",
+    # Africa
+    "JohannesburgCalendar",
+    "NairobiCalendar",
+    "LagosCalendar",
+    # LatAm
+    "SaoPauloCalendar",
+    "MexicoCityCalendar",
+    "SantiagoCalendar",
+    "BogotaCalendar",
+    "LimaCalendar",
+    "BuenosAiresCalendar",
+    # Asia
+    "BeijingCalendar",
+    "SeoulCalendar",
+    "MumbaiCalendar",
+    "SingaporeCalendar",
+    "HongKongCalendar",
+    "JakartaCalendar",
+    "KualaLumpurCalendar",
+    "BangkokCalendar",
+    "ManilaCalendar",
+]
 
 
 class BusinessDayConvention(Enum):
