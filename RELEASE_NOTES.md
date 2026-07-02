@@ -2,6 +2,19 @@
 
 ---
 
+## v1.220.0 — 2026-07-02 — **day_count: correct the 30/360 convention label + tidy**
+
+Design-read follow-up. No behaviour change (docstring + a function reorder).
+
+**Files**: `core/day_count.py`.
+
+- **Fixed the 30/360 mislabel.** `_thirty_360` implements the **30U/360 (US SIA)** variant — it includes the end-of-February adjustments — but its docstring called it "30/360 US (Bond Basis)" and "ISDA 2006 rules", which is contradictory and wrong: the ISDA 2006 "30/360 / Bond Basis" has *no* February rule. Corrected the docstring to name it 30U/360 (US SIA) and note it differs from ISDA Bond Basis on Feb-spanning accruals. The code was and remains a valid, common convention; only the label was wrong. Verified numerically: Feb 28 → Aug 31 gives 0.5 (US SIA), not 0.5083 (ISDA Bond Basis).
+- **Hoisted `_is_leap`** above its first use (it was defined mid-file after `_is_last_day_of_feb` used it) — pure reorder.
+
+**Verification**: 66 day-count tests pass; full suite **13,138 passed**.
+
+---
+
 ## v1.219.0 — 2026-07-02 — **day_count: fix ACT/ACT ICMA None-guard (real mypy operator error)**
 
 **Files**: `core/day_count.py`.
