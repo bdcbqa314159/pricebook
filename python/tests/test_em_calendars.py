@@ -25,8 +25,9 @@ from pricebook.core.calendar import (
     DenmarkCalendar,
     # Registry
     get_calendar, list_calendars,
-    # Orthodox Easter
+    # Easter algorithms
     _orthodox_easter,
+    _gregorian_easter,
     # Base + convention
     BusinessDayConvention, JointCalendar,
 )
@@ -90,9 +91,8 @@ class TestOrthodoxEaster:
 
     def test_differs_from_western(self):
         """Orthodox and Western Easter often differ."""
-        from pricebook.core.calendar import TARGETCalendar
         # 2024: Western = Mar 31, Orthodox = May 5
-        western = TARGETCalendar._easter(2024)
+        western = _gregorian_easter(2024)
         orthodox = _orthodox_easter(2024)
         assert western != orthodox
 

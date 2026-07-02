@@ -149,127 +149,219 @@ class Calendar(ABC):
         return last - timedelta(days=days_back)
 
 
-class USSettlementCalendar(Calendar):
-    """
-    US Settlement calendar (SIFMA/Federal Reserve).
+# ═══════════════════════════════════════════════════════════════
+# Easter algorithms (Western Gregorian + Orthodox)
+# ═══════════════════════════════════════════════════════════════
 
-    Holidays: New Year's, MLK Day, Presidents' Day, Memorial Day,
-    Juneteenth, Independence Day, Labor Day, Columbus Day,
-    Veterans Day, Thanksgiving, Christmas.
+
+def _gregorian_easter(year: int) -> date:
+    """Western Easter Sunday (anonymous Gregorian algorithm)."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    L = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * L) // 451
+    month, day = divmod(h + L - 7 * m + 114, 31)
+    return date(year, month, day + 1)
+
+
+def _orthodox_easter(year: int) -> date:
+    """Orthodox Easter Sunday (Julian algorithm + Gregorian offset).
+
+    The Julian Easter is computed, then converted to Gregorian by adding
+    the century offset (13 days for 1900-2099).
     """
+    a = year % 4
+    b = year % 7
+    c = year % 19
+    d = (19 * c + 15) % 30
+    e = (2 * a + 4 * b - d + 34) % 7
+    month = (d + e + 114) // 31
+    day = ((d + e + 114) % 31) + 1
+    julian = date(year, month, day)
+    # Gregorian offset: 13 days for 1900-2099
+    return julian + timedelta(days=13)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Holiday rule DSL — a rule is a callable (cal, year) -> Iterable[date]
+# consumed by SpecCalendar. This replaces ~35 near-identical
+# _compute_holidays methods with declarative HOLIDAYS lists.
+# ═══════════════════════════════════════════════════════════════
+
+
+def _in_range(year: int, since: int | None, until: int | None) -> bool:
+    return (since is None or year >= since) and (until is None or year <= until)
+
+
+def fixed(month: int, day: int, *, observe: bool = False, since=None, until=None):
+    """A fixed (month, day) holiday; optionally observed / year-gated."""
+
+    def rule(cal, year):
+        if not _in_range(year, since, until):
+            return ()
+        d = date(year, month, day)
+        return (cal._observe(d) if observe else d,)
+
+    return rule
+
+
+def easter(offset: int, *, since=None, until=None):
+    """A Western-Easter-relative holiday: Easter Sunday + `offset` days."""
+
+    def rule(cal, year):
+        if not _in_range(year, since, until):
+            return ()
+        return (_gregorian_easter(year) + timedelta(days=offset),)
+
+    return rule
+
+
+def orthodox(offset: int):
+    """An Orthodox-Easter-relative holiday: Orthodox Easter + `offset` days."""
+
+    def rule(cal, year):
+        return (_orthodox_easter(year) + timedelta(days=offset),)
+
+    return rule
+
+
+def nth(month: int, weekday: int, n: int):
+    """The nth (n>0) or last (n=-1) `weekday` of `month` (weekday: 0=Mon)."""
+
+    def rule(cal, year):
+        if n == -1:
+            return (cal._last_weekday(year, month, weekday),)
+        return (cal._nth_weekday(year, month, weekday, n),)
+
+    return rule
+
+
+def _to_next_monday(d: date) -> date:
+    """Move to the next Monday unless already Monday (Colombia emiliani law)."""
+    if d.weekday() == 0:
+        return d
+    return d + timedelta(days=(7 - d.weekday()))
+
+
+def monday(rule):
+    """Modifier: shift every date produced by `rule` to the next Monday."""
+
+    def wrapped(cal, year):
+        return tuple(_to_next_monday(d) for d in rule(cal, year))
+
+    return wrapped
+
+
+def christmas_boxing(cal, year):
+    """Christmas + Boxing Day under the observe rule, resolving the collision:
+    when Dec 25 is Sunday both observe to Dec 26, so Boxing bumps to Dec 27."""
+    obs_xmas = cal._observe(date(year, 12, 25))
+    obs_boxing = cal._observe(date(year, 12, 26))
+    if obs_boxing == obs_xmas:
+        return (obs_xmas, obs_boxing + timedelta(days=1))
+    return (obs_xmas, obs_boxing)
+
+
+def victoria_day(cal, year):
+    """Canadian Victoria Day: the Monday before May 25."""
+    may25 = date(year, 5, 25)
+    days_since_mon = (may25.weekday() - 0) % 7
+    if days_since_mon == 0:
+        days_since_mon = 7
+    return (may25 - timedelta(days=days_since_mon),)
+
+
+def midsummer_eve(cal, year):
+    """Swedish Midsummer Eve: the Friday before the Saturday in Jun 20-26."""
+    for d in range(20, 27):
+        candidate = date(year, 6, d)
+        if candidate.weekday() == 5:  # Saturday
+            return (candidate - timedelta(days=1),)
+    return ()
+
+
+def mexico_inauguration(cal, year):
+    """Mexican Presidential Inauguration: Oct 1 every 6 years from 2024."""
+    if year >= 2024 and (year - 2024) % 6 == 0:
+        return (date(year, 10, 1),)
+    return ()
+
+
+class SpecCalendar(Calendar):
+    """A calendar defined declaratively by a list of holiday rules.
+
+    Subclasses set ``HOLIDAYS`` (a list of rules from the DSL above) and, if the
+    national substitution rule is not US-style, override ``_observe``.
+    """
+
+    HOLIDAYS: list = []
 
     def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-
-        holidays.add(self._observe(date(year, 1, 1)))                # New Year's
-        holidays.add(self._nth_weekday(year, 1, 0, 3))               # MLK Day
-        holidays.add(self._nth_weekday(year, 2, 0, 3))               # Presidents' Day
-        holidays.add(self._last_weekday(year, 5, 0))                 # Memorial Day
-        if year >= 2021:
-            holidays.add(self._observe(date(year, 6, 19)))           # Juneteenth
-        holidays.add(self._observe(date(year, 7, 4)))                # Independence Day
-        holidays.add(self._nth_weekday(year, 9, 0, 1))               # Labor Day
-        holidays.add(self._nth_weekday(year, 10, 0, 2))              # Columbus Day
-        holidays.add(self._observe(date(year, 11, 11)))              # Veterans Day
-        holidays.add(self._nth_weekday(year, 11, 3, 4))              # Thanksgiving
-        holidays.add(self._observe(date(year, 12, 25)))              # Christmas
-
-        return holidays
+        out: set[date] = set()
+        for rule in self.HOLIDAYS:
+            out.update(rule(self, year))
+        return out
 
 
-class TARGETCalendar(Calendar):
-    """TARGET calendar (Trans-European Automated Real-time Gross settlement).
-
-    Used for EUR-denominated products. Holidays: New Year's, Good Friday,
-    Easter Monday, Labour Day (1 May), Christmas Day, 26 Dec.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))   # New Year's
-        holidays.add(date(year, 5, 1))   # Labour Day
-        holidays.add(date(year, 12, 25)) # Christmas
-        holidays.add(date(year, 12, 26)) # St Stephen's
-
-        # Easter (anonymous Gregorian algorithm)
-        easter = self._easter(year)
-        holidays.add(easter - timedelta(days=2))  # Good Friday
-        holidays.add(easter + timedelta(days=1))   # Easter Monday
-
-        return holidays
-
-    @staticmethod
-    def _easter(year: int) -> date:
-        """Compute Easter Sunday (anonymous Gregorian algorithm)."""
-        a = year % 19
-        b, c = divmod(year, 100)
-        d, e = divmod(b, 4)
-        f = (b + 8) // 25
-        g = (b - f + 1) // 3
-        h = (19 * a + b - d - g + 15) % 30
-        i, k = divmod(c, 4)
-        L = (32 + 2 * e + 2 * i - h - k) % 7
-        m = (a + 11 * h + 22 * L) // 451
-        month, day = divmod(h + L - 7 * m + 114, 31)
-        return date(year, month, day + 1)
+# ═══════════════════════════════════════════════════════════════
+# G10
+# ═══════════════════════════════════════════════════════════════
 
 
-class LondonCalendar(Calendar):
-    """London (UK) banking calendar.
+class USSettlementCalendar(SpecCalendar):
+    """US Settlement calendar (SIFMA/Federal Reserve)."""
 
-    Holidays: New Year's, Good Friday, Easter Monday, Early May,
-    Spring Bank Holiday, Summer Bank Holiday, Christmas, Boxing Day.
+    HOLIDAYS = [
+        fixed(1, 1, observe=True),      # New Year's
+        nth(1, 0, 3),                   # MLK Day
+        nth(2, 0, 3),                   # Presidents' Day
+        nth(5, 0, -1),                  # Memorial Day (last Mon May)
+        fixed(6, 19, observe=True, since=2021),  # Juneteenth
+        fixed(7, 4, observe=True),      # Independence Day
+        nth(9, 0, 1),                   # Labor Day
+        nth(10, 0, 2),                  # Columbus Day
+        fixed(11, 11, observe=True),    # Veterans Day
+        nth(11, 3, 4),                  # Thanksgiving (4th Thu)
+        fixed(12, 25, observe=True),    # Christmas
+    ]
 
-    Substitution rule: per the Banking and Financial Dealings Act 1971,
-    any holiday falling on Saturday or Sunday is observed on the *next*
-    working day (typically Monday). This differs from the US rule where
-    Saturday holidays are observed the previous Friday.
-    """
 
-    # Override the base US-style _observe with the UK 1971 Act rule.
+class TARGETCalendar(SpecCalendar):
+    """TARGET calendar (EUR): New Year's, Good Friday, Easter Monday, 1 May, 25-26 Dec."""
+
+    HOLIDAYS = [fixed(1, 1), fixed(5, 1), fixed(12, 25), fixed(12, 26), easter(-2), easter(1)]
+
+
+class LondonCalendar(SpecCalendar):
+    """London (UK) banking calendar. Commonwealth Sat/Sun → next-working-day rule."""
+
     _observe = staticmethod(Calendar._observe_next_working_day)
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(self._observe(date(year, 1, 1)))   # New Year's
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))  # Good Friday
-        holidays.add(easter + timedelta(days=1))   # Easter Monday
-
-        holidays.add(self._nth_weekday(year, 5, 0, 1))   # Early May
-        holidays.add(self._last_weekday(year, 5, 0))      # Spring Bank Holiday
-        holidays.add(self._last_weekday(year, 8, 0))      # Summer Bank Holiday
-        obs_xmas = self._observe(date(year, 12, 25))    # Christmas
-        obs_boxing = self._observe(date(year, 12, 26))    # Boxing Day
-        holidays.add(obs_xmas)
-        # When Dec 25 is Sunday, both observe to Dec 26 — shift Boxing Day to 27
-        if obs_boxing == obs_xmas:
-            holidays.add(obs_boxing + timedelta(days=1))
-        else:
-            holidays.add(obs_boxing)
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1, observe=True),
+        easter(-2), easter(1),
+        nth(5, 0, 1),    # Early May
+        nth(5, 0, -1),   # Spring Bank Holiday
+        nth(8, 0, -1),   # Summer Bank Holiday
+        christmas_boxing,
+    ]
 
 
 class TokyoCalendar(Calendar):
     """Tokyo (Japan) banking calendar.
 
-    Major holidays: New Year's (1-3 Jan), Coming of Age Day, National Foundation,
-    Vernal Equinox, Showa Day, Constitution Day, Greenery Day, Children's Day,
-    Marine Day, Mountain Day, Respect for Aged, Autumnal Equinox,
-    Sports Day, Culture Day, Labour Thanksgiving, Emperor's Birthday.
-
-    Substitution rule (*furikae kyūjitsu* / 振替休日): per Japan's Public
-    Holiday Act §3.2, when a fixed-date public holiday falls on Sunday, the
-    next day that is not itself a public holiday becomes a substitute
-    holiday. For the May Golden-Week cluster (May 3-5) this walks past
-    multiple consecutive holidays.
+    Kept bespoke: the *furikae kyūjitsu* substitution (a fixed holiday on Sunday
+    walks forward past consecutive holidays) is genuinely special and doesn't
+    reduce to the rule DSL.
     """
 
     def _compute_holidays(self, year: int) -> set[date]:
         # Fixed-date holidays.
-        fixed = {
+        fixed_days = {
             date(year, 1, 1),     # New Year's
             date(year, 1, 2),     # bridging
             date(year, 1, 3),     # bridging
@@ -292,12 +384,12 @@ class TokyoCalendar(Calendar):
             self._nth_weekday(year, 9, 0, 3),    # Respect for Aged (3rd Mon Sep)
             self._nth_weekday(year, 10, 0, 2),   # Sports Day (2nd Mon Oct)
         }
-        holidays = fixed | monday_holidays
+        holidays = fixed_days | monday_holidays
 
         # Furikae kyūjitsu: for every fixed holiday on Sunday, walk forward
         # to the first non-holiday day.
         substitutes: set[date] = set()
-        for d in fixed:
+        for d in fixed_days:
             if d.weekday() == 6:  # Sunday
                 candidate = d + timedelta(days=1)
                 while candidate in holidays or candidate in substitutes:
@@ -307,221 +399,90 @@ class TokyoCalendar(Calendar):
         return holidays | substitutes
 
 
-class CHFCalendar(Calendar):
-    """Swiss banking calendar (Zurich).
+class CHFCalendar(SpecCalendar):
+    """Swiss banking calendar (Zurich)."""
 
-    Holidays: New Year's, Berchtoldstag (2 Jan), Good Friday, Easter Monday,
-    Labour Day (1 May), Ascension, Whit Monday, Swiss National Day (1 Aug),
-    Christmas Day, St Stephen's (26 Dec).
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))    # New Year's
-        holidays.add(date(year, 1, 2))    # Berchtoldstag
-        holidays.add(date(year, 5, 1))    # Labour Day
-        holidays.add(date(year, 8, 1))    # Swiss National Day
-        holidays.add(date(year, 12, 25))  # Christmas
-        holidays.add(date(year, 12, 26))  # St Stephen's
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-        holidays.add(easter + timedelta(days=39))   # Ascension
-        holidays.add(easter + timedelta(days=50))   # Whit Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(1, 2), fixed(5, 1), fixed(8, 1), fixed(12, 25), fixed(12, 26),
+        easter(-2), easter(1), easter(39), easter(50),
+    ]
 
 
-class AUDCalendar(Calendar):
-    """Australian banking calendar (Sydney).
+class AUDCalendar(SpecCalendar):
+    """Australian banking calendar (Sydney). Sat/Sun → next working day."""
 
-    Holidays: New Year's, Australia Day (26 Jan), Good Friday, Easter Saturday,
-    Easter Monday, Anzac Day (25 Apr), Queen's Birthday (2nd Mon Jun),
-    Bank Holiday (1st Mon Aug), Christmas, Boxing Day.
-
-    Substitution rule: per the Australian Public Holidays Acts (state-by-
-    state but uniform on the Sat→Mon rule), a holiday on Saturday or Sunday
-    is observed the next working day.
-    """
-
-    # Override the base US-style _observe with the next-working-day rule.
     _observe = staticmethod(Calendar._observe_next_working_day)
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(self._observe(date(year, 1, 1)))    # New Year's
-        holidays.add(self._observe(date(year, 1, 26)))   # Australia Day
-        holidays.add(date(year, 4, 25))                   # Anzac Day
-        holidays.add(self._nth_weekday(year, 6, 0, 2))   # Queen's Birthday (2nd Mon Jun)
-        holidays.add(self._nth_weekday(year, 8, 0, 1))   # Bank Holiday (1st Mon Aug)
-        obs_xmas = self._observe(date(year, 12, 25))    # Christmas
-        obs_boxing = self._observe(date(year, 12, 26))   # Boxing Day
-        holidays.add(obs_xmas)
-        # When Dec 25 is Sunday, both observe to Dec 26 — shift Boxing Day to 27
-        if obs_boxing == obs_xmas:
-            holidays.add(obs_boxing + timedelta(days=1))
-        else:
-            holidays.add(obs_boxing)
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter - timedelta(days=1))   # Easter Saturday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1, observe=True), fixed(1, 26, observe=True), fixed(4, 25),
+        nth(6, 0, 2),    # Queen's Birthday (2nd Mon Jun)
+        nth(8, 0, 1),    # Bank Holiday (1st Mon Aug)
+        christmas_boxing,
+        easter(-2), easter(-1), easter(1),
+    ]
 
 
-class CADCalendar(Calendar):
-    """Canadian banking calendar (Toronto).
+class CADCalendar(SpecCalendar):
+    """Canadian banking calendar (Toronto). Sat/Sun → next working day."""
 
-    Holidays: New Year's, Family Day (3rd Mon Feb), Good Friday,
-    Victoria Day (Mon before 25 May), Canada Day (1 Jul),
-    Civic Holiday (1st Mon Aug), Labour Day (1st Mon Sep),
-    Thanksgiving (2nd Mon Oct), Remembrance Day (11 Nov),
-    Christmas, Boxing Day.
-
-    Substitution rule: per the Canadian federal Holidays Act and
-    provincial Employment Standards Acts, a holiday on Saturday or
-    Sunday is observed the next working day.
-    """
-
-    # Override the base US-style _observe with the next-working-day rule.
     _observe = staticmethod(Calendar._observe_next_working_day)
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(self._observe(date(year, 1, 1)))     # New Year's
-        holidays.add(self._nth_weekday(year, 2, 0, 3))    # Family Day (3rd Mon Feb)
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-
-        # Victoria Day: Monday before May 25
-        may25 = date(year, 5, 25)
-        days_since_mon = (may25.weekday() - 0) % 7
-        if days_since_mon == 0:
-            days_since_mon = 7
-        holidays.add(may25 - timedelta(days=days_since_mon))
-
-        holidays.add(self._observe(date(year, 7, 1)))     # Canada Day
-        holidays.add(self._nth_weekday(year, 8, 0, 1))    # Civic Holiday
-        holidays.add(self._nth_weekday(year, 9, 0, 1))    # Labour Day
-        holidays.add(self._nth_weekday(year, 10, 0, 2))   # Thanksgiving
-        holidays.add(self._observe(date(year, 11, 11)))    # Remembrance Day
-        obs_xmas = self._observe(date(year, 12, 25))    # Christmas
-        obs_boxing = self._observe(date(year, 12, 26))    # Boxing Day
-        holidays.add(obs_xmas)
-        # When Dec 25 is Sunday, both observe to Dec 26 — shift Boxing Day to 27
-        if obs_boxing == obs_xmas:
-            holidays.add(obs_boxing + timedelta(days=1))
-        else:
-            holidays.add(obs_boxing)
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1, observe=True),
+        nth(2, 0, 3),    # Family Day (3rd Mon Feb)
+        easter(-2),
+        victoria_day,
+        fixed(7, 1, observe=True),
+        nth(8, 0, 1),    # Civic Holiday
+        nth(9, 0, 1),    # Labour Day
+        nth(10, 0, 2),   # Thanksgiving
+        fixed(11, 11, observe=True),   # Remembrance Day
+        christmas_boxing,
+    ]
 
 
-class SEKCalendar(Calendar):
-    """Swedish banking calendar (Stockholm).
+class SEKCalendar(SpecCalendar):
+    """Swedish banking calendar (Stockholm)."""
 
-    Holidays: New Year's, Epiphany (6 Jan), Good Friday, Easter Monday,
-    May Day (1 May), Ascension, National Day (6 Jun), Midsummer Eve
-    (Fri before Midsummer Day = Sat between 20-26 Jun),
-    Christmas Eve, Christmas, Boxing Day, New Year's Eve.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 1, 6))     # Epiphany
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 6, 6))     # National Day
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-        holidays.add(easter + timedelta(days=39))   # Ascension Day
-
-        # Midsummer Eve: Friday before the Saturday between Jun 20-26
-        for d in range(20, 27):
-            candidate = date(year, 6, d)
-            if candidate.weekday() == 5:  # Saturday
-                holidays.add(candidate - timedelta(days=1))  # Friday
-                break
-
-        holidays.add(date(year, 12, 24))   # Christmas Eve
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-        holidays.add(date(year, 12, 31))   # New Year's Eve
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(1, 6), fixed(5, 1), fixed(6, 6),
+        easter(-2), easter(1), easter(39),
+        midsummer_eve,
+        fixed(12, 24), fixed(12, 25), fixed(12, 26), fixed(12, 31),
+    ]
 
 
-class NOKCalendar(Calendar):
-    """Norwegian banking calendar (Oslo).
+class NOKCalendar(SpecCalendar):
+    """Norwegian banking calendar (Oslo)."""
 
-    Holidays: New Year's, Maundy Thursday, Good Friday, Easter Monday,
-    May Day (1 May), Constitution Day (17 May), Ascension,
-    Whit Monday, Christmas, Boxing Day.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 5, 17))    # Constitution Day
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=3))   # Maundy Thursday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-        holidays.add(easter + timedelta(days=39))   # Ascension
-        holidays.add(easter + timedelta(days=50))   # Whit Monday
-
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(5, 17),
+        easter(-3), easter(-2), easter(1), easter(39), easter(50),
+        fixed(12, 25), fixed(12, 26),
+    ]
 
 
-class NZDCalendar(Calendar):
-    """New Zealand banking calendar (Wellington).
+class NZDCalendar(SpecCalendar):
+    """New Zealand banking calendar (Wellington). Sat/Sun → next working day."""
 
-    Holidays: New Year's (1+2 Jan), Waitangi Day (6 Feb),
-    Good Friday, Easter Monday, Anzac Day (25 Apr),
-    Queen's Birthday (1st Mon Jun), Matariki (variable from 2022),
-    Labour Day (4th Mon Oct), Christmas, Boxing Day.
-
-    Substitution rule: per the New Zealand Holidays Act 2003, a holiday
-    on Saturday or Sunday is observed the next working day (Mondayisation).
-    """
-
-    # Override the base US-style _observe with the next-working-day rule.
     _observe = staticmethod(Calendar._observe_next_working_day)
+    HOLIDAYS = [
+        fixed(1, 1, observe=True), fixed(1, 2, observe=True), fixed(2, 6, observe=True),
+        fixed(4, 25),
+        nth(6, 0, 1),    # Queen's Birthday (1st Mon Jun)
+        nth(10, 0, 4),   # Labour Day (4th Mon Oct)
+        easter(-2), easter(1),
+        christmas_boxing,
+    ]
 
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(self._observe(date(year, 1, 1)))    # New Year's Day
-        holidays.add(self._observe(date(year, 1, 2)))    # Day after New Year's
-        holidays.add(self._observe(date(year, 2, 6)))    # Waitangi Day
-        holidays.add(date(year, 4, 25))                   # Anzac Day
 
-        holidays.add(self._nth_weekday(year, 6, 0, 1))   # Queen's Birthday (1st Mon Jun)
-        holidays.add(self._nth_weekday(year, 10, 0, 4))  # Labour Day (4th Mon Oct)
+class DenmarkCalendar(SpecCalendar):
+    """Danish banking calendar (Copenhagen)."""
 
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-
-        obs_xmas = self._observe(date(year, 12, 25))
-        obs_boxing = self._observe(date(year, 12, 26))
-        holidays.add(obs_xmas)
-        if obs_boxing == obs_xmas:
-            holidays.add(obs_boxing + timedelta(days=1))
-        else:
-            holidays.add(obs_boxing)
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(6, 5), fixed(12, 24), fixed(12, 25), fixed(12, 26), fixed(12, 31),
+        easter(-3), easter(-2), easter(1),
+        easter(26, until=2023),   # Great Prayer Day (Store Bededag), abolished 2024
+        easter(39), easter(50),
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -529,121 +490,44 @@ class NZDCalendar(Calendar):
 # ═══════════════════════════════════════════════════════════════
 
 
-class WarsawCalendar(Calendar):
-    """Polish banking calendar (Warsaw / PLN).
+class WarsawCalendar(SpecCalendar):
+    """Polish banking calendar (Warsaw / PLN)."""
 
-    Holidays: New Year's, Epiphany, Easter Monday, May Day, Constitution Day
-    (3 May), Corpus Christi, Assumption (15 Aug), All Saints' (1 Nov),
-    Independence Day (11 Nov), Christmas (25-26 Dec).
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 1, 6))     # Epiphany
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 5, 3))     # Constitution Day
-        holidays.add(date(year, 8, 15))    # Assumption
-        holidays.add(date(year, 11, 1))    # All Saints'
-        holidays.add(date(year, 11, 11))   # Independence Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # St Stephen's
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-        holidays.add(easter + timedelta(days=60))   # Corpus Christi
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(1, 6), fixed(5, 1), fixed(5, 3), fixed(8, 15), fixed(11, 1),
+        fixed(11, 11), fixed(12, 25), fixed(12, 26),
+        easter(1), easter(60),
+    ]
 
 
-class PragueCalendar(Calendar):
-    """Czech banking calendar (Prague / CZK).
+class PragueCalendar(SpecCalendar):
+    """Czech banking calendar (Prague / CZK)."""
 
-    Holidays: New Year's/Restoration Day, Good Friday, Easter Monday,
-    May Day, Liberation Day (8 May), Cyril & Methodius (5 Jul),
-    Jan Hus Day (6 Jul), Statehood Day (28 Sep), Independence Day (28 Oct),
-    Freedom & Democracy Day (17 Nov), Christmas Eve, Christmas (25-26 Dec).
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's / Restoration Day
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 5, 8))     # Liberation Day
-        holidays.add(date(year, 7, 5))     # Cyril & Methodius
-        holidays.add(date(year, 7, 6))     # Jan Hus Day
-        holidays.add(date(year, 9, 28))    # Statehood Day
-        holidays.add(date(year, 10, 28))   # Independence Day
-        holidays.add(date(year, 11, 17))   # Freedom & Democracy
-        holidays.add(date(year, 12, 24))   # Christmas Eve
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # St Stephen's
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(5, 8), fixed(7, 5), fixed(7, 6), fixed(9, 28),
+        fixed(10, 28), fixed(11, 17), fixed(12, 24), fixed(12, 25), fixed(12, 26),
+        easter(-2), easter(1),
+    ]
 
 
-class BudapestCalendar(Calendar):
-    """Hungarian banking calendar (Budapest / HUF).
+class BudapestCalendar(SpecCalendar):
+    """Hungarian banking calendar (Budapest / HUF)."""
 
-    Holidays: New Year's, 1848 Revolution (15 Mar), Good Friday, Easter Monday,
-    May Day, Whit Monday, St Stephen's (20 Aug), Republic Day (23 Oct),
-    All Saints' (1 Nov), Christmas (25-26 Dec).
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 3, 15))    # 1848 Revolution
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 8, 20))    # St Stephen's / State Foundation
-        holidays.add(date(year, 10, 23))   # Republic Day
-        holidays.add(date(year, 11, 1))    # All Saints'
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-        holidays.add(easter + timedelta(days=50))   # Whit Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(3, 15), fixed(5, 1), fixed(8, 20), fixed(10, 23), fixed(11, 1),
+        fixed(12, 25), fixed(12, 26),
+        easter(-2), easter(1), easter(50),
+    ]
 
 
-class BucharestCalendar(Calendar):
-    """Romanian banking calendar (Bucharest / RON).
+class BucharestCalendar(SpecCalendar):
+    """Romanian banking calendar (Bucharest / RON). Uses Orthodox Easter."""
 
-    Holidays: New Year's (1-2 Jan), Unification Day (24 Jan),
-    Orthodox Easter (Friday + Monday), May Day, Children's Day (1 Jun),
-    Orthodox Whit Monday, Dormition (15 Aug), St Andrew (30 Nov),
-    National Day (1 Dec), Christmas (25-26 Dec).
-
-    Note: Romania uses Orthodox Easter which differs from Western Easter.
-    We use the Julian calendar algorithm with Gregorian offset.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 1, 2))     # Day after New Year's
-        holidays.add(date(year, 1, 24))    # Unification Day
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 6, 1))     # Children's Day
-        holidays.add(date(year, 8, 15))    # Dormition of the Theotokos
-        holidays.add(date(year, 11, 30))   # St Andrew
-        holidays.add(date(year, 12, 1))    # National Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-
-        oe = _orthodox_easter(year)
-        holidays.add(oe - timedelta(days=2))   # Orthodox Good Friday
-        holidays.add(oe + timedelta(days=1))    # Orthodox Easter Monday
-        holidays.add(oe + timedelta(days=50))   # Orthodox Whit Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(1, 2), fixed(1, 24), fixed(5, 1), fixed(6, 1), fixed(8, 15),
+        fixed(11, 30), fixed(12, 1), fixed(12, 25), fixed(12, 26),
+        orthodox(-2), orthodox(1), orthodox(50),
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -651,93 +535,40 @@ class BucharestCalendar(Calendar):
 # ═══════════════════════════════════════════════════════════════
 
 
-class IstanbulCalendar(Calendar):
-    """Turkish banking calendar (Istanbul / TRY).
+class IstanbulCalendar(SpecCalendar):
+    """Turkish banking calendar (Istanbul / TRY). Fixed secular holidays only."""
 
-    Holidays: New Year's, National Sovereignty (23 Apr), May Day,
-    Youth Day (19 May), Democracy Day (15 Jul), Victory Day (30 Aug),
-    Republic Day (29 Oct).
-
-    Note: Islamic holidays (Ramadan Bayram, Sacrifice Bayram) are variable
-    and follow the lunar calendar. We include fixed secular holidays only.
-    For production use, Islamic holiday dates should be loaded externally.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 4, 23))    # National Sovereignty & Children's Day
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 5, 19))    # Youth & Sports Day
-        holidays.add(date(year, 7, 15))    # Democracy & National Unity Day
-        holidays.add(date(year, 8, 30))    # Victory Day
-        holidays.add(date(year, 10, 29))   # Republic Day
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(4, 23), fixed(5, 1), fixed(5, 19), fixed(7, 15), fixed(8, 30),
+        fixed(10, 29),
+    ]
 
 
-class RiyadhCalendar(Calendar):
-    """Saudi banking calendar (Riyadh / SAR).
+class RiyadhCalendar(SpecCalendar):
+    """Saudi banking calendar (Riyadh / SAR). Fixed secular holidays only."""
 
-    Holidays: National Day (23 Sep), Founding Day (22 Feb, from 2022).
-
-    Note: Eid al-Fitr (~6 days) and Eid al-Adha (~5 days) follow the
-    Hijri lunar calendar. We include fixed secular holidays only.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 9, 23))    # National Day
-        if year >= 2022:
-            holidays.add(date(year, 2, 22))  # Founding Day
-        return holidays
+    HOLIDAYS = [fixed(9, 23), fixed(2, 22, since=2022)]
 
 
-class TelAvivCalendar(Calendar):
-    """Israeli banking calendar (Tel Aviv / ILS).
+class TelAvivCalendar(SpecCalendar):
+    """Israeli banking calendar (Tel Aviv / ILS). Approximate fixed placeholders."""
 
-    Holidays based on Hebrew calendar — dates shift each Gregorian year.
-    We include approximate fixed-date secular holidays. Production use
-    should load precise Hebrew calendar dates externally.
-
-    Fixed: Independence Day vicinity, Yom Kippur vicinity.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        # Israeli weekend: Friday-Saturday. Sunday is a business day.
-        # We keep standard Sat-Sun weekend in the base class for simplicity.
-        # The approximate holidays are placeholders.
-        holidays.add(date(year, 4, 14))    # Passover vicinity
-        holidays.add(date(year, 4, 20))    # Passover end vicinity
-        holidays.add(date(year, 5, 2))     # Independence Day vicinity
-        holidays.add(date(year, 9, 25))    # Rosh Hashanah vicinity
-        holidays.add(date(year, 9, 26))    # Rosh Hashanah 2
-        holidays.add(date(year, 10, 4))    # Yom Kippur vicinity
-        holidays.add(date(year, 10, 9))    # Sukkot vicinity
-        return holidays
+    HOLIDAYS = [
+        fixed(4, 14), fixed(4, 20), fixed(5, 2), fixed(9, 25), fixed(9, 26), fixed(10, 4),
+        fixed(10, 9),
+    ]
 
     def is_weekend(self, d: date) -> bool:
         """Israel: Friday-Saturday weekend."""
         return d.weekday() in (4, 5)
 
 
-class CairoCalendar(Calendar):
-    """Egyptian banking calendar (Cairo / EGP).
+class CairoCalendar(SpecCalendar):
+    """Egyptian banking calendar (Cairo / EGP). Fixed secular holidays only."""
 
-    Fixed holidays: Revolution Day (25 Jan), Sinai Liberation (25 Apr),
-    May Day, Revolution Day (23 Jul), Armed Forces Day (6 Oct).
-    Islamic holidays are lunar and not included.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 7))     # Coptic Christmas
-        holidays.add(date(year, 1, 25))    # Revolution Day
-        holidays.add(date(year, 4, 25))    # Sinai Liberation
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 7, 23))    # Revolution Day
-        holidays.add(date(year, 10, 6))    # Armed Forces Day
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 7), fixed(1, 25), fixed(4, 25), fixed(5, 1), fixed(7, 23), fixed(10, 6),
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -745,89 +576,41 @@ class CairoCalendar(Calendar):
 # ═══════════════════════════════════════════════════════════════
 
 
-class JohannesburgCalendar(Calendar):
-    """South African banking calendar (Johannesburg / ZAR).
-
-    Holidays: New Year's, Human Rights Day (21 Mar), Good Friday, Family Day
-    (Easter Monday), Freedom Day (27 Apr), Workers' Day (1 May),
-    Youth Day (16 Jun), Women's Day (9 Aug), Heritage Day (24 Sep),
-    Day of Reconciliation (16 Dec), Christmas, Day of Goodwill (26 Dec).
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(self._observe(date(year, 1, 1)))     # New Year's
-        holidays.add(self._observe(date(year, 3, 21)))    # Human Rights Day
-        holidays.add(self._observe(date(year, 4, 27)))    # Freedom Day
-        holidays.add(self._observe(date(year, 5, 1)))     # Workers' Day
-        holidays.add(self._observe(date(year, 6, 16)))    # Youth Day
-        holidays.add(self._observe(date(year, 8, 9)))     # Women's Day
-        holidays.add(self._observe(date(year, 9, 24)))    # Heritage Day
-        holidays.add(self._observe(date(year, 12, 16)))   # Day of Reconciliation
-        holidays.add(self._observe(date(year, 12, 25)))   # Christmas
-        holidays.add(self._observe(date(year, 12, 26)))   # Day of Goodwill
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Family Day (Easter Monday)
-
-        return holidays
+class JohannesburgCalendar(SpecCalendar):
+    """South African banking calendar (Johannesburg / ZAR). Sunday → Monday only."""
 
     @staticmethod
     def _observe(d: date) -> date:
-        """South Africa: Sunday holidays move to Monday."""
         if d.weekday() == 6:
             return d + timedelta(days=1)
         return d
 
-
-class NairobiCalendar(Calendar):
-    """Kenyan banking calendar (Nairobi / KES).
-
-    Holidays: New Year's, Good Friday, Easter Monday, May Day,
-    Madaraka Day (1 Jun), Mashujaa Day (20 Oct), Jamhuri Day (12 Dec),
-    Christmas, Boxing Day.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 6, 1))     # Madaraka Day
-        holidays.add(date(year, 10, 20))   # Mashujaa Day
-        holidays.add(date(year, 12, 12))   # Jamhuri Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1, observe=True), fixed(3, 21, observe=True), fixed(4, 27, observe=True),
+        fixed(5, 1, observe=True), fixed(6, 16, observe=True), fixed(8, 9, observe=True),
+        fixed(9, 24, observe=True), fixed(12, 16, observe=True), fixed(12, 25, observe=True),
+        fixed(12, 26, observe=True),
+        easter(-2), easter(1),   # Good Friday, Family Day (Easter Monday) — unobserved
+    ]
 
 
-class LagosCalendar(Calendar):
-    """Nigerian banking calendar (Lagos / NGN).
+class NairobiCalendar(SpecCalendar):
+    """Kenyan banking calendar (Nairobi / KES)."""
 
-    Fixed holidays: New Year's, May Day, Democracy Day (12 Jun),
-    Independence Day (1 Oct), Christmas, Boxing Day.
-    Good Friday, Easter Monday. Islamic holidays not included.
-    """
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(6, 1), fixed(10, 20), fixed(12, 12), fixed(12, 25),
+        fixed(12, 26),
+        easter(-2), easter(1),
+    ]
 
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 6, 12))    # Democracy Day
-        holidays.add(date(year, 10, 1))    # Independence Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
 
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
+class LagosCalendar(SpecCalendar):
+    """Nigerian banking calendar (Lagos / NGN)."""
 
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(6, 12), fixed(10, 1), fixed(12, 25), fixed(12, 26),
+        easter(-2), easter(1),
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -835,190 +618,83 @@ class LagosCalendar(Calendar):
 # ═══════════════════════════════════════════════════════════════
 
 
-class SaoPauloCalendar(Calendar):
-    """Brazilian banking calendar (São Paulo / BRL).
+class SaoPauloCalendar(SpecCalendar):
+    """Brazilian banking calendar (São Paulo / BRL)."""
 
-    Holidays: New Year's, Carnival (Mon-Tue before Ash Wednesday),
-    Good Friday, Tiradentes (21 Apr), May Day, Corpus Christi,
-    Independence Day (7 Sep), Our Lady Aparecida (12 Oct),
-    All Souls' (2 Nov), Republic Day (15 Nov), Christmas.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 4, 21))    # Tiradentes
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 9, 7))     # Independence Day
-        holidays.add(date(year, 10, 12))   # Our Lady Aparecida
-        holidays.add(date(year, 11, 2))    # All Souls'
-        holidays.add(date(year, 11, 15))   # Republic Day
-        holidays.add(date(year, 12, 25))   # Christmas
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=48))  # Carnival Monday
-        holidays.add(easter - timedelta(days=47))  # Carnival Tuesday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=60))  # Corpus Christi
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(4, 21), fixed(5, 1), fixed(9, 7), fixed(10, 12), fixed(11, 2),
+        fixed(11, 15), fixed(12, 25),
+        easter(-48), easter(-47),   # Carnival Monday, Tuesday
+        easter(-2), easter(60),     # Good Friday, Corpus Christi
+    ]
 
 
-class MexicoCityCalendar(Calendar):
-    """Mexican banking calendar (Mexico City / MXN).
+class MexicoCityCalendar(SpecCalendar):
+    """Mexican banking calendar (Mexico City / MXN)."""
 
-    Holidays: New Year's, Constitution Day (1st Mon Feb), Benito Juárez
-    (3rd Mon Mar), Maundy Thursday, Good Friday, May Day,
-    Independence Day (16 Sep), Revolution Day (3rd Mon Nov),
-    Presidential Inauguration (1 Dec every 6 years), Christmas.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(self._nth_weekday(year, 2, 0, 1))   # Constitution Day (1st Mon Feb)
-        holidays.add(self._nth_weekday(year, 3, 0, 3))   # Benito Juárez (3rd Mon Mar)
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 9, 16))    # Independence Day
-        holidays.add(self._nth_weekday(year, 11, 0, 3))  # Revolution Day (3rd Mon Nov)
-        holidays.add(date(year, 12, 25))   # Christmas
-
-        # Presidential inauguration every 6 years (2024, 2030, ...)
-        if year >= 2024 and (year - 2024) % 6 == 0:
-            holidays.add(date(year, 10, 1))  # Inauguration (moved to Oct 1 from 2024)
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=3))   # Maundy Thursday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1),
+        nth(2, 0, 1),    # Constitution Day (1st Mon Feb)
+        nth(3, 0, 3),    # Benito Juárez (3rd Mon Mar)
+        fixed(5, 1), fixed(9, 16),
+        nth(11, 0, 3),   # Revolution Day (3rd Mon Nov)
+        fixed(12, 25),
+        mexico_inauguration,
+        easter(-3), easter(-2),   # Maundy Thursday, Good Friday
+    ]
 
 
-class SantiagoCalendar(Calendar):
-    """Chilean banking calendar (Santiago / CLP).
+class SantiagoCalendar(SpecCalendar):
+    """Chilean banking calendar (Santiago / CLP)."""
 
-    Holidays: New Year's, Good Friday, Easter Saturday, May Day,
-    Navy Day (21 May), San Pedro & San Pablo (29 Jun),
-    Our Lady of Carmen (16 Jul), Assumption (15 Aug),
-    Independence Day (18 Sep), Army Day (19 Sep), Columbus Day (12 Oct),
-    Reformation Day (31 Oct), All Saints' (1 Nov), Immaculate Conception (8 Dec),
-    Christmas.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 5, 21))    # Navy Day
-        holidays.add(date(year, 6, 29))    # San Pedro & San Pablo
-        holidays.add(date(year, 7, 16))    # Our Lady of Carmen
-        holidays.add(date(year, 8, 15))    # Assumption
-        holidays.add(date(year, 9, 18))    # Independence Day
-        holidays.add(date(year, 9, 19))    # Army Day
-        holidays.add(date(year, 10, 12))   # Columbus Day
-        holidays.add(date(year, 10, 31))   # Reformation Day
-        holidays.add(date(year, 11, 1))    # All Saints'
-        holidays.add(date(year, 12, 8))    # Immaculate Conception
-        holidays.add(date(year, 12, 25))   # Christmas
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter - timedelta(days=1))   # Easter Saturday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(5, 21), fixed(6, 29), fixed(7, 16), fixed(8, 15),
+        fixed(9, 18), fixed(9, 19), fixed(10, 12), fixed(10, 31), fixed(11, 1), fixed(12, 8),
+        fixed(12, 25),
+        easter(-2), easter(-1),   # Good Friday, Easter Saturday
+    ]
 
 
-class BogotaCalendar(Calendar):
-    """Colombian banking calendar (Bogotá / COP).
+class BogotaCalendar(SpecCalendar):
+    """Colombian banking calendar (Bogotá / COP). Emiliani law → many holidays to Monday."""
 
-    Holidays: New Year's, Epiphany (Mon), St Joseph (Mon),
-    Maundy Thursday, Good Friday, May Day, Ascension (Mon),
-    Corpus Christi (Mon), Sacred Heart (Mon),
-    St Peter & St Paul (Mon), Independence Day (20 Jul),
-    Battle of Boyacá (7 Aug), Assumption (Mon),
-    Columbus Day (Mon), All Saints' (Mon),
-    Independence of Cartagena (Mon), Immaculate Conception (8 Dec),
-    Christmas.
-
-    Colombia's "emiliani" law moves many holidays to Monday.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(self._next_monday(date(year, 1, 6)))    # Epiphany
-        holidays.add(self._next_monday(date(year, 3, 19)))   # St Joseph
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(self._next_monday(date(year, 6, 29)))   # St Peter & St Paul
-        holidays.add(date(year, 7, 20))    # Independence Day
-        holidays.add(date(year, 8, 7))     # Battle of Boyacá
-        holidays.add(self._next_monday(date(year, 8, 15)))   # Assumption
-        holidays.add(self._next_monday(date(year, 10, 12)))  # Columbus Day
-        holidays.add(self._next_monday(date(year, 11, 1)))   # All Saints'
-        holidays.add(self._next_monday(date(year, 11, 11)))  # Cartagena Independence
-        holidays.add(date(year, 12, 8))    # Immaculate Conception
-        holidays.add(date(year, 12, 25))   # Christmas
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=3))   # Maundy Thursday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(self._next_monday(easter + timedelta(days=43)))   # Ascension
-        holidays.add(self._next_monday(easter + timedelta(days=64)))   # Corpus Christi
-        holidays.add(self._next_monday(easter + timedelta(days=71)))   # Sacred Heart
-
-        return holidays
-
-    @staticmethod
-    def _next_monday(d: date) -> date:
-        """Move to next Monday if not already Monday (emiliani law)."""
-        if d.weekday() == 0:
-            return d
-        return d + timedelta(days=(7 - d.weekday()))
+    HOLIDAYS = [
+        fixed(1, 1),
+        monday(fixed(1, 6)),    # Epiphany
+        monday(fixed(3, 19)),   # St Joseph
+        fixed(5, 1),
+        monday(fixed(6, 29)),   # St Peter & St Paul
+        fixed(7, 20), fixed(8, 7),
+        monday(fixed(8, 15)),   # Assumption
+        monday(fixed(10, 12)),  # Columbus Day
+        monday(fixed(11, 1)),   # All Saints'
+        monday(fixed(11, 11)),  # Cartagena Independence
+        fixed(12, 8), fixed(12, 25),
+        easter(-3), easter(-2),          # Maundy Thursday, Good Friday
+        monday(easter(43)),              # Ascension
+        monday(easter(64)),              # Corpus Christi
+        monday(easter(71)),              # Sacred Heart
+    ]
 
 
-class LimaCalendar(Calendar):
+class LimaCalendar(SpecCalendar):
     """Peruvian banking calendar (Lima / PEN)."""
 
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))      # New Year's
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=3))  # Maundy Thursday
-        holidays.add(easter - timedelta(days=2))  # Good Friday
-        holidays.add(date(year, 5, 1))      # Labour Day
-        holidays.add(date(year, 6, 29))     # St Peter & St Paul
-        holidays.add(date(year, 7, 28))     # Independence Day
-        holidays.add(date(year, 7, 29))     # Independence Day
-        holidays.add(date(year, 8, 30))     # Santa Rosa de Lima
-        holidays.add(date(year, 10, 8))     # Battle of Angamos
-        holidays.add(date(year, 11, 1))     # All Saints'
-        holidays.add(date(year, 12, 8))     # Immaculate Conception
-        holidays.add(date(year, 12, 25))    # Christmas
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), easter(-3), easter(-2), fixed(5, 1), fixed(6, 29), fixed(7, 28),
+        fixed(7, 29), fixed(8, 30), fixed(10, 8), fixed(11, 1), fixed(12, 8), fixed(12, 25),
+    ]
 
 
-class BuenosAiresCalendar(Calendar):
+class BuenosAiresCalendar(SpecCalendar):
     """Argentine banking calendar (Buenos Aires / ARS)."""
 
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))      # New Year's
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=48))  # Carnival Monday
-        holidays.add(easter - timedelta(days=47))  # Carnival Tuesday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(date(year, 3, 24))     # Day of Remembrance
-        holidays.add(date(year, 4, 2))      # Malvinas Day
-        holidays.add(date(year, 5, 1))      # Labour Day
-        holidays.add(date(year, 5, 25))     # May Revolution
-        holidays.add(date(year, 6, 20))     # Flag Day
-        holidays.add(date(year, 7, 9))      # Independence Day
-        holidays.add(date(year, 8, 17))     # San Martín Day
-        holidays.add(date(year, 10, 12))    # Respect for Cultural Diversity
-        holidays.add(date(year, 11, 20))    # National Sovereignty Day
-        holidays.add(date(year, 12, 8))     # Immaculate Conception
-        holidays.add(date(year, 12, 25))    # Christmas
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1),
+        easter(-48), easter(-47), easter(-2),   # Carnival Mon/Tue, Good Friday
+        fixed(3, 24), fixed(4, 2), fixed(5, 1), fixed(5, 25), fixed(6, 20), fixed(7, 9),
+        fixed(8, 17), fixed(10, 12), fixed(11, 20), fixed(12, 8), fixed(12, 25),
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1026,277 +702,79 @@ class BuenosAiresCalendar(Calendar):
 # ═══════════════════════════════════════════════════════════════
 
 
-class BeijingCalendar(Calendar):
-    """Chinese banking calendar (Beijing / CNY).
+class BeijingCalendar(SpecCalendar):
+    """Chinese banking calendar (Beijing / CNY). Fixed secular holidays only."""
 
-    Fixed holidays: New Year's, Qingming (5 Apr approx), May Day,
-    National Day (1-3 Oct).
-
-    Note: Chinese New Year (~Jan/Feb) and Mid-Autumn Festival follow
-    the lunar calendar. Exact dates shift yearly and should be loaded
-    externally for production. We include fixed secular holidays only.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 4, 5))     # Qingming (Tomb Sweeping)
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 10, 1))    # National Day
-        holidays.add(date(year, 10, 2))    # National Day
-        holidays.add(date(year, 10, 3))    # National Day
-        return holidays
+    HOLIDAYS = [fixed(1, 1), fixed(4, 5), fixed(5, 1), fixed(10, 1), fixed(10, 2), fixed(10, 3)]
 
 
-class SeoulCalendar(Calendar):
-    """South Korean banking calendar (Seoul / KRW).
+class SeoulCalendar(SpecCalendar):
+    """South Korean banking calendar (Seoul / KRW). Fixed secular holidays only."""
 
-    Fixed holidays: New Year's, Independence Movement (1 Mar), Children's Day
-    (5 May), Memorial Day (6 Jun), Liberation Day (15 Aug),
-    National Foundation (3 Oct), Hangeul Day (9 Oct), Christmas.
-
-    Note: Seollal (Lunar New Year) and Chuseok (Mid-Autumn) follow the
-    lunar calendar and are not included. Load externally for production.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 3, 1))     # Independence Movement Day
-        holidays.add(date(year, 5, 5))     # Children's Day
-        holidays.add(date(year, 6, 6))     # Memorial Day
-        holidays.add(date(year, 8, 15))    # Liberation Day
-        holidays.add(date(year, 10, 3))    # National Foundation Day
-        holidays.add(date(year, 10, 9))    # Hangeul Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(3, 1), fixed(5, 5), fixed(6, 6), fixed(8, 15), fixed(10, 3),
+        fixed(10, 9), fixed(12, 25),
+    ]
 
 
-class MumbaiCalendar(Calendar):
-    """Indian banking calendar (Mumbai / INR).
+class MumbaiCalendar(SpecCalendar):
+    """Indian banking calendar (Mumbai / INR). Fixed secular holidays only."""
 
-    Fixed holidays: Republic Day (26 Jan), Independence Day (15 Aug),
-    Gandhi Jayanti (2 Oct), Christmas.
-
-    Note: Holi, Diwali, Eid, Guru Nanak Jayanti, etc. follow lunar/religious
-    calendars and shift yearly. Not included — load externally for production.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 26))    # Republic Day
-        holidays.add(date(year, 8, 15))    # Independence Day
-        holidays.add(date(year, 10, 2))    # Gandhi Jayanti
-        holidays.add(date(year, 12, 25))   # Christmas
-        return holidays
+    HOLIDAYS = [fixed(1, 26), fixed(8, 15), fixed(10, 2), fixed(12, 25)]
 
 
-class SingaporeCalendar(Calendar):
-    """Singapore banking calendar (SGD).
+class SingaporeCalendar(SpecCalendar):
+    """Singapore banking calendar (SGD). Fixed + Good Friday."""
 
-    Fixed holidays: New Year's, May Day, National Day (9 Aug), Christmas.
-    Good Friday.
-
-    Note: Chinese New Year, Deepavali, Hari Raya Puasa/Haji follow
-    lunar/Islamic calendars. Not included.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 8, 9))     # National Day
-        holidays.add(date(year, 12, 25))   # Christmas
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-
-        return holidays
+    HOLIDAYS = [fixed(1, 1), fixed(5, 1), fixed(8, 9), fixed(12, 25), easter(-2)]
 
 
-class HongKongCalendar(Calendar):
-    """Hong Kong banking calendar (HKD).
+class HongKongCalendar(SpecCalendar):
+    """Hong Kong banking calendar (HKD)."""
 
-    Fixed holidays: New Year's, Good Friday, Easter Saturday, Easter Monday,
-    May Day, Tuen Ng vicinity (Jun), HKSAR Day (1 Jul), National Day (1 Oct),
-    Christmas, Boxing Day.
-
-    Note: Chinese New Year, Ching Ming, Mid-Autumn, Chung Yeung follow
-    lunar calendar. Not included.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 7, 1))     # HKSAR Day
-        holidays.add(date(year, 10, 1))    # National Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter - timedelta(days=1))   # Easter Saturday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(7, 1), fixed(10, 1), fixed(12, 25), fixed(12, 26),
+        easter(-2), easter(-1), easter(1),   # Good Friday, Easter Saturday, Easter Monday
+    ]
 
 
-class JakartaCalendar(Calendar):
-    """Indonesian banking calendar (Jakarta / IDR).
+class JakartaCalendar(SpecCalendar):
+    """Indonesian banking calendar (Jakarta / IDR)."""
 
-    Fixed holidays: New Year's, May Day, Pancasila Day (1 Jun),
-    Independence Day (17 Aug), Christmas.
-
-    Note: Nyepi, Waisak, Isra Mi'raj, Eid al-Fitr, Eid al-Adha, Mawlid,
-    Chinese New Year follow religious/lunar calendars. Not included.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 6, 1))     # Pancasila Day
-        holidays.add(date(year, 8, 17))    # Independence Day
-        holidays.add(date(year, 12, 25))   # Christmas
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=39))  # Ascension
-
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(5, 1), fixed(6, 1), fixed(8, 17), fixed(12, 25),
+        easter(-2), easter(39),   # Good Friday, Ascension
+    ]
 
 
-class KualaLumpurCalendar(Calendar):
-    """Malaysian banking calendar (Kuala Lumpur / MYR).
+class KualaLumpurCalendar(SpecCalendar):
+    """Malaysian banking calendar (Kuala Lumpur / MYR)."""
 
-    Fixed holidays: New Year's, Federal Territory Day (1 Feb),
-    May Day, Yang di-Pertuan Agong Birthday (1st Mon Jun),
-    Malaysia Day (16 Sep), Christmas.
-
-    Note: Chinese New Year, Thaipusam, Nuzul Quran, Hari Raya Aidilfitri/Haji,
-    Deepavali, Mawlid follow lunar/religious calendars. Not included.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 2, 1))     # Federal Territory Day
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(self._nth_weekday(year, 6, 0, 1))   # Agong Birthday (1st Mon Jun)
-        holidays.add(date(year, 8, 31))    # Merdeka Day
-        holidays.add(date(year, 9, 16))    # Malaysia Day
-        holidays.add(date(year, 12, 25))   # Christmas
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(2, 1), fixed(5, 1),
+        nth(6, 0, 1),    # Agong Birthday (1st Mon Jun)
+        fixed(8, 31), fixed(9, 16), fixed(12, 25),
+    ]
 
 
-class BangkokCalendar(Calendar):
-    """Thai banking calendar (Bangkok / THB).
+class BangkokCalendar(SpecCalendar):
+    """Thai banking calendar (Bangkok / THB)."""
 
-    Fixed holidays: New Year's, Chakri Day (6 Apr), Songkran (13-15 Apr),
-    May Day, King's Birthday (28 Jul), Queen's Birthday (12 Aug),
-    Chulalongkorn Day (23 Oct), King Bhumibol Day (5 Dec),
-    Constitution Day (10 Dec), New Year's Eve.
-
-    Note: Makha Bucha, Visakha Bucha, Asanha Bucha follow lunar calendar.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 4, 6))     # Chakri Memorial Day
-        holidays.add(date(year, 4, 13))    # Songkran
-        holidays.add(date(year, 4, 14))    # Songkran
-        holidays.add(date(year, 4, 15))    # Songkran
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 7, 28))    # King's Birthday
-        holidays.add(date(year, 8, 12))    # Queen's Birthday
-        holidays.add(date(year, 10, 23))   # Chulalongkorn Day
-        holidays.add(date(year, 12, 5))    # King Bhumibol Birthday
-        holidays.add(date(year, 12, 10))   # Constitution Day
-        holidays.add(date(year, 12, 31))   # New Year's Eve
-        return holidays
+    HOLIDAYS = [
+        fixed(1, 1), fixed(4, 6), fixed(4, 13), fixed(4, 14), fixed(4, 15), fixed(5, 1),
+        fixed(7, 28), fixed(8, 12), fixed(10, 23), fixed(12, 5), fixed(12, 10), fixed(12, 31),
+    ]
 
 
-class ManilaCalendar(Calendar):
-    """Philippine banking calendar (Manila / PHP).
+class ManilaCalendar(SpecCalendar):
+    """Philippine banking calendar (Manila / PHP)."""
 
-    Fixed holidays: New Year's, Maundy Thursday, Good Friday,
-    Araw ng Kagitingan (9 Apr), May Day, Independence Day (12 Jun),
-    National Heroes Day (last Mon Aug), Bonifacio Day (30 Nov),
-    Christmas Eve, Christmas, Rizal Day (30 Dec), New Year's Eve.
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 4, 9))     # Araw ng Kagitingan
-        holidays.add(date(year, 5, 1))     # May Day
-        holidays.add(date(year, 6, 12))    # Independence Day
-        holidays.add(self._last_weekday(year, 8, 0))  # National Heroes Day (last Mon Aug)
-        holidays.add(date(year, 11, 30))   # Bonifacio Day
-        holidays.add(date(year, 12, 24))   # Christmas Eve
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 30))   # Rizal Day
-        holidays.add(date(year, 12, 31))   # New Year's Eve
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=3))   # Maundy Thursday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-
-        return holidays
-
-
-class DenmarkCalendar(Calendar):
-    """Danish banking calendar (Copenhagen / DKK).
-
-    Holidays: New Year's, Maundy Thursday, Good Friday, Easter Monday,
-    Great Prayer Day (4th Fri after Easter, until 2023), Ascension,
-    Whit Monday, Constitution Day (5 Jun), Christmas (24-26 Dec).
-    """
-
-    def _compute_holidays(self, year: int) -> set[date]:
-        holidays = set()
-        holidays.add(date(year, 1, 1))     # New Year's
-        holidays.add(date(year, 6, 5))     # Constitution Day
-        holidays.add(date(year, 12, 24))   # Christmas Eve
-        holidays.add(date(year, 12, 25))   # Christmas
-        holidays.add(date(year, 12, 26))   # Boxing Day
-        holidays.add(date(year, 12, 31))   # New Year's Eve
-
-        easter = TARGETCalendar._easter(year)
-        holidays.add(easter - timedelta(days=3))   # Maundy Thursday
-        holidays.add(easter - timedelta(days=2))   # Good Friday
-        holidays.add(easter + timedelta(days=1))    # Easter Monday
-        if year <= 2023:
-            holidays.add(easter + timedelta(days=26))  # Great Prayer Day (Store Bededag)
-        holidays.add(easter + timedelta(days=39))   # Ascension
-        holidays.add(easter + timedelta(days=50))   # Whit Monday
-
-        return holidays
-
-
-# ═══════════════════════════════════════════════════════════════
-# Orthodox Easter (used by Romania, etc.)
-# ═══════════════════════════════════════════════════════════════
-
-
-def _orthodox_easter(year: int) -> date:
-    """Compute Orthodox Easter Sunday (Julian algorithm + Gregorian offset).
-
-    The Julian Easter is computed, then converted to Gregorian by adding
-    the century offset (13 days for 1900-2099).
-    """
-    a = year % 4
-    b = year % 7
-    c = year % 19
-    d = (19 * c + 15) % 30
-    e = (2 * a + 4 * b - d + 34) % 7
-    month = (d + e + 114) // 31
-    day = ((d + e + 114) % 31) + 1
-    julian = date(year, month, day)
-    # Gregorian offset: 13 days for 1900-2099
-    return julian + timedelta(days=13)
+    HOLIDAYS = [
+        fixed(1, 1), fixed(4, 9), fixed(5, 1), fixed(6, 12),
+        nth(8, 0, -1),   # National Heroes Day (last Mon Aug)
+        fixed(11, 30), fixed(12, 24), fixed(12, 25), fixed(12, 30), fixed(12, 31),
+        easter(-3), easter(-2),   # Maundy Thursday, Good Friday
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
