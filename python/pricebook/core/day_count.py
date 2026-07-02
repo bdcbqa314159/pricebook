@@ -67,8 +67,7 @@ def year_fraction(
     elif convention == DayCountConvention.ACT_ACT_ISDA:
         return _act_act_isda(start, end)
     elif convention == DayCountConvention.ACT_ACT_ICMA:
-        return _act_act_icma(start, end, ref_start, ref_end, frequency,
-                             strict=strict_icma)
+        return _act_act_icma(start, end, ref_start, ref_end, frequency, strict=strict_icma)
     elif convention == DayCountConvention.BUS_252:
         return _bus_252(start, end, calendar)
     else:
@@ -186,18 +185,20 @@ def _act_act_icma(
     Callers migrated to strict mode are responsible for supplying the
     coupon-period anchors. New code should always pass `strict=True`.
     """
-    def _missing_args() -> list[str]:
-        missing = []
-        if ref_start is None:
-            missing.append("ref_start")
-        if ref_end is None:
-            missing.append("ref_end")
-        if frequency is None:
-            missing.append("frequency")
-        return missing
 
-    missing = _missing_args()
-    if missing:
+    # Combined guard: after this block every anchor is non-None, so mypy narrows
+    # ref_start / ref_end / frequency below (the nested-closure form hid the
+    # None-checks and forced a `# type: ignore` + left an unchecked `int * None`).
+    if ref_start is None or ref_end is None or frequency is None:
+        missing = [
+            name
+            for name, value in (
+                ("ref_start", ref_start),
+                ("ref_end", ref_end),
+                ("frequency", frequency),
+            )
+            if value is None
+        ]
         if strict:
             raise ValueError(
                 "ACT/ACT ICMA requires coupon-period anchors. Missing: "
@@ -206,14 +207,12 @@ def _act_act_icma(
             )
         return (end - start).days / 365.0  # silent ACT/365F fallback (legacy)
 
-    if frequency is not None and frequency <= 0:
+    if frequency <= 0:
         if strict:
-            raise ValueError(
-                f"ACT/ACT ICMA `frequency` must be > 0; got {frequency}."
-            )
+            raise ValueError(f"ACT/ACT ICMA `frequency` must be > 0; got {frequency}.")
         return (end - start).days / 365.0  # legacy
 
-    period_days = (ref_end - ref_start).days  # type: ignore[operator]
+    period_days = (ref_end - ref_start).days
     if period_days <= 0:
         if strict:
             raise ValueError(
@@ -237,6 +236,7 @@ def _bus_252(start: date, end: date, calendar: Calendar | None = None) -> float:
     """
     if calendar is None:
         from pricebook.core.calendar import SaoPauloCalendar
+
         calendar = SaoPauloCalendar()
     bd = business_days_between(start, end, calendar)
     return bd / 252.0
