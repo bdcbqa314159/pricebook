@@ -2,6 +2,25 @@
 
 ---
 
+## v1.218.0 — 2026-07-02 — **core hardening: data_registry `from_dict` typing + fail-loud; currency dead-code + drift guard**
+
+Hardened `core/data_registry.py` and `core/currency.py` from a deeper design pass.
+
+**Files**: `core/data_registry.py`, `core/currency.py` (+ `tests/test_data_registry.py` new, `tests/test_g10_fx.py`).
+
+**data_registry:**
+- **Fixed the `from_dict` type error** (mypy `data_registry.py:65: "type[T]" has no attribute "from_dict"`): added a `Convention` `Protocol` (`to_dict` + `from_dict(cls, d) -> Self`) and bound the `TypeVar` on it, so the loader's contract is explicit and `type[T].from_dict` type-checks. `save_conventions`/`load_registry` signatures typed too (`Sequence[Convention]`, `Callable[[T], str]`). `data_registry.py` is now mypy-clean. (The same untyped-serialisation pattern recurs elsewhere in the repo — `serialisable`, `discount_curve`, `vol_surface` — out of scope here.)
+- **Fail loud on a corrupt file:** a present file whose entries *all* fail to parse now raises `ValueError` instead of returning `[]` — which `load_registry` would have silently replaced with hardcoded **defaults**, using the wrong conventions in a pricing run with only an import-time warning. An empty file (no entries) still legitimately returns `[]`; a single bad row among good ones is still skipped-with-warning. Verified all 10 shipped data files parse 100%, so nothing currently trips it.
+
+**currency:**
+- **Removed dead `is_ndf`** — structurally always `False` for the G10-only enum (only a test asserted it); its only test repurposed to a meaningful `all_g10_pairs` invariant. Also replaced the unreachable `from_currencies` fallback with an explicit `AssertionError`.
+- **Added a `_BASE_PRIORITY` drift guard** — the enum and the priority list are two sources of truth; if a currency were added to one but not the other, `from_currencies` would return non-canonical base/quote ordering silently. Now raises at import if they diverge.
+- Forward-pricing math verified correct (the two CIP forms agree).
+
+**Verification**: full suite **13,138 passed** (+8 new tests, incl. fail-loud/empty-file/path-traversal + the drift guard).
+
+---
+
 ## v1.217.0 — 2026-07-02 — **calendar: `__all__` + DSL docstring (design-review follow-up)**
 
 Two gaps from verifying the v1.216 refactor's design. Doc/declaration only — no logic (`__all__` affects only `import *`, which nothing uses; confirmed).
