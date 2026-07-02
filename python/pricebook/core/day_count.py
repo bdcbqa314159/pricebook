@@ -84,19 +84,27 @@ def _act_365_fixed(start: date, end: date) -> float:
     return (end - start).days / 365.0
 
 
+def _is_leap(year: int) -> bool:
+    return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+
+
 def _is_last_day_of_feb(d: date) -> bool:
     """Check if date is the last day of February."""
     return d.month == 2 and d.day == (29 if _is_leap(d.year) else 28)
 
 
 def _thirty_360(start: date, end: date) -> float:
-    """
-    30/360 US (Bond Basis): assumes 30-day months and 360-day years.
+    """30U/360 (US SIA) — 30-day months, 360-day year, end-of-month rule.
 
-    ISDA 2006 rules:
-    1. If d1 is the last day of February, change d1 to 30
-    2. If d1 = 31, change d1 to 30
-    3. If d2 = 31 and d1 >= 30 (after adjustment), change d2 to 30
+    This is the US SIA variant *with* end-of-February adjustments, used for US
+    corporate/agency bonds. It is NOT the ISDA 2006 "30/360 / Bond Basis" (which
+    has no February rule — that variant differs only for Feb-spanning accruals).
+
+    Rules (EOM convention assumed True), applied in order:
+    1. If d1 is the last day of February, d1 = 30.
+    2. If d1 = 31, d1 = 30.
+    3. If d1 and d2 are both the last day of February, d2 = 30.
+    4. If d2 = 31 and d1 = 30 (after adjustment), d2 = 30.
     """
     d1 = start.day
     d2 = end.day
@@ -126,10 +134,6 @@ def _thirty_e_360(start: date, end: date) -> float:
     d2 = min(end.day, 30)
     days = 360 * (end.year - start.year) + 30 * (end.month - start.month) + (d2 - d1)
     return days / 360.0
-
-
-def _is_leap(year: int) -> bool:
-    return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
 
 
 def _act_act_isda(start: date, end: date) -> float:
