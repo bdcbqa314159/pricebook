@@ -15,9 +15,8 @@ from __future__ import annotations
 import csv
 import json
 import os
-from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pricebook.core.calendar import Calendar
@@ -74,8 +73,8 @@ class FixingsStore:
                 (a convenience — real fixing lags are business days, so pass a
                 calendar for correct T-N).
 
-        Returns the fixing at the date that is `lag` business days before `d`,
-        or None if not found.
+        Returns the fixing at the date `lag` days before `d` (business or
+        calendar per `calendar` above), or None if not found.
         """
         if calendar is not None:
             fixing_date = calendar.add_business_days(d, -lag)
