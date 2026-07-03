@@ -28,9 +28,16 @@ class NodeCategory(Enum):
     AGGREGATION = "aggregation"
 
 
-@dataclass
+@dataclass(eq=False)
 class GraphNode:
-    """A node in the dependency graph."""
+    """A node in the dependency graph.
+
+    ``eq=False`` gives identity semantics (object ``is``), which is correct for a
+    graph node: two nodes are the same iff they are the same object, never
+    because their fields happen to match. It also keeps instances hashable and
+    makes the ``add_dependency``/``add_dependent`` dedup an O(1) identity check
+    (default dataclass value-equality would deep-compare the whole subgraph).
+    """
 
     name: str
     category: NodeCategory
@@ -55,10 +62,19 @@ class GraphNode:
     def dependencies(self) -> list[GraphNode]:
         return list(self._dependencies)
 
-
-
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        """Serialise to a plain dict — edges as node *names*, not node objects
+        (``dict(vars(self))`` would leak un-serialisable GraphNode instances)."""
+        return {
+            "name": self.name,
+            "category": self.category.value,
+            "dirty": self.dirty,
+            "value": self.value,
+            "dependencies": [n.name for n in self._dependencies],
+            "dependents": [n.name for n in self._dependents],
+        }
+
+
 class DependencyGraph:
     """DAG of computation dependencies.
 
@@ -93,6 +109,12 @@ class DependencyGraph:
 
         if depends_on:
             for dep in depends_on:
+                # Every dependency must be a node registered in THIS graph, or
+                # cycle detection / topo sort would later KeyError on it.
+                if self._nodes.get(dep.name) is not dep:
+                    raise ValueError(
+                        f"depends_on node {dep.name!r} is not registered in this graph"
+                    )
                 node.add_dependency(dep)
                 dep.add_dependent(node)
 

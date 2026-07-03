@@ -199,3 +199,35 @@ class TestPortfolioScenario:
         # Should NOT dirty: vol
         assert "vol_5y" not in dirty_names
         assert "vol_surface" not in dirty_names
+
+
+class TestNodeSemantics:
+    """The fixes: graph nodes are identity-based, hashable, and serialise cleanly."""
+
+    def test_nodes_use_identity_not_value_equality(self):
+        a = GraphNode("x", NodeCategory.CURVE)
+        b = GraphNode("x", NodeCategory.CURVE)  # same fields, different object
+        assert a != b            # distinct objects are not equal
+        assert a == a            # an object equals itself
+
+    def test_nodes_are_hashable(self):
+        n = GraphNode("x", NodeCategory.CURVE)
+        assert n in {n}          # usable in sets/dicts (identity hash)
+
+    def test_to_dict_is_serialisable(self):
+        g = DependencyGraph()
+        r = g.add_node("r", "market_data")
+        c = g.add_node("c", "curve", depends_on=[r])
+        d = c.to_dict()
+        assert d == {
+            "name": "c", "category": "curve", "dirty": False, "value": None,
+            "dependencies": ["r"], "dependents": [],
+        }
+        # edges are names, never GraphNode objects
+        assert all(isinstance(x, str) for x in d["dependencies"] + d["dependents"])
+
+    def test_add_node_rejects_foreign_dependency(self):
+        g1, g2 = DependencyGraph(), DependencyGraph()
+        ext = g2.add_node("e", "curve")
+        with pytest.raises(ValueError, match="not registered in this graph"):
+            g1.add_node("bad", "curve", depends_on=[ext])
