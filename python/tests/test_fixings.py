@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 import pytest
-from datetime import date
+from datetime import date, datetime
 
 from pricebook.core.fixings import FixingsStore, create_sample_fixings
 
@@ -154,3 +154,30 @@ class TestSaveSafety:
         store.set("SOFR", date(2024, 1, 15), 0.043)
         store.save(str(tmp_path))
         assert (tmp_path / "SOFR.json").exists()
+
+
+class TestDatetimeKeyNormalisation:
+    """datetime is a subclass of date — keys must collapse to the calendar day."""
+
+    def test_set_datetime_get_date(self):
+        s = FixingsStore()
+        s.set("SOFR", datetime(2024, 1, 15, 9, 0), 0.043)
+        assert s.get("SOFR", date(2024, 1, 15)) == 0.043
+
+    def test_set_date_get_datetime(self):
+        s = FixingsStore()
+        s.set("SOFR", date(2024, 1, 15), 0.043)
+        assert s.get("SOFR", datetime(2024, 1, 15, 23, 59)) == 0.043
+
+    def test_same_day_datetime_and_date_are_one_entry(self):
+        s = FixingsStore()
+        s.set("X", date(2024, 1, 15), 1.0)
+        s.set("X", datetime(2024, 1, 15, 9, 0), 2.0)  # same day → overwrites
+        assert s.series("X") == [(date(2024, 1, 15), 2.0)]
+
+    def test_datetime_key_does_not_poison_series(self):
+        s = FixingsStore()
+        s.set("X", datetime(2024, 1, 15, 9, 0), 1.0)
+        # would previously TypeError: can't compare datetime to date
+        assert s.series("X") == [(date(2024, 1, 15), 1.0)]
+        assert s.dates_for("X") == [date(2024, 1, 15)]

@@ -15,11 +15,22 @@ from __future__ import annotations
 import csv
 import json
 import os
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pricebook.core.calendar import Calendar
+
+
+def _as_date(d: date) -> date:
+    """Normalise a key to a calendar day.
+
+    ``datetime`` is a subclass of ``date``, so it slips past the ``date`` type
+    hint — but a datetime key lands in a *distinct* slot from the same day's
+    date (silent miss) and, once mixed in, poisons every ``sorted()`` over the
+    rate (``can't compare datetime to date``). Fixings are per-day, so collapse.
+    """
+    return d.date() if isinstance(d, datetime) else d
 
 
 class FixingsStore:
@@ -39,11 +50,11 @@ class FixingsStore:
         """Store a fixing."""
         if rate_name not in self._data:
             self._data[rate_name] = {}
-        self._data[rate_name][d] = value
+        self._data[rate_name][_as_date(d)] = value
 
     def get(self, rate_name: str, d: date) -> float | None:
         """Retrieve a fixing. Returns None if not found."""
-        return self._data.get(rate_name, {}).get(d)
+        return self._data.get(rate_name, {}).get(_as_date(d))
 
     def get_or_raise(self, rate_name: str, d: date) -> float:
         """Retrieve a fixing, raising KeyError if not found."""
@@ -98,8 +109,10 @@ class FixingsStore:
         data = self._data.get(rate_name, {})
         result = sorted(data.items())
         if start is not None:
+            start = _as_date(start)
             result = [(d, v) for d, v in result if d >= start]
         if end is not None:
+            end = _as_date(end)
             result = [(d, v) for d, v in result if d <= end]
         return result
 
@@ -108,7 +121,7 @@ class FixingsStore:
         if rate_name not in self._data:
             self._data[rate_name] = {}
         for d, v in fixings:
-            self._data[rate_name][d] = v
+            self._data[rate_name][_as_date(d)] = v
 
     # ---- Persistence ----
 
