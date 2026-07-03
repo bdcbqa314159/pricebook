@@ -2,6 +2,21 @@
 
 ---
 
+## v1.222.0 — 2026-07-03 — **fixings: save() path-traversal guard + docstring/style tidy**
+
+Design read of `core/fixings.py` (live module — 10+ consumers: floating_leg, swap, tarf, asian_option, repo_desk, fx_exotic, …). No bugs; four items fixed so none linger as notes.
+
+**Files**: `core/fixings.py` (+ `tests/test_fixings.py`).
+
+- **`save()` now rejects a `rate_name` with path separators / `..`** — it became a filename (`{rate_name}.json`) unsanitised, so a name like `../evil` could write outside the target dir. Guarded + tested.
+- **`get_with_lag` docstring** made unambiguous about the business-days (with calendar) vs calendar-days (None) switch — the `None` fallback is a deliberate, test-locked convenience, not a bug.
+- **`create_sample_fixings` docstring** corrected (generates SOFR/ESTR/FED_FUNDS + CPI, not "SOFR, ESTR, CPI").
+- **`series()` start/end filters** use `is not None` instead of truthiness (dates are always truthy — behaviour identical, intent clearer).
+
+**Verification**: 91 fixings/floating-leg tests pass (+2 new save-safety); full suite **13,144 passed**.
+
+---
+
 ## v1.221.0 — 2026-07-03 — **dependency_graph: identity semantics + serialisable to_dict + edge guard**
 
 Design read of `core/dependency_graph.py` (a DAG for incremental risk). Currently **no production consumers** — coherent infrastructure, kept and hardened.
