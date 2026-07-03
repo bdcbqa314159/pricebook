@@ -2,6 +2,21 @@
 
 ---
 
+## v1.221.0 — 2026-07-03 — **dependency_graph: identity semantics + serialisable to_dict + edge guard**
+
+Design read of `core/dependency_graph.py` (a DAG for incremental risk). Currently **no production consumers** — coherent infrastructure, kept and hardened.
+
+**Files**: `core/dependency_graph.py` (+ `tests/test_dependency_graph.py`).
+
+- **`GraphNode` now uses identity equality (`@dataclass(eq=False)`).** It was a plain dataclass → *value* equality: two distinct nodes with matching fields compared `==` (semantically wrong for a graph, where identity is the contract), the `add_dependency`/`add_dependent` dedup deep-compared the whole subgraph, and nodes were **unhashable** (mutable dataclass ⇒ `__hash__=None`). Identity equality is correct, O(1), hashable, and consistent with the `id()`-based topological sort.
+- **`to_dict` no longer leaks `GraphNode` objects** — it serialised `dict(vars(self))`, so `dependencies`/`dependents` came out as un-serialisable node objects. Now emits edges as node **names** + the category as its string value.
+- **`add_node` rejects a `depends_on` node not registered in this graph** — previously such a foreign/unregistered node would `KeyError` later inside `has_cycle`; now it fails loud at add time.
+- **Closed as non-issues** (not deferred debt): the recursive `mark_dirty`/topo/`has_cycle` DFS — risk DAGs are shallow by domain (market-data → curve → instrument → aggregation), recursion is the correct, idiomatic form, and converting to iterative would add complexity for no real need.
+
+**Verification**: 22 tests pass (+4 new for the fixes); zero production consumers, so no downstream impact.
+
+---
+
 ## v1.220.0 — 2026-07-02 — **day_count: correct the 30/360 convention label + tidy**
 
 Design-read follow-up. No behaviour change (docstring + a function reorder).
