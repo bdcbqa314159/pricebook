@@ -193,3 +193,43 @@ class TestLoadErrorContext:
         (tmp_path / "config.json").write_text('{"foo": [1, 2, 3]}')
         with pytest.raises(ValueError, match="config.json"):
             FixingsStore(str(tmp_path))
+
+
+class TestIngestHardening:
+    """Expert-review findings (v1.226): BOM, non-finite values, wrong-column file."""
+
+    def test_bom_csv_loads(self, tmp_path):
+        f = tmp_path / "bom.csv"
+        f.write_bytes(b"\xef\xbb\xbfdate,value\n2024-01-15,0.043\n")
+        store = FixingsStore()
+        n = store.load_csv("SOFR", str(f))
+        assert n == 1 and store.get("SOFR", date(2024, 1, 15)) == 0.043
+
+    def test_set_rejects_nan_and_inf(self):
+        store = FixingsStore()
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValueError, match="non-finite"):
+                store.set("SOFR", date(2024, 1, 15), bad)
+
+    def test_bulk_set_rejects_nan(self):
+        store = FixingsStore()
+        with pytest.raises(ValueError, match="non-finite"):
+            store.bulk_set("SOFR", [(date(2024, 1, 15), float("nan"))])
+
+    def test_csv_nan_row_skipped(self, tmp_path):
+        f = tmp_path / "n.csv"
+        f.write_text("date,value\n2024-01-15,0.043\n2024-01-16,nan\n")
+        store = FixingsStore()
+        assert store.load_csv("SOFR", str(f), skip_invalid=True) == 1
+
+    def test_wrong_column_file_raises_even_when_skip_invalid(self, tmp_path):
+        f = tmp_path / "w.csv"
+        f.write_text("Date,Rate\n2024-01-15,0.043\n")
+        store = FixingsStore()
+        with pytest.raises(ValueError, match="missing required columns"):
+            store.load_csv("SOFR", str(f), skip_invalid=True)
+
+    def test_load_all_rejects_nan_on_disk(self, tmp_path):
+        (tmp_path / "SOFR.json").write_text('{"2024-01-15": NaN}')
+        with pytest.raises(ValueError, match="SOFR.json"):
+            FixingsStore(str(tmp_path))

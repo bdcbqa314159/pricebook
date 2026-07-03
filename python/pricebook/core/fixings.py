@@ -14,12 +14,26 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pricebook.core.calendar import Calendar
+
+
+def _as_value(v: float) -> float:
+    """Coerce to a finite float; reject NaN/Inf.
+
+    Consumers treat ``get(...) is not None`` as "usable rate", so a stored NaN
+    would pass that check and silently poison a PV (and every greek off it)
+    instead of triggering the curve fallback. NaN/Inf are also not valid JSON.
+    """
+    f = float(v)
+    if not math.isfinite(f):
+        raise ValueError(f"non-finite fixing value: {v!r}")
+    return f
 
 
 def _as_date(d: date) -> date:
@@ -50,7 +64,7 @@ class FixingsStore:
         """Store a fixing."""
         if rate_name not in self._data:
             self._data[rate_name] = {}
-        self._data[rate_name][_as_date(d)] = value
+        self._data[rate_name][_as_date(d)] = _as_value(value)
 
     def get(self, rate_name: str, d: date) -> float | None:
         """Retrieve a fixing. Returns None if not found."""
@@ -121,7 +135,7 @@ class FixingsStore:
         if rate_name not in self._data:
             self._data[rate_name] = {}
         for d, v in fixings:
-            self._data[rate_name][_as_date(d)] = v
+            self._data[rate_name][_as_date(d)] = _as_value(v)
 
     # ---- Persistence ----
 
@@ -137,7 +151,7 @@ class FixingsStore:
                 raise ValueError(f"Unsafe rate name for a filename: {rate_name!r}")
             filepath = os.path.join(p, f"{rate_name}.json")
             serialised = {d.isoformat(): v for d, v in sorted(data.items())}
-            with open(filepath, "w") as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(serialised, f, indent=2)
 
     def _load_all(self) -> None:
@@ -149,9 +163,11 @@ class FixingsStore:
                 rate_name = filename[:-5]
                 filepath = os.path.join(self._path, filename)
                 try:
-                    with open(filepath) as f:
+                    with open(filepath, encoding="utf-8") as f:
                         raw = json.load(f)
-                    self._data[rate_name] = {date.fromisoformat(k): v for k, v in raw.items()}
+                    self._data[rate_name] = {
+                        date.fromisoformat(k): _as_value(v) for k, v in raw.items()
+                    }
                 except (ValueError, AttributeError) as e:
                     # Fail loud but name the file — a bare JSONDecodeError /
                     # "Invalid isoformat string" gave no clue which file was bad.
@@ -175,15 +191,28 @@ class FixingsStore:
             Number of fixings loaded.
         """
         count = 0
-        with open(filepath) as f:
+        # utf-8-sig transparently strips a leading BOM (Excel/data-provider
+        # exports) so the first column isn't named "﻿date"; newline=""
+        # is required for correct quoted-field parsing (csv docs).
+        with open(filepath, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
+            # Missing required columns is a file-level error, not a bad row —
+            # raise regardless of skip_invalid (else the whole file loads 0
+            # silently).
+            if (
+                reader.fieldnames is None
+                or date_col not in reader.fieldnames
+                or value_col not in reader.fieldnames
+            ):
+                raise ValueError(
+                    f"CSV {filepath!r} missing required columns "
+                    f"{date_col!r}/{value_col!r}; found {reader.fieldnames}"
+                )
             for row_idx, row in enumerate(reader, start=2):  # row 1 is header
                 try:
-                    if date_col not in row or value_col not in row:
-                        raise KeyError(f"missing column at row {row_idx}")
                     d = date.fromisoformat(row[date_col])
                     v = float(row[value_col])
-                    self.set(rate_name, d, v)
+                    self.set(rate_name, d, v)  # set() rejects NaN/Inf
                     count += 1
                 except (ValueError, KeyError, TypeError) as e:
                     if not skip_invalid:
