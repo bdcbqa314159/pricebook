@@ -2,6 +2,18 @@
 
 ---
 
+## v1.224.0 — 2026-07-03 — **fixings: normalise datetime keys to date (real bug)**
+
+Third-pass review of `core/fixings.py` — found a genuine latent bug.
+
+**Files**: `core/fixings.py` (+ `tests/test_fixings.py`).
+
+- **`datetime` keys are now collapsed to the calendar day.** `datetime` subclasses `date`, so it slipped past the `date` type hint. A `datetime` key (e.g. `datetime.now()`, a pandas `Timestamp`) landed in a *distinct* slot from the same day's `date` → `get()` **silently missed** (returned `None`); and once mixed in, it **poisoned every `sorted()`** over that rate — `series()`, `dates_for()`, `save()` all raised `TypeError: can't compare datetime.datetime to datetime.date`, far from the offending `set()`. Added `_as_date()` applied at every key entry point (`set`, `get`, `bulk_set`, `series` bounds); the other date-taking methods route through `get`.
+
+**Verification**: 95 fixings/floating-leg tests pass (+4 new: datetime↔date round-trip, same-day collapse, no `sorted()` poisoning); full suite **13,148 passed**.
+
+---
+
 ## v1.223.0 — 2026-07-03 — **fixings: second-pass review — drop dead imports**
 
 Adversarial re-review of `core/fixings.py`. One real finding + a doc tidy.
