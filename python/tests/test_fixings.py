@@ -181,3 +181,15 @@ class TestDatetimeKeyNormalisation:
         # would previously TypeError: can't compare datetime to date
         assert s.series("X") == [(date(2024, 1, 15), 1.0)]
         assert s.dates_for("X") == [date(2024, 1, 15)]
+
+
+class TestLoadErrorContext:
+    def test_corrupt_file_names_the_file(self, tmp_path):
+        (tmp_path / "SOFR.json").write_text("{ not valid json")
+        with pytest.raises(ValueError, match="SOFR.json"):
+            FixingsStore(str(tmp_path))
+
+    def test_wrong_shape_file_names_the_file(self, tmp_path):
+        (tmp_path / "config.json").write_text('{"foo": [1, 2, 3]}')
+        with pytest.raises(ValueError, match="config.json"):
+            FixingsStore(str(tmp_path))

@@ -148,9 +148,14 @@ class FixingsStore:
             if filename.endswith(".json"):
                 rate_name = filename[:-5]
                 filepath = os.path.join(self._path, filename)
-                with open(filepath) as f:
-                    raw = json.load(f)
-                self._data[rate_name] = {date.fromisoformat(k): v for k, v in raw.items()}
+                try:
+                    with open(filepath) as f:
+                        raw = json.load(f)
+                    self._data[rate_name] = {date.fromisoformat(k): v for k, v in raw.items()}
+                except (ValueError, AttributeError) as e:
+                    # Fail loud but name the file — a bare JSONDecodeError /
+                    # "Invalid isoformat string" gave no clue which file was bad.
+                    raise ValueError(f"Failed to load fixings from {filename!r}: {e}") from e
 
     def load_csv(
         self,
