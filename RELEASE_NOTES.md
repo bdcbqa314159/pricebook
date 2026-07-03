@@ -2,6 +2,18 @@
 
 ---
 
+## v1.227.0 — 2026-07-03 — **greeks: freeze the Greeks value object**
+
+Design read of `core/greeks.py` (a small sensitivities dataclass — clean, no bugs). One optional hardening applied.
+
+**Files**: `core/greeks.py`.
+
+- **`@dataclass(frozen=True)`** on `Greeks`. Verified it's used purely as an immutable value object (never mutated in place, always built complete via kwargs and returned; never hashed today). Freezing encodes that intent, prevents a future accidental in-place mutation, and makes it hashable — at zero risk (nothing mutates it, confirmed by the full suite passing under `frozen`). `to_dict = dict(vars(self))` left as-is (all-float flat dataclass → identical to `asdict`).
+
+**Verification**: full suite **13,156 passed** (nothing mutates a `Greeks`).
+
+---
+
 ## v1.226.0 — 2026-07-03 — **fixings: ingest hardening (python-expert review)**
 
 Independent `python-expert` review of `core/fixings.py` after four manual passes — found four real issues, all in the ingest/serialisation edges the manual passes hadn't stress-tested.
