@@ -2,6 +2,18 @@
 
 ---
 
+## v1.225.0 — 2026-07-03 — **fixings: name the file on a bad-json load**
+
+Fourth-pass review of `core/fixings.py`. One robustness/DX fix; rest confirmed clean.
+
+**Files**: `core/fixings.py` (+ `tests/test_fixings.py`).
+
+- **`_load_all` now names the offending file.** A corrupt or wrong-shape `.json` in the storage dir crashed construction with a bare `JSONDecodeError` / `Invalid isoformat string: 'foo'` and **no filename** — useless with a directory of fixings files. Now each file's load is wrapped and re-raised as `ValueError("Failed to load fixings from 'X.json': …")`. Still fail-loud (a corrupt fixings file must not be silently skipped — same principle as the data_registry loader), just diagnosable.
+
+**Verification**: 26 fixings tests pass (+2 naming the file on corrupt/wrong-shape json); full suite **13,150 passed**.
+
+---
+
 ## v1.224.0 — 2026-07-03 — **fixings: normalise datetime keys to date (real bug)**
 
 Third-pass review of `core/fixings.py` — found a genuine latent bug.
