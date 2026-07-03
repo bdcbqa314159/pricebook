@@ -2,6 +2,20 @@
 
 ---
 
+## v1.223.0 — 2026-07-03 — **fixings: second-pass review — drop dead imports**
+
+Adversarial re-review of `core/fixings.py`. One real finding + a doc tidy.
+
+**Files**: `core/fixings.py`.
+
+- **Removed two dead imports** (`dataclasses.dataclass`, `typing.Any`) — both unused (ruff F401; not caught by the E3-only pre-commit hook).
+- **Tightened `get_with_lag` "Returns" docstring** to match the Args (days are business-or-calendar per `calendar`, not unconditionally "business days").
+- **Checked and dismissed** a suspected numpy-float `save()` crash: `np.float64` subclasses Python `float`, so JSON serialises fine (only `np.float32` would fail — not a rates case). Also closed as non-issues: no thread-safety (single-threaded pricing) and `save()` doesn't prune (there is no delete API, so on-disk/in-memory can't desync).
+
+**Verification**: 91 fixings/floating-leg tests pass; ruff F401 clean.
+
+---
+
 ## v1.222.0 — 2026-07-03 — **fixings: save() path-traversal guard + docstring/style tidy**
 
 Design read of `core/fixings.py` (live module — 10+ consumers: floating_leg, swap, tarf, asian_option, repo_desk, fx_exotic, …). No bugs; four items fixed so none linger as notes.
