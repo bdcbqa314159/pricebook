@@ -137,3 +137,20 @@ class TestSampleFixings:
         s1 = create_sample_fixings(REF)
         s2 = create_sample_fixings(REF)
         assert s1.series("SOFR") == s2.series("SOFR")
+
+
+class TestSaveSafety:
+    def test_save_rejects_path_traversal_rate_name(self, tmp_path):
+        """A rate name with path separators must not be written outside the dir."""
+        store = FixingsStore()
+        store.set("../evil", date(2024, 1, 15), 0.05)
+        with pytest.raises(ValueError, match="Unsafe rate name"):
+            store.save(str(tmp_path))
+        # nothing escaped the target dir
+        assert not (tmp_path.parent / "evil.json").exists()
+
+    def test_save_accepts_normal_rate_name(self, tmp_path):
+        store = FixingsStore()
+        store.set("SOFR", date(2024, 1, 15), 0.043)
+        store.save(str(tmp_path))
+        assert (tmp_path / "SOFR.json").exists()

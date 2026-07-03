@@ -17,7 +17,7 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pricebook.core.calendar import Calendar
@@ -57,15 +57,22 @@ class FixingsStore:
         return self.get(rate_name, d) is not None
 
     def get_with_lag(
-        self, rate_name: str, d: date, lag: int, calendar: "Calendar | None" = None,
+        self,
+        rate_name: str,
+        d: date,
+        lag: int,
+        calendar: "Calendar | None" = None,
     ) -> float | None:
         """Retrieve a fixing with a business-day lag.
 
         Args:
             rate_name: index name (e.g. "SOFR")
             d: reference date (e.g. accrual start)
-            lag: number of business days to go back (e.g. 2 for T-2)
-            calendar: business day calendar. If None, uses calendar days.
+            lag: number of days to go back (e.g. 2 for T-2). Interpreted as
+                *business* days when a `calendar` is given, else *calendar* days.
+            calendar: business day calendar. If None, `lag` is calendar days
+                (a convenience — real fixing lags are business days, so pass a
+                calendar for correct T-N).
 
         Returns the fixing at the date that is `lag` business days before `d`,
         or None if not found.
@@ -74,6 +81,7 @@ class FixingsStore:
             fixing_date = calendar.add_business_days(d, -lag)
         else:
             from datetime import timedelta
+
             fixing_date = d - timedelta(days=lag)
         return self.get(rate_name, fixing_date)
 
@@ -84,13 +92,15 @@ class FixingsStore:
         """All dates with fixings for a rate, sorted."""
         return sorted(self._data.get(rate_name, {}).keys())
 
-    def series(self, rate_name: str, start: date | None = None, end: date | None = None) -> list[tuple[date, float]]:
+    def series(
+        self, rate_name: str, start: date | None = None, end: date | None = None
+    ) -> list[tuple[date, float]]:
         """Get a time series of fixings."""
         data = self._data.get(rate_name, {})
         result = sorted(data.items())
-        if start:
+        if start is not None:
             result = [(d, v) for d, v in result if d >= start]
-        if end:
+        if end is not None:
             result = [(d, v) for d, v in result if d <= end]
         return result
 
@@ -110,6 +120,9 @@ class FixingsStore:
             raise ValueError("No path specified for saving")
         os.makedirs(p, exist_ok=True)
         for rate_name, data in self._data.items():
+            # rate_name becomes a filename — reject path separators / traversal.
+            if not rate_name or "/" in rate_name or "\\" in rate_name or ".." in rate_name:
+                raise ValueError(f"Unsafe rate name for a filename: {rate_name!r}")
             filepath = os.path.join(p, f"{rate_name}.json")
             serialised = {d.isoformat(): v for d, v in sorted(data.items())}
             with open(filepath, "w") as f:
@@ -125,9 +138,7 @@ class FixingsStore:
                 filepath = os.path.join(self._path, filename)
                 with open(filepath) as f:
                     raw = json.load(f)
-                self._data[rate_name] = {
-                    date.fromisoformat(k): v for k, v in raw.items()
-                }
+                self._data[rate_name] = {date.fromisoformat(k): v for k, v in raw.items()}
 
     def load_csv(
         self,
@@ -165,10 +176,11 @@ class FixingsStore:
 
 # ---- Sample fixings ----
 
+
 def create_sample_fixings(reference_date: date, history_days: int = 252) -> FixingsStore:
     """Create a FixingsStore with sample data for testing.
 
-    Generates synthetic SOFR, ESTR, and CPI fixings.
+    Generates synthetic daily SOFR, ESTR, FED_FUNDS (weekdays) and monthly CPI.
     """
     import random
     from datetime import timedelta
