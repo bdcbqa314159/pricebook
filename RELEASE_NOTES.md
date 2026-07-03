@@ -2,6 +2,21 @@
 
 ---
 
+## v1.226.0 — 2026-07-03 — **fixings: ingest hardening (python-expert review)**
+
+Independent `python-expert` review of `core/fixings.py` after four manual passes — found four real issues, all in the ingest/serialisation edges the manual passes hadn't stress-tested.
+
+**Files**: `core/fixings.py` (+ `tests/test_fixings.py`).
+
+- **Reject non-finite fixing values** (MEDIUM–HIGH). `set`/`bulk_set`/`load_csv`/`_load_all` did no numeric check, so `NaN`/`Inf` flowed in. Consumers treat `get(...) is not None` as "usable rate" (see `floating_leg.py:211`), so a stored `NaN` passed that check and **poisoned the PV and every greek** instead of triggering the curve fallback — and `save()` then wrote non-spec JSON (`NaN`). New `_as_value()` (finite-float coercion) applied at all four write choke points (`bulk_set` and `_load_all` write the dict directly, bypassing `set`).
+- **CSV BOM → silent 0 rows** (MEDIUM). `load_csv` opened with default encoding, so a UTF-8 **BOM** (Excel / data-provider exports) renamed the first column `﻿date`, skipping every row and returning `0` with no error. Now opens `utf-8-sig` + `newline=""`.
+- **`skip_invalid` masked a structurally-wrong file** (LOW). A wrong-column CSV returned `0` silently. The required columns are now validated against the header up front and raise regardless of `skip_invalid` (a missing column is a file error, not a bad row).
+- **Explicit `encoding="utf-8"`** on the `save`/`_load_all` JSON IO (was locale-dependent).
+
+**Verification**: 103 fixings/floating-leg tests pass (+6: BOM load, NaN/Inf reject at set/bulk_set/csv/disk, wrong-column raise); full suite **13,156 passed**.
+
+---
+
 ## v1.225.0 — 2026-07-03 — **fixings: name the file on a bad-json load**
 
 Fourth-pass review of `core/fixings.py`. One robustness/DX fix; rest confirmed clean.
