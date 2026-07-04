@@ -2,6 +2,20 @@
 
 ---
 
+## v1.228.0 — 2026-07-04 — **interpolation: reject non-finite input**
+
+Design read of `core/interpolation.py` (5 interpolants — Linear, LogLinear, natural CubicSpline, MonotoneCubic (Fritsch-Carlson + Hyman), Akima — feeding all curve construction, 56 consumers). Math verified correct; one robustness gap fixed.
+
+**Files**: `core/interpolation.py` (+ `tests/test_interpolation.py`).
+
+- **Base `Interpolator` now rejects non-finite `x`/`y`.** A `NaN`/`Inf` in the data silently produced a non-finite interpolant, poisoning every downstream discount factor / rate off a load-bearing primitive (same class as the fixings NaN fix and the `non-finite-fitness-poisoning` audit pattern). `y` was entirely unguarded; a `NaN` in `x` was only caught incidentally by the strictly-increasing check (with a misleading message). Now an explicit finite check with a clear message, in the base ctor so all 5 methods inherit it.
+
+**Verified correct (no change needed)**: all 5 methods hit knots exactly; MonotoneCubic genuinely prevents overshoot (stays in [0,1] on a step where the natural spline overshoots to [-0.11, 1.13] — the "no negative forwards" guarantee holds); Akima ghost-point slopes and log-linear forward extrapolation check out. The unweighted harmonic-mean slope (vs textbook weighted Fritsch-Carlson on non-uniform grids) is a benign simplification — monotonicity, the property that matters, is preserved (verified), so left as-is.
+
+**Verification**: 24 interpolation tests pass (+7: non-finite x/y across all methods); full suite **13,163 passed**.
+
+---
+
 ## v1.227.0 — 2026-07-03 — **greeks: freeze the Greeks value object**
 
 Design read of `core/greeks.py` (a small sensitivities dataclass — clean, no bugs). One optional hardening applied.
