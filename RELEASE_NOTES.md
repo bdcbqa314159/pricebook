@@ -2,6 +2,21 @@
 
 ---
 
+## v1.234.0 — 2026-07-04 — **numerical_config: genuinely frozen + validated**
+
+Audit of `core/numerical_config.py` (`NumericalConfig` — frozen bundle of numerical hyperparameters carried on `PricingContext`; "numerical choices ARE valuation inputs"). The Phase-1 inventory flagged the `extra` field on a `frozen` dataclass; all issues confirmed empirically.
+
+**Files**: `core/numerical_config.py`, `core/pricing_context.py` (+ `tests/test_numerical_config.py`).
+
+- **`extra` broke every `frozen` guarantee.** It defaulted to a plain `dict`, so: the config was **unhashable**; `cfg.extra[...] = …` **mutated it despite `frozen`**; the shared `DEFAULT_NUMERICAL_CONFIG.extra` was **globally pollutable** (the docstring's "Frozen — safe to share" was false); and `replace()` **shallow-aliased** it. Now `__post_init__` freezes a private copy via `MappingProxyType(dict(extra))` — genuinely immutable, no aliasing, no singleton pollution.
+- **Numeric knobs are now validated (> 0).** `NumericalConfig(mc_paths=-5, pde_time_steps=0, integration_tol=-1)` was accepted silently — garbage valuation inputs that fail cryptically deep in a pricer. `__post_init__` rejects non-positive counts/steps/tolerances at construction.
+- **Added `to_dict()`** (emits `extra` as a real dict) — `dataclasses.asdict` can't handle the `MappingProxyType` (`cannot pickle 'mappingproxy'`); `pricing_context` serialisation now calls it. Full `PricingContext` JSON round-trip verified.
+- Modernised `typing.Mapping` → `collections.abc.Mapping`.
+
+**Verification**: 24 config tests pass (+5); full suite **13,188 passed**.
+
+---
+
 ## v1.233.0 — 2026-07-04 — **notional: Phase-1 inventory follow-ups (tuple/array input + future-import)**
 
 Re-audited `core/notional.py` under the new **method/branch-inventory-first** process — the systematic per-branch walk caught three things the earlier "hard audit" missed (it had jumped straight to the two headline bugs).
