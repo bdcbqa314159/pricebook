@@ -2,6 +2,19 @@
 
 ---
 
+## v1.236.0 — 2026-07-04 — **serialisable: fail loud on _SERIAL_TYPE collisions**
+
+Systematic (inventory-first) re-audit of `core/serialisable.py` (serialisation registry, 96 consumers). Two flags confirmed.
+
+**Files**: `core/serialisable.py` (+ `tests/test_serialisable_low_fixes.py`).
+
+- **`_register` silently dropped a colliding class (real silent-wrong bug).** Two DIFFERENT classes with the same `_SERIAL_TYPE` → the old `if key not in _REGISTRY` skipped the second, so `from_dict()` for that wire-type built the **wrong class**, no warning. Now raises a clear `ValueError` on a genuine collision, while staying **idempotent** for re-registering the same class (a class can be registered by both `__init_subclass__` and an explicit `_register`). Scanned the codebase: no live collisions (the `irs`/`sovereign_conventions` hits were decorator *docstring examples*; `bond_forward` was one class double-assigned), so the guard is safe — full suite imports clean.
+- **`ClassVar` on `_SERIAL_TYPE`/`_SERIAL_FIELDS`/`_SERIAL_SCHEMA_VERSION`** — `_SERIAL_FIELDS: list[str] = []` was a shared mutable class default (the mutable-shared-default pattern); latent (only ever rebound, never mutated), now declared class-level. No new mypy errors.
+
+**Verification**: 11 serialisable-fix tests pass (+2: collision raises, same-class idempotent); full suite **13,191 passed**. (The consolidation/dict-asymmetry findings from the earlier audit remain parked in OPEN.md with the serialisation typing debt.)
+
+---
+
 ## v1.235.0 — 2026-07-04 — **settlement: Protocol-typed calendar + JSON-safe to_dict**
 
 Audit of `core/settlement.py` (settlement framework — physical/cash/auction across products). **Orphaned (0 production consumers)** but tested; coherent, kept and hardened.
