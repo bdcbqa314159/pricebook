@@ -2,6 +2,21 @@
 
 ---
 
+## v1.231.0 — 2026-07-04 — **numerical_safety: convergence_rate falsy-trap + martingale empty guard**
+
+Audit of `core/numerical_safety.py` (CFL / Feller / martingale / convergence diagnostics — 2 consumers). Math verified correct (CFL `Δt ≤ Δx²/(σ²+|μ|Δx)`, Feller `2κθ≥ξ²`, martingale `E[e^{-rT}S_T]=S_0`, log-log convergence fit); three fixes.
+
+**Files**: `core/numerical_safety.py` (+ `tests/test_numerical_safety.py`).
+
+- **`convergence_rate` `expected_order or order` falsy-trap** — passing `expected_order=0.0` (a real target) was silently dropped and replaced by the fitted order. Switched to `is not None`. Same fix in the `len<2` early return.
+- **`is_consistent` vacuous-True documented** — with no `expected_order` the check compares the fit to itself → always `True`; noted in-code so it's not read as a real validation.
+- **`martingale_test` empty-input guard** — an empty `terminal_values` produced a silent `nan` (RuntimeWarning); now raises `ValueError`.
+- Rode along: the ruff E3/import tidy the hook applied to this file.
+
+**Verification**: 22 numerical_safety tests pass (+2); full suite **13,168 passed**.
+
+---
+
 ## v1.230.0 — 2026-07-04 — **mandate: make the compliance engine self-contained**
 
 Design read of `core/mandate.py` (buy-side investment-mandate / IPS compliance engine — currently orphaned, no consumers yet; intended for EOD + pre-trade compliance checks once a `Portfolio → PortfolioHolding` adapter wires it in).
