@@ -2,6 +2,23 @@
 
 ---
 
+## v1.229.0 — 2026-07-04 — **interpolation: clarity + consolidation (python-expert review)**
+
+Independent `python-expert` review of `core/interpolation.py` through a clarity/consolidation lens (correctness already verified at v1.228). Behaviour-preserving.
+
+**Files**: `core/interpolation.py`.
+
+- **Consolidation — `_HermiteInterpolator` base.** `MonotoneCubicInterpolator` and `AkimaInterpolator` had byte-identical `__init__` and `_interpolate` (both: `_find_segment` → `_hermite_eval` with `self._slopes`); only `_compute_slopes` differed. Extracted a shared `_HermiteInterpolator(Interpolator)` base with `_compute_slopes` as the abstract hook — removes exact duplication of a non-trivial method with no new indirection (the ABC hook pattern already existed).
+- **Named the magic numbers** — `_HYMAN_RADIUS_SQ = 9.0`, `_HYMAN_RESCALE = sqrt(9) == 3.0` (the coupling was invisible), `_FLAT_SECANT_TOL = 1e-15`, `_AKIMA_WEIGHT_TOL = 1e-30`.
+- **Single `float()` cast in `__call__`** — makes the `-> float` contract actually true at the one public boundary (subclasses compute in numpy and returned `np.float64`; `discount_curve.py:205` returned it unwrapped).
+- **`create_interpolator`/ctors take `npt.ArrayLike`** (were untyped / `np.ndarray` but callers pass lists); dropped the factory's redundant `np.asarray` (the base ctor is the single coercion point).
+
+**Verified leave-as-is** (not manufactured): `_hermite_eval` stays a free pure function; enum↔factory drift is already test-guarded (`test_all_methods`); the unweighted-harmonic-mean slope is a benign, monotonicity-preserving simplification.
+
+**Verification**: 24 interpolation tests pass; full suite **13,163 passed**.
+
+---
+
 ## v1.228.0 — 2026-07-04 — **interpolation: reject non-finite input**
 
 Design read of `core/interpolation.py` (5 interpolants — Linear, LogLinear, natural CubicSpline, MonotoneCubic (Fritsch-Carlson + Hyman), Akima — feeding all curve construction, 56 consumers). Math verified correct; one robustness gap fixed.
