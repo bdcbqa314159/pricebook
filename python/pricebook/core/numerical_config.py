@@ -38,8 +38,17 @@ context's config simply uses its own defaults, and behaviour is unchanged.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass, field, fields, replace
+from types import MappingProxyType
+from typing import Any
+
+# Numerical knobs that must be strictly positive to be meaningful.
+_POSITIVE_FIELDS = (
+    "mc_paths", "pde_time_steps", "pde_space_steps", "pde_n_std_devs",
+    "tree_steps", "integration_tol", "integration_max_iter", "cos_n", "cos_L",
+    "rootfinder_tol", "rootfinder_max_iter",
+)
 
 
 @dataclass(frozen=True)
@@ -84,9 +93,29 @@ class NumericalConfig:
     # ---- Escape hatch for project-specific knobs ----
     extra: Mapping[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        # `extra` is a dict on a frozen dataclass — without this it stays mutable
+        # (the shared DEFAULT singleton was globally pollutable; replace() aliased
+        # it). Freeze a private copy so the config is genuinely immutable.
+        object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+        # Numerical choices are valuation inputs — reject nonsensical ones loudly
+        # here, not cryptically deep in a pricer.
+        for name in _POSITIVE_FIELDS:
+            v = getattr(self, name)
+            if v <= 0:
+                raise ValueError(f"NumericalConfig.{name} must be > 0, got {v!r}")
+
     def replace(self, **kwargs: Any) -> "NumericalConfig":
         """Return a new `NumericalConfig` with the given fields replaced."""
         return replace(self, **kwargs)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Plain-dict view for serialisation. `dataclasses.asdict` can't handle
+        the frozen `MappingProxyType` extra (`cannot pickle 'mappingproxy'`), so
+        emit `extra` as a real dict. Round-trips via `NumericalConfig(**d)`."""
+        d = {f.name: getattr(self, f.name) for f in fields(self)}
+        d["extra"] = dict(self.extra)
+        return d
 
 
 DEFAULT_NUMERICAL_CONFIG = NumericalConfig()

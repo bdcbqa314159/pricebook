@@ -245,6 +245,7 @@ from pricebook.core.serialisable import _register, make_payload, read_payload
 
 PricingContext._SERIAL_TYPE = "pricing_context"
 
+
 def _ctx_to_dict(self):
     """Emit every dataclass-declared field in the payload (Fix D.1 B2).
 
@@ -300,10 +301,10 @@ def _ctx_to_dict(self):
     params["reporting_currency"] = self.reporting_currency
 
     # NumericalConfig (G1 P3 Slice 1). Dataclass not serialisable via the
-    # registry; emit as a plain dict of its dataclass fields.
+    # registry; emit as a plain dict of its dataclass fields. (Its own to_dict
+    # handles the frozen MappingProxyType `extra`, which asdict cannot.)
     if self.numerical_config is not None:
-        from dataclasses import asdict
-        params["numerical_config"] = asdict(self.numerical_config)
+        params["numerical_config"] = self.numerical_config.to_dict()
     else:
         params["numerical_config"] = None
 
@@ -367,6 +368,7 @@ def _ctx_from_dict(cls, d):
         credit_correlations=dict(p.get("credit_correlations", {})),
         numerical_config=numerical_config,
     )
+
 
 PricingContext.to_dict = _ctx_to_dict
 PricingContext.from_dict = _ctx_from_dict

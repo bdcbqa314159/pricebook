@@ -147,3 +147,36 @@ class TestPricingContextNumericalConfig:
         assert ctx.get_discount_curve() is curve
         assert ctx.get_numerical_config() is cfg
         assert ctx.get_numerical_config().mc_paths == 200_000
+
+
+class TestFrozenAndValidated:
+    """v1.234 audit: extra is truly immutable; numeric knobs validated."""
+
+    def test_extra_is_immutable(self):
+        cfg = NumericalConfig(extra={"a": 1})
+        with pytest.raises(TypeError):
+            cfg.extra["b"] = 2  # MappingProxyType blocks mutation
+
+    def test_default_singleton_not_pollutable(self):
+        from pricebook.core.numerical_config import DEFAULT_NUMERICAL_CONFIG
+        with pytest.raises(TypeError):
+            DEFAULT_NUMERICAL_CONFIG.extra["x"] = 1
+
+    def test_replace_does_not_alias_extra(self):
+        a = NumericalConfig(extra={"k": 1})
+        b = a.replace(mc_paths=999)
+        assert a.extra is not b.extra
+
+    @pytest.mark.parametrize("kw", [
+        {"mc_paths": -5}, {"mc_paths": 0}, {"pde_time_steps": 0},
+        {"integration_tol": -1.0}, {"cos_n": 0}, {"rootfinder_tol": 0.0},
+    ])
+    def test_nonpositive_numeric_fields_rejected(self, kw):
+        with pytest.raises(ValueError, match="must be > 0"):
+            NumericalConfig(**kw)
+
+    def test_to_dict_round_trip(self):
+        cfg = NumericalConfig(mc_paths=123_456, extra={"note": "x"})
+        rt = NumericalConfig(**cfg.to_dict())
+        assert rt == cfg
+        assert isinstance(cfg.to_dict()["extra"], dict)  # plain dict, not proxy
