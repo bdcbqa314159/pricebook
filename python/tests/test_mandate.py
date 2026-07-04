@@ -7,6 +7,7 @@ from pricebook.core.mandate import (
     investment_grade_mandate, sovereign_only_mandate, balanced_mandate,
 )
 
+
 @pytest.fixture
 def ig_portfolio():
     return [
@@ -17,23 +18,30 @@ def ig_portfolio():
         PortfolioHolding("T5", "corp_bond", "Shell", "BBB+", "energy", "UK", "GBP", 15, 0.75e6, 4, 3.5),
     ]
 
+
 class TestRating:
     def test_aaa_above_bbb(self):
         assert rating_at_least("AAA", "BBB-")
+
     def test_bb_below_bbb(self):
         assert not rating_at_least("BB+", "BBB-")
+
     def test_same(self):
         assert rating_at_least("A", "A")
+
     def test_nr(self):
         assert not rating_at_least("NR", "BBB-")
+
 
 class TestTemplates:
     def test_ig(self):
         m = investment_grade_mandate()
         assert m.min_rating == "BBB-"
+
     def test_sovereign(self):
         m = sovereign_only_mandate()
         assert m.eligible_asset_classes == ["govt_bond"]
+
 
 class TestCheckMandate:
     def test_ig_passes(self, ig_portfolio):
@@ -84,3 +92,49 @@ class TestCheckMandate:
     def test_empty_portfolio(self):
         r = check_mandate([], investment_grade_mandate())
         assert r.is_compliant  # no violations on empty portfolio
+
+
+class TestEligibleRatingsAndSelfContainment:
+    """v1.230: eligible_ratings is now enforced; every Mandate field is checked."""
+
+    def _hold(self, tid, rating):
+        return PortfolioHolding(trade_id=tid, rating=rating, weight_pct=50.0)
+
+    def test_eligible_ratings_flags_ineligible(self):
+        m = Mandate(name="wl", eligible_ratings=["AAA", "AA"])
+        rep = check_mandate([self._hold("a", "AAA"), self._hold("b", "BBB")], m)
+        r = next(x for x in rep.results if x.rule_type == "eligible_ratings")
+        assert not r.passed and "1 with ineligible rating" in r.breach_details
+        assert not rep.is_compliant
+
+    def test_eligible_ratings_all_ok(self):
+        m = Mandate(name="wl", eligible_ratings=["AAA", "AA"])
+        rep = check_mandate([self._hold("a", "AAA"), self._hold("b", "AA")], m)
+        r = next(x for x in rep.results if x.rule_type == "eligible_ratings")
+        assert r.passed and r.breach_details == ""
+
+    def test_every_mandate_field_maps_to_a_rule(self):
+        """Self-containment guard: no declared Mandate constraint is silently unenforced."""
+        import dataclasses
+        # Constraint fields (exclude the identity 'name').
+        fields = {f.name for f in dataclasses.fields(Mandate)} - {"name"}
+        m = Mandate(
+            name="all",
+            eligible_asset_classes=["govt_bond"], eligible_ratings=["AAA"], min_rating="AAA",
+            max_single_name_pct=0.1, max_sector_pct=0.1, max_country_pct=0.1,
+            currency_restrictions=["USD"], max_duration=1.0, max_maturity_years=1.0,
+            min_issue_size=1.0,
+        )
+        rep = check_mandate([PortfolioHolding(trade_id="x", weight_pct=1.0)], m)
+        fired = {r.rule_type for r in rep.results}
+        # rule_type names differ from field names; map them
+        rule_for_field = {
+            "eligible_asset_classes": "asset_class", "eligible_ratings": "eligible_ratings",
+            "min_rating": "min_rating", "max_single_name_pct": "single_name",
+            "max_sector_pct": "sector", "max_country_pct": "country",
+            "currency_restrictions": "currency", "max_duration": "duration",
+            "max_maturity_years": "maturity", "min_issue_size": "issue_size",
+        }
+        assert set(rule_for_field) == fields, f"unmapped Mandate fields: {fields ^ set(rule_for_field)}"
+        for field, rule in rule_for_field.items():
+            assert rule in fired, f"Mandate.{field} declared but no {rule} rule fired"
