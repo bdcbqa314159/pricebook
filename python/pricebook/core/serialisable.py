@@ -53,7 +53,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum, IntEnum
-from typing import Any, Union, get_args, get_origin, get_type_hints
+from typing import Any, ClassVar, Union, get_args, get_origin, get_type_hints
 from uuid import UUID
 
 try:
@@ -151,25 +151,43 @@ def read_payload(d: dict[str, Any], cls: type) -> dict[str, Any]:
 
 
 def _register(cls: type) -> None:
-    """Register a class. Validates _SERIAL_FIELDS exist on the class or its __init__."""
+    """Register a class by its `_SERIAL_TYPE`; validate fields; reject collisions.
+
+    A collision — two DIFFERENT classes claiming the same `_SERIAL_TYPE` — used to
+    be **silently ignored** (the second class simply wasn't registered, so
+    `from_dict` dispatched its wire-type to the *wrong* class). It now raises.
+    Re-registering the SAME class is idempotent (a class can be registered both by
+    `__init_subclass__` and an explicit `_register(...)` call).
+    """
     key = getattr(cls, "_SERIAL_TYPE", None)
-    if key and key not in _REGISTRY:
-        # Validate fields at registration time (catches typos early)
-        fields = getattr(cls, "_SERIAL_FIELDS", [])
-        if fields:
-            import inspect
+    if not key:
+        return
+    existing = _REGISTRY.get(key)
+    if existing is not None:
+        if existing is not cls:
+            raise ValueError(
+                f"Serialisation _SERIAL_TYPE collision: {key!r} is already "
+                f"registered to {existing.__module__}.{existing.__name__}; "
+                f"{cls.__module__}.{cls.__name__} cannot reuse it — each "
+                f"_SERIAL_TYPE must be unique."
+            )
+        return  # same class, idempotent
+    # Validate fields at registration time (catches typos early).
+    fields = getattr(cls, "_SERIAL_FIELDS", [])
+    if fields:
+        import inspect
 
-            init_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}
-            for f in fields:
-                if f not in init_params:
-                    import warnings
+        init_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}
+        for f in fields:
+            if f not in init_params:
+                import warnings
 
-                    warnings.warn(
-                        f"Serialisation: {cls.__name__}._SERIAL_FIELDS contains '{f}' "
-                        f"which is not in __init__ parameters: {sorted(init_params)}",
-                        stacklevel=3,
-                    )
-        _REGISTRY[key] = cls
+                warnings.warn(
+                    f"Serialisation: {cls.__name__}._SERIAL_FIELDS contains '{f}' "
+                    f"which is not in __init__ parameters: {sorted(init_params)}",
+                    stacklevel=3,
+                )
+    _REGISTRY[key] = cls
 
 
 def from_dict(d: dict[str, Any]) -> Any:
@@ -356,9 +374,12 @@ class Serialisable:
     Override from_dict() for special cases (polymorphic fields).
     """
 
-    _SERIAL_TYPE: str = ""
-    _SERIAL_FIELDS: list[str] = []
-    _SERIAL_SCHEMA_VERSION: int = 1
+    # ClassVar: these are class-level config, always overridden per subclass —
+    # not per-instance state. (The `[]` default is shared but only rebound,
+    # never mutated.)
+    _SERIAL_TYPE: ClassVar[str] = ""
+    _SERIAL_FIELDS: ClassVar[list[str]] = []
+    _SERIAL_SCHEMA_VERSION: ClassVar[int] = 1
 
     def __init_subclass__(cls, **kwargs):
         """Auto-register subclasses that have _SERIAL_TYPE."""

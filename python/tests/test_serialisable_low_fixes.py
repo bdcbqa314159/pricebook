@@ -110,3 +110,38 @@ def test_b7_int_enum_from_int_still_works():
 
 def test_b7_int_enum_already_member_passthrough():
     assert _deserialise_atom(_DemoIntEnum.FOO, _DemoIntEnum) is _DemoIntEnum.FOO
+
+
+class TestRegistryCollision:
+    """v1.236: a duplicate _SERIAL_TYPE must fail loud, not silently drop a class."""
+
+    def test_distinct_class_same_serial_type_raises(self):
+        from pricebook.core import serialisable as S
+
+        class _CollideA(S.Serialisable):
+            _SERIAL_TYPE = "collide_test_key"
+            _SERIAL_FIELDS = ["x"]
+
+            def __init__(self, x=1):
+                self.x = x
+
+        with pytest.raises(ValueError, match="collision"):
+            class _CollideB(S.Serialisable):
+                _SERIAL_TYPE = "collide_test_key"
+                _SERIAL_FIELDS = ["y"]
+
+                def __init__(self, y=2):
+                    self.y = y
+
+    def test_same_class_reregister_is_idempotent(self):
+        from pricebook.core import serialisable as S
+
+        class _IdemProbe(S.Serialisable):
+            _SERIAL_TYPE = "idem_test_key"
+            _SERIAL_FIELDS = ["z"]
+
+            def __init__(self, z=3):
+                self.z = z
+
+        S._register(_IdemProbe)  # again — must not raise
+        S._register(_IdemProbe)
