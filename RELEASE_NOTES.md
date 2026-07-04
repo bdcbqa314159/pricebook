@@ -2,6 +2,21 @@
 
 ---
 
+## v1.230.0 — 2026-07-04 — **mandate: make the compliance engine self-contained**
+
+Design read of `core/mandate.py` (buy-side investment-mandate / IPS compliance engine — currently orphaned, no consumers yet; intended for EOD + pre-trade compliance checks once a `Portfolio → PortfolioHolding` adapter wires it in).
+
+**Files**: `core/mandate.py` (+ `tests/test_mandate.py`).
+
+- **Enforced `eligible_ratings`** — it was declared on `Mandate` but `check_mandate` never checked it: a **silent no-op**, i.e. false assurance in a compliance engine (set it, get "compliant" without a check). Now a real rule (rating whitelist, distinct from the `min_rating` floor).
+- **Dropped `max_leverage`** — also declared-but-unchecked, and **unenforceable** with the current `PortfolioHolding` model (no NAV / gross-exposure basis; leverage = gross exposure / NAV). Removed rather than fake it; adding real leverage compliance is a data-model feature, not this module's job.
+- **Uniform `breach_details`** — was only populated on rules 1–3; now every failing rule (sector, country, currency, duration, maturity, issue-size) reports why it breached.
+- **Self-containment guard test** — asserts every `Mandate` constraint field maps to a fired rule, so a future declared-but-unenforced field fails the test (kills the silent-no-op class).
+
+**Verification**: 17 mandate tests pass (+3); full suite **13,166 passed**.
+
+---
+
 ## v1.229.0 — 2026-07-04 — **interpolation: clarity + consolidation (python-expert review)**
 
 Independent `python-expert` review of `core/interpolation.py` through a clarity/consolidation lens (correctness already verified at v1.228). Behaviour-preserving.
