@@ -61,6 +61,7 @@ try:
 
     _HAS_NUMPY = True
 except ImportError:
+    _np = None  # keep bound so the isinstance guard below can narrow it
     _HAS_NUMPY = False
 
 # ---------------------------------------------------------------------------
@@ -228,7 +229,7 @@ def _serialise_atom(v: Any) -> Any:
     # Fix A.11 B4: narrow from broad "has .item callable" duck-test to
     # explicit numpy isinstance check; the duck-test mis-fires on any object
     # that happens to expose a callable .item method (e.g., dict_items views).
-    if _HAS_NUMPY and isinstance(v, _np.generic):
+    if _np is not None and isinstance(v, _np.generic):
         return v.item()
     # Nested serialisable
     if hasattr(v, "to_dict"):
@@ -454,10 +455,12 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
     the migration logic, never one without the other.
     """
 
-    def decorator(cls):
-        cls._SERIAL_TYPE = serial_type
-        cls._SERIAL_FIELDS = fields
-        cls._SERIAL_SCHEMA_VERSION = schema_version
+    def decorator(cls: type) -> type:
+        # setattr, not `cls.x = …`: the methods/attrs are injected dynamically;
+        # direct assignment trips type checkers ("cannot assign to attribute").
+        setattr(cls, "_SERIAL_TYPE", serial_type)
+        setattr(cls, "_SERIAL_FIELDS", fields)
+        setattr(cls, "_SERIAL_SCHEMA_VERSION", schema_version)
 
         def to_dict(self) -> dict[str, Any]:
             params = {}
@@ -492,8 +495,8 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
                     kwargs[field] = v
             return klass(**kwargs)
 
-        cls.to_dict = to_dict
-        cls.from_dict = cls_from_dict
+        setattr(cls, "to_dict", to_dict)
+        setattr(cls, "from_dict", cls_from_dict)
         _register(cls)
         return cls
 
@@ -535,14 +538,16 @@ def serialisable_convention(serial_type: str, schema_version: int = 1):
     """
     import dataclasses
 
-    def decorator(cls):
+    def decorator(cls: type) -> type:
         if not dataclasses.is_dataclass(cls):
             raise TypeError(f"@serialisable_convention requires a dataclass, got {cls}")
 
         field_names = [f.name for f in dataclasses.fields(cls)]
-        cls._SERIAL_TYPE = serial_type
-        cls._SERIAL_FIELDS = field_names
-        cls._SERIAL_SCHEMA_VERSION = schema_version
+        # setattr, not `cls.x = …`: dynamic injection onto the dataclass; direct
+        # assignment trips type checkers ("cannot assign to attribute").
+        setattr(cls, "_SERIAL_TYPE", serial_type)
+        setattr(cls, "_SERIAL_FIELDS", field_names)
+        setattr(cls, "_SERIAL_SCHEMA_VERSION", schema_version)
 
         # Flat to_dict (no type/params nesting — pure data)
         def to_dict(self) -> dict[str, Any]:
@@ -575,9 +580,8 @@ def serialisable_convention(serial_type: str, schema_version: int = 1):
                     kwargs[field] = v
             return klass(**kwargs)
 
-        cls.to_dict = to_dict
-
-        cls.from_dict = cls_from_dict
+        setattr(cls, "to_dict", to_dict)
+        setattr(cls, "from_dict", cls_from_dict)
         # Register so from_dict dispatch works for nested conventions
         _register(cls)
         return cls
