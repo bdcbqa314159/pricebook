@@ -23,23 +23,24 @@ from dataclasses import dataclass
 
 import numpy as np
 
-
 # ---- CFL condition ----
+
 
 @dataclass
 class CFLResult:
     """CFL condition check result."""
+
     dt: float
     dx: float
     dt_max: float
-    ratio: float          # dt / dt_max (< 1 is stable)
+    ratio: float  # dt / dt_max (< 1 is stable)
     is_stable: bool
     recommendation: str
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def check_cfl(
     vol: float,
     rate: float,
@@ -69,8 +70,7 @@ def check_cfl(
         :class:`CFLResult` with stability diagnosis.
     """
     if vol <= 0 or dx <= 0:
-        return CFLResult(dt, dx, float("inf"), 0.0, True,
-                         "degenerate inputs — no diffusion")
+        return CFLResult(dt, dx, float("inf"), 0.0, True, "degenerate inputs — no diffusion")
 
     mu = abs(rate - div_yield - 0.5 * vol * vol)
     alpha = vol * vol
@@ -92,21 +92,23 @@ def check_cfl(
 
 # ---- Feller condition ----
 
+
 @dataclass
 class FellerResult:
     """Feller condition check for CIR/Heston variance process."""
+
     kappa: float
     theta: float
     xi: float
-    lhs: float       # 2κθ
-    rhs: float       # ξ²
+    lhs: float  # 2κθ
+    rhs: float  # ξ²
     is_satisfied: bool
     recommendation: str
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def check_feller(
     kappa: float,
     theta: float,
@@ -140,20 +142,22 @@ def check_feller(
 
 # ---- Martingale test ----
 
+
 @dataclass
 class MartingaleTestResult:
     """Result of a martingale test on an MC scheme."""
-    expected: float         # S_0
-    simulated_mean: float   # E[e^{-rT} S_T]
+
+    expected: float  # S_0
+    simulated_mean: float  # E[e^{-rT} S_T]
     relative_error: float
     passed: bool
     n_paths: int
     std_error: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def martingale_test(
     terminal_values: np.ndarray | list[float],
     spot: float,
@@ -178,6 +182,8 @@ def martingale_test(
     """
     S_T = np.asarray(terminal_values, dtype=float)
     n = len(S_T)
+    if n == 0:
+        raise ValueError("martingale_test needs at least one terminal value")
     df = math.exp(-rate * T)
     discounted = df * S_T
     mean = float(discounted.mean())
@@ -198,19 +204,21 @@ def martingale_test(
 
 # ---- Convergence rate estimation ----
 
+
 @dataclass
 class ConvergenceResult:
     """Empirical convergence rate from multiple resolutions."""
+
     resolutions: list[float]
     errors: list[float]
     estimated_order: float
-    is_consistent: bool    # estimated order close to expected?
+    is_consistent: bool  # estimated order close to expected?
     expected_order: float
-
-
 
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def convergence_rate(
     resolutions: list[float],
     errors: list[float],
@@ -235,8 +243,11 @@ def convergence_rate(
 
     if len(h) < 2:
         return ConvergenceResult(
-            list(resolutions), list(errors), 0.0, False,
-            expected_order or 0.0,
+            list(resolutions),
+            list(errors),
+            0.0,
+            False,
+            expected_order if expected_order is not None else 0.0,
         )
 
     # Linear regression: e = order * h + const
@@ -244,15 +255,22 @@ def convergence_rate(
     result = np.linalg.lstsq(A, e, rcond=None)
     order = float(result[0][0])
 
-    exp = expected_order or order
+    # `is not None`, not `or`: expected_order=0.0 is a real target, not "unset".
+    # With no expected_order the consistency check is vacuous (fit vs itself) → True.
+    exp = expected_order if expected_order is not None else order
     consistent = abs(order - exp) < order_tol
 
     return ConvergenceResult(
-        list(resolutions), list(errors), order, consistent, exp,
+        list(resolutions),
+        list(errors),
+        order,
+        consistent,
+        exp,
     )
 
 
 # ---- Strong convergence test ----
+
 
 def strong_convergence_test(
     fine_paths: np.ndarray,
@@ -272,6 +290,7 @@ def strong_convergence_test(
 
 
 # ---- Weak convergence test ----
+
 
 def weak_convergence_test(
     terminal_values: np.ndarray,

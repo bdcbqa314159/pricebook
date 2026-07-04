@@ -162,3 +162,19 @@ class TestStrongWeakConvergence:
     def test_weak_error_nonzero(self):
         vals = np.array([105.0, 105.0])
         assert weak_convergence_test(vals, 100.0) == pytest.approx(5.0)
+
+
+class TestAuditFixes:
+    """v1.231: expected_order=0.0 falsy-trap, empty martingale guard."""
+
+    def test_expected_order_zero_is_respected(self):
+        from pricebook.core.numerical_safety import convergence_rate
+        # order 0.0 is a real target, not "unset" — must not be dropped by `or`
+        r = convergence_rate([0.1, 0.05, 0.025], [0.01, 0.0025, 0.000625], expected_order=0.0)
+        assert r.expected_order == 0.0
+        assert not r.is_consistent  # fitted ~2.0 is far from 0.0
+
+    def test_empty_martingale_raises(self):
+        from pricebook.core.numerical_safety import martingale_test
+        with pytest.raises(ValueError, match="at least one"):
+            martingale_test([], 100.0, 0.05, 1.0)
