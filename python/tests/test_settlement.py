@@ -147,3 +147,18 @@ class TestSettlementRisk:
     def test_same_day_zero_days(self):
         result = settlement_risk(1_000_000, REF, REF)
         assert result.days_at_risk == 0
+
+
+def test_result_to_dict_is_json_safe():
+    """v1.235: to_dict serialises enum/date (was dict(vars) leaking objects)."""
+    import json
+    from datetime import date
+    from pricebook.core.settlement import cash_settlement, cds_settlement_cash
+    for r in (
+        cash_settlement(1e6, date(2024, 1, 15), lag_days=2),
+        cds_settlement_cash(1e7, 0.4, date(2024, 1, 15)),
+    ):
+        d = r.to_dict()
+        json.dumps(d)  # must not raise
+        assert isinstance(d["settlement_type"], str)
+        assert isinstance(d["settlement_date"], str)

@@ -14,6 +14,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
+from typing import Protocol
+
+
+class _Calendar(Protocol):
+    """Structural type for the `calendar` argument — anything exposing
+    ``is_business_day(date) -> bool`` (e.g. ``core.calendar.Calendar``)."""
+
+    def is_business_day(self, d: date) -> bool: ...
+
+
+def _result_to_dict(obj: object) -> dict:
+    """Serialise a settlement-result dataclass to JSON-native values
+    (enums → ``.value``, dates → ``isoformat``). Plain ``dict(vars(self))``
+    leaked ``SettlementType``/``date`` objects that ``json.dumps`` rejects."""
+    out: dict = {}
+    for k, v in vars(obj).items():
+        if isinstance(v, Enum):
+            out[k] = v.value
+        elif isinstance(v, date):
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
 
 
 # ---- Settlement types ----
@@ -61,16 +84,16 @@ class CashSettlementResult:
     settlement_date: date
     currency: str
 
-
-
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return _result_to_dict(self)
+
+
 def cash_settlement(
     pv: float,
     exercise_date: date,
     lag_days: int = 0,
     currency: str = "USD",
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> CashSettlementResult:
     """Generic cash settlement: pay/receive PV on settlement date.
 
@@ -92,16 +115,16 @@ class CDSSettlementResult:
     bond_delivered: bool
     settlement_date: date
 
-
-
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return _result_to_dict(self)
+
+
 def cds_settlement_physical(
     notional: float,
     recovery: float,
     event_date: date,
     lag_days: int = 30,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> CDSSettlementResult:
     """Physical CDS settlement: deliver bond, receive par.
 
@@ -121,7 +144,7 @@ def cds_settlement_cash(
     recovery: float,
     event_date: date,
     lag_days: int = 5,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> CDSSettlementResult:
     """Cash (auction) CDS settlement: pay par minus recovery.
 
@@ -147,10 +170,10 @@ class OptionSettlementResult:
     shares_delivered: float
     settlement_date: date
 
-
-
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return _result_to_dict(self)
+
+
 def option_settlement_cash(
     spot: float,
     strike: float,
@@ -158,7 +181,7 @@ def option_settlement_cash(
     contracts: float,
     exercise_date: date,
     lag_days: int = 1,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> OptionSettlementResult:
     """Cash-settled option exercise. `lag_days` is **business days** (T+1)."""
     intrinsic = max(spot - strike, 0.0) if is_call else max(strike - spot, 0.0)
@@ -176,7 +199,7 @@ def option_settlement_physical(
     contracts: float,
     exercise_date: date,
     lag_days: int = 2,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> OptionSettlementResult:
     """Physical-settled option exercise. `lag_days` is **business days** (T+2 default).
 
@@ -209,10 +232,10 @@ class FuturesSettlementResult:
     physical_delivery: bool
     settlement_date: date
 
-
-
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return _result_to_dict(self)
+
+
 def futures_settlement_cash(
     entry_price: float,
     final_price: float,
@@ -234,7 +257,7 @@ def futures_settlement_physical(
     multiplier: float,
     expiry: date,
     delivery_lag: int = 3,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> FuturesSettlementResult:
     """Physical-delivery futures settlement (e.g. bond futures).
 
@@ -257,16 +280,15 @@ class SettlementRiskResult:
     days_at_risk: int
     settlement_type: SettlementType
 
-
-
     def to_dict(self) -> dict:
-        return dict(vars(self))
+        return _result_to_dict(self)
 # ---- Business-day-aware helpers ----
+
 
 def add_business_days(
     start: date,
     n: int,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> date:
     """Advance *n* business days from *start*.
 
@@ -302,7 +324,7 @@ def fx_spot_date(
     trade_date: date,
     base: str,
     quote: str,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> date:
     """Compute the FX spot settlement date.
 
@@ -337,7 +359,7 @@ BOND_SETTLEMENT_LAGS: dict[str, int] = {
 def bond_settlement_date(
     trade_date: date,
     market: str,
-    calendar: object | None = None,
+    calendar: _Calendar | None = None,
 ) -> date:
     """Compute the bond settlement date for a given market.
 
