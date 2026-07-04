@@ -13,6 +13,8 @@ instrument that supports variable notional schedules.
     # [50e6, 40e6, 30e6, 30e6, 30e6, ..., 30e6]
 """
 
+from __future__ import annotations
+
 import math
 
 
@@ -42,11 +44,13 @@ def normalize_notional(notional: float | list[float], n_periods: int) -> list[fl
         if not math.isfinite(notional) or notional <= 0:
             raise ValueError(f"notional must be a positive finite number, got {notional}")
         return [float(notional)] * n_periods
-    if not notional:
-        raise ValueError("notional schedule is empty")
-    if any(not math.isfinite(n) or n <= 0 for n in notional):
-        raise ValueError(f"all notionals must be positive and finite, got {notional}")
+    # Sequence path — coerce to a float list first so tuples / numpy arrays work
+    # (a bare `if not np.ndarray` raises "truth value of an array is ambiguous").
     ns = [float(n) for n in notional]
+    if not ns:
+        raise ValueError("notional schedule is empty")
+    if any(not math.isfinite(n) or n <= 0 for n in ns):
+        raise ValueError(f"all notionals must be positive and finite, got {notional}")
     if len(ns) < n_periods:
         ns += [ns[-1]] * (n_periods - len(ns))
     return ns[:n_periods]

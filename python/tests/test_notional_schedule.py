@@ -250,3 +250,20 @@ class TestHardAuditGuards:
     def test_int_list_returns_floats(self):
         out = normalize_notional([50, 40], 3)
         assert all(type(x) is float for x in out)
+
+
+class TestSequenceCoercion:
+    """v1.233 (Phase-1 inventory): tuples and numpy arrays are valid sequences."""
+
+    def test_numpy_array_notional(self):
+        import numpy as np
+        # was: `if not notional` raised "truth value of an array is ambiguous"
+        assert normalize_notional(np.array([50e6, 40e6]), 3) == [50e6, 40e6, 40e6]
+
+    def test_tuple_notional(self):
+        assert normalize_notional((50e6, 40e6), 3) == [50e6, 40e6, 40e6]
+
+    def test_empty_numpy_array_raises(self):
+        import numpy as np
+        with pytest.raises(ValueError, match="empty"):
+            normalize_notional(np.array([]), 3)
