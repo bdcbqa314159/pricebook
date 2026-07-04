@@ -23,6 +23,7 @@ from pricebook.credit.cds import CDS
 from pricebook.credit.cln import CreditLinkedNote
 from pricebook.fixed_income.bond import FixedRateBond
 from pricebook.core.schedule import Frequency
+from pricebook.core.notional import normalize_notional
 from pricebook.desks.api_desk import analyse
 from tests.conftest import make_flat_curve
 
@@ -222,3 +223,30 @@ class TestEdgeCases:
     def test_zero_notional_raises(self):
         with pytest.raises(ValueError, match="positive"):
             InterestRateSwap(REF, END, 0.04, notional=0)
+
+
+class TestHardAuditGuards:
+    """v1.232: negative n_periods and non-finite notionals must fail loud."""
+
+    def test_negative_n_periods_raises(self):
+        # was: list path silently did ns[:-1] (dropped last element)
+        with pytest.raises(ValueError, match="n_periods must be non-negative"):
+            normalize_notional([50e6, 40e6, 30e6], -1)
+        with pytest.raises(ValueError, match="n_periods must be non-negative"):
+            normalize_notional(50e6, -1)
+
+    def test_zero_n_periods_is_empty(self):
+        assert normalize_notional(50e6, 0) == []
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_scalar_non_finite_raises(self, bad):
+        with pytest.raises(ValueError, match="positive finite"):
+            normalize_notional(bad, 3)
+
+    def test_list_non_finite_raises(self):
+        with pytest.raises(ValueError, match="positive and finite"):
+            normalize_notional([50e6, float("nan")], 3)
+
+    def test_int_list_returns_floats(self):
+        out = normalize_notional([50, 40], 3)
+        assert all(type(x) is float for x in out)
