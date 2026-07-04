@@ -53,11 +53,12 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum, IntEnum
-from typing import Any, get_type_hints, Union, get_origin, get_args
+from typing import Any, Union, get_args, get_origin, get_type_hints
 from uuid import UUID
 
 try:
     import numpy as _np  # noqa: F401 — used for isinstance narrow in _serialise_atom
+
     _HAS_NUMPY = True
 except ImportError:
     _HAS_NUMPY = False
@@ -157,10 +158,12 @@ def _register(cls: type) -> None:
         fields = getattr(cls, "_SERIAL_FIELDS", [])
         if fields:
             import inspect
+
             init_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}
             for f in fields:
                 if f not in init_params:
                     import warnings
+
                     warnings.warn(
                         f"Serialisation: {cls.__name__}._SERIAL_FIELDS contains '{f}' "
                         f"which is not in __init__ parameters: {sorted(init_params)}",
@@ -182,6 +185,7 @@ def from_dict(d: dict[str, Any]) -> Any:
 # ---------------------------------------------------------------------------
 # Atom serialisers: value → JSON-native
 # ---------------------------------------------------------------------------
+
 
 def _serialise_atom(v: Any) -> Any:
     """Convert a single value to a JSON-native type.
@@ -236,6 +240,7 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
     #         (Fix A.11 B2 — polymorphic discriminated-union fields.)
     #       * otherwise return v as-is (primitives etc.).
     import types as _types
+
     origin = get_origin(hint)
     if origin is Union or isinstance(hint, _types.UnionType):
         args = [a for a in get_args(hint) if a is not type(None)]
@@ -296,10 +301,9 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
         if isinstance(v, str):
             parts = v.split("/", maxsplit=2)
             if len(parts) != 2:
-                raise ValueError(
-                    f"CurrencyPair payload must be 'BASE/QUOTE'; got {v!r}"
-                )
-            from pricebook.core.currency import CurrencyPair, Currency
+                raise ValueError(f"CurrencyPair payload must be 'BASE/QUOTE'; got {v!r}")
+            from pricebook.core.currency import Currency, CurrencyPair
+
             return CurrencyPair(Currency(parts[0]), Currency(parts[1]))
         return v
 
@@ -334,6 +338,7 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
 # ---------------------------------------------------------------------------
 # The Mixin
 # ---------------------------------------------------------------------------
+
 
 class Serialisable:
     """Mixin for auto-serialisation.
@@ -401,6 +406,7 @@ def _get_init_hints(cls: type) -> dict[str, type]:
         return get_type_hints(cls.__init__)
     except Exception as e:
         import warnings
+
         warnings.warn(
             f"Could not resolve type hints for {cls.__name__}.__init__: {e}. "
             f"from_dict() will not auto-resolve dates/enums for this class.",
@@ -412,6 +418,7 @@ def _get_init_hints(cls: type) -> dict[str, type]:
 # ---------------------------------------------------------------------------
 # Decorator alternative (for classes that can't inherit)
 # ---------------------------------------------------------------------------
+
 
 def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
     """Decorator: add Serialisable behaviour without inheritance.
@@ -425,6 +432,7 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
     handled by the class's own from_dict — bump the version AND implement
     the migration logic, never one without the other.
     """
+
     def decorator(cls):
         cls._SERIAL_TYPE = serial_type
         cls._SERIAL_FIELDS = fields
@@ -474,6 +482,7 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
 # ---------------------------------------------------------------------------
 # Convention decorator (for frozen dataclasses — pure data)
 # ---------------------------------------------------------------------------
+
 
 def serialisable_convention(serial_type: str, schema_version: int = 1):
     """Decorator: add serialisation to frozen dataclasses (convention objects).
@@ -546,7 +555,6 @@ def serialisable_convention(serial_type: str, schema_version: int = 1):
             return klass(**kwargs)
 
         cls.to_dict = to_dict
-
 
         cls.from_dict = cls_from_dict
         # Register so from_dict dispatch works for nested conventions
