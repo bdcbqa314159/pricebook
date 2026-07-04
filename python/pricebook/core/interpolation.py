@@ -10,7 +10,15 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 import numpy as np
+import numpy.typing as npt
 from scipy.interpolate import CubicSpline
+
+# Hyman monotonicity region: the (slope/secant) pair (alpha, beta) at a segment
+# must satisfy alpha^2 + beta^2 <= 9; slopes outside are rescaled onto the circle.
+_HYMAN_RADIUS_SQ = 9.0
+_HYMAN_RESCALE = math.sqrt(_HYMAN_RADIUS_SQ)  # tau numerator; == 3.0
+_FLAT_SECANT_TOL = 1e-15   # |secant| below this → treat segment as flat (zero the slopes)
+_AKIMA_WEIGHT_TOL = 1e-30  # degenerate equal-weight fallback in Akima's slope blend
 
 
 class InterpolationMethod(Enum):
@@ -22,9 +30,14 @@ class InterpolationMethod(Enum):
 
 
 class Interpolator(ABC):
-    """Base interpolator. Flat extrapolation beyond boundaries."""
+    """Base interpolator.
 
-    def __init__(self, x: np.ndarray, y: np.ndarray):
+    Left extrapolation is always flat by design (short-end stability — keeps a
+    discount factor from blowing up as t→0); only the right end is customisable
+    via ``_extrapolate_right`` (default flat).
+    """
+
+    def __init__(self, x: npt.ArrayLike, y: npt.ArrayLike):
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
         if len(x) != len(y):
@@ -50,13 +63,15 @@ class Interpolator(ABC):
         """Evaluate at x with flat extrapolation on the left.
 
         Right extrapolation is handled by subclasses via _extrapolate_right();
-        the default is flat (same y as last knot).
+        the default is flat (same y as last knot). This is the single cast
+        point that makes the ``-> float`` contract true (subclasses compute in
+        numpy and may return ``np.float64``).
         """
         if x <= self._x[0]:
             return float(self._y[0])
         if x >= self._x[-1]:
-            return self._extrapolate_right(x)
-        return self._interpolate(x)
+            return float(self._extrapolate_right(x))
+        return float(self._interpolate(x))
 
     def _extrapolate_right(self, x: float) -> float:
         """Right extrapolation — default is flat. Override for other behavior."""
@@ -93,7 +108,7 @@ class LogLinearInterpolator(Interpolator):
     between knot points. This is the most common choice in practice.
     """
 
-    def __init__(self, x: np.ndarray, y: np.ndarray):
+    def __init__(self, x: npt.ArrayLike, y: npt.ArrayLike):
         super().__init__(x, y)
         if np.any(self._y <= 0):
             raise ValueError("y values must be positive for log-linear interpolation")
@@ -127,12 +142,12 @@ class CubicSplineInterpolator(Interpolator):
     monotone cubic if this is a concern.
     """
 
-    def __init__(self, x: np.ndarray, y: np.ndarray):
+    def __init__(self, x: npt.ArrayLike, y: npt.ArrayLike):
         super().__init__(x, y)
         self._spline = CubicSpline(self._x, self._y, bc_type="natural")
 
     def _interpolate(self, x: float) -> float:
-        return float(self._spline(x))
+        return self._spline(x)  # cast to float in __call__
 
 
 def _hermite_eval(t: float, y0: float, y1: float, h: float, m0: float, m1: float) -> float:
@@ -144,7 +159,31 @@ def _hermite_eval(t: float, y0: float, y1: float, h: float, m0: float, m1: float
     return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
 
 
-class MonotoneCubicInterpolator(Interpolator):
+class _HermiteInterpolator(Interpolator):
+    """Cubic Hermite interpolator; knot slopes supplied by ``_compute_slopes``.
+
+    Shared by the shape-preserving families (monotone cubic, Akima) — the only
+    thing that varies between them is the slope rule.
+    """
+
+    def __init__(self, x: npt.ArrayLike, y: npt.ArrayLike):
+        super().__init__(x, y)
+        self._slopes = self._compute_slopes()
+
+    @abstractmethod
+    def _compute_slopes(self) -> np.ndarray:
+        """Slope at each knot; drives the shape of the interpolant."""
+
+    def _interpolate(self, x: float) -> float:
+        i = self._find_segment(x)
+        h = self._x[i + 1] - self._x[i]
+        t = (x - self._x[i]) / h
+        return _hermite_eval(
+            t, self._y[i], self._y[i + 1], h, self._slopes[i], self._slopes[i + 1]
+        )
+
+
+class MonotoneCubicInterpolator(_HermiteInterpolator):
     """
     Monotone-preserving cubic Hermite interpolation (Hyman filter).
 
@@ -152,10 +191,6 @@ class MonotoneCubicInterpolator(Interpolator):
     Preserves the shape of the data and prevents overshoots, which is
     critical for discount curves (no negative forward rates).
     """
-
-    def __init__(self, x: np.ndarray, y: np.ndarray):
-        super().__init__(x, y)
-        self._slopes = self._compute_slopes()
 
     def _compute_slopes(self) -> np.ndarray:
         """Fritsch-Carlson method with Hyman filter."""
@@ -176,30 +211,24 @@ class MonotoneCubicInterpolator(Interpolator):
         slopes[0] = delta[0]
         slopes[-1] = delta[-1]
 
-        # Hyman filter: enforce alpha^2 + beta^2 <= 9
+        # Hyman filter: enforce alpha^2 + beta^2 <= _HYMAN_RADIUS_SQ
         for i in range(n - 1):
-            if abs(delta[i]) < 1e-15:
+            if abs(delta[i]) < _FLAT_SECANT_TOL:
                 slopes[i] = 0.0
                 slopes[i + 1] = 0.0
             else:
                 alpha = slopes[i] / delta[i]
                 beta = slopes[i + 1] / delta[i]
                 r2 = alpha * alpha + beta * beta
-                if r2 > 9.0:
-                    tau = 3.0 / math.sqrt(r2)
+                if r2 > _HYMAN_RADIUS_SQ:
+                    tau = _HYMAN_RESCALE / math.sqrt(r2)
                     slopes[i] = tau * alpha * delta[i]
                     slopes[i + 1] = tau * beta * delta[i]
 
         return slopes
 
-    def _interpolate(self, x: float) -> float:
-        i = self._find_segment(x)
-        h = self._x[i + 1] - self._x[i]
-        t = (x - self._x[i]) / h
-        return _hermite_eval(t, self._y[i], self._y[i + 1], h, self._slopes[i], self._slopes[i + 1])
 
-
-class AkimaInterpolator(Interpolator):
+class AkimaInterpolator(_HermiteInterpolator):
     """
     Akima spline interpolation.
 
@@ -212,10 +241,6 @@ class AkimaInterpolator(Interpolator):
     average of the four surrounding secants, with weights based on
     absolute slope differences. This suppresses outlier influence.
     """
-
-    def __init__(self, x: np.ndarray, y: np.ndarray):
-        super().__init__(x, y)
-        self._slopes = self._compute_slopes()
 
     def _compute_slopes(self) -> np.ndarray:
         n = len(self._x)
@@ -243,25 +268,22 @@ class AkimaInterpolator(Interpolator):
             w1 = abs(m4 - m3)
             w2 = abs(m2 - m1)
 
-            if w1 + w2 < 1e-30:
+            if w1 + w2 < _AKIMA_WEIGHT_TOL:
                 slopes[i] = 0.5 * (m2 + m3)
             else:
                 slopes[i] = (w1 * m2 + w2 * m3) / (w1 + w2)
 
         return slopes
 
-    def _interpolate(self, x: float) -> float:
-        i = self._find_segment(x)
-        h = self._x[i + 1] - self._x[i]
-        t = (x - self._x[i]) / h
-        return _hermite_eval(t, self._y[i], self._y[i + 1], h, self._slopes[i], self._slopes[i + 1])
 
+def create_interpolator(
+    method: InterpolationMethod, x: npt.ArrayLike, y: npt.ArrayLike
+) -> Interpolator:
+    """Factory function to create an interpolator by method enum.
 
-def create_interpolator(method: InterpolationMethod, x, y) -> Interpolator:
-    """Factory function to create an interpolator by method enum."""
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-
+    Coercion/validation lives in ``Interpolator.__init__`` (single source of
+    truth), so raw lists/tuples are fine here.
+    """
     if method == InterpolationMethod.LINEAR:
         return LinearInterpolator(x, y)
     elif method == InterpolationMethod.LOG_LINEAR:
