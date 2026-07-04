@@ -6,8 +6,8 @@ Methods range from simple linear to monotone cubic (shape-preserving).
 """
 
 import math
-from enum import Enum
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -25,15 +25,22 @@ class Interpolator(ABC):
     """Base interpolator. Flat extrapolation beyond boundaries."""
 
     def __init__(self, x: np.ndarray, y: np.ndarray):
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
         if len(x) != len(y):
             raise ValueError("x and y must have the same length")
         if len(x) < 2:
             raise ValueError("need at least 2 points")
+        # Non-finite input silently yields a non-finite interpolant that poisons
+        # every downstream df/rate — fail loud here instead (y is otherwise
+        # unguarded; the strictly-increasing check only catches NaN in x).
+        if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+            raise ValueError("x and y must be finite (no NaN/Inf)")
         if not np.all(np.diff(x) > 0):
             raise ValueError("x must be strictly increasing")
 
-        self._x = np.asarray(x, dtype=float)
-        self._y = np.asarray(y, dtype=float)
+        self._x = x
+        self._y = y
 
     @abstractmethod
     def _interpolate(self, x: float) -> float:
@@ -189,8 +196,7 @@ class MonotoneCubicInterpolator(Interpolator):
         i = self._find_segment(x)
         h = self._x[i + 1] - self._x[i]
         t = (x - self._x[i]) / h
-        return _hermite_eval(t, self._y[i], self._y[i + 1], h,
-                             self._slopes[i], self._slopes[i + 1])
+        return _hermite_eval(t, self._y[i], self._y[i + 1], h, self._slopes[i], self._slopes[i + 1])
 
 
 class AkimaInterpolator(Interpolator):
@@ -220,7 +226,7 @@ class AkimaInterpolator(Interpolator):
 
         # Extend with two ghost secants on each side (Akima's boundary treatment)
         m_ext = np.empty(n + 3)
-        m_ext[2:n + 1] = m
+        m_ext[2 : n + 1] = m
         m_ext[1] = 2.0 * m[0] - m[1] if n > 2 else m[0]
         m_ext[0] = 2.0 * m_ext[1] - m_ext[2]
         m_ext[n + 1] = 2.0 * m[-1] - m[-2] if n > 2 else m[-1]
@@ -248,8 +254,7 @@ class AkimaInterpolator(Interpolator):
         i = self._find_segment(x)
         h = self._x[i + 1] - self._x[i]
         t = (x - self._x[i]) / h
-        return _hermite_eval(t, self._y[i], self._y[i + 1], h,
-                             self._slopes[i], self._slopes[i + 1])
+        return _hermite_eval(t, self._y[i], self._y[i + 1], h, self._slopes[i], self._slopes[i + 1])
 
 
 def create_interpolator(method: InterpolationMethod, x, y) -> Interpolator:

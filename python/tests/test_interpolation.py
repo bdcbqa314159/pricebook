@@ -136,3 +136,27 @@ class TestValidation:
     def test_non_increasing_x(self):
         with pytest.raises(ValueError):
             LinearInterpolator(np.array([1.0, 0.5, 2.0]), np.array([1.0, 2.0, 3.0]))
+
+
+class TestNonFiniteInputRejected:
+    """A NaN/Inf in x or y must fail loud, not silently poison the interpolant."""
+
+    @pytest.mark.parametrize("method", list(InterpolationMethod))
+    def test_nan_y_rejected(self, method):
+        from pricebook.core.interpolation import create_interpolator
+        x = np.array([0.0, 1.0, 2.0, 3.0])
+        y = np.array([1.0, np.nan, 0.97, 0.94])
+        with pytest.raises(ValueError, match="finite"):
+            create_interpolator(method, x, y)
+
+    def test_inf_y_rejected(self):
+        from pricebook.core.interpolation import create_interpolator
+        with pytest.raises(ValueError, match="finite"):
+            create_interpolator(
+                InterpolationMethod.LINEAR,
+                np.array([0.0, 1.0, 2.0]), np.array([1.0, np.inf, 0.9]),
+            )
+
+    def test_nan_x_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            LinearInterpolator(np.array([0.0, np.nan, 2.0]), np.array([1.0, 0.99, 0.97]))
