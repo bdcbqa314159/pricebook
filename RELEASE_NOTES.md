@@ -2,6 +2,20 @@
 
 ---
 
+## v1.233.0 — 2026-07-04 — **notional: Phase-1 inventory follow-ups (tuple/array input + future-import)**
+
+Re-audited `core/notional.py` under the new **method/branch-inventory-first** process — the systematic per-branch walk caught three things the earlier "hard audit" missed (it had jumped straight to the two headline bugs).
+
+**Files**: `core/notional.py` (+ `tests/test_notional_schedule.py`).
+
+- **Tuple / numpy-array notional now accepted.** A numpy-array notional hit `if not notional` → `ValueError: truth value of an array is ambiguous` (cryptic, on a primitive that feeds the whole rates+credit stack). The sequence path now coerces to a float list first (`ns = [float(n) for n in notional]`), so tuples and numpy arrays work like lists; the empty check runs on the plain list.
+- **Restored `from __future__ import annotations`** — inadvertently dropped at v1.232 when `import math` was added; it's the core-module convention.
+- Left as rare edge: an `np.int64` *scalar* (not `np.float64`, which subclasses `float`) still raises — off-contract, uncommon for a notional.
+
+**Verification**: 33 notional tests pass (+3: numpy array, tuple, empty array); full suite **13,178 passed**.
+
+---
+
 ## v1.232.0 — 2026-07-04 — **notional: hard-audit — negative n_periods + non-finite guards**
 
 Hard audit of `core/notional.py` (`normalize_notional` — feeds FixedLeg/FloatingLeg/CDS/CLN notional schedules → PV). Two silent-wrong-for-a-money-input bugs.
