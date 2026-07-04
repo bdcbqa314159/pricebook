@@ -2,6 +2,22 @@
 
 ---
 
+## v1.237.0 — 2026-07-04 — **serialisable: clear pyright errors (13 → 1)**
+
+Follow-up after the audit was checked against **pyright** (the earlier pass used mypy, which flags a different set — the miss). Behaviour-identical.
+
+**Files**: `core/serialisable.py`.
+
+- **`_np` possibly-unbound** — `import numpy as _np` sits in a `try/except`; the `isinstance(v, _np.generic)` guard used `_HAS_NUMPY`, which pyright can't tie to `_np` being bound. Now `_np = None` in the `except` and the guard is `if _np is not None`.
+- **Decorator attribute/method injection** — both `@serialisable` and `@serialisable_convention` did `cls.x = …` onto the class (pyright: *"Cannot assign to attribute … for DataclassInstance"*, ×10). Switched to `setattr(cls, …)` (the idiomatic dynamic-injection form, opaque to the checker) + typed the decorators `cls: type -> type`.
+- Result: **pyright 13 → 1 error** on the file; the remaining one is `numpy could not be resolved` (pyright not pointed at `.venv` — environmental, affects every numpy import repo-wide, not a code bug).
+
+Note: this clears the errors *inside* `serialisable.py`. The **consumer-side** debt (call sites where pyright/mypy can't see the injected `from_dict`/`to_dict`) is unchanged and still parked in OPEN.md (needs the typed-base refactor).
+
+**Verification**: full suite **13,191 passed** (`setattr` ≡ direct assignment at runtime).
+
+---
+
 ## v1.236.0 — 2026-07-04 — **serialisable: fail loud on _SERIAL_TYPE collisions**
 
 Systematic (inventory-first) re-audit of `core/serialisable.py` (serialisation registry, 96 consumers). Two flags confirmed.
