@@ -2,6 +2,20 @@
 
 ---
 
+## v1.232.0 — 2026-07-04 — **notional: hard-audit — negative n_periods + non-finite guards**
+
+Hard audit of `core/notional.py` (`normalize_notional` — feeds FixedLeg/FloatingLeg/CDS/CLN notional schedules → PV). Two silent-wrong-for-a-money-input bugs.
+
+**Files**: `core/notional.py` (+ `tests/test_notional_schedule.py`).
+
+- **Negative `n_periods` produced a wrong-length schedule silently.** The list path ended in `ns[:n_periods]`, so `n_periods=-1` did `ns[:-1]` — **dropped the last period** (a 3-element input returned 2), and the scalar path returned `[]`. Neither errored. Now `n_periods < 0` raises.
+- **Non-finite notionals slipped the positivity check.** `notional <= 0` is `False` for `NaN` and `Inf` (`NaN<=0` is `False`), so a `NaN`/`Inf` notional flowed straight into the schedule and poisoned every PV/greek off it. Both scalar and list paths now require `math.isfinite`. (Same `non-finite-poisoning` class as the fixings/interpolation fixes.)
+- List elements coerced to `float` (honours the `list[float]` return; matches the scalar path).
+
+**Verification**: 30 notional tests pass (+7); full suite **13,175 passed**.
+
+---
+
 ## v1.231.0 — 2026-07-04 — **numerical_safety: convergence_rate falsy-trap + martingale empty guard**
 
 Audit of `core/numerical_safety.py` (CFL / Feller / martingale / convergence diagnostics — 2 consumers). Math verified correct (CFL `Δt ≤ Δx²/(σ²+|μ|Δx)`, Feller `2κθ≥ξ²`, martingale `E[e^{-rT}S_T]=S_0`, log-log convergence fit); three fixes.
