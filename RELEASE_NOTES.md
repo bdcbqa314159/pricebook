@@ -2,6 +2,21 @@
 
 ---
 
+## v1.235.0 — 2026-07-04 — **settlement: Protocol-typed calendar + JSON-safe to_dict**
+
+Audit of `core/settlement.py` (settlement framework — physical/cash/auction across products). **Orphaned (0 production consumers)** but tested; coherent, kept and hardened.
+
+**Files**: `core/settlement.py` (+ `tests/test_settlement.py`).
+
+- **`calendar` arg typed as a `_Calendar` Protocol** (`is_business_day(date) -> bool`) across all 9 functions — was `object | None`, so `calendar.is_business_day(...)` was a mypy error (`"object" has no attribute "is_business_day"`). Now `settlement.py` is mypy-clean; the contract is explicit.
+- **`to_dict` made JSON-safe via a shared `_result_to_dict`.** All 5 result dataclasses did `dict(vars(self))`, leaking `SettlementType` enum + `date` objects (`json.dumps` → `TypeError`). The helper serialises enums → `.value`, dates → `isoformat`; also consolidates the 5 copies. (Same defect class as the dependency_graph `vars()` leak.)
+- ruff E3 fixed the file's stray blank-line formatting (3 blanks before each `to_dict`, 0 after each class).
+- **Closed as non-issues:** `add_business_days(start, 0)` returns `start` un-rolled (n=0 = "no adjustment"; trades land on business days); `recovery`/`replacement_cost_pct` unvalidated (calibrated/validated upstream; passthrough).
+
+**Verification**: 74 settlement tests pass (+1 json-safety); 0 production consumers → change contained to the module + its tests.
+
+---
+
 ## v1.234.0 — 2026-07-04 — **numerical_config: genuinely frozen + validated**
 
 Audit of `core/numerical_config.py` (`NumericalConfig` — frozen bundle of numerical hyperparameters carried on `PricingContext`; "numerical choices ARE valuation inputs"). The Phase-1 inventory flagged the `extra` field on a `frozen` dataclass; all issues confirmed empirically.
