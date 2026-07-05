@@ -52,22 +52,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from pricebook.core.serialisable import serialisable_convention
+from pricebook.core.serialisable import SerialisableConvention
 
 
-@serialisable_convention("coupon_cap_spec")
 @dataclass(frozen=True)
-class CouponCapSpec:
+class CouponCapSpec(SerialisableConvention):
     """Coupon cap specification for structured notes."""
+    _SERIAL_TYPE = "coupon_cap_spec"
     strike: float               # cap strike (e.g. 0.06 = 6%)
     cap_type: str = "european"  # "european" or "sticky"
     floor: float = 0.0          # optional floor (0 = no floor)
 
 
-@serialisable_convention("funding_convention")
 @dataclass(frozen=True)
-class FundingConvention:
+class FundingConvention(SerialisableConvention):
     """Funding leg convention for TRS or repo."""
+    _SERIAL_TYPE = "funding_convention"
     rate_index: str = "SOFR"
     spread_bps: float = 0.0
     day_count: str = "ACT/360"
@@ -77,10 +77,10 @@ class FundingConvention:
     observation_shift_days: int = 0
 
 
-@serialisable_convention("collateral_convention")
 @dataclass(frozen=True)
-class CollateralConvention:
+class CollateralConvention(SerialisableConvention):
     """Collateral/margin convention."""
+    _SERIAL_TYPE = "collateral_convention"
     haircut: float = 0.05
     margin_frequency: str = "daily"
     margin_currency: str = "USD"
@@ -88,9 +88,8 @@ class CollateralConvention:
     eligible_collateral: list[str] = field(default_factory=lambda: ["govies", "cash"])
 
 
-@serialisable_convention("spv_note_convention")
 @dataclass(frozen=True)
-class SPVNoteConvention:
+class SPVNoteConvention(SerialisableConvention):
     """SPV structured note convention — nests bond + credit conventions.
 
     An SPV note is a bond issued by a special purpose vehicle, typically
@@ -100,6 +99,7 @@ class SPVNoteConvention:
     - Optional coupon cap/floor
     - Collateral type classification
     """
+    _SERIAL_TYPE = "spv_note_convention"
     bond_market: str = "BUND"           # sovereign convention for freq/dc
     issuer_recovery: float = 0.30       # SPV recovery rate
     collateral_type: str = "corporate"  # "ABS", "corporate", "sovereign", "covered"
@@ -107,9 +107,8 @@ class SPVNoteConvention:
     notes: str = ""
 
 
-@serialisable_convention("bond_trs_convention")
 @dataclass(frozen=True)
-class BondTRSConvention:
+class BondTRSConvention(SerialisableConvention):
     """TRS convention — optionally nests an SPV convention for structured underlyings.
 
     For vanilla TRS:
@@ -118,6 +117,7 @@ class BondTRSConvention:
     For TRS on SPV note (exotic):
         conv = BondTRSConvention(bond_market="BUND", spv=SPVNoteConvention(...), ...)
     """
+    _SERIAL_TYPE = "bond_trs_convention"
     bond_market: str = "UST"
     funding_index: str = "SOFR"
     funding_spread_bps: float = 0.0

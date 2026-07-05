@@ -53,7 +53,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum, IntEnum
-from typing import Any, ClassVar, Union, get_args, get_origin, get_type_hints
+from typing import Any, ClassVar, Self, Union, get_args, get_origin, get_type_hints
 from uuid import UUID
 
 try:
@@ -61,7 +61,7 @@ try:
 
     _HAS_NUMPY = True
 except ImportError:
-    _np = None  # keep bound so the isinstance guard below can narrow it
+    _np = None  # type: ignore[assignment]  # keep bound so the guard can narrow (pyright)
     _HAS_NUMPY = False
 
 # ---------------------------------------------------------------------------
@@ -501,6 +501,66 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
         return cls
 
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# Convention base (typed replacement for @serialisable_convention)
+# ---------------------------------------------------------------------------
+
+
+class SerialisableConvention:
+    """Typed base for convention dataclasses — flat-dict serialisation.
+
+    The typed, inheritance-based equivalent of the ``@serialisable_convention``
+    decorator: because ``to_dict``/``from_dict`` are declared HERE, type checkers
+    see them on subclasses (the decorator injected them invisibly). Behaviour is
+    identical — flat dict, ``_schema_version`` key, fields derived from
+    ``dataclasses.fields`` (lazily, so it works after ``@dataclass`` runs).
+
+        @dataclass(frozen=True)
+        class SovereignConventions(SerialisableConvention):
+            _SERIAL_TYPE = "sovereign_conventions"
+            market_code: str
+            ...
+    """
+
+    _SERIAL_TYPE: ClassVar[str] = ""
+    _SERIAL_SCHEMA_VERSION: ClassVar[int] = 1
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if getattr(cls, "_SERIAL_TYPE", ""):
+            _register(cls)
+
+    def to_dict(self) -> dict[str, Any]:
+        import dataclasses
+
+        d: dict[str, Any] = {}
+        for f in dataclasses.fields(self):  # type: ignore[arg-type]
+            d[f.name] = _serialise_atom(getattr(self, f.name))
+        d[_SCHEMA_VERSION_KEY_FLAT] = self._SERIAL_SCHEMA_VERSION
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Self:
+        import dataclasses
+
+        # Accept both flat dict and the {"type", "params"} envelope.
+        if "params" in d and "type" in d:
+            p = d["params"]
+            version = d.get(_SCHEMA_VERSION_KEY)
+        else:
+            p = d
+            version = d.get(_SCHEMA_VERSION_KEY_FLAT)
+        _check_schema_version(cls, version)
+        hints = _get_init_hints(cls)
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(cls):  # type: ignore[arg-type]
+            if f.name not in p:
+                continue
+            v = p[f.name]
+            kwargs[f.name] = _deserialise_atom(v, hints[f.name]) if f.name in hints else v
+        return cls(**kwargs)
 
 
 # ---------------------------------------------------------------------------

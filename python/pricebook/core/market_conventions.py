@@ -16,15 +16,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook.core.serialisable import serialisable_convention
+from pricebook.core.serialisable import SerialisableConvention, serialisable_convention
 
 
 # ---- Equity index conventions ----
 
-@serialisable_convention("equity_index_spec")
 @dataclass(frozen=True)
-class EquityIndexSpec:
+class EquityIndexSpec(SerialisableConvention):
     """Equity index specification."""
+    _SERIAL_TYPE = "equity_index_spec"
     ticker: str
     name: str
     exchange: str

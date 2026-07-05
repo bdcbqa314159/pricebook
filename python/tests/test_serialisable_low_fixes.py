@@ -145,3 +145,29 @@ class TestRegistryCollision:
 
         S._register(_IdemProbe)  # again — must not raise
         S._register(_IdemProbe)
+
+
+class TestSerialisableConventionBase:
+    """v1.238: the typed base is byte-identical to the @serialisable_convention decorator."""
+
+    def test_base_matches_decorator_output(self):
+        from dataclasses import dataclass
+        from pricebook.core.serialisable import SerialisableConvention, serialisable_convention
+
+        @dataclass(frozen=True)
+        class _ViaBase(SerialisableConvention):
+            _SERIAL_TYPE = "parity_base_probe"
+            a: int
+            b: str = "x"
+
+        @serialisable_convention("parity_deco_probe")
+        @dataclass(frozen=True)
+        class _ViaDeco:
+            a: int
+            b: str = "x"
+
+        base, deco = _ViaBase(a=1), _ViaDeco(a=1)
+        bd, dd = base.to_dict(), deco.to_dict()
+        bd.pop("_schema_version"); dd.pop("_schema_version")
+        assert bd == dd                      # same field serialisation
+        assert _ViaBase.from_dict(base.to_dict()) == base  # round-trip
