@@ -2,6 +2,20 @@
 
 ---
 
+## v1.238.0 — 2026-07-05 — **serialisable typed base — Phase 1 (foundation + first 6 conventions)**
+
+Start of the serialisation typing-debt refactor (the parked hot topic): give conventions a **typed base** so type checkers see `to_dict`/`from_dict` (the `@serialisable_convention` decorator injected them invisibly → ~115 consumer errors).
+
+**Files**: `core/serialisable.py`, `core/market_conventions.py`, `models/composite_convention.py` (+ `tests/test_serialisable_low_fixes.py`).
+
+- **New `SerialisableConvention` base** — inheritance replacement for the decorator. Flat-dict `to_dict`, dual-format `from_dict` returning `Self`, fields derived lazily from `dataclasses.fields` (so it works after `@dataclass` runs), `__init_subclass__` registration. **Behaviour byte-identical** to the decorator (verified: golden `to_dict` output matches exactly; nested round-trips hold). The base is mypy-clean.
+- **Migrated first 6 conventions** — `EquityIndexSpec` + the 5 in `composite_convention.py` (`CouponCapSpec`, `FundingConvention`, `CollateralConvention`, `SPVNoteConvention`, `BondTRSConvention`). Pattern: drop `@serialisable_convention("k")`, add `(SerialisableConvention)` base + `_SERIAL_TYPE = "k"` **after the docstring** (before it would demote the docstring).
+- **Consumer mypy errors 115 → 113** (each migrated convention clears its call-site `has no attribute to_dict/from_dict`). ~20 convention classes remain — tracked as Phase 2 in OPEN.md.
+
+**Verification**: full suite **13,191 passed**; +1 parity test (base ≡ decorator output).
+
+---
+
 ## v1.237.0 — 2026-07-04 — **serialisable: clear pyright errors (13 → 1)**
 
 Follow-up after the audit was checked against **pyright** (the earlier pass used mypy, which flags a different set — the miss). Behaviour-identical.
