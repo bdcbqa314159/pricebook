@@ -2,6 +2,20 @@
 
 ---
 
+## v1.240.0 — 2026-07-05 — **solvers: reject non-finite brackets**
+
+Deep audit of `core/solvers.py` (newton/secant/halley/itp/brentq — root-finding for **51 consumers**: implied vol, par-rate, calibration). Both checkers were clean; the inventory found a real silent-wrong path.
+
+**Files**: `core/solvers.py` (+ `tests/test_solvers.py`).
+
+- **`itp`/`brentq` now reject a non-finite bracket.** A `NaN`/`Inf` from `f(a)`/`f(b)` slips the `fa*fb > 0` sign check (`nan > 0` is `False`), so the method ran on garbage. **`brentq` is the dangerous one** — it returns a bare `float` (no `converged` flag) and its end-warning `abs(fb) > tol*1000` is also NaN-blind → a bad implied-vol objective returned silent garbage. Now both raise `ValueError`, and the `brentq` warning also fires on a non-finite residual. (Same non-finite-poisoning class as fixings/interpolation/notional.)
+- **Verified NOT a bug** (inventory flagged it): `itp`'s `if fa>0: a,b=b,a` swap leaves the bracket reversed (`a>b`), but the algorithm still converges correctly on decreasing functions (checked root=1 and ln 2 to 8 digits). Made `delta` use `abs(b-a)` so a non-even `kappa2` on a reversed bracket can't go complex.
+- Clarity: typed the callables (`_Fn = Callable[[float], float]`), named the `1e-15` denom guard (`_MIN_DENOM`), ruff-tidied the file's blank lines.
+
+**Verification**: 21 solver tests pass (+3); full suite **13,195 passed**.
+
+---
+
 ## v1.239.0 — 2026-07-05 — **serialisable: checker-clean (mypy 0, pyright clean)**
 
 Quality checkpoint before continuing the migration. Ran **both** mypy and pyright.
