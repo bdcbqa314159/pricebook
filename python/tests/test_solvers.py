@@ -10,20 +10,26 @@ from pricebook.core.solvers import newton, secant, halley, itp, brentq, SolverRe
 def f_cubic(x):
     return x**3 - 2*x - 5  # root near 2.0946
 
+
 def f_cubic_prime(x):
     return 3*x**2 - 2
+
 
 def f_cubic_prime2(x):
     return 6*x
 
+
 def f_sin(x):
     return math.sin(x)  # root at 0, pi, 2pi, ...
+
 
 def f_sin_prime(x):
     return math.cos(x)
 
+
 def f_sin_prime2(x):
     return -math.sin(x)
+
 
 CUBIC_ROOT = 2.0945514815423265  # known root of x^3 - 2x - 5
 
@@ -137,10 +143,13 @@ class TestAllSolversAgree:
     def test_implied_vol_style(self):
         """All solvers find the same root for a pricing-style problem."""
         target = 0.25
+
         def f(x):
             return x**2 - target  # root at sqrt(0.25) = 0.5
+
         def fp(x):
             return 2*x
+
         def fpp(x):
             return 2.0
 
@@ -150,3 +159,23 @@ class TestAllSolversAgree:
         assert halley(f, fp, fpp, x0=0.3).root == pytest.approx(expected, abs=1e-10)
         assert itp(f, a=0.1, b=0.9).root == pytest.approx(expected, abs=1e-10)
         assert brentq(f, 0.1, 0.9) == pytest.approx(expected, abs=1e-10)
+
+
+class TestNonFiniteBracketGuard:
+    """v1.240: bracketing solvers must reject a non-finite bracket, not run on garbage."""
+
+    def test_itp_nan_bracket_raises(self):
+        from pricebook.core.solvers import itp
+        with pytest.raises(ValueError, match="finite"):
+            itp(lambda x: float("nan"), 0.0, 1.0)
+
+    def test_brentq_nan_bracket_raises(self):
+        from pricebook.core.solvers import brentq
+        with pytest.raises(ValueError, match="finite"):
+            brentq(lambda x: float("inf"), 0.0, 1.0)
+
+    def test_valid_solving_unaffected(self):
+        from pricebook.core.solvers import brentq, itp
+        import math
+        assert brentq(lambda x: x * x - 2, 0.0, 2.0) == pytest.approx(math.sqrt(2))
+        assert itp(lambda x: 1.0 - x, 0.0, 2.0).root == pytest.approx(1.0)  # decreasing/reversed bracket

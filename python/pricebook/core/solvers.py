@@ -10,7 +10,13 @@ Numerical root-finding solvers.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
+
+# Below this magnitude a derivative / denominator is treated as zero (avoid /0).
+_MIN_DENOM = 1e-15
+
+_Fn = Callable[[float], float]
 
 
 @dataclass
@@ -22,13 +28,13 @@ class SolverResult:
     converged: bool
     function_value: float
 
-
-
     def to_dict(self) -> dict:
         return dict(vars(self))
+
+
 def newton(
-    f,
-    fprime,
+    f: _Fn,
+    fprime: _Fn,
     x0: float,
     tol: float = 1e-12,
     maxiter: int = 50,
@@ -48,7 +54,7 @@ def newton(
         if abs(fx) < tol:
             return SolverResult(root=x, iterations=i, converged=True, function_value=fx)
         dfx = fprime(x)
-        if abs(dfx) < 1e-15:
+        if abs(dfx) < _MIN_DENOM:
             break
         x = x - fx / dfx
     fx = f(x)
@@ -56,7 +62,7 @@ def newton(
 
 
 def secant(
-    f,
+    f: _Fn,
     x0: float,
     x1: float,
     tol: float = 1e-12,
@@ -72,7 +78,7 @@ def secant(
         if abs(f1) < tol:
             return SolverResult(root=x1, iterations=i, converged=True, function_value=f1)
         denom = f1 - f0
-        if abs(denom) < 1e-15:
+        if abs(denom) < _MIN_DENOM:
             break
         x2 = x1 - f1 * (x1 - x0) / denom
         x0, f0 = x1, f1
@@ -81,9 +87,9 @@ def secant(
 
 
 def halley(
-    f,
-    fprime,
-    fprime2,
+    f: _Fn,
+    fprime: _Fn,
+    fprime2: _Fn,
     x0: float,
     tol: float = 1e-12,
     maxiter: int = 50,
@@ -100,7 +106,7 @@ def halley(
         dfx = fprime(x)
         d2fx = fprime2(x)
         denom = 2.0 * dfx * dfx - fx * d2fx
-        if abs(denom) < 1e-15:
+        if abs(denom) < _MIN_DENOM:
             break
         x = x - 2.0 * fx * dfx / denom
     fx = f(x)
@@ -108,7 +114,7 @@ def halley(
 
 
 def itp(
-    f,
+    f: _Fn,
     a: float,
     b: float,
     tol: float = 1e-12,
@@ -122,6 +128,9 @@ def itp(
     Superlinear average-case convergence.
     """
     fa, fb = f(a), f(b)
+    # NaN/Inf slips `fa*fb > 0` (nan>0 is False) → the method would run on garbage.
+    if not (math.isfinite(fa) and math.isfinite(fb)):
+        raise ValueError(f"f(a)={fa} and f(b)={fb} must be finite to bracket a root")
     if fa * fb > 0:
         raise ValueError(f"f(a)={fa:.6e} and f(b)={fb:.6e} must have opposite signs")
 
@@ -143,7 +152,7 @@ def itp(
 
         # Truncation
         sigma = math.copysign(1.0, mid - x_f)
-        delta = kappa1 * (b - a) ** kappa2
+        delta = kappa1 * abs(b - a) ** kappa2  # abs: bracket may be reversed (a>b) after the fa>0 swap
         if delta <= abs(mid - x_f):
             x_t = x_f + sigma * delta
         else:
@@ -174,13 +183,17 @@ def itp(
     return SolverResult(root=root, iterations=maxiter, converged=abs(froot) < tol, function_value=froot)
 
 
-def brentq(f, a: float, b: float, tol: float = 1e-12, maxiter: int = 100) -> float:
+def brentq(f: _Fn, a: float, b: float, tol: float = 1e-12, maxiter: int = 100) -> float:
     """Brent's method for root finding on [a, b].
 
     f(a) and f(b) must have opposite signs.
     Returns the root directly (float) for backward compatibility.
     """
     fa, fb = f(a), f(b)
+    # NaN/Inf slips `fa*fb > 0` (nan>0 is False); brentq returns a bare float with
+    # no `converged` flag, so a non-finite bracket would return silent garbage.
+    if not (math.isfinite(fa) and math.isfinite(fb)):
+        raise ValueError(f"f(a)={fa} and f(b)={fb} must be finite to bracket a root")
     if fa * fb > 0:
         raise ValueError(f"f(a)={fa:.6e} and f(b)={fb:.6e} must have opposite signs")
 
@@ -235,8 +248,9 @@ def brentq(f, a: float, b: float, tol: float = 1e-12, maxiter: int = 100) -> flo
             a, b = b, a
             fa, fb = fb, fa
 
-    # Convergence check: warn if residual is large
-    if abs(fb) > tol * 1000:
+    # Convergence check: warn if residual is large (or non-finite — nan>x is False,
+    # so a mid-iteration NaN would otherwise slip through silently).
+    if not math.isfinite(fb) or abs(fb) > tol * 1000:
         import warnings
         warnings.warn(
             f"brentq: solver may not have converged. "
