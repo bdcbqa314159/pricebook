@@ -178,7 +178,7 @@ def _register(cls: type) -> None:
     if fields:
         import inspect
 
-        init_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}
+        init_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}  # type: ignore[misc]  # introspecting __init__ is intentional
         for f in fields:
             if f not in init_params:
                 import warnings
@@ -198,7 +198,7 @@ def from_dict(d: dict[str, Any]) -> Any:
         raise ValueError("Dict has no 'type' key")
     if t not in _REGISTRY:
         raise ValueError(f"Unknown type '{t}'. Registered: {', '.join(sorted(_REGISTRY.keys()))}")
-    return _REGISTRY[t].from_dict(d)
+    return _REGISTRY[t].from_dict(d)  # type: ignore[attr-defined]  # registry values are serialisable classes
 
 
 # ---------------------------------------------------------------------------
@@ -309,7 +309,7 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
             # If the dict has no "type" key, call hint.from_dict directly.
             if "type" in v:
                 return from_dict(v)
-            return hint.from_dict(v)
+            return hint.from_dict(v)  # type: ignore[attr-defined]  # hint has _SERIAL_TYPE (checked)
         return v
 
     # CurrencyPair — deserialise from "EUR/USD" string
@@ -328,9 +328,9 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
 
     # list[X] — check if hint is parameterised list
     if get_origin(hint) is list:
-        args = get_args(hint)
-        if args:
-            inner = args[0]
+        list_args = get_args(hint)
+        if list_args:
+            inner = list_args[0]
             # list[date]
             if inner is date:
                 return [date.fromisoformat(x) if isinstance(x, str) else x for x in v]
@@ -342,7 +342,7 @@ def _deserialise_atom(v: Any, hint: type) -> Any:
                         if "type" in elem:
                             out.append(from_dict(elem))
                         else:
-                            out.append(inner.from_dict(elem))
+                            out.append(inner.from_dict(elem))  # type: ignore[attr-defined]  # inner has _SERIAL_TYPE (checked)
                     else:
                         out.append(elem)
                 return out
@@ -425,7 +425,7 @@ class Serialisable:
 def _get_init_hints(cls: type) -> dict[str, type]:
     """Get type hints from __init__. Returns empty dict if hints can't be resolved."""
     try:
-        return get_type_hints(cls.__init__)
+        return get_type_hints(cls.__init__)  # type: ignore[misc]  # introspecting __init__ is intentional
     except Exception as e:
         import warnings
 
@@ -473,7 +473,7 @@ def serialisable(serial_type: str, fields: list[str], schema_version: int = 1):
                 _SCHEMA_VERSION_KEY: self._SERIAL_SCHEMA_VERSION,
             }
 
-        @classmethod
+        @classmethod  # type: ignore[misc]  # nested classmethod; this decorator is removed once conventions migrate to SerialisableConvention
         def cls_from_dict(klass, d: dict[str, Any]) -> Any:
             _check_schema_version(klass, d.get(_SCHEMA_VERSION_KEY))
             # Fix A.11 B6: structured error on missing "params" (see read_payload).
@@ -618,7 +618,7 @@ def serialisable_convention(serial_type: str, schema_version: int = 1):
             d[_SCHEMA_VERSION_KEY_FLAT] = self._SERIAL_SCHEMA_VERSION
             return d
 
-        @classmethod
+        @classmethod  # type: ignore[misc]  # nested classmethod; this decorator is removed once conventions migrate to SerialisableConvention
         def cls_from_dict(klass, d: dict[str, Any]) -> Any:
             # Accept both flat dict and {"type": ..., "params": {...}} format
             if "params" in d and "type" in d:
