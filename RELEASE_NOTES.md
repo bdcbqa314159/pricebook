@@ -2,6 +2,20 @@
 
 ---
 
+## v1.239.0 — 2026-07-05 — **serialisable: checker-clean (mypy 0, pyright clean)**
+
+Quality checkpoint before continuing the migration. Ran **both** mypy and pyright.
+
+**Files**: `core/serialisable.py`.
+
+- **mypy 0 errors** (was 8). The 6 permanent ones are the inherent dynamism of a type-keyed registry — `_REGISTRY[t].from_dict`, `hint.from_dict`, `inner.from_dict` (dispatch on a runtime type key) and `cls.__init__` introspection in `_register`/`_get_init_hints`. Each now has a **targeted `# type: ignore[code]` with a reason**, not a blanket suppression. The 2 decorator `classmethod`-non-method ignores are annotated as removed once conventions finish migrating to `SerialisableConvention`.
+- **pyright clean** (the earlier `setattr`/`_np` fixes hold; only the environmental `numpy could not be resolved` remains — pyright not pointed at `.venv`).
+- Renamed a shadowed local (`args` → `list_args` in `_deserialise_atom`'s list branch) — the one real type bug (`tuple` reassigned over a `list`).
+
+**Verification**: full suite **13,192 passed**.
+
+---
+
 ## v1.238.0 — 2026-07-05 — **serialisable typed base — Phase 1 (foundation + first 6 conventions)**
 
 Start of the serialisation typing-debt refactor (the parked hot topic): give conventions a **typed base** so type checkers see `to_dict`/`from_dict` (the `@serialisable_convention` decorator injected them invisibly → ~115 consumer errors).
