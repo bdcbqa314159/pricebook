@@ -24,7 +24,10 @@ Work on branch `slice/00-walking-skeleton` off main, with meaningful commits in 
   1. chore(bootstrap): scaffold src/pricebook_ng/ layer dirs (foundation, market, instruments,
      models, engine, risk, shell) + packaging with __version__ = "0.0.0"; create CHANGELOG.md
      (Keep-a-Changelog); create verify.py with subcommands acyclic / tests --layer N / debt /
-     provenance / version / all. Leave RELEASE_NOTES.md and python/pricebook/ untouched.
+     provenance / version / all. Also add .gitattributes (`* text=auto eol=lf`) and
+     .github/workflows/ci.yml — matrix os=[ubuntu-latest, windows-latest], python 3.12, running
+     verify.py acyclic/debt/version/provenance + the slice's layer tier on both OSes (per
+     redesign/10_ci_and_cross_platform.md). Leave RELEASE_NOTES.md and python/pricebook/ untouched.
   2. test:  Slice 0 oracle RED — a failing reference-value test:
               PV == notional * exp(-r * t)   (t via ACT/365F)  to < 1e-12
               analytic DV01 == -notional*t*exp(-r*t)*1e-4 vs finite-difference to < 1e-6
