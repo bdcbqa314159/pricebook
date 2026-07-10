@@ -1,0 +1,24 @@
+"""FixedCashflowTrade — the Slice 0 instrument: one fixed cashflow.
+
+L2: instruments are pure data. This describes a single payment and holds NO
+`pv` method — pricing lives in the L4 engine (CLAUDE.md 2).
+
+Provenance:
+  quarry: python/pricebook/fixed_income/ (zero-coupon / single cashflow)
+  source: redesign/04_slice_plan.md (Slice 0 trade)
+  oracle: N/A (pure data; priced by DiscountingEngine under the Slice 0 oracle)
+  slice:  S00
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from pricebook_ng.foundation.cashflow import Cashflow
+
+
+@dataclass(frozen=True)
+class FixedCashflowTrade:
+    """A trade that pays a single fixed `Cashflow`."""
+
+    cashflow: Cashflow
