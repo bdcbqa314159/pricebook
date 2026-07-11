@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-07-11
+
+### Added
+- **S02 — schedule & business-day calendar.**
+  - `foundation/calendar.py`: `BusinessDayConvention` (UNADJUSTED / FOLLOWING /
+    MODIFIED_FOLLOWING / PRECEDING / MODIFIED_PRECEDING) and a minimal
+    data-driven `Calendar` (weekend + explicit holiday set) with `is_business_day`,
+    `adjust`, `business_days_between`.
+  - `foundation/schedule.py`: `Frequency` and `generate_schedule` — regular
+    periods, short front stub (backward generation), EOM roll, optional
+    business-day adjustment. No third-party dependency (stdlib month arithmetic).
+  - `foundation/time.py`: BUS/252 completed now that calendars exist.
+  - Oracle: hand-computed reference dates/counts (adjustments, coupon schedules
+    incl. EOM + short front stub, BUS/252 day counts) — exact.
+  - Quarry: `core/calendar.py`, `core/schedule.py`, `core/day_count.py` (BUS/252).
+
+### Deferred
+- Concrete national calendars (TARGET, US, London, Sao Paulo, ...) and long/back
+  schedule stubs — no current consumer; they land with the instrument slice that
+  first needs them (avoids the quarry's approximate long-stub heuristic).
+
 ## [0.0.2] - 2026-07-11
 
 ### Added
