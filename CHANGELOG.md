@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-07-11
+
+### Added
+- **S1 — day-count conventions.** Extended `foundation/time.py` beyond the
+  Slice 0 ACT/365F stub to the calendar-free conventions: ACT/360, 30/360
+  (US bond basis), 30E/360 (Eurobond basis), ACT/ACT ISDA, ACT/ACT ICMA.
+  - Oracle: published ISDA 2006 s.4.16 / ICMA Rule 251.1 year-fraction vectors,
+    each expected value written as the convention's defining arithmetic, exact
+    < 1e-12.
+  - Quarry: `core/day_count.py`.
+
+### Changed
+- ACT/ACT ICMA now **requires** its coupon-period anchors (`ref_start`,
+  `ref_end`, `frequency`) and raises when they are missing or invalid.
+
+### Removed
+- Debt shed (CLAUDE.md §5): the quarry's `strict_icma` flag and its silent
+  fallback to ACT/365F on missing anchors (audit finding A.1 B1 — hidden
+  wrongness) does not cross into the new tree.
+
+### Deferred
+- BUS/252 day-count, business-day `Calendar`, and `Schedule` generation move to
+  their own slice (they need the calendar); not part of S1's named oracle.
+
 ## [0.0.1] - 2026-07-11
 
 ### Added
