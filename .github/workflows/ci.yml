@@ -25,5 +25,5 @@ jobs:
       - run: python verify.py debt
       - run: python verify.py version
       - run: python verify.py provenance
-      # Slice's layer tier. Slice 0 is an L0 slice; bump --layer as migration climbs.
-      - run: python verify.py tests --layer 0
+      # Slice's layer tier. Bump --layer as migration climbs (now at L1).
+      - run: python verify.py tests --layer 1
