@@ -1,0 +1,10 @@
+# Signature discipline for the new tree (CLAUDE.md 3b): max 5 arguments per
+# function. Editor/dev feedback; the merge gate enforces it via `verify.py
+# signatures`. The quarry (python/) is exempt and keeps its own [tool.ruff].
+extend-exclude = ["python"]
+
+[lint]
+select = ["PLR0913"]
+
+[lint.pylint]
+max-args = 5
