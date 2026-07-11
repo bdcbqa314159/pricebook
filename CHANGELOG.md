@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-07-11
+
+### Added
+- **S04 — fixed-rate bond (first L2/L4-pricing slice).**
+  - `instruments/fixed_rate_bond.py`: `FixedRateBond` (frozen pure data — coupon
+    + redemption cashflows, no `pv` method) and a `fixed_rate_bond(...)` builder
+    that expands schedule + day-count into explicit `Cashflow`s.
+  - Oracle: closed-form discounted-cashflow PV on a flat curve and on the S03
+    bootstrapped curve (independent sum), exact < 1e-12; plus cashflow-structure
+    checks and the zero-coupon tie-back to the Slice 0 pure-discount result.
+  - Quarry: `fixed_income/` (fixed-rate bond / fixed leg).
+
+### Changed
+- `engine/discounting.py` generalised from a single cashflow to a **cashflow
+  leg**: it now prices any instrument satisfying the structural
+  `CashflowInstrument` protocol (`.cashflows`) — no `isinstance`, no import of
+  concrete instrument classes. `FixedCashflowTrade` gained a `.cashflows` view;
+  the Slice 0 oracle stays green.
+- CI layer tier bumped to `--layer 4` (the slice now prices through the engine).
+
+### Deferred
+- Seasoned-bond pricing (dropping already-paid coupons), accrued interest / clean
+  vs dirty price, and business-day-adjusted coupon dates — no consumer yet.
+
 ## [0.0.4] - 2026-07-11
 
 ### Added
