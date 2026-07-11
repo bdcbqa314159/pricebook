@@ -1,8 +1,8 @@
 """Day-count conventions and year fractions.
 
-Calendar-free conventions: ACT/360, ACT/365F, 30/360 (US bond basis), 30E/360
-(Eurobond basis), ACT/ACT ISDA, ACT/ACT ICMA. BUS/252 needs a business-day
-calendar and lands with the calendar/schedule slice.
+Conventions: ACT/360, ACT/365F, 30/360 (US bond basis), 30E/360 (Eurobond
+basis), ACT/ACT ISDA, ACT/ACT ICMA, and BUS/252 (business-days/252 — needs a
+`Calendar`, added in S02 once calendars existed).
 
 Debt shed in the crossing (CLAUDE.md 5): the quarry's ACT/ACT ICMA carried a
 `strict_icma` flag that, when off, silently degraded to ACT/365F on missing
@@ -14,13 +14,17 @@ Provenance:
   quarry: python/pricebook/core/day_count.py
   source: ISDA 2006 Definitions s.4.16; ICMA Rule 251.1
   oracle: published ISDA/ICMA year-fraction vectors, exact < 1e-12
-  slice:  S00 (ACT/365F) extended by S01 (all calendar-free conventions)
+  slice:  S00 (ACT/365F); S01 (calendar-free conventions); S02 (BUS/252)
 """
 
 from __future__ import annotations
 
 from datetime import date
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pricebook_ng.foundation.calendar import Calendar
 
 
 class DayCountConvention(Enum):
@@ -30,6 +34,7 @@ class DayCountConvention(Enum):
     THIRTY_E_360 = "30E/360"
     ACT_ACT_ISDA = "ACT/ACT ISDA"
     ACT_ACT_ICMA = "ACT/ACT ICMA"
+    BUS_252 = "BUS/252"
 
 
 def year_fraction(
@@ -40,17 +45,23 @@ def year_fraction(
     ref_start: date | None = None,
     ref_end: date | None = None,
     frequency: int | None = None,
+    calendar: Calendar | None = None,
 ) -> float:
     """Year fraction between two dates under `convention`.
 
     `start` must be on or before `end`. ACT/ACT ICMA additionally requires the
-    coupon-period anchors `ref_start`, `ref_end`, and `frequency` (coupons/year).
+    coupon-period anchors `ref_start`, `ref_end`, and `frequency` (coupons/year);
+    BUS/252 requires a `calendar`.
     """
     if start > end:
         raise ValueError(f"start ({start}) must be on or before end ({end})")
     if start == end:
         return 0.0
 
+    if convention is DayCountConvention.BUS_252:
+        if calendar is None:
+            raise ValueError("BUS/252 requires a calendar")
+        return calendar.business_days_between(start, end) / 252.0
     if convention is DayCountConvention.ACT_360:
         return (end - start).days / 360.0
     if convention is DayCountConvention.ACT_365_FIXED:
