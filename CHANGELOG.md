@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-07-11
+
+### Added
+- **S03 — bootstrapped discount curve (first L1 slice).**
+  - `market/discount_curve.py`: `DepositQuote`, `ParSwapQuote`, a log-linear
+    interpolated `DiscountCurve` (behind the existing `CurveHandle`), and
+    `bootstrap_discount_curve` — deposits give short-end DFs in closed form,
+    par swaps extend the curve by a sequential closed-form solve (single-curve).
+  - Oracle: every input reprices to par — deposits to their closed-form DF, swaps
+    to zero NPV via the single-curve telescoping identity — exact < 1e-12; plus
+    df(valuation)=1, strictly-decreasing DFs, and the log-linear interpolation law.
+  - Quarry: `core/discount_curve.py`.
+- CI layer tier bumped to `--layer 1` (the slice now reaches L1).
+
+### Deferred
+- Business-day-adjusted curve pillars, multi-curve (OIS discount / IBOR
+  projection), non-pillar swap coupons (interpolated bootstrap), and QuantLib
+  cross-check — the closed-form self-consistency oracle is stronger here; these
+  arrive with the slices that need them.
+
 ## [0.0.3] - 2026-07-11
 
 ### Added
