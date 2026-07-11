@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 
 from pricebook_ng.foundation.calendar import BusinessDayConvention as BDC
-from pricebook_ng.foundation.calendar import Calendar
+from pricebook_ng.foundation.calendar import Calendar, RollRule
 from pricebook_ng.foundation.schedule import Frequency, generate_schedule
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
@@ -80,9 +80,8 @@ def test_regular_quarterly_unadjusted():
 
 def test_end_of_month_roll():
     # start is EOM (leap Feb) -> rolls stay at EOM
-    sched = generate_schedule(
-        date(2024, 2, 29), date(2025, 2, 28), Frequency.SEMI_ANNUAL, eom=True
-    )
+    # RollRule defaults to eom=True
+    sched = generate_schedule(date(2024, 2, 29), date(2025, 2, 28), Frequency.SEMI_ANNUAL)
     assert sched == [date(2024, 2, 29), date(2024, 8, 31), date(2025, 2, 28)]
 
 
@@ -94,10 +93,8 @@ def test_short_front_stub():
 
 def test_business_day_adjusted_schedule():
     # 2024-06-15 is a Saturday -> MODIFIED_FOLLOWING to Monday 06-17
-    sched = generate_schedule(
-        date(2024, 3, 15), date(2024, 9, 15), Frequency.QUARTERLY,
-        calendar=WEEKEND_ONLY, convention=BDC.MODIFIED_FOLLOWING,
-    )
+    roll = RollRule(calendar=WEEKEND_ONLY, business_day=BDC.MODIFIED_FOLLOWING)
+    sched = generate_schedule(date(2024, 3, 15), date(2024, 9, 15), Frequency.QUARTERLY, roll)
     assert date(2024, 6, 17) in sched
     assert date(2024, 6, 15) not in sched
 

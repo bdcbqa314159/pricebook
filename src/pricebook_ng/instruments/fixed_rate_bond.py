@@ -12,7 +12,7 @@ Provenance:
   quarry: python/pricebook/fixed_income/ (fixed-rate bond / fixed leg)
   source: standard fixed-coupon bond; ISDA 2006 accrual
   oracle: closed-form discounted-cashflow PV < 1e-12 (S04)
-  slice:  S04
+  slice:  S04; S05 (Money face + ScheduleTerms — 5-arg ceiling)
 """
 
 from __future__ import annotations
@@ -20,11 +20,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention, Calendar
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.money import Currency, Money
-from pricebook_ng.foundation.schedule import Frequency, generate_schedule
-from pricebook_ng.foundation.time import DayCountConvention, year_fraction
+from pricebook_ng.foundation.schedule import ScheduleTerms, generate_schedule
+from pricebook_ng.foundation.time import year_fraction
 
 
 @dataclass(frozen=True)
@@ -38,27 +37,26 @@ class FixedRateBond:
 
 
 def fixed_rate_bond(
-    notional: float,
+    face: Money,
     coupon_rate: float,
     start: date,
     maturity: date,
-    frequency: Frequency,
-    day_count: DayCountConvention,
-    currency: Currency,
-    calendar: Calendar | None = None,
-    convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
+    terms: ScheduleTerms,
 ) -> FixedRateBond:
     """Build a fixed-rate bond, expanding its schedule into cashflows.
 
-    Coupon i pays `notional * coupon_rate * year_fraction(period)` at the period
-    end; the notional redeems at maturity (as a separate cashflow on that date).
+    `face` is the notional as `Money(amount, currency)`. Coupon i pays
+    `notional * coupon_rate * year_fraction(period)` at the period end; the
+    notional redeems at maturity (a separate cashflow on that date).
     """
-    schedule = generate_schedule(start, maturity, frequency, calendar, convention)
+    notional, currency = face.amount, face.currency
+    schedule = generate_schedule(start, maturity, terms.frequency, terms.roll)
     cashflows = [
         Cashflow(
             date=schedule[i],
             amount=Money(
-                notional * coupon_rate * year_fraction(schedule[i - 1], schedule[i], day_count),
+                notional * coupon_rate
+                * year_fraction(schedule[i - 1], schedule[i], terms.day_count),
                 currency,
             ),
         )

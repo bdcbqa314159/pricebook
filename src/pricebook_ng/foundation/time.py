@@ -14,11 +14,13 @@ Provenance:
   quarry: python/pricebook/core/day_count.py
   source: ISDA 2006 Definitions s.4.16; ICMA Rule 251.1
   oracle: published ISDA/ICMA year-fraction vectors, exact < 1e-12
-  slice:  S00 (ACT/365F); S01 (calendar-free conventions); S02 (BUS/252)
+  slice:  S00 (ACT/365F); S01 (calendar-free conventions); S02 (BUS/252);
+          S05 (ICMA anchors bundled into CouponPeriod)
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -37,21 +39,27 @@ class DayCountConvention(Enum):
     BUS_252 = "BUS/252"
 
 
+@dataclass(frozen=True)
+class CouponPeriod:
+    """ACT/ACT ICMA coupon-period anchors: the reference period and coupons/year."""
+
+    ref_start: date
+    ref_end: date
+    frequency: int
+
+
 def year_fraction(
     start: date,
     end: date,
     convention: DayCountConvention,
     *,
-    ref_start: date | None = None,
-    ref_end: date | None = None,
-    frequency: int | None = None,
+    period: CouponPeriod | None = None,
     calendar: Calendar | None = None,
 ) -> float:
     """Year fraction between two dates under `convention`.
 
-    `start` must be on or before `end`. ACT/ACT ICMA additionally requires the
-    coupon-period anchors `ref_start`, `ref_end`, and `frequency` (coupons/year);
-    BUS/252 requires a `calendar`.
+    `start` must be on or before `end`. ACT/ACT ICMA additionally requires a
+    `period` (the coupon-period anchors); BUS/252 requires a `calendar`.
     """
     if start > end:
         raise ValueError(f"start ({start}) must be on or before end ({end})")
@@ -73,7 +81,7 @@ def year_fraction(
     if convention is DayCountConvention.ACT_ACT_ISDA:
         return _act_act_isda(start, end)
     if convention is DayCountConvention.ACT_ACT_ICMA:
-        return _act_act_icma(start, end, ref_start, ref_end, frequency)
+        return _act_act_icma(start, end, period)
     raise ValueError(f"Unsupported convention: {convention}")
 
 
@@ -122,29 +130,19 @@ def _act_act_isda(start: date, end: date) -> float:
     return total
 
 
-def _act_act_icma(
-    start: date,
-    end: date,
-    ref_start: date | None,
-    ref_end: date | None,
-    frequency: int | None,
-) -> float:
+def _act_act_icma(start: date, end: date, period: CouponPeriod | None) -> float:
     """ACT/ACT ICMA (Rule 251.1): days / (frequency * coupon-period length).
 
-    Anchors are mandatory — no silent fallback (see module docstring).
+    The `period` is mandatory — no silent fallback (see module docstring).
     """
-    missing = [n for n, v in (("ref_start", ref_start), ("ref_end", ref_end),
-                              ("frequency", frequency)) if v is None]
-    if missing:
-        raise ValueError(
-            f"ACT/ACT ICMA requires coupon-period anchors; missing: {', '.join(missing)}"
-        )
-    assert ref_start is not None and ref_end is not None and frequency is not None
-    if frequency <= 0:
-        raise ValueError(f"ACT/ACT ICMA frequency must be > 0, got {frequency}")
-    period_days = (ref_end - ref_start).days
+    if period is None:
+        raise ValueError("ACT/ACT ICMA requires a CouponPeriod (ref_start, ref_end, frequency)")
+    if period.frequency <= 0:
+        raise ValueError(f"ACT/ACT ICMA frequency must be > 0, got {period.frequency}")
+    period_days = (period.ref_end - period.ref_start).days
     if period_days <= 0:
         raise ValueError(
-            f"ACT/ACT ICMA requires ref_end > ref_start; got {ref_start}..{ref_end}"
+            f"ACT/ACT ICMA requires ref_end > ref_start; got "
+            f"{period.ref_start}..{period.ref_end}"
         )
-    return (end - start).days / (period_days * frequency)
+    return (end - start).days / (period_days * period.frequency)
