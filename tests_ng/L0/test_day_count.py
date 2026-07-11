@@ -11,6 +11,7 @@ from datetime import date
 
 import pytest
 
+from pricebook_ng.foundation.time import CouponPeriod
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
 
@@ -88,10 +89,8 @@ def test_icma_regular_semi_annual_is_exactly_half():
         (date(2024, 2, 15), date(2024, 8, 15)),   # 182 days
         (date(2024, 8, 15), date(2025, 2, 15)),   # 184 days
     ]:
-        yf = year_fraction(
-            ref_start, ref_end, DC.ACT_ACT_ICMA,
-            ref_start=ref_start, ref_end=ref_end, frequency=2,
-        )
+        period = CouponPeriod(ref_start=ref_start, ref_end=ref_end, frequency=2)
+        yf = year_fraction(ref_start, ref_end, DC.ACT_ACT_ICMA, period=period)
         assert yf == pytest.approx(0.5, abs=ABS)
 
 
@@ -99,34 +98,24 @@ def test_icma_mid_period_accrual():
     ref_start, ref_end = date(2024, 2, 15), date(2024, 8, 15)  # 182 days
     mid = date(2024, 5, 15)                                    # 90 days in
     expected = (mid - ref_start).days / ((ref_end - ref_start).days * 2)
-    yf = year_fraction(
-        ref_start, mid, DC.ACT_ACT_ICMA,
-        ref_start=ref_start, ref_end=ref_end, frequency=2,
-    )
+    period = CouponPeriod(ref_start=ref_start, ref_end=ref_end, frequency=2)
+    yf = year_fraction(ref_start, mid, DC.ACT_ACT_ICMA, period=period)
     assert yf == pytest.approx(expected, abs=ABS)
 
 
-# ---- Debt shed: ICMA anchors are required (no silent ACT/365F fallback) --------
-@pytest.mark.parametrize("kwargs", [
-    {},                                                       # no anchors at all
-    {"ref_start": date(2024, 2, 15), "frequency": 2},        # missing ref_end
-    {"ref_start": date(2024, 2, 15), "ref_end": date(2024, 8, 15)},  # missing frequency
-])
-def test_icma_missing_anchors_raises(kwargs):
+# ---- Debt shed: ICMA period is required (no silent ACT/365F fallback) ----------
+def test_icma_missing_period_raises():
     with pytest.raises(ValueError):
-        year_fraction(date(2024, 2, 15), date(2024, 8, 15), DC.ACT_ACT_ICMA, **kwargs)
+        year_fraction(date(2024, 2, 15), date(2024, 8, 15), DC.ACT_ACT_ICMA)
 
 
-@pytest.mark.parametrize("frequency,ref_start,ref_end", [
-    (0, date(2024, 2, 15), date(2024, 8, 15)),               # frequency <= 0
-    (2, date(2024, 8, 15), date(2024, 2, 15)),               # inverted period
+@pytest.mark.parametrize("period", [
+    CouponPeriod(date(2024, 2, 15), date(2024, 8, 15), 0),    # frequency <= 0
+    CouponPeriod(date(2024, 8, 15), date(2024, 2, 15), 2),    # inverted period
 ])
-def test_icma_invalid_anchors_raise(frequency, ref_start, ref_end):
+def test_icma_invalid_period_raises(period):
     with pytest.raises(ValueError):
-        year_fraction(
-            date(2024, 2, 15), date(2024, 8, 15), DC.ACT_ACT_ICMA,
-            ref_start=ref_start, ref_end=ref_end, frequency=frequency,
-        )
+        year_fraction(date(2024, 2, 15), date(2024, 8, 15), DC.ACT_ACT_ICMA, period=period)
 
 
 # ---- Edge cases common to all -------------------------------------------------

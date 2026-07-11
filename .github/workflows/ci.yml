@@ -25,5 +25,6 @@ jobs:
       - run: python verify.py debt
       - run: python verify.py version
       - run: python verify.py provenance
+      - run: python verify.py signatures
       # Slice's layer tier. Bump --layer as migration climbs (now at L4 — engine).
       - run: python verify.py tests --layer 4

@@ -12,16 +12,18 @@ Provenance:
   quarry: python/pricebook/core/schedule.py
   source: ISDA 2006 s.4.10 (period end dates, EOM rule)
   oracle: hand-computed coupon schedules incl. EOM + short front stub (exact)
-  slice:  S02
+  slice:  S02; S05 (RollRule/ScheduleTerms bundles)
 """
 
 from __future__ import annotations
 
 import calendar as _stdcal
+from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention, Calendar
+from pricebook_ng.foundation.calendar import RollRule
+from pricebook_ng.foundation.time import DayCountConvention
 
 
 class Frequency(Enum):
@@ -29,6 +31,17 @@ class Frequency(Enum):
     QUARTERLY = 3
     SEMI_ANNUAL = 6
     ANNUAL = 12
+
+
+@dataclass(frozen=True)
+class ScheduleTerms:
+    """A leg's period conventions: coupon frequency, accrual day-count, and the
+    roll rule. Bundles what a fixed leg needs so builders stay under the arg
+    ceiling (CLAUDE.md 3b)."""
+
+    frequency: Frequency
+    day_count: DayCountConvention
+    roll: RollRule = field(default_factory=RollRule)
 
 
 def _end_of_month(d: date) -> date:
@@ -48,20 +61,20 @@ def generate_schedule(
     start: date,
     end: date,
     frequency: Frequency,
-    calendar: Calendar | None = None,
-    convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING,
-    eom: bool = True,
+    roll: RollRule | None = None,
 ) -> list[date]:
     """Dates from `start` to `end` at `frequency`, inclusive of both ends.
 
     Rolls backward from `end` (short front stub if the period doesn't divide
-    evenly). EOM is decided once, anchored on `start` (ISDA 2006 s.4.10). When a
-    `calendar` is given, every date is business-day adjusted under `convention`.
+    evenly). EOM is decided once, anchored on `start` (ISDA 2006 s.4.10). When
+    `roll.calendar` is set, every date is business-day adjusted under
+    `roll.business_day`.
     """
     if start >= end:
         raise ValueError(f"start ({start}) must be before end ({end})")
 
-    snap_to_eom = eom and start == _end_of_month(start)
+    roll = roll or RollRule()
+    snap_to_eom = roll.eom and start == _end_of_month(start)
     months = frequency.value
 
     unadjusted = [end]
@@ -74,6 +87,6 @@ def generate_schedule(
     unadjusted.append(start)
     unadjusted.reverse()
 
-    if calendar is not None:
-        return [calendar.adjust(d, convention) for d in unadjusted]
+    if roll.calendar is not None:
+        return [roll.calendar.adjust(d, roll.business_day) for d in unadjusted]
     return unadjusted

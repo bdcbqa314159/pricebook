@@ -9,7 +9,7 @@ Provenance:
   quarry: python/pricebook/core/calendar.py
   source: ISDA 2006 s.4.12 (business day conventions)
   oracle: hand-computed adjustments over weekends/holidays (exact dates)
-  slice:  S02
+  slice:  S02; S05 (RollRule bundle)
 """
 
 from __future__ import annotations
@@ -25,6 +25,16 @@ class BusinessDayConvention(Enum):
     MODIFIED_FOLLOWING = "modified_following"
     PRECEDING = "preceding"
     MODIFIED_PRECEDING = "modified_preceding"
+
+
+@dataclass(frozen=True)
+class RollRule:
+    """How schedule dates roll: which calendar, business-day convention, and the
+    end-of-month rule. `calendar=None` means dates are left unadjusted."""
+
+    calendar: "Calendar | None" = None
+    business_day: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING
+    eom: bool = True
 
 
 @dataclass(frozen=True)

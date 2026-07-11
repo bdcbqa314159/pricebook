@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-07-12
+
+### Added
+- **Signature discipline (CLAUDE.md §3b).** New `verify.py signatures` check —
+  the 5-argument ceiling (ruff `PLR0913`/`max-args=5`), enforced in the merge
+  gate and CI; `self`/`cls` and `*args`/`**kwargs` are not counted. Root
+  `ruff.toml` carries the matching `PLR0913` rule for editor/dev feedback
+  (quarry `python/` exempt).
+- Frozen grouping value objects to collapse wide signatures:
+  `CouponPeriod` (ICMA anchors), `RollRule` (calendar / business-day / eom),
+  `ScheduleTerms` (frequency / day-count / roll).
+
+### Changed
+- `year_fraction(start, end, convention, *, period=None, calendar=None)` — ICMA
+  anchors bundled into `CouponPeriod` (7→5 args).
+- `generate_schedule(start, end, frequency, roll=None)` — roll conventions
+  bundled into `RollRule` (6→4 args).
+- `fixed_rate_bond(face, coupon_rate, start, maturity, terms)` — notional+currency
+  as `Money` face, schedule/accrual conventions as `ScheduleTerms` (9→5 args).
+- No behaviour change: every S00–S04 oracle stays green (same expected values).
+
 ## [0.0.5] - 2026-07-11
 
 ### Added

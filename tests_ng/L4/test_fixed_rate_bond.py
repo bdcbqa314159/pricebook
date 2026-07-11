@@ -14,7 +14,7 @@ import pytest
 from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
-from pricebook_ng.foundation.schedule import Frequency, generate_schedule
+from pricebook_ng.foundation.schedule import Frequency, ScheduleTerms, generate_schedule
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.engine.discounting import DiscountingEngine
@@ -34,8 +34,11 @@ CURVE_DC = DC.ACT_365_FIXED
 
 def _bond(coupon=COUPON):
     return fixed_rate_bond(
-        notional=NOTIONAL, coupon_rate=coupon, start=START, maturity=MATURITY,
-        frequency=Frequency.SEMI_ANNUAL, day_count=BOND_DC, currency=CCY,
+        face=Money(NOTIONAL, CCY),
+        coupon_rate=coupon,
+        start=START,
+        maturity=MATURITY,
+        terms=ScheduleTerms(frequency=Frequency.SEMI_ANNUAL, day_count=BOND_DC),
     )
 
 
