@@ -22,3 +22,8 @@ class FixedCashflowTrade:
     """A trade that pays a single fixed `Cashflow`."""
 
     cashflow: Cashflow
+
+    @property
+    def cashflows(self) -> tuple[Cashflow, ...]:
+        """The engine's `CashflowInstrument` view: a one-cashflow leg."""
+        return (self.cashflow,)
