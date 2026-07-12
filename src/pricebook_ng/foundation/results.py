@@ -19,9 +19,20 @@ from pricebook_ng.foundation.money import Money
 
 @dataclass(frozen=True)
 class PricingResult:
-    """A successful valuation."""
+    """A successful valuation — a decomposition, not a scalar (Amendment A2).
+
+    `pv` is the dirty PV (the mark). `accrued` is the earned-but-unpaid interest
+    at the valuation date (nominal, undiscounted); `clean = pv - accrued`. A
+    product with no accrual leaves `accrued` None (clean == pv)."""
 
     pv: Money
+    accrued: Money | None = None
+
+    @property
+    def clean(self) -> Money:
+        if self.accrued is None:
+            return self.pv
+        return Money(self.pv.amount - self.accrued.amount, self.pv.currency)
 
 
 @dataclass(frozen=True)

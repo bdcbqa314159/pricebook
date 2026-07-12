@@ -14,7 +14,8 @@ Provenance:
   quarry: python/pricebook/pricing/ (discounting logic lifted out of instruments)
   source: redesign/02_spine.md (stateless-engine contract)
   oracle: PV = sum(cf * df) closed form < 1e-12 (S00 single cashflow; S04 bond)
-  slice:  S00; S04 (cashflow leg); A1 (engine reads the curve through model.market)
+  slice:  S00; S04 (cashflow leg); A1 (curve via model.market);
+          A2 (segment-and-settle + accrued/clean/dirty)
 """
 
 from __future__ import annotations
@@ -46,18 +47,23 @@ class DiscountingEngine:
         numerics: NumericalConfig,
     ) -> PricingResult | PricingFailure:
         market = model.market
+        valuation = market.valuation_date
         cashflows = instrument.cashflows
         if not cashflows:
             return PricingFailure("instrument has no cashflows")
         currencies = {cf.amount.currency for cf in cashflows}
         if len(currencies) != 1:
             return PricingFailure(f"discounting needs one currency, got {currencies}")
+        currency = next(iter(currencies))
 
+        # Segment-and-settle (A2): cashflows on/before valuation are historical
+        # (excluded from PV — the shell settles them), never discounted. The
+        # current coupon period contributes accrued interest.
         pv = 0.0
+        accrued = 0.0
         for cf in cashflows:
-            if cf.date < market.valuation_date:
-                return PricingFailure(
-                    f"cashflow date {cf.date} precedes valuation {market.valuation_date}"
-                )
-            pv += cf.amount.amount * market.discount_curve.df(cf.date)
-        return PricingResult(pv=Money(pv, currencies.pop()))
+            if cf.date > valuation:
+                pv += cf.amount.amount * market.discount_curve.df(cf.date)
+                if cf.accrual is not None:
+                    accrued += cf.amount.amount * cf.accrual.earned_fraction(valuation)
+        return PricingResult(pv=Money(pv, currency), accrued=Money(accrued, currency))
