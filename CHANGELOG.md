@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-12
+
+### Added
+- **Risk relocated to L5 on the `Pricable` protocol** (spine structural fix).
+  - `risk/pricable.py`: `Pricable` — a `snapshot -> PV` closure that risk consumes;
+    factories `discounting_pricable` (linear products, any engine over a
+    `DiscountingModel`) and `hull_white_pricable` (rebuilds HW under the snapshot).
+  - `risk/greeks.py`: generic `dv01` (central-difference bump-and-reprice) and
+    `bump_rate` (parallel shift). One `dv01` prices rate delta for a cashflow, a
+    bond, a swap, and an HW swaption — the swaption rebuilds the model under the
+    bumped snapshot (Amendment A1). **No `isinstance`-on-product ladders.**
+  - Oracle: `dv01` matches the analytic sensitivity for a single cashflow and a
+    bond (`< 1e-6`); is generic over any `Pricable` (a raw closure); and for the HW
+    swaption equals a manual rebuild-and-reprice bump (the model-rebuild path).
+
+### Changed
+- The Slice-0 `risk/dv01.py` (specific to `DiscountingModel`) is replaced by the
+  generic `risk/greeks.dv01` on the `Pricable` protocol; its analytic-vs-FD oracle
+  is preserved through the new API.
+
+### Deferred
+- Higher greeks (gamma, vega), pillar-wise bumps of a bootstrapped curve, and
+  XVA/RWA — all land on the same `Pricable` protocol in later slices.
+
 ## [0.2.0] - 2026-07-12
 
 ### Added
