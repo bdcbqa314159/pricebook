@@ -25,7 +25,7 @@ from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.risk.dv01 import dv01
-from pricebook_ng.shell.booking import book
+from pricebook_ng.shell.booking import Trade, book
 
 # --- the fixture trade & market ------------------------------------------------
 VALUATION = date(2026, 1, 1)
@@ -78,7 +78,7 @@ def test_statelessness_reprice_byte_identical():
 
 def test_shell_path_matches_core():
     trade, market, numerics, engine = _setup()
-    booked = book(trade)
+    booked = book(Trade(products=(trade,), start_date=VALUATION))
     result = booked.value(market, numerics, engine)
     assert isinstance(result, PricingResult)
     assert result.pv.amount == engine.price(trade, DiscountingModel(market), numerics).pv.amount
