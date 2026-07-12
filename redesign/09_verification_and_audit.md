@@ -79,6 +79,18 @@ lines. Cheap to check, and it keeps the "legible, traceable" promise honest.
 
 ---
 
+## Lint rules that carry design intent (CI ruff, new tree only)
+
+Beyond formatting, CI's ruff pass on `src/pricebook_ng/**` enforces a few rules that are
+really design guardrails (the quarry is excluded — it would explode):
+
+- **`PLR0913` `max-args = 5`** — signature discipline (CLAUDE.md §3b). Over the limit ⇒
+  bundle into a value object, never suppress.
+- (add further design-carrying lint rules here only when a real, present need appears —
+  not speculatively.)
+
+These run in the same CI ruff step, not a bespoke checker.
+
 ## Pre-commit stays surgical
 
 Keep the existing philosophy: pre-commit does **only** fast, safe auto-fixes (the ruff

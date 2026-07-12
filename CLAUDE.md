@@ -82,6 +82,24 @@ do **not** price themselves. No `pv()`/`pv_ctx()` on instruments — pricing liv
 
 ---
 
+## 3b. Signature discipline
+
+- **Max 5 arguments** per function/method in `src/pricebook_ng/**` (ruff `PLR0913`,
+  `max-args=5`; the quarry `python/pricebook/**` is exempt).
+- A signature over the limit is **un-bundled vocabulary**, never a reason to raise the
+  limit. The fix is ALWAYS to group cohesive parameters into a frozen value object, or
+  fold them into an existing ratified type: market state → `MarketSnapshot`;
+  reproducibility knobs → `NumericalConfig`; `amount`+`currency` → `Money`; ICMA coupon
+  anchors → `CouponPeriod`; calendar/convention/eom → `RollRule`; schedule terms →
+  `ScheduleTerms`.
+- New grouping types obey the rule of two (≥2 real consumers) — no speculative wrappers,
+  and no 9-field "god dataclass" that just relocates the smell.
+- **Never suppress.** No `# noqa: PLR0913`. A genuinely irreducible mathematical
+  signature (a closed-form formula) is the sole exception and goes in `OPEN.md` with a
+  rationale and a re-open trigger.
+
+---
+
 ## 4. Migration rules (quarry → new tree)
 
 - **Quarry is read-only.** The old tree is never edited or deleted. Done = quarry empty.
