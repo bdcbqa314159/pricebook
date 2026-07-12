@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-12
+
+### Added
+- **Credit — hazard/survival curve + CDS bootstrap (first credit slice, L1).**
+  - `market/survival_curve.py`: `SurvivalCurve` (piecewise-hazard, log-linear in
+    `ln Q`, behind `survival(date)`), the single-name CDS leg math (`RPV01`,
+    protection PV, `cds_par_spread`, `cds_pv` for the protection buyer), and
+    `bootstrap_survival_curve` — sequential solve so each CDS reprices to zero at
+    its par spread.
+  - Oracle: `survival(valuation)=1`; each input CDS reprices to zero (`< 1e-10`);
+    the curve-implied par spread equals each quote; survival strictly decreasing in
+    (0,1]; log-linear between pillars. Mirrors the S03 discount-curve bootstrap.
+  - Quarry: `core/survival_curve.py`.
+
+### Deferred
+- CDS as an **engine-priced product** (L2 `CDS` product + L3 `CreditModel` +
+  L4 `CDSEngine` + greeks via `Pricable`) — the immediate follow-up, exactly as the
+  discount curve preceded the bond/swap.
+- Quarterly premiums, accrual-on-default, and a finer protection integral (the
+  reprice-to-zero oracle is exact on the shared discretisation regardless).
+
 ## [0.3.0] - 2026-07-12
 
 ### Added
