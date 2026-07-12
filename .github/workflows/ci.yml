@@ -20,11 +20,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install pytest
+      - run: pip install pytest ruff
       - run: python verify.py acyclic
       - run: python verify.py debt
       - run: python verify.py version
       - run: python verify.py provenance
-      - run: python verify.py signatures
+      # Signature discipline (CLAUDE.md 3b): PLR0913 max-args=5 via ruff (redesign/09).
+      - run: ruff check src/pricebook_ng
       # Slice's layer tier. Bump --layer as migration climbs (now at L4 — engine).
       - run: python verify.py tests --layer 4
