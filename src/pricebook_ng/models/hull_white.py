@@ -20,7 +20,7 @@ Provenance:
   quarry: python/pricebook/models/ (hull_white)
   source: Brigo & Mercurio, Interest Rate Models, s.3.3 (HW 1F; eqs. 3.40-3.41)
   oracle: curve refit + ZCB-option put-call parity + sigma->0 intrinsic, exact
-  slice:  S07
+  slice:  S07; S08 (zero_bond reconstitution for the Jamshidian swaption)
 """
 
 from __future__ import annotations
@@ -56,6 +56,24 @@ class HullWhite:
     def discount_factor(self, d: date) -> float:
         """P(0, d) — equals the market curve (the model refits it exactly)."""
         return self.curve.df(d)
+
+    def zero_bond(self, expiry: date, bond_maturity: date, short_rate: float) -> float:
+        """P(T, S) as a function of the short rate r(T) at `expiry` = T
+        (reconstitution, Brigo & Mercurio 3.39): A(T,S) exp(-B(T,S) r).
+
+        Used by the Jamshidian swaption to solve for the critical rate and the
+        per-bond strikes. Flat-curve form: f(0,t)=r0, P(0,t)=exp(-r0 t)."""
+        t, tm = self._t(expiry), self._t(bond_maturity)
+        b = self.b(t, tm)
+        r0 = self.curve.rate
+        variance = (1.0 - math.exp(-2.0 * self.a * t)) / (2.0 * self.a) \
+            if abs(self.a) > 1e-12 else t
+        ln_a = (
+            math.log(self.curve.df(bond_maturity) / self.curve.df(expiry))
+            + b * r0
+            - 0.5 * self.sigma**2 * variance * b**2
+        )
+        return math.exp(ln_a - b * short_rate)
 
     def zero_bond_option(
         self,
