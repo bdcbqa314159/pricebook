@@ -25,7 +25,7 @@ from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.instruments.swap import VanillaSwap
-from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.discounting_model import CalibratedModel
 
 
 class SwapEngine:
@@ -34,11 +34,11 @@ class SwapEngine:
     def price(
         self,
         swap: VanillaSwap,
-        model: None,
-        market: MarketSnapshot,
+        model: CalibratedModel,
         numerics: NumericalConfig,
     ) -> PricingResult | PricingFailure:
-        fixed = DiscountingEngine().price(swap.fixed_leg, model, market, numerics)
+        market = model.market
+        fixed = DiscountingEngine().price(swap.fixed_leg, model, numerics)
         if isinstance(fixed, PricingFailure):
             return fixed
 

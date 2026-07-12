@@ -31,17 +31,26 @@ from datetime import date
 
 from pricebook_ng.foundation.distributions import norm_cdf
 from pricebook_ng.foundation.time import year_fraction
-from pricebook_ng.market.snapshot import FlatDiscountCurve
+from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 
 
 @dataclass(frozen=True)
 class HullWhite:
-    """Hull-White 1F with constant mean reversion `a` and vol `sigma`, fitted to
-    a flat discount `curve` (the model reprices it by construction)."""
+    """Hull-White 1F with constant mean reversion `a` and vol `sigma`, calibrated
+    to (and carrying) a `MarketSnapshot` with a flat curve (Amendment A1: the
+    model carries its market; the engine reaches the curve through it)."""
 
     a: float
     sigma: float
-    curve: FlatDiscountCurve
+    market: MarketSnapshot
+
+    @property
+    def curve(self) -> FlatDiscountCurve:
+        # flat-curve HW (S07 scope): the snapshot's curve is a FlatDiscountCurve;
+        # a general-curve fit is a later slice.
+        curve = self.market.discount_curve
+        assert isinstance(curve, FlatDiscountCurve)
+        return curve
 
     def _t(self, d: date) -> float:
         return year_fraction(self.curve.anchor, d, self.curve.day_count)

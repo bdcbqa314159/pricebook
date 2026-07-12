@@ -14,7 +14,7 @@ Provenance:
   quarry: python/pricebook/pricing/ (discounting logic lifted out of instruments)
   source: redesign/02_spine.md (stateless-engine contract)
   oracle: PV = sum(cf * df) closed form < 1e-12 (S00 single cashflow; S04 bond)
-  slice:  S00, generalised to a cashflow leg in S04
+  slice:  S00; S04 (cashflow leg); A1 (engine reads the curve through model.market)
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
-from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.discounting_model import CalibratedModel
 
 
 @runtime_checkable
@@ -37,15 +37,15 @@ class CashflowInstrument(Protocol):
 
 
 class DiscountingEngine:
-    """Prices a cashflow leg by discounting each cashflow on the curve."""
+    """Prices a cashflow leg by discounting each cashflow on the model's curve."""
 
     def price(
         self,
         instrument: CashflowInstrument,
-        model: None,
-        market: MarketSnapshot,
+        model: CalibratedModel,
         numerics: NumericalConfig,
     ) -> PricingResult | PricingFailure:
+        market = model.market
         cashflows = instrument.cashflows
         if not cashflows:
             return PricingFailure("instrument has no cashflows")

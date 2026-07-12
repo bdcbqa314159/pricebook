@@ -24,6 +24,7 @@ from pricebook_ng.engine.swaption import SwaptionEngine
 from pricebook_ng.instruments.swap import SwapTerms, vanilla_swap
 from pricebook_ng.instruments.swaption import Swaption
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.models.hull_white import HullWhite
 
 ABS = 1e-8
@@ -62,16 +63,16 @@ def _forward_par_rate(curve):
 
 
 def _price(swaption, hw, market, sigma=0.01):
-    return SwaptionEngine().price(swaption, hw, market, NumericalConfig())
+    return SwaptionEngine().price(swaption, hw, NumericalConfig())
 
 
 def test_put_call_parity():
     market, curve = _market(), _curve()
-    hw = HullWhite(a=0.05, sigma=0.012, curve=curve)
+    hw = HullWhite(a=0.05, sigma=0.012, market=market)
     payer, swap = _swaption(0.035, pay_fixed=True)
     receiver, _ = _swaption(0.035, pay_fixed=False)
-    p = SwaptionEngine().price(payer, hw, market, NumericalConfig())
-    r = SwaptionEngine().price(receiver, hw, market, NumericalConfig())
+    p = SwaptionEngine().price(payer, hw, NumericalConfig())
+    r = SwaptionEngine().price(receiver, hw, NumericalConfig())
     assert isinstance(p, PricingResult)
 
     # coupon-bond cashflows: fixed amounts, notional added to the last date
@@ -83,28 +84,28 @@ def test_put_call_parity():
 
 def test_atm_payer_equals_receiver():
     market, curve = _market(), _curve()
-    hw = HullWhite(a=0.05, sigma=0.012, curve=curve)
+    hw = HullWhite(a=0.05, sigma=0.012, market=market)
     par = _forward_par_rate(curve)
     payer, _ = _swaption(par, pay_fixed=True)
     receiver, _ = _swaption(par, pay_fixed=False)
-    p = SwaptionEngine().price(payer, hw, market, NumericalConfig()).pv.amount
-    r = SwaptionEngine().price(receiver, hw, market, NumericalConfig()).pv.amount
+    p = SwaptionEngine().price(payer, hw, NumericalConfig()).pv.amount
+    r = SwaptionEngine().price(receiver, hw, NumericalConfig()).pv.amount
     assert p == pytest.approx(r, abs=1e-4)
 
 
 def test_zero_vol_is_discounted_intrinsic():
     market, curve = _market(), _curve()
-    hw = HullWhite(a=0.05, sigma=0.0, curve=curve)
+    hw = HullWhite(a=0.05, sigma=0.0, market=market)
     payer, swap = _swaption(0.02, pay_fixed=True)  # in-the-money payer (low fixed)
-    swaption_pv = SwaptionEngine().price(payer, hw, market, NumericalConfig()).pv.amount
-    fwd_swap_pv = SwapEngine().price(swap, None, market, NumericalConfig()).pv.amount
+    swaption_pv = SwaptionEngine().price(payer, hw, NumericalConfig()).pv.amount
+    fwd_swap_pv = SwapEngine().price(swap, DiscountingModel(market), NumericalConfig()).pv.amount
     assert swaption_pv == pytest.approx(max(fwd_swap_pv, 0.0), abs=1e-4)
 
 
 def test_out_of_the_money_zero_vol_is_zero():
     market, curve = _market(), _curve()
-    hw = HullWhite(a=0.05, sigma=0.0, curve=curve)
+    hw = HullWhite(a=0.05, sigma=0.0, market=market)
     payer, _ = _swaption(0.06, pay_fixed=True)  # high fixed -> payer worthless
-    assert SwaptionEngine().price(payer, hw, market, NumericalConfig()).pv.amount == pytest.approx(
+    assert SwaptionEngine().price(payer, hw, NumericalConfig()).pv.amount == pytest.approx(
         0.0, abs=1e-4
     )

@@ -21,6 +21,7 @@ from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
 from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.risk.dv01 import dv01
@@ -51,7 +52,7 @@ def _expected_pv() -> float:
 
 def test_price_oracle_closed_form():
     trade, market, numerics, engine = _setup()
-    result = engine.price(trade, None, market, numerics)
+    result = engine.price(trade, DiscountingModel(market), numerics)
     assert isinstance(result, PricingResult)
     assert result.pv.currency is CCY
     assert abs(result.pv.amount - _expected_pv()) < 1e-12
@@ -61,16 +62,16 @@ def test_risk_oracle_dv01_analytic_vs_fd():
     trade, market, numerics, engine = _setup()
     t = year_fraction(VALUATION, MATURITY, DC)
     analytic = -NOTIONAL * t * math.exp(-RATE * t) * 1e-4
-    fd = dv01(engine, trade, market, numerics)
+    fd = dv01(engine, trade, DiscountingModel(market), numerics)
     assert abs(fd - analytic) < 1e-6
 
 
 def test_statelessness_reprice_byte_identical():
     trade, market, numerics, engine = _setup()
-    first = engine.price(trade, None, market, numerics).pv.amount
+    first = engine.price(trade, DiscountingModel(market), numerics).pv.amount
     # a risk bump reprices under mutated snapshots; the original must be untouched
-    dv01(engine, trade, market, numerics)
-    second = engine.price(trade, None, market, numerics).pv.amount
+    dv01(engine, trade, DiscountingModel(market), numerics)
+    second = engine.price(trade, DiscountingModel(market), numerics).pv.amount
     assert first == second  # same-process reproducibility: identical bits
     assert first.hex() == second.hex()
 
@@ -80,6 +81,6 @@ def test_shell_path_matches_core():
     booked = book(trade)
     result = booked.value(market, numerics, engine)
     assert isinstance(result, PricingResult)
-    assert result.pv.amount == engine.price(trade, None, market, numerics).pv.amount
+    assert result.pv.amount == engine.price(trade, DiscountingModel(market), numerics).pv.amount
     # the shell stored the result (it remembers; it never re-computes price)
     assert booked.results[-1] is result

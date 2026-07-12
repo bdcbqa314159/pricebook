@@ -21,6 +21,7 @@ from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.instruments.fixed_rate_bond import FixedRateBond, fixed_rate_bond
 from pricebook_ng.market.discount_curve import DepositQuote, bootstrap_discount_curve
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
 
 ABS = 1e-12
 START = date(2026, 1, 15)
@@ -79,7 +80,7 @@ def test_is_frozen_pure_data():
 def test_pv_flat_curve_closed_form():
     bond, market = _bond(), _flat_market(0.03)
     engine = DiscountingEngine()
-    result = engine.price(bond, None, market, NumericalConfig())
+    result = engine.price(bond, DiscountingModel(market), NumericalConfig())
     assert isinstance(result, PricingResult)
     assert result.pv.currency is CCY
 
@@ -103,13 +104,13 @@ def test_pv_bootstrapped_curve():
         [],
     )
     market = MarketSnapshot(valuation_date=START, discount_curve=curve)
-    result = DiscountingEngine().price(_bond(), None, market, NumericalConfig())
+    result = DiscountingEngine().price(_bond(), DiscountingModel(market), NumericalConfig())
     assert result.pv.amount == pytest.approx(_independent_pv(_bond(), curve), abs=1e-6)
 
 
 # ---- zero-coupon tie-back to Slice 0 -----------------------------------------
 def test_zero_coupon_bond_is_pure_discount():
     bond, market = _bond(coupon=0.0), _flat_market(0.03)
-    result = DiscountingEngine().price(bond, None, market, NumericalConfig())
+    result = DiscountingEngine().price(bond, DiscountingModel(market), NumericalConfig())
     expected = NOTIONAL * market.discount_curve.df(MATURITY)
     assert result.pv.amount == pytest.approx(expected, abs=1e-6)
