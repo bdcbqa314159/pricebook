@@ -6,6 +6,17 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-07-12
+
+### Changed
+- Signature discipline (CLAUDE.md §3b) is now enforced by the **CI ruff step**
+  (`ruff check src/pricebook_ng`, rule `PLR0913`/`max-args=5`) rather than a
+  bespoke `verify.py signatures` check — aligning with `redesign/09` ("same CI
+  ruff step, not a bespoke checker"). `ruff.toml` is unchanged (it's the config
+  that step reads); `verify.py signatures` is removed.
+- Ratified the `CLAUDE.md §3b` and `redesign/09` guardrail text (previously
+  uncommitted).
+
 ## [0.0.6] - 2026-07-12
 
 ### Added

@@ -7,9 +7,11 @@ Subcommands (each a small function; `all` is the CI / merge gate):
     tests --layer N    run only the tests at layer <= N (staged tests)
     debt               FAIL if suppressions - OPEN.md ng-ledger entries != 0
     provenance         FAIL if a landed module lacks its 4-line header
-    signatures         FAIL if any function takes more than 5 arguments (CLAUDE.md 3b)
     version            FAIL if __version__ != top CHANGELOG.md entry
     all                everything above
+
+The 5-argument ceiling (CLAUDE.md 3b) is enforced by the CI ruff step
+(`ruff check src/pricebook_ng`, rule PLR0913) — not here (redesign/09).
 
 No framework, no plugins — if a sixth check is ever needed it is one more
 function then, not an abstraction now (CLAUDE.md 6b, redesign/09).
@@ -124,32 +126,6 @@ def provenance() -> list[str]:
     return errs
 
 
-_MAX_ARGS = 5  # CLAUDE.md 3b: over the ceiling means un-bundled vocabulary, not a bug
-
-
-def signatures() -> list[str]:
-    """FAIL if any function/method exceeds the 5-argument ceiling (CLAUDE.md 3b).
-
-    The ruff `PLR0913`/`max-args=5` rule, enforced in the merge gate by our one
-    tool. `self`/`cls` are not counted; `*args`/`**kwargs` are not counted.
-    """
-    errs: list[str] = []
-    for mod in _src_modules():
-        tree = ast.parse(_read(mod), filename=str(mod))
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            names = [a.arg for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)]
-            if names and names[0] in ("self", "cls"):
-                names = names[1:]
-            if len(names) > _MAX_ARGS:
-                errs.append(
-                    f"{mod.relative_to(ROOT)}:{node.lineno}: {node.name}() takes "
-                    f"{len(names)} args (max {_MAX_ARGS})"
-                )
-    return errs
-
-
 def version() -> list[str]:
     """__version__ must match the top CHANGELOG.md entry."""
     m = re.search(r'__version__\s*=\s*"([^"]+)"', _read(SRC / "__init__.py"))
@@ -179,17 +155,13 @@ def main() -> int:
     t.add_argument("--layer", type=int, required=True)
     sub.add_parser("debt")
     sub.add_parser("provenance")
-    sub.add_parser("signatures")
     sub.add_parser("version")
     sub.add_parser("all")
     args = ap.parse_args()
 
     if args.cmd == "tests":
         return run_tests(args.layer)
-    checks = {
-        "acyclic": acyclic, "debt": debt, "provenance": provenance,
-        "signatures": signatures, "version": version,
-    }
+    checks = {"acyclic": acyclic, "debt": debt, "provenance": provenance, "version": version}
     if args.cmd == "all":
         return 0 if all(_report(n, f()) for n, f in checks.items()) else 1
     return 0 if _report(args.cmd, checks[args.cmd]()) else 1
