@@ -20,7 +20,7 @@ from dataclasses import replace
 
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
+from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.models.discounting_model import DiscountingModel
 
 _ONE_BP = 1e-4
@@ -35,7 +35,7 @@ def _pv(engine, trade, model, numerics) -> float:
 
 def dv01(
     engine,
-    trade: FixedCashflowTrade,
+    trade: FixedCashflow,
     model: DiscountingModel,
     numerics: NumericalConfig,
 ) -> float:

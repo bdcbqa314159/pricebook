@@ -21,8 +21,8 @@ from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.engine.swap import SwapEngine
 from pricebook_ng.engine.swaption import SwaptionEngine
-from pricebook_ng.instruments.swap import SwapTerms, vanilla_swap
-from pricebook_ng.instruments.swaption import Swaption
+from pricebook_ng.products.swap import SwapTerms, vanilla_swap
+from pricebook_ng.products.swaption import Swaption
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.models.hull_white import HullWhite

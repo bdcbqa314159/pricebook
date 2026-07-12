@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
+from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
 
@@ -32,7 +32,7 @@ from pricebook_ng.models.discounting_model import DiscountingModel
 class BookedTrade:
     """A trade under monitoring: its description + the results observed so far."""
 
-    trade: FixedCashflowTrade
+    trade: FixedCashflow
     results: list[PricingResult | PricingFailure] = field(default_factory=list)
 
     def value(
@@ -47,6 +47,6 @@ class BookedTrade:
         return result
 
 
-def book(trade: FixedCashflowTrade) -> BookedTrade:
+def book(trade: FixedCashflow) -> BookedTrade:
     """Begin a trade's life in the shell."""
     return BookedTrade(trade=trade)

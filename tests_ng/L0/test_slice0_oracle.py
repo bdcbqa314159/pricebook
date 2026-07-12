@@ -22,7 +22,7 @@ from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
+from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.risk.dv01 import dv01
 from pricebook_ng.shell.booking import book
@@ -39,7 +39,7 @@ DC = DayCountConvention.ACT_365_FIXED
 def _setup():
     curve = FlatDiscountCurve(rate=RATE, anchor=VALUATION, day_count=DC)
     market = MarketSnapshot(valuation_date=VALUATION, discount_curve=curve)
-    trade = FixedCashflowTrade(
+    trade = FixedCashflow(
         Cashflow(date=MATURITY, amount=Money(NOTIONAL, CCY))
     )
     return trade, market, NumericalConfig(), DiscountingEngine()

@@ -24,7 +24,7 @@ from datetime import date
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.schedule import ScheduleTerms
-from pricebook_ng.instruments.leg import fixed_coupon_cashflows
+from pricebook_ng.products.leg import fixed_coupon_cashflows
 
 
 @dataclass(frozen=True)

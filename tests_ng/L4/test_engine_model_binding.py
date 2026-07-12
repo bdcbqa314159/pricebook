@@ -17,7 +17,7 @@ from pricebook_ng.foundation.results import PricingResult
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.engine.discounting import DiscountingEngine
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
+from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
 
@@ -31,7 +31,7 @@ def _market(rate=0.03):
 
 
 def _trade():
-    return FixedCashflowTrade(Cashflow(date=T, amount=Money(1_000_000.0, Currency.USD)))
+    return FixedCashflow(Cashflow(date=T, amount=Money(1_000_000.0, Currency.USD)))
 
 
 def test_engine_price_has_no_market_parameter():

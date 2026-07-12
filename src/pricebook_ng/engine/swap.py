@@ -1,7 +1,7 @@
 """SwapEngine — prices a vanilla single-curve IRS (L4).
 
 Stateless (spine invariants 1-5). The fixed leg is discounted by reusing the
-`DiscountingEngine` (it is a `CashflowInstrument`). The float leg's coupons are
+`DiscountingEngine` (it is a `CashflowProduct`). The float leg's coupons are
 the curve's forwards: over period (a, b) the forward accrual is
 `DF(a)/DF(b) - 1`, and discounting that coupon by `DF(b)` gives `DF(a) - DF(b)`
 per unit notional — so the float leg telescopes to `notional*(DF(t0) - DF(tn))`.
@@ -24,7 +24,7 @@ from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
-from pricebook_ng.instruments.swap import VanillaSwap
+from pricebook_ng.products.swap import VanillaSwap
 from pricebook_ng.models.discounting_model import CalibratedModel
 
 

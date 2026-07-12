@@ -19,8 +19,8 @@ from pricebook_ng.foundation.schedule import Frequency, ScheduleTerms
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.engine.discounting import DiscountingEngine
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
-from pricebook_ng.instruments.fixed_rate_bond import fixed_rate_bond
+from pricebook_ng.products.fixed_cashflow import FixedCashflow
+from pricebook_ng.products.fixed_rate_bond import fixed_rate_bond
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
 
@@ -86,7 +86,7 @@ def test_at_issue_bond_has_zero_accrued():
 
 def test_forward_starting_prices_only_future():
     future = date(2030, 1, 1)
-    trade = FixedCashflowTrade(Cashflow(date=future, amount=Money(NOTIONAL, CCY)))
+    trade = FixedCashflow(Cashflow(date=future, amount=Money(NOTIONAL, CCY)))
     model = _model()
     result = DiscountingEngine().price(trade, model, NumericalConfig())
     t = year_fraction(VALUATION, future, CURVE_DC)
@@ -94,6 +94,6 @@ def test_forward_starting_prices_only_future():
 
 
 def test_cashflow_on_valuation_date_is_historical():
-    trade = FixedCashflowTrade(Cashflow(date=VALUATION, amount=Money(NOTIONAL, CCY)))
+    trade = FixedCashflow(Cashflow(date=VALUATION, amount=Money(NOTIONAL, CCY)))
     result = DiscountingEngine().price(trade, _model(), NumericalConfig())
     assert result.pv.amount == pytest.approx(0.0, abs=ABS)  # excluded, not discounted

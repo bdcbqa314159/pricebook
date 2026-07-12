@@ -7,7 +7,7 @@ The model is None — discounting needs no dynamics, which proves the engine wor
 with a null model.
 
 The engine consumes any instrument that presents a `cashflows` leg (structural
-`CashflowInstrument` protocol) — it never imports or `isinstance`-checks concrete
+`CashflowProduct` protocol) — it never imports or `isinstance`-checks concrete
 instrument classes. It discounts each cashflow on the curve and sums.
 
 Provenance:
@@ -30,7 +30,7 @@ from pricebook_ng.models.discounting_model import CalibratedModel
 
 
 @runtime_checkable
-class CashflowInstrument(Protocol):
+class CashflowProduct(Protocol):
     """Anything the discounting engine can price: it presents a cashflow leg."""
 
     @property
@@ -42,7 +42,7 @@ class DiscountingEngine:
 
     def price(
         self,
-        instrument: CashflowInstrument,
+        instrument: CashflowProduct,
         model: CalibratedModel,
         numerics: NumericalConfig,
     ) -> PricingResult | PricingFailure:

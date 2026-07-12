@@ -1,7 +1,7 @@
 """Vanilla interest-rate swap as pure data (L2).
 
 A `VanillaSwap` is a fixed leg vs a float leg. The fixed leg is known cashflows
-(a `CashflowInstrument`). The float leg is *structural* — only its schedule and
+(a `CashflowProduct`). The float leg is *structural* — only its schedule and
 notional; its coupons are the curve's forwards, resolved by the L4 SwapEngine at
 pricing time (they are not knowable without a curve). No `pv` method here
 (CLAUDE.md 2).
@@ -25,12 +25,12 @@ from datetime import date
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.schedule import ScheduleTerms, generate_schedule
-from pricebook_ng.instruments.leg import fixed_coupon_cashflows
+from pricebook_ng.products.leg import fixed_coupon_cashflows
 
 
 @dataclass(frozen=True)
 class FixedLeg:
-    """The fixed leg: known coupon cashflows (a `CashflowInstrument`)."""
+    """The fixed leg: known coupon cashflows (a `CashflowProduct`)."""
 
     cashflows: tuple[Cashflow, ...]
 
