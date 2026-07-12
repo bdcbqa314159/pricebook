@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pricebook_ng.foundation.cashflow import Cashflow
+from pricebook_ng.foundation.cashflow import Accrual, Cashflow
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.schedule import ScheduleTerms, generate_schedule
 from pricebook_ng.foundation.time import year_fraction
@@ -28,7 +28,8 @@ def fixed_coupon_cashflows(
     maturity: date,
     terms: ScheduleTerms,
 ) -> tuple[Cashflow, ...]:
-    """Coupons of a fixed leg: `notional * rate * tau_i` paid at each period end."""
+    """Coupons of a fixed leg: `notional * rate * tau_i` paid at each period end,
+    each carrying its `Accrual` period (for accrued interest at valuation)."""
     notional, currency = face.amount, face.currency
     schedule = generate_schedule(start, maturity, terms.frequency, terms.roll)
     return tuple(
@@ -38,6 +39,7 @@ def fixed_coupon_cashflows(
                 notional * rate * year_fraction(schedule[i - 1], schedule[i], terms.day_count),
                 currency,
             ),
+            accrual=Accrual(schedule[i - 1], schedule[i], terms.day_count),
         )
         for i in range(1, len(schedule))
     )

@@ -6,6 +6,31 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-12
+
+### Added
+- **Amendment A2 — valuation is temporality-aware.** The engine partitions a
+  product's cashflows by `model.market.valuation_date`:
+  - cashflows on or before valuation are **historical** — excluded from PV (the
+    shell settles them), never discounted; the "fail on past cashflow" guard is
+    retired in favour of **segment-and-settle**.
+  - future cashflows discount from valuation.
+  - `PricingResult` is now a **decomposition**: `pv` (dirty), `accrued`
+    (earned-but-unpaid, nominal), and `clean = pv - accrued`.
+  - `Cashflow` gains an optional `Accrual(start, end, day_count)`; fixed-leg
+    coupons carry it, so a **seasoned bond** accrues the current period on its own
+    day count.
+  - Oracle (closed-form, exact): seasoned bond excludes paid coupons and matches
+    the sum over remaining flows; forward-starting prices only future flows;
+    accrued matches the day-count fraction; `dirty = clean + accrued`; a cashflow
+    exactly on the valuation date is historical.
+  - Behaviour-preserving for at-issue/forward pricing (accrued = 0): every prior
+    oracle stays green.
+
+### Deferred
+- Fixing resolution for seasoned **float** legs (reset ≤ valuation → realized
+  `FixingHistory`) — no such instrument present yet; wired when one arrives (A3+).
+
 ## [0.0.11] - 2026-07-12
 
 ### Changed
