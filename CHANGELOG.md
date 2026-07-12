@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-07-12
+
+### Added
+- **S06 — vanilla single-curve interest-rate swap.**
+  - `instruments/swap.py`: `FixedLeg`, `FloatLeg` (structural — schedule + face
+    only), `VanillaSwap`, `SwapTerms`, and a `vanilla_swap(...)` builder.
+  - `engine/swap.py`: `SwapEngine` — discounts the fixed leg (reusing
+    `DiscountingEngine`) and computes the float leg's coupons as the curve's
+    forwards (`DF(a)/DF(b) - 1`) at pricing time; NPV is payer/receiver aware.
+  - `instruments/leg.py`: shared `fixed_coupon_cashflows` — one definition of a
+    fixed leg's coupons, now used by both the bond and the swap (rule of two).
+  - Oracle: par swap reprices to zero NPV; float leg telescopes to
+    `notional*(DF(start)-DF(maturity))`; off-par NPV `= notional*annuity*(par-rate)`;
+    receiver `= -payer`; and a swap matching an S03 bootstrap input reprices to ~0.
+  - Quarry: `fixed_income/` (swap / fixed + float legs).
+
+### Changed
+- `fixed_rate_bond` builds its coupons via the shared `fixed_coupon_cashflows`
+  (behaviour identical; the S04 bond oracle stays green).
+
+### Deferred
+- Multi-curve (OIS discount / IBOR projection), basis spread on the float leg,
+  and an engine registry/facade selecting engine per instrument — no consumer yet.
+
 ## [0.0.7] - 2026-07-12
 
 ### Changed
