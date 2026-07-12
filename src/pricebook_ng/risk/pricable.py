@@ -1,0 +1,63 @@
+"""Pricable — what the risk layer consumes (L5).
+
+The structural fix (spine): risk depends only on a **`Pricable`** — a function
+`MarketSnapshot -> PV` — never on concrete product or model classes. Greeks bump
+the snapshot and call the pricable; XVA/RWA (later) simulate snapshots and call
+it. This is why risk needs no `isinstance`-on-product ladders.
+
+A pricable is the closure `snapshot ↦ price(product, build(snapshot))` (Amendment
+A1: a market bump flows through re-building the model). The factories bind a
+product + a model-build recipe + an engine into that closure.
+
+Provenance:
+  quarry: python/pricebook/risk/ (greeks were on L3, switching on instrument type)
+  source: redesign/02_spine.md (risk at L5 on a Pricable protocol)
+  oracle: generic dv01 matches analytic across products (L5 greeks slice)
+  slice:  L5-risk
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from pricebook_ng.foundation.numerical_config import NumericalConfig
+from pricebook_ng.foundation.results import PricingFailure
+from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
+from pricebook_ng.models.hull_white import HullWhite
+
+
+@dataclass(frozen=True)
+class Pricable:
+    """Reprice under a (bumped) market snapshot: `snapshot -> PV`. Risk sees only
+    this — no product/model type knowledge."""
+
+    price_at: Callable[[MarketSnapshot], float]
+
+    def __call__(self, snapshot: MarketSnapshot) -> float:
+        return self.price_at(snapshot)
+
+
+def _pv(result) -> float:
+    if isinstance(result, PricingFailure):
+        raise ValueError(f"pricable priced to a failure: {result.reason}")
+    return result.pv.amount
+
+
+def discounting_pricable(product: object, engine: object, numerics: NumericalConfig) -> Pricable:
+    """Bind a linear product to a `DiscountingModel` built from the snapshot,
+    priced by `engine` (any engine that consumes a DiscountingModel)."""
+    return Pricable(lambda snap: _pv(engine.price(product, DiscountingModel(snap), numerics)))
+
+
+def hull_white_pricable(
+    product: object,
+    a: float,
+    sigma: float,
+    engine: object,
+    numerics: NumericalConfig,
+) -> Pricable:
+    """Bind a product to a Hull-White model (mean reversion `a`, vol `sigma`)
+    calibrated to the snapshot; a rate bump rebuilds the model."""
+    return Pricable(lambda snap: _pv(engine.price(product, HullWhite(a, sigma, snap), numerics)))
