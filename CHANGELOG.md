@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-07-12
+
+### Changed
+- **Amendment A1 — the engine depends on the model, not a market argument.**
+  `price(product, model, numerics)`: the model carries the `MarketSnapshot` it was
+  calibrated to (`model.market`); the engine reaches curves/valuation-date through
+  it. Market/model mismatch is now structurally impossible (there is no second
+  market to pass). Behaviour-preserving — every S00–S08 oracle stays green.
+  - New L3 `DiscountingModel(market)` (thin model for linear products) and a
+    `CalibratedModel` protocol.
+  - `HullWhite` now carries a `MarketSnapshot` instead of a bare curve.
+  - `DiscountingEngine` / `SwapEngine` / `SwaptionEngine` drop the `market` arg;
+    `book.value` builds the model for the date's snapshot; `dv01` bumps the
+    snapshot and rebuilds the model (risk flows through the model).
+  - `FixingHistory` is now first-class on `MarketSnapshot` (empty default; the
+    economy = curves + fixings). Its seasoned-period consumer lands with A2.
+  - Oracle: engine-model binding test (no `market` param; a model only prices
+    against its own snapshot) + unchanged PVs.
+
+### Ratified
+- `CLAUDE.md` §0/§2/§3 and `redesign/02_spine.md` Amendments A1/A2/A3 (Cowork).
+
 ## [0.0.10] - 2026-07-12
 
 ### Added
