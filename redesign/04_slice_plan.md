@@ -77,6 +77,36 @@ rows to rule on.
 
 ---
 
+## Amendment-driven refactor slices (2026-07, after S0–S4 landed)
+
+Surfaced during the build; each is a guarded refactor (behaviour-preserving where noted)
+with its own oracle, landed before forward work resumes.
+
+- **S05 — signature bundling** (CLAUDE.md §3b). Bundle oversized signatures into value
+  objects (`RollRule`, `CouponPeriod`, `ScheduleTerms`, `Money`); enable ruff `PLR0913`
+  `max-args=5`. Guarded by existing green oracles; no behaviour change.
+- **S06 — engine → model-only + snapshot=curves+fixings** (Amendments A1). Change to
+  `price(product, model, numerics)`; `build(snapshot) → CalibratedModel`; `DiscountingModel`
+  wraps the curve; `FixingHistory` is first-class in `MarketSnapshot`. Refactor the Slice-0
+  engine + call sites. Oracle: unchanged PVs (behaviour identical) + a model/market-binding
+  test (a model can only price against its own snapshot).
+- **S07 — temporal decomposition** (Amendment A2 + A3 mark). Retire the "fail on past
+  cashflow" guard; replace with **segment-and-settle** (past → settle, current → accrue,
+  future → price). `PricingResult` grows the dirty-PV + cashflow/accrual breakdown. Oracles
+  (closed-form): seasoned bond excludes the paid coupon; forward-starting prices only future
+  flows; dirty = clean + accrued to <1e-12; cashflow exactly on valuation_date is historical.
+- **S08 — Product/Trade/Book + benefit table** (Amendment A3, L6 shell). Rename the L2 atom
+  `instrument → product`; `Trade` holds a collection of products + start date; `Book` = trades;
+  `BookedTrade` remembers the **benefit table** (realized-cash P&L, ties to quarry
+  `pnl_history`). Oracle: realized + mark reconcile to total economics over a trade's life;
+  realized P&L = Σ actually-paid cashflows (no discounting).
+
+Order: S05 → S06 → S07 → S08, then resume the forward migration (S1 day-count onward re-slots
+behind these). S06 precedes S07 (temporality reads `valuation_date` through `model.market`);
+S08 last (the L6 benefit table consumes the core's segment-and-settle output).
+
+---
+
 ## Slice discipline (the bar, restated)
 - One vertical cut; touches only the layers it needs; nothing speculative.
 - Ships green against a named oracle before it counts as done.

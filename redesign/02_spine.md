@@ -215,4 +215,76 @@ Plus two carried from the scope contract: **schema versioning** on serialisation
    single `price()` facade — the QuantLib-style pattern. Revisit only if a case breaks it.
 4. **Snapshot granularity** — global `MarketSnapshot` per valuation date, with per-trade
    *views* for XVA performance. *(default; confirm when we reach the risk/XVA layer.)*
+
+---
+
+## Amendment A1 (2026-07) — engine depends on model, not market
+
+Supersedes the earlier `price(instrument, model, market, numerics)` contract.
+
+- **New signature:** `price(instrument, model, numerics) → PricingResult`.
+- **Market is upstream of the model, not a peer input:** `market → calibrate → model →
+  price`. A model is a **`CalibratedModel` that carries the `MarketSnapshot`** it was
+  calibrated to (`model.market`); the engine reads curves/vols through the model.
+- **Linear products** (bonds, swaps, the Slice-0 cashflow) use a thin **`DiscountingModel`**
+  that wraps the discount curve — a real type with many consumers (rule of two), not
+  ceremony. Its "calibration" trivially adopts the curve.
+- **Why:** removes the model/market mismatch class of bug (a model calibrated to one
+  snapshot can't be priced against another), and makes "pricing depends on the model"
+  literally true.
+- **Consequences:** refactors the Slice-0 `DiscountingEngine` to take a `DiscountingModel`;
+  risk (a market bump) now flows through re-deriving/rebinding the model — more correct,
+  and a real change to how greeks are computed. `MarketSnapshot` is unchanged as a
+  vocabulary type; it is simply reached through the model.
+
+## Amendment A2 (2026-07) — valuation is temporality-aware
+
+The engine reasons about three dates — **start** (accrual/issue), **valuation** (as-of,
+`model.market.valuation_date`), **payoff** (payment):
+
+- Cashflows with `payoff ≤ valuation` are **historical** → excluded from PV (the L6 shell
+  handles them via fixings/settlement); never discounted with a non-positive `t`.
+- Cashflows with `payoff > valuation` discount from `valuation`.
+- `start > valuation` (forward-starting) and `start < valuation < payoff` (seasoned:
+  accrued interest, clean vs dirty price) are handled explicitly.
+- Reset/fixing dates `≤ valuation` use realized `FixingHistory`; `> valuation` use
+  forward-implied.
+
+Gets its own slice with closed-form temporal oracles (seasoned bond excludes the paid
+coupon; forward-starting; accrued/clean/dirty).
+
+## Amendment A3 (2026-07) — Product/Trade/Book + realized-vs-mark decomposition
+
+Consolidates the domain-hierarchy and temporality thread (Cowork + build session).
+
+**Hierarchy (renames the L2 atom):**
+- **Product** (L2, frozen, pure data) — the priceable atom; needs a model. (Was "instrument".)
+- **Trade** (L6, frozen description) — holds a *collection of products* + a **start date** +
+  lifecycle. Priced as the sum of its products' marks.
+- **Book** (L6) — a collection of trades.
+- Dates (start, valuation) live at the **trade**, not the product.
+
+**The snapshot is curves + fixings.** The economy a model is built on = discount/projection/
+hazard curves **and** `FixingHistory`. `FixingHistory` is a first-class part of the
+immutable `MarketSnapshot` (L1) — the core needs fixings to resolve current-period amounts.
+`build(snapshot) → CalibratedModel` (A1) consumes both.
+
+**Valuation of a live trade = remembered past + deterministic accrual + core-priced forward:**
+- **Realized P&L (benefit table)** — cashflows that already paid: actual cash, recorded in the
+  **L6 shell** (`BookedTrade` remembers it; ties to the quarry `pnl_history`). Never discounted.
+- **Accrued** — earned-but-unpaid slice of the current period: part of the *mark*, computed by
+  the engine (dirty = clean + accrued).
+- **Future PV** — remaining flows discounted from the valuation date.
+- **The engine computes the mark** (future PV + accrued); **the shell remembers realized P&L.**
+
+**Engine I/O grows a decomposition.** `PricingResult` is not a scalar: it carries **dirty PV**
+plus the cashflow/accrual breakdown needed to derive **clean** and **accrued** (already specced
+to hold cashflows/sensitivities/diagnostics).
+
+**"Fail on past cashflow" is retired.** The Slice-0 guard that raised on a cashflow ≤ valuation
+is replaced by **segment-and-settle**: partition each product's cashflows into
+past (settle → benefit table), current (accrue), future (price). No raise.
+
+**Risk** perturbs the snapshot and rebuilds the model (A1), then reprices — consistent across
+PV / greeks / XVA / RWA.
 ```
