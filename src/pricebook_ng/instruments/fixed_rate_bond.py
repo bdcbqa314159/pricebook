@@ -12,7 +12,8 @@ Provenance:
   quarry: python/pricebook/fixed_income/ (fixed-rate bond / fixed leg)
   source: standard fixed-coupon bond; ISDA 2006 accrual
   oracle: closed-form discounted-cashflow PV < 1e-12 (S04)
-  slice:  S04; S05 (Money face + ScheduleTerms — 5-arg ceiling)
+  slice:  S04; S05 (Money face + ScheduleTerms — 5-arg ceiling);
+          S06 (coupons via shared fixed_coupon_cashflows)
 """
 
 from __future__ import annotations
@@ -22,8 +23,8 @@ from datetime import date
 
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.money import Currency, Money
-from pricebook_ng.foundation.schedule import ScheduleTerms, generate_schedule
-from pricebook_ng.foundation.time import year_fraction
+from pricebook_ng.foundation.schedule import ScheduleTerms
+from pricebook_ng.instruments.leg import fixed_coupon_cashflows
 
 
 @dataclass(frozen=True)
@@ -43,29 +44,16 @@ def fixed_rate_bond(
     maturity: date,
     terms: ScheduleTerms,
 ) -> FixedRateBond:
-    """Build a fixed-rate bond, expanding its schedule into cashflows.
+    """Build a fixed-rate bond: fixed coupons plus the notional redemption.
 
-    `face` is the notional as `Money(amount, currency)`. Coupon i pays
-    `notional * coupon_rate * year_fraction(period)` at the period end; the
-    notional redeems at maturity (a separate cashflow on that date).
+    `face` is the notional as `Money(amount, currency)`. The notional redeems at
+    maturity as a separate cashflow on that date.
     """
-    notional, currency = face.amount, face.currency
-    schedule = generate_schedule(start, maturity, terms.frequency, terms.roll)
-    cashflows = [
-        Cashflow(
-            date=schedule[i],
-            amount=Money(
-                notional * coupon_rate
-                * year_fraction(schedule[i - 1], schedule[i], terms.day_count),
-                currency,
-            ),
-        )
-        for i in range(1, len(schedule))
-    ]
-    cashflows.append(Cashflow(date=schedule[-1], amount=Money(notional, currency)))
+    coupons = fixed_coupon_cashflows(face, coupon_rate, start, maturity, terms)
+    redemption = Cashflow(date=maturity, amount=face)
     return FixedRateBond(
-        notional=notional,
+        notional=face.amount,
         coupon_rate=coupon_rate,
-        currency=currency,
-        cashflows=tuple(cashflows),
+        currency=face.currency,
+        cashflows=(*coupons, redemption),
     )
