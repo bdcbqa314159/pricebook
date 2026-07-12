@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.instruments.swap import VanillaSwap
+from pricebook_ng.products.swap import VanillaSwap
 
 
 @dataclass(frozen=True)

@@ -27,5 +27,5 @@ jobs:
       - run: python verify.py provenance
       # Signature discipline (CLAUDE.md 3b): PLR0913 max-args=5 via ruff (redesign/09).
       - run: ruff check src/pricebook_ng
-      # Slice's layer tier. Bump --layer as migration climbs (now at L4 — engine).
-      - run: python verify.py tests --layer 4
+      # Slice's layer tier. Bump --layer as migration climbs (now at L6 — shell).
+      - run: python verify.py tests --layer 6

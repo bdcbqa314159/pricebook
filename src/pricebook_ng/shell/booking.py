@@ -1,39 +1,77 @@
-"""Booking — the stateful shell over the stateless core.
+"""Booking — the stateful shell over the stateless core (L6).
 
-L6: `book(trade)` begins a trade's life; `BookedTrade.value(...)` runs the
-engine and STORES the result. The shell remembers; it never computes prices
-itself (redesign/02_spine.md). The booked trade's state is its result history,
-never a cached price — price is always recomputed statelessly.
+Domain hierarchy (Amendment A3): a `Trade` is a *collection of products* + a
+start date (frozen description); a `Book` collects trades; a `BookedTrade` puts a
+trade under monitoring. The shell **remembers** — realized P&L (the **benefit
+table**: cashflows that already paid, actual cash, never discounted) — and calls
+the core for the **mark** (the PV of what remains). Total economics = realized +
+mark. The core never remembers; the shell never computes prices itself.
 
-ponytail: Slice 0 has no snapshot store, so `value()` takes the market and
-engine directly instead of pulling `snapshot(date)`. The store arrives with the
-data-spine slice.
+ponytail: `value()` takes the market + engine directly (no snapshot store yet);
+the store arrives with the data-spine slice. A3 wires the benefit table for
+fixed (known-amount) cashflows — realized P&L for float legs needs fixings and
+lands with a seasoned-float slice.
 
 Provenance:
-  quarry: python/pricebook/core/book.py (re-homed core -> L6 shell, minimal)
-  source: redesign/02_spine.md (stateful lifecycle over stateless core)
-  oracle: shell result == direct engine price (Slice 0 shell-path oracle)
-  slice:  S00
+  quarry: python/pricebook/core/book.py + pnl_history (re-homed core -> L6 shell)
+  source: redesign/02_spine.md Amendment A3 (Product/Trade/Book + benefit table)
+  oracle: realized (benefit table) + mark reconcile to total economics (A3)
+  slice:  S00; A3 (Trade/Book + benefit table)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
-from pricebook_ng.engine.discounting import DiscountingEngine
+from pricebook_ng.engine.discounting import CashflowProduct, DiscountingEngine
+from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
 
 
+@dataclass(frozen=True)
+class Trade:
+    """A trade: a collection of products with a common start date (Amendment A3).
+    Frozen description; its lifecycle state lives on the `BookedTrade`."""
+
+    products: tuple[CashflowProduct, ...]
+    start_date: date
+
+    def _cashflows(self):
+        for product in self.products:
+            yield from product.cashflows
+
+    def realized(self, as_of: date) -> Money:
+        """Benefit table: total of cashflows that have paid by `as_of` — actual
+        cash, undiscounted. (Fixed/known amounts; float legs need fixings.)"""
+        paid = [cf for cf in self._cashflows() if cf.date <= as_of]
+        currency = paid[0].amount.currency if paid else next(self._cashflows()).amount.currency
+        return Money(sum(cf.amount.amount for cf in paid), currency)
+
+
+@dataclass(frozen=True)
+class Book:
+    """A collection of trades (Amendment A3)."""
+
+    trades: tuple[Trade, ...]
+
+    def realized(self, as_of: date) -> Money:
+        totals = [t.realized(as_of) for t in self.trades]
+        return Money(sum(m.amount for m in totals), totals[0].currency)
+
+
 @dataclass
 class BookedTrade:
-    """A trade under monitoring: its description + the results observed so far."""
+    """A trade under monitoring: its description + the marks observed so far."""
 
-    trade: FixedCashflowTrade
+    trade: Trade
     results: list[PricingResult | PricingFailure] = field(default_factory=list)
+
+    def realized(self, as_of: date) -> Money:
+        return self.trade.realized(as_of)
 
     def value(
         self,
@@ -41,12 +79,25 @@ class BookedTrade:
         numerics: NumericalConfig,
         engine: DiscountingEngine,
     ) -> PricingResult | PricingFailure:
-        # the shell builds/binds the model for this date's snapshot, then prices (A1)
-        result = engine.price(self.trade, DiscountingModel(market), numerics)
-        self.results.append(result)
-        return result
+        """The mark: sum of the products' PVs (and accrued) as of the snapshot.
+        The shell builds/binds the model for this date's snapshot, then prices (A1)."""
+        model = DiscountingModel(market)
+        pv = 0.0
+        accrued = 0.0
+        currency = None
+        for product in self.trade.products:
+            result = engine.price(product, model, numerics)
+            if isinstance(result, PricingFailure):
+                self.results.append(result)
+                return result
+            pv += result.pv.amount
+            accrued += result.accrued.amount if result.accrued is not None else 0.0
+            currency = result.pv.currency
+        mark = PricingResult(pv=Money(pv, currency), accrued=Money(accrued, currency))
+        self.results.append(mark)
+        return mark
 
 
-def book(trade: FixedCashflowTrade) -> BookedTrade:
+def book(trade: Trade) -> BookedTrade:
     """Begin a trade's life in the shell."""
     return BookedTrade(trade=trade)

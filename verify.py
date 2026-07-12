@@ -37,7 +37,7 @@ OPEN = ROOT / "OPEN.md"
 LAYER = {
     "foundation": 0,
     "market": 1,
-    "instruments": 2,
+    "products": 2,
     "models": 3,
     "engine": 4,
     "risk": 5,

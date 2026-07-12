@@ -6,6 +6,31 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-12
+
+### Added
+- **Amendment A3 — Product / Trade / Book + the benefit table (L6 shell).**
+  - `shell/booking.py`: `Trade` (a collection of products + a start date), `Book`
+    (a collection of trades), and `BookedTrade` with the **benefit table** —
+    `realized(as_of)` sums cashflows that have already paid as actual cash, **never
+    discounted**. `value(...)` aggregates the products' marks (dirty PV + accrued).
+  - Oracle: realized at issue is 0; realized sums paid cashflows undiscounted;
+    realized + remaining nominal = total nominal; at end of life realized = total
+    and the mark is 0; a `Book` aggregates realized across trades.
+
+### Changed
+- **Renamed the L2 atom `instrument -> product`** (Amendment A3): the
+  `instruments/` package is now `products/`; `FixedCashflowTrade -> FixedCashflow`;
+  the engine protocol `CashflowInstrument -> CashflowProduct`. "Trade" is now an
+  L6 concept (a collection of products), freeing the name. Behaviour-preserving.
+- CI layer tier bumped to `--layer 6` (the slice reaches the L6 shell).
+
+### Deferred
+- Realized P&L for float legs (needs fixings) — wired with a seasoned-float slice.
+- Per-product model dispatch in `Trade.value` (all products are linear today, so
+  one `DiscountingModel` suffices); a registry/facade arrives when a trade mixes
+  model families.
+
 ## [0.1.0] - 2026-07-12
 
 ### Added

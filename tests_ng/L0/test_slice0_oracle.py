@@ -22,10 +22,10 @@ from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
-from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
+from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.risk.dv01 import dv01
-from pricebook_ng.shell.booking import book
+from pricebook_ng.shell.booking import Trade, book
 
 # --- the fixture trade & market ------------------------------------------------
 VALUATION = date(2026, 1, 1)
@@ -39,7 +39,7 @@ DC = DayCountConvention.ACT_365_FIXED
 def _setup():
     curve = FlatDiscountCurve(rate=RATE, anchor=VALUATION, day_count=DC)
     market = MarketSnapshot(valuation_date=VALUATION, discount_curve=curve)
-    trade = FixedCashflowTrade(
+    trade = FixedCashflow(
         Cashflow(date=MATURITY, amount=Money(NOTIONAL, CCY))
     )
     return trade, market, NumericalConfig(), DiscountingEngine()
@@ -78,7 +78,7 @@ def test_statelessness_reprice_byte_identical():
 
 def test_shell_path_matches_core():
     trade, market, numerics, engine = _setup()
-    booked = book(trade)
+    booked = book(Trade(products=(trade,), start_date=VALUATION))
     result = booked.value(market, numerics, engine)
     assert isinstance(result, PricingResult)
     assert result.pv.amount == engine.price(trade, DiscountingModel(market), numerics).pv.amount

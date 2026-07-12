@@ -26,7 +26,7 @@ from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.solvers import bisect_root
-from pricebook_ng.instruments.swaption import Swaption
+from pricebook_ng.products.swaption import Swaption
 from pricebook_ng.models.hull_white import HullWhite
 
 
