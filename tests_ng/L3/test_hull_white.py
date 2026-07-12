@@ -16,7 +16,7 @@ import pytest
 from pricebook_ng.foundation.distributions import norm_cdf
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
-from pricebook_ng.market.snapshot import FlatDiscountCurve
+from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.hull_white import HullWhite
 
 ABS = 1e-12
@@ -30,8 +30,12 @@ def _curve(rate=R0):
     return FlatDiscountCurve(rate=rate, anchor=D0, day_count=DC.ACT_365_FIXED)
 
 
+def _market(rate=R0):
+    return MarketSnapshot(valuation_date=D0, discount_curve=_curve(rate))
+
+
 def _hw(a=0.05, sigma=0.01):
-    return HullWhite(a=a, sigma=sigma, curve=_curve())
+    return HullWhite(a=a, sigma=sigma, market=_market())
 
 
 def test_refits_initial_curve():
@@ -66,7 +70,7 @@ def test_zero_vol_collapses_to_intrinsic():
 
 def test_matches_independent_zbc_formula():
     a, sigma, K = 0.05, 0.01, 0.87
-    hw, curve = HullWhite(a=a, sigma=sigma, curve=_curve()), _curve()
+    hw, curve = HullWhite(a=a, sigma=sigma, market=_market()), _curve()
     T = year_fraction(D0, EXPIRY, DC.ACT_365_FIXED)
     tau = year_fraction(EXPIRY, BOND_MAT, DC.ACT_365_FIXED)
     p_t, p_s = curve.df(EXPIRY), curve.df(BOND_MAT)

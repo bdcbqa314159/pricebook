@@ -21,13 +21,13 @@ from dataclasses import replace
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
 from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
-from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
 
 _ONE_BP = 1e-4
 
 
-def _pv(engine, trade, market, numerics) -> float:
-    result = engine.price(trade, None, market, numerics)
+def _pv(engine, trade, model, numerics) -> float:
+    result = engine.price(trade, model, numerics)
     if not isinstance(result, PricingResult):
         raise ValueError(f"DV01 bump priced to a failure: {result}")
     return result.pv.amount
@@ -36,18 +36,22 @@ def _pv(engine, trade, market, numerics) -> float:
 def dv01(
     engine,
     trade: FixedCashflowTrade,
-    market: MarketSnapshot,
+    model: DiscountingModel,
     numerics: NumericalConfig,
 ) -> float:
     """Central-difference DV01 (PV change per 1bp rate rise).
 
+    A market bump flows through the model (Amendment A1): bump the snapshot's
+    curve, rebuild the `DiscountingModel`, reprice.
+
     ponytail: Slice 0 assumes a flat, single-rate curve — the bump shifts that
     one rate. The general parallel-shift over a bootstrapped curve arrives with
-    the S2 curve slice, behind the same CurveHandle.
+    a later risk slice, behind the same CurveHandle.
     """
     h = numerics.fd_bump
+    market = model.market
     curve = market.discount_curve
-    up = replace(market, discount_curve=replace(curve, rate=curve.rate + h))
-    down = replace(market, discount_curve=replace(curve, rate=curve.rate - h))
+    up = DiscountingModel(replace(market, discount_curve=replace(curve, rate=curve.rate + h)))
+    down = DiscountingModel(replace(market, discount_curve=replace(curve, rate=curve.rate - h)))
     dpv_dr = (_pv(engine, trade, up, numerics) - _pv(engine, trade, down, numerics)) / (2 * h)
     return dpv_dr * _ONE_BP

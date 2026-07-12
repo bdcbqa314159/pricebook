@@ -12,13 +12,13 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py (re-homed core -> L1, minimal)
   source: Hull, Options Futures & Other Derivatives — continuous discounting
   oracle: df(t) = exp(-r t) closed form (drives the Slice 0 PV oracle)
-  slice:  S00
+  slice:  S00; A1 (FixingHistory first-class in the snapshot)
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol, runtime_checkable
 
@@ -46,8 +46,25 @@ class FlatDiscountCurve:
 
 
 @dataclass(frozen=True)
+class FixingHistory:
+    """Realized index fixings by observation date. First-class in the snapshot so
+    the core can resolve current-period amounts (the economy = curves + fixings).
+
+    A1 introduces the type + empty default; the seasoned-period lookup that
+    consumes it lands with the temporal slice (A2)."""
+
+    fixings: dict[date, float] = field(default_factory=dict)
+
+    def get(self, observation: date) -> float | None:
+        return self.fixings.get(observation)
+
+
+@dataclass(frozen=True)
 class MarketSnapshot:
-    """Immutable market state as of `valuation_date` ("today" lives here)."""
+    """Immutable market state as of `valuation_date` — the economy (curves +
+    fixings). "Today" lives here; a model is calibrated to a snapshot and carries
+    it (Amendment A1)."""
 
     valuation_date: date
     discount_curve: CurveHandle
+    fixings: FixingHistory = field(default_factory=FixingHistory)

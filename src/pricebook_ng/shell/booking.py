@@ -25,6 +25,7 @@ from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.instruments.fixed_cashflow import FixedCashflowTrade
 from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
 
 
 @dataclass
@@ -40,7 +41,8 @@ class BookedTrade:
         numerics: NumericalConfig,
         engine: DiscountingEngine,
     ) -> PricingResult | PricingFailure:
-        result = engine.price(self.trade, None, market, numerics)
+        # the shell builds/binds the model for this date's snapshot, then prices (A1)
+        result = engine.price(self.trade, DiscountingModel(market), numerics)
         self.results.append(result)
         return result
 

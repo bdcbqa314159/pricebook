@@ -25,6 +25,7 @@ from pricebook_ng.engine.swap import SwapEngine
 from pricebook_ng.instruments.swap import SwapTerms, VanillaSwap, vanilla_swap
 from pricebook_ng.market.discount_curve import ParSwapQuote, bootstrap_discount_curve
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.models.discounting_model import DiscountingModel
 
 ABS = 1e-6                      # notional 1e6 -> relative ~1e-12
 START = date(2026, 1, 15)
@@ -61,7 +62,7 @@ def _swap(rate, pay_fixed=True):
 def test_par_swap_reprices_to_zero():
     market = _flat_market()
     par, _ = _par_rate(market)
-    result = SwapEngine().price(_swap(par), None, market, NumericalConfig())
+    result = SwapEngine().price(_swap(par), DiscountingModel(market), NumericalConfig())
     assert isinstance(result, PricingResult)
     assert result.pv.currency is CCY
     assert result.pv.amount == pytest.approx(0.0, abs=ABS)
@@ -72,7 +73,7 @@ def test_float_leg_telescopes():
     swap = _swap(0.0)  # zero fixed rate -> payer NPV = float PV
     df = market.discount_curve.df
     expected_float = NOTIONAL * (df(START) - df(MATURITY))
-    npv = SwapEngine().price(swap, None, market, NumericalConfig()).pv.amount
+    npv = SwapEngine().price(swap, DiscountingModel(market), NumericalConfig()).pv.amount
     assert npv == pytest.approx(expected_float, abs=ABS)
 
 
@@ -80,7 +81,7 @@ def test_off_par_npv_is_annuity_times_rate_gap():
     market = _flat_market()
     par, annuity = _par_rate(market)
     contract = par - 0.005  # 50bp below par -> payer swap in the money
-    npv = SwapEngine().price(_swap(contract), None, market, NumericalConfig()).pv.amount
+    npv = SwapEngine().price(_swap(contract), DiscountingModel(market), NumericalConfig()).pv.amount
     assert npv == pytest.approx(NOTIONAL * annuity * (par - contract), abs=ABS)
 
 
@@ -88,8 +89,8 @@ def test_receiver_is_negative_payer():
     market = _flat_market()
     par, _ = _par_rate(market)
     contract = par - 0.005
-    payer = SwapEngine().price(_swap(contract, pay_fixed=True), None, market, NumericalConfig())
-    recv = SwapEngine().price(_swap(contract, pay_fixed=False), None, market, NumericalConfig())
+    payer = SwapEngine().price(_swap(contract, pay_fixed=True), DiscountingModel(market), NumericalConfig())
+    recv = SwapEngine().price(_swap(contract, pay_fixed=False), DiscountingModel(market), NumericalConfig())
     assert recv.pv.amount == pytest.approx(-payer.pv.amount, abs=ABS)
 
 
@@ -115,5 +116,5 @@ def test_swap_matching_bootstrap_input_reprices_near_zero():
             float_schedule=ScheduleTerms(Frequency.ANNUAL, DC.ACT_360),
         ),
     )
-    npv = SwapEngine().price(swap, None, market, NumericalConfig()).pv.amount
+    npv = SwapEngine().price(swap, DiscountingModel(market), NumericalConfig()).pv.amount
     assert npv == pytest.approx(0.0, abs=ABS)

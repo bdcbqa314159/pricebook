@@ -27,7 +27,6 @@ from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.solvers import bisect_root
 from pricebook_ng.instruments.swaption import Swaption
-from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.hull_white import HullWhite
 
 
@@ -38,11 +37,10 @@ class SwaptionEngine:
         self,
         swaption: Swaption,
         model: HullWhite,
-        market: MarketSnapshot,
         numerics: NumericalConfig,
     ) -> PricingResult | PricingFailure:
         expiry = swaption.expiry
-        if expiry < market.valuation_date:
+        if expiry < model.market.valuation_date:
             return PricingFailure(f"swaption expiry {expiry} precedes valuation")
 
         swap = swaption.swap

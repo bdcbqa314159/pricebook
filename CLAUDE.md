@@ -12,20 +12,23 @@ Slice 0. Do not rewrite; do not chase feature parity; do not price outside the e
 ## 0. The one idea
 
 **Functional core, imperative shell.** Pricing is a pure function
-`price(instrument, model, market, numerics) → result` — no state. Everything that
-persists (a booked trade, its life, the database) lives in a thin shell around the core
-and only calls into it. The core never remembers; the shell never computes.
+`price(product, model, numerics) → result` — no state. The **model is calibrated to a
+`MarketSnapshot` and carries it**; market is upstream of the model
+(`market → calibrate → model → price`), never a separate peer input to the engine. Linear
+products use a thin `DiscountingModel` that wraps the curve. Everything that persists (a
+booked trade, its life, the database) lives in a thin shell around the core and only calls
+into it. The core never remembers; the shell never computes.
 
 ---
 
 ## 1. The spine (layers — dependencies point DOWN only, never up)
 
 ```
-L6  LIFECYCLE / BOOKING / PORTFOLIO   (stateful shell: book, monitor, P&L, desks, viz)
+L6  LIFECYCLE / BOOKING / PORTFOLIO   (stateful shell: trade=book of products, benefit table, P&L, desks)
 L5  RISK & CAPITAL                    (greeks · XVA · RWA — on the engine + Pricable protocol)
-L4  ENGINES                           (the stateless heart: bind instrument+model+market → PV/risk)
-L3  MODELS + CALIBRATION              (dynamics; calibrated to a snapshot, else stateless)
-L2  INSTRUMENTS                       (pure-data trade descriptions: legs, cashflows, payoffs)
+L4  ENGINES                           (the stateless heart: bind product+model → mark = future PV + accrued)
+L3  MODELS + CALIBRATION              (dynamics; calibrated to a MarketSnapshot, carry it)
+L2  PRODUCTS                          (pure-data product descriptions: legs, cashflows, payoffs)
 L1  MARKET DATA                       (immutable MarketSnapshot · quotes · fixings · curves · vols)
 L0  FOUNDATION                        (time & conventions · value types · finance-free numerics)
      DATA SPINE (side)                (SQLite→DuckDB ingestion → feeds L1; never imported by core)
@@ -47,19 +50,37 @@ needs an upward import, the design is wrong; fix the layering, not the check.
 ## 2. The stateless-engine contract (L4) — five invariants
 
 ```python
-result = engine.price(instrument, model, market, numerics)  # -> PricingResult
+result = engine.price(instrument, model, numerics)  # -> PricingResult
 ```
+The **model carries the `MarketSnapshot` it was calibrated to** (`model.market`); the
+engine reads curves/vols through the model, never from a separate `market` argument. For
+linear products the model is a `DiscountingModel` wrapping the curve. Market is never a
+peer input — this makes model/market mismatch structurally impossible.
+
 1. **Referential transparency** — identical inputs ⇒ identical output, always.
-2. **No ambient state** — no thread-locals, globals, or clock reads; "today" comes from
-   the `MarketSnapshot`.
-3. **No mutation** — `instrument`, `model`, `market` are frozen; never mutated in place.
+2. **No ambient state** — no thread-locals, globals, or clock reads; "today" is
+   `model.market.valuation_date`.
+3. **No mutation** — `instrument`, `model` (and the `MarketSnapshot` it carries) are
+   frozen; never mutated in place.
 4. **Failure is a value** — return `PricingFailure`, never raise-and-hope or emit silent
    `NaN`.
 5. **Config is explicit** — all reproducibility knobs (seeds, MC paths, PDE grid, tol)
    arrive in `NumericalConfig`; never a hidden default.
+6. **Valuation-date-aware** — cashflows on or before `valuation_date` are historical:
+   **excluded from PV** (handled by the L6 shell via fixings/settlement), never discounted
+   with a non-positive `t`. Future cashflows discount from `valuation_date`. Clean/dirty
+   and accrued interest are explicit, not incidental.
 
-**Instruments are pure data.** Frozen dataclasses that *describe* (legs, cashflows); they
-do **not** price themselves. No `pv()`/`pv_ctx()` on instruments — pricing lives in L4.
+**Products are pure data.** Frozen dataclasses that *describe* (legs, cashflows); they
+do **not** price themselves. No `pv()`/`pv_ctx()` on products — pricing lives in L4.
+
+**Trade vs mark vs realized.** A **trade** (L6) holds a *collection of products* + a start
+date + lifecycle. At the valuation date its economics split three ways: **realized P&L**
+(cashflows that already paid — the **benefit table**, actual cash, recorded in the L6 shell,
+never discounted), **accrued** (earned-but-unpaid slice of the current period — part of the
+*mark*), and **future PV** (remaining flows, discounted). The **engine computes the mark**
+(future PV + accrued); the **shell remembers realized P&L**. Total economics = realized +
+mark; dirty = clean + accrued.
 
 ---
 
@@ -71,14 +92,26 @@ do **not** price themselves. No `pv()`/`pv_ctx()` on instruments — pricing liv
 - **Money:** `Money(amount, Currency)` **at boundaries** (cashflows, PVs); plain floats
   inside hot numerical loops. Currency-mixing must be a type error where it matters.
 - **Instrument atom:** `Cashflow` (at L0), `Leg` = ordered cashflows + convention.
-- **Market (L1):** `Quote`/`QuoteId`/`QuoteKind`, immutable `MarketSnapshot`,
-  `FixingHistory`. Curves are reached through a **`CurveHandle`** protocol
-  (`df(date)`, `survival(date)`) — higher layers depend on the capability, not the
+- **Market (L1):** `Quote`/`QuoteId`/`QuoteKind`, immutable `MarketSnapshot` (carries the
+  `valuation_date`), `FixingHistory`. Curves are reached through a **`CurveHandle`**
+  protocol (`df(date)`, `survival(date)`) — higher layers depend on the capability, not the
   concrete curve; **curves are never mutated in place.**
-- **Engine I/O:** `NumericalConfig`, `PricingResult`, `PricingFailure`.
-- **Identity/state:** `Trade` (**frozen**), `Portfolio`; `PricingContext` is **frozen**
-  and kept as the engine's built-market-state input (linked to the `MarketSnapshot` it
-  was built from); `BookedTrade` (L6) = description + lifecycle events.
+- **Models (L3):** a model is a **`CalibratedModel` bound to the `MarketSnapshot`** it was
+  calibrated to (`model.market`). `DiscountingModel` wraps a curve for linear products. The
+  engine depends on the model; market is reached through it, never passed alongside.
+- **Time semantics:** valuation partitions cashflows into historical (`date ≤
+  valuation_date`, excluded from PV) and future (discounted from `valuation_date`).
+  Clean vs dirty price and accrued interest are explicit value concepts, not by-products.
+- **Engine I/O:** `NumericalConfig`; `PricingResult` is a **decomposition** (dirty PV +
+  cashflow/accrual breakdown ⇒ clean, accrued; plus sensitivities, diagnostics), not a
+  scalar; `PricingFailure`. The economy a model is built on = **curves + `FixingHistory`**
+  (fixings are first-class in the `MarketSnapshot`; the core needs them to resolve
+  current-period amounts).
+- **Identity/state (Product → Trade → Book):** `Product` = the priceable atom (**frozen**,
+  L2, needs a model). `Trade` (**frozen** description, L6) holds ≥1 products + a start date;
+  `BookedTrade` = trade + lifecycle events + its **benefit table** (realized-cash P&L).
+  `Book` = collection of trades (L6). `PricingContext` is **frozen** and kept as the
+  engine's built-market-state input (reached through `model.market`).
 
 ---
 
