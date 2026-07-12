@@ -1,0 +1,68 @@
+"""SwaptionEngine — Hull-White European swaption via Jamshidian (L4).
+
+Stateless. A European swaption on a fixed-vs-float swap equals an option on the
+coupon bond built from the fixed leg (coupons + notional redemption), struck at
+par. Under HW the bond price at expiry is monotonic in the single state r(T0), so
+(Jamshidian) the coupon-bond option decomposes into a portfolio of options on the
+constituent zero-coupon bonds, each struck at its value at the critical rate r*:
+
+    receiver swaption = sum_i c_i * ZBC(T0, t_i, K_i)   (call on the coupon bond)
+    payer swaption    = sum_i c_i * ZBP(T0, t_i, K_i)   (put on the coupon bond)
+
+where sum_i c_i * P(T0, t_i; r*) = notional and K_i = P(T0, t_i; r*). The ZBC/ZBP
+are the S07 HW analytic ZCB options; r* is found by bisection (the coupon-bond
+value is monotonically decreasing in r).
+
+Provenance:
+  quarry: python/pricebook/pricing/ (swaption)
+  source: Jamshidian (1989); Brigo & Mercurio s.3.3
+  oracle: put-call parity + ATM symmetry + sigma->0 intrinsic (S08)
+  slice:  S08
+"""
+
+from __future__ import annotations
+
+from pricebook_ng.foundation.money import Money
+from pricebook_ng.foundation.numerical_config import NumericalConfig
+from pricebook_ng.foundation.results import PricingFailure, PricingResult
+from pricebook_ng.foundation.solvers import bisect_root
+from pricebook_ng.instruments.swaption import Swaption
+from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.hull_white import HullWhite
+
+
+class SwaptionEngine:
+    """Prices a European swaption under Hull-White by Jamshidian decomposition."""
+
+    def price(
+        self,
+        swaption: Swaption,
+        model: HullWhite,
+        market: MarketSnapshot,
+        numerics: NumericalConfig,
+    ) -> PricingResult | PricingFailure:
+        expiry = swaption.expiry
+        if expiry < market.valuation_date:
+            return PricingFailure(f"swaption expiry {expiry} precedes valuation")
+
+        swap = swaption.swap
+        notional = swap.float_leg.face.amount
+        currency = swap.float_leg.face.currency
+
+        # Coupon bond: fixed-leg coupons, with the notional redeemed at the last date.
+        dates = [cf.date for cf in swap.fixed_leg.cashflows]
+        amounts = [cf.amount.amount for cf in swap.fixed_leg.cashflows]
+        amounts[-1] += notional
+
+        def coupon_bond(short_rate: float) -> float:
+            return sum(a * model.zero_bond(expiry, d, short_rate) for a, d in zip(amounts, dates))
+
+        # r*: the short rate at expiry that prices the coupon bond at par (notional).
+        r_star = bisect_root(lambda r: coupon_bond(r) - notional, -1.0, 1.0)
+
+        is_call = not swap.pay_fixed  # payer swaption = put on the coupon bond
+        value = sum(
+            a * model.zero_bond_option(expiry, d, model.zero_bond(expiry, d, r_star), is_call)
+            for a, d in zip(amounts, dates)
+        )
+        return PricingResult(pv=Money(value, currency))

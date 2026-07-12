@@ -6,6 +6,29 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-07-12
+
+### Added
+- **S08 — Hull-White European swaption (Jamshidian).**
+  - `instruments/swaption.py`: `Swaption(expiry, swap)` — a European option on a
+    forward-starting `VanillaSwap` (payer/receiver via `swap.pay_fixed`), pure data.
+  - `engine/swaption.py`: `SwaptionEngine` — Jamshidian decomposition into a
+    portfolio of HW ZCB options (S07), with a bisection solve for the critical
+    rate `r*` that prices the coupon bond at par.
+  - `models/hull_white.py`: `zero_bond` reconstitution `P(T,S) = A e^{-B r}` (the
+    state-dependent bond price the Jamshidian solve needs).
+  - `foundation/solvers.py`: `bisect_root` — bracketed bisection (first root-finder
+    of the L0 toolkit, migrated on demand).
+  - Oracle (closed-form, exact): put-call parity `payer - receiver ==
+    P(0,T0)*notional - sum(c_i P(0,t_i))`; ATM symmetry (payer == receiver at the
+    forward par rate); `sigma -> 0` collapses to the discounted intrinsic
+    `max(forward swap PV, 0)`, cross-checked against the S06 `SwapEngine`.
+  - Quarry: `fixed_income/` (swaption), `pricing/`, `core/solvers.py`.
+
+### Deferred
+- MC engine + analytic-vs-MC convergence oracle (the **next slice, S09**), where
+  `NumericalConfig` gains the MC knobs (`mc_paths`, `mc_seed`).
+
 ## [0.0.9] - 2026-07-12
 
 ### Added
