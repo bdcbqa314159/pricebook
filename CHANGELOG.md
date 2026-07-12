@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-07-12
+
+### Added
+- **S07 — Hull-White 1F analytic core (first L3 model).**
+  - `models/hull_white.py`: `HullWhite(a, sigma, curve)` fitted to a flat curve
+    (reprices it by construction); the `B(t,T)` factor and the closed-form
+    European option on a zero-coupon bond (Brigo & Mercurio 3.40-3.41).
+  - `foundation/distributions.py`: `norm_cdf` via `math.erf` — first piece of the
+    L0 numerical toolkit, migrated on demand (dependency-free).
+  - Oracle (all closed-form, exact < 1e-12): the model refits the initial curve;
+    `B(t,T) -> (T-t)` as `a -> 0`; ZCB-option put-call parity
+    `call - put == P(0,S) - K*P(0,T)`; `sigma -> 0` collapses to discounted
+    intrinsic; and a match against an independent recompute of the ZBC formula.
+  - Quarry: `models/` (hull_white), `numerical/_distributions.py` (norm_cdf).
+
+### Deferred
+- HW swaption engine (Jamshidian decomposition) + analytic-vs-MC convergence —
+  the **next slice (S08)**, where the MC engine and `NumericalConfig` MC knobs land.
+- General (bootstrapped) curve fit, time-dependent `a`/`sigma`, and the L3/L4
+  boundary for analytic-model option formulas (flagged for the L3 report).
+
 ## [0.0.8] - 2026-07-12
 
 ### Added
