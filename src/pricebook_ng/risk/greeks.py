@@ -19,6 +19,7 @@ import math
 from collections.abc import Callable
 from dataclasses import replace
 
+from pricebook_ng.foundation.money import Currency
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
 from pricebook_ng.market.snapshot import MarketSnapshot
@@ -69,3 +70,21 @@ def dv01(priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConf
 def credit01(priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
     """PV change per 1bp parallel credit-spread (hazard) widening (CS01)."""
     return _bp_sensitivity(priceable, snapshot, bump_hazard, numerics)
+
+
+def bump_fx_spot(snapshot: MarketSnapshot, currency: Currency, ds: float) -> MarketSnapshot:
+    """Shift the FX spot for `currency` by `ds`, as a new snapshot (only that spot
+    moves)."""
+    spots = dict(snapshot.fx_spots)
+    spots[currency] = spots[currency] + ds
+    return replace(snapshot, fx_spots=spots)
+
+
+def fx_delta(
+    priceable: Priceable, snapshot: MarketSnapshot, currency: Currency, numerics: NumericalConfig
+) -> float:
+    """PV change per unit move in the FX spot of `currency`, by central FD."""
+    h = numerics.fd_bump
+    up = priceable(bump_fx_spot(snapshot, currency, h))
+    down = priceable(bump_fx_spot(snapshot, currency, -h))
+    return (up - down) / (2.0 * h)
