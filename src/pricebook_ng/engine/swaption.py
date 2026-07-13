@@ -22,12 +22,25 @@ Provenance:
 
 from __future__ import annotations
 
+from datetime import date
+
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.solvers import bisect_root
 from pricebook_ng.products.swaption import Swaption
 from pricebook_ng.models.hull_white import HullWhite
+
+
+def coupon_bond_cashflows(swaption: Swaption) -> tuple[list[date], list[float], float]:
+    """The coupon bond a swaption's fixed leg decomposes into: fixed coupons plus
+    the notional redeemed at the last date. Shared by the analytic and MC engines."""
+    swap = swaption.swap
+    notional = swap.float_leg.face.amount
+    dates = [cf.date for cf in swap.fixed_leg.cashflows]
+    amounts = [cf.amount.amount for cf in swap.fixed_leg.cashflows]
+    amounts[-1] += notional
+    return dates, amounts, notional
 
 
 class SwaptionEngine:
@@ -43,14 +56,8 @@ class SwaptionEngine:
         if expiry < model.market.valuation_date:
             return PricingFailure(f"swaption expiry {expiry} precedes valuation")
 
-        swap = swaption.swap
-        notional = swap.float_leg.face.amount
-        currency = swap.float_leg.face.currency
-
-        # Coupon bond: fixed-leg coupons, with the notional redeemed at the last date.
-        dates = [cf.date for cf in swap.fixed_leg.cashflows]
-        amounts = [cf.amount.amount for cf in swap.fixed_leg.cashflows]
-        amounts[-1] += notional
+        currency = swaption.swap.float_leg.face.currency
+        dates, amounts, notional = coupon_bond_cashflows(swaption)
 
         def coupon_bond(short_rate: float) -> float:
             return sum(a * model.zero_bond(expiry, d, short_rate) for a, d in zip(amounts, dates))
@@ -58,7 +65,7 @@ class SwaptionEngine:
         # r*: the short rate at expiry that prices the coupon bond at par (notional).
         r_star = bisect_root(lambda r: coupon_bond(r) - notional, -1.0, 1.0)
 
-        is_call = not swap.pay_fixed  # payer swaption = put on the coupon bond
+        is_call = not swaption.swap.pay_fixed  # payer swaption = put on the coupon bond
         value = sum(
             a * model.zero_bond_option(expiry, d, model.zero_bond(expiry, d, r_star), is_call)
             for a, d in zip(amounts, dates)

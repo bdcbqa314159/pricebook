@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-13
+
+### Added
+- **Monte-Carlo engine — HW swaption, `analytic vs MC convergence`** (closes the
+  named oracle for the whole Hull-White arc).
+  - `engine/swaption_mc.py`: `SwaptionMCEngine` prices the European swaption under
+    the T0-forward measure — one exact Gaussian draw of `x(T0)` (mean `M`, variance
+    `V`), reconstitutes the coupon bond via the model's `zero_bond`, averages the
+    payer/receiver payoff, discounts by `P(0,T0)`. Stdlib `random`, no numpy.
+  - `NumericalConfig` gains `mc_paths` and `mc_seed` (fixed seed ⇒ reproducible,
+    referential transparency preserved).
+  - `engine/swaption.py`: extracted the shared `coupon_bond_cashflows` helper (used
+    by both the analytic and MC engines; analytic oracle preserved).
+  - Oracle: MC converges to the S08 Jamshidian analytic within ~2% at 200k seeded
+    paths (payer and receiver); exact at `sigma=0` (deterministic); reproducible
+    under a fixed seed.
+
+### Deferred
+- Variance reduction (antithetics, Sobol), a general MC path engine for other
+  products, and MC greeks — added when a product needs them.
+
 ## [0.6.0] - 2026-07-13
 
 ### Added
