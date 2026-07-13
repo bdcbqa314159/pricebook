@@ -25,6 +25,7 @@ from datetime import date
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.schedule import ScheduleTerms, generate_schedule
+from pricebook_ng.foundation.time import DayCountConvention
 from pricebook_ng.products.leg import fixed_coupon_cashflows
 
 
@@ -37,10 +38,12 @@ class FixedLeg:
 
 @dataclass(frozen=True)
 class FloatLeg:
-    """The float leg: structural only — notional face and the period dates."""
+    """The float leg: structural only — notional face, the period dates, and the
+    accrual day count (needed to value a fixed current period from its reset)."""
 
     face: Money
     schedule: tuple[date, ...]
+    day_count: DayCountConvention
 
 
 @dataclass(frozen=True)
@@ -78,5 +81,7 @@ def vanilla_swap(
     float_dates = generate_schedule(
         start, maturity, terms.float_schedule.frequency, terms.float_schedule.roll
     )
-    float_leg = FloatLeg(face=face, schedule=tuple(float_dates))
+    float_leg = FloatLeg(
+        face=face, schedule=tuple(float_dates), day_count=terms.float_schedule.day_count
+    )
     return VanillaSwap(fixed_leg=fixed_leg, float_leg=float_leg, pay_fixed=terms.pay_fixed)

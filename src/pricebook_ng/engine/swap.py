@@ -24,6 +24,7 @@ from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
+from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.products.swap import VanillaSwap
 from pricebook_ng.models.discounting_model import CalibratedModel
 
@@ -47,17 +48,24 @@ class SwapEngine:
             return PricingFailure(
                 f"swap legs differ in currency: {leg.face.currency} vs {fixed.pv.currency}"
             )
-        dates = leg.schedule
-        if dates[0] < market.valuation_date:
-            return PricingFailure(
-                f"float leg starts {dates[0]} before valuation {market.valuation_date}"
-            )
 
+        # Temporality (A2 + fixings): a period that already paid (b <= valuation) is
+        # settled; a period whose reset is strictly past (a < valuation) uses the
+        # realized fixing; a future period projects the curve forward.
+        valuation = market.valuation_date
         df = market.discount_curve.df
         float_pv = 0.0
-        for a, b in zip(dates[:-1], dates[1:]):
-            forward_accrual = df(a) / df(b) - 1.0        # forward * tau, single-curve
-            float_pv += leg.face.amount * forward_accrual * df(b)
+        for a, b in zip(leg.schedule[:-1], leg.schedule[1:]):
+            if b <= valuation:
+                continue
+            if a < valuation:
+                rate = market.fixings.get(a)
+                if rate is None:
+                    return PricingFailure(f"missing float fixing for reset {a}")
+                accrual = rate * year_fraction(a, b, leg.day_count)
+            else:
+                accrual = df(a) / df(b) - 1.0            # forward * tau, single-curve
+            float_pv += leg.face.amount * accrual * df(b)
 
         fixed_pv = fixed.pv.amount
         npv = (float_pv - fixed_pv) if swap.pay_fixed else (fixed_pv - float_pv)

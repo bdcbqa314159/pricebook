@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-13
+
+### Added
+- **Float-leg fixings — seasoned swaps** (consumes the `FixingHistory` A1 added).
+  - The `SwapEngine` float leg is now temporality-aware: a period that already
+    paid (`b <= valuation`) is settled; a period whose reset is strictly past
+    (`a < valuation`) uses the realized fixing `market.fixings.get(a)`; a future
+    period projects the curve forward. Missing fixing ⇒ `PricingFailure`.
+  - `FloatLeg` gains `day_count` (needed to accrue a fixed current period from its
+    reset); `vanilla_swap` sets it from the float schedule.
+  - The old "float leg starts before valuation" guard is retired.
+  - Oracle: a seasoned swap's current coupon uses the fixing and matches the
+    independent per-period sum; an already-paid period is excluded; a missing
+    fixing fails; a spot swap needs no fixings (behaviour-preserving).
+
+### Deferred
+- Fixing lag (reset a few days before accrual start), and swap-level accrued/clean
+  decomposition on the float leg — add when needed.
+
 ## [0.7.0] - 2026-07-13
 
 ### Added
