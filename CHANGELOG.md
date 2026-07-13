@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-13
+
+### Added
+- **CDS as an engine-priced product.**
+  - `products/cds.py`: `CDS` (frozen pure data — premium schedule, spread,
+    notional, buyer/seller) and a `cds(...)` builder.
+  - `models/credit_model.py`: `CreditModel(market, survival, recovery)` — carries
+    the discounting market + the bootstrapped hazard curve + recovery (A1).
+  - `engine/cds.py`: `CDSEngine` — values the protection buyer via the L1 CDS leg
+    math; the seller is the negative.
+  - Oracle: a par CDS reprices to zero through the engine; the engine matches the
+    L1 `cds_pv`; seller = -buyer; buyer value falls as the contract spread rises.
+
+### Deferred
+- CDS greeks — a `credit_pricable` factory drops the CDS onto the L5 `Pricable`
+  protocol (rate dv01 today, credit01 once a hazard bump exists); add when wanted.
+- Seasoned CDS (segment-and-settle on the premium leg) and quarterly premiums.
+
 ## [0.4.0] - 2026-07-12
 
 ### Added
