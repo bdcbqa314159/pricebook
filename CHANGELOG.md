@@ -6,6 +6,14 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-13
+
+### Changed
+- Spelling fix: **`Pricable` → `Priceable`** everywhere — the `Priceable` protocol,
+  the `discounting_priceable` / `hull_white_priceable` / `credit_priceable`
+  factories, the module (`risk/priceable.py`), and the design docs (`CLAUDE.md`,
+  `redesign/`). Pure rename, behaviour-preserving (all oracles green).
+
 ## [0.9.0] - 2026-07-13
 
 ### Changed

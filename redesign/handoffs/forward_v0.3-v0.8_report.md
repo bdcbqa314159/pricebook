@@ -12,7 +12,7 @@ corrected `price(product, model, numerics)` contract. Read §5 — it carries th
 
 | Slice (branch) | Version | Layer | Oracle | Tol met |
 |---|---|---|---|---|
-| `risk-to-l5` (Pricable + generic greeks) | 0.3.0 | L5 | generic `dv01` == analytic (cashflow, bond); generic over a raw closure; swaption rebuilds the model | `< 1e-6` |
+| `risk-to-l5` (Priceable + generic greeks) | 0.3.0 | L5 | generic `dv01` == analytic (cashflow, bond); generic over a raw closure; swaption rebuilds the model | `< 1e-6` |
 | `credit-hazard-bootstrap` | 0.4.0 | L1 | each CDS reprices to zero at its par spread | `< 1e-10` |
 | `cds-product` | 0.5.0 | L2/L3/L4 | par CDS → 0 through the engine; matches L1 `cds_pv`; seller = -buyer | `< 1e-3` |
 | `cds-credit01` (CS01) | 0.6.0 | L5 | buyer credit01 > 0; seller = -buyer; matches an independent hazard FD | `< 1e-9` |
@@ -26,12 +26,12 @@ All red-before-green (behaviour-preserving refactors run the existing oracles; e
 
 | Entry | Layer | Quarry provenance | Notes |
 |---|---|---|---|
-| `risk/pricable.py` (`Pricable`, `discounting_pricable`, `hull_white_pricable`) | L5 | `risk/` | the `snapshot -> PV` protocol; replaced the Slice-0 `risk/dv01.py` |
+| `risk/priceable.py` (`Priceable`, `discounting_priceable`, `hull_white_priceable`) | L5 | `risk/` | the `snapshot -> PV` protocol; replaced the Slice-0 `risk/dv01.py` |
 | `risk/greeks.py` (`bump_rate`, `dv01`) | L5 | `risk/` | generic bump-and-reprice |
 | `market/survival_curve.py` (`SurvivalCurve`, CDS leg math, `bootstrap_survival_curve`) | L1 | `core/survival_curve.py` | mirrors the S03 discount bootstrap |
 | `models/credit_model.py` (`CreditModel`) | L3 | `models/` credit | carries market + survival + recovery |
 | `products/cds.py`, `engine/cds.py` | L2/L4 | `credit/`, `pricing/` | CDS product + engine |
-| `risk/credit_greeks.py` (`bump_hazard`, `credit01`) | L5 | `risk/` | CS01; does NOT go through `Pricable` (see §5.2) |
+| `risk/credit_greeks.py` (`bump_hazard`, `credit01`) | L5 | `risk/` | CS01; does NOT go through `Priceable` (see §5.2) |
 | `engine/swaption_mc.py` (`SwaptionMCEngine`); `NumericalConfig.mc_paths/mc_seed` | L4/L0 | `numerical/_mc.py`, `pricing/` | T0-forward MC; **stdlib `random`, not the quarry MC module** (§5.4) |
 | `products/swap.py` `FloatLeg.day_count`; `engine/swap.py` fixings | L2/L4 | `fixed_income/` | consumes `FixingHistory` (A1) |
 
@@ -42,7 +42,7 @@ pattern). Greeks use analytic-vs-FD (dv01) and independent-FD / sign / symmetry 
 
 ## 4. Debt logged this layer
 - **None.** `verify.py debt` = 0. Two tentative `# type: ignore` markers (HW curve cast,
-  Pricable `_pv`) were removed rather than logged — no type checker runs in CI, so the
+  Priceable `_pv`) were removed rather than logged — no type checker runs in CI, so the
   annotations are simply left slightly unsound with a runtime `assert`/guard.
 
 ## 5. Design drift — for Cowork to rule
@@ -51,12 +51,12 @@ pattern). Greeks use analytic-vs-FD (dv01) and independent-FD / sign / symmetry 
    A1 ratified: *market data (curves + fixings) lives in the snapshot; the model is built
    from it; risk perturbs the snapshot and rebuilds.* The hazard/survival curve **is** market
    data (the credit curve), but we put it in `CreditModel(market, survival, recovery)`, not in
-   the snapshot. Consequence: **`credit01` cannot use the `Pricable` protocol** (which bumps
+   the snapshot. Consequence: **`credit01` cannot use the `Priceable` protocol** (which bumps
    the *snapshot*) — it is a bespoke `credit01(cds, model)` that bumps `model.survival` and
    calls `CDSEngine` directly. **Ruling needed:** either (a) promote `SurvivalCurve` to a
    first-class member of `MarketSnapshot` (alongside `discount_curve` + `fixings`), so credit
-   greeks flow through the same `Pricable` as `dv01`, or (b) accept per-model-family greek
-   functions and document that the `Pricable` covers only snapshot-borne risk factors. I lean
+   greeks flow through the same `Priceable` as `dv01`, or (b) accept per-model-family greek
+   functions and document that the `Priceable` covers only snapshot-borne risk factors. I lean
    (a) — it restores the A1 principle and unifies greeks — but it touches `MarketSnapshot`.
 
 2. **Pricing math at L1 (recurring L1/L3/L4 boundary).** The CDS leg math (`RPV01`,
@@ -92,7 +92,7 @@ remains demand-migrated (`norm_cdf`, `bisect_root` earlier; MC via stdlib this r
 ## 7. Ready for next?
 - Forward migration on the corrected contract: healthy, 118 green, no debt.
 - Recommended next: **rule §5.1** (hazard curve placement) before more credit/greeks, since it
-  decides whether credit risk unifies under `Pricable`. Then a new asset class (FX / equity) or
+  decides whether credit risk unifies under `Priceable`. Then a new asset class (FX / equity) or
   curve refinements (dual-curve OIS discount, quarterly CDS) each as an oracle-gated slice.
 - Blockers: none. Questions for design: §5 items 1–6.
 
@@ -100,8 +100,8 @@ remains demand-migrated (`norm_cdf`, `bisect_root` earlier; MC via stdlib this r
 
 ### One-line return message (paste into Cowork)
 
-> Forward work v0.3→v0.8 landed (risk→L5 Pricable, credit curve+CDS+CS01, swaption MC vs
+> Forward work v0.3→v0.8 landed (risk→L5 Priceable, credit curve+CDS+CS01, swaption MC vs
 > analytic, seasoned-swap fixings); 118 green, no debt. Drift: §5.1 hazard curve sits in
-> CreditModel not the snapshot (so credit01 bypasses Pricable) — rule promote-to-snapshot vs
+> CreditModel not the snapshot (so credit01 bypasses Priceable) — rule promote-to-snapshot vs
 > per-family greeks; plus L1-pricing-math boundary, multi-engine registry, stdlib-MC,
 > slice-plan renumber. See redesign/handoffs/forward_v0.3-v0.8_report.md.

@@ -40,7 +40,7 @@ Why this delivers all five requirements at once:
         ┌───────────────────────────────────────────────┐
         │ L5  RISK & CAPITAL                             │
         │     greeks · XVA · RWA/regulatory              │  depends only on
-        │     (depends on engine + Pricable protocol)    │  the ENGINE interface,
+        │     (depends on engine + Priceable protocol)    │  the ENGINE interface,
         └───────────────────────────────────────────────┘  never on concrete trades
                           │
         ┌───────────────────────────────────────────────┐
@@ -109,7 +109,7 @@ config debt). The engine registry lives here (fixes leaky top-level `registry.py
 ### L5 — Risk & Capital
 Greeks (bump the snapshot, re-run the engine), XVA (simulate many snapshots, run the
 engine per path, aggregate exposures), RWA / regulatory capital (SA-CCR, FRTB, SIMM).
-**Depends only on the engine interface + a `Pricable` protocol — never on concrete
+**Depends only on the engine interface + a `Priceable` protocol — never on concrete
 instrument classes.** This is the big structural fix: risk moves from its current L3
 placement (where it switches on `isinstance`) to above the engine. Statelessness is what
 makes all three tractable and parallel: no state to reset between bumps or paths.
