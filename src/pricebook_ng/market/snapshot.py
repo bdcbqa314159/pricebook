@@ -84,3 +84,4 @@ class MarketSnapshot:
     # eventual clean shape; this keeps the home curve as `discount_curve`.
     fx_curves: dict[Currency, CurveHandle] = field(default_factory=dict)
     fx_spots: dict[Currency, float] = field(default_factory=dict)
+    fx_vols: dict[Currency, float] = field(default_factory=dict)   # flat FX vol per pair
