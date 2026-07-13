@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-14
+
+### Added
+- **FX option — Garman-Kohlhagen.**
+  - `products/fx_option.py`: `FXOption` (frozen pure data — base/quote legs,
+    maturity, call/put) + `fx_option(...)` builder.
+  - `engine/fx_option.py`: `FXOptionEngine` — GK as Black-76 on the FX forward
+    `F = spot·DF_base/DF_quote`, discounted by the quote curve; `sigma -> 0`
+    collapses to discounted intrinsic; `PricingFailure` if the FX market is absent.
+  - `MarketSnapshot.fx_vols`: flat FX vol per pair (market data, §5.1).
+  - Oracle: put-call parity ties to the FX forward PV (cross-slice); matches an
+    independent Black recompute; `sigma -> 0` intrinsic; ATM-forward call == put.
+
+### Deferred
+- FX vega (bump `fx_vols` through the `Priceable`, like `fx_delta`) — trivial
+  follow-up; a vol surface (strike/tenor) replacing the flat vol; American/barrier.
+
 ## [0.11.0] - 2026-07-13
 
 ### Changed
