@@ -12,7 +12,7 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py (re-homed core -> L1, minimal)
   source: Hull, Options Futures & Other Derivatives — continuous discounting
   oracle: df(t) = exp(-r t) closed form (drives the Slice 0 PV oracle)
-  slice:  S00; A1 (FixingHistory first-class in the snapshot)
+  slice:  S00; A1 (FixingHistory first-class); survival-in-snapshot (§5.1 credit curve)
 """
 
 from __future__ import annotations
@@ -30,6 +30,15 @@ class CurveHandle(Protocol):
     """The capability higher layers depend on: a discount factor per date."""
 
     def df(self, d: date) -> float: ...
+
+
+@runtime_checkable
+class SurvivalHandle(Protocol):
+    """The credit-curve capability: a survival probability per date. Kept as a
+    protocol (not the concrete `SurvivalCurve`) so the snapshot avoids importing
+    the credit module — same pattern as `CurveHandle`."""
+
+    def survival(self, d: date) -> float: ...
 
 
 @dataclass(frozen=True)
@@ -68,3 +77,4 @@ class MarketSnapshot:
     valuation_date: date
     discount_curve: CurveHandle
     fixings: FixingHistory = field(default_factory=FixingHistory)
+    survival_curve: SurvivalHandle | None = None  # the credit curve (market data, §5.1)

@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure
 from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.models.credit_model import CreditModel
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.models.hull_white import HullWhite
 
@@ -61,3 +62,11 @@ def hull_white_pricable(
     """Bind a product to a Hull-White model (mean reversion `a`, vol `sigma`)
     calibrated to the snapshot; a rate bump rebuilds the model."""
     return Pricable(lambda snap: _pv(engine.price(product, HullWhite(a, sigma, snap), numerics)))
+
+
+def credit_pricable(
+    product: object, recovery: float, engine: object, numerics: NumericalConfig
+) -> Pricable:
+    """Bind a credit product to a `CreditModel` built from the snapshot (discount +
+    survival curve) and `recovery`; a rate or hazard bump rebuilds the model."""
+    return Pricable(lambda snap: _pv(engine.price(product, CreditModel(snap, recovery), numerics)))

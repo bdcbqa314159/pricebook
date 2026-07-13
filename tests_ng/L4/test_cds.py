@@ -12,6 +12,8 @@ from datetime import date
 
 import pytest
 
+from dataclasses import replace
+
 from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
@@ -30,7 +32,7 @@ D0 = date(2026, 1, 5)
 MATURITY_5Y = date(2031, 1, 5)
 PAR_5Y = 0.0200
 
-MARKET = MarketSnapshot(
+_BARE = MarketSnapshot(
     valuation_date=D0,
     discount_curve=FlatDiscountCurve(rate=0.02, anchor=D0, day_count=DC.ACT_365_FIXED),
 )
@@ -39,8 +41,9 @@ QUOTES = [
     CDSQuote(date(2029, 1, 5), 0.0150),
     CDSQuote(MATURITY_5Y, PAR_5Y),
 ]
-SURVIVAL = bootstrap_survival_curve(MARKET, QUOTES, RECOVERY)
-MODEL = CreditModel(market=MARKET, survival=SURVIVAL, recovery=RECOVERY)
+SURVIVAL = bootstrap_survival_curve(_BARE, QUOTES, RECOVERY)
+MARKET = replace(_BARE, survival_curve=SURVIVAL)   # credit curve promoted into the snapshot
+MODEL = CreditModel(market=MARKET, recovery=RECOVERY)
 TERMS = ScheduleTerms(Frequency.ANNUAL, DC.ACT_360)
 
 

@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-13
+
+### Changed
+- **SurvivalCurve promoted into `MarketSnapshot`** (Cowork ruling §5.1). The
+  credit/hazard curve is market data, so it now lives on the snapshot
+  (`survival_curve`, reached through a new `SurvivalHandle` protocol, mirroring
+  `CurveHandle`). `CreditModel(market, recovery)` reads it via `market.survival_curve`
+  (its `survival` field is now a property).
+- **Credit risk unified on the `Pricable` protocol.** `credit01` (CS01) moved into
+  `risk/greeks.py` alongside `dv01`, both central-differencing a `Pricable` under a
+  snapshot bump (`bump_rate` / `bump_hazard`) — one finite-difference core.
+  `risk/credit_greeks.py` is removed.
+  - `credit_pricable(product, recovery, engine, numerics)` builds the credit
+    `Pricable`; the same pricable feeds both `credit01` (hazard bump) and `dv01`
+    (rate bump) — a CDS now has rate risk *and* credit risk through one interface.
+  - CDS pricing is behaviour-preserving (all prior oracles green).
+  - Oracle: survival lives on the snapshot; `bump_hazard` moves only the credit
+    curve; buyer credit01 > 0, seller = -buyer; matches an independent hazard FD;
+    the CDS pricable also yields a non-zero rate dv01.
+
 ## [0.8.0] - 2026-07-13
 
 ### Added
