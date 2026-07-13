@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-13
+
+### Added
+- **FX — FX forward (first FX slice).**
+  - `products/fx_forward.py`: `FXForward` (frozen pure data — base leg, quote leg,
+    maturity, buy/sell) and an `fx_forward(...)` builder taking a strike.
+  - `models/fx_model.py`: `FXForwardModel(market, base_curve, spot)` — the quote-
+    currency market + the base-currency curve + spot (quote per base).
+  - `engine/fx_forward.py`: `FXForwardEngine` — values both legs in the quote
+    currency by covered interest parity; buyer PV = base leg − quote leg; a matured
+    forward settles to 0 (A2).
+  - Oracle: a par forward (struck at `F = spot·DF_base/DF_quote`) prices to zero;
+    PV matches CIP; sell = −buy; below-forward strike is valuable to the buyer;
+    matured forward settles.
+
+### Deferred
+- Promote FX market data (base curve + spot) into the `MarketSnapshot` and unify
+  FX greeks (delta, per-currency rate risk) on the `Priceable` protocol — the
+  §5.1 follow-up, exactly as the CDS survival curve was promoted (multi-currency
+  snapshot: curves keyed by currency + FX spots).
+- FX options, NDFs, and a real `CurrencyPair`/quoting-convention type.
+
 ## [0.9.1] - 2026-07-13
 
 ### Changed
