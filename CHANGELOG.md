@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-13
+
+### Added
+- **CDS credit01 / CS01** (`risk/credit_greeks.py`) — CDS PV sensitivity to a 1bp
+  parallel credit-spread (hazard) shift, by central finite difference: `bump_hazard`
+  scales each survival pillar by `exp(-dh*t)`, rebuilds the `CreditModel`, reprices.
+  The hazard analogue of `dv01` (which bumps the discount rate).
+  - Oracle: `bump_hazard` shifts each pillar by exactly `exp(-dh*t)` (anchor
+    unchanged); buyer credit01 > 0 (protection gains as credit worsens); seller =
+    -buyer; matches an independent hazard-bump central difference.
+
+### Deferred
+- Routing credit01 through a `survival -> PV` closure (like the `Pricable`
+  factories) — added when a second hazard-sensitive product exists; today CDS is
+  the only one, so it calls `CDSEngine` directly.
+
 ## [0.5.0] - 2026-07-13
 
 ### Added
