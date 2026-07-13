@@ -17,14 +17,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook_ng.market.snapshot import MarketSnapshot
-from pricebook_ng.market.survival_curve import SurvivalCurve
+from pricebook_ng.market.snapshot import MarketSnapshot, SurvivalHandle
 
 
 @dataclass(frozen=True)
 class CreditModel:
-    """Discounting market + calibrated hazard curve + recovery, for CDS pricing."""
+    """Discounting + hazard economy (both in the snapshot) + recovery, for CDS
+    pricing. The survival curve is market data reached through `market.survival_curve`
+    (ruling §5.1), so a credit greek bumps the snapshot and rebuilds the model."""
 
     market: MarketSnapshot
-    survival: SurvivalCurve
     recovery: float
+
+    @property
+    def survival(self) -> SurvivalHandle:
+        curve = self.market.survival_curve
+        if curve is None:
+            raise ValueError("CreditModel needs a survival curve on the snapshot")
+        return curve
