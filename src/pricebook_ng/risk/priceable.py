@@ -70,9 +70,3 @@ def credit_priceable(
     """Bind a credit product to a `CreditModel` built from the snapshot (discount +
     survival curve) and `recovery`; a rate or hazard bump rebuilds the model."""
     return Priceable(lambda snap: _pv(engine.price(product, CreditModel(snap, recovery), numerics)))
-
-
-def fx_forward_priceable(product: object, engine: object, numerics: NumericalConfig) -> Priceable:
-    """Bind an FX forward to the snapshot (which carries the FX curves + spots); a
-    spot or rate bump rebuilds the discounting model and reprices."""
-    return Priceable(lambda snap: _pv(engine.price(product, DiscountingModel(snap), numerics)))

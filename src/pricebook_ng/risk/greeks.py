@@ -88,3 +88,21 @@ def fx_delta(
     up = priceable(bump_fx_spot(snapshot, currency, h))
     down = priceable(bump_fx_spot(snapshot, currency, -h))
     return (up - down) / (2.0 * h)
+
+
+def bump_fx_vol(snapshot: MarketSnapshot, currency: Currency, dvol: float) -> MarketSnapshot:
+    """Shift the FX vol for `currency` by `dvol`, as a new snapshot (only that vol
+    moves)."""
+    vols = dict(snapshot.fx_vols)
+    vols[currency] = vols[currency] + dvol
+    return replace(snapshot, fx_vols=vols)
+
+
+def fx_vega(
+    priceable: Priceable, snapshot: MarketSnapshot, currency: Currency, numerics: NumericalConfig
+) -> float:
+    """PV change per unit move in the FX vol of `currency`, by central FD."""
+    h = numerics.fd_bump
+    up = priceable(bump_fx_vol(snapshot, currency, h))
+    down = priceable(bump_fx_vol(snapshot, currency, -h))
+    return (up - down) / (2.0 * h)
