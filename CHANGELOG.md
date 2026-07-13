@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-13
+
+### Changed
+- **FX market data promoted into `MarketSnapshot`** (ruling §5.1, closing the FX
+  loop as survival-in-snapshot did for credit). The snapshot now carries
+  `fx_curves` (foreign-currency curves) and `fx_spots` (home units per foreign
+  unit), keyed by currency. `FXForwardModel` is removed — the FX forward is a
+  linear product priced with a `DiscountingModel` over the snapshot; the engine
+  looks up the base curve/spot by the product's base currency and returns
+  `PricingFailure` if the FX market is absent.
+
+### Added
+- **FX greeks on the `Priceable` protocol.** `bump_fx_spot` + `fx_delta` (∂PV per
+  unit spot) in `risk/greeks.py`; `fx_forward_priceable` factory. The same FX
+  Priceable feeds both `fx_delta` (spot bump) and the generic `dv01` (quote-curve
+  bump).
+  - Oracle: FX data lives in the snapshot; `bump_fx_spot` moves only that spot;
+    `fx_delta` matches the analytic `base_notional·DF_base(T)`; sell = -buy; the
+    same Priceable gives a non-zero `dv01`.
+
+### Deferred
+- Base-currency rate risk (bump `fx_curves`), a currency→curve map replacing the
+  home/foreign split, FX options (Garman-Kohlhagen), and a `CurrencyPair` type.
+
 ## [0.10.0] - 2026-07-13
 
 ### Added

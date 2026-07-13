@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol, runtime_checkable
 
+from pricebook_ng.foundation.money import Currency
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
 
 
@@ -75,6 +76,11 @@ class MarketSnapshot:
     it (Amendment A1)."""
 
     valuation_date: date
-    discount_curve: CurveHandle
+    discount_curve: CurveHandle          # the home / valuation-currency curve
     fixings: FixingHistory = field(default_factory=FixingHistory)
     survival_curve: SurvivalHandle | None = None  # the credit curve (market data, §5.1)
+    # FX market data (§5.1): foreign-currency discount curves + spots (home units per
+    # foreign unit), keyed by foreign currency. A full currency->curve map is the
+    # eventual clean shape; this keeps the home curve as `discount_curve`.
+    fx_curves: dict[Currency, CurveHandle] = field(default_factory=dict)
+    fx_spots: dict[Currency, float] = field(default_factory=dict)
