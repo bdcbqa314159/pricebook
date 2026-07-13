@@ -67,7 +67,7 @@ bottom-up, and within a layer, simplest-oracle-first.
    MC engine convergence.
 6. **S6 — Credit: CDS + hazard bootstrap** → oracle: par-spread reprices to zero upfront;
    ISDA model cross-check.
-7. **S7 — Risk relocated to L5** (greeks/XVA on the `Pricable` protocol) → oracle: bump-
+7. **S7 — Risk relocated to L5** (greeks/XVA on the `Priceable` protocol) → oracle: bump-
    and-reprice greeks vs analytic where available; XVA vs simplified closed form.
 8. **S8+ — Remaining asset classes** (fx, equity, commodity, structured, crypto), each as
    its own slice set with per-payoff oracles, per the full-scope decision.

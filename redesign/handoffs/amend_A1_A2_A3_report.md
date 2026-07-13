@@ -89,8 +89,8 @@ suite: **88 tests green** at `verify.py tests --layer 6`; `acyclic` / `debt` / `
    needed.
 
 7. **L5 risk is still a stub.** Only `dv01` exists (bump-the-snapshot / rebuild-the-model /
-   reprice, now correct under A1). The spine's L5 (greeks/XVA/RWA on a `Pricable` protocol) is
-   unbuilt. **Ask:** is "relocate risk to L5 on the `Pricable` protocol" the next structural
+   reprice, now correct under A1). The spine's L5 (greeks/XVA/RWA on a `Priceable` protocol) is
+   unbuilt. **Ask:** is "relocate risk to L5 on the `Priceable` protocol" the next structural
    slice (original plan S7), ahead of more asset classes?
 
 ## 6. Quarry status

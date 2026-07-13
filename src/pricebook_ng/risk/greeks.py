@@ -1,16 +1,16 @@
-"""Greeks by bump-and-reprice on the Pricable protocol (L5).
+"""Greeks by bump-and-reprice on the Priceable protocol (L5).
 
-Generic over the product/model: a greek central-differences a `Pricable` under a
+Generic over the product/model: a greek central-differences a `Priceable` under a
 bump of the snapshot. `dv01` bumps the discount rate; `credit01` bumps the
 survival (hazard) curve — both market data on the snapshot (ruling §5.1), so the
-same `Pricable` and the same finite-difference core serve rate risk and credit
-risk. The bump rebuilds the model inside the pricable (Amendment A1).
+same `Priceable` and the same finite-difference core serve rate risk and credit
+risk. The bump rebuilds the model inside the priceable (Amendment A1).
 
 Provenance:
   quarry: python/pricebook/risk/ (bump-and-reprice greeks; ex-L3)
   source: redesign/02_spine.md (risk at L5, bump the snapshot re-run the engine)
   oracle: dv01 matches analytic (cashflow, bond); credit01 buyer>0, seller=-buyer
-  slice:  S00 (dv01); L5-risk (onto Pricable); survival-in-snapshot (credit01 unified)
+  slice:  S00 (dv01); L5-risk (onto Priceable); survival-in-snapshot (credit01 unified)
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.market.survival_curve import SurvivalCurve
-from pricebook_ng.risk.pricable import Pricable
+from pricebook_ng.risk.priceable import Priceable
 
 _ONE_BP = 1e-4
 _CURVE_DC = DayCountConvention.ACT_365_FIXED
@@ -52,20 +52,20 @@ def bump_hazard(snapshot: MarketSnapshot, dh: float) -> MarketSnapshot:
 
 
 def _bp_sensitivity(
-    pricable: Pricable, snapshot: MarketSnapshot, bump: _Bump, numerics: NumericalConfig
+    priceable: Priceable, snapshot: MarketSnapshot, bump: _Bump, numerics: NumericalConfig
 ) -> float:
     """PV change per 1bp, by central finite difference under `bump`."""
     h = numerics.fd_bump
-    up = pricable(bump(snapshot, h))
-    down = pricable(bump(snapshot, -h))
+    up = priceable(bump(snapshot, h))
+    down = priceable(bump(snapshot, -h))
     return (up - down) / (2.0 * h) * _ONE_BP
 
 
-def dv01(pricable: Pricable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
+def dv01(priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
     """PV change per 1bp parallel rate rise."""
-    return _bp_sensitivity(pricable, snapshot, bump_rate, numerics)
+    return _bp_sensitivity(priceable, snapshot, bump_rate, numerics)
 
 
-def credit01(pricable: Pricable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
+def credit01(priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
     """PV change per 1bp parallel credit-spread (hazard) widening (CS01)."""
-    return _bp_sensitivity(pricable, snapshot, bump_hazard, numerics)
+    return _bp_sensitivity(priceable, snapshot, bump_hazard, numerics)

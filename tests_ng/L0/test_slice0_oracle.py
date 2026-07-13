@@ -25,7 +25,7 @@ from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.risk.greeks import dv01
-from pricebook_ng.risk.pricable import discounting_pricable
+from pricebook_ng.risk.priceable import discounting_priceable
 from pricebook_ng.shell.booking import Trade, book
 
 # --- the fixture trade & market ------------------------------------------------
@@ -63,7 +63,7 @@ def test_risk_oracle_dv01_analytic_vs_fd():
     trade, market, numerics, engine = _setup()
     t = year_fraction(VALUATION, MATURITY, DC)
     analytic = -NOTIONAL * t * math.exp(-RATE * t) * 1e-4
-    fd = dv01(discounting_pricable(trade, engine, numerics), market, numerics)
+    fd = dv01(discounting_priceable(trade, engine, numerics), market, numerics)
     assert abs(fd - analytic) < 1e-6
 
 
@@ -71,7 +71,7 @@ def test_statelessness_reprice_byte_identical():
     trade, market, numerics, engine = _setup()
     first = engine.price(trade, DiscountingModel(market), numerics).pv.amount
     # a risk bump reprices under mutated snapshots; the original must be untouched
-    dv01(discounting_pricable(trade, engine, numerics), market, numerics)
+    dv01(discounting_priceable(trade, engine, numerics), market, numerics)
     second = engine.price(trade, DiscountingModel(market), numerics).pv.amount
     assert first == second  # same-process reproducibility: identical bits
     assert first.hex() == second.hex()

@@ -25,7 +25,7 @@ into it. The core never remembers; the shell never computes.
 
 ```
 L6  LIFECYCLE / BOOKING / PORTFOLIO   (stateful shell: trade=book of products, benefit table, P&L, desks)
-L5  RISK & CAPITAL                    (greeks · XVA · RWA — on the engine + Pricable protocol)
+L5  RISK & CAPITAL                    (greeks · XVA · RWA — on the engine + Priceable protocol)
 L4  ENGINES                           (the stateless heart: bind product+model → mark = future PV + accrued)
 L3  MODELS + CALIBRATION              (dynamics; calibrated to a MarketSnapshot, carry it)
 L2  PRODUCTS                          (pure-data product descriptions: legs, cashflows, payoffs)
@@ -39,7 +39,7 @@ per-commit acyclic check (Tarjan SCC on the import graph) — keep it green. If 
 needs an upward import, the design is wrong; fix the layering, not the check.
 
 **Three structural fixes to honour as entries migrate:**
-- `risk` lands at **L5** (above the engine), depends only on the engine + a `Pricable`
+- `risk` lands at **L5** (above the engine), depends only on the engine + a `Priceable`
   protocol — **no `isinstance`-on-instrument ladders.**
 - Calibration lands as a **unified front at L3** over per-family solvers.
 - The engine registry lands **inside L4** (no leaky top-level `registry.py`).
