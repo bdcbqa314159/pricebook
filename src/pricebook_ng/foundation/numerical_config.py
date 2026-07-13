@@ -21,7 +21,11 @@ class NumericalConfig:
     """Frozen numerical hyperparameters for a pricing run."""
 
     fd_bump: float = 1e-6  # central-difference step for finite-difference greeks
+    mc_paths: int = 50_000  # Monte-Carlo sample count
+    mc_seed: int = 12345    # RNG seed — fixed so MC is reproducible (referential transparency)
 
     def __post_init__(self) -> None:
         if self.fd_bump <= 0:
             raise ValueError(f"fd_bump must be > 0, got {self.fd_bump!r}")
+        if self.mc_paths <= 0:
+            raise ValueError(f"mc_paths must be > 0, got {self.mc_paths!r}")
