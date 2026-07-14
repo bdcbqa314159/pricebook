@@ -39,7 +39,8 @@ def _central_diff(
 # ---- rate risk on the home discount curve -------------------------------------
 def bump_rate(snapshot: MarketSnapshot, dr: float) -> MarketSnapshot:
     """Parallel shift of the home discount curve by `dr` (uses the curve's own
-    `bumped`; flat-curve shift today, pillar-wise for a bootstrapped curve later)."""
+    `bumped` — a rate shift for the flat curve, a uniform zero shift across every
+    pillar for a bootstrapped curve)."""
     return replace(snapshot, discount_curve=snapshot.discount_curve.bumped(dr))
 
 

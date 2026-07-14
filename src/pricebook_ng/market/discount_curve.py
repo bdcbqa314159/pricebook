@@ -18,7 +18,7 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py
   source: Hull, Options Futures & Other Derivatives ch.4; single-curve bootstrap
   oracle: inputs reprice to par (self-consistency) + closed-form deposit DFs < 1e-12
-  slice:  S03
+  slice:  S03; bootstrapped-dv01 (parallel-zero `bumped` for curve greeks)
 """
 
 from __future__ import annotations
@@ -80,6 +80,14 @@ class DiscountCurve:
             lo, hi = i - 1, i
         slope = (lns[hi] - lns[lo]) / (ts[hi] - ts[lo])
         return math.exp(lns[lo] + slope * (t - ts[lo]))
+
+    def bumped(self, shift: float) -> "DiscountCurve":
+        """Parallel zero-rate shift, as a new curve (for generic curve greeks /
+        dv01 on a bootstrapped curve): every pillar DF scales by exp(-shift*t), so
+        each continuously-compounded zero moves by `shift`. Log-linear interpolation
+        keeps the shift uniform between pillars (ln DF(t) -> ln DF(t) - shift*t)."""
+        pillars = tuple((d, df * math.exp(-shift * self._t(d))) for d, df in self.pillars)
+        return DiscountCurve(self.valuation_date, pillars)
 
 
 def bootstrap_discount_curve(
