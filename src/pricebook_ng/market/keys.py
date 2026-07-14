@@ -22,6 +22,7 @@ class AssetClass(Enum):
     FX = "FX"
     EQUITY = "EQUITY"
     CREDIT = "CREDIT"
+    CMDTY = "CMDTY"
 
 
 @dataclass(frozen=True)
