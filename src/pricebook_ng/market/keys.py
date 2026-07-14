@@ -23,6 +23,7 @@ class AssetClass(Enum):
     EQUITY = "EQUITY"
     CREDIT = "CREDIT"
     CMDTY = "CMDTY"
+    INFLATION = "INFLATION"
 
 
 @dataclass(frozen=True)
