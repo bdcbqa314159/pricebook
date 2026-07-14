@@ -93,9 +93,14 @@ mark; dirty = clean + accrued.
   inside hot numerical loops. Currency-mixing must be a type error where it matters.
 - **Instrument atom:** `Cashflow` (at L0), `Leg` = ordered cashflows + convention.
 - **Market (L1):** `Quote`/`QuoteId`/`QuoteKind`, immutable `MarketSnapshot` (carries the
-  `valuation_date`), `FixingHistory`. Curves are reached through a **`CurveHandle`**
-  protocol (`df(date)`, `survival(date)`) — higher layers depend on the capability, not the
-  concrete curve; **curves are never mutated in place.**
+  `valuation_date`). **All market-data curves are first-class in the snapshot** — discount,
+  projection, **survival/hazard**, vols — plus `FixingHistory`. Rule: *if risk bumps it, it
+  lives in the snapshot* (so credit greeks flow through the same `Priceable`/bump path as
+  rate greeks). Curves are reached through a **`CurveHandle`** protocol (`df(date)`,
+  `survival(date)`) — depend on the capability, not the concrete curve; **never mutated in
+  place.** A curve/model may expose closed-form **building blocks** (`df`, `RPV01`, `B(t,T)`,
+  zero-bond-option) reused upward; the **L4 engine composes them to price the product** —
+  "pricing lives in L4" governs *product* pricing, not every scalar of math.
 - **Models (L3):** a model is a **`CalibratedModel` bound to the `MarketSnapshot`** it was
   calibrated to (`model.market`). `DiscountingModel` wraps a curve for linear products. The
   engine depends on the model; market is reached through it, never passed alongside.
@@ -143,7 +148,10 @@ mark; dirty = clean + accrued.
   proves it against a known value: closed form > QuantLib/ISDA cross-check >
   self-consistency (reprice to par / zero NPV) > trusted mark. "Runs and looks right" is
   not an oracle.
-- **Bottom-up.** An entry lands only if everything it depends on has landed.
+- **Demand-driven (vertical).** Slices pull quarry entries as they need them
+  (`ng-migration-mode`); an entry still lands only after everything it depends on has landed,
+  but the quarry empties by demand, not by exhaustively finishing a layer first. Progress is
+  tracked via each build report's ledger-deltas table.
 - **Provenance.** Each landed entry records: quarry path, the paper/book/model it
   implements, and its oracle. (Educational constraint — keep it legible.)
 

@@ -287,4 +287,39 @@ past (settle → benefit table), current (accrue), future (price). No raise.
 
 **Risk** perturbs the snapshot and rebuilds the model (A1), then reprices — consistent across
 PV / greeks / XVA / RWA.
+
+## Amendment A4 (2026-07) — rulings from the v0.2–v0.8 build reports
+
+Ratified from `redesign/handoffs/amend_A1_A2_A3_report.md` §5 and
+`forward_v0.3-v0.8_report.md` §5.
+
+**A4.1 — Migration is demand-driven (vertical).** Confirmed. Slices pull quarry entries as
+they need them (`ng-migration-mode`); the quarry empties by demand, not layer-by-layer. Progress
+is tracked via each report's *ledger-deltas* table, not a pre-ruled per-layer ledger. The
+L0/L1 ledger cockpit is retired as the primary tracker (kept only as reference).
+
+**A4.2 — Market data curves are ALL first-class in `MarketSnapshot`.** The
+survival/hazard curve **is** market data → it moves out of `CreditModel` into the
+`MarketSnapshot` (alongside `discount_curve` + `FixingHistory`). `CreditModel` is *built
+from* it (A1). Consequence: credit greeks (`credit01`) flow through the **same `Priceable`
+/ bump-the-snapshot** path as `dv01` — one greek machinery, no per-family bypass. Rule of
+thumb: *if risk bumps it, it lives in the snapshot.*
+
+**A4.3 — Building-block math may live at the layer that owns the curve/dynamics; the engine
+composes.** Ratified boundary: a **curve** (L1) may expose closed-form building blocks
+(`df`, `RPV01`, `cds_par_spread`), and a **model** (L3) may expose analytic blocks (`B(t,T)`,
+zero-bond-option) — reused upward. The **L4 engine composes these to price the product**;
+the **product stays pure data** and never prices itself. "Pricing lives in L4" governs
+*product* pricing (the binding of product+model), not every scalar of math. Mirrors
+QuantLib; avoids duplicating or inverting the bootstrap's dependency direction.
+
+**A4.4 — Confirmed defaults (simplicity-aligned).**
+- **Engine/model registry** lands with the **first genuinely mixed trade / multi-method
+  product**, not before (open question #3 stays open until then).
+- **`PricingResult`** grows its per-cashflow breakdown / sensitivities / diagnostics
+  **on demand** (a consumer arrives), not speculatively.
+- **Demand-migrate the minimum**: pulling `random.Random` instead of the quarry MC toolkit
+  is correct; migrate the smallest thing that satisfies the oracle.
+- **Clean/dirty semantics**: `accrued` is **nominal (undiscounted)**; `clean = dirty −
+  accrued` (market convention). Ratified.
 ```
