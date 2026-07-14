@@ -322,4 +322,45 @@ QuantLib; avoids duplicating or inverting the bootstrap's dependency direction.
   is correct; migrate the smallest thing that satisfies the oracle.
 - **Clean/dirty semantics**: `accrued` is **nominal (undiscounted)**; `clean = dirty −
   accrued` (market convention). Ratified.
+
+## Amendment A5 (2026-07) — `MarketSnapshot` internal shape: keyed registry
+
+Ratified from `redesign/handoffs/decision_market_data_shape.md`. A4.2 ruled *what* lives in
+the snapshot; this rules *how it's shaped*. **Option C, adopted now (before commodity).**
+
+**Why now (not speculative):** §6b introduces an abstraction *when the second real consumer
+arrives*. FX was the first "spot/vol/curve keyed by an underlying"; **equity is the second**,
+so the rule-of-two is satisfied — C now is the rule firing on schedule, not early. The real
+prize is **greek de-duplication** (one `bump_spot`/`bump_vol`/`spot_delta`/`vol_vega` instead
+of per-asset copies — killing the copy-paste bug class), plus namespacing that removes the
+latent `Currency "EUR"` vs ticker `"EUR"` collision.
+
+**The shape:**
+```python
+class AssetClass(Enum): FX; EQUITY; CREDIT; CMDTY; INFLATION; ...   # closed dimension, typed
+@dataclass(frozen=True)
+class MarketKey: asset: AssetClass; id: str      # id open: ccy / ticker / issuer
+
+@dataclass(frozen=True)
+class MarketSnapshot:
+    valuation_date: date
+    discount_curve: CurveHandle                  # HOME NUMERAIRE — stays special (structural)
+    fixings: FixingHistory = ...
+    curves: dict[MarketKey, CurveHandle] = {}    # survival, dividend, foreign-discount, projection
+    spots:  dict[MarketKey, float] = {}          # FX + equity + commodity spots
+    vols:   dict[MarketKey, float] = {}          # flat vols
+```
+
+**Rulings:**
+- **A5.1** — `discount_curve` (home numeraire) stays a **named field** (always present, what
+  valuation-date discounting uses); it is not per-asset risk data.
+- **A5.2** — `survival_curve`, `fx_*`, `equity_*`, and foreign-discount curves **fold into the
+  keyed maps**. Folding survival *adds* capability (multi-issuer, vs today's single `Optional`).
+- **A5.3** — `MarketKey(asset: AssetClass, id: str)` — enum namespace (typed/exhaustive) + open
+  string id.
+- **A5.4** — greeks collapse to one generic each (`bump_spot`/`bump_vol`/`bump_curve`,
+  `spot_delta`/`vol_vega`) on the `Priceable` path; the per-asset `fx_*`/`equity_*` variants are
+  deleted.
+- **Timing/oracle** — its own **behaviour-preserving** slice guarded by the existing FX/equity/
+  credit oracles (PVs + greeks byte-identical); commodity then lands with *no* snapshot edits.
 ```

@@ -93,12 +93,14 @@ mark; dirty = clean + accrued.
   inside hot numerical loops. Currency-mixing must be a type error where it matters.
 - **Instrument atom:** `Cashflow` (at L0), `Leg` = ordered cashflows + convention.
 - **Market (L1):** `Quote`/`QuoteId`/`QuoteKind`, immutable `MarketSnapshot` (carries the
-  `valuation_date`). **All market-data curves are first-class in the snapshot** — discount,
-  projection, **survival/hazard**, vols — plus `FixingHistory`. Rule: *if risk bumps it, it
-  lives in the snapshot* (so credit greeks flow through the same `Priceable`/bump path as
-  rate greeks). Curves are reached through a **`CurveHandle`** protocol (`df(date)`,
-  `survival(date)`) — depend on the capability, not the concrete curve; **never mutated in
-  place.** A curve/model may expose closed-form **building blocks** (`df`, `RPV01`, `B(t,T)`,
+  `valuation_date`). **All market data is first-class in the snapshot** (rule: *if risk bumps
+  it, it lives in the snapshot*), shaped as a **keyed registry** (Amendment A5): the home
+  `discount_curve` stays a named field (numeraire), everything else lives in
+  `curves`/`spots`/`vols` maps keyed by `MarketKey(asset: AssetClass, id: str)` — survival,
+  dividend, foreign-discount, FX/equity/commodity spots & vols. A new asset class adds *keys,
+  not fields*, and greeks are generic (`bump_spot`/`vol_vega`…), not per-asset. Curves are
+  reached through a **`CurveHandle`** protocol (`df`, `survival`) — depend on the capability,
+  not the concrete curve; **never mutated in place.** A curve/model may expose closed-form **building blocks** (`df`, `RPV01`, `B(t,T)`,
   zero-bond-option) reused upward; the **L4 engine composes them to price the product** —
   "pricing lives in L4" governs *product* pricing, not every scalar of math.
 - **Models (L3):** a model is a **`CalibratedModel` bound to the `MarketSnapshot`** it was
