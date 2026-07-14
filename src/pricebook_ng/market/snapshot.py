@@ -85,3 +85,7 @@ class MarketSnapshot:
     fx_curves: dict[Currency, CurveHandle] = field(default_factory=dict)
     fx_spots: dict[Currency, float] = field(default_factory=dict)
     fx_vols: dict[Currency, float] = field(default_factory=dict)   # flat FX vol per pair
+    # Equity market data, keyed by ticker: spot, dividend/repo discount curve, flat vol.
+    equity_spots: dict[str, float] = field(default_factory=dict)
+    equity_div_curves: dict[str, CurveHandle] = field(default_factory=dict)
+    equity_vols: dict[str, float] = field(default_factory=dict)

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 
-from pricebook_ng.foundation.distributions import norm_cdf
+from pricebook_ng.foundation.black import black_76
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
@@ -53,15 +53,5 @@ class FXOptionEngine:
         t = year_fraction(market.valuation_date, option.maturity, _CURVE_DC)
         std = vol * math.sqrt(t)
 
-        if std < 1e-15:  # expired / zero vol -> discounted intrinsic
-            intrinsic = fwd - strike if option.is_call else strike - fwd
-            per_base = df_quote * max(intrinsic, 0.0)
-        else:
-            d1 = (math.log(fwd / strike) + 0.5 * std * std) / std
-            d2 = d1 - std
-            if option.is_call:
-                per_base = df_quote * (fwd * norm_cdf(d1) - strike * norm_cdf(d2))
-            else:
-                per_base = df_quote * (strike * norm_cdf(-d2) - fwd * norm_cdf(-d1))
-
+        per_base = black_76(fwd, strike, df_quote, std, option.is_call)
         return PricingResult(pv=Money(notional * per_base, quote_ccy))
