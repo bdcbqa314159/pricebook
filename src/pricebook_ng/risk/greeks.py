@@ -16,19 +16,15 @@ Provenance:
 
 from __future__ import annotations
 
-import math
 from collections.abc import Callable
 from dataclasses import replace
 
 from pricebook_ng.foundation.numerical_config import NumericalConfig
-from pricebook_ng.foundation.time import DayCountConvention, year_fraction
 from pricebook_ng.market.keys import MarketKey
 from pricebook_ng.market.snapshot import MarketSnapshot
-from pricebook_ng.market.survival_curve import SurvivalCurve
 from pricebook_ng.risk.priceable import Priceable
 
 _ONE_BP = 1e-4
-_CURVE_DC = DayCountConvention.ACT_365_FIXED
 _Bump = Callable[[MarketSnapshot, float], MarketSnapshot]
 
 
@@ -40,41 +36,43 @@ def _central_diff(
     return (priceable(bump(snapshot, h)) - priceable(bump(snapshot, -h))) / (2.0 * h)
 
 
-# ---- rate risk (home discount curve) ------------------------------------------
+# ---- rate risk on the home discount curve -------------------------------------
 def bump_rate(snapshot: MarketSnapshot, dr: float) -> MarketSnapshot:
-    """Parallel shift of the (flat) home discount curve by `dr`.
-
-    ponytail: single-rate parallel shift for the flat curve; a pillar-wise shift of
-    a bootstrapped curve is a later greek slice, behind the same protocol."""
-    curve = snapshot.discount_curve
-    return replace(snapshot, discount_curve=replace(curve, rate=curve.rate + dr))
+    """Parallel shift of the home discount curve by `dr` (uses the curve's own
+    `bumped`; flat-curve shift today, pillar-wise for a bootstrapped curve later)."""
+    return replace(snapshot, discount_curve=snapshot.discount_curve.bumped(dr))
 
 
 def dv01(priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
-    """PV change per 1bp parallel rate rise."""
+    """PV change per 1bp parallel rate rise on the home discount curve."""
     return _central_diff(priceable, snapshot, bump_rate, numerics) * _ONE_BP
 
 
-# ---- credit risk (a survival curve in the registry) ---------------------------
-def bump_hazard(snapshot: MarketSnapshot, key: MarketKey, dh: float) -> MarketSnapshot:
-    """Parallel hazard shift of the survival curve at `key`: scale each pillar by
-    exp(-dh*t), as a new snapshot."""
-    survival = snapshot.curves[key]
-    assert isinstance(survival, SurvivalCurve)
-    v = survival.valuation_date
-    pillars = tuple(
-        (d, q * math.exp(-dh * year_fraction(v, d, _CURVE_DC))) for d, q in survival.pillars
-    )
+# ---- generic curve risk on any keyed curve (A5-style: FX foreign, dividend,
+#      real/breakeven, survival) ------------------------------------------------
+def bump_curve(snapshot: MarketSnapshot, key: MarketKey, shift: float) -> MarketSnapshot:
+    """Parallel-shift the curve at `key` by `shift`, as a new snapshot — polymorphic
+    via the curve's own `bumped` (rate for a discount curve, hazard for a survival
+    curve)."""
     curves = dict(snapshot.curves)
-    curves[key] = replace(survival, pillars=pillars)
+    curves[key] = snapshot.curves[key].bumped(shift)
     return replace(snapshot, curves=curves)
+
+
+def curve01(
+    priceable: Priceable, snapshot: MarketSnapshot, key: MarketKey, numerics: NumericalConfig
+) -> float:
+    """PV change per 1bp parallel shift of the curve at `key` — rate risk on the FX
+    foreign / dividend / real (breakeven) curve, or CS01 on a survival curve."""
+    return _central_diff(priceable, snapshot, lambda s, d: bump_curve(s, key, d), numerics) * _ONE_BP
 
 
 def credit01(
     priceable: Priceable, snapshot: MarketSnapshot, key: MarketKey, numerics: NumericalConfig
 ) -> float:
-    """PV change per 1bp parallel credit-spread (hazard) widening on `key` (CS01)."""
-    return _central_diff(priceable, snapshot, lambda s, d: bump_hazard(s, key, d), numerics) * _ONE_BP
+    """CS01 — PV change per 1bp hazard widening. A named alias of `curve01` on a
+    survival curve (bumping a survival curve shifts its hazard)."""
+    return curve01(priceable, snapshot, key, numerics)
 
 
 # ---- spot & vol risk (generic over MarketKey, A5) -----------------------------

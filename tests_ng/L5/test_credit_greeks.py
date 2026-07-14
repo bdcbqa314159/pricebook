@@ -22,7 +22,7 @@ from pricebook_ng.products.cds import cds
 from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.market.survival_curve import CDSQuote, bootstrap_survival_curve
-from pricebook_ng.risk.greeks import bump_hazard, credit01, dv01
+from pricebook_ng.risk.greeks import bump_curve, credit01, dv01
 from pricebook_ng.risk.priceable import credit_priceable
 
 CCY = Currency.USD
@@ -59,7 +59,7 @@ def test_survival_curve_lives_in_snapshot():
 
 
 def test_bump_hazard_shifts_only_the_survival_curve():
-    bumped = bump_hazard(MARKET, CREDIT_KEY, 0.001)
+    bumped = bump_curve(MARKET, CREDIT_KEY, 0.001)
     assert bumped.curves[CREDIT_KEY].survival(MATURITY) < SURVIVAL.survival(MATURITY)
     assert bumped.discount_curve is MARKET.discount_curve  # rates untouched
 

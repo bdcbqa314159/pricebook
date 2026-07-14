@@ -80,6 +80,15 @@ class SurvivalCurve:
         the credit-risky discount-factor curve, so it lives in `curves`."""
         return self.survival(d)
 
+    def bumped(self, shift: float) -> "SurvivalCurve":
+        """Parallel hazard shift: scale each survival pillar by exp(-shift*t), as a
+        new curve — the credit analogue of a rate shift (for generic curve greeks)."""
+        pillars = tuple(
+            (d, q * math.exp(-shift * year_fraction(self.valuation_date, d, _CURVE_DC)))
+            for d, q in self.pillars
+        )
+        return SurvivalCurve(self.valuation_date, pillars)
+
 
 def _rpv01(discount: CurveHandle, survival: SurvivalCurve, schedule: list[date]) -> float:
     return sum(

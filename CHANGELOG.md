@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-07-14
+
+### Added
+- **Generic curve greeks** (completes the A5 unification for curves). `curve01` /
+  `bump_curve` in `risk/greeks.py` — parallel-shift the curve at a `MarketKey` and
+  reprice, whatever the curve type. This gives rate risk on the **FX foreign curve**,
+  the **inflation real/breakeven curve** (and dividend/carry) for free.
+  - Curves gained a polymorphic `bumped(shift)`: `FlatDiscountCurve` shifts its rate,
+    `SurvivalCurve` shifts its hazard (`Q -> Q·exp(-shift·t)`). `bump_curve` dispatches
+    through it (no `isinstance`).
+  - `credit01` is now a named alias of `curve01` on a survival key; `bump_hazard` is
+    folded into `SurvivalCurve.bumped`. `dv01`/`bump_rate` use the same `bumped`.
+  - Oracle: `curve01` on the FX foreign curve matches `-base·spot·T·DF_base·1e-4`; on
+    the inflation real curve matches `notional·(-T·DF_real)·1e-4`; `credit01 == curve01`
+    on a survival key; `bump_curve` shifts only the keyed curve.
+
+### Deferred
+- Pillar-wise / key-rate bumps for a **bootstrapped** curve (today `bumped` is a flat
+  rate shift); home-discount `dv01` still assumes the flat curve.
+
 ## [0.18.0] - 2026-07-14
 
 ### Added

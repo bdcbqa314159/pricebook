@@ -18,7 +18,7 @@ Provenance:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Protocol, runtime_checkable
 
@@ -46,6 +46,10 @@ class FlatDiscountCurve:
     def df(self, d: date) -> float:
         t = year_fraction(self.anchor, d, self.day_count)
         return math.exp(-self.rate * t)
+
+    def bumped(self, shift: float) -> "FlatDiscountCurve":
+        """Parallel rate shift, as a new curve (for generic keyed curve greeks)."""
+        return replace(self, rate=self.rate + shift)
 
 
 @dataclass(frozen=True)
