@@ -21,6 +21,7 @@ from __future__ import annotations
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.models.discounting_model import CalibratedModel
 from pricebook_ng.products.fx_forward import FXForward
 
@@ -37,8 +38,9 @@ class FXForwardEngine:
         if fx.maturity <= market.valuation_date:
             return PricingResult(pv=Money(0.0, quote_ccy))  # exchange settled (A2)
 
-        base_curve = market.fx_curves.get(base_ccy)
-        spot = market.fx_spots.get(base_ccy)
+        key = MarketKey(AssetClass.FX, base_ccy.value)
+        base_curve = market.curves.get(key)
+        spot = market.spots.get(key)
         if base_curve is None or spot is None:
             return PricingFailure(f"no FX market (curve/spot) for {base_ccy}")
 

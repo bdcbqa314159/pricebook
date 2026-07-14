@@ -19,6 +19,7 @@ from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.engine.fx_forward import FXForwardEngine
 from pricebook_ng.products.fx_forward import FXForward, fx_forward
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.models.discounting_model import DiscountingModel
 
 EUR, USD = Currency.EUR, Currency.USD
@@ -36,7 +37,7 @@ def _curve(rate):
 def _market(quote_rate=0.03, base_rate=0.01, spot=SPOT):
     return MarketSnapshot(
         valuation_date=D0, discount_curve=_curve(quote_rate),   # USD (quote/home) curve
-        fx_curves={EUR: _curve(base_rate)}, fx_spots={EUR: spot},
+        curves={MarketKey(AssetClass.FX, EUR.value): _curve(base_rate)}, spots={MarketKey(AssetClass.FX, EUR.value): spot},
     )
 
 
@@ -45,7 +46,7 @@ def _price(fwd, market):
 
 
 def _fwd_rate(market, maturity=MATURITY):
-    return market.fx_spots[EUR] * market.fx_curves[EUR].df(maturity) / market.discount_curve.df(maturity)
+    return market.spots[MarketKey(AssetClass.FX, EUR.value)] * market.curves[MarketKey(AssetClass.FX, EUR.value)].df(maturity) / market.discount_curve.df(maturity)
 
 
 def _fwd(strike, maturity=MATURITY):
@@ -63,7 +64,7 @@ def test_par_fx_forward_prices_to_zero():
 def test_pv_matches_covered_interest_parity():
     market = _market()
     strike = 1.15
-    expected = (NOTIONAL * SPOT * market.fx_curves[EUR].df(MATURITY)
+    expected = (NOTIONAL * SPOT * market.curves[MarketKey(AssetClass.FX, EUR.value)].df(MATURITY)
                 - NOTIONAL * strike * market.discount_curve.df(MATURITY))
     assert _price(_fwd(strike), market).pv.amount == pytest.approx(expected, abs=1e-6)
 

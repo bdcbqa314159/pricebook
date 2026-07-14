@@ -22,6 +22,7 @@ from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.engine.equity_option import EquityOptionEngine
 from pricebook_ng.products.equity_option import EquityOption
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.models.discounting_model import DiscountingModel
 
 USD = Currency.USD
@@ -40,13 +41,12 @@ def _curve(rate):
 def _market(vol=VOL):
     return MarketSnapshot(
         valuation_date=D0, discount_curve=_curve(0.04),
-        equity_spots={TICKER: SPOT}, equity_div_curves={TICKER: _curve(0.02)},
-        equity_vols={TICKER: vol},
+        curves={MarketKey(AssetClass.EQUITY, TICKER): _curve(0.02)}, spots={MarketKey(AssetClass.EQUITY, TICKER): SPOT}, vols={MarketKey(AssetClass.EQUITY, TICKER): vol},
     )
 
 
 def _fwd(market):
-    return SPOT * market.equity_div_curves[TICKER].df(MATURITY) / market.discount_curve.df(MATURITY)
+    return SPOT * market.curves[MarketKey(AssetClass.EQUITY, TICKER)].df(MATURITY) / market.discount_curve.df(MATURITY)
 
 
 def _opt(strike, is_call=True):

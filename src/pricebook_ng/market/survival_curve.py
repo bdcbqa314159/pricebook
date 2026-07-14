@@ -75,6 +75,11 @@ class SurvivalCurve:
         slope = (lns[hi] - lns[lo]) / (ts[hi] - ts[lo])
         return math.exp(lns[lo] + slope * (t - ts[lo]))
 
+    def df(self, d: date) -> float:
+        """Survival probability as a `CurveHandle` factor (A5): a hazard curve is
+        the credit-risky discount-factor curve, so it lives in `curves`."""
+        return self.survival(d)
+
 
 def _rpv01(discount: CurveHandle, survival: SurvivalCurve, schedule: list[date]) -> float:
     return sum(

@@ -25,6 +25,7 @@ from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.models.discounting_model import CalibratedModel
 from pricebook_ng.products.equity_option import EquityOption
 
@@ -42,9 +43,10 @@ class EquityOptionEngine:
         if option.maturity <= market.valuation_date:
             return PricingResult(pv=Money(0.0, option.currency))  # expired
 
-        spot = market.equity_spots.get(ticker)
-        div_curve = market.equity_div_curves.get(ticker)
-        vol = market.equity_vols.get(ticker)
+        key = MarketKey(AssetClass.EQUITY, ticker)
+        spot = market.spots.get(key)
+        div_curve = market.curves.get(key)
+        vol = market.vols.get(key)
         if spot is None or div_curve is None or vol is None:
             return PricingFailure(f"no equity market (spot/div/vol) for {ticker!r}")
 
