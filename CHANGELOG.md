@@ -6,6 +6,18 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-14
+
+### Added
+- **FX vega** — `bump_fx_vol` + `fx_vega` (∂PV per unit FX vol) in `risk/greeks.py`,
+  on the same `Priceable` protocol as `fx_delta`/`dv01`. Oracle: `bump_fx_vol` moves
+  only that vol; `fx_vega` matches the analytic Black vega
+  `notional·DF_quote·F·φ(d1)·√T`; a long option is long vol (vega > 0).
+
+### Changed
+- Removed `fx_forward_priceable` — it was byte-identical to `discounting_priceable`;
+  all FX products (forward + option) now bind via `discounting_priceable`.
+
 ## [0.12.0] - 2026-07-14
 
 ### Added
