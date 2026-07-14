@@ -107,6 +107,26 @@ S08 last (the L6 benefit table consumes the core's segment-and-settle output).
 
 ---
 
+## Build reality (2026-07) — this provisional numbering is superseded
+
+The build went **demand-driven and vertical** (A4.1) with **descriptive branch names**, not
+S-numbers. The provisional S1–S8 above are indicative only. What actually landed (per the
+handoff reports), newest last:
+
+```
+walking-skeleton → day-count → calendar/schedule → discount-curve-bootstrap → fixed-rate-bond
+→ signature-discipline → vanilla-irs → hull-white → hw-swaption               (→ v0.0.10)
+amend-model-only → amend-temporal → amend-hierarchy   (A1/A2/A3)              (→ v0.2.0)
+risk-to-l5 (Priceable) → credit-hazard-bootstrap → cds-product → cds-credit01
+→ swaption-mc → float-leg-fixings                                            (→ v0.8.0)
+fx-forward → fx-in-snapshot → fx-option → fx-vega                            (→ v0.13.0)
+```
+
+Provenance is tagged by descriptive id, not S-number. Treat the slice *plan* as a backlog of
+candidate work, not a ledger of what happened — the reports are the record.
+
+---
+
 ## Slice discipline (the bar, restated)
 - One vertical cut; touches only the layers it needs; nothing speculative.
 - Ships green against a named oracle before it counts as done.
