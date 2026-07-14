@@ -6,6 +6,19 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-07-14
+
+### Added
+- **Bootstrapped-curve dv01.** `DiscountCurve.bumped(shift)` — a parallel zero-rate
+  shift (`DF -> DF·exp(-shift·t)` at every pillar), so log-linear interpolation keeps
+  the shift uniform between pillars. `dv01`/`curve01` now compute rate risk on a real
+  **bootstrapped** discount curve, not only the flat curve — closing the gap noted when
+  generic curve greeks landed. Same shape as `SurvivalCurve.bumped`; `bump_rate` /
+  `bump_curve` dispatch through it polymorphically (no `isinstance`).
+  - Oracle: `dv01 = -1bp·Σ cf_i·t_i·DF_boot(t_i)` (analytic vs central-difference on the
+    actual bumped curve); plus a check that every pillar's zero rose by exactly `shift`.
+  - quarry: `python/pricebook/core/discount_curve.py` · slice: `bootstrapped-dv01`
+
 ## [0.19.0] - 2026-07-14
 
 ### Added
