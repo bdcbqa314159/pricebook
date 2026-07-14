@@ -106,3 +106,37 @@ def fx_vega(
     up = priceable(bump_fx_vol(snapshot, currency, h))
     down = priceable(bump_fx_vol(snapshot, currency, -h))
     return (up - down) / (2.0 * h)
+
+
+def bump_equity_spot(snapshot: MarketSnapshot, ticker: str, ds: float) -> MarketSnapshot:
+    """Shift the equity spot for `ticker` by `ds`, as a new snapshot."""
+    spots = dict(snapshot.equity_spots)
+    spots[ticker] = spots[ticker] + ds
+    return replace(snapshot, equity_spots=spots)
+
+
+def bump_equity_vol(snapshot: MarketSnapshot, ticker: str, dvol: float) -> MarketSnapshot:
+    """Shift the equity vol for `ticker` by `dvol`, as a new snapshot."""
+    vols = dict(snapshot.equity_vols)
+    vols[ticker] = vols[ticker] + dvol
+    return replace(snapshot, equity_vols=vols)
+
+
+def equity_delta(
+    priceable: Priceable, snapshot: MarketSnapshot, ticker: str, numerics: NumericalConfig
+) -> float:
+    """PV change per unit move in the equity spot of `ticker`, by central FD."""
+    h = numerics.fd_bump
+    up = priceable(bump_equity_spot(snapshot, ticker, h))
+    down = priceable(bump_equity_spot(snapshot, ticker, -h))
+    return (up - down) / (2.0 * h)
+
+
+def equity_vega(
+    priceable: Priceable, snapshot: MarketSnapshot, ticker: str, numerics: NumericalConfig
+) -> float:
+    """PV change per unit move in the equity vol of `ticker`, by central FD."""
+    h = numerics.fd_bump
+    up = priceable(bump_equity_vol(snapshot, ticker, h))
+    down = priceable(bump_equity_vol(snapshot, ticker, -h))
+    return (up - down) / (2.0 * h)

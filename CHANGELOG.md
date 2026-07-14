@@ -6,6 +6,16 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-14
+
+### Added
+- **Equity greeks** — `bump_equity_spot` / `bump_equity_vol` + `equity_delta` /
+  `equity_vega` in `risk/greeks.py`, keyed by ticker, on the same `Priceable`
+  protocol as FX and rate greeks. Oracle: the bumps move only their field;
+  `equity_delta` matches the analytic BS delta `quantity·DF_div·N(d1)`; a put's
+  delta is negative; `equity_vega` matches the analytic Black vega
+  `quantity·DF_r·F·φ(d1)·√T`.
+
 ## [0.14.0] - 2026-07-14
 
 ### Added
