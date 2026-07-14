@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-07-14
+
+### Added
+- **Inflation — zero-coupon inflation swap (first inflation slice).**
+  - `products/inflation.py`: `ZeroCouponInflationSwap` (index, notional, fixed rate,
+    maturity, currency, receive/pay inflation), pure data.
+  - `engine/inflation.py`: `ZCISEngine` — the inflation forward index ratio
+    `I(T) = DF_real(T)/DF_r(T)` (Fisher), with the real curve keyed at
+    `MarketKey(INFLATION, index)`; receiver PV = `notional·DF_r·(I(T) − (1+K)^T)`.
+  - `AssetClass.INFLATION` (a real curve is the only new market data — another cheap
+    keyed asset class, A5).
+  - Oracle: par ZCIS (K = breakeven) reprices to zero; PV matches the formula;
+    receiver = −payer; below-breakeven fixed is valuable to the inflation receiver;
+    missing real curve fails.
+
+### Deferred
+- Year-on-year inflation swaps and inflation-linked bonds; a breakeven/inflation01
+  greek (bump the real curve, keyed — like `credit01`); seasonality; index lag.
+
 ## [0.17.0] - 2026-07-14
 
 ### Added
