@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-07-14
+
+### Added
+- **Commodity — European commodity option (first commodity slice).** The A5 keyed
+  registry made it cheap: `AssetClass.CMDTY` + a `CommodityOption` product + a thin
+  `CommodityOptionEngine`, and the **greeks are free** (the generic `spot_delta` /
+  `vol_vega` work with no new code — the whole point of A5).
+  - `engine/spot_option.py`: shared `price_spot_option(option, asset, model, numerics)`
+    — Black-Scholes on the forward `F = spot·DF_carry/DF_r`, keyed by
+    `MarketKey(asset, ticker)`. Behind both the equity (carry = dividends) and
+    commodity (carry = convenience yield net of storage) engines.
+  - **`EquityOptionEngine` refactored** onto the shared engine (rule of two;
+    behaviour-preserving — the equity oracles stay green).
+  - Oracle: put-call parity ties to the commodity forward; independent Black recompute;
+    `sigma -> 0` intrinsic; missing market fails; and a demonstration that `spot_delta`/
+    `vol_vega` price commodity greeks with no commodity-specific code.
+
+### Deferred
+- Commodity forward, seasonality/term-structure carry, futures vs spot, a vol surface.
+
 ## [0.16.0] - 2026-07-14
 
 ### Changed
