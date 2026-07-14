@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-07-14
+
+### Changed
+- **Amendment A5 — `MarketSnapshot` keyed market-data registry.** All market data
+  except the home `discount_curve` moves into `curves` / `spots` / `vols` maps keyed
+  by `MarketKey(asset: AssetClass, id: str)` (new `market/keys.py`).
+  - `survival_curve` / `fx_*` / `equity_*` fields are removed; folded into the maps.
+    Folding survival **adds multi-issuer** — a `CDS` now names its `issuer`, and the
+    engine looks up `curves[MarketKey(CREDIT, issuer)]`. `SurvivalCurve` gains a `df`
+    alias (a hazard curve is the credit-risky discount-factor curve), so it lives in
+    the same `curves` map as discount/dividend/foreign curves.
+  - **Greeks collapse to one generic each**: `bump_spot`/`bump_vol` +
+    `spot_delta`/`vol_vega` keyed by `MarketKey` — the per-asset `fx_delta`/`equity_delta`,
+    `fx_vega`/`equity_vega`, `bump_fx_*`/`bump_equity_*` are deleted. `credit01`/`bump_hazard`
+    are keyed by issuer. A new asset class now adds **keys, not fields, and no new greeks**.
+  - Behaviour-preserving: every FX/equity/credit/rates PV and greek is unchanged
+    (all prior oracles reused). New: a `MarketKey` namespacing test (FX "EUR" ≠ equity "EUR").
+  - `cds(...)` builder drops the schedule-terms arg (CDS premiums are annual ACT/360 by
+    convention) and takes `issuer` — stays within the 5-arg ceiling.
+
 ## [0.15.0] - 2026-07-14
 
 ### Added
