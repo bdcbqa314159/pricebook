@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
-from pricebook_ng.foundation.results import PricingResult
+from pricebook_ng.foundation.results import PricingFailure, PricingResult
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.survival_curve import cds_pv
 from pricebook_ng.models.credit_model import CreditModel
 from pricebook_ng.products.cds import CDS
@@ -24,10 +25,15 @@ from pricebook_ng.products.cds import CDS
 class CDSEngine:
     """Values a CDS via the survival-curve leg math."""
 
-    def price(self, cds: CDS, model: CreditModel, numerics: NumericalConfig) -> PricingResult:
+    def price(
+        self, cds: CDS, model: CreditModel, numerics: NumericalConfig
+    ) -> PricingResult | PricingFailure:
+        survival = model.market.curves.get(MarketKey(AssetClass.CREDIT, cds.issuer))
+        if survival is None:
+            return PricingFailure(f"no survival curve for issuer {cds.issuer!r}")
         buyer_pv = cds_pv(
             model.market.discount_curve,
-            model.survival,
+            survival,
             list(cds.premium_schedule),
             cds.spread,
             model.recovery,

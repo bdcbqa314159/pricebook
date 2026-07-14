@@ -12,7 +12,7 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py (re-homed core -> L1, minimal)
   source: Hull, Options Futures & Other Derivatives — continuous discounting
   oracle: df(t) = exp(-r t) closed form (drives the Slice 0 PV oracle)
-  slice:  S00; A1 (FixingHistory first-class); survival-in-snapshot (§5.1 credit curve)
+  slice:  S00; A1 (FixingHistory); survival-in-snapshot (§5.1); A5 (keyed registry)
 """
 
 from __future__ import annotations
@@ -22,24 +22,17 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol, runtime_checkable
 
-from pricebook_ng.foundation.money import Currency
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
+from pricebook_ng.market.keys import MarketKey
 
 
 @runtime_checkable
 class CurveHandle(Protocol):
-    """The capability higher layers depend on: a discount factor per date."""
+    """The capability higher layers depend on: a factor per date. `df` is the
+    discount factor for a discount curve, the survival probability for a hazard
+    curve — the same shape, so both live in the snapshot's `curves` map."""
 
     def df(self, d: date) -> float: ...
-
-
-@runtime_checkable
-class SurvivalHandle(Protocol):
-    """The credit-curve capability: a survival probability per date. Kept as a
-    protocol (not the concrete `SurvivalCurve`) so the snapshot avoids importing
-    the credit module — same pattern as `CurveHandle`."""
-
-    def survival(self, d: date) -> float: ...
 
 
 @dataclass(frozen=True)
@@ -76,16 +69,10 @@ class MarketSnapshot:
     it (Amendment A1)."""
 
     valuation_date: date
-    discount_curve: CurveHandle          # the home / valuation-currency curve
+    discount_curve: CurveHandle          # HOME NUMERAIRE — stays special (A5.1)
     fixings: FixingHistory = field(default_factory=FixingHistory)
-    survival_curve: SurvivalHandle | None = None  # the credit curve (market data, §5.1)
-    # FX market data (§5.1): foreign-currency discount curves + spots (home units per
-    # foreign unit), keyed by foreign currency. A full currency->curve map is the
-    # eventual clean shape; this keeps the home curve as `discount_curve`.
-    fx_curves: dict[Currency, CurveHandle] = field(default_factory=dict)
-    fx_spots: dict[Currency, float] = field(default_factory=dict)
-    fx_vols: dict[Currency, float] = field(default_factory=dict)   # flat FX vol per pair
-    # Equity market data, keyed by ticker: spot, dividend/repo discount curve, flat vol.
-    equity_spots: dict[str, float] = field(default_factory=dict)
-    equity_div_curves: dict[str, CurveHandle] = field(default_factory=dict)
-    equity_vols: dict[str, float] = field(default_factory=dict)
+    # Keyed registry (A5): all other market data, keyed by MarketKey(asset, id).
+    # curves = survival / dividend / foreign-discount / projection; spots + vols per key.
+    curves: dict[MarketKey, CurveHandle] = field(default_factory=dict)
+    spots: dict[MarketKey, float] = field(default_factory=dict)
+    vols: dict[MarketKey, float] = field(default_factory=dict)

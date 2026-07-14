@@ -12,15 +12,13 @@ from datetime import date
 
 import pytest
 
-from dataclasses import replace
-
 from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingResult
-from pricebook_ng.foundation.schedule import Frequency, ScheduleTerms
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.engine.cds import CDSEngine
 from pricebook_ng.products.cds import CDS, cds
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.market.survival_curve import CDSQuote, bootstrap_survival_curve, cds_pv
 from pricebook_ng.models.credit_model import CreditModel
@@ -28,6 +26,7 @@ from pricebook_ng.models.credit_model import CreditModel
 CCY = Currency.USD
 NOTIONAL = 10_000_000.0
 RECOVERY = 0.4
+ISSUER = "ACME_CO"
 D0 = date(2026, 1, 5)
 MATURITY_5Y = date(2031, 1, 5)
 PAR_5Y = 0.0200
@@ -42,13 +41,13 @@ QUOTES = [
     CDSQuote(MATURITY_5Y, PAR_5Y),
 ]
 SURVIVAL = bootstrap_survival_curve(_BARE, QUOTES, RECOVERY)
-MARKET = replace(_BARE, survival_curve=SURVIVAL)   # credit curve promoted into the snapshot
+CREDIT_KEY = MarketKey(AssetClass.CREDIT, ISSUER)
+MARKET = replace(_BARE, curves={CREDIT_KEY: SURVIVAL})   # survival keyed by issuer (A5)
 MODEL = CreditModel(market=MARKET, recovery=RECOVERY)
-TERMS = ScheduleTerms(Frequency.ANNUAL, DC.ACT_360)
 
 
 def _cds(spread, maturity=MATURITY_5Y):
-    return cds(face=Money(NOTIONAL, CCY), spread=spread, start=D0, maturity=maturity, terms=TERMS)
+    return cds(face=Money(NOTIONAL, CCY), issuer=ISSUER, spread=spread, start=D0, maturity=maturity)
 
 
 def test_par_cds_reprices_to_zero():

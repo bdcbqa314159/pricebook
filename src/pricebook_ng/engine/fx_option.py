@@ -24,6 +24,7 @@ from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.models.discounting_model import CalibratedModel
 from pricebook_ng.products.fx_option import FXOption
 
@@ -42,9 +43,10 @@ class FXOptionEngine:
         notional = option.base.amount
         strike = option.quote.amount / notional
 
-        base_curve = market.fx_curves.get(base_ccy)
-        spot = market.fx_spots.get(base_ccy)
-        vol = market.fx_vols.get(base_ccy)
+        key = MarketKey(AssetClass.FX, base_ccy.value)
+        base_curve = market.curves.get(key)
+        spot = market.spots.get(key)
+        vol = market.vols.get(key)
         if base_curve is None or spot is None or vol is None:
             return PricingFailure(f"no FX market (curve/spot/vol) for {base_ccy}")
 

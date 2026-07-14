@@ -23,6 +23,7 @@ from pricebook_ng.engine.fx_option import FXOptionEngine
 from pricebook_ng.products.fx_forward import fx_forward
 from pricebook_ng.products.fx_option import FXOption, fx_option
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.models.discounting_model import DiscountingModel
 
 EUR, USD = Currency.EUR, Currency.USD
@@ -41,12 +42,12 @@ def _curve(rate):
 def _market(vol=VOL):
     return MarketSnapshot(
         valuation_date=D0, discount_curve=_curve(0.03),
-        fx_curves={EUR: _curve(0.01)}, fx_spots={EUR: SPOT}, fx_vols={EUR: vol},
+        curves={MarketKey(AssetClass.FX, EUR.value): _curve(0.01)}, spots={MarketKey(AssetClass.FX, EUR.value): SPOT}, vols={MarketKey(AssetClass.FX, EUR.value): vol},
     )
 
 
 def _fwd_rate(market, maturity=MATURITY):
-    return market.fx_spots[EUR] * market.fx_curves[EUR].df(maturity) / market.discount_curve.df(maturity)
+    return market.spots[MarketKey(AssetClass.FX, EUR.value)] * market.curves[MarketKey(AssetClass.FX, EUR.value)].df(maturity) / market.discount_curve.df(maturity)
 
 
 def _opt(strike, is_call=True):
