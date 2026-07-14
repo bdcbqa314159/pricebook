@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-14
+
+### Added
+- **Equity — European equity option (Black-Scholes with dividends), first equity slice.**
+  - `products/equity_option.py`: `EquityOption` (frozen pure data — ticker, quantity,
+    strike, maturity, currency, call/put).
+  - `engine/equity_option.py`: `EquityOptionEngine` — Black-Scholes as Black-76 on the
+    equity forward `F = spot·DF_div/DF_r`, discounted by `DF_r`; `PricingFailure` if the
+    equity market is absent; expired → 0.
+  - `MarketSnapshot`: `equity_spots` / `equity_div_curves` / `equity_vols`, keyed by ticker.
+  - `foundation/black.py`: shared **`black_76`** primitive (option on a forward), used by
+    both the equity (BS) and FX (GK) engines.
+  - Oracle: put-call parity ties to the equity forward value; matches an independent Black
+    recompute; `sigma -> 0` intrinsic; ATM-forward call == put.
+
+### Changed
+- `FXOptionEngine` refactored onto the shared `black_76` (behaviour-preserving; GK oracle
+  stays green).
+
+### Deferred
+- Equity greeks (delta/vega, bump `equity_spots`/`equity_vols` through the `Priceable`);
+  foreign-listed equity (own currency curve); a real dividend schedule vs the flat repo
+  curve; a vol surface.
+
 ## [0.13.0] - 2026-07-14
 
 ### Added
