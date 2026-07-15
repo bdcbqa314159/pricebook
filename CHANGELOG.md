@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-07-15
+
+### Changed
+- **Rate & credit bootstraps migrated under the L3 calibration front.**
+  `bootstrap_discount_curve` and `bootstrap_survival_curve` move from `market/` (L1)
+  to `calibration/` (L3), joining `calibrate_hull_white` as the per-family solvers of
+  the unified front (`market -> calibrate -> model`). The curve *types*
+  (`DiscountCurve`, `SurvivalCurve`) and market observables (`DepositQuote`,
+  `ParSwapQuote`, `CDSQuote`) and CDS leg math (`cds_pv`, …) stay at L1 — quotes and
+  curves are market data, the *solvers* are calibration. Each bootstrap still reprices
+  with L1 closed forms (curve `df` / `cds_pv`), never the L4 engine, so `acyclic` stays
+  green with `calibration` at rank 3.
+  - Pure relocation guarded by the existing reprice-to-par / reprice-to-zero oracles
+    (their tests move `tests_ng/L1 -> L3` accordingly). No behaviour change; 174 green.
+  - Import path change: `from pricebook_ng.calibration.discount_curve import
+    bootstrap_discount_curve` (was `...market.discount_curve`); likewise survival.
+
 ## [0.22.0] - 2026-07-15
 
 ### Added
