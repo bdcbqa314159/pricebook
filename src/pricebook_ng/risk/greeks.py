@@ -11,13 +11,15 @@ Provenance:
   quarry: python/pricebook/risk/ (bump-and-reprice greeks; ex-L3)
   source: redesign/02_spine.md (risk at L5); Amendment A5 (generic greeks)
   oracle: dv01/credit01 analytic; spot_delta/vol_vega match FX & equity analytics
-  slice:  S00 (dv01); L5-risk; survival-in-snapshot; A5 (generic on MarketKey)
+  slice:  S00 (dv01); L5-risk; survival-in-snapshot; A5 (generic on MarketKey);
+          key-rate-buckets (bucketed dv01)
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+from datetime import date
 
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.market.keys import MarketKey
@@ -47,6 +49,26 @@ def bump_rate(snapshot: MarketSnapshot, dr: float) -> MarketSnapshot:
 def dv01(priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConfig) -> float:
     """PV change per 1bp parallel rate rise on the home discount curve."""
     return _central_diff(priceable, snapshot, bump_rate, numerics) * _ONE_BP
+
+
+def key_rate_dv01(
+    priceable: Priceable, snapshot: MarketSnapshot, numerics: NumericalConfig
+) -> list[tuple[date, float]]:
+    """Bucketed dv01: KR01 per pillar of the home bootstrapped curve — bump one
+    pillar's zero at a time and reprice. The buckets partition the parallel `dv01`
+    (Σ = dv01). Needs a pillar curve (`DiscountCurve`); a flat curve has no pillars."""
+    curve = snapshot.discount_curve
+    return [
+        (
+            curve.pillars[i][0],
+            _central_diff(
+                priceable, snapshot,
+                lambda s, x, i=i: replace(s, discount_curve=s.discount_curve.bump_pillar(i, x)),
+                numerics,
+            ) * _ONE_BP,
+        )
+        for i in range(1, len(curve.pillars))          # skip the anchor (t=0)
+    ]
 
 
 # ---- generic curve risk on any keyed curve (A5-style: FX foreign, dividend,

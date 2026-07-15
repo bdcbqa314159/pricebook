@@ -18,7 +18,7 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py
   source: Hull, Options Futures & Other Derivatives ch.4; single-curve bootstrap
   oracle: inputs reprice to par (self-consistency) + closed-form deposit DFs < 1e-12
-  slice:  S03; bootstrapped-dv01 (parallel-zero `bumped` for curve greeks)
+  slice:  S03; bootstrapped-dv01 (parallel-zero `bumped`); key-rate-buckets (`bump_pillar`)
 """
 
 from __future__ import annotations
@@ -87,6 +87,16 @@ class DiscountCurve:
         each continuously-compounded zero moves by `shift`. Log-linear interpolation
         keeps the shift uniform between pillars (ln DF(t) -> ln DF(t) - shift*t)."""
         pillars = tuple((d, df * math.exp(-shift * self._t(d))) for d, df in self.pillars)
+        return DiscountCurve(self.valuation_date, pillars)
+
+    def bump_pillar(self, i: int, shift: float) -> "DiscountCurve":
+        """Shift the zero at pillar `i` only (DF_i -> DF_i*exp(-shift*t_i)), the rest
+        fixed — one key-rate bucket. Log-linear interpolation tents the bump between
+        neighbours; bumping every pillar reproduces the parallel `bumped` (so the
+        buckets partition dv01)."""
+        d, df = self.pillars[i]
+        bumped = (d, df * math.exp(-shift * self._t(d)))
+        pillars = (*self.pillars[:i], bumped, *self.pillars[i + 1:])
         return DiscountCurve(self.valuation_date, pillars)
 
 
