@@ -9,13 +9,14 @@ differing only in the weight:
     BCVA = CVA - DVA                                            net credit charge
     FVA = s_F * sum_i (EPE_i - ENE_i) * DF_i * S_i * tau_i      funding of the position
     KVA = gamma_K * sum_i K_i * DF_i * S_i * tau_i              cost of regulatory capital
+    MVA = s_F * sum_i IM_i * DF_i * S_i * tau_i                 funding of initial margin
 
 CVA/DVA weight exposure by a *protection leg* — default increments `(Q_{i-1}-Q_i)`
-and `(1-R)`, exactly a CDS `cds_pv` at zero spread. FVA and KVA weight a profile by
-a *funding annuity* — a rate over each interval `S*tau`, exactly the CDS RPV01
-(FVA: funding spread on net exposure; KVA: cost of capital on the capital profile).
-Keyed to the survival curves in the snapshot (A5), so a credit bump
-(`bump_curve`/`credit01`) gives XVA sensitivity for free.
+and `(1-R)`, exactly a CDS `cds_pv` at zero spread. FVA, KVA and MVA weight a profile
+by a *funding annuity* — a rate over each interval `S*tau`, exactly the CDS RPV01
+(FVA: funding spread on net exposure; KVA: cost of capital on the capital profile;
+MVA: funding spread on the IM profile). Keyed to the survival curves in the snapshot
+(A5), so a credit bump (`bump_curve`/`credit01`) gives XVA sensitivity for free.
 
 Unilateral/independence scope: exposure and default independent (no wrong-way risk),
 no first-to-default survival weighting, symmetric funding spread. Exposure generation
@@ -24,8 +25,8 @@ no first-to-default survival weighting, symmetric funding spread. Exposure gener
 Provenance:
   quarry: python/pricebook/risk/ (xva)
   source: Gregory, The xVA Challenge; Brigo & Mercurio
-  oracle: unit-exposure CVA == protection leg; FVA/KVA == rate·RPV01; BCVA = CVA - DVA
-  slice:  cva (unilateral); bcva (DVA/bilateral); fva (funding); kva (capital)
+  oracle: unit-exposure CVA == protection leg; FVA/KVA/MVA == rate·RPV01; BCVA = CVA - DVA
+  slice:  cva (unilateral); bcva (DVA/bilateral); fva (funding); kva (capital); mva (margin)
 """
 
 from __future__ import annotations
@@ -148,12 +149,25 @@ def kva(
     return _annuity_adjustment(capital, snapshot, key, cost_of_capital)
 
 
+def mva(
+    im: ExposureProfile, snapshot: MarketSnapshot, key: MarketKey, funding_spread: float
+) -> float:
+    """Margin Valuation Adjustment — the funding cost of posting initial margin over the
+    trade's life: `MVA = s_F * Sum_i IM(t_i) * DF(t_i) * S(t_i) * tau_i`, the same survival-
+    weighted funding annuity as FVA/KVA with the IM profile in place of net exposure/capital.
+
+    `IM(t)` is an input: generating it — SIMM, or a dynamic MC-quantile IM over the margin
+    period of risk — is upstream, a later slice (as the exposure engine is upstream of CVA)."""
+    return _annuity_adjustment(im, snapshot, key, funding_spread)
+
+
 def _annuity_adjustment(
     profile: ExposureProfile, snapshot: MarketSnapshot, key: MarketKey, rate: float
 ) -> float:
     """`rate * Sum_i profile_i * DF(t_i) * S(t_i) * tau_i` — the survival-weighted annuity
-    shared by FVA (funding spread on net exposure) and KVA (cost of capital on the capital
-    profile). The CDS RPV01 structure, so unit profile gives `rate * RPV01`."""
+    shared by FVA (funding spread on net exposure), KVA (cost of capital on the capital
+    profile), and MVA (funding spread on the IM profile). The CDS RPV01 structure, so a unit
+    profile gives `rate * RPV01`."""
     survival = snapshot.curves[key]
     discount = snapshot.discount_curve
     grid, values = profile.grid, profile.ee
