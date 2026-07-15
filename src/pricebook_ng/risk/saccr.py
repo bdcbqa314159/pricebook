@@ -20,19 +20,22 @@ The current single-date EAD and the forward EAD *runoff* profile both land here:
 remaining trade, and `capital_profile` scales it to `8% * RWA` — the capital `K(t)`
 that `kva` charges the cost of capital on, closing the SA-CCR -> KVA loop.
 
-Scope (CLAUDE.md 6b): a single interest-rate trade in one hedging set, unmargined,
-no collateral, supervisory delta |1| (its sign only matters for netting, which
-washes out for one trade). `forward_ead_profile` uses the ATM assumption (mark = 0);
+`netting_set_ead` aggregates several IR swaps: signed effective notionals (delta = +1
+payer / -1 receiver) net within maturity buckets (<1y, 1-5y, >5y) and combine across
+buckets with supervisory correlations, and the marks net into a single RC.
+
+Scope (CLAUDE.md 6b): interest-rate trades in one single-currency hedging set,
+unmargined, no collateral. `forward_ead_profile` uses the ATM assumption (mark = 0);
 `stochastic_ead_profile` upgrades the replacement cost to the MC expected positive
-exposure. Netting-set aggregation (maturity buckets + correlations), margined MF, other
-asset classes, and collateral haircuts are later refinements.
+exposure. Margined MF, other asset classes, and collateral haircuts are later refinements.
 
 Provenance:
   quarry: python/pricebook/risk/ (regulatory capital)
   source: BCBS d424 / CRE52 — SA-CCR; ISDA SA-CCR worked examples
   oracle: 10y ATM $100mm IRS EAD ~ 5.5% notional; RC/multiplier-floor limits;
-          EAD runoff -> KVA annuity; stochastic EAD = forward_ead + alpha*EPE
-  slice:  saccr; forward-ead-kva (runoff -> KVA); stochastic-ead (EPE as RC)
+          EAD runoff -> KVA annuity; stochastic EAD = forward_ead + alpha*EPE;
+          single-trade set == saccr_ead; mirror payer/receiver nets to 0
+  slice:  saccr; forward-ead-kva; stochastic-ead; netting-saccr (bucketed aggregation)
 """
 
 from __future__ import annotations
@@ -54,24 +57,32 @@ _SD_DECAY = 0.05          # supervisory-duration exponential decay
 _DC = DayCountConvention.ACT_365_FIXED
 
 
-def _ead_ir(notional: float, start_years: float, end_years: float, mark: float) -> float:
-    """Core SA-CCR IR EAD from raw params: `alpha * (RC + multiplier * AddOn)` with
-    `S`/`E` the years to the trade's start/end. Shared by the single-date `saccr_ead`
-    and the forward runoff profile."""
+def _effective_notional_magnitude(notional: float, start_years: float, end_years: float) -> float:
+    """`|D|` for one IR trade: `notional * SD * MF`, the supervisory duration (5% decay
+    over [S, E]) times the unmargined maturity factor `sqrt(min(E, 1))`."""
     supervisory_duration = (
         math.exp(-_SD_DECAY * start_years) - math.exp(-_SD_DECAY * end_years)
     ) / _SD_DECAY
-    maturity_factor = math.sqrt(min(end_years, 1.0))                    # unmargined MF
-    add_on = _SF_IR * notional * supervisory_duration * maturity_factor
+    return notional * supervisory_duration * math.sqrt(min(end_years, 1.0))
 
-    replacement_cost = max(mark, 0.0)
+
+def _ead_from_addon(add_on: float, replacement_cost: float, net_mark: float) -> float:
+    """`alpha * (RC + multiplier * AddOn)` — the RC/multiplier/EAD assembly shared by the
+    single-trade and netting-set paths. `net_mark` drives the PFE multiplier."""
     if add_on == 0.0:
         return _ALPHA * replacement_cost
     multiplier = min(
         1.0,
-        _MULT_FLOOR + (1.0 - _MULT_FLOOR) * math.exp(mark / (2.0 * (1.0 - _MULT_FLOOR) * add_on)),
+        _MULT_FLOOR + (1.0 - _MULT_FLOOR) * math.exp(net_mark / (2.0 * (1.0 - _MULT_FLOOR) * add_on)),
     )
     return _ALPHA * (replacement_cost + multiplier * add_on)
+
+
+def _ead_ir(notional: float, start_years: float, end_years: float, mark: float) -> float:
+    """Single-trade SA-CCR IR EAD from raw params. AddOn = SF * |D| (one trade, so the
+    signed direction washes out of the magnitude)."""
+    add_on = _SF_IR * _effective_notional_magnitude(notional, start_years, end_years)
+    return _ead_from_addon(add_on, max(mark, 0.0), mark)
 
 
 def saccr_ead(swap: VanillaSwap, mark: float, valuation_date: date) -> float:
@@ -81,6 +92,45 @@ def saccr_ead(swap: VanillaSwap, mark: float, valuation_date: date) -> float:
     start = max(year_fraction(valuation_date, schedule[0], _DC), 0.0)   # S: years to start
     end = year_fraction(valuation_date, schedule[-1], _DC)              # E: years to maturity
     return _ead_ir(swap.float_leg.face.amount, start, end, mark)
+
+
+def _maturity_bucket(end_years: float) -> int:
+    """SA-CCR IR maturity bucket by end date: 0 = <1y, 1 = 1-5y, 2 = >5y."""
+    if end_years < 1.0:
+        return 0
+    return 1 if end_years < 5.0 else 2
+
+
+def _aggregate_ir_buckets(bucket_notionals: list[float]) -> float:
+    """Effective notional of an IR hedging set from its three signed bucket sums, with
+    the supervisory correlations (70% adjacent, 30% across):
+    `sqrt(D1^2+D2^2+D3^2 + 1.4(D1 D2 + D2 D3) + 0.6 D1 D3)`."""
+    d1, d2, d3 = bucket_notionals
+    variance = (
+        d1**2 + d2**2 + d3**2 + 1.4 * (d1 * d2 + d2 * d3) + 0.6 * d1 * d3
+    )
+    return math.sqrt(max(variance, 0.0))
+
+
+def netting_set_ead(trades: list[tuple[VanillaSwap, float]], valuation_date: date) -> float:
+    """SA-CCR EAD for a netting set of IR swaps (single currency, unmargined). Each trade
+    is `(swap, mark)`. Signed effective notionals `D = delta * notional * SD * MF`
+    (delta = +1 payer / -1 receiver) net within maturity buckets and aggregate across them
+    with supervisory correlations; the replacement cost nets the marks:
+    `EAD = alpha * (max(sum V, 0) + multiplier * SF * EffNotional)`."""
+    buckets = [0.0, 0.0, 0.0]
+    net_mark = 0.0
+    for swap, mark in trades:
+        net_mark += mark
+        schedule = swap.float_leg.schedule
+        start = year_fraction(valuation_date, schedule[0], _DC) if schedule[0] > valuation_date else 0.0
+        end = year_fraction(valuation_date, schedule[-1], _DC)
+        delta = 1.0 if swap.pay_fixed else -1.0
+        signed = delta * _effective_notional_magnitude(swap.float_leg.face.amount, start, end)
+        buckets[_maturity_bucket(end)] += signed
+
+    add_on = _SF_IR * _aggregate_ir_buckets(buckets)
+    return _ead_from_addon(add_on, max(net_mark, 0.0), net_mark)
 
 
 def forward_ead_profile(swap: VanillaSwap, valuation_date: date) -> ExposureProfile:

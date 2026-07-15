@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-07-15
+
+### Added
+- **Netting-set SA-CCR (L5)**. `netting_set_ead(trades, valuation_date)` aggregates a
+  netting set of IR swaps (each `(swap, mark)`) the Basel way: signed effective notionals
+  `D = δ·notional·SD·MF` (δ = +1 payer / −1 receiver) net within maturity buckets (<1y,
+  1–5y, >5y) and combine across buckets with the supervisory correlations
+  (`√(ΣD² + 1.4(D₁D₂+D₂D₃) + 0.6·D₁D₃)`), while the marks net into one replacement cost.
+  - Oracles: a one-trade set equals single-trade `saccr_ead`; a payer + mirror receiver
+    perfectly nets (signed notionals and marks cancel → EAD 0); a two-bucket set matches
+    the hand-computed correlation aggregation; netting is sub-additive vs standalone EADs.
+  - Refactor: extracted `_effective_notional_magnitude` and `_ead_from_addon` (the
+    RC/multiplier/EAD assembly), now shared by the single-trade and netting-set paths.
+  - Scope: single-currency IR hedging set, unmargined, no collateral — margined MF, other
+    asset classes, and collateral haircuts remain later refinements.
+  - quarry: `python/pricebook/risk/` · slice: `netting-saccr`
+
 ## [0.32.0] - 2026-07-15
 
 ### Added
