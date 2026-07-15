@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-07-15
+
+### Added
+- **Unified calibration front (L3), first tenant: Hull-White vol.** New
+  `calibration/` package establishing `market -> calibrate -> model -> price` (A1):
+  `calibrate_hull_white(snapshot, quote, a)` fits the HW `sigma` (with mean reversion
+  `a` fixed) so the model reprices a `ZCBOptionQuote` — a caplet, i.e. a European
+  option on a zero-coupon bond (Brigo & Mercurio s.3.3, the textbook HW vol instrument).
+  - Correctly layered: the fit reprices with the model's own analytic `zero_bond_option`,
+    **not** the L4 engine — calibration depends only on L0/L1/L3 (verify `acyclic` green
+    with `calibration` at rank 3). The ZCB-option price is monotone in `sigma`, so one
+    bracketed root pins it; an unreachable quote (below intrinsic) raises `ValueError`.
+  - Oracles: round-trip sigma recovery (`abs=1e-9`); calibrated model reprices the quote
+    (`abs=1e-10`); unreachable-quote raise.
+  - Establishes the front's shape (`calibrate_*(snapshot, quotes, …) -> CalibratedModel`);
+    the rate/credit curve bootstraps are the sibling solvers that migrate under it next.
+  - quarry: `python/pricebook/calibration/` · slice: `calibration-front`
+
 ## [0.21.0] - 2026-07-15
 
 ### Added
