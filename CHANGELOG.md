@@ -6,6 +6,20 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-07-15
+
+### Added
+- **Key-rate (bucketed) dv01.** `key_rate_dv01(priceable, snapshot, numerics)` in
+  `risk/greeks.py` returns per-pillar KR01 for the home bootstrapped curve — bump one
+  pillar's zero at a time (`DiscountCurve.bump_pillar(i, shift)`) and reprice. Log-linear
+  interpolation tents each bump between neighbours, so the buckets **partition** the
+  parallel `dv01` (Σ buckets = dv01). This turns the single parallel number into a
+  per-tenor risk vector a hedger can actually neutralise.
+  - Oracles: (1) buckets sum to `dv01` (partition of unity); (2) a cashflow landing
+    exactly on pillar j is carried only by bucket j (`KR01_j = -N·t_j·DF(t_j)·1bp`,
+    neighbours ~0, since the tent vanishes at the node).
+  - quarry: `python/pricebook/core/discount_curve.py` · slice: `key-rate-buckets`
+
 ## [0.20.0] - 2026-07-14
 
 ### Added
