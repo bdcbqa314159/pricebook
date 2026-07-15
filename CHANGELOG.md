@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-07-15
+
+### Added
+- **KVA — capital valuation adjustment (L5)**. `kva(capital, snapshot, key, cost_of_capital)`
+  in `risk/xva.py`: `KVA = γ_K·Σ K(t_i)·DF(t_i)·S(t_i)·τ_i` — the cost of capital charged on
+  the capital profile `K(t)`, discounted and survival-weighted. The **same funding annuity as
+  FVA** (the CDS RPV01 structure), with capital in place of net exposure and the hurdle rate in
+  place of the funding spread.
+  - Oracles: KVA on unit capital equals `γ_K · RPV01`; capital proportional to EPE
+    (`K = k·EPE`) integrates as expected; linearity in the cost of capital.
+  - `K(t)` is an input — generating it from a regulatory model (SA-CCR EAD → RWA → capital)
+    is the upstream RWA slice, exactly as the exposure engine is upstream of CVA.
+  - quarry: `python/pricebook/risk/` · slice: `kva`
+
+### Changed
+- Extracted the shared **`_annuity_adjustment`** (`rate·Σ profile·DF·S·τ`) now backing both
+  FVA and KVA — a survival-weighted annuity, the CDS RPV01 structure. `fva` refactored onto it
+  under its green oracle, no behaviour change.
+
 ## [0.28.0] - 2026-07-15
 
 ### Added
