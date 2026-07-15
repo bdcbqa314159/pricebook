@@ -8,7 +8,7 @@ import math
 
 import pytest
 
-from pricebook_ng.foundation.solvers import bisect_root
+from pricebook_ng.foundation.solvers import bisect_root, nelder_mead
 
 
 def test_finds_sqrt_two():
@@ -25,3 +25,21 @@ def test_decreasing_function():
 def test_no_sign_change_raises():
     with pytest.raises(ValueError):
         bisect_root(lambda x: x * x + 1.0, -1.0, 1.0)  # never crosses zero
+
+
+# ---- nelder_mead: derivative-free multivariate minimiser ----------------------
+def test_nelder_mead_quadratic_bowl():
+    # min of (x-3)^2 + (y+1)^2 is (3, -1)
+    x = nelder_mead(lambda p: (p[0] - 3.0) ** 2 + (p[1] + 1.0) ** 2, [0.0, 0.0])
+    assert x[0] == pytest.approx(3.0, abs=1e-5)
+    assert x[1] == pytest.approx(-1.0, abs=1e-5)
+
+
+def test_nelder_mead_rosenbrock():
+    # classic curved valley; global min at (1, 1)
+    def rosen(p):
+        return (1.0 - p[0]) ** 2 + 100.0 * (p[1] - p[0] ** 2) ** 2
+
+    x = nelder_mead(rosen, [-1.2, 1.0], max_iter=4000)
+    assert x[0] == pytest.approx(1.0, abs=1e-3)
+    assert x[1] == pytest.approx(1.0, abs=1e-3)

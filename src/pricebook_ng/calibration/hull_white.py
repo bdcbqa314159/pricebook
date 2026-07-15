@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.solvers import bisect_root
+from pricebook_ng.foundation.solvers import bisect_root, nelder_mead
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.hull_white import HullWhite
 
@@ -67,3 +67,32 @@ def calibrate_hull_white(snapshot: MarketSnapshot, quote: ZCBOptionQuote, a: flo
 
     sigma = bisect_root(mispricing, 1e-10, _SIGMA_MAX)
     return HullWhite(a=a, sigma=sigma, market=snapshot)
+
+
+def calibrate_hull_white_cap(
+    snapshot: MarketSnapshot, quotes: list[ZCBOptionQuote]
+) -> HullWhite:
+    """Joint `(a, sigma)` fit to a cap strip by least squares. A cap is a strip of
+    caplets (each a ZCB option); one caplet cannot separate mean reversion from vol,
+    so a strip spanning expiries is needed (rule of two: 2+ quotes). Minimises the
+    sum of squared repricing errors with Nelder-Mead — derivative-free, no engine.
+
+    `sigma` is fitted through its magnitude (a sign has no meaning: the price depends
+    on sigma only via sigma^2 and |sigma|), so the returned model carries `sigma >= 0`."""
+    if len(quotes) < 2:
+        raise ValueError("a joint (a, sigma) fit needs at least two cap-strip quotes")
+
+    def sse(params: list[float]) -> float:
+        a, sigma = params[0], abs(params[1])
+        model = HullWhite(a=a, sigma=sigma, market=snapshot)
+        return sum(
+            (
+                model.zero_bond_option(q.expiry, q.bond_maturity, q.strike, q.is_call)
+                - q.price
+            )
+            ** 2
+            for q in quotes
+        )
+
+    a, sigma = nelder_mead(sse, [0.03, 0.01])
+    return HullWhite(a=a, sigma=abs(sigma), market=snapshot)
