@@ -1,15 +1,17 @@
-"""Root finding (L0 numerical toolkit — migrated on demand).
+"""Root finding + minimisation (L0 numerical toolkit — migrated on demand).
 
-`bisect_root` only so far: bracketed bisection, which is bulletproof for a
-continuous function with a sign change over [lo, hi] — the Jamshidian swaption's
-coupon-bond equation is monotonic, so this is all it needs. Newton/Brent variants
+`bisect_root`: bracketed bisection, bulletproof for a continuous function with a
+sign change over [lo, hi] (the Jamshidian coupon-bond equation is monotonic).
+`nelder_mead`: derivative-free simplex minimiser for low-dimensional smooth
+objectives — the least-squares engine behind multi-parameter model calibration
+(HW `(a, sigma)` from a cap strip; G2++/SABR later). Newton/Brent/LM variants
 migrate from the quarry when a consumer needs faster convergence (CLAUDE.md 6b).
 
 Provenance:
   quarry: python/pricebook/core/solvers.py
-  source: bisection method (standard)
-  oracle: exact roots of known functions (S08 test); drives the swaption solve
-  slice:  S08
+  source: bisection method (standard); Nelder & Mead (1965) downhill simplex
+  oracle: exact roots + known minima (quadratic bowl, Rosenbrock); drives calibration
+  slice:  S08 (bisect); hw-cap-strip (nelder_mead)
 """
 
 from __future__ import annotations
@@ -43,3 +45,63 @@ def bisect_root(
         else:
             hi = mid
     return 0.5 * (lo + hi)
+
+
+def nelder_mead(
+    f: Callable[[list[float]], float],
+    x0: list[float],
+    step: float = 0.05,
+    tol: float = 1e-12,
+    max_iter: int = 2000,
+) -> list[float]:
+    """Minimise `f` over R^n from `x0` by the Nelder-Mead downhill simplex — no
+    derivatives, just function values, which suits calibration objectives (SSE over
+    a model reprice). Converges when the best/worst objective spread falls below
+    `tol`. Standard coefficients (reflect 1, expand 2, contract/shrink 1/2)."""
+    n = len(x0)
+    # initial simplex: x0 plus a relative step along each axis
+    simplex = [list(x0)]
+    for i in range(n):
+        pt = list(x0)
+        pt[i] += step * abs(pt[i]) if pt[i] != 0.0 else step
+        simplex.append(pt)
+    fvals = [f(p) for p in simplex]
+
+    for _ in range(max_iter):
+        order = sorted(range(n + 1), key=lambda k: fvals[k])
+        simplex = [simplex[k] for k in order]
+        fvals = [fvals[k] for k in order]
+        # converge on BOTH a flat objective and a small simplex: a weakly identified
+        # direction (e.g. HW mean reversion) leaves f flat while the point still drifts.
+        size = max(
+            abs(simplex[k][j] - simplex[0][j]) for k in range(1, n + 1) for j in range(n)
+        )
+        if abs(fvals[-1] - fvals[0]) <= tol and size <= tol:
+            break
+
+        centroid = [sum(simplex[k][j] for k in range(n)) / n for j in range(n)]
+        worst = simplex[-1]
+        reflected = [centroid[j] + (centroid[j] - worst[j]) for j in range(n)]
+        f_ref = f(reflected)
+
+        if fvals[0] <= f_ref < fvals[-2]:
+            simplex[-1], fvals[-1] = reflected, f_ref
+        elif f_ref < fvals[0]:  # promising direction -> try to expand
+            expanded = [centroid[j] + 2.0 * (reflected[j] - centroid[j]) for j in range(n)]
+            f_exp = f(expanded)
+            if f_exp < f_ref:
+                simplex[-1], fvals[-1] = expanded, f_exp
+            else:
+                simplex[-1], fvals[-1] = reflected, f_ref
+        else:  # contract toward the centroid
+            contracted = [centroid[j] + 0.5 * (worst[j] - centroid[j]) for j in range(n)]
+            f_con = f(contracted)
+            if f_con < fvals[-1]:
+                simplex[-1], fvals[-1] = contracted, f_con
+            else:  # shrink the whole simplex toward the best vertex
+                best = simplex[0]
+                for k in range(1, n + 1):
+                    simplex[k] = [best[j] + 0.5 * (simplex[k][j] - best[j]) for j in range(n)]
+                    fvals[k] = f(simplex[k])
+
+    return min(zip(fvals, simplex, strict=True))[1]
