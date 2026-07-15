@@ -1,27 +1,29 @@
 """XVA — valuation adjustments on top of the risk-free mark (L5 risk & capital).
 
-The first XVA: unilateral **CVA**, the market value of counterparty default risk.
-Given a trade's *expected positive exposure* profile `EE(t) = E[(V(t))^+]` on a
-time grid, CVA discounts the expected loss over each interval's default probability:
+The XVA *integrators* — all the same discounted sum over an exposure profile
+(`ExposureProfile`/`ExposurePair`, generated upstream by the MC exposure engine),
+differing only in the weight:
 
-    CVA = (1 - R) * sum_i  EE(t_i) * DF(t_i) * (Q(t_{i-1}) - Q(t_i))
+    CVA = (1 - R_C) * sum_i  EPE_i * DF_i * (Q_C,i-1 - Q_C,i)   counterparty default
+    DVA = (1 - R_B) * sum_i  ENE_i * DF_i * (Q_B,i-1 - Q_B,i)   own default (= CVA on ENE)
+    BCVA = CVA - DVA                                            net credit charge
+    FVA = s_F * sum_i (EPE_i - ENE_i) * DF_i * S_i * tau_i      funding of the position
 
-This is exactly a CDS **protection leg** (`_protection_pv`/`cds_pv` at zero spread)
-with the unit notional replaced by the exposure profile — CVA is "buying protection
-on your own counterparty exposure." Unilateral form: exposure and default are taken
-independent (no wrong-way risk), own default ignored (that is DVA).
+CVA/DVA weight exposure by a *protection leg* — default increments `(Q_{i-1}-Q_i)`
+and `(1-R)`, exactly a CDS `cds_pv` at zero spread. FVA weights it by a *funding
+annuity* — spread over each interval `S*tau`, exactly the CDS RPV01. Keyed to the
+survival curves in the snapshot (A5), so a credit bump (`bump_curve`/`credit01`)
+gives XVA sensitivity for free.
 
-Exposure generation is deliberately upstream and out of scope here: `EE(t)` is an
-input. For a deterministic trade it is analytic; for an optional/path-dependent one
-it comes from a Monte-Carlo exposure engine — a later slice. This module is the XVA
-*integrator*, keyed to the counterparty's survival curve in the snapshot (A5), so a
-credit bump (`bump_curve`/`credit01`) already gives CVA sensitivity for free.
+Unilateral/independence scope: exposure and default independent (no wrong-way risk),
+no first-to-default survival weighting, symmetric funding spread. Exposure generation
+is upstream (`risk/exposure.py`).
 
 Provenance:
   quarry: python/pricebook/risk/ (xva)
-  source: Gregory, The xVA Challenge; Brigo & Mercurio (unilateral CVA)
-  oracle: unit-exposure CVA == CDS protection leg (cds_pv @ 0 spread); linearity; Q≡1 -> 0
-  slice:  cva (unilateral)
+  source: Gregory, The xVA Challenge; Brigo & Mercurio
+  oracle: unit-exposure CVA == protection leg; FVA == s_F·RPV01; BCVA = CVA - DVA
+  slice:  cva (unilateral); bcva (DVA/bilateral); fva (funding)
 """
 
 from __future__ import annotations
@@ -29,8 +31,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from pricebook_ng.foundation.time import DayCountConvention, year_fraction
 from pricebook_ng.market.keys import MarketKey
 from pricebook_ng.market.snapshot import MarketSnapshot
+
+_FUNDING_DC = DayCountConvention.ACT_360  # money-market funding accrual
 
 
 @dataclass(frozen=True)
@@ -104,3 +109,28 @@ def bcva(
     cva_term = cva(exposure.epe, snapshot, counterparty.key, counterparty.recovery)
     dva_term = dva(exposure.ene, snapshot, self_party.key, self_party.recovery)
     return cva_term - dva_term
+
+
+def fva(
+    exposure: ExposurePair, snapshot: MarketSnapshot, key: MarketKey, funding_spread: float
+) -> float:
+    """Funding Valuation Adjustment — the cost of funding an uncollateralised position.
+    `FVA = FCA - FBA = s_F * Sum_i (EPE_i - ENE_i) * DF(t_i) * S(t_i) * tau_i`: the
+    funding spread carried over each interval on the *net* exposure, discounted and
+    survival-weighted (funding stops on default — `key` is the funding-relevant
+    survival curve). Where CVA weights exposure by default increments and `(1-R)`, FVA
+    weights it by the survival annuity `S*tau` — the CDS RPV01 structure.
+
+    Scope: symmetric funding spread (one `s_F` for borrow/lend), a single survival curve
+    (own vs joint is a later refinement). FVA/DVA overlap is a known modelling debate,
+    out of scope here — this is the discounting-approach FVA on the given exposure."""
+    survival = snapshot.curves[key]
+    discount = snapshot.discount_curve
+    epe, ene, grid = exposure.epe.ee, exposure.ene.ee, exposure.epe.grid
+    return funding_spread * sum(
+        (epe[i] - ene[i])
+        * discount.df(grid[i])
+        * survival.df(grid[i])
+        * year_fraction(grid[i - 1], grid[i], _FUNDING_DC)
+        for i in range(1, len(grid))
+    )
