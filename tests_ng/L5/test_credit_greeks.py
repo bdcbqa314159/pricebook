@@ -21,7 +21,8 @@ from pricebook_ng.engine.cds import CDSEngine
 from pricebook_ng.products.cds import cds
 from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
-from pricebook_ng.market.survival_curve import CDSQuote, bootstrap_survival_curve
+from pricebook_ng.market.survival_curve import CDSQuote
+from pricebook_ng.calibration.survival_curve import bootstrap_survival_curve
 from pricebook_ng.risk.greeks import bump_curve, credit01, dv01
 from pricebook_ng.risk.priceable import credit_priceable
 

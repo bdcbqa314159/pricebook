@@ -20,7 +20,8 @@ from pricebook_ng.engine.cds import CDSEngine
 from pricebook_ng.products.cds import CDS, cds
 from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
-from pricebook_ng.market.survival_curve import CDSQuote, bootstrap_survival_curve, cds_pv
+from pricebook_ng.market.survival_curve import CDSQuote, cds_pv
+from pricebook_ng.calibration.survival_curve import bootstrap_survival_curve
 from pricebook_ng.models.credit_model import CreditModel
 
 CCY = Currency.USD

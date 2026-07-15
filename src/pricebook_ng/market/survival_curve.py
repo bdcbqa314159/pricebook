@@ -1,10 +1,11 @@
-"""Hazard/survival curve, CDS leg math, and the hazard bootstrap (L1).
+"""Hazard/survival curve + CDS leg math (L1).
 
-The credit analogue of the S03 discount-curve bootstrap. A `SurvivalCurve` gives
-the survival probability `Q(t)` (no default by `t`) from a piecewise-constant
-hazard — log-linear in `ln Q` on an ACT/365F axis, exactly like the discount
-curve is log-linear in `ln DF`. `bootstrap_survival_curve` solves the curve so
-each CDS reprices to zero at its par spread.
+A `SurvivalCurve` gives the survival probability `Q(t)` (no default by `t`) from a
+piecewise-constant hazard — log-linear in `ln Q` on an ACT/365F axis, exactly like
+the discount curve is log-linear in `ln DF`. The hazard *bootstrap* that solves the
+curve to reprice each CDS to zero lives at the L3 calibration front
+(`calibration.survival_curve`); this module holds the curve type it produces and the
+CDS leg math (`cds_pv`/`cds_par_spread`) that the bootstrap reprices against.
 
 CDS legs (protection buyer, unit notional): the premium leg pays `spread` on an
 annual ACT/360 schedule while alive; the protection leg pays `(1 - R)` on default.
@@ -21,8 +22,8 @@ on whatever discretisation the bootstrap and pricing share.
 
 Provenance:
   quarry: python/pricebook/core/survival_curve.py
-  source: standard single-name CDS; ISDA hazard-rate bootstrap
-  oracle: each input CDS reprices to zero par spread (self-consistency) < 1e-10
+  source: standard single-name CDS; ISDA hazard model
+  oracle: closed-form log-linear Q + CDS RPV01/protection/par-spread leg math
   slice:  credit-hazard-bootstrap
 """
 
@@ -33,10 +34,8 @@ from bisect import bisect_left
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.schedule import Frequency, generate_schedule
-from pricebook_ng.foundation.solvers import bisect_root
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
-from pricebook_ng.market.snapshot import CurveHandle, MarketSnapshot
+from pricebook_ng.market.snapshot import CurveHandle
 
 _CURVE_DC = DayCountConvention.ACT_365_FIXED   # interpolation time axis
 _ACCRUAL_DC = DayCountConvention.ACT_360       # CDS premium accrual convention
@@ -127,30 +126,3 @@ def cds_pv(
     """Value to the protection buyer, per unit notional: protection - spread*RPV01."""
     protection = _protection_pv(discount, survival, schedule, recovery)
     return protection - spread * _rpv01(discount, survival, schedule)
-
-
-def bootstrap_survival_curve(
-    market: MarketSnapshot, quotes: list[CDSQuote], recovery: float
-) -> SurvivalCurve:
-    """Bootstrap the survival curve from CDS par spreads, short end first: each
-    quote adds a pillar whose Q makes that CDS reprice to zero."""
-    if not quotes:
-        raise ValueError("bootstrap requires at least one CDS quote")
-
-    valuation = market.valuation_date
-    discount = market.discount_curve
-    pillars: list[tuple[date, float]] = [(valuation, 1.0)]
-
-    for q in sorted(quotes, key=lambda x: x.maturity):
-        schedule = generate_schedule(valuation, q.maturity, Frequency.ANNUAL)
-        prev_q = pillars[-1][1]
-
-        def repriced(q_mat: float, q=q, schedule=schedule) -> float:
-            trial = SurvivalCurve(valuation, (*pillars, (q.maturity, q_mat)))
-            return cds_pv(discount, trial, schedule, q.par_spread, recovery)
-
-        # value is monotonic in Q(maturity); bracket (0, prev_Q]
-        q_mat = bisect_root(repriced, 1e-12, prev_q)
-        pillars.append((q.maturity, q_mat))
-
-    return SurvivalCurve(valuation, tuple(pillars))

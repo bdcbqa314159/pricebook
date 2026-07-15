@@ -24,7 +24,8 @@ from pricebook_ng.products.fx_forward import fx_forward
 from pricebook_ng.products.inflation import ZeroCouponInflationSwap
 from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
-from pricebook_ng.market.survival_curve import CDSQuote, bootstrap_survival_curve
+from pricebook_ng.market.survival_curve import CDSQuote
+from pricebook_ng.calibration.survival_curve import bootstrap_survival_curve
 from pricebook_ng.risk.greeks import bump_curve, credit01, curve01
 from pricebook_ng.risk.priceable import credit_priceable, discounting_priceable
 

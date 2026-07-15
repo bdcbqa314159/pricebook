@@ -24,7 +24,8 @@ from pricebook_ng.foundation.schedule import Frequency, ScheduleTerms
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.engine.discounting import DiscountingEngine
-from pricebook_ng.market.discount_curve import DepositQuote, bootstrap_discount_curve
+from pricebook_ng.market.discount_curve import DepositQuote
+from pricebook_ng.calibration.discount_curve import bootstrap_discount_curve
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.products.fixed_rate_bond import fixed_rate_bond
 from pricebook_ng.risk.greeks import dv01
