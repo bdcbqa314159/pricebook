@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-07-16
+
+### Added
+- **Margined (collateralised) exposure (L5)**. `collateralized_exposure(swap, model, numerics,
+  threshold)` models a two-way CSA with variation margin and an uncollateralised threshold `H`:
+  collateral posts the mark beyond `H`, so exposure is capped — `E_coll = min(max(±V, 0), H)`.
+  `H = 0` is fully collateralised (exposure 0); a huge `H` recovers the uncollateralised
+  `exposure_profiles`. Feeds a collateralised CVA/DVA below the uncollateralised one.
+  - Oracles: a huge threshold reproduces `exposure_profiles` exactly (same draws); zero
+    threshold gives zero exposure; `σ=0` caps the deterministic exposure exactly (and the cap
+    bites); collateralised CVA < uncollateralised CVA.
+  - Fourth consumer of the extracted `_simulate_swap_values` (means, PFE quantiles, collateral).
+  - Scope: marginal (per-date) model — the margin-period-of-risk close-out gap that leaves
+    residual exposure under full collateralisation needs joint-path simulation, a later slice.
+  - quarry: `python/pricebook/risk/` · slice: `margined-exposure`
+
 ## [0.35.0] - 2026-07-15
 
 ### Added
