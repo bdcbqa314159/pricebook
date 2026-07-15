@@ -6,6 +6,21 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-07-15
+
+### Added
+- **FVA — funding valuation adjustment (L5)**. `fva(exposure, snapshot, key, funding_spread)`
+  in `risk/xva.py`: `FVA = FCA - FBA = s_F·Σ (EPE_i - ENE_i)·DF(t_i)·S(t_i)·τ_i` — the
+  funding spread carried over each interval on the **net** exposure, discounted and
+  survival-weighted (funding stops on default). Reuses the same `ExposurePair` as CVA/DVA.
+  - Where CVA/DVA weight exposure by a *protection leg* (default increments × `(1-R)`), FVA
+    weights it by a *funding annuity* `S·τ` — the CDS RPV01 structure. So the oracle: FVA on
+    unit positive exposure equals `s_F · RPV01` (the survival annuity) exactly; plus a
+    symmetric-exposure zero (cost cancels benefit) and linearity in spread and exposure.
+  - Scope: symmetric funding spread, single survival curve, discounting-approach FVA
+    (FVA/DVA overlap and own-vs-joint survival are known modelling debates, out of scope).
+  - quarry: `python/pricebook/risk/` · slice: `fva`
+
 ## [0.27.0] - 2026-07-15
 
 ### Added
