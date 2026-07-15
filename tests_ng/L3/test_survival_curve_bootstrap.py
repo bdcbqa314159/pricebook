@@ -13,10 +13,10 @@ import pytest
 from pricebook_ng.foundation.schedule import Frequency, generate_schedule
 from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
+from pricebook_ng.calibration.survival_curve import bootstrap_survival_curve
 from pricebook_ng.market.survival_curve import (
     CDSQuote,
     SurvivalCurve,
-    bootstrap_survival_curve,
     cds_par_spread,
     cds_pv,
 )

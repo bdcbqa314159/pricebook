@@ -27,7 +27,8 @@ from pricebook_ng.foundation.time import DayCountConvention as DC
 from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.foundation.cashflow import Cashflow
 from pricebook_ng.engine.discounting import DiscountingEngine
-from pricebook_ng.market.discount_curve import DepositQuote, bootstrap_discount_curve
+from pricebook_ng.market.discount_curve import DepositQuote
+from pricebook_ng.calibration.discount_curve import bootstrap_discount_curve
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.products.fixed_rate_bond import fixed_rate_bond
