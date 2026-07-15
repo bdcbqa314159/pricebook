@@ -24,8 +24,8 @@ Provenance:
   quarry: python/pricebook/risk/ (exposure / xva)
   source: Brigo & Mercurio s.3.3 (T-forward simulation); Gregory, The xVA Challenge
   oracle: sigma=0 deterministic exposure (exact) + discounted EE == co-terminal swaptions;
-          PFE quantile == V at the r-quantile (monotone transform)
-  slice:  mc-exposure; bcva (EPE+ENE from one pass); pfe-quantile (PFE / dynamic-IM)
+          PFE quantile == V at the r-quantile (monotone transform); collateral caps at H
+  slice:  mc-exposure; bcva (EPE+ENE); pfe-quantile (PFE/dynamic-IM); margined-exposure (CSA)
 """
 
 from __future__ import annotations
@@ -92,6 +92,25 @@ def exposure_profiles(
     epe = [sum(max(v, 0.0) for v in values) / len(values) for values in values_by_date]
     ene = [sum(max(-v, 0.0) for v in values) / len(values) for values in values_by_date]
 
+    g = tuple(grid)
+    return ExposurePair(ExposureProfile(g, tuple(epe)), ExposureProfile(g, tuple(ene)))
+
+
+def collateralized_exposure(
+    swap: VanillaSwap, model: HullWhite, numerics: NumericalConfig, threshold: float
+) -> ExposurePair:
+    """Exposure under a two-way CSA with variation margin and an uncollateralised
+    `threshold` H: collateral posts the mark-to-market beyond H, so exposure is capped —
+    `E_coll = min(max(+-V, 0), H)`. `threshold = 0` is fully collateralised (exposure 0);
+    a huge threshold recovers the uncollateralised `exposure_profiles`.
+
+    Marginal (per-date) model: it does NOT capture the margin-period-of-risk close-out gap
+    that leaves residual exposure under full collateralisation — that needs joint-path
+    simulation of V over the MPOR, a later slice."""
+    grid, values_by_date = _simulate_swap_values(swap, model, numerics)
+    n = numerics.mc_paths
+    epe = [sum(min(max(v, 0.0), threshold) for v in values) / n for values in values_by_date]
+    ene = [sum(min(max(-v, 0.0), threshold) for v in values) / n for values in values_by_date]
     g = tuple(grid)
     return ExposurePair(ExposureProfile(g, tuple(epe)), ExposureProfile(g, tuple(ene)))
 
