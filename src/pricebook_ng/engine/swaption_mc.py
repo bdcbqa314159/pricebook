@@ -22,7 +22,6 @@ Provenance:
 
 from __future__ import annotations
 
-import math
 import random
 
 from pricebook_ng.engine.swaption import coupon_bond_cashflows
@@ -47,26 +46,17 @@ class SwaptionMCEngine:
         if expiry < market.valuation_date:
             return PricingFailure(f"swaption expiry {expiry} precedes valuation")
 
-        dates, amounts, notional = coupon_bond_cashflows(swaption)
+        dates, amounts, notional = coupon_bond_cashflows(swaption.swap)
         is_payer = swaption.swap.pay_fixed
         currency = swaption.swap.float_leg.face.currency
 
-        a, sigma = model.a, model.sigma
         t0 = year_fraction(market.valuation_date, expiry, _CURVE_DC)
-        r0 = model.curve.rate
         p0_t0 = market.discount_curve.df(expiry)
-
-        variance = sigma**2 * (1.0 - math.exp(-2.0 * a * t0)) / (2.0 * a)
-        fwd_mean = -(sigma**2 / a**2) * (
-            (1.0 - math.exp(-a * t0)) - 0.5 * (1.0 - math.exp(-2.0 * a * t0))
-        )
-        alpha = r0 + (sigma**2 / (2.0 * a**2)) * (1.0 - math.exp(-a * t0)) ** 2
-        std = math.sqrt(variance)
 
         rng = random.Random(numerics.mc_seed)
         total = 0.0
         for _ in range(numerics.mc_paths):
-            r = fwd_mean + std * rng.gauss(0.0, 1.0) + alpha
+            r = model.forward_short_rate(t0, rng.gauss(0.0, 1.0))
             coupon_bond = sum(amt * model.zero_bond(expiry, d, r) for amt, d in zip(amounts, dates))
             intrinsic = notional - coupon_bond
             total += max(intrinsic, 0.0) if is_payer else max(-intrinsic, 0.0)
