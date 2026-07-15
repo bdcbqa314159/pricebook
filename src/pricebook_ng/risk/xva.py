@@ -35,12 +35,31 @@ from pricebook_ng.market.snapshot import MarketSnapshot
 
 @dataclass(frozen=True)
 class ExposureProfile:
-    """Expected positive exposure `EE(t) = E[(V(t))^+]` on a time grid. `grid[0]` is
-    the valuation date (exposure today); the CVA sum runs over the intervals
-    `(grid[i-1], grid[i]]`. `grid` and `ee` are aligned and the same length."""
+    """Expected exposure `E[(±V(t))^+]` on a time grid — positive (EPE) for CVA,
+    negative (ENE) for DVA. `grid[0]` is the valuation date; the sum runs over the
+    intervals `(grid[i-1], grid[i]]`. `grid` and `ee` are aligned and same length."""
 
     grid: tuple[date, ...]
     ee: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class ExposurePair:
+    """Both sides of a trade's exposure from one simulation: expected *positive*
+    exposure (EPE, feeds CVA) and expected *negative* exposure (ENE = E[(-V)^+],
+    feeds DVA). On a common grid."""
+
+    epe: ExposureProfile
+    ene: ExposureProfile
+
+
+@dataclass(frozen=True)
+class CreditParty:
+    """A defaultable party for a bilateral adjustment: its survival curve (keyed in
+    the snapshot, A5) and recovery. Bundled so `bcva` stays under the arg ceiling."""
+
+    key: MarketKey
+    recovery: float
 
 
 def cva(
@@ -57,3 +76,31 @@ def cva(
         ee[i] * discount.df(grid[i]) * (survival.df(grid[i - 1]) - survival.df(grid[i]))
         for i in range(1, len(grid))
     )
+
+
+def dva(
+    profile: ExposureProfile, snapshot: MarketSnapshot, key: MarketKey, recovery: float
+) -> float:
+    """Debit Valuation Adjustment — the mirror of CVA: expected gain from OUR OWN
+    default while out of the money. It is exactly the CVA integral on the *negative*
+    exposure profile (ENE) against our own survival curve at `key`; passing an ENE
+    profile is the caller's responsibility (the math is identical, the sign lives in
+    the exposure)."""
+    return cva(profile, snapshot, key, recovery)
+
+
+def bcva(
+    exposure: ExposurePair,
+    snapshot: MarketSnapshot,
+    counterparty: CreditParty,
+    self_party: CreditParty,
+) -> float:
+    """Bilateral credit adjustment `BCVA = CVA - DVA` — the net credit charge (the
+    value adjustment to the risk-free mark is `-BCVA`). CVA uses the counterparty's
+    curve on the positive exposure; DVA uses our own curve on the negative exposure.
+
+    Unilateral pair: exposure and default independent, no first-to-default survival
+    weighting (a later refinement multiplies each term by the other party's Q(t))."""
+    cva_term = cva(exposure.epe, snapshot, counterparty.key, counterparty.recovery)
+    dva_term = dva(exposure.ene, snapshot, self_party.key, self_party.recovery)
+    return cva_term - dva_term

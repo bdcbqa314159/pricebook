@@ -32,7 +32,7 @@ from pricebook_ng.market.survival_curve import CDSQuote
 from pricebook_ng.models.hull_white import HullWhite
 from pricebook_ng.products.swap import SwapTerms, vanilla_swap
 from pricebook_ng.products.swaption import Swaption
-from pricebook_ng.risk.exposure import expected_exposure
+from pricebook_ng.risk.exposure import exposure_profiles
 from pricebook_ng.risk.xva import cva
 
 D0 = date(2026, 1, 15)
@@ -60,7 +60,7 @@ def test_sigma_zero_exposure_is_deterministic_forward_value():
     market = _market()
     swap = _swap()
     model = HullWhite(a=0.05, sigma=0.0, market=market)
-    profile = expected_exposure(swap, model, NumericalConfig(mc_paths=8, mc_seed=1))
+    profile = exposure_profiles(swap, model, NumericalConfig(mc_paths=8, mc_seed=1)).epe
 
     dates, amounts, _ = coupon_bond_cashflows(swap)
     curve = market.discount_curve
@@ -75,7 +75,7 @@ def test_discounted_exposure_matches_coterminal_swaptions():
     swap = _swap()
     model = HullWhite(a=0.05, sigma=0.012, market=market)
     num = NumericalConfig(mc_paths=120_000, mc_seed=7)
-    profile = expected_exposure(swap, model, num)
+    profile = exposure_profiles(swap, model, num).epe
 
     engine = SwaptionEngine()
     for tj, ee in zip(profile.grid, profile.ee):
@@ -90,7 +90,7 @@ def test_discounted_exposure_matches_coterminal_swaptions():
 def test_profile_feeds_cva_positive():
     market = _market()
     model = HullWhite(a=0.05, sigma=0.012, market=market)
-    profile = expected_exposure(_swap(), model, NumericalConfig(mc_paths=20_000, mc_seed=3))
+    profile = exposure_profiles(_swap(), model, NumericalConfig(mc_paths=20_000, mc_seed=3)).epe
 
     key = MarketKey(AssetClass.CREDIT, "CPTY")
     survival = bootstrap_survival_curve(market, [CDSQuote(MATURITY, 0.02)], 0.4)
