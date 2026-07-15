@@ -22,16 +22,17 @@ that `kva` charges the cost of capital on, closing the SA-CCR -> KVA loop.
 
 Scope (CLAUDE.md 6b): a single interest-rate trade in one hedging set, unmargined,
 no collateral, supervisory delta |1| (its sign only matters for netting, which
-washes out for one trade); the forward profile uses the ATM assumption (expected
-mark = 0). Netting-set aggregation (maturity buckets + correlations), margined MF,
-other asset classes, collateral haircuts, and stochastic-mark RC are later refinements.
+washes out for one trade). `forward_ead_profile` uses the ATM assumption (mark = 0);
+`stochastic_ead_profile` upgrades the replacement cost to the MC expected positive
+exposure. Netting-set aggregation (maturity buckets + correlations), margined MF, other
+asset classes, and collateral haircuts are later refinements.
 
 Provenance:
   quarry: python/pricebook/risk/ (regulatory capital)
   source: BCBS d424 / CRE52 — SA-CCR; ISDA SA-CCR worked examples
   oracle: 10y ATM $100mm IRS EAD ~ 5.5% notional; RC/multiplier-floor limits;
-          closed-form EAD runoff -> KVA capital annuity
-  slice:  saccr; forward-ead-kva (runoff profile -> KVA)
+          EAD runoff -> KVA annuity; stochastic EAD = forward_ead + alpha*EPE
+  slice:  saccr; forward-ead-kva (runoff -> KVA); stochastic-ead (EPE as RC)
 """
 
 from __future__ import annotations
