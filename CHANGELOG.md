@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-07-15
+
+### Added
+- **Unilateral CVA (L5 risk & capital)** — the first XVA. New `risk/xva.py` with an
+  `ExposureProfile` (`EE(t) = E[(V(t))^+]` on a time grid) and
+  `cva(profile, snapshot, key, recovery)` = `(1-R)·Σ EE(t_i)·DF(t_i)·(Q(t_{i-1})-Q(t_i))`.
+  Structurally a CDS **protection leg** with the unit notional replaced by the exposure
+  profile — CVA is protection bought on your own counterparty exposure.
+  - Keyed to the counterparty survival curve in the snapshot (A5), reached through the
+    `CurveHandle` `df` capability — so a credit bump (`bump_curve`/`credit01`) already
+    yields CVA sensitivity, no new machinery.
+  - Oracles: unit-exposure CVA **equals** the CDS protection leg (`cds_pv` at zero
+    spread, already oracle-checked) to `1e-14`; linearity in exposure; a default-free
+    (Q≡1) counterparty gives zero CVA.
+  - Scope (unilateral): exposure ⟂ default (no wrong-way risk), own default ignored
+    (that is DVA). **Exposure generation is upstream/out of scope** — `EE(t)` is an
+    input (analytic for deterministic trades, MC for optional ones — a later slice).
+  - quarry: `python/pricebook/risk/` · slice: `cva`
+
 ## [0.24.0] - 2026-07-15
 
 ### Added
