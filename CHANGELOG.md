@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-07-15
+
+### Added
+- **Forward SA-CCR EAD profile → KVA (L5)** — closes the SA-CCR → capital → KVA loop.
+  `forward_ead_profile(swap, valuation_date)` reprices SA-CCR at each future coupon date on
+  the shrinking remaining trade (an EAD **runoff**), and `capital_profile(ead, risk_weight)`
+  scales it to `8%·RWA` — the capital `K(t)` that `kva` charges the cost of capital on. Under
+  the ATM assumption (expected mark = 0 → RC = 0, multiplier = 1) the runoff is the deterministic
+  supervisory PFE, so the whole chain has a closed-form oracle.
+  - Oracles: each `EAD(t_j)` equals the closed-form `α·SF·notional·SD·MF` on the remaining
+    maturity (first point == single-date `saccr_ead`); the profile runs off monotonically;
+    `capital = 8%·EAD·RW`; KVA on it equals the cost-of-capital annuity.
+  - Refactor: `saccr_ead` now delegates to a param-level `_ead_ir(notional, S, E, mark)` shared
+    with the runoff (guarded by the SA-CCR oracle, no behaviour change).
+  - Scope: ATM-mark runoff; a stochastic-mark RC (expected positive exposure from the MC engine)
+    is the noted refinement.
+  - quarry: `python/pricebook/risk/` · slice: `forward-ead-kva`
+
 ## [0.30.0] - 2026-07-15
 
 ### Added
