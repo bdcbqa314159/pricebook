@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-07-15
+
+### Added
+- **Joint HW `(a, sigma)` calibration from a cap strip** — the calibration front's
+  first multi-instrument least-squares fit. `calibrate_hull_white_cap(snapshot, quotes)`
+  fits both mean reversion and vol to a strip of caplet (ZCB-option) quotes by
+  minimising the repricing SSE. A single caplet can't separate `a` from `sigma`; a
+  strip spanning expiries can (needs ≥2 quotes). `sigma` is fitted via its magnitude
+  (price depends only on `sigma^2`), so the model carries `sigma >= 0`.
+  - Oracles: round-trip recovers `(a*, sigma*)` from a self-priced strip
+    (`a` to `1e-4`, `sigma` to `1e-5`); fitted model reprices the strip (SSE `< 1e-14`).
+  - quarry: `python/pricebook/calibration/` · slice: `hw-cap-strip`
+- **`nelder_mead` (L0 numerical toolkit)** — derivative-free downhill-simplex minimiser
+  (Nelder & Mead 1965), the stdlib least-squares engine behind multi-parameter
+  calibration (no scipy — the ng tree stays stdlib-pure, like `bisect_root`). Converges
+  on **both** a flat objective and a small simplex, so a weakly identified direction
+  (HW `a`) still pins down instead of drifting. Oracle: quadratic bowl + Rosenbrock.
+
 ## [0.23.0] - 2026-07-15
 
 ### Changed
