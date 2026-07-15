@@ -6,6 +6,30 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-07-15
+
+### Added
+- **Monte-Carlo expected-exposure engine (L5)** — generates the real `EE(t)` profile
+  that CVA consumes. `expected_exposure(swap, model, numerics)` in `risk/exposure.py`
+  simulates the Hull-White short rate to each grid date under that date's t_j-forward
+  measure (one exact Gaussian draw) and reprices the remaining swap analytically via
+  `zero_bond`, returning an `ExposureProfile`. Closes the exposure-generation gap left
+  open by the CVA slice.
+  - Oracles: (1) `sigma = 0` -> `EE(t_j)` equals the deterministic forward swap value's
+    positive part, exact to `1e-8`; (2) the forward-measure identity — `P(0,t_j)·EE(t_j)`
+    equals the analytic co-terminal swaption expiring at `t_j` (Jamshidian), matched by
+    MC within `rel=2%` at 120k paths; (3) end-to-end into `cva` (positive, finite).
+  - Consequence: feeding this `EE(t)` to `cva` (which multiplies by `DF(t_j)`) yields the
+    correct discounted expected exposure `Σ_j swaption(t_j)·ΔQ_j` — CVA as a swaption strip.
+  - quarry: `python/pricebook/risk/` · slice: `mc-exposure`
+
+### Changed
+- **`HullWhite.forward_short_rate(t, z)`** extracted as a model capability — the exact
+  t-forward-measure short-rate draw, now shared by the MC swaption and MC exposure engines
+  (rule of two). `coupon_bond_cashflows` now takes a `VanillaSwap` (three consumers), and
+  `SwaptionMCEngine` reuses `forward_short_rate` — pure refactors under the green MC/analytic
+  swaption oracles, no behaviour change.
+
 ## [0.25.0] - 2026-07-15
 
 ### Added
