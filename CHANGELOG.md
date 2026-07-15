@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-07-15
+
+### Added
+- **DVA + bilateral BCVA (L5)**. `dva`, `bcva`, and the `CreditParty` bundle in
+  `risk/xva.py`. DVA is the mirror of CVA — expected gain from *our own* default while
+  out of the money — which is exactly the CVA integral on the **negative** exposure
+  profile (ENE) against our own survival curve, so `dva` reuses `cva` and
+  `bcva(exposure, snapshot, counterparty, self_party) = CVA - DVA` (net credit charge;
+  value adjustment is `-BCVA`). `CreditParty(key, recovery)` keeps `bcva` under the
+  5-arg ceiling.
+  - Oracles: ENE of a payer swap equals EPE of the mirror receiver swap (exact, same
+    simulated rates); BCVA decomposes into `CVA - DVA`; a default-free self (Q≡1) zeroes
+    DVA so BCVA collapses to unilateral CVA.
+  - Scope: unilateral pair (exposure ⟂ default, no first-to-default survival weighting —
+    a later refinement multiplies each term by the other party's Q(t)).
+  - quarry: `python/pricebook/risk/` · slice: `bcva`
+
+### Changed
+- **`expected_exposure` → `exposure_profiles`**, now returning an `ExposurePair`
+  (EPE **and** ENE) from a single MC pass — ENE is free from the same paths. `ExposurePair`
+  and `ExposureProfile` (docstring generalised to `E[(±V)^+]`) live in `risk/xva.py`.
+
 ## [0.26.0] - 2026-07-15
 
 ### Added
