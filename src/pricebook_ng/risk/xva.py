@@ -8,22 +8,24 @@ differing only in the weight:
     DVA = (1 - R_B) * sum_i  ENE_i * DF_i * (Q_B,i-1 - Q_B,i)   own default (= CVA on ENE)
     BCVA = CVA - DVA                                            net credit charge
     FVA = s_F * sum_i (EPE_i - ENE_i) * DF_i * S_i * tau_i      funding of the position
+    KVA = gamma_K * sum_i K_i * DF_i * S_i * tau_i              cost of regulatory capital
 
 CVA/DVA weight exposure by a *protection leg* — default increments `(Q_{i-1}-Q_i)`
-and `(1-R)`, exactly a CDS `cds_pv` at zero spread. FVA weights it by a *funding
-annuity* — spread over each interval `S*tau`, exactly the CDS RPV01. Keyed to the
-survival curves in the snapshot (A5), so a credit bump (`bump_curve`/`credit01`)
-gives XVA sensitivity for free.
+and `(1-R)`, exactly a CDS `cds_pv` at zero spread. FVA and KVA weight a profile by
+a *funding annuity* — a rate over each interval `S*tau`, exactly the CDS RPV01
+(FVA: funding spread on net exposure; KVA: cost of capital on the capital profile).
+Keyed to the survival curves in the snapshot (A5), so a credit bump
+(`bump_curve`/`credit01`) gives XVA sensitivity for free.
 
 Unilateral/independence scope: exposure and default independent (no wrong-way risk),
 no first-to-default survival weighting, symmetric funding spread. Exposure generation
-is upstream (`risk/exposure.py`).
+(`risk/exposure.py`) and capital/EAD generation (the RWA slice) are upstream.
 
 Provenance:
   quarry: python/pricebook/risk/ (xva)
   source: Gregory, The xVA Challenge; Brigo & Mercurio
-  oracle: unit-exposure CVA == protection leg; FVA == s_F·RPV01; BCVA = CVA - DVA
-  slice:  cva (unilateral); bcva (DVA/bilateral); fva (funding)
+  oracle: unit-exposure CVA == protection leg; FVA/KVA == rate·RPV01; BCVA = CVA - DVA
+  slice:  cva (unilateral); bcva (DVA/bilateral); fva (funding); kva (capital)
 """
 
 from __future__ import annotations
@@ -124,11 +126,39 @@ def fva(
     Scope: symmetric funding spread (one `s_F` for borrow/lend), a single survival curve
     (own vs joint is a later refinement). FVA/DVA overlap is a known modelling debate,
     out of scope here — this is the discounting-approach FVA on the given exposure."""
+    net = ExposureProfile(
+        exposure.epe.grid,
+        tuple(e - n for e, n in zip(exposure.epe.ee, exposure.ene.ee)),
+    )
+    return _annuity_adjustment(net, snapshot, key, funding_spread)
+
+
+def kva(
+    capital: ExposureProfile, snapshot: MarketSnapshot, key: MarketKey, cost_of_capital: float
+) -> float:
+    """Capital Valuation Adjustment — the cost of holding regulatory capital over the
+    trade's life: `KVA = gamma_K * Sum_i K(t_i) * DF(t_i) * S(t_i) * tau_i`, the cost of
+    capital `gamma_K` charged on the capital profile `K(t)`, discounted and survival-
+    weighted (capital is only held while alive — `key` is the relevant survival curve).
+    The same survival annuity as FVA, with capital in place of net exposure.
+
+    `K(t)` is an input (a `CapitalProfile`-shaped `ExposureProfile`): generating it from a
+    regulatory model (SA-CCR EAD -> RWA -> capital) is the upstream RWA slice, exactly as
+    the exposure engine is upstream of CVA."""
+    return _annuity_adjustment(capital, snapshot, key, cost_of_capital)
+
+
+def _annuity_adjustment(
+    profile: ExposureProfile, snapshot: MarketSnapshot, key: MarketKey, rate: float
+) -> float:
+    """`rate * Sum_i profile_i * DF(t_i) * S(t_i) * tau_i` — the survival-weighted annuity
+    shared by FVA (funding spread on net exposure) and KVA (cost of capital on the capital
+    profile). The CDS RPV01 structure, so unit profile gives `rate * RPV01`."""
     survival = snapshot.curves[key]
     discount = snapshot.discount_curve
-    epe, ene, grid = exposure.epe.ee, exposure.ene.ee, exposure.epe.grid
-    return funding_spread * sum(
-        (epe[i] - ene[i])
+    grid, values = profile.grid, profile.ee
+    return rate * sum(
+        values[i]
         * discount.df(grid[i])
         * survival.df(grid[i])
         * year_fraction(grid[i - 1], grid[i], _FUNDING_DC)
