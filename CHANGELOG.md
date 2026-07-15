@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-07-15
+
+### Added
+- **SA-CCR — Basel standardised counterparty EAD & RWA (L5)**. New `risk/saccr.py`:
+  `saccr_ead(swap, mark, valuation_date) = α·(RC + PFE)` for a single-trade interest-rate
+  netting set (unmargined, uncollateralised), plus `risk_weighted_assets(ead, risk_weight)`
+  and `saccr_capital(rwa) = 8%·RWA`. RC = max(V,0); PFE = multiplier·AddOn with the IR
+  supervisory factor (0.5%), supervisory duration (5% decay), unmargined maturity factor,
+  and the 5%-floored multiplier; α = 1.4.
+  - Oracles: a 10y ATM $100mm IRS has EAD ≈ 5.5% of notional (the published SA-CCR anchor);
+    RC adds `α·mark` in the money; deep out-of-the-money the multiplier hits its 0.05 floor
+    (EAD → `0.05·EAD_atm`); RWA/capital identities.
+  - This is the regulatory EAD generator that both counterparty RWA and (extended to a
+    forward profile) the KVA capital input build on.
+  - Scope: single IR trade, one hedging set, no collateral/margin — netting-set buckets +
+    correlations, margined MF, other asset classes, and collateral haircuts are later slices.
+  - quarry: `python/pricebook/risk/` · slice: `saccr`
+
 ## [0.29.0] - 2026-07-15
 
 ### Added
