@@ -6,6 +6,20 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-07-15
+
+### Added
+- **Stochastic-mark SA-CCR EAD profile (L5)** — unifies the two halves of the capital
+  stack. `stochastic_ead_profile(swap, model, numerics)` sets SA-CCR's replacement cost to
+  the MC exposure engine's expected positive exposure instead of the ATM zero:
+  `EAD(t_j) = α·(EPE(t_j) + AddOn_remaining(t_j))`. Because `EPE ≥ 0` pins the multiplier at
+  1, this is `forward_ead_profile` with `mark = EPE(t_j)`, and decomposes exactly as
+  `forward_ead(t_j) + α·EPE(t_j)` — both pieces already oracle-checked.
+  - Oracles: exact decomposition into the deterministic PFE profile plus `α·EPE`; it dominates
+    the ATM profile; and its KVA charge exceeds the ATM one (expected exposure adds capital).
+  - Closes the loop end-to-end: MC exposure → SA-CCR RC → capital profile → KVA.
+  - quarry: `python/pricebook/risk/` · slice: `stochastic-ead`
+
 ## [0.31.0] - 2026-07-15
 
 ### Added
