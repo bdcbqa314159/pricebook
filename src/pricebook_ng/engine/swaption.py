@@ -28,14 +28,15 @@ from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.solvers import bisect_root
+from pricebook_ng.products.swap import VanillaSwap
 from pricebook_ng.products.swaption import Swaption
 from pricebook_ng.models.hull_white import HullWhite
 
 
-def coupon_bond_cashflows(swaption: Swaption) -> tuple[list[date], list[float], float]:
-    """The coupon bond a swaption's fixed leg decomposes into: fixed coupons plus
-    the notional redeemed at the last date. Shared by the analytic and MC engines."""
-    swap = swaption.swap
+def coupon_bond_cashflows(swap: VanillaSwap) -> tuple[list[date], list[float], float]:
+    """The coupon bond a swap's fixed leg decomposes into: fixed coupons plus the
+    notional redeemed at the last date. Shared by the analytic + MC swaption engines
+    and the MC exposure engine."""
     notional = swap.float_leg.face.amount
     dates = [cf.date for cf in swap.fixed_leg.cashflows]
     amounts = [cf.amount.amount for cf in swap.fixed_leg.cashflows]
@@ -57,7 +58,7 @@ class SwaptionEngine:
             return PricingFailure(f"swaption expiry {expiry} precedes valuation")
 
         currency = swaption.swap.float_leg.face.currency
-        dates, amounts, notional = coupon_bond_cashflows(swaption)
+        dates, amounts, notional = coupon_bond_cashflows(swaption.swap)
 
         def coupon_bond(short_rate: float) -> float:
             return sum(a * model.zero_bond(expiry, d, short_rate) for a, d in zip(amounts, dates))

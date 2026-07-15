@@ -66,6 +66,19 @@ class HullWhite:
         """P(0, d) — equals the market curve (the model refits it exactly)."""
         return self.curve.df(d)
 
+    def forward_short_rate(self, t: float, z: float) -> float:
+        """Short rate `r(t)` under the t-forward measure from a standard-normal draw
+        `z` (exact Gaussian — no discretisation error). Shared by MC swaption pricing
+        and MC exposure simulation; `t` is a year fraction. Assumes `a > 0` (the MC
+        path; the analytic a->0 limits live on the other methods)."""
+        a, sigma = self.a, self.sigma
+        variance = sigma**2 * (1.0 - math.exp(-2.0 * a * t)) / (2.0 * a)
+        fwd_mean = -(sigma**2 / a**2) * (
+            (1.0 - math.exp(-a * t)) - 0.5 * (1.0 - math.exp(-2.0 * a * t))
+        )
+        alpha = self.curve.rate + (sigma**2 / (2.0 * a**2)) * (1.0 - math.exp(-a * t)) ** 2
+        return alpha + fwd_mean + math.sqrt(variance) * z
+
     def zero_bond(self, expiry: date, bond_maturity: date, short_rate: float) -> float:
         """P(T, S) as a function of the short rate r(T) at `expiry` = T
         (reconstitution, Brigo & Mercurio 3.39): A(T,S) exp(-B(T,S) r).
