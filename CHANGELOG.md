@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-07-15
+
+### Added
+- **PFE-quantile / dynamic-IM engine (L5)**. `pfe_profile(swap, model, numerics, quantile)`
+  returns the potential future exposure at confidence `q`: `PFE_q(t_j)` = q-quantile of
+  positive exposure `max(V(t_j), 0)` across the simulated paths — the exposure tail the EPE
+  averages over, and a high-quantile PFE doubles as a dynamic initial-margin proxy that feeds
+  `mva`.
+  - Oracle: because the remaining swap value is monotonic in the Gaussian short rate, the
+    q-quantile of V equals V at the q-quantile of r — so `PFE_q(t_j) = max(V(t_j; r_q), 0)`
+    with `r_q = forward_short_rate(t_j, Φ⁻¹(q))`, matched by MC (`rel=2%`); `σ=0` collapses it
+    to the deterministic exposure; PFE rises with `q` and funds a positive MVA.
+  - Refactor: extracted `_simulate_swap_values` (per-path V by date), now shared by the EE
+    means (`exposure_profiles`) and the PFE quantiles — byte-identical MC (same seed/draws), so
+    the CVA/BCVA/stochastic-EAD oracles stay exact.
+  - Scope: PFE-as-IM proxy; a margin-period-of-risk IM on ΔV is the noted refinement.
+  - quarry: `python/pricebook/risk/` · slice: `pfe-quantile`
+
 ## [0.34.0] - 2026-07-15
 
 ### Added
