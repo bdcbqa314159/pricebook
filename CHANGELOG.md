@@ -6,6 +6,21 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-07-15
+
+### Added
+- **MVA — margin valuation adjustment (L5)**, completing the XVA family. `mva(im, snapshot,
+  key, funding_spread)`: `MVA = s_F·Σ IM(t_i)·DF(t_i)·S(t_i)·τ_i` — the funding cost of posting
+  initial margin over the trade's life, the **same survival-weighted funding annuity** as FVA
+  and KVA (now three consumers of the shared `_annuity_adjustment`), with the IM profile in
+  place of net exposure / capital.
+  - Oracles: MVA on unit IM equals `s_F · RPV01`; linearity in spread and IM; a vertical where
+    an IM profile taken as the SA-CCR PFE (AddOn) runoff feeds MVA to a positive charge matching
+    its annuity.
+  - `IM(t)` is an input — generating it (SIMM, or a dynamic MC-quantile IM over the margin period
+    of risk) is the upstream slice, as the exposure engine is upstream of CVA.
+  - quarry: `python/pricebook/risk/` · slice: `mva`
+
 ## [0.33.0] - 2026-07-15
 
 ### Added
