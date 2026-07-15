@@ -39,8 +39,11 @@ from __future__ import annotations
 import math
 from datetime import date
 
+from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
+from pricebook_ng.models.hull_white import HullWhite
 from pricebook_ng.products.swap import VanillaSwap
+from pricebook_ng.risk.exposure import exposure_profiles
 from pricebook_ng.risk.xva import ExposureProfile
 
 _ALPHA = 1.4               # supervisory EAD multiplier
@@ -99,6 +102,30 @@ def forward_ead_profile(swap: VanillaSwap, valuation_date: date) -> ExposureProf
         for t_j in grid
     ]
     return ExposureProfile(tuple(grid), tuple(ead))
+
+
+def stochastic_ead_profile(
+    swap: VanillaSwap, model: HullWhite, numerics: NumericalConfig
+) -> ExposureProfile:
+    """SA-CCR EAD runoff with a *stochastic* replacement cost: RC(t_j) is the MC expected
+    positive exposure EPE(t_j) (from the exposure engine) rather than the ATM zero, so
+    `EAD(t_j) = alpha * (EPE(t_j) + AddOn_remaining(t_j))` — the simulated exposure unified
+    with the supervisory PFE. Passing EPE (>= 0) as the SA-CCR mark pins the multiplier at 1,
+    so this is `forward_ead_profile` with `mark = EPE(t_j)`; it decomposes as
+    `forward_ead(t_j) + alpha * EPE(t_j)`."""
+    epe = exposure_profiles(swap, model, numerics).epe
+    notional = swap.float_leg.face.amount
+    swap_start, maturity = swap.float_leg.schedule[0], swap.float_leg.schedule[-1]
+    ead = tuple(
+        _ead_ir(
+            notional,
+            year_fraction(t_j, swap_start, _DC) if swap_start > t_j else 0.0,
+            year_fraction(t_j, maturity, _DC),
+            expected_positive_exposure,   # mark = EPE >= 0 -> RC = EPE, multiplier pinned at 1
+        )
+        for t_j, expected_positive_exposure in zip(epe.grid, epe.ee)
+    )
+    return ExposureProfile(epe.grid, ead)
 
 
 def capital_profile(ead_profile: ExposureProfile, risk_weight: float) -> ExposureProfile:
