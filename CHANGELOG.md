@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-07-16
+
+### Added
+- **L6 trade lifecycle — the first vertical up into the shell (A6.2).** Extends the A3
+  Trade/Book/benefit-table stub to the full realized-vs-mark split. New `Trade.mark(market,
+  numerics, engine)` (sum of the products' PVs + accrued as of the snapshot) and `Book.value(...)`
+  (the book's mark = Σ trade marks, linearity), sharing a `_combine` helper; `BookedTrade.value`
+  now delegates to `Trade.mark` and remembers the observed mark.
+  - Oracle over a bond's life: at issue the mark equals the full discounted PV (realized = 0);
+    mid-life the mark prices **only future flows** (the engine excludes the paid ones, A2) while
+    the benefit table holds the realized cash; **dirty = clean + accrued** at a mid-period date;
+    at maturity mark = 0 and realized = the total nominal; **book mark & realized are linear**
+    across trades. So `realized + mark` is the trade's total economics (A3).
+  - Deferred: SQLite persistence of the benefit table (`pnl_history` behind the persistence
+    interface) is its own data-spine slice; float-leg realized needs fixings (seasoned-float slice).
+  - quarry: `python/pricebook/core/book.py` + `pnl_history` · slice: `l6-trade-lifecycle`
+
 ## [0.37.1] - 2026-07-16
 
 ### Added
