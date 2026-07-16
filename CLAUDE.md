@@ -143,6 +143,12 @@ mark; dirty = clean + accrued.
 ## 4. Migration rules (quarry → new tree)
 
 - **Quarry is read-only.** The old tree is never edited or deleted. Done = quarry empty.
+- **"Crossed" = quarry-deletable, not concept-adapted.** A quarry module counts as migrated
+  only when its ng counterpart reaches *realigned parity* and the quarry module could be
+  deleted — a simplified skeleton (e.g. flat-curve HW standing in for the general model) is a
+  *partial* cross with a recorded **parity gap**, not a cross. Drawdown (`deletable / 768`) is
+  the honest progress bar; it is refreshed at every checkpoint
+  (`redesign/handoffs/quarry_reconciliation.md`).
 - **Copy-ADAPT, never copy-paste.** Every crossing conforms to a layer, speaks the
   vocabulary, moves behaviour into the engine, or sheds debt. A byte-for-byte copy is a
   **failed** migration.
