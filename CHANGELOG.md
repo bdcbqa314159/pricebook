@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-07-16
+
+### Added
+- **Consolidated XVA report (L6, A6.2)** — completes the CP-1 cluster. `xva_report(swaps, model,
+  numerics, config)` in `shell/xva_report.py` simulates a netting set's exposure **once** and
+  returns every adjustment (CVA/DVA/BCVA/FVA/KVA/MVA) + the EE/PFE/EAD profiles, consolidating the
+  six separate L5 calls. Lives at L6 because a per-counterparty netting set is a book of trades.
+  - Netting-set exposure: new `netting_set_exposure(swaps, model, numerics, pfe_quantile)` (L5)
+    sums each swap's value on **shared paths** so offsetting trades net; KVA uses the netting-set
+    SA-CCR EAD runoff (`netting_set_ead` as-of each grid date). The economy (discount + both
+    parties' survival curves) rides on `model.market` (A5), read directly by the integrators.
+  - Oracles: a single-trade netting set reproduces each standalone L5 value exactly (one pass, same
+    draws); a payer + mirror receiver nets the portfolio exposure to zero, collapsing the netted CVA.
+  - Refactor: `_simulate_swap_values` is now the single-swap case of `_simulate_netting_set`
+    (byte-identical, guarded by the measure/BCVA/stochastic reproducibility oracles).
+  - quarry: `python/pricebook/risk/` + `desks/` · slice: `xva-report`
+
 ## [0.38.0] - 2026-07-16
 
 ### Added
