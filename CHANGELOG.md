@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-07-16
+
+### Added
+- **MPOR path-simulated exposure (L5)** — the residual exposure that survives full
+  collateralisation. At a counterparty default the collateral reflects the value one margin
+  period of risk ago, so `E_mpor(t) = mean max(V(t) - V(t - MPOR), 0)`. This needs the joint
+  distribution of `V(t)` and `V(t-MPOR)`, so the slice adds `_simulate_rate_paths` — a
+  **risk-neutral joint-path simulator** (exact Ornstein-Uhlenbeck steps on the HW state,
+  `r = x + α(t)`) — and `mpor_exposure(swap, model, numerics, mpor_days)`.
+  - Oracles: the path simulator reproduces the analytic HW/OU moments — marginal mean `α(t)`,
+    variance `σ²(1-e^{-2at})/2a`, and cross-date covariance `e^{-a(t-s)}·var(s)`; a zero gap
+    gives exactly zero exposure; exposure grows with the gap; it feeds a positive CVA.
+  - **Provisional measure choice (flagged for review):** the EE/PFE profiles use per-date
+    forward measure; this path simulator uses the risk-neutral measure. For the local MPOR
+    *difference* the choice is second-order, but unifying the exposure stack onto one measure
+    is a design question for the L5 brainstorm — see the handoff.
+  - Scope: single swap, zero threshold; float valued via `notional - couponbond` at the
+    pre-gap date too (float ≈ par, O(MPOR) error). Netting-set / threshold MPOR is a refinement.
+  - quarry: `python/pricebook/risk/` · slice: `mpor-paths`
+
 ## [0.36.0] - 2026-07-16
 
 ### Added
