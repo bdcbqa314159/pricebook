@@ -24,8 +24,9 @@ Provenance:
   quarry: python/pricebook/risk/ (exposure / xva)
   source: Brigo & Mercurio s.3.3 (T-forward simulation); Gregory, The xVA Challenge
   oracle: sigma=0 deterministic exposure (exact) + discounted EE == co-terminal swaptions;
-          PFE quantile == V at the r-quantile; collateral caps at H; OU path moments
-  slice:  mc-exposure; bcva; pfe-quantile; margined-exposure (CSA); mpor-paths (close-out gap)
+          PFE quantile == V at the r-quantile; collateral caps at H; OU path moments;
+          measure consistency — joint paths reproduce forward-measure EE/PFE (A6.1)
+  slice:  mc-exposure; bcva; pfe-quantile; margined-exposure; mpor-paths; measure-consistency
 """
 
 from __future__ import annotations
@@ -140,10 +141,13 @@ def _simulate_rate_paths(
     (flat curve). Unlike the per-date forward-measure draws behind the EE profiles, this
     keeps the cross-date correlation the margin-period-of-risk gap needs.
 
-    PROVISIONAL measure choice: the EE/PFE profiles use per-date forward measure; this uses
-    risk-neutral paths. Reconciling the whole exposure stack onto one measure is a design
-    question for review (see the L5 handoff) — for the local MPOR *difference* `V(t)-V(t-dt)`
-    the choice is second-order, but it must be settled before the measures are mixed further."""
+    Measure (Amendment A6.1): the EE/PFE profiles use the per-date forward measure; this uses
+    risk-neutral paths. They are ONE model under a change of numeraire —
+    `E^Q[D(0,t)·max(V,0)] = P(0,t)·E^{T_t}[max(V,0)]` — not rival measures, and the two may not
+    silently diverge: `test_measure_consistency` binds them (the joint-path marginal shifted by
+    the forward-measure drift reproduces the forward-measure EE/PFE per date). Target is a single
+    risk-neutral path engine once a path-based EE oracle exists; the swaption-strip identity
+    survives as that marginal check."""
     a, sigma, r0 = model.a, model.sigma, model.curve.rate
     alpha = [r0 + (sigma**2 / (2.0 * a**2)) * (1.0 - math.exp(-a * t)) ** 2 for t in times]
     step_coeffs = []  # (decay, vol) for the OU step from the previous time
