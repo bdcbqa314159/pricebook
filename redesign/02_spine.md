@@ -363,4 +363,36 @@ class MarketSnapshot:
   deleted.
 - **Timing/oracle** — its own **behaviour-preserving** slice guarded by the existing FX/equity/
   credit oracles (PVs + greeks byte-identical); commodity then lands with *no* snapshot edits.
+
+## Amendment A6 (2026-07) — rulings from the L5 XVA/capital report (v0.19–v0.37)
+
+Ratified from `redesign/handoffs/L5_xva_capital_report.md` §4.
+
+**A6.1 — Exposure measure: one truth, two computations, bound by an oracle.** The
+forward-measure per-date engine and the risk-neutral joint-path engine compute the **same
+discounted exposure** — by change of numeraire
+`E^Q[D(0,t)·max(V,0)] = P(0,t)·E^{T_t}[max(V,0)]` (the co-terminal swaption strip). The
+forward-measure version is a variance-reduced special case, **not** a rival measure. So:
+  - Keep both for now, scoped (forward-measure marginals where the analytic swaption-strip
+    oracle applies; risk-neutral joint paths for genuinely path-dependent quantities — MPOR,
+    callables).
+  - **Mandatory consistency oracle:** the joint-path simulator must reproduce the
+    forward-measure marginals per date (EE/PFE), to tolerance — the two engines may never
+    silently diverge (this is the project's core failure mode).
+  - **Target:** converge to a *single* risk-neutral path engine once a path-based EE oracle is
+    in place; the swaption-strip identity survives as the marginal check (it does **not** die
+    under risk-neutral simulation).
+
+**A6.2 — Next cut is the first L6 vertical, not more L5 depth.** L5 is deep and coherent, but
+**L6 (Trade/Book/benefit table, A3 realized-vs-mark) is unbuilt** and the quarry empties slowly.
+Rule: cut a vertical *up* into L6 — book a trade, run its life, exercise the A3 decomposition
+end-to-end — and make the **counterparty-level `xva_report`** its first consumer. A real
+`xva_report` is per-counterparty across a netting set = a **book of trades = an L6 object**;
+building it there (simulate-once, returns all adjustments + profiles) consolidates the six
+separate XVA calls *and* exercises L6 in one move (§4.2 + §4.4 are the same move).
+
+**A6.3 — Deferred (real, not urgent):** general-curve (bootstrapped) HW lifting the HW-1F
+flat-curve ceiling (§4.3); deeper XVA — first-to-default BCVA, wrong-way risk, SIMM, capital
+floors, ColVA (§4.5). These wait behind the L6 vertical; depth under an already-deep stack is
+lower-value than breadth up the layers while L6 is empty and the quarry is barely migrated.
 ```
