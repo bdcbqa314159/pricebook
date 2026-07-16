@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-07-16
+
+### Added
+- **Measure-consistency binding oracle (L5, Amendment A6.1).** The exposure stack runs two
+  simulators — the per-date **forward-measure** engine (EE/PFE profiles) and the **risk-neutral
+  joint-path** engine (MPOR). A6.1 rules them one model under a change of numeraire
+  (`E^Q[D·max(V,0)] = P(0,t)·E^{T_t}[max(V,0)]`), so they may never silently diverge. The new
+  test binds them: the risk-neutral joint-path marginal, shifted by the analytic forward-measure
+  drift `m(t)`, reproduces the forward-measure EE **and** PFE per date (two independent MC
+  estimates of the same discounted exposure, agreeing to `rel=4%`). No behaviour change — the
+  `_simulate_rate_paths` docstring/provenance now document the ratified relationship.
+- Ratified **Amendment A6** in `redesign/02_spine.md` (exposure measure + first-L6 rulings) and
+  the **checkpoint-&-review cadence** (`redesign/11`, `CLAUDE.md §6`): stop at ≤6 slices or a
+  capability-cluster boundary; every checkpoint carries an oracle audit, quarry drawdown `N/768`,
+  a challenge-me list, and a smell/debt scan.
+  - slice: `measure-consistency-oracle` (CP-1, first of the A6 cluster)
+
 ## [0.37.0] - 2026-07-16
 
 ### Added
