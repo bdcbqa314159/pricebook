@@ -45,31 +45,47 @@ from pricebook_ng.risk.xva import ExposurePair, ExposureProfile
 _CURVE_DC = DayCountConvention.ACT_365_FIXED
 
 
-def _simulate_swap_values(
-    swap: VanillaSwap, model: HullWhite, numerics: NumericalConfig
+def _simulate_netting_set(
+    swaps: list[VanillaSwap], model: HullWhite, numerics: NumericalConfig
 ) -> tuple[list[date], list[list[float]]]:
-    """Per exposure date, the list of simulated remaining-swap values `V(t_j)` across
-    paths (`r` drawn under the t_j-forward measure, repriced from the model's `zero_bond`).
-    Shared by the EE means and the PFE quantiles. Exposure dates: valuation (mark today)
-    plus each coupon date strictly before maturity (past the last flow exposure is zero)."""
+    """Per exposure date, the netting set's PORTFOLIO value `Σ_i V_i(t_j)` across paths:
+    each swap repriced on the SAME drawn rate and summed, so offsetting trades net. The grid
+    is the union of the swaps' coupon dates strictly inside their lives (valuation first). A
+    swap with no remaining coupons at `t_j` (already matured) contributes 0."""
     valuation = model.market.valuation_date
-    dates, amounts, notional = coupon_bond_cashflows(swap)
-    is_payer = swap.pay_fixed
-    maturity = dates[-1]
-    grid = [valuation, *(d for d in dates if valuation < d < maturity)]
+    specs = []  # (dates, amounts, notional, is_payer) per swap
+    coupon_dates: set[date] = set()
+    for swap in swaps:
+        dates, amounts, notional = coupon_bond_cashflows(swap)
+        specs.append((dates, amounts, notional, swap.pay_fixed))
+        coupon_dates.update(d for d in dates if valuation < d < dates[-1])
+    grid = [valuation, *sorted(coupon_dates)]
 
     rng = random.Random(numerics.mc_seed)
     values_by_date: list[list[float]] = []
     for t_j in grid:
-        remaining = [(d, amt) for d, amt in zip(dates, amounts) if d > t_j]
         t = year_fraction(valuation, t_j, _CURVE_DC)
+        remaining = [[(d, amt) for d, amt in zip(dts, amts) if d > t_j] for dts, amts, _, _ in specs]
         values = []
         for _ in range(numerics.mc_paths):
             r = model.forward_short_rate(t, rng.gauss(0.0, 1.0))
-            coupon_bond = sum(amt * model.zero_bond(t_j, d, r) for d, amt in remaining)
-            values.append(notional - coupon_bond if is_payer else coupon_bond - notional)
+            total = 0.0
+            for (_dts, _amts, notional, is_payer), rem in zip(specs, remaining):
+                if not rem:
+                    continue
+                coupon_bond = sum(amt * model.zero_bond(t_j, d, r) for d, amt in rem)
+                total += (notional - coupon_bond) if is_payer else (coupon_bond - notional)
+            values.append(total)
         values_by_date.append(values)
     return grid, values_by_date
+
+
+def _simulate_swap_values(
+    swap: VanillaSwap, model: HullWhite, numerics: NumericalConfig
+) -> tuple[list[date], list[list[float]]]:
+    """Single-swap case of `_simulate_netting_set` (a netting set of one). Shared by the EE
+    means and the PFE quantiles."""
+    return _simulate_netting_set([swap], model, numerics)
 
 
 def _quantile(sorted_values: list[float], q: float) -> float:
@@ -219,3 +235,20 @@ def mpor_exposure(
         grid.append(d_j)
         ee.append(total / numerics.mc_paths)
     return ExposureProfile(tuple(grid), tuple(ee))
+
+
+def netting_set_exposure(
+    swaps: list[VanillaSwap], model: HullWhite, numerics: NumericalConfig, pfe_quantile: float
+) -> tuple[ExposurePair, ExposureProfile]:
+    """Portfolio EPE/ENE and PFE for a netting set from ONE simulation (offsetting trades net
+    on shared paths). The single entry point behind the L6 `xva_report`, so its six
+    adjustments come from one exposure pass rather than six."""
+    grid, values_by_date = _simulate_netting_set(swaps, model, numerics)
+    n = numerics.mc_paths
+    g = tuple(grid)
+    epe = ExposureProfile(g, tuple(sum(max(v, 0.0) for v in vals) / n for vals in values_by_date))
+    ene = ExposureProfile(g, tuple(sum(max(-v, 0.0) for v in vals) / n for vals in values_by_date))
+    pfe = ExposureProfile(
+        g, tuple(_quantile(sorted(max(v, 0.0) for v in vals), pfe_quantile) for vals in values_by_date)
+    )
+    return ExposurePair(epe, ene), pfe
