@@ -184,12 +184,20 @@ end-to-end L0→L6 through the stateless engine. Oracle: `PV = notional·exp(−
 <1e-12; analytic vs finite-difference DV01 to <1e-6; repricing is byte-identical
 (statelessness). See `redesign/04_slice_plan.md`.
 
-**Layer checkpoint (hard stop):** migration is bottom-up *and* review-gated. On completing
-all slices in a layer, write a **Layer Completion Report** to
-`redesign/handoffs/L<N>_report.md` (template + required §5 design-drift section in
-`redesign/08_handoff_protocol.md`), emit the one-line return message, and **stop** for
-design review before starting the next layer. Do not begin L<N+1> until the L<N> ledger
-is ruled.
+**Checkpoint cadence (hard stop — planned, not ad-hoc):** stop and write a checkpoint report
+at the **first** of: **≤6 slices** since the last checkpoint, **or** a capability-cluster
+boundary (asset class / risk family / layer vertical / calibration family) — **whichever comes
+first**. Plus **immediate** stops on: any design drift or contract/measure question; any new
+cross-cutting abstraction/vocabulary type; any debt logged or suppression added; any slice whose
+best oracle is only self-consistency; any quarry entry that resists clean realignment. Every
+report carries the four review inputs — **oracle-quality audit, quarry-drawdown reconciliation
+(`N/768`), a "challenge-me" list of design choices, and a smell+debt scan** — plus the **named
+next checkpoint**. Do not begin the next slice until the checkpoint is ruled. Full detail:
+`redesign/11_checkpoint_and_review_cadence.md` (extends `08_handoff_protocol.md`).
+
+**Migration stance:** full migration, corrected. Every quarry module crosses, *realigned* to
+this design (copy-ADAPT, shed debt) — nothing archived-instead-of-migrated. `done = quarry
+empty = v1.0`, taken literally; drawdown % is the progress bar.
 
 ---
 
