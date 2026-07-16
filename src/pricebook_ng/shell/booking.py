@@ -15,8 +15,9 @@ lands with a seasoned-float slice.
 Provenance:
   quarry: python/pricebook/core/book.py + pnl_history (re-homed core -> L6 shell)
   source: redesign/02_spine.md Amendment A3 (Product/Trade/Book + benefit table)
-  oracle: realized (benefit table) + mark reconcile to total economics (A3)
-  slice:  S00; A3 (Trade/Book + benefit table)
+  oracle: realized (benefit table) + mark reconcile to total economics (A3); dirty =
+          clean + accrued; book mark = Σ trade marks (linearity)
+  slice:  S00; A3 (Trade/Book + benefit table); l6-trade-lifecycle (mark + reconciliation)
 """
 
 from __future__ import annotations
@@ -30,6 +31,21 @@ from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
+
+
+def _combine(results: list[PricingResult | PricingFailure]) -> PricingResult | PricingFailure:
+    """Sum marks into one (pv + accrued, same currency); the first failure short-circuits
+    (failure is a value — engine contract 4). Shared by trade- and book-level marks."""
+    pv = 0.0
+    accrued = 0.0
+    currency = None
+    for result in results:
+        if isinstance(result, PricingFailure):
+            return result
+        pv += result.pv.amount
+        accrued += result.accrued.amount if result.accrued is not None else 0.0
+        currency = result.pv.currency
+    return PricingResult(pv=Money(pv, currency), accrued=Money(accrued, currency))
 
 
 @dataclass(frozen=True)
@@ -51,6 +67,15 @@ class Trade:
         currency = paid[0].amount.currency if paid else next(self._cashflows()).amount.currency
         return Money(sum(cf.amount.amount for cf in paid), currency)
 
+    def mark(
+        self, market: MarketSnapshot, numerics: NumericalConfig, engine: DiscountingEngine
+    ) -> PricingResult | PricingFailure:
+        """The mark: sum of the products' PVs + accrued as of the snapshot. The shell binds
+        the model to the snapshot (A1); the engine excludes already-paid flows (A2, which the
+        benefit table remembers) — so `realized + mark` is the trade's total economics."""
+        model = DiscountingModel(market)
+        return _combine([engine.price(product, model, numerics) for product in self.products])
+
 
 @dataclass(frozen=True)
 class Book:
@@ -61,6 +86,13 @@ class Book:
     def realized(self, as_of: date) -> Money:
         totals = [t.realized(as_of) for t in self.trades]
         return Money(sum(m.amount for m in totals), totals[0].currency)
+
+    def value(
+        self, market: MarketSnapshot, numerics: NumericalConfig, engine: DiscountingEngine
+    ) -> PricingResult | PricingFailure:
+        """The book's mark: the sum of its trades' marks (linearity), matching the sum of
+        their realized P&L."""
+        return _combine([t.mark(market, numerics, engine) for t in self.trades])
 
 
 @dataclass
@@ -79,21 +111,9 @@ class BookedTrade:
         numerics: NumericalConfig,
         engine: DiscountingEngine,
     ) -> PricingResult | PricingFailure:
-        """The mark: sum of the products' PVs (and accrued) as of the snapshot.
-        The shell builds/binds the model for this date's snapshot, then prices (A1)."""
-        model = DiscountingModel(market)
-        pv = 0.0
-        accrued = 0.0
-        currency = None
-        for product in self.trade.products:
-            result = engine.price(product, model, numerics)
-            if isinstance(result, PricingFailure):
-                self.results.append(result)
-                return result
-            pv += result.pv.amount
-            accrued += result.accrued.amount if result.accrued is not None else 0.0
-            currency = result.pv.currency
-        mark = PricingResult(pv=Money(pv, currency), accrued=Money(accrued, currency))
+        """The mark as of the snapshot, remembered on the booked trade (the shell records
+        what it observes). Delegates the pricing to the frozen `Trade`."""
+        mark = self.trade.mark(market, numerics, engine)
         self.results.append(mark)
         return mark
 
