@@ -1,12 +1,11 @@
-# Checkpoint CP-1 (partial) — measure oracle + first L6 vertical
+# Checkpoint CP-1 (complete) — measure oracle + first L6 vertical + consolidated XVA report
 
-Date: 2026-07-16   ·   Version: `0.38.0`   ·   Tests: 228 green (`verify.py all`)
+Date: 2026-07-16   ·   Version: `0.39.0`   ·   Tests: 230 green (`verify.py all`)
 
-First checkpoint under the new cadence (`redesign/11`). Covers the two slices since the A6
-rulings (`rulings_A6_measure_and_L6.md`, v0.37.0). Called **at the user's request, mid-cluster**:
-CP-1 is a 3-slice cluster and slice 3 (`xva_report`) is **not yet done** — deliberately handed to
-Cowork here before it, since it's the first thing that spans L5↔L6. Carries the four mandatory
-review inputs (§2–§5).
+First checkpoint under the new cadence (`redesign/11`). Covers the three slices since the A6
+rulings (`rulings_A6_measure_and_L6.md`, v0.37.0) — the **full CP-1 cluster** (A6.2). (An earlier
+partial version of this doc was cut at 2/3; `xva_report` has since landed, so this supersedes it.)
+No forward slice begins until this is ruled. Carries the four mandatory review inputs (§2–§5).
 
 ---
 
@@ -16,71 +15,72 @@ review inputs (§2–§5).
 |---|---|---|---|
 | measure-consistency-oracle | 0.37.1 | L5 | A6.1 binding oracle: risk-neutral joint paths reproduce the forward-measure EE/PFE per date (change of numeraire). No behaviour change. |
 | l6-trade-lifecycle | 0.38.0 | L6 | A6.2: `Trade.mark` + `Book.value`; realized (benefit table) + mark reconcile over a bond's life; dirty = clean + accrued; book linearity. |
+| xva-report | 0.39.0 | L6 | A6.2: `xva_report` — netting set simulated ONCE → CVA/DVA/BCVA/FVA/KVA/MVA + EE/PFE/EAD; single-trade == standalone, mirror hedge nets to 0. |
 
-**Ledger deltas:** `risk/exposure.py` gained `_simulate_rate_paths` doc ratification (A6.1) + the
-`test_measure_consistency` oracle. `shell/booking.py` extended the A3 stub with `Trade.mark`,
-`Book.value`, and a shared `_combine`; `BookedTrade.value` now delegates. Design docs committed:
-spine **A6**, cadence artifact **#11**, `CLAUDE.md §6`.
+**Ledger deltas:** `risk/exposure.py` — `_simulate_netting_set` (portfolio value on shared paths),
+`_simulate_swap_values` now delegates to it (byte-identical), public `netting_set_exposure` (one
+pass → pair + PFE), + the `test_measure_consistency` oracle & A6.1 doc. `shell/booking.py` extended
+the A3 stub (`Trade.mark`, `Book.value`, `_combine`). New `shell/xva_report.py` (`XvaReport`,
+`XvaReportConfig`, `xva_report`). Design docs committed: spine **A6**, cadence artifact **#11**,
+`CLAUDE.md §6`.
 
 ## 2. Oracle-quality audit
 
 | Slice | Oracle | Class |
 |---|---|---|
-| measure-consistency | two MC engines agree because both match the **analytic** change of numeraire (`P(0,t)·EE = swaption strip`) + OU moments | **cross-check** (anchored to closed form; MC-vs-MC to `rel=4%`) |
+| measure-consistency | two MC engines agree because both match the **analytic** change of numeraire (`P(0,t)·EE = swaption strip`) + OU moments | **cross-check** (anchored to closed form; MC-vs-MC `rel=4%`) |
 | l6-trade-lifecycle | mark at issue = `Σ cf·DF`; mid-life = `Σ future cf·DF`; accrued = half-coupon by hand; realized = `Σ paid`; book linear | **closed-form** |
+| xva-report | single-trade set reproduces each standalone L5 value **exactly** (same draws); mirror hedge nets portfolio exposure to 0 | **cross-check** (reuses the v0.25–v0.34 closed-form/analytic oracles) + exact-reproduction |
 
-No slice rests on self-consistency alone. One thing to note: the measure oracle's tolerance is a
-**statistical** `4%` (independent MC draws) rather than exact — see §4.
+No slice rests on self-consistency alone. Watch item: the measure oracle's `4%` is a **statistical**
+MC-vs-MC tolerance, not exact (see §4.2).
 
-## 3. Quarry-drawdown reconciliation — THE honest gap
+## 3. Quarry-drawdown reconciliation — THE honest gap (unchanged)
 
-- Denominator confirmed: **768** quarry modules (`python/pricebook/**`, non-init).
-- New tree: **48** modules built (L0–L6).
-- **Formally "crossed" (quarry module superseded + emptied): ~0.** The L5→L6 run was *forward
-  construction adapting concepts*, not systematic quarry emptying — and the ng versions are often
-  simplified (flat-curve HW, single-curve, one hedging set), so they do not yet fully supersede
-  their quarry counterparts. **Drawdown ≈ 0 / 768.** This matches Cowork's own note that "a
-  periodic quarry-crossing reconciliation is due."
+- Denominator: **768** quarry modules (`python/pricebook/**`, non-init). New tree: **49** modules.
+- **Formally "crossed" (quarry module superseded + emptied): ~0 / 768.** The L5→L6 run is *forward
+  construction adapting concepts*, and the ng versions are simplified (flat-curve HW, single-curve,
+  one hedging set), so they do not yet fully supersede their quarry counterparts. This matches
+  Cowork's own note that "a periodic quarry-crossing reconciliation is due."
 - **Proposed action (early, before CP-2's systematic drawdown):** a one-pass **reconciliation map**
-  — for each ng module, the quarry module(s) it supersedes and the gap to "quarry-deletable"
-  (e.g. ng-HW needs general curve before it supersedes quarry `models/hull_white`). That map turns
-  drawdown into a real progress bar and exposes where ng is a *partial* adaptation vs a full cross.
+  — each ng module → the quarry module(s) it supersedes → the gap to "quarry-deletable" (e.g.
+  ng-HW needs a general curve before it supersedes quarry `models/hull_white`). Turns drawdown into
+  a real progress bar and exposes where ng is a *partial* adaptation vs a full cross.
 
 ## 4. Design choices to challenge (push back before they harden)
 
-1. **Deferred SQLite persistence out of the L6 slice.** The A6.2 ruling bundled `pnl_history`
-   persistence; I split it into its own data-spine slice to keep the vertical checkable in one pass
-   and avoid introducing the persistence *interface* (a cross-cutting abstraction) mid-slice.
+1. **Deferred SQLite persistence out of the L6 slice.** A6.2 bundled `pnl_history` persistence; I
+   split it into its own data-spine slice (avoid introducing the persistence *interface* mid-slice).
    Right call, or should persistence land with the shell?
-2. **Measure oracle tolerance is statistical (`rel=4%`), not exact.** It binds the two engines to
-   `~1–2%` observed, but a common-random-number or analytic-marginal version would be exact. Is 4%
-   an acceptable "binding" gate, or do we harden it?
-3. **Checkpointing mid-cluster (2 of 3).** `xva_report` deferred to the next batch at user request.
-   Fine, or complete the cluster first?
-4. **`Trade.mark` is linear-only.** It binds `DiscountingModel`/`DiscountingEngine`; a trade of
-   non-linear products (swaptions, options) needs per-product engine selection (the L4 registry) at
-   the L6 mark. When do we introduce that — with `xva_report`, or a dedicated engine-registry slice?
+2. **Measure oracle tolerance is statistical (`rel=4%`), not exact.** Binds the two engines to the
+   `~1–2%` observed; a common-random-number version would be exact. Acceptable gate, or harden it?
+3. **`xva_report` is swap-only and scoped to one netting set.** It takes `list[VanillaSwap]`, not a
+   `Book` of arbitrary products — extracting swaps from a mixed book (an isinstance filter) and
+   non-linear products (engine registry at L6) are deferred. Is `list[VanillaSwap]` the right input,
+   or should it consume a `Book`/`BookedTrade` now?
+4. **KVA capital in the report = the netting-set SA-CCR EAD runoff at ATM (mark 0).** Consistent
+   with the standalone KVA, but the report's *exposure* is stochastic (MC) while its *capital* is the
+   deterministic ATM runoff — two different exposure notions in one object. Unify (stochastic-mark
+   capital across the set), or keep the regulatory ATM runoff for capital?
 
 ## 5. Smell + debt scan
 
-- `Trade._cashflows` assumes `product.cashflows` (works for bonds/fixed legs; float legs need
-  fixings). Not yet an isinstance ladder, but a **cashflow-shape coupling** that will want a small
-  protocol once a 2nd cashflow shape arrives (rule of two). — *proposed: accept, revisit at seasoned-float.*
-- `Trade.realized` currency peek (`next(self._cashflows())` on the empty-paid branch) is awkward. —
-  *proposed: accept (works); tidy if a Money-sum helper lands.*
-- `_combine` normalises `accrued` to `Money(0)` (never `None`) at trade/book level. Benign, but a
-  minor semantic shift vs single-product `PricingResult(accrued=None)`. — *proposed: accept.*
-- `BookedTrade` is mutable (appends observed marks) — intentional (the shell is stateful). — *note only.*
-- No suppressions, no `OPEN.md` (ng) additions, `verify debt` green.
+- `Trade._cashflows` / `xva_report` both assume product shape (`.cashflows`; `VanillaSwap`). Not yet
+  an isinstance ladder, but a **product-shape coupling** that will want a small protocol at the 2nd
+  shape (rule of two). — *proposed: accept, revisit when a 2nd exposure-bearing product arrives.*
+- `_combine` normalises `accrued` to `Money(0)` (never `None`) at trade/book level — benign shift. — *accept.*
+- `Trade.realized` currency peek is awkward but correct. — *accept.*
+- `netting_set_exposure` returns a 2-tuple `(ExposurePair, ExposureProfile)` — mild; a named
+  `NettingSetExposure` type is overkill for one consumer (`xva_report`). — *accept (rule of two).*
+- No suppressions; no `OPEN.md` (ng) additions; `verify debt` green.
 
 ## 6. Ready-for-next / named next checkpoint
 
-- **Immediate:** complete CP-1 with `slice/xva-report` (A6.2) — per-counterparty over a **book**
-  (L6), simulate exposure **once** → CVA/DVA/BCVA/FVA/KVA/MVA + EE/PFE/EAD; oracle = each equals its
-  v0.25–v0.34 standalone value from one pass.
-- **Then CP-2** (per the #11 forward map): general-curve (bootstrapped) HW — lift the flat-curve
-  ceiling — *and/or* the quarry-drawdown reconciliation map (§3), which I'd argue should come first
-  so v1.0 becomes countable.
+CP-1 is **complete and green**. Proposed CP-2 (per the #11 forward map), for Cowork to sequence:
+- **(a) Quarry-drawdown reconciliation map (§3)** — I'd argue *first*, so `v1.0 = quarry empty`
+  becomes countable and we see where ng is partial.
+- **(b) General-curve (bootstrapped) HW** — lift the flat-curve ceiling under the whole XVA stack.
+- **(c) Data-spine slice** — the persistence interface + SQLite (`pnl_history`) deferred from L6.
 
-**Requesting Cowork rulings on §3 (drawdown baseline), §4 (the four choices), and the sequence of
-§6** (xva_report vs drawdown-map first).
+**Requesting Cowork rulings on §3 (drawdown baseline + the map), §4 (the four design choices), and
+the CP-2 sequence (a/b/c).**
