@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-07-17
+
+### Added
+- **General-curve rate accessors (L1) — CP-2b #1, the first parity-depth slice.** Both discount
+  curves gain `zero_rate` (continuously-compounded `-ln P(0,t)/t`) and `instantaneous_forward`
+  (`f(0,t) = -d/dt ln P(0,t)`) — the capability a general-curve Hull-White needs where the flat
+  curve used a constant `r0`. `FlatDiscountCurve` returns the constant `rate`; the log-linear
+  `DiscountCurve` returns a piecewise-**constant** forward per segment (exact `-slope`, not
+  finite-difference), via a shared `_bracket_slope` that also backs `df`.
+  - Oracles: flat curve → constant rate; constant-rate pillars → that same constant forward
+    everywhere; a rising curve's segment forward equals the analytic log-DF slope and its running
+    integral reconstructs `-ln df` at each pillar; `zero_rate = -ln df/t`.
+  - **Parity:** steps `core/discount_curve` toward deletable (adds 2 of its 3 rate accessors);
+    `forward_rate` (simply-compounded) and pluggable interpolation remain the recorded gap.
+    Unblocks CP-2b #2 (general-curve HW). Drawdown still 0/768 (partial cross, gap narrowed).
+  - quarry: `python/pricebook/core/discount_curve.py` + `curves/` · slice: `general-curve-rates`
+
 ## [0.39.0] - 2026-07-16
 
 ### Added
