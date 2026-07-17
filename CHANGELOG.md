@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-07-17
+
+### Added
+- **FRA — forward rate agreement (L2 product + L4 engine) — CP-2b #3, fixed_income spine.**
+  `ForwardRateAgreement` (pure data) + `FRAEngine`: pay fixed, receive the simply-compounded
+  forward `L(T1,T2) = (P(0,T1)/P(0,T2)-1)/τ` over one period, settled at T2 —
+  `PV(pay-fixed) = notional·τ·(L-K)·P(0,T2)`, composed from the curve's discount factors so it
+  prices on any curve (flat **or** bootstrapped — the general-curve payoff for the spine).
+  - Oracles: a par FRA (K = L) reprices to zero; off-par matches the closed form; receiving fixed
+    flips the sign; and the implied forward reprices to par on a bootstrapped curve.
+  - Scope: forward-starting / spot (`accrual_start ≥ valuation`); a seasoned FRA needs a fixing
+    (`FixingHistory`, a later slice, like the seasoned float leg).
+  - **Parity:** first new fixed_income vanilla under the parity-depth mode; steps `fixed_income/fra`
+    toward deletable. bond/swap already price on general curves; deposit / OIS / seasoned-float remain.
+  - quarry: `python/pricebook/fixed_income/fra.py` · slice: `fra-spine`
+
 ## [0.41.0] - 2026-07-17
 
 ### Changed
