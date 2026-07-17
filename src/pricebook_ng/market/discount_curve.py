@@ -15,7 +15,8 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py
   source: Hull, Options Futures & Other Derivatives ch.4; single-curve discounting
   oracle: closed-form log-linear df + parallel/pillar `bumped` (greek FD) < 1e-12
-  slice:  S03; bootstrapped-dv01 (parallel-zero `bumped`); key-rate-buckets (`bump_pillar`)
+  slice:  S03; bootstrapped-dv01 (parallel-zero `bumped`); key-rate-buckets (`bump_pillar`);
+          general-curve-rates (zero_rate + instantaneous_forward — CP-2b, toward core/discount_curve)
 """
 
 from __future__ import annotations
@@ -64,10 +65,11 @@ class DiscountCurve:
     def _t(self, d: date) -> float:
         return year_fraction(self.valuation_date, d, _CURVE_DC)
 
-    def df(self, d: date) -> float:
+    def _bracket_slope(self, t: float) -> tuple[float, float, float]:
+        """The log-linear segment covering time `t`: `(ln DF_lo, t_lo, slope)` where
+        `slope = d(ln DF)/dt` on that segment. Shared by `df` and the forward rate."""
         ts = [self._t(pd) for pd, _ in self.pillars]
         lns = [math.log(df) for _, df in self.pillars]
-        t = self._t(d)
         i = bisect_left(ts, t)
         if i == 0:
             lo, hi = 0, 1                        # at/before anchor, or before pillar 1
@@ -76,7 +78,24 @@ class DiscountCurve:
         else:
             lo, hi = i - 1, i
         slope = (lns[hi] - lns[lo]) / (ts[hi] - ts[lo])
-        return math.exp(lns[lo] + slope * (t - ts[lo]))
+        return lns[lo], ts[lo], slope
+
+    def df(self, d: date) -> float:
+        t = self._t(d)
+        ln_lo, t_lo, slope = self._bracket_slope(t)
+        return math.exp(ln_lo + slope * (t - t_lo))
+
+    def instantaneous_forward(self, d: date) -> float:
+        """`f(0,t) = -d/dt ln P(0,t)`. Log-linear-in-DF interpolation makes the forward
+        piecewise CONSTANT per segment (`= -slope`), which integrates back to `-ln df`."""
+        return -self._bracket_slope(self._t(d))[2]
+
+    def zero_rate(self, d: date) -> float:
+        """Continuously-compounded zero rate `-ln P(0,t)/t`; the short rate `f(0,0)` at t=0."""
+        t = self._t(d)
+        if t <= 0.0:
+            return self.instantaneous_forward(d)
+        return -math.log(self.df(d)) / t
 
     def bumped(self, shift: float) -> "DiscountCurve":
         """Parallel zero-rate shift, as a new curve (for generic curve greeks /
