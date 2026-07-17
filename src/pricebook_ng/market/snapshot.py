@@ -12,7 +12,8 @@ Provenance:
   quarry: python/pricebook/core/discount_curve.py (re-homed core -> L1, minimal)
   source: Hull, Options Futures & Other Derivatives — continuous discounting
   oracle: df(t) = exp(-r t) closed form (drives the Slice 0 PV oracle)
-  slice:  S00; A1 (FixingHistory); survival-in-snapshot (§5.1); A5 (keyed registry)
+  slice:  S00; A1 (FixingHistory); survival-in-snapshot (§5.1); A5 (keyed registry);
+          general-curve-rates (flat forward/zero accessors — CP-2b)
 """
 
 from __future__ import annotations
@@ -46,6 +47,15 @@ class FlatDiscountCurve:
     def df(self, d: date) -> float:
         t = year_fraction(self.anchor, d, self.day_count)
         return math.exp(-self.rate * t)
+
+    def instantaneous_forward(self, d: date) -> float:
+        """`f(0,t) = rate` — a flat curve has a constant forward (the degenerate general
+        curve). The general-curve HW reads this instead of asserting the flat type."""
+        return self.rate
+
+    def zero_rate(self, d: date) -> float:
+        """Continuously-compounded zero rate `= rate` (constant)."""
+        return self.rate
 
     def bumped(self, shift: float) -> "FlatDiscountCurve":
         """Parallel rate shift, as a new curve (for generic keyed curve greeks)."""
