@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-07-17
+
+### Added
+- **Seasoned FRA via `FixingHistory` (L4) — CP-2c #2, fixings / seasoned-float.** The `FRAEngine`
+  now handles the temporal cases (A2): a forward-starting/spot period uses the curve forward; a
+  **seasoned** period (`accrual.start < valuation`) uses the realized reset looked up in the
+  snapshot's `FixingHistory`; a fully-paid period (`end <= valuation`) settles to PV 0 (the shell
+  remembers the realized cash). First `FixingHistory`-consuming engine — the swap float leg and the
+  L6 float realized P&L follow the same pattern.
+  - Oracles: seasoned FRA prices to `face·τ·(fixing−K)·DF(end)`; zero at `K = fixing`; missing fixing
+    → `PricingFailure`; fully-paid → 0; forward FRA unchanged.
+  - **Deletable-bar read** (`fixed_income/fra.py`): quarry ISDA-settle-at-start equals ng
+    end-settle for single-curve (`DF(start)/(1+fwd·τ)=DF(end)`), and the quarry FRA lacks fixings
+    (ng now ahead). Residual before deletable: multi-curve `forward_rate(projection_curve)`,
+    `par_rate`/`pv_ctx`, convention builder — logged in `quarry_reconciliation.md`. Drawdown 0/768.
+  - quarry: `python/pricebook/fixed_income/fra.py` · slice: `fra-seasoned-fixings`
+
 ## [0.43.0] - 2026-07-17
 
 ### Added
