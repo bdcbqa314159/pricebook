@@ -6,15 +6,16 @@ single period:
     PV(pay-fixed) = notional · tau · (L - fixed_rate) · P(0,T2)
 Composes the curve's `df`, so it prices on any curve (flat or bootstrapped).
 
-Scope (CLAUDE.md 6b): forward-starting or spot (`accrual_start >= valuation`). A seasoned
-FRA whose rate has fixed needs the `FixingHistory` — a later slice, like the seasoned
-float leg.
+Temporal (A2): a forward-starting/spot period (`accrual.start >= valuation`) uses the curve
+forward; a **seasoned** period (`start < valuation`) uses the realized reset from the snapshot's
+`FixingHistory`; a fully-paid period (`end <= valuation`) is settled (PV 0 — the shell remembers
+the realized cash).
 
 Provenance:
   quarry: python/pricebook/fixed_income/fra.py
   source: standard single-curve FRA valuation
-  oracle: par (K = forward) -> 0; closed-form off-par; on a bootstrapped curve too
-  slice:  fra-spine (CP-2b #3)
+  oracle: par (K = forward) -> 0; closed-form off-par; seasoned uses the fixing; settled -> 0
+  slice:  fra-spine (CP-2b #3); fra-seasoned-fixings (CP-2c #2 — FixingHistory)
 """
 
 from __future__ import annotations
@@ -34,13 +35,19 @@ class FRAEngine:
         self, fra: ForwardRateAgreement, model: CalibratedModel, numerics: NumericalConfig
     ) -> PricingResult | PricingFailure:
         market = model.market
+        currency = fra.face.currency
         start, end, day_count = fra.accrual.start, fra.accrual.end, fra.accrual.day_count
-        if start < market.valuation_date:
-            return PricingFailure(f"seasoned FRA (start {start} < valuation) needs a fixing")
+        if end <= market.valuation_date:
+            return PricingResult(pv=Money(0.0, currency))  # settled — the shell remembers the realized cash
         curve = market.discount_curve
         tau = year_fraction(start, end, day_count)
-        forward = (curve.df(start) / curve.df(end) - 1.0) / tau
-        value = fra.face.amount * tau * (forward - fra.fixed_rate) * curve.df(end)
+        if start < market.valuation_date:
+            rate = market.fixings.get(start)  # seasoned: the reset already fixed (A2)
+            if rate is None:
+                return PricingFailure(f"seasoned FRA needs the fixing at {start}")
+        else:
+            rate = (curve.df(start) / curve.df(end) - 1.0) / tau  # forward-implied
+        value = fra.face.amount * tau * (rate - fra.fixed_rate) * curve.df(end)
         if not fra.pay_fixed:
             value = -value
-        return PricingResult(pv=Money(value, fra.face.currency))
+        return PricingResult(pv=Money(value, currency))
