@@ -137,6 +137,14 @@ mark; dirty = clean + accrued.
 - **Never suppress.** No `# noqa: PLR0913`. A genuinely irreducible mathematical
   signature (a closed-form formula) is the sole exception and goes in `OPEN.md` with a
   rationale and a re-open trigger.
+- **The limit also applies to dataclass fields** (products & value types), because a frozen
+  product with 8 loose primitives is the same un-bundled-vocabulary smell as an 8-arg
+  function — `PLR0913` just can't see it. A `products/` or `foundation/` value dataclass has
+  **≤5 fields**; bundle primitives into ratified value objects (`Money` for amount+currency,
+  `Accrual` for start+end+day_count, `ScheduleTerms`, …). Enforced by **`verify.py fields`**.
+  Legitimately-wide **aggregate / output-record / config** types (e.g. `MarketSnapshot` — the
+  A5 shape, `XvaReport`) carry an explicit `# fields-exempt: <reason>` marker — an *explicit*
+  exemption, never silent tolerance.
 
 ---
 
@@ -162,6 +170,9 @@ mark; dirty = clean + accrued.
   tracked via each build report's ledger-deltas table.
 - **Provenance.** Each landed entry records: quarry path, the paper/book/model it
   implements, and its oracle. (Educational constraint — keep it legible.)
+- **Deletable-bar rigor.** A parity slice ends by **reading its quarry counterpart end-to-end**
+  and listing the residual gap in `quarry_reconciliation.md`. A module ticks to *deletable*
+  (drawdown +1) **only when the residual is empty** — never asserted from "looks covered."
 
 Per-entry checklist: `AUDIT → ALIGN → ORACLE → DEPS → PROVEN → PROVENANCE → MARK`.
 

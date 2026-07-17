@@ -32,6 +32,7 @@ just the checks the design actually needs.
 verify.py layers            # print the layer of each new-tree module (replaces ARCHITECTURE.md)
 verify.py acyclic           # FAIL if any import points upward (the one load-bearing invariant)
 verify.py tests --layer N   # run only the tests at layer ≤ N  (staged tests / merge gate)
+verify.py fields            # FAIL if a products/foundation value dataclass has >5 fields w/o an explicit exemption marker
 verify.py debt              # FAIL if suppressions − OPEN.md entries ≠ 0
 verify.py provenance        # FAIL if a landed module lacks its provenance header
 verify.py version           # FAIL if __version__ ≠ top CHANGELOG.md entry
