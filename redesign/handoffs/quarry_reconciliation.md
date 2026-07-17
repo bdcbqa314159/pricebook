@@ -61,7 +61,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 |---|---|---|
 | fixed_rate_bond | fixed_income/bond, zero_coupon_bond | vanilla fixed only; vs 130-module bond zoo |
 | swap | fixed_income/swap, ois | single-curve vanilla IRS; no OIS/basis/xccy |
-| fra | fixed_income/fra | **new (CP-2b)**; forward-starting single-curve; seasoned (fixing) remains |
+| fra | fixed_income/fra | +seasoned via FixingHistory (CP-2c, quarry FRA lacks fixings). Deletable-bar read: quarry ISDA-settle == ng end-settle (single-curve). **Residual: multi-curve `forward_rate(projection_curve)`, `par_rate`/`pv_ctx`, convention builder.** Not deletable. |
 | swaption | fixed_income/(swaption), options | European payer/receiver only |
 | leg | fixed_income/fixed_leg, floating_leg | fixed + structural float |
 | fixed_cashflow | fixed_income (cashflow) | atom |
