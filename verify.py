@@ -5,13 +5,16 @@ Subcommands (each a small function; `all` is the CI / merge gate):
 
     acyclic            FAIL if any import points upward across layers
     tests --layer N    run only the tests at layer <= N (staged tests)
+    fields             FAIL if a products/foundation value dataclass has >5 fields w/o exemption
     debt               FAIL if suppressions - OPEN.md ng-ledger entries != 0
     provenance         FAIL if a landed module lacks its 4-line header
     version            FAIL if __version__ != top CHANGELOG.md entry
     all                everything above
 
 The 5-argument ceiling (CLAUDE.md 3b) is enforced by the CI ruff step
-(`ruff check src/pricebook_ng`, rule PLR0913) — not here (redesign/09).
+(`ruff check src/pricebook_ng`, rule PLR0913). Its dataclass-field analogue —
+a product with 8 loose primitives is the same un-bundled smell PLR0913 can't
+see — is the `fields` check here (redesign/09).
 
 No framework, no plugins — if a sixth check is ever needed it is one more
 function then, not an abstraction now (CLAUDE.md 6b, redesign/09).
@@ -98,6 +101,41 @@ def run_tests(max_layer: int) -> int:
     return subprocess.call([sys.executable, "-m", "pytest", *dirs])
 
 
+_FIELD_LIMIT = 5
+
+
+def _is_dataclass_decorator(dec: ast.expr) -> bool:
+    if isinstance(dec, ast.Name):
+        return dec.id == "dataclass"
+    return isinstance(dec, ast.Call) and isinstance(dec.func, ast.Name) and dec.func.id == "dataclass"
+
+
+def fields() -> list[str]:
+    """A value dataclass has <= 5 fields — the dataclass analogue of PLR0913 (CLAUDE.md 3b):
+    a product with 8 loose primitives is the same un-bundled smell PLR0913 can't see. Bundle
+    primitives into ratified value objects (`Money`, `Accrual`, `ScheduleTerms`, …). A
+    legitimately-wide aggregate / output-record / config type is allowed with an explicit
+    `# fields-exempt: <reason>` marker in the class body."""
+    errs: list[str] = []
+    for mod in _src_modules():
+        lines = _read(mod).splitlines()
+        for node in ast.walk(ast.parse("\n".join(lines))):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            if not any(_is_dataclass_decorator(d) for d in node.decorator_list):
+                continue
+            n = sum(
+                1 for b in node.body if isinstance(b, ast.AnnAssign) and isinstance(b.target, ast.Name)
+            )
+            span = "\n".join(lines[node.lineno - 1 : node.end_lineno or node.lineno])
+            if n > _FIELD_LIMIT and "# fields-exempt:" not in span:
+                errs.append(
+                    f"{mod.relative_to(ROOT)}:{node.name} has {n} fields (>{_FIELD_LIMIT}) — "
+                    "bundle into a value object or add '# fields-exempt: <reason>'"
+                )
+    return errs
+
+
 def debt() -> list[str]:
     """suppressions - OPEN.md ng-ledger entries must be 0 (CLAUDE.md 5)."""
     suppressions = 0
@@ -154,6 +192,7 @@ def main() -> int:
     sub.add_parser("acyclic")
     t = sub.add_parser("tests")
     t.add_argument("--layer", type=int, required=True)
+    sub.add_parser("fields")
     sub.add_parser("debt")
     sub.add_parser("provenance")
     sub.add_parser("version")
@@ -162,7 +201,10 @@ def main() -> int:
 
     if args.cmd == "tests":
         return run_tests(args.layer)
-    checks = {"acyclic": acyclic, "debt": debt, "provenance": provenance, "version": version}
+    checks = {
+        "acyclic": acyclic, "fields": fields, "debt": debt,
+        "provenance": provenance, "version": version,
+    }
     if args.cmd == "all":
         return 0 if all(_report(n, f()) for n, f in checks.items()) else 1
     return 0 if _report(args.cmd, checks[args.cmd]()) else 1
