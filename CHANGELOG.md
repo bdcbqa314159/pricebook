@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-07-17
+
+### Added
+- **OIS + `RateCurve` protocol + `curve.forward_rate` (L1/L2/L4) — CP-2c #4, closes the CP-2b
+  ruling §4.1/§4.2.** `OvernightIndexSwap` + `OISEngine`: fixed vs compounded-overnight float.
+  Single-curve, the compounded rate equals the curve forward, so the OIS **reprices identically to
+  the vanilla IRS**.
+  - **`curve.forward_rate(d1, d2, day_count)`** (§4.1) — the simply-compounded forward
+    `(P(0,d1)/P(0,d2)-1)/τ` as a curve building block, now that OIS is the 2nd forward consumer.
+  - **`RateCurve` protocol** (§4.2, `df`+`zero_rate`+`instantaneous_forward`+`forward_rate`) —
+    distinct from `CurveHandle` (df-only / survival); consumers are Hull-White (now typed `RateCurve`,
+    duck-type removed) and OIS.
+  - Extracted a shared **`float_leg_pv`** used by both `SwapEngine` and `OISEngine` (forward via
+    `curve.forward_rate`, seasoned via fixings); `FRAEngine` also moved onto `curve.forward_rate`.
+    All byte-identical (255 green).
+  - Oracles: `forward_rate` == DF-ratio forward (flat + bootstrapped); par OIS → 0; OIS == vanilla IRS.
+  - **Deletable-bar read** (`fixed_income/ois.py`): residual before deletable — currency conventions
+    (SOFR/SONIA/ESTR), `bootstrap_ois`, par_rate/annuity/dv01, daily-fixing compounding, multi-curve
+    basis. Logged in the map. Drawdown 0/768.
+  - quarry: `python/pricebook/fixed_income/ois.py` · slice: `ois-spine`
+
 ## [0.45.0] - 2026-07-17
 
 ### Added

@@ -46,7 +46,7 @@ class FRAEngine:
             if rate is None:
                 return PricingFailure(f"seasoned FRA needs the fixing at {start}")
         else:
-            rate = (curve.df(start) / curve.df(end) - 1.0) / tau  # forward-implied
+            rate = curve.forward_rate(start, end, day_count)  # forward-implied building block
         value = fra.face.amount * tau * (rate - fra.fixed_rate) * curve.df(end)
         if not fra.pay_fixed:
             value = -value

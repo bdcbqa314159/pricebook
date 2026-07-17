@@ -36,6 +36,19 @@ class CurveHandle(Protocol):
     def df(self, d: date) -> float: ...
 
 
+@runtime_checkable
+class RateCurve(Protocol):
+    """A discount/rate curve: `df` plus the rate views a rate model / IR product reads —
+    the continuously-compounded `zero_rate`, the instantaneous forward `f(0,t)`, and the
+    simply-compounded `forward_rate` over a period. Distinct from `CurveHandle` (df-only,
+    also survival curves): only *rate* curves carry forwards. Consumers: Hull-White, OIS."""
+
+    def df(self, d: date) -> float: ...
+    def zero_rate(self, d: date) -> float: ...
+    def instantaneous_forward(self, d: date) -> float: ...
+    def forward_rate(self, d1: date, d2: date, day_count: DayCountConvention) -> float: ...
+
+
 @dataclass(frozen=True)
 class FlatDiscountCurve:
     """Flat continuously-compounded curve: df(d) = exp(-rate * t)."""
@@ -56,6 +69,11 @@ class FlatDiscountCurve:
     def zero_rate(self, d: date) -> float:
         """Continuously-compounded zero rate `= rate` (constant)."""
         return self.rate
+
+    def forward_rate(self, d1: date, d2: date, day_count: DayCountConvention) -> float:
+        """Simply-compounded forward `L(d1,d2) = (P(0,d1)/P(0,d2) - 1)/tau` over `[d1,d2]`."""
+        tau = year_fraction(d1, d2, day_count)
+        return (self.df(d1) / self.df(d2) - 1.0) / tau
 
     def bumped(self, shift: float) -> "FlatDiscountCurve":
         """Parallel rate shift, as a new curve (for generic keyed curve greeks)."""

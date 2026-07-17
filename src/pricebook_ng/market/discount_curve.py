@@ -97,6 +97,11 @@ class DiscountCurve:
             return self.instantaneous_forward(d)
         return -math.log(self.df(d)) / t
 
+    def forward_rate(self, d1: date, d2: date, day_count: DayCountConvention) -> float:
+        """Simply-compounded forward `L(d1,d2) = (P(0,d1)/P(0,d2) - 1)/tau` over `[d1,d2]`."""
+        tau = year_fraction(d1, d2, day_count)
+        return (self.df(d1) / self.df(d2) - 1.0) / tau
+
     def bumped(self, shift: float) -> "DiscountCurve":
         """Parallel zero-rate shift, as a new curve (for generic curve greeks /
         dv01 on a bootstrapped curve): every pillar DF scales by exp(-shift*t), so

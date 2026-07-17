@@ -29,7 +29,7 @@ from datetime import date
 
 from pricebook_ng.foundation.distributions import norm_cdf
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
-from pricebook_ng.market.snapshot import CurveHandle, MarketSnapshot
+from pricebook_ng.market.snapshot import MarketSnapshot, RateCurve
 
 _CURVE_DC = DayCountConvention.ACT_365_FIXED  # the model's time axis, from the valuation date
 
@@ -45,9 +45,9 @@ class HullWhite:
     market: MarketSnapshot
 
     @property
-    def curve(self) -> CurveHandle:
-        """The market discount curve (flat or bootstrapped); reached via its `df` +
-        `instantaneous_forward` capabilities, no concrete type assumed."""
+    def curve(self) -> RateCurve:
+        """The market discount curve as a `RateCurve` (flat or bootstrapped) — reached via
+        its `df` + `instantaneous_forward` capabilities, no concrete type assumed."""
         return self.market.discount_curve
 
     def _t(self, d: date) -> float:

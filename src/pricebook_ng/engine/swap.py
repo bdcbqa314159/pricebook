@@ -25,8 +25,33 @@ from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.time import year_fraction
-from pricebook_ng.products.swap import VanillaSwap
+from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.products.swap import FloatLeg, VanillaSwap
 from pricebook_ng.models.discounting_model import CalibratedModel
+
+
+def float_leg_pv(leg: FloatLeg, market: MarketSnapshot) -> float | PricingFailure:
+    """PV of a single-curve float leg. Each future period accrues the curve's
+    simply-compounded forward `L(a,b)·tau = DF(a)/DF(b)-1` (via `curve.forward_rate`); a
+    seasoned reset (a < valuation) uses the realized fixing; a settled period (b <= valuation)
+    contributes nothing (A2). Shared by the vanilla-IRS and OIS engines — single-curve, the OIS
+    compounded overnight rate equals the same forward."""
+    valuation = market.valuation_date
+    curve = market.discount_curve
+    pv = 0.0
+    for a, b in zip(leg.schedule[:-1], leg.schedule[1:]):
+        if b <= valuation:
+            continue
+        tau = year_fraction(a, b, leg.day_count)
+        if a < valuation:
+            rate = market.fixings.get(a)
+            if rate is None:
+                return PricingFailure(f"missing float fixing for reset {a}")
+            accrual = rate * tau
+        else:
+            accrual = curve.forward_rate(a, b, leg.day_count) * tau  # = DF(a)/DF(b) - 1
+        pv += leg.face.amount * accrual * curve.df(b)
+    return pv
 
 
 class SwapEngine:
@@ -38,35 +63,16 @@ class SwapEngine:
         model: CalibratedModel,
         numerics: NumericalConfig,
     ) -> PricingResult | PricingFailure:
-        market = model.market
         fixed = DiscountingEngine().price(swap.fixed_leg, model, numerics)
         if isinstance(fixed, PricingFailure):
             return fixed
-
-        leg = swap.float_leg
-        if leg.face.currency is not fixed.pv.currency:
+        if swap.float_leg.face.currency is not fixed.pv.currency:
             return PricingFailure(
-                f"swap legs differ in currency: {leg.face.currency} vs {fixed.pv.currency}"
+                f"swap legs differ in currency: {swap.float_leg.face.currency} vs {fixed.pv.currency}"
             )
+        float_pv = float_leg_pv(swap.float_leg, model.market)
+        if isinstance(float_pv, PricingFailure):
+            return float_pv
 
-        # Temporality (A2 + fixings): a period that already paid (b <= valuation) is
-        # settled; a period whose reset is strictly past (a < valuation) uses the
-        # realized fixing; a future period projects the curve forward.
-        valuation = market.valuation_date
-        df = market.discount_curve.df
-        float_pv = 0.0
-        for a, b in zip(leg.schedule[:-1], leg.schedule[1:]):
-            if b <= valuation:
-                continue
-            if a < valuation:
-                rate = market.fixings.get(a)
-                if rate is None:
-                    return PricingFailure(f"missing float fixing for reset {a}")
-                accrual = rate * year_fraction(a, b, leg.day_count)
-            else:
-                accrual = df(a) / df(b) - 1.0            # forward * tau, single-curve
-            float_pv += leg.face.amount * accrual * df(b)
-
-        fixed_pv = fixed.pv.amount
-        npv = (float_pv - fixed_pv) if swap.pay_fixed else (fixed_pv - float_pv)
+        npv = (float_pv - fixed.pv.amount) if swap.pay_fixed else (fixed.pv.amount - float_pv)
         return PricingResult(pv=Money(npv, fixed.pv.currency))
