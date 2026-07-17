@@ -1,6 +1,6 @@
 # Quarry reconciliation map
 
-Date: 2026-07-17 (refreshed at CP-2b)   ·   Version: `0.42.0`   ·   Living document.
+Date: 2026-07-17 (refreshed at CP-2c)   ·   Version: `0.46.0`   ·   Living document.
 
 Delivers the CP-2a ruling (`rulings_CP1.md`): the honest drawdown baseline and the ordered
 parity-gap list, before parity-depth slices begin. **"Crossed" = the quarry module it supersedes
@@ -133,8 +133,9 @@ realigned parity + oracle until each quarry counterpart is deletable, then move 
 
 ## Checkpoint note
 
-Refreshed at **CP-2b** (v0.42.0, 243 green): general-curve build (#1 partial, #2 done) + FRA (#3
-started). Drawdown 0/768 (gaps narrowed; deletability pending per-module parity confirmation).
-**Named next checkpoint (CP-2c): fixings + spine** — consume `FixingHistory` (unblocks seasoned FRA/
-swap AND the L6 float-leg realized P&L), plus deposit / OIS, each ending with a parity confirmation
-against its quarry module. This map refreshes there.
+Refreshed at **CP-2c** (v0.46.0, 255 green): fixed_income spine advanced — seasoned FRA (fixings),
+deposit, OIS (+ RateCurve/forward_rate). Deletable-bar reads applied per slice; **every spine
+module's residual is the same cross-cutting trio — conventions, serialisation, multi-curve** — so
+drawdown stays 0/768 until those layers land. **Named next checkpoint (CP-3): cross-cutting vs
+credit spine** — see `CP2c_checkpoint.md` §4.1/§6 (proposal: a conventions layer + serialisation +
+multi-curve to retire a *batch* of modules, vs continuing breadth). Awaiting Cowork ruling.
