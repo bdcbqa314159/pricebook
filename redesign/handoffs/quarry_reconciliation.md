@@ -41,7 +41,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 ### L1 market (4) → `core/` + `curves/` + `credit/`
 | ng module | quarry counterpart(s) | parity gap |
 |---|---|---|
-| discount_curve | core/discount_curve, curves/bootstrap | +zero_rate/instantaneous_forward (CP-2b); **forward_rate + pluggable interpolation + roll_down** remain; vs curves/ (31) |
+| discount_curve | core/discount_curve, curves/bootstrap | +zero_rate/instantaneous_forward (CP-2b) + **forward_rate + RateCurve protocol (CP-2c, closes ruling §4.1/§4.2)**; pluggable interpolation + roll_down remain; vs curves/ (31) |
 | survival_curve | core/survival_curve, credit/issuer_curve, hazard_term_structure | annual grid, log-linear; no term-structure breadth |
 | snapshot | core/pricing_context, market_data | redesign (A5 keyed registry); enabler |
 | keys | core/data_registry | redesign (A5); enabler |
@@ -63,6 +63,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 | swap | fixed_income/swap, ois | single-curve vanilla IRS; no OIS/basis/xccy |
 | fra | fixed_income/fra | +seasoned via FixingHistory (CP-2c, quarry FRA lacks fixings). Deletable-bar read: quarry ISDA-settle == ng end-settle (single-curve). **Residual: multi-curve `forward_rate(projection_curve)`, `par_rate`/`pv_ctx`, convention builder.** Not deletable. |
 | deposit | fixed_income/deposit | **new (CP-2c)**; 2-cashflow trade via DiscountingEngine (fwd par→0, spot par→principal via A2). Deletable-bar read: ng covers pricing + forward/temporal (quarry values redemption-only). **Residual: convention builder, implied-DF-as-method (ng has via DepositQuote), pv_ctx, serialisation.** Not deletable. |
+| ois | fixed_income/ois | **new (CP-2c)**; single-curve OIS via shared `float_leg_pv` (== vanilla IRS). Deletable-bar read: ng covers single-curve pricing + par. **Residual: currency conventions (SOFR/SONIA/ESTR), `bootstrap_ois`, par_rate/annuity/dv01, daily-fixing compounding, multi-curve basis.** Not deletable. |
 | swaption | fixed_income/(swaption), options | European payer/receiver only |
 | leg | fixed_income/fixed_leg, floating_leg | fixed + structural float |
 | fixed_cashflow | fixed_income (cashflow) | atom |
