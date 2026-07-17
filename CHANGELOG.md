@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-07-17
+
+### Added
+- **`verify.py fields` merge gate (CP-2c #1).** The dataclass-field analogue of `PLR0913` (which
+  only sees function args): a value dataclass has **≤5 fields** unless it carries an explicit
+  `# fields-exempt: <reason>` marker. AST-based, scans all `src/pricebook_ng`; added to `verify all`
+  and `redesign/09` / `CLAUDE.md §3b`.
+
+### Changed
+- **Product field-bundling (behaviour-preserving).** Closes the FRA smell flagged at the CP-2b
+  checkpoint. Bundled loose primitives into value objects that already exist —
+  `Money` (notional/strike + currency) and `Accrual` (start + end + day_count):
+  - `ForwardRateAgreement` 7→4 (`face: Money`, `accrual: Accrual`); `CDS`, `ZeroCouponInflationSwap`
+    6→5 (`face: Money`); `EquityOption`, `CommodityOption` 6→5 (`strike: Money`, the strike price).
+  - Engines read `.face.amount`/`.face.currency`/`.strike.amount`/`.accrual.*`; **all PVs byte-identical**
+    (243 green), guarded by every product oracle.
+  - Legit-wide aggregates carry `# fields-exempt:` markers: `MarketSnapshot` (A5 shape), `XvaReport`
+    (output record), `XvaReportConfig` (config).
+  - Not a parity slice (no quarry module retired) — code-quality; drawdown unchanged 0/768.
+  - slice: `product-field-bundling`
+
 ## [0.42.0] - 2026-07-17
 
 ### Added
