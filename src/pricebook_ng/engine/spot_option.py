@@ -6,8 +6,8 @@ on the forward `F = spot * DF_carry(T) / DF_r(T)`, discounted by the home
 `DF_r`. Spot, carry curve, and vol are read from the snapshot's keyed registry
 (A5) under `MarketKey(asset, option.ticker)`.
 
-The `option` is duck-typed: it exposes `ticker`, `quantity`, `strike`, `maturity`,
-`currency`, `is_call`. The underlying is assumed to trade in the home currency
+The `option` is duck-typed: it exposes `ticker`, `quantity`, `strike` (a `Money`
+strike price = amount + currency), `maturity`, `is_call`. The underlying trades in home currency
 (`discount_curve`); a foreign-listed underlying is a later refinement.
 
 Provenance:
@@ -37,8 +37,9 @@ def price_spot_option(
 ) -> PricingResult | PricingFailure:
     """Value a European option on a spot underlying (carry curve) via Black-Scholes."""
     market = model.market
+    currency = option.strike.currency
     if option.maturity <= market.valuation_date:
-        return PricingResult(pv=Money(0.0, option.currency))  # expired
+        return PricingResult(pv=Money(0.0, currency))  # expired
 
     key = MarketKey(asset, option.ticker)
     spot = market.spots.get(key)
@@ -50,5 +51,5 @@ def price_spot_option(
     df_r = market.discount_curve.df(option.maturity)
     fwd = spot * carry_curve.df(option.maturity) / df_r
     t = year_fraction(market.valuation_date, option.maturity, _CURVE_DC)
-    per_unit = black_76(fwd, option.strike, df_r, vol * math.sqrt(t), option.is_call)
-    return PricingResult(pv=Money(option.quantity * per_unit, option.currency))
+    per_unit = black_76(fwd, option.strike.amount, df_r, vol * math.sqrt(t), option.is_call)
+    return PricingResult(pv=Money(option.quantity * per_unit, currency))

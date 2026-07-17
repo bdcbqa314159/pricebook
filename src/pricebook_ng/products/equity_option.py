@@ -16,17 +16,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.money import Currency
+from pricebook_ng.foundation.money import Money
 
 
 @dataclass(frozen=True)
 class EquityOption:
-    """A European option on `quantity` shares of `ticker`, struck at `strike` per
-    share in `currency`."""
+    """A European option on `quantity` shares of `ticker`, struck at `strike` — the
+    strike price per share as `Money` (amount + currency)."""
 
     ticker: str
     quantity: float
-    strike: float
+    strike: Money
     maturity: date
-    currency: Currency
     is_call: bool

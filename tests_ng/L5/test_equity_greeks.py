@@ -10,7 +10,7 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.money import Currency
+from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.distributions import norm_cdf
 from pricebook_ng.foundation.time import DayCountConvention as DC
@@ -42,7 +42,7 @@ MARKET = MarketSnapshot(
 
 
 def _opt_priceable(strike=105.0, is_call=True):
-    opt = EquityOption(TICKER, QTY, strike, MATURITY, USD, is_call)
+    opt = EquityOption(TICKER, QTY, Money(strike, USD), MATURITY, is_call)
     return discounting_priceable(opt, EquityOptionEngine(), NUM)
 
 

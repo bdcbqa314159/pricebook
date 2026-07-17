@@ -13,7 +13,7 @@ from datetime import date
 import pytest
 
 from pricebook_ng.foundation.distributions import norm_cdf
-from pricebook_ng.foundation.money import Currency
+from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.time import DayCountConvention as DC
@@ -52,7 +52,7 @@ def _fwd(market):
 
 
 def _opt(strike, is_call=True):
-    return CommodityOption(TICKER, QTY, strike, MATURITY, USD, is_call)
+    return CommodityOption(TICKER, QTY, Money(strike, USD), MATURITY, is_call)
 
 
 def _price(opt, market):

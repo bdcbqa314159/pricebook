@@ -82,6 +82,8 @@ class MarketSnapshot:
     fixings). "Today" lives here; a model is calibrated to a snapshot and carries
     it (Amendment A1)."""
 
+    # fields-exempt: the A5 keyed-registry market shape (home numeraire + fixings +
+    # curves/spots/vols maps), not un-bundled primitives.
     valuation_date: date
     discount_curve: CurveHandle          # HOME NUMERAIRE — stays special (A5.1)
     fixings: FixingHistory = field(default_factory=FixingHistory)

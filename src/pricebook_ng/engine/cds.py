@@ -39,4 +39,4 @@ class CDSEngine:
             model.recovery,
         )
         signed = buyer_pv if cds.buy_protection else -buyer_pv
-        return PricingResult(pv=Money(signed * cds.notional, cds.currency))
+        return PricingResult(pv=Money(signed * cds.face.amount, cds.face.currency))

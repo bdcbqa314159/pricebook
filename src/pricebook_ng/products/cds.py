@@ -21,19 +21,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.money import Currency, Money
+from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.schedule import Frequency, generate_schedule
 
 
 @dataclass(frozen=True)
 class CDS:
-    """A single-name CDS on `issuer`: premium schedule + running spread, buyer/seller."""
+    """A single-name CDS on `issuer`: premium schedule + running spread on `face`
+    (notional + currency), buyer/seller."""
 
     issuer: str
     premium_schedule: tuple[date, ...]
     spread: float
-    notional: float
-    currency: Currency
+    face: Money
     buy_protection: bool = True
 
 
@@ -41,10 +41,4 @@ def cds(face: Money, issuer: str, spread: float, start: date, maturity: date) ->
     """Build a protection-buyer CDS on `issuer` (annual ACT/360 premiums); flip with
     `dataclasses.replace(cds, buy_protection=False)` for the seller."""
     schedule = generate_schedule(start, maturity, Frequency.ANNUAL)
-    return CDS(
-        issuer=issuer,
-        premium_schedule=tuple(schedule),
-        spread=spread,
-        notional=face.amount,
-        currency=face.currency,
-    )
+    return CDS(issuer=issuer, premium_schedule=tuple(schedule), spread=spread, face=face)

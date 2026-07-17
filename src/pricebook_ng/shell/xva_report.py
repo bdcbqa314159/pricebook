@@ -49,6 +49,8 @@ class XvaReportConfig:
     the two defaultable parties (A5-keyed survival + recovery), the funding spread, the cost of
     capital, the counterparty risk weight, and the PFE confidence used as the dynamic-IM proxy."""
 
+    # fields-exempt: config aggregate — cohesive XVA-run parameters, already bundling the
+    # two parties into CreditParty; the remaining scalars are distinct knobs.
     counterparty: CreditParty
     self_party: CreditParty
     funding_spread: float
@@ -61,6 +63,8 @@ class XvaReportConfig:
 class XvaReport:
     """All valuation adjustments for a netting set + the profiles they were built from."""
 
+    # fields-exempt: output record — the six adjustments + four profiles a report returns,
+    # not a signature to bundle.
     cva: float
     dva: float
     bcva: float

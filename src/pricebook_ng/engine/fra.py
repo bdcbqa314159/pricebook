@@ -34,14 +34,13 @@ class FRAEngine:
         self, fra: ForwardRateAgreement, model: CalibratedModel, numerics: NumericalConfig
     ) -> PricingResult | PricingFailure:
         market = model.market
-        if fra.accrual_start < market.valuation_date:
-            return PricingFailure(
-                f"seasoned FRA (start {fra.accrual_start} < valuation) needs a fixing"
-            )
+        start, end, day_count = fra.accrual.start, fra.accrual.end, fra.accrual.day_count
+        if start < market.valuation_date:
+            return PricingFailure(f"seasoned FRA (start {start} < valuation) needs a fixing")
         curve = market.discount_curve
-        tau = year_fraction(fra.accrual_start, fra.accrual_end, fra.day_count)
-        forward = (curve.df(fra.accrual_start) / curve.df(fra.accrual_end) - 1.0) / tau
-        value = fra.notional * tau * (forward - fra.fixed_rate) * curve.df(fra.accrual_end)
+        tau = year_fraction(start, end, day_count)
+        forward = (curve.df(start) / curve.df(end) - 1.0) / tau
+        value = fra.face.amount * tau * (forward - fra.fixed_rate) * curve.df(end)
         if not fra.pay_fixed:
             value = -value
-        return PricingResult(pv=Money(value, fra.currency))
+        return PricingResult(pv=Money(value, fra.face.currency))
