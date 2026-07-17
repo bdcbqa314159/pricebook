@@ -6,6 +6,21 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-07-17
+
+### Added
+- **Deposit product (L2) — CP-2c #3, fixed_income spine.** A money-market deposit modelled as its
+  two cashflows (`−N` at start, `N·(1+rate·τ)` at maturity) priced by the existing `DiscountingEngine`
+  — **no bespoke engine**. A2 reconciles the views: a forward deposit reprices to zero at par; a spot
+  deposit's principal-today is realized cash (excluded from the mark), so the mark is the redemption
+  value `N` at par. `Deposit(face, rate, cashflows)` — 3 fields (under the new `fields` gate).
+  - Oracles: forward par → 0; spot par → principal; off-par closed form; par → 0 on a bootstrapped curve.
+  - **Deletable-bar read** (`fixed_income/deposit.py`): ng covers pricing + forward/temporal (the quarry
+    values the redemption only). Residual before deletable: convention builder, implied-DF-as-method
+    (ng has it via `DepositQuote`), `pv_ctx`, serialisation — logged in `quarry_reconciliation.md`.
+    Drawdown 0/768.
+  - quarry: `python/pricebook/fixed_income/deposit.py` · slice: `deposit-spine`
+
 ## [0.44.0] - 2026-07-17
 
 ### Added
