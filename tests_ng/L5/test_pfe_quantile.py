@@ -59,7 +59,7 @@ def test_pfe_matches_analytic_monotone_transform():
     pfe = pfe_profile(swap, model, NumericalConfig(mc_paths=120_000, mc_seed=11), 0.95)
     dates, amounts, notional = coupon_bond_cashflows(swap)
     for t_j, p in zip(pfe.grid, pfe.ee):
-        r_q = model.forward_short_rate(year_fraction(D0, t_j, ACT365), Z95)
+        r_q = model.forward_short_rate(t_j, Z95)
         remaining = [(d, amt) for d, amt in zip(dates, amounts) if d > t_j]
         v = notional - sum(amt * model.zero_bond(t_j, d, r_q) for d, amt in remaining)
         assert p == pytest.approx(max(v, 0.0), rel=0.02)
