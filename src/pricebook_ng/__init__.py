@@ -5,4 +5,4 @@ bottom-up. Imports as ``pricebook_ng`` until v1.0, when the quarry is empty and
 it takes the ``pricebook`` name. See CLAUDE.md for the guardrails.
 """
 
-__version__ = "0.41.0"
+__version__ = "0.42.0"
