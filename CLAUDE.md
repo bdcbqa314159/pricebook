@@ -173,6 +173,10 @@ mark; dirty = clean + accrued.
 - **Deletable-bar rigor.** A parity slice ends by **reading its quarry counterpart end-to-end**
   and listing the residual gap in `quarry_reconciliation.md`. A module ticks to *deletable*
   (drawdown +1) **only when the residual is empty** — never asserted from "looks covered."
+- **Cross-cutting work is justified by what it retires.** Shared capabilities (conventions,
+  multi-curve, serialisation…) may be built when residuals cluster, but **every such slice must
+  tick ≥1 quarry module to deletable** — infrastructure is never built speculatively ahead of the
+  module that needs it. Breadth (new asset classes) waits while drawdown is stuck at 0.
 
 Per-entry checklist: `AUDIT → ALIGN → ORACLE → DEPS → PROVEN → PROVENANCE → MARK`.
 
