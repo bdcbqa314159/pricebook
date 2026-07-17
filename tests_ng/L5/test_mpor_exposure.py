@@ -26,6 +26,7 @@ from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.schedule import Frequency, ScheduleTerms
 from pricebook_ng.foundation.time import DayCountConvention as DC
+from pricebook_ng.foundation.time import year_fraction
 from pricebook_ng.calibration.survival_curve import bootstrap_survival_curve
 from pricebook_ng.market.keys import AssetClass, MarketKey
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
@@ -60,8 +61,9 @@ def _model(sigma=0.012):
 def test_rate_paths_reproduce_ou_moments():
     model = _model()
     a, sigma, r0 = model.a, model.sigma, model.market.discount_curve.rate
-    times = [1.0, 3.0, 5.0]
-    paths = _simulate_rate_paths(model, times, NumericalConfig(mc_paths=60_000, mc_seed=5))
+    path_dates = [date(2027, 1, 15), date(2029, 1, 15), date(2031, 1, 15)]  # ~1y, 3y, 5y
+    times = [year_fraction(D0, d, DC.ACT_365_FIXED) for d in path_dates]
+    paths = _simulate_rate_paths(model, path_dates, NumericalConfig(mc_paths=60_000, mc_seed=5))
 
     def alpha(t):
         return r0 + (sigma**2 / (2 * a**2)) * (1 - math.exp(-a * t)) ** 2

@@ -64,11 +64,10 @@ def _simulate_netting_set(
     rng = random.Random(numerics.mc_seed)
     values_by_date: list[list[float]] = []
     for t_j in grid:
-        t = year_fraction(valuation, t_j, _CURVE_DC)
         remaining = [[(d, amt) for d, amt in zip(dts, amts) if d > t_j] for dts, amts, _, _ in specs]
         values = []
         for _ in range(numerics.mc_paths):
-            r = model.forward_short_rate(t, rng.gauss(0.0, 1.0))
+            r = model.forward_short_rate(t_j, rng.gauss(0.0, 1.0))
             total = 0.0
             for (_dts, _amts, notional, is_payer), rem in zip(specs, remaining):
                 if not rem:
@@ -149,13 +148,13 @@ def pfe_profile(
 
 
 def _simulate_rate_paths(
-    model: HullWhite, times: list[float], numerics: NumericalConfig
+    model: HullWhite, dates: list[date], numerics: NumericalConfig
 ) -> list[list[float]]:
-    """Joint short-rate paths `r(t)` at the ascending year-fractions `times`, under the
-    RISK-NEUTRAL measure: exact Ornstein-Uhlenbeck steps on the HW state `x` (mean-zero,
-    `x(0)=0`), with `r(t) = x(t) + alpha(t)`, `alpha(t) = r0 + (sigma^2/2a^2)(1-e^{-a t})^2`
-    (flat curve). Unlike the per-date forward-measure draws behind the EE profiles, this
-    keeps the cross-date correlation the margin-period-of-risk gap needs.
+    """Joint short-rate paths `r(t)` at the ascending `dates`, under the RISK-NEUTRAL measure:
+    exact Ornstein-Uhlenbeck steps on the HW state `x` (mean-zero, `x(0)=0`), with
+    `r(t) = x(t) + alpha(t)`, `alpha(t) = f(0,t) + (sigma^2/2a^2)(1-e^{-a t})^2` — the market
+    forward `f(0,t)` makes it general-curve. Unlike the per-date forward-measure draws behind
+    the EE profiles, this keeps the cross-date correlation the margin-period-of-risk gap needs.
 
     Measure (Amendment A6.1): the EE/PFE profiles use the per-date forward measure; this uses
     risk-neutral paths. They are ONE model under a change of numeraire —
@@ -164,8 +163,13 @@ def _simulate_rate_paths(
     the forward-measure drift reproduces the forward-measure EE/PFE per date). Target is a single
     risk-neutral path engine once a path-based EE oracle exists; the swaption-strip identity
     survives as that marginal check."""
-    a, sigma, r0 = model.a, model.sigma, model.curve.rate
-    alpha = [r0 + (sigma**2 / (2.0 * a**2)) * (1.0 - math.exp(-a * t)) ** 2 for t in times]
+    a, sigma = model.a, model.sigma
+    valuation = model.market.valuation_date
+    times = [year_fraction(valuation, d, _CURVE_DC) for d in dates]
+    alpha = [
+        model.curve.instantaneous_forward(d) + (sigma**2 / (2.0 * a**2)) * (1.0 - math.exp(-a * t)) ** 2
+        for d, t in zip(dates, times)
+    ]
     step_coeffs = []  # (decay, vol) for the OU step from the previous time
     prev = 0.0
     for t in times:
@@ -206,18 +210,16 @@ def mpor_exposure(
     gap = timedelta(days=mpor_days)
 
     entries = []  # (d_now, d_pre, remaining coupons)
-    time_set = set()
+    date_set: set[date] = set()
     for d_j in (d for d in dates if valuation < d < maturity):
         d_pre = d_j - gap
         remaining = [(d, amt) for d, amt in zip(dates, amounts) if d > d_j]
-        t_now = year_fraction(valuation, d_j, _CURVE_DC)
-        t_pre = year_fraction(valuation, d_pre, _CURVE_DC)
         entries.append((d_j, d_pre, remaining))
-        time_set.update((t_now, t_pre))
+        date_set.update((d_j, d_pre))
 
-    times = sorted(time_set)
-    index = {t: i for i, t in enumerate(times)}
-    paths = _simulate_rate_paths(model, times, numerics)
+    all_dates = sorted(date_set)
+    index = {d: i for i, d in enumerate(all_dates)}
+    paths = _simulate_rate_paths(model, all_dates, numerics)
 
     def value(reprice_date, coupons, short_rate):
         v = notional - sum(amt * model.zero_bond(reprice_date, d, short_rate) for d, amt in coupons)
@@ -226,8 +228,8 @@ def mpor_exposure(
     grid = [valuation]
     ee = [0.0]                                          # no close-out exposure at valuation
     for d_j, d_pre, remaining in entries:
-        i_now = index[year_fraction(valuation, d_j, _CURVE_DC)]
-        i_pre = index[year_fraction(valuation, d_pre, _CURVE_DC)]
+        i_now = index[d_j]
+        i_pre = index[d_pre]
         total = 0.0
         for rates in paths:
             change = value(d_j, remaining, rates[i_now]) - value(d_pre, remaining, rates[i_pre])

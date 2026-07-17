@@ -69,7 +69,7 @@ def test_joint_paths_reproduce_forward_measure_ee_and_pfe():
     dates, amounts, notional = coupon_bond_cashflows(swap)
     exposure_dates = fwd_epe.grid[1:]                       # skip valuation (t=0, deterministic)
     times = [year_fraction(D0, d, ACT365) for d in exposure_dates]
-    paths = _simulate_rate_paths(model, times, NUM)         # risk-neutral joint paths
+    paths = _simulate_rate_paths(model, exposure_dates, NUM)  # risk-neutral joint paths (date-based)
 
     for k, (d_j, t_j) in enumerate(zip(exposure_dates, times)):
         drift = _forward_measure_drift(model, t_j)

@@ -28,11 +28,8 @@ from pricebook_ng.engine.swaption import coupon_bond_cashflows
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
-from pricebook_ng.foundation.time import DayCountConvention, year_fraction
 from pricebook_ng.models.hull_white import HullWhite
 from pricebook_ng.products.swaption import Swaption
-
-_CURVE_DC = DayCountConvention.ACT_365_FIXED
 
 
 class SwaptionMCEngine:
@@ -50,13 +47,12 @@ class SwaptionMCEngine:
         is_payer = swaption.swap.pay_fixed
         currency = swaption.swap.float_leg.face.currency
 
-        t0 = year_fraction(market.valuation_date, expiry, _CURVE_DC)
         p0_t0 = market.discount_curve.df(expiry)
 
         rng = random.Random(numerics.mc_seed)
         total = 0.0
         for _ in range(numerics.mc_paths):
-            r = model.forward_short_rate(t0, rng.gauss(0.0, 1.0))
+            r = model.forward_short_rate(expiry, rng.gauss(0.0, 1.0))
             coupon_bond = sum(amt * model.zero_bond(expiry, d, r) for amt, d in zip(amounts, dates))
             intrinsic = notional - coupon_bond
             total += max(intrinsic, 0.0) if is_payer else max(-intrinsic, 0.0)
