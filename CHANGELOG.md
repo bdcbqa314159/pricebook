@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-07-17
+
+### Changed
+- **General-curve Hull-White (L3) — CP-2b #2, the biggest single parity gap under the XVA stack.**
+  HW no longer asserts `FlatDiscountCurve`: it reads `df` **and** `instantaneous_forward` from any
+  curve, replacing the flat `r0` with the market forward `f(0,t)` in `alpha(t)` and the `zero_bond`
+  reconstitution, and taking its time axis from `market.valuation_date`. `forward_short_rate` and
+  the risk-neutral path simulator are now **date-based** (they need `f(0,t)`), and their callers
+  (`swaption_mc`, the exposure/MPOR engines) pass dates.
+  - **Byte-identical on a flat curve** (`f(0,t)=r0`), so every existing swaption / exposure / XVA /
+    measure-consistency / MPOR oracle stays green (239 total).
+  - New oracles on a **bootstrapped** curve: the model refits the initial curve
+    (`zero_bond(0,S,f(0,0)) == P^M(0,S)`); ZCB-option put-call parity; a flat-pillars curve matches
+    `FlatDiscountCurve` exactly; and the analytic swaption == the MC swaption (`rel=2%`).
+  - **Parity:** the whole XVA/exposure stack can now run on a real bootstrapped curve, not just the
+    flat skeleton — steps `models/hull_white` toward deletable (term-structure vol + per-currency +
+    trees remain the gap). Drawdown still 0/768 (narrowed).
+  - quarry: `python/pricebook/models/hull_white.py` · slice: `general-curve-hw`
+
 ## [0.40.0] - 2026-07-17
 
 ### Added
