@@ -66,7 +66,7 @@ def test_curve01_on_inflation_real_curve_matches_analytic():
     market = MarketSnapshot(
         valuation_date=D0, discount_curve=_curve(0.03), curves={infl_key: _curve(real_rate)},
     )
-    zcis = ZeroCouponInflationSwap(index, notional, 0.015, MATURITY, EUR, receive_inflation=True)
+    zcis = ZeroCouponInflationSwap(index, Money(notional, EUR), 0.015, MATURITY, receive_inflation=True)
     priceable = discounting_priceable(zcis, ZCISEngine(), NUM)
     df_real = market.curves[infl_key].df(MATURITY)
     # PV_recv = notional*(DF_real - DF_r*(1+K)^T); d/d(r_real) = notional*(-T*DF_real); x 1bp

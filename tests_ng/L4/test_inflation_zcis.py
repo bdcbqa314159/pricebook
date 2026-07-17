@@ -12,7 +12,7 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.money import Currency
+from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.time import DayCountConvention as DC
@@ -55,8 +55,8 @@ def _par_rate(market, maturity=MATURITY):
 
 def _zcis(fixed_rate, receive_inflation=True):
     return ZeroCouponInflationSwap(
-        index=INDEX, notional=NOTIONAL, fixed_rate=fixed_rate,
-        maturity=MATURITY, currency=EUR, receive_inflation=receive_inflation,
+        index=INDEX, face=Money(NOTIONAL, EUR), fixed_rate=fixed_rate,
+        maturity=MATURITY, receive_inflation=receive_inflation,
     )
 
 

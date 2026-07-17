@@ -33,8 +33,9 @@ class ZCISEngine:
         self, zcis: ZeroCouponInflationSwap, model: CalibratedModel, numerics: NumericalConfig
     ) -> PricingResult | PricingFailure:
         market = model.market
+        currency = zcis.face.currency
         if zcis.maturity <= market.valuation_date:
-            return PricingResult(pv=Money(0.0, zcis.currency))  # settled
+            return PricingResult(pv=Money(0.0, currency))  # settled
 
         real_curve = market.curves.get(MarketKey(AssetClass.INFLATION, zcis.index))
         if real_curve is None:
@@ -47,4 +48,4 @@ class ZCISEngine:
 
         receiver = df_r * (index_ratio - fixed_growth)           # per unit notional
         pv = receiver if zcis.receive_inflation else -receiver
-        return PricingResult(pv=Money(zcis.notional * pv, zcis.currency))
+        return PricingResult(pv=Money(zcis.face.amount * pv, currency))

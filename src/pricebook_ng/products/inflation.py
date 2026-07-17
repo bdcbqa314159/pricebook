@@ -17,16 +17,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.money import Currency
+from pricebook_ng.foundation.money import Money
 
 
 @dataclass(frozen=True)
 class ZeroCouponInflationSwap:
-    """A ZCIS on `index`: inflation leg vs fixed compounded rate `fixed_rate` (K)."""
+    """A ZCIS on `index`: inflation leg vs fixed compounded rate `fixed_rate` (K) on
+    `face` (notional + currency)."""
 
     index: str
-    notional: float
+    face: Money
     fixed_rate: float
     maturity: date
-    currency: Currency
     receive_inflation: bool = True

@@ -15,6 +15,7 @@ from datetime import date
 
 import pytest
 
+from pricebook_ng.foundation.cashflow import Accrual
 from pricebook_ng.foundation.money import Currency, Money
 from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.time import DayCountConvention as DC
@@ -46,7 +47,7 @@ def _forward(curve):
 
 
 def _fra(rate, pay_fixed=True):
-    return ForwardRateAgreement(NOTIONAL, rate, T1, T2, ACT360, USD, pay_fixed)
+    return ForwardRateAgreement(Money(NOTIONAL, USD), rate, Accrual(T1, T2, ACT360), pay_fixed)
 
 
 def test_par_fra_prices_to_zero():

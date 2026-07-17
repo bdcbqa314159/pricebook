@@ -15,21 +15,17 @@ Provenance:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 
-from pricebook_ng.foundation.money import Currency
-from pricebook_ng.foundation.time import DayCountConvention
+from pricebook_ng.foundation.cashflow import Accrual
+from pricebook_ng.foundation.money import Money
 
 
 @dataclass(frozen=True)
 class ForwardRateAgreement:
-    """A vanilla FRA: `pay_fixed` pays `fixed_rate` and receives the forward over
-    `[accrual_start, accrual_end]` on `notional`, accrued with `day_count`."""
+    """A vanilla FRA: `pay_fixed` pays `fixed_rate` and receives the forward over the
+    `accrual` period on `face` (notional + currency)."""
 
-    notional: float
+    face: Money
     fixed_rate: float
-    accrual_start: date
-    accrual_end: date
-    day_count: DayCountConvention
-    currency: Currency
+    accrual: Accrual
     pay_fixed: bool = True
