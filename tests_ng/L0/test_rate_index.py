@@ -118,3 +118,15 @@ def test_registry_has_standard_indices():
 def test_unknown_index_raises():
     with pytest.raises(ValueError):
         get_rate_index("NOT_A_RATE")
+
+
+# ── Brazilian exponential (BUS/252) compounding — CDI/SELIC, LTN/NTN-F/DI ──
+def test_brazilian_exponential_compounding():
+    # BRL rates compound EXPONENTIALLY on a business-day basis: (1+r)^(bd/252).
+    # A flat rate reprices to itself EXACTLY — unlike money-market ∏(1+r·δ) compounding
+    # (test_compounded_flat_series shows flat 5% → 0.05001, not 0.05).
+    cdi = get_rate_index("CDI")                      # BRL, BUS/252, EXPONENTIAL
+    acc = Accrual(date(2024, 6, 10), date(2024, 6, 14), DC.BUS_252)  # 4 São Paulo biz days
+    fx = _flat("CDI", 0.10, date(2024, 6, 1), date(2024, 6, 30))
+    assert accrued_rate(cdi, acc, fx) == pytest.approx(0.10, abs=1e-12)
+    assert cdi.compounding is CompoundingMethod.EXPONENTIAL
