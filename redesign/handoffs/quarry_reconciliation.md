@@ -11,25 +11,31 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 **Drawdown = 1 / 768 (0.13%).** First quarry module superseded (CP-3 #1).
 
-### `core/numerical_config.py` → superseded by `foundation/numerical_config.py` (v0.47.0)
+### `core/numerical_config.py` → superseded by `foundation/numerical_config.py` (v0.47.0) — tick confirmed (Cowork spot-check, `rulings_spotcheck_retire_1.md`)
 - **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`) and `replace`.
 - **Needed functionality covered:** `mc_paths`, `mc_seed` (ng engines consume these) + `fd_bump`
   (ng's DV01 knob). Validation of positive knobs preserved.
-- **`shed:` — the 12 extra knobs, all `dead` (evidence: `grep '\.<knob>' python/` → no production
-  consumer; only refs are the quarry module's own unit test, which retires with it, and a same-named
-  local kwarg `compare_engines(tree_steps=…)`):**
-  `mc_antithetic, mc_use_sobol, mc_brownian_bridge, pde_time_steps, pde_space_steps, pde_n_std_devs,
-  tree_steps, integration_tol, integration_max_iter, cos_n, cos_L, rootfinder_tol, rootfinder_max_iter, extra`.
-  The quarry's own docstring admits the config was *"incremental… a pricer that doesn't yet read the
-  context's config simply uses its own defaults"* — i.e. the knobs were defined but never wired to any
-  pricer. ng correctly omitted them (§6b); a future ng PDE/COS/tree engine adds its own knob when it lands.
-- **Cowork: review this first `shed:` list** — evidence is the `\.<knob>` grep above (zero production hits).
+- **Evidence method** (per CLAUDE.md §4 protocol — narrow `\.name` was too weak, missed constructor
+  kwargs): bare-name grep across `python/` **source + tests**, + constructor-kwarg (`NumericalConfig(name=…)`)
+  + serialisation-round-trip check. Hit counts recorded below.
+- **`shed:` — the 12 knobs, re-classified (Cowork §2):**
+  - **`dead`** (no consumer / no identifiable future one): `mc_antithetic` (3 hits — all the module's
+    own test), `mc_use_sobol` (1), `mc_brownian_bridge` (0), `extra` (0 on `NumericalConfig.extra`;
+    the 123 bare hits are a *different* `.extra` on calibration types).
+  - **`deferred→X`** (identifiable future consumer in the un-crossed `numerical/` toolkit — forward-linked
+    on X's backlog row):
+    `cos_n`(6)/`cos_L`(0)→`numerical/_fourier`; `pde_time_steps`(4)/`pde_space_steps`(1)/`pde_n_std_devs`(0)→`numerical/_pde`;
+    `tree_steps`(5, all `compare_engines` local kwarg)→`numerical/_trees`; `integration_tol`(2)/`integration_max_iter`(0)→`numerical/_integrate`;
+    `rootfinder_tol`(2)/`rootfinder_max_iter`(0)→`numerical/_rootfinding`.
+  - **Correction note:** my first pass labelled all 12 `dead` from an attribute-only grep; the audit
+    caught `cos_n` reached via a serialisation-round-trip constructor kwarg → *not* `dead`. Deferred ≠ dead
+    (deferred carries the obligation below). Tick stands: no ng module needs any of the 12 now.
 
 ## Headline
 
 - **Quarry: 768 modules. New tree: 54 modules. Deletable: 1** (`core/numerical_config`).
-- **Drawdown = 0 / 768 (0.0%).** The ng tree is a coherent *simplified parallel build*, not yet a
-  migration. Nothing is deletable yet — but CP-2b narrowed the foundational gaps (see below).
+- **Drawdown = 1 / 768 (0.13%)** — first honest non-zero (CP-3 #1). The rest of the ng tree is a
+  *simplified parallel build* still short of superseding its quarry counterparts (spine below).
 - **CP-2b progress (parity order #1→#3):** curve rate accessors added (`zero_rate`,
   `instantaneous_forward`); **HW de-flattened — the biggest single gap, now general-curve**; `FRA`
   added (was untouched backlog). Deletability still needs a rigorous per-module parity confirmation
@@ -127,7 +133,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 | desks | 49 | fully untouched (trading-desk layer) |
 | equity | 33 | ~1 vanilla; rest untouched |
 | curves | 31 | ng has 1 loglinear + bootstrap; NS/Smith-Wilson/multicurve/AAD untouched |
-| numerical | 30 | ng has 2 solvers; PDE/MC/FFT/AD/QMC toolkit untouched |
+| numerical | 30 | ng has 2 solvers; PDE/MC/FFT/AD/QMC toolkit untouched. **Deferred obligations from `core/numerical_config` retire (v0.47.0)** — on crossing, add the knob back to `NumericalConfig`: `_fourier`←`cos_n,cos_L`; `_pde`←`pde_time_steps,pde_space_steps,pde_n_std_devs`; `_trees`←`tree_steps`; `_integrate`←`integration_tol,integration_max_iter`; `_rootfinding`←`rootfinder_tol,rootfinder_max_iter`. |
 | core | 29 | ~10 crossed-partial; approximation/caching/serialization/interpolation untouched |
 | commodity / regulatory / structured | 23 each | commodity ~1 vanilla; regulatory ~saccr-partial; structured untouched |
 | fx | 22 | ~2 vanillas |
@@ -151,9 +157,8 @@ realigned parity + oracle until each quarry counterpart is deletable, then move 
 
 ## Checkpoint note
 
-Refreshed at **CP-2c** (v0.46.0, 255 green): fixed_income spine advanced — seasoned FRA (fixings),
-deposit, OIS (+ RateCurve/forward_rate). Deletable-bar reads applied per slice; **every spine
-module's residual is the same cross-cutting trio — conventions, serialisation, multi-curve** — so
-drawdown stays 0/768 until those layers land. **Named next checkpoint (CP-3): cross-cutting vs
-credit spine** — see `CP2c_checkpoint.md` §4.1/§6 (proposal: a conventions layer + serialisation +
-multi-curve to retire a *batch* of modules, vs continuing breadth). Awaiting Cowork ruling.
+Refreshed at **CP-3 #1** (v0.47.0): serialisation residual closed → **`core/numerical_config`
+retired, drawdown 1/768** (Cowork spot-check `rulings_spotcheck_retire_1.md`: tick stands, 4
+labelling corrections applied above — dead-vs-deferred split, forward-links, evidence method).
+The rest of the spine still carries the same cross-cutting residual (conventions, multi-curve).
+**Next: CP-3 #2 — conventions/RateIndex → retire `deposit`.**
