@@ -130,3 +130,14 @@ def test_brazilian_exponential_compounding():
     fx = _flat("CDI", 0.10, date(2024, 6, 1), date(2024, 6, 30))
     assert accrued_rate(cdi, acc, fx) == pytest.approx(0.10, abs=1e-12)
     assert cdi.compounding is CompoundingMethod.EXPONENTIAL
+
+
+def test_exponential_growth_single_rate():
+    # a SINGLE fixed rate over N business days: (1+r)^(N/basis) — for fixed BRL instruments
+    # (LTN/NTN-F), where there is one rate r, not a daily series r_i.
+    from pricebook_ng.foundation.rate_index import exponential_growth
+    assert exponential_growth(0.10, 252, DC.BUS_252) == pytest.approx(1.10, abs=1e-12)  # one year
+    assert exponential_growth(0.10, 4, DC.BUS_252) == pytest.approx(1.10 ** (4 / 252), abs=1e-15)
+    # basis is derived from the day-count, not hardcoded — a non-business-day convention is rejected
+    with pytest.raises(ValueError):
+        exponential_growth(0.10, 4, DC.ACT_360)
