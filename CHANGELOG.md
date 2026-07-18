@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 3 — `schedules`: `RollRule`/`ScheduleTerms`/`Schedule` + IMM/CDS rolls (L0).**
+  `foundation/schedule.py`.
+  - `Frequency` · `StubType` (all four) · **`RollRule`**(calendar, convention, eom) ·
+    **`ScheduleTerms` → `build_schedule` → `Schedule`**. A `Schedule` carries **both** the unadjusted
+    period boundaries (accrual) **and** the business-day-adjusted dates (payment) — C2, not the same
+    list. **EOM anchored once from `start`** (ISDA §4.10); stdlib month arithmetic (day clamped to
+    month length), no `dateutil`.
+  - **Long stubs are explicit** — the stub period merges with its neighbour by construction; the
+    quarry's `first_gap < months*30*0.5` merge heuristic is **shed**.
+  - **New: IMM roll dates** (`imm_date`/`next_imm` — 3rd Wednesday) **and CDS roll dates**
+    (`cds_roll_date`/`next_cds_roll` — 20th of Mar/Jun/Sep/Dec). Neither existed in the quarry; futures
+    and credit both need them.
+  - Oracles: ISDA §4.10 EOM anchoring (month-end start → month-ends), all four stubs, adjusted ≠
+    unadjusted under a holiday, published IMM/CDS tables. `verify.py layers` green (L0 finance-free).
+  - slice: `schedules` (Topic 0 S3)
+
 ## [0.57.0] - 2026-07-18
 
 ### Added
