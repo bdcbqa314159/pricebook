@@ -44,3 +44,12 @@ class Money:
     def __post_init__(self) -> None:
         if not isinstance(self.currency, Currency):
             raise TypeError(f"currency must be a Currency, got {self.currency!r}")
+
+    def to_dict(self) -> dict[str, object]:
+        """Plain-dict wire form — shared by every serialisable product (rule of two:
+        deposit + FRA, CP-3). Currency serialises as its ISO code."""
+        return {"amount": self.amount, "currency": self.currency.value}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> "Money":
+        return cls(data["amount"], Currency(data["currency"]))
