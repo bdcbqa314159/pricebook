@@ -206,6 +206,11 @@ mark; dirty = clean + accrued.
   explicit *policy* (e.g. serialisation added per-product while already inside the module, to avoid a
   mass retrofit later) — but it is never re-labelled a "residual" to justify itself, and drawdown is
   never held hostage to it.
+- **Deferred *capability* ≠ deferred *product*.** A method/analytic on a product ng **has** (bond's
+  yield analytics, swap's `par_rate`) may be deferred and the module ticks. **A whole instrument ng
+  has never built (e.g. `InflationLinkedBond`) BLOCKS the tick** — ticking would delete the definition
+  of a product that never migrated, and under full-migration `quarry empty = v1.0` must mean every
+  product actually crossed. Either build it or hold the module a partial cross.
 - **Retire flow (per module, just-in-time):** migrate → read the old module end-to-end → assess each
   omitted feature's status *in the quarry* (a fact, not a taste judgment) → **then** tick. The
   assessment is the evidence for the tick, so it completes before it.
