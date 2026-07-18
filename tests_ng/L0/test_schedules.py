@@ -114,7 +114,7 @@ def test_frequency_28_day_tiie():
     f = Frequency(Tenor(28, TenorUnit.DAY))          # Mexico's TIIE — LatAm is in scope
     s = build_schedule(date(2024, 1, 1), date(2024, 4, 1), _terms(f))
     gaps = [(b - a).days for a, b in zip(s.unadjusted, s.unadjusted[1:])]
-    assert all(g == 28 for g in gaps[:-1])           # regular periods are 28 days
+    assert all(g == 28 for g in gaps[1:])            # regular periods 28 days (front stub is gaps[0])
 
 
 def test_frequency_daily():
