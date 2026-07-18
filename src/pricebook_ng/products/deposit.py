@@ -41,17 +41,12 @@ class Deposit:
         deposit's bullet flows carry no accrual), so they serialise directly.
         `schema_version` makes a future breaking change a loud reject, not a misread.
 
-        `Money` uses its shared encoder; the cashflow's date is inlined (deposit's the
-        only Cashflow-serialising consumer so far — lift it at the second, rule of two).
-        """
+        `Money` and `Cashflow` use their shared encoders."""
         return {
             "schema_version": _SCHEMA_VERSION,
             "face": self.face.to_dict(),
             "rate": self.rate,
-            "cashflows": [
-                {"date": cf.date.isoformat(), "amount": cf.amount.to_dict()}
-                for cf in self.cashflows
-            ],
+            "cashflows": [cf.to_dict() for cf in self.cashflows],
         }
 
     @classmethod
@@ -63,10 +58,7 @@ class Deposit:
                 f"Deposit schema v{version} newer than reader v{_SCHEMA_VERSION}"
             )
         face = Money.from_dict(data["face"])
-        cashflows = tuple(
-            Cashflow(date.fromisoformat(c["date"]), Money.from_dict(c["amount"]))
-            for c in data["cashflows"]
-        )
+        cashflows = tuple(Cashflow.from_dict(c) for c in data["cashflows"])
         return cls(face=face, rate=data["rate"], cashflows=cashflows)
 
 
