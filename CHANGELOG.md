@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-07-18
+
+### Added
+- **Serialisation → first quarry retire — CP-3 #1 (drawdown 0 → 1/768).** `NumericalConfig` gains
+  `to_dict`/`from_dict` (round-trippable wire form + `schema_version`: absent = legacy v1, a newer
+  version is refused not misread) and a `replace` convenience — the genuine residual that let it
+  **supersede the quarry `core/numerical_config.py`**, now marked deletable.
+  - Per the ratified "deletable = supersede-with-evidence" bar: the quarry's 12 extra knobs
+    (`pde_*`, `cos_*`, `tree_steps`, `mc_antithetic/sobol/bridge`, `integration_*`, `rootfinder_*`,
+    `extra`) are shed **`dead`** — `grep '\.<knob>' python/` finds **zero production consumers** (only
+    the quarry module's own unit test + a same-named local kwarg). The quarry config was a
+    half-adopted abstraction (its docstring: adoption "incremental"); ng correctly omitted them (§6b).
+    Full `shed:` evidence in `quarry_reconciliation.md` (flagged for Cowork's close review).
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected; `replace`.
+  - Serialisation is per-class (rule of two — no shared framework at one serialisable type yet).
+  - quarry: `python/pricebook/core/numerical_config.py` · slice: `serialisation-numerical-config`
+
 ## [0.46.0] - 2026-07-17
 
 ### Added

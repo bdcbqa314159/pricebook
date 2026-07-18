@@ -7,9 +7,27 @@ parity-gap list, before parity-depth slices begin. **"Crossed" = the quarry modu
 is *deletable* (realigned parity reached)** — a simplified skeleton is a *partial* cross with a
 recorded gap, not a cross (`CLAUDE.md §4`).
 
+## RETIRED (deletable) — the drawdown numerator
+
+**Drawdown = 1 / 768 (0.13%).** First quarry module superseded (CP-3 #1).
+
+### `core/numerical_config.py` → superseded by `foundation/numerical_config.py` (v0.47.0)
+- **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`) and `replace`.
+- **Needed functionality covered:** `mc_paths`, `mc_seed` (ng engines consume these) + `fd_bump`
+  (ng's DV01 knob). Validation of positive knobs preserved.
+- **`shed:` — the 12 extra knobs, all `dead` (evidence: `grep '\.<knob>' python/` → no production
+  consumer; only refs are the quarry module's own unit test, which retires with it, and a same-named
+  local kwarg `compare_engines(tree_steps=…)`):**
+  `mc_antithetic, mc_use_sobol, mc_brownian_bridge, pde_time_steps, pde_space_steps, pde_n_std_devs,
+  tree_steps, integration_tol, integration_max_iter, cos_n, cos_L, rootfinder_tol, rootfinder_max_iter, extra`.
+  The quarry's own docstring admits the config was *"incremental… a pricer that doesn't yet read the
+  context's config simply uses its own defaults"* — i.e. the knobs were defined but never wired to any
+  pricer. ng correctly omitted them (§6b); a future ng PDE/COS/tree engine adds its own knob when it lands.
+- **Cowork: review this first `shed:` list** — evidence is the `\.<knob>` grep above (zero production hits).
+
 ## Headline
 
-- **Quarry: 768 modules. New tree: 51 modules. Deletable (parity reached): 0.**
+- **Quarry: 768 modules. New tree: 54 modules. Deletable: 1** (`core/numerical_config`).
 - **Drawdown = 0 / 768 (0.0%).** The ng tree is a coherent *simplified parallel build*, not yet a
   migration. Nothing is deletable yet — but CP-2b narrowed the foundational gaps (see below).
 - **CP-2b progress (parity order #1→#3):** curve rate accessors added (`zero_rate`,
