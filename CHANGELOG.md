@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 1 — `calendars`: the holiday-rule DSL + all 37 markets, identity-keyed (L0).**
+  `foundation/calendar.py` (engine) + `foundation/market_calendars.py` (declarations).
+  - **DSL** (`fixed`/`easter`/`orthodox`/`nth`/`monday` + the `christmas_boxing`/`victoria_day`/
+    `midsummer_eve`/`mexico_inauguration` cascades, `since`/`until` year-gating), Gregorian + Orthodox
+    Easter, and the **three observance regimes** — US 5 U.S.C. §6103 (Sat→Fri, Sun→Mon), Commonwealth
+    next-working-day (Sat/Sun→Mon), Johannesburg Sunday-only — plus Tokyo **furikae** and the
+    Israel/MENA **Fri–Sat weekend**. `BusinessDayConvention` gains `NEAREST`. `JointCalendar` = union.
+  - **Structure cleaned (content mined, not structure):** the quarry's ~38 `Calendar` subclasses +
+    currency-keyed registry collapse into **one frozen `Calendar` value** (identity · rules · weekend ·
+    observance — 4 fields) and **37 data declarations keyed by identity** (`NEW_YORK_SIFMA`, `TARGET`,
+    …); currency → calendar is a lookup (`calendar_for_currency`), C1. The per-rule `observe` flag is
+    lifted to the calendar's `Observance` regime.
+  - Oracles: published holiday dates; US-vs-UK Saturday divergence; Juneteenth `since=2021`; Danish
+    Store Bededag `until=2023`; Christmas/Boxing collision cascade; Tokyo furikae; Fri–Sat weekend;
+    business-day adjustment (following/modified/nearest); joint-calendar union. `verify.py layers`
+    green (L0 finance-free).
+  - slice: `calendars` (Topic 0 S1)
+
 ## [0.55.0] - 2026-07-18
 
 ### Changed
