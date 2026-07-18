@@ -44,9 +44,10 @@ class DayCountConvention(Enum):
 
 @dataclass(frozen=True)
 class CouponPeriod:
-    """The coupon period's schedule context: ICMA reference anchors (Rule 251) and
-    whether this is the schedule's final period (the 30E/360-ISDA termination rule).
-    Bundles what those two conventions need so `year_fraction` stays ≤5 args."""
+    """The coupon period's convention context, serving three conventions: ICMA
+    reference anchors + `frequency` (Rule 251, and the ACT/365L annual-vs-frequent
+    denominator, ISDA §4.16(i)) and `is_final` (the 30E/360-ISDA termination rule).
+    Bundles what they need so `year_fraction` stays ≤5 args."""
 
     reference_start: date
     reference_end: date
@@ -82,7 +83,7 @@ def year_fraction(
     if convention is C.ACT_ACT_ICMA:
         return _act_act_icma(start, end, coupon_period)
     if convention is C.ACT_365L:
-        return _act_365l(start, end)
+        return _act_365l(start, end, coupon_period)
     if convention is C.NL_365:
         return _nl_365(start, end)
     if convention is C.BUS_252:
@@ -178,9 +179,15 @@ def _leap_days_in(start: date, end: date) -> int:
     return count
 
 
-def _act_365l(start: date, end: date) -> float:
-    """ACT/365L: actual days / 366 if a 29 Feb lies in the period, else / 365."""
-    denom = 366.0 if _leap_days_in(start, end) else 365.0
+def _act_365l(start: date, end: date, cp: CouponPeriod | None) -> float:
+    """ACT/365L (ISDA §4.16(i)) — frequency-dependent denominator:
+    annual (or no frequency context) → 366 iff a 29 Feb lies in the period, else 365;
+    more frequent than annual → 366 iff the period END date is in a leap year, else 365."""
+    frequency = cp.frequency if cp is not None else 1
+    if frequency <= 1:
+        denom = 366.0 if _leap_days_in(start, end) else 365.0
+    else:
+        denom = 366.0 if _is_leap(end.year) else 365.0
     return (end - start).days / denom
 
 

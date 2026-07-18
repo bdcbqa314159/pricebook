@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-07-18
+
+### Fixed
+- **Topic 0 S3-checkpoint corrections (Cowork ruling `rulings_topic0_s3.md`).** Three fixes to the
+  merged calendars/daycounts slices, done before Slice 4.
+  - **ANZAC-Day observance (§3.1 — the `observe`-lift correction).** The lift of the per-rule `observe`
+    flag to a calendar-level `Observance` was *not* behaviour-preserving: AU/NZ **ANZAC Day (25 Apr)** is
+    commemorated on the actual date and **not** mondayised, while New Year/Christmas in the same
+    calendars are. `fixed()` regains a per-rule `observed=` override (default follows the regime);
+    `SYDNEY`/`WELLINGTON` ANZAC set `observed=False`. Regression oracle: ANZAC on a weekend does not
+    shift while New Year in the same calendar does.
+  - **ACT/365L is frequency-dependent (§3.3, ISDA §4.16(i)).** Annual (or no context) → 366 iff a 29 Feb
+    lies in the period; more frequent than annual → 366 iff the period **end** is in a leap year. Uses
+    `CouponPeriod.frequency` (now serving three conventions — ICMA, 30E/360-ISDA, ACT/365L).
+  - **`Coverage` marker (§4).** Eight EM calendars (Riyadh, Cairo, Istanbul, Tel Aviv, Beijing, Seoul,
+    Mumbai, Bangkok) are **secular-only** — they omit lunar/religious holidays. Now marked
+    `Coverage.SECULAR_ONLY` (not silently wrong); lunar data forward-linked to the EM-rates topic.
+  - slice: `topic0-s3-corrections`
+
 ## [0.58.0] - 2026-07-18
 
 ### Added
