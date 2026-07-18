@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-07-18
+
+### Added
+- **FRA serialisation → third quarry retire — CP-3 #3 (drawdown 2 → 3/768).** `ForwardRateAgreement`
+  gains `to_dict`/`from_dict` (+ `schema_version`), the genuine residual that supersedes the quarry
+  `fixed_income/fra.py`, now deletable.
+  - **Consumer-analysis retire-read (per the new §4 phantom-residual rule):** the quarry `FRA` class
+    has a single production instantiation — `desks/api.py:273` `FRA(...).pv(curve, projection_curve)`,
+    a **multi-curve** desk path. `desks/` is un-crossed quarry ⇒ that role is `deferred→desks/api`
+    (travels with the desks crossing / the multi-curve slice), **not a residual now**. ng already
+    supersedes single-curve FRA pricing (`engine/fra.py`, incl. seasoned fixings). The only
+    production-reachable reconstruction path is the DB dispatcher (`db.py from_dict`) ⇒ serialisation
+    is the real residual, exactly as for deposit.
+  - **`shed:` `FRA.from_convention` = `dead`** — sole caller is `tests/test_convention_factory.py::`
+    `test_fra_from_convention` (a quarry test, retires with the quarry); no production consumer.
+  - **Rule of two fired:** FRA is the second serialising product, so `Money.to_dict`/`from_dict` is
+    lifted to `foundation/money.py` and both deposit + FRA use it. The `Accrual` (FRA) and `Cashflow`
+    date (deposit) encodings stay inlined — one consumer each — to be lifted at their own second use.
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected.
+  - quarry: `python/pricebook/fixed_income/fra.py` · slice: `serialisation-fra`
+
 ## [0.48.0] - 2026-07-18
 
 ### Added

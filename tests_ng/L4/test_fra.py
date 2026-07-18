@@ -84,3 +84,29 @@ def test_par_reprices_to_zero_on_bootstrapped_curve():
     )
     model = DiscountingModel(_market(curve))
     assert ENGINE.price(_fra(_forward(curve)), model, NUM).pv.amount == pytest.approx(0.0, abs=1e-8)
+
+
+# ── serialisation (CP-3 #3 — the genuine residual that retires quarry fra) ──
+
+
+def test_round_trips_through_dict():
+    fra = _fra(0.04, pay_fixed=False)
+    assert ForwardRateAgreement.from_dict(fra.to_dict()) == fra
+
+
+def test_to_dict_carries_schema_version():
+    assert _fra(0.03).to_dict()["schema_version"] == 1
+
+
+def test_missing_version_reads_as_v1():
+    fra = _fra(0.03)
+    data = fra.to_dict()
+    del data["schema_version"]  # legacy payload
+    assert ForwardRateAgreement.from_dict(data) == fra
+
+
+def test_future_version_is_rejected_loudly():
+    data = _fra(0.03).to_dict()
+    data["schema_version"] = 99
+    with pytest.raises(ValueError):
+        ForwardRateAgreement.from_dict(data)
