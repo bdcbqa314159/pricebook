@@ -201,6 +201,11 @@ mark; dirty = clean + accrued.
 - **Forward-link every `deferred→X`.** The obligation is written on **X's row** in
   `quarry_reconciliation.md` ("on crossing: add …"), not only on the retired module's entry — the
   retired entry is never re-read; X's row is read the moment X is picked up.
+- **A `deferred` capability must never *block* a tick.** If a module is otherwise deletable, tick it
+  and forward-link the deferred capability. Building a deferred capability early is allowed as an
+  explicit *policy* (e.g. serialisation added per-product while already inside the module, to avoid a
+  mass retrofit later) — but it is never re-labelled a "residual" to justify itself, and drawdown is
+  never held hostage to it.
 - **Retire flow (per module, just-in-time):** migrate → read the old module end-to-end → assess each
   omitted feature's status *in the quarry* (a fact, not a taste judgment) → **then** tick. The
   assessment is the evidence for the tick, so it completes before it.

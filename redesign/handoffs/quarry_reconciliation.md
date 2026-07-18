@@ -11,6 +11,14 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 **Drawdown = 5 / 768 (0.65%).** Quarry modules superseded (CP-3 #1–#5).
 
+> **Serialisation classification (Cowork CP-3 ruling §4.5, `rulings_CP3.md`):** across all five CP-3
+> retires, `to_dict`/`from_dict` is **`deferred→persistence`**, NOT a genuine residual — ng has no
+> serialisation consumer yet (the DB `from_dict` dispatcher is quarry-side; the persistence/data-spine
+> layer is un-crossed). It was **built early by deliberate policy** (adding it in-passing beats a mass
+> retrofit after persistence lands), never to justify a tick. Binding rule (CLAUDE.md §4):
+> **serialisation never blocks a tick** — where cheap and already in the module, add it; else retire
+> and forward-link `→persistence`. The five ticks stand; nothing to rework.
+
 ### `fixed_income/zero_coupon_bond.py` → superseded by `products/fixed_cashflow.py` (v0.51.0) — CP-3 #5
 - **Genuine residual — CLOSED:** `to_dict`/`from_dict` (reuses shared `Cashflow`/`Money` encoders). A
   ZCB *is* a single fixed cashflow (`Face·DF(T)`), priced by the existing `DiscountingEngine`.
