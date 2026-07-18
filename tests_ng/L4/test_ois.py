@@ -85,3 +85,36 @@ def test_ois_equals_vanilla_irs_single_curve():
         assert OISEngine().price(ois, model, NUM).pv.amount == pytest.approx(
             SwapEngine().price(swap, model, NUM).pv.amount, abs=1e-6
         )
+
+
+# ── serialisation (CP-3 #4 — the genuine residual that retires quarry ois) ──
+
+
+def _ois():
+    return overnight_index_swap(FACE, 0.03, D0, MATURITY, TERMS)
+
+
+def test_round_trips_through_dict():
+    from pricebook_ng.products.ois import OvernightIndexSwap
+    ois = _ois()
+    assert OvernightIndexSwap.from_dict(ois.to_dict()) == ois
+
+
+def test_to_dict_carries_schema_version():
+    assert _ois().to_dict()["schema_version"] == 1
+
+
+def test_missing_version_reads_as_v1():
+    from pricebook_ng.products.ois import OvernightIndexSwap
+    ois = _ois()
+    data = ois.to_dict()
+    del data["schema_version"]
+    assert OvernightIndexSwap.from_dict(data) == ois
+
+
+def test_future_version_is_rejected_loudly():
+    from pricebook_ng.products.ois import OvernightIndexSwap
+    data = _ois().to_dict()
+    data["schema_version"] = 99
+    with pytest.raises(ValueError):
+        OvernightIndexSwap.from_dict(data)

@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-07-18
+
+### Added
+- **OIS serialisation → fourth quarry retire — CP-3 #4 (drawdown 3 → 4/768).**
+  `OvernightIndexSwap` gains `to_dict`/`from_dict` (+ `schema_version`), the genuine residual that
+  supersedes the quarry `fixed_income/ois.py`, now deletable.
+  - **Consumer-analysis retire-read (§4):** the quarry `OISSwap` has 2 production instantiations —
+    `desks/api.py:641` (un-crossed ⇒ `deferred→desks/api`) and `OISConvention.create_swap` (inside the
+    quarry ois module itself ⇒ retires with it). ng supersedes single-curve pricing via `engine/ois.py`
+    (`OIS == vanilla IRS`). The `pv_ctx` multi-currency `discount_curves` branch is a multi-curve role
+    ⇒ deferred. Serialisation (DB `from_dict` dispatcher) is the real residual.
+  - **`shed:` `OISSwap.from_convention` = `dead`** — sole caller is
+    `tests/test_convention_factory.py` (a quarry test); no production consumer.
+  - **Rule of two fired twice:** OIS's `FixedLeg` coupons carry `Accrual` and `Cashflow`, so
+    `Accrual.to_dict`/`from_dict` (consumers: FRA + coupon cashflows) and `Cashflow.to_dict`/`from_dict`
+    (consumers: deposit + OIS legs) are lifted to `foundation/cashflow.py`; FRA and deposit refactored
+    to use them under their green oracles. `FixedLeg`/`FloatLeg` encoding stays inlined in OIS (its only
+    serialising consumer) — lift a shared leg encoder when the vanilla swap serialises.
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected.
+  - quarry: `python/pricebook/fixed_income/ois.py` · slice: `serialisation-ois`
+
 ## [0.49.0] - 2026-07-18
 
 ### Added

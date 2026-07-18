@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.time import DayCountConvention, year_fraction
@@ -39,6 +40,16 @@ class Accrual:
         return (year_fraction(self.start, valuation, self.day_count)
                 / year_fraction(self.start, self.end, self.day_count))
 
+    def to_dict(self) -> dict[str, Any]:
+        """Shared wire form (rule of two: FRA + coupon cashflows, CP-3)."""
+        return {"start": self.start.isoformat(), "end": self.end.isoformat(),
+                "day_count": self.day_count.value}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Accrual":
+        return cls(date.fromisoformat(data["start"]), date.fromisoformat(data["end"]),
+                   DayCountConvention(data["day_count"]))
+
 
 @dataclass(frozen=True)
 class Cashflow:
@@ -48,3 +59,21 @@ class Cashflow:
     date: date
     amount: Money
     accrual: Accrual | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Shared wire form (rule of two: deposit + OIS/swap legs, CP-3). `accrual`
+        serialises as `None` for a bullet payment."""
+        return {
+            "date": self.date.isoformat(),
+            "amount": self.amount.to_dict(),
+            "accrual": self.accrual.to_dict() if self.accrual is not None else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Cashflow":
+        accrual = data.get("accrual")
+        return cls(
+            date.fromisoformat(data["date"]),
+            Money.from_dict(data["amount"]),
+            Accrual.from_dict(accrual) if accrual is not None else None,
+        )
