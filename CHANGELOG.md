@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 6 — `numerics-config`: the finite-difference/numeric floor + engine I/O (L0).**
+  The last slice before the Topic 0 gate.
+  - **Complete `NumericalConfig`** — the full reproducibility knob set designed up front (MC
+    paths/seed/antithetic/sobol/bridge · PDE time/space/n-std-devs · tree steps · quadrature tol/max-iter
+    · COS n/L · root-finder tol/max-iter · fd bump), so it never retrofits a foundational value type (the
+    12 knobs deferred at CP-3 retire #1). `# fields-exempt: config aggregate`; positive-knob validation;
+    the **serialisation pattern** (`to_dict`/`from_dict` + `schema_version`, no framework).
+  - **`distributions`** (norm_cdf/pdf/ppf) · **`solvers`** (bisect_root, Nelder-Mead) · **`interpolation`**
+    (linear + log-linear — *mechanism only*; extrapolation is an L1 curve policy, so out-of-range raises).
+  - **`PricingResult`** (A2 decomposition: dirty PV + accrued ⇒ clean) now records its **basis** — value
+    currency (`pv`) **and** the collateral/discounting `DiscountBasis` — so a PV is never ambiguous
+    (settlement ruling §1; the numeraire *choice* stays L3). **`PricingFailure`** — failure as a value.
+  - Deferred with their first consumer (no shape risk): the MC/PDE/Fourier-COS/tree/quadrature *engines*.
+  - slice: `numerics-config` (Topic 0 S6)
+
 ## [0.62.0] - 2026-07-18
 
 ### Added
