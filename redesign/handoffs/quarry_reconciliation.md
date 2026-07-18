@@ -9,7 +9,17 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## RETIRED (deletable) — the drawdown numerator
 
-**Drawdown = 3 / 768 (0.39%).** Quarry modules superseded (CP-3 #1, #2, #3).
+**Drawdown = 4 / 768 (0.52%).** Quarry modules superseded (CP-3 #1–#4).
+
+### `fixed_income/ois.py` → superseded by `products/ois.py` (v0.50.0) — CP-3 #4
+- **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`); DB-dispatcher path.
+- **Consumer analysis (§4):** quarry `OISSwap` has 2 production instantiations — `desks/api.py:641`
+  (`deferred→desks/api`) + `OISConvention.create_swap` (in-module, retires with it). ng supersedes
+  single-curve pricing (`engine/ois.py`, `OIS == vanilla IRS`); `pv_ctx` multi-ccy branch = deferred.
+- **`shed:` `from_convention` = `dead`** — sole caller `tests/test_convention_factory.py` (quarry test).
+- **Refactor (rule of two ×2):** `Accrual.to_dict`/`from_dict` (FRA + coupon cashflows) and
+  `Cashflow.to_dict`/`from_dict` (deposit + OIS legs) lifted to `foundation/cashflow.py`; FRA + deposit
+  refactored under green oracles. Leg encoding stays inlined in OIS (its only serialising consumer).
 
 ### `fixed_income/fra.py` → superseded by `products/fra.py` (v0.49.0) — CP-3 #3
 - **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`). Same
@@ -69,10 +79,10 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## Headline
 
-- **Quarry: 768 modules. New tree: 55 modules. Deletable: 3** (`core/numerical_config`,
-  `fixed_income/deposit`, `fixed_income/fra`).
-- **Drawdown = 3 / 768 (0.39%)** — CP-3 serialisation cluster (#1 config, #2 deposit, #3 FRA). The rest
-  of the ng tree is a *simplified parallel build* still short of superseding its quarry counterparts (below).
+- **Quarry: 768 modules. New tree: 55 modules. Deletable: 4** (`core/numerical_config`,
+  `fixed_income/deposit`, `fixed_income/fra`, `fixed_income/ois`).
+- **Drawdown = 4 / 768 (0.52%)** — CP-3 serialisation cluster (#1 config, #2 deposit, #3 FRA, #4 OIS).
+  The rest of the ng tree is a *simplified parallel build* still short of superseding its counterparts (below).
 - **CP-2b progress (parity order #1→#3):** curve rate accessors added (`zero_rate`,
   `instantaneous_forward`); **HW de-flattened — the biggest single gap, now general-curve**; `FRA`
   added (was untouched backlog). Deletability still needs a rigorous per-module parity confirmation
@@ -162,7 +172,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 | subpackage | modules | note |
 |---|---|---|
-| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation/ois); **deposit + fra RETIRED (v0.48–0.49)**; repo/futures/sovereign/xccy families untouched |
+| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation); **deposit + fra + ois RETIRED (v0.48–0.50)**; repo/futures/sovereign/xccy families untouched |
 | credit | 93 | ng has vanilla CDS + hazard; CDO/tranche/CLN/loan/hawkes/recovery untouched |
 | models | 90 | ng has flat HW; PDE/MC framework, Levy/rough/LMM/G2++/trees untouched |
 | options | 61 | fully untouched |
@@ -200,8 +210,9 @@ production consumers; `from_convention` is a quarry-test-only `dead` feature). N
 code was written — it re-aims at its genuine consumer (per-currency curve construction) when crossed.
 Cowork ratified the correction (`rulings_CP3_correction.md`): serialisation through-line confirmed,
 **§4 phantom-residual rule added** (residuals need consumer evidence; re-derive by consumer analysis at
-retire time; gaps likely overstated → drawdown faster than the map claims). CP-3 #3 (FRA) done via
-consumer-analysis retire-read. **Next candidates (thin, low production use):** OIS (2 prod
-instantiations), ZCB (1), bond (8), leg (0, test-only) — each retire-read on its own residual, not the
+retire time; gaps likely overstated → drawdown faster than the map claims). CP-3 #3 (FRA), #4 (OIS) done via
+consumer-analysis retire-reads. **Next candidates (thin, low production use):** ZCB (1 prod
+instantiation), bond (8), leg (0, test-only) — each retire-read on its own residual, not the
 feature-diffed gap. **Watch:** swap has 29 production instantiations (curve pillars/XVA) — load-bearing,
-NOT a serialisation-only retire; its real residual is larger (multi-curve/curve-build role).
+NOT a serialisation-only retire; its real residual is larger (multi-curve/curve-build role). **Checkpoint
+due: CP-3 is at 4 slices (cadence ≤6) — call it at ~#6 or when the fixed-income vanilla cluster is done.**
