@@ -86,3 +86,24 @@ def test_cashflow_and_leg():
     leg = Leg(cashflows=(cf,), day_count=DC.THIRTY_360)
     assert leg.cashflows[0].amount == Money(1_000.0, USD)
     assert cf.accrual.year_fraction() == 0.5
+
+
+def test_leg_holds_cashflows_and_deliveries():
+    # S2: a leg is a run of flows, cash OR physical — a commodity/physical leg is expressible
+    from pricebook_ng.foundation.settlement import Delivery
+    cash = Cashflow(date(2024, 7, 1), Money(-1_000.0, USD))          # S13: paying = negative
+    delivery = Delivery(date(2024, 7, 1), Quantity(10.0, Unit.BARREL))
+    leg = Leg(flows=(cash, delivery), day_count=DC.ACT_360)
+    assert leg.flows[0].amount.amount == -1_000.0                    # signed direction, no flag
+    assert leg.flows[1].quantity == Quantity(10.0, Unit.BARREL)
+
+
+def test_degenerate_periods_raise():
+    # S14: an accrual is ordered by construction; reversed / zero-length raise
+    with pytest.raises(ValueError):
+        Accrual(date(2024, 7, 1), date(2024, 1, 1), DC.ACT_360)     # reversed
+    with pytest.raises(ValueError):
+        Accrual(date(2024, 1, 1), date(2024, 1, 1), DC.ACT_360)     # zero-length
+    from pricebook_ng.foundation.day_count import year_fraction
+    with pytest.raises(ValueError):
+        year_fraction(date(2024, 7, 1), date(2024, 1, 1), DC.ACT_360)  # reversed primitive

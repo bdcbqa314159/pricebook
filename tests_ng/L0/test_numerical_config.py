@@ -1,40 +1,50 @@
-"""NumericalConfig oracle (L0) — Topic 0 Slice 6.
+"""NumericalConfig oracle (L0) — Topic 0 gate rework (F1/S15).
 
-The FULL reproducibility knob set, designed up front so it never retrofits a
-foundational value type (the 12 knobs deferred at CP-3 retire #1). Serialisation
-pattern: per-class to_dict/from_dict + schema_version, no framework.
+Decomposed by method family (§3b — a config never earns `fields-exempt`): each sub-config
+≤5 fields, so `verify.py fields` passes on merit. RNG family is pinned (S15). Reads as
+`numerics.monte_carlo.paths`. Serialisation pattern: nested to_dict/from_dict + schema.
 """
 
 import pytest
 
-from pricebook_ng.foundation.numerical_config import NumericalConfig
+from pricebook_ng.foundation.numerical_config import (
+    RNG_FAMILY,
+    IntegrationConfig,
+    LatticeConfig,
+    MonteCarloConfig,
+    NumericalConfig,
+    SolverConfig,
+)
 
 
-def test_full_knob_set_defaults():
+def test_decomposed_by_method_family():
     c = NumericalConfig()
-    # MC · PDE · tree · quadrature · COS · root-finder · fd bump — all present
-    for knob in ("fd_bump", "mc_paths", "mc_seed", "mc_antithetic", "mc_sobol", "mc_brownian_bridge",
-                 "pde_time_steps", "pde_space_steps", "pde_n_std_devs", "tree_steps",
-                 "quadrature_tol", "quadrature_max_iter", "cos_n", "cos_l",
-                 "rootfinder_tol", "rootfinder_max_iter"):
-        assert hasattr(c, knob), knob
+    assert isinstance(c.monte_carlo, MonteCarloConfig)
+    assert isinstance(c.lattice, LatticeConfig)
+    assert isinstance(c.integration, IntegrationConfig)
+    assert isinstance(c.solver, SolverConfig)
+    # reads as what it is
+    assert c.monte_carlo.paths > 0
+    assert c.lattice.tree_steps > 0          # tree folded into the lattice (discretisation grids)
+    assert c.integration.cos_n > 0
+    assert c.solver.fd_bump > 0
 
 
-def test_replace_and_immutability():
-    c = NumericalConfig(mc_paths=1000)
-    d = c.replace(mc_paths=2000)
-    assert d.mc_paths == 2000 and c.mc_paths == 1000
+def test_rng_family_pinned():
+    # S15: a later RNG switch silently shifts every MC oracle — pin it as an invariant
+    assert RNG_FAMILY == "pcg64"
 
 
 def test_positive_knobs_validated():
     with pytest.raises(ValueError):
-        NumericalConfig(fd_bump=0.0)
+        MonteCarloConfig(paths=0)
     with pytest.raises(ValueError):
-        NumericalConfig(mc_paths=0)
+        SolverConfig(fd_bump=0.0)
 
 
 def test_round_trips_through_dict():
-    c = NumericalConfig(mc_paths=10_000, cos_n=128, pde_time_steps=200)
+    c = NumericalConfig(monte_carlo=MonteCarloConfig(paths=10_000),
+                        integration=IntegrationConfig(cos_n=256))
     assert NumericalConfig.from_dict(c.to_dict()) == c
     assert c.to_dict()["schema_version"] == 1
 
