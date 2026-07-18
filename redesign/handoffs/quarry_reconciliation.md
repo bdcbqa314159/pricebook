@@ -9,7 +9,31 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## RETIRED (deletable) — the drawdown numerator
 
-**Drawdown = 1 / 768 (0.13%).** First quarry module superseded (CP-3 #1).
+**Drawdown = 2 / 768 (0.26%).** Quarry modules superseded (CP-3 #1, #2).
+
+### `fixed_income/deposit.py` → superseded by `products/deposit.py` (v0.48.0) — CP-3 #2
+- **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`). Same residual
+  as CP-3 #1: the production-reachable reconstruction path is the DB dispatcher (`db.py:310`
+  `from_dict(json.loads(...))`), so a product must round-trip to be persistable.
+- **Needed functionality covered:** the deposit *concept* (place `face`, receive `face·(1+rτ)`) as
+  the two-cashflow `Deposit` product priced by `DiscountingEngine`; the **curve-pillar role**
+  (`discount_factor = 1/(1+rτ)`) superseded by `DepositQuote` in `bootstrap_discount_curve`.
+- **Evidence method** (CLAUDE.md §4): bare-name grep `Deposit` / `Deposit(` / `Deposit.from_convention`
+  across `python/` source + tests; checked the DB serialisation dispatcher for dynamic reconstruction.
+- **Key evidence — the quarry `Deposit` class has ZERO production instantiations:** `grep 'Deposit('
+  python/pricebook` → 0 hits (bootstrap uses a loose `deposit_day_count` param + inline `year_fraction`,
+  never the class). Every `Deposit(` site is a test.
+- **`shed:`**
+  - **`dead`** — `from_convention` (1 caller: `tests/test_convention_factory.py::test_deposit_from_convention`,
+    a quarry test that retires with the quarry; 0 production callers — same interpretation as CP-3 #1's
+    `mc_antithetic`); `discount_factor` / `pv` / `pv_ctx` / `year_fraction` / `cashflow` properties
+    (0 production consumers; superseded by ng's product + engine + `DepositQuote`).
+- **Ruling-refinement flag (for Cowork):** CP-3 #2 was scoped as *conventions/RateIndex → retire
+  deposit*. The evidence shows deposit's residual was **serialisation, not conventions** — deposit has
+  no production consumer of conventions at all. Conventions/RateIndex is real cross-cutting infra but
+  belongs to its genuine consumer (per-currency curve construction, `curves/curve_builder`
+  `get_conventions`), to be built when *that* is crossed — not speculatively here. **No conventions
+  code was written.**
 
 ### `core/numerical_config.py` → superseded by `foundation/numerical_config.py` (v0.47.0) — tick confirmed (Cowork spot-check, `rulings_spotcheck_retire_1.md`)
 - **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`) and `replace`.
@@ -33,9 +57,10 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## Headline
 
-- **Quarry: 768 modules. New tree: 54 modules. Deletable: 1** (`core/numerical_config`).
-- **Drawdown = 1 / 768 (0.13%)** — first honest non-zero (CP-3 #1). The rest of the ng tree is a
-  *simplified parallel build* still short of superseding its quarry counterparts (spine below).
+- **Quarry: 768 modules. New tree: 55 modules. Deletable: 2** (`core/numerical_config`,
+  `fixed_income/deposit`).
+- **Drawdown = 2 / 768 (0.26%)** — CP-3 serialisation cluster (#1 config, #2 deposit). The rest of the
+  ng tree is a *simplified parallel build* still short of superseding its quarry counterparts (spine below).
 - **CP-2b progress (parity order #1→#3):** curve rate accessors added (`zero_rate`,
   `instantaneous_forward`); **HW de-flattened — the biggest single gap, now general-curve**; `FRA`
   added (was untouched backlog). Deletability still needs a rigorous per-module parity confirmation
@@ -125,7 +150,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 | subpackage | modules | note |
 |---|---|---|
-| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation/fra); deposit/OIS/fixings next; repo/futures/sovereign/xccy families untouched |
+| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation/fra/ois); **deposit RETIRED (v0.48.0)**; repo/futures/sovereign/xccy families untouched |
 | credit | 93 | ng has vanilla CDS + hazard; CDO/tranche/CLN/loan/hawkes/recovery untouched |
 | models | 90 | ng has flat HW; PDE/MC framework, Levy/rough/LMM/G2++/trees untouched |
 | options | 61 | fully untouched |
@@ -149,16 +174,19 @@ realigned parity + oracle until each quarry counterpart is deletable, then move 
    + interpolation + roll_down remain.* Nelson-Siegel / Smith-Wilson / multicurve later.
 2. **models/hull_white — general-curve HW-1F** — *CP-2b: DONE (flat gap closed).* hw_calibration and
    term-structure vol to parity remain.
-3. **fixed_income spine** — bond / swap / leg / deposit / **fra (CP-2b done)** / ois to parity, plus
-   **fixings/seasoned-float** (the 130-module bulk). *In progress.*
+3. **fixed_income spine** — bond / swap / leg / **deposit (RETIRED v0.48.0)** / **fra (CP-2b done)** /
+   ois to parity, plus **fixings/seasoned-float** (the 130-module bulk). *In progress.*
 4. **credit spine** — issuer/hazard curve + vanilla CDS to parity.
 5. Then breadth (commodity, options, more XVA) resumes — only after the foundation supersedes its
    quarry modules.
 
 ## Checkpoint note
 
-Refreshed at **CP-3 #1** (v0.47.0): serialisation residual closed → **`core/numerical_config`
-retired, drawdown 1/768** (Cowork spot-check `rulings_spotcheck_retire_1.md`: tick stands, 4
-labelling corrections applied above — dead-vs-deferred split, forward-links, evidence method).
-The rest of the spine still carries the same cross-cutting residual (conventions, multi-curve).
-**Next: CP-3 #2 — conventions/RateIndex → retire `deposit`.**
+Refreshed at **CP-3 #2** (v0.48.0): **`fixed_income/deposit` retired → drawdown 2/768.** The retire
+read refined the ruling: deposit's residual was **serialisation, not conventions** (it has zero
+production consumers; `from_convention` is a quarry-test-only `dead` feature). No conventions/RateIndex
+code was written — it re-aims at its genuine consumer (per-currency curve construction) when crossed.
+CP-3 #1 (`core/numerical_config`) tick confirmed by Cowork spot-check (`rulings_spotcheck_retire_1.md`).
+**Flag for next Cowork touch:** the CP-3 sequence's "conventions retires deposit" premise was wrong;
+the true CP-3 through-line is *serialisation* (config → deposit → next products). **Next candidate:
+CP-3 #3 — serialise FRA/swap/OIS (lift shared `Money`/`Cashflow` encoding, rule of two) → retire them.**
