@@ -52,6 +52,12 @@ class Observance(Enum):
     FURIKAE = "furikae"                # Japan: a Sunday holiday walks forward past holidays
 
 
+class Coverage(Enum):
+    """Whether a calendar's holiday set is complete or omits lunar/religious dates."""
+    COMPLETE = "complete"
+    SECULAR_ONLY = "secular_only"      # omits Islamic/Hebrew/lunisolar holidays (marked, not silent)
+
+
 # ── Easter ──────────────────────────────────────────────────────────────────────
 def gregorian_easter(year: int) -> date:
     """Western Easter Sunday (anonymous Gregorian algorithm)."""
@@ -83,12 +89,18 @@ def _in_range(year: int, since: int | None, until: int | None) -> bool:
     return (since is None or year >= since) and (until is None or year <= until)
 
 
-def fixed(month: int, day: int, *, since: int | None = None, until: int | None = None) -> Rule:
-    """A fixed (month, day) holiday, substituted under the calendar's `Observance`."""
+def fixed(
+    month: int, day: int, *,
+    observed: bool = True, since: int | None = None, until: int | None = None,
+) -> Rule:
+    """A fixed (month, day) holiday. `observed` defaults to the calendar's `Observance`
+    regime; `observed=False` pins it to the actual date regardless of the regime — the
+    documented exception being AU/NZ ANZAC Day (25 Apr), commemorated, never mondayised."""
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
         if not _in_range(year, since, until):
             return ()
-        return (cal.observe(date(year, month, day)),)
+        d = date(year, month, day)
+        return (cal.observe(d) if observed else d,)
     return rule
 
 
@@ -178,6 +190,7 @@ class Calendar:
     rules: tuple[Rule, ...]
     weekend: Weekend = Weekend.SAT_SUN
     observance: Observance = Observance.US
+    coverage: Coverage = Coverage.COMPLETE
 
     def observe(self, d: date) -> date:
         """Substitute a weekend holiday under this calendar's regime (identity for

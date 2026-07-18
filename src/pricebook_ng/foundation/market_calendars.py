@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pricebook_ng.foundation.calendar import (
     Calendar,
+    Coverage,
     Observance,
     Weekend,
     christmas_boxing,
@@ -30,6 +31,8 @@ from pricebook_ng.foundation.calendar import (
 
 _US = Observance.US
 _NWD = Observance.NEXT_WORKING_DAY
+# secular-only: omits lunar/religious holidays; add on crossing EM rates (Cowork §4)
+_SEC = Coverage.SECULAR_ONLY
 
 # ── G10 ──────────────────────────────────────────────────────────────────────────
 _CALENDARS: dict[str, Calendar] = {}
@@ -68,7 +71,7 @@ ZURICH = _reg(Calendar("ZURICH", (
 ), observance=Observance.NONE))
 
 SYDNEY = _reg(Calendar("SYDNEY", (
-    fixed(1, 1), fixed(1, 26), fixed(4, 25), nth(6, 0, 2), nth(8, 0, 1),
+    fixed(1, 1), fixed(1, 26), fixed(4, 25, observed=False), nth(6, 0, 2), nth(8, 0, 1),
     christmas_boxing, easter(-2), easter(-1), easter(1),
 ), observance=_NWD))
 
@@ -88,7 +91,7 @@ OSLO = _reg(Calendar("OSLO", (
 ), observance=Observance.NONE))
 
 WELLINGTON = _reg(Calendar("WELLINGTON", (
-    fixed(1, 1), fixed(1, 2), fixed(2, 6), fixed(4, 25), nth(6, 0, 1), nth(10, 0, 4),
+    fixed(1, 1), fixed(1, 2), fixed(2, 6), fixed(4, 25, observed=False), nth(6, 0, 1), nth(10, 0, 4),
     easter(-2), easter(1), christmas_boxing,
 ), observance=_NWD))
 
@@ -124,20 +127,20 @@ BUCHAREST = _reg(Calendar("BUCHAREST", (
 ISTANBUL = _reg(Calendar("ISTANBUL", (
     fixed(1, 1), fixed(4, 23), fixed(5, 1), fixed(5, 19), fixed(7, 15), fixed(8, 30),
     fixed(10, 29),
-), observance=Observance.NONE))
+), observance=Observance.NONE, coverage=_SEC))
 
 RIYADH = _reg(Calendar("RIYADH", (
     fixed(9, 23), fixed(2, 22, since=2022),
-), weekend=Weekend.FRI_SAT, observance=Observance.NONE))
+), weekend=Weekend.FRI_SAT, observance=Observance.NONE, coverage=_SEC))
 
 TEL_AVIV = _reg(Calendar("TEL_AVIV", (
     fixed(4, 14), fixed(4, 20), fixed(5, 2), fixed(9, 25), fixed(9, 26), fixed(10, 4),
     fixed(10, 9),
-), weekend=Weekend.FRI_SAT, observance=Observance.NONE))
+), weekend=Weekend.FRI_SAT, observance=Observance.NONE, coverage=_SEC))
 
 CAIRO = _reg(Calendar("CAIRO", (
     fixed(1, 7), fixed(1, 25), fixed(4, 25), fixed(5, 1), fixed(7, 23), fixed(10, 6),
-), weekend=Weekend.FRI_SAT, observance=Observance.NONE))
+), weekend=Weekend.FRI_SAT, observance=Observance.NONE, coverage=_SEC))
 
 # ── Africa ───────────────────────────────────────────────────────────────────────
 JOHANNESBURG = _reg(Calendar("JOHANNESBURG", (
@@ -194,16 +197,16 @@ BUENOS_AIRES = _reg(Calendar("BUENOS_AIRES", (
 # ── Asia ─────────────────────────────────────────────────────────────────────────
 BEIJING = _reg(Calendar("BEIJING", (
     fixed(1, 1), fixed(4, 5), fixed(5, 1), fixed(10, 1), fixed(10, 2), fixed(10, 3),
-), observance=Observance.NONE))
+), observance=Observance.NONE, coverage=_SEC))
 
 SEOUL = _reg(Calendar("SEOUL", (
     fixed(1, 1), fixed(3, 1), fixed(5, 5), fixed(6, 6), fixed(8, 15), fixed(10, 3),
     fixed(10, 9), fixed(12, 25),
-), observance=Observance.NONE))
+), observance=Observance.NONE, coverage=_SEC))
 
 MUMBAI = _reg(Calendar("MUMBAI", (
     fixed(1, 26), fixed(8, 15), fixed(10, 2), fixed(12, 25),
-), observance=Observance.NONE))
+), observance=Observance.NONE, coverage=_SEC))
 
 SINGAPORE = _reg(Calendar("SINGAPORE", (
     fixed(1, 1), fixed(5, 1), fixed(8, 9), fixed(12, 25), easter(-2),
@@ -227,7 +230,7 @@ KUALA_LUMPUR = _reg(Calendar("KUALA_LUMPUR", (
 BANGKOK = _reg(Calendar("BANGKOK", (
     fixed(1, 1), fixed(4, 6), fixed(4, 13), fixed(4, 14), fixed(4, 15), fixed(5, 1),
     fixed(7, 28), fixed(8, 12), fixed(10, 23), fixed(12, 5), fixed(12, 10), fixed(12, 31),
-), observance=Observance.NONE))
+), observance=Observance.NONE, coverage=_SEC))
 
 MANILA = _reg(Calendar("MANILA", (
     fixed(1, 1), fixed(4, 9), fixed(5, 1), fixed(6, 12), nth(8, 0, -1), fixed(11, 30),
