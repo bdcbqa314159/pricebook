@@ -6,6 +6,17 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-07-18
+
+### Changed
+- **Topic 0 gate rework (1/5) — `Tenor` value type + `Frequency` reshape (audit S7/S3).**
+  `foundation/tenor.py`: **`Tenor(count, unit: D/W/M/Y)`** with `parse("28D")`/`__str__`/`months()` — the
+  one primitive behind index tenors, schedule steps and curve pillars (overturns "Tenor stays a string").
+  **`Frequency` is now a `Tenor`-step** (or `BULLET`, a single period), so it expresses **28-day (TIIE),
+  daily, and single-period** — a month-int enum could not. Behaviour-preserving for the named
+  frequencies (MONTHLY/QUARTERLY/… are class constants). Oracles: parse/str round-trip; 28D/daily/bullet
+  schedules; standard frequencies unchanged.
+
 ## [0.63.0] - 2026-07-18
 
 ### Added
