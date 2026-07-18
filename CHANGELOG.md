@@ -6,6 +6,24 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 4b — `settlement`: the flow-shape vocabulary (L0).** `foundation/settlement.py`
+  (new slice, ruled after S4 — `rulings_topic0_settlement_and_index.md`).
+  - **`Delivery`(date, `Quantity`)** — the physical-world counterpart to `Cashflow(date, Money)`, giving
+    the S4 `Quantity` a home in a flow. **`SettlementType`** (CASH / PHYSICAL / **AUCTION** — a marker
+    only; CDS credit-event mechanics stay in the credit topic). **`SettlementTerms`**(type, currency,
+    lag) — the settlement currency **may differ from the contract currency** (quanto / NDF) and is
+    `None` for physical; cash/auction require one. **`settlement_date`** = trade + `lag` business days
+    under a calendar (FX T+2).
+  - Scoped strictly L0: no PV (the quarry's `cash_settlement` returned one — that's L4), no
+    product→convention table (L2), no collateral/CSA discounting (numeraire is an **L3** model choice
+    per §1). Content mined from the 398-LOC zero-fan-in orphan `core/settlement.py`.
+  - Oracles: T+2 settlement date skips the weekend; cash pays `Money` vs physical delivers `Quantity`;
+    settlement currency ≠ contract currency; physical carries no currency. `verify.py layers` green.
+  - slice: `settlement` (Topic 0 S4b)
+
 ## [0.60.0] - 2026-07-18
 
 ### Added

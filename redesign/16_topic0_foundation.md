@@ -99,7 +99,8 @@ value.* Day count in. Black-76 out. No valuation in L0 — enforced by `verify.p
 | 2 | `daycounts` | 10 conventions (7 + 3 gaps), `CouponPeriod`, calendar passed in, `strict_icma` deleted |
 | 3 | `schedules` | `Frequency`/`StubType`/`RollRule`/`ScheduleTerms`; adjusted **and** unadjusted; **IMM + CDS roll dates** |
 | 4 | `money-quantity` | `Currency`/`CurrencyPair`(+lag) · `Money` · **`Quantity`** · `Cashflow` · `Leg` · `Accrual` |
-| 5 | `index-identity` | the declarative index concept + `RateIndex` (full RFR set) + generic `FixingHistory` |
+| 4b | **`settlement`** | cash / physical / auction · settlement ccy ≠ contract ccy · settlement lag · **`Delivery(date, Quantity)`** alongside `Cashflow(date, Money)`. *Mine `core/settlement.py` — a 398-LOC zero-fan-in orphan.* |
+| 5 | `index-identity` | declarative index concept + `RateIndex` covering **all rate kinds** — RFR **and** forward-looking term/IBOR (`observation_style`) + **`spread_adjustment`** (ISDA fallbacks) — generic `FixingHistory`; **sibling index types** (inflation level+lag+interpolation · FX fixing source/time · equity/commodity observation) defined, populated later |
 | 6 | `numerics-config` | `Interpolator` · solvers · distributions · **complete `NumericalConfig`** · `PricingResult`/`PricingFailure` · serialisation pattern |
 
 **Oracles:** published throughout — ISDA 2006 §4.16 · ICMA Rule 251 (incl. the UST coupon =
