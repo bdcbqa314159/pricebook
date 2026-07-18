@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (2/5) — config & result shapes (audit F1/S15/S6/S2/S13/S14).**
+  - **`NumericalConfig` decomposed** by method family — `MonteCarloConfig`/`LatticeConfig`(tree folded
+    in)/`IntegrationConfig`/`SolverConfig`, each ≤5 fields; the `fields-exempt` marker is **removed**
+    (`verify.py fields` passes on merit; reads as `numerics.monte_carlo.paths`). RNG family **pinned**
+    as an invariant `RNG_FAMILY` (S15 — not a field, which would push MC to 6). Nested serialisation.
+  - **`PricingResult` full decomposition vocabulary** fixed once (pv · accrued · clean · cashflow
+    breakdown · sensitivities · diagnostics), fields optional/unpopulated — a legitimate output-record
+    exemption per §3b, so no asset class retouches L0 to add a field (S6).
+  - **`Leg` holds `flows: tuple[Cashflow | Delivery, ...]`** — a physical/commodity leg is now
+    expressible (S2); **pay/receive is the sign of the amount, no direction field** (S13).
+  - **Degenerate periods raise** — a reversed/zero-length `Accrual`, and `year_fraction(end < start)`
+    (S14).
+
 ## [0.64.0] - 2026-07-18
 
 ### Changed
