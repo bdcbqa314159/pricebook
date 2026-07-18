@@ -37,7 +37,15 @@ class SettlementType(Enum):
 @dataclass(frozen=True)
 class Delivery:
     """A physical settlement flow: a `Quantity` delivered on a date — the `Cashflow`
-    of the physical world (barrels, MWh, a security)."""
+    of the physical world (barrels, MWh, tonnes).
+
+    Scope: this delivers a commodity `Quantity` only. Delivering a **security** — a
+    deliverable obligation on a CDS credit event ('settlement on default'), a repo, or a
+    bond-future — needs a *security identity*, which is a higher-layer (product/index)
+    concept and does not exist yet. Forward-link: *on the credit/product topic, allow a
+    security as a delivered obligation.* The credit-event MECHANICS (auction recovery,
+    the `(1-R)·N` protection payout) are the credit topic, never L0 — `AUCTION` here is a
+    type marker only."""
 
     date: date
     quantity: Quantity
