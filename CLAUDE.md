@@ -38,6 +38,14 @@ L0  FOUNDATION                        (time & conventions · value types · fina
 per-commit acyclic check (Tarjan SCC on the import graph) — keep it green. If a change
 needs an upward import, the design is wrong; fix the layering, not the check.
 
+**Layer conformance is SEMANTIC, not just acyclic.** The acyclic check proves dependency
+*direction*; it cannot tell you a module sits in the *wrong layer*. A module must match its
+layer's **definition** — notably **L0 is finance-free** (no strikes, vols, payoffs, call/put,
+discounting in code) and a closed-form analytic block of a dynamics belongs at **L3 models**
+(A4.3), not L0. Enforced by `verify.py layers` and reviewed at every checkpoint (5th review
+input). *Precedent: `foundation/black.py` (Black-76) passed `acyclic` while violating L0's
+finance-free definition — semantic drift the dependency check cannot see.*
+
 **Three structural fixes to honour as entries migrate:**
 - `risk` lands at **L5** (above the engine), depends only on the engine + a `Priceable`
   protocol — **no `isinstance`-on-instrument ladders.**
@@ -160,14 +168,25 @@ mark; dirty = clean + accrued.
 - **Copy-ADAPT, never copy-paste.** Every crossing conforms to a layer, speaks the
   vocabulary, moves behaviour into the engine, or sheds debt. A byte-for-byte copy is a
   **failed** migration.
+- **Mine the quarry for CONTENT, never for STRUCTURE.** The quarry answers *what is true*
+  (conventions, formulas, edge cases, market practice — it is a working library, that is the
+  material). The design answers *how it is shaped* (layer, types, purity, signatures). **A quarry
+  file's organisation carries no authority in ng.** Reading a module and inheriting its shape is how
+  the old design re-enters through the back door. Per-file transformation gate:
+  `redesign/13_topic_migration_and_parking.md` §5.3. If a file cannot be expressed in the ratified
+  shape, that is an **immediate-stop trigger** — the design is wrong or incomplete and Cowork rules;
+  it is never resolved by bending ng to the quarry's shape.
 - **Green-oracle gate — nothing crosses grey.** No entry lands until a red/green oracle
   proves it against a known value: closed form > QuantLib/ISDA cross-check >
   self-consistency (reprice to par / zero NPV) > trusted mark. "Runs and looks right" is
   not an oracle.
-- **Demand-driven (vertical).** Slices pull quarry entries as they need them
-  (`ng-migration-mode`); an entry still lands only after everything it depends on has landed,
-  but the quarry empties by demand, not by exhaustively finishing a layer first. Progress is
-  tracked via each build report's ledger-deltas table.
+- **Domain build order (supersedes demand-driven).** Migration proceeds **block by block in
+  financial-engineering dependency order** — B0 conventions → B1 curves → B2 linear products →
+  B3 curve construction → B4 models → B5 non-linear+engines → B6 credit → B7 risk/XVA →
+  B8 portfolio/lifecycle. **A block completes before the next opens.** **Drawdown is reporting,
+  never steering.** Domain architecture (currencies, curve framework, xccy) is settled **up
+  front** — §6b's rule-of-two governs *software abstractions*, never *domain decisions*.
+  Full detail: `redesign/12_domain_build_order.md`.
 - **Provenance.** Each landed entry records: quarry path, the paper/book/model it
   implements, and its oracle. (Educational constraint — keep it legible.)
 - **Deletable-bar rigor.** A parity slice ends by **reading its quarry counterpart end-to-end**

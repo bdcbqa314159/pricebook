@@ -46,6 +46,12 @@ adds the four mandatory review inputs:
 4. **Smell + debt scan** — new smells (oversized signatures caught by `PLR0913`, primitive
    obsession, god-objects, duplication), suppressions, shims, TODOs — each with the build's
    proposed disposition.
+5. **Spine-conformance audit** *(added after the `foundation/black.py` drift)* — every module
+   **created or moved** since the last checkpoint, justified against its **layer's definition**
+   (not merely against the acyclic check, which cannot see semantic misplacement). Explicitly
+   confirm: **L0 holds no finance** (strikes/vols/payoffs/discounting), analytic blocks of a
+   dynamics sit at **L3** (A4.3), products are pure data at L2, pricing composition at L4, state
+   only at L6. `verify.py layers` mechanises the L0 rule; the rest is reviewed.
 
 ## 3. The Cowork review ritual (what happens here on receipt)
 
