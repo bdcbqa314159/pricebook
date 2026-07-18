@@ -24,16 +24,30 @@ from datetime import date, timedelta
 from enum import Enum
 
 from pricebook_ng.foundation.calendar import BusinessDayConvention, Calendar
+from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 
 _IMM_MONTHS = (3, 6, 9, 12)
 
 
-class Frequency(Enum):
-    WEEKLY = 0
-    MONTHLY = 1
-    QUARTERLY = 3
-    SEMI_ANNUAL = 6
-    ANNUAL = 12
+@dataclass(frozen=True)
+class Frequency:
+    """A schedule period, as a `Tenor` step — or `BULLET` (`step=None`), a single period
+    to maturity. A month-int enum could not express 28-day (TIIE), daily, or bullet, so
+    the step is a `Tenor` (gate audit S3). The named frequencies are class constants."""
+
+    step: Tenor | None
+
+    def __str__(self) -> str:
+        return "BULLET" if self.step is None else str(self.step)
+
+
+Frequency.DAILY = Frequency(Tenor(1, TenorUnit.DAY))
+Frequency.WEEKLY = Frequency(Tenor(1, TenorUnit.WEEK))
+Frequency.MONTHLY = Frequency(Tenor(1, TenorUnit.MONTH))
+Frequency.QUARTERLY = Frequency(Tenor(3, TenorUnit.MONTH))
+Frequency.SEMI_ANNUAL = Frequency(Tenor(6, TenorUnit.MONTH))
+Frequency.ANNUAL = Frequency(Tenor(1, TenorUnit.YEAR))
+Frequency.BULLET = Frequency(None)
 
 
 class StubType(Enum):
@@ -93,33 +107,39 @@ def _add_months(d: date, months: int, snap_eom: bool) -> date:
     return _end_of_month(result) if snap_eom else result
 
 
-def _unadjusted(start: date, end: date, frequency: Frequency, stub: StubType, eom: bool) -> list[date]:
-    if frequency is Frequency.WEEKLY:
-        dates, cur = [start], start
-        while (cur := cur + timedelta(days=7)) < end:
-            dates.append(cur)
-        dates.append(end)
-        return dates
+def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool) -> date:
+    """Advance `d` by one `tenor` step (backward if not `forward`). EOM snapping applies
+    to month/year steps only."""
+    sign = 1 if forward else -1
+    if tenor.unit is TenorUnit.DAY:
+        return d + sign * timedelta(days=tenor.count)
+    if tenor.unit is TenorUnit.WEEK:
+        return d + sign * timedelta(weeks=tenor.count)
+    return _add_months(d, sign * tenor.months(), snap_eom)
 
-    months = frequency.value
-    snap = eom and start == _end_of_month(start)
+
+def _unadjusted(start: date, end: date, frequency: Frequency, stub: StubType, eom: bool) -> list[date]:
+    if frequency.step is None:                       # BULLET — a single period
+        return [start, end]
+    tenor = frequency.step
+    snap = eom and tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR) and start == _end_of_month(start)
 
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
         dates, cur = [end], end
-        while (cur := _add_months(cur, -months, snap)) > start:
+        while (cur := _step(cur, tenor, False, snap)) > start:
             dates.append(cur)
         dates.append(start)
         dates.reverse()
         # a genuine front stub exists iff `start` is not a regular period before dates[1]
-        if stub is StubType.LONG_FRONT and len(dates) > 2 and _add_months(dates[1], -months, snap) != start:
+        if stub is StubType.LONG_FRONT and len(dates) > 2 and _step(dates[1], tenor, False, snap) != start:
             dates = [dates[0], *dates[2:]]
         return dates
 
     dates, cur = [start], start
-    while (cur := _add_months(cur, months, snap)) < end:
+    while (cur := _step(cur, tenor, True, snap)) < end:
         dates.append(cur)
     dates.append(end)
-    if stub is StubType.LONG_BACK and len(dates) > 2 and _add_months(dates[-2], months, snap) != end:
+    if stub is StubType.LONG_BACK and len(dates) > 2 and _step(dates[-2], tenor, True, snap) != end:
         dates = [*dates[:-2], dates[-1]]
     return dates
 
