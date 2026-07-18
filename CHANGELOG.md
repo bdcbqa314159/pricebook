@@ -6,15 +6,38 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-07-18
+
+### Added
+- **FixedRateBond serialisation → sixth quarry retire — CP-3 tail (drawdown 5 → 6/768).** `FixedRateBond`
+  gains `to_dict`/`from_dict` (+ `schema_version`); its quarry counterpart `fixed_income/bond.py` is
+  now **deletable**. *The heaviest retire so far — flagged for Cowork spot-check at CP-4.*
+  - **Consumer-analysis retire-read (§4/§4.5):** ng supersedes the bond **product** (coupon+redemption
+    cashflows) + curve pricing (`DiscountingEngine`) + **accrued / clean-vs-dirty** (the engine's A2
+    decomposition, `PricingResult.accrued`/`clean`). All 8 production instantiations of the quarry
+    `FixedRateBond` are in **un-crossed** modules (`desks/api` ×6, `benchmark_bonds`, `sukuk`).
+  - **`deferred→` (whole yield-analytics surface, no crossed consumer):** `yield_to_maturity`,
+    `macaulay/modified_duration`, `convexity`, `dv01_yield`, `price_from_yield_sc`, `irr_sc`,
+    `risk_factor_sc` → `desks/api` + `benchmark_bonds` + `sukuk`. Per the spine these are **L4/L5 engine
+    analytics, not product methods** — built when a consumer crosses, never cloned onto the product
+    (§6b). `from_convention` → `composite_convention` + `esg_bonds` + `supranational` + `sovereign_bonds`.
+    Forward-linked on those backlog rows.
+  - **`deferred→persistence`:** serialisation itself (added early per §4.5 build-as-you-go — cheap,
+    already in the module; never blocks the tick).
+  - Serialisation reuses the shared `Cashflow`/`Money` encoders; `FixedRateBond` added to the
+    property-based round-trip sweep.
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected.
+  - quarry: `python/pricebook/fixed_income/bond.py` · slice: `serialisation-bond`
+
 ### Changed
 - **Property-based serialisation oracle (CP-3 ruling §4.2).** A hypothesis sweep
   (`tests_ng/L4/test_serialisation_property.py`) round-trips *generated* instances of every
   serialisable type — `NumericalConfig`, `FixedCashflow`, `Deposit`, `ForwardRateAgreement`,
-  `OvernightIndexSwap`, and the shared `Cashflow`/`Accrual`/`Money` atoms — asserting
+  `OvernightIndexSwap`, `FixedRateBond`, and the shared `Cashflow`/`Accrual`/`Money` atoms — asserting
   `T.from_dict(x.to_dict()) == x` for all valid `x`, strengthening the per-type one-example checks to
-  "round-trips any instance". Test-only; no version bump. (The property run also confirmed the vanilla
-  builders correctly fail-fast on day-counts needing extra context — `ACT_ACT_ICMA` coupon anchors,
-  `BUS_252` a calendar — which are excluded from builder-based generation.)
+  "round-trips any instance". (The property run also confirmed the vanilla builders correctly fail-fast
+  on day-counts needing extra context — `ACT_ACT_ICMA` coupon anchors, `BUS_252` a calendar — which
+  are excluded from builder-based generation.)
 
 ## [0.51.0] - 2026-07-18
 
