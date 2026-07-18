@@ -185,6 +185,14 @@ mark; dirty = clean + accrued.
   A module ticks deletable only when the genuine residual is empty **and** every omission is
   classified with evidence. Cowork spot-checks `shed:` calls at each checkpoint and may **un-tick**
   (drawdown −1); the quarry is git-tracked, so a reversal is cheap and nothing is lost.
+- **A residual needs consumer evidence too (symmetric to `dead`).** A quarry feature ng lacks is a
+  *genuine* residual only if **something consumes it** — same evidence protocol as below.
+  Feature-diffing a quarry module against its ng counterpart **overstates** residuals: a "gap" that
+  nothing uses is shed debt, not a blocker. Re-derive a module's residual by **consumer analysis at
+  retire time**; never plan cross-cutting work from a feature-diffed gap list. (Retire #2: "conventions"
+  looked like a shared residual across the rate vanillas, but the quarry `Deposit` class had **zero
+  production instantiations** — the real residual was serialisation. Building conventions would have
+  been speculative infra with no ng consumer.)
 - **Evidence protocol for a `dead` claim** (a narrow grep produced a false negative on retire #1):
   search the **bare name** across `python/` source *and* tests — never just `\.name` — and explicitly
   check **constructor kwargs**, **dict/string keys**, `getattr`, `**kwargs` forwarding, and
