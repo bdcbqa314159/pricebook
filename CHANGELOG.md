@@ -6,6 +6,16 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+### Changed
+- **Property-based serialisation oracle (CP-3 ruling §4.2).** A hypothesis sweep
+  (`tests_ng/L4/test_serialisation_property.py`) round-trips *generated* instances of every
+  serialisable type — `NumericalConfig`, `FixedCashflow`, `Deposit`, `ForwardRateAgreement`,
+  `OvernightIndexSwap`, and the shared `Cashflow`/`Accrual`/`Money` atoms — asserting
+  `T.from_dict(x.to_dict()) == x` for all valid `x`, strengthening the per-type one-example checks to
+  "round-trips any instance". Test-only; no version bump. (The property run also confirmed the vanilla
+  builders correctly fail-fast on day-counts needing extra context — `ACT_ACT_ICMA` coupon anchors,
+  `BUS_252` a calendar — which are excluded from builder-based generation.)
+
 ## [0.51.0] - 2026-07-18
 
 ### Added
