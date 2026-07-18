@@ -25,7 +25,7 @@ from pricebook_ng.engine.discounting import DiscountingEngine
 from pricebook_ng.market.discount_curve import DepositQuote
 from pricebook_ng.market.snapshot import FlatDiscountCurve, MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
-from pricebook_ng.products.deposit import deposit
+from pricebook_ng.products.deposit import Deposit, deposit
 
 D0 = date(2026, 1, 15)
 ACT365 = DC.ACT_365_FIXED
@@ -83,3 +83,31 @@ def test_par_reprices_to_zero_on_bootstrapped_curve():
     start, maturity = date(2027, 1, 15), date(2027, 7, 15)
     dep = deposit(Money(NOTIONAL, USD), _par_rate(curve, start, maturity), start, maturity, ACT360)
     assert _price(dep, curve) == pytest.approx(0.0, abs=1e-6)
+
+
+# ── serialisation (CP-3 #2 — the genuine residual that retires quarry deposit) ──
+
+
+def test_round_trips_through_dict():
+    dep = deposit(Money(NOTIONAL, USD), 0.05, date(2027, 1, 15), date(2027, 7, 15), ACT360)
+    assert Deposit.from_dict(dep.to_dict()) == dep
+
+
+def test_to_dict_carries_schema_version():
+    dep = deposit(Money(1.0, USD), 0.03, date(2027, 1, 15), date(2027, 4, 15), ACT360)
+    assert dep.to_dict()["schema_version"] == 1
+
+
+def test_missing_version_reads_as_v1():
+    dep = deposit(Money(1.0, USD), 0.03, date(2027, 1, 15), date(2027, 4, 15), ACT360)
+    data = dep.to_dict()
+    del data["schema_version"]  # legacy payload
+    assert Deposit.from_dict(data) == dep
+
+
+def test_future_version_is_rejected_loudly():
+    dep = deposit(Money(1.0, USD), 0.03, date(2027, 1, 15), date(2027, 4, 15), ACT360)
+    data = dep.to_dict()
+    data["schema_version"] = 99
+    with pytest.raises(ValueError):
+        Deposit.from_dict(data)
