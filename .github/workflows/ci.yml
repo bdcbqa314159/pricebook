@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install pytest ruff
+      - run: pip install pytest ruff hypothesis
       - run: python verify.py acyclic
       - run: python verify.py debt
       - run: python verify.py version
