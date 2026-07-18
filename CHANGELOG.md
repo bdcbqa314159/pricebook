@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-07-18
+
+### Changed
+- **Topic 0, Slice 0 — `ng-parking`: the whole ng tree parked, rebuild starts clean.** The pre-topic
+  ng tree (54 modules + tests) is moved wholesale to `ng_parked/` and `src/pricebook_ng/` is reset to a
+  bare package seed. **No behaviour claim** — this is a structural reset, not a feature change.
+  - **Why:** the parked tree was built without `RollRule`, without identity-keyed calendars, without
+    dual adjusted/unadjusted schedules. Editing it forward would inherit those decisions — the exact
+    error we forbid with the quarry. `ng_parked/` is now a **content source only** (conventions,
+    formulas, edge cases, oracle reference values); its *organisation carries no authority*
+    (CLAUDE.md: mine for content, never for structure). `ng_parked/MANIFEST.md` maps each parked
+    module → the topic that rebuilds it → its re-base oracle.
+  - **New gate `verify.py layers`** — semantic layer conformance: L0 (`foundation/`) must be
+    finance-free (no strikes/vols/payoffs/discounting). `acyclic` proves dependency *direction*; this
+    catches a module on the *wrong layer* — the drift `foundation/black.py` (Black-76 at L0) slipped
+    through. Wired into CI.
+  - **CI repointed:** dropped the `--layer 6` tier (it guarded the now-parked tree); added the `layers`
+    gate; the tree climbs from L0 as Topic 0 populates it.
+  - Two quarry modules retired before the reset stay ticked (`core/numerical_config`,
+    `fixed_income/fixed_leg`). Prior drawdown detail moves to per-topic manifests (redesign/13 §3.4).
+  - slice: `ng-parking` (Topic 0)
+
 ## [0.54.0] - 2026-07-18
 
 ### Added

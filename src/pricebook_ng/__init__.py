@@ -1,8 +1,9 @@
 """Pricebook (new tree) — functional core, imperative shell.
 
-Grows beside the read-only quarry (``python/pricebook/``) one slice at a time,
-bottom-up. Imports as ``pricebook_ng`` until v1.0, when the quarry is empty and
-it takes the ``pricebook`` name. See CLAUDE.md for the guardrails.
+Rebuilt clean under the **topic method** (redesign/13, /16): the earlier ng tree is
+parked at ``ng_parked/`` as a *content* source (never a structural one) and this tree
+is repopulated bottom-up, one topic at a time, starting with Topic 0 (the cross-asset
+foundation, L0). Imports as ``pricebook_ng`` until v1.0. See CLAUDE.md for the guardrails.
 """
 
-__version__ = "0.54.0"
+__version__ = "0.55.0"

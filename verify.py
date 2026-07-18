@@ -6,6 +6,7 @@ Subcommands (each a small function; `all` is the CI / merge gate):
     acyclic            FAIL if any import points upward across layers
     tests --layer N    run only the tests at layer <= N (staged tests)
     fields             FAIL if a products/foundation value dataclass has >5 fields w/o exemption
+    layers             FAIL if L0 (foundation/) contains finance vocabulary (semantic layer gate)
     debt               FAIL if suppressions - OPEN.md ng-ledger entries != 0
     provenance         FAIL if a landed module lacks its 4-line header
     version            FAIL if __version__ != top CHANGELOG.md entry
@@ -176,6 +177,38 @@ def version() -> list[str]:
     return []
 
 
+# Finance vocabulary that must never appear in L0 (`foundation/` is finance-free). A
+# safety net for the semantic-layer rule (CLAUDE.md 1): `acyclic` proves dependency
+# DIRECTION but cannot see a module sitting on the WRONG layer. The `foundation/black.py`
+# drift (Black-76 at L0) is exactly the case this catches. Curated to be near-zero
+# false-positive in legitimate conventions/time/money code; the full semantic audit is
+# the human 5th review input at each checkpoint.
+_L0_FORBIDDEN = re.compile(
+    r"\bstrike\b|\bpayoff\b|\bmoneyness\b|volatilit|implied_vol|black_scholes|"
+    r"black_76|garman|kohlhagen|\bswaption\b|\bbarrier\b|discount_factor",
+    re.IGNORECASE,
+)
+
+
+def layers() -> list[str]:
+    """Semantic layer conformance: L0 (`foundation/`) is finance-free — no pricing or
+    option vocabulary (strikes, vols, payoffs, discounting). `acyclic` enforces the
+    dependency law; this enforces the layer *definition* (CLAUDE.md 1, the black.py
+    precedent). Extend per-layer as later layers grow their own definitions."""
+    errs: list[str] = []
+    for mod in _src_modules():
+        if mod.relative_to(SRC).parts[0] != "foundation":
+            continue
+        for i, line in enumerate(_read(mod).splitlines(), 1):
+            m = _L0_FORBIDDEN.search(line)
+            if m:
+                errs.append(
+                    f"{mod.relative_to(ROOT)}:{i}: L0 finance-free violation — "
+                    f"'{m.group()}' (finance belongs at L2+/L3; see CLAUDE.md 1)"
+                )
+    return errs
+
+
 def _report(name: str, errs: list[str]) -> bool:
     if errs:
         print(f"FAIL {name}:")
@@ -193,6 +226,7 @@ def main() -> int:
     t = sub.add_parser("tests")
     t.add_argument("--layer", type=int, required=True)
     sub.add_parser("fields")
+    sub.add_parser("layers")
     sub.add_parser("debt")
     sub.add_parser("provenance")
     sub.add_parser("version")
@@ -202,7 +236,7 @@ def main() -> int:
     if args.cmd == "tests":
         return run_tests(args.layer)
     checks = {
-        "acyclic": acyclic, "fields": fields, "debt": debt,
+        "acyclic": acyclic, "fields": fields, "layers": layers, "debt": debt,
         "provenance": provenance, "version": version,
     }
     if args.cmd == "all":
