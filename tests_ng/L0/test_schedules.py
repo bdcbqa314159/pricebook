@@ -105,3 +105,36 @@ def test_no_calendar_leaves_dates_unadjusted():
 def test_start_after_end_raises():
     with pytest.raises(ValueError):
         build_schedule(date(2024, 7, 1), date(2024, 1, 1), _terms(Frequency.MONTHLY))
+
+
+# ── Frequency reshaped to a Tenor-step (S3): 28-day, daily, bullet ──
+def test_frequency_28_day_tiie():
+    from pricebook_ng.foundation.schedule import Frequency
+    from pricebook_ng.foundation.tenor import Tenor, TenorUnit
+    f = Frequency(Tenor(28, TenorUnit.DAY))          # Mexico's TIIE — LatAm is in scope
+    s = build_schedule(date(2024, 1, 1), date(2024, 4, 1), _terms(f))
+    gaps = [(b - a).days for a, b in zip(s.unadjusted, s.unadjusted[1:])]
+    assert all(g == 28 for g in gaps[:-1])           # regular periods are 28 days
+
+
+def test_frequency_daily():
+    from pricebook_ng.foundation.schedule import Frequency
+    from pricebook_ng.foundation.tenor import Tenor, TenorUnit
+    f = Frequency(Tenor(1, TenorUnit.DAY))
+    s = build_schedule(date(2024, 1, 1), date(2024, 1, 5), _terms(f))
+    assert s.unadjusted == (date(2024, 1, 1), date(2024, 1, 2), date(2024, 1, 3),
+                            date(2024, 1, 4), date(2024, 1, 5))
+
+
+def test_frequency_bullet_single_period():
+    from pricebook_ng.foundation.schedule import Frequency
+    f = Frequency.BULLET                              # zero-coupon / ZCIS — once, at maturity
+    s = build_schedule(date(2024, 1, 1), date(2029, 1, 1), _terms(f))
+    assert s.unadjusted == (date(2024, 1, 1), date(2029, 1, 1))
+
+
+def test_standard_frequencies_unchanged():
+    from pricebook_ng.foundation.schedule import Frequency
+    # the reshape is behaviour-preserving for the named frequencies
+    s = build_schedule(date(2024, 1, 15), date(2024, 7, 15), _terms(Frequency.QUARTERLY))
+    assert s.unadjusted == (date(2024, 1, 15), date(2024, 4, 15), date(2024, 7, 15))
