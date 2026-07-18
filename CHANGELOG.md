@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-07-18
+
+### Added
+- **ZCIS serialisation (CP-3 tail, build-early per §4.5) — no drawdown change.** `ZeroCouponInflationSwap`
+  gains `to_dict`/`from_dict` (+ `schema_version`), added to the property-based round-trip sweep.
+  - **Retire-read: `fixed_income/inflation.py` is held a PARTIAL cross, NOT ticked** (drawdown stays
+    7/768). It is a **multi-product module** (`CPICurve`, `ZCInflationSwap`, `YoYInflationSwap`,
+    `InflationLinkedBond`); ng supersedes only the ZCIS (`ZeroCouponInflationSwap` + `ZCISEngine`, real
+    curve via A5 `MarketKey(INFLATION, index)` + Fisher, which also supersedes `CPICurve` — 0 external
+    consumers). But **`YoYInflationSwap` is `dead`** (0 production consumers, 2 test-refs) and
+    **`InflationLinkedBond` has 2 production consumers** — `desks/api` + `inflation_indices` (both
+    un-crossed) → `deferred→` those. Ticking would delete a module that defines a whole product ng never
+    built — the first such case, so it is **routed to Cowork at CP-4** (multi-product-module retire
+    pattern) rather than ticked unilaterally.
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected.
+  - quarry: `python/pricebook/fixed_income/inflation.py` (ZCIS only) · slice: `serialisation-zcis`
+
 ## [0.53.0] - 2026-07-18
 
 ### Removed
