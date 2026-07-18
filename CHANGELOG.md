@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-07-18
+
+### Added
+- **FixedCashflow serialisation → fifth quarry retire — CP-3 #5 (drawdown 4 → 5/768).** `FixedCashflow`
+  gains `to_dict`/`from_dict` (+ `schema_version`) — the genuine residual that lets it **supersede the
+  quarry `fixed_income/zero_coupon_bond.py`**: a zero-coupon bond *is* a single fixed cashflow
+  (`Face·DF(T)`), which the `DiscountingEngine` already prices.
+  - **Consumer-analysis retire-read (§4):** the quarry `ZeroCouponBond` has **no external production
+    instantiation** (the only `ZeroCouponBond(` is its own docstring; production builds flow through
+    `sovereign_bonds.py` via `from_convention`). Its money-market analytics
+    (`price_from_yield_simple/discount_rate/continuous`, `yield_simple/continuous`, `modified_duration`,
+    `dv01`) have **zero production consumers** — only `tests/test_sovereign_bonds.py` — and the quarry
+    already has a dedicated `fixed_income/tbill.py` (`TreasuryBill`) as the real home for T-Bill
+    conventions, so ZCB's copies are **`dead` duplicates**.
+  - **`shed:` `ZeroCouponBond.from_convention` = `deferred→sovereign_bonds`** — the one production
+    consumer is `sovereign_bonds.py:479` (un-crossed quarry); the obligation forward-links onto the
+    sovereign-bonds crossing (its row in `quarry_reconciliation.md`), it is not owed by this retire.
+  - Serialisation reuses the shared `Cashflow`/`Money` encoders (no new lifting needed).
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected.
+  - quarry: `python/pricebook/fixed_income/zero_coupon_bond.py` · slice: `serialisation-zcb`
+
 ## [0.50.0] - 2026-07-18
 
 ### Added

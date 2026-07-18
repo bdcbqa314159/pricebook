@@ -85,3 +85,35 @@ def test_shell_path_matches_core():
     assert result.pv.amount == engine.price(trade, DiscountingModel(market), numerics).pv.amount
     # the shell stored the result (it remembers; it never re-computes price)
     assert booked.results[-1] is result
+
+
+# ── serialisation (CP-3 #5 — the genuine residual that retires quarry zero_coupon_bond) ──
+
+
+def _zcb():
+    # a zero-coupon bond IS a single fixed cashflow: face at maturity
+    return FixedCashflow(Cashflow(MATURITY, Money(NOTIONAL, CCY)))
+
+
+def test_round_trips_through_dict():
+    fc = _zcb()
+    assert FixedCashflow.from_dict(fc.to_dict()) == fc
+
+
+def test_to_dict_carries_schema_version():
+    assert _zcb().to_dict()["schema_version"] == 1
+
+
+def test_missing_version_reads_as_v1():
+    fc = _zcb()
+    data = fc.to_dict()
+    del data["schema_version"]
+    assert FixedCashflow.from_dict(data) == fc
+
+
+def test_future_version_is_rejected_loudly():
+    import pytest
+    data = _zcb().to_dict()
+    data["schema_version"] = 99
+    with pytest.raises(ValueError):
+        FixedCashflow.from_dict(data)
