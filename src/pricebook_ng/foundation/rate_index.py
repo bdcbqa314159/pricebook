@@ -84,6 +84,26 @@ def _denominator(day_count: DayCountConvention) -> float:
     return 365.0 if day_count is DayCountConvention.ACT_365_FIXED else 360.0
 
 
+# Business days per year for a business-day-counted convention. Generalises the
+# Brazilian 252: another basis (BUS/250, …) is a new day-count entry here, not a literal.
+_ANNUAL_BASIS: dict[DayCountConvention, int] = {DayCountConvention.BUS_252: 252}
+
+
+def _annual_basis(day_count: DayCountConvention) -> int:
+    basis = _ANNUAL_BASIS.get(day_count)
+    if basis is None:
+        raise ValueError(f"{day_count.value} is not a business-day-counted convention (no annual basis)")
+    return basis
+
+
+def exponential_growth(rate: float, business_days: int, day_count: DayCountConvention) -> float:
+    """The Brazilian compound **growth factor** for a SINGLE fixed `rate` over
+    `business_days` days: ``(1 + rate) ** (business_days / basis)`` (basis from the
+    day-count — BUS/252 → 252). This is the `r` case (fixed LTN/NTN-F coupons); the daily
+    floating series `r_i` (CDI in arrears) is `accrued_rate`, which returns a *rate*."""
+    return (1.0 + rate) ** (business_days / _annual_basis(day_count))
+
+
 def _overnight_days(start: date, end: date, calendar) -> list[tuple[date, int]]:
     """Business days in ``[start, end)`` with each one's day-count weight (calendar days
     until the next business day, the last one running to `end`)."""
@@ -127,12 +147,14 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         rate_dates = [rate_dates[min(i, frozen)] for i in range(len(window))]
 
     if index.compounding is CompoundingMethod.EXPONENTIAL:
-        # Brazilian BUS/252: each business day contributes (1+r)^(1/252); re-annualise
-        # over the business-day count. A flat rate returns itself exactly.
+        # Brazilian BUS/basis: compound the daily SERIES r_i, each over one business day
+        # (1/basis of a year), then re-annualise over the business-day count. A flat series
+        # collapses to the single-rate `exponential_growth` form; a flat rate returns itself.
+        basis = _annual_basis(index.day_count)
         factor = 1.0
-        for (_, _weight), rate_date in zip(window, rate_dates):
-            factor *= (1.0 + fixings.rate(index.name, rate_date)) ** (1.0 / 252.0)
-        realized = factor ** (252.0 / len(window)) - 1.0
+        for rate_date in rate_dates:
+            factor *= (1.0 + fixings.rate(index.name, rate_date)) ** (1.0 / basis)
+        realized = factor ** (basis / len(window)) - 1.0
         return realized + index.spread_adjustment
 
     denom = _denominator(index.day_count)
