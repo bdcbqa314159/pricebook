@@ -83,8 +83,8 @@ def test_accrual_year_fraction_threads_icma_anchors():
 def test_cashflow_and_leg():
     cf = Cashflow(date(2024, 7, 1), Money(1_000.0, USD),
                   accrual=Accrual(date(2024, 1, 1), date(2024, 7, 1), DC.THIRTY_360))
-    leg = Leg(cashflows=(cf,), day_count=DC.THIRTY_360)
-    assert leg.cashflows[0].amount == Money(1_000.0, USD)
+    leg = Leg(flows=(cf,), day_count=DC.THIRTY_360)
+    assert leg.flows[0].amount == Money(1_000.0, USD)
     assert cf.accrual.year_fraction() == 0.5
 
 

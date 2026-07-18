@@ -65,7 +65,9 @@ def year_fraction(
 ) -> float:
     """Year fraction of ``[start, end)`` under `convention`. `coupon_period` is
     required for ACT/ACT ICMA (and carries the 30E/360-ISDA final flag); `calendar`
-    is required for BUS/252."""
+    is required for BUS/252. A reversed span (`end < start`) raises (S14)."""
+    if end < start:
+        raise ValueError(f"year_fraction requires start <= end; got {start}..{end}")
     C = DayCountConvention
     if convention is C.ACT_360:
         return (end - start).days / 360.0
