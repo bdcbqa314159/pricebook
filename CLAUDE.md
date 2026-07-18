@@ -185,6 +185,17 @@ mark; dirty = clean + accrued.
   A module ticks deletable only when the genuine residual is empty **and** every omission is
   classified with evidence. Cowork spot-checks `shed:` calls at each checkpoint and may **un-tick**
   (drawdown −1); the quarry is git-tracked, so a reversal is cheap and nothing is lost.
+- **Evidence protocol for a `dead` claim** (a narrow grep produced a false negative on retire #1):
+  search the **bare name** across `python/` source *and* tests — never just `\.name` — and explicitly
+  check **constructor kwargs**, **dict/string keys**, `getattr`, `**kwargs` forwarding, and
+  **serialisation round-trips**. Anything reachable dynamically is **not** `dead`. The shed-list
+  records *how* it was verified (patterns + hit counts), not just the verdict.
+- **Forward-link every `deferred→X`.** The obligation is written on **X's row** in
+  `quarry_reconciliation.md` ("on crossing: add …"), not only on the retired module's entry — the
+  retired entry is never re-read; X's row is read the moment X is picked up.
+- **Retire flow (per module, just-in-time):** migrate → read the old module end-to-end → assess each
+  omitted feature's status *in the quarry* (a fact, not a taste judgment) → **then** tick. The
+  assessment is the evidence for the tick, so it completes before it.
 - **Cross-cutting work is justified by what it retires.** Shared capabilities (conventions,
   multi-curve, serialisation…) may be built when residuals cluster, but **every such slice must
   tick ≥1 quarry module to deletable** — infrastructure is never built speculatively ahead of the
