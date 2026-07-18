@@ -6,6 +6,23 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 2 — `daycounts`: 10 conventions + `CouponPeriod` (L0).** `foundation/day_count.py`
+  — `year_fraction(start, end, convention, *, coupon_period=None, calendar=None)`.
+  - The seven market-standard conventions (ACT/360, ACT/365F, **30U/360 US-SIA with the February
+    rules**, 30E/360, ACT/ACT ISDA, ACT/ACT ICMA, BUS/252) **plus the three gaps: ACT/365L, 30E/360
+    ISDA (with the termination-date rule), NL/365.**
+  - **No hidden context (content mined, defaults dropped):** ICMA anchors ride on a `CouponPeriod`
+    (reference_start/end, frequency, is_final) — **strict**: missing anchors *raise* (the deleted
+    `strict_icma=False` silently fell back to ACT/365F and priced a UST coupon at 1.9836); BUS/252
+    *requires* a `Calendar` — no São Paulo default; passing none raises.
+  - Oracles: ISDA 2006 §4.16 (ACT/ACT ISDA worked example, 30U/360 Feb edges), ICMA Rule 251
+    (**UST semi-annual coupon = exactly 2.0000**), ACT/365L & NL/365 leap-day handling, 30E/360-ISDA
+    last-day-of-month + February-termination exception. `verify.py layers` green (L0 finance-free).
+  - slice: `daycounts` (Topic 0 S2)
+
 ## [0.56.0] - 2026-07-18
 
 ### Added
