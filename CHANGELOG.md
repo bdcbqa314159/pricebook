@@ -6,6 +6,32 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-07-18
+
+### Added
+- **Deposit serialisation → second quarry retire — CP-3 #2 (drawdown 1 → 2/768).** `Deposit` gains
+  `to_dict`/`from_dict` (round-trippable wire form + `schema_version`), the genuine residual that lets
+  it **supersede the quarry `fixed_income/deposit.py`**, now marked deletable.
+  - **Finding (refines the CP-3 #2 ruling):** the ruling named *conventions/RateIndex* as deposit's
+    residual, but the evidence says otherwise. The quarry `Deposit` class has **zero production
+    consumers** (`grep 'Deposit(' python/pricebook` = 0 instantiations); it is exercised only by
+    quarry tests. ng already supersedes every role: the product cashflows + `DiscountingEngine`
+    pricing, and the **curve-pillar role via `DepositQuote`** in `bootstrap_discount_curve`
+    (`1/(1+rτ)` closed form). The only reconstruction path that is production-reachable is the DB
+    dispatcher (`db.py` `from_dict`) → **serialisation** is the real residual (same as CP-3 #1),
+    deferred-consumed by the not-yet-crossed persistence/data-spine slice.
+  - **`shed:` `Deposit.from_convention` = `dead`** — `grep 'Deposit.from_convention' python/` finds a
+    single caller, `tests/test_convention_factory.py::test_deposit_from_convention` (a quarry test that
+    retires with the quarry); no production consumer. `discount_factor`/`pv`/`pv_ctx`/`year_fraction`
+    properties: no production consumer (0 `Deposit(` sites), superseded by ng.
+  - **No conventions/RateIndex built** — it is not deposit's residual and ng has no present consumer
+    for it (§6b / "watch sprawl": a cross-cutting slice must retire a module, not add speculative
+    infra). Conventions re-aims at its genuine consumer (per-currency curve construction) when crossed.
+  - Oracles: dict round-trip; schema version present / absent-reads-v1 / future-rejected.
+  - Serialisation stays per-class (rule of two — `Money`/`Cashflow` encoding inlined; lift a shared
+    helper at the second product, FRA/swap, CP-3 #3).
+  - quarry: `python/pricebook/fixed_income/deposit.py` · slice: `serialisation-deposit`
+
 ## [0.47.0] - 2026-07-18
 
 ### Added
