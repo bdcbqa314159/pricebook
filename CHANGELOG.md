@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 4 — `money-quantity`: value types + instrument atoms (L0).**
+  `foundation/money.py` + `foundation/cashflow.py`.
+  - **`Money`(amount, currency)** with currency-guarded arithmetic — **mixing currencies is a
+    `TypeError`**; `+`/`-`/unary `-`/scalar `*`. **`Currency`** covers the **37** markets (matches the
+    Slice-1 calendars). **`Quantity`(amount, `Unit`)** — commodities settle in barrels/MWh/tonnes/troy
+    ounces/…; closed under **same-unit** arithmetic only (barrels and MWh do not add).
+    **`CurrencyPair`**(base, quote, spot_lag) with `.name` and T+2 default (USD/CAD T+1).
+  - **`Accrual`(start, end, day_count)** with **`Accrual.year_fraction(*, coupon_period=None,
+    calendar=None)`** — the ergonomic entry point over the Slice-2 primitive (bundles start+end+
+    day_count; threads ICMA anchors / BUS-252 calendar). **`Cashflow`**(date, `Money`, accrual) ·
+    **`Leg`**(cashflows, day_count).
+  - Serialisation deferred to Slice 6 (per the topic plan). Oracles: currency-mixing type error;
+    same-unit-only `Quantity`; `Accrual.year_fraction` == the S2 primitive (incl. strict-ICMA anchors).
+    `verify.py layers` green (L0 finance-free).
+  - slice: `money-quantity` (Topic 0 S4)
+
 ## [0.59.0] - 2026-07-18
 
 ### Fixed
