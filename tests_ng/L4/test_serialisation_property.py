@@ -24,6 +24,7 @@ from pricebook_ng.products.deposit import Deposit, deposit
 from pricebook_ng.products.fixed_cashflow import FixedCashflow
 from pricebook_ng.products.fixed_rate_bond import FixedRateBond, fixed_rate_bond
 from pricebook_ng.products.fra import ForwardRateAgreement
+from pricebook_ng.products.inflation import ZeroCouponInflationSwap
 from pricebook_ng.products.ois import OvernightIndexSwap, overnight_index_swap
 from pricebook_ng.products.swap import SwapTerms
 
@@ -110,6 +111,14 @@ _CASES = [
     (ForwardRateAgreement, fras()),
     (OvernightIndexSwap, ois()),
     (FixedRateBond, bonds()),
+    (ZeroCouponInflationSwap, st.builds(
+        ZeroCouponInflationSwap,
+        index=st.sampled_from(["EUHICP", "UKRPI", "USCPI"]),
+        face=money,
+        fixed_rate=rates,
+        maturity=st.dates(min_value=date(2001, 1, 1), max_value=date(2080, 1, 1)),
+        receive_inflation=st.booleans(),
+    )),
 ]
 
 
