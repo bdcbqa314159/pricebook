@@ -9,7 +9,17 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## RETIRED (deletable) — the drawdown numerator
 
-**Drawdown = 4 / 768 (0.52%).** Quarry modules superseded (CP-3 #1–#4).
+**Drawdown = 5 / 768 (0.65%).** Quarry modules superseded (CP-3 #1–#5).
+
+### `fixed_income/zero_coupon_bond.py` → superseded by `products/fixed_cashflow.py` (v0.51.0) — CP-3 #5
+- **Genuine residual — CLOSED:** `to_dict`/`from_dict` (reuses shared `Cashflow`/`Money` encoders). A
+  ZCB *is* a single fixed cashflow (`Face·DF(T)`), priced by the existing `DiscountingEngine`.
+- **Consumer analysis (§4):** quarry `ZeroCouponBond` has **no external production instantiation** (only
+  its own docstring; production ZCBs flow via `sovereign_bonds.py from_convention`). The money-market
+  yield analytics (`price_from_yield_*`, `yield_*`, `modified_duration`, `dv01`) have 0 production
+  consumers (only `tests/test_sovereign_bonds.py`); the quarry's dedicated `fixed_income/tbill.py`
+  (`TreasuryBill`) is the real home for T-Bill conventions ⇒ ZCB's copies are **`dead` duplicates**.
+- **`shed:` `from_convention` = `deferred→sovereign_bonds`** — see the forward-link on that backlog row.
 
 ### `fixed_income/ois.py` → superseded by `products/ois.py` (v0.50.0) — CP-3 #4
 - **Genuine residual — CLOSED:** `to_dict`/`from_dict` (round-trip + `schema_version`); DB-dispatcher path.
@@ -79,10 +89,10 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## Headline
 
-- **Quarry: 768 modules. New tree: 55 modules. Deletable: 4** (`core/numerical_config`,
-  `fixed_income/deposit`, `fixed_income/fra`, `fixed_income/ois`).
-- **Drawdown = 4 / 768 (0.52%)** — CP-3 serialisation cluster (#1 config, #2 deposit, #3 FRA, #4 OIS).
-  The rest of the ng tree is a *simplified parallel build* still short of superseding its counterparts (below).
+- **Quarry: 768 modules. New tree: 55 modules. Deletable: 5** (`core/numerical_config`,
+  `fixed_income/deposit`, `fixed_income/fra`, `fixed_income/ois`, `fixed_income/zero_coupon_bond`).
+- **Drawdown = 5 / 768 (0.65%)** — CP-3 serialisation cluster (#1 config, #2 deposit, #3 FRA, #4 OIS,
+  #5 ZCB). The rest of the ng tree is a *simplified parallel build* still short of superseding its counterparts (below).
 - **CP-2b progress (parity order #1→#3):** curve rate accessors added (`zero_rate`,
   `instantaneous_forward`); **HW de-flattened — the biggest single gap, now general-curve**; `FRA`
   added (was untouched backlog). Deletability still needs a rigorous per-module parity confirmation
@@ -172,7 +182,7 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 | subpackage | modules | note |
 |---|---|---|
-| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation); **deposit + fra + ois RETIRED (v0.48–0.50)**; repo/futures/sovereign/xccy families untouched |
+| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation); **deposit + fra + ois + zero_coupon_bond RETIRED (v0.48–0.51)**; repo/futures/sovereign/xccy families untouched. **Deferred obligation — on crossing `sovereign_bonds.py`:** provide the ZCB `from_convention` path (per-currency conventions), deferred from the ZCB retire (v0.51.0). **Deferred — `tbill.py` carries its own T-Bill money-market analytics** (ZCB's copies were shed dead). |
 | credit | 93 | ng has vanilla CDS + hazard; CDO/tranche/CLN/loan/hawkes/recovery untouched |
 | models | 90 | ng has flat HW; PDE/MC framework, Levy/rough/LMM/G2++/trees untouched |
 | options | 61 | fully untouched |
@@ -210,9 +220,9 @@ production consumers; `from_convention` is a quarry-test-only `dead` feature). N
 code was written — it re-aims at its genuine consumer (per-currency curve construction) when crossed.
 Cowork ratified the correction (`rulings_CP3_correction.md`): serialisation through-line confirmed,
 **§4 phantom-residual rule added** (residuals need consumer evidence; re-derive by consumer analysis at
-retire time; gaps likely overstated → drawdown faster than the map claims). CP-3 #3 (FRA), #4 (OIS) done via
-consumer-analysis retire-reads. **Next candidates (thin, low production use):** ZCB (1 prod
-instantiation), bond (8), leg (0, test-only) — each retire-read on its own residual, not the
-feature-diffed gap. **Watch:** swap has 29 production instantiations (curve pillars/XVA) — load-bearing,
-NOT a serialisation-only retire; its real residual is larger (multi-curve/curve-build role). **Checkpoint
-due: CP-3 is at 4 slices (cadence ≤6) — call it at ~#6 or when the fixed-income vanilla cluster is done.**
+retire time; gaps likely overstated → drawdown faster than the map claims). CP-3 #3 (FRA), #4 (OIS),
+#5 (ZCB) done via consumer-analysis retire-reads. **Next candidates:** bond (fixed_rate_bond), leg,
+inflation — each a retire-read on its own residual, not the feature-diffed gap. **Watch:** swap has 29
+production instantiations (curve pillars/XVA) — load-bearing, NOT a serialisation-only retire; its real
+residual is larger (multi-curve/curve-build role). **Checkpoint due: CP-3 is at 5 slices (cadence ≤6) —
+call it at #6 or when the fixed-income vanilla cluster is done.**
