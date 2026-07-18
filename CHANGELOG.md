@@ -6,6 +6,34 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-07-18
+
+### Added
+- **Topic 0, Slice 5 — `index-identity` (widened): `RateIndex` + `FixingHistory` + `accrued_rate` (L0).**
+  `foundation/rate_index.py`. A new index is a **declaration, never a code change.**
+  - **`RateIndex` covers all rate kinds:** the RFR set (`fixing_lag`/`observation_shift`/`lookback`/
+    `lockout`/`payment_delay`/`compounding`) **plus the widening** — **`observation_style`**
+    (BACKWARD_LOOKING RFR vs FORWARD_LOOKING term/IBOR) and **`spread_adjustment`** (ISDA fallback
+    credit spread). It's an identity aggregate (`# fields-exempt`).
+  - **`FixingHistory` is generic over index** (name→date→value), so it will also hold inflation levels
+    / FX fixings / equity observations — the sibling identities land later under the same pattern.
+  - **One generic `accrued_rate(index, accrual, fixings)`**, branching only on `CompoundingMethod`:
+    FLAT/forward → the single fixing at the start; backward → compounded/averaged over the observation
+    window, with **`lookback` (shift the rate only) vs `observation_shift` (shift the whole window)**
+    distinct, plus `lockout`; `spread_adjustment` added (a fallback = base RFR + spread, not absorbed).
+    `CompoundingMethod` also carries **`EXPONENTIAL`** — the Brazilian BUS/252 `(1+r)^(bd/basis)` used by
+    CDI/SELIC (and LTN/NTN-F/DI), where a flat rate reprices to itself exactly (vs money-market
+    `∏(1+r·δ)`); `CDI` (BRL) is declared. The **basis is derived from the day-count** (`BUS/252 → 252`),
+    not hardcoded — another basis is a day-count entry. The daily-series (`rᵢ`, floating CDI in arrears)
+    path is `accrued_rate`; the single-fixed-rate (`r`, LTN/NTN-F) growth factor is the separate
+    `exponential_growth(rate, business_days, day_count)` primitive.
+  - **Registry by explicit construction** (SOFR, SONIA, ESTR, TONA, SARON, EURIBOR_3M, TERM_SOFR_3M,
+    a USD-LIBOR fallback) — **no import-time JSON reload** (the quarry rebound the whole `_REGISTRY`
+    from a file, where one bad row dropped the other 27).
+  - Oracles: compounded RFR vs a hand-computed series; lookback ≠ observation-shift; 0/0 ≠ 2/2;
+    forward-looking term ≠ backward-looking compounded; fallback = base + spread. `verify.py layers` green.
+  - slice: `index-identity` (Topic 0 S5)
+
 ## [0.61.0] - 2026-07-18
 
 ### Added
