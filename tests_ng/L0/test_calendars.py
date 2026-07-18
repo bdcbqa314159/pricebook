@@ -130,3 +130,26 @@ def test_joint_calendar_is_union():
     assert joint.is_holiday(date(2024, 11, 28))   # US Thanksgiving (not TARGET)
     assert joint.is_holiday(date(2024, 3, 29))    # TARGET Good Friday (not US)
     assert joint.is_business_day(date(2024, 1, 16))  # neither
+
+
+# ── Topic 0 S3 checkpoint corrections ──
+
+
+def test_anzac_day_not_mondayised_but_others_are():
+    # ANZAC Day (25 Apr) is commemorated on the actual date in AU/NZ — NOT shifted —
+    # even though New Year / Christmas in the SAME calendar are (per Cowork §3.1).
+    aud = get_calendar("SYDNEY")
+    assert aud.is_holiday(date(2020, 4, 25))        # Sat — stays on the actual date
+    assert not aud.is_holiday(date(2020, 4, 27))    # Mon — NOT a substituted holiday
+    assert aud.is_holiday(date(2022, 1, 3))         # New Year (Sat 01-01) IS mondayised
+    nzd = get_calendar("WELLINGTON")
+    assert nzd.is_holiday(date(2021, 4, 25))        # Sun — stays
+    assert not nzd.is_holiday(date(2021, 4, 26))    # Mon — not substituted
+
+
+def test_secular_only_calendars_are_marked():
+    from pricebook_ng.foundation.calendar import Coverage
+    for ident in ("RIYADH", "CAIRO", "ISTANBUL", "TEL_AVIV", "BEIJING", "SEOUL", "MUMBAI", "BANGKOK"):
+        assert get_calendar(ident).coverage is Coverage.SECULAR_ONLY
+    assert get_calendar("NEW_YORK_SIFMA").coverage is Coverage.COMPLETE
+    assert get_calendar("TARGET").coverage is Coverage.COMPLETE

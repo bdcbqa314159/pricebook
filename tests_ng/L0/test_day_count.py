@@ -102,3 +102,13 @@ def test_thirty_e_360_isda_last_day_and_termination():
     term = yf(rs, re, DC.THIRTY_E_360_ISDA, coupon_period=final)       # d2 stays 29: 179/360
     assert non_final == pytest.approx(180 / 360.0, abs=APPROX)
     assert term == pytest.approx(179 / 360.0, abs=APPROX)
+
+
+def test_act_365l_is_frequency_dependent():
+    # ISDA §4.16(i): a semi-annual period ENDING in a leap year but NOT containing 29 Feb
+    # uses 366; the annual rule (or default) would use 365 — the distinguishing case.
+    a, b = date(2024, 3, 1), date(2024, 9, 1)      # 2024 leap; 29 Feb is before `a`
+    semi = CouponPeriod(reference_start=a, reference_end=b, frequency=2)
+    ann = CouponPeriod(reference_start=a, reference_end=b, frequency=1)
+    assert yf(a, b, DC.ACT_365L, coupon_period=semi) == pytest.approx(_days(a, b) / 366.0, abs=APPROX)
+    assert yf(a, b, DC.ACT_365L, coupon_period=ann) == pytest.approx(_days(a, b) / 365.0, abs=APPROX)
