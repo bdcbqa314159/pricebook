@@ -101,3 +101,29 @@ def test_missing_inflation_curve_is_a_failure():
 
 def test_is_pure_data_no_pricing():
     assert not hasattr(_zcis(0.02), "pv")
+
+
+# ── serialisation (CP-3 tail — build-early per §4.5; inflation.py held partial-cross) ──
+
+
+def test_round_trips_through_dict():
+    zcis = _zcis(0.025, receive_inflation=False)
+    assert ZeroCouponInflationSwap.from_dict(zcis.to_dict()) == zcis
+
+
+def test_to_dict_carries_schema_version():
+    assert _zcis(0.02).to_dict()["schema_version"] == 1
+
+
+def test_missing_version_reads_as_v1():
+    zcis = _zcis(0.02)
+    data = zcis.to_dict()
+    del data["schema_version"]
+    assert ZeroCouponInflationSwap.from_dict(data) == zcis
+
+
+def test_future_version_is_rejected_loudly():
+    data = _zcis(0.02).to_dict()
+    data["schema_version"] = 99
+    with pytest.raises(ValueError):
+        ZeroCouponInflationSwap.from_dict(data)
