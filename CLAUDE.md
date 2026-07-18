@@ -172,7 +172,19 @@ mark; dirty = clean + accrued.
   implements, and its oracle. (Educational constraint — keep it legible.)
 - **Deletable-bar rigor.** A parity slice ends by **reading its quarry counterpart end-to-end**
   and listing the residual gap in `quarry_reconciliation.md`. A module ticks to *deletable*
-  (drawdown +1) **only when the residual is empty** — never asserted from "looks covered."
+  (drawdown +1) **only when the genuine residual is empty** — never asserted from "looks covered."
+- **"Deletable" = SUPERSEDE, not clone.** ng is deliberately minimal (copy-ADAPT sheds debt, §6b
+  forbids speculative fields), so ng ≠ quarry by design. A quarry feature ng omits is *shed debt*,
+  not residual — **but only with evidence.** Every omission is classified in the module's `shed:`
+  list by grepping the quarry for consumers:
+  - **`dead`** — no consumer anywhere in the quarry (incl. its tests) ⇒ genuinely shed, no obligation.
+  - **`deferred→X`** — consumed by quarry module(s) X not yet crossed ⇒ shed now; the feature
+    **travels with X's crossing slice** (a named future trigger, never a vague "later").
+  - **`needed-now`** — an ng module already requires it ⇒ **not shed**; a genuine residual that must
+    be built before the tick.
+  A module ticks deletable only when the genuine residual is empty **and** every omission is
+  classified with evidence. Cowork spot-checks `shed:` calls at each checkpoint and may **un-tick**
+  (drawdown −1); the quarry is git-tracked, so a reversal is cheap and nothing is lost.
 - **Cross-cutting work is justified by what it retires.** Shared capabilities (conventions,
   multi-curve, serialisation…) may be built when residuals cluster, but **every such slice must
   tick ≥1 quarry module to deletable** — infrastructure is never built speculatively ahead of the
