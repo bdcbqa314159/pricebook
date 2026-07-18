@@ -150,9 +150,36 @@ mark; dirty = clean + accrued.
   function — `PLR0913` just can't see it. A `products/` or `foundation/` value dataclass has
   **≤5 fields**; bundle primitives into ratified value objects (`Money` for amount+currency,
   `Accrual` for start+end+day_count, `ScheduleTerms`, …). Enforced by **`verify.py fields`**.
-  Legitimately-wide **aggregate / output-record / config** types (e.g. `MarketSnapshot` — the
-  A5 shape, `XvaReport`) carry an explicit `# fields-exempt: <reason>` marker — an *explicit*
-  exemption, never silent tolerance.
+  Legitimately-wide types carry an explicit `# fields-exempt: <reason>` marker — an *explicit*
+  exemption, never silent tolerance. **The exemption is for genuinely irreducible aggregates and
+  output records** (`MarketSnapshot` — the A5 keyed shape; `XvaReport` — N independent results).
+  **It is NOT for configs.** A config groups naturally by method family and must decompose —
+  e.g. `NumericalConfig(monte_carlo, lattice, integration, solver)`, each sub-config ≤5. If you are
+  reaching for the marker on a config, you have not decomposed it yet.
+
+## 3c. Onboarding a new asset class — where do its "fundamentals" go?
+
+The recurring question. The L0 membership test alone does not settle it; use this procedure for each
+candidate:
+
+```
+1. Is it VALUATION?                          → L3/L4. Never L0.
+2. Is it market state that RISK BUMPS?       → L1 snapshot (A4.2)
+3. Is it CONTRACT DESCRIPTION?               → L2 product data
+4. Is it STATE / LIFECYCLE?                  → L6 shell
+5. Is it an IDENTITY or CONVENTION spoken
+   by ≥2 layers?                             → L0
+6. Otherwise                                 → its natural layer, NOT L0
+```
+
+**Corollary: L0 grows only by identity/convention siblings, never by asset-specific machinery.**
+A new asset should add roughly *one* L0 object — its identity, as a sibling under the general
+index/underlying concept. Wanting to add more is a smell; stop and rule it.
+
+*Worked example (credit):* `ReferenceEntity` → **L0** (survival curves are keyed by it, CDS
+references it, credit risk bumps by it — multi-layer identity). Hazard/survival curve and recovery
+→ **L1** (risk bumps them). Credit-event definitions, restructuring clause, seniority → **L2**
+product data. CDS IMM rolls → already L0.
 
 ---
 
