@@ -35,7 +35,8 @@ from pricebook_ng.foundation.money import Currency
 
 
 class CompoundingMethod(Enum):
-    COMPOUNDED = "compounded"    # ∏(1 + r_i·δ_i) − 1
+    COMPOUNDED = "compounded"    # money-market ∏(1 + r_i·δ_i) − 1 (RFR, δ = days/360)
+    EXPONENTIAL = "exponential"  # Brazilian ∏(1 + r_i)^(1/252) − i.e. (1+r)^(bd/252); CDI/SELIC
     AVERAGED = "averaged"        # weighted average of the daily rates
     FLAT = "flat"               # a single fixing for the whole period (IBOR / term RFR)
 
@@ -125,6 +126,15 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         frozen = len(window) - 1 - index.lockout
         rate_dates = [rate_dates[min(i, frozen)] for i in range(len(window))]
 
+    if index.compounding is CompoundingMethod.EXPONENTIAL:
+        # Brazilian BUS/252: each business day contributes (1+r)^(1/252); re-annualise
+        # over the business-day count. A flat rate returns itself exactly.
+        factor = 1.0
+        for (_, _weight), rate_date in zip(window, rate_dates):
+            factor *= (1.0 + fixings.rate(index.name, rate_date)) ** (1.0 / 252.0)
+        realized = factor ** (252.0 / len(window)) - 1.0
+        return realized + index.spread_adjustment
+
     denom = _denominator(index.day_count)
     factor, weighted, total = 1.0, 0.0, 0
     for (_, weight), rate_date in zip(window, rate_dates):
@@ -171,6 +181,13 @@ SONIA = _register(_overnight("SONIA", Currency.GBP, DayCountConvention.ACT_365_F
 ESTR = _register(_overnight("ESTR", Currency.EUR, DayCountConvention.ACT_360, 0, 0))
 TONA = _register(_overnight("TONA", Currency.JPY, DayCountConvention.ACT_365_FIXED, 0, 0))
 SARON = _register(_overnight("SARON", Currency.CHF, DayCountConvention.ACT_360, 0, 0))
+
+# Brazilian overnight — exponential BUS/252 compounding (CDI/SELIC)
+CDI = _register(RateIndex(
+    name="CDI", currency=Currency.BRL, tenor="ON", day_count=DayCountConvention.BUS_252,
+    fixing_lag=0, observation_shift=0, lookback=0, lockout=0, payment_delay=0,
+    compounding=CompoundingMethod.EXPONENTIAL, observation_style=ObservationStyle.BACKWARD_LOOKING,
+))
 
 EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "3M", DayCountConvention.ACT_360,
                              ObservationStyle.FORWARD_LOOKING))

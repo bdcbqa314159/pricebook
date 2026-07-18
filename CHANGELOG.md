@@ -21,6 +21,9 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
     FLAT/forward → the single fixing at the start; backward → compounded/averaged over the observation
     window, with **`lookback` (shift the rate only) vs `observation_shift` (shift the whole window)**
     distinct, plus `lockout`; `spread_adjustment` added (a fallback = base RFR + spread, not absorbed).
+    `CompoundingMethod` also carries **`EXPONENTIAL`** — the Brazilian BUS/252 `(1+r)^(bd/252)` used by
+    CDI/SELIC (and LTN/NTN-F/DI), where a flat rate reprices to itself exactly (vs money-market
+    `∏(1+r·δ)`); `CDI` (BRL) is declared.
   - **Registry by explicit construction** (SOFR, SONIA, ESTR, TONA, SARON, EURIBOR_3M, TERM_SOFR_3M,
     a USD-LIBOR fallback) — **no import-time JSON reload** (the quarry rebound the whole `_REGISTRY`
     from a file, where one bad row dropped the other 27).
