@@ -269,7 +269,14 @@ Cowork ratified the correction (`rulings_CP3_correction.md`): serialisation thro
 retire time; gaps likely overstated → drawdown faster than the map claims). CP-3 #3 (FRA), #4 (OIS),
 #5 (ZCB), tail (bond, fixed_leg) done via consumer-analysis retire-reads. CP-3 checkpoint written + ruled
 (`rulings_CP3.md`, §4.5: serialisation deferred→persistence, built-early, never blocks a tick).
-**Next candidates:** inflation — retire-read on its own residual. (leg done — no-code tick v0.53.) **Watch:** swap has 29
+**inflation.py — held PARTIAL CROSS (v0.54, NOT ticked, drawdown stays 7):** multi-product module;
+ng supersedes only ZCIS (`ZeroCouponInflationSwap`+`ZCISEngine`+A5 real curve, which also supersedes
+`CPICurve`). `YoYInflationSwap` = `dead` (test-only); `InflationLinkedBond` = `deferred→desks/api`+
+`inflation_indices` (un-crossed) but a whole UNBUILT product. ZCIS serialisation added (build-early).
+**⚠️ CP-4 Cowork question: how to retire a multi-product module when ng has built only some of its
+products** (delete-defining-whole-unbuilt-products is a new pattern beyond bond's deferred methods).
+**Vanilla cluster now closed** (deposit/fra/ois/zcb/bond/fixed_leg retired; inflation partial).
+**Next = the SWAP decision → CP-4.** **Watch:** swap has 29
 production instantiations (curve pillars/XVA) — load-bearing, NOT a serialisation-only retire; its real
 residual is larger (multi-curve/curve-build role). **⚠️ Bond (v0.52) is the heaviest tick — large
 deferred yield-analytics surface; flagged for Cowork CP-4 spot-check (may un-tick).** **CP-4 checkpoint
