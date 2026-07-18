@@ -115,3 +115,29 @@ def test_zero_coupon_bond_is_pure_discount():
     result = DiscountingEngine().price(bond, DiscountingModel(market), NumericalConfig())
     expected = NOTIONAL * market.discount_curve.df(MATURITY)
     assert result.pv.amount == pytest.approx(expected, abs=1e-6)
+
+
+# ── serialisation (CP-3 tail — build-early per §4.5; retires quarry bond) ──
+
+
+def test_round_trips_through_dict():
+    bond = _bond()
+    assert FixedRateBond.from_dict(bond.to_dict()) == bond
+
+
+def test_to_dict_carries_schema_version():
+    assert _bond().to_dict()["schema_version"] == 1
+
+
+def test_missing_version_reads_as_v1():
+    bond = _bond()
+    data = bond.to_dict()
+    del data["schema_version"]
+    assert FixedRateBond.from_dict(data) == bond
+
+
+def test_future_version_is_rejected_loudly():
+    data = _bond().to_dict()
+    data["schema_version"] = 99
+    with pytest.raises(ValueError):
+        FixedRateBond.from_dict(data)

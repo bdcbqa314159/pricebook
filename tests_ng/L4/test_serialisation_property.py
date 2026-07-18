@@ -22,6 +22,7 @@ from pricebook_ng.foundation.schedule import Frequency, ScheduleTerms
 from pricebook_ng.foundation.time import DayCountConvention
 from pricebook_ng.products.deposit import Deposit, deposit
 from pricebook_ng.products.fixed_cashflow import FixedCashflow
+from pricebook_ng.products.fixed_rate_bond import FixedRateBond, fixed_rate_bond
 from pricebook_ng.products.fra import ForwardRateAgreement
 from pricebook_ng.products.ois import OvernightIndexSwap, overnight_index_swap
 from pricebook_ng.products.swap import SwapTerms
@@ -89,6 +90,13 @@ def ois(draw):
     return overnight_index_swap(draw(money), draw(rates), start, maturity, draw(swap_terms()))
 
 
+@st.composite
+def bonds(draw):
+    start, maturity = draw(periods())
+    terms = ScheduleTerms(draw(frequencies), draw(builder_day_counts))
+    return fixed_rate_bond(draw(money), draw(rates), start, maturity, terms)
+
+
 # ── the property: every type round-trips exactly ──────────────────────────────
 _CASES = [
     (NumericalConfig, st.builds(
@@ -101,6 +109,7 @@ _CASES = [
     (Deposit, deposits()),
     (ForwardRateAgreement, fras()),
     (OvernightIndexSwap, ois()),
+    (FixedRateBond, bonds()),
 ]
 
 

@@ -9,7 +9,25 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## RETIRED (deletable) — the drawdown numerator
 
-**Drawdown = 5 / 768 (0.65%).** Quarry modules superseded (CP-3 #1–#5).
+**Drawdown = 6 / 768 (0.78%).** Quarry modules superseded (CP-3 #1–#5 + tail bond).
+
+### `fixed_income/bond.py` → superseded by `products/fixed_rate_bond.py` (v0.52.0) — CP-3 tail ⚠️ heaviest retire, flagged for Cowork CP-4 spot-check
+- **Superseded:** the bond **product** (coupon+redemption cashflows) → ng `FixedRateBond`; curve
+  pricing → `DiscountingEngine`; **`accrued_interest` + clean-vs-dirty → engine A2 decomposition**
+  (`PricingResult.accrued`/`clean`).
+- **Consumer analysis (§4/§4.5):** all 8 production instantiations of quarry `FixedRateBond` are in
+  **un-crossed** modules (`desks/api` ×6, `benchmark_bonds`, `sukuk`). No **crossed** ng module consumes
+  any bond yield-analytic (the only `duration`/`convexity` in ng is SA-CCR's unrelated *supervisory*
+  duration). ⇒ nothing is needed-now beyond the product.
+- **`deferred→` (large surface — the judgment call in this retire):** the whole yield-analytics suite
+  (`yield_to_maturity`, `macaulay/modified_duration`, `convexity`, `dv01_yield`, `*_sc`) →
+  `desks/api`+`benchmark_bonds`+`sukuk`; `from_convention` → `composite_convention`+`esg_bonds`+
+  `supranational`+`sovereign_bonds`. Per the spine these are **L4/L5 engine analytics, not product
+  methods** — built when a consumer crosses (§6b), never cloned onto the pure-data product.
+- **`deferred→persistence`:** serialisation (added early, §4.5 — never blocked the tick).
+- **Tick rationale:** under the ratified consumer-analysis rules the product is superseded and the
+  analytics have no crossed consumer ⇒ deletable. But it rests on the largest deferred surface yet, so
+  it is explicitly flagged for Cowork spot-check (may un-tick; reversal is cheap).
 
 > **Serialisation classification (Cowork CP-3 ruling §4.5, `rulings_CP3.md`):** across all five CP-3
 > retires, `to_dict`/`from_dict` is **`deferred→persistence`**, NOT a genuine residual — ng has no
@@ -97,10 +115,11 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 ## Headline
 
-- **Quarry: 768 modules. New tree: 55 modules. Deletable: 5** (`core/numerical_config`,
-  `fixed_income/deposit`, `fixed_income/fra`, `fixed_income/ois`, `fixed_income/zero_coupon_bond`).
-- **Drawdown = 5 / 768 (0.65%)** — CP-3 serialisation cluster (#1 config, #2 deposit, #3 FRA, #4 OIS,
-  #5 ZCB). The rest of the ng tree is a *simplified parallel build* still short of superseding its counterparts (below).
+- **Quarry: 768 modules. New tree: 55 modules. Deletable: 6** (`core/numerical_config`,
+  `fixed_income/deposit`, `fixed_income/fra`, `fixed_income/ois`, `fixed_income/zero_coupon_bond`,
+  `fixed_income/bond`).
+- **Drawdown = 6 / 768 (0.78%)** — CP-3 serialisation cluster (#1 config, #2 deposit, #3 FRA, #4 OIS,
+  #5 ZCB) + tail (bond). The rest of the ng tree is a *simplified parallel build* still short of superseding its counterparts (below).
 - **CP-2b progress (parity order #1→#3):** curve rate accessors added (`zero_rate`,
   `instantaneous_forward`); **HW de-flattened — the biggest single gap, now general-curve**; `FRA`
   added (was untouched backlog). Deletability still needs a rigorous per-module parity confirmation
@@ -190,12 +209,12 @@ recorded gap, not a cross (`CLAUDE.md §4`).
 
 | subpackage | modules | note |
 |---|---|---|
-| fixed_income | 130 | the bulk; ng has ~7 vanillas (bond/swap/leg/cashflow/inflation); **deposit + fra + ois + zero_coupon_bond RETIRED (v0.48–0.51)**; repo/futures/sovereign/xccy families untouched. **Deferred obligation — on crossing `sovereign_bonds.py`:** provide the ZCB `from_convention` path (per-currency conventions), deferred from the ZCB retire (v0.51.0). **Deferred — `tbill.py` carries its own T-Bill money-market analytics** (ZCB's copies were shed dead). |
+| fixed_income | 130 | the bulk; ng has ~7 vanillas (swap/leg/cashflow/inflation); **deposit + fra + ois + zero_coupon_bond + bond RETIRED (v0.48–0.52)**; repo/futures/sovereign/xccy families untouched. **Deferred — on crossing `sovereign_bonds.py`:** ZCB + bond `from_convention` path (per-currency conventions), deferred from the ZCB (v0.51) + bond (v0.52) retires. **Deferred — on crossing `esg_bonds`/`supranational`/`composite_convention`:** bond `from_convention`. **Deferred — `tbill.py` carries its own T-Bill analytics** (ZCB copies shed dead). |
 | credit | 93 | ng has vanilla CDS + hazard; CDO/tranche/CLN/loan/hawkes/recovery untouched |
 | models | 90 | ng has flat HW; PDE/MC framework, Levy/rough/LMM/G2++/trees untouched |
 | options | 61 | fully untouched |
 | risk | 54 | ng has exposure/xva/greeks/saccr; portfolio/attribution/optimisation/simm untouched |
-| desks | 49 | fully untouched (trading-desk layer) |
+| desks | 49 | fully untouched (trading-desk layer). **Deferred obligation — on crossing `desks/api.py`:** the bond **yield-analytics** suite (`yield_to_maturity`, `macaulay/modified_duration`, `convexity`, `dv01_yield`, `*_sc`), deferred from the bond retire (v0.52.0) — build as **L4/L5 engine analytics** (spine), not product methods. Same suite deferred to `benchmark_bonds`, `sukuk`. |
 | equity | 33 | ~1 vanilla; rest untouched |
 | curves | 31 | ng has 1 loglinear + bootstrap; NS/Smith-Wilson/multicurve/AAD untouched |
 | numerical | 30 | ng has 2 solvers; PDE/MC/FFT/AD/QMC toolkit untouched. **Deferred obligations from `core/numerical_config` retire (v0.47.0)** — on crossing, add the knob back to `NumericalConfig`: `_fourier`←`cos_n,cos_L`; `_pde`←`pde_time_steps,pde_space_steps,pde_n_std_devs`; `_trees`←`tree_steps`; `_integrate`←`integration_tol,integration_max_iter`; `_rootfinding`←`rootfinder_tol,rootfinder_max_iter`. |
@@ -229,8 +248,10 @@ code was written — it re-aims at its genuine consumer (per-currency curve cons
 Cowork ratified the correction (`rulings_CP3_correction.md`): serialisation through-line confirmed,
 **§4 phantom-residual rule added** (residuals need consumer evidence; re-derive by consumer analysis at
 retire time; gaps likely overstated → drawdown faster than the map claims). CP-3 #3 (FRA), #4 (OIS),
-#5 (ZCB) done via consumer-analysis retire-reads. **Next candidates:** bond (fixed_rate_bond), leg,
-inflation — each a retire-read on its own residual, not the feature-diffed gap. **Watch:** swap has 29
+#5 (ZCB), tail (bond) done via consumer-analysis retire-reads. CP-3 checkpoint written + ruled
+(`rulings_CP3.md`, §4.5: serialisation deferred→persistence, built-early, never blocks a tick).
+**Next candidates:** leg, inflation — each a retire-read on its own residual. **Watch:** swap has 29
 production instantiations (curve pillars/XVA) — load-bearing, NOT a serialisation-only retire; its real
-residual is larger (multi-curve/curve-build role). **Checkpoint due: CP-3 is at 5 slices (cadence ≤6) —
-call it at #6 or when the fixed-income vanilla cluster is done.**
+residual is larger (multi-curve/curve-build role). **⚠️ Bond (v0.52) is the heaviest tick — large
+deferred yield-analytics surface; flagged for Cowork CP-4 spot-check (may un-tick).** **CP-4 checkpoint
+at first of: (a) vanilla cluster retired + swap decision, (b) 6 slices since CP-3, (c) multi-curve introduced.**
