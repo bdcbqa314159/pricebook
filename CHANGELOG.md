@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-07-18
+
+### Removed
+- **`fixed_income/fixed_leg.py` retired → seventh quarry retire — CP-3 tail (drawdown 6 → 7/768).**
+  A **no-code tick** (§4.5 "several may tick immediately"): ng already fully supersedes it, so no runtime
+  change — only the reconciliation-map + version ledger advance.
+  - **Superseded:** the `Cashflow` atom was **promoted** to `foundation/cashflow.py` (ng stores amount
+    as `Money` + an `Accrual` period; the quarry's decomposed notional/rate/year_frac is shed —
+    year_frac derives from the accrual); `FixedLeg` construction → `products/leg.py`
+    `fixed_coupon_cashflows`; the container → `products/swap.py FixedLeg`; `FixedLeg.pv` → the engine.
+  - **Consumer analysis (§4):** the 3 external quarry `FixedLeg(` sites are `swap.py` (un-crossed →
+    `deferred→swap`) and `ois.py`/`bond.py` (already deletable). `annuity`/`weighted_annuity` (RPV01)
+    are consumed only by un-crossed modules (swaption, CMS, desks) ⇒ `deferred→swap`, to be exposed as
+    an **engine/curve building block** when swap crosses (CLAUDE.md §3), not a product method.
+  - **Oracle:** no new code ⇒ no new red; the tick rests on ng's existing green leg/cashflow/swap/bond
+    oracles + the consumer analysis. `floating_leg.py` is a separate retire (projection/multi-curve
+    `pv`) that travels with the swap / multi-curve slice.
+  - quarry: `python/pricebook/fixed_income/fixed_leg.py` · slice: `retire-fixed-leg`
+
 ## [0.52.0] - 2026-07-18
 
 ### Added
