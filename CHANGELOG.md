@@ -6,6 +6,18 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (4/5) — rate-quotation basis (audit S12, the biggest missing concept).**
+  `foundation/rate_basis.py`: **`Compounding`(SIMPLE·ANNUAL·SEMI_ANNUAL·QUARTERLY·MONTHLY·CONTINUOUS)** —
+  the basis a *quoted* rate compounds on — and **`convert_rate(rate, t, from, to)`** (via `growth_factor`).
+  A rate is meaningless without its basis; treating semi-annual as continuous is silently wrong by ~r²/2.
+  **Recorded invariant:** internal curve rates are continuous on the curve day-count; quotes carry their
+  own basis and convert at the boundary (keeps `Rate` a plain float). The index enum
+  **`CompoundingMethod` is renamed `AccrualMethod`** to kill the name collision (it is a different
+  concept — index averaging, not quotation basis).
+
 ## [0.66.0] - 2026-07-19
 
 ### Changed
