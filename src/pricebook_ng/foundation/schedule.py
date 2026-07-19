@@ -103,13 +103,25 @@ class ScheduleTerms:
 
 
 @dataclass(frozen=True)
+class SchedulePeriod:
+    """One accrual period with its provenance (audit 3.5/3b): the unadjusted accrual span,
+    whether it is a stub, and the (business-day-adjusted) payment date. A leg builder reads
+    `is_stub` to pick the ICMA reference period instead of re-deriving the generation logic."""
+
+    accrual_start: date
+    accrual_end: date
+    is_stub: bool
+    payment_date: date
+
+
+@dataclass(frozen=True)
 class Schedule:
-    """A generated schedule: unadjusted period boundaries (for accrual) and their
-    business-day-adjusted counterparts (for payment). Same length; equal when the
-    roll rule has no calendar."""
+    """A generated schedule. `unadjusted`/`adjusted` are the boundary dates (accrual vs
+    payment); `periods` is the per-period provenance record (start, end, is_stub, payment)."""
 
     unadjusted: tuple[date, ...]
     adjusted: tuple[date, ...]
+    periods: tuple[SchedulePeriod, ...]
 
 
 # ── date arithmetic (stdlib only) ────────────────────────────────────────────────
@@ -162,9 +174,12 @@ def _step_k(
     return stepped
 
 
-def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
-    if terms.frequency.step is None:  # BULLET — a single period
-        return [start, end]
+def _unadjusted(
+    start: date, end: date, terms: ScheduleTerms
+) -> tuple[list[date], bool, bool]:
+    """Returns (boundary dates, front-period-is-stub, back-period-is-stub)."""
+    if terms.frequency.step is None:  # BULLET — a single period, no stub
+        return [start, end], False, False
     tenor, stub, roll_day = terms.frequency.step, terms.stub, terms.roll_day
     is_month = tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR)
 
@@ -186,33 +201,45 @@ def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
         dates.append(start)
         dates.reverse()
         # `cur` is the first regular boundary at/below `start`; a genuine front stub exists
-        # iff it is not `start` itself.
-        if stub is StubType.LONG_FRONT and len(dates) > 2 and cur != start:
+        # iff it is not `start` itself (short or, after the merge, long).
+        front_stub = cur != start
+        if stub is StubType.LONG_FRONT and len(dates) > 2 and front_stub:
             dates = [dates[0], *dates[2:]]
-        return dates
+        return dates, front_stub, False
 
     snap, dates, k = _snap_on(start), [start], 1
     while (cur := _step_k(start, tenor, k, snap, roll_day)) < end:
         dates.append(cur)
         k += 1
     dates.append(end)
-    if stub is StubType.LONG_BACK and len(dates) > 2 and cur != end:
+    back_stub = cur != end
+    if stub is StubType.LONG_BACK and len(dates) > 2 and back_stub:
         dates = [*dates[:-2], dates[-1]]
-    return dates
+    return dates, False, back_stub
 
 
 def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
     """Generate the schedule from `start` to `end` under `terms`."""
     if start >= end:
         raise ValueError(f"start ({start}) must be before end ({end}).")
-    unadj = _unadjusted(start, end, terms)
+    unadj, stub_first, stub_last = _unadjusted(start, end, terms)
     cal = terms.roll.calendar
     adj = (
         [cal.adjust(d, terms.roll.convention) for d in unadj]
         if cal is not None
         else unadj
     )
-    return Schedule(unadjusted=tuple(unadj), adjusted=tuple(adj))
+    last = len(unadj) - 2
+    periods = tuple(
+        SchedulePeriod(
+            accrual_start=unadj[i],
+            accrual_end=unadj[i + 1],
+            is_stub=(i == 0 and stub_first) or (i == last and stub_last),
+            payment_date=adj[i + 1],  # payment at the (adjusted) period end
+        )
+        for i in range(len(unadj) - 1)
+    )
+    return Schedule(unadjusted=tuple(unadj), adjusted=tuple(adj), periods=periods)
 
 
 # ── IMM and CDS roll dates (new) ─────────────────────────────────────────────────

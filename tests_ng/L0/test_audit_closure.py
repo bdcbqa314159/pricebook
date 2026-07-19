@@ -226,3 +226,21 @@ def test_3_6_fx_spot_date():
     assert fx_spot_date(CurrencyPair(USD, CAD), date(2024, 1, 2)) == date(2024, 1, 3)   # T+1
     # EUR/GBP cross: T+2 lands on MLK 2024-01-15 (US holiday) → pushes to 01-16
     assert fx_spot_date(CurrencyPair(EUR, GBP), date(2024, 1, 11)) == date(2024, 1, 16)
+
+
+# ── Phase 3b (Schedule provenance) ──
+def test_3b_schedule_emits_per_period_provenance():
+    from pricebook_ng.foundation.schedule import SchedulePeriod
+    # 7 months quarterly, short front → the first period is a 1-month stub
+    terms = ScheduleTerms(frequency=Frequency.QUARTERLY, stub=StubType.SHORT_FRONT)
+    s = build_schedule(date(2024, 1, 15), date(2024, 8, 15), terms)
+    assert all(isinstance(p, SchedulePeriod) for p in s.periods)
+    assert len(s.periods) == len(s.unadjusted) - 1
+    assert s.periods[0].is_stub and not s.periods[-1].is_stub
+    assert s.periods[0].accrual_start == date(2024, 1, 15)
+    assert s.periods[0].accrual_end == date(2024, 2, 15)
+    assert s.periods[-1].payment_date == s.adjusted[-1]     # payment at the adjusted period end
+    # a regular schedule (exact quarters) has no stub period
+    reg = build_schedule(date(2024, 1, 15), date(2024, 7, 15),
+                         ScheduleTerms(frequency=Frequency.QUARTERLY))
+    assert not any(p.is_stub for p in reg.periods)
