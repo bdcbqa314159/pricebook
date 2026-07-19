@@ -1,24 +1,21 @@
-"""Interest-rate index identity + fixings + the accrued-rate primitive (L0).
+"""Interest-rate index identity — decomposed, carrying its own calendar (L0).
 
-The declarative index identity: **a new index is a DECLARATION, never a code change.**
-`RateIndex` is the first instance of the shared concept and covers *all* rate kinds —
-backward-looking compounded RFR (SOFR/SONIA/ESTR) and forward-looking term/IBOR
-(EURIBOR, Term SOFR) via `observation_style` — plus `spread_adjustment` for ISDA
-fallbacks (RFR + credit spread). Sibling identities (inflation level, FX fixing,
-equity/commodity observation) follow the same pattern in later topics; `FixingHistory`
-is already generic over index so it can hold their fixings too.
+Gate audit F2/F3: the earlier `RateIndex` was a flat 12-field bag that **inferred its
+calendar from currency** — the exact quarry flaw #14/#16 ratified as fixed (SOFR fixes on
+SIFMA, not generic USD; two USD indices can sit on different calendars). Fixed here: the
+index carries its own `RollRule` (hence calendar), and it **decomposes** by convention
+family (no `fields-exempt`). It satisfies the `Underlying` protocol (`name`,
+`asset_class`), so it is the rates sibling of the general identity concept.
 
-`accrued_rate` is the one generic realized-rate function; the only branching is on
-`CompoundingMethod` (and the forward/backward split). Content mined from
-`core/rate_index.py`; the registry is built by **explicit construction** — the quarry
-rebound `_REGISTRY` from a JSON load at import, where one bad row dropped the other 27.
+`accrued_rate` is the one realized-rate function; branching only on `CompoundingMethod`
+(and forward/backward). Registry by explicit construction — no import-time JSON reload.
 
 Provenance:
   quarry: python/pricebook/core/rate_index.py
-  source: ISDA 2006 / 2021 definitions; RFR compounding (ARRC/ISDA); IBOR fallbacks
-  oracle: compounded RFR vs hand series; lookback≠observation-shift; forward≠backward;
-          fallback = base + spread
-  slice:  index-identity (Topic 0 S5)
+  source: ISDA 2006/2021; RFR compounding (ARRC/ISDA); IBOR fallbacks; gate audit F2/F3
+  oracle: SOFR-on-SIFMA ≠ a same-currency index on another calendar; compounded RFR;
+          lookback ≠ observation-shift; forward ≠ backward; fallback = base + spread
+  slice:  index-rework (Topic 0 gate rework, F2/F3/F4)
 """
 
 from __future__ import annotations
@@ -28,48 +25,87 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
 
+from pricebook_ng.foundation.calendar import Calendar
 from pricebook_ng.foundation.cashflow import Accrual
-from pricebook_ng.foundation.day_count import DayCountConvention
-from pricebook_ng.foundation.market_calendars import calendar_for_currency
+from pricebook_ng.foundation.day_count import DayCountConvention, year_fraction
+from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency
+from pricebook_ng.foundation.schedule import BusinessDayConvention, RollRule
+from pricebook_ng.foundation.tenor import Tenor, TenorUnit
+from pricebook_ng.foundation.underlying import AssetClass
 
 
 class CompoundingMethod(Enum):
-    COMPOUNDED = "compounded"    # money-market ∏(1 + r_i·δ_i) − 1 (RFR, δ = days/360)
-    EXPONENTIAL = "exponential"  # Brazilian ∏(1 + r_i)^(1/252) − i.e. (1+r)^(bd/252); CDI/SELIC
+    COMPOUNDED = "compounded"    # money-market ∏(1 + r_i·δ_i) − 1 (RFR)
+    EXPONENTIAL = "exponential"  # Brazilian ∏(1 + r_i)^(1/basis) − CDI/SELIC
     AVERAGED = "averaged"        # weighted average of the daily rates
-    FLAT = "flat"               # a single fixing for the whole period (IBOR / term RFR)
+    FLAT = "flat"               # a single fixing for the period (IBOR / term RFR)
 
 
 class ObservationStyle(Enum):
-    BACKWARD_LOOKING = "backward"   # compounded/averaged in arrears over the period (RFR)
-    FORWARD_LOOKING = "forward"     # fixed at the start for the period ahead (IBOR, Term SOFR)
+    BACKWARD_LOOKING = "backward"   # compounded in arrears (RFR)
+    FORWARD_LOOKING = "forward"     # fixed at the start for the period (IBOR, Term SOFR)
+
+
+@dataclass(frozen=True)
+class IndexId:
+    name: str
+    currency: Currency
+    tenor: Tenor                    # `Tenor(1, DAY)` for overnight
+
+
+@dataclass(frozen=True)
+class AccrualConvention:
+    """How the period accrues: the day count and the roll rule — **which carries the
+    calendar** (F2). No currency inference anywhere."""
+
+    day_count: DayCountConvention
+    roll: RollRule
+
+
+@dataclass(frozen=True)
+class FixingRule:
+    observation_style: ObservationStyle
+    compounding: CompoundingMethod
+    fixing_lag: int
+
+
+@dataclass(frozen=True)
+class RfrConvention:
+    observation_shift: int = 0
+    lookback: int = 0
+    lockout: int = 0
+    payment_delay: int = 0
+
+    @classmethod
+    def none(cls) -> RfrConvention:
+        """An IBOR / term rate has no RFR mechanics — the distinction is visible, not five zeros."""
+        return cls()
 
 
 @dataclass(frozen=True)
 class RateIndex:
-    """A benchmark interest-rate index identity. Wide by design — an identity record of
-    conventions, not a value with behaviour."""
-    # fields-exempt: index-identity aggregate — cross-asset convention record (redesign/16 §2.4)
+    """An interest-rate index identity (5 sub-parts, no exemption). Satisfies `Underlying`."""
 
-    name: str
-    currency: Currency
-    tenor: str                          # "ON" for overnight, else "1M"/"3M"/"6M"
-    day_count: DayCountConvention
-    fixing_lag: int                     # business days before accrual start (forward fixings)
-    observation_shift: int              # shift the whole observation window back k business days
-    lookback: int                       # shift only the rate observation back k business days
-    lockout: int                        # freeze the rate for the last k business days
-    payment_delay: int                  # business days after accrual end
-    compounding: CompoundingMethod
-    observation_style: ObservationStyle
-    spread_adjustment: float = 0.0      # ISDA fallback credit spread, added to the realized rate
+    id: IndexId
+    accrual: AccrualConvention
+    fixing: FixingRule
+    rfr: RfrConvention
+    spread_adjustment: float = 0.0   # ISDA fallback credit spread, added to the realized rate
+
+    @property
+    def name(self) -> str:
+        return self.id.name
+
+    @property
+    def asset_class(self) -> AssetClass:
+        return AssetClass.RATES
 
 
 @dataclass(frozen=True)
 class FixingHistory:
-    """Published fixings keyed by index name then date — generic over index, so it holds
-    rates, and later inflation levels / FX fixings / equity observations."""
+    """Published fixings keyed by index name then date — generic over index (rates now;
+    inflation levels / FX fixings / equity observations later)."""
 
     fixings: Mapping[str, Mapping[date, float]]
 
@@ -80,12 +116,6 @@ class FixingHistory:
         return by_index[on]
 
 
-def _denominator(day_count: DayCountConvention) -> float:
-    return 365.0 if day_count is DayCountConvention.ACT_365_FIXED else 360.0
-
-
-# Business days per year for a business-day-counted convention. Generalises the
-# Brazilian 252: another basis (BUS/250, …) is a new day-count entry here, not a literal.
 _ANNUAL_BASIS: dict[DayCountConvention, int] = {DayCountConvention.BUS_252: 252}
 
 
@@ -97,16 +127,17 @@ def _annual_basis(day_count: DayCountConvention) -> int:
 
 
 def exponential_growth(rate: float, business_days: int, day_count: DayCountConvention) -> float:
-    """The Brazilian compound **growth factor** for a SINGLE fixed `rate` over
-    `business_days` days: ``(1 + rate) ** (business_days / basis)`` (basis from the
-    day-count — BUS/252 → 252). This is the `r` case (fixed LTN/NTN-F coupons); the daily
-    floating series `r_i` (CDI in arrears) is `accrued_rate`, which returns a *rate*."""
+    """Brazilian compound **growth factor** for a SINGLE fixed rate over `business_days`:
+    `(1 + rate) ** (business_days / basis)` (basis from the day-count). The fixed-`r`
+    case (LTN/NTN-F); the daily series `r_i` is `accrued_rate`."""
     return (1.0 + rate) ** (business_days / _annual_basis(day_count))
 
 
-def _overnight_days(start: date, end: date, calendar) -> list[tuple[date, int]]:
-    """Business days in ``[start, end)`` with each one's day-count weight (calendar days
-    until the next business day, the last one running to `end`)."""
+def _denominator(day_count: DayCountConvention) -> float:
+    return 365.0 if day_count is DayCountConvention.ACT_365_FIXED else 360.0
+
+
+def _overnight_days(start: date, end: date, calendar: Calendar) -> list[tuple[date, int]]:
     days: list[date] = []
     d = start
     while d < end:
@@ -121,43 +152,43 @@ def _overnight_days(start: date, end: date, calendar) -> list[tuple[date, int]]:
 
 
 def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> float:
-    """The realized rate of `index` over the `accrual` period from `fixings`, plus the
-    index's `spread_adjustment`. Forward-looking / FLAT → the single fixing at the start;
-    backward-looking → compounded or averaged over the observation window."""
-    calendar = calendar_for_currency(index.currency.value)
+    """The realized rate of `index` over `accrual`, plus its `spread_adjustment`. The
+    business-day calendar is **the index's own** (`index.accrual.roll.calendar`) — never
+    inferred from currency (F2)."""
+    calendar = index.accrual.roll.calendar
+    if calendar is None:
+        raise ValueError(f"index {index.name!r} has no calendar on its roll rule")
+    day_count = index.accrual.day_count
 
-    if index.compounding is CompoundingMethod.FLAT:
-        fixing_date = calendar.add_business_days(accrual.start, -index.fixing_lag)
+    if index.fixing.compounding is CompoundingMethod.FLAT:
+        fixing_date = calendar.add_business_days(accrual.start, -index.fixing.fixing_lag)
         return fixings.rate(index.name, fixing_date) + index.spread_adjustment
 
-    # backward-looking: build the observation window and its weights
-    if index.observation_shift:
+    rfr = index.rfr
+    if rfr.observation_shift:
         window = _overnight_days(
-            calendar.add_business_days(accrual.start, -index.observation_shift),
-            calendar.add_business_days(accrual.end, -index.observation_shift),
+            calendar.add_business_days(accrual.start, -rfr.observation_shift),
+            calendar.add_business_days(accrual.end, -rfr.observation_shift),
             calendar,
         )
-        rate_dates = [b for b, _ in window]                     # rate read at the shifted date
+        rate_dates = [b for b, _ in window]
     else:
         window = _overnight_days(accrual.start, accrual.end, calendar)
-        rate_dates = [calendar.add_business_days(b, -index.lookback) for b, _ in window]
+        rate_dates = [calendar.add_business_days(b, -rfr.lookback) for b, _ in window]
 
-    if index.lockout:
-        frozen = len(window) - 1 - index.lockout
+    if rfr.lockout:
+        frozen = len(window) - 1 - rfr.lockout
         rate_dates = [rate_dates[min(i, frozen)] for i in range(len(window))]
 
-    if index.compounding is CompoundingMethod.EXPONENTIAL:
-        # Brazilian BUS/basis: compound the daily SERIES r_i, each over one business day
-        # (1/basis of a year), then re-annualise over the business-day count. A flat series
-        # collapses to the single-rate `exponential_growth` form; a flat rate returns itself.
-        basis = _annual_basis(index.day_count)
+    if index.fixing.compounding is CompoundingMethod.EXPONENTIAL:
+        basis = _annual_basis(day_count)
         factor = 1.0
         for rate_date in rate_dates:
             factor *= (1.0 + fixings.rate(index.name, rate_date)) ** (1.0 / basis)
         realized = factor ** (basis / len(window)) - 1.0
         return realized + index.spread_adjustment
 
-    denom = _denominator(index.day_count)
+    denom = _denominator(day_count)
     factor, weighted, total = 1.0, 0.0, 0
     for (_, weight), rate_date in zip(window, rate_dates):
         r = fixings.rate(index.name, rate_date)
@@ -165,15 +196,16 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         weighted += r * weight
         total += weight
 
-    if index.compounding is CompoundingMethod.COMPOUNDED:
-        realized = (factor - 1.0) / accrual.year_fraction()
+    if index.fixing.compounding is CompoundingMethod.COMPOUNDED:
+        realized = (factor - 1.0) / year_fraction(accrual.start, accrual.end, day_count, calendar=calendar)
     else:  # AVERAGED
         realized = weighted / total
     return realized + index.spread_adjustment
 
 
-# ── registry: explicit construction, no import-time I/O ──────────────────────────
+# ── registry: explicit construction, index carries its own calendar ──────────────
 _REGISTRY: dict[str, RateIndex] = {}
+_MOD_FOL = BusinessDayConvention.MODIFIED_FOLLOWING
 
 
 def _register(index: RateIndex) -> RateIndex:
@@ -181,47 +213,47 @@ def _register(index: RateIndex) -> RateIndex:
     return index
 
 
-def _overnight(name: str, ccy: Currency, dc: DayCountConvention, obs_shift: int, pay_delay: int) -> RateIndex:
+def _accrual(cal_id: str, dc: DayCountConvention) -> AccrualConvention:
+    return AccrualConvention(dc, RollRule(get_calendar(cal_id), _MOD_FOL, eom=False))
+
+
+def _on(name: str, ccy: Currency, cal_id: str, dc: DayCountConvention, rfr: RfrConvention) -> RateIndex:
+    """A backward-looking compounded overnight RFR (the RFR knobs bundled in `rfr`)."""
     return RateIndex(
-        name=name, currency=ccy, tenor="ON", day_count=dc, fixing_lag=0,
-        observation_shift=obs_shift, lookback=0, lockout=0, payment_delay=pay_delay,
-        compounding=CompoundingMethod.COMPOUNDED,
-        observation_style=ObservationStyle.BACKWARD_LOOKING,
+        IndexId(name, ccy, Tenor(1, TenorUnit.DAY)), _accrual(cal_id, dc),
+        FixingRule(ObservationStyle.BACKWARD_LOOKING, CompoundingMethod.COMPOUNDED, fixing_lag=0), rfr,
     )
 
 
-def _term(name: str, ccy: Currency, tenor: str, dc: DayCountConvention, style: ObservationStyle) -> RateIndex:
+def _term(name: str, ccy: Currency, cal_id: str, tenor: str, dc: DayCountConvention) -> RateIndex:
     return RateIndex(
-        name=name, currency=ccy, tenor=tenor, day_count=dc, fixing_lag=2,
-        observation_shift=0, lookback=0, lockout=0, payment_delay=0,
-        compounding=CompoundingMethod.FLAT, observation_style=style,
+        IndexId(name, ccy, Tenor.parse(tenor)), _accrual(cal_id, dc),
+        FixingRule(ObservationStyle.FORWARD_LOOKING, CompoundingMethod.FLAT, fixing_lag=2),
+        RfrConvention.none(),
     )
 
 
-SOFR = _register(_overnight("SOFR", Currency.USD, DayCountConvention.ACT_360, 2, 2))
-SONIA = _register(_overnight("SONIA", Currency.GBP, DayCountConvention.ACT_365_FIXED, 0, 0))
-ESTR = _register(_overnight("ESTR", Currency.EUR, DayCountConvention.ACT_360, 0, 0))
-TONA = _register(_overnight("TONA", Currency.JPY, DayCountConvention.ACT_365_FIXED, 0, 0))
-SARON = _register(_overnight("SARON", Currency.CHF, DayCountConvention.ACT_360, 0, 0))
-
-# Brazilian overnight — exponential BUS/252 compounding (CDI/SELIC)
+_DC = DayCountConvention
+SOFR = _register(_on("SOFR", Currency.USD, "NEW_YORK_SIFMA", _DC.ACT_360,
+                     RfrConvention(observation_shift=2, payment_delay=2)))
+SONIA = _register(_on("SONIA", Currency.GBP, "LONDON", _DC.ACT_365_FIXED, RfrConvention()))
+ESTR = _register(_on("ESTR", Currency.EUR, "TARGET", _DC.ACT_360, RfrConvention()))
+TONA = _register(_on("TONA", Currency.JPY, "TOKYO", _DC.ACT_365_FIXED, RfrConvention()))
+SARON = _register(_on("SARON", Currency.CHF, "ZURICH", _DC.ACT_360, RfrConvention()))
+# Brazilian CDI — exponential BUS/252 (built inline: the one non-compounded overnight)
 CDI = _register(RateIndex(
-    name="CDI", currency=Currency.BRL, tenor="ON", day_count=DayCountConvention.BUS_252,
-    fixing_lag=0, observation_shift=0, lookback=0, lockout=0, payment_delay=0,
-    compounding=CompoundingMethod.EXPONENTIAL, observation_style=ObservationStyle.BACKWARD_LOOKING,
+    IndexId("CDI", Currency.BRL, Tenor(1, TenorUnit.DAY)), _accrual("SAO_PAULO", _DC.BUS_252),
+    FixingRule(ObservationStyle.BACKWARD_LOOKING, CompoundingMethod.EXPONENTIAL, fixing_lag=0),
+    RfrConvention(),
 ))
-
-EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "3M", DayCountConvention.ACT_360,
-                             ObservationStyle.FORWARD_LOOKING))
-TERM_SOFR_3M = _register(_term("TERM_SOFR_3M", Currency.USD, "3M", DayCountConvention.ACT_360,
-                               ObservationStyle.FORWARD_LOOKING))
-
-# an ISDA IBOR fallback: compounded SOFR + the fixed credit adjustment spread (3M)
+EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "TARGET", "3M", _DC.ACT_360))
+TERM_SOFR_3M = _register(_term("TERM_SOFR_3M", Currency.USD, "NEW_YORK_SIFMA", "3M", _DC.ACT_360))
 USD_LIBOR_3M_FALLBACK = _register(RateIndex(
-    name="USD_LIBOR_3M_FALLBACK", currency=Currency.USD, tenor="3M",
-    day_count=DayCountConvention.ACT_360, fixing_lag=0, observation_shift=2, lookback=0,
-    lockout=0, payment_delay=2, compounding=CompoundingMethod.COMPOUNDED,
-    observation_style=ObservationStyle.BACKWARD_LOOKING, spread_adjustment=0.0026161,
+    IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
+    AccrualConvention(_DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), _MOD_FOL, eom=False)),
+    FixingRule(ObservationStyle.BACKWARD_LOOKING, CompoundingMethod.COMPOUNDED, fixing_lag=0),
+    RfrConvention(observation_shift=2, payment_delay=2),
+    spread_adjustment=0.0026161,
 ))
 
 

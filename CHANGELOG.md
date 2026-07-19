@@ -6,6 +6,38 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (3/5) — the index rework (audit F2/F3/F4/S10).**
+  - **F2 (the critical fix): `RateIndex` carries its own calendar.** `accrued_rate` now reads
+    `index.accrual.roll.calendar` — **no currency inference** (the reverted quarry flaw #14/#16). SOFR
+    fixes on **SIFMA**; two same-currency indices on different calendars now differ. Regression oracle:
+    SOFR-on-SIFMA ≠ a same-currency index on TARGET over a period spanning Columbus Day.
+  - **F3: `RateIndex` decomposed** → `IndexId`(name·currency·`Tenor`) · `AccrualConvention`(day_count·
+    `RollRule`) · `FixingRule`(observation_style·compounding·fixing_lag) · `RfrConvention`(shift·lookback·
+    lockout·payment_delay, with `.none()` for IBORs) · `spread_adjustment` — 5 parts, **marker removed**.
+  - **F4/S10: `foundation/underlying.py`** — the general `Underlying` protocol (`name`, `asset_class`)
+    that `RateIndex` satisfies, plus sibling identities **defined now, populated later**:
+    `ReferenceEntity`, `InflationIndex` (lag·interpolation·base), `FxFixing` (pair·source·time),
+    `EquityUnderlying`, `CommodityUnderlying` (unit·**delivery location**·**grade** — Brent ≠ WTI).
+
+## [0.65.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (2/5) — config & result shapes (audit F1/S15/S6/S2/S13/S14).**
+  - **`NumericalConfig` decomposed** by method family — `MonteCarloConfig`/`LatticeConfig`(tree folded
+    in)/`IntegrationConfig`/`SolverConfig`, each ≤5 fields; the `fields-exempt` marker is **removed**
+    (`verify.py fields` passes on merit; reads as `numerics.monte_carlo.paths`). RNG family **pinned**
+    as an invariant `RNG_FAMILY` (S15 — not a field, which would push MC to 6). Nested serialisation.
+  - **`PricingResult` full decomposition vocabulary** fixed once (pv · accrued · clean · cashflow
+    breakdown · sensitivities · diagnostics), fields optional/unpopulated — a legitimate output-record
+    exemption per §3b, so no asset class retouches L0 to add a field (S6).
+  - **`Leg` holds `flows: tuple[Cashflow | Delivery, ...]`** — a physical/commodity leg is now
+    expressible (S2); **pay/receive is the sign of the amount, no direction field** (S13).
+  - **Degenerate periods raise** — a reversed/zero-length `Accrual`, and `year_fraction(end < start)`
+    (S14).
+
 ## [0.64.0] - 2026-07-18
 
 ### Changed

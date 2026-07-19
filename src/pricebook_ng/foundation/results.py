@@ -15,7 +15,9 @@ Provenance:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from pricebook_ng.foundation.money import Currency, Money
 
@@ -31,13 +33,19 @@ class DiscountBasis:
 
 @dataclass(frozen=True)
 class PricingResult:
-    """A successful valuation. `pv` is the dirty PV (the mark); `accrued` is the
-    earned-but-unpaid interest at valuation (nominal); `clean = pv − accrued`. `basis`
-    records the collateral/discounting basis (with `pv.currency`, the full basis)."""
+    """A successful valuation — the full decomposition vocabulary, fixed once and
+    populated on demand (design-complete, so no asset class retouches L0 to add a field).
+    `pv` is the dirty PV; `accrued` the earned-but-unpaid interest; `clean = pv − accrued`;
+    `basis` the collateral/discounting basis; `cashflow_breakdown` the per-flow PVs;
+    `sensitivities` named greeks (L5 fills these); `diagnostics` solver/engine notes."""
+    # fields-exempt: output record — a valuation's full decomposition (A2/A4.4), like XvaReport
 
     pv: Money
     accrued: Money | None = None
     basis: DiscountBasis | None = None
+    cashflow_breakdown: tuple[Money, ...] | None = None
+    sensitivities: Mapping[str, float] | None = None
+    diagnostics: Mapping[str, Any] | None = None
 
     @property
     def clean(self) -> Money:

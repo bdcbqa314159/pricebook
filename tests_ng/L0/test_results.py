@@ -31,3 +31,19 @@ def test_result_records_currency_and_collateral_basis():
 def test_failure_is_a_value():
     f = PricingFailure(reason="no curve for index")
     assert f.reason == "no curve for index"
+
+
+def test_full_decomposition_vocabulary_optional():
+    # S6: the full vocabulary exists up front (fields optional, unpopulated until a consumer)
+    r = PricingResult(
+        pv=Money(100.0, USD),
+        accrued=Money(2.0, USD),
+        cashflow_breakdown=(Money(60.0, USD), Money(40.0, USD)),
+        sensitivities={"dv01": 12.5},
+        diagnostics={"solver_iters": 4},
+    )
+    assert r.clean == Money(98.0, USD)
+    assert r.sensitivities["dv01"] == 12.5
+    # a bare result still works — everything but pv defaults to None
+    bare = PricingResult(pv=Money(5.0, USD))
+    assert bare.cashflow_breakdown is None and bare.sensitivities is None
