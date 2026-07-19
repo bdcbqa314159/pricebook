@@ -1,66 +1,88 @@
-# redesign/ — reading order
-
-Docs accumulated as the design evolved. **Several early ones were written under assumptions later
-corrected** — status is marked so nothing stale is read as current.
+# redesign/ — where we are, where we're going, what to read
 
 ---
 
-## ► START HERE (3 docs — everything needed to begin)
+## Where we are
+
+**L0 (the foundation) is closed** at ng `v0.74.1`. 16 modules, ~2,400 LOC, zero debt, one legitimate
+`fields-exempt` (`PricingResult`). **13 quarry modules parked** → `parked/topic-00-foundation/`.
+Cross-asset by design: `Currency`/`Unit` open registries · `Tenor` · `Frequency` as a tenor-step
+(bullet/28-day/daily) · `RollRule` · IMM & CDS rolls · `Money`/`Quantity` · `Flow = Cashflow |
+Delivery` · `RateIndex` (full RFR set, carrying its own calendar) · `rate_basis` · settlement ·
+`Underlying` protocol · scipy-backed numerics adapters.
+
+**Drawdown: 13 / 768.**
+
+---
+
+## Forward scope — the sequence
+
+**Two cross-asset foundations come before multicurve.** Everything above them — rates, credit,
+equity, commodity — consumes them, so they are settled once rather than discovered per asset class.
+This is the same rule that produced L0.
+
+| # | phase | design | build | why it comes first |
+|---|---|---|---|---|
+| **F1** | **Market-data foundation** | ✅ `19_market_data_design.md` | ⬜ | every asset prices off a snapshot; the shape must be cross-asset |
+| **F2** | **Model + calibrator foundation** | ⬜ **next session** | ⬜ | what a model *is*, what it expects, how it orchestrates a calibrator |
+| **T1** | **Multicurve + linear rates** | ✅ `18_topic1_yield_curve.md` | ⬜ | the **first consumer** of F1 + F2 — and the proof they work |
+| T2+ | credit · equity · commodity · inflation · FX · AAD · ML curves · XVA | — | — | each adds *keys*, never new foundation shape |
+
+**F1/F2 are design-complete now, built with their first consumer.** They are not built speculatively
+in isolation — that would be infrastructure ahead of a need (§6b). Their *contracts* are settled now;
+the code lands as T1's opening work, written **generically** rather than rates-shaped, and T1 proves
+them by pricing a real swap end to end.
+
+**F1 settled (19):** `QuoteSet` → calibrate → `MarketSnapshot` · the dual-role bump rule · snapshot as
+**closed shapes × open keys** (term structure · surface · scalar · series · schedule) · `CurveSet` with
+typed accessors · adapter/resolver at the data spine · `CalibrationResult` beside the curve ·
+**resolution safety** (reprice-to-par is blind to mis-resolution).
+
+**F2 open questions for the next session:** what a model carries and expects · the calibrator contract
+(`quotes + spec → calibrated model + CalibrationResult`) · how the model orchestrates calibration ·
+where the engine boundary sits · how this generalises past rates to credit/equity dynamics.
+
+**T1 shape (18):** a **full vertical L1→L6** in three clusters — C1 market data + construction ·
+C2 model + engine + products · C3 trade/portfolio + risk/stress. Most of C2/C3 is a **re-base from
+`ng_parked/`**, not greenfield. Drawdown target **13 → ~50**.
+
+---
+
+## ► START HERE
 
 | # | doc | what it is |
 |---|---|---|
-| 1 | **`handoffs/handoff_topic0_foundation.md`** | **the active hand-off** — 7 slices, what to mine, oracles, checkpoint |
-| 2 | **`16_topic0_foundation.md`** | **the Topic 0 spec** — what the foundation *is*, cross-asset complete |
-| 3 | **`../CLAUDE.md`** | the guardrails — law, not suggestion |
+| 1 | **`../CLAUDE.md`** | the guardrails — law, not suggestion |
+| 2 | **`19_market_data_design.md`** | **F1** — the market-data foundation |
+| 3 | **`18_topic1_yield_curve.md`** | **T1** — multicurve scope + the L1→L6 vertical (§9) |
 
-Current plan in one line: **park all ng → build Topic 0 (foundation, complete) → park the ~12 quarry
-foundational modules → then Topic 1 (yield curves).**
-
-## ► THE METHOD (why it's shaped this way)
-
-| # | doc | status |
-|---|---|---|
-| 4 | `13_topic_migration_and_parking.md` | **current** — topics, tick mechanism (§3), target/use/**apply the policy** (§5) |
-| 5 | `12_domain_build_order.md` | **current** — block order replaced demand-driven; drawdown reports, never steers |
-| 6 | `11_checkpoint_and_review_cadence.md` | **current** — ≤6 slices or cluster; the five review inputs |
-
-## ► REFERENCE WHILE BUILDING
-
-| # | doc | status |
-|---|---|---|
-| 7 | `15_foundation_comparison.md` | **current** — where each quarry `core/` module actually belongs |
-| 8 | `02_spine.md` | **current** — layers + **Amendments A1–A6** (engine contract, temporality, keyed snapshot, measure) |
-| 9 | `09_verification_and_audit.md` · `10_ci_and_cross_platform.md` | **current** — `verify.py`, CI matrix, tolerance oracles |
-| 10 | `06_versioning_and_release_policy.md` · `07_branching_and_commit_policy.md` | **current** — 0.x→1.0, branch per slice, red-before-green |
-
-## ► LATER (Topic 1 — do not read yet)
-
-| doc | when |
-|---|---|
-| `14_topic1_object_model.md` | when Topic 0's gate is green — the yield-curve objects (`CurveSet`, `RateIndex` capstone, curve risk) |
-| `parked/topic-01-yield-curve/MANIFEST.md` | Topic 1 file set + the critical findings from the quarry read |
-
-## ► HISTORICAL / PARTLY SUPERSEDED
-
+## ► THE METHOD
 | doc | status |
 |---|---|
-| `01_scope_contract.md` | scope decision (full cross-asset, one discipline bar) **still stands**; its drawdown framing is superseded by #12 |
-| `03_vocabulary.md` | absorbed into #14/#16 — read those instead |
-| `04_slice_plan.md` | **superseded** — the topic method (#13) replaced it; kept for the Slice-0 walking-skeleton record |
-| `05_migration_and_debt_policy.md` | debt rules **still valid**; migration ordering superseded by #12/#13 |
-| `08_handoff_protocol.md` | extended by #11 — read #11 |
-| `L0_ledger.xlsx` | retired as a tracker (per-topic manifests replaced it) |
-| `kickoff_slice0.md` | historical — the original build kickoff |
+| `13_topic_migration_and_parking.md` | **current** — topics · tick mechanism (§3) · target/use/**apply the policy** (§5) |
+| `12_domain_build_order.md` | **current** — block order; drawdown reports, never steers |
+| `11_checkpoint_and_review_cadence.md` | **current** — ≤6 slices or cluster; the five review inputs |
 
-## ► handoffs/ — the build↔design record
+## ► REFERENCE WHILE BUILDING
+| doc | status |
+|---|---|
+| `02_spine.md` | **current** — layers + **Amendments A1–A6** |
+| `17_quarry_L0_classification.md` | **current** — where every remaining quarry-L0 file goes; T1's set |
+| `15_foundation_comparison.md` | ours vs the quarry's L0 |
+| `09_verification_and_audit.md` · `10_ci_and_cross_platform.md` | `verify.py`, CI matrix, tolerance oracles |
+| `06_versioning…` · `07_branching…` | 0.x→1.0 · branch per slice · red-before-green |
+| `handoffs/quarry_reconciliation.md` | living drawdown tracker |
+| `parked/topic-01-yield-curve/MANIFEST.md` | T1 file set + findings from the quarry read |
 
-Rulings and checkpoint reports, newest last. **`handoff_topic0_foundation.md` is the only active
-hand-off**; `handoff_topic1_conventions.md` is explicitly marked SUPERSEDED. The rest
-(`CP1`–`CP4` checkpoints, `rulings_*`) are the historical record of decisions — useful for *why*,
-not *what to do next*.
+## ► SUPERSEDED (kept for history — do not act on)
+`03_vocabulary` (absorbed into 16/19) · `04_slice_plan` (topic method replaced it) ·
+`14_topic1_object_model` (superseded by 18/19; C4's L0/L1 interpolation split was **withdrawn**) ·
+`16_topic0_foundation` (Topic 0 closed) · `kickoff_slice0` · `L0_ledger.xlsx` (per-topic manifests
+replaced it) · `01_scope_contract` — the scope decision stands, its drawdown framing does not.
 
-Notable ones worth knowing exist:
-- `rulings_deletable_definition.md` — what "deletable" means (supersede, not clone)
-- `rulings_spotcheck_retire_1.md` — the evidence protocol for a `dead` claim
-- `rulings_CP3_correction.md` — the phantom-residual rule
-- `rulings_spine_conformance.md` — semantic layer conformance (the `black.py` precedent)
+## ► handoffs/
+`quarry_reconciliation.md` is live. **Everything else is the reasoning record** — checkpoint reports
+and `rulings_*`. Useful for *why*, never for *what next*. The ones that shaped the design most:
+`rulings_deletable_definition` · `rulings_spotcheck_retire_1` (evidence protocol) ·
+`rulings_CP3_correction` (phantom-residual rule) · `rulings_spine_conformance` (the `black.py`
+precedent) · `AUDIT_topic0_foundation` (F1–F4, S1–S17).
