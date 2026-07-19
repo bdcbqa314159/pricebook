@@ -13,6 +13,8 @@ Provenance:
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from pricebook_ng.foundation.calendar import (
     Calendar,
     Coverage,
@@ -238,6 +240,10 @@ MANILA = _reg(Calendar("MANILA", (
     fixed(1, 1), fixed(4, 9), fixed(5, 1), fixed(6, 12), nth(8, 0, -1), fixed(11, 30),
     fixed(12, 24), fixed(12, 25), fixed(12, 30), fixed(12, 31), easter(-3), easter(-2),
 ), observance=Observance.NONE))
+
+# Closed registry — the 37 markets are all declared above. Freeze so nothing can rebind or
+# mutate it (the quarry bug was registry mutation at import); `get_calendar` reads it (A2).
+_CALENDARS = MappingProxyType(_CALENDARS)
 
 
 # ── currency → calendar identity (a lookup, C1) ──────────────────────────────────

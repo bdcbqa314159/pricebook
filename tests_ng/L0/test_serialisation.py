@@ -13,7 +13,8 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.cashflow import SCHEMA_VERSION, Accrual, Cashflow, Leg
+from pricebook_ng.foundation.cashflow import SCHEMA_VERSION, Cashflow, Leg
+from pricebook_ng.foundation.day_count import Accrual
 from pricebook_ng.foundation.day_count import DayCountConvention as DC
 from pricebook_ng.foundation.money import Currency, Money, Quantity, Unit
 from pricebook_ng.foundation.settlement import Delivery

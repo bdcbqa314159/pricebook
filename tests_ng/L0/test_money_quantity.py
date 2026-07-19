@@ -10,8 +10,8 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.cashflow import Accrual, Cashflow, Leg
-from pricebook_ng.foundation.day_count import CouponPeriod
+from pricebook_ng.foundation.cashflow import Cashflow, Leg
+from pricebook_ng.foundation.day_count import Accrual, CouponPeriod
 from pricebook_ng.foundation.day_count import DayCountConvention as DC
 from pricebook_ng.foundation.day_count import year_fraction
 from pricebook_ng.foundation.money import (
