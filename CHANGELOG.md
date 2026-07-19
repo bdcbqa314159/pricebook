@@ -6,6 +6,31 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-07-19
+
+### Removed
+- **Foundation audit closure — Phase 4: A3 speculative-field cuts.** The design SHAPE was ratified;
+  the guessed FIELDS were not (ruling A3 — a guessed field frozen into a schema is a costlier retrofit
+  than the file-touch to reintroduce it correctly). Cut, each with zero consumers:
+  - `underlying.py` sibling identities `ReferenceEntity` / `InflationIndex` / `FxFixing` /
+    `EquityUnderlying` / `CommodityUnderlying` (guessed `fixing_time`, a required `grade`) — the file
+    now holds only the `Underlying` protocol + `AssetClass`; each sibling returns *validated* when its
+    asset class actually ships (§3c, one identity at a time).
+  - `numerical_config.py` (`NumericalConfig` + sub-configs) — ships with the first engine that reads it;
+    no engine exists yet, so no knob has a present consumer.
+  - `PricingResult.cashflow_breakdown` / `sensitivities` / `diagnostics` and the `DiscountBasis`
+    wrapper — `basis` is inlined to `Currency | None` (the collateral currency); greeks/breakdowns/
+    diagnostics return with the L4/L5 layer that produces them. `results.py` drops its `fields-exempt`.
+
+### Changed
+- **A1 doc correction** (`interpolation.py`): documented that `CONTINUE_SLOPE` extends the end slope in
+  the interpolation's *own* space (log space for `LOG_LINEAR`) — the fix that keeps extrapolated DFs
+  positive.
+- **A2 doc correction** (`AUDIT_topic0_foundation.md`, `HANDOFF_topic0_gate.md`,
+  `handoff_topic1_conventions.md`): the S16 "record the invariant" ruling is **withdrawn** — business-day
+  counting is one half-open `[start, end)` primitive, not a recorded invariant (the CDI/BUS-252 consumer
+  needed the other convention, so the premise was false).
+
 ## [0.79.0] - 2026-07-19
 
 ### Changed
