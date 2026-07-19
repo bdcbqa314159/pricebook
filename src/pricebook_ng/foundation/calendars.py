@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
 from functools import lru_cache
+from typing import Protocol, runtime_checkable
 
 # A holiday rule: given the calendar (for its observance) and a year, the dates it adds.
 Rule = Callable[["Calendar", int], Iterable[date]]
@@ -272,9 +273,80 @@ class HolidaySet:
     half_days: tuple[Rule, ...] = ()
 
 
+# ── the calendar capability (protocol) + shared business-day arithmetic ───────────
+@runtime_checkable
+class CalendarProtocol(Protocol):
+    """What every consumer needs of a calendar (audit 3.2): an identity plus business-day
+    membership and arithmetic. `Calendar` and `JointCalendar` both satisfy it — depend on the
+    capability, not the concrete class, so cross-currency (`JointCalendar`) schedules, FX dates
+    and NY+LON payment calendars type-check and work."""
+
+    @property
+    def identity(self) -> str: ...
+    def is_business_day(self, d: date) -> bool: ...
+    def adjust(self, d: date, convention: BusinessDayConvention) -> date: ...
+    def add_business_days(self, d: date, n: int) -> date: ...
+
+
+class _BusinessDayArithmetic:
+    """`adjust` / `add_business_days` over anything that answers `is_business_day` — shared by
+    `Calendar` and `JointCalendar` (the algorithms only call `is_business_day`)."""
+
+    def is_business_day(self, d: date) -> bool:  # provided by the concrete calendar
+        raise NotImplementedError
+
+    def adjust(self, d: date, convention: BusinessDayConvention) -> date:
+        C = BusinessDayConvention
+        if convention is C.UNADJUSTED or self.is_business_day(d):
+            return d
+        if convention is C.FOLLOWING:
+            return self._following(d)
+        if convention is C.PRECEDING:
+            return self._preceding(d)
+        if convention is C.MODIFIED_FOLLOWING:
+            nxt = self._following(d)
+            return self._preceding(d) if nxt.month != d.month else nxt
+        if convention is C.MODIFIED_PRECEDING:
+            prv = self._preceding(d)
+            return self._following(d) if prv.month != d.month else prv
+        if convention is C.NEAREST:
+            nxt, prv = self._following(d), self._preceding(d)
+            return prv if (d - prv) <= (nxt - d) else nxt
+        raise ValueError(f"unknown convention: {convention}")
+
+    def add_business_days(self, d: date, n: int) -> date:
+        # n == 0 is "d itself, as a business day" — undefined if d is not one. Raise rather
+        # than silently return a non-business date (F3): a caller wanting to snap must
+        # adjust() explicitly. For n != 0 the walk always lands on a business day.
+        if n == 0:
+            if not self.is_business_day(d):
+                raise ValueError(
+                    f"add_business_days({d}, 0): {d} is not a business day "
+                    f"(0 business days from a non-business day is undefined — adjust() first)"
+                )
+            return d
+        step = 1 if n >= 0 else -1
+        remaining, cur = abs(n), d
+        while remaining:
+            cur += timedelta(days=step)
+            if self.is_business_day(cur):
+                remaining -= 1
+        return cur
+
+    def _following(self, d: date) -> date:
+        while not self.is_business_day(d):
+            d += timedelta(days=1)
+        return d
+
+    def _preceding(self, d: date) -> date:
+        while not self.is_business_day(d):
+            d -= timedelta(days=1)
+        return d
+
+
 # ── the one Calendar value ───────────────────────────────────────────────────────
 @dataclass(frozen=True)
-class Calendar:
+class Calendar(_BusinessDayArithmetic):
     """A business-day calendar: an identity, a weekend rule, a substitution regime,
     and a tuple of declarative holiday rules. Frozen and hashable — holiday sets are
     computed on demand and cached."""
@@ -335,54 +407,6 @@ class Calendar:
     def is_business_day(self, d: date) -> bool:
         return not self.is_weekend(d) and not self.is_holiday(d)
 
-    def adjust(self, d: date, convention: BusinessDayConvention) -> date:
-        C = BusinessDayConvention
-        if convention is C.UNADJUSTED or self.is_business_day(d):
-            return d
-        if convention is C.FOLLOWING:
-            return self._following(d)
-        if convention is C.PRECEDING:
-            return self._preceding(d)
-        if convention is C.MODIFIED_FOLLOWING:
-            nxt = self._following(d)
-            return self._preceding(d) if nxt.month != d.month else nxt
-        if convention is C.MODIFIED_PRECEDING:
-            prv = self._preceding(d)
-            return self._following(d) if prv.month != d.month else prv
-        if convention is C.NEAREST:
-            nxt, prv = self._following(d), self._preceding(d)
-            return prv if (d - prv) <= (nxt - d) else nxt
-        raise ValueError(f"unknown convention: {convention}")
-
-    def add_business_days(self, d: date, n: int) -> date:
-        # n == 0 is "d itself, as a business day" — undefined if d is not one. Raise rather
-        # than silently return a non-business date (F3): a caller wanting to snap must
-        # adjust() explicitly. For n != 0 the walk always lands on a business day.
-        if n == 0:
-            if not self.is_business_day(d):
-                raise ValueError(
-                    f"add_business_days({d}, 0): {d} is not a business day "
-                    f"(0 business days from a non-business day is undefined — adjust() first)"
-                )
-            return d
-        step = 1 if n >= 0 else -1
-        remaining, cur = abs(n), d
-        while remaining:
-            cur += timedelta(days=step)
-            if self.is_business_day(cur):
-                remaining -= 1
-        return cur
-
-    def _following(self, d: date) -> date:
-        while not self.is_business_day(d):
-            d += timedelta(days=1)
-        return d
-
-    def _preceding(self, d: date) -> date:
-        while not self.is_business_day(d):
-            d -= timedelta(days=1)
-        return d
-
     def _holidays(self, year: int) -> frozenset[date]:
         return _holidays_of(
             self, year
@@ -423,14 +447,19 @@ def _furikae_substitutes(holidays: set[date]) -> set[date]:
 
 
 @dataclass(frozen=True)
-class JointCalendar:
-    """A date is a holiday if it is a holiday in ANY component; a business day only if
-    it is a business day in ALL of them."""
+class JointCalendar(_BusinessDayArithmetic):
+    """A date is a holiday if it is a holiday in ANY component; a business day only if it is a
+    business day in ALL of them. Satisfies `CalendarProtocol`, so it is usable wherever a
+    calendar is required — cross-currency schedules, FX dates, NY+LON payment calendars (3.2)."""
 
     calendars: tuple[Calendar, ...]
 
     def __init__(self, *calendars: Calendar) -> None:
         object.__setattr__(self, "calendars", calendars)
+
+    @property
+    def identity(self) -> str:
+        return "+".join(c.identity for c in self.calendars)
 
     def is_weekend(self, d: date) -> bool:
         return any(c.is_weekend(d) for c in self.calendars)

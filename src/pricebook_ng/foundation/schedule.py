@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from enum import Enum
 from typing import ClassVar
 
-from pricebook_ng.foundation.calendars import BusinessDayConvention, Calendar
+from pricebook_ng.foundation.calendars import BusinessDayConvention, CalendarProtocol
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 
 _IMM_MONTHS = (3, 6, 9, 12)
@@ -83,7 +83,7 @@ class RollRule:
     adjustment), the business-day convention, and whether month-end rolls stay at
     month-end (EOM, anchored from the schedule start — ISDA §4.10)."""
 
-    calendar: Calendar | None = None
+    calendar: CalendarProtocol | None = None
     convention: BusinessDayConvention = BusinessDayConvention.MODIFIED_FOLLOWING
     eom: bool = True
 

@@ -26,7 +26,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pricebook_ng.foundation.calendars import Calendar
+    from pricebook_ng.foundation.calendars import CalendarProtocol
 
 
 class DayCountConvention(Enum):
@@ -63,7 +63,7 @@ def year_fraction(
     convention: DayCountConvention,
     *,
     coupon_period: CouponPeriod | None = None,
-    calendar: "Calendar | None" = None,
+    calendar: "CalendarProtocol | None" = None,
 ) -> float:
     """Year fraction of ``[start, end)`` under `convention`. `coupon_period` is
     required for ACT/ACT ICMA (and carries the 30E/360-ISDA final flag); `calendar`
@@ -228,7 +228,7 @@ def _act_act_afb(start: date, end: date) -> float:
     return years + (stub_boundary - start).days / denom
 
 
-def business_days_between(start: date, end: date, calendar: "Calendar") -> int:
+def business_days_between(start: date, end: date, calendar: "CalendarProtocol") -> int:
     """Business days in ``[start, end)`` — start-inclusive, end-exclusive. This is the ONE
     business-day primitive: it matches `_overnight_days` (the CDI/RFR accrual window), so a
     BUS/252 discount factor and a CDI accrual count the same days (audit 1.3 / ruling A2).
@@ -263,7 +263,7 @@ class Accrual:
         self,
         *,
         coupon_period: CouponPeriod | None = None,
-        calendar: "Calendar | None" = None,
+        calendar: "CalendarProtocol | None" = None,
     ) -> float:
         return year_fraction(
             self.start,

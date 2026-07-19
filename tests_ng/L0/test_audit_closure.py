@@ -126,3 +126,22 @@ def test_2_4_tokyo_equinoxes_are_astronomical():
     assert not TOKYO.is_holiday(date(2024, 3, 21))  # the old hardcoded date is no longer a holiday
     assert TOKYO.is_holiday(date(2024, 9, 22))      # Autumnal Equinox 2024 (was fixed 9/23)
     # 2024-09-22 is a Sunday, so 09-23 is its furikae substitute (also a holiday) — expected
+
+
+# ── Phase 3 (structural) ──
+from pricebook_ng.foundation.calendars import BusinessDayConvention as BDC
+
+
+# 3.2 JointCalendar is a full calendar (adjust / add_business_days / identity via CalendarProtocol)
+def test_3_2_joint_calendar_is_a_full_calendar():
+    from pricebook_ng.foundation.calendars import CalendarProtocol, JointCalendar
+    joint = JointCalendar(NY, LON)
+    assert isinstance(joint, CalendarProtocol)          # runtime_checkable
+    assert joint.identity                                # has an identity
+    xmas = date(2024, 12, 25)                            # holiday in both
+    assert joint.adjust(xmas, BDC.FOLLOWING) == date(2024, 12, 27)   # skip 25(both)+26(LON boxing)
+    assert joint.add_business_days(date(2024, 12, 24), 1) == date(2024, 12, 27)
+    # a cross-currency schedule keyed on a JointCalendar builds (was a runtime AttributeError)
+    terms = ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(calendar=joint))
+    s = build_schedule(date(2024, 1, 15), date(2025, 1, 15), terms)
+    assert len(s.adjusted) == len(s.unadjusted)

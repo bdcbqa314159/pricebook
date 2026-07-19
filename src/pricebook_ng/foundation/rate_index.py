@@ -26,7 +26,7 @@ from datetime import date, timedelta
 from enum import Enum
 from types import MappingProxyType
 
-from pricebook_ng.foundation.calendars import Calendar
+from pricebook_ng.foundation.calendars import CalendarProtocol
 from pricebook_ng.foundation.day_count import Accrual, DayCountConvention
 from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency
@@ -144,7 +144,7 @@ def _denominator(day_count: DayCountConvention) -> float:
 
 
 def _overnight_days(
-    start: date, end: date, calendar: Calendar
+    start: date, end: date, calendar: CalendarProtocol
 ) -> list[tuple[date, int]]:
     days: list[date] = []
     d = start

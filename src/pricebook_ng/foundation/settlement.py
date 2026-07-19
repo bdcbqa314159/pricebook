@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
-from pricebook_ng.foundation.calendars import Calendar
+from pricebook_ng.foundation.calendars import CalendarProtocol
 from pricebook_ng.foundation.money import Currency, Quantity
 
 
@@ -87,7 +87,7 @@ class SettlementTerms:
 
 
 def settlement_date(
-    trade_date: date, terms: SettlementTerms, calendar: Calendar
+    trade_date: date, terms: SettlementTerms, calendar: CalendarProtocol
 ) -> date:
     """The settlement date: `trade_date` + `terms.lag` business days on `calendar`."""
     return calendar.add_business_days(trade_date, terms.lag)
