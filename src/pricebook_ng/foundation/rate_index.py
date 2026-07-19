@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
 from types import MappingProxyType
+from typing import Protocol, runtime_checkable
 
 from pricebook_ng.foundation.calendars import CalendarProtocol
 from pricebook_ng.foundation.day_count import Accrual, DayCountConvention
@@ -105,9 +106,18 @@ class RateIndex:
         return AssetClass.RATES
 
 
+@runtime_checkable
+class FixingSource(Protocol):
+    """What `accrued_rate` needs to resolve a fixing (audit 3.7): a published rate for an
+    index on a date. `FixingHistory` is the trivial in-memory implementation; the market-data
+    layer will supply a live/db-backed source without a two-truths migration."""
+
+    def rate(self, index_name: str, on: date) -> float: ...
+
+
 @dataclass(frozen=True)
 class FixingHistory:
-    """Published fixings keyed by index name then date — generic over index (rates now;
+    """Published fixings keyed by index name then date — the trivial `FixingSource` (rates now;
     inflation levels / FX fixings / equity observations later)."""
 
     fixings: Mapping[str, Mapping[date, float]]
@@ -141,7 +151,16 @@ def exponential_growth(
 
 
 def _denominator(day_count: DayCountConvention) -> float:
-    return 365.0 if day_count is DayCountConvention.ACT_365_FIXED else 360.0
+    # RFR compounding/averaging is ACT/360 or ACT/365F. Anything else has no defined
+    # denominator here — raise rather than silently return 360 (audit 3.7; our own
+    # no-silent-fallback rule).
+    if day_count is DayCountConvention.ACT_360:
+        return 360.0
+    if day_count is DayCountConvention.ACT_365_FIXED:
+        return 365.0
+    raise ValueError(
+        f"{day_count.value} has no RFR compounding denominator (only ACT/360, ACT/365F)."
+    )
 
 
 def _overnight_days(
@@ -160,7 +179,7 @@ def _overnight_days(
     return out
 
 
-def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> float:
+def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingSource) -> float:
     """The realized rate of `index` over `accrual`, plus its `spread_adjustment`. The
     business-day calendar is **the index's own** (`index.accrual.roll.calendar`) — never
     inferred from currency (F2)."""

@@ -190,3 +190,27 @@ def test_3_5_act_act_icma_long_stub_raises():
         year_fraction(date(2024, 1, 1), date(2024, 10, 1), DC.ACT_ACT_ICMA, coupon_period=cp)
     # a short stub (accrual <= reference period) still computes
     assert year_fraction(date(2024, 2, 1), date(2024, 7, 1), DC.ACT_ACT_ICMA, coupon_period=cp) > 0
+
+
+# 3.7 _denominator raises on unsupported day counts (no silent 360 fallback)
+def test_3_7_denominator_raises_on_unsupported_day_count():
+    from pricebook_ng.foundation.rate_index import _denominator
+    assert _denominator(DC.ACT_360) == 360.0
+    assert _denominator(DC.ACT_365_FIXED) == 365.0
+    with pytest.raises(ValueError):
+        _denominator(DC.THIRTY_360)
+
+
+# 3.7 accrued_rate accepts any FixingSource (protocol), not just FixingHistory
+def test_3_7_accrued_rate_accepts_a_fixing_source_protocol():
+    from pricebook_ng.foundation.day_count import Accrual
+    from pricebook_ng.foundation.rate_index import FixingSource, accrued_rate, get_rate_index
+
+    class ConstFixings:  # a non-FixingHistory source (e.g. a future db/live feed)
+        def rate(self, index_name: str, on: date) -> float:
+            return 0.05
+
+    assert isinstance(ConstFixings(), FixingSource)  # runtime_checkable
+    sofr = get_rate_index("SOFR")
+    acc = Accrual(date(2024, 4, 1), date(2024, 4, 8), DC.ACT_360)
+    assert accrued_rate(sofr, acc, ConstFixings()) == pytest.approx(0.05, abs=1e-3)
