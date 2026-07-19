@@ -6,6 +6,35 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.74.3] - 2026-07-19
+
+### Fixed
+- **L0 is now static-type clean (pyright 22 → 0 errors), no behaviour change (136 tests green).**
+  (1) `Currency` (37), `Unit` (9) and `Frequency` (7) named constants are declared as `ClassVar`, so
+  `Currency.USD` / `Unit.BARREL` / `Frequency.MONTHLY` type-check **and autocomplete** — the static half
+  of the open registry (undoes A3's accepted-cost note; the registry stays open via `register_*`).
+  (2) the closed registries use a mutable backing + frozen `MappingProxyType` **view** (`_registry`→
+  `_REGISTRY`, `_calendars`→`_CALENDARS`) instead of rebinding a `dict`-typed name. (3) `Calendar`
+  narrows the `HolidaySet | tuple[Rule,...]` union via a `_rule_set` property. (4) scipy `brentq`'s
+  union return is `cast` to `float`. `verify.py fields` now excludes `ClassVar` (definitionally not a
+  dataclass field) — a real gate correction.
+
+## [0.74.2] - 2026-07-19
+
+### Fixed
+- **Foundation audit (fix/foundation-audit) — three RFR/calendar correctness fixes, red→green.**
+  **F2 (silent-wrongness):** `accrued_rate` under `observation_shift` compounded the shifted
+  observation window but normalised by the *interest-period* day-count fraction; the two windows can
+  differ by a day (a shift crossing a holiday), silently scaling the rate (e.g. 5.72% for a flat 5%
+  series). Now normalises by the numerator window's own days (`total/basis`) — consistent for both
+  observation-shift and lookback (SOFR 1e-12 oracle unchanged). **F1 (silent-wrongness + crash):** a
+  valid accrual containing no business day returned `0.0` (COMPOUNDED) or raised `ZeroDivisionError`
+  (AVERAGED/EXPONENTIAL); now raises `ValueError` cleanly (S14). **F3 (wrong-answer, latent):**
+  `Calendar.add_business_days(d, 0)` returned `d` even when `d` was not a business day (a `fixing_lag=0`
+  lookup could land on a non-business date); `n==0` now requires a business day and raises otherwise —
+  callers snap via `adjust()`. Systematic checks (Easter, observance regimes, EOM, IMM/CDS, solvers)
+  verified clean against published references.
+
 ## [0.74.1] - 2026-07-19
 
 ### Changed

@@ -38,6 +38,7 @@ class PricingResult:
     `pv` is the dirty PV; `accrued` the earned-but-unpaid interest; `clean = pv − accrued`;
     `basis` the collateral/discounting basis; `cashflow_breakdown` the per-flow PVs;
     `sensitivities` named greeks (L5 fills these); `diagnostics` solver/engine notes."""
+
     # fields-exempt: output record — a valuation's full decomposition (A2/A4.4), like XvaReport
 
     pv: Money

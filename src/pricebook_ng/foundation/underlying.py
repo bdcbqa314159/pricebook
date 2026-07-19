@@ -45,8 +45,8 @@ class Underlying(Protocol):
 
 
 class InflationInterp(Enum):
-    DAILY_LINEAR = "daily_linear"     # UST TIPS / OATi
-    MONTHLY_FLAT = "monthly_flat"     # UK RPI
+    DAILY_LINEAR = "daily_linear"  # UST TIPS / OATi
+    MONTHLY_FLAT = "monthly_flat"  # UK RPI
 
 
 # ── sibling identities: defined now, populated later ─────────────────────────────
@@ -68,7 +68,7 @@ class InflationIndex:
     style, and the base index."""
 
     name: str
-    indexation_lag: Tenor          # typically 3M
+    indexation_lag: Tenor  # typically 3M
     interpolation: InflationInterp
     base_index: float
 
@@ -84,8 +84,8 @@ class FxFixing:
 
     name: str
     pair: CurrencyPair
-    source: str                    # e.g. "WMR"
-    fixing_time: str               # e.g. "16:00 London"
+    source: str  # e.g. "WMR"
+    fixing_time: str  # e.g. "16:00 London"
 
     @property
     def asset_class(self) -> AssetClass:

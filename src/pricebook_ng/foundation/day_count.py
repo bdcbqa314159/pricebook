@@ -32,16 +32,16 @@ if TYPE_CHECKING:
 class DayCountConvention(Enum):
     ACT_360 = "ACT/360"
     ACT_365_FIXED = "ACT/365F"
-    THIRTY_360 = "30U/360"            # US SIA, with the February rules
-    THIRTY_E_360 = "30E/360"         # Eurobond basis
+    THIRTY_360 = "30U/360"  # US SIA, with the February rules
+    THIRTY_E_360 = "30E/360"  # Eurobond basis
     ACT_ACT_ISDA = "ACT/ACT ISDA"
     ACT_ACT_ICMA = "ACT/ACT ICMA"
     BUS_252 = "BUS/252"
-    ACT_365L = "ACT/365L"            # gap: leap-aware denominator
+    ACT_365L = "ACT/365L"  # gap: leap-aware denominator
     THIRTY_E_360_ISDA = "30E/360 ISDA"  # gap: last-day-of-month + termination rule
-    NL_365 = "NL/365"                # gap: no-leap (exclude 29 Feb)
-    ONE_ONE = "1/1"                  # ISDA §4.16(a) — always 1
-    ACT_ACT_AFB = "ACT/ACT AFB"      # French AFB — whole years + leap-aware stub
+    NL_365 = "NL/365"  # gap: no-leap (exclude 29 Feb)
+    ONE_ONE = "1/1"  # ISDA §4.16(a) — always 1
+    ACT_ACT_AFB = "ACT/ACT AFB"  # French AFB — whole years + leap-aware stub
 
 
 @dataclass(frozen=True)
@@ -154,9 +154,13 @@ def _act_act_isda(start: date, end: date) -> float:
     """ACT/ACT ISDA: days in each calendar year over that year's length, summed."""
     if start.year == end.year:
         return (end - start).days / (366.0 if _is_leap(start.year) else 365.0)
-    total = (date(start.year + 1, 1, 1) - start).days / (366.0 if _is_leap(start.year) else 365.0)
+    total = (date(start.year + 1, 1, 1) - start).days / (
+        366.0 if _is_leap(start.year) else 365.0
+    )
     total += float(end.year - start.year - 1)
-    total += (end - date(end.year, 1, 1)).days / (366.0 if _is_leap(end.year) else 365.0)
+    total += (end - date(end.year, 1, 1)).days / (
+        366.0 if _is_leap(end.year) else 365.0
+    )
     return total
 
 
@@ -207,7 +211,7 @@ def _nl_365(start: date, end: date) -> float:
 def _sub_one_year(d: date) -> date:
     try:
         return date(d.year - 1, d.month, d.day)
-    except ValueError:                       # 29 Feb → 28 Feb of a non-leap year
+    except ValueError:  # 29 Feb → 28 Feb of a non-leap year
         return date(d.year - 1, 2, 28)
 
 
@@ -249,21 +253,35 @@ class Accrual:
 
     def __post_init__(self) -> None:
         if self.end <= self.start:
-            raise ValueError(f"accrual must be ordered (start < end); got {self.start}..{self.end}")
+            raise ValueError(
+                f"accrual must be ordered (start < end); got {self.start}..{self.end}"
+            )
 
     def year_fraction(
-        self, *, coupon_period: CouponPeriod | None = None, calendar: "Calendar | None" = None
+        self,
+        *,
+        coupon_period: CouponPeriod | None = None,
+        calendar: "Calendar | None" = None,
     ) -> float:
         return year_fraction(
-            self.start, self.end, self.day_count,
-            coupon_period=coupon_period, calendar=calendar,
+            self.start,
+            self.end,
+            self.day_count,
+            coupon_period=coupon_period,
+            calendar=calendar,
         )
 
     def to_dict(self) -> dict:
-        return {"start": self.start.isoformat(), "end": self.end.isoformat(),
-                "day_count": self.day_count.value}
+        return {
+            "start": self.start.isoformat(),
+            "end": self.end.isoformat(),
+            "day_count": self.day_count.value,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> "Accrual":
-        return cls(date.fromisoformat(d["start"]), date.fromisoformat(d["end"]),
-                   DayCountConvention(d["day_count"]))
+        return cls(
+            date.fromisoformat(d["start"]),
+            date.fromisoformat(d["end"]),
+            DayCountConvention(d["day_count"]),
+        )

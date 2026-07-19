@@ -65,4 +65,6 @@ class Tenor:
             return self.count
         if self.unit is TenorUnit.YEAR:
             return self.count * 12
-        raise ValueError(f"{self} has no fixed month count (it is {self.unit.value}-based)")
+        raise ValueError(
+            f"{self} has no fixed month count (it is {self.unit.value}-based)"
+        )

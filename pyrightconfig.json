@@ -1,0 +1,7 @@
+{
+  "include": ["src/pricebook_ng"],
+  "extraPaths": ["src"],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "standard",
+  "reportMissingModuleSource": "none"
+}

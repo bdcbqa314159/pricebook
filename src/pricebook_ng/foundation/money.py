@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Mapping
+from typing import ClassVar, Mapping
 
 
 @dataclass(frozen=True)
@@ -39,8 +39,49 @@ class Currency:
     code: str
     minor_units: int = 2
 
+    # The 37 standard members (populated by the declaration loop below). Declared so
+    # `Currency.USD` type-checks and autocompletes — the static half of the open registry.
+    # Keep in sync with the loop; a new market is `register_currency(...)`, no annotation needed.
+    USD: ClassVar[Currency]
+    EUR: ClassVar[Currency]
+    GBP: ClassVar[Currency]
+    JPY: ClassVar[Currency]
+    CHF: ClassVar[Currency]
+    AUD: ClassVar[Currency]
+    CAD: ClassVar[Currency]
+    SEK: ClassVar[Currency]
+    NOK: ClassVar[Currency]
+    NZD: ClassVar[Currency]
+    DKK: ClassVar[Currency]
+    PLN: ClassVar[Currency]
+    CZK: ClassVar[Currency]
+    HUF: ClassVar[Currency]
+    RON: ClassVar[Currency]
+    TRY: ClassVar[Currency]
+    SAR: ClassVar[Currency]
+    ILS: ClassVar[Currency]
+    EGP: ClassVar[Currency]
+    ZAR: ClassVar[Currency]
+    KES: ClassVar[Currency]
+    NGN: ClassVar[Currency]
+    BRL: ClassVar[Currency]
+    MXN: ClassVar[Currency]
+    CLP: ClassVar[Currency]
+    COP: ClassVar[Currency]
+    PEN: ClassVar[Currency]
+    ARS: ClassVar[Currency]
+    CNY: ClassVar[Currency]
+    KRW: ClassVar[Currency]
+    INR: ClassVar[Currency]
+    SGD: ClassVar[Currency]
+    HKD: ClassVar[Currency]
+    IDR: ClassVar[Currency]
+    MYR: ClassVar[Currency]
+    THB: ClassVar[Currency]
+    PHP: ClassVar[Currency]
+
     @property
-    def value(self) -> str:      # the ISO code (kept for call sites that read `.value`)
+    def value(self) -> str:  # the ISO code (kept for call sites that read `.value`)
         return self.code
 
 
@@ -67,8 +108,10 @@ def list_currencies() -> list[str]:
 
 # The 37 standard declarations (matching the market calendars). Zero-decimal: JPY/KRW/CLP.
 _ZERO = {"JPY", "KRW", "CLP"}
-for _code in ("USD EUR GBP JPY CHF AUD CAD SEK NOK NZD DKK PLN CZK HUF RON TRY SAR ILS EGP "
-              "ZAR KES NGN BRL MXN CLP COP PEN ARS CNY KRW INR SGD HKD IDR MYR THB PHP").split():
+for _code in (
+    "USD EUR GBP JPY CHF AUD CAD SEK NOK NZD DKK PLN CZK HUF RON TRY SAR ILS EGP "
+    "ZAR KES NGN BRL MXN CLP COP PEN ARS CNY KRW INR SGD HKD IDR MYR THB PHP"
+).split():
     setattr(Currency, _code, register_currency(_code, 0 if _code in _ZERO else 2))
 
 # Read-only public view. The registry stays OPEN (`register_currency` writes the backing at
@@ -81,6 +124,17 @@ class Unit:
     """A physical settlement unit for commodities, by `symbol` (open registry — S4)."""
 
     symbol: str
+
+    # Standard members (populated by the loop below); declared so `Unit.BARREL` type-checks.
+    BARREL: ClassVar[Unit]
+    GALLON: ClassVar[Unit]
+    MMBTU: ClassVar[Unit]
+    THERM: ClassVar[Unit]
+    MWH: ClassVar[Unit]
+    TONNE: ClassVar[Unit]
+    TROY_OUNCE: ClassVar[Unit]
+    BUSHEL: ClassVar[Unit]
+    POUND: ClassVar[Unit]
 
     @property
     def value(self) -> str:
@@ -107,9 +161,17 @@ def list_units() -> list[str]:
     return sorted(_UNITS)
 
 
-for _name, _sym in [("BARREL", "bbl"), ("GALLON", "gal"), ("MMBTU", "MMBtu"), ("THERM", "thm"),
-                    ("MWH", "MWh"), ("TONNE", "t"), ("TROY_OUNCE", "ozt"), ("BUSHEL", "bu"),
-                    ("POUND", "lb")]:
+for _name, _sym in [
+    ("BARREL", "bbl"),
+    ("GALLON", "gal"),
+    ("MMBTU", "MMBtu"),
+    ("THERM", "thm"),
+    ("MWH", "MWh"),
+    ("TONNE", "t"),
+    ("TROY_OUNCE", "ozt"),
+    ("BUSHEL", "bu"),
+    ("POUND", "lb"),
+]:
     setattr(Unit, _name, register_unit(_name, _sym))
 
 # Read-only public view of the open unit registry (A2, as for currencies above).
@@ -130,7 +192,9 @@ class Money:
 
     def _guard(self, other: Money) -> None:
         if self.currency != other.currency:
-            raise TypeError(f"cannot mix {self.currency.code} and {other.currency.code}")
+            raise TypeError(
+                f"cannot mix {self.currency.code} and {other.currency.code}"
+            )
 
     def __add__(self, other: Money) -> Money:
         self._guard(other)

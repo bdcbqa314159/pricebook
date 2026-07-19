@@ -31,7 +31,9 @@ from pricebook_ng.foundation.money import Currency, Quantity
 class SettlementType(Enum):
     CASH = "cash"
     PHYSICAL = "physical"
-    AUCTION = "auction"      # CDS credit event (marker only — mechanics live in the credit topic)
+    AUCTION = (
+        "auction"  # CDS credit event (marker only — mechanics live in the credit topic)
+    )
 
 
 @dataclass(frozen=True)
@@ -51,8 +53,11 @@ class Delivery:
     quantity: Quantity
 
     def to_dict(self) -> dict:
-        return {"kind": "delivery", "date": self.date.isoformat(),
-                "quantity": self.quantity.to_dict()}
+        return {
+            "kind": "delivery",
+            "date": self.date.isoformat(),
+            "quantity": self.quantity.to_dict(),
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> Delivery:
@@ -72,11 +77,17 @@ class SettlementTerms:
     def __post_init__(self) -> None:
         if self.settlement_type is SettlementType.PHYSICAL:
             if self.currency is not None:
-                raise ValueError("physical settlement delivers a Quantity, not a currency")
+                raise ValueError(
+                    "physical settlement delivers a Quantity, not a currency"
+                )
         elif self.currency is None:
-            raise ValueError(f"{self.settlement_type.value} settlement requires a currency")
+            raise ValueError(
+                f"{self.settlement_type.value} settlement requires a currency"
+            )
 
 
-def settlement_date(trade_date: date, terms: SettlementTerms, calendar: Calendar) -> date:
+def settlement_date(
+    trade_date: date, terms: SettlementTerms, calendar: Calendar
+) -> date:
     """The settlement date: `trade_date` + `terms.lag` business days on `calendar`."""
     return calendar.add_business_days(trade_date, terms.lag)

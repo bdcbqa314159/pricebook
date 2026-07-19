@@ -28,6 +28,7 @@ from enum import Enum
 
 class Compounding(Enum):
     """How a *quoted* rate compounds — its basis. A finite standard set (enum)."""
+
     SIMPLE = "simple"
     ANNUAL = "annual"
     SEMI_ANNUAL = "semi_annual"
@@ -63,7 +64,9 @@ def _rate_from_factor(factor: float, t: float, basis: Compounding) -> float:
     return m * (factor ** (1.0 / (m * t)) - 1.0)
 
 
-def convert_rate(rate: float, t: float, from_basis: Compounding, to_basis: Compounding) -> float:
+def convert_rate(
+    rate: float, t: float, from_basis: Compounding, to_basis: Compounding
+) -> float:
     """The equivalent `rate` on `to_basis` — same growth over `t` years — from `from_basis`."""
     if t <= 0.0:
         raise ValueError(f"convert_rate needs t > 0, got {t}")
