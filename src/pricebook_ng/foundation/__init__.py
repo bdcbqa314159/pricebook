@@ -67,7 +67,6 @@ from pricebook_ng.foundation.money import (
     register_unit,
     unit,
 )
-from pricebook_ng.foundation.numerical_config import NumericalConfig
 from pricebook_ng.foundation.rate_basis import Compounding, convert_rate, growth_factor
 from pricebook_ng.foundation.rate_index import (
     AccrualConvention,
@@ -84,7 +83,7 @@ from pricebook_ng.foundation.rate_index import (
     list_rate_indices,
     register_rate_index,
 )
-from pricebook_ng.foundation.results import DiscountBasis, PricingFailure, PricingResult
+from pricebook_ng.foundation.results import PricingFailure, PricingResult
 from pricebook_ng.foundation.schedule import (
     Frequency,
     PaymentRule,
@@ -212,10 +211,8 @@ __all__ = [
     "fx_spot_date",
     "spot_lag",
     # numerics
-    "NumericalConfig",
     "PricingResult",
     "PricingFailure",
-    "DiscountBasis",
     "norm_pdf",
     "norm_cdf",
     "norm_ppf",

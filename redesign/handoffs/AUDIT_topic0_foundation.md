@@ -226,9 +226,14 @@ pinned generator**. `MonteCarloConfig` carries a `seed` but not the RNG *family*
 silently shifts every MC oracle. **Pin it now** (name the generator in `MonteCarloConfig`, or as a
 documented invariant).
 
-### S16 (record only) — business-day counting convention
-`business_days_between` is start-exclusive / end-inclusive (inherited). Some markets differ.
-**Record the invariant** rather than parameterise it — no present consumer needs the alternative.
+### S16 (record only) — business-day counting convention  ⟶ **WITHDRAWN (audit closure A2)**
+~~`business_days_between` is start-exclusive / end-inclusive (inherited). Some markets differ.
+Record the invariant rather than parameterise it — no present consumer needs the alternative.~~
+**Withdrawn.** The premise was false: the CDI/BUS-252 consumer *does* need the other convention, so
+the two implementations (`business_days_between` vs `_overnight_days`) disagreed. Resolved not by
+recording an invariant but by collapsing to **one half-open `[start, end)` primitive** that both call
+(audit finding A2 / independent AUDIT.md §2). There is no counting *invariant* to record — there is one
+counting *function*.
 
 ---
 
@@ -276,7 +281,7 @@ again, and the enum categories are closed by construction.
 [ ] S13 pay/receive = signed amounts, no direction field (decide with S2's Leg reshape)
 [ ] S14 degenerate periods raise (end < start, zero-length)
 [ ] S15 pin the RNG family in MonteCarloConfig (cross-platform reproducibility, artifact #10)
-[ ] S16 record the business-day counting invariant (start-exclusive, end-inclusive)
+[~] S16 WITHDRAWN (audit closure A2): one half-open [start, end) primitive, not a recorded invariant
 ```
 **Apply the meta-rule mechanically:** open-ended domains → registry; standardised finite domains →
 enum, completed now. That is what makes L0 one-off.

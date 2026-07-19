@@ -42,7 +42,9 @@ This also disposes of `foundation/black.py` — it parks with the options materi
   **Drop the quarry's `strict_icma` dual-mode entirely** — the non-strict path silently fell back to
   ACT/365F and priced a UST coupon at 1.9836/2.0164 instead of 2.0000. Missing anchors ⇒ **raise**.
 - **BUS/252** = business days / 252. **Never default the calendar** (quarry silently instantiates São
-  Paulo — a hidden wrong default). Calendar is required. Counting is start-exclusive, end-inclusive.
+  Paulo — a hidden wrong default). Calendar is required. Counting is **half-open `[start, end)`**
+  (start-inclusive, end-exclusive) — the one `business_days_between` primitive, matching ANBIMA/CDI
+  (audit closure A2; the earlier "start-exclusive / end-inclusive" S16 record is **withdrawn**).
 - `date_from_year_fraction` — quarry uses 365.25 rounding and is lossy; decide deliberately.
 
 **Oracles (published, not self-consistency):**

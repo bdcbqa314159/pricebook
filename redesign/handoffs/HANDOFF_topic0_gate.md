@@ -97,7 +97,9 @@ from the index.*
   limit, so decide deliberately.
 - **S9** record: **time-of-day never enters `Calendar`** — fixing time is index metadata, expiry cut
   is product data.
-- **S16** record: business-day counting is start-exclusive / end-inclusive.
+- **S16** record: business-day counting is start-exclusive / end-inclusive. **[WITHDRAWN — audit
+  closure A2: one half-open `[start, end)` primitive; the CDI/BUS-252 consumer needed the other
+  convention, so this "invariant" was false.]**
 
 ## Slice 8 — `slice/l0-serialisation`
 Demonstrate the per-class `to_dict`/`from_dict` + `schema_version` pattern on a **hard case** —
