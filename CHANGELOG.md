@@ -6,6 +6,18 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate — foundation parked (first physical drawdown).** The gate audit (F1–F4 + S1–S16) is
+  landed and green; `git mv` the **11 covered quarry `core/` files** →
+  `parked/topic-00-foundation/` with a per-file coverage manifest (each classified `covered`/`dead`/
+  `reassigned` with consumer-analysis evidence; all shed features are forward-linked deferred
+  *capabilities*, none blocking). `core/data_registry` + `core/notional` are **reassigned→topic-01**
+  (no L0 counterpart). `quarry_reconciliation.md` is now a thin topic-method roll-up (pre-replan CP
+  record frozen as history). **Drawdown 11/793.** Topic 1 (yield curves) opens once Cowork ratifies
+  the gate.
+
 ## [0.70.0] - 2026-07-19
 
 ### Changed
