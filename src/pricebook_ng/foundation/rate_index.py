@@ -27,7 +27,7 @@ from enum import Enum
 from types import MappingProxyType
 
 from pricebook_ng.foundation.calendar import Calendar
-from pricebook_ng.foundation.day_count import Accrual, DayCountConvention, year_fraction
+from pricebook_ng.foundation.day_count import Accrual, DayCountConvention
 from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency
 from pricebook_ng.foundation.schedule import BusinessDayConvention, RollRule
@@ -186,6 +186,12 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         window = _overnight_days(accrual.start, accrual.end, calendar)
         rate_dates = [calendar.add_business_days(b, -rfr.lookback) for b, _ in window]
 
+    if not window:
+        raise ValueError(
+            f"{index.name}: accrual [{accrual.start}, {accrual.end}) contains no business day "
+            f"on {calendar.identity} — a degenerate rate window (S14)"
+        )
+
     if rfr.lockout:
         frozen = len(window) - 1 - rfr.lockout
         rate_dates = [rate_dates[min(i, frozen)] for i in range(len(window))]
@@ -207,9 +213,11 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         total += weight
 
     if index.fixing.compounding is AccrualMethod.COMPOUNDED:
-        realized = (factor - 1.0) / year_fraction(
-            accrual.start, accrual.end, day_count, calendar=calendar
-        )
+        # Normalise over the SAME window as the numerator: total compounding days / basis.
+        # Under observation_shift the window is the shifted (observation) period, and its
+        # day-count fraction must follow it — not the interest period (F2). For lookback the
+        # two coincide, so this is a no-op there and the SOFR 1e-12 oracle is unchanged.
+        realized = (factor - 1.0) / (total / denom)
     else:  # AVERAGED
         realized = weighted / total
     return realized + index.spread_adjustment

@@ -307,6 +307,16 @@ class Calendar:
         raise ValueError(f"unknown convention: {convention}")
 
     def add_business_days(self, d: date, n: int) -> date:
+        # n == 0 is "d itself, as a business day" — undefined if d is not one. Raise rather
+        # than silently return a non-business date (F3): a caller wanting to snap must
+        # adjust() explicitly. For n != 0 the walk always lands on a business day.
+        if n == 0:
+            if not self.is_business_day(d):
+                raise ValueError(
+                    f"add_business_days({d}, 0): {d} is not a business day "
+                    f"(0 business days from a non-business day is undefined — adjust() first)"
+                )
+            return d
         step = 1 if n >= 0 else -1
         remaining, cur = abs(n), d
         while remaining:
