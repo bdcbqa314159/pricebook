@@ -70,11 +70,14 @@ class RollRule:
 
 @dataclass(frozen=True)
 class ScheduleTerms:
-    """The recurring terms of a schedule: frequency, the roll rule, and the stub."""
+    """The recurring terms of a schedule: frequency, the roll rule, the stub, and an
+    optional `roll_day` — the day-of-month the interior periods roll on (a bond the 15th,
+    CDS the 20th). When `None` the roll anchors on `start` (S8)."""
 
     frequency: Frequency
     roll: RollRule = field(default_factory=RollRule)
     stub: StubType = StubType.SHORT_FRONT
+    roll_day: int | None = None
 
 
 @dataclass(frozen=True)
@@ -107,39 +110,44 @@ def _add_months(d: date, months: int, snap_eom: bool) -> date:
     return _end_of_month(result) if snap_eom else result
 
 
-def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool) -> date:
-    """Advance `d` by one `tenor` step (backward if not `forward`). EOM snapping applies
-    to month/year steps only."""
+def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool, roll_day: int | None) -> date:
+    """Advance `d` by one `tenor` step (backward if not `forward`). Month/year steps snap
+    to `roll_day`-of-month if given, else to month-end if `snap_eom`."""
     sign = 1 if forward else -1
     if tenor.unit is TenorUnit.DAY:
         return d + sign * timedelta(days=tenor.count)
     if tenor.unit is TenorUnit.WEEK:
         return d + sign * timedelta(weeks=tenor.count)
-    return _add_months(d, sign * tenor.months(), snap_eom)
+    stepped = _add_months(d, sign * tenor.months(), snap_eom)
+    if roll_day is not None:
+        return date(stepped.year, stepped.month,
+                    min(roll_day, _last_day_of_month(stepped.year, stepped.month)))
+    return stepped
 
 
-def _unadjusted(start: date, end: date, frequency: Frequency, stub: StubType, eom: bool) -> list[date]:
-    if frequency.step is None:                       # BULLET — a single period
+def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
+    if terms.frequency.step is None:                 # BULLET — a single period
         return [start, end]
-    tenor = frequency.step
-    snap = eom and tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR) and start == _end_of_month(start)
+    tenor, stub, roll_day = terms.frequency.step, terms.stub, terms.roll_day
+    snap = (roll_day is None and terms.roll.eom and tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR)
+            and start == _end_of_month(start))
 
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
         dates, cur = [end], end
-        while (cur := _step(cur, tenor, False, snap)) > start:
+        while (cur := _step(cur, tenor, False, snap, roll_day)) > start:
             dates.append(cur)
         dates.append(start)
         dates.reverse()
         # a genuine front stub exists iff `start` is not a regular period before dates[1]
-        if stub is StubType.LONG_FRONT and len(dates) > 2 and _step(dates[1], tenor, False, snap) != start:
+        if stub is StubType.LONG_FRONT and len(dates) > 2 and _step(dates[1], tenor, False, snap, roll_day) != start:
             dates = [dates[0], *dates[2:]]
         return dates
 
     dates, cur = [start], start
-    while (cur := _step(cur, tenor, True, snap)) < end:
+    while (cur := _step(cur, tenor, True, snap, roll_day)) < end:
         dates.append(cur)
     dates.append(end)
-    if stub is StubType.LONG_BACK and len(dates) > 2 and _step(dates[-2], tenor, True, snap) != end:
+    if stub is StubType.LONG_BACK and len(dates) > 2 and _step(dates[-2], tenor, True, snap, roll_day) != end:
         dates = [*dates[:-2], dates[-1]]
     return dates
 
@@ -148,7 +156,7 @@ def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
     """Generate the schedule from `start` to `end` under `terms`."""
     if start >= end:
         raise ValueError(f"start ({start}) must be before end ({end}).")
-    unadj = _unadjusted(start, end, terms.frequency, terms.stub, terms.roll.eom)
+    unadj = _unadjusted(start, end, terms)
     cal = terms.roll.calendar
     adj = ([cal.adjust(d, terms.roll.convention) for d in unadj] if cal is not None else unadj)
     return Schedule(unadjusted=tuple(unadj), adjusted=tuple(adj))
