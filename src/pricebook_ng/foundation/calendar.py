@@ -2,6 +2,10 @@
 
 Finance-free: a calendar counts *which days are business days*; it prices nothing.
 
+Recorded invariant (S9): **time-of-day never enters `Calendar`** — a calendar is date-only.
+Fixing time (WM/R 4pm) is *index* metadata (on `FxFixing`); an option's expiry cut is
+*product* data (L2). Putting a `time` on `Calendar` is the drift this record prevents.
+
 Structure (clean) vs content (mined from the quarry `core/calendar.py`):
 the quarry had ~38 `Calendar` subclasses keyed by currency. Here there is **one**
 frozen `Calendar` value — an identity, a weekend rule, an `Observance` regime, and a

@@ -40,6 +40,8 @@ class DayCountConvention(Enum):
     ACT_365L = "ACT/365L"            # gap: leap-aware denominator
     THIRTY_E_360_ISDA = "30E/360 ISDA"  # gap: last-day-of-month + termination rule
     NL_365 = "NL/365"                # gap: no-leap (exclude 29 Feb)
+    ONE_ONE = "1/1"                  # ISDA §4.16(a) — always 1
+    ACT_ACT_AFB = "ACT/ACT AFB"      # French AFB — whole years + leap-aware stub
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,10 @@ def year_fraction(
         return _act_365l(start, end, coupon_period)
     if convention is C.NL_365:
         return _nl_365(start, end)
+    if convention is C.ONE_ONE:
+        return 1.0
+    if convention is C.ACT_ACT_AFB:
+        return _act_act_afb(start, end)
     if convention is C.BUS_252:
         if calendar is None:
             raise ValueError("BUS/252 requires a calendar (no default).")
@@ -198,8 +204,30 @@ def _nl_365(start: date, end: date) -> float:
     return ((end - start).days - _leap_days_in(start, end)) / 365.0
 
 
+def _sub_one_year(d: date) -> date:
+    try:
+        return date(d.year - 1, d.month, d.day)
+    except ValueError:                       # 29 Feb → 28 Feb of a non-leap year
+        return date(d.year - 1, 2, 28)
+
+
+def _act_act_afb(start: date, end: date) -> float:
+    """ACT/ACT AFB (French): count whole years back from `end`, plus the remaining stub
+    over 365 (or 366 if a 29 Feb lies in the stub)."""
+    years, stub_end = 0, end
+    while _sub_one_year(stub_end) >= start:
+        years += 1
+        stub_end = _sub_one_year(stub_end)
+    denom = 366.0 if _leap_days_in(start, stub_end) else 365.0
+    return years + (stub_end - start).days / denom
+
+
 def business_days_between(start: date, end: date, calendar: "Calendar") -> int:
-    """Business days in ``(start, end]`` — settlement counts, trade date does not."""
+    """Business days in ``(start, end]`` — settlement counts, trade date does not.
+
+    Recorded invariant (S16): the count is **start-exclusive, end-inclusive**. Some
+    markets differ; this is recorded rather than parameterised — no present consumer needs
+    the alternative, and a flag would be speculative."""
     count, cur = 0, start + timedelta(days=1)
     while cur <= end:
         if calendar.is_business_day(cur):
