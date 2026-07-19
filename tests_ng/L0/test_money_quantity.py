@@ -14,7 +14,16 @@ from pricebook_ng.foundation.cashflow import Accrual, Cashflow, Leg
 from pricebook_ng.foundation.day_count import CouponPeriod
 from pricebook_ng.foundation.day_count import DayCountConvention as DC
 from pricebook_ng.foundation.day_count import year_fraction
-from pricebook_ng.foundation.money import Currency, CurrencyPair, Money, Quantity, Unit
+from pricebook_ng.foundation.money import (
+    Currency,
+    CurrencyPair,
+    Money,
+    Quantity,
+    Unit,
+    currency,
+    list_currencies,
+    register_currency,
+)
 
 USD, EUR = Currency.USD, Currency.EUR
 
@@ -41,7 +50,31 @@ def test_money_currency_must_be_a_currency():
 
 def test_all_37_currencies_declared():
     # matches the 37 market calendars (Slice 1)
-    assert len(list(Currency)) == 37
+    assert len(list_currencies()) == 37
+
+
+# ── S1: Currency is an OPEN registry (+ minor_units) ──
+def test_currency_minor_units():
+    assert Currency.USD.minor_units == 2
+    assert Currency.JPY.minor_units == 0        # zero-decimal — matters at settlement rounding
+    assert currency("USD") is Currency.USD       # interned lookup
+
+
+def test_currency_registry_is_open():
+    # a new market is a DECLARATION, not an L0 enum edit
+    kwd = register_currency("KWD", 3)            # Kuwaiti dinar — 3 minor units
+    assert currency("KWD") is kwd
+    assert kwd.minor_units == 3
+
+
+def test_brazilian_instrument_end_to_end():
+    # the S1 gate regression: a BRL instrument is constructible — Currency · BUS/252 · São Paulo
+    from pricebook_ng.foundation.market_calendars import get_calendar
+    sp = get_calendar("SAO_PAULO")
+    accrual = Accrual(date(2024, 6, 10), date(2024, 6, 14), DC.BUS_252)
+    coupon = Cashflow(date(2024, 6, 14), Money(1_000_000.0, Currency.BRL), accrual=accrual)
+    assert coupon.amount.currency.code == "BRL"
+    assert year_fraction(accrual.start, accrual.end, DC.BUS_252, calendar=sp) > 0
 
 
 # ── Quantity: closed under same-unit only ──
