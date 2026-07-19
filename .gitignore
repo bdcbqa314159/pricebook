@@ -1,3 +1,11 @@
+# Claude Code: personal + transient state is local; SHARED project config
+# (.claude/settings.json, commands/, agents/, skills/) is tracked when it is added.
+# settings.local.json is a per-developer permission allow-list (machine-local) and must
+# never be committed; worktrees/ is transient. Made explicit here so the ignore does not
+# rely on a contributor's personal ~/.config/git/ignore.
+.claude/settings.local.json
+.claude/worktrees/
+
 # Python
 __pycache__/
 *.py[cod]
