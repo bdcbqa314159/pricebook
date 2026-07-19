@@ -296,3 +296,33 @@ def test_3_4_serialisation_identities_by_name_atoms_by_value():
     t = Tenor(3, TenorUnit.MONTH)
     assert t.to_dict() == {"tenor": "3M"}
     assert Tenor.from_dict(t.to_dict()) == t
+
+
+# ── Ledger tightening (Phase 5 reclassification): latent-wrongness items promoted to fixes ──
+
+# AC-T4.2 — zero/negative Tenor was accepted (invalid input): a zero step never advances a
+# schedule loop. The parse/construct boundary must reject non-positive counts.
+def test_t4_2_non_positive_tenor_is_rejected():
+    from pricebook_ng.foundation.tenor import Tenor, TenorUnit
+
+    for bad in ("0D", "-3M", "0M", "-1Y"):
+        with pytest.raises(ValueError):
+            Tenor.parse(bad)
+    # direct construction is guarded too (parse is not the only door)
+    with pytest.raises(ValueError):
+        Tenor(0, TenorUnit.DAY)
+    with pytest.raises(ValueError):
+        Tenor(-3, TenorUnit.MONTH)
+    # a positive tenor still constructs and round-trips
+    assert Tenor.parse("6M") == Tenor(6, TenorUnit.MONTH)
+
+
+# AC-T4.1 (EURIBOR_6M) — the standard EUR 6M vanilla floating leg; its absence was a gap in
+# a set we present as complete (EURIBOR_3M already ships). One-line real market standard.
+def test_t4_1_euribor_6m_is_registered():
+    from pricebook_ng.foundation.rate_index import get_rate_index
+
+    idx = get_rate_index("EURIBOR_6M")
+    assert idx.id.currency.code == "EUR"
+    assert str(idx.id.tenor) == "6M"
+    assert idx.accrual.day_count is DC.ACT_360
