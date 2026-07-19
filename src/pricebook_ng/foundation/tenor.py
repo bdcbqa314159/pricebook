@@ -14,7 +14,9 @@ Provenance:
 
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
+from datetime import date, timedelta
 from enum import Enum
 
 
@@ -43,6 +45,19 @@ class Tenor:
 
     def __str__(self) -> str:
         return f"{self.count}{self.unit.value}"
+
+    def __radd__(self, d: date) -> date:
+        """`date + Tenor` — the raw shifted date (the most-used curve-building op, S7).
+        Day/week tenors are exact; month/year tenors clamp the day to the target month's
+        length (31 Jan + 1M → 28/29 Feb). Business-day rolling is a separate `RollRule`
+        concern — this stays finance-free date arithmetic."""
+        if self.unit is TenorUnit.DAY:
+            return d + timedelta(days=self.count)
+        if self.unit is TenorUnit.WEEK:
+            return d + timedelta(weeks=self.count)
+        total = d.month - 1 + self.months()
+        year, month = d.year + total // 12, total % 12 + 1
+        return date(year, month, min(d.day, monthrange(year, month)[1]))
 
     def months(self) -> int:
         """Whole months for a month/year tenor; day/week tenors have no fixed month count."""

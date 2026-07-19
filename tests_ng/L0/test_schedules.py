@@ -148,3 +148,28 @@ def test_roll_day_anchors_interior_dates():
     interior = s.unadjusted[1:-1]                          # boundaries are start/end
     assert all(d.day == 15 for d in interior)
     assert date(2024, 4, 15) in s.unadjusted
+
+
+# ── S8: IMM/CDS *rule* anchor — interior lands on the roll date regardless of effective date ──
+def test_imm_anchored_schedule_lands_on_third_wednesdays():
+    from pricebook_ng.foundation.schedule import Frequency, RollConvention
+    # effective date is an arbitrary business day, NOT an IMM date
+    terms = ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(),
+                          stub=StubType.SHORT_FRONT, roll_day=RollConvention.IMM)
+    s = build_schedule(date(2024, 2, 5), date(2024, 12, 20), terms)
+    interior = s.unadjusted[1:-1]
+    assert interior, "expected interior IMM dates"
+    # every interior date is the 3rd Wednesday of an IMM month
+    for d in interior:
+        assert d.weekday() == 2 and 15 <= d.day <= 21     # a 3rd Wednesday
+        assert d.month in (3, 6, 9, 12)
+    assert imm_date(2024, 6) in interior                  # Jun 2024 IMM = 19th
+
+
+def test_cds_anchored_schedule_lands_on_twentieths():
+    from pricebook_ng.foundation.schedule import Frequency, RollConvention
+    terms = ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(),
+                          stub=StubType.SHORT_FRONT, roll_day=RollConvention.CDS)
+    s = build_schedule(date(2024, 1, 3), date(2024, 12, 20), terms)
+    interior = s.unadjusted[1:-1]
+    assert all(d.day == 20 and d.month in (3, 6, 9, 12) for d in interior)

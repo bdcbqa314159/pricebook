@@ -57,6 +57,15 @@ class StubType(Enum):
     LONG_BACK = "long_back"
 
 
+class RollConvention(Enum):
+    """A rule-based roll anchor for `ScheduleTerms.roll_day` (S8): interior periods land on
+    the IMM date (3rd Wednesday) or the CDS date (20th) of their month, regardless of the
+    effective date — the normal case for IMM-dated FRAs/futures and standard CDS."""
+
+    IMM = "imm"
+    CDS = "cds"
+
+
 @dataclass(frozen=True)
 class RollRule:
     """How unadjusted dates become business days: the calendar (None → no
@@ -71,13 +80,15 @@ class RollRule:
 @dataclass(frozen=True)
 class ScheduleTerms:
     """The recurring terms of a schedule: frequency, the roll rule, the stub, and an
-    optional `roll_day` — the day-of-month the interior periods roll on (a bond the 15th,
-    CDS the 20th). When `None` the roll anchors on `start` (S8)."""
+    optional `roll_day` — the interior-period roll anchor: a day-of-month (`int`, a bond the
+    15th), a rule (`RollConvention.IMM`/`CDS`, landing on the 3rd Wednesday / 20th), or
+    `None` (anchor on `start`). Rule-based anchors are what IMM-dated FRAs/futures need,
+    where trade date ≠ effective date ≠ roll day (S8)."""
 
     frequency: Frequency
     roll: RollRule = field(default_factory=RollRule)
     stub: StubType = StubType.SHORT_FRONT
-    roll_day: int | None = None
+    roll_day: int | RollConvention | None = None
 
 
 @dataclass(frozen=True)
@@ -110,15 +121,21 @@ def _add_months(d: date, months: int, snap_eom: bool) -> date:
     return _end_of_month(result) if snap_eom else result
 
 
-def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool, roll_day: int | None) -> date:
-    """Advance `d` by one `tenor` step (backward if not `forward`). Month/year steps snap
-    to `roll_day`-of-month if given, else to month-end if `snap_eom`."""
+def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool,
+          roll_day: int | RollConvention | None) -> date:
+    """Advance `d` by one `tenor` step (backward if not `forward`). Month/year steps snap to
+    the `roll_day` anchor: a `RollConvention` rule (IMM 3rd-Wed / CDS 20th of that month), an
+    `int` day-of-month, else month-end if `snap_eom`."""
     sign = 1 if forward else -1
     if tenor.unit is TenorUnit.DAY:
         return d + sign * timedelta(days=tenor.count)
     if tenor.unit is TenorUnit.WEEK:
         return d + sign * timedelta(weeks=tenor.count)
     stepped = _add_months(d, sign * tenor.months(), snap_eom)
+    if roll_day is RollConvention.IMM:
+        return imm_date(stepped.year, stepped.month)
+    if roll_day is RollConvention.CDS:
+        return cds_roll_date(stepped.year, stepped.month)
     if roll_day is not None:
         return date(stepped.year, stepped.month,
                     min(roll_day, _last_day_of_month(stepped.year, stepped.month)))
