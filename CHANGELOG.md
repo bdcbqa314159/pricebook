@@ -18,6 +18,14 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
   record frozen as history). **Drawdown 11/793.** Topic 1 (yield curves) opens once Cowork ratifies
   the gate.
 
+### Added
+- **Topic 0 gate Slice 1 — `date + Tenor` (S7) + rule-based schedule anchors (S8).** `Tenor.__radd__`
+  gives the raw shifted date (day/week exact; month/year clamp to the target month's length) — the
+  most-used curve-building op; business-day rolling stays a separate `RollRule` concern (finance-free).
+  `RollConvention.IMM`/`CDS` on `ScheduleTerms.roll_day` anchors interior periods on the 3rd Wednesday /
+  20th regardless of the effective date (IMM-dated FRAs/futures, standard CDS). Oracles: `date+3M` month
+  clamps; IMM-anchored schedule lands on 3rd Wednesdays of Mar/Jun/Sep/Dec; CDS on the 20th.
+
 ## [0.70.0] - 2026-07-19
 
 ### Changed
