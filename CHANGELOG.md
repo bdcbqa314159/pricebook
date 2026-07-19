@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.74.2] - 2026-07-19
+
+### Fixed
+- **Foundation audit (fix/foundation-audit) — three RFR/calendar correctness fixes, red→green.**
+  **F2 (silent-wrongness):** `accrued_rate` under `observation_shift` compounded the shifted
+  observation window but normalised by the *interest-period* day-count fraction; the two windows can
+  differ by a day (a shift crossing a holiday), silently scaling the rate (e.g. 5.72% for a flat 5%
+  series). Now normalises by the numerator window's own days (`total/basis`) — consistent for both
+  observation-shift and lookback (SOFR 1e-12 oracle unchanged). **F1 (silent-wrongness + crash):** a
+  valid accrual containing no business day returned `0.0` (COMPOUNDED) or raised `ZeroDivisionError`
+  (AVERAGED/EXPONENTIAL); now raises `ValueError` cleanly (S14). **F3 (wrong-answer, latent):**
+  `Calendar.add_business_days(d, 0)` returned `d` even when `d` was not a business day (a `fixing_lag=0`
+  lookup could land on a non-business date); `n==0` now requires a business day and raises otherwise —
+  callers snap via `adjust()`. Systematic checks (Easter, observance regimes, EOM, IMM/CDS, solvers)
+  verified clean against published references.
+
 ## [0.74.1] - 2026-07-19
 
 ### Changed
