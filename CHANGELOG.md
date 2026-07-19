@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (3/5) — the index rework (audit F2/F3/F4/S10).**
+  - **F2 (the critical fix): `RateIndex` carries its own calendar.** `accrued_rate` now reads
+    `index.accrual.roll.calendar` — **no currency inference** (the reverted quarry flaw #14/#16). SOFR
+    fixes on **SIFMA**; two same-currency indices on different calendars now differ. Regression oracle:
+    SOFR-on-SIFMA ≠ a same-currency index on TARGET over a period spanning Columbus Day.
+  - **F3: `RateIndex` decomposed** → `IndexId`(name·currency·`Tenor`) · `AccrualConvention`(day_count·
+    `RollRule`) · `FixingRule`(observation_style·compounding·fixing_lag) · `RfrConvention`(shift·lookback·
+    lockout·payment_delay, with `.none()` for IBORs) · `spread_adjustment` — 5 parts, **marker removed**.
+  - **F4/S10: `foundation/underlying.py`** — the general `Underlying` protocol (`name`, `asset_class`)
+    that `RateIndex` satisfies, plus sibling identities **defined now, populated later**:
+    `ReferenceEntity`, `InflationIndex` (lag·interpolation·base), `FxFixing` (pair·source·time),
+    `EquityUnderlying`, `CommodityUnderlying` (unit·**delivery location**·**grade** — Brent ≠ WTI).
+
 ## [0.65.0] - 2026-07-19
 
 ### Changed
