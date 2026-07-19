@@ -6,6 +6,18 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-07-19
+
+### Changed
+- **Topic 0 GATE CLOSE — foundation parked (drawdown 13/793).** All 8 gate slices (S1–S17, F1–F4)
+  landed and green (125 L0 tests; `fields` on merit; `layers`/`acyclic`/`debt`/`version`/`provenance`/
+  ruff; both regression oracles). Parked the Topic 0 set to `parked/topic-00-foundation/`: the 11
+  covered files + `data_registry` (**dead** — import-time JSON registry ruled away) + `notional`
+  (**absorbed** into `Money`/`Leg`). `core/fixings` is **reassigned→market-data** (immutable
+  `FixingHistory` read model is the L0 type; the mutable store + file I/O is not L0). Roll-up refreshed;
+  gate-close report `CP_topic0_gate_close.md`. Topic 1 (multicurve + linear rates) opens once Cowork
+  ratifies the gate.
+
 ## [0.73.0] - 2026-07-19
 
 ### Added
