@@ -1,11 +1,16 @@
 # Open items — single tracker
 
-**Last reviewed:** 2026-06-19 (post-v1.119 audit + warnings closure)
-**Status of the library:** audit chain + warnings sweep both closed; 8268/8268 in L≤3, 12,797/12,797 full suite, zero RuntimeWarnings.
-
-This is the **single source of truth** for everything still open, held, queued, or optional. Synthesised from the archived `AUDIT_L0_CORE.md` (legacy-debt ledger + held items) and the memory files. Items closed in the campaign are NOT listed here — see `RELEASE_NOTES.md`.
-
-This file is gitignored (`/*.md` rule). Edit freely; no commits needed.
+> **This file is TRACKED, not gitignored.** `.gitignore:52` ignores root `/*.md`, but `:58` carries an
+> explicit `!/OPEN.md` exception (CI needs it as a `verify.py` input — `CLAUDE.md §7c`). **Every edit
+> must land in a commit** — a local-only edit silently diverges the ledger from CI. (V1, fixed
+> 2026-07-19: the former "edit freely, no commits needed" note was a stale quarry-era leftover.)
+>
+> **This document spans two trees. Read the section header for its subject:**
+> - **§"NG / Foundation audit closure …"** and everything under the `AC-*` / `NG-*` ids describe the
+>   **new tree** (`pricebook_ng`, `src/`, `tests_ng/`) — currently `v0.82.0`, 149 tests.
+> - **§"HOT TOPIC"** and the legacy-debt items below it describe the **quarry** (`python/pricebook/`) —
+>   last reviewed 2026-06-19 at `v1.119` (8268/8268 L≤3, 12,797 full suite). Those figures are quarry
+>   figures; they say nothing about the ng tree. (V2, 2026-07-19.)
 
 ---
 
