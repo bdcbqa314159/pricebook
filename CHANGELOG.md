@@ -6,6 +6,21 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-07-19
+
+### Fixed
+- **Foundation audit closure — Phase 1: five Tier-1 computational bugs (red→green).**
+  **1.1** ACT/ACT AFB undercounted leap-to-leap spans (2004-02-29→2008-02-29 gave 3.9973, now 4.0) —
+  whole years are counted from `end` directly (`end − k·years`), not by accumulating single-year clamps.
+  **1.2** `LOG_LINEAR` + `CONTINUE_SLOPE` returned a **negative** discount factor (DF(30) = −0.275);
+  per ruling **A1** it now extrapolates in the interpolation's own (log) space → +0.209.
+  **1.3** BUS/252 and CDI counted business days over different intervals; per ruling **A2** there is now
+  one primitive, `business_days_between` counting `[start, end)`, and the S16 invariant is withdrawn.
+  **1.4** backward schedule generation drifted the roll day through short-month clamps (May 31 quarterly
+  → Nov 29) and keyed EOM on `start`; now generated as `anchor ± k·tenor` with EOM anchored on the
+  generation seed (maturity for backward). **1.5** furikae substitution iterates `sorted(holidays)`
+  (deterministic; the substitute union was already order-invariant, so no answer changed).
+
 ## [0.75.0] - 2026-07-19
 
 ### Added
