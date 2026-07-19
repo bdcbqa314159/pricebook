@@ -12,27 +12,23 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention as BDC
-from pricebook_ng.foundation.calendar import JointCalendar
+from pricebook_ng.foundation.calendars import BusinessDayConvention as BDC
+from pricebook_ng.foundation.calendars import JointCalendar
 from pricebook_ng.foundation.market_calendars import (
     calendar_for_currency,
     get_calendar,
     list_calendars,
 )
 
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 LON = get_calendar("LONDON")
 TGT = get_calendar("TARGET")
 TOK = get_calendar("TOKYO")
 
 
 # ── identity keying (C1): currency → calendar is a lookup, not the key ──
-def test_all_37_markets_declared():
-    assert len(list_calendars()) == 37
-
-
 def test_currency_maps_to_identity():
-    assert calendar_for_currency("USD") is get_calendar("NEW_YORK_SIFMA")
+    assert calendar_for_currency("USD") is get_calendar("US_GOVERNMENT_SECURITIES")
     assert calendar_for_currency("EUR") is get_calendar("TARGET")
     assert calendar_for_currency("GBP") is get_calendar("LONDON")
 
@@ -64,10 +60,10 @@ def test_us_sunday_holiday_observed_monday():
     assert not NY.is_business_day(date(2021, 7, 5))
 
 
-def test_us_vs_uk_saturday_divergence():
-    # New Year 2022-01-01 is a Saturday. US → previous Friday; UK → next Monday.
-    assert NY.is_holiday(date(2021, 12, 31))       # US: Friday before
-    assert not NY.is_holiday(date(2022, 1, 3))
+def test_sifma_vs_uk_saturday_divergence():
+    # New Year 2022-01-01 is a Saturday. SIFMA does NOT shift to Friday (bond market open
+    # 12-31, audit 2.2); UK shifts to the next Monday.
+    assert NY.is_business_day(date(2021, 12, 31))  # SIFMA: Saturday holiday not shifted
     assert LON.is_holiday(date(2022, 1, 3))        # UK: Monday after
     assert not LON.is_holiday(date(2021, 12, 31))
 
@@ -81,7 +77,8 @@ def test_johannesburg_sunday_only():
 # ── year-gated holidays ──
 def test_juneteenth_since_2021():
     assert not NY.is_holiday(date(2020, 6, 19))    # before it existed
-    assert NY.is_holiday(date(2021, 6, 18))        # 2021-06-19 is Sat → observed Fri
+    assert NY.is_holiday(date(2022, 6, 20))        # 2022-06-19 is Sun → observed Mon 06-20
+    assert NY.is_business_day(date(2021, 6, 18))   # 2021-06-19 is Sat → NOT shifted (SIFMA open)
 
 
 def test_store_bededag_until_2023():
@@ -114,7 +111,7 @@ def test_tel_aviv_friday_saturday_weekend():
 def test_adjust_conventions():
     d = date(2022, 1, 1)  # Saturday
     assert NY.adjust(d, BDC.FOLLOWING) == date(2022, 1, 3)      # next business day (Mon)
-    assert NY.adjust(d, BDC.PRECEDING) == date(2021, 12, 30)    # 12-31 is observed-holiday → 30th
+    assert NY.adjust(d, BDC.PRECEDING) == date(2021, 12, 31)    # SIFMA open 12-31 (Sat not shifted)
     assert NY.adjust(date(2024, 1, 16), BDC.FOLLOWING) == date(2024, 1, 16)  # already good
 
 
@@ -128,7 +125,7 @@ def test_modified_following_stays_in_month():
 def test_joint_calendar_is_union():
     joint = JointCalendar(NY, TGT)
     assert joint.is_holiday(date(2024, 11, 28))   # US Thanksgiving (not TARGET)
-    assert joint.is_holiday(date(2024, 3, 29))    # TARGET Good Friday (not US)
+    assert joint.is_holiday(date(2024, 5, 1))     # TARGET May Day (not SIFMA)
     assert joint.is_business_day(date(2024, 1, 16))  # neither
 
 
@@ -148,16 +145,16 @@ def test_anzac_day_not_mondayised_but_others_are():
 
 
 def test_secular_only_calendars_are_marked():
-    from pricebook_ng.foundation.calendar import Coverage
+    from pricebook_ng.foundation.calendars import Coverage
     for ident in ("RIYADH", "CAIRO", "ISTANBUL", "TEL_AVIV", "BEIJING", "SEOUL", "MUMBAI", "BANGKOK"):
         assert get_calendar(ident).coverage is Coverage.SECULAR_ONLY
-    assert get_calendar("NEW_YORK_SIFMA").coverage is Coverage.COMPLETE
+    assert get_calendar("US_GOVERNMENT_SECURITIES").coverage is Coverage.COMPLETE
     assert get_calendar("TARGET").coverage is Coverage.COMPLETE
 
 
 # ── S5: day_type classification (half-days) ──
 def test_day_type_classifies_business_half_holiday_weekend():
-    from pricebook_ng.foundation.calendar import DayType
+    from pricebook_ng.foundation.calendars import DayType
     # Christmas Eve 2024-12-24 (Tue) is a US early close — a HALF day, still a business day
     assert NY.day_type(date(2024, 12, 24)) is DayType.HALF
     assert NY.is_business_day(date(2024, 12, 24))            # markets open (early close)

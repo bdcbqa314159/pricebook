@@ -35,6 +35,12 @@ class Tenor:
     count: int
     unit: TenorUnit
 
+    def __post_init__(self) -> None:
+        # a tenor is a positive period; direction is a signed step multiplier (schedule `_step_k`),
+        # never a negative count, and a zero step never advances a generation loop (audit AC-T4.2).
+        if self.count <= 0:
+            raise ValueError(f"tenor count must be positive; got {self.count}")
+
     @classmethod
     def parse(cls, s: str) -> Tenor:
         """Parse `"3M"`, `"28D"`, `"2W"`, `"1Y"`."""
@@ -68,3 +74,11 @@ class Tenor:
         raise ValueError(
             f"{self} has no fixed month count (it is {self.unit.value}-based)"
         )
+
+    def to_dict(self) -> dict:
+        # atom → serialised BY VALUE (its canonical string), self-contained (audit 3.4).
+        return {"tenor": str(self)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Tenor:
+        return cls.parse(d["tenor"])

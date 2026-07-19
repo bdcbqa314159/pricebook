@@ -1,0 +1,32 @@
+# Root packaging for the NEW tree (`pricebook_ng`, src layout). The quarry keeps its own
+# `python/pyproject.toml`. Foundation audit §3.1: this must import as a real package (with
+# py.typed) before upper layers — and downstream mypy — can depend on it.
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pricebook_ng"
+description = "Pricebook (new tree) — functional-core / imperative-shell derivatives pricing library."
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Bernardo Cohen" }]
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "hypothesis", "pyright"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pricebook_ng.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pricebook_ng*"]
+
+[tool.setuptools.package-data]
+pricebook_ng = ["py.typed"]

@@ -9,7 +9,7 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention as BDC
+from pricebook_ng.foundation.calendars import BusinessDayConvention as BDC
 from pricebook_ng.foundation.day_count import Accrual
 from pricebook_ng.foundation.day_count import DayCountConvention as DC
 from pricebook_ng.foundation.market_calendars import get_calendar
@@ -29,7 +29,7 @@ from pricebook_ng.foundation.schedule import RollRule
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 
 USD = Currency.USD
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 
 
 def _idx(name, comp, *, obs=0, lb=0, dc=DC.ACT_360):

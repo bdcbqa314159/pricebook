@@ -6,6 +6,140 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-07-19
+
+### Fixed
+- **Ledger tightening — reclassified the 19 audit-closure ledger items against "wrong answer / invalid
+  input today?" Only one was a latent bug wearing a Tier-4 badge:**
+  - **AC-T4.2 — `Tenor` accepted non-positive counts** (invalid input). `Tenor.parse("0D")`/`"-3M"` and
+    `Tenor(0, …)` now raise (`__post_init__` guard) — a zero step never advances a schedule loop.
+    Removed from `OPEN.md`. Test: `test_t4_2_non_positive_tenor_is_rejected`.
+
+### Added
+- **EURIBOR_6M** — the standard EUR 6M vanilla floating leg (EUR, TARGET, ACT/360). Its absence was a
+  gap in an index set presented as complete (`EURIBOR_3M` already shipped). Test:
+  `test_t4_1_euribor_6m_is_registered`. The other missing indices (EFFR, BBSW, AONIA, CORRA, TIIE, …)
+  stay ledgered — absent capabilities, deferred to their currency/product topics.
+
+### Notes
+- The remaining 17 ledger items confirmed **NO** on the wrong-answer/invalid-input test (absent
+  capability or clean rejection — building them now would reintroduce the speculative infra Phase 4
+  deleted, §6b) and stay in `OPEN.md`. Six of their triggers are condition/event/usage-driven rather
+  than roadmap topics (AC-T4.7/8/9/11/17/18) — flagged as such in the ledger.
+
+## [0.81.0] - 2026-07-19
+
+### Removed
+- **PONYTAIL_AUDIT micro-cuts (findings 4/5/8).** `Currency.value`/`Unit.value` alias properties
+  (zero surviving call sites); `RfrConvention.none()` (byte-identical to the default — the `_term`
+  factory already names the "term rate, no RFR mechanics" intent); the one-entry `_ANNUAL_BASIS` dict
+  (inlined as a direct `BUS_252` conditional). Kept with reasons: `exponential_growth` (verified
+  primitive + oracle, no schema hazard, near-term EM-bond consumer) and `Calendar._rule_set` (its
+  union-narrowing is load-bearing for pyright).
+
+### Changed
+- **Foundation independent audit — CLOSED.** The three reports under `redesign/independent_audits/`
+  are renamed `closed_AUDIT.md` / `closed_PONYTAIL_AUDIT.md` / `closed_PONYTAIL-DEBT.md`, each with a
+  per-finding **disposition block** (fixed-with-a-test → CHANGELOG v0.75.0–v0.81.0 / ledgered →
+  `OPEN.md` / rejected+reason). All Tier-4 items and the deferred sub-parts (NYSE+Fed-bank calendars,
+  Tokyo Silver-Week/Olympic, FX quote-order registry, the interpolator-rebuild ponytail marker) are
+  ledgered in `OPEN.md` with named re-open triggers. `redesign/README.md` row 0 now points at the
+  closed record instead of "active work".
+
+## [0.80.0] - 2026-07-19
+
+### Removed
+- **Foundation audit closure — Phase 4: A3 speculative-field cuts.** The design SHAPE was ratified;
+  the guessed FIELDS were not (ruling A3 — a guessed field frozen into a schema is a costlier retrofit
+  than the file-touch to reintroduce it correctly). Cut, each with zero consumers:
+  - `underlying.py` sibling identities `ReferenceEntity` / `InflationIndex` / `FxFixing` /
+    `EquityUnderlying` / `CommodityUnderlying` (guessed `fixing_time`, a required `grade`) — the file
+    now holds only the `Underlying` protocol + `AssetClass`; each sibling returns *validated* when its
+    asset class actually ships (§3c, one identity at a time).
+  - `numerical_config.py` (`NumericalConfig` + sub-configs) — ships with the first engine that reads it;
+    no engine exists yet, so no knob has a present consumer.
+  - `PricingResult.cashflow_breakdown` / `sensitivities` / `diagnostics` and the `DiscountBasis`
+    wrapper — `basis` is inlined to `Currency | None` (the collateral currency); greeks/breakdowns/
+    diagnostics return with the L4/L5 layer that produces them. `results.py` drops its `fields-exempt`.
+
+### Changed
+- **A1 doc correction** (`interpolation.py`): documented that `CONTINUE_SLOPE` extends the end slope in
+  the interpolation's *own* space (log space for `LOG_LINEAR`) — the fix that keeps extrapolated DFs
+  positive.
+- **A2 doc correction** (`AUDIT_topic0_foundation.md`, `HANDOFF_topic0_gate.md`,
+  `handoff_topic1_conventions.md`): the S16 "record the invariant" ruling is **withdrawn** — business-day
+  counting is one half-open `[start, end)` primitive, not a recorded invariant (the CDI/BUS-252 consumer
+  needed the other convention, so the premise was false).
+
+## [0.79.0] - 2026-07-19
+
+### Changed
+- **Foundation audit closure — Phase 3b: Schedule provenance (finding 3.5 discharged, red→green).**
+  `Schedule.periods` emits a per-period **`SchedulePeriod`** record (accrual start/end, `is_stub`,
+  payment date). **ACT/ACT ICMA Rule 251.2**: long coupons now sum the day count over their notional
+  (quasi-coupon) periods — pinned to the ISDA 2006 §4.16 published long-first-coupon example
+  (0.9157608696) — which **deletes the long-stub raise** (NG-DEFER-1 discharged). Explicit stub anchors
+  via **`RegularPeriod(first_regular_date, last_regular_date)`** (the ISDA concept, folded into
+  `ScheduleTerms.stub` as a union to stay ≤5 fields, no `fields-exempt`). **`PaymentRule(calendar, lag)`**
+  places `payment_delay` — a payment settles `lag` business days after the adjusted accrual end on its
+  own (often different, for XCCY) calendar; it was dead code until a schedule gave it a payment column.
+
+## [0.78.0] - 2026-07-19
+
+### Changed
+- **Foundation audit closure — Phase 3: Tier-3 structural (red→green).** **3.2** `CalendarProtocol`
+  (`is_business_day`/`adjust`/`add_business_days`/`identity`); `JointCalendar` implements it via a shared
+  arithmetic mixin, and every `Calendar` consumer slot (`RollRule.calendar`, `year_fraction`,
+  `settlement_date`, `accrued_rate`) is retyped to it — cross-currency schedules now type-check and work.
+  **3.3** open registries: public `register_calendar`/`register_rate_index`, all `register_*` raise on
+  conflicting re-registration (was a silent overwrite), `temporary_*` context managers for test isolation.
+  **Q1** the USD calendar is renamed `NEW_YORK_SIFMA → US_GOVERNMENT_SECURITIES` (it is the govvies
+  calendar, not a generic NY one) and SOFR binds to it explicitly. **3.5(partial)** ACT/ACT ICMA long
+  stub RAISES rather than mis-accruing (multi-period support lands with 3b). **3.6** `fx_spot_date` (T+2
+  joint-calendar; T+1 USD/CAD; a cross cannot settle on a US holiday); `spot_lag` moved out of
+  `CurrencyPair` identity into a pair-conventions registry. **3.7** `_denominator` raises on unsupported
+  day counts (no silent 360); `FixingSource` protocol on `accrued_rate` (`FixingHistory` is the impl).
+
+## [0.77.0] - 2026-07-19
+
+### Fixed
+- **Foundation audit closure — Phase 2: four Tier-2 convention bugs (red→green).**
+  **2.1** SOFR was declared with a non-standard `observation_shift=2`; ISDA SOFR OIS is plain
+  compounded-in-arrears (`RfrConvention(payment_delay=2)`) — the LIBOR-fallback index correctly keeps
+  the shift. **2.2** the `NEW_YORK_SIFMA` calendar was missing **Good Friday** (SOFR does not publish
+  → `FixingHistory` raised on real data annually) and used federal Sat→Fri observance (wrongly closing
+  2021-12-31); it now includes Good Friday and uses `SUNDAY_ONLY` (SIFMA does not shift Saturday
+  holidays). **2.3** LONDON was missing the 2022–23 one-off bank holidays (Platinum Jubilee, state
+  funeral, coronation, 2020 VE-Day move) — added a `dates()` one-off DSL combinator and `since/until`
+  gating on `nth`. **2.4** Tokyo equinoxes were hardcoded (wrong in 2024–26); now computed
+  astronomically (`equinox()`), plus the Emperor's-Birthday move (`since=2020`). Three existing
+  calendar tests that encoded the buggy SIFMA Sat→Fri observance were corrected.
+
+## [0.76.0] - 2026-07-19
+
+### Fixed
+- **Foundation audit closure — Phase 1: five Tier-1 computational bugs (red→green).**
+  **1.1** ACT/ACT AFB undercounted leap-to-leap spans (2004-02-29→2008-02-29 gave 3.9973, now 4.0) —
+  whole years are counted from `end` directly (`end − k·years`), not by accumulating single-year clamps.
+  **1.2** `LOG_LINEAR` + `CONTINUE_SLOPE` returned a **negative** discount factor (DF(30) = −0.275);
+  per ruling **A1** it now extrapolates in the interpolation's own (log) space → +0.209.
+  **1.3** BUS/252 and CDI counted business days over different intervals; per ruling **A2** there is now
+  one primitive, `business_days_between` counting `[start, end)`, and the S16 invariant is withdrawn.
+  **1.4** backward schedule generation drifted the roll day through short-month clamps (May 31 quarterly
+  → Nov 29) and keyed EOM on `start`; now generated as `anchor ± k·tenor` with EOM anchored on the
+  generation seed (maturity for backward). **1.5** furikae substitution iterates `sorted(holidays)`
+  (deterministic; the substitute union was already order-invariant, so no answer changed).
+
+## [0.75.0] - 2026-07-19
+
+### Added
+- **Foundation audit closure — Phase 0: the foundation is now a real, importable package.** Added
+  `src/pricebook_ng/foundation/__init__.py` with an explicit `__all__` public-API surface (the contract
+  upper layers may depend on), a `py.typed` marker (typed code no longer reads as `Any` downstream), and
+  a root `pyproject.toml` (src layout, dynamic version, numpy/scipy deps) — `pip install -e .` works.
+  **Renamed `foundation/calendar.py` → `calendars.py`** so it no longer shadows stdlib `calendar` once
+  `foundation/` is on `sys.path`. No behaviour change (136 tests, all gates + pyright green).
+
 ## [0.74.3] - 2026-07-19
 
 ### Fixed

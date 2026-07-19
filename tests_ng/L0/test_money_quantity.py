@@ -48,11 +48,6 @@ def test_money_currency_must_be_a_currency():
         Money(1.0, "USD")
 
 
-def test_all_37_currencies_declared():
-    # matches the 37 market calendars (Slice 1)
-    assert len(list_currencies()) == 37
-
-
 # ── S1: Currency is an OPEN registry (+ minor_units) ──
 def test_currency_minor_units():
     assert Currency.USD.minor_units == 2
@@ -90,20 +85,17 @@ def test_quantity_mixing_units_raises():
 
 # ── CurrencyPair ──
 def test_currency_pair_name_and_spot_lag():
+    from pricebook_ng.foundation.settlement import spot_lag
     eurusd = CurrencyPair(EUR, USD)
     assert eurusd.name == "EURUSD"
-    assert eurusd.spot_lag == 2                      # T+2 is the market default
-    usdcad = CurrencyPair(USD, Currency.CAD, spot_lag=1)
+    assert spot_lag(eurusd) == 2                     # T+2 default — a convention, not identity
+    usdcad = CurrencyPair(USD, Currency.CAD)
     assert usdcad.name == "USDCAD"
-    assert usdcad.spot_lag == 1
+    assert spot_lag(usdcad) == 1                     # USD/CAD is T+1
+    assert CurrencyPair(USD, Currency.CAD) == usdcad  # the lag is out of equality now
 
 
 # ── Accrual.year_fraction — ergonomic wrapper over the S2 primitive ──
-def test_accrual_year_fraction_matches_primitive():
-    acc = Accrual(date(2024, 1, 1), date(2024, 7, 1), DC.ACT_360)
-    assert acc.year_fraction() == year_fraction(date(2024, 1, 1), date(2024, 7, 1), DC.ACT_360)
-
-
 def test_accrual_year_fraction_threads_icma_anchors():
     rs, re = date(2024, 2, 15), date(2024, 8, 15)
     acc = Accrual(rs, re, DC.ACT_ACT_ICMA)

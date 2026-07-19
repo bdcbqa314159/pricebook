@@ -26,7 +26,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pricebook_ng.foundation.calendar import Calendar
+    from pricebook_ng.foundation.calendars import CalendarProtocol
 
 
 class DayCountConvention(Enum):
@@ -63,7 +63,7 @@ def year_fraction(
     convention: DayCountConvention,
     *,
     coupon_period: CouponPeriod | None = None,
-    calendar: "Calendar | None" = None,
+    calendar: "CalendarProtocol | None" = None,
 ) -> float:
     """Year fraction of ``[start, end)`` under `convention`. `coupon_period` is
     required for ACT/ACT ICMA (and carries the 30E/360-ISDA final flag); `calendar`
@@ -164,20 +164,44 @@ def _act_act_isda(start: date, end: date) -> float:
     return total
 
 
+def _icma_add_months(d: date, months: int) -> date:
+    """Shift `d` by `months`, day-of-month preserved and clamped — for stepping the notional
+    coupon grid (coupon dates are regular, e.g. the 15th)."""
+    total = d.month - 1 + months
+    year, month = d.year + total // 12, total % 12 + 1
+    return date(year, month, min(d.day, _last_day_of_month(date(year, month, 1))))
+
+
 def _act_act_icma(start: date, end: date, cp: CouponPeriod | None) -> float:
-    """ACT/ACT ICMA (Rule 251.1): days / (period length × frequency). Strict — the
-    anchors are required, never silently replaced by ACT/365F."""
+    """ACT/ACT ICMA (ICMA Rule 251, ISDA §4.16): sum over the notional (quasi-coupon) periods
+    that `[start, end)` overlaps, each term ``days_in_overlap / (frequency × notional_days)``.
+    For a regular or short period this is one term (Rule 251.1); for a long coupon it is several
+    (Rule 251.2). The notional grid is `cp`'s reference period stepped by `12/frequency` months.
+    Strict — the anchors are required, never silently replaced by ACT/365F (audit 3.5, 3b)."""
     if cp is None:
         raise ValueError(
             "ACT/ACT ICMA requires coupon-period anchors (pass `coupon_period=`)."
         )
-    period_days = (cp.reference_end - cp.reference_start).days
-    if cp.frequency <= 0 or period_days <= 0:
+    if cp.frequency <= 0 or (cp.reference_end - cp.reference_start).days <= 0:
         raise ValueError(
             f"ACT/ACT ICMA needs frequency>0 and reference_end>reference_start; "
-            f"got frequency={cp.frequency}, period_days={period_days}."
+            f"got frequency={cp.frequency}, "
+            f"period_days={(cp.reference_end - cp.reference_start).days}."
         )
-    return (end - start).days / (period_days * cp.frequency)
+    period_months = 12 // cp.frequency
+    # walk the notional grid to the period at or before `start`, then across [start, end)
+    qc_start = cp.reference_start
+    while qc_start > start:
+        qc_start = _icma_add_months(qc_start, -period_months)
+    while _icma_add_months(qc_start, period_months) <= start:
+        qc_start = _icma_add_months(qc_start, period_months)
+    dcf = 0.0
+    while qc_start < end:
+        qc_end = _icma_add_months(qc_start, period_months)
+        overlap = (min(end, qc_end) - max(start, qc_start)).days
+        dcf += overlap / (cp.frequency * (qc_end - qc_start).days)
+        qc_start = qc_end
+    return dcf
 
 
 def _leap_days_in(start: date, end: date) -> int:
@@ -208,32 +232,34 @@ def _nl_365(start: date, end: date) -> float:
     return ((end - start).days - _leap_days_in(start, end)) / 365.0
 
 
-def _sub_one_year(d: date) -> date:
+def _shift_years(d: date, n: int) -> date:
     try:
-        return date(d.year - 1, d.month, d.day)
-    except ValueError:  # 29 Feb → 28 Feb of a non-leap year
-        return date(d.year - 1, 2, 28)
+        return date(d.year + n, d.month, d.day)
+    except ValueError:  # 29 Feb → 28 Feb when the target year is not leap
+        return date(d.year + n, 2, 28)
 
 
 def _act_act_afb(start: date, end: date) -> float:
-    """ACT/ACT AFB (French): count whole years back from `end`, plus the remaining stub
-    over 365 (or 366 if a 29 Feb lies in the stub)."""
-    years, stub_end = 0, end
-    while _sub_one_year(stub_end) >= start:
+    """ACT/ACT AFB (French): whole years counted back from `end` — each boundary computed
+    FROM `end` directly (`end − k·years`), not by accumulating single-year clamps, so a
+    leap-to-leap span stays exactly whole (audit 1.1). Stub at the start over 365 (or 366
+    if a 29 Feb lies in it)."""
+    years = 0
+    while _shift_years(end, -(years + 1)) >= start:
         years += 1
-        stub_end = _sub_one_year(stub_end)
-    denom = 366.0 if _leap_days_in(start, stub_end) else 365.0
-    return years + (stub_end - start).days / denom
+    stub_boundary = _shift_years(end, -years)
+    denom = 366.0 if _leap_days_in(start, stub_boundary) else 365.0
+    return years + (stub_boundary - start).days / denom
 
 
-def business_days_between(start: date, end: date, calendar: "Calendar") -> int:
-    """Business days in ``(start, end]`` — settlement counts, trade date does not.
-
-    Recorded invariant (S16): the count is **start-exclusive, end-inclusive**. Some
-    markets differ; this is recorded rather than parameterised — no present consumer needs
-    the alternative, and a flag would be speculative."""
-    count, cur = 0, start + timedelta(days=1)
-    while cur <= end:
+def business_days_between(start: date, end: date, calendar: "CalendarProtocol") -> int:
+    """Business days in ``[start, end)`` — start-inclusive, end-exclusive. This is the ONE
+    business-day primitive: it matches `_overnight_days` (the CDI/RFR accrual window), so a
+    BUS/252 discount factor and a CDI accrual count the same days (audit 1.3 / ruling A2).
+    The former S16 invariant — `(start, end]`, "no consumer needs the alternative" — was
+    wrong (the CDI consumer did) and is withdrawn."""
+    count, cur = 0, start
+    while cur < end:
         if calendar.is_business_day(cur):
             count += 1
         cur += timedelta(days=1)
@@ -261,7 +287,7 @@ class Accrual:
         self,
         *,
         coupon_period: CouponPeriod | None = None,
-        calendar: "Calendar | None" = None,
+        calendar: "CalendarProtocol | None" = None,
     ) -> float:
         return year_fraction(
             self.start,

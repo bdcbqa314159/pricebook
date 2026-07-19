@@ -20,13 +20,15 @@ Provenance:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
 from types import MappingProxyType
+from typing import Protocol, runtime_checkable
 
-from pricebook_ng.foundation.calendar import Calendar
+from pricebook_ng.foundation.calendars import CalendarProtocol
 from pricebook_ng.foundation.day_count import Accrual, DayCountConvention
 from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency
@@ -77,11 +79,6 @@ class RfrConvention:
     lockout: int = 0
     payment_delay: int = 0
 
-    @classmethod
-    def none(cls) -> RfrConvention:
-        """An IBOR / term rate has no RFR mechanics — the distinction is visible, not five zeros."""
-        return cls()
-
 
 @dataclass(frozen=True)
 class RateIndex:
@@ -103,10 +100,27 @@ class RateIndex:
     def asset_class(self) -> AssetClass:
         return AssetClass.RATES
 
+    def to_dict(self) -> dict:
+        # IDENTITY → serialised BY NAME (audit 3.4): a rate index is a registry entry.
+        return {"index": self.name}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> RateIndex:
+        return get_rate_index(d["index"])  # rehydrate via the registry (same module)
+
+
+@runtime_checkable
+class FixingSource(Protocol):
+    """What `accrued_rate` needs to resolve a fixing (audit 3.7): a published rate for an
+    index on a date. `FixingHistory` is the trivial in-memory implementation; the market-data
+    layer will supply a live/db-backed source without a two-truths migration."""
+
+    def rate(self, index_name: str, on: date) -> float: ...
+
 
 @dataclass(frozen=True)
 class FixingHistory:
-    """Published fixings keyed by index name then date — generic over index (rates now;
+    """Published fixings keyed by index name then date — the trivial `FixingSource` (rates now;
     inflation levels / FX fixings / equity observations later)."""
 
     fixings: Mapping[str, Mapping[date, float]]
@@ -118,16 +132,12 @@ class FixingHistory:
         return by_index[on]
 
 
-_ANNUAL_BASIS: dict[DayCountConvention, int] = {DayCountConvention.BUS_252: 252}
-
-
 def _annual_basis(day_count: DayCountConvention) -> int:
-    basis = _ANNUAL_BASIS.get(day_count)
-    if basis is None:
-        raise ValueError(
-            f"{day_count.value} is not a business-day-counted convention (no annual basis)"
-        )
-    return basis
+    if day_count is DayCountConvention.BUS_252:
+        return 252
+    raise ValueError(
+        f"{day_count.value} is not a business-day-counted convention (no annual basis)"
+    )
 
 
 def exponential_growth(
@@ -140,11 +150,20 @@ def exponential_growth(
 
 
 def _denominator(day_count: DayCountConvention) -> float:
-    return 365.0 if day_count is DayCountConvention.ACT_365_FIXED else 360.0
+    # RFR compounding/averaging is ACT/360 or ACT/365F. Anything else has no defined
+    # denominator here — raise rather than silently return 360 (audit 3.7; our own
+    # no-silent-fallback rule).
+    if day_count is DayCountConvention.ACT_360:
+        return 360.0
+    if day_count is DayCountConvention.ACT_365_FIXED:
+        return 365.0
+    raise ValueError(
+        f"{day_count.value} has no RFR compounding denominator (only ACT/360, ACT/365F)."
+    )
 
 
 def _overnight_days(
-    start: date, end: date, calendar: Calendar
+    start: date, end: date, calendar: CalendarProtocol
 ) -> list[tuple[date, int]]:
     days: list[date] = []
     d = start
@@ -159,7 +178,7 @@ def _overnight_days(
     return out
 
 
-def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> float:
+def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingSource) -> float:
     """The realized rate of `index` over `accrual`, plus its `spread_adjustment`. The
     business-day calendar is **the index's own** (`index.accrual.roll.calendar`) — never
     inferred from currency (F2)."""
@@ -230,9 +249,26 @@ _registry: dict[
 _MOD_FOL = BusinessDayConvention.MODIFIED_FOLLOWING
 
 
-def _register(index: RateIndex) -> RateIndex:
+def register_rate_index(index: RateIndex) -> RateIndex:
+    """Register a rate index (open registry — new indices are declarations; audit 3.3). A
+    conflicting name **raises** (no silent overwrite of the 28-index table)."""
+    if index.name in _registry:
+        raise ValueError(f"rate index {index.name!r} is already registered")
     _registry[index.name] = index
     return index
+
+
+_register = register_rate_index  # the declarations below
+
+
+@contextmanager
+def temporary_rate_index(index: RateIndex) -> Iterator[RateIndex]:
+    """Register a rate index for a `with` block, then remove it — registry isolation for tests."""
+    register_rate_index(index)
+    try:
+        yield index
+    finally:
+        del _registry[index.name]
 
 
 def _accrual(cal_id: str, dc: DayCountConvention) -> AccrualConvention:
@@ -260,18 +296,21 @@ def _term(
         IndexId(name, ccy, Tenor.parse(tenor)),
         _accrual(cal_id, dc),
         FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
-        RfrConvention.none(),
+        RfrConvention(),  # a term/IBOR rate has no RFR mechanics (default = all zeros)
     )
 
 
 _DC = DayCountConvention
+# ISDA-standard SOFR OIS is plain compounded-in-arrears over the calculation period — NO
+# observation shift, NO lookback — with a 2-business-day payment offset (audit 2.1). The
+# loan/FRN `observation_shift=2` convention lives on the LIBOR-fallback index below, not here.
 SOFR = _register(
     _on(
         "SOFR",
         Currency.USD,
-        "NEW_YORK_SIFMA",
+        "US_GOVERNMENT_SECURITIES",
         _DC.ACT_360,
-        RfrConvention(observation_shift=2, payment_delay=2),
+        RfrConvention(payment_delay=2),
     )
 )
 SONIA = _register(
@@ -292,14 +331,16 @@ CDI = _register(
     )
 )
 EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "TARGET", "3M", _DC.ACT_360))
+EURIBOR_6M = _register(_term("EURIBOR_6M", Currency.EUR, "TARGET", "6M", _DC.ACT_360))
 TERM_SOFR_3M = _register(
-    _term("TERM_SOFR_3M", Currency.USD, "NEW_YORK_SIFMA", "3M", _DC.ACT_360)
+    _term("TERM_SOFR_3M", Currency.USD, "US_GOVERNMENT_SECURITIES", "3M", _DC.ACT_360)
 )
 USD_LIBOR_3M_FALLBACK = _register(
     RateIndex(
         IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
         AccrualConvention(
-            _DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), _MOD_FOL, eom=False)
+            _DC.ACT_360,
+            RollRule(get_calendar("US_GOVERNMENT_SECURITIES"), _MOD_FOL, eom=False),
         ),
         FixingRule(
             ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0

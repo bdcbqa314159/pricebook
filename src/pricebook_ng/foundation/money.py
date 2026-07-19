@@ -27,6 +27,8 @@ Provenance:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import ClassVar, Mapping
@@ -80,19 +82,31 @@ class Currency:
     THB: ClassVar[Currency]
     PHP: ClassVar[Currency]
 
-    @property
-    def value(self) -> str:  # the ISO code (kept for call sites that read `.value`)
-        return self.code
-
 
 _CURRENCIES: dict[str, Currency] = {}
 
 
 def register_currency(code: str, minor_units: int = 2) -> Currency:
-    """Declare a currency (open registry — a new market is a declaration, not an enum edit)."""
+    """Declare a currency (open registry — a new market is a declaration, not an enum edit).
+    Re-registering an existing code **raises** (audit 3.3): a silent overwrite would break the
+    interning that makes `Currency.USD is currency("USD")` hold."""
+    if code in _CURRENCIES:
+        raise ValueError(
+            f"currency {code!r} is already registered (re-registration not allowed)"
+        )
     c = Currency(code, minor_units)
     _CURRENCIES[code] = c
     return c
+
+
+@contextmanager
+def temporary_currency(code: str, minor_units: int = 2) -> Iterator[Currency]:
+    """Register a currency for a `with` block, then remove it — registry isolation for tests."""
+    c = register_currency(code, minor_units)
+    try:
+        yield c
+    finally:
+        del _CURRENCIES[code]
 
 
 def currency(code: str) -> Currency:
@@ -136,15 +150,15 @@ class Unit:
     BUSHEL: ClassVar[Unit]
     POUND: ClassVar[Unit]
 
-    @property
-    def value(self) -> str:
-        return self.symbol
-
 
 _UNITS: dict[str, Unit] = {}
 
 
 def register_unit(name: str, symbol: str) -> Unit:
+    if symbol in _UNITS:
+        raise ValueError(
+            f"unit {symbol!r} is already registered (re-registration not allowed)"
+        )
     u = Unit(symbol)
     _UNITS[symbol] = u
     return u
@@ -262,12 +276,13 @@ class Quantity:
 
 @dataclass(frozen=True)
 class CurrencyPair:
-    """An FX pair `base`/`quote` (one unit of base costs `price` of quote) with its
-    spot settlement lag (T+`spot_lag`, market default 2; USD/CAD is 1)."""
+    """An FX pair `base`/`quote` (one unit of base costs `price` of quote). Its IDENTITY is the
+    two currencies only — the spot settlement lag is a *convention*, looked up by
+    `settlement.spot_lag(pair)`, not a field (audit 3.6: a lag on the identity fragments dict
+    keys, so `CurrencyPair(USD, JPY)` would differ from the same pair with a lag)."""
 
     base: Currency
     quote: Currency
-    spot_lag: int = 2
 
     @property
     def name(self) -> str:
