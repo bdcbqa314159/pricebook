@@ -6,6 +6,25 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-07-19
+
+### Removed
+- **PONYTAIL_AUDIT micro-cuts (findings 4/5/8).** `Currency.value`/`Unit.value` alias properties
+  (zero surviving call sites); `RfrConvention.none()` (byte-identical to the default — the `_term`
+  factory already names the "term rate, no RFR mechanics" intent); the one-entry `_ANNUAL_BASIS` dict
+  (inlined as a direct `BUS_252` conditional). Kept with reasons: `exponential_growth` (verified
+  primitive + oracle, no schema hazard, near-term EM-bond consumer) and `Calendar._rule_set` (its
+  union-narrowing is load-bearing for pyright).
+
+### Changed
+- **Foundation independent audit — CLOSED.** The three reports under `redesign/independent_audits/`
+  are renamed `closed_AUDIT.md` / `closed_PONYTAIL_AUDIT.md` / `closed_PONYTAIL-DEBT.md`, each with a
+  per-finding **disposition block** (fixed-with-a-test → CHANGELOG v0.75.0–v0.81.0 / ledgered →
+  `OPEN.md` / rejected+reason). All Tier-4 items and the deferred sub-parts (NYSE+Fed-bank calendars,
+  Tokyo Silver-Week/Olympic, FX quote-order registry, the interpolator-rebuild ponytail marker) are
+  ledgered in `OPEN.md` with named re-open triggers. `redesign/README.md` row 0 now points at the
+  closed record instead of "active work".
+
 ## [0.80.0] - 2026-07-19
 
 ### Removed
