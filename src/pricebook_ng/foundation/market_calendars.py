@@ -13,7 +13,8 @@ Provenance:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from types import MappingProxyType
 
 from pricebook_ng.foundation.calendars import (
@@ -47,9 +48,26 @@ _calendars: dict[
 ] = {}  # mutable backing; frozen into `_CALENDARS` below (A2)
 
 
-def _reg(cal: Calendar) -> Calendar:
+def register_calendar(cal: Calendar) -> Calendar:
+    """Register a market calendar (open registry — the most open-ended domain; audit 3.3).
+    A conflicting identity **raises** (no silent overwrite)."""
+    if cal.identity in _calendars:
+        raise ValueError(f"calendar {cal.identity!r} is already registered")
     _calendars[cal.identity] = cal
     return cal
+
+
+_reg = register_calendar  # the 37 declarations below
+
+
+@contextmanager
+def temporary_calendar(cal: Calendar) -> Iterator[Calendar]:
+    """Register a calendar for a `with` block, then remove it — registry isolation for tests."""
+    register_calendar(cal)
+    try:
+        yield cal
+    finally:
+        del _calendars[cal.identity]
 
 
 # US government-securities (SIFMA/Treasury) calendar. Good Friday is a close (no SOFR fixing).

@@ -145,3 +145,28 @@ def test_3_2_joint_calendar_is_a_full_calendar():
     terms = ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(calendar=joint))
     s = build_schedule(date(2024, 1, 15), date(2025, 1, 15), terms)
     assert len(s.adjusted) == len(s.unadjusted)
+
+
+# 3.3 registries are open (public register_*) and raise on conflicting re-registration
+def test_3_3_registries_open_and_conflict_raises():
+    from pricebook_ng.foundation.calendars import Calendar, fixed
+    from pricebook_ng.foundation.market_calendars import (
+        get_calendar,
+        register_calendar,
+        temporary_calendar,
+    )
+    from pricebook_ng.foundation.money import register_currency
+    from pricebook_ng.foundation.rate_index import get_rate_index, register_rate_index
+
+    cal = Calendar("TEST_XYZ_CAL", (fixed(1, 1),))
+    with temporary_calendar(cal):                   # public registration, isolated
+        assert get_calendar("TEST_XYZ_CAL") is cal
+        with pytest.raises(ValueError):             # conflicting identity raises
+            register_calendar(Calendar("TEST_XYZ_CAL", ()))
+    with pytest.raises(ValueError):                 # removed after the block
+        get_calendar("TEST_XYZ_CAL")
+    # every register_* refuses a conflicting re-registration (was a silent overwrite)
+    with pytest.raises(ValueError):
+        register_currency("USD")
+    with pytest.raises(ValueError):
+        register_rate_index(get_rate_index("SOFR"))

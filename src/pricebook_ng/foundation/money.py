@@ -27,6 +27,8 @@ Provenance:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import ClassVar, Mapping
@@ -89,10 +91,24 @@ _CURRENCIES: dict[str, Currency] = {}
 
 
 def register_currency(code: str, minor_units: int = 2) -> Currency:
-    """Declare a currency (open registry — a new market is a declaration, not an enum edit)."""
+    """Declare a currency (open registry — a new market is a declaration, not an enum edit).
+    Re-registering an existing code **raises** (audit 3.3): a silent overwrite would break the
+    interning that makes `Currency.USD is currency("USD")` hold."""
+    if code in _CURRENCIES:
+        raise ValueError(f"currency {code!r} is already registered (re-registration not allowed)")
     c = Currency(code, minor_units)
     _CURRENCIES[code] = c
     return c
+
+
+@contextmanager
+def temporary_currency(code: str, minor_units: int = 2) -> Iterator[Currency]:
+    """Register a currency for a `with` block, then remove it — registry isolation for tests."""
+    c = register_currency(code, minor_units)
+    try:
+        yield c
+    finally:
+        del _CURRENCIES[code]
 
 
 def currency(code: str) -> Currency:
@@ -145,6 +161,8 @@ _UNITS: dict[str, Unit] = {}
 
 
 def register_unit(name: str, symbol: str) -> Unit:
+    if symbol in _UNITS:
+        raise ValueError(f"unit {symbol!r} is already registered (re-registration not allowed)")
     u = Unit(symbol)
     _UNITS[symbol] = u
     return u

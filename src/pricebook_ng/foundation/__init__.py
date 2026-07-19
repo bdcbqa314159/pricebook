@@ -10,6 +10,7 @@ from __future__ import annotations
 from pricebook_ng.foundation.calendars import (
     BusinessDayConvention,
     Calendar,
+    CalendarProtocol,
     Coverage,
     DayType,
     HolidaySet,
@@ -49,6 +50,7 @@ from pricebook_ng.foundation.market_calendars import (
     calendar_for_currency,
     get_calendar,
     list_calendars,
+    register_calendar,
 )
 from pricebook_ng.foundation.money import (
     CURRENCIES,
@@ -79,6 +81,7 @@ from pricebook_ng.foundation.rate_index import (
     accrued_rate,
     get_rate_index,
     list_rate_indices,
+    register_rate_index,
 )
 from pricebook_ng.foundation.results import DiscountBasis, PricingFailure, PricingResult
 from pricebook_ng.foundation.schedule import (
@@ -133,6 +136,8 @@ __all__ = [
     "get_calendar",
     "calendar_for_currency",
     "list_calendars",
+    "register_calendar",
+    "CalendarProtocol",
     # day counts & accrual
     "DayCountConvention",
     "year_fraction",
@@ -181,6 +186,7 @@ __all__ = [
     "accrued_rate",
     "get_rate_index",
     "list_rate_indices",
+    "register_rate_index",
     # underlying
     "Underlying",
     "AssetClass",

@@ -20,7 +20,8 @@ Provenance:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
@@ -230,9 +231,26 @@ _registry: dict[
 _MOD_FOL = BusinessDayConvention.MODIFIED_FOLLOWING
 
 
-def _register(index: RateIndex) -> RateIndex:
+def register_rate_index(index: RateIndex) -> RateIndex:
+    """Register a rate index (open registry — new indices are declarations; audit 3.3). A
+    conflicting name **raises** (no silent overwrite of the 28-index table)."""
+    if index.name in _registry:
+        raise ValueError(f"rate index {index.name!r} is already registered")
     _registry[index.name] = index
     return index
+
+
+_register = register_rate_index  # the declarations below
+
+
+@contextmanager
+def temporary_rate_index(index: RateIndex) -> Iterator[RateIndex]:
+    """Register a rate index for a `with` block, then remove it — registry isolation for tests."""
+    register_rate_index(index)
+    try:
+        yield index
+    finally:
+        del _registry[index.name]
 
 
 def _accrual(cal_id: str, dc: DayCountConvention) -> AccrualConvention:
