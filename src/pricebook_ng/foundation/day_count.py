@@ -234,3 +234,36 @@ def business_days_between(start: date, end: date, calendar: "Calendar") -> int:
             count += 1
         cur += timedelta(days=1)
     return count
+
+
+@dataclass(frozen=True)
+class Accrual:
+    """A day-count period: its span and convention (A1 — a *time-period* value object, an
+    applied day count, so it lives with `year_fraction`, not with cashflows). `year_fraction`
+    is the ergonomic wrapper over the L0 primitive (start + end + day_count bundled). An
+    accrual is ordered by construction — a reversed or zero-length span raises (S14)."""
+
+    start: date
+    end: date
+    day_count: DayCountConvention
+
+    def __post_init__(self) -> None:
+        if self.end <= self.start:
+            raise ValueError(f"accrual must be ordered (start < end); got {self.start}..{self.end}")
+
+    def year_fraction(
+        self, *, coupon_period: CouponPeriod | None = None, calendar: "Calendar | None" = None
+    ) -> float:
+        return year_fraction(
+            self.start, self.end, self.day_count,
+            coupon_period=coupon_period, calendar=calendar,
+        )
+
+    def to_dict(self) -> dict:
+        return {"start": self.start.isoformat(), "end": self.end.isoformat(),
+                "day_count": self.day_count.value}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Accrual":
+        return cls(date.fromisoformat(d["start"]), date.fromisoformat(d["end"]),
+                   DayCountConvention(d["day_count"]))

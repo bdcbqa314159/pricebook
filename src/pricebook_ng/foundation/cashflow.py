@@ -17,55 +17,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation.day_count import (
-    CouponPeriod,
-    DayCountConvention,
-    year_fraction,
-)
+from pricebook_ng.foundation.day_count import Accrual, DayCountConvention
 from pricebook_ng.foundation.money import Money
 from pricebook_ng.foundation.settlement import Delivery
 
-# calendar is same-layer (L0), so a direct import is fine here.
-from pricebook_ng.foundation.calendar import Calendar
-
 # A leg's flow is cash OR physical: a `Cashflow(Money)` or a `Delivery(Quantity)`
 # (gate audit S2). Pay/receive is the SIGN of the amount — no direction field (S13).
+# `Accrual` lives in `day_count.py` (A1 — it is an applied day count, not a cashflow concept).
 
 # The serialisation-schema version for a `Leg` (the serialised root, S8). Bump on a
 # breaking layout change; `from_dict` refuses versions it does not understand.
 SCHEMA_VERSION = 1
-
-
-@dataclass(frozen=True)
-class Accrual:
-    """A day-count period: its span and convention. `year_fraction` is the ergonomic
-    wrapper over the L0 primitive (start + end + day_count bundled). An accrual is ordered
-    by construction — a reversed or zero-length span raises (S14)."""
-
-    start: date
-    end: date
-    day_count: DayCountConvention
-
-    def __post_init__(self) -> None:
-        if self.end <= self.start:
-            raise ValueError(f"accrual must be ordered (start < end); got {self.start}..{self.end}")
-
-    def year_fraction(
-        self, *, coupon_period: CouponPeriod | None = None, calendar: Calendar | None = None
-    ) -> float:
-        return year_fraction(
-            self.start, self.end, self.day_count,
-            coupon_period=coupon_period, calendar=calendar,
-        )
-
-    def to_dict(self) -> dict:
-        return {"start": self.start.isoformat(), "end": self.end.isoformat(),
-                "day_count": self.day_count.value}
-
-    @classmethod
-    def from_dict(cls, d: dict) -> Accrual:
-        return cls(date.fromisoformat(d["start"]), date.fromisoformat(d["end"]),
-                   DayCountConvention(d["day_count"]))
 
 
 @dataclass(frozen=True)

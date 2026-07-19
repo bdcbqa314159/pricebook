@@ -7,6 +7,17 @@ Gate audit S1/S4 + the meta-rule: **open-ended domains get a registry** (a new m
 (`Currency.USD`, `Unit.BARREL`), interned so `is`/`==` both hold. `Money`/`Quantity` are
 closed under same-currency / same-unit arithmetic; mixing is a type error.
 
+**Why `Currency` is an open registry, not an `Enum` (A3 — do not "fix" this back).**
+`setattr(Currency, "USD", ...)` gives the ergonomics of `Currency.USD` but the members are
+*invisible to type checkers and autocomplete* — a real cost. It is paid deliberately: the
+ratified scope contract (`redesign/01_scope_contract.md`) puts **BRL and the whole LatAm /
+EM set in scope**, and markets are open-ended (a new currency is a market event, not a code
+release). Reverting to an `Enum` would regain autocomplete but **silently drop every currency
+not hard-coded — BRL included — breaking the scope contract.** The registry is the correct
+shape for an open-ended domain (meta-rule); the lost autocomplete is the accepted price.
+The registry *view* is read-only (`CURRENCIES`/`UNITS` are `MappingProxyType`); additions go
+through `register_*` only (A2).
+
 Provenance:
   quarry: python/pricebook/core/currency.py
   source: ISO 4217 (codes + minor units); ACI Model Code
@@ -17,6 +28,8 @@ Provenance:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -58,6 +71,10 @@ for _code in ("USD EUR GBP JPY CHF AUD CAD SEK NOK NZD DKK PLN CZK HUF RON TRY S
               "ZAR KES NGN BRL MXN CLP COP PEN ARS CNY KRW INR SGD HKD IDR MYR THB PHP").split():
     setattr(Currency, _code, register_currency(_code, 0 if _code in _ZERO else 2))
 
+# Read-only public view. The registry stays OPEN (`register_currency` writes the backing at
+# runtime — S1), but the view refuses direct mutation, so nothing can rebind or corrupt it (A2).
+CURRENCIES: Mapping[str, Currency] = MappingProxyType(_CURRENCIES)
+
 
 @dataclass(frozen=True)
 class Unit:
@@ -94,6 +111,9 @@ for _name, _sym in [("BARREL", "bbl"), ("GALLON", "gal"), ("MMBTU", "MMBtu"), ("
                     ("MWH", "MWh"), ("TONNE", "t"), ("TROY_OUNCE", "ozt"), ("BUSHEL", "bu"),
                     ("POUND", "lb")]:
     setattr(Unit, _name, register_unit(_name, _sym))
+
+# Read-only public view of the open unit registry (A2, as for currencies above).
+UNITS: Mapping[str, Unit] = MappingProxyType(_UNITS)
 
 
 @dataclass(frozen=True)

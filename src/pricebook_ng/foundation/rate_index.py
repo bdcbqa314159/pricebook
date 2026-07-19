@@ -24,10 +24,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
+from types import MappingProxyType
 
 from pricebook_ng.foundation.calendar import Calendar
-from pricebook_ng.foundation.cashflow import Accrual
-from pricebook_ng.foundation.day_count import DayCountConvention, year_fraction
+from pricebook_ng.foundation.day_count import Accrual, DayCountConvention, year_fraction
 from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency
 from pricebook_ng.foundation.schedule import BusinessDayConvention, RollRule
@@ -255,6 +255,11 @@ USD_LIBOR_3M_FALLBACK = _register(RateIndex(
     RfrConvention(observation_shift=2, payment_delay=2),
     spread_adjustment=0.0026161,
 ))
+
+# Closed registry — all indices are declared above by explicit construction (S5: no
+# import-time I/O). Freeze so it cannot be rebound or mutated (A2 — the quarry's bug was a
+# JSON load that replaced the whole `_REGISTRY` dict, dropping 27 of 28 indices).
+_REGISTRY = MappingProxyType(_REGISTRY)
 
 
 def get_rate_index(name: str) -> RateIndex:
