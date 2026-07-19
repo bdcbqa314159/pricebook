@@ -6,6 +6,19 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.74.3] - 2026-07-19
+
+### Fixed
+- **L0 is now static-type clean (pyright 22 → 0 errors), no behaviour change (136 tests green).**
+  (1) `Currency` (37), `Unit` (9) and `Frequency` (7) named constants are declared as `ClassVar`, so
+  `Currency.USD` / `Unit.BARREL` / `Frequency.MONTHLY` type-check **and autocomplete** — the static half
+  of the open registry (undoes A3's accepted-cost note; the registry stays open via `register_*`).
+  (2) the closed registries use a mutable backing + frozen `MappingProxyType` **view** (`_registry`→
+  `_REGISTRY`, `_calendars`→`_CALENDARS`) instead of rebinding a `dict`-typed name. (3) `Calendar`
+  narrows the `HolidaySet | tuple[Rule,...]` union via a `_rule_set` property. (4) scipy `brentq`'s
+  union return is `cast` to `float`. `verify.py fields` now excludes `ClassVar` (definitionally not a
+  dataclass field) — a real gate correction.
+
 ## [0.74.2] - 2026-07-19
 
 ### Fixed
