@@ -148,15 +148,56 @@ def orthodox(offset: int) -> Rule:
     return rule
 
 
-def nth(month: int, weekday: int, n: int) -> Rule:
-    """The nth (n>0) or last (n=-1) `weekday` (0=Mon) of `month` — never a weekend."""
+def nth(
+    month: int,
+    weekday: int,
+    n: int,
+    *,
+    since: int | None = None,
+    until: int | None = None,
+) -> Rule:
+    """The nth (n>0) or last (n=-1) `weekday` (0=Mon) of `month` — never a weekend. `since`/
+    `until` gate the years it applies (e.g. a bank holiday moved for one year is expressed as
+    two gated rules plus a `dates()` one-off)."""
 
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
+        if not _in_range(year, since, until):
+            return ()
         return (
             _last_weekday(year, month, weekday)
             if n == -1
             else _nth_weekday(year, month, weekday, n),
         )
+
+    return rule
+
+
+def dates(*ds: tuple[int, int, int]) -> Rule:
+    """One-off calendar dates as `(year, month, day)` — moves and additions the recurring
+    rules cannot express (UK Platinum Jubilee, state funeral, coronation; days of mourning).
+    Pinned to the exact date, never observance-shifted."""
+    pinned = frozenset(date(y, m, d) for y, m, d in ds)
+
+    def rule(cal: Calendar, year: int) -> tuple[date, ...]:
+        return tuple(d for d in pinned if d.year == year)
+
+    return rule
+
+
+def _equinox_day(year: int, month: int) -> int:
+    """Astronomical equinox day (JST) — the standard approximation (as QuantLib's `Japan`):
+    `month=3` vernal, `month=9` autumnal. Valid across the years the markets need."""
+    t = year - 1980
+    base = 20.8431 if month == 3 else 23.2488
+    return int(base + 0.242194 * t - t // 4)
+
+
+def equinox(month: int) -> Rule:
+    """Japanese Vernal (`month=3`) / Autumnal (`month=9`) Equinox Day — the date shifts by
+    year (astronomical), so it cannot be a `fixed` date (audit 2.4)."""
+
+    def rule(cal: Calendar, year: int) -> tuple[date, ...]:
+        return (date(year, month, _equinox_day(year, month)),)
 
     return rule
 

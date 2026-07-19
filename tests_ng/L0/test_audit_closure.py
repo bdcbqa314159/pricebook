@@ -122,7 +122,7 @@ def test_2_3_london_one_off_holidays():
 
 # ── 2.4 Tokyo equinoxes are astronomical, not hardcoded (TONA dates wrong this year) ──
 def test_2_4_tokyo_equinoxes_are_astronomical():
-    assert TOKYO.is_holiday(date(2024, 3, 20))     # Vernal Equinox 2024 (was hardcoded 3/21)
-    assert not TOKYO.is_holiday(date(2024, 3, 21))
-    assert TOKYO.is_holiday(date(2024, 9, 22))     # Autumnal Equinox 2024 (was hardcoded 9/23)
-    assert not TOKYO.is_holiday(date(2024, 9, 23))
+    assert TOKYO.is_holiday(date(2024, 3, 20))      # Vernal Equinox 2024 (astronomical; was fixed 3/21)
+    assert not TOKYO.is_holiday(date(2024, 3, 21))  # the old hardcoded date is no longer a holiday
+    assert TOKYO.is_holiday(date(2024, 9, 22))      # Autumnal Equinox 2024 (was fixed 9/23)
+    # 2024-09-22 is a Sunday, so 09-23 is its furikae substitute (also a holiday) — expected

@@ -64,10 +64,10 @@ def test_us_sunday_holiday_observed_monday():
     assert not NY.is_business_day(date(2021, 7, 5))
 
 
-def test_us_vs_uk_saturday_divergence():
-    # New Year 2022-01-01 is a Saturday. US → previous Friday; UK → next Monday.
-    assert NY.is_holiday(date(2021, 12, 31))       # US: Friday before
-    assert not NY.is_holiday(date(2022, 1, 3))
+def test_sifma_vs_uk_saturday_divergence():
+    # New Year 2022-01-01 is a Saturday. SIFMA does NOT shift to Friday (bond market open
+    # 12-31, audit 2.2); UK shifts to the next Monday.
+    assert NY.is_business_day(date(2021, 12, 31))  # SIFMA: Saturday holiday not shifted
     assert LON.is_holiday(date(2022, 1, 3))        # UK: Monday after
     assert not LON.is_holiday(date(2021, 12, 31))
 
@@ -81,7 +81,8 @@ def test_johannesburg_sunday_only():
 # ── year-gated holidays ──
 def test_juneteenth_since_2021():
     assert not NY.is_holiday(date(2020, 6, 19))    # before it existed
-    assert NY.is_holiday(date(2021, 6, 18))        # 2021-06-19 is Sat → observed Fri
+    assert NY.is_holiday(date(2022, 6, 20))        # 2022-06-19 is Sun → observed Mon 06-20
+    assert NY.is_business_day(date(2021, 6, 18))   # 2021-06-19 is Sat → NOT shifted (SIFMA open)
 
 
 def test_store_bededag_until_2023():
@@ -114,7 +115,7 @@ def test_tel_aviv_friday_saturday_weekend():
 def test_adjust_conventions():
     d = date(2022, 1, 1)  # Saturday
     assert NY.adjust(d, BDC.FOLLOWING) == date(2022, 1, 3)      # next business day (Mon)
-    assert NY.adjust(d, BDC.PRECEDING) == date(2021, 12, 30)    # 12-31 is observed-holiday → 30th
+    assert NY.adjust(d, BDC.PRECEDING) == date(2021, 12, 31)    # SIFMA open 12-31 (Sat not shifted)
     assert NY.adjust(date(2024, 1, 16), BDC.FOLLOWING) == date(2024, 1, 16)  # already good
 
 
@@ -128,7 +129,7 @@ def test_modified_following_stays_in_month():
 def test_joint_calendar_is_union():
     joint = JointCalendar(NY, TGT)
     assert joint.is_holiday(date(2024, 11, 28))   # US Thanksgiving (not TARGET)
-    assert joint.is_holiday(date(2024, 3, 29))    # TARGET Good Friday (not US)
+    assert joint.is_holiday(date(2024, 5, 1))     # TARGET May Day (not SIFMA)
     assert joint.is_business_day(date(2024, 1, 16))  # neither
 
 

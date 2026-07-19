@@ -23,8 +23,10 @@ from pricebook_ng.foundation.calendars import (
     Observance,
     Weekend,
     christmas_boxing,
+    dates,
     day_after_thanksgiving,
     easter,
+    equinox,
     fixed,
     mexico_inauguration,
     midsummer_eve,
@@ -50,6 +52,10 @@ def _reg(cal: Calendar) -> Calendar:
     return cal
 
 
+# US government-securities (SIFMA/Treasury) calendar. Good Friday is a close (no SOFR fixing).
+# Observance is SUNDAY_ONLY, not federal Sat→Fri: SIFMA does NOT shift Saturday holidays to the
+# preceding Friday (2021-12-31 was open) — audit 2.2. (A federal/Fed-bank calendar with Sat→Fri,
+# and NYSE, are separate calendars added with their first equity/EFFR consumer, not speculatively.)
 NEW_YORK_SIFMA = _reg(
     Calendar(
         "NEW_YORK_SIFMA",
@@ -58,6 +64,7 @@ NEW_YORK_SIFMA = _reg(
                 fixed(1, 1),
                 nth(1, 0, 3),
                 nth(2, 0, 3),
+                easter(-2),  # Good Friday — bond market close, no SOFR publication
                 nth(5, 0, -1),
                 fixed(6, 19, since=2021),
                 fixed(7, 4),
@@ -69,7 +76,7 @@ NEW_YORK_SIFMA = _reg(
             ),
             half_days=(fixed(7, 3), fixed(12, 24), day_after_thanksgiving),
         ),
-        observance=_US,
+        observance=Observance.SUNDAY_ONLY,
     )
 )
 
@@ -95,10 +102,22 @@ LONDON = _reg(
             fixed(1, 1),
             easter(-2),
             easter(1),
-            nth(5, 0, 1),
-            nth(5, 0, -1),
+            # Early May BH: moved to Fri 8 May in 2020 (VE Day 75th)
+            nth(5, 0, 1, until=2019),
+            nth(5, 0, 1, since=2021),
+            # Spring BH: moved to Thu 2 Jun in 2022 (Platinum Jubilee)
+            nth(5, 0, -1, until=2021),
+            nth(5, 0, -1, since=2023),
             nth(8, 0, -1),
             christmas_boxing,
+            # one-off bank holidays (moves + additions) — historical SONIA accuracy (audit 2.3)
+            dates(
+                (2020, 5, 8),  # VE Day 75th (moved Early May BH)
+                (2022, 6, 2),  # Platinum Jubilee (moved Spring BH)
+                (2022, 6, 3),  # Platinum Jubilee extra day
+                (2022, 9, 19),  # State funeral of Elizabeth II
+                (2023, 5, 8),  # Coronation of Charles III
+            ),
         ),
         observance=_NWD,
     )
@@ -112,14 +131,15 @@ TOKYO = _reg(
             fixed(1, 2),
             fixed(1, 3),
             fixed(2, 11),
-            fixed(2, 23),
-            fixed(3, 21),
+            fixed(2, 23, since=2020),  # Emperor's Birthday (Naruhito) from 2020
+            fixed(12, 23, until=2018),  # Emperor's Birthday (Akihito) through 2018
+            equinox(3),  # Vernal Equinox — astronomical (audit 2.4)
             fixed(4, 29),
             fixed(5, 3),
             fixed(5, 4),
             fixed(5, 5),
             fixed(8, 11),
-            fixed(9, 23),
+            equinox(9),  # Autumnal Equinox — astronomical
             fixed(11, 3),
             fixed(11, 23),
             nth(1, 0, 2),

@@ -265,13 +265,16 @@ def _term(
 
 
 _DC = DayCountConvention
+# ISDA-standard SOFR OIS is plain compounded-in-arrears over the calculation period — NO
+# observation shift, NO lookback — with a 2-business-day payment offset (audit 2.1). The
+# loan/FRN `observation_shift=2` convention lives on the LIBOR-fallback index below, not here.
 SOFR = _register(
     _on(
         "SOFR",
         Currency.USD,
         "NEW_YORK_SIFMA",
         _DC.ACT_360,
-        RfrConvention(observation_shift=2, payment_delay=2),
+        RfrConvention(payment_delay=2),
     )
 )
 SONIA = _register(
