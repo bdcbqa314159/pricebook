@@ -6,6 +6,18 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate Slice 5 — L0 numerics are thin scipy adapters (S17).** `distributions.py`
+  (`scipy.stats.norm`), `solvers.py` (`scipy.optimize`: `brent` · `newton` · `secant` · LM
+  `least_squares`), `interpolation.py` (`scipy.interpolate` `CubicSpline`/`PchipInterpolator`/
+  `Akima1DInterpolator`; linear/log-linear ours). **Removes** the hand-rolled `bisect_root`/
+  `nelder_mead` (no duplicates). Interpolation now states its **extrapolation policy per end**
+  (`FLAT | CONTINUE_SLOPE | RAISE`, default RAISE both) — closes C4's silent divergence. scipy is
+  the single C++-port swap point (never called from engines/models); `numpy`/`scipy` pinned in CI
+  for convergence reproducibility. Hagan-West monotone-convex stays in Topic 1 (curve construction).
+
 ## [0.71.0] - 2026-07-19
 
 ### Changed
