@@ -339,7 +339,8 @@ USD_LIBOR_3M_FALLBACK = _register(
     RateIndex(
         IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
         AccrualConvention(
-            _DC.ACT_360, RollRule(get_calendar("US_GOVERNMENT_SECURITIES"), _MOD_FOL, eom=False)
+            _DC.ACT_360,
+            RollRule(get_calendar("US_GOVERNMENT_SECURITIES"), _MOD_FOL, eom=False),
         ),
         FixingRule(
             ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0
