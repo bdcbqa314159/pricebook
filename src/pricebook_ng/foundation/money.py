@@ -1,51 +1,99 @@
-"""Money, Quantity, and currency identity (L0).
+"""Money, Quantity, and open currency/unit registries (L0).
 
-Finance-free value types carried at boundaries. `Money` makes currency-mixing a type
-error; `Quantity` does the same for physical units (commodities settle in barrels /
-MWh / tonnes, which `Money` cannot express). Both are closed under arithmetic **only
-within the same currency / unit**.
+Gate audit S1/S4 + the meta-rule: **open-ended domains get a registry** (a new member is a
+*declaration*, never an L0 enum edit). `Currency` (an ISO-4217 code + `minor_units`) and
+`Unit` (a symbol) are open registries — a new market/commodity is `register_currency(...)`
+/ `register_unit(...)`, not a source change. The standard members are class constants
+(`Currency.USD`, `Unit.BARREL`), interned so `is`/`==` both hold. `Money`/`Quantity` are
+closed under same-currency / same-unit arithmetic; mixing is a type error.
 
 Provenance:
   quarry: python/pricebook/core/currency.py
-  source: ISO 4217 currency codes; ACI Model Code (FX spot conventions)
-  oracle: currency-mixing rejected at type level; same-unit-only quantity arithmetic
-  slice:  money-quantity (Topic 0 S4)
+  source: ISO 4217 (codes + minor units); ACI Model Code
+  oracle: currency-mixing rejected; same-unit-only quantity; open registration; JPY 0 minor units
+  slice:  open-currency-unit (Topic 0 gate rework, S1/S4)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 
 
-class Currency(Enum):
-    # G10
-    USD = "USD"; EUR = "EUR"; GBP = "GBP"; JPY = "JPY"; CHF = "CHF"; AUD = "AUD"
-    CAD = "CAD"; SEK = "SEK"; NOK = "NOK"; NZD = "NZD"; DKK = "DKK"
-    # CEE
-    PLN = "PLN"; CZK = "CZK"; HUF = "HUF"; RON = "RON"
-    # Turkey & MENA
-    TRY = "TRY"; SAR = "SAR"; ILS = "ILS"; EGP = "EGP"
-    # Africa
-    ZAR = "ZAR"; KES = "KES"; NGN = "NGN"
-    # LatAm
-    BRL = "BRL"; MXN = "MXN"; CLP = "CLP"; COP = "COP"; PEN = "PEN"; ARS = "ARS"
-    # Asia
-    CNY = "CNY"; KRW = "KRW"; INR = "INR"; SGD = "SGD"; HKD = "HKD"; IDR = "IDR"
-    MYR = "MYR"; THB = "THB"; PHP = "PHP"
+@dataclass(frozen=True)
+class Currency:
+    """An ISO-4217 currency: its `code` and `minor_units` (decimal places — USD 2, JPY 0)."""
+
+    code: str
+    minor_units: int = 2
+
+    @property
+    def value(self) -> str:      # the ISO code (kept for call sites that read `.value`)
+        return self.code
 
 
-class Unit(Enum):
-    """Physical settlement units for commodities."""
-    BARREL = "bbl"          # crude oil
-    GALLON = "gal"          # refined products
-    MMBTU = "MMBtu"         # natural gas
-    THERM = "thm"           # natural gas (retail)
-    MWH = "MWh"             # power
-    TONNE = "t"             # metals, softs, freight
-    TROY_OUNCE = "ozt"      # precious metals
-    BUSHEL = "bu"           # grains
-    POUND = "lb"            # softs (coffee, sugar, cotton)
+_CURRENCIES: dict[str, Currency] = {}
+
+
+def register_currency(code: str, minor_units: int = 2) -> Currency:
+    """Declare a currency (open registry — a new market is a declaration, not an enum edit)."""
+    c = Currency(code, minor_units)
+    _CURRENCIES[code] = c
+    return c
+
+
+def currency(code: str) -> Currency:
+    c = _CURRENCIES.get(code.upper())
+    if c is None:
+        raise ValueError(f"unknown currency {code!r}. Known: {sorted(_CURRENCIES)}")
+    return c
+
+
+def list_currencies() -> list[str]:
+    return sorted(_CURRENCIES)
+
+
+# The 37 standard declarations (matching the market calendars). Zero-decimal: JPY/KRW/CLP.
+_ZERO = {"JPY", "KRW", "CLP"}
+for _code in ("USD EUR GBP JPY CHF AUD CAD SEK NOK NZD DKK PLN CZK HUF RON TRY SAR ILS EGP "
+              "ZAR KES NGN BRL MXN CLP COP PEN ARS CNY KRW INR SGD HKD IDR MYR THB PHP").split():
+    setattr(Currency, _code, register_currency(_code, 0 if _code in _ZERO else 2))
+
+
+@dataclass(frozen=True)
+class Unit:
+    """A physical settlement unit for commodities, by `symbol` (open registry — S4)."""
+
+    symbol: str
+
+    @property
+    def value(self) -> str:
+        return self.symbol
+
+
+_UNITS: dict[str, Unit] = {}
+
+
+def register_unit(name: str, symbol: str) -> Unit:
+    u = Unit(symbol)
+    _UNITS[symbol] = u
+    return u
+
+
+def unit(symbol: str) -> Unit:
+    u = _UNITS.get(symbol)
+    if u is None:
+        raise ValueError(f"unknown unit {symbol!r}. Known: {sorted(_UNITS)}")
+    return u
+
+
+def list_units() -> list[str]:
+    return sorted(_UNITS)
+
+
+for _name, _sym in [("BARREL", "bbl"), ("GALLON", "gal"), ("MMBTU", "MMBtu"), ("THERM", "thm"),
+                    ("MWH", "MWh"), ("TONNE", "t"), ("TROY_OUNCE", "ozt"), ("BUSHEL", "bu"),
+                    ("POUND", "lb")]:
+    setattr(Unit, _name, register_unit(_name, _sym))
 
 
 @dataclass(frozen=True)
@@ -61,8 +109,8 @@ class Money:
             raise TypeError(f"currency must be a Currency, got {self.currency!r}")
 
     def _guard(self, other: Money) -> None:
-        if self.currency is not other.currency:
-            raise TypeError(f"cannot mix {self.currency.value} and {other.currency.value}")
+        if self.currency != other.currency:
+            raise TypeError(f"cannot mix {self.currency.code} and {other.currency.code}")
 
     def __add__(self, other: Money) -> Money:
         self._guard(other)
@@ -94,8 +142,8 @@ class Quantity:
             raise TypeError(f"unit must be a Unit, got {self.unit!r}")
 
     def _guard(self, other: Quantity) -> None:
-        if self.unit is not other.unit:
-            raise TypeError(f"cannot mix {self.unit.value} and {other.unit.value}")
+        if self.unit != other.unit:
+            raise TypeError(f"cannot mix {self.unit.symbol} and {other.unit.symbol}")
 
     def __add__(self, other: Quantity) -> Quantity:
         self._guard(other)
@@ -125,4 +173,4 @@ class CurrencyPair:
 
     @property
     def name(self) -> str:
-        return f"{self.base.value}{self.quote.value}"
+        return f"{self.base.code}{self.quote.code}"
