@@ -6,6 +6,22 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-07-19
+
+### Changed
+- **Foundation audit closure — Phase 3: Tier-3 structural (red→green).** **3.2** `CalendarProtocol`
+  (`is_business_day`/`adjust`/`add_business_days`/`identity`); `JointCalendar` implements it via a shared
+  arithmetic mixin, and every `Calendar` consumer slot (`RollRule.calendar`, `year_fraction`,
+  `settlement_date`, `accrued_rate`) is retyped to it — cross-currency schedules now type-check and work.
+  **3.3** open registries: public `register_calendar`/`register_rate_index`, all `register_*` raise on
+  conflicting re-registration (was a silent overwrite), `temporary_*` context managers for test isolation.
+  **Q1** the USD calendar is renamed `NEW_YORK_SIFMA → US_GOVERNMENT_SECURITIES` (it is the govvies
+  calendar, not a generic NY one) and SOFR binds to it explicitly. **3.5(partial)** ACT/ACT ICMA long
+  stub RAISES rather than mis-accruing (multi-period support lands with 3b). **3.6** `fx_spot_date` (T+2
+  joint-calendar; T+1 USD/CAD; a cross cannot settle on a US holiday); `spot_lag` moved out of
+  `CurrencyPair` identity into a pair-conventions registry. **3.7** `_denominator` raises on unsupported
+  day counts (no silent 360); `FixingSource` protocol on `accrued_rate` (`FixingHistory` is the impl).
+
 ## [0.77.0] - 2026-07-19
 
 ### Fixed
