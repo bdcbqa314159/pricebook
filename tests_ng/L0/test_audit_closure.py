@@ -85,3 +85,44 @@ def test_1_5_furikae_golden_week_substitute_deterministic():
     hols = {date(2020, 5, 3), date(2020, 5, 4), date(2020, 5, 5)}
     assert _furikae_substitutes(hols) == _furikae_substitutes(set(reversed(sorted(hols))))
     assert date(2020, 5, 6) in _furikae_substitutes(hols)
+
+
+LON = get_calendar("LONDON")
+
+
+# ── 2.1 SOFR is plain compounded-in-arrears — no observation shift (silent wrongness) ──
+def test_2_1_sofr_has_no_observation_shift():
+    from pricebook_ng.foundation.rate_index import get_rate_index
+    sofr = get_rate_index("SOFR")
+    assert sofr.rfr.observation_shift == 0     # ISDA SOFR OIS: plain compounded, bug had shift=2
+    assert sofr.rfr.payment_delay == 2
+    # the LIBOR fallback correctly KEEPS shift=2 (Bloomberg/ISDA fallback)
+    assert get_rate_index("USD_LIBOR_3M_FALLBACK").rfr.observation_shift == 2
+
+
+# ── 2.2 SIFMA: Good Friday closed (no SOFR fixing); Saturday holidays NOT shifted to Friday ──
+def test_2_2_sifma_good_friday_is_a_holiday():
+    assert NY.is_holiday(date(2024, 3, 29))    # Good Friday 2024 — SOFR does not publish
+    assert NY.is_holiday(date(2025, 4, 18))    # Good Friday 2025
+
+
+def test_2_2_sifma_saturday_new_year_does_not_shift_to_friday():
+    # New Year 2022-01-01 is a Saturday; SIFMA/Treasury/Fed were OPEN Fri 2021-12-31
+    assert NY.is_business_day(date(2021, 12, 31))
+
+
+# ── 2.3 LONDON 2022–23 one-off bank holidays (historical SONIA accuracy) ──
+def test_2_3_london_one_off_holidays():
+    assert LON.is_holiday(date(2022, 6, 2))    # Platinum Jubilee (moved Spring BH)
+    assert LON.is_holiday(date(2022, 6, 3))    # Platinum Jubilee extra day
+    assert LON.is_holiday(date(2022, 9, 19))   # State funeral of Elizabeth II
+    assert LON.is_holiday(date(2023, 5, 8))    # Coronation of Charles III
+    assert not LON.is_holiday(date(2022, 5, 30))  # the Spring BH was MOVED away from here
+
+
+# ── 2.4 Tokyo equinoxes are astronomical, not hardcoded (TONA dates wrong this year) ──
+def test_2_4_tokyo_equinoxes_are_astronomical():
+    assert TOKYO.is_holiday(date(2024, 3, 20))     # Vernal Equinox 2024 (was hardcoded 3/21)
+    assert not TOKYO.is_holiday(date(2024, 3, 21))
+    assert TOKYO.is_holiday(date(2024, 9, 22))     # Autumnal Equinox 2024 (was hardcoded 9/23)
+    assert not TOKYO.is_holiday(date(2024, 9, 23))
