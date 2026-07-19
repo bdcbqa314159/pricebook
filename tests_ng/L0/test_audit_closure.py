@@ -262,3 +262,20 @@ def test_3b_explicit_regular_period_anchors():
     )
     assert s.periods[0].is_stub and s.periods[-1].is_stub  # explicit front + back stubs
     assert not s.periods[1].is_stub                          # regular interior
+
+
+def test_3b_payment_delay_shifts_the_payment_date():
+    from pricebook_ng.foundation.schedule import PaymentRule
+    # payments settle 2 business days after the adjusted accrual end, on the US calendar
+    terms = ScheduleTerms(
+        frequency=Frequency.QUARTERLY, roll=RollRule(calendar=NY),
+        payment=PaymentRule(calendar=NY, lag=2),
+    )
+    s = build_schedule(date(2024, 1, 15), date(2024, 7, 15), terms)
+    for p in s.periods:
+        # payment is exactly 2 business days after the period's adjusted accrual end
+        assert p.payment_date == NY.add_business_days(NY.adjust(p.accrual_end, BDC.MODIFIED_FOLLOWING), 2)
+    # no payment rule → payment coincides with the adjusted accrual end (dead code no longer)
+    s0 = build_schedule(date(2024, 1, 15), date(2024, 7, 15),
+                        ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(calendar=NY)))
+    assert s0.periods[0].payment_date == s0.adjusted[1]

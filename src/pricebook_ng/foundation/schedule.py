@@ -102,12 +102,22 @@ class RollRule:
 
 
 @dataclass(frozen=True)
+class PaymentRule:
+    """The PAYMENT convention (3b): a payment settles `lag` business days after the (adjusted)
+    accrual end, on `calendar` — which is often a DIFFERENT calendar than the fixing/accrual one
+    (XCCY pays on a joint or third-currency calendar). `calendar=None` reuses the roll rule's
+    calendar; `lag=0` pays on the accrual end. This is where `payment_delay` finally applies —
+    it was dead on the index until a schedule gave it a payment column (audit 3.5)."""
+
+    calendar: CalendarProtocol | None = None
+    lag: int = 0
+
+
+@dataclass(frozen=True)
 class ScheduleTerms:
-    """The recurring terms of a schedule: frequency, the roll rule, the stub, and an
-    optional `roll_day` — the interior-period roll anchor: a day-of-month (`int`, a bond the
-    15th), a rule (`RollConvention.IMM`/`CDS`, landing on the 3rd Wednesday / 20th), or
-    `None` (anchor on `start`). Rule-based anchors are what IMM-dated FRAs/futures need,
-    where trade date ≠ effective date ≠ roll day (S8)."""
+    """The recurring terms of a schedule: frequency, the roll rule, the stub spec, the interior
+    `roll_day` anchor (day-of-month `int`, an IMM/CDS `RollConvention`, or `None` = anchor on
+    `start`), and the `payment` convention (pay-lag + its own calendar)."""
 
     frequency: Frequency
     roll: RollRule = field(default_factory=RollRule)
@@ -115,6 +125,7 @@ class ScheduleTerms:
     # `RegularPeriod` states the regular boundaries explicitly (one field, one concept).
     stub: StubType | RegularPeriod = StubType.SHORT_FRONT
     roll_day: int | RollConvention | None = None
+    payment: PaymentRule | None = None
 
 
 @dataclass(frozen=True)
@@ -258,13 +269,23 @@ def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
         if cal is not None
         else unadj
     )
+    pay = terms.payment
+    pay_cal = pay.calendar if (pay is not None and pay.calendar is not None) else cal
+    pay_lag = pay.lag if pay is not None else 0
+
+    def _payment(adj_end: date) -> date:
+        # pay `lag` business days after the adjusted accrual end, on the payment calendar
+        if pay_lag and pay_cal is not None:
+            return pay_cal.add_business_days(adj_end, pay_lag)
+        return adj_end
+
     last = len(unadj) - 2
     periods = tuple(
         SchedulePeriod(
             accrual_start=unadj[i],
             accrual_end=unadj[i + 1],
             is_stub=(i == 0 and stub_first) or (i == last and stub_last),
-            payment_date=adj[i + 1],  # payment at the (adjusted) period end
+            payment_date=_payment(adj[i + 1]),
         )
         for i in range(len(unadj) - 1)
     )

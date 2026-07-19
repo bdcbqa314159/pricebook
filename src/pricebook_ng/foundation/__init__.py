@@ -87,8 +87,9 @@ from pricebook_ng.foundation.rate_index import (
 from pricebook_ng.foundation.results import DiscountBasis, PricingFailure, PricingResult
 from pricebook_ng.foundation.schedule import (
     Frequency,
-    RollConvention,
+    PaymentRule,
     RegularPeriod,
+    RollConvention,
     RollRule,
     Schedule,
     SchedulePeriod,
@@ -155,6 +156,7 @@ __all__ = [
     "RollRule",
     "RollConvention",
     "RegularPeriod",
+    "PaymentRule",
     "ScheduleTerms",
     "Schedule",
     "SchedulePeriod",
