@@ -49,6 +49,26 @@ The genuinely load-bearing oracles are strong: ISDA §4.16 / ICMA 251 worked exa
 round-trip identities, PCHIP no-overshoot, and required contracts (currency-mixing raises, registries
 reject conflict). No fix in Phases 0–3 rests on self-consistency.
 
+**Action taken, not just noted:** the five pure self-consistency tests are **DELETED**, not reclassified
+— `test_all_37_markets_declared`, `test_all_37_currencies_declared` (registry counts: prove nothing, and
+fire against every legitimate addition — friction pointed at correct change, the same habit that let the
+EOM-on-start test get "fixed" into ratifying a bug), `test_accrual_year_fraction_matches_primitive`
+(wrapper == the primitive it calls), `test_standard_frequencies_unchanged` (regression-against-self),
+`test_decomposed_by_method_family` (field-existence with no protocol claim; the `verify.py fields` gate
+already forbids re-flattening). Field-existence is kept only where **protocol conformance** is the claim,
+and there it asserts conformance (`isinstance(x, Underlying)`), not fields.
+
+**Forward commitment (not a retrospective finding).** The bar for every new test, at every layer:
+**the expected value must be writable from an external source — closed form, published table,
+cross-check, or a required contract — *before* the code that produces it exists.** L0 is where oracles
+are cheapest (published conventions, closed forms), so ~92% is near a *floor* here, not a ceiling to
+celebrate. **The test is L3/L4:** past the linear layer the closed forms run out (calibrated model prices,
+MC/PDE outputs), self-consistency becomes genuinely tempting, and a wrong number stops being visible —
+which is precisely where the discipline has to hold. Concretely, upper layers price against
+*independent* oracles (a second method, a published benchmark, an analytic limit, a no-arbitrage
+identity), never "what our engine returns." A reprice-to-par is self-consistent by construction and does
+not count (doc 19 §6).
+
 ## Review input 2 — Quarry-drawdown reconciliation
 **13 / 793 parked, unchanged.** The audit closure is a correctness + packaging + structure pass on the
 already-parked L0; it retires no new quarry module and adds no parking. Drawdown is reported, not moved.

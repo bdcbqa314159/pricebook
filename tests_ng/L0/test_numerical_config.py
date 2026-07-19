@@ -17,19 +17,6 @@ from pricebook_ng.foundation.numerical_config import (
 )
 
 
-def test_decomposed_by_method_family():
-    c = NumericalConfig()
-    assert isinstance(c.monte_carlo, MonteCarloConfig)
-    assert isinstance(c.lattice, LatticeConfig)
-    assert isinstance(c.integration, IntegrationConfig)
-    assert isinstance(c.solver, SolverConfig)
-    # reads as what it is
-    assert c.monte_carlo.paths > 0
-    assert c.lattice.tree_steps > 0          # tree folded into the lattice (discretisation grids)
-    assert c.integration.cos_n > 0
-    assert c.solver.fd_bump > 0
-
-
 def test_rng_family_pinned():
     # S15: a later RNG switch silently shifts every MC oracle — pin it as an invariant
     assert RNG_FAMILY == "pcg64"

@@ -27,10 +27,6 @@ TOK = get_calendar("TOKYO")
 
 
 # ── identity keying (C1): currency → calendar is a lookup, not the key ──
-def test_all_37_markets_declared():
-    assert len(list_calendars()) == 37
-
-
 def test_currency_maps_to_identity():
     assert calendar_for_currency("USD") is get_calendar("US_GOVERNMENT_SECURITIES")
     assert calendar_for_currency("EUR") is get_calendar("TARGET")

@@ -136,13 +136,6 @@ def test_frequency_bullet_single_period():
     assert s.unadjusted == (date(2024, 1, 1), date(2029, 1, 1))
 
 
-def test_standard_frequencies_unchanged():
-    from pricebook_ng.foundation.schedule import Frequency
-    # the reshape is behaviour-preserving for the named frequencies
-    s = build_schedule(date(2024, 1, 15), date(2024, 7, 15), _terms(Frequency.QUARTERLY))
-    assert s.unadjusted == (date(2024, 1, 15), date(2024, 4, 15), date(2024, 7, 15))
-
-
 def test_roll_day_anchors_interior_dates():
     from pricebook_ng.foundation.schedule import Frequency
     terms = ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(), stub=StubType.SHORT_FRONT,
