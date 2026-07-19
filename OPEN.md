@@ -29,6 +29,24 @@ are *deferred scope*, not hidden wrongness — none blocks building the next lay
 are deliberately **not** `- [NG-…]` entries; they do not offset a suppression, so they stay out of the
 `verify.py debt` balance.)
 
+**Phase-5 reclassification (2026-07-19).** Every ledgered item was re-tested against one question — *does
+it make the library give a WRONG ANSWER or accept INVALID INPUT today?* Result: **only AC-T4.2 was YES**
+(zero/negative `Tenor` accepted) — promoted to a fix (v0.82.0), removed from the ledger. **EURIBOR_6M**
+was fixed alongside (not wrongness — a gap in a set we present as complete). Everything else is NO —
+absent capability or clean rejection, correctly deferred (building now = speculative infra ahead of its
+consumer, §6b). Notably: T4.10/T4.11 **raise** on bad input (no silent NaN); T4.7/T4.8/T4.9 have **no
+triggering consumer** among the registered calendars/indices today; T4.17 (`Weekend` time-invariant)
+matches the current Sun–Thu Israeli convention in code — the audit's "Israel Mon–Fri from 2026" is an
+unverified external claim, not a demonstrated wrong answer.
+
+**Trigger-reality audit.** Most triggers name a real roadmap topic (Topic 1, models, credit, FX, L6).
+**Six do not** — they are condition/event/usage-driven, not topic-driven, and are flagged here so they
+are not mistaken for scheduled work: **AC-T4.7 / AC-T4.8 / AC-T4.9** fire only if a *future calendar or
+`NEAREST` consumer* introduces the pattern (guarded-by-convention today); **AC-T4.11** is error-message
+quality on economically-invalid input; **AC-T4.17** fires on a *real-world weekend-rule change* (external
+event); **AC-T4.18** is DRY debt (fires on a 4th consumer, rule of three). These stay ledgered as latent
+traps / debt with condition-based triggers — honest, but not roadmap items.
+
 ### Deferred sub-parts of otherwise-fixed findings
 
 | id | finding | what shipped | what is deferred | re-open trigger |
@@ -41,8 +59,8 @@ are deliberately **not** `- [NG-…]` entries; they do not offset a suppression,
 
 | id | item | where | re-open trigger |
 |---|---|---|---|
-| AC-T4.1 | Index registry too thin (EURIBOR_6M, EFFR, BBSW, AONIA, CORRA, TIIE 28D, SELIC, WIBOR/PRIBOR/BUBOR/JIBAR) | `rate_index.py` | each index's currency/product topic |
-| AC-T4.2 | Zero/negative tenor accepted → a zero step never advances a schedule loop | `tenor.py` parse; `schedule.py` | Topic 1 (schedule/curve building — reject non-positive counts then) |
+| AC-T4.1 | Index registry too thin — remaining: EFFR, BBSW, AONIA, CORRA, TIIE 28D, SELIC, WIBOR/PRIBOR/BUBOR/JIBAR. *(**EURIBOR_6M fixed** v0.82.0 — was a gap in a set we call complete.)* | `rate_index.py` | each index's currency/product topic (rates/EM/credit) |
+| ~~AC-T4.2~~ | ~~Zero/negative tenor accepted~~ — **FIXED v0.82.0** (reclassified YES: accepted invalid input). `Tenor.__post_init__` rejects non-positive counts; test `test_t4_2_non_positive_tenor_is_rejected`. Removed from ledger. | `tenor.py` | — (closed) |
 | AC-T4.3 | `distributions.py` too thin (bivariate normal CDF, non-central χ²) | `distributions.py` | first model/engine that needs them (Topic 2+) |
 | AC-T4.4 | `least_squares` cannot bound (`method="lm"` hardcoded; need `trf` for Feller, \|ρ\|<1) | `solvers.py` | first stoch-vol calibration |
 | AC-T4.5 | No `TimeMeasure(anchor, day_count)` concept | absent (invariant at `rate_basis.py`) | first curve/model that measures time from an anchor (Topic 1/2) |

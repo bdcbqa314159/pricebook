@@ -331,6 +331,7 @@ CDI = _register(
     )
 )
 EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "TARGET", "3M", _DC.ACT_360))
+EURIBOR_6M = _register(_term("EURIBOR_6M", Currency.EUR, "TARGET", "6M", _DC.ACT_360))
 TERM_SOFR_3M = _register(
     _term("TERM_SOFR_3M", Currency.USD, "US_GOVERNMENT_SECURITIES", "3M", _DC.ACT_360)
 )

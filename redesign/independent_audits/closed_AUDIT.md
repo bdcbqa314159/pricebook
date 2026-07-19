@@ -223,7 +223,7 @@ with a named re-open trigger (`OPEN.md` → "Foundation audit closure — Tier-4
 | 3.7 `sensitivities`/`cashflow_breakdown` | **FIXED** v0.80.0 (Phase 4) — deleted (A3); return with the L4/L5 layer | — |
 | 3.7 four `Underlying` siblings | **FIXED** v0.80.0 — deleted (A3); protocol + `AssetClass` kept; each returns with its asset class | — |
 | 3.7 `FixingSource` protocol | **FIXED** v0.78.0 — `accrued_rate` accepts `FixingSource`; `FixingHistory` is the trivial impl | — |
-| **Tier 4** (18 items) | **LEDGERED** — `OPEN.md` **AC-T4.1 … AC-T4.18**, each with its asset-class re-open trigger | — |
+| **Tier 4** (18 items) | **LEDGERED** — `OPEN.md` **AC-T4.1 … AC-T4.18**, each with its asset-class re-open trigger. *Phase-5 reclassification (v0.82.0): **T4.2** (zero/negative `Tenor` — accepted invalid input) promoted to **FIXED**-with-test; **EURIBOR_6M** (part of T4.1) shipped. The other 16 confirmed NO on "wrong answer / invalid input today" and stay ledgered.* | `test_audit_closure` t4_2 / t4_1 |
 
 **Not-verified items (report §"What was NOT verified")** remain oracle-test territory for the market-data
 topic (national holiday lists) and later layers (stub end-to-end, scipy version behaviour); tracked
