@@ -40,7 +40,7 @@ class Currency:
     minor_units: int = 2
 
     @property
-    def value(self) -> str:      # the ISO code (kept for call sites that read `.value`)
+    def value(self) -> str:  # the ISO code (kept for call sites that read `.value`)
         return self.code
 
 
@@ -67,8 +67,10 @@ def list_currencies() -> list[str]:
 
 # The 37 standard declarations (matching the market calendars). Zero-decimal: JPY/KRW/CLP.
 _ZERO = {"JPY", "KRW", "CLP"}
-for _code in ("USD EUR GBP JPY CHF AUD CAD SEK NOK NZD DKK PLN CZK HUF RON TRY SAR ILS EGP "
-              "ZAR KES NGN BRL MXN CLP COP PEN ARS CNY KRW INR SGD HKD IDR MYR THB PHP").split():
+for _code in (
+    "USD EUR GBP JPY CHF AUD CAD SEK NOK NZD DKK PLN CZK HUF RON TRY SAR ILS EGP "
+    "ZAR KES NGN BRL MXN CLP COP PEN ARS CNY KRW INR SGD HKD IDR MYR THB PHP"
+).split():
     setattr(Currency, _code, register_currency(_code, 0 if _code in _ZERO else 2))
 
 # Read-only public view. The registry stays OPEN (`register_currency` writes the backing at
@@ -107,9 +109,17 @@ def list_units() -> list[str]:
     return sorted(_UNITS)
 
 
-for _name, _sym in [("BARREL", "bbl"), ("GALLON", "gal"), ("MMBTU", "MMBtu"), ("THERM", "thm"),
-                    ("MWH", "MWh"), ("TONNE", "t"), ("TROY_OUNCE", "ozt"), ("BUSHEL", "bu"),
-                    ("POUND", "lb")]:
+for _name, _sym in [
+    ("BARREL", "bbl"),
+    ("GALLON", "gal"),
+    ("MMBTU", "MMBtu"),
+    ("THERM", "thm"),
+    ("MWH", "MWh"),
+    ("TONNE", "t"),
+    ("TROY_OUNCE", "ozt"),
+    ("BUSHEL", "bu"),
+    ("POUND", "lb"),
+]:
     setattr(Unit, _name, register_unit(_name, _sym))
 
 # Read-only public view of the open unit registry (A2, as for currencies above).
@@ -130,7 +140,9 @@ class Money:
 
     def _guard(self, other: Money) -> None:
         if self.currency != other.currency:
-            raise TypeError(f"cannot mix {self.currency.code} and {other.currency.code}")
+            raise TypeError(
+                f"cannot mix {self.currency.code} and {other.currency.code}"
+            )
 
     def __add__(self, other: Money) -> Money:
         self._guard(other)

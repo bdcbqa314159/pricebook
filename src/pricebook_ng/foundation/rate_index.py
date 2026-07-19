@@ -36,22 +36,22 @@ from pricebook_ng.foundation.underlying import AssetClass
 
 
 class AccrualMethod(Enum):
-    COMPOUNDED = "compounded"    # money-market ∏(1 + r_i·δ_i) − 1 (RFR)
+    COMPOUNDED = "compounded"  # money-market ∏(1 + r_i·δ_i) − 1 (RFR)
     EXPONENTIAL = "exponential"  # Brazilian ∏(1 + r_i)^(1/basis) − CDI/SELIC
-    AVERAGED = "averaged"        # weighted average of the daily rates
-    FLAT = "flat"               # a single fixing for the period (IBOR / term RFR)
+    AVERAGED = "averaged"  # weighted average of the daily rates
+    FLAT = "flat"  # a single fixing for the period (IBOR / term RFR)
 
 
 class ObservationStyle(Enum):
-    BACKWARD_LOOKING = "backward"   # compounded in arrears (RFR)
-    FORWARD_LOOKING = "forward"     # fixed at the start for the period (IBOR, Term SOFR)
+    BACKWARD_LOOKING = "backward"  # compounded in arrears (RFR)
+    FORWARD_LOOKING = "forward"  # fixed at the start for the period (IBOR, Term SOFR)
 
 
 @dataclass(frozen=True)
 class IndexId:
     name: str
     currency: Currency
-    tenor: Tenor                    # `Tenor(1, DAY)` for overnight
+    tenor: Tenor  # `Tenor(1, DAY)` for overnight
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,9 @@ class RateIndex:
     accrual: AccrualConvention
     fixing: FixingRule
     rfr: RfrConvention
-    spread_adjustment: float = 0.0   # ISDA fallback credit spread, added to the realized rate
+    spread_adjustment: float = (
+        0.0  # ISDA fallback credit spread, added to the realized rate
+    )
 
     @property
     def name(self) -> str:
@@ -122,11 +124,15 @@ _ANNUAL_BASIS: dict[DayCountConvention, int] = {DayCountConvention.BUS_252: 252}
 def _annual_basis(day_count: DayCountConvention) -> int:
     basis = _ANNUAL_BASIS.get(day_count)
     if basis is None:
-        raise ValueError(f"{day_count.value} is not a business-day-counted convention (no annual basis)")
+        raise ValueError(
+            f"{day_count.value} is not a business-day-counted convention (no annual basis)"
+        )
     return basis
 
 
-def exponential_growth(rate: float, business_days: int, day_count: DayCountConvention) -> float:
+def exponential_growth(
+    rate: float, business_days: int, day_count: DayCountConvention
+) -> float:
     """Brazilian compound **growth factor** for a SINGLE fixed rate over `business_days`:
     `(1 + rate) ** (business_days / basis)` (basis from the day-count). The fixed-`r`
     case (LTN/NTN-F); the daily series `r_i` is `accrued_rate`."""
@@ -137,7 +143,9 @@ def _denominator(day_count: DayCountConvention) -> float:
     return 365.0 if day_count is DayCountConvention.ACT_365_FIXED else 360.0
 
 
-def _overnight_days(start: date, end: date, calendar: Calendar) -> list[tuple[date, int]]:
+def _overnight_days(
+    start: date, end: date, calendar: Calendar
+) -> list[tuple[date, int]]:
     days: list[date] = []
     d = start
     while d < end:
@@ -161,7 +169,9 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
     day_count = index.accrual.day_count
 
     if index.fixing.compounding is AccrualMethod.FLAT:
-        fixing_date = calendar.add_business_days(accrual.start, -index.fixing.fixing_lag)
+        fixing_date = calendar.add_business_days(
+            accrual.start, -index.fixing.fixing_lag
+        )
         return fixings.rate(index.name, fixing_date) + index.spread_adjustment
 
     rfr = index.rfr
@@ -197,7 +207,9 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         total += weight
 
     if index.fixing.compounding is AccrualMethod.COMPOUNDED:
-        realized = (factor - 1.0) / year_fraction(accrual.start, accrual.end, day_count, calendar=calendar)
+        realized = (factor - 1.0) / year_fraction(
+            accrual.start, accrual.end, day_count, calendar=calendar
+        )
     else:  # AVERAGED
         realized = weighted / total
     return realized + index.spread_adjustment
@@ -217,44 +229,75 @@ def _accrual(cal_id: str, dc: DayCountConvention) -> AccrualConvention:
     return AccrualConvention(dc, RollRule(get_calendar(cal_id), _MOD_FOL, eom=False))
 
 
-def _on(name: str, ccy: Currency, cal_id: str, dc: DayCountConvention, rfr: RfrConvention) -> RateIndex:
+def _on(
+    name: str, ccy: Currency, cal_id: str, dc: DayCountConvention, rfr: RfrConvention
+) -> RateIndex:
     """A backward-looking compounded overnight RFR (the RFR knobs bundled in `rfr`)."""
     return RateIndex(
-        IndexId(name, ccy, Tenor(1, TenorUnit.DAY)), _accrual(cal_id, dc),
-        FixingRule(ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0), rfr,
+        IndexId(name, ccy, Tenor(1, TenorUnit.DAY)),
+        _accrual(cal_id, dc),
+        FixingRule(
+            ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0
+        ),
+        rfr,
     )
 
 
-def _term(name: str, ccy: Currency, cal_id: str, tenor: str, dc: DayCountConvention) -> RateIndex:
+def _term(
+    name: str, ccy: Currency, cal_id: str, tenor: str, dc: DayCountConvention
+) -> RateIndex:
     return RateIndex(
-        IndexId(name, ccy, Tenor.parse(tenor)), _accrual(cal_id, dc),
+        IndexId(name, ccy, Tenor.parse(tenor)),
+        _accrual(cal_id, dc),
         FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
         RfrConvention.none(),
     )
 
 
 _DC = DayCountConvention
-SOFR = _register(_on("SOFR", Currency.USD, "NEW_YORK_SIFMA", _DC.ACT_360,
-                     RfrConvention(observation_shift=2, payment_delay=2)))
-SONIA = _register(_on("SONIA", Currency.GBP, "LONDON", _DC.ACT_365_FIXED, RfrConvention()))
+SOFR = _register(
+    _on(
+        "SOFR",
+        Currency.USD,
+        "NEW_YORK_SIFMA",
+        _DC.ACT_360,
+        RfrConvention(observation_shift=2, payment_delay=2),
+    )
+)
+SONIA = _register(
+    _on("SONIA", Currency.GBP, "LONDON", _DC.ACT_365_FIXED, RfrConvention())
+)
 ESTR = _register(_on("ESTR", Currency.EUR, "TARGET", _DC.ACT_360, RfrConvention()))
 TONA = _register(_on("TONA", Currency.JPY, "TOKYO", _DC.ACT_365_FIXED, RfrConvention()))
 SARON = _register(_on("SARON", Currency.CHF, "ZURICH", _DC.ACT_360, RfrConvention()))
 # Brazilian CDI — exponential BUS/252 (built inline: the one non-compounded overnight)
-CDI = _register(RateIndex(
-    IndexId("CDI", Currency.BRL, Tenor(1, TenorUnit.DAY)), _accrual("SAO_PAULO", _DC.BUS_252),
-    FixingRule(ObservationStyle.BACKWARD_LOOKING, AccrualMethod.EXPONENTIAL, fixing_lag=0),
-    RfrConvention(),
-))
+CDI = _register(
+    RateIndex(
+        IndexId("CDI", Currency.BRL, Tenor(1, TenorUnit.DAY)),
+        _accrual("SAO_PAULO", _DC.BUS_252),
+        FixingRule(
+            ObservationStyle.BACKWARD_LOOKING, AccrualMethod.EXPONENTIAL, fixing_lag=0
+        ),
+        RfrConvention(),
+    )
+)
 EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "TARGET", "3M", _DC.ACT_360))
-TERM_SOFR_3M = _register(_term("TERM_SOFR_3M", Currency.USD, "NEW_YORK_SIFMA", "3M", _DC.ACT_360))
-USD_LIBOR_3M_FALLBACK = _register(RateIndex(
-    IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
-    AccrualConvention(_DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), _MOD_FOL, eom=False)),
-    FixingRule(ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0),
-    RfrConvention(observation_shift=2, payment_delay=2),
-    spread_adjustment=0.0026161,
-))
+TERM_SOFR_3M = _register(
+    _term("TERM_SOFR_3M", Currency.USD, "NEW_YORK_SIFMA", "3M", _DC.ACT_360)
+)
+USD_LIBOR_3M_FALLBACK = _register(
+    RateIndex(
+        IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
+        AccrualConvention(
+            _DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), _MOD_FOL, eom=False)
+        ),
+        FixingRule(
+            ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0
+        ),
+        RfrConvention(observation_shift=2, payment_delay=2),
+        spread_adjustment=0.0026161,
+    )
+)
 
 # Closed registry — all indices are declared above by explicit construction (S5: no
 # import-time I/O). Freeze so it cannot be rebound or mutated (A2 — the quarry's bug was a

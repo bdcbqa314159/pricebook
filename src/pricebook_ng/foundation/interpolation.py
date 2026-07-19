@@ -27,18 +27,20 @@ from scipy.interpolate import Akima1DInterpolator, CubicSpline, PchipInterpolato
 
 class Interpolation(Enum):
     LINEAR = "linear"
-    LOG_LINEAR = "log_linear"        # linear in log(y) — discount factors
+    LOG_LINEAR = "log_linear"  # linear in log(y) — discount factors
     CUBIC_SPLINE = "cubic_spline"
-    MONOTONE_CUBIC = "monotone_cubic"   # PCHIP — shape-preserving, no overshoot
+    MONOTONE_CUBIC = "monotone_cubic"  # PCHIP — shape-preserving, no overshoot
     AKIMA = "akima"
 
 
 class Extrapolation(Enum):
     """What an interpolant does past a node range end."""
 
-    FLAT = "flat"                    # hold the end value
-    CONTINUE_SLOPE = "continue_slope"   # extend linearly at the interpolant's boundary slope
-    RAISE = "raise"                  # refuse — extrapolation is a deliberate choice
+    FLAT = "flat"  # hold the end value
+    CONTINUE_SLOPE = (
+        "continue_slope"  # extend linearly at the interpolant's boundary slope
+    )
+    RAISE = "raise"  # refuse — extrapolation is a deliberate choice
 
 
 @dataclass(frozen=True)
@@ -60,7 +62,9 @@ def _segment(xs: Sequence[float], x: float) -> int:
     return min(bisect_right(xs, x) - 1, len(xs) - 2)
 
 
-def _evaluate(xs: Sequence[float], ys: Sequence[float], x: float, method: Interpolation) -> float:
+def _evaluate(
+    xs: Sequence[float], ys: Sequence[float], x: float, method: Interpolation
+) -> float:
     """Value at `x` strictly inside ``[xs[0], xs[-1]]``."""
     if method in (Interpolation.LINEAR, Interpolation.LOG_LINEAR):
         i = _segment(xs, x)
@@ -73,20 +77,29 @@ def _evaluate(xs: Sequence[float], ys: Sequence[float], x: float, method: Interp
     return float(spline(x))
 
 
-def _boundary_slope(xs: Sequence[float], ys: Sequence[float], method: Interpolation, at_left: bool) -> float:
+def _boundary_slope(
+    xs: Sequence[float], ys: Sequence[float], method: Interpolation, at_left: bool
+) -> float:
     """The interpolant's slope at an end node, by a one-sided step just inside the range."""
     if at_left:
         xb, x_in = xs[0], xs[0] + (xs[1] - xs[0]) * 1e-6
     else:
         xb, x_in = xs[-1], xs[-1] - (xs[-1] - xs[-2]) * 1e-6
-    return (_evaluate(xs, ys, x_in, method) - _evaluate(xs, ys, xb, method)) / (x_in - xb)
+    return (_evaluate(xs, ys, x_in, method) - _evaluate(xs, ys, xb, method)) / (
+        x_in - xb
+    )
 
 
-def _extrapolate(xs: Sequence[float], ys: Sequence[float], x: float,
-                 method: Interpolation, policy: Extrapolation) -> float:
+def _extrapolate(
+    xs: Sequence[float],
+    ys: Sequence[float],
+    x: float,
+    method: Interpolation,
+    policy: Extrapolation,
+) -> float:
     if policy is Extrapolation.RAISE:
         raise ValueError(f"{x} outside [{xs[0]}, {xs[-1]}] and the end policy is RAISE")
-    at_left = x < xs[0]                       # which end determines the anchor node
+    at_left = x < xs[0]  # which end determines the anchor node
     y_end = ys[0] if at_left else ys[-1]
     if policy is Extrapolation.FLAT:
         return y_end
@@ -94,8 +107,13 @@ def _extrapolate(xs: Sequence[float], ys: Sequence[float], x: float,
     return y_end + _boundary_slope(xs, ys, method, at_left) * (x - x_end)
 
 
-def interpolate(xs: Sequence[float], ys: Sequence[float], x: float, method: Interpolation,
-                ends: ExtrapolationEnds = ExtrapolationEnds()) -> float:
+def interpolate(
+    xs: Sequence[float],
+    ys: Sequence[float],
+    x: float,
+    method: Interpolation,
+    ends: ExtrapolationEnds = ExtrapolationEnds(),
+) -> float:
     """Interpolate `y` at `x` from ascending `xs`. Outside ``[xs[0], xs[-1]]`` the per-end
     `ends` policy applies (default: raise)."""
     if len(xs) != len(ys) or len(xs) < 2:

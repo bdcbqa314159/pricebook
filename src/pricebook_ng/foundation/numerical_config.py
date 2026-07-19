@@ -103,7 +103,9 @@ class NumericalConfig:
     def from_dict(cls, data: dict[str, Any]) -> NumericalConfig:
         version = data.get("schema_version", 1)
         if version > _SCHEMA_VERSION:
-            raise ValueError(f"NumericalConfig schema v{version} newer than reader v{_SCHEMA_VERSION}")
+            raise ValueError(
+                f"NumericalConfig schema v{version} newer than reader v{_SCHEMA_VERSION}"
+            )
         return cls(
             monte_carlo=MonteCarloConfig(**data["monte_carlo"]),
             lattice=LatticeConfig(**data["lattice"]),

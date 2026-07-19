@@ -43,22 +43,24 @@ class BusinessDayConvention(Enum):
 
 
 class Weekend(Enum):
-    SAT_SUN = (5, 6)      # most of the world
-    FRI_SAT = (4, 5)      # Israel and much of MENA
+    SAT_SUN = (5, 6)  # most of the world
+    FRI_SAT = (4, 5)  # Israel and much of MENA
 
 
 class Observance(Enum):
     """How a fixed-date holiday landing on a weekend is substituted."""
-    NONE = "none"                      # not shifted (TARGET, most of the EU/EM)
-    US = "us"                          # Sat → prev Fri, Sun → next Mon (5 U.S.C. §6103)
+
+    NONE = "none"  # not shifted (TARGET, most of the EU/EM)
+    US = "us"  # Sat → prev Fri, Sun → next Mon (5 U.S.C. §6103)
     NEXT_WORKING_DAY = "next_working"  # Sat or Sun → next Mon (UK/AU/NZ/CA)
-    SUNDAY_ONLY = "sunday_only"        # Sun → next Mon (South Africa)
-    FURIKAE = "furikae"                # Japan: a Sunday holiday walks forward past holidays
+    SUNDAY_ONLY = "sunday_only"  # Sun → next Mon (South Africa)
+    FURIKAE = "furikae"  # Japan: a Sunday holiday walks forward past holidays
 
 
 class DayType(Enum):
     """A day's trading status. A half-day is a business day with an early close — it
     affects fixing cut-offs and settlement, but markets are open."""
+
     BUSINESS = "business"
     HALF = "half"
     HOLIDAY = "holiday"
@@ -67,8 +69,11 @@ class DayType(Enum):
 
 class Coverage(Enum):
     """Whether a calendar's holiday set is complete or omits lunar/religious dates."""
+
     COMPLETE = "complete"
-    SECULAR_ONLY = "secular_only"      # omits Islamic/Hebrew/lunisolar holidays (marked, not silent)
+    SECULAR_ONLY = (
+        "secular_only"  # omits Islamic/Hebrew/lunisolar holidays (marked, not silent)
+    )
 
 
 # ── Easter ──────────────────────────────────────────────────────────────────────
@@ -103,48 +108,65 @@ def _in_range(year: int, since: int | None, until: int | None) -> bool:
 
 
 def fixed(
-    month: int, day: int, *,
-    observed: bool = True, since: int | None = None, until: int | None = None,
+    month: int,
+    day: int,
+    *,
+    observed: bool = True,
+    since: int | None = None,
+    until: int | None = None,
 ) -> Rule:
     """A fixed (month, day) holiday. `observed` defaults to the calendar's `Observance`
     regime; `observed=False` pins it to the actual date regardless of the regime — the
     documented exception being AU/NZ ANZAC Day (25 Apr), commemorated, never mondayised."""
+
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
         if not _in_range(year, since, until):
             return ()
         d = date(year, month, day)
         return (cal.observe(d) if observed else d,)
+
     return rule
 
 
 def easter(offset: int, *, since: int | None = None, until: int | None = None) -> Rule:
     """A Western-Easter-relative holiday (never a weekend, so not substituted)."""
+
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
         if not _in_range(year, since, until):
             return ()
         return (gregorian_easter(year) + timedelta(days=offset),)
+
     return rule
 
 
 def orthodox(offset: int) -> Rule:
     """An Orthodox-Easter-relative holiday."""
+
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
         return (orthodox_easter(year) + timedelta(days=offset),)
+
     return rule
 
 
 def nth(month: int, weekday: int, n: int) -> Rule:
     """The nth (n>0) or last (n=-1) `weekday` (0=Mon) of `month` — never a weekend."""
+
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
-        return (_last_weekday(year, month, weekday) if n == -1
-                else _nth_weekday(year, month, weekday, n),)
+        return (
+            _last_weekday(year, month, weekday)
+            if n == -1
+            else _nth_weekday(year, month, weekday, n),
+        )
+
     return rule
 
 
 def monday(inner: Rule) -> Rule:
     """Colombian Ley Emiliani: shift each date `inner` produces to the next Monday."""
+
     def rule(cal: Calendar, year: int) -> tuple[date, ...]:
         return tuple(_to_next_monday(d) for d in inner(cal, year))
+
     return rule
 
 
@@ -179,7 +201,9 @@ def mexico_inauguration(cal: Calendar, year: int) -> tuple[date, ...]:
 # ── date helpers ─────────────────────────────────────────────────────────────────
 def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
     first = date(year, month, 1)
-    return first + timedelta(days=(weekday - first.weekday()) % 7) + timedelta(weeks=n - 1)
+    return (
+        first + timedelta(days=(weekday - first.weekday()) % 7) + timedelta(weeks=n - 1)
+    )
 
 
 def _last_weekday(year: int, month: int, weekday: int) -> date:
@@ -215,7 +239,7 @@ class Calendar:
     computed on demand and cached."""
 
     identity: str
-    days: "HolidaySet | tuple[Rule, ...]"   # a bare rule tuple is auto-wrapped (no half-days)
+    days: "HolidaySet | tuple[Rule, ...]"  # a bare rule tuple is auto-wrapped (no half-days)
     weekend: Weekend = Weekend.SAT_SUN
     observance: Observance = Observance.US
     coverage: Coverage = Coverage.COMPLETE
@@ -302,7 +326,9 @@ class Calendar:
         return d
 
     def _holidays(self, year: int) -> frozenset[date]:
-        return _holidays_of(self, year)  # module-level cache (Calendar is frozen/hashable)
+        return _holidays_of(
+            self, year
+        )  # module-level cache (Calendar is frozen/hashable)
 
 
 @lru_cache(maxsize=None)

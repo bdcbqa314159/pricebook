@@ -121,8 +121,13 @@ def _add_months(d: date, months: int, snap_eom: bool) -> date:
     return _end_of_month(result) if snap_eom else result
 
 
-def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool,
-          roll_day: int | RollConvention | None) -> date:
+def _step(
+    d: date,
+    tenor: Tenor,
+    forward: bool,
+    snap_eom: bool,
+    roll_day: int | RollConvention | None,
+) -> date:
     """Advance `d` by one `tenor` step (backward if not `forward`). Month/year steps snap to
     the `roll_day` anchor: a `RollConvention` rule (IMM 3rd-Wed / CDS 20th of that month), an
     `int` day-of-month, else month-end if `snap_eom`."""
@@ -137,17 +142,24 @@ def _step(d: date, tenor: Tenor, forward: bool, snap_eom: bool,
     if roll_day is RollConvention.CDS:
         return cds_roll_date(stepped.year, stepped.month)
     if roll_day is not None:
-        return date(stepped.year, stepped.month,
-                    min(roll_day, _last_day_of_month(stepped.year, stepped.month)))
+        return date(
+            stepped.year,
+            stepped.month,
+            min(roll_day, _last_day_of_month(stepped.year, stepped.month)),
+        )
     return stepped
 
 
 def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
-    if terms.frequency.step is None:                 # BULLET — a single period
+    if terms.frequency.step is None:  # BULLET — a single period
         return [start, end]
     tenor, stub, roll_day = terms.frequency.step, terms.stub, terms.roll_day
-    snap = (roll_day is None and terms.roll.eom and tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR)
-            and start == _end_of_month(start))
+    snap = (
+        roll_day is None
+        and terms.roll.eom
+        and tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR)
+        and start == _end_of_month(start)
+    )
 
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
         dates, cur = [end], end
@@ -156,7 +168,11 @@ def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
         dates.append(start)
         dates.reverse()
         # a genuine front stub exists iff `start` is not a regular period before dates[1]
-        if stub is StubType.LONG_FRONT and len(dates) > 2 and _step(dates[1], tenor, False, snap, roll_day) != start:
+        if (
+            stub is StubType.LONG_FRONT
+            and len(dates) > 2
+            and _step(dates[1], tenor, False, snap, roll_day) != start
+        ):
             dates = [dates[0], *dates[2:]]
         return dates
 
@@ -164,7 +180,11 @@ def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
     while (cur := _step(cur, tenor, True, snap, roll_day)) < end:
         dates.append(cur)
     dates.append(end)
-    if stub is StubType.LONG_BACK and len(dates) > 2 and _step(dates[-2], tenor, True, snap, roll_day) != end:
+    if (
+        stub is StubType.LONG_BACK
+        and len(dates) > 2
+        and _step(dates[-2], tenor, True, snap, roll_day) != end
+    ):
         dates = [*dates[:-2], dates[-1]]
     return dates
 
@@ -175,7 +195,11 @@ def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
         raise ValueError(f"start ({start}) must be before end ({end}).")
     unadj = _unadjusted(start, end, terms)
     cal = terms.roll.calendar
-    adj = ([cal.adjust(d, terms.roll.convention) for d in unadj] if cal is not None else unadj)
+    adj = (
+        [cal.adjust(d, terms.roll.convention) for d in unadj]
+        if cal is not None
+        else unadj
+    )
     return Schedule(unadjusted=tuple(unadj), adjusted=tuple(adj))
 
 
