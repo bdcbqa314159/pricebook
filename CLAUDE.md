@@ -352,6 +352,27 @@ empty = v1.0`, taken literally; drawdown % is the progress bar.
   fails CI.
 - **Pre-commit stays surgical** (fast auto-fixes only); heavy checks live in CI.
 
+## 7bb. Numerics dependencies (ratified)
+
+- **Python may use `numpy` and `scipy` freely.** This tree is the *understanding-and-correctness*
+  environment, not the performance target; scipy's numerics are battle-tested and precise, and the
+  library's teaching value is in the **finance** (curve construction, measure, XVA), not in Brent's
+  internals.
+- **The C++ port hand-rolls its own** (fit and performance), oracled against Python with
+  **tolerance, not bit-equality** — same rule as cross-OS (§7c).
+- **Thin adapters, not scattered calls.** `foundation/{interpolation,solvers,distributions}.py`
+  wrap scipy behind our own API + provenance headers. One place to pin behaviour, and **one swap
+  point for the C++ port** — do not call scipy directly from engines/models.
+- **Own what scipy lacks or what is finance-specific** — e.g. **Hagan–West monotone-convex**
+  interpolation (absent from scipy *and* from both trees).
+- **No duplicates.** Adopting scipy *replaces* the hand-rolled `bisect_root`/`nelder_mead`/
+  `norm_ppf`; it never sits beside them.
+- **Two safeguards:** (a) oracles must test the **finance** (reprice-to-par, closed-form PV), never
+  scipy's numerics — that is what keeps oracle ownership; (b) **pin `numpy`/`scipy` versions in CI**
+  — a scipy upgrade can shift convergence, so the version is part of the reproducibility contract.
+- **Debugging technique (not a permanent parallel build):** when a number looks wrong, write a
+  minimal independent hand-rolled implementation to cross-check it.
+
 ## 7c. CI & cross-platform (Linux + Windows)
 
 - **CI matrix:** `ubuntu-latest` + `windows-latest`, Python `3.12`, one workflow file.

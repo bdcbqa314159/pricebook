@@ -280,6 +280,43 @@ again, and the enum categories are closed by construction.
 ```
 **Apply the meta-rule mechanically:** open-ended domains → registry; standardised finite domains →
 enum, completed now. That is what makes L0 one-off.
+
+---
+
+## S17 (RATIFIED) — numerics dependencies: Python uses numpy + scipy
+
+ng is stdlib-only today; the quarry uses numpy/scipy in **448 of 791** modules. That divergence was
+never decided — it happened one hand-rolled function at a time. **Ruled: Python may use numpy and
+scipy freely** (see `CLAUDE.md §7bb`); the **C++ port hand-rolls**, oracled against Python with
+tolerance.
+
+**Consequences for this gate — interpolation and solvers are now cheap:**
+
+| interpolator | source |
+|---|---|
+| `LINEAR` · `LOG_LINEAR` | ours (trivial) |
+| `CUBIC_SPLINE` | `scipy.interpolate.CubicSpline` |
+| `MONOTONE_CUBIC` | `scipy.interpolate.PchipInterpolator` (Fritsch–Carlson) |
+| `AKIMA` | `scipy.interpolate.Akima1DInterpolator` |
+| **`MONOTONE_CONVEX`** | **OURS — Hagan–West.** No scipy equivalent; finance-specific; **missing from both trees** (the quarry's is mislabelled piecewise-linear forwards) |
+
+| solver | source |
+|---|---|
+| Brent · Newton · secant | `scipy.optimize` |
+| Levenberg–Marquardt / least-squares | `scipy.optimize.least_squares` |
+| `norm.cdf` / `norm.ppf` | `scipy.stats.norm` (machine precision; replaces the ~1e-9 hand-roll) |
+| dense `solve` / `lstsq` | `numpy.linalg` |
+
+**Rules:** keep `foundation/{interpolation,solvers,distributions}.py` as **thin adapters** with our
+own API + provenance — one place to pin behaviour and **one swap point for C++**; never call scipy
+directly from engines/models. **Replace** the hand-rolled `bisect_root`/`nelder_mead`/`norm_ppf` —
+no duplicates. Extrapolation policy stated per end (`FLAT | CONTINUE_SLOPE | RAISE`).
+
+**Correction to C4 (artifacts #14/#16):** the earlier L0-generic / L1-curve interpolation split is
+**withdrawn**. Interpolation is **entirely L0**. The "space" (DF / zero / forward) is simply *what the
+curve passes in*, and "flat-forward" extrapolation is generically *continue the last slope in the
+interpolated space*. Hagan–West is generic too — it interpolates a function from its **interval
+averages** rather than point pairs. There is no L1 interpolation object.
 **Gate:**
 ```
 [ ] verify.py fields green ON MERIT (zero fields-exempt markers in foundation/)
