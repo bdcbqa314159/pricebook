@@ -138,3 +138,13 @@ def test_standard_frequencies_unchanged():
     # the reshape is behaviour-preserving for the named frequencies
     s = build_schedule(date(2024, 1, 15), date(2024, 7, 15), _terms(Frequency.QUARTERLY))
     assert s.unadjusted == (date(2024, 1, 15), date(2024, 4, 15), date(2024, 7, 15))
+
+
+def test_roll_day_anchors_interior_dates():
+    from pricebook_ng.foundation.schedule import Frequency
+    terms = ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(), stub=StubType.SHORT_FRONT,
+                          roll_day=15)                     # e.g. a bond paying the 15th (CDS the 20th)
+    s = build_schedule(date(2024, 1, 10), date(2024, 7, 10), terms)
+    interior = s.unadjusted[1:-1]                          # boundaries are start/end
+    assert all(d.day == 15 for d in interior)
+    assert date(2024, 4, 15) in s.unadjusted

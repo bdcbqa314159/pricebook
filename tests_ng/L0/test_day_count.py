@@ -112,3 +112,17 @@ def test_act_365l_is_frequency_dependent():
     ann = CouponPeriod(reference_start=a, reference_end=b, frequency=1)
     assert yf(a, b, DC.ACT_365L, coupon_period=semi) == pytest.approx(_days(a, b) / 366.0, abs=APPROX)
     assert yf(a, b, DC.ACT_365L, coupon_period=ann) == pytest.approx(_days(a, b) / 365.0, abs=APPROX)
+
+
+# ── S11: completeness vs ISDA 2006 — 1/1 and ACT/ACT AFB ──
+def test_one_one_is_always_one():
+    assert yf(date(2024, 3, 5), date(2027, 9, 20), DC.ONE_ONE) == 1.0   # 1/1 is always 1
+
+
+def test_act_act_afb():
+    # < 1 year, leap period (contains 29 Feb 2024) → actual/366
+    a, b = date(2024, 1, 1), date(2024, 7, 1)
+    assert yf(a, b, DC.ACT_ACT_AFB) == pytest.approx(_days(a, b) / 366.0, abs=1e-12)
+    # 1.5 years → 1 whole year + a non-leap stub /365
+    a2, b2 = date(2023, 1, 1), date(2024, 7, 1)
+    assert yf(a2, b2, DC.ACT_ACT_AFB) == pytest.approx(1.0 + 181 / 365.0, abs=1e-12)
