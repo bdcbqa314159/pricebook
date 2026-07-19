@@ -6,6 +6,19 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-07-19
+
+### Changed
+- **Foundation audit closure — Phase 3b: Schedule provenance (finding 3.5 discharged, red→green).**
+  `Schedule.periods` emits a per-period **`SchedulePeriod`** record (accrual start/end, `is_stub`,
+  payment date). **ACT/ACT ICMA Rule 251.2**: long coupons now sum the day count over their notional
+  (quasi-coupon) periods — pinned to the ISDA 2006 §4.16 published long-first-coupon example
+  (0.9157608696) — which **deletes the long-stub raise** (NG-DEFER-1 discharged). Explicit stub anchors
+  via **`RegularPeriod(first_regular_date, last_regular_date)`** (the ISDA concept, folded into
+  `ScheduleTerms.stub` as a union to stay ≤5 fields, no `fields-exempt`). **`PaymentRule(calendar, lag)`**
+  places `payment_delay` — a payment settles `lag` business days after the adjusted accrual end on its
+  own (often different, for XCCY) calendar; it was dead code until a schedule gave it a payment column.
+
 ## [0.78.0] - 2026-07-19
 
 ### Changed
