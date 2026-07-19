@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
-from pricebook_ng.foundation.calendar import Calendar
+from pricebook_ng.foundation.calendars import Calendar
 from pricebook_ng.foundation.money import Currency, Quantity
 
 

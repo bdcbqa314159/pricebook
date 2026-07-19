@@ -26,7 +26,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pricebook_ng.foundation.calendar import Calendar
+    from pricebook_ng.foundation.calendars import Calendar
 
 
 class DayCountConvention(Enum):

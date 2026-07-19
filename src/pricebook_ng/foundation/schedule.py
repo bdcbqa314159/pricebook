@@ -24,7 +24,7 @@ from datetime import date, timedelta
 from enum import Enum
 from typing import ClassVar
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention, Calendar
+from pricebook_ng.foundation.calendars import BusinessDayConvention, Calendar
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 
 _IMM_MONTHS = (3, 6, 9, 12)

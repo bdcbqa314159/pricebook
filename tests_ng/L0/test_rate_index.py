@@ -11,7 +11,7 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention as BDC
+from pricebook_ng.foundation.calendars import BusinessDayConvention as BDC
 from pricebook_ng.foundation.day_count import Accrual
 from pricebook_ng.foundation.day_count import DayCountConvention as DC
 from pricebook_ng.foundation.market_calendars import get_calendar

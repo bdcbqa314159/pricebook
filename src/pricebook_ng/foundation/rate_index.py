@@ -26,7 +26,7 @@ from datetime import date, timedelta
 from enum import Enum
 from types import MappingProxyType
 
-from pricebook_ng.foundation.calendar import Calendar
+from pricebook_ng.foundation.calendars import Calendar
 from pricebook_ng.foundation.day_count import Accrual, DayCountConvention
 from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency

@@ -11,7 +11,7 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention as BDC
+from pricebook_ng.foundation.calendars import BusinessDayConvention as BDC
 from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.schedule import (
     Frequency,

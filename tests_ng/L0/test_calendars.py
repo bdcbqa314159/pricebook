@@ -12,8 +12,8 @@ from datetime import date
 
 import pytest
 
-from pricebook_ng.foundation.calendar import BusinessDayConvention as BDC
-from pricebook_ng.foundation.calendar import JointCalendar
+from pricebook_ng.foundation.calendars import BusinessDayConvention as BDC
+from pricebook_ng.foundation.calendars import JointCalendar
 from pricebook_ng.foundation.market_calendars import (
     calendar_for_currency,
     get_calendar,
@@ -148,7 +148,7 @@ def test_anzac_day_not_mondayised_but_others_are():
 
 
 def test_secular_only_calendars_are_marked():
-    from pricebook_ng.foundation.calendar import Coverage
+    from pricebook_ng.foundation.calendars import Coverage
     for ident in ("RIYADH", "CAIRO", "ISTANBUL", "TEL_AVIV", "BEIJING", "SEOUL", "MUMBAI", "BANGKOK"):
         assert get_calendar(ident).coverage is Coverage.SECULAR_ONLY
     assert get_calendar("NEW_YORK_SIFMA").coverage is Coverage.COMPLETE
@@ -157,7 +157,7 @@ def test_secular_only_calendars_are_marked():
 
 # ── S5: day_type classification (half-days) ──
 def test_day_type_classifies_business_half_holiday_weekend():
-    from pricebook_ng.foundation.calendar import DayType
+    from pricebook_ng.foundation.calendars import DayType
     # Christmas Eve 2024-12-24 (Tue) is a US early close — a HALF day, still a business day
     assert NY.day_type(date(2024, 12, 24)) is DayType.HALF
     assert NY.is_business_day(date(2024, 12, 24))            # markets open (early close)

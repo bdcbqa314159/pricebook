@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import MappingProxyType
 
-from pricebook_ng.foundation.calendar import (
+from pricebook_ng.foundation.calendars import (
     Calendar,
     Coverage,
     HolidaySet,
