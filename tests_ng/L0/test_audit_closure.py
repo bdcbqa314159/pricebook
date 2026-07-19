@@ -179,3 +179,14 @@ def test_3_q1_sofr_binds_to_named_government_securities_calendar():
     assert get_rate_index("SOFR").accrual.roll.calendar is get_calendar("US_GOVERNMENT_SECURITIES")
     with pytest.raises(ValueError):
         get_calendar("NEW_YORK_SIFMA")   # the generic name is gone — the "one USD calendar" trap disarmed
+
+
+# 3.5 (partial, in Phase 3): ACT/ACT ICMA long stub RAISES rather than mis-accruing (silent wrongness)
+def test_3_5_act_act_icma_long_stub_raises():
+    from pricebook_ng.foundation.day_count import CouponPeriod
+    # reference (quasi-coupon) period is 6 months; the accrual spans 9 months → a long stub
+    cp = CouponPeriod(reference_start=date(2024, 1, 1), reference_end=date(2024, 7, 1), frequency=2)
+    with pytest.raises(ValueError):
+        year_fraction(date(2024, 1, 1), date(2024, 10, 1), DC.ACT_ACT_ICMA, coupon_period=cp)
+    # a short stub (accrual <= reference period) still computes
+    assert year_fraction(date(2024, 2, 1), date(2024, 7, 1), DC.ACT_ACT_ICMA, coupon_period=cp) > 0

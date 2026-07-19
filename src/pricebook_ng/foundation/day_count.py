@@ -177,6 +177,15 @@ def _act_act_icma(start: date, end: date, cp: CouponPeriod | None) -> float:
             f"ACT/ACT ICMA needs frequency>0 and reference_end>reference_start; "
             f"got frequency={cp.frequency}, period_days={period_days}."
         )
+    if (end - start).days > period_days:
+        # A long stub spans MORE than one quasi-coupon period; Rule 251.2 sums the day-count
+        # over each notional period. The single-period formula below would return a wrong
+        # number — raise loudly rather than silently mis-accrue (audit 3.5) until multiple
+        # quasi-coupon periods are supported (that support lands with Schedule provenance, 3b).
+        raise ValueError(
+            f"ACT/ACT ICMA long stub not supported: accrual {(end - start).days}d exceeds the "
+            f"reference period {period_days}d (Rule 251.2 needs multiple quasi-coupon periods)."
+        )
     return (end - start).days / (period_days * cp.frequency)
 
 
