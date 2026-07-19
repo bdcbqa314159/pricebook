@@ -6,6 +6,21 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-07-19
+
+### Fixed
+- **Foundation audit closure — Phase 2: four Tier-2 convention bugs (red→green).**
+  **2.1** SOFR was declared with a non-standard `observation_shift=2`; ISDA SOFR OIS is plain
+  compounded-in-arrears (`RfrConvention(payment_delay=2)`) — the LIBOR-fallback index correctly keeps
+  the shift. **2.2** the `NEW_YORK_SIFMA` calendar was missing **Good Friday** (SOFR does not publish
+  → `FixingHistory` raised on real data annually) and used federal Sat→Fri observance (wrongly closing
+  2021-12-31); it now includes Good Friday and uses `SUNDAY_ONLY` (SIFMA does not shift Saturday
+  holidays). **2.3** LONDON was missing the 2022–23 one-off bank holidays (Platinum Jubilee, state
+  funeral, coronation, 2020 VE-Day move) — added a `dates()` one-off DSL combinator and `since/until`
+  gating on `nth`. **2.4** Tokyo equinoxes were hardcoded (wrong in 2024–26); now computed
+  astronomically (`equinox()`), plus the Emperor's-Birthday move (`since=2020`). Three existing
+  calendar tests that encoded the buggy SIFMA Sat→Fri observance were corrected.
+
 ## [0.76.0] - 2026-07-19
 
 ### Fixed
