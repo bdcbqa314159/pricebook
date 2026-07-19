@@ -6,6 +6,16 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (5/6) — convention completeness (audit S11/S8/S9/S16).**
+  `DayCountConvention` gains **`1/1`** (always 1) and **`ACT/ACT AFB`** (whole years + leap-aware stub) —
+  ISDA 2006 completeness (S11). `ScheduleTerms` gains an optional **`roll_day`** — the day-of-month the
+  interior periods roll on (a bond the 15th, CDS the 20th), else anchored on `start` (S8). Recorded
+  invariants: **time-of-day never enters `Calendar`** (fixing time is index metadata, expiry cut is L2 —
+  S9); business-day counting is **start-exclusive/end-inclusive** (S16).
+
 ## [0.67.0] - 2026-07-19
 
 ### Changed
