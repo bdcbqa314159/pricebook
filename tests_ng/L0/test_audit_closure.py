@@ -214,3 +214,15 @@ def test_3_7_accrued_rate_accepts_a_fixing_source_protocol():
     sofr = get_rate_index("SOFR")
     acc = Accrual(date(2024, 4, 1), date(2024, 4, 8), DC.ACT_360)
     assert accrued_rate(sofr, acc, ConstFixings()) == pytest.approx(0.05, abs=1e-3)
+
+
+# 3.6 FX spot date: T+2 joint-calendar, T+1 for USD/CAD, cross cannot settle on a US holiday
+def test_3_6_fx_spot_date():
+    from pricebook_ng.foundation.money import Currency, CurrencyPair
+    from pricebook_ng.foundation.settlement import fx_spot_date, spot_lag
+    EUR, USD, GBP, CAD = Currency.EUR, Currency.USD, Currency.GBP, Currency.CAD
+    assert fx_spot_date(CurrencyPair(EUR, USD), date(2024, 1, 2)) == date(2024, 1, 4)   # T+2
+    assert spot_lag(CurrencyPair(USD, CAD)) == 1
+    assert fx_spot_date(CurrencyPair(USD, CAD), date(2024, 1, 2)) == date(2024, 1, 3)   # T+1
+    # EUR/GBP cross: T+2 lands on MLK 2024-01-15 (US holiday) → pushes to 01-16
+    assert fx_spot_date(CurrencyPair(EUR, GBP), date(2024, 1, 11)) == date(2024, 1, 16)

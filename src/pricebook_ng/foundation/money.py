@@ -95,7 +95,9 @@ def register_currency(code: str, minor_units: int = 2) -> Currency:
     Re-registering an existing code **raises** (audit 3.3): a silent overwrite would break the
     interning that makes `Currency.USD is currency("USD")` hold."""
     if code in _CURRENCIES:
-        raise ValueError(f"currency {code!r} is already registered (re-registration not allowed)")
+        raise ValueError(
+            f"currency {code!r} is already registered (re-registration not allowed)"
+        )
     c = Currency(code, minor_units)
     _CURRENCIES[code] = c
     return c
@@ -162,7 +164,9 @@ _UNITS: dict[str, Unit] = {}
 
 def register_unit(name: str, symbol: str) -> Unit:
     if symbol in _UNITS:
-        raise ValueError(f"unit {symbol!r} is already registered (re-registration not allowed)")
+        raise ValueError(
+            f"unit {symbol!r} is already registered (re-registration not allowed)"
+        )
     u = Unit(symbol)
     _UNITS[symbol] = u
     return u
@@ -280,12 +284,13 @@ class Quantity:
 
 @dataclass(frozen=True)
 class CurrencyPair:
-    """An FX pair `base`/`quote` (one unit of base costs `price` of quote) with its
-    spot settlement lag (T+`spot_lag`, market default 2; USD/CAD is 1)."""
+    """An FX pair `base`/`quote` (one unit of base costs `price` of quote). Its IDENTITY is the
+    two currencies only — the spot settlement lag is a *convention*, looked up by
+    `settlement.spot_lag(pair)`, not a field (audit 3.6: a lag on the identity fragments dict
+    keys, so `CurrencyPair(USD, JPY)` would differ from the same pair with a lag)."""
 
     base: Currency
     quote: Currency
-    spot_lag: int = 2
 
     @property
     def name(self) -> str:

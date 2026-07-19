@@ -102,7 +102,9 @@ from pricebook_ng.foundation.settlement import (
     Delivery,
     SettlementTerms,
     SettlementType,
+    fx_spot_date,
     settlement_date,
+    spot_lag,
 )
 from pricebook_ng.foundation.solvers import brent, least_squares, newton, secant
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
@@ -201,6 +203,8 @@ __all__ = [
     "Delivery",
     "SettlementTerms",
     "settlement_date",
+    "fx_spot_date",
+    "spot_lag",
     # numerics
     "NumericalConfig",
     "PricingResult",

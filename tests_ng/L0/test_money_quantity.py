@@ -90,12 +90,14 @@ def test_quantity_mixing_units_raises():
 
 # ── CurrencyPair ──
 def test_currency_pair_name_and_spot_lag():
+    from pricebook_ng.foundation.settlement import spot_lag
     eurusd = CurrencyPair(EUR, USD)
     assert eurusd.name == "EURUSD"
-    assert eurusd.spot_lag == 2                      # T+2 is the market default
-    usdcad = CurrencyPair(USD, Currency.CAD, spot_lag=1)
+    assert spot_lag(eurusd) == 2                     # T+2 default — a convention, not identity
+    usdcad = CurrencyPair(USD, Currency.CAD)
     assert usdcad.name == "USDCAD"
-    assert usdcad.spot_lag == 1
+    assert spot_lag(usdcad) == 1                     # USD/CAD is T+1
+    assert CurrencyPair(USD, Currency.CAD) == usdcad  # the lag is out of equality now
 
 
 # ── Accrual.year_fraction — ergonomic wrapper over the S2 primitive ──
