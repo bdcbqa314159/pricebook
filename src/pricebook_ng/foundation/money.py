@@ -128,6 +128,13 @@ class Money:
 
     __rmul__ = __mul__
 
+    def to_dict(self) -> dict:
+        return {"amount": self.amount, "currency": self.currency.code}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Money:
+        return cls(d["amount"], currency(d["currency"]))
+
 
 @dataclass(frozen=True)
 class Quantity:
@@ -160,6 +167,13 @@ class Quantity:
         return Quantity(self.amount * scale, self.unit)
 
     __rmul__ = __mul__
+
+    def to_dict(self) -> dict:
+        return {"amount": self.amount, "unit": self.unit.symbol}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Quantity:
+        return cls(d["amount"], unit(d["unit"]))
 
 
 @dataclass(frozen=True)

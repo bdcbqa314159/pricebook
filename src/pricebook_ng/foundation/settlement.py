@@ -50,6 +50,14 @@ class Delivery:
     date: date
     quantity: Quantity
 
+    def to_dict(self) -> dict:
+        return {"kind": "delivery", "date": self.date.isoformat(),
+                "quantity": self.quantity.to_dict()}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Delivery:
+        return cls(date.fromisoformat(d["date"]), Quantity.from_dict(d["quantity"]))
+
 
 @dataclass(frozen=True)
 class SettlementTerms:

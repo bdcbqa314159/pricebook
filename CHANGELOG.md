@@ -6,6 +6,17 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-07-19
+
+### Added
+- **Topic 0 gate Slice 8 — serialisation pattern demonstrated on a hard case.** Per-class
+  `to_dict`/`from_dict` (+ `schema_version` at the serialised root) on `Leg` and its constituents
+  `Cashflow`/`Delivery`/`Accrual`/`Money`/`Quantity` — one case exercising all three dimensions at
+  once: a **collection** (flows), an **enum** (`DayCountConvention`), **nested value objects**, and a
+  `Cashflow | Delivery` **union** via a `kind` discriminator. The round-trip is JSON-clean;
+  `Leg.from_dict` refuses an unknown `schema_version`. No framework — the quarry's 831-line machinery
+  is not carried (the pattern is the deliverable).
+
 ## [0.72.0] - 2026-07-19
 
 ### Changed
