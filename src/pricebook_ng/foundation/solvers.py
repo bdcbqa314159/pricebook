@@ -15,6 +15,7 @@ Provenance:
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import cast
 
 from scipy.optimize import brentq as _brentq
 from scipy.optimize import least_squares as _least_squares
@@ -29,7 +30,8 @@ def brent(
     max_iter: int = 200,
 ) -> float:
     """Root of `f` bracketed in ``[lo, hi]`` (Brent). `f(lo)`, `f(hi)` must differ in sign."""
-    return float(_brentq(f, lo, hi, xtol=tol, maxiter=max_iter))
+    # brentq returns a bare float without full_output; the stub types it as a union, so cast.
+    return float(cast(float, _brentq(f, lo, hi, xtol=tol, maxiter=max_iter)))
 
 
 def newton(

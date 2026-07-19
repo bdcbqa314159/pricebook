@@ -248,6 +248,13 @@ class Calendar:
         if not isinstance(self.days, HolidaySet):
             object.__setattr__(self, "days", HolidaySet(tuple(self.days)))
 
+    @property
+    def _rule_set(self) -> HolidaySet:
+        # `__post_init__` guarantees this; the property narrows the declared union (the
+        # constructor accepts a bare rule tuple, but the stored value is always a HolidaySet).
+        d = self.days
+        return d if isinstance(d, HolidaySet) else HolidaySet(d)
+
     def day_type(self, d: date) -> DayType:
         """Classify a date: WEEKEND / HOLIDAY / HALF (early close) / BUSINESS."""
         if self.is_weekend(d):
@@ -344,7 +351,7 @@ class Calendar:
 @lru_cache(maxsize=None)
 def _holidays_of(cal: Calendar, year: int) -> frozenset[date]:
     raw: set[date] = set()
-    for rule in cal.days.holidays:
+    for rule in cal._rule_set.holidays:
         raw.update(rule(cal, year))
     if cal.observance is Observance.FURIKAE:
         raw |= _furikae_substitutes(raw)
@@ -354,7 +361,7 @@ def _holidays_of(cal: Calendar, year: int) -> frozenset[date]:
 @lru_cache(maxsize=None)
 def _half_days_of(cal: Calendar, year: int) -> frozenset[date]:
     raw: set[date] = set()
-    for rule in cal.days.half_days:
+    for rule in cal._rule_set.half_days:
         raw.update(rule(cal, year))
     return frozenset(raw)
 

@@ -111,6 +111,15 @@ def _is_dataclass_decorator(dec: ast.expr) -> bool:
     return isinstance(dec, ast.Call) and isinstance(dec.func, ast.Name) and dec.func.id == "dataclass"
 
 
+def _is_classvar(ann: ast.expr | None) -> bool:
+    """A `ClassVar[...]` / `ClassVar` annotation is a class constant, not a dataclass field
+    (dataclass excludes it from `__init__`), so it does not count toward the field limit."""
+    node = ann.value if isinstance(ann, ast.Subscript) else ann  # unwrap ClassVar[...]
+    if isinstance(node, ast.Attribute):
+        return node.attr == "ClassVar"
+    return isinstance(node, ast.Name) and node.id == "ClassVar"
+
+
 def fields() -> list[str]:
     """A value dataclass has <= 5 fields — the dataclass analogue of PLR0913 (CLAUDE.md 3b):
     a product with 8 loose primitives is the same un-bundled smell PLR0913 can't see. Bundle
@@ -126,7 +135,11 @@ def fields() -> list[str]:
             if not any(_is_dataclass_decorator(d) for d in node.decorator_list):
                 continue
             n = sum(
-                1 for b in node.body if isinstance(b, ast.AnnAssign) and isinstance(b.target, ast.Name)
+                1
+                for b in node.body
+                if isinstance(b, ast.AnnAssign)
+                and isinstance(b.target, ast.Name)
+                and not _is_classvar(b.annotation)
             )
             span = "\n".join(lines[node.lineno - 1 : node.end_lineno or node.lineno])
             if n > _FIELD_LIMIT and "# fields-exempt:" not in span:

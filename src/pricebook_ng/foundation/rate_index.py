@@ -224,12 +224,14 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
 
 
 # ── registry: explicit construction, index carries its own calendar ──────────────
-_REGISTRY: dict[str, RateIndex] = {}
+_registry: dict[
+    str, RateIndex
+] = {}  # mutable backing; frozen into `_REGISTRY` below (A2)
 _MOD_FOL = BusinessDayConvention.MODIFIED_FOLLOWING
 
 
 def _register(index: RateIndex) -> RateIndex:
-    _REGISTRY[index.name] = index
+    _registry[index.name] = index
     return index
 
 
@@ -308,9 +310,9 @@ USD_LIBOR_3M_FALLBACK = _register(
 )
 
 # Closed registry — all indices are declared above by explicit construction (S5: no
-# import-time I/O). Freeze so it cannot be rebound or mutated (A2 — the quarry's bug was a
-# JSON load that replaced the whole `_REGISTRY` dict, dropping 27 of 28 indices).
-_REGISTRY = MappingProxyType(_REGISTRY)
+# import-time I/O). The frozen view cannot be rebound or mutated (A2 — the quarry's bug was a
+# JSON load that replaced the whole registry dict, dropping 27 of 28 indices).
+_REGISTRY: Mapping[str, RateIndex] = MappingProxyType(_registry)
 
 
 def get_rate_index(name: str) -> RateIndex:

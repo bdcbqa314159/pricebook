@@ -13,6 +13,7 @@ Provenance:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from types import MappingProxyType
 
 from pricebook_ng.foundation.calendar import (
@@ -39,11 +40,13 @@ _NWD = Observance.NEXT_WORKING_DAY
 _SEC = Coverage.SECULAR_ONLY
 
 # ── G10 ──────────────────────────────────────────────────────────────────────────
-_CALENDARS: dict[str, Calendar] = {}
+_calendars: dict[
+    str, Calendar
+] = {}  # mutable backing; frozen into `_CALENDARS` below (A2)
 
 
 def _reg(cal: Calendar) -> Calendar:
-    _CALENDARS[cal.identity] = cal
+    _calendars[cal.identity] = cal
     return cal
 
 
@@ -764,9 +767,9 @@ MANILA = _reg(
     )
 )
 
-# Closed registry — the 37 markets are all declared above. Freeze so nothing can rebind or
-# mutate it (the quarry bug was registry mutation at import); `get_calendar` reads it (A2).
-_CALENDARS = MappingProxyType(_CALENDARS)
+# Closed registry — the 37 markets are all declared above. The frozen view cannot be rebound
+# or mutated (the quarry bug was registry mutation at import); `get_calendar` reads it (A2).
+_CALENDARS: Mapping[str, Calendar] = MappingProxyType(_calendars)
 
 
 # ── currency → calendar identity (a lookup, C1) ──────────────────────────────────

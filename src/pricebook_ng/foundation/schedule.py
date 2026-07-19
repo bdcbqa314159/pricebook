@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
+from typing import ClassVar
 
 from pricebook_ng.foundation.calendar import BusinessDayConvention, Calendar
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
@@ -36,6 +37,15 @@ class Frequency:
     the step is a `Tenor` (gate audit S3). The named frequencies are class constants."""
 
     step: Tenor | None
+
+    # The named frequencies (assigned below). Declared so `Frequency.MONTHLY` type-checks.
+    DAILY: ClassVar[Frequency]
+    WEEKLY: ClassVar[Frequency]
+    MONTHLY: ClassVar[Frequency]
+    QUARTERLY: ClassVar[Frequency]
+    SEMI_ANNUAL: ClassVar[Frequency]
+    ANNUAL: ClassVar[Frequency]
+    BULLET: ClassVar[Frequency]
 
     def __str__(self) -> str:
         return "BULLET" if self.step is None else str(self.step)
