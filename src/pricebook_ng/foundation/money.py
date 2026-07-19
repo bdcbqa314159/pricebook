@@ -82,10 +82,6 @@ class Currency:
     THB: ClassVar[Currency]
     PHP: ClassVar[Currency]
 
-    @property
-    def value(self) -> str:  # the ISO code (kept for call sites that read `.value`)
-        return self.code
-
 
 _CURRENCIES: dict[str, Currency] = {}
 
@@ -153,10 +149,6 @@ class Unit:
     TROY_OUNCE: ClassVar[Unit]
     BUSHEL: ClassVar[Unit]
     POUND: ClassVar[Unit]
-
-    @property
-    def value(self) -> str:
-        return self.symbol
 
 
 _UNITS: dict[str, Unit] = {}

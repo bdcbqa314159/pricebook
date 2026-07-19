@@ -79,11 +79,6 @@ class RfrConvention:
     lockout: int = 0
     payment_delay: int = 0
 
-    @classmethod
-    def none(cls) -> RfrConvention:
-        """An IBOR / term rate has no RFR mechanics — the distinction is visible, not five zeros."""
-        return cls()
-
 
 @dataclass(frozen=True)
 class RateIndex:
@@ -137,16 +132,12 @@ class FixingHistory:
         return by_index[on]
 
 
-_ANNUAL_BASIS: dict[DayCountConvention, int] = {DayCountConvention.BUS_252: 252}
-
-
 def _annual_basis(day_count: DayCountConvention) -> int:
-    basis = _ANNUAL_BASIS.get(day_count)
-    if basis is None:
-        raise ValueError(
-            f"{day_count.value} is not a business-day-counted convention (no annual basis)"
-        )
-    return basis
+    if day_count is DayCountConvention.BUS_252:
+        return 252
+    raise ValueError(
+        f"{day_count.value} is not a business-day-counted convention (no annual basis)"
+    )
 
 
 def exponential_growth(
@@ -305,7 +296,7 @@ def _term(
         IndexId(name, ccy, Tenor.parse(tenor)),
         _accrual(cal_id, dc),
         FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
-        RfrConvention.none(),
+        RfrConvention(),  # a term/IBOR rate has no RFR mechanics (default = all zeros)
     )
 
 

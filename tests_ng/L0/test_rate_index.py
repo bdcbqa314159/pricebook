@@ -113,7 +113,7 @@ def test_forward_looking_term_vs_backward_compounded():
         IndexId("TERM_3M", USD, Tenor.parse("3M")),
         AccrualConvention(DC.ACT_360, RollRule(get_calendar("US_GOVERNMENT_SECURITIES"), BDC.MODIFIED_FOLLOWING, eom=False)),
         FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
-        RfrConvention.none(),
+        RfrConvention(),
     )
     fx = _flat("TERM_3M", 0.048, date(2024, 5, 1), date(2024, 9, 30))
     rfr_fx = _series("TEST_ON", 0.05, date(2024, 5, 1), date(2024, 10, 1))
