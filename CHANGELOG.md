@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-07-19
+
+### Fixed
+- **Ledger tightening — reclassified the 19 audit-closure ledger items against "wrong answer / invalid
+  input today?" Only one was a latent bug wearing a Tier-4 badge:**
+  - **AC-T4.2 — `Tenor` accepted non-positive counts** (invalid input). `Tenor.parse("0D")`/`"-3M"` and
+    `Tenor(0, …)` now raise (`__post_init__` guard) — a zero step never advances a schedule loop.
+    Removed from `OPEN.md`. Test: `test_t4_2_non_positive_tenor_is_rejected`.
+
+### Added
+- **EURIBOR_6M** — the standard EUR 6M vanilla floating leg (EUR, TARGET, ACT/360). Its absence was a
+  gap in an index set presented as complete (`EURIBOR_3M` already shipped). Test:
+  `test_t4_1_euribor_6m_is_registered`. The other missing indices (EFFR, BBSW, AONIA, CORRA, TIIE, …)
+  stay ledgered — absent capabilities, deferred to their currency/product topics.
+
+### Notes
+- The remaining 17 ledger items confirmed **NO** on the wrong-answer/invalid-input test (absent
+  capability or clean rejection — building them now would reintroduce the speculative infra Phase 4
+  deleted, §6b) and stay in `OPEN.md`. Six of their triggers are condition/event/usage-driven rather
+  than roadmap topics (AC-T4.7/8/9/11/17/18) — flagged as such in the ledger.
+
 ## [0.81.0] - 2026-07-19
 
 ### Removed
