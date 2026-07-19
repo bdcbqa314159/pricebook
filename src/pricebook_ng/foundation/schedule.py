@@ -68,6 +68,19 @@ class StubType(Enum):
     LONG_BACK = "long_back"
 
 
+@dataclass(frozen=True)
+class RegularPeriod:
+    """The ISDA regular-period anchors (`firstRegularPeriodStartDate` /
+    `lastRegularPeriodEndDate`): regular generation runs *between* them, and everything outside
+    is a stub by construction. This is the concept — the two dates that bound the regular span —
+    not a bag of leftover fields; use it instead of a `StubType` when a trade is booked mid-life
+    and its regular boundaries are known explicitly (either anchor may be `None` = coincides with
+    the schedule end)."""
+
+    first_regular_date: date | None = None
+    last_regular_date: date | None = None
+
+
 class RollConvention(Enum):
     """A rule-based roll anchor for `ScheduleTerms.roll_day` (S8): interior periods land on
     the IMM date (3rd Wednesday) or the CDS date (20th) of their month, regardless of the
@@ -98,7 +111,9 @@ class ScheduleTerms:
 
     frequency: Frequency
     roll: RollRule = field(default_factory=RollRule)
-    stub: StubType = StubType.SHORT_FRONT
+    # `stub` specifies WHERE the stubs are: a `StubType` infers them from a rule, or a
+    # `RegularPeriod` states the regular boundaries explicitly (one field, one concept).
+    stub: StubType | RegularPeriod = StubType.SHORT_FRONT
     roll_day: int | RollConvention | None = None
 
 
@@ -192,6 +207,20 @@ def _unadjusted(
             and is_month
             and anchor == _end_of_month(anchor)
         )
+
+    if isinstance(stub, RegularPeriod):
+        # Explicit ISDA anchors: regular generation runs [first_regular, last_regular]; anything
+        # outside is a stub by construction (3b — for a trade booked mid-life).
+        first_reg = stub.first_regular_date or start
+        last_reg = stub.last_regular_date or end
+        snap, grid, k = _snap_on(first_reg), [first_reg], 1
+        while (cur := _step_k(first_reg, tenor, k, snap, roll_day)) < last_reg:
+            grid.append(cur)
+            k += 1
+        grid.append(last_reg)
+        front_stub, back_stub = start < first_reg, last_reg < end
+        dates = ([start] if front_stub else []) + grid + ([end] if back_stub else [])
+        return dates, front_stub, back_stub
 
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
         snap, dates, k = _snap_on(end), [end], 1

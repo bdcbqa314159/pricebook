@@ -245,3 +245,20 @@ def test_3b_schedule_emits_per_period_provenance():
     reg = build_schedule(date(2024, 1, 15), date(2024, 7, 15),
                          ScheduleTerms(frequency=Frequency.QUARTERLY))
     assert not any(p.is_stub for p in reg.periods)
+
+
+def test_3b_explicit_regular_period_anchors():
+    from pricebook_ng.foundation.schedule import RegularPeriod
+    # book mid-life: regular quarterly 15 Feb → 15 Nov 2024, with stubs [10 Jan, 15 Feb] and
+    # [15 Nov, 1 Dec]. The interior is the ordinary quarterly grid on the 15th (derivable).
+    terms = ScheduleTerms(
+        frequency=Frequency.QUARTERLY,
+        stub=RegularPeriod(first_regular_date=date(2024, 2, 15), last_regular_date=date(2024, 11, 15)),
+    )
+    s = build_schedule(date(2024, 1, 10), date(2024, 12, 1), terms)
+    assert s.unadjusted == (
+        date(2024, 1, 10), date(2024, 2, 15), date(2024, 5, 15),
+        date(2024, 8, 15), date(2024, 11, 15), date(2024, 12, 1),
+    )
+    assert s.periods[0].is_stub and s.periods[-1].is_stub  # explicit front + back stubs
+    assert not s.periods[1].is_stub                          # regular interior
