@@ -68,3 +68,11 @@ class Tenor:
         raise ValueError(
             f"{self} has no fixed month count (it is {self.unit.value}-based)"
         )
+
+    def to_dict(self) -> dict:
+        # atom → serialised BY VALUE (its canonical string), self-contained (audit 3.4).
+        return {"tenor": str(self)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Tenor:
+        return cls.parse(d["tenor"])

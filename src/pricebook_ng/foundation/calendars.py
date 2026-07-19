@@ -407,6 +407,12 @@ class Calendar(_BusinessDayArithmetic):
     def is_business_day(self, d: date) -> bool:
         return not self.is_weekend(d) and not self.is_holiday(d)
 
+    def to_dict(self) -> dict:
+        # IDENTITY → serialised BY NAME (audit 3.4): a calendar is a registry entry (rule
+        # closures can't serialise by value). Rehydrate via `get_calendar(d["calendar"])` — the
+        # registry accessor IS the deserialiser (this module can't import it without a cycle).
+        return {"calendar": self.identity}
+
     def _holidays(self, year: int) -> frozenset[date]:
         return _holidays_of(
             self, year

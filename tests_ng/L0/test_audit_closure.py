@@ -279,3 +279,20 @@ def test_3b_payment_delay_shifts_the_payment_date():
     s0 = build_schedule(date(2024, 1, 15), date(2024, 7, 15),
                         ScheduleTerms(frequency=Frequency.QUARTERLY, roll=RollRule(calendar=NY)))
     assert s0.periods[0].payment_date == s0.adjusted[1]
+
+
+# 3.4 serialisation convention: identities BY NAME, atoms BY VALUE (fixed in foundation)
+def test_3_4_serialisation_identities_by_name_atoms_by_value():
+    from pricebook_ng.foundation.rate_index import RateIndex, get_rate_index
+    from pricebook_ng.foundation.tenor import Tenor, TenorUnit
+    # identity (Calendar) → by name; rehydrate via the registry accessor
+    assert NY.to_dict() == {"calendar": "US_GOVERNMENT_SECURITIES"}
+    assert get_calendar(NY.to_dict()["calendar"]) is NY
+    # identity (RateIndex) → by name; round-trips through the class from_dict (uses the registry)
+    sofr = get_rate_index("SOFR")
+    assert sofr.to_dict() == {"index": "SOFR"}
+    assert RateIndex.from_dict(sofr.to_dict()) is sofr
+    # atom (Tenor) → by value, self-contained round-trip
+    t = Tenor(3, TenorUnit.MONTH)
+    assert t.to_dict() == {"tenor": "3M"}
+    assert Tenor.from_dict(t.to_dict()) == t

@@ -105,6 +105,14 @@ class RateIndex:
     def asset_class(self) -> AssetClass:
         return AssetClass.RATES
 
+    def to_dict(self) -> dict:
+        # IDENTITY → serialised BY NAME (audit 3.4): a rate index is a registry entry.
+        return {"index": self.name}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> RateIndex:
+        return get_rate_index(d["index"])  # rehydrate via the registry (same module)
+
 
 @runtime_checkable
 class FixingSource(Protocol):
