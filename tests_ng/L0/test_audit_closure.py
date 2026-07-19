@@ -28,7 +28,7 @@ from pricebook_ng.foundation.schedule import (
     build_schedule,
 )
 
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 TOKYO = get_calendar("TOKYO")
 
 
@@ -170,3 +170,12 @@ def test_3_3_registries_open_and_conflict_raises():
         register_currency("USD")
     with pytest.raises(ValueError):
         register_rate_index(get_rate_index("SOFR"))
+
+
+# Q1: the USD calendar is named for what it IS (government securities); SOFR binds explicitly
+def test_3_q1_sofr_binds_to_named_government_securities_calendar():
+    from pricebook_ng.foundation.market_calendars import get_calendar
+    from pricebook_ng.foundation.rate_index import get_rate_index
+    assert get_rate_index("SOFR").accrual.roll.calendar is get_calendar("US_GOVERNMENT_SECURITIES")
+    with pytest.raises(ValueError):
+        get_calendar("NEW_YORK_SIFMA")   # the generic name is gone — the "one USD calendar" trap disarmed

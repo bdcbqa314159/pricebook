@@ -290,7 +290,7 @@ SOFR = _register(
     _on(
         "SOFR",
         Currency.USD,
-        "NEW_YORK_SIFMA",
+        "US_GOVERNMENT_SECURITIES",
         _DC.ACT_360,
         RfrConvention(payment_delay=2),
     )
@@ -314,13 +314,13 @@ CDI = _register(
 )
 EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "TARGET", "3M", _DC.ACT_360))
 TERM_SOFR_3M = _register(
-    _term("TERM_SOFR_3M", Currency.USD, "NEW_YORK_SIFMA", "3M", _DC.ACT_360)
+    _term("TERM_SOFR_3M", Currency.USD, "US_GOVERNMENT_SECURITIES", "3M", _DC.ACT_360)
 )
 USD_LIBOR_3M_FALLBACK = _register(
     RateIndex(
         IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
         AccrualConvention(
-            _DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), _MOD_FOL, eom=False)
+            _DC.ACT_360, RollRule(get_calendar("US_GOVERNMENT_SECURITIES"), _MOD_FOL, eom=False)
         ),
         FixingRule(
             ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0

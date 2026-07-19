@@ -20,7 +20,7 @@ from pricebook_ng.foundation.market_calendars import (
     list_calendars,
 )
 
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 LON = get_calendar("LONDON")
 TGT = get_calendar("TARGET")
 TOK = get_calendar("TOKYO")
@@ -32,7 +32,7 @@ def test_all_37_markets_declared():
 
 
 def test_currency_maps_to_identity():
-    assert calendar_for_currency("USD") is get_calendar("NEW_YORK_SIFMA")
+    assert calendar_for_currency("USD") is get_calendar("US_GOVERNMENT_SECURITIES")
     assert calendar_for_currency("EUR") is get_calendar("TARGET")
     assert calendar_for_currency("GBP") is get_calendar("LONDON")
 
@@ -152,7 +152,7 @@ def test_secular_only_calendars_are_marked():
     from pricebook_ng.foundation.calendars import Coverage
     for ident in ("RIYADH", "CAIRO", "ISTANBUL", "TEL_AVIV", "BEIJING", "SEOUL", "MUMBAI", "BANGKOK"):
         assert get_calendar(ident).coverage is Coverage.SECULAR_ONLY
-    assert get_calendar("NEW_YORK_SIFMA").coverage is Coverage.COMPLETE
+    assert get_calendar("US_GOVERNMENT_SECURITIES").coverage is Coverage.COMPLETE
     assert get_calendar("TARGET").coverage is Coverage.COMPLETE
 
 

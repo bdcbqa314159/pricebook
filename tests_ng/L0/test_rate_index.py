@@ -37,7 +37,7 @@ from pricebook_ng.foundation.underlying import AssetClass, Underlying
 USD = Currency.USD
 
 
-def _rfr(name="TEST_ON", cal="NEW_YORK_SIFMA", *, obs_shift=0, lookback=0, lockout=0,
+def _rfr(name="TEST_ON", cal="US_GOVERNMENT_SECURITIES", *, obs_shift=0, lookback=0, lockout=0,
          compounding=AccrualMethod.COMPOUNDED, spread=0.0, dc=DC.ACT_360):
     return RateIndex(
         IndexId(name, USD, Tenor(1, TenorUnit.DAY)),
@@ -70,13 +70,13 @@ def test_calendar_comes_from_the_index_not_the_currency():
     # TARGET (10-14 is a business day there) observes a different set of days over the period.
     acc = Accrual(date(2024, 10, 10), date(2024, 10, 18), DC.ACT_360)   # spans Columbus Day
     fx = _series("X_ON", 0.05, date(2024, 9, 1), date(2024, 11, 1))
-    sifma = _rfr("X_ON", "NEW_YORK_SIFMA")
+    sifma = _rfr("X_ON", "US_GOVERNMENT_SECURITIES")
     target = _rfr("X_ON", "TARGET")                                     # same USD, other calendar
     assert accrued_rate(sifma, acc, fx) != accrued_rate(target, acc, fx)
 
 
 def test_sofr_uses_sifma():
-    assert get_rate_index("SOFR").accrual.roll.calendar is get_calendar("NEW_YORK_SIFMA")
+    assert get_rate_index("SOFR").accrual.roll.calendar is get_calendar("US_GOVERNMENT_SECURITIES")
 
 
 # ── F4: RateIndex is an Underlying; siblings report their asset class ──
@@ -111,7 +111,7 @@ def test_forward_looking_term_vs_backward_compounded():
     acc = Accrual(date(2024, 6, 10), date(2024, 9, 10), DC.ACT_360)
     term = RateIndex(
         IndexId("TERM_3M", USD, Tenor.parse("3M")),
-        AccrualConvention(DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), BDC.MODIFIED_FOLLOWING, eom=False)),
+        AccrualConvention(DC.ACT_360, RollRule(get_calendar("US_GOVERNMENT_SECURITIES"), BDC.MODIFIED_FOLLOWING, eom=False)),
         FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
         RfrConvention.none(),
     )

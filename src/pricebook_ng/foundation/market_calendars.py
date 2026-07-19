@@ -74,9 +74,9 @@ def temporary_calendar(cal: Calendar) -> Iterator[Calendar]:
 # Observance is SUNDAY_ONLY, not federal Sat→Fri: SIFMA does NOT shift Saturday holidays to the
 # preceding Friday (2021-12-31 was open) — audit 2.2. (A federal/Fed-bank calendar with Sat→Fri,
 # and NYSE, are separate calendars added with their first equity/EFFR consumer, not speculatively.)
-NEW_YORK_SIFMA = _reg(
+US_GOVERNMENT_SECURITIES = _reg(
     Calendar(
-        "NEW_YORK_SIFMA",
+        "US_GOVERNMENT_SECURITIES",
         HolidaySet(
             (
                 fixed(1, 1),
@@ -812,7 +812,7 @@ _CALENDARS: Mapping[str, Calendar] = MappingProxyType(_calendars)
 
 # ── currency → calendar identity (a lookup, C1) ──────────────────────────────────
 _CURRENCY: dict[str, str] = {
-    "USD": "NEW_YORK_SIFMA",
+    "USD": "US_GOVERNMENT_SECURITIES",
     "EUR": "TARGET",
     "GBP": "LONDON",
     "JPY": "TOKYO",
@@ -853,7 +853,7 @@ _CURRENCY: dict[str, str] = {
 
 
 def get_calendar(identity: str) -> Calendar:
-    """The calendar for a market identity (e.g. `NEW_YORK_SIFMA`, `TARGET`)."""
+    """The calendar for a market identity (e.g. `US_GOVERNMENT_SECURITIES`, `TARGET`)."""
     cal = _CALENDARS.get(identity)
     if cal is None:
         raise ValueError(f"no calendar {identity!r}. Known: {sorted(_CALENDARS)}")

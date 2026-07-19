@@ -29,7 +29,7 @@ from pricebook_ng.foundation.schedule import RollRule
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 
 USD = Currency.USD
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 
 
 def _idx(name, comp, *, obs=0, lb=0, dc=DC.ACT_360):

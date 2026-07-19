@@ -26,7 +26,7 @@ from pricebook_ng.foundation.schedule import (
     next_imm,
 )
 
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 
 
 def _terms(freq, stub=StubType.SHORT_FRONT, roll=None):

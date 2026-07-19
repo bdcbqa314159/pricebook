@@ -21,7 +21,7 @@ from pricebook_ng.foundation.settlement import (
     settlement_date,
 )
 
-NY = get_calendar("NEW_YORK_SIFMA")
+NY = get_calendar("US_GOVERNMENT_SECURITIES")
 
 
 # ── settlement date = trade + lag business days under a calendar ──
