@@ -56,6 +56,15 @@ class Observance(Enum):
     FURIKAE = "furikae"                # Japan: a Sunday holiday walks forward past holidays
 
 
+class DayType(Enum):
+    """A day's trading status. A half-day is a business day with an early close — it
+    affects fixing cut-offs and settlement, but markets are open."""
+    BUSINESS = "business"
+    HALF = "half"
+    HOLIDAY = "holiday"
+    WEEKEND = "weekend"
+
+
 class Coverage(Enum):
     """Whether a calendar's holiday set is complete or omits lunar/religious dates."""
     COMPLETE = "complete"
@@ -183,6 +192,21 @@ def _to_next_monday(d: date) -> date:
     return d if d.weekday() == 0 else d + timedelta(days=7 - d.weekday())
 
 
+def day_after_thanksgiving(cal: Calendar, year: int) -> tuple[date, ...]:
+    """US early close: the Friday after the 4th Thursday of November."""
+    return (_nth_weekday(year, 11, 3, 4) + timedelta(days=1),)
+
+
+@dataclass(frozen=True)
+class HolidaySet:
+    """A calendar's day rules: full `holidays`, and optional `half_days` (early closes —
+    business days that trade on a shortened session). Bundled so `Calendar` stays ≤5
+    fields with half-days (gate audit S5)."""
+
+    holidays: tuple[Rule, ...]
+    half_days: tuple[Rule, ...] = ()
+
+
 # ── the one Calendar value ───────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class Calendar:
@@ -191,10 +215,24 @@ class Calendar:
     computed on demand and cached."""
 
     identity: str
-    rules: tuple[Rule, ...]
+    days: "HolidaySet | tuple[Rule, ...]"   # a bare rule tuple is auto-wrapped (no half-days)
     weekend: Weekend = Weekend.SAT_SUN
     observance: Observance = Observance.US
     coverage: Coverage = Coverage.COMPLETE
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.days, HolidaySet):
+            object.__setattr__(self, "days", HolidaySet(tuple(self.days)))
+
+    def day_type(self, d: date) -> DayType:
+        """Classify a date: WEEKEND / HOLIDAY / HALF (early close) / BUSINESS."""
+        if self.is_weekend(d):
+            return DayType.WEEKEND
+        if self.is_holiday(d):
+            return DayType.HOLIDAY
+        if d in _half_days_of(self, d.year):
+            return DayType.HALF
+        return DayType.BUSINESS
 
     def observe(self, d: date) -> date:
         """Substitute a weekend holiday under this calendar's regime (identity for
@@ -270,10 +308,18 @@ class Calendar:
 @lru_cache(maxsize=None)
 def _holidays_of(cal: Calendar, year: int) -> frozenset[date]:
     raw: set[date] = set()
-    for rule in cal.rules:
+    for rule in cal.days.holidays:
         raw.update(rule(cal, year))
     if cal.observance is Observance.FURIKAE:
         raw |= _furikae_substitutes(raw)
+    return frozenset(raw)
+
+
+@lru_cache(maxsize=None)
+def _half_days_of(cal: Calendar, year: int) -> frozenset[date]:
+    raw: set[date] = set()
+    for rule in cal.days.half_days:
+        raw.update(rule(cal, year))
     return frozenset(raw)
 
 

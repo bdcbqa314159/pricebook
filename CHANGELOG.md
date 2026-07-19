@@ -6,6 +6,16 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (6a) — `Calendar` `day_type` / half-days (audit S5).** `Calendar.day_type(d)` →
+  `BUSINESS | HALF | HOLIDAY | WEEKEND`: a **half-day** is an early close (a business day with a
+  shortened session — affects fixing cut-offs/settlement), e.g. US July 3, Christmas Eve, the day after
+  Thanksgiving. To carry half-days and stay ≤5 fields, the holiday rules bundle into a
+  **`HolidaySet(holidays, half_days)`**; a bare rule tuple auto-wraps, so only the half-day calendar
+  changed. `is_business_day` is unchanged (a half-day is still a business day).
+
 ## [0.68.0] - 2026-07-19
 
 ### Changed
