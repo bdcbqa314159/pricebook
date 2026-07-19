@@ -7,7 +7,7 @@ index carries its own `RollRule` (hence calendar), and it **decomposes** by conv
 family (no `fields-exempt`). It satisfies the `Underlying` protocol (`name`,
 `asset_class`), so it is the rates sibling of the general identity concept.
 
-`accrued_rate` is the one realized-rate function; branching only on `CompoundingMethod`
+`accrued_rate` is the one realized-rate function; branching only on `AccrualMethod`
 (and forward/backward). Registry by explicit construction — no import-time JSON reload.
 
 Provenance:
@@ -35,7 +35,7 @@ from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 from pricebook_ng.foundation.underlying import AssetClass
 
 
-class CompoundingMethod(Enum):
+class AccrualMethod(Enum):
     COMPOUNDED = "compounded"    # money-market ∏(1 + r_i·δ_i) − 1 (RFR)
     EXPONENTIAL = "exponential"  # Brazilian ∏(1 + r_i)^(1/basis) − CDI/SELIC
     AVERAGED = "averaged"        # weighted average of the daily rates
@@ -66,7 +66,7 @@ class AccrualConvention:
 @dataclass(frozen=True)
 class FixingRule:
     observation_style: ObservationStyle
-    compounding: CompoundingMethod
+    compounding: AccrualMethod
     fixing_lag: int
 
 
@@ -160,7 +160,7 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         raise ValueError(f"index {index.name!r} has no calendar on its roll rule")
     day_count = index.accrual.day_count
 
-    if index.fixing.compounding is CompoundingMethod.FLAT:
+    if index.fixing.compounding is AccrualMethod.FLAT:
         fixing_date = calendar.add_business_days(accrual.start, -index.fixing.fixing_lag)
         return fixings.rate(index.name, fixing_date) + index.spread_adjustment
 
@@ -180,7 +180,7 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         frozen = len(window) - 1 - rfr.lockout
         rate_dates = [rate_dates[min(i, frozen)] for i in range(len(window))]
 
-    if index.fixing.compounding is CompoundingMethod.EXPONENTIAL:
+    if index.fixing.compounding is AccrualMethod.EXPONENTIAL:
         basis = _annual_basis(day_count)
         factor = 1.0
         for rate_date in rate_dates:
@@ -196,7 +196,7 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingHistory) -> 
         weighted += r * weight
         total += weight
 
-    if index.fixing.compounding is CompoundingMethod.COMPOUNDED:
+    if index.fixing.compounding is AccrualMethod.COMPOUNDED:
         realized = (factor - 1.0) / year_fraction(accrual.start, accrual.end, day_count, calendar=calendar)
     else:  # AVERAGED
         realized = weighted / total
@@ -221,14 +221,14 @@ def _on(name: str, ccy: Currency, cal_id: str, dc: DayCountConvention, rfr: RfrC
     """A backward-looking compounded overnight RFR (the RFR knobs bundled in `rfr`)."""
     return RateIndex(
         IndexId(name, ccy, Tenor(1, TenorUnit.DAY)), _accrual(cal_id, dc),
-        FixingRule(ObservationStyle.BACKWARD_LOOKING, CompoundingMethod.COMPOUNDED, fixing_lag=0), rfr,
+        FixingRule(ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0), rfr,
     )
 
 
 def _term(name: str, ccy: Currency, cal_id: str, tenor: str, dc: DayCountConvention) -> RateIndex:
     return RateIndex(
         IndexId(name, ccy, Tenor.parse(tenor)), _accrual(cal_id, dc),
-        FixingRule(ObservationStyle.FORWARD_LOOKING, CompoundingMethod.FLAT, fixing_lag=2),
+        FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
         RfrConvention.none(),
     )
 
@@ -243,7 +243,7 @@ SARON = _register(_on("SARON", Currency.CHF, "ZURICH", _DC.ACT_360, RfrConventio
 # Brazilian CDI — exponential BUS/252 (built inline: the one non-compounded overnight)
 CDI = _register(RateIndex(
     IndexId("CDI", Currency.BRL, Tenor(1, TenorUnit.DAY)), _accrual("SAO_PAULO", _DC.BUS_252),
-    FixingRule(ObservationStyle.BACKWARD_LOOKING, CompoundingMethod.EXPONENTIAL, fixing_lag=0),
+    FixingRule(ObservationStyle.BACKWARD_LOOKING, AccrualMethod.EXPONENTIAL, fixing_lag=0),
     RfrConvention(),
 ))
 EURIBOR_3M = _register(_term("EURIBOR_3M", Currency.EUR, "TARGET", "3M", _DC.ACT_360))
@@ -251,7 +251,7 @@ TERM_SOFR_3M = _register(_term("TERM_SOFR_3M", Currency.USD, "NEW_YORK_SIFMA", "
 USD_LIBOR_3M_FALLBACK = _register(RateIndex(
     IndexId("USD_LIBOR_3M_FALLBACK", Currency.USD, Tenor.parse("3M")),
     AccrualConvention(_DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), _MOD_FOL, eom=False)),
-    FixingRule(ObservationStyle.BACKWARD_LOOKING, CompoundingMethod.COMPOUNDED, fixing_lag=0),
+    FixingRule(ObservationStyle.BACKWARD_LOOKING, AccrualMethod.COMPOUNDED, fixing_lag=0),
     RfrConvention(observation_shift=2, payment_delay=2),
     spread_adjustment=0.0026161,
 ))

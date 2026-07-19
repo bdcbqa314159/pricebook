@@ -18,7 +18,7 @@ from pricebook_ng.foundation.market_calendars import get_calendar
 from pricebook_ng.foundation.money import Currency
 from pricebook_ng.foundation.rate_index import (
     AccrualConvention,
-    CompoundingMethod,
+    AccrualMethod,
     FixingHistory,
     FixingRule,
     IndexId,
@@ -38,7 +38,7 @@ USD = Currency.USD
 
 
 def _rfr(name="TEST_ON", cal="NEW_YORK_SIFMA", *, obs_shift=0, lookback=0, lockout=0,
-         compounding=CompoundingMethod.COMPOUNDED, spread=0.0, dc=DC.ACT_360):
+         compounding=AccrualMethod.COMPOUNDED, spread=0.0, dc=DC.ACT_360):
     return RateIndex(
         IndexId(name, USD, Tenor(1, TenorUnit.DAY)),
         AccrualConvention(dc, RollRule(get_calendar(cal), BDC.MODIFIED_FOLLOWING, eom=False)),
@@ -112,7 +112,7 @@ def test_forward_looking_term_vs_backward_compounded():
     term = RateIndex(
         IndexId("TERM_3M", USD, Tenor.parse("3M")),
         AccrualConvention(DC.ACT_360, RollRule(get_calendar("NEW_YORK_SIFMA"), BDC.MODIFIED_FOLLOWING, eom=False)),
-        FixingRule(ObservationStyle.FORWARD_LOOKING, CompoundingMethod.FLAT, fixing_lag=2),
+        FixingRule(ObservationStyle.FORWARD_LOOKING, AccrualMethod.FLAT, fixing_lag=2),
         RfrConvention.none(),
     )
     fx = _flat("TERM_3M", 0.048, date(2024, 5, 1), date(2024, 9, 30))
@@ -135,7 +135,7 @@ def test_brazilian_exponential_compounding():
     acc = Accrual(date(2024, 6, 10), date(2024, 6, 14), DC.BUS_252)
     fx = _flat("CDI", 0.10, date(2024, 6, 1), date(2024, 6, 30))
     assert accrued_rate(cdi, acc, fx) == pytest.approx(0.10, abs=1e-12)
-    assert cdi.fixing.compounding is CompoundingMethod.EXPONENTIAL
+    assert cdi.fixing.compounding is AccrualMethod.EXPONENTIAL
 
 
 def test_exponential_growth_single_rate():
