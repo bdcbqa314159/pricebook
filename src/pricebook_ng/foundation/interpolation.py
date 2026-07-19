@@ -104,7 +104,23 @@ def _extrapolate(
     if policy is Extrapolation.FLAT:
         return y_end
     x_end = xs[0] if at_left else xs[-1]
+    if method is Interpolation.LOG_LINEAR:
+        # A1: CONTINUE_SLOPE extends in the interpolation's OWN space — log space here — so
+        # a DF curve extrapolates a constant continuously-compounded forward and the extended
+        # DFs stay positive (value-space extension gave DF(30) = −0.275; audit 1.2).
+        slope_log = _boundary_slope_log(xs, ys, at_left)
+        return math.exp(math.log(y_end) + slope_log * (x - x_end))
     return y_end + _boundary_slope(xs, ys, method, at_left) * (x - x_end)
+
+
+def _boundary_slope_log(
+    xs: Sequence[float], ys: Sequence[float], at_left: bool
+) -> float:
+    """Slope of ``log(y)`` vs ``x`` at an end node (the end segment's log-slope — exact for
+    log-linear)."""
+    if at_left:
+        return (math.log(ys[1]) - math.log(ys[0])) / (xs[1] - xs[0])
+    return (math.log(ys[-1]) - math.log(ys[-2])) / (xs[-1] - xs[-2])
 
 
 def interpolate(

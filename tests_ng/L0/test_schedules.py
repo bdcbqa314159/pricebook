@@ -54,9 +54,12 @@ def test_eom_anchored_from_start():
     assert s.unadjusted == (date(2024, 1, 31), date(2024, 2, 29), date(2024, 3, 31), date(2024, 4, 30))
 
 
-def test_non_eom_start_preserves_day_with_clamp():
-    # start 01-30 is not month-end → day preserved, clamped in short months (Feb → 29)
-    s = build_schedule(date(2024, 1, 30), date(2024, 4, 30), _terms(Frequency.MONTHLY))
+def test_non_eom_roll_day_preserved_with_clamp():
+    # roll day 30 preserved, clamped in short months (Feb → 29). eom=False is required to test
+    # day-preservation: the end (Apr 30) is itself a month-end, and under EOM anchoring on the
+    # generation seed (audit 1.4) eom=True would snap the interior to month-ends.
+    terms = _terms(Frequency.MONTHLY, roll=RollRule(eom=False))
+    s = build_schedule(date(2024, 1, 30), date(2024, 4, 30), terms)
     assert s.unadjusted == (date(2024, 1, 30), date(2024, 2, 29), date(2024, 3, 30), date(2024, 4, 30))
 
 

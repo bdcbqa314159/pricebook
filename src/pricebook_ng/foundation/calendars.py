@@ -367,9 +367,12 @@ def _half_days_of(cal: Calendar, year: int) -> frozenset[date]:
 
 
 def _furikae_substitutes(holidays: set[date]) -> set[date]:
-    """For each holiday on a Sunday, the first following non-holiday day."""
+    """For each holiday on a Sunday, the first following non-holiday day. Iterate in date
+    order (furikae walks forward chronologically, by definition) rather than set-iteration
+    order (audit 1.5). The substitute *union* is provably order-invariant, so this changes no
+    answer — it forecloses the latent process-dependence and matches the spec."""
     subs: set[date] = set()
-    for d in holidays:
+    for d in sorted(holidays):
         if d.weekday() == 6:
             cand = d + timedelta(days=1)
             while cand in holidays or cand in subs:

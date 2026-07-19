@@ -3,7 +3,8 @@
 Finance-free: it lays out *when* periods start and end, not what they pay. A
 `Schedule` carries **both** the unadjusted dates (accrual boundaries) and the
 business-day-adjusted dates (payment dates) — C2, they are not the same list.
-EOM is anchored **once from `start`** (ISDA §4.10). Long stubs are explicit (the
+EOM is anchored **once, on the generation seed** — the maturity for backward (front-stub)
+generation, the effective date for forward (ISDA §4.10; audit 1.4). Long stubs are explicit (the
 stub period merges with its neighbour by construction) — the quarry's
 `first_gap < months*30*0.5` merge heuristic is shed.
 
@@ -131,22 +132,23 @@ def _add_months(d: date, months: int, snap_eom: bool) -> date:
     return _end_of_month(result) if snap_eom else result
 
 
-def _step(
-    d: date,
+def _step_k(
+    anchor: date,
     tenor: Tenor,
-    forward: bool,
+    k: int,
     snap_eom: bool,
     roll_day: int | RollConvention | None,
 ) -> date:
-    """Advance `d` by one `tenor` step (backward if not `forward`). Month/year steps snap to
-    the `roll_day` anchor: a `RollConvention` rule (IMM 3rd-Wed / CDS 20th of that month), an
-    `int` day-of-month, else month-end if `snap_eom`."""
-    sign = 1 if forward else -1
+    """`anchor` shifted by `k` tenor-steps (`k < 0` = backward), computed FROM the anchor
+    (`anchor + k·tenor`), not by accumulating single steps — so a month/year roll day never
+    drifts through a short-month clamp (audit 1.4: May 31 − 6M is Nov 30, not Nov 29 via Feb).
+    Month/year steps then snap to the `roll_day` anchor: a `RollConvention` rule (IMM 3rd-Wed /
+    CDS 20th), an `int` day-of-month, else month-end if `snap_eom`."""
     if tenor.unit is TenorUnit.DAY:
-        return d + sign * timedelta(days=tenor.count)
+        return anchor + timedelta(days=k * tenor.count)
     if tenor.unit is TenorUnit.WEEK:
-        return d + sign * timedelta(weeks=tenor.count)
-    stepped = _add_months(d, sign * tenor.months(), snap_eom)
+        return anchor + timedelta(weeks=k * tenor.count)
+    stepped = _add_months(anchor, k * tenor.months(), snap_eom)
     if roll_day is RollConvention.IMM:
         return imm_date(stepped.year, stepped.month)
     if roll_day is RollConvention.CDS:
@@ -164,37 +166,37 @@ def _unadjusted(start: date, end: date, terms: ScheduleTerms) -> list[date]:
     if terms.frequency.step is None:  # BULLET — a single period
         return [start, end]
     tenor, stub, roll_day = terms.frequency.step, terms.stub, terms.roll_day
-    snap = (
-        roll_day is None
-        and terms.roll.eom
-        and tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR)
-        and start == _end_of_month(start)
-    )
+    is_month = tenor.unit in (TenorUnit.MONTH, TenorUnit.YEAR)
+
+    def _snap_on(anchor: date) -> bool:
+        # EOM anchors on the GENERATION seed (ISDA §4.10): maturity for backward (front)
+        # generation, effective date for forward (back) generation — audit 1.4.
+        return (
+            roll_day is None
+            and terms.roll.eom
+            and is_month
+            and anchor == _end_of_month(anchor)
+        )
 
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
-        dates, cur = [end], end
-        while (cur := _step(cur, tenor, False, snap, roll_day)) > start:
+        snap, dates, k = _snap_on(end), [end], 1
+        while (cur := _step_k(end, tenor, -k, snap, roll_day)) > start:
             dates.append(cur)
+            k += 1
         dates.append(start)
         dates.reverse()
-        # a genuine front stub exists iff `start` is not a regular period before dates[1]
-        if (
-            stub is StubType.LONG_FRONT
-            and len(dates) > 2
-            and _step(dates[1], tenor, False, snap, roll_day) != start
-        ):
+        # `cur` is the first regular boundary at/below `start`; a genuine front stub exists
+        # iff it is not `start` itself.
+        if stub is StubType.LONG_FRONT and len(dates) > 2 and cur != start:
             dates = [dates[0], *dates[2:]]
         return dates
 
-    dates, cur = [start], start
-    while (cur := _step(cur, tenor, True, snap, roll_day)) < end:
+    snap, dates, k = _snap_on(start), [start], 1
+    while (cur := _step_k(start, tenor, k, snap, roll_day)) < end:
         dates.append(cur)
+        k += 1
     dates.append(end)
-    if (
-        stub is StubType.LONG_BACK
-        and len(dates) > 2
-        and _step(dates[-2], tenor, True, snap, roll_day) != end
-    ):
+    if stub is StubType.LONG_BACK and len(dates) > 2 and cur != end:
         dates = [*dates[:-2], dates[-1]]
     return dates
 
