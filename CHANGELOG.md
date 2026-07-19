@@ -6,6 +6,16 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-07-19
+
+### Added
+- **Foundation audit closure — Phase 0: the foundation is now a real, importable package.** Added
+  `src/pricebook_ng/foundation/__init__.py` with an explicit `__all__` public-API surface (the contract
+  upper layers may depend on), a `py.typed` marker (typed code no longer reads as `Any` downstream), and
+  a root `pyproject.toml` (src layout, dynamic version, numpy/scipy deps) — `pip install -e .` works.
+  **Renamed `foundation/calendar.py` → `calendars.py`** so it no longer shadows stdlib `calendar` once
+  `foundation/` is on `sys.path`. No behaviour change (136 tests, all gates + pyright green).
+
 ## [0.74.3] - 2026-07-19
 
 ### Fixed
