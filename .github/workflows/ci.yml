@@ -20,7 +20,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install pytest ruff hypothesis
+      # numpy/scipy pinned: S17 adopted scipy for L0 numerics; a version bump can shift
+      # convergence, so the version is part of the reproducibility contract (CLAUDE.md).
+      - run: pip install pytest ruff hypothesis numpy==2.4.3 scipy==1.17.1
       - run: python verify.py acyclic
       - run: python verify.py layers      # semantic layer gate (L0 finance-free)
       - run: python verify.py debt
