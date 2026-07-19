@@ -30,6 +30,10 @@ jobs:
       - run: python verify.py provenance
       # Signature discipline (CLAUDE.md 3b): PLR0913 max-args=5 via ruff (redesign/09).
       - run: ruff check src/pricebook_ng
+      # Static-type gate: pyright over src/pricebook_ng (config: pyrightconfig.json). Pinned like
+      # numpy/scipy — a pyright bump can surface new diagnostics, so the version is part of the
+      # reproducibility contract. Node is preinstalled on ubuntu + windows runners.
+      - run: npx -y pyright@1.1.411
       # Topic-0 rebuild: the tree climbs from L0. Bump --layer as topics add tiers.
       # (Dropped the old --layer 6 tier — it guarded the now-parked ng_parked/ tree.)
       - run: python verify.py tests --layer 0
