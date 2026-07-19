@@ -16,9 +16,11 @@ from __future__ import annotations
 from pricebook_ng.foundation.calendar import (
     Calendar,
     Coverage,
+    HolidaySet,
     Observance,
     Weekend,
     christmas_boxing,
+    day_after_thanksgiving,
     easter,
     fixed,
     mexico_inauguration,
@@ -43,11 +45,11 @@ def _reg(cal: Calendar) -> Calendar:
     return cal
 
 
-NEW_YORK_SIFMA = _reg(Calendar("NEW_YORK_SIFMA", (
+NEW_YORK_SIFMA = _reg(Calendar("NEW_YORK_SIFMA", HolidaySet((
     fixed(1, 1), nth(1, 0, 3), nth(2, 0, 3), nth(5, 0, -1),
     fixed(6, 19, since=2021), fixed(7, 4), nth(9, 0, 1), nth(10, 0, 2),
     fixed(11, 11), nth(11, 3, 4), fixed(12, 25),
-), observance=_US))
+), half_days=(fixed(7, 3), fixed(12, 24), day_after_thanksgiving)), observance=_US))
 
 TARGET = _reg(Calendar("TARGET", (
     fixed(1, 1), fixed(5, 1), fixed(12, 25), fixed(12, 26), easter(-2), easter(1),
