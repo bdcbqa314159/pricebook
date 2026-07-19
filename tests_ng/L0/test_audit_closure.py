@@ -181,15 +181,16 @@ def test_3_q1_sofr_binds_to_named_government_securities_calendar():
         get_calendar("NEW_YORK_SIFMA")   # the generic name is gone — the "one USD calendar" trap disarmed
 
 
-# 3.5 (partial, in Phase 3): ACT/ACT ICMA long stub RAISES rather than mis-accruing (silent wrongness)
-def test_3_5_act_act_icma_long_stub_raises():
+# 3.5 (discharged in 3b): ACT/ACT ICMA long first coupon computes Rule 251.2 (was NG-DEFER-1's raise)
+def test_3_5_act_act_icma_long_first_coupon():
+    # PUBLISHED oracle — ISDA 2006 §4.16 Actual/Actual (ICMA) long-first-coupon worked example:
+    # a semi-annual bond (coupons 15 Jan / 15 Jul), interest period 15 Aug 2002 → 15 Jul 2003,
+    # split into the notional periods [15 Jul 2002, 15 Jan 2003] (184d) and
+    # [15 Jan 2003, 15 Jul 2003] (181d):  153/(2·184) + 181/(2·181) = 0.9157608695652174.
     from pricebook_ng.foundation.day_count import CouponPeriod
-    # reference (quasi-coupon) period is 6 months; the accrual spans 9 months → a long stub
-    cp = CouponPeriod(reference_start=date(2024, 1, 1), reference_end=date(2024, 7, 1), frequency=2)
-    with pytest.raises(ValueError):
-        year_fraction(date(2024, 1, 1), date(2024, 10, 1), DC.ACT_ACT_ICMA, coupon_period=cp)
-    # a short stub (accrual <= reference period) still computes
-    assert year_fraction(date(2024, 2, 1), date(2024, 7, 1), DC.ACT_ACT_ICMA, coupon_period=cp) > 0
+    cp = CouponPeriod(reference_start=date(2003, 1, 15), reference_end=date(2003, 7, 15), frequency=2)
+    dcf = year_fraction(date(2002, 8, 15), date(2003, 7, 15), DC.ACT_ACT_ICMA, coupon_period=cp)
+    assert dcf == pytest.approx(0.9157608695652174, abs=1e-12)
 
 
 # 3.7 _denominator raises on unsupported day counts (no silent 360 fallback)

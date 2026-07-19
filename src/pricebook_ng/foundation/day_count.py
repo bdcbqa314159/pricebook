@@ -164,29 +164,44 @@ def _act_act_isda(start: date, end: date) -> float:
     return total
 
 
+def _icma_add_months(d: date, months: int) -> date:
+    """Shift `d` by `months`, day-of-month preserved and clamped — for stepping the notional
+    coupon grid (coupon dates are regular, e.g. the 15th)."""
+    total = d.month - 1 + months
+    year, month = d.year + total // 12, total % 12 + 1
+    return date(year, month, min(d.day, _last_day_of_month(date(year, month, 1))))
+
+
 def _act_act_icma(start: date, end: date, cp: CouponPeriod | None) -> float:
-    """ACT/ACT ICMA (Rule 251.1): days / (period length × frequency). Strict — the
-    anchors are required, never silently replaced by ACT/365F."""
+    """ACT/ACT ICMA (ICMA Rule 251, ISDA §4.16): sum over the notional (quasi-coupon) periods
+    that `[start, end)` overlaps, each term ``days_in_overlap / (frequency × notional_days)``.
+    For a regular or short period this is one term (Rule 251.1); for a long coupon it is several
+    (Rule 251.2). The notional grid is `cp`'s reference period stepped by `12/frequency` months.
+    Strict — the anchors are required, never silently replaced by ACT/365F (audit 3.5, 3b)."""
     if cp is None:
         raise ValueError(
             "ACT/ACT ICMA requires coupon-period anchors (pass `coupon_period=`)."
         )
-    period_days = (cp.reference_end - cp.reference_start).days
-    if cp.frequency <= 0 or period_days <= 0:
+    if cp.frequency <= 0 or (cp.reference_end - cp.reference_start).days <= 0:
         raise ValueError(
             f"ACT/ACT ICMA needs frequency>0 and reference_end>reference_start; "
-            f"got frequency={cp.frequency}, period_days={period_days}."
+            f"got frequency={cp.frequency}, "
+            f"period_days={(cp.reference_end - cp.reference_start).days}."
         )
-    if (end - start).days > period_days:
-        # A long stub spans MORE than one quasi-coupon period; Rule 251.2 sums the day-count
-        # over each notional period. The single-period formula below would return a wrong
-        # number — raise loudly rather than silently mis-accrue (audit 3.5) until multiple
-        # quasi-coupon periods are supported (that support lands with Schedule provenance, 3b).
-        raise ValueError(
-            f"ACT/ACT ICMA long stub not supported: accrual {(end - start).days}d exceeds the "
-            f"reference period {period_days}d (Rule 251.2 needs multiple quasi-coupon periods)."
-        )
-    return (end - start).days / (period_days * cp.frequency)
+    period_months = 12 // cp.frequency
+    # walk the notional grid to the period at or before `start`, then across [start, end)
+    qc_start = cp.reference_start
+    while qc_start > start:
+        qc_start = _icma_add_months(qc_start, -period_months)
+    while _icma_add_months(qc_start, period_months) <= start:
+        qc_start = _icma_add_months(qc_start, period_months)
+    dcf = 0.0
+    while qc_start < end:
+        qc_end = _icma_add_months(qc_start, period_months)
+        overlap = (min(end, qc_end) - max(start, qc_start)).days
+        dcf += overlap / (cp.frequency * (qc_end - qc_start).days)
+        qc_start = qc_end
+    return dcf
 
 
 def _leap_days_in(start: date, end: date) -> int:
