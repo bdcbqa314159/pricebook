@@ -8,23 +8,33 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
 
 ## IN TOPIC 1
 
-### Conventions (core/) — the richest material in the quarry
+### Conventions (core/) — **OWNED BY TOPIC 0 (parked); mine the parked copies for content**
+> Superseded by #16 (Topic 0). These are **not** Topic-1 targets — they parked to
+> `parked/topic-00-foundation/` at the Topic 0 gate. Listed here only so Topic-1 slices know **where to
+> mine** (curve schemes / query helpers deferred out of L0 travel here). Fan-in was never a Topic-1
+> concern (ng does not import the quarry).
+
+| file | now at | Topic-1 mines it for |
+|---|---|---|
+| `day_count.py` | `parked/topic-00-foundation/` | `date_from_year_fraction` (t→date) if a curve needs it; else ng `foundation/day_count.py` is a superset |
+| `calendar.py` | `parked/topic-00-foundation/` | — (ng superset) |
+| `schedule.py` | `parked/topic-00-foundation/` | — (ng superset) |
+| `rate_index.py` | `parked/topic-00-foundation/` | `overnight_indices` / `indices_for_currency` query helpers (curve-build) |
+| `currency.py` | `parked/topic-00-foundation/` | `CurrencyPair.forward_rate`/`forward_points` + `all_g10_pairs` → **reassigned→FX**, not Topic 1 |
+
+### Still Topic-1 conventions/data (in the quarry)
 | file | LOC | fan-in | role | MINE | status |
 |---|---|---|---|---|---|
-| `core/day_count.py` | 274 | 227 | 7 day-count conventions | ★★★ | target |
-| `core/calendar.py` | 943 | 52 | 37 calendars + holiday-rule DSL | ★★★ | target |
-| `core/schedule.py` | 143 | 80 | schedules, stubs, EOM anchoring | ★★★ | target |
-| `core/rate_index.py` | 329 | 2 | 28 indices (RFR + IBOR) | ★★★ | target |
-| `core/currency.py` | 135 | 3 | Currency enum (+FX pair → reassign) | ★★ | target |
-| `core/notional.py` | 56 | 4 | notional scalar/list expansion | ★ | target |
-| `core/fixings.py` | 253 | 2 | fixing store, `get_with_lag` | ★★ | target |
-| `core/data_registry.py` | 156 | 9 | JSON ↔ convention dataclasses | ★★ | target |
+| `core/notional.py` | 56 | 4 | notional scalar/list expansion (amortising) | ★ | target *(reassigned in from Topic 0 — an L2 product concern)* |
+| `core/fixings.py` | 253 | 2 | fixing **store** + persistence (`get_with_lag`, CSV/JSON) | ★★ | target — ng read-model `FixingHistory` covers lookup; the mutable store + persistence is Topic-1/market-data |
+| `core/data_registry.py` | 156 | 9 | JSON ↔ **curve-convention** dataclasses (G10) | ★★ | target *(reassigned in from Topic 0)* |
 
 ### Curves & interpolation (core/)
 | file | LOC | fan-in | role | MINE | status |
 |---|---|---|---|---|---|
-| `core/discount_curve.py` | 300 | 227 | df/zero/forward/bump/roll_down | ★★★ | target |
-| `core/interpolation.py` | 298 | 55 | 5 schemes incl. Hyman-filtered | ★★★ | target |
+| `core/discount_curve.py` | 300 | 229 | df/zero/forward/bump/roll_down | ★★★ | target |
+| `parked/topic-00-foundation/interpolation.py` | 298 | 56 | 5 schemes incl. Hyman-filtered | ★★★ | **mine (parked under Topic 0)** — L0 has the mechanism; Topic 1 builds curve schemes (Monotone/Akima/Hyman, Hagan-West) from the parked copy |
+| `parked/topic-00-foundation/solvers.py` | 261 | 41 | root-find variants (Newton/Brent/ITP) | ★★ | **mine (parked under Topic 0)** — L0 has bisect+Nelder-Mead; mine for Brent/Newton when curve-solve convergence bites |
 | `core/forward_interpolation.py` | 256 | 0 | forward-space construction | ★ | target |
 
 ### Curve construction (curves/)

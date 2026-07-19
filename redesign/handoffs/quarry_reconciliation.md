@@ -1,6 +1,29 @@
 # Quarry reconciliation map
 
-Date: 2026-07-17 (refreshed at CP-2c)   ·   Version: `0.46.0`   ·   Living document.
+## TOPIC-METHOD ROLL-UP (current — supersedes the pre-replan record below)
+
+Date: 2026-07-19 · Version: `0.70.0`. Under the **Topic Method** (#13) this doc is a *thin roll-up*;
+the per-topic **manifest** is where files are tracked. The pre-replan drawdown record (CP-1…CP-4,
+`fixed_income` retires, drawdown /768) is **frozen history** — those retire *ticks* were never
+git-mv'd, and their modules (linear products / curve pillars) belong to **Topic 1**, retired when it
+closes. The physical drawdown restarts here.
+
+| topic | scope | status | manifest | parked |
+|---|---|---|---|---|
+| **Topic 0 — Foundation (L0)** | conventions · money/quantity · index identity · settlement · numerics-config · serialisation pattern | **PARKED** (gate green: F1–F4 + S1–S16 landed) | `parked/topic-00-foundation/MANIFEST.md` | **11** |
+| **Topic 1 — Yield-Curve World** | curves · interpolation · pillar products · bootstrap · curve risk | defined (scoping) | `parked/topic-01-yield-curve/MANIFEST.md` | 0 |
+
+**Files parked: 11 / 793** (reported, never steered — #12). Topic 0's 11 covered files (`day_count`,
+`calendar`, `schedule`, `rate_index`, `currency`, `settlement`, `numerical_config`, `interpolation`,
+`solvers`, `serialisable`, `serialization`) are git-mv'd to `parked/topic-00-foundation/`.
+`core/data_registry` + `core/notional` are **reassigned→topic-01** (no L0 counterpart; on topic-01's
+list). Topic 1 does not begin until this gate is ratified by Cowork.
+
+---
+
+## PRE-REPLAN RECORD (frozen history — superseded by the roll-up above)
+
+Date: 2026-07-17 (refreshed at CP-2c)   ·   Version: `0.46.0`.
 
 Delivers the CP-2a ruling (`rulings_CP1.md`): the honest drawdown baseline and the ordered
 parity-gap list, before parity-depth slices begin. **"Crossed" = the quarry module it supersedes
