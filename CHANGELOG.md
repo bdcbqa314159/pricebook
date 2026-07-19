@@ -6,6 +6,17 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-07-19
+
+### Changed
+- **Topic 0 gate rework (6b, final) — open `Currency`/`Unit` registries (audit S1/S4 + the meta-rule).**
+  `Currency` is now an ISO code + **`minor_units`** value with an open **registry** (JPY/KRW/CLP are
+  zero-decimal); `Unit` is a symbol + registry. A new market/commodity is `register_currency(...)` /
+  `register_unit(...)` — a *declaration*, never an L0 enum edit (open-ended domain → registry). The
+  standard members stay class constants (`Currency.USD`, `Unit.BARREL`), interned so `is`/`==` both hold;
+  the `Money`/`Quantity` guards compare by value. **BRL-end-to-end gate oracle** (Currency · BUS/252 ·
+  São Paulo) green — the in-scope LatAm claim is real.
+
 ## [0.69.0] - 2026-07-19
 
 ### Changed
