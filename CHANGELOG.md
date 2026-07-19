@@ -6,6 +6,19 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.74.1] - 2026-07-19
+
+### Changed
+- **L0 final cleanup (last work before Topic 1).** (A1) `Accrual` moved `cashflow.py` → `day_count.py`
+  — it is an *applied day count*, not a cashflow concept; the move **drops the semantically-wrong
+  `rate_index → cashflow` import edge** (rate_index 8→7 imports), no new edges. (A2) the calendar and
+  rate-index registries are frozen with `types.MappingProxyType` (the quarry's bug was registry
+  mutation at import); the **open** currency/unit registries keep a mutable backing behind the
+  sanctioned `register_*` path but expose read-only `CURRENCIES`/`UNITS` views — direct mutation raises,
+  runtime registration still works (S1). (A3) `money.py` records *why* `Currency` is an open registry
+  and what reverting to an `Enum` would cost (silently dropping BRL / the LatAm scope). Pure/hardening
+  change; no parking change (the 13 remain parked).
+
 ## [0.74.0] - 2026-07-19
 
 ### Changed
