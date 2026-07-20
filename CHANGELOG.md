@@ -6,6 +6,53 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-07-20
+
+Post-closure seam residue (`closed_POST_CLOSURE{,_FINDINGS}.md`): the gaps *between* findings each
+marked FIXED — which the disposition census structurally cannot see. Nothing reopened a closed
+disposition. Red→green throughout.
+
+### Fixed
+- **B1 — `accrued_rate` lockout underflow (silent wrongness).** A `lockout >= len(window)` drove
+  `frozen` negative, and Python negative-indexing then silently froze the rate series to *early*
+  dates (reachable from a short stub with a standard lockout). Now raises, naming the window. Test
+  `test_b1_lockout_longer_than_window_raises`.
+- **B2 — `PricingResult.clean` currency guard.** `clean` subtracted raw amounts, so a cross-currency
+  `accrued` produced a silently wrong `clean`. Now `return self.pv - self.accrued`, delegating to
+  `Money.__sub__`'s existing guard (a fix that deletes code). Test
+  `test_b2_clean_rejects_cross_currency_accrued`.
+- **A3 — `JointCalendar` by-name round trip.** A composite `"A+B"` identity could not rehydrate
+  (`get_calendar("A+B")` raised), so the first serialized XCCY trade could not round-trip — a seam
+  between audit 3.2 and 3.4, both FIXED. Added `JointCalendar.to_dict`; `get_calendar` splits on
+  `"+"` into a `JointCalendar` (its return type widens to `CalendarProtocol`). Test
+  `test_a3_jointcalendar_round_trips_by_name`.
+
+### Ruled (recorded, code lands with first consumer)
+- **A1 — `TimeMeasure(anchor, day_count)` is the only sanctioned `date→t` map** (`redesign/20`
+  Part A addendum); build as an L0 module in Topic 1's first slice. Ledger `AC-T4.5` promoted to
+  "before Topic 1".
+- **A2 — `Frequency.per_year()` raises for non-integer tenors** (28D/daily/bullet); BUS-period
+  products (TIIE/CDI) do not enter ICMA contexts. Ledger `AC-T4.15`.
+- **B3 — `fx_spot_date` keeps joint intermediate-day counting.** The asymmetric ACI rule (a USD
+  holiday on an intermediate day does not pause a USD pair's count) is **not** implemented — no
+  citable source with a verifiable worked example, and the green-oracle gate forbids coding an
+  unverifiable convention. Scope pinned in `OPEN.md` **AC-3.6b** + the `fx_spot_date` docstring.
+
+### Removed
+- **POST_CLOSURE C residue (~41 lines, most predating the closure).** Deleted the unread half-day
+  machinery — `DayType`, `Calendar.day_type`, `HolidaySet.half_days`, `_half_days_of`,
+  `day_after_thanksgiving` + the 3 US half-day rules + their exports and S5 test (`CalendarProtocol`
+  deliberately excludes `day_type`; **S5 redirected** from classify-now to defer-to-first-fixing-
+  cutoff-consumer). Deleted `_SPOT_LAGS["USDRUB"]` (RUB unregistered, pair unconstructible). Dropped
+  the unused `name` param of `register_unit`. `_boundary_slope` now returns the exact end-segment
+  slope for LINEAR (mirrors `_boundary_slope_log`); the finite step is kept for splines.
+
+### Changed
+- `redesign/11` gains a 6th standing checkpoint review input (**V3**): re-read the whole `AC-*`
+  deferred ledger and check each trigger, since no automated gate watches those items and six
+  triggers are condition-driven rather than roadmap-driven. (`CLOSURE_VERIFICATION.md` V1/V2 were
+  already fixed on the closure branch; `closed_POST_CLOSURE.md` carries the D2 falsifier-pointer.)
+
 ## [0.82.0] - 2026-07-19
 
 ### Fixed
