@@ -38,6 +38,13 @@ them by pricing a real swap end to end.
 typed accessors · adapter/resolver at the data spine · `CalibrationResult` beside the curve ·
 **resolution safety** (reprice-to-par is blind to mis-resolution).
 
+**F1 also completes the FX-spot algorithm (was foundation ledger `AC-3.6b`, now scoped work here, not
+deferred).** L0 ships a *joint-count* `fx_spot_date`; F1 owns the rest, shaped by the market-data layer:
+the **FX pair-conventions registry** (quote order, cross triangulation) and the **asymmetric ACI
+intermediate-day rule** (a USD holiday on an intermediate day does not pause a USD pair's count) —
+which must land **with a citable ACI source pinned to a verifiable worked example** (green-oracle gate;
+until then the joint-count behaviour stands, documented in the `fx_spot_date` docstring).
+
 **F2 open questions for the next session:** what a model carries and expects · the calibrator contract
 (`quotes + spec → calibrated model + CalibrationResult`) · how the model orchestrates calibration ·
 where the engine boundary sits · how this generalises past rates to credit/equity dynamics.
@@ -52,7 +59,7 @@ C2 model + engine + products · C3 trade/portfolio + risk/stress. Most of C2/C3 
 
 | # | doc | what it is |
 |---|---|---|
-| 0 | **`independent_audits/closed_*.md`** | **CLOSED (2026-07-19, v0.75.0–v0.80.0)** — the foundation audit record: `closed_AUDIT.md` (4 adversarial reviews), `closed_PONYTAIL_AUDIT.md`, `closed_PONYTAIL-DEBT.md`. Every finding fixed-with-a-test or ledgered in `OPEN.md`; each report carries a per-finding disposition block. Plan/rulings: `handoffs/HANDOFF_foundation_audit_closure.md` |
+| 0 | **`independent_audits/foundation_audit/README.md`** | **foundation audit CLOSED (v0.75.0–v0.84.0)** — start here. The **15 deferrals grouped by the topic that will surface them**, what the three passes did, and the file index. **Read this rather than `OPEN.md`** — `OPEN.md` is the machine-side ledger. Full record + the re-verification and control documents sit beside it in the same folder. |
 | 1 | **`../CLAUDE.md`** | the guardrails — law, not suggestion |
 | 2 | **`19_market_data_design.md`** | **F1** — the market-data foundation |
 | 3 | **`18_topic1_yield_curve.md`** | **T1** — multicurve scope + the L1→L6 vertical (§9) |

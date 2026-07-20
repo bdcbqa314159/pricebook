@@ -50,9 +50,20 @@ def growth_factor(rate: float, t: float, basis: Compounding) -> float:
     if basis is Compounding.CONTINUOUS:
         return math.exp(rate * t)
     if basis is Compounding.SIMPLE:
-        return 1.0 + rate * t
-    m = _PERIODS[basis]
-    return (1.0 + rate / m) ** (m * t)
+        base = 1.0 + rate * t
+    else:
+        base = 1.0 + rate / _PERIODS[basis]
+    if base <= 0.0:
+        # a growth factor ≤ 0 means a loss of ≥ 100% — undefined, and it would otherwise
+        # surface downstream as a bare `math domain error` or a silent complex (AC-T4.11).
+        raise ValueError(
+            f"growth_factor: rate {rate} on {basis.value} over t={t} implies a non-positive "
+            f"growth factor (1 + rate{'·t' if basis is Compounding.SIMPLE else '/m'} = {base}); "
+            f"a loss of 100% or more has no equivalent rate on another basis"
+        )
+    if basis is Compounding.SIMPLE:
+        return base
+    return base ** (_PERIODS[basis] * t)
 
 
 def _rate_from_factor(factor: float, t: float, basis: Compounding) -> float:

@@ -19,13 +19,14 @@ from types import MappingProxyType
 
 from pricebook_ng.foundation.calendars import (
     Calendar,
+    CalendarProtocol,
     Coverage,
     HolidaySet,
+    JointCalendar,
     Observance,
     Weekend,
     christmas_boxing,
     dates,
-    day_after_thanksgiving,
     easter,
     equinox,
     fixed,
@@ -92,7 +93,6 @@ US_GOVERNMENT_SECURITIES = _reg(
                 nth(11, 3, 4),
                 fixed(12, 25),
             ),
-            half_days=(fixed(7, 3), fixed(12, 24), day_after_thanksgiving),
         ),
         observance=Observance.SUNDAY_ONLY,
     )
@@ -852,8 +852,20 @@ _CURRENCY: dict[str, str] = {
 }
 
 
-def get_calendar(identity: str) -> Calendar:
-    """The calendar for a market identity (e.g. `US_GOVERNMENT_SECURITIES`, `TARGET`)."""
+def get_calendar(identity: str) -> CalendarProtocol:
+    """The calendar for a market identity (e.g. `US_GOVERNMENT_SECURITIES`, `TARGET`), or a
+    `JointCalendar` for a composite `"A+B"` identity — the rehydration target of
+    `JointCalendar.to_dict` (A3), so an XCCY calendar round-trips by name like any other."""
+    if "+" in identity:
+        parts = []
+        for part in identity.split("+"):
+            cal = _CALENDARS.get(part)
+            if cal is None:
+                raise ValueError(
+                    f"no calendar {part!r} in composite {identity!r}. Known: {sorted(_CALENDARS)}"
+                )
+            parts.append(cal)
+        return JointCalendar(*parts)
     cal = _CALENDARS.get(identity)
     if cal is None:
         raise ValueError(f"no calendar {identity!r}. Known: {sorted(_CALENDARS)}")

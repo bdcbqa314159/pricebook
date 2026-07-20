@@ -6,6 +6,85 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-07-20
+
+Standing rule (Bernardo): **no deferred item before market-data (F1) unless a downstream topic genuinely
+owns and will shape it — "waits on an event" is not a topic.** Applied to the `AC-*` ledger: **22 → 15**
+deferrals. Red→green throughout.
+
+### Fixed
+- **AC-T4.7 — `is_holiday` year−1 spill.** A December holiday observed *forward* into January (e.g. 31 Dec
+  Sunday → 1 Jan) was missed; `is_holiday` now checks `year−1` as well as `year`/`year+1`.
+- **AC-T4.8 — `observe()` parameterised off the weekend rule.** Was hardcoded Sat/Sun, so a FRI_SAT
+  market under a mondayising regime left a Friday holiday unshifted; substitution now derives from the
+  calendar's own weekend days (no change for SAT_SUN calendars).
+- **AC-T4.9 — `NEAREST` tie-break RULED: roll forward** (QuantLib / common market practice), documented
+  in the convention and tested.
+- **AC-T4.11 — `growth_factor` / `convert_rate` reject a ≥100% loss.** A rate below −100% gave a bare
+  `math domain error` (or a silent complex on a periodic basis); now raises naming the rate, basis and `t`.
+
+### Added
+- **`WeekendSchedule` (AC-T4.17)** — a frozen `((since_year, Weekend), …)` transition list a `Calendar`
+  may carry in place of a single `Weekend`, so a weekend-rule change (Saudi 2013; a future ILS change) is
+  *expressible*. Shape only — no market's future rule is guessed, and `Calendar` stays ≤5 fields (the
+  `weekend` field's type widens, no field added).
+
+### Changed
+- **Ledger tightening.** Closed AC-T4.7/8/9/11/17 (above). **AC-3.6b** (FX-spot completion) **promoted out
+  of the ledger into F1's scope** (`redesign/README.md`) — its trigger *is* F1, so it is scoped work, not
+  a deferral. **AC-T4.18** (month-arith triplication) recorded as a **considered exception, not a
+  deferral** (rule of three; consolidating now adds indirection with no present consumer). Ledger count
+  **22 → 15**; `AC-C1` (half-day concept) stays deferred (its trigger is a real shaping consumer).
+
+## [0.83.0] - 2026-07-20
+
+Post-closure seam residue (`closed_POST_CLOSURE{,_FINDINGS}.md`): the gaps *between* findings each
+marked FIXED — which the disposition census structurally cannot see. Nothing reopened a closed
+disposition. Red→green throughout.
+
+### Fixed
+- **B1 — `accrued_rate` lockout underflow (silent wrongness).** A `lockout >= len(window)` drove
+  `frozen` negative, and Python negative-indexing then silently froze the rate series to *early*
+  dates (reachable from a short stub with a standard lockout). Now raises, naming the window. Test
+  `test_b1_lockout_longer_than_window_raises`.
+- **B2 — `PricingResult.clean` currency guard.** `clean` subtracted raw amounts, so a cross-currency
+  `accrued` produced a silently wrong `clean`. Now `return self.pv - self.accrued`, delegating to
+  `Money.__sub__`'s existing guard (a fix that deletes code). Test
+  `test_b2_clean_rejects_cross_currency_accrued`.
+- **A3 — `JointCalendar` by-name round trip.** A composite `"A+B"` identity could not rehydrate
+  (`get_calendar("A+B")` raised), so the first serialized XCCY trade could not round-trip — a seam
+  between audit 3.2 and 3.4, both FIXED. Added `JointCalendar.to_dict`; `get_calendar` splits on
+  `"+"` into a `JointCalendar` (its return type widens to `CalendarProtocol`). Test
+  `test_a3_jointcalendar_round_trips_by_name`.
+
+### Ruled (recorded, code lands with first consumer)
+- **A1 — `TimeMeasure(anchor, day_count)` is the only sanctioned `date→t` map** (`redesign/20`
+  Part A addendum); build as an L0 module in Topic 1's first slice. Ledger `AC-T4.5` promoted to
+  "before Topic 1".
+- **A2 — `Frequency.per_year()` raises for non-integer tenors** (28D/daily/bullet); BUS-period
+  products (TIIE/CDI) do not enter ICMA contexts. Ledger `AC-T4.15`.
+- **B3 — `fx_spot_date` keeps joint intermediate-day counting.** The asymmetric ACI rule (a USD
+  holiday on an intermediate day does not pause a USD pair's count) is **not** implemented — no
+  citable source with a verifiable worked example, and the green-oracle gate forbids coding an
+  unverifiable convention. Scope pinned in `OPEN.md` **AC-3.6b** + the `fx_spot_date` docstring.
+
+### Removed
+- **POST_CLOSURE C residue (~41 lines, most predating the closure).** Deleted the unread half-day
+  machinery — `DayType`, `Calendar.day_type`, `HolidaySet.half_days`, `_half_days_of`,
+  `day_after_thanksgiving` + the 3 US half-day rules + their exports and S5 test (`CalendarProtocol`
+  deliberately excludes `day_type`; **S5 redirected** from classify-now to defer-to-first-fixing-
+  cutoff-consumer — the *concept* is ledgered as `OPEN.md` **AC-C1**, trigger "first fixing-cutoff /
+  early-close consumer", so the deferral carries an id like every other). Deleted `_SPOT_LAGS["USDRUB"]`
+  (RUB unregistered, pair unconstructible). Dropped
+  the unused `name` param of `register_unit`. `_boundary_slope` now returns the exact end-segment
+  slope for LINEAR (mirrors `_boundary_slope_log`); the finite step is kept for splines.
+
+### Changed
+- `redesign/11` gains a 6th standing checkpoint review input (**V3**): re-read the whole `AC-*`
+  deferred ledger and check each trigger, since no automated gate watches those items and six
+  triggers are condition-driven rather than roadmap-driven. (`CLOSURE_VERIFICATION.md` V1/V2 were
+  already fixed on the closure branch; `closed_POST_CLOSURE.md` carries the D2 falsifier-pointer.)
+
 ## [0.82.0] - 2026-07-19
 
 ### Fixed

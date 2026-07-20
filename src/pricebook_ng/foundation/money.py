@@ -154,7 +154,7 @@ class Unit:
 _UNITS: dict[str, Unit] = {}
 
 
-def register_unit(name: str, symbol: str) -> Unit:
+def register_unit(symbol: str) -> Unit:
     if symbol in _UNITS:
         raise ValueError(
             f"unit {symbol!r} is already registered (re-registration not allowed)"
@@ -186,7 +186,7 @@ for _name, _sym in [
     ("BUSHEL", "bu"),
     ("POUND", "lb"),
 ]:
-    setattr(Unit, _name, register_unit(_name, _sym))
+    setattr(Unit, _name, register_unit(_sym))
 
 # Read-only public view of the open unit registry (A2, as for currencies above).
 UNITS: Mapping[str, Unit] = MappingProxyType(_UNITS)

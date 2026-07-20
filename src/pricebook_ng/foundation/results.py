@@ -38,7 +38,7 @@ class PricingResult:
     def clean(self) -> Money:
         if self.accrued is None:
             return self.pv
-        return Money(self.pv.amount - self.accrued.amount, self.pv.currency)
+        return self.pv - self.accrued  # Money.__sub__ carries the currency-mixing guard (B2)
 
 
 @dataclass(frozen=True)
