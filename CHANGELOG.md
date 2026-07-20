@@ -6,6 +6,36 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-07-20
+
+Standing rule (Bernardo): **no deferred item before market-data (F1) unless a downstream topic genuinely
+owns and will shape it — "waits on an event" is not a topic.** Applied to the `AC-*` ledger: **22 → 15**
+deferrals. Red→green throughout.
+
+### Fixed
+- **AC-T4.7 — `is_holiday` year−1 spill.** A December holiday observed *forward* into January (e.g. 31 Dec
+  Sunday → 1 Jan) was missed; `is_holiday` now checks `year−1` as well as `year`/`year+1`.
+- **AC-T4.8 — `observe()` parameterised off the weekend rule.** Was hardcoded Sat/Sun, so a FRI_SAT
+  market under a mondayising regime left a Friday holiday unshifted; substitution now derives from the
+  calendar's own weekend days (no change for SAT_SUN calendars).
+- **AC-T4.9 — `NEAREST` tie-break RULED: roll forward** (QuantLib / common market practice), documented
+  in the convention and tested.
+- **AC-T4.11 — `growth_factor` / `convert_rate` reject a ≥100% loss.** A rate below −100% gave a bare
+  `math domain error` (or a silent complex on a periodic basis); now raises naming the rate, basis and `t`.
+
+### Added
+- **`WeekendSchedule` (AC-T4.17)** — a frozen `((since_year, Weekend), …)` transition list a `Calendar`
+  may carry in place of a single `Weekend`, so a weekend-rule change (Saudi 2013; a future ILS change) is
+  *expressible*. Shape only — no market's future rule is guessed, and `Calendar` stays ≤5 fields (the
+  `weekend` field's type widens, no field added).
+
+### Changed
+- **Ledger tightening.** Closed AC-T4.7/8/9/11/17 (above). **AC-3.6b** (FX-spot completion) **promoted out
+  of the ledger into F1's scope** (`redesign/README.md`) — its trigger *is* F1, so it is scoped work, not
+  a deferral. **AC-T4.18** (month-arith triplication) recorded as a **considered exception, not a
+  deferral** (rule of three; consolidating now adds indirection with no present consumer). Ledger count
+  **22 → 15**; `AC-C1` (half-day concept) stays deferred (its trigger is a real shaping consumer).
+
 ## [0.83.0] - 2026-07-20
 
 Post-closure seam residue (`closed_POST_CLOSURE{,_FINDINGS}.md`): the gaps *between* findings each
