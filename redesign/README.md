@@ -38,6 +38,13 @@ them by pricing a real swap end to end.
 typed accessors · adapter/resolver at the data spine · `CalibrationResult` beside the curve ·
 **resolution safety** (reprice-to-par is blind to mis-resolution).
 
+**F1 also completes the FX-spot algorithm (was foundation ledger `AC-3.6b`, now scoped work here, not
+deferred).** L0 ships a *joint-count* `fx_spot_date`; F1 owns the rest, shaped by the market-data layer:
+the **FX pair-conventions registry** (quote order, cross triangulation) and the **asymmetric ACI
+intermediate-day rule** (a USD holiday on an intermediate day does not pause a USD pair's count) —
+which must land **with a citable ACI source pinned to a verifiable worked example** (green-oracle gate;
+until then the joint-count behaviour stands, documented in the `fx_spot_date` docstring).
+
 **F2 open questions for the next session:** what a model carries and expects · the calibrator contract
 (`quotes + spec → calibrated model + CalibrationResult`) · how the model orchestrates calibration ·
 where the engine boundary sits · how this generalises past rates to credit/equity dynamics.
