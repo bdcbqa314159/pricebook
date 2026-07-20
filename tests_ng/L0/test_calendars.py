@@ -151,15 +151,3 @@ def test_secular_only_calendars_are_marked():
     assert get_calendar("US_GOVERNMENT_SECURITIES").coverage is Coverage.COMPLETE
     assert get_calendar("TARGET").coverage is Coverage.COMPLETE
 
-
-# ── S5: day_type classification (half-days) ──
-def test_day_type_classifies_business_half_holiday_weekend():
-    from pricebook_ng.foundation.calendars import DayType
-    # Christmas Eve 2024-12-24 (Tue) is a US early close — a HALF day, still a business day
-    assert NY.day_type(date(2024, 12, 24)) is DayType.HALF
-    assert NY.is_business_day(date(2024, 12, 24))            # markets open (early close)
-    assert NY.day_type(date(2024, 12, 25)) is DayType.HOLIDAY
-    assert NY.day_type(date(2024, 6, 8)) is DayType.WEEKEND  # Saturday
-    assert NY.day_type(date(2024, 6, 10)) is DayType.BUSINESS
-    # a calendar with no half-days never returns HALF
-    assert TGT.day_type(date(2024, 12, 24)) is DayType.BUSINESS

@@ -82,7 +82,13 @@ def _evaluate(
 def _boundary_slope(
     xs: Sequence[float], ys: Sequence[float], method: Interpolation, at_left: bool
 ) -> float:
-    """The interpolant's slope at an end node, by a one-sided step just inside the range."""
+    """The interpolant's slope at an end node. LINEAR is exact — the end segment's slope, no
+    finite step (mirrors `_boundary_slope_log`). Spline methods take a one-sided step just
+    inside the range, since their end slope is not the chord slope."""
+    if method is Interpolation.LINEAR:
+        if at_left:
+            return (ys[1] - ys[0]) / (xs[1] - xs[0])
+        return (ys[-1] - ys[-2]) / (xs[-1] - xs[-2])
     if at_left:
         xb, x_in = xs[0], xs[0] + (xs[1] - xs[0]) * 1e-6
     else:

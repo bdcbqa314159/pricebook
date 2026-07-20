@@ -97,7 +97,7 @@ def settlement_date(
 # ── FX spot (audit 3.6) ───────────────────────────────────────────────────────────
 # Pair-conventions registry: the spot lag by pair name (default T+2). Kept OUT of
 # `CurrencyPair` identity so a lag never fragments dict keys. T+1 pairs vs USD:
-_SPOT_LAGS: dict[str, int] = {"USDCAD": 1, "USDTRY": 1, "USDPHP": 1, "USDRUB": 1}
+_SPOT_LAGS: dict[str, int] = {"USDCAD": 1, "USDTRY": 1, "USDPHP": 1}
 
 
 def spot_lag(pair: CurrencyPair) -> int:
@@ -109,7 +109,14 @@ def fx_spot_date(pair: CurrencyPair, trade_date: date) -> date:
     """The FX spot value date: `trade_date` + `spot_lag` good business days, where each
     counted day is a business day in BOTH currency centres. For a **cross** (neither leg USD)
     the spot date must additionally be a US business day — a USD holiday cannot be the value
-    date, though it does not reduce the count (ACI market practice)."""
+    date, though it does not reduce the count (ACI market practice).
+
+    SCOPE (B3, AC-3.6b): intermediate days are counted **jointly** — a day pauses the count
+    if EITHER centre is closed. The stricter asymmetric ACI convention (for a USD pair, a USD
+    holiday on an *intermediate* day does not pause the count; only the LatAm-style pairs
+    pause on it) is **not** implemented: it would change some USD-pair spot dates by a day, and
+    the green-oracle gate forbids coding a market convention without a citable source pinned to
+    a verifiable worked example. Revisit when the FX market-data topic supplies one."""
     base_cal = calendar_for_currency(pair.base.code)
     quote_cal = calendar_for_currency(pair.quote.code)
     usd_cal = calendar_for_currency("USD")

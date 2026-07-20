@@ -27,7 +27,6 @@ from pricebook_ng.foundation.calendars import (
     Weekend,
     christmas_boxing,
     dates,
-    day_after_thanksgiving,
     easter,
     equinox,
     fixed,
@@ -94,7 +93,6 @@ US_GOVERNMENT_SECURITIES = _reg(
                 nth(11, 3, 4),
                 fixed(12, 25),
             ),
-            half_days=(fixed(7, 3), fixed(12, 24), day_after_thanksgiving),
         ),
         observance=Observance.SUNDAY_ONLY,
     )
