@@ -52,7 +52,7 @@ C2 model + engine + products · C3 trade/portfolio + risk/stress. Most of C2/C3 
 
 | # | doc | what it is |
 |---|---|---|
-| 0 | **`independent_audits/closed_*.md`** | **CLOSED (2026-07-19, v0.75.0–v0.80.0)** — the foundation audit record: `closed_AUDIT.md` (4 adversarial reviews), `closed_PONYTAIL_AUDIT.md`, `closed_PONYTAIL-DEBT.md`. Every finding fixed-with-a-test or ledgered in `OPEN.md`; each report carries a per-finding disposition block. Plan/rulings: `handoffs/HANDOFF_foundation_audit_closure.md` |
+| 0 | **`independent_audits/closed_*.md`** | **CLOSED (v0.75.0–v0.83.0)** — the foundation audit record: `closed_AUDIT.md` (4 adversarial reviews), `closed_PONYTAIL_AUDIT.md`, `closed_PONYTAIL-DEBT.md`, plus the re-verification pass `closed_POST_CLOSURE{,_FINDINGS}.md` (seam residue: B1/B2/A3 fixed, A1/A2 ruled, B3 scoped) and `CLOSURE_VERIFICATION.md`. Every finding fixed-with-a-test, ruled, or ledgered in `OPEN.md`; each report carries a disposition block. Plan/rulings: `handoffs/HANDOFF_foundation_audit_closure.md` |
 | 1 | **`../CLAUDE.md`** | the guardrails — law, not suggestion |
 | 2 | **`19_market_data_design.md`** | **F1** — the market-data foundation |
 | 3 | **`18_topic1_yield_curve.md`** | **T1** — multicurve scope + the L1→L6 vertical (§9) |

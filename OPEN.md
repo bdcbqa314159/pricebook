@@ -58,7 +58,7 @@ traps / debt with condition-based triggers — honest, but not roadmap items.
 |---|---|---|---|---|
 | AC-2.2b | USD calendars (audit 2.2) | `US_GOVERNMENT_SECURITIES` (SIFMA + Good Friday, `SUNDAY_ONLY`); SOFR bound to it | separate **NYSE** and **Fed-bank/EFFR** calendars (different Good-Friday/half-day/observance) | first **equity (NYSE)** or **EFFR** consumer lands |
 | AC-2.4b | Tokyo calendar (audit 2.4) | astronomical `equinox(3/9)`; Emperor's-Birthday moves (`2,23 since 2020` / `12,23 until 2018`) | **Silver Week** sandwiched-holiday (*kokumin no kyūjitsu*) + **2020/2021 Olympic** one-off shifts | JPY-calendar completeness / **equity-JP** topic |
-| AC-3.6b | FX spot (audit 3.6) | correct `fx_spot_date` (joint-calendar count + USD-holiday-for-cross); `spot_lag` out of `CurrencyPair` equality | **FX pair-conventions registry** (quote order, cross triangulation) — L1 market-data scope, not L0 | **FX market-data** topic (L1) |
+| AC-3.6b | FX spot (audit 3.6) | correct `fx_spot_date` (joint-calendar count + USD-holiday-for-cross); `spot_lag` out of `CurrencyPair` equality | (1) **FX pair-conventions registry** (quote order, cross triangulation) — L1 market-data scope, not L0. (2) **B3 intermediate-day rule**: the count pauses on *any* closed centre (joint); the asymmetric ACI rule (a USD holiday on an intermediate day does not pause a USD pair's count) is **not** implemented — no citable source with a verifiable worked example, and the green-oracle gate forbids coding an unverifiable convention. `fx_spot_date` is thus a *joint-count* spot algorithm, not the full ACI algorithm. | **FX market-data** topic (L1) — supplies both the registry and a citable ACI oracle |
 
 ### AUDIT.md Tier-4 — rides with its asset-class topic (18 items, all "scheduled, not discovered")
 
@@ -68,7 +68,7 @@ traps / debt with condition-based triggers — honest, but not roadmap items.
 | ~~AC-T4.2~~ | ~~Zero/negative tenor accepted~~ — **FIXED v0.82.0** (reclassified YES: accepted invalid input). `Tenor.__post_init__` rejects non-positive counts; test `test_t4_2_non_positive_tenor_is_rejected`. Removed from ledger. | `tenor.py` | — (closed) |
 | AC-T4.3 | `distributions.py` too thin (bivariate normal CDF, non-central χ²) | `distributions.py` | first model/engine that needs them (Topic 2+) |
 | AC-T4.4 | `least_squares` cannot bound (`method="lm"` hardcoded; need `trf` for Feller, \|ρ\|<1) | `solvers.py` | first stoch-vol calibration |
-| AC-T4.5 | No `TimeMeasure(anchor, day_count)` concept | absent (invariant at `rate_basis.py`) | first curve/model that measures time from an anchor (Topic 1/2) |
+| AC-T4.5 | No `TimeMeasure(anchor, day_count)` concept | absent (invariant at `rate_basis.py`) | **RULED (A1, redesign/20 Part A addendum): `TimeMeasure` is the only sanctioned `date→t` map; build as an L0 module in Topic 1's first slice, with its first curve consumer.** Promoted "someday"→"before Topic 1". |
 | AC-T4.6 | CDS maturity roll pre/post-2015 (`standard_cds_maturity`) | `schedule.py` | credit layer |
 | AC-T4.7 | `is_holiday` forward year-spill checks `year`/`year+1` but not `year−1` (Dec→Jan observed) | `calendars.py` | next calendar whose Dec holiday observes into January |
 | AC-T4.8 | `observe()` hardcodes Sat/Sun (wrong for a future mondayising FRI_SAT market) | `calendars.py` | first FRI_SAT calendar that mondayises |
@@ -78,7 +78,7 @@ traps / debt with condition-based triggers — honest, but not roadmap items.
 | AC-T4.12 | CDI rate-application trap (returns annualized exp rate; `r·yf` consumer silently wrong by convexity) | `rate_index.py` | BR curve / CDI-swap product |
 | AC-T4.13 | Interpolators rebuilt per call (O(N·M)) — also `PONYTAIL-DEBT` marker | `interpolation.py` | Topic 1 (hot curve caches the interpolator) |
 | AC-T4.14 | `Money` unrounded float; `minor_units` decorative — document so no ledger/settlement assumes rounding | `money.py` | booking/settlement (L6) |
-| AC-T4.15 | Two `frequency` concepts (`Frequency` tenor-step vs ICMA `frequency: int`/yr), no bridge — decide 28D/TIIE | `schedule.py` vs `day_count.py` | trade layer / TIIE |
+| AC-T4.15 | Two `frequency` concepts (`Frequency` tenor-step vs ICMA `frequency: int`/yr), no bridge — decide 28D/TIIE | `schedule.py` vs `day_count.py` | **RULED (A2, redesign/20 Part A addendum): `Frequency.per_year()` raises for non-integer tenors (28D/daily/bullet); BUS-period products (TIIE/CDI) do not enter ICMA contexts. Implement with the fixed-leg builder.** |
 | AC-T4.16 | No time-of-day/timezone story (`datetime.time` + IANA zone for expiry cuts, equity closes) | (was `underlying.py`) | FX options / equity topic |
 | AC-T4.17 | `Weekend` time-invariant (Saudi 2013; Israel Mon–Fri from 2026 → `TEL_AVIV` wrong forward) — record or add `since=` | `calendars.py` | when a weekend-rule change enters scope |
 | AC-T4.18 | Month-arithmetic triplication (3 near-duplicate add-months/EOM helpers) — DRY debt, fine to leave | `tenor.py`, `schedule.py`, `day_count.py` | when a fourth consumer appears (rule of three) |

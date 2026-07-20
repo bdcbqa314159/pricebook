@@ -23,6 +23,26 @@ incrementally.**
 | **Risk** (L5) | **perturb market data → rebuild the model → reprice.** Nothing bumps a model directly. `Priceable` protocol; no `isinstance` ladders. | A1 · A6 |
 | **Market data** (L1) | `QuoteSet` → calibrate → `MarketSnapshot`; closed shapes × open keys; dual-role bump rule. | #19 |
 
+## Part A addendum — two pre-Topic-1 rulings (post-closure seam pass, 2026-07-20)
+
+Both are **contracts settled now, code lands with the first consumer** — the same treatment F1/F2
+get (settle the shape, build at first use), and each is L0's ~30 lines rather than Topic 1's, so no
+curve invents its own. Recorded here; **not built** (30 unconsumed lines is what Phase 4 deleted).
+
+- **A1 — `TimeMeasure` is the only sanctioned `date → t` mapping.** A frozen
+  `TimeMeasure(anchor: date, day_count: DayCountConvention)` with `t(d) -> float` is the single
+  authority for turning a date into a year-fraction from an anchor. **No curve or model pairs an
+  anchor and a day-count ad hoc** — the drift that produces (each curve measuring time differently)
+  is the failure class this design exists to prevent. Build it as an **L0 module** in Topic 1's
+  first slice, with its first curve consumer. *(Promotes audit AC-T4.5 from "someday" to "before
+  Topic 1 opens".)*
+
+- **A2 — `Frequency ↔ ICMA frequency: int` bridge, ruled.** A `Frequency.per_year() -> int`
+  **raises** for any tenor with no integer periods-per-year (28D, daily, bullet). And **BUS-period
+  products (TIIE, CDI) do not enter ICMA contexts at all** — that is the recorded answer to the
+  "undecidable 365/28" mapping, not a silent rounding. Implement with the **fixed-leg builder**
+  that first needs the conversion. *(Resolves audit AC-T4.15 / the `Frequency`-bridge item.)*
+
 ---
 
 # PART B — the five gaps (designed here)

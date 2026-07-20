@@ -52,6 +52,15 @@ adds the four mandatory review inputs:
    confirm: **L0 holds no finance** (strikes/vols/payoffs/discounting), analytic blocks of a
    dynamics sit at **L3** (A4.3), products are pure data at L2, pricing composition at L4, state
    only at L6. `verify.py layers` mechanises the L0 rule; the rest is reviewed.
+6. **Deferred-ledger sweep** *(added after the foundation-audit closure, V3)* — re-read **every**
+   `AC-*` / `NG-*` entry in `OPEN.md`'s audit-closure ledger and ask of each: *has its trigger
+   fired?* If so, it is now scoped work, not a deferral — promote it. **No automated gate watches
+   these** (they are deliberately outside the `verify.py debt` balance — a deferred capability
+   suppresses nothing), so this human re-read is the only thing that catches them. Six triggers are
+   **condition-driven, not topic-driven** (AC-T4.7/8/9/11/17/18 — a future calendar/consumer, an
+   external weekend-rule change, error-message quality, a fourth consumer): no roadmap progress will
+   ever fire them, so they need this calendar-based sweep, not a trigger. A ledgered item a
+   checkpoint cannot account for is a forgotten item with paperwork (CLAUDE.md §5).
 
 ## 3. The Cowork review ritual (what happens here on receipt)
 
