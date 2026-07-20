@@ -48,6 +48,23 @@ class Weekend(Enum):
     FRI_SAT = (4, 5)  # Israel and much of MENA
 
 
+@dataclass(frozen=True)
+class WeekendSchedule:
+    """A weekend rule that CHANGES over time — ordered `(since_year, Weekend)` transitions.
+    A calendar whose weekend moved (Saudi Arabia 2013 Thu/Fri→Fri/Sat; a future ILS change)
+    carries this in place of a single `Weekend`. `on(year)` returns the rule in force. The
+    shape only — no market's future rule is guessed here (audit AC-T4.17)."""
+
+    transitions: tuple[tuple[int, Weekend], ...]
+
+    def on(self, year: int) -> Weekend:
+        rule = self.transitions[0][1]
+        for since, w in self.transitions:
+            if year >= since:
+                rule = w
+        return rule
+
+
 class Observance(Enum):
     """How a fixed-date holiday landing on a weekend is substituted."""
 
@@ -293,8 +310,9 @@ class _BusinessDayArithmetic:
             prv = self._preceding(d)
             return self._following(d) if prv.month != d.month else prv
         if convention is C.NEAREST:
+            # a tie rolls FORWARD (QuantLib / common market practice) — audit AC-T4.9
             nxt, prv = self._following(d), self._preceding(d)
-            return prv if (d - prv) <= (nxt - d) else nxt
+            return prv if (d - prv) < (nxt - d) else nxt
         raise ValueError(f"unknown convention: {convention}")
 
     def add_business_days(self, d: date, n: int) -> date:
@@ -336,7 +354,7 @@ class Calendar(_BusinessDayArithmetic):
 
     identity: str
     days: "HolidaySet | tuple[Rule, ...]"  # a bare rule tuple is auto-wrapped (no half-days)
-    weekend: Weekend = Weekend.SAT_SUN
+    weekend: "Weekend | WeekendSchedule" = Weekend.SAT_SUN  # a schedule if the rule changed in time
     observance: Observance = Observance.US
     coverage: Coverage = Coverage.COMPLETE
 
@@ -351,31 +369,46 @@ class Calendar(_BusinessDayArithmetic):
         d = self.days
         return d if isinstance(d, HolidaySet) else HolidaySet(d)
 
+    def _weekend_days(self, year: int) -> tuple[int, ...]:
+        w = self.weekend
+        return (w.on(year) if isinstance(w, WeekendSchedule) else w).value
+
+    @staticmethod
+    def _off_weekend(d: date, wknd: tuple[int, ...], step: int) -> date:
+        while d.weekday() in wknd:
+            d += timedelta(days=step)
+        return d
+
     def observe(self, d: date) -> date:
-        """Substitute a weekend holiday under this calendar's regime (identity for
-        NONE/FURIKAE — furikae is resolved over the whole set in `_holidays`)."""
-        wd = d.weekday()
+        """Substitute a weekend holiday under this calendar's regime, off the calendar's OWN
+        weekend rule — not a hardcoded Sat/Sun, so a FRI_SAT market mondayises correctly (audit
+        AC-T4.8). Identity for NONE/FURIKAE (furikae is resolved over the whole set in
+        `_holidays`) and for any non-weekend date."""
+        wknd = self._weekend_days(d.year)
+        if d.weekday() not in wknd:
+            return d
         obs = self.observance
         if obs is Observance.US:
-            if wd == 5:
-                return d - timedelta(days=1)
-            if wd == 6:
-                return d + timedelta(days=1)
-        elif obs is Observance.NEXT_WORKING_DAY:
-            if wd == 5:
-                return d + timedelta(days=2)
-            if wd == 6:
-                return d + timedelta(days=1)
-        elif obs is Observance.SUNDAY_ONLY and wd == 6:
-            return d + timedelta(days=1)
+            # earlier weekend day → back before the weekend; later → forward after it
+            step = -1 if d.weekday() == wknd[0] else 1
+            return self._off_weekend(d, wknd, step)
+        if obs is Observance.NEXT_WORKING_DAY:
+            return self._off_weekend(d, wknd, 1)
+        if obs is Observance.SUNDAY_ONLY and d.weekday() == wknd[-1]:
+            return self._off_weekend(d, wknd, 1)
         return d
 
     def is_weekend(self, d: date) -> bool:
-        return d.weekday() in self.weekend.value
+        return d.weekday() in self._weekend_days(d.year)
 
     def is_holiday(self, d: date) -> bool:
-        # observed holidays can spill across a year boundary (Jan 1 Sat → Dec 31)
-        return d in self._holidays(d.year) or d in self._holidays(d.year + 1)
+        # observed holidays spill across a year boundary BOTH ways: Jan 1 (Sat)→prev-year Dec
+        # (via year+1's rule) and Dec 31 (Sun)→next-year Jan (via year-1's rule, AC-T4.7).
+        return (
+            d in self._holidays(d.year)
+            or d in self._holidays(d.year + 1)
+            or d in self._holidays(d.year - 1)
+        )
 
     def is_business_day(self, d: date) -> bool:
         return not self.is_weekend(d) and not self.is_holiday(d)
