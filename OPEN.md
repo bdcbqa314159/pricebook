@@ -27,7 +27,8 @@ re-open trigger fired as planned; no residual debt.
 
 ## Foundation audit closure — Tier-4 & deferred-scope ledger (Phase 5, 2026-07-19)
 
-Closes the three independent foundation audits (`redesign/independent_audits/closed_*.md`). Every
+Closes the independent foundation audits (`redesign/independent_audits/foundation_audit/closed_*.md`;
+human-side index: `foundation_audit/README.md`). Every
 finding is either fixed-with-a-test (Phases 0–4, see `CHANGELOG.md` v0.75.0–v0.80.0 + the per-finding
 disposition blocks in the closed reports) or ledgered below with a **named re-open trigger**. These
 are *deferred scope*, not hidden wrongness — none blocks building the next layer. (Format note: these
