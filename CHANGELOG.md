@@ -43,7 +43,9 @@ disposition. Red→green throughout.
   machinery — `DayType`, `Calendar.day_type`, `HolidaySet.half_days`, `_half_days_of`,
   `day_after_thanksgiving` + the 3 US half-day rules + their exports and S5 test (`CalendarProtocol`
   deliberately excludes `day_type`; **S5 redirected** from classify-now to defer-to-first-fixing-
-  cutoff-consumer). Deleted `_SPOT_LAGS["USDRUB"]` (RUB unregistered, pair unconstructible). Dropped
+  cutoff-consumer — the *concept* is ledgered as `OPEN.md` **AC-C1**, trigger "first fixing-cutoff /
+  early-close consumer", so the deferral carries an id like every other). Deleted `_SPOT_LAGS["USDRUB"]`
+  (RUB unregistered, pair unconstructible). Dropped
   the unused `name` param of `register_unit`. `_boundary_slope` now returns the exact end-segment
   slope for LINEAR (mirrors `_boundary_slope_log`); the finite step is kept for splines.
 
