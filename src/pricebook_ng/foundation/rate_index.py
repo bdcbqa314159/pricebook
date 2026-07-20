@@ -212,6 +212,12 @@ def accrued_rate(index: RateIndex, accrual: Accrual, fixings: FixingSource) -> f
         )
 
     if rfr.lockout:
+        if rfr.lockout >= len(window):
+            raise ValueError(
+                f"{index.name}: lockout {rfr.lockout} >= rate window length {len(window)} on "
+                f"accrual [{accrual.start}, {accrual.end}) — a lockout at least as long as the "
+                f"window is undefined (would freeze rates to dates before the window, B1)"
+            )
         frozen = len(window) - 1 - rfr.lockout
         rate_dates = [rate_dates[min(i, frozen)] for i in range(len(window))]
 

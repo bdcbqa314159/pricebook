@@ -475,3 +475,9 @@ class JointCalendar(_BusinessDayArithmetic):
 
     def is_business_day(self, d: date) -> bool:
         return all(c.is_business_day(d) for c in self.calendars)
+
+    def to_dict(self) -> dict:
+        # Same by-name shape as `Calendar` (audit 3.4): the composite identity `"A+B"` rehydrates
+        # via `get_calendar`, which splits on "+" and rebuilds the JointCalendar (A3). Without this
+        # the first serialised XCCY trade — a JointCalendar on its RollRule — could not round-trip.
+        return {"calendar": self.identity}
