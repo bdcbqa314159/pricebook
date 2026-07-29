@@ -73,7 +73,10 @@ peer input — this makes model/market mismatch structurally impossible.
 4. **Failure is a value** — return `PricingFailure`, never raise-and-hope or emit silent
    `NaN`.
 5. **Config is explicit** — all reproducibility knobs (seeds, MC paths, PDE grid, tol)
-   arrive in `NumericalConfig`; never a hidden default.
+   arrive in an explicit numerical-config value, decomposed by method family (≤5 fields
+   each); never a hidden default. *(The concrete type lands with the first engine that reads
+   it — Phase 4 deleted the speculative `NumericalConfig` with its guessed knob names; the
+   principle stands, the type returns shaped by a real consumer.)*
 6. **Valuation-date-aware** — cashflows on or before `valuation_date` are historical:
    **excluded from PV** (handled by the L6 shell via fixings/settlement), never discounted
    with a non-positive `t`. Future cashflows discount from `valuation_date`. Clean/dirty
@@ -102,13 +105,14 @@ mark; dirty = clean + accrued.
 - **Instrument atom:** `Cashflow` (at L0), `Leg` = ordered cashflows + convention.
 - **Market (L1):** `Quote`/`QuoteId`/`QuoteKind`, immutable `MarketSnapshot` (carries the
   `valuation_date`). **All market data is first-class in the snapshot** (rule: *if risk bumps
-  it, it lives in the snapshot*), shaped as a **keyed registry** (Amendment A5): the home
-  `discount_curve` stays a named field (numeraire), everything else lives in
-  `curves`/`spots`/`vols` maps keyed by `MarketKey(asset: AssetClass, id: str)` — survival,
-  dividend, foreign-discount, FX/equity/commodity spots & vols. A new asset class adds *keys,
-  not fields*, and greeks are generic (`bump_spot`/`vol_vega`…), not per-asset. Curves are
-  reached through a **`CurveHandle`** protocol (`df`, `survival`) — depend on the capability,
-  not the concrete curve; **never mutated in place.** A curve/model may expose closed-form **building blocks** (`df`, `RPV01`, `B(t,T)`,
+  it, it lives in the snapshot*), shaped as **closed shapes × open keys** (doc 19 §2,
+  superseding A5): a finite field set — `curves` (term structures) · `surfaces` · `scalars` ·
+  `series` · `schedules` — each an open map whose keys carry the asset dimension
+  (currency · collateral · index · entity · underlying · pair). A new asset class adds *keys,
+  not fields*; greeks are generic (`bump_spot`/`vol_vega`…), not per-asset. Curves are
+  reached through typed `CurveSet` accessors and a **`CurveHandle`** protocol (`df`,
+  `survival`) — depend on the capability, not the concrete curve; **never mutated in place.**
+  A curve/model may expose closed-form **building blocks** (`df`, `RPV01`, `B(t,T)`,
   zero-bond-option) reused upward; the **L4 engine composes them to price the product** —
   "pricing lives in L4" governs *product* pricing, not every scalar of math.
 - **Models (L3):** a model is a **`CalibratedModel` bound to the `MarketSnapshot`** it was
@@ -117,11 +121,14 @@ mark; dirty = clean + accrued.
 - **Time semantics:** valuation partitions cashflows into historical (`date ≤
   valuation_date`, excluded from PV) and future (discounted from `valuation_date`).
   Clean vs dirty price and accrued interest are explicit value concepts, not by-products.
-- **Engine I/O:** `NumericalConfig`; `PricingResult` is a **decomposition** (dirty PV +
-  cashflow/accrual breakdown ⇒ clean, accrued; plus sensitivities, diagnostics), not a
-  scalar; `PricingFailure`. The economy a model is built on = **curves + `FixingHistory`**
-  (fixings are first-class in the `MarketSnapshot`; the core needs them to resolve
-  current-period amounts).
+- **Engine I/O:** an explicit numerical-config value (see invariant 5 — deferred to its first
+  engine); `PricingResult` is a **decomposition** — `pv` · `accrued` · `clean` ·
+  `basis: Currency | None`, not a scalar; `PricingFailure`. *(Phase 4 deleted the speculative
+  `sensitivities`/`cashflow_breakdown`/`diagnostics` fields — risk output returns with L5,
+  shaped by it; cashflow breakdown with the L4 engine that produces it.)* The economy a model
+  is built on = **curves + fixings**, reached through the **`FixingSource`** protocol
+  (`FixingHistory` is its trivial implementation); fixings are first-class in the
+  `MarketSnapshot`, needed to resolve current-period amounts.
 - **Identity/state (Product → Trade → Book):** `Product` = the priceable atom (**frozen**,
   L2, needs a model). `Trade` (**frozen** description, L6) holds ≥1 products + a start date;
   `BookedTrade` = trade + lifecycle events + its **benefit table** (realized-cash P&L).
@@ -137,9 +144,9 @@ mark; dirty = clean + accrued.
 - A signature over the limit is **un-bundled vocabulary**, never a reason to raise the
   limit. The fix is ALWAYS to group cohesive parameters into a frozen value object, or
   fold them into an existing ratified type: market state → `MarketSnapshot`;
-  reproducibility knobs → `NumericalConfig`; `amount`+`currency` → `Money`; ICMA coupon
-  anchors → `CouponPeriod`; calendar/convention/eom → `RollRule`; schedule terms →
-  `ScheduleTerms`.
+  reproducibility knobs → the numerical-config value (deferred to its first engine);
+  `amount`+`currency` → `Money`; ICMA coupon anchors → `CouponPeriod`;
+  calendar/convention/eom → `RollRule`; schedule terms → `ScheduleTerms`.
 - New grouping types obey the rule of two (≥2 real consumers) — no speculative wrappers,
   and no 9-field "god dataclass" that just relocates the smell.
 - **Never suppress.** No `# noqa: PLR0913`. A genuinely irreducible mathematical
@@ -152,10 +159,10 @@ mark; dirty = clean + accrued.
   `Accrual` for start+end+day_count, `ScheduleTerms`, …). Enforced by **`verify.py fields`**.
   Legitimately-wide types carry an explicit `# fields-exempt: <reason>` marker — an *explicit*
   exemption, never silent tolerance. **The exemption is for genuinely irreducible aggregates and
-  output records** (`MarketSnapshot` — the A5 keyed shape; `XvaReport` — N independent results).
+  output records** (`MarketSnapshot` — the closed-shapes×open-keys shape, doc 19 §2; `XvaReport` — N independent results).
   **It is NOT for configs.** A config groups naturally by method family and must decompose —
-  e.g. `NumericalConfig(monte_carlo, lattice, integration, solver)`, each sub-config ≤5. If you are
-  reaching for the marker on a config, you have not decomposed it yet.
+  e.g. a numerical config as `(monte_carlo, lattice, integration, solver)`, each sub-config ≤5.
+  If you are reaching for the marker on a config, you have not decomposed it yet.
 
 ## 3c. Onboarding a new asset class — where do its "fundamentals" go?
 
@@ -176,10 +183,59 @@ candidate:
 A new asset should add roughly *one* L0 object — its identity, as a sibling under the general
 index/underlying concept. Wanting to add more is a smell; stop and rule it.
 
-*Worked example (credit):* `ReferenceEntity` → **L0** (survival curves are keyed by it, CDS
-references it, credit risk bumps by it — multi-layer identity). Hazard/survival curve and recovery
-→ **L1** (risk bumps them). Credit-event definitions, restructuring clause, seniority → **L2**
-product data. CDS IMM rolls → already L0.
+*Worked example (credit) — the SHAPE credit will follow, not a type that exists yet:* a reference-
+entity identity → **L0** (survival curves are keyed by it, CDS references it, credit risk bumps by it
+— multi-layer identity). Hazard/survival curve and recovery → **L1** (risk bumps them). Credit-event
+definitions, restructuring clause, seniority → **L2** product data. CDS IMM rolls → already L0.
+*(Phase 4 deleted the speculative `ReferenceEntity` sibling; per this rule it returns as L0 when the
+credit topic builds it, shaped by a real consumer — the `Underlying` protocol and `AssetClass` enum
+it slots into were kept.)*
+
+## 3d. Building-block discipline — shared primitives across the spine
+
+The §3 vocabulary is not only a set of TYPES; it is a set of **atoms and relationships**, and the
+relationships must survive the whole pricing spine — **market data → model → calibration → engine.**
+Ratified:
+
+**An atom is defined ONCE and every stage COMPOSES it — no stage gets its own dialect.** The linear
+atoms are `df(t)`, `forward(index, start, end)`, `RPV01 = Σ τᵢ·df(tᵢ)`, `B(t,T)`, `zero_bond_option`.
+Market data (L1) *exposes* them; the model (L3) *carries or derives* them under the same signature and
+semantics (`DiscountingModel` passes `df` through; a dynamics model derives it from parameters);
+calibration *composes* them to **fit** (`residual = par_rate − quote`); the engine (L4) *composes the
+same ones* to **price**. Four layers, one language.
+
+**The invariant is the RELATIONSHIP, not the function call.** `calibrate-to-par` and
+`price-to-zero-NPV` are the *same fact* only because the identities among the atoms hold —
+`RPV01 = Σ τ·df`, par-float telescoping, `forward` consistent with `df`. Composition is how the
+identity is *guaranteed*: an identity never re-derived cannot be broken.
+
+**Worked example — the annuity (`RPV01`).** The calibrator forms `par_rate = (df₀ − dfₙ)/RPV01`; the
+engine forms `PV = N·(par_rate − K)·RPV01` (K the swap's fixed coupon) — the *same* `par_rate`
+and `RPV01` the calibrator just used. If each rolls its own annuity loop and they differ in
+*any* detail — accrual vs payment dates, ACT/360 vs 30/360, log-df vs zero-rate interpolation — the
+calibrator solves so the swap is par while the engine prices that same swap to a **non-zero** NPV:
+calibrates perfectly, prices wrong, and the par-swap reprice test is blind to it (par swaps telescope).
+**The fix is not a test; it is one `rpv01(schedule, curve)` both layers call.** The engine MUST NOT
+hand-roll a discount/annuity loop the curve or calibrator already exposes.
+
+**Exception-count is a design-health gauge (5th-review / checkpoint).** An exception is countable: an
+`isinstance`/type-switch on a product or model *inside* the engine or calibrator; a `# special-case`
+that changes the composition; a residual that cannot be formed from the exposed capabilities; an atom
+**re-derived** in one stage instead of shared. One exception may be tolerable; a **cluster** is a
+stop-and-rule signal:
+
+- **it recurs and carries a reusable relationship ⇒ a building block was missing.** Name it; build it
+  when its second consumer arrives (§6b rule of two). *Exotic pricing needs a `StateProcess`+`Payoff`
+  block; the exceptions clustered at the exotic boundary, so the block was named and deferred — the
+  gauge worked.*
+- **it is a one-off patch bearing no reusable relationship ⇒ the design is faulty** — a layer is
+  forcing stages to diverge. Fix the layering, never add the patch.
+
+**An exception is NOT a building block.** A block is *named, reusable, shared*; an exception is an
+*unnamed special-case*. Promote exceptions to blocks when they recur, eliminate them when they signal
+bad layering — **never let them accumulate**; accumulated exceptions ARE the un-maintainable design.
+This is §3b's "a signature over the limit is un-bundled vocabulary" generalised from one signature to
+the whole spine, and a sibling to §1's no-`isinstance` law.
 
 ---
 
