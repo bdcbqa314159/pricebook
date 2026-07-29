@@ -109,12 +109,14 @@ from pricebook_ng.foundation.settlement import (
 )
 from pricebook_ng.foundation.solvers import brent, least_squares, newton, secant
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
+from pricebook_ng.foundation.time_measure import TimeMeasure
 from pricebook_ng.foundation.underlying import AssetClass, Underlying
 
 __all__ = [
     # time & tenor
     "Tenor",
     "TenorUnit",
+    "TimeMeasure",
     # calendars (the rule DSL + types)
     "Calendar",
     "JointCalendar",
