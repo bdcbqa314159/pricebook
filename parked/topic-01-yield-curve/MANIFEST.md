@@ -6,6 +6,31 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
 
 ---
 
+## Slice log (ng build progress) — drawdown steering is §4, not this table
+
+- **Slice 1 (v0.85.0)** — single-curve vertical L0→L4; par swap → zero NPV. Built `foundation/time_measure`,
+  `market/{curve,snapshot,building_blocks}`, `products/swap`, `models/discounting_model`,
+  `calibration/calibrate` (sequential single-curve bootstrap), `engine/linear`. **Ticked 0 deletable.**
+- **Slice 2 (this slice)** — dual-curve: ESTR discount + EURIBOR_3M projection; a EURIBOR swap prices to
+  zero off ESTR discounting. Built `market/curve_set` (`CurveSet`/`CurveKey`); added the `forward()`
+  projection atom and generalised `float_leg_pv` to compose it (§3d, no telescoping duplicate);
+  `FloatLeg` gained `index`; `calibrate` now builds a curve **set** in dependency order (discount →
+  projection). Mines `curves/bootstrap.py` + `curves/ncurve_solver.py` **for concept only** (sequential,
+  not the global N-curve solver). **Ticks 0 deletable.**
+
+### Named crossings (which future slice actually retires each quarry module — §4)
+A module is not built speculatively without a recorded retire trigger. The dual-curve machinery this
+slice lands does **not** yet cross the curve modules; they cross here:
+
+| quarry module | crosses at (named future slice) | why not now |
+|---|---|---|
+| `core/discount_curve.py` | **C1 · cash-instruments slice** (deposits · FRAs · futures + full G10 conventions) | ng `DiscountCurve` still lacks deposit/FRA/future pillars, `zero_rate`/`roll_down`, and business-day-adjusted schedules |
+| `curves/bootstrap.py` | **C1 · cash-instruments slice** (then + convexity/turn-of-year as their own reassign) | ng bootstrap is par-swap-only, sequential, no deposits/FRAs/futures/convexity |
+| `curves/ncurve_solver.py` | **C1 · global-solve slice** (simultaneous Newton + analytic Jacobian) | this slice is sequential; the global solver + Jacobian is a separate C1 slice |
+| `curves/curve_risk.py`, `key_rate_risk.py` | **C3 · curve-risk slice** (zero/pillar/par deltas) | no risk consumer until C3 |
+
+---
+
 ## IN TOPIC 1
 
 ### Conventions (core/) — **OWNED BY TOPIC 0 (parked); mine the parked copies for content**
