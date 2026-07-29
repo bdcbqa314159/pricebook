@@ -6,6 +6,40 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.85.0] - 2026-07-29
+
+**Topic 1, slice 1 — the first pricing vertical: a par swap prices to ZERO NPV, L0→L4.** First
+consumer of F1 (redesign/19) and F2 (redesign/22 rev 3), proving both foundations by pricing a real
+swap. Drawdown is unchanged (0 quarry modules ticked deletable yet — parking is one event at Topic-1
+close; this slice builds the ng counterparts the tick will later require). Red→green throughout.
+
+### Added
+- **`TimeMeasure` (L0)** — the one sanctioned `date → year-fraction` map (anchor + day count, ruling
+  A1); nothing re-derives it.
+- **`market/` (L1)** — `DiscountCurve` (log-linear discount factors, exact `exp(-r·t)` on a flat
+  curve) behind the `CurveHandle` capability; `MarketSnapshot` (valuation date + discount curve,
+  frozen, A1); and the **shared `rpv01` / `float_leg_pv` building-block atoms (CLAUDE.md §3d)** the
+  calibrator and the engine both compose — one annuity definition, no drift.
+- **`products/swap.py` (L2)** — `VanillaSwap` = `FixedLeg` + `FloatLeg`, pure data (≤5 fields each).
+- **`models/discounting_model.py` (L3)** — `DiscountingModel`, the degenerate model built (not solved)
+  from a curve, carrying its `MarketSnapshot` (A1).
+- **`calibration/calibrate.py` (L3)** — `calibrate(spec) → (model, result)`, the sequential
+  single-curve bootstrap; the model is the output, the residual is formed through the L1 building
+  blocks (never L4, doc 22 Q2). `CalibrationSpec`/`CalibrationResult`/`ParSwapQuote`/`SingleCurveSpec`.
+- **`engine/linear.py` (L4)** — `price(swap, model)`, stateless, reaching the market only through
+  `model.market` (A1); a cashflow beyond the curve returns a `PricingFailure` (failure is a value).
+
+### Oracle
+- **Par swap reprices to zero NPV through the L4 engine: worst |PV| = 5.6e-16** (unit notional; doc 18
+  C2 / doc 22 §Q2 backstop). Bootstrap converged, max|residual| = 5.8e-16.
+- Flat-curve `df(t) = exp(-r·t)` to 1e-12 (the single-cashflow discounting anchor).
+- DV01 analytic (−N·annuity) vs central finite-difference: |diff| = 1.7e-12 (< 1e-6).
+- Repricing byte-identical (statelessness).
+
+### Docs
+- Ratified F1 (redesign/19 rev 3), F2 (redesign/22 rev 3), **CLAUDE.md §3d — Building-block
+  discipline**; 8 superseded design docs moved to `redesign/archive/`.
+
 ## [0.84.0] - 2026-07-20
 
 Standing rule (Bernardo): **no deferred item before market-data (F1) unless a downstream topic genuinely
