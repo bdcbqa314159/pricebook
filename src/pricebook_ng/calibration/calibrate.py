@@ -1,20 +1,20 @@
-"""Single-curve bootstrap — the first calibrator (L3, a free function).
+"""Dual-curve bootstrap — one `calibrate(spec)`, sequential, dependency-ordered (L3).
 
-`calibrate(spec) → (DiscountingModel, CalibrationResult)`: the model is the OUTPUT — a
-model never calibrates itself (doc 22 Q2). This is the SEQUENTIAL orchestration (doc 22
-Q4): the discount curve is built pillar by pillar, each pillar's df solved (Brent) so
-its par swap reprices to the quoted rate. The residual is formed through the SAME
-`rpv01`/`float_leg_pv` building blocks the L4 engine composes (§3d) — the calibrator
-never imports L4. Reprice-to-par is blind to mis-resolution (F1 §6); the real safety is
-the shared atoms, backstopped by the engine repricing each swap to zero NPV (doc 22 Q2).
-`method`/`numerics` arrive with the second orchestration / the first tuned knob (rule of
-two); a numerically-priced calibration target is out of scope until §0(B) (doc 22).
+`calibrate(spec) → (DiscountingModel, CalibrationResult)`: the model is the OUTPUT (doc
+22 Q2). The spec describes a curve SET (doc 22 Q4): a discount build + one projection
+build. The curves are built in DEPENDENCY ORDER — the discount (OIS) curve first,
+self-discounting; then the projection (IBOR) curve, its swaps discounted on the built
+discount curve. Each pillar's df is solved (Brent) so its par swap reprices to the quote,
+through the SAME `rpv01`/`float_leg_pv` building blocks the L4 engine composes (§3d) — the
+calibrator never imports L4. Still one SEQUENTIAL orchestration: no `method`/`numerics`/
+Jacobian (rule of two). A second projection (→ an `{index: build}` map), the global solve,
+and CSA/xccy discounting arrive with their own slices.
 
 Provenance:
-  quarry: python/pricebook/curves/bootstrap.py
-  source: redesign/22 (calibrate contract, sequential orchestration); §3d (shared atoms)
-  oracle: every calibrating swap reprices to par; par swap → zero NPV via the engine
-  slice:  swap-to-zero-npv (T1 slice 1)
+  quarry: python/pricebook/curves/bootstrap.py; curves/ncurve_solver.py (concept only)
+  source: redesign/22 (calibrate contract; trial model = whole CurveSet); §3d (shared atoms)
+  oracle: every OIS + EURIBOR calibrating swap reprices to par; EURIBOR swap → zero dual-curve
+  slice:  dual-curve-euribor-estr (T1 slice 2)
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from pricebook_ng.foundation import (
     DayCountConvention,
     Frequency,
     Interpolation,
+    RateIndex,
     RollRule,
     ScheduleTerms,
     Tenor,
@@ -35,7 +36,8 @@ from pricebook_ng.foundation import (
     build_schedule,
 )
 from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
-from pricebook_ng.market.curve import DiscountCurve
+from pricebook_ng.market.curve import CurveHandle, DiscountCurve
+from pricebook_ng.market.curve_set import CurveKey, CurveRole, CurveSet
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.swap import FixedLeg, FloatLeg, VanillaSwap
@@ -50,82 +52,99 @@ class ParSwapQuote:
 
 
 @dataclass(frozen=True)
-class SingleCurveSpec:
-    """How to build the curve and its calibrating swaps: the `valuation_date` (the
-    curve anchor), the `currency`, both legs' `frequency` and `day_count`, and the
-    curve `interpolation`. Single-curve, unadjusted dates (no calendar) — the minimal
-    T1 world."""
+class CurveBuild:
+    """How to build one curve: the `index` it projects (and is keyed by), both legs'
+    `frequency` and `day_count`, its calibrating `quotes`, and the `interpolation`."""
 
-    valuation_date: date
-    currency: Currency
+    index: RateIndex
     frequency: Frequency
     day_count: DayCountConvention
+    quotes: tuple[ParSwapQuote, ...]
     interpolation: Interpolation = Interpolation.LOG_LINEAR
 
 
 @dataclass(frozen=True)
 class CalibrationSpec:
-    """The calibration inputs, all data (doc 22 Q2): the curve/instrument `target` and
-    the `quotes` that pin it."""
+    """The curve set to build, all data (doc 22 Q4): the `discount` (OIS) build and the
+    `projection` (IBOR) build, on one `valuation_date`/`currency`."""
 
-    target: SingleCurveSpec
-    quotes: tuple[ParSwapQuote, ...]
+    valuation_date: date
+    currency: Currency
+    discount: CurveBuild
+    projection: CurveBuild
 
 
 @dataclass(frozen=True)
 class CalibrationResult:
-    """Sits BESIDE the model, never on it (F1 §5): the final per-quote `residuals`
-    (par_rate − quote) and whether the solve `converged`."""
+    """Sits BESIDE the model, never on it (F1 §5): the per-quote `residuals` (par_rate −
+    quote) across both curves and whether the solve `converged`."""
 
     residuals: tuple[float, ...]
     converged: bool
 
 
-def single_curve_swap(
-    spec: SingleCurveSpec, tenor: Tenor, rate: float, notional: float = 1.0
+def par_swap(
+    spec: CalibrationSpec, build: CurveBuild, tenor: Tenor, rate: float, notional: float = 1.0
 ) -> VanillaSwap:
     """Build the par swap the bootstrap calibrates to (and the engine reprices) — ONE
-    construction, so the calibrator and the pricing oracle share the exact schedule
-    (§3d argument identity)."""
-    terms = ScheduleTerms(frequency=spec.frequency, roll=RollRule(calendar=None))
+    construction, so the calibrator and the pricing oracle share the exact schedule and
+    index (§3d argument identity). Its float leg fixes on `build.index`."""
+    terms = ScheduleTerms(frequency=build.frequency, roll=RollRule(calendar=None))
     schedule = build_schedule(spec.valuation_date, spec.valuation_date + tenor, terms)
     return VanillaSwap(
         notional=notional,
         currency=spec.currency,
-        fixed_leg=FixedLeg(schedule, spec.day_count, rate),
-        float_leg=FloatLeg(schedule, spec.day_count),
+        fixed_leg=FixedLeg(schedule, build.day_count, rate),
+        float_leg=FloatLeg(schedule, build.day_count, build.index),
     )
 
 
-def _par_rate(swap: VanillaSwap, curve: DiscountCurve) -> float:
-    return float_leg_pv(swap.float_leg.schedule, curve) / rpv01(
-        swap.fixed_leg.schedule, swap.fixed_leg.day_count, curve
-    )
+def _par_rate(swap: VanillaSwap, discount: CurveHandle, projection: CurveHandle) -> float:
+    return float_leg_pv(
+        swap.float_leg.schedule, swap.float_leg.day_count, discount, projection
+    ) / rpv01(swap.fixed_leg.schedule, swap.fixed_leg.day_count, discount)
 
 
-def calibrate(spec: CalibrationSpec) -> tuple[DiscountingModel, CalibrationResult]:
-    """Sequential single-curve bootstrap: solve each pillar's discount factor so its par
-    swap reprices to the quoted rate, then wrap the built curve in a `DiscountingModel`."""
-    target = spec.target
-    time_measure = TimeMeasure(target.valuation_date, target.day_count)
-    quotes = sorted(spec.quotes, key=lambda q: q.tenor.months())
+def _bootstrap(
+    spec: CalibrationSpec, build: CurveBuild, discount: CurveHandle | None
+) -> DiscountCurve:
+    """Sequential per-pillar bootstrap. `discount is None` ⇒ self-discounting (the OIS
+    curve is its own discount and projection); otherwise the swaps discount on the
+    supplied (already-built) discount curve and project off the curve being built."""
+    time_measure = TimeMeasure(spec.valuation_date, build.day_count)
     times: list[float] = [0.0]
     dfs: list[float] = [1.0]
-    for quote in quotes:
-        swap = single_curve_swap(target, quote.tenor, quote.rate)
-        t_k = time_measure.year_fraction(target.valuation_date + quote.tenor)
+    for quote in sorted(build.quotes, key=lambda q: q.tenor.months()):
+        swap = par_swap(spec, build, quote.tenor, quote.rate)
+        t_k = time_measure.year_fraction(spec.valuation_date + quote.tenor)
 
         def residual(df_k: float, swap: VanillaSwap = swap, t_k: float = t_k, rate: float = quote.rate) -> float:
-            trial = DiscountCurve(time_measure, (*times, t_k), (*dfs, df_k), target.interpolation)
-            return _par_rate(swap, trial) - rate
+            trial = DiscountCurve(time_measure, (*times, t_k), (*dfs, df_k), build.interpolation)
+            return _par_rate(swap, trial if discount is None else discount, trial) - rate
 
         df_k = brent(residual, 1e-6, 1.0)
         times.append(t_k)
         dfs.append(df_k)
+    return DiscountCurve(time_measure, tuple(times), tuple(dfs), build.interpolation)
 
-    curve = DiscountCurve(time_measure, tuple(times), tuple(dfs), target.interpolation)
-    model = DiscountingModel(MarketSnapshot(target.valuation_date, curve))
+
+def calibrate(spec: CalibrationSpec) -> tuple[DiscountingModel, CalibrationResult]:
+    """Build the curve set in dependency order (discount → projection), assemble the
+    `CurveSet`, and wrap it in a `DiscountingModel`."""
+    discount_curve = _bootstrap(spec, spec.discount, discount=None)
+    projection_curve = _bootstrap(spec, spec.projection, discount=discount_curve)
+    curves = CurveSet(
+        {
+            CurveKey(CurveRole.DISCOUNT, spec.currency): discount_curve,
+            CurveKey(CurveRole.PROJECTION, spec.discount.index): discount_curve,
+            CurveKey(CurveRole.PROJECTION, spec.projection.index): projection_curve,
+        }
+    )
+    model = DiscountingModel(MarketSnapshot(spec.valuation_date, curves))
     residuals = tuple(
-        _par_rate(single_curve_swap(target, q.tenor, q.rate), curve) - q.rate for q in quotes
+        _par_rate(par_swap(spec, build, q.tenor, q.rate), discount_curve, curves.projection(build.index))
+        - q.rate
+        for build in (spec.discount, spec.projection)
+        for q in build.quotes
     )
     return model, CalibrationResult(residuals, converged=all(abs(r) < 1e-10 for r in residuals))

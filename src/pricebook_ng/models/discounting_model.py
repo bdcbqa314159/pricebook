@@ -24,7 +24,7 @@ from pricebook_ng.market.snapshot import MarketSnapshot
 
 @dataclass(frozen=True)
 class DiscountingModel:
-    """The linear model: it carries `market` (A1) and nothing else. The discounting
-    capability is the snapshot's curve, reached as `model.market.discount_curve`."""
+    """The linear model: it carries `market` (A1) and nothing else. The discounting and
+    projection capabilities are the snapshot's `CurveSet`, reached as `model.market.curves`."""
 
     market: MarketSnapshot
