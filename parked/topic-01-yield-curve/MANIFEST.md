@@ -18,6 +18,24 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
   projection). Mines `curves/bootstrap.py` + `curves/ncurve_solver.py` **for concept only** (sequential,
   not the global N-curve solver). **Ticks 0 deletable.**
 
+- **Slice 3 (this slice)** — cash instruments: deposits + FRAs + IMM futures (as forwards, rate = 1−price)
+  on both curves. Landed two ratified abstractions FIRST as a green-guarded refactor (STEP A): the L4
+  **engine registry** (product→pricer, structural, no isinstance) and the L3 **`CalibrationInstrument`**
+  protocol (`residual(discount, projection)`); then the instruments (STEP B). New shared atom `deposit_df`
+  (`1/(1+r·τ)`); FRA/future compose the existing `forward()`.
+  **Drawdown verdict — §4 consumer analysis (evidence, not assumption):**
+  - Named crossing gate was "cash set + full G10 conventions." **Conventions gap = `deferred→G10`**:
+    `grep` finds **0** ng consumers of a G10 conventions table (the only currency literals in ng src are
+    in `foundation/rate_index.py`, registering index identities — not curve conventions). Not needed-now.
+  - `discount_curve.py`'s `zero_rate`/`bump`/`roll_down`: consumed only by **uncrossed** quarry modules
+    (`curve_risk`, `curve_scenarios`, `rfr_bootstrap`, `curve_advanced`) ⇒ `deferred→(C1 global-solve / C3
+    risk)`, 0 current ng consumer.
+  - **Verdict: ticks 0 THIS slice.** No needed-now residual blocks a tick, but deletable-bar rigor (§4)
+    forbids asserting a tick from "looks covered" — `bootstrap.py` (713 LOC) + `discount_curve.py` (300
+    LOC) require the formal end-to-end retire read, classifying every omission with evidence. That read is
+    named as the **immediate next step** at this slice's checkpoint (the consumer analysis above is its
+    head start), not rushed into this build slice.
+
 ### Named crossings (which future slice actually retires each quarry module — §4)
 A module is not built speculatively without a recorded retire trigger. The dual-curve machinery this
 slice lands does **not** yet cross the curve modules; they cross here:
