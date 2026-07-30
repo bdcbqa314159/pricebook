@@ -6,6 +6,41 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-07-30
+
+**Topic 1, slice 2 — dual-curve: a EURIBOR swap prices to ZERO off ESTR discounting.** The first
+genuine second curve: a swap projects off EURIBOR_3M and discounts off ESTR. Proves the multicurve
+machinery and that single-curve is its degenerate case. Drawdown unchanged (0 quarry modules ticked;
+the align commit records the named C1 slices where `bootstrap.py`/`discount_curve.py` actually cross).
+Red→green throughout.
+
+### Added
+- **`market/curve_set.py` (L1)** — `CurveSet` with typed accessors `discount(currency, collateral=None)`
+  and `projection(index)` over one `CurveKey`-keyed store (doc 19 §2-§3, closed shapes × open keys).
+  Ratified signature lands now; `collateral` non-None raises (CSA/xccy deferred); `survival`/`inflation`
+  and a multi-projection map arrive with their consumers.
+- **`forward()` projection atom (L1, §3d)** — the single definition of the projection forward rate
+  `(df(start)/df(end) − 1)/τ`, which `float_leg_pv` now **composes** (it never inlines the df ratio).
+
+### Changed
+- **`float_leg_pv` generalised in place** to dual-curve `Σ df_disc·τ·forward(proj, ·)` — the slice-1
+  telescoping `df(start₀) − df(endₙ)` is now its degenerate case (`projection is discount`), not a
+  separate code path. `rpv01` unchanged (discount only).
+- **`FloatLeg` gained `index: RateIndex`** (→3 fields); it selects the projection curve.
+- **`MarketSnapshot.discount_curve` → `curves: CurveSet`.**
+- **`calibrate(spec)`** — one entry, still sequential; `CalibrationSpec` now a curve-**set** spec
+  (`discount` + `projection` builds) bootstrapped in dependency order (discount self-discounting →
+  projection discounted on it). `SingleCurveSpec` replaced by `CurveBuild`; `single_curve_swap` →
+  `par_swap`. No `method`/`numerics`/Jacobian (rule of two).
+
+### Oracle
+- **Dual-curve EURIBOR par swap → zero NPV: worst |PV| = 1.9e-15** (unit notional).
+- **OIS degeneracy (slice-1 par swap through the generalised path): worst |PV| = 6.7e-16** — slice 1
+  survives.
+- **Degeneracy Δ (general float leg vs telescoping identity): 2.8e-17, rel 2.0e-16** (tight tolerance,
+  not bit-identity — the df ratio is not bit-exact).
+- DV01 analytic vs finite-difference to 1e-6; repricing byte-identical; beyond-curve → `PricingFailure`.
+
 ## [0.85.0] - 2026-07-29
 
 **Topic 1, slice 1 — the first pricing vertical: a par swap prices to ZERO NPV, L0→L4.** First

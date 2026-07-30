@@ -1,14 +1,17 @@
-"""L1 oracle — the discount curve and the shared building blocks.
+"""L1 oracle — the discount curve, the shared atoms, and the degeneracy guard.
 
-The discounting anchor: on a flat continuously-compounded curve a discount factor
-is `exp(-r·t)` exactly, so a single cashflow `N` is worth `N·exp(-r·t)`. And the
-§3d atoms (`rpv01`, `float_leg_pv`) compose that `df` — the float leg telescopes.
+Flat-curve `df(t) = exp(-r·t)` is the discounting anchor. The §3d atoms are `rpv01`
+(discount annuity) and, new this slice, `forward` (the single projection-rate atom)
+which `float_leg_pv` composes. The degeneracy oracle: with projection == discount the
+generalised float leg equals the telescoping identity `df(start₀) − df(endₙ)` to a
+tight tolerance (NOT bit-identity — a df ratio is not bit-exact).
 """
 
 import math
 from datetime import date
 
 from pricebook_ng.foundation import (
+    Accrual,
     DayCountConvention,
     Frequency,
     RollRule,
@@ -18,16 +21,17 @@ from pricebook_ng.foundation import (
     TimeMeasure,
     build_schedule,
 )
-from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
+from pricebook_ng.market.building_blocks import float_leg_pv, forward, rpv01
 from pricebook_ng.market.curve import DiscountCurve
 
 VAL = date(2026, 1, 15)
 TM = TimeMeasure(VAL, DayCountConvention.ACT_365_FIXED)
+DC = DayCountConvention.ACT_365_FIXED
 FIVE_Y = VAL + Tenor(5, TenorUnit.YEAR)
+ONE_Y = VAL + Tenor(1, TenorUnit.YEAR)
 
 
 def test_flat_curve_df_is_closed_form() -> None:
-    # single fixed cashflow N on a flat curve: PV = N·exp(-r·t), to 1e-12.
     r = 0.03
     curve = DiscountCurve.flat(TM, r, until=FIVE_Y)
     t = TM.year_fraction(FIVE_Y)
@@ -37,22 +41,25 @@ def test_flat_curve_df_is_closed_form() -> None:
 
 
 def test_flat_curve_df_is_one_at_the_anchor() -> None:
+    assert DiscountCurve.flat(TM, 0.03, until=FIVE_Y).df(VAL) == 1.0
+
+
+def test_forward_rate_is_the_simple_forward() -> None:
     curve = DiscountCurve.flat(TM, 0.03, until=FIVE_Y)
-    assert curve.df(VAL) == 1.0
+    accrual = Accrual(VAL, ONE_Y, DC)  # ACT/365F ⇒ τ = 1.0 over the year
+    # forward = (df(start)/df(end) − 1)/τ = (1/exp(-0.03) − 1)/1 = exp(0.03) − 1
+    assert abs(forward(curve, accrual) - (math.exp(0.03) - 1.0)) < 1e-12
 
 
-def test_flat_curve_df_exact_between_pillars() -> None:
-    # log-linear DF interpolation is a constant forward — exact exp(-r·t) inside the range.
-    r = 0.03
-    curve = DiscountCurve.flat(TM, r, until=VAL + Tenor(10, TenorUnit.YEAR))
-    mid = VAL + Tenor(3, TenorUnit.YEAR)
-    assert abs(curve.df(mid) - math.exp(-r * TM.year_fraction(mid))) < 1e-12
-
-
-def test_building_blocks_telescope_and_annuity_positive() -> None:
+def test_float_leg_degenerates_to_the_telescoping_identity() -> None:
+    # projection == discount ⇒ the general per-period form equals df(start₀) − df(endₙ),
+    # to ~1e-12 relative (NOT ==). This is the "single == multi degenerate" guard (doc 18 §8).
     terms = ScheduleTerms(frequency=Frequency.ANNUAL, roll=RollRule(calendar=None))
     schedule = build_schedule(VAL, FIVE_Y, terms)
     curve = DiscountCurve.flat(TM, 0.03, until=FIVE_Y)
-    # float leg (unit notional) telescopes to df(start) - df(end) = 1 - df(end)
-    assert abs(float_leg_pv(schedule, curve) - (1.0 - curve.df(FIVE_Y))) < 1e-14
-    assert rpv01(schedule, DayCountConvention.ACT_365_FIXED, curve) > 0.0
+    general = float_leg_pv(schedule, DC, curve, curve)
+    telescoping = curve.df(schedule.periods[0].accrual_start) - curve.df(
+        schedule.periods[-1].payment_date
+    )
+    assert abs(general - telescoping) < 1e-12 * abs(telescoping)
+    assert rpv01(schedule, DC, curve) > 0.0

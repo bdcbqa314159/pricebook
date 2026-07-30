@@ -1,16 +1,15 @@
 """MarketSnapshot — the immutable market state a model carries (L1).
 
-Minimal for the single-curve slice: the valuation date and the discount curve.
-Doc 19's full closed-shapes×open-keys `CurveSet` (discount·projection·survival·
-surfaces·scalars·…) arrives with its SECOND curve family — the projection curve at
-multicurve — the consumer that earns the typed-accessor abstraction (rule of two,
-CLAUDE.md §6b). Frozen and never mutated (CLAUDE.md §2, invariant 3).
+The valuation date plus the `CurveSet` (doc 19 §1-§3). Doc 19's other closed shapes —
+surfaces · scalars · series · schedules — arrive with their first consumer (vols, FX
+spot, fixings); a new asset adds keys to the CurveSet, not fields here. Frozen and never
+mutated (CLAUDE.md §2, invariant 3).
 
 Provenance:
   quarry: python/pricebook/pricing/market_data_provider.py
-  source: redesign/19 §1 (snapshot = the state pricing reads); CLAUDE.md §2 (A1, frozen)
-  oracle: carried unchanged through the engine; reprice is stateless / byte-identical
-  slice:  swap-to-zero-npv (T1 slice 1)
+  source: redesign/19 §1-§3 (snapshot = the state pricing reads; CurveSet); CLAUDE.md §2 (A1)
+  oracle: carried unchanged through the engine; a EURIBOR swap prices to zero dual-curve
+  slice:  dual-curve-euribor-estr (T1 slice 2)
 """
 
 from __future__ import annotations
@@ -18,13 +17,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.market.curve import CurveHandle
+from pricebook_ng.market.curve_set import CurveSet
 
 
 @dataclass(frozen=True)
 class MarketSnapshot:
     """The market state a model was calibrated to (A1). `valuation_date` is 'today';
-    `discount_curve` is the numeraire curve, reached through its `CurveHandle`."""
+    `curves` is the keyed `CurveSet` (discount + projection), reached through its
+    typed accessors."""
 
     valuation_date: date
-    discount_curve: CurveHandle
+    curves: CurveSet
