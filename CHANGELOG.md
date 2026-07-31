@@ -6,6 +6,48 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-07-31
+
+**Topic 1, slice 3 — cash instruments: deposits + FRAs + IMM futures on both curves.** Completes the
+"cash front" of the dual-curve build and lands two ratified dispatch abstractions, machinery-first as a
+green-guarded refactor (Step A) then the instruments (Step B). Red→green throughout.
+
+### Added (Step A — machinery, pure refactor)
+- **Engine registry inside L4** (`engine/registry.py`) — structural product→pricer dispatch, no
+  `isinstance` (CLAUDE.md §1). The `VanillaSwap` pricer moved behind it unchanged; `price` is the
+  registry `dispatch`.
+- **`CalibrationInstrument` protocol (L3)** — `residual(discount, projection)`, 0 at solution;
+  `SwapInstrument` wraps the existing `_par_rate`. `_bootstrap` now Brent-solves each pillar via the
+  instrument's residual. `calibrate` still imports no L4.
+
+### Added (Step B — instruments)
+- **L1 quotes** (`market/quotes.py`): `DepositQuote` · `FRAQuote` (spot-anchored when `start=None`) ·
+  `FutureQuote` (price; forward = `1 − price`) · `ParSwapQuote` (moved from L3).
+- **L2 products** (`products/cash.py`): `Deposit` · `FRA` · `Future` (IMM-dated).
+- **`deposit_df` atom** (`1/(1+r·τ)`) composed by BOTH the L3 `DepositInstrument` and the L4 deposit
+  pricer (§3d); FRA/Future compose the existing `forward()`. Engine pricers registered per type.
+- **Heterogeneous bootstrap**: `CurveBuild.quotes` is now the deposit/FRA/future/swap union; discount
+  (ESTR) = OIS deposits + swaps, projection (EURIBOR_3M) = spot-anchored FRAs + IMM futures + par
+  swaps, chained from spot (an unpinned `df(start)` surfaces as `PricingFailure`).
+
+### Oracle
+- Every calibrating instrument reprices to **zero NPV through the L4 engine**: discount curve worst
+  |PV| = 6.7e-16; projection curve worst |PV| = 2.0e-15 (15 instruments, converged).
+- **Future reproduces `1 − price` at its IMM segment** (worst |Δ| = 5.4e-16) — the forward
+  approximation is *applied* correctly (doc 18 §2), not a claim the futures price is right.
+- Regression: slice-1/2 par swaps still price to zero through the registry-dispatched engine.
+
+### Deferred (named triggers)
+Futures **convexity** (`forward = futures_rate − convexity(a,σ,t)`, models topic) · Hagan–West ·
+global/simultaneous solve + Jacobian · basis/xccy · full G10 conventions.
+
+### Drawdown
+Ticks 0 (13/768). §4 consumer analysis (align commit): the "full G10 conventions" gate has 0 ng
+consumers (`deferred→G10`), and `discount_curve.py`'s `zero_rate`/`bump`/`roll_down` are consumed only
+by uncrossed quarry modules (`deferred→risk/construction`) — no needed-now blocker, but a tick requires
+the formal end-to-end retire read of `bootstrap.py`/`discount_curve.py`, named as the immediate next
+step at this slice's checkpoint.
+
 ## [0.86.0] - 2026-07-30
 
 **Topic 1, slice 2 — dual-curve: a EURIBOR swap prices to ZERO off ESTR discounting.** The first
