@@ -1,31 +1,32 @@
-"""Linear pricing engine — bind a swap + a model to a mark (L4).
+"""Linear (swap) pricer — registered behind the L4 engine registry.
 
-`price(swap, model)` composes the SAME `rpv01`/`float_leg_pv` building blocks the
-calibrator uses (§3d) — no second annuity or forward loop — reaching the curves only
-through `model.market` (A1). It resolves the discount curve from the swap's currency and
-the projection curve from the float leg's index, both via the `CurveSet`; single-curve is
-the degenerate case where those are the same curve. PV is the fixed-rate PAYER's:
-`N·(float − rate·annuity)`, zero exactly when the swap is at par. Failure is a value
-(invariant 4): a cashflow beyond a curve's pillars, or an unresolved key, returns a
-`PricingFailure`, never a raise. No `numerics` argument — linear pricing reads no
-reproducibility knob; a `NumericalConfig` lands with the first engine that needs one.
+`price_swap` composes the SAME `rpv01`/`float_leg_pv` building blocks the calibrator uses
+(§3d), reaching the curves only through `model.market` (A1). It is registered for
+`VanillaSwap` and reached via the registry's `dispatch` (re-exported here as `price`, the
+public entry). PV is the fixed-rate PAYER's: `N·(float − rate·annuity)`, zero at par.
+Failure is a value (invariant 4).
 
 Provenance:
   quarry: python/pricebook/pricing/ (swap engine)
-  source: CLAUDE.md §2 (stateless engine, A1) · §3d (shared atoms); redesign/22 Q3
+  source: CLAUDE.md §2 (stateless engine, A1) · §3d (shared atoms); §1 (registry dispatch)
   oracle: EURIBOR swap → zero NPV dual-curve to 1e-9; DV01 analytic vs finite-diff to 1e-6
-  slice:  dual-curve-euribor-estr (T1 slice 2)
+  slice:  cash-instruments (T1 slice 3, Step A — swap pricer moved behind the registry, body unchanged)
 """
 
 from __future__ import annotations
 
+from pricebook_ng.engine.registry import dispatch as price
+from pricebook_ng.engine.registry import register
 from pricebook_ng.foundation import Money, PricingFailure, PricingResult
 from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.swap import VanillaSwap
 
+__all__ = ["price", "price_swap"]
 
-def price(swap: VanillaSwap, model: DiscountingModel) -> PricingResult | PricingFailure:
+
+@register(VanillaSwap)
+def price_swap(swap: VanillaSwap, model: DiscountingModel) -> PricingResult | PricingFailure:
     """Mark a vanilla swap off the model's curves. Payer PV = N·(float − rate·annuity)."""
     curves = model.market.curves
     try:
