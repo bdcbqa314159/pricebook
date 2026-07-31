@@ -21,7 +21,7 @@ from pricebook_ng.foundation import (
     TimeMeasure,
     build_schedule,
 )
-from pricebook_ng.market.building_blocks import float_leg_pv, forward, rpv01
+from pricebook_ng.market.building_blocks import deposit_df, float_leg_pv, forward, rpv01
 from pricebook_ng.market.curve import DiscountCurve
 
 VAL = date(2026, 1, 15)
@@ -63,3 +63,9 @@ def test_float_leg_degenerates_to_the_telescoping_identity() -> None:
     )
     assert abs(general - telescoping) < 1e-12 * abs(telescoping)
     assert rpv01(schedule, DC, curve) > 0.0
+
+
+def test_deposit_df_is_simple_compounding() -> None:
+    accrual = Accrual(VAL, VAL + Tenor(6, TenorUnit.MONTH), DC)
+    rate = 0.03
+    assert abs(deposit_df(rate, accrual) - 1.0 / (1.0 + rate * accrual.year_fraction())) < 1e-15
