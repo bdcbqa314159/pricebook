@@ -27,6 +27,7 @@ from datetime import date
 from typing import Any, Protocol
 
 from pricebook_ng.foundation import (
+    Accrual,
     Currency,
     DayCountConvention,
     Frequency,
@@ -39,11 +40,13 @@ from pricebook_ng.foundation import (
     brent,
     build_schedule,
 )
-from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
+from pricebook_ng.market.building_blocks import deposit_df, float_leg_pv, forward, rpv01
 from pricebook_ng.market.curve import CurveHandle, DiscountCurve
 from pricebook_ng.market.curve_set import CurveKey, CurveRole, CurveSet
+from pricebook_ng.market.quotes import DepositQuote, FRAQuote, FutureQuote, ParSwapQuote
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.discounting_model import DiscountingModel
+from pricebook_ng.products.cash import FRA, Deposit, Future
 from pricebook_ng.products.swap import FixedLeg, FloatLeg, VanillaSwap
 
 __all__ = [
@@ -53,27 +56,22 @@ __all__ = [
     "ParSwapQuote",
     "calibrate",
     "par_swap",
+    "product",
 ]
 
-
-@dataclass(frozen=True)
-class ParSwapQuote:
-    """A par-swap calibrating quote: the swap `tenor` and its market par `rate`. (Moves to
-    L1 `market/quotes.py` with the other quote types in Step B.)"""
-
-    tenor: Tenor
-    rate: float
+Quote = ParSwapQuote | DepositQuote | FRAQuote | FutureQuote
 
 
 @dataclass(frozen=True)
 class CurveBuild:
     """How to build one curve: the `index` it projects (and is keyed by), both legs'
-    `frequency` and `day_count`, its calibrating `quotes`, and the `interpolation`."""
+    `frequency` and `day_count`, its calibrating `quotes` (any mix of deposit/FRA/future/
+    swap), and the `interpolation`."""
 
     index: RateIndex
     frequency: Frequency
     day_count: DayCountConvention
-    quotes: tuple[ParSwapQuote, ...]
+    quotes: tuple[Quote, ...]
     interpolation: Interpolation = Interpolation.LOG_LINEAR
 
 
@@ -123,6 +121,52 @@ class SwapInstrument:
         return _par_rate(self.swap, discount, projection) - self.rate
 
 
+@dataclass(frozen=True)
+class DepositInstrument:
+    """A deposit pins the curve being solved (`projection` is the trial): `df(end) =
+    df(start)·deposit_df`. Composes the `deposit_df` atom (§3d)."""
+
+    deposit: Deposit
+
+    @property
+    def pillar_date(self) -> date:
+        return self.deposit.accrual.end
+
+    def residual(self, discount: CurveHandle, projection: CurveHandle) -> float:
+        a = self.deposit.accrual
+        return projection.df(a.end) - projection.df(a.start) * deposit_df(self.deposit.rate, a)
+
+
+@dataclass(frozen=True)
+class FRAInstrument:
+    """An FRA pins the projection forward over its accrual to the quoted rate. Composes
+    the `forward` atom (§3d); its `df(start)` must be pinned by an earlier pillar."""
+
+    fra: FRA
+
+    @property
+    def pillar_date(self) -> date:
+        return self.fra.accrual.end
+
+    def residual(self, discount: CurveHandle, projection: CurveHandle) -> float:
+        return forward(projection, self.fra.accrual) - self.fra.rate
+
+
+@dataclass(frozen=True)
+class FutureInstrument:
+    """A future pins the projection forward over its IMM accrual to `1 − price` (the forward
+    approximation; convexity deferred to the models topic). Composes the `forward` atom."""
+
+    future: Future
+
+    @property
+    def pillar_date(self) -> date:
+        return self.future.accrual.end
+
+    def residual(self, discount: CurveHandle, projection: CurveHandle) -> float:
+        return forward(projection, self.future.accrual) - (1.0 - self.future.price)
+
+
 def par_swap(
     spec: CalibrationSpec, build: CurveBuild, tenor: Tenor, rate: float, notional: float = 1.0
 ) -> VanillaSwap:
@@ -145,11 +189,43 @@ def _par_rate(swap: VanillaSwap, discount: CurveHandle, projection: CurveHandle)
     ) / rpv01(swap.fixed_leg.schedule, swap.fixed_leg.day_count, discount)
 
 
+# ── quote → product (L2), and quote → calibration instrument (L3), both by type ─────────
+def _deposit(spec: CalibrationSpec, build: CurveBuild, q: DepositQuote) -> Deposit:
+    accrual = Accrual(spec.valuation_date, spec.valuation_date + q.tenor, build.day_count)
+    return Deposit(1.0, spec.currency, accrual, q.rate)
+
+
+def _fra(spec: CalibrationSpec, build: CurveBuild, q: FRAQuote) -> FRA:
+    start = spec.valuation_date + q.start if q.start is not None else spec.valuation_date
+    accrual = Accrual(start, spec.valuation_date + q.end, build.day_count)
+    return FRA(1.0, spec.currency, accrual, build.index, q.rate)
+
+
+def _future(spec: CalibrationSpec, build: CurveBuild, q: FutureQuote) -> Future:
+    accrual = Accrual(q.imm_start, q.imm_start + build.index.id.tenor, build.day_count)
+    return Future(1.0, spec.currency, accrual, build.index, q.price)
+
+
+_PRODUCT_FACTORY: dict[type, Callable[[CalibrationSpec, CurveBuild, Any], object]] = {
+    ParSwapQuote: lambda spec, build, q: par_swap(spec, build, q.tenor, q.rate),
+    DepositQuote: _deposit,
+    FRAQuote: _fra,
+    FutureQuote: _future,
+}
+
+
+def product(spec: CalibrationSpec, build: CurveBuild, quote: Quote) -> object:
+    """The tradeable L2 product a quote calibrates to — the SAME product the engine reprices
+    (the calibration instrument wraps it), so calibrator and engine share it (§3d)."""
+    return _PRODUCT_FACTORY[type(quote)](spec, build, quote)
+
+
 # Quote type → the calibration instrument it becomes (structural dispatch, no isinstance).
 _INSTRUMENT_FACTORY: dict[type, Callable[[CalibrationSpec, CurveBuild, Any], CalibrationInstrument]] = {
-    ParSwapQuote: lambda spec, build, q: SwapInstrument(
-        par_swap(spec, build, q.tenor, q.rate), q.rate
-    ),
+    ParSwapQuote: lambda spec, build, q: SwapInstrument(par_swap(spec, build, q.tenor, q.rate), q.rate),
+    DepositQuote: lambda spec, build, q: DepositInstrument(_deposit(spec, build, q)),
+    FRAQuote: lambda spec, build, q: FRAInstrument(_fra(spec, build, q)),
+    FutureQuote: lambda spec, build, q: FutureInstrument(_future(spec, build, q)),
 }
 
 

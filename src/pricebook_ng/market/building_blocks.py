@@ -34,6 +34,13 @@ def rpv01(schedule: Schedule, day_count: DayCountConvention, curve: CurveHandle)
     )
 
 
+def deposit_df(rate: float, accrual: Accrual) -> float:
+    """The simple-compounding discount factor over `accrual`: `1/(1 + rate·τ)`. The single
+    definition — both the L3 `DepositInstrument.residual` and the L4 deposit pricer compose
+    it (§3d), so they cannot disagree."""
+    return 1.0 / (1.0 + rate * accrual.year_fraction())
+
+
 def forward(projection: CurveHandle, accrual: Accrual) -> float:
     """The simple forward rate over `accrual`, off the projection curve —
     `(df(start)/df(end) − 1) / τ`. The single definition of the projection atom; the

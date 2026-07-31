@@ -5,7 +5,8 @@ so `price` dispatches over all product types. New pricer modules are imported he
 populate the registry.
 """
 
+from pricebook_ng.engine.cash import price_deposit, price_fra, price_future
 from pricebook_ng.engine.linear import price, price_swap
 from pricebook_ng.engine.registry import register
 
-__all__ = ["price", "price_swap", "register"]
+__all__ = ["price", "price_swap", "price_deposit", "price_fra", "price_future", "register"]
