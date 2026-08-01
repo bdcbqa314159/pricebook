@@ -42,11 +42,20 @@ Futures **convexity** (`forward = futures_rate − convexity(a,σ,t)`, models to
 global/simultaneous solve + Jacobian · basis/xccy · full G10 conventions.
 
 ### Drawdown
-Ticks 0 (13/768). §4 consumer analysis (align commit): the "full G10 conventions" gate has 0 ng
+Ticks 0 (13/793). §4 consumer analysis (align commit): the "full G10 conventions" gate has 0 ng
 consumers (`deferred→G10`), and `discount_curve.py`'s `zero_rate`/`bump`/`roll_down` are consumed only
 by uncrossed quarry modules (`deferred→risk/construction`) — no needed-now blocker, but a tick requires
 the formal end-to-end retire read of `bootstrap.py`/`discount_curve.py`, named as the immediate next
 step at this slice's checkpoint.
+
+### Docs — factual-counter correction (denominator pinned)
+The drawdown denominator had two conventions in flight — `/768` (CLAUDE.md §4/§6 + slices 1–2) vs
+`/793` (the live tracker). Verified by direct count: **793 = every `.py` in the original quarry**
+(`python/pricebook/` remaining, 780, + `parked/`, 13); `768 = 793 − 25 __init__.py` markers — the same
+universe, a different convention, not an error. **Pinned to 793**, and `redesign/handoffs/
+quarry_reconciliation.md` is now the single source (its convention stated there). CLAUDE.md §4/§6 no
+longer hardcode a literal — they point to the tracker, so the count can't re-drift. The tracker's frozen
+`PRE-REPLAN RECORD` (`7 / 768`) is left untouched as history. No ruling reopened.
 
 ## [0.86.0] - 2026-07-30
 
