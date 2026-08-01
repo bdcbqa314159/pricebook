@@ -13,7 +13,15 @@ closes. The physical drawdown restarts here.
 | **Topic 0 — Foundation (L0)** | conventions · money/quantity · index identity · settlement · numerics-config (scipy, S17) · serialisation pattern | **PARKED** (gate green: F1–F4 + S1–S17 landed; both regression oracles pass) | `parked/topic-00-foundation/MANIFEST.md` | **13** |
 | **Topic 1 — Yield-Curve World** | curves · interpolation · pillar products · bootstrap · curve risk | defined (scoping) | `parked/topic-01-yield-curve/MANIFEST.md` | 0 |
 
-**Files parked: 13 / 793** (reported, never steered — #12). Topic 0's **13** files (11 covered —
+**Files parked: 13 / 793** (reported, never steered — #12). **This is the single source of truth for
+the drawdown denominator** (CLAUDE.md §4/§6 point here, not to a hardcoded literal). **Convention
+(pinned):** the total is *every `.py` file in the original quarry* = files remaining in
+`python/pricebook/` (**780**) + files already parked under `parked/` (**13**) = **793**, `__init__.py`
+markers included. Verified 2026-08-01 by direct count. *(The historical `/768` — CLAUDE.md and the
+slice-1/2 records — is the same universe minus the 25 `python/pricebook/__init__.py` package markers;
+`793 − 25 = 768`. Not wrong, a different convention; superseded by this all-`.py` count so the series is
+consistent. The **PRE-REPLAN RECORD's** separate `7 / 768` below is frozen product-vertical-era history
+and is left untouched.)* Topic 0's **13** files (11 covered —
 `day_count`, `calendar`, `schedule`, `rate_index`, `currency`, `settlement`, `numerical_config`,
 `interpolation`, `solvers`, `serialisable`, `serialization` — plus `data_registry` **dead** and
 `notional` **absorbed** into `Money`/`Leg`) are git-mv'd to `parked/topic-00-foundation/`.

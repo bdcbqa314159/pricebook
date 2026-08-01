@@ -245,8 +245,9 @@ the whole spine, and a sibling to §1's no-`isinstance` law.
 - **"Crossed" = quarry-deletable, not concept-adapted.** A quarry module counts as migrated
   only when its ng counterpart reaches *realigned parity* and the quarry module could be
   deleted — a simplified skeleton (e.g. flat-curve HW standing in for the general model) is a
-  *partial* cross with a recorded **parity gap**, not a cross. Drawdown (`deletable / 768`) is
-  the honest progress bar; it is refreshed at every checkpoint
+  *partial* cross with a recorded **parity gap**, not a cross. Drawdown (`deletable / <current
+  quarry total>`, the total per the tracker's stated convention) is the honest progress bar; it
+  is refreshed at every checkpoint
   (`redesign/handoffs/quarry_reconciliation.md`).
 - **Copy-ADAPT, never copy-paste.** Every crossing conforms to a layer, speaks the
   vocabulary, moves behaviour into the engine, or sheds debt. A byte-for-byte copy is a
@@ -355,7 +356,8 @@ first**. Plus **immediate** stops on: any design drift or contract/measure quest
 cross-cutting abstraction/vocabulary type; any debt logged or suppression added; any slice whose
 best oracle is only self-consistency; any quarry entry that resists clean realignment. Every
 report carries the four review inputs — **oracle-quality audit, quarry-drawdown reconciliation
-(`N/768`), a "challenge-me" list of design choices, and a smell+debt scan** — plus the **named
+(`N / <tracker total>`, single source: `redesign/handoffs/quarry_reconciliation.md`), a
+"challenge-me" list of design choices, and a smell+debt scan** — plus the **named
 next checkpoint**. Do not begin the next slice until the checkpoint is ruled. Full detail:
 `redesign/11_checkpoint_and_review_cadence.md` (extends `08_handoff_protocol.md`).
 
