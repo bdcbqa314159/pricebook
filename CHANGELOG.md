@@ -6,6 +6,19 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+### Drawdown — retire read (docs/tracker only, no code)
+The slice-3 checkpoint's named next action is done: the end-to-end retire read of `curves/bootstrap.py`
+(713 LOC) + `core/discount_curve.py` (300 LOC). **Both cross → deletable 13 → 15 / 793 (first Topic-1
+tick).** Evidence: convention/calendar is *imported* from already-parked Topic-0 modules (not resident);
+the only `bootstrap.py`-resident deferred bits are futures convexity (`:151-158`) and turn-of-year
+(`:161-162`); `discount_curve.py` residents are curve analytics (`zero_rate`/`bumped`/`roll_down`/… ) —
+`forward_rate` already crossed by ng's `forward()` atom. 0 ng consumers of any deferred capability (bare-
+name grep across src + tests). Forward-links filed on destination rows (models ← convexity, seasonality
+← turn-of-year, C3-risk ← curve analytics, persistence ← curve serialisation); per-leg conventions
+recorded as an ng-side note (convention code already parked — nothing to migrate). Tracker
+(`quarry_reconciliation.md`) + Topic-1 MANIFEST carry the full record. Deletable = *superseded*; physical
+park at Topic-1 close.
+
 ## [0.87.0] - 2026-07-31
 
 **Topic 1, slice 3 — cash instruments: deposits + FRAs + IMM futures on both curves.** Completes the
