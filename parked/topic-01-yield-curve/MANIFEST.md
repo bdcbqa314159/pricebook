@@ -23,29 +23,47 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
   **engine registry** (product→pricer, structural, no isinstance) and the L3 **`CalibrationInstrument`**
   protocol (`residual(discount, projection)`); then the instruments (STEP B). New shared atom `deposit_df`
   (`1/(1+r·τ)`); FRA/future compose the existing `forward()`.
-  **Drawdown verdict — §4 consumer analysis (evidence, not assumption):**
-  - Named crossing gate was "cash set + full G10 conventions." **Conventions gap = `deferred→G10`**:
-    `grep` finds **0** ng consumers of a G10 conventions table (the only currency literals in ng src are
-    in `foundation/rate_index.py`, registering index identities — not curve conventions). Not needed-now.
-  - `discount_curve.py`'s `zero_rate`/`bump`/`roll_down`: consumed only by **uncrossed** quarry modules
-    (`curve_risk`, `curve_scenarios`, `rfr_bootstrap`, `curve_advanced`) ⇒ `deferred→(C1 global-solve / C3
-    risk)`, 0 current ng consumer.
-  - **Verdict: ticks 0 THIS slice.** No needed-now residual blocks a tick, but deletable-bar rigor (§4)
-    forbids asserting a tick from "looks covered" — `bootstrap.py` (713 LOC) + `discount_curve.py` (300
-    LOC) require the formal end-to-end retire read, classifying every omission with evidence. That read is
-    named as the **immediate next step** at this slice's checkpoint (the consumer analysis above is its
-    head start), not rushed into this build slice.
+  **Drawdown verdict — retire read COMPLETE (§4 retire flow: read end-to-end → classify → tick).** The
+  formal end-to-end read of `curves/bootstrap.py` (713 LOC) and `core/discount_curve.py` (300 LOC) is done;
+  **both cross at THIS slice → Topic-1 deletable 0 → 2 (overall 13 → 15 / 793 deletable; physical park at
+  Topic-1 close).**
+  - **Convention/calendar is IMPORTED, not resident** in `bootstrap.py` (`core/day_count`, `core/schedule`,
+    `core/calendar` — lines 11/14/16, already parked to `topic-00-foundation/`, covered by ng L0 supersets),
+    so deleting it orphans no convention code. The genuine `bootstrap.py`-resident deferred bits are
+    **futures convexity** (inline `:151-158`) and **turn-of-year** (inline `:161-162`); the global solve is
+    **not** resident (it is `ncurve_solver.py`).
+  - **`discount_curve.py` residents** are analytics on a curve ng HAS: `zero_rate:207` · `bumped:120` ·
+    `bumped_at:184` · `instantaneous_forward:226` · `pillar_dates:99` · `roll_down:131` · `forward_rate:246`
+    · `to_dict`/`from_dict:270-299`. `forward_rate` is **crossed** (ng `forward()` atom, same
+    `(df₁−df₂)/(τ·df₂)`); the rest deferred (below). `calibration_result`-on-curve is **shed by design**
+    (ng: `CalibrationResult` beside the model, doc 19 §5).
+  - **ng consumer evidence (0 needed-now, bare-name across src + tests):** `fixed/float/deposit_day_count`
+    → 0 · calendar/BDC in the curve build → 0 (`RollRule(calendar=None)`, `calibrate.py:176`) · `convexity`
+    → 0 (2 hits, both docstrings) · `turn_of_year` → 0. Supersede basis: ng reproduces
+    **deposits→FRAs→futures→swaps dual-curve sequential**, MINUS the deferred capabilities (SUPERSEDE, not clone).
 
-### Named crossings (which future slice actually retires each quarry module — §4)
-A module is not built speculatively without a recorded retire trigger. The dual-curve machinery this
-slice lands does **not** yet cross the curve modules; they cross here:
+### Named crossings — status after the slice-3 retire read (§4)
 
-| quarry module | crosses at (named future slice) | why not now |
+| quarry module | status | detail |
 |---|---|---|
-| `core/discount_curve.py` | **C1 · cash-instruments slice** (deposits · FRAs · futures + full G10 conventions) | ng `DiscountCurve` still lacks deposit/FRA/future pillars, `zero_rate`/`roll_down`, and business-day-adjusted schedules |
-| `curves/bootstrap.py` | **C1 · cash-instruments slice** (then + convexity/turn-of-year as their own reassign) | ng bootstrap is par-swap-only, sequential, no deposits/FRAs/futures/convexity |
-| `curves/ncurve_solver.py` | **C1 · global-solve slice** (simultaneous Newton + analytic Jacobian) | this slice is sequential; the global solver + Jacobian is a separate C1 slice |
-| `curves/curve_risk.py`, `key_rate_risk.py` | **C3 · curve-risk slice** (zero/pillar/par deltas) | no risk consumer until C3 |
+| `core/discount_curve.py` | **✓ CROSSED (deletable) — slice 3** | ng `DiscountCurve` (df/flat/log-linear) + the `forward()` atom supersede; analytics deferred (forward-links below) |
+| `curves/bootstrap.py` | **✓ CROSSED (deletable) — slice 3** | ng `calibrate` dual-curve sequential bootstrap supersedes; convexity/turn-of-year deferred (forward-links below) |
+| `curves/ncurve_solver.py` | target → **C1 · global-solve slice** | simultaneous Newton + analytic Jacobian; this slice is sequential (confirmed still recorded) |
+| `curves/curve_risk.py`, `key_rate_risk.py` | target → **C3 · curve-risk slice** | no risk consumer until C3 |
+
+**Forward-links filed on DESTINATION rows (deferred capability travels with X's crossing slice, §4):**
+- **Models slice** ← futures convexity: `curves/bootstrap.py:151-158` (inline) **AND**
+  `fixed_income/ir_futures.py::hw_convexity_adjustment` — both must cross there or one orphans.
+  Form: `forward = futures_rate − convexity(a,σ,t)`.
+- **Seasonality slice** ← turn-of-year: `curves/bootstrap.py:161-162` (inline) **AND** `curves/seasonal_curve.py`.
+- **C3 · curve-risk slice** ← `discount_curve.py` analytics: `zero_rate` · `bumped` · `bumped_at` ·
+  `instantaneous_forward` · `pillar_dates` · `roll_down` (add to ng `DiscountCurve`).
+  *(Deviation from the tasking's Step-3 list: `forward_rate` is NOT forward-linked — ng already has it as
+  the `forward()` atom, so it is crossed, not deferred.)*
+- **Persistence slice** ← `discount_curve.py` `to_dict`/`from_dict`.
+- **ng-side note (NOT a quarry migration):** grow `CurveBuild` to per-leg conventions (fixed vs float
+  day-count/frequency) + wire a real calendar when a multi-convention consumer arrives (rule of two). The
+  convention *code* is already parked (Topic-0 supersets); nothing to migrate.
 
 ---
 
