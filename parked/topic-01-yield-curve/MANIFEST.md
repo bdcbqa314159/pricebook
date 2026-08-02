@@ -64,6 +64,14 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
 - **ng-side note (NOT a quarry migration):** grow `CurveBuild` to per-leg conventions (fixed vs float
   day-count/frequency) + wire a real calendar when a multi-convention consumer arrives (rule of two). The
   convention *code* is already parked (Topic-0 supersets); nothing to migrate.
+- **ng-side hardening note (surfaced by this retire read):** `discount_curve.forward_rate` is *crossed*
+  (ng `forward()` atom, same value), but the quarry uses the numerically-stable **subtract-first** form
+  `(df₁−df₂)/(τ·df₂)` (its docstring: "critical for overnight and short-period forwards"), while ng's
+  `market/building_blocks.forward()` uses the **divide-first** form `(df₁/df₂−1)/τ`, which loses precision
+  when `df₁ ≈ df₂`. Algebraically identical; agree to ~1e-16 on the current annual oracles, so **not a
+  needed-now residual**. **Trigger:** switch `forward()` to the subtract-first form when an RFR
+  daily-compounding / overnight-forward consumer arrives (1-line change; rides that curves slice, not this
+  docs commit).
 
 ---
 
