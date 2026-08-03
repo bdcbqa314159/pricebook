@@ -21,9 +21,11 @@ Provenance:
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+import math
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from datetime import date
+from enum import Enum
 from typing import Any, Protocol
 
 from pricebook_ng.foundation import (
@@ -39,6 +41,7 @@ from pricebook_ng.foundation import (
     TimeMeasure,
     brent,
     build_schedule,
+    root_nd,
 )
 from pricebook_ng.market.building_blocks import deposit_df, float_leg_pv, forward, rpv01
 from pricebook_ng.market.curve import CurveHandle, DiscountCurve
@@ -53,13 +56,56 @@ __all__ = [
     "CalibrationSpec",
     "CurveBuild",
     "CalibrationResult",
+    "CalibrationMethod",
+    "SolveConfig",
+    "Jacobian",
+    "CalibrationFailure",
     "ParSwapQuote",
     "calibrate",
     "par_swap",
     "product",
+    "curve_set_residuals",
 ]
 
 Quote = ParSwapQuote | DepositQuote | FRAQuote | FutureQuote
+
+
+class CalibrationMethod(Enum):
+    """The two orchestrations (doc 22 Q4). Same signature, same residual definition; only
+    the solve differs — sequential pillar-by-pillar, or the whole `CurveSet` at once."""
+
+    SEQUENTIAL = "sequential"
+    SIMULTANEOUS = "simultaneous"
+
+
+@dataclass(frozen=True)
+class SolveConfig:
+    """The reproducibility knobs for the solve (invariant 5): the `method` and the solver
+    tolerance / iteration cap. Bundled so `CalibrationSpec` stays ≤5 fields (§3b). The knobs
+    are shared across both methods (Brent xtol / LM xtol·ftol), so no per-family sub-config
+    is needed yet."""
+
+    method: CalibrationMethod = CalibrationMethod.SEQUENTIAL
+    tolerance: float = 1e-12
+    max_iterations: int = 1000
+
+
+@dataclass(frozen=True)
+class Jacobian:
+    """The par→zero Jacobian an artifact of the SIMULTANEOUS solve: `matrix[i][j] =
+    ∂residualᵢ/∂dfⱼ`, with `instruments` (row) and `pillars` (col) labels. Risk transforms
+    (par delta, key-rate) are C3, not here."""
+
+    matrix: tuple[tuple[float, ...], ...]
+    instruments: tuple[str, ...]
+    pillars: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CalibrationFailure:
+    """A calibration that did not converge — carried as a value, never raised (invariant 4)."""
+
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -84,15 +130,19 @@ class CalibrationSpec:
     currency: Currency
     discount: CurveBuild
     projection: CurveBuild
+    solve: SolveConfig = field(default_factory=SolveConfig)
 
 
 @dataclass(frozen=True)
 class CalibrationResult:
     """Sits BESIDE the model, never on it (F1 §5): the per-instrument `residuals` across
-    both curves and whether the solve `converged`."""
+    both curves, whether the solve `converged`, and the `jacobian` (the SIMULTANEOUS solve
+    populates it; SEQUENTIAL leaves it `None` — its post-hoc Jacobian arrives with the C3
+    risk consumer, doc 22 Q4)."""
 
     residuals: tuple[float, ...]
     converged: bool
+    jacobian: Jacobian | None = None
 
 
 # ── calibration instruments — each composes the L1 atoms into a par residual ────────────
@@ -233,19 +283,48 @@ def _instrument(spec: CalibrationSpec, build: CurveBuild, quote: object) -> Cali
     return _INSTRUMENT_FACTORY[type(quote)](spec, build, quote)
 
 
+def _instruments(spec: CalibrationSpec, build: CurveBuild) -> list[CalibrationInstrument]:
+    """The build's calibration instruments, ordered by pillar date — the order both
+    orchestrations solve in and the Jacobian labels follow."""
+    return sorted(
+        (_instrument(spec, build, q) for q in build.quotes), key=lambda i: i.pillar_date
+    )
+
+
+def _curve_set(spec: CalibrationSpec, discount: DiscountCurve, projection: DiscountCurve) -> CurveSet:
+    """Assemble the keyed `CurveSet` (the OIS/discount index projects off the discount curve
+    — the degenerate case; the IBOR index off the projection curve)."""
+    return CurveSet(
+        {
+            CurveKey(CurveRole.DISCOUNT, spec.currency): discount,
+            CurveKey(CurveRole.PROJECTION, spec.discount.index): discount,
+            CurveKey(CurveRole.PROJECTION, spec.projection.index): projection,
+        }
+    )
+
+
+def curve_set_residuals(spec: CalibrationSpec, curves: CurveSet) -> tuple[float, ...]:
+    """Every calibrating instrument's residual against `curves` — the vector both
+    orchestrations drive to zero (discount build first, then projection; each build's
+    instruments ordered by pillar date, matching the Jacobian rows). ≈0 at a solved set."""
+    discount = curves.discount(spec.currency)
+    return tuple(
+        inst.residual(discount, curves.projection(build.index))
+        for build in (spec.discount, spec.projection)
+        for inst in _instruments(spec, build)
+    )
+
+
 def _bootstrap(
     spec: CalibrationSpec, build: CurveBuild, discount: CurveHandle | None
 ) -> DiscountCurve:
-    """Sequential per-pillar bootstrap over the build's instruments (ordered by pillar
-    date). `discount is None` ⇒ self-discounting (the discount build); otherwise the
-    instruments discount on the supplied (already-built) discount curve."""
+    """Sequential per-pillar bootstrap over the build's instruments. `discount is None` ⇒
+    self-discounting (the discount build); otherwise the instruments discount on the
+    supplied (already-built) discount curve."""
     time_measure = TimeMeasure(spec.valuation_date, build.day_count)
-    instruments = sorted(
-        (_instrument(spec, build, q) for q in build.quotes), key=lambda i: i.pillar_date
-    )
     times: list[float] = [0.0]
     dfs: list[float] = [1.0]
-    for inst in instruments:
+    for inst in _instruments(spec, build):
         t_k = time_measure.year_fraction(inst.pillar_date)
 
         def residual(df_k: float, inst: CalibrationInstrument = inst, t_k: float = t_k) -> float:
@@ -258,22 +337,75 @@ def _bootstrap(
     return DiscountCurve(time_measure, tuple(times), tuple(dfs), build.interpolation)
 
 
-def calibrate(spec: CalibrationSpec) -> tuple[DiscountingModel, CalibrationResult]:
-    """Build the curve set in dependency order (discount → projection), assemble the
-    `CurveSet`, and wrap it in a `DiscountingModel`."""
-    discount_curve = _bootstrap(spec, spec.discount, discount=None)
-    projection_curve = _bootstrap(spec, spec.projection, discount=discount_curve)
-    curves = CurveSet(
-        {
-            CurveKey(CurveRole.DISCOUNT, spec.currency): discount_curve,
-            CurveKey(CurveRole.PROJECTION, spec.discount.index): discount_curve,
-            CurveKey(CurveRole.PROJECTION, spec.projection.index): projection_curve,
-        }
-    )
+def _calibrate_sequential(spec: CalibrationSpec) -> tuple[DiscountingModel, CalibrationResult]:
+    """Dependency-ordered bootstrap: discount (self-discounting) then projection. No
+    Jacobian (its post-hoc form arrives with the C3 risk consumer, doc 22 Q4)."""
+    discount = _bootstrap(spec, spec.discount, discount=None)
+    projection = _bootstrap(spec, spec.projection, discount=discount)
+    curves = _curve_set(spec, discount, projection)
     model = DiscountingModel(MarketSnapshot(spec.valuation_date, curves))
-    residuals = tuple(
-        _instrument(spec, build, q).residual(discount_curve, curves.projection(build.index))
-        for build in (spec.discount, spec.projection)
-        for q in build.quotes
+    residuals = curve_set_residuals(spec, curves)
+    return model, CalibrationResult(
+        residuals, converged=all(abs(r) < 1e-10 for r in residuals), jacobian=None
     )
-    return model, CalibrationResult(residuals, converged=all(abs(r) < 1e-10 for r in residuals))
+
+
+def _calibrate_simultaneous(
+    spec: CalibrationSpec,
+) -> tuple[DiscountingModel, CalibrationResult] | CalibrationFailure:
+    """Global N-D solve: ONE flat state vector of all pillar DFs across BOTH curves; the
+    residual vector is every calibrating instrument (discount instruments self-discount;
+    projection instruments discount on the discount curve being solved and project on the
+    projection curve being solved), solved JOINTLY via the scipy LM adapter (§7bb — no
+    hand-rolled Newton, no scipy in this module). Seed: flat 3% DFs (the `ncurve_solver`
+    default). The Jacobian is the solve's artifact; non-convergence is a value (invariant 4)."""
+    tm_d = TimeMeasure(spec.valuation_date, spec.discount.day_count)
+    tm_p = TimeMeasure(spec.valuation_date, spec.projection.day_count)
+    d_insts = _instruments(spec, spec.discount)
+    p_insts = _instruments(spec, spec.projection)
+    d_times = [tm_d.year_fraction(i.pillar_date) for i in d_insts]
+    p_times = [tm_p.year_fraction(i.pillar_date) for i in p_insts]
+    n_d = len(d_insts)
+
+    def _curves(x: Sequence[float]) -> tuple[DiscountCurve, DiscountCurve]:
+        disc = DiscountCurve(
+            tm_d, (0.0, *d_times), (1.0, *(float(v) for v in x[:n_d])), spec.discount.interpolation
+        )
+        proj = DiscountCurve(
+            tm_p, (0.0, *p_times), (1.0, *(float(v) for v in x[n_d:])), spec.projection.interpolation
+        )
+        return disc, proj
+
+    def _residual(x: Sequence[float]) -> list[float]:
+        disc, proj = _curves(x)
+        return [i.residual(disc, disc) for i in d_insts] + [i.residual(disc, proj) for i in p_insts]
+
+    x0 = [math.exp(-0.03 * t) for t in (*d_times, *p_times)]
+    solution, jac, converged = root_nd(
+        _residual, x0, spec.solve.tolerance, spec.solve.max_iterations
+    )
+    if not converged:
+        return CalibrationFailure(
+            f"global curve solve did not converge "
+            f"(tolerance={spec.solve.tolerance}, max_iterations={spec.solve.max_iterations})"
+        )
+    disc, proj = _curves(solution)
+    curves = _curve_set(spec, disc, proj)
+    model = DiscountingModel(MarketSnapshot(spec.valuation_date, curves))
+    rows = tuple(f"discount@{i.pillar_date.isoformat()}" for i in d_insts) + tuple(
+        f"projection@{i.pillar_date.isoformat()}" for i in p_insts
+    )
+    cols = tuple(f"discount@{t:.6f}" for t in d_times) + tuple(f"projection@{t:.6f}" for t in p_times)
+    jacobian = Jacobian(tuple(tuple(row) for row in jac), rows, cols)
+    return model, CalibrationResult(curve_set_residuals(spec, curves), converged=True, jacobian=jacobian)
+
+
+def calibrate(
+    spec: CalibrationSpec,
+) -> tuple[DiscountingModel, CalibrationResult] | CalibrationFailure:
+    """Calibrate the curve set. ONE signature, ONE residual definition; `spec.solve.method`
+    forks the orchestration (doc 22 Q4) — both compose the SAME `CalibrationInstrument`
+    residuals, unchanged. SIMULTANEOUS may return a `CalibrationFailure` (invariant 4)."""
+    if spec.solve.method is CalibrationMethod.SIMULTANEOUS:
+        return _calibrate_simultaneous(spec)
+    return _calibrate_sequential(spec)

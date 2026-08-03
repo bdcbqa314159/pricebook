@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import cast
 
+import numpy as np
 from scipy.optimize import brentq as _brentq
 from scipy.optimize import least_squares as _least_squares
 from scipy.optimize import newton as _newton
@@ -64,7 +65,26 @@ def least_squares(
 ) -> list[float]:
     """Minimise ``sum(residual(x)^2)`` from `x0` by Levenberg-Marquardt; returns the solution
     vector. The natural shape for calibration (fit parameters to market quotes)."""
-    result = _least_squares(
-        residual, list(x0), method="lm", xtol=tol, ftol=tol, max_nfev=max_iter
-    )
-    return [float(v) for v in result.x]
+    return root_nd(residual, x0, tol, max_iter)[0]
+
+
+def root_nd(
+    residual: Callable[[Sequence[float]], Sequence[float]],
+    x0: Sequence[float],
+    tol: float = 1e-12,
+    max_iter: int = 1000,
+) -> tuple[list[float], list[list[float]], bool]:
+    """Solve the N-D system ``F(x) = 0`` from `x0` by Levenberg-Marquardt. Returns
+    ``(solution, jacobian, converged)`` where `jacobian` is ``∂residualᵢ/∂xⱼ`` at the solution
+    (rows = residuals, cols = unknowns). Non-convergence — including a solver error or a
+    residual that blows up — is returned as ``converged=False`` (failure is a value), never
+    raised. The single N-D solver for calibration; models/engines call THIS, never scipy (§7bb)."""
+    try:
+        result = _least_squares(
+            residual, list(x0), method="lm", xtol=tol, ftol=tol, max_nfev=max_iter
+        )
+    except (ValueError, FloatingPointError, ZeroDivisionError):
+        return list(map(float, x0)), [], False
+    x = [float(v) for v in result.x]
+    jac = [[float(v) for v in row] for row in np.atleast_2d(np.asarray(result.jac, dtype=float))]
+    return x, jac, bool(result.success)

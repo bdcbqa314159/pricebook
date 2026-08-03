@@ -107,7 +107,7 @@ from pricebook_ng.foundation.settlement import (
     settlement_date,
     spot_lag,
 )
-from pricebook_ng.foundation.solvers import brent, least_squares, newton, secant
+from pricebook_ng.foundation.solvers import brent, least_squares, newton, root_nd, secant
 from pricebook_ng.foundation.tenor import Tenor, TenorUnit
 from pricebook_ng.foundation.time_measure import TimeMeasure
 from pricebook_ng.foundation.underlying import AssetClass, Underlying
@@ -220,6 +220,7 @@ __all__ = [
     "newton",
     "secant",
     "least_squares",
+    "root_nd",
     "Interpolation",
     "Extrapolation",
     "ExtrapolationEnds",
