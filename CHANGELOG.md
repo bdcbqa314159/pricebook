@@ -19,6 +19,48 @@ recorded as an ng-side note (convention code already parked — nothing to migra
 (`quarry_reconciliation.md`) + Topic-1 MANIFEST carry the full record. Deletable = *superseded*; physical
 park at Topic-1 close.
 
+## [0.88.0] - 2026-08-03
+
+**Topic 1, slice 4 — the simultaneous (global) calibration orchestration + par→zero Jacobian.** The
+second orchestration (doc 22 Q4): one `CalibrationSpec`, one residual definition, two orchestrations —
+the existing sequential bootstrap and a new global N-D solve of the whole `CurveSet` at once, proven
+equal on the degenerate case. Red→green throughout.
+
+### Added
+- **`CalibrationMethod` {SEQUENTIAL, SIMULTANEOUS}** — earned now (the second orchestration, rule of two).
+- **`SolveConfig`** — bundles `method` + solver knobs (tolerance, max_iterations) so `CalibrationSpec`
+  stays **5 fields** (§3b); the first tuned-knob consumer earns the numerics config (invariant 5).
+- **`Jacobian`** value type — `∂residualᵢ/∂dfⱼ` + pillar/instrument labels; the SIMULTANEOUS solve
+  populates `CalibrationResult.jacobian`, the SEQUENTIAL path leaves it `None` (resolving doc 22 Q4's
+  deferred branch — the sequential post-hoc Jacobian arrives with its C3-risk consumer).
+- **`foundation/solvers.root_nd`** — the N-D root-find (scipy Levenberg-Marquardt) returning
+  `(solution, jacobian, converged)`; `least_squares` now delegates to it. §7bb: scipy wrapped behind
+  the foundation adapter, no hand-rolled damped Newton, never called from `calibrate`.
+- **`CalibrationFailure`** — non-convergence as a value (invariant 4); `calibrate` returns it instead
+  of a silent bad curve.
+- **`curve_set_residuals(spec, curves)`** — the residual vector both orchestrations drive to zero.
+
+### Changed
+- **`calibrate(spec)` forks on `spec.solve.method`** — sequential (unchanged) or the global solve.
+  Both compose the SAME `CalibrationInstrument` residuals (§3d); only the orchestration + Jacobian
+  provenance differ. The global path assembles one flat state vector of all pillar DFs across both
+  curves and solves them jointly (seed: flat 3% DFs, the `ncurve_solver` default).
+
+### Oracle
+- **sequential == simultaneous degenerate** (doc 18 §8): pillar DFs match to **~1e-15** (discount
+  5.6e-16, projection 1.8e-15).
+- Every calibrating instrument reprices to zero NPV through the L4 engine under the globally-solved
+  curves (worst |PV| ~3.5e-16).
+- **Jacobian validated vs finite-difference** (tangent prediction) to < 1e-6.
+- Non-convergence (`max_iterations=1`) → `CalibrationFailure`; global reprice byte-identical.
+
+### Drawdown
+Retire-read of the quarry global solvers (see the slice checkpoint): `curves/ncurve_solver.py`,
+`curves/global_solver.py`, `curves/multicurve_solver.py` are all superseded by ng's simultaneous solve
+(hand-rolled damped Newton + FD Jacobian are §7bb-shed → scipy; analytic Jacobian → `deferred→C3/AAD`;
+N-curve > 2 → `deferred→3rd-curve`; 0 ng consumers of any shed bit). **Tick pending #119 merge** (the
+bootstrap/discount retire tick is not yet on main — the tracker count reconciles once it lands).
+
 ## [0.87.0] - 2026-07-31
 
 **Topic 1, slice 3 — cash instruments: deposits + FRAs + IMM futures on both curves.** Completes the
