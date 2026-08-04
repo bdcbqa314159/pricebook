@@ -19,6 +19,14 @@ recorded as an ng-side note (convention code already parked — nothing to migra
 (`quarry_reconciliation.md`) + Topic-1 MANIFEST carry the full record. Deletable = *superseded*; physical
 park at Topic-1 close.
 
+### Drawdown — slice-4 reconciliation (docs/tracker only, no code)
+Closes the slice-4 (v0.88.0) deferred tick: the three quarry global solvers — `curves/ncurve_solver.py`,
+`curves/global_solver.py`, `curves/multicurve_solver.py` — cross, superseded by ng's simultaneous solve.
+**Deletable 15 → 18 / 793** (Topic-1: 2 → 5). Hand-rolled damped Newton + FD Jacobian §7bb-shed (scipy);
+analytic Jacobian → `deferred→C3/AAD`; N-curve > 2 → `deferred→3rd-projection-curve`; 0 ng consumers.
+`multicurve_solver` **flagged for Cowork spot-check** (read found 3 crossings, task expected 2). Evidence:
+`CP_slice4_global_solve.md`; tracker + MANIFEST updated.
+
 ## [0.88.0] - 2026-08-03
 
 **Topic 1, slice 4 — the simultaneous (global) calibration orchestration + par→zero Jacobian.** The
