@@ -45,6 +45,7 @@ from pricebook_ng.foundation.interpolation import (
     Interpolation,
     interpolate,
 )
+from pricebook_ng.foundation.hagan_west import MonotoneConvex, monotone_convex
 from pricebook_ng.foundation.market_calendars import (
     calendar_for_currency,
     get_calendar,
@@ -225,4 +226,6 @@ __all__ = [
     "Extrapolation",
     "ExtrapolationEnds",
     "interpolate",
+    "MonotoneConvex",
+    "monotone_convex",
 ]

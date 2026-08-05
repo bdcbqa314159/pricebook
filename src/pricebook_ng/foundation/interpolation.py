@@ -33,6 +33,9 @@ class Interpolation(Enum):
     CUBIC_SPLINE = "cubic_spline"
     MONOTONE_CUBIC = "monotone_cubic"  # PCHIP — shape-preserving, no overshoot
     AKIMA = "akima"
+    HAGAN_WEST = "hagan_west"  # MODE TAG: monotone-convex forward reconstruction (foundation/
+    # hagan_west.py). NOT a point interpolation — reconstructs from interval averages, so the
+    # point-based `interpolate()` raises on it; a curve dispatches it to the forward path.
 
 
 class Extrapolation(Enum):
@@ -140,6 +143,11 @@ def interpolate(
 ) -> float:
     """Interpolate `y` at `x` from ascending `xs`. Outside ``[xs[0], xs[-1]]`` the per-end
     `ends` policy applies (default: raise)."""
+    if method is Interpolation.HAGAN_WEST:
+        raise NotImplementedError(
+            "HAGAN_WEST is a forward-curve reconstruction from interval averages "
+            "(foundation/hagan_west.py), not a point interpolation — a curve dispatches it."
+        )
     if len(xs) != len(ys) or len(xs) < 2:
         raise ValueError("need matching xs, ys of length >= 2")
     if x < xs[0]:
