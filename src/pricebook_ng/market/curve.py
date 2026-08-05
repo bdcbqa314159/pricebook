@@ -22,7 +22,13 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
-from pricebook_ng.foundation import Interpolation, TimeMeasure, interpolate
+from pricebook_ng.foundation import (
+    Interpolation,
+    MonotoneConvex,
+    TimeMeasure,
+    interpolate,
+    monotone_convex,
+)
 
 
 class CurveHandle(Protocol):
@@ -45,9 +51,22 @@ class DiscountCurve:
     interpolation: Interpolation = Interpolation.LOG_LINEAR
 
     def df(self, d: date) -> float:
-        return interpolate(
-            self.times, self.dfs, self.time_measure.year_fraction(d), self.interpolation
+        t = self.time_measure.year_fraction(d)
+        if self.interpolation is Interpolation.HAGAN_WEST:
+            return math.exp(-self._forward_reconstruction().integral(t))
+        return interpolate(self.times, self.dfs, t, self.interpolation)
+
+    def _forward_reconstruction(self) -> MonotoneConvex:
+        """Hagan–West: the average instantaneous forward over each pillar interval,
+        `(ln df_{i-1} − ln df_i)/Δt`, fed to the L0 monotone-convex primitive; then
+        `df(t) = exp(−∫₀ᵗ f)`. Reproduces the pillar DFs exactly. It is NON-LOCAL — its home
+        is the simultaneous solve (sequential-HW is deferred to the paper's terminal-interval
+        convention). ponytail: rebuilt per call; a hot HW curve caches it (Topic-1 deferred)."""
+        averages = tuple(
+            (math.log(self.dfs[i - 1]) - math.log(self.dfs[i])) / (self.times[i] - self.times[i - 1])
+            for i in range(1, len(self.times))
         )
+        return monotone_convex(self.times, averages)
 
     @classmethod
     def flat(cls, time_measure: TimeMeasure, rate: float, until: date) -> DiscountCurve:
