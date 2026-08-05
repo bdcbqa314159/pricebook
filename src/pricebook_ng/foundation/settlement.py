@@ -105,6 +105,38 @@ def spot_lag(pair: CurrencyPair) -> int:
     return _SPOT_LAGS.get(pair.name, 2)
 
 
+# ── FX pair conventions — the declared canonical quote order (AC-3.6b registry half) ──
+_FX_PAIRS: dict[frozenset[str], CurrencyPair] = {}
+
+
+def register_fx_pair(base: Currency, quote: Currency) -> CurrencyPair:
+    """Declare an FX pair in its canonical quote order `base/quote` (one unit of base costs the
+    rate in quote). Completes AC-3.6b's registry half; the asymmetric-ACI date rule stays
+    deferred. A cross must be declared — nothing is guessed (doc 19 §2.1)."""
+    if base == quote:
+        raise ValueError(f"an FX pair needs two currencies; got {base.code}/{base.code}")
+    key = frozenset({base.code, quote.code})
+    if key in _FX_PAIRS:
+        raise ValueError(f"FX pair {base.code}/{quote.code} is already declared")
+    pair = CurrencyPair(base, quote)
+    _FX_PAIRS[key] = pair
+    return pair
+
+
+def fx_pair(a: Currency, b: Currency) -> CurrencyPair:
+    """The declared canonical pair for `{a, b}` (either order). Raises on an undeclared pair /
+    cross — never guesses a direction (doc 19 §2.1: fail loud on ambiguity)."""
+    pair = _FX_PAIRS.get(frozenset({a.code, b.code}))
+    if pair is None:
+        raise ValueError(
+            f"undeclared FX pair {a.code}/{b.code} — declare it via register_fx_pair"
+        )
+    return pair
+
+
+register_fx_pair(Currency.EUR, Currency.USD)  # the one declared pair this slice (EUR is base)
+
+
 def fx_spot_date(pair: CurrencyPair, trade_date: date) -> date:
     """The FX spot value date: `trade_date` + `spot_lag` good business days, where each
     counted day is a business day in BOTH currency centres. For a **cross** (neither leg USD)

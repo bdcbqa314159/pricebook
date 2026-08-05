@@ -104,7 +104,9 @@ from pricebook_ng.foundation.settlement import (
     Delivery,
     SettlementTerms,
     SettlementType,
+    fx_pair,
     fx_spot_date,
+    register_fx_pair,
     settlement_date,
     spot_lag,
 )
@@ -211,6 +213,8 @@ __all__ = [
     "settlement_date",
     "fx_spot_date",
     "spot_lag",
+    "fx_pair",
+    "register_fx_pair",
     # numerics
     "PricingResult",
     "PricingFailure",
