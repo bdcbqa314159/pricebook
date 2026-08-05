@@ -6,6 +6,44 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.89.0] - 2026-08-05
+
+**Topic 1, slice 5 — Hagan–West monotone-convex forward interpolation.** Owns what scipy lacks
+(§7bb); the first EXTERNAL-oracle slice in the topic (the paper's equations, since it publishes the
+example only as figures). Red→green throughout.
+
+### Added
+- **`foundation/hagan_west.py` (L0, finance-free)** — the monotone-convex reconstruction from
+  interval averages (Hagan & West AMF 2006): knot estimates eq 30–32, four-region construction eq
+  47/49–56, optional positivity clamp eq 60–62. Parameters are `knots` + `averages` + a `positive`
+  flag — **no forwards/DFs/rates/curves** (the falsification gate held: pure math). It is a distinct
+  primitive, not a mode of the point-based `interpolate()`. `monotone_convex(...)` → `MonotoneConvex`
+  with `value(x)` and `integral(x)`.
+- **`Interpolation.HAGAN_WEST`** — a MODE TAG; the point-based `interpolate()` raises
+  `NotImplementedError` on it (it reconstructs from interval integrals, not point values).
+
+### Changed
+- **`DiscountCurve.df` dispatches `HAGAN_WEST`** to the forward path: discrete forwards from the
+  pillar DFs → the L0 primitive → `df(t) = exp(−∫₀ᵗ f)`, reproducing the pillar DFs exactly. HW is
+  **non-local**, so its home is the SIMULTANEOUS solve (slice 4); sequential-HW is deferred (the
+  paper's terminal-interval convention) with a named trigger.
+
+### Oracle (equation-anchored — the paper has no value table)
+- **eq-33 interval-average reproduction to 1e-14** (the method's defining invariant).
+- **Per-region pointwise checks (regions i–iv)** vs values hand-derived from eq 47/49–56 (independent
+  of the code) to 1e-12 — catches a wrong-region transcription; boundary conditions `g(0)=g₀,g(1)=g₁`.
+- Positivity clamps knots ≥ 0 and keeps interpolated forwards ≥ 0; eq-33 still holds under it.
+- **Reprice-to-par** through the L4 engine on HW curves (via the simultaneous solve), worst |PV|
+  1.4e-16; **degeneracy** HW == log-linear on constant forwards (df diff 0.0).
+
+### Drawdown — premise correction, ticks 0 (partial-cross candidate flagged)
+The tasking said HW was "missing from both trees" — **incorrect**: the quarry has it in
+`core/forward_interpolation.py::monotone_convex_forwards` and `curves/curve_advanced.py::
+smooth_forward_curve`. ng's HW supersedes the monotone-convex forward *construction*, but
+`forward_interpolation.py` is a **multi-method** module (a `ForwardInterpolationMethod` enum), so this
+is at most a **partial** cross — not ticked without a full retire-read. Recorded as a candidate for the
+next align/Cowork spot-check; drawdown stays 18/793.
+
 ### Drawdown — retire read (docs/tracker only, no code)
 The slice-3 checkpoint's named next action is done: the end-to-end retire read of `curves/bootstrap.py`
 (713 LOC) + `core/discount_curve.py` (300 LOC). **Both cross → deletable 13 → 15 / 793 (first Topic-1
