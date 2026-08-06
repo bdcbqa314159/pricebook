@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.90.0] - 2026-08-05
+
+**Topic 1, slice 6a (C1 close, 1/3) — FX spot in the snapshot.** First step of CSA/xccy: the directional
+FX spot. Red→green.
+
+### Added
+- **`MarketSnapshot.scalars`** — the first non-curve shape (doc 19 closed-shapes × open-keys), keyed by
+  `ScalarKey(pair)`; FX spots stored in the declared canonical quote order. Existing snapshots default
+  `scalars` empty (slices 1–5 unaffected); `MarketSnapshot` stays 3 fields.
+- **`MarketSnapshot.fx_rate(base, quote)`** — resolves the declared canonical pair, reads the spot,
+  inverts on the reverse direction; **raises on an undeclared cross** — never a bare pair-scalar (doc 19
+  §2.1, fail loud).
+- **`foundation.register_fx_pair` / `fx_pair`** — the FX pair-conventions registry (EUR/USD declared, EUR
+  base). Completes **AC-3.6b's registry half**; the asymmetric-ACI FX-date rule stays deferred.
+
+### Oracle
+- `fx_rate(A,B)·fx_rate(B,A) == 1` to 1e-15; canonical direction returns the stored value, the reverse
+  its reciprocal; an undeclared cross (GBP/JPY) raises; duplicate / same-currency registration raise.
+
+Drawdown unchanged (18/793) — FX-conventions plumbing, no quarry module crossed (the FX suite is
+reassigned to the FX/XVA topic).
+
 ## [0.89.0] - 2026-08-05
 
 **Topic 1, slice 5 — Hagan–West monotone-convex forward interpolation.** Owns what scipy lacks
