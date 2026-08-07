@@ -33,12 +33,14 @@ class CurveRole(Enum):
 
 @dataclass(frozen=True)
 class CurveKey:
-    """Identifies a curve in the set: its role and the asset dimension it is keyed by
-    (a `Currency` for discount, a `RateIndex` for projection). Doc 19's fuller asset
-    keying — collateral, entity, underlying, pair — arrives with those asset classes."""
+    """Identifies a curve in the set: its role, the asset dimension it is keyed by (a
+    `Currency` for discount, a `RateIndex` for projection), and — for discount — the CSA
+    `collateral` currency (`None` = own-currency/OIS). Doc 19's fuller asset keying (entity,
+    underlying, pair) arrives with those asset classes."""
 
     role: CurveRole
     id: Currency | RateIndex
+    collateral: Currency | None = None
 
 
 @dataclass(frozen=True)
@@ -48,11 +50,11 @@ class CurveSet:
     curves: Mapping[CurveKey, CurveHandle]
 
     def discount(self, currency: Currency, collateral: Currency | None = None) -> CurveHandle:
-        if collateral is not None:
-            raise NotImplementedError(
-                "collateral-keyed discounting is deferred to the CSA/xccy slice"
-            )
-        return self.curves[CurveKey(CurveRole.DISCOUNT, currency)]
+        """The discount curve for `currency` under a `collateral` CSA. Own-currency collateral
+        (`None` or `== currency`) normalizes to the domestic OIS curve; a foreign collateral
+        selects its collateral-keyed curve (the xccy-basis curve, slice 6c)."""
+        keyed = None if collateral in (None, currency) else collateral
+        return self.curves[CurveKey(CurveRole.DISCOUNT, currency, keyed)]
 
     def projection(self, index: RateIndex) -> CurveHandle:
         """The forward-projection curve for `index`. Single-curve is the degenerate
