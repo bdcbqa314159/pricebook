@@ -6,6 +6,29 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-08-08
+
+**Topic 1, slice 6b (C1 close, 2/3) — CSA collateral-keyed discounting.** Activates the
+`discount(ccy, collateral)` hook stubbed since slice 2. Red→green.
+
+### Changed
+- **`CurveKey` grows `collateral: Currency | None`** (3 fields) — the discount curve is now keyed by
+  currency AND CSA collateral. Existing keys default `collateral=None`, so slices 1–5 are unchanged.
+- **`CurveSet.discount(ccy, collateral)`** normalizes own-currency collateral (`None` or `== ccy`) to the
+  domestic OIS curve; a foreign collateral selects its keyed curve (the xccy curve lands in 6c).
+- **`VanillaSwap.collateral: Currency | None`** (5 fields). The engine resolves `discount(ccy, collateral)`
+  through `model.market` (A1) and records **`PricingResult.basis`** (`None` for own-currency, the
+  collateral currency otherwise). *(Relocation trigger recorded: collateral/CSA moves to the L6 trade
+  layer when L6 lands.)*
+
+### Oracle
+- **Degeneracy:** a EUR swap collateralized in EUR prices identically to `collateral=None` (domestic OIS)
+  to 1e-12; `basis` is `None` for both. All slices 1–5 reprice unchanged through the new key path.
+- A foreign-collateral (USD) swap resolves its keyed curve, records `basis == USD`, and differs from the
+  domestic price.
+
+Drawdown unchanged (18/793).
+
 ## [0.90.0] - 2026-08-05
 
 **Topic 1, slice 6a (C1 close, 1/3) — FX spot in the snapshot.** First step of CSA/xccy: the directional
