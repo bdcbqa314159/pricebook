@@ -30,11 +30,12 @@ def price_swap(swap: VanillaSwap, model: DiscountingModel) -> PricingResult | Pr
     """Mark a vanilla swap off the model's curves. Payer PV = N·(float − rate·annuity)."""
     curves = model.market.curves
     try:
-        discount = curves.discount(swap.currency)
+        discount = curves.discount(swap.currency, swap.collateral)  # CSA-keyed (A1: through the model)
         projection = curves.projection(swap.float_leg.index)
         annuity = rpv01(swap.fixed_leg.schedule, swap.fixed_leg.day_count, discount)
         floating = float_leg_pv(swap.float_leg.schedule, swap.float_leg.day_count, discount, projection)
     except (ValueError, KeyError) as exc:  # cashflow beyond a curve, or an unresolved curve key
         return PricingFailure(str(exc))
     pv = swap.notional * (floating - swap.fixed_leg.rate * annuity)
-    return PricingResult(pv=Money(pv, swap.currency))
+    basis = None if swap.collateral in (None, swap.currency) else swap.collateral
+    return PricingResult(pv=Money(pv, swap.currency), basis=basis)

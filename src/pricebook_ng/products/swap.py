@@ -42,10 +42,13 @@ class FloatLeg:
 
 @dataclass(frozen=True)
 class VanillaSwap:
-    """A fixed-for-float swap on one `notional`/`currency`. PV is taken from the
-    fixed-rate PAYER's side (pay fixed, receive float); the receiver is its negative."""
+    """A fixed-for-float swap on one `notional`/`currency`, discounted under a CSA in
+    `collateral` currency (`None` = own-currency/OIS). PV is taken from the fixed-rate
+    PAYER's side (pay fixed, receive float); the receiver is its negative. (Relocation
+    trigger: `collateral`/CSA moves to the L6 trade layer when L6 lands.)"""
 
     notional: float
     currency: Currency
     fixed_leg: FixedLeg
     float_leg: FloatLeg
+    collateral: Currency | None = None
