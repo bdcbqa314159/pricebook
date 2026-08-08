@@ -62,7 +62,7 @@ PROJECTION = CurveBuild(
         ParSwapQuote(Tenor(5, Y), 0.0372),
     ),
 )
-SEQUENTIAL = CalibrationSpec(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
+SEQUENTIAL = CalibrationSpec.single_currency(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
 GLOBAL = replace(SEQUENTIAL, solve=SolveConfig(method=CalibrationMethod.SIMULTANEOUS))
 
 

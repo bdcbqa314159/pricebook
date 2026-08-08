@@ -40,7 +40,7 @@ EURIBOR = tuple(
 )
 DISCOUNT = CurveBuild(index=ESTR, frequency=Frequency.ANNUAL, day_count=DC, quotes=OIS)
 PROJECTION = CurveBuild(index=EURIBOR_3M, frequency=Frequency.ANNUAL, day_count=DC, quotes=EURIBOR)
-SPEC = CalibrationSpec(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
+SPEC = CalibrationSpec.single_currency(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
 
 
 def test_euribor_dual_curve_swap_prices_to_zero_npv() -> None:

@@ -33,7 +33,7 @@ DC = DayCountConvention.ACT_365_FIXED
 Y = TenorUnit.YEAR
 DISCOUNT = CurveBuild(ESTR, Frequency.ANNUAL, DC, tuple(ParSwapQuote(Tenor(y, Y), r) for y, r in [(1, .030), (2, .032), (3, .034), (5, .036)]))
 PROJECTION = CurveBuild(EURIBOR_3M, Frequency.ANNUAL, DC, tuple(ParSwapQuote(Tenor(y, Y), r) for y, r in [(1, .0312), (2, .0332), (3, .0352), (5, .0372)]))
-SPEC = CalibrationSpec(VAL, Currency.EUR, DISCOUNT, PROJECTION)
+SPEC = CalibrationSpec.single_currency(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
 
 
 def _swap(collateral):
