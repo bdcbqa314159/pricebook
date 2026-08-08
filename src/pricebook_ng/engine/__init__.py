@@ -8,5 +8,14 @@ populate the registry.
 from pricebook_ng.engine.cash import price_deposit, price_fra, price_future
 from pricebook_ng.engine.linear import price, price_swap
 from pricebook_ng.engine.registry import register
+from pricebook_ng.engine.xccy import price_xccy
 
-__all__ = ["price", "price_swap", "price_deposit", "price_fra", "price_future", "register"]
+__all__ = [
+    "price",
+    "price_swap",
+    "price_deposit",
+    "price_fra",
+    "price_future",
+    "price_xccy",
+    "register",
+]

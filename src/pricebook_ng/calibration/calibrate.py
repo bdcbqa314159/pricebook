@@ -50,7 +50,7 @@ from pricebook_ng.market.quotes import DepositQuote, FRAQuote, FutureQuote, ParS
 from pricebook_ng.market.snapshot import MarketSnapshot, ScalarKey
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.cash import FRA, Deposit, Future
-from pricebook_ng.products.swap import FixedLeg, FloatLeg, VanillaSwap
+from pricebook_ng.products.swap import FixedLeg, FloatLeg, VanillaSwap, XccyBasisSwap
 
 __all__ = [
     "CalibrationSpec",
@@ -66,6 +66,7 @@ __all__ = [
     "ParSwapQuote",
     "calibrate",
     "par_swap",
+    "xccy_swaps",
     "product",
     "curve_set_residuals",
 ]
@@ -288,6 +289,29 @@ class FutureInstrument:
         return forward(projection, self.future.accrual) - (1.0 - self.future.price)
 
 
+@dataclass(frozen=True)
+class XccyBasisInstrument:
+    """A par cross-currency basis swap. Solves the foreign-collateral curve (the trial =
+    `projection` per the convention); `discount` here carries the foreign OIS curve that
+    PROJECTS the foreign floating. Composes the SAME `float_leg_pv`/`rpv01` atoms the engine
+    composes (§3d): the foreign leg discounted on the trial, projected on the foreign OIS, plus
+    the basis annuity, plus the foreign notional exchange — zero at par. The domestic leg and
+    FX spot cancel (see `XccyBasisSwap`), so they do not enter the residual."""
+
+    swap: XccyBasisSwap
+
+    @property
+    def pillar_date(self) -> date:
+        return self.swap.foreign_leg.schedule.periods[-1].payment_date
+
+    def residual(self, discount: CurveHandle, projection: CurveHandle) -> float:
+        leg = self.swap.foreign_leg
+        trial, foreign_ois = projection, discount
+        floating = float_leg_pv(leg.schedule, leg.day_count, trial, foreign_ois)
+        annuity = rpv01(leg.schedule, leg.day_count, trial)
+        return floating + self.swap.basis * annuity + trial.df(self.pillar_date) - 1.0
+
+
 def par_swap(
     spec: CalibrationSpec, build: CurveBuild, tenor: Tenor, rate: float, notional: float = 1.0
 ) -> VanillaSwap:
@@ -308,6 +332,33 @@ def _par_rate(swap: VanillaSwap, discount: CurveHandle, projection: CurveHandle)
     return float_leg_pv(
         swap.float_leg.schedule, swap.float_leg.day_count, discount, projection
     ) / rpv01(swap.fixed_leg.schedule, swap.fixed_leg.day_count, discount)
+
+
+def _currency_curves(spec: CalibrationSpec, currency: Currency) -> CurrencyCurves:
+    for cc in spec.curves:
+        if cc.currency == currency:
+            return cc
+    raise KeyError(f"no curve build for {currency.code} in the spec")
+
+
+def _xccy_swap(
+    spec: CalibrationSpec, ois: CurveBuild, collateral: Currency, quote: XccyBasisQuote
+) -> XccyBasisSwap:
+    """Build the xccy basis swap the bootstrap calibrates to (and the engine reprices) — ONE
+    construction, shared so calibrator and pricer use the same schedule/index (§3d). The
+    foreign leg reuses the foreign currency's OIS conventions (`ois`)."""
+    terms = ScheduleTerms(frequency=ois.frequency, roll=RollRule(calendar=None))
+    schedule = build_schedule(spec.valuation_date, spec.valuation_date + quote.tenor, terms)
+    return XccyBasisSwap(1.0, FloatLeg(schedule, ois.day_count, ois.index), collateral, quote.spread)
+
+
+def xccy_swaps(spec: CalibrationSpec) -> tuple[XccyBasisSwap, ...]:
+    """The calibrating xccy basis swaps — the SAME products the L4 engine reprices to zero (§3d).
+    Empty when the spec has no xccy build."""
+    if spec.xccy is None:
+        return ()
+    ois = _currency_curves(spec, spec.xccy.currency).discount
+    return tuple(_xccy_swap(spec, ois, spec.xccy.collateral, q) for q in spec.xccy.quotes)
 
 
 # ── quote → product (L2), and quote → calibration instrument (L3), both by type ─────────
@@ -406,6 +457,41 @@ def _bootstrap(
         times.append(t_k)
         dfs.append(df_k)
     return DiscountCurve(time_measure, tuple(times), tuple(dfs), build.interpolation)
+
+
+def _bootstrap_xccy(
+    spec: CalibrationSpec, curves: Mapping[CurveKey, CurveHandle]
+) -> tuple[DiscountCurve, tuple[float, ...]]:
+    """Sequential post-bootstrap of the foreign-collateral (xccy-basis) curve, on top of the
+    already-built per-currency curves (dependency order: domestic OIS → foreign OIS → foreign-in-
+    collateral LAST, doc 18 §1). Each pillar's DF is Brent-solved so its xccy basis swap reprices
+    to zero, projecting the foreign floating on the foreign OIS. Folding these pillars into the
+    SIMULTANEOUS global state is deferred (2nd xccy consumer) — so sequential==simultaneous does
+    NOT cover xccy."""
+    xccy = spec.xccy
+    assert xccy is not None  # guarded by the caller
+    ois = _currency_curves(spec, xccy.currency).discount
+    foreign_ois = curves[CurveKey(CurveRole.DISCOUNT, xccy.currency)]
+    time_measure = TimeMeasure(spec.valuation_date, ois.day_count)
+    instruments = sorted(
+        (XccyBasisInstrument(_xccy_swap(spec, ois, xccy.collateral, q)) for q in xccy.quotes),
+        key=lambda i: i.pillar_date,
+    )
+    times: list[float] = [0.0]
+    dfs: list[float] = [1.0]
+    for inst in instruments:
+        t_k = time_measure.year_fraction(inst.pillar_date)
+
+        def residual(df_k: float, inst: XccyBasisInstrument = inst, t_k: float = t_k) -> float:
+            trial = DiscountCurve(time_measure, (*times, t_k), (*dfs, df_k), ois.interpolation)
+            return inst.residual(foreign_ois, trial)
+
+        df_k = brent(residual, 1e-6, 1.0)
+        times.append(t_k)
+        dfs.append(df_k)
+    curve = DiscountCurve(time_measure, tuple(times), tuple(dfs), ois.interpolation)
+    residuals = tuple(inst.residual(foreign_ois, curve) for inst in instruments)
+    return curve, residuals
 
 
 def _calibrate_sequential(spec: CalibrationSpec) -> tuple[DiscountingModel, CalibrationResult]:
@@ -508,6 +594,11 @@ def calibrate(
         converged = converged and result.converged
         if len(spec.curves) == 1:  # preserve the single-currency Jacobian (SIMULTANEOUS)
             jacobian = result.jacobian
+    if spec.xccy is not None:  # foreign-collateral curve, always a sequential post-bootstrap
+        xccy_curve, xccy_residuals = _bootstrap_xccy(spec, merged)
+        merged[CurveKey(CurveRole.DISCOUNT, spec.xccy.currency, spec.xccy.collateral)] = xccy_curve
+        residuals.extend(xccy_residuals)
+        converged = converged and all(abs(r) < 1e-10 for r in xccy_residuals)
     snapshot = MarketSnapshot(spec.valuation_date, CurveSet(merged), scalars=dict(spec.fx))
     return DiscountingModel(snapshot), CalibrationResult(
         tuple(residuals), converged=converged, jacobian=jacobian
