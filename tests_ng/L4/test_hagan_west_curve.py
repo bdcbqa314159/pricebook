@@ -47,8 +47,7 @@ _OIS = tuple(ParSwapQuote(Tenor(y, Y), r) for y, r in [(1, 0.030), (2, 0.032), (
 _IBOR = tuple(ParSwapQuote(Tenor(y, Y), r) for y, r in [(1, 0.0312), (2, 0.0332), (3, 0.0352), (5, 0.0372)])
 DISCOUNT = CurveBuild(ESTR, Frequency.ANNUAL, DC, _OIS, interpolation=HW)
 PROJECTION = CurveBuild(EURIBOR_3M, Frequency.ANNUAL, DC, _IBOR, interpolation=HW)
-GLOBAL_HW = CalibrationSpec(
-    valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION,
+GLOBAL_HW = CalibrationSpec.single_currency(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION,
     solve=SolveConfig(method=CalibrationMethod.SIMULTANEOUS),
 )
 

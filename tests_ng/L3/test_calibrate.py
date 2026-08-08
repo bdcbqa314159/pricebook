@@ -44,7 +44,7 @@ EURIBOR = (  # a few bp above OIS ⇒ a genuinely distinct projection curve
 )
 DISCOUNT = CurveBuild(index=ESTR, frequency=Frequency.ANNUAL, day_count=DC, quotes=OIS)
 PROJECTION = CurveBuild(index=EURIBOR_3M, frequency=Frequency.ANNUAL, day_count=DC, quotes=EURIBOR)
-SPEC = CalibrationSpec(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
+SPEC = CalibrationSpec.single_currency(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
 
 
 def _par(swap, discount, projection):

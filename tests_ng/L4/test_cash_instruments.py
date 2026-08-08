@@ -68,7 +68,7 @@ PROJECTION = CurveBuild(
         ParSwapQuote(Tenor(5, Y), 0.0372),
     ),
 )
-SPEC = CalibrationSpec(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
+SPEC = CalibrationSpec.single_currency(valuation_date=VAL, currency=Currency.EUR, discount=DISCOUNT, projection=PROJECTION)
 
 
 def test_every_cash_instrument_reprices_to_zero_through_the_engine() -> None:

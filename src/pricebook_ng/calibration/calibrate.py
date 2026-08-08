@@ -22,7 +22,7 @@ Provenance:
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
@@ -47,14 +47,17 @@ from pricebook_ng.market.building_blocks import deposit_df, float_leg_pv, forwar
 from pricebook_ng.market.curve import CurveHandle, DiscountCurve
 from pricebook_ng.market.curve_set import CurveKey, CurveRole, CurveSet
 from pricebook_ng.market.quotes import DepositQuote, FRAQuote, FutureQuote, ParSwapQuote
-from pricebook_ng.market.snapshot import MarketSnapshot
+from pricebook_ng.market.snapshot import MarketSnapshot, ScalarKey
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.cash import FRA, Deposit, Future
 from pricebook_ng.products.swap import FixedLeg, FloatLeg, VanillaSwap
 
 __all__ = [
     "CalibrationSpec",
+    "CurrencyCurves",
     "CurveBuild",
+    "XccyBasisQuote",
+    "XccyBuild",
     "CalibrationResult",
     "CalibrationMethod",
     "SolveConfig",
@@ -122,15 +125,83 @@ class CurveBuild:
 
 
 @dataclass(frozen=True)
-class CalibrationSpec:
-    """The curve set to build, all data (doc 22 Q4): the `discount` (OIS) build and the
-    `projection` (IBOR) build, on one `valuation_date`/`currency`."""
+class XccyBasisQuote:
+    """A cross-currency basis spread quote: the `spread` (on the foreign leg) at `tenor`.
+    The pair is carried by the `XccyBuild` that owns it (a new asset adds keys, not fields)."""
 
-    valuation_date: date
+    tenor: Tenor
+    spread: float
+
+
+@dataclass(frozen=True)
+class XccyBuild:
+    """How to build the foreign-collateral (xccy-basis) curve: the foreign `currency`, the
+    `collateral` currency it is discounted under, and the basis `quotes`. The foreign leg's
+    conventions (index, frequency, day count) are reused from that currency's OIS build in
+    the same spec — no duplication (doc 18 §1)."""
+
+    currency: Currency
+    collateral: Currency
+    quotes: tuple[XccyBasisQuote, ...]
+
+
+@dataclass(frozen=True)
+class CurrencyCurves:
+    """One currency's curve builds: the `discount` (OIS) build and the `projection` (IBOR)
+    build. A `CalibrationSpec` holds one per currency (doc 22 Q4 — the spec is data)."""
+
     currency: Currency
     discount: CurveBuild
     projection: CurveBuild
+
+
+@dataclass(frozen=True)
+class CalibrationSpec:
+    """The curve set to build, all data (doc 22 Q4): one `CurrencyCurves` per currency
+    (single-currency = a 1-tuple, the degenerate case), the `solve` config, an optional
+    `xccy` basis build, and the `fx` spots the snapshot carries. The unified multi-currency
+    front — ONE `calibrate`, no per-topic entry point (§1). Convenience `.currency`/`.discount`/
+    `.projection` accessors resolve the single-currency case (slices 1–5) and raise on multi."""
+
+    valuation_date: date
+    curves: tuple[CurrencyCurves, ...]
     solve: SolveConfig = field(default_factory=SolveConfig)
+    xccy: XccyBuild | None = None
+    fx: Mapping[ScalarKey, float] = field(default_factory=dict)
+
+    @classmethod
+    def single_currency(
+        cls,
+        *,
+        valuation_date: date,
+        currency: Currency,
+        discount: CurveBuild,
+        projection: CurveBuild,
+        solve: SolveConfig | None = None,
+    ) -> CalibrationSpec:
+        """The degenerate single-currency spec (slices 1–5): one `CurrencyCurves` element."""
+        return cls(
+            valuation_date,
+            (CurrencyCurves(currency, discount, projection),),
+            solve or SolveConfig(),
+        )
+
+    def _single(self) -> CurrencyCurves:
+        if len(self.curves) != 1:
+            raise ValueError("multi-currency spec: use .curves, not .currency/.discount/.projection")
+        return self.curves[0]
+
+    @property
+    def currency(self) -> Currency:
+        return self._single().currency
+
+    @property
+    def discount(self) -> CurveBuild:
+        return self._single().discount
+
+    @property
+    def projection(self) -> CurveBuild:
+        return self._single().projection
 
 
 @dataclass(frozen=True)
@@ -400,12 +471,44 @@ def _calibrate_simultaneous(
     return model, CalibrationResult(curve_set_residuals(spec, curves), converged=True, jacobian=jacobian)
 
 
+def _sub(spec: CalibrationSpec, cc: CurrencyCurves) -> CalibrationSpec:
+    """A single-currency view of one currency's builds — lets the per-currency solve reuse
+    the existing (single-currency) machinery unchanged through the convenience accessors."""
+    return CalibrationSpec(spec.valuation_date, (cc,), spec.solve)
+
+
+def _solve_currency(
+    sub: CalibrationSpec,
+) -> tuple[DiscountingModel, CalibrationResult] | CalibrationFailure:
+    """One currency's curves via the chosen orchestration (doc 22 Q4) — both compose the SAME
+    `CalibrationInstrument` residuals; only the solve differs."""
+    if sub.solve.method is CalibrationMethod.SIMULTANEOUS:
+        return _calibrate_simultaneous(sub)
+    return _calibrate_sequential(sub)
+
+
 def calibrate(
     spec: CalibrationSpec,
 ) -> tuple[DiscountingModel, CalibrationResult] | CalibrationFailure:
-    """Calibrate the curve set. ONE signature, ONE residual definition; `spec.solve.method`
-    forks the orchestration (doc 22 Q4) — both compose the SAME `CalibrationInstrument`
-    residuals, unchanged. SIMULTANEOUS may return a `CalibrationFailure` (invariant 4)."""
-    if spec.solve.method is CalibrationMethod.SIMULTANEOUS:
-        return _calibrate_simultaneous(spec)
-    return _calibrate_sequential(spec)
+    """Calibrate the whole curve SET (doc 22 Q4): each currency's curves in turn (independent
+    OIS+projection systems), all keys assembled into ONE `CurveSet` carried by ONE model. The
+    single-currency 1-tuple is the degenerate case — identical numbers to slices 1–5. Any
+    currency's failure to converge is returned as a value (invariant 4)."""
+    merged: dict[CurveKey, CurveHandle] = {}
+    residuals: list[float] = []
+    converged = True
+    jacobian: Jacobian | None = None
+    for cc in spec.curves:
+        out = _solve_currency(_sub(spec, cc))
+        if isinstance(out, CalibrationFailure):
+            return out
+        model, result = out
+        merged.update(model.market.curves.curves)
+        residuals.extend(result.residuals)
+        converged = converged and result.converged
+        if len(spec.curves) == 1:  # preserve the single-currency Jacobian (SIMULTANEOUS)
+            jacobian = result.jacobian
+    snapshot = MarketSnapshot(spec.valuation_date, CurveSet(merged), scalars=dict(spec.fx))
+    return DiscountingModel(snapshot), CalibrationResult(
+        tuple(residuals), converged=converged, jacobian=jacobian
+    )
