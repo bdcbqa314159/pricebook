@@ -52,3 +52,22 @@ class VanillaSwap:
     fixed_leg: FixedLeg
     float_leg: FloatLeg
     collateral: Currency | None = None
+
+
+@dataclass(frozen=True)
+class XccyBasisSwap:
+    """A constant-notional cross-currency basis swap under a `collateral` (domestic) CSA:
+    pay a domestic OIS-flat leg, receive the `foreign_leg` (its currency = `foreign_leg.index`'s)
+    plus a `basis` spread, with notional exchanged at spot at start and maturity.
+
+    Minimal single-curve-per-currency form (doc 18 §1): the domestic leg is OIS-flat, so under
+    its own collateral it prices to par and the notional exchange nets to zero — its PV, and with
+    it the FX spot (`N_foreign = N_domestic/S`), CANCEL. The mark is therefore the foreign leg
+    (discounted on the foreign-collateral curve, projected on the foreign OIS) plus the basis
+    annuity plus the foreign notional exchange. Tenor-basis, MtM-notional resets, and NDFs are
+    deferred (named triggers). (Relocation trigger: collateral/CSA → the L6 trade layer.)"""
+
+    notional: float
+    foreign_leg: FloatLeg
+    collateral: Currency
+    basis: float
