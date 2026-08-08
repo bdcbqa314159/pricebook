@@ -31,6 +31,16 @@ crossed**:
   **`multicurve_solver` flagged for Cowork spot-check** — the read found it *also* directly superseded
   (task expected 2 ticks, not 3); un-tick is cheap if Cowork rules it a partial cross.
 
+- **slice-6c retire read (0 ticks — ratified):** the xccy/CSA/FX quarry suite (`fixed_income/xccy_swap`,
+  `xccy_basis`, `xccy_bond`, `xccy_swaption`, `csa`, `credit/bilateral_csa`, `risk/collateral_*`,
+  `curves/ndf_implied`, and all of `fx/*` — `multi_currency_curves`, `fx_basis`, `fx_forward*`, `ndf`,
+  `prdc`, `fx_smile_cube`, …) is **NOT superseded** by 6c. ng's 6c delivers one minimal foreign-collateral
+  *discount curve* (constant-notional, single-curve-per-ccy, basis-as-spread); the quarry suite is
+  full-featured FX/XVA breadth (vol surfaces, exotics, NDFs, collateral optimisation, bilateral CSA).
+  A curve does not supersede a product+risk suite → **0 ticks (correct, ratified C1 domain depth, doc 18
+  §4/§9)**. Named crossing: these files retire with the **FX / XVA topics**, not Topic 1. Drawdown
+  unchanged at **18 / 793**.
+
 These five are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
