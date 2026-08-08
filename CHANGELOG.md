@@ -6,6 +6,49 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.92.0] - 2026-08-08
+
+**Topic 1, slice 6c (C1 CLOSE) — xccy basis curve via the unified calibration front.** Two steps:
+a refactor-under-green to a multi-currency `CalibrationSpec`, then the xccy basis curve on top.
+Closes cluster C1 (single-curve → dual-curve → cash → global solve → Hagan–West → CSA/xccy).
+
+### Changed
+- **`CalibrationSpec` reshaped to the unified multi-currency front** (§8 refactor-under-green):
+  `(valuation_date, curves: tuple[CurrencyCurves], solve, xccy, fx)` — 5 fields. `single_currency()`
+  classmethod + `.currency`/`.discount`/`.projection` accessors keep slices 1–5 unchanged (1-tuple =
+  degenerate). `calibrate()` loops currencies into ONE `CurveSet` on ONE model. No new behaviour; the
+  full existing oracle set stayed green through the new shape.
+
+### Added
+- **`XccyBasisSwap`** (L2) — constant-notional cross-currency basis swap: domestic OIS-flat leg vs a
+  foreign leg + basis, notional exchanged at spot, under a `collateral` CSA.
+- **`XccyBasisQuote`/`XccyBuild`** and **`XccyBasisInstrument`** — the foreign-collateral (xccy-basis)
+  curve is bootstrapped as a SEQUENTIAL post-step (domestic OIS → foreign OIS → foreign-in-collateral
+  last), keyed `(DISCOUNT, foreign, collateral)`. The instrument and the new **`price_xccy`** engine
+  pricer compose the SAME `float_leg_pv`/`rpv01` atoms (§3d).
+- `test_collateral`'s foreign case now uses a **real calibration**, not a manual curve injection.
+
+### Oracle
+- **Reprice-to-zero:** every calibrating xccy basis swap prices to ~0 through the L4 engine (zero and
+  10bp basis).
+- **CIP closed-form anchor:** at zero basis the curve reproduces `df_foreign` (foreign OIS), so the FX
+  forward `F = S·df_foreign^coll/df_domestic` equals the textbook `S·df_foreign/df_domestic` to **1e-10**;
+  a real basis moves the curve below CIP.
+
+### Note (design finding)
+The constant-notional both-OIS-flat xccy basis swap has the **FX spot and USD discount cancel out of the
+reprice-to-zero condition** (the domestic leg telescopes to par; `N_foreign = N_domestic/S`). They enter
+only the CIP FX-forward oracle, not the bootstrap — the curve is pinned by `df_foreign` + the basis alone.
+
+### Deferred (named triggers)
+Simultaneous/joint xccy solve (xccy pillars in the global state vector) → 2nd xccy consumer; consequently
+the sequential==simultaneous degeneracy does **not** cover xccy. Triangulation/3rd ccy, FX vol/options,
+tenor-basis, MtM-notional resets, NDFs, collateral optionality → their asset topics. Collateral/CSA
+relocates from the L2 product to the L6 trade layer when L6 lands.
+
+Drawdown unchanged (18/793): the quarry xccy/CSA/FX suite is full FX/XVA breadth, not superseded by a
+minimal foreign-collateral curve — it retires with the FX/XVA topics (0 ticks, ratified).
+
 ## [0.91.0] - 2026-08-08
 
 **Topic 1, slice 6b (C1 close, 2/3) — CSA collateral-keyed discounting.** Activates the
