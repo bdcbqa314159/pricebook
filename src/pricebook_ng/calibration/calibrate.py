@@ -437,12 +437,32 @@ def curve_set_residuals(spec: CalibrationSpec, curves: CurveSet) -> tuple[float,
     )
 
 
+_DF_BRACKET_CAP = 1e6  # a pillar DF above this is unphysical — treat as unbracketable
+
+
+def _solve_pillar_df(residual: Callable[[float], float]) -> float:
+    """Solve one pillar's discount factor, bracketing ROBUSTLY first. A DF is positive but
+    EXCEEDS 1 for a negative rate (`deposit_df(-0.5%, 1y) = 1.005`), so a fixed `[1e-6, 1.0]`
+    bracket bakes in a positive-rates assumption; instead expand the upper bound until the
+    residual changes sign (capped). Raises `ValueError` if no bracket exists — the caller turns
+    that into a `CalibrationFailure` (invariant 4)."""
+    lo, hi = 1e-9, 1.0
+    f_lo, f_hi = residual(lo), residual(hi)
+    while f_lo * f_hi > 0.0 and hi < _DF_BRACKET_CAP:
+        hi *= 2.0
+        f_hi = residual(hi)
+    if f_lo * f_hi > 0.0:
+        raise ValueError(f"could not bracket a positive discount factor below {_DF_BRACKET_CAP}")
+    return brent(residual, lo, hi)
+
+
 def _bootstrap(
     spec: CalibrationSpec, build: CurveBuild, discount: CurveHandle | None
-) -> DiscountCurve:
+) -> DiscountCurve | CalibrationFailure:
     """Sequential per-pillar bootstrap over the build's instruments. `discount is None` ⇒
     self-discounting (the discount build); otherwise the instruments discount on the
-    supplied (already-built) discount curve."""
+    supplied (already-built) discount curve. A pillar that cannot be bracketed/solved is
+    returned as a `CalibrationFailure`, never raised (invariant 4)."""
     time_measure = TimeMeasure(spec.valuation_date, build.day_count)
     times: list[float] = [0.0]
     dfs: list[float] = [1.0]
@@ -453,7 +473,10 @@ def _bootstrap(
             trial = DiscountCurve(time_measure, (*times, t_k), (*dfs, df_k), build.interpolation)
             return inst.residual(trial if discount is None else discount, trial)
 
-        df_k = brent(residual, 1e-6, 1.0)
+        try:
+            df_k = _solve_pillar_df(residual)
+        except (ValueError, FloatingPointError, ZeroDivisionError) as exc:
+            return CalibrationFailure(f"pillar {inst.pillar_date.isoformat()}: {exc}")
         times.append(t_k)
         dfs.append(df_k)
     return DiscountCurve(time_measure, tuple(times), tuple(dfs), build.interpolation)
@@ -461,7 +484,7 @@ def _bootstrap(
 
 def _bootstrap_xccy(
     spec: CalibrationSpec, curves: Mapping[CurveKey, CurveHandle]
-) -> tuple[DiscountCurve, tuple[float, ...]]:
+) -> tuple[DiscountCurve, tuple[float, ...]] | CalibrationFailure:
     """Sequential post-bootstrap of the foreign-collateral (xccy-basis) curve, on top of the
     already-built per-currency curves (dependency order: domestic OIS → foreign OIS → foreign-in-
     collateral LAST, doc 18 §1). Each pillar's DF is Brent-solved so its xccy basis swap reprices
@@ -486,7 +509,10 @@ def _bootstrap_xccy(
             trial = DiscountCurve(time_measure, (*times, t_k), (*dfs, df_k), ois.interpolation)
             return inst.residual(foreign_ois, trial)
 
-        df_k = brent(residual, 1e-6, 1.0)
+        try:
+            df_k = _solve_pillar_df(residual)
+        except (ValueError, FloatingPointError, ZeroDivisionError) as exc:
+            return CalibrationFailure(f"xccy pillar {inst.pillar_date.isoformat()}: {exc}")
         times.append(t_k)
         dfs.append(df_k)
     curve = DiscountCurve(time_measure, tuple(times), tuple(dfs), ois.interpolation)
@@ -494,11 +520,18 @@ def _bootstrap_xccy(
     return curve, residuals
 
 
-def _calibrate_sequential(spec: CalibrationSpec) -> tuple[DiscountingModel, CalibrationResult]:
-    """Dependency-ordered bootstrap: discount (self-discounting) then projection. No
-    Jacobian (its post-hoc form arrives with the C3 risk consumer, doc 22 Q4)."""
+def _calibrate_sequential(
+    spec: CalibrationSpec,
+) -> tuple[DiscountingModel, CalibrationResult] | CalibrationFailure:
+    """Dependency-ordered bootstrap: discount (self-discounting) then projection. A pillar that
+    cannot be solved propagates as a `CalibrationFailure` (invariant 4). No Jacobian (its
+    post-hoc form arrives with the C3 risk consumer, doc 22 Q4)."""
     discount = _bootstrap(spec, spec.discount, discount=None)
+    if isinstance(discount, CalibrationFailure):
+        return discount
     projection = _bootstrap(spec, spec.projection, discount=discount)
+    if isinstance(projection, CalibrationFailure):
+        return projection
     curves = _curve_set(spec, discount, projection)
     model = DiscountingModel(MarketSnapshot(spec.valuation_date, curves))
     residuals = curve_set_residuals(spec, curves)
@@ -595,7 +628,10 @@ def calibrate(
         if len(spec.curves) == 1:  # preserve the single-currency Jacobian (SIMULTANEOUS)
             jacobian = result.jacobian
     if spec.xccy is not None:  # foreign-collateral curve, always a sequential post-bootstrap
-        xccy_curve, xccy_residuals = _bootstrap_xccy(spec, merged)
+        xccy_out = _bootstrap_xccy(spec, merged)
+        if isinstance(xccy_out, CalibrationFailure):
+            return xccy_out
+        xccy_curve, xccy_residuals = xccy_out
         merged[CurveKey(CurveRole.DISCOUNT, spec.xccy.currency, spec.xccy.collateral)] = xccy_curve
         residuals.extend(xccy_residuals)
         converged = converged and all(abs(r) < 1e-10 for r in xccy_residuals)
