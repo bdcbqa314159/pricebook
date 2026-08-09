@@ -66,7 +66,7 @@ consumer," is a real shaping consumer, not a bare event.
 |---|---|---|---|---|
 | AC-2.2b | USD calendars (audit 2.2) | `US_GOVERNMENT_SECURITIES` (SIFMA + Good Friday, `SUNDAY_ONLY`); SOFR bound to it | separate **NYSE** and **Fed-bank/EFFR** calendars (different Good-Friday/half-day/observance) | first **equity (NYSE)** or **EFFR** consumer lands |
 | AC-2.4b | Tokyo calendar (audit 2.4) | astronomical `equinox(3/9)`; Emperor's-Birthday moves (`2,23 since 2020` / `12,23 until 2018`) | **Silver Week** sandwiched-holiday (*kokumin no kyūjitsu*) + **2020/2021 Olympic** one-off shifts | JPY-calendar completeness / **equity-JP** topic |
-| ~~AC-3.6b~~ | FX spot (audit 3.6) | correct joint-count `fx_spot_date`; `spot_lag` out of `CurrencyPair` equality | **PROMOTED OUT OF THIS LEDGER (v0.84.0) → F1 scope** (`redesign/README.md`): the FX pair-conventions registry + the asymmetric ACI intermediate-day rule (with a citable green oracle). Its trigger *is* F1 (next), so it is scoped work, not a deferral. | → **F1 / `19_market_data_design.md`** |
+| ~~AC-3.6b~~ | FX spot (audit 3.6) | correct joint-count `fx_spot_date`; `spot_lag` out of `CurrencyPair` equality | **REGISTRY HALF LANDED (v0.90.0, slice 6a):** the FX pair-conventions registry shipped (`register_fx_pair`/`fx_pair`, declared canonical direction, raise-on-undeclared; `MarketSnapshot.scalars` + `fx_rate` invert around it). **Only the asymmetric-ACI intermediate-day settlement rule remains deferred** (with a citable green oracle). | asymmetric-ACI rule → **FX settlement consumer** |
 | AC-C1 | Half-day / early-close calendar classification (POST_CLOSURE C; S5 redirected) | **nothing** — the unused half-day table (`day_type`, `DayType`, `HolidaySet.half_days`, `_half_days_of`, the 3 US half-day rules) was **deleted** at v0.83.0 (an unread table is worse than an absent one: nothing tests it, so the first consumer trusts it unverified) | the **concept** — a day's trading status (BUSINESS/HALF/HOLIDAY/WEEKEND) and per-market early-close rules. Rebuild it *with* its consumer, shaped by the actual cut-off need, and oracle it against published early-close dates | first **fixing-cutoff / early-close consumer** (e.g. a SOFR/SONIA fixing time, an option expiry cut, an equity half-day settlement) |
 
 ### AUDIT.md Tier-4 — rides with its asset-class topic (18 items, all "scheduled, not discovered")
@@ -91,6 +91,21 @@ consumer," is a real shaping consumer, not a bare event.
 | AC-T4.16 | No time-of-day/timezone story (`datetime.time` + IANA zone for expiry cuts, equity closes) | (was `underlying.py`) | FX options / equity topic |
 | ~~AC-T4.17~~ | **CLOSED v0.84.0** — `WeekendSchedule((since_year, Weekend), …)` makes a weekend-rule change expressible (shape only; no market's rule guessed); test `test_t4_17_weekend_rule_can_change_over_time` | `calendars.py` | — |
 | AC-T4.18 | **CONSIDERED EXCEPTION (not a deferral)** — month-arithmetic triplication (3 near-duplicate add-months/EOM helpers). Rule of three: consolidating now adds indirection with no present consumer, so it is deliberately left. Re-open only if a **fourth** consumer appears. | `tenor.py`, `schedule.py`, `day_count.py` | (exception, not deferred) |
+
+### Topic-1 / cluster C1 — carried debt (deferred scope, named triggers)
+
+Surfaced by the C1 cluster checkpoint (`redesign/handoffs/CP_C1_cluster.md`, v0.92.0) and the C2-scoping
+housekeeping. **Deferred scope, not hidden wrongness** — none makes the library give a wrong answer or
+blocks the next slice. Non-`[NG-…]` rows: they offset no suppression, so they stay out of the
+`verify.py debt` balance (same convention as the foundation-audit ledger above).
+
+| id | item | why deferred (not wrong today) | re-open trigger |
+|---|---|---|---|
+| C1-D1 | `forward()` uses divide-first `(df₁/df₂−1)/τ`, not the numerically-stable subtract-first `(df₁−df₂)/(τ·df₂)` | algebraically identical; agrees to ~1e-16 on the annual oracles | first **RFR daily-compounding / overnight-forward** consumer (1-line change, rides that curves slice) |
+| C1-D2 | `VanillaSwap.collateral` (CSA) carried at **L2**, but CSA is trade/lifecycle state that belongs at **L6** | correct + tested where it is; the relocation is structural, not a bug | the **L6 trade / CSA layer** lands |
+| C1-D3 | xccy foreign-collateral curve is a **sequential post-bootstrap only** (its pillars are not in the SIMULTANEOUS global state vector) | so `sequential==simultaneous` degeneracy does **not** cover xccy (stated, not claimed) | **2nd xccy consumer** (rule of two) |
+| C1-D4 | FX **triangulation** (e.g. EUR/JPY via USD) unbuilt; `fx_rate` raises on an undeclared cross | the raise is the guard — no silent wrong cross | a **3rd currency** with only cross quotes |
+| C1-D5 | Calibration **Jacobian** is scipy's numerical `result.jac`; analytic/adjoint (AAD) form absent | numerical Jacobian is correct for the current risk needs (none in C1) | **C3 risk / AAD** topic (doc 18 §6) |
 
 ### PONYTAIL-DEBT.md — ponytail markers (1, tracked)
 

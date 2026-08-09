@@ -28,9 +28,14 @@ The tasking said HW is "missing from both trees." **Wrong** — the quarry HAS i
 `core/forward_interpolation.py::monotone_convex_forwards` (fan-in 0) and
 `curves/curve_advanced.py::smooth_forward_curve` (fan-in 0). ng's HW supersedes the monotone-convex
 forward *construction*. **Verdict: ticks 0** — `forward_interpolation.py` is a **multi-method** module
-(`ForwardInterpolationMethod` enum), so ng's single-method HW is at most a **partial** cross; deletable-
-bar rigor forbids ticking a 256-LOC multi-method module from one method without the full retire-read.
-Flagged as a partial-cross candidate for the next align / Cowork spot-check. Drawdown stays 18/793.
+(`ForwardInterpolationMethod` enum). **Retire-read done (housekeeping 2026-08): FULL CROSS, +1 → 19/793.**
+The 256-LOC module's 3 methods map cleanly — `MONOTONE_CONVEX` → ng `HAGAN_WEST` (this slice);
+`PIECEWISE_CONSTANT` (flat forwards ≡ linear log-df) → ng `LOG_LINEAR`; `PIECEWISE_LINEAR` → **shed**
+(`deferred→` a future interp-method consumer). Its interpolate-on-forwards-then-integrate architecture is
+superseded by ng's DF-interpolation + `forward()` atom. §4 grep: 0 production/dynamic consumers (bare-name
+search across `python/**` source+tests — only the module's own `test_forward_interpolation.py`; the
+`test_commodity_vol_surface` hit is a method-*name* collision, not an import). Per §4 the unused
+`PIECEWISE_LINEAR` gap is shed debt, not a blocker.
 
 ## 3. Challenge-me list
 1. **L0/L1 split.** The falsification gate held (the L0 primitive is pure math — knots/averages/flag),

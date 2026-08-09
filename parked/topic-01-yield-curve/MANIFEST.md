@@ -50,7 +50,8 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
 | `curves/bootstrap.py` | **✓ CROSSED (deletable) — slice 3** | ng `calibrate` dual-curve sequential bootstrap supersedes; convexity/turn-of-year deferred (forward-links below) |
 | `curves/ncurve_solver.py` | **✓ CROSSED (deletable) — slice 4** | ng's simultaneous solve did the 2-curve instance of the state-vector pattern; N-curve > 2 deferred |
 | `curves/global_solver.py` | **✓ CROSSED (deletable) — slice 4** | simultaneous Newton over all pillar DFs → ng's global solve (scipy LM) |
-| `curves/multicurve_solver.py` | **✓ CROSSED (deletable) — slice 4** ⚠ | joint OIS+projection = ng's exact case; **flagged for Cowork spot-check** (read found it also-superseded; task expected 2 ticks, not 3) |
+| `curves/multicurve_solver.py` | **✓ CROSSED (deletable) — slice 4** | joint OIS+projection = ng's exact case; **full cross ratified (Cowork), 3 ticks, 19/793** — §4 grep: 0 production/dynamic consumers of `multicurve_newton`/`validate_curve`/`curve_analytical_jacobian`; only quarry-internal tests, which retire with the quarry. `validate_curve`/`curve_analytical_jacobian` forward-linked → C3 risk |
+| `core/forward_interpolation.py` | **✓ CROSSED (deletable) — slice 5** | 3 methods map: `MONOTONE_CONVEX` → ng `HAGAN_WEST`; `PIECEWISE_CONSTANT` (flat forwards ≡ linear log-df) → ng `LOG_LINEAR`; `PIECEWISE_LINEAR` → shed (`deferred→` future interp-method consumer). Forward-interp-then-integrate architecture superseded by ng's DF-interp + `forward()` atom. §4 grep: 0 production/dynamic consumers (only its own test; commodity hit = method-name collision) |
 | `curves/curve_risk.py`, `key_rate_risk.py` | target → **C3 · curve-risk slice** | no risk consumer until C3 |
 
 **Forward-links filed on DESTINATION rows (deferred capability travels with X's crossing slice, §4):**
@@ -66,6 +67,11 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
 - **C3 · curve-risk slice / AAD** ← the solvers' **analytic Jacobian**
   (`multicurve_solver.curve_analytical_jacobian`, `global_solver._jacobian_analytical`): ng's Jacobian is
   scipy's numerical `result.jac`; the analytic/adjoint form arrives with its C3/AAD consumer (doc 18 §6).
+- **C3 · curve-risk slice** ← `multicurve_solver.validate_curve` (stale-quote / negative-forward / gap
+  checks). §4 grep evidence at full-cross ratification: 0 production/dynamic consumers (bare-name search
+  across `python/**` source+tests — only quarry-internal test files import it: `test_multicurve_solver`,
+  `test_cross_asset_validation`, `test_curve_robustness`, which retire with the quarry); ng has no
+  validation consumer until curve risk lands.
 - **3rd-projection-curve slice** ← **N-curve > 2** generality (`ncurve_solver`): ng does 2 curves (rule of
   two); the N>2 state-vector generalization travels with the second projection curve.
 - **ng-side note (NOT a quarry migration):** grow `CurveBuild` to per-leg conventions (fixed vs float
@@ -119,7 +125,7 @@ Fan-in = production consumers in `python/pricebook/` (excl. own tests, verified 
 | `curves/bootstrap.py` | 713 | 8 | sequential single/dual-curve bootstrap | ★★★ | target |
 | `curves/curve_builder.py` | 298 | 2 | G10 convention table + method dispatch | ★★★ | target |
 | `curves/global_solver.py` | 417 | 2 | simultaneous Newton, analytic Jacobian | ★★★ | **✓ crossed (slice 4)** — ng simultaneous solve |
-| `curves/multicurve_solver.py` | 486 | **0** | joint OIS+projection, damped Newton | ★★★ | **✓ crossed (slice 4)** ⚠ flagged for Cowork spot-check |
+| `curves/multicurve_solver.py` | 486 | **0** | joint OIS+projection, damped Newton | ★★★ | **✓ crossed (slice 4)** — full cross ratified (Cowork), 3 ticks |
 | `curves/ncurve_solver.py` | 279 | **0** | **generic N-curve solve — the pattern** | ★★★ | **✓ crossed (slice 4)** — ng did the 2-curve instance; N>2 deferred |
 | `curves/rfr_bootstrap.py` | 328 | **0** | post-LIBOR RFR stack + conventions | ★★★ | target |
 | `curves/curve_engine.py` | 292 | **0** | declarative CurveDefinition + CurveSet | ★★★ | target |

@@ -1,6 +1,6 @@
-# Artifact #5 — Migration & Debt Policy (DRAFT)
+# Artifact #5 — Migration & Debt Policy (Ratified)
 
-**Status:** Draft. The rules for crossing an entry from the quarry into the new tree, and
+**Status:** Ratified. The rules for crossing an entry from the quarry into the new tree, and
 for tracking any debt incurred. This is the artifact that becomes enforcement: a trimmed
 version of it + the spine lands as the repo-root `CLAUDE.md` for the Claude Code build.
 
@@ -110,6 +110,5 @@ enforceable guardrails go into `CLAUDE.md`.
 ---
 
 ## Definition of done for the design phase
-All five artifacts exist and Slice 0 is fully specified with its oracle. ✅ (pending
-ratification of this artifact). At that point work moves to Claude Code under the
-generated `CLAUDE.md`, and the first build task is Slice 0.
+All five artifacts exist and Slice 0 is fully specified with its oracle. ✅ Ratified. Work
+moved to Claude Code under the generated `CLAUDE.md`; the first build task was Slice 0.

@@ -1,6 +1,6 @@
 # Artifact #12 — Domain Build Order (the migration method, corrected)
 
-**Status:** Draft for ratification. **Supersedes demand-driven / retire-driven progress** as the
+**Status:** Ratified. **Supersedes demand-driven / retire-driven progress** as the
 *method*. The spine (#02) stays as the **static structure**; this supplies the **build order** the
 spine never specified.
 

@@ -1,6 +1,6 @@
-# Artifact #1 — Scope Contract (DRAFT v2)
+# Artifact #1 — Scope Contract (Ratified)
 
-**Status:** Draft for reaction. Breadth decisions ratified 2026-07 (Bernardo): full
+**Status:** Ratified. Breadth decisions ratified 2026-07 (Bernardo): full
 cross-asset library stays in the disciplined core; crypto stays live. Remaining open
 items flagged inline.
 **Target language:** Python. A C++ port is real ambition but an explicit *later* — see NEVER.

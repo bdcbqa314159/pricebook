@@ -1,6 +1,6 @@
-# Artifact #10 — CI & Cross-Platform Policy (DRAFT)
+# Artifact #10 — CI & Cross-Platform Policy (Ratified)
 
-**Status:** Draft for reaction. Companion policy. Tests run on **Linux and Windows**;
+**Status:** Ratified. Companion policy. Tests run on **Linux and Windows**;
 this fixes the constraints that a cross-platform *pricing* library must honour, and the
 tracking implications that follow.
 

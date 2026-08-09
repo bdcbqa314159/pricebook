@@ -40,7 +40,8 @@ consumer). Forward-links filed on those destination rows.
    conflicting write against #119's rows.
 2. **Exceeds the tasking's "16 or 17".** The task named `ncurve_solver` (+ `global_solver`); the read
    found **`multicurve_solver` is also directly superseded** (it *is* the joint OIS+projection case). So
-   three cross, not two — flagged for Cowork's spot-check (may hold one partial; reversal is cheap).
+   three cross, not two — **ruled by Cowork: full cross, 3 ticks stand, 19/793** (§4 grep found 0
+   production/dynamic consumers; only quarry-internal tests, which retire with the quarry).
 
 ## 3. Challenge-me list
 1. **Ticking three ~400-LOC hand-rolled solvers with one ~50-LOC scipy wrapper.** Defensible under
@@ -70,5 +71,5 @@ consumer). Forward-links filed on those destination rows.
 interpolation** (genuinely new work, absent from both trees) and **CSA / collateral-keyed discounting +
 xccy** (activates the `discount(ccy, collateral)` signature already landed). C1 closes when *every
 pillar reprices to par* holds across the full construction set under both orchestrations. Backstop: the
-§6 ≤6-slice cadence (this is slice 4 of ≤6 since Topic-0 close). **Immediate housekeeping:** merge #119,
-then reconcile the drawdown count to 18/793 (or ratify the multicurve_solver flag).
+§6 ≤6-slice cadence (this is slice 4 of ≤6 since Topic-0 close). **Housekeeping (done):** #119 merged;
+drawdown reconciled to 19/793; the `multicurve_solver` flag ruled a full cross (Cowork, 3 ticks).

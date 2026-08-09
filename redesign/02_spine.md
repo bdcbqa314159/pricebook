@@ -1,6 +1,6 @@
-# Artifact #2 — The Spine (DRAFT)
+# Artifact #2 — The Spine (Ratified)
 
-**Status:** Draft for reaction. This is the constitution: the layers and the permitted
+**Status:** Ratified. This is the constitution: the layers and the permitted
 direction of dependencies. Once ratified, every migrating entry aligns to this shape.
 
 ---
