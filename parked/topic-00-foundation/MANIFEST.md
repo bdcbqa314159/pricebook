@@ -9,7 +9,7 @@ Topic 0 is **part migration, part new construction** — `Money`, `Quantity`, `R
 quarry counterpart** (handoff §note). So the covered rows below are the migrated fraction; the rest of
 Topic 0 is new L0 that stands on nothing to retire.
 
-Spec: `redesign/16_topic0_foundation.md`. Canonical gate handoff: `HANDOFF_topic0_gate.md` (8 slices).
+Spec: `redesign/archive/16_topic0_foundation.md`. Canonical gate handoff: `HANDOFF_topic0_gate.md` (8 slices).
 Gate audit (F1–F4 + S1–S17, all landed): `AUDIT_topic0_foundation.md`; spotcheck
 `rulings_topic0_gate_spotcheck.md` (the `data_registry`=dead / `notional`=absorbed / `fixings`→market-data
 re-classifications).

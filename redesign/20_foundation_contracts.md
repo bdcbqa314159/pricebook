@@ -1,6 +1,6 @@
 # Artifact #20 — The Foundation Contracts (cross-asset, settled before multicurve)
 
-**Status:** Design session output. **The single place the vertical's contracts live.** Part A
+**Status:** Ratified. **The single place the vertical's contracts live.** Part A
 consolidates what was already ratified but scattered across Amendments A1–A6 and a dozen rulings;
 Part B designs the five genuine gaps.
 

@@ -1,6 +1,6 @@
-# Artifact #08 — Build → Design Handoff Protocol (DRAFT)
+# Artifact #08 — Build → Design Handoff Protocol (Ratified)
 
-**Status:** Draft for reaction. Defines the report Claude Code (build) produces when a
+**Status:** Ratified. Defines the report Claude Code (build) produces when a
 layer's slices land, so this design workspace (Cowork) can update the ledger, generate
 the next layer, and catch any design drift — without re-deriving state.
 

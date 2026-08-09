@@ -1,6 +1,6 @@
-# Artifact #06 — Release & Versioning Policy (DRAFT)
+# Artifact #06 — Release & Versioning Policy (Ratified)
 
-**Status:** Draft for reaction. A companion policy, not one of the five core artifacts.
+**Status:** Ratified. A companion policy, not one of the five core artifacts.
 Governs how the *new tree* versions and how releases are recorded.
 
 ---

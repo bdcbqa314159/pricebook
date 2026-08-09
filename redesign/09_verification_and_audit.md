@@ -1,6 +1,6 @@
-# Artifact #09 — Verification & Audit, Consolidated (DRAFT)
+# Artifact #09 — Verification & Audit, Consolidated (Ratified)
 
-**Status:** Draft for reaction. Merges the quarry's scattered audit apparatus into **one
+**Status:** Ratified. Merges the quarry's scattered audit apparatus into **one
 small setup** for the new tree, and delivers the staged-test theme. It obeys its own
 rule: the verification setup is itself simple, not another framework.
 

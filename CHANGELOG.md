@@ -6,6 +6,35 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.92.1] - 2026-08-09
+
+**Docs/tracker reconciliation — honest baseline before the audit-fix slice.** No `src` behaviour change.
+
+### Migration tracker
+- **`multicurve_solver.py` full-cross ruled (Cowork):** the slice-4 spot-check is resolved — §4 grep found
+  0 production/dynamic consumers of `multicurve_newton`/`validate_curve`/`curve_analytical_jacobian` (only
+  quarry-internal tests, which retire with the quarry). 3 ticks stand. `validate_curve`/`curve_analytical_jacobian`
+  forward-linked → C3 risk.
+- **`forward_interpolation.py` retire-read done → full cross (+1 → 19/793):** `MONOTONE_CONVEX` → ng
+  `HAGAN_WEST`, `PIECEWISE_CONSTANT` → ng `LOG_LINEAR`, `PIECEWISE_LINEAR` → shed (`deferred→` future
+  interp-method consumer); architecture superseded by ng's DF-interp + `forward()` atom. **Drawdown now
+  19/793** (13 Topic-0 parked + 6 Topic-1 crossed).
+
+### Design artifacts
+- 12 design docs flipped **Draft → Ratified** (redesign/01,02,05,06,07,08,09,10,11,12,13,20); stale
+  "(pending ratification)" cleared at 05.
+
+### Ledger (`OPEN.md`, §5)
+- Added the Topic-1/C1 carried-debt section (5 non-balance entries, each with a named re-open trigger):
+  `forward()` subtract-first hardening; collateral→L6 relocation; simultaneous xccy solve; FX triangulation;
+  analytic/AAD Jacobian.
+- **AC-3.6b** updated: the FX pair-conventions registry **landed** at v0.90.0 (slice 6a); only the
+  asymmetric-ACI intermediate-day settlement rule remains deferred.
+
+### Pointers
+- C1 checkpoint next-step: an **audit-fix slice lands before C2 opens**. Fixed 768→793 (doc 11) and the
+  moved `redesign/archive/16_topic0_foundation.md` link (topic-00 MANIFEST).
+
 ## [0.92.0] - 2026-08-08
 
 **Topic 1, slice 6c (C1 CLOSE) — xccy basis curve via the unified calibration front.** Two steps:

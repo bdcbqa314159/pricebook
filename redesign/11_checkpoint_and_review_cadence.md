@@ -1,6 +1,6 @@
-# Artifact #11 — Checkpoint & Review Cadence (DRAFT)
+# Artifact #11 — Checkpoint & Review Cadence (Ratified)
 
-**Status:** Draft for reaction. Extends the handoff protocol (#08). Makes the build → Cowork
+**Status:** Ratified. Extends the handoff protocol (#08). Makes the build → Cowork
 review a **planned rhythm**, not an ad-hoc "I felt it was necessary." Governs when Claude Code
 stops and what the review must interrogate.
 
@@ -91,7 +91,7 @@ priorities (A6: L6 before more depth), then the systematic quarry drawdown.
 | **CP-3** | breadth: commodity (+ inflation) on the A5 keyed snapshot | cluster | confirm "keys not fields" pays off; no new greeks |
 | **CP-4** | quarry drawdown — `fixed_income` (130) systematic crossing | ≤6 rolling | copy-ADAPT realignment quality; oracle coverage |
 | **CP-5** | quarry drawdown — `credit` (93) + `models` (90) | ≤6 rolling | de-duplication vs quarry sprawl |
-| **CP-n** | … `options`, `structured`, `desks`, `regulatory`, `crypto`, `viz`, `ts` … | ≤6 rolling | until 768/768 crossed → **v1.0** |
+| **CP-n** | … `options`, `structured`, `desks`, `regulatory`, `crypto`, `viz`, `ts` … | ≤6 rolling | until 793/793 crossed → **v1.0** |
 
 The long tail (CP-4 onward) is the real bulk: full migration means each quarry subpackage is
 mined to empty, realigned, oracle-gated. Drawdown % is the honest progress bar.

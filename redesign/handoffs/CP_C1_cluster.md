@@ -39,13 +39,14 @@ implicit.
 
 ## 2. Drawdown reconciliation
 
-**18 / 793** (unchanged by 6a/6b/6c). = 13 Topic-0 parked + 5 Topic-1 crossed (bootstrap, discount_curve,
-ncurve_solver, global_solver, multicurve_solver). 6a/6b/6c added **capability**, superseded **no** quarry
+**19 / 793** (6a/6b/6c add capability, 0 ticks; +1 from the slice-5 `forward_interpolation` full cross,
+housekeeping 2026-08). = 13 Topic-0 parked + 6 Topic-1 crossed (bootstrap, discount_curve,
+ncurve_solver, global_solver, multicurve_solver, forward_interpolation). 6a/6b/6c added **capability**, superseded **no** quarry
 module: FX spot / collateral keying / a minimal foreign-collateral curve do not delete the quarry's
 full FX/XVA suite (xccy_swaption, PRDC, fx_smile_cube, NDFs, bilateral_csa, collateral_optimisation), which
-retires with the **FX / XVA topics**. 0 ticks is correct and ratified (doc 18 §4/§9). Open spot-check
-carried: `multicurve_solver` (slice-4, task expected 2 ticks not 3 — un-tick is cheap if Cowork rules it
-a partial cross).
+retires with the **FX / XVA topics**. 0 ticks is correct and ratified (doc 18 §4/§9). The slice-4
+`multicurve_solver` spot-check is now **ruled: full cross (Cowork), 3 ticks stand, 19/793** — §4 grep
+found 0 production/dynamic consumers (only quarry-internal tests, which retire with the quarry).
 
 ## 3. Challenge-me — the C1 design as a whole
 
@@ -81,14 +82,16 @@ a partial cross).
   cluster of exceptions → no missing building block signalled.
 - **Field/arg discipline:** every new type ≤5 fields (`CurrencyCurves` 3, `CalibrationSpec` 5, `XccyBuild`
   3, `XccyBasisQuote` 2, `XccyBasisSwap` 4). `verify.py fields` green.
-- **Carried debt (deferred, all named-triggered):** collateral→L6 relocation; simultaneous xccy solve;
-  triangulation; FX vol/exotics/NDF/tenor-basis/MtM-resets → FX/XVA topics; `multicurve_solver` tick
-  spot-check; `forward_interpolation.py` partial-cross retire-read; `forward()` subtract-first hardening
-  (trigger: RFR daily compounding).
+- **Carried debt (deferred, all named-triggered; now in `OPEN.md` §5 ledger):** collateral→L6 relocation;
+  simultaneous xccy solve; triangulation; FX vol/exotics/NDF/tenor-basis/MtM-resets → FX/XVA topics;
+  `forward()` subtract-first hardening (trigger: RFR daily compounding). *(`multicurve_solver` spot-check
+  now ruled full cross; `forward_interpolation.py` retire-read now resolved — see §2/§5.)*
 
 ## Named next checkpoint
 
-**C2 opening** — the models/calibration cluster (F2 capability model, doc 22): first dynamics model
-(`CalibratedModel` + capability protocols) with its own numerical-config value (invariant 5 returns
-shaped by a real consumer). Checkpoint fires at the first of ≤6 slices or the C2 capability boundary.
-Do not open C2 until this C1 checkpoint is ruled by Cowork.
+**Audit-fix slice first, THEN C2 opening.** An audit-fix slice (the reconciliation findings that need
+*code*, not just docs) lands before C2. Only then the models/calibration cluster opens — the F2 capability
+model (doc 22): first dynamics model (`CalibratedModel` + capability protocols) with its own numerical-
+config value (invariant 5 returns shaped by a real consumer). Checkpoint fires at the first of ≤6 slices
+or the C2 capability boundary. **Do not open C2 until the audit-fix slice lands AND this checkpoint is
+amended** (in addition to Cowork ruling this C1 checkpoint).

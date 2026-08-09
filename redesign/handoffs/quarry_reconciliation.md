@@ -11,7 +11,7 @@ closes. The physical drawdown restarts here.
 | topic | scope | status | manifest | parked |
 |---|---|---|---|---|
 | **Topic 0 — Foundation (L0)** | conventions · money/quantity · index identity · settlement · numerics-config (scipy, S17) · serialisation pattern | **PARKED** (gate green: F1–F4 + S1–S17 landed; both regression oracles pass) | `parked/topic-00-foundation/MANIFEST.md` | **13** |
-| **Topic 1 — Yield-Curve World** | curves · interpolation · pillar products · bootstrap · curve risk | **IN PROGRESS** (slices 1–4: dual-curve · cash instruments · global solve) | `parked/topic-01-yield-curve/MANIFEST.md` | 0 parked · **5 deletable** |
+| **Topic 1 — Yield-Curve World** | curves · interpolation · pillar products · bootstrap · curve risk | **cluster C1 CLOSED** (slices 1–6c: dual-curve · cash · global solve · Hagan–West · FX/collateral/xccy) | `parked/topic-01-yield-curve/MANIFEST.md` | 0 parked · **6 deletable** |
 
 **Files parked: 13 / 793** (reported, never steered — #12). **This is the single source of truth for
 the drawdown denominator** (CLAUDE.md §4/§6 point here, not to a hardcoded literal). **Convention
@@ -19,7 +19,7 @@ the drawdown denominator** (CLAUDE.md §4/§6 point here, not to a hardcoded lit
 `python/pricebook/` (**780**) + files already parked under `parked/` (**13**) = **793**, `__init__.py`
 markers included. Verified 2026-08-01 by direct count.
 
-**Deletable (the §4 drawdown bar): 18 / 793.** = 13 physically parked at Topic-0 close **+ 5 Topic-1
+**Deletable (the §4 drawdown bar): 19 / 793.** = 13 physically parked at Topic-0 close **+ 6 Topic-1
 crossed**:
 - **slice-3 retire read (2):** `curves/bootstrap.py` and `core/discount_curve.py`, superseded by ng
   `calibrate` / `DiscountCurve` (deposits→FRAs→futures→swaps dual-curve sequential, minus deferred
@@ -28,8 +28,16 @@ crossed**:
   `curves/multicurve_solver.py`, all superseded by ng's **simultaneous** solve (scipy LM). Hand-rolled
   damped Newton + FD Jacobian are §7bb-shed (scipy); analytic Jacobian → `deferred→C3/AAD`; N-curve > 2
   → `deferred→3rd-projection-curve`; 0 ng consumers of any shed bit (evidence: `CP_slice4_global_solve.md`).
-  **`multicurve_solver` flagged for Cowork spot-check** — the read found it *also* directly superseded
-  (task expected 2 ticks, not 3); un-tick is cheap if Cowork rules it a partial cross.
+  **`multicurve_solver`: full cross ratified (Cowork), 3 ticks stand, 19/793.** §4 grep confirmed 0
+  production/dynamic consumers of `multicurve_newton`/`validate_curve`/`curve_analytical_jacobian` (bare-
+  name search across `python/**` source+tests: only quarry-internal test files, which retire with the
+  quarry). `validate_curve`/`curve_analytical_jacobian` forward-linked → C3 risk.
+- **slice-5 retire read (1) — `core/forward_interpolation.py` (housekeeping 2026-08):** full cross.
+  Its 3 methods map — `MONOTONE_CONVEX` → ng `HAGAN_WEST` (slice 5); `PIECEWISE_CONSTANT` (flat forwards ≡
+  linear log-df) → ng `LOG_LINEAR`; `PIECEWISE_LINEAR` → shed (`deferred→` future interp-method consumer).
+  Interpolate-on-forwards-then-integrate architecture superseded by ng's DF-interpolation + `forward()`
+  atom. §4 grep: 0 production/dynamic consumers (only its own `test_forward_interpolation.py`; the
+  `test_commodity_vol_surface` hit is a method-name collision, not an import).
 
 - **slice-6c retire read (0 ticks — ratified):** the xccy/CSA/FX quarry suite (`fixed_income/xccy_swap`,
   `xccy_basis`, `xccy_bond`, `xccy_swaption`, `csa`, `credit/bilateral_csa`, `risk/collateral_*`,
@@ -39,9 +47,9 @@ crossed**:
   full-featured FX/XVA breadth (vol surfaces, exotics, NDFs, collateral optimisation, bilateral CSA).
   A curve does not supersede a product+risk suite → **0 ticks (correct, ratified C1 domain depth, doc 18
   §4/§9)**. Named crossing: these files retire with the **FX / XVA topics**, not Topic 1. Drawdown
-  unchanged at **18 / 793**.
+  unchanged at **19 / 793**.
 
-These five are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
+These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
 slice-1/2 records — is the same universe minus the 25 `python/pricebook/__init__.py` package markers;

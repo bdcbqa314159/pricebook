@@ -1,6 +1,6 @@
-# Artifact #07 — Branching & Commit Policy (DRAFT)
+# Artifact #07 — Branching & Commit Policy (Ratified)
 
-**Status:** Draft for reaction. Companion workflow policy. Governs how slices become git
+**Status:** Ratified. Companion workflow policy. Governs how slices become git
 history in the new tree.
 
 ---

@@ -1,6 +1,6 @@
 # Artifact #13 — Topic-based migration & parking · Topic 1: the Yield-Curve World
 
-**Status:** Draft for ratification. Refines #12's block order into the *working method*: migrate
+**Status:** Ratified. Refines #12's block order into the *working method*: migrate
 **one topic at a time**, and **park the topic's quarry files as a set** once it is covered.
 Replaces per-module drip retirement, which is what scattered the build.
 
