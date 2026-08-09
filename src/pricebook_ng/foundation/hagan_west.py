@@ -125,7 +125,14 @@ class MonotoneConvex:
                 return i
         return n
 
+    def _check_domain(self, x: float) -> None:
+        # the reconstruction is defined only on [knots[0], knots[-1]] — no silent extrapolation
+        # (mirrors the interpolation RAISE policy; consistent with the log-linear curve branch)
+        if x < self.knots[0] or x > self.knots[-1]:
+            raise ValueError(f"{x} outside [{self.knots[0]}, {self.knots[-1]}] — no extrapolation")
+
     def value(self, x: float) -> float:
+        self._check_domain(x)
         i = self._interval(x)
         span = self.knots[i] - self.knots[i - 1]
         xloc = (x - self.knots[i - 1]) / span
@@ -133,6 +140,7 @@ class MonotoneConvex:
         return a + _region_g(xloc, self.knot_values[i - 1] - a, self.knot_values[i] - a)
 
     def integral(self, x: float) -> float:
+        self._check_domain(x)
         total = 0.0
         n = len(self.averages)
         for i in range(1, n + 1):
