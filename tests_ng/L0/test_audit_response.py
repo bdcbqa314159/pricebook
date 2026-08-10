@@ -52,3 +52,10 @@ def test_regular_period_reversed_anchors_raises_up_front() -> None:
     rev = RegularPeriod(date(2027, 6, 15), date(2027, 1, 15))
     with pytest.raises(ValueError, match="regular"):
         build_schedule(date(2026, 1, 15), date(2028, 1, 15), _terms(rev))
+
+
+def test_regular_period_flags_short_final_stub() -> None:
+    # finding #5 — RegularPeriod() default anchors + a non-dividing span (18m, annual) leaves the
+    # short 6-month final period with is_stub=False, so an ICMA leg builder picks the wrong ref period
+    sched = build_schedule(date(2026, 1, 15), date(2027, 7, 15), _terms(RegularPeriod()))
+    assert sched.periods[-1].is_stub
