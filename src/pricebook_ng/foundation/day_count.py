@@ -182,10 +182,13 @@ def _act_act_icma(start: date, end: date, cp: CouponPeriod | None) -> float:
         raise ValueError(
             "ACT/ACT ICMA requires coupon-period anchors (pass `coupon_period=`)."
         )
-    if cp.frequency <= 0 or (cp.reference_end - cp.reference_start).days <= 0:
+    if not (1 <= cp.frequency <= 12 and 12 % cp.frequency == 0) or (
+        cp.reference_end - cp.reference_start
+    ).days <= 0:
         raise ValueError(
-            f"ACT/ACT ICMA needs frequency>0 and reference_end>reference_start; "
-            f"got frequency={cp.frequency}, "
+            f"ACT/ACT ICMA needs a frequency dividing 12 (1,2,3,4,6,12) and "
+            f"reference_end>reference_start; got frequency={cp.frequency} "
+            f"(freq>12 hangs via a zero-month step; a non-divisor misaligns the notional grid), "
             f"period_days={(cp.reference_end - cp.reference_start).days}."
         )
     period_months = 12 // cp.frequency
