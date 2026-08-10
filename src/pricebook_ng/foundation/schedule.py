@@ -234,8 +234,13 @@ def _unadjusted(
             grid.append(cur)
             k += 1
         grid.append(last_reg)
-        front_stub, back_stub = start < first_reg, last_reg < end
-        dates = ([start] if front_stub else []) + grid + ([end] if back_stub else [])
+        front_stub = start < first_reg
+        append_end = last_reg < end  # an explicit back stub [last_reg, end]
+        # the final REGULAR interval [.., last_reg] is itself a stub when the tenor does not
+        # divide [first_reg, last_reg] (the step overshot last_reg) — #5
+        regular_back_short = cur != last_reg
+        back_stub = append_end or regular_back_short
+        dates = ([start] if front_stub else []) + grid + ([end] if append_end else [])
         return dates, front_stub, back_stub
 
     if stub in (StubType.SHORT_FRONT, StubType.LONG_FRONT):
