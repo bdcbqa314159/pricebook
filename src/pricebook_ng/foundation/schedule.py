@@ -224,6 +224,11 @@ def _unadjusted(
         # outside is a stub by construction (3b — for a trade booked mid-life).
         first_reg = stub.first_regular_date or start
         last_reg = stub.last_regular_date or end
+        if first_reg >= last_reg:  # coincident/reversed anchors → a clear error up front (#4)
+            raise ValueError(
+                f"RegularPeriod anchors must satisfy first_regular_date < last_regular_date; "
+                f"got {first_reg} and {last_reg}."
+            )
         snap, grid, k = _snap_on(first_reg), [first_reg], 1
         while (cur := _step_k(first_reg, tenor, k, snap, roll_day)) < last_reg:
             grid.append(cur)
