@@ -6,6 +6,37 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.92.2] - 2026-08-12
+
+**Slice 6d — audit response.** Fixes all 8 findings from a third-party audit of v0.92.0
+(`analysis/AUDIT_FINDINGS.md`). The numerical core was verified clean; exposure was at input/range
+boundaries (oracles had tested positive-rate / in-range / well-formed inputs only). Each fix is
+red→green (the oracle that exposes the finding, then the fix). Ticks 0 quarry modules.
+
+### Fixed — correctness (crash/hang/wrong)
+- **#1 [HIGH] Negative-rate sequential calibration.** `_bootstrap`/`_bootstrap_xccy` used a fixed
+  `[1e-6, 1.0]` bracket that baked in positive rates (a negative-rate pillar has DF > 1) and let
+  `brentq`'s "different signs" `ValueError` escape. New `_solve_pillar_df` expands the upper bound
+  until the residual changes sign (capped); a non-bracketable/failed solve returns
+  **`CalibrationFailure`**, never raises — **invariant 4 restored** across the sequential path.
+- **#2 [MED] Hagan–West extrapolation.** `MonotoneConvex.value`/`integral` now guard their domain
+  `[knots[0], knots[-1]]`; the curve's HAGAN_WEST `df()` **raises** past the last pillar, consistent
+  with the log-linear RAISE policy (was a silent flat DF).
+- **#3 [MED] ICMA frequency guard.** `_act_act_icma` now requires `1 ≤ frequency ≤ 12 and 12 % f == 0`
+  — closes a `frequency > 12` **infinite loop** and a non-divisor silently-wrong DCF.
+- **#4 [MED] RegularPeriod anchors.** `_unadjusted` validates `first_regular < last_regular` up front —
+  coincident/reversed anchors raise a clear schedule error instead of a silent zero-length period.
+
+### Fixed — robustness (mispriced/degraded quietly)
+- **#5 [LOW]** RegularPeriod's short final period now reports `is_stub=True` (non-dividing tenor).
+- **#6 [LOW]** `WeekendSchedule` sorts its transitions in `__post_init__` — `on(year)` is order-independent.
+- **#7 [LOW]** Convergence is graded at `spec.solve.tolerance`, not a literal `1e-10`.
+- **#8 [LOW/perf]** The Hagan–West reconstruction is a `cached_property` — a full-curve reval is O(n)
+  not O(n²); the frozen curve makes the cache honest (`cached == uncached`).
+
+### Tests
+- Boundary oracles added at L0/L1/L3 (`tests_ng/L*/test_audit_response_l*.py`). Full suite green (207).
+
 ## [0.92.1] - 2026-08-09
 
 **Docs/tracker reconciliation — honest baseline before the audit-fix slice.** No `src` behaviour change.

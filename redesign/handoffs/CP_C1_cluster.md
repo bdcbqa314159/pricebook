@@ -37,6 +37,16 @@ consistency that pins the rest of the curve. This is the strongest oracle in the
 blindness; xccy not in the degeneracy) are each closed by design (§3d) or explicitly scoped, not left
 implicit.
 
+**Audit-response amendment (slice 6d, v0.92.2).** A third-party audit of v0.92.0 (`analysis/AUDIT_FINDINGS.md`)
+confirmed the numerical core clean but found the C1 oracles tested only positive-rate / in-range / well-formed
+inputs — a **coverage blind spot at input/range boundaries**, not a wrongness in the priced numbers. Eight
+findings, all now closed red→green: **negative-rate** sequential calibration (DF>1 bracket + invariant-4
+escape — #1); **Hagan–West extrapolation** past the last pillar (silent, now raises — #2); **bad-input**
+guards (ICMA freq>12 hang / non-divisor #3; RegularPeriod coincident-or-reversed anchors #4 and short-stub
+flag #5; WeekendSchedule ordering #6); **config-tolerance** decoupling (convergence graded at a literal
+1e-10, now at `spec.solve.tolerance` — #7); and the HW O(n²) reval (now cached — #8). The oracle set is
+extended with boundary coverage; the in-range oracles above are unchanged and still green.
+
 ## 2. Drawdown reconciliation
 
 **19 / 793** (6a/6b/6c add capability, 0 ticks; +1 from the slice-5 `forward_interpolation` full cross,
