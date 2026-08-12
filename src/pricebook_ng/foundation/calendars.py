@@ -57,6 +57,11 @@ class WeekendSchedule:
 
     transitions: tuple[tuple[int, Weekend], ...]
 
+    def __post_init__(self) -> None:
+        # normalize to ascending `since_year` so `on` is order-independent (#6): the caller's
+        # tuple order carries no meaning — the year does.
+        object.__setattr__(self, "transitions", tuple(sorted(self.transitions, key=lambda t: t[0])))
+
     def on(self, year: int) -> Weekend:
         rule = self.transitions[0][1]
         for since, w in self.transitions:
