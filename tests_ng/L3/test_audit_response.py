@@ -11,6 +11,7 @@ from pricebook_ng.calibration.calibrate import (
     CalibrationSpec,
     CurveBuild,
     ParSwapQuote,
+    SolveConfig,
     calibrate,
     curve_set_residuals,
 )
@@ -63,3 +64,18 @@ def test_unsolvable_input_returns_failure_not_raise() -> None:
     )
     out = calibrate(spec)  # invariant 4: failure is a VALUE, never an escaped exception
     assert isinstance(out, CalibrationFailure)
+
+
+def test_convergence_gate_tracks_configured_tolerance() -> None:
+    # finding #7 — a tolerance the solver cannot physically meet (residuals ~1e-13) must grade
+    # NOT converged; the old literal-1e-10 gate ignores the config and wrongly reports converged.
+    strict = SolveConfig(tolerance=1e-300)
+    spec = CalibrationSpec.single_currency(
+        valuation_date=VAL, currency=Currency.EUR, discount=NEG_DISC, projection=NEG_PROJ, solve=strict
+    )
+    out = calibrate(spec)
+    assert not isinstance(out, CalibrationFailure)
+    _, result = out
+    within = all(abs(r) < strict.tolerance for r in result.residuals)
+    assert not within  # sanity: residuals exceed 1e-300 — this is the exposing regime
+    assert result.converged == within  # the gate must be DERIVED from spec.solve.tolerance
