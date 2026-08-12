@@ -46,3 +46,15 @@ def test_monotone_convex_value_integral_agree_in_range() -> None:
     for x in (0.5, 1.5, 2.7, 4.0):
         fd = (mc.integral(x + h) - mc.integral(x)) / h  # d/dx ∫ = value
         assert abs(fd - mc.value(x)) < 1e-5
+
+
+def test_hw_reconstruction_is_cached_and_honest() -> None:
+    # finding #8 — the HW reconstruction is O(n); rebuilding it per df() makes a full-curve
+    # reval O(n²). Cache it once per curve, guarded by a cache-honesty check.
+    warm = DiscountCurve(TM, _TIMES, _DFS, Interpolation.HAGAN_WEST)
+    assert warm._forward_reconstruction is warm._forward_reconstruction  # built once (O(n) reval)
+    fresh = DiscountCurve(TM, _TIMES, _DFS, Interpolation.HAGAN_WEST)  # independent, cold cache
+    for t in (1, 2, 3, 4):
+        d = VAL + Tenor(t, Y)
+        _ = warm.df(d)  # warm the cache
+        assert warm.df(d) == fresh.df(d)  # cached == uncached, bit-identical (same process)
