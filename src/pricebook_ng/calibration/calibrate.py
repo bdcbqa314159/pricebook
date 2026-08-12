@@ -536,7 +536,9 @@ def _calibrate_sequential(
     model = DiscountingModel(MarketSnapshot(spec.valuation_date, curves))
     residuals = curve_set_residuals(spec, curves)
     return model, CalibrationResult(
-        residuals, converged=all(abs(r) < 1e-10 for r in residuals), jacobian=None
+        residuals,
+        converged=all(abs(r) < spec.solve.tolerance for r in residuals),  # #7: from the config
+        jacobian=None,
     )
 
 
@@ -634,7 +636,7 @@ def calibrate(
         xccy_curve, xccy_residuals = xccy_out
         merged[CurveKey(CurveRole.DISCOUNT, spec.xccy.currency, spec.xccy.collateral)] = xccy_curve
         residuals.extend(xccy_residuals)
-        converged = converged and all(abs(r) < 1e-10 for r in xccy_residuals)
+        converged = converged and all(abs(r) < spec.solve.tolerance for r in xccy_residuals)
     snapshot = MarketSnapshot(spec.valuation_date, CurveSet(merged), scalars=dict(spec.fx))
     return DiscountingModel(snapshot), CalibrationResult(
         tuple(residuals), converged=converged, jacobian=jacobian
