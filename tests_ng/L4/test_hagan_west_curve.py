@@ -69,7 +69,7 @@ def test_hagan_west_reproduces_pillar_discount_factors() -> None:
     curve = model.market.curves.discount(Currency.EUR)
     # the HW integral to each pillar time equals −ln(df), so exp(−∫) round-trips the pillar df
     for t, df in zip(curve.times[1:], curve.dfs[1:]):
-        assert abs(math.exp(-curve._forward_reconstruction().integral(t)) - df) < 1e-12
+        assert abs(math.exp(-curve._forward_reconstruction.integral(t)) - df) < 1e-12
 
 
 def test_degeneracy_hagan_west_equals_log_linear_on_flat_forwards() -> None:

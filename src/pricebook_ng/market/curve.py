@@ -20,6 +20,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
+from functools import cached_property
 from typing import Protocol
 
 from pricebook_ng.foundation import (
@@ -53,15 +54,18 @@ class DiscountCurve:
     def df(self, d: date) -> float:
         t = self.time_measure.year_fraction(d)
         if self.interpolation is Interpolation.HAGAN_WEST:
-            return math.exp(-self._forward_reconstruction().integral(t))
+            return math.exp(-self._forward_reconstruction.integral(t))
         return interpolate(self.times, self.dfs, t, self.interpolation)
 
+    @cached_property
     def _forward_reconstruction(self) -> MonotoneConvex:
         """Hagan–West: the average instantaneous forward over each pillar interval,
         `(ln df_{i-1} − ln df_i)/Δt`, fed to the L0 monotone-convex primitive; then
         `df(t) = exp(−∫₀ᵗ f)`. Reproduces the pillar DFs exactly. It is NON-LOCAL — its home
         is the simultaneous solve (sequential-HW is deferred to the paper's terminal-interval
-        convention). ponytail: rebuilt per call; a hot HW curve caches it (Topic-1 deferred)."""
+        convention). Cached per curve (the reconstruction is O(n); rebuilding per `df()` would
+        make a full-curve reval O(n²)) — the frozen curve is immutable, so the cache is honest
+        (`cached == uncached`, finding #8)."""
         averages = tuple(
             (math.log(self.dfs[i - 1]) - math.log(self.dfs[i])) / (self.times[i] - self.times[i - 1])
             for i in range(1, len(self.times))
