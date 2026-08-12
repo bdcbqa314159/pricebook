@@ -13,6 +13,8 @@ from pricebook_ng.foundation import (
     RegularPeriod,
     RollRule,
     ScheduleTerms,
+    Weekend,
+    WeekendSchedule,
     build_schedule,
     year_fraction,
 )
@@ -59,3 +61,10 @@ def test_regular_period_flags_short_final_stub() -> None:
     # short 6-month final period with is_stub=False, so an ICMA leg builder picks the wrong ref period
     sched = build_schedule(date(2026, 1, 15), date(2027, 7, 15), _terms(RegularPeriod()))
     assert sched.periods[-1].is_stub
+
+
+def test_weekend_schedule_handles_unsorted_transitions() -> None:
+    # finding #6 — out-of-order transitions must still resolve to the rule in force
+    ws = WeekendSchedule(((2013, Weekend.FRI_SAT), (2000, Weekend.SAT_SUN)))
+    assert ws.on(2015) is Weekend.FRI_SAT  # latest transition ≤ 2015 (was wrongly SAT_SUN)
+    assert ws.on(2005) is Weekend.SAT_SUN
