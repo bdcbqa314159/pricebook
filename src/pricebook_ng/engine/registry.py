@@ -18,12 +18,13 @@ from collections.abc import Callable
 from typing import Any
 
 from pricebook_ng.foundation import PricingFailure, PricingResult
-from pricebook_ng.models.discounting_model import DiscountingModel
+from pricebook_ng.models.protocols import CalibratedModel
 
 # The instrument param is `Any`: each pricer takes its own concrete product type, and the
 # registry keys by that type, so dispatch is type-safe at the key even though the callable
-# signatures are heterogeneous.
-Pricer = Callable[[Any, DiscountingModel], "PricingResult | PricingFailure"]
+# signatures are heterogeneous. The model param is the `CalibratedModel` PROTOCOL, not a concrete
+# type — a pricer that needs a richer capability (e.g. `BlackVol`) validates it structurally.
+Pricer = Callable[[Any, CalibratedModel], "PricingResult | PricingFailure"]
 _PRICERS: dict[type, Pricer] = {}
 
 
@@ -37,7 +38,7 @@ def register(product_type: type) -> Callable[[Pricer], Pricer]:
     return _register
 
 
-def dispatch(instrument: object, model: DiscountingModel) -> PricingResult | PricingFailure:
+def dispatch(instrument: object, model: CalibratedModel) -> PricingResult | PricingFailure:
     """Price `instrument` by dispatching on its type to the registered pricer."""
     pricer = _PRICERS.get(type(instrument))
     if pricer is None:

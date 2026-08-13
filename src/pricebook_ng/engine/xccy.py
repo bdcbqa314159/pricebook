@@ -18,14 +18,14 @@ from __future__ import annotations
 from pricebook_ng.engine.registry import register
 from pricebook_ng.foundation import Money, PricingFailure, PricingResult
 from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
-from pricebook_ng.models.discounting_model import DiscountingModel
+from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.products.swap import XccyBasisSwap
 
 __all__ = ["price_xccy"]
 
 
 @register(XccyBasisSwap)
-def price_xccy(swap: XccyBasisSwap, model: DiscountingModel) -> PricingResult | PricingFailure:
+def price_xccy(swap: XccyBasisSwap, model: CalibratedModel) -> PricingResult | PricingFailure:
     """Mark a constant-notional xccy basis swap; zero at par. PV (in the foreign currency) =
     N·(foreign_leg + basis·annuity + df_coll(T) − 1), discounted on the foreign-collateral curve."""
     leg = swap.foreign_leg

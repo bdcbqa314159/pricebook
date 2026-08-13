@@ -19,14 +19,14 @@ from pricebook_ng.engine.registry import dispatch as price
 from pricebook_ng.engine.registry import register
 from pricebook_ng.foundation import Money, PricingFailure, PricingResult
 from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
-from pricebook_ng.models.discounting_model import DiscountingModel
+from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.products.swap import VanillaSwap
 
 __all__ = ["price", "price_swap"]
 
 
 @register(VanillaSwap)
-def price_swap(swap: VanillaSwap, model: DiscountingModel) -> PricingResult | PricingFailure:
+def price_swap(swap: VanillaSwap, model: CalibratedModel) -> PricingResult | PricingFailure:
     """Mark a vanilla swap off the model's curves. Payer PV = N·(float − rate·annuity)."""
     curves = model.market.curves
     try:
