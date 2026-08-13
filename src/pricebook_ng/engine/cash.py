@@ -18,14 +18,14 @@ from __future__ import annotations
 from pricebook_ng.engine.registry import register
 from pricebook_ng.foundation import Money, PricingFailure, PricingResult
 from pricebook_ng.market.building_blocks import deposit_df, forward
-from pricebook_ng.models.discounting_model import DiscountingModel
+from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.products.cash import FRA, Deposit, Future
 
 __all__ = ["price_deposit", "price_fra", "price_future"]
 
 
 @register(Deposit)
-def price_deposit(deposit: Deposit, model: DiscountingModel) -> PricingResult | PricingFailure:
+def price_deposit(deposit: Deposit, model: CalibratedModel) -> PricingResult | PricingFailure:
     """Lender PV = N·(df(end)/deposit_df − df(start)); zero when df(end) = df(start)·deposit_df."""
     try:
         discount = model.market.curves.discount(deposit.currency)
@@ -39,7 +39,7 @@ def price_deposit(deposit: Deposit, model: DiscountingModel) -> PricingResult | 
 
 
 @register(FRA)
-def price_fra(fra: FRA, model: DiscountingModel) -> PricingResult | PricingFailure:
+def price_fra(fra: FRA, model: CalibratedModel) -> PricingResult | PricingFailure:
     """PV = N·τ·df_disc(end)·(forward(proj) − rate); zero when the projected forward = rate."""
     try:
         curves = model.market.curves
@@ -57,7 +57,7 @@ def price_fra(fra: FRA, model: DiscountingModel) -> PricingResult | PricingFailu
 
 
 @register(Future)
-def price_future(future: Future, model: DiscountingModel) -> PricingResult | PricingFailure:
+def price_future(future: Future, model: CalibratedModel) -> PricingResult | PricingFailure:
     """PV = N·τ·df_disc(end)·(forward(proj) − (1 − price)); the forward approximation to a
     future (no convexity). Zero when the projected forward = 1 − price."""
     try:
