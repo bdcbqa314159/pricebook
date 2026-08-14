@@ -4,7 +4,8 @@ The valuation date, the `CurveSet`, and (this slice) the `scalars` shape — the
 shape of doc 19's closed-shapes × open-keys design. `scalars` holds FX spots keyed by pair, in
 their DECLARED canonical quote order; `fx_rate(base, quote)` asserts the pair is declared,
 inverts internally, and RAISES on an undeclared cross — never a bare pair-scalar (doc 19 §2.1).
-Surfaces · series · schedules still arrive with their first consumer. Frozen (A1, invariant 3).
+`surfaces` (vol) lands this slice — its first consumer is the Black caplet (C2). Series · schedules
+still arrive with theirs. Frozen (A1, invariant 3).
 
 Provenance:
   quarry: python/pricebook/pricing/market_data_provider.py
@@ -21,6 +22,7 @@ from typing import Mapping
 
 from pricebook_ng.foundation import Currency, CurrencyPair, fx_pair
 from pricebook_ng.market.curve_set import CurveSet
+from pricebook_ng.market.vol_surface import Surface, SurfaceKey
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,7 @@ class MarketSnapshot:
     valuation_date: date
     curves: CurveSet
     scalars: Mapping[ScalarKey, float] = field(default_factory=dict)
+    surfaces: Mapping[SurfaceKey, Surface] = field(default_factory=dict)
 
     def fx_rate(self, base: Currency, quote: Currency) -> float:
         """One unit of `base` in units of `quote`. Resolves the declared canonical pair
