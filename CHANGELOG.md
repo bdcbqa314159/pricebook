@@ -6,6 +6,40 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.93.0] - 2026-08-14
+
+**C2 slice 1 — Black-76 European caplet (opens the models & calibration cluster).** The first dynamics
+model, the first capability beyond `Discounting`, the first `surfaces` snapshot shape — the first real
+rule-of-two test of doc 22's capability model. Red→green; ticks 0 quarry modules (partial crosses).
+
+### Changed
+- **Engine rebased onto the `CalibratedModel` protocol** (refactor under green). `CalibratedModel` + `BlackVol`
+  were designed in doc 22 but code-deferred to the second model; they land now. The registry and every pricer
+  depend on the capability (`model.market`), not concrete `DiscountingModel` — no `isinstance`, no change to
+  any ratified type's meaning. The slice-1..6c linear suite stayed green through the rebase.
+- **`MarketSnapshot` gains the `surfaces` shape** (`SurfaceKey`/`Surface`, keyed by index — doc 19 §2, first
+  vol consumer). Flat-minimal surface; grid + 2D smile interpolation deferred.
+
+### Added
+- **`BlackModel`** (L3) — second `CalibratedModel`, built-not-solved (reads vol from `market.surfaces`); adds
+  the **`BlackVol`** capability with its Q3′(a) semantic contract (lognormal, T-forward measure, annualized).
+- **`black()`** (L3) — undiscounted Black-76 closed form (df kept out, ≤5 args; at L3 not L0 per the
+  `black.py` precedent; uses the `norm_cdf` foundation adapter).
+- **`Caplet`** + **`OptionType`** (L2) and **`price_caplet`** (L4) — `PV = df(pay)·N·τ·black(F,K,vol,t,CALL)`;
+  the model's `BlackVol` capability is validated structurally (runtime-checkable protocol), never `isinstance`
+  on a concrete type.
+
+### Oracle
+- Caplet reprices to an **independent** Black-76 evaluation (inline `erf`, distinct from the scipy adapter) to
+  **<1e-12**; put-call parity `caplet − floorlet = df·N·τ·(F−K)` to <1e-12; vol→0 = discounted intrinsic.
+
+### Deferred (named triggers)
+Bachelier/normal vol (2nd vol consumer) · vol calibration / surface stripping · swaption + annuity numeraire
+(B5) · 2D smile interpolation · engine numerics-config (invariant 5 — name it distinctly from `SolveConfig`) ·
+Bermudan ((A)-fork trigger) · SABR/HW (B4). Doc fix: rename doc 22's `SolverConfig` → `SolveConfig`.
+
+Drawdown 19/793 (partial crosses of `black76.py` / `capfloor.py`, tick 0).
+
 ## [0.92.2] - 2026-08-12
 
 **Slice 6d — audit response.** Fixes all 8 findings from a third-party audit of v0.92.0
