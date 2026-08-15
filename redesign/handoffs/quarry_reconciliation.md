@@ -49,6 +49,13 @@ crossed**:
   §4/§9)**. Named crossing: these files retire with the **FX / XVA topics**, not Topic 1. Drawdown
   unchanged at **19 / 793**.
 
+- **C2 slice-1 retire read (0 ticks — PARTIAL crosses):** `models/black76.py` (Black-76 *price* crosses → ng
+  `black()`; `black76_delta/gamma/vega/theta` → C3 risk, `bachelier_*` → 2nd vol consumer) and
+  `options/capfloor.py` (single caplet *price* crosses → ng `Caplet`+`price_caplet`; floorlet → its consumer,
+  `CapFloor` strip → B5, `strip_caplet_vols` → vol-calibration slice, `calibrate_capfloor_sabr` → SABR/B4).
+  Both remain resident (greeks/Bachelier/strips/stripping/SABR deferred) → **tick 0, drawdown 19/793**. Full
+  evidence: `CP_C2_slice1_black_caplet.md` §Drawdown.
+
 These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
