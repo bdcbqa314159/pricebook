@@ -22,7 +22,7 @@ from typing import Mapping
 
 from pricebook_ng.foundation import Currency, CurrencyPair, fx_pair
 from pricebook_ng.market.curve_set import CurveSet
-from pricebook_ng.market.vol_surface import Surface, SurfaceKey
+from pricebook_ng.market.vol_surface import Surface, SurfaceKey, SwaptionSurfaceKey
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ class MarketSnapshot:
     valuation_date: date
     curves: CurveSet
     scalars: Mapping[ScalarKey, float] = field(default_factory=dict)
-    surfaces: Mapping[SurfaceKey, Surface] = field(default_factory=dict)
+    surfaces: Mapping[SurfaceKey | SwaptionSurfaceKey, Surface] = field(default_factory=dict)
 
     def fx_rate(self, base: Currency, quote: Currency) -> float:
         """One unit of `base` in units of `quote`. Resolves the declared canonical pair

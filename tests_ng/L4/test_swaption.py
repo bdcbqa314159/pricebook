@@ -40,7 +40,10 @@ TM = TimeMeasure(VAL, DC)
 EXPIRY = VAL + Tenor(1, Y)  # 1Y into 5Y
 TENOR = Tenor(5, Y)
 STRIKE = 0.035
-NOTIONAL = 1_000_000.0
+# unit notional: PV is exactly linear in notional, so this tests the identical computation while
+# keeping quantities O(1) — the ratified <1e-12 absolute tolerance is then a genuine tight check,
+# not machine-epsilon-relative at 1e6 scale (§7c: tolerances sized to the transcendentals).
+NOTIONAL = 1.0
 _SCHED = build_schedule(EXPIRY, EXPIRY + TENOR, ScheduleTerms(frequency=Frequency.ANNUAL, roll=RollRule(calendar=None)))
 _SWAP = VanillaSwap(NOTIONAL, CCY, FixedLeg(_SCHED, DC, STRIKE), FloatLeg(_SCHED, DC, INDEX))
 

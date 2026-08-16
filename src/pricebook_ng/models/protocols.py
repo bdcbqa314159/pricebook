@@ -21,7 +21,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Protocol, runtime_checkable
 
-from pricebook_ng.foundation import RateIndex
+from pricebook_ng.foundation import RateIndex, Tenor
 from pricebook_ng.market.snapshot import MarketSnapshot
 
 
@@ -47,3 +47,18 @@ class BlackVol(Protocol):
     volatility is a DISTINCT capability (deferred to its second consumer), never this one."""
 
     def black_vol(self, index: RateIndex, expiry: date, strike: float) -> float: ...
+
+
+@runtime_checkable
+class SwaptionVol(Protocol):
+    """The lognormal swaption-volatility capability — a SIBLING of `BlackVol`, not a reuse.
+
+    **Semantic contract (doc 22 Q3′a).** `swaption_vol(index, expiry, swap_tenor, strike)` is the
+    LOGNORMAL (Black) implied volatility of the forward SWAP RATE `S = float_leg_pv / rpv01`, for a
+    swap on `index` starting at `expiry` with tenor `swap_tenor`, struck at `strike`, quoted under
+    the **ANNUITY (SWAP) MEASURE** — numeraire the fixed-leg annuity `rpv01`, under which `S` is a
+    martingale and Black returns the undiscounted `E^A[(S − K)+]`; `PV = annuity · that`. **Units:**
+    annualized lognormal (`0.20` = 20%). DISTINCT from `BlackVol` (an index forward under the
+    T-forward measure) — a swaption vol is never read through `BlackVol`, nor the reverse."""
+
+    def swaption_vol(self, index: RateIndex, expiry: date, swap_tenor: Tenor, strike: float) -> float: ...

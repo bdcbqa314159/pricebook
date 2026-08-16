@@ -17,7 +17,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from datetime import date
+
 from pricebook_ng.foundation import Accrual, RateIndex
+from pricebook_ng.products.swap import VanillaSwap
 
 
 class OptionType(Enum):
@@ -34,3 +37,14 @@ class Caplet:
     accrual: Accrual
     strike: float
     notional: float
+
+
+@dataclass(frozen=True)
+class Swaption:
+    """A European swaption on `swap` (a `VanillaSwap`), exercisable at `expiry` into physical
+    settlement. The strike IS `swap.fixed_leg.rate`; `option_type` is the parity — a PAYER
+    swaption (option to pay fixed) is a CALL on the swap rate, a RECEIVER a PUT. Pure data."""
+
+    swap: VanillaSwap
+    expiry: date
+    option_type: OptionType
