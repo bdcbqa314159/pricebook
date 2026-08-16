@@ -18,15 +18,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation import RateIndex
+from pricebook_ng.foundation import RateIndex, Tenor
 
 
 @dataclass(frozen=True)
 class SurfaceKey:
-    """A key into the snapshot's `surfaces` shape, carrying the index the vol is quoted on (a
-    new asset adds keys, not fields — the ScalarKey precedent)."""
+    """A key into the snapshot's `surfaces` shape for an OPTIONLET (caplet) vol, carrying the index
+    the vol is quoted on (a new asset adds keys, not fields — the ScalarKey precedent)."""
 
     index: RateIndex
+
+
+@dataclass(frozen=True)
+class SwaptionSurfaceKey:
+    """A key for a SWAPTION vol surface — keyed by `index` AND `swap_tenor` (a 2Y5Y vol ≠ a 2Y10Y
+    vol), so it never collides with an optionlet `SurfaceKey(index)`. Distinct capability, distinct
+    key (doc 19 §2: the key carries the asset dimension)."""
+
+    index: RateIndex
+    swap_tenor: Tenor
 
 
 @dataclass(frozen=True)

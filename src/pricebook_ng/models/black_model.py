@@ -18,17 +18,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation import RateIndex
+from pricebook_ng.foundation import RateIndex, Tenor
 from pricebook_ng.market.snapshot import MarketSnapshot
-from pricebook_ng.market.vol_surface import SurfaceKey
+from pricebook_ng.market.vol_surface import SurfaceKey, SwaptionSurfaceKey
 
 
 @dataclass(frozen=True)
 class BlackModel:
-    """Carries `market` (A1); its `black_vol` reads `market.surfaces[SurfaceKey(index)]`. Satisfies
-    `CalibratedModel` (`.market`) and `BlackVol` (`.black_vol`), both structurally."""
+    """Carries `market` (A1). Satisfies `CalibratedModel` (`.market`), `BlackVol` (`.black_vol`,
+    reads `SurfaceKey(index)`), AND `SwaptionVol` (`.swaption_vol`, reads `SwaptionSurfaceKey`) —
+    opt-in capabilities on one model (doc 22 Q1). Adding `swaption_vol` did not change the meaning
+    of `market` or `black_vol`; it extended the model additively."""
 
     market: MarketSnapshot
 
     def black_vol(self, index: RateIndex, expiry: date, strike: float) -> float:
         return self.market.surfaces[SurfaceKey(index)].at(expiry, strike)
+
+    def swaption_vol(self, index: RateIndex, expiry: date, swap_tenor: Tenor, strike: float) -> float:
+        return self.market.surfaces[SwaptionSurfaceKey(index, swap_tenor)].at(expiry, strike)
