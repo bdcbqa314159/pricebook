@@ -6,6 +6,36 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.94.0] - 2026-08-18
+
+**C2 slice 2 — Black European swaption (annuity numeraire).** The clean §3d payoff: numeraire = the
+annuity `rpv01`, underlying = the forward swap rate `S = float_leg_pv/rpv01` — the SAME shared atoms the
+swap calibrator/engine compose. `black()` reused verbatim; only the vol's meaning changes. Second capability
+on one model — the capability-model rule-of-two now has its multi-capability case. Red→green; ticks 0.
+
+### Added
+- **`SwaptionVol`** capability (L3) — a SIBLING of `BlackVol` (not a reuse) with its Q3′(a) contract: the
+  lognormal vol of the forward SWAP RATE under the **annuity (swap) measure** (numeraire `rpv01`), distinct
+  from `BlackVol`'s index-forward/T-forward measure. `BlackModel` now satisfies `CalibratedModel` + `BlackVol`
+  + `SwaptionVol` — **`BlackVol`/`BlackModel` meaning unchanged** (additive, doc 22 Q1 opt-in capabilities).
+- **`SwaptionSurfaceKey(index, swap_tenor)`** (L1) — keyed by index AND swap tenor, never colliding with the
+  optionlet `SurfaceKey(index)`. Reuses the flat-minimal `Surface`; `MarketSnapshot.surfaces` key type widened
+  to `SurfaceKey | SwaptionSurfaceKey` (a union over one shape, not a new field).
+- **`Swaption(swap, expiry, option_type)`** (L2) — reuses `VanillaSwap` (strike = its fixed rate; payer=CALL,
+  receiver=PUT). **`price_swaption`** (L4) composes the shared `rpv01`/`float_leg_pv` atoms + `black()`,
+  validates `SwaptionVol` structurally, and **never touches the calibrator's private `_par_rate`**.
+
+### Oracle
+- Reprices to `N·rpv01·black(S,K,vol,t)` vs an independent inline Black to **<1e-12**; payer−receiver parity
+  `N·rpv01·(S−K)`; vol→0 intrinsic; and the **§3d identity** — swaption(payer−receiver) equals the swap
+  engine's PV of the same swap (<1e-9), proving engine and calibrator share the `S`/annuity composition.
+
+### Deferred (named triggers)
+Cash-settled/IRR swaptions · swaption vol cube + 2D smile · vol calibration/stripping · Bermudan ((A)-fork) ·
+SABR/HW swaption vols (B4) · midcurve swaptions · swaption greeks (C3).
+
+Drawdown 19/793 (partial cross of `options/swaption.py`, tick 0).
+
 ## [0.93.0] - 2026-08-14
 
 **C2 slice 1 — Black-76 European caplet (opens the models & calibration cluster).** The first dynamics

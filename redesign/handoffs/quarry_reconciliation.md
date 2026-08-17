@@ -56,6 +56,13 @@ crossed**:
   Both remain resident (greeks/Bachelier/strips/stripping/SABR deferred) → **tick 0, drawdown 19/793**. Full
   evidence: `CP_C2_slice1_black_caplet.md` §Drawdown.
 
+- **C2 slice-2 retire read (0 ticks — PARTIAL cross):** `options/swaption.py` — the European
+  Black×annuity swaption *price* crosses (ng `Swaption` + `price_swaption`, `PV = N·rpv01·black(S,K,vol,t)`
+  on the shared atoms). Resident/deferred: `price_swaption_sabr_hw` (SABR/HW blend) → SABR slice (B4);
+  greeks → C3; cash-settled/IRR → first cash-settled consumer; the separate `swaption_vol_cube.py`,
+  `bermudan_swaption*.py`, `midcurve_swaption.py` → their own slices (cube/(A)-fork Bermudan/midcurve). Partial
+  → **tick 0, drawdown 19/793**. Evidence: `CP_C2_slice2_black_swaption.md` §Drawdown.
+
 These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
