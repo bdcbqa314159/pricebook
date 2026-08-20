@@ -64,7 +64,7 @@ def _market(vol: float) -> BlackModel:
     curves = CurveSet(
         {CurveKey(CurveRole.DISCOUNT, CCY): disc, CurveKey(CurveRole.PROJECTION, INDEX): proj}
     )
-    snap = MarketSnapshot(VAL, curves, surfaces={SurfaceKey(INDEX): Surface(vol)})
+    snap = MarketSnapshot(VAL, curves, surfaces={SurfaceKey(INDEX): Surface.flat(vol)})
     return BlackModel(snap)
 
 

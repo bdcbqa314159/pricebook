@@ -15,10 +15,11 @@ Provenance:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation import RateIndex, Tenor
+from pricebook_ng.foundation import Interpolation, RateIndex, Tenor, interpolate
 
 
 @dataclass(frozen=True)
@@ -41,11 +42,28 @@ class SwaptionSurfaceKey:
 
 @dataclass(frozen=True)
 class Surface:
-    """A Black (lognormal) volatility surface. MINIMAL: FLAT — one `flat_vol` at every
-    `(expiry, strike)`. Grid storage + 2D smile interpolation arrive with their consumer."""
+    """A Black (lognormal) volatility surface — a TERM STRUCTURE over expiry: `vols[i]` at
+    `expiries[i]` (ascending). `at(expiry, strike)` interpolates in **variance** (σ² linear over
+    expiry — exact at pillars, and needs no valuation origin), then takes the root; `strike` is
+    ignored until the smile axis lands (its consumer). The FLAT case (`Surface.flat(v)`, one vol) is
+    the degenerate 1-pillar surface slices 1–2 use — `at` returns the constant without interpolating.
+    Grid strike-smile / the swaption cube arrive with their consumers (rule of two)."""
 
-    flat_vol: float
+    vols: tuple[float, ...]
+    expiries: tuple[date, ...] = ()
+    interpolation: Interpolation = Interpolation.LINEAR
+
+    @classmethod
+    def flat(cls, vol: float) -> Surface:
+        """The degenerate flat surface: one vol at every `(expiry, strike)`."""
+        return cls((vol,))
 
     def at(self, expiry: date, strike: float) -> float:
-        """The lognormal vol at `(expiry, strike)`. Flat surface: the constant, at every point."""
-        return self.flat_vol
+        """The lognormal vol at `(expiry, strike)`. Flat (1 pillar): the constant. Otherwise σ²
+        is interpolated linearly over expiry and rooted (RAISE outside the pillar range — no silent
+        extrapolation, consistent with the curve)."""
+        if len(self.vols) == 1:
+            return self.vols[0]
+        xs = tuple(float(d.toordinal()) for d in self.expiries)
+        variances = tuple(v * v for v in self.vols)
+        return math.sqrt(interpolate(xs, variances, float(expiry.toordinal()), self.interpolation))
