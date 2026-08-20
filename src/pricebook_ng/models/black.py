@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 
-from pricebook_ng.foundation import norm_cdf
+from pricebook_ng.foundation import norm_cdf, norm_pdf
 from pricebook_ng.products.option import OptionType
 
 
@@ -35,3 +35,14 @@ def black(forward: float, strike: float, vol: float, t: float, option_type: Opti
     if call:
         return forward * norm_cdf(d1) - strike * norm_cdf(d2)
     return strike * norm_cdf(-d2) - forward * norm_cdf(-d1)
+
+
+def black_vega(forward: float, strike: float, vol: float, t: float) -> float:
+    """The UNDISCOUNTED Black-76 vega `∂black/∂σ = F·φ(d₁)·√t` (call and put share it — put-call
+    parity is vol-independent). The engine scales by `df·N·τ`. Degenerate (`vol ≤ 0`, `t ≤ 0`, or a
+    non-positive forward/strike) has no vol sensitivity → 0."""
+    if vol <= 0.0 or t <= 0.0 or forward <= 0.0 or strike <= 0.0:
+        return 0.0
+    s = vol * math.sqrt(t)
+    d1 = (math.log(forward / strike) + 0.5 * s * s) / s
+    return forward * norm_pdf(d1) * math.sqrt(t)

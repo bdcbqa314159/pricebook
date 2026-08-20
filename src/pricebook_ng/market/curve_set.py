@@ -60,3 +60,8 @@ class CurveSet:
         """The forward-projection curve for `index`. Single-curve is the degenerate
         config: an OIS index's projection curve IS its discount curve (same object)."""
         return self.curves[CurveKey(CurveRole.PROJECTION, index)]
+
+    def with_curve(self, key: CurveKey, curve: CurveHandle) -> CurveSet:
+        """A new `CurveSet` with the curve at `key` replaced (the base is never mutated —
+        invariant 3). Risk (L5) uses this to build a bumped market."""
+        return CurveSet({**self.curves, key: curve})
