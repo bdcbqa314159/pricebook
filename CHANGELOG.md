@@ -6,6 +6,36 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.96.0] - 2026-08-20
+
+**C3 opening — the risk layer (L5).** Closes the C2 cluster and opens risk: generic bump-and-reprice
+greeks (DV01 + vega) on a `Priceable` protocol. New layer + new protocol. Red→green; ticks 0.
+
+### Added
+- **L5 `risk/` package** (new layer). **`Priceable`** protocol (`snapshot → PV`) — risk depends DOWN on the
+  engine + snapshot and **never inspects an instrument's type** (the registry dispatches). `priceable(instrument,
+  model_ctor)` reprices a bumped market. **`central_diff`** is the KEY-TYPE-BLIND finite-difference core;
+  **`CurveBump`/`SurfaceBump`** (a `Bump` strategy per shape) are the ONLY shape-aware part — no isinstance,
+  no key-type switch in the core (§1/§3d). **`ir_delta`** (DV01) and **`vol_vega`** — the two present key kinds
+  (curve, surface) that earn the generic core (rule of two). Sticky-model market delta; recalibration deferred.
+  A failed reprice propagates as `PricingFailure` (invariant 4).
+- **L1 immutable bump transforms** (additive, no meaning change): `CurveHandle.bumped(shift)` +
+  `DiscountCurve.bumped` (`df·exp(−shift·t)`), `Surface.bumped` (`vols+shift`), `CurveSet.with_curve` — all
+  return NEW frozen values (invariant 3). **L3 `black_vega`** = `F·φ(d₁)·√t` (the FD-vega oracle target).
+
+### Oracle
+- DV01: `ir_delta` (central FD) vs analytic `−Σ N·τ·(F−K)·t·DF` to **<1e-6**.
+- Vega: `vol_vega` (central FD) vs `df·N·τ·black_vega` (closed form) to **<1e-6**.
+- Generic-over-keys (one core, two `Bump` strategies), isinstance-free (source-structural), immutability +
+  failure-as-value. `acyclic` confirms nothing at L≤4 imports L5.
+
+### Deferred (named triggers)
+Recalibration / par delta · key-rate / bucketed DV01 · analytic/AAD greeks · gamma / 2nd-order · scalar
+(FX-spot) delta (3rd key kind, `ScalarBump`) · greek aggregate (`Greeks`) · XVA/RWA · L6 Trade/Book/portfolio.
+
+Drawdown 19/793 (partial crosses of the quarry risk suite — parallel greek mechanism delivered, gamma/
+key-rate/AAD/Jacobian resident; tick 0).
+
 ## [0.95.0] - 2026-08-20
 
 **C2 slice 3 — caplet-vol stripping (the first solved surface).** The first calibrated volatility object,
