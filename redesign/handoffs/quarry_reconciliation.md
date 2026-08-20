@@ -71,6 +71,16 @@ crossed**:
   `CalibratedSABRNode`, `CalibratedVolSurface` travel with their asset topics (FX/equity/commodity) and the
   SABR slice. Both remain resident → **tick 0, drawdown 19/793**. Evidence: `CP_C2_slice3_caplet_vol_strip.md`.
 
+- **C3 opening retire read (0 ticks — PARTIAL crosses):** the generic bump-and-reprice greek *mechanism*
+  now exists at L5 (`ir_delta` DV01 + `vol_vega` on the `Priceable` protocol), **discharging the accrued
+  "greeks exist at L5" →C3 forward-links** (curve DV01, caplet/swaption vega — any priceable gets them for
+  free). But every quarry risk file retains breadth beyond ng's parallel first-order pair: `risk/greeks.py`
+  (`bump_greeks` — gamma/theta resident), `curves/key_rate_risk.py` (key-rate/bucketed DV01 → bucketed-risk
+  consumer), `curves/curve_risk.py` (`curve_jacobian`/rolldown → C3-later/AAD), `risk/pathwise_greeks.py`
+  (AAD), `curves/curve_bumper.py` (pillar bumps), `core/greeks.py` (`Greeks` aggregate → portfolio consumer);
+  `models/black76.py` delta/gamma/theta stay partial (analytic greeks → their slice). All partial →
+  **tick 0, drawdown 19/793**. Evidence: `CP_C3_opening_risk_greeks.md`.
+
 These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
