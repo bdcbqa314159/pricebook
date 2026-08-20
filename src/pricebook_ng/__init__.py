@@ -6,4 +6,4 @@ is repopulated bottom-up, one topic at a time, starting with Topic 0 (the cross-
 foundation, L0). Imports as ``pricebook_ng`` until v1.0. See CLAUDE.md for the guardrails.
 """
 
-__version__ = "0.94.0"
+__version__ = "0.95.0"

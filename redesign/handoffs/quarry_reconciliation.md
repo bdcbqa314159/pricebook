@@ -63,6 +63,14 @@ crossed**:
   `bermudan_swaption*.py`, `midcurve_swaption.py` → their own slices (cube/(A)-fork Bermudan/midcurve). Partial
   → **tick 0, drawdown 19/793**. Evidence: `CP_C2_slice2_black_swaption.md` §Drawdown.
 
+- **C2 slice-3 retire read (0 ticks — PARTIAL crosses):** `options/capfloor.py` — the caplet-vol
+  *term-structure strip* now crosses (ng `strip_caplet_vols`), but `calibrate_capfloor_sabr` + the smile/
+  cube generation stay resident → SABR/smile slice; the `CapFloor` strip container + greeks were already
+  deferred (slice 1). `options/vol_calibration.py` — a MULTI-ASSET surface calibrator; only the IR caplet
+  term-structure portion of `calibrate_ir_surface` is superseded — `calibrate_fx/equity/commodity_surface`,
+  `CalibratedSABRNode`, `CalibratedVolSurface` travel with their asset topics (FX/equity/commodity) and the
+  SABR slice. Both remain resident → **tick 0, drawdown 19/793**. Evidence: `CP_C2_slice3_caplet_vol_strip.md`.
+
 These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the

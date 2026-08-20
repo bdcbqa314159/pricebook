@@ -6,6 +6,37 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-08-20
+
+**C2 slice 3 — caplet-vol stripping (the first solved surface).** The first calibrated volatility object,
+and `SolveConfig`'s rule-of-two second consumer (the first beyond curves). Structurally the curve bootstrap
+in a new family; the (A) fork exercised on a non-curve target. Red→green; ticks 0.
+
+### Changed
+- **`Surface` grows to a term structure** over expiry (`vols`, `expiries`, `interpolation`) — `at(expiry,
+  strike)` interpolates σ² linearly over expiry (exact at pillars, no valuation origin needed) and roots;
+  RAISE outside the pillar range; `strike` ignored until the smile axis lands. `Surface.flat(v)` is the
+  degenerate 1-pillar case (slices 1–2 migrated, stayed green — refactor under green).
+
+### Added
+- **`CapQuote(maturity, strike, flat_vol)`** (L1) — a flat quoted cap vol, the strip's pillar.
+- **`VolCalibrationSpec` + `strip_caplet_vols`** (L3) — a per-family calibration entry (a `Surface` is a
+  different target than a `CurveSet`): a sequential 1-D Brent strip that composes `black()`/`forward`/`df`
+  (the SAME atoms the L4 caplet engine composes — never a private formula, never the L4 engine, L3 ⊥ L4),
+  reusing `SolveConfig` verbatim. An infeasible marginal returns `CalibrationFailure` (invariant 4).
+
+### Oracle
+- **Flat round-trip** (closed-form anchor): a flat cap strips to a flat caplet-vol curve to **<1e-12**.
+- **§3d backstop**: a caplet priced through the L4 engine off the stripped surface matches an independent
+  Black to <1e-12 (strip and engine share the atoms). Reprice-to-quote <1e-9. Infeasible → `CalibrationFailure`.
+
+### Deferred (named triggers)
+Strike-smile / 2nd surface axis · swaption-cube fitting · SABR/parametric vols (B4) · SIMULTANEOUS vol solve ·
+caplet-stripping convention variants · vol-surface serialisation · total-variance (σ²·t) term interpolation
+(first off-pillar consumer) · denser cap-caplet schedule via `frequency`.
+
+Drawdown 19/793 (partial crosses of `capfloor.py` strip path + the IR portion of `vol_calibration.py`, tick 0).
+
 ## [0.94.0] - 2026-08-18
 
 **C2 slice 2 — Black European swaption (annuity numeraire).** The clean §3d payoff: numeraire = the
