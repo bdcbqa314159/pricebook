@@ -53,3 +53,14 @@ class FutureQuote:
 
     imm_start: date
     price: float
+
+
+@dataclass(frozen=True)
+class CapQuote:
+    """A flat (quoted) cap volatility: the single lognormal vol that prices the whole cap
+    maturing at `maturity`, struck at `strike` — the vol-strip's pillar (doc 18 §1 shape, a
+    vol quote). The caplet vols are STRIPPED from a ladder of these (C2 slice 3)."""
+
+    maturity: date
+    strike: float
+    flat_vol: float
