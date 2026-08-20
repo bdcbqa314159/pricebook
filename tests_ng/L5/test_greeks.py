@@ -110,7 +110,7 @@ def test_central_diff_core_has_no_key_type_switch() -> None:
     risk_dir = Path(__file__).resolve().parents[2] / "src" / "pricebook_ng" / "risk"
     for src in risk_dir.glob("*.py"):
         for line in src.read_text(encoding="utf-8").splitlines():
-            if "isinstance" in line:
+            if "isinstance(" in line:  # the CALL, not the word in prose
                 assert "PricingFailure" in line, f"non-failure isinstance in {src.name}: {line.strip()}"
 
 
