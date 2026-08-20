@@ -67,7 +67,7 @@ def _snapshot(vol: float) -> MarketSnapshot:
     curves = CurveSet(
         {CurveKey(CurveRole.DISCOUNT, CCY): disc, CurveKey(CurveRole.PROJECTION, INDEX): proj}
     )
-    return MarketSnapshot(VAL, curves, surfaces={SwaptionSurfaceKey(INDEX, TENOR): Surface(vol)})
+    return MarketSnapshot(VAL, curves, surfaces={SwaptionSurfaceKey(INDEX, TENOR): Surface.flat(vol)})
 
 
 def _S_annuity(snap: MarketSnapshot) -> tuple[float, float]:
