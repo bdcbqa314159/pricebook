@@ -33,10 +33,12 @@ from pricebook_ng.foundation import (
 
 
 class CurveHandle(Protocol):
-    """The discounting capability — a discount factor to a date. Depend on this, not
-    the concrete curve (redesign/19 §3)."""
+    """The discounting capability — a discount factor to a date, and a `bumped` copy for risk.
+    Depend on this, not the concrete curve (redesign/19 §3); risk (L5) bumps through it."""
 
     def df(self, d: date) -> float: ...
+
+    def bumped(self, shift: float) -> CurveHandle: ...
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,13 @@ class DiscountCurve:
         if self.interpolation is Interpolation.HAGAN_WEST:
             return math.exp(-self._forward_reconstruction.integral(t))
         return interpolate(self.times, self.dfs, t, self.interpolation)
+
+    def bumped(self, shift: float) -> DiscountCurve:
+        """A new frozen curve with the zero rate shifted by `shift` in parallel:
+        `df'(tᵢ) = dfᵢ·exp(−shift·tᵢ)` (df at t=0 is unchanged). The base curve is never mutated
+        (invariant 3); risk (L5) reprices off the copy."""
+        dfs = tuple(df * math.exp(-shift * t) for t, df in zip(self.times, self.dfs))
+        return DiscountCurve(self.time_measure, self.times, dfs, self.interpolation)
 
     @cached_property
     def _forward_reconstruction(self) -> MonotoneConvex:

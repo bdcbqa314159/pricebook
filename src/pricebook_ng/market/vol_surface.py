@@ -67,3 +67,8 @@ class Surface:
         xs = tuple(float(d.toordinal()) for d in self.expiries)
         variances = tuple(v * v for v in self.vols)
         return math.sqrt(interpolate(xs, variances, float(expiry.toordinal()), self.interpolation))
+
+    def bumped(self, shift: float) -> Surface:
+        """A new frozen surface with every vol shifted by `shift` in parallel (a flat vega bump).
+        The base surface is never mutated (invariant 3); risk (L5) reprices off the copy."""
+        return Surface(tuple(v + shift for v in self.vols), self.expiries, self.interpolation)
