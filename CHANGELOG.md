@@ -6,6 +6,39 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.97.0] - 2026-08-21
+
+**L6 opening — the imperative shell (frozen Trade/Book + marking + portfolio risk).** The LAST spine
+layer: **all seven layers L0–L6 are now live.** The frozen half of "functional core, imperative shell";
+the stateful half (BookedTrade + benefit table) is the next slice. Red→green; ticks 0.
+
+### Added
+- **L6 `shell/` package** (new layer, imported by nothing — `acyclic` confirms it's the top leaf).
+  **`Trade(products, start_date)`** and **`Book(trades, name)`** — frozen pure data, **no `pv()`** (the
+  quarry's `Trade.pv(ctx)` self-pricing is realigned into the shell).
+- **`mark`/`mark_book`** — shell FUNCTIONS that sum `engine.price(product, model).pv`: the shell CALLS the
+  core, adds nothing. Type-blind via the registry — one `BlackModel` (curves + surfaces) marks a MIXED
+  swap+caplet book in one pass, no isinstance on a product. A failing product propagates `PricingFailure`.
+- **`book_priceable`** adapts a `Book` to the L5 `Priceable` protocol, so every greek works on a whole
+  portfolio; **`book_dv01`** = `ir_delta` of the book (== Σ per-product DV01 by linearity), reusing L5.
+
+### Oracle
+- Trade-of-1 == engine PV (exact); book mark == Σ trade marks (<1e-12); portfolio DV01 == Σ per-product
+  `ir_delta` (<1e-12); Trade/Book frozen, marking mutates nothing; failure-as-value; **mixed book under one
+  model** (single-model ≠ homogeneous).
+
+### Deferred (named triggers)
+`BookedTrade` + benefit table + realized P&L (stateful half → next L6 slice) · accrued/realized/clean-dirty
+reporting · per-product model resolution / multi-market books · lifecycle events · cross-currency aggregation ·
+netting/limits/desks · keyless total-parallel `book_dv01` · Trade/Book serialisation.
+
+### Note
+`book_dv01` takes an explicit `key: CurveKey` (which curve to bump) — the ratified `book_dv01(book, model)`
+couldn't say which; same shape as L5 `ir_delta(p, market, key)`.
+
+Drawdown 19/793 (partial cross of `core/trade.py`/`core/book.py` — concept crosses, serialisation/desks/
+limits/netting + un-crossed desk consumers resident; tick 0).
+
 ## [0.96.0] - 2026-08-20
 
 **C3 opening — the risk layer (L5).** Closes the C2 cluster and opens risk: generic bump-and-reprice

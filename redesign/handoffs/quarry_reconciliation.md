@@ -81,6 +81,15 @@ crossed**:
   `models/black76.py` delta/gamma/theta stay partial (analytic greeks → their slice). All partial →
   **tick 0, drawdown 19/793**. Evidence: `CP_C3_opening_risk_greeks.md`.
 
+- **L6 opening retire read (0 ticks — PARTIAL cross):** the frozen-description + mark + portfolio-DV01
+  *concept* crosses (ng `Trade`/`Book` + `mark`/`mark_book`/`book_dv01`; the quarry's `Trade.pv(ctx)`
+  self-pricing is **realigned** to the shell `mark()`, shed not migrated). But `core/trade.py`/`core/book.py`
+  stay resident: serialisation (`to_dict`/`from_dict` → persistence slice), mutable `Book.add`, `Desk`,
+  `Position`/`BookLimits`/limit-breaches, tenor-bucketed DV01, counterparty netting (→ stateful/desk/limits
+  slices), **and ~10+ un-crossed desk consumers** (`desks/*`, `credit_risk` — deleting would orphan them).
+  Realized-P&L/benefit-table/`BookedTrade` travel with the next (stateful) L6 slice. Partial → **tick 0,
+  drawdown 19/793**. Evidence: `CP_L6_opening_shell.md`.
+
 These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
