@@ -100,7 +100,7 @@ def test_trade_and_book_are_frozen_and_marking_does_not_mutate() -> None:
     _ = mark(t, model)
     assert market.curves.discount(CCY).dfs == base_dfs  # marking mutates nothing
     with pytest.raises(FrozenInstanceError):
-        t.start_date = VAL  # type: ignore[misc]
+        setattr(t, "start_date", VAL)  # frozen — mutation is refused at runtime
 
 
 def test_failure_propagates_as_a_value() -> None:
