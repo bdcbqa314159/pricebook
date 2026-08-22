@@ -102,6 +102,12 @@ Topic-1 close**, v0.98.0). The 6 Topic-1 modules below are now git-mv'd into `pa
   physically parked** (13 Topic-0 + 6 Topic-1) — the numerator is unchanged (no new tick; booking partial),
   the *parking* is the physical realization. Evidence: `CP_Topic1_close.md`.
 
+- **#7 (ICMA + BUS/252) retire read (0 ticks — capability slice):** the ICMA/BUS252 year-fraction
+  *capability* now lives in the shared atoms (`rpv01`/`float_leg_pv` read convention context from the
+  self-describing `Schedule`), discharging audit repro C + the `is_stub`-zero-consumer note + AC-T4.15
+  (`Frequency.per_year()`). But no whole quarry module is superseded by this alone: `fixed_income/fixed_leg.py`
+  carries full leg machinery, and the BRL/CDI product suite is deferred to its consumers. **Tick 0.**
+
 The six Topic-1 deletables are now **physically parked** (git-mv'd at the T1 close, one event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
