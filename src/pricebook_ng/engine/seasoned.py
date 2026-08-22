@@ -5,6 +5,12 @@ that started before the valuation date yet pays after it — cannot be priced by
 float coupon is partially realized and needs the historical fixings (the real fix is the accrued /
 fixings-on-engine work, Batch F / #3b). Until then, every pricer fails with a NAMED message that says
 what happened, not a raw L0 date-ordering complaint (#3a). Failure is a value (invariant 4).
+
+Provenance:
+  quarry: (none — new L4 guard; audit #3a)
+  source: CLAUDE.md §2 (invariant 4 failure-as-value; invariant 6); AUDIT_FINDINGS.md #3
+  oracle: a seasoned mid-period swap returns the NAMED failure, not a raw date-ordering error (repro_P)
+  slice:  audit-batch-A (#3a)
 """
 
 from __future__ import annotations
