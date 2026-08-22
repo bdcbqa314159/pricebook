@@ -26,6 +26,7 @@ from pricebook_ng.foundation import (
     Tenor,
     TenorUnit,
     TimeMeasure,
+    future_periods,
 )
 from pricebook_ng.market.building_blocks import float_leg_pv, forward, rpv01
 from pricebook_ng.models.black import black
@@ -40,6 +41,8 @@ def price_caplet(caplet: Caplet, model: CalibratedModel) -> PricingResult | Pric
         return PricingFailure("caplet requires a model with the BlackVol capability")
     accrual, index = caplet.accrual, caplet.index
     currency = index.id.currency
+    if accrual.end <= model.market.valuation_date:  # invariant 6: a paid optionlet has no future PV
+        return PricingResult(pv=Money(0.0, currency))
     curves = model.market.curves
     try:
         pay_df = curves.discount(currency).df(accrual.end)
@@ -78,8 +81,12 @@ def price_swaption(swaption: Swaption, model: CalibratedModel) -> PricingResult 
     try:
         discount = curves.discount(currency, swap.collateral)  # same discount the swap engine uses
         projection = curves.projection(index)
-        annuity = rpv01(swap.fixed_leg.schedule, swap.fixed_leg.day_count, discount)
-        s = float_leg_pv(swap.float_leg.schedule, swap.float_leg.day_count, discount, projection) / annuity
+        # invariant 6: the underlying's mark is FUTURE PV only (a spot-forward swaption loses none)
+        vd = model.market.valuation_date
+        fixed_sched = future_periods(swap.fixed_leg.schedule, vd)
+        float_sched = future_periods(swap.float_leg.schedule, vd)
+        annuity = rpv01(fixed_sched, swap.fixed_leg.day_count, discount)
+        s = float_leg_pv(float_sched, swap.float_leg.day_count, discount, projection) / annuity
         swap_tenor = _swap_tenor(swap.fixed_leg.schedule)
         vol = model.swaption_vol(index, swaption.expiry, swap_tenor, strike)
         t = TimeMeasure(model.market.valuation_date, DayCountConvention.ACT_365_FIXED).year_fraction(swaption.expiry)

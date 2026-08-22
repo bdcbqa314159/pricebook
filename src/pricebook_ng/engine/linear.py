@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pricebook_ng.engine.registry import dispatch as price
 from pricebook_ng.engine.registry import register
-from pricebook_ng.foundation import Money, PricingFailure, PricingResult
+from pricebook_ng.foundation import Money, PricingFailure, PricingResult, future_periods
 from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
 from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.products.swap import VanillaSwap
@@ -29,11 +29,16 @@ __all__ = ["price", "price_swap"]
 def price_swap(swap: VanillaSwap, model: CalibratedModel) -> PricingResult | PricingFailure:
     """Mark a vanilla swap off the model's curves. Payer PV = N·(float − rate·annuity)."""
     curves = model.market.curves
+    vd = model.market.valuation_date
     try:
         discount = curves.discount(swap.currency, swap.collateral)  # CSA-keyed (A1: through the model)
         projection = curves.projection(swap.float_leg.index)
-        annuity = rpv01(swap.fixed_leg.schedule, swap.fixed_leg.day_count, discount)
-        floating = float_leg_pv(swap.float_leg.schedule, swap.float_leg.day_count, discount, projection)
+        # invariant 6: mark = FUTURE PV only; historical periods are excluded here, ABOVE the atoms
+        # (rpv01/float_leg_pv unchanged). A spot swap loses no period → byte-identical.
+        fixed_sched = future_periods(swap.fixed_leg.schedule, vd)
+        float_sched = future_periods(swap.float_leg.schedule, vd)
+        annuity = rpv01(fixed_sched, swap.fixed_leg.day_count, discount)
+        floating = float_leg_pv(float_sched, swap.float_leg.day_count, discount, projection)
     except (ValueError, KeyError) as exc:  # cashflow beyond a curve, or an unresolved curve key
         return PricingFailure(str(exc))
     pv = swap.notional * (floating - swap.fixed_leg.rate * annuity)
