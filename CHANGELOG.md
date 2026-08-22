@@ -6,6 +6,34 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.99.0] - 2026-08-22
+
+**Audit #7 — ACT/ACT ICMA + BUS/252 leg pricing (self-describing Schedule).** Both strict conventions
+used to RAISE when a leg priced (repro C: ICMA needs the coupon frequency, BUS/252 the calendar); the
+atoms now read that context from the schedule. Red→green; the BRL/CDI book is unblocked.
+
+### Changed
+- **`Schedule` carries its `ScheduleTerms`** (3→4 fields) — self-describing, so a day count needing
+  convention context reads the frequency/calendar from the schedule alone. §3d holds *by construction*:
+  the context travels with the schedule, so the calibrator and engine can't price it under mismatched
+  conventions. `build_schedule`/`future_periods` populate it; atoms unchanged where inert.
+- **`rpv01`/`float_leg_pv` thread the context** (`_coupon_context` reads `schedule.terms`): ICMA builds
+  a `CouponPeriod` per period (its consumer for **`is_stub`** — front stubs anchor at the regular
+  boundary); BUS/252 passes the calendar; `forward()` gains optional `coupon_period`/`calendar`. INERT for
+  ACT/360, 30/360, etc. → **non-ICMA/BUS252 legs byte-identical** (suite 239; prior 234 unchanged).
+
+### Added
+- **`Frequency.per_year()`** — coupons/year for integer month/year steps, raises for BULLET/daily/weekly/
+  28-day (those take BUS/252, never ICMA). Discharges **AC-T4.15** (implemented with its fixed-leg consumer).
+- **`icma_coupon_period()`** — builds the ICMA `CouponPeriod` from schedule boundaries + `is_stub` + frequency.
+
+### Oracle
+- Regular semi ICMA coupon = 0.5 exactly; BUS/252 `rpv01` == `Σ business_days/252·df`; both swaps price
+  (repro C green); the **§3d identity** — the par rate from the atoms makes the engine price an ICMA swap
+  to zero (calibrator == engine, no drift); a non-ICMA leg is byte-identical.
+
+Drawdown 19/793 (capability slice — no whole module superseded, tick 0).
+
 ## [0.98.0] - 2026-08-22
 
 **L6 stateful slice — BookedTrade + benefit table + realized P&L. CLOSES C3 and TOPIC 1.** The first
