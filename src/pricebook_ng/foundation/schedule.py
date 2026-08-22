@@ -51,6 +51,24 @@ class Frequency:
     def __str__(self) -> str:
         return "BULLET" if self.step is None else str(self.step)
 
+    def per_year(self) -> int:
+        """Coupons per year (ICMA `frequency`, ACT/365L denominator). Only defined for a month/
+        year step that divides 12 (annual→1, semi→2, quarterly→4, monthly→12); a `BULLET`,
+        daily/weekly, or non-integer step (28-day TIIE) has no ICMA coupon frequency and raises —
+        those legs take the BUS/252 path, never ICMA (AC-T4.15)."""
+        if self.step is None:
+            raise ValueError("BULLET has no coupon frequency (per_year undefined).")
+        unit, count = self.step.unit, self.step.count
+        if unit is TenorUnit.YEAR:
+            months = 12 * count
+        elif unit is TenorUnit.MONTH:
+            months = count
+        else:
+            raise ValueError(f"{self} is not a monthly/annual coupon step (per_year undefined).")
+        if months <= 0 or 12 % months != 0:
+            raise ValueError(f"{self}: the coupon step must divide 12 months (got {months}).")
+        return 12 // months
+
 
 Frequency.DAILY = Frequency(Tenor(1, TenorUnit.DAY))
 Frequency.WEEKLY = Frequency(Tenor(1, TenorUnit.WEEK))

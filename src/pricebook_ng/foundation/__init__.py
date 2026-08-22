@@ -36,6 +36,7 @@ from pricebook_ng.foundation.day_count import (
     CouponPeriod,
     DayCountConvention,
     business_days_between,
+    icma_coupon_period,
     year_fraction,
 )
 from pricebook_ng.foundation.distributions import norm_cdf, norm_pdf, norm_ppf
@@ -151,6 +152,7 @@ __all__ = [
     "DayCountConvention",
     "year_fraction",
     "CouponPeriod",
+    "icma_coupon_period",
     "Accrual",
     "business_days_between",
     # schedules
