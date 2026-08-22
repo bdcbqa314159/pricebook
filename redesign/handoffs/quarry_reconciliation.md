@@ -11,7 +11,7 @@ closes. The physical drawdown restarts here.
 | topic | scope | status | manifest | parked |
 |---|---|---|---|---|
 | **Topic 0 — Foundation (L0)** | conventions · money/quantity · index identity · settlement · numerics-config (scipy, S17) · serialisation pattern | **PARKED** (gate green: F1–F4 + S1–S17 landed; both regression oracles pass) | `parked/topic-00-foundation/MANIFEST.md` | **13** |
-| **Topic 1 — Yield-Curve World** | curves · interpolation · pillar products · bootstrap · curve risk | **cluster C1 CLOSED** (slices 1–6c: dual-curve · cash · global solve · Hagan–West · FX/collateral/xccy) | `parked/topic-01-yield-curve/MANIFEST.md` | 0 parked · **6 deletable** |
+| **Topic 1 — the first complete vertical (L0→L6)** | curves (C1) · Black models + vol (C2) · risk + shell (C3) | **CLOSED v0.98.0** — the spine proven L0→L6 for a full instrument lifecycle | `parked/topic-01-yield-curve/MANIFEST.md` | **6 parked** (git-mv'd at T1 close) |
 
 **Files parked: 13 / 793** (reported, never steered — #12). **This is the single source of truth for
 the drawdown denominator** (CLAUDE.md §4/§6 point here, not to a hardcoded literal). **Convention
@@ -19,8 +19,8 @@ the drawdown denominator** (CLAUDE.md §4/§6 point here, not to a hardcoded lit
 `python/pricebook/` (**780**) + files already parked under `parked/` (**13**) = **793**, `__init__.py`
 markers included. Verified 2026-08-01 by direct count.
 
-**Deletable (the §4 drawdown bar): 19 / 793.** = 13 physically parked at Topic-0 close **+ 6 Topic-1
-crossed**:
+**Deletable (the §4 drawdown bar): 19 / 793 — ALL PHYSICALLY PARKED** (13 at Topic-0 close **+ 6 at the
+Topic-1 close**, v0.98.0). The 6 Topic-1 modules below are now git-mv'd into `parked/topic-01-yield-curve/`:
 - **slice-3 retire read (2):** `curves/bootstrap.py` and `core/discount_curve.py`, superseded by ng
   `calibrate` / `DiscountCurve` (deposits→FRAs→futures→swaps dual-curve sequential, minus deferred
   capabilities).
@@ -90,7 +90,19 @@ crossed**:
   Realized-P&L/benefit-table/`BookedTrade` travel with the next (stateful) L6 slice. Partial → **tick 0,
   drawdown 19/793**. Evidence: `CP_L6_opening_shell.md`.
 
-These six are *deletable now* but **physically park at Topic-1 close** (one parking event, doc 18 §9).
+- **L6-realized retire read (0 new ticks — PARTIAL, but the Topic-1 PARKING event fires):** the
+  realized-vs-mark / benefit-table *concept* crosses (ng `BookedTrade`/`realized`/`total` + the invariant-6
+  engine exclusion; the quarry's `Trade.pv(ctx)` self-pricing is realigned to the shell `mark`). But
+  `core/trade.py`/`core/book.py`/`core/fixings.py` stay resident — serialisation, `Desk`, limits/positions/
+  netting, lifecycle events, mutable fixing store + file I/O, AND ~10 un-crossed desk consumers — so the
+  booking modules do NOT tick. **Because this CLOSES C3 and Topic 1**, the 6 accumulated Topic-1 deletables
+  were **physically parked** (one `git-mv` event into `parked/topic-01-yield-curve/`): `bootstrap`,
+  `discount_curve`, `ncurve_solver`, `global_solver`, `multicurve_solver`, `forward_interpolation`. ng is
+  unaffected (never imports the quarry); the merge gate never touches `python/`. Drawdown **19/793, now all
+  physically parked** (13 Topic-0 + 6 Topic-1) — the numerator is unchanged (no new tick; booking partial),
+  the *parking* is the physical realization. Evidence: `CP_Topic1_close.md`.
+
+The six Topic-1 deletables are now **physically parked** (git-mv'd at the T1 close, one event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
 slice-1/2 records — is the same universe minus the 25 `python/pricebook/__init__.py` package markers;
