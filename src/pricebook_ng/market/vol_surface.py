@@ -53,6 +53,14 @@ class Surface:
     expiries: tuple[date, ...] = ()
     interpolation: Interpolation = Interpolation.LINEAR
 
+    def __post_init__(self) -> None:
+        # a term structure carries one expiry per vol; the flat case is the 1-vol / no-expiry degenerate
+        if len(self.vols) != 1 and len(self.expiries) != len(self.vols):
+            raise ValueError(
+                f"Surface needs one expiry per vol (or a single flat vol); "
+                f"got {len(self.vols)} vols, {len(self.expiries)} expiries."
+            )
+
     @classmethod
     def flat(cls, vol: float) -> Surface:
         """The degenerate flat surface: one vol at every `(expiry, strike)`."""

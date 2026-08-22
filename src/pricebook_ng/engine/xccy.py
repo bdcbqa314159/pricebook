@@ -16,7 +16,8 @@ Provenance:
 from __future__ import annotations
 
 from pricebook_ng.engine.registry import register
-from pricebook_ng.foundation import Money, PricingFailure, PricingResult
+from pricebook_ng.engine.seasoned import current_period_failure
+from pricebook_ng.foundation import Money, PricingFailure, PricingResult, future_periods
 from pricebook_ng.market.building_blocks import float_leg_pv, rpv01
 from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.products.swap import XccyBasisSwap
@@ -30,15 +31,21 @@ def price_xccy(swap: XccyBasisSwap, model: CalibratedModel) -> PricingResult | P
     N·(foreign_leg + basis·annuity + df_coll(T) − 1), discounted on the foreign-collateral curve."""
     leg = swap.foreign_leg
     foreign_ccy = leg.index.id.currency
+    vd = model.market.valuation_date
     curves = model.market.curves
     try:
         collateral = curves.discount(foreign_ccy, swap.collateral)  # df_foreign^collateral (A1)
         foreign_ois = curves.projection(leg.index)  # projects the foreign floating
-        floating = float_leg_pv(leg.schedule, leg.day_count, collateral, foreign_ois)
-        annuity = rpv01(leg.schedule, leg.day_count, collateral)
-        maturity = leg.schedule.periods[-1].payment_date
+        # invariant 6: future periods only; a current in-progress period fails honestly (#3a)
+        sched = future_periods(leg.schedule, vd)
+        seasoned = current_period_failure(sched.periods[0].accrual_start, vd) if sched.periods else None
+        if seasoned is not None:
+            return seasoned
+        floating = float_leg_pv(sched, leg.day_count, collateral, foreign_ois)
+        annuity = rpv01(sched, leg.day_count, collateral)
+        maturity = sched.periods[-1].payment_date if sched.periods else leg.schedule.periods[-1].payment_date
         notional_exchange = collateral.df(maturity) - 1.0
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     pv = swap.notional * (floating + swap.basis * annuity + notional_exchange)
     return PricingResult(pv=Money(pv, foreign_ccy), basis=swap.collateral)
