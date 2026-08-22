@@ -142,12 +142,17 @@ class SchedulePeriod:
 
 @dataclass(frozen=True)
 class Schedule:
-    """A generated schedule. `unadjusted`/`adjusted` are the boundary dates (accrual vs
-    payment); `periods` is the per-period provenance record (start, end, is_stub, payment)."""
+    """A generated schedule. `unadjusted`/`adjusted` are the boundary dates (accrual vs payment);
+    `periods` is the per-period provenance record; `terms` is the `ScheduleTerms` it was built from
+    — the schedule is SELF-DESCRIBING, so a day-count that needs convention context (ACT/ACT ICMA
+    needs the coupon frequency; BUS/252 needs the calendar) reads it from the schedule alone. §3d
+    holds by construction: the context travels with the schedule, so the calibrator and engine
+    cannot price the same schedule under mismatched conventions."""
 
     unadjusted: tuple[date, ...]
     adjusted: tuple[date, ...]
     periods: tuple[SchedulePeriod, ...]
+    terms: ScheduleTerms
 
 
 # ── date arithmetic (stdlib only) ────────────────────────────────────────────────
@@ -283,6 +288,7 @@ def future_periods(schedule: Schedule, valuation_date: date) -> Schedule:
         schedule.unadjusted[keep_from:],
         schedule.adjusted[keep_from:],
         schedule.periods[keep_from:],
+        schedule.terms,  # the future sub-schedule keeps the same build context
     )
 
 
@@ -317,7 +323,7 @@ def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
         )
         for i in range(len(unadj) - 1)
     )
-    return Schedule(unadjusted=tuple(unadj), adjusted=tuple(adj), periods=periods)
+    return Schedule(unadjusted=tuple(unadj), adjusted=tuple(adj), periods=periods, terms=terms)
 
 
 # ── IMM and CDS roll dates (new) ─────────────────────────────────────────────────
