@@ -49,8 +49,8 @@ _TERMS = ScheduleTerms(frequency=Frequency.ANNUAL, roll=RollRule(calendar=None))
 
 
 def _curves() -> CurveSet:
-    disc = DiscountCurve.flat(TM, 0.030, until=date(2030, 1, 15))
-    proj = DiscountCurve.flat(TM, 0.035, until=date(2030, 1, 15))
+    disc = DiscountCurve.flat(TM, 0.030, until=date(2032, 1, 15))
+    proj = DiscountCurve.flat(TM, 0.035, until=date(2032, 1, 15))
     return CurveSet({CurveKey(CurveRole.DISCOUNT, CCY): disc, CurveKey(CurveRole.PROJECTION, INDEX): proj})
 
 
