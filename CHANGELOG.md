@@ -6,6 +6,38 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.98.0] - 2026-08-22
+
+**L6 stateful slice — BookedTrade + benefit table + realized P&L. CLOSES C3 and TOPIC 1.** The first
+complete instrument vertical, proven end-to-end L0→L6. Realizes `Total = realized + mark` (§2) and
+exercises invariant 6 (the last unexercised engine invariant). Red→green.
+
+### Added
+- **`future_periods(schedule, valuation_date)`** (L0) — the future sub-schedule (payments strictly after
+  the valuation date). **The engine now excludes historical cashflows from the mark (invariant 6):**
+  `price_swap`/`price_swaption` pre-filter both legs ABOVE the atoms (`rpv01`/`float_leg_pv` UNCHANGED —
+  §3d preserved); `price_caplet` returns 0 for a paid optionlet. A spot trade loses no period → **slices
+  1–11 byte-identical.** This closes the seasoned-trade silent misprice (past pay date → `df>1`).
+- **`BookedTrade(trade, fixings)`** (L6) + **`realized`** (the benefit table: Σ past undiscounted cash, float
+  via the shared `accrued_rate` atom, fixed via the coupon) + **`total`** (= realized + mark). Benefit
+  dispatch is a type registry (`register_benefit`) mirroring the engine — the shell stays isinstance-free.
+
+### Oracle
+- Seasoned swap: `realized` == a hand-computed benefit table (<1e-9); the future-only `mark` prices correctly
+  (closes the silent misprice); `total` == realized + mark; **spot degenerate** → `realized == 0`, `total ==
+  mark` (1–11 byte-identical); realized is undiscounted; a missing historical fixing → `PricingFailure`.
+
+### Migration — TOPIC 1 CLOSED
+The 6 accumulated Topic-1 deletables were **physically parked** (one `git-mv` into
+`parked/topic-01-yield-curve/`): `bootstrap`, `discount_curve`, `ncurve_solver`, `global_solver`,
+`multicurve_solver`, `forward_interpolation`. **Drawdown 19/793 — now all physically parked** (13 Topic-0 +
+6 Topic-1). ng is unaffected (never imports the quarry). The booking cluster (`core/trade`/`core/book`/
+`core/fixings`) stays partial (serialisation/desks/limits/lifecycle + live consumers resident, tick 0).
+
+### Deferred (named triggers)
+Accrued + clean/dirty + fixings-on-snapshot (paired follow-up) · lifecycle events · booking persistence ·
+daily P&L / attribution · cross-currency benefit table · caplet/swaption realized · resident booking breadth.
+
 ## [0.97.0] - 2026-08-21
 
 **L6 opening — the imperative shell (frozen Trade/Book + marking + portfolio risk).** The LAST spine
