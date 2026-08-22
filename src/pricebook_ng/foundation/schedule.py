@@ -268,6 +268,24 @@ def _unadjusted(
     return dates, False, back_stub
 
 
+def future_periods(schedule: Schedule, valuation_date: date) -> Schedule:
+    """The sub-schedule whose payments are strictly AFTER `valuation_date` — the future periods
+    (invariant 6: cashflows on or before the valuation date are historical, excluded from PV and
+    handled by the L6 shell, never discounted at a non-positive t). Periods are date-ordered, so the
+    past ones are a prefix; dropping them keeps `unadjusted`/`adjusted`/`periods` consistent. A
+    spot-started schedule (every payment in the future) is returned unchanged — the mark is identical."""
+    keep_from = len(schedule.periods)
+    for i, period in enumerate(schedule.periods):
+        if period.payment_date > valuation_date:
+            keep_from = i
+            break
+    return Schedule(
+        schedule.unadjusted[keep_from:],
+        schedule.adjusted[keep_from:],
+        schedule.periods[keep_from:],
+    )
+
+
 def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
     """Generate the schedule from `start` to `end` under `terms`."""
     if start >= end:
