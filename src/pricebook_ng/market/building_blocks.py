@@ -20,18 +20,50 @@ Provenance:
 
 from __future__ import annotations
 
-from pricebook_ng.foundation import Accrual, DayCountConvention, Schedule
+from pricebook_ng.foundation import (
+    Accrual,
+    CouponPeriod,
+    DayCountConvention,
+    Schedule,
+    SchedulePeriod,
+    icma_coupon_period,
+)
 from pricebook_ng.market.curve import CurveHandle
+
+# A day count that needs convention context beyond the two dates: ICMA needs the coupon frequency,
+# BUS/252 needs the calendar. Both are read FROM THE SCHEDULE'S `terms` (§3d — context travels with
+# the data), so the calibrator and engine cannot pass mismatched conventions for the same schedule.
+
+
+def _coupon_context(schedule: Schedule, period: SchedulePeriod, day_count: DayCountConvention, is_first: bool):
+    """The `(coupon_period, calendar)` a period needs under `day_count`, from the schedule's own
+    `terms`. ICMA builds a `CouponPeriod` (its consumer for `is_stub`); every other convention gets
+    `None` — INERT, so a non-ICMA leg is byte-identical (and `per_year()` is never called on a
+    non-integer frequency). The calendar comes from the schedule's roll for BOTH legs (one source)."""
+    coupon_period: CouponPeriod | None = None
+    if day_count is DayCountConvention.ACT_ACT_ICMA:
+        coupon_period = icma_coupon_period(
+            period.accrual_start,
+            period.accrual_end,
+            front_stub=period.is_stub and is_first,
+            frequency=schedule.terms.frequency.per_year(),
+        )
+    return coupon_period, schedule.terms.roll.calendar
 
 
 def rpv01(schedule: Schedule, day_count: DayCountConvention, curve: CurveHandle) -> float:
     """The fixed annuity — RPV01 = Σ τᵢ·df(payᵢ), discount curve only. THIS is the single
     definition of the annuity: the calibrator's `par_rate` and the engine's swap PV both
-    call it (§3d), so they cannot disagree on day count or discounting."""
-    return sum(
-        Accrual(p.accrual_start, p.accrual_end, day_count).year_fraction() * curve.df(p.payment_date)
-        for p in schedule.periods
-    )
+    call it (§3d), so they cannot disagree on day count or discounting. Each τ reads its
+    convention context (ICMA frequency, BUS/252 calendar) from the schedule (§3d)."""
+    total = 0.0
+    for i, p in enumerate(schedule.periods):
+        cp, cal = _coupon_context(schedule, p, day_count, is_first=i == 0)
+        tau = Accrual(p.accrual_start, p.accrual_end, day_count).year_fraction(
+            coupon_period=cp, calendar=cal
+        )
+        total += tau * curve.df(p.payment_date)
+    return total
 
 
 def deposit_df(rate: float, accrual: Accrual) -> float:
@@ -41,12 +73,21 @@ def deposit_df(rate: float, accrual: Accrual) -> float:
     return 1.0 / (1.0 + rate * accrual.year_fraction())
 
 
-def forward(projection: CurveHandle, accrual: Accrual) -> float:
+def forward(
+    projection: CurveHandle,
+    accrual: Accrual,
+    *,
+    coupon_period: CouponPeriod | None = None,
+    calendar=None,
+) -> float:
     """The simple forward rate over `accrual`, off the projection curve —
     `(df(start)/df(end) − 1) / τ`. The single definition of the projection atom; the
     float-leg calibrator and the engine both reach it through the same `projection`
-    curve (resolved from the leg's index via `CurveSet.projection`)."""
-    return (projection.df(accrual.start) / projection.df(accrual.end) - 1.0) / accrual.year_fraction()
+    curve. `coupon_period`/`calendar` thread the ICMA/BUS252 context into `τ` (inert for
+    other conventions) — the FRA/future calibrators pass none (their accruals are simple)."""
+    return (projection.df(accrual.start) / projection.df(accrual.end) - 1.0) / accrual.year_fraction(
+        coupon_period=coupon_period, calendar=calendar
+    )
 
 
 def float_leg_pv(
@@ -59,7 +100,11 @@ def float_leg_pv(
     `forward` (never inlines the df ratio, §3d). Degenerate single-curve case
     (`projection is discount`, no lag) equals `df(start₀) − df(endₙ)`."""
     total = 0.0
-    for p in schedule.periods:
+    for i, p in enumerate(schedule.periods):
+        cp, cal = _coupon_context(schedule, p, day_count, is_first=i == 0)
         accrual = Accrual(p.accrual_start, p.accrual_end, day_count)
-        total += discount.df(p.payment_date) * accrual.year_fraction() * forward(projection, accrual)
+        tau = accrual.year_fraction(coupon_period=cp, calendar=cal)
+        total += discount.df(p.payment_date) * tau * forward(
+            projection, accrual, coupon_period=cp, calendar=cal
+        )
     return total

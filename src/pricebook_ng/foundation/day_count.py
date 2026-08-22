@@ -172,6 +172,22 @@ def _icma_add_months(d: date, months: int) -> date:
     return date(year, month, min(d.day, _last_day_of_month(date(year, month, 1))))
 
 
+def icma_coupon_period(
+    accrual_start: date, accrual_end: date, front_stub: bool, frequency: int
+) -> CouponPeriod:
+    """The ICMA `CouponPeriod` for one accrual period, built from the schedule's own boundaries +
+    `is_stub` position + coupon `frequency` (Rule 251). The `reference_start` seeds the notional
+    (quasi-coupon) grid `_act_act_icma` walks: for a regular or back-stub period the period's own
+    start; for a FRONT stub the regular boundary it abuts (`accrual_end`), so the grid steps back to
+    the notional period the short first coupon belongs to. `is_final` is inert for ICMA."""
+    if front_stub:
+        reference_start = accrual_end
+        reference_end = _icma_add_months(accrual_end, 12 // frequency)
+    else:
+        reference_start, reference_end = accrual_start, accrual_end
+    return CouponPeriod(reference_start, reference_end, frequency)
+
+
 def _act_act_icma(start: date, end: date, cp: CouponPeriod | None) -> float:
     """ACT/ACT ICMA (ICMA Rule 251, ISDA §4.16): sum over the notional (quasi-coupon) periods
     that `[start, end)` overlaps, each term ``days_in_overlap / (frequency × notional_days)``.
