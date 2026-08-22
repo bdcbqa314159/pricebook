@@ -29,13 +29,17 @@ def central_diff(
     p: Priceable, base: MarketSnapshot, bump: Bump, shift: float
 ) -> float | PricingFailure:
     """`(PV(base⊕shift) − PV(base⊖shift)) / (2·shift)` — the key-blind FD core. `bump.apply` is the
-    ONLY shape-aware call; a failed reprice propagates as a value (invariant 4)."""
-    up = p.price_at(bump.apply(base, shift))
-    if isinstance(up, PricingFailure):
-        return up
-    down = p.price_at(bump.apply(base, -shift))
-    if isinstance(down, PricingFailure):
-        return down
+    ONLY shape-aware call; a failed reprice — or a bump against market data the snapshot doesn't carry
+    (an absent key) — propagates as a value (invariant 4), never raised."""
+    try:
+        up = p.price_at(bump.apply(base, shift))
+        if isinstance(up, PricingFailure):
+            return up
+        down = p.price_at(bump.apply(base, -shift))
+        if isinstance(down, PricingFailure):
+            return down
+    except KeyError as exc:  # the bump referenced a curve/surface key not in the snapshot (#8)
+        return PricingFailure(f"no market data to bump at key {exc}")
     return (up.pv.amount - down.pv.amount) / (2.0 * shift)
 
 
