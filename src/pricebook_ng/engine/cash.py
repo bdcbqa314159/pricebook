@@ -16,6 +16,7 @@ Provenance:
 from __future__ import annotations
 
 from pricebook_ng.engine.registry import register
+from pricebook_ng.engine.seasoned import current_period_failure
 from pricebook_ng.foundation import Money, PricingFailure, PricingResult
 from pricebook_ng.market.building_blocks import deposit_df, forward
 from pricebook_ng.models.protocols import CalibratedModel
@@ -27,13 +28,18 @@ __all__ = ["price_deposit", "price_fra", "price_future"]
 @register(Deposit)
 def price_deposit(deposit: Deposit, model: CalibratedModel) -> PricingResult | PricingFailure:
     """Lender PV = N·(df(end)/deposit_df − df(start)); zero when df(end) = df(start)·deposit_df."""
+    vd, a = model.market.valuation_date, deposit.accrual
+    if a.end <= vd:  # invariant 6: a matured deposit has no future PV
+        return PricingResult(pv=Money(0.0, deposit.currency))
+    seasoned = current_period_failure(a.start, vd)  # #3a: in-flight, needs fixings
+    if seasoned is not None:
+        return seasoned
     try:
         discount = model.market.curves.discount(deposit.currency)
-        a = deposit.accrual
         pv = deposit.notional * (
             discount.df(a.end) / deposit_df(deposit.rate, a) - discount.df(a.start)
         )
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     return PricingResult(pv=Money(pv, deposit.currency))
 
@@ -41,6 +47,12 @@ def price_deposit(deposit: Deposit, model: CalibratedModel) -> PricingResult | P
 @register(FRA)
 def price_fra(fra: FRA, model: CalibratedModel) -> PricingResult | PricingFailure:
     """PV = N·τ·df_disc(end)·(forward(proj) − rate); zero when the projected forward = rate."""
+    vd = model.market.valuation_date
+    if fra.accrual.end <= vd:  # invariant 6
+        return PricingResult(pv=Money(0.0, fra.currency))
+    seasoned = current_period_failure(fra.accrual.start, vd)  # #3a
+    if seasoned is not None:
+        return seasoned
     try:
         curves = model.market.curves
         discount = curves.discount(fra.currency)
@@ -51,7 +63,7 @@ def price_fra(fra: FRA, model: CalibratedModel) -> PricingResult | PricingFailur
             * discount.df(fra.accrual.end)
             * (forward(projection, fra.accrual) - fra.rate)
         )
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     return PricingResult(pv=Money(pv, fra.currency))
 
@@ -60,6 +72,12 @@ def price_fra(fra: FRA, model: CalibratedModel) -> PricingResult | PricingFailur
 def price_future(future: Future, model: CalibratedModel) -> PricingResult | PricingFailure:
     """PV = N·τ·df_disc(end)·(forward(proj) − (1 − price)); the forward approximation to a
     future (no convexity). Zero when the projected forward = 1 − price."""
+    vd = model.market.valuation_date
+    if future.accrual.end <= vd:  # invariant 6
+        return PricingResult(pv=Money(0.0, future.currency))
+    seasoned = current_period_failure(future.accrual.start, vd)  # #3a
+    if seasoned is not None:
+        return seasoned
     try:
         curves = model.market.curves
         discount = curves.discount(future.currency)
@@ -70,6 +88,6 @@ def price_future(future: Future, model: CalibratedModel) -> PricingResult | Pric
             * discount.df(future.accrual.end)
             * (forward(projection, future.accrual) - (1.0 - future.price))
         )
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     return PricingResult(pv=Money(pv, future.currency))

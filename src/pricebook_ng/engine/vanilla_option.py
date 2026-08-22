@@ -17,6 +17,7 @@ Provenance:
 from __future__ import annotations
 
 from pricebook_ng.engine.registry import register
+from pricebook_ng.engine.seasoned import current_period_failure
 from pricebook_ng.foundation import (
     DayCountConvention,
     Money,
@@ -41,18 +42,23 @@ def price_caplet(caplet: Caplet, model: CalibratedModel) -> PricingResult | Pric
         return PricingFailure("caplet requires a model with the BlackVol capability")
     accrual, index = caplet.accrual, caplet.index
     currency = index.id.currency
-    if accrual.end <= model.market.valuation_date:  # invariant 6: a paid optionlet has no future PV
+    vd = model.market.valuation_date
+    if accrual.end <= vd:  # invariant 6: a paid optionlet has no future PV
         return PricingResult(pv=Money(0.0, currency))
+    seasoned = current_period_failure(accrual.start, vd)  # #3a: fixing past, not yet paid
+    if seasoned is not None:
+        return seasoned
     curves = model.market.curves
     try:
+        expiry = accrual.start  # T = valuation → fixing, ACT/365F for the vol
+        t = TimeMeasure(vd, DayCountConvention.ACT_365_FIXED).year_fraction(expiry)
         pay_df = curves.discount(currency).df(accrual.end)
         fwd = forward(curves.projection(index), accrual)
         tau = accrual.year_fraction()
-        # T = time from the valuation date to the optionlet expiry (fixing), ACT/365F for the vol
-        expiry = accrual.start
-        t = TimeMeasure(model.market.valuation_date, DayCountConvention.ACT_365_FIXED).year_fraction(expiry)
+        if (fwd <= 0.0 or caplet.strike <= 0.0) and t > 0.0:  # #15: lognormal Black undefined
+            return PricingFailure("forward ≤ 0: lognormal Black undefined — normal/shifted deferred")
         vol = model.black_vol(index, expiry, caplet.strike)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     pv = pay_df * caplet.notional * tau * black(fwd, caplet.strike, vol, t, OptionType.CALL)
     return PricingResult(pv=Money(pv, currency))
@@ -77,19 +83,26 @@ def price_swaption(swaption: Swaption, model: CalibratedModel) -> PricingResult 
     index = swap.float_leg.index
     currency = swap.currency
     strike = swap.fixed_leg.rate
+    vd = model.market.valuation_date
+    if swaption.expiry <= vd:  # #20: an expired swaption has no future optional value (exercise = L6)
+        return PricingResult(pv=Money(0.0, currency))
     curves = model.market.curves
     try:
         discount = curves.discount(currency, swap.collateral)  # same discount the swap engine uses
         projection = curves.projection(index)
         # invariant 6: the underlying's mark is FUTURE PV only (a spot-forward swaption loses none)
-        vd = model.market.valuation_date
         fixed_sched = future_periods(swap.fixed_leg.schedule, vd)
         float_sched = future_periods(swap.float_leg.schedule, vd)
+        seasoned = current_period_failure(fixed_sched.periods[0].accrual_start, vd) if fixed_sched.periods else None
+        if seasoned is not None:  # #3a: underlying's current period is in progress
+            return seasoned
         annuity = rpv01(fixed_sched, swap.fixed_leg.day_count, discount)
         s = float_leg_pv(float_sched, swap.float_leg.day_count, discount, projection) / annuity
+        if (s <= 0.0 or strike <= 0.0):  # #15: lognormal Black undefined (t > 0 guaranteed above)
+            return PricingFailure("forward swap rate ≤ 0: lognormal Black undefined — normal/shifted deferred")
         swap_tenor = _swap_tenor(swap.fixed_leg.schedule)
         vol = model.swaption_vol(index, swaption.expiry, swap_tenor, strike)
-        t = TimeMeasure(model.market.valuation_date, DayCountConvention.ACT_365_FIXED).year_fraction(swaption.expiry)
+        t = TimeMeasure(vd, DayCountConvention.ACT_365_FIXED).year_fraction(swaption.expiry)
     except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     pv = swap.notional * annuity * black(s, strike, vol, t, swaption.option_type)
