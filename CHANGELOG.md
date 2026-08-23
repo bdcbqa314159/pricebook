@@ -6,6 +6,32 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.100.0] - 2026-08-23
+
+**Audit Batch A — invariant-4/6 boundary hardening.** Six findings from the v0.98.0 audit
+(`~/work/analysis/AUDIT_FINDINGS.md`), each ported repro → red → green: failure is a value, uniformly.
+
+### Fixed
+- **#2 [HIGH]** the shell returns **`Mapping[Currency, Money]`** (`mark`/`mark_book`/`realized`/`total`) —
+  a mixed-currency book is a per-currency map, not an escaped `TypeError`; single-currency = the
+  degenerate 1-entry map. `book_priceable` fails-as-value on multi-currency (base-ccy FX conversion
+  deferred → reporting consumer).
+- **#3a [HIGH]** `future_periods` is now applied uniformly across xccy/cash/caplet; a seasoned
+  **mid-period** trade fails with a NAMED message (`current_period_failure`), not a raw L0 date error.
+  *(The real fix — pricing the current period from fixings — is #3b, Batch F.)*
+- **#8 [MED]** `ir_delta`/`vol_vega` on an absent key → `PricingFailure` (was `KeyError`).
+- **#15 [MED]** negative-forward options → `PricingFailure` (lognormal Black undefined; normal/shifted
+  deferred), not a silent zero-time-value price.
+- **#16 [LOW]** `ZeroDivisionError` added to the cash + caplet + swaption catch sets.
+- **#20 [LOW]** expired swaption → PV 0 (mirrors the caplet); `Surface.__post_init__` validates vols vs expiries.
+
+### Note
+`mark`/`realized`/`total` change return type `Money → Mapping[Currency, Money]` (single-ccy = 1-entry).
+Slice-11/12 oracles adapted. Audit backlog mirrored into `OPEN.md`; #3b → Batch F, defer/document
+#9/#10/#14 recorded with triggers.
+
+Drawdown 19/793 (bug-fix slice, tick 0).
+
 ## [0.99.0] - 2026-08-22
 
 **Audit #7 — ACT/ACT ICMA + BUS/252 leg pricing (self-describing Schedule).** Both strict conventions

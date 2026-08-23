@@ -107,6 +107,36 @@ blocks the next slice. Non-`[NG-…]` rows: they offset no suppression, so they 
 | C1-D4 | FX **triangulation** (e.g. EUR/JPY via USD) unbuilt; `fx_rate` raises on an undeclared cross | the raise is the guard — no silent wrong cross | a **3rd currency** with only cross quotes |
 | C1-D5 | Calibration **Jacobian** is scipy's numerical `result.jac`; analytic/adjoint (AAD) form absent | numerical Jacobian is correct for the current risk needs (none in C1) | **C3 risk / AAD** topic (doc 18 §6) |
 
+### Third-party audit (v0.98.0) — tracked backlog (20 findings, `~/work/analysis/AUDIT_FINDINGS.md`)
+
+Reproduced by executable repros `A`–`S`. Numerical core re-verified clean; exposure at the top of the
+stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays green). Status updated as batches land.
+
+| # | sev | finding | status |
+|---|---|---|---|
+| 7 | MED | ICMA + BUS/252 legs can't price | **CLOSED v0.99.0** (slice #7) |
+| 2 | HIGH | multi-ccy book raises `TypeError` not a value | **CLOSED v0.100.0** (Batch A) — shell returns `Mapping[Currency, Money]` |
+| 3a | HIGH | seasoned mid-period marking (honest failure) | **CLOSED v0.100.0** (Batch A) — `current_period_failure` names it across all pricers |
+| 8 | MED | `ir_delta`/`vol_vega` `KeyError` leak | **CLOSED v0.100.0** (Batch A) |
+| 15 | MED | negative-forward options silently zero | **CLOSED v0.100.0** (Batch A) — engine fails when F/K ≤ 0 |
+| 16 | LOW | `ZeroDivisionError` through cash pricers | **CLOSED v0.100.0** (Batch A) |
+| 20 | LOW | expired swaption raw date error; `Surface` unvalidated | **CLOSED v0.100.0** (Batch A) |
+| **3b** | HIGH | current-period **pricing** (accrued from fixings) | **→ Batch F** (accrued/clean-dirty; fixings-on-engine). Trigger: the reporting/accrued consumer. |
+| base-ccy | — | multi-ccy `book_priceable`/reporting FX conversion via `snapshot.fx_rate` | **deferred** — trigger: first cross-currency reporting consumer. |
+| 1 | HIGH | `CurveBump` breaks discount≡projection alias (OIS DV01 wrong) | **OPEN → Batch B** (bump by curve identity + float-leg oracle) |
+| 4 | MED | `Surface.at` interpolates variance rate not total variance | **OPEN → Batch C** (agent's slice-3 flag, confirmed) |
+| 5 | MED | `_swap_tenor` whole-year rounding | **OPEN → Batch C** (carry tenor on `Swaption`) |
+| 6 | MED | `HAGAN_WEST` + `SEQUENTIAL` non-converged | **OPEN → Batch C** (reject at spec validation) |
+| 11 | LOW | `spot_lag` direction-sensitive | **OPEN → Batch D** |
+| 12 | LOW | `interpolate` no ascending-`xs` check | **OPEN → Batch D** |
+| 13 | LOW | `_solve_pillar_df` lower bracket not expanded | **OPEN → Batch D** |
+| 17 | LOW | `SolveConfig.tolerance` not passed to sequential Brent | **OPEN → Batch D** (invariant 5) |
+| 18 | LOW | `PaymentRule.lag` dropped without a calendar | **OPEN → Batch D** |
+| 19 | LOW | calendar content (TEL_AVIV lunisolar, US SIFMA, RIYADH) | **OPEN → Batch E** (green-oracle per calendar; region items ride with their topic) |
+| 9 | LOW | extrapolation policy dead API | **defer** — trigger: `DiscountCurve` extrapolation consumer (rule of two) |
+| 10 | LOW | `vol_strip` assumes caplet grid = quote grid | **defer/document** — trigger: a real cap with intra-tenor caplets |
+| 14 | INFO | exported-but-unconsumed L0 surface | **defer** — mostly L0 vocab ahead of consumers; `black_vega`/`Cashflow`+`Leg` note-only |
+
 ### PONYTAIL-DEBT.md — ponytail markers (1, tracked)
 
 | id | marker | ceiling | upgrade trigger |
