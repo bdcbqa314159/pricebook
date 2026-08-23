@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Protocol, runtime_checkable
 
-from pricebook_ng.market.curve_set import CurveKey
+from pricebook_ng.market.curve_set import CurveKey, CurveSet
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.market.vol_surface import SurfaceKey
 
@@ -31,9 +31,28 @@ class Bump(Protocol):
 
 
 @dataclass(frozen=True)
-class CurveBump:
-    """Parallel-bumps the discount/projection curve at `key` (sticky-model market delta): replace
-    it with `.bumped(shift)`, rebuild the snapshot. The unbumped curves/surfaces are shared as-is."""
+class CurveIdentityBump:
+    """Parallel bump by curve IDENTITY (the DEFAULT for `ir_delta`/`book_dv01`). Resolves the curve at
+    `key`, bumps it ONCE, and replaces EVERY `CurveSet` entry whose value `is` that curve with the same
+    bumped object — so an OIS curve aliased under both `(DISCOUNT, ccy)` and `(PROJECTION, ois_index)`
+    moves in BOTH roles at once (bump-once-share). This is the documented parallel interest-rate delta;
+    the old single-key bump broke the alias, mis-stating OIS DV01 ~750× (#1). No isinstance/type branch."""
+
+    key: CurveKey
+
+    def apply(self, market: MarketSnapshot, shift: float) -> MarketSnapshot:
+        target = market.curves.curves[self.key]
+        bumped = target.bumped(shift)  # bump ONCE
+        curves = {k: (bumped if v is target else v) for k, v in market.curves.curves.items()}
+        return replace(market, curves=CurveSet(curves))
+
+
+@dataclass(frozen=True)
+class CurveBasisBump:
+    """Single-key PARTIAL (basis) bump: replace ONLY the entry at `key`, leaving any aliased role
+    unmoved — a genuine basis move for a dual-curve swap (discount vs a distinct projection). Reached
+    through `ir_basis_delta`, never the default; for an OIS-aliased curve this is a partial derivative,
+    not the parallel DV01 (`CurveIdentityBump` is)."""
 
     key: CurveKey
 

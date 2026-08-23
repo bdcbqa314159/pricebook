@@ -35,7 +35,7 @@ from pricebook_ng.models.black_model import BlackModel
 from pricebook_ng.models.discounting_model import DiscountingModel
 from pricebook_ng.products.option import Caplet
 from pricebook_ng.products.swap import FixedLeg, FloatLeg, VanillaSwap
-from pricebook_ng.risk import CurveBump, SurfaceBump, central_diff, ir_delta, priceable, vol_vega
+from pricebook_ng.risk import CurveIdentityBump, SurfaceBump, central_diff, ir_delta, priceable, vol_vega
 
 VAL = date(2026, 1, 15)
 INDEX = get_rate_index("EURIBOR_3M")
@@ -98,10 +98,10 @@ def test_greeks_share_one_key_blind_core() -> None:
     # both greeks are thin wrappers over the SAME central_diff; the core takes a Bump strategy
     market = MarketSnapshot(VAL, _curves(), surfaces={SurfaceKey(INDEX): Surface.flat(0.25)})
     p_swap = priceable(SWAP, DiscountingModel)
-    via_core = central_diff(p_swap, market, CurveBump(DISC_KEY), 1e-4)
+    via_core = central_diff(p_swap, market, CurveIdentityBump(DISC_KEY), 1e-4)
     via_greek = ir_delta(p_swap, market, DISC_KEY)
     assert isinstance(via_core, float) and isinstance(via_greek, float)
-    assert abs(via_core - via_greek) < 1e-15  # ir_delta IS central_diff with a CurveBump
+    assert abs(via_core - via_greek) < 1e-15  # ir_delta IS central_diff with a CurveIdentityBump
 
 
 def test_central_diff_core_has_no_key_type_switch() -> None:
