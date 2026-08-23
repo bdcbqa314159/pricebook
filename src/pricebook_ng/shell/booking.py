@@ -18,13 +18,14 @@ Provenance:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation import FixingSource, Money, PricingFailure
+from pricebook_ng.foundation import Currency, FixingSource, Money, PricingFailure
 from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.shell.benefit import benefit
-from pricebook_ng.shell.portfolio import Trade, mark
+from pricebook_ng.shell.portfolio import Trade, add_money, mark
 
 
 @dataclass(frozen=True)
@@ -36,27 +37,31 @@ class BookedTrade:
     fixings: FixingSource
 
 
-def realized(booked: BookedTrade, valuation_date: date) -> Money | PricingFailure:
-    """The benefit table: Σ over the trade's products of already-paid, UNDISCOUNTED cash at
-    `valuation_date` (the shell's memory, never a PV). A product whose benefit can't be resolved
-    (a missing historical fixing) propagates as a `PricingFailure` (invariant 4)."""
-    total_cash: Money | None = None
+def realized(booked: BookedTrade, valuation_date: date) -> Mapping[Currency, Money] | PricingFailure:
+    """The benefit table as a PER-CURRENCY map: Σ over the trade's products of already-paid,
+    UNDISCOUNTED cash at `valuation_date` (the shell's memory, never a PV). Single-currency = the
+    degenerate 1-entry map (#2). A product whose benefit can't be resolved (a missing historical
+    fixing) propagates as a `PricingFailure` (invariant 4)."""
+    by_ccy: dict[Currency, Money] = {}
     for product in booked.trade.products:
         b = benefit(product, valuation_date, booked.fixings)
         if isinstance(b, PricingFailure):
             return b
-        total_cash = b if total_cash is None else total_cash + b
-    assert total_cash is not None  # Trade.__post_init__ guarantees ≥1 product
-    return total_cash
+        add_money(by_ccy, b)
+    return by_ccy
 
 
-def total(booked: BookedTrade, model: CalibratedModel) -> Money | PricingFailure:
-    """Total economics = realized + mark (§2): the shell's realized cash plus the engine's future-PV
-    mark (historical excluded by invariant 6, so no double count). Either failing propagates."""
+def total(booked: BookedTrade, model: CalibratedModel) -> Mapping[Currency, Money] | PricingFailure:
+    """Total economics = realized + mark (§2), per currency: the shell's realized cash plus the
+    engine's future-PV mark (historical excluded by invariant 6, so no double count). Either failing
+    propagates."""
     r = realized(booked, model.market.valuation_date)
     if isinstance(r, PricingFailure):
         return r
     m = mark(booked.trade, model)
     if isinstance(m, PricingFailure):
         return m
-    return r + m
+    by_ccy: dict[Currency, Money] = {}
+    for money in (*r.values(), *m.values()):
+        add_money(by_ccy, money)
+    return by_ccy

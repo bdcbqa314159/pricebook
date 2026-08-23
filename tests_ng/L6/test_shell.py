@@ -5,6 +5,7 @@ product/trade/book), portfolio DV01 is Σ of the L5 greek. Oracles: trade-of-1 =
 additivity, DV01 additivity, frozen/immutable, failure-as-value, and a MIXED book under one model.
 """
 
+from collections.abc import Mapping
 from dataclasses import FrozenInstanceError
 from datetime import date
 
@@ -64,8 +65,8 @@ def test_trade_of_one_equals_engine() -> None:
     t = Trade((SWAP,), VAL)
     m = mark(t, model)
     engine = price(SWAP, model)
-    assert isinstance(m, Money) and not isinstance(engine, PricingFailure)
-    assert m == engine.pv  # thin pass-through — the shell calls the engine, adds nothing
+    assert isinstance(m, Mapping) and not isinstance(engine, PricingFailure)
+    assert m[CCY] == engine.pv  # single-currency map: thin pass-through, the shell adds nothing
 
 
 def test_book_marks_to_sum_of_trades() -> None:
@@ -74,11 +75,11 @@ def test_book_marks_to_sum_of_trades() -> None:
     book = Book((t_swap, t_caplet), "mixed")
     total = mark_book(book, model)
     per_trade = mark(t_swap, model), mark(t_caplet, model)
-    assert isinstance(total, Money) and all(isinstance(x, Money) for x in per_trade)
-    assert abs(total.amount - (per_trade[0].amount + per_trade[1].amount)) < 1e-12
-    # and == the raw engine sum
+    assert isinstance(total, Mapping) and all(isinstance(x, Mapping) for x in per_trade)
+    assert abs(total[CCY].amount - (per_trade[0][CCY].amount + per_trade[1][CCY].amount)) < 1e-12
+    # and == the raw engine sum (both legs EUR → single-currency map)
     s = price(SWAP, model).pv.amount + price(CAPLET, model).pv.amount
-    assert abs(total.amount - s) < 1e-12
+    assert abs(total[CCY].amount - s) < 1e-12
 
 
 def test_portfolio_dv01_is_sum_of_per_product() -> None:

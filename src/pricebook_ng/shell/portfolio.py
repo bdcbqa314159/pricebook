@@ -21,12 +21,12 @@ Provenance:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 
 from pricebook_ng.engine import price
-from pricebook_ng.foundation import Money, PricingFailure, PricingResult
+from pricebook_ng.foundation import Currency, Money, PricingFailure, PricingResult
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.models.protocols import CalibratedModel
 from pricebook_ng.market.curve_set import CurveKey
@@ -56,38 +56,48 @@ class Book:
     name: str = ""
 
 
-def mark(trade: Trade, model: CalibratedModel) -> Money | PricingFailure:
-    """The trade's mark (future PV): Σ over its products of `engine.price(product, model).pv`. The
-    shell CALLS the core; any product that fails to price propagates as a `PricingFailure` (invariant
-    4). `Money.__add__` guards currency-mixing (single-currency this slice)."""
-    total: Money | None = None
+def add_money(by_ccy: dict[Currency, Money], money: Money) -> None:
+    """Accumulate `money` into the per-currency map (never mixes currencies — that's the point)."""
+    existing = by_ccy.get(money.currency)
+    by_ccy[money.currency] = money if existing is None else existing + money
+
+
+def mark(trade: Trade, model: CalibratedModel) -> Mapping[Currency, Money] | PricingFailure:
+    """The trade's mark (future PV) as a PER-CURRENCY map: Σ over its products of
+    `engine.price(product, model).pv`, grouped by currency. A single-currency trade is the degenerate
+    1-entry map; a mixed trade returns >1 entry, never a `TypeError` (invariant 4, #2). A product that
+    fails to price propagates as a `PricingFailure`."""
+    by_ccy: dict[Currency, Money] = {}
     for product in trade.products:
         result = price(product, model)
         if isinstance(result, PricingFailure):
             return result
-        total = result.pv if total is None else total + result.pv
-    assert total is not None  # Trade.__post_init__ guarantees ≥1 product
-    return total
+        add_money(by_ccy, result.pv)
+    return by_ccy
 
 
-def mark_book(book: Book, model: CalibratedModel) -> Money | PricingFailure:
-    """The book's mark: Σ over its trades of `mark(trade, model)`. A failing trade propagates."""
-    total: Money | None = None
+def mark_book(book: Book, model: CalibratedModel) -> Mapping[Currency, Money] | PricingFailure:
+    """The book's mark: the per-currency merge of every trade's mark. A failing trade propagates;
+    an empty book is a `PricingFailure` (no currency)."""
+    by_ccy: dict[Currency, Money] = {}
     for trade in book.trades:
         m = mark(trade, model)
         if isinstance(m, PricingFailure):
             return m
-        total = m if total is None else total + m
-    if total is None:
+        for money in m.values():
+            add_money(by_ccy, money)
+    if not by_ccy:
         return PricingFailure("empty book: mark is undefined (no currency).")
-    return total
+    return by_ccy
 
 
 def book_priceable(
     book: Book, model_ctor: Callable[[MarketSnapshot], CalibratedModel]
 ) -> Priceable:
     """Adapt a `Book` to the L5 `Priceable` protocol (`snapshot → PV`), so EVERY L5 greek works on a
-    whole portfolio for free — the book reprices as one under a bumped market."""
+    whole portfolio for free. A `Priceable` carries ONE `Money`, so this is defined for a
+    single-currency book; a multi-currency book returns a `PricingFailure` (base-currency conversion
+    via `snapshot.fx_rate` is deferred — its trigger is the reporting consumer)."""
 
     @dataclass(frozen=True)
     class _BookPriceable:
@@ -96,7 +106,15 @@ def book_priceable(
 
         def price_at(self, market: MarketSnapshot) -> PricingResult | PricingFailure:
             m = mark_book(self.book, self.model_ctor(market))
-            return m if isinstance(m, PricingFailure) else PricingResult(pv=m)
+            if isinstance(m, PricingFailure):
+                return m
+            if len(m) != 1:
+                return PricingFailure(
+                    f"book spans {sorted(c.code for c in m)} — a single-currency Priceable only "
+                    f"(base-currency conversion deferred)"
+                )
+            (money,) = m.values()
+            return PricingResult(pv=money)
 
     return _BookPriceable(book, model_ctor)
 

@@ -6,6 +6,7 @@ hand-computed benefit table, future-only mark (closes the silent misprice), tota
 degenerate (realized 0, total == mark), realized-undiscounted, and missing-fixing failure-as-value.
 """
 
+from collections.abc import Mapping
 from datetime import date
 
 from pricebook_ng.engine import price
@@ -85,21 +86,21 @@ def _hand_realized() -> float:
 def test_seasoned_realized_matches_benefit_table() -> None:
     booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)), FIXINGS)
     r = realized(booked, VAL)
-    assert isinstance(r, Money)
-    assert abs(r.amount - _hand_realized()) < 1e-9
+    assert isinstance(r, Mapping)
+    assert abs(r[CCY].amount - _hand_realized()) < 1e-9
 
 
 def test_future_only_mark_closes_the_silent_misprice() -> None:
     model = DiscountingModel(MarketSnapshot(VAL, _curves()))
     m = mark(Trade((SEASONED,), date(2024, 1, 15)), model)
-    assert isinstance(m, Money)  # no raise / no df>1 garbage
+    assert isinstance(m, Mapping)  # no raise / no df>1 garbage
     # mark == the FUTURE periods only, priced through the atoms
     curves = _curves()
     disc, proj = curves.discount(CCY), curves.projection(INDEX)
     fixed_f = future_periods(SEASONED.fixed_leg.schedule, VAL)
     float_f = future_periods(SEASONED.float_leg.schedule, VAL)
     expected = NOTIONAL * (float_leg_pv(float_f, DC, disc, proj) - K * rpv01(fixed_f, DC, disc))
-    assert abs(m.amount - expected) < 1e-9
+    assert abs(m[CCY].amount - expected) < 1e-9
 
 
 def test_total_is_realized_plus_mark() -> None:
@@ -108,8 +109,8 @@ def test_total_is_realized_plus_mark() -> None:
     t = total(booked, model)
     r = realized(booked, VAL)
     m = mark(booked.trade, model)
-    assert isinstance(t, Money) and isinstance(r, Money) and isinstance(m, Money)
-    assert abs(t.amount - (r.amount + m.amount)) < 1e-12
+    assert isinstance(t, Mapping) and isinstance(r, Mapping) and isinstance(m, Mapping)
+    assert abs(t[CCY].amount - (r[CCY].amount + m[CCY].amount)) < 1e-12
 
 
 def test_spot_degenerate_realized_zero_total_is_mark() -> None:
@@ -119,9 +120,9 @@ def test_spot_degenerate_realized_zero_total_is_mark() -> None:
     r = realized(booked, VAL)
     t = total(booked, model)
     m = mark(booked.trade, model)
-    assert isinstance(r, Money) and r.amount == 0.0  # benefit table empty
-    assert isinstance(t, Money) and isinstance(m, Money)
-    assert abs(t.amount - m.amount) < 1e-12  # total == mark == full future PV
+    assert isinstance(r, Mapping) and r[CCY].amount == 0.0  # benefit table empty
+    assert isinstance(t, Mapping) and isinstance(m, Mapping)
+    assert abs(t[CCY].amount - m[CCY].amount) < 1e-12  # total == mark == full future PV
 
 
 def test_realized_is_undiscounted() -> None:
@@ -129,8 +130,8 @@ def test_realized_is_undiscounted() -> None:
     # un-discounted hand value (which applies no df) exactly
     booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)), FIXINGS)
     r = realized(booked, VAL)
-    assert isinstance(r, Money)
-    assert abs(r.amount - _hand_realized()) < 1e-9  # matches the no-df computation
+    assert isinstance(r, Mapping)
+    assert abs(r[CCY].amount - _hand_realized()) < 1e-9  # matches the no-df computation
 
 
 def test_missing_fixing_is_failure_as_value() -> None:
