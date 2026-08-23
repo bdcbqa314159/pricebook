@@ -66,7 +66,9 @@ def test_sum_of_basis_deltas_equals_the_identity_delta() -> None:  # hardening: 
     identity = ir_delta(p, market, DISC_KEY)
     disc_basis = ir_basis_delta(p, market, DISC_KEY)
     proj_basis = ir_basis_delta(p, market, PROJ_KEY)
-    assert abs((disc_basis + proj_basis) - identity) < 1e-3
+    # the partials sum to the parallel to FIRST order; the residual is second-order FD noise
+    # (cross-gamma), ~0.2 on a 4.5M delta — the same ~1e-7 relative the audit itself observed
+    assert abs((disc_basis + proj_basis) - identity) < 1.0
 
 
 def test_float_leg_participates_identity_differs_from_fixed_only_basis() -> None:  # oracle #2
