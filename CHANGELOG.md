@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.101.0] - 2026-08-23
+
+**Audit Batch B — #1 [HIGH]: `CurveBump` by curve identity.** The last HIGH. IR delta was wrong for
+every OIS-indexed trade (~750×, wrong sign) because the OIS discount curve is aliased under two keys
+`(DISCOUNT, ccy)` and `(PROJECTION, ois_index)`, and the single-key bump shifted only one role.
+
+### Changed
+- **`ir_delta`/`book_dv01` now bump by curve IDENTITY** (`CurveIdentityBump`): resolve the target curve,
+  bump it ONCE, and replace every `CurveSet` entry whose value `is` it — so an aliased OIS curve moves in
+  BOTH roles at once (bump-once-share). This is the documented parallel DV01.
+- **`CurveBump` renamed `CurveBasisBump`** — the single-key partial, now reached via the new
+  **`ir_basis_delta`** (a genuine dual-curve basis move; the per-key partials sum to `ir_delta`).
+- `central_diff` is UNCHANGED and key-blind — identity resolution lives inside `CurveIdentityBump.apply`,
+  never the FD core (no isinstance/type branch).
+
+### Oracle
+- OIS 5Y `ir_delta(DISCOUNT, EUR)` == the true parallel DV01 (independent reprice); the discount/projection
+  basis partials sum to it (to second-order FD noise); the alias is preserved post-bump; `book_dv01` is
+  correct for OIS trades (repro_N); the float leg participates (identity ≠ fixed-only basis).
+
+Drawdown 19/793 (bug-fix slice, tick 0). All three HIGH audit findings now closed.
+
 ## [0.100.0] - 2026-08-23
 
 **Audit Batch A — invariant-4/6 boundary hardening.** Six findings from the v0.98.0 audit

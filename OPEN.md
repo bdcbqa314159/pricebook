@@ -123,7 +123,7 @@ stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays gre
 | 20 | LOW | expired swaption raw date error; `Surface` unvalidated | **CLOSED v0.100.0** (Batch A) |
 | **3b** | HIGH | current-period **pricing** (accrued from fixings) | **→ Batch F** (accrued/clean-dirty; fixings-on-engine). Trigger: the reporting/accrued consumer. |
 | base-ccy | — | multi-ccy `book_priceable`/reporting FX conversion via `snapshot.fx_rate` | **deferred** — trigger: first cross-currency reporting consumer. |
-| 1 | HIGH | `CurveBump` breaks discount≡projection alias (OIS DV01 wrong) | **OPEN → Batch B** (bump by curve identity + float-leg oracle) |
+| 1 | HIGH | `CurveBump` breaks discount≡projection alias (OIS DV01 wrong) | **CLOSED v0.101.0** (Batch B) — `CurveIdentityBump` (bump-once-share, the `ir_delta` default); old `CurveBump` renamed `CurveBasisBump` (partial, via `ir_basis_delta`) |
 | 4 | MED | `Surface.at` interpolates variance rate not total variance | **OPEN → Batch C** (agent's slice-3 flag, confirmed) |
 | 5 | MED | `_swap_tenor` whole-year rounding | **OPEN → Batch C** (carry tenor on `Swaption`) |
 | 6 | MED | `HAGAN_WEST` + `SEQUENTIAL` non-converged | **OPEN → Batch C** (reject at spec validation) |
