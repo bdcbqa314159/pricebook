@@ -6,6 +6,28 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.102.0] - 2026-08-24
+
+**Audit Batch C — three MED correctness fixes** (#4/#5/#6), each ported repro → red → green.
+
+### Fixed
+- **#4 [MED]** `Surface.at` interpolates **total variance** `w = σ²·T` linear in `T` (arb-free — `w` cannot
+  decrease between pillars → no calendar arbitrage), rooted `σ = √(w/T)`. One canonical `vol_time_measure`
+  (ACT/365F) is composed by **both** the surface `T`-axis and the pricer's expiry-`t` — one source (§3d).
+  Non-LINEAR interpolation is now rejected (arb-free non-linear deferred to a smile/cube consumer).
+  **Discharges the C2 σ²·T deferral** flagged in slice 3.
+- **#5 [MED]** `underlying_tenor(swap)` gives the **exact** swaption tenor (period count × the schedule's
+  coupon step, whole-years → YEAR), replacing `_swap_tenor`'s `round(days/365)` — a 6M underlying keys 6M,
+  18M keys 18M (was silently 1Y), 5Y still keys 5Y.
+- **#6 [MED]** `HAGAN_WEST` + `SEQUENTIAL` is **rejected at spec validation** → `CalibrationFailure` naming
+  `SIMULTANEOUS` (was a `converged=False` tuple). Sequential-HW (terminal-interval convention) stays deferred.
+
+### Note
+`Surface.at` gains a `time_measure` argument; `black_vol`/`swaption_vol` thread the canonical clock.
+Flat surfaces, whole-year swaptions, and non-HW calibration are byte-identical. Suite 261.
+
+Drawdown 19/793 (bug-fix slice, tick 0). Audit: all HIGH + MED findings now closed.
+
 ## [0.101.0] - 2026-08-23
 
 **Audit Batch B — #1 [HIGH]: `CurveBump` by curve identity.** The last HIGH. IR delta was wrong for

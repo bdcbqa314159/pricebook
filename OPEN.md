@@ -124,9 +124,9 @@ stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays gre
 | **3b** | HIGH | current-period **pricing** (accrued from fixings) | **→ Batch F** (accrued/clean-dirty; fixings-on-engine). Trigger: the reporting/accrued consumer. |
 | base-ccy | — | multi-ccy `book_priceable`/reporting FX conversion via `snapshot.fx_rate` | **deferred** — trigger: first cross-currency reporting consumer. |
 | 1 | HIGH | `CurveBump` breaks discount≡projection alias (OIS DV01 wrong) | **CLOSED v0.101.0** (Batch B) — `CurveIdentityBump` (bump-once-share, the `ir_delta` default); old `CurveBump` renamed `CurveBasisBump` (partial, via `ir_basis_delta`) |
-| 4 | MED | `Surface.at` interpolates variance rate not total variance | **OPEN → Batch C** (agent's slice-3 flag, confirmed) |
-| 5 | MED | `_swap_tenor` whole-year rounding | **OPEN → Batch C** (carry tenor on `Swaption`) |
-| 6 | MED | `HAGAN_WEST` + `SEQUENTIAL` non-converged | **OPEN → Batch C** (reject at spec validation) |
+| 4 | MED | `Surface.at` interpolates variance rate not total variance | **CLOSED v0.102.0** (Batch C) — total variance w=σ²·T linear in T (arb-free); discharges the C2 σ²·T deferral |
+| 5 | MED | `_swap_tenor` whole-year rounding | **CLOSED v0.102.0** (Batch C) — `underlying_tenor` exact (period-count × coupon step) |
+| 6 | MED | `HAGAN_WEST` + `SEQUENTIAL` non-converged | **CLOSED v0.102.0** (Batch C) — rejected at spec validation → `CalibrationFailure` |
 | 11 | LOW | `spot_lag` direction-sensitive | **OPEN → Batch D** |
 | 12 | LOW | `interpolate` no ascending-`xs` check | **OPEN → Batch D** |
 | 13 | LOW | `_solve_pillar_df` lower bracket not expanded | **OPEN → Batch D** |
