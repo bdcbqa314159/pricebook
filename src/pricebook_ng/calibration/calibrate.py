@@ -615,6 +615,18 @@ def calibrate(
     OIS+projection systems), all keys assembled into ONE `CurveSet` carried by ONE model. The
     single-currency 1-tuple is the degenerate case — identical numbers to slices 1–5. Any
     currency's failure to converge is returned as a value (invariant 4)."""
+    # #6: Hagan–West is NON-LOCAL (solving pillar k changes earlier intervals), so a pillar-by-pillar
+    # SEQUENTIAL bootstrap cannot converge — reject the unsupported combination as a value, don't return
+    # a converged=False tuple. Sequential-HW (the paper's terminal-interval convention) stays deferred.
+    if spec.solve.method is CalibrationMethod.SEQUENTIAL and any(
+        build.interpolation is Interpolation.HAGAN_WEST
+        for cc in spec.curves
+        for build in (cc.discount, cc.projection)
+    ):
+        return CalibrationFailure(
+            "HAGAN_WEST requires the SIMULTANEOUS method (it is non-local; a SEQUENTIAL bootstrap "
+            "cannot converge). Use SolveConfig(method=SIMULTANEOUS)."
+        )
     merged: dict[CurveKey, CurveHandle] = {}
     residuals: list[float] = []
     converged = True

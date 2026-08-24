@@ -17,9 +17,17 @@ Provenance:
 from __future__ import annotations
 
 import math
+from datetime import date
 
-from pricebook_ng.foundation import norm_cdf, norm_pdf
+from pricebook_ng.foundation import DayCountConvention, TimeMeasure, norm_cdf, norm_pdf
 from pricebook_ng.products.option import OptionType
+
+
+def vol_time_measure(valuation_date: date) -> TimeMeasure:
+    """The ONE canonical option-vol clock: ACT/365F from the valuation date. Defined once and composed
+    by BOTH the pricer's expiry-`t` AND the vol surface's `T`-axis, so a vol read at an expiry is always
+    consistent with the `t` it is priced at (§3d — one source, no drift, #4)."""
+    return TimeMeasure(valuation_date, DayCountConvention.ACT_365_FIXED)
 
 
 def black(forward: float, strike: float, vol: float, t: float, option_type: OptionType) -> float:

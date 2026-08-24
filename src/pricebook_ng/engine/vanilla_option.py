@@ -19,20 +19,18 @@ from __future__ import annotations
 from pricebook_ng.engine.registry import register
 from pricebook_ng.engine.seasoned import current_period_failure
 from pricebook_ng.foundation import (
-    DayCountConvention,
     Money,
     PricingFailure,
     PricingResult,
-    Schedule,
     Tenor,
     TenorUnit,
-    TimeMeasure,
     future_periods,
 )
 from pricebook_ng.market.building_blocks import float_leg_pv, forward, rpv01
-from pricebook_ng.models.black import black
+from pricebook_ng.models.black import black, vol_time_measure
 from pricebook_ng.models.protocols import BlackVol, CalibratedModel, SwaptionVol
 from pricebook_ng.products.option import Caplet, OptionType, Swaption
+from pricebook_ng.products.swap import VanillaSwap
 
 
 @register(Caplet)
@@ -51,7 +49,7 @@ def price_caplet(caplet: Caplet, model: CalibratedModel) -> PricingResult | Pric
     curves = model.market.curves
     try:
         expiry = accrual.start  # T = valuation → fixing, ACT/365F for the vol
-        t = TimeMeasure(vd, DayCountConvention.ACT_365_FIXED).year_fraction(expiry)
+        t = vol_time_measure(vd).year_fraction(expiry)
         pay_df = curves.discount(currency).df(accrual.end)
         fwd = forward(curves.projection(index), accrual)
         tau = accrual.year_fraction()
@@ -64,11 +62,16 @@ def price_caplet(caplet: Caplet, model: CalibratedModel) -> PricingResult | Pric
     return PricingResult(pv=Money(pv, currency))
 
 
-def _swap_tenor(schedule: Schedule) -> Tenor:
-    """The underlying swap's tenor (whole years, start→end) — the swaption vol's key dimension."""
-    start = schedule.periods[0].accrual_start
-    end = schedule.periods[-1].accrual_end
-    return Tenor(round((end - start).days / 365.0), TenorUnit.YEAR)
+def underlying_tenor(swap: VanillaSwap) -> Tenor:
+    """The underlying swap's EXACT tenor — period count × the schedule's coupon step (the #7 enrichment),
+    NOT `round(days/365)`. A 6M underlying keys `6M`, 18M keys `18M`, 5Y normalizes to `5Y` (whole years
+    collapse to YEAR so existing surfaces stay keyed as before). This is the swaption vol's key dimension
+    and must be exact — `SwaptionSurfaceKey` exists to distinguish 2Y5Y from 2Y10Y (#5)."""
+    sched = swap.fixed_leg.schedule
+    months = len(sched.periods) * (12 // sched.terms.frequency.per_year())
+    if months % 12 == 0:
+        return Tenor(months // 12, TenorUnit.YEAR)
+    return Tenor(months, TenorUnit.MONTH)
 
 
 @register(Swaption)
@@ -100,9 +103,9 @@ def price_swaption(swaption: Swaption, model: CalibratedModel) -> PricingResult 
         s = float_leg_pv(float_sched, swap.float_leg.day_count, discount, projection) / annuity
         if (s <= 0.0 or strike <= 0.0):  # #15: lognormal Black undefined (t > 0 guaranteed above)
             return PricingFailure("forward swap rate ≤ 0: lognormal Black undefined — normal/shifted deferred")
-        swap_tenor = _swap_tenor(swap.fixed_leg.schedule)
+        swap_tenor = underlying_tenor(swap)
         vol = model.swaption_vol(index, swaption.expiry, swap_tenor, strike)
-        t = TimeMeasure(vd, DayCountConvention.ACT_365_FIXED).year_fraction(swaption.expiry)
+        t = vol_time_measure(vd).year_fraction(swaption.expiry)
     except (ValueError, KeyError, ZeroDivisionError) as exc:
         return PricingFailure(str(exc))
     pv = swap.notional * annuity * black(s, strike, vol, t, swaption.option_type)
