@@ -21,6 +21,7 @@ from datetime import date
 from pricebook_ng.foundation import RateIndex, Tenor
 from pricebook_ng.market.snapshot import MarketSnapshot
 from pricebook_ng.market.vol_surface import SurfaceKey, SwaptionSurfaceKey
+from pricebook_ng.models.black import vol_time_measure
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,9 @@ class BlackModel:
     market: MarketSnapshot
 
     def black_vol(self, index: RateIndex, expiry: date, strike: float) -> float:
-        return self.market.surfaces[SurfaceKey(index)].at(expiry, strike)
+        tm = vol_time_measure(self.market.valuation_date)  # the canonical vol clock (§3d, #4)
+        return self.market.surfaces[SurfaceKey(index)].at(expiry, strike, tm)
 
     def swaption_vol(self, index: RateIndex, expiry: date, swap_tenor: Tenor, strike: float) -> float:
-        return self.market.surfaces[SwaptionSurfaceKey(index, swap_tenor)].at(expiry, strike)
+        tm = vol_time_measure(self.market.valuation_date)
+        return self.market.surfaces[SwaptionSurfaceKey(index, swap_tenor)].at(expiry, strike, tm)

@@ -19,7 +19,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook_ng.foundation import Interpolation, RateIndex, Tenor, interpolate
+from pricebook_ng.foundation import Interpolation, RateIndex, Tenor, TimeMeasure, interpolate
 
 
 @dataclass(frozen=True)
@@ -43,11 +43,13 @@ class SwaptionSurfaceKey:
 @dataclass(frozen=True)
 class Surface:
     """A Black (lognormal) volatility surface — a TERM STRUCTURE over expiry: `vols[i]` at
-    `expiries[i]` (ascending). `at(expiry, strike)` interpolates in **variance** (σ² linear over
-    expiry — exact at pillars, and needs no valuation origin), then takes the root; `strike` is
-    ignored until the smile axis lands (its consumer). The FLAT case (`Surface.flat(v)`, one vol) is
-    the degenerate 1-pillar surface slices 1–2 use — `at` returns the constant without interpolating.
-    Grid strike-smile / the swaption cube arrive with their consumers (rule of two)."""
+    `expiries[i]` (ascending). `at(expiry, strike, time_measure)` interpolates **total variance**
+    `w = σ²·T` LINEAR in `T` (arb-free — `w` cannot decrease between pillars), then returns
+    `σ = √(w/T)`; `T` comes from the pricer's canonical `TimeMeasure`, so the surface axis and the
+    priced expiry-`t` are one source (§3d, #4). `strike` is ignored until the smile axis lands. The
+    FLAT case (`Surface.flat(v)`, one vol) is the degenerate slices 1–2 use — `at` returns the
+    constant. Only LINEAR interpolation is ratified (arb-free); a non-linear scheme is rejected (its
+    arb-free form is deferred to a smile/cube consumer). Grid strike-smile arrives with its consumer."""
 
     vols: tuple[float, ...]
     expiries: tuple[date, ...] = ()
@@ -60,21 +62,28 @@ class Surface:
                 f"Surface needs one expiry per vol (or a single flat vol); "
                 f"got {len(self.vols)} vols, {len(self.expiries)} expiries."
             )
+        if self.interpolation is not Interpolation.LINEAR:  # #4: only linear-in-T total variance is arb-free
+            raise ValueError(
+                f"Surface only supports LINEAR (total-variance) interpolation; got {self.interpolation.name} "
+                f"(arb-free non-linear vol interpolation is deferred to a smile/cube consumer)."
+            )
 
     @classmethod
     def flat(cls, vol: float) -> Surface:
         """The degenerate flat surface: one vol at every `(expiry, strike)`."""
         return cls((vol,))
 
-    def at(self, expiry: date, strike: float) -> float:
-        """The lognormal vol at `(expiry, strike)`. Flat (1 pillar): the constant. Otherwise σ²
-        is interpolated linearly over expiry and rooted (RAISE outside the pillar range — no silent
-        extrapolation, consistent with the curve)."""
+    def at(self, expiry: date, strike: float, time_measure: TimeMeasure) -> float:
+        """The lognormal vol at `(expiry, strike)`. Flat (1 pillar): the constant. Otherwise total
+        variance `w = σ²·T` is interpolated linearly in `T` (RAISE outside the pillar range) and
+        rooted: `σ = √(w/T)`. `time_measure` is the pricer's canonical clock (§3d)."""
         if len(self.vols) == 1:
             return self.vols[0]
-        xs = tuple(float(d.toordinal()) for d in self.expiries)
-        variances = tuple(v * v for v in self.vols)
-        return math.sqrt(interpolate(xs, variances, float(expiry.toordinal()), self.interpolation))
+        ts = tuple(time_measure.year_fraction(d) for d in self.expiries)
+        variances = tuple(v * v * t for v, t in zip(self.vols, ts))  # total variance at each pillar
+        t_q = time_measure.year_fraction(expiry)
+        w = interpolate(ts, variances, t_q, self.interpolation)
+        return math.sqrt(w / t_q)
 
     def bumped(self, shift: float) -> Surface:
         """A new frozen surface with every vol shifted by `shift` in parallel (a flat vega bump).
