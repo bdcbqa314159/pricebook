@@ -127,11 +127,11 @@ stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays gre
 | 4 | MED | `Surface.at` interpolates variance rate not total variance | **CLOSED v0.102.0** (Batch C) — total variance w=σ²·T linear in T (arb-free); discharges the C2 σ²·T deferral |
 | 5 | MED | `_swap_tenor` whole-year rounding | **CLOSED v0.102.0** (Batch C) — `underlying_tenor` exact (period-count × coupon step) |
 | 6 | MED | `HAGAN_WEST` + `SEQUENTIAL` non-converged | **CLOSED v0.102.0** (Batch C) — rejected at spec validation → `CalibrationFailure` |
-| 11 | LOW | `spot_lag` direction-sensitive | **OPEN → Batch D** |
-| 12 | LOW | `interpolate` no ascending-`xs` check | **OPEN → Batch D** |
-| 13 | LOW | `_solve_pillar_df` lower bracket not expanded | **OPEN → Batch D** |
-| 17 | LOW | `SolveConfig.tolerance` not passed to sequential Brent | **OPEN → Batch D** (invariant 5) |
-| 18 | LOW | `PaymentRule.lag` dropped without a calendar | **OPEN → Batch D** |
+| 11 | LOW | `spot_lag` direction-sensitive | **CLOSED v0.103.0** (Batch D) |
+| 12 | LOW | `interpolate` no ascending-`xs` check | **CLOSED v0.103.0** (Batch D) |
+| 13 | LOW | `_solve_pillar_df` lower bracket not expanded | **CLOSED v0.103.0** (Batch D) |
+| 17 | LOW | `SolveConfig.tolerance` not passed to sequential Brent | **CLOSED v0.103.0** (Batch D) |
+| 18 | LOW | `PaymentRule.lag` dropped without a calendar | **CLOSED v0.103.0** (Batch D) |
 | 19 | LOW | calendar content (TEL_AVIV lunisolar, US SIFMA, RIYADH) | **OPEN → Batch E** (green-oracle per calendar; region items ride with their topic) |
 | 9 | LOW | extrapolation policy dead API | **defer** — trigger: `DiscountCurve` extrapolation consumer (rule of two) |
 | 10 | LOW | `vol_strip` assumes caplet grid = quote grid | **defer/document** — trigger: a real cap with intra-tenor caplets |
