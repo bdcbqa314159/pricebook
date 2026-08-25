@@ -6,6 +6,26 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.103.0] - 2026-08-25
+
+**Audit Batch D — five LOW guards** (#11/#12/#13/#17/#18), each ported repro → red → green. No-silent-
+fallback + invariant 4/5. Unaffected paths byte-identical (suite 267).
+
+### Fixed
+- **#11** `spot_lag` keys `_SPOT_LAGS` on the `frozenset` of the two codes (direction-independent) — a pair
+  declared `CADUSD` gets the same T+1 as `USDCAD`.
+- **#12** `interpolate` rejects non-ascending `xs` with a clear `ValueError` (was silent-wrong via `bisect`).
+- **#13** `_solve_pillar_df` expands the bracket **downward** too (DFs ≪ 1e-9 for very-long-dated or
+  hyperinflationary high-rate pillars — ARS in scope), floored; a truly unbracketable pillar → `ValueError`
+  → `CalibrationFailure` (invariant 4).
+- **#17** `_solve_pillar_df` takes the `SolveConfig` and threads `tolerance`/`max_iterations` into the Brent
+  call — the sequential knob is now live (invariant 5); was dead. `_solve_pillar_df` stays ≤5 args (bundled).
+- **#18** `build_schedule` raises when `payment.lag != 0` and no calendar resolves (a lag counts business
+  days — undefined without one), instead of silently paying on the accrual end.
+
+Drawdown 19/793 (bug-fix slice, tick 0). Audit: only the calendar-content batch (#19) and the
+accrued/clean-dirty slice (#3b) remain.
+
 ## [0.102.0] - 2026-08-24
 
 **Audit Batch C — three MED correctness fixes** (#4/#5/#6), each ported repro → red → green.
