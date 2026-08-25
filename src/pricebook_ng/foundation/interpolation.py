@@ -150,6 +150,8 @@ def interpolate(
         )
     if len(xs) != len(ys) or len(xs) < 2:
         raise ValueError("need matching xs, ys of length >= 2")
+    if not all(a < b for a, b in zip(xs, xs[1:])):  # #12: bisect is nonsense on unsorted — no silent-wrong
+        raise ValueError(f"interpolate requires strictly ascending xs; got {tuple(xs)}")
     if x < xs[0]:
         return _extrapolate(xs, ys, x, method, ends.left)
     if x > xs[-1]:
