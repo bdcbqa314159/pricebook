@@ -48,8 +48,8 @@ def _spec(rates, solve=None):
 def test_solve_pillar_df_brackets_a_root_below_the_old_floor() -> None:  # #13 (ARS-style hyperinflation)
     # a pillar DF at 1e-12 (below the old 1e-9 lower bound); the solver must expand `lo` DOWN to it
     root = 1e-12
-    got = _solve_pillar_df(lambda df: df - root, SolveConfig())
-    assert abs(got - root) < 1e-14
+    got = _solve_pillar_df(lambda df: df - root, SolveConfig(tolerance=1e-18))  # tight for a tiny root
+    assert abs(got - root) < 1e-15
 
 
 def test_solve_pillar_df_unbracketable_raises_for_the_caller() -> None:  # #13 — failure is a value upstream

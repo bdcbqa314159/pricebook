@@ -324,6 +324,11 @@ def build_schedule(start: date, end: date, terms: ScheduleTerms) -> Schedule:
     pay = terms.payment
     pay_cal = pay.calendar if (pay is not None and pay.calendar is not None) else cal
     pay_lag = pay.lag if pay is not None else 0
+    if pay_lag and pay_cal is None:  # #18: a lag counts BUSINESS days — undefined without a calendar
+        raise ValueError(
+            f"payment lag {pay_lag} requires a calendar (business days are undefined without one); "
+            f"set PaymentRule.calendar or the roll calendar."
+        )
 
     def _payment(adj_end: date) -> date:
         # pay `lag` business days after the adjusted accrual end, on the payment calendar

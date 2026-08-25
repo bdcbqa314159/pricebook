@@ -438,22 +438,28 @@ def curve_set_residuals(spec: CalibrationSpec, curves: CurveSet) -> tuple[float,
 
 
 _DF_BRACKET_CAP = 1e6  # a pillar DF above this is unphysical — treat as unbracketable
+_DF_BRACKET_FLOOR = 1e-300  # a pillar DF below this is unbracketable (beyond any physical curve)
 
 
-def _solve_pillar_df(residual: Callable[[float], float]) -> float:
-    """Solve one pillar's discount factor, bracketing ROBUSTLY first. A DF is positive but
-    EXCEEDS 1 for a negative rate (`deposit_df(-0.5%, 1y) = 1.005`), so a fixed `[1e-6, 1.0]`
-    bracket bakes in a positive-rates assumption; instead expand the upper bound until the
-    residual changes sign (capped). Raises `ValueError` if no bracket exists — the caller turns
-    that into a `CalibrationFailure` (invariant 4)."""
+def _solve_pillar_df(residual: Callable[[float], float], solve: SolveConfig) -> float:
+    """Solve one pillar's discount factor, bracketing ROBUSTLY first — expanding the bracket at BOTH
+    ends: UP (a DF EXCEEDS 1 for a negative rate) and DOWN (a DF is ≪ 1e-9 for a very-long-dated or
+    hyperinflationary high-rate pillar — ARS is in scope, #13), each capped. The Brent solve honours
+    the `SolveConfig` knobs (invariant 5, #17). Raises `ValueError` if no bracket exists — the caller
+    turns that into a `CalibrationFailure` (invariant 4)."""
     lo, hi = 1e-9, 1.0
     f_lo, f_hi = residual(lo), residual(hi)
-    while f_lo * f_hi > 0.0 and hi < _DF_BRACKET_CAP:
+    while f_lo * f_hi > 0.0 and hi < _DF_BRACKET_CAP:  # negative rates: DF > 1
         hi *= 2.0
         f_hi = residual(hi)
+    while f_lo * f_hi > 0.0 and lo > _DF_BRACKET_FLOOR:  # very high rates: DF ≪ 1 (#13)
+        lo *= 0.5
+        f_lo = residual(lo)
     if f_lo * f_hi > 0.0:
-        raise ValueError(f"could not bracket a positive discount factor below {_DF_BRACKET_CAP}")
-    return brent(residual, lo, hi)
+        raise ValueError(
+            f"could not bracket a positive discount factor in [{_DF_BRACKET_FLOOR}, {_DF_BRACKET_CAP}]"
+        )
+    return brent(residual, lo, hi, solve.tolerance, solve.max_iterations)
 
 
 def _bootstrap(
@@ -474,7 +480,7 @@ def _bootstrap(
             return inst.residual(trial if discount is None else discount, trial)
 
         try:
-            df_k = _solve_pillar_df(residual)
+            df_k = _solve_pillar_df(residual, spec.solve)
         except (ValueError, FloatingPointError, ZeroDivisionError) as exc:
             return CalibrationFailure(f"pillar {inst.pillar_date.isoformat()}: {exc}")
         times.append(t_k)
@@ -510,7 +516,7 @@ def _bootstrap_xccy(
             return inst.residual(foreign_ois, trial)
 
         try:
-            df_k = _solve_pillar_df(residual)
+            df_k = _solve_pillar_df(residual, spec.solve)
         except (ValueError, FloatingPointError, ZeroDivisionError) as exc:
             return CalibrationFailure(f"xccy pillar {inst.pillar_date.isoformat()}: {exc}")
         times.append(t_k)

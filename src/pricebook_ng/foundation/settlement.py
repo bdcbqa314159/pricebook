@@ -95,14 +95,19 @@ def settlement_date(
 
 
 # ── FX spot (audit 3.6) ───────────────────────────────────────────────────────────
-# Pair-conventions registry: the spot lag by pair name (default T+2). Kept OUT of
-# `CurrencyPair` identity so a lag never fragments dict keys. T+1 pairs vs USD:
-_SPOT_LAGS: dict[str, int] = {"USDCAD": 1, "USDTRY": 1, "USDPHP": 1}
+# Pair-conventions registry: the spot lag keyed on the DIRECTION-INDEPENDENT pair (the frozenset of
+# the two codes, as `_FX_PAIRS`), so `USDCAD` and `CADUSD` share the same T+1 (#11). Default T+2.
+_SPOT_LAGS: dict[frozenset[str], int] = {
+    frozenset({"USD", "CAD"}): 1,
+    frozenset({"USD", "TRY"}): 1,
+    frozenset({"USD", "PHP"}): 1,
+}
 
 
 def spot_lag(pair: CurrencyPair) -> int:
-    """The FX spot settlement lag for `pair` (market default T+2; USD/CAD etc. are T+1)."""
-    return _SPOT_LAGS.get(pair.name, 2)
+    """The FX spot settlement lag for `pair` (market default T+2; USD/CAD etc. are T+1). Keyed on the
+    unordered pair, so the lag is the same however the pair was declared (#11)."""
+    return _SPOT_LAGS.get(frozenset({pair.base.code, pair.quote.code}), 2)
 
 
 # ── FX pair conventions — the declared canonical quote order (AC-3.6b registry half) ──
