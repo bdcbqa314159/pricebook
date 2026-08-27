@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Mapping
 
-from pricebook_ng.foundation import Currency, CurrencyPair, fx_pair
+from pricebook_ng.foundation import Currency, CurrencyPair, FixingHistory, FixingSource, fx_pair
 from pricebook_ng.market.curve_set import CurveSet
 from pricebook_ng.market.vol_surface import Surface, SurfaceKey, SwaptionSurfaceKey
 
@@ -43,6 +43,7 @@ class MarketSnapshot:
     curves: CurveSet
     scalars: Mapping[ScalarKey, float] = field(default_factory=dict)
     surfaces: Mapping[SurfaceKey | SwaptionSurfaceKey, Surface] = field(default_factory=dict)
+    fixings: FixingSource = field(default_factory=lambda: FixingHistory({}))  # the "series" shape (doc 19 §2)
 
     def fx_rate(self, base: Currency, quote: Currency) -> float:
         """One unit of `base` in units of `quote`. Resolves the declared canonical pair
