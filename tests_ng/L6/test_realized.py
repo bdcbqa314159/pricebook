@@ -55,6 +55,10 @@ def _curves() -> CurveSet:
     return CurveSet({CurveKey(CurveRole.DISCOUNT, CCY): disc, CurveKey(CurveRole.PROJECTION, INDEX): proj})
 
 
+def _market(fixings=None) -> MarketSnapshot:
+    return MarketSnapshot(VAL, _curves(), fixings=fixings if fixings is not None else FixingHistory({}))
+
+
 def _swap(start: date, end: date) -> VanillaSwap:
     sched = build_schedule(start, end, _TERMS)
     return VanillaSwap(NOTIONAL, CCY, FixedLeg(sched, DC, K), FloatLeg(sched, DC, INDEX))
@@ -84,17 +88,16 @@ def _hand_realized() -> float:
 
 
 def test_seasoned_realized_matches_benefit_table() -> None:
-    booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)), FIXINGS)
-    r = realized(booked, VAL)
+    model = DiscountingModel(_market(FIXINGS))  # fixings live on the snapshot (one source, #3b)
+    r = realized(BookedTrade(Trade((SEASONED,), date(2024, 1, 15))), model)
     assert isinstance(r, Mapping)
     assert abs(r[CCY].amount - _hand_realized()) < 1e-9
 
 
 def test_future_only_mark_closes_the_silent_misprice() -> None:
-    model = DiscountingModel(MarketSnapshot(VAL, _curves()))
-    m = mark(Trade((SEASONED,), date(2024, 1, 15)), model)
+    model = DiscountingModel(_market())
+    m = mark(Trade((SEASONED,), date(2024, 1, 15)), model)  # VAL is a period boundary → no current period
     assert isinstance(m, Mapping)  # no raise / no df>1 garbage
-    # mark == the FUTURE periods only, priced through the atoms
     curves = _curves()
     disc, proj = curves.discount(CCY), curves.projection(INDEX)
     fixed_f = future_periods(SEASONED.fixed_leg.schedule, VAL)
@@ -104,10 +107,10 @@ def test_future_only_mark_closes_the_silent_misprice() -> None:
 
 
 def test_total_is_realized_plus_mark() -> None:
-    model = DiscountingModel(MarketSnapshot(VAL, _curves()))
-    booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)), FIXINGS)
+    model = DiscountingModel(_market(FIXINGS))
+    booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)))
     t = total(booked, model)
-    r = realized(booked, VAL)
+    r = realized(booked, model)
     m = mark(booked.trade, model)
     assert isinstance(t, Mapping) and isinstance(r, Mapping) and isinstance(m, Mapping)
     assert abs(t[CCY].amount - (r[CCY].amount + m[CCY].amount)) < 1e-12
@@ -115,9 +118,9 @@ def test_total_is_realized_plus_mark() -> None:
 
 def test_spot_degenerate_realized_zero_total_is_mark() -> None:
     spot = _swap(VAL, VAL + Tenor(5, Y))  # starts at valuation → no past periods
-    model = DiscountingModel(MarketSnapshot(VAL, _curves()))
-    booked = BookedTrade(Trade((spot,), VAL), FixingHistory({}))
-    r = realized(booked, VAL)
+    model = DiscountingModel(_market())
+    booked = BookedTrade(Trade((spot,), VAL))
+    r = realized(booked, model)
     t = total(booked, model)
     m = mark(booked.trade, model)
     assert isinstance(r, Mapping) and r[CCY].amount == 0.0  # benefit table empty
@@ -128,14 +131,14 @@ def test_spot_degenerate_realized_zero_total_is_mark() -> None:
 def test_realized_is_undiscounted() -> None:
     # the benefit table is raw notional·τ·rate — a df would shrink it; assert it equals the
     # un-discounted hand value (which applies no df) exactly
-    booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)), FIXINGS)
-    r = realized(booked, VAL)
+    model = DiscountingModel(_market(FIXINGS))
+    r = realized(BookedTrade(Trade((SEASONED,), date(2024, 1, 15))), model)
     assert isinstance(r, Mapping)
     assert abs(r[CCY].amount - _hand_realized()) < 1e-9  # matches the no-df computation
 
 
 def test_missing_fixing_is_failure_as_value() -> None:
-    booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)), FixingHistory({}))  # no fixings
-    assert isinstance(realized(booked, VAL), PricingFailure)
-    model = DiscountingModel(MarketSnapshot(VAL, _curves()))
+    model = DiscountingModel(_market())  # empty fixings on the snapshot
+    booked = BookedTrade(Trade((SEASONED,), date(2024, 1, 15)))
+    assert isinstance(realized(booked, model), PricingFailure)
     assert isinstance(total(booked, model), PricingFailure)
