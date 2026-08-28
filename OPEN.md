@@ -112,6 +112,18 @@ blocks the next slice. Non-`[NG-…]` rows: they offset no suppression, so they 
 Reproduced by executable repros `A`–`S`. Numerical core re-verified clean; exposure at the top of the
 stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays green). Status updated as batches land.
 
+**AUDIT CLOSED (v0.104.0).** All 3 HIGH + all 6 MED + the 5 LOW guards are **fixed** (Batches A–F, slice #7).
+The remainder is **deferred-with-trigger, not open work**: #19 (calendar content — green-oracle per calendar,
+region items ride with their asset topic), #9 (dead extrapolation API — its consumer), #10 (vol_strip grid —
+its consumer), #14 (unconsumed L0 exports — L0 vocab ahead of consumers), base-ccy FX conversion (reporting
+consumer). Nothing in the audit remains as *hidden wrongness*.
+
+*Batch-F sub-deferrals (named triggers, invariant 4 preserved — a seasoned instrument still fails HONESTLY):*
+current-period splice is on `price_swap` (the repro-P consumer); **cash/xccy/swaption keep the `#3a`
+honest-failure guard** → their current-period pricing rides with their consumer. Option accrued/time-value,
+book-level clean/dirty reporting, RFR lockout/lookback current-period edges, and per-desk fixing overrides →
+their consumers.
+
 | # | sev | finding | status |
 |---|---|---|---|
 | 7 | MED | ICMA + BUS/252 legs can't price | **CLOSED v0.99.0** (slice #7) |
@@ -121,7 +133,7 @@ stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays gre
 | 15 | MED | negative-forward options silently zero | **CLOSED v0.100.0** (Batch A) — engine fails when F/K ≤ 0 |
 | 16 | LOW | `ZeroDivisionError` through cash pricers | **CLOSED v0.100.0** (Batch A) |
 | 20 | LOW | expired swaption raw date error; `Surface` unvalidated | **CLOSED v0.100.0** (Batch A) |
-| **3b** | HIGH | current-period **pricing** (accrued from fixings) | **→ Batch F** (accrued/clean-dirty; fixings-on-engine). Trigger: the reporting/accrued consumer. |
+| **3b** | HIGH | current-period **pricing** (accrued from fixings) | **CLOSED v0.104.0** (Batch F) — `MarketSnapshot.fixings`; the engine splices the current in-progress period from the past fixing and populates `PricingResult.accrued` (swap; option accrued deferred). |
 | base-ccy | — | multi-ccy `book_priceable`/reporting FX conversion via `snapshot.fx_rate` | **deferred** — trigger: first cross-currency reporting consumer. |
 | 1 | HIGH | `CurveBump` breaks discount≡projection alias (OIS DV01 wrong) | **CLOSED v0.101.0** (Batch B) — `CurveIdentityBump` (bump-once-share, the `ir_delta` default); old `CurveBump` renamed `CurveBasisBump` (partial, via `ir_basis_delta`) |
 | 4 | MED | `Surface.at` interpolates variance rate not total variance | **CLOSED v0.102.0** (Batch C) — total variance w=σ²·T linear in T (arb-free); discharges the C2 σ²·T deferral |
