@@ -6,6 +6,35 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.104.0] - 2026-08-28
+
+**Audit Batch F — accrued/clean-dirty + #3b (current-period pricing). CLOSES the v0.98 audit.** The last
+HIGH: a seasoned trade can now be marked on a **mid-period** valuation date, and the reporting split
+`total = realized + mark`, `dirty = clean + accrued` is real. Red→green.
+
+### Added / Changed
+- **`MarketSnapshot.fixings: FixingSource`** (the "series" shape, doc 19 §2) — fixings are market state on
+  the snapshot (one source, A1). **`BookedTrade.fixings` retired**; `realized(booked, model)`/`total`
+  re-source from `model.market.fixings` (values byte-identical, re-sourced).
+- **The engine prices the current in-progress period (#3b):** `split_current_period` separates it from the
+  strictly-future periods (which still price through the UNCHANGED `float_leg_pv`/`rpv01` atoms — spot/
+  boundary byte-identical, §3d). `current_period_float_rate` splices the past fixing: IBOR = the single reset
+  fixing; RFR = realized-compounded × forward stub. `price_swap` populates **`PricingResult.accrued`** =
+  `N·yearfrac(period_start, vd)·(rate − K)`; `clean = pv − accrued`.
+- A missing current-period fixing → `current_period_failure` (invariant 4 preserved).
+
+### Oracle
+- Seasoned mid-period swap **prices** (repro_P; was the honest failure) — mark hand-checked; `accrued`
+  hand-checked; `clean = pv − accrued`; **boundary/spot degenerate** → `accrued=None`, pv identical (slices
+  1–N unchanged); **§3d** spot identity (splice never fires, engine == calibrator); missing fixing → failure.
+
+### Deferred (named triggers; a seasoned instrument still fails HONESTLY)
+Current-period splice is on `price_swap`; **cash/xccy/swaption keep the `#3a` honest-failure guard** →
+their consumers. Option accrued, book-level clean/dirty reporting, RFR lockout/lookback edges → their consumers.
+
+**The v0.98 third-party audit is CLOSED** — all HIGH/MED/LOW findings fixed; #19/#9/#10/#14/base-ccy
+deferred-with-trigger (not hidden wrongness). Drawdown 19/793 (tick 0). Suite 272.
+
 ## [0.103.0] - 2026-08-25
 
 **Audit Batch D — five LOW guards** (#11/#12/#13/#17/#18), each ported repro → red → green. No-silent-
