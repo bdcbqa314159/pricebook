@@ -75,6 +75,7 @@ class Observance(Enum):
 
     NONE = "none"  # not shifted (TARGET, most of the EU/EM)
     US = "us"  # Sat → prev Fri, Sun → next Mon (5 U.S.C. §6103)
+    US_SIFMA = "us_sifma"  # US, but NEVER shift Sat back across a year boundary (New-Year-on-Sat stays open)
     NEXT_WORKING_DAY = "next_working"  # Sat or Sun → next Mon (UK/AU/NZ/CA)
     SUNDAY_ONLY = "sunday_only"  # Sun → next Mon (South Africa)
     FURIKAE = "furikae"  # Japan: a Sunday holiday walks forward past holidays
@@ -397,6 +398,13 @@ class Calendar(_BusinessDayArithmetic):
             # earlier weekend day → back before the weekend; later → forward after it
             step = -1 if d.weekday() == wknd[0] else 1
             return self._off_weekend(d, wknd, step)
+        if obs is Observance.US_SIFMA:
+            # US, but a Saturday holiday NEVER shifts back across a year boundary — the SIFMA rule
+            # (New-Year-on-Sat is observed on the day, not the prior-year Friday; July-4-on-Sat shifts).
+            if d.weekday() == wknd[-1]:  # Sunday → next Monday
+                return self._off_weekend(d, wknd, 1)
+            friday = self._off_weekend(d, wknd, -1)  # Saturday → preceding Friday
+            return friday if friday.year == d.year else d
         if obs is Observance.NEXT_WORKING_DAY:
             return self._off_weekend(d, wknd, 1)
         if obs is Observance.SUNDAY_ONLY and d.weekday() == wknd[-1]:

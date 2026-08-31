@@ -72,9 +72,9 @@ def temporary_calendar(cal: Calendar) -> Iterator[Calendar]:
 
 
 # US government-securities (SIFMA/Treasury) calendar. Good Friday is a close (no SOFR fixing).
-# Observance is SUNDAY_ONLY, not federal Sat→Fri: SIFMA does NOT shift Saturday holidays to the
-# preceding Friday (2021-12-31 was open) — audit 2.2. (A federal/Fed-bank calendar with Sat→Fri,
-# and NYSE, are separate calendars added with their first equity/EFFR consumer, not speculatively.)
+# Observance is US_SIFMA: Saturday holidays shift to the preceding Friday (July-4-on-Sat → no SOFR that
+# Friday), EXCEPT New-Year-on-Sat, which never shifts back across the year boundary (2021-12-31 stayed
+# open) — audit 2.2 + #19a. (A Fed-bank calendar and NYSE are separate, added with their first consumer.)
 US_GOVERNMENT_SECURITIES = _reg(
     Calendar(
         "US_GOVERNMENT_SECURITIES",
@@ -85,7 +85,7 @@ US_GOVERNMENT_SECURITIES = _reg(
                 nth(2, 0, 3),
                 easter(-2),  # Good Friday — bond market close, no SOFR publication
                 nth(5, 0, -1),
-                fixed(6, 19, since=2021),
+                fixed(6, 19, since=2022),  # SIFMA first observed Juneteenth in 2022 (2021 was short notice, open)
                 fixed(7, 4),
                 nth(9, 0, 1),
                 nth(10, 0, 2),
@@ -94,7 +94,7 @@ US_GOVERNMENT_SECURITIES = _reg(
                 fixed(12, 25),
             ),
         ),
-        observance=Observance.SUNDAY_ONLY,
+        observance=Observance.US_SIFMA,
     )
 )
 
@@ -407,6 +407,10 @@ ISTANBUL = _reg(
     )
 )
 
+# RIYADH: FRI_SAT (post-2013). KNOWN LIMIT (#19c, logged in OPEN.md): before 2013-06-29 the Saudi
+# weekend was Thu/Fri, but the `Weekend` enum has no `THU_FRI` member, so a pre-2013 date is modeled
+# under FRI_SAT (a pre-2013 Thursday reads as a business day). The `THU_FRI` member + a `WeekendSchedule`
+# arrive with the first pre-2013-SAR / SAR-topic consumer (rule of two) — no rule is guessed here.
 RIYADH = _reg(
     Calendar(
         "RIYADH",
@@ -420,18 +424,14 @@ RIYADH = _reg(
     )
 )
 
+# TEL_AVIV: WEEKEND-ONLY (Fri/Sat) + SECULAR_ONLY. Israel's holidays are LUNISOLAR (Passover, Rosh
+# Hashanah, Yom Kippur, Yom Ha'atzmaut) — they move ~every year, so fixed Gregorian dates positively
+# assert WRONG dates (worse than absent). Dropped (#19b); a per-year Hebrew-calendar table arrives with
+# the first ILS / equity-IL consumer (rule of two), oracled against published dates.
 TEL_AVIV = _reg(
     Calendar(
         "TEL_AVIV",
-        (
-            fixed(4, 14),
-            fixed(4, 20),
-            fixed(5, 2),
-            fixed(9, 25),
-            fixed(9, 26),
-            fixed(10, 4),
-            fixed(10, 9),
-        ),
+        (),
         weekend=Weekend.FRI_SAT,
         observance=Observance.NONE,
         coverage=_SEC,
