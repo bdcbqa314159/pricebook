@@ -24,6 +24,11 @@ def test_sifma_new_year_saturday_stays_open() -> None:  # NY-Fed anchor: 2021-12
     assert SIFMA.is_business_day(date(2021, 12, 31))
 
 
+def test_sifma_juneteenth_not_observed_in_2021_first_close_2022() -> None:  # verified: SIFMA first closed 2022
+    assert SIFMA.is_business_day(date(2021, 6, 18))  # 2021: short notice, no SIFMA close → OPEN
+    assert not SIFMA.is_business_day(date(2022, 6, 20))  # 2022-06-19 (Sun) → observed Mon → CLOSED
+
+
 def test_sifma_no_unintended_flips() -> None:
     assert SIFMA.is_business_day(date(2021, 3, 16))  # an ordinary Tuesday, unchanged
     assert not SIFMA.is_business_day(date(2020, 7, 4))  # the Saturday itself (weekend)
