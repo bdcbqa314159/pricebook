@@ -112,11 +112,12 @@ blocks the next slice. Non-`[NG-…]` rows: they offset no suppression, so they 
 Reproduced by executable repros `A`–`S`. Numerical core re-verified clean; exposure at the top of the
 stack. Non-`[NG-…]` rows (offset no suppression → `verify.py debt` stays green). Status updated as batches land.
 
-**AUDIT CLOSED (v0.104.0).** All 3 HIGH + all 6 MED + the 5 LOW guards are **fixed** (Batches A–F, slice #7).
-The remainder is **deferred-with-trigger, not open work**: #19 (calendar content — green-oracle per calendar,
-region items ride with their asset topic), #9 (dead extrapolation API — its consumer), #10 (vol_strip grid —
-its consumer), #14 (unconsumed L0 exports — L0 vocab ahead of consumers), base-ccy FX conversion (reporting
-consumer). Nothing in the audit remains as *hidden wrongness*.
+**AUDIT CLOSED (v0.105.0) — 20/20 findings addressed.** All 3 HIGH + all 6 MED + every LOW that was a bug
+are **fixed** (Batches A–F, slice #7). The remainder is **deferred-with-trigger, not open work**: #9 (dead
+extrapolation API — its consumer), #10 (vol_strip grid — its consumer), #14 (unconsumed L0 exports — L0
+vocab ahead of consumers), base-ccy FX conversion (reporting consumer), plus the Batch-E/F sub-deferrals
+(TEL_AVIV lunisolar table; RIYADH pre-2013 THU_FRI; option accrued; RFR current-period). Nothing in the
+audit remains as *hidden wrongness*.
 
 *Batch-F sub-deferrals (named triggers, invariant 4 preserved — a seasoned instrument still fails HONESTLY):*
 current-period splice is on `price_swap` (the repro-P consumer); **cash/xccy/swaption keep the `#3a`
@@ -144,10 +145,12 @@ their consumers.
 | 13 | LOW | `_solve_pillar_df` lower bracket not expanded | **CLOSED v0.103.0** (Batch D) |
 | 17 | LOW | `SolveConfig.tolerance` not passed to sequential Brent | **CLOSED v0.103.0** (Batch D) |
 | 18 | LOW | `PaymentRule.lag` dropped without a calendar | **CLOSED v0.103.0** (Batch D) |
-| 19 | LOW | calendar content (TEL_AVIV lunisolar, US SIFMA, RIYADH) | **OPEN → Batch E** (green-oracle per calendar; region items ride with their topic) |
+| 19 | LOW | calendar content (TEL_AVIV lunisolar, US SIFMA, RIYADH) | **CLOSED v0.105.0** (Batch E) — SIFMA `US_SIFMA` observance (Sat→Fri, New-Year year-boundary exception) + Juneteenth `since=2022`; TEL_AVIV weekend-only; RIYADH pre-2013 limit documented. Two sub-deferrals below. |
 | 9 | LOW | extrapolation policy dead API | **defer** — trigger: `DiscountCurve` extrapolation consumer (rule of two) |
 | 10 | LOW | `vol_strip` assumes caplet grid = quote grid | **defer/document** — trigger: a real cap with intra-tenor caplets |
 | 14 | INFO | exported-but-unconsumed L0 surface | **defer** — mostly L0 vocab ahead of consumers; `black_vega`/`Cashflow`+`Leg` note-only |
+| 19-tlv | LOW | TEL_AVIV lunisolar per-year Hebrew-calendar holiday table | **deferred** — trigger: first ILS / equity-IL consumer (now weekend-only, no wrong dates asserted) |
+| 19-sar | LOW | RIYADH pre-2013 Thu/Fri weekend (`Weekend.THU_FRI` member + `WeekendSchedule`) | **deferred** — trigger: first pre-2013-SAR / SAR-topic consumer (post-2013 FRI_SAT used as approximation) |
 
 ### PONYTAIL-DEBT.md — ponytail markers (1, tracked)
 
