@@ -6,6 +6,27 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.105.0] - 2026-08-31
+
+**Audit Batch E — #19 calendar content. CLOSES the v0.98 audit (20/20 findings addressed).**
+
+### Fixed
+- **US_GOVERNMENT_SECURITIES (SIFMA, the USD/SOFR calendar):** `Observance.US_SIFMA` — a Saturday holiday
+  shifts to the preceding Friday, EXCEPT never back across a year boundary (New-Year-on-Sat stays open). Plus
+  **Juneteenth `since=2022`** (SIFMA's first observance; 2021 was short notice → markets open Fri 2021-06-18).
+  Four green-oracle anchors: 2020-07-03 closed, 2021-12-31 open, 2021-06-18 open, 2022-06-20 closed. The
+  flip-enumeration (2000–2035) confirmed all 17 flips are legitimate Sat-holiday→Friday closes
+  (Veterans/Christmas/July-4/Juneteenth-post-2022), none unverified. SOFR windows spanning these dates now correct.
+- **TEL_AVIV:** dropped the stale fixed-Gregorian lunisolar entries → weekend-only (Fri/Sat) + SECULAR_ONLY
+  (they positively asserted wrong dates — worse than absent).
+
+### Deferred (documented, named triggers)
+TEL_AVIV per-year Hebrew-calendar table → first ILS/equity-IL consumer; RIYADH pre-2013 Thu/Fri weekend
+(`Weekend.THU_FRI` + `WeekendSchedule`) → first pre-2013-SAR consumer (post-2013 FRI_SAT approximation used).
+
+**🎯 The v0.98 third-party audit is CLOSED — all 20 findings fixed or deferred-with-trigger.** Nothing remains
+as hidden wrongness. Drawdown 19/793 (tick 0). Suite 279.
+
 ## [0.104.0] - 2026-08-28
 
 **Audit Batch F — accrued/clean-dirty + #3b (current-period pricing). CLOSES the v0.98 audit.** The last
