@@ -22,7 +22,7 @@ from typing import Mapping
 
 from pricebook_ng.foundation import Currency, CurrencyPair, FixingHistory, FixingSource, fx_pair
 from pricebook_ng.market.curve_set import CurveSet
-from pricebook_ng.market.vol_surface import Surface, SurfaceKey, SwaptionSurfaceKey
+from pricebook_ng.market.vol_surface import SabrSurface, Surface, SurfaceKey, SwaptionSurfaceKey
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ class MarketSnapshot:
     valuation_date: date
     curves: CurveSet
     scalars: Mapping[ScalarKey, float] = field(default_factory=dict)
-    surfaces: Mapping[SurfaceKey | SwaptionSurfaceKey, Surface] = field(default_factory=dict)
+    surfaces: Mapping[SurfaceKey | SwaptionSurfaceKey, Surface | SabrSurface] = field(default_factory=dict)
     fixings: FixingSource = field(default_factory=lambda: FixingHistory({}))  # the "series" shape (doc 19 §2)
 
     def fx_rate(self, base: Currency, quote: Currency) -> float:
