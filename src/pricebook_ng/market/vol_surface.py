@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from collections.abc import Mapping
 from datetime import date
 
 from pricebook_ng.foundation import Interpolation, RateIndex, Tenor, TimeMeasure, interpolate
@@ -89,3 +90,38 @@ class Surface:
         """A new frozen surface with every vol shifted by `shift` in parallel (a flat vega bump).
         The base surface is never mutated (invariant 3); risk (L5) reprices off the copy."""
         return Surface(tuple(v + shift for v in self.vols), self.expiries, self.interpolation)
+
+
+@dataclass(frozen=True)
+class SabrParams:
+    """The SABR parameters for one expiry (Hagan 2002): `alpha` (ATM vol level), `beta` (the CEV
+    backbone, a FIXED input this slice), `rho` (spot/vol correlation → skew), `nu` (vol-of-vol →
+    convexity). The strike-dependent Black vol is computed by `models.sabr.sabr_vol`."""
+
+    alpha: float
+    beta: float
+    rho: float
+    nu: float
+
+
+@dataclass(frozen=True)
+class SabrSurface:
+    """A SABR vol representation — `SabrParams` per expiry pillar, keyed by index (stored in the
+    snapshot's `surfaces` map under `SurfaceKey(index)`, the closed-shapes×open-keys design). This is
+    an alternative to the flat/term-structure `Surface`: it produces a STRIKE-dependent (smile) vol.
+    Params are read at-pillar; cross-expiry interpolation is deferred to its first off-pillar consumer."""
+
+    params: Mapping[date, SabrParams]
+
+    def at_expiry(self, expiry: date) -> SabrParams:
+        """The SABR params at `expiry` (at-pillar; `KeyError` off-pillar → the caller fails as a value)."""
+        return self.params[expiry]
+
+
+def flat_surface(surface: Surface | SabrSurface) -> Surface:
+    """Narrow a `surfaces` entry to a flat/term `Surface`. A `SabrSurface` here means a flat-vol
+    consumer (BlackModel, vega bump) was handed a smile surface — a configuration error raised as a
+    value by the caller's failure path. Keeps the union narrowing out of `risk/` (§1 no type-switch)."""
+    if not isinstance(surface, Surface):
+        raise ValueError(f"expected a flat/term Surface, got {type(surface).__name__}")
+    return surface

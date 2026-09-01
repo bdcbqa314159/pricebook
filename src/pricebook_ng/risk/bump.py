@@ -20,7 +20,7 @@ from typing import Protocol, runtime_checkable
 
 from pricebook_ng.market.curve_set import CurveKey, CurveSet
 from pricebook_ng.market.snapshot import MarketSnapshot
-from pricebook_ng.market.vol_surface import SurfaceKey
+from pricebook_ng.market.vol_surface import SurfaceKey, flat_surface
 
 
 @runtime_checkable
@@ -69,5 +69,6 @@ class SurfaceBump:
     key: SurfaceKey
 
     def apply(self, market: MarketSnapshot, shift: float) -> MarketSnapshot:
-        bumped = market.surfaces[self.key].bumped(shift)
+        # flat vega only; SABR vega (bump α/ρ/ν) is a distinct greek, deferred to its consumer
+        bumped = flat_surface(market.surfaces[self.key]).bumped(shift)
         return replace(market, surfaces={**market.surfaces, self.key: bumped})
