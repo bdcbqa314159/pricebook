@@ -6,6 +6,31 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.106.0] - 2026-09-04
+
+**SABR caplet — the vol smile (T1 slice 20). Forward progress after the audit close.**
+
+### Added
+- **`models/sabr.py` — SABR lognormal implied vol (Hagan et al. 2002, eq 2.17a/2.18)** at L3 (analytic
+  block of a dynamics, the `models/black.py` precedent). `sabr_vol(forward, strike, t, params)` — df OUT,
+  the engine still multiplies `df·N·τ·black(...)`. The z/χ(z) removable singularity at F=K takes the ATM
+  branch (eq 2.18); ν→0 takes the z→0 limit (z/χ→1).
+- **`SABRModel`** — the SECOND `BlackVol` implementer (after `BlackModel`) and the FIRST that USES `strike`,
+  so a caplet grows a full smile with **NO change to the `BlackVol` signature** (Q1 rule-of-two on the
+  capability). READ, not solved: `SabrParams` carried on the snapshot; calibration is a later slice.
+- **`SabrParams(alpha, beta, rho, nu)` + `SabrSurface`** value types (L1); `MarketSnapshot.surfaces`
+  widened to `Surface | SabrSurface` (closed shapes × open keys — a new representation, not a new field).
+
+### Notes
+- **§3d F-identity (verified byte-identical):** `SABRModel.black_vol` derives the forward from its own
+  curves using the SAME `forward` atom and the index's canonical accrual the L4 caplet composes, so the
+  smile is evaluated at exactly the F the engine prices at — no cross-stage forward drift.
+- Oracle: `sabr_vol` reprices to an independent inline Hagan (different code path); β=1/ν=0 collapses to
+  flat α; ATM branch matches eq 2.18; the caplet reprices to Black-76 at the SABR-implied vol through the
+  unchanged engine. A flat `Surface` under a `SABRModel` (or a `SabrSurface` under a `BlackModel`) is a
+  config error surfaced as a `PricingFailure` value, narrowed once in `vol_surface.flat_surface` (keeps
+  the union type-switch out of `risk/`, §1).
+
 ## [0.105.0] - 2026-08-31
 
 **Audit Batch E — #19 calendar content. CLOSES the v0.98 audit (20/20 findings addressed).**
