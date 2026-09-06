@@ -6,6 +6,35 @@ in progress; `1.0.0` is reached exactly when the quarry (`python/pricebook/`) is
 
 ## [Unreleased]
 
+## [0.107.0] - 2026-09-06
+
+**SABR smile calibration (T1 slice 21) — the read→calibrate arc closes; first SABR drawdown movement.**
+
+### Added
+- **`calibration/sabr_calibrate.py` — `calibrate_sabr_smile(spec)`** (L3, beside `vol_strip.py`): fit
+  (α, ρ, ν) — **β fixed** — to a single-expiry `SmileQuote` by **bounded least-squares** over the
+  per-strike lognormal-vol residual, composing the SAME `sabr_vol` atom the model/engine read (§3d).
+  Returns `(SabrParams, CalibrationResult) | CalibrationFailure` (invariant 4). ATM seed adapted from
+  the quarry; the quarry's SSE/Nelder-Mead + `1e10` penalty is **shed** for a real box.
+- **`market/quotes.py` — `SmileQuote(expiry, strikes, vols)`** (L1): a quoted vol smile at one expiry;
+  `__post_init__` guards equal lengths, strictly-ascending strikes, and the ≥3 points a 3-parameter fit needs.
+- **`foundation/solvers.py` — `least_squares`/`root_nd` gain an optional `bounds=(lower, upper)`**:
+  bounded fits switch from Levenberg-Marquardt to Trust Region Reflective (LM cannot take bounds). One
+  swap point (§7bb); the SABR calibrator is its first consumer — a real box, never a penalty term.
+
+### Notes
+- **§3d F-identity (verified by construction):** the calibrator derives the forward from the model's own
+  projection curve via the SAME canonical accrual `SABRModel.black_vol` uses — so fitted params → a
+  `SabrSurface` → `SABRModel` reproduce the calibrated smile at exactly the F priced at. The round-trip
+  oracle recovers a known seed `SabrParams` to <1e-6 (max residual ~8e-11); the reprice oracle confirms
+  `SABRModel.black_vol` reproduces every target vol to <1e-6 — calibrate-to-quote == price-to-smile, one fact.
+- Failure-as-value: a degenerate smile (non-positive forward/strike — lognormal SABR undefined, cf. the
+  caplet #15 guard) or a non-converged solve returns `CalibrationFailure`, never a raise or a silent bad fit.
+- Also fixes the v0.106.0 SABR provenance header (`quarry:` pointed at a non-existent `models/sabr.py` →
+  corrected to `options/sabr.py`).
+- **Drawdown:** `options/sabr.py` partial-cross advances (calibration half crosses); `shifted_*`/`sabr_normal_vol`
+  + the DB-persistence artefact remain resident → **tick 0, 19/793** (recorded in `quarry_reconciliation.md`).
+
 ## [0.106.0] - 2026-09-04
 
 **SABR caplet — the vol smile (T1 slice 20). Forward progress after the audit close.**

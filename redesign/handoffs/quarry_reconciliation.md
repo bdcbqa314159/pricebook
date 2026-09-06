@@ -108,6 +108,20 @@ Topic-1 close**, v0.98.0). The 6 Topic-1 modules below are now git-mv'd into `pa
   (`Frequency.per_year()`). But no whole quarry module is superseded by this alone: `fixed_income/fixed_leg.py`
   carries full leg machinery, and the BRL/CDI product suite is deferred to its consumers. **Tick 0.**
 
+- **T1 slice-20 SABR-caplet-read retire read (0 ticks — PARTIAL cross):** `options/sabr.py` — the SABR
+  lognormal *implied-vol* (`sabr_implied_vol`, Hagan 2002) and its *caplet price* (`sabr_price`) cross to
+  ng `models/sabr.py` (`sabr_vol` + `SABRModel`, read-not-solved; the caplet reprices through the unchanged
+  engine, capability rule-of-two). Resident: calibration, `shifted_sabr_*`, `sabr_normal_vol` → their slices.
+  Partial → **tick 0, drawdown 19/793**. Evidence: `CHANGELOG` v0.106.0.
+
+- **T1 slice-21 SABR-calibrate retire read (0 ticks — PARTIAL cross):** `options/sabr.py` — the smile
+  *calibration* (`sabr_calibrate`/`calibrate_sabr_smile`) now crosses to ng `calibration/sabr_calibrate.py`
+  (`calibrate_sabr_smile`, bounded LS over the shared `sabr_vol` atom, the quarry's SSE/Nelder-Mead + `1e10`
+  penalty **shed** for a real box). Resident (blocks full retire): `shifted_sabr_implied_vol`/`shifted_sabr_price`
+  (negative-rate variant → shifted-SABR slice), `sabr_normal_vol` (Bachelier → normal-SABR slice), and the
+  `SABRCalibrationResult`/`CanonicalCalibrationResult` DB-persistence artefact → DB-spine crossing. Partial →
+  **tick 0, drawdown 19/793**. Evidence: `CHANGELOG` v0.107.0.
+
 The six Topic-1 deletables are now **physically parked** (git-mv'd at the T1 close, one event, doc 18 §9).
 Full retire evidence + resident inventory (file:line) + forward-links are in the Topic-1 MANIFEST retire
 record + `CP_slice3`/`CP_slice4` checkpoints. *(The historical `/768` — CLAUDE.md and the
