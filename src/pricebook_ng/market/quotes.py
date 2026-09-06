@@ -64,3 +64,23 @@ class CapQuote:
     maturity: date
     strike: float
     flat_vol: float
+
+
+@dataclass(frozen=True)
+class SmileQuote:
+    """A quoted volatility SMILE at one `expiry`: `strikes` (strictly ascending) and the
+    corresponding lognormal `vols`, one per strike. The SABR calibration target — a smile is a
+    single-expiry row of the surface. Parallel tuples (not a dict) keep it ordered and hashable;
+    `__post_init__` guards the length match and the ≥3 points a 3-parameter (α, ρ, ν) fit needs."""
+
+    expiry: date
+    strikes: tuple[float, ...]
+    vols: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.strikes) != len(self.vols):
+            raise ValueError("SmileQuote: strikes and vols must have equal length")
+        if len(self.strikes) < 3:
+            raise ValueError("SmileQuote: a 3-parameter SABR fit needs ≥3 strikes")
+        if any(b <= a for a, b in zip(self.strikes, self.strikes[1:])):
+            raise ValueError("SmileQuote: strikes must be strictly ascending")
