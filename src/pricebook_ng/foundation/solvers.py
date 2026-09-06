@@ -62,10 +62,12 @@ def least_squares(
     x0: Sequence[float],
     tol: float = 1e-12,
     max_iter: int = 1000,
+    bounds: tuple[Sequence[float], Sequence[float]] | None = None,
 ) -> list[float]:
-    """Minimise ``sum(residual(x)^2)`` from `x0` by Levenberg-Marquardt; returns the solution
-    vector. The natural shape for calibration (fit parameters to market quotes)."""
-    return root_nd(residual, x0, tol, max_iter)[0]
+    """Minimise ``sum(residual(x)^2)`` from `x0`; returns the solution vector. Unbounded uses
+    Levenberg-Marquardt; passing `bounds=(lower, upper)` constrains the solution to a box
+    (Trust Region Reflective — LM cannot take bounds). The natural shape for calibration."""
+    return root_nd(residual, x0, tol, max_iter, bounds)[0]
 
 
 def root_nd(
@@ -73,16 +75,24 @@ def root_nd(
     x0: Sequence[float],
     tol: float = 1e-12,
     max_iter: int = 1000,
+    bounds: tuple[Sequence[float], Sequence[float]] | None = None,
 ) -> tuple[list[float], list[list[float]], bool]:
-    """Solve the N-D system ``F(x) = 0`` from `x0` by Levenberg-Marquardt. Returns
+    """Solve the N-D system ``F(x) = 0`` from `x0` by least-squares. Returns
     ``(solution, jacobian, converged)`` where `jacobian` is ``∂residualᵢ/∂xⱼ`` at the solution
-    (rows = residuals, cols = unknowns). Non-convergence — including a solver error or a
-    residual that blows up — is returned as ``converged=False`` (failure is a value), never
-    raised. The single N-D solver for calibration; models/engines call THIS, never scipy (§7bb)."""
+    (rows = residuals, cols = unknowns). Unbounded uses Levenberg-Marquardt; `bounds=(lower,
+    upper)` switches to Trust Region Reflective and keeps the solution in the box. Non-convergence
+    — including a solver error or a residual that blows up — is returned as ``converged=False``
+    (failure is a value), never raised. The single N-D solver for calibration (§7bb)."""
     try:
-        result = _least_squares(
-            residual, list(x0), method="lm", xtol=tol, ftol=tol, max_nfev=max_iter
-        )
+        if bounds is None:
+            result = _least_squares(
+                residual, list(x0), method="lm", xtol=tol, ftol=tol, max_nfev=max_iter
+            )
+        else:
+            result = _least_squares(
+                residual, list(x0), method="trf",
+                bounds=(list(bounds[0]), list(bounds[1])), xtol=tol, ftol=tol, max_nfev=max_iter,
+            )
     except (ValueError, FloatingPointError, ZeroDivisionError):
         return list(map(float, x0)), [], False
     x = [float(v) for v in result.x]
