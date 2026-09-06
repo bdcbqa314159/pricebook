@@ -14,7 +14,7 @@ the index's CANONICAL accrual the engine's caplet composes — verified byte-ide
 standard caplet — so the smile is evaluated at exactly the F the engine prices at, no drift.
 
 Provenance:
-  quarry: python/pricebook/models/sabr.py
+  quarry: python/pricebook/options/sabr.py
   source: Hagan, Kumar, Lesniewski, Woodward (2002) "Managing Smile Risk" eq 2.17a/2.18
   oracle: sabr_vol reprices to an independent inline Hagan; ATM branch = eq 2.18; caplet → Black
   slice:  sabr-caplet (T1 slice 20)
