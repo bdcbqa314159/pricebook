@@ -7,6 +7,10 @@ _stock/
 
 # ── the prompt channel (Code <-> Cowork) — local working state, not repo content ────────────
 .cowork/thread.md
+# Orphaned copies the editing surface leaves behind when it rewrites an open file on a FUSE
+# mount. They are stale snapshots of the thread, and one showed up untracked after the first
+# exchange — ignored so a stale copy of the channel can never be committed by accident.
+.fuse_hidden*
 
 # ── Python ──────────────────────────────────────────────────────────────────────────────────
 __pycache__/
