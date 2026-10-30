@@ -1,0 +1,47 @@
+# One workflow, both OSes. Carried from the migration tree; the quarry gate is gone with the
+# migration frame. Every gate here exists because something got through without it.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"   # UTF-8 forced: the tree is cross-OS and encoding is not a per-file guess
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # numpy/scipy pinned to match pyproject: a scipy upgrade can shift convergence, so the
+      # version is part of the reproducibility contract, not an incidental.
+      - run: pip install pytest ruff==0.15.20 hypothesis numpy==2.4.3 scipy==1.17.1
+      - run: pip install -e .
+
+      - run: python verify.py acyclic      # layer direction (Tarjan SCC on the import graph)
+      - run: python verify.py layers       # semantic layer conformance (L0 stays finance-free)
+      - run: python verify.py fields       # <=5 dataclass fields; wide types exempt EXPLICITLY
+      - run: python verify.py debt         # suppressions == ledger entries; no silent debt
+      - run: python verify.py provenance   # every module names its source AND its oracle
+      - run: python verify.py version      # __version__ == the top CHANGELOG entry
+      - run: ruff check src/pricebook      # PLR0913 (max-args=5) + SLF001 (private access)
+      - run: npx -y pyright@1.1.411        # pinned: a pyright bump surfaces new diagnostics
+
+      # The suite, with a floor on what was COLLECTED. A green run over a truncated collection
+      # is not evidence: CI once gated 177 of 366 tests for six slices while every report read
+      # "gates green", because the ceiling was a number that had to be remembered.
+      - run: python verify.py tests
+
+      # Per-file wall-clock ceiling. A scalar closed form inside a path loop is O(paths) Python
+      # calls: three times in the old tree it took one file from sub-second to 59-73s (once it
+      # did not finish at all) with nothing failing. Runs last, so a timing failure never hides
+      # a correctness one.
+      - run: python verify.py slow

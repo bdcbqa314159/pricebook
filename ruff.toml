@@ -1,0 +1,16 @@
+# Lint rules carried from the migration tree, each because a defect got through without it.
+# The stock is reference material, not code — never linted.
+extend-exclude = ["_stock"]
+
+[lint]
+# PLR0913 — signature discipline: max 5 arguments. A signature over the limit is un-bundled
+#   vocabulary, and the fix is always to group cohesive parameters into a frozen value object,
+#   never to raise the limit or suppress the rule.
+# SLF001 — private-member access across a class boundary. Twice in the old tree a risk module
+#   built machinery out of a model's privates; the import edge is legal, so a dependency check
+#   cannot see it, and the privacy is the violation. A legitimate access takes a `# noqa` WITH a
+#   reason and a ledger entry — never silent.
+select = ["PLR0913", "SLF001"]
+
+[lint.pylint]
+max-args = 5

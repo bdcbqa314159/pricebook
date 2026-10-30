@@ -1,0 +1,23 @@
+# ── the stock: the archived migration tree, kept on disk as reference material ──────────────
+# Mined by hand for CONTENT (what is true: conventions, formulas, edge cases, oracles), never
+# for STRUCTURE. Never imported by the library. Gitignored because it is not this project's
+# code and must never be mistaken for it; its pushed backup is the archived
+# `pricebook-migration` repo (tag `migration-archive`).
+_stock/
+
+# ── the prompt channel (Code <-> Cowork) — local working state, not repo content ────────────
+.cowork/thread.md
+
+# ── Python ──────────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/

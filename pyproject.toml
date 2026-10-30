@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pricebook"
+dynamic = ["version"]
+description = "Pricing analytics — every number verified against the book or paper that defines it"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+authors = [{ name = "Bernardo David Cohen Beraun" }]
+dependencies = [
+    # Pinned, because convergence behaviour is part of the reproducibility contract: a scipy
+    # upgrade can move a solver's last digits, and oracles assert tolerances. CI pins the same
+    # versions. (The library owns the FINANCE; scipy owns the numerics behind thin adapters.)
+    "numpy==2.4.3",
+    "scipy==1.17.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "hypothesis>=6", "ruff==0.15.20", "pre-commit"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pricebook.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
