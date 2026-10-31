@@ -32,9 +32,12 @@ def _reference_C(t, t0, t1, sr=SR, rho_nr=RHO_NR, rho_ri=RHO_RI):
 
     br_period, br_t, bn_t = beta(KR, t0, t1), beta(KR, t, t0), beta(KN, t, t0)
     cross = rho_nr * SN / (KN + KR)
-    return sr * br_period * (
-        br_t * (rho_ri * SI - 0.5 * br_t) + cross * (1.0 + KR * bn_t) - cross * bn_t
-    )
+    # Transcribed from the `-raw` PDF extraction, which preserves the parenthesis structure the
+    # `-layout` one merges: the `cross` term is INSIDE the `br_t` factor. Tranche 4's version had
+    # it outside, in both the implementation and this reference -- so the sweep compared two
+    # copies of the same mistake. The fix is this nesting; the guard is the structural test below.
+    inner = rho_ri * SI - 0.5 * br_t + cross * (1.0 + KR * bn_t)
+    return sr * br_period * (br_t * inner - cross * bn_t)
 
 
 def test_beta_matches_its_closed_form_and_its_small_kappa_limit() -> None:
@@ -102,3 +105,25 @@ def test_the_convexity_is_INVARIANT_to_the_nominal_index_correlation() -> None:
         for r in (-0.9, 0.0, 0.9)
     ]
     assert swept[0] == swept[1] == swept[2]
+
+
+def test_the_convexity_is_EXACTLY_ZERO_when_t_reaches_the_period_start() -> None:
+    """**The structural requirement that caught tranche 4's transcription error.**
+
+    `C` corrects `E^{Ti-1}[Pr(Ti-1,Ti) | Ft] = Pr(t,Ti)/Pr(t,Ti-1)*e^C`. At `t = Ti-1` the left
+    side is `Pr(Ti-1,Ti)`, already known, and the right side is `Pr(Ti-1,Ti)*e^C` -- so `C` must be
+    **exactly zero**. It is a requirement of the object, not a property of the parameters, and it
+    holds for every parameter set.
+
+    T4's bracket nesting (the `rho_nr` cross term outside the `beta_r(t,Ti-1)` factor instead of
+    inside it) left this non-zero at ~2.6e-4, and **no numerical oracle in T4 could see it**: the
+    sweep compared two transcriptions of the same mangled text, and `sigma_r` is an overall factor
+    either way so the anchor passed too. A cross-product parity check in tranche 5 disagreed, and
+    this requirement is what identified the cause.
+    """
+    for t0, t1 in ((1.0, 2.0), (2.0, 3.0), (9.0, 10.0)):
+        for sr in (0.004, 0.02):
+            for rho_nr, rho_ri, rho_ni in ((0.3, -0.2, 0.15), (-0.8, 0.7, -0.5), (0.9, 0.9, 0.9)):
+                p = JYParams(NOMINAL, HullWhiteParams(KR, sr), SI,
+                             JYCorrelations(rho_nr, rho_ri, rho_ni))
+                assert yoy_convexity(t0, t0, t1, p) == 0.0, (t0, t1, sr, rho_nr)

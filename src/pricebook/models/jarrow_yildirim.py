@@ -7,9 +7,22 @@ forward measure is the current forward price times `e^C` (eq 2.5.9).
 
     beta(t,T) = (1 - e^{-k(T-t)}) / k                                    (2.4.3, 2.4.16)
 
-    C(t,T0,T1) = sr * beta_r(T0,T1) * [ beta_r(t,T0)*(rho_rI*sI - 0.5*beta_r(t,T0))
-                                      + (rho_nr*sn/(kn+kr))*(1 + kr*beta_n(t,T0))
-                                      - (rho_nr*sn/(kn+kr))*beta_n(t,T0) ]   (2.5.11)
+    C(t,T0,T1) = sr*beta_r(T0,T1) * { beta_r(t,T0)*[ rho_rI*sI - 0.5*beta_r(t,T0)
+                                                    + (rho_nr*sn/(kn+kr))*(1 + kr*beta_n(t,T0)) ]
+                                      - (rho_nr*sn/(kn+kr))*beta_n(t,T0) }    (2.5.11)
+
+**The bracket nesting is load-bearing and tranche 4 got it wrong.** The `-layout` text extraction
+of the PDF merges 2.5.11's parentheses, and read that way the `rho_nr` cross term appears to sit
+*beside* the `beta_r(t,Ti-1)` factor rather than inside it. T4 shipped that reading -- and its
+"independent" transcription in the test was made from the *same* mangled text, so both sides
+carried the same error and a 108-point sweep passed. Two transcriptions of one corrupted source
+are not independent.
+
+What caught it was **a structural requirement, not a number**: `C` corrects
+`E^{Ti-1}[Pr(Ti-1,Ti)|Ft]`, so at `t = Ti-1` the quantity is already known and `C` must be
+**exactly zero**. The wrong nesting leaves `sr*beta_r(Ti-1,Ti)*(-cross*0) + ...` non-zero there.
+The `-raw` extraction confirms the true structure, and with it `beta_r(t,Ti-1) = beta_n(t,Ti-1) = 0`
+makes the whole brace vanish. An oracle for that now sits beside the formula.
 
 **`sigma_r` is the overall factor, and that is the tranche's anchor.** The thesis states it
 directly after 2.5.11 -- *"This term accounts for the stochasticity of real rates. Indeed it
@@ -129,11 +142,16 @@ def yoy_convexity(t: float, period_start: float, period_end: float, params: JYPa
     beta_r_t = hw_beta(real.kappa, t, period_start)
     beta_n_t = hw_beta(nominal.kappa, t, period_start)
     cross = correlations.nominal_real * nominal.sigma / (nominal.kappa + real.kappa)
-    bracket = (
-        beta_r_t * (correlations.real_index * index_vol - 0.5 * beta_r_t)
+    # The bracket structure matters and was WRONG in tranche 4: the `cross` term sits INSIDE the
+    # `beta_r(t,Ti-1)` factor, not beside it. See the module docstring -- the `-layout` PDF
+    # extraction merged the parentheses, and a second transcription from the same mangled text
+    # repeated the error, so the sweep oracle passed on both sides being wrong.
+    inner = (
+        correlations.real_index * index_vol
+        - 0.5 * beta_r_t
         + cross * (1.0 + real.kappa * beta_n_t)
-        - cross * beta_n_t
     )
+    bracket = beta_r_t * inner - cross * beta_n_t
     return real.sigma * beta_r_period * bracket
 
 

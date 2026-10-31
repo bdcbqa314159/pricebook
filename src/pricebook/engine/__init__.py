@@ -4,12 +4,13 @@ Importing this package registers every pricer (their `@register` decorators run 
 `price` dispatches over all product types. A new pricer module is imported here to be reachable.
 """
 
+from pricebook.engine.capfloor import price_inflation_capfloor
 from pricebook.engine.cash import price_fixed_cashflow
 from pricebook.engine.inflation import price_inflation_linked_bond, price_zc_inflation_swap
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.registry import register
 
-__all__ = ["price", "price_fixed_cashflow", "price_inflation_linked_bond",
+__all__ = ["price", "price_inflation_capfloor", "price_fixed_cashflow", "price_inflation_linked_bond",
            "price_yoy_inflation_swap",
            "price_zc_inflation_swap", "register"]

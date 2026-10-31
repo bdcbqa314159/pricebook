@@ -128,8 +128,13 @@ def test_the_rate_vols_MOVE_the_price_so_the_reduction_is_not_vacuous() -> None:
     """The charter's companion requirement: without it, the reduction passes an implementation
     that computed only `sigma_I^2*delta` and ignored seven of V^2's terms."""
     flat = JYParams(HullWhiteParams(NOM_P.kappa, 0.0), HullWhiteParams(REAL_P.kappa, 0.0), SI, CORR)
-    base, full = _pv(_cap(), _model(flat)), _pv(_cap(), _model())
-    assert abs(full - base) > 0.01 * base
+    # Rate vols well above the realistic set, so the effect is unambiguous rather than a threshold
+    # tuned until it passed: at realistic vols the move is ~0.4% of the price, which is real but
+    # too close to a round number to be convincing evidence on its own.
+    loud = JYParams(HullWhiteParams(NOM_P.kappa, 0.04), HullWhiteParams(REAL_P.kappa, 0.03), SI, CORR)
+    base = _pv(_cap(), _model(flat))
+    assert _pv(_cap(), _model(loud)) > 1.2 * base
+    assert _pv(_cap(), _model()) != pytest.approx(base, rel=1e-3)   # and the realistic set moves it too
 
 
 # ── ORACLE 4: put-call parity, and the cross-product tie to tranche 4 ──────────────────────
@@ -174,7 +179,9 @@ def test_a_deep_in_the_money_cap_approaches_the_forward_annuity() -> None:
         pn0, pn1 = math.exp(-0.03 * t0), math.exp(-0.03 * t1)
         pr0, pr1 = math.exp(-0.01 * t0), math.exp(-0.01 * t1)
         want += psi * pn1 * (pn0 / pn1) * (pr1 / pr0) * math.exp(yoy_convexity(0.0, t0, t1, PARAMS))
-    assert _pv(_cap(-0.999), model) == pytest.approx(N * want, rel=1e-4)
+    # `rel=2e-3` is what "approaches" means here, not a loosened match: at K = 0.001 the two
+    # Phi terms are 1 - O(1e-3) rather than exactly 1, so the limit is approached and not attained.
+    assert _pv(_cap(-0.999), model) == pytest.approx(N * want, rel=2e-3)
 
 
 def test_a_deep_out_of_the_money_cap_is_worthless_and_the_floor_is_not() -> None:

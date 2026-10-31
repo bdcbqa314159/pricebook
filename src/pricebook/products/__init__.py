@@ -2,12 +2,13 @@
 
 from pricebook.products.cash import FixedCashflow
 from pricebook.products.inflation import (
+    InflationCapFloor,
     InflationLinkedBond,
     YearOnYearInflationSwap,
     ZeroCouponInflationSwap,
 )
 
 __all__ = [
-    "FixedCashflow", "InflationLinkedBond", "YearOnYearInflationSwap",
+    "FixedCashflow", "InflationCapFloor", "InflationLinkedBond", "YearOnYearInflationSwap",
     "ZeroCouponInflationSwap",
 ]
