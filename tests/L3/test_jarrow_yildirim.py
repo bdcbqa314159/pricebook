@@ -21,7 +21,7 @@ KN, SN, KR, SR, SI = 0.05, 0.010, 0.04, 0.008, 0.012
 RHO_NR, RHO_RI = 0.30, -0.20
 NOMINAL = HullWhiteParams(KN, SN)
 REAL = HullWhiteParams(KR, SR)
-CORR = JYCorrelations(nominal_real=RHO_NR, real_index=RHO_RI)
+CORR = JYCorrelations(nominal_real=RHO_NR, real_index=RHO_RI, nominal_index=0.15)
 
 
 def _reference_C(t, t0, t1, sr=SR, rho_nr=RHO_NR, rho_ri=RHO_RI):
@@ -61,7 +61,7 @@ def test_the_convexity_does_NOT_vanish_at_zero_correlation() -> None:
     surviving term is `sr*beta_r(T0,T1)*beta_r(t,T0)*(-0.5*beta_r(t,T0))`, a **pure real-rate
     convexity with no correlation in it at all**. This test exists so nobody "simplifies" 2.5.11
     back toward the approximation."""
-    zero = JYCorrelations(nominal_real=0.0, real_index=0.0)
+    zero = JYCorrelations(nominal_real=0.0, real_index=0.0, nominal_index=0.0)
     got = yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, REAL, SI, zero))
     survivor = SR * hw_beta(KR, 2.0, 3.0) * hw_beta(KR, 0.0, 2.0) * (-0.5 * hw_beta(KR, 0.0, 2.0))
     assert got == pytest.approx(survivor, rel=1e-14)
@@ -76,7 +76,7 @@ def test_the_convexity_matches_eq_2_5_11_across_a_parameter_sweep() -> None:
                     got = yoy_convexity(
                         t, t0, t1,
                         JYParams(NOMINAL, HullWhiteParams(KR, sr), SI,
-                                 JYCorrelations(rho_nr, rho_ri)),
+                                 JYCorrelations(rho_nr, rho_ri, 0.15)),
                     )
                     want = _reference_C(t, t0, t1, sr, rho_nr, rho_ri)
                     assert got == pytest.approx(want, rel=1e-13, abs=1e-18), (t, t0, t1, sr)
@@ -90,3 +90,15 @@ def test_the_convexity_grows_with_real_vol_and_with_the_period_length() -> None:
     by_span = [abs(yoy_convexity(0.0, 2.0, 2.0 + d, JYParams(NOMINAL, REAL, SI, CORR)))
                for d in (0.25, 1.0, 3.0)]
     assert by_span == sorted(by_span)
+
+
+def test_the_convexity_is_INVARIANT_to_the_nominal_index_correlation() -> None:
+    """Pins tranche 4's claim, now that `rho_nI` exists. `C` (2.5.11) reads `rho_rI` and `rho_nr`
+    and **not** `rho_nI`, which enters only the cap/floor variance (2.6.4). Asserted rather than
+    asserted-in-prose: `rho_nI` became a required field in T5, and this is what stops it quietly
+    leaking into the convexity later."""
+    swept = [
+        yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, REAL, SI, JYCorrelations(RHO_NR, RHO_RI, r)))
+        for r in (-0.9, 0.0, 0.9)
+    ]
+    assert swept[0] == swept[1] == swept[2]

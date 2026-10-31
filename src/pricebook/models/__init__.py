@@ -8,9 +8,10 @@ from pricebook.models.jarrow_yildirim import (
     JYParams,
     hw_beta,
     yoy_convexity,
+    yoy_variance,
 )
 
 __all__ = [
     "DiscountingModel", "HullWhiteParams", "JYCorrelations", "JYParams", "JarrowYildirim", "hw_beta",
-    "yoy_convexity",
+    "yoy_convexity", "yoy_variance",
 ]

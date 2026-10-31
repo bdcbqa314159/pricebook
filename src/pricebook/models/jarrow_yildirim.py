@@ -71,17 +71,24 @@ class HullWhiteParams:
 
 @dataclass(frozen=True)
 class JYCorrelations:
-    """The correlations `C` depends on: nominal-real and real-index.
+    """JY's three correlations: nominal-real, real-index, nominal-index.
 
-    **Only these two.** `rho_nominal_index` is a JY parameter but enters only the cap/floor
-    variance, so carrying it here would be a field with no consumer -- the smell this project has
-    now caught four times, every one of them in stock code."""
+    **`nominal_index` arrived in tranche 5, not tranche 4.** The YoY convexity `C` (2.5.11) reads
+    only the first two; `rho_nI` enters solely the cap/floor log-ratio variance `V^2` (2.6.4, its
+    eighth term). So it was deliberately absent while it had no consumer and is required now that
+    it has one -- which is the pull discipline, and the reason it is **required rather than
+    defaulted**: a default would be a hidden knob on a real model parameter."""
 
     nominal_real: float
     real_index: float
+    nominal_index: float
 
     def __post_init__(self) -> None:
-        for name, rho in (("nominal_real", self.nominal_real), ("real_index", self.real_index)):
+        for name, rho in (
+            ("nominal_real", self.nominal_real),
+            ("real_index", self.real_index),
+            ("nominal_index", self.nominal_index),
+        ):
             if not -1.0 <= rho <= 1.0:
                 raise ValueError(f"{name} correlation must lie in [-1, 1], got {rho}")
 
@@ -149,3 +156,54 @@ class JarrowYildirim:
         """`C(t, T_{i-1}, T_i)` for this parameter set — the model's own capability, so a pricer
         composes it rather than reassembling 2.5.11 from loose parameters."""
         return yoy_convexity(t, period_start, period_end, self.params)
+
+    def log_ratio_variance(self, t: float, period_start: float, period_end: float) -> float:
+        """`V^2(t, T_{i-1}, T_i)` (2.6.4) — the cap/floor's variance, same reasoning as above."""
+        return yoy_variance(t, period_start, period_end, self.params)
+
+
+def yoy_variance(t: float, period_start: float, period_end: float, params: JYParams) -> float:
+    """`V^2(t, T_{i-1}, T_i)` -- the variance of `ln(I(T_i)/I(T_{i-1}))` under the nominal
+    `T_i`-forward measure. **Eq 2.6.4**, eight terms.
+
+    Reduces **exactly** to `sigma_I^2 * (T_i - T_{i-1})` when both rate vols are zero: six terms
+    carry `sigma_n` or `sigma_r` outright and the cross terms carry both. That reduction is
+    reduction-*sanity* and not the correctness guarantee -- it kills six of the eight, so only the
+    independently-transcribed sweep checks their signs and factors (thread 0031).
+
+    A variance cannot be negative, and an eight-term expression with three signed correlations is
+    exactly where a negative one would hide; a test sweeps adverse correlations for that reason,
+    because the symptom would otherwise surface far from here as a domain error inside a sqrt."""
+    kn, sn = params.nominal.kappa, params.nominal.sigma
+    kr, sr = params.real.kappa, params.real.sigma
+    si = params.index_vol
+    rho_nr = params.correlations.nominal_real
+    rho_ri = params.correlations.real_index
+    rho_ni = params.correlations.nominal_index
+
+    span = period_end - period_start          # T_i - T_{i-1}
+    lead = period_start - t                   # T_{i-1} - t
+    beta_n = hw_beta(kn, period_start, period_end)
+    beta_r = hw_beta(kr, period_start, period_end)
+
+    total = sn * sn / (2.0 * kn) * beta_n**2 * (1.0 - math.exp(-2.0 * kn * lead))
+    total += si * si * span
+    total += sr * sr / (2.0 * kr) * beta_r**2 * (1.0 - math.exp(-2.0 * kr * lead))
+    total -= (
+        2.0 * rho_nr * (sn * sr / (kn + kr)) * beta_n * beta_r
+        * (1.0 - math.exp(-(kn + kr) * lead))
+    )
+    total += (sn * sn / kn**2) * (
+        span + (2.0 / kn) * math.exp(-kn * span)
+        - (1.0 / (2.0 * kn)) * math.exp(-2.0 * kn * span) - 3.0 / (2.0 * kn)
+    )
+    total += (sr * sr / kr**2) * (
+        span + (2.0 / kr) * math.exp(-kr * span)
+        - (1.0 / (2.0 * kr)) * math.exp(-2.0 * kr * span) - 3.0 / (2.0 * kr)
+    )
+    total -= 2.0 * rho_nr * (sn * sr / (kn * kr)) * (
+        span - beta_n - beta_r + (1.0 - math.exp(-(kn + kr) * span)) / (kn + kr)
+    )
+    total += 2.0 * rho_ni * (sn * si / kn) * (span - beta_n)
+    total -= 2.0 * rho_ri * (sr * si / kr) * (span - beta_r)
+    return total
