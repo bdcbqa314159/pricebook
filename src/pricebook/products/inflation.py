@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pricebook.foundation.cashflow import SCHEMA_VERSION, check_schema_version
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.foundation.money import Money
-from pricebook.foundation.schedule import RealLeg
+from pricebook.foundation.schedule import RealLeg, YoYLeg
 from pricebook.foundation.term import Term
 
 
@@ -126,4 +126,38 @@ class InflationLinkedBond:
             RealLeg.from_dict(d["leg"]),
             Money.from_dict(d["notional"]),
             int(d["indexation_lag"]),
+        )
+
+
+@dataclass(frozen=True)
+class YearOnYearInflationSwap:
+    """Receive `Σ N·ψᵢ·[I(Tᵢ)/I(Tᵢ₋₁) − 1]`, pay `Σ N·ψᵢ·C_fix` (eqs 1.2.17, 1.2.18).
+
+    Three fields, and notably **no base index**: a YoY swap's floating side is a chain of
+    *period-on-period* ratios, so it has no single `I0` the way a ZC swap or a linker does. The
+    index is named because it is the contract's underlying, not because the price reads a level —
+    at inception eq 2.5.13 contains no index level at all."""
+
+    index: InflationIndex
+    leg: YoYLeg
+    notional: Money
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": "yoy_inflation_swap",
+            "schema_version": SCHEMA_VERSION,
+            "index": self.index.name,
+            "leg": self.leg.to_dict(),
+            "notional": self.notional.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> YearOnYearInflationSwap:
+        check_schema_version(d)
+        if d.get("kind") != "yoy_inflation_swap":
+            raise ValueError(f"not a yoy_inflation_swap payload: {d.get('kind')!r}")
+        return cls(
+            InflationIndex(d["index"]),
+            YoYLeg.from_dict(d["leg"]),
+            Money.from_dict(d["notional"]),
         )
