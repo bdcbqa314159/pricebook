@@ -1,6 +1,6 @@
 # Tranche 1 — the minimal spine
 
-**Proposed:** 2026-10-31 · **By:** Code (lead, per thread 0003) · **Status:** proposed, awaiting
+**Proposed:** 2026-10-31 · **By:** Code (lead, per thread 0003) · **Status:** BUILT, green; awaiting
 Cowork's independent review before landing · **Target:** `v0.1.0`
 
 ## 0. Target and why this one
@@ -100,3 +100,50 @@ Branch `tranche/01-minimal-spine`. Commit sequence: `test` (oracles RED) → `fe
 `stock:` the file purified from, `source:` the reference, `oracle:`, `slice:` the tranche.
 
 Gates: all eight, plus ruff and pyright, plus the test floor raised in the same commit.
+
+---
+
+## 6. Result (built 2026-10-31)
+
+**18 oracles green, all eight gates green, ruff + pyright clean.** `v0.1.0`.
+
+| oracle | result |
+|---|---|
+| `PV = N·e^{−r·t}` | exact to **1e-12** across 3 notionals × 4 rates × 4 horizons (48 points) |
+| analytic vs FD DV01 | agrees to **1e-6** |
+| valuation-date boundary | a flow *on* the date excluded; *one day after* included and positive |
+| statelessness | reprice byte-identical; snapshot identity preserved through the engine |
+| failure-is-a-value | missing curve · unregistered product · unmarked currency all return `PricingFailure` |
+| currency mixing | refused |
+| representation | round-trips; carries a schema version |
+| curve internals | flat exact to the bit; **linear interpolation tested on a SLOPED curve** |
+
+**Landed: 12 modules, 11 purified from the stock, 2 built fresh, nothing over 100 lines.**
+
+### Two things the build changed from the proposal
+
+1. **`CalibratedModel` was NOT carried.** The stock's registry types its model parameter against
+   that protocol. A protocol exists to *declare a capability*, and a discounting model has none to
+   declare beyond carrying its market — so carrying it would have been an empty abstraction. The
+   model parameter is `object` until a pricer needs a real capability (a vol surface, a sampler),
+   which is when the protocol earns its place.
+2. **`DiscountCurve.zero_rate` uses `bisect`, and has no `# pragma: no cover`.** The first draft
+   scanned the pillars and ended in an unreachable `raise` that needed the pragma — which the debt
+   gate caught immediately. The right answer to dead code is to remove the deadness, not to ledger
+   the suppression; `bisect` makes the bracketing total. It is also O(log n), which will matter at
+   a bootstrapped curve.
+
+### A fixture trap avoided, from the stock's record
+
+A **flat** curve returns the same rate at every horizon, so it cannot tell linear interpolation
+from any other scheme — or from none at all. The predecessor hit that exact shape twice (a flat
+vol curve that hid a caplet-strip bug for three slices; a flat discount curve on which a
+clock-advance and an expiry bump agree *to the last bit*). So the interpolation is tested on a
+**sloped** curve, where a wrong scheme gives a different number, and the flat case is tested
+separately for exactness.
+
+### What this tranche deliberately did not build
+
+Schedules, legs, any day count beyond ACT/365F, interpolation beyond linear-in-zero, projection
+curves, a second product, any model with dynamics. Each arrives when a product pulls it — which is
+the model working, not a backlog.
