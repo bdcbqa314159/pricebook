@@ -1,6 +1,6 @@
 # Tranche 4 — the year-on-year inflation swap and Jarrow–Yildirim
 
-**Proposed:** 2026-10-31 · **By:** Code · **Status:** proposed, awaiting Cowork's pass · **Target:**
+**Proposed:** 2026-10-31 · **By:** Code · **Status:** BUILT, green — awaiting Cowork's pre-merge pass · **Target:**
 `v0.4.0` · **Source:** `BERHAN-2012` §1.2.3 and **ch 2** (§§2.4–2.5), formulas **read in the PDF**,
 not inferred.
 
@@ -113,3 +113,49 @@ never before.
 Branch `tranche/04-yoy-jarrow-yildirim`. `test` (RED) → `feat` → `docs` → `chore(release)`.
 `source:` cites `BERHAN-2012` with equation numbers (§2.5.10, 2.5.11, 2.4.3, 2.4.16).
 `# crosscheck: quantlib YoYInflationSwap / YoYInflationCapFloor`.
+
+---
+
+## 5. Result
+
+**64 oracles green**, all eight gates, ruff + pyright clean, **zero suppressions**. Cowork owned the
+`ρ→0` error without qualification and ruled in favour of all four points (§0's correction, not
+purifying the stock's convexity, deferring `ρ_nI` to T5, and keeping `YoYLeg` separate).
+
+### What landed
+
+`yoy_convexity` (eq 2.5.11) with `hw_beta` (2.4.3/2.4.16), the `JarrowYildirim` model carrying
+`JYParams` and its snapshot, `YoYLeg`, `YearOnYearInflationSwap`, and the pricer composing eq
+2.5.13 — whose **first period is tranche 2's ZCIIS leg**, because the thesis prices that cash flow
+by 1.2.13 when its previous fixing is known.
+
+### The anchor, and the test that stops it being vacuous
+
+`σr → 0` ⇒ `C = 0` exactly ⇒ the whole swap collapses to the deterministic-real-rate limit. Exact
+by construction, since `σr` is 2.5.11's overall factor.
+
+**Paired with `test_the_convexity_MOVES_the_leg_so_the_anchor_is_not_vacuous`** — without it, the
+anchor would pass on an implementation that ignored `C` entirely. That is the powerless-check lens
+applied to a reduction oracle: a reduction proves the general case *collapses* correctly, and says
+nothing about whether the general case does anything at all.
+
+And `test_the_convexity_does_NOT_vanish_at_zero_correlation` pins §0's finding into the suite, with
+the surviving `−½βr²` term quantified, so nobody simplifies 2.5.11 back toward the stock's
+approximation.
+
+### Three gate catches, all mine, all fixed at the cause
+
+1. **`PLR0913`** — `yoy_convexity` took seven arguments. Bundled into **`JYParams`** (two HW
+   factors, index vol, correlations), which is the model's own structure rather than a split to
+   satisfy a count — and `JarrowYildirim` then carries just `market` + `params`.
+2. **`layers`** — the word *"payoff"* in `YoYLeg`'s docstring tripped the L0 finance-free gate,
+   which greps prose as well as code. **Reworded rather than loosening the gate.** A gate that
+   over-reports on comments is still doing its job, and relaxing it so my own docstring passes is
+   the wrong direction; the weakness is noted in the docstring itself rather than acted on.
+3. **`debt`** — four `# noqa: E731` on test lambdas. Replaced with real local functions; the gate
+   is right that a suppression needs justifying, and here there was none to give.
+
+### What is deferred, named
+The **seasoned** case (eq 2.5.12, `ι(t) > 1`) needs the *historical* fixing `I(T_{ι−1})` — an index
+**series** in the snapshot, a new market-data shape, deferred with the indexation-lag resolution it
+shares a consumer with. `ρ_nI` lands with the cap/floor at T5, per Cowork's reading of §2.6.
