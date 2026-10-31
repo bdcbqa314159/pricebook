@@ -1,6 +1,6 @@
 # Tranche 5 — the inflation cap/floor under Jarrow–Yildirim
 
-**Proposed:** 2026-10-31 · **By:** Code · **Status:** proposed, awaiting Cowork's pass · **Target:**
+**Proposed:** 2026-10-31 · **By:** Code · **Status:** BUILT, green — awaiting Cowork's pre-merge pass · **Target:**
 `v0.5.0` · **Source:** `BERHAN-2012` §1.2.4 and **ch 2.6**, eqs 2.6.1–2.6.5 — **read in the PDF
 first-hand**, as T4 taught.
 
@@ -96,3 +96,56 @@ stock-is-not-authority rule T4 earned the hard way.
 ## 5. Process
 Branch `tranche/05-inflation-capfloor`. `test` (RED) → `feat` → `docs` → `chore(release)`.
 `source:` cites `BERHAN-2012` with equation numbers. `# crosscheck: quantlib YoYInflationCapFloor`.
+
+---
+
+## 6. Result — and a bug found in TRANCHE 4, which is the headline
+
+**87 oracles green**, all eight gates, ruff + pyright clean, zero suppressions.
+Cowork's §3.1 ruling applied: the cap carries `strike: float` and reuses **`CouponSchedule`** (its
+honest second consumer); no `YoYLeg`, no `CapFloorLeg`.
+
+### The T4 convexity formula was wrong, and T5's cross-product oracle found it
+
+**Eq 2.5.11's bracket nesting.** The `ρ_nr` cross term belongs **inside** the `βr(t,Tᵢ₋₁)` factor:
+
+```
+C = σr·βr(Tᵢ₋₁,Tᵢ)·{ βr(t,Tᵢ₋₁)·[ ρrI·σI − ½βr(t,Tᵢ₋₁) + (ρnr·σn/(κn+κr))(1+κr·βn(t,Tᵢ₋₁)) ]
+                      − (ρnr·σn/(κn+κr))·βn(t,Tᵢ₋₁) }
+```
+
+T4 placed it *beside* that factor. Error size: **1.8% of the convexity** at a 2y–3y period, 1.5% at
+4y–5y — and **infinite** at `t = Tᵢ₋₁`, where the correct value is exactly zero and T4's was 2.6e-4.
+
+### Why nothing in T4 caught it — the part worth keeping
+
+1. **The sweep oracle compared two copies of the same mistake.** T4's "independent transcription"
+   was made from the same `pdftotext -layout` output as the implementation, and that rendering
+   *merges 2.5.11's parentheses*. Two transcriptions of one corrupted source are **not
+   independent** — the 108-point sweep passed because both sides were wrong identically. This is
+   the telescoping failure mode in a new disguise: we guarded against reading the formula from the
+   *stock*, and then both readings came from one mangled rendering of the *source*.
+2. **The `σr → 0` anchor could not see it either.** `σr` remains an overall factor under both
+   nestings, so the reduction passed.
+3. **What found it:** T5's `cap − floor = T4's YoY leg` oracle disagreed by 0.65%. That is the
+   cross-product check doing exactly its job — different code on each side, so a shared
+   transcription error has nowhere to hide.
+4. **What identified the cause:** a **structural requirement**, not a number. `C` corrects
+   `E^{Tᵢ₋₁}[Pr(Tᵢ₋₁,Tᵢ)|Ft]`, so at `t = Tᵢ₋₁` the quantity is already known and `C` must be
+   **exactly zero** — a property of the object, true for every parameter set. The wrong nesting
+   violates it. That oracle now exists and should have existed in T4.
+
+**Two practices follow, and they are charter-grade:**
+- **Re-read a load-bearing formula in the `-raw` extraction, not only `-layout`.** Layout mode
+  reflows fractions and merges parentheses; raw mode preserves the token order. For anything whose
+  nesting carries meaning, read both.
+- **Ask what the object must satisfy regardless of parameters**, and test that. `C(t=Tᵢ₋₁) = 0`,
+  `V² ≥ 0`, parity — none of these are numbers from a source, and all three outlive a transcription
+  error.
+
+### The rest of the tranche
+`V²`'s eight terms (2.6.4) with `ρ_nI` landing as its first consumer and a test pinning that T4's
+convexity is **invariant** to it; eq 2.6.5 swept over strikes and both kinds as the primary oracle;
+the `σn = σr = 0` reduction to plain Black with its non-vacuity companion; parity, deep-ITM/OTM
+limits, no-vol intrinsic; and `foundation/distributions.py`, a thin scipy adapter whose oracles test
+*the adapter* (`Φ(x)+Φ(−x)=1` is what the parity oracle leans on) rather than scipy's numerics.
