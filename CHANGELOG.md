@@ -6,6 +6,69 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-31
+
+Tranche 6 — calibrating Jarrow–Yildirim's volatilities to a year-on-year floor strip
+(BERHAN-2012 ch 5). Two stages, and only the vol stage is fitted: the curve stage stays pinned by
+tranche 2, because refitting curves against vol quotes launders a curve error into a vol.
+
+### Rejected — the stock's calibration fits volatilities to the wrong instrument
+`_stock/.../jarrow_yildirim.py::jy_calibrate` fits `(σn, σr, σI)` to **zero-coupon** inflation swap
+quotes, which under correct JY carry **no volatility information at all**: the fair rate is
+`Pr(0,T)/Pn(0,T) − 1` (eqs 1.2.13/1.2.16) — it is *because* the ZCIIS is model-free that tranche 2
+built the real curve from it. Its objective is non-flat only through two defects: model-implied
+Vasicek `θ = r₀` curves where the market curves belong, and a convexity adjustment applied to the
+ZCIIS when JY puts convexity on the **year-on-year** swap. Measured at a 5y quote, doubling `σI`
+moves its fair rate **+10.3 bp** and doubling `σr` **+15.1 bp** — enough to drive a least-squares
+fit against basis-point quotes, and entirely artefact. It converges on its own bugs and reports
+success. Not purified; mined for content only (the fixed-vs-free split).
+
+Third instance of **stock-is-not-authority** in this vertical, and the first in a *calibration*
+rather than a formula.
+
+### Added
+- `engine/jy_calibration.py` — `calibrate_jy_to_yoy_floors`, fitting `(σr, σI)` to a strip of ATM
+  floors through tranche 5's pricer. `JYFixedParams` bundles what the thesis sources elsewhere
+  (both mean reversions, the correlations, and `σn` from *nominal* ATM caps — an engine this
+  library has no reason to own, so `σn` is a named input with no default and the fit is
+  conditional on it). Returns `PricingFailure`, never a NaN and never a raise.
+- `foundation/solvers.py` — a thin bounded-least-squares adapter on the seam `distributions.py`
+  established: scipy stays behind our own API, so models and calibrators are scipy-free and a port
+  has one swap point. Its signature is exactly its one caller's need; non-convergence is a
+  *reported value*, which is what lets the calibrator return a failure instead of a confident
+  number.
+- 16 oracles. A1 recovers the generating parameters from synthetic quotes; **A2a** proves the
+  objective is not *flat* and **A2b** proves it is not *degenerate*; A3 the residual vanishes at
+  the truth and descends from a wrong start; A4 the cross-stage break-even round trip; A5 failure
+  is a value.
+
+### The oracle lesson: "not flat" and "not degenerate" are different failures
+A parameter-recovery round-trip is vacuous on a flat objective — the stock's failure — so it needs
+a discriminator. Cowork's review pass (thread 0035) found the discriminator I wrote was itself
+insufficient: per-parameter sensitivity proves the objective is not flat, but for a *two*-parameter
+fit it cannot prove the optimum is **unique**, since `σr` and `σI` can each move the strip a lot
+while moving it in nearly collinear directions.
+
+Demonstrated rather than argued. On a one-quote strip (two parameters, one equation), A2a passes
+comfortably — `σr` +10% moves the quote 83× its gate, `σI` +10% moves it 12× — and the fit reaches
+`rms = 8.7e-11`, a *perfect* fit, at `σI = 0.0039` where the truth is `0.0120`. **Wrong by a factor
+of three, reporting success**, with three starts giving three different answers. A2b adds
+multi-start uniqueness and a bound on the sensitivity Jacobian's condition number: `inf` on that
+degenerate strip, `6.7e2` on the real six-quote one against a `1e4` gate — so it bites where it
+must and does not bind where it must not.
+
+### Fixed — A4's own premise check could not fail, and it bit during the build
+A4 asserts the rebuilt real curve equals the direct one before comparing fits, or it would compare
+two calibrations of two different markets. The first version checked that **only at the quote
+maturities** — exactly where the two agree by construction — and passed while the curves differed
+below 2y, where `real_curve_from_breakeven` can only flat-extrapolate under its shortest quote. The
+fit then missed `σI` by 0.14%, which is how the hole surfaced. The premise is now checked on a
+30-day grid across the whole horizon the floors touch. The tranche's own subject, found in its own
+test.
+
+### Changed
+- `TEST_FLOOR` 87 → 103.
+
 ## [0.5.0] - 2026-10-31
 
 ### Fixed — a WRONG FORMULA shipped in v0.4.0, found by this tranche's cross-product oracle
