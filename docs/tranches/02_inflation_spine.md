@@ -1,7 +1,6 @@
 # Tranche 2 — the inflation spine (ZCIIS, model-free)
 
-**Proposed:** 2026-10-31 · **By:** Code · **Status:** proposed, awaiting Cowork's review **before**
-the merge (ratified beat) · **Target:** `v0.2.0`
+**Proposed:** 2026-10-31 · **By:** Code · **Status:** BUILT, reviewed, both must-fixes applied — landing · **Target:** `v0.2.0`
 **Source:** `BERHAN-2012` (`worked-from`, `docs/references.md`) — §1.2.2, eqs 1.2.6–1.2.7,
 1.2.13–1.2.14, 1.2.16. Extraction: `docs/papers/inflation-derivatives-berhan-2012.md`.
 
@@ -127,3 +126,49 @@ have priced 1.2.14, not 1.2.13. Both are corrected here; it is mined for *conten
 ## 6. Process
 Branch `tranche/02-inflation-spine`. `test` (RED) → `feat` → `docs` → `chore(release): v0.2.0`.
 Every module's `source:` names `BERHAN-2012`. **Lands as one squashed commit, after your pass.**
+
+---
+
+## 7. Cowork's review (threads 0012–0014) and the result
+
+**Both must-fixes were right and are applied; all four of my calls were ratified.**
+
+### MUST-FIX 1 — the par oracle telescopes, so the constructor got its own
+
+Accepted without reservation. Oracle 3 (build `Pr` from `b`, strike at `b`, PV = 0) is a par
+reprice, and `Pr = Pn(1+b)^T` drives it to zero **algebraically** as long as construction and
+pricing *share* their conventions — even if both are wrong the same way. So it guards the
+shared-`Pr` identity and is blind to a wrong compounding or day count in both.
+
+Added `test_the_real_curve_constructor_satisfies_1_2_16_POINTWISE`: `Pr.df(T) == Pn.df(T)·(1+b)^T`
+to 1e-12 at four horizons, **with no swap involved.** Both oracles now stand, with different jobs
+stated in each docstring.
+
+### MUST-FIX 2 — a matured swap is PV 0, not a failure
+
+Accepted. Conflating *historical* with *unpriceable* would make a settled trade look broken, and
+tranche 1 already ruled that a flow on or before the valuation date is the shell's business. Oracle
+7 split: matured → `PricingResult` at 0 (checked **before** any market lookup, so a matured trade
+needs no curves at all); missing curve / missing fixing / unregistered → `PricingFailure`.
+
+### The must-fix found a second bug — in the API, not the test
+
+Writing MUST-FIX 1 made the pointwise check **fail at the 2.5-year pillar** by 6.6e-6. The cause
+was not the constructor's arithmetic: `real_curve_from_breakeven` took `Mapping[float, float]`, so
+a caller saying "2.5 years" converted to 912 whole days — **2.4986 years on the curve's own
+measure** — and the caller's `T` and the curve's `T` disagreed by a day.
+
+Fixed structurally rather than in the test: the constructor now takes **quote dates**, so there is
+one `date → t` map (the curve's) and a caller cannot hold a second. This is register convention C2
+at a smaller scale, and it is the clearest demonstration yet of why the must-fix mattered — the par
+oracle could never have seen it, because a one-day disagreement shared by construction and pricing
+telescopes away.
+
+### Result
+
+**37 oracles green**, all eight gates, ruff + pyright clean, zero suppressions. 7 modules touched,
+4 built fresh, 3 purified.
+
+`# crosscheck: quantlib …` markers placed at both sites that want external validation (the curve
+constructor and the pricer), per thread 0014 — so the optional QuantLib tier's worklist is a
+floored population rather than a from-memory sweep.
