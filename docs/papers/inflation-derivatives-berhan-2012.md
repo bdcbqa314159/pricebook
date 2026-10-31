@@ -19,11 +19,22 @@ oracle. So for this vertical the oracle does **not** come from transcribed paper
 in descending strength, from:
 
 1. **The paper's closed-form formulas, no-arbitrage identities, and EXACT REDUCTIONS** (below) —
-   rung-1/structural, independent of any implementation. The reductions (JY → the
-   deterministic-real-rate limit as vol/correlation → 0; `cap − floor = YoY swap` by parity) are
-   independent *by construction*, not reproductions — they are the correctness anchor at the
-   model-dependent instruments, where a self-consistent closed form could be self-consistently
-   wrong. These are the backbone of every tranche oracle.
+   rung-1/structural, independent of any implementation. The reductions (for the YoY convexity,
+   **`σr → 0`** — the real-rate vol is the convexity's *overall factor* in eq 2.5.11, so the term
+   vanishes exactly when `σr = 0`, which the thesis states in that same line; `cap − floor = YoY
+   swap` by parity) are independent *by construction*, not reproductions — they are the correctness
+   anchor at the model-dependent instruments, where a self-consistent closed form could be
+   self-consistently wrong. These are the backbone of every tranche oracle.
+
+   **Anchors are read from the held source's formulas, never inferred from the stock's code
+   (ruled 2026-10-31, the hard way).** My first T4 plan said the anchor was `ρ → 0`, taken from the
+   stock's `yoy_convexity_adjustment` — which is a *first-order approximation* in which ρ is a
+   factor, a weaker and different object from JY's eq 2.5.11, in which ρ sits inside a bracket that
+   also holds a correlation-free `−½βr²` term. At `ρ = 0` JY's convexity barely moves; only `σr = 0`
+   zeroes it. Had that anchor been built it would have failed against the correct formula and
+   invited bending the formula to pass. This is the stock-is-not-authority rule applied to the
+   oracle plan itself: the stock is content and regression, the *source* is the authority — even
+   for the person writing the oracle plan.
 2. **The stock's inflation test files** (`_stock/.../*inflation*`, `jarrow_yildirim` tests) — a
    **regression** anchor: did we faithfully reproduce the known-good migration implementation.
    Strong, but note it is reproduction, not independent correctness, so it rides behind the
@@ -75,7 +86,9 @@ Inflation leg `N Σ [I(Ti)/I(Ti−1) − 1] ψi` (1.2.17); fixed `N Σ ψi C` (1
 (1.2.21) reduces to a nominal PV of the `Ti−1`-forward price of the `Ti` real bond, which is
 **model-dependent through the convexity** of `E^Qn[e^{−∫rn} Pr(Ti−1,Ti)]`. The
 **deterministic-real-rate limit** `Pn(t,Ti−1)·Pr(t,Ti)/Pr(t,Ti−1)` is the no-convexity baseline.
-**Oracles:** JY/market-model closed form **vs the deterministic limit as vols/correlation → 0**
+**Oracles:** JY/market-model closed form **vs the deterministic-real-rate limit as `σr → 0`** (the
+convexity `C` of eq 2.5.11 has `σr` as its overall factor and vanishes exactly there; `ρ → 0` does
+NOT zero it — a `−½βr²` term carries no correlation)
 (an exact-by-construction reduction — reach for this pattern, it is the strongest the predecessor
 produced); YoY→ZCIIS when the first fixing is already known; QuantLib `YoYInflationSwap`; stock.
 
