@@ -1,7 +1,6 @@
 # Tranche 3 — the inflation-linked bond (linker), model-free
 
-**Proposed:** 2026-10-31 · **By:** Code · **Status:** proposed, awaiting Cowork's pass **before**
-the build · **Target:** `v0.3.0`
+**Proposed:** 2026-10-31 · **By:** Code · **Status:** BUILT, green — awaiting Cowork's pre-merge pass · **Target:** `v0.3.0`
 **Source:** `BERHAN-2012` (`worked-from`) — §1.2.1, eqs 1.2.4–1.2.5. Extraction:
 `docs/papers/inflation-derivatives-berhan-2012.md` §3.2.
 
@@ -113,3 +112,56 @@ oracle 1 independent.
 ## 5. Process
 Branch `tranche/03-inflation-linked-bond`. `test` (RED) → `feat` → `docs` → `chore(release)`.
 `source:` names `BERHAN-2012`. `# crosscheck: quantlib CPIBond` at the pricer. Cowork's pass first.
+
+---
+
+## 6. Cowork's design pass (thread 0019) and the result
+
+**All three calls ratified; its new question answered a third way, which I think is better than
+either option it offered.**
+
+### The `day_count` question — resolved by making the field genuinely read
+
+Cowork spotted that BERHAN 1.2.5 is annual with no accrual factor, so pricing the literal formula
+would leave `CouponSchedule.day_count` carried-but-unread — the exact smell this tranche is careful
+about. It offered two resolutions: read it (and register the convention), or drop to a dates-only
+schedule.
+
+**I took a third: price the general form `C·ψᵢ`, which a real linker pays, and make 1.2.5 its exact
+reduction at `ψᵢ = 1`.** That is better than either option on three counts — `day_count` is read, so
+nothing is smuggled; the instrument is the real one rather than the paper's simplification; and it
+buys a **reduction oracle** (the same shape as T2's 1.2.13→1.2.14 and the predecessor's best oracle),
+which neither offered option provides. The schedule's periods are exactly 365 days, so every `ψ` is
+exactly 1.0 and the reduction is an identity, not an approximation — asserted in the test alongside
+the premise itself.
+
+Per its instruction, the sibling convention is registered: **C8** — a schedule's accrual day count
+and its curve's measure are one convention, OWED, trigger shared with C7.
+
+### The lag: carried and round-tripped, on Cowork's sharper test
+
+I had argued the distinction was "contract data vs market metadata" and asked to be ruled rather
+than deciding in my own favour. Cowork's test is better than mine: **constitutive of the
+instrument's identity, not "does the current pricer read it."** Two linkers on one index with
+different indexation lags are *different contracts*, so the lag is constitutive and the
+**round-trip is its present consumer** — which is precisely what T2's publication-lag field lacked.
+So it is a round-tripped field, not an unread one, and the oracle asserts both that the lag survives
+serialisation and that `lag=3 ≠ lag=8` as contracts.
+
+### Oracle 2 confirmed non-circular
+
+Cowork traced the arithmetic: `ZCIB(T) = inflation_leg_value + N·Pn(T)` undoes the swap leg's `−Pn`
+to recover `I(t)/I0·Pr(t,T)`, and the strip is exactly 1.2.5. Non-circular because the two sides
+compose *different code* — the pricer sums `Pr.df` over the schedule, the oracle routes through
+T2's independently-verified leg function. Its note is kept explicit in the test docstring: **oracle
+1 is the correctness anchor; oracle 2 is a consistency guard**, and a reconciliation alone only
+proves two things agree.
+
+### Bundles kept concrete
+`CouponSchedule` and `RealLeg` are frozen bundles with no base class and no polymorphism, per the
+§6b guard. Whether `RealLeg` generalises is decided at the second leg type — the year-on-year swap.
+
+### Result
+**50 oracles green** (first run, no failures), all eight gates, ruff + pyright clean, zero
+suppressions. Nothing new at L1 or L3 — a second inflation product cost no market-data change at
+all, which is the keys-not-fields design paying off.
