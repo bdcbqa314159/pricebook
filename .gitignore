@@ -12,6 +12,9 @@ _stock/
 # exchange — ignored so a stale copy of the channel can never be committed by accident.
 .fuse_hidden*
 
+# ── macOS ───────────────────────────────────────────────────────────────────────────────────
+.DS_Store
+
 # ── Python ──────────────────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
