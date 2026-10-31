@@ -70,10 +70,43 @@ they move the strip differently — which oracle A2 **proves** rather than assum
 | **A4** | **cross-stage**: the vol fit does not move the curve stage | the calibrated model reprices the ZCIIS strip that *built* the real curve back to its input breakevens, 1e-12 | 1 — cross-product |
 | **A5** | failure is a value | a non-converging fit returns `PricingFailure`, never NaN and never raises | 1 — requirement |
 
-**A2 is the load-bearing one and it is in the table because of §0.** A parameter-recovery
+**A2 split into two faces after Cowork's review pass (thread 0035), and the split was right.** My
+A2 perturbed each free parameter individually and checked a quote moved. That proves the objective
+is not **flat** — the stock's failure — but for a *two*-parameter fit it cannot prove the optimum is
+**unique**: `σr` and `σI` can each move the strip a lot while moving it in nearly collinear
+directions, and then per-parameter sensitivity passes while the pair is unidentified, with A1
+landing near truth only by luck of its start. Flat and degenerate are different failures.
+
+**Demonstrated, not argued.** Collapse the strip to a single quote (two parameters, one equation)
+and:
+
+| | result |
+|---|---|
+| A2a `σr` +10% | moves the quote **8296** — 83× its gate. **Passes.** |
+| A2a `σI` +10% | moves the quote **1198** — 12× its gate. **Passes.** |
+| the fit, from `(0.020, 0.004)` | `rms = 8.7e-11` — a *perfect* fit — at `σI = 0.0039` |
+| truth | `σI = 0.0120` |
+
+A1 and A2a together would have reported success with `σI` **wrong by a factor of three**, and three
+different starts give three different answers. A2b's conditioning number is `inf` there and rejects
+it; on the real six-quote strip it is `6.7e2`, comfortably inside the `1e4` gate. So the gate bites
+on the degenerate case and does not bind on the good one — which is what a threshold has to show.
+
+**A2 is load-bearing because of §0.** A parameter-recovery
 round-trip passes *trivially* on a flat objective — and a flat objective is exactly what the stock
 built. A1 without A2 is a check that cannot fail. This is the floor-on-variance rule applied where
 it was earned.
+
+**A4's premise check had the same disease, and it bit during the build.** The test asserts the
+rebuilt real curve equals the direct one *before* comparing fits — otherwise it compares two
+calibrations of two different markets. The first version checked that only at the quote maturities,
+which is exactly where the two agree by construction. It passed while the curves differed **below
+2y**, where `real_curve_from_breakeven` can only flat-extrapolate under its shortest quote; the fit
+then missed `σI` by 0.14%, which is how the hole surfaced. Fixed on both sides: the premise is now
+checked on a 30-day grid across the whole horizon the floors touch, and the fixture's real curve is
+flat on `[0, 1y]` so the inversion can reproduce it exactly. **A premise check that only looks where
+agreement is guaranteed is a check that cannot fail** — the tranche's own subject, found in its own
+test.
 
 **A4 is a genuine cross-product oracle, and I rejected the weaker version of it.** The tempting
 oracle is "the calibrated vols leave the ZCIIS fair rate unchanged" — but `price_zc_inflation_swap`
@@ -116,6 +149,17 @@ is a named argument with no default.
 The thesis's own finding is that JY calibrates to ATM and does not produce a smile. T6 reproduces
 that limit rather than papering over it; the relative-error surfaces (Fig 5.x) are plots and are not
 an oracle.
+
+### 4.5 Layer: the calibrator is **L4**, with the pricers — not L3 with the models
+Not covered by the review pass, and the gate forced the question: `verify.py` ranks `calibration`
+at L3 and `engine` at L4, so a calibrator importing the floor pricer would be an upward import and
+`acyclic` would reject it. The resolution is not to loosen the gate but to notice the spine means
+two different things by "calibration": the **model-free** kind (a curve bootstrap, T2's break-even
+inversion) is L3 and imports nothing above it, while a calibrator that *inverts an engine* is a
+consumer of `price()` and must sit at or above it. This one lives in `engine/jy_calibration.py`.
+No gate change, no charter change — and it calls `price_inflation_capfloor` directly rather than
+the registry's `dispatch`, since dispatching on a type it already knows is indirection with no
+consumer.
 
 ### 4.4 Not building
 Market Model II (ch 5's second model, its own tranche); the cap/floor *surface*; `σn` from nominal

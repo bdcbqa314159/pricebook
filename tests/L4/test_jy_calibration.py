@@ -67,8 +67,13 @@ REAL_KEY = CurveKey(CurveRole.REAL, EUR)
 # (a clock advance and an expiry bump agreeing to the last bit; interpolation indistinguishable
 # from any scheme). Here the strip's maturity structure is what identifies two parameters, so a
 # degenerate curve is exactly the wrong fixture.
-NOM_PILLARS = ((0.0, 0.028), (2.0, 0.032), (5.0, 0.036), (10.0, 0.038))
-REAL_PILLARS = ((0.0, 0.008), (2.0, 0.011), (5.0, 0.014), (10.0, 0.015))
+NOM_PILLARS = ((0.0, 0.028), (1.0, 0.028), (2.0, 0.032), (5.0, 0.036), (10.0, 0.038))
+# t=0 and t=1 carry the SAME rate deliberately, so the shortest break-even quote sits at 1y and
+# flat extrapolation back to the anchor reproduces this curve exactly. A4 needs the rebuilt curve
+# to equal this one *everywhere the floors touch*, and `real_curve_from_breakeven` can only
+# flat-extrapolate below its shortest quote -- so a sloped short end would make A4 compare two
+# different markets. Found by A4 failing: see the comment on its premise check.
+REAL_PILLARS = ((0.0, 0.008), (1.0, 0.008), (2.0, 0.011), (5.0, 0.014), (10.0, 0.015))
 
 CORR = JYCorrelations(nominal_real=0.30, real_index=-0.20, nominal_index=0.15)
 FIXED = JYFixedParams(kappa_nominal=0.05, kappa_real=0.04, sigma_nominal=0.010, correlations=CORR)
@@ -258,11 +263,18 @@ def test_a4_the_fit_is_invariant_to_how_the_real_curve_was_expressed():
 
     # The two curves must agree before the fits can be compared -- otherwise this test passes by
     # comparing two calibrations to two different markets.
-    for n in MATURITIES:
-        d = VAL + timedelta(days=365 * n)
+    #
+    # **Checked on a DENSE grid across the whole horizon the floors touch, not at the quote dates.**
+    # The first version of this check looped over `MATURITIES` only, which is where the curves
+    # agree by construction -- and it passed while the curves differed below 2y, because the
+    # break-even inversion flat-extrapolates under its shortest quote. The fit then missed
+    # `sigma_I` by 0.14%, which is how the hole was found: a premise check that only looks where
+    # agreement is guaranteed is a check that cannot fail.
+    for day in range(0, 365 * max(MATURITIES) + 1, 30):
+        d = VAL + timedelta(days=day)
         assert rebuilt.curves.real(EUR).df(d) == pytest.approx(
             real_direct.df(d), rel=1e-12
-        ), f"the break-even round trip moved the curve at {n}y"
+        ), f"the break-even round trip moved the real curve at day {day}"
 
     quotes = _strip(direct)
     fit = _fit(rebuilt, quotes=quotes)
