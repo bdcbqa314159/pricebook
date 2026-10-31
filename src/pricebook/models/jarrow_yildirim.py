@@ -7,9 +7,22 @@ forward measure is the current forward price times `e^C` (eq 2.5.9).
 
     beta(t,T) = (1 - e^{-k(T-t)}) / k                                    (2.4.3, 2.4.16)
 
-    C(t,T0,T1) = sr * beta_r(T0,T1) * [ beta_r(t,T0)*(rho_rI*sI - 0.5*beta_r(t,T0))
-                                      + (rho_nr*sn/(kn+kr))*(1 + kr*beta_n(t,T0))
-                                      - (rho_nr*sn/(kn+kr))*beta_n(t,T0) ]   (2.5.11)
+    C(t,T0,T1) = sr*beta_r(T0,T1) * { beta_r(t,T0)*[ rho_rI*sI - 0.5*beta_r(t,T0)
+                                                    + (rho_nr*sn/(kn+kr))*(1 + kr*beta_n(t,T0)) ]
+                                      - (rho_nr*sn/(kn+kr))*beta_n(t,T0) }    (2.5.11)
+
+**The bracket nesting is load-bearing and tranche 4 got it wrong.** The `-layout` text extraction
+of the PDF merges 2.5.11's parentheses, and read that way the `rho_nr` cross term appears to sit
+*beside* the `beta_r(t,Ti-1)` factor rather than inside it. T4 shipped that reading -- and its
+"independent" transcription in the test was made from the *same* mangled text, so both sides
+carried the same error and a 108-point sweep passed. Two transcriptions of one corrupted source
+are not independent.
+
+What caught it was **a structural requirement, not a number**: `C` corrects
+`E^{Ti-1}[Pr(Ti-1,Ti)|Ft]`, so at `t = Ti-1` the quantity is already known and `C` must be
+**exactly zero**. The wrong nesting leaves `sr*beta_r(Ti-1,Ti)*(-cross*0) + ...` non-zero there.
+The `-raw` extraction confirms the true structure, and with it `beta_r(t,Ti-1) = beta_n(t,Ti-1) = 0`
+makes the whole brace vanish. An oracle for that now sits beside the formula.
 
 **`sigma_r` is the overall factor, and that is the tranche's anchor.** The thesis states it
 directly after 2.5.11 -- *"This term accounts for the stochasticity of real rates. Indeed it
@@ -71,17 +84,24 @@ class HullWhiteParams:
 
 @dataclass(frozen=True)
 class JYCorrelations:
-    """The correlations `C` depends on: nominal-real and real-index.
+    """JY's three correlations: nominal-real, real-index, nominal-index.
 
-    **Only these two.** `rho_nominal_index` is a JY parameter but enters only the cap/floor
-    variance, so carrying it here would be a field with no consumer -- the smell this project has
-    now caught four times, every one of them in stock code."""
+    **`nominal_index` arrived in tranche 5, not tranche 4.** The YoY convexity `C` (2.5.11) reads
+    only the first two; `rho_nI` enters solely the cap/floor log-ratio variance `V^2` (2.6.4, its
+    eighth term). So it was deliberately absent while it had no consumer and is required now that
+    it has one -- which is the pull discipline, and the reason it is **required rather than
+    defaulted**: a default would be a hidden knob on a real model parameter."""
 
     nominal_real: float
     real_index: float
+    nominal_index: float
 
     def __post_init__(self) -> None:
-        for name, rho in (("nominal_real", self.nominal_real), ("real_index", self.real_index)):
+        for name, rho in (
+            ("nominal_real", self.nominal_real),
+            ("real_index", self.real_index),
+            ("nominal_index", self.nominal_index),
+        ):
             if not -1.0 <= rho <= 1.0:
                 raise ValueError(f"{name} correlation must lie in [-1, 1], got {rho}")
 
@@ -122,11 +142,16 @@ def yoy_convexity(t: float, period_start: float, period_end: float, params: JYPa
     beta_r_t = hw_beta(real.kappa, t, period_start)
     beta_n_t = hw_beta(nominal.kappa, t, period_start)
     cross = correlations.nominal_real * nominal.sigma / (nominal.kappa + real.kappa)
-    bracket = (
-        beta_r_t * (correlations.real_index * index_vol - 0.5 * beta_r_t)
+    # The bracket structure matters and was WRONG in tranche 4: the `cross` term sits INSIDE the
+    # `beta_r(t,Ti-1)` factor, not beside it. See the module docstring -- the `-layout` PDF
+    # extraction merged the parentheses, and a second transcription from the same mangled text
+    # repeated the error, so the sweep oracle passed on both sides being wrong.
+    inner = (
+        correlations.real_index * index_vol
+        - 0.5 * beta_r_t
         + cross * (1.0 + real.kappa * beta_n_t)
-        - cross * beta_n_t
     )
+    bracket = beta_r_t * inner - cross * beta_n_t
     return real.sigma * beta_r_period * bracket
 
 
@@ -149,3 +174,54 @@ class JarrowYildirim:
         """`C(t, T_{i-1}, T_i)` for this parameter set — the model's own capability, so a pricer
         composes it rather than reassembling 2.5.11 from loose parameters."""
         return yoy_convexity(t, period_start, period_end, self.params)
+
+    def log_ratio_variance(self, t: float, period_start: float, period_end: float) -> float:
+        """`V^2(t, T_{i-1}, T_i)` (2.6.4) — the cap/floor's variance, same reasoning as above."""
+        return yoy_variance(t, period_start, period_end, self.params)
+
+
+def yoy_variance(t: float, period_start: float, period_end: float, params: JYParams) -> float:
+    """`V^2(t, T_{i-1}, T_i)` -- the variance of `ln(I(T_i)/I(T_{i-1}))` under the nominal
+    `T_i`-forward measure. **Eq 2.6.4**, eight terms.
+
+    Reduces **exactly** to `sigma_I^2 * (T_i - T_{i-1})` when both rate vols are zero: six terms
+    carry `sigma_n` or `sigma_r` outright and the cross terms carry both. That reduction is
+    reduction-*sanity* and not the correctness guarantee -- it kills six of the eight, so only the
+    independently-transcribed sweep checks their signs and factors (thread 0031).
+
+    A variance cannot be negative, and an eight-term expression with three signed correlations is
+    exactly where a negative one would hide; a test sweeps adverse correlations for that reason,
+    because the symptom would otherwise surface far from here as a domain error inside a sqrt."""
+    kn, sn = params.nominal.kappa, params.nominal.sigma
+    kr, sr = params.real.kappa, params.real.sigma
+    si = params.index_vol
+    rho_nr = params.correlations.nominal_real
+    rho_ri = params.correlations.real_index
+    rho_ni = params.correlations.nominal_index
+
+    span = period_end - period_start          # T_i - T_{i-1}
+    lead = period_start - t                   # T_{i-1} - t
+    beta_n = hw_beta(kn, period_start, period_end)
+    beta_r = hw_beta(kr, period_start, period_end)
+
+    total = sn * sn / (2.0 * kn) * beta_n**2 * (1.0 - math.exp(-2.0 * kn * lead))
+    total += si * si * span
+    total += sr * sr / (2.0 * kr) * beta_r**2 * (1.0 - math.exp(-2.0 * kr * lead))
+    total -= (
+        2.0 * rho_nr * (sn * sr / (kn + kr)) * beta_n * beta_r
+        * (1.0 - math.exp(-(kn + kr) * lead))
+    )
+    total += (sn * sn / kn**2) * (
+        span + (2.0 / kn) * math.exp(-kn * span)
+        - (1.0 / (2.0 * kn)) * math.exp(-2.0 * kn * span) - 3.0 / (2.0 * kn)
+    )
+    total += (sr * sr / kr**2) * (
+        span + (2.0 / kr) * math.exp(-kr * span)
+        - (1.0 / (2.0 * kr)) * math.exp(-2.0 * kr * span) - 3.0 / (2.0 * kr)
+    )
+    total -= 2.0 * rho_nr * (sn * sr / (kn * kr)) * (
+        span - beta_n - beta_r + (1.0 - math.exp(-(kn + kr) * span)) / (kn + kr)
+    )
+    total += 2.0 * rho_ni * (sn * si / kn) * (span - beta_n)
+    total -= 2.0 * rho_ri * (sr * si / kr) * (span - beta_r)
+    return total

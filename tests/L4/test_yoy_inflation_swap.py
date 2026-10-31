@@ -54,7 +54,7 @@ REAL_KEY = CurveKey(CurveRole.REAL, EUR)
 NOM_P = HullWhiteParams(0.05, 0.010)
 REAL_P = HullWhiteParams(0.04, 0.008)
 SI = 0.012
-CORR = JYCorrelations(nominal_real=0.30, real_index=-0.20)
+CORR = JYCorrelations(nominal_real=0.30, real_index=-0.20, nominal_index=0.15)
 
 
 def _snapshot(nominal: float = 0.03, real: float = 0.01) -> MarketSnapshot:

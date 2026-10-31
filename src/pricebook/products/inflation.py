@@ -23,9 +23,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from pricebook.foundation.cashflow import SCHEMA_VERSION, check_schema_version
-from pricebook.foundation.inflation import InflationIndex
+from pricebook.foundation.inflation import CapFloorKind, InflationIndex
 from pricebook.foundation.money import Money
-from pricebook.foundation.schedule import RealLeg, YoYLeg
+from pricebook.foundation.schedule import CouponSchedule, RealLeg, YoYLeg
 from pricebook.foundation.term import Term
 
 
@@ -160,4 +160,56 @@ class YearOnYearInflationSwap:
             InflationIndex(d["index"]),
             YoYLeg.from_dict(d["leg"]),
             Money.from_dict(d["notional"]),
+        )
+
+
+@dataclass(frozen=True)
+class InflationCapFloor:
+    """A strip of inflation caplets or floorlets on the year-on-year index ratio.
+
+    Payout per period `N*psi_i*[omega*(I(T_i)/I(T_{i-1}) - 1 - kappa)]^+` (1.2.22), valued under
+    the nominal `T_i`-forward measure (1.2.23, and JY's 2.6.5).
+
+    **It carries a `strike`, not a leg — and that distinction was ruled rather than assumed.** A
+    leg is a cash-flow stream that accrues and discounts; `kappa` never does either. It enters each
+    caplet's Black `d1/d2` as `K = 1 + kappa`, which is a different *operation* from a coupon even
+    though both are "a rate on a schedule". Reusing `YoYLeg` would have put a strike in a field
+    called `fixed_rate` and made its "accruing" docstring false — the shared-*word* trap rather
+    than a shared shape (thread 0031).
+
+    What it does share with the linker is the **schedule**: a sequence of `(start, pay, psi)`
+    accrual periods, the same operation in both — so `CouponSchedule` gets its honest second
+    consumer here.
+
+    One `strike` across all caplets, which is the standard quote. A strike *schedule* arrives only
+    if a product ever needs one."""
+
+    index: InflationIndex
+    schedule: CouponSchedule
+    strike: float
+    notional: Money
+    kind: CapFloorKind
+
+    def to_dict(self) -> dict:
+        return {
+            "kind_": "inflation_capfloor",
+            "schema_version": SCHEMA_VERSION,
+            "index": self.index.name,
+            "schedule": self.schedule.to_dict(),
+            "strike": self.strike,
+            "notional": self.notional.to_dict(),
+            "kind": self.kind.value,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> InflationCapFloor:
+        check_schema_version(d)
+        if d.get("kind_") != "inflation_capfloor":
+            raise ValueError(f"not an inflation_capfloor payload: {d.get('kind_')!r}")
+        return cls(
+            InflationIndex(d["index"]),
+            CouponSchedule.from_dict(d["schedule"]),
+            float(d["strike"]),
+            Money.from_dict(d["notional"]),
+            CapFloorKind(d["kind"]),
         )

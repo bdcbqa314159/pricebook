@@ -27,6 +27,7 @@ Provenance:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -44,3 +45,19 @@ class InflationIndex:
 
     def __str__(self) -> str:
         return self.name
+
+
+class CapFloorKind(Enum):
+    """Cap or floor — the `omega = +/-1` of BERHAN 1.2.22.
+
+    An enum and **not** a boolean. `InflationCapFloor(..., True)` is unreadable at the call site
+    and silently reversible: swap the argument and you have priced the other instrument with no
+    error anywhere. The enum cannot be passed backwards."""
+
+    CAP = "cap"
+    FLOOR = "floor"
+
+    @property
+    def omega(self) -> float:
+        """`+1` for a cap, `-1` for a floor — the sign as the thesis writes it."""
+        return 1.0 if self is CapFloorKind.CAP else -1.0
