@@ -6,6 +6,55 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-31
+
+### Added — tranche 1: the minimal spine
+A single fixed cashflow priced end to end through the stateless
+`price(product, model) → PricingResult`. The backbone every product needs and none can avoid, so
+it prejudges no product while proving the engine contract. Proposal and results:
+`docs/tranches/01_minimal_spine.md`.
+
+- **L0** `Money`/`Currency` (currency mixing is an error, never a silent addition) ·
+  `DayCountConvention` + `year_fraction` (ACT/365F only) · `TimeMeasure` (the one `date → t` map) ·
+  `Cashflow` · `PricingResult`/`PricingFailure`.
+- **L1** `DiscountCurve` + the `CurveHandle` protocol the engine depends on · `CurveSet`/`CurveKey`
+  (curves keyed, not positional) · `MarketSnapshot`, which **carries the valuation date** — there
+  is no clock read anywhere in the library.
+- **L2** `FixedCashflow` — pure data, with `to_dict`/`from_dict` from the first product.
+- **L3** `DiscountingModel`, carrying the snapshot it was built on.
+- **L4** the engine registry (structural dispatch, no `isinstance` ladder) + `price_fixed_cashflow`.
+
+### Oracles — 18 green
+- **`PV = N·e^{−r·t}` exact to 1e-12** across 48 points. The reference is arithmetic written in the
+  test, independent of every path under it — which is the point: the predecessor shipped a 5.14%
+  error whose oracle restated the builder's own composition and so validated it against itself.
+- **Analytic vs finite-difference DV01** to 1e-6 — two different computations, so agreement is not
+  tautological.
+- The **valuation-date boundary** in both directions: a flow *on* the date is excluded, one *day
+  after* is included and positive. Without the second, "excluded" could be implemented as "always
+  zero" and the first would still pass.
+- Statelessness (byte-identical reprice, snapshot untouched); failure-is-a-value on three distinct
+  failures; currency mixing refused; the representation round-trips and carries a schema version.
+- **Interpolation tested on a SLOPED curve.** A flat curve returns one rate everywhere and cannot
+  tell linear interpolation from any other scheme — the fixture trap the predecessor hit twice.
+
+### Stock
+11 of 13 modules **purified** from `_stock/`, 2 built fresh, nothing over 100 lines. Purification
+was mostly *trimming*: `money.py` 289 → 90 lines (the open-currency *insight* kept, the registry
+machinery left behind until something needs named constants); `day_count.py` 332 → 45 (one
+convention); `snapshot.py` 154 → 30 (curves only — its other shapes grew one asset class at a
+time and return when a product pulls them).
+
+### Changed
+- **`CalibratedModel` not carried.** A protocol declares a capability, and a discounting model has
+  none to declare beyond carrying its market, so carrying it would be an empty abstraction. The
+  registry's model parameter is `object` until a pricer needs a real capability.
+- **`DiscountCurve.zero_rate` uses `bisect` and carries no suppression.** The first draft ended in
+  an unreachable `raise` needing `# pragma: no cover`, which the debt gate caught. The answer to
+  dead code is to remove the deadness, not to ledger the suppression — and `bisect` is O(log n),
+  which will matter at a bootstrapped curve.
+- `TEST_FLOOR` 1 → 18.
+
 ## [0.0.0] - 2026-10-30
 
 ### Added
