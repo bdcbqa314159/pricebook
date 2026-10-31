@@ -60,6 +60,12 @@ check proves the constructor is right on its own.
   differently. So the indexation lag is L2 contract data (arriving with the linker in T3), and even
   the publication lag is omitted here because **nothing reads it** — the snapshot carries the
   already-resolved `I(t)`. Ratified by Cowork, which confirmed the 8-month figure against the stock.
+- **Conventions register gains C7** (Cowork's review condition): the break-even construction, the
+  nominal curve's `TimeMeasure` and the contract's `Term.day_count` share **one** day count, and the
+  par identity holds only under it. Recorded **OWED**, because *no test could fail on it* — the par
+  oracle telescopes when the conventions match, which they always do today. Sharpened while
+  recording it: with one day count in the library the convention is not merely unguarded but
+  **unviolable**, so a guard now would be an imagined problem. Trigger: the first second day count.
 - **`# crosscheck: quantlib …` markers** at both sites wanting external validation (thread 0014),
   so the later optional QuantLib tier has a floored worklist instead of a from-memory sweep.
 - `TEST_FLOOR` 25 → 37.
