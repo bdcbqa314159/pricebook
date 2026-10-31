@@ -6,6 +6,66 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-31
+
+### Added — tranche 4: the year-on-year inflation swap and Jarrow-Yildirim
+**The first model-dependent instrument.** Eq 2.5.13 with the JY convexity 2.5.11, read in the held
+PDF. Source `BERHAN-2012` ch 2. Proposal, correction and results:
+`docs/tranches/04_yoy_jarrow_yildirim.md`.
+
+- **L3** `hw_beta` (eqs 2.4.3/2.4.16, shared by both factors so nominal and real cannot drift) ·
+  `HullWhiteParams` · `JYCorrelations` · `JYParams` · `yoy_convexity` (2.5.11) ·
+  `JarrowYildirim(market, params)`.
+- **L0** `YoYLeg` — **separate from `RealLeg`**: rule-of-two fired at the second leg type and the
+  answer was *no*. A real leg pays a rate on an uplifted notional, a YoY leg an index *ratio*; one
+  name over both would invite a kind-of-leg branch, which the no-`isinstance` law forbids.
+  Rule-of-two triggers an abstraction when consumers share a *shape*, not a *word*.
+- **L2** `YearOnYearInflationSwap` — three fields and **no base index**: a YoY floating side is a
+  chain of period-on-period ratios, so it has no single `I0`.
+- **L4** `price_yoy_inflation_swap`, `yoy_inflation_leg_value`, `yoy_fixed_leg_value`,
+  `yoy_par_rate`. **Nothing new at L1.**
+
+### Fixed — the handoff's anchor oracle was wrong, found by reading the source
+The oracle plan specified `ρ → 0` as T4's anchor, **taken from the stock's
+`yoy_convexity_adjustment` rather than from the thesis.** That function computes
+`σI·σn·ρ·tenor·year` — a first-order approximation in which `ρ` *is* a factor — and it **takes a
+`real_vol` argument it never uses** (the carried-but-unread smell, fourth instance, every one of
+them in stock code we are declining to purify).
+
+In JY, **`σr` is eq 2.5.11's overall factor and `ρ` is not**; the thesis says so in the line after
+it. Measured: all-parameters `C = −1.4738e-02`; **at ρ=0, −1.4486e-02** (barely moves); **at σr=0,
+exactly 0**. So the anchor is **`σr → 0`**, which is also *better* — a structural factor gives an
+exact reduction rather than a numerical limit.
+
+**Had the ρ→0 anchor been built it would have failed against the correct formula** — and the danger
+is not the red but that a red anchor invites bending the formula until it passes. Cowork owned the
+error and recorded the lesson: **oracle anchors are read from the held source's formulas, never
+inferred from the stock's code — the stock is content and regression, the source is authority.**
+
+### Oracles — 64 green
+- **The anchor:** `σr → 0` gives the deterministic-real-rate limit exactly, **paired with a test
+  that the convexity MOVES the leg** — without which the anchor would pass on an implementation
+  that ignored `C` entirely. A reduction proves the general case *collapses* correctly and says
+  nothing about whether it does anything at all.
+- **`ρ = 0` does NOT vanish**, asserted against the surviving `−½βr²` term, so nobody simplifies
+  2.5.11 back toward the approximation.
+- 2.5.11 against an independent transcription over a **108-point** parameter sweep · `β`'s closed
+  form **and its `κ → 0` limit** (the limit that catches a misplaced `κ`) · eq 2.5.13 transcribed
+  independently · **the first period equals tranche 2's ZCIIS leg** (the thesis's own structure, and
+  different code on each side) · par-rate reprice (a telescoping consistency guard, kept as such) ·
+  matured → PV 0 · **prices with no index fixing**, since 2.5.13 contains no index level.
+
+### Changed — three gate catches, all fixed at the cause
+- **`PLR0913`**: `yoy_convexity` took 7 arguments → bundled into `JYParams`, the model's own
+  structure rather than a split to satisfy a count.
+- **`layers`**: the word *"payoff"* in a docstring tripped the L0 finance-free gate, which greps
+  prose as well as code. **Reworded rather than loosening the gate** — a gate that over-reports on
+  comments is still doing its job, and relaxing it so my own docstring passes is the wrong
+  direction.
+- **`debt`**: four `# noqa: E731` on test lambdas → real local functions. There was no
+  justification to give, which is the gate's point.
+- `TEST_FLOOR` 50 → 64.
+
 ## [0.3.0] - 2026-10-31
 
 ### Added — tranche 3: the inflation-linked bond (linker), model-free
