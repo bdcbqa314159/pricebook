@@ -21,7 +21,7 @@ KN, SN, KR, SR, SI = 0.05, 0.010, 0.04, 0.008, 0.012
 RHO_NR, RHO_RI = 0.30, -0.20
 NOMINAL = HullWhiteParams(KN, SN)
 REAL = HullWhiteParams(KR, SR)
-CORR = JYCorrelations(nominal_real=RHO_NR, real_index=RHO_RI)
+CORR = JYCorrelations(nominal_real=RHO_NR, real_index=RHO_RI, nominal_index=0.15)
 
 
 def _reference_C(t, t0, t1, sr=SR, rho_nr=RHO_NR, rho_ri=RHO_RI):
@@ -32,9 +32,12 @@ def _reference_C(t, t0, t1, sr=SR, rho_nr=RHO_NR, rho_ri=RHO_RI):
 
     br_period, br_t, bn_t = beta(KR, t0, t1), beta(KR, t, t0), beta(KN, t, t0)
     cross = rho_nr * SN / (KN + KR)
-    return sr * br_period * (
-        br_t * (rho_ri * SI - 0.5 * br_t) + cross * (1.0 + KR * bn_t) - cross * bn_t
-    )
+    # Transcribed from the `-raw` PDF extraction, which preserves the parenthesis structure the
+    # `-layout` one merges: the `cross` term is INSIDE the `br_t` factor. Tranche 4's version had
+    # it outside, in both the implementation and this reference -- so the sweep compared two
+    # copies of the same mistake. The fix is this nesting; the guard is the structural test below.
+    inner = rho_ri * SI - 0.5 * br_t + cross * (1.0 + KR * bn_t)
+    return sr * br_period * (br_t * inner - cross * bn_t)
 
 
 def test_beta_matches_its_closed_form_and_its_small_kappa_limit() -> None:
@@ -61,7 +64,7 @@ def test_the_convexity_does_NOT_vanish_at_zero_correlation() -> None:
     surviving term is `sr*beta_r(T0,T1)*beta_r(t,T0)*(-0.5*beta_r(t,T0))`, a **pure real-rate
     convexity with no correlation in it at all**. This test exists so nobody "simplifies" 2.5.11
     back toward the approximation."""
-    zero = JYCorrelations(nominal_real=0.0, real_index=0.0)
+    zero = JYCorrelations(nominal_real=0.0, real_index=0.0, nominal_index=0.0)
     got = yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, REAL, SI, zero))
     survivor = SR * hw_beta(KR, 2.0, 3.0) * hw_beta(KR, 0.0, 2.0) * (-0.5 * hw_beta(KR, 0.0, 2.0))
     assert got == pytest.approx(survivor, rel=1e-14)
@@ -76,7 +79,7 @@ def test_the_convexity_matches_eq_2_5_11_across_a_parameter_sweep() -> None:
                     got = yoy_convexity(
                         t, t0, t1,
                         JYParams(NOMINAL, HullWhiteParams(KR, sr), SI,
-                                 JYCorrelations(rho_nr, rho_ri)),
+                                 JYCorrelations(rho_nr, rho_ri, 0.15)),
                     )
                     want = _reference_C(t, t0, t1, sr, rho_nr, rho_ri)
                     assert got == pytest.approx(want, rel=1e-13, abs=1e-18), (t, t0, t1, sr)
@@ -90,3 +93,37 @@ def test_the_convexity_grows_with_real_vol_and_with_the_period_length() -> None:
     by_span = [abs(yoy_convexity(0.0, 2.0, 2.0 + d, JYParams(NOMINAL, REAL, SI, CORR)))
                for d in (0.25, 1.0, 3.0)]
     assert by_span == sorted(by_span)
+
+
+def test_the_convexity_is_INVARIANT_to_the_nominal_index_correlation() -> None:
+    """Pins tranche 4's claim, now that `rho_nI` exists. `C` (2.5.11) reads `rho_rI` and `rho_nr`
+    and **not** `rho_nI`, which enters only the cap/floor variance (2.6.4). Asserted rather than
+    asserted-in-prose: `rho_nI` became a required field in T5, and this is what stops it quietly
+    leaking into the convexity later."""
+    swept = [
+        yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, REAL, SI, JYCorrelations(RHO_NR, RHO_RI, r)))
+        for r in (-0.9, 0.0, 0.9)
+    ]
+    assert swept[0] == swept[1] == swept[2]
+
+
+def test_the_convexity_is_EXACTLY_ZERO_when_t_reaches_the_period_start() -> None:
+    """**The structural requirement that caught tranche 4's transcription error.**
+
+    `C` corrects `E^{Ti-1}[Pr(Ti-1,Ti) | Ft] = Pr(t,Ti)/Pr(t,Ti-1)*e^C`. At `t = Ti-1` the left
+    side is `Pr(Ti-1,Ti)`, already known, and the right side is `Pr(Ti-1,Ti)*e^C` -- so `C` must be
+    **exactly zero**. It is a requirement of the object, not a property of the parameters, and it
+    holds for every parameter set.
+
+    T4's bracket nesting (the `rho_nr` cross term outside the `beta_r(t,Ti-1)` factor instead of
+    inside it) left this non-zero at ~2.6e-4, and **no numerical oracle in T4 could see it**: the
+    sweep compared two transcriptions of the same mangled text, and `sigma_r` is an overall factor
+    either way so the anchor passed too. A cross-product parity check in tranche 5 disagreed, and
+    this requirement is what identified the cause.
+    """
+    for t0, t1 in ((1.0, 2.0), (2.0, 3.0), (9.0, 10.0)):
+        for sr in (0.004, 0.02):
+            for rho_nr, rho_ri, rho_ni in ((0.3, -0.2, 0.15), (-0.8, 0.7, -0.5), (0.9, 0.9, 0.9)):
+                p = JYParams(NOMINAL, HullWhiteParams(KR, sr), SI,
+                             JYCorrelations(rho_nr, rho_ri, rho_ni))
+                assert yoy_convexity(t0, t0, t1, p) == 0.0, (t0, t1, sr, rho_nr)

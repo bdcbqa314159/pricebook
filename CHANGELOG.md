@@ -6,6 +6,65 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-31
+
+### Fixed — a WRONG FORMULA shipped in v0.4.0, found by this tranche's cross-product oracle
+**Eq 2.5.11's bracket nesting was wrong.** The `ρ_nr` cross term belongs **inside** the
+`βr(t,Tᵢ₋₁)` factor; v0.4.0 placed it beside it. Error size: **1.8% of the YoY convexity** at a
+2y–3y period, 1.5% at 4y–5y, and **unbounded** at `t = Tᵢ₋₁`, where the correct value is exactly
+zero and v0.4.0's was 2.6e-4.
+
+**Why nothing in tranche 4 caught it, which is the part worth keeping:**
+- **The sweep oracle compared two copies of the same mistake.** T4's "independent transcription"
+  came from the same `pdftotext -layout` output as the implementation — and that rendering *merges
+  2.5.11's parentheses*. **Two transcriptions of one corrupted source are not independent**, so a
+  108-point sweep passed with both sides wrong identically. The telescoping failure mode in a new
+  disguise: we guarded against reading a formula from the *stock*, then read it twice from one
+  mangled rendering of the *source*.
+- **The `σr → 0` anchor could not see it** — `σr` is an overall factor under either nesting.
+- **What found it:** this tranche's `cap − floor = T4's YoY leg` oracle, disagreeing by 0.65%. The
+  cross-product check doing exactly its job: different code on each side, so a shared transcription
+  error has nowhere to hide.
+- **What identified the cause:** a **structural requirement**, not a number. `C` corrects
+  `E^{Tᵢ₋₁}[Pr(Tᵢ₋₁,Tᵢ)|Ft]`, so at `t = Tᵢ₋₁` the quantity is already known and `C` must be
+  **exactly zero** — a property of the object, true for every parameter set. The wrong nesting
+  violates it; a test for it now exists and should have existed in T4.
+
+**Two practices follow:** re-read a load-bearing formula in the **`-raw`** extraction as well as
+`-layout` (layout reflows fractions and merges parentheses; raw preserves token order); and **ask
+what the object must satisfy regardless of parameters** — `C(t=Tᵢ₋₁)=0`, `V² ≥ 0`, parity — because
+those outlive a transcription error.
+
+### Added — tranche 5: the inflation cap/floor under Jarrow-Yildirim
+Eq 2.6.5 per period, summed. Source `BERHAN-2012` §1.2.4 + ch 2.6, **read first-hand**. Proposal,
+review and results: `docs/tranches/05_inflation_capfloor.md`.
+
+- **L3** `yoy_variance` — eq 2.6.4's **eight terms**; `JYCorrelations.nominal_index` (`ρ_nI`) lands
+  as **its first consumer**, since it enters `V²`'s eighth term and nothing else in the model.
+  Required rather than defaulted: a default would be a hidden knob on a real model parameter.
+- **L0** `CapFloorKind` — an enum, not a bool: `InflationCapFloor(..., True)` is unreadable and
+  silently reversible. · `foundation/distributions.py`, a thin scipy adapter whose oracles test
+  **the adapter** (`Φ(x)+Φ(−x)=1`, which the parity oracle leans on), never scipy's numerics.
+- **L2** `InflationCapFloor(index, schedule, strike, notional, kind)` — **a strike, not a leg.**
+  Ruled: a leg accrues and discounts, a strike enters `d₁/d₂`; same two fields, different
+  *operation*, so reusing `YoYLeg` would have put a strike in `fixed_rate` and made its "accruing"
+  docstring false. The real shared shape is **`CouponSchedule`**, which gets its honest second
+  consumer.
+- **L4** `price_inflation_capfloor` + `caplet_value`.
+
+### Oracles — 87 green
+- **Primary:** eq 2.6.5 against an independent transcription, swept over four strikes × both kinds;
+  and eq 2.6.4 swept over 4 × 3 × 3 × 4 parameter combinations. Primary *because* the reduction
+  below kills six of `V²`'s eight terms.
+- **Reduction + companion:** `σn = σr = 0` ⇒ `C = 0`, `V² = σI²Δ` ⇒ plain Black on the
+  deterministic forward ratio, exactly — paired with a test that the rate vols **move** the price,
+  without which the reduction passes an implementation ignoring seven terms.
+- **Parity:** `cap − floor = N·Σψ·Pn(Tᵢ)·(m − K)`, and at `K = 1` it **is** tranche 4's YoY leg —
+  the oracle that found the bug above.
+- **Structural:** `C(t=Tᵢ₋₁) = 0` exactly; `V² ≥ 0` across adverse correlations; `C` invariant to
+  `ρ_nI`; deep-ITM → forward annuity, deep-OTM → 0; monotone in strike; no-vol → intrinsic.
+- `TEST_FLOOR` 64 → 87.
+
 ## [0.4.0] - 2026-10-31
 
 ### Added — tranche 4: the year-on-year inflation swap and Jarrow-Yildirim

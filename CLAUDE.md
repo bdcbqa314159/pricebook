@@ -87,8 +87,13 @@ not an oracle. Ruled principles:
 - **Pre-register the oracle.** The failing reference-value test (RED) is committed *before* the
   code that satisfies it. Implement-then-check invites bending the code to a number.
 - **Independence.** The test computes its own reference (e.g. `t = days/365`), never reads a value
-  back from the code under test. The predecessor's 5.14% bug passed because its oracle restated the
-  builder's own composition.
+  back from the code under test — **nor from the same source rendering the code was transcribed
+  from.** A `pdftotext -layout` reflow merges a formula's parentheses, so a second transcription of
+  it repeats the error: read a load-bearing formula in **`-raw` and `-layout` and reconcile**, and
+  an "independent" transcription that shares the implementation's rendering is not independent.
+  *(The predecessor's 5.14% bug passed because its oracle restated the builder's own composition;
+  v0.4.0's mis-nested 2.5.11 passed a 108-point sweep because sweep and code were two copies of one
+  merged rendering.)*
 - **Reduction is the preferred anchor, and it needs a companion.** A capability that generalises
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
@@ -101,6 +106,17 @@ not an oracle. Ruled principles:
 - **No number is fitted to a figure.** When a source's results are plots, not tables, reproduce
   its structure, not its pixels; numbers come from closed forms, an external engine, or the stock's
   regression values — never read off a chart.
+- **Requirement oracles — test what must hold for ALL parameters, not only numbers from the
+  source.** `C(t=Tᵢ₋₁)=0` (a correction to a then-known quantity), `V² ≥ 0`, put-call parity: these
+  are derived from the finance, so they **survive a transcription error** that a source-value oracle
+  shares with the code. Every load-bearing formula carries at least one. And a **cross-product**
+  oracle (one product composed from another's verified piece, different code each side) catches a
+  shared source-reading error that no within-product check can — it has now done so twice (T3's
+  strip reconciliation, T5's `cap−floor = the YoY leg`). *(This whole bullet is v0.4.0's mis-nested
+  convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)*
+
+These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
+against the same rendering the code used is not verified.
 
 ---
 
