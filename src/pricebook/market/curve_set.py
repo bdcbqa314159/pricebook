@@ -23,10 +23,15 @@ from pricebook.market.curve import CurveHandle
 
 
 class CurveRole(Enum):
-    """What a curve is *for*. Only discounting exists yet; projection and survival arrive with
-    their first products, and the role is what keeps them from being told apart by type."""
+    """What a curve is *for*.
+
+    `REAL` arrives in tranche 2 as a **new key, not a new snapshot field** — which is the whole
+    point of keying: an inflation product needs a second discount curve (`Pr` alongside `Pn`), and
+    adding it costs one enum member while `MarketSnapshot`, `CurveSet` and every existing pricer
+    stay exactly as they were."""
 
     DISCOUNT = "discount"
+    REAL = "real"
 
 
 @dataclass(frozen=True)
@@ -42,6 +47,20 @@ class CurveSet:
     """One backing store, reached through accessors that state the narrowing once."""
 
     curves: Mapping[CurveKey, CurveHandle]
+
+    def real(self, currency: Currency) -> CurveHandle:
+        """The real (inflation-linked) discount curve `Pr` for `currency`.
+
+        Its own accessor rather than `discount(currency, role=...)`: the two curves answer
+        different questions, and a role parameter would let a caller pass the nominal curve where
+        the real one belongs by changing one argument. Raises on a missing curve — defaulting to
+        the nominal one would silently price every inflation swap to zero, which is a plausible
+        wrong number."""
+        key = CurveKey(CurveRole.REAL, currency)
+        try:
+            return self.curves[key]
+        except KeyError:
+            raise KeyError(f"no real curve for {currency} in the curve set") from None
 
     def discount(self, currency: Currency) -> CurveHandle:
         """The discount curve for `currency`. Raises on an unknown key rather than defaulting to

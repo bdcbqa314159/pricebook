@@ -37,16 +37,25 @@ enumeration.
 | C4 | **The equity forward is `F = S·e^{(r−q)T}`** | `market/building_blocks.equity_forward`, `engine/equity.py`, `models/process.py`, `risk/mtm.py` | **guarded** — `test_the_equity_forward_is_S_times_exp_r_minus_q_T` (`tests/L4/test_equity_vanilla.py`), plus put-call parity, which is model-free and checks the forward against the discount |
 | C5 | **`r` is never a separate input — it comes from the discount factor** (`e^{r·t} = 1/df` by definition of the curve), so a simulated drift and a pricer's discount cannot disagree off a flat curve | `building_blocks.equity_forward`, `models/process.BlackScholesProcess._growth`, `risk/mtm._carry_and_df` | **per-module** — each composes `df`; no oracle asserts the absence of an `r` parameter, and a non-flat curve is what would expose a divergence |
 | C6 | **`cva` weights by `ΔQ`; `fva` weights by `funding_spread·Δt`** — survival increments for a loss conditional on default, a spread over time for funding | `risk/xva.py` (the shared `exposure_integral` and its three callers) | **guarded** — `test_survival_weights_are_INCREMENTS_not_levels` (sums to `1−Q(tₙ)`), `test_fva_matches_the_flat_spread_closed_form`, and `cva`-via-the-atom == `cva` to the ULP |
+| C7 | **The break-even-curve construction, the nominal curve's `TimeMeasure`, and a ZCIIS contract's `Term.day_count` share ONE day-count convention.** The par identity (1.2.16) holds only under it: `Pr` is built by converting quote dates on the *curve's* measure, while the fixed leg compounds on the *contract's* day count. | `market/inflation_curve.py` (L1 construction) ↔ `foundation/term.py` + `products/inflation.py` (L2 contract) ↔ `engine/inflation.py` | **OWED** — the **pointwise** 1.2.16 oracle guards the constructor's arithmetic, but the **par oracle telescopes on a matched convention** and has no power to detect a divergence between the two. **Currently unrepresentable**: the library has one day count (`ACT/365F`), so the convention cannot yet be violated. **Trigger:** the first second day count — a 30/360 market, or multi-currency inflation — at which point it needs a structural guard or a *powered* oracle (a fixture where the two conventions genuinely differ). |
 
 ---
 
 ## Immediate reading
 
-**Three of six are not cross-module guarded, and C2 is the one to worry about.** It spans ten
+**Four of seven are not cross-module guarded, and C2 is the one to worry about.** It spans ten
 modules — the widest of any convention here — and is guarded only by fixtures using the right
 function, which is the same standing the discounting convention had the day before it broke. C3 and
 C5 are better off (per-module tests exist, and C5's modules all compose `df` rather than taking
 `r`), but neither has an oracle that would notice a disagreement.
+
+**C7 is the newest and the clearest illustration of why this file exists.** It was found by
+Cowork's review of tranche 2 — not by a failing test, because *no test could fail on it*: the par
+identity telescopes when the two conventions match, which they always do today. It is recorded
+**OWED with a named trigger** rather than guarded now, because with one day count in the library the
+convention is not merely unguarded but **unviolable** — building a guard for it would be §6b's
+imagined problem. The row exists so that the day a second day count lands, this is found by reading
+rather than by a wrong number.
 
 **No gate is proposed here.** The ruling made this a living doc, and the clause promotes to law on a
 second convention bug — so the honest action now is to *record the exposure*, not to pre-emptively

@@ -5,7 +5,8 @@ library: "today" is `model.market.valuation_date`, which is what makes a reprice
 months later and makes `price` a pure function of its arguments.
 
 Provenance:
-  stock:  _stock/src/pricebook/market/snapshot.py (purified: valuation_date + curves. Its
+  stock:  _stock/src/pricebook/market/snapshot.py (purified: valuation_date + curves + index
+          fixings. Its
           `scalars`/`surfaces`/`series` shapes and their key-unions grew one asset class at a
           time; each returns when a product pulls it)
   source: CLAUDE.md-era §2 invariant 2 (no ambient state) + doc 19 §2
@@ -15,9 +16,11 @@ Provenance:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import date
 
+from pricebook.foundation.inflation import InflationIndex
 from pricebook.market.curve_set import CurveSet
 
 
@@ -27,3 +30,7 @@ class MarketSnapshot:
 
     valuation_date: date
     curves: CurveSet
+    #: The resolved reference index level `I(t)` per index — the FX-analogy spot of BERHAN §1.2.
+    #: Already resolved: *which* monthly print applies (the lag question) is the inflation-linked
+    #: bond's concern and arrives with it, so nothing here interprets a lag.
+    index_fixings: Mapping[InflationIndex, float] = field(default_factory=dict)

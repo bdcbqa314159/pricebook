@@ -5,7 +5,8 @@ Importing this package registers every pricer (their `@register` decorators run 
 """
 
 from pricebook.engine.cash import price_fixed_cashflow
+from pricebook.engine.inflation import price_zc_inflation_swap
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.registry import register
 
-__all__ = ["price", "price_fixed_cashflow", "register"]
+__all__ = ["price", "price_fixed_cashflow", "price_zc_inflation_swap", "register"]

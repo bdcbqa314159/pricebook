@@ -2,6 +2,10 @@
 
 from pricebook.market.curve import CurveHandle, DiscountCurve
 from pricebook.market.curve_set import CurveKey, CurveRole, CurveSet
+from pricebook.market.inflation_curve import real_curve_from_breakeven
 from pricebook.market.snapshot import MarketSnapshot
 
-__all__ = ["CurveHandle", "CurveKey", "CurveRole", "CurveSet", "DiscountCurve", "MarketSnapshot"]
+__all__ = [
+    "CurveHandle", "CurveKey", "CurveRole", "CurveSet", "DiscountCurve", "MarketSnapshot",
+    "real_curve_from_breakeven",
+]

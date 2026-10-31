@@ -6,4 +6,4 @@ not. See `README.md` for the scope line and `docs/handoffs/rulings_reset_to_fres
 why the tree starts here.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
