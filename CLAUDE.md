@@ -33,9 +33,10 @@ name a product  →  plan what it needs (method, model, core pieces)
 ```
 
 Interest picks the target; the discipline is the constant; the books and papers are the oracle.
-Top-down: the product drags in exactly the core it needs and nothing it does not. There is no
-module-count finish line — the library grows by interest. `0.x` holds through the build; **`1.0.0`
-is when Bernardo declares the public API and the representation contract stable**, not a count.
+Top-down: the product drags in exactly the core it needs and nothing it does not. The library grows
+by interest; `0.x` holds through the build. **What `1.0.0` will mean is deliberately left open — it
+is too early to fix a finish line** — except that it will not be a module count (the migration bar
+is retired). The question returns when it is ripe, from a ruling, not a guess now.
 
 ---
 
