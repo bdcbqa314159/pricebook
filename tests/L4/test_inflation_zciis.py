@@ -120,17 +120,17 @@ def test_the_real_curve_constructor_satisfies_1_2_16_POINTWISE() -> None:
     This one tests the new structure directly, which is the structural-oracle rule applied to the
     one structure this tranche builds."""
     nominal = DiscountCurve.flat(VAL, 0.03, DC)
-    breakevens = {1.0: 0.018, 2.5: 0.021, 5.0: 0.0235, 10.0: 0.025}
+    breakevens = {
+        VAL + timedelta(days=365): 0.018,
+        VAL + timedelta(days=912): 0.021,
+        VAL + timedelta(days=365 * 5): 0.0235,
+        VAL + timedelta(days=365 * 10): 0.025,
+    }
     real = real_curve_from_breakeven(nominal, breakevens)
-    for t, b in breakevens.items():
-        when = VAL + timedelta(days=round(t * 365))
-        expected = nominal.df(when) * (1.0 + b) ** when_t(when)
-        assert real.df(when) == pytest.approx(expected, abs=1e-12, rel=1e-12), t
-
-
-def when_t(d: date) -> float:
-    """The test's own year fraction, stated here rather than asked of the library."""
-    return (d - VAL).days / 365.0
+    for when, b in breakevens.items():
+        t = (when - VAL).days / 365.0  # the test's own year fraction, not asked of the library
+        expected = nominal.df(when) * (1.0 + b) ** t
+        assert real.df(when) == pytest.approx(expected, abs=1e-12, rel=1e-12), when
 
 
 # ── oracle 3b: the par identity — the shared-`Pr` guard (telescopes, and that is understood) ─
@@ -140,7 +140,7 @@ def test_a_swap_struck_AT_the_break_even_reprices_to_ZERO() -> None:
     one `Pr` and not two that could drift — the `rpv01` lesson, guarded before divergence."""
     nominal = DiscountCurve.flat(VAL, 0.03, DC)
     for b in (0.005, 0.02, 0.035):
-        real = real_curve_from_breakeven(nominal, {TERM.years(): b})
+        real = real_curve_from_breakeven(nominal, {MATURITY: b})
         market = MarketSnapshot(
             valuation_date=VAL,
             curves=CurveSet({NOMINAL: nominal, REAL: real}),
