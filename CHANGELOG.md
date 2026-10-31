@@ -6,6 +6,40 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-31
+
+### Fixed — a defect in v0.1.0, found by Cowork's independent review
+- **The schema version was written and never read.** Both `to_dict`s stamped `schema_version` and
+  **nothing dereferenced it**, so a payload from a future build would have loaded silently under
+  v0.1.0 code — defeating the exact guarantee the field's own docstring claims ("a format with no
+  version cannot change without silently breaking a reader"). It was therefore not merely an unused
+  field but a **false claim in a comment**, which is the worse of the two. The project's named
+  defect shape, **resolve-don't-just-exist**, and v0.1.0's test asserted only *presence*, which
+  could never have caught it.
+  Fixed with **one** shared `check_schema_version(payload)` that both `from_dict`s call — one
+  definition of what is readable, so the two products cannot drift — returning the validated
+  version so a future migration branches on it rather than re-reading the raw field.
+- **Six oracles that assert REFUSAL, not presence:** a future version, a missing one, six
+  malformed ones (`"1"`, `0`, `-3`, `1.5`, `True`, `None`), the nested payload, and **the
+  ordering** — the version is checked *before* `kind`, because in a format we cannot read the
+  `kind` field's meaning is itself unknown, so reporting "not a fixed_cashflow" would be a guess
+  about a payload we have already failed to understand.
+
+### Changed
+- **`numerics` threading dropped from `dispatch`.** Purified from the stock as-is, it inspected
+  each pricer's signature to decide whether to pass an optional numerical config — and **ran in no
+  test**, since the only pricer is closed-form. Three reasons agree: the config's own rule is that
+  it *lands with the first engine that reads it*; there is no consumer; and an unexercised dispatch
+  branch at the baseline is the same dead-code shape the debt gate caught in `zero_rate`. It
+  returns with the first pricer that integrates or samples — with a consumer and a test.
+- `TEST_FLOOR` 18 → 25.
+
+### Process note
+v0.1.0 merged before this review round landed, so the fix ships as a patch rather than as part of
+the tranche. The sequence Cowork set is **propose → review → land**; here it ran propose → build →
+land → review → patch. No harm done (the defect was caught and is fixed in the next commit on
+`main`), but the review's value is highest *before* a merge, which is where the beat belongs.
+
 ## [0.1.0] - 2026-10-31
 
 ### Added — tranche 1: the minimal spine

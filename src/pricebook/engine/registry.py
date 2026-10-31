@@ -19,7 +19,6 @@ Provenance:
 
 from __future__ import annotations
 
-import inspect
 
 from collections.abc import Callable
 from typing import Any
@@ -45,28 +44,19 @@ def register(product_type: type) -> Callable[[Pricer], Pricer]:
     return _register
 
 
-def dispatch(
-    instrument: object, model: object, numerics: object | None = None
-) -> PricingResult | PricingFailure:
+def dispatch(instrument: object, model: object) -> PricingResult | PricingFailure:
     """Price `instrument` by dispatching on its type to the registered pricer.
 
-    `numerics` carries the explicit reproducibility knobs (invariant 5). It is **optional at this
-    boundary and required by the pricers that read it**: a closed-form pricer has no knobs and must
-    not be made to accept one (§6b), while a pricer that integrates returns a `PricingFailure` when
-    it is absent — never a guessed grid. That is what invariant 5 forbids: a *hidden default*, not
-    an optional parameter. A pricer declares it needs numerics by accepting a third argument."""
+    **No `numerics` parameter yet, deliberately.** The stock threads an optional numerical-config
+    argument here and inspects each pricer's signature to decide whether to pass it. That branch
+    was carried into the first draft of this tranche and **ran in no test**, because the only
+    pricer is closed-form and takes two arguments — an unexercised dispatch path at the baseline,
+    which is the same dead-code shape the debt gate caught one commit earlier in
+    `DiscountCurve.zero_rate`. The rule it answers to is the config's own: the numerical-config
+    value *lands with the first engine that reads it*. When a pricer integrates, samples or steps
+    a grid, it arrives then — with a consumer and a test — rather than sitting here as plumbing
+    for a pricer that does not exist."""
     pricer = _PRICERS.get(type(instrument))
     if pricer is None:
         return PricingFailure(f"no pricer registered for {type(instrument).__name__}")
-    if _takes_numerics(pricer):
-        return pricer(instrument, model, numerics)
     return pricer(instrument, model)
-
-
-def _takes_numerics(pricer: Pricer) -> bool:
-    """Whether the pricer declares a third (numerics) parameter — so closed-form pricers keep
-    their two-argument signature and nothing is threaded where it has no meaning."""
-    try:
-        return len(inspect.signature(pricer).parameters) >= 3
-    except (TypeError, ValueError):
-        return False
