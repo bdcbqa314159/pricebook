@@ -6,6 +6,55 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-31
+
+### Added — tranche 3: the inflation-linked bond (linker), model-free
+`ILB(t,TM) = I(t)/I0 · N[ Σ C·ψᵢ·Pr(t,Tᵢ) + Pr(t,TM) ]` — BERHAN 1.2.5 generalised with the accrual
+fraction a real linker pays. **No nominal curve is touched**: a linker is a real bond scaled by the
+index ratio, the foreign-currency analogy at its clearest. Source `BERHAN-2012` §1.2.1. Proposal,
+review and results: `docs/tranches/03_inflation_linked_bond.md`.
+
+- **L0** `CouponSchedule(dates, day_count)` — period **boundaries**, so an accrual has both ends
+  rather than inferring the first start · `RealLeg(schedule, coupon_rate)`. Both are §3b-compelled
+  bundling (seven loose fields, two over the limit) and both stay **concrete frozen bundles** — no
+  base class, no polymorphism; whether `RealLeg` generalises is decided at the *second* leg type.
+- **L2** `InflationLinkedBond(index, base_index, leg, notional, indexation_lag)`.
+- **L4** `price_inflation_linked_bond`.
+- **Nothing new at L1 or L3** — a second inflation product cost no market-data change at all, which
+  is what keys-not-fields buys.
+
+### Oracles — 50 green, first run
+- **The closed form** with every `ψ` and `Pr` computed in the test, swept over nominal rates that
+  must **not** move the price (1.2.5 has no `Pn`; a leak shows immediately).
+- **The exact reduction:** every period is 365 days so each `ψᵢ = 1`, and the general form *is* the
+  paper's annual 1.2.5. The premise itself is asserted alongside it.
+- **Cross-product reconciliation (the first of its kind here):** the linker equals
+  `Σ C·ψᵢ·ZCIB(Tᵢ) + ZCIB(TM)` with each `ZCIB` rebuilt from **tranche 2's** `inflation_leg_value`
+  — different code on each side, so a divergent index-ratio application in one product but not the
+  other breaks it while each product's own oracle still passes.
+- Zero-coupon limit → eq 1.2.4 scaled · `Pr = Pn`, `I = I0` prices as a **nominal** bond (catches
+  the ratio on the wrong leg, or `Pr`/`Pn` transposed) · doubling the index doubles the **whole**
+  price · past coupons excluded, checked by equality against the same bond with those dates removed
+  · matured → PV 0 · missing curve/fixing → failure · the round-trip **exercises the lag**.
+
+### Changed — the `day_count` question, answered a third way
+Cowork spotted that pricing BERHAN's literal annual 1.2.5 would leave `CouponSchedule.day_count`
+**carried but unread**, and offered two resolutions (read it and register the convention, or drop to
+a dates-only schedule). **Took a third: price the general `C·ψᵢ` form and make 1.2.5 its exact
+reduction.** Better on three counts — the field is read so nothing is smuggled, the instrument is
+the real one rather than the paper's simplification, and it buys a reduction oracle neither option
+offered.
+- **Register gains C8** — a schedule's accrual day count and its curve's `TimeMeasure` are one
+  convention. A **C7 sibling**: OWED, currently unrepresentable (one day count exists), trigger
+  shared. Register now reads five of eight not cross-module guarded.
+- **The indexation lag is carried and round-tripped, on Cowork's sharper test.** I had argued
+  "contract data vs market metadata" and asked to be ruled rather than decide in my own favour. Its
+  test is better: **constitutive of the instrument's identity, not "does the pricer read it."** Two
+  linkers on one index with different lags are *different contracts*, so the round-trip **is** its
+  present consumer — exactly what T2's publication-lag field lacked. Oracle asserts both that the
+  lag survives serialisation and that `lag=3 ≠ lag=8` as contracts.
+- `TEST_FLOOR` 37 → 50.
+
 ## [0.2.0] - 2026-10-31
 
 ### Added — tranche 2: the inflation spine (ZCIIS, model-free)
