@@ -31,7 +31,7 @@ from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.discounting_model import DiscountingModel
-from pricebook.products.inflation import ZeroCouponInflationSwap
+from pricebook.products.inflation import InflationLinkedBond, ZeroCouponInflationSwap
 
 
 def inflation_leg_value(swap: ZeroCouponInflationSwap, market: MarketSnapshot) -> float:
@@ -80,3 +80,50 @@ def price_zc_inflation_swap(
         return PricingFailure(f"cannot price the inflation swap: {exc}")
 
     return PricingResult(pv=Money(inflation - fixed, currency))
+
+
+@register(InflationLinkedBond)
+def price_inflation_linked_bond(
+    bond: InflationLinkedBond, model: DiscountingModel
+) -> PricingResult | PricingFailure:
+    """`I(t)/I0 · N[ Σ C·ψᵢ·Pr(t,Tᵢ) + Pr(t,TM) ]` — BERHAN 1.2.5, generalised with the accrual.
+
+    **The paper's 1.2.5 is the annual, unit-accrual case.** A real linker pays `C·ψᵢ`, so this
+    prices the general form and 1.2.5 is its *reduction* at `ψᵢ = 1` — asserted as an oracle rather
+    than implemented twice. It is also why `CouponSchedule.day_count` is read here: a carried field
+    nothing consumes is the thing this project keeps catching, so the accrual is computed from the
+    schedule's own convention and from nowhere else.
+
+    **No nominal curve is touched.** A linker is a real bond scaled by the index ratio; reaching
+    for `Pn` here would be the kind of error oracle `test_the_nominal_curve_does_NOT_affect_the_price`
+    exists to catch.
+
+      crosscheck: quantlib CPIBond — deferred to the optional QuantLib tier (thread 0013/0014).
+    """
+    market = model.market
+    currency = bond.notional.currency
+    vd = market.valuation_date
+    schedule = bond.leg.schedule
+
+    # Invariant 6: every remaining flow is in the future. A matured bond has none, so it is
+    # historical in full — PV 0, and checked before any market lookup, per tranche 2's precedent.
+    future = [(pay, psi) for _, pay, psi in schedule.periods() if pay > vd]
+    principal_due = schedule.dates[-1] > vd
+    if not future and not principal_due:
+        return PricingResult(pv=Money(0.0, currency))
+
+    try:
+        real = market.curves.real(currency)
+        try:
+            index_level = market.index_fixings[bond.index]
+        except KeyError:
+            raise KeyError(
+                f"no index fixing for {bond.index}; refusing to assume the base level"
+            ) from None
+    except KeyError as exc:
+        return PricingFailure(f"cannot price the inflation-linked bond: {exc}")
+
+    coupons = sum(bond.leg.coupon_rate * psi * real.df(pay) for pay, psi in future)
+    redemption = real.df(schedule.dates[-1]) if principal_due else 0.0
+    ratio = index_level / bond.base_index
+    return PricingResult(pv=Money(bond.notional.amount * ratio * (coupons + redemption), currency))

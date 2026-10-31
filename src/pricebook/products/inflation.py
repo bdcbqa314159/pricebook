@@ -5,7 +5,10 @@ index, the base level, the break-even, the notional **and both ends of its term*
 answer to six loose fields is to bundle the cohesive ones rather than raise the limit.
 
 Provenance:
-  stock:  _stock/quarry/parked/ng/pricebook_ng/products/inflation.py (mined for CONTENT and
+  stock:  _stock/quarry/pricebook/fixed_income/inflation.py (the linker, mined for CONTENT: its
+          8 mutable ctor params and bound schedule generator carry no authority, but its placing
+          `cpi_lag_months` ON THE INSTRUMENT — "3 for US TIPS, 8 for UK ILG" — is the insight kept)
+          and _stock/quarry/parked/ng/pricebook_ng/products/inflation.py (mined for CONTENT and
           CORRECTED: that version had `index: str` — a bare string where an identity belongs —
           and **no base index**, so it could only ever have priced eq 1.2.14 at inception, never
           the seasoned 1.2.13. Both fixed here; its shape carries no authority)
@@ -22,6 +25,7 @@ from dataclasses import dataclass
 from pricebook.foundation.cashflow import SCHEMA_VERSION, check_schema_version
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.foundation.money import Money
+from pricebook.foundation.schedule import RealLeg
 from pricebook.foundation.term import Term
 
 
@@ -65,4 +69,61 @@ class ZeroCouponInflationSwap:
             float(d["fixed_rate"]),
             Term.from_dict(d["term"]),
             Money.from_dict(d["notional"]),
+        )
+
+
+@dataclass(frozen=True)
+class InflationLinkedBond:
+    """A linker: real coupons and principal, both uplifted by `I(t)/I0`.
+
+    `ILB(t,TM) = I(t)/I0 · N[ Σ C·ψᵢ·Pr(t,Tᵢ) + Pr(t,TM) ]` — the paper's 1.2.5 generalised with
+    the accrual fraction a real linker pays. **No nominal curve appears**: a linker is a real bond
+    scaled by the index ratio, which is the foreign-currency analogy at its clearest.
+
+    **`indexation_lag` is contract data, and it is constitutive of the contract.** Two linkers on
+    the *same* index with different indexation lags are different instruments — 3-month for US
+    TIPS, 8-month for UK index-linked gilts — so a serialised linker without it is ambiguous, and
+    the round-trip is its present consumer. It is distinct from an index's *publication* lag (when
+    a print becomes known), which is market metadata and lives nowhere here; the stock conflates
+    the two under one name, and this field is the half that genuinely belongs on a contract.
+
+    The lag is **carried, not yet resolved.** Deciding *which monthly print* is `I(t)` needs a
+    monthly index series and an interpolation convention (TIPS interpolate daily, UK ILGs do not) —
+    `deferred→` the index-series tranche. Until then the snapshot supplies `I(t)` already resolved.
+    """
+
+    index: InflationIndex
+    base_index: float
+    leg: RealLeg
+    notional: Money
+    indexation_lag: int = 3
+
+    def __post_init__(self) -> None:
+        if self.base_index <= 0.0:
+            raise ValueError(f"base_index must be positive, got {self.base_index}")
+        if self.indexation_lag < 0:
+            raise ValueError(f"indexation_lag cannot be negative, got {self.indexation_lag}")
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": "inflation_linked_bond",
+            "schema_version": SCHEMA_VERSION,
+            "index": self.index.name,
+            "base_index": self.base_index,
+            "leg": self.leg.to_dict(),
+            "notional": self.notional.to_dict(),
+            "indexation_lag": self.indexation_lag,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> InflationLinkedBond:
+        check_schema_version(d)
+        if d.get("kind") != "inflation_linked_bond":
+            raise ValueError(f"not an inflation_linked_bond payload: {d.get('kind')!r}")
+        return cls(
+            InflationIndex(d["index"]),
+            float(d["base_index"]),
+            RealLeg.from_dict(d["leg"]),
+            Money.from_dict(d["notional"]),
+            int(d["indexation_lag"]),
         )
