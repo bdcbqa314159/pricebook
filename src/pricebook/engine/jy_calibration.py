@@ -35,8 +35,9 @@ model-free kind (a curve bootstrap, tranche 2's break-even inversion); instrumen
 calibration is a consumer of `price()` and belongs beside it. No gate or charter change needed.
 
 Provenance:
-  stock:  _stock/quarry/pricebook/fixed_income/jarrow_yildirim.py::jy_calibrate -- rejected as a
-          model, not purified: it fits vols to the wrong instrument (above). Mined for content
+  stock:  _stock/quarry/pricebook/fixed_income/jarrow_yildirim.py -- its `jy_calibrate` is
+          REJECTED as a model, not purified: it fits vols to the wrong instrument (above).
+          Mined for content
           only: the fixed-vs-free split, and that correlations come from historical estimation.
   source: BERHAN-2012 ch 5 (JY calibrated to YoY floor quotes, ATM only -- the thesis's own
           finding is that JY produces no smile, which this reproduces rather than papers over)

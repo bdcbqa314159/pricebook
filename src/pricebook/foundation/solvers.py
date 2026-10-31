@@ -57,7 +57,11 @@ def least_squares_fit(
     lo, hi = bounds if bounds is not None else (-np.inf, np.inf)
 
     def evaluate(x: np.ndarray) -> np.ndarray:
-        return np.asarray(residuals(x), dtype=float)
+        # `tuple(...)` rather than handing the raw ndarray through: the whole point of this seam is
+        # that callers are scipy- and numpy-free, so the residual callable must receive an ordinary
+        # `Sequence[float]`. Pyright caught this as a type error, and it was a real leak rather
+        # than a nit -- the annotation promises a Sequence and an ndarray is not one.
+        return np.asarray(residuals(tuple(float(v) for v in x)), dtype=float)
 
     x0 = np.asarray(start, dtype=float)
     try:
