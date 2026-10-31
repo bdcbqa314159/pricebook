@@ -3,11 +3,14 @@
 from pricebook.models.discounting_model import DiscountingModel
 from pricebook.models.jarrow_yildirim import (
     HullWhiteParams,
+    JarrowYildirim,
     JYCorrelations,
+    JYParams,
     hw_beta,
     yoy_convexity,
 )
 
 __all__ = [
-    "DiscountingModel", "HullWhiteParams", "JYCorrelations", "hw_beta", "yoy_convexity",
+    "DiscountingModel", "HullWhiteParams", "JYCorrelations", "JYParams", "JarrowYildirim", "hw_beta",
+    "yoy_convexity",
 ]

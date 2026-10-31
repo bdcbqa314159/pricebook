@@ -47,6 +47,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from pricebook.market.snapshot import MarketSnapshot
+
 
 @dataclass(frozen=True)
 class HullWhiteParams:
@@ -93,16 +95,29 @@ def hw_beta(kappa: float, t: float, maturity: float) -> float:
     return (1.0 - math.exp(-kappa * (maturity - t))) / kappa
 
 
-def yoy_convexity(
-    t: float,
-    period_start: float,
-    period_end: float,
-    nominal: HullWhiteParams,
-    real: HullWhiteParams,
-    index_vol: float,
-    correlations: JYCorrelations,
-) -> float:
-    """`C(t, T_{i-1}, T_i)` -- eq 2.5.11. Zero exactly when `real.sigma` is zero."""
+@dataclass(frozen=True)
+class JYParams:
+    """The JY parameter set `C` depends on: two Hull-White factors, the index vol, the correlations.
+
+    Bundled because `yoy_convexity` otherwise takes seven arguments, two over the limit, and the
+    rule's answer is always to group the cohesive ones. These four *are* the model's parameters —
+    the same grouping `JarrowYildirim` carries alongside its snapshot — so the bundle is the
+    model's own structure rather than an arbitrary split to satisfy a count."""
+
+    nominal: HullWhiteParams
+    real: HullWhiteParams
+    index_vol: float
+    correlations: JYCorrelations
+
+    def __post_init__(self) -> None:
+        if self.index_vol < 0.0:
+            raise ValueError(f"index volatility cannot be negative, got {self.index_vol}")
+
+
+def yoy_convexity(t: float, period_start: float, period_end: float, params: JYParams) -> float:
+    """`C(t, T_{i-1}, T_i)` -- eq 2.5.11. Zero exactly when `params.real.sigma` is zero."""
+    nominal, real = params.nominal, params.real
+    index_vol, correlations = params.index_vol, params.correlations
     beta_r_period = hw_beta(real.kappa, period_start, period_end)
     beta_r_t = hw_beta(real.kappa, t, period_start)
     beta_n_t = hw_beta(nominal.kappa, t, period_start)
@@ -113,3 +128,24 @@ def yoy_convexity(
         - cross * beta_n_t
     )
     return real.sigma * beta_r_period * bracket
+
+
+@dataclass(frozen=True)
+class JarrowYildirim:
+    """The JY model: its snapshot plus two Hull-White factors, the index vol and the correlations.
+
+    Two fields: the snapshot and `JYParams`. Nine loose parameters would be four over the limit,
+    and naming them `kappa_n, sigma_n, kappa_r, sigma_r, ...` invites passing the nominal pair
+    where the real belongs — so the grouping is the model's own structure (two HW factors related
+    by the foreign-currency analogy, plus the index), not an arbitrary split to satisfy a count.
+
+    Carries `market` like every model here, so the engine reaches market data only through the
+    model and a model/market mismatch cannot be expressed."""
+
+    market: MarketSnapshot
+    params: JYParams
+
+    def convexity(self, t: float, period_start: float, period_end: float) -> float:
+        """`C(t, T_{i-1}, T_i)` for this parameter set — the model's own capability, so a pricer
+        composes it rather than reassembling 2.5.11 from loose parameters."""
+        return yoy_convexity(t, period_start, period_end, self.params)

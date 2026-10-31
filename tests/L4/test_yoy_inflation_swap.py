@@ -32,7 +32,13 @@ from pricebook.foundation import (
     YoYLeg,
 )
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
-from pricebook.models import HullWhiteParams, JarrowYildirim, JYCorrelations, yoy_convexity
+from pricebook.models import (
+    HullWhiteParams,
+    JarrowYildirim,
+    JYCorrelations,
+    JYParams,
+    yoy_convexity,
+)
 from pricebook.products import YearOnYearInflationSwap, ZeroCouponInflationSwap
 
 VAL = date(2026, 1, 15)
@@ -66,7 +72,8 @@ def _snapshot(nominal: float = 0.03, real: float = 0.01) -> MarketSnapshot:
 
 def _model(nominal: float = 0.03, real: float = 0.01, real_vol: float = 0.008) -> JarrowYildirim:
     return JarrowYildirim(
-        _snapshot(nominal, real), NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR
+        _snapshot(nominal, real),
+        JYParams(NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR),
     )
 
 
@@ -86,14 +93,19 @@ def _t(d: date) -> float:
 
 def _reference_leg(nominal: float, real: float, real_vol: float) -> float:
     """Eq 2.5.13's inflation leg, computed here from the curves and 2.5.11."""
-    pn = lambda d: math.exp(-nominal * _t(d))      # noqa: E731 - a local alias keeps the sum readable
-    pr = lambda d: math.exp(-real * _t(d))         # noqa: E731
+    def pn(d: date) -> float:
+        return math.exp(-nominal * _t(d))
+
+    def pr(d: date) -> float:
+        return math.exp(-real * _t(d))
+
     periods = SCHEDULE.periods()
     _, first_pay, psi1 = periods[0]
     total = psi1 * (pr(first_pay) - pn(first_pay))
     for start, pay, psi in periods[1:]:
         c = yoy_convexity(
-            0.0, _t(start), _t(pay), NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR
+            0.0, _t(start), _t(pay),
+            JYParams(NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR),
         )
         total += psi * (pn(start) * pr(pay) / pr(start) * math.exp(c) - pn(pay))
     return N * total
@@ -117,8 +129,12 @@ def test_at_zero_real_vol_the_leg_IS_the_deterministic_limit() -> None:
     from pricebook.engine.yoy import yoy_inflation_leg_value
 
     nominal, real = 0.03, 0.01
-    pn = lambda d: math.exp(-nominal * _t(d))      # noqa: E731
-    pr = lambda d: math.exp(-real * _t(d))         # noqa: E731
+    def pn(d: date) -> float:
+        return math.exp(-nominal * _t(d))
+
+    def pr(d: date) -> float:
+        return math.exp(-real * _t(d))
+
     periods = SCHEDULE.periods()
     _, first_pay, psi1 = periods[0]
     want = psi1 * (pr(first_pay) - pn(first_pay))
@@ -187,7 +203,7 @@ def test_a_matured_swap_is_PV_ZERO_and_a_missing_curve_is_a_failure() -> None:
             valuation_date=after,
             curves=CurveSet({NOMINAL_KEY: DiscountCurve.flat(after, 0.03, DC)}),
         ),
-        NOM_P, REAL_P, SI, CORR,
+        JYParams(NOM_P, REAL_P, SI, CORR),
     )
     out = price(_swap(), matured)
     assert isinstance(out, PricingResult) and out.pv.amount == pytest.approx(0.0, abs=1e-12)
@@ -197,7 +213,7 @@ def test_a_matured_swap_is_PV_ZERO_and_a_missing_curve_is_a_failure() -> None:
             valuation_date=VAL,
             curves=CurveSet({NOMINAL_KEY: DiscountCurve.flat(VAL, 0.03, DC)}),
         ),
-        NOM_P, REAL_P, SI, CORR,
+        JYParams(NOM_P, REAL_P, SI, CORR),
     )
     assert isinstance(price(_swap(), no_real), PricingFailure)
 
@@ -214,7 +230,7 @@ def test_the_yoy_swap_needs_NO_index_fixing_at_inception() -> None:
                  REAL_KEY: DiscountCurve.flat(VAL, 0.01, DC)}
             ),
         ),
-        NOM_P, REAL_P, SI, CORR,
+        JYParams(NOM_P, REAL_P, SI, CORR),
     )
     assert isinstance(price(_swap(), no_fixing), PricingResult)
 

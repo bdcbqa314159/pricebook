@@ -15,7 +15,7 @@ import math
 
 import pytest
 
-from pricebook.models import HullWhiteParams, JYCorrelations, hw_beta, yoy_convexity
+from pricebook.models import HullWhiteParams, JYCorrelations, JYParams, hw_beta, yoy_convexity
 
 KN, SN, KR, SR, SI = 0.05, 0.010, 0.04, 0.008, 0.012
 RHO_NR, RHO_RI = 0.30, -0.20
@@ -52,7 +52,7 @@ def test_the_convexity_VANISHES_at_zero_real_vol_exactly() -> None:
     line after it ("it vanishes for sigma_r = 0") -- so this is exact by construction rather than a
     numerical limit."""
     flat = HullWhiteParams(KR, 0.0)
-    assert yoy_convexity(0.0, 2.0, 3.0, NOMINAL, flat, SI, CORR) == 0.0
+    assert yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, flat, SI, CORR)) == 0.0
 
 
 def test_the_convexity_does_NOT_vanish_at_zero_correlation() -> None:
@@ -62,7 +62,7 @@ def test_the_convexity_does_NOT_vanish_at_zero_correlation() -> None:
     convexity with no correlation in it at all**. This test exists so nobody "simplifies" 2.5.11
     back toward the approximation."""
     zero = JYCorrelations(nominal_real=0.0, real_index=0.0)
-    got = yoy_convexity(0.0, 2.0, 3.0, NOMINAL, REAL, SI, zero)
+    got = yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, REAL, SI, zero))
     survivor = SR * hw_beta(KR, 2.0, 3.0) * hw_beta(KR, 0.0, 2.0) * (-0.5 * hw_beta(KR, 0.0, 2.0))
     assert got == pytest.approx(survivor, rel=1e-14)
     assert abs(got) > 1e-6
@@ -74,8 +74,9 @@ def test_the_convexity_matches_eq_2_5_11_across_a_parameter_sweep() -> None:
             for rho_nr in (-0.8, 0.0, 0.5):
                 for rho_ri in (-0.5, 0.0, 0.7):
                     got = yoy_convexity(
-                        t, t0, t1, NOMINAL, HullWhiteParams(KR, sr), SI,
-                        JYCorrelations(rho_nr, rho_ri),
+                        t, t0, t1,
+                        JYParams(NOMINAL, HullWhiteParams(KR, sr), SI,
+                                 JYCorrelations(rho_nr, rho_ri)),
                     )
                     want = _reference_C(t, t0, t1, sr, rho_nr, rho_ri)
                     assert got == pytest.approx(want, rel=1e-13, abs=1e-18), (t, t0, t1, sr)
@@ -83,9 +84,9 @@ def test_the_convexity_matches_eq_2_5_11_across_a_parameter_sweep() -> None:
 
 def test_the_convexity_grows_with_real_vol_and_with_the_period_length() -> None:
     """Monotonicity a scalar match misses. Magnitude, because the sign depends on the bracket."""
-    by_vol = [abs(yoy_convexity(0.0, 2.0, 3.0, NOMINAL, HullWhiteParams(KR, s), SI, CORR))
+    by_vol = [abs(yoy_convexity(0.0, 2.0, 3.0, JYParams(NOMINAL, HullWhiteParams(KR, s), SI, CORR)))
               for s in (0.002, 0.008, 0.02)]
     assert by_vol == sorted(by_vol)
-    by_span = [abs(yoy_convexity(0.0, 2.0, 2.0 + d, NOMINAL, REAL, SI, CORR))
+    by_span = [abs(yoy_convexity(0.0, 2.0, 2.0 + d, JYParams(NOMINAL, REAL, SI, CORR)))
                for d in (0.25, 1.0, 3.0)]
     assert by_span == sorted(by_span)
