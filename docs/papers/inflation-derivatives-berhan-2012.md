@@ -18,12 +18,23 @@ relative-error surfaces) are the only "numbers", and a plot cannot be transcribe
 oracle. So for this vertical the oracle does **not** come from transcribed paper numbers. It comes,
 in descending strength, from:
 
-1. **The paper's closed-form formulas and no-arbitrage identities** (below) — rung-1/structural,
-   independent of any implementation. These are the backbone of every tranche oracle.
-2. **An external cross-check against QuantLib** — it implements these exact instruments
-   (`ZeroCouponInflationSwap`, `YoYInflationSwap`, inflation curves, JY). A genuine second engine.
-3. **The stock's 22 inflation test files** (`_stock/.../*inflation*`, `jarrow_yildirim` tests) —
-   ready-made reference values from the migration era. Purify them as oracle inputs.
+1. **The paper's closed-form formulas, no-arbitrage identities, and EXACT REDUCTIONS** (below) —
+   rung-1/structural, independent of any implementation. The reductions (JY → the
+   deterministic-real-rate limit as vol/correlation → 0; `cap − floor = YoY swap` by parity) are
+   independent *by construction*, not reproductions — they are the correctness anchor at the
+   model-dependent instruments, where a self-consistent closed form could be self-consistently
+   wrong. These are the backbone of every tranche oracle.
+2. **The stock's inflation test files** (`_stock/.../*inflation*`, `jarrow_yildirim` tests) — a
+   **regression** anchor: did we faithfully reproduce the known-good migration implementation.
+   Strong, but note it is reproduction, not independent correctness, so it rides behind the
+   reductions in (1).
+3. **An external cross-check against QuantLib — deferred, and deliberately not gated to a tranche**
+   (Bernardo, 2026-10-31). QuantLib implements these exact instruments, so it is a genuine second
+   engine — but it is belt-and-suspenders on top of (1), not the thing correctness rests on. It
+   lands **much later as its own optional cross-check test tier**: a dev-only optional dependency,
+   its own skippable test folder, **never in the core reproducibility contract or a merge gate**,
+   so it validates without complicating our pinned-dependency story. Near-term focus is our own
+   library covered by our own oracles.
 
 The figures are a **visual sanity check only** (shape, sign, order of magnitude). No code is ever
 fitted to a figure.
