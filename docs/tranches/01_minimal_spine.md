@@ -1,7 +1,6 @@
 # Tranche 1 — the minimal spine
 
-**Proposed:** 2026-10-31 · **By:** Code (lead, per thread 0003) · **Status:** BUILT, green; awaiting
-Cowork's independent review before landing · **Target:** `v0.1.0`
+**Proposed:** 2026-10-31 · **By:** Code (lead, per thread 0003) · **Status:** BUILT, reviewed, revised, green — landing · **Target:** `v0.1.0`
 
 ## 0. Target and why this one
 
@@ -147,3 +146,56 @@ separately for exactness.
 Schedules, legs, any day count beyond ACT/365F, interpolation beyond linear-in-zero, projection
 curves, a second product, any model with dynamics. Each arrives when a product pulls it — which is
 the model working, not a backlog.
+
+---
+
+## 7. Cowork's independent review (thread 0006) — one defect, one ruling
+
+The review beat earned itself on its first run.
+
+### MUST-FIX, accepted: the schema version was written and never read
+
+`Cashflow.to_dict` and `FixedCashflow.to_dict` stamped `schema_version`; **nothing dereferenced
+it**, and the test asserted only that it was *present*. So a payload from a future build would
+have loaded silently under today's code — defeating the exact purpose the field's own docstring
+claims ("a format with no version cannot change without silently breaking a reader"). This is the
+project's named defect shape, **resolve-don't-just-exist**, and a presence check could never have
+caught it.
+
+Fixed with **one** shared `check_schema_version(payload)` that both `from_dict`s call, so the two
+products cannot disagree about what is readable, plus six oracles that assert **refusal**: a future
+version, a missing one, six malformed ones, the nested payload, and the ordering (version checked
+*before* `kind`, because in an unknown format the `kind` field's meaning is itself unknown). It
+returns the validated version, so a future migration branches on it rather than re-reading the raw
+field.
+
+**Why this mattered more than its five lines:** §4.2 argued serialisation belongs in the first
+product because the representation is the scope's durable public contract. Cowork ratified that
+*conditioned on this fix* — and it was right to: a contract that will not enforce its own version
+is not yet a contract.
+
+### Ruling: the `numerics` threading is DROPPED
+
+`dispatch` carried an optional numerical-config argument and inspected each pricer's signature to
+decide whether to pass it. It was purified from the stock as-is and **ran in no test**, because the
+only pricer is closed-form and takes two arguments.
+
+Dropped, for three reasons that agree: the config's own rule is that it *lands with the first
+engine that reads it*; there is no consumer and no test; and an unexercised dispatch branch at the
+baseline is the same dead-code shape the debt gate caught one commit earlier in
+`DiscountCurve.zero_rate`. Keeping it would have been inconsistent with a decision made minutes
+before. It returns with the first pricer that integrates, samples or steps a grid — with a consumer
+and a test.
+
+### Endorsed without change
+Dropping `CalibratedModel` (a capability protocol with nothing to declare is an empty name);
+serialisation-now, conditioned on the fix above; and the **fixture-power question** — *does this
+fixture have the power to fail?* — adopted as a standing question at the review beat.
+
+### Final: 25 oracles, all gates green — shipped as v0.1.0 + v0.1.1
+
+**A process note worth keeping.** v0.1.0 merged before this review round landed, so the MUST-FIX
+shipped as a patch rather than inside the tranche. The loop Cowork set is **propose → review →
+land**; this ran propose → build → land → review → patch. The defect was caught and fixed in the
+next commit, so nothing reached a user — but a review's value is highest *before* a merge, and
+that is where the beat belongs.
