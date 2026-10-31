@@ -24,7 +24,7 @@ it prejudges no product while proving the engine contract. Proposal and results:
 - **L3** `DiscountingModel`, carrying the snapshot it was built on.
 - **L4** the engine registry (structural dispatch, no `isinstance` ladder) + `price_fixed_cashflow`.
 
-### Oracles — 18 green
+### Oracles — 25 green
 - **`PV = N·e^{−r·t}` exact to 1e-12** across 48 points. The reference is arithmetic written in the
   test, independent of every path under it — which is the point: the predecessor shipped a 5.14%
   error whose oracle restated the builder's own composition and so validated it against itself.
@@ -45,7 +45,24 @@ machinery left behind until something needs named constants); `day_count.py` 332
 convention); `snapshot.py` 154 → 30 (curves only — its other shapes grew one asset class at a
 time and return when a product pulls them).
 
+### Fixed — found by Cowork's independent review, before landing
+- **The schema version was written and never read.** Both `to_dict`s stamped `schema_version` and
+  **nothing dereferenced it**; the test asserted only that it was *present*. A payload from a
+  future build would have loaded silently under today's code — defeating the purpose the field's
+  own docstring claims. The project's named defect shape, **resolve-don't-just-exist**, and a
+  presence check could never have caught it. Fixed with **one** shared `check_schema_version` both
+  `from_dict`s call, plus six oracles asserting **refusal**: a future version, a missing one, six
+  malformed ones, the nested payload, and the *ordering* (version before `kind` — in an unknown
+  format the `kind` field's meaning is itself unknown). Serialisation-in-the-first-product was
+  ratified *conditioned on this*: a contract that will not enforce its own version is not one yet.
+
 ### Changed
+- **`numerics` threading DROPPED from `dispatch`.** Purified from the stock as-is, it inspected
+  each pricer's signature to decide whether to pass an optional numerical config — and **ran in no
+  test**, since the only pricer is closed-form. Three reasons agree: the config's own rule is that
+  it *lands with the first engine that reads it*; there is no consumer; and an unexercised dispatch
+  branch at the baseline is the same dead-code shape the debt gate caught one commit earlier.
+  It returns with the first pricer that integrates or samples.
 - **`CalibratedModel` not carried.** A protocol declares a capability, and a discounting model has
   none to declare beyond carrying its market, so carrying it would be an empty abstraction. The
   registry's model parameter is `object` until a pricer needs a real capability.
@@ -53,7 +70,7 @@ time and return when a product pulls them).
   an unreachable `raise` needing `# pragma: no cover`, which the debt gate caught. The answer to
   dead code is to remove the deadness, not to ledger the suppression — and `bisect` is O(log n),
   which will matter at a bootstrapped curve.
-- `TEST_FLOOR` 1 → 18.
+- `TEST_FLOOR` 1 → 25.
 
 ## [0.0.0] - 2026-10-30
 

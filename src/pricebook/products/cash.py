@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pricebook.foundation.cashflow import SCHEMA_VERSION, Cashflow
+from pricebook.foundation.cashflow import SCHEMA_VERSION, Cashflow, check_schema_version
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,7 @@ class FixedCashflow:
 
     @classmethod
     def from_dict(cls, d: dict) -> FixedCashflow:
+        check_schema_version(d)  # the version BEFORE the kind: an unknown format's `kind` means nothing
         if d.get("kind") != "fixed_cashflow":
             raise ValueError(f"not a fixed_cashflow payload: {d.get('kind')!r}")
         return cls(Cashflow.from_dict(d["cashflow"]))
