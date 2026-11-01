@@ -228,3 +228,28 @@ oracle choice, fresh eyes — rules design and contract questions (a layer, a vo
 measure), and has the external reach (sources, documents). The prompt channel is `.cowork/thread.md`
 (append-only, one `Ask:` per entry, pointers not pastes); durable state goes to `docs/`, never only
 the thread.
+
+**The tranche sequence, and the one rule that keeps it from breaking.** Bernardo is the only one who
+merges, and **he merges when Code says to, never when Cowork finishes.**
+
+| # | who | what |
+|---|---|---|
+| 1 | **Code** | propose the tranche — thread `Ask:` + the proposal commit. No PR yet. |
+| 2 | **Cowork** | review the proposal: design, layer, and above all the *oracle choice*. |
+| 3 | **Bernardo** | "cowork is done" |
+| 4 | **Code** | build RED → GREEN, stamp, open the PR. |
+| 5 | **Cowork** | review the built PR. |
+| 6 | **Bernardo** | "cowork is done" |
+| 7 | **Code** | commit whatever Cowork wrote to disk, re-run the gates, confirm CI, **then say "merge now"**. |
+| 8 | **Bernardo** | merge. |
+
+Step 7 is why the merge cannot be step 6. **Cowork writes files but does not commit them** — Code
+owns git — so a merge triggered by "Cowork finished" lands a PR without Cowork's own artifacts.
+*(Precedent: PR #7 merged three minutes before Cowork's checkpoint entry, stranding a ratified
+charter edit and a checkpoint record on a merged branch and costing PR #8 to recover. PR #6 was the
+same shape, caught only because Code said "wait" in time.)*
+
+Steps 2 and 5 are both real passes, not one split in two: step 2 can still redirect the build (it
+rewrote T6's identifiability oracle before a line was written), while step 5 reviews what was
+actually built and is where a checkpoint gets written. Either may be skipped by Bernardo's call; the
+step-7-before-step-8 order may not.
