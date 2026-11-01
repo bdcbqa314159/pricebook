@@ -48,10 +48,31 @@ vol   stage (T6)         (σr, σI) fitted to a YoY floor strip               ->
 The curve stage is already pinned and must not be re-fitted here — refitting curves against vol
 quotes is how a calibration launders a curve error into a vol.
 
-**Fixed (not fitted):** `κn`, `κr`, the three correlations, and `σn`. The thesis fixes mean
-reversions and correlations from historical estimation and takes `σn` from **nominal** ATM caps —
-an instrument this library has no engine for, so `σn` is an **input**, not a fit. Stated plainly
-rather than hidden in a default.
+**Fixed (not fitted):** `κn`, `σn`, `κr`, and the three correlations. Free: `(σr, σI)`.
+
+**Corrected 2026-11-01 — this is a NARROWER fit than the thesis performs, and the first version of
+this section misdescribed why.** It claimed the mean reversions and correlations come from
+historical estimation. They do not. Read in both `-raw` and `-layout`:
+
+- **§5.3.1 fits `κn` *and* `σn`** to ATM *nominal* cap volatilities, by least squares over
+  `Cap_HullWhite(t,Ti,ψi,K_ATM,σn,κn) − Cap_Black(t,Ti,ψi,K_ATM,σ_ATM)`. Both are a fit, not an
+  estimate — and it needs a Hull-White nominal cap engine, which this library has no reason to own
+  yet. So both stay **inputs** here.
+- **§5.3.2 fits SIX parameters** — `{κr, σr, σI, ρnr, ρIr, ρIn}` — to the YoY quotes: "all these
+  parameters enter the YoY inflation Cap/Floor valuation formula, so that we may attempt to
+  calibrate to market prices."
+
+We fit **two of those six**, holding `κr` and the three correlations fixed. That is a deliberate
+subset, now stated as one: the thesis's own result is that the six-parameter fit **does not work** —
+"we know that we cannot fit to the whole surface", removing the two OTM strikes "still results in
+high relative errors", excluding the long end "still results in a poor fit", and "the presence of a
+strike skew makes calibration unfeasible for non ATM contracts". Its conclusion is to restrict to
+near-ATM contracts and a truncated expiry range. A2b is precisely the diagnostic for why: six
+parameters against a thin, nearly-collinear strip is an ill-conditioned fit, and the thesis found
+that empirically without naming it.
+
+**So A1 proves our fit recovers parameters from a strip *our own model generated* — a round trip. It
+is not evidence that JY fits market quotes, and the thesis says plainly that it does not.**
 
 **Free:** `(σr, σI)`. Both enter `V²` (2.6.4) and `σr` additionally scales all of `C` (2.5.11), so
 they move the strip differently — which oracle A2 **proves** rather than assumes.
