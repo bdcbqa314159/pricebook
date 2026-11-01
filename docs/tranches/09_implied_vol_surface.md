@@ -1,7 +1,7 @@
 # Tranche 9 — the implied-vol surface inversion (§5.2)
 
-**Status:** SPLIT per §4. **(a) BUILT** (v0.9.0) — Black at L3 + the inverse. **(b) pending** — the
-strip and the surface. Decided by Cowork (§10 step 1), built by Code. **Results in §7.**
+**Status:** SPLIT per §4, both halves BUILT. **(a)** v0.9.0 — Black at L3 + the inverse.
+**(b)** v0.10.0 — the strip and the surface. Decided by Cowork, built by Code. **Results in §7, §10.**
 **Source:** `BERHAN-2012` §5.2 (`worked-from`) — strip quoted floor prices into floorlets, imply a
 Black vol per (expiry, strike), assemble the surface of Figures 5.3/5.4.
 
@@ -155,3 +155,66 @@ Reworded. Zero suppressions stands, and it is now a slightly harder thing to say
 The floor→floorlet strip (oracle 1, the non-telescoping anchor: a count plus differencing against
 independently-priced floorlets) and the `ImpliedVolSurface` assembly with oracle 4's
 reduction-plus-companion. Its own branch and PR, composing (a).
+
+
+---
+
+## 10. Result — (b) built, and a 50% defect the parameter NAME was hiding
+
+224 tests, eight gates green, ruff and pyright clean, zero suppressions.
+
+### The headline: `expiry` was the wrong name, and (b) proved it costs up to 50%
+(a) shipped `black_implied_vol(price, forward, strike, **expiry**, kind)`. At its second consumer
+that name turned out to be wrong: the divisor is the horizon the **variance** accumulates over, and
+for a year-on-year floorlet that is the **period length**, not the time to expiry. The floorlet on
+`[2y, 3y]` expires at 3y and accumulates one year of variance, because `V² = σ_I²·(Tᵢ − Tᵢ₋₁)` under
+simplified JY (tranche 5's `..._variance_IS_index_vol_squared_times_the_period` is the oracle).
+
+Measured, by passing the expiry deliberately:
+
+| node | true `σ_I` | correct | if the expiry were passed | error |
+|---|---|---|---|---|
+| 1 | 0.00800 | 0.00800 | 0.00800 | **0.0%** |
+| 2 | 0.01200 | 0.01200 | 0.00849 | **−29.3%** |
+| 3 | 0.01800 | 0.01800 | 0.01039 | **−42.3%** |
+| 4 | 0.02500 | 0.02500 | 0.01250 | **−50.0%** |
+
+**Node 1 agrees exactly**, because its period starts at the anchor — so a single-period fixture
+could never have caught this, and every oracle would have stayed green with the forward and inverse
+agreeing on the wrong horizon. Renamed to `variance_years`, and the trap is now pinned by
+`test_passing_the_EXPIRY_instead_of_the_PERIOD_would_understate_the_vol`, asserted on four periods
+with the error required to *grow* with maturity.
+
+This is the writing-time rule earning its place: *if a name needs a comment to explain it, the name
+is wrong.* It needed one.
+
+### Oracle 1 built as Cowork sharpened it
+The count is the **population floor** (no node dropped); the **discriminator** is the per-node value
+match on a fixture where consecutive floorlets differ — four periods, a sloped `σ_I` (0.008 → 0.025)
+*and* sloped curves. Three premises are asserted rather than assumed: the floorlets are pairwise
+distinct with gaps > 1.0; a **reversed** generating strip produces a different middle node (so a
+reorder is detectable, which a count never shows); and `floor(T₀) = 0`, checked by the single-quote
+case where an off-by-one in the differencing direction lands.
+
+Two strikes also strip **independently**, with a test that bumping one column leaves the other
+bit-identical — a builder differencing across *strike* instead of maturity would still produce the
+right node count.
+
+## 11. Findings for Cowork (§10 — raised, not decided)
+
+### 11.1 Out-of-order quotes are sorted, not refused — my test had the requirement wrong
+My RED suite asserted that quotes out of maturity order *raise*. The builder sorts them, and on
+reflection sorting is right: market quotes arrive in whatever order a feed hands over, and refusing
+them pushes a sort onto every caller for nothing. The test became "arbitrary order gives the **same**
+surface", plus a new one for the case sorting genuinely cannot fix — a **duplicate** maturity at one
+strike, which differences to a zero-price floorlet and would imply a bogus zero vol.
+
+### 11.2 The surface does not interpolate, and that absence is now asserted
+§3.4 deferred interpolation. `vol()` raises on an off-node request, and a test asserts it — so the
+absence reads as a decision rather than an oversight, and a future consumer needing an off-node vol
+has to add the scheme deliberately.
+
+### 11.3 `market/vol_surface.py` carries `crosscheck: none` on the container
+Per §8's criterion it holds no numerics — the numbers it stores are cross-checked where they are
+computed (`models/black.py`, `models/implied_vol_surface.py`, both with real targets). Flagged
+because it is a judgement under your criterion and therefore yours to overrule.
