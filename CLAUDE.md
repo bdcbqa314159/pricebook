@@ -221,35 +221,48 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
 
 ## 10. Code ↔ Cowork
 
-**Code leads the build**: proposes each tranche (target, pieces, stock-to-purify, oracle) and builds
-it; owns code, tests, git, and **verification by execution** (Cowork cannot run the suite and never
-marks anything passing). **Cowork reviews before merge** — an independent read of the design and the
-oracle choice, fresh eyes — rules design and contract questions (a layer, a vocabulary type, a
-measure), and has the external reach (sources, documents). The prompt channel is `.cowork/thread.md`
-(append-only, one `Ask:` per entry, pointers not pastes); durable state goes to `docs/`, never only
-the thread.
+**Cowork decides. Code verifies and builds.** Ruled by Bernardo, 2026-11-01, replacing the earlier
+"Code leads the build" split — two surfaces each proposing a design produced competing judgement on
+the same question, which is overhead, not review.
+
+**Cowork owns the decisions**: what the next unit is, the target, the pieces, the layer, the
+vocabulary, and above all **the oracle choice**. It has the external reach (sources, documents).
+**Code owns execution**: the code, the tests, git, and **verification by execution** — Cowork cannot
+run the suite and never marks anything passing.
+
+The boundary that matters, because it is the one thing that is *not* a decision: **Code reports what
+execution shows, including when a Cowork claim does not hold.** A number that fails, a gate that
+rejects, a markers-exist claim with zero instances — those are findings, and reporting them is
+Code's job, not a competing opinion. Code then **asks Cowork to rule**, and does not rule itself.
+*(Precedent: three claims in the T1–T6 checkpoint did not survive execution. Correcting the record
+was right; deciding what to do about §8's empty crosscheck mechanism was not Code's call, so it
+became `OPEN.md` OI-1 for Cowork to rule.)*
+
+So Code does **not** propose the tranche, rule a design question, or recommend the next unit.
+
+The prompt channel is `.cowork/thread.md` (append-only, one `Ask:` per entry, pointers not pastes);
+durable state goes to `docs/`, never only the thread.
 
 **The tranche sequence, and the one rule that keeps it from breaking.** Bernardo is the only one who
 merges, and **he merges when Code says to, never when Cowork finishes.**
 
 | # | who | what |
 |---|---|---|
-| 1 | **Code** | propose the tranche — thread `Ask:` + the proposal commit. No PR yet. |
-| 2 | **Cowork** | review the proposal: design, layer, and above all the *oracle choice*. |
-| 3 | **Bernardo** | "cowork is done" |
-| 4 | **Code** | build RED → GREEN, stamp, open the PR. |
-| 5 | **Cowork** | review the built PR. |
-| 6 | **Bernardo** | "cowork is done" |
-| 7 | **Code** | commit whatever Cowork wrote to disk, re-run the gates, confirm CI, **then say "merge now"**. |
-| 8 | **Bernardo** | merge. |
+| 1 | **Cowork** | decide the unit: target, pieces, layer, and the oracle. Writes it to `docs/`. |
+| 2 | **Bernardo** | "cowork is done" |
+| 3 | **Code** | build RED → GREEN against that decision, stamp, open the PR. Raise findings as `Ask:`s — never a counter-proposal. |
+| 4 | **Cowork** | review the built PR; rule any finding Code raised. |
+| 5 | **Bernardo** | "cowork is done" |
+| 6 | **Code** | commit whatever Cowork wrote to disk, re-run the gates, confirm CI, **then say "merge now"**. |
+| 7 | **Bernardo** | merge. |
 
-Step 7 is why the merge cannot be step 6. **Cowork writes files but does not commit them** — Code
+Step 6 is why the merge cannot be step 5. **Cowork writes files but does not commit them** — Code
 owns git — so a merge triggered by "Cowork finished" lands a PR without Cowork's own artifacts.
 *(Precedent: PR #7 merged three minutes before Cowork's checkpoint entry, stranding a ratified
 charter edit and a checkpoint record on a merged branch and costing PR #8 to recover. PR #6 was the
 same shape, caught only because Code said "wait" in time.)*
 
-Steps 2 and 5 are both real passes, not one split in two: step 2 can still redirect the build (it
-rewrote T6's identifiability oracle before a line was written), while step 5 reviews what was
+Steps 1 and 4 are both real passes, not one split in two: step 1 sets the oracle before a line is
+written (it is where T6's identifiability oracle was decided), while step 4 reviews what was
 actually built and is where a checkpoint gets written. Either may be skipped by Bernardo's call; the
-step-7-before-step-8 order may not.
+step-6-before-step-7 order may not.
