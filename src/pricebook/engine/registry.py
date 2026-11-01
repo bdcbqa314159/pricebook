@@ -14,6 +14,7 @@ Provenance:
   source: CLAUDE.md-era §1 (engine registry inside L4; no isinstance ladders)
   oracle: an unregistered product returns a PricingFailure, not a raise
           (test_an_unregistered_product_type_is_a_FAILURE)
+  crosscheck: none — product→pricer dispatch, no numerics
   slice:  tranche 1 — minimal spine
 """
 

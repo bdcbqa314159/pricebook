@@ -58,11 +58,16 @@ not just acyclic** (`verify.py layers`): L0 is finance-free (no strikes, vols, p
 discounting *in code* — a docstring explaining finance context is fine). Products are frozen data;
 they do not price themselves — pricing lives in L4.
 
-**Calibration splits by what it inverts** — the one place the box above misleads, so it is spelled
-out. A *model-free* calibration (a curve bootstrap — T2's break-even inversion) imports nothing
-above it and is **L3**. A calibrator that **inverts an engine** — fitting parameters by repricing
-through `price()`, as JY-to-a-floor-strip does — is a *consumer* of the engine and sits at **L4**
-(it lives in `engine/`), not L3; `acyclic` enforces it rather than it being a matter of taste.
+**Calibration splits by what it produces and what it inverts** — the one place the box above
+misleads, so it is spelled out. A **curve bootstrap** (market quotes → a curve, using only L0+L1 —
+T2's break-even inversion, T8's nominal par-swap bootstrap) produces *market data* and is **L1**
+(it lives in `market/`). A **model-free parameter calibration** (model parameters fitted
+analytically, no engine) is **L3**. A calibrator that **inverts an engine** — fitting parameters by
+repricing through `price()`, as JY-to-a-floor-strip does — is a consumer of the engine and sits at
+**L4** (`engine/`). `acyclic` enforces all three; the split is by what the calibration *produces*
+(a curve → L1, model params → L3) and what it *reads* (the engine → L4), not by taste. *(The earlier
+text called the break-even bootstrap L3; it is in `market/` at L1, and a charter stating a false
+practice is the error §8 and §9 also had to correct.)*
 
 ---
 
@@ -119,7 +124,14 @@ not an oracle. Ruled principles:
   oracle (one product composed from another's verified piece, different code each side) catches a
   shared source-reading error that no within-product check can — it has now done so twice (T3's
   strip reconciliation, T5's `cap−floor = the YoY leg`). *(This whole bullet is v0.4.0's mis-nested
-  convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)*
+  convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)* A requirement
+  oracle also catches **a misprint in the source itself** — a typo both renderings reproduce
+  faithfully, which transcription-independence (`-raw` + `-layout`) is powerless against because both
+  are faithful to the wrong print. The only property that survives the source being wrong is one the
+  finance must satisfy: *a formula and its stated inverse must actually invert.* **T8's known-curve
+  round trip caught two misprinted equations in `BERHAN-2012` §5.1** (a spurious sign in 5.1.1, a
+  `j=0` vs `j=1` annuity index in 5.1.2) — the first defect traced to the source being wrong rather
+  than to our reading of it.
 
 - **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
   is evidence only about what the oracle *examined*. Every defect this project has shipped was an
@@ -191,15 +203,21 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
 - **No debt is silenced silently.** Every suppression, shim, skip or load-bearing TODO goes in
   `OPEN.md` with a rationale and a re-open trigger, or it does not exist. CI invariant: suppressions
   − ledger entries = 0. Debt may never buy a green oracle.
-- **Deferred external validation is tagged in the provenance header, not ignored.** A
+- **Deferred external validation is tagged in the provenance header, and its presence is gated.** A
   `crosscheck: <library> <thing> — deferred …` line sits with `stock:`/`source:`/`oracle:`/`slice:`
-  in the header of every model-dependent pricer wanting a known-library cross-check, so the optional
-  QuantLib tier (later, dev-only, skippable — never in the reproducibility contract or a merge gate)
-  is complete by construction, not from memory. The spelling is the **header line, no `#`** — where
-  provenance lives and where the `provenance` gate already parses, so validating its form is a cheap
-  gate extension. *(It reached six of six model-dependent sites unprompted; the clause read as empty
-  only under a grep for `# crosscheck:`, the `#` form the tree does not use — OI-1, ruled
-  2026-11-01: the discipline was working, the fix was the spelling, not a narrowing.)*
+  in the header (no `#`), so the optional QuantLib tier (later, dev-only, skippable — never in the
+  reproducibility contract or a merge gate) is complete by construction, not from memory. A module
+  **wants** one when it implements a numerical finance convention or model formula a known library
+  independently implements — the model-dependent pricers, and the market-data constructions (curves,
+  the fixing-series resolution); value types, dispatch and pure-data products do not.
+  **Gated by presence, with explicit exemption** (the `fields-exempt` / `slow-test-exempt` pattern):
+  every module under `market/`, `models/` and `engine/` carries either a real `crosscheck:` target
+  or `crosscheck: none — <reason>`, enforced by the `provenance` gate, which already walks them — so
+  a new module with neither fails CI and nothing drifts silently. *(OI-1, ruled then upgraded
+  2026-11-01: form-only was ruled first, and T7 drifted the same hour — a new `market/` module with
+  a real QuantLib target and no marker, which form-only could never have caught. Presence-with-
+  exemption is the half that bites. The original "zero instances" reading was a grep for
+  `# crosscheck:` — the `#` form the tree never used.)*
 
 ---
 

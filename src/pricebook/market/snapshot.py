@@ -11,6 +11,7 @@ Provenance:
           time; each returns when a product pulls it)
   source: CLAUDE.md-era §2 invariant 2 (no ambient state) + doc 19 §2
   oracle: the snapshot is never mutated across a reprice (test_repricing_is_byte_identical)
+  crosscheck: none — a frozen market-state value bag, no numerics
   slice:  tranche 1 — minimal spine
 """
 

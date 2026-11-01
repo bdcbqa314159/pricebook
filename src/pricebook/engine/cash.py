@@ -14,6 +14,7 @@ Provenance:
   source: standard discounting; CLAUDE.md-era §2 invariant 6 (valuation-date partition)
   oracle: `PV = N·e^{−rt}` to 1e-12; analytic vs finite-difference DV01 to 1e-6; the
           on-the-date and one-day-after boundary cases
+  crosscheck: none — PV = N·df; the df convention is cross-checked at market/curve.py
   slice:  tranche 1 — minimal spine
 """
 
