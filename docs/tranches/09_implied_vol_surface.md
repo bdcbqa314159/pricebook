@@ -33,11 +33,19 @@ bootstrap using only L0+L1; a market-data object built *through a model analytic
 analytic's layer and returns the L1 type. **Code: confirm `acyclic`/`layers` accept an L3 builder
 constructing an L1 value; if they object, raise it — I may have the split wrong and will re-rule.**
 
+**Parameterised by TOTAL VARIANCE, not `(σ, T)` — ruled, confirming (a)'s build.** `black_price`
+takes `V²` because JY's variance (eq 2.6.4) is an eight-term total variance, *not* `σ²·T`; a
+`(σ, T)` signature would force the caplet pricer to invent a `σ` the model does not have. **The
+surface node stores `σI` (annualised)**, matching Figures 5.3/5.4's axis: `black_implied_vol`
+annualises at its boundary, `σI = √(V²_implied / τ)` with `τ` on the **vol clock (ACT/365F, the C2
+convention)** — the one place annualisation happens. Internally the strip works in variance; the
+round trip (oracle 2) must convert back, `V² = σI²·τ`, or it will look wrong for a right reason.
+
 ## 2. The oracle
 
 | # | oracle | rung | why it can go red |
 |---|---|---|---|
-| 1 | **ANCHOR — the strip is a decomposition, tested as one.** A floor to `Tₙ` is `Σ` floorlets to `T₁..Tₙ`; differencing recovers each floorlet, and the stripped floorlet prices equal floorlets **independently priced in the test from a known σI**. A *count* too: an N-expiry floor strips to N floorlets | **1 — structural** | tests the structure, not a scalar off it (the T3/T8 strip pattern); a mis-indexed difference or a dropped node shows here |
+| 1 | **ANCHOR — the strip is a decomposition, tested as one, on a DISCRIMINATING fixture.** A floor to `Tₙ` is `Σ` floorlets to `T₁..Tₙ`; `floorletᵢ = floorᵢ − floorᵢ₋₁` with `floor(T₀)=0` (the direction asserted, not assumed), and the stripped floorlet prices equal floorlets **independently priced in the test from a known σI surface**. The count (N expiries → N floorlets) is the *population floor* — it proves none was dropped, not that they are right. The **discriminator is the per-node value match, and it only has power on a fixture where consecutive floorlets DIFFER** (≥3 expiries, a sloped σI and/or varying forwards): a flat/equal strip passes a mis-indexed or reversed differencing silently, because every node holds the same number. State the distinct-values premise, as T6/T8 had to | **1 — structural** | tests the structure, not a scalar off it (the T3/T8 strip pattern); a mis-indexed or reversed difference moves a specific middle node, which only distinct per-node values reveal |
 | 2 | **Black inversion round trip (consistency guard — telescopes, leans on T5):** price a floorlet at known σ through Black, imply it back, recover σ to 1e-10. It cannot catch a shared Black error — **but T5 already oracled the forward Black against the thesis independently**, so with that prior it proves the root-find inverter is correct | self-consistency | the root-find converging to the wrong root |
 | 3 | **monotonicity:** implied σI strictly increases with floorlet price | **structural** | a wrong root or a sign error, invisible to a single round trip |
 | 4 | **reduction + companion:** a FLAT σI input → prices → strip → invert → flat σI recovered (reduction); a **sloped** σI input recovers the slope, not a constant (companion — the inverter is not returning a fixed number) | exact / structural | the charter's reduction clause; the companion is mandatory |
