@@ -124,7 +124,14 @@ not an oracle. Ruled principles:
   oracle (one product composed from another's verified piece, different code each side) catches a
   shared source-reading error that no within-product check can — it has now done so twice (T3's
   strip reconciliation, T5's `cap−floor = the YoY leg`). *(This whole bullet is v0.4.0's mis-nested
-  convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)*
+  convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)* A requirement
+  oracle also catches **a misprint in the source itself** — a typo both renderings reproduce
+  faithfully, which transcription-independence (`-raw` + `-layout`) is powerless against because both
+  are faithful to the wrong print. The only property that survives the source being wrong is one the
+  finance must satisfy: *a formula and its stated inverse must actually invert.* **T8's known-curve
+  round trip caught two misprinted equations in `BERHAN-2012` §5.1** (a spurious sign in 5.1.1, a
+  `j=0` vs `j=1` annuity index in 5.1.2) — the first defect traced to the source being wrong rather
+  than to our reading of it.
 
 - **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
   is evidence only about what the oracle *examined*. Every defect this project has shipped was an
