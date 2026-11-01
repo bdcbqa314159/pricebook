@@ -39,6 +39,7 @@ enumeration.
 | C6 | **`cva` weights by `ΔQ`; `fva` weights by `funding_spread·Δt`** — survival increments for a loss conditional on default, a spread over time for funding | `risk/xva.py` (the shared `exposure_integral` and its three callers) | **guarded** — `test_survival_weights_are_INCREMENTS_not_levels` (sums to `1−Q(tₙ)`), `test_fva_matches_the_flat_spread_closed_form`, and `cva`-via-the-atom == `cva` to the ULP |
 | C7 | **The break-even-curve construction, the nominal curve's `TimeMeasure`, and a ZCIIS contract's `Term.day_count` share ONE day-count convention.** The par identity (1.2.16) holds only under it: `Pr` is built by converting quote dates on the *curve's* measure, while the fixed leg compounds on the *contract's* day count. | `market/inflation_curve.py` (L1 construction) ↔ `foundation/term.py` + `products/inflation.py` (L2 contract) ↔ `engine/inflation.py` | **OWED** — the **pointwise** 1.2.16 oracle guards the constructor's arithmetic, but the **par oracle telescopes on a matched convention** and has no power to detect a divergence between the two. **Currently unrepresentable**: the library has one day count (`ACT/365F`), so the convention cannot yet be violated. **Trigger:** the first second day count — a 30/360 market, or multi-currency inflation — at which point it needs a structural guard or a *powered* oracle (a fixture where the two conventions genuinely differ). |
 | C8 | **A coupon schedule's accrual day count and its discount curve's `TimeMeasure` are one convention.** A linker pays `C·ψᵢ` with `ψ` on `CouponSchedule.day_count`, while `Pr.df` is looked up by date on the curve's own measure. | `foundation/schedule.py` (L0 accrual) ↔ `market/curve.py` (L1 measure) ↔ `engine/inflation.py` | **OWED** — a **C7 sibling**, registered because `day_count` is genuinely read (thread 0019's question). The closed-form oracle computes `ψ` itself, so it *does* guard the accrual arithmetic; what is unguarded is the two conventions *disagreeing*. **Currently unrepresentable** — one day count exists. **Trigger:** the first second day count, shared with C7. |
+| C9 | **`I(t)` is resolved through ONE atom** — `market.fixing_series.reference_level(series, date, index)` applies the index's publication lag and interpolation. Three engines need a reference level and must not disagree about which monthly print it is. | `engine/inflation.py` (ZCIIS + linker, via `resolved_index_level`) ↔ `engine/yoy.py` (the seasoned reset, via `_seasoning_ratio`) ↔ `market/fixing_series.py` (the atom) | **guarded — structurally.** Not by a comparison test but by there being **one function**: both call sites compose `reference_level`, so a divergence is not expressible without first duplicating it. The atom's own conventions are oracled in `tests/L1/test_fixing_series.py` with a *powered* fixture (sloped series, mid-month date, FLAT vs LINEAR required to disagree). **Trigger to re-examine:** a fourth consumer that resolves its own level instead of composing this one, or an index whose convention is not (lag, FLAT\|LINEAR) — a quarterly print, or a seasonality adjustment. |
 
 ---
 
@@ -62,6 +63,14 @@ rather than by a wrong number.
 second convention bug — so the honest action now is to *record the exposure*, not to pre-emptively
 build three gates. If C2 is what breaks next, this file is the reason it will be found in one slice
 rather than two.
+
+**C9 is the first row that is guarded STRUCTURALLY rather than by a test, and that is worth naming.**
+Every other row asks "does an oracle compare the modules?" C9 answers a stronger question: the
+modules cannot disagree, because there is only one implementation for them to read. That is the
+better outcome where it is achievable — a shared atom beats a comparison test, which can only
+detect a divergence after it exists. It is recorded here anyway, because the *reason* three engines
+agree is a fact about the design that a future fourth engine could silently break by resolving its
+own level.
 
 ## Maintenance
 

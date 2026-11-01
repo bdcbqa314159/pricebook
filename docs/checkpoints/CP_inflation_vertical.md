@@ -62,15 +62,23 @@ none hidden:
 - **Market Model II** (the thesis's second model, ch 3–4) is not built — only Jarrow–Yildirim.
 - **`σn`** is a named input, not fitted (no nominal-cap engine); the `(σr,σI)` fit is conditional on
   it.
+- **The calibration is two of the thesis's six parameters, and A1 is a round trip, not a market
+  fit.** §5.3.2 fits `{κr, σr, σI, ρnr, ρIr, ρIn}` and §5.3.1 fits `κn` and `σn`; T6 fits `(σr,σI)`.
+  The subset is right *because the six-parameter fit does not work* — the thesis restricts to
+  near-ATM over a truncated expiry range and still reports high relative errors, which is exactly
+  the ill-conditioning A2b now has a name for. So **A1 recovers parameters from a strip our own
+  model generated — evidence the solve is well-posed, not evidence JY fits market quotes, which the
+  thesis says plainly it does not.** *(Added 2026-11-01 from the coverage map, PR #9.)*
 - **No smile** (ATM only) — faithful to the thesis's own finding.
-- **QuantLib** cross-check deferred — but **the `# crosscheck:` markers charter §8 requires do not
-  exist**: `grep -rn '# crosscheck:' src/` returns nothing across all six tranches. *(Corrected by
-  Code, 2026-11-01; the record claimed they were "placed at every site that wants it".)* So the
-  mechanism meant to make the QuantLib tier complete **by construction** is empty, and the tier
-  would have to be assembled from memory — the one thing the clause forbids. Logged as `OPEN.md`
-  **OI-1** rather than silently fixed, because the choice between enforcing the clause (markers
-  owed across five tranches, and a gate, or it drifts again) and narrowing it is a ruling, not a
-  cleanup. Blocks nothing: the tier is outside the reproducibility contract and every merge gate.
+- **QuantLib** cross-check deferred. The markers charter §8 asks for **do exist — six of them**, at
+  `models/jarrow_yildirim.py`, `market/inflation_curve.py`, `engine/yoy.py`, `engine/inflation.py`
+  (×2) and `engine/capfloor.py`, covering every model-dependent pricer plus the inflation curve.
+  *(Twice corrected. Cowork's original claim that they were "placed at every site" was right; Code's
+  correction saying they "do not exist" was **wrong** — it grepped the charter's literal `# crosscheck:`
+  comment form while the tree writes `crosscheck:` in the provenance header. Code's own error, and
+  charter §4's defect class committed by the person invoking it: the search's domain excluded the
+  form the thing takes. `OPEN.md` OI-1 is reopened on the corrected facts; the only live question is
+  which of the two spellings §8 should specify.)*
 
 ## 5. Debt + smell scan
 Zero suppressions in `src/` or `tests/`, confirmed by execution. No file over the field/arg limits

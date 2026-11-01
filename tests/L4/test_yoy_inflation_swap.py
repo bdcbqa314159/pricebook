@@ -24,6 +24,7 @@ from pricebook.foundation import (
     CouponSchedule,
     Currency,
     DayCountConvention,
+    IndexInterpolation,
     InflationIndex,
     Money,
     PricingFailure,
@@ -31,7 +32,7 @@ from pricebook.foundation import (
     Term,
     YoYLeg,
 )
-from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
+from pricebook.market import FixingSeries, CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.models import (
     HullWhiteParams,
     JarrowYildirim,
@@ -44,7 +45,7 @@ from pricebook.products import YearOnYearInflationSwap, ZeroCouponInflationSwap
 VAL = date(2026, 1, 15)
 EUR = Currency("EUR")
 DC = DayCountConvention.ACT_365_FIXED
-HICP = InflationIndex("HICPxt")
+HICP = InflationIndex("HICPxt", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
 N, FIXED = 1_000_000.0, 0.021
 DATES = tuple(VAL + timedelta(days=365 * k) for k in range(6))   # start + 5 annual periods
 SCHEDULE = CouponSchedule(DATES, DC)
@@ -57,6 +58,18 @@ SI = 0.012
 CORR = JYCorrelations(nominal_real=0.30, real_index=-0.20, nominal_index=0.15)
 
 
+
+def _level_series(level: float) -> FixingSeries:
+    """A series that resolves to `level` at ANY date, because every print is equal — so neither the
+    publication lag nor the interpolation weight can change the answer.
+
+    Deliberately flat *here*: these are the tranche 2–6 oracles, where the index LEVEL is what is
+    under test and resolution is not. The conventions get a sloped, mid-month fixture in
+    `tests/L1/test_fixing_series.py`, which is where a flat series would have no power."""
+    return FixingSeries(
+        {date(y, m, 1): level for y in range(2024, 2032) for m in range(1, 13)}
+    )
+
 def _snapshot(nominal: float = 0.03, real: float = 0.01) -> MarketSnapshot:
     return MarketSnapshot(
         valuation_date=VAL,
@@ -66,7 +79,7 @@ def _snapshot(nominal: float = 0.03, real: float = 0.01) -> MarketSnapshot:
                 REAL_KEY: DiscountCurve.flat(VAL, real, DC),
             }
         ),
-        index_fixings={HICP: 100.0},
+        fixings={HICP: _level_series(100.0)},
     )
 
 

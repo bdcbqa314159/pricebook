@@ -38,29 +38,77 @@ Provenance:
 from __future__ import annotations
 
 import math
+from datetime import date
 
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
+from pricebook.market.fixing_series import reference_level
+from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.jarrow_yildirim import JarrowYildirim
 from pricebook.products.inflation import YearOnYearInflationSwap
 
 
+def _seasoning_ratio(
+    swap: YearOnYearInflationSwap, market: MarketSnapshot, reset_date: date
+) -> float:
+    """`I(t) / I(T_{iota(t)-1})` — the realised index growth since the current period's reset.
+
+    Exactly 1.0 at inception, where `t` and `reset_date` are the same day and so resolve to the
+    same print. Both levels come from the one shared resolution atom, so the numerator and
+    denominator cannot be read under different conventions."""
+    if market.valuation_date <= reset_date:
+        # **Not an assumption — a definition.** The period has not begun accruing, so no time has
+        # passed since its reset and the ratio is exactly 1. This is the one case where eq 2.5.13
+        # is the whole truth, and it is why a year-on-year swap at inception needs no fixing at
+        # all: the first term really is `Pr − Pn`. Tranche 4 asserted that
+        # (`test_the_yoy_swap_needs_NO_index_fixing_at_inception`) and the assertion is correct, so
+        # requiring a series here would be a regression dressed as rigour.
+        #
+        # The guard is on the DATES, never on "is a series present" — a missing series must still
+        # fail for a seasoned trade rather than fall back to 1.0, which was the original defect.
+        return 1.0
+    try:
+        series = market.fixings[swap.index]
+    except KeyError:
+        raise KeyError(
+            f"no fixing series for {swap.index}; refusing to assume the index has not moved "
+            f"since the period's reset on {reset_date}"
+        ) from None
+    current = reference_level(series, market.valuation_date, swap.index)
+    reset = reference_level(series, reset_date, swap.index)
+    return current / reset
+
+
 def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: JarrowYildirim) -> float:
-    """The inflation leg of eq 2.5.13. Raises on missing market data; the pricer turns that into a
-    `PricingFailure`."""
+    """The inflation leg of eq **2.5.12** — the general `t`, seasoned form. Raises on missing market
+    data; the pricer turns that into a `PricingFailure`.
+
+    **This was eq 2.5.13 until tranche 7, and that was a silent wrong number at any seasoned
+    valuation date.** 2.5.13 is 2.5.12 specialised to `t = 0`, where `I(t)/I(T_0) = I0/I0 = 1`; the
+    tranche 4 implementation applied that unit ratio *unconditionally*, so valuing a seasoned trade
+    it returned the answer for "the index has not moved since the last reset" — never reading the
+    published reset, and never refusing either. Measured on a 3y annual swap 18 months in, with
+    inflation realised at 2%/yr since the reset: **98.7 bp of notional, 34.9% of this leg** (196.5 bp
+    at 4%). No oracle caught it because every oracle valued at inception, where the two forms
+    coincide exactly — the oracle's domain excluded the failure (charter §4)."""
     market = model.market
     currency = swap.notional.currency
     nominal = market.curves.discount(currency)
     real = market.curves.real(currency)
     measure = nominal.time_measure
-    periods = [p for p in swap.leg.schedule.periods() if p[1] > market.valuation_date]
+    schedule = list(swap.leg.schedule.periods())
+    periods = [p for p in schedule if p[1] > market.valuation_date]
     if not periods:
         return 0.0
 
-    # The FIRST remaining period is the zero-coupon form (1.2.13) with its previous fixing known:
-    # `Pr(0,T1) - Pn(0,T1)`, which is exactly tranche 2's leg at a unit index ratio.
-    _, first_pay, first_psi = periods[0]
-    total = first_psi * (real.df(first_pay) - nominal.df(first_pay))
+    # The FIRST remaining period is `iota(t)`: in progress (or, at inception, just starting). It
+    # pays on the ratio to an ALREADY-PUBLISHED reset, so it is the zero-coupon form (1.2.13) with
+    # `I(T_{iota-1})` as its base -- a print, never a curve-implied forward. At inception the
+    # valuation date IS that period's start, so both resolve to the same print and the ratio is
+    # exactly 1.0, recovering 2.5.13 by construction rather than by a numerical limit.
+    first_start, first_pay, first_psi = periods[0]
+    ratio = _seasoning_ratio(swap, market, first_start)
+    total = first_psi * (ratio * real.df(first_pay) - nominal.df(first_pay))
 
     # Later periods carry the forward ratio and the convexity.
     for start, pay, psi in periods[1:]:

@@ -51,7 +51,7 @@ class ZeroCouponInflationSwap:
         return {
             "kind": "zc_inflation_swap",
             "schema_version": SCHEMA_VERSION,
-            "index": self.index.name,
+            "index": self.index.to_dict(),
             "base_index": self.base_index,
             "fixed_rate": self.fixed_rate,
             "term": self.term.to_dict(),
@@ -64,7 +64,7 @@ class ZeroCouponInflationSwap:
         if d.get("kind") != "zc_inflation_swap":
             raise ValueError(f"not a zc_inflation_swap payload: {d.get('kind')!r}")
         return cls(
-            InflationIndex(d["index"]),
+            InflationIndex.from_dict(d["index"]),
             float(d["base_index"]),
             float(d["fixed_rate"]),
             Term.from_dict(d["term"]),
@@ -108,7 +108,7 @@ class InflationLinkedBond:
         return {
             "kind": "inflation_linked_bond",
             "schema_version": SCHEMA_VERSION,
-            "index": self.index.name,
+            "index": self.index.to_dict(),
             "base_index": self.base_index,
             "leg": self.leg.to_dict(),
             "notional": self.notional.to_dict(),
@@ -121,7 +121,7 @@ class InflationLinkedBond:
         if d.get("kind") != "inflation_linked_bond":
             raise ValueError(f"not an inflation_linked_bond payload: {d.get('kind')!r}")
         return cls(
-            InflationIndex(d["index"]),
+            InflationIndex.from_dict(d["index"]),
             float(d["base_index"]),
             RealLeg.from_dict(d["leg"]),
             Money.from_dict(d["notional"]),
@@ -146,7 +146,7 @@ class YearOnYearInflationSwap:
         return {
             "kind": "yoy_inflation_swap",
             "schema_version": SCHEMA_VERSION,
-            "index": self.index.name,
+            "index": self.index.to_dict(),
             "leg": self.leg.to_dict(),
             "notional": self.notional.to_dict(),
         }
@@ -157,7 +157,7 @@ class YearOnYearInflationSwap:
         if d.get("kind") != "yoy_inflation_swap":
             raise ValueError(f"not a yoy_inflation_swap payload: {d.get('kind')!r}")
         return cls(
-            InflationIndex(d["index"]),
+            InflationIndex.from_dict(d["index"]),
             YoYLeg.from_dict(d["leg"]),
             Money.from_dict(d["notional"]),
         )
@@ -194,7 +194,7 @@ class InflationCapFloor:
         return {
             "kind_": "inflation_capfloor",
             "schema_version": SCHEMA_VERSION,
-            "index": self.index.name,
+            "index": self.index.to_dict(),
             "schedule": self.schedule.to_dict(),
             "strike": self.strike,
             "notional": self.notional.to_dict(),
@@ -207,7 +207,7 @@ class InflationCapFloor:
         if d.get("kind_") != "inflation_capfloor":
             raise ValueError(f"not an inflation_capfloor payload: {d.get('kind_')!r}")
         return cls(
-            InflationIndex(d["index"]),
+            InflationIndex.from_dict(d["index"]),
             CouponSchedule.from_dict(d["schedule"]),
             float(d["strike"]),
             Money.from_dict(d["notional"]),

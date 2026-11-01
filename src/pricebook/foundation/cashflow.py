@@ -19,7 +19,12 @@ from pricebook.foundation.money import Money
 #: Bump when the serialised shape changes incompatibly. Present from the first product because a
 #: format with no version cannot change without silently breaking a reader — and the scope line
 #: makes this representation the library's durable public contract.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+#: v1 -> v2 (tranche 7): a product's `"index"` went from a bare NAME to the nested object
+#: `InflationIndex.to_dict()`, because a name alone cannot say which monthly print `I(t)` is --
+#: the publication lag and the interpolation convention decide that, and they change the number.
+#: `InflationIndex.from_dict` REFUSES a bare string rather than defaulting the conventions, so a
+#: v1 payload fails loudly instead of being priced on a guessed convention.
 
 
 def check_schema_version(payload: dict) -> int:

@@ -11,7 +11,15 @@ from datetime import date
 
 import pytest
 
-from pricebook.foundation import Cashflow, Currency, Money, check_schema_version
+from pricebook.foundation import (
+    SCHEMA_VERSION,
+    Cashflow,
+    Currency,
+    IndexInterpolation,
+    InflationIndex,
+    Money,
+    check_schema_version,
+)
 from pricebook.products import FixedCashflow
 
 USD = Currency("USD")
@@ -69,5 +77,32 @@ def test_the_version_is_checked_BEFORE_the_kind() -> None:
 
 
 def test_the_check_returns_the_version_it_validated() -> None:
-    """So a future migration can branch on it rather than re-reading the raw field."""
-    assert check_schema_version(_flow().to_dict()) == 1
+    """So a future migration can branch on it rather than re-reading the raw field. Pinned to the
+    module's own constant rather than a literal: the point is that the value round-trips, and a
+    literal here would have to be edited at every bump for no gain."""
+    assert check_schema_version(_flow().to_dict()) == SCHEMA_VERSION
+
+
+# ---- tranche 7: the index became a nested object, and a v1 payload must FAIL LOUDLY ----
+
+def test_a_PRE_T7_bare_index_name_is_REFUSED_not_defaulted() -> None:
+    """The v1 -> v2 break, asserted. A v1 payload wrote `"index": "HICPxt"` — a name, which cannot
+    say which monthly print `I(t)` is. Reading one by assuming "3 months, linear" would price a UK
+    gilt on the TIPS convention: a silent wrong number, which is exactly what tranche 7 removed
+    from the engine. So the absent conventions are the caller's problem to resolve, not a gap
+    `from_dict` fills in.
+
+    Note `check_schema_version` alone CANNOT catch this — it only rejects payloads NEWER than the
+    build, so a v1 payload passes the version gate and the refusal has to come from the reader."""
+    with pytest.raises(ValueError, match="bare name"):
+        InflationIndex.from_dict("HICPxt")
+
+
+def test_the_index_round_trips_its_CONVENTIONS_not_only_its_name() -> None:
+    """Two indices differing only in convention must survive the round trip as different objects —
+    otherwise the representation silently merges a gilt and a TIPS."""
+    gilt = InflationIndex("UKRPI", publication_lag=8, interpolation=IndexInterpolation.FLAT)
+    tips = InflationIndex("UKRPI", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
+    assert InflationIndex.from_dict(gilt.to_dict()) == gilt
+    assert InflationIndex.from_dict(tips.to_dict()) == tips
+    assert gilt.to_dict() != tips.to_dict()

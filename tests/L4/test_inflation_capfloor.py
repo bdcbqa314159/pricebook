@@ -21,6 +21,7 @@ from pricebook.foundation import (
     CouponSchedule,
     Currency,
     DayCountConvention,
+    IndexInterpolation,
     InflationIndex,
     Money,
     PricingFailure,
@@ -34,7 +35,7 @@ from pricebook.products import InflationCapFloor, YearOnYearInflationSwap
 VAL = date(2026, 1, 15)
 EUR = Currency("EUR")
 DC = DayCountConvention.ACT_365_FIXED
-HICP = InflationIndex("HICPxt")
+HICP = InflationIndex("HICPxt", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
 N = 1_000_000.0
 DATES = tuple(VAL + timedelta(days=365 * k) for k in range(4))   # start + 3 annual periods
 SCHEDULE = CouponSchedule(DATES, DC)
