@@ -1,6 +1,7 @@
 # Tranche 9 — the implied-vol surface inversion (§5.2)
 
-**Status:** DECIDED by Cowork (§10 step 1), awaiting build. **Target:** `v0.9.0`.
+**Status:** SPLIT per §4. **(a) BUILT** (v0.9.0) — Black at L3 + the inverse. **(b) pending** — the
+strip and the surface. Decided by Cowork (§10 step 1), built by Code. **Results in §7.**
 **Source:** `BERHAN-2012` §5.2 (`worked-from`) — strip quoted floor prices into floorlets, imply a
 Black vol per (expiry, strike), assemble the surface of Figures 5.3/5.4.
 
@@ -89,3 +90,60 @@ Branch `tranche/09-implied-vol-surface` (or `-a`/`-b` if split). `test` (RED) �
 `chore(release): v0.9.0`. `source:` cites `BERHAN-2012` §5.2 + standard Black-76. The Black
 extraction's provenance notes it supersedes the inline caplet Black, and T5's oracles are re-run
 green to prove the refactor moved nothing.
+
+
+---
+
+## 7. Result — (a) built, and the layering call is confirmed empirically
+
+**Split taken**, per §4's pre-authorised cut: **(a)** Black extracted to L3 + `black_implied_vol`
+with oracles 2, 3, 5; **(b)** the floor→floorlet strip + the surface with oracles 1, 4, composing
+(a). 204 tests, eight gates green, ruff and pyright clean, zero suppressions.
+
+### The layering call — CONFIRMED, by running the gates, not by reading them
+§1 asked Code to confirm that an L3 builder may construct and return an L1 value. It may: a throwaway
+`models/_probe.py` importing `market.curve.DiscountCurve` and returning one passes both `acyclic`
+and `layers`. The import is L3→L1, which is *downward* and therefore allowed; nothing about the
+*return* type is constrained. Probe deleted; the gates were re-run after removal to confirm the
+baseline. So §1's refinement of §2 stands as written, and (b) can be built on it.
+
+### Black is parameterised by TOTAL VARIANCE, not `(σ, T)`
+Worth recording because it is not the Black-76 textbook signature. JY's `V²` (eq 2.6.4) is a total
+variance assembled from eight terms and is **not** `σ²·T`, so a `(σ, T)` signature would force
+every caller to invent a `σ` the model does not have. Annualisation appears only at the inverse's
+boundary, where §5.2's surface wants `σ_I` per (expiry, strike).
+
+### The extraction is bit-identical, and that was measured
+Eight cap/floor strip prices (4 strikes × cap/floor, including a negative strike) were captured as
+`repr()` before the refactor and compared after: **all eight identical to the last bit**, alongside
+T5's own oracles staying green. "Pure refactor" is a claim that deserves evidence, not an assertion.
+
+## 8. Four things found while building, three of them my own errors
+
+### 8.1 My no-arbitrage bound test asserted `<` where floating point gives `<=`
+Mathematically a cap's price approaches `F` and never reaches it. At `V² = 10⁴` it *does*, exactly:
+`Φ(ω·d₁)` saturates to 1.0 and `Φ(ω·d₂)` to 0.0, leaving `F·1 − K·0 = F`. The test was wrong, not
+the code. Fixed to `<=`, **and the saturation is now asserted explicitly** — it is precisely why
+`black_implied_vol` refuses a price at the limit rather than returning whatever its expansion
+reached, so it is a load-bearing property rather than a rounding curiosity.
+
+### 8.2 My `rtol=1e-15` was LOOSER than scipy's default
+`brentq`'s default `rtol` is `4·eps ≈ 8.9e-16` — the tightest value it accepts. Passing `1e-15`
+relaxed it. Dropped, so the solve now runs at scipy's floor. Found because pyright rejected the
+argument's type, which turned out to be a real finding rather than a stub nuisance.
+
+### 8.3 The `layers` gate caught a finance word in an L0 docstring — reworded, not loosened
+`foundation/solvers.py`'s docstring referred to `black_implied_vol`, and `implied_vol` is finance
+vocabulary in a finance-free layer. Reworded to "a monotone 1-D inverse at L3", following T4's
+precedent exactly: the gate is right, the prose moves.
+
+### 8.4 The debt gate caught a comment *mentioning* a suppression marker
+A comment explaining why the scipy union is narrowed rather than silenced spelled out the marker's
+literal text, and the debt gate counted it — `suppressions (1) != ledger (0)`. **The gate is right
+to be literal**: one that parsed intent could be talked out of flagging a real suppression.
+Reworded. Zero suppressions stands, and it is now a slightly harder thing to say by accident.
+
+## 9. Still to build — (b)
+The floor→floorlet strip (oracle 1, the non-telescoping anchor: a count plus differencing against
+independently-priced floorlets) and the `ImpliedVolSurface` assembly with oracle 4's
+reduction-plus-companion. Its own branch and PR, composing (a).

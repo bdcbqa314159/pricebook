@@ -6,6 +6,40 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-01
+
+Tranche 9(a) — Black-76 extracted to L3 with its inverse, the first half of the implied-vol surface
+inversion (BERHAN-2012 §5.2). Decided by Cowork (`docs/tranches/09_implied_vol_surface.md`), split
+per its §4.
+
+### Added
+- `models/black.py` — `black_price` and `black_implied_vol`. **L3, not L0**: strikes and call/put
+  are finance and L0 is finance-free, with the migration tree's own `foundation/black.py` as the
+  named precedent for that drift. **Parameterised by total variance, not `(σ, T)`** — JY's `V²`
+  (eq 2.6.4) is an eight-term total variance and not `σ²·T`, so a `(σ, T)` signature would make
+  every caller invent a `σ` the model does not have.
+- `foundation/solvers.py` gains `bracketed_root` — a separate entry point from `least_squares_fit`
+  because a monotone 1-D inverse carries a stronger guarantee: given a sign change Brent converges,
+  so there is no non-convergence to report. The seam's second consumer, so the rule of two is now
+  satisfied for the seam itself.
+- `black_implied_vol` **refuses rather than guessing**: a price below intrinsic or at/above the
+  no-arbitrage limit has no Black vol, and raises — `PricingFailure` is the *engine* contract (§3),
+  while a constructor validates at its trust boundary (the tranche 8 ruling). Its bracket is
+  structural: `V² = 0` below, doubling until the price is exceeded above, so no constant decides the
+  range.
+- 58 oracles. Put-call parity to 1e-15 as a **requirement** (derived from the payoff, so it survives
+  a transcription error the code and the reference could share), the no-arbitrage bounds,
+  monotonicity of the inverse, and the refusals. The round trip is kept but **labelled as
+  telescoping**: it earns its keep only on tranche 5's independent forward oracle, which the test
+  states.
+
+### Changed
+- `engine/capfloor.py` composes `black_price` instead of computing Black inline — the rule-of-two
+  extraction at its second consumer, so a Black convention cannot diverge between pricing and
+  implying. **Verified bit-identical**: eight strip prices captured as `repr()` before and after are
+  unchanged to the last bit, with tranche 5's oracles green.
+- `TEST_FLOOR` 146 → 204.
+
 ## [0.8.0] - 2026-11-01
 
 Tranche 8 — the nominal curve bootstrap (BERHAN-2012 §5.1), the cross-check presence gate, and the
