@@ -216,10 +216,23 @@ def test_a_DECREASING_floor_strip_is_REFUSED():
         implied_vol_surface(MARKET, broken)
 
 
-def test_quotes_NOT_in_ascending_maturity_are_REFUSED():
+def test_quotes_in_ARBITRARY_order_give_the_SAME_surface():
+    """**My first version of this asserted a raise, and the requirement was wrong.** Market quotes
+    arrive in whatever order the feed hands them over; refusing them would push a sort onto every
+    caller for no gain. The builder sorts by (strike, maturity) itself, so order is not an error —
+    and the property worth asserting is that it cannot change the answer."""
+    quotes = _quotes()
+    ordered = implied_vol_surface(MARKET, quotes)
+    shuffled = implied_vol_surface(MARKET, [quotes[2], quotes[0], quotes[3], quotes[1]])
+    assert shuffled.nodes == ordered.nodes
+
+
+def test_a_DUPLICATE_maturity_at_one_strike_is_REFUSED():
+    """The genuinely ill-posed case that sorting cannot fix: two prices for the same floor. It
+    differences to a zero-price floorlet and would imply a bogus zero vol."""
     quotes = _quotes()
     with pytest.raises(ValueError, match="ascending maturity"):
-        implied_vol_surface(MARKET, [quotes[2], quotes[0], quotes[1]])
+        implied_vol_surface(MARKET, [quotes[0], quotes[1], quotes[1]])
 
 
 def test_a_schedule_that_does_not_EXTEND_the_previous_one_is_REFUSED():
@@ -277,3 +290,35 @@ def test_the_surface_is_frozen():
     surface = implied_vol_surface(MARKET, _quotes())
     assert isinstance(surface, ImpliedVolSurface)
     assert surface.anchor == VAL
+
+
+# ============================================================================================
+# The variance-horizon trap, as a test. It is the reason `black_implied_vol`'s parameter is
+# named `variance_years` and not `expiry`.
+# ============================================================================================
+
+def test_passing_the_EXPIRY_instead_of_the_PERIOD_would_understate_the_vol():
+    """**A one-period fixture could never catch this**, which is why it is asserted on four.
+
+    `V² = σ_I²·(Tᵢ − Tᵢ₋₁)`, so annualising by the time to expiry instead of the period length
+    divides by too much. At node 1 the two coincide exactly (the period starts at the anchor), and
+    the error then grows: −29%, −42%, −50% at nodes 2, 3, 4. Every oracle would stay green if the
+    forward and inverse shared the wrong horizon, so this test pins the horizon itself."""
+    from pricebook.models.black import black_implied_vol
+
+    surface = implied_vol_surface(MARKET, _quotes())
+    errors = []
+    for i, sigma in enumerate(SIGMA_BY_PERIOD, start=1):
+        start, pay, psi = list(_schedule(i).periods())[i - 1]
+        floorlet = _reference_floorlet(i, sigma)
+        forward = (NOMINAL.df(start) / NOMINAL.df(pay)) * (REAL.df(pay) / REAL.df(start))
+        value = floorlet / (N * psi * NOMINAL.df(pay))
+        with_expiry = black_implied_vol(
+            value, forward, 1.0 + KAPPA, MEASURE.year_fraction(pay), CapFloorKind.FLOOR
+        )
+        assert surface.vol(pay, KAPPA) == pytest.approx(sigma, rel=1e-9)
+        errors.append(with_expiry / sigma - 1.0)
+
+    assert errors[0] == pytest.approx(0.0, abs=1e-9), "node 1's horizons coincide, as expected"
+    assert all(e < -0.2 for e in errors[1:]), f"the trap is not actually costly here: {errors}"
+    assert errors == sorted(errors, reverse=True), f"the error must grow with maturity: {errors}"

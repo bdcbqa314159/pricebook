@@ -10,8 +10,10 @@ from pricebook.market.nominal_bootstrap import (
     swap_annuity,
 )
 from pricebook.market.snapshot import MarketSnapshot
+from pricebook.market.vol_surface import FloorQuote, ImpliedVolSurface
 
 __all__ = [
+    "FloorQuote", "ImpliedVolSurface",
     "ParSwapQuote", "nominal_curve_from_par_swaps", "swap_annuity",
     "FixingSeries", "reference_level",
     "CurveHandle", "CurveKey", "CurveRole", "CurveSet", "DiscountCurve", "MarketSnapshot",

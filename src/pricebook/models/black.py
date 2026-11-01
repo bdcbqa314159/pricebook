@@ -75,9 +75,17 @@ def _no_arbitrage_limit(forward: float, strike: float, kind: CapFloorKind) -> fl
 
 
 def black_implied_vol(
-    price: float, forward: float, strike: float, expiry: float, kind: CapFloorKind
+    price: float, forward: float, strike: float, variance_years: float, kind: CapFloorKind
 ) -> float:
-    """The annualised `σ` for which Black reproduces `price` — `σ = √(V²/expiry)`.
+    """The annualised `σ` for which Black reproduces `price` — `σ = √(V² / variance_years)`.
+
+    **`variance_years` is the horizon the variance accumulates over, and it is NOT always the time
+    to expiry — which is why it is not called `expiry`.** The first cut used that name, and tranche
+    9(b) showed it wrong at its second consumer: a year-on-year floorlet on `[2y, 3y]` expires at 3y
+    but accumulates one year of variance, since `V² = σ_I²·(Tᵢ − Tᵢ₋₁)` under the thesis's
+    simplified JY. A caller passing the expiry there would under-state `σ_I` by `√(Tᵢ/(Tᵢ−Tᵢ₋₁))` —
+    a factor of 1.7 at the 3y node — with every oracle green, because the forward and inverse
+    would agree on the wrong horizon. If a name needs a comment to explain it, the name is wrong.
 
     Black is strictly increasing in `V²` from the intrinsic to the no-arbitrage limit, so the
     inverse is a monotone 1-D root find with a **structural** bracket: the lower end is `V² = 0`
@@ -89,9 +97,10 @@ def black_implied_vol(
     raise follows tranche 8's ruling: `PricingFailure` is the *engine* contract (§3), while an L1/L3
     constructor validates at its trust boundary by raising, as `DiscountCurve`, `Money` and
     `nominal_curve_from_par_swaps` do."""
-    if expiry <= 0.0:
+    if variance_years <= 0.0:
         raise ValueError(
-            f"an annualised vol needs a positive expiry to divide by, got {expiry}"
+            f"an annualised vol needs a positive expiry (variance horizon) to divide by, "
+            f"got {variance_years}"
         )
 
     intrinsic = black_price(forward, strike, 0.0, kind)
@@ -115,7 +124,7 @@ def black_implied_vol(
     def excess(total_variance: float) -> float:
         return black_price(forward, strike, total_variance, kind) - price
 
-    hi = max(1e-8, 4.0 * expiry)
+    hi = max(1e-8, 4.0 * variance_years)
     while excess(hi) < 0.0:
         hi *= 2.0
         if hi > _MAX_VARIANCE:
@@ -127,4 +136,4 @@ def black_implied_vol(
                 f"no Black volatility reproduces a {kind.value} price of {price} below total "
                 f"variance {_MAX_VARIANCE}; the no-arbitrage check should have excluded it"
             )
-    return math.sqrt(bracketed_root(excess, 0.0, hi) / expiry)
+    return math.sqrt(bracketed_root(excess, 0.0, hi) / variance_years)
