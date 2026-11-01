@@ -58,6 +58,12 @@ not just acyclic** (`verify.py layers`): L0 is finance-free (no strikes, vols, p
 discounting *in code* — a docstring explaining finance context is fine). Products are frozen data;
 they do not price themselves — pricing lives in L4.
 
+**Calibration splits by what it inverts** — the one place the box above misleads, so it is spelled
+out. A *model-free* calibration (a curve bootstrap — T2's break-even inversion) imports nothing
+above it and is **L3**. A calibrator that **inverts an engine** — fitting parameters by repricing
+through `price()`, as JY-to-a-floor-strip does — is a *consumer* of the engine and sits at **L4**
+(it lives in `engine/`), not L3; `acyclic` enforces it rather than it being a matter of taste.
+
 ---
 
 ## 3. The stateless engine contract (L4)
@@ -114,6 +120,15 @@ not an oracle. Ruled principles:
   shared source-reading error that no within-product check can — it has now done so twice (T3's
   strip reconciliation, T5's `cap−floor = the YoY leg`). *(This whole bullet is v0.4.0's mis-nested
   convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)*
+
+- **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
+  is evidence only about what the oracle *examined*. Every defect this project has shipped was an
+  oracle whose domain excluded the thing that was wrong — checked against the stock instead of the
+  source (T4's anchor, T6's instrument), against one rendering instead of two (v0.4.0's nesting), on
+  the quote maturities instead of the whole curve where it could differ (T6's A4 premise), or one
+  parameter at a time instead of jointly (the identifiability valley). Before trusting a green, ask
+  *where the failure would live and whether the oracle looks there.* This is the floor rule stated
+  at the top: widen the domain until it includes the failure, or the green is empty.
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.
@@ -213,3 +228,28 @@ oracle choice, fresh eyes — rules design and contract questions (a layer, a vo
 measure), and has the external reach (sources, documents). The prompt channel is `.cowork/thread.md`
 (append-only, one `Ask:` per entry, pointers not pastes); durable state goes to `docs/`, never only
 the thread.
+
+**The tranche sequence, and the one rule that keeps it from breaking.** Bernardo is the only one who
+merges, and **he merges when Code says to, never when Cowork finishes.**
+
+| # | who | what |
+|---|---|---|
+| 1 | **Code** | propose the tranche — thread `Ask:` + the proposal commit. No PR yet. |
+| 2 | **Cowork** | review the proposal: design, layer, and above all the *oracle choice*. |
+| 3 | **Bernardo** | "cowork is done" |
+| 4 | **Code** | build RED → GREEN, stamp, open the PR. |
+| 5 | **Cowork** | review the built PR. |
+| 6 | **Bernardo** | "cowork is done" |
+| 7 | **Code** | commit whatever Cowork wrote to disk, re-run the gates, confirm CI, **then say "merge now"**. |
+| 8 | **Bernardo** | merge. |
+
+Step 7 is why the merge cannot be step 6. **Cowork writes files but does not commit them** — Code
+owns git — so a merge triggered by "Cowork finished" lands a PR without Cowork's own artifacts.
+*(Precedent: PR #7 merged three minutes before Cowork's checkpoint entry, stranding a ratified
+charter edit and a checkpoint record on a merged branch and costing PR #8 to recover. PR #6 was the
+same shape, caught only because Code said "wait" in time.)*
+
+Steps 2 and 5 are both real passes, not one split in two: step 2 can still redirect the build (it
+rewrote T6's identifiability oracle before a line was written), while step 5 reviews what was
+actually built and is where a checkpoint gets written. Either may be skipped by Bernardo's call; the
+step-7-before-step-8 order may not.
