@@ -58,11 +58,16 @@ not just acyclic** (`verify.py layers`): L0 is finance-free (no strikes, vols, p
 discounting *in code* — a docstring explaining finance context is fine). Products are frozen data;
 they do not price themselves — pricing lives in L4.
 
-**Calibration splits by what it inverts** — the one place the box above misleads, so it is spelled
-out. A *model-free* calibration (a curve bootstrap — T2's break-even inversion) imports nothing
-above it and is **L3**. A calibrator that **inverts an engine** — fitting parameters by repricing
-through `price()`, as JY-to-a-floor-strip does — is a *consumer* of the engine and sits at **L4**
-(it lives in `engine/`), not L3; `acyclic` enforces it rather than it being a matter of taste.
+**Calibration splits by what it produces and what it inverts** — the one place the box above
+misleads, so it is spelled out. A **curve bootstrap** (market quotes → a curve, using only L0+L1 —
+T2's break-even inversion, T8's nominal par-swap bootstrap) produces *market data* and is **L1**
+(it lives in `market/`). A **model-free parameter calibration** (model parameters fitted
+analytically, no engine) is **L3**. A calibrator that **inverts an engine** — fitting parameters by
+repricing through `price()`, as JY-to-a-floor-strip does — is a consumer of the engine and sits at
+**L4** (`engine/`). `acyclic` enforces all three; the split is by what the calibration *produces*
+(a curve → L1, model params → L3) and what it *reads* (the engine → L4), not by taste. *(The earlier
+text called the break-even bootstrap L3; it is in `market/` at L1, and a charter stating a false
+practice is the error §8 and §9 also had to correct.)*
 
 ---
 
