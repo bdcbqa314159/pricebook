@@ -191,10 +191,15 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
 - **No debt is silenced silently.** Every suppression, shim, skip or load-bearing TODO goes in
   `OPEN.md` with a rationale and a re-open trigger, or it does not exist. CI invariant: suppressions
   − ledger entries = 0. Debt may never buy a green oracle.
-- **Deferred external validation is tagged, not ignored.** A `# crosscheck: <library> <thing> —
-  deferred …` marker sits at every site that wants a known-library cross-check, so the optional
-  QuantLib tier (a later, dev-only, skippable tier — never in the reproducibility contract or a
-  merge gate) is complete by construction, not from memory.
+- **Deferred external validation is tagged in the provenance header, not ignored.** A
+  `crosscheck: <library> <thing> — deferred …` line sits with `stock:`/`source:`/`oracle:`/`slice:`
+  in the header of every model-dependent pricer wanting a known-library cross-check, so the optional
+  QuantLib tier (later, dev-only, skippable — never in the reproducibility contract or a merge gate)
+  is complete by construction, not from memory. The spelling is the **header line, no `#`** — where
+  provenance lives and where the `provenance` gate already parses, so validating its form is a cheap
+  gate extension. *(It reached six of six model-dependent sites unprompted; the clause read as empty
+  only under a grep for `# crosscheck:`, the `#` form the tree does not use — OI-1, ruled
+  2026-11-01: the discipline was working, the fix was the spelling, not a narrowing.)*
 
 ---
 

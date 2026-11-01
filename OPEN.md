@@ -13,7 +13,7 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-1 · §8's crosscheck markers — REOPENED: the finding that opened this was WRONG
+### OI-1 · §8's crosscheck markers — CLOSED (spelling fixed; discipline was working, six of six)
 **Opened:** 2026-11-01 (T1–T6 checkpoint). **Ruled closed** by Cowork the same day on the premise
 that the markers had zero instances. **REOPENED by Code, 2026-11-01, because that premise is false
 and it was Code's own error.**
@@ -49,7 +49,16 @@ conclusion may still be right, but **that rationale does not hold**: the rule re
 A second claim in the narrowed clause also does not hold yet — it says the sites are "enumerated in
 `docs/papers/coverage-berhan-2012.md`", and that document has no cross-check column at all.
 
-**Re-open trigger:** immediate — Cowork to re-rule on the corrected facts.
+**RE-RULED and CLOSED (Cowork, 2026-11-01), on the corrected facts.** The narrowing is **retracted**
+— its rationale ("an ungated rule reached zero") was false (six of six) and its second claim (sites
+"enumerated in the coverage map") named a cross-check column that does not exist; both were my own
+unverified assertions, the same §4 defect (a domain excluding the form the thing takes) that made
+Code's grep miss the markers. The discipline was working. **Ruling:** keep it; fix only the
+spelling. §8 adopts the **provenance-header `crosscheck:` form** (no `#`) the tree already uses — it
+belongs with `stock:`/`source:`/`oracle:`/`slice:`, and the `provenance` gate already parses that
+header, so validating the `crosscheck:` line's *form* is a cheap gate extension (small, non-blocking,
+owed to the provenance gate). **Presence** stays a review/checkpoint check — it is six of six now —
+until drift ever argues for a presence gate. Charter §8 edited to match. **Closed.**
 **Blocks nothing.**
 
 ---

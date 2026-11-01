@@ -35,6 +35,10 @@ Provenance:
           implementing resolution, so the series type and this atom are built fresh.
   source: BERHAN-2012 §1.1.2 (the index is a monthly print), §1.2 (`I(t)` as the FX-analogy spot),
           §2.5 eq 2.5.12 (where the published reset `I(T_{ι(t)−1})` is read)
+  crosscheck: quantlib ZeroInflationIndex / CPI::laggedFixing — deferred to the optional QuantLib
+          tier. The strongest target in this tranche: the FLAT/LINEAR split and the
+          (day−1)/days_in_month weight are market conventions QuantLib implements directly, so a
+          second engine would check the convention rather than only our arithmetic.
   oracle: tests/L1/test_fixing_series.py — the lag pointwise with the test computing its own
           reference month; LINEAR against a hand-computed weight; FLAT and LINEAR required to
           DISAGREE on a sloped series mid-month, and shown to agree on the 1st of a month and on a
