@@ -5,8 +5,8 @@ library: "today" is `model.market.valuation_date`, which is what makes a reprice
 months later and makes `price` a pure function of its arguments.
 
 Provenance:
-  stock:  _stock/src/pricebook/market/snapshot.py (purified: valuation_date + curves + index
-          fixings. Its
+  stock:  _stock/src/pricebook/market/snapshot.py (purified: valuation_date + curves + fixing
+          series. Its
           `scalars`/`surfaces`/`series` shapes and their key-unions grew one asset class at a
           time; each returns when a product pulls it)
   source: CLAUDE.md-era §2 invariant 2 (no ambient state) + doc 19 §2
@@ -22,6 +22,7 @@ from datetime import date
 
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.market.curve_set import CurveSet
+from pricebook.market.fixing_series import FixingSeries
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,12 @@ class MarketSnapshot:
 
     valuation_date: date
     curves: CurveSet
-    #: The resolved reference index level `I(t)` per index — the FX-analogy spot of BERHAN §1.2.
-    #: Already resolved: *which* monthly print applies (the lag question) is the inflation-linked
-    #: bond's concern and arrives with it, so nothing here interprets a lag.
-    index_fixings: Mapping[InflationIndex, float] = field(default_factory=dict)
+    #: The published print history per index. **A series, not a resolved scalar, since tranche 7.**
+    #: Tranche 2 carried `Mapping[InflationIndex, float]` — the already-resolved `I(t)` — which is
+    #: enough for a zero-coupon swap at inception but cannot supply the *historical reset*
+    #: `I(T_{ι(t)−1})` that a seasoned year-on-year period pays on (eq 2.5.12). The scalar is the
+    #: degenerate one-point case of this, which is what makes the replacement provably faithful
+    #: rather than a rewrite: see `test_a_one_point_series_reproduces_the_hand_fed_scalar`.
+    #: *Which* print a date resolves to is `market.fixing_series.reference_level`, defined once and
+    #: composed by every pricer — never re-derived per engine.
+    fixings: Mapping[InflationIndex, FixingSeries] = field(default_factory=dict)

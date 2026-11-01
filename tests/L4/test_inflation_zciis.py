@@ -18,6 +18,7 @@ from pricebook.engine import price
 from pricebook.foundation import (
     Currency,
     DayCountConvention,
+    IndexInterpolation,
     InflationIndex,
     Money,
     PricingFailure,
@@ -29,6 +30,7 @@ from pricebook.market import (
     CurveRole,
     CurveSet,
     DiscountCurve,
+    FixingSeries,
     MarketSnapshot,
     real_curve_from_breakeven,
 )
@@ -38,7 +40,7 @@ from pricebook.products import ZeroCouponInflationSwap
 VAL = date(2026, 1, 15)
 EUR = Currency("EUR")
 DC = DayCountConvention.ACT_365_FIXED
-HICP = InflationIndex("HICPxt")
+HICP = InflationIndex("HICPxt", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
 MATURITY = VAL + timedelta(days=365 * 5)
 TERM = Term(VAL, MATURITY, DC)
 N, I0 = 1_000_000.0, 100.0
@@ -46,6 +48,18 @@ N, I0 = 1_000_000.0, 100.0
 NOMINAL = CurveKey(CurveRole.DISCOUNT, EUR)
 REAL = CurveKey(CurveRole.REAL, EUR)
 
+
+
+def _level_series(level: float) -> FixingSeries:
+    """A series that resolves to `level` at ANY date, because every print is equal — so neither the
+    publication lag nor the interpolation weight can change the answer.
+
+    Deliberately flat *here*: these are the tranche 2–6 oracles, where the index LEVEL is what is
+    under test and resolution is not. The conventions get a sloped, mid-month fixture in
+    `tests/L1/test_fixing_series.py`, which is where a flat series would have no power."""
+    return FixingSeries(
+        {date(y, m, 1): level for y in range(2024, 2032) for m in range(1, 13)}
+    )
 
 def _market(nominal: float, real: float, index_level: float = I0) -> MarketSnapshot:
     return MarketSnapshot(
@@ -56,7 +70,7 @@ def _market(nominal: float, real: float, index_level: float = I0) -> MarketSnaps
                 REAL: DiscountCurve.flat(VAL, real, DC),
             }
         ),
-        index_fixings={HICP: index_level},
+        fixings={HICP: _level_series(index_level)},
     )
 
 
@@ -144,7 +158,7 @@ def test_a_swap_struck_AT_the_break_even_reprices_to_ZERO() -> None:
         market = MarketSnapshot(
             valuation_date=VAL,
             curves=CurveSet({NOMINAL: nominal, REAL: real}),
-            index_fixings={HICP: I0},
+            fixings={HICP: _level_series(I0)},
         )
         assert _pv(_swap(fixed_rate=b), market) == pytest.approx(0.0, abs=1e-6), b
 
@@ -195,7 +209,7 @@ def test_a_missing_REAL_curve_is_a_failure() -> None:
     market = MarketSnapshot(
         valuation_date=VAL,
         curves=CurveSet({NOMINAL: DiscountCurve.flat(VAL, 0.03, DC)}),
-        index_fixings={HICP: I0},
+        fixings={HICP: _level_series(I0)},
     )
     assert isinstance(price(_swap(), DiscountingModel(market)), PricingFailure)
 
@@ -207,7 +221,7 @@ def test_a_missing_INDEX_FIXING_is_a_failure_not_an_assumed_base() -> None:
         curves=CurveSet(
             {NOMINAL: DiscountCurve.flat(VAL, 0.03, DC), REAL: DiscountCurve.flat(VAL, 0.01, DC)}
         ),
-        index_fixings={},
+        fixings={},
     )
     out = price(_swap(), DiscountingModel(market))
     assert isinstance(out, PricingFailure)

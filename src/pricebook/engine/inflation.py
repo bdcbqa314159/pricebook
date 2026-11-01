@@ -29,9 +29,28 @@ from __future__ import annotations
 
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
+from pricebook.foundation.inflation import InflationIndex
+from pricebook.market.fixing_series import reference_level
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.discounting_model import DiscountingModel
 from pricebook.products.inflation import InflationLinkedBond, ZeroCouponInflationSwap
+
+
+def resolved_index_level(index: InflationIndex, market: MarketSnapshot) -> float:
+    """`I(t)` for the valuation date, through the index's own lag and interpolation.
+
+    **One atom, three engines.** The ZCIIS, the linker and the year-on-year swap all need `I(t)`;
+    resolving it in one place is what stops them disagreeing about which print that is while every
+    within-product oracle stays green — the shape a cross-module convention bug takes. Raises on a
+    missing series or a missing print; the pricers turn that into a `PricingFailure`, and nothing
+    here guesses a level."""
+    try:
+        series = market.fixings[index]
+    except KeyError:
+        raise KeyError(
+            f"no fixing series for {index}; refusing to assume the reference level"
+        ) from None
+    return reference_level(series, market.valuation_date, index)
 
 
 def inflation_leg_value(swap: ZeroCouponInflationSwap, market: MarketSnapshot) -> float:
@@ -43,12 +62,7 @@ def inflation_leg_value(swap: ZeroCouponInflationSwap, market: MarketSnapshot) -
     currency = swap.notional.currency
     nominal = market.curves.discount(currency)
     real = market.curves.real(currency)
-    try:
-        index_level = market.index_fixings[swap.index]
-    except KeyError:
-        raise KeyError(
-            f"no index fixing for {swap.index}; refusing to assume the base level"
-        ) from None
+    index_level = resolved_index_level(swap.index, market)
     maturity = swap.term.maturity
     ratio = index_level / swap.base_index
     return swap.notional.amount * (ratio * real.df(maturity) - nominal.df(maturity))
@@ -114,12 +128,7 @@ def price_inflation_linked_bond(
 
     try:
         real = market.curves.real(currency)
-        try:
-            index_level = market.index_fixings[bond.index]
-        except KeyError:
-            raise KeyError(
-                f"no index fixing for {bond.index}; refusing to assume the base level"
-            ) from None
+        index_level = resolved_index_level(bond.index, market)
     except KeyError as exc:
         return PricingFailure(f"cannot price the inflation-linked bond: {exc}")
 

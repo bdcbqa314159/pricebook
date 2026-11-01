@@ -20,6 +20,7 @@ from pricebook.foundation import (
     CouponSchedule,
     Currency,
     DayCountConvention,
+    IndexInterpolation,
     InflationIndex,
     Money,
     PricingFailure,
@@ -27,14 +28,14 @@ from pricebook.foundation import (
     RealLeg,
     Term,
 )
-from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
+from pricebook.market import FixingSeries, CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.models import DiscountingModel
 from pricebook.products import InflationLinkedBond, ZeroCouponInflationSwap
 
 VAL = date(2026, 1, 15)
 EUR = Currency("EUR")
 DC = DayCountConvention.ACT_365_FIXED
-HICP = InflationIndex("HICPxt")
+HICP = InflationIndex("HICPxt", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
 N, I0, C = 1_000_000.0, 100.0, 0.015
 
 #: start + five annual payment dates, each period exactly 365 days ⇒ every ψ is exactly 1.0, which
@@ -45,13 +46,25 @@ NOMINAL = CurveKey(CurveRole.DISCOUNT, EUR)
 REAL = CurveKey(CurveRole.REAL, EUR)
 
 
+
+def _level_series(level: float) -> FixingSeries:
+    """A series that resolves to `level` at ANY date, because every print is equal — so neither the
+    publication lag nor the interpolation weight can change the answer.
+
+    Deliberately flat *here*: these are the tranche 2–6 oracles, where the index LEVEL is what is
+    under test and resolution is not. The conventions get a sloped, mid-month fixture in
+    `tests/L1/test_fixing_series.py`, which is where a flat series would have no power."""
+    return FixingSeries(
+        {date(y, m, 1): level for y in range(2024, 2032) for m in range(1, 13)}
+    )
+
 def _market(nominal: float = 0.03, real: float = 0.01, index_level: float = I0) -> MarketSnapshot:
     return MarketSnapshot(
         valuation_date=VAL,
         curves=CurveSet(
             {NOMINAL: DiscountCurve.flat(VAL, nominal, DC), REAL: DiscountCurve.flat(VAL, real, DC)}
         ),
-        index_fixings={HICP: index_level},
+        fixings={HICP: _level_series(index_level)},
     )
 
 
@@ -165,7 +178,7 @@ def test_coupons_on_or_before_the_valuation_date_are_EXCLUDED() -> None:
         curves=CurveSet(
             {NOMINAL: DiscountCurve.flat(later, 0.03, DC), REAL: DiscountCurve.flat(later, 0.01, DC)}
         ),
-        index_fixings={HICP: 110.0},
+        fixings={HICP: _level_series(110.0)},
     )
     full = _pv(_bond(), market)
     remaining = _pv(_bond(schedule=CouponSchedule((DATES[2], *DATES[3:]), DC)), market)
@@ -177,7 +190,7 @@ def test_a_MATURED_linker_is_PV_ZERO_not_a_failure() -> None:
     market = MarketSnapshot(
         valuation_date=after,
         curves=CurveSet({REAL: DiscountCurve.flat(after, 0.01, DC)}),
-        index_fixings={HICP: 120.0},
+        fixings={HICP: _level_series(120.0)},
     )
     out = price(_bond(), DiscountingModel(market))
     assert isinstance(out, PricingResult), out
@@ -189,13 +202,13 @@ def test_a_missing_real_curve_or_fixing_is_a_failure() -> None:
     no_real = MarketSnapshot(
         valuation_date=VAL,
         curves=CurveSet({NOMINAL: DiscountCurve.flat(VAL, 0.03, DC)}),
-        index_fixings={HICP: I0},
+        fixings={HICP: _level_series(I0)},
     )
     assert isinstance(price(_bond(), DiscountingModel(no_real)), PricingFailure)
     no_fixing = MarketSnapshot(
         valuation_date=VAL,
         curves=CurveSet({REAL: DiscountCurve.flat(VAL, 0.01, DC)}),
-        index_fixings={},
+        fixings={},
     )
     assert isinstance(price(_bond(), DiscountingModel(no_fixing)), PricingFailure)
 

@@ -39,6 +39,7 @@ from pricebook.foundation import (
     CouponSchedule,
     Currency,
     DayCountConvention,
+    IndexInterpolation,
     InflationIndex,
     Money,
     PricingFailure,
@@ -58,7 +59,7 @@ from pricebook.products import InflationCapFloor
 VAL = date(2026, 1, 15)
 EUR = Currency("EUR")
 DC = DayCountConvention.ACT_365_FIXED
-HICP = InflationIndex("HICPxt")
+HICP = InflationIndex("HICPxt", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
 N = 1_000_000.0
 NOMINAL_KEY = CurveKey(CurveRole.DISCOUNT, EUR)
 REAL_KEY = CurveKey(CurveRole.REAL, EUR)
