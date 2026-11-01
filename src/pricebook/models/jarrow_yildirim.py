@@ -61,25 +61,7 @@ import math
 from dataclasses import dataclass
 
 from pricebook.market.snapshot import MarketSnapshot
-
-
-@dataclass(frozen=True)
-class HullWhiteParams:
-    """One Hull-White factor: mean reversion `kappa` and volatility `sigma`.
-
-    A bundle rather than four loose floats on the model, because JY has *two* such factors and
-    naming them `kappa_n, sigma_n, kappa_r, sigma_r` invites passing the nominal pair where the
-    real belongs. The grouping is the model's own structure -- the thesis derives it as two
-    factors plus the index."""
-
-    kappa: float
-    sigma: float
-
-    def __post_init__(self) -> None:
-        if self.kappa <= 0.0:
-            raise ValueError(f"mean reversion must be positive, got {self.kappa}")
-        if self.sigma < 0.0:
-            raise ValueError(f"volatility cannot be negative, got {self.sigma}")
+from pricebook.models.hull_white import HullWhiteParams, hw_beta
 
 
 @dataclass(frozen=True)
@@ -104,15 +86,6 @@ class JYCorrelations:
         ):
             if not -1.0 <= rho <= 1.0:
                 raise ValueError(f"{name} correlation must lie in [-1, 1], got {rho}")
-
-
-def hw_beta(kappa: float, t: float, maturity: float) -> float:
-    """`beta(t,T) = (1 - e^{-kappa(T-t)})/kappa` -- eqs 2.4.3 / 2.4.16.
-
-    Defined once and shared by both factors, so the nominal and real betas cannot drift. As
-    `kappa -> 0` it tends to `T - t`, which is the limit that catches a misplaced `kappa`: every
-    wrong-denominator variant still looks plausible at a realistic `kappa`."""
-    return (1.0 - math.exp(-kappa * (maturity - t))) / kappa
 
 
 @dataclass(frozen=True)
