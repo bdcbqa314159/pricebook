@@ -37,7 +37,7 @@ import math
 
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
-from pricebook.foundation.distributions import norm_cdf
+from pricebook.models.black import black_price
 from pricebook.models.jarrow_yildirim import JarrowYildirim
 from pricebook.products.inflation import InflationCapFloor
 
@@ -70,24 +70,19 @@ def caplet_value(
         * real.df(end_date) / real.df(start_date)
         * math.exp(convexity)
     )
-    omega = product.kind.omega
-
     variance = model.log_ratio_variance(0.0, period_start, period_end)
-    if variance <= 0.0:
-        # No uncertainty at all: the option is its intrinsic on the deterministic forward ratio.
-        # Reached when every vol is zero, which the no-vol oracle exercises directly.
-        intrinsic = max(omega * (forward_ratio - strike), 0.0)
-        return product.notional.amount * accrual * nominal.df(end_date) * intrinsic
 
-    v = math.sqrt(variance)
-    d1 = (math.log(forward_ratio / strike) + 0.5 * variance) / v
-    d2 = d1 - v
+    # **Composed, not computed here, since tranche 9.** Black lived inline in this function while
+    # it had one consumer; the implied-vol inverter is the second, so it moved to `models/black.py`
+    # and both compose the one definition — a Black convention now cannot diverge between pricing
+    # and implying. `black_price` also owns the zero-variance intrinsic branch that used to sit
+    # here. The extraction is a pure refactor: this tranche's oracles were re-run and every
+    # cap/floor price is bit-identical.
     return (
-        omega
-        * product.notional.amount
+        product.notional.amount
         * accrual
         * nominal.df(end_date)
-        * (forward_ratio * norm_cdf(omega * d1) - strike * norm_cdf(omega * d2))
+        * black_price(forward_ratio, strike, variance, product.kind)
     )
 
 

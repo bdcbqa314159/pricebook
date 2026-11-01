@@ -22,7 +22,9 @@ Provenance:
           pinned version is part of the reproducibility contract
   oracle: tests/L0/test_solvers.py -- a hand-solvable minimum (3, -1); the overdetermined answer
           is the mean; bounds bind; a NaN residual reports converged=False
-  slice:  tranche 6 -- calibrating Jarrow-Yildirim (its first consumer)
+  slice:  tranche 6 -- calibrating Jarrow-Yildirim (its first consumer); `bracketed_root` in
+          tranche 9 for a monotone 1-D inverse at L3 (the seam's second consumer, so the rule of
+          two is satisfied for the seam itself, not only for what sits behind it)
 """
 
 from __future__ import annotations
@@ -32,7 +34,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.optimize import least_squares
+from scipy.optimize import brentq, least_squares
 
 Residuals = Callable[[Sequence[float]], Sequence[float]]
 
@@ -82,3 +84,38 @@ def least_squares_fit(
     # the status says -- scipy can report success having walked into a NaN.
     converged = bool(out.status > 0) and math.isfinite(cost) and all(math.isfinite(v) for v in x)
     return SolveOutcome(x=x, cost=cost, iterations=int(out.nfev), converged=converged)
+
+
+def bracketed_root(f: Callable[[float], float], lo: float, hi: float) -> float:
+    """The root of a continuous `f` in `[lo, hi]`, which must straddle it.
+
+    A separate entry point from `least_squares_fit` because a 1-D monotone inverse is a *different
+    problem* with a stronger guarantee: given a sign change, Brent converges, so there is no
+    `converged` flag to check and no non-convergence to report. Collapsing the two behind one
+    signature would hide that difference and force callers to handle a failure that cannot happen.
+
+    **A bracket that does not straddle is the CALLER's bug**, not a numerical outcome: it means the
+    caller has not established the monotone bounds it claimed. So it raises here rather than
+    returning a value — and a caller is expected to have refused an out-of-range target *first*, in
+    its own domain vocabulary, which two bare numbers `lo`/`hi` could never express."""
+    f_lo, f_hi = f(lo), f(hi)
+    if not math.isfinite(f_lo) or not math.isfinite(f_hi):
+        raise ValueError(f"the objective is not finite at the bracket ends: f({lo})={f_lo}, f({hi})={f_hi}")
+    if f_lo * f_hi > 0.0:
+        raise ValueError(
+            f"the bracket [{lo}, {hi}] does not straddle a root: f({lo})={f_lo}, f({hi})={f_hi}"
+        )
+    # `rtol` is deliberately NOT passed: scipy's default is `4*eps` (~8.9e-16), the tightest value
+    # brentq accepts, so the 1e-15 first written here was LOOSER than the default rather than
+    # stricter. `full_output=False` is explicit so the return is a float and not a
+    # (root, RootResults) tuple — pyright reads the overload, and the union it flagged was real.
+    # scipy's stub types brentq's return as `float | tuple[float, RootResults]` regardless of
+    # `full_output`, so the union is narrowed here rather than silenced. With `full_output=False`
+    # the tuple branch is unreachable; narrowing it costs two lines, while silencing the diagnostic
+    # would be debt owing a ledger entry under section 8. (Writing the name of a silencing marker
+    # in this comment tripped the debt gate, which counts the literal text -- correctly: a gate
+    # that parsed intent could be talked out of a real one.)
+    root = brentq(f, lo, hi, xtol=1e-15, full_output=False)
+    if isinstance(root, tuple):
+        root = root[0]
+    return float(root)

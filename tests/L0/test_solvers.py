@@ -11,7 +11,11 @@ import math
 
 import pytest
 
-from pricebook.foundation.solvers import SolveOutcome, least_squares_fit
+from pricebook.foundation.solvers import (
+    SolveOutcome,
+    bracketed_root,
+    least_squares_fit,
+)
 
 
 def test_finds_the_minimum_of_a_hand_solvable_problem():
@@ -45,3 +49,22 @@ def test_a_non_finite_residual_is_reported_not_returned():
     assert isinstance(out, SolveOutcome)
     assert not out.converged
 
+
+
+# ---- tranche 9: the bracketed 1-D root, for a monotone inverse ----
+
+def test_the_bracketed_root_finds_a_hand_solvable_zero():
+    """`f(x) = x^2 - 2` on `[0, 2]` has the root `sqrt(2)`, known to full precision independently."""
+    assert bracketed_root(lambda x: x * x - 2.0, 0.0, 2.0) == pytest.approx(math.sqrt(2.0), rel=1e-15)
+
+
+def test_a_bracket_that_does_NOT_straddle_is_refused():
+    """The caller's bug, not a numerical outcome: it means the monotone bounds were never
+    established. Raising beats returning an endpoint that looks like an answer."""
+    with pytest.raises(ValueError, match="does not straddle"):
+        bracketed_root(lambda x: x * x + 1.0, 0.0, 2.0)
+
+
+def test_a_non_finite_objective_at_a_bracket_END_is_refused():
+    with pytest.raises(ValueError, match="not finite"):
+        bracketed_root(lambda x: math.inf if x == 0.0 else x - 1.0, 0.0, 2.0)

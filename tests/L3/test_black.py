@@ -70,12 +70,20 @@ def test_put_call_parity_holds_to_the_ULP():
 
 @pytest.mark.parametrize("kind", list(CapFloorKind))
 def test_the_price_is_bounded_by_its_no_arbitrage_limits(kind):
-    """As `V -> inf` a cap tends to `F` and a floor to `K`; neither may exceed its bound at any
-    variance. A requirement, and the bound the inverse's bracket relies on."""
-    cap_limit, floor_limit = F, K
-    limit = cap_limit if kind is CapFloorKind.CAP else floor_limit
+    """As `V -> inf` a cap tends to `F` and a floor to `K`; neither may EXCEED its bound at any
+    variance. The bound the inverse's bracket relies on.
+
+    **`<=`, not `<`, and the difference is floating point rather than finance.** Mathematically the
+    limit is approached and never reached, so the first version of this test asserted `< limit`
+    and failed at `V^2 = 1e4`: there `Phi(w*d1)` saturates to exactly 1.0 and `Phi(w*d2)` to 0.0, so
+    the price is `F*1 - K*0 = F` exactly, as a double. The test was wrong, not the code -- and the
+    saturation is asserted below rather than hidden, because it is precisely WHY the inverse
+    refuses a price at the limit instead of returning whatever its expansion reached."""
+    limit = F if kind is CapFloorKind.CAP else K
     for variance in (1e-6, 1.0, 100.0, 10_000.0):
-        assert 0.0 <= black_price(F, K, variance, kind) < limit, variance
+        assert 0.0 <= black_price(F, K, variance, kind) <= limit, variance
+    assert black_price(F, K, 1e4, kind) == limit, "the saturation point moved -- the inverse's refusal boundary depends on it"
+    assert black_price(F, K, 100.0, kind) < limit, "the bound must still be STRICT at a realistic variance"
 
 
 # ---- the inverse: round trip (telescopes -- see the module docstring), monotonicity, refusal ----
