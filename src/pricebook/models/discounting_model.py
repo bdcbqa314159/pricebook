@@ -12,6 +12,7 @@ Provenance:
           already exactly this)
   source: CLAUDE.md-era §2 (A1: the model carries the market) + doc 22 Q1
   oracle: the snapshot passes through the engine unchanged (test_repricing_is_byte_identical)
+  crosscheck: none — carries the MarketSnapshot, computes nothing
   slice:  tranche 1 — minimal spine
 """
 

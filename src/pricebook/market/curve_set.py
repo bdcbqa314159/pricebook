@@ -9,6 +9,7 @@ Provenance:
           and survival roles arrive with the products that need them)
   source: CLAUDE.md-era doc 19 §3 (closed shapes × open keys)
   oracle: a missing curve raises a KeyError the engine turns into a PricingFailure
+  crosscheck: none — a keyed container of curves, no numerics
   slice:  tranche 1 — minimal spine
 """
 

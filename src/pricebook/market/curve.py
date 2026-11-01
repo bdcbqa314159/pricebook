@@ -15,6 +15,8 @@ Provenance:
   source: standard continuously-compounded discounting, `df(t) = exp(−r·t)`
   oracle: `DiscountCurve.flat` reproduces `exp(−r·t)` exactly at every horizon, which the
           tranche-1 closed form asserts independently
+  crosscheck: quantlib InterpolatedZeroCurve / log-linear zero interpolation —
+          deferred to the optional QuantLib tier
   slice:  tranche 1 — minimal spine
 """
 

@@ -6,6 +6,51 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-01
+
+Tranche 8 — the nominal curve bootstrap (BERHAN-2012 §5.1), the cross-check presence gate, and the
+per-module dispositions. Decided by Cowork (`docs/tranches/08_nominal_bootstrap.md`).
+
+### The thesis's §5.1 is misprinted, twice — and both renderings agree
+Transcribed in `-raw` and `-layout` per charter §4; the renderings match each other and the two
+equations still contradict each other. **5.1.1 carries a spurious leading minus** (every par rate
+would be negative) and **5.1.2 sums `j = 0..i−1`** where inverting 5.1.1 requires `j = 1..i−1` —
+with `P(0,T0) := 1` defined on the same line, so the printed form adds a spurious unit to the
+annuity. Against a known flat 3% curve the implemented form recovers `P(0,T₁) = 0.97044553` exactly;
+the printed form gives 0.94089107.
+
+**A new sub-case of §4:** transcription independence protects against a *rendering* mangling a
+formula. It is powerless when the **source** is wrong, because both renderings reproduce the typo
+faithfully. What catches that is the **requirement that a formula and its stated inverse actually
+invert** — which is why the anchor starts from a known curve. Both misprints now have their own
+tests.
+
+### Added
+- `market/nominal_bootstrap.py` — `nominal_curve_from_par_swaps`, quotes → `DiscountCurve`, plus the
+  shared `swap_annuity` atom (`Σ τ·df`, reading the schedule's own day count) so a future swap
+  pricer composes the same annuity. **Closed form per pillar, no root-find** — corrected 5.1.2 is an
+  exact rearrangement, and solving it numerically would be "solving a closed form"
+  (`market/inflation_curve.py:54`). That also makes the negative-rate guarantee unconditional: no
+  bracket, so nothing for a negative rate to fall outside.
+- 17 oracles. The anchor is a **known sloped curve round-tripping through its own par rates,
+  pointwise to 1e-12** — non-telescoping, since the test owns the forward map. The par-reprice is
+  kept only as a consistency guard. No identifiability discriminator, and that is a reason not an
+  omission: a sequential bootstrap is exactly determined (triangular), so there is no valley.
+- `verify.py provenance` gains the **cross-check presence gate**: every module under `market/`,
+  `models/` and `engine/` carries a real `crosscheck:` target or `crosscheck: none — <reason>`, the
+  reason required. **Mutation-tested**: deleting tranche 7's `fixing_series.py` marker — the exact
+  omission that slipped through — fails the gate, and so does a reasonless `none`.
+
+### Changed
+- Charter §8: the marker is the provenance-header `crosscheck:` form (no `#`), **gated on presence**
+  rather than form. Form-only cannot catch an omission, and tranche 7 produced one in the same hour
+  the form-only rule was made.
+- Charter §2: a **curve bootstrap is L1**, not L3. The clause said L3 while naming tranche 2's
+  break-even inversion as its example — which lives in `market/inflation_curve.py` at L1, so it
+  misdescribed its own example. Model-free *parameter* calibration stays L3; engine-inverting stays
+  L4.
+- `TEST_FLOOR` 129 → 146.
+
 ## [0.7.0] - 2026-11-01
 
 Tranche 7 — the index fixing series and seasoned pricing (`t > 0`), BERHAN-2012 eq 2.5.12. First

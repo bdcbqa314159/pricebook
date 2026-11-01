@@ -232,12 +232,23 @@ def test_the_annuity_is_the_accrual_weighted_sum_of_discount_factors():
 
 def test_the_annuity_READS_the_schedules_own_day_count():
     """`psi` comes from the schedule's convention, not a hardcoded 1.0 — the carried-field lesson
-    from tranche 3, applied to the atom."""
-    schedule = _schedule(2)
-    assert swap_annuity(SLOPED, schedule) != sum(SLOPED.df(p) for _, p, _ in schedule.periods())
-    assert swap_annuity(SLOPED, schedule) == pytest.approx(
-        sum(psi * SLOPED.df(p) for _, p, psi in schedule.periods()), rel=1e-15
+    from tranche 3, applied to the atom.
+
+    **The fixture must have non-unit accruals or this test cannot fail**, and the first version of
+    it did not: the annual `_schedule` has exactly-365-day periods, so on ACT/365F `psi` is exactly
+    1.0 and the accrual-weighted sum IS the plain sum. It passed `swap_annuity == Σ psi·df` while
+    asserting `!= Σ df` against the same number. A SEMI-ANNUAL schedule makes `psi ≈ 0.49` and the
+    two genuinely differ — the same fixture-power trap as a flat curve, found here by the test
+    failing rather than by review."""
+    semi = CouponSchedule(
+        (ANCHOR, ANCHOR + timedelta(days=180), ANCHOR + timedelta(days=360)), DC
     )
+    accruals = [psi for _, _, psi in semi.periods()]
+    assert all(abs(psi - 1.0) > 0.4 for psi in accruals), f"the fixture has unit accruals: {accruals}"
+    plain = sum(SLOPED.df(pay) for _, pay, _ in semi.periods())
+    weighted = sum(psi * SLOPED.df(pay) for _, pay, psi in semi.periods())
+    assert swap_annuity(SLOPED, semi) == pytest.approx(weighted, rel=1e-15)
+    assert abs(swap_annuity(SLOPED, semi) - plain) > 0.5
 
 
 def test_the_annuity_of_a_one_period_schedule_is_psi_times_one_df():

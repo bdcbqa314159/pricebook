@@ -267,11 +267,60 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 129
+TEST_FLOOR = 146
 
 #: A `stock:` value naming no path — a module built fresh, with no stock ancestor. The
 #: common case under the new model, so it must be expressible rather than fudged.
 _NO_STOCK = {"—", "none", "(none", "(none)", "-"}
+
+
+#: Layers whose modules must declare an external-cross-check disposition (CLAUDE.md 8). Value
+#: types, dispatch and pure-data products are out of scope — a `crosscheck:` line there would be
+#: ceremony, which is why the gate is scoped rather than global.
+_CROSSCHECK_LAYERS = ("market", "models", "engine")
+
+#: `crosscheck: none — <reason>`. The reason is REQUIRED: the exemption has to be a conscious call
+#: with its rationale on the page, the same shape as the `fields`/`slow` gates' exemptions. A bare
+#: `none` with no reason is the silent gap this gate exists to prevent.
+_CROSSCHECK_NONE = re.compile(r"crosscheck:\s*none\s*[—–-]\s*\S")
+_CROSSCHECK_ANY = re.compile(r"crosscheck:\s*(\S+)")
+
+
+def _crosscheck_presence() -> list[str]:
+    """FAIL a `market/`, `models/` or `engine/` module with no `crosscheck:` disposition.
+
+    **Presence, not form — and that distinction was ruled the hard way.** The clause was first
+    gated on the *spelling* of the marker, which cannot catch an OMISSION: tranche 7 added
+    `market/fixing_series.py`, a module whose lag-and-interpolation resolution QuantLib implements
+    directly (`CPI::laggedFixing`), with no marker at all — in the same hour the form-only ruling
+    was made, and nothing anywhere noticed. A presence check over these three layers would have
+    caught it in one command.
+
+    Before that, the clause read as having ZERO instances because it was grepped as
+    `# crosscheck:` — a comment — while the tree writes `crosscheck:` in the provenance header. It
+    had in fact reached six of six sites unprompted. So the discipline was working, the spelling
+    was wrong, and the gate was missing; this is the gate.
+    """
+    errs: list[str] = []
+    for mod in _src_modules():
+        rel = mod.relative_to(SRC)
+        if rel.parts[0] not in _CROSSCHECK_LAYERS:
+            continue
+        text = _read(mod)
+        if _CROSSCHECK_NONE.search(text):
+            continue
+        found = _CROSSCHECK_ANY.search(text)
+        if found is None:
+            errs.append(
+                f"{mod.relative_to(ROOT)}: no `crosscheck:` disposition — name a known-library "
+                "target, or `crosscheck: none — <reason>`"
+            )
+        elif found.group(1).rstrip(":").lower() == "none":
+            errs.append(
+                f"{mod.relative_to(ROOT)}: `crosscheck: none` carries no reason — the exemption "
+                "must say why (`none — a keyed container, no numerics`)"
+            )
+    return errs
 
 
 def provenance() -> list[str]:
@@ -311,6 +360,7 @@ def provenance() -> list[str]:
             # legitimate provenance — it must still dereference to something real.
             if not (ROOT / raw).exists():
                 errs.append(f"{mod.relative_to(ROOT)}: stock path does not resolve: {raw}")
+    errs += _crosscheck_presence()
     if not have_stock:
         print("    note: _stock/ absent (gitignored) — headers checked, stock paths NOT resolved")
         return errs

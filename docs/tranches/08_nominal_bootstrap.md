@@ -1,6 +1,6 @@
 # Tranche 8 — the nominal curve bootstrap (§5.1), the cross-check presence gate, and the dispositions
 
-**Status:** DECIDED by Cowork (§10 step 1), awaiting build. **Target:** `v0.8.0`.
+**Status:** BUILT (v0.8.0). Decided by Cowork (§10 step 1), built by Code. **Results in §7.**
 **Source:** `BERHAN-2012` (`worked-from`) §5.1 — the nominal discount curve bootstrapped from par
 swap rates ("recovered from bootstrapping the nominal discount curve", p. 5). Single-curve, as the
 thesis is.
@@ -86,3 +86,84 @@ Branch `tranche/08-nominal-bootstrap` (the §8 presence-gate commit is already p
 (RED) → `feat` → `docs` → `chore(release): v0.8.0`. One PR carries: the bootstrap, the presence
 gate + the 7 dispositions, the parked §8 edit, and the §2 correction. `source:` cites
 `BERHAN-2012` §5.1.
+
+
+---
+
+## 7. Result — and §5.1 is MISPRINTED, twice, in both renderings
+
+Built as specced: the bootstrap, the presence gate, the seven dispositions, the parked §8 edit and
+the §2 correction. 146 tests, eight gates green, ruff and pyright clean, zero suppressions.
+
+**The headline is a source defect, not a code defect.** Transcribing 5.1.1 and 5.1.2 in `-raw` and
+`-layout` per §4, the two renderings **agree with each other** — and the equations still disagree
+with each other:
+
+* **5.1.1 carries a spurious leading minus**, which makes every par rate negative;
+* **5.1.2 sums `j = 0 .. i−1`** where inverting 5.1.1 requires `j = 1 .. i−1`. The thesis defines
+  `P(0,T0) := 1` on the same line, so the printed form adds a spurious unit to the annuity.
+
+Verified numerically against a known flat 3% curve, recovering the 1y pillar:
+
+| form | recovered `P(0,T₁)` | truth |
+|---|---|---|
+| `j = 1..i−1` (implemented) | **0.97044553** | 0.97044553 |
+| `j = 0..i−1` (as printed) | 0.94089107 | 0.97044553 |
+
+**This is a new sub-case of §4 worth ruling on.** Transcription independence and the dual-rendering
+rule protect against a *rendering* mangling a formula — the v0.4.0 failure. They are powerless when
+the **source itself** is wrong, because both renderings faithfully reproduce the typo. What caught
+it is the **requirement** that a formula and its stated inverse actually invert: oracle 1 starts
+from a known curve, so a misprint cannot survive it. Both misprints now have their own tests
+(`test_the_printed_5_1_2_SUMMATION_would_NOT_recover_the_curve`,
+`test_the_printed_5_1_1_SIGN_would_make_every_par_rate_negative`), so the correction is asserted
+rather than asserted-in-a-comment.
+
+## 8. Findings for Cowork (§10 — raised, not decided)
+
+### 8.1 No root-find: 5.1.2 is closed form, and the repo already ruled on this
+§2's pieces list "reuse `foundation/solvers.py` — the sequential root-find per pillar". Given the
+pillars below `i`, corrected 5.1.2 is an exact rearrangement, so a numerical solve would be — in
+this repo's own words at `market/inflation_curve.py:54` — "solving a closed form". Built closed
+form, and the solver seam is untouched.
+
+It is also the **strongest** version of oracle 5: with no bracket, there is nothing for a negative
+rate to fall outside. `df > 1` comes out with nothing configured.
+
+### 8.2 The stock was not the trap the spec describes — it had already learned this
+§5 says the stock "hard-codes a `[1e-6, 1.0]` bracket and raises on a negative-rate root — do NOT
+inherit it". Checked: `_stock/.../fixed_income/ois.py:222` reads
+`brentq(objective, 1e-6, 3.0)  # wider bracket: handles negative rates`. The only `[1e-6, 1.0]` in
+the whole stock is `credit/cds.py:950`, solving for a **survival probability**, where `[0,1]` is the
+correct domain and not a bug.
+
+The *instruction* is right and oracle 5 is kept. But the attribution is backwards: the stock's
+comment is the lesson, not the trap — and "the stock had already fixed this" is worth knowing,
+because it is the first time in this vertical the stock was ahead of us rather than behind.
+
+### 8.3 Malformed input raises; it does not return `PricingFailure`
+§3's oracles 5–6 ask for `PricingFailure`. Charter §3's failure-is-a-value governs
+`engine.price(product, model)`; a market-data constructor is a trust boundary, and the established
+sibling `real_curve_from_breakeven` raises `ValueError`. Two sibling constructors with opposite
+error conventions is worse than either choice, so this one raises. Flagged rather than settled —
+if the ruling is `PricingFailure`, both constructors should change together.
+
+### 8.4 My own annuity test had no power, and the test caught it
+`test_the_annuity_READS_the_schedules_own_day_count` asserted `swap_annuity != Σ df` to prove `ψ`
+is read. On the annual fixture every period is exactly 365 days, so on ACT/365F `ψ = 1.0` and the
+weighted sum **is** the plain sum: it asserted `!= ` against its own value and failed. Fixed with a
+semi-annual fixture (`ψ ≈ 0.49`) and an assertion that the accruals are non-unit. The flat-fixture
+trap, fourth appearance, this time in a test I wrote in this tranche.
+
+## 9. The presence gate, and it was mutation-tested
+`verify.py provenance` now requires every module under `market/`, `models/` and `engine/` to carry
+either a real `crosscheck:` target or `crosscheck: none — <reason>`, the reason **required**. Both
+halves were checked by mutation rather than assumed:
+
+| mutation | result |
+|---|---|
+| delete T7's `fixing_series.py` marker — the exact omission that slipped through | **FAILS**, naming the module |
+| `crosscheck: none` with no reason | **FAILS**, demanding the reason |
+| restored | ok |
+
+13 modules gated: 8 with real targets, 5 exempt with reasons.

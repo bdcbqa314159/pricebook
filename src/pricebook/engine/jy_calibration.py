@@ -46,6 +46,8 @@ Provenance:
           and multi-start uniqueness plus Jacobian conditioning (A2b, "not degenerate"); the
           objective vanishing at the truth and descending from a wrong start (A3); the cross-stage
           break-even round trip (A4); failure as a value (A5)
+  crosscheck: none — inverts the cap/floor forward map (tagged at
+          engine/capfloor.py); QuantLib's inflation vol is surface-based, not a JY-to-floor calibrator
   slice:  tranche 6 -- calibrating Jarrow-Yildirim
 """
 
