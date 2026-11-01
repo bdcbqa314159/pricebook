@@ -13,8 +13,48 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-1 · §8's `# crosscheck:` markers have ZERO instances in the tree
-**Opened:** 2026-11-01, at the T1–T6 checkpoint. **Found by:** verifying the checkpoint's claims.
+### OI-1 · §8's crosscheck markers — REOPENED: the finding that opened this was WRONG
+**Opened:** 2026-11-01 (T1–T6 checkpoint). **Ruled closed** by Cowork the same day on the premise
+that the markers had zero instances. **REOPENED by Code, 2026-11-01, because that premise is false
+and it was Code's own error.**
+
+**There are SIX markers, covering the model-dependent pricers and the inflation curve:**
+
+```
+models/jarrow_yildirim.py:44    quantlib YoYInflationSwap / JY convexity
+market/inflation_curve.py:15    quantlib ZeroCouponInflationTermStructure
+engine/yoy.py:24                quantlib YoYInflationSwap
+engine/inflation.py:16          quantlib ZeroCouponInflationSwap
+engine/inflation.py:101         quantlib CPIBond
+engine/capfloor.py:20           quantlib YoYInflationCapFloor
+```
+
+**Why it read as zero.** The charter specifies the marker as `# crosscheck: …` — a *comment*. The
+practice writes `crosscheck: …` as a line in the module's **provenance header docstring**, with no
+`#`. Code grepped the charter's literal spelling, got nothing, and reported the mechanism empty.
+
+**This is charter §4's own defect class, committed by the person who had just invoked it: the
+search's domain excluded the form the thing actually takes.** The discipline was never dead — it
+is at six of six model-dependent sites, which is what "complete by construction" was asking for.
+
+**What is actually open, and it is small:** the charter says `# crosscheck:` and the tree says
+`crosscheck:` in the provenance header. One of the two spellings is wrong. The header form is
+arguably the better one — it sits with `stock:`/`source:`/`oracle:`/`slice:`, which is where a
+reader looks for provenance — in which case §8 should say so, and a gate becomes trivial (the
+`provenance` gate already parses those headers).
+
+**Not ruled here.** Cowork's narrowing (on disk, **not committed**) argued "an ungated prose rule
+reached zero instances across six tranches — gate a discipline or do not legislate it." The
+conclusion may still be right, but **that rationale does not hold**: the rule reached six of six.
+A second claim in the narrowed clause also does not hold yet — it says the sites are "enumerated in
+`docs/papers/coverage-berhan-2012.md`", and that document has no cross-check column at all.
+
+**Re-open trigger:** immediate — Cowork to re-rule on the corrected facts.
+**Blocks nothing.**
+
+---
+
+_History (the original finding, kept because it was wrong and the wrongness is the lesson):_
 
 Charter §8 requires a `# crosscheck: <library> <thing> — deferred …` marker "at every site that
 wants a known-library cross-check, so the optional QuantLib tier is complete by construction, not

@@ -26,5 +26,16 @@ numbers come from closed forms" rule — the right way to honour a source you ca
 
 **Why it is a separate project.** It is a narrative/presentation surface (a consumer of the
 representation contract), not pricing analytics. It belongs with the GUI / dashboard / server family
-the scope line keeps out of this repo. Revisit once the inflation arc is priced and the
-representation is stable.
+the scope line keeps out of this repo.
+
+**Activated 2026-11-01 (Bernardo): a Substack series.** A quant-finance publication whose through-
+line is *working good books and papers by building them* — quant the subject, programming the
+vehicle, each resource-backed implementation doubling as teaching. Berhan's inflation thesis is
+**project one**; finishing the book (the T7→ tranche ladder) is what generates the material.
+- **Authored by Cowork, kept OUT of the library's code** — drafts live in the workspace / a sibling,
+  not `src/` or this repo's tracked tree, so §0's analytics-only scope is untouched. Bernardo
+  publishes (a Substack connector or a paste — sorted when the first piece is ready).
+- **Cadence: backlog-first.** The six built tranches (the whole inflation arc + the bugs the oracle
+  discipline caught) are a strong opening; then one piece as each new tranche lands.
+- **Governed by the honesty principle above** — structure, not a source's pixels; every number
+  attributed to the library and its oracle.
