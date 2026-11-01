@@ -1,6 +1,6 @@
 # Tranche 7 — the index series and seasoned pricing (valuation at t > 0)
 
-**Status:** DECIDED by Cowork (§10 step 1), awaiting build. **Target:** `v0.7.0`.
+**Status:** BUILT (v0.7.0). Decided by Cowork (§10 step 1), built by Code. **Results in §6.**
 **Source:** `BERHAN-2012` (`worked-from`) — §2.5 eq **2.5.12** (the seasoned YoY form), §1.1.2
 (indexation lag), §1.2 (the index `I(t)` as the FX-analogy spot). Rung-1 reduction anchor.
 
@@ -87,3 +87,71 @@ the stock's fixing handling is not in the ratified shape.
 ## 5. Process
 Branch `tranche/07-seasoned-index-series`. `test` (RED) → `feat` → `docs` → `chore(release): v0.7.0`.
 `source:` cites `BERHAN-2012` §2.5/§1.1.2 with equation numbers. First rung of finishing the book.
+
+
+---
+
+## 6. Result — and the gap was a WRONG NUMBER, not a missing feature
+
+The spec's §0 is right that the YoY swap is the inception-only instrument, and I verified that
+against the tree before building. But the framing understates it: the engine did not *decline* to
+price a seasoned trade, it **priced it wrongly and silently.**
+
+Eq 2.5.13 is 2.5.12 at `I(0)/I(T₀) = 1`, and tranche 4 applied that unit ratio *unconditionally*.
+So at any seasoned valuation date the engine returned the answer for "the index has not moved since
+the last reset" — never reading the published reset, never refusing. Measured on a 3y annual swap
+18 months in, against the realised inflation since the reset:
+
+| realised since the reset | error, pre-T7 | as a share of the inflation leg |
+|---|---|---|
+| 1 %/yr | 49.6 bp of notional | 17.5 % |
+| 2 %/yr | **99.0 bp** | **34.9 %** |
+| 4 %/yr | 197.0 bp | 69.5 % |
+
+**Why no oracle caught it:** every YoY oracle valued at inception, where 2.5.12 and 2.5.13 coincide
+*exactly*. The oracle's domain excluded the failure — charter §4's governing clause, and the fifth
+instance of it in this vertical. The post-fix probe confirms the deltas above are now produced by
+the engine, and that a seasoned valuation with no series returns `PricingFailure` instead of a
+number.
+
+## 7. Three findings for Cowork to rule (§10 — raised, not decided)
+
+### 7.1 A ratified T4 oracle contradicted §3.3, and the oracle was right
+§3.3 says the scalar fixing "becomes a one-point series", implying every pricer always resolves.
+But T4's `test_the_yoy_swap_needs_NO_index_fixing_at_inception` asserts a YoY swap at inception
+prices off curves alone — and **that is correct**: eq 2.5.13 contains no index level, the first
+term really is `Pr − Pn`. Requiring a series at inception would have been a regression dressed as
+rigour, so the seasoning ratio short-circuits to `1.0` when `valuation_date ≤ reset_date`.
+
+That guard is **on the dates, never on "is a series present"** — which is the distinction that
+matters, because "no series ⇒ ratio 1" is precisely the original defect. No time elapsed since the
+reset is a *definition*; a missing series for a seasoned trade is a *refusal*.
+
+### 7.2 The spec put resolution at L0 and the series at L1, which `acyclic` rejects
+§1's layer table has `reference_level` at L0 and `FixingSeries` at L1 — but the atom reads the
+series, so that is an upward import and the gate refuses it. Putting both at L0 would make the
+foundation hold market state. **Built both at L1** (`market/fixing_series.py`), following
+`market/inflation_curve.py`: an L1 function over L0 value types. The index's *conventions* stay at
+L0 on the identity, as §3.1 ruled. No gate or charter change.
+
+### 7.3 Required index fields broke the serialised contract of four products — schema v1 → v2
+§3.1's ruling (the fields return, and per the `JYCorrelations` precedent they are **required**, not
+defaulted) has a consequence the spec did not reach: every product serialised its index as a bare
+name (`"index": "HICPxt"`) and rebuilt it with `InflationIndex(d["index"])`, which no longer
+constructs. A name cannot say which print `I(t)` is.
+
+So `InflationIndex` gained its own `to_dict`/`from_dict`, products embed it, and `SCHEMA_VERSION`
+went **1 → 2**. `from_dict` **refuses a bare string** rather than defaulting to "3 months, linear",
+because that default would price a UK gilt on the TIPS convention — the same silent-wrong-number
+class this tranche exists to remove. Note `check_schema_version` alone cannot catch it: it only
+rejects payloads *newer* than the build, so a v1 payload passes the version gate and the refusal
+has to come from the reader. That has its own oracle.
+
+**This is a breaking change to the durable public contract**, which is what a version bump is for —
+but it is a contract decision, so it is reported here rather than settled by me.
+
+## 8. Gates
+129 tests (floor raised 103 → 129), eight gates green, ruff and pyright clean, zero suppressions.
+New convention register row **C9** — index resolution is one atom, and it is the register's first
+row guarded *structurally* (one function, so a divergence is not expressible) rather than by a
+comparison test.

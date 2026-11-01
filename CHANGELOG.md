@@ -6,6 +6,58 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-01
+
+Tranche 7 — the index fixing series and seasoned pricing (`t > 0`), BERHAN-2012 eq 2.5.12. First
+rung of finishing the book. Decided by Cowork (`docs/tranches/07_seasoned_index_series.md`).
+
+### Fixed — the YoY swap returned a WRONG NUMBER at every seasoned valuation date
+Eq 2.5.13 is 2.5.12 specialised to `t = 0`, where `I(0)/I(T₀) = 1`. Tranche 4 applied that unit
+ratio **unconditionally**, so valuing a seasoned trade the engine returned the answer for "the index
+has not moved since the last reset" — never reading the published reset `I(T_{ι(t)−1})`, and never
+refusing either. On a 3y annual swap 18 months in: **99.0 bp of notional and 34.9% of the inflation
+leg at 2%/yr realised inflation** (197.0 bp at 4%).
+
+Every YoY oracle valued at inception, where the two forms coincide exactly — so the oracle's domain
+excluded the failure (§4's governing clause, fifth instance in this vertical).
+
+### Added
+- `market/fixing_series.py` — `FixingSeries` (published levels keyed by reference month) and
+  `reference_level`, which applies the index's publication lag and interpolation. **One atom, three
+  engines**, so the ZCIIS, the linker and the YoY swap cannot disagree about which print `I(t)` is.
+  `LINEAR` refuses when the following month is missing rather than falling back to flat — a flat
+  fallback returns a plausible number under the wrong convention.
+- `InflationIndex` gains `publication_lag` and `interpolation` (`FLAT` for UK gilts, `LINEAR` for
+  TIPS), **required, not defaulted**: "3 months, linear" is wrong for UK gilts, so a default would
+  silently price the wrong convention.
+- 26 oracles. The anchor is the exact reduction — seasoned equals inception at `ι(t)=1`, the same
+  division giving `1.0` — with the mandatory companion that a real elapsed period moves the price
+  by the amount the ratio implies. Resolution is oracled on a **sloped series read mid-month**, and
+  the two ways that fixture could lose its power (a flat series; a date on the 1st, where `LINEAR`
+  degenerates to `FLAT`) are asserted rather than assumed.
+
+### Changed — BREAKING: `schema_version` 1 → 2
+A product's `"index"` went from a bare name to the nested `InflationIndex.to_dict()`, because a name
+cannot say which monthly print `I(t)` is. `InflationIndex.from_dict` **refuses a bare string** rather
+than defaulting the conventions. `check_schema_version` cannot catch this alone — it only rejects
+payloads *newer* than the build — so the refusal comes from the reader and has its own oracle.
+
+`MarketSnapshot.index_fixings: Mapping[index, float]` → `fixings: Mapping[index, FixingSeries]`.
+The scalar is the degenerate one-point case, which is what makes the replacement provably faithful
+rather than a rewrite.
+
+A YoY swap **at inception still needs no fixing at all** — eq 2.5.13 contains no index level, as
+tranche 4's oracle asserts. The seasoning guard is on the dates (`valuation_date ≤ reset_date`),
+never on whether a series is present, since "no series ⇒ ratio 1" was the original defect.
+
+### Docs
+- Convention register **C9** — index resolution is one atom; the register's first **structurally**
+  guarded row (one function, so a divergence is not expressible without duplicating it first).
+- `OPEN.md` **OI-1 reopened**: the finding that there were zero `crosscheck:` markers was Code's own
+  error — there are **six**, written in the provenance-header form while the charter specified the
+  `#`-comment form. Charter §4's defect class committed by the person invoking it. The live question
+  is only which spelling §8 should name.
+
 ## [0.6.0] - 2026-10-31
 
 Tranche 6 — calibrating Jarrow–Yildirim's volatilities to a year-on-year floor strip
