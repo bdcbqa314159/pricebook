@@ -58,6 +58,12 @@ not just acyclic** (`verify.py layers`): L0 is finance-free (no strikes, vols, p
 discounting *in code* — a docstring explaining finance context is fine). Products are frozen data;
 they do not price themselves — pricing lives in L4.
 
+**Calibration splits by what it inverts** — the one place the box above misleads, so it is spelled
+out. A *model-free* calibration (a curve bootstrap — T2's break-even inversion) imports nothing
+above it and is **L3**. A calibrator that **inverts an engine** — fitting parameters by repricing
+through `price()`, as JY-to-a-floor-strip does — is a *consumer* of the engine and sits at **L4**
+(it lives in `engine/`), not L3; `acyclic` enforces it rather than it being a matter of taste.
+
 ---
 
 ## 3. The stateless engine contract (L4)
@@ -114,6 +120,15 @@ not an oracle. Ruled principles:
   shared source-reading error that no within-product check can — it has now done so twice (T3's
   strip reconciliation, T5's `cap−floor = the YoY leg`). *(This whole bullet is v0.4.0's mis-nested
   convexity, caught after landing by parity and by `C(t=Tᵢ₋₁)=0`, not by any number.)*
+
+- **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
+  is evidence only about what the oracle *examined*. Every defect this project has shipped was an
+  oracle whose domain excluded the thing that was wrong — checked against the stock instead of the
+  source (T4's anchor, T6's instrument), against one rendering instead of two (v0.4.0's nesting), on
+  the quote maturities instead of the whole curve where it could differ (T6's A4 premise), or one
+  parameter at a time instead of jointly (the identifiability valley). Before trusting a green, ask
+  *where the failure would live and whether the oracle looks there.* This is the floor rule stated
+  at the top: widen the domain until it includes the failure, or the green is empty.
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.
