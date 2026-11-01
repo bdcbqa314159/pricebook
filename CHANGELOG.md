@@ -6,6 +6,42 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-01
+
+Tranche 9(b) — the floor→floorlet strip and the implied-vol surface (BERHAN-2012 §5.2), completing
+tranche 9. Decided by Cowork, split per its §4.
+
+### Fixed — `black_implied_vol`'s `expiry` parameter was the wrong NAME, worth up to 50%
+Shipped in v0.9.0 as `expiry`. Its second consumer showed the divisor is the horizon the *variance*
+accumulates over, which for a year-on-year floorlet is the **period length**: the floorlet on
+`[2y, 3y]` expires at 3y and accumulates one year of variance, since `V² = σ_I²·(Tᵢ − Tᵢ₋₁)` under
+simplified JY. Passing the expiry under-states `σ_I` by **29.3% / 42.3% / 50.0%** at the 2y / 3y / 4y
+nodes — and **0.0% at the 1y node**, whose period starts at the anchor, so a single-period fixture
+could never have caught it. Renamed `variance_years`; the trap is pinned by its own oracle across
+four periods, with the error required to grow with maturity.
+
+*If a name needs a comment to explain it, the name is wrong.* This one needed one.
+
+### Added
+- `market/vol_surface.py` — `FloorQuote` (a quoted floor: schedule, strike, price, notional) and
+  `ImpliedVolSurface`, nodes keyed by `(payment date, strike)`. **Dates, not year fractions** —
+  tranche 7 lost a pointwise oracle to exactly that mismatch. **No interpolation**, and an off-node
+  request raises, so the absence is a decision with a test rather than an oversight.
+- `models/implied_vol_surface.py` — `implied_vol_surface(market, quotes)`: difference the strip,
+  invert Black per node. Under the thesis's simplified JY (§5.2 Prop 2.3.1, JY at `σn = σr = 0`) the
+  convexity vanishes, so the forward is a pure curve relationship. Quotes are grouped **by strike
+  and stripped independently** — differencing across strike would mix two option series while still
+  producing a plausible node count.
+- 21 oracles. The anchor recovers a known **sloped** generating vol at every node, with the test
+  pricing the floorlets itself. Cowork's sharpening is built in: the count is the population floor,
+  the per-node values are the discriminator, and three premises are asserted — pairwise-distinct
+  floorlets, a **reversed** strip giving a different middle node, and `floor(T₀) = 0`.
+
+### Changed
+- Out-of-order floor quotes are **sorted, not refused** (a feed's order is not an error); a
+  **duplicate** maturity at one strike is refused, since it differences to a zero-price floorlet.
+- `TEST_FLOOR` 204 → 224.
+
 ## [0.9.0] - 2026-11-01
 
 Tranche 9(a) — Black-76 extracted to L3 with its inverse, the first half of the implied-vol surface
