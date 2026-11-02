@@ -28,3 +28,10 @@ venv/
 .mypy_cache/
 .coverage
 htmlcov/
+
+# Held source material — PDFs of books and papers we work from. Never committed: this repo is
+# PUBLIC, and the sources are copyrighted. `docs/references.md` records WHAT is held and its
+# status; the file itself stays local, exactly as the BERHAN thesis does under `_stock/`.
+docs/papers/*.pdf
+docs/papers/*.djvu
+docs/papers/*.epub
