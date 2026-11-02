@@ -1,7 +1,12 @@
 # Tranche 10 — the Hull-White nominal cap engine and the (κn, σn) fit (§5.3.1)
 
 **Status:** DECIDED by Cowork (§10 step 1), awaiting build. **Target:** `v0.11.0`.
-**Source:** `BERHAN-2012` §5.3.1 (`worked-from`) + standard Hull-White / Jamshidian caplet.
+**Source:** the HW cap formula from **`MCINERNEY-ZASTAWNIAK`** (`in-hand`) §3.5 (Hull-White) + the
+caplet-as-put-on-a-zero-coupon-bond decomposition and bond-option put-call parity it gives; the
+**calibration target** (ATM nominal cap vols) from `BERHAN-2012` §5.3.1. **BERHAN performs §5.3.1
+with a HW cap formula it declines to publish** ("beyond the scope of this thesis") — so §5.3.1 is
+followed for the *fit*, and McInerney supplies the *forward model* BERHAN omits. (Code's hard-stop
+caught this; Bernardo acquired the source 2026-11-02.)
 **Why now:** the finish-the-book ladder's next rung, and it **closes the two-of-six gap** — σn has
 been a hand-supplied input since T6; §5.3.1 is where the thesis sources it, by fitting `(κn, σn)` to
 ATM nominal cap vols. It is the first **non-inflation** instrument (a vanilla rates cap), flagged
@@ -40,7 +45,7 @@ standing alone.
 
 | # | oracle | rung | why it can go red |
 |---|---|---|---|
-| 1 | **the HW caplet closed form vs an independent transcription** of the Jamshidian zero-bond-option formula, read from the source in `-raw`+`-layout`, parameter-swept | **1** | every `κ`, factor-of-2 and `B(S,T)` error lives here; the independent transcription must not share the implementation's rendering (§4) |
+| 1 | **the HW caplet closed form vs an independent transcription** of the caplet-as-put-on-a-ZCB formula from **`MCINERNEY-ZASTAWNIAK` §3.5**, read in `-raw`+`-layout`, parameter-swept | **1** | every `κ`, factor-of-2 and `B(S,T)` error lives here; the independent transcription must not share the implementation's rendering (§4), and after §5.1 we assume even a held source can misprint |
 | 2 | **anchor reduction: `σn → 0` ⇒ the caplet is its intrinsic value** on the deterministic forward, exactly — with the mandatory companion that **σn MOVES the price** (not a no-op) | exact + companion | `σn` is the vol; zero vol is the degenerate case with a known answer, and the companion stops a reduction that an empty implementation also passes |
 | 3 | **put-call parity: cap − floor = the forward-rate swap value** (the fixed-vs-float identity), composed from the same caplet atom, different code each side | structural cross-product | the sign/leg error no magnitude check catches |
 | 4 | **a requirement that survives a source misprint:** the caplet is positive, monotone in `σn`, and → 0 as the strike → ∞; and the HW caplet-vol term structure has the right `κn` sign (vol of the `T`-caplet rises then saturates in maturity) | structural | the §4 "formula must satisfy a property" guard — a transcription or source typo that oracle 1 might share |
@@ -83,6 +88,6 @@ rates module, which may use a different parameterisation. Build the caplet fresh
 
 ## 6. Process
 Branch `tranche/10a-hw-nominal-cap` then `tranche/10b-hw-cap-calibration`. `test` (RED) → `feat` →
-`docs` → `chore(release)`. `source:` cites `BERHAN-2012` §5.3.1 + the standard HW caplet. The HW
+`docs` → `chore(release)`. the HW caplet's `source:` is **`MCINERNEY-ZASTAWNIAK` §3.5**; the calibration's is `BERHAN-2012` §5.3.1. The HW
 extraction's provenance notes it supersedes JY's inline `HullWhiteParams`/`hw_beta`, with T4's
 oracles re-run green to prove the refactor moved nothing.
