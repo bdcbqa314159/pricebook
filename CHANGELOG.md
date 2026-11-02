@@ -6,6 +6,54 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-02
+
+Tranche 10(a) — the Hull-White nominal cap engine. **The first non-inflation instrument**, pulled in
+because BERHAN-2012 §5.3.1 sources `σn` by fitting `(κn, σn)` to ATM nominal cap vols, and `σn` has
+been a hand-supplied input since tranche 6.
+
+### New source: `MCINERNEY-ZASTAWNIAK`, `in-hand`
+BERHAN performs §5.3.1 with a Hull-White cap formula it **declines to publish** ("beyond the scope
+of this thesis"), and charter §7 forbids citing Brigo–Mercurio, which is only `referenced-by`. The
+build stopped there rather than inventing an anchor; Bernardo acquired McInerney & Zastawniak,
+*Stochastic Interest Rates*, which supplies §2.7's caplet-as-a-put-on-a-zero-coupon-bond, §3.5's
+bond option (3.16–3.18), `ν(0,S)` (3.19/3.20), the caplet (3.21) — and (3.26), the calibration
+scheme itself, which unblocks (b) too.
+
+### Added
+- `models/hull_white.py` gains `bond_option_variance` (eq 3.20), `zero_bond_option` (3.16/3.17),
+  `hw_caplet` (3.21) and `HullWhiteModel`. The Hull-White core (`HullWhiteParams`, `hw_beta`) was
+  relocated here from `models/jarrow_yildirim.py` at its second consumer — lifted **verbatim** and
+  proven **bit-identical across 15 captured values**, with tranche 4's oracles green.
+- `products/nominal_cap.py`, `engine/nominal_cap.py` — a first-class L2 product priced through
+  `price()`. Deliberately **not** sharing a type with `InflationCapFloor` despite identical fields:
+  one strikes an index ratio, the other a nominal rate — the shared *word*, not a shared shape.
+- 34 oracles. The caplet is checked against an **independent longhand transcription** of 3.16–3.21;
+  `σ → 0` gives the intrinsic with the companion that `σ` moves the price; and the headline
+  cross-product identity **cap − floor = the forward-rate swap**, whose right-hand side is built from
+  discount factors alone with no option formula in it.
+
+### A HW bond option *is* Black, so no second transcription was written
+`zero_bond_option` composes `black_price` (tranche 9's extraction), because a bond option is Black on
+the forward bond price `B(0,T)/B(0,S)` with total variance `ν`, discounted by `B(0,S)`. The only
+genuinely new formula is `ν`. `ν` itself is written through `hw_beta`, since eq 3.19's `D(S,T)` **is**
+`β` — verified by reducing 3.19 to the printed 3.20.
+
+### The source misprints `d₋` in both renderings, and parity cannot catch it
+Both `-raw` and `-layout` print `d₋ = d₊ − ν(0,S)` while `ν` is a variance. **Put-call parity is
+satisfied identically for any `d₊`/`d₋`** (`Φ(d) + Φ(−d) = 1` collapses both terms), and the `ν → 0`
+limit converges either way — so both obvious discriminators are checks that cannot fail here. What
+settles it is that the literal reading prices a **call at −0.0049**. That has its own oracle.
+
+### Fixed — the unit-accrual trap left a real hole, found by mutation
+Every fixture used annual ACT/365F periods where `τ = 1.0` exactly, so `1 + τK` and `1 + K` are the
+same number: a mutation dropping the accrual from eq 3.21 **passed all 312 tests**. The L3 caplet
+test now sweeps `τ ∈ {0.25, 0.5, 1.0, 2.0}` and the L4 fixture is semi-annual, with the non-unit
+accrual asserted as a premise; the mutation now fails 23 tests. Fourth appearance of this trap.
+
+### Changed
+- `TEST_FLOOR` 224 → 332.
+
 ## [0.10.0] - 2026-11-01
 
 Tranche 9(b) — the floor→floorlet strip and the implied-vol surface (BERHAN-2012 §5.2), completing

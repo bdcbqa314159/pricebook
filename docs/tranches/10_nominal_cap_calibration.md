@@ -1,6 +1,7 @@
 # Tranche 10 — the Hull-White nominal cap engine and the (κn, σn) fit (§5.3.1)
 
-**Status:** DECIDED by Cowork (§10 step 1), awaiting build. **Target:** `v0.11.0`.
+**Status:** **(a) BUILT** (v0.11.0) — the HW nominal cap engine. **(b) pending** — the `(κn, σn)` fit.
+Decided by Cowork (§10 step 1), built by Code. **Results in §7.**
 **Source:** the HW cap formula from **`MCINERNEY-ZASTAWNIAK`** (`in-hand`) §3.5 (Hull-White) + the
 caplet-as-put-on-a-zero-coupon-bond decomposition and bond-option put-call parity it gives; the
 **calibration target** (ATM nominal cap vols) from `BERHAN-2012` §5.3.1. **BERHAN performs §5.3.1
@@ -91,3 +92,90 @@ Branch `tranche/10a-hw-nominal-cap` then `tranche/10b-hw-cap-calibration`. `test
 `docs` → `chore(release)`. the HW caplet's `source:` is **`MCINERNEY-ZASTAWNIAK` §3.5**; the calibration's is `BERHAN-2012` §5.3.1. The HW
 extraction's provenance notes it supersedes JY's inline `HullWhiteParams`/`hw_beta`, with T4's
 oracles re-run green to prove the refactor moved nothing.
+
+
+---
+
+## 7. Result — (a) built, and the structural finding is that a HW bond option IS Black
+
+332 tests, eight gates green, ruff and pyright clean, zero suppressions.
+
+### No new Jamshidian formula was needed
+§5 said "build the caplet fresh". It turned out not to need building: **a Hull-White bond option is
+Black on the forward bond price** `B(0,T)/B(0,S)` with total variance `ν`, discounted by `B(0,S)`.
+Writing out eqs 3.16/3.17 shows it immediately:
+
+```
+B(0,S)·ω·[F·Φ(ω d₊) − K·Φ(ω d₋)]  =  B(0,T)Φ(d₊) − K·B(0,S)Φ(d₋)     for ω = +1
+```
+
+So `zero_bond_option` **composes `black_price`** — tranche 9's extraction, already oracled — and the
+only genuinely new formula in the tranche is `ν(0,S)` (eq 3.20). Transcribing Black a second time
+would have duplicated the convention across two modules, which §3d exists to prevent. The oracle
+still transcribes 3.16–3.18 longhand, so there is independent code on each side.
+
+`ν` is also written through `hw_beta` rather than as the printed closed form, because eq 3.19's
+`D(S,T)` **is** `β` — verified by reducing 3.19 to the printed 3.20, not assumed.
+
+### The source's `d₋` drops its radical in BOTH renderings
+Each prints `d₋ = d₊ − ν(0,S)` while `ν` is defined as a *variance*. The §5.1 shape again — a held
+source misprinting identically in `-raw` and `-layout`, so transcription independence cannot settle
+it.
+
+**And the obvious discriminator does not work.** I reached for put-call parity first; it is
+satisfied **identically** for any `d₊`/`d₋`, because `Φ(d) + Φ(−d) = 1` collapses both terms. A
+check that cannot fail, on the one question that mattered. The `ν → 0` limit fails too — both
+readings converge, since `√ν` and `ν` both vanish. What settles it: **the literal reading prices a
+call at −0.0049**, which no option can be. That now has its own test rather than living in a
+comment, and the vacuity of parity here is stated in both the test and the module.
+
+## 8. Process failures of mine, both recorded
+
+### 8.1 The L4 oracles were NOT pre-registered — charter §4 violated
+The L3 caplet analytics were committed RED before the code (`test(models): HW caplet oracles RED`).
+The **engine** tests were not: I wrote `products/nominal_cap.py` and `engine/nominal_cap.py`, then
+the tests, which passed first time. That is implement-then-check, which §4 forbids precisely because
+it invites bending the test to the code.
+
+Un-ringable, so the substitute evidence is **mutation**, which is the only thing that can show a
+not-pre-registered test has power:
+
+| mutation | caught? |
+|---|---|
+| reverse the caplet↔bond-put direction | **yes** — 3 tests |
+| variance on `(pay, pay)` instead of `(start, pay)` | **yes** — 4 tests |
+| factor-of-2 in the variance denominator | **yes** — 36 tests (the L3 sweep) |
+| **drop the accrual from `(1 + τK)`** | **NO — survived all 312** |
+
+### 8.2 The unit-accrual trap, FOURTH appearance, and it left a real hole
+Every fixture used annual ACT/365F periods, where `τ = 1.0` exactly — so `1 + τK` and `1 + K` are
+the same number and the accrual's role in eq 3.21 was **completely unoracled**. Not review, not
+reasoning: mutation found it.
+
+Fixed on both sides — the L3 caplet test now sweeps `τ ∈ {0.25, 0.5, 1.0, 2.0}` and the L4 fixture
+is **semi-annual** (`τ ≈ 0.4932`), with the non-unit accrual asserted as a premise. The mutation now
+fails 23 tests.
+
+This is the same trap as tranche 8's annuity (`Σ τ·df` vs `Σ df`) and tranche 9's variance horizon.
+Three of four instances were in fixtures I wrote in the same tranche that had just learned it.
+
+### 8.3 A wrong requirement, caught by its own test
+The distinctness test asserted every caplet is `> 0`. The first one is exactly **zero** — its period
+starts at the anchor, so `ν(0,0) = 0`, the rate has already fixed, and on this curve it is out of
+the money. Correct behaviour, wrong assertion. It became two oracles: the first caplet **is** its
+intrinsic at zero variance (a reduction worth having), and the *live* caplets are distinct.
+
+## 9. Findings for Cowork (§10 — raised, not decided)
+
+**9.1** `zero_bond_option` composes `black_price` instead of transcribing 3.16/3.17, against §5's
+"build the caplet fresh". Flagged because it changes what the module contains, though the oracle is
+unaffected — the test still transcribes longhand.
+
+**9.2** `CapletPeriod` is a new L3 bundle (`df_start`, `df_pay`, `accrual`), created because
+`hw_caplet` otherwise takes six arguments. §6's compelled-bundling clause, not a new abstraction —
+concrete, frozen, no polymorphism.
+
+**9.3** `NominalCap` deliberately does **not** share a type with `InflationCapFloor` despite
+identical fields. One strikes a year-on-year index ratio, the other a nominal rate: the shared
+*word* "cap", not a shared shape. Stated so a future reader does not read the duplication as an
+oversight.
