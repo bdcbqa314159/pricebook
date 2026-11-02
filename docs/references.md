@@ -43,6 +43,55 @@ MSc thesis, KTH Royal Institute of Technology, 2012. TRITA-MAT-E 2012:13.
 
 ---
 
+### `MCINERNEY-ZASTAWNIAK` — `in-hand`
+
+McInerney, D. and Zastawniak, T., *Stochastic Interest Rates*. Mastering Mathematical Finance,
+Cambridge University Press. 170 pp. Held locally at
+`_stock/NewDocuments/Stochastic Interest Rates (Daragh McInerney, Tomasz Zastawniak).pdf`
+(gitignored — the repo is public and the source is copyrighted; only this record is tracked).
+
+**Acquired 2026-11-02 by Bernardo to unblock §5.3.1**, which BERHAN-2012 performs with a Hull-White
+cap formula it declines to publish ("beyond the scope of this thesis"). It supplies exactly the two
+pieces that were missing, and more:
+
+| § | eq | what |
+|---|---|---|
+| 2.7 | — | the caplet payoff as `1 + τᵢK` puts on a zero-coupon bond, strike `(1+τᵢK)⁻¹` |
+| 2.9 | 2.24 | Black's caplet formula and the implied Black (spot) volatility |
+| 3.5 | 3.16/3.17 | zero-coupon bond call `BC` and put `BP` under a deterministic log-volatility |
+| 3.5 | 3.18 | `d±`, with `d₋ = d₊ − √ν(0,S)` |
+| 3.5 | 3.19 | `ν(0,S) = D(S,T)²∫₀ˢ σ(u)²e^{−2α(S−u)}du` — the variance of `ln B(S,T)` |
+| 3.5 | 3.20 | its constant-σ closed form, `σ²/(2α³)·(1−e^{−α(T−S)})²·(1−e^{−2αS})` |
+| 3.5 | 3.21 | **the Hull-White caplet** `Cpl_i(0) = (1+τᵢK)·BP(0;Tᵢ₋₁,Tᵢ,(1+τᵢK)⁻¹)` |
+| 3.5 | 3.26 | **the calibration scheme itself** — solve `Cpl_i(0) = Cpl^Black_i(0;σᵢ)` for the model's
+implied caplet vol, then fit parameters to the market's spot vols. This is precisely the procedure
+§5.3.1 describes and declines to specify, so it unblocks T10(b) as well as T10(a). |
+
+**Internally consistent where it matters, and checked.** (3.19) reduces to (3.20) exactly when
+`D(S,T) = (1−e^{−α(T−S)})/α` — which is our own `hw_beta` — so the book's `D` and the library's `β`
+are the same object, verified rather than assumed.
+
+**One rendering defect, resolved: `d₋`'s radical is dropped in BOTH `-raw` and `-layout`.** Each
+prints `d₋ = d₊ − ν(0,S)` while `ν` is explicitly defined as a *variance*. This is the §5.1 shape
+again — a formula the renderings reproduce identically and wrongly — so transcription independence
+cannot settle it. Two things do: reading it as `d₋ = d₊ − ν` makes the **call price negative**
+(−0.0049 at `B(0,S)=0.97, B(0,T)=0.94, K=0.985, ν=0.0036`), which no option can be; and
+`d₋ = d₊ − √ν` reproduces our independently-oracled `black_price` to the last bit, because
+**a Hull-White bond option *is* Black on the forward bond price `B(0,T)/B(0,S)` with total variance
+`ν`, discounted by `B(0,S)`**. Note that put-call parity does **not** discriminate here — it is an
+algebraic identity in `d±` whatever their relation, so it is a check that cannot fail on this
+question.
+
+**Status is `in-hand`, not yet `worked-from`:** the relevant sections are read and the key formulas
+transcribed in both renderings, but nothing is built against it until T10 lands.
+
+**Also covers, for later units:** §1.7 yield-curve construction (T8's territory), ch 4 HJM and
+Gaussian models, and **ch 5–6 the LIBOR and swap market models with their calibration** — which is
+BERHAN-2012's ch 3 "Market Model I", so one acquisition also removes the source question from that
+unit.
+
+---
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held
