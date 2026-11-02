@@ -91,10 +91,16 @@ def test_the_bond_option_matches_eqs_3_16_to_3_18(kind, S, T, strike):
 
 @pytest.mark.parametrize("kind", list(CapFloorKind))
 @pytest.mark.parametrize("strike_rate", [0.01, 0.03, 0.06])
-def test_the_caplet_matches_eq_3_21(kind, strike_rate):
+@pytest.mark.parametrize("tau", [0.25, 0.5, 1.0, 2.0])
+def test_the_caplet_matches_eq_3_21(kind, strike_rate, tau):
     """A caplet is `(1+tau*K)` PUTS on the bond; a floorlet is `(1+tau*K)` CALLS. The direction is
-    the thing an implementation silently reverses, so it is transcribed here, not inferred."""
-    S, T, tau = 2.0, 3.0, 1.0
+    the thing an implementation silently reverses, so it is transcribed here, not inferred.
+
+    **`tau` is SWEPT, and pinning it at 1.0 left a hole.** The first version used `tau = 1.0` only
+    — where `1 + tau*K` and `1 + K` are the same number — so dropping the accrual from eq 3.21's
+    scaling passed the entire 312-test suite. Found by mutation, not review; the same unit-accrual
+    trap as tranche 8's annuity and tranche 9's variance horizon, fourth appearance."""
+    S, T = 2.0, 3.0
     nu = _ref_variance(A, SIGMA, S, T)
     scale = 1.0 + tau * strike_rate
     bond_kind = CapFloorKind.FLOOR if kind is CapFloorKind.CAP else CapFloorKind.CAP
@@ -187,10 +193,19 @@ def test_the_variance_vanishes_when_the_BOND_MATURES_AT_EXPIRY():
 
 def test_the_variance_RISES_then_SATURATES_in_option_expiry():
     """The `(1 - e^{-2aS})` factor: the caplet's variance grows with expiry and flattens. A wrong
-    sign on `a` would make it fall, which no magnitude check notices."""
-    nus = [bond_option_variance(PARAMS, S, S + 1.0) for S in (0.5, 1.0, 2.0, 5.0, 20.0, 60.0)]
-    assert nus == sorted(nus), nus
-    assert nus[-1] - nus[-2] < nus[1] - nus[0], f"it never saturates: {nus}"
+    sign on `a` would make it fall, which no magnitude check notices.
+
+    **On EQUALLY SPACED expiries, and the first version was not.** It compared the 0.5y->1.0y
+    increment against the 20y->60y one and failed -- correctly, because a 40-year step moves more
+    than a half-year step whatever the curvature. Saturation is a statement about the *derivative*,
+    so it only means anything at a fixed step. With `T = S + 1` the `beta` factor is constant, so
+    `nu` is proportional to `(1 - e^{-2aS})` exactly and the increments must shrink monotonically."""
+    step = [bond_option_variance(PARAMS, float(S), float(S) + 1.0) for S in range(1, 11)]
+    assert step == sorted(step), step
+    gaps = [b - a for a, b in zip(step, step[1:])]
+    assert all(g > 0.0 for g in gaps), gaps
+    assert gaps == sorted(gaps, reverse=True), f"the increments do not shrink: {gaps}"
+    assert gaps[-1] < gaps[0] / 2.0, f"it saturates too weakly to be detectable: {gaps}"
 
 
 def test_the_variance_GROWS_with_the_bond_tenor():
