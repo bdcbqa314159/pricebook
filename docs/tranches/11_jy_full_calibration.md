@@ -79,3 +79,68 @@ Branch `tranche/11-jy-full-calibration` (the equivalent-mutant charter commit is
 v0.13.0`. Mutation on the six-param objective; oracle 3 uses a genuinely **skewed** surface fixture
 (an ATM-only one hides the smile failure — the degenerate-fixture lesson). `source:` cites
 `BERHAN-2012` §5.3.2.
+
+
+---
+
+## 7. Result — the JY arc closes on an honest negative, and the thesis's diagnosis is incomplete
+
+366 tests, eight gates green, ruff and pyright clean, zero suppressions. Five mutations on the
+six-parameter objective, all caught.
+
+### The headline: two distinct failures, and §5.3.2 names only one
+
+**Underdetermination, structural and provable.** In `yoy_variance` the index correlations enter only
+as products with `σI`, so `V²` is a quadratic in `σI` whose linear coefficient is a *single pooled
+combination* of `(ρnI, ρrI)` — and `ρnI` is absent from `yoy_convexity` altogether, so a floor price
+sees it only through that pooled term. Both facts are now asserted **against the code**, not
+described: setting `σI = 0` makes both index correlations inert in `V²`, and moving `ρnI` cannot
+change `C` at all while `ρrI` and `ρnr` can.
+
+Measured through the library's own calibrator on **perfect ATM synthetic data**, four starts
+including the truth itself:
+
+| | κr | σr | ρnr | σI | ρrI | ρnI |
+|---|---|---|---|---|---|---|
+| spread across starts | **0.0%** | **0.0%** | **0.0%** | 27.5% | 21.5% | **469%** |
+| truth | 0.04 | 0.008 | 0.30 | 0.0120 | −0.20 | **+0.15** |
+| a fit from another start | 0.04 | 0.008 | 0.30 | 0.0155 | −0.155 | **−0.597** |
+| that fit's rms | | | | | | **8.1e-15** |
+
+**`ρnI` is recovered with the wrong sign at a residual of 8e-15.** Not an imprecise estimate — a
+confident wrong answer, on flawless data, with no skew anywhere near it.
+
+**Misspecification — the flat smile.** Verified: the implied vol is identical at every strike to 12
+decimal places. Kept as a guard with its near-tautology stated (eq 2.6.5 is Black with a `V²` that
+contains no strike), because it is the structural reason a market skew is unfittable — which is the
+failure the thesis does name.
+
+**So BERHAN's "unfeasible for non-ATM" is true but incomplete.** The fit is already underdetermined
+at ATM, *before* any skew enters. That is the richer result, and asserting both failures separately
+is what makes the reproduction honest rather than a restatement.
+
+## 8. Three things my own first attempt got wrong
+
+### 8.1 Spread across starts is NOT the same as distance from truth
+The first oracle 2 measured spread alone. Without the truth among the starts, the other three all
+land in the *same wrong basin* — `ρnI` spread reads **22%** instead of 469%, and two of the three
+undetermined parameters look nearly converged while being 29% and 23% off. Fixed by putting the
+truth in the start set (it is an exact optimum, so another start reaching rms ≈ 0 elsewhere proves
+underdetermination with no threshold to argue about) **and** asserting distance from truth alongside
+spread. They answer different questions: spread shows non-uniqueness, distance shows wrongness.
+
+### 8.2 The `slow` gate caught 16.5s against a 10s ceiling — sped up, not exempted
+Several oracles asked the same question of the same multi-start fits. The fits are deterministic
+functions of their start, so caching them changes nothing about what is asserted: **16.5s → 4.4s**.
+The gate's first remedy is to make it fast; `slow-test-exempt` is the fallback, and it was not
+needed.
+
+### 8.3 The provenance gate rejected a `::function` suffix in a `stock:` path
+Same slip as tranche 6 — the gate dereferences the path, and `file.py::jy_calibrate` does not
+resolve. Function named in prose instead.
+
+## 9. What is now true about the §5.3.2 coverage
+`(κn, σn)` fixed from §5.3.1 (T10b), `(σr, σI)` from T6's two-parameter fit, and all six freed here.
+Of the six, **three are identifiable from YoY floors and three are not** — so "four of six fitted"
+from T10(b) is better stated as: four have a source, and of the two remaining free parameters plus
+`σI`, none is determined by this instrument. That is a property of the data, not of the solver.
