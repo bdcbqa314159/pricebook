@@ -151,7 +151,21 @@ not an oracle. Ruled principles:
   a surviving mutant is a hole a green suite is hiding (T10's dropped accrual survived all 312 tests
   until a non-unit `τ` was added). Mutation is also the **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
-  licence to skip RED-first.
+  licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
+  one that leaves behaviour identical** (flipping a residual sign under a sum of squares, which is
+  sign-invariant). The exception must be **proved by showing the outputs bit-identical, never
+  assumed because the mutation looks harmless** — the assumption is how a real survivor gets waved
+  through as "probably equivalent" (T10(b): a sign-flip survived five-of-six, proved equivalent by a
+  bit-identical fit, same κ, σ and iteration count).
+- **An oracle must be measurable above its own numerical noise — prefer a behavioural invariant to a
+  noise-dominated number.** A finite-difference Jacobian condition number for the six-parameter JY
+  fit swung three orders of magnitude with the step size (2.5e7 → 2.1e10) and differed again under
+  central differences, because the smallest singular value sits below the FD noise floor: a
+  threshold on it asserts noise and flakes across OSes. Where a numeric diagnostic is noise-
+  dominated, the oracle is a **behavioural** invariant instead — a **multi-start parameter spread**
+  (does the fit land on one point?), or a stable **ratio** (a singular-value ratio) — both
+  step-independent and identical on both OSes. T11: identifiability is proven by the spread, never
+  by a condition number.
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.

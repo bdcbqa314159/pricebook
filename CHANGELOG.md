@@ -6,6 +6,64 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-03
+
+Tranche 11 — the full six-parameter JY calibration (BERHAN-2012 §5.3.2), and reproducing **why it
+fails**. The closing rung of the JY arc, and deliberately a negative result.
+
+### This tranche does not claim a successful fit — the thesis says there isn't one
+§5.3.2 frees all six of `{κr, σr, σI, ρnr, ρrI, ρnI}` and reports failure: *"we cannot fit to the
+whole surface"*, *"the presence of a strike skew makes calibration unfeasible for non-ATM
+contracts"*. So "the fit matches the market" cannot be the oracle — it would assert something the
+source denies. What is delivered instead: correct machinery, the documented failure reproduced, and
+the failure *explained*.
+
+### Two distinct failures, and the thesis names only one
+**Underdetermination, structural.** The index correlations enter `yoy_variance` only as products
+with `σI`, so `V²` is a quadratic in `σI` whose linear coefficient is a single *pooled* combination
+of `(ρnI, ρrI)`; and `ρnI` is absent from `yoy_convexity` entirely. Both are asserted against the
+code. On **perfect ATM synthetic data**, four starts: `(κr, σr, ρnr)` recover exactly, while `σI`
+spreads 27.5%, `ρrI` 21.5%, and `ρnI` **469%** — recovered at **−0.597 against a truth of +0.15, the
+wrong sign, at an rms of 8.1e-15.** A confident wrong answer on flawless data, with no skew present.
+
+**Misspecification — the flat smile.** The implied vol is identical at every strike to 12 decimals.
+Kept as a guard with its near-tautology stated, since it is the reason a market skew is unfittable —
+the failure the thesis does name.
+
+**BERHAN's diagnosis is therefore true but incomplete:** the fit is already underdetermined at ATM,
+before any skew. Both failures are asserted separately so the reproduction is honest rather than a
+restatement.
+
+### Added
+- `engine/jy_full_calibration.py` — `calibrate_jy_to_floor_surface`, `JYFreeParams` (the model's own
+  three bundles, not six loose floats), `JYSurfaceCalibration`. Its docstring says plainly that
+  `free` is *what the fit produced, not what it determined*, and which three components are one
+  point on a valley. `(κn, σn)` arrive fixed from §5.3.1 and are never re-fitted.
+- 18 oracles. O1 recovers the identifiable subset from every start; **O2 is the discriminator — the
+  multi-start spread plus distance from truth**, behavioural and platform-independent; O3 the flat
+  smile as a guard; O4 the two failures asserted as distinct, the underdetermination holding on
+  ATM-only data; O5 failure is a value.
+
+### No condition number is asserted anywhere, and that was measured not assumed
+The spec's first draft proposed a Jacobian condition-number threshold, and claimed it *blows up* as
+non-ATM strikes are added. Both withdrawn before building: a Gram matrix cannot lose rank by gaining
+rows (measured, it **improves** — 5.2e10 → 2.2e10), and the smallest singular value sits below the
+finite-difference noise floor, swinging three orders of magnitude with the step (2.5e7 → 2.1e10) and
+differing again under central differences. A threshold would assert noise and flake across the two
+CI operating systems. `s₅/s₁ ≈ 3.4e-6` is the only stable number and is documented, never gated.
+
+### The `slow` gate failed on CI after passing locally, and the first fix damaged the finding
+Caching the deterministic multi-start fits took the file 16.5s → 4.4s, green locally — then CI's
+Ubuntu runner (~3× slower) still exceeded the 10s ceiling, which is the gate working as intended: a
+time ceiling must hold on the slowest runner. Trimming the maturity strip from six points to four
+then cost `κr` its identifiability (0.04036 against a truth of 0.04), silently weakening the
+partition oracles 1 and 2 assert. The speed came from the number of starts instead, leaving the
+strip intact: **2.44s** with 4× headroom and the finding unchanged. A speed optimisation can
+degenerate a fixture exactly as a careless one can.
+
+### Changed
+- `TEST_FLOOR` 348 → 366.
+
 ## [0.12.0] - 2026-11-03
 
 Tranche 10(b) — the `(κn, σn)` fit to ATM nominal cap volatilities (BERHAN-2012 §5.3.1), completing
