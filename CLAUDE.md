@@ -170,6 +170,20 @@ not an oracle. Ruled principles:
   exact optimum no other start can beat) and assert **distance from truth** beside spread: spread
   shows non-uniqueness, distance shows wrongness. (T11: `ρnI`'s spread read 22% without the truth in
   the start set and 469% with it — recovered at the *wrong sign* at rms 8e-15.)
+- **A pure refactor is proved by an exact-arithmetic identity, not always by bit-identity.** Bit-
+  identity (the equivalent-mutant proof above, and the Black and HW extractions) is available only
+  when the refactor *preserves the order* of the floating-point operations. When the refactor
+  legitimately reorders them — as factoring one expression into a shape two consumers share must —
+  the last digits move, and **demanding bit-identity would forbid the very reordering the design
+  needs.** The purity proof then is the **exact-arithmetic algebraic identity** (the two expressions
+  are provably the same quantity in ℝ) plus **agreement bounded to a few ULP** with the reordering
+  named as the cause; the pre-existing oracle set staying green at its own tolerances is necessary
+  but is *not* the proof, because a loose tolerance can hide a real change — the identity is. Claiming
+  "bit-identical" when the ops were reordered is false; reporting the ULP gap with its cause is the
+  honest substitute. *(T12(a): `ψ·(Pn(Tᵢ₋₁)·PrRatio·e^C − Pn(Tᵢ))` → `ψ·Pn(Tᵢ)·(m−1)` is one
+  identity — `Pn(Tᵢ)·m = Pn(Tᵢ₋₁)·PrRatio·e^C` — reordering one division, so the JY leg moved rel
+  1.6e-15, ~7 ULP, one division round-trip. Keeping bit-identity would have meant keeping JY's
+  grouping, which is exactly what makes a second model impossible.)*
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.
@@ -302,10 +316,10 @@ merges, and **he merges when Code says to, never when Cowork finishes.**
 |---|---|---|
 | 1 | **Cowork** | decide the unit: target, pieces, layer, and the oracle. Writes it to `docs/`. |
 | 2 | **Bernardo** | "cowork is done" |
-| 3 | **Code** | build RED → GREEN against that decision, stamp, open the PR. Raise findings as `Ask:`s — never a counter-proposal. |
+| 3 | **Code** | build RED → GREEN against that decision, stamp, open the PR **as a DRAFT**. Raise findings as `Ask:`s — never a counter-proposal. |
 | 4 | **Cowork** | review the built PR; rule any finding Code raised. |
 | 5 | **Bernardo** | "cowork is done" |
-| 6 | **Code** | commit whatever Cowork wrote to disk, re-run the gates, confirm CI, **then say "merge now"**. |
+| 6 | **Code** | commit whatever Cowork wrote to disk, re-run the gates, confirm CI, **then mark the PR ready — and that readiness IS the "merge now" signal**. |
 | 7 | **Bernardo** | merge. |
 
 Step 6 is why the merge cannot be step 5. **Cowork writes files but does not commit them** — Code
@@ -313,6 +327,15 @@ owns git — so a merge triggered by "Cowork finished" lands a PR without Cowork
 *(Precedent: PR #7 merged three minutes before Cowork's checkpoint entry, stranding a ratified
 charter edit and a checkpoint record on a merged branch and costing PR #8 to recover. PR #6 was the
 same shape, caught only because Code said "wait" in time.)*
+
+**The PR opens as a draft, and that is what makes the order self-enforcing.** A line in a message is
+a weak brake — **PRs #7, #14, #15 and #16** merged ahead of review because "merge" is the obvious
+thing to do with a green PR (#6 was the same shape, caught only because Code said "wait" in time). GitHub will not merge a draft, so opening as a draft (step 3) and marking ready only
+at step 6 turns "merge when Code says, never when Cowork finishes" from a request into a mechanism
+the tooling enforces: the ready flag is a thing only Code sets, and it is the same event as "merge
+now." One extra flag for Code, nothing for anyone else. *(Ruled by Cowork, 2026-11-03, PR #17 the
+first draft; adopted because it implements §10's existing step-6-before-step-7 law rather than
+changing who does what — Bernardo owns §10 and may veto.)*
 
 Steps 1 and 4 are both real passes, not one split in two: step 1 sets the oracle before a line is
 written (it is where T6's identifiability oracle was decided), while step 4 reviews what was
