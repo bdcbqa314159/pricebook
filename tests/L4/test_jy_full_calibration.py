@@ -39,6 +39,7 @@ recovery here proves the *solver*, not the formula.
 
 import math
 from datetime import date, timedelta
+from functools import lru_cache
 
 import pytest
 
@@ -92,9 +93,15 @@ UNIDENTIFIABLE = ("index_vol", "real_index", "nominal_index")
 
 ATM = 0.02
 MATURITIES = (2, 3, 4, 5, 6, 7)
-SKEW_STRIKES = (0.00, 0.01, 0.02, 0.03, 0.04)
+SKEW_STRIKES = (0.00, 0.02, 0.04)
 
+# **The truth is deliberately one of the starts.** It is an exact optimum (rms 0), so if any OTHER
+# start also reaches rms ~ 0 at a different point, the problem is underdetermined — airtight, with no
+# threshold to argue about. Without the truth in the set the three remaining starts all land in the
+# same wrong basin and the SPREAD understates the failure badly (22% rather than 469% on `rho_nI`),
+# which is how the first version of oracle 2 nearly measured the wrong thing.
 STARTS = (
+    (0.04, 0.008, 0.012, 0.30, -0.20, 0.15),      # the truth itself
     (0.10, 0.020, 0.030, 0.00, 0.00, 0.00),
     (0.02, 0.004, 0.006, -0.50, 0.50, -0.50),
     (0.30, 0.050, 0.050, 0.80, -0.80, 0.80),
@@ -131,6 +138,21 @@ def _fit(quotes, start) -> JYSurfaceCalibration:
     return out
 
 
+# **The fits are CACHED, and the `slow` gate is why.** Several oracles ask the same question of the
+# same multi-start fits, and recomputing a six-parameter least squares over a 18-quote surface four
+# times per test took the file to 16.5s against the 10s ceiling. The fits are deterministic
+# functions of their start, so caching changes nothing about what is asserted — and speeding the
+# tests up is the gate's first remedy, with `slow-test-exempt` the fallback it is not needed here.
+@lru_cache(maxsize=None)
+def _atm_fit(start: tuple) -> JYSurfaceCalibration:
+    return _fit(_atm_quotes(), start)
+
+
+@lru_cache(maxsize=None)
+def _surface_fit(start: tuple) -> JYSurfaceCalibration:
+    return _fit(_surface_quotes(), start)
+
+
 def _as_six(free: JYFreeParams) -> dict:
     return {
         "kappa_real": free.real.kappa,
@@ -150,16 +172,15 @@ def test_O1_the_identifiable_subset_is_recovered_from_every_start():
     """`(kappa_r, sigma_r, rho_nr)` are determined by the ATM strip, so every start must find them.
     This proves the SOLVER; the forward it inverts was independently oracled in T4/T5 against
     eqs 2.5.11 and 2.6.5."""
-    quotes = _atm_quotes()
     truth = _as_six(TRUE_FREE)
     for start in STARTS:
-        got = _as_six(_fit(quotes, start).free)
+        got = _as_six(_atm_fit(start).free)
         for name in IDENTIFIABLE:
             assert got[name] == pytest.approx(truth[name], rel=1e-5), f"{name} from {start}"
 
 
 def test_O1_the_fit_from_the_TRUTH_reproduces_the_truth_exactly():
-    fit = _fit(_atm_quotes(), (0.04, 0.008, 0.012, 0.30, -0.20, 0.15))
+    fit = _atm_fit((0.04, 0.008, 0.012, 0.30, -0.20, 0.15))
     got, truth = _as_six(fit.free), _as_six(TRUE_FREE)
     for name in got:
         assert got[name] == pytest.approx(truth[name], abs=1e-9), name
@@ -177,40 +198,58 @@ def test_O1_the_quotes_are_DISTINCT_so_the_fit_sees_a_real_strip():
 # ============================================================================================
 
 def test_O2_three_parameters_CONVERGE_and_three_DO_NOT_on_perfect_ATM_data():
-    """**The underdetermination, as a test.** Every fit reports an essentially perfect residual, and
-    they still disagree about `(sigma_I, rho_rI, rho_nI)`. A calibration reporting all six converged
-    would be hiding this valley."""
-    quotes = _atm_quotes()
-    fits = [_as_six(_fit(quotes, s).free) for s in STARTS]
+    """**The underdetermination, as a test, and measured two ways because they say different
+    things.** SPREAD across starts shows non-uniqueness; DISTANCE from truth shows the answer is
+    wrong. The first version of this oracle used spread alone and nearly under-reported the failure:
+    without the truth among the starts, the others all land in one wrong basin and `rho_nI`'s spread
+    reads 22% instead of 469%."""
+    fits = [_as_six(_atm_fit(s).free) for s in STARTS]
     truth = _as_six(TRUE_FREE)
     spread = {n: max(f[n] for f in fits) - min(f[n] for f in fits) for n in truth}
+    worst_error = {
+        n: max(abs(f[n] - truth[n]) for f in fits) / max(abs(truth[n]), 1e-9) for n in truth
+    }
 
     for name in IDENTIFIABLE:
         assert spread[name] < abs(truth[name]) * 1e-4, (
             f"{name} was expected to converge, spread {spread[name]:.3e}"
         )
+        assert worst_error[name] < 1e-4, f"{name} was expected exact, off by {worst_error[name]:.1%}"
     for name in UNIDENTIFIABLE:
         assert spread[name] > abs(truth[name]) * 0.05, (
             f"{name} was expected NOT to converge, yet its spread is only {spread[name]:.3e} — "
             "either the fixture lost its power or the model changed"
         )
+        assert worst_error[name] > 0.05, (
+            f"{name} was expected to be recovered WRONG, yet every start got within "
+            f"{worst_error[name]:.1%} of the truth"
+        )
+
+
+def test_O2_rho_nominal_index_is_recovered_with_the_WRONG_SIGN():
+    """The starkest form of the failure: the truth is `+0.15` and a fit from a different start lands
+    near `-0.6`, at a residual indistinguishable from zero. Not an imprecise estimate — a confident
+    wrong answer of the opposite sign."""
+    off_truth = [_atm_fit(s) for s in STARTS if s != STARTS[0]]
+    signs = {math.copysign(1.0, f.free.correlations.nominal_index) for f in off_truth}
+    assert signs == {-1.0}, "no start recovered the opposite sign — the valley has moved"
+    assert all(f.rms_residual < 1e-8 for f in off_truth), [f.rms_residual for f in off_truth]
+    assert TRUE_FREE.correlations.nominal_index > 0.0
 
 
 def test_O2_the_non_convergence_coexists_with_a_PERFECT_residual():
     """The sharp edge of the finding: these are not failed fits. Each lands on an rms indistinguish-
     able from zero while sitting at a different parameter set — which is exactly why a residual is
     not evidence of identification."""
-    quotes = _atm_quotes()
     for start in STARTS:
-        fit = _fit(quotes, start)
+        fit = _atm_fit(start)
         assert fit.rms_residual < 1e-8, (start, fit.rms_residual)
 
 
 def test_O2_rho_nominal_index_is_the_WORST_determined():
     """It is absent from the convexity `C` altogether, so a floor price sees it only through the
     pooled `sigma_I * rho` term in `V^2` — the weakest channel of the three."""
-    quotes = _atm_quotes()
-    fits = [_as_six(_fit(quotes, s).free) for s in STARTS]
+    fits = [_as_six(_atm_fit(s).free) for s in STARTS]
     spread = {n: max(f[n] for f in fits) - min(f[n] for f in fits) for n in _as_six(TRUE_FREE)}
     assert spread["nominal_index"] > spread["real_index"], spread
     assert spread["nominal_index"] > 0.1, spread
@@ -283,24 +322,30 @@ def test_O3_the_implied_smile_is_FLAT_across_strikes():
 def test_O4_the_underdetermination_holds_on_ATM_ONLY_data_before_any_skew():
     """**The half BERHAN does not report.** Its diagnosis is the strike skew; this fixture has ONE
     strike, so no skew exists — and three parameters are still unidentified."""
-    quotes = _atm_quotes()
-    assert len({q[0].strike for q in quotes}) == 1, "the fixture must be single-strike"
-    fits = [_as_six(_fit(quotes, s).free) for s in STARTS]
+    assert len({q[0].strike for q in _atm_quotes()}) == 1, "the fixture must be single-strike"
+    fits = [_as_six(_atm_fit(s).free) for s in STARTS]
+    truth = _as_six(TRUE_FREE)
     worst = max(
-        max(f[n] for f in fits) - min(f[n] for f in fits) for n in UNIDENTIFIABLE
+        max(abs(f[n] - truth[n]) for f in fits) / max(abs(truth[n]), 1e-9)
+        for n in UNIDENTIFIABLE
     )
-    assert worst > 0.05, worst
+    assert worst > 0.25, f"the undetermined parameters came within {worst:.1%} of the truth"
 
 
 def test_O4_adding_strikes_does_NOT_fix_the_underdetermination():
     """And it does not make it worse either: the extra rows are vega-scaled near-copies of the ATM
     ones, so they add magnitude and not information. Asserted because the spec's first draft
     claimed the opposite."""
-    fits = [_as_six(_fit(_surface_quotes(), s).free) for s in STARTS]
-    spread = {n: max(f[n] for f in fits) - min(f[n] for f in fits) for n in _as_six(TRUE_FREE)}
+    fits = [_as_six(_surface_fit(s).free) for s in STARTS]
+    truth = _as_six(TRUE_FREE)
+    spread = {n: max(f[n] for f in fits) - min(f[n] for f in fits) for n in truth}
     for name in IDENTIFIABLE:
         assert spread[name] < 1e-3, (name, spread[name])
-    assert max(spread[n] for n in UNIDENTIFIABLE) > 0.05, spread
+    worst = max(
+        max(abs(f[n] - truth[n]) for f in fits) / max(abs(truth[n]), 1e-9)
+        for n in UNIDENTIFIABLE
+    )
+    assert worst > 0.25, f"adding strikes fixed the underdetermination ({worst:.1%}) — unexpected"
 
 
 def test_O4_the_fixture_surface_really_HAS_a_skew_to_fit():
@@ -342,7 +387,7 @@ def test_O5_an_unpriceable_quote_is_a_FAILURE_not_a_raise():
 
 
 def test_O5_the_output_IS_a_usable_model_input():
-    fit = _fit(_atm_quotes(), STARTS[0])
+    fit = _atm_fit(STARTS[0])
     model = JarrowYildirim(MARKET, jy_params_from_free(FIXED, fit.free))
     from pricebook.engine import price
 
