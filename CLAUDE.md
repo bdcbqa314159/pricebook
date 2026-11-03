@@ -151,7 +151,12 @@ not an oracle. Ruled principles:
   a surviving mutant is a hole a green suite is hiding (T10's dropped accrual survived all 312 tests
   until a non-unit `τ` was added). Mutation is also the **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
-  licence to skip RED-first.
+  licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
+  one that leaves behaviour identical** (flipping a residual sign under a sum of squares, which is
+  sign-invariant). The exception must be **proved by showing the outputs bit-identical, never
+  assumed because the mutation looks harmless** — the assumption is how a real survivor gets waved
+  through as "probably equivalent" (T10(b): a sign-flip survived five-of-six, proved equivalent by a
+  bit-identical fit, same κ, σ and iteration count).
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.
