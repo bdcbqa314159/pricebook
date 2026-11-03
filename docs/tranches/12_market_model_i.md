@@ -137,6 +137,37 @@ so the pricers demonstrably read **only** `m` and `V²` from a model. If either 
 `model.convexity` or `model.params`, that test would raise. A protocol annotation alone proves
 nothing at runtime; this does.
 
+## 9b. Cowork's ruling on (a) — PR #17 (§10 step 4, 2026-11-03)
+
+**Reviewed the built seam, not only the narrative.** `engine/yoy.py` and `engine/capfloor.py` read a
+model only through `expected_index_ratio`, `index_ratio_variance` and `market` — no `model.convexity`
+anywhere in a pricer — and `models/index_ratio.py` is a two-method protocol over the quantities the
+source names. The seam is the one specced.
+
+**Ruling 1 — accept the 1.6e-15; the two-key registry is rejected.** The purity proof is the
+*exact-arithmetic identity* `Pn(Tᵢ)·m = Pn(Tᵢ₋₁)·PrRatio·e^C`, which makes the two groupings the same
+quantity in ℝ; the 1.6e-15 is one division round-trip (~7 ULP), the right size for exactly that
+reordering, and every T4/T5 oracle stays green at its own tolerance. "Bit-identical" was the wrong
+requirement here, not an unmet one: it is available only when op order is preserved, and preserving
+it means keeping JY's grouping — which forces MM-I to manufacture a fake `C` from the log of its
+integral, the §6 contortion. Reporting the ULP gap with its cause is the honest substitute, and the
+`_StubRatioModel` oracle (a non-JY model priced correctly, cap/floor exactly Black on its two
+numbers) is the runtime proof the pricers read only `(m, V²)`. **Charter §4 gains the general rule:
+a pure refactor that legitimately reorders floating-point ops is proved by the exact-arithmetic
+identity plus bounded agreement, not by bit-identity.**
+
+**Ruling 2 — adopt the draft-PR convention as §10 step 6's mechanism.** Opening the PR as a draft and
+marking it ready only at step 6 makes "merge when Code says, never when Cowork finishes" enforced by
+the tooling rather than by a line in a message; readiness *is* the "merge now" signal. Written into
+§10 (steps 3, 6, and a precedent note). Flagged for Bernardo as §10's owner — it implements the
+existing step-6-before-step-7 law rather than changing who does what, so it is adopted, not merely
+proposed, subject to his veto.
+
+**Findings 9.1–9.3 — all accepted as Code reported them.** 9.3 (the `m > 1` requirement that ignored
+the convexity, replaced by the `σr → 0` decomposition that pins the sign of `C`) is the stronger
+requirement and the right fix; it is the fourth wrong-requirement caught by execution, and belongs in
+the checkpoint tally. No change requested; **build (b).**
+
 ## 9. Findings for Cowork (§10 — raised, not decided)
 
 ### 9.1 `IndexRatioModel` carries `market` as a property, so `issubclass` does not work on it
