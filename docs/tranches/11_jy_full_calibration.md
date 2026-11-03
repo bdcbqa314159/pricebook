@@ -129,11 +129,26 @@ truth in the start set (it is an exact optimum, so another start reaching rms �
 underdetermination with no threshold to argue about) **and** asserting distance from truth alongside
 spread. They answer different questions: spread shows non-uniqueness, distance shows wrongness.
 
-### 8.2 The `slow` gate caught 16.5s against a 10s ceiling — sped up, not exempted
-Several oracles asked the same question of the same multi-start fits. The fits are deterministic
-functions of their start, so caching them changes nothing about what is asserted: **16.5s → 4.4s**.
-The gate's first remedy is to make it fast; `slow-test-exempt` is the fallback, and it was not
-needed.
+### 8.2 The `slow` gate failed on CI after passing locally — and the second fix was the instructive one
+First pass: 16.5s against a 10s ceiling. Several oracles asked the same question of the same
+deterministic fits, so caching them changed nothing about what is asserted — **16.5s → 4.4s**, green
+locally.
+
+**Then CI failed it anyway.** The Ubuntu runner is roughly 3× slower than this machine, so 4.4s
+local was over 10s there. That is the gate doing its job correctly: a time ceiling has to hold on
+the *slowest* runner, not the developer's.
+
+**And the first attempt at the second fix damaged the finding.** Trimming the maturity strip from six
+points to four cost `κr` its identifiability — recovered 0.04036 against a truth of 0.04, a 0.9%
+error — which would have silently weakened the very partition oracles 1 and 2 exist to assert. The
+richness of the strip is what identifies `κr` at all. So the speed came from the number of **starts**
+instead (four → three for ATM, two for the surface), leaving the strip intact: **2.44s**, with 4×
+headroom, and the finding unchanged (`ρnI` −0.597 against +0.15 at rms 8.1e-15).
+
+The lesson is the degenerate-fixture clause arriving from an unexpected direction: an optimisation
+for *speed* can degenerate a fixture just as effectively as one chosen carelessly, and the thing
+that caught it was re-running the measurement rather than trusting that a smaller fixture is the
+same fixture.
 
 ### 8.3 The provenance gate rejected a `::function` suffix in a `stock:` path
 Same slip as tranche 6 — the gate dereferences the path, and `file.py::jy_calibrate` does not

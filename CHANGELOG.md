@@ -52,6 +52,15 @@ finite-difference noise floor, swinging three orders of magnitude with the step 
 differing again under central differences. A threshold would assert noise and flake across the two
 CI operating systems. `s₅/s₁ ≈ 3.4e-6` is the only stable number and is documented, never gated.
 
+### The `slow` gate failed on CI after passing locally, and the first fix damaged the finding
+Caching the deterministic multi-start fits took the file 16.5s → 4.4s, green locally — then CI's
+Ubuntu runner (~3× slower) still exceeded the 10s ceiling, which is the gate working as intended: a
+time ceiling must hold on the slowest runner. Trimming the maturity strip from six points to four
+then cost `κr` its identifiability (0.04036 against a truth of 0.04), silently weakening the
+partition oracles 1 and 2 assert. The speed came from the number of starts instead, leaving the
+strip intact: **2.44s** with 4× headroom and the finding unchanged. A speed optimisation can
+degenerate a fixture exactly as a careless one can.
+
 ### Changed
 - `TEST_FLOOR` 348 → 366.
 

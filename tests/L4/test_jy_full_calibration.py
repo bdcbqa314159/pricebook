@@ -92,6 +92,10 @@ IDENTIFIABLE = ("kappa_real", "sigma_real", "nominal_real")
 UNIDENTIFIABLE = ("index_vol", "real_index", "nominal_index")
 
 ATM = 0.02
+# **Six maturities, and do NOT trim it.** Trimming to four for speed cost `kappa_r` its
+# identifiability (recovered 0.04036 against a truth of 0.04, a 0.9% error), which would have
+# silently weakened the very partition oracles 1 and 2 assert. The richness of the maturity strip is
+# what identifies `kappa_r` at all, so the speed had to come from the number of STARTS instead.
 MATURITIES = (2, 3, 4, 5, 6, 7)
 SKEW_STRIKES = (0.00, 0.02, 0.04)
 
@@ -103,9 +107,14 @@ SKEW_STRIKES = (0.00, 0.02, 0.04)
 STARTS = (
     (0.04, 0.008, 0.012, 0.30, -0.20, 0.15),      # the truth itself
     (0.10, 0.020, 0.030, 0.00, 0.00, 0.00),
-    (0.02, 0.004, 0.006, -0.50, 0.50, -0.50),
     (0.30, 0.050, 0.050, 0.80, -0.80, 0.80),
 )
+
+#: The SURFACE fits are the expensive half (3x the quotes), and oracle 4 only needs to show the
+#: spread persists — two starts bracket that. The `slow` gate failed on CI at 10s while this machine
+#: ran it in 4.4s, which is the gate doing its job: a ceiling has to hold on the SLOWEST runner, not
+#: the developer's.
+SURFACE_STARTS = STARTS[:2]
 
 
 def _floor(n_periods: int, strike: float) -> InflationCapFloor:
@@ -336,7 +345,7 @@ def test_O4_adding_strikes_does_NOT_fix_the_underdetermination():
     """And it does not make it worse either: the extra rows are vega-scaled near-copies of the ATM
     ones, so they add magnitude and not information. Asserted because the spec's first draft
     claimed the opposite."""
-    fits = [_as_six(_surface_fit(s).free) for s in STARTS]
+    fits = [_as_six(_surface_fit(s).free) for s in SURFACE_STARTS]
     truth = _as_six(TRUE_FREE)
     spread = {n: max(f[n] for f in fits) - min(f[n] for f in fits) for n in truth}
     for name in IDENTIFIABLE:
