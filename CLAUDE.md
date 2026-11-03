@@ -141,6 +141,17 @@ not an oracle. Ruled principles:
   parameter at a time instead of jointly (the identifiability valley). Before trusting a green, ask
   *where the failure would live and whether the oracle looks there.* This is the floor rule stated
   at the top: widen the domain until it includes the failure, or the green is empty.
+- **Degenerate fixtures, and mutation as the proof a test has power.** The commonest form of a domain
+  that excludes the failure is a fixture whose key parameter sits where it cannot be seen — `τ=1`
+  (the accrual invisible), a flat curve (interpolation invisible), a single period or node (a
+  horizon or index invisible), a zero (a factor invisible). It has surfaced four times (T6, T8, T9,
+  T10), and **twice a review pass — Cowork's and Code's — read the fixture and missed it.** So where
+  an oracle's power rests on a parameter being non-degenerate, **assert the non-degeneracy as a
+  premise**, and **prefer a mutation to a reading**: flip a sign, drop a factor, swap a horizon, and
+  a surviving mutant is a hole a green suite is hiding (T10's dropped accrual survived all 312 tests
+  until a non-unit `τ` was added). Mutation is also the **mandatory recovery when pre-registration
+  was missed** — the empirical proof of power that RED-first would otherwise have given, never a
+  licence to skip RED-first.
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.

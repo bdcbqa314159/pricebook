@@ -6,6 +6,46 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-03
+
+Tranche 10(b) — the `(κn, σn)` fit to ATM nominal cap volatilities (BERHAN-2012 §5.3.1), completing
+tranche 10.
+
+### Two of the thesis's six calibration parameters now have a source
+`σn` and `κn` have been hand-supplied since tranche 6, because BERHAN sources them in §5.3.1 and
+declines to publish the forward model. The fit's output feeds `JYFixedParams` directly, so **T6's
+"two of six" becomes four of six**. Still unfitted: `κr` and the three correlations, part of a
+six-parameter fit the thesis itself reports does not work.
+
+### Added
+- `engine/hw_cap_calibration.py` — `calibrate_hull_white_to_atm_caps`, least-squaring the **price**
+  residual `Cap_HullWhite − Cap_Black(σ_ATM)` exactly as §5.3.1 states it. L4, because it inverts
+  the cap engine. Plus `black_cap_price` and `black_cap_implied_vol` (a flat vol across the strip,
+  which is what a market cap quote is), kept local since they have one consumer.
+- `AtmCapVolQuote` (schedule, ATM strike, Black vol) and `HullWhiteCalibration` (params, rms,
+  n_quotes, iterations) — the fit's output is a complete `HullWhiteParams`, so it is directly a
+  model's input with no unpacking step that could pair a fitted `σn` with the wrong `κn`.
+- 16 oracles. B1 recovers a known `(κn, σn)`; **B2 is its identifiability companion** — each
+  parameter moves the strip, four distinct starts land on one point, the sensitivity Jacobian is
+  well conditioned, and a **one-maturity strip is asserted to be unidentifiable** so the multi-start
+  check is known to have power. B3 the residual vanishes at the truth; B4 failure is a value.
+
+### The Black caplet's variance horizon is the EXPIRY — the mirror of tranche 9
+A rate caplet fixes at `Tᵢ₋₁`, so its variance is `σ²·Tᵢ₋₁`; an inflation floorlet accumulates over
+the period, `σ_I²·(Tᵢ − Tᵢ₋₁)`. The two instruments genuinely differ, which is why `black_price`'s
+parameter is `variance_years` and not `expiry`. Pinned by an oracle requiring the two horizons to
+give prices more than 10% apart.
+
+### Fixed — the solver stopped 0.09% short until the residuals were scaled to basis points
+At unit notional the price residuals are O(1e-3), so scipy's relative tolerances were met while
+`κn` was still 0.08007 against a truth of 0.08. Scaling the solver's residuals to basis points — the
+market's own quoting unit — recovers it exactly (`rms` 7.0e-7 → 9.9e-17). `rms_residual` is still
+reported in price units. The pre-registered `rel=1e-6` is what exposed this; a looser tolerance
+would have passed.
+
+### Changed
+- `TEST_FLOOR` 332 → 348.
+
 ## [0.11.0] - 2026-11-02
 
 Tranche 10(a) — the Hull-White nominal cap engine. **The first non-inflation instrument**, pulled in

@@ -1,6 +1,6 @@
 # Tranche 10 — the Hull-White nominal cap engine and the (κn, σn) fit (§5.3.1)
 
-**Status:** **(a) BUILT** (v0.11.0) — the HW nominal cap engine. **(b) pending** — the `(κn, σn)` fit.
+**Status:** **BOTH BUILT.** (a) v0.11.0 — the HW nominal cap engine. (b) v0.12.0 — the `(κn, σn)` fit.
 Decided by Cowork (§10 step 1), built by Code. **Results in §7.**
 **Source:** the HW cap formula from **`MCINERNEY-ZASTAWNIAK`** (`in-hand`) §3.5 (Hull-White) + the
 caplet-as-put-on-a-zero-coupon-bond decomposition and bond-option put-call parity it gives; the
@@ -179,3 +179,83 @@ concrete, frozen, no polymorphism.
 identical fields. One strikes a year-on-year index ratio, the other a nominal rate: the shared
 *word* "cap", not a shared shape. Stated so a future reader does not read the duplication as an
 oversight.
+
+
+---
+
+## 10. Result — (b) built, and the calibration gap is measurably closed
+
+348 tests, eight gates green, ruff and pyright clean, zero suppressions.
+
+### Two of the thesis's six parameters now have a source
+`σn` and `κn` have been hand-supplied since tranche 6, because BERHAN sources them in §5.3.1 and
+declines to publish the model. The fit's output feeds `JYFixedParams` directly:
+
+```
+§5.3.1 gives:  kappa_n = 0.080000   sigma_n = 0.009000
+JYFixedParams(kappa_nominal=0.080000, sigma_nominal=0.009000, ...)
+```
+
+So **T6's "two of six" becomes four of six**: `(κn, σn)` from §5.3.1 here, `(σr, σI)` from §5.3.2 in
+T6. Still unfitted: `κr` and the three correlations, which §5.3.2 includes in a six-parameter fit
+the thesis itself reports does not work.
+
+### Price space, not vol space, and that was a choice
+§5.3.1 least-squares the *price* difference; McInerney 3.26 instead solves for a model-implied
+caplet vol and matches vols. Equivalent at the optimum, different in weighting — vol space
+implicitly weights by `1/vega`, flattening the long end. BERHAN's own result ("not too bad in the
+long end") is reported against the price-space fit, so price space is what reproduces it.
+
+### The Black caplet's variance horizon is the EXPIRY — the mirror image of tranche 9
+A rate caplet's underlying `L(Tᵢ₋₁,Tᵢ)` is observed at `Tᵢ₋₁`, so its variance is `σ²·Tᵢ₋₁`. An
+inflation floorlet on `I(Tᵢ)/I(Tᵢ₋₁)` accumulates over the *period*, so its variance is
+`σ_I²·(Tᵢ − Tᵢ₋₁)`. Tranche 9 measured that confusion at up to 50% in the other direction. The two
+instruments genuinely differ, which is exactly why `black_price`'s parameter is `variance_years`
+rather than `expiry` — at this call site the right value *is* the expiry, and the name does not
+mislead either way. Pinned by `test_the_black_caplet_variance_uses_the_EXPIRY_not_the_period`, which
+asserts the two horizons give prices differing by more than 10% so the check has power.
+
+## 11. Two findings, and a mutation that was NOT a hole
+
+### 11.1 The solver stopped 0.09% short until the residuals were scaled to basis points
+At unit notional the price residuals are O(1e-3), so scipy's *relative* tolerances
+(`ftol`/`xtol` ≈ 1e-8) were satisfied while the parameters were still off: the first run recovered
+`κn = 0.08007` against a truth of `0.08` and stopped at `rms = 7.0e-7`. Scaling the solver's
+residuals to **basis points** — which is how caps are quoted — fixed it exactly (`κn = 0.0800000`,
+`rms = 9.9e-17`). `rms_residual` is still *reported* in price units, so the number a caller reads
+does not depend on the solver's internal scaling.
+
+Worth recording because the symptom was not a wrong formula: every oracle in the suite would have
+passed at a looser tolerance, and the pre-registered `rel=1e-6` is what exposed it.
+
+### 11.2 Pyright caught an over-constrained annotation
+`black_cap_price` annotated its curve as the concrete `DiscountCurve`, but `CurveSet.discount` hands
+back the `CurveHandle` **protocol**. The function needs only `df` and `time_measure` — exactly what
+the protocol promises — so depending on the implementation was defeating the protocol's purpose. A
+real design finding, not a stub nuisance.
+
+### 11.3 A surviving mutant that is NOT a hole — and the distinction matters
+Six mutations were run against the full suite under charter §4's new clause:
+
+| mutation | caught? |
+|---|---|
+| Black variance on the PERIOD instead of the EXPIRY | **yes** |
+| vol not squared | **yes** |
+| drop the accrual from the Black cap | **yes** (11 tests) |
+| swap `κn` and `σn` in the objective | **yes** |
+| drop the accrual from the forward rate | **yes** |
+| **flip the residual sign** `(t − p)` for `(p − t)` | **survived** |
+
+The survivor is an **equivalent mutant**, not missing coverage: least squares minimises the sum of
+*squares*, which is sign-invariant. Verified rather than argued — the fit is bit-identical under the
+flip (`κ = 0.07999999999998803`, `σ = 0.008999999999999762`, same iteration count). No test can
+distinguish them and none should.
+
+That distinction is worth keeping: §4's clause says a surviving mutant is a hole a green suite is
+hiding. **An equivalent mutant is the exception**, and it has to be *proved* equivalent — by showing
+the outputs identical — not assumed because it looks harmless.
+
+## 12. Process — pre-registration honoured this time
+The oracles were committed RED before any implementation
+(`test(calibration): T10b oracles RED`), unlike (a)'s L4 tests. Mutation was run anyway rather than
+only as recovery, which is what §4's clause intends.
