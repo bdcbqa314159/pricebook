@@ -321,7 +321,7 @@ def test_O3_the_implied_smile_is_FLAT_across_strikes():
     )
     vols = []
     for k in SKEW_STRIKES:
-        value = caplet_value(_floor(3, k), model, t0, t1, 1.0)
+        value = caplet_value(_floor(3, k), model, (ds, dp, 1.0))
         vols.append(black_implied_vol(value / nominal.df(dp), fwd, 1.0 + k,
                                       t1 - t0, CapFloorKind.FLOOR))
     assert max(vols) - min(vols) < 1e-9, vols

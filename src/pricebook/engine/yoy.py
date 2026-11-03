@@ -44,7 +44,7 @@ from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
 from pricebook.market.fixing_series import reference_level
 from pricebook.market.snapshot import MarketSnapshot
-from pricebook.models.jarrow_yildirim import JarrowYildirim
+from pricebook.models.index_ratio import IndexRatioModel
 from pricebook.products.inflation import YearOnYearInflationSwap
 
 
@@ -79,7 +79,7 @@ def _seasoning_ratio(
     return current / reset
 
 
-def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: JarrowYildirim) -> float:
+def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: IndexRatioModel) -> float:
     """The inflation leg of eq **2.5.12** — the general `t`, seasoned form. Raises on missing market
     data; the pricer turns that into a `PricingFailure`.
 
@@ -110,16 +110,22 @@ def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: JarrowYildirim
     ratio = _seasoning_ratio(swap, market, first_start)
     total = first_psi * (ratio * real.df(first_pay) - nominal.df(first_pay))
 
-    # Later periods carry the forward ratio and the convexity.
+    # Later periods: `psi_i * Pn(t,T_i) * [m - 1]`, with `m` the model's forward index ratio.
+    #
+    # **This is eq 2.5.12's later-period term factored, and the factoring is what lets a second
+    # model in.** `psi*(Pn(T_{i-1})*PrRatio*e^C - Pn(T_i))` and `psi*Pn(T_i)*(m - 1)` are the same
+    # quantity in exact arithmetic, but only the second says what it means independently of JY: `m`
+    # is eq 2.6.2, a quantity the source names, and MM-I's eq 3.1.11 has exactly this shape with its
+    # own `m`. The cost is that reordering a division moves the last ~2 digits (relative ~1e-14,
+    # measured) -- so this refactor is NOT bit-identical, which is recorded rather than claimed
+    # otherwise; tranche 4's and 5's oracles carry it at their stated tolerances.
     for start, pay, psi in periods[1:]:
-        c = model.convexity(0.0, measure.year_fraction(start), measure.year_fraction(pay))
-        forward_real = real.df(pay) / real.df(start)
-        total += psi * (nominal.df(start) * forward_real * math.exp(c) - nominal.df(pay))
+        total += psi * nominal.df(pay) * (model.expected_index_ratio(start, pay) - 1.0)
 
     return swap.notional.amount * total
 
 
-def yoy_fixed_leg_value(swap: YearOnYearInflationSwap, model: JarrowYildirim) -> float:
+def yoy_fixed_leg_value(swap: YearOnYearInflationSwap, model: IndexRatioModel) -> float:
     """`N·Σ ψᵢ·C_fix·Pn(0,Tᵢ)` — eq 1.2.18 discounted. Historical periods excluded (invariant 6)."""
     market = model.market
     nominal = market.curves.discount(swap.notional.currency)
@@ -130,7 +136,7 @@ def yoy_fixed_leg_value(swap: YearOnYearInflationSwap, model: JarrowYildirim) ->
     )
 
 
-def yoy_par_rate(swap: YearOnYearInflationSwap, model: JarrowYildirim) -> float:
+def yoy_par_rate(swap: YearOnYearInflationSwap, model: IndexRatioModel) -> float:
     """The fixed rate that makes the swap worth zero: the leg over the annuity.
 
     Solved in closed form rather than by iteration — the fixed leg is linear in the rate — and it
@@ -151,7 +157,7 @@ def yoy_par_rate(swap: YearOnYearInflationSwap, model: JarrowYildirim) -> float:
 
 @register(YearOnYearInflationSwap)
 def price_yoy_inflation_swap(
-    swap: YearOnYearInflationSwap, model: JarrowYildirim
+    swap: YearOnYearInflationSwap, model: IndexRatioModel
 ) -> PricingResult | PricingFailure:
     """Mark a YoY inflation swap from the inflation **receiver's** side: leg minus fixed leg."""
     market = model.market

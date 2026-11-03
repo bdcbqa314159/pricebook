@@ -59,7 +59,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import date
 
+from pricebook.foundation.money import Currency
+from pricebook.market.curve_set import CurveRole
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.hull_white import HullWhiteParams, hw_beta
 
@@ -151,6 +154,55 @@ class JarrowYildirim:
     def log_ratio_variance(self, t: float, period_start: float, period_end: float) -> float:
         """`V^2(t, T_{i-1}, T_i)` (2.6.4) — the cap/floor's variance, same reasoning as above."""
         return yoy_variance(t, period_start, period_end, self.params)
+
+    # ---- the `IndexRatioModel` capability (tranche 12), in DATES ----
+    #
+    # These two answer the only questions the year-on-year and cap/floor pricers ask of a model, so
+    # a second model is served by implementing them rather than by a branch inside a pricer. They
+    # delegate to the year-fraction forms above rather than restating anything: the conversion is
+    # the curve's own clock, and tranche 7's lesson is that a date has one spelling where "2.5
+    # years" has two.
+
+    def expected_index_ratio(self, period_start: date, period_pay: date) -> float:
+        """`m` — the `T_i`-forward expectation of `I(T_i)/I(T_{i-1})`, BERHAN eq 2.6.2.
+
+        For JY this is the forward real-bond ratio times `e^C`. Composed from `convexity` so the
+        convexity has exactly one implementation (eq 2.5.11, the formula v0.4.0 got wrong)."""
+        nominal = self.market.curves.discount(self._currency())
+        real = self.market.curves.real(self._currency())
+        measure = nominal.time_measure
+        convexity = self.convexity(
+            0.0, measure.year_fraction(period_start), measure.year_fraction(period_pay)
+        )
+        return (
+            (nominal.df(period_start) / nominal.df(period_pay))
+            * (real.df(period_pay) / real.df(period_start))
+            * math.exp(convexity)
+        )
+
+    def index_ratio_variance(self, period_start: date, period_pay: date) -> float:
+        """`V^2` — BERHAN eq 2.6.4, on the curve's clock."""
+        measure = self.market.curves.discount(self._currency()).time_measure
+        return self.log_ratio_variance(
+            0.0, measure.year_fraction(period_start), measure.year_fraction(period_pay)
+        )
+
+    def _currency(self) -> Currency:
+        """The one currency this model's snapshot discounts in.
+
+        JY is single-currency by construction — nominal and real curves of *one* economy related by
+        the foreign-currency analogy — so inferring it is not a guess. It refuses when ambiguous,
+        for the reason `CurveSet.discount` refuses a missing key: a plausible wrong curve prices
+        everything to a plausible wrong number."""
+        currencies = {
+            key.currency for key in self.market.curves.curves if key.role is CurveRole.DISCOUNT
+        }
+        if len(currencies) != 1:
+            raise KeyError(
+                f"a Jarrow-Yildirim model needs exactly one discount curve to know its currency, "
+                f"found {len(currencies)}"
+            )
+        return currencies.pop()
 
 
 def yoy_variance(t: float, period_start: float, period_end: float, params: JYParams) -> float:
