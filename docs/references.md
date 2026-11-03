@@ -88,7 +88,10 @@ transcribed in both renderings, but nothing is built against it until T10 lands.
 **Also covers, for later units:** §1.7 yield-curve construction (T8's territory), ch 4 HJM and
 Gaussian models, and **ch 5–6 the LIBOR and swap market models with their calibration** — which is
 BERHAN-2012's ch 3 "Market Model I", so one acquisition also removes the source question from that
-unit.
+unit. **Ruled good-enough for MM-I (Bernardo, 2026-11-03):** BERHAN ch 3 publishes the MM-I formulas
+in full and is the primary source; McInerney ch 5–6 is sufficient LMM background — the LMM is not
+this project's main topic, so **no dedicated LMM text is to be acquired.** (Verified: §5.1 LMM, §5.2
+Black's caplet, §5.6 Brace–Gatarek–Musiela, §5.9 swap market model, §6 implementation + calibration.)
 
 ---
 
