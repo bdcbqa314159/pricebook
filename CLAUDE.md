@@ -157,6 +157,15 @@ not an oracle. Ruled principles:
   assumed because the mutation looks harmless** — the assumption is how a real survivor gets waved
   through as "probably equivalent" (T10(b): a sign-flip survived five-of-six, proved equivalent by a
   bit-identical fit, same κ, σ and iteration count).
+- **An oracle must be measurable above its own numerical noise — prefer a behavioural invariant to a
+  noise-dominated number.** A finite-difference Jacobian condition number for the six-parameter JY
+  fit swung three orders of magnitude with the step size (2.5e7 → 2.1e10) and differed again under
+  central differences, because the smallest singular value sits below the FD noise floor: a
+  threshold on it asserts noise and flakes across OSes. Where a numeric diagnostic is noise-
+  dominated, the oracle is a **behavioural** invariant instead — a **multi-start parameter spread**
+  (does the fit land on one point?), or a stable **ratio** (a singular-value ratio) — both
+  step-independent and identical on both OSes. T11: identifiability is proven by the spread, never
+  by a condition number.
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.
