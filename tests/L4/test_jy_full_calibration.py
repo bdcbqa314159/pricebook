@@ -104,17 +104,21 @@ SKEW_STRIKES = (0.00, 0.02, 0.04)
 # threshold to argue about. Without the truth in the set the three remaining starts all land in the
 # same wrong basin and the SPREAD understates the failure badly (22% rather than 469% on `rho_nI`),
 # which is how the first version of oracle 2 nearly measured the wrong thing.
+# **Two starts, and that is the MINIMUM that proves the point rather than a convenience.** The truth
+# is an exact optimum (rms 0); one other start reaching rms ~ 0 at a different point is sufficient
+# proof of underdetermination, with no threshold to argue about. Each extra start is another
+# six-parameter least squares, and CI measured 4.2x slower than this machine (10.6s against a local
+# 2.5s), so the `slow` ceiling has to be met with real margin, not a hair.
 STARTS = (
     (0.04, 0.008, 0.012, 0.30, -0.20, 0.15),      # the truth itself
     (0.10, 0.020, 0.030, 0.00, 0.00, 0.00),
-    (0.30, 0.050, 0.050, 0.80, -0.80, 0.80),
 )
 
 #: The SURFACE fits are the expensive half (3x the quotes), and oracle 4 only needs to show the
 #: spread persists — two starts bracket that. The `slow` gate failed on CI at 10s while this machine
 #: ran it in 4.4s, which is the gate doing its job: a ceiling has to hold on the SLOWEST runner, not
 #: the developer's.
-SURFACE_STARTS = STARTS[:2]
+SURFACE_STARTS = STARTS
 
 
 def _floor(n_periods: int, strike: float) -> InflationCapFloor:
