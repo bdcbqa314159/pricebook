@@ -165,7 +165,11 @@ not an oracle. Ruled principles:
   dominated, the oracle is a **behavioural** invariant instead — a **multi-start parameter spread**
   (does the fit land on one point?), or a stable **ratio** (a singular-value ratio) — both
   step-independent and identical on both OSes. T11: identifiability is proven by the spread, never
-  by a condition number.
+  by a condition number. **Multi-start agreement is necessary, not sufficient** — all starts can
+  land in the same *wrong* basin, so where a synthetic truth exists, put it among the starts (an
+  exact optimum no other start can beat) and assert **distance from truth** beside spread: spread
+  shows non-uniqueness, distance shows wrongness. (T11: `ρnI`'s spread read 22% without the truth in
+  the start set and 469% with it — recovered at the *wrong sign* at rms 8e-15.)
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.
