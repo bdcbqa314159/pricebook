@@ -7,6 +7,9 @@ pair with explicit `μ`/`σ`/`ρ`, and Mercurio's freezing procedure. McInerney 
 background, not required for the YoY/cap formulas. **Chosen by Bernardo**: finish the two market
 models, MM-I first.
 
+**Status:** **(a) BUILT** (v0.14.0) — the capability seam. **(b) pending** — MM-I itself.
+**Answer to §0's open question: ONE protocol, two methods. No second dispatch key needed.** See §8.
+
 ## 0. The crux — a SECOND model prices the SAME products, and the registry is product-keyed
 
 The YoY swap and the cap/floor already have L4 pricers, and those take a **concrete
@@ -80,3 +83,78 @@ Mine `_stock/.../options/inflation_*` for the freezing/market-model shape; read 
 Branch `tranche/12a-model-protocol` then `tranche/12b-market-model-i`. `test` (RED pre-registered) →
 `feat` → `docs` → `chore(release)`. Mutation on MM-I's freezing formula; the zero-vol cross-model
 reduction and the MC-bounded approximation are the anchors. `source:` cites `BERHAN-2012` ch 3.
+
+
+---
+
+## 8. Result — §0's question answered by building: ONE protocol, and the source supplies its shape
+
+375 tests, eight gates green, ruff and pyright clean, zero suppressions. Six mutations on the seam,
+all caught.
+
+### The answer, and the evidence
+**One protocol with two methods fits both models. No two-key `(product, model)` registry is needed,
+and no formula was contorted to fit.** The evidence is in BERHAN's own text — factor the two
+year-on-year leg formulas side by side and the later-period term of eq 2.5.12 (JY) and of eq 3.1.11
+(MM-I) are both
+
+```
+psi_i · Pn(t,Ti) · [ E − 1 ]
+```
+
+with `E` the `Ti`-forward expectation of `I(Ti)/I(Ti−1)` — for JY
+`(Pn(Ti−1)/Pn(Ti))·(Pr(Ti)/Pr(Ti−1))·e^C`, for MM-I the bivariate-lognormal integral of 3.1.11. The
+cap/floors agree too: JY's eq 2.6.5 and MM-I's §3.2 inner expectation are both **Black on `(E, V²)`**,
+differing only in what `V²` is.
+
+So the seam is **the source's own decomposition**, not an abstraction invented to hold two things —
+and both quantities are ones BERHAN names (`m`, eq 2.6.2; `V²`, eq 2.6.4). That is why this is not a
+forced fit: had the protocol been JY's `convexity`, MM-I would have had to manufacture a fake `C` by
+taking the log of its integral, which *is* the contortion the spec warned about.
+
+### The refactor is NOT bit-identical, and that is reported rather than claimed otherwise
+The spec required JY's numbers bit-identical as the proof the refactor is pure. **It cannot be
+met**, and the reason is the factoring itself: `psi·(Pn(Ti−1)·PrRatio·e^C − Pn(Ti))` and
+`psi·Pn(Ti)·(m − 1)` are the same quantity in exact arithmetic but reorder a division, so the last
+digits move. Measured on a 4-period swap:
+
+| | value |
+|---|---|
+| pre-refactor arithmetic | 36119.025432954419 |
+| refactored through the protocol | 36119.025432954477 |
+| relative difference | **1.6e-15** (5.8e-13 bp of notional) |
+
+Every tranche 4 and tranche 5 oracle passes unchanged at its own stated tolerance. The substitute
+for a bit-identical claim is therefore: *agreement to 1.6e-15, with the cause named (a reordered
+division), and the full pre-existing oracle set green.* Saying "bit-identical" here would have been
+false, and the alternative — keeping JY's grouping — would have required the protocol to expose
+`convexity`, which is what makes MM-I impossible.
+
+### The oracle that a type annotation cannot be
+`_StubRatioModel` implements only the two protocol methods and is not a `JarrowYildirim`. Both
+pricers price it correctly, and the cap/floor's output is *exactly* Black on the stub's two numbers —
+so the pricers demonstrably read **only** `m` and `V²` from a model. If either still reached for
+`model.convexity` or `model.params`, that test would raise. A protocol annotation alone proves
+nothing at runtime; this does.
+
+## 9. Findings for Cowork (§10 — raised, not decided)
+
+### 9.1 `IndexRatioModel` carries `market` as a property, so `issubclass` does not work on it
+Only `isinstance` does (`TypeError: Protocols with non-method members don't support issubclass()`).
+Harmless here, and noted so a future test does not reach for the wrong one. The oracles check
+behaviour regardless — tranche 5's lesson that a runtime protocol probe checks *names*, never
+signatures, and that pyright is the authority.
+
+### 9.2 `JarrowYildirim` gained a `_currency()` helper that infers its single currency
+JY is single-currency by construction — nominal and real curves of one economy under the
+foreign-currency analogy — so inference is not a guess, and it **refuses when ambiguous** rather than
+picking. Same stance as `CurveSet.discount` refusing a missing key, and as tranche 10(b)'s
+calibrator. Flagged because it is new behaviour on a model, not just a move.
+
+### 9.3 A wrong requirement of mine, caught by its own test
+I asserted `m > 1` on an inflationary curve pair. False at 3y→4y, where `m = 0.9914`: a negative
+convexity overcomes the 2.1% carry. **A requirement that ignores the convexity is not a requirement
+of this model** — the convexity is the whole point. Replaced with the honest decomposition: at
+`σr = 0` the convexity vanishes exactly and then `m > 1` *is* forced by the curve pair, and the
+convexity is asserted to move it. Stronger than what it replaced, because it also pins the sign of
+`C`'s contribution. Fourth instance of a wrong-requirement caught by execution rather than review.
