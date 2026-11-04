@@ -6,6 +6,58 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-04
+
+Tranche 15 — the Monte Carlo spine. **Project two's first unit**, from `JAECKEL-2002`, and the root
+of the MC dependency graph: a seeded source, normal variates, an estimator with its standard error,
+and a simulated price checked against our own closed form.
+
+### A hard stop at the source, and the ruling that resolved it
+The spec said to transcribe `Φ⁻¹` "from Jäckel ch 9". **Jäckel does not print it.** §9.3 *recommends*
+Acklam's and Moro's interpolation formulas, §2.3 says the implementation is *"included on the
+accompanying CD"* we do not have, and a grep of all 235 pages for either algorithm's characteristic
+coefficients returns nothing. Both works are `referenced-by` only, so §7 forbids citing them.
+
+Ruled (Cowork): **trigonometric Box-Muller, eq 9.6** — printed in full in the held source, **exact**
+rather than an approximation, and transcribable today. `scipy.stats.norm.ppf` was rejected on the
+grounds that trusted-and-pinned is the fallback for a component *no held source specifies* (PCG64's
+bits), not a first choice when a held source gives an exact method. Acklam is deferred to the Sobol
+unit, where a monotone transform genuinely earns its keep.
+
+### Added
+- `foundation/rng.py` — `UniformSource`, numpy `Generator(PCG64(seed))` **wrapped so no global or
+  default RNG is reachable**, with the first five draws pinned as the cross-platform contract and the
+  global numpy state proved untouched after 10,000 draws. PCG64's bits are *trusted, not transcribed*
+  — it postdates Jäckel — which is the §4 boundary drawn explicitly.
+- `foundation/variates.py` — Box-Muller eq 9.6. **The anchor oracle is the exact identity
+  `x² + y² = −2 ln u`**, which carries no sampling noise; the N(0,1) moments and pair-independence are
+  its companions, with the bands *measured* from the sample size. A wrong angle (`πv` for `2πv`) is
+  shown to satisfy the identity but fail the pointwise transcription — §4's two rules meeting.
+- `foundation/mc_estimator.py` — mean and `σ̂/√N`, with the `N−1` divisor and the `√N` each pinned by
+  the two wrong variants being asserted to differ.
+- `models/black_mc.py` — the forward simulated as the driftless lognormal martingale it is, averaged
+  into a price **with its standard error**. 12 oracles: within four *measured* SEs of our
+  `black_price` (with a companion forbidding a vacuously wide band), the **−½ convergence rate**
+  fitted over four path counts, unbiasedness across forty seeds, byte-identical at a fixed seed,
+  **exact** at zero variance, and the martingale `E[F_T] = F₀` as a payoff-independent check on the
+  `−V²/2` term.
+
+### Three of my own errors, one found only by mutation
+My SE-scaling oracle asserted `SE(4N) = SE(N)/2`; with the `N−1` divisor the exact law is
+`1/√(N−1)` and the inverse-root-N form is only asymptotic — replaced with the closed form, which
+pins the divisor and the `√N` together. My asymptotic check asserted `≈2.0` at `rel=1e-3` where the
+true ratio is `√(1023/255) = 2.00294`; now exact.
+
+And **mutation found an unreachable branch**: the source originally redrew endpoints to deliver the
+open interval `Φ⁻¹` needs, but an exact `0.0` has probability ~2⁻⁵³ — so the branch was unoracled, a
+mutant breaking it passed all 468 tests, and had it ever been reached it would have *hung*. Deleted;
+the domain guard moved to `standard_normals`, where a test can call it with `0.0`. Charter §4 gains
+this as a **third survivor kind** — unreachable code, distinct from both a hole and an equivalent
+mutant.
+
+### Changed
+- `TEST_FLOOR` 453 → 490.
+
 ## [0.17.0] - 2026-11-04
 
 Tranche 14 — Market Model II's calibration (BERHAN-2012 §5.4). **This closes the book**: ch 1–5 are
