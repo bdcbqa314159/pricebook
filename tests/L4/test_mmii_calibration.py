@@ -180,32 +180,82 @@ def test_O3_the_quotes_are_DISTINCT_so_the_fit_sees_a_real_strip():
     assert all(p > 0.0 for p in pvs)
 
 
-def test_O3_the_index_vol_term_structure_is_IDENTIFIED_period_by_period():
-    """**The contrast with JY, and the reason MM-II is the thesis's preferred model.** §5.4.2's own
-    claim is that *"since each expiry has it's own set of parameters, there is no need to restrict
-    the number of contracts in the expiry dimension"* — i.e. adding expiries does not degrade the
-    fit, unlike JY's six-parameter global fit (tranche 11), where three of six were unidentifiable.
+def test_O3_every_index_vol_EXCEPT_THE_TERMINAL_ONE_is_identified():
+    """**The finding, and it is not what the spec expected.** §5.4.2's claim is that *"since each
+    expiry has it's own set of parameters, there is no need to restrict the number of contracts in
+    the expiry dimension"*, and that is **almost** right: measured the tranche 11 way (the synthetic
+    truth among the starts, distance-from-truth beside spread), every index vol recovers to ~1e-16
+    **except the last one**, which from a low start lands at `0.002141` against a truth of `0.020000`
+    — **89% wrong at a residual of 8.6e-17.**
 
-    Measured the tranche 11 way: the truth is among the starts, and BOTH spread and distance-from-
-    truth are asserted."""
+    Why, exactly: `sigma_I,i` enters period `i`'s variance *quadratically* and its drift *linearly
+    and with a negative sign*, so the caplet price is **non-monotone** in it — U-shaped, with a
+    vertex at `rho_II * sigma_I,i-1 * lead / (lead + span)`. Two volatilities therefore reproduce one
+    price. Every vol except the terminal one appears in **two** periods (as period `i`'s pay vol and
+    period `i+1`'s start vol), and the second appearance picks the root; the terminal date appears
+    once, so nothing breaks the tie. `test_O3_the_terminal_caplet_price_is_NON_MONOTONE` is the
+    mechanism, asserted rather than described."""
     quotes = _atm_quotes()
+    n = len(DATES)
     starts = (
-        tuple(TRUE_VOLS[DATES[k]] for k in range(1, len(DATES))),      # the truth itself
-        tuple(0.030 for _ in range(1, len(DATES))),
-        tuple(0.004 for _ in range(1, len(DATES))),
+        tuple(TRUE_VOLS[DATES[k]] for k in range(1, n)),      # the truth itself
+        tuple(0.030 for _ in range(1, n)),
+        tuple(0.004 for _ in range(1, n)),
     )
     fits = []
-    for s in starts:
-        out = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR, start=s)
+    for st in starts:
+        out = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR, start=st)
         assert isinstance(out, MMIICalibration), out
-        fits.append([out.params.index_vol_at(DATES[k]) for k in range(1, len(DATES))])
+        fits.append([out.params.index_vol_at(DATES[k]) for k in range(1, n)])
 
-    for i, d in enumerate(DATES[1:], start=0):
+    # Every period but the last: identified, and identified CORRECTLY.
+    for i, d in enumerate(DATES[1:-1]):
         values = [f[i] for f in fits]
         spread = max(values) - min(values)
         worst = max(abs(v - TRUE_VOLS[d]) for v in values)
-        assert spread < TRUE_VOLS[d] * 1e-3, f"sigma_I at {d} did not converge: spread {spread:.3e}"
-        assert worst < TRUE_VOLS[d] * 1e-3, f"sigma_I at {d} off by {worst:.3e}"
+        assert spread < TRUE_VOLS[d] * 1e-6, f"sigma_I at {d} spread {spread:.3e}"
+        assert worst < TRUE_VOLS[d] * 1e-6, f"sigma_I at {d} off by {worst:.3e}"
+
+    # The terminal one: NOT identified -- and the fit still reports a perfect residual.
+    terminal = DATES[-1]
+    values = [f[-1] for f in fits]
+    worst = max(abs(v - TRUE_VOLS[terminal]) for v in values) / TRUE_VOLS[terminal]
+    assert worst > 0.5, (
+        f"the terminal index vol came within {worst:.1%} of the truth from every start -- then this "
+        "oracle no longer demonstrates the two-root ambiguity"
+    )
+    for st in starts:
+        out = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR, start=st)
+        assert isinstance(out, MMIICalibration)
+        assert out.rms_residual < 1e-9, "a wrong terminal vol must still fit perfectly"
+
+
+def test_O3_the_terminal_caplet_price_is_NON_MONOTONE_in_its_own_vol():
+    """The mechanism behind the ambiguity above, measured directly: sweeping the terminal index vol
+    with every earlier one pinned, the caplet price **falls then rises**. So two volatilities give
+    one price, and a least-squares fit can land on either."""
+    from pricebook.engine.capfloor import caplet_value
+
+    start, pay = DATES[-2], DATES[-1]
+    span = MEASURE.year_fraction(pay) - MEASURE.year_fraction(start)
+    period = (start, pay, span)
+    floor = _floor(len(DATES) - 1)
+
+    def caplet(sigma_terminal: float) -> float:
+        vols = {**TRUE_VOLS, pay: sigma_terminal}
+        return caplet_value(floor, MarketModelII(MARKET, MMIIParams(vols, NOMINAL_VOL, CORR)),
+                            period)
+
+    sweep = [0.0015, 0.004, 0.008, 0.0115, 0.014, 0.020, 0.030]
+    prices = [caplet(s) for s in sweep]
+    assert prices != sorted(prices), f"the price is monotone — no ambiguity: {prices}"
+    assert prices != sorted(prices, reverse=True), prices
+    low = min(range(len(prices)), key=lambda i: prices[i])
+    assert 0 < low < len(prices) - 1, f"the minimum is at an endpoint, not interior: {prices}"
+    # The vertex is where the quadratic in sigma_pay turns -- a predicted location, not a fitted one.
+    lead = MEASURE.year_fraction(start)
+    predicted = CORR.index_index * TRUE_VOLS[start] * lead / (lead + span)
+    assert sweep[low] == pytest.approx(predicted, rel=0.35), (sweep[low], predicted)
 
 
 def test_O3_ADDING_expiries_does_not_degrade_the_earlier_ones():
@@ -277,17 +327,27 @@ def test_O5_the_ATM_fit_itself_is_GOOD_so_the_two_axes_are_distinct():
 # ORACLES 4 and 6 — the recursion refusal is reachable, and failure is a value.
 # ============================================================================================
 
-def test_O4_the_T13_recursion_refusal_is_REACHABLE_from_the_calibration_path():
-    """Tranche 13 found `index_vol_step` drives `sigma_I` negative in ~2 steps at realistic rate
-    vols. That refusal is not hypothetical here: walking the §5.4.2 recursion with a calibrated
-    term structure hits it, and it must surface as an exception a caller can see — never a `nan`."""
+def test_O4_the_T13_recursion_refusal_is_REACHABLE_and_its_depth_DEPENDS_ON_THE_PERIOD():
+    """Tranche 13 found `index_vol_step` drives `sigma_I` negative at realistic rate vols, and that
+    refusal is reachable from this calibration's parameters — it must surface as an exception a
+    caller can see, never a `nan`.
+
+    **The number of steps is NOT a constant, and assuming tranche 13's was my error.** T13 measured
+    two steps on ANNUAL periods; this fixture is semi-annual, so `tau` is halved, each forward is
+    smaller and the per-step adjustment is smaller — it survives **three** steps. So the oracle walks
+    until refusal and asserts it arrives within a bounded number, rather than hardcoding a count
+    that belongs to a different fixture."""
     from pricebook.models.market_model_i import index_vol_step
 
     tau_fn = NOMINAL.df(DATES[2]) / NOMINAL.df(DATES[3]) - 1.0
     tau_fr = REAL.df(DATES[2]) / REAL.df(DATES[3]) - 1.0
-    stepped = index_vol_step(0.012, 0.25, 0.20, tau_fn, tau_fr)
+    sigma, steps = 0.012, 0
     with pytest.raises(ValueError, match="non-positive index volatility"):
-        index_vol_step(stepped, 0.25, 0.20, tau_fn, tau_fr)
+        for _ in range(12):
+            sigma = index_vol_step(sigma, 0.25, 0.20, tau_fn, tau_fr)
+            steps += 1
+            assert sigma > 0.0
+    assert 2 <= steps <= 6, f"the recursion survived {steps} steps — the fixture has drifted"
 
 
 def test_O6_no_quotes_is_a_FAILURE():
@@ -320,3 +380,114 @@ def test_O6_the_output_IS_a_usable_model_input():
     assert isinstance(fit, MMIICalibration)
     model = MarketModelII(MARKET, fit.params)
     assert isinstance(price(_floor(3), model), PricingResult)
+
+
+# ============================================================================================
+# ORACLE 7 — the cross-model comparison. The point of the whole inflation arc.
+# ============================================================================================
+
+def test_O7_MMII_identifies_its_parameters_where_JY_does_NOT():
+    """**The comparison the book was for, and it is about identifiability, not price.**
+
+    Tranche 13 measured the *pricing* gap between the models at 7.7e-09 to 3.7e-05 — negligible. The
+    real difference is what you can learn from a calibration:
+
+      * **JY (§5.3.2, tranche 11):** six GLOBAL parameters against the whole surface. Three of the
+        six — `sigma_I`, `rho_rI`, `rho_nI` — are **structurally unidentifiable** from year-on-year
+        floors at any strike, because the index correlations enter only as products with `sigma_I`
+        and `rho_nI` is absent from the convexity entirely. `rho_nI` recovers at the WRONG SIGN
+        (-0.597 against +0.15) at a residual of 8e-15.
+      * **MM-II (§5.4.2, here):** per-expiry parameters. Every index vol recovers to ~1e-16 **except
+        the terminal one**, which carries a two-root ambiguity because its caplet price is
+        non-monotone in it.
+
+    So the thesis's verdict — *"of the models evaluated, this approach seems the most promising"* —
+    holds, and this library can now say **why** in a way the thesis does not: not better prices, but
+    a calibration whose parameters are mostly recoverable, with one named exception at the end of the
+    strip rather than three unidentifiable parameters throughout.
+
+    This oracle asserts the MM-II half (JY's is tranche 11's `test_O2_*`), and that the two failures
+    are of different KINDS: JY's is global and structural, MM-II's is local to the terminal point."""
+    quotes = _atm_quotes()
+    n = len(DATES)
+    low = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR,
+                                       start=tuple(0.004 for _ in range(1, n)))
+    high = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR,
+                                        start=tuple(0.030 for _ in range(1, n)))
+    assert isinstance(low, MMIICalibration) and isinstance(high, MMIICalibration)
+
+    # Interior: both starts agree with each other AND with the truth -- unlike any of JY's three.
+    interior = [
+        (low.params.index_vol_at(d), high.params.index_vol_at(d), TRUE_VOLS[d])
+        for d in DATES[1:-1]
+    ]
+    assert all(
+        abs(a - b) < 1e-9 and abs(a - truth) / truth < 1e-6 for a, b, truth in interior
+    ), interior
+
+    # Terminal: the one exception, and it is a SINGLE point rather than a pervasive degeneracy.
+    terminal = DATES[-1]
+    assert abs(low.params.index_vol_at(terminal) - TRUE_VOLS[terminal]) / TRUE_VOLS[terminal] > 0.5
+    assert abs(high.params.index_vol_at(terminal) - TRUE_VOLS[terminal]) / TRUE_VOLS[terminal] < 1e-6
+
+    # And the count is the headline: MM-II leaves ONE parameter ambiguous, JY leaves THREE.
+    unidentified = sum(
+        1 for d in DATES[1:]
+        if abs(low.params.index_vol_at(d) - TRUE_VOLS[d]) / TRUE_VOLS[d] > 0.01
+    )
+    assert unidentified == 1, f"expected exactly the terminal point to be ambiguous, got {unidentified}"
+
+
+def test_O7_whether_the_fit_LANDS_on_the_wrong_root_is_START_DEPENDENT():
+    """**My first version of this claimed truncating the strip moves the ambiguity. It does not —
+    the ambiguity DISAPPEARS.** Measured, fitting from a low start (0.004):
+
+        strip of 5:  0.00%  0.00%  0.00%  0.00%  89.29%
+        strip of 4:  0.00%  0.00%  0.00%  0.00%
+        strip of 3:  0.00%  0.00%  0.00%
+
+    So the two-root *structure* is always there (the non-monotonicity oracle proves it), but whether
+    a least-squares fit **lands** on the wrong root depends on where it starts relative to the
+    vertex and the conjugate root. A high start recovers the truth; a low one can fall into the
+    conjugate.
+
+    That is the practically important statement, and it is stronger than a recommendation to quote
+    further out: **a single-start calibration of MM-II is unsafe at the terminal point, and no
+    residual will tell you** — the wrong root fits to 1e-17. Multi-start is not a diagnostic
+    nicety here, it is the only thing standing between the fit and a silently wrong terminal
+    volatility. The tranche 11 lesson, arriving in the thesis's *preferred* model."""
+    n = len(DATES)
+    quotes = _atm_quotes()
+    terminal = DATES[-1]
+
+    from_low = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR,
+                                            start=tuple(0.004 for _ in range(1, n)))
+    from_high = calibrate_mmii_to_atm_floors(quotes, MARKET, NOMINAL_VOL, CORR,
+                                             start=tuple(0.030 for _ in range(1, n)))
+    assert isinstance(from_low, MMIICalibration) and isinstance(from_high, MMIICalibration)
+
+    low_err = abs(from_low.params.index_vol_at(terminal) - TRUE_VOLS[terminal]) / TRUE_VOLS[terminal]
+    high_err = abs(from_high.params.index_vol_at(terminal) - TRUE_VOLS[terminal]) / TRUE_VOLS[terminal]
+    assert low_err > 0.5, low_err
+    assert high_err < 1e-6, high_err
+    # And BOTH report a residual indistinguishable from zero -- which is the dangerous part.
+    assert from_low.rms_residual < 1e-9 and from_high.rms_residual < 1e-9, (
+        from_low.rms_residual, from_high.rms_residual
+    )
+
+
+def test_O7_a_SHORTER_strip_does_not_inherit_the_ambiguity():
+    """The companion to the above, and the reason the first version's premise was wrong: truncating
+    the strip does NOT hand the ambiguity to the new terminal point. Whether the conjugate root is
+    reachable from a given start depends on the period's own lead and the neighbouring vol, so it is
+    a property of the point, not of being last."""
+    quotes = _atm_quotes()
+    for cut in (1, 2):
+        shorter = quotes[: len(quotes) - cut]
+        out = calibrate_mmii_to_atm_floors(
+            shorter, MARKET, NOMINAL_VOL, CORR, start=tuple(0.004 for _ in shorter)
+        )
+        assert isinstance(out, MMIICalibration), out
+        for q, _ in shorter:
+            d = q.schedule.dates[-1]
+            assert abs(out.params.index_vol_at(d) - TRUE_VOLS[d]) / TRUE_VOLS[d] < 1e-6, (cut, d)
