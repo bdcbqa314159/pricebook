@@ -184,7 +184,19 @@ not an oracle. Ruled principles:
   sign-invariant). The exception must be **proved by showing the outputs bit-identical, never
   assumed because the mutation looks harmless** — the assumption is how a real survivor gets waved
   through as "probably equivalent" (T10(b): a sign-flip survived five-of-six, proved equivalent by a
-  bit-identical fit, same κ, σ and iteration count).
+  bit-identical fit, same κ, σ and iteration count). **For code whose output is an iterative solver's
+  fitted result, bit-identity is demanded of the OBJECTIVE, not of the fitted output.** A solver's
+  last digits are legitimately path-dependent — permuting the free variables reorders the Jacobian
+  columns and moves the result ~1e-15 — so bit-identity of the *fit* is unavailable and its absence
+  proves nothing. But the objective the solver minimises is a pure function, and the exception's proof
+  relocates there: show that the mutation is a **reparameterization** `P` under which the residual is
+  bit-identically invariant — `residuals_mutant(x) == residuals_orig(P(x))` exactly, at sample `x` —
+  from which the fitted output is provably identical and its agreement to the solver's tolerance is
+  then corroboration, not the proof. This is still a bit-identity check (a theorem, not a readable
+  "looks equivalent" argument — which is exactly what the bar exists to refuse); it is only moved to
+  the level where it is available. *(T14 §9.3: reversing `_params_from`'s key assignment survived all
+  453 tests; it is the reversal `P`, residuals bit-identically invariant under it, so the fitted dict
+  is identical and the ~1e-15 fit difference is pure solver path — a proved equivalent mutant.)*
 - **An oracle must be measurable above its own numerical noise — prefer a behavioural invariant to a
   noise-dominated number.** A finite-difference Jacobian condition number for the six-parameter JY
   fit swung three orders of magnitude with the step size (2.5e7 → 2.1e10) and differed again under
