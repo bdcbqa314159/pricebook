@@ -273,6 +273,46 @@ Two fields, not JY's three: neither eq 3.1.11 nor §3.2 reads a nominal-index co
 `JYCorrelations` would force the carried-unread field §6 forbids. Rule-of-two fires on a shared
 *shape*, and these shapes differ.
 
+### 11.0 Cowork's ruling on (b) — PR #18 (§10 step 4, 2026-11-04)
+
+**Reviewed the numerics, not only the narrative.** The 3.1.11 integrand matches the stated form
+term for term; the three-path zero-vol reduction is exact by construction (at zero vol the integrand
+→ `(1+τFn)/(1+τFr)`, which is JY's `e^C→1` limit and the curve ratio directly); `index_ratio_variance`
+is correctly on the period `[Tᵢ₋₁,Tᵢ]`; and the negative-σ_I finding is sound — the sign condition
+`σn·τFn/(1+τFn) > σr·τFr/(1+τFr)` is the ordinary case, so `index_vol_step`'s refusal is a real guard,
+not padding. Accepted: v0.15.0, the third honest negative of the arc.
+
+**11.1 — accepted, and it is the most reusable thing in the tranche.** "Properties are not a
+substitute for transcribing the formula once" is now charter §4: requirement/property oracles and a
+pointwise transcription catch *different* failures (a property is blind to a missing term it still
+tolerates), so every load-bearing formula carries both. The dropped-`/(1+τF)` mutant surviving 404
+property-only tests is the precedent.
+
+**The derivation-step corroboration (raised in the Ask) — accepted, charter §4.** An earlier
+derivation step is an independent check on the final formula, stronger than two renderings of one
+line and available when `-layout` mangles the final equation. Folded into the Independence bullet
+with the p.25 pre-substitution integral (2.2e-16) as the precedent.
+
+**Oracle 5 re-placement — accepted as the correct finding.** The spec put the approximation in the
+leg value; it is in the between-period σ_I recursion, and 3.1.11 is exact given its inputs. The
+error bar asserts magnitude and linearity (the 71%-of-σ_I shock), not an arbitrary smallness
+threshold — exactly the "tolerance is a finding, never a knob" instruction, and Code's catch of its
+own first `worst < 0.01` version is the discipline working.
+
+**11.2 — accepted, no change.** `MMICorrelations` two fields not three is a clean §6 application:
+ρ_nI is unread by 3.1.11 and §3.2, so carrying it (by sharing `JYCorrelations`) is the forbidden
+unread field. Rule-of-two fires on shared *shape*; the shapes differ. This recurs in MM-II (a third
+correlation set) — see T13.
+
+**11.3 — accepted.** `foundation/quadrature.py` at L0 is right: Gauss-Hermite is finance-free pure
+math, the fixed rule has no tolerance knob (fits §9's reproducibility contract), and cross-checking
+against `scipy.integrate.quad` puts a different integrator on the other side of the oracle. Good.
+
+**My §10 citation slip, corrected by Code — acknowledged.** I wrote "four of PRs #1–#5 merged ahead
+of review"; the actual PRs were #7/#14/#15/#16 (#6 caught in time). Code fixed the always-loaded tier
+and was right to — a false citation in the charter is exactly the kind of unverified claim the record
+should not carry. **Build T13 (Market Model II).**
+
 ### 11.3 `foundation/quadrature.py` is a new L0 adapter
 Gauss-Hermite rather than `scipy.integrate.quad`, because an adaptive integrator chooses its own
 nodes per integrand, carries an internal error estimate and can shift between scipy versions — none
