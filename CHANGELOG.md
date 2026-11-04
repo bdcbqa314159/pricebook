@@ -6,6 +6,62 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-04
+
+Tranche 12(b) — Market Model I (BERHAN-2012 ch 3), the library's **second model**, flowing through
+tranche 12(a)'s capability seam with no change to either pricer.
+
+### The thesis's "approximately constant" does not hold — the freezing drives `σ_I` negative
+Mercurio's freezing relation `σ_I,i−1 ≈ σ_I,i + σr·τFr/(1+τFr) − σn·τFn/(1+τFn)`, walked backwards
+from `σ_I = 0.012` with `σn = 25%`, `σr = 20%` on this library's sloped test curves: **+0.012000 →
++0.005605 → −0.000542.** Two steps to a negative volatility. The adjustment is negative whenever
+`σn·τFn/(1+τFn) > σr·τFr/(1+τFr)` — the ordinary case, since nominal vol and nominal forwards both
+exceed real — so the source's *"we can still assume that the volatilities σ_I,i are all constant"*
+does not survive a realistic parameter set. `index_vol_step` refuses a non-positive result rather
+than letting it reach a `√` and surface as a `nan` layers away.
+
+**The third honest negative of the inflation arc**, after JY's flat smile and §5.3.2's structural
+underdetermination.
+
+### Where the approximation is — not where the spec expected
+Given its per-period inputs, eq 3.1.11 is an **exact** expectation; the freezing governs the
+index-vol *term structure* between periods, not any single period's price. Its error bar, measured:
+a 200bp forward move shifts `σ_I,i−1` by **71% of `σ_I`**, near-linear in the shock. A
+**sensitivity** bound, not a distributional one — the latter needs an LMM simulation this tranche
+does not build and does not claim.
+
+### Added
+- `models/market_model_i.py` — `MarketModelI`, `MMIParams`, `MMICorrelations`, `index_vol_step`.
+  `MMICorrelations` carries **two** correlations, not JY's three: neither eq 3.1.11 nor §3.2 reads a
+  nominal-index correlation, and sharing JY's type would force the carried-unread field §6 forbids.
+- `foundation/quadrature.py` — `standard_normal_expectation`, a fixed Gauss-Hermite rule. Chosen
+  over `scipy.integrate.quad` because an adaptive integrator picks its own nodes per integrand and
+  can shift between scipy versions, neither of which belongs under a pinned reproducibility
+  contract. **No tolerance knob**; accuracy is measured against moments known in closed form.
+- 33 oracles. **The anchor is a three-path reduction**: at zero vol MM-I's integral, JY's `e^C → 1`
+  and the curves directly all agree to 1e-13, sharing nothing but the curves — with a companion
+  requiring the vols to move MM-I's ratio, and a further oracle requiring MM-I and JY to *disagree*
+  away from the limit.
+
+### The transcription is corroborated by a second path inside the source
+`-layout` mangles eq 3.1.11 into broken columns, so §4's dual-rendering rule could not settle it.
+Page 25 gives the same integral in its **pre-substitution** form, and the two agree to **2.2e-16** —
+a misprint would have to appear identically in both forms to survive. Both are oracled. Stronger
+than two renderings of one line, and worth reaching for whenever a source derives in steps.
+
+### Fixed — two of my own test defects, both found by execution not review
+**Mutation found a hole properties alone left open.** Dropping `/(1+τFr)` from the freezing
+coefficient survived all 404 tests — not an equivalent mutant, since at `τF ≈ 0.03` the denominator
+is worth ~3%. My freezing oracles asserted only properties and never transcribed the formula
+pointwise. Fixed, with a companion requiring the un-divided form to differ measurably.
+
+**And a threshold that read as reassurance.** My error-bar oracle asserted `worst < 0.01`, implying
+the freezing error is small, while the measurement says it is 71% of `σ_I`. It now asserts the
+magnitude and its linearity instead.
+
+### Changed
+- `TEST_FLOOR` 375 → 408.
+
 ## [0.14.0] - 2026-11-03
 
 Tranche 12(a) — the model capability seam, so a second model can price the same products. The

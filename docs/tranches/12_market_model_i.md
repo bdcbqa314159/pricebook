@@ -7,7 +7,7 @@ pair with explicit `μ`/`σ`/`ρ`, and Mercurio's freezing procedure. McInerney 
 background, not required for the YoY/cap formulas. **Chosen by Bernardo**: finish the two market
 models, MM-I first.
 
-**Status:** **(a) BUILT** (v0.14.0) — the capability seam. **(b) pending** — MM-I itself.
+**Status:** **BOTH BUILT.** (a) v0.14.0 — the capability seam. (b) v0.15.0 — MM-I. **Results: §8, §10.**
 **Answer to §0's open question: ONE protocol, two methods. No second dispatch key needed.** See §8.
 
 ## 0. The crux — a SECOND model prices the SAME products, and the registry is product-keyed
@@ -189,3 +189,94 @@ of this model** — the convexity is the whole point. Replaced with the honest d
 `σr = 0` the convexity vanishes exactly and then `m > 1` *is* forced by the curve pair, and the
 convexity is asserted to move it. Stronger than what it replaced, because it also pins the sign of
 `C`'s contribution. Fourth instance of a wrong-requirement caught by execution rather than review.
+
+
+---
+
+## 10. Result — (b) built, and the thesis's "approximately constant" does not hold
+
+408 tests, eight gates green, ruff and pyright clean, zero suppressions.
+
+### The seam worked: MM-I flows through both pricers with no change to either
+That was (a)'s whole claim and it is now demonstrated rather than argued. `MarketModelI` implements
+`IndexRatioModel` and the year-on-year and cap/floor engines price it untouched — including
+tranche 5's cross-product identity `cap − floor = the YoY leg`, which now carries a **second model**
+through the same seam. No `isinstance`, no second dispatch key.
+
+### The anchor: three independently-coded paths, one limit
+At zero volatility MM-I's integral collapses to the deterministic forward ratio, JY's `e^C`
+collapses to 1, and the curves give the same number directly — all three agree to 1e-13, sharing
+nothing but the curves. The strongest oracle in the tranche, and it is exact rather than a numerical
+limit. Its mandatory companion requires the vols to move MM-I's ratio, and a further oracle requires
+MM-I and JY to **disagree** away from the limit, since two different models silently agreeing would
+mean one is not doing what it claims.
+
+### The transcription is corroborated by a second path INSIDE the source
+`pdftotext -layout` mangles eq 3.1.11 into broken columns, so §4's dual-rendering rule could not
+settle it. But page 25 gives the same integral in its **pre-substitution** form — over `y` against
+the conditional density, before `z = (y − µy)/σy`. The two agree to **2.2e-16**, and a misprint
+would have to appear identically in both forms to survive that. Both are oracled. That is a stronger
+guard than two renderings of one printed line, and worth reaching for whenever a source derives a
+formula in steps.
+
+### Where the approximation actually lives — the spec had it in the wrong place
+§3's oracle 5 expected the freezing procedure to make the *leg value* approximate. **It does not.**
+Given its per-period inputs, eq 3.1.11 is an exact expectation. Mercurio's freezing governs the
+**recursion between periods**:
+
+    σ_I,i−1 ≈ σ_I,i + σr·τFr(0)/(1+τFr(0)) − σn·τFn(0)/(1+τFn(0))
+
+where the exact relation carries the *stochastic* `F(t)`. So the approximation is a statement about
+the index-vol **term structure**, not about any single period's price.
+
+### And the headline negative: the recursion drives `σ_I` negative in two steps
+Walking it backwards from `σ_I = 0.012` with `σn = 25%`, `σr = 20%` on this library's own sloped
+test curves:
+
+| step | `σ_I` |
+|---|---|
+| i=4 | +0.012000 |
+| i=3 | +0.005605 |
+| **i=2** | **−0.000542 — not a volatility** |
+
+The adjustment is negative whenever `σn·τFn/(1+τFn) > σr·τFr/(1+τFr)` — the ordinary case, since
+nominal vol and nominal forwards both exceed real. So the source's *"we can still assume that the
+volatilities σ_I,i are all constant"* **does not survive a realistic parameter set**, and the
+relation cannot be iterated far. `index_vol_step` now refuses a non-positive result rather than
+letting it reach a `√` and surface as a `nan` three layers away.
+
+This is the **third honest negative** the inflation arc has produced about its own source's models,
+after JY's flat smile and §5.3.2's structural underdetermination.
+
+### The error bar, and why the first version of it was dishonest
+A 200bp forward move shifts `σ_I,i−1` by **71% of `σ_I`** — measured, and near-linear in the shock
+(35% at 100bp, 18% at 50bp). My first oracle asserted `worst < 0.01`, which *reads* as "the error is
+small" while the measurement says it is large. An arbitrary smallness threshold would have dressed a
+material approximation error as a bounded one, so the test now asserts the **magnitude** and its
+linearity instead.
+
+It is a **sensitivity** bound, not a distributional one: a probability-weighted bound needs an LMM
+simulation of the forward rates, which this tranche does not build and does not pretend to.
+
+## 11. Findings for Cowork (§10 — raised, not decided)
+
+### 11.1 Mutation found a real hole that properties alone left open
+Seven mutations on MM-I and the quadrature; six caught. The survivor — dropping `/(1+τFr)` from the
+freezing coefficient — was **not** an equivalent mutant: at `τF ≈ 0.03` the denominator is worth ~3%.
+My freezing oracles asserted only *properties* (vanishes at zero vol, moves with the vols, bounded
+under a shock) and never transcribed the formula pointwise. Fixed with a pointwise oracle plus a
+companion requiring the un-divided form to differ measurably; both denominator mutations now fail.
+**Properties are not a substitute for transcribing the formula once** — a candidate §4 note.
+
+### 11.2 `MMICorrelations` is a second correlation type, deliberately
+Two fields, not JY's three: neither eq 3.1.11 nor §3.2 reads a nominal-index correlation, so sharing
+`JYCorrelations` would force the carried-unread field §6 forbids. Rule-of-two fires on a shared
+*shape*, and these shapes differ.
+
+### 11.3 `foundation/quadrature.py` is a new L0 adapter
+Gauss-Hermite rather than `scipy.integrate.quad`, because an adaptive integrator chooses its own
+nodes per integrand, carries an internal error estimate and can shift between scipy versions — none
+of which belongs under a pinned reproducibility contract. The fixed rule has **no tolerance knob**;
+its accuracy is instead measured against moments known in closed form. The oracle cross-checks MM-I's
+integral against `scipy.integrate.quad`, so a different integrator sits on the other side of the
+check.
