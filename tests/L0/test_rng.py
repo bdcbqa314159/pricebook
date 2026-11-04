@@ -52,13 +52,17 @@ def test_the_FIRST_DRAWS_are_pinned_as_a_cross_platform_contract():
     assert draws == pytest.approx(expected, rel=0.0, abs=0.0), draws
 
 
-def test_draws_lie_strictly_INSIDE_the_unit_interval():
-    """`Phi^-1(0)` is `-inf` and `Phi^-1(1)` is `+inf`, so a variate built by inversion needs the
-    open interval. numpy's `random()` is `[0,1)`, which still admits an exact 0 — asserted here
-    because a single zero draw in a million would surface as a `-inf` path, not as an error."""
+def test_draws_lie_in_numpys_HALF_OPEN_interval_and_nothing_stronger():
+    """`[0, 1)` is what numpy guarantees, and it is what this source states.
+
+    **The first version asserted the OPEN interval `(0,1)` and the source redrew endpoints to make
+    it true. Mutation showed that was wrong**: an exact 0 has probability ~2^-53 per draw, so the
+    redraw branch was unreachable and unoracled — breaking it passed all 468 tests, and reaching it
+    would have HUNG the loop. The `Phi^-1(0) = -inf` problem is real but belongs to `Phi^-1`, which
+    can be handed `0.0` directly and refuse it. So this asserts the contract we actually have."""
     draws = UniformSource(seed=7).uniforms(20_000)
-    assert min(draws) > 0.0, "a zero draw would invert to -inf"
-    assert max(draws) < 1.0
+    assert all(0.0 <= x < 1.0 for x in draws)
+    assert min(draws) < 0.001 and max(draws) > 0.999, "the draws do not span the interval"
 
 
 def test_CONSECUTIVE_calls_continue_the_stream_rather_than_restarting():
