@@ -43,6 +43,31 @@ MSc thesis, KTH Royal Institute of Technology, 2012. TRITA-MAT-E 2012:13.
 
 ---
 
+### `JAECKEL-2002` — `in-hand`
+
+Jäckel, P., *Monte Carlo Methods in Finance*. Wiley, 2002. 235 pp. Held locally at
+`_stock/NewDocuments/Monte Carlo methods in finance (Jaeckel P.) ...pdf` (gitignored — copyrighted;
+only this record is tracked).
+
+**Project two (2026-11-04, Bernardo), after BERHAN closed.** A *methods* source, not a model/product
+source: the authority is for the **algorithm** (RNG, Sobol direction numbers, the Brownian bridge,
+variance-reduction identities, pathwise/likelihood-ratio Greeks, BGM/J under MC), not for a reference
+**price** — Jäckel's own results are convergence diagrams, not tables (§14.4, *"A single number or a
+convergence diagram?"*). So a tranche transcribes the **method** from Jäckel under §4, and oracles the
+method's **output against this library's own closed forms** (Black, JY, MM-I, MM-II, the HW bond
+option) by convergence-within-standard-error and the convergence *rate* — the closed-form anchor at
+the top of §4's order. Chapters: 2/9 (generation, variates), 8 (low-discrepancy), 10 (variance
+reduction, path construction), 11 (Greeks), 12 (BGM/J), 14 (diagnostics).
+
+- **Worked by product-pull, not by chapter** — the chapter is where a method is read from, not a build
+  order (§1); routes not taken are recorded in `docs/to_go_deeper.md` when the arc closes.
+- **Stock base catalogued** in `docs/stock/mc_base_inventory.md` (an already-once-migrated MC stack —
+  mined for content and its migration-hardening edge cases, never for structure, never imported).
+
+**Status `in-hand`, flips to `worked-from` when the first MC tranche lands** (as McInerney did at T10).
+
+---
+
 ### `MCINERNEY-ZASTAWNIAK` — `in-hand`
 
 McInerney, D. and Zastawniak, T., *Stochastic Interest Rates*. Mastering Mathematical Finance,
