@@ -74,12 +74,17 @@ Provenance:
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
 from pricebook.foundation.money import Currency
 from pricebook.market.curve_set import CurveRole
 from pricebook.market.snapshot import MarketSnapshot
+
+#: The key a FLAT term structure uses — a sentinel date no schedule can produce, so a flat set and
+#: a real one cannot be confused for each other.
+_FLAT = date(1, 1, 1)
 
 
 @dataclass(frozen=True)
@@ -106,19 +111,67 @@ class MMIICorrelations:
 
 @dataclass(frozen=True)
 class MMIIParams:
-    """MM-II's parameters: the index vol, the nominal forward-rate vol, and the correlations.
+    """MM-II's parameters: a **term structure** of index vols, the nominal vol, the correlations.
 
-    **No real-rate volatility, and its absence is the point** — see the module docstring. One index
-    vol, so `σ_{I,i−1} = σ_{I,i}`; the per-period term structure arrives with §5.4's calibration."""
+    **No real-rate volatility, and its absence is the point** — see the module docstring.
 
-    index_vol: float
+    **`index_vols` is keyed by the forward index's own maturity, which is what makes it a term
+    structure rather than a bag of numbers.** `σ_{I,i}` is the volatility of `I(·,Tᵢ)`, so a period
+    `[Tᵢ₋₁, Tᵢ]` reads *two adjacent entries* — `index_vols[Tᵢ₋₁]` and `index_vols[Tᵢ]` — which is
+    exactly why `Di` and `Vᵢ²` carry both. Tranche 13 carried a single scalar and said the term
+    structure would arrive with §5.4's calibration; it has, because §5.4.2's free set per expiry is
+    `{σ_{I,i−1}, σ_{I,i}, ρ_{I,i}, ρ_{I,n,i}}` and a scalar would silently collapse two of its four
+    parameters into one — making any identifiability finding an artefact of our simplification
+    rather than a property of the model.
+
+    Use `MMIIParams.flat(...)` for the constant case; it is **bit-identical** to the tranche 13
+    scalar form, verified across the six values that tranche measured.
+
+    `nominal_vol` stays a scalar. §5.4.1 indexes it by maturity too, but it is **read** from the
+    Black ATM cap quote rather than fitted, so one value per model instance is the natural
+    granularity for a single-expiry fit; a per-maturity ATM cap curve arrives with a consumer that
+    fits across maturities."""
+
+    index_vols: Mapping[date, float]
     nominal_vol: float
     correlations: MMIICorrelations
 
+    @classmethod
+    def flat(
+        cls, index_vol: float, nominal_vol: float, correlations: MMIICorrelations,
+        dates: Sequence[date] = (),
+    ) -> MMIIParams:
+        """A constant index-vol term structure — the tranche 13 shape, now one case of the general.
+
+        `dates` may be omitted: a flat structure answers every lookup with the same number, which
+        `_index_vol` implements by falling back to the single value when a date is absent."""
+        return cls({d: index_vol for d in dates} or {_FLAT: index_vol}, nominal_vol, correlations)
+
     def __post_init__(self) -> None:
-        for name, vol in (("index_vol", self.index_vol), ("nominal_vol", self.nominal_vol)):
+        if not self.index_vols:
+            raise ValueError("MM-II needs at least one index volatility")
+        for key, vol in self.index_vols.items():
             if vol < 0.0:
-                raise ValueError(f"{name} cannot be negative, got {vol}")
+                raise ValueError(f"index_vol cannot be negative, got {vol} at {key}")
+        if self.nominal_vol < 0.0:
+            raise ValueError(f"nominal_vol cannot be negative, got {self.nominal_vol}")
+
+    def index_vol_at(self, maturity: date) -> float:
+        """`σ_{I,i}` for the forward index maturing at `maturity`.
+
+        A flat structure (built by `flat()` without dates) answers every maturity with its single
+        value; a real term structure refuses an unknown date rather than interpolating, for the
+        reason `ImpliedVolSurface.vol` refuses one — an interpolation scheme baked into a model
+        parameter is an unexercised choice."""
+        if _FLAT in self.index_vols:
+            return self.index_vols[_FLAT]
+        try:
+            return self.index_vols[maturity]
+        except KeyError:
+            raise KeyError(
+                f"no MM-II index volatility for the forward index maturing {maturity}; "
+                f"the term structure holds {len(self.index_vols)} points and does not interpolate"
+            ) from None
 
 
 @dataclass(frozen=True)
@@ -145,10 +198,21 @@ class MarketModelII:
         _, _, measure = self._curves()
         lead = measure.year_fraction(period_start)
         span = measure.year_fraction(period_pay) - lead
-        sigma = self.params.index_vol
+        sigma_pay = self.params.index_vol_at(period_pay)
         rho = self.params.correlations.index_index
-        lead_variance = (sigma * sigma + sigma * sigma - 2.0 * rho * sigma * sigma) * lead
-        return lead_variance + sigma * sigma * span
+        # At `lead = 0` the whole lead term vanishes, so `sigma_{I,i-1}` is multiplied by zero and
+        # must NOT be looked up -- the first period's `T_0` is the curve anchor and has no forward
+        # index maturing on it. That is also why the 1-Year floor identifies `sigma_{I,1}` alone
+        # (BERHAN 5.4.2), which the calibration's bootstrap relies on.
+        if lead == 0.0:
+            return sigma_pay * sigma_pay * span
+        sigma_start = self.params.index_vol_at(period_start)
+        lead_variance = (
+            sigma_start * sigma_start
+            + sigma_pay * sigma_pay
+            - 2.0 * rho * sigma_start * sigma_pay
+        ) * lead
+        return lead_variance + sigma_pay * sigma_pay * span
 
     def _drift(self, period_start: date, period_pay: date) -> float:
         """`Di(t)` — the correction term, with **no real-rate volatility in it**.
@@ -160,13 +224,18 @@ class MarketModelII:
         tau_fn = nominal.df(period_start) / nominal.df(period_pay) - 1.0
 
         p = self.params
-        sigma_i = p.index_vol                      # sigma_{I,i-1} = sigma_{I,i}, one index vol
+        # At `lead = 0` the whole drift vanishes (it carries `T_{i-1} - t` as a factor), so no
+        # volatility is looked up -- the first period's start is the curve anchor.
+        if lead == 0.0:
+            return 0.0
+        sigma_start = p.index_vol_at(period_start)   # sigma_{I,i-1}
+        sigma_pay = p.index_vol_at(period_pay)       # sigma_{I,i}
         bracket = (
             p.nominal_vol * tau_fn / (1.0 + tau_fn) * p.correlations.index_nominal
-            + sigma_i
-            - sigma_i * p.correlations.index_index
+            + sigma_start
+            - sigma_pay * p.correlations.index_index
         )
-        return sigma_i * bracket * lead
+        return sigma_start * bracket * lead
 
     def _curves(self):
         """The nominal and real curves and the shared time measure, in one lookup."""

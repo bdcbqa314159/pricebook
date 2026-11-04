@@ -6,6 +6,64 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-04
+
+Tranche 14 — Market Model II's calibration (BERHAN-2012 §5.4). **This closes the book**: ch 1–5 are
+built, leaving only §1.3's risk material outside. Checkpoint: `docs/checkpoints/CP_inflation_book_complete.md`.
+
+### §5.4.1 is an identity; §5.4.2's bootstrap is structural
+`σn,i` **is** the quoted Black ATM cap vol — an exact round-trip, not a residual (contrast §5.3.1,
+where JY needs a Hull-White cap engine and a real two-parameter fit). And the 1-Year-Floor bootstrap
+works for a statable reason: the first period's lead is zero, so `Di` vanishes and `V²` collapses to
+`σ_I,1²·(T₁−T₀)` — one unknown, one price, a plain Black inversion with no solver. Both the structure
+and the bootstrap's blindness to every later parameter are oracled.
+
+### The thesis's expiry claim is almost right, and the exception is the finding
+*"Since each expiry has it's own set of parameters, there is no need to restrict the number of
+contracts in the expiry dimension."* Measured: **every index vol recovers to ~1e-16 except the
+terminal one**, which from a low start lands at **0.002141 against a truth of 0.020000 — 89% wrong
+at a residual of 8.6e-17.**
+
+`σ_I,i` enters its period's variance *quadratically* and its drift *linearly and negatively*, so the
+caplet price is **non-monotone** in it (vertex at `ρ_II·σ_I,i−1·lead/(lead+span)`, predicted 0.0115,
+located by sweep at 0.0115). Two vols give one price. Every vol but the terminal one appears in
+**two** periods and the second appearance picks the root; the terminal date appears once.
+
+**And whether a fit lands on the wrong root is start-dependent** — a high start recovers the truth, a
+low one falls into the conjugate, and **both report ~1e-17**. So a single-start MM-II calibration is
+unsafe at the terminal point and no residual will say so. Multi-start is load-bearing, not
+decoration.
+
+### The cross-model comparison the arc was for
+Tranche 13 put the three models' *pricing* gap at 7.7e-09 to 3.7e-05. The difference that matters:
+**JY leaves three global parameters unidentifiable** (one at the wrong sign), **MM-II leaves one
+locally ambiguous point.** So the thesis's *"this approach seems the most promising"* holds — and the
+reason is identifiability, not price, which the thesis does not say.
+
+### Added
+- `engine/mmii_calibration.py` — `nominal_vol_from_black_atm` (the §5.4.1 identity, named and
+  oracled because it is a claim about the model), `index_vol_from_first_floor` (the bootstrap by
+  Black inversion), `calibrate_mmii_to_atm_floors`, `MMIICalibration`.
+- 23 oracles, including the source's **signed** skew direction (fitted at ATM, MM-II underprices OTM
+  and overprices ITM) with the companion that its ATM fit is essentially exact — two distinct axes.
+
+### Changed — MM-II's index vols became a term structure, bit-identically
+`MMIIParams.index_vols` is now keyed by the forward index's own maturity, so a period reads two
+adjacent points — which is what §5.4.2's four-parameter-per-expiry set requires. A scalar would have
+collapsed two of the four and made any identifiability finding an artefact of our simplification.
+`MMIIParams.flat()` is the tranche 13 shape, verified **bit-identical** across the six values that
+tranche measured.
+
+### Fixed — two of my own errors
+I assumed tranche 13's recursion depth transferred: it measured the `index_vol_step` refusal at two
+steps on *annual* periods, and this semi-annual fixture survives **three**. And my "quote one period
+further" recommendation was wrong — truncating the strip makes the ambiguity *disappear*, not move,
+because reachability of the conjugate root depends on the period's own lead and its neighbour's vol.
+Replaced with the start-dependence finding, which is true and more useful.
+
+### Changed
+- `TEST_FLOOR` 430 → 453.
+
 ## [0.16.0] - 2026-11-04
 
 Tranche 13 — Market Model II (BERHAN-2012 ch 4), the **third** model, through the same
