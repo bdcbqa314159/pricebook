@@ -112,3 +112,74 @@ T17 (European swaption under the LMM, anchored by convergence + the swaption app
 (the Bermudan — the exercise boundary, §12.6–12.8, oracled by the European-lower-bound / tree
 sandwich). The path engine built here is what both consume. Variance reduction (control variates,
 the Brownian bridge) and Sobol remain their own later units, pulled when a product needs the speed.
+
+---
+
+# BUILT — results (appended at build; §1–7 above are Cowork's spec, unedited)
+
+`v0.19.0`. 554 tests, all eight gates green. `foundation/linalg.py` (L0), `models/libor_market_model.py`
+(L3), `engine/mc_path_engine.py` (L4), as specced. Oracles 1–6 all green; the anchor reprices a caplet
+to `black_price` at three strikes inside 4 SE, and the step count does not move the martingale forward.
+
+## 8. The drift's MAGNITUDE was unconstrained — found by mutation, not by a failing test
+
+**Thirteen oracles passed, and three mutations of eq 12.8 survived all of them.** Dropping the drift's
+`dt` factor (an 8× drift), feeding the drift the raw forwards instead of eq 12.8's
+`(f τ)/(1 + f τ)·σ` ratios (5×), and dropping that denominator altogether (1.04×) each passed the full
+550-test suite.
+
+The cause was **structural, not a shortage of paths**, and it is the more interesting kind:
+
+- every drift oracle asserted the drift was **present** (the paired-numeraire test, at 297–372 SE) or
+  correctly **signed** (either side of the numeraire) — neither constrains its size;
+- the closed-form anchor runs under the measure where the target forward's drift is **exactly zero**
+  (eq 12.8's middle branch). That exactness is what makes the anchor sharp, and it is also why the
+  anchor **cannot see the drift at all**.
+
+So the suite's two strongest drift oracles were blind to magnitude by construction. This is the
+charter's own named defect class — a check that cannot fail — wearing a new disguise: not a vacuous
+assertion, but a *complete* set of assertions about the wrong quantity.
+
+**The fix removes Monte Carlo error rather than fighting it.** Two models differing only in numeraire
+index, one step, one seed: both consume the same normals from the same state, so the diffusion term
+and the `−c_ii/2` correction cancel to the last bit, and
+
+    log f_i^A(dt) − log f_i^B(dt)  =  (µ_i^A − µ_i^B) · dt          exactly, every path
+
+That is an identity, not an estimate. Measured agreement with a fresh transcription of eq 12.8 is
+**1e-13 relative** with a cross-path spread of 7e-16 — precision no path count could buy, and the
+reason it can see M7's 3.8%. The grid is a **half**-year single step deliberately: at `dt = 1.0` the
+`dt` scaling is invisible, which is exactly how M3 survived. All eight mutations now die.
+
+## 9. The new oracle caught an error in its own reference first
+
+The transcription of eq 12.8 written for §8's oracle used the off-diagonal `ρ = 0.80` for every pair,
+including `ρ_ii`, which is 1. On first run forward 0 agreed to 1e-13 and forwards 1–3 disagreed in the
+third digit — and **the asymmetry is what located the bug**: forward 0's drift sums never reach
+`k = 0`, so it is the only index whose reference never touches the diagonal. The model was right; the
+new reference was wrong.
+
+Worth recording because it is the dual of the usual failure. The standing worry about an independent
+transcription is that it repeats the implementation's error (the shared-rendering rule). Here it
+introduced a *fresh* one — and a disagreement pattern that pointed at the reference rather than the
+code is what distinguished the two. A uniform disagreement across all four forwards would have
+implicated the model.
+
+## 10. Findings for Cowork (§10 — raised, not decided)
+
+1. **`black_mc` is NOT folded onto the new engine, and it cannot be bit-identically.** §3's ruling says
+   do it if the refactor is bit-identical, else leave it and note the gap. It is not: `black_mc` takes a
+   **single** step to expiry, while the engine steps a grid, so the two consume different numbers of
+   draws in a different order. Even at `steps=1` the engine's drift path and `−c/2` handling reach the
+   exponent by a different summation order. So `black_mc` stays as written, per the spec's own
+   instruction. The shared machinery (`rng`, `variates`, `mc_estimator`) *is* common; only the stepping
+   loop is duplicated, and it is six lines.
+2. **Candidate §4 rule, from §8:** *a set of oracles can be complete about presence and sign and still
+   be silent about magnitude.* The generalisation: when a quantity enters a formula as a **product**,
+   assert the product's **value** against an independent transcription, not merely that each factor is
+   there and correctly signed. The sub-lesson for anchors: an oracle made sharp by a quantity being
+   exactly zero is, for that same reason, blind to that quantity.
+3. **Candidate §4 rule, from §9:** when an independent transcription disagrees with the code, the
+   **pattern across indices/parameters says which side is wrong** — a disagreement confined to the
+   cases that exercise one special term implicates the term, not the implementation. Worth a sentence
+   because the instinct on a red oracle is to debug the code first.
