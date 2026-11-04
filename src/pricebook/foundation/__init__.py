@@ -9,6 +9,7 @@ from pricebook.foundation.inflation import (
 )
 from pricebook.foundation.money import Currency, Money
 from pricebook.foundation.schedule import CouponSchedule, RealLeg, YoYLeg
+from pricebook.foundation.linalg import pseudo_square_root
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.quadrature import standard_normal_expectation
 from pricebook.foundation.rng import UniformSource
@@ -18,6 +19,7 @@ from pricebook.foundation.term import Term
 from pricebook.foundation.time_measure import TimeMeasure
 
 __all__ = [
+    "pseudo_square_root",
     "standard_normals",
     "MonteCarloEstimate", "UniformSource", "estimate",
     "standard_normal_expectation",
