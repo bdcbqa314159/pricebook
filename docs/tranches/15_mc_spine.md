@@ -21,8 +21,9 @@ arrive when a product pulls them (§1, §6 — nothing speculative). The stock h
 ## 1. The method (transcribed from Jäckel) vs the answer (our closed form)
 
 The division that governs every MC tranche:
-- **Algorithm from Jäckel, pointwise (§4):** the normal-variate construction (ch 9 — inverse-CDF
-  `z = Φ⁻¹(u)`), and the estimator/standard-error definitions (ch 2, 14). Read `-raw` + `-layout`.
+- **Algorithm from Jäckel, pointwise (§4):** the normal-variate construction (ch 9 — **trig
+  Box-Muller eq 9.6**, since the inverse-CDF is not printed; see §3), and the estimator/standard-error
+  definitions (ch 2, 14). Read `-raw` + `-layout`.
 - **Correctness from us:** price a European call under GBM by simulating `S_T = S₀·exp((r−½σ²)T +
   σ√T·z)` and discounting the payoff mean; it must converge to `black_price(forward, strike,
   σ²T, kind)` — the T9 closed form — within the sampling error.
@@ -33,9 +34,11 @@ The division that governs every MC tranche:
 L0  foundation/rng.py        — a DETERMINISTIC seeded uniform source: seed in → reproducible uniforms.
                                RULED (§3): numpy `Generator(PCG64(seed))`, wrapped. Purify the stock's
                                statistics/rng.py SHAPE only.
-L0  foundation/variates.py   — standard-normal variates by inverse-CDF Φ⁻¹ (reuse foundation's Φ if
-                               present; else transcribe from Jäckel ch 9). Finance-free. THIS is the
-                               §4-transcribed, pointwise-oracled piece — not the uniform bits.
+L0  foundation/variates.py   — standard-normal variates by **trigonometric Box-Muller (Jäckel eq
+                               9.6)**: `x = √(−2 ln u)·sin(2πv)`, `y = √(−2 ln u)·cos(2πv)`, two
+                               normals per uniform pair. RULED (§3) — Jäckel does NOT print the
+                               inverse-CDF, so Box-Muller is the in-hand, EXACT, transcribable method.
+                               Finance-free. THIS is the §4-transcribed, pointwise-oracled piece.
 L0  foundation/mc_estimator.py — the sample mean + standard error (σ̂/√N) of a vector of payoffs.
                                Finance-free statistics.
 L4  engine/mc_european.py    — the simulating pricer: GBM terminal draw, payoff, discount, estimate;
@@ -57,13 +60,26 @@ reads a product and a model → L4. This split is **ours**, re-derived from the 
   dependency. We do **not** hand-roll a generator — that is surface §6 forbids; reproducible normals
   are the real problem, a novel RNG is not. The wrapper's whole job is to ensure **no global/default
   RNG is ever touched** — the seed enters as explicit config (§3.5), threaded to the engine.
-- **What §4-transcription covers, and what it does not.** PCG64 postdates Jäckel (2002) and is not in
-  it, so its uniform bits are **not** transcribed — they are trusted (a documented, version-pinned
-  library stream) and **pinned by a cross-platform reproducibility regression** (same seed ⇒
-  byte-identical uniforms on both OSes). The transcribed, pointwise-oracled piece is the **normal
-  variate** — the inverse-CDF `Φ⁻¹` from Jäckel ch 9 applied to those uniforms — and, later, Sobol
-  direction numbers. (Do not use numpy's ziggurat `standard_normal`: the oracle must rest on *our*
-  transcribed inversion, not a library's internal algorithm.)
+- **The normal variate is RULED: trigonometric Box-Muller (Jäckel eq 9.6), transcribed — NOT the
+  inverse-CDF.** Jäckel §9.3 does not print the inverse-CDF algorithm; it *recommends* Acklam [Ack00]
+  and Moro [Mor95] and leaves the code on a CD we do not have, so `ACKLAM-2000`/`MORO-1995` are
+  `referenced-by`, not in hand, and §7 forbids citing them (the T10 hard-stop shape). What Jäckel
+  *does* print in full is eq 9.6, the trig Box-Muller — and it is **exact**, not an approximation, so
+  it needs no accuracy caveat and its oracle is exact. Two caveats of Jäckel's, both checked and both
+  clear here: his Fig 9.5 "goes horribly wrong" warning is against the **rejection** variant (eq 9.8)
+  with low-discrepancy numbers, *not* the trig form; and §9.3.2's Neave effect is an interaction with
+  **simple congruential** generators — PCG64 is not one, so it does not bite, but the oracle still
+  checks the draws are genuinely N(0,1) rather than assume it.
+- **Why Box-Muller over the alternatives, and the refined §4 boundary.** Trusted-and-pinned (the PCG64
+  treatment) is the **fallback** for a component no held source specifies — PCG64's bits have no
+  printed formula anywhere, so trusting numpy and pinning a regression is the only option. It is NOT
+  the first choice when a held source gives an exact transcribable method: Box-Muller is in hand and
+  exact, so it beats both `scipy.stats.norm.ppf` (a library routine) and an un-held approximation
+  (Acklam). Do **not** use numpy's ziggurat `standard_normal` either — the oracle rests on our
+  transcription. **Inversion (Acklam) is deferred to the Sobol tranche**, where it genuinely earns its
+  keep (a monotone transform is what makes low-discrepancy numbers work; Box-Muller's trig wrapping
+  does not) — product-pull, §6: we acquire Acklam's note (Jäckel calls it freely available) *when* the
+  Sobol unit needs it, not now. Recorded as a route in `to_go_deeper` when this arc closes.
 - **Determinism / §3 preserved.** Same seed ⇒ same uniforms ⇒ same normals ⇒ same price, in-process,
   so referential transparency (§3.1) and the §9 byte-identical statelessness check both hold.
 - **The oracle is statistical — a new shape, ruled honest up front.** An MC price never equals the
@@ -81,7 +97,7 @@ reads a product and a model → L4. This split is **ours**, re-derived from the 
 | 2 | **the rate — a requirement oracle, stronger than any single N:** halving the error needs ~4× the paths; fit `log SE` vs `log N`, slope ≈ **−½** to tolerance | **structural** | a biased estimator passes oracle 1 at one N but has the wrong rate; this catches it |
 | 3 | **unbiasedness across seeds:** the mean of the MC estimate over many seeds is within SE/√(n_seeds) of Black — the estimator has no systematic offset | structural | a construction bias (e.g. `exp` of a mis-centred normal) invisible at one seed |
 | 4 | **determinism / statelessness:** same seed ⇒ byte-identical paths and price, in-process (§9); a second pricing never touches global RNG state; the uniform stream is byte-identical ubuntu vs windows | structural | an ambient-entropy leak (the §3 violation), or a non-portable generator |
-| 5 | **the variate is standard normal:** `Φ⁻¹(u)` draws match N(0,1) in mean/variance to SE, AND a known-quantile input maps to the known z (a pointwise transcription check, not only a moment check) | 1 — pointwise + requirement | a wrong inverse-CDF (the properties-don't-replace-transcription rule, §4) |
+| 5 | **the variate is standard normal:** Box-Muller draws match N(0,1) in mean/variance to SE, AND the **exact identity** `x² + y² = −2 ln u` holds bit-to-tolerance (a pointwise transcription check of eq 9.6, not only a moment check), AND independence of the pair is checked (the Neave guard) | 1 — pointwise + requirement | a wrong Box-Muller transcription, or a generator-interaction pathology (the properties-don't-replace-transcription rule, §4) |
 | 6 | **failure is a value:** `n_paths ≤ 0` / a non-finite draw → `PricingFailure`, never a `NaN` price (invariant 4; a stock migration-hardening case — `test_mcengine_n_paths_validation`) | structural | the estimator swallowing a bad input |
 
 Oracle 1 is the anchor (our own closed form); oracle 2 is the one that makes "it's Monte Carlo" a
