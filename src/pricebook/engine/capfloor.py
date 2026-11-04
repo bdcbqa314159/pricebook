@@ -33,74 +33,49 @@ Provenance:
 
 from __future__ import annotations
 
-import math
-
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
 from pricebook.models.black import black_price
-from pricebook.models.jarrow_yildirim import JarrowYildirim
+from pricebook.models.index_ratio import IndexRatioModel
 from pricebook.products.inflation import InflationCapFloor
 
 
 def caplet_value(
-    product: InflationCapFloor,
-    model: JarrowYildirim,
-    period_start: float,
-    period_end: float,
-    accrual: float,
+    product: InflationCapFloor, model: IndexRatioModel, period: tuple
 ) -> float:
-    """One caplet or floorlet, eq 2.6.5, for the period `(period_start, period_end)` in years.
+    """One caplet or floorlet, eq 2.6.5, for a `(start, pay, accrual)` schedule period.
 
     Per unit notional times `N` at the end — the discounting is `Pn(t,Ti)` and the payoff is on the
     index *ratio*, so there is no separate real-curve discounting here: `Pr` enters only through
-    `m`."""
-    market = model.market
-    currency = product.notional.currency
-    nominal = market.curves.discount(currency)
-    real = market.curves.real(currency)
-    measure = nominal.time_measure
-    anchor = measure.anchor
-    start_date = anchor + _days(period_start)
-    end_date = anchor + _days(period_end)
+    `m`.
 
-    strike = 1.0 + product.strike
-    convexity = model.convexity(0.0, period_start, period_end)
-    forward_ratio = (
-        nominal.df(start_date) / nominal.df(end_date)
-        * real.df(end_date) / real.df(start_date)
-        * math.exp(convexity)
-    )
-    variance = model.log_ratio_variance(0.0, period_start, period_end)
-
-    # **Composed, not computed here, since tranche 9.** Black lived inline in this function while
-    # it had one consumer; the implied-vol inverter is the second, so it moved to `models/black.py`
-    # and both compose the one definition — a Black convention now cannot diverge between pricing
-    # and implying. `black_price` also owns the zero-variance intrinsic branch that used to sit
-    # here. The extraction is a pure refactor: this tranche's oracles were re-run and every
-    # cap/floor price is bit-identical.
+    **Takes the model as a PROTOCOL since tranche 12, not as a concrete Jarrow–Yildirim.** `m` and
+    `V²` are the only things it asks of a model, so a second model is served by implementing
+    `IndexRatioModel` rather than by a branch in here (§1's no-ladder law). It also now takes the
+    schedule period as it comes from `periods()` rather than a pair of year fractions, which removes
+    a date → year-fraction → date round trip that had no reason to exist."""
+    nominal = model.market.curves.discount(product.notional.currency)
+    start, pay, accrual = period
     return (
         product.notional.amount
         * accrual
-        * nominal.df(end_date)
-        * black_price(forward_ratio, strike, variance, product.kind)
+        * nominal.df(pay)
+        * black_price(
+            model.expected_index_ratio(start, pay),
+            1.0 + product.strike,
+            model.index_ratio_variance(start, pay),
+            product.kind,
+        )
     )
-
-
-def _days(years: float):
-    """Years back to a timedelta on the curve's own ACT/365 clock."""
-    from datetime import timedelta
-
-    return timedelta(days=round(years * 365.0))
 
 
 @register(InflationCapFloor)
 def price_inflation_capfloor(
-    product: InflationCapFloor, model: JarrowYildirim
+    product: InflationCapFloor, model: IndexRatioModel
 ) -> PricingResult | PricingFailure:
     """Sum eq 2.6.5 over the strip's remaining periods."""
     market = model.market
     currency = product.notional.currency
-    measure_source = market.curves
 
     # Invariant 6: a strip whose every payment has passed is settled. PV 0 before any market
     # lookup, per tranche 2's precedent.
@@ -109,13 +84,7 @@ def price_inflation_capfloor(
         return PricingResult(pv=Money(0.0, currency))
 
     try:
-        measure = measure_source.discount(currency).time_measure
-        total = sum(
-            caplet_value(
-                product, model, measure.year_fraction(start), measure.year_fraction(pay), psi
-            )
-            for start, pay, psi in periods
-        )
+        total = sum(caplet_value(product, model, period) for period in periods)
     except KeyError as exc:
         return PricingFailure(f"cannot price the inflation cap/floor: {exc}")
 

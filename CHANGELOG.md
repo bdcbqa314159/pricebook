@@ -6,6 +6,56 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-03
+
+Tranche 12(a) — the model capability seam, so a second model can price the same products. The
+inflation vertical's first structural change since the spine.
+
+### The design question was settled by building: ONE protocol, and the source supplies its shape
+A second model (Market Model I) prices the *same* products, and the registry dispatches on product
+type — so a second model must not become an `isinstance`-on-model branch. The open question was
+whether one protocol method could carry both models' formula or whether a two-key
+`(product, model)` registry was the honest seam.
+
+**One protocol with two methods fits both, and no formula was contorted.** Factoring BERHAN's two
+year-on-year leg formulas side by side, eq 2.5.12's later-period term and eq 3.1.11's are both
+`psi_i · Pn(t,Ti) · [E − 1]`, with `E` the `Ti`-forward expectation of `I(Ti)/I(Ti−1)` — JY's
+`(Pn/Pn)(Pr/Pr)e^C`, MM-I's bivariate-lognormal integral. The cap/floors are both Black on
+`(E, V²)`. The seam is the *source's* decomposition, and both quantities are ones BERHAN names (`m`
+eq 2.6.2, `V²` eq 2.6.4). Had the protocol exposed JY's `convexity` instead, MM-I would have had to
+manufacture a fake `C` from the log of its integral — the contortion that was to be avoided.
+
+### Added
+- `models/index_ratio.py` — the `IndexRatioModel` protocol: `expected_index_ratio(start, pay)` and
+  `index_ratio_variance(start, pay)`, in **dates** (tranche 7's lesson). Introduced at its second
+  consumer, not in anticipation — the same timing as Black in tranche 9 and the Hull-White core in
+  tranche 10.
+- `JarrowYildirim` implements it, delegating to its existing year-fraction methods so eq 2.5.11 keeps
+  exactly one implementation.
+- 9 oracles, including **the one a type annotation cannot be**: a stub model implementing only the
+  two methods prices correctly through both engines, and the cap/floor's output is *exactly* Black on
+  the stub's two numbers — proving the pricers read only `m` and `V²`. Six mutations on the seam, all
+  caught.
+
+### Changed — the refactor is NOT bit-identical, and that is reported not claimed
+`engine/yoy.py` and `engine/capfloor.py` now depend on the protocol. The factoring that makes one
+seam fit two models reorders a division, so JY's last digits move: **36119.025432954419 →
+36119.025432954477, a relative 1.6e-15 (5.8e-13 bp of notional)**. Every tranche 4 and 5 oracle
+passes unchanged. Keeping bit-identity would have required exposing `convexity`, which is what makes
+a second model impossible — so the substitute is agreement to 1.6e-15 with the cause named.
+
+`caplet_value` now takes the `(start, pay, accrual)` schedule period rather than a pair of year
+fractions, removing a date → year-fraction → date round trip.
+
+### Fixed — a wrong requirement of mine, caught by its own test
+I asserted `m > 1` on an inflationary curve pair. False at 3y→4y (`m = 0.9914`): a negative
+convexity overcomes the 2.1% carry. A requirement that ignores the convexity is not a requirement of
+this model. Replaced with the decomposition — at `σr = 0` the convexity vanishes exactly and `m > 1`
+*is* then forced — which also pins the sign of `C`'s contribution.
+
+### Changed
+- `TEST_FLOOR` 366 → 375.
+
 ## [0.13.0] - 2026-11-03
 
 Tranche 11 — the full six-parameter JY calibration (BERHAN-2012 §5.3.2), and reproducing **why it
