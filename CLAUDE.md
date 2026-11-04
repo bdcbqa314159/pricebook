@@ -110,7 +110,13 @@ not an oracle. Ruled principles:
   does not touch the pre-substitution form a page earlier; the two must agree, and a misprint would
   have to corrupt *both* derivation steps identically to survive. *(T12(b): `-layout` broke eq
   3.1.11 into columns, but p.25's pre-substitution integral — over `y` before `z=(y−µy)/σy` —
-  reproduced it to 2.2e-16; both oracled.)*
+  reproduced it to 2.2e-16; both oracled.)* **Its more valuable mode is a discrepancy, not a
+  confirmation:** when two steps of one source disagree, the source is internally inconsistent and
+  the reader must *rule* which form is right (by dimension, by the standard convention, by what the
+  downstream equations use) and pin that choice with an oracle — the discrepancy is found by the
+  finance, not deferred to the reader. *(T13: eq 4.1.3 printed `Fn/(1+Fn)` while `Di` printed
+  `τFn/(1+τFn)` three lines on — ruled `1+τF` (it is `Pn(Tᵢ₋₁)/Pn(Tᵢ)`, dimensionally sound, and the
+  form 4.1.6 uses) and pinned.)*
 - **Reduction is the preferred anchor, and it needs a companion.** A capability that generalises
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
@@ -166,7 +172,12 @@ not an oracle. Ruled principles:
   an oracle's power rests on a parameter being non-degenerate, **assert the non-degeneracy as a
   premise**, and **prefer a mutation to a reading**: flip a sign, drop a factor, swap a horizon, and
   a surviving mutant is a hole a green suite is hiding (T10's dropped accrual survived all 312 tests
-  until a non-unit `τ` was added). Mutation is also the **mandatory recovery when pre-registration
+  until a non-unit `τ` was added). **The trap is not only numerical — a degenerate fixture can make
+  two readings of a SOURCE agree, defeating a *transcription* oracle:** on annual ACT/365F periods
+  `τ = 1` exactly, so `τFn` and `Fn` are the same number and the oracle pinning T13's hazard-1 choice
+  between them was powerless until a semi-annual fixture (`τ ≠ 1`) separated them. Fifth appearance,
+  and the first on a source-discrepancy oracle rather than a numerical one. Mutation is also the
+  **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
   one that leaves behaviour identical** (flipping a residual sign under a sum of squares, which is
