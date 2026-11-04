@@ -81,7 +81,13 @@ MARKET = MarketSnapshot(
     curves=CurveSet({CurveKey(CurveRole.DISCOUNT, EUR): NOMINAL,
                      CurveKey(CurveRole.REAL, EUR): REAL}),
 )
-DATES = tuple(VAL + timedelta(days=365 * k) for k in range(5))
+# **SEMI-ANNUAL, and the `tau` in `Di`'s denominator is why.** On annual ACT/365F periods `tau` is
+# exactly 1.0, so `tau*Fn` and `Fn` are the same number and the two readings of eq 4.1.3's
+# denominator (source hazard 1) are indistinguishable — my first fixture was annual and the
+# discriminating test could not fail. With 180-day periods `tau ~ 0.4932`, so the `tau` is oracled
+# here and everywhere else in this file. Fifth appearance of the degenerate-fixture trap (charter
+# section 4), and the first time it hit a *source-discrepancy* oracle rather than a formula one.
+DATES = tuple(VAL + timedelta(days=180 * k) for k in range(5))
 
 CORR = MMIICorrelations(index_nominal=0.25, index_index=0.80)
 PARAMS = MMIIParams(index_vol=0.012, nominal_vol=0.25, correlations=CORR)
@@ -266,16 +272,40 @@ def test_NO_real_rate_volatility_can_reach_MMII():
     )
 
 
-def test_MMI_DOES_depend_on_real_rate_vol_so_the_contrast_is_real():
-    """The companion that gives the oracle above its meaning: MM-I's `m` moves with `sigma_r`, and
-    MM-II has no such parameter. Without this, "MM-II has no real vol" could be true of a model that
-    simply has no parameters at all."""
-    start, pay = DATES[2], DATES[3]
-    low = MarketModelI(MARKET, MMIParams(0.25, 0.05, 0.012, MMICorrelations(0.30, -0.20)))
-    high = MarketModelI(MARKET, MMIParams(0.25, 0.40, 0.012, MMICorrelations(0.30, -0.20)))
-    assert low.expected_index_ratio(start, pay) != pytest.approx(
-        high.expected_index_ratio(start, pay), rel=1e-6
-    )
+def test_MMI_DOES_depend_on_real_rate_vol_but_only_WEAKLY_and_the_size_is_the_finding():
+    """The companion that gives the oracle above its meaning: MM-I's `m` moves with `sigma_r` while
+    MM-II has no such parameter at all. Without it, "MM-II has no real vol" could be true of a model
+    with no parameters whatsoever.
+
+    **And the measured size is itself the finding.** MM-I's real-vol dependence runs through
+    `mu_y = [-sigma_r^2/2 - rho_rI sigma_I sigma_r]*(T_i-1 - t)`, so it grows with `|rho_rI|`, with
+    `sigma_I` and with the lead — but it is small: sweeping `sigma_r` from 5% to 50%,
+
+        lead 0.49y, rho_rI=-0.20 -> 7.7e-09      lead 0.49y, rho_rI=-0.90 -> 1.1e-05
+        lead 0.99y, rho_rI=-0.20 -> 1.6e-06      lead 0.99y, rho_rI=-0.90 -> 2.4e-05
+        lead 1.48y, rho_rI=-0.20 -> 6.6e-06      lead 1.48y, rho_rI=-0.90 -> 3.7e-05
+
+    My first version of this test used `rho_rI = -0.20` at `rel=1e-6` and sat right on the boundary —
+    it failed not because the dependence is absent but because it is *weak*. So MM-II's "no real-rate
+    vol" is a genuine structural simplification whose **pricing** impact is modest at these
+    parameters, which is worth stating rather than hiding behind a loose tolerance. The oracle asserts
+    the TREND (growing in `|rho_rI|` and in the lead), which is stronger than one inequality."""
+    def m(sigma_r: float, rho_ri: float, k: int) -> float:
+        return MarketModelI(
+            MARKET, MMIParams(0.25, sigma_r, 0.012, MMICorrelations(0.30, rho_ri))
+        ).expected_index_ratio(DATES[k], DATES[k + 1])
+
+    def gap(rho_ri: float, k: int) -> float:
+        low, high = m(0.05, rho_ri, k), m(0.50, rho_ri, k)
+        return abs(high - low) / low
+
+    # It is present at all -- which is the half MM-II contrasts with.
+    assert gap(-0.90, 3) > 1e-5, gap(-0.90, 3)
+    # And it grows with the correlation's magnitude, and with the lead.
+    assert gap(-0.90, 3) > gap(-0.20, 3), (gap(-0.90, 3), gap(-0.20, 3))
+    assert gap(-0.90, 3) > gap(-0.90, 1), (gap(-0.90, 3), gap(-0.90, 1))
+    # But it is modest -- the honest magnitude, asserted so a later change that inflates it shows.
+    assert gap(-0.90, 3) < 1e-3, gap(-0.90, 3)
 
 
 # ============================================================================================
