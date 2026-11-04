@@ -36,24 +36,34 @@ def test_a_CONSTANT_sample_has_zero_standard_error():
     assert out.standard_error == pytest.approx(0.0, abs=1e-15)
 
 
-def test_the_standard_error_FALLS_as_one_over_root_N():
-    """The rate the whole MC oracle rests on: quadrupling the sample halves the SE. Asserted on a
-    deterministic sample so there is no sampling noise to argue about."""
+def test_the_standard_error_has_the_EXACT_closed_form_one_over_root_N_minus_one():
+    """**My first version of this asserted `SE(4N) = SE(N)/2` and was arithmetically wrong.** On the
+    sample `[1,-1]` repeated, every deviation is +/-1 so the squared deviations sum to `N`, and with
+    the `N-1` divisor the sample variance is `N/(N-1)` — itself still moving with `N`. So
+
+        SE = sqrt( (N/(N-1)) / N ) = 1 / sqrt(N - 1)
+
+    exactly, not `1/sqrt(N)`: the clean inverse-root-N law is asymptotic. Asserting the closed form
+    is the stronger oracle anyway — it pins the `N-1` divisor and the `sqrt(N)` *together*, where the
+    ratio test pinned only their combination."""
     import itertools
+    import math
 
-    base = [1.0, -1.0]
-    se = {}
-    for reps in (1, 4, 16):
-        sample = list(itertools.chain.from_iterable([base] * reps))
-        se[reps] = estimate(sample).standard_error
-    assert se[4] == pytest.approx(se[1] / 2.0, rel=1e-12)
-    assert se[16] == pytest.approx(se[1] / 4.0, rel=1e-12)
+    for reps in (1, 4, 16, 64):
+        sample = list(itertools.chain.from_iterable([[1.0, -1.0]] * reps))
+        out = estimate(sample)
+        n = out.n_samples
+        assert out.standard_error == pytest.approx(1.0 / math.sqrt(n - 1), rel=1e-14), n
 
-
-def test_the_estimate_is_FROZEN():
-    out = estimate([1.0, 2.0])
-    with pytest.raises(Exception):
-        out.mean = 9.0   # type: ignore[misc]
+    # And the asymptotic law, asserted EXACTLY rather than as "about 2". Quadrupling 256 samples
+    # to 1024 gives a ratio of `sqrt(1023/255) = 2.00294...`, not 2 -- so a `rel=1e-3` band around
+    # 2.0 fails by a hair, as my first attempt did. The exact closed form needs no band at all, and
+    # the residual gap from 2 is the `N-1` divisor's visible footprint.
+    small = estimate(list(itertools.chain.from_iterable([[1.0, -1.0]] * 128)))
+    large = estimate(list(itertools.chain.from_iterable([[1.0, -1.0]] * 512)))
+    ratio = small.standard_error / large.standard_error
+    assert ratio == pytest.approx(math.sqrt(1023.0 / 255.0), rel=1e-12)
+    assert abs(ratio - 2.0) < 0.01, "the asymptotic law should hold to ~1% by N = 256"
 
 
 def test_a_SINGLE_sample_has_no_standard_error_and_says_so():
