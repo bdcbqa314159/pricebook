@@ -9,11 +9,13 @@ from pricebook.foundation.inflation import (
 )
 from pricebook.foundation.money import Currency, Money
 from pricebook.foundation.schedule import CouponSchedule, RealLeg, YoYLeg
+from pricebook.foundation.quadrature import standard_normal_expectation
 from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.foundation.term import Term
 from pricebook.foundation.time_measure import TimeMeasure
 
 __all__ = [
+    "standard_normal_expectation",
     "SCHEMA_VERSION", "CapFloorKind", "Cashflow", "CouponSchedule", "Currency",
     "DayCountConvention",
     "IndexInterpolation", "InflationIndex", "Money", "RealLeg", "YoYLeg",

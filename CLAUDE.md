@@ -104,7 +104,13 @@ not an oracle. Ruled principles:
   an "independent" transcription that shares the implementation's rendering is not independent.
   *(The predecessor's 5.14% bug passed because its oracle restated the builder's own composition;
   v0.4.0's mis-nested 2.5.11 passed a 108-point sweep because sweep and code were two copies of one
-  merged rendering.)*
+  merged rendering.)* **Where the source *derives* a formula in steps, an earlier step is an
+  independent check on the final one — stronger than two renderings of one line, and available when
+  the renderings fail.** A `-layout` reflow that mangles the final equation beyond reconciliation
+  does not touch the pre-substitution form a page earlier; the two must agree, and a misprint would
+  have to corrupt *both* derivation steps identically to survive. *(T12(b): `-layout` broke eq
+  3.1.11 into columns, but p.25's pre-substitution integral — over `y` before `z=(y−µy)/σy` —
+  reproduced it to 2.2e-16; both oracled.)*
 - **Reduction is the preferred anchor, and it needs a companion.** A capability that generalises
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
@@ -132,6 +138,17 @@ not an oracle. Ruled principles:
   round trip caught two misprinted equations in `BERHAN-2012` §5.1** (a spurious sign in 5.1.1, a
   `j=0` vs `j=1` annuity index in 5.1.2) — the first defect traced to the source being wrong rather
   than to our reading of it.
+
+- **Requirement oracles complement a pointwise transcription; they never replace it.** The bullet
+  above is why a property survives a transcription error — but the converse is the trap: a property
+  is blind to a *missing or wrong term the property still tolerates*. A freezing coefficient oracled
+  only by its properties (vanishes at zero vol, moves with the vols, bounded under a shock) let a
+  mutant that **dropped a `/(1+τF)` denominator survive all 404 tests** — the denominator is worth
+  ~3%, not an equivalent mutant, and every property still held without it. So **every load-bearing
+  formula is transcribed pointwise at least once** (independently, per the rules above), *and* carries
+  its requirement oracles; the two catch different failures and neither substitutes for the other.
+  *(T12(b): properties-only on the freezing relation; the pointwise transcription plus a
+  denominators-differ companion is what killed the mutant.)*
 
 - **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
   is evidence only about what the oracle *examined*. Every defect this project has shipped was an
