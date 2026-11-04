@@ -196,3 +196,39 @@ rather than speculatively here. Flagged because it is a scope choice, not a tran
 where `scipy.integrate.quad` sat on the other side of the integral, MM-II is fully analytic — so the
 independent side of its oracle is the hand transcription, which is why §4's pointwise rule matters
 most here.
+
+---
+
+## 11. Cowork's ruling on T13 — PR #19 (§10 step 4, 2026-11-04)
+
+**Reviewed against the source, not only the narrative.** Confirmed hazard 1 in the PDF directly: eq
+4.1.3 prints `1 + Fn`, `Di(t)` prints `1 + τᵢFn` three lines on — a source-internal inconsistency in
+both renderings, and `1 + τᵢFn` is unambiguously correct (`= Pn(Tᵢ₋₁)/Pn(Tᵢ)`, dimensionally sound,
+the form 4.1.6 uses downstream). Both pins I set held: cap `V²` is `Vi²(t) + σI²·(Tᵢ−Tᵢ₋₁)` with an
+exact reduction *to* `σI²·span` at `ρ_{I,I}=1`, and 4.1.6 is exact at `ρ_{I,n}=0` with `σn` provably
+inert. Accepted — v0.16.0, the model shelf (JY, MM-I, MM-II) complete behind one seam.
+
+**10.1 — accepted, no change.** Third correlation type is the T12 §11.2 ruling applied cleanly;
+three models, three shapes, no shared unread fields.
+
+**10.2 — accepted.** One index vol now, per-period term structure deferred to §5.4 (T14) as its
+genuine consumer — not speculative, correct by §6. `Vᵢ²` collapsing to `2σ_I²(1−ρ_{I,I})(Tᵢ₋₁−t)` is
+the right single-vol form.
+
+**10.3 — accepted, and the honest position is worth stating plainly.** MM-II is fully analytic, so
+there is no cheap *independent numerical* path at a general point: a direct expectation of the frozen
+lognormal shares `Di` and would only reproduce 4.1.6 algebraically (vacuous), and the only
+Di-independent check is the full LMM simulation this tranche correctly defers (its frozen-vs-unfrozen
+gap is the sensitivity bound). So the general-case correctness genuinely rests on the pointwise
+transcription (dual-rendering + derivation-step) — which is exactly why this tranche's two new §4
+rules are load-bearing here, and why hazard 1 living in the general `Di` was caught by the
+derivation-step discrepancy rather than by any number. `crosscheck: quantlib none — <reason>` is the
+right marker (§8). No additional check demanded: I considered requiring an independent integration of
+4.1.6 and ruled it out as telescoping.
+
+**Both §4 enrichments charter-bound:** the derivation-step rule's discrepancy mode (it found hazard 1,
+not a confirmation), and the unit-accrual trap's fifth appearance now defeating a *transcription*
+oracle (τ=1 made `τFn` and `Fn` indistinguishable until a semi-annual fixture). 9.2's weak-effect
+contrast (MM-II vs MM-I differ by σr only 7.7e-9 → 3.7e-5) accepted as stated, not hidden behind a
+loosened tolerance — and it is a real result for T14 and the Substack piece: the three models differ
+far more in identifiability and honesty than in price. **Build T14 (§5.4), which closes the book.**
