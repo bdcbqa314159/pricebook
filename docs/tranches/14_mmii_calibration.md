@@ -101,3 +101,115 @@ oracle 3 uses a **skewed** surface fixture for the skew axis and a non-degenerat
 speed-vs-degeneracy lesson: do not thin the strip to make `slow` pass — drop starts instead).
 `source:` cites `BERHAN-2012` §5.4. **Open as a DRAFT PR** (§10 step 3). This closes the book — a
 full-arc checkpoint (`CP_inflation_book_complete`, ch 1–5) is written at this tranche's review.
+
+
+---
+
+## 7. Result — the book is closed, and MM-II's calibration has a flaw the thesis does not name
+
+453 tests, eight gates green, ruff and pyright clean, zero suppressions. Four mutations, three
+caught; the survivor is analysed in §9.3.
+
+### §5.4.1 is an identity, and §5.4.2's bootstrap is structural
+`σn,i` **is** the quoted Black ATM cap vol — oracle 1 is an exact round-trip, not a residual. And
+the 1-Year-Floor bootstrap works for a reason this library can state: the first period's lead is
+zero, so `Di` vanishes (it carries the lead as a factor) and `V²` collapses to `σ_I,1²·(T₁−T₀)`. One
+unknown, one price, no solver — a plain Black inversion reusing tranche 9. The oracle asserts that
+structure *before* relying on it, and separately proves the bootstrap blind to every later parameter.
+
+### The thesis's expiry claim is ALMOST right, and the exception is the finding
+*"Since each expiry has it's own set of parameters, there is no need to restrict the number of
+contracts in the expiry dimension."* Measured the tranche 11 way — truth among the starts,
+distance-from-truth beside spread — **every index vol recovers to ~1e-16 except the terminal one**,
+which from a low start lands at **0.002141 against a truth of 0.020000: 89% wrong at a residual of
+8.6e-17.**
+
+**The mechanism, measured not asserted.** `σ_I,i` enters period `i`'s variance *quadratically* and
+its drift *linearly with a negative sign*, so the caplet price is **non-monotone** in it — U-shaped,
+vertex at `ρ_II·σ_I,i−1·lead/(lead+span)` (predicted ≈ 0.0115, located by sweep at 0.0115). Two
+volatilities reproduce one price. Every vol except the terminal one appears in **two** periods — as
+period `i`'s pay vol and period `i+1`'s start vol — and the second appearance picks the root; the
+terminal date appears once, so nothing breaks the tie.
+
+| `σ_I(T₅)` | caplet price |
+|---|---|
+| 0.0015 | 6.5186e-03 |
+| 0.0115 (vertex) | **5.5951e-03** (minimum) |
+| 0.0200 (truth) | 6.4106e-03 |
+| 0.0021 | 6.4107e-03 ← the conjugate root |
+
+**And the practical statement is sharper than a recommendation to quote further out.** Whether a fit
+*lands* on the wrong root is **start-dependent**: a high start recovers the truth, a low one falls
+into the conjugate, and **both report a residual of ~1e-17**. So a single-start calibration of MM-II
+is unsafe at the terminal point and no residual will tell you. Multi-start is not a diagnostic
+nicety here; it is the only thing between the fit and a silently wrong terminal volatility.
+
+### The cross-model comparison the whole arc was for
+Tranche 13 measured the *pricing* gap between the three models at 7.7e-09 to 3.7e-05 — negligible.
+The difference that matters is what a calibration can tell you:
+
+| | free parameters | unidentifiable | failure mode |
+|---|---|---|---|
+| **JY** (§5.3.2, T11) | six, **global** | **three** (`σ_I`, `ρ_rI`, `ρ_nI`) | structural, pervasive; `ρ_nI` recovers at the **wrong sign** at rms 8e-15 |
+| **MM-II** (§5.4.2, here) | per-expiry | **one** (the terminal point) | local, and a two-root ambiguity rather than a flat valley |
+
+So the thesis's verdict — *"of the models evaluated, this approach seems the most promising"* —
+holds, and the library can now say **why** in a way the thesis does not: not better prices, but a
+calibration whose parameters are mostly recoverable, with one named exception at the end of the strip
+instead of three unidentifiable parameters throughout.
+
+Both models remain unable to fit the smile, and MM-II reproduces the source's **signed** direction:
+fitted at ATM, it **underprices OTM and overprices ITM** floors, exactly as §5.4.2 states — with the
+companion that its ATM fit itself is essentially exact, so the two axes are distinct.
+
+## 8. Two of my own errors, both caught by execution
+
+### 8.1 I assumed tranche 13's recursion depth transferred
+T13 measured the `index_vol_step` refusal at **two** steps on *annual* periods. This tranche's
+fixture is semi-annual, so `τ` is halved, each forward is smaller and the per-step adjustment is
+smaller: it survives **three**. The oracle now walks until refusal and bounds the count, rather than
+hardcoding a number that belongs to a different fixture.
+
+### 8.2 My "quote one period further" recommendation was wrong
+I wrote an oracle asserting that truncating the strip hands the ambiguity to the new terminal point.
+It does not — the ambiguity **disappears**:
+
+```
+strip of 5:  0.00%  0.00%  0.00%  0.00%  89.29%
+strip of 4:  0.00%  0.00%  0.00%  0.00%
+strip of 3:  0.00%  0.00%  0.00%
+```
+
+Whether the conjugate root is *reachable from a given start* depends on the period's own lead and its
+neighbour's vol, so it is a property of the point and its parameters, not of being last. Replaced
+with the start-dependence finding above, which is both true and more useful.
+
+## 9. Findings for Cowork (§10 — raised, not decided)
+
+### 9.1 The identifiability verdict, as you asked for it rather than presupposed
+One parameter ambiguous (terminal, two-root, start-dependent), not the four-per-expiry
+under-determination the spec's §1 flagged as a *prior*. The prior was reasonable and wrong: the
+recursion link plus each vol's double appearance does most of the identifying work. Yours to rule.
+
+### 9.2 `σn` stays a scalar while the index vols became a term structure
+§5.4.1 indexes `σn,i` by maturity too, but it is **read** not fitted, so one value per model instance
+is the natural granularity for a single-expiry fit. A per-maturity ATM cap curve arrives with a
+consumer that fits across maturities. Flagged because it is an asymmetry a reader will notice.
+
+### 9.3 A surviving mutant that is mathematically equivalent but NOT bit-identical — a §4 gap
+Reversing the term structure's key assignment survived all 453 tests. It is **provably
+unobservable**: `_params_from` applies the reversal *both* inside the residual and at the final
+assembly, so the solver optimises a relabelled coordinate system and the output un-relabels it. No
+test can distinguish them, which is the definition of equivalent.
+
+**But it is not bit-identical** — the fitted vols differ by ~1e-15 (`0.011999999999999365` vs
+`0.012000000000000018`), because relabelling the free variables perturbs the solver's iteration
+path. §4's clause requires the equivalence exception to be *"proved by showing the outputs
+bit-identical"*, and that bar is unavailable here.
+
+So the clause has a gap worth closing: **bit-identity is the right proof for a mutation of a pure
+function, but an iterative solver's output can differ in the last digits under a change that
+provably cannot alter the answer.** For code behind a solver the proof should be the *structural*
+argument (the mutation is a consistent relabelling, readable from the code) plus agreement to the
+solver's own tolerance — not bit-identity. Raised rather than decided, and I have not used it to
+wave anything through: the structural argument here is airtight and stated.
