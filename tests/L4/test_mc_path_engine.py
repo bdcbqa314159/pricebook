@@ -259,3 +259,70 @@ def test_O6_a_BAD_grid_is_refused():
 def test_O6_a_BAD_forward_index_is_refused():
     with pytest.raises(IndexError):
         mc_caplet_price(_driftless_model(), 9, 0.038, GRID, CONFIG)
+
+
+# A HALF-year single step, deliberately: at `dt = 1.0` the drift's `dt` scaling is invisible,
+# and a mutation dropping it survived the whole suite.
+MAGNITUDE_GRID = PathGrid(horizon=0.5, steps=1)
+
+
+def _mu_eq_12_8(index: int, numeraire: int) -> float:
+    """Eq 12.8's drift at the INITIAL forwards, transcribed here from JAECKEL-2002 — independently.
+
+    Deliberately NOT `model.drift_at`: that is the code the engine itself calls, so comparing the
+    engine against it would only prove the engine multiplies by `dt`. This restates the formula:
+
+        mu_i = -sigma_i * SUM_{k=i+1}^{N-1} (f_k tau_k)/(1 + f_k tau_k) sigma_k rho_ik    (i < N-1)
+        mu_i =  0                                                                         (i = N-1)
+        mu_i = +sigma_i * SUM_{k=N}^{i}     (f_k tau_k)/(1 + f_k tau_k) sigma_k rho_ik    (i > N-1)
+
+    `rho_ii = 1`, not the off-diagonal `RHO` — which this oracle caught the first time it ran, in
+    its own reference rather than in the model: forward 0's sums never reach `k = 0`, so only it
+    agreed, and that asymmetry is what located the error."""
+    if index == numeraire - 1:
+        return 0.0
+    tau, forwards, sigma = TENOR.accruals, TENOR.forwards, TENOR.volatilities
+
+    def term(k: int) -> float:
+        rho = 1.0 if k == index else RHO
+        scaled = forwards[k] * tau[k]
+        return scaled / (1.0 + scaled) * sigma[k] * rho
+
+    if index < numeraire - 1:
+        span = range(index + 1, numeraire)
+        return -sigma[index] * math.fsum(term(k) for k in span)
+    return sigma[index] * math.fsum(term(k) for k in range(numeraire, index + 1))
+
+
+@pytest.mark.parametrize("index", [0, 1, 2, 3])
+def test_O2_the_drift_MAGNITUDE_matches_eq_12_8_with_NO_monte_carlo_error(index):
+    """One step under two numeraires on one seed: the log-ratio is EXACTLY `(muA - muB) * dt`.
+
+    **This oracle exists because three mutations survived the other twelve.** Dropping the drift's
+    `dt` factor, dropping eq 12.8's `1/(1 + f tau)` denominator, and feeding the drift the raw
+    forwards instead of the ratios all passed 550 tests. The reason was structural, not a gap in
+    path counts: every other drift oracle here asserts the drift is PRESENT (the paired test, at
+    hundreds of standard errors) or correctly SIGNED, and the Black anchor runs under the measure
+    where the target's drift is exactly zero — so nothing constrained the drift's MAGNITUDE, and a
+    drift 8x, 5x or 1.04x too large was invisible.
+
+    The construction removes Monte Carlo error entirely rather than fighting it. Two models
+    differing ONLY in numeraire index, same seed, one step: both consume the same normals from the
+    same state, so the diffusion term and the `-c_ii/2` correction cancel to the last bit and the
+    difference of logs is the difference of drifts alone. That is an identity, not an estimate —
+    which is what gives it the precision to see M7's 3.8%."""
+    paths = MonteCarloConfig(paths=256, seed=99)
+    under_1 = simulate_terminal_forwards(
+        LiborMarketModel(TENOR, RHO, numeraire_index=1), MAGNITUDE_GRID, paths
+    )
+    under_4 = simulate_terminal_forwards(
+        LiborMarketModel(TENOR, RHO, numeraire_index=4), MAGNITUDE_GRID, paths
+    )
+
+    expected = (_mu_eq_12_8(index, 1) - _mu_eq_12_8(index, 4)) * MAGNITUDE_GRID.dt
+    assert expected != 0.0, "a vacuous comparison — pick indices whose drifts actually differ"
+
+    observed = [math.log(a[index] / b[index]) for a, b in zip(under_1, under_4)]
+    # Path-INDEPENDENT, and that is the identity rather than an artefact of averaging.
+    assert max(observed) - min(observed) < 1e-14
+    assert observed[0] == pytest.approx(expected, rel=1e-11)
