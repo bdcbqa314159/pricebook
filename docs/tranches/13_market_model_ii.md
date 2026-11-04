@@ -1,3 +1,5 @@
+**Status:** BUILT (v0.16.0). Decided by Cowork, built by Code. **Results in §7.**
+
 # Tranche 13 — Market Model II (ch 4), the third model, and the one with no real-rate vol
 
 **Status:** DECIDED by Cowork (§10 step 1), awaiting build. **Target:** `v0.16.0`.
@@ -102,3 +104,95 @@ Branch `tranche/13-market-model-ii`. `test` (RED pre-registered) → `feat` → 
 `/(1+τF)` denominators — the T12(b) survivors). Anchors: the four-path zero-vol reduction and the
 `ρ_I,n=0` exact reduction; the no-real-rate-vol invariant; the MC/closed-form check on 4.1.6.
 `source:` cites `BERHAN-2012` ch 4. **Open as a DRAFT PR** (§10 step 3).
+
+
+---
+
+## 7. Result — the third model, and two hazards in the source
+
+430 tests, eight gates green, ruff and pyright clean, zero suppressions. Five mutations on MM-II,
+all caught.
+
+### The seam carried a third model with no change to it
+MM-II implements `IndexRatioModel`; both pricers are untouched, and tranche 5's
+`cap − floor = the YoY leg` identity now holds under **three** models. The §0 question — whether a
+third model would force a seam touch — is answered: it did not.
+
+### The four-path zero-vol reduction
+MM-II's `m`, MM-I's `m`, JY's `m` and the curve ratio `(1+τFn)/(1+τFr)` all agree at zero vol,
+sharing nothing but the curves. Four independently-coded paths, one limit.
+
+### And a second exact anchor no other model here has
+The source: *"the formula above is exact only when the correlations between `I(·,Tᵢ₋₁)` and
+`Fn(·,Tᵢ₋₁,Tᵢ)` are assumed to be zero so that the nominal forward rate is zeroed out from `Di`."*
+So at `ρ_{I,n} = 0` the freezing is not used at all, and `Di` is a closed form with no forward rate
+in it — an exact anchor that does **not** require zero volatility. Oracled from both sides: the
+closed form matches, and `σ_n` is provably inert there.
+
+## 8. Two hazards in the source, and how each was settled
+
+### 8.1 Eq 4.1.3's denominator contradicts `Di`'s — in BOTH renderings
+4.1.3 prints `τᵢσ_{n,i}Fn/(1 + Fn)`; `Di(t)` prints `.../(1 + τᵢFn)`. This is an **internal
+inconsistency**, not a rendering artefact — so §4's newly-ratified derivation-step rule fired and
+found a *discrepancy* rather than a confirmation, which is its first application and arguably its
+more valuable mode.
+
+`1 + τᵢFn` is taken as correct, on four grounds: it is the standard LMM coefficient; it is what
+Market Model I's freezing relation uses consistently; `1 + Fn` adds a pure number to a rate; and
+`Di` is the form used downstream in 4.1.6 and 4.2.4. The choice is pinned by an oracle rather than
+left to the reader.
+
+### 8.2 `Vi(t)` is defined twice, for two different quantities
+Eq 4.2.2 gives `sqrt([…][Tᵢ₋₁−t])`; a line before 4.2.4 redefines the same symbol as
+`sqrt(Vᵢ²(t) + σ_{I,i}²(Tᵢ−Tᵢ₋₁))`. The caplet needs the augmented one, and the reason is the
+measure rather than the notation: 4.2.1 is the distribution of the **forward**-index ratio at
+`Tᵢ₋₁`, while the payoff is on the **spot** ratio at `Tᵢ`, so the diffusion from `Tᵢ₋₁` to `Tᵢ` must
+be added. Dropping it silently reuses MM-I's `σ_I²·span` shape and loses the whole lead term — the
+missing-term trap, guarded by an oracle requiring `V² ≠ σ_I²·span` **and** requiring it to reduce to
+exactly that at `ρ_{I,I} = 1`.
+
+## 9. Three of my own test defects, all caught by execution
+
+### 9.1 The unit-accrual trap, FIFTH appearance — and this time on a source-discrepancy oracle
+The test pinning §8.1 was powerless: on annual ACT/365F periods `τ = 1.0` exactly, so `τFn` and `Fn`
+are the same number and the two readings of the denominator are **indistinguishable**. Worse, that
+meant the `τ` was unoracled *everywhere in the file*, not only in that test. Fixed by making the
+whole fixture **semi-annual** (`τ ≈ 0.4932`).
+
+Notable because it is the first time this trap hit an oracle about a *source discrepancy* rather
+than about a formula — the fixture made two different readings of the source agree.
+
+### 9.2 A contrast oracle that failed because the effect is weak, not absent
+`test_MMI_DOES_depend_on_real_rate_vol` failed at `rel=1e-6` — and the dependence is genuinely
+there, just small. Measured, sweeping `σr` from 5% to 50%:
+
+| lead | `ρ_rI = −0.20` | `ρ_rI = −0.90` |
+|---|---|---|
+| 0.49y | 7.7e-09 | 1.1e-05 |
+| 0.99y | 1.6e-06 | 2.4e-05 |
+| 1.48y | 6.6e-06 | **3.7e-05** |
+
+So MM-II's "no real-rate volatility" is a real **structural** simplification whose **pricing** impact
+is modest at these parameters. That is worth stating rather than hiding behind a loosened tolerance,
+and the oracle now asserts the **trend** (growing in `|ρ_rI|` and in the lead), which is stronger
+than one inequality.
+
+### 9.3 The no-real-vol property is proved structurally, not by inspection
+`MMIIParams` has no real-vol field to set, asserted on `__dataclass_fields__` — so the property
+cannot be violated by a later edit without the test failing. Its companion (§9.2) is what stops that
+being vacuously true of a model with no parameters at all.
+
+## 10. Findings for Cowork (§10 — raised, not decided)
+
+**10.1** `MMIICorrelations` is the **third** correlation type (index-nominal, index-index). Three
+models, three shapes — JY nr/rI/nI, MM-I nr/rI, MM-II In/II. Sharing would force two of the three to
+carry fields they never read. A clean application of T12 §11.2's ruling, flagged for consistency.
+
+**10.2** One index vol, so `σ_{I,i−1} = σ_{I,i}` and `Vᵢ²` collapses to `2σ_I²(1−ρ_{I,I})(Tᵢ₋₁−t)`.
+A per-period index-vol term structure is what §5.4 fits, so it arrives with that consumer (T14)
+rather than speculatively here. Flagged because it is a scope choice, not a transcription.
+
+**10.3** No cross-check target: QuantLib has no inflation forward-CPI market model. Unlike T12(b),
+where `scipy.integrate.quad` sat on the other side of the integral, MM-II is fully analytic — so the
+independent side of its oracle is the hand transcription, which is why §4's pointwise rule matters
+most here.
