@@ -6,6 +6,53 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-04
+
+Tranche 13 — Market Model II (BERHAN-2012 ch 4), the **third** model, through the same
+`IndexRatioModel` seam with no change to it. The thesis's model shelf is now complete.
+
+### MM-II's identity: no real-rate volatility, anywhere
+The source's words: *"contrary to Market Model I, the correction term does not depend on the
+volatility of real rates."* `MMIIParams` has **no real-vol field to set** — asserted structurally on
+`__dataclass_fields__`, so a later edit cannot violate it silently. The real *curve* still enters,
+through the forward levels in `1 + τFr`; it is the real *volatility* that cannot reach the model.
+
+### Two hazards in the source, each settled and pinned
+**Eq 4.1.3's denominator contradicts `Di`'s, in both renderings** — 4.1.3 prints `Fn/(1 + Fn)`,
+`Di(t)` prints `τᵢFn/(1 + τᵢFn)`. An internal inconsistency, so §4's derivation-step rule fired and
+found a *discrepancy* rather than a confirmation. `1 + τᵢFn` is taken as correct (the standard LMM
+coefficient, what MM-I's freezing uses, dimensionally sound, and the form used downstream), pinned
+by an oracle.
+
+**`Vi(t)` is defined twice for two different quantities** — 4.2.2's lead-only form, and an augmented
+`sqrt(Vᵢ² + σ_I²(Tᵢ−Tᵢ₋₁))` before 4.2.4. The caplet needs the augmented one: 4.2.1 is the
+*forward*-index ratio at `Tᵢ₋₁` while the payoff is the *spot* ratio at `Tᵢ`. Dropping it reuses
+MM-I's `σ_I²·span` shape and loses the lead term — guarded both ways, including an exact reduction
+to `σ_I²·span` at `ρ_{I,I} = 1`.
+
+### Added
+- `models/market_model_ii.py` — `MarketModelII`, `MMIIParams`, `MMIICorrelations`. 22 oracles: the
+  **four-path** zero-vol reduction (MM-II, MM-I, JY, the curves); a **second exact anchor** at
+  `ρ_{I,n} = 0`, where the source says the formula is exact and the freezing is unused, oracled from
+  both sides; pointwise transcriptions of 4.1.6 and 4.2.2; three models required to **disagree**
+  away from the limits; and `cap − floor = the YoY leg` under a third model.
+
+### Fixed — the unit-accrual trap, fifth appearance, on a source-discrepancy oracle
+The test pinning the 4.1.3-vs-`Di` denominator was powerless: on annual ACT/365F periods `τ = 1.0`
+exactly, so `τFn` and `Fn` coincide and the two readings were **indistinguishable** — leaving `τ`
+unoracled throughout the file. Fixed with a semi-annual fixture (`τ ≈ 0.4932`). First time this trap
+hit an oracle about a *source discrepancy* rather than a formula.
+
+### MM-I's real-vol dependence is real but weak, and the size is the finding
+A contrast oracle failed at `rel=1e-6` — not because the dependence is absent but because it is
+small. Sweeping `σr` 5% → 50%: **7.7e-09** at a 0.49y lead and `ρ_rI = −0.20`, rising to **3.7e-05**
+at 1.48y and `ρ_rI = −0.90`. So MM-II's "no real-rate vol" is a genuine *structural* simplification
+whose *pricing* impact is modest here — stated rather than hidden behind a loosened tolerance, with
+the oracle now asserting the trend in `|ρ_rI|` and the lead.
+
+### Changed
+- `TEST_FLOOR` 408 → 430.
+
 ## [0.15.0] - 2026-11-04
 
 Tranche 12(b) — Market Model I (BERHAN-2012 ch 3), the library's **second model**, flowing through
