@@ -55,6 +55,7 @@ Provenance:
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 
@@ -114,32 +115,62 @@ class LiborMarketModel:
             )
 
     def drift(self, index: int) -> float:
-        """`µ_i(f, t)` — eq 12.8, under the `P_N`-forward measure."""
+        """`µ_i(f, t)` — eq 12.8 at this model's own forwards, under the `P_N`-forward measure."""
+        return self.drift_at(self.tenor.forwards, index)
+
+    def drift_at(self, forwards: Sequence[float], index: int) -> float:
+        """`µ_i(f, t)` — eq 12.8 at an **arbitrary state** `forwards`.
+
+        **The state-taking form is the primary one, and that is not an optimisation detail.** Eq
+        12.8 is state-dependent, so a simulation needs the drift at each step's *evolved* forwards,
+        not at the model's initial ones."""
         n = len(self.tenor)
         if not 0 <= index < n:
             raise IndexError(f"forward index must lie in [0, {n}), got {index}")
-
-        numeraire = self.numeraire_index
-        if index == numeraire - 1:
+        if len(forwards) != n:
+            raise ValueError(f"the state must hold {n} forwards, got {len(forwards)}")
+        if index == self.numeraire_index - 1:
             # EXACT, by construction: the forward spanning the numeraire's own period is a
             # martingale under that measure. This is the finance, which is why it is the anchor.
             return 0.0
+        row = self.drift_matrix()[index]
+        ratios = self.state_ratios(forwards)
+        return math.fsum(ratios[k] * row[k] for k in range(n))
 
+    def state_ratios(self, forwards: Sequence[float]) -> tuple[float, ...]:
+        """`(f_k τ_k)/(1 + f_k τ_k) · σ_k` for each `k` — eq 12.8's **state-dependent** factor.
+
+        Split from the constant part so a vectorised simulation can compute this once per step as an
+        array and still use the *same* definition of 12.8 that the scalar `drift_at` uses. Without
+        the split the path engine would have had to re-derive the formula, which §4 forbids."""
+        tau = self.tenor.accruals
         sigma = self.tenor.volatilities
-        if index < numeraire - 1:
-            span = range(index + 1, numeraire)
-            sign = -1.0
-        else:
-            span = range(numeraire, index + 1)
-            sign = 1.0
-        return sign * sigma[index] * math.fsum(self._term(k, index) for k in span)
+        return tuple(
+            (forwards[k] * tau[k]) / (1.0 + forwards[k] * tau[k]) * sigma[k]
+            for k in range(len(self.tenor))
+        )
 
-    def _term(self, k: int, index: int) -> float:
-        """`(f_k τ_k)/(1 + f_k τ_k)·σ_k·ρ_ik` — one summand of eq 12.8.
+    def drift_matrix(self) -> tuple[tuple[float, ...], ...]:
+        """`M[i][k]` — eq 12.8's **constant** part, so that `µ_i = Σ_k ratio_k · M[i][k]`.
 
-        `ρ_ii = 1`, not the flat `ρ`: the `i ≥ N` branch includes `k = i`, and using `ρ` there is a
-        plausible-looking error that only a case with `k = i` in range can catch."""
-        f = self.tenor.forwards[k]
-        tau = self.tenor.accruals[k]
-        rho = 1.0 if k == index else self.correlation
-        return (f * tau) / (1.0 + f * tau) * self.tenor.volatilities[k] * rho
+        `M[i][k] = ±σ_i·ρ_ik` for `k` inside branch `i`'s summation span and `0` outside it, with the
+        sign from the branch and `ρ_ii = 1`. Writing 12.8 this way is what lets the scalar and
+        vectorised paths share one definition: the engine multiplies a `(paths × n)` ratio array by
+        this matrix, and `drift_at` takes one row of it. The row for `i = N−1` is all zeros, which is
+        the martingale branch falling out of the construction rather than being special-cased twice."""
+        n = len(self.tenor)
+        sigma = self.tenor.volatilities
+        numeraire = self.numeraire_index
+        rows: list[tuple[float, ...]] = []
+        for i in range(n):
+            row = [0.0] * n
+            if i != numeraire - 1:
+                if i < numeraire - 1:
+                    span, sign = range(i + 1, numeraire), -1.0
+                else:
+                    span, sign = range(numeraire, i + 1), 1.0
+                for k in span:
+                    rho = 1.0 if k == i else self.correlation
+                    row[k] = sign * sigma[i] * rho
+            rows.append(tuple(row))
+        return tuple(rows)
