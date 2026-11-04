@@ -90,7 +90,8 @@ MARKET = MarketSnapshot(
 DATES = tuple(VAL + timedelta(days=180 * k) for k in range(5))
 
 CORR = MMIICorrelations(index_nominal=0.25, index_index=0.80)
-PARAMS = MMIIParams(index_vol=0.012, nominal_vol=0.25, correlations=CORR)
+INDEX_VOL = 0.012
+PARAMS = MMIIParams.flat(INDEX_VOL, 0.25, CORR)
 MMII = MarketModelII(MARKET, PARAMS)
 
 
@@ -107,7 +108,7 @@ def _reference_di(start: date, pay: date, p: MMIIParams = PARAMS) -> float:
     """`Di(t)`, transcribed independently. One index vol, so `sigma_I,i-1 = sigma_I,i`."""
     lead = MEASURE.year_fraction(start)
     tfn = _tau_fn(start, pay)
-    si, sn = p.index_vol, p.nominal_vol
+    si, sn = p.index_vol_at(pay), p.nominal_vol
     rho_in, rho_ii = p.correlations.index_nominal, p.correlations.index_index
     return si * (sn * tfn / (1.0 + tfn) * rho_in + si - si * rho_ii) * lead
 
@@ -128,7 +129,7 @@ def test_the_variance_matches_an_independent_transcription_of_4_2_2(k):
     start, pay = DATES[k], DATES[k + 1]
     lead = MEASURE.year_fraction(start)
     span = MEASURE.year_fraction(pay) - lead
-    si, rho_ii = PARAMS.index_vol, CORR.index_index
+    si, rho_ii = INDEX_VOL, CORR.index_index
     expected = (si * si + si * si - 2.0 * rho_ii * si * si) * lead + si * si * span
     assert MMII.index_ratio_variance(start, pay) == pytest.approx(expected, rel=1e-15)
 
@@ -142,7 +143,7 @@ def test_the_denominator_carries_TAU_as_Di_prints_it():
     start, pay = DATES[2], DATES[3]
     lead = MEASURE.year_fraction(start)
     tfn = _tau_fn(start, pay)
-    si, sn = PARAMS.index_vol, PARAMS.nominal_vol
+    si, sn = INDEX_VOL, PARAMS.nominal_vol
     rho_in, rho_ii = CORR.index_nominal, CORR.index_index
     with_tau = si * (sn * tfn / (1.0 + tfn) * rho_in + si - si * rho_ii) * lead
     # `tau*Fn/(1+Fn)`: the 4.1.3 print, with Fn = tau_fn/tau recovered.
@@ -163,13 +164,13 @@ def test_the_variance_is_NOT_just_sigma_I_squared_times_span():
     start, pay = DATES[2], DATES[3]
     lead = MEASURE.year_fraction(start)
     span = MEASURE.year_fraction(pay) - lead
-    mmi_shaped = PARAMS.index_vol**2 * span
+    mmi_shaped = INDEX_VOL**2 * span
     actual = MMII.index_ratio_variance(start, pay)
     assert actual > mmi_shaped
     assert abs(actual / mmi_shaped - 1.0) > 0.1, (actual, mmi_shaped)
     # and the lead term carries the correlation with the right sign: more correlated -> smaller
     less_correlated = MarketModelII(
-        MARKET, MMIIParams(PARAMS.index_vol, PARAMS.nominal_vol,
+        MARKET, MMIIParams.flat(INDEX_VOL, PARAMS.nominal_vol,
                            MMIICorrelations(CORR.index_nominal, 0.10))
     )
     assert less_correlated.index_ratio_variance(start, pay) > actual
@@ -180,14 +181,14 @@ def test_at_PERFECT_index_correlation_the_lead_term_vanishes():
     index vols are equal — so the variance reduces to exactly `sigma_I^2 * span`, MM-I's shape. An
     exact reduction, and the one case where the two models' variances coincide."""
     perfect = MarketModelII(
-        MARKET, MMIIParams(PARAMS.index_vol, PARAMS.nominal_vol,
+        MARKET, MMIIParams.flat(INDEX_VOL, PARAMS.nominal_vol,
                            MMIICorrelations(CORR.index_nominal, 1.0))
     )
     for k in (1, 2, 3):
         start, pay = DATES[k], DATES[k + 1]
         span = MEASURE.year_fraction(pay) - MEASURE.year_fraction(start)
         assert perfect.index_ratio_variance(start, pay) == pytest.approx(
-            PARAMS.index_vol**2 * span, rel=1e-14
+            INDEX_VOL**2 * span, rel=1e-14
         )
 
 
@@ -198,7 +199,7 @@ def test_at_PERFECT_index_correlation_the_lead_term_vanishes():
 def test_at_ZERO_vol_FOUR_independent_paths_agree():
     """MM-II's `m`, MM-I's `m`, JY's `m` and the curve ratio directly — four independently-coded
     paths, one limit, sharing nothing but the curves."""
-    mmii0 = MarketModelII(MARKET, MMIIParams(0.0, 0.0, MMIICorrelations(0.0, 0.0)))
+    mmii0 = MarketModelII(MARKET, MMIIParams.flat(0.0, 0.0, MMIICorrelations(0.0, 0.0)))
     mmi0 = MarketModelI(MARKET, MMIParams(0.0, 0.0, 0.0, MMICorrelations(0.0, 0.0)))
     jy0 = JarrowYildirim(
         MARKET,
@@ -224,12 +225,12 @@ def test_at_ZERO_index_nominal_correlation_the_NOMINAL_FORWARD_drops_out_of_Di()
     closed form with no forward rate in it — an exact anchor that does NOT need zero volatility,
     which no other model here has."""
     exact = MarketModelII(
-        MARKET, MMIIParams(PARAMS.index_vol, PARAMS.nominal_vol, MMIICorrelations(0.0, 0.80))
+        MARKET, MMIIParams.flat(INDEX_VOL, PARAMS.nominal_vol, MMIICorrelations(0.0, 0.80))
     )
     for k in (1, 2, 3):
         start, pay = DATES[k], DATES[k + 1]
         lead = MEASURE.year_fraction(start)
-        si = PARAMS.index_vol
+        si = INDEX_VOL
         closed_form = si * (si - si * 0.80) * lead      # no Fn, no nominal vol
         assert exact.expected_index_ratio(start, pay) == pytest.approx(
             _curve_ratio(start, pay) * math.exp(closed_form), rel=1e-15
@@ -239,8 +240,8 @@ def test_at_ZERO_index_nominal_correlation_the_NOMINAL_FORWARD_drops_out_of_Di()
 def test_at_zero_index_nominal_correlation_the_NOMINAL_VOL_is_inert():
     """The same statement from the other side: with `rho_I,n = 0`, changing `sigma_n` cannot move
     anything — because the only term it appears in is multiplied by that correlation."""
-    a = MarketModelII(MARKET, MMIIParams(0.012, 0.10, MMIICorrelations(0.0, 0.80)))
-    b = MarketModelII(MARKET, MMIIParams(0.012, 0.90, MMIICorrelations(0.0, 0.80)))
+    a = MarketModelII(MARKET, MMIIParams.flat(0.012, 0.10, MMIICorrelations(0.0, 0.80)))
+    b = MarketModelII(MARKET, MMIIParams.flat(0.012, 0.90, MMIICorrelations(0.0, 0.80)))
     start, pay = DATES[2], DATES[3]
     assert a.expected_index_ratio(start, pay) == b.expected_index_ratio(start, pay)
 
@@ -257,7 +258,7 @@ def test_NO_real_rate_volatility_can_reach_MMII():
     there is nothing a caller could set. The positive half is that the real *curve* still enters —
     through the forward levels `1 + tau Fr` — so the model is not simply ignoring the real economy."""
     assert not any("real" in f and "vol" in f for f in PARAMS.__dataclass_fields__)
-    assert set(PARAMS.__dataclass_fields__) == {"index_vol", "nominal_vol", "correlations"}
+    assert set(PARAMS.__dataclass_fields__) == {"index_vols", "nominal_vol", "correlations"}
     assert set(CORR.__dataclass_fields__) == {"index_nominal", "index_index"}
 
     # The real curve DOES matter — a different real curve gives a different `m`.
@@ -316,10 +317,10 @@ def test_the_vols_and_correlations_MOVE_MMIIs_m():
     start, pay = DATES[2], DATES[3]
     base = MMII.expected_index_ratio(start, pay)
     for params in (
-        MMIIParams(0.030, 0.25, CORR),
-        MMIIParams(0.012, 0.60, CORR),
-        MMIIParams(0.012, 0.25, MMIICorrelations(0.90, 0.80)),
-        MMIIParams(0.012, 0.25, MMIICorrelations(0.25, 0.10)),
+        MMIIParams.flat(0.030, 0.25, CORR),
+        MMIIParams.flat(0.012, 0.60, CORR),
+        MMIIParams.flat(0.012, 0.25, MMIICorrelations(0.90, 0.80)),
+        MMIIParams.flat(0.012, 0.25, MMIICorrelations(0.25, 0.10)),
     ):
         assert MarketModelII(MARKET, params).expected_index_ratio(start, pay) != pytest.approx(
             base, rel=1e-9
@@ -383,7 +384,7 @@ def test_the_freezing_error_GROWS_with_maturity_as_the_source_warns():
         start, pay = DATES[k], DATES[k + 1]
         lead = MEASURE.year_fraction(start)
         tfn = _tau_fn(start, pay)
-        si, sn = PARAMS.index_vol, PARAMS.nominal_vol
+        si, sn = INDEX_VOL, PARAMS.nominal_vol
         rho_in = CORR.index_nominal
         span = MEASURE.year_fraction(pay) - lead
         base = si * sn * tfn / (1.0 + tfn) * rho_in * lead
@@ -402,7 +403,7 @@ def test_the_freezing_error_GROWS_with_maturity_as_the_source_warns():
 
 def test_a_NEGATIVE_volatility_is_refused():
     with pytest.raises(ValueError, match="cannot be negative"):
-        MMIIParams(-0.01, 0.25, CORR)
+        MMIIParams.flat(-0.01, 0.25, CORR)
 
 
 def test_an_OUT_OF_RANGE_correlation_is_refused():
