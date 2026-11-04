@@ -7,10 +7,21 @@ reference values and the migration's hardening lessons; the stock's own layering
 charter (finance-free numerics → L0, the simulating pricer → L4), and **every purified piece earns
 its own oracle** (the stock's tests are regression hints, never the oracle).
 
-There are three trees in the stock; the richest MC is in `_stock/quarry/pricebook/`. A second,
-parked attempt sits in `_stock/quarry/parked/ng/pricebook_ng/`, and a thin migrated one in
-`_stock/src/pricebook/`. Where they disagree, none wins by location — the source (Jäckel) and our own
-closed forms decide.
+There are three trees in the stock, and for MC the split is **very lopsided** — worth stating plainly
+so no one assumes a hardened migrated MC exists to lean on:
+
+- **LEGACY** `_stock/quarry/pricebook/` — the pre-migration quarry, **~40 MC files**: essentially all
+  the content (engine, processes, variance reduction, QMC, RNG, several Greek engines incl. AD, exact
+  simulation, rough paths, Heston/SABR, a credit MC).
+- **MIGRATED** `_stock/src/pricebook/` — the reset-era tree, **only two MC files** (`risk/greeks.py`,
+  `risk/monte_carlo.py`). The abandoned migration **never reached the MC core**; it got as far as a
+  risk/exposure MC and some Greeks.
+- **PARKED-NG** `_stock/quarry/parked/ng/pricebook_ng/` — one file worth reading, `engine/swaption_mc.py`,
+  for its clean `engine/` layout (closest to our L4 target).
+
+So we are effectively **rebuilding MC fresh from the legacy content + Jäckel** — there is no hardened
+migrated MC to inherit, which is cleaner (no half-migrated state to reconcile). Where the trees
+disagree, none wins by location — the source (Jäckel) and our own closed forms decide (§5).
 
 ## Core numerics — L0 candidates (finance-free)
 
