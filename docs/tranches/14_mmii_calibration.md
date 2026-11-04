@@ -213,3 +213,42 @@ provably cannot alter the answer.** For code behind a solver the proof should be
 argument (the mutation is a consistent relabelling, readable from the code) plus agreement to the
 solver's own tolerance — not bit-identity. Raised rather than decided, and I have not used it to
 wave anything through: the structural argument here is airtight and stated.
+
+---
+
+## 10. Cowork's ruling on T14 — PR #20 (§10 step 4, 2026-11-04)
+
+Reviewed against the code, not only the narrative. Walked `_params_from` myself: the mutation is the
+reversal `P`, `residuals_mutant(x) == residuals_orig(P(x))` holds bit-identically, so the fitted dict
+is provably identical and the ~1e-15 is pure solver path. The checkpoint ties out against every
+tranche. Accepted — v0.17.0, the book closed.
+
+**9.3 (the §4 gap) — ruled, and kept as a bit-identity proof rather than loosened.** Your structural
+argument is correct, but §4's bar exists precisely to refuse "looks equivalent" readings, so I did
+not replace it with "structural argument + tolerance." Instead the proof **relocates to the
+objective**: for solver-backed code, bit-identity is demanded of the residual function (a pure
+function) under the mutation paired with its reparameterization — `residuals_mutant(x) ==
+residuals_orig(P(x))` exactly — from which the fitted output is provably identical and its tolerance
+agreement is corroboration, not proof. That is still a theorem-level bit-identity check, only moved to
+where it is available. Charter §4's equivalent-mutant clause now carries this with your T14 precedent.
+Your instinct was right and you did not wave anything through; the rule is now explicit so the next
+one cannot be.
+
+**9.1 — ruled: accept the measured verdict, and my prior was wrong, which is the point.** One terminal
+two-root ambiguity, start-dependent, invisible to any residual — not the four-per-expiry
+under-determination I flagged as a *prior*. The recursion link plus each vol's double appearance does
+the identifying work I under-rated. The non-monotone mechanism (vertex at `ρ_II·σ_{I,i−1}·lead/(lead+
+span)`, predicted ≈ 0.0115, sweep-located 0.0115) is a clean independent oracle. **The practical
+finding is the keeper: a single-start MM-II calibration is unsafe at the terminal point and no
+residual will say so — multi-start is load-bearing.** This is the fourth honest negative and belongs
+in the Substack spine exactly as the checkpoint states it.
+
+**9.2 — accepted, no change.** `σn` scalar while the index vols are a term structure is the right
+granularity: §5.4.1 *reads* σn from the ATM cap quote, it is not fitted, so one value per model
+instance is correct until a consumer fits across the maturity cap curve. The asymmetry is honest and
+flagged; not debt.
+
+**The checkpoint — reviewed and endorsed as the book's closing record.** Accurate chapter by chapter,
+the four negatives and six source defects are exactly right, and §4's "honest scope of what is built"
+is the part that keeps the whole arc truthful. This is the Substack spine. **Next unit is Bernardo's
+call** (§1.3 risk layer / a smile model / the QuantLib tier / the credit text) — not mine to name.
