@@ -227,6 +227,29 @@ def test_an_OUT_OF_RANGE_correlation_is_refused():
 # The freezing procedure — where the approximation actually is, with a MEASURED bound.
 # ============================================================================================
 
+def test_the_index_vol_step_matches_an_independent_transcription():
+    """**The pointwise formula, and its absence was a real hole.** The first version of these
+    freezing oracles asserted only properties — vanishes at zero vol, moves with the vols, bounded
+    under a shock — and a mutation dropping the `/(1 + tau F)` DENOMINATOR survived the entire
+    404-test suite. It is not an equivalent mutant: at `tau F ~ 0.03` the denominator is worth ~3%,
+    so the hole was real. Properties are not a substitute for transcribing the formula once."""
+    _, tfn, tfr = _forwards(DATES[2], DATES[3])
+    sn, sr, si = PARAMS.nominal_vol, PARAMS.real_vol, 0.012
+    expected = si + sr * tfr / (1.0 + tfr) - sn * tfn / (1.0 + tfn)
+    assert index_vol_step(si, sn, sr, tfn, tfr) == pytest.approx(expected, rel=1e-15)
+
+
+def test_the_index_vol_step_DENOMINATORS_matter():
+    """The companion that gives the test above its teeth: the un-divided form must differ
+    measurably, or the pointwise check could pass on a fixture where `tau F` is negligible."""
+    _, tfn, tfr = _forwards(DATES[2], DATES[3])
+    sn, sr, si = PARAMS.nominal_vol, PARAMS.real_vol, 0.012
+    correct = si + sr * tfr / (1.0 + tfr) - sn * tfn / (1.0 + tfn)
+    undivided = si + sr * tfr - sn * tfn
+    assert abs(correct - undivided) > 1e-5, (correct, undivided)
+    assert index_vol_step(si, sn, sr, tfn, tfr) != pytest.approx(undivided, rel=1e-9)
+
+
 def test_the_index_vol_step_vanishes_when_BOTH_rate_vols_are_zero():
     """An exact reduction: the adjustment is a difference of terms each carrying a rate vol as a
     factor, so with no rate volatility the index-vol term structure is flat."""
@@ -240,25 +263,74 @@ def test_the_index_vol_step_MOVES_with_the_rate_vols():
     assert index_vol_step(0.012, 0.25, 0.20, tfn, tfr) != pytest.approx(base, rel=1e-9)
 
 
-def test_the_freezing_error_is_BOUNDED_by_how_far_the_coefficient_moves():
-    """**The approximation's error bar, measured rather than asserted.** The freezing replaces the
-    stochastic `tau F(t)/(1 + tau F(t))` with its time-0 value. That map is bounded and monotone in
-    `F`, so shocking the forward by a stated amount bounds the coefficient's move, and hence the
-    error in `sigma_I,i-1`.
+def test_the_freezing_error_is_LARGE_and_measured_not_assumed_small():
+    """**The approximation's error bar — and the measurement says it is big, so the test says so.**
 
-    This is a SENSITIVITY bound, not a distributional one: a probability-weighted bound would need
-    an LMM simulation of the forward rates, which this tranche does not build and does not pretend
-    to. The number is reported in the tranche doc."""
+    The freezing replaces the stochastic `tau F(t)/(1 + tau F(t))` with its time-0 value, so bounding
+    the error means bounding how far that coefficient moves. That is done here **directly on the
+    map**, not through `index_vol_step`, because at a 200bp shock the stepped volatility goes
+    negative and the function rightly refuses it.
+
+    The first version asserted `worst < 0.01`, which READS as "the error is small". It is not: a
+    200bp forward move shifts `sigma_I,i-1` by **71% of sigma_I**. An arbitrary smallness threshold
+    would have dressed a large approximation error as a bounded one, so this asserts the magnitude
+    and its linearity in the shock instead — which is what is actually true.
+
+    A SENSITIVITY bound, not a distributional one: a probability-weighted bound needs an LMM
+    simulation of the forwards, which this tranche does not build and does not pretend to."""
     tau, tfn, tfr = _forwards(DATES[2], DATES[3])
-    shock = 0.02 * tau       # a 200bp move in the forward rate
-    base = index_vol_step(0.012, PARAMS.nominal_vol, PARAMS.real_vol, tfn, tfr)
-    moved = [
-        index_vol_step(0.012, PARAMS.nominal_vol, PARAMS.real_vol, tfn + dn, tfr + dr)
-        for dn in (-shock, shock) for dr in (-shock, shock)
-    ]
-    worst = max(abs(m - base) for m in moved)
-    assert worst > 0.0, "the coefficient is inert in the forwards — then nothing is being frozen"
-    assert worst < 0.01, f"a 200bp shock moves sigma_I by {worst:.5f}, which needs explaining"
+
+    def coefficient(tau_f: float) -> float:
+        return tau_f / (1.0 + tau_f)
+
+    sn, sr = PARAMS.nominal_vol, PARAMS.real_vol
+    base_adj = sr * coefficient(tfr) - sn * coefficient(tfn)
+    impact = {}
+    for bp in (50, 100, 200):
+        shock = bp / 10000.0 * tau
+        impact[bp] = max(
+            abs((sr * coefficient(tfr + dr) - sn * coefficient(tfn + dn)) - base_adj)
+            for dn in (-shock, shock)
+            for dr in (-shock, shock)
+        )
+
+    assert impact[50] > 1e-4, impact
+    assert impact[50] < impact[100] < impact[200], impact
+    # Near-linear in the shock, because `x/(1+x)` is near-linear for small `x`.
+    assert impact[200] / impact[100] == pytest.approx(2.0, rel=0.05), impact
+    # The headline: at 200bp this is a large fraction of sigma_I, not a rounding effect.
+    assert impact[200] / 0.012 > 0.5, (
+        f"a 200bp move shifts sigma_I by only {impact[200] / 0.012:.1%} — the fixture no longer "
+        "demonstrates that the freezing error is material"
+    )
+
+
+def test_the_freezing_recursion_REFUSES_to_produce_a_negative_volatility():
+    """**Found by walking the recursion, not by review.** From `sigma_I = 0.012` with `sigma_n = 25%`
+    and `sigma_r = 20%` the relation gives +0.005605 after one step and **-0.000542 after two** — so
+    the source's "the volatilities sigma_I,i are all constant" does not survive a realistic parameter
+    set, and the recursion cannot be iterated far.
+
+    A negative volatility would reach a `sqrt` and surface as a `nan` layers away, so it is refused
+    where it is produced."""
+    sn, sr = PARAMS.nominal_vol, PARAMS.real_vol
+    _, tfn3, tfr3 = _forwards(DATES[3], DATES[4])
+    _, tfn2, tfr2 = _forwards(DATES[2], DATES[3])
+    one = index_vol_step(0.012, sn, sr, tfn3, tfr3)
+    assert 0.0 < one < 0.012, one
+    with pytest.raises(ValueError, match="non-positive index volatility"):
+        index_vol_step(one, sn, sr, tfn2, tfr2)
+
+
+def test_the_recursion_IS_usable_at_small_rate_vols():
+    """The companion: the refusal must not be unconditional, or it would be a broken function rather
+    than a guarded one. At modest rate vols the relation steps happily and stays near flat."""
+    _, tfn, tfr = _forwards(DATES[2], DATES[3])
+    si = 0.012
+    for _ in range(3):
+        si = index_vol_step(si, 0.02, 0.018, tfn, tfr)
+        assert si > 0.0
+    assert si == pytest.approx(0.012, abs=2e-3), si
 
 
 # ============================================================================================
