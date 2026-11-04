@@ -1,3 +1,4 @@
+from pricebook.models.libor_market_model import LiborMarketModel, LmmTenor
 from pricebook.models.black_mc import MonteCarloConfig, black_mc_price
 from pricebook.models.market_model_ii import MarketModelII, MMIICorrelations, MMIIParams
 from pricebook.models.market_model_i import MarketModelI, MMICorrelations, MMIParams
@@ -16,6 +17,7 @@ from pricebook.models.jarrow_yildirim import (
 )
 
 __all__ = [
+    "LiborMarketModel", "LmmTenor",
     "MonteCarloConfig", "black_mc_price",
     "MarketModelII", "MMIICorrelations", "MMIIParams",
     "MarketModelI", "MMICorrelations", "MMIParams",
