@@ -197,6 +197,14 @@ not an oracle. Ruled principles:
   the level where it is available. *(T14 §9.3: reversing `_params_from`'s key assignment survived all
   453 tests; it is the reversal `P`, residuals bit-identically invariant under it, so the fitted dict
   is identical and the ~1e-15 fit difference is pure solver path — a proved equivalent mutant.)*
+  **A third survivor kind, distinct from both a hole and an equivalent mutant: unreachable code.** A
+  mutant can survive because its branch is **statistically unreachable** — a redraw guarding against
+  an exact `0.0` from a `[0,1)` source (probability ~2⁻⁵³). That is not an equivalent mutant (the
+  behaviours are not identical — the mutated branch would misbehave *if reached*; it would hang),
+  it is dead defensive code, and the fix is §6's: **delete it, or relocate the check somewhere it can
+  be exercised** (the domain guard moves to `Φ⁻¹`, which can be called with `0.0` and refuse). An
+  untestable branch in L0 is surface that should not exist. *(T15: a redraw loop survived all 468
+  tests; removed, the guard moved to where a test can reach it.)*
 - **An oracle must be measurable above its own numerical noise — prefer a behavioural invariant to a
   noise-dominated number.** A finite-difference Jacobian condition number for the six-parameter JY
   fit swung three orders of magnitude with the step size (2.5e7 → 2.1e10) and differed again under
