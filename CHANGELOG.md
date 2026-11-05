@@ -29,7 +29,9 @@ per §4: 12.39 carries exact financial content, 12.38's sign convention is arbit
 conventions describe the same family of boundaries. The inconsistency is invisible wherever the
 parameters are trained and decisive only at the one slice where they are pinned. Both facts are
 oracled, and the printed variant is asserted to **fail**, so the ruling is proved necessary rather
-than preferred. Seventh source defect found by this project; second genuine internal inconsistency.
+than preferred. Recorded in `docs/references.md` beside the five found in `BERHAN-2012` and the one in
+`MCINERNEY-ZASTAWNIAK`. No ordinal claimed: `BERHAN-2012`'s 4.1.3 and 4.2.2 are internal
+inconsistencies as well, so "the second" would have been wrong.
 
 ### Jäckel's prescribed optimiser cannot train Jäckel's objective
 §12.8 says to use BFGS. **BFGS makes no progress at all** on eq 12.41, which averages an

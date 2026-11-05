@@ -64,7 +64,20 @@ reduction, path construction), 11 (Greeks), 12 (BGM/J), 14 (diagnostics).
 - **Stock base catalogued** in `docs/stock/mc_base_inventory.md` (an already-once-migrated MC stack —
   mined for content and its migration-hardening edge cases, never for structure, never imported).
 
-**Status `in-hand`, flips to `worked-from` when the first MC tranche lands** (as McInerney did at T10).
+**Status `worked-from`** (T15–T18: the MC spine, the LMM, the European and Bermudan swaptions).
+
+**Source defects found (recorded, as `BERHAN-2012` §5.1's are):**
+- **§12.8 eqs 12.38 vs 12.39 — an internal sign inconsistency.** Both print `+ p_i3`, but 12.39 pins
+  the final slice to `(0,0,K)` and §12.7 requires "exercise iff the residual swap is in the money";
+  the printed sign exercises a deep-OTM payer at the last date. Ruled by the finance (12.39 carries
+  the exact financial content; 12.38's sign is the arbitrary convention), pinned by an oracle the
+  printed variant fails (T18 §8). Survived publication because `p_i3` is fitted at every slice but the
+  last, so the optimiser absorbs the sign — invisible wherever trained.
+- **§12.8 eq 12.41 — the prescribed BFGS cannot train the stated objective.** The objective is an
+  indicator-selected average, piecewise-constant in `p`, so a gradient optimiser terminates at
+  iteration 0 (its FD gradient is a step-size artefact). Built with Nelder-Mead, which captures ~65%
+  of the attainable gain; the deviation is oracled (T18 §9). A limitation of the *published method*,
+  not of our reading.
 
 ---
 

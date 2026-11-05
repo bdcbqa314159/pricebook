@@ -221,7 +221,17 @@ not an oracle. Ruled principles:
   the quote maturities instead of the whole curve where it could differ (T6's A4 premise), or one
   parameter at a time instead of jointly (the identifiability valley). Before trusting a green, ask
   *where the failure would live and whether the oracle looks there.* This is the floor rule stated
-  at the top: widen the domain until it includes the failure, or the green is empty.
+  at the top: widen the domain until it includes the failure, or the green is empty. **A bound on a
+  price cannot see the algorithm that produced it.** Where the method is a multi-step *procedure* — a
+  backward induction, a training loop, an exercise policy — an output bound (even a correct sandwich)
+  examines the number, not the steps, so a valid-but-wrong variant of the procedure sails through it.
+  Oracle the **steps pointwise**, and **extract a buried step into named surface** so a test can reach
+  it (the reachability rule again, now for procedures not just guards). *(T18: four of five first-pass
+  survivors were §12.8 procedure steps — the induction direction, the continuation roll, the `I>0`
+  guard, the second coordinate `s_{i+1}` vs `s_i` — and no price-level bound caught any; the fifth, a
+  dropped numéraire division, hid inside oracle 1's `4·SE` band, the exact T17 banded-resolution trap
+  one tranche later, and the fix was to make the one-date reduction bit-identical rather than widen
+  the band.)*
 - **Degenerate fixtures, and mutation as the proof a test has power.** The commonest form of a domain
   that excludes the failure is a fixture whose key parameter sits where it cannot be seen — `τ=1`
   (the accrual invisible), a flat curve (interpolation invisible), a single period or node (a

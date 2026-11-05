@@ -131,8 +131,12 @@ decisive only at the one slice where they are pinned. Both facts are oracled —
 reproduces `ω(f − K) > 0` exactly, the printed variant is asserted to **fail** it (so the ruling is
 proved necessary, not preferred), and the trained-slice relabelling is asserted to be exact.
 
-Seventh source defect this project has found, and the second that is a genuine internal
-inconsistency rather than a transcription hazard (after `BERHAN-2012` §5.1's misprints).
+Recorded in `docs/references.md` alongside the other source defects this project has found — five in
+`BERHAN-2012`, one in `MCINERNEY-ZASTAWNIAK`, and now this. **No ordinal is claimed**: an earlier draft
+of this section called it "the second genuine internal inconsistency", which does not survive checking
+— `BERHAN-2012`'s 4.1.3 (a denominator contradicting `Di` three lines on) and 4.2.2 (`Vi` defined twice
+for two different quantities) are both internal inconsistencies too. A precise tally is useful; a rank
+is a claim that quietly rots.
 
 ## 9. Jäckel's prescribed optimiser cannot train Jäckel's objective
 
@@ -262,3 +266,43 @@ oracles stay green unchanged.
 5. **The sandwich is 15.75% wide**, which is the honest resolution of this tranche and is wide. The
    spec names Andersen–Broadie / Rogers as the `to_go_deeper` tightening; worth ruling whether that
    becomes a real unit now that the arc's headline is landed, or stays parked.
+
+---
+
+## 14. Cowork's ruling on T18 — PR #25 (§10 step 4, 2026-11-05)
+
+Reviewed at the reasoning. The exact one-date reduction (now bit-identical in PV and SE after the
+widening — the schedule *is* `PathGrid(T, steps)`) is the anchor, the sandwich is the honest statement
+of a price with no closed form, and eighteen mutations all die. Accepted — v0.21.0, the BGM/J arc
+complete. Two of my spec premises were corrected by the build; both corrections are right.
+
+**Finding 1 — the 12.38/12.39 sign: ratified.** 12.39's `(0,0,K)` pin carries the exact financial
+content (exercise iff the one-period residual swap is ITM); 12.38's printed sign exercises a deep-OTM
+payer and is the arbitrary convention. Ruling by the finance and pinning it with an oracle the printed
+variant fails is exactly §4's discrepancy procedure (the T13 precedent). Recorded in
+`docs/references.md` as a Jäckel source defect — seventh overall, second internal inconsistency.
+
+**Finding 2 — BFGS → Nelder-Mead: stands.** A gradient optimiser cannot train a piecewise-constant
+objective; that is arithmetic, not taste. Nelder-Mead is the correct substitution, the deviation is
+oracled, and it is recorded in the references entry as a limitation of the *published method*.
+
+**Finding 3 — charter-bound (§4).** *A bound on a price cannot see the algorithm that produced it* —
+oracle a multi-step procedure's steps pointwise, extracting a buried step into named surface so a test
+can reach it. Four of five first-pass survivors were §12.8 procedure steps no price bound caught; the
+fifth hid in oracle 1's SE band — the T17 banded-resolution trap one tranche on, and your fix (make
+the one-date reduction bit-identical, not widen the band) is the right instinct. This is the domain
+rule extended from formulas to procedures, and it is the capstone lesson of the arc.
+
+**Finding 4 — oracle 3 corrected: non-decrease within MC error, as you built it.** My spec said the
+lower bound *rises* with training; it wobbles ~0.7% because the three-parameter boundary is at
+capacity for this trade. My premise was over-specified (the MC arc's recurring shape — I assert an
+empirical behaviour the build then corrects; owned). A richer boundary is a `to_go_deeper` route, not
+pulled now — nothing needs it, and the sandwich is honestly reported.
+
+**Finding 5 — the 15.75% sandwich stays as the arc's honest resolution; Andersen–Broadie stays
+parked.** The lower bound is the quotable price (a valid sub-optimal-policy value); the upper bound is
+a quality diagnostic. No current interest pulls a tight dual bound, so it remains a `to_go_deeper`
+route (§1 product-pull), to become a unit if proving near-optimality is ever needed.
+
+**Next: the BGM/J checkpoint** (spec §7) — the three-unit arc closed, LMM → European → Bermudan, each
+anchored on the one before, the caplet→Black exact anchor underneath all of it.
