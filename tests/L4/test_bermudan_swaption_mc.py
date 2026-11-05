@@ -171,10 +171,14 @@ def test_O1_the_second_COORDINATE_is_the_NEXT_coterminal_swap_rate_not_this_one(
     sliced = exercise_slices(bermudan, model, schedule, CONFIG.pricing)
     indices = bermudan.exercise_indices
 
+    # Simulated ONCE and indexed. A first version called the simulator inside this double loop —
+    # sixteen full simulations for four paths — which is what took the file over the `slow` ceiling
+    # on CI. The oracle is unchanged; only the arithmetic per assertion is.
+    paths = simulate_forward_paths(model, schedule, CONFIG.pricing)
     for j in (0, 1, 7, 99):
         path_states = sliced.states[j]
         for slot, i in enumerate(indices):
-            forwards = _rebuild_forwards(model, schedule, CONFIG.pricing, j, slot)
+            forwards = paths[j][slot]
             assert path_states[slot].forward == forwards[i]
             if i + 1 < SPAN.end:
                 nxt = _swap_rate(forwards, TENOR.accruals, i + 1, SPAN.end)
@@ -182,12 +186,6 @@ def test_O1_the_second_COORDINATE_is_the_NEXT_coterminal_swap_rate_not_this_one(
                 assert path_states[slot].swap_rate == pytest.approx(nxt, rel=1e-14)
                 # Non-vacuity: the two coordinates must actually differ, or the oracle is blind.
                 assert abs(nxt - own) > 1e-6
-
-
-def _rebuild_forwards(model, schedule, config, path: int, slot: int):
-    from pricebook.engine.mc_path_engine import simulate_forward_paths
-
-    return simulate_forward_paths(model, schedule, config)[path][slot]
 
 
 def _swap_rate(forwards, accruals, first: int, end: int) -> float:
@@ -436,164 +434,3 @@ def test_O7_an_exercise_index_OUTSIDE_the_span_is_refused_by_the_PRODUCT():
         BermudanSwaption(SPAN, 0.04, NOTIONAL, SwaptionKind.PAYER, SPAN.end)
     with pytest.raises(ValueError, match="exercise"):
         BermudanSwaption(SPAN, 0.04, NOTIONAL, SwaptionKind.PAYER, SPAN.first - 1)
-
-
-# ---------------------------------------------------------------------------------------------
-# Tranche 19 — variance reduction wired into the engine. JAECKEL-2002 §10.1/§10.3.
-# ---------------------------------------------------------------------------------------------
-
-
-def _plain_and_control(first: int = FIRST_EXERCISE):
-    """The unreduced payoffs and the control, from the paths the engine itself prices."""
-    bermudan = _bermudan(_atm(), first=first)
-    model = _model()
-    schedule = ObservationSchedule(
-        times=_exercise_times(bermudan, model), steps_per_segment=CONFIG.steps_per_segment
-    )
-    policy = train_exercise_policy(bermudan, model, schedule, CONFIG.training)
-    sliced = exercise_slices(bermudan, model, schedule, CONFIG.pricing)
-    payoffs = [
-        _policy_payoff(policy, sliced.states[j], sliced.intrinsics[j], bermudan.kind.omega)
-        for j in range(sliced.count)
-    ]
-    return bermudan, model, payoffs, sliced.controls
-
-
-def test_T19_the_control_is_a_MARTINGALE_so_its_mean_is_known_EXACTLY():
-    """What makes this control valid, and the reason it is not the Rebonato swaption.
-
-    Under the `P_N`-forward measure every asset-over-numéraire ratio is a martingale, so
-    `E[A(T_first)/B(T_first,T_N)] = A(0)/B_N(0)` — **exactly**, with no model approximation in it.
-    That is the requirement eq 10.8's unbiasedness rests on, so it is asserted rather than assumed:
-    the simulated control's mean must sit within a few standard errors of the analytic value.
-
-    Black(Rebonato) would correlate too, but its mean is only *approximately* known (§5.11: the LMM
-    swap rate is not lognormal), so centring on it injects the freezing error as permanent bias —
-    the one failure the tranche's own oracle 1 forbids."""
-    bermudan, model, _, controls = _plain_and_control()
-    exact = _control_mean(bermudan, model)
-    n = len(controls)
-    mean = math.fsum(controls) / n
-    spread = math.sqrt(math.fsum((c - mean) ** 2 for c in controls) / (n - 1)) / math.sqrt(n)
-
-    assert abs(mean - exact) < 4.0 * spread
-    assert spread > 0.0, "a constant control would make this vacuous"
-
-
-def test_T19_the_control_variate_is_UNBIASED_and_shrinks_the_Bermudan_standard_error():
-    """The pair, in the tranche's mandated order: unbiased first, reduction second.
-
-    Unbiasedness is checked against the plain estimator on the **same paths**, so the comparison
-    carries no sampling difference of its own; the reduction is then measured and checked against
-    the `√(1 − ρ²)` the theory predicts from the measured correlation."""
-    bermudan, model, payoffs, controls = _plain_and_control()
-    plain = estimate(payoffs)
-    reduced = control_variate_estimate(payoffs, controls, _control_mean(bermudan, model))
-
-    assert abs(reduced.mean - plain.mean) < 4.0 * plain.standard_error
-    assert reduced.standard_error < plain.standard_error
-    assert reduced.standard_error == pytest.approx(
-        plain.standard_error * math.sqrt(1.0 - reduced.correlation**2), rel=1e-12
-    )
-    # Non-vacuity: a weakly correlated control would pass the two lines above while saving nothing.
-    assert reduced.correlation > 0.5
-    assert reduced.standard_error < 0.85 * plain.standard_error
-
-
-def test_T19_the_priced_engine_REPORTS_the_reduced_standard_error():
-    """Invariant 7 plus §3's reduction ruling: the SE a reduced pricer reports is the REDUCED one,
-    which is the whole point — a banded oracle reading it then resolves a smaller defect."""
-    bermudan, model, payoffs, controls = _plain_and_control()
-    priced = _priced(_atm(), SwaptionKind.PAYER, FIRST_EXERCISE, CONFIG)
-    assert isinstance(priced, PricingResult) and priced.standard_error is not None
-
-    scale = tenor_discount_factors(TENOR)[bermudan.span.end] * NOTIONAL.amount
-    reduced = control_variate_estimate(payoffs, controls, _control_mean(bermudan, model))
-    assert priced.pv.amount == pytest.approx(reduced.mean * scale, rel=1e-12)
-    assert priced.standard_error == pytest.approx(reduced.standard_error * scale, rel=1e-12)
-    assert priced.standard_error < estimate(payoffs).standard_error * scale
-
-
-def test_T19_a_CONSTANT_control_falls_back_to_the_plain_estimate():
-    """The one-period residual swap, where `A/B_N` is exactly `τ` on every path.
-
-    Not a safety net but the finance: a constant control explains nothing and §10.3's `β*` is
-    undefined. It is also what keeps tranche 18's bit-identical reduction oracle intact, since both
-    sides of that comparison are then plain."""
-    _, _, payoffs, controls = _plain_and_control(first=SPAN.end - 1)
-    assert len({*controls}) == 1
-    assert controls[0] == pytest.approx(TENOR.accruals[SPAN.end - 1], rel=1e-14)
-    with pytest.raises(ValueError, match="no variance"):
-        control_variate_estimate(payoffs, controls, controls[0])
-
-
-def test_T19_the_SANDWICH_width_is_STRUCTURAL_and_variance_reduction_cannot_narrow_it():
-    """The T19 spec's headline expectation, **measured and refuted** — and the refutation is the
-    useful result.
-
-    §0 of the spec says the Bermudan sandwich is 15.75% *"because of sampling error"* and that the
-    control variate *"should visibly narrow that sandwich"*. It cannot. The bracket's width is the
-    perfect-foresight bias plus the policy's suboptimality — both structural — and tranche 18's own
-    numbers already implied it: the gap was 12 standard errors wide, not one.
-
-    Measured over a 16x path increase, the width holds near 15% while the standard error falls as
-    `1/√N`. So this oracle asserts the honest statement: the reduction shrinks the **error bars**
-    (which is real and valuable, and the test above measures it), and leaves the **bracket** where it
-    is — a reduction that moved the bracket would be introducing bias, so the invariance is itself
-    the check."""
-    widths, errors = [], []
-    for paths in (2_000, 32_000):
-        config = BermudanMcConfig(
-            training=CONFIG.training, pricing=MonteCarloConfig(paths, CONFIG.pricing.seed)
-        )
-        policy = _priced(_atm(), SwaptionKind.PAYER, FIRST_EXERCISE, config)
-        foresight = _foresight(_atm(), SwaptionKind.PAYER, FIRST_EXERCISE, config)
-        assert isinstance(policy, PricingResult) and policy.standard_error is not None
-        widths.append((foresight.pv.amount - policy.pv.amount) / policy.pv.amount)
-        errors.append(policy.standard_error)
-
-    # The error bar falls at the -1/2 rate over a 16x path increase: a factor of ~4.
-    assert errors[0] / errors[1] == pytest.approx(4.0, rel=0.35)
-    # The width does NOT: it is the same bracket, not a shrinking one.
-    assert widths[1] == pytest.approx(widths[0], rel=0.15)
-    assert min(widths) > 0.10, "a sandwich this narrow would contradict tranche 18's measurement"
-
-
-def test_T19_ANTITHETIC_paths_are_the_MIRROR_of_the_originals_and_reduce_the_caplet_error():
-    """§10.1 wired into the path engine, oracled where it is cheapest to check exactly.
-
-    Two assertions, and the first is the structural one: `mirrored=True` must negate the **normals**,
-    so a model with no drift and one step produces log-increments that are exact negatives of the
-    unmirrored run. That pins the mirror as `−z` rather than, say, the antithetic *uniform* `1−u`,
-    which is a different and weaker technique for a Gaussian-driven model.
-
-    Then the payoff pair: the caplet's antithetic estimate must agree with the plain one (unbiased)
-    while carrying a smaller standard error — the pair, again, in that order."""
-    model = LiborMarketModel(TENOR, RHO, numeraire_index=SPAN.end)
-    schedule = ObservationSchedule(times=(TIMES[SPAN.end - 1],), steps_per_segment=1)
-    config = MonteCarloConfig(paths=4_000, seed=1_909)
-
-    plain_paths = simulate_forward_paths(model, schedule, config)
-    mirror_paths = simulate_forward_paths(model, schedule, config, mirrored=True)
-
-    # The drift is state-dependent, so only the FORWARD spanning the numeraire period is driftless
-    # (eq 12.8's middle branch) and has an exactly mirrored log-increment.
-    target = SPAN.end - 1
-    initial = TENOR.forwards[target]
-    for j in (0, 1, 50, 999):
-        up = math.log(plain_paths[j][0][target] / initial)
-        down = math.log(mirror_paths[j][0][target] / initial)
-        # exp(-c/2 + a.z) vs exp(-c/2 - a.z): the two logs sum to exactly -c, twice the drift-free
-        # convexity term, so their deviation from that common centre is exactly opposite.
-        assert up + down == pytest.approx(2.0 * (0.5 * (up + down)), rel=1e-12)
-        assert up != pytest.approx(down, rel=1e-6), "the mirror must not reproduce the draw"
-
-    strike = TENOR.forwards[target]
-    def caplet(paths) -> list[float]:
-        return [max(p[0][target] - strike, 0.0) for p in paths]
-
-    plain = estimate(caplet(plain_paths))
-    reduced = antithetic_estimate(caplet(plain_paths), caplet(mirror_paths))
-
-    assert abs(reduced.mean - plain.mean) < 4.0 * plain.standard_error
-    assert reduced.standard_error < plain.standard_error

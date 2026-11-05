@@ -103,7 +103,7 @@ engine, the control variate into the Bermudan pricer.
 control variate to *"visibly narrow that sandwich"*. **It cannot, and tranche 18's own numbers already
 said so** — the gap there was 12 standard errors wide, not one. Measured over a **64× path increase**:
 
-| pricing paths | policy (lower) | foresight (upper) | width | SE(policy) | width in SEs |
+| pricing paths | policy (lower) | foresight (upper) | width | SE(policy), **plain** | width in SEs |
 |---|---|---|---|---|---|
 | 2,000 | 5,847.77 | 6,736.07 | 15.19% | 151.25 | 5.9 |
 | 8,000 | 5,860.27 | 6,783.50 | 15.75% | 74.26 | 12.4 |
@@ -111,7 +111,14 @@ said so** — the gap there was 12 standard errors wide, not one. Measured over 
 | 128,000 | 5,941.69 | 6,856.34 | 15.39% | 18.75 | **48.8** |
 
 The standard error falls by exactly a factor of 8 across 64× paths — the `−½` rate, precisely. **The
-width does not move at all.** It is the perfect-foresight bias plus the policy's suboptimality, both
+width does not move at all.**
+
+*(That SE column is the **plain** estimator, measured before the control variate was wired. With the
+reduction live the same 8,000-path case reports **50.21** instead of 74.26 — a factor of 0.676, which
+is exactly the `√(1 − ρ²) = 0.676` predicted from the measured ρ = 0.7368. The widths are unchanged:
+15.18% / 15.75% / 15.27% / 15.48% at 2k/8k/4k/16k post-reduction, against 15.19% / 15.75% / 15.08% /
+15.39% before. The reduction sharpens the bars and leaves the bracket exactly where it was, which is
+the whole claim.)* It is the perfect-foresight bias plus the policy's suboptimality, both
 structural; no variance reduction touches either.
 
 So the tranche's deliverable is not a narrower bracket but **sharper error bars**, which is real and
@@ -186,7 +193,27 @@ the same-sample `β*`, whose `O(1/N)` bias is below the reported SE at the commi
   `β(g* − g)`, so raising `g*` **raises** the estimate. The direction is now part of what the oracle
   pins rather than an incidental.
 
-And one process error worth recording because it cost a false gate failure: I backgrounded
+**And a REAL `slow`-gate failure on CI, on a watch item I had raised myself.** The first push failed:
+`test_bermudan_swaption_mc.py` took **12.2s on Windows** and **10.2s on ubuntu** against the 10s
+ceiling, at 4.7s locally. Tranche 18's own handoff had flagged exactly this — *"this file is now the
+closest to the `slow` ceiling, so a unit that adds oracles there should re-time rather than assume
+headroom"* — and I then added six oracles to it without re-timing. The warning was mine and I walked
+past it.
+
+Two causes, and only one of them was the oracles' weight:
+- **A nested re-simulation.** `test_O1_the_second_COORDINATE` called the simulator *inside* a double
+  loop over four paths and four slices — **sixteen full simulations** where one indexed read would do.
+  1.07s of a 4.7s file, and a straightforward mistake rather than a cost of the oracle.
+- **An uncached helper.** `_plain_and_control` trains three boundary slices with a derivative-free
+  optimiser, and four oracles each called it afresh.
+
+Fixed both, **split the T19 oracles into `tests/L4/test_variance_reduction.py`** (their subject is
+variance reduction, not the Bermudan product — the Bermudan is only the instrument they are measured
+on), and set the sandwich oracle's floor to 2,000 paths after measuring that at 1,000 the *width
+measurement* itself reads 18.7% against 15.2–15.8% everywhere above. Now 2.07s and 1.63s locally,
+~1.9x and ~2.4x margin against the ceiling at the measured CI factor.
+
+And one process error worth recording because it cost a *false* gate failure: I backgrounded
 `verify.py slow` and then ran the full suite and pyright on top of it. The gate reported
 `test_swaption_mc.py` at **690.6s** against a true 1.75s — a 400× artefact of CPU contention I
 created. **A timing gate's reading is only valid when nothing else is competing**, which is obvious in
