@@ -93,3 +93,172 @@ This closes the BGM/J arc and Jäckel's headline instrument. Deferred to `to_go_
 **tight dual upper bound** (Andersen–Broadie / Rogers) to replace the loose perfect-foresight bracket.
 With T18 landed, a BGM/J checkpoint is written (the three-unit arc: LMM → European swaption →
 Bermudan, each anchored on the one before, the caplet→Black exact anchor underneath all of it).
+
+---
+
+# BUILT — results (appended at build; §1–7 above are Cowork's spec, unedited)
+
+`v0.21.0`. 657 tests, all eight gates green, ruff and pyright clean. `models/exercise_boundary.py`
+(L3), `products/bermudan_swaption.py` (L2), `engine/bermudan_swaption_mc.py` (L4), and the path
+widening in `engine/mc_path_engine.py`. **Eighteen mutations, all eighteen killed.**
+
+## 8. THE SOURCE IS INTERNALLY INCONSISTENT — eq 12.38 contradicts eq 12.39
+
+Both renderings of eq 12.38 print `+ p_i3` (`-layout` places the `±1` brace after that term; `-raw`
+disambiguates that the brace multiplies the whole bracket, and on *that* the two agree). But eq 12.39
+pins the final slice to `(0, 0, K)`, and §12.7 states exactly what that must mean: *"at the very last
+exercise opportunity we have exact knowledge if exercise is optimal, namely when the residual swap is
+in the money."*
+
+At `t_(n−1)` the residual swap is a single period, so its swap rate **is** `f_(n−1)`, and
+in-the-money for a payer is `f_(n−1) > K`. The two equations together give:
+
+| | `E_(n−1)` | payer exercises when | correct? |
+|---|---|---|---|
+| as printed (`+ p_i3`) | `f + K` | `f + K > 0` — **always**, for any positive rate | no |
+| ruled (`− p_i3`) | `f − K` | `f > K` | yes |
+
+Measured across seven forwards and both directions: the printed sign misclassifies **every
+out-of-the-money payer**. So §4's discrepancy rule applies — two steps of one source disagree, and
+the reader rules by the finance rather than deferring. 12.39 wins because it carries *exact financial
+content*; 12.38's sign convention is arbitrary.
+
+**And that arbitrariness is the interesting half, because it explains how such an error survives
+publication.** At every slice except the last, `p_i3` is a free parameter the optimiser fits, so it
+simply converges to `−p_i3` instead: the two conventions describe the *same family* of boundaries and
+produce identical decisions. The inconsistency is invisible everywhere the parameters are trained and
+decisive only at the one slice where they are pinned. Both facts are oracled — the final slice
+reproduces `ω(f − K) > 0` exactly, the printed variant is asserted to **fail** it (so the ruling is
+proved necessary, not preferred), and the trained-slice relabelling is asserted to be exact.
+
+Seventh source defect this project has found, and the second that is a genuine internal
+inconsistency rather than a transcription hazard (after `BERHAN-2012` §5.1's misprints).
+
+## 9. Jäckel's prescribed optimiser cannot train Jäckel's objective
+
+§12.8: *"one can use the Broyden-Fletcher-Goldfarb-Shanno multi-dimensional variable metric method
+for this optimisation."* **BFGS makes no progress whatsoever on eq 12.41.**
+
+Eq 12.41 averages an *indicator-selected* quantity, so it is **piecewise constant** in `p`: the value
+changes only when some path's exercise decision flips. Measured at the first training slice, with the
+attainable ceiling `mean(max(I_j, v_j))` for reference:
+
+| optimiser | `U_0` reached | iterations | share of the available gain |
+|---|---|---|---|
+| start `(0, 0, K)` — the European policy | 0.00290435 | — | 0% |
+| **BFGS** | **0.00290435** | **0** | **0%** |
+| L-BFGS-B | 0.00290435 | 0 | 0% |
+| Powell | 0.00363794 | 3 | 57% |
+| **Nelder-Mead** (adopted) | **0.00374813** | 17 | **65%** |
+| attainable ceiling | 0.00420242 | — | 100% |
+
+The finite-difference gradient at the start is **exactly zero** at `h = 1e-8` and `h = 1e-6`, and
+non-zero only at `h = 1e-4` — so what little a gradient method could see is an artefact of the step
+size, not a derivative. `train_slice` therefore uses Nelder-Mead, derivative-free, and the deviation
+is **oracled**: a test asserts BFGS leaves the objective at its starting value while Nelder-Mead
+improves it. That is §4's "assert the wrong variant fails" pattern applied to a numerical method
+rather than a formula.
+
+Two further guards the measurement forced: the start is the **European boundary** `(0, 0, K)` — a
+real, achievable policy, so training can only improve on it — and `train_slice` never returns
+something worse than its start, because Nelder-Mead on a piecewise-constant objective can terminate
+on a simplex that has drifted off a plateau, and a lower bound that can degrade is not a lower bound.
+
+## 10. The sandwich, and what it actually resolves
+
+A 6-period coterminal span, exercisable from index 2 (a 6-non-call-2), struck at the forward swap
+rate, 4,000 training and 8,000 pricing paths:
+
+| | value | ± SE |
+|---|---|---|
+| exercisable only at its last date | 1,484.64 | 20.72 |
+| **trained policy on fresh paths — LOWER bound** | **5,860.27** | 74.26 |
+| **perfect foresight, same paths — UPPER bound** | **6,783.50** | 79.56 |
+
+- **Early-exercise premium 4,375.63**, against a resolution (4× combined SE) of 308.40 — resolved at
+  14× the noise, so oracle 2 is a statement about early exercise and not about sampling.
+- **Sandwich width 15.75%** of the lower bound. That *is* this tranche's resolution, reported rather
+  than assumed tight: the true price lies in the bracket and nothing here narrows it further. A
+  tighter dual bound (Andersen–Broadie / Rogers) is the `to_go_deeper` route the spec names.
+- **In-sample bias +1.12%** when pricing on the training paths — Jäckel's *"slight upward bias"*,
+  measured rather than taken on faith, and the reason oracle 5 exists.
+
+**One honest negative about training-path count.** The lower bound does **not** improve monotonically
+with training: 500 → 5,890.09, 1,000 → 5,862.98, 2,000 → 5,849.68, 4,000 → 5,860.27, 8,000 →
+5,880.16 — a ~0.7% wobble with no trend. The three-parameter boundary is already near its best for
+this trade, so extra training paths move the *fitted* boundary around within a plateau rather than
+improving it. Oracle 3 therefore asserts non-decrease **within Monte Carlo error** rather than a
+strict rise, and the spec's expectation that the bound "rises toward the true price as training
+grows" is not observable at this parametrisation's capacity. The place to spend effort is a richer
+boundary, not more training paths.
+
+## 11. Five mutations survived the first pass; one of them was my own oracle repeating T17's lesson
+
+Eighteen mutations, five survivors initially — and the most instructive was **a 1.2% error hiding
+inside my own anchor**:
+
+1. **The annuity's numéraire division dropped.** Oracle 1 compared the single-exercise Bermudan to the
+   T17 European inside `4 × combined SE`, which at these path counts resolves only **8–11%** of the
+   price, so a 1.2% error sat comfortably inside. This is precisely the trap T17 ratified into §4 —
+   *a band wide enough to absorb Monte Carlo noise is wide enough to absorb a real defect* — and I
+   walked into it one tranche later. The fix was not a wider path count but recognising the comparison
+   can be **exact**: after this tranche's widening, a one-date Bermudan's schedule *is*
+   `PathGrid(T, steps)`, so both engines consume the same stream and produce the same payoff path by
+   path. Oracle 1 now asserts **bit-identical** PV *and* standard error.
+2. **The `intrinsic > 0` guard in the policy payoff.** Training makes firing out of the money rare
+   (it lowers eq 12.41), so no fixture reached the branch — §4's third survivor kind, dead defensive
+   code rather than an equivalent mutant. Fixed §4's way: exercised directly with a hand-built
+   boundary that fires everywhere and a negative intrinsic.
+3. **The induction direction reversed.** Both directions produce a *valid lower bound*, so no bound in
+   the file could see it. A first fix — asserting the earliest slice's continuations are non-zero —
+   **also failed to catch it**, because running forwards still rolls the values, just through
+   successors whose boundaries are not yet fitted. What distinguishes the directions is the whole
+   chain, so the oracle now **reconstructs §12.8's recursion independently** from `roll_continuations`
+   and `train_slice` (both pinned pointwise at L3) and requires the engine's policy to match slice for
+   slice.
+4. **The continuation roll made a no-op** — same blind spot; fixed by extracting Jäckel's step 1 as a
+   named function and transcribing it against a hand-built three-path slice.
+5. **The second coordinate switched from `s_{i+1}` to `s_i`.** §12.6's entire finding is *which*
+   projection separates the exercise domain, and the two rates are highly correlated, so the boundary
+   retrains and every bound still holds. Fixed by transcribing the coordinate pointwise against an
+   independent swap-rate computation, with a non-vacuity assertion that the two rates differ.
+
+The pattern across 2–5 is one thing: **a price-level bound cannot see the algorithm that produced it.**
+Four of the five survivors were pieces of §12.8's *procedure*, and every oracle that caught them in
+the end was a pointwise check on a named step — which is why the extraction of `roll_continuations`,
+`train_exercise_policy` and `ExerciseSlices` from private helpers into named, oracled surface was
+part of the fix rather than cosmetic.
+
+## 12. The engine widening, and its purity proof
+
+`simulate_forward_paths(model, schedule, config)` is now the single definition of eq 13.2, with
+`simulate_terminal_forwards` a last-slice read of it — the rule-of-two consolidation T17 deferred to
+this tranche's real second consumer. **Proved bit-identically**, which is the right bar because the
+refactor reorders nothing: recording the intermediate states does not change how the final one is
+computed. Asserted bit-for-bit across every forward and path, in two forms — a one-segment schedule
+reproducing the old terminal result, and a *two*-segment schedule reaching the same endpoint, which is
+the sharper of the two (it proves segmenting does not disturb the random stream). All T16 and T17
+oracles stay green unchanged.
+
+## 13. Findings for Cowork (§10 — raised, not decided)
+
+1. **The eq 12.38 / 12.39 sign ruling (§8).** I ruled it by the finance per §4 rather than blocking,
+   since §4 prescribes exactly that procedure and the ruling is pinned by an oracle that the printed
+   variant fails. Confirm the ruling, and confirm it belongs in `docs/references.md` as a recorded
+   source defect alongside `BERHAN-2012` §5.1's.
+2. **The BFGS deviation (§9).** `train_slice` uses Nelder-Mead against the source's explicit BFGS,
+   because the objective is piecewise constant and BFGS measurably achieves nothing. Rule whether the
+   deviation stands as built and whether the measurement belongs in the references entry too — this
+   is a limitation of the published method, not of our reading of it.
+3. **Candidate §4 rule, from §11:** *a bound on a price cannot see the algorithm that produced it.*
+   Where a method is a multi-step procedure (a backward induction, a training loop), oracle the
+   **steps pointwise** — extracting them into named surface if they are buried in a private helper —
+   because any valid-but-wrong variant of the procedure still satisfies the output bounds. Four of
+   five first-pass survivors were procedure steps, and no price-level oracle caught any of them.
+4. **The spec's oracle 3 is not observable at this parametrisation (§10).** The lower bound does not
+   rise with training paths; it wobbles ~0.7% with no trend, because the three-parameter boundary is
+   already at its capacity for this trade. I built it as non-decrease within MC error. Rule whether
+   that stands, and whether a richer boundary is a unit worth pulling.
+5. **The sandwich is 15.75% wide**, which is the honest resolution of this tranche and is wide. The
+   spec names Andersen–Broadie / Rogers as the `to_go_deeper` tightening; worth ruling whether that
+   becomes a real unit now that the arc's headline is landed, or stays parked.
