@@ -31,16 +31,25 @@ from pricebook.models.swap_rate_vol import (
     tenor_discount_factors,
 )
 
-# NON-UNIT accruals and NON-UNIFORM correlation, both deliberate. A `τ = 1` fixture has defeated an
-# oracle in this project five times (the accrual goes invisible); a flat `ρ` makes the INDEXING of
-# `ρ_ij` invisible, which is the trap T17's own spec names.
+# **NON-UNIFORM accruals and a correlation built on real TIMES, and both are deliberate.** Three
+# degeneracies have to be excluded here, not two:
+#   * `τ = 1` makes the accrual invisible (five prior defects in this project), so no `τ` is 1;
+#   * a FLAT `τ` makes the span OFFSET invisible — `accruals[:count]` and `accruals[first:first+count]`
+#     are then the same slice, and a mutation dropping the offset survives;
+#   * a correlation `exp(−β|i−j|)` is non-uniform yet TRANSLATION-INVARIANT, so `ρ[first+m][first+l]`
+#     equals `ρ[m][l]` and the span offset is invisible there too. Jäckel eq 12.12 writes the decay in
+#     the actual times `t_i`, not in index distance; with non-uniform accruals that is no longer
+#     translation-invariant, which is both the faithful reading and the non-degenerate one.
+# All three were found by mutation, not by inspection — two mutants survived the whole suite first.
 TENOR = LmmTenor(
-    accruals=(0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+    accruals=(0.50, 0.25, 0.50, 0.75, 0.50, 0.25),
     forwards=(0.030, 0.034, 0.038, 0.042, 0.045, 0.047),
     volatilities=(0.22, 0.20, 0.18, 0.16, 0.15, 0.14),
 )
+#: `T_i`, the cumulative accruals — the times Jäckel's eq 12.12 decays in.
+TIMES = tuple(math.fsum(TENOR.accruals[:i]) for i in range(len(TENOR)))
 RHO = LmmCorrelation(
-    tuple(tuple(math.exp(-0.35 * abs(i - j)) for j in range(6)) for i in range(6))
+    tuple(tuple(math.exp(-0.35 * abs(TIMES[i] - TIMES[j])) for j in range(6)) for i in range(6))
 )
 
 
@@ -158,7 +167,16 @@ def test_O4_the_CORRELATION_fixture_is_not_degenerate():
     key parameter sat where it could not be seen, so the non-degeneracy is a test, not a comment."""
     off_diagonal = {RHO.matrix[i][j] for i in range(6) for j in range(6) if i != j}
     assert len(off_diagonal) > 1
-    assert len(set(TENOR.accruals)) == 1 and TENOR.accruals[0] != 1.0, "τ ≠ 1 — the accrual visible"
+    assert 1.0 not in TENOR.accruals, "τ ≠ 1 — the accrual visible"
+    assert len(set(TENOR.accruals)) > 1, "τ NON-FLAT — the span offset visible"
+    # And the correlation must not be TRANSLATION-INVARIANT, stated as the property the surviving
+    # mutant actually needed: the ρ block a span reads must differ from the block at offset 0. An
+    # `exp(−β|i−j|)` correlation fails this while looking perfectly non-uniform, which is how the
+    # offset-dropping mutant passed all 603 tests.
+    for first, count in ((2, 4), (1, 4), (3, 3)):
+        offset = [[RHO.matrix[first + m][first + l] for l in range(count)] for m in range(count)]
+        unoffset = [[RHO.matrix[m][l] for l in range(count)] for m in range(count)]
+        assert offset != unoffset, f"ρ is translation-invariant over span ({first}, {count})"
     assert len(set(TENOR.volatilities)) == len(TENOR.volatilities), "σ_i all distinct"
 
 

@@ -33,10 +33,13 @@ and that is the shared *word* §6 warns about: MM-I and MM-II model inflation fo
 inflation measure, this models nominal forward rates under a bond's forward measure, and none of
 their parameter sets or payoff maps line up. Three concrete types.
 
-**One scope choice, stated.** `correlation` is a single scalar `ρ` applied to every distinct pair —
-the flat-correlation case. Jäckel's `ρ_ik` is a full matrix, and §12.4 discusses parametric forms for
-it; a real correlation structure arrives with the unit that needs one (a swaption fit discriminates
-correlation shapes; a caplet strip does not), rather than speculatively here.
+**The correlation is a full matrix, and tranche 17 is the unit that pulled it.** Tranche 16 shipped a
+single scalar `ρ` and said a real structure would arrive "with the unit that needs one (a swaption fit
+discriminates correlation shapes; a caplet strip does not)". The European swaption is that unit: its
+whole reason to need the LMM rather than a caplet strip is the forward-forward correlation, and a
+**flat** `ρ` makes the *indexing* of `ρ_ik` invisible — transpose it, or offset it, and a flat matrix
+returns the same number. `LmmCorrelation.flat` keeps the flat case one call away, and its equivalence
+to the old scalar branch is proved bit-identically rather than argued.
 
 Provenance:
   stock:  parked/ng/.../swaption_mc.py and models/mc_processes.py — mined for SHAPE and edge cases
@@ -92,6 +95,55 @@ class LmmTenor:
 
 
 @dataclass(frozen=True)
+class LmmCorrelation:
+    """The FRA/FRA correlation `ρ_ij` — Jäckel §12.4's object, whose eq 12.12 gives one parametric form.
+
+    A frozen matrix rather than a loose nested tuple, because the three things that make it a
+    *correlation* matrix — square, symmetric, unit diagonal — are checked once here instead of
+    trusted at every read. `ρ_ii = 1` living in the matrix is what lets `drift_matrix` drop its
+    `1.0 if k == i else ρ` branch: the diagonal is data, not a special case.
+
+    Positive-semidefiniteness is deliberately **not** checked here. It is a property of the
+    covariance the simulation decomposes, and `foundation.linalg.pseudo_square_root` already refuses
+    a non-PSD matrix with a rounding floor — the right place, since that is where it bites. Checking
+    it twice would mean two thresholds that can disagree."""
+
+    matrix: tuple[tuple[float, ...], ...]
+
+    def __post_init__(self) -> None:
+        n = len(self.matrix)
+        if n == 0:
+            raise ValueError("a correlation matrix needs at least one entry")
+        for i, row in enumerate(self.matrix):
+            if len(row) != n:
+                raise ValueError(f"a correlation matrix must be square; row {i} has {len(row)} of {n}")
+        for i in range(n):
+            if self.matrix[i][i] != 1.0:
+                raise ValueError(
+                    f"a correlation matrix must have a unit diagonal; entry ({i},{i}) is "
+                    f"{self.matrix[i][i]}"
+                )
+            for j in range(n):
+                if not -1.0 <= self.matrix[i][j] <= 1.0:
+                    raise ValueError(
+                        f"a correlation must lie in [-1, 1]; entry ({i},{j}) is {self.matrix[i][j]}"
+                    )
+                if self.matrix[i][j] != self.matrix[j][i]:
+                    raise ValueError(
+                        f"a correlation matrix must be symmetric; ({i},{j}) is "
+                        f"{self.matrix[i][j]} but ({j},{i}) is {self.matrix[j][i]}"
+                    )
+
+    @classmethod
+    def flat(cls, size: int, rho: float) -> LmmCorrelation:
+        """Every distinct pair at `rho`, the diagonal at exactly `1.0` — tranche 16's scalar case."""
+        return cls(tuple(tuple(1.0 if i == j else rho for j in range(size)) for i in range(size)))
+
+    def __len__(self) -> int:
+        return len(self.matrix)
+
+
+@dataclass(frozen=True)
 class LiborMarketModel:
     """The BGM/J model under the `P_N`-forward measure, with a flat correlation.
 
@@ -100,13 +152,14 @@ class LiborMarketModel:
     reachable."""
 
     tenor: LmmTenor
-    correlation: float
+    correlation: LmmCorrelation
     numeraire_index: int
 
     def __post_init__(self) -> None:
-        if not -1.0 <= self.correlation <= 1.0:
+        if len(self.correlation) != len(self.tenor):
             raise ValueError(
-                f"the correlation must lie in [-1, 1], got {self.correlation}"
+                f"the correlation must be {len(self.tenor)}x{len(self.tenor)} to match the tenor, "
+                f"got {len(self.correlation)}"
             )
         if not 1 <= self.numeraire_index <= len(self.tenor):
             raise ValueError(
@@ -154,7 +207,7 @@ class LiborMarketModel:
         """`M[i][k]` — eq 12.8's **constant** part, so that `µ_i = Σ_k ratio_k · M[i][k]`.
 
         `M[i][k] = ±σ_i·ρ_ik` for `k` inside branch `i`'s summation span and `0` outside it, with the
-        sign from the branch and `ρ_ii = 1`. Writing 12.8 this way is what lets the scalar and
+        sign from the branch and `ρ_ii = 1` carried by the matrix itself. Writing 12.8 this way is what lets the scalar and
         vectorised paths share one definition: the engine multiplies a `(paths × n)` ratio array by
         this matrix, and `drift_at` takes one row of it. The row for `i = N−1` is all zeros, which is
         the martingale branch falling out of the construction rather than being special-cased twice."""
@@ -170,7 +223,6 @@ class LiborMarketModel:
                 else:
                     span, sign = range(numeraire, i + 1), 1.0
                 for k in span:
-                    rho = 1.0 if k == i else self.correlation
-                    row[k] = sign * sigma[i] * rho
+                    row[k] = sign * sigma[i] * self.correlation.matrix[i][k]
             rows.append(tuple(row))
         return tuple(rows)

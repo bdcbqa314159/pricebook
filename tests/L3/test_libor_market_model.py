@@ -37,6 +37,7 @@ TENOR = LmmTenor(
     volatilities=(0.22, 0.20, 0.18, 0.16),
 )
 RHO = 0.80
+RHO_MATRIX = LmmCorrelation.flat(len(TENOR), RHO)
 
 
 def _reference_drift(i: int, numeraire: int, tenor: LmmTenor = TENOR, rho: float = RHO) -> float:
@@ -55,7 +56,7 @@ def _reference_drift(i: int, numeraire: int, tenor: LmmTenor = TENOR, rho: float
 
 
 def _model(numeraire: int) -> LiborMarketModel:
-    return LiborMarketModel(tenor=TENOR, correlation=RHO, numeraire_index=numeraire)
+    return LiborMarketModel(tenor=TENOR, correlation=RHO_MATRIX, numeraire_index=numeraire)
 
 
 # ============================================================================================
@@ -136,7 +137,7 @@ def test_the_drift_MOVES_when_the_FORWARDS_move():
     base = _model(numeraire=2).drift(3)
     shifted = LiborMarketModel(
         tenor=LmmTenor(TENOR.accruals, (0.030, 0.034, 0.060, 0.070), TENOR.volatilities),
-        correlation=RHO,
+        correlation=RHO_MATRIX,
         numeraire_index=2,
     ).drift(3)
     assert shifted != pytest.approx(base, rel=1e-9)
@@ -148,7 +149,7 @@ def test_the_drift_vanishes_as_the_FORWARDS_go_to_zero():
     `f_k = 0`. So a zero yield curve has no drift at all, whatever the vols."""
     flat = LiborMarketModel(
         tenor=LmmTenor(TENOR.accruals, (0.0, 0.0, 0.0, 0.0), TENOR.volatilities),
-        correlation=RHO,
+        correlation=RHO_MATRIX,
         numeraire_index=2,
     )
     for i in range(4):
@@ -159,7 +160,7 @@ def test_the_drift_vanishes_at_ZERO_volatility():
     """The other exact reduction — `sigma_i` is an overall factor on both branches."""
     zero_vol = LiborMarketModel(
         tenor=LmmTenor(TENOR.accruals, TENOR.forwards, (0.0, 0.0, 0.0, 0.0)),
-        correlation=RHO,
+        correlation=RHO_MATRIX,
         numeraire_index=2,
     )
     for i in range(4):
@@ -185,16 +186,19 @@ def test_a_NEGATIVE_volatility_is_refused():
         LmmTenor(accruals=(0.5,), forwards=(0.03,), volatilities=(-0.1,))
 
 
-def test_an_OUT_OF_RANGE_correlation_is_refused():
-    with pytest.raises(ValueError, match="must lie"):
-        LiborMarketModel(tenor=TENOR, correlation=1.5, numeraire_index=2)
+def test_a_correlation_of_the_WRONG_SIZE_is_refused():
+    """The range check moved to `LmmCorrelation` with tranche 17's matrix (tested there); what the
+    model itself must now refuse is a matrix that does not match its tenor — a mismatch that would
+    otherwise read `ρ` out of range of the forwards, or silently use a sub-block."""
+    with pytest.raises(ValueError, match="to match the tenor"):
+        LiborMarketModel(tenor=TENOR, correlation=LmmCorrelation.flat(3, 0.8), numeraire_index=2)
 
 
 def test_a_BAD_numeraire_index_is_refused():
     with pytest.raises(ValueError, match="numeraire"):
-        LiborMarketModel(tenor=TENOR, correlation=RHO, numeraire_index=0)
+        LiborMarketModel(tenor=TENOR, correlation=RHO_MATRIX, numeraire_index=0)
     with pytest.raises(ValueError, match="numeraire"):
-        LiborMarketModel(tenor=TENOR, correlation=RHO, numeraire_index=5)
+        LiborMarketModel(tenor=TENOR, correlation=RHO_MATRIX, numeraire_index=5)
 
 
 def test_a_BAD_forward_index_is_refused():
@@ -241,23 +245,41 @@ def _decaying(size: int, beta: float = 0.35) -> LmmCorrelation:
 
 
 def test_T17_a_flat_correlation_reproduces_the_scalar_case_BIT_IDENTICALLY():
-    """The widening is a PURE REFACTOR in the flat case, and bit-identity is the available proof.
+    """The widening is a PURE REFACTOR in the flat case, and the proof is bit-identity of the one
+    expression the refactor touched — not of the drift against this file's reference.
 
-    `LmmCorrelation.flat` must put exactly `ρ` off the diagonal and exactly `1.0` on it — the same
-    floats the scalar branch produced, consumed in the same order — so the drift's operations are
-    not merely equivalent but identical. §4 permits the exact-arithmetic-identity substitute only
-    when a refactor reorders the operations; this one does not, so the stronger proof is owed."""
-    flat = LmmCorrelation.flat(len(TENOR), 0.80)
+    The refactored line went from `sign * sigma[i] * (1.0 if k == i else rho)` to
+    `sign * sigma[i] * matrix[i][k]`. Same two multiplications, same order, same operands — PROVIDED
+    `matrix[i][k]` holds exactly the float the conditional produced. So that is what is asserted,
+    exactly, and bit-identity of the drift follows as a theorem rather than a measurement.
+
+    **Deliberately NOT asserted: `model.drift(i) == _reference_drift(i, ...)`.** Those differ in the
+    last bit and always did — the model groups eq 12.8 as `ratio_k · (sign·σ_i·ρ)` while the
+    reference groups it as `sign·σ_i · (ratio_k·ρ)`, which is a reordering, pre-existing and nothing
+    to do with this refactor. Claiming bit-identity there would be the false claim §4 names; the
+    pointwise oracles above compare them at `rel=1e-15`, which is the honest statement."""
+    flat = LmmCorrelation.flat(len(TENOR), RHO)
     for i in range(len(TENOR)):
         for j in range(len(TENOR)):
-            assert flat.matrix[i][j] == (1.0 if i == j else 0.80)
+            assert flat.matrix[i][j] == (1.0 if i == j else RHO)
 
+    # The refactored expression itself, bit-for-bit, at every numeraire and every entry.
+    sigma = TENOR.volatilities
     for numeraire in range(1, len(TENOR) + 1):
-        model = LiborMarketModel(TENOR, flat, numeraire_index=numeraire)
-        for index in range(len(TENOR)):
-            # The reference values this file already pins for the scalar case, recomputed here from
-            # eq 12.8 — not read back from the model (§4 independence).
-            assert model.drift(index) == _reference_drift(index, numeraire, rho=0.80)
+        matrix = LiborMarketModel(TENOR, flat, numeraire_index=numeraire).drift_matrix()
+        for i in range(len(TENOR)):
+            if i == numeraire - 1:
+                assert matrix[i] == (0.0,) * len(TENOR)
+                continue
+            span, sign = (
+                (range(i + 1, numeraire), -1.0)
+                if i < numeraire - 1
+                else (range(numeraire, i + 1), 1.0)
+            )
+            for k in range(len(TENOR)):
+                scalar_branch = 1.0 if k == i else RHO
+                expected = sign * sigma[i] * scalar_branch if k in span else 0.0
+                assert matrix[i][k] == expected
 
 
 def test_T17_the_matrix_is_REFUSED_unless_it_is_a_correlation_matrix():

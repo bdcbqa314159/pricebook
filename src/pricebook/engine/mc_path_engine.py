@@ -101,7 +101,7 @@ def _step_factorisation(
     n = len(sigma)
     covariance = [
         [
-            sigma[i] * sigma[j] * (1.0 if i == j else model.correlation) * dt
+            sigma[i] * sigma[j] * model.correlation.matrix[i][j] * dt
             for j in range(n)
         ]
         for i in range(n)
