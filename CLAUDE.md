@@ -96,6 +96,15 @@ through it, never as a second argument, so a model/market mismatch cannot be exp
    shape (`PricingResult | PricingFailure`) is unchanged. *(T17 finding 5; ruled by Cowork and
    **accepted by Bernardo** 2026-11-05, implemented at v0.20.1 — `OPEN.md` OI-2 closed. The caplet
    pricer needed no change: it returns a `MonteCarloEstimate`, which carried its error already.)*
+   **`MonteCarloEstimate` and `PricingResult` are two layers, not two shapes for one idea.**
+   `MonteCarloEstimate` (mean, standard error, n_samples) is the L0 **statistical primitive** the
+   estimator produces; `PricingResult` is the §3 **engine return**. An L4 engine that prices via MC
+   holds an estimate internally and **projects** it into a `PricingResult` (pv = mean × discount ×
+   notional, SE likewise); a non-engine MC *helper* (`mc_caplet_price` — not `@register`ed, no Caplet
+   product) correctly returns the raw primitive. A caplet gains a `PricingResult`-returning engine
+   only when a Caplet product pulls one (product-pull), not before. *(T18 ruling: a third MC pricer —
+   the Bermudan engine — returns a `PricingResult` with SE, so there is one engine-result shape, not
+   three.)*
 
 ---
 
