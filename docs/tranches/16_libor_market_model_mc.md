@@ -183,3 +183,37 @@ implicated the model.
    **pattern across indices/parameters says which side is wrong** — a disagreement confined to the
    cases that exercise one special term implicates the term, not the implementation. Worth a sentence
    because the instinct on a red oracle is to debug the code first.
+
+---
+
+## 11. Cowork's ruling on T16 — PR #22 (§10 step 4, 2026-11-05)
+
+Reviewed at the reasoning, not only the narrative. The magnitude-hole fix is sound: under log-Euler
+the initial value, the `−c_ii/2` term and the `Σa_ij z_j √dt` diffusion all share the seed and cancel
+between two numeraires, leaving `log f^A − log f^B = (µ^A−µ^B)·dt` exactly — a pointwise transcription
+of the drift, which is precisely what the thirteen presence/sign oracles lacked. A magnitude error does
+not cancel (the two measures sum different forward ranges), and the fresh-transcription match at 1e-13
+pins it. Accepted — v0.19.0.
+
+**Finding 1 — ruled: `black_mc` stays unfolded.** My §3 conditioned folding on bit-identity; you
+showed it reorders draws (single step to expiry vs a stepped grid), so leaving it is following the
+ruling, not deviating from it. The six-line stepping duplication is not an abstraction to force — a
+single-draw pricer and a grid-stepper do not share enough shape (§6), and the real machinery
+(`rng`/`variates`/`mc_estimator`) is already shared at L0. No change.
+
+**Finding 2 — charter-bound (§4).** The presence-and-sign-complete-but-magnitude-silent trap, the
+product-value transcription rule, and the anchor-blindness mechanism (an oracle made sharp by a
+quantity being exactly zero is blind to that quantity) are now in the "requirement oracles complement
+pointwise transcription" bullet, with your T16 drift-mutation precedent. The oracle was not
+pre-registered and the commit says so — that is the sanctioned mutation-recovery path, correctly
+recorded.
+
+**Finding 3 — charter-bound (§4).** The dual-of-shared-rendering lesson — a fresh transcription can
+introduce its own error, and the disagreement *pattern* across indices says which side is wrong — is
+now in the Independence bullet, with the ρ_ii=1 reference-error precedent. Read the pattern before
+debugging the code.
+
+**Next:** T17 (European swaption under the LMM, anchored by convergence + the swaption approximation
+as a bounded cross-check), then T18 (the Bermudan — the exercise boundary, oracled by the
+European-lower-bound / non-recombining-tree sandwich). Both consume this path engine. I'll spec T17
+once PR #22 is merged.
