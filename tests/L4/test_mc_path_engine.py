@@ -22,7 +22,13 @@ from functools import lru_cache
 
 import pytest
 
-from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
+from pricebook.engine.mc_path_engine import (
+    ObservationSchedule,
+    PathGrid,
+    mc_caplet_price,
+    simulate_forward_paths,
+    simulate_terminal_forwards,
+)
 from pricebook.foundation import CapFloorKind
 from pricebook.models.black import black_price
 from pricebook.models.black_mc import MonteCarloConfig
@@ -329,3 +335,71 @@ def test_O2_the_drift_MAGNITUDE_matches_eq_12_8_with_NO_monte_carlo_error(index)
     # Path-INDEPENDENT, and that is the identity rather than an artefact of averaging.
     assert max(observed) - min(observed) < 1e-14
     assert observed[0] == pytest.approx(expected, rel=1e-11)
+
+
+# ---------------------------------------------------------------------------------------------
+# Tranche 18 — the engine returns a PATH, not only an endpoint. This is the widening tranche 17
+# deliberately deferred: *"the Bermudan (T18) is the consumer that needs intermediate states; it is
+# a hypothetical future at T17, so widening the engine now would be the speculative surface §6
+# forbids."* Rule-of-two fires now — the swaption reads the endpoint, the Bermudan reads the path.
+# ---------------------------------------------------------------------------------------------
+
+
+def test_T18_the_terminal_simulation_is_the_LAST_SLICE_of_the_path_BIT_IDENTICALLY():
+    """The refactor's purity proof, and bit-identity is the right bar here because the arithmetic is
+    untouched: recording the intermediate states does not change how the final one is computed.
+
+    §4 allows the exact-arithmetic-identity substitute only when a refactor *reorders* floating-point
+    operations. This one does not reorder anything — it stores values the loop already produced — so
+    the stronger proof is owed and available. Asserted bit-for-bit across every forward and path,
+    not to a tolerance."""
+    schedule = ObservationSchedule(times=(EXPIRY,), steps_per_segment=GRID.steps)
+    paths = simulate_forward_paths(_driftless_model(), schedule, CONFIG)
+    terminal = simulate_terminal_forwards(_driftless_model(), GRID, CONFIG)
+
+    assert len(paths) == len(terminal) == CONFIG.paths
+    for path, endpoint in zip(paths, terminal):
+        assert len(path) == 1
+        assert path[-1] == endpoint          # tuple equality: every float bit-for-bit
+
+
+def test_T18_an_INTERMEDIATE_observation_does_not_disturb_the_TERMINAL_one():
+    """Observing mid-flight must not change where the path ends — the property that makes the
+    widening safe for tranches 16 and 17, whose oracles all read the endpoint.
+
+    This is sharper than the test above: there, one segment covered the whole horizon with the same
+    step count, so the loops were trivially the same. Here the path is observed at `EXPIRY/2` as
+    well, and the terminal state must still be reached by the same total number of steps consuming
+    the same draws in the same order. If segmenting changed the stream, this would fail."""
+    halves = ObservationSchedule(times=(EXPIRY / 2.0, EXPIRY), steps_per_segment=GRID.steps // 2)
+    observed = simulate_forward_paths(_driftless_model(), halves, CONFIG)
+    whole = simulate_terminal_forwards(_driftless_model(), GRID, CONFIG)
+
+    for path, endpoint in zip(observed, whole):
+        assert len(path) == 2
+        assert path[-1] == endpoint
+
+
+def test_T18_each_observation_is_the_state_at_ITS_OWN_time():
+    """Non-vacuity: an engine returning the same state at every observation would satisfy the two
+    tests above (both only read the last slice). The states must actually differ, and the EARLIER
+    one must be closer to today's curve — the forwards diffuse away from `f(0)` as time runs."""
+    schedule = ObservationSchedule(times=(EXPIRY / 4.0, EXPIRY), steps_per_segment=2)
+    paths = simulate_forward_paths(_driftless_model(), schedule, CONFIG)
+
+    initial = TENOR.forwards[TARGET]
+    early = [abs(p[0][TARGET] - initial) for p in paths]
+    late = [abs(p[1][TARGET] - initial) for p in paths]
+    assert math.fsum(early) / len(early) < math.fsum(late) / len(late)
+    assert any(p[0] != p[1] for p in paths), "the two observations must not be the same state"
+
+
+def test_T18_a_BAD_observation_schedule_is_refused():
+    with pytest.raises(ValueError, match="increasing"):
+        ObservationSchedule(times=(1.0, 0.5), steps_per_segment=2)
+    with pytest.raises(ValueError, match="positive"):
+        ObservationSchedule(times=(0.0, 1.0), steps_per_segment=2)
+    with pytest.raises(ValueError, match="at least one"):
+        ObservationSchedule(times=(), steps_per_segment=2)
+    with pytest.raises(ValueError, match="at least one step"):
+        ObservationSchedule(times=(1.0,), steps_per_segment=0)
