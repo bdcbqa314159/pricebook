@@ -58,3 +58,46 @@ ch-5 calibrations — pricing analytics, verified, seasoned. What the document s
 tables* (Figs 1.1, 1.2, 5.1–5.10). Nothing above licenses reading a number off a chart — a deeper
 build reproduces the *structure* (a sign, a monotonicity, a reduction), with every number attributed
 to the library and its oracle.
+
+---
+
+## `JAECKEL-2002` — *Monte Carlo Methods in Finance* (the completion arc: T15–T22)
+
+Built as the working spine: generation (7, 8, 9), processes (2, 3, 4), variance reduction (10 core),
+Greeks (11), the BGM/J application (12). See `docs/jaeckel_completion_arc.md`. What the book still
+holds — chapters skipped wholesale, then the debt *inside* the chapters we closed:
+
+**Whole chapters deferred:**
+
+1. **Salvaging a linear correlation matrix (ch 6).** Market correlation matrices are often not
+   positive-semidefinite; ch 6 projects them to the nearest PSD matrix (hypersphere / spectral /
+   angular decompositions). **Route:** an L1/L0 utility taking a non-PSD matrix to its nearest valid
+   one, oracled by the eigenvalue floor and the Frobenius-nearest property. **Source:** `JAECKEL-2002`
+   ch 6 (`worked-from`) — in hand. A genuinely useful utility with no consumer yet.
+2. **Non-recombining trees (ch 13).** Jäckel's independent cross-check for the Bermudan (T18 oracled
+   by a tree-free sandwich instead). **Route:** the ch-13 tree as the independent benchmark on a
+   short-dated Bermudan; also the tight dual upper bound (Andersen–Broadie) that would replace T18's
+   15.75% loose bracket. **Source:** `JAECKEL-2002` ch 13 (`worked-from`); Andersen–Broadie is
+   `referenced-by`, not in hand. Cross-refs the BGM/J arc's own `to_go_deeper`.
+3. **Copulæ and multi-asset dependence (ch 5, §9.4).** Co-dependence beyond a linear correlation;
+   simulating multivariate copula draws. **Route:** a copula layer when a multi-asset product pulls
+   one. **Source:** `JAECKEL-2002` ch 5 / §9.4 (`worked-from`). No multi-asset product yet.
+4. **Engineering notes (ch 14).** CPU usage, overflow/underflow, parallelism, embedded path creation.
+   **Route:** performance work when a product is too slow in practice — not a pricing capability.
+
+**Debt inside the chapters we closed:**
+
+- **ch 2:** the Feynman-Kac theorem and the Moore-Penrose pseudo-inverse — theory we did not need as
+  code (the LMM used a pseudo-square-root, not the pseudo-inverse).
+- **ch 3:** the exotic processes — Bessel, constant-elasticity-of-variance, displaced diffusion — none
+  pulled by a product (GBM and the lognormal LMM were enough).
+- **ch 4:** the Milstein scheme and the strong/weak-convergence theory (we built the predictor-
+  corrector log-Euler; Milstein is a higher-order route if a product needs it).
+- **ch 9:** simulating copula draws (§9.4) — ties to ch 5's deferral.
+- **ch 10:** the variance-reduction techniques beyond the T19/T21 core — stratified sampling,
+  importance sampling, moment matching, Latin hypercube, variate recycling, spectral path
+  construction. Each a route pulled by a product whose accuracy the core did not reach.
+
+**The honesty caveat (as for BERHAN):** Jäckel's results are convergence diagrams, not tables (§14.4).
+Any deeper build reproduces the *structure* — a rate, a bound, a variance-reduction factor — with
+every number attributed to the library and its oracle, never read off a plot.
