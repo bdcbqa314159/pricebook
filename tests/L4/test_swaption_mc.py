@@ -163,8 +163,7 @@ def test_O2_the_price_RISES_with_correlation_by_more_than_the_monte_carlo_noise(
 # ============================================================================================
 
 
-def _estimate_from_paths(first: int, count: int, strike: float, kind=SwaptionKind.PAYER,
-                         rho: LmmCorrelation = RHO, config: MonteCarloConfig = CONFIG):
+def _estimate_from_paths(swaption: EuropeanSwaption, config: MonteCarloConfig = CONFIG):
     """The mean AND standard error of the swaption payoff, from the simulation the engine consumes.
 
     **Its purpose narrowed when §3 invariant 7 landed.** It used to be how every banded oracle got a
@@ -172,7 +171,8 @@ def _estimate_from_paths(first: int, count: int, strike: float, kind=SwaptionKin
     read `out.standard_error` directly. What remains is the better use: an INDEPENDENT recomputation
     of the payoff on the same paths, which checks the engine's mean AND its error bar rather than
     merely supplying a number the engine could have been wrong about."""
-    paths = simulate_terminal_forwards(_model(first, count, rho), _grid(first), config)
+    first, count = swaption.span.first, swaption.span.count
+    paths = simulate_terminal_forwards(_model(first, count), _grid(first), config)
     tau = TENOR.accruals
     payoffs = []
     for forwards in paths:
@@ -183,7 +183,7 @@ def _estimate_from_paths(first: int, count: int, strike: float, kind=SwaptionKin
         annuity = math.fsum(tau[first + m] * bonds[m] for m in range(count))
         swap_rate = (1.0 - bonds[-1]) / annuity
         payoffs.append(
-            annuity / bonds[-1] * max(kind.omega * (swap_rate - strike), 0.0)
+            annuity / bonds[-1] * max(swaption.kind.omega * (swap_rate - swaption.strike), 0.0)
         )
     return estimate(payoffs)
 
@@ -446,7 +446,7 @@ def test_INV7_a_monte_carlo_result_CARRIES_its_standard_error():
     assert out.standard_error > 0.0
 
     scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
-    sampled = _estimate_from_paths(first, count, strike)
+    sampled = _estimate_from_paths(_swaption(first, count, strike))
     # Both halves of the composition, since the banded oracles no longer recompute either: the PV is
     # the payoff mean scaled, and the error bar is the estimator's own scaled the SAME way.
     assert out.pv.amount == pytest.approx(sampled.mean * scale, rel=1e-12)

@@ -6,6 +6,64 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-05
+
+Tranche 19 — **variance reduction I**: antithetic sampling (`JAECKEL-2002` §10.1) and control
+variates (§10.3). First unit of the Jäckel completion arc. Both reducers at L0
+(`foundation/mc_estimator.py`, finance-free), both wired at L4 — antithetic as a mirrored-draw mode on
+the path engine, the control variate into the Bermudan pricer. **Sixteen mutations, all sixteen
+killed on the first pass.**
+
+### The spec's headline was refuted: the Bermudan sandwich is structural, not sampling error
+The spec expected the control variate to narrow tranche 18's 15.75% bracket. It cannot. Measured over
+a **64x path increase**, the width holds at 15.19% / 15.75% / 15.08% / 15.39% while the standard error
+falls 151.25 -> 18.75 — a factor of 8 across 64x paths, the `-1/2` rate exactly. Measured in standard
+errors the gap *grows* from 5.9 to 48.8. The width is the perfect-foresight bias plus the policy's
+suboptimality, both structural, and tranche 18's own numbers already implied it (the gap was 12 SE
+wide, not one). So the deliverable is **sharper error bars**, not a narrower bracket — and the oracle
+now asserts that the reduction shrinks the SE and leaves the bracket *invariant*, which is itself the
+check, since a reduction that moved the bracket would be introducing bias.
+
+### The spec's chosen control was biased; an exactly-centred one exists and is better
+Eq 10.8 is unbiased *only* because `g*` is the **exact** `E[g]`. The spec named the Rebonato swaption,
+whose mean is an approximation (§5.11: the LMM swap rate is not lognormal) — centring on it injects
+the ~0.5% freezing error as a permanent bias, which is what the spec's own oracle 1 forbids.
+
+The alternative needs no model result at all: under the `P_N`-forward measure every
+asset-over-numeraire ratio is a **martingale**, so the numeraire-relative annuity `A/B_N` has
+expectation `A(0)/B_N(0)` exactly, by construction. Measured correlation with the Bermudan payoff
+**+0.7368**, a **54% variance reduction** (SE x 0.676), zero bias, with the martingale property
+verified (simulated mean within 0.66 SE of the analytic value). The intrinsic at the first exercise
+date correlates marginally better (0.7444) but has no closed-form mean, so it is not a control.
+
+### The constant-control fallback is the finance, and it saved tranche 18's sharpest oracle
+For a single-period residual swap `A/B_N` collapses to exactly `tau` on every path — the identity
+behind tranche 17's one-period reduction — so the control has zero variance and `beta* = Cov/V[g]` is
+undefined. A constant control is the *absence* of one, and the engine falls back to the plain
+estimator. This is also how the issue surfaced: four tranche-18 oracles went red on the first wiring,
+because T18's oracle 1 demands a one-exercise-date Bermudan match the T17 European **bit-identically**
+and reducing one side broke it. Widening that back into an SE band would have undone the power T18
+gained — it was precisely an 8-11%-resolving band that hid a 1.2% defect there.
+
+### Jäckel does not print the variance factor
+Eqs 10.7/10.8/10.9 are printed and both renderings agree exactly. The factor `V[v](1 - rho^2)` is
+**not in the source** — the second time this book has sent us to a formula it does not print (after
+T15's inverse CDF). It is *derived* from 10.9 in two lines and asserted as a **theorem**, verified to
+2e-17 against a synthetic pair whose correlation is fixed by construction. §10.3 also offers a third
+route for `beta` the spec's framing omitted — a pilot simulation, which is both optimal and provably
+unbiased; `control_variate_estimate` accepts an explicit `beta` so a caller can supply one.
+
+### Notes
+- Two of my own test errors, caught by execution: "antithetic has exactly zero SE on a linear payoff"
+  is zero in R and **1.5e-18** in floating point (the summands round, not the estimator), and I had
+  the centring-bias **sign** backwards — eq 10.8 adds `beta(g* - g)`, so raising `g*` raises the mean.
+- A process error worth recording: I backgrounded `verify.py slow` and then ran the full suite and
+  pyright on top of it. The gate reported a file at **690.6s** against a true 1.75s — a 400x artefact
+  of CPU contention I created. A timing gate's reading is only valid when nothing else competes.
+- Three `# noqa: E731` suppressions were removed rather than ledgered (lambdas became named
+  functions), and a 6-argument test helper I introduced in T17 was bundled to satisfy §7.
+- 674 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.21.0] - 2026-11-05
 
 Tranche 18 — the **Bermudan swaption under the LMM**, Jäckel's headline instrument, priced inside a

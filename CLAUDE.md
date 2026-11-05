@@ -298,6 +298,21 @@ not an oracle. Ruled principles:
   exact optimum no other start can beat) and assert **distance from truth** beside spread: spread
   shows non-uniqueness, distance shows wrongness. (T11: `ρnI`'s spread read 22% without the truth in
   the start set and 469% with it — recovered at the *wrong sign* at rms 8e-15.)
+- **A variance reduction must be proved UNBIASED before it is credited with reducing anything — and
+  the commonest way to break that is a control variate centred on an APPROXIMATION.** A control
+  variate `X̄ − β(Ȳ − E[Y])` is unbiased only because `E[Y]` is the *exact* mean; centre it on an
+  approximate price and the approximation's error becomes permanent — a bias no path count removes, and
+  the unbiasedness oracle (the reduced estimator must still hit the closed form) is what catches it. So
+  **an approximation is not a control, however well it correlates.** The free, exactly-centred controls
+  live in the measure: under a numéraire measure every asset/numéraire ratio is a martingale, so
+  `E[A/B_N] = A(0)/B_N(0)` *by construction, no model result involved*. Pick the control there.
+  *(T19: the Rebonato swaption (a §5.11 approximation) was specced as the Bermudan's control and would
+  have injected its ~0.5% freezing error permanently; replaced by the numéraire-relative annuity —
+  exact mean, ρ = 0.74, a 54% variance reduction matching `√(1−ρ²)` to 1e-12, zero bias. And a
+  separate trap: a price-sandwich that is **structural** (foresight bias + policy suboptimality, its
+  width invariant as the SE falls — T18's Bermudan held at ~15% over 64× paths) is NOT sampling error,
+  so variance reduction sharpens each price's SE but cannot narrow it; the invariance of the bracket
+  under reduction is itself the unbiasedness check.)*
 - **A tolerance that lumps two error sources together cannot tell them apart — and a band wide enough
   to absorb Monte-Carlo noise is wide enough to absorb a real defect.** Band an MC-vs-approximation
   check as `k·SE + the approximation's own MEASURED error` (the SE measured from the *same* paths the
@@ -407,7 +422,11 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
 - **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` · `slow` ·
   `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
   (transcendental results differ 1–2 ULP across runtimes); the byte-identical statelessness check
-  is same-process only.
+  is same-process only. **A timing gate's reading is only valid when measured in isolation** — running
+  `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a
+  backgrounded gate under load read 690s against a true 1.75s, a 400× artefact). And its headroom is
+  not bankable: re-time a file after adding oracles rather than assume the margin (T19: six oracles
+  added to the Bermudan file without re-timing produced a real Windows `slow` failure).
 - **One branch per tranche** (`tranche/<NN>-<slug>`), commit sequence `test (RED) → feat (GREEN) →
   docs → chore(release)`. One version bump + one `CHANGELOG.md` entry per tranche; CI asserts
   `__version__` matches the top entry.

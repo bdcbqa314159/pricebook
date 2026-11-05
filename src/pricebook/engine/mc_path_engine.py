@@ -155,7 +155,10 @@ def _step_factorisation(
 
 
 def simulate_forward_paths(
-    model: LiborMarketModel, schedule: ObservationSchedule, config: MonteCarloConfig
+    model: LiborMarketModel,
+    schedule: ObservationSchedule,
+    config: MonteCarloConfig,
+    mirrored: bool = False,
 ) -> list[tuple[tuple[float, ...], ...]]:
     """The forward curve at each of `schedule.times`, one tuple of states per path — eq 13.2.
 
@@ -165,6 +168,14 @@ def simulate_forward_paths(
     reproduces the old terminal result **bit-for-bit**. Recording the intermediate states does not
     alter how the final one is computed, which is why §4's stronger proof (bit-identity) is owed here
     rather than the exact-arithmetic-identity substitute — no operation is reordered.
+
+    **`mirrored=True` is tranche 19's antithetic mode (§10.1):** the same seed, the same stream, every
+    normal negated — *"if a single evaluation driven by a Gaussian variate vector draw `z_i` is given
+    by `v_i = v(z_i)`, we also use `ṽ_i = v(−z_i)`."* One flag rather than a second function, because
+    it is the *same* simulation with one sign: a caller pairs the two runs and averages, and the
+    pairing plus the standard error is `foundation.mc_estimator.antithetic_estimate`'s business. The
+    negation is applied to the normals, not the uniforms — mirroring `u` would give `1−u`, which is
+    the antithetic *uniform*, a different and weaker technique for a Gaussian-driven model.
 
     **The factorisation is recomputed per segment**, because `dt` differs between segments when the
     observation times are unevenly spaced; within a segment it is constant, so it is computed once
@@ -188,6 +199,8 @@ def simulate_forward_paths(
     normals = np.array(standard_normals(uniforms)[:needed], dtype=float).reshape(
         total_steps, config.paths, n
     )
+    if mirrored:
+        normals = -normals
 
     forwards = np.tile(np.array(model.tenor.forwards, dtype=float), (config.paths, 1))
     observed: list[np.ndarray] = []

@@ -64,7 +64,19 @@ reduction, path construction), 11 (Greeks), 12 (BGM/J), 14 (diagnostics).
 - **Stock base catalogued** in `docs/stock/mc_base_inventory.md` (an already-once-migrated MC stack —
   mined for content and its migration-hardening edge cases, never for structure, never imported).
 
-**Status `worked-from`** (T15–T18: the MC spine, the LMM, the European and Bermudan swaptions).
+**Status `worked-from`** (T15–T19: the MC spine, the LMM, the swaptions, variance reduction).
+
+**A standing pattern — Jäckel states results and leaves load-bearing formulas unprinted.** Twice now a
+spec said "transcribe from Jäckel" a formula the book does not contain: the inverse-CDF (§9.3 recommends
+Acklam/Moro, prints neither — T15) and the control-variate variance factor `(1−ρ²)` (§10.3 — T19).
+*Corrected at commit:* the draft said §10.3 "states the result, prints no derivation". It states
+**neither**. All §10.3 says of the optimum is that eq 10.9's `β*` is the choice *"which minimises the
+variance of `v̂_CV`"*; the resulting variance is never written, and `ρ` never appears in the section.
+That distinction is the point of recording the pattern at all — "stated but not derived" would make
+the factor transcribable from a printed line, and it is not. The substitute is to **derive it and assert it as a theorem to
+machine precision** (T19: derived from eq 10.9, matched at 2e-17) — which is stronger than
+transcription, being immune to a source misprint. Check whether a formula is actually printed before a
+spec says "transcribe it."
 
 **Source defects found (recorded, as `BERHAN-2012` §5.1's are):**
 - **§12.8 eqs 12.38 vs 12.39 — an internal sign inconsistency.** Both print `+ p_i3`, but 12.39 pins

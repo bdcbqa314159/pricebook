@@ -26,6 +26,7 @@ import pytest
 
 from pricebook.engine.bermudan_swaption_mc import (
     BermudanMcConfig,
+    _control_mean,
     _exercise_times,
     _policy_payoff,
     exercise_slices,
@@ -33,7 +34,16 @@ from pricebook.engine.bermudan_swaption_mc import (
     price_bermudan_swaption,
     train_exercise_policy,
 )
-from pricebook.engine.mc_path_engine import ObservationSchedule, PathGrid
+from pricebook.engine.mc_path_engine import (
+    ObservationSchedule,
+    PathGrid,
+    simulate_forward_paths,
+)
+from pricebook.foundation.mc_estimator import (
+    antithetic_estimate,
+    control_variate_estimate,
+    estimate,
+)
 from pricebook.models.exercise_boundary import (
     BoundaryParams,
     BoundaryState,
@@ -47,7 +57,7 @@ from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.libor_market_model import LiborMarketModel, LmmCorrelation, LmmTenor
-from pricebook.models.swap_rate_vol import forward_swap_rate
+from pricebook.models.swap_rate_vol import forward_swap_rate, tenor_discount_factors
 from pricebook.products.bermudan_swaption import BermudanSwaption
 from pricebook.products.swaption import EuropeanSwaption, SwapSpan, SwaptionKind
 
@@ -161,10 +171,14 @@ def test_O1_the_second_COORDINATE_is_the_NEXT_coterminal_swap_rate_not_this_one(
     sliced = exercise_slices(bermudan, model, schedule, CONFIG.pricing)
     indices = bermudan.exercise_indices
 
+    # Simulated ONCE and indexed. A first version called the simulator inside this double loop —
+    # sixteen full simulations for four paths — which is what took the file over the `slow` ceiling
+    # on CI. The oracle is unchanged; only the arithmetic per assertion is.
+    paths = simulate_forward_paths(model, schedule, CONFIG.pricing)
     for j in (0, 1, 7, 99):
         path_states = sliced.states[j]
         for slot, i in enumerate(indices):
-            forwards = _rebuild_forwards(model, schedule, CONFIG.pricing, j, slot)
+            forwards = paths[j][slot]
             assert path_states[slot].forward == forwards[i]
             if i + 1 < SPAN.end:
                 nxt = _swap_rate(forwards, TENOR.accruals, i + 1, SPAN.end)
@@ -172,12 +186,6 @@ def test_O1_the_second_COORDINATE_is_the_NEXT_coterminal_swap_rate_not_this_one(
                 assert path_states[slot].swap_rate == pytest.approx(nxt, rel=1e-14)
                 # Non-vacuity: the two coordinates must actually differ, or the oracle is blind.
                 assert abs(nxt - own) > 1e-6
-
-
-def _rebuild_forwards(model, schedule, config, path: int, slot: int):
-    from pricebook.engine.mc_path_engine import simulate_forward_paths
-
-    return simulate_forward_paths(model, schedule, config)[path][slot]
 
 
 def _swap_rate(forwards, accruals, first: int, end: int) -> float:

@@ -49,7 +49,7 @@ import math
 from dataclasses import dataclass
 
 from pricebook.engine.mc_path_engine import ObservationSchedule, simulate_forward_paths
-from pricebook.foundation.mc_estimator import estimate
+from pricebook.foundation.mc_estimator import control_variate_estimate, estimate
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.models.black_mc import MonteCarloConfig
@@ -62,7 +62,7 @@ from pricebook.models.exercise_boundary import (
     train_slice,
 )
 from pricebook.models.libor_market_model import LiborMarketModel
-from pricebook.models.swap_rate_vol import tenor_discount_factors
+from pricebook.models.swap_rate_vol import swap_annuity, tenor_discount_factors
 from pricebook.products.bermudan_swaption import BermudanSwaption
 
 
@@ -100,6 +100,7 @@ class ExerciseSlices:
     intrinsics: tuple[tuple[float, ...], ...]
     states: tuple[tuple[BoundaryState, ...], ...]
     count: int
+    controls: tuple[float, ...] = ()
 
 
 def price_bermudan_swaption(
@@ -120,7 +121,40 @@ def price_bermudan_swaption(
         _policy_payoff(trained, priced.states[j], priced.intrinsics[j], bermudan.kind.omega)
         for j in range(priced.count)
     ]
-    return _result(estimate(payoffs), bermudan, model)
+    return _result(_reduced(payoffs, priced.controls, bermudan, model), bermudan, model)
+
+
+def _reduced(payoffs, controls, bermudan: BermudanSwaption, model: LiborMarketModel):
+    """The control-variate estimate, falling back to the plain one when the control is constant.
+
+    **The fallback is the finance, not a safety net.** For a single-period residual swap the
+    numéraire-relative annuity collapses to exactly `τ` on every path — the same identity that makes
+    tranche 17's one-period reduction exact — so the control has zero variance and explains nothing;
+    §10.3's `β* = Cov/V[g]` is undefined there. A constant control is not a degraded control, it is
+    the absence of one.
+
+    It also preserves tranche 18's sharpest oracle. A one-exercise-date Bermudan must agree with the
+    tranche-17 European **bit-identically**; reducing one side and not the other would have forced
+    that back into a standard-error band, undoing the power T18 gained. The fallback means both sides
+    are plain in exactly the case where the comparison is exact."""
+    if len({*controls}) <= 1:
+        return estimate(payoffs)
+    return control_variate_estimate(payoffs, controls, _control_mean(bermudan, model))
+
+
+def _control_mean(bermudan: BermudanSwaption, model: LiborMarketModel) -> float:
+    """`E[A(T_first)/B(T_first,T_N)] = A(0)/B(0,T_N)` — known **exactly**, which is the whole point.
+
+    **Why this control and not the Rebonato swaption the T19 spec names.** A control variate is
+    unbiased only if its mean is the *exact* expectation (§10.3 eq 10.8); Black(Rebonato) is an
+    approximation — §5.11 proves the LMM swap rate is not lognormal — so centring on it would inject
+    the ~0.5% freezing error as a permanent bias, which is precisely what the spec's own oracle 1
+    forbids. The numéraire-relative annuity needs no model result at all: under the `P_N`-forward
+    measure every asset-over-numéraire ratio is a **martingale**, so `A/B_N` has expectation
+    `A(0)/B_N(0)` by construction, exactly. Measured correlation with the Bermudan payoff is ~0.74,
+    for a ~54% variance reduction — better than any approximate control could honestly deliver."""
+    annuity = swap_annuity(model.tenor, bermudan.span.first, bermudan.span.count)
+    return annuity / tenor_discount_factors(model.tenor)[bermudan.span.end]
 
 
 def perfect_foresight_price(
@@ -136,7 +170,9 @@ def perfect_foresight_price(
     schedule = ObservationSchedule(times=times, steps_per_segment=config.steps_per_segment)
     sliced = exercise_slices(bermudan, model, schedule, config.pricing)
     payoffs = [max(max(row), 0.0) for row in sliced.intrinsics]
-    return _result(estimate(payoffs), bermudan, model)
+    # Reduced the SAME way as the policy price, so the bracket compares two estimators of equal
+    # construction on one path set rather than one sharpened and one not.
+    return _result(_reduced(payoffs, sliced.controls, bermudan, model), bermudan, model)
 
 
 def _refuse(
@@ -207,6 +243,7 @@ def exercise_slices(
     paths = simulate_forward_paths(model, schedule, config)
     intrinsics: list[tuple[float, ...]] = []
     states: list[tuple[BoundaryState, ...]] = []
+    controls: list[float] = []
     for path in paths:
         row_intrinsic: list[float] = []
         row_state: list[BoundaryState] = []
@@ -229,7 +266,11 @@ def exercise_slices(
             )
         intrinsics.append(tuple(row_intrinsic))
         states.append(tuple(row_state))
-    return ExerciseSlices(tuple(intrinsics), tuple(states), len(paths))
+        # The CONTROL VARIATE (tranche 19): `A/B_N` at the first exercise date. Stored here because
+        # `_residual_swap` already computes it for the intrinsic, and because it is the one control
+        # whose mean is known EXACTLY — see `price_bermudan_swaption`.
+        controls.append(_residual_swap(path[0], accruals, indices[0], end)[1])
+    return ExerciseSlices(tuple(intrinsics), tuple(states), len(paths), tuple(controls))
 
 
 def train_exercise_policy(
