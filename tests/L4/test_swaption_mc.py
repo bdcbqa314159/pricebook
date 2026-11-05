@@ -426,3 +426,43 @@ def test_O6_a_BAD_span_or_a_MISMATCHED_numeraire_is_a_PricingFailure_not_a_wrong
     assert isinstance(out, PricingFailure) and "numeraire" in out.reason
     out = price_european_swaption(_swaption(0, 7, strike), good, _grid(2), CONFIG)
     assert isinstance(out, PricingFailure) and "span" in out.reason
+
+
+# ---------------------------------------------------------------------------------------------
+# §3 INVARIANT 7 — an estimate carries its error. Ruled by Cowork 2026-11-05 (T17 finding 5),
+# accepted by Bernardo the same day; `OPEN.md` OI-2 ledgered the gap until this landed.
+# ---------------------------------------------------------------------------------------------
+
+
+def test_INV7_a_monte_carlo_result_CARRIES_its_standard_error():
+    """`a price is 100 ± 0.3, not 100` — the SE is part of an estimate's identity, not a by-product.
+
+    The engine already computes it inside `estimate(...)`; before this it threw it away and every
+    banded oracle re-simulated to recover it. The field must be scaled the same way the PV is, since
+    `pv = mean × discount × notional` is a deterministic scaling of the estimator."""
+    first, count = 2, 4
+    strike = forward_swap_rate(TENOR, first, count)
+    out = price_european_swaption(
+        _swaption(first, count, strike), _model(first, count), _grid(first), CONFIG
+    )
+    assert isinstance(out, PricingResult)
+    assert out.standard_error is not None
+    assert out.standard_error > 0.0
+
+    scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
+    sampled = _estimate_from_paths(first, count, strike)
+    assert out.standard_error == pytest.approx(sampled.standard_error * scale, rel=1e-12)
+    # The error bar must be small relative to the price, or it is not an estimate of anything.
+    assert out.standard_error < 0.05 * out.pv.amount
+
+
+def test_INV7_the_standard_error_DEFAULTS_to_None_for_an_exact_pricer():
+    """`None` rather than `0.0`, and the distinction carries information: zero would claim a
+    perfectly precise estimate, while `None` says *this is not an estimate at all*. An exact pricer
+    conflated with an infinitely-accurate simulation is how a tolerance gets invented downstream.
+
+    Asserted on the default so every existing exact pricer inherits it without being touched — the
+    field rides along where it is meaningful and is absent where it is not, which is the half of
+    invariant 7 that keeps it from becoming surface on sixteen engines that will never set it."""
+    assert PricingResult(pv=Money(1.0, EUR)).standard_error is None
+    assert PricingResult(pv=Money(1.0, EUR)) == PricingResult(pv=Money(1.0, EUR))
