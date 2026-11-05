@@ -9,8 +9,11 @@ every sub-section — exactly as BERHAN "closed" at ch 1–5 with risk/HJM/smile
 Jäckel's argument is not *simulate* but **simulate well**: generate good randomness (7,8,9) → drive
 processes (2,3,4) → **reduce the variance** (10) → get Greeks (11) → apply to the market model (12) →
 cross-check with trees (13). T15–T18 built the generation core, the process core, and the whole
-application (12) — and *measured* the gap: the Bermudan sandwich is 15.75% wide because the MC is
-noisy. The arc closes that gap.
+application (12). The arc makes the MC *sharp* — smaller standard error at the same path count, so
+every banded oracle resolves a finer defect. **Note the correction T19 forced:** the Bermudan's 15.75%
+sandwich is **structural** (perfect-foresight bias + policy suboptimality — its width is invariant as
+the SE falls), *not* sampling error, so variance reduction sharpens each price but does not narrow that
+bracket; tightening it needs a better exercise policy or the dual bound (`to_go_deeper`).
 
 ## Chapter map (at arc start, v0.21.0)
 
@@ -32,9 +35,11 @@ noisy. The arc closes that gap.
 | 14 Miscellanea | n/a (engineering) | — |
 
 ## The arc — four tranches
-- **T19 — Variance reduction I: antithetic (10.1) + control variates (10.3).** Our analytic prices
-  (Black, the Rebonato swaption) as controls; directly tightens the 15.75% sandwich. Oracle:
-  unbiasedness (exact) + measured variance reduction.
+- **T19 — Variance reduction I: antithetic (10.1) + control variates (10.3).** *(Built, v0.22.0.)*
+  The control must have an **exact** mean — the specced Rebonato control was an approximation and would
+  have injected bias; replaced by the numéraire-relative annuity (exact by the martingale property),
+  ρ=0.74, 54% variance reduction, zero bias. Oracle: unbiasedness (exact, against our closed forms) +
+  measured reduction.
 - **T20 — Inverse-CDF (9.1, Acklam) + Sobol (8).** The deferred inversion finally built (Sobol needs a
   monotone transform, not Box-Muller) — Bernardo acquires Acklam's note. Oracle: beats the −½ rate.
 - **T21 — Path construction / the Brownian bridge (10.8).** Path-dependent payoffs; the classic

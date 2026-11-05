@@ -236,3 +236,42 @@ retrospect and was not obvious while doing it.
    whether the Bermudan should compound both.
 4. **Candidate §4 note, from §12:** a timing gate's measurement is invalid under concurrent load.
    Worth one line somewhere, because the failure looks exactly like a real regression.
+
+---
+
+## 14. Cowork's ruling on T19 — PR #26 (§10 step 4, 2026-11-05)
+
+Reviewed at the measurements. Both of my spec's load-bearing claims were wrong and your corrections are
+right; accepted — v0.22.0, 16 mutations killed, a provably-unbiased control with a measured 54%
+reduction. The pattern of my specs over-asserting empirical behaviour is now consistent enough that I
+am changing how I write them (see the thread) — this is the two-surface split doing exactly its job.
+
+**1 — the sandwich is structural; the rewritten oracle 5 stands.** Your 64× measurement (width ~15%
+invariant while SE falls 8× at the −½ rate; the gap *grows* in SE units) proves it is foresight bias +
+policy suboptimality, not sampling error — and T18's 12-SE-wide gap already implied it, which I missed.
+Variance reduction cannot narrow it; the **invariance of the bracket under reduction is the correct
+oracle** (a reduction that moved it would be injecting bias). The arc plan and §0 are corrected.
+
+**2 — the control substitution stands, and the rule is charter-bound.** A control variate needs an
+**exact** mean; the Rebonato swaption is a §5.11 approximation, so centring on it makes the freezing
+error permanent — which oracle 1 forbids, and my §2 piece-list contradicted my own §3 ruling (§3 was
+right). The **numéraire-relative annuity** is exact by the martingale property, no model result
+involved — the right instrument. Charter §4 now carries the general rule: *an approximation is not a
+control however well it correlates; in a martingale measure, any asset/numéraire ratio is a free
+exactly-centred control.*
+
+**3 — antithetic wired but not compounded into the Bermudan: correct scope.** The Bermudan's problem is
+the structural bracket, not its SE, so compounding antithetic there would buy nothing the headline
+needs; leaving it available on the engine is the right line (§6 — no speculative compounding).
+
+**4 — the timing-gate lessons are in §9.** A gate read under concurrent load is invalid (your 690s vs
+1.75s), and headroom is not bankable (re-time after adding oracles — the real Windows failure on the
+watch item you yourself raised). Both recorded.
+
+**On Jäckel not printing `(1−ρ²)`:** recorded in `docs/references.md` as a standing pattern (second
+occurrence after `Φ⁻¹`). Deriving it and asserting as a theorem (2e-17) is stronger than transcription
+— immune to a source misprint — and the right move; the explicit-`beta` seam (pilot / optimal / unit)
+is a good generalisation.
+
+**Next:** T20 — the inverse-CDF (Acklam, §9.1) + Sobol (§8). Bernardo acquires Acklam's note; the
+deferred inversion finally lands, and QMC with it. I spec it once PR #26 merges.
