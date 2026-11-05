@@ -101,6 +101,17 @@ def test_a_NON_FINITE_sample_is_refused_not_averaged():
 # ---------------------------------------------------------------------------------------------
 
 
+def _call(x: float) -> float:
+    """Monotone and convex in the draw — so antithetic reduces, but not to zero."""
+    return max(x - 0.5, 0.0)
+
+
+def _square(x: float) -> float:
+    """SYMMETRIC in the draw, so the mirror is identical: `Cov[v, ṽ] > 0` and eq 10.1 fails. This is
+    the case that proves the reduction condition is doing work rather than always holding."""
+    return x * x
+
+
 def _normals(count: int, seed: int = 7) -> list[float]:
     from pricebook.foundation.rng import UniformSource
     from pricebook.foundation.variates import standard_normals
@@ -118,15 +129,22 @@ def test_T19_antithetic_is_EXACT_on_a_payoff_LINEAR_in_the_draw():
     """The sharpest antithetic check, and it is exact rather than statistical.
 
     For `v(z) = a·z + b`, the pairwise average `½(v(z) + v(−z))` is `b` for **every** draw, so the
-    estimator has zero variance and its standard error is exactly zero. No path count is involved —
-    this is algebra, and it fails immediately if the mirror is not `−z` or the `½` is dropped."""
+    estimator has zero variance. No path count is involved — this is algebra, and it fails
+    immediately if the mirror is not `−z` or the `½` is dropped.
+
+    **Zero in exact arithmetic, ~1e-18 in floating point, and the oracle says the second.** A first
+    version of this test asserted `standard_error == 0.0` and failed at `1.5e-18`: `3z + 1.5` and
+    `−3z + 1.5` each round, so their sum is not bit-exactly `3.0` for every draw. The residual is
+    machine noise on the *summands*, not variance in the estimator, so the assertion is a
+    relative-to-the-mean bound at the floating-point floor — the charter's tolerance rule applied to
+    a quantity that is exact in ℝ and cannot be in `float`."""
     z = _normals(2_000)
     values = [3.0 * x + 1.5 for x in z]
     mirrored = [3.0 * (-x) + 1.5 for x in z]
 
     reduced = antithetic_estimate(values, mirrored)
     assert reduced.mean == pytest.approx(1.5, rel=1e-15)
-    assert reduced.standard_error == 0.0
+    assert reduced.standard_error < 1e-15 * abs(reduced.mean)
     assert reduced.n_samples == len(z)
 
 
@@ -135,9 +153,8 @@ def test_T19_antithetic_REDUCES_but_not_to_zero_on_a_CONVEX_payoff():
     general. A call is convex, so the mirror does not cancel — the variance falls but stays positive,
     and the reduction is real rather than an artefact of linearity."""
     z = _normals(20_000)
-    call = lambda x: max(x - 0.5, 0.0)  # noqa: E731
-    plain = estimate([call(x) for x in z])
-    reduced = antithetic_estimate([call(x) for x in z], [call(-x) for x in z])
+    plain = estimate([_call(x) for x in z])
+    reduced = antithetic_estimate([_call(x) for x in z], [_call(-x) for x in z])
 
     assert reduced.standard_error > 0.0
     assert reduced.standard_error < plain.standard_error
@@ -155,8 +172,7 @@ def test_T19_the_antithetic_STANDARD_ERROR_comes_from_the_PAIRWISE_averages():
     which is worse than a large one. Asserted by showing the two differ and that `n_samples` is `N`,
     not `2N`."""
     z = _normals(4_000)
-    call = lambda x: max(x - 0.5, 0.0)  # noqa: E731
-    values, mirrored = [call(x) for x in z], [call(-x) for x in z]
+    values, mirrored = [_call(x) for x in z], [_call(-x) for x in z]
 
     reduced = antithetic_estimate(values, mirrored)
     pooled = estimate(values + mirrored)
@@ -175,7 +191,7 @@ def test_T19_antithetic_reduces_variance_EXACTLY_WHEN_the_pair_covariance_is_neg
     a symmetric one (`v(z) = z²`, where the mirror is identical) has `Cov > 0` and antithetic makes
     things worse per unit of work — the case that proves the condition is doing something."""
     z = _normals(20_000)
-    for payoff, monotone in ((lambda x: max(x - 0.5, 0.0), True), (lambda x: x * x, False)):
+    for payoff, monotone in ((_call, True), (_square, False)):
         values = [payoff(x) for x in z]
         mirrored = [payoff(-x) for x in z]
         pairs = [0.5 * (a + b) for a, b in zip(values, mirrored, strict=True)]
@@ -259,8 +275,10 @@ def test_T19_the_control_must_be_centred_on_its_EXACT_mean_or_the_estimator_is_B
     honest = control_variate_estimate(x, y, control_mean=0.0)
     wrong = control_variate_estimate(x, y, control_mean=0.05)
 
+    # Eq 10.8 ADDS `β(g* − g)`, so raising `g*` RAISES the estimate. (A first version of this test
+    # had the sign backwards; the direction is part of what is being pinned.)
     shift = honest.beta * 0.05
-    assert wrong.mean == pytest.approx(honest.mean - shift, rel=1e-12)
+    assert wrong.mean == pytest.approx(honest.mean + shift, rel=1e-12)
     # The bias is many standard errors wide — it would not be mistaken for noise, it would be
     # mistaken for a price.
     assert abs(wrong.mean - honest.mean) > 10.0 * honest.standard_error
