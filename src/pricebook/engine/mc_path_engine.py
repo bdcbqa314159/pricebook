@@ -88,6 +88,42 @@ class PathGrid:
         return self.horizon / self.steps
 
 
+@dataclass(frozen=True)
+class ObservationSchedule:
+    """The times a simulation must report its state at, and how finely to step between them.
+
+    **The generalisation of `PathGrid`, pulled by the Bermudan (tranche 18).** A European payoff
+    reads one date, so `PathGrid(horizon, steps)` served tranches 16 and 17; a Bermudan evaluates its
+    exercise decision at *every* exercise date, so it needs the state at each. Rule-of-two fires here
+    — the swaption reads the endpoint, the Bermudan reads the path — which is exactly the second
+    consumer tranche 17 deferred this widening to rather than building it speculatively (§6).
+
+    `steps_per_segment` applies between consecutive observations, so the discretisation is uniform
+    *within* a segment and the observation times themselves may be unevenly spaced — which they are,
+    since exercise dates follow the tenor's accruals. Jäckel does the same (§12.9: *"10 steps to the
+    first exercise decision at t = 1, and then one in between each subsequent exercise
+    opportunities"*), though he distributes them unevenly; one count for all segments is the
+    simplification, and it is what makes the reduction to `PathGrid` exact."""
+
+    times: tuple[float, ...]
+    steps_per_segment: int
+
+    def __post_init__(self) -> None:
+        if not self.times:
+            raise ValueError("an observation schedule needs at least one time")
+        if self.times[0] <= 0.0:
+            raise ValueError(f"an observation time must be positive, got {self.times[0]}")
+        for earlier, later in zip(self.times, self.times[1:]):
+            if later <= earlier:
+                raise ValueError(
+                    f"observation times must be strictly increasing, got {earlier} then {later}"
+                )
+        if self.steps_per_segment < 1:
+            raise ValueError(
+                f"a schedule needs at least one step per segment, got {self.steps_per_segment}"
+            )
+
+
 def _step_factorisation(
     model: LiborMarketModel, dt: float
 ) -> tuple[tuple[tuple[float, ...], ...], tuple[float, ...]]:
@@ -118,47 +154,79 @@ def _step_factorisation(
     return pseudo_square_root(covariance, factors=n), diagonal
 
 
-def simulate_terminal_forwards(
-    model: LiborMarketModel, grid: PathGrid, config: MonteCarloConfig
-) -> list[tuple[float, ...]]:
-    """The forward curve at `grid.horizon`, one tuple per path — eq 13.2 stepped along the grid.
+def simulate_forward_paths(
+    model: LiborMarketModel, schedule: ObservationSchedule, config: MonteCarloConfig
+) -> list[tuple[tuple[float, ...], ...]]:
+    """The forward curve at each of `schedule.times`, one tuple of states per path — eq 13.2.
 
-    **Vectorised over paths, and that was the `slow` gate's doing.** The scalar version evolved one
-    path at a time: 20,000 paths x 8 steps x 4 forwards of Python arithmetic took the oracle file to
-    8.4s locally, which is ~35s on CI against a 10s ceiling. Vectorising is the remedy the gate
-    itself prescribes, and the honest one — the alternative was cutting path counts until the oracles
-    lost their power.
+    **The one definition of the evolution; `simulate_terminal_forwards` is now a thin last-slice read
+    of this.** The loop is unchanged from tranche 16's: the same vectorised log-Euler step, the same
+    single random stream consumed in the same step-major order, so a schedule of one segment
+    reproduces the old terminal result **bit-for-bit**. Recording the intermediate states does not
+    alter how the final one is computed, which is why §4's stronger proof (bit-identity) is owed here
+    rather than the exact-arithmetic-identity substitute — no operation is reordered.
+
+    **The factorisation is recomputed per segment**, because `dt` differs between segments when the
+    observation times are unevenly spaced; within a segment it is constant, so it is computed once
+    there rather than per step or per path.
 
     **Eq 12.8 still has exactly one definition.** The drift is `ratio(state) @ M.T`, where `M` is the
     model's own `drift_matrix()` (12.8's constant part) and `ratio` its `state_ratios` (the
     state-dependent part) — the same two pieces the scalar `drift_at` composes. The engine does the
     multiplication; it does not restate the formula, which §4 forbids."""
     n = len(model.tenor)
-    factorisation, diagonal = _step_factorisation(model, grid.dt)
+    total_steps = len(schedule.times) * schedule.steps_per_segment
 
-    a = np.array(factorisation, dtype=float)                 # (n, n) step pseudo-square-root
     drift_matrix = np.array(model.drift_matrix(), dtype=float)
     tau = np.array(model.tenor.accruals, dtype=float)
     sigma = np.array(model.tenor.volatilities, dtype=float)
-    half_variance = 0.5 * np.array(diagonal, dtype=float)
 
-    # One stream for the whole simulation, consumed in a fixed order, so the same seed reproduces
-    # the same paths exactly (§3/§9) however the array is reshaped.
-    needed = config.paths * grid.steps * n
+    # One stream for the whole simulation, consumed in a fixed step-major order, so the same seed
+    # reproduces the same paths exactly (§3/§9) however the array is reshaped or segmented.
+    needed = config.paths * total_steps * n
     uniforms = UniformSource(seed=config.seed).uniforms(needed + needed % 2)
     normals = np.array(standard_normals(uniforms)[:needed], dtype=float).reshape(
-        grid.steps, config.paths, n
+        total_steps, config.paths, n
     )
 
     forwards = np.tile(np.array(model.tenor.forwards, dtype=float), (config.paths, 1))
-    for step in range(grid.steps):
-        scaled = forwards * tau
-        ratios = scaled / (1.0 + scaled) * sigma          # `state_ratios`, vectorised
-        drift = ratios @ drift_matrix.T                   # eq 12.8 for every path at once
-        forwards = forwards * np.exp(
-            drift * grid.dt - half_variance + normals[step] @ a.T
-        )
-    return [tuple(float(x) for x in row) for row in forwards]
+    observed: list[np.ndarray] = []
+    step = 0
+    previous = 0.0
+    for time in schedule.times:
+        dt = (time - previous) / schedule.steps_per_segment
+        factorisation, diagonal = _step_factorisation(model, dt)
+        a = np.array(factorisation, dtype=float)             # (n, n) step pseudo-square-root
+        half_variance = 0.5 * np.array(diagonal, dtype=float)
+        for _ in range(schedule.steps_per_segment):
+            scaled = forwards * tau
+            ratios = scaled / (1.0 + scaled) * sigma         # `state_ratios`, vectorised
+            drift = ratios @ drift_matrix.T                  # eq 12.8 for every path at once
+            forwards = forwards * np.exp(
+                drift * dt - half_variance + normals[step] @ a.T
+            )
+            step += 1
+        # `forwards` is REASSIGNED each step, never mutated, so this records the state as it was.
+        observed.append(forwards)
+        previous = time
+
+    return [
+        tuple(tuple(float(x) for x in state[path]) for state in observed)
+        for path in range(config.paths)
+    ]
+
+
+def simulate_terminal_forwards(
+    model: LiborMarketModel, grid: PathGrid, config: MonteCarloConfig
+) -> list[tuple[float, ...]]:
+    """The forward curve at `grid.horizon`, one tuple per path — the last slice of a one-segment path.
+
+    Kept as its own name because that is what tranches 16 and 17 ask for and a terminal payoff should
+    not have to index a path it never wanted. It delegates rather than duplicating the loop: one
+    definition of eq 13.2, and the delegation is bit-identical because a single segment over
+    `[0, horizon]` with `grid.steps` steps *is* the old computation, operation for operation."""
+    schedule = ObservationSchedule(times=(grid.horizon,), steps_per_segment=grid.steps)
+    return [path[-1] for path in simulate_forward_paths(model, schedule, config)]
 
 
 def mc_caplet_price(

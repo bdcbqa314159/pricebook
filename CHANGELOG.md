@@ -6,6 +6,83 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-05
+
+Tranche 18 — the **Bermudan swaption under the LMM**, Jäckel's headline instrument, priced inside a
+sandwich because it has no closed form. Third and final unit of the BGM/J arc (T16 → T17 → T18), each
+anchored on the one before, with tranche 17's caplet→Black exact anchor underneath all of it.
+`models/exercise_boundary.py` (L3), `products/bermudan_swaption.py` (L2),
+`engine/bermudan_swaption_mc.py` (L4), and the path widening in `engine/mc_path_engine.py`.
+**Eighteen mutations, all eighteen killed.**
+
+### The source is internally inconsistent — eq 12.38 contradicts eq 12.39
+Both renderings of eq 12.38 print `+ p_i3`. But eq 12.39 pins the final slice to `(0, 0, K)`, and
+§12.7 states what that must mean: *"at the very last exercise opportunity we have exact knowledge if
+exercise is optimal, namely when the residual swap is in the money."* At the last date the residual
+swap is one period, so its swap rate IS `f_(n-1)`; in-the-money for a payer is `f > K`. The printed
+sign gives `f + K > 0` — true for every positive rate, so it exercises a deep out-of-the-money payer,
+and it misclassifies every OTM payer across seven forwards and both directions. Ruled by the finance
+per §4: 12.39 carries exact financial content, 12.38's sign convention is arbitrary.
+
+**And the arbitrariness explains how the error survives publication.** At every slice except the last,
+`p_i3` is a free fitted parameter, so the optimiser simply converges to `-p_i3` and the two
+conventions describe the same family of boundaries. The inconsistency is invisible wherever the
+parameters are trained and decisive only at the one slice where they are pinned. Both facts are
+oracled, and the printed variant is asserted to **fail**, so the ruling is proved necessary rather
+than preferred. Recorded in `docs/references.md` beside the five found in `BERHAN-2012` and the one in
+`MCINERNEY-ZASTAWNIAK`. No ordinal claimed: `BERHAN-2012`'s 4.1.3 and 4.2.2 are internal
+inconsistencies as well, so "the second" would have been wrong.
+
+### Jäckel's prescribed optimiser cannot train Jäckel's objective
+§12.8 says to use BFGS. **BFGS makes no progress at all** on eq 12.41, which averages an
+indicator-selected quantity and is therefore piecewise constant in `p`. Measured at the first training
+slice: start (the European policy) `U = 0.00290435`; BFGS `0.00290435` at **iteration 0**; Powell
+`0.00363794`; Nelder-Mead `0.00374813`; attainable ceiling `0.00420242`. So BFGS captures 0% of the
+available gain and Nelder-Mead 65%. The finite-difference gradient is exactly zero at `h = 1e-8` and
+`1e-6`, non-zero only at `1e-4` — what a gradient method sees is a step-size artefact, not a
+derivative. `train_slice` uses Nelder-Mead and the deviation is **oracled**: a test asserts BFGS
+leaves the objective untouched while the derivative-free method improves it.
+
+### The sandwich, and what it resolves
+A 6-non-call-2 struck at the forward swap rate, 4,000 training / 8,000 pricing paths: exercisable only
+at its last date 1,484.64; **trained policy (lower bound) 5,860.27**; **perfect foresight (upper
+bound) 6,783.50**. The early-exercise premium is resolved at 14x the combined standard error. The
+**sandwich is 15.75% wide** and that IS the tranche's resolution, reported rather than assumed tight.
+In-sample bias measured at +1.12%, which is Jäckel's "slight upward bias" and the reason the
+train/price split is a correctness requirement.
+
+**One honest negative:** the lower bound does **not** improve monotonically with training paths —
+500 → 5,890.09, 1,000 → 5,862.98, 2,000 → 5,849.68, 4,000 → 5,860.27, 8,000 → 5,880.16, a ~0.7%
+wobble with no trend. The three-parameter boundary is already at its capacity for this trade, so extra
+training moves the fitted boundary within a plateau rather than improving it. The place to spend
+effort is a richer boundary, not more paths.
+
+### Five mutations survived the first pass, and one was this tranche repeating tranche 17's lesson
+A dropped numéraire division in the annuity hid inside oracle 1's `4 x combined SE` band, which at
+these path counts resolves only **8-11%** of the price — exactly the trap tranche 17 ratified into §4,
+walked into one tranche later. The fix was not more paths but noticing the comparison can be **exact**:
+after this tranche's widening a one-date Bermudan's schedule *is* `PathGrid(T, steps)`, so both engines
+consume the same stream; oracle 1 now asserts bit-identical PV and standard error.
+
+The other four were all pieces of §12.8's *procedure* — the induction direction, the continuation
+roll, the `intrinsic > 0` guard, and the choice of second coordinate (`s_{i+1}` vs `s_i`, §12.6's
+entire finding) — and **no price-level bound could see any of them**, because a valid-but-wrong
+procedure still satisfies the output bounds. Each is now pinned by a pointwise check on a named step,
+which is why `roll_continuations`, `train_exercise_policy` and `ExerciseSlices` were extracted from
+private helpers into named, oracled surface.
+
+### The engine widening
+`simulate_forward_paths` is now the single definition of eq 13.2, with `simulate_terminal_forwards` a
+last-slice read of it — the rule-of-two consolidation tranche 17 deferred to this tranche's real second
+consumer. Proved **bit-identically**, the right bar because the refactor reorders nothing: a
+one-segment schedule reproduces the old terminal result, and a two-segment schedule reaches the same
+endpoint, which also proves segmenting does not disturb the random stream.
+
+### Notes
+- The non-recombining tree (ch 13) is **not** built, per the spec: Jäckel uses it to *discover* the
+  coordinate pair, and he states the pair he settles on. Recorded as a `to_go_deeper` route.
+- 657 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.20.1] - 2026-11-05
 
 **§3 invariant 7 implemented** — *an estimate carries its error*. Ruled by Cowork as tranche 17's
