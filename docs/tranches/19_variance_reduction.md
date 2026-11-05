@@ -88,3 +88,124 @@ estimator carries `crosscheck: none — finance-free statistics`. `source:` cite
 T20 (inversion + Sobol — a different error-reduction axis, composable with these), T21 (the Brownian
 bridge), T22 (Greeks). Control variates recur in T22 (a pathwise-Greek control) and T20 (Sobol +
 control variate compound).
+
+---
+
+# BUILT — results (appended at build; §1–7 above are Cowork's spec, unedited)
+
+`v0.22.0`. 674 tests, ruff and pyright clean. Both reducers at L0
+(`foundation/mc_estimator.py`), both wired at L4: antithetic as a mirrored-draw mode on the path
+engine, the control variate into the Bermudan pricer.
+
+## 8. The spec's headline is REFUTED — the sandwich is structural, not sampling error
+
+§0 states the Bermudan sandwich is 15.75% *"because of sampling error"*, and oracle 5 expects the
+control variate to *"visibly narrow that sandwich"*. **It cannot, and tranche 18's own numbers already
+said so** — the gap there was 12 standard errors wide, not one. Measured over a **64× path increase**:
+
+| pricing paths | policy (lower) | foresight (upper) | width | SE(policy) | width in SEs |
+|---|---|---|---|---|---|
+| 2,000 | 5,847.77 | 6,736.07 | 15.19% | 151.25 | 5.9 |
+| 8,000 | 5,860.27 | 6,783.50 | 15.75% | 74.26 | 12.4 |
+| 32,000 | 5,976.53 | 6,877.75 | 15.08% | 37.78 | 23.9 |
+| 128,000 | 5,941.69 | 6,856.34 | 15.39% | 18.75 | **48.8** |
+
+The standard error falls by exactly a factor of 8 across 64× paths — the `−½` rate, precisely. **The
+width does not move at all.** It is the perfect-foresight bias plus the policy's suboptimality, both
+structural; no variance reduction touches either.
+
+So the tranche's deliverable is not a narrower bracket but **sharper error bars**, which is real and
+measured (§10). The oracle was rewritten to assert the honest statement: the reduction shrinks the SE
+and **leaves the bracket where it is** — and that invariance is itself a check, because a reduction
+that *moved* the bracket would be introducing bias.
+
+## 9. The spec's chosen control is BIASED — and an exactly-centred one exists
+
+§2 and oracle 5 name the **Rebonato swaption** as the Bermudan's control. Eq 10.8 is unbiased *only*
+because the added term `β(g* − g)` has mean zero, which requires `g*` to be the **exact** `E[g]`.
+Black(Rebonato) is an approximation — §5.11 proves the LMM swap rate is not lognormal — so centring on
+it injects the ~0.5% freezing error as a **permanent bias**, at every path count. That is exactly what
+the spec's own oracle 1 (unbiasedness, "the one failure that matters") forbids. The spec's §3 ruling
+and its §2 piece list are in conflict, and §3 is the one that is right.
+
+**The exactly-centred alternative needs no model result at all.** Under the `P_N`-forward measure every
+asset-over-numéraire ratio is a **martingale**, so the numéraire-relative annuity `A/B_N` has
+expectation `A(0)/B_N(0)` by construction — exactly, with no approximation anywhere. Measured against
+the Bermudan payoff, with each candidate's martingale property verified:
+
+| control (all exactly centred) | ρ | 1 − ρ² | SE factor | martingale check |
+|---|---|---|---|---|
+| `f_2(T_first)` | +0.6133 | 0.6239 | 0.790 | 0.80 SE from exact |
+| `f_3(T_first)` | +0.6977 | 0.5133 | 0.716 | 0.63 SE |
+| `f_4(T_first)` | +0.6999 | 0.5101 | 0.714 | 0.51 SE |
+| `f_5(T_first)` | +0.6264 | 0.6077 | 0.780 | 1.12 SE |
+| **`A/B_N` over the span (adopted)** | **+0.7368** | **0.4571** | **0.676** | **0.66 SE** |
+
+So the adopted control gives a **54% variance reduction** (SE × 0.676) with **zero** bias — better
+than any approximate control could honestly deliver. The intrinsic at the first exercise date
+correlates marginally better (ρ = 0.7444) but has **no closed-form mean**, so it is not a control.
+
+## 10. The constant-control fallback, which is the finance rather than a safety net
+
+For a single-period residual swap, `A/B_N` collapses to exactly `τ` on every path — the same identity
+that makes tranche 17's one-period reduction exact — so the control has zero variance and §10.3's
+`β* = Cov/V[g]` is undefined. A constant control is not a degraded control; it is the absence of one,
+and the engine falls back to the plain estimator.
+
+**This also preserved tranche 18's sharpest oracle, and that is how it was found.** T18's oracle 1
+requires a one-exercise-date Bermudan to agree with the T17 European **bit-identically**. Reducing one
+side and not the other broke it immediately — four T18 oracles went red on the first wiring. Widening
+that comparison back into a standard-error band would have undone the power T18 gained (it was
+precisely the 8–11%-resolving band that hid a 1.2% defect there). The fallback means both sides are
+plain in exactly the case where the comparison is exact, so T18's bit-identity survives untouched.
+
+## 11. Jäckel does not print the variance factor — so it is derived, not transcribed
+
+§1 of the spec says to transcribe *"`β*` and the variance-reduction factor `-raw`+`-layout`"`. Eqs
+10.7/10.8/10.9 are printed and the two renderings **agree exactly**. The factor `V[v](1 − ρ²)` is
+**not in the source at all** — second time this book has sent us to a formula it does not print (T15's
+`Φ⁻¹`). It is instead *derived* from 10.9 in two lines (`V[v] + β²V[g] − 2βCov` at `β = β*` collapses
+to `V[v] − Cov²/V[g]`) and asserted as a **theorem**, verified to 2e-17 on a synthetic pair with ρ
+fixed by construction. §4 blesses this directly: a derivation step is an independent check on its
+result, and a theorem is stronger than a second reading of one line.
+
+Also worth recording: §10.3 offers a **third** route for `β` that the spec's "β=1 vs β*" framing omits
+— *"a remedy to the problem of bias due to a correlated estimate of the control parameter β is to use
+an initial simulation, possibly with fewer iterates than the main run, to estimate β* in isolation."*
+That dominates both options (optimal β *and* provably unbiased). `control_variate_estimate` takes
+`beta` as an optional argument precisely so a caller can supply a pilot-fitted one; the Bermudan uses
+the same-sample `β*`, whose `O(1/N)` bias is below the reported SE at the committed path count.
+
+## 12. Two of my own test errors, both caught by execution
+
+- **"Antithetic has exactly zero standard error on a linear payoff."** It is zero in ℝ and **1.5e-18**
+  in floating point: `3z + 1.5` and `−3z + 1.5` each round, so their sum is not bit-exactly `3.0`. The
+  residual is machine noise in the *summands*, not variance in the estimator. Asserted now as a
+  relative bound at the floating-point floor, with the reason stated.
+- **The centring-bias sign.** I asserted `wrong.mean == honest.mean − β·Δ`; eq 10.8 *adds*
+  `β(g* − g)`, so raising `g*` **raises** the estimate. The direction is now part of what the oracle
+  pins rather than an incidental.
+
+And one process error worth recording because it cost a false gate failure: I backgrounded
+`verify.py slow` and then ran the full suite and pyright on top of it. The gate reported
+`test_swaption_mc.py` at **690.6s** against a true 1.75s — a 400× artefact of CPU contention I
+created. **A timing gate's reading is only valid when nothing else is competing**, which is obvious in
+retrospect and was not obvious while doing it.
+
+## 13. Findings for Cowork (§10 — raised, not decided)
+
+1. **Oracle 5 is not achievable and was rewritten (§8).** The sandwich is structural; variance
+   reduction cannot narrow it, and T18's numbers implied that before this tranche started. Rule
+   whether the rewritten oracle (SE shrinks, bracket invariant) stands.
+2. **The control was substituted (§9).** Rebonato is not a valid control because its mean is
+   approximate; the numéraire-relative annuity is exactly centred by the martingale property and
+   gives a 54% variance reduction. Rule the substitution. The general lesson may be worth binding:
+   **a control variate needs an EXACT mean, so an approximation is not a control however well it
+   correlates** — and in a martingale measure the exactly-centred controls are free (any
+   asset/numéraire ratio).
+3. **Antithetic is wired into the path engine but NOT into the Bermudan pricer.** Compounding two
+   reductions would entangle the oracles, and the control variate is the larger, exactly-centred win.
+   Antithetic is oracled end-to-end on the caplet instead. Rule whether that scope split stands or
+   whether the Bermudan should compound both.
+4. **Candidate §4 note, from §12:** a timing gate's measurement is invalid under concurrent load.
+   Worth one line somewhere, because the failure looks exactly like a real regression.
