@@ -13,6 +13,36 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-2 · §3 invariant 7 is RULED but NOT YET IMPLEMENTED — the charter is ahead of the code
+
+Charter §3 gained invariant 7 at v0.20.0 (Cowork's T17 ruling): *"a `PricingResult` from a
+Monte-Carlo pricer carries its **standard error**"*. **No pricer does this yet.** `PricingResult` has
+`pv`, `accrued` and `basis`; `engine/swaption_mc.py` computes a standard error inside `estimate(...)`
+and discards it.
+
+**Ledgered rather than implemented, and the reason is whose call it is.** Cowork ruled it and
+explicitly deferred the code (*"when you land it, the caplet and swaption pricers set it"*), while
+flagging that **Bernardo owns §3 and may veto**. Landing a change to the engine contract before that
+veto window has opened would pre-empt the person who owns the section. But §9 is equally explicit
+that a charter stating a practice the repo does not follow is worse than one that is silent — the
+error §8 and §9 both had to correct — so the gap is recorded here instead of left to be discovered.
+
+**What the gap costs today:** every banded oracle over an MC pricer re-simulates to recover the SE
+(`tests/L4/test_swaption_mc.py::_estimate_from_paths`). That is one extra simulation per banded case
+and, as the ruling notes, a *correctness* smell rather than only an efficiency one — a re-simulated
+SE describes different paths than the price it bands. It is not currently wrong, because the helper
+re-simulates with the **same seed, grid and config**, so the paths are identical by construction; the
+oracle asserts exactly that by pinning the engine's own PV to `mean × discount × notional` at
+`rel=1e-12`. So the band does describe its own price. The smell is that nothing structural keeps it
+that way.
+
+**Re-open trigger:** Bernardo's accept-or-veto of §3 invariant 7, or tranche 18 (which touches the
+engine contract anyway for the path-return widening) — whichever comes first. On accept, add the
+optional field, set it in `price_european_swaption`, and have the banded oracles read it instead of
+re-simulating. On veto, remove invariant 7 from §3 and keep the re-simulation with its premise
+assertion. **Blocks nothing** — every T17 oracle is green and the re-simulation is provably on the
+same paths.
+
 ### OI-1 · §8's crosscheck markers — CLOSED (spelling fixed; discipline was working, six of six)
 **Opened:** 2026-11-01 (T1–T6 checkpoint). **Ruled closed** by Cowork the same day on the premise
 that the markers had zero instances. **REOPENED by Code, 2026-11-01, because that premise is false

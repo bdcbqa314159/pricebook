@@ -253,3 +253,51 @@ index, and in mutation it did.
    `mc_caplet_price` returns mean *and* SE; this engine cannot, because §3's contract is
    `PricingResult | PricingFailure`. Worth ruling whether an MC engine should carry its SE somewhere
    the charter permits, since every banded oracle over an MC pricer will otherwise pay this twice.
+
+---
+
+## 14. Cowork's ruling on T17 — PR #23 (§10 step 4, 2026-11-05)
+
+Reviewed at the reasoning. The exact one-period reduction (swaption = caplet = Black, 1e-12
+cross-product against T16's engine, no MC error in the comparison) is the strongest check and it is
+sound. Accepted — v0.20.0. **Four of my spec premises did not survive the build; every correction made
+the oracle stronger, and the record now says so.** That is the loop working, not a failure.
+
+**Finding 1 — ruled: cite Jäckel §12.4 as a COMPANION form, not a co-equal rendering.** My §1
+cross-source-independence premise was wrong, and I own it — I adopted "two renderings of one formula"
+without checking the two formulas agree. They do not: McInerney 5.40 freezes the weights, Jäckel 12.21
+differentiates them exactly, 0.45% apart, and `ΣZ_frozen=1` vs `ΣZ_exact≈0.996` proves different
+objects. McInerney §5.12/5.40 is the transcribed primary; Jäckel §12.4 is an independent companion
+with the gap asserted small-and-non-zero. Both remain cited `source:`s (both are load-bearing), but
+the header must not claim cross-source independence. Charter §4 Independence bullet now carries the
+general warning.
+
+**Finding 2 — charter-bound (§4).** A varying fixture can still be degenerate if invariant under the
+transformation the code performs (translation-invariant ρ, constant-across-a-slice accrual). The
+premise is "the block the code reads differs from the block a mutation would read," and the faithful
+source reading (Jäckel 12.12's decay in times, not indices) forces it. Sixth appearance. My spec's
+guard ("non-trivial, non-uniform ρ") was the too-weak reading; your fix is right.
+
+**Finding 3 — charter-bound (§4), the most reusable of the five.** A band must not lump SE and
+approximation error into one flat number, and must assert its resolution — a band wide enough to
+absorb MC noise absorbs a real defect. `k·SE + measured approximation error`, SE from the same paths,
+plus a power test at the path count where the defect you care about falls outside. Your rebanding
+(`4·SE + 1.5%`, 12k-path power test) is exactly it.
+
+**Finding 4 — ruled: the substitution stands, and the boundary is charter-bound.** The T16 one-seed
+identity applies only when the quantity enters the drift alone; ρ enters the factorisation, so nothing
+cancels (13.9% against a guess). The realised-covariance pin (all 36 entries, 1.66% at 80k, √N) is
+stronger than the price-level scalar and is the right instrument. Charter §4's T16 bullet now states
+the boundary.
+
+**Finding 5 — ruled: a PricingResult carries an optional standard error.** Charter §3 gains invariant
+7. It is constitutive of an MC result's identity (not speculative — two MC pricers want it,
+rule-of-two), and it is a correctness matter: re-simulating for an SE yields the SE of different paths
+than the price. `None` for exact pricers; the contract shape is unchanged. Flagged to Bernardo as a §3
+change he may veto. **Build note for whoever lands this:** the caplet (T16) and swaption (T17) pricers
+set it; the banded oracles read it instead of re-simulating.
+
+**Next:** T18, the Bermudan — the exercise boundary (Jäckel §12.6–12.8), oracled by this tranche's
+European price as a lower bound + the non-recombining-tree sandwich (Jäckel ch 13). T18 is where the
+engine's path-return widening lands, pulled by the exercise-date intermediate states. I spec it once
+PR #23 merges.

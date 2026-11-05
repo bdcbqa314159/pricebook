@@ -86,6 +86,15 @@ through it, never as a second argument, so a model/market mismatch cannot be exp
 6. **Valuation-date-aware (invariant 6)** — a flow on or before `valuation_date` is historical:
    excluded from the mark, **PV 0** (the shell's business), never discounted with non-positive `t`.
    `PricingFailure` is for inputs that *cannot* be priced, never for a settled trade.
+7. **An estimate carries its error** — a `PricingResult` from a Monte-Carlo pricer carries its
+   **standard error** (an optional field, `None` for an exact pricer), because for an estimate the SE
+   *is* part of the result: a price is `100 ± 0.3`, not `100`. This is constitutive of an MC result's
+   identity (§6), not speculative — two MC pricers want it (the caplet and the swaption), rule-of-two.
+   And it is a **correctness** matter, not only efficiency: an oracle that re-simulates to recover a
+   discarded SE gets the SE of *different* paths than the price, so the band no longer describes that
+   price. The field rides along where it is meaningful and is ignored where it is not; the contract
+   shape (`PricingResult | PricingFailure`) is unchanged. *(T17 finding 5; ruled by Cowork 2026-11-05,
+   Bernardo owns §3 and may veto.)*
 
 ---
 
@@ -123,7 +132,15 @@ not an oracle. Ruled principles:
   the pattern before debugging the code — the instinct to suspect the code first is sometimes exactly
   backwards. *(T16: a reference for eq 12.8 used the off-diagonal ρ=0.80 for ρ_ii too; only forward 0
   — the one index whose drift sum never reaches the diagonal — agreed, and that asymmetry located the
-  bug in the reference, not the model.)*
+  bug in the reference, not the model.)* **Two different sources are an independent check only if they
+  render the SAME formula — confirm they agree before treating one as the other's transcription.** Two
+  books addressing one quantity can be different-order *approximations*, not two renderings of one
+  exact object; then each is its own transcription target and a measured nonzero gap between them is a
+  companion to assert (small *and* non-zero), never the cross-source independence it resembles. Check
+  for a structural signature that separates them. *(T17: the swap-rate vol is `Z·C·Zᵀ` in both
+  McInerney 5.40 (weights frozen) and Jäckel 12.21 (weights differentiated) — 0.45% apart, and
+  `ΣZ_frozen = 1` exactly while `ΣZ_exact ≈ 0.996`, proving different objects; the hoped-for
+  cross-source independence did not exist.)*
 - **Reduction is the preferred anchor, and it needs a companion.** A capability that generalises
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
@@ -178,7 +195,14 @@ not an oracle. Ruled principles:
   *(T16: three mutations of the LMM drift eq 12.8 — a dropped `dt` (8×), raw forwards for the ratios
   (5×), a dropped denominator (1.04×) — survived all 550 tests; killed by a two-numeraire one-seed
   identity `log f^A − log f^B = (µ^A−µ^B)·dt`, exact every path, matched to a fresh transcription at
-  1e-13.)*
+  1e-13.)* **The one-seed differencing identity applies only when the quantity under test enters ONE
+  place — the drift — so everything else cancels; a quantity in the diffusion/factorisation does not
+  cancel and the instrument does not carry over.** When it doesn't apply, pin the quantity where it
+  *is* directly observable instead: a correlation entering the factorisation is pinned by the realised
+  covariance of the simulated increments reproducing `σ_iσ_jρ_ij·dt` for every pair — which pins all
+  entries individually, stronger than a price pinning one correlation-weighted scalar. *(T17: ρ enters
+  `C = σσρ·dt`, so the T16 trick gave 13.9% against a guessed band; the realised-covariance pin gives
+  1.66% at 80k paths, halving as √N so a factorisation bias shows as failure-to-improve.)*
 
 - **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
   is evidence only about what the oracle *examined*. Every defect this project has shipped was an
@@ -200,7 +224,16 @@ not an oracle. Ruled principles:
   two readings of a SOURCE agree, defeating a *transcription* oracle:** on annual ACT/365F periods
   `τ = 1` exactly, so `τFn` and `Fn` are the same number and the oracle pinning T13's hazard-1 choice
   between them was powerless until a semi-annual fixture (`τ ≠ 1`) separated them. Fifth appearance,
-  and the first on a source-discrepancy oracle rather than a numerical one. Mutation is also the
+  and the first on a source-discrepancy oracle rather than a numerical one. **A varying fixture can
+  still be degenerate — if it is invariant under the transformation the code performs.** A correlation
+  `ρ_ij = exp(−β|i−j|)` is non-uniform yet *translation-invariant*, so `ρ[first+m][first+l] = ρ[m][l]`
+  and a mutant dropping the span offset survives; a constant-across-a-slice accrual survives a dropped
+  slice offset the same way. So the premise to assert is not "the values differ" but **"the block the
+  code reads differs from the block a mutation would read"** — and the faithful source reading usually
+  forces it (Jäckel 12.12 decays in the actual times `t_i`, not in index distance, which is the
+  non-degenerate form). Sixth appearance, and the first where the degeneracy is *uniformity across a
+  slice* rather than a specific value. *(T17: non-uniform accruals and a time-decaying ρ killed both
+  mutants.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
@@ -245,6 +278,16 @@ not an oracle. Ruled principles:
   exact optimum no other start can beat) and assert **distance from truth** beside spread: spread
   shows non-uniqueness, distance shows wrongness. (T11: `ρnI`'s spread read 22% without the truth in
   the start set and 469% with it — recovered at the *wrong sign* at rms 8e-15.)
+- **A tolerance that lumps two error sources together cannot tell them apart — and a band wide enough
+  to absorb Monte-Carlo noise is wide enough to absorb a real defect.** Band an MC-vs-approximation
+  check as `k·SE + the approximation's own MEASURED error` (the SE measured from the *same* paths the
+  pricer consumes, the approximation error measured where sampling noise is negligible — a huge path
+  count), never one flat percentage standing in for both. And **assert the band's resolution**: state,
+  from measurement, the smallest defect a green actually rules out at the committed path count, and add
+  a dedicated higher-path test at the count where the defect size you care about provably falls
+  outside. A green is evidence only about what the band can resolve. *(T17: a flat 3% band mixed a
+  0.5% freezing error with ~2% MC error and resolved only a ~20% vol error at 6k paths — a 10% error
+  sat inside it; rebanded `4·SE + 1.5%`, with a 12k-path power test where 10% falls outside.)*
 - **A pure refactor is proved by an exact-arithmetic identity, not always by bit-identity.** Bit-
   identity (the equivalent-mutant proof above, and the Black and HW extractions) is available only
   when the refactor *preserves the order* of the floating-point operations. When the refactor
