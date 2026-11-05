@@ -13,7 +13,7 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-2 · §3 invariant 7 is RULED but NOT YET IMPLEMENTED — the charter is ahead of the code
+### OI-2 · §3 invariant 7 — CLOSED (accepted by Bernardo, implemented at v0.20.1)
 
 Charter §3 gained invariant 7 at v0.20.0 (Cowork's T17 ruling): *"a `PricingResult` from a
 Monte-Carlo pricer carries its **standard error**"*. **No pricer does this yet.** `PricingResult` has
@@ -36,12 +36,23 @@ oracle asserts exactly that by pinning the engine's own PV to `mean × discount 
 `rel=1e-12`. So the band does describe its own price. The smell is that nothing structural keeps it
 that way.
 
-**Re-open trigger:** Bernardo's accept-or-veto of §3 invariant 7, or tranche 18 (which touches the
-engine contract anyway for the path-return widening) — whichever comes first. On accept, add the
-optional field, set it in `price_european_swaption`, and have the banded oracles read it instead of
-re-simulating. On veto, remove invariant 7 from §3 and keep the re-simulation with its premise
-assertion. **Blocks nothing** — every T17 oracle is green and the re-simulation is provably on the
-same paths.
+**Resolution (2026-11-05, v0.20.1).** Bernardo **accepted** invariant 7, which was this item's
+re-open trigger. `PricingResult` gained `standard_error: float | None = None`;
+`price_european_swaption` sets it, scaled by the same deterministic `discount x notional` as the PV;
+the banded oracles now read `out.standard_error` instead of re-simulating. Exact pricers inherit
+`None` from the default and were not touched, so no other engine changed.
+
+**One part of Cowork's build note did not apply.** It said *"the caplet and swaption pricers set
+it"*; `mc_caplet_price` returns a `MonteCarloEstimate`, not a `PricingResult`, and that type has
+carried `mean`, `standard_error` and `n_samples` since tranche 15 — its docstring already states
+invariant 7's principle (*"an MC engine that returned only a price would make every downstream oracle
+invent a tolerance"*). So the caplet pricer already honoured the invariant by a different route and
+needed no change. Converting it to return a `PricingResult` would be a design decision nobody ruled,
+so it was not done.
+
+`_estimate_from_paths` survives in the oracle with a narrower and better purpose: an independent
+recomputation of the payoff on the same paths, pinning the engine's mean *and* its error bar, rather
+than supplying a number the engine could have been wrong about. **Closed.**
 
 ### OI-1 · §8's crosscheck markers — CLOSED (spelling fixed; discipline was working, six of six)
 **Opened:** 2026-11-01 (T1–T6 checkpoint). **Ruled closed** by Cowork the same day on the premise

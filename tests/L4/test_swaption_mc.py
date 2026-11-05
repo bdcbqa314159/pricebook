@@ -167,10 +167,11 @@ def _estimate_from_paths(first: int, count: int, strike: float, kind=SwaptionKin
                          rho: LmmCorrelation = RHO, config: MonteCarloConfig = CONFIG):
     """The mean AND standard error of the swaption payoff, from the simulation the engine consumes.
 
-    The engine returns a `PricingResult`, which carries a PV and no standard error — correct for the
-    charter's engine contract, and insufficient for banding an oracle. So the payoff is recomputed
-    here from the same paths, which costs one extra simulation and buys two things: a measured SE,
-    and a check that the engine's own composition (`mean x discount x notional`) is what it claims."""
+    **Its purpose narrowed when §3 invariant 7 landed.** It used to be how every banded oracle got a
+    standard error at all, re-simulating once per case; the engine now carries its own, so the bands
+    read `out.standard_error` directly. What remains is the better use: an INDEPENDENT recomputation
+    of the payoff on the same paths, which checks the engine's mean AND its error bar rather than
+    merely supplying a number the engine could have been wrong about."""
     paths = simulate_terminal_forwards(_model(first, count, rho), _grid(first), config)
     tau = TENOR.accruals
     payoffs = []
@@ -217,17 +218,13 @@ def test_O3_the_MC_swaption_agrees_with_BLACK_REBONATO_within_SE_plus_the_freezi
     out = price_european_swaption(_swaption(first, count, strike), model, _grid(first), CONFIG)
     assert isinstance(out, PricingResult)
 
-    scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
-    sampled = _estimate_from_paths(first, count, strike)
-    # The engine's composition, pinned: PV is the payoff mean times the numeraire bond and notional.
-    assert out.pv.amount == pytest.approx(sampled.mean * scale, rel=1e-12)
-
+    assert out.standard_error is not None
     vol = rebonato_swaption_vol(model, first, count)
     closed = (
         black_price(strike, strike, vol**2 * _expiry(first), CapFloorKind.CAP)
         * _black_swaption_scale(first, count)
     )
-    band = 4.0 * sampled.standard_error * scale + _FREEZING_SLACK * closed
+    band = 4.0 * out.standard_error + _FREEZING_SLACK * closed
     assert abs(out.pv.amount - closed) < band
 
 
@@ -253,14 +250,13 @@ def test_O3_the_band_HAS_POWER_at_the_path_count_where_it_is_narrow_enough():
     )
     assert isinstance(out, PricingResult)
 
-    scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
-    sampled = _estimate_from_paths(first, count, strike, config=powerful)
+    assert out.standard_error is not None
     vol = rebonato_swaption_vol(model, first, count)
     closed = (
         black_price(strike, strike, vol**2 * _expiry(first), CapFloorKind.CAP)
         * _black_swaption_scale(first, count)
     )
-    band = 4.0 * sampled.standard_error * scale + _FREEZING_SLACK * closed
+    band = 4.0 * out.standard_error + _FREEZING_SLACK * closed
     assert abs(out.pv.amount - closed) < band
 
     wrong = black_price(
@@ -426,3 +422,46 @@ def test_O6_a_BAD_span_or_a_MISMATCHED_numeraire_is_a_PricingFailure_not_a_wrong
     assert isinstance(out, PricingFailure) and "numeraire" in out.reason
     out = price_european_swaption(_swaption(0, 7, strike), good, _grid(2), CONFIG)
     assert isinstance(out, PricingFailure) and "span" in out.reason
+
+
+# ---------------------------------------------------------------------------------------------
+# §3 INVARIANT 7 — an estimate carries its error. Ruled by Cowork 2026-11-05 (T17 finding 5),
+# accepted by Bernardo the same day; `OPEN.md` OI-2 ledgered the gap until this landed.
+# ---------------------------------------------------------------------------------------------
+
+
+def test_INV7_a_monte_carlo_result_CARRIES_its_standard_error():
+    """`a price is 100 ± 0.3, not 100` — the SE is part of an estimate's identity, not a by-product.
+
+    The engine already computes it inside `estimate(...)`; before this it threw it away and every
+    banded oracle re-simulated to recover it. The field must be scaled the same way the PV is, since
+    `pv = mean × discount × notional` is a deterministic scaling of the estimator."""
+    first, count = 2, 4
+    strike = forward_swap_rate(TENOR, first, count)
+    out = price_european_swaption(
+        _swaption(first, count, strike), _model(first, count), _grid(first), CONFIG
+    )
+    assert isinstance(out, PricingResult)
+    assert out.standard_error is not None
+    assert out.standard_error > 0.0
+
+    scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
+    sampled = _estimate_from_paths(first, count, strike)
+    # Both halves of the composition, since the banded oracles no longer recompute either: the PV is
+    # the payoff mean scaled, and the error bar is the estimator's own scaled the SAME way.
+    assert out.pv.amount == pytest.approx(sampled.mean * scale, rel=1e-12)
+    assert out.standard_error == pytest.approx(sampled.standard_error * scale, rel=1e-12)
+    # The error bar must be small relative to the price, or it is not an estimate of anything.
+    assert out.standard_error < 0.05 * out.pv.amount
+
+
+def test_INV7_the_standard_error_DEFAULTS_to_None_for_an_exact_pricer():
+    """`None` rather than `0.0`, and the distinction carries information: zero would claim a
+    perfectly precise estimate, while `None` says *this is not an estimate at all*. An exact pricer
+    conflated with an infinitely-accurate simulation is how a tolerance gets invented downstream.
+
+    Asserted on the default so every existing exact pricer inherits it without being touched — the
+    field rides along where it is meaningful and is absent where it is not, which is the half of
+    invariant 7 that keeps it from becoming surface on sixteen engines that will never set it."""
+    assert PricingResult(pv=Money(1.0, EUR)).standard_error is None
+    assert PricingResult(pv=Money(1.0, EUR)) == PricingResult(pv=Money(1.0, EUR))
