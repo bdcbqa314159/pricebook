@@ -41,6 +41,7 @@ from pricebook.models.exercise_boundary import (
     exercise_now,
     exercise_value,
     policy_value,
+    train_slice,
 )
 from pricebook.products.swaption import SwaptionKind
 
@@ -203,3 +204,94 @@ def test_the_objective_is_MAXIMISED_by_exercising_only_where_intrinsic_beats_con
 def test_a_RAGGED_training_slice_is_refused():
     with pytest.raises(ValueError, match="same length"):
         TrainingSlice((_state(0.04, 0.04),), (0.1, 0.2), (0.0,))
+
+
+# ============================================================================================
+# THE TRAINING — and why Jäckel's prescribed BFGS cannot do it.
+# ============================================================================================
+
+
+def _realistic_slice(paths: int = 400) -> TrainingSlice:
+    """A slice whose intrinsics straddle zero and whose states vary in both coordinates.
+
+    Built from a deterministic spread rather than a simulation so this file stays L3 and fast; the
+    engine's own oracles exercise the real simulated slices. Degeneracy guard: both coordinates must
+    vary, or the optimiser has nothing to find and the comparison below would be vacuous."""
+    states, intrinsics, continuations = [], [], []
+    for j in range(paths):
+        u = (j + 0.5) / paths
+        forward = 0.020 + 0.040 * u
+        swap_rate = 0.030 + 0.020 * ((j * 7) % paths) / paths
+        states.append(_state(forward, swap_rate, 0.042))
+        intrinsics.append(3.0 * (forward - STRIKE))
+        continuations.append(0.0015 * (1.0 - u))
+    return TrainingSlice(tuple(states), tuple(intrinsics), tuple(continuations))
+
+
+def test_the_objective_has_a_ZERO_GRADIENT_so_a_QUASI_NEWTON_optimiser_cannot_train_it():
+    """Jäckel §12.8 prescribes BFGS. **It makes no progress on his own objective**, and this oracle
+    is why `train_slice` deviates to a derivative-free method.
+
+    Eq 12.41 averages an *indicator-selected* quantity, so it is piecewise constant in `p`: the value
+    changes only when some path's decision flips. Its gradient is therefore exactly zero almost
+    everywhere, and a quasi-Newton method has nothing to descend — measured here, BFGS terminates at
+    iteration 0 with the objective still at its starting value, while Nelder-Mead improves it.
+
+    This is §4's 'assert the wrong variant fails' pattern applied to a numerical method rather than
+    a formula: the deviation from the source is proved necessary rather than preferred."""
+    from scipy.optimize import minimize
+
+    slice_ = _realistic_slice()
+
+    def negated(vector) -> float:
+        try:
+            return -policy_value(BoundaryParams(*map(float, vector)), slice_, 1.0)
+        except ValueError:
+            return math.inf
+
+    start = (0.0, 0.0, STRIKE)
+    opening = -negated(start)
+
+    # The gradient is EXACTLY zero at any step small enough to flip no decision.
+    for index in range(3):
+        nudged = list(start)
+        nudged[index] += 1e-9
+        assert negated(nudged) == negated(start)
+
+    quasi_newton = minimize(negated, start, method="BFGS")
+    assert -quasi_newton.fun == pytest.approx(opening, rel=1e-12), (
+        "BFGS improved the objective — if this ever passes, re-examine the deviation"
+    )
+
+    derivative_free = minimize(negated, start, method="Nelder-Mead")
+    assert -derivative_free.fun > opening
+
+
+def test_TRAINING_improves_on_the_EUROPEAN_boundary_and_never_returns_worse():
+    """Two requirements on the trainer, both from the finance rather than from a reference value.
+
+    The start `(0, 0, K)` is the European policy — exercise iff in the money — which is a real,
+    achievable strategy. So training must (a) do better than it on a slice where a better boundary
+    exists, since that is the entire purpose, and (b) **never** do worse, because a lower bound that
+    can degrade is not a lower bound. (b) is the one that needs asserting: Nelder-Mead on a
+    piecewise-constant objective can terminate on a simplex that has wandered off a plateau."""
+    slice_ = _realistic_slice()
+    opening = BoundaryParams(0.0, 0.0, STRIKE)
+    trained = train_slice(slice_, 1.0, STRIKE)
+
+    before = policy_value(opening, slice_, 1.0)
+    after = policy_value(trained, slice_, 1.0)
+    assert after >= before
+    assert after > before, "this fixture must admit a better boundary, or the test is vacuous"
+
+    # And the ceiling still binds: no parametric boundary beats exercising where intrinsic wins.
+    ceiling = math.fsum(
+        max(i, v) for i, v in zip(slice_.intrinsics, slice_.continuations)
+    ) / len(slice_)
+    assert after <= ceiling + 1e-15
+
+
+def test_TRAINING_is_DETERMINISTIC():
+    """Same slice, same parameters — the optimiser must not carry hidden state (§3.1)."""
+    slice_ = _realistic_slice(200)
+    assert train_slice(slice_, 1.0, STRIKE) == train_slice(slice_, 1.0, STRIKE)
