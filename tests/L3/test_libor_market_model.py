@@ -28,7 +28,7 @@ from datetime import date
 
 import pytest
 
-from pricebook.models.libor_market_model import LiborMarketModel, LmmTenor
+from pricebook.models.libor_market_model import LiborMarketModel, LmmCorrelation, LmmTenor
 
 # Four spanning forwards, DISTINCT rates and vols so a mis-indexed sum cannot hide.
 TENOR = LmmTenor(
@@ -200,3 +200,90 @@ def test_a_BAD_numeraire_index_is_refused():
 def test_a_BAD_forward_index_is_refused():
     with pytest.raises(IndexError, match="forward"):
         _model(numeraire=2).drift(4)
+
+
+# ---------------------------------------------------------------------------------------------
+# Tranche 17 — the correlation becomes a MATRIX. T16 shipped a scalar `ρ` and said so in the
+# module docstring: *"a real correlation structure arrives with the unit that needs one (a swaption
+# fit discriminates correlation shapes; a caplet strip does not)"*. T17 is that unit — its spec's
+# degenerate-fixture guard requires non-uniform `ρ_ij`, because a FLAT correlation makes the
+# INDEXING of `ρ` invisible: swap `ρ_ij` for `ρ_ji`, or read the wrong pair entirely, and a flat
+# matrix returns the same number. That is the recurring trap, so the fixtures below are non-uniform.
+# ---------------------------------------------------------------------------------------------
+
+
+def _reference_drift_matrix(
+    i: int, numeraire: int, rho: tuple[tuple[float, ...], ...], tenor: LmmTenor = TENOR
+) -> float:
+    """Eq 12.8 transcribed independently again, now reading `ρ_ik` from a full MATRIX.
+
+    Separate from `_reference_drift` on purpose: that one hard-codes the flat `1.0 if k == i else ρ`
+    rule, which is exactly the assumption under test here. Reusing it would let the flat rule into
+    both sides of the comparison."""
+    f, tau, sigma = tenor.forwards, tenor.accruals, tenor.volatilities
+
+    def term(k: int) -> float:
+        return (f[k] * tau[k]) / (1.0 + f[k] * tau[k]) * sigma[k] * rho[i][k]
+
+    if i < numeraire - 1:
+        return -sigma[i] * math.fsum(term(k) for k in range(i + 1, numeraire))
+    if i == numeraire - 1:
+        return 0.0
+    return sigma[i] * math.fsum(term(k) for k in range(numeraire, i + 1))
+
+
+def _decaying(size: int, beta: float = 0.35) -> LmmCorrelation:
+    """Jäckel eq 12.12's shape with `γ = 1`: `ρ_ij = exp(−β|t_i − t_j|)`. Non-uniform by
+    construction, which is the point — every off-diagonal entry differs from every other."""
+    return LmmCorrelation(
+        tuple(tuple(math.exp(-beta * abs(i - j)) for j in range(size)) for i in range(size))
+    )
+
+
+def test_T17_a_flat_correlation_reproduces_the_scalar_case_BIT_IDENTICALLY():
+    """The widening is a PURE REFACTOR in the flat case, and bit-identity is the available proof.
+
+    `LmmCorrelation.flat` must put exactly `ρ` off the diagonal and exactly `1.0` on it — the same
+    floats the scalar branch produced, consumed in the same order — so the drift's operations are
+    not merely equivalent but identical. §4 permits the exact-arithmetic-identity substitute only
+    when a refactor reorders the operations; this one does not, so the stronger proof is owed."""
+    flat = LmmCorrelation.flat(len(TENOR), 0.80)
+    for i in range(len(TENOR)):
+        for j in range(len(TENOR)):
+            assert flat.matrix[i][j] == (1.0 if i == j else 0.80)
+
+    for numeraire in range(1, len(TENOR) + 1):
+        model = LiborMarketModel(TENOR, flat, numeraire_index=numeraire)
+        for index in range(len(TENOR)):
+            # The reference values this file already pins for the scalar case, recomputed here from
+            # eq 12.8 — not read back from the model (§4 independence).
+            assert model.drift(index) == _reference_drift(index, numeraire, rho=0.80)
+
+
+def test_T17_the_matrix_is_REFUSED_unless_it_is_a_correlation_matrix():
+    with pytest.raises(ValueError, match="square"):
+        LmmCorrelation(((1.0, 0.5),))
+    with pytest.raises(ValueError, match="symmetric"):
+        LmmCorrelation(((1.0, 0.5), (0.4, 1.0)))
+    with pytest.raises(ValueError, match="unit diagonal"):
+        LmmCorrelation(((0.9, 0.5), (0.5, 1.0)))
+    with pytest.raises(ValueError, match=r"\[-1, 1\]"):
+        LmmCorrelation(((1.0, 1.5), (1.5, 1.0)))
+    with pytest.raises(ValueError, match="at least one"):
+        LmmCorrelation(())
+
+
+def test_T17_a_NON_UNIFORM_correlation_is_read_at_the_RIGHT_pair():
+    """The oracle a flat matrix cannot provide: that `ρ_ik` is indexed correctly.
+
+    Under a decaying correlation every pair differs, so reading `ρ_ji` for `ρ_ij`, or `ρ_i,k+1` for
+    `ρ_ik`, changes the drift. The reference transcribes eq 12.8 with the matrix explicitly."""
+    rho = _decaying(len(TENOR))
+    model = LiborMarketModel(TENOR, rho, numeraire_index=2)
+    for index in range(len(TENOR)):
+        expected = _reference_drift_matrix(index, 2, rho.matrix)
+        assert model.drift(index) == pytest.approx(expected, rel=1e-13)
+
+    # Non-degeneracy asserted as a PREMISE: if the fixture were flat this test would be vacuous.
+    off_diagonal = {rho.matrix[i][j] for i in range(len(TENOR)) for j in range(len(TENOR)) if i != j}
+    assert len(off_diagonal) > 1, "a flat fixture cannot see the indexing — the trap this guards"
