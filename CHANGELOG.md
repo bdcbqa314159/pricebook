@@ -6,6 +6,38 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-11-05
+
+**§3 invariant 7 implemented** — *an estimate carries its error*. Ruled by Cowork as tranche 17's
+finding 5 and accepted by Bernardo the same day; `OPEN.md` OI-2 ledgered the gap between the charter
+and the code for exactly as long as it existed, and is now closed.
+
+`PricingResult` gains `standard_error: float | None = None`. `price_european_swaption` sets it,
+scaled by the same deterministic `discount x notional` that scales the PV, and the banded oracles
+read `out.standard_error` instead of re-simulating to recover a number the engine already had.
+
+`None` is load-bearing and is not `0.0`: zero would claim a perfectly precise simulation, while
+`None` says *this is not an estimate*. Exact pricers inherit it from the default, so no other engine
+was touched — the field rides along only where it is meaningful, which is the half of the invariant
+that keeps it from becoming surface on sixteen engines that will never set it.
+
+### One part of Cowork's build note did not apply
+It said "the caplet and swaption pricers set it". `mc_caplet_price` returns a `MonteCarloEstimate`,
+not a `PricingResult`, and that type has carried `mean`, `standard_error` and `n_samples` since
+tranche 15 — its docstring already states the invariant's principle ("an MC engine that returned only
+a price would make every downstream oracle invent a tolerance"). The caplet pricer already honoured
+invariant 7 by a different route and needed no change; converting it to return a `PricingResult` would
+be a design decision nobody ruled, so it was not done.
+
+### Notes
+- `_estimate_from_paths` survives in the oracle with a narrower and better purpose: an independent
+  recomputation of the payoff on the same paths, pinning the engine's mean *and* its error bar,
+  rather than supplying a number the engine could have been wrong about.
+- Seventeen mutations: the thirteen tranche-17 mutants behave exactly as before (twelve killed, the
+  transposed-rho equivalent mutant still proved bit-identical), and four new mutants on the error
+  bar's scaling — unscaled, zeroed, left `None`, and double-scaled — all die.
+- 606 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.20.0] - 2026-11-05
 
 Tranche 17 — the **European swaption under the LMM**, anchored by an exact reduction and a bounded
