@@ -26,7 +26,7 @@ from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_
 from pricebook.foundation import CapFloorKind
 from pricebook.models.black import black_price
 from pricebook.models.black_mc import MonteCarloConfig
-from pricebook.models.libor_market_model import LiborMarketModel, LmmTenor
+from pricebook.models.libor_market_model import LiborMarketModel, LmmCorrelation, LmmTenor
 
 TENOR = LmmTenor(
     accruals=(0.5, 0.5, 0.5, 0.5),
@@ -34,6 +34,9 @@ TENOR = LmmTenor(
     volatilities=(0.22, 0.20, 0.18, 0.16),
 )
 RHO = 0.80
+#: The flat matrix tranche 17 widened `LiborMarketModel.correlation` to. `RHO` stays as the scalar
+#: these oracles transcribe `rho_ik` from, so the reference keeps its own copy of the number.
+RHO_MATRIX = LmmCorrelation.flat(len(TENOR), RHO)
 # Forward 2 spans [1.0, 1.5]; with the numeraire at 3 it is driftless, so it is the anchor's subject.
 TARGET = 2
 EXPIRY = 1.0            # T_2, when f_2 fixes
@@ -45,7 +48,7 @@ CONFIG = MonteCarloConfig(paths=20_000, seed=20261105)
 
 
 def _driftless_model() -> LiborMarketModel:
-    return LiborMarketModel(tenor=TENOR, correlation=RHO, numeraire_index=TARGET + 1)
+    return LiborMarketModel(tenor=TENOR, correlation=RHO_MATRIX, numeraire_index=TARGET + 1)
 
 
 # **Simulations are CACHED, and the `slow` gate is why.** A simulation is a deterministic function
@@ -55,7 +58,7 @@ def _driftless_model() -> LiborMarketModel:
 # ceiling has to hold on the slowest runner.
 @lru_cache(maxsize=None)
 def _paths(numeraire: int, steps: int, paths: int, seed: int):
-    model = LiborMarketModel(tenor=TENOR, correlation=RHO, numeraire_index=numeraire)
+    model = LiborMarketModel(tenor=TENOR, correlation=RHO_MATRIX, numeraire_index=numeraire)
     return simulate_terminal_forwards(model, PathGrid(EXPIRY, steps), MonteCarloConfig(paths, seed))
 
 
@@ -171,11 +174,11 @@ def test_O2_the_drift_SIGN_matches_eq_12_8_either_side_of_the_numeraire():
 
     # Forward 0 is driftless at N=1; at N=3 eq 12.8 gives it a NEGATIVE drift.
     assert mean_terminal(3, 0) < mean_terminal(1, 0)
-    assert LiborMarketModel(TENOR, RHO, numeraire_index=3).drift(0) < 0.0
+    assert LiborMarketModel(TENOR, RHO_MATRIX, numeraire_index=3).drift(0) < 0.0
 
     # Forward 3 is driftless at N=4; at N=3 eq 12.8 gives it a POSITIVE drift.
     assert mean_terminal(3, 3) > mean_terminal(4, 3)
-    assert LiborMarketModel(TENOR, RHO, numeraire_index=3).drift(3) > 0.0
+    assert LiborMarketModel(TENOR, RHO_MATRIX, numeraire_index=3).drift(3) > 0.0
 
 
 # ============================================================================================
@@ -313,10 +316,10 @@ def test_O2_the_drift_MAGNITUDE_matches_eq_12_8_with_NO_monte_carlo_error(index)
     which is what gives it the precision to see M7's 3.8%."""
     paths = MonteCarloConfig(paths=256, seed=99)
     under_1 = simulate_terminal_forwards(
-        LiborMarketModel(TENOR, RHO, numeraire_index=1), MAGNITUDE_GRID, paths
+        LiborMarketModel(TENOR, RHO_MATRIX, numeraire_index=1), MAGNITUDE_GRID, paths
     )
     under_4 = simulate_terminal_forwards(
-        LiborMarketModel(TENOR, RHO, numeraire_index=4), MAGNITUDE_GRID, paths
+        LiborMarketModel(TENOR, RHO_MATRIX, numeraire_index=4), MAGNITUDE_GRID, paths
     )
 
     expected = (_mu_eq_12_8(index, 1) - _mu_eq_12_8(index, 4)) * MAGNITUDE_GRID.dt

@@ -189,8 +189,9 @@ implicated the model.
 ## 11. Cowork's ruling on T16 — PR #22 (§10 step 4, 2026-11-05)
 
 Reviewed at the reasoning, not only the narrative. The magnitude-hole fix is sound: under log-Euler
-the initial value, the `−c_ii/2` term and the `Σa_ij z_j √dt` diffusion all share the seed and cancel
-between two numeraires, leaving `log f^A − log f^B = (µ^A−µ^B)·dt` exactly — a pointwise transcription
+the initial value, the `−c_ii/2` term and the `Σa_ij z_j` diffusion (A already carries the `√dt`, since
+`c_ij = σ_iσ_jρ_ij·dt` and A is its pseudo-square-root — Jäckel's 12.34 convention) all share the seed
+and cancel between two numeraires, leaving `log f^A − log f^B = (µ^A−µ^B)·dt` exactly — a transcription
 of the drift, which is precisely what the thirteen presence/sign oracles lacked. A magnitude error does
 not cancel (the two measures sum different forward ranges), and the fresh-transcription match at 1e-13
 pins it. Accepted — v0.19.0.

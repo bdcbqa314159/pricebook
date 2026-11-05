@@ -6,6 +6,68 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-05
+
+Tranche 17 — the **European swaption under the LMM**, anchored by an exact reduction and a bounded
+approximation. Second of the three-unit BGM/J arc. `models/swap_rate_vol.py` (L3, Rebonato's
+approximation), `products/swaption.py` (L2), `engine/swaption_mc.py` (L4), plus the correlation
+widened from a scalar to a full matrix — the widening tranche 16 said would arrive "with the unit that
+needs one", and the swaption is that unit.
+
+### The anchor: a one-period swaption IS a caplet, exactly
+A one-period swap's rate is exactly its forward and its weight exactly 1, so Rebonato's vol collapses
+to `v = sigma_i` to 1e-15 at every index. This engine and tranche 16's caplet engine then agree to
+**1e-12** on one seed after a deterministic scaling — a cross-product oracle, different code each
+side, no Monte Carlo error in the comparison. It fails under any error in the annuity, the swap rate,
+the numeraire bond or the discount index, and in mutation it did.
+
+### The cross-source independence the spec counted on does not exist
+The spec specified the swap-rate-vol approximation as transcribed from both books and reconciled —
+"the strongest independence we have". Read in both, they are **not one formula**. Both write the
+variance as `Z C Z^T`; McInerney eq 5.40 uses the **frozen** weight `w_k F_k / S`, Jaeckel eqs
+12.18/12.21 the **exact** derivative `(dSR/df_k)(f_k/SR)`. Jaeckel's is McInerney's first term plus
+the two terms arising because the weights themselves depend on the forwards — and McInerney's own
+Remark 5.13 says 5.40 can be improved by not freezing them. Two approximations of different order,
+differing by **0.45%** in vol, not two renderings of one. Claiming the independence would have been
+false; Jaeckel's form is kept as a companion whose gap is asserted small *and non-zero*. The signature
+that they are different objects: `sum Z_frozen = 1` exactly, while `sum Z_exact` is 0.9955.
+
+### A non-uniform fixture can still be degenerate
+Two of thirteen mutations survived all 603 tests, both because of fixtures rather than code, and
+neither is the flat-`tau` trap the charter already names. A correlation `exp(-beta|i-j|)` is
+non-uniform yet **translation-invariant**, so `rho[first+m][first+l]` equals `rho[m][l]` and a mutant
+dropping the span offset is invisible; all-`0.5` accruals make `accruals[:count]` and
+`accruals[first:first+count]` the same slice, hiding the offset a second time. Jaeckel eq 12.12
+decays in the actual times `t_i`, not index distance — so the faithful reading is also the
+non-degenerate one. Sixth appearance of the trap, first where the degeneracy is *uniformity across a
+slice* rather than a specific value. A third survivor — transposing `rho` — is a proved equivalent
+mutant: symmetry is enforced at construction, and the vol is bit-identical across seven spans.
+
+### An oracle claimed a power it did not have, and its own power assertion caught it
+The bounded cross-check first asserted agreement inside one flat 3% band, called that "the freezing
+slack", and claimed a 10% vol error would fall outside. It **failed**, and both halves were wrong.
+The freezing error measured at 200,000 paths is 0.15%-0.96%, settling near 0.5%; the ~2.3% seen at the
+committed path count is mostly Monte Carlo error, so one flat percentage was standing in for two
+different errors and would have let a real 2% defect pass as noise. And the band had no power at all:
+at 6,000 paths it resolves only a ~20% vol error. Measured resolution 20% at 6,000 paths, 10% at
+12,000, 5% at 25,000. The oracle is now banded as `4 SE + the measured freezing slack` with the SE
+measured from the paths the engine consumes, split into a breadth check whose coarse resolution is
+stated and a dedicated power test at the count where a 10% error provably falls outside.
+
+### Oracle 5's specced instrument does not generalise — replaced by something stronger
+Tranche 16's two-numeraire identity worked because only the *drift* differed, so the diffusion
+cancelled to the last bit. `rho` enters the **factorisation**, so two models differing in `rho` give
+genuinely different paths and nothing cancels; the price-level sensitivity also cannot be tightly
+bounded, since differencing amplifies relative error past 100% of the move. Replaced by a direct pin:
+the realised covariance of the simulated log-increments must reproduce `sigma_i sigma_j rho_ij dt` for
+**every pair** — all 36 entries individually, where a price pins one weighted scalar. Worst pairwise
+error 3.2% at 20,000 paths, 1.66% at 80,000, halving as `sqrt(N)` quadruples.
+
+### Notes
+- The engine's payoff is vectorised over paths. The first version walked each path in Python while
+  consuming an already-vectorised simulation — the failure the `slow` gate's own docstring names.
+- 604 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.19.0] - 2026-11-04
 
 Tranche 16 — the **LIBOR market model evolved by Monte Carlo**, anchored on our own Black caplet.
