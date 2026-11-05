@@ -116,7 +116,14 @@ not an oracle. Ruled principles:
   downstream equations use) and pin that choice with an oracle — the discrepancy is found by the
   finance, not deferred to the reader. *(T13: eq 4.1.3 printed `Fn/(1+Fn)` while `Di` printed
   `τFn/(1+τFn)` three lines on — ruled `1+τF` (it is `Pn(Tᵢ₋₁)/Pn(Tᵢ)`, dimensionally sound, and the
-  form 4.1.6 uses) and pinned.)*
+  form 4.1.6 uses) and pinned.)* **The dual risk: a fresh transcription can introduce its OWN error,
+  not just repeat the code's — and the disagreement PATTERN says which side is wrong.** A disagreement
+  confined to the indices/parameters that exercise one special term implicates that term; a uniform
+  disagreement across all of them implicates the implementation. So on a red transcription oracle, read
+  the pattern before debugging the code — the instinct to suspect the code first is sometimes exactly
+  backwards. *(T16: a reference for eq 12.8 used the off-diagonal ρ=0.80 for ρ_ii too; only forward 0
+  — the one index whose drift sum never reaches the diagonal — agreed, and that asymmetry located the
+  bug in the reference, not the model.)*
 - **Reduction is the preferred anchor, and it needs a companion.** A capability that generalises
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
@@ -159,7 +166,19 @@ not an oracle. Ruled principles:
   angle (`πv` for `2πv`) satisfies the exact requirement `x²+y² = −2 ln u` — `sin²+cos² = 1` whatever
   the angle — while failing the pointwise transcription. Assert both, **and** assert that the wrong
   variant *does* satisfy the requirement, so the companion is proven necessary rather than assumed.
-  *(T15.)*
+  *(T15.)* **A set of oracles can be complete about a quantity's PRESENCE and SIGN and still be silent
+  about its MAGNITUDE** — which is the same trap wearing a subtler disguise: not a vacuous assertion,
+  but a *complete* set of assertions about the wrong aspect. When a quantity enters a formula as a
+  **product** (`(fτ)/(1+fτ)·σ`), assert the product's **value** against an independent transcription,
+  not merely that each factor is present and correctly signed. And beware the anchor's own blind spot:
+  **an oracle made sharp by a quantity being exactly zero is, for that very reason, blind to that
+  quantity** — so a closed-form anchor run under the measure where the target's drift vanishes cannot
+  see the drift at all. The magnitude oracle that fills the gap is itself a transcription, made
+  noise-free by differencing two runs that share a seed so everything but the quantity cancels.
+  *(T16: three mutations of the LMM drift eq 12.8 — a dropped `dt` (8×), raw forwards for the ratios
+  (5×), a dropped denominator (1.04×) — survived all 550 tests; killed by a two-numeraire one-seed
+  identity `log f^A − log f^B = (µ^A−µ^B)·dt`, exact every path, matched to a fresh transcription at
+  1e-13.)*
 
 - **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
   is evidence only about what the oracle *examined*. Every defect this project has shipped was an

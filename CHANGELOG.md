@@ -6,6 +6,51 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-04
+
+Tranche 16 — the **LIBOR market model evolved by Monte Carlo**, anchored on our own Black caplet.
+First of the three-unit BGM/J arc (`JAECKEL-2002` ch 12), and the only one with a closed-form anchor.
+Three pieces: the pseudo-square-root at L0, the LMM at L3, the path engine at L4 — the last extracted
+now because the LMM is the **second** consumer of the MC machinery (rule-of-two).
+
+### The drift's magnitude was unconstrained, and thirteen green oracles did not see it
+Three mutations of eq 12.8 survived all 550 tests: dropping the drift's `dt` factor (an 8x drift),
+feeding the drift the raw forwards instead of the `(f tau)/(1 + f tau)·sigma` ratios (5x), and dropping
+that denominator (1.04x). The cause was structural. Every drift oracle asserted the drift was
+**present** (the paired-numeraire test, at 297-372 standard errors) or correctly **signed** — neither
+constrains its size. And the closed-form anchor runs under the measure where the target forward's drift
+is **exactly zero**: the exactness that makes the anchor sharp is the same reason it is blind to the
+drift. A complete set of assertions about the wrong quantity.
+
+The fix removes Monte Carlo error instead of fighting it. Two models differing only in numeraire index,
+one step, one seed consume the same normals from the same state, so the diffusion and `-c_ii/2` terms
+cancel to the last bit and `log f_i^A - log f_i^B = (mu_i^A - mu_i^B)·dt` **exactly**, every path.
+Agreement with a fresh transcription of eq 12.8 is 1e-13 relative, cross-path spread 7e-16 — precision
+no path count buys, and what lets it see the 3.8% mutant. The step is a **half** year deliberately: at
+`dt = 1.0` the `dt` scaling is invisible, which is how that mutant survived. All eight now die.
+
+### The new oracle found an error in its own reference before it found one in the code
+Its transcription used the off-diagonal `rho = 0.80` for every pair, including `rho_ii = 1`. Forward 0
+agreed to 1e-13 and forwards 1-3 disagreed in the third digit — and the **asymmetry located the bug**:
+forward 0 is the only index whose drift sums never reach the diagonal. The model was right. Recorded
+because it is the dual of the usual worry: an independent transcription can introduce a fresh error
+rather than repeat the implementation's, and the disagreement *pattern* is what says which side is wrong.
+
+### Added
+- `foundation/linalg.py` — the pseudo-square-root (12.4) with spectral ordering, and the m-factor
+  rescaling (12.6/12.7) making `SUM_j a_ij^2 = c_ii` hold **exactly** at any factor count.
+- `models/libor_market_model.py` — `LmmTenor`, `LiborMarketModel`, eq 12.8 split into `drift_matrix`
+  (its constant part) and `state_ratios` (its state-dependent part) so the scalar `drift_at` and the
+  vectorised engine share **one** definition rather than the engine re-deriving the formula.
+- `engine/mc_path_engine.py` — eq 13.2's log-Euler step, vectorised over paths.
+
+### Notes
+- `black_mc` is **not** folded onto the new engine. The spec allowed it only if bit-identical; it is
+  not (single step to expiry vs a stepped grid, so different draws in a different order), so it stays.
+- The engine oracle file went 8.4s to 1.2s — vectorisation then caching the deterministic
+  simulations — against the `slow` gate's 10s ceiling, which CI meets roughly 4x slower.
+- 554 tests, all eight gates green.
+
 ## [0.18.0] - 2026-11-04
 
 Tranche 15 — the Monte Carlo spine. **Project two's first unit**, from `JAECKEL-2002`, and the root
