@@ -93,8 +93,9 @@ through it, never as a second argument, so a model/market mismatch cannot be exp
    And it is a **correctness** matter, not only efficiency: an oracle that re-simulates to recover a
    discarded SE gets the SE of *different* paths than the price, so the band no longer describes that
    price. The field rides along where it is meaningful and is ignored where it is not; the contract
-   shape (`PricingResult | PricingFailure`) is unchanged. *(T17 finding 5; ruled by Cowork 2026-11-05,
-   Bernardo owns §3 and may veto.)*
+   shape (`PricingResult | PricingFailure`) is unchanged. *(T17 finding 5; ruled by Cowork and
+   **accepted by Bernardo** 2026-11-05, implemented at v0.20.1 — `OPEN.md` OI-2 closed. The caplet
+   pricer needed no change: it returns a `MonteCarloEstimate`, which carried its error already.)*
 
 ---
 

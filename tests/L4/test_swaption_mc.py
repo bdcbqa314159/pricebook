@@ -167,10 +167,11 @@ def _estimate_from_paths(first: int, count: int, strike: float, kind=SwaptionKin
                          rho: LmmCorrelation = RHO, config: MonteCarloConfig = CONFIG):
     """The mean AND standard error of the swaption payoff, from the simulation the engine consumes.
 
-    The engine returns a `PricingResult`, which carries a PV and no standard error — correct for the
-    charter's engine contract, and insufficient for banding an oracle. So the payoff is recomputed
-    here from the same paths, which costs one extra simulation and buys two things: a measured SE,
-    and a check that the engine's own composition (`mean x discount x notional`) is what it claims."""
+    **Its purpose narrowed when §3 invariant 7 landed.** It used to be how every banded oracle got a
+    standard error at all, re-simulating once per case; the engine now carries its own, so the bands
+    read `out.standard_error` directly. What remains is the better use: an INDEPENDENT recomputation
+    of the payoff on the same paths, which checks the engine's mean AND its error bar rather than
+    merely supplying a number the engine could have been wrong about."""
     paths = simulate_terminal_forwards(_model(first, count, rho), _grid(first), config)
     tau = TENOR.accruals
     payoffs = []
@@ -217,17 +218,13 @@ def test_O3_the_MC_swaption_agrees_with_BLACK_REBONATO_within_SE_plus_the_freezi
     out = price_european_swaption(_swaption(first, count, strike), model, _grid(first), CONFIG)
     assert isinstance(out, PricingResult)
 
-    scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
-    sampled = _estimate_from_paths(first, count, strike)
-    # The engine's composition, pinned: PV is the payoff mean times the numeraire bond and notional.
-    assert out.pv.amount == pytest.approx(sampled.mean * scale, rel=1e-12)
-
+    assert out.standard_error is not None
     vol = rebonato_swaption_vol(model, first, count)
     closed = (
         black_price(strike, strike, vol**2 * _expiry(first), CapFloorKind.CAP)
         * _black_swaption_scale(first, count)
     )
-    band = 4.0 * sampled.standard_error * scale + _FREEZING_SLACK * closed
+    band = 4.0 * out.standard_error + _FREEZING_SLACK * closed
     assert abs(out.pv.amount - closed) < band
 
 
@@ -253,14 +250,13 @@ def test_O3_the_band_HAS_POWER_at_the_path_count_where_it_is_narrow_enough():
     )
     assert isinstance(out, PricingResult)
 
-    scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
-    sampled = _estimate_from_paths(first, count, strike, config=powerful)
+    assert out.standard_error is not None
     vol = rebonato_swaption_vol(model, first, count)
     closed = (
         black_price(strike, strike, vol**2 * _expiry(first), CapFloorKind.CAP)
         * _black_swaption_scale(first, count)
     )
-    band = 4.0 * sampled.standard_error * scale + _FREEZING_SLACK * closed
+    band = 4.0 * out.standard_error + _FREEZING_SLACK * closed
     assert abs(out.pv.amount - closed) < band
 
     wrong = black_price(
@@ -451,6 +447,9 @@ def test_INV7_a_monte_carlo_result_CARRIES_its_standard_error():
 
     scale = tenor_discount_factors(TENOR)[first + count] * NOTIONAL.amount
     sampled = _estimate_from_paths(first, count, strike)
+    # Both halves of the composition, since the banded oracles no longer recompute either: the PV is
+    # the payoff mean scaled, and the error bar is the estimator's own scaled the SAME way.
+    assert out.pv.amount == pytest.approx(sampled.mean * scale, rel=1e-12)
     assert out.standard_error == pytest.approx(sampled.standard_error * scale, rel=1e-12)
     # The error bar must be small relative to the price, or it is not an estimate of anything.
     assert out.standard_error < 0.05 * out.pv.amount

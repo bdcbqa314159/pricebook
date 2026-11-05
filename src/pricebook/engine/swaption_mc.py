@@ -15,6 +15,10 @@ and `S` at expiry are functions of the forwards at expiry alone, so tranche 16's
 forwards at *each* exercise date; widening the engine's return from an endpoint to a path lands
 there, pulled by that real second consumer, rather than speculatively here (§6).
 
+**The result carries its standard error (§3 invariant 7).** The PV is an estimate, so its error bar
+is part of it; `estimate(...)` computes the standard error anyway and discarding it would force every
+banded oracle to re-simulate for a number the engine already had.
+
 **The measure is checked, not assumed.** `A/B_N` is the annuity only when `N` is the span's own end
 bond. Under any other numéraire the same arithmetic returns a plausible wrong number, so a mismatch
 is a `PricingFailure` — the one failure mode §3.4 exists for.
@@ -98,9 +102,13 @@ def price_european_swaption(
         swaption.kind.omega,
     )
 
-    discount = tenor_discount_factors(tenor)[span.end]
-    pv = estimate(payoffs).mean * discount * swaption.notional.amount
-    return PricingResult(pv=Money(pv, swaption.notional.currency))
+    # `scale` is deterministic, so it multiplies the estimator's mean and its standard error alike.
+    scale = tenor_discount_factors(tenor)[span.end] * swaption.notional.amount
+    sampled = estimate(payoffs)
+    return PricingResult(
+        pv=Money(sampled.mean * scale, swaption.notional.currency),
+        standard_error=sampled.standard_error * scale,
+    )
 
 
 def _payoffs(paths, accruals, span, strike: float, omega: float) -> list[float]:
