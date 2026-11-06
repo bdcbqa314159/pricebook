@@ -40,8 +40,19 @@ bracket; tightening it needs a better exercise policy or the dual bound (`to_go_
   have injected bias; replaced by the numéraire-relative annuity (exact by the martingale property),
   ρ=0.74, 54% variance reduction, zero bias. Oracle: unbiasedness (exact, against our closed forms) +
   measured reduction.
-- **T20 — Inverse-CDF (9.1, Acklam) + Sobol (8).** The deferred inversion finally built (Sobol needs a
-  monotone transform, not Box-Muller) — Bernardo acquires Acklam's note. Oracle: beats the −½ rate.
+- **T20 — Inverse-CDF + Sobol (8).** The deferred inversion finally built (Sobol needs a monotone
+  transform, not Box-Muller). **Not a correctness dependency on Acklam:** `Φ⁻¹` is built primarily by
+  inverting our own exact `norm_cdf` (a guarded root-find — self-contained, exact, monotone), with
+  **Acklam's rational approximation as the fast path** — recommended in Jäckel **§9.3** ("Normal
+  variates") and ch 2, never printed there; the note itself is now `in-hand` in
+  `_stock/NewDocuments/` alongside the other held sources. *(Corrected at commit: the draft cited
+  §9.1, which is "Inversion of the cumulative probability function" — the general inversion method,
+  relevant but a different thing from where Acklam is named. `references.md` already said §9.3.)*
+  the two **cross-checked** against each other (different code, Acklam's coefficients untrusted until
+  they match the root-find) and both against the round-trip. Register `ACKLAM-2000` `in-hand` when
+  specced. Oracle: beats the −½ rate. **TODO (queued, convenience only):** produce a gitignored `.md`
+  reading-extract of the Acklam note under `_stock/NewDocuments/` — clearly marked *derived, not the
+  authority*; Code still transcribes from the `.htm` in two renderings (the shared-rendering rule).
 - **T21 — Path construction / the Brownian bridge (10.8).** Path-dependent payoffs; the classic
   partner to Sobol (front-loads variance into the low-dimension coordinates).
 - **T22 — Greeks (11): pathwise + likelihood ratio.** Opens L5 risk; closes BERHAN's §1.3 route too.
