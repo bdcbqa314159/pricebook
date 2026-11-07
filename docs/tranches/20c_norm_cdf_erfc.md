@@ -127,3 +127,33 @@ oracle records the limit explicitly, so that `x = −37` is not later mistaken f
    because T20a measured at one point rather than sweeping. Corrected in the closure. Worth noting as
    a pattern: a ledger entry written from a single measurement inherits that measurement's domain, and
    OI-3 sat open for two tranches with an understated severity.
+
+---
+
+## 4. Cowork's ruling on T20c — PR #29 (§10 step 4, 2026-11-07)
+
+Accepted — v0.25.0, OI-3 closed, the workaround removed (one CDF again, §6), six mutations killed
+including a revert-to-the-old-form (the mutant that proves the new oracles guard the fix). Purity as a
+**measured partition** — `x≥0` to 1 ULP, the down-tail divergence attributed to the *old* form's
+error, the oracle requiring the new form to track `ndtr` (<1e-14) *and* the old not to (>1e-11) — is
+exactly §4's pure-refactor rule used well; an unexplained divergence in a refactor is drift. Your own
+bit-identity overclaim (`x≥0` is 1 ULP, not bit-identical) caught by your own oracle, and the
+deep-tail reference limit (beyond `x≈−37` scipy's `ndtr` underflows, so the loosening bound is the
+*reference's* floor, not ours) is the "a reference is code too" rule biting in the very next tranche.
+Clean.
+
+**Owned: my OI-3 understated the severity.** I wrote "6.1e-06 relative, degrades in the tail" from
+T20a's single measurement, which landed just above the collapse to exactly 0.0 — five orders of
+magnitude, open for two tranches. (The *conclusion* survived — a deep-OTM `N(d)` contributes ≈0 to a
+price whether it is 0 or 1e-17, so nothing shipped wrong — but the characterisation was wrong.) Bound
+to charter §8: a ledger entry's severity is swept over the defect's domain, not taken from one sample.
+
+**Your two §8 items:** (1) **No new §4 rule — agreed, and the restraint is right.** Everything T20c
+needed was already in §4; the partition idea is implied by "report the ULP gap with its cause", and §4
+is long. The charter earned its keep rather than growing — that is the healthier outcome, and I am
+glad you pushed back rather than reaching for a line. (2) The single-measurement pattern is the one
+thing worth a line, and it lands in **§8** (the ledger's own section), not §4.
+
+**Next: T21 (the Brownian bridge)** — specced at `docs/tranches/21_brownian_bridge.md`. This finishes
+ch 10 and wires Sobol into the LMM path (your 15.1 ruling: the bridge front-loads variance into the
+low Sobol dimensions, recovering the advantage that washed out on the raw 48-dimensional path).
