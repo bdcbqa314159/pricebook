@@ -1,8 +1,22 @@
 """The normal distribution, behind our own API (L0).
 
-**`Phi(x) = (1 + erf(x/sqrt2))/2`, from `math.erf` — and it was `scipy.stats.norm.cdf` until
-tranche 11.** The identity is exact and `math.erf` is the C library's, accurate to about one ULP; the
-reason for the change was measured, not aesthetic. `scipy.stats.norm.cdf` costs **10.70 us per
+**`Phi(x) = erfc(-x/sqrt2)/2`, from `math.erfc` — and it was `scipy.stats.norm.cdf` until tranche 11,
+then `(1 + erf(x/sqrt2))/2` until tranche 20c.** Both reasons for changing were measured, not
+aesthetic, and they were different reasons: scipy's cost, then the `erf` form's **tail cancellation**.
+
+**Why the form moved again at tranche 20c (OI-3).** `(1 + erf(x/sqrt2))/2` is the same quantity in
+exact arithmetic — `erfc(-y) == 1 + erf(y)` — and in floating point it destroys the lower tail: as
+`erf -> -1` the sum cancels, so at `x = -7.03` the relative error was **6.1e-06** against the
+complementary form's **7.4e-15**, and below about `x = -8.3` it returned **exactly 0.0** — not a small
+probability but a lost one. `erfc` computes the small tail directly and never forms that difference.
+The centre is untouched; the two agree to a few ULP wherever neither cancels.
+
+It took fifteen tranches to find because the oracle asserted the tails *"saturate"* — an ABSOLUTE
+claim, blind to relative error where the true value is ~0. That is charter section 4's domain rule, and
+the relative-accuracy oracle that now replaces it is the whole content of tranche 20c.
+
+The `math.erf` note below is kept because the performance argument is unchanged — `math.erfc` is the
+same C-library family and the same cost. `scipy.stats.norm.cdf` costs **10.70 us per
 call** against **0.04 us** for the erf form — 270x — because `scipy.stats` carries a large
 per-call distribution-object overhead that a scalar pricer pays on every caplet. Two `norm_cdf`
 calls per caplet made it roughly 40% of the whole suite's runtime, and it is what pushed tranche
@@ -11,7 +25,7 @@ passing locally. The swap took the full suite from 4.5s to 0.78s.
 
 **The swap also made the cap/floor oracles MORE independent, which is the better reason to keep
 it.** Every test that checks a Black price transcribes the formula using `scipy.stats.norm` — so
-with the code on `math.erf` there are now genuinely two implementations, one on each side of the
+with the code on the C library's `erf`/`erfc` there are now genuinely two implementations, one on each side of the
 oracle, where before the test and the code shared scipy's. Charter section 4 asks for exactly that.
 
 The adapter remains the one place the behaviour is pinned, and the one swap point if a port needs
@@ -27,7 +41,8 @@ Provenance:
           and the vectorised sibling arrive with their consumers — a vega, a copula. `norm_ppf`
           arrived at tranche 20 as `inverse_norm_cdf`, pulled by Sobol's need for a monotone
           transform)
-  source: standard normal CDF via the exact identity `Phi(x) = (1 + erf(x/sqrt2))/2`; `math.erf`
+  source: standard normal CDF as `erfc(-x/sqrt2)/2` (tranche 20c; it was the algebraically identical
+          `(1 + erf(x/sqrt2))/2` through 20b, which cancels in the lower tail -- OI-3); `math.erfc`
           from the C library is the numerical provider. (It was `scipy.stats.norm.cdf` through
           tranche 10; scipy is still pinned in pyproject and still used by the TESTS, which is now
           a feature — the oracle and the implementation no longer share a provider.)
@@ -35,7 +50,10 @@ Provenance:
           coefficients, its `p_low = 0.02425` break-points and its Halley refinement, transcribed
           from the held capture of the author's own page. Recommended by JAECKEL-2002 §9.3, which
           prints neither it nor Moro's; tranche 15 deferred the inversion for exactly that reason.
-  oracle: Phi(0)=1/2 exactly; Phi(x)+Phi(-x)=1 to 1e-15 across the range; monotone; tails -> 0/1.
+  oracle: Phi(0)=1/2 exactly; Phi(x)+Phi(-x)=1 to 1e-15 across the range; monotone; and -- tranche
+          20c, the one it never had -- RELATIVE accuracy below 1e-13 across [-9, 9] and into the deep
+          tail against scipy.special.ndtr, with the superseded form asserted to FAIL it. The old
+          "tails -> 0/1" check remains but is understood as absolute, which is why it was blind.
           The inverse: agreement with an INDEPENDENT root-find of `norm_cdf` (sharing no coefficient,
           branch or break-point) swept across both break-points; the round-trip to 1e-14; the
           standard quantiles to thirteen digits; oddness about 1/2; strict monotonicity (what Sobol
@@ -56,8 +74,22 @@ _PI = math.pi
 
 
 def norm_cdf(x: float) -> float:
-    """The standard-normal cumulative distribution `Phi(x) = (1 + erf(x/sqrt2))/2`."""
-    return 0.5 * (1.0 + math.erf(x / _SQRT2))
+    """`Phi(x)` — the standard normal CDF, as `erfc(-x/sqrt2)/2`.
+
+    **The form matters, and this is the second one.** Through tranche 20b this was
+    `0.5*(1 + erf(x/sqrt2))`, which is the same quantity in exact arithmetic (`erfc(-y) == 1 + erf(y)`)
+    and loses the lower tail in floating point: as `erf -> -1` the sum `1 + erf` cancels, and below
+    about `x = -8.3` it returns **exactly 0.0** — not a small probability but a lost one. The
+    complementary form computes the small tail directly, with no cancellation, for either sign of `x`.
+
+    Measured against an independent high-precision CDF: at `x = -7.03` the old form carried **6.1e-06**
+    relative error and this one **7.4e-15**; at `x = -9` the old form's relative error was **1.0** (it
+    returned zero). The centre is unaffected — the two agree to a few ULP where neither cancels.
+
+    It took fifteen tranches to notice, because the oracle asserted the tails *"saturate"* — an
+    ABSOLUTE claim that passes however bad the relative error gets where the true value is ~0. The
+    relative-accuracy oracle that replaces it is the point of tranche 20c (see `OPEN.md` OI-3)."""
+    return 0.5 * math.erfc(-x / _SQRT2)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -144,27 +176,6 @@ def _acklam_rational(p: float) -> float:
     )
 
 
-def _lower_tail_cdf(x: float) -> float:
-    """`Phi(x)` as `erfc(-x/sqrt2)/2` — the SAME quantity as `norm_cdf`, computed to survive the tail.
-
-    **Acklam offers this as an explicit alternative and the reason is accuracy, measured:** at
-    `x = -7.03`, `(1 + erf(x/sqrt2))/2` carries a *relative* error of **6.1e-06** against an
-    independent high-precision CDF, while `erfc(-x/sqrt2)/2` carries **7.4e-15** — nine orders of
-    magnitude, because `1 + erf` cancels catastrophically when `erf -> -1`. His pseudo-code prints
-    both lines side by side (*"use this line ... OR this; not both"*), and he notes he used Cody's
-    `erfc` for exactly this role.
-
-    It is only ever called at `x <= 0` (the refinement is reduced to the lower half by symmetry), so
-    this is the branch where the two forms differ and `erfc` is unambiguously the right one.
-
-    **Not a duplicate definition of `norm_cdf` but a tail-stable evaluation of it** — and the gap it
-    exposes in `norm_cdf` itself is raised rather than silently patched: that function has shipped
-    since tranche 5 and nineteen tranches of oracles read it, so changing its form is not this
-    tranche's call. Its own oracle says only *"tails -> 0/1"*, which is an ABSOLUTE statement and so
-    passes however bad the relative error gets — §4's domain rule, found again."""
-    return 0.5 * math.erfc(-x / _SQRT2)
-
-
 def inverse_norm_cdf(p: float) -> float:
     """`Phi^-1(p)` to machine precision — Acklam's approximation plus one Halley step.
 
@@ -175,7 +186,10 @@ def inverse_norm_cdf(p: float) -> float:
 
     `u` is `e` divided by the normal density at `x`, so the update is Newton's with a third-order
     correction in the denominator. Acklam used Cody's FORTRAN `erfc` for the `Phi` it needs; we use
-    our own exact `norm_cdf`, which is the same role played by arithmetic we already verify.
+    our own `norm_cdf`, which since tranche 20c **is** the `erfc` form — so the tail-stable sibling
+    this function carried at tranche 20a has been retired and there is one CDF again (§6). That
+    sibling existed only because `norm_cdf` could not be trusted in the tail; fixing the cause removed
+    the workaround rather than leaving both.
 
     **The domain is the open interval, and the endpoints are refused.** `Phi^-1(0)` is `-inf`, not a
     large number, and a generator that silently returned one would put an infinity into whatever consumes the draw.
@@ -200,7 +214,7 @@ def inverse_norm_cdf(p: float) -> float:
     q = 1.0 - p if upper else p
 
     x = _acklam_rational(q)
-    error = _lower_tail_cdf(x) - q
+    error = norm_cdf(x) - q
     u = error * math.sqrt(2.0 * _PI) * math.exp(x * x / 2.0)
     refined = x - u / (1.0 + x * u / 2.0)
     return -refined if upper else refined

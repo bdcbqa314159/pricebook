@@ -13,7 +13,6 @@ from pricebook.foundation.distributions import (
     _A,
     _B,
     _acklam_rational,
-    _lower_tail_cdf,
     inverse_norm_cdf,
     norm_cdf,
 )
@@ -89,16 +88,85 @@ def test_T20c_norm_cdf_is_accurate_in_RELATIVE_terms_across_the_whole_range():
 def test_T20c_the_DEEP_tail_keeps_its_significant_digits():
     """Further out than any pricer needs, because the question is whether the *form* is right.
 
-    At `x = −30` the probability is ~1e-198 — still a normal `float`, and still a number with sixteen
-    significant digits that the computation either keeps or throws away. The cancelling form returns
-    exactly `0.0` here, which is not a small probability but a lost one."""
+    At `x = -30` the probability is ~5e-198 — still a normal `float`, and still a number with sixteen
+    significant digits that the computation either keeps or throws away. The superseded form returns
+    exactly `0.0` here: not a small probability but a lost one.
+
+    **The bound loosens with depth, and that is the REFERENCE's accuracy rather than ours** — §4's
+    "a reference is code too", which this tranche's own charter note states. `math.erfc` and scipy's
+    `ndtr` are different implementations computing a value spanning three hundred orders of magnitude,
+    and their *relative* agreement decays slowly: 1.6e-14 at `x = -10`, 6.4e-14 at `-20`, 2.1e-13 at
+    `-37`. Asserting 1e-13 everywhere (as a first version did) is asserting the reference is better
+    than it is — it failed at `x = -30` with 1.74e-13."""
     from scipy.special import ndtr
 
-    for x in (-10.0, -15.0, -20.0, -30.0):
+    for x, bound in ((-10.0, 1e-13), (-15.0, 1e-13), (-20.0, 1e-13), (-30.0, 1e-12), (-37.0, 1e-12)):
         exact = float(ndtr(x))
         assert exact > 0.0, "premise: scipy must resolve this, or the comparison is vacuous"
         assert norm_cdf(x) > 0.0, f"norm_cdf({x}) collapsed to zero — the digits are gone"
-        assert abs(norm_cdf(x) - exact) / exact < 1e-13
+        assert abs(norm_cdf(x) - exact) / exact < bound
+
+
+def test_T20c_we_resolve_FURTHER_than_the_reference_does():
+    """Where the oracle runs out before the code does — worth asserting so it is not mistaken later
+    for a limit of ours.
+
+    At `x = -38` scipy's `ndtr` underflows to **exactly 0.0** while `erfc(-x/sqrt2)/2` still returns a
+    subnormal (~2.9e-316). So beyond about `x = -37` there is no reference to compare against, and the
+    honest statement is the structural one: the value stays positive and monotone down to where the
+    `float` itself gives out. A test that simply stopped at `-37` would leave the impression that is
+    where *we* stop."""
+    from scipy.special import ndtr
+
+    assert float(ndtr(-38.0)) == 0.0, "if scipy resolves this now, use it as the reference here too"
+    assert norm_cdf(-38.0) > 0.0
+    assert norm_cdf(-38.0) < norm_cdf(-37.0)
+    # The floating-point floor, not an error: below about -39 even a subnormal cannot hold it.
+    assert norm_cdf(-50.0) == 0.0
+
+
+def test_T20c_the_change_AGREES_where_the_old_form_was_SOUND_and_the_rest_is_ITS_error():
+    """The §4 pure-refactor proof, as a measured **partition** rather than a single tolerance.
+
+    `erfc(-y) ≡ 1 + erf(y)` in ℝ, so the two forms are the same quantity and only their
+    floating-point behaviour differs. Measured, not asserted:
+
+    * **`x ≥ 0`: agreement to 1 ULP** (bit-identical at 88% of a fine grid over `[0, 6]`, never worse
+      than one). Both forms are accurate there — 2.19e-16 versus 2.50e-16 against `scipy.special.ndtr`
+      — because `erf > 0` means `1 + erf` never cancels. A first version of this oracle claimed
+      *bit*-identity here and failed at `x = 1.2`: both routes produce a value near 1 and round
+      differently in the last bit, which is rounding, not error. Worth recording, because "identical"
+      was the claim I wanted and one ULP is the claim that is true.
+    * down to `x = -4`: tens of ULP at worst (`-3` is the outlier at 36, a relative 5.8e-15).
+    * **`x ≲ -5`: the forms part company — 3.9e-11 relative at `-5`, 1.3e-10 at `-6` — and that is the
+      OLD form's error, not this change's noise.** Attributed rather than merely noted: both are
+      compared against the independent reference below, and only one of them tracks it.
+
+    So the usual "agreement bounded to a few ULP" framing would be **false** here, and claiming it
+    would be the §4 violation this rule exists to prevent. The partition also bounds the blast radius
+    for the nineteen tranches of oracles that read `norm_cdf`: anything evaluating `Φ` above about
+    `x = -4` moves by at most tens of ULP, which no tolerance in the suite can see."""
+    from scipy.special import ndtr
+
+    def superseded(x: float) -> float:
+        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+    # The non-negative half: one ULP, and both accurate.
+    for t in range(0, 1_201):
+        x = t / 200.0
+        assert norm_cdf(x) == pytest.approx(superseded(x), rel=3e-16), f"moved at x={x}"
+    assert norm_cdf(0.0) == 0.5
+
+    # Down to -4: rounding only.
+    for x in (-1.0, -2.0, -3.0, -4.0):
+        assert norm_cdf(x) == pytest.approx(superseded(x), rel=1e-14)
+
+    # Below that they diverge, and the divergence is the OLD form's error — which is the claim that
+    # makes this a fix rather than a drift.
+    for x in (-5.0, -6.0, -7.03):
+        exact = float(ndtr(x))
+        assert abs(norm_cdf(x) - exact) / exact < 1e-14, "the new form must track the reference"
+        assert abs(superseded(x) - exact) / exact > 1e-11, "the old form must not"
 
 
 def test_T20c_the_OLD_form_FAILS_this_oracle_which_is_why_the_tranche_exists():
@@ -152,13 +220,12 @@ def _inverse_by_root_find(p: float) -> float:
     copy the same digits."""
     from pricebook.foundation.solvers import bracketed_root
 
-    # Built on `erfc(-x/sqrt2)/2`, NOT on `norm_cdf`. A first version used `norm_cdf` and the deep
-    # tail disagreed by 3.9e-07 — and the REFERENCE was the wrong side: `norm_cdf`'s `(1+erf)/2`
-    # form cancels as `erf -> -1`, carrying 6.1e-06 relative error at `x = -7.03` against an
-    # independent high-precision CDF, where the `erfc` form carries 7.4e-15. Still independent of
-    # Acklam (no coefficient, branch or break-point in common); just not independent of the
-    # cancellation, which had to be removed from the reference rather than tolerated in it.
-    return bracketed_root(lambda x: _lower_tail_cdf(x) - p, -40.0, 40.0)
+    # Built on `norm_cdf`, which **since tranche 20c is** the `erfc` form. At tranche 20a this line
+    # had to call a private `erfc` sibling instead, because `norm_cdf`'s `(1+erf)/2` form cancelled as
+    # `erf -> -1` and the deep tail disagreed by 3.9e-07 — with the REFERENCE as the wrong side. Fixing
+    # the cause (OI-3) removed the workaround: there is one CDF again, and it is the accurate one.
+    # Still independent of Acklam — no coefficient, branch or break-point in common.
+    return bracketed_root(lambda x: norm_cdf(x) - p, -40.0, 40.0)
 
 
 @pytest.mark.parametrize(
@@ -322,7 +389,7 @@ def test_T20_ACKLAMS_PUBLISHED_ACCURACY_is_MEASURED_not_taken_on_trust():
 
 def _one_step(start: float, p: float, third_order: bool) -> float:
     """One refinement step from `start`, with or without Halley's third-order denominator."""
-    error = _lower_tail_cdf(start) - p
+    error = norm_cdf(start) - p
     u = error * math.sqrt(2.0 * math.pi) * math.exp(start * start / 2.0)
     return start - u / (1.0 + start * u / 2.0) if third_order else start - u
 
