@@ -6,6 +6,71 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-07
+
+Tranche 20a — **the inverse normal CDF**, closing the inversion tranche 15 deliberately deferred.
+`ACKLAM-2000` registered `in-hand` (acquired by Bernardo) — the algorithm `JAECKEL-2002` §9.3
+recommends and prints nowhere, which is what stopped T15. Acklam's rational approximation plus one
+Halley step against an exact CDF: worst miss **7.66e-16** against an independent implementation,
+sub-ULP. **Sobol is NOT built — it is T20b** (see `docs/tranches/20_inversion_sobol.md` §0).
+
+### Our `norm_cdf` is relatively inaccurate in the lower tail, by nine orders of magnitude
+The refinement needs `Phi(x)`, and using our own `norm_cdf` broke the deep tail: it computes
+`(1 + erf(x/sqrt2))/2`, and as `erf -> -1` the sum **cancels catastrophically**. Measured against an
+independent high-precision CDF at `x = -7.03`: ours **6.1e-06** relative, `erfc(-x/sqrt2)/2`
+**7.4e-15**. Acklam prints both forms side by side ("use this line ... OR this; not both") and says
+he used Cody's `erfc` — this is why. The refinement therefore uses `erfc`, and the upper half is
+mapped onto the lower by the exact oddness of `Phi^-1`, so the CDF is only evaluated where it is
+accurate.
+
+`norm_cdf` itself is **raised, not patched**: it has shipped since tranche 5, nineteen tranches of
+oracles read it, and the change is not bit-identical. Worth noting why its own oracle missed this —
+it asserts "tails -> 0/1", an **absolute** claim that passes however bad the relative error gets.
+§4's domain rule, found in a function green for fifteen tranches.
+
+### Three times the reference was the weaker side
+A root-find built on `norm_cdf` disagreed with the implementation by 3.9e-07 in the deep tail — and
+**ours was right**, the reference carried the cancellation. At `p = 1 - 1e-12` the reference could not
+resolve a root at all (`Phi` is flat at 1 in double precision), so it became unresolvable before the
+code became wrong. At `p = 0.999` it missed an independent implementation by 3.74e-15 while ours was
+**bit-exact**. The primary cross-check became `scipy.special.ndtri` — a different algorithm and a
+different provider, exactly the arrangement tranche 11 set up by moving `distributions.py` off scipy
+"so the oracle and the implementation no longer share a provider". The lesson: *a reference is not the
+authority merely because a test calls it one.*
+
+### Halley's third-order term is not measurable from Acklam's start
+From a start good to 1.15e-9, Newton squares the error to ~1e-18 — below double precision — so Halley
+and Newton **land on the same answer**: worst gap 4.44e-16, machine epsilon. A first version of the
+oracle asserted Halley was measurably better and failed with `4.44e-16 < 4.44e-16`. The denominator is
+still transcribed (the source specifies it) and its necessity is shown from a deliberately degraded
+start, where cubic and quadratic convergence separate — otherwise it would be unfalsifiable surface.
+
+### The oddness oracle could only be exact where the inputs allow it
+`Phi^-1(1-p) = -Phi^-1(p)` is exact in arithmetic, but testing it needs `1 - (1 - p)` to return `p`,
+which in binary holds only for **dyadic** `p`. At `p = 1e-10` only about four digits survive, so a
+first version measured asymmetry in the **inputs** rather than the function. Split: exact on dyadics,
+elsewhere bounded by each input's own measured representation loss.
+
+### Mutation: sixteen run, and the four survivors are the resolution rather than holes
+The Halley refinement **repairs** small coefficient errors, so the refined output is nearly
+indifferent to the transcription. Two survivors were proved **bit-identical** (a 1e-14 coefficient
+change; a 1e-4 break-point change — which is why Acklam put the break-point where both branches
+agree). The only oracle with grip is the published bound on the *unrefined* approximation, measured
+at **1.1288e-09 against a published 1.15e-09 — 98% of it** — with a resolution of ~20 ULP per
+coefficient; a 4.5e-9 relative error moves it to 4.40e-08, 38x the bound. An oracle proving the bound
+**can fail** was added, since otherwise the one check guarding 21 magic numbers would be unverified.
+
+A wrong diagnosis on the way, recorded because it was stated confidently: the four survivors were
+exactly the length-preserving edits, so I concluded Python's bytecode cache had run stale code and
+reported false survivors. It had not — `-B` with a cleared `__pycache__` gave the same four, and a
+direct probe confirmed the mutations execute. The correlation with edit length was coincidence.
+
+### Notes
+- `inverse_norm_cdf` refuses the closed interval: `Phi^-1(0)` is `-inf`, not a large number. This is
+  where tranche 15's removed redraw loop relocated to — that branch was unreachable from any test,
+  and the domain check belongs where a test can call it with `0.0` directly.
+- 698 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.22.0] - 2026-11-05
 
 Tranche 19 — **variance reduction I**: antithetic sampling (`JAECKEL-2002` §10.1) and control
