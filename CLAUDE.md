@@ -422,7 +422,12 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
   (`verify.py provenance`).
 - **No debt is silenced silently.** Every suppression, shim, skip or load-bearing TODO goes in
   `OPEN.md` with a rationale and a re-open trigger, or it does not exist. CI invariant: suppressions
-  − ledger entries = 0. Debt may never buy a green oracle.
+  − ledger entries = 0. Debt may never buy a green oracle. **A ledger entry's severity is characterised
+  by sweeping the defect's domain, not from one measurement** — a single data point inherits its own
+  domain, so "6.1e-06 relative, degrades in the tail" written from one sample understated OI-3's
+  `norm_cdf` defect by five orders of magnitude (the old form returned *exactly 0.0* below `x ≈ −8.3`),
+  and it sat understated for two tranches. The §4 domain rule applies to a debt's characterisation as
+  much as to an oracle's. *(T20c closing OI-3.)*
 - **Deferred external validation is tagged in the provenance header, and its presence is gated.** A
   `crosscheck: <library> <thing> — deferred …` line sits with `stock:`/`source:`/`oracle:`/`slice:`
   in the header (no `#`), so the optional QuantLib tier (later, dev-only, skippable — never in the
@@ -451,6 +456,20 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
   backgrounded gate under load read 690s against a true 1.75s, a 400× artefact). And its headroom is
   not bankable: re-time a file after adding oracles rather than assume the margin (T19: six oracles
   added to the Bermudan file without re-timing produced a real Windows `slow` failure).
+- **Periodic whole-tree re-audit — every 11 tranches, and at each arc close.** The gates above run on
+  every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
+  re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
+  mutation is per-tranche and never re-run, so an oracle strong at T4 can be silently weakened by a
+  later refactor (the project's signature defect, applied to history); **(2) cross-tranche consistency
+  and duplication** — "owed"/"per-module" conventions that never got their guard, duplicated value
+  objects, a rule-of-two abstraction overdue at its second consumer; **(3) register accuracy** —
+  `to_go_deeper`, `OPEN.md`, `references.md`, the arc plans still describing reality; **(4) charter
+  staleness** — a clause now stale or in tension (it has happened). Run with **independence** (§4's
+  spirit): the reviewer is not the surface that built the code — the `analysis/` read-only-copy +
+  `AUDIT_FINDINGS.md` pattern pointed at current `main`. Findings are ruled by Cowork and become
+  tranches or `to_go_deeper`/`OPEN` entries; the cadence is tracked in `docs/audit_log.md` (last
+  re-audit: version + tranche) so the trigger is mechanical, not remembered. First run at the Jäckel
+  arc close. *(Cadence 11 set by Bernardo, 2026-11-07; Bernardo owns §9 and may veto.)*
 - **One branch per tranche** (`tranche/<NN>-<slug>`), commit sequence `test (RED) → feat (GREEN) →
   docs → chore(release)`. One version bump + one `CHANGELOG.md` entry per tranche; CI asserts
   `__version__` matches the top entry.
