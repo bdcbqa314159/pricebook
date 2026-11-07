@@ -150,7 +150,17 @@ not an oracle. Ruled principles:
   for a structural signature that separates them. *(T17: the swap-rate vol is `Z·C·Zᵀ` in both
   McInerney 5.40 (weights frozen) and Jäckel 12.21 (weights differentiated) — 0.45% apart, and
   `ΣZ_frozen = 1` exactly while `ΣZ_exact ≈ 0.996`, proving different objects; the hoped-for
-  cross-source independence did not exist.)*
+  cross-source independence did not exist.)* **For a large TABLE of constants, independence comes from
+  two parsers, not two eye-reads — and the real guard is a requirement the table must satisfy, not the
+  transcription.** The dual-rendering rule is for a formula (a handful of symbols a person reconciles);
+  a 350-number table read twice by the same eyes is not two independent reads (fatigue correlates
+  between passes), so parse both renderings *mechanically* and reconcile — different code paths are the
+  independence. But the transcription is never the oracle: anchor on a property one wrong entry breaks.
+  *(T20b: Jäckel's Table 8.3 (~350 **direction** integers — the Gray code is eq 8.22, a separate
+  thing) was machine-reconciled across both renderings —
+  32 rows, zero disagreements, every exponent `32−l` confirmed — and the oracle is **property A**, that
+  any aligned `2^d`-segment of the Sobol sequence has exactly one point per sub-hypercube, which a
+  single mistyped direction integer destroys.)*
 - **Reduction is the preferred anchor, and it needs a companion.** A capability that generalises
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
@@ -515,6 +525,14 @@ owns git — so a merge triggered by "Cowork finished" lands a PR without Cowork
 *(Precedent: PR #7 merged three minutes before Cowork's checkpoint entry, stranding a ratified
 charter edit and a checkpoint record on a merged branch and costing PR #8 to recover. PR #6 was the
 same shape, caught only because Code said "wait" in time.)*
+
+**Cowork's artifacts are committed under a `docs:` message that names them, staged by path — never
+`git add -A`, and never swept into a `test(...)` or `feat(...)` commit.** A charter or ruling edit
+riding inside a test commit is invisible in the log, which is how Code once *enforced a §10 ruling it
+had committed blind and never read*, violating it twice in the same session. So Code reads every file
+Cowork wrote before committing it, and stages it by name. *(T19's results doc and the 2026-11-06 §10
+queue ruling were both misfiled by `git add -A` into unrelated commits; T20a's handoff staged four
+paths by name and fixed it.)*
 
 **The PR opens as a draft, and that is what makes the order self-enforcing.** A line in a message is
 a weak brake — **PRs #7, #14, #15 and #16** merged ahead of review because "merge" is the obvious

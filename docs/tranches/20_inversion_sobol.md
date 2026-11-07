@@ -195,3 +195,166 @@ inversion (Sobol → uniforms → `Φ⁻¹` → normals; NOT Box-Muller — the 
 **Cross-check:** `crosscheck: quantlib (SobolRsg)` on `foundation/sobol.py`. Mine
 `_stock/.../numerical/_qmc.py` for shape only; the direction numbers are read from **Jäckel §8.3**.
 `source:` cites `JAECKEL-2002` §8. **Open as a DRAFT PR** (§10 step 3).
+
+
+---
+
+# T20b — BUILT (appended at build; §9 above is Cowork's spec, unedited)
+
+`v0.24.0`. 756 tests, all eight gates green, ruff and pyright clean. `foundation/sobol.py` (L0,
+finance-free), consuming tranche 20a's inversion. **Fifteen mutations, all fifteen killed on the
+first pass.**
+
+## 10. A ~350-number table, extracted twice by machine rather than read twice by eye
+
+Table 8.3 gives, for each of 32 dimensions, a degree, a primitive polynomial in binary, and ten
+initialisation numbers — about 350 magic numbers. §4's dual-rendering rule exists for exactly this,
+but *reading* it twice by eye would be the **weaker** method at that scale, not the stronger one: eye
+fatigue is correlated between passes in a way `pdftotext` is not.
+
+So both renderings were **parsed and reconciled mechanically**: 32 rows from `-layout`, 32 from
+`-raw` (which reflows the table to one value per line, so it needed a different parser — itself a
+useful sign the two renderings are genuinely independent), **zero disagreements**, and every exponent
+confirmed to equal `32 − l`. The implementation's table was then *generated* from the reconciled
+extraction, never hand-typed.
+
+## 11. What makes the table verifiable is that the source states a property of it
+
+A transcribed table is only as good as the oracle over it, and T20a showed how weak that can be —
+there, the refinement repaired small coefficient errors and the only grip was a published error bound.
+Here the source hands over something much stronger in its own caption: *"Initialisation numbers
+providing **property A** up to dimension 32."*
+
+Property A is sharp and testable: in any binary segment of length `2^d` aligned to a multiple of
+`2^d`, each of the `2^d` sub-hypercubes contains **exactly one** point. One mistyped direction integer
+moves a point across a half-boundary and a count becomes 0 or 2. Verified over four aligned segments
+per dimension, `d = 1..8`. Beyond `d = 8` a segment is more draws than is practical (`d = 32` would be
+4 billion), so the higher dimensions rest on the two bit constraints and the recurrence — **stated,
+not glossed**.
+
+The bit constraints carry more weight than they first appear. The source prints only ten direction
+integers per dimension; the other 22 come from eq 8.19. Their correctness is established *structurally*
+— *"only the `l` leftmost bits can be non-zero, and the `l`th leftmost bit must be set"* — over all
+32 × 32 of them. That is how a recurrence is verified where the source prints no values to compare to.
+
+## 12. The first segment is short by one, and distinguishing that from a defect was the work
+
+Property A failed on first run at "15 of 16 sub-hypercubes". The cause is in §8.3.4 and is not a
+defect: property A is stated over the sequence **including `n = 0`**, the origin — which we skip,
+because a `0.0` maps to `−inf` under `Φ⁻¹` and tranche 20a's domain guard refuses it. The source says
+precisely what follows: *"if we explicitly exclude the point at the origin ... the segment of the
+sequence starting with the first element will have no point in the sub-hypercube `[0, ½)^d` and will
+be most uniform for a length of `2^d − 1`."*
+
+So the oracle now asserts the **exact** expected shape — first segment hits `2^d − 1` cells with the
+all-lower cell missing, later segments hit all `2^d` — rather than loosening a count. That matters
+because "one cell short" is *also* what a transcription error looks like, and the two have to be told
+apart rather than both tolerated. A first version indexed segments from our own skipped numbering and
+was measuring the skip, not the table.
+
+## 13. Dimension 1 is the construction evaluated at `g_k = 0`, not a special case
+
+Its polynomial is `p_1(z) = 1`, degree 0, so there are **zero** freely-chosen initialisation numbers
+and eq 8.19 reads `v_1l = (v_1l >> 0)` — it references itself and says nothing (the first
+implementation raised `IndexError` there, which is the honest symptom of a vacuous recurrence). What
+remains is `v_1l = 2^(b−l)`, i.e. the unit initialisation of eq 8.24 — and that is exactly what Table
+8.3 prints for `k = 1`, every multiplier being 1. So dimension 1 is the van der Corput / radical-
+inverse sequence in base 2, which is what it should be.
+
+Worth noting the asymmetry the source flags: unit initialisation is a *valid* choice for every
+dimension and *"leads to surprisingly bad results ... and should be avoided"*. It is right for
+dimension 1 only because there the construction forces it.
+
+## 14. The rate — RULED and TO MEASURE, both answered
+
+**RULED, and it holds:** on a Black call priced by simulation with Sobol + the T20a inversion, the
+fitted convergence exponent is **−0.906**, against pseudo-random's **−0.481** on the same integrand.
+Theory is −1 and −0.5. At `N = 32,768` the Sobol error is 8.4e-07 against pseudo-random's 2.7e-05 —
+**32× better**.
+
+| N | Sobol error | pseudo-random error |
+|---|---|---|
+| 1,024 | 1.98e-05 | 3.16e-04 |
+| 4,096 | 5.67e-06 | 7.66e-05 |
+| 16,384 | 1.59e-06 | 6.29e-05 |
+| 32,768 | 8.39e-07 | 2.74e-05 |
+
+Asserted as a **fitted slope steeper than −½**, which is the only shape that can fail honestly: a
+single `N` could beat pseudo-random by luck, a rate cannot.
+
+**TO MEASURE — where the advantage washes out.** Discrepancy proxy at 1,024 points:
+
+| d | Sobol | pseudo-random | advantage |
+|---|---|---|---|
+| 1 | **0** (exact) | 8.79e-03 | perfect |
+| 2 | 9.77e-04 | 9.77e-03 | 10× |
+| 3 | 9.77e-04 | 1.95e-02 | 20× |
+| 5 | 1.19e-03 | 1.17e-02 | 9.8× |
+| 8 | 4.73e-03 | 8.32e-03 | 1.8× |
+| 16 | 2.05e-03 | 2.21e-03 | 1.1× |
+| 24 | 6.31e-03 | 6.31e-03 | **1.0× — gone** |
+| 32 | 3.64e-03 | 1.69e-03 | **0.5× — worse** |
+
+So the advantage is 10–20× through `d = 5`, decays to 1.8× by `d = 8`, and is **gone by `d = 24`**;
+at `d = 32` Sobol is *worse* than pseudo-random on this proxy. **With the caveat that matters:** this
+is a statement about `N = 1,024`, not about Sobol. Property A at `d = 32` needs `2^32` draws, so at
+1,024 points the sequence has had no opportunity to equidistribute in that many dimensions. The
+honest reading is *"at feasible path counts the advantage is a low-dimension phenomenon"* — which is
+exactly what tranche 21's Brownian bridge exists to exploit, by front-loading the variance into the
+dimensions where the advantage lives.
+
+**In 1-D the discrepancy proxy is exactly zero**, which crashed the first measurement on a division.
+Not a bug but the point: with `N = 2^k`, Sobol hits every dyadic box exactly. It is also why the
+spec's degenerate-fixture guard forbids oracling discrepancy in 1-D alone — there the sequence is
+*perfect* and tells you nothing about the joint behaviour that matters.
+
+## 15. Findings for Cowork (§10 — raised, not decided)
+
+1. **Sobol is NOT wired into the LMM path engine.** The spec's anchor is Black-by-simulation (1-D),
+   and that is what is built. An LMM path needs one dimension per forward per step — a 6-forward,
+   8-step simulation is 48 — which §14 shows is past where the advantage has washed out at feasible
+   path counts. Wiring it without the Brownian bridge would add surface that does not pay, so it is
+   left for T21 where the bridge makes it worth having. Rule whether that stands.
+2. **Dimension 33 is refused rather than extended.** The source's polynomials beyond Table 8.3 are
+   *"on the accompanying CD"* we do not hold — the **third** time this book has sent a reader to
+   something it does not contain (after `Φ⁻¹` and the `(1−ρ²)` factor). Recorded in
+   `references.md`'s standing-pattern note. If higher dimensions are ever needed it is an
+   acquisition, not a build.
+3. **Candidate §4 note:** *at scale, transcribe by machine and reconcile, rather than reading twice.*
+   The dual-rendering rule's purpose is independence, and two passes by the same pair of eyes are not
+   independent in the way two parsers are — 350 numbers is past where a human second read is the
+   stronger check. Worth stating because the rule currently implies eyes.
+
+---
+
+## 16. Cowork's ruling on T20b — PR #28 (§10 step 4, 2026-11-07)
+
+Accepted — v0.24.0, fifteen mutations killed. The convergence anchor is exactly right: a fitted
+exponent (−0.906 vs pseudo-random −0.481) asserted as "slope steeper than −½", the only shape that can
+fail honestly — your 0103 carry-in, correctly built. The source-resolved apparent defects (property A
+including n=0 which we skip → assert the exact §8.3.4 shape; d=1's degree-0 polynomial → van der
+Corput) are the read-the-source discipline, not loosened tolerances. Good.
+
+**15.1 — Sobol not wired into the LMM path: stands.** 48 dimensions is past the washout (your measured
+d≈24), so wiring it before the Brownian bridge adds surface that does not pay — §6. T21's bridge
+front-loads variance into the low dimensions where Sobol *does* pay; that is the natural place to wire
+it. Deferred, correctly.
+
+**15.2 — d=32 limit: accepted; recorded as an acquisition, not a gap.** The higher-dimension primitive
+polynomials are on the book's CD (third CD instance), which we do not hold, and refusing d>32 rather
+than fabricating is §7. d≤32 covers every consumer where Sobol pays; a high-dimension path does not
+benefit at feasible N anyway. Noted in `to_go_deeper.md`.
+
+**15.3 — the machine-transcription of Table 8.3: charter-bound (§4).** Your argument is sound and more
+faithful to §4's *spirit* (independence) than its letter (two eye-reads): at 350 numbers a human's two
+passes are not independent (fatigue correlates), so two parsers reconciled mechanically are the
+stronger check — and the oracle is property A, which one wrong entry breaks, not the transcription.
+The Independence bullet now carries it.
+
+**And 0103's process failure — the commit-hygiene rule is charter-bound (§10).** Committing a ruling
+blind via `git add -A` into a test commit, then enforcing it unread, is exactly the invisible-in-the-log
+harm §10 now forbids: Cowork's artifacts commit under a named `docs:` message, staged by path, and Code
+reads what it commits. Your two mechanical fixes are the right response; the charter makes them law.
+
+**Next: T20c** — fix `norm_cdf`'s tail (OI-3), specced at `docs/tranches/20c_norm_cdf_erfc.md`. Then
+T21 (Brownian bridge), where Sobol finally gets wired.
