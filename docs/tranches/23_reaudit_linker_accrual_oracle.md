@@ -47,3 +47,84 @@ Branch `tranche/23-linker-accrual-oracle`. `test` (RED proof = the drop-`ψ` mut
 oracle, pre-registered via mutation) → `feat`/`docs` as needed → `chore(release): v0.28.0`. `source:`
 `BERHAN-2012`. No `OPEN.md` item opened or closed (the hole was latent in coverage, not shipped debt).
 **Open as a DRAFT PR** (§10 step 3). Raise any real-`ψ` discrepancy as an `Ask:`, do not rule it.
+
+
+---
+
+# BUILT — results (appended at build; §0–3 above are Cowork's spec, unedited)
+
+`v0.28.0`. 820 tests, all eight gates green, ruff and pyright clean. **Test-only: `src/` is
+unchanged**, exactly as the audit predicted. The hole is closed.
+
+## 4. The hole, reproduced before it was closed
+
+I did not take F-1.2 on report. Dropping `ψ` from `engine/inflation.py`'s coupon sum, from a clean
+bytecode state:
+
+```
+drop-psi mutant: SURVIVED  818 passed
+```
+
+So the finding is independently confirmed: the term is load-bearing in production and invisible to
+every oracle.
+
+## 5. What the existing oracle was doing, which is the part worth keeping
+
+`test_the_linker_matches_the_closed_form_with_accrual_fractions` **computes a `ψ` and is still blind
+to it.** It evaluates `psi = (pay − start).days / 365.0` over `DATES`, where every period is exactly
+365 days — so every `ψ` it computes is `1.0`, and `C·ψ = C`. The name promises accrual fractions the
+fixture never delivers.
+
+That is a sharper version of the `τ = 1` trap than the charter's existing examples: the test is not
+merely *silent* about the accrual, it visibly *handles* it, which is why twenty tranches of readers
+(and two review passes) saw a covered term. A fixture can defeat an oracle that looks correct line by
+line.
+
+## 6. The fixture, and why the accruals are unequal
+
+Semi-annual periods of **182 and 183 days** on ACT/365F: `ψ ≈ 0.4986` and `0.5014`. Two properties
+were chosen deliberately, and the second is not in the spec:
+
+* **not 1** — which is what makes the accrual visible at all;
+* **not equal to each other** — which makes a mutant that replaces `ψ` by any single *constant* fail
+  too. A fixture of equal non-unit accruals would have closed F-1.2 while leaving `ψ → 0.5` alive.
+
+Mutation confirms both halves:
+
+| mutant | before T23 | after T23 |
+|---|---|---|
+| `ψ` dropped (the F-1.2 hole) | **SURVIVED** (818 passed) | **KILLED** |
+| `ψ → 1.0` | survived | **KILLED** |
+| `ψ → 0.5` (a constant) | — | **KILLED** (needs the unequal accruals) |
+| `ψ` applied to the redemption | — | **KILLED** |
+| production | 818 pass | **820 pass** |
+
+## 7. The non-degeneracy premise is itself a test
+
+`test_the_SEMI_ANNUAL_fixtures_accruals_are_NOT_degenerate` asserts the fixture's own property: every
+accrual is more than 0.4 away from 1, and they are not all equal. This is the guard the tranche exists
+to install — **a later refactor cannot quietly flatten the schedule back to annual periods**, which is
+precisely how the hole survived. Without it, the new oracle would keep passing while silently losing
+all power over `ψ`, and the next re-audit would find the same finding again.
+
+## 8. No `src` change, and no `Ask:`
+
+The spec required that a real `ψ` discrepancy be raised rather than fixed silently. There is none: the
+non-degenerate oracle passes against unmodified production on the first run. The production code was
+right and only its coverage was wrong, which is the cleanest possible outcome for a latent-coverage
+finding and worth stating plainly rather than leaving as an absence.
+
+## 9. Findings for Cowork (§10 — raised, not decided)
+
+1. **A candidate §4 sharpening, and I am ambivalent about it.** The existing degenerate-fixture bullet
+   describes a fixture where the parameter *"sits where it cannot be seen"*. F-1.2 is worse in a
+   specific way: the oracle **visibly computes** the quantity (`psi = days/365`) and is still blind,
+   because the fixture makes the computation a no-op. So *"an oracle that handles a parameter is not
+   thereby testing it — check the fixture makes the handling observable."* Against adding it: §4
+   already has five instances of this trap and is long, and the operational rule (mutation, plus the
+   non-degeneracy premise) is already there and is what caught this. My inclination is **no new
+   clause** — the detection machinery worked; it was only ever applied to too small a domain. Yours to
+   rule.
+2. **The re-audit's own domain is the real lesson, and it is already recorded.** F-1.2 was found only
+   because the sweep was extended past the first pass's scope — §4's own rule applied to the audit.
+   Worth making the *default* for re-audit #2: sweep the whole tree, not the recent arc.
