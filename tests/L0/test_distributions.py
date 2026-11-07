@@ -46,6 +46,90 @@ def test_the_familiar_quantiles() -> None:
 
 
 # ---------------------------------------------------------------------------------------------
+# Tranche 20c — the RELATIVE-accuracy oracle `norm_cdf` never had (OI-3).
+#
+# `norm_cdf` shipped at tranche 5 as `0.5·(1 + erf(x/√2))` and was green for fifteen tranches, because
+# its oracle asserted the tails "saturate" — an ABSOLUTE claim, which passes however bad the relative
+# error becomes where the true value is ~0. In the lower tail `1 + erf` cancels catastrophically as
+# `erf → −1`, destroying the significant digits of a small probability.
+#
+# This is the oracle that would have caught it, written before the fix.
+# ---------------------------------------------------------------------------------------------
+
+
+def test_T20c_norm_cdf_is_accurate_in_RELATIVE_terms_across_the_whole_range():
+    """The point of the tranche: a tail probability must be right *as a probability*, not merely small.
+
+    Checked against `scipy.special.ndtr` — an independent high-precision implementation, kept off the
+    production path by tranche 11's arrangement (`distributions.py` moved off scipy *"so the oracle and
+    the implementation no longer share a provider"*). §4's "a reference is code too" applies and is
+    satisfied: scipy has the tail accuracy our own root-find did not.
+
+    **`x = −7.03` is the pre-registered failure.** The old form carries 6.1e-06 relative error there
+    against 7.4e-15 for the `erfc` form — nine orders of magnitude. The bound below is 1e-13, loose
+    enough to be about the *form* rather than about the last bits, and tight enough that the
+    cancelling form cannot pass it anywhere below about `x = −6`."""
+    from scipy.special import ndtr
+
+    worst = 0.0
+    worst_at = None
+    for tenths in range(-90, 91):
+        x = tenths / 10.0
+        exact = float(ndtr(x))
+        relative = abs(norm_cdf(x) - exact) / exact
+        if relative > worst:
+            worst, worst_at = relative, x
+    assert worst < 1e-13, f"worst RELATIVE error {worst:.3e} at x={worst_at}"
+
+    # The single point that motivated the tranche, asserted on its own so the regression is named.
+    exact = float(ndtr(-7.03))
+    assert abs(norm_cdf(-7.03) - exact) / exact < 1e-13
+
+
+def test_T20c_the_DEEP_tail_keeps_its_significant_digits():
+    """Further out than any pricer needs, because the question is whether the *form* is right.
+
+    At `x = −30` the probability is ~1e-198 — still a normal `float`, and still a number with sixteen
+    significant digits that the computation either keeps or throws away. The cancelling form returns
+    exactly `0.0` here, which is not a small probability but a lost one."""
+    from scipy.special import ndtr
+
+    for x in (-10.0, -15.0, -20.0, -30.0):
+        exact = float(ndtr(x))
+        assert exact > 0.0, "premise: scipy must resolve this, or the comparison is vacuous"
+        assert norm_cdf(x) > 0.0, f"norm_cdf({x}) collapsed to zero — the digits are gone"
+        assert abs(norm_cdf(x) - exact) / exact < 1e-13
+
+
+def test_T20c_the_OLD_form_FAILS_this_oracle_which_is_why_the_tranche_exists():
+    """§4's 'assert the wrong variant fails' pattern, on the form being replaced.
+
+    Without this, the oracle above could be passing for reasons unrelated to the change — a bound that
+    both forms satisfy would prove nothing. So the superseded expression is evaluated here directly and
+    required to breach it, which also fixes the measurement in the record: **6.1e-06 at `x = −7.03`**,
+    and exactly `0.0` far enough out."""
+    from scipy.special import ndtr
+
+    def cancelling_form(x: float) -> float:
+        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+    exact = float(ndtr(-7.03))
+    old_relative = abs(cancelling_form(-7.03) - exact) / exact
+    assert old_relative > 1e-7, (
+        f"the superseded form is only {old_relative:.3e} wrong at x=-7.03 — then this tranche is "
+        f"not fixing what it claims to"
+    )
+    # Far enough out the cancelling form does not merely lose precision, it returns zero.
+    assert cancelling_form(-20.0) == 0.0
+    assert norm_cdf(-20.0) > 0.0
+
+    # And the two agree in the centre, which is the other half: the change is a tail fix, not a
+    # different function.
+    for x in (-3.0, -1.0, 0.0, 1.0, 3.0):
+        assert norm_cdf(x) == pytest.approx(cancelling_form(x), rel=1e-15)
+
+
+# ---------------------------------------------------------------------------------------------
 # Tranche 20 — the inverse normal CDF. ACKLAM-2000, recommended by JAECKEL-2002 §9.3 and printed
 # in neither. This is the piece tranche 15 deliberately deferred: *"the spec said to transcribe
 # `Φ⁻¹` from Jäckel ch 9. Jäckel does not print it."* The acquisition closed that.
