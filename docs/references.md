@@ -145,6 +145,37 @@ Black's caplet, §5.6 Brace–Gatarek–Musiela, §5.9 swap market model, §6 im
 
 ---
 
+### `ACKLAM-2000` — `in-hand`
+
+Acklam, P. J., *An algorithm for computing the inverse normal cumulative distribution function*.
+Held as `_stock/NewDocuments/An algorithm for computing the inverse normal cumulative distribution
+function.htm` — a Wayback capture (2015-08-11) of `home.online.no/~pjacklam/notes/invnorm/`, the
+author's own page. Acquired by Bernardo 2026-11-05 to unblock tranche 20.
+
+**Why it was needed at all.** `JAECKEL-2002` §9.3 *recommends* this algorithm and Moro's and prints
+neither (`[Ack00]` in its bibliography, the implementation *"included on the accompanying CD"* we do
+not have). Tranche 15 hit that wall and deliberately deferred the inversion; this is the acquisition
+that closes it. §7 forbids citing a key that is not in hand, so nothing could be transcribed until now.
+
+**What the capture actually contains — checked, not assumed, because a capture can be partial:**
+- the rational-approximation pseudo-code with **all 21 coefficients** (`a(1..6)`, `b(1..5)`,
+  `c(1..6)`, `d(1..4)`) at full printed precision;
+- the break-points `p_low = 0.02425`, `p_high = 1 − p_low`, and all three regional branches;
+- the stated accuracy: *"relative error ... less than 1.15 × 10⁻⁹ in the entire region"*;
+- the **refinement** step in full — one iteration of Halley's rational (third-order) method, which
+  Acklam says *"gives full machine precision"*:
+  `e ← Φ(x) − p` ; `u ← e·√(2π)·exp(x²/2)` ; `x ← x − u/(1 + x·u/2)`.
+
+*(A first read reported the refinement body as missing from the capture. That was wrong — the text at
+that point was the page's table of contents, not the section. The body is present and complete.)*
+
+**The refinement needs `Φ(x)` to full precision, and we own that exactly** — `foundation.norm_cdf`
+is `½(1 + erf(x/√2))` on `math.erf`. Acklam used Cody's FORTRAN `erfc` for the same purpose, so the
+roles line up: his approximation supplies the starting point, our exact CDF supplies the refinement.
+That is also why the algorithm is **not a correctness dependency**: tranche 20 inverts our own
+`norm_cdf` by a guarded root-find as the primary, exact path, and Acklam's coefficients stay
+*untrusted until they agree with it*.
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held
