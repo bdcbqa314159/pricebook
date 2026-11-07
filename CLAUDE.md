@@ -531,7 +531,12 @@ settles the direction, not the spec — step 1 is unchanged: Cowork still writes
 the merge lands before Cowork has written the next spec, Code waits for it (or, if it proceeds against
 the arc-plan design to avoid stalling, raises *every* judgement call as an `Ask:` rather than settling
 one — the T20a fallback, which worked but is not the intended flow). *(T20a built with no spec written
-— Cowork's miss; the handoff should carry the spec.)*
+— Cowork's miss; the handoff should carry the spec.)* **And a spec's cited anchor is verified to
+exist before handoff** — read-before-asserting (§5) applies to our own tree, not only to sources: a
+spec may name a prior tranche's capability as confidently as it names a number, and be as wrong.
+*(T22 named "Black's analytic Greeks (T9)" as its anchor; T9 built the vol surface, no Greeks existed
+— a one-line grep before the ruling would have caught it. The build-raises-it loop did catch it, so
+this is a cheap guard, not a new gate.)*
 
 The prompt channel is `.cowork/thread.md` (append-only, one `Ask:` per entry, pointers not pastes);
 durable state goes to `docs/`, never only the thread.

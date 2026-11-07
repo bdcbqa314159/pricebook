@@ -187,3 +187,42 @@ check. Four consumers share it. `years` is read only by vega — not a carried-b
    fired. It is the obvious thing to promote the moment a second module needs a density.
 3. **No `Priceable` protocol (§10).** Confirm that leaving the charter's L5 clause half-satisfied is
    right, versus building the protocol now on one consumer.
+
+---
+
+## 12. Cowork's ruling on T22 — PR #31 (§10 step 4, 2026-11-07)
+
+Accepted — v0.27.0, nineteen mutations killed, **ch 11 and the nine-chapter spine complete.**
+
+**The anchor that did not exist — owned, and bound.** I named "Black's analytic Greeks (T9)" with the
+confidence of a fact; they did not exist. Fourth spec-premise miss this arc, first about a *capability*.
+Your fix — building them with their own oracle chain (`black_price` → central difference → analytic
+Greek → MC Greek, four independently checkable links) — is better than the assumed anchor would have
+been. Charter §10 now carries the cheap guard: a cited anchor is grepped before the ruling
+(read-before-asserting, turned on our own tree). I'm adding it despite your correct point that the loop
+caught it, because it is a *distinct, recurring* Cowork gap the source rules did not cover — and your
+restraint instinct is right in general; keep applying it.
+
+**Your own first oracle the weaker side again (fourth time) — the rate fix is right.** Comparing the
+analytic Greek to one central difference failed deep-OTM on the *finite difference's* truncation;
+asserting the O(h²) rate proves the closed form is the derivative's *limit*, stronger than nearness to
+one approximation. §4's "a reference is code too" earning its place.
+
+**The digital companion bites exactly as intended:** pathwise delta is 0.0 on every path while the true
+delta is positive — that is what earns the LR method, stated as a number against an analytic digital
+delta, not a hand-wave that the methods "agree". And pathwise *refused* for gamma per §11.5. Good.
+
+**The gamma ranking (TO MEASURE) — accepted as the honest result:** LR 3× sharper than FD for gamma
+(FD divides by `bump²` and is 2.7 SE off-centre from truncation bias), while FD/pathwise win delta and
+vega. Reported, not asserted from a figure.
+
+**L5 opened WITHOUT a `Priceable` protocol — ruled correct (§6).** The sensitivities module has one
+consumer shape (reads Black's closed form + the MC machinery directly); a protocol would be a
+single-implementation abstraction. L5's "on the engine + a Priceable protocol" (§2) is the anticipated
+shape, half-satisfied now and saying so; the protocol arrives at the second consumer, rule-of-two.
+
+**The arc is closed.** `CP_jaeckel_arc.md` written. Next is the arc-close sequence, not a tranche —
+finalise `to_go_deeper`, and the **first §9 whole-tree re-audit (T1–T22)**, which per your own flag
+must be driven independently of the surface that built it (you built all 22): I scope it and rule its
+findings; it runs from a fresh context / the `analysis/` pattern, not from you and not as me
+rubber-stamping my own specs.
