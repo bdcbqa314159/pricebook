@@ -139,3 +139,59 @@ with edit length was a coincidence — small numeric edits happen to preserve le
    where it is used.* Three times here the implementation was right and the reference wrong — a
    cancelling CDF, an unresolvable bracket, a root-finder's tolerance. Where a test computes its own
    reference, that reference is code too.
+
+---
+
+## 8. Cowork's ruling on T20a — PR #27 (§10 step 4, 2026-11-07)
+
+Reviewed; accepted — v0.23.0, worst miss 7.66e-16, the Acklam coefficients cross-checked against the
+root-find and the round-trip. **My process miss first:** there was no T20 spec when you built — my
+0097 queued a one-line arc entry, not a spec. That is step 1 owed by me; §10 now says "read the queue"
+settles the direction, not the spec, and the handoff carries the spec. You built against the ruled
+arc-plan design and raised every call rather than settling — the right fallback. Owned.
+
+**1 — `norm_cdf`'s tail cancellation: its own tranche (T20c), ledgered OI-3.** You were right to raise
+rather than patch — it is not bit-identical and nineteen tranches read it. The fix is `0.5·erfc(−x/√2)`,
+provably the same quantity (`erfc(−y) ≡ 1+erf(y)` in ℝ), so §4's pure-refactor treatment applies: the
+identity where the forms agree (centre, to ULP — existing oracles stay green) plus the **relative**-
+accuracy oracle it never had, vs `scipy.special.ndtri`; the T20a `erfc` duplicate retires when it moves.
+Queued after T20b, before T21. The lesson (absolute-tolerance blindness to relative tail error; a
+reference is code too) is charter §4.
+
+**2 — one production function, root-find in the oracle: correct, and the right reading of the arc plan.**
+My reframe said "build both"; §6 sharpens it — a production root-find would have no consumer, so the
+root-find belongs in the oracle as the independent cross-check (different code, Acklam's coefficients
+untrusted until they match), and Acklam+Halley is the single shipped `Φ⁻¹`. That is what you built.
+
+**3 — T20b (Sobol) confirmed as next.** Spec below.
+
+**Also:** Acklam-in-§9.3 correction noted (references.md already right); the Halley-vs-Newton negative
+(third-order term unmeasurable from a 1e-9 start, necessity shown from a degraded start) and the
+dyadic-only oddness oracle both accepted as honest.
+
+## 9. T20b spec — Sobol / low-discrepancy (§8)
+
+**Target:** `v0.24.0`. **Source:** `JAECKEL-2002` §8 (Sobol §8.3: primitive polynomials mod 2, the
+construction, the Gray code, initialisation). **Pieces:** `foundation/sobol.py` (L0 — the direction
+numbers and the Gray-code generator, finance-free), feeding the existing `variates` via the T20a
+inversion (Sobol → uniforms → `Φ⁻¹` → normals; NOT Box-Muller — the monotone-transform reason).
+
+**Oracle (RULED unless marked TO MEASURE):**
+- **RULED — equidistribution / the low discrepancy is the point:** the sequence's 1-D and 2-D
+  projections fill the unit square far more uniformly than pseudo-random; assert the star-discrepancy
+  (or an L2 proxy, Jäckel §8.6/§8.8's closed form) falls below the pseudo-random expectation at the
+  same N. Pointwise-transcribe the direction-number construction (§8.3) — the load-bearing formula.
+- **RULED — beats the −½ rate on a smooth integrand:** pricing Black-by-simulation (T15's anchor)
+  on Sobol+inversion converges faster than 1/√N — fit `log err` vs `log N`, slope steeper than −½
+  (toward −1). The closed form (`black_price`) is the anchor; this is the whole reason Sobol exists.
+- **TO MEASURE — how much faster, and the dimension at which it degrades:** report the observed rate
+  and the dimension where Sobol's advantage washes out (the Brownian-bridge partner, T21, is what
+  front-loads variance into the low dimensions to hold the advantage — not built here).
+- **RULED — determinism / failure-is-a-value:** the sequence is a pure function of its dimension and
+  index; an unsupported dimension → a value, not a silent wrong sequence.
+- **Degenerate-fixture guard:** do not oracle discrepancy in 1-D alone (Sobol's whole point is the
+  *joint* low discrepancy); use a multi-dimension projection.
+
+**Cross-check:** `crosscheck: quantlib (SobolRsg)` on `foundation/sobol.py`. Mine
+`_stock/.../numerical/_qmc.py` for shape only; the direction numbers are read from **Jäckel §8.3**.
+`source:` cites `JAECKEL-2002` §8. **Open as a DRAFT PR** (§10 step 3).

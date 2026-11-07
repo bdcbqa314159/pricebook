@@ -53,6 +53,12 @@ bracket; tightening it needs a better exercise policy or the dual bound (`to_go_
   specced. Oracle: beats the −½ rate. **TODO (queued, convenience only):** produce a gitignored `.md`
   reading-extract of the Acklam note under `_stock/NewDocuments/` — clearly marked *derived, not the
   authority*; Code still transcribes from the `.htm` in two renderings (the shared-rendering rule).
+  - **T20a — the inverse-CDF (Acklam + Halley on our `erfc`).** *(Built, v0.23.0.)* One production
+    function; the root-find is the oracle's independent cross-check, not a shipped second path (§6).
+  - **T20b — Sobol / low-discrepancy (§8).** *(Next.)* Oracle: beats the −½ rate; the inversion feeds it.
+  - **T20c — fix `norm_cdf`'s lower-tail cancellation (OI-3).** Move it to `0.5·erfc(−x/√2)` — §4
+    pure-refactor (identity where the forms agree, to ULP) + a relative-accuracy oracle vs
+    `scipy.special.ndtri`; retire the T20a duplicate. Pulled by T20a's finding; before T21.
 - **T21 — Path construction / the Brownian bridge (10.8).** Path-dependent payoffs; the classic
   partner to Sobol (front-loads variance into the low-dimension coordinates).
 - **T22 — Greeks (11): pathwise + likelihood ratio.** Opens L5 risk; closes BERHAN's §1.3 route too.

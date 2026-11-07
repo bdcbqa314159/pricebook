@@ -323,6 +323,20 @@ not an oracle. Ruled principles:
   outside. A green is evidence only about what the band can resolve. *(T17: a flat 3% band mixed a
   0.5% freezing error with ~2% MC error and resolved only a ~20% vol error at 6k paths — a 10% error
   sat inside it; rebanded `4·SE + 1.5%`, with a 12k-path power test where 10% falls outside.)*
+- **A reference is code too — it needs its own accuracy argument in the regime where it is used.**
+  §4's independence rule says the test computes its own reference; this is the sharp corollary: that
+  reference is an implementation with its own error, and in an extreme regime (a deep tail, a near-unit
+  probability) the reference can be the *weaker* side while the code under test is right. So argue the
+  reference's accuracy where you use it, and where the home-grown one is weak reach for an independent
+  high-precision reference (`scipy.special.ndtri`/`ndtr`), kept off the production path (tranche 11's
+  `distributions.py`-off-scipy arrangement exists precisely so the oracle may use scipy while the
+  library does not). And the trap that hides this for tranches: **an ABSOLUTE-tolerance oracle is blind
+  to RELATIVE error where the true value is near zero** — "tails → 0/1" passes however bad the relative
+  error gets, which is why `norm_cdf`'s lower-tail cancellation (`(1+erf)/2` as `erf → −1`: 6.1e-06
+  relative at `x=−7.03` versus `erfc(−x/√2)/2`'s 7.4e-15) survived green for fifteen tranches. In a tail,
+  assert **relative** accuracy against a reference that has it. *(T20a: a root-find on `norm_cdf` was the
+  weaker side three times — disagreeing in the tail, failing to resolve a root at `p=1−1e-12`, missing at
+  `p=0.999` where the code was bit-exact; primary cross-check moved to `scipy.special.ndtri`.)*
 - **A pure refactor is proved by an exact-arithmetic identity, not always by bit-identity.** Bit-
   identity (the equivalent-mutant proof above, and the Black and HW extractions) is available only
   when the refactor *preserves the order* of the floating-point operations. When the refactor
@@ -472,7 +486,13 @@ one person the two-surface split exists to spare it. When the queue empties at a
 next direction is settled *here* (Bernardo's interest + Cowork's spec) and written to the queue, not
 raised in the build channel. Bernardo's only inputs to a tranche are the two "cowork is done" handoffs
 and the merge; he is never asked to make the same decision in both conversations. *(Ruled by Cowork,
-2026-11-06, to remove double decision-making; Bernardo owns §10 and may veto.)*
+2026-11-06, to remove double decision-making; Bernardo owns §10 and may veto.)* **"Read the queue"
+settles the direction, not the spec — step 1 is unchanged: Cowork still writes the per-tranche spec to
+`docs/` before the build.** The arc plan's one-line queue entry names the unit; it is not the spec. If
+the merge lands before Cowork has written the next spec, Code waits for it (or, if it proceeds against
+the arc-plan design to avoid stalling, raises *every* judgement call as an `Ask:` rather than settling
+one — the T20a fallback, which worked but is not the intended flow). *(T20a built with no spec written
+— Cowork's miss; the handoff should carry the spec.)*
 
 The prompt channel is `.cowork/thread.md` (append-only, one `Ask:` per entry, pointers not pastes);
 durable state goes to `docs/`, never only the thread.
