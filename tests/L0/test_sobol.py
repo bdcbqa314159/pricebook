@@ -147,21 +147,40 @@ def test_T20b_the_table_delivers_PROPERTY_A_as_its_caption_claims(dimensions):
     oracle that makes a ~350-number transcription verifiable — a single mistyped direction integer
     moves a point into the wrong half-cube and a count becomes 0 or 2.
 
-    Checked over several aligned segments, not just the first, because the claim is about *any*
-    segment. Dimensions stop at 8 because a segment is `2^d` draws long: `d = 8` is 256, `d = 32`
-    would be 4 billion. So the high dimensions rest on the bit constraints and the recurrence
-    instead, which is stated rather than glossed."""
+    **The first segment is SHORT BY ONE, and the source says why.** Property A is stated over the
+    sequence including `n = 0`, which is the origin; we skip it (a `0.0` would map to `−inf` under
+    `Φ⁻¹`). §8.3.4: *"if we explicitly exclude the point at the origin ... the segment of the
+    sequence starting with the first element will have no point in the sub-hypercube `[0, ½)^d` and
+    will be most uniform for a length of `2^d − 1`."* So the first segment must hit exactly
+    `2^d − 1` cells with the all-lower cell **missing** — asserted rather than tolerated, because
+    "one cell short" is also what a transcription error looks like, and the two must be told apart.
+
+    A first version of this oracle indexed segments from our own skipped numbering and failed at
+    "15 of 16" — measuring the skip, not the table.
+
+    Dimensions stop at 8 because a segment is `2^d` draws long: `d = 8` is 256, `d = 32` would be 4
+    billion. The high dimensions rest on the bit constraints and the recurrence instead, which is
+    stated rather than glossed."""
     sequence = SobolSequence(dimensions=dimensions)
     size = 2**dimensions
+    # Our draw i corresponds to the source's n = i + 1, so a segment aligned at the source's
+    # `l·2^d` starts at our index `l·2^d − 1`.
     draws = sequence.uniforms(count=4 * size)
 
-    for segment_index in range(4):
-        segment = draws[segment_index * size : (segment_index + 1) * size]
-        cells = [
-            tuple(1 if coordinate >= 0.5 else 0 for coordinate in point) for point in segment
-        ]
-        assert len(set(cells)) == size, (
-            f"segment {segment_index} of dimension {dimensions} hits {len(set(cells))} of {size} "
+    def cells_of(points):
+        return {tuple(1 if c >= 0.5 else 0 for c in point) for point in points}
+
+    first = cells_of(draws[0 : size - 1])
+    assert len(first) == size - 1, (
+        f"the first segment of dimension {dimensions} hits {len(first)} of {size - 1} cells"
+    )
+    assert (0,) * dimensions not in first, "the missing cell must be the one the origin would fill"
+
+    for segment_index in range(1, 4):
+        segment = draws[segment_index * size - 1 : (segment_index + 1) * size - 1]
+        cells = cells_of(segment)
+        assert len(cells) == size, (
+            f"segment {segment_index} of dimension {dimensions} hits {len(cells)} of {size} "
             f"sub-hypercubes — property A fails"
         )
 
