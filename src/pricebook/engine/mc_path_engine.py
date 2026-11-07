@@ -54,12 +54,16 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 
+from pricebook.foundation.brownian_bridge import BrownianBridge
+from pricebook.foundation.distributions import inverse_norm_cdf
 from pricebook.foundation.linalg import pseudo_square_root
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.rng import UniformSource
+from pricebook.foundation.sobol import SOBOL_MAX_DIMENSIONS, SobolSequence
 from pricebook.foundation.variates import standard_normals
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.libor_market_model import LiborMarketModel
@@ -86,6 +90,46 @@ class PathGrid:
     @property
     def dt(self) -> float:
         return self.horizon / self.steps
+
+
+class VariateSource(Enum):
+    """Where the simulation's randomness comes from — pseudo-random, or a Sobol' sequence."""
+
+    PSEUDO_RANDOM = "pseudo_random"
+    SOBOL = "sobol"
+
+
+class PathConstruction(Enum):
+    """How a draw is mapped onto time — in time order, or by the Brownian bridge's refinement."""
+
+    INCREMENTAL = "incremental"
+    BRIDGE = "bridge"
+
+
+@dataclass(frozen=True)
+class Sampling:
+    """How the simulation spends its randomness: the source, the time mapping, and the mirror.
+
+    **A bundle because §7's five-argument limit forced one, and that is the right answer rather than a
+    workaround.** Three sampling choices now have real consumers — Sobol (tranche 20b), the Brownian
+    bridge (21), and antithetic mirroring (19) — and each is a decision about *the draws*, not about
+    the model or the payoff. Grouping them is §7's prescribed response to the limit ("group into a
+    frozen value object"), and it keeps the engine's signature at four arguments however many sampling
+    techniques the arc adds.
+
+    **The default is exactly tranche 16's behaviour**, so every existing caller is unchanged: pseudo-
+    random draws mapped in time order with no mirror. Nothing here is speculative — each field is the
+    switch some landed tranche needed.
+
+    **Why `SOBOL` and `BRIDGE` belong together.** Either is defensible alone and neither is much use
+    alone: Sobol's advantage washes out by `d ≈ 24` (tranche 20b measured it) and an LMM path is
+    `steps × forwards` dimensions, so on its own Sobol buys little there; the bridge reorders the
+    *same* Gaussian and so changes nothing at all under pseudo-random draws. Together they are the
+    point — the bridge puts the path's coarse shape on the dimensions Sobol is good at."""
+
+    source: VariateSource = VariateSource.PSEUDO_RANDOM
+    construction: PathConstruction = PathConstruction.INCREMENTAL
+    mirrored: bool = False
 
 
 @dataclass(frozen=True)
@@ -158,7 +202,7 @@ def simulate_forward_paths(
     model: LiborMarketModel,
     schedule: ObservationSchedule,
     config: MonteCarloConfig,
-    mirrored: bool = False,
+    sampling: Sampling = Sampling(),
 ) -> list[tuple[tuple[float, ...], ...]]:
     """The forward curve at each of `schedule.times`, one tuple of states per path — eq 13.2.
 
@@ -169,7 +213,14 @@ def simulate_forward_paths(
     alter how the final one is computed, which is why §4's stronger proof (bit-identity) is owed here
     rather than the exact-arithmetic-identity substitute — no operation is reordered.
 
-    **`mirrored=True` is tranche 19's antithetic mode (§10.1):** the same seed, the same stream, every
+    **`sampling` decides where the randomness comes from and how it is mapped onto time**, defaulting
+    to tranche 16's pseudo-random, time-ordered, unmirrored behaviour so existing callers are
+    unchanged. `VariateSource.SOBOL` draws from the low-discrepancy sequence through the inverse CDF
+    (never Box-Muller — it is not monotone, which would destroy the equidistribution), and
+    `PathConstruction.BRIDGE` reorders each factor's draws across time by the Brownian bridge so the
+    first, best-equidistributed Sobol dimensions carry the path's coarse shape.
+
+    **`sampling.mirrored=True` is tranche 19's antithetic mode (§10.1):** the same seed, the same stream, every
     normal negated — *"if a single evaluation driven by a Gaussian variate vector draw `z_i` is given
     by `v_i = v(z_i)`, we also use `ṽ_i = v(−z_i)`."* One flag rather than a second function, because
     it is the *same* simulation with one sign: a caller pairs the two runs and averages, and the
@@ -194,12 +245,8 @@ def simulate_forward_paths(
 
     # One stream for the whole simulation, consumed in a fixed step-major order, so the same seed
     # reproduces the same paths exactly (§3/§9) however the array is reshaped or segmented.
-    needed = config.paths * total_steps * n
-    uniforms = UniformSource(seed=config.seed).uniforms(needed + needed % 2)
-    normals = np.array(standard_normals(uniforms)[:needed], dtype=float).reshape(
-        total_steps, config.paths, n
-    )
-    if mirrored:
+    normals = _draw(sampling, config, total_steps, n)
+    if sampling.mirrored:
         normals = -normals
 
     forwards = np.tile(np.array(model.tenor.forwards, dtype=float), (config.paths, 1))
@@ -227,6 +274,64 @@ def simulate_forward_paths(
         tuple(tuple(float(x) for x in state[path]) for state in observed)
         for path in range(config.paths)
     ]
+
+
+def _draw(
+    sampling: Sampling, config: MonteCarloConfig, total_steps: int, factors: int
+) -> np.ndarray:
+    """The `(steps, paths, factors)` normals block, per the sampling choice.
+
+    **Pseudo-random** consumes one stream in a fixed step-major order, so a seed reproduces a run
+    exactly however the array is reshaped (§3/§9). **Sobol** is per-path instead: each path is one
+    point of the sequence, with `steps × factors` coordinates, because that is what a low-discrepancy
+    sequence means — the *points* fill the cube evenly, so a path must be a point, not a slice of one
+    long stream.
+
+    **The bridge reorders within a factor, across time.** Each factor's `steps` coordinates are mapped
+    through `BrownianBridge.increments`, which is a reordering of the same Gaussian: the increments
+    stay i.i.d. standard normal (oracled exactly at L0) while *which* coordinate carries the coarse
+    shape changes. Applied per factor rather than across the whole draw, because it is the time
+    dimension the bridge is about; mixing factors into one bridge would be constructing a path through
+    a space that has no time order."""
+    if sampling.source is VariateSource.PSEUDO_RANDOM:
+        needed = config.paths * total_steps * factors
+        uniforms = UniformSource(seed=config.seed).uniforms(needed + needed % 2)
+        block = np.array(standard_normals(uniforms)[:needed], dtype=float).reshape(
+            total_steps, config.paths, factors
+        )
+    else:
+        dimensions = total_steps * factors
+        if dimensions > SOBOL_MAX_DIMENSIONS:
+            raise ValueError(
+                f"a Sobol-driven path needs {total_steps} x {factors} = {dimensions} dimensions, "
+                f"beyond the {SOBOL_MAX_DIMENSIONS} our table covers; use fewer steps or factors, or "
+                f"extend the table (docs/to_go_deeper.md)"
+            )
+        points = SobolSequence(dimensions=dimensions).uniforms(config.paths)
+        # Coordinate `k*steps + s` is factor `k` at step `s` — factor-major, so a factor's time
+        # series is contiguous and the bridge can reorder it.
+        drawn = np.array(
+            [[inverse_norm_cdf(coordinate) for coordinate in point] for point in points],
+            dtype=float,
+        )
+        block = np.empty((total_steps, config.paths, factors), dtype=float)
+        for k in range(factors):
+            block[:, :, k] = drawn[:, k * total_steps : (k + 1) * total_steps].T
+
+    if sampling.construction is PathConstruction.BRIDGE:
+        if total_steps < 2:
+            raise ValueError(
+                "the Brownian bridge needs at least two steps to have an interior to subdivide; a "
+                "one-step path has nothing to reorder"
+            )
+        # One matmul over every path and factor, not a Python loop per path. The bridge is linear,
+        # so its precalculated matrix (§10.8.3: *"all of the weighting coefficients can be
+        # precalculated"*) applies to the whole block at once along the time axis.
+        weights = np.array(
+            BrownianBridge(steps=total_steps, dt=1.0).increment_matrix(), dtype=float
+        )
+        block = np.tensordot(weights, block, axes=([1], [0]))
+    return block
 
 
 def simulate_terminal_forwards(

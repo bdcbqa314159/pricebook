@@ -83,11 +83,16 @@ def test_T21_the_INCREMENTS_are_independent_and_unit_variance(steps):
     increment map is exactly the identity. If it were not, the bridge would be changing the process
     rather than the order in which randomness is spent."""
     bridge = BrownianBridge(steps=steps, dt=0.25)
-    columns = []
-    for k in range(steps):
-        basis = [1.0 if i == k else 0.0 for i in range(steps)]
-        columns.append(bridge.increments(basis))
-    a = [[columns[k][i] for k in range(steps)] for i in range(steps)]
+    a = bridge.increment_matrix()          # the SHIPPED precalculated weights, not a local copy
+
+    # And the matrix must reproduce the step-by-step construction on an arbitrary vector, or the
+    # precalculation is a second implementation rather than the same one factored out.
+    sample = [0.4, -1.1, 0.7, 0.2, -0.9, 1.3, -0.3, 0.6, 1.9, -1.4, 0.5, -0.8, 0.1, 2.1][:steps]
+    direct = bridge.increments(sample)
+    composed = tuple(
+        math.fsum(a[i][k] * sample[k] for k in range(steps)) for i in range(steps)
+    )
+    assert composed == pytest.approx(direct, rel=1e-12, abs=1e-14)
 
     for i in range(steps):
         for j in range(steps):
@@ -142,6 +147,41 @@ def test_T21_the_construction_order_is_MIDPOINT_FIRST(steps):
         assert left in placed and right in placed, f"point {target} bracketed by unplaced points"
         assert left < target < right, f"point {target} is not strictly inside its bracket"
         placed.add(target)
+
+
+@pytest.mark.parametrize("steps", [8, 14, 16])
+def test_T21_the_plan_spends_variates_on_the_WIDEST_remaining_gap_first(steps):
+    """The property that makes the order *midpoint-first at every scale* — and the one a mutation
+    found missing.
+
+    Switching the subdivision from breadth-first to depth-first **survived the whole suite**: it
+    still places every point exactly once, still brackets each by already-placed points, and still
+    produces a valid Wiener path, so the covariance identity cannot see it. But it descends one
+    branch to the bottom before starting the next, so the *second* variate would shape a small early
+    region instead of the global midpoint — which defeats the entire purpose, since the point is to
+    put the path's coarse structure on Sobol's best dimensions.
+
+    That is tranche 18's lesson again, in a new place: **a property of the output cannot see the
+    algorithm that produced it.** The distinguishing property is the bracket *width*: refining
+    coarsest-first means the widths are non-increasing through the plan. Depth-first takes a width-2
+    gap before a width-4 one and fails here."""
+    plan = BrownianBridge(steps=steps, dt=1.0).plan()
+    widths = [right - left for _, left, right in plan[1:]]
+
+    # **Non-increasing up to a slack of ONE, not strictly** — and the slack is the source's own
+    # "approximately the same number of points". When a gap has an odd width its halves differ by
+    # one, so within a single level of refinement a width-3 bracket can precede a width-4 one: at 14
+    # steps the widths run 14, 7, 7, 3, 4, ... A first version of this oracle demanded strict
+    # monotonicity and failed at exactly that point — over-specifying the source's rule rather than
+    # catching a defect. The slack-1 form still rejects depth-first, which returns to a width-7 gap
+    # after width-2 ones.
+    for earlier, later in zip(widths, widths[1:]):
+        assert earlier >= later - 1, (
+            f"bracket widths {widths} are not coarsest-first — the refinement descends before it has "
+            f"finished the level above"
+        )
+    # Non-vacuity: there must BE several scales, or the property is trivially satisfied.
+    assert len(set(widths)) > 1
 
 
 # ============================================================================================
