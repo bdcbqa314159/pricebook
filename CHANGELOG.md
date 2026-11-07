@@ -6,6 +6,54 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-07
+
+Tranche 20c — **`norm_cdf` moves to `0.5·erfc(-x/sqrt2)`**, fixing the lower-tail cancellation T20a
+found. A correctness refactor of our own L0, no external source. **OI-3 closed.** Six mutations, all
+six killed — including a revert to the superseded form, which is the one that proves the new oracles
+guard the fix.
+
+### The defect was worse than the ledger recorded: 100%, not 6.1e-06
+OI-3 cited 6.1e-06 relative error at `x = -7.03`. Pre-registering the oracle showed the worst case over
+`[-9, 9]` is **1.0** — below about `x = -8.3` the old form returns **exactly 0.0**. At `x = -9` the true
+probability is ~1.1e-19 and the function returned zero: not an inaccurate probability but a lost one.
+The honest characterisation is not "degrades in the tail" but **"returns zero past a threshold"**, and
+T20a's single measurement happened to land just above the collapse.
+
+### Purity as a measured partition, because a flat ULP claim would have been false
+The exact-arithmetic identity holds (`erfc(-y) == 1 + erf(y)`), but the bounded-agreement half cannot be
+one tolerance: `x >= 0` agrees to **1 ULP** (bit-identical at 88% of a fine grid; both forms accurate to
+~2e-16 against the reference), tens of ULP down to `x = -4`, then 3.9e-11 at `-5` and 1.3e-10 at `-6`
+— and **that divergence is the OLD form's error**. It is *attributed* rather than noted: the oracle
+requires the new form to track `scipy.special.ndtr` (`< 1e-14`) **and the old one not to** (`> 1e-11`),
+because an unexplained divergence in a pure refactor is a drift.
+
+The partition bounds the blast radius for the nineteen tranches that read `norm_cdf`: anything
+evaluating `Phi` above about `x = -4` moves by at most tens of ULP, which no tolerance in the suite can
+resolve. The suite stayed green unchanged at 760 tests — the corroboration this predicts, not the proof.
+
+**My first claim was too strong and my own oracle caught it:** I asserted *bit*-identity on `x >= 0`
+and it failed at `x = 1.2`. For positive `x` both routes produce a value near 1 and round differently
+in the last bit — no cancellation, so no accuracy loss, but not identical. One ULP is the true claim.
+
+### The workaround was removed, not left alongside
+T20a added a private `erfc` sibling because `norm_cdf` could not be trusted in the tail. `norm_cdf`
+**is** that form now, so the sibling is deleted and there is one CDF again (§6). Checked first that no
+oracle depended on the two forms *differing* — none did; what needed updating was a comment explaining
+why the reference avoided `norm_cdf`, a reason that no longer exists.
+
+### A side finding: we resolve further than the reference
+At `x = -38` scipy's `ndtr` underflows to **exactly 0.0** while `erfc(-x/sqrt2)/2` still returns a
+subnormal (~2.9e-316). So the deep-tail bound loosens with depth (1e-13 to `x = -20`, 1e-12 to `-37`)
+and that is **the reference's** accuracy, not ours — a first version asserted 1e-13 everywhere and
+failed at `x = -30`. That is §4's "a reference is code too" — the note this arc added one tranche
+earlier — biting in the tranche whose oracle *is* a reference comparison.
+
+### Notes
+- No candidate charter rule from this tranche, which is worth saying: every discipline it needed was
+  already in §4. The charter earned its keep rather than growing.
+- 761 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.24.0] - 2026-11-07
 
 Tranche 20b — **Sobol' low-discrepancy numbers** (`JAECKEL-2002` §8.3), consuming tranche 20a's
