@@ -13,6 +13,30 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-3 · `norm_cdf` lower-tail cancellation — OPEN (fix is its own tranche)
+
+`foundation/distributions.py`'s `norm_cdf` computes `Phi(x) = (1 + erf(x/√2))/2`, which cancels
+catastrophically in the lower tail (`erf → −1`): at `x = −7.03` its *relative* error is **6.1e-06**
+against an independent high-precision CDF, versus **7.4e-15** for `erfc(−x/√2)/2` — nine orders of
+magnitude. Green for fifteen tranches because its oracle asserted an **absolute** "tails → 0/1" bound,
+blind to relative error where the value is ~0 (§4).
+
+**Not patched inline, because it is not bit-identical and nineteen tranches of oracles read it.** The
+robust single form is `0.5·erfc(−x/√2)`, provably the same quantity (`erfc(−y) ≡ 1 + erf(y)` in ℝ), so
+the fix is the §4 pure-refactor: the identity where the forms agree (centre, to ULP — existing oracles
+stay green) plus a **relative-accuracy oracle across the full range** it has never had, cross-checked
+against `scipy.special.ndtri`/`ndtr`. T20a worked around it (used the `erfc` form in the Acklam
+refinement) and added a second `erfc`-based CDF alongside; that duplication is retired when `norm_cdf`
+itself moves.
+
+**What the gap costs today:** little for the existing pricers — option `N(d)` weights need *absolute*
+tail accuracy (a deep-OTM probability ≈ 0 contributes ≈ 0 to the price), which the `erf` form has. The
+relative error bites only where a small tail probability is itself the answer — the inverse-CDF
+refinement, already worked around. So nothing ships wrong today; the defect is latent.
+
+**Re-open trigger:** the dedicated `norm_cdf`-to-`erfc` tranche (queued in `jaeckel_completion_arc.md`
+after T20b). **Blocks nothing** — T20a is green; the workaround holds until the fix lands.
+
 ### OI-2 · §3 invariant 7 — CLOSED (accepted by Bernardo, implemented at v0.20.1)
 
 Charter §3 gained invariant 7 at v0.20.0 (Cowork's T17 ruling): *"a `PricingResult` from a
