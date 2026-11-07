@@ -307,7 +307,17 @@ not an oracle. Ruled principles:
   land in the same *wrong* basin, so where a synthetic truth exists, put it among the starts (an
   exact optimum no other start can beat) and assert **distance from truth** beside spread: spread
   shows non-uniqueness, distance shows wrongness. (T11: `ρnI`'s spread read 22% without the truth in
-  the start set and 469% with it — recovered at the *wrong sign* at rms 8e-15.)
+  the start set and 469% with it — recovered at the *wrong sign* at rms 8e-15.) **A NULL needs
+  averaging as much as an effect does — an oracle whose expected answer is "no difference" is the one
+  a single sample most easily fakes.** The measurable-above-noise rule is usually read as "detect an
+  effect above the noise"; its mirror is the neutrality check, where one seed manufactures a
+  discovery. Average it over seeds. *(T21: the Brownian bridge must do *nothing* under pseudo-random
+  draws — one seed said it was 6× better, pure luck; over twelve seeds it averaged 1.31, neutral as
+  the algebra requires. And the same tranche: "Sobol+bridge beats pseudo-random" is not assertable as
+  a fitted exponent — one seed's slope swung −0.64 to −1.06 with the range endpoint and on the short
+  range beat the bridge by luck — so it is an RMS over the range (stable to two decimals), the
+  exponent kept only for the two deterministic constructions. Third tranche running where a headline
+  had to be restated into a form measurable above its own noise.)*
 - **A variance reduction must be proved UNBIASED before it is credited with reducing anything — and
   the commonest way to break that is a control variate centred on an APPROXIMATION.** A control
   variate `X̄ − β(Ȳ − E[Y])` is unbiased only because `E[Y]` is the *exact* mean; centre it on an

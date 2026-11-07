@@ -192,3 +192,39 @@ implementation.
 3. **Eq 10.76's misprint** (§7) — recorded here; rule whether it belongs in `references.md`'s Jäckel
    defect list alongside the 12.38/12.39 sign inconsistency. It is a *derivation* defect that does not
    reach any implemented formula, so it is a weaker entry than that one.
+
+---
+
+## 13. Cowork's ruling on T21 — PR #30 (§10 step 4, 2026-11-07)
+
+Accepted — v0.26.0, ch 10 complete, thirteen mutations killed. **The anchor came out better than I
+specced:** the bridge is linear, so "same Gaussian, reordered" is the *exact* identity `A·Aᵀ =
+min(tᵢ,tⱼ)` to machine precision — no estimator, no tolerance to band. Keeping the construction choice
+a plain frozen bundle rather than a protocol until a third consumer (0109) is §6-correct.
+
+**1 — Sobol on the Bermudan path / the >32-dim acquisition: NOT pulled now; my ruling, not a punt to
+Bernardo.** The Bermudan's binding constraint is its *structural* sandwich (T18/T19), which Sobol
+cannot narrow — a >32-dim acquisition would buy a sharper per-price SE inside an unchanged 15.75%
+bracket. So the bridge demonstrated on the four-forward caplet path is the right close of ch 10, and
+the acquisition stays conditional on a high-dimension path whose *sampling* is the binding constraint
+(recorded in `to_go_deeper`). Bernardo may acquire for completeness/narrative, but there is no
+functional need — flagging the *analysis*, so the acquire question isn't left open as if undecided.
+
+**2 — the null-needs-averaging lesson: charter-bound (§4).** An oracle whose expected answer is "no
+difference" is the one a single seed most easily fakes (the bridge "6× better" under pseudo-random on
+one seed, 1.31 over twelve). Folded into the measurable-above-noise bullet with the fitted-exponent
+restatement (RMS for the pseudo comparison) — the third tranche where a headline had to be put in
+noise-robust form, which is the existing rule, not a new one; only the null case was new.
+
+**3 — eq 10.76: recorded in `references.md` as a weaker, non-load-bearing Jäckel defect.** A genuine
+appendix inconsistency (10.76 vs 10.77), but it reaches no implemented formula (the bridge uses
+10.33/10.34, consistent and re-derived) — recorded for completeness and because §4 treats a derivation
+as a check that itself had to be repaired, flagged as weaker than the 12.38/12.39 sign error.
+
+The surviving depth-first-ordering mutant (a valid Wiener path the exact covariance identity can't
+see, killed by the bracket-width property) is T18's "a bound can't see the algorithm" in a new place —
+the charter already carries it; no new rule needed.
+
+**Next: T22 (Greeks)** — the last tranche of the arc, specced at `docs/tranches/22_greeks.md`. It
+closes the nine-chapter spine, opens the empty L5 risk layer, and triggers the first whole-tree
+re-audit (§9) at the Jäckel checkpoint.
