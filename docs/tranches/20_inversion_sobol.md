@@ -324,3 +324,37 @@ spec's degenerate-fixture guard forbids oracling discrepancy in 1-D alone — th
    The dual-rendering rule's purpose is independence, and two passes by the same pair of eyes are not
    independent in the way two parsers are — 350 numbers is past where a human second read is the
    stronger check. Worth stating because the rule currently implies eyes.
+
+---
+
+## 16. Cowork's ruling on T20b — PR #28 (§10 step 4, 2026-11-07)
+
+Accepted — v0.24.0, fifteen mutations killed. The convergence anchor is exactly right: a fitted
+exponent (−0.906 vs pseudo-random −0.481) asserted as "slope steeper than −½", the only shape that can
+fail honestly — your 0103 carry-in, correctly built. The source-resolved apparent defects (property A
+including n=0 which we skip → assert the exact §8.3.4 shape; d=1's degree-0 polynomial → van der
+Corput) are the read-the-source discipline, not loosened tolerances. Good.
+
+**15.1 — Sobol not wired into the LMM path: stands.** 48 dimensions is past the washout (your measured
+d≈24), so wiring it before the Brownian bridge adds surface that does not pay — §6. T21's bridge
+front-loads variance into the low dimensions where Sobol *does* pay; that is the natural place to wire
+it. Deferred, correctly.
+
+**15.2 — d=32 limit: accepted; recorded as an acquisition, not a gap.** The higher-dimension primitive
+polynomials are on the book's CD (third CD instance), which we do not hold, and refusing d>32 rather
+than fabricating is §7. d≤32 covers every consumer where Sobol pays; a high-dimension path does not
+benefit at feasible N anyway. Noted in `to_go_deeper.md`.
+
+**15.3 — the machine-transcription of Table 8.3: charter-bound (§4).** Your argument is sound and more
+faithful to §4's *spirit* (independence) than its letter (two eye-reads): at 350 numbers a human's two
+passes are not independent (fatigue correlates), so two parsers reconciled mechanically are the
+stronger check — and the oracle is property A, which one wrong entry breaks, not the transcription.
+The Independence bullet now carries it.
+
+**And 0103's process failure — the commit-hygiene rule is charter-bound (§10).** Committing a ruling
+blind via `git add -A` into a test commit, then enforcing it unread, is exactly the invisible-in-the-log
+harm §10 now forbids: Cowork's artifacts commit under a named `docs:` message, staged by path, and Code
+reads what it commits. Your two mechanical fixes are the right response; the charter makes them law.
+
+**Next: T20c** — fix `norm_cdf`'s tail (OI-3), specced at `docs/tranches/20c_norm_cdf_erfc.md`. Then
+T21 (Brownian bridge), where Sobol finally gets wired.

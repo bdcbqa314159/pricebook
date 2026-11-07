@@ -67,6 +67,15 @@ Built as the working spine: generation (7, 8, 9), processes (2, 3, 4), variance 
 Greeks (11), the BGM/J application (12). See `docs/jaeckel_completion_arc.md`. What the book still
 holds — chapters skipped wholesale, then the debt *inside* the chapters we closed:
 
+**Acquisitions the arc hit (primitive data the book leaves on its CD):**
+- **Sobol past 32 dimensions (ch 8.3).** Our table (Jäckel 8.3) covers d≤32; the primitive
+  polynomials and direction-number initialisers for higher dimensions are on the book's CD, which we
+  do not hold — third CD instance after Acklam's C++ and the inverse-CDF. d≤32 suffices for every
+  consumer where Sobol pays (low-dimension payoffs); a high-dimension path does not benefit at
+  feasible N anyway (the advantage washes out by d≈24), so this is an acquisition only if a genuine
+  high-dimension QMC consumer ever appears. **Route:** obtain the extended direction numbers, then
+  transcribe as the d≤32 table was (machine-reconciled, property-A oracle).
+
 **Whole chapters deferred:**
 
 1. **Salvaging a linear correlation matrix (ch 6).** Market correlation matrices are often not
