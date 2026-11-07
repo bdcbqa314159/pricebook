@@ -6,6 +6,53 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-07
+
+Tranche 23 — **the linker coupon accrual oracle** (re-audit #1 finding F-1.2). The first
+remediation tranche from the first whole-tree re-audit. **Test-only: `src/` is unchanged** — the
+production code was correct and only its coverage was wrong.
+
+### The hole, reproduced before it was closed
+Dropping the `ψ` accrual factor from `engine/inflation.py`'s linker coupon sum **survived all 818
+tests**, which I confirmed independently from a clean bytecode state rather than taking the finding on
+report. The term is load-bearing in production and was invisible to every oracle.
+
+### The existing oracle computed a `ψ` and was still blind to it
+`test_the_linker_matches_the_closed_form_with_accrual_fractions` evaluates
+`psi = (pay - start).days / 365.0` over a fixture whose every period is exactly 365 days — so every
+`ψ` it computes is `1.0` and `C·ψ = C`. Its name promises accrual fractions the fixture never
+delivers. That is a sharper form of the charter's `τ = 1` trap than the existing examples: the test
+does not merely *omit* the accrual, it visibly *handles* it, which is why twenty tranches of readers
+and two review passes saw a covered term. **A fixture can defeat an oracle that looks correct line by
+line.**
+
+### The fixture, and why the accruals are unequal
+Semi-annual periods of **182 and 183 days** on ACT/365F, so `ψ ≈ 0.4986` and `0.5014`. Two properties,
+the second not required by the spec: **not 1** (which makes the accrual visible at all) and **not
+equal to each other** (which kills a mutant replacing `ψ` by any single constant — a fixture of equal
+non-unit accruals would have closed F-1.2 while leaving `ψ → 0.5` alive).
+
+| mutant | before | after |
+|---|---|---|
+| `ψ` dropped (the F-1.2 hole) | **SURVIVED** | **KILLED** |
+| `ψ → 1.0` | survived | **KILLED** |
+| `ψ → 0.5` (a constant) | — | **KILLED** (needs the unequal accruals) |
+| `ψ` applied to the redemption | — | **KILLED** |
+
+### The non-degeneracy premise is itself a test
+`test_the_SEMI_ANNUAL_fixtures_accruals_are_NOT_degenerate` asserts every accrual is more than 0.4
+from 1 and that they are not all equal. This is the guard the tranche exists to install: a later
+refactor **cannot** quietly flatten the schedule back to annual periods, which is precisely how the
+hole survived. Without it the new oracle would keep passing while silently losing its power over `ψ`.
+
+### Notes
+- **No `Ask:` raised and no `src` change**: the non-degenerate oracle passed against unmodified
+  production on the first run, so there is no real `ψ` bug — the cleanest outcome for a
+  latent-coverage finding, stated plainly rather than left as an absence.
+- F-1.2 was found only because the re-audit's sweep was extended past the first pass's domain — §4's
+  own domain rule applied to the audit itself. Worth making the default for re-audit #2.
+- 820 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.27.0] - 2026-11-07
 
 Tranche 22 — **Greeks by simulation** (`JAECKEL-2002` ch 11), **the last Jäckel unit**. Three methods
