@@ -74,7 +74,13 @@ holds — chapters skipped wholesale, then the debt *inside* the chapters we clo
   consumer where Sobol pays (low-dimension payoffs); a high-dimension path does not benefit at
   feasible N anyway (the advantage washes out by d≈24), so this is an acquisition only if a genuine
   high-dimension QMC consumer ever appears. **Route:** obtain the extended direction numbers, then
-  transcribe as the d≤32 table was (machine-reconciled, property-A oracle).
+  transcribe as the d≤32 table was (machine-reconciled, property-A oracle). **Update (T21):** the
+  Bermudan's own LMM path (6 forwards × 8 steps = 48 dims > 32) is now a concrete would-be consumer —
+  but it is **not pulled**, because the Bermudan's binding constraint is its *structural* sandwich
+  (foresight bias + policy suboptimality, T18/T19), which Sobol cannot narrow; a >32 acquisition would
+  buy a sharper per-price SE inside an unchanged bracket. So the bridge is demonstrated on a
+  four-forward caplet path (where Sobol pays), and the >32 acquisition stays conditional on a
+  high-dimension path whose *sampling* — not a structural bracket — is the binding constraint.
 
 **Whole chapters deferred:**
 

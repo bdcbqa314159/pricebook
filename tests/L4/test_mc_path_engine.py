@@ -24,6 +24,7 @@ import pytest
 
 from pricebook.engine.mc_path_engine import (
     ObservationSchedule,
+    Sampling,
     PathGrid,
     mc_caplet_price,
     simulate_forward_paths,

@@ -90,6 +90,13 @@ spec says "transcribe it."
   iteration 0 (its FD gradient is a step-size artefact). Built with Nelder-Mead, which captures ~65%
   of the attainable gain; the deviation is oracled (T18 §9). A limitation of the *published method*,
   not of our reading.
+- **§10.9 eq 10.76 — an appendix inconsistency (weaker: reaches no implemented formula).** 10.76
+  prints `W_{t_k} = W_{t_j} + √(t_k−t_i)·z`, contradicting 10.77 three lines on, which forces
+  `W_{t_i}`; with `W_{t_j}` the first increment is double-counted. Both renderings print it
+  identically, so transcription-independence is powerless — the internal inconsistency is what catches
+  it. Recorded for completeness and because §4 treats a derivation as a check on its result, so a
+  broken check had to be repaired first (T21 §12.3); but it is **non-load-bearing** — the implemented
+  bridge uses 10.33/10.34, which are consistent and independently re-derived.
 
 ---
 

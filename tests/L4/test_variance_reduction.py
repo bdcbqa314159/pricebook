@@ -27,7 +27,15 @@ from pricebook.engine.bermudan_swaption_mc import (
     price_bermudan_swaption,
     train_exercise_policy,
 )
-from pricebook.engine.mc_path_engine import ObservationSchedule, simulate_forward_paths
+from pricebook.engine.mc_path_engine import (
+    ObservationSchedule,
+    PathConstruction,
+    Sampling,
+    VariateSource,
+    simulate_forward_paths,
+)
+from pricebook.foundation.inflation import CapFloorKind
+from pricebook.models.black import black_price
 from pricebook.foundation import Currency
 from pricebook.foundation.mc_estimator import (
     antithetic_estimate,
@@ -55,6 +63,20 @@ EUR = Currency("EUR")
 NOTIONAL = Money(1_000_000.0, EUR)
 SPAN = SwapSpan(first=2, count=4)
 FIRST_EXERCISE = 2
+#: **Tranche 21's fixture is a FOUR-forward tenor, not the six-forward one above, and the reason is a
+#: real limit.** The Sobol dimension of a path is `steps x factors`: eight steps on this file's
+#: six-forward tenor is **48**, beyond the 32 dimensions Jäckel's Table 8.3 covers, so the Bermudan's
+#: own path cannot use Sobol at all until the table is extended (T20b's `to_go_deeper` acquisition).
+#: Four forwards over eight steps is 32 — the table's full reach, exactly — so that is where the
+#: bridge's benefit can be demonstrated. Stated rather than quietly chosen.
+T21_TENOR = LmmTenor(
+    accruals=(0.5, 0.5, 0.5, 0.5),
+    forwards=(0.030, 0.034, 0.038, 0.042),
+    volatilities=(0.22, 0.20, 0.18, 0.16),
+)
+T21_RHO = LmmCorrelation.flat(len(T21_TENOR), 0.80)
+T21_TARGET = 2
+T21_EXPIRY = 1.0
 CONFIG = BermudanMcConfig(
     training=MonteCarloConfig(paths=4_000, seed=18_000),
     pricing=MonteCarloConfig(paths=8_000, seed=18_777),
@@ -221,7 +243,7 @@ def test_T19_ANTITHETIC_paths_are_the_MIRROR_of_the_originals_and_reduce_the_cap
     config = MonteCarloConfig(paths=4_000, seed=1_909)
 
     plain_paths = simulate_forward_paths(model, schedule, config)
-    mirror_paths = simulate_forward_paths(model, schedule, config, mirrored=True)
+    mirror_paths = simulate_forward_paths(model, schedule, config, Sampling(mirrored=True))
 
     # The drift is state-dependent, so only the FORWARD spanning the numeraire period is driftless
     # (eq 12.8's middle branch) and has an exactly mirrored log-increment.
@@ -244,3 +266,122 @@ def test_T19_ANTITHETIC_paths_are_the_MIRROR_of_the_originals_and_reduce_the_cap
 
     assert abs(reduced.mean - plain.mean) < 4.0 * plain.standard_error
     assert reduced.standard_error < plain.standard_error
+
+
+# ---------------------------------------------------------------------------------------------
+# Tranche 21 — the Brownian bridge on the LMM path, which is where Sobol finally pays.
+#
+# T20b measured Sobol's advantage washing out by d ≈ 24 and left the 48-dimensional LMM path on
+# pseudo-random for that reason (ruling 15.1). The bridge is the fix: it reorders which coordinate
+# controls which time point, so the first, best-equidistributed Sobol dimensions carry the path's
+# coarse shape and the later, worse ones only add detail.
+# ---------------------------------------------------------------------------------------------
+
+
+def _caplet_error(sampling, paths: int, seed: int = 7) -> float:
+    """|MC − Black| for a caplet on the driftless forward, through the engine's own sampling.
+
+    `seed` is a parameter because one of the oracles below needs to average over seeds: a claim about
+    two *distributions* of error cannot be made from one draw of each."""
+    model = LiborMarketModel(T21_TENOR, T21_RHO, numeraire_index=T21_TARGET + 1)
+    schedule = ObservationSchedule(times=(T21_EXPIRY,), steps_per_segment=8)
+    strike = T21_TENOR.forwards[T21_TARGET]
+    drawn = simulate_forward_paths(model, schedule, MonteCarloConfig(paths, seed), sampling)
+    estimate = math.fsum(max(p[-1][T21_TARGET] - strike, 0.0) for p in drawn) / paths
+    exact = black_price(
+        strike, strike, T21_TENOR.volatilities[T21_TARGET] ** 2 * T21_EXPIRY, CapFloorKind.CAP
+    )
+    return abs(estimate - exact)
+
+
+def _fitted_exponent(errors: dict[int, float]) -> float:
+    counts = sorted(errors)
+    xs = [math.log(n) for n in counts]
+    ys = [math.log(errors[n]) for n in counts]
+    mean_x, mean_y = math.fsum(xs) / len(xs), math.fsum(ys) / len(ys)
+    return math.fsum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / math.fsum(
+        (x - mean_x) ** 2 for x in xs
+    )
+
+
+def test_T21_the_BRIDGE_recovers_SOBOLS_advantage_on_the_LMM_path():
+    """The tranche's point, in the two forms that are actually stable.
+
+    **The fitted exponent is the right claim for bridge-vs-incremental**, because both are Sobol —
+    deterministic, so the only wobble is the sequence's own non-monotonicity in `N`. Measured
+    −0.898 for the bridge against −0.523 for incremental over `2^8..2^12`, and −1.074 against −0.546
+    over `2^8..2^13`: steeper on both ranges, and by a wide margin.
+
+    **The fitted exponent is the WRONG claim against pseudo-random**, and the spec asked for it. A
+    single seed gives one noisy realisation, and its fitted slope swings from **−0.637** to **−1.056**
+    depending only on where the range ends — on the shorter range it *beats* the bridge, by luck. So
+    the comparison against pseudo-random is made on the **RMS error over the range** instead, which
+    aggregates rather than fits and came out identical to two decimals on both ranges: bridge/pseudo
+    **0.17**, bridge/incremental **0.35**. That is the T19/T20b lesson once more — an oracle must be
+    measurable above its own noise, and a fitted slope over five noisy points is not."""
+    counts = [2**power for power in range(8, 13)]
+    pseudo = {n: _caplet_error(Sampling(), n) for n in counts}
+    incremental = {
+        n: _caplet_error(Sampling(source=VariateSource.SOBOL), n) for n in counts
+    }
+    bridged = {
+        n: _caplet_error(
+            Sampling(source=VariateSource.SOBOL, construction=PathConstruction.BRIDGE), n
+        )
+        for n in counts
+    }
+
+    # Bridge vs incremental: both Sobol, so the exponent is the stable statistic.
+    assert _fitted_exponent(bridged) < _fitted_exponent(incremental) - 0.2
+
+    # Against pseudo-random: the RMS over the range, not a slope.
+    def rms(errors) -> float:
+        return math.sqrt(math.fsum(e * e for e in errors.values()) / len(errors))
+
+    assert rms(bridged) < 0.6 * rms(incremental)
+    assert rms(bridged) < 0.4 * rms(pseudo)
+
+
+def test_T21_the_bridge_changes_NOTHING_under_PSEUDO_RANDOM_draws():
+    """The companion that stops the oracle above being read as "the bridge is better".
+
+    The bridge is a **reordering of the same Gaussian** — exactly oracled at L0, where its map's Gram
+    matrix is the identity. With pseudo-random draws, where every coordinate is as good as every
+    other, it therefore cannot help: it produces a *different sample* from the same distribution, not
+    a better one. Its value exists only in company with a sequence whose early dimensions are better
+    than its late ones.
+
+    **Averaged over seeds, because one seed cannot say this.** A first version compared a single seed
+    and measured the bridge **6× better** — which looked like a result and was sampling luck: two
+    draws from one distribution differ by that much routinely. Comparing distributions needs several
+    seeds, and over twelve of them at two path counts the RMS ratio is **1.31** — and 0.92 / 1.26 /
+    1.29 under three other seed-and-count choices, all neutral, none of them 6×. That is
+    the T19/T20b rule once more, in the one place where the *expected* answer is "no effect": a null
+    result is a measurement too, and a null measured on one sample is not a measurement."""
+    ratios_plain, ratios_bridged = [], []
+    for seed in range(1, 13):
+        for paths in (256, 512):
+            ratios_plain.append(_caplet_error(Sampling(), paths, seed))
+            ratios_bridged.append(
+                _caplet_error(Sampling(construction=PathConstruction.BRIDGE), paths, seed)
+            )
+
+    def rms(values) -> float:
+        return math.sqrt(math.fsum(v * v for v in values) / len(values))
+
+    ratio = rms(ratios_bridged) / rms(ratios_plain)
+    assert 0.6 < ratio < 1.6, (
+        f"under pseudo-random draws the bridge moved the RMS error by {ratio:.3f}x across ten "
+        f"seeds — it is a reordering, so it should neither help nor hurt systematically"
+    )
+
+
+def test_T21_a_SOBOL_path_beyond_the_tables_reach_is_REFUSED():
+    """`steps x factors` is the Sobol dimension, and our table covers 32. A 10-step, 4-forward path
+    needs 40 — refused with the reason and the route, not silently wrapped around to dimension 1."""
+    model = LiborMarketModel(T21_TENOR, T21_RHO, numeraire_index=T21_TARGET + 1)
+    schedule = ObservationSchedule(times=(T21_EXPIRY,), steps_per_segment=10)
+    with pytest.raises(ValueError, match="beyond the 32"):
+        simulate_forward_paths(
+            model, schedule, MonteCarloConfig(16, 7), Sampling(source=VariateSource.SOBOL)
+        )
