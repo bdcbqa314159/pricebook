@@ -6,6 +6,66 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-07
+
+Tranche 20b — **Sobol' low-discrepancy numbers** (`JAECKEL-2002` §8.3), consuming tranche 20a's
+inversion. `foundation/sobol.py` (L0, finance-free). **Fifteen mutations, all fifteen killed on the
+first pass.** The fitted convergence exponent on a Black call is **-0.906** against pseudo-random's
+**-0.481** (theory -1 and -0.5); at N = 32,768 the error is 8.4e-07 versus 2.7e-05 — 32x better.
+
+### A ~350-number table, extracted twice by machine rather than read twice by eye
+Table 8.3 gives 32 dimensions x (degree, primitive polynomial, ten initialisation numbers). §4's
+dual-rendering rule exists for exactly this, but *reading* it twice by eye is the **weaker** method at
+that scale — eye fatigue is correlated between passes in a way `pdftotext` is not. Both renderings
+were parsed and reconciled mechanically (`-raw` reflows the table to one value per line and needed a
+different parser, which is itself evidence the two are independent): **zero disagreements** across 32
+rows, every exponent confirmed as `32 - l`. The shipped table was *generated* from the reconciled
+extraction, never typed.
+
+### What makes the table verifiable is a property the source states about it
+T20a showed how weak an oracle over a transcribed table can be — there the refinement repaired small
+coefficient errors. Here the caption hands over something sharper: *"Initialisation numbers providing
+property A up to dimension 32."* Property A is testable — in any binary segment of length `2^d`
+aligned to a multiple of `2^d`, each of the `2^d` sub-hypercubes holds **exactly one** point — and one
+mistyped direction integer breaks a count. Verified over four aligned segments per dimension for
+`d = 1..8`; beyond that a segment is more draws than is practical (`d = 32` is 4 billion), so the
+higher dimensions rest on the source's two bit constraints over all 32x32 direction integers, which is
+how the recurrence is verified where the book prints no values at all.
+
+### The first segment is short by one, and telling that apart from a defect was the work
+Property A failed first run at "15 of 16". Not a defect: the property is stated over the sequence
+*including* `n = 0`, the origin, which we skip because `0.0` maps to `-inf` under `Phi^-1` and T20a's
+guard refuses it. §8.3.4 says exactly what follows — the first segment "will have no point in the
+sub-hypercube `[0, 1/2)^d`". The oracle now asserts the **exact** expected shape (first segment hits
+`2^d - 1` cells, the missing one being the all-lower cell) rather than loosening a count, because "one
+cell short" is also what a transcription error looks like.
+
+### Dimension 1 is the construction at `g_k = 0`, not a special case
+Its polynomial is degree 0, so there are zero freely-chosen initialisation numbers and eq 8.19 reads
+`v_1l = (v_1l >> 0)` — vacuous, which the first implementation reported honestly as an `IndexError`.
+What remains is `v_1l = 2^(b-l)`, the unit initialisation of eq 8.24, which is exactly what Table 8.3
+prints for `k = 1`. So dimension 1 is the van der Corput sequence in base 2. Note the asymmetry the
+source flags: unit initialisation is valid everywhere and "leads to surprisingly bad results ... and
+should be avoided" — it is right for dimension 1 only because there the construction forces it.
+
+### Where the advantage washes out (the spec's TO MEASURE item)
+Discrepancy proxy at 1,024 points: **10-20x** better through `d = 5`, **1.8x** by `d = 8`, **1.0x —
+gone — by `d = 24`**, and at `d = 32` Sobol is *worse* than pseudo-random. With the caveat that
+matters: this is a statement about `N = 1,024`, not about Sobol — property A at `d = 32` needs `2^32`
+draws, so the sequence has had no chance to equidistribute. The honest reading is that *at feasible
+path counts the advantage is a low-dimension phenomenon*, which is precisely what tranche 21's
+Brownian bridge exists to exploit. In 1-D the proxy is **exactly zero** (with `N = 2^k` Sobol hits
+every dyadic box), which crashed the first measurement on a division — and is why the spec forbids
+oracling discrepancy in 1-D alone.
+
+### Notes
+- **Sobol is not wired into the LMM path engine.** An LMM path needs one dimension per forward per
+  step (6 forwards x 8 steps = 48), past where the advantage has washed out at feasible path counts;
+  wiring it before the Brownian bridge would add surface that does not pay. Left for T21.
+- Dimension 33 is **refused**: the source's polynomials beyond Table 8.3 are "on the accompanying CD"
+  we do not hold — the third time this book has sent a reader to something it does not contain.
+- 756 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.23.0] - 2026-11-07
 
 Tranche 20a — **the inverse normal CDF**, closing the inversion tranche 15 deliberately deferred.
