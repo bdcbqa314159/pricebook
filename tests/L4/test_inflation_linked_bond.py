@@ -40,8 +40,21 @@ N, I0, C = 1_000_000.0, 100.0, 0.015
 
 #: start + five annual payment dates, each period exactly 365 days ⇒ every ψ is exactly 1.0, which
 #: is what makes the reduction to 1.2.5 an exact identity rather than an approximation.
+#:
+#: **And that exactness is also a blind spot, which is why `SEMI_ANNUAL` exists below.** Re-audit #1
+#: (F-1.2) found that dropping the `ψ` factor from the engine's coupon sum survives all 818 tests:
+#: with every `ψᵢ = 1`, `C·ψ = C` identically, so no oracle on THIS fixture can see the term. The
+#: charter's `τ = 1` trap (§4), on the oldest instrument in the tree.
 DATES = tuple(VAL + timedelta(days=365 * k) for k in range(6))
 SCHEDULE = CouponSchedule(DATES, DC)
+
+#: A **semi-annual** schedule: periods of 182 and 183 days on ACT/365F, so `ψᵢ ≈ 0.4986` and
+#: `0.5014` — neither 1, and not even equal to each other, so a mutant that replaced `ψ` by any
+#: single constant would also fail. This is the fixture the accrual is actually visible on.
+SEMI_DATES = tuple(
+    VAL + timedelta(days=d) for d in (0, 182, 365, 547, 730, 912, 1095)
+)
+SEMI_ANNUAL = CouponSchedule(SEMI_DATES, DC)
 NOMINAL = CurveKey(CurveRole.DISCOUNT, EUR)
 REAL = CurveKey(CurveRole.REAL, EUR)
 
@@ -92,6 +105,50 @@ def test_the_linker_matches_the_closed_form_with_accrual_fractions() -> None:
                 total += C * psi * math.exp(-real * (pay - VAL).days / 365.0)
             total += math.exp(-real * (DATES[-1] - VAL).days / 365.0)
             assert _pv(_bond(), market) == pytest.approx(N * total, abs=1e-8, rel=1e-12), (real, nominal)
+
+
+def test_the_linker_coupon_ACCRUAL_is_pinned_on_a_NON_UNIT_schedule() -> None:
+    """The oracle this instrument never had — re-audit #1's F-1.2.
+
+    **The existing closed-form test above computes a `ψ` and is still blind to it.** It evaluates
+    `psi = (pay − start).days / 365.0` on `DATES`, where every period is exactly 365 days, so every
+    `ψ` it computes is `1.0` and `C·ψ = C`. Its name promises accrual fractions the fixture never
+    delivers — *"the self-deceiving oracle §4 warns of"*, in the audit's words. Dropping `ψ` from
+    `engine/inflation.py`'s coupon sum survived all 818 tests; I reproduced that before writing this.
+
+    Here the periods are 182 and 183 days, so `ψ ≈ 0.4986` and `0.5014`. The closed form is
+    transcribed independently — the test computes each `ψᵢ` and each `Pr(payᵢ)` itself and reads
+    nothing back from the engine — and the measured blast radius of the dropped term on this fixture
+    is ~8.4% of price, so the comparison has enormous margin over its own tolerance.
+
+    **Proved by mutation, because pre-registration was missed at tranche 3** (§4's sanctioned
+    recovery): this oracle kills the drop-`ψ` mutant and passes against production. Both outcomes are
+    reported in the tranche doc; an oracle that did not kill the mutant would not have closed the
+    hole."""
+    for real in (0.005, 0.01, 0.03):
+        market = _market(real=real)
+        total = 0.0
+        for start, pay in zip(SEMI_DATES, SEMI_DATES[1:]):
+            psi = (pay - start).days / 365.0
+            total += C * psi * math.exp(-real * (pay - VAL).days / 365.0)
+        total += math.exp(-real * (SEMI_DATES[-1] - VAL).days / 365.0)
+        assert _pv(_bond(schedule=SEMI_ANNUAL), market) == pytest.approx(
+            N * total, abs=1e-8, rel=1e-12
+        )
+
+
+def test_the_SEMI_ANNUAL_fixtures_accruals_are_NOT_degenerate() -> None:
+    """The premise, asserted — §4's "assert the non-degeneracy as a premise".
+
+    This is the guard the tranche exists to install. If a later refactor quietly flattens
+    `SEMI_DATES` back to annual periods, the oracle above would keep passing while silently losing
+    all power over `ψ`, which is exactly how the hole survived for twenty tranches. So the fixture's
+    own property is a test: every accrual is far from 1, and they are not all equal to each other.
+    A fixture cannot be made degenerate again without this failing first."""
+    accruals = [(pay - start).days / 365.0 for start, pay in zip(SEMI_DATES, SEMI_DATES[1:])]
+    assert len(accruals) >= 5
+    assert all(abs(psi - 1.0) > 0.4 for psi in accruals), accruals
+    assert len(set(accruals)) > 1, "the accruals must differ from each other, not just from 1"
 
 
 def test_the_nominal_curve_does_NOT_affect_the_price() -> None:
