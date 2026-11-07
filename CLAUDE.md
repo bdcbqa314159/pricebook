@@ -463,6 +463,17 @@ became `OPEN.md` OI-1 for Cowork to rule.)*
 
 So Code does **not** propose the tranche, rule a design question, or recommend the next unit.
 
+**The next unit is decided in the Cowork conversation and read from `docs/` — never asked of Bernardo
+in the build channel.** Cowork keeps the tranche queue explicit (an *arc plan* in `docs/` names the
+sequence, e.g. `jaeckel_completion_arc.md`'s T19→T22), so after a merge the next unit is *already
+decided*: Code reads the queue and proceeds on the normal handoff rhythm. **Code does not end a report
+with "what's next?" or "the next unit is Bernardo's call"** — that pushes a design decision onto the
+one person the two-surface split exists to spare it. When the queue empties at an **arc boundary**, the
+next direction is settled *here* (Bernardo's interest + Cowork's spec) and written to the queue, not
+raised in the build channel. Bernardo's only inputs to a tranche are the two "cowork is done" handoffs
+and the merge; he is never asked to make the same decision in both conversations. *(Ruled by Cowork,
+2026-11-06, to remove double decision-making; Bernardo owns §10 and may veto.)*
+
 The prompt channel is `.cowork/thread.md` (append-only, one `Ask:` per entry, pointers not pastes);
 durable state goes to `docs/`, never only the thread.
 
