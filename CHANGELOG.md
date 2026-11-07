@@ -6,6 +6,74 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-07
+
+Tranche 21 — **the Brownian bridge** (`JAECKEL-2002` §10.8.3, appendix §10.9.2), and Sobol wired into
+the LMM path. `foundation/brownian_bridge.py` (L0) plus the engine's `Sampling` bundle. **Thirteen
+mutations, all thirteen killed.** This **completes chapter 10**; only ch 11 (Greeks) remains before the
+nine-chapter spine closes and the first whole-tree re-audit fires.
+
+### The anchor is exact — no Monte Carlo in it at all
+The spec asked for the covariance identity "to tolerance". It needs none. The bridge is a **linear** map
+of its variates, so its matrix `A` is recovered exactly from unit basis vectors and "same Gaussian,
+reordered" becomes `A A^T = min(t_i, t_j)` — the Wiener covariance — checked to machine precision at 2,
+3, 4, 5, 8, **14** and 16 steps. There is no estimator, so there was no tolerance to choose. The same
+holds one level down: the increment map's Gram matrix is exactly the identity.
+
+14 steps is in the sweep because it is the source's own worked example (figure 10.4) and is **not** a
+power of two — the case §10.8.3 singles out for its general "halve into two parts containing
+approximately the same number of points" rule.
+
+### A source misprint, faithful in both renderings
+Appendix §10.9.2's eq **10.76** prints `W_tk = W_tj + sqrt(t_k - t_i) z`, contradicting eq 10.77 three
+lines later (`z := (W_tk - W_ti)/sqrt(t_k - t_i)` forces `W_ti`); with `W_tj` the first increment is
+counted twice. **Both renderings print it identically**, so transcription independence is powerless and
+only the internal inconsistency catches it. It does not reach the build — eqs 10.33/10.34 are what is
+implemented, and they were re-derived independently rather than read from the typo'd sketch. Worth
+recording because §4 treats a derivation as an independent check on its result, and here the check
+itself had to be repaired before it could be used.
+
+### The claim holds, but only one half of it is assertable
+Measured through the engine on an LMM caplet at 32 Sobol dimensions, the fitted exponents are
+**pseudo-random -0.255, Sobol+incremental -0.616, Sobol+bridge -0.940** — the bridge nearly reaching
+the theoretical -1, and at 16,384 paths **20x better than pseudo-random, 3x better than Sobol alone**.
+
+But the spec asked for the pseudo-random comparison as a fitted exponent and **that is not assertable**:
+one seed is one noisy realisation, and its slope swings from -0.637 to -1.056 depending only on where
+the range ends — on the shorter range it *beats the bridge*, by luck. So bridge-vs-incremental is
+compared on the **exponent** (both Sobol, hence deterministic) and the pseudo-random comparison on the
+**RMS error over the range**: bridge/incremental 0.35, bridge/pseudo 0.17, identical to two decimals
+across both ranges. Third tranche running in which a headline claim had to be restated in the form
+measurable above its own noise.
+
+### The null result needed averaging too, which is the subtler half
+Under pseudo-random draws the bridge must change nothing — it is a reordering, so it gives a different
+*sample*, not a better one. A first version of that oracle used one seed and measured the bridge **6x
+better**: that looked like a result and was sampling luck. Averaged over twelve seeds at two path counts
+the RMS ratio is **1.31** (and 0.92 / 1.26 / 1.29 under three other choices) — neutral, as the algebra
+requires. **A null measured on one sample is not a measurement.**
+
+### The ordering is the purpose, and no output property could see it
+Twelve mutations died at once; the survivor was **depth-first instead of breadth-first subdivision**.
+A real hole, not an equivalent mutant: it still places every point once, still brackets correctly, still
+yields a valid Wiener path — so the exact covariance identity **cannot see it** — while breaking the
+entire purpose, since the second variate would shape a small early region rather than the global
+midpoint. Tranche 18's lesson in a new place. The distinguishing property is the bracket **width**:
+non-increasing up to a slack of one (the source's own "approximately the same number of points"; a
+first attempt demanded strict monotonicity and failed at 14 steps, where unequal halving legitimately
+puts a width-3 bracket before a width-4 one).
+
+### Notes
+- `Sampling(source, construction, mirrored)` is the bundle §7's five-argument limit forced, and the
+  right answer: three sampling choices now have real consumers (Sobol, the bridge, antithetic). It
+  defaults to exactly tranche 16's behaviour, which is why all 784 existing tests passed unchanged.
+- Jäckel's "all of the weighting coefficients can be precalculated" became
+  `BrownianBridge.increment_matrix()`, so the engine reorders every path and factor in one `tensordot`
+  rather than a Python loop per path — the cost pattern I walked into in tranche 19.
+- **The Bermudan's own path still cannot use Sobol**: six forwards over eight steps is 48 dimensions,
+  past the 32 Table 8.3 covers. So T20b's deferred acquisition is now load-bearing for a real consumer.
+- 787 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.25.0] - 2026-11-07
 
 Tranche 20c — **`norm_cdf` moves to `0.5·erfc(-x/sqrt2)`**, fixing the lower-tail cancellation T20a
