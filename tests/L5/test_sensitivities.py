@@ -45,6 +45,7 @@ from pricebook.models.black import (
 )
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.risk.sensitivities import (
+    BlackState,
     GreekMethod,
     black_mc_delta,
     black_mc_gamma,
@@ -59,6 +60,7 @@ VARIANCE = SIGMA**2 * YEARS
 #: price's at the same count, and the anchor has to be resolvable above it. Stated because the count
 #: is doing work rather than being a round number.
 CONFIG = MonteCarloConfig(paths=200_000, seed=22_000)
+STATE = BlackState(forward=FORWARD, strike=STRIKE, total_variance=VARIANCE, years=YEARS)
 
 
 def _analytic(greek: str) -> float:
@@ -82,7 +84,7 @@ def _analytic(greek: str) -> float:
 def test_T22_every_method_reproduces_BLACKS_analytic_DELTA(method):
     """The anchor, and invariant 7 extended to a Greek: a sensitivity is an estimate, so it carries
     its own standard error and the comparison is banded by *that* rather than by a chosen number."""
-    estimate = black_mc_delta(FORWARD, STRIKE, VARIANCE, method, CONFIG)
+    estimate = black_mc_delta(STATE, method, CONFIG)
     assert estimate.standard_error > 0.0
     assert abs(estimate.mean - _analytic("delta")) < 4.0 * estimate.standard_error
 
@@ -95,7 +97,7 @@ def test_T22_the_methods_that_can_do_GAMMA_reproduce_the_analytic_one(method):
     individually calculated Deltas"* — pathwise gives a delta per path, not a second derivative, so
     it is **not** offered for gamma. A method list that silently included it would be inventing a
     capability the method does not have."""
-    estimate = black_mc_gamma(FORWARD, STRIKE, VARIANCE, method, CONFIG)
+    estimate = black_mc_gamma(STATE, method, CONFIG)
     assert abs(estimate.mean - _analytic("gamma")) < 4.0 * estimate.standard_error
 
 
@@ -103,7 +105,7 @@ def test_T22_the_methods_that_can_do_GAMMA_reproduce_the_analytic_one(method):
     "method", [GreekMethod.FINITE_DIFFERENCE, GreekMethod.PATHWISE, GreekMethod.LIKELIHOOD_RATIO]
 )
 def test_T22_every_method_reproduces_BLACKS_analytic_VEGA(method):
-    estimate = black_mc_vega(FORWARD, STRIKE, VARIANCE, method, CONFIG, YEARS)
+    estimate = black_mc_vega(STATE, method, CONFIG)
     assert abs(estimate.mean - _analytic("vega")) < 4.0 * estimate.standard_error
 
 
@@ -115,7 +117,7 @@ def test_T22_the_three_methods_AGREE_with_each_other_on_a_smooth_payoff():
     derive their answer by genuinely different routes: bumping the input, differentiating the payoff,
     and differentiating the density. Compared pairwise within the combined standard error."""
     estimates = {
-        method: black_mc_delta(FORWARD, STRIKE, VARIANCE, method, CONFIG)
+        method: black_mc_delta(STATE, method, CONFIG)
         for method in GreekMethod
     }
     methods = list(estimates)
@@ -147,7 +149,7 @@ def test_T22_PATHWISE_is_valid_on_a_CALL_and_BREAKS_on_a_DIGITAL():
     true_delta = digital_delta(FORWARD, STRIKE, VARIANCE, CapFloorKind.CAP)
     assert true_delta > 0.0, "premise: the digital must have a real delta to be wrong about"
 
-    broken = digital_mc_delta(FORWARD, STRIKE, VARIANCE, GreekMethod.PATHWISE, CONFIG)
+    broken = digital_mc_delta(STATE, GreekMethod.PATHWISE, CONFIG)
     assert broken.mean == 0.0, (
         "a digital's pathwise derivative is zero on every path — if this is non-zero the payoff "
         "being differentiated is not a digital"
@@ -155,14 +157,14 @@ def test_T22_PATHWISE_is_valid_on_a_CALL_and_BREAKS_on_a_DIGITAL():
     assert abs(broken.mean - true_delta) > 10.0 * max(broken.standard_error, 1e-12)
 
     # The likelihood ratio needs no continuity, and is the one that holds.
-    sound = digital_mc_delta(FORWARD, STRIKE, VARIANCE, GreekMethod.LIKELIHOOD_RATIO, CONFIG)
+    sound = digital_mc_delta(STATE, GreekMethod.LIKELIHOOD_RATIO, CONFIG)
     assert abs(sound.mean - true_delta) < 4.0 * sound.standard_error
 
 
 def test_T22_PATHWISE_is_REFUSED_for_a_gamma_rather_than_quietly_approximated():
     """§11.5 says pathwise gives a delta per path, not a second derivative. Refused, not fudged."""
     with pytest.raises(ValueError, match="pathwise"):
-        black_mc_gamma(FORWARD, STRIKE, VARIANCE, GreekMethod.PATHWISE, CONFIG)
+        black_mc_gamma(STATE, GreekMethod.PATHWISE, CONFIG)
 
 
 # ============================================================================================
@@ -172,8 +174,8 @@ def test_T22_PATHWISE_is_REFUSED_for_a_gamma_rather_than_quietly_approximated():
 
 def test_T22_the_estimates_are_DETERMINISTIC_and_carry_their_standard_error():
     for method in GreekMethod:
-        first = black_mc_delta(FORWARD, STRIKE, VARIANCE, method, CONFIG)
-        again = black_mc_delta(FORWARD, STRIKE, VARIANCE, method, CONFIG)
+        first = black_mc_delta(STATE, method, CONFIG)
+        again = black_mc_delta(STATE, method, CONFIG)
         assert first.mean == again.mean and first.standard_error == again.standard_error
         assert first.standard_error > 0.0
 
@@ -185,8 +187,7 @@ def test_T22_the_GREEKS_error_falls_at_the_MINUS_ONE_HALF_rate():
     errors = {}
     for paths in (5_000, 20_000, 80_000):
         estimate = black_mc_delta(
-            FORWARD, STRIKE, VARIANCE, GreekMethod.LIKELIHOOD_RATIO,
-            MonteCarloConfig(paths, CONFIG.seed),
+            STATE, GreekMethod.LIKELIHOOD_RATIO, MonteCarloConfig(paths, CONFIG.seed)
         )
         errors[paths] = estimate.standard_error
     assert errors[20_000] / errors[80_000] == pytest.approx(2.0, rel=0.1)
@@ -196,7 +197,10 @@ def test_T22_the_GREEKS_error_falls_at_the_MINUS_ONE_HALF_rate():
 def test_T22_a_DEGENERATE_input_is_refused_rather_than_returning_a_NaN():
     """§3.4 — failure is a value. Zero variance has no density to differentiate, so the likelihood
     ratio's `ω` would divide by zero; a non-positive forward is not a lognormal state at all."""
+    # The guards live on `BlackState`, where they cannot be bypassed by picking another method.
     with pytest.raises(ValueError, match="positive variance"):
-        black_mc_delta(FORWARD, STRIKE, 0.0, GreekMethod.LIKELIHOOD_RATIO, CONFIG)
+        BlackState(forward=FORWARD, strike=STRIKE, total_variance=0.0)
     with pytest.raises(ValueError, match="positive"):
-        black_mc_delta(0.0, STRIKE, VARIANCE, GreekMethod.PATHWISE, CONFIG)
+        BlackState(forward=0.0, strike=STRIKE, total_variance=VARIANCE)
+    with pytest.raises(ValueError, match="horizon must be positive"):
+        BlackState(forward=FORWARD, strike=STRIKE, total_variance=VARIANCE, years=0.0)

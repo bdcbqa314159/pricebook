@@ -184,41 +184,78 @@ def _central(f, x: float, step: float) -> float:
     return (f(x + step) - f(x - step)) / (2.0 * step)
 
 
+def _converges_quadratically(
+    exact: float, difference, steps=(1e-3, 1e-4, 1e-5, 1e-6), floor: float = 1e-6
+) -> None:
+    """Assert a central difference converges to `exact` at the `O(h²)` rate central differences have.
+
+    **Stronger than comparing at one step, and it had to be.** A first version of these oracles
+    compared the analytic Greek to a single central difference at `h = 1e-5` and failed on the deep
+    out-of-the-money cases by ~4e-6 relative. The *finite difference* was the weaker side: varying
+    the step showed its gap falling 5.6e-2 → 5.6e-4 → 5.6e-6 → 5.6e-8 as `h` fell tenfold each time
+    — textbook `O(h²)`, converging **onto** the analytic value. So the analytic formula was right and
+    the reference was truncating (§4: a reference is code too, and here its error was a hundred times
+    the comparison bound).
+
+    Asserting the *rate* proves the closed form is the **limit** of the numerical derivative, which
+    is a different and better claim than being near one approximation of it. A wrong `d₊` would not
+    produce a clean quadratic approach to the wrong number."""
+    gaps = [abs(difference(h) - exact) / abs(exact) for h in steps]
+    for coarse, fine in zip(gaps, gaps[1:]):
+        # Tenfold smaller step, hundredfold smaller error — generously banded, since the last steps
+        # begin to feel floating-point cancellation. Measured ratios run 87 to 102.
+        assert fine < coarse / 30.0, f"gaps {gaps} do not fall at the O(h^2) rate"
+
+    # **`floor` is the REFERENCE's achievable accuracy, and it differs by instrument.** A first
+    # difference reaches ~1e-8; a second divides by `h²`, so cancellation bites sooner and it
+    # plateaus a couple of orders higher. Asserting one floor for both would be asserting the second
+    # difference is as good as the first — which it is not, and which is the reference's property
+    # rather than the formula's.
+    assert gaps[-1] < floor, f"the finest gap {gaps[-1]:.2e} is above the reference's floor"
+
+
 @pytest.mark.parametrize("kind", [CapFloorKind.CAP, CapFloorKind.FLOOR])
 @pytest.mark.parametrize(
     ("forward", "strike", "variance"),
     [(0.04, 0.04, 0.04), (0.04, 0.05, 0.04), (0.05, 0.04, 0.01), (0.02, 0.06, 0.09)],
 )
-def test_T22_black_DELTA_matches_a_finite_difference_of_the_verified_price(
+def test_T22_black_DELTA_is_the_LIMIT_of_a_finite_difference_of_the_verified_price(
     forward, strike, variance, kind
 ):
-    """`∂price/∂F = ω·N(ω d₊)` — against a central difference of `black_price`.
+    """`∂price/∂F = ω·N(ω d₊)`, proved as the limit of a central difference of `black_price`.
 
-    Swept across the money (at, in and out) and both directions, because `d₊`'s sign handling is
-    where a delta goes wrong and at-the-money alone would hide it."""
-    analytic = black_delta(forward, strike, variance, kind)
-    numeric = _central(lambda f: black_price(f, strike, variance, kind), forward, _FD_STEP)
-    assert analytic == pytest.approx(numeric, rel=1e-6)
+    Swept across the money (at, in, out and deep out) and both directions, because `d₊`'s sign
+    handling is where a delta goes wrong and at-the-money alone would hide it. The deep case
+    `(0.02, 0.06, 0.09)` is the one that exposed the reference's own truncation."""
+    _converges_quadratically(
+        black_delta(forward, strike, variance, kind),
+        lambda h: (
+            black_price(forward + h, strike, variance, kind)
+            - black_price(forward - h, strike, variance, kind)
+        ) / (2.0 * h),
+    )
 
 
 @pytest.mark.parametrize(
     ("forward", "strike", "variance"),
     [(0.04, 0.04, 0.04), (0.04, 0.05, 0.04), (0.05, 0.04, 0.01)],
 )
-def test_T22_black_GAMMA_matches_a_SECOND_finite_difference(forward, strike, variance):
-    """`∂²price/∂F² = φ(d₊)/(F·√V²)`.
+def test_T22_black_GAMMA_is_the_LIMIT_of_a_SECOND_finite_difference(forward, strike, variance):
+    """`∂²price/∂F² = φ(d₊)/(F·√V²)`, again as a limit rather than a point comparison.
 
-    A second difference is noisier than a first — the step cancels twice — so the bound is looser
-    here, and that is a property of the *reference*, not of the formula (§4: a reference is code
-    too). Stated rather than silently relaxed."""
-    step = 1e-4
-    numeric = (
-        black_price(forward + step, strike, variance, CapFloorKind.CAP)
-        - 2.0 * black_price(forward, strike, variance, CapFloorKind.CAP)
-        + black_price(forward - step, strike, variance, CapFloorKind.CAP)
-    ) / step**2
-    assert black_gamma(forward, strike, variance, CapFloorKind.CAP) == pytest.approx(
-        numeric, rel=1e-4
+    A second difference divides by `h²`, so cancellation bites sooner and its achievable floor is a
+    couple of orders higher than a first difference's — `1e-5` rather than `1e-6`, with the steps
+    starting coarser. That is the reference's limit, stated rather than worked around; the measured
+    convergence ratios are 87 to 102 per tenfold step, which is the claim that matters."""
+    _converges_quadratically(
+        black_gamma(forward, strike, variance, CapFloorKind.CAP),
+        lambda h: (
+            black_price(forward + h, strike, variance, CapFloorKind.CAP)
+            - 2.0 * black_price(forward, strike, variance, CapFloorKind.CAP)
+            + black_price(forward - h, strike, variance, CapFloorKind.CAP)
+        ) / h**2,
+        steps=(1e-2, 1e-3, 1e-4, 1e-5),
+        floor=1e-5,
     )
 
 
