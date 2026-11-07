@@ -13,7 +13,7 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-3 · `norm_cdf` lower-tail cancellation — OPEN (fix is its own tranche)
+### OI-3 · `norm_cdf` lower-tail cancellation — CLOSED (fixed at v0.25.0, tranche 20c)
 
 `foundation/distributions.py`'s `norm_cdf` computes `Phi(x) = (1 + erf(x/√2))/2`, which cancels
 catastrophically in the lower tail (`erf → −1`): at `x = −7.03` its *relative* error is **6.1e-06**
@@ -34,8 +34,25 @@ tail accuracy (a deep-OTM probability ≈ 0 contributes ≈ 0 to the price), whi
 relative error bites only where a small tail probability is itself the answer — the inverse-CDF
 refinement, already worked around. So nothing ships wrong today; the defect is latent.
 
-**Re-open trigger:** the dedicated `norm_cdf`-to-`erfc` tranche (queued in `jaeckel_completion_arc.md`
-after T20b). **Blocks nothing** — T20a is green; the workaround holds until the fix lands.
+**Resolution (2026-11-07, v0.25.0 — tranche 20c).** `norm_cdf` is now `0.5·erfc(−x/√2)`. The T20a
+`erfc` sibling is **retired**: it existed only because `norm_cdf` could not be trusted in the tail, so
+fixing the cause removed the workaround rather than leaving both (§6). The relative-accuracy oracle it
+never had is in place — below 1e-13 across `[−9, 9]`, with the superseded form asserted to **fail** it.
+
+**The defect was worse than OI-3 recorded.** This item said 6.1e-06 relative error at `x = −7.03`;
+pre-registering the oracle showed the worst case over `[−9, 9]` is **1.0** — a 100% relative error,
+because below about `x = −8.3` the old form returns **exactly 0.0**. Not an inaccurate probability but
+a lost one.
+
+**Purity, as a measured partition rather than one tolerance** (§4 — a flat "a few ULP" claim would have
+been false): `x ≥ 0` agrees to **1 ULP** (bit-identical at 88% of a fine grid, both forms accurate to
+~2e-16); down to `x = −4`, tens of ULP; below `x ≈ −5` the forms diverge and the divergence is the
+**old** form's error, attributed by comparing both against `scipy.special.ndtr` rather than merely
+noted. The whole suite stayed green unchanged at 760 tests — corroboration, not the proof.
+
+A side finding: beyond `x ≈ −37` our form resolves **further than the reference** (at `x = −38` scipy's
+`ndtr` underflows to exactly 0.0 while `erfc` still returns a subnormal), so the deep-tail oracle's
+bound reflects the reference's accuracy, not ours. **Closed.**
 
 ### OI-2 · §3 invariant 7 — CLOSED (accepted by Bernardo, implemented at v0.20.1)
 
