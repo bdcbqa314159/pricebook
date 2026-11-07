@@ -66,6 +66,88 @@ def black_price(forward: float, strike: float, total_variance: float, kind: CapF
     return omega * (forward * norm_cdf(omega * d1) - strike * norm_cdf(omega * d2))
 
 
+def _d_plus(forward: float, strike: float, total_variance: float) -> tuple[float, float]:
+    """`(d₊, √V²)` — the pair every Greek below needs, computed once in one place.
+
+    Factored out rather than repeated in four functions: it is the expression a transcription error
+    would most likely land in, so it is written once and the Greeks compose it."""
+    root = math.sqrt(total_variance)
+    return (math.log(forward / strike) + 0.5 * total_variance) / root, root
+
+
+def black_delta(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
+    """`∂price/∂F = ω·N(ω d₊)` — Black-76's delta, undiscounted, per unit of notional.
+
+    **Built at tranche 22, and the T22 spec was wrong that we already had it.** The spec names
+    "Black's analytic Greeks (T9)" as the anchor for the Monte Carlo Greeks; tranche 9 built the
+    implied-vol *surface*, and no analytic Greek existed anywhere in `src/`. Noticing mattered
+    because an anchor cannot be assumed: these are oracled against central differences of
+    `black_price`, which has been verified since tranche 5 — a closed-form derivative against a
+    numerical derivative of a different closed form.
+
+    At zero variance the price is the intrinsic exactly (see `black_price`), so the delta is the step
+    function rather than a limit approached — and `√V² = 0` is never divided by."""
+    if total_variance <= 0.0:
+        omega = kind.omega
+        return 1.0 if omega * (forward - strike) > 0.0 else 0.0
+    d_plus, _ = _d_plus(forward, strike, total_variance)
+    omega = kind.omega
+    return omega * norm_cdf(omega * d_plus)
+
+
+def black_gamma(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
+    """`∂²price/∂F² = φ(d₊)/(F·√V²)` — the same for a cap and a floor.
+
+    `kind` is accepted and unused, which §6 normally forbids — kept because gamma IS a property of
+    the option and a caller holding a `kind` should not have to know it cancels. That it cancels is
+    put-call parity (`cap − floor = F − K` is linear in `F`), and the oracle asserts the two agree
+    rather than leaving the reader to trust the comment."""
+    if total_variance <= 0.0:
+        return 0.0
+    d_plus, root = _d_plus(forward, strike, total_variance)
+    return _norm_pdf(d_plus) / (forward * root)
+
+
+def black_vega(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
+    """`∂price/∂√(V²) = F·φ(d₊)` — vega per unit of **root variance**, not per unit of `σ`.
+
+    **The parameterisation is forced by ours and it is the honest one.** `black_price` takes a total
+    variance and is never told `σ` and `T` separately, so the only vega it can report is with respect
+    to `√V² = σ√T`. A caller that knows `T` multiplies by `√T` to get `∂/∂σ`; a function not told `T`
+    returning a `∂/∂σ` would be inventing one. Like gamma, identical for a cap and a floor."""
+    if total_variance <= 0.0:
+        return 0.0
+    d_plus, _ = _d_plus(forward, strike, total_variance)
+    return forward * _norm_pdf(d_plus)
+
+
+def digital_price(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
+    """A cash-or-nothing digital: `1{ω·F_T > ω·K}`, worth `N(ω d₋)` undiscounted.
+
+    Here because the Greeks need a payoff on which **pathwise differentiation genuinely breaks** —
+    a digital is flat almost everywhere, so its pathwise derivative is zero where its true delta is
+    not. Without it, "pathwise agrees with the closed form" would be a vacuous claim and the
+    likelihood-ratio method would have nothing to justify it."""
+    if total_variance <= 0.0:
+        return 1.0 if kind.omega * (forward - strike) > 0.0 else 0.0
+    d_plus, root = _d_plus(forward, strike, total_variance)
+    return norm_cdf(kind.omega * (d_plus - root))
+
+
+def digital_delta(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
+    """`∂/∂F N(ω d₋) = ω·φ(d₋)/(F·√V²)` — strictly positive for a digital call."""
+    if total_variance <= 0.0:
+        return 0.0
+    d_plus, root = _d_plus(forward, strike, total_variance)
+    return kind.omega * _norm_pdf(d_plus - root) / (forward * root)
+
+
+def _norm_pdf(x: float) -> float:
+    """The standard normal density. Local to this module because the Greeks are its only consumer —
+    §6's rule-of-two has not fired, so it has not been promoted to `foundation.distributions`."""
+    return math.exp(-0.5 * x * x) / math.sqrt(2.0 * math.pi)
+
+
 def _no_arbitrage_limit(forward: float, strike: float, kind: CapFloorKind) -> float:
     """The price approached as `V² → ∞`: the forward for a cap, the strike for a floor.
 

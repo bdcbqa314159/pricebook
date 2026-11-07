@@ -69,3 +69,160 @@ The nine-chapter Jäckel spine (2,3,4,7,8,9,10,11,12) is complete. Write `CP_jae
 the `to_go_deeper` Jäckel section, and **run the first §9 whole-tree re-audit** (T1–T22, independent,
 via the `analysis/` pattern) — recording it in `docs/audit_log.md`. Then the next arc is Bernardo's
 interest-pick (he has a source in mind).
+
+
+---
+
+# BUILT — results (appended at build; §0–5 above are Cowork's spec, unedited)
+
+`v0.27.0`. 818 tests, all eight gates green, ruff and pyright clean. **Nineteen mutations, all
+nineteen killed on the first pass.** `models/black.py` gains the analytic Greeks;
+`risk/sensitivities.py` is **the first L5 module**. Chapter 11 closes, and with it the nine-chapter
+Jäckel spine.
+
+## 6. The anchor did not exist — the spec assumed a capability we never built
+
+§0 and §1 both name *"Black's analytic Greeks (T9)"* as the anchor. **There were none.** Tranche 9
+built the implied-vol *surface* (`FloorQuote`, `ImpliedVolSurface`, `implied_vol_surface`); a grep of
+`src/` for any `delta`/`gamma`/`vega` definition returned a `flat` correlation constructor and an
+unrelated `delta` in a Jarrow–Yildirim comment. Nothing else.
+
+So the tranche built its own anchor first, and the important consequence is that **the anchor needed
+its own oracle rather than being assumed**. The chain is now four links, each independently checkable:
+
+`black_price` (verified since tranche 5) → its central difference → the analytic Greek → the Monte
+Carlo Greek.
+
+Worth noticing as a pattern: a spec can assert a *capability* as confidently as it asserts a number,
+and this is the first time the missing thing was a whole function rather than a value. The cheap check
+is a grep before the build, not after.
+
+## 7. The analytic Greeks are proved as a LIMIT, not as a point comparison
+
+The first version compared each Greek to one central difference at `h = 1e-5` and **failed** on the
+deep out-of-the-money case by ~4e-6 relative. The finite difference was the weaker side. Varying the
+step settles it:
+
+| step | delta's relative gap |
+|---|---|
+| 1e-3 | 5.63e-02 |
+| 1e-4 | 5.60e-04 |
+| 1e-5 | 5.60e-06 |
+| 1e-6 | 5.60e-08 |
+| 1e-7 | 3.28e-10 |
+
+Textbook `O(h²)`, converging **onto** the analytic value — so the formula was right and the reference
+was truncating, by a hundred times the comparison bound. The oracle now asserts the **rate**, which
+proves the closed form is the *limit* of the numerical derivative: a different and stronger claim than
+being near one approximation of it, and one a wrong `d₊` could not fake with a clean quadratic
+approach to the wrong number.
+
+Gamma's floor is looser (`1e-5`, steps from `1e-2`) because a second difference divides by `h²` and
+feels cancellation sooner. That is the reference's limit, parameterised and stated rather than papered
+over with one bound for both. Measured convergence ratios: **87 to 102** per tenfold step.
+
+## 8. The reduction and its companion — what earns the second method
+
+Pathwise matching on a call is **vacuous on its own**; finite differencing would do. What justifies a
+second method is a payoff where pathwise is not merely less accurate but *wrong*. A digital's payoff is
+flat almost everywhere, so its pathwise derivative is **exactly 0.0 on every path**, while the true
+delta is strictly positive — and the oracle asserts the zero as a number, against an analytic digital
+delta built for the purpose. Jäckel: the method *"cannot be readily applied since the payoff function
+is not even continuous, let alone Lipschitz-continuous."*
+
+Both halves are asserted, which is the reduction-plus-companion rule: pathwise agreeing where it is
+valid, and failing by a stated amount where it is not, with the likelihood ratio holding there.
+
+**Pathwise is also refused for gamma**, because §11.5 refuses it: *"for the calculation of Gamma, we
+still have to implement a finite differencing scheme for two individually calculated Deltas."* It
+gives a first derivative per path, not a second. A method list that quietly accepted it would be
+inventing a capability, so it raises instead.
+
+## 9. The variance ranking — and it inverts the obvious guess
+
+**TO MEASURE, answered.** 200,000 paths, at-the-money, `σ = 20%`, one year:
+
+| Greek | finite difference | pathwise | likelihood ratio |
+|---|---|---|---|
+| delta | **0.25%** | **0.25%** | 0.56% |
+| gamma | 4.35% | *refused* | **1.44%** |
+| vega | **0.42%** | **0.42%** | 1.44% |
+
+(standard error as a percentage of the analytic value)
+
+The likelihood ratio is ~2–3× noisier for delta and vega — as Jäckel's caveat implies, its weights
+carry `1/(σ√Δt)` — but it is **3× sharper for gamma**, which is the reverse of the naive reading that
+the most general method is always the loosest. The reason is on the other side: a second finite
+difference divides by `bump²` and amplifies the noise it is differencing.
+
+**And FD's gamma is visibly off-centre:** 55.47 against an analytic 49.62, which is 2.7 standard errors
+— inside the oracle's 4-SE band, but a truncation bias rather than noise. So for gamma the likelihood
+ratio is both sharper *and* better centred, and the ranking is not a matter of taste.
+
+## 10. L5 is open, and deliberately without a protocol
+
+The charter's layer box has carried `L5 RISK & CAPITAL — on the engine + a Priceable protocol` since
+tranche 1, and L5 has been empty for twenty-one tranches. It fills here.
+
+**No `Priceable` protocol, and the spec left that to the build.** What this module reads is Black's
+closed form and the Monte Carlo machinery directly — one shape of consumer — so a protocol would be an
+abstraction with a single implementation, which §6 forbids. It arrives at the second kind of priceable
+that needs differentiating. The charter clause is now half-satisfied and says so.
+
+`BlackState` is the bundle §7's five-argument limit forced: `black_mc_vega` was six arguments, and
+§7's prescribed answer is a frozen value object rather than raising the limit or suppressing the
+check. Four consumers share it. `years` is read only by vega — not a carried-but-unread field, because
+`total_variance = σ²·years` means the horizon is what separates a one-year 20% option from a four-year
+10% one, which is §6's constitutive-of-identity test.
+
+## 11. Findings for Cowork (§10 — raised, not decided)
+
+1. **The spec's anchor did not exist (§6).** Recorded as the pattern rather than just the fix: a spec
+   can assert a *capability* with the same confidence it asserts a number. Three tranches have now
+   corrected a spec premise about a measurement; this is the first about a function. Worth a line in
+   §10 if you think the spec-writing side can carry one — *check a named anchor exists before it is
+   ruled* — or nothing, if the build-raises-it loop is considered sufficient (it was, here).
+2. **`norm_pdf` is private to `models/black.py`.** Four Greeks consume it; `foundation.distributions`
+   is where it would belong if anything else wanted it, and nothing does — §6's rule-of-two has not
+   fired. It is the obvious thing to promote the moment a second module needs a density.
+3. **No `Priceable` protocol (§10).** Confirm that leaving the charter's L5 clause half-satisfied is
+   right, versus building the protocol now on one consumer.
+
+---
+
+## 12. Cowork's ruling on T22 — PR #31 (§10 step 4, 2026-11-07)
+
+Accepted — v0.27.0, nineteen mutations killed, **ch 11 and the nine-chapter spine complete.**
+
+**The anchor that did not exist — owned, and bound.** I named "Black's analytic Greeks (T9)" with the
+confidence of a fact; they did not exist. Fourth spec-premise miss this arc, first about a *capability*.
+Your fix — building them with their own oracle chain (`black_price` → central difference → analytic
+Greek → MC Greek, four independently checkable links) — is better than the assumed anchor would have
+been. Charter §10 now carries the cheap guard: a cited anchor is grepped before the ruling
+(read-before-asserting, turned on our own tree). I'm adding it despite your correct point that the loop
+caught it, because it is a *distinct, recurring* Cowork gap the source rules did not cover — and your
+restraint instinct is right in general; keep applying it.
+
+**Your own first oracle the weaker side again (fourth time) — the rate fix is right.** Comparing the
+analytic Greek to one central difference failed deep-OTM on the *finite difference's* truncation;
+asserting the O(h²) rate proves the closed form is the derivative's *limit*, stronger than nearness to
+one approximation. §4's "a reference is code too" earning its place.
+
+**The digital companion bites exactly as intended:** pathwise delta is 0.0 on every path while the true
+delta is positive — that is what earns the LR method, stated as a number against an analytic digital
+delta, not a hand-wave that the methods "agree". And pathwise *refused* for gamma per §11.5. Good.
+
+**The gamma ranking (TO MEASURE) — accepted as the honest result:** LR 3× sharper than FD for gamma
+(FD divides by `bump²` and is 2.7 SE off-centre from truncation bias), while FD/pathwise win delta and
+vega. Reported, not asserted from a figure.
+
+**L5 opened WITHOUT a `Priceable` protocol — ruled correct (§6).** The sensitivities module has one
+consumer shape (reads Black's closed form + the MC machinery directly); a protocol would be a
+single-implementation abstraction. L5's "on the engine + a Priceable protocol" (§2) is the anticipated
+shape, half-satisfied now and saying so; the protocol arrives at the second consumer, rule-of-two.
+
+**The arc is closed.** `CP_jaeckel_arc.md` written. Next is the arc-close sequence, not a tranche —
+finalise `to_go_deeper`, and the **first §9 whole-tree re-audit (T1–T22)**, which per your own flag
+must be driven independently of the surface that built it (you built all 22): I scope it and rule its
+findings; it runs from a fresh context / the `analysis/` pattern, not from you and not as me
+rubber-stamping my own specs.
