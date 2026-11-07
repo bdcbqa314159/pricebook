@@ -6,6 +6,77 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-07
+
+Tranche 22 — **Greeks by simulation** (`JAECKEL-2002` ch 11), **the last Jäckel unit**. Three methods
+— finite differencing with path recycling (§11.3), pathwise differentiation (§11.5), the likelihood
+ratio (§11.6/§11.9.1) — all anchored on Black's analytic Greeks. `models/black.py` gains those;
+`risk/sensitivities.py` is **the first L5 module**. **Nineteen mutations, all nineteen killed on the
+first pass.** Ch 11 closes, and with it the nine-chapter spine.
+
+### The anchor did not exist — the spec assumed a capability we never built
+The spec names "Black's analytic Greeks (T9)" as the anchor twice. **There were none.** T9 built the
+implied-vol *surface*; a grep of `src/` for any delta/gamma/vega definition found nothing. So the
+tranche built its own anchor, and the consequence that matters is that the anchor needed **its own
+oracle** rather than being assumed. The chain is now four independently checkable links: `black_price`
+(verified since tranche 5) → its central difference → the analytic Greek → the Monte Carlo Greek.
+
+Worth recording as a pattern: a spec can assert a *capability* as confidently as it asserts a number,
+and this is the first time the missing thing was a whole function rather than a value.
+
+### The analytic Greeks are proved as a LIMIT, not a point comparison
+A first version compared each Greek to one central difference at `h = 1e-5` and **failed** deep
+out-of-the-money by ~4e-6. The finite difference was the weaker side: varying the step, its gap falls
+5.63e-2 → 5.60e-4 → 5.60e-6 → 5.60e-8 → 3.28e-10 — textbook `O(h^2)`, converging **onto** the analytic
+value. So the formula was right and the reference was truncating by a hundred times the bound. The
+oracle now asserts the **rate**, which proves the closed form is the *limit* of the numerical
+derivative — a stronger claim, and one a wrong `d+` could not fake. Measured ratios 87 to 102 per
+tenfold step. Gamma's floor is looser (a second difference divides by `h^2`), parameterised and stated
+rather than hidden under one bound for both.
+
+### The companion that earns the second method
+Pathwise matching on a call is vacuous alone — finite differencing would do. What justifies a second
+method is a payoff where pathwise is *wrong*: a digital's payoff is flat almost everywhere, so its
+pathwise derivative is **exactly 0.0 on every path** while the true delta is strictly positive. The
+oracle asserts the zero as a number against an analytic digital delta built for the purpose, with the
+likelihood ratio holding there. **Pathwise is also refused for gamma**, because §11.5 refuses it — it
+gives a first derivative per path, not a second, so the method raises rather than approximating.
+
+### The variance ranking inverts the obvious guess
+200,000 paths, at-the-money, SE as a percentage of the analytic value:
+
+| Greek | finite difference | pathwise | likelihood ratio |
+|---|---|---|---|
+| delta | **0.25%** | **0.25%** | 0.56% |
+| gamma | 4.35% | *refused* | **1.44%** |
+| vega | **0.42%** | **0.42%** | 1.44% |
+
+The likelihood ratio is 2-3x noisier for delta and vega — its weights carry `1/(sigma sqrt(dt))`, as
+Jäckel's own caveat implies — but **3x sharper for gamma**, because a second finite difference divides
+by `bump^2` and amplifies what it differences. And FD's gamma is visibly **off-centre** (55.47 against
+49.62, 2.7 SE — inside the oracle's band but a truncation bias, not noise). So for gamma the likelihood
+ratio is both sharper and better centred; the ranking is not a matter of taste.
+
+### L5 is open, deliberately without a protocol
+The charter's layer box has carried "L5 RISK & CAPITAL — on the engine + a Priceable protocol" since
+tranche 1, and L5 has been empty for twenty-one tranches. **No `Priceable` protocol**: this module
+reads Black's closed form and the MC machinery directly — one shape of consumer — so a protocol would
+be an abstraction with a single implementation, which §6 forbids. It arrives at the second kind of
+priceable that needs differentiating; the charter clause is half-satisfied and says so.
+
+`BlackState` is the bundle §7's limit forced (`black_mc_vega` was six arguments). `years` is read only
+by vega — not a carried-but-unread field, since `total_variance = sigma^2 * years` makes the horizon
+what separates a one-year 20% option from a four-year 10% one.
+
+### Notes
+- The likelihood-ratio weights are adapted from spot to **forward**: Jäckel writes
+  `S_T = S_0 exp((r-d-sigma^2/2)T + sigma sqrt(T) z)`; a forward is driftless under its own measure, so
+  the weights carry over with `S_0 -> F_0` and `r-d -> 0`. Stated, because an unstated convention
+  change is how a right formula becomes a wrong number.
+- Eq 11.32 (the LR Vega) **is** printed in full for the single-horizon case, so the Acklam pattern did
+  not bite here.
+- 818 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.26.0] - 2026-11-07
 
 Tranche 21 — **the Brownian bridge** (`JAECKEL-2002` §10.8.3, appendix §10.9.2), and Sobol wired into
