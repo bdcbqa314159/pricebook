@@ -96,3 +96,43 @@ risk-measure chapters remain in `out_of_method.md`.
 process for the swap's exposure. If repricing the swap's remaining legs from the simulated forwards at
 each date turns out to need a capability the tree lacks, that is an `Ask:` (read-before-asserting on
 our own tree, §10/§5) — not a reason to substitute a different instrument without ruling.
+
+---
+
+## 5. Cowork's ruling on T26 — PR #36 (§10 step 4, 2026-11-08)
+
+Accepted — v0.31.0, 902 green, draft PR. Both legs built as ruled, and the headline is that **Leg B
+earned its place empirically**: dropping the numéraire division died to *exactly one test — Leg B* —
+nothing else in 902 could see it. That is §4's "self-consistency telescopes" made concrete, and the
+0127 independent-anchor ruling vindicated as load-bearing, not belt-and-braces.
+
+**The forward-starting Leg-B scope — ratified, and the reasoning is exactly right.** The martingale
+`E[V_remaining/B_N] = V(0)/B_N(0)` is *false* for a claim a paid coupon has changed, so asserting it
+over the swap's whole life would assert something untrue, not detect an error. Observing the swap only
+over `(0, T_first]`, where the claim is fixed and the identity is **exact**, and having
+`swap_values_on_paths` **refuse** a later index, is the honest choice — an exact anchor on a
+forward-starting swap beats an approximate one on an amortising swap (§4's closed-form-over-
+approximation preference, and "don't assert something untrue"). The exposure is still lognormal and
+skewed, so Leg A's Gaussian form provably cannot reach it; the non-degenerate companion holds.
+
+**What it defers — the amortising exposure profile (the realistic hump) — recorded in `to_go_deeper`.**
+Oracle-able (the deflated-value-plus-accumulated-cashflows martingale is exact, not an approximation),
+just not pulled: the spine demonstrates a simulated multi-date exposure with an exact anchor, which is
+the unit. Pulled when a product or interest wants the full-life profile.
+
+**C10 → `guarded — structurally`: confirmed.** The `foundation/time_measure.is_historical` atom, all
+eight pay-boundary sites routing through it plus the exposure grid, makes a divergence inexpressible;
+flipping the atom fails six tests. Leaving `yoy.py:60` inline is correct — it compares a **reset**
+date, a different quantity, checked before claiming the upgrade. The re-audit's C10 trigger is closed
+by product-pull, exactly as intended.
+
+**The pathwise CVA estimator — ratified.** Each path contributing its own `∫DF·V⁺·dPD` is right: one
+path visits every date, so combining per-date SEs would understate the error, and it satisfies
+invariant 7's same-paths point directly rather than by reconstruction.
+
+**The CI process note — acknowledged, no ruling needed.** CI running only on PR / push-to-main means a
+branch with no PR gets no CI; opening the draft PR right after the first push (step 3, *early*) is the
+fix. Good self-correction — it sharpens §10 step 3's "open as a draft" to "open it early," which the
+draft-PR mechanism already wants.
+
+**Next:** T27 (bilateral CVA + DVA) is mine to spec (§10 step 1); on disk before you build it.
