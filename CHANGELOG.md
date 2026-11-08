@@ -6,6 +6,59 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-08
+
+Tranche 26 — **the Monte-Carlo exposure engine: CVA of a simulated netting set.** Second unit of the
+XVA spine arc. T25 integrated an exposure given in closed form; this one produces an exposure by
+simulation, which changes what the oracle can be — T25's closed form is now *our own code* on the
+other side, so it validates the estimator and nothing more.
+
+### Added
+
+- **`risk/mc_exposure.py` (L5)** — `SimulatedExposure` (the value matrix, kept as paths),
+  `ExposureEstimate` (per-date EPE/ENE as `MonteCarloEstimate`s), `mc_exposure_cva` (the pathwise
+  CVA, returning a `PricingResult` with its `standard_error` — invariant 7),
+  `swap_values_on_paths` (a forward-starting payer swap on simulated LMM forwards, in both the
+  time-`t` and numéraire-relative forms) and `live_exposure_times`.
+- **`foundation/time_measure.is_historical(pay, valuation_date)` (L0)** — invariant 6's boundary as
+  one atom. All **eight** pay-boundary sites across the five engines (`cash`, `inflation`,
+  `nominal_cap`, `capfloor`, `yoy`×4) now route through it, plus the exposure grid. **Register C10
+  upgrades `per-module` → `guarded — structurally`**: a divergence between engines is no longer
+  *expressible*. Extracted because a real consumer pulled it (§6), not speculatively.
+
+### Oracles — two legs, because self-consistency telescopes
+
+- **Leg A (the estimator)** — the simulated EPE against T25's closed form on a Gaussian mark, within
+  `4·SE` at every date, with the error falling at the MC rate (RMS over the grid, since one date's
+  error is a single noisy draw). Plus the MC CVA against T25's **analytic** CVA: a cross-product
+  oracle, different exposure code each side.
+- **Leg B (the process)** — the numéraire-relative swap value reproducing `V(0)/B(0,T_end)` at every
+  observation date: **exact by construction, consulting T25 nowhere**. Deviations of 0.11/0.35/1.04
+  SE against real path dispersion. This is what a wrong drift or measure cannot survive and what
+  Leg A is structurally blind to.
+- **The pathwise/profile identity** — the pathwise CVA mean equals T25's integral of the same EPE
+  profile to 1e-12, on *both* the Gaussian and the simulated-swap exposures. The module claimed it;
+  the suite now asserts it, which is what makes the reported standard error trustworthy.
+- **Nine mutants, all killed.** Informatively, dropping the numéraire division died to **exactly one
+  test — Leg B** — direct evidence that leg is load-bearing rather than redundant; dropping `DF(t)`
+  died only to the T25 cross-check. Flipping the `is_historical` atom's `<=` fails six tests.
+- Non-degeneracy premises asserted: non-zero exposure variance, more than one future date, a
+  non-flat numéraire across the observed dates, and the swap exposure measurably **skewed** (so
+  Leg A's Gaussian closed form provably cannot reach it).
+
+### Design notes
+
+- **The CVA is estimated pathwise, not by combining per-date standard errors.** Each path
+  contributes its own `∫DF·V(t)⁺·dPD`. Quadrature-summing per-date errors would assume the dates
+  independent when one path visits every one of them, understating the error — and the pathwise form
+  satisfies invariant 7's correctness point directly, since the error comes from the same paths as
+  the price.
+- **The swap is observed only before its first reset, deliberately.** The martingale identity holds
+  for a *fixed* claim; once a coupon has paid, the remaining swap is a different claim and
+  `E[V/B_N] = V(0)/B_N(0)` is false. Observing a forward-starting swap keeps Leg B **exact** rather
+  than approximate, and the engine **refuses** a later observation index rather than silently
+  asserting something untrue. The exposure is still lognormal, which is the point of the leg.
+
 ## [0.30.0] - 2026-11-08
 
 Tranche 25 — **unilateral CVA and the survival curve: the XVA spine opens.** First unit of the XVA
