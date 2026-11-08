@@ -30,3 +30,24 @@ class TimeMeasure:
 
     def year_fraction(self, d: date) -> float:
         return year_fraction(self.anchor, d, self.day_count)
+
+
+def is_historical(pay: date, valuation_date: date) -> bool:
+    """`True` when a flow paying on `pay` is historical — invariant 6's boundary, as ONE atom.
+
+    *A flow on or before `valuation_date` is historical*: excluded from the mark, PV 0 (the L6
+    shell's business), never discounted with a non-positive `t`. The comparison is **strict on the
+    live side** — a payment landing exactly today is historical — and that boundary case is not
+    academic: tranche 24 measured a `>` -> `>=` slip as a **41% mispricing** in the inflation
+    cap/floor (5,929 -> 8,364), while the same slip was a proved *equivalent* mutant in two other
+    engines, because an expired Hull-White caplet is worth exactly zero.
+
+    That asymmetry is precisely why this is an atom rather than a convention. Five engines inlining
+    one comparison makes a divergence between them **expressible**, which is all register row C10
+    could ever claim (`per-module`, measured). Routing every consumer through here makes it
+    inexpressible — C10's stated trigger, and the C9 standing.
+
+    Finance-free in code (§2): a date comparison. The finance is in the docstring, where L0 allows
+    it.
+    """
+    return pay <= valuation_date

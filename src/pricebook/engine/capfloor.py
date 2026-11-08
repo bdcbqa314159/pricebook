@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
+from pricebook.foundation.time_measure import is_historical
 from pricebook.models.black import black_price
 from pricebook.models.index_ratio import IndexRatioModel
 from pricebook.products.inflation import InflationCapFloor
@@ -79,7 +80,7 @@ def price_inflation_capfloor(
 
     # Invariant 6: a strip whose every payment has passed is settled. PV 0 before any market
     # lookup, per tranche 2's precedent.
-    periods = [p for p in product.schedule.periods() if p[1] > market.valuation_date]
+    periods = [p for p in product.schedule.periods() if not is_historical(p[1], market.valuation_date)]
     if not periods:
         return PricingResult(pv=Money(0.0, currency))
 

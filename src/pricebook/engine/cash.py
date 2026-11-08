@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
+from pricebook.foundation.time_measure import is_historical
 from pricebook.models.discounting_model import DiscountingModel
 from pricebook.products.cash import FixedCashflow
 
@@ -36,7 +37,7 @@ def price_fixed_cashflow(
 
     # Invariant: on or before the valuation date is historical. Excluded BEFORE any curve is
     # touched, so a past flow cannot fail for a missing curve it never needed.
-    if flow.date <= market.valuation_date:
+    if is_historical(flow.date, market.valuation_date):
         return PricingResult(pv=Money(0.0, product.currency))
 
     try:

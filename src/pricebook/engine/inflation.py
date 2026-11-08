@@ -30,6 +30,7 @@ from __future__ import annotations
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
 from pricebook.foundation.inflation import InflationIndex
+from pricebook.foundation.time_measure import is_historical
 from pricebook.market.fixing_series import reference_level
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.discounting_model import DiscountingModel
@@ -80,7 +81,7 @@ def price_zc_inflation_swap(
     # date, so it is HISTORICAL — the shell's business, excluded from the mark. PV 0, not a
     # failure: `PricingFailure` is for inputs that cannot be priced, and a settled trade is not
     # unpriceable. Checked before any market lookup, so a matured trade needs no curves.
-    if swap.term.maturity <= market.valuation_date:
+    if is_historical(swap.term.maturity, market.valuation_date):
         return PricingResult(pv=Money(0.0, currency))
 
     try:

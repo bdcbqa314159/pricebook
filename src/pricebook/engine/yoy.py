@@ -42,6 +42,7 @@ from datetime import date
 
 from pricebook.engine.registry import register
 from pricebook.foundation import Money, PricingFailure, PricingResult
+from pricebook.foundation.time_measure import is_historical
 from pricebook.market.fixing_series import reference_level
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.index_ratio import IndexRatioModel
@@ -97,7 +98,7 @@ def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: IndexRatioMode
     real = market.curves.real(currency)
     measure = nominal.time_measure
     schedule = list(swap.leg.schedule.periods())
-    periods = [p for p in schedule if p[1] > market.valuation_date]
+    periods = [p for p in schedule if not is_historical(p[1], market.valuation_date)]
     if not periods:
         return 0.0
 
@@ -132,7 +133,7 @@ def yoy_fixed_leg_value(swap: YearOnYearInflationSwap, model: IndexRatioModel) -
     return swap.notional.amount * sum(
         swap.leg.fixed_rate * psi * nominal.df(pay)
         for _, pay, psi in swap.leg.schedule.periods()
-        if pay > market.valuation_date
+        if not is_historical(pay, market.valuation_date)
     )
 
 
@@ -148,7 +149,7 @@ def yoy_par_rate(swap: YearOnYearInflationSwap, model: IndexRatioModel) -> float
     annuity = swap.notional.amount * sum(
         psi * nominal.df(pay)
         for _, pay, psi in swap.leg.schedule.periods()
-        if pay > market.valuation_date
+        if not is_historical(pay, market.valuation_date)
     )
     if annuity == 0.0:
         raise ValueError("a matured swap has no par rate")
@@ -165,7 +166,7 @@ def price_yoy_inflation_swap(
 
     # Invariant 6: all periods historical ⇒ the trade is settled. PV 0 before any market lookup,
     # per tranche 2's precedent, so a matured swap needs no curves.
-    if all(pay <= market.valuation_date for _, pay, _ in swap.leg.schedule.periods()):
+    if all(is_historical(pay, market.valuation_date) for _, pay, _ in swap.leg.schedule.periods()):
         return PricingResult(pv=Money(0.0, currency))
 
     try:

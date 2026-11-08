@@ -25,6 +25,7 @@ from __future__ import annotations
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
+from pricebook.foundation.time_measure import is_historical
 from pricebook.models.hull_white import (
     CapletPeriod,
     HullWhiteModel,
@@ -65,7 +66,7 @@ def price_nominal_cap(
     # Invariant 6: a period that has already paid is the shell's business, excluded from the mark.
     # Checked before any market lookup, so a fully-settled cap needs no curve — tranche 2's
     # precedent, and the reason a matured trade is PV 0 rather than a PricingFailure.
-    periods = [p for p in cap.schedule.periods() if p[1] > market.valuation_date]
+    periods = [p for p in cap.schedule.periods() if not is_historical(p[1], market.valuation_date)]
     if not periods:
         return PricingResult(pv=Money(0.0, currency))
 
