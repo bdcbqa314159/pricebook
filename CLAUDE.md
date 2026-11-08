@@ -412,6 +412,16 @@ anchor was mistakenly taken as `ρ → 0` from the stock's first-order `yoy_conv
 source's eq 2.5.11 makes it `σr → 0`. Caught at the handoff by pre-registration.)* Each purified
 piece earns its own oracle; an imported-but-unoracled convention is worse than an absent one.
 
+**Our own `docs/` are not an authority either — the same rule, one level up.** A formula parked in a
+spec, a `to_go_deeper` anchor, or a ruling is *content*, not the source: at build time it is
+re-transcribed from the held source in two renderings (§4), never copied forward from our doc. A
+number can be wrong in our doc exactly as it can be wrong in the stock, and a wrong anchor copied
+forward launders the error into code. *(2026-11-08: the §1 ruling recorded the static KVA as
+`h·ES(L◦)`; Crépey eq (25) is `(h/(1+h))·ES(L◦)` — a `pdftotext -layout` reflow split the fraction
+across two lines, the exact §4 single-rendering hazard, caught before it reached `to_go_deeper` by
+the dual rendering and by the printed requirement bound `0 ≤ KVA ≤ ES(L◦)`, which holds
+unconditionally only for the fraction.)*
+
 ---
 
 ## 6. Simplicity — solve the real problem
